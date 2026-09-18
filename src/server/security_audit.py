@@ -192,7 +192,7 @@ def _row_key_for_change(row: list[str], index: int) -> str:
 
 
 def _summarize_csv_row_changes(before_rows: list[list[str]], after_rows: list[list[str]], limit: int = 40) -> tuple[list[dict], int]:
-    """Return compact row/value changes between two CSV row lists.
+    """Return compact per-field changes between two CSV row lists.
 
     Rows are matched by identity (type/key/label, the same columns
     `_row_key_for_change` derives the display label from), not by position.
@@ -201,6 +201,16 @@ def _summarize_csv_row_changes(before_rows: list[list[str]], after_rows: list[li
     rows then pairs each row with whatever unrelated row happens to share its
     new index -- producing a "before" value from one field and an "after"
     value from a completely different one under a single factor label. #320.
+
+    A matched row that differs is diffed column-by-column (named from the
+    CSV header row) rather than dumped as a single joined-row string, so a
+    multi-field record (e.g. a spending-budget category with
+    kind/key/label/annual_budget/start_year/end_year/... columns) reports one
+    change per field that actually changed instead of one entry containing
+    every column concatenated for both "before" and "after". A row whose only
+    difference is trailing blank columns gained/lost by a schema change (no
+    column's value actually differs) produces no field diffs and is skipped
+    rather than reported as a change. #331.
 
     Finding SEC-4 (system review 2026-09-07, Wave 6 item W6-2): this diff feeds
     directly into `_record_admin_config_change`'s on-disk log with no
@@ -220,6 +230,14 @@ def _summarize_csv_row_changes(before_rows: list[list[str]], after_rows: list[li
         if len(vals) >= 4 and vals[0].strip() and vals[2].strip():
             return (vals[0].strip(), vals[1].strip(), vals[2].strip())
         return ("__row__", index)
+
+    # The header row (present at index 0 for every real CSV this feeds from)
+    # names the fields a multi-column row diff reports on.
+    header = after_rows[0] if after_rows else (before_rows[0] if before_rows else [])
+
+    def _field_name(i: int) -> str:
+        name = str(header[i]).strip() if i < len(header) else ""
+        return name or f"col {i + 1}"
 
     before_by_key: dict[tuple, list[list[str]]] = {}
     for i, row in enumerate(before_rows):
@@ -250,20 +268,42 @@ def _summarize_csv_row_changes(before_rows: list[list[str]], after_rows: list[li
             after = after_group[j] if j < len(after_group) else []
             if before == after:
                 continue
-            # Prefer value-column differences for section/subsection/label/value settings.
+            label_base = _row_key_for_change(after or before, 0)
+            handled_cols: set[int] = set()
+            # Prefer the clean, unsuffixed label for the common single-value
+            # edit on section/subsection/label/value settings rows (col 3).
             if len(before) >= 4 and len(after) >= 4 and before[:3] == after[:3]:
                 before_value = before[3] if len(before) > 3 else ""
                 after_value = after[3] if len(after) > 3 else ""
                 if before_value != after_value:
-                    label = _row_key_for_change(after, 0)
                     changes.append({
-                        "label": label,
-                        "before": _redacted(label, before_value),
-                        "after": _redacted(label, after_value),
+                        "label": label_base,
+                        "before": _redacted(label_base, before_value),
+                        "after": _redacted(label_base, after_value),
                         "row_index": j,
                     })
-                    continue
-            label = _row_key_for_change(after or before, 0)
+                    handled_cols.add(3)
+            if before and after:
+                # Matched row on both sides: diff every remaining column and
+                # report only the ones that actually differ, one change per
+                # field, so a multi-field record (e.g. a spending-budget
+                # category) doesn't collapse into a single whole-row dump.
+                for i in range(max(len(before), len(after))):
+                    if i in handled_cols:
+                        continue
+                    before_val = str(before[i]) if i < len(before) else ""
+                    after_val = str(after[i]) if i < len(after) else ""
+                    if before_val == after_val:
+                        continue
+                    field_label = f"{label_base} / {_field_name(i)}"
+                    changes.append({
+                        "label": field_label,
+                        "before": _redacted(field_label, before_val),
+                        "after": _redacted(field_label, after_val),
+                        "row_index": j,
+                    })
+                continue
+            label = label_base
             changes.append({
                 "label": label,
                 "before": _redacted(label, ", ".join(str(x) for x in before[:6])) if before else "row added",
