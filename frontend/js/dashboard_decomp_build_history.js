@@ -318,8 +318,8 @@ export function buildHistoryEntryHtml(entry, isCurrent, heat) {
     '</span></div><div class="build-history-dials">' +
     nwDial +
     nwAllInDial +
-    taxDial +
     mcDial +
+    taxDial +
     eftrDial +
     "</div>" +
     buildHistoryProvenanceHtml(entry) +
@@ -512,7 +512,7 @@ export function buildImpactCardsHtml(before, after) {
       : "";
   const notes = [estateTaxNote].filter(Boolean).join("");
   const notesHtml = notes ? `<div class="impact-notes">${notes}</div>` : "";
-  return `<div class="impact-grid">${lcvCard} ${impactCardHtml("NPV of Future Taxes", dNpvTax, before.npv_future_taxes, after.npv_future_taxes, fmtMoney, "Total taxes paid, discounted to today's dollars at the plan's assumed portfolio return rate -- an apples-to-apples way to compare an early Roth conversion against a late RMD.", fmtDelta, true)} ${worstCaseCard} ${eftrCard}</div>${notesHtml}`;
+  return `<div class="impact-grid">${lcvCard} ${worstCaseCard} ${impactCardHtml("NPV of Future Taxes", dNpvTax, before.npv_future_taxes, after.npv_future_taxes, fmtMoney, "Total taxes paid, discounted to today's dollars at the plan's assumed portfolio return rate -- an apples-to-apples way to compare an early Roth conversion against a late RMD.", fmtDelta, true)} ${eftrCard}</div>${notesHtml}`;
 }
 
 export function impactDirectionWord(delta, kind) {

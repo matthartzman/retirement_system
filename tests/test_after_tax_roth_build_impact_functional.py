@@ -5,7 +5,7 @@ from _decomp_dashboard import dashboard_function_source, dashboard_js_text
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_build_impact_has_lcv_first_npv_tax_second_worst_case_third_eftr_fourth_cards():
+def test_build_impact_has_lcv_first_worst_case_second_npv_tax_third_eftr_fourth_cards():
     # #225: Post-Tax Inheritance is no longer its own headline card here --
     # PTI is computed at a different point in time on Estate & Legacy Plan
     # (second-death year) than a terminal-plan-year Impact comparison would
@@ -16,7 +16,9 @@ def test_build_impact_has_lcv_first_npv_tax_second_worst_case_third_eftr_fourth_
     # #293: the headline cards were converted from Terminal Net Worth /
     # Lifetime Taxes / Probability of Success to Expected After-Tax LCV /
     # NPV of Future Taxes / Worst-Case Ending Wealth (5th %ile), plus a new
-    # 4th Effective Future Tax Rate (EFTR) card.
+    # 4th Effective Future Tax Rate (EFTR) card. Worst-Case Ending Wealth and
+    # NPV of Future Taxes were later swapped (Impact screen card-order
+    # request) so Worst-Case now comes second, ahead of NPV of Future Taxes.
     js = dashboard_js_text()
     assert "after_tax_terminal_nw" in js
     assert "total_roth_conversions" in js
@@ -28,8 +30,8 @@ def test_build_impact_has_lcv_first_npv_tax_second_worst_case_third_eftr_fourth_
     return_expr = fn[fn.index("return `<div class=\"impact-grid\">"):]
     assert (
         return_expr.index("${lcvCard}")
-        < return_expr.index("NPV of Future Taxes")
         < return_expr.index("${worstCaseCard}")
+        < return_expr.index("NPV of Future Taxes")
         < return_expr.index("${eftrCard}")
     )
 

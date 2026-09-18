@@ -336,8 +336,8 @@ def seed_budget_from_actuals(root: Path | None = None, year: int | None = None,
 #: elsewhere in the app, so pushing them past the categories entered directly
 #: on the Spending Model page keeps that page's own content up front.
 TRACKING_TYPE_ORDER = [
-    "Income", "Core Expenses", "Travel", "Large Discretionary", "Business",
-    "Wellness", "Housing",
+    "Income", "Taxes", "Core Expenses", "Travel", "Large Discretionary",
+    "Business", "Wellness", "Housing",
 ]
 
 #: Map legacy flat-tracking strings to canonical tracking-type names.
@@ -413,8 +413,8 @@ import re as _unified_re
 _TAXONOMY_HEADER = ["tracking_type", "group", "category_id", "label", "origin", "status", "notes"]
 _ALIAS_HEADER = ["match_value", "match_field", "exact", "priority", "category_id", "source"]
 _BUDGET_HEADER = ["kind", "key", "label", "annual_budget", "start_year", "end_year", "one_time_year", "notes", "_mode", "line_section", "line_mode", "no_annualize"]
-_EXCLUDED_TRACKING_TYPES_FOR_SPEND_BASE = {"Income", "Transfer", "Business", "Housing", "Wellness"}
-_TIME_BOUNDED_TRACKING_TYPES = {"Travel", "Large Discretionary"}
+_EXCLUDED_TRACKING_TYPES_FOR_SPEND_BASE = {"Income", "Transfer", "Business", "Housing", "Wellness", "Taxes"}
+_TIME_BOUNDED_TRACKING_TYPES = {"Travel", "Large Discretionary", "Taxes"}
 # Lumpy/one-time categories -- paid in one or a few installments a year
 # rather than smoothly, so scaling the observed-so-far amount by
 # days-elapsed can overstate (or understate) the annualized figure several-
@@ -536,6 +536,23 @@ def _normalize_spending_group_assignment(tracking_type: str, group: str, categor
     grp = (group or "Other").strip()
     cid = (category_id or "").strip().lower()
     lab = (label or "").strip().lower()
+
+    # income_taxes was originally promoted from the legacy Transfer/Financial
+    # bucket during the unified-spending migration. Force it onto its own
+    # "Taxes" tracking type regardless of what a household's CSV still has
+    # stored, so it stops being silently excluded as a transfer. This is a
+    # read-time normalization (like the entertainment_recreation rule below),
+    # not a one-time migration script, so it self-heals every plan.
+    #
+    # Matched on label as well as category_id (like entertainment_recreation
+    # below): a household can end up with a second "Income Taxes"-labeled
+    # category under a different internal id (e.g. manually re-added at some
+    # point while the original was still misbehaving) whose transactions
+    # would otherwise still be silently dropped even after this fix, with no
+    # visible sign beyond an undercounted total -- every transaction still
+    # displays the same "Income Taxes" category text either way.
+    if cid == "income_taxes" or lab in {"income taxes", "income tax"}:
+        return "Taxes", "Taxes"
 
     # Cross-cutting group consolidation requested in the spending architecture follow-ups.
     if grp in {"Food / Dining", "Food & Dining"}:
@@ -1320,22 +1337,6 @@ def _is_medical_cap_reference(category_id: str, info: dict | None = None) -> boo
     group = str((info or {}).get("group") or "").strip().lower()
     return cid in {"annual_oop_max", "annual_oop_estimate_today"} or "oop cap" in label or "out-of-pocket max" in label or group == "medical cap reference"
 
-def _is_tax_actual(info: dict, category_id: str = "", raw_category: str = "") -> bool:
-    """True for tax actuals that should stay out of Spending Analysis."""
-    tt = str((info or {}).get("tracking_type") or "")
-    text = " ".join([
-        str(category_id or ""),
-        str(raw_category or ""),
-        str((info or {}).get("label") or ""),
-        str((info or {}).get("group") or ""),
-    ]).lower()
-    if "taxi" in text:
-        return False
-    if tt in _TRANSFER_NAMES and "tax" in text:
-        return True
-    return any(tok in text for tok in ["income_tax", "income taxes", "property tax escrow", "estimated tax"])
-
-
 def _actuals_by_taxonomy(root, year: int):
     flat = taxonomy_flat(root)
     aliases = load_aliases(root)
@@ -1355,10 +1356,12 @@ def _actuals_by_taxonomy(root, year: int):
         if cid and cid in flat:
             info = flat[cid]
             tt = info.get("tracking_type")
-            # Spending Analysis is comprehensive for Income and expenses, but
-            # still ignores transfers and tax payments. Income is positive;
-            # expenses are shown as positive outflows.
-            if tt in _TRANSFER_NAMES or _is_tax_actual(info, cid, raw_cat):
+            # Spending Analysis is comprehensive for Income and expenses,
+            # including taxes; only internal transfers (401k/HSA
+            # contributions, brokerage buys/sells, credit card payments) are
+            # ignored. Income is positive; expenses are shown as positive
+            # outflows.
+            if tt in _TRANSFER_NAMES:
                 continue
             if tt == "Income":
                 display_amount = amount if amount > 0 else -abs(amount)
@@ -1718,7 +1721,7 @@ def spending_model(root=None, year=None):
             "expense_annualized": summary.get("expense_annualized", 0.0),
         },
         "decisions": {
-            "spend_base_includes": "Projection spend base excludes Income, Transfer, Business, Housing, Wellness, Travel, and Large Discretionary at every level; Monthly Trajectory separately includes all non-tax spending actuals.",
+            "spend_base_includes": "Projection spend base excludes Income, Transfer, Business, Housing, Wellness, Taxes, Travel, and Large Discretionary at every level; Monthly Trajectory separately includes all non-transfer spending actuals, including taxes.",
             "business": "included_in_model_not_spend_base",
             "income": "out_of_spending_model_for_now",
             "group_mode": "group_budget_disables_category_and_line_detail",
@@ -1727,12 +1730,13 @@ def spending_model(root=None, year=None):
 
 
 def monthly_series(root: Path | None = None, year: int | None = None, total_budget: float = 0) -> list[dict]:
-    """Monthly all-spending actual vs budget, excluding taxes and transfers.
+    """Monthly all-spending actual vs budget, excluding transfers.
 
     This table is a cash-flow trajectory, not the core-spend-base resolver.
     Therefore it includes Housing, Wellness/healthcare, Travel, Large
     Discretionary, and Business outflows when they appear in transactions.
-    Income, transfers, and tax payments stay excluded.
+    Income and internal transfers stay excluded; income taxes are included
+    like any other expense.
     """
     r = _root(root)
     if year is None:
@@ -1745,11 +1749,10 @@ def monthly_series(root: Path | None = None, year: int | None = None, total_budg
         amount = float(txn.get("amount", 0) or 0)
         if amount >= 0:
             continue
-        raw_cat = txn.get("category") or ""
         cid = _resolve_alias(txn, aliases, flat)
         info = flat.get(cid, {}) if cid else {}
         tt = info.get("tracking_type")
-        if tt == "Income" or tt in _TRANSFER_NAMES or _is_tax_actual(info, cid or "", raw_cat) or _is_medical_cap_reference(cid or "", info):
+        if tt == "Income" or tt in _TRANSFER_NAMES or _is_medical_cap_reference(cid or "", info):
             continue
         monthly_spend[txn["date"].month - 1] += abs(amount)
     monthly_budget = total_budget / 12 if total_budget > 0 else 0
