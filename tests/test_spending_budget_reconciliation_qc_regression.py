@@ -206,7 +206,7 @@ line,vacation,Annual Vacation,8000,2026,2028,,time-bounded travel
 
     # Guard the documented exclusion set so it can't silently drift.
     assert EXCLUDED_FROM_SPEND_BASE == {
-        "Income", "Transfer", "Transfers", "Business", "Housing", "Wellness"
+        "Income", "Transfer", "Transfers", "Business", "Housing", "Wellness", "Taxes"
     }
     assert TIME_BOUNDED_LINE_TRACKING_TYPES == {"Travel", "Large Discretionary"}
 
