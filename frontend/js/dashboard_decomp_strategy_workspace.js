@@ -157,7 +157,7 @@ export function renderStrategyOptimize() {
 }
 
 export function renderStrategyStress() {
-  return renderStrategyScreen([
+  const sections = [
     {
       key: "monte_carlo",
       title: "Monte Carlo",
@@ -182,7 +182,15 @@ export function renderStrategyStress() {
       gate: "divorce_options",
       body: () => analysisFrame(renderDivorceOptions(), "stress"),
     },
-  ]);
+  ];
+  // Divorce Planning, unlike its Monte Carlo/Survivor/LTC siblings above,
+  // should not appear at all -- not even as a collapsed "enable it here"
+  // stub -- when the Divorce/QDRO optional module is off.
+  return renderStrategyScreen(
+    sections.filter(
+      (s) => s.key !== "divorce" || !stepGatedByOptionalModule(s.gate),
+    ),
+  );
 }
 
 export function renderStrategyScenarios() {

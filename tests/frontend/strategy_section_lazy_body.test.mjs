@@ -412,6 +412,26 @@ describe("strategy_stress screen-level gate (ticket 323)", () => {
       );
     }
   });
+
+  test("Divorce Planning is entirely absent (not just gated-off) when its module is off; its siblings still render with an enable note", () => {
+    sandbox.optionalFunctionEnabled = (label) => label === "Monte Carlo";
+    const html = sandbox.renderStrategyStress();
+    assert.ok(!html.includes('data-dkey="strategy:divorce"'), "Divorce Planning section must not render at all when divorce_qdro is off");
+    assert.ok(!html.includes("Divorce Planning"), "Divorce Planning's title must not appear when its module is off");
+    for (const key of ["monte_carlo", "survivor", "ltc"]) {
+      assert.ok(
+        html.includes(`data-dkey="strategy:${key}"`),
+        `${key} should still render (gated-off sections keep their enable-note stub, unlike divorce)`,
+      );
+    }
+  });
+
+  test("Divorce Planning reappears once divorce_qdro is enabled", () => {
+    sandbox.optionalFunctionEnabled = (label) => label === "Divorce Options";
+    const html = sandbox.renderStrategyStress();
+    assert.ok(html.includes('data-dkey="strategy:divorce"'));
+    assert.ok(html.includes("Divorce Planning"));
+  });
 });
 
 // Ticket 323 follow-up: open state must survive a localStorage write that
