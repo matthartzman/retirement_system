@@ -562,7 +562,141 @@ states are honest). Each is a reasonable place to stop.
 
 ---
 
-## 7. Expected Claude Code usage
+## 7. Execution strategy — sessions, worktrees, agents, models, tools
+
+The dominant cost in a 19-workstream plan is not the edits. It is **context that
+accumulates and is then paid for on every subsequent turn**. Everything below
+follows from that.
+
+### 7.1 Sessions: one workstream, one session
+
+Start a fresh session per workstream. A session that has finished W1 carries
+W1's reads in every later turn whether or not they are still relevant, so
+continuing into W2 in the same session pays for W1's context indefinitely.
+
+- **Exception:** W10a → W10b may share a session (same files, same mental model).
+  W10c gets its own regardless — it is heavy and correctness-critical.
+- **Mid-task rule:** if a session passes roughly half its context before that
+  workstream's tests are green, finish the current commit and start fresh rather
+  than relying on compaction. Compaction preserves intent but loses the exact
+  line numbers and signatures you are mid-edit on, which is when losing them
+  costs most.
+- The 1-hour prompt cache means a break in a session is cheap; **context growth
+  within it is not**. Do not keep a session alive to "save the cache" — the cache
+  is not the expensive part.
+
+### 7.2 Worktrees: two long-lived, not nineteen
+
+The plan has exactly two independent streams (§6): the catalog/UI stream
+(W1–W13) and the housing stream (H1–H2). They share no files.
+
+- Run **two worktrees**, one per stream, and keep each for the life of its
+  stream. A worktree per workstream means a full checkout each time for no
+  isolation benefit — the workstreams within a stream are sequential anyway.
+- ⚠ **The git stash stack is shared across all worktrees in this repo.** Never
+  use bare `git stash` / `git stash pop` — another session can pop your entry.
+  Set work aside with a temporary WIP commit instead.
+- The golden-master ordering in §6 is a cross-worktree constraint. It is the one
+  thing the two streams must coordinate on, so agree the order before starting,
+  not when a diff surprises someone.
+
+### 7.3 Models and effort
+
+Already per-workstream in §8. The rule behind the table:
+
+- **sonnet · medium** for registry edits, CSV changes, renderer changes, and all
+  test-writing. That is most of the plan.
+- **opus · high** only for the six heavy workstreams (W6, W8b, W10c, W13, H1/B5,
+  H2/A3). These are the ones where a wrong structural decision costs more than
+  the model does.
+- **sonnet · low** for W0 and W11 — verification and deletion, no design.
+- Do **not** raise effort to compensate for missing context. If a task feels
+  underspecified, the fix is reading the right 40 lines, not thinking harder
+  about the wrong ones.
+
+### 7.4 Subagents: use them as a context firewall
+
+This is the highest-leverage tool choice in the plan, because of the file sizes
+in `.claude/claude.md`.
+
+- **Explore subagent for every "where is X" question.** A lookup in
+  `dashboard.js` or `dashboard_decomp_row_model.js` returns a few line numbers to
+  the main session instead of thousands of lines. The subagent's context is
+  discarded; yours is not. Use it for locating call sites, finding which module
+  owns a sheet, confirming a function's neighbours.
+- **general-purpose subagent for W5's enforcement sweep.** The grep across `src/`
+  for `module_enabled(` and raw `c['opt']` reads produces findings that need
+  judgement per site. Have the subagent return **the fixture list**, not the raw
+  matches, and write that list straight into the test so the sweep happens once
+  ever rather than once per run.
+- **Do not delegate the edits.** A subagent starts cold and re-derives the
+  workstream's context, which is the expensive path. Delegate *reads and
+  searches*; keep *decisions and edits* in the main session.
+
+### 7.5 Tool discipline
+
+- **Grep before Read. Always.** Then Read with `offset`/`limit` around the hit.
+  `.claude/claude.md` lists the entry point for each large file.
+- **`pytest -m "not slow"` is the working loop.** The full suite runs subprocess
+  builds; save it for pre-commit.
+- **Run long suites with `run_in_background`** and keep working rather than
+  blocking on them.
+- **`tools/regen_golden_master.py measure` before any `regen`.** `measure` prints
+  the delta without writing; `origin` traces where a pin came from. The
+  permission allowlist in `.claude/settings.json` permits the read-only
+  subcommands and deliberately prompts on `regen`.
+- **Batch independent shell calls** into one message — several `git`/`wc` checks
+  in parallel cost one round-trip, not four.
+
+### 7.6 The five ways this plan will overspend
+
+In descending order of likely cost, each with its guard:
+
+1. **Opening a large file linearly.** Guard: `.claude/claude.md`'s table; Explore
+   subagent for lookups.
+2. **Carrying a finished workstream's context into the next one.** Guard: one
+   workstream per session.
+3. **Regenerate-run-regenerate loops on golden masters** (W7, H1/B5, maybe W8b).
+   Guard: `measure` first; verify one delta by hand; know the expected direction
+   (H1/B5 should move recommendations *earlier*).
+4. **Sweeping toggle combinations** (W2, W8a, W8b). Guard: pin two or three
+   representative configurations. The space is combinatorial and the marginal
+   build teaches nothing.
+5. **Scope leak from W4 into W13.** Guard: they may not share a session. W4
+   ships without W13; W13 does not ship without W4.
+
+### 7.7 Environment changes already made
+
+- **`.claude/claude.md`** gained three sections: verified line counts and the
+  entry point for each large file; the test commands; and the golden-master
+  `measure`-before-`regen` rule. This file is always loaded, so it reaches every
+  session and every subagent without being asked for — which is why the
+  large-file table lives there rather than only in this plan.
+- **`.claude/settings.json`** (new, project-scoped and committed) allowlists the
+  read-only and test commands this plan runs constantly — `pytest`, `npm test`,
+  read-only `git`, `wc`/`ls`, and the non-destructive `regen_golden_master.py`
+  subcommands — and explicitly routes `regen` to a prompt. Personal permissions
+  stay in the uncommitted `settings.local.json`.
+
+### 7.8 Environment changes you would need to make
+
+These need your hands, not mine:
+
+- **Prune `.claude/settings.local.json`.** It carries a one-off `Bash(sed ...)`
+  allow entry from a past session that references `Version-10` paths and a
+  temp-directory scratch file. It matches nothing now and is pure noise.
+- **Consider `/config` → effort defaults.** This plan is mostly sonnet · medium;
+  if your session default is higher, most workstreams will run hotter than the
+  §8 table assumes.
+- **Decide on Fast mode** for the six heavy workstreams. It does not downgrade
+  the model, so it is a latency/throughput choice rather than a quality one.
+- **`.claude/hooks/`** currently holds only `triage_interceptor.py`. If you want
+  a guard that actually enforces §7.5 — for instance a `PreToolUse` hook on
+  `Read` that warns when a path matches the large-file list without
+  `offset`/`limit` — say so and I will write it. I have not added it unprompted
+  because a hook that fires on every read is worth opting into deliberately.
+
+## 8. Expected Claude Code usage
 
 Per repo convention — relative to a 5-hour session on the Pro plan. **Proportions,
 not measurements. Check `/usage` against these as execution proceeds.**
@@ -606,7 +740,7 @@ difference between these estimates and roughly double.
 
 ---
 
-## 8. Open items carried into execution
+## 9. Open items carried into execution
 
 - **V1–V3 (W0)** — must be answered before W1 writes `domain` values and before W3
   writes the section layout.
