@@ -128,12 +128,17 @@ describe("buildHistoryEntryHtml (ticket 309)", () => {
   });
 });
 
-describe("loadBuildHistory (ticket 309)", () => {
-  test("drops pre-#293 entries that have no kpi.lcv instead of rendering them with missing KPIs", () => {
+describe("loadBuildHistory (ticket 309/331)", () => {
+  test("drops pre-#293 entries that have no kpi.lcv, and pre-#331 entries with no matching schemaVersion, instead of rendering them with missing KPIs", () => {
     const fresh = loadDashboardSandbox();
+    const currentVersion = fresh.window.BUILD_HISTORY_SCHEMA_VERSION;
     const stored = JSON.stringify([
       { id: "old", kpi: { inheritable_nw: 100, lifetime_tax: 10, mc_success: 0.9 } },
-      { id: "new", kpi: { lcv: 5000, npv_future_taxes: 100, terminal_nw_mc_p5: 2000, eftr: 0.1 } },
+      // Has kpi.lcv (post-#293 shape) but predates the schemaVersion field
+      // entirely (e.g. saved before #331's lcv_all_in_including_taxes) --
+      // must still be dropped, not rendered with a missing All-In LCV dial.
+      { id: "stale-schema", kpi: { lcv: 5000, npv_future_taxes: 100, terminal_nw_mc_p5: 2000, eftr: 0.1 } },
+      { id: "new", schemaVersion: currentVersion, kpi: { lcv: 5000, npv_future_taxes: 100, terminal_nw_mc_p5: 2000, eftr: 0.1, lcv_all_in_including_taxes: 6000 } },
     ]);
     fresh.localStorage.getItem = () => stored;
     let saved = null;

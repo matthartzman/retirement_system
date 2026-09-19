@@ -700,16 +700,22 @@ export function loadBuildHistory() {
   } catch (_e) {
     buildHistory = [];
   }
-  // #309: entries saved before #293 have no `kpi.lcv` -- they were built
-  // from Terminal Net Worth / Lifetime Tax / MC Success, fields the history
-  // dials and suggestions panel no longer read at all. There is nothing to
-  // migrate those old entries to (LCV/NPV of Future Taxes/Worst-Case Ending
-  // Wealth/EFTR require re-running the build, which this load path must not
-  // do), so drop them rather than render dials with missing/undefined
-  // values for every pre-#293 entry.
+  // #309/#331: an entry saved before some `kpi` field the dials/suggestions
+  // panel now require was added has nothing to migrate to (LCV/NPV of Future
+  // Taxes/Worst-Case Ending Wealth/EFTR/All-In LCV require re-running the
+  // build, which this load path must not do), so drop it rather than render
+  // dials with missing/undefined values. schemaVersion generalizes this:
+  // bumping BUILD_HISTORY_SCHEMA_VERSION when a required field is added (or
+  // removed) is now the whole fix, instead of writing a new bespoke filter
+  // predicate here every time. An entry with no schemaVersion at all predates
+  // this mechanism and is always dropped.
   const before = buildHistory.length;
   buildHistory = buildHistory.filter(
-    (e) => e && e.kpi && Number.isFinite(Number(e.kpi.lcv)),
+    (e) =>
+      e &&
+      e.kpi &&
+      Number.isFinite(Number(e.kpi.lcv)) &&
+      e.schemaVersion === BUILD_HISTORY_SCHEMA_VERSION,
   );
   if (buildHistory.length !== before) saveBuildHistory();
 }

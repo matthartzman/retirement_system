@@ -112,6 +112,16 @@ def admin_diagnostics():
     return jsonify(admin_service.diagnostics_payload(workspace_output_dir(_workspace_id(), BASE_DIR)))
 
 
+@app.route("/api/admin/clear-webview-cache", methods=["POST"])
+def admin_clear_webview_cache():
+    denied = _require("manage_clients")
+    if denied:
+        return denied
+    result = admin_service.clear_webview_disk_cache(BASE_DIR)
+    _audit("admin_webview_cache_cleared", {"cleared": result.get("cleared", []), "skipped_count": len(result.get("skipped", []))})
+    return jsonify(result)
+
+
 @app.route("/api/admin/server", methods=["GET"])
 def admin_server_status():
     denied = _require("manage_clients")

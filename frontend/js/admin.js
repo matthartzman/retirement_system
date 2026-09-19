@@ -435,8 +435,31 @@ async function showAppSettings() {
       )
       .join(
         "",
-      )}</table><button class="danger" onclick="shutdown()">Shut down app</button>`;
+      )}</table><button class="danger" onclick="shutdown()">Shut down app</button> <button onclick="clearAppCache()">Clear cache</button><p class="muted">Clears saved browser-side UI state (Build History, workbench layout, etc.) and the app window's render/HTTP cache. Use this if the UI still looks stale after an update. A code change to the Python backend always needs a full app restart -- this button does not replace that.</p>`;
   msg("App settings loaded");
+}
+async function clearAppCache() {
+  if (
+    !confirm(
+      "Clear saved UI state (Build History, workbench layout, etc.) and the app's render cache? This cannot be undone.",
+    )
+  )
+    return;
+  try {
+    localStorage.clear();
+  } catch (_e) {}
+  const out = await api("/api/admin/clear-webview-cache", {
+    method: "POST",
+    body: "{}",
+  });
+  const cleared = (out && out.cleared) || [];
+  const skipped = (out && out.skipped) || [];
+  let text = cleared.length
+    ? `Cleared: ${cleared.join(", ")}.`
+    : "No render-cache folders needed clearing.";
+  if (skipped.length)
+    text += ` ${skipped.length} folder(s) are in use by this running window and could not be cleared -- fully close and reopen the app to finish.`;
+  msg(text);
 }
 async function applyMode(mode) {
   msg(
