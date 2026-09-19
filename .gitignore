@@ -76,6 +76,10 @@ build/
 # Claude Code agent worktrees (transient, harness-managed; auto-cleaned)
 .claude/worktrees/
 
+# Personal Claude Code permissions. Project-wide settings belong in the
+# committed .claude/settings.json instead.
+.claude/settings.local.json
+
 # Python tooling
 .ruff_cache/
 .coverage

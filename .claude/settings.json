@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "permissions": {
+    "allow": [
+      "Bash(pytest*)",
+      "Bash(python -m pytest*)",
+      "Bash(npm test*)",
+      "Bash(npm run test*)",
+      "Bash(node --test*)",
+      "Bash(git log*)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git show*)",
+      "Bash(git merge-base*)",
+      "Bash(git rev-parse*)",
+      "Bash(git blame*)",
+      "Bash(wc *)",
+      "Bash(ls*)",
+      "Bash(python tools/regen_golden_master.py measure*)",
+      "Bash(python tools/regen_golden_master.py origin*)",
+      "Bash(python tools/regen_golden_master.py verify-endpoint*)"
+    ],
+    "ask": [
+      "Bash(python tools/regen_golden_master.py regen*)"
+    ]
+  }
+}
