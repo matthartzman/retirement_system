@@ -677,24 +677,48 @@ In descending order of likely cost, each with its guard:
   read-only `git`, `wc`/`ls`, and the non-destructive `regen_golden_master.py`
   subcommands — and explicitly routes `regen` to a prompt. Personal permissions
   stay in the uncommitted `settings.local.json`.
+- **`.gitignore`** now excludes `.claude/settings.local.json`, which was
+  untracked but unignored — a broad `git add` would have committed personal
+  permissions.
+- **`.claude/hooks/large_file_guard.py` + a `PreToolUse` hook on `Read`** now
+  *enforce* §7.5 rather than merely stating it. A Read of one of the six largest
+  files with no `offset`/`limit` is **denied**, with a reason naming that file's
+  entry point and the Explore-subagent alternative. Design notes:
+  - **Recoverable, not a wall.** A chunked read with `offset`/`limit` passes, so
+    a genuinely necessary full pass still works — in bounded pieces, which is the
+    behaviour we wanted anyway.
+  - **Fail-open.** If the script is missing or the payload unparseable, the Read
+    is allowed. A guard that blocks reads when it breaks would be worse than no
+    guard.
+  - **`module_catalog.py` is deliberately unguarded** — several workstreams
+    legitimately need it whole, and W1 is one of them.
+  - Verified end to end: denial fires with the correct reason, `offset`/`limit`
+    passes through, a missing script allows the read, and malformed JSON does not
+    crash it.
+  - Keep its list in sync with `.claude/claude.md`'s table — that table tells the
+    model where to enter each file; the hook enforces that it does.
+- **`.claude/settings.local.json`** (personal, gitignored) now sets
+  `effortLevel: "medium"` to match the plan's dominant tier, `fastMode: true`,
+  and has had a dead `Bash(sed ...)` allow entry removed — it referenced
+  `Version-10` paths and a temp scratch file from a finished session, so it
+  matched nothing.
 
-### 7.8 Environment changes you would need to make
+  **On fast mode, honestly:** it is Opus-only, so it self-scopes to exactly the
+  six heavy workstreams and is inert on the sonnet ones — which is as close to
+  "on when recommended" as a persistent setting gets. But it buys *latency*, not
+  tokens. It will not move the §8 estimates, and nothing in §7.6 is solved by it.
 
-These need your hands, not mine:
+### 7.8 Environment changes still needing your hands
 
-- **Prune `.claude/settings.local.json`.** It carries a one-off `Bash(sed ...)`
-  allow entry from a past session that references `Version-10` paths and a
-  temp-directory scratch file. It matches nothing now and is pure noise.
-- **Consider `/config` → effort defaults.** This plan is mostly sonnet · medium;
-  if your session default is higher, most workstreams will run hotter than the
-  §8 table assumes.
-- **Decide on Fast mode** for the six heavy workstreams. It does not downgrade
-  the model, so it is a latency/throughput choice rather than a quality one.
-- **`.claude/hooks/`** currently holds only `triage_interceptor.py`. If you want
-  a guard that actually enforces §7.5 — for instance a `PreToolUse` hook on
-  `Read` that warns when a path matches the large-file list without
-  `offset`/`limit` — say so and I will write it. I have not added it unprompted
-  because a hook that fires on every read is worth opting into deliberately.
+- **`Bash(git stash *)` is allowlisted in `settings.local.json`,** which sits
+  badly with §7.2: the stash stack is shared across every worktree in this repo,
+  so an auto-approved `git stash pop` can take another session's entry. Consider
+  removing it, or moving it to `ask`. Left alone because it is your personal
+  config and the risk only materialises with concurrent worktrees — which this
+  plan happens to prescribe.
+- **Effort per workstream.** `effortLevel` is now a sensible default, not a
+  per-task answer. The six heavy workstreams in §8 want `high`; raise it for
+  those sessions and let it fall back afterwards.
 
 ## 8. Expected Claude Code usage
 

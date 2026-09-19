@@ -23,5 +23,20 @@
     "ask": [
       "Bash(python tools/regen_golden_master.py regen*)"
     ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .claude/hooks/large_file_guard.py 2>/dev/null || true",
+            "timeout": 10,
+            "statusMessage": "Checking file size..."
+          }
+        ]
+      }
+    ]
   }
 }
