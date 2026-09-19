@@ -971,6 +971,13 @@ let sessionChanges = new Map(),
 let buildHistory = [];
 const BUILD_HISTORY_MAX = 10;
 const BUILD_HISTORY_LS_KEY = "buildHistory_v1";
+// Bump whenever a field is added to (or removed from) an entry's `kpi` that
+// the dials/suggestions panel require -- loadBuildHistory() drops any entry
+// whose stored schemaVersion doesn't match, rather than rendering dials with
+// missing/undefined values for entries saved before the field existed (the
+// #309 problem: bumping this is now a one-line fix instead of writing a new
+// bespoke filter predicate per field addition).
+const BUILD_HISTORY_SCHEMA_VERSION = 2;
 let planChatMessages = [];
 var activePlanReportSection = "household";
 
@@ -1245,6 +1252,7 @@ function rememberBuildCompare(compare, opts) {
     timestamp: Date.now(),
     label: opts.label || "Build " + new Date().toLocaleString(),
     isSnapshot: !!opts.isSnapshot,
+    schemaVersion: BUILD_HISTORY_SCHEMA_VERSION,
     kpi: {
       inheritable_nw: Number.isFinite(atNw)
         ? atNw
@@ -1295,6 +1303,7 @@ async function takeBuildSnapshot() {
     timestamp: Date.now(),
     label,
     isSnapshot: true,
+    schemaVersion: BUILD_HISTORY_SCHEMA_VERSION,
     kpi: {
       inheritable_nw: Number.isFinite(atNw)
         ? atNw
@@ -7090,6 +7099,7 @@ setInterval(function () {
 // private; the bridge below is the entire backward-compat mechanism.
 Object.defineProperty(window, "BUILD_HISTORY_LS_KEY", { get: () => BUILD_HISTORY_LS_KEY, configurable: true });
 Object.defineProperty(window, "BUILD_HISTORY_MAX", { get: () => BUILD_HISTORY_MAX, configurable: true });
+Object.defineProperty(window, "BUILD_HISTORY_SCHEMA_VERSION", { get: () => BUILD_HISTORY_SCHEMA_VERSION, configurable: true });
 Object.defineProperty(window, "BUILD_IMPACT_SOURCE_STEP_IDS", { get: () => BUILD_IMPACT_SOURCE_STEP_IDS, configurable: true });
 Object.defineProperty(window, "DEFAULT_TRAVEL_TYPES", { get: () => DEFAULT_TRAVEL_TYPES, configurable: true });
 Object.defineProperty(window, "FIELD_GUIDANCE_OVERRIDES", { get: () => FIELD_GUIDANCE_OVERRIDES, configurable: true });

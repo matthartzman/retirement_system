@@ -211,6 +211,45 @@ def diagnostics_payload(output_dir: Path) -> dict[str, Any]:
     return {"success": True, "output_dir": str(output_dir), "files": files}
 
 
+# The WebView2 disk-cache/compiled-code directories under the pywebview
+# profile (src/desktop_app.py's storage_path). Deliberately excludes "Local
+# Storage", "Network" (cookies/site data), "Sessions", and everything else in
+# the profile -- this clears rendering/HTTP/bytecode caches only, never the
+# app's own persisted state (Build History, workbench nav, etc).
+_WEBVIEW_CACHE_DIR_NAMES = (
+    "Cache", "Code Cache", "GPUCache", "DawnGraphiteCache", "DawnWebGPUCache", "Shared Dictionary",
+)
+
+
+def clear_webview_disk_cache(base_dir: Path) -> dict[str, Any]:
+    """Best-effort clear of the desktop app's WebView2 render/HTTP cache.
+
+    Windows holds these files open for as long as the WebView2 process is
+    alive, so a directory can fail to delete while the app window that made
+    this very request is still running -- that's reported per-directory
+    rather than raising, since a partial clear is still useful and the
+    caller (the admin UI) tells the user to fully close and reopen the app
+    to finish clearing anything left over.
+    """
+    import shutil
+
+    profile_dir = base_dir / "local_state" / "webview" / "EBWebView" / "Default"
+    if not profile_dir.exists():
+        return {"success": True, "cleared": [], "skipped": [], "note": "No WebView2 profile found (server/browser mode, or the desktop app has not run yet)."}
+    cleared: list[str] = []
+    skipped: list[dict[str, str]] = []
+    for name in _WEBVIEW_CACHE_DIR_NAMES:
+        d = profile_dir / name
+        if not d.exists():
+            continue
+        try:
+            shutil.rmtree(d)
+            cleared.append(name)
+        except OSError as exc:
+            skipped.append({"name": name, "error": str(exc)})
+    return {"success": True, "cleared": cleared, "skipped": skipped}
+
+
 def server_status_payload(*, version: str, cfg: Any, system_config_path: Path) -> dict[str, Any]:
     modes = {
         "LOCAL": {
