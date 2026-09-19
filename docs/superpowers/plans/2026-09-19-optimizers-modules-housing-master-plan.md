@@ -34,6 +34,28 @@ These apply to **every** task in every workstream. Copied from the three specs.
 - **No calculation changes except where a spec names one.** #329 and #330 are
   label, declaration and rendering changes only. The two deliberate exceptions
   are the engine-gate fix (W7) and the housing escalation fix (H1).
+- **`deterministic_engine.py` is off-limits to H1.** #331 inherits the 2026-09-09
+  directive 3: the engine's `infl = _infl_ratio(year, base=start)` and
+  `home_value = price * (1 + home_appr) ** (year - start + 1)` stay byte-for-byte.
+  The engine escalates *from* `start_year`; writing a move-year figure into a step
+  whose `start_year` is that year is what the engine already expects and
+  double-counts nothing. W7 edits that file for an unrelated reason (which modules
+  participate) — the ban is on H1 changing escalation there, not a blanket freeze.
+- **The housing budget is deflated exactly once, and never escalated.** The
+  screen deflates the bounds (§6.4 site 4); `plan_variant` tier 1 consumes the
+  midpoint unchanged (site 3). These are two halves of one convention — if a
+  future change escalates it in `plan_variant`, the screen's deflation must be
+  removed **in the same commit**.
+- **`screen.estimate_price` and `_base_estimate` stay byte-for-byte**, and every
+  funnel count is unchanged for a current-year window. Only the bounds move.
+- **Never escalate a percentage.** `re_tax_pct`, `hoa_pct`, `mortgage_rate_pct`
+  and `down_payment_pct` apply to an already-escalated price; escalating them
+  compounds twice. `_effective_mortgage_rate` takes the three new parameters only
+  because it shares the call — it does not escalate.
+- **No rate travels on the wire.** `home_appr` and `plan_start` are read
+  server-side from `c0`, the same two keys with the same fallbacks that
+  `plan_variant` reads. A client-supplied rate could disagree with the one the
+  optimizer then uses.
 - **Three Python functional tests read panel JS as text** —
   `tests/test_zip_screen_panel_functional.py` and siblings. Read them *before*
   touching any panel JS and treat their assertions as an interface contract. A
@@ -377,28 +399,75 @@ actually feels like.** Do not let it share a session with W4.
   means a double-deflation cannot pass.** *(sonnet · medium · 6–10 · Light–moderate.)*
 - **B4** — results display both years; P&I recomputed on the escalated price;
   the one-time dismissible notice. *(sonnet · medium · 6–10 · Light–moderate.)*
-- **B5** — **golden-master regeneration.** Regenerate **one** representative
-  fixture first and hand-verify its delta against a spreadsheet check of
-  `(1 + home_appr) ** years_out`, then batch the rest. **Do not enter a
+- **B5** — **golden-master regeneration.** Every optimizer result changes —
+  objectives, rankings, very likely the rank-1 recommendation. Regenerate **one**
+  representative fixture first and hand-verify its delta against a spreadsheet
+  check of `(1 + home_appr) ** years_out`, then batch the rest. **Do not enter a
   regenerate-run-regenerate loop; a wrong rate looks exactly like a right one at
-  scale.** *(opus · high · 10–20 · **Heavy**.)*
+  scale.**
+
+  **Know what a correct diff looks like before reading one.** The bias reverses in
+  a specific direction: today the optimizer systematically prefers later moves,
+  because a later move buys a today's-priced house further out and collects the
+  appreciation free. After the fix, moves compare on equal footing, so
+  **recommendations should shift earlier**. A diff that moves recommendations
+  *later* is a red flag, not drift. The PR description must state the recompute
+  explicitly — an uncalled-out drift of this size reads as a regression.
+  *(opus · high · 10–20 · **Heavy**.)*
 - **B6** — Spending screen re-estimate prompt and `lot_size_band`; audit
   `tools/housing_lab.py` for its own price-basis assumptions. *(sonnet · medium · 6–10 · Light–moderate.)*
 
 ### H2 — Housing PR 2: anchor flow
 **#331 A1–A4, with #329 P7 folded in. Requires H1.**
 
-- **A1** — per-anchor reserved slot in `run_multi_anchor_screen`, after dedup and
-  before promotion; `unrepresented_anchors`; `per_anchor_quota` funnel stage.
-  Warn and continue — never fail the run, never block *Continue*. *(sonnet · medium · 6–10 · Light.)*
-- **A2** — `selected_zips` on the wire; server-side validation mirroring client
-  order; `shortlist_size` removed; API stays `housing_optimize_v2`. *(sonnet · medium · 6–10 · Light–moderate.)*
+- **A1** — per-anchor reserved slot in `run_multi_anchor_screen`, as a
+  `per_anchor_quota` stage between `near_family` and `promoted`; two-pass fill
+  (reserved pass in the user's declared anchor order, then the open pass in
+  existing score order); `unrepresented_anchors` on `ScreenResult`. An anchor with
+  no surviving ZIP is **skipped and recorded, never a failed run**. Costs nothing
+  when the natural top-N already covers every anchor, which is why this went
+  unnoticed. *(sonnet · medium · 6–10 · Light.)*
+
+  **Two different gating rules here — do not conflate them.** *Anchor coverage* is
+  a warning that never blocks: unchecking an anchor's last ZIP after seeing its
+  price shows "Your selection no longer covers 60521" and *Continue* stays
+  enabled. But *step 1 cannot be left until every enabled move has at least one
+  selected ZIP* — that one is a real gate. The quota guarantees coverage of the
+  **default** selection, which is what §1.1 broke; past that the choice is the
+  user's.
+- **A2** — `selected_zips` (1–10) on the wire; server-side validation that every
+  entry appears in that move's `all_passing`, returning `{"success": false}`
+  naming the ZIP rather than silently degrading into a smaller search. API stays
+  `housing_optimize_v2` — the breaking half is on the *request*, so bumping a
+  response id would be a misleading signal. `shortlist_size` leaves the request
+  schema entirely but **survives internally** as `MultiAnchorRequest.shortlist_size`,
+  a preview cap rather than a user-facing knob; the preview promotes
+  `max(default_preview_size, len(anchors))`. *(sonnet · medium · 6–10 · Light–moderate.)*
 - **A3** — the two-step panel. **The *Move n — when* row moves up into step 1**,
   which becomes "Where and when could you go?" (OQ-2a), with the window midpoint
   pricing the affordability filter (OQ-2b) and the reference year printed in the
   table header. Selection table, step gating, coverage warning,
   `HOUSING_OPT_STORAGE_KEY` → `retirement.housing_optimizer.v2`, client-side screen
   memo keyed on filter fingerprint.
+
+  Step 1 is three rows per move (*where* / *when* / *what*), ending in **Find
+  candidate locations**, which calls `POST /api/housing/zip-screen` once per
+  enabled move and renders a **selection table** — checkbox rows pre-checked
+  exactly as the quota promoted them, so *Continue* with no interaction reproduces
+  today's behaviour plus the quota. One new column, **Anchor**
+  (`nearest_anchor_zip`), with a *"covers {anchor}"* badge on reserved-pass rows,
+  and a per-anchor coverage line above the table.
+
+  **The reference-year disclosure is load-bearing, not decorative.** The header
+  reads *"Estimated price — as of 2041, midpoint of 2036–2046"*. The midpoint
+  filter can exclude a ZIP that would be affordable at the earliest year; naming
+  the year is what keeps that exclusion visible rather than making it the same
+  class of silent discard §1.1 exists to fix.
+
+  **Validation splits across steps but the gate does not.** Anchor count and every
+  year-window rule become step-1 rules; the rest stay on step 2. The Run button
+  lives on step 2 and is disabled while any rule on **either** step fails, so the
+  split cannot smuggle an invalid request through.
 
   **Folded in from #329 P7:** rename the two engines in panel copy — "Where to
   live" (this panel) and "When to move" (workbook Housing Comparison) — and state
