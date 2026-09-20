@@ -6,7 +6,7 @@
 - For each phase/step/task of an implementation plan:
     - Include recommended model and effort
     - Estimate expected Claude Code usage:
-        - approximate number of tool-use turns, 
+        - approximate tokens needed, 
         - what's driving context size (file sizes, search scope, test-loop iterations), and 
         - whether it's light/moderate/heavy relative to a 5-hour session on my ProPlan.
 - Flag any step likely to be disproportionately expensive (broad searches, large file reads, repeated test-fix cycles) and suggest ways to scope it down. 
