@@ -708,14 +708,15 @@ In descending order of likely cost, each with its guard:
   "on when recommended" as a persistent setting gets. But it buys *latency*, not
   tokens. It will not move the §8 estimates, and nothing in §7.6 is solved by it.
 
+- **`git stash` now prompts.** `Bash(git stash *)` moved out of `allow` and into
+  `ask` in `settings.local.json`. This closes the §7.2 hazard: the stash stack is
+  shared across every worktree in this repo, so an auto-approved
+  `git stash pop` could take another session's entry — and this plan prescribes
+  two concurrent worktrees, which is exactly when that bites. Stashing still
+  works; it just asks first. Prefer a temporary WIP commit anyway.
+
 ### 7.8 Environment changes still needing your hands
 
-- **`Bash(git stash *)` is allowlisted in `settings.local.json`,** which sits
-  badly with §7.2: the stash stack is shared across every worktree in this repo,
-  so an auto-approved `git stash pop` can take another session's entry. Consider
-  removing it, or moving it to `ask`. Left alone because it is your personal
-  config and the risk only materialises with concurrent worktrees — which this
-  plan happens to prescribe.
 - **Effort per workstream.** `effortLevel` is now a sensible default, not a
   per-task answer. The six heavy workstreams in §8 want `high`; raise it for
   those sessions and let it fall back afterwards.
