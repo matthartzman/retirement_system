@@ -69,6 +69,10 @@ class ScreenedZip:
     collapsed: list[str] = field(default_factory=list)
     nearest_anchor_zip: str = ''
     family_distance_miles: float | None = None
+    # True when the per-anchor quota's reserved pass promoted this ZIP
+    # (design 2026-09-19 §5.2). Drives step 1's "covers {anchor}" badge, so
+    # the user can see the quota working rather than having to infer it.
+    quota_reserved: bool = False
     # = plan_start at screen time (design §6.4 site 4), so a downstream
     # consumer can never mistake est_price's basis: it is always today's
     # (this) dollars, never the move's own year.
@@ -85,6 +89,12 @@ class ScreenResult:
     relaxation: dict[str, Any] | None = None
     anchors: list[dict[str, Any]] = field(default_factory=list)
     stage_zctas: dict[str, list[str]] = field(default_factory=dict)
+    # Anchors the user declared for which *no* ZIP survived the screen
+    # (design §5.2). Recorded and reported, never raised: an anchor that
+    # screens empty is a warning the user can act on (widen the radius, lower
+    # the score, drop the anchor), not a failed run. Silence here was the
+    # whole of defect §1.1.
+    unrepresented_anchors: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -370,6 +380,67 @@ def run_screen(
     )
 
 
+def _promote_with_anchor_quota(
+    distinct: list[ScreenedZip], anchor_zips: list[str], shortlist_size: int,
+) -> tuple[list[ScreenedZip], list[str]]:
+    """Two-pass promotion reserving one slot per declared anchor (design §5.2).
+
+    1. **Reserved pass** -- in the user's declared anchor order, promote the
+       highest-scoring surviving ZIP whose ``nearest_anchor_zip`` is that
+       anchor. An anchor with no survivor is skipped and recorded, never
+       raised.
+    2. **Open pass** -- fill the remaining slots from the rest of ``distinct``
+       in existing score order, exactly as before.
+
+    ``distinct`` arrives in score order (``deduplicate`` sorts it), so "first
+    match" *is* "highest scoring" in the reserved pass and the open pass is
+    byte-for-byte the old behaviour.
+
+    The returned shortlist is re-sorted into score order, so when the natural
+    top-N already covers every anchor -- the common case, and why §1.1 went
+    unnoticed -- the output is identical to the pre-quota one. The quota
+    changes *membership*, never presentation order.
+
+    ``shortlist_size`` floors at ``len(anchor_zips)``: a shortlist numerically
+    too small to seat every anchor (the default of 4 against up to 5 anchors,
+    §1.1) would make the guarantee unsatisfiable in principle, and silently
+    dropping an anchor is the defect this exists to fix. A caller asking for
+    zero still gets zero.
+    """
+    cap = max(0, int(shortlist_size))
+    if cap:
+        cap = max(cap, len(anchor_zips))
+
+    unrepresented = [
+        anchor for anchor in anchor_zips
+        if not any(z.nearest_anchor_zip == anchor for z in distinct)
+    ]
+
+    chosen: list[ScreenedZip] = []
+    taken: set[str] = set()
+    for anchor in anchor_zips:
+        if len(chosen) >= cap:
+            break
+        pick = next((z for z in distinct
+                     if z.nearest_anchor_zip == anchor and z.zcta not in taken), None)
+        if pick is None:
+            continue
+        taken.add(pick.zcta)
+        chosen.append(ScreenedZip(
+            **{**pick.__dict__, 'promoted': True, 'quota_reserved': True}))
+
+    for z in distinct:
+        if len(chosen) >= cap:
+            break
+        if z.zcta in taken:
+            continue
+        taken.add(z.zcta)
+        chosen.append(ScreenedZip(**{**z.__dict__, 'promoted': True}))
+
+    chosen.sort(key=lambda z: (-z.nss, z.distance_miles, z.zcta))
+    return chosen, unrepresented
+
+
 def run_multi_anchor_screen(
     req: MultiAnchorRequest, table: dict[str, ZipRecord] | None = None,
     current_state: str = '',
@@ -421,8 +492,14 @@ def run_multi_anchor_screen(
     funnel['distinct'] = len(distinct)
     funnel['near_family'] = len(distinct)
 
-    shortlist = [ScreenedZip(**{**z.__dict__, 'promoted': True})
-                 for z in distinct[: max(0, int(req.shortlist_size))]]
+    shortlist, unrepresented = _promote_with_anchor_quota(
+        distinct, req.anchor_zips, req.shortlist_size)
+    # Unlike every other funnel key this is a *reservation* count, not a
+    # survivor count: the quota stage reorders promotion rather than filtering,
+    # so what is worth reporting is how many of the shortlist's slots the
+    # reserved pass claimed. It is therefore the one stage that can read lower
+    # than the stage after it.
+    funnel['per_anchor_quota'] = sum(1 for z in shortlist if z.quota_reserved)
     funnel['promoted'] = len(shortlist)
 
     return ScreenResult(
@@ -432,6 +509,7 @@ def run_multi_anchor_screen(
         funnel=funnel,
         shortlist=shortlist,
         all_passing=distinct,
+        unrepresented_anchors=unrepresented,
         relaxation=next((r.relaxation for r in per_anchor if r.relaxation), None)
         if not shortlist else None,
     )

@@ -446,6 +446,7 @@ def _screened_zip_payload(z: ScreenedZip) -> dict[str, Any]:
         'population': z.population, 'nearest_anchor_zip': z.nearest_anchor_zip,
         'family_distance_miles': z.family_distance_miles,
         'est_price_basis_year': z.est_price_basis_year,
+        'quota_reserved': z.quota_reserved,
     }
 
 
@@ -460,6 +461,7 @@ def screen_payload(result: ScreenResult) -> dict[str, Any]:
         'radius_miles': result.radius_miles,
         'funnel': result.funnel,
         'relaxation': result.relaxation,
+        'unrepresented_anchors': result.unrepresented_anchors,
         'shortlist': [_screened_zip_payload(z) for z in result.shortlist],
     }
 
