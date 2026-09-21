@@ -20,8 +20,9 @@ def test_output_workbook_uses_numbered_top_level_area_tabs(built_workbook_path):
     expected_sections = [
         "1. Reports",
         "2. Optimizers",
-        "3. Risk & Stress Tests",
-        "4. System",
+        "3. Comparisons",
+        "4. Risks",
+        "5. System",
     ]
     for section in expected_sections:
         assert section in names
@@ -36,8 +37,9 @@ def test_output_workbook_uses_numbered_top_level_area_tabs(built_workbook_path):
         "1F. Lifetime Taxes",
     ]
     assert names[names.index("2. Optimizers") + 1] == "2A. Roth Conversion"
-    assert names[names.index("3. Risk & Stress Tests") + 1] == "3A. Monte Carlo"
-    assert names[names.index("4. System") + 1] == "4A. Plan Data"
+    assert names[names.index("3. Comparisons") + 1] == "3A. State Residency"
+    assert names[names.index("4. Risks") + 1] == "4A. Monte Carlo"
+    assert names[names.index("5. System") + 1] == "5A. Plan Data"
     assert names[-1] == "_Chart Dashboard Data"
 
 
@@ -54,19 +56,27 @@ def test_source_layout_declares_same_numbered_areas():
     assert [a["section"] for a in layout] == [
         "1. Reports",
         "2. Optimizers",
-        "3. Risk & Stress Tests",
-        "4. System",
+        "3. Comparisons",
+        "4. Risks",
+        "5. System",
     ]
     flattened = [sheet for area in layout for sheet in area["sheets"]]
     assert flattened[:3] == ["1. Executive Summary", "5. Net Worth Projection", "6. Cash Flow Projection"]
+    # W3 (#329 O10, F1): COMPARISON modules get their own group, out of
+    # Optimizers -- S-Corp vs LLC and State Residency now sit in Comparisons.
     assert "S-Corp vs LLC" in flattened
     assert "19. Life Insurance" in flattened
+    # W3 split LTC Stress Test back out of the merged Life Insurance sheet
+    # (#329 O10) -- both are now independent Risks entries.
+    assert "17. LTC Stress Test" in flattened
     # W1 (master implementation plan, #329 3.1): '27. Planning Levers' is
     # REFERENCE-kind and physically sits in System -- lettering it into
     # Optimizers was the `2I` contradiction the classification invariant now
     # rejects. It letters and sorts there until W11 retires the sheet
     # outright. '11B. Tax Capacity' is also REFERENCE-kind (filed in System
-    # rather than Reports) and lands after it, now last.
+    # rather than Reports) and lands after it, now last. W3 moved System's
+    # own group code from '4' to '5' -- '4' is now Risks -- but Tax Capacity
+    # and Planning Levers' relative order within System is unchanged.
     assert flattened[-1] == "11B. Tax Capacity"
     assert flattened[-2] == "27. Planning Levers"
     assert flattened[-3] == "22. Glossary"

@@ -288,7 +288,7 @@ _OUTPUTS: List[OutputModule] = [
         "tax_capacity", "Tax Capacity", REFERENCE, MEDIUM,
         "Consolidated per-year bracket, IRMAA and ACA headroom, assembled from four other sheets.",
         domain=TAXES,
-        sheet="11B. Tax Capacity", tab="4I. Tax Capacity",
+        sheet="11B. Tax Capacity", tab="5I. Tax Capacity",
         requires_inputs=(_in("income"), _in("assumptions", "brackets", "irmaa")),
         requires_outputs=BASE_PROJECTION + ("lifetime_tax_projection",),
     ),
@@ -304,7 +304,7 @@ _OUTPUTS: List[OutputModule] = [
         "social_security_timing", "Social Security", OPTIMIZATION, HIGH,
         "Optimal claiming age; lifetime-benefit comparison.",
         domain=INCOME_BENEFITS,
-        optional=True, sheet="10. Social Security", tab="2E. Social Security",
+        optional=True, sheet="10. Social Security", tab="2D. Social Security",
         requires_inputs=(_in("household", "ss_policy", "dob", "earnings"),
                          _in("planning_levers", "claiming_age")),
         requires_outputs=BASE_PROJECTION,
@@ -329,7 +329,7 @@ _OUTPUTS: List[OutputModule] = [
         "what_if_analysis", "What-If / Scenario", COMPARISON, MEDIUM_HIGH,
         "Side-by-side of 2-3 saved lever bundles with deltas (comparison mode).",
         domain=RISK_RESILIENCE,
-        optional=True, sheet="16. Scenario Analysis", tab="16. Scenario Analysis",
+        optional=True, sheet="16. Scenario Analysis", tab="3C. Scenario Analysis",
         mode=MODE_COMPARISON,
         requires_inputs=(_in("planning_levers", "bundled_positions"),),
         requires_outputs=BASE_PROJECTION,
@@ -339,21 +339,21 @@ _OUTPUTS: List[OutputModule] = [
         "tax_loss_harvesting", "Tax-Loss Harvesting", OPTIMIZATION, MEDIUM,
         "Harvestable losses given current lots.",
         domain=TAXES,
-        optional=True, sheet="12B. Tax-Loss Harvesting", tab="2I. Tax-Loss Harvesting",
+        optional=True, sheet="12B. Tax-Loss Harvesting", tab="2H. Tax-Loss Harvesting",
         requires_inputs=(_in("holdings", "lots", "basis"), _in("pricing")),
     ),
     OutputModule(
         "gain_harvesting", "Gain Harvesting", OPTIMIZATION, MEDIUM,
         "0%-bracket long-term gains harvestable given current lots.",
         domain=TAXES,
-        optional=True, sheet="12C. Gain Harvesting", tab="2N. Gain Harvesting",
+        optional=True, sheet="12C. Gain Harvesting", tab="2I. Gain Harvesting",
         requires_inputs=(_in("holdings", "lots", "basis"), _in("pricing")),
     ),
     OutputModule(
         "charitable_giving", "Charitable Giving", OPTIMIZATION, MEDIUM,
         "Bunching / QCD / DAF strategy and tax effect.",
         domain=TAXES,
-        optional=True, sheet="12. Charitable Giving", tab="2G. Charitable Giving",
+        optional=True, sheet="12. Charitable Giving", tab="2E. Charitable Giving",
         # QCD (item 4.1) and DAF-appreciated-securities (item 4.2) fields
         # landed in Wave 4, after this entry was first authored — added here
         # as the Wave 3.5a rework the review's own §9.1 called for ("new
@@ -368,7 +368,7 @@ _OUTPUTS: List[OutputModule] = [
         "state_residency", "State Residency", COMPARISON, MEDIUM,
         "Tax impact of relocating.",
         domain=HOUSING_PROPERTY,
-        optional=True, sheet="13. State Residency", tab="2D. State Residency",
+        optional=True, sheet="13. State Residency", tab="3A. State Residency",
         requires_inputs=(_in("planning_levers", "residency_choice"), _in("income"),
                          _in("assumptions", "state_tax")),
     ),
@@ -383,7 +383,7 @@ _OUTPUTS: List[OutputModule] = [
         "Sweeps the current-home sale year and both future housing steps (buy vs. rent x year) "
         "by coordinate descent, ranked on the same LCV basis as the Social Security sweep.",
         domain=HOUSING_PROPERTY,
-        optional=True, sheet="38. Housing Comparison", tab="2O. Housing Comparison",
+        optional=True, sheet="38. Housing Comparison", tab="2G. Housing Comparison",
         requires_inputs=(_in("household", "next_housing_steps"), _in("assumptions", "growth")),
         requires_outputs=BASE_PROJECTION,
     ),
@@ -392,7 +392,7 @@ _OUTPUTS: List[OutputModule] = [
         "Estate-tax exposure, legacy/bequest structure, beneficiary/titling audit, "
         "gifting schedule, and per-beneficiary 10-year drawdown sensitivity.",
         domain=ESTATE_LEGACY,
-        optional=True, sheet="14. Estate Plan", tab="2H. Estate & Legacy Planning",
+        optional=True, sheet="14. Estate Plan", tab="2F. Estate & Legacy Planning",
         # Account titling (4.7), gifting schedule (4.8), and the per-beneficiary
         # drawdown (4.9) all shipped in Wave 4, after this entry was first
         # authored, and landed as new sections on this same sheet rather than
@@ -424,7 +424,7 @@ _OUTPUTS: List[OutputModule] = [
         "scorp_vs_llc", "S-Corp vs LLC", COMPARISON, LOW,
         "Entity-structure tax comparison for the self-employed.",
         domain=FAMILY_BUSINESS,
-        sheet="S-Corp vs LLC", tab="2F. S-Corp vs LLC",
+        sheet="S-Corp vs LLC", tab="3B. S-Corp vs LLC",
         requires_inputs=(_in("income", "self_employment"), _in("business"),
                          _in("assumptions", "tax")),
     ),
@@ -448,7 +448,7 @@ _OUTPUTS: List[OutputModule] = [
         "life_insurance_need", "Life Insurance Need", PROTECTION, MEDIUM,
         "Coverage to buy vs survivor shortfall — a decision that reads a stress.",
         domain=RISK_RESILIENCE,
-        optional=True, sheet="19. Life Insurance", tab="3C. LTC + Life Insurance",
+        optional=True, sheet="19. Life Insurance", tab="4D. Life Insurance Need",
         requires_inputs=(_in("insurance_estate", "policies"), _in("income")),
         requires_outputs=("survivor_stress_test",),
     ),
@@ -456,7 +456,7 @@ _OUTPUTS: List[OutputModule] = [
         "existing_life_insurance", "Existing Life Insurance", PROTECTION, LOW,
         "Adequacy of in-force policies.",
         domain=ASSETS_PROTECTION,
-        optional=True, sheet="31. Existing Life Insurance", tab="3D. Existing Life Insurance",
+        optional=True, sheet="31. Existing Life Insurance", tab="4E. Existing Life Insurance",
         requires_inputs=(_in("insurance_estate", "life_policies"),),
         requires_outputs=("survivor_stress_test",),
         # Pre-existing dashboard.js behavior (ROW_MODULE_GATES), preserved as-is:
@@ -470,7 +470,7 @@ _OUTPUTS: List[OutputModule] = [
         "disability_income_insurance", "Disability Income", PROTECTION, LOW,
         "DI coverage vs income-replacement need.",
         domain=ASSETS_PROTECTION,
-        optional=True, sheet="32. Disability Income", tab="3E. Disability Income",
+        optional=True, sheet="32. Disability Income", tab="4F. Disability Income",
         requires_inputs=(_in("insurance_estate", "di_policies"), _in("income")),
         requires_outputs=("cash_flow",),
     ),
@@ -478,7 +478,7 @@ _OUTPUTS: List[OutputModule] = [
         "property_casualty_umbrella", "P&C / Umbrella", PROTECTION, NICHE,
         "Liability coverage adequacy vs net worth.",
         domain=ASSETS_PROTECTION,
-        optional=True, sheet="33. P&C Umbrella", tab="3F. P&C Umbrella",
+        optional=True, sheet="33. P&C Umbrella", tab="4G. P&C Umbrella",
         requires_inputs=(_in("insurance_estate", "pc_policies"),),
         requires_outputs=("net_worth",),
     ),
@@ -488,7 +488,7 @@ _OUTPUTS: List[OutputModule] = [
         "market_luck_stress_test", "Monte Carlo", STRESS_TEST, HIGH,
         "Probability of success across market-return paths.",
         domain=RISK_RESILIENCE,
-        optional=True, sheet="15. Market-Luck Stress Test", tab="3A. Monte Carlo",
+        optional=True, sheet="15. Market-Luck Stress Test", tab="4A. Monte Carlo",
         requires_inputs=(_in("assumptions", "cma", "correlations"),
                          _in("planning_levers", "mc_settings")),
         requires_outputs=BASE_PROJECTION,
@@ -498,7 +498,7 @@ _OUTPUTS: List[OutputModule] = [
         "survivor_stress_test", "Survivor / Early Death", STRESS_TEST, MEDIUM,
         "Plan solvency after one spouse's early death.",
         domain=RISK_RESILIENCE,
-        optional=True, sheet="18. Survivor Stress Test", tab="3B. Survivor",
+        optional=True, sheet="18. Survivor Stress Test", tab="4B. Survivor",
         requires_inputs=(_in("household", "survivor_state"),
                          _in("income", "survivor_continuation"), _in("insurance_estate")),
         requires_outputs=BASE_PROJECTION,
@@ -508,7 +508,7 @@ _OUTPUTS: List[OutputModule] = [
         "long_term_care_stress", "LTC Stress", STRESS_TEST, MEDIUM,
         "Impact of a long-term-care event.",
         domain=RISK_RESILIENCE,
-        optional=True, sheet="17. LTC Stress Test", tab="3C. LTC + Life Insurance",
+        optional=True, sheet="17. LTC Stress Test", tab="4C. LTC Stress Test",
         requires_inputs=(_in("insurance_estate", "ltc_policy"), _in("assets", "liquidity"),
                          _in("assumptions", "ltc_cost")),
         requires_outputs=BASE_PROJECTION,
@@ -529,14 +529,14 @@ _OUTPUTS: List[OutputModule] = [
         "quality_control", "Quality Control", DIAGNOSTICS, MEDIUM,
         "Pass/fail checks on the projection's internal consistency.",
         domain=REPORTS_DOCUMENTATION,
-        sheet="21. Quality Control", tab="4D. Quality Control",
+        sheet="21. Quality Control", tab="5D. Quality Control",
         requires_outputs=BASE_PROJECTION,
     ),
     OutputModule(
         "rmd_audit", "RMD Audit", DIAGNOSTICS, MEDIUM,
         "Verifies RMD amounts/timing against tax rules.",
         domain=TAXES,
-        optional=True, sheet="20. RMD Audit", tab="4E. RMD Audit",
+        optional=True, sheet="20. RMD Audit", tab="5E. RMD Audit",
         requires_inputs=(_in("household", "ages"), _in("assumptions", "rmd_tables")),
         requires_outputs=("net_worth",),
     ),
@@ -544,7 +544,7 @@ _OUTPUTS: List[OutputModule] = [
         "account_reconciliation", "Account Reconciliation", DIAGNOSTICS, MEDIUM,
         "Reconciles modeled balances against YTD actuals.",
         domain=REPORTS_DOCUMENTATION,
-        sheet="25. Account Reconciliation", tab="4C. Account Reconciliation",
+        sheet="25. Account Reconciliation", tab="5C. Account Reconciliation",
         requires_inputs=(_in("holdings"), _in("ytd", "transactions", "setup")),
     ),
 
@@ -553,28 +553,28 @@ _OUTPUTS: List[OutputModule] = [
         "planning_levers_echo", "Planning Levers (echo)", REFERENCE, MEDIUM,
         "Restates the chosen dial positions with their source.",
         domain=REPORTS_DOCUMENTATION,
-        sheet="27. Planning Levers", tab="4H. Planning Levers",
+        sheet="27. Planning Levers", tab="5H. Planning Levers",
         requires_inputs=(_in("planning_levers"),),
     ),
     OutputModule(
         "assumptions_ref", "Assumptions", REFERENCE, MEDIUM,
         "Echoes the economic/tax assumptions used, for auditability.",
         domain=REPORTS_DOCUMENTATION,
-        sheet="2. Assumptions", tab="4B. Assumptions",
+        sheet="2. Assumptions", tab="5B. Assumptions",
         requires_inputs=(_in("assumptions"),),
     ),
     OutputModule(
         "plan_data_ref", "Plan Data", REFERENCE, MEDIUM,
         "Snapshot of all inputs behind the run.",
         domain=REPORTS_DOCUMENTATION,
-        sheet="Plan Data", tab="4A. Plan Data",
+        sheet="Plan Data", tab="5A. Plan Data",
         requires_inputs=tuple(_in(m) for m in ALL_INPUTS),
     ),
     OutputModule(
         "methodology_rerun", "Methodology & Re-Run", REFERENCE, LOW,
         "Explains the model and how to reproduce the run.",
         domain=REPORTS_DOCUMENTATION,
-        optional=True, sheet="23. Methodology", tab="4F. Methodology",
+        optional=True, sheet="23. Methodology", tab="5F. Methodology",
     ),
     OutputModule(
         # Registry gap closed (#330 §7.1). Restates recommendations modeled on
@@ -591,7 +591,7 @@ _OUTPUTS: List[OutputModule] = [
         "glossary", "Glossary", REFERENCE, LOW,
         "Defines terms used across the workbook.",
         domain=REPORTS_DOCUMENTATION,
-        optional=True, sheet="22. Glossary", tab="4G. Glossary",
+        optional=True, sheet="22. Glossary", tab="5G. Glossary",
     ),
 ]
 
@@ -710,21 +710,17 @@ SheetSpec = namedtuple(
 )
 
 
-def _spec(v5_code=None, section=None, section_rank=None, letter_prefix=None,
-          letter_rank=None, display=None, module_key=None):
-    return SheetSpec(v5_code, section, section_rank, letter_prefix, letter_rank,
-                      display, module_key)
-
-
-# The kind -> letter-group map the invariant below enforces. #329 §3.1: a
-# sheet's workbook group is a CONSEQUENCE of its module's kind, not a second
-# fact typed beside it. Phase 1 (this) asserts the two agree; W3 deletes the
-# hand-typed `section`/`letter_prefix` fields and derives them from here.
+# The kind -> letter-group map validate() enforces below. #329 §3.1: a sheet's
+# workbook group is a CONSEQUENCE of its module's kind, not a second fact typed
+# beside it. `_visible()` (below) derives every sheet's `section`/
+# `letter_prefix` from this table -- there is no hand-typed twin left for
+# validate() to check against; the invariant is now structural.
 #
-# This is the map as the workbook stands TODAY, before W3's regrouping. W3
-# changes it -- COMPARISON moves to its own '3' and PROTECTION joins the
-# renamed '4. Risks' -- and that edit is the regrouping, which is why the map
-# is a named table rather than an expression inlined in validate().
+# COMPARISON has its own group ('3. Comparisons'), and PROTECTION joins
+# STRESS_TEST under '4. Risks' -- #329 §3.2's regrouping. DIAGNOSTICS and
+# REFERENCE take '5' ('5. System'): group '4' is claimed by Risks, and #329
+# never named a System section in its own numbering (that section is outside
+# its scope; see docs/superpowers/plans/2026-09-21-w3-workbook-regrouping-notes.md).
 #
 # WORKSHEET shares '1' with PROJECTION deliberately: a worksheet restates
 # figures computed elsewhere, which is what a report does (`current_vs_
@@ -737,61 +733,102 @@ KIND_LETTER_PREFIX: Dict[str, str] = {
     PROJECTION:   '1',
     WORKSHEET:    '1',
     OPTIMIZATION: '2',
-    COMPARISON:   '2',
-    PROTECTION:   '3',
-    STRESS_TEST:  '3',
-    DIAGNOSTICS:  '4',
-    REFERENCE:    '4',
+    COMPARISON:   '3',
+    PROTECTION:   '4',
+    STRESS_TEST:  '4',
+    DIAGNOSTICS:  '5',
+    REFERENCE:    '5',
 }
 
-SHEET_REGISTRY = {
-    '1. Executive Summary':        _spec('1', '1', 0, '1', 0, 'Executive Summary'),
-    'Plan Data':                   _spec(None, '4', 0, '4', 0, 'Plan Data'),
-    '2. Assumptions':              _spec('4', '4', 1, '4', 1, 'Assumptions'),
-    '3. Balance Sheet':            _spec('1', '1', 3, '1', 3, 'Balance Sheet'),
-    '4. Asset Allocation':         _spec('2', '2', 1, '2', 1, 'Asset Allocation'),
-    '5. Net Worth Projection':     _spec('1', '1', 1, '1', 1, 'Net Worth'),
-    '6. Cash Flow Projection':     _spec('1', '1', 2, '1', 2, 'Cash Flow'),
-    '7. Lifetime Tax':             _spec('1', '1', 5, '1', 5, 'Lifetime Taxes', 'lifetime_tax_projection'),
-    '8. Charts Dashboard':         _spec('1', '1', 4, '1', 4, 'Charts', 'charts_dashboard'),
-    '9. Retirement Strategy':      _spec('1', module_key='retirement_strategy'),
-    'S-Corp vs LLC':               _spec(None, '2', 4, '2', 4, 'S-Corp vs LLC'),
-    '10. Social Security':         _spec('2', '2', 3, '2', 3, 'Social Security', 'social_security_timing'),
-    '11. Roth Conversion':         _spec('2', '2', 0, '2', 0, 'Roth Conversion', 'roth_conversion_plan'),
+# Reverse of CATALOG: stable sheet name -> its module's `kind`. Every sheet
+# that reaches the visible nav is guaranteed an entry here by validate()'s
+# guard (3) below -- a KeyError out of `_group_for` means that guard would
+# already have failed.
+_SHEET_KIND: Dict[str, str] = {m.sheet: m.kind for m in CATALOG.values() if m.sheet}
+
+
+def _group_for(sheet_name: str) -> str:
+    return KIND_LETTER_PREFIX[_SHEET_KIND[sheet_name]]
+
+
+def _visible(name, v5_code=None, section_rank=None, letter_rank=None,
+             display=None, module_key=None):
+    """A sheet that appears in the numbered/lettered nav. `section` and
+    `letter_prefix` are DERIVED from the sheet's module's `kind` via
+    KIND_LETTER_PREFIX -- never hand-typed (#329 F7). `section_rank` and
+    `letter_rank` still take an explicit ordering key each; the two may
+    differ (see the field doc above) so both stay explicit.
+    """
+    group = _group_for(name)
+    return name, SheetSpec(v5_code, group, section_rank, group, letter_rank,
+                            display, module_key)
+
+
+def _hidden(name, v5_code=None, module_key=None):
+    """A sheet that is created and dispatched but deliberately absent from
+    the visible nav (merged into another sheet, or not yet restored)."""
+    return name, SheetSpec(v5_code, None, None, None, None, None, module_key)
+
+
+SHEET_REGISTRY = dict([
+    _visible('1. Executive Summary', '1', 0, 0, 'Executive Summary'),
+    _visible('Plan Data', None, 0, 0, 'Plan Data'),
+    _visible('2. Assumptions', '4', 1, 1, 'Assumptions'),
+    _visible('3. Balance Sheet', '1', 3, 3, 'Balance Sheet'),
+    _visible('4. Asset Allocation', '2', 1, 1, 'Asset Allocation'),
+    _visible('5. Net Worth Projection', '1', 1, 1, 'Net Worth'),
+    _visible('6. Cash Flow Projection', '1', 2, 2, 'Cash Flow'),
+    _visible('7. Lifetime Tax', '1', 5, 5, 'Lifetime Taxes', 'lifetime_tax_projection'),
+    _visible('8. Charts Dashboard', '1', 4, 4, 'Charts', 'charts_dashboard'),
+    _hidden('9. Retirement Strategy', '1', module_key='retirement_strategy'),
+    _visible('S-Corp vs LLC', None, 0, 1, 'S-Corp vs LLC'),
+    _visible('10. Social Security', '2', 3, 3, 'Social Security', 'social_security_timing'),
+    _visible('11. Roth Conversion', '2', 0, 0, 'Roth Conversion', 'roth_conversion_plan'),
     # section_rank/letter_rank are sort keys, not slots -- 0.5 sits it right
     # after Roth Conversion (rank 0) without renumbering anything else. Its
     # content is optimizer-mode-gated (hsa_withdrawal_mode == 'optimize'),
     # not a client_optional_functions.csv toggle, so module_key stays None
     # like 11B: always created, self-gates its own content.
-    '11C. HSA Drawdown':           _spec('2', '2', 0.5, '2', 0.5, 'HSA Drawdown'),
-    '12. Charitable Giving':       _spec('2', '2', 5, '2', 5, 'Charitable Giving', 'charitable_giving'),
-    '12B. Tax-Loss Harvesting':    _spec('2', '2', 7, '2', 8, 'Tax-Loss Harvesting', 'tax_loss_harvesting'),
-    '12C. Gain Harvesting':        _spec('2', '2', 8, '2', 13, 'Gain Harvesting', 'gain_harvesting'),
-    '13. State Residency':         _spec('2', '2', 2, '2', 2, 'State Residency', 'state_residency'),
-    '14. Estate Plan':             _spec('2', '2', 6, '2', 6, 'Estate & Legacy Planning', 'estate_legacy_plan'),
-    '15. Market-Luck Stress Test': _spec('3', '3', 0, '3', 0, 'Monte Carlo', 'market_luck_stress_test'),
-    '16. Scenario Analysis':       _spec('H', module_key='what_if_analysis'),
-    '17. LTC Stress Test':         _spec('3', module_key='long_term_care_stress'),
-    '18. Survivor Stress Test':    _spec('3', '3', 1, '3', 1, 'Survivor', 'survivor_stress_test'),
-    '19. Life Insurance':          _spec('3', '3', 2, '3', 2, 'LTC + Life Insurance', 'life_insurance_need'),
-    '20. RMD Audit':               _spec('4', '4', 5, '4', 4, 'RMD Audit', 'rmd_audit'),
-    '21. Quality Control':         _spec('4', '4', 4, '4', 3, 'Quality Control'),
-    '22. Glossary':                _spec('4', '4', 7, '4', 6, 'Glossary', 'glossary'),
-    '23. Methodology':             _spec('4', '4', 6, '4', 5, 'Methodology', 'methodology_rerun'),
-    '24. Asset Location':          _spec('2'),
-    '25. Account Reconciliation':  _spec('4', '4', 3, '4', 2, 'Account Reconciliation'),
-    '26. Workbook Warnings':       _spec('H'),
-    '27. Planning Levers':         _spec('4', '4', 7.5, '4', 7.5, 'Planning Levers'),
-    '11B. Tax Capacity':           _spec('2', '4', 8, '4', 8, 'Tax Capacity'),
-    '29. Spending Summary':        _spec('1', '1', 6, '1', 6, 'Spending Summary'),
-    '30. Education Funding':       _spec('2', '2', 9, '2', 9, 'Education Funding', 'education_funding_529'),
-    '31. Existing Life Insurance': _spec('2', '3', 3, '3', 3, 'Existing Life Insurance', 'existing_life_insurance'),
-    '32. Disability Income':       _spec('2', '3', 4, '3', 4, 'Disability Income', 'disability_income_insurance'),
-    '33. P&C Umbrella':            _spec('2', '3', 5, '3', 5, 'P&C Umbrella', 'property_casualty_umbrella'),
-    '34. Business Succession':     _spec('2', '2', 12, '2', 12, 'Business Succession', 'business_succession'),
-    '35. Equity Compensation':     _spec('2', '2', 10, '2', 10, 'Equity Compensation', 'equity_compensation'),
-    '36. Special-Needs Planning':  _spec('2', '2', 11, '2', 11, 'Special-Needs Planning', 'special_needs_planning'),
-    '37. Current vs Proposed':     _spec('1', '1', 7, '1', 7, 'Current vs. Proposed'),
+    _visible('11C. HSA Drawdown', '2', 0.5, 0.5, 'HSA Drawdown'),
+    _visible('12. Charitable Giving', '2', 5, 5, 'Charitable Giving', 'charitable_giving'),
+    # letter_rank 16/17 (below the highest plan-optimizer rank, 15 on Housing
+    # Comparison) puts Tax-Loss Harvesting and Gain Harvesting last and
+    # adjacent within '2. Optimizers', densely -- W3's "This year's actions"
+    # divider (build_workbook_section_divider) renders right before whichever
+    # of the two survives module gating and appears first.
+    _visible('12B. Tax-Loss Harvesting', '2', 7, 16, 'Tax-Loss Harvesting', 'tax_loss_harvesting'),
+    _visible('12C. Gain Harvesting', '2', 8, 17, 'Gain Harvesting', 'gain_harvesting'),
+    _visible('13. State Residency', '2', 0, 0, 'State Residency', 'state_residency'),
+    _visible('14. Estate Plan', '2', 6, 6, 'Estate & Legacy Planning', 'estate_legacy_plan'),
+    _visible('15. Market-Luck Stress Test', '3', 0, 0, 'Monte Carlo', 'market_luck_stress_test'),
+    _hidden('16. Scenario Analysis', 'H', module_key='what_if_analysis'),
+    # W3 (#329 O10): LTC Stress Test is no longer merged into Life Insurance
+    # -- it gets its own tab under '4. Risks' (4.1 stress tests), letter_rank
+    # 2 so it sits between Survivor (1) and the protection decisions (3+).
+    _visible('17. LTC Stress Test', '3', 2, 2, 'LTC Stress Test', 'long_term_care_stress'),
+    _visible('18. Survivor Stress Test', '3', 1, 1, 'Survivor', 'survivor_stress_test'),
+    # letter_rank 3 (was 2): LTC Stress Test's split-out tab now sits at 2.
+    _visible('19. Life Insurance', '3', 3, 3, 'Life Insurance Need', 'life_insurance_need'),
+    _visible('20. RMD Audit', '4', 5, 4, 'RMD Audit', 'rmd_audit'),
+    _visible('21. Quality Control', '4', 4, 3, 'Quality Control'),
+    _visible('22. Glossary', '4', 7, 6, 'Glossary', 'glossary'),
+    _visible('23. Methodology', '4', 6, 5, 'Methodology', 'methodology_rerun'),
+    _hidden('24. Asset Location', '2'),
+    _visible('25. Account Reconciliation', '4', 3, 2, 'Account Reconciliation'),
+    _hidden('26. Workbook Warnings', 'H'),
+    _visible('27. Planning Levers', '4', 7.5, 7.5, 'Planning Levers'),
+    _visible('11B. Tax Capacity', '2', 8, 8, 'Tax Capacity'),
+    _visible('29. Spending Summary', '1', 6, 6, 'Spending Summary'),
+    _visible('30. Education Funding', '2', 9, 9, 'Education Funding', 'education_funding_529'),
+    # letter_rank 4-6 (was 3-5): the protection decisions now sit after LTC
+    # Stress Test's own tab (2) and Life Insurance Need (3) in '4. Risks'.
+    _visible('31. Existing Life Insurance', '3', 4, 4, 'Existing Life Insurance', 'existing_life_insurance'),
+    _visible('32. Disability Income', '3', 5, 5, 'Disability Income', 'disability_income_insurance'),
+    _visible('33. P&C Umbrella', '3', 6, 6, 'P&C Umbrella', 'property_casualty_umbrella'),
+    _visible('34. Business Succession', '2', 12, 12, 'Business Succession', 'business_succession'),
+    _visible('35. Equity Compensation', '2', 10, 10, 'Equity Compensation', 'equity_compensation'),
+    _visible('36. Special-Needs Planning', '2', 11, 11, 'Special-Needs Planning', 'special_needs_planning'),
+    _visible('37. Current vs Proposed', '1', 7, 7, 'Current vs. Proposed'),
     # 2026-09-09 housing-estimate design, §7.0 H7: the three-axis housing
     # trajectory sweep -- see src/housing_comparison.py.
     # section_rank/letter_rank 17/15 sit right
@@ -801,8 +838,8 @@ SHEET_REGISTRY = {
     # build-time sheet TITLE is a real openpyxl worksheet name, capped at 31
     # characters -- "38. Housing Trajectory Comparison" (33 chars) tripped
     # that limit.
-    '38. Housing Comparison':      _spec('2', '2', 17, '2', 15, 'Housing Comparison', 'housing_trajectory_comparison'),
-}
+    _visible('38. Housing Comparison', '2', 17, 15, 'Housing Comparison', 'housing_trajectory_comparison'),
+])
 
 # OPTIONAL_MODULE_SHEETS maps each client_optional_functions.csv toggle key to
 # the legacy build-time sheet name(s) it owns, derived from SHEET_REGISTRY.

@@ -172,8 +172,9 @@ def section_title(ws, row, text, span=8, bg=None):
 SECTION_COLOR = {
     '1': '2E75B6',  # Reports — blue
     '2': '7030A0',  # Optimizers — purple
-    '3': 'C00000',  # Risk & Stress Tests — red
-    '4': 'B45F06',  # System — amber
+    '3': '548235',  # Comparisons — green
+    '4': 'C00000',  # Risks — red
+    '5': 'B45F06',  # System — amber
     'H': '4472C4',  # Hidden/helper sheets — medium blue
 }
 
@@ -206,8 +207,9 @@ from ..module_catalog import SHEET_REGISTRY as _SHEET_REGISTRY
 _SECTION_META = {
     '1': ('1. Reports', 'Read-only plan reports and advisor-review outputs.'),
     '2': ('2. Optimizers', 'Decision-support modules and optimization outputs.'),
-    '3': ('3. Risk & Stress Tests', 'Monte Carlo, survivor, and protection stress tests.'),
-    '4': ('4. System', 'Plan data snapshot, assumptions, reconciliation, quality control, RMD audit, methodology, and glossary.'),
+    '3': ('3. Comparisons', "Alternatives the user named, scored side by side — no search."),
+    '4': ('4. Risks', 'Stress tests and the protection decisions they motivate.'),
+    '5': ('5. System', 'Plan data snapshot, assumptions, reconciliation, quality control, RMD audit, methodology, and glossary.'),
 }
 
 
@@ -340,7 +342,10 @@ _SHEET_NUM_TO_STABLE = {
     13: '13. State Residency',
     14: '14. Estate Plan',
     15: '15. Market-Luck Stress Test',
-    17: '19. Life Insurance',
+    # W3 (#329 O10): LTC Stress Test is split back out of Life Insurance, so
+    # "Sheet 17" now resolves to its own tab again, not the sheet it used to
+    # be merged into.
+    17: '17. LTC Stress Test',
     18: '18. Survivor Stress Test',
     19: '19. Life Insurance',
     20: '20. RMD Audit',
@@ -359,7 +364,7 @@ def sheet_num_label_replacements() -> dict:
         return FINAL_SHEET_RENAMES.get(stable, stable)
     out = {f'Sheet {n}': final(stable) for n, stable in _SHEET_NUM_TO_STABLE.items()}
     out['Sheet 13 & 14'] = f"{final('13. State Residency')} & {final('14. Estate Plan')}"
-    out['Sheet 17) shows'] = f"{final('19. Life Insurance')} shows"
+    out['Sheet 17) shows'] = f"{final('17. LTC Stress Test')} shows"
     out['Sheet 16'] = 'Scenario Analysis'
     out['Sheet 26'] = 'Workbook Warnings'
     return out
