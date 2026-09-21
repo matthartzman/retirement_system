@@ -233,7 +233,18 @@ DASHBOARD_JS_MAX_LINES = 7_293
 # 2026-09-17 (housing-screen-fixes): the Housing screen's inconsistency/gap-
 # year/ZIP-input fixes plus an inline HELOC-enabled toggle on Optimize are
 # real new logic, not duplication -- raised to the measured total.
-TOTAL_JS_MAX_LINES = 33_275
+# 2026-09-21 (H1, #331 valuation-as-of-move-year, docs/superpowers/plans/
+# 2026-09-19-optimizers-modules-housing-master-plan.md): measured at 33,311
+# before this branch's own changes landed -- 36 lines already over the prior
+# 33,275 ceiling from an unrelated branch merged to main first (not raised
+# there; folded in here since this is the first touch of this file since).
+# This branch adds dashboard_decomp_housing_optimizer.js's "both years"
+# results display (purchase_price/monthly_rent shown alongside their
+# today's-dollars equivalent) and its one-time valuation-basis notice, plus
+# dashboard_decomp_housing_scenarios.js's start_year re-estimate prompt and
+# lot_size_band request-body fix (§6.4 sites 5-7). All new behavior, not
+# lines moved from elsewhere -- raised to the measured total of both.
+TOTAL_JS_MAX_LINES = 33_406
 
 
 def _line_count(path: Path) -> int:

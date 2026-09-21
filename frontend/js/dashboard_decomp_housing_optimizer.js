@@ -35,6 +35,46 @@ export const HOUSING_OPT_PANEL_ID = "housingOptPanel";
 const HOUSING_OPT_RESULTS_ID = "housingOptimizeResults";
 export const HOUSING_OPT_STORAGE_KEY = "retirement.housing_optimizer.v1";
 
+// One-time dismissible notice (design 2026-09-19 §6.6): move costs are now
+// priced as of the move's own year instead of today's, which changes every
+// objective/ranking and shifts recommendations earlier -- households who saw
+// results before the upgrade should be told once. Its own storage key, kept
+// separate from HOUSING_OPT_STORAGE_KEY (the form-input cache), so
+// dismissing the notice never touches saved inputs and vice versa.
+const HOUSING_OPT_VALUATION_NOTICE_KEY = "retirement.housing_optimizer.valuation_notice_dismissed.v1";
+
+function housingOptValuationNoticeDismissed() {
+  try {
+    return localStorage.getItem(HOUSING_OPT_VALUATION_NOTICE_KEY) === "1";
+  } catch (e) {
+    // Blocked/unavailable storage: show the notice every time rather than
+    // throw -- the same fail-open choice loadHousingOptInputs() makes.
+    return false;
+  }
+}
+
+export function dismissHousingOptValuationNotice() {
+  try {
+    localStorage.setItem(HOUSING_OPT_VALUATION_NOTICE_KEY, "1");
+  } catch (e) {
+    // Blocked/unavailable storage: nothing to persist, but still hide it
+    // for the rest of this session below.
+  }
+  const el = document.getElementById("housingOptValuationNotice");
+  if (el) el.remove();
+}
+
+function housingOptValuationNoticeHtml() {
+  if (housingOptValuationNoticeDismissed()) return "";
+  return (
+    '<div class="housing-opt-notice" id="housingOptValuationNotice">' +
+    "<p class=\"small\">Move costs are now estimated in the dollars of the year you move, " +
+    "not today's dollars. Earlier results understated future moves and favored moving later.</p>" +
+    '<button class="btn tiny" type="button" onclick="dismissHousingOptValuationNotice()">Dismiss</button>' +
+    "</div>"
+  );
+}
+
 // Keys in the stored payload that are not themselves a DOM element's id --
 // the per-move anchor *count* has no backing control (it is the module-level
 // housingOptAnchorCounts map below) and the details open state belongs to
@@ -1281,6 +1321,7 @@ export function renderHousingOptimizePanelHtml() {
 
   const html = `<details class="housing-optimize-panel" id="${HOUSING_OPT_PANEL_ID}" oninput="debouncedSaveHousingOptInputs()" onchange="debouncedSaveHousingOptInputs()" ontoggle="debouncedSaveHousingOptInputs()"><summary>Optimize next housing move</summary><div class="housing-opt-body">
     <div class="housing-opt-head"><div class="section-note">Search the three decisions independently -- what happens to the current home, and where/what/when each move is -- against the same deterministic engine and Monte Carlo runner as the rest of the plan.</div><button class="btn small" type="button" id="housingOptPanelHelp" onclick="showHousingOptFieldHelp('_panel')">Help</button></div>
+    ${housingOptValuationNoticeHtml()}
     ${objectiveRow}
     ${presenceRow}
     ${currentHomeRow}
@@ -1542,6 +1583,18 @@ function housingOptActionLabel(action) {
 // `·`-joined string, so a move cell doesn't force horizontal scrolling.
 // Family distance is dropped: it duplicated the search criteria shown
 // elsewhere and was the single biggest source of the cell's width.
+// Every move-cost figure is now priced as of the move's own year (design
+// 2026-09-19 §6.4/§6.6), not today's dollars -- the secondary "(today)"
+// parenthetical is the today's-dollars equivalent, so a household can see
+// both without a second lookup. Omitted when it would round to the same
+// figure as the primary one (a current-year move: years_out = 0).
+function housingOptTodayParenthetical(moveYearValue, todayValue) {
+  if (todayValue == null) return "";
+  const rounded = Math.round(todayValue);
+  if (moveYearValue != null && Math.round(moveYearValue) === rounded) return "";
+  return ` ($${rounded.toLocaleString()} today)`;
+}
+
 function housingOptMoveCellHtml(move) {
   if (!move) return "—";
   const loc = move.location || {};
@@ -1551,12 +1604,14 @@ function housingOptMoveCellHtml(move) {
   if (move.action === "rent") {
     money =
       financing.monthly_rent != null
-        ? `$${Math.round(financing.monthly_rent).toLocaleString()}/mo rent`
+        ? `$${Math.round(financing.monthly_rent).toLocaleString()}/mo rent` +
+          housingOptTodayParenthetical(financing.monthly_rent, financing.monthly_rent_today)
         : "—";
   } else {
     const price =
       financing.purchase_price != null
-        ? `$${Math.round(financing.purchase_price).toLocaleString()} purchase`
+        ? `$${Math.round(financing.purchase_price).toLocaleString()} purchase` +
+          housingOptTodayParenthetical(financing.purchase_price, financing.purchase_price_today)
         : "—";
     const pi =
       financing.monthly_pi_payment != null
@@ -1981,4 +2036,5 @@ Object.assign(window, {
   debouncedRefreshHousingOptValidation,
   runHousingOptimization,
   startHousingOptimization,
+  dismissHousingOptValuationNotice,
 });
