@@ -12,6 +12,8 @@
 // dashboard_row_model.js) so existing tests that glob that pattern for a
 // multi-file "full dashboard source" read/smoke-exec pick it up automatically.
 
+let moduleTaxonomy = { modules: {} };
+
 export function stepGatedByOptionalModule(stepId) {
   // HELOC isn't a client_optional_functions.csv toggle (module_catalog has no
   // entry for it) — it's a plan-data feature flag (HELOC/Setup/heloc_enabled),
@@ -1605,6 +1607,33 @@ export function fieldNumericValue(row) {
 
 export function rowModuleGate(section) {
   return (moduleGates.section_gates || {})[section] || null;
+}
+
+// #330 §3.4 (W5): the reverse-direction warning on an optional module's
+// switch. `degrades_without` is declared on the module that shows less, but
+// the question a user actually has is at the switch they are about to flip:
+// "what do I lose if I turn this off?" The server serves both directions
+// (config_service._module_taxonomy), so this reads the answer rather than
+// inverting the relation here — a second copy of the relation in JS is
+// exactly the hand-maintained twin #329 exists to end.
+//
+// Returns "" when nothing degrades without `key`, which is most modules, so
+// the caller can concatenate unconditionally.
+// `taxonomy` is a parameter with a default rather than a closed-over read so
+// the function stays pure and directly testable: a module-scoped `let` is a
+// lexical binding, invisible to the vm-sandbox loader the frontend tests use.
+export function moduleOffImpactWarning(key, taxonomy = moduleTaxonomy) {
+  const mod = ((taxonomy || {}).modules || {})[key];
+  const hit = (mod && mod.degraded_by) || [];
+  if (!hit.length) return "";
+  // "the fan chart from Charts", joined into a list that reads as English:
+  // "A", "A and B", "A, B and C".
+  const parts = hit.map((d) => `${d.loses} from ${d.name}`);
+  const listed =
+    parts.length === 1
+      ? parts[0]
+      : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+  return `Turning ${(mod.name || key)} off also removes ${listed}.`;
 }
 
 export function rowBuildUsageState(row, stepId = "") {
@@ -4525,6 +4554,11 @@ export async function loadAll(opts = {}) {
     rows = cfg.rows || [];
     moduleStatus = cfg.module_status || {};
     moduleGates = cfg.module_gates || { step_gates: {}, section_gates: {} };
+    // #330 phase 2 + §3.4: both classification axes and the soft-dependency
+    // relation, for the Plan Features switch UI. Module-private on purpose --
+    // moduleOffImpactWarning() below is the only reader, so unlike
+    // moduleStatus/moduleGates this needs no window accessor.
+    moduleTaxonomy = cfg.module_taxonomy || { modules: {} };
     if (window.RetirementAppStore)
       window.RetirementAppStore.set({
         rows: rows,
@@ -5079,6 +5113,7 @@ Object.assign(window, {
   markYtdTransactionsDirty,
   matrixRows,
   mcEngineModeValue,
+  moduleOffImpactWarning,
   navigationContext,
   norm,
   noteReceivableRows,

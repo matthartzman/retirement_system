@@ -3631,6 +3631,11 @@ function renderOptionalFunctions() {
         esc(status.required_by.join(", ")) +
         "</span>";
     }
+    // #330 §3.4: what switching this OFF costs elsewhere, from the catalog's
+    // reverse degrades_without map. Shown while the module is on, because
+    // that is when it is a warning rather than a fact.
+    const offImpact = on ? moduleOffImpactWarning(r.label) : "";
+    if (offImpact) html += '<span class="opt-module-off-impact">' + esc(offImpact) + "</span>";
     html += "</div>";
     html +=
       '<button class="opt-module-toggle ' +
