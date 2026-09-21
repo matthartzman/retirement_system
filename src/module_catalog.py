@@ -704,16 +704,37 @@ def prerequisite_outputs(key: str, transitive: bool = True) -> List[str]:
 #                    the sheet never appears in the final numbered/lettered
 #                    nav.
 #   module_key    -- OPTIONAL_MODULE_SHEETS gating key, or None if always-on.
+#   slug          -- #329 P2 (W2): the letter-independent stable identity.
+#                    Unlike the dict key above (a legacy build-time name that
+#                    still carries old V5 numbering, e.g. '11C. HSA
+#                    Drawdown') and unlike the final display name (whose
+#                    letter shifts with every other toggle, #1.1's
+#                    shifting-letters defect), `slug` never changes: not when
+#                    a module is added/removed/reordered, not when `display`
+#                    is reworded. It is the identity an external ticket,
+#                    design doc, or support note should reference instead of
+#                    a letter. Required (no default) so a new sheet cannot be
+#                    added without picking one; validate() asserts every slug
+#                    is unique. workbook_common.compute_final_sheet_renames
+#                    dual-keys FINAL_SHEET_RENAMES by both the dict key and
+#                    the slug, so `FINAL_SHEET_RENAMES[slug]` always resolves
+#                    -- but the in-cell text substitution pass
+#                    (_replace_text_refs) still searches for the dict-key
+#                    string, not the slug: slugs are short snake_case
+#                    fragments ('tax_capacity', 'pc_umbrella') that could
+#                    collide with an unrelated internal identifier already
+#                    sitting inside existing cell prose, where the long,
+#                    punctuated dict-key strings ('11B. Tax Capacity') can't.
 SheetSpec = namedtuple(
     'SheetSpec',
-    'v5_code section section_rank letter_prefix letter_rank display module_key',
+    'v5_code section section_rank letter_prefix letter_rank display module_key slug',
 )
 
 
 def _spec(v5_code=None, section=None, section_rank=None, letter_prefix=None,
-          letter_rank=None, display=None, module_key=None):
+          letter_rank=None, display=None, module_key=None, *, slug):
     return SheetSpec(v5_code, section, section_rank, letter_prefix, letter_rank,
-                      display, module_key)
+                      display, module_key, slug)
 
 
 # The kind -> letter-group map the invariant below enforces. #329 §3.1: a
@@ -745,53 +766,53 @@ KIND_LETTER_PREFIX: Dict[str, str] = {
 }
 
 SHEET_REGISTRY = {
-    '1. Executive Summary':        _spec('1', '1', 0, '1', 0, 'Executive Summary'),
-    'Plan Data':                   _spec(None, '4', 0, '4', 0, 'Plan Data'),
-    '2. Assumptions':              _spec('4', '4', 1, '4', 1, 'Assumptions'),
-    '3. Balance Sheet':            _spec('1', '1', 3, '1', 3, 'Balance Sheet'),
-    '4. Asset Allocation':         _spec('2', '2', 1, '2', 1, 'Asset Allocation'),
-    '5. Net Worth Projection':     _spec('1', '1', 1, '1', 1, 'Net Worth'),
-    '6. Cash Flow Projection':     _spec('1', '1', 2, '1', 2, 'Cash Flow'),
-    '7. Lifetime Tax':             _spec('1', '1', 5, '1', 5, 'Lifetime Taxes', 'lifetime_tax_projection'),
-    '8. Charts Dashboard':         _spec('1', '1', 4, '1', 4, 'Charts', 'charts_dashboard'),
-    '9. Retirement Strategy':      _spec('1', module_key='retirement_strategy'),
-    'S-Corp vs LLC':               _spec(None, '2', 4, '2', 4, 'S-Corp vs LLC'),
-    '10. Social Security':         _spec('2', '2', 3, '2', 3, 'Social Security', 'social_security_timing'),
-    '11. Roth Conversion':         _spec('2', '2', 0, '2', 0, 'Roth Conversion', 'roth_conversion_plan'),
+    '1. Executive Summary':        _spec('1', '1', 0, '1', 0, 'Executive Summary', slug='executive_summary'),
+    'Plan Data':                   _spec(None, '4', 0, '4', 0, 'Plan Data', slug='plan_data'),
+    '2. Assumptions':              _spec('4', '4', 1, '4', 1, 'Assumptions', slug='assumptions'),
+    '3. Balance Sheet':            _spec('1', '1', 3, '1', 3, 'Balance Sheet', slug='balance_sheet'),
+    '4. Asset Allocation':         _spec('2', '2', 1, '2', 1, 'Asset Allocation', slug='asset_allocation'),
+    '5. Net Worth Projection':     _spec('1', '1', 1, '1', 1, 'Net Worth', slug='net_worth'),
+    '6. Cash Flow Projection':     _spec('1', '1', 2, '1', 2, 'Cash Flow', slug='cash_flow'),
+    '7. Lifetime Tax':             _spec('1', '1', 5, '1', 5, 'Lifetime Taxes', 'lifetime_tax_projection', slug='lifetime_taxes'),
+    '8. Charts Dashboard':         _spec('1', '1', 4, '1', 4, 'Charts', 'charts_dashboard', slug='charts'),
+    '9. Retirement Strategy':      _spec('1', module_key='retirement_strategy', slug='retirement_strategy'),
+    'S-Corp vs LLC':               _spec(None, '2', 4, '2', 4, 'S-Corp vs LLC', slug='s_corp_vs_llc'),
+    '10. Social Security':         _spec('2', '2', 3, '2', 3, 'Social Security', 'social_security_timing', slug='social_security'),
+    '11. Roth Conversion':         _spec('2', '2', 0, '2', 0, 'Roth Conversion', 'roth_conversion_plan', slug='roth_conversion'),
     # section_rank/letter_rank are sort keys, not slots -- 0.5 sits it right
     # after Roth Conversion (rank 0) without renumbering anything else. Its
     # content is optimizer-mode-gated (hsa_withdrawal_mode == 'optimize'),
     # not a client_optional_functions.csv toggle, so module_key stays None
     # like 11B: always created, self-gates its own content.
-    '11C. HSA Drawdown':           _spec('2', '2', 0.5, '2', 0.5, 'HSA Drawdown'),
-    '12. Charitable Giving':       _spec('2', '2', 5, '2', 5, 'Charitable Giving', 'charitable_giving'),
-    '12B. Tax-Loss Harvesting':    _spec('2', '2', 7, '2', 8, 'Tax-Loss Harvesting', 'tax_loss_harvesting'),
-    '12C. Gain Harvesting':        _spec('2', '2', 8, '2', 13, 'Gain Harvesting', 'gain_harvesting'),
-    '13. State Residency':         _spec('2', '2', 2, '2', 2, 'State Residency', 'state_residency'),
-    '14. Estate Plan':             _spec('2', '2', 6, '2', 6, 'Estate & Legacy Planning', 'estate_legacy_plan'),
-    '15. Market-Luck Stress Test': _spec('3', '3', 0, '3', 0, 'Monte Carlo', 'market_luck_stress_test'),
-    '16. Scenario Analysis':       _spec('H', module_key='what_if_analysis'),
-    '17. LTC Stress Test':         _spec('3', module_key='long_term_care_stress'),
-    '18. Survivor Stress Test':    _spec('3', '3', 1, '3', 1, 'Survivor', 'survivor_stress_test'),
-    '19. Life Insurance':          _spec('3', '3', 2, '3', 2, 'LTC + Life Insurance', 'life_insurance_need'),
-    '20. RMD Audit':               _spec('4', '4', 5, '4', 4, 'RMD Audit', 'rmd_audit'),
-    '21. Quality Control':         _spec('4', '4', 4, '4', 3, 'Quality Control'),
-    '22. Glossary':                _spec('4', '4', 7, '4', 6, 'Glossary', 'glossary'),
-    '23. Methodology':             _spec('4', '4', 6, '4', 5, 'Methodology', 'methodology_rerun'),
-    '24. Asset Location':          _spec('2'),
-    '25. Account Reconciliation':  _spec('4', '4', 3, '4', 2, 'Account Reconciliation'),
-    '26. Workbook Warnings':       _spec('H'),
-    '27. Planning Levers':         _spec('4', '4', 7.5, '4', 7.5, 'Planning Levers'),
-    '11B. Tax Capacity':           _spec('2', '4', 8, '4', 8, 'Tax Capacity'),
-    '29. Spending Summary':        _spec('1', '1', 6, '1', 6, 'Spending Summary'),
-    '30. Education Funding':       _spec('2', '2', 9, '2', 9, 'Education Funding', 'education_funding_529'),
-    '31. Existing Life Insurance': _spec('2', '3', 3, '3', 3, 'Existing Life Insurance', 'existing_life_insurance'),
-    '32. Disability Income':       _spec('2', '3', 4, '3', 4, 'Disability Income', 'disability_income_insurance'),
-    '33. P&C Umbrella':            _spec('2', '3', 5, '3', 5, 'P&C Umbrella', 'property_casualty_umbrella'),
-    '34. Business Succession':     _spec('2', '2', 12, '2', 12, 'Business Succession', 'business_succession'),
-    '35. Equity Compensation':     _spec('2', '2', 10, '2', 10, 'Equity Compensation', 'equity_compensation'),
-    '36. Special-Needs Planning':  _spec('2', '2', 11, '2', 11, 'Special-Needs Planning', 'special_needs_planning'),
-    '37. Current vs Proposed':     _spec('1', '1', 7, '1', 7, 'Current vs. Proposed'),
+    '11C. HSA Drawdown':           _spec('2', '2', 0.5, '2', 0.5, 'HSA Drawdown', slug='hsa_drawdown'),
+    '12. Charitable Giving':       _spec('2', '2', 5, '2', 5, 'Charitable Giving', 'charitable_giving', slug='charitable_giving'),
+    '12B. Tax-Loss Harvesting':    _spec('2', '2', 7, '2', 8, 'Tax-Loss Harvesting', 'tax_loss_harvesting', slug='tax_loss_harvesting'),
+    '12C. Gain Harvesting':        _spec('2', '2', 8, '2', 13, 'Gain Harvesting', 'gain_harvesting', slug='gain_harvesting'),
+    '13. State Residency':         _spec('2', '2', 2, '2', 2, 'State Residency', 'state_residency', slug='state_residency'),
+    '14. Estate Plan':             _spec('2', '2', 6, '2', 6, 'Estate & Legacy Planning', 'estate_legacy_plan', slug='estate_legacy_planning'),
+    '15. Market-Luck Stress Test': _spec('3', '3', 0, '3', 0, 'Monte Carlo', 'market_luck_stress_test', slug='monte_carlo'),
+    '16. Scenario Analysis':       _spec('H', module_key='what_if_analysis', slug='scenario_analysis'),
+    '17. LTC Stress Test':         _spec('3', module_key='long_term_care_stress', slug='ltc_stress_test'),
+    '18. Survivor Stress Test':    _spec('3', '3', 1, '3', 1, 'Survivor', 'survivor_stress_test', slug='survivor_stress_test'),
+    '19. Life Insurance':          _spec('3', '3', 2, '3', 2, 'LTC + Life Insurance', 'life_insurance_need', slug='ltc_life_insurance'),
+    '20. RMD Audit':               _spec('4', '4', 5, '4', 4, 'RMD Audit', 'rmd_audit', slug='rmd_audit'),
+    '21. Quality Control':         _spec('4', '4', 4, '4', 3, 'Quality Control', slug='quality_control'),
+    '22. Glossary':                _spec('4', '4', 7, '4', 6, 'Glossary', 'glossary', slug='glossary'),
+    '23. Methodology':             _spec('4', '4', 6, '4', 5, 'Methodology', 'methodology_rerun', slug='methodology'),
+    '24. Asset Location':          _spec('2', slug='asset_location'),
+    '25. Account Reconciliation':  _spec('4', '4', 3, '4', 2, 'Account Reconciliation', slug='account_reconciliation'),
+    '26. Workbook Warnings':       _spec('H', slug='workbook_warnings'),
+    '27. Planning Levers':         _spec('4', '4', 7.5, '4', 7.5, 'Planning Levers', slug='planning_levers'),
+    '11B. Tax Capacity':           _spec('2', '4', 8, '4', 8, 'Tax Capacity', slug='tax_capacity'),
+    '29. Spending Summary':        _spec('1', '1', 6, '1', 6, 'Spending Summary', slug='spending_summary'),
+    '30. Education Funding':       _spec('2', '2', 9, '2', 9, 'Education Funding', 'education_funding_529', slug='education_funding'),
+    '31. Existing Life Insurance': _spec('2', '3', 3, '3', 3, 'Existing Life Insurance', 'existing_life_insurance', slug='existing_life_insurance'),
+    '32. Disability Income':       _spec('2', '3', 4, '3', 4, 'Disability Income', 'disability_income_insurance', slug='disability_income'),
+    '33. P&C Umbrella':            _spec('2', '3', 5, '3', 5, 'P&C Umbrella', 'property_casualty_umbrella', slug='pc_umbrella'),
+    '34. Business Succession':     _spec('2', '2', 12, '2', 12, 'Business Succession', 'business_succession', slug='business_succession'),
+    '35. Equity Compensation':     _spec('2', '2', 10, '2', 10, 'Equity Compensation', 'equity_compensation', slug='equity_compensation'),
+    '36. Special-Needs Planning':  _spec('2', '2', 11, '2', 11, 'Special-Needs Planning', 'special_needs_planning', slug='special_needs_planning'),
+    '37. Current vs Proposed':     _spec('1', '1', 7, '1', 7, 'Current vs. Proposed', slug='current_vs_proposed'),
     # 2026-09-09 housing-estimate design, §7.0 H7: the three-axis housing
     # trajectory sweep -- see src/housing_comparison.py.
     # section_rank/letter_rank 17/15 sit right
@@ -801,7 +822,7 @@ SHEET_REGISTRY = {
     # build-time sheet TITLE is a real openpyxl worksheet name, capped at 31
     # characters -- "38. Housing Trajectory Comparison" (33 chars) tripped
     # that limit.
-    '38. Housing Comparison':      _spec('2', '2', 17, '2', 15, 'Housing Comparison', 'housing_trajectory_comparison'),
+    '38. Housing Comparison':      _spec('2', '2', 17, '2', 15, 'Housing Comparison', 'housing_trajectory_comparison', slug='housing_comparison'),
 }
 
 # OPTIONAL_MODULE_SHEETS maps each client_optional_functions.csv toggle key to
@@ -1070,6 +1091,16 @@ def validate() -> None:
         assert _name in sheets, (
             f"sheet {_name!r} appears in the workbook nav but no CATALOG "
             f"module declares it; it cannot be classified or gated")
+
+    # #329 P2 (W2): slugs are the letter-independent stable identity every
+    # cross-reference resolves through (FINAL_SHEET_RENAMES[slug]); a blank or
+    # colliding slug would silently make that lookup ambiguous or fail.
+    _slugs: Dict[str, str] = {}
+    for _name, _spec_ in SHEET_REGISTRY.items():
+        assert _spec_.slug, f"sheet {_name!r} has no slug"
+        assert _spec_.slug not in _slugs, (
+            f"duplicate slug {_spec_.slug!r} on {_name!r} and {_slugs[_spec_.slug]!r}")
+        _slugs[_spec_.slug] = _name
 
     # (1) The classification invariant (#329 §3.1). A sheet's letter group is
     # implied by its module's kind, and its section must agree with its letter
