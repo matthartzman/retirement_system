@@ -1022,6 +1022,34 @@ def _force_disabled(key):
     return k in {m.strip().lower() for m in forced_off.split(',') if m.strip()}
 
 
+def force_override(key) -> Optional[Tuple[str, str]]:
+    """``(state, env_var)`` when an env override decides ``key``, else ``None``.
+
+    #330 Q7: the three ``RETIREMENT_SYSTEM_FORCE_*`` variables are already an
+    out-of-band admin tier (tests use them). The ticket asked whether the UI
+    should grow a writable equivalent; the answer was no -- a second precedence
+    rule layered on :func:`_base_enabled`'s existing four is exactly what #329
+    exists to stop. What the UI *should* do is **disclose** an active override,
+    read-only, so the switch page cannot silently disagree with what the build
+    did.
+
+    The precedence here mirrors :func:`_base_enabled` step for step, and must
+    keep mirroring it: a disclosure that reports a different winner than the
+    gate actually used would be worse than no disclosure at all.
+    ``state`` is ``"enabled"`` or ``"disabled"``; ``env_var`` is the variable
+    that decided it, so the UI can name it rather than say "something".
+    """
+    if _force_disabled(key):
+        return ("disabled", "RETIREMENT_SYSTEM_FORCE_DISABLE_MODULES")
+    k = str(key).strip().lower()
+    forced_on = os.environ.get('RETIREMENT_SYSTEM_FORCE_ENABLE_MODULES', '')
+    if forced_on and k in {m.strip().lower() for m in forced_on.split(',') if m.strip()}:
+        return ("enabled", "RETIREMENT_SYSTEM_FORCE_ENABLE_MODULES")
+    if os.environ.get('RETIREMENT_SYSTEM_FORCE_ALL_MODULES') == '1':
+        return ("enabled", "RETIREMENT_SYSTEM_FORCE_ALL_MODULES")
+    return None
+
+
 def _base_enabled(c, key):
     """Raw toggle state for ``key`` from env overrides + saved ``c['opt']``.
 
@@ -1079,7 +1107,7 @@ def effective_enabled_modules(c):
 
 
 def module_status(c):
-    """Per-module gating status for the Optional Modules settings UI.
+    """Per-module gating status for the Plan Features settings UI.
 
     Returns ``{key: {"enabled": bool, "auto_enabled": bool, "required_by": [str, ...]}}``
     for every key in :data:`OPTIONAL_MODULE_SHEETS`. This is UI-facing: a settings
@@ -1096,6 +1124,10 @@ def module_status(c):
       * ``required_by`` — the directly-enabled optional module key(s) whose
         prerequisite chain (per :func:`prerequisite_outputs`) includes this key.
         Empty when nothing depends on it.
+      * ``forced`` / ``forced_by`` — #330 Q7's read-only disclosure. Non-None
+        when a ``RETIREMENT_SYSTEM_FORCE_*`` env override, not the saved
+        toggle, is what decided ``enabled``; ``forced_by`` names the variable.
+        See :func:`force_override`.
     """
     eff = effective_enabled_modules(c)
     direct = {k for k in OPTIONAL_MODULE_SHEETS if _base_enabled(c, k)}
@@ -1115,10 +1147,16 @@ def module_status(c):
     status = {}
     for key in OPTIONAL_MODULE_SHEETS:
         auto = (key in eff) and (key not in direct)
+        # #330 Q7. Read-only disclosure, never a new precedence rule: the
+        # override already decided `enabled` above, via the same helper the
+        # build uses. This only says so out loud.
+        forced = force_override(key)
         status[key] = {
             "enabled": module_enabled(c, key),
             "auto_enabled": bool(auto),
             "required_by": required_by_map.get(key, []),
+            "forced": forced[0] if forced else None,
+            "forced_by": forced[1] if forced else None,
         }
     return status
 

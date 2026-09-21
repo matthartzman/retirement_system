@@ -226,3 +226,64 @@ def test_engine_participation_defaults_off():
     # A module that says nothing must not be claimed to move the projection.
     assert mc.CATALOG["glossary"].engine_participation is False
     assert mc.CATALOG["roth_conversion_plan"].engine_participation is False
+
+
+# ── #330 Q7: env-override disclosure (W4) ────────────────────────────────────
+
+def test_force_override_is_silent_when_no_env_override_is_set(monkeypatch):
+    for var in ("RETIREMENT_SYSTEM_FORCE_ALL_MODULES",
+                "RETIREMENT_SYSTEM_FORCE_ENABLE_MODULES",
+                "RETIREMENT_SYSTEM_FORCE_DISABLE_MODULES"):
+        monkeypatch.delenv(var, raising=False)
+    assert mc.force_override("market_luck_stress_test") is None
+
+
+def test_force_override_names_the_variable_that_decided_it(monkeypatch):
+    monkeypatch.delenv("RETIREMENT_SYSTEM_FORCE_DISABLE_MODULES", raising=False)
+    monkeypatch.delenv("RETIREMENT_SYSTEM_FORCE_ALL_MODULES", raising=False)
+    monkeypatch.setenv("RETIREMENT_SYSTEM_FORCE_ENABLE_MODULES", "market_luck_stress_test")
+    assert mc.force_override("market_luck_stress_test") == (
+        "enabled", "RETIREMENT_SYSTEM_FORCE_ENABLE_MODULES")
+    # A module the variable does not name is not forced.
+    assert mc.force_override("survivor_stress_test") is None
+
+
+def test_force_override_precedence_matches_the_gate_exactly(monkeypatch):
+    """The disclosure must never name a different winner than `_base_enabled`.
+
+    A UI that says "forced on by FORCE_ALL" about a module the build actually
+    left off would be worse than showing nothing, so the two orderings are
+    pinned against each other rather than just asserted separately.
+    """
+    monkeypatch.setenv("RETIREMENT_SYSTEM_FORCE_ALL_MODULES", "1")
+    monkeypatch.setenv("RETIREMENT_SYSTEM_FORCE_DISABLE_MODULES", "market_luck_stress_test")
+    monkeypatch.setenv("RETIREMENT_SYSTEM_FORCE_ENABLE_MODULES", "market_luck_stress_test")
+    # FORCE_DISABLE beats both of the others, in the gate and in the disclosure.
+    assert mc.force_override("market_luck_stress_test") == (
+        "disabled", "RETIREMENT_SYSTEM_FORCE_DISABLE_MODULES")
+    cfg = {"opt": {"market_luck_stress_test": True}}
+    for key in mc.optional_keys():
+        forced = mc.force_override(key)
+        if forced is not None:
+            assert mc.module_enabled(cfg, key) is (forced[0] == "enabled"), (
+                f"{key}: disclosure says {forced[0]} but the gate says otherwise")
+
+
+def test_module_status_discloses_the_override(monkeypatch):
+    monkeypatch.delenv("RETIREMENT_SYSTEM_FORCE_ENABLE_MODULES", raising=False)
+    monkeypatch.delenv("RETIREMENT_SYSTEM_FORCE_DISABLE_MODULES", raising=False)
+    monkeypatch.setenv("RETIREMENT_SYSTEM_FORCE_ALL_MODULES", "1")
+    row = mc.module_status({"opt": {}})["market_luck_stress_test"]
+    assert row["enabled"] is True
+    assert (row["forced"], row["forced_by"]) == (
+        "enabled", "RETIREMENT_SYSTEM_FORCE_ALL_MODULES")
+
+
+def test_module_status_reports_no_override_as_none(monkeypatch):
+    for var in ("RETIREMENT_SYSTEM_FORCE_ALL_MODULES",
+                "RETIREMENT_SYSTEM_FORCE_ENABLE_MODULES",
+                "RETIREMENT_SYSTEM_FORCE_DISABLE_MODULES"):
+        monkeypatch.delenv(var, raising=False)
+    row = mc.module_status({"opt": {"market_luck_stress_test": True}})["market_luck_stress_test"]
+    # Present and explicitly null, not absent -- the UI branches on the key.
+    assert row["forced"] is None and row["forced_by"] is None
