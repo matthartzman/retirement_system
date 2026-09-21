@@ -64,7 +64,9 @@ def test_source_layout_declares_same_numbered_areas():
     # W1 (master implementation plan, #329 3.1): '27. Planning Levers' is
     # REFERENCE-kind and physically sits in System -- lettering it into
     # Optimizers was the `2I` contradiction the classification invariant now
-    # rejects. It letters and sorts last in System until W11 retires the
-    # sheet outright.
-    assert flattened[-1] == "27. Planning Levers"
-    assert flattened[-2] == "22. Glossary"
+    # rejects. It letters and sorts there until W11 retires the sheet
+    # outright. '11B. Tax Capacity' is also REFERENCE-kind (filed in System
+    # rather than Reports) and lands after it, now last.
+    assert flattened[-1] == "11B. Tax Capacity"
+    assert flattened[-2] == "27. Planning Levers"
+    assert flattened[-3] == "22. Glossary"

@@ -233,7 +233,14 @@ DASHBOARD_JS_MAX_LINES = 7_293
 # 2026-09-17 (housing-screen-fixes): the Housing screen's inconsistency/gap-
 # year/ZIP-input fixes plus an inline HELOC-enabled toggle on Optimize are
 # real new logic, not duplication -- raised to the measured total.
-TOTAL_JS_MAX_LINES = 33_275
+# 2026-09-21 (8291678, Build History schema versioning + one-click cache
+# reset): 48 new lines across admin.js, dashboard.js and
+# dashboard_decomp_row_model.js for the Clear-cache button and its
+# reporting of which cache folders were cleared vs. still locked by the
+# running window -- real new behavior, not duplication -- raised to the
+# measured total. The ceiling should have moved with that commit and did
+# not; caught only because a later, unrelated PR's CI ran against main.
+TOTAL_JS_MAX_LINES = 33_311
 
 
 def _line_count(path: Path) -> int:

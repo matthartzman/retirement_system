@@ -19,10 +19,6 @@ def test_system_section_uses_clean_sheet_sequence_without_feature_toggle(built_w
         # #221: Core Spending merged into Spending Summary -- densely 1G now.
         '1G. Spending Summary',
         '1H. Current vs. Proposed',
-        # system review 2026-08-31 item 1.17: an always-on consolidated
-        # headroom view. W1 reclassified it from Optimizers to Reports, where
-        # it lands densely at the end of section 1's letter order.
-        '1I. Tax Capacity',
         # #209/#210/#212/#228: this fixture's plan has the advanced modules
         # off, so Gain Harvesting fills the gap densely instead of leaving one.
         # HSA Drawdown (2B) always sits right after Roth Conversion (shares
@@ -42,7 +38,10 @@ def test_system_section_uses_clean_sheet_sequence_without_feature_toggle(built_w
         # Planning Levers now letters and sorts with the System section it has
         # always physically belonged to, last rather than second (W11 retires
         # the sheet outright; until then it stops lying about its group).
-        '4. System','4A. Plan Data','4B. Assumptions','4C. Account Reconciliation','4D. Quality Control','4E. RMD Audit','4F. Methodology','4G. Glossary','4H. Planning Levers',
+        # REFERENCE-kind, filed in System rather than Reports; system review
+        # 2026-08-31 item 1.17's always-on consolidated headroom view now
+        # sorts here, densely last, after Planning Levers.
+        '4. System','4A. Plan Data','4B. Assumptions','4C. Account Reconciliation','4D. Quality Control','4E. RMD Audit','4F. Methodology','4G. Glossary','4H. Planning Levers','4I. Tax Capacity',
     ]
     assert visible[:len(expected)] == expected
     assert '4D. Feature Toggle' not in visible

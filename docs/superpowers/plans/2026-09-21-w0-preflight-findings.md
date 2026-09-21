@@ -143,3 +143,21 @@ already lists Tax Capacity under Taxes). No new section code is introduced, and
 - W1's `CATALOG` entry for Tax Capacity carries `domain = "Taxes"`.
 - W3 places Tax Capacity in Reports and does **not** create a Reference section.
 - W5 drops its contingent `build_impact` task.
+
+---
+
+## Addendum (2026-09-21) — V3 overridden by explicit direction
+
+**Tax Capacity now files in System, not Reports.** The user gave a direct
+instruction to move it there, overriding the reading above. Recorded rather
+than silently edited out, since the reasoning above is still sound *as an
+inference* — it is simply not what shipped.
+
+The move required reclassifying `tax_capacity`'s `kind` from `WORKSHEET` to
+`REFERENCE`: `WORKSHEET`'s letter group is Reports (shared with
+`current_vs_proposed`, which stays there), and `REFERENCE`'s is System
+(alongside Plan Data, Assumptions, Methodology, Glossary). The `domain` axis
+(Taxes, #330 §4.2) is unaffected — placement changed, not which category a
+future switch nav groups it under. See
+`docs/superpowers/plans/2026-09-21-w1-catalog-foundation-notes.md` for the
+implementation.
