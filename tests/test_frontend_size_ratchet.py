@@ -244,7 +244,15 @@ DASHBOARD_JS_MAX_LINES = 7_293
 # dashboard_decomp_housing_scenarios.js's start_year re-estimate prompt and
 # lot_size_band request-body fix (§6.4 sites 5-7). All new behavior, not
 # lines moved from elsewhere -- raised to the measured total of both.
-TOTAL_JS_MAX_LINES = 33_406
+# 2026-09-21 (H2/A3, #331 anchor flow, same master plan): the optimizer panel
+# becomes a two-step wizard -- step 1's selection table (checkbox rows, the
+# Anchor column and its "covers {anchor}" badge, the per-anchor coverage line
+# and warning, the reference-year price header), the step gate and navigation,
+# the client-side screen memo, and the selected-ZIP persistence. Net of what
+# it removed (the "Shortlist size" control, its option table and its help
+# entry), all new behavior rather than lines moved from elsewhere -- raised to
+# the measured total.
+TOTAL_JS_MAX_LINES = 33_876
 
 
 def _line_count(path: Path) -> int:

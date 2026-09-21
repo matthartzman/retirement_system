@@ -69,9 +69,31 @@ def test_anchor_offers_both_a_city_dropdown_and_a_zip_field(source):
     assert 'export function housingOptAnchorEntryHtml' in source
 
 
-def test_shortlist_size_control_exists(source):
-    # Renamed: "housingOptShortlistSize" became the per-move "${p}ShortlistSize".
-    assert '${p}ShortlistSize' in source
+def test_the_shortlist_size_control_is_gone(source):
+    """DELIBERATELY INVERTED, not an accidental break.
+
+    This asserted the per-move "${p}ShortlistSize" select existed. The
+    2026-09-19 anchor-flow design §5.4 removes that control outright: it
+    asked how many screened ZIPs to promote, a number standing in for a
+    choice the user could not see, and once step 1 ends with them ticking
+    the ZIPs they want the count *is* the selection. Keeping both would let
+    the two disagree (six ticked with the size set to four -- which four?),
+    and any rule resolving that would override an explicit user choice with
+    an implicit one.
+
+    Asserted as an absence rather than deleted, so re-adding the control
+    fails here and has to be argued for again.
+    """
+    assert '${p}ShortlistSize' not in source
+    assert 'HOUSING_OPT_SHORTLIST_SIZES' not in source
+
+
+def test_the_selection_table_replaced_it(source):
+    """§5.3: step 1 ends in "Find candidate locations", which renders a
+    checkbox row per screened ZIP; the selection is what reaches the wire."""
+    assert 'findHousingOptCandidates' in source
+    assert 'toggleHousingOptZipSelection' in source
+    assert 'selected_zips' in source
 
 
 def test_preview_button_calls_the_screen_only_endpoint(source):

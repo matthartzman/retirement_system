@@ -97,6 +97,117 @@ sets.
 sends the same ZIP twice asked for one search of it, and the 1-10 bound is
 counted after de-duplication.
 
+## A3 -- the two-step panel
+
+### The screen derives the move-year price, because the client cannot
+
+§5.3 requires the estimated-price column to show move-year dollars with
+today's as secondary text, under a header naming the reference year
+("Estimated price -- as of 2041, midpoint of 2036-2046"). §5.5 is equally
+firm that **no rate travels on the wire**.
+
+Those two only reconcile one way: the escalation happens server-side.
+`ScreenedZip` gains `est_price_move_year` and `est_price_reference_year`,
+computed in `run_screen` from the *same* `years_out`/rate that deflates the
+budget bounds -- hoisted into one pair of locals so the two can never be
+computed from different rates. Deflating the bound and escalating the
+estimate are two views of one comparison.
+
+Without this the header would be labelling a today's-dollars number with a
+future year, which is exactly the class of quiet mislabelling the
+reference-year disclosure exists to prevent.
+
+### The rules keep one order; only the message's destination splits
+
+§5.3 makes anchor count and the year-window rules step-1 rules and leaves
+the rest on step 2, but `validate_request`'s contract is that client and
+server "never disagree about which rule fired first". Splitting
+`validateHousingOptForm` into two independently-evaluated halves would have
+broken that.
+
+Instead `housingOptFirstViolation()` keeps the single ordered rule list and
+returns `{step, message}`. `validateHousingOptForm()` is unchanged in
+meaning and still returns the first message. `step` decides only which
+validation box the message lands in. The Run button stays disabled while
+*any* rule fails, so the split cannot smuggle an invalid request through,
+and Continue is blocked only by step-1 rules -- a step-2 rule the user
+cannot see yet must not trap them on step 1.
+
+Two rules the spec does not place explicitly:
+
+- **"With no dual ownership, move 1 cannot be bought before the home is
+  sold"** is a step-1 rule. Its constraint comes from the sale window on
+  step 2, but the remedy the message names ("raise the move-1 latest year")
+  is a step-1 field, and the message belongs where the user can act.
+- **"Concurrent mode is only available with Full grid search mode"** is a
+  step-2 rule: both `search_mode` and the Move-2 mode row live there.
+
+### "Move 2 -- mode" stays on step 2, unlike the rest of move 2
+
+§5.3's tables put move 2's where/when/what rows on step 1 and its
+Concurrent/Anchor-count row on step 2, which reads as an inconsistency until
+you notice it is the right cut: concurrency and the anchored strategy's
+branching factor are costing questions, not location ones. The one
+checkbox governs blocks in both steps, so `toggleHousingOptMove2Fields` and
+the hydration pass each reveal two containers rather than one.
+
+### `per_anchor_quota` is not rendered as a funnel arrow
+
+The funnel readout is a chain of survivor counts. Splicing
+`-> 2 ->` into it would read as a drop to two candidates, which is not what
+the stage does. It renders as a trailing clause instead -- "... 4 sent to
+the optimizer (2 reserved to cover your anchors)" -- and is omitted entirely
+when the key is absent, as it is on a single-anchor screen.
+
+### The selection is remembered; the table it was picked from is not
+
+§9.6's rule is that nothing derived from a run is persisted. The screen
+payload is a run result, so it is not saved, but the selected ZIPs are the
+user's own input and are. A returning user therefore gets their ZIPs back
+(the step-1 gate and step-2 chips are correct on first paint, and Continue
+is re-enabled at render time rather than waiting for an input event) but has
+to press *Find candidate locations* again to see the table. Anything that
+no longer screens is caught by A2's stale-selection rejection.
+
+The panel always reopens on step 1 for the same reason: landing a returning
+user on step 2 would show them a "Selected locations" summary for a
+selection whose table is not on screen.
+
+### A fresh screen replaces the selection outright
+
+Pressing *Find candidate locations* again re-seeds the selection from the
+quota's promotions rather than intersecting with what was ticked before.
+The previous ZIPs were chosen under different filters -- carrying them
+forward is precisely the stale selection A2 rejects.
+
+### The memo fingerprint excludes `selected_zips`
+
+`housingOptMoveSearchBody` now carries the selection, but the screen request
+strips it before fingerprinting: it is the answer the call produces, not an
+input to it, and leaving it in would invalidate the memo on every tick.
+
+### Three ordering constraints in the panel file are now load-bearing
+
+`tests/test_zip_screen_*_functional.py` read the panel JS as text with fixed
+character windows and split delimiters. Three consequences shaped the code
+rather than the tests:
+
+1. The row builders are **defined** Where, What, When even though they now
+   **render** Where, When, What, because the "what" row's block is delimited
+   by the "when" one's definition.
+2. `renderHousingZipShortlistHtml`, `housingZipRowHtml` and
+   `housingZipFunnelText` must stay adjacent and compact -- the column
+   tokens are asserted within 3,000 characters of the first and the funnel
+   tokens within 4,000. The new helpers were placed *before* the renderer,
+   the long explanatory comments were lifted out of the two function bodies
+   into a block above them, and `housingZipRowHtml` hoists its score, price
+   and distance cells to the top so those tokens land early. (Measured after
+   the change: the furthest asserted token sits at 3,712.)
+3. Both moves' step-1 rows are written out call by call
+   (`housingOptMoveWhereRowHtml(1)`, `...(2)`, and so on) rather than through
+   a shared wrapper, because the tests assert those literal call sites as
+   proof the two moves cannot drift apart.
+
 ## Deliberately inverted tests
 
 Each of these pinned behaviour this change removes on purpose. They are
@@ -105,3 +216,16 @@ updated with the reason in-place, not deleted.
 | Test | Was | Now |
 |---|---|---|
 | `test_zip_screen_api_contract.py::test_shortlist_size_is_clamped_to_two_through_five` | request-side `shortlist_size` clamped to 2-5 | the key is ignored outright (§5.4); a stale client cannot shrink the preview it is choosing from |
+| `test_zip_screen_panel_functional.py::test_shortlist_size_control_exists` (`:72`, flagged in the master plan) | the `${p}ShortlistSize` select exists | asserted as an *absence*, so re-adding the control has to be argued for again |
+| `test_housing_optimizer_panel_functional.py`'s `FULL_CONTENT_KEYS` | `housingOptMove{n}ShortlistSize` needs full four-section help | `...SelectedZips` does; the help obligation moves with the decision rather than being dropped |
+| `housing_optimize_panel.test.mjs::global constraints and objective come before the move sections` | objective/presence precede move 1 | the moves come first -- they are step 1 now (§5.3) |
+| `housing_optimize_panel.test.mjs::a Purchase assumptions section sits between Current home and Move 1` | assumptions sit before move 1 | assumptions are a step-2 section, after the moves; their position *within* step 2 is still pinned |
+| `housing_optimize_request.test.mjs::the run button is disabled while the form is invalid` | a move-1 year rule writes to `housingOptValidation` | it writes to `housingOptStep1Validation`; the Run button being disabled by a rule on the *other* step is asserted unchanged, and a companion test covers a step-2 rule |
+
+## Pre-existing failures, not caused by this change
+
+`tests/frontend/js_codemod_parser_offsets.test.mjs` fails two assertions
+("jscodeshift offsets") on this branch **and on a clean checkout of the same
+base** -- a jscodeshift version difference in the container, unrelated to
+housing. Verified by stashing the branch's changes and re-running. Left
+alone rather than worked around here.

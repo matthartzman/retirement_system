@@ -77,6 +77,15 @@ class ScreenedZip:
     # consumer can never mistake est_price's basis: it is always today's
     # (this) dollars, never the move's own year.
     est_price_basis_year: int = 0
+    # The same estimate escalated to the reference year the affordability
+    # filter priced against -- the acquisition window's midpoint (§5.5).
+    # Derived here rather than client-side because no rate travels on the
+    # wire (§5.5): the panel's "Estimated price -- as of 2041, midpoint of
+    # 2036-2046" header would otherwise be labelling a today's-dollars
+    # number with a future year. Equals est_price when there is no window,
+    # and est_price_reference_year then equals the basis year.
+    est_price_move_year: float = 0.0
+    est_price_reference_year: int = 0
 
 
 @dataclass(frozen=True)
@@ -272,6 +281,14 @@ def run_screen(
     in_radius = zips_within(data, anchor, req.radius_miles)
     funnel = {'in_radius': len(in_radius)}
 
+    # The same years_out/escalator the budget-bound deflation below uses,
+    # hoisted so it also prices each survivor's move-year estimate. Deflating
+    # the bounds and escalating the estimate are two views of one comparison,
+    # so they must never be computed from different rates.
+    years_out = max(0, int(req.reference_year) - int(req.plan_start)) if req.reference_year else 0
+    escalator = (1.0 + float(req.home_appr)) ** years_out if years_out else 1.0
+    reference_year = int(req.reference_year) if years_out else int(req.plan_start)
+
     price_range = req.property_spec.get('target_purchase_price_range')
     lo, hi = (float(price_range[0]), float(price_range[1])) if price_range else (None, None)
     if lo is not None:
@@ -282,9 +299,7 @@ def run_screen(
         # (the move window's midpoint). A current-year window (reference_year
         # <= plan_start, or unset) deflates by 1 -- a no-op, so funnel counts
         # are unchanged for it.
-        years_out = max(0, int(req.reference_year) - int(req.plan_start)) if req.reference_year else 0
-        deflator = (1.0 + float(req.home_appr)) ** years_out if years_out else 1.0
-        lo, hi = lo / deflator, hi / deflator
+        lo, hi = lo / escalator, hi / escalator
 
     with_data: list[tuple[ZipRecord, float, Any]] = []
     for rec, dist in in_radius:
@@ -333,6 +348,8 @@ def run_screen(
             upi_adjusted=nss.upi_adjusted,
             cross_state=rec.state if current_state and rec.state != current_state else None,
             est_price_basis_year=int(req.plan_start),
+            est_price_move_year=round(price * escalator, 2),
+            est_price_reference_year=reference_year,
         ))
     funnel['affordable'] = len(passing)
     affordable_passing = list(passing)
