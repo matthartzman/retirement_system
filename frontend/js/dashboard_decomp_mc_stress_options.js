@@ -13,7 +13,7 @@ export function renderSurvivorStress() {
 
 export function renderLtcStress() {
   if (!optionalFunctionEnabled("long_term_care_stress"))
-    return '<div class="field-list"><p>Long-Term Care Stress inputs are hidden until the Long-Term-Care Stress optional workbook module is enabled on <a href="#" onclick="setStep(\'optional_functions\');return false">Optional Modules</a>.</p></div>';
+    return '<div class="field-list"><p>Long-Term Care Stress inputs are hidden until the Long-Term-Care Stress optional workbook module is enabled on <a href="#" onclick="setStep(\'optional_functions\');return false">Plan Features</a>.</p></div>';
   const rs = rowsForStep("ltc_stress");
   let html = `<div class="section-note">Set care cost and duration, then rebuild. Policy details (benefit amount, elimination period) are on <a href="#" onclick="setStep('assets_special');return false">Other assets</a>.</div>`;
   return (

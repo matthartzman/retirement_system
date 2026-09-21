@@ -118,7 +118,6 @@
     "renderMain",
     "renderMeta",
     "renderNav",
-    "renderOptionalFunctions",
     "renderRetirementWellness",
     "renderSpendingDashboardOrLoad",
     "renderSpendingWorkflowBanner",
@@ -2961,6 +2960,66 @@
       "name": "RECOMMENDATION_ENGINE_VERSION",
       "file": "frontend/js/dashboard_decomp_page_recommendations.js",
       "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_plan_features.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_plan_features.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_plan_features.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "moduleGates",
+      "file": "frontend/js/dashboard_decomp_plan_features.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_plan_features.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "boolishValue",
+      "file": "frontend/js/dashboard_decomp_plan_features.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "moduleStatus",
+      "file": "frontend/js/dashboard_decomp_plan_features.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "searchText",
+      "file": "frontend/js/dashboard_decomp_plan_features.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "moduleStatus",
+      "file": "frontend/js/dashboard_decomp_plan_features.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "boolishValue",
+      "file": "frontend/js/dashboard_decomp_plan_features.js",
+      "kind": "call",
       "scope": "inside-function"
     },
     {

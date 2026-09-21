@@ -97,7 +97,7 @@ describe("strategySection lazy body (ticket 323)", () => {
     );
     assert.equal(calls, 0);
     assert.ok(!html.includes("<p>body</p>"));
-    assert.ok(html.includes("Optional Modules"));
+    assert.ok(html.includes("Plan Features"));
   });
 
   test("the HELOC gate keeps its own enable-it link", () => {
