@@ -131,6 +131,10 @@ ALL_INPUTS: Tuple[str, ...] = tuple(INPUT_MODULES)
 # Output module spec
 # ─────────────────────────────────────────────────────────────────────────────
 RequiredInput = Tuple[str, Tuple[str, ...]]  # (input_module_id, (specific elements, ...))
+# (module_key, what this module loses when that module is off). The second half
+# is a noun phrase that reads inside "Turning X off also removes ___" -- see
+# OutputModule.degrades_without and _soft() below.
+SoftDependency = Tuple[str, str]
 
 
 @dataclass(frozen=True)
@@ -163,6 +167,40 @@ class OutputModule:
     mode: Optional[str] = None
     requires_inputs: Tuple[RequiredInput, ...] = field(default_factory=tuple)
     requires_outputs: Tuple[str, ...] = field(default_factory=tuple)
+    # ── #330 §3.4: the two relationships ``requires_outputs`` cannot express ──
+    #
+    # ``requires_outputs`` says exactly one thing: *B cannot run without A*, and
+    # ``effective_enabled_modules()`` acts on it by auto-enabling A. Two real
+    # relationships in this codebase are not that shape, and were invisible to
+    # the catalog until now.
+    #
+    # ``degrades_without`` — a SOFT dependency. This module still builds when
+    # the named module is off; it just says less (Exec Summary drops its Monte
+    # Carlo headline rows, Charts drops the fan chart). Auto-enabling would be
+    # wrong here, which is why this is a separate field rather than a flag on
+    # ``requires_outputs``: nothing in the resolver reads it, by design. It is
+    # consumed in both directions —
+    #   forward:  "this output shows less because X is off", on the dependent;
+    #   reverse:  the warning on X's own switch that names everything X's
+    #             removal quietly takes with it ("Turning Monte Carlo off also
+    #             removes the success-probability headline from Executive
+    #             Summary and the fan chart from Charts"). #330 calls the
+    #             reverse direction the single highest-value thing the field
+    #             buys, because it is the question a user has *at the switch*.
+    # See ``soft_dependents()`` for the reverse map.
+    #
+    # ``engine_participation`` — True when this module's toggle changes the
+    # projection itself, not merely which sheets get written. Today exactly
+    # three modules are read by the engine/tax layer directly
+    # (``deterministic_engine.py``'s ``equity_compensation`` and
+    # ``disability_income_insurance``, ``after_tax.py``'s
+    # ``business_succession``). It drives a stronger toggle confirmation in the
+    # UI, and it is what makes #330 §3.1's F3 checkable rather than
+    # aspirational. W7 fixes the engine's toggle-read *bypass* (it reads raw
+    # ``c['opt']`` instead of ``module_enabled()``); this field survives that
+    # fix and then describes intended behavior rather than a divergence.
+    degrades_without: Tuple[SoftDependency, ...] = field(default_factory=tuple)
+    engine_participation: bool = False
     # §7.4 (system review Wave 3.5b): the single source of truth for the two
     # ad-hoc gates dashboard.js used to hand-maintain separately —
     # ``dashboard_step`` names the nav step this module owns outright (the
@@ -178,6 +216,18 @@ class OutputModule:
 
 def _in(module: str, *elements: str) -> RequiredInput:
     return (module, tuple(elements))
+
+
+def _soft(module: str, loses: str) -> SoftDependency:
+    """A soft dependency and, in the same breath, what it costs.
+
+    ``loses`` is the noun phrase that completes the reverse-direction warning
+    on ``module``'s switch: "Turning Monte Carlo off also removes *the
+    success-probability headline* from Executive Summary". Written here, next
+    to the dependency itself, so the relation and its consequence cannot drift
+    apart into two tables.
+    """
+    return (module, loses)
 
 
 # The deterministic base projection every optimization/stress output re-runs or
@@ -203,6 +253,13 @@ _OUTPUTS: List[OutputModule] = [
         sheet="6. Cash Flow Projection", tab="1C. Cash Flow",
         requires_inputs=(_in("income", "all_streams"), _in("spending", "all"),
                          _in("liabilities", "payments"), _in("household", "ss", "timing")),
+        # spending_tracker.py's budget index lets an Auto policy's real premium
+        # supersede the hand-maintained auto_insurance budget line, but only
+        # when Existing Life Insurance is on (that module is the gate on every
+        # Insurance In Force row). Off, the budget silently falls back to the
+        # typed figure -- less accurate, still a cash flow.
+        degrades_without=(_soft("existing_life_insurance",
+                              "the real auto-policy premium behind the auto-insurance budget line"),),
     ),
     OutputModule(
         "balance_sheet", "Balance Sheet", PROJECTION, HIGH,
@@ -217,6 +274,11 @@ _OUTPUTS: List[OutputModule] = [
         domain=REPORTS_DOCUMENTATION,
         sheet="1. Executive Summary", tab="1A. Executive Summary",
         requires_outputs=("net_worth", "cash_flow", "balance_sheet"),
+        # Two headline blocks are suppressed rather than zeroed when their
+        # module is off: the Monte Carlo rows (worst-case ending wealth, model
+        # risk rating) and the Social Security claim-age line.
+        degrades_without=(_soft("market_luck_stress_test", "the success-probability headline"),
+                          _soft("social_security_timing", "the optimal claim-age line")),
     ),
     OutputModule(
         "lifetime_tax_projection", "Lifetime Taxes", PROJECTION, HIGH,
@@ -245,6 +307,9 @@ _OUTPUTS: List[OutputModule] = [
         domain=INVESTMENTS,
         optional=True, sheet="8. Charts Dashboard", tab="1E. Charts",
         requires_outputs=("net_worth", "cash_flow", "asset_allocation"),
+        # The percentile-band ("fan") chart is embedded only when Monte Carlo
+        # ran; the rest of the dashboard is unaffected.
+        degrades_without=(_soft("market_luck_stress_test", "the fan chart"),),
     ),
 
     # ── Optimization: decision levers ─────────────────────────────────────────
@@ -402,6 +467,13 @@ _OUTPUTS: List[OutputModule] = [
         requires_inputs=(_in("insurance_estate", "estate_inputs", "account_titling", "gifting_schedule"),
                          _in("assets"), _in("household", "ages"),
                          _in("assumptions", "estate_constants")),
+        # Deliberately NOT degrades_without=("business_succession",): with that
+        # module off, after_tax.business_taxable_estate_value() returns 0.0 and
+        # this sheet's estate-tax base is smaller, but nothing is *removed* --
+        # every section still renders. A figure changing is engine
+        # participation (declared on business_succession itself), not soft
+        # degradation, and conflating the two would make the off-impact warning
+        # cry wolf about a number the user cannot see change.
     ),
     OutputModule(
         "education_funding_529", "Education Funding 529", OPTIMIZATION, LOW,
@@ -419,6 +491,10 @@ _OUTPUTS: List[OutputModule] = [
         optional=True, sheet="35. Equity Compensation", tab="2K. Equity Compensation",
         requires_inputs=(_in("insurance_estate", "grants"), _in("assumptions", "tax")),
         csv_sections=("Equity Compensation",),
+        # deterministic_engine.py models grant vest/exercise income and the ISO
+        # minimum-tax credit carry only when this is on: the toggle moves the
+        # projection's rows, not just whether sheet 35 is written.
+        engine_participation=True,
     ),
     OutputModule(
         "scorp_vs_llc", "S-Corp vs LLC", COMPARISON, LOW,
@@ -434,6 +510,10 @@ _OUTPUTS: List[OutputModule] = [
         domain=FAMILY_BUSINESS,
         optional=True, sheet="34. Business Succession", tab="2M. Business Succession",
         requires_inputs=(_in("business", "entity", "valuation", "funding"),),
+        # after_tax.business_taxable_estate_value() adds the owner's projected
+        # business interest to the taxable estate only when this is on, so the
+        # toggle changes computed estate tax, not just sheet 34's existence.
+        engine_participation=True,
     ),
     OutputModule(
         "special_needs_planning", "Special-Needs Planning", OPTIMIZATION, NICHE,
@@ -473,6 +553,8 @@ _OUTPUTS: List[OutputModule] = [
         optional=True, sheet="32. Disability Income", tab="4F. Disability Income",
         requires_inputs=(_in("insurance_estate", "di_policies"), _in("income")),
         requires_outputs=("cash_flow",),
+        # deterministic_engine.py models the DI benefit stream from this toggle.
+        engine_participation=True,
     ),
     OutputModule(
         "property_casualty_umbrella", "P&C / Umbrella", PROTECTION, NICHE,
@@ -555,6 +637,11 @@ _OUTPUTS: List[OutputModule] = [
         domain=REPORTS_DOCUMENTATION,
         sheet="27. Planning Levers", tab="5H. Planning Levers",
         requires_inputs=(_in("planning_levers"),),
+        # The "Current model anchor" block keeps its Monte Carlo success row
+        # (the lever formulas below it reference fixed anchor cells, so the row
+        # must not move) but shows "Not run (module off)" in place of a figure.
+        degrades_without=(_soft("market_luck_stress_test",
+                              "the Monte Carlo success figure in the model anchor"),),
     ),
     OutputModule(
         "assumptions_ref", "Assumptions", REFERENCE, MEDIUM,
@@ -663,6 +750,44 @@ def prerequisite_outputs(key: str, transitive: bool = True) -> List[str]:
         if transitive:
             stack.extend(CATALOG[dep].requires_outputs)
     return ordered
+
+
+def soft_dependents(key: str) -> List[SoftDependency]:
+    """``(module, what it loses)`` for everything that degrades without ``key``.
+
+    This is the direction the UI actually asks about. ``degrades_without`` is
+    written on the *dependent* ("Exec Summary shows less without Monte Carlo"),
+    but the question a user has is at the switch they are about to flip
+    ("what does turning Monte Carlo off cost me?"). Inverting it here keeps the
+    declaration in the one place a reader of that module will look, and keeps
+    the two directions from being hand-maintained separately -- the
+    hand-typed-twin problem #329 exists to end.
+
+    Unlike :func:`prerequisite_outputs` this is deliberately NOT transitive:
+    soft degradation does not compose (Exec Summary saying less does not make
+    whatever reads Exec Summary say less), and it never auto-enables anything.
+
+    Returns catalog-declaration order, so the sentence built from it is stable
+    across runs. Empty for a module nothing degrades without -- which is most
+    of them.
+
+    >>> soft_dependents("market_luck_stress_test")[0]
+    ('executive_summary', 'the success-probability headline')
+    """
+    if key not in CATALOG:
+        raise KeyError(key)
+    return [(m.key, loses) for m in _OUTPUTS
+            for dep, loses in m.degrades_without if dep == key]
+
+
+def engine_participants() -> List[str]:
+    """Keys whose toggle changes the projection itself (``engine_participation``).
+
+    #330 §3.1's F3 asks whether the engine and the sheets agree about which
+    modules are on. This is the list that question is asked *about*; without it
+    F3 can only be asserted, not checked.
+    """
+    return [m.key for m in _OUTPUTS if m.engine_participation]
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1088,7 +1213,8 @@ def validate() -> None:
     """Assert the catalog is internally consistent. Called at import time.
 
     Guards: valid kinds/demands, resolvable & acyclic prerequisites, known input
-    ids, unique legacy sheet names, and comparison-mode only on Optimization.
+    ids, unique legacy sheet names, comparison-mode only on Optimization, and
+    (#330 §3.4) well-formed soft dependencies / engine-participation flags.
     """
     for key, m in CATALOG.items():
         assert m.key == key, f"catalog key mismatch: {key} != {m.key}"
@@ -1108,6 +1234,36 @@ def validate() -> None:
             f"{key}: domain is {m.domain!r}; every module must declare one of "
             f"{DOMAINS}. kind and domain are independent axes (#330 §4.1) -- "
             f"neither may be derived from the other.")
+        # (4b) #330 §3.4. A soft dependency must name a real module, must not
+        # name itself, and must not duplicate a hard prerequisite: anything in
+        # `requires_outputs` is auto-enabled by effective_enabled_modules(), so
+        # it can never be observed off, and a "shows less without it" note for
+        # it would be unreachable text. Declaring both is a modelling error,
+        # not a belt-and-braces.
+        for dep, loses in m.degrades_without:
+            assert dep in CATALOG, f"{key}: degrades_without unknown module {dep!r}"
+            assert dep != key, f"{key}: degrades_without itself"
+            # The phrase is half the field's value -- it is what makes the
+            # reverse warning say something instead of just naming modules.
+            assert loses and loses.strip(), (
+                f"{key}: degrades_without {dep!r} with no description of what "
+                f"is lost; the warning on {dep}'s switch has nothing to say.")
+            assert dep not in m.requires_outputs, (
+                f"{key}: {dep!r} is declared as both a hard prerequisite and a "
+                f"soft dependency. requires_outputs auto-enables it, so it can "
+                f"never be off -- pick one.")
+            # A core module has no toggle, so it is never off and nothing can
+            # degrade without it.
+            assert CATALOG[dep].optional, (
+                f"{key}: degrades_without {dep!r}, which is a core always-on "
+                f"module -- there is no switch for the warning to attach to.")
+        # (4c) engine_participation describes what a *toggle* does to the
+        # projection. A core module has no toggle.
+        if m.engine_participation:
+            assert m.optional, (
+                f"{key}: engine_participation=True on a core always-on module; "
+                f"the flag describes a toggle's effect on the projection and "
+                f"there is no toggle here.")
 
     # No prerequisite cycles (prerequisite_outputs terminates & excludes self).
     for key in CATALOG:

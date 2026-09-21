@@ -159,3 +159,70 @@ def test_core_catalog_entries_are_not_registry_toggles():
     # Always-on core modules must never appear in the optional gate.
     for key in mc.core_keys():
         assert key not in OPTIONAL_MODULE_SHEETS, f"core module {key} must not be gated"
+
+
+# ── #330 §3.4: soft dependencies and engine participation (W5) ───────────────
+
+def test_soft_dependencies_never_auto_enable():
+    """`degrades_without` must stay out of the prerequisite resolver.
+
+    The whole point of the field is that it is *not* `requires_outputs`:
+    Exec Summary works fine with Monte Carlo off, it just says less, so
+    auto-enabling would override a choice the user made deliberately.
+    """
+    for key, m in mc.CATALOG.items():
+        for dep, _loses in m.degrades_without:
+            assert dep not in mc.prerequisite_outputs(key), (
+                f"{key}: {dep!r} is a soft dependency but resolves as a "
+                f"prerequisite, so enabling {key} would silently turn it on")
+
+
+def test_soft_dependents_is_the_exact_inverse_of_degrades_without():
+    for key in mc.CATALOG:
+        for dependent, loses in mc.soft_dependents(key):
+            assert (key, loses) in mc.CATALOG[dependent].degrades_without
+    # ...and nothing is missed in the other direction.
+    forward = {(k, dep, loses) for k, m in mc.CATALOG.items() for dep, loses in m.degrades_without}
+    reverse = {(dependent, key, loses)
+               for key in mc.CATALOG for dependent, loses in mc.soft_dependents(key)}
+    assert forward == reverse
+
+
+def test_soft_dependents_raises_for_unknown_key():
+    import pytest
+    with pytest.raises(KeyError):
+        mc.soft_dependents("not_a_module")
+
+
+def test_monte_carlo_off_is_explainable_at_the_switch():
+    """#330 §3.4's worked example, pinned.
+
+    "Turning Monte Carlo off also removes the success-probability headline
+    from Executive Summary and the fan chart from Charts" is only sayable if
+    both of those modules declare the dependency. Planning Levers is the third
+    site the W5 sweep found.
+    """
+    assert mc.soft_dependents("market_luck_stress_test") == [
+        ("executive_summary", "the success-probability headline"),
+        ("charts_dashboard", "the fan chart"),
+        ("planning_levers_echo", "the Monte Carlo success figure in the model anchor"),
+    ]
+
+
+def test_engine_participants_are_the_modules_the_engine_reads():
+    """The three toggles that move the projection, not just the sheet set.
+
+    `deterministic_engine.py` reads `equity_compensation` and
+    `disability_income_insurance`; `after_tax.business_taxable_estate_value`
+    reads `business_succession`. W7 changes *how* those are read (raw
+    `c['opt']` -> `module_enabled`), not which modules they are, so this pin
+    should survive that workstream unchanged.
+    """
+    assert set(mc.engine_participants()) == {
+        "equity_compensation", "disability_income_insurance", "business_succession"}
+
+
+def test_engine_participation_defaults_off():
+    # A module that says nothing must not be claimed to move the projection.
+    assert mc.CATALOG["glossary"].engine_participation is False
+    assert mc.CATALOG["roth_conversion_plan"].engine_participation is False

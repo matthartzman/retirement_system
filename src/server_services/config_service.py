@@ -113,11 +113,16 @@ class ConfigService:
         served from `CATALOG` so the switch nav can never become a third
         hand-maintained taxonomy beside the catalog and the workbook.
 
+        It also carries #330 §3.4's soft-dependency relation in both
+        directions and the `engine_participation` flag, so the switch UI can
+        warn about what an off-toggle removes elsewhere without shipping a
+        second copy of the relation.
+
         Static and dependency-free for the same reason `_module_gates` is:
         `module_catalog` imports nothing heavier than the stdlib, so this adds
         no cost to a payload the dashboard fetches on every save.
         """
-        from ..module_catalog import CATALOG, DOMAINS, KIND_QUESTION
+        from ..module_catalog import CATALOG, DOMAINS, KIND_QUESTION, soft_dependents
         return {
             "domains": list(DOMAINS),
             "kind_questions": dict(KIND_QUESTION),
@@ -129,6 +134,21 @@ class ConfigService:
                     "demand": m.demand,
                     "optional": m.optional,
                     "description": m.description,
+                    # #330 §3.4. Both directions are served, because the UI
+                    # needs both and inverting a map in JS would make the
+                    # frontend a second place the relationship is expressed.
+                    #   degrades_without -- what this module needs to be
+                    #     complete ("shows less because X is off");
+                    #   degraded_by -- what turning THIS module off costs
+                    #     elsewhere, which is the warning on its own switch.
+                    "degrades_without": [
+                        {"key": dep, "loses": loses} for dep, loses in m.degrades_without
+                    ],
+                    "degraded_by": [
+                        {"key": dep, "name": CATALOG[dep].name, "loses": loses}
+                        for dep, loses in soft_dependents(key)
+                    ],
+                    "engine_participation": m.engine_participation,
                 }
                 for key, m in CATALOG.items()
             },
