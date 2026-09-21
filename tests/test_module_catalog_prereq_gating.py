@@ -200,4 +200,9 @@ def test_module_status_all_off_is_fully_off():
             "enabled": False,
             "auto_enabled": False,
             "required_by": [],
+            # #330 Q7 (W4). Present and null, not absent: the UI branches on
+            # these keys, and this exact-shape assertion is what catches a
+            # silent change to the contract it depends on.
+            "forced": None,
+            "forced_by": None,
         }, f"{key} should be fully off"
