@@ -240,7 +240,18 @@ DASHBOARD_JS_MAX_LINES = 7_293
 # running window -- real new behavior, not duplication -- raised to the
 # measured total. The ceiling should have moved with that commit and did
 # not; caught only because a later, unrelated PR's CI ran against main.
-TOTAL_JS_MAX_LINES = 33_311
+# 2026-09-21 (W5, #330 §3.4 dependency declarations): raised from 33,311 to
+# 33,348 -- the reverse-direction off-impact warning on an optional module's
+# switch ("Turning Monte Carlo off also removes the success-probability
+# headline from Executive Summary and the fan chart from Charts"). 32 lines in
+# dashboard_decomp_row_model.js (the taxonomy payload's module-private state
+# plus moduleOffImpactWarning(), which builds the sentence) and 5 in
+# dashboard.js's renderOptionalFunctions(). New behavior, not duplication:
+# nothing rendered this before, and the helper was put in row_model
+# specifically to keep DASHBOARD_JS_MAX_LINES intact -- dashboard.js had 6
+# lines of headroom and now has 1. Raised to the measured total with no slack,
+# per this ceiling's own contract.
+TOTAL_JS_MAX_LINES = 33_348
 
 
 def _line_count(path: Path) -> int:
