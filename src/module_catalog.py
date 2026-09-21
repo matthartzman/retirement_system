@@ -704,9 +704,30 @@ def prerequisite_outputs(key: str, transitive: bool = True) -> List[str]:
 #                    the sheet never appears in the final numbered/lettered
 #                    nav.
 #   module_key    -- OPTIONAL_MODULE_SHEETS gating key, or None if always-on.
+#   slug          -- #329 P2 (W2): the letter-independent stable identity.
+#                    Unlike the dict key above (a legacy build-time name that
+#                    still carries old V5 numbering, e.g. '11C. HSA
+#                    Drawdown') and unlike the final display name (whose
+#                    letter shifts with every other toggle, #1.1's
+#                    shifting-letters defect), `slug` never changes: not when
+#                    a module is added/removed/reordered, not when `display`
+#                    is reworded. It is the identity an external ticket,
+#                    design doc, or support note should reference instead of
+#                    a letter. Required (no default) so a new sheet cannot be
+#                    added without picking one; validate() asserts every slug
+#                    is unique. workbook_common.compute_final_sheet_renames
+#                    dual-keys FINAL_SHEET_RENAMES by both the dict key and
+#                    the slug, so `FINAL_SHEET_RENAMES[slug]` always resolves
+#                    -- but the in-cell text substitution pass
+#                    (_replace_text_refs) still searches for the dict-key
+#                    string, not the slug: slugs are short snake_case
+#                    fragments ('tax_capacity', 'pc_umbrella') that could
+#                    collide with an unrelated internal identifier already
+#                    sitting inside existing cell prose, where the long,
+#                    punctuated dict-key strings ('11B. Tax Capacity') can't.
 SheetSpec = namedtuple(
     'SheetSpec',
-    'v5_code section section_rank letter_prefix letter_rank display module_key',
+    'v5_code section section_rank letter_prefix letter_rank display module_key slug',
 )
 
 
@@ -752,83 +773,90 @@ def _group_for(sheet_name: str) -> str:
 
 
 def _visible(name, v5_code=None, section_rank=None, letter_rank=None,
-             display=None, module_key=None):
+             display=None, module_key=None, *, slug):
     """A sheet that appears in the numbered/lettered nav. `section` and
     `letter_prefix` are DERIVED from the sheet's module's `kind` via
     KIND_LETTER_PREFIX -- never hand-typed (#329 F7). `section_rank` and
     `letter_rank` still take an explicit ordering key each; the two may
-    differ (see the field doc above) so both stay explicit.
+    differ (see the field doc above) so both stay explicit. `slug` is the
+    letter-independent stable identity (#329 P2 / W2) -- required, like the
+    original `_spec`.
     """
     group = _group_for(name)
     return name, SheetSpec(v5_code, group, section_rank, group, letter_rank,
-                            display, module_key)
+                            display, module_key, slug)
 
 
-def _hidden(name, v5_code=None, module_key=None):
+def _hidden(name, v5_code=None, module_key=None, *, slug):
     """A sheet that is created and dispatched but deliberately absent from
     the visible nav (merged into another sheet, or not yet restored)."""
-    return name, SheetSpec(v5_code, None, None, None, None, None, module_key)
+    return name, SheetSpec(v5_code, None, None, None, None, None, module_key, slug)
 
 
 SHEET_REGISTRY = dict([
-    _visible('1. Executive Summary', '1', 0, 0, 'Executive Summary'),
-    _visible('Plan Data', None, 0, 0, 'Plan Data'),
-    _visible('2. Assumptions', '4', 1, 1, 'Assumptions'),
-    _visible('3. Balance Sheet', '1', 3, 3, 'Balance Sheet'),
-    _visible('4. Asset Allocation', '2', 1, 1, 'Asset Allocation'),
-    _visible('5. Net Worth Projection', '1', 1, 1, 'Net Worth'),
-    _visible('6. Cash Flow Projection', '1', 2, 2, 'Cash Flow'),
-    _visible('7. Lifetime Tax', '1', 5, 5, 'Lifetime Taxes', 'lifetime_tax_projection'),
-    _visible('8. Charts Dashboard', '1', 4, 4, 'Charts', 'charts_dashboard'),
-    _hidden('9. Retirement Strategy', '1', module_key='retirement_strategy'),
-    _visible('S-Corp vs LLC', None, 0, 1, 'S-Corp vs LLC'),
-    _visible('10. Social Security', '2', 3, 3, 'Social Security', 'social_security_timing'),
-    _visible('11. Roth Conversion', '2', 0, 0, 'Roth Conversion', 'roth_conversion_plan'),
+    _visible('1. Executive Summary', '1', 0, 0, 'Executive Summary', slug='executive_summary'),
+    _visible('Plan Data', None, 0, 0, 'Plan Data', slug='plan_data'),
+    _visible('2. Assumptions', '4', 1, 1, 'Assumptions', slug='assumptions'),
+    _visible('3. Balance Sheet', '1', 3, 3, 'Balance Sheet', slug='balance_sheet'),
+    _visible('4. Asset Allocation', '2', 1, 1, 'Asset Allocation', slug='asset_allocation'),
+    _visible('5. Net Worth Projection', '1', 1, 1, 'Net Worth', slug='net_worth'),
+    _visible('6. Cash Flow Projection', '1', 2, 2, 'Cash Flow', slug='cash_flow'),
+    _visible('7. Lifetime Tax', '1', 5, 5, 'Lifetime Taxes', 'lifetime_tax_projection', slug='lifetime_taxes'),
+    _visible('8. Charts Dashboard', '1', 4, 4, 'Charts', 'charts_dashboard', slug='charts'),
+    _hidden('9. Retirement Strategy', '1', module_key='retirement_strategy', slug='retirement_strategy'),
+    _visible('S-Corp vs LLC', None, 0, 1, 'S-Corp vs LLC', slug='s_corp_vs_llc'),
+    _visible('10. Social Security', '2', 3, 3, 'Social Security', 'social_security_timing', slug='social_security'),
+    _visible('11. Roth Conversion', '2', 0, 0, 'Roth Conversion', 'roth_conversion_plan', slug='roth_conversion'),
     # section_rank/letter_rank are sort keys, not slots -- 0.5 sits it right
     # after Roth Conversion (rank 0) without renumbering anything else. Its
     # content is optimizer-mode-gated (hsa_withdrawal_mode == 'optimize'),
     # not a client_optional_functions.csv toggle, so module_key stays None
     # like 11B: always created, self-gates its own content.
-    _visible('11C. HSA Drawdown', '2', 0.5, 0.5, 'HSA Drawdown'),
-    _visible('12. Charitable Giving', '2', 5, 5, 'Charitable Giving', 'charitable_giving'),
+    _visible('11C. HSA Drawdown', '2', 0.5, 0.5, 'HSA Drawdown', slug='hsa_drawdown'),
+    _visible('12. Charitable Giving', '2', 5, 5, 'Charitable Giving', 'charitable_giving', slug='charitable_giving'),
     # letter_rank 16/17 (below the highest plan-optimizer rank, 15 on Housing
     # Comparison) puts Tax-Loss Harvesting and Gain Harvesting last and
     # adjacent within '2. Optimizers', densely -- W3's "This year's actions"
     # divider (build_workbook_section_divider) renders right before whichever
     # of the two survives module gating and appears first.
-    _visible('12B. Tax-Loss Harvesting', '2', 7, 16, 'Tax-Loss Harvesting', 'tax_loss_harvesting'),
-    _visible('12C. Gain Harvesting', '2', 8, 17, 'Gain Harvesting', 'gain_harvesting'),
-    _visible('13. State Residency', '2', 0, 0, 'State Residency', 'state_residency'),
-    _visible('14. Estate Plan', '2', 6, 6, 'Estate & Legacy Planning', 'estate_legacy_plan'),
-    _visible('15. Market-Luck Stress Test', '3', 0, 0, 'Monte Carlo', 'market_luck_stress_test'),
-    _hidden('16. Scenario Analysis', 'H', module_key='what_if_analysis'),
+    _visible('12B. Tax-Loss Harvesting', '2', 7, 16, 'Tax-Loss Harvesting', 'tax_loss_harvesting', slug='tax_loss_harvesting'),
+    _visible('12C. Gain Harvesting', '2', 8, 17, 'Gain Harvesting', 'gain_harvesting', slug='gain_harvesting'),
+    _visible('13. State Residency', '2', 0, 0, 'State Residency', 'state_residency', slug='state_residency'),
+    _visible('14. Estate Plan', '2', 6, 6, 'Estate & Legacy Planning', 'estate_legacy_plan', slug='estate_legacy_planning'),
+    _visible('15. Market-Luck Stress Test', '3', 0, 0, 'Monte Carlo', 'market_luck_stress_test', slug='monte_carlo'),
+    _hidden('16. Scenario Analysis', 'H', module_key='what_if_analysis', slug='scenario_analysis'),
     # W3 (#329 O10): LTC Stress Test is no longer merged into Life Insurance
     # -- it gets its own tab under '4. Risks' (4.1 stress tests), letter_rank
     # 2 so it sits between Survivor (1) and the protection decisions (3+).
-    _visible('17. LTC Stress Test', '3', 2, 2, 'LTC Stress Test', 'long_term_care_stress'),
-    _visible('18. Survivor Stress Test', '3', 1, 1, 'Survivor', 'survivor_stress_test'),
+    # Same slug W2 assigned it while it was still hidden -- its identity
+    # didn't change, only its visibility.
+    _visible('17. LTC Stress Test', '3', 2, 2, 'LTC Stress Test', 'long_term_care_stress', slug='ltc_stress_test'),
+    _visible('18. Survivor Stress Test', '3', 1, 1, 'Survivor', 'survivor_stress_test', slug='survivor_stress_test'),
     # letter_rank 3 (was 2): LTC Stress Test's split-out tab now sits at 2.
-    _visible('19. Life Insurance', '3', 3, 3, 'Life Insurance Need', 'life_insurance_need'),
-    _visible('20. RMD Audit', '4', 5, 4, 'RMD Audit', 'rmd_audit'),
-    _visible('21. Quality Control', '4', 4, 3, 'Quality Control'),
-    _visible('22. Glossary', '4', 7, 6, 'Glossary', 'glossary'),
-    _visible('23. Methodology', '4', 6, 5, 'Methodology', 'methodology_rerun'),
-    _hidden('24. Asset Location', '2'),
-    _visible('25. Account Reconciliation', '4', 3, 2, 'Account Reconciliation'),
-    _hidden('26. Workbook Warnings', 'H'),
-    _visible('27. Planning Levers', '4', 7.5, 7.5, 'Planning Levers'),
-    _visible('11B. Tax Capacity', '2', 8, 8, 'Tax Capacity'),
-    _visible('29. Spending Summary', '1', 6, 6, 'Spending Summary'),
-    _visible('30. Education Funding', '2', 9, 9, 'Education Funding', 'education_funding_529'),
+    # slug renamed from W2's 'ltc_life_insurance' -- that name matched the
+    # merged concept (#329 O10 unmerges it here); 'life_insurance_need'
+    # matches this sheet's module key and its now-standalone identity.
+    _visible('19. Life Insurance', '3', 3, 3, 'Life Insurance Need', 'life_insurance_need', slug='life_insurance_need'),
+    _visible('20. RMD Audit', '4', 5, 4, 'RMD Audit', 'rmd_audit', slug='rmd_audit'),
+    _visible('21. Quality Control', '4', 4, 3, 'Quality Control', slug='quality_control'),
+    _visible('22. Glossary', '4', 7, 6, 'Glossary', 'glossary', slug='glossary'),
+    _visible('23. Methodology', '4', 6, 5, 'Methodology', 'methodology_rerun', slug='methodology'),
+    _hidden('24. Asset Location', '2', slug='asset_location'),
+    _visible('25. Account Reconciliation', '4', 3, 2, 'Account Reconciliation', slug='account_reconciliation'),
+    _hidden('26. Workbook Warnings', 'H', slug='workbook_warnings'),
+    _visible('27. Planning Levers', '4', 7.5, 7.5, 'Planning Levers', slug='planning_levers'),
+    _visible('11B. Tax Capacity', '2', 8, 8, 'Tax Capacity', slug='tax_capacity'),
+    _visible('29. Spending Summary', '1', 6, 6, 'Spending Summary', slug='spending_summary'),
+    _visible('30. Education Funding', '2', 9, 9, 'Education Funding', 'education_funding_529', slug='education_funding'),
     # letter_rank 4-6 (was 3-5): the protection decisions now sit after LTC
     # Stress Test's own tab (2) and Life Insurance Need (3) in '4. Risks'.
-    _visible('31. Existing Life Insurance', '3', 4, 4, 'Existing Life Insurance', 'existing_life_insurance'),
-    _visible('32. Disability Income', '3', 5, 5, 'Disability Income', 'disability_income_insurance'),
-    _visible('33. P&C Umbrella', '3', 6, 6, 'P&C Umbrella', 'property_casualty_umbrella'),
-    _visible('34. Business Succession', '2', 12, 12, 'Business Succession', 'business_succession'),
-    _visible('35. Equity Compensation', '2', 10, 10, 'Equity Compensation', 'equity_compensation'),
-    _visible('36. Special-Needs Planning', '2', 11, 11, 'Special-Needs Planning', 'special_needs_planning'),
-    _visible('37. Current vs Proposed', '1', 7, 7, 'Current vs. Proposed'),
+    _visible('31. Existing Life Insurance', '3', 4, 4, 'Existing Life Insurance', 'existing_life_insurance', slug='existing_life_insurance'),
+    _visible('32. Disability Income', '3', 5, 5, 'Disability Income', 'disability_income_insurance', slug='disability_income'),
+    _visible('33. P&C Umbrella', '3', 6, 6, 'P&C Umbrella', 'property_casualty_umbrella', slug='pc_umbrella'),
+    _visible('34. Business Succession', '2', 12, 12, 'Business Succession', 'business_succession', slug='business_succession'),
+    _visible('35. Equity Compensation', '2', 10, 10, 'Equity Compensation', 'equity_compensation', slug='equity_compensation'),
+    _visible('36. Special-Needs Planning', '2', 11, 11, 'Special-Needs Planning', 'special_needs_planning', slug='special_needs_planning'),
+    _visible('37. Current vs Proposed', '1', 7, 7, 'Current vs. Proposed', slug='current_vs_proposed'),
     # 2026-09-09 housing-estimate design, §7.0 H7: the three-axis housing
     # trajectory sweep -- see src/housing_comparison.py.
     # section_rank/letter_rank 17/15 sit right
@@ -838,7 +866,7 @@ SHEET_REGISTRY = dict([
     # build-time sheet TITLE is a real openpyxl worksheet name, capped at 31
     # characters -- "38. Housing Trajectory Comparison" (33 chars) tripped
     # that limit.
-    _visible('38. Housing Comparison', '2', 17, 15, 'Housing Comparison', 'housing_trajectory_comparison'),
+    _visible('38. Housing Comparison', '2', 17, 15, 'Housing Comparison', 'housing_trajectory_comparison', slug='housing_comparison'),
 ])
 
 # OPTIONAL_MODULE_SHEETS maps each client_optional_functions.csv toggle key to
@@ -1107,6 +1135,16 @@ def validate() -> None:
         assert _name in sheets, (
             f"sheet {_name!r} appears in the workbook nav but no CATALOG "
             f"module declares it; it cannot be classified or gated")
+
+    # #329 P2 (W2): slugs are the letter-independent stable identity every
+    # cross-reference resolves through (FINAL_SHEET_RENAMES[slug]); a blank or
+    # colliding slug would silently make that lookup ambiguous or fail.
+    _slugs: Dict[str, str] = {}
+    for _name, _spec_ in SHEET_REGISTRY.items():
+        assert _spec_.slug, f"sheet {_name!r} has no slug"
+        assert _spec_.slug not in _slugs, (
+            f"duplicate slug {_spec_.slug!r} on {_name!r} and {_slugs[_spec_.slug]!r}")
+        _slugs[_spec_.slug] = _name
 
     # (1) The classification invariant (#329 §3.1). A sheet's letter group is
     # implied by its module's kind, and its section must agree with its letter
