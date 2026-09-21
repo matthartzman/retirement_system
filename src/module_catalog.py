@@ -814,13 +814,18 @@ SHEET_REGISTRY = dict([
     # like 11B: always created, self-gates its own content.
     _visible('11C. HSA Drawdown', '2', 0.5, 0.5, 'HSA Drawdown', slug='hsa_drawdown'),
     _visible('12. Charitable Giving', '2', 5, 5, 'Charitable Giving', 'charitable_giving', slug='charitable_giving'),
-    # letter_rank 16/17 (below the highest plan-optimizer rank, 15 on Housing
-    # Comparison) puts Tax-Loss Harvesting and Gain Harvesting last and
-    # adjacent within '2. Optimizers', densely -- W3's "This year's actions"
-    # divider (build_workbook_section_divider) renders right before whichever
-    # of the two survives module gating and appears first.
-    _visible('12B. Tax-Loss Harvesting', '2', 7, 16, 'Tax-Loss Harvesting', 'tax_loss_harvesting', slug='tax_loss_harvesting'),
-    _visible('12C. Gain Harvesting', '2', 8, 17, 'Gain Harvesting', 'gain_harvesting', slug='gain_harvesting'),
+    # section_rank AND letter_rank 18/19 (above the highest plan-optimizer
+    # rank, 17/15 on Housing Comparison, in BOTH dimensions) puts Tax-Loss
+    # Harvesting and Gain Harvesting last and adjacent within '2. Optimizers'
+    # -- densely, in both physical tab order (section_rank drives
+    # WORKBOOK_SECTION_LAYOUT's sheet order, hence the divider tab's listed
+    # rows and the real tab strip) and lettering (letter_rank). Moving only
+    # one of the two ranks leaves them agreeing on the letter but not the
+    # physical position, or vice versa -- W3's "This year's actions" divider
+    # (build_workbook_section_divider) renders right before whichever of the
+    # two survives module gating and appears first in that physical order.
+    _visible('12B. Tax-Loss Harvesting', '2', 18, 18, 'Tax-Loss Harvesting', 'tax_loss_harvesting', slug='tax_loss_harvesting'),
+    _visible('12C. Gain Harvesting', '2', 19, 19, 'Gain Harvesting', 'gain_harvesting', slug='gain_harvesting'),
     _visible('13. State Residency', '2', 0, 0, 'State Residency', 'state_residency', slug='state_residency'),
     _visible('14. Estate Plan', '2', 6, 6, 'Estate & Legacy Planning', 'estate_legacy_plan', slug='estate_legacy_planning'),
     _visible('15. Market-Luck Stress Test', '3', 0, 0, 'Monte Carlo', 'market_luck_stress_test', slug='monte_carlo'),
