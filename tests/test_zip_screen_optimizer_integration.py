@@ -36,7 +36,10 @@ def _search(**overrides):
                    {'kind': 'zip', 'anchor_zip': '60540'}],
         'radius_miles': 50, 'min_quality_score': 0,
         'area_type': 'any', 'max_population': None,
-        'shortlist_size': 2, 'dwelling': dict(DWELLING),
+        # shortlist_size left the request schema with the step-1 selection
+        # table (design 2026-09-19 §5.4); the caller now names the ZIPs.
+        'selected_zips': ['60521', '60540'],
+        'dwelling': dict(DWELLING),
     }
     search.update(overrides)
     return search
@@ -104,6 +107,40 @@ def test_an_empty_shortlist_returns_200_without_running_the_engine():
     assert payload['recommendation'] is None
     assert payload['candidates_evaluated'] == 0
     assert 'message' in payload
+
+
+def test_a_zip_outside_the_screen_is_rejected_end_to_end_naming_it():
+    """A stale saved selection, screened against different filters, must come
+    back as a named failure rather than quietly running a smaller search than
+    the user asked for (design 2026-09-19 §5.5)."""
+    body = _body()
+    body['move1']['search'] = _search(selected_zips=['60521', '99999'])
+    payload, status = optimize_housing_from_request(
+        _base_config(), body, table_path=FIXTURE)
+    assert status == 400
+    assert payload['success'] is False
+    assert '99999' in payload['error']
+
+
+def test_an_empty_screen_keeps_its_own_message_rather_than_blaming_the_selection():
+    """An empty screen and a stale selection both leave the requested ZIP out
+    of all_passing, but only the second is the user's selection being wrong.
+    An emptied funnel keeps the "widen the radius" message."""
+    body = _body()
+    body['move1']['search'] = _search(min_quality_score=99.9)
+    payload, status = optimize_housing_from_request(
+        _base_config(), body, table_path=FIXTURE)
+    assert status == 200
+    assert 'radius' in payload['message']
+
+
+def test_only_the_selected_zips_reach_the_optimizer():
+    body = _body()
+    body['move1']['search'] = _search(min_quality_score=0, selected_zips=['60521'])
+    payload, _ = optimize_housing_from_request(
+        _base_config(), body, table_path=FIXTURE)
+    searched = {z['zip'] for z in payload['zip_screens']['move1']['shortlist']}
+    assert searched == {'60521'}
 
 
 def test_a_down_payment_pct_of_zero_is_honored_not_rewritten_to_20_pct():
