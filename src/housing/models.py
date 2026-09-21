@@ -75,8 +75,11 @@ class Location:
     # ``dataclasses.replace``); None for a Location that never came from a
     # screen. ``est_price`` is READ by ``plan_variant._purchase_price_for_location``
     # as the buy-move cost basis when no explicit price range is set -- it is
-    # not purely cosmetic. The other four fields below remain
-    # display/traceability only.
+    # not purely cosmetic. It is always TODAY'S dollars (screen.estimate_price
+    # is never escalated -- design 2026-09-19 §6.5); the cost basis
+    # ``_purchase_price_for_location`` returns from it is escalated to the
+    # move's own year at the point of use, not here. The other four fields
+    # below remain display/traceability only.
     city: str | None = None
     nss: float | None = None
     band: str | None = None

@@ -21,6 +21,10 @@ from dataclasses import replace
 from typing import Any, Literal
 
 from .. import planning_engines as _pe
+from ..server_services.strategy_asset_service import (
+    HOME_APPR_DEFAULT,
+    INFLATION_GENERAL_DEFAULT,
+)
 from .models import (
     FamilyPresence,
     Location,
@@ -313,6 +317,8 @@ def optimize_housing(
         move2_strategy=move2_strategy, zip_screens=zip_screens,
         rejections=rejections,
         down_payment_pct=down_payment_pct, mortgage_rate_pct=mortgage_rate_pct,
+        home_appr=float(c0.get('home_appr', HOME_APPR_DEFAULT) or HOME_APPR_DEFAULT),
+        inflation_general=float(c0.get('inf', INFLATION_GENERAL_DEFAULT) or INFLATION_GENERAL_DEFAULT),
         baseline=baseline,
     )
 
