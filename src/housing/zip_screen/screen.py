@@ -11,6 +11,7 @@ import math
 from dataclasses import dataclass, field
 from typing import Any
 
+from ...server_services.strategy_asset_service import HOME_APPR_DEFAULT
 from .geo import haversine_miles, zips_within
 from .quality import score_zip
 from .resolve import city_type_for_density
@@ -36,6 +37,17 @@ class ScreenRequest:
     property_spec: dict[str, Any]
     area_type: str = 'any'
     max_population: int | None = None
+    # Budget-basis fields (design 2026-09-19 §6.4 site 4). ``target_purchase_
+    # price_range`` in ``property_spec`` is move-year dollars (OQ-2); the
+    # screen's own price estimate stays today's dollars (screen.estimate_price
+    # is untouched), so the *bounds* -- never the estimate -- are deflated by
+    # ``home_appr`` over the years from ``plan_start`` to ``reference_year``
+    # before the affordability comparison. Defaults are a no-op (deflator 1),
+    # so a caller that does not care about basis (most existing tests) is
+    # unaffected.
+    home_appr: float = HOME_APPR_DEFAULT
+    plan_start: int = 0
+    reference_year: int = 0
 
 
 @dataclass(frozen=True)
@@ -57,6 +69,10 @@ class ScreenedZip:
     collapsed: list[str] = field(default_factory=list)
     nearest_anchor_zip: str = ''
     family_distance_miles: float | None = None
+    # = plan_start at screen time (design §6.4 site 4), so a downstream
+    # consumer can never mistake est_price's basis: it is always today's
+    # (this) dollars, never the move's own year.
+    est_price_basis_year: int = 0
 
 
 @dataclass(frozen=True)
@@ -80,6 +96,11 @@ class MultiAnchorRequest:
     property_spec: dict[str, Any]
     area_type: str = 'any'
     max_population: int | None = None
+    # See ScreenRequest's matching fields -- same budget-basis deflation,
+    # applied per anchor by run_multi_anchor_screen below.
+    home_appr: float = HOME_APPR_DEFAULT
+    plan_start: int = 0
+    reference_year: int = 0
 
 
 def estimate_price(rec: ZipRecord, base_estimate: float) -> float:
@@ -243,6 +264,17 @@ def run_screen(
 
     price_range = req.property_spec.get('target_purchase_price_range')
     lo, hi = (float(price_range[0]), float(price_range[1])) if price_range else (None, None)
+    if lo is not None:
+        # §6.4 site 4: the budget is move-year dollars (OQ-2); the screen's
+        # own est_price stays today's dollars. Deflate the bounds -- never
+        # the estimate -- by the same rate the engine uses for a home's own
+        # appreciation, over the years from plan_start to the reference year
+        # (the move window's midpoint). A current-year window (reference_year
+        # <= plan_start, or unset) deflates by 1 -- a no-op, so funnel counts
+        # are unchanged for it.
+        years_out = max(0, int(req.reference_year) - int(req.plan_start)) if req.reference_year else 0
+        deflator = (1.0 + float(req.home_appr)) ** years_out if years_out else 1.0
+        lo, hi = lo / deflator, hi / deflator
 
     with_data: list[tuple[ZipRecord, float, Any]] = []
     for rec, dist in in_radius:
@@ -290,6 +322,7 @@ def run_screen(
             population=rec.place_population or rec.zcta_population or 0,
             upi_adjusted=nss.upi_adjusted,
             cross_state=rec.state if current_state and rec.state != current_state else None,
+            est_price_basis_year=int(req.plan_start),
         ))
     funnel['affordable'] = len(passing)
     affordable_passing = list(passing)
@@ -358,6 +391,8 @@ def run_multi_anchor_screen(
                 shortlist_size=len(data),          # no per-anchor truncation
                 property_spec=req.property_spec,
                 area_type=req.area_type, max_population=req.max_population,
+                home_appr=req.home_appr, plan_start=req.plan_start,
+                reference_year=req.reference_year,
             ),
             table=data, current_state=current_state,
         ))
