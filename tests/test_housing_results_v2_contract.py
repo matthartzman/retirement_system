@@ -115,9 +115,16 @@ def test_purchase_price_matches_the_plan_variant_helper_directly():
     """The results payload's purchase_price must be the SAME number the
     engine's own cost basis uses -- not a separately-computed estimate."""
     from src.housing.plan_variant import _purchase_price_for_location
+    from src.server_services.strategy_asset_service import (
+        HOME_APPR_DEFAULT,
+        INFLATION_GENERAL_DEFAULT,
+    )
     sc = _scored()
-    loc = sc.candidate.moves[0].location
-    expected = _purchase_price_for_location(loc)
+    move_in = sc.candidate.moves[0]
+    loc = move_in.location
+    expected = _purchase_price_for_location(
+        loc, start_year=move_in.acquisition_year, home_appr=HOME_APPR_DEFAULT,
+        inflation_general=INFLATION_GENERAL_DEFAULT)
     move = _out([sc])['candidates'][0]['moves'][0]
     assert move['financing']['purchase_price'] == expected
 
