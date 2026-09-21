@@ -64,6 +64,28 @@ KIND_QUESTION = {
     REFERENCE:       "What inputs and methods produced this?",
 }
 
+# ── Gate kinds (#330 §5.3, W6) ───────────────────────────────────────────────
+# HOW a module is switched on, which is a different question from what it
+# produces (`kind`) or what it concerns (`domain`).
+#
+#   module_toggle — a build-gating boolean in client_optional_functions.csv.
+#                   The switch lives on Plan Features; `gate_ref` is None
+#                   because the module key IS the toggle's identity.
+#   plan_flag     — an ordinary plan row that other rows are semantically
+#                   nested under, and which lives beside the fields it
+#                   governs (HELOC's flag sits with the credit limit and the
+#                   draw-year). The switch renders where its data is, never on
+#                   Plan Features, so there is one writer per value.
+#
+# The two must stay distinct at the point of STORAGE -- a plan flag is plan
+# data and travels with the household's CSV, a module toggle is a build
+# preference -- and unified at the point of USE, which is what this pair of
+# fields buys: `stepGatedByOptionalModule()` no longer needs to know which
+# mechanism gates a step, only that the catalog declares one.
+GATE_MODULE_TOGGLE = "module_toggle"
+GATE_PLAN_FLAG = "plan_flag"
+GATE_KINDS = (GATE_MODULE_TOGGLE, GATE_PLAN_FLAG)
+
 # ── Domains (#330 §4.2) ──────────────────────────────────────────────────────
 # The second, independent axis: `kind` is the shape of the answer a module
 # produces, `domain` is the part of life it concerns. The workbook groups by
@@ -212,6 +234,26 @@ class OutputModule:
     # workbook *sheet*, not an input page, and have neither.
     dashboard_step: Optional[str] = None
     csv_sections: Tuple[str, ...] = field(default_factory=tuple)
+    # ── #330 §5.3 (W6): how this module is switched on ──────────────────────
+    #
+    # ``gate_kind`` is GATE_MODULE_TOGGLE (the default, and what every
+    # client_optional_functions.csv module is) or GATE_PLAN_FLAG.
+    #
+    # ``gate_ref`` is None for a module toggle -- the key is the toggle -- and
+    # the ``(section, subsection, label)`` triple naming the plan row for a
+    # plan flag. It is the exact argument list the frontend's
+    # ``sectionFlagEnabled()`` takes, so the JS gate resolves from the
+    # declaration instead of a hand-written ``if``.
+    #
+    # ``gate_enable_label`` is that row's DISPLAY name, which is not derivable
+    # from its CSV label (``heloc_enabled`` renders as "Enable HELOC
+    # Strategy"). It exists so the "where do I turn this on" note can name the
+    # click-path the user will actually see; without it the note would either
+    # hand-type the path again in JS -- the twin this field removes -- or show
+    # a raw CSV label.
+    gate_kind: str = GATE_MODULE_TOGGLE
+    gate_ref: Optional[Tuple[str, str, str]] = None
+    gate_enable_label: Optional[str] = None
 
 
 def _in(module: str, *elements: str) -> RequiredInput:
@@ -680,6 +722,25 @@ _OUTPUTS: List[OutputModule] = [
         domain=REPORTS_DOCUMENTATION,
         optional=True, sheet="22. Glossary", tab="5G. Glossary",
     ),
+
+    # ── Plan-flag features (#330 §5.3, W6) ──────────────────────────────────
+    # Catalogued for the same reason every other feature is: so the nav gate,
+    # the "where do I turn this on" note and the Plan Features census read one
+    # declaration instead of a hand-written branch each. They are NOT
+    # ``optional=True``: that field means "carries a client_optional_functions
+    # .csv toggle", which these deliberately do not -- their switch is a plan
+    # row that travels with the household's data. They own no workbook sheet
+    # either, so they never reach the SHEET_REGISTRY join.
+    OutputModule(
+        "heloc", "HELOC", OPTIMIZATION, LOW,
+        "Draw from a home-equity line for large discretionary spending "
+        "instead of liquidating portfolio assets.",
+        domain=HOUSING_PROPERTY,
+        dashboard_step="heloc_strategy",
+        gate_kind=GATE_PLAN_FLAG,
+        gate_ref=("HELOC", "Setup", "heloc_enabled"),
+        gate_enable_label="Enable HELOC Strategy",
+    ),
 ]
 
 CATALOG: Dict[str, OutputModule] = {m.key: m for m in _OUTPUTS}
@@ -707,7 +768,41 @@ def step_gate_map() -> Dict[str, str]:
     module is off, replacing a hand-maintained if/else chain
     (``stepGatedByOptionalModule``) with this single source of truth.
     """
-    return {m.dashboard_step: m.key for m in _OUTPUTS if m.dashboard_step}
+    return {m.dashboard_step: m.key for m in _OUTPUTS
+            if m.dashboard_step and m.gate_kind == GATE_MODULE_TOGGLE}
+
+
+def flag_gate_map() -> Dict[str, Dict[str, object]]:
+    """{dashboard_step_id: {...}} for every step gated by a PLAN FLAG (§5.3).
+
+    The sibling of :func:`step_gate_map`, and deliberately a separate map
+    rather than more rows in that one: the two are read with different
+    predicates on the frontend (``optionalFunctionEnabled(key)`` vs
+    ``sectionFlagEnabled(section, subsection, label)``), so merging them would
+    only force the caller to re-derive which kind it was holding.
+
+    Each value carries what the frontend needs to both *evaluate* the gate and
+    *explain* it:
+
+      * ``key`` / ``name``  — the module's identity and display name.
+      * ``ref``             — ``[section, subsection, label]``, exactly the
+                              arguments ``sectionFlagEnabled()`` takes.
+      * ``enable_label``    — the flag row's display name, for the click-path
+                              in the "where do I turn this on" note.
+
+    >>> flag_gate_map()["heloc_strategy"]["ref"]
+    ['HELOC', 'Setup', 'heloc_enabled']
+    """
+    return {
+        m.dashboard_step: {
+            "key": m.key,
+            "name": m.name,
+            "ref": list(m.gate_ref or ()),
+            "enable_label": m.gate_enable_label,
+        }
+        for m in _OUTPUTS
+        if m.dashboard_step and m.gate_kind == GATE_PLAN_FLAG
+    }
 
 
 def section_gate_map() -> Dict[str, str]:
@@ -728,8 +823,20 @@ def optional_keys() -> List[str]:
 
 
 def core_keys() -> List[str]:
-    """Keys of always-on core modules (no toggle)."""
-    return [m.key for m in _OUTPUTS if not m.optional]
+    """Keys of always-on core modules (no switch of any kind).
+
+    W6 narrowed this: a plan-flag module is not optional (it carries no
+    client_optional_functions.csv toggle) but it is emphatically not always-on
+    either -- HELOC defaults to NO. Reading "not optional" as "core" would
+    have quietly promoted every plan flag into the always-on set.
+    """
+    return [m.key for m in _OUTPUTS
+            if not m.optional and m.gate_kind == GATE_MODULE_TOGGLE]
+
+
+def plan_flag_keys() -> List[str]:
+    """Keys of modules switched by a plan-data flag rather than a toggle."""
+    return [m.key for m in _OUTPUTS if m.gate_kind == GATE_PLAN_FLAG]
 
 
 def prerequisite_outputs(key: str, transitive: bool = True) -> List[str]:
@@ -1295,6 +1402,35 @@ def validate() -> None:
             assert CATALOG[dep].optional, (
                 f"{key}: degrades_without {dep!r}, which is a core always-on "
                 f"module -- there is no switch for the warning to attach to.")
+        # (4d) #330 §5.3 (W6). A gate declaration must be complete and must
+        # match its kind: a plan flag names the row that switches it and how
+        # that row reads on screen; a module toggle names nothing, because the
+        # key is the toggle. A half-declared gate is worse than none -- the
+        # frontend would look the step up, find an entry, and evaluate an
+        # undefined reference.
+        assert m.gate_kind in GATE_KINDS, (
+            f"{key}: bad gate_kind {m.gate_kind!r}; expected one of {GATE_KINDS}")
+        if m.gate_kind == GATE_PLAN_FLAG:
+            assert not m.optional, (
+                f"{key}: gate_kind={GATE_PLAN_FLAG!r} with optional=True. The two "
+                f"mechanisms are alternatives, not layers -- a feature gated by "
+                f"both is the DAF double-gate #330 Q2 exists to end.")
+            assert m.gate_ref and len(m.gate_ref) == 3 and all(m.gate_ref), (
+                f"{key}: gate_kind={GATE_PLAN_FLAG!r} needs a complete "
+                f"(section, subsection, label) gate_ref; got {m.gate_ref!r}")
+            assert m.gate_enable_label, (
+                f"{key}: gate_kind={GATE_PLAN_FLAG!r} needs gate_enable_label -- "
+                f"the flag row's display name, which its CSV label "
+                f"({m.gate_ref[2]!r}) does not give. Without it the enable-note "
+                f"has no click-path to name.")
+            assert not m.sheet, (
+                f"{key}: a plan flag owns no workbook sheet, but names "
+                f"{m.sheet!r}; the catalog-to-registry join expects a module "
+                f"behind every sheet and a toggle behind every module.")
+        else:
+            assert m.gate_ref is None and m.gate_enable_label is None, (
+                f"{key}: gate_ref/gate_enable_label are plan-flag fields, but "
+                f"gate_kind is {m.gate_kind!r}; the module key is the toggle.")
         # (4c) engine_participation describes what a *toggle* does to the
         # projection. A core module has no toggle.
         if m.engine_participation:
@@ -1369,8 +1505,17 @@ def validate() -> None:
     sections: Dict[str, str] = {}
     for key, m in CATALOG.items():
         if m.dashboard_step or m.csv_sections:
-            assert m.optional, f"{key}: dashboard_step/csv_sections require optional=True"
+            # W6 widened this from `optional` to "has a gate of some kind": a
+            # plan flag gates a step exactly as a toggle does, it just reads
+            # the switch from plan data. What is still an error is gating a
+            # step from a module that has no switch at all.
+            assert m.optional or m.gate_kind == GATE_PLAN_FLAG, (
+                f"{key}: dashboard_step/csv_sections require a switch -- either "
+                f"optional=True or gate_kind={GATE_PLAN_FLAG!r}")
         if m.dashboard_step:
+            # Uniqueness spans BOTH gate maps: step_gate_map() and
+            # flag_gate_map() are read by one frontend lookup chain, so a step
+            # claimed twice would resolve to whichever map is consulted first.
             assert m.dashboard_step not in steps, (
                 f"dashboard_step {m.dashboard_step!r} claimed by both {key} and {steps[m.dashboard_step]}")
             steps[m.dashboard_step] = key

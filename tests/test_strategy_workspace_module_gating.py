@@ -16,7 +16,7 @@ asserted here against the same server-declared single source of truth
 """
 from pathlib import Path
 
-from src.module_catalog import step_gate_map
+from src.module_catalog import flag_gate_map, step_gate_map
 
 ROOT = Path(__file__).resolve().parents[1]
 from tests._decomp_dashboard import dashboard_function_source, dashboard_js_text
@@ -68,23 +68,49 @@ def test_every_gated_section_names_the_key_step_gate_map_expects():
     assert gates.get("scenarios") == "what_if_analysis"
 
 
-def test_heloc_stays_the_declared_special_case_not_a_new_hand_picked_one():
-    # HELOC isn't a client_optional_functions.csv toggle (module_catalog has
-    # no entry for it) -- it's a plan-data feature flag
-    # (HELOC/Setup/heloc_enabled), so stepGatedByOptionalModule() special-cases
-    # it explicitly rather than through step_gate_map(). Confirm that's still
-    # the ONLY special case, not a precedent for reintroducing hand-picked
-    # per-module conditionals the way #256 originally had to remove.
-    gates = step_gate_map()
-    assert "heloc_strategy" not in gates
+def test_heloc_gates_through_a_declaration_not_a_hand_written_branch():
+    # HELOC isn't a client_optional_functions.csv toggle -- it's a plan-data
+    # feature flag (HELOC/Setup/heloc_enabled). #330 §5.3 (W6) unified the two
+    # mechanisms at the point of USE: the catalog declares the flag's
+    # (section, subsection, label) and flag_gate_map() serves it beside
+    # step_gate_map(), so stepGatedByOptionalModule() no longer carries an
+    # `if (stepId === "heloc_strategy")`. It is the SAME contract #256 fixed
+    # for toggles, now covering flags too -- a second plan flag must need no
+    # second branch.
+    assert "heloc_strategy" not in step_gate_map()
+    flag = flag_gate_map()["heloc_strategy"]
+    assert flag["key"] == "heloc"
+    assert flag["ref"] == ["HELOC", "Setup", "heloc_enabled"]
+    assert flag["enable_label"] == "Enable HELOC Strategy"
+
     row_model_js = (
         ROOT / "frontend" / "js" / "dashboard_decomp_row_model.js"
     ).read_text(encoding="utf-8")
     gate_fn = dashboard_function_source("stepGatedByOptionalModule", dashboard_js_text())
-    assert 'stepId === "heloc_strategy"' in gate_fn
+    # The declaration is read; the two hand-written branches are gone.
+    assert "flag_gates" in gate_fn
+    assert "sectionFlagEnabled(" in gate_fn
+    assert 'stepId === "heloc_strategy"' not in gate_fn
+    assert 'stepId === "special_strategies"' not in gate_fn
+    assert "helocModuleEnabled()" not in gate_fn
     # No leftover or reintroduced one-off conditionals for any other module.
     assert "divorceLeverButton" not in row_model_js
     assert "ltcLeverButton" not in row_model_js
+
+
+def test_the_enable_note_resolves_its_click_path_from_the_catalog():
+    """§5.3: a plan flag's switch lives where its data is, so its note has to
+    name a click-path into the owning page rather than Plan Features. That
+    path used to be hand-typed in strategySectionGatedNote() beside an
+    `if`; it must now come from the same declaration the gate reads."""
+    note_start = WORKSPACE_JS.index("export function strategySectionGatedNote(")
+    note_fn = WORKSPACE_JS[note_start : WORKSPACE_JS.index("\n}", note_start)]
+    assert 'gateStepId === "heloc_strategy"' not in note_fn
+    assert "Enable HELOC Strategy" not in note_fn
+    assert "flag_gates" in note_fn
+    assert "enable_label" in note_fn
+    # ...and the catalog is where that copy now lives, exactly once.
+    assert flag_gate_map()["heloc_strategy"]["enable_label"] == "Enable HELOC Strategy"
 
 
 def test_every_section_gates_through_the_single_generic_helper():

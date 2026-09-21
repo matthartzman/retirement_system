@@ -62,15 +62,15 @@ export function strategySectionToggle(key, open) {
   renderMain();
 }
 
-// The "this section's optional module is off" note, lifted verbatim from the
-// deleted Special Strategies renderer and generalized over the section, which
-// is why it is one function and not one per section. HELOC is not a
-// client_optional_functions.csv toggle -- it is a plan-data feature flag, so
-// its note points at the HELOC setup page rather than Plan Features, same
-// as it always did.
+// The "this section's optional module is off" note, generalized over the
+// section, which is why it is one function and not one per section. §5.3 (W6):
+// a plan flag's switch lives WHERE ITS DATA IS, so its note names a click-path
+// into the owning page, built from the catalog's gate_ref/gate_enable_label
+// (moduleGates.flag_gates) rather than the hand-typed `if` this used to carry.
 export function strategySectionGatedNote(title, gateStepId) {
-  if (gateStepId === "heloc_strategy")
-    return `<div class="section-note">${esc(title)} strategy is off. Enable it on <a href="#" onclick="setStep('heloc_strategy');return false">HELOC &rarr; Setup &rarr; Enable HELOC Strategy</a> to use it.</div>`;
+  const g = (moduleGates.flag_gates || {})[gateStepId];
+  if (g)
+    return `<div class="section-note">${esc(title)} is off. Enable it on <a href="#" onclick="setStep('${escJs(gateStepId)}');return false">${[...(g.ref || []).slice(0, 2), g.enable_label].filter(Boolean).map((x) => esc(x)).join(" &rarr; ")}</a> to use it.</div>`;
   return `<div class="section-note">${esc(title)} is off. Enable ${esc(title)} on <a href="#" onclick="setStep('optional_functions');return false">Plan Features</a> to use it.</div>`;
 }
 
