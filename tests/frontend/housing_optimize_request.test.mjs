@@ -47,7 +47,6 @@ function defaultElements() {
     housingOptMove1MinScore: { value: "60" },
     housingOptMove1AreaType: { value: "any" },
     housingOptMove1MaxPopulation: { value: "" },
-    housingOptMove1ShortlistSize: { value: "4" },
     housingOptMove1Bedrooms: { value: "3" },
     housingOptMove1Bathrooms: { value: "2" },
     housingOptMove1PropertyType: { value: "single_family" },
@@ -72,7 +71,6 @@ function defaultElements() {
     housingOptMove2MinScore: { value: "60" },
     housingOptMove2AreaType: { value: "any" },
     housingOptMove2MaxPopulation: { value: "" },
-    housingOptMove2ShortlistSize: { value: "4" },
     housingOptMove2Bedrooms: { value: "3" },
     housingOptMove2Bathrooms: { value: "2" },
     housingOptMove2PropertyType: { value: "single_family" },
@@ -88,6 +86,10 @@ function defaultElements() {
     housingOptMove2AnchorZip1: { value: "" },
 
     housingOptRun: { disabled: false },
+    housingOptContinue: { disabled: true },
+    // One validation box per step (design 2026-09-19 §5.3): a rule's message
+    // shows next to the field the user would change.
+    housingOptStep1Validation: { hidden: true, textContent: "" },
     housingOptValidation: { hidden: true, textContent: "" },
     housingOptimizeResults: { innerHTML: "" },
   };
@@ -95,13 +97,26 @@ function defaultElements() {
 
 // Loads a fresh sandbox and stubs document.getElementById off `elements`
 // (default form plus the given overrides, one level deep per id).
-function mountHousingOptPanel(overrides = {}) {
+//
+// `selected` seeds each move's step-1 ZIP selection, which is module state
+// rather than a form control: the selection table is rendered from a screen
+// response, so there is no element for the stub map to carry it on. The
+// 2026-09-19 anchor-flow design §5.4 replaced the "Shortlist size" pulldown
+// with this selection, and §5.5 puts it on the wire as `selected_zips`, so a
+// form with nothing selected is now genuinely invalid -- every test that
+// wants a *valid* default form needs one. Pass `selected: {}` to get the
+// empty state on purpose.
+function mountHousingOptPanel(overrides = {}, opts = {}) {
   const elements = defaultElements();
   for (const [id, patch] of Object.entries(overrides)) {
     elements[id] = { ...(elements[id] || {}), ...patch };
   }
   const sandbox = loadDashboardSandbox();
   sandbox.document.getElementById = (id) => elements[id] || { value: "", checked: false };
+  const selected = opts.selected || { 1: ["80014", "60521"], 2: ["80014", "60521"] };
+  for (const [move, zips] of Object.entries(selected)) {
+    for (const zip of zips) sandbox.toggleHousingOptZipSelection(Number(move), zip);
+  }
   return { sandbox, elements };
 }
 
@@ -319,18 +334,36 @@ describe("validateHousingOptForm -- purchase assumptions bounds", () => {
 });
 
 describe("refreshHousingOptValidation", () => {
-  test("the run button is disabled while the form is invalid", () => {
+  // Adjusted for the step split (§5.3): the year-window rules became step-1
+  // rules, so this message now lands in step 1's validation box. What the
+  // test is really pinning -- the Run button, which lives on step 2, is
+  // disabled by a rule on the *other* step -- is asserted unchanged, and is
+  // the property that stops the split smuggling an invalid request through.
+  test("the run button is disabled by a failing rule on either step", () => {
     const { sandbox, elements } = mountHousingOptPanel({
       housingOptMove1Earliest: { value: "2046" },
       housingOptMove1Latest: { value: "2031" },
     });
     sandbox.refreshHousingOptValidation();
     assert.equal(elements.housingOptRun.disabled, true);
-    assert.equal(elements.housingOptValidation.hidden, false);
+    assert.equal(elements.housingOptStep1Validation.hidden, false);
     assert.equal(
-      elements.housingOptValidation.textContent,
+      elements.housingOptStep1Validation.textContent,
       "Earliest move-1 year must not be after the latest.",
     );
+    // ...and step 2's own box stays empty, so the message is not shown twice.
+    assert.equal(elements.housingOptValidation.hidden, true);
+  });
+
+  test("a step-2 rule's message lands on step 2", () => {
+    const { sandbox, elements } = mountHousingOptPanel({
+      housingOptDownPaymentPct: { value: "150" },
+    });
+    sandbox.refreshHousingOptValidation();
+    assert.equal(elements.housingOptRun.disabled, true);
+    assert.equal(elements.housingOptValidation.hidden, false);
+    assert.match(elements.housingOptValidation.textContent, /down payment/i);
+    assert.equal(elements.housingOptStep1Validation.hidden, true);
   });
 
   test("the run button re-enables once the form is valid again", () => {

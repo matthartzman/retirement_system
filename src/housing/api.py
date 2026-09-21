@@ -578,6 +578,8 @@ def _screened_zip_payload(z: ScreenedZip) -> dict[str, Any]:
         'population': z.population, 'nearest_anchor_zip': z.nearest_anchor_zip,
         'family_distance_miles': z.family_distance_miles,
         'est_price_basis_year': z.est_price_basis_year,
+        'est_price_move_year': z.est_price_move_year,
+        'est_price_reference_year': z.est_price_reference_year,
         'quota_reserved': z.quota_reserved,
     }
 

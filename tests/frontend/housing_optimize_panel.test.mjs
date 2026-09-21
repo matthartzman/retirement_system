@@ -27,10 +27,37 @@ describe("renderHousingOptimizePanelHtml", () => {
     assert.ok(!html.includes("housingOptLocCount"));
   });
 
-  test("global constraints and objective come before the move sections", () => {
+  // DELIBERATELY INVERTED by the 2026-09-19 anchor-flow design §5.3, not an
+  // accidental break. The panel became a two-step wizard: step 1 ("Where and
+  // when could you go?") fixes each move's location and timing, and step 2
+  // ("What would it cost?") holds the objective, family presence, current
+  // home and purchase assumptions. The moves therefore now come FIRST in
+  // document order. The timing row moved with them because the window's
+  // midpoint is what prices step 1's affordability filter -- screening
+  // against a window the user has not set yet would invalidate their
+  // selection the moment they set it.
+  test("the move sections come first, and the costing questions follow", () => {
     const html = panelHtml();
-    assert.ok(html.indexOf("housingOptObjective") < html.indexOf("housingOptMove1Earliest"));
-    assert.ok(html.indexOf("housingOptPresenceZip") < html.indexOf("housingOptMove1Earliest"));
+    assert.ok(html.indexOf("housingOptMove1Earliest") < html.indexOf("housingOptObjective"));
+    assert.ok(html.indexOf("housingOptMove1Earliest") < html.indexOf("housingOptPresenceZip"));
+  });
+
+  test("the two steps are both rendered, with only step 1 visible", () => {
+    const html = panelHtml();
+    assert.match(html, /id="housingOptStep1"/);
+    assert.match(html, /id="housingOptStep2"/);
+    // Step 2 is present but hidden: the Run button's disabled state depends
+    // on rules over step-2 fields, so they have to exist in the tree.
+    assert.match(html, /id="housingOptStep2" hidden|id="housingOptStep2"[^>]*hidden/);
+  });
+
+  test("step 1 ends in Find candidate locations and a gated Continue", () => {
+    const html = panelHtml();
+    assert.match(html, /id="housingOptFind"/);
+    assert.match(html, /findHousingOptCandidates\(\)/);
+    // Disabled until every enabled move has at least one selected ZIP --
+    // the one real gate on leaving step 1 (§5.3).
+    assert.match(html, /id="housingOptContinue"[^>]*disabled/);
   });
 
   test("the current home is its own section with a disposition control", () => {
@@ -94,15 +121,21 @@ describe("renderHousingOptimizePanelHtml", () => {
     assert.match(html, /id="housingOptimizeResults"/);
   });
 
-  test("a Purchase assumptions section sits between Current home and Move 1", () => {
+  // Also inverted by §5.3: Purchase assumptions is a step-2 section now, so
+  // it sits after Move 1 rather than before it. Its position *within* step 2
+  // is what this still pins -- between the objective and the current home,
+  // so the costing questions read in the order §5.3's table lists them.
+  test("Purchase assumptions is a step-2 section, after the moves", () => {
     const html = panelHtml();
     assert.match(html, /id="housingOptDownPaymentPct"/);
     assert.match(html, /id="housingOptMortgageRatePct"/);
-    const currentHomeIdx = html.indexOf("housingOptDisposition");
-    const purchaseAssumptionsIdx = html.indexOf("housingOptDownPaymentPct");
     const move1Idx = html.indexOf("housingOptMove1Earliest");
-    assert.ok(currentHomeIdx < purchaseAssumptionsIdx, "assumptions come after Current home");
-    assert.ok(purchaseAssumptionsIdx < move1Idx, "assumptions come before Move 1");
+    const objectiveIdx = html.indexOf("housingOptObjective");
+    const purchaseAssumptionsIdx = html.indexOf("housingOptDownPaymentPct");
+    const currentHomeIdx = html.indexOf("housingOptDisposition");
+    assert.ok(move1Idx < purchaseAssumptionsIdx, "assumptions come after the moves");
+    assert.ok(objectiveIdx < purchaseAssumptionsIdx, "assumptions come after the objective");
+    assert.ok(purchaseAssumptionsIdx < currentHomeIdx, "assumptions come before Current home");
   });
 
   test("down payment and mortgage rate show real editable defaults, not placeholders", () => {
