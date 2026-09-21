@@ -28,23 +28,18 @@ os.environ.setdefault("RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS", "1")
 # (toggle key, legacy build-time sheet, final presentation tab, builder)
 MODULES = [
     # Letters are positions in a group, so they move when the group's
-    # membership does. Two such moves are baked in here:
-    #   * '2B. HSA Drawdown' inserted after Roth Conversion pushed every later
-    #     '2' letter down by one.
-    #   * W1 moved '27. Planning Levers' out of the '2' group entirely — it is
-    #     REFERENCE-kind and physically sits in System, so being lettered 2I
-    #     was the `2I` contradiction #329 §3.1 named — pulling every letter
-    #     after it back up by one.
-    # '3'-prefix letters (existing life / disability / P&C) are untouched by
-    # both: W1 moved those sheets' *section* to meet their letters, not the
-    # other way round.
-    ("education_funding_529",       "30. Education Funding",       "2J. Education Funding",       build_education_funding),
-    ("equity_compensation",         "35. Equity Compensation",     "2K. Equity Compensation",     build_equity_comp),
-    ("special_needs_planning",      "36. Special-Needs Planning",  "2L. Special-Needs Planning",  build_special_needs),
-    ("existing_life_insurance",     "31. Existing Life Insurance", "3D. Existing Life Insurance", build_existing_life),
-    ("disability_income_insurance", "32. Disability Income",       "3E. Disability Income",       build_disability),
-    ("property_casualty_umbrella",  "33. P&C Umbrella",            "3F. P&C Umbrella",            build_pc_umbrella),
-    ("business_succession",         "34. Business Succession",     "2M. Business Succession",     build_business_succession),
+    # membership does. W3 (#329 O10, F1) moved State Residency and S-Corp vs
+    # LLC out of group '2' entirely (COMPARISON now gets its own '3.
+    # Comparisons' group), which pulled every '2'-prefix letter after Estate
+    # & Legacy back down by two; W3 also renumbered the protection decisions'
+    # group from '3' to '4' ('4. Risks', since '3' is now Comparisons).
+    ("education_funding_529",       "30. Education Funding",       "2G. Education Funding",       build_education_funding),
+    ("equity_compensation",         "35. Equity Compensation",     "2H. Equity Compensation",     build_equity_comp),
+    ("special_needs_planning",      "36. Special-Needs Planning",  "2I. Special-Needs Planning",  build_special_needs),
+    ("existing_life_insurance",     "31. Existing Life Insurance", "4E. Existing Life Insurance", build_existing_life),
+    ("disability_income_insurance", "32. Disability Income",       "4F. Disability Income",       build_disability),
+    ("property_casualty_umbrella",  "33. P&C Umbrella",            "4G. P&C Umbrella",            build_pc_umbrella),
+    ("business_succession",         "34. Business Succession",     "2J. Business Succession",     build_business_succession),
 ]
 
 
