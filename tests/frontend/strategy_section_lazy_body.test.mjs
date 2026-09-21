@@ -100,15 +100,53 @@ describe("strategySection lazy body (ticket 323)", () => {
     assert.ok(html.includes("Plan Features"));
   });
 
-  test("the HELOC gate keeps its own enable-it link", () => {
-    sandbox.stepGatedByOptionalModule = (id) => id === "heloc_strategy";
+  // §5.3 (W6): the link is no longer hand-written in
+  // strategySectionGatedNote() -- it is built from the catalog's
+  // gate_ref/gate_enable_label, served as moduleGates.flag_gates. Seeding the
+  // server payload is therefore part of the setup now, and the assertion is
+  // that the note points at the flag's OWN page (a plan flag's switch lives
+  // where its data is) rather than at Plan Features.
+  test("a plan-flag gate links to the page that owns the flag, not Plan Features", () => {
+    const original = sandbox.window.moduleGates;
+    sandbox.window.moduleGates = {
+      step_gates: {},
+      section_gates: {},
+      flag_gates: {
+        heloc_strategy: {
+          key: "heloc",
+          name: "HELOC",
+          ref: ["HELOC", "Setup", "heloc_enabled"],
+          enable_label: "Enable HELOC Strategy",
+        },
+      },
+    };
+    try {
+      sandbox.stepGatedByOptionalModule = (id) => id === "heloc_strategy";
+      const html = sandbox.strategySection(
+        "heloc",
+        "Home Equity Line",
+        () => "<p>body</p>",
+        "heloc_strategy",
+      );
+      assert.ok(html.includes("Enable HELOC Strategy"));
+      assert.ok(html.includes("HELOC &rarr; Setup &rarr; Enable HELOC Strategy"));
+      assert.ok(html.includes("setStep('heloc_strategy')"));
+      assert.ok(!html.includes("Plan Features"));
+      assert.ok(!html.includes("<p>body</p>"));
+    } finally {
+      sandbox.window.moduleGates = original;
+    }
+  });
+
+  test("a step with no flag gate still falls back to the Plan Features note", () => {
+    sandbox.stepGatedByOptionalModule = (id) => id === "entity_charitable";
     const html = sandbox.strategySection(
-      "heloc",
-      "Home Equity Line",
+      "charitable_giving",
+      "Charitable Giving",
       () => "<p>body</p>",
-      "heloc_strategy",
+      "entity_charitable",
     );
-    assert.ok(html.includes("Enable HELOC Strategy"));
+    assert.ok(html.includes("Plan Features"));
   });
 
   test("toggling persists the new state before re-rendering", () => {
