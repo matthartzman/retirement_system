@@ -208,6 +208,32 @@ rather than the tests:
    a shared wrapper, because the tests assert those literal call sites as
    proof the two moves cannot drift apart.
 
+## A4 -- frontend tests
+
+### A3's own tests caught a real bug: the memo was defeated
+
+`findHousingOptCandidates` passed `{ force: true }` to every
+`previewHousingZipShortlist` call, unconditionally bypassing OQ-6's
+client-side memo -- the exact button it exists for. Writing the "a second,
+unchanged Find is a no-op" test surfaced this immediately (2 requests where
+1 was expected). Fixed in the same commit as the test: the loop no longer
+forces, and the memo's own fingerprint check decides whether a request is
+needed. `test_frontend_size_ratchet.py`'s `TOTAL_JS_MAX_LINES` absorbs the
+five-line fix and its comment.
+
+### Screen fixtures must respect the promoted/all_passing split themselves
+
+An early version of the test file's `screenPayload()` fixture put a
+non-promoted row in `shortlist` as well as `all_passing`. That contradicts
+what `api.py`'s `screen_payload(include_all_passing=True)` actually sends
+(only promoted rows appear in `shortlist`; `all_passing` carries a
+`promoted` flag per row) and it silently made the "seeds the selection from
+the quota's promotions" test pass for the wrong reason -- the un-promoted
+row leaked into the initial selection regardless of whether the seeding
+logic used `shortlist` or something looser. Worth calling out because nothing
+in the panel code would have caught a fixture this wrong; only re-reading it
+against the real contract did.
+
 ## Deliberately inverted tests
 
 Each of these pinned behaviour this change removes on purpose. They are

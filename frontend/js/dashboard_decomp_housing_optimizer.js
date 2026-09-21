@@ -1625,10 +1625,15 @@ export async function previewHousingZipShortlist(moveIndex, opts = {}) {
 // cost an endpoint shape change on a path that is not slow (OQ-6).
 export async function findHousingOptCandidates() {
   for (const n of housingOptEnabledMoves()) {
+    // Not forced: OQ-6's client-side memo is exactly what makes re-pressing
+    // this button a no-op when nothing has changed, and this is the button
+    // it exists for. previewHousingZipShortlist's own fingerprint check
+    // decides whether a request is actually needed.
+    //
     // Sequential, not Promise.all: both share the one progress overlay, and
     // a second move's failure should not race the first move's rendering.
     // eslint-disable-next-line no-await-in-loop
-    await previewHousingZipShortlist(n, { force: true });
+    await previewHousingZipShortlist(n);
   }
   refreshHousingOptValidation();
 }
