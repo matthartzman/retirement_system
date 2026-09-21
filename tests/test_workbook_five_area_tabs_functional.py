@@ -61,4 +61,10 @@ def test_source_layout_declares_same_numbered_areas():
     assert flattened[:3] == ["1. Executive Summary", "5. Net Worth Projection", "6. Cash Flow Projection"]
     assert "S-Corp vs LLC" in flattened
     assert "19. Life Insurance" in flattened
-    assert flattened[-1] == "22. Glossary"
+    # W1 (master implementation plan, #329 3.1): '27. Planning Levers' is
+    # REFERENCE-kind and physically sits in System -- lettering it into
+    # Optimizers was the `2I` contradiction the classification invariant now
+    # rejects. It letters and sorts last in System until W11 retires the
+    # sheet outright.
+    assert flattened[-1] == "27. Planning Levers"
+    assert flattened[-2] == "22. Glossary"
