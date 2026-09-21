@@ -21,9 +21,6 @@ def test_workbook_uses_numbered_sections_and_lettered_children(built_workbook_pa
         # (not the old static 1H).
         '1G. Spending Summary',
         '1H. Current vs. Proposed',
-        # W1: a WORKSHEET, not an optimizer -- reclassified into Reports,
-        # landing densely at the end of section 1's letter order.
-        '1I. Tax Capacity',
         '2. Optimizers',
         '2A. Roth Conversion',
         # HSA Drawdown always sits right after Roth Conversion (shares its
@@ -68,6 +65,11 @@ def test_workbook_uses_numbered_sections_and_lettered_children(built_workbook_pa
         # W1: REFERENCE-kind, and physically in System all along -- it now
         # letters and sorts there instead of claiming an Optimizers letter.
         '4H. Planning Levers',
+        # REFERENCE-kind, filed in System rather than Reports -- restates
+        # figures computed elsewhere for the same audit purpose as Plan
+        # Data/Assumptions/Methodology/Glossary, the other four REFERENCE
+        # sheets. Lands densely last, after Planning Levers.
+        '4I. Tax Capacity',
     ]
     assert visible[: len(expected)] == expected
     assert '4A. Plan Data' in visible

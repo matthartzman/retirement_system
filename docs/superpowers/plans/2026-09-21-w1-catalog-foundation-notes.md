@@ -88,3 +88,29 @@ module with no row (silently always-on, which is how Housing Comparison shipped
   consumer ignores it (`for name, _ in V5_LAYOUT`). The invariant covers
   `section` and `letter_prefix` only, and moving a third field for tidiness
   would have put unreviewable churn in a behavior-neutral commit.
+
+---
+
+## Addendum (2026-09-21) — Tax Capacity moved to System, on direct instruction
+
+W0/V3 and W1 originally placed Tax Capacity in Reports. Overridden by direct
+instruction to file it in System instead — implemented, not re-argued.
+
+**What changed:** `tax_capacity`'s `kind` is now `REFERENCE`, not `WORKSHEET`.
+The reclassification, not a hand-typed exception, is what moves it: `WORKSHEET`
+maps to letter group `1` (Reports) and stays that way for `current_vs_proposed`,
+the other worksheet-shaped module; `REFERENCE` maps to group `4` (System),
+where Tax Capacity now joins Plan Data, Assumptions, Methodology and Glossary.
+This keeps the §3.1 invariant intact — kind still implies group with no
+per-module override — rather than adding the exception the invariant exists to
+prevent.
+
+**Registry:** `'11B. Tax Capacity'` moved from `section='1'` to `section='4'`,
+appended after `'27. Planning Levers'` (section_rank/letter_rank 8, the next
+integer after Planning Levers' 7.5). It now letters as `4I`, last in System.
+`domain=TAXES` is unchanged — independent axis, per #330 §4.1.
+
+**Sequencing note for W3.** W3's `KIND_LETTER_PREFIX` edit (moving `COMPARISON`
+to `3` and `PROTECTION` into `4. Risks`) is unaffected by this — REFERENCE's
+group was already `4` and stays `4`. No further change needed there on Tax
+Capacity's account.

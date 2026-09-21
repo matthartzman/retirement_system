@@ -274,13 +274,21 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         # Registry gap closed (#329 §2.1). Filed under Optimizers, but by its
         # own docstring it "derives nothing new" — every column reads a value
-        # the engine or another sheet already computed. That is a WORKSHEET,
-        # and W0/V3 confirmed its home is Reports rather than a one-tab
-        # Reference section.
-        "tax_capacity", "Tax Capacity", WORKSHEET, MEDIUM,
+        # the engine or another sheet already computed.
+        #
+        # Kind is REFERENCE, not WORKSHEET, though it computes nothing new
+        # like `current_vs_proposed` does: placement, not shape, decided this.
+        # W0/V3 first read Reports; overridden by explicit direction to file
+        # it in System instead, alongside Plan Data/Assumptions/Methodology/
+        # Glossary. WORKSHEET's letter group (kind_letter_prefix, below) is
+        # Reports; REFERENCE's is System, so the kind carries the placement
+        # rather than a hand-typed section field duplicating it. `domain`
+        # (Taxes, #330 §4.2) is unaffected -- that axis is independent of
+        # which workbook group the sheet letters into.
+        "tax_capacity", "Tax Capacity", REFERENCE, MEDIUM,
         "Consolidated per-year bracket, IRMAA and ACA headroom, assembled from four other sheets.",
         domain=TAXES,
-        sheet="11B. Tax Capacity", tab="1I. Tax Capacity",
+        sheet="11B. Tax Capacity", tab="4I. Tax Capacity",
         requires_inputs=(_in("income"), _in("assumptions", "brackets", "irmaa")),
         requires_outputs=BASE_PROJECTION + ("lifetime_tax_projection",),
     ),
@@ -719,10 +727,12 @@ def _spec(v5_code=None, section=None, section_rank=None, letter_prefix=None,
 # is a named table rather than an expression inlined in validate().
 #
 # WORKSHEET shares '1' with PROJECTION deliberately: a worksheet restates
-# figures computed elsewhere, which is what a report does, and W0/V3 rejected
-# a one-tab Reference section for the single sheet this affects. REFERENCE is
-# separate because those four sheets document how the run was produced rather
-# than what it says.
+# figures computed elsewhere, which is what a report does (`current_vs_
+# proposed`). REFERENCE also restates figures computed elsewhere but files
+# in System instead (`tax_capacity`, alongside Plan Data/Assumptions/
+# Methodology/Glossary) -- the two kinds exist because the same shape of
+# module can be placed in either group, and `domain` (independent of both)
+# is what a future UI groups by regardless of which one a sheet lands in.
 KIND_LETTER_PREFIX: Dict[str, str] = {
     PROJECTION:   '1',
     WORKSHEET:    '1',
@@ -754,7 +764,6 @@ SHEET_REGISTRY = {
     # not a client_optional_functions.csv toggle, so module_key stays None
     # like 11B: always created, self-gates its own content.
     '11C. HSA Drawdown':           _spec('2', '2', 0.5, '2', 0.5, 'HSA Drawdown'),
-    '11B. Tax Capacity':           _spec('2', '1', 8, '1', 8, 'Tax Capacity'),
     '12. Charitable Giving':       _spec('2', '2', 5, '2', 5, 'Charitable Giving', 'charitable_giving'),
     '12B. Tax-Loss Harvesting':    _spec('2', '2', 7, '2', 8, 'Tax-Loss Harvesting', 'tax_loss_harvesting'),
     '12C. Gain Harvesting':        _spec('2', '2', 8, '2', 13, 'Gain Harvesting', 'gain_harvesting'),
@@ -773,6 +782,7 @@ SHEET_REGISTRY = {
     '25. Account Reconciliation':  _spec('4', '4', 3, '4', 2, 'Account Reconciliation'),
     '26. Workbook Warnings':       _spec('H'),
     '27. Planning Levers':         _spec('4', '4', 7.5, '4', 7.5, 'Planning Levers'),
+    '11B. Tax Capacity':           _spec('2', '4', 8, '4', 8, 'Tax Capacity'),
     '29. Spending Summary':        _spec('1', '1', 6, '1', 6, 'Spending Summary'),
     '30. Education Funding':       _spec('2', '2', 9, '2', 9, 'Education Funding', 'education_funding_529'),
     '31. Existing Life Insurance': _spec('2', '3', 3, '3', 3, 'Existing Life Insurance', 'existing_life_insurance'),
