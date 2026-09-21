@@ -77,6 +77,7 @@ class ConfigService:
             "csv_path": str(self.context.csv_path),
             "module_status": self._module_status(_data),
             "module_gates": self._module_gates(),
+            "module_taxonomy": self._module_taxonomy(),
             **payload,
         }, 200
 
@@ -101,6 +102,37 @@ class ConfigService:
             for section, key in section_gate_map().items()
         }
         return {"step_gates": step_gate_map(), "section_gates": section_gates}
+
+    @staticmethod
+    def _module_taxonomy() -> JsonDict:
+        """#330 phase 2: the two classification axes, per module, for the UI.
+
+        `domain` is what the Plan Features page groups by (the user is asking
+        "is this about my life"); `kind` is what its filter chips filter by
+        (the ticket's Optimizers/Stress-tests view, on demand). Both are
+        served from `CATALOG` so the switch nav can never become a third
+        hand-maintained taxonomy beside the catalog and the workbook.
+
+        Static and dependency-free for the same reason `_module_gates` is:
+        `module_catalog` imports nothing heavier than the stdlib, so this adds
+        no cost to a payload the dashboard fetches on every save.
+        """
+        from ..module_catalog import CATALOG, DOMAINS, KIND_QUESTION
+        return {
+            "domains": list(DOMAINS),
+            "kind_questions": dict(KIND_QUESTION),
+            "modules": {
+                key: {
+                    "name": m.name,
+                    "kind": m.kind,
+                    "domain": m.domain,
+                    "demand": m.demand,
+                    "optional": m.optional,
+                    "description": m.description,
+                }
+                for key, m in CATALOG.items()
+            },
+        }
 
     @staticmethod
     def _module_status(sectioned_data: dict[str, Any]) -> JsonDict:

@@ -5,8 +5,12 @@ The catalog (``src.module_catalog``) is pure data + a resolver; it does not
 replace ``workbook_common.OPTIONAL_MODULE_SHEETS`` (which still drives sheet
 pruning). These tests assert the two never drift apart.
 """
+from pathlib import Path
+
 import src.module_catalog as mc
 from src.reporting.workbook_common import OPTIONAL_MODULE_SHEETS
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 # ── Internal consistency ─────────────────────────────────────────────────────
@@ -36,10 +40,70 @@ def test_required_inputs_reference_known_modules():
             assert module_id in mc.INPUT_MODULES, f"{key}: unknown input {module_id}"
 
 
-def test_comparison_mode_is_optimization_only():
+def test_comparison_mode_is_comparison_kind_only():
+    """`mode` says how a sheet is laid out; `kind` says what it is.
+
+    The flag predates the COMPARISON kind and was a half-built version of it
+    (#329 §3.1), so the one module carrying it must now also carry the kind.
+    """
     for m in mc.CATALOG.values():
         if m.mode == mc.MODE_COMPARISON:
-            assert m.kind == mc.OPTIMIZATION
+            assert m.kind == mc.COMPARISON
+
+
+def test_every_optional_module_has_a_toggle_row():
+    """The fourth W1 guard (#330 §7.1), kept out of `validate()` on purpose.
+
+    An optional module with no row in client_optional_functions.csv is
+    unreachable from the switch surface: `module_enabled` defaults an absent
+    key to enabled, so the module is silently always-on and the Plan Features
+    page has nothing to render for it. That is how Housing Comparison shipped
+    "optional" while being impossible to turn off.
+
+    This lives here rather than in `module_catalog.validate()` because it is
+    the only one of the four guards that needs to read a data file.
+    `module_catalog` imports nothing but the stdlib and is loaded by consumers
+    that do not ship `input/demo/` -- making import-time validity depend on a
+    CSV on disk would trade a real guard for a new failure mode.
+    """
+    import csv
+
+    path = ROOT / "input" / "demo" / "client_optional_functions.csv"
+    with path.open(encoding="utf-8-sig", newline="") as fh:
+        rows = [r for r in csv.DictReader(fh)
+                if (r.get("section") or "").strip() == "Optional Functions"]
+    declared = {(r.get("label") or "").strip() for r in rows}
+
+    missing = sorted(k for k, m in mc.CATALOG.items() if m.optional and k not in declared)
+    assert not missing, (
+        "optional modules with no toggle row in the default plan, so they are "
+        f"silently always-on: {missing}")
+
+    orphans = sorted(k for k in declared if k and k not in mc.CATALOG)
+    assert not orphans, (
+        f"toggle rows naming modules the catalog does not define: {orphans}")
+
+
+def test_kind_and_domain_are_independent_axes():
+    """#330 §4.1: neither axis may be a relabeling of the other.
+
+    Stated as a property rather than a spot check -- if some future edit made
+    every module of one kind share a domain (or vice versa), the switch nav
+    would silently become a second copy of the workbook's grouping, which is
+    the specific failure the two-axis design exists to prevent.
+    """
+    by_kind: dict[str, set[str]] = {}
+    by_domain: dict[str, set[str]] = {}
+    for m in mc.CATALOG.values():
+        by_kind.setdefault(m.kind, set()).add(m.domain)
+        by_domain.setdefault(m.domain, set()).add(m.kind)
+
+    assert any(len(v) > 1 for v in by_kind.values()), (
+        "every kind maps to exactly one domain, so domain carries no "
+        "information kind does not already carry")
+    assert any(len(v) > 1 for v in by_domain.values()), (
+        "every domain maps to exactly one kind, so kind carries no "
+        "information domain does not already carry")
 
 
 # ── Resolver behavior ────────────────────────────────────────────────────────

@@ -19,22 +19,30 @@ def test_system_section_uses_clean_sheet_sequence_without_feature_toggle(built_w
         # #221: Core Spending merged into Spending Summary -- densely 1G now.
         '1G. Spending Summary',
         '1H. Current vs. Proposed',
-        # #209/#210/#212/#228: 2K (not the old static 2N) -- this fixture's
-        # plan has the advanced modules off, so Gain Harvesting fills the gap
-        # densely instead of leaving one.
+        # system review 2026-08-31 item 1.17: an always-on consolidated
+        # headroom view. W1 reclassified it from Optimizers to Reports, where
+        # it lands densely at the end of section 1's letter order.
+        '1I. Tax Capacity',
+        # #209/#210/#212/#228: this fixture's plan has the advanced modules
+        # off, so Gain Harvesting fills the gap densely instead of leaving one.
         # HSA Drawdown (2B) always sits right after Roth Conversion (shares
         # its objective) and is never module-gated, so its insertion pushed
         # every subsequent '2'-prefix letter here down by one.
-        '2. Optimizers','2A. Roth Conversion','2B. HSA Drawdown','2C. Asset Allocation','2D. State Residency','2E. Social Security','2F. S-Corp vs LLC','2G. Charitable Giving','2H. Estate & Legacy Planning','2J. Tax-Loss Harvesting','2K. Gain Harvesting',
-        # system review 2026-08-31 item 1.17: new always-on core sheet, lands
-        # densely at the end of section 2's letter order (highest letter_rank).
-        '2L. Tax Capacity',
+        # W1 moved two sheets out of the '2' group, which pulled every letter
+        # after Estate & Legacy up by one: Tax Capacity is a WORKSHEET and
+        # belongs in Reports (#329 §3.2, confirmed by W0/V3), and Planning
+        # Levers is REFERENCE-kind sitting physically in System, so being
+        # lettered into Optimizers was the `2I` contradiction #329 §3.1 named.
+        '2. Optimizers','2A. Roth Conversion','2B. HSA Drawdown','2C. Asset Allocation','2D. State Residency','2E. Social Security','2F. S-Corp vs LLC','2G. Charitable Giving','2H. Estate & Legacy Planning','2I. Tax-Loss Harvesting','2J. Gain Harvesting',
         # housing-estimate-realism-and-dollar-convention-design.md Slice 3:
         # new optional sheet, lands densely at the end of section 2's letter
-        # order (highest letter_rank), same pattern as 2L above.
-        '2M. Housing Comparison',
+        # order (highest letter_rank).
+        '2K. Housing Comparison',
         '3. Risk & Stress Tests','3A. Monte Carlo','3B. Survivor','3C. LTC + Life Insurance',
-        '4. System','4A. Plan Data','4B. Assumptions','2I. Planning Levers','4C. Account Reconciliation','4D. Quality Control','4E. RMD Audit','4F. Methodology','4G. Glossary',
+        # Planning Levers now letters and sorts with the System section it has
+        # always physically belonged to, last rather than second (W11 retires
+        # the sheet outright; until then it stops lying about its group).
+        '4. System','4A. Plan Data','4B. Assumptions','4C. Account Reconciliation','4D. Quality Control','4E. RMD Audit','4F. Methodology','4G. Glossary','4H. Planning Levers',
     ]
     assert visible[:len(expected)] == expected
     assert '4D. Feature Toggle' not in visible
