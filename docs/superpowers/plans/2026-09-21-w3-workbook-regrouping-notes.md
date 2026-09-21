@@ -11,12 +11,12 @@ The task that kicked off this session stated "W0, W1 and W2 are done, committed,
 and pushed on this branch" and pointed at
 `docs/superpowers/plans/2026-09-21-w2-stable-slugs-notes.md` for W2's record.
 
-**That premise is false.** `git log` on this branch shows only W0
-(`c05163f`) and W1 (`fbe6149`, `22db141`, `a3f5d04`) landed; there is no W2
-commit, no `slug` field on `SheetSpec`, and no W2 notes file anywhere in the
-repo. This was verified directly (`git log --all --oneline`, `grep -r slug
-src/module_catalog.py src/reporting/workbook_common.py`) before writing any
-code, rather than trusted from the trigger text.
+**That premise was false at the time W3 started.** `git log` on this branch
+showed only W0 (`c05163f`) and W1 (`fbe6149`, `22db141`, `a3f5d04`) landed;
+no W2 commit, no `slug` field on `SheetSpec`, no W2 notes file. Verified
+directly (`git log --all --oneline`, `grep -r slug src/module_catalog.py
+src/reporting/workbook_common.py`) before writing any code, rather than
+trusted from the trigger text.
 
 **W3 proceeded anyway**, for two reasons:
 
@@ -30,9 +30,23 @@ code, rather than trusted from the trigger text.
    remains documentation... **W3 removes the field when cross-references
    resolve through W2's slug**" — i.e. the `tab=` field's removal, not W3's
    substantive work, is what actually depends on the slug. Since the slug
-   doesn't exist yet, `tab=` fields were *updated* (not removed) to their new
-   letters, same as W1 did for eight stale ones. Removing `tab=` outright is
-   left for whenever W2 actually lands.
+   didn't exist yet, `tab=` fields were *updated* (not removed) to their new
+   letters, same as W1 did for eight stale ones.
+
+**Resolved mid-session, not left dangling.** W2 landed on this same branch
+(commit `faff4a8`, a different concurrent session) partway through W3's own
+work, and `git push` was rejected as non-fast-forward as a result. W3's
+commit was merged with W2's (`git merge`, one real conflict in
+`module_catalog.py`'s `SHEET_REGISTRY`, resolved by hand): every `_visible`/
+`_hidden` call kept W3's derived groups/ranks and gained W2's `slug=`
+keyword, reusing W2's slug strings unchanged except one — `'19. Life
+Insurance'`'s slug renamed from W2's `ltc_life_insurance` (which named the
+merged concept #329 O10 unmerges in this very workstream) to
+`life_insurance_need` (matching its module key and its now-standalone
+identity). Nothing external referenced the old slug yet, so renaming it here
+was free. The `tab=` field removal W1 anticipated for "once W2's slug
+exists" is still not done in this commit — it remains a real, currently
+actionable follow-up, now unblocked, not a permanently-deferred one.
 
 **W2 is still owed.** It is not silently satisfied by anything in this
 commit. A future session must still execute it as its own workstream before
@@ -95,16 +109,35 @@ red that used to belong to the merged Risk & Stress Tests group.
 
 **4. "This year's actions" divider.** Tax-Loss Harvesting and Gain
 Harvesting keep `letter_prefix='2'` (they pass the search-score-rank test,
-per #329 F3) but their `letter_rank` moved to `16`/`17` — after every other
-Optimizers sheet, including Housing Comparison at `15` — so they sort last
-and adjacent regardless of which optional modules are on. A labeled row
-("This year's actions") is inserted in the `2. Optimizers` divider tab
-(`build_workbook_section_divider`, `_SUBGROUP_DIVIDERS` in
-`workbook_builder.py`) right before whichever of the two survives module
-gating and appears first in that build. If both are off, no label renders.
-This is the only mechanism available for a "subsection" — Excel's tab strip
-is flat, so a real subsection doesn't exist; per spec §3.2, the divider row
-is the whole of it.
+per #329 F3) but both `section_rank` and `letter_rank` moved to `18`/`19` —
+above every other Optimizers sheet in *both* dimensions, including Housing
+Comparison's `17`/`15` — so they sort last and adjacent regardless of which
+optional modules are on. A labeled row ("This year's actions") is inserted
+in the `2. Optimizers` divider tab (`build_workbook_section_divider`,
+`_SUBGROUP_DIVIDERS` in `workbook_builder.py`) right before whichever of the
+two survives module gating and appears first in that build. If both are
+off, no label renders. This is the only mechanism available for a
+"subsection" — Excel's tab strip is flat, so a real subsection doesn't
+exist; per spec §3.2, the divider row is the whole of it.
+
+**Bug caught by real-build verification, not by the fast suite.** The first
+pass moved only `letter_rank` for these two sheets, reasoning that
+`letter_rank` alone governs ordering. It doesn't: `section_rank` drives
+`WORKBOOK_SECTION_LAYOUT`'s sheet list (the divider tab's rows, and — via
+`workbook_builder.py`'s `FULL_LAYOUT`/`pruned_layout` — the actual physical
+tab order in the workbook), while `letter_rank` only drives the dense-letter
+pass. Moving only `letter_rank` let the two sheets letter last (`2H`/`2I`)
+while staying physically *mid*-section, ahead of Housing Comparison (which
+letters before them at `2G` but physically sorts last under the pre-existing
+`section_rank=17`). The registry-only tests (`test_module_catalog.py`,
+`test_sheet_table_consistency.py`) can't see this — they don't build a real
+workbook or read tab order — so this was invisible until a real subprocess
+build (`tools/build_workbook.py`, same env as `built_workbook_path`) was
+read back with `openpyxl` and its sheet order inspected directly. Fixed by
+moving `section_rank` to `18`/`19` alongside `letter_rank`, verified again
+against the same real build. This is the concrete case for step 5's "verified
+against a real subprocess workbook build (not just the registry)" — the
+registry alone would have shipped this wrong.
 
 **5. `3C` split** (#329 O10, the riskiest single piece — its own commit):
 
@@ -156,18 +189,30 @@ group, for whenever W9 restores it).
 **7. Tests updated**: `test_workbook_five_area_tabs_functional.py`,
 `test_workbook_numbered_section_tabs_functional.py`,
 `test_workbook_system_cleanup_and_widths_functional.py`,
-`test_optional_module_gating.py` — all pin the new five-group tab strip
-(computed by hand against `input/demo/client_optional_functions.csv`'s
-actual toggle state, then verified against a real subprocess build).
+`test_optional_module_gating.py`, plus two found by grep rather than
+anticipated by the workstream's own seams —
+`test_advanced_planning_modules.py` (its `MODULES` table of per-module final
+tabs under the all-sheets-present case) and
+`tests/fixtures/workbook_snapshot_expectations.json` (consumed by
+`test_workbook_pdf_build_snapshot.py`, and already stale against W1's
+letters before this workstream touched it — its `'2L. Tax Capacity'`
+reference predates even W1's move of that sheet to System). All pin the new
+structure computed by hand, then verified against real subprocess builds
+via the `built_workbook_path` fixture (root `conftest.py`) and, for the PDF
+snapshot fixture, its own independent `sample_plan_frozen` fixture build.
 `test_sheet_table_consistency.py` needed no changes: it was already
 shape-agnostic (referential integrity only, no literal section names).
 
-## Verified demo-plan tab strip
+## Verified tab strip (built_workbook_path fixture)
 
-With `input/demo/client_optional_functions.csv`'s toggles as committed
-(Education Funding / Equity Compensation / Special-Needs / Business
-Succession / Existing Life Insurance / Disability Income / P&C Umbrella all
-`FALSE`; everything else referenced below `TRUE`):
+Confirmed directly against a real subprocess build read back with
+`openpyxl` (not hand-computed from `input/demo`, which turned out not to be
+what this fixture actually builds from — see the `built_workbook_path`
+fixture in root `conftest.py`; it force-enables a specific module set over
+whatever the active workspace resolves to, distinct from `input/demo`'s own
+toggles). The hand-computed prediction against `input/demo` happened to
+match anyway, but this is the fixture actually exercised by the four
+updated tab-strip tests:
 
 ```
 1. Reports:     1A-1H (unchanged)
