@@ -161,7 +161,13 @@ JS_DIR = ROOT / "frontend" / "js"
 # deletion in the ticket landed, including the ones in sibling
 # dashboard_decomp_*.js files that don't move this number but do free the
 # module-bridge lines that made room for it.
-DASHBOARD_JS_MAX_LINES = 7_293
+# 2026-09-21 (W4, #330 P3): lowered from 7,293 to 7,246 -- renderOptionalFunctions()
+# extracted to frontend/js/dashboard_decomp_plan_features.js. Real extraction,
+# so the ceiling moves DOWN in the same commit, exactly as this file's
+# docstring requires. W4 then grows that page (domain grouping, kind filter
+# chips, demand hints, the off-but-holds-data indicator, the env-override
+# disclosure) inside its own module, where it does not press on this ceiling.
+DASHBOARD_JS_MAX_LINES = 7_246
 
 # Total frontend JS is allowed to grow -- extraction moves lines out of
 # dashboard.js into new modules, which should not be penalised. This ceiling
@@ -251,7 +257,16 @@ DASHBOARD_JS_MAX_LINES = 7_293
 # specifically to keep DASHBOARD_JS_MAX_LINES intact -- dashboard.js had 6
 # lines of headroom and now has 1. Raised to the measured total with no slack,
 # per this ceiling's own contract.
-TOTAL_JS_MAX_LINES = 33_351
+# 2026-09-21 (W4, #330 P3): raised from 33,351 to 33,604 -- the Plan Features
+# page (frontend/js/dashboard_decomp_plan_features.js). renderOptionalFunctions()
+# moved out of dashboard.js (a wash: DASHBOARD_JS_MAX_LINES drops by the same
+# 45 lines, above), and the rest is the page #330 P3 asks for and that did not
+# exist before: domain grouping with collapsible groups, kind filter chips
+# derived from CATALOG.kind, plain-language demand hints, the "off but still
+# holds N entries" indicator (§5.4), and Q7's read-only env-override
+# disclosure. New behavior, not duplication, so the ceiling rises to the
+# measured total with no slack, per this constant's own contract.
+TOTAL_JS_MAX_LINES = 33_604
 
 
 def _line_count(path: Path) -> int:

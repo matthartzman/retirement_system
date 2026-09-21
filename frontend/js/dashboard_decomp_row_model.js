@@ -1617,6 +1617,15 @@ export function rowModuleGate(section) {
 // inverting the relation here — a second copy of the relation in JS is
 // exactly the hand-maintained twin #329 exists to end.
 //
+// W5 kept `moduleTaxonomy` module-private on the stated grounds that
+// moduleOffImpactWarning() was its only reader. W4's Plan Features page is the
+// second: it groups by `domain` and filters by `kind`, both of which live in
+// the same payload. Exposed as a getter rather than a window accessor on the
+// binding, so this module stays the only writer.
+export function planModuleTaxonomy() {
+  return moduleTaxonomy || { modules: {} };
+}
+
 // Returns "" when nothing degrades without `key`, which is most modules, so
 // the caller can concatenate unconditionally.
 // `taxonomy` is a parameter with a default rather than a closed-over read so
@@ -2938,14 +2947,14 @@ export function renderFields(step) {
     step === "ltc_stress" &&
     !optionalFunctionEnabled("long_term_care_stress")
   )
-    return '<div class="field-list"><p>Long-Term Care Stress inputs are hidden until the Long-Term-Care Stress optional workbook module is enabled on Optional Modules.</p></div>';
+    return '<div class="field-list"><p>Long-Term Care Stress inputs are hidden until the Long-Term-Care Stress optional workbook module is enabled on Plan Features.</p></div>';
   if (step === "heloc_strategy" && !helocModuleEnabled())
     return '<div class="field-list"><p>HELOC strategy inputs are hidden until Enable HELOC Strategy is turned on (HELOC → Setup).</p></div>';
   if (
     step === "entity_charitable" &&
     !optionalFunctionEnabled("charitable_giving")
   )
-    return '<div class="field-list"><p>Charitable Giving inputs are hidden until the Charitable Giving optional workbook module is enabled on Optional Modules.</p></div>';
+    return '<div class="field-list"><p>Charitable Giving inputs are hidden until the Charitable Giving optional workbook module is enabled on Plan Features.</p></div>';
   if (step === "all_assumptions") return html + renderFieldFinderGroups(rs);
   return html + renderFieldGroups(rs);
 }
@@ -5125,6 +5134,7 @@ Object.assign(window, {
   overallStats,
   parsePercentInput,
   personDisplayName,
+  planModuleTaxonomy,
   planStateArtifactsReady,
   planStateFresh,
   planningLeverBase,

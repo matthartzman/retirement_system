@@ -186,7 +186,7 @@ const STEPS = [
     desc: "Adverse-assumption tests: Monte Carlo probability, survivor/early death, long-term care, and divorce.",
     intro:
       "Stress assumptions are adverse tests, not forecasts. Set the inputs for whichever tests apply, then rebuild to see them in the workbook.",
-    help: "Every section here is an optional workbook module — a section only has inputs once its module is enabled on Optional Modules, and this whole page is hidden when all four are off.",
+    help: "Every section here is an optional workbook module — a section only has inputs once its module is enabled on Plan Features, and this whole page is hidden when all four are off.",
   },
   {
     id: "strategy_scenarios",
@@ -427,11 +427,11 @@ const STEPS = [
   {
     id: "optional_functions",
     group: "Settings",
-    title: "Optional Modules",
-    desc: "Enable or disable advanced planning sections: long-term care stress, divorce planning, home equity line, special needs, and others.",
+    title: "Plan Features",
+    desc: "Choose which planning features this plan uses, grouped by the part of life they cover: taxes, housing, protection, risk, and the rest.",
     intro:
-      "Disabled modules are excluded from the build to keep outputs focused. Some modules also add their own input pages to the navigation when enabled.",
-    help: "Modules that add nav steps must be enabled here before those steps appear. Modules that only add workbook output can be toggled without changing the navigation.",
+      "Features are grouped by what they are about, and can be filtered by the kind of question they answer. Turning one off excludes it from the build but never deletes what you have entered.",
+    help: "Features that add nav steps must be enabled here before those steps appear. Features that only add workbook output can be toggled without changing the navigation. A feature that is off but still holds your data says so on its row.",
   },
   {
     id: "all_assumptions",
@@ -779,11 +779,11 @@ const STEP_HELP = {
     "Because this page combines fields from every section, a change can affect almost any output. Holdings, budget lines, transactions, and liabilities are on their dedicated tabs — not here.",
   ),
   optional_functions: pageHelp(
-    "Optional modules",
-    "Enables or disables entire planning sections — long-term care stress, divorce planning, home equity line, charitable giving, special needs, equity compensation, 529 education funding, and others — that are excluded from the build when off.",
-    "Some modules add their own nav pages (Special Strategies, Long-Term Care, Divorce Planning) that only appear once the module is enabled here; other modules only change workbook output without adding a page.",
-    "Enable a module before entering its detail elsewhere in the plan — its input page won't appear in navigation until it's turned on. Turn a module off to exclude it from the build without deleting its saved data.",
-    "Turning a module off removes its section from the workbook build entirely, not just from navigation. Turning one on can add new required fields to complete before the plan is build-ready.",
+    "Plan features",
+    "Enables or disables entire planning sections — long-term care stress, divorce planning, home equity line, charitable giving, special needs, equity compensation, 529 education funding, and others — that are excluded from the build when off. Grouped by the part of life each one covers, and filterable by the kind of question it answers.",
+    "Some features add their own nav pages (Special Strategies, Long-Term Care, Divorce Planning) that only appear once the feature is enabled here; others only change workbook output without adding a page. A feature that is on but depends on another that is off says what it is leaving out.",
+    "Enable a feature before entering its detail elsewhere in the plan — its input page won't appear in navigation until it's turned on. Turn a feature off to exclude it from the build without deleting its saved data; the row then shows how many entries are being held.",
+    "Turning a feature off removes its section from the workbook build entirely, not just from navigation. Turning one on can add new required fields to complete before the plan is build-ready.",
   ),
   workbook_formatting: pageHelp(
     "Workbook formatting",
@@ -3608,52 +3608,6 @@ window.setPlanReportSection = function (id) {
   activePlanReportSection = id;
   renderMain();
 };
-function renderOptionalFunctions() {
-  if (searchText.trim()) return renderFields("optional_functions");
-  const rs = rowsForStep("optional_functions");
-  if (!rs.length)
-    return '<div class="section-note">No optional module rows found. Save Changes to initialize defaults, then reload.</div>';
-  let html = '<div class="opt-module-list">';
-  rs.forEach(function (r) {
-    const on = boolishValue(r);
-    const lbl = humanLabel(r.label, r);
-    const desc = formatAcronyms(r.schema?.description || r.notes || "");
-    const status = moduleStatus[r.label];
-    html += '<div class="opt-module-row">';
-    html +=
-      '<div class="opt-module-info"><span class="opt-module-name">' +
-      esc(lbl) +
-      "</span>";
-    if (desc) html += '<span class="opt-module-desc">' + esc(desc) + "</span>";
-    if (status && status.auto_enabled) {
-      html +=
-        '<span class="badge auto">Auto-enabled — required by ' +
-        esc(status.required_by.join(", ")) +
-        "</span>";
-    }
-    // #330 §3.4: what switching this OFF costs elsewhere, from the catalog's
-    // reverse degrades_without map. Shown while the module is on, because
-    // that is when it is a warning rather than a fact.
-    const offImpact = on ? moduleOffImpactWarning(r.label) : "";
-    if (offImpact) html += '<span class="opt-module-off-impact">' + esc(offImpact) + "</span>";
-    html += "</div>";
-    html +=
-      '<button class="opt-module-toggle ' +
-      (on ? "on" : "off") +
-      '" type="button" data-requires-app="1" ' +
-      'onclick="editValue(' +
-      r.row_index +
-      ",'" +
-      (on ? "NO" : "YES") +
-      "',null);saveAll(false);renderMain()\">" +
-      (on ? "ON" : "OFF") +
-      "</button>";
-    html += "</div>";
-  });
-  html += "</div>";
-  return html;
-}
-
 function renderStrategyTabs(step, tabs, active) {
   return `<div class="workspace-tabs" role="tablist">${tabs.map((t) => `<button class="workspace-tab ${t === active ? "active" : ""}" type="button" role="tab" aria-selected="${t === active ? "true" : "false"}" onclick="setStrategyTab('${escJs(step)}','${escJs(t)}')">${esc(t)}</button>`).join("")}</div>`;
 }
@@ -7273,7 +7227,7 @@ Object.assign(window, {
   primaryActionForStep, promotePlanningCase, recoverPriorSpendingBudget, recoverYtdAccountSetup,
   rememberBuildCompare, renderAssetsCashReserves, renderDetailedResultsNav,
   renderDetailedResultsProgressTick, renderEstateWithAnnuityLink, renderFieldFinderGroups,
-  renderHouseholdPeople, renderMeta, renderNav, renderOptionalFunctions, renderRetirementWellness,
+  renderHouseholdPeople, renderMeta, renderNav, renderRetirementWellness,
   renderSpendingDashboardOrLoad, renderSpendingWorkflowBanner, renderStrategyTabs,
   renderWithdrawalOrderTable, renderWithdrawalStrategy, renderWorkspaceSubtabsNav,
   resetAllocationPreview, restoreGroupBudgetModes, restoreWorkbookViewState, revertLastBuildChanges,

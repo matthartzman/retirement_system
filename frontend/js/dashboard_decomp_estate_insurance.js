@@ -236,7 +236,7 @@ export function renderEntityCharitable() {
   if (!optionalFunctionEnabled("charitable_giving"))
     return (
       html +
-      '<div class="field-list"><p>Charitable Giving inputs are hidden until the Charitable Giving optional workbook module is enabled on Optional Modules.</p></div>'
+      '<div class="field-list"><p>Charitable Giving inputs are hidden until the Charitable Giving optional workbook module is enabled on Plan Features.</p></div>'
     );
   const rs = rowsForStep("entity_charitable");
   const missing = rs.filter(isMissing);
@@ -450,7 +450,7 @@ export function renderInsurancePolicies() {
   const title =
     "Insurance Policies (Life, Disability, Long-Term Care, Umbrella, Auto, Home, Property & Casualty, Other)";
   if (!optionalFunctionEnabled("existing_life_insurance"))
-    return `<div class="holdings"><h3 class="group-title">${esc(title)}</h3><div class="field-list"><p>Existing insurance policy entries are hidden until the Existing Life Insurance optional workbook module is enabled on <a href="#" onclick="setStep('optional_functions');return false">Optional Modules</a>.</p></div></div>`;
+    return `<div class="holdings"><h3 class="group-title">${esc(title)}</h3><div class="field-list"><p>Existing insurance policy entries are hidden until the Existing Life Insurance optional workbook module is enabled on <a href="#" onclick="setStep('optional_functions');return false">Plan Features</a>.</p></div></div>`;
   const rs = rowsForStep("annuity_death_benefits").filter(
     (r) => r.section === "Insurance In Force",
   );

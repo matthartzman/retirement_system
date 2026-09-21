@@ -66,12 +66,12 @@ export function strategySectionToggle(key, open) {
 // deleted Special Strategies renderer and generalized over the section, which
 // is why it is one function and not one per section. HELOC is not a
 // client_optional_functions.csv toggle -- it is a plan-data feature flag, so
-// its note points at the HELOC setup page rather than Optional Modules, same
+// its note points at the HELOC setup page rather than Plan Features, same
 // as it always did.
 export function strategySectionGatedNote(title, gateStepId) {
   if (gateStepId === "heloc_strategy")
     return `<div class="section-note">${esc(title)} strategy is off. Enable it on <a href="#" onclick="setStep('heloc_strategy');return false">HELOC &rarr; Setup &rarr; Enable HELOC Strategy</a> to use it.</div>`;
-  return `<div class="section-note">${esc(title)} is off. Enable ${esc(title)} on <a href="#" onclick="setStep('optional_functions');return false">Optional Modules</a> to use it.</div>`;
+  return `<div class="section-note">${esc(title)} is off. Enable ${esc(title)} on <a href="#" onclick="setStep('optional_functions');return false">Plan Features</a> to use it.</div>`;
 }
 
 // One collapsible section. bodyFn is called ONLY when the section is open:

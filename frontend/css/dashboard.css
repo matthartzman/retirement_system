@@ -1001,3 +1001,28 @@ body.chart-modal-open{overflow:hidden}
 /* Compact 3-line move cell (year/action, location/distance, cost) keeps the
    Move 1/Move 2 columns from forcing the table into horizontal scroll. */
 .housing-opt-move-cell{display:inline-block;line-height:1.4;white-space:nowrap}
+
+/* Plan Features (#330 P3). The page was previously an unstyled list; these are
+   the primitives its domain grouping, kind chips and per-row metadata need.
+   Everything else on the page reuses existing classes (.badge, .section-note)
+   rather than growing near-duplicates of them. */
+.opt-module-list{display:flex;flex-direction:column;gap:6px;padding:4px 0 10px}
+.opt-module-row{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;border:1px solid #eee8df;border-radius:10px;background:#fff;padding:9px 11px}
+.opt-module-info{display:flex;flex-direction:column;gap:3px;min-width:0}
+.opt-module-name{font-weight:800}
+.opt-module-desc,.opt-module-off-impact,.pf-demand,.pf-retained{font-size:12px;color:var(--muted);line-height:1.35}
+.opt-module-off-impact{color:#92400e}
+.pf-retained{font-weight:700;color:#1e3a5f}
+.opt-module-toggle{border:1px solid var(--line2);background:#fff;border-radius:999px;padding:6px 14px;font-size:12px;font-weight:900;cursor:pointer;flex:none}
+.opt-module-toggle.on{background:#f0fdf4;color:var(--ok);border-color:#bbf7d0}
+.opt-module-toggle.off{background:#faf9f5;color:var(--muted)}
+.opt-module-toggle.forced{cursor:not-allowed;opacity:.7;background:#fffbeb;color:var(--warn);border-color:#fde68a}
+.badge.pf-kind{background:#eef2ff;color:#1d4ed8;align-self:flex-start}
+.pf-chips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 4px}
+.pf-chip{border:1px solid var(--line2);background:#fff;border-radius:999px;padding:5px 11px;font-size:11px;font-weight:800;color:var(--muted);cursor:pointer}
+.pf-chip.active{background:var(--accent2);color:#1e3a5f;border-color:#9bc4f5}
+.pf-group{margin-top:12px}
+.pf-group-head{width:100%;display:flex;justify-content:space-between;align-items:center;gap:10px;border:1px solid var(--line);background:#fbfaf7;border-radius:10px;padding:9px 11px;cursor:pointer;text-align:left}
+.pf-group-name{font-weight:900;font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+.pf-group-count{font-size:11px;color:var(--muted);font-weight:800}
+.pf-override{border-color:#fde68a;background:#fffbeb;color:#92400e}
