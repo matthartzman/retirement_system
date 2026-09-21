@@ -252,7 +252,12 @@ DASHBOARD_JS_MAX_LINES = 7_293
 # it removed (the "Shortlist size" control, its option table and its help
 # entry), all new behavior rather than lines moved from elsewhere -- raised to
 # the measured total.
-TOTAL_JS_MAX_LINES = 33_876
+# 2026-09-21 (H2/A4, same ticket): A4's frontend tests caught a real bug in
+# A3's own findHousingOptCandidates -- it always passed force:true, which
+# defeated OQ-6's client-side memo entirely (re-pressing "Find candidate
+# locations" with nothing changed re-screened every time). The fix and its
+# explanatory comment add five lines -- raised to the measured total.
+TOTAL_JS_MAX_LINES = 33_881
 
 
 def _line_count(path: Path) -> int:
