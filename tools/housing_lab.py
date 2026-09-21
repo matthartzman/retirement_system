@@ -139,6 +139,15 @@ def _load_config(plan_csv: Path, skip_live_pricing: bool) -> dict:
     return ensure_engine_config(dict(c), source='housing_lab')
 
 
+# Price-basis audit (design 2026-09-19 §6.4/§9, H1/B6): this harness has no
+# price-basis bug of its own. It never calls _purchase_price_for_location/
+# _estimate_for_location/_effective_mortgage_rate directly -- every dollar
+# figure below is read off optimize_housing()'s own result dict, which is
+# already priced as of each move's own year (plan_variant, via _apply_
+# candidate reading c0['home_appr']/c0['inf']) by the time it gets here.
+# location['est_price'] stays today's dollars by design (screen.py is
+# untouched); financing['purchase_price']/['monthly_rent'] are move-year
+# dollars, same as the optimizer panel now shows.
 def _location_label(loc: dict) -> str:
     if loc.get('city'):
         where = f"{loc['city']}, {loc['state']}"

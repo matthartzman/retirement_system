@@ -203,6 +203,12 @@ export async function estimateHousingFromState(stepNum) {
       norm(r.subsection || "") === "next_step_" + stepNum &&
       norm(r.label) === "sqft_band",
   );
+  const lotSizeBandRow = rows.find(
+    (r) =>
+      r.section === "Housing" &&
+      norm(r.subsection || "") === "next_step_" + stepNum &&
+      norm(r.label) === "lot_size_band",
+  );
   const builtWithinYearsRow = rows.find(
     (r) =>
       r.section === "Housing" &&
@@ -256,6 +262,9 @@ export async function estimateHousingFromState(stepNum) {
   const sqftBandVal = sqftBandRow
     ? String(valOf(sqftBandRow) || "1800_2500").trim()
     : "1800_2500";
+  const lotSizeBandVal = lotSizeBandRow
+    ? String(valOf(lotSizeBandRow) || "quarter_half").trim()
+    : "quarter_half";
   const builtWithinYearsVal = builtWithinYearsRow
     ? String(valOf(builtWithinYearsRow) || "").trim()
     : "";
@@ -275,6 +284,7 @@ export async function estimateHousingFromState(stepNum) {
         bathrooms: bathroomsVal,
         property_type: propertyTypeVal,
         sqft_band: sqftBandVal,
+        lot_size_band: lotSizeBandVal,
         built_within_years: builtWithinYearsVal,
       }),
     });
@@ -317,6 +327,11 @@ export async function estimateHousingFromState(stepNum) {
     for (const label of Object.keys(fieldMap)) {
       if (window.applyHousingEstimateField(stepNum, label, fieldMap[label])) applied++;
     }
+    // §6.4 site 6: the year this estimate was fetched for, so a later edit
+    // to start_year (with no re-estimate) can be flagged as stale rather
+    // than silently left priced for the old year. Set after the apply loop
+    // above so it is never mistaken for a fillable field by it.
+    window.housingLastEstimate[stepNum].__year = Number.isFinite(startYearVal) ? startYearVal : null;
     renderMain();
     showMessage(
       "Estimated values applied for " +
@@ -544,9 +559,15 @@ export function renderNextHousingStepSection(stepRows, stepLabel, stepNum) {
   var popRow = stepRows.find(function (r) {
     return norm(r.label) === "population_size";
   });
+  var startYearRow = stepRows.find(function (r) {
+    return norm(r.label) === "start_year";
+  });
   var stateVal = stateRow ? String(valOf(stateRow) || "").trim() : "";
   var cityTypeVal = cityTypeRow ? String(valOf(cityTypeRow) || "").trim() : "";
   var popVal = popRow ? String(valOf(popRow) || "").trim() : "";
+  var startYearVal = startYearRow
+    ? parseInt(String(valOf(startYearRow) || "").replace(/[^0-9]/g, ""), 10)
+    : NaN;
 
   // Both purchase and rent: State → Area Type → Population → [Estimate] →
   // remaining fields. Rent used to skip Area Type/Population (silently
@@ -629,6 +650,24 @@ export function renderNextHousingStepSection(stepRows, stepLabel, stepNum) {
       .map((lbl) => '<button class="btn tiny" type="button" onclick="restoreHousingEstimateField(' + stepNum + ",'" + lbl + '\')">⇺ ' + esc(restoreFieldLabels[lbl]) + "</button>")
       .join(" ");
     if (restoreLinks) estimateBtn += '<div class="section-note small" style="margin-bottom:8px">Restore app estimate for one field: ' + restoreLinks + "</div>";
+    // §6.4 site 6: start_year moved since this estimate was fetched, so the
+    // price/rent and the recurring cost fields may still reflect the old
+    // year's dollars. Never overwritten silently (§3) -- a one-click prompt
+    // instead, same pattern as the per-field restore links above.
+    if (
+      Number.isFinite(cachedEst.__year) &&
+      Number.isFinite(startYearVal) &&
+      cachedEst.__year !== startYearVal
+    ) {
+      estimateBtn +=
+        '<div class="section-note small warning" style="margin-bottom:8px">Estimated for ' +
+        cachedEst.__year +
+        ". Re-estimate for " +
+        startYearVal +
+        '? <button class="btn tiny" type="button" onclick="estimateHousingFromState(' +
+        stepNum +
+        ')">Re-estimate</button></div>';
+    }
   }
 
   var typeToggle = "";
