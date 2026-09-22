@@ -227,3 +227,152 @@ UI-panel gating, and panel/nav gating is W9's and W12's subject, not W8b's.
 Flagged here rather than silently doing either half, so whoever picks it up
 starts from "this was never catalogued" instead of from "W8b presumably handled
 it".
+
+---
+
+## 5. Spending Tracker / YTD — one switch, three modules
+
+The genuinely new mechanism in W8b, and the one the plan warned not to force
+into the one-toggle-one-module shape every other workstream has used.
+
+### What the third module is
+
+The plan says the switch "bundles `spending_summary` and
+`account_reconciliation`". Checking the catalog for the third YTD-dependent
+module, as instructed: there isn't one. `account_reconciliation` is the **only**
+entry in the whole catalog declaring `_in("ytd", …)`, and the third thing is
+the **Spending Tracker / YTD workflow itself** — `spending_tracker.py`, the YTD
+input pages, `ytd_blend_enabled` — which #330 §2.3 lists among the nine
+"behave like features and are not catalogued" and calls "a modeling option
+gating a whole workflow, the one genuine borderline case in §2.1's taxonomy".
+So the bundle is a new `OutputModule` (`spending_tracker_ytd`) plus the two
+existing ones, not three existing ones sharing a key.
+
+### The mechanism: `OutputModule.gated_by`, resolved in `_base_enabled`
+
+`spending_summary` and `account_reconciliation` become `optional=True,
+gated_by="spending_tracker_ytd"`. Everything else about them stays ordinary:
+each keeps its own key, its own sheet, its own `module_key` in
+`SHEET_REGISTRY`, and therefore its own one-key-one-sheet entry in
+`OPTIONAL_MODULE_SHEETS`. The parent owns no sheet at all.
+
+The **only** place that knows a bundle exists is
+`module_catalog._base_enabled`, which reads the parent's toggle when asked
+about a member. That placement is the point, and it is the W7 lesson applied
+before the bug rather than after it: the build gate's generic loop over
+`OPTIONAL_MODULE_SHEETS`, `effective_enabled_modules()`, `module_status()` and
+`module_enabled()` all already route through that one function, so not one of
+them can forget the bundle the way `deterministic_engine.py` forgot the
+accessor. Zero new call sites; zero special cases in the catalog↔registry join,
+the prerequisite resolver, or `workbook_builder`.
+
+**Why not key both sheets to the parent** (the obvious alternative): it breaks
+`OPTIONAL_MODULE_SHEETS`' shape — the parent would map to a list of two while
+declaring no `sheet` of its own — which is exactly the invariant
+`test_optional_catalog_sheets_match_registry` exists to hold. Resolving one
+layer down costs four lines and leaves every existing invariant true as
+written.
+
+**Resolution sits below the env tier, deliberately.** `RETIREMENT_SYSTEM_FORCE_*`
+is a per-key admin tier (the gating tests name individual modules), so a member
+named there still wins for itself; the parent's own force state is not skipped
+either, because the recursive call runs the parent through the same precedence
+ladder from the top. Pinned in
+`test_force_env_still_reaches_a_bundled_module_by_its_own_name`.
+
+**Bundles are one level deep**, enforced by `validate()`: a `gated_by` pointing
+at a module that is itself `gated_by` something is rejected, so the accessor's
+single hop is always the whole answer. `validate()` also rejects a dangling
+parent (which would resolve to the default-on branch and read as permanently
+ON), a core parent, a plan-flag parent, and `optional=False` on a member.
+
+**One switch means one row.** A member carries no
+`client_optional_functions.csv` row — the parent's row is its switch, and a
+second row would be the same double gate #330 Q2 removed from DAF, arriving
+from the data side (and `_base_enabled` would ignore it anyway, so it would
+render a dead switch on Plan Features).
+`test_every_optional_module_has_a_toggle_row` now enforces both halves:
+non-bundled optional modules must have a row, bundled ones must not.
+
+### Two pre-existing unconditional build calls, same as W8a found
+
+`build_sheet25('25. Account Reconciliation', …)` and
+`build_sheet_spending_summary('29. Spending Summary', …)` were both called with
+no `if '<sheet>' in sheets:` membership check — the identical defect W8a found
+on `24. Asset Location` and `37. Current vs Proposed`. Once `module_key` is set
+they would `KeyError` the first time the bundle's switch was turned off. Both
+now use the same guard every other optional sheet in that function already had.
+
+### The engine site, and the disclosure bug it would have caused
+
+#330 §3.2's off-column for this module is "YTD pages hidden; `ytd_blend_enabled`
+forced off; reconciliation auto-off". The middle clause is the engine half, and
+it is implemented: `ytd_projection_blend.compute_current_year_overrides` now
+ANDs `module_enabled(c, 'spending_tracker_ytd')` onto the plan's own
+`ytd_blend_enabled`. The two answer different questions — the module toggle
+says whether this household tracks transactions at all, the plan setting says
+whether a household that does wants them blended into *this* plan (the "Start
+New Plan, deliberately hypothetical" case in that module's own docstring) — and
+either saying no is a no. Read through `module_enabled()`, never a raw
+`c['opt']` lookup; `spending_tracker_ytd` declares `engine_participation=True`
+and the site is a declared `ENGINE` entry in W5's call-site sweep.
+
+**The growth/contribution proration is deliberately NOT suppressed.** It is
+pure date math with no real-data blending and always applies, per that module's
+docstring; a module toggle that silently stopped it would move a number for a
+reason no user asked about. Pinned in
+`test_tracker_off_suppresses_the_flow_blend_but_keeps_growth_proration`.
+
+**The bug this nearly introduced.** Executive Summary
+(`sheets_summary_builder.py`) discloses *why* the current year was modeled as
+fully hypothetical, and before W8b the only possible reason was the plan
+setting — so the sentence hardcoded "by user choice (ytd_blend_enabled =
+FALSE)". With the module gate ANDed on, that same branch fires when the feature
+is off, and the text would have told a household that never touched that field
+to go change it, pointing them at the wrong screen. `blend_meta` now carries
+`flow_blend_skipped_by` (`'ytd_blend_enabled'` or `'module_off'`) and the
+sentence names the real reason. `flow_blend_skipped_by_user_choice` is kept —
+it is still a user choice either way — so no existing caller changed.
+
+### #330 Q4 is respected, not worked around
+
+Q4 refused data-conditional auto-off ("Auto-off would add a fifth precedence
+rule to `module_enabled`'s four and carries its own failure mode") and asked
+for "Off · no data entered" hints instead. `gated_by` is not that: it adds no
+precedence rule and consults no data. It reads one toggle instead of another,
+inside the tier that already reads toggles. §3.2's "reconciliation auto-off"
+outcome falls out of the bundle rather than out of a data check.
+
+### Deliberately not done: "YTD pages hidden"
+
+The first clause of §3.2's off-column is UI-nav work, and the parent
+deliberately declares **no** `dashboard_step`. The YTD step (`ytd_transactions`)
+is `hidden: true` and is redirected onto `spending_core` by `navigation.js`'s
+`WORKSPACE_TAB_REDIRECTS` before `activeStep` is ever set to it, so a
+`step_gate_map()` entry would gate a step nothing navigates to — a declaration
+with no live consumer, which is exactly the scope creep W6 cut back on its
+first pass at Hybrid LTC. Hiding the YTD tab within `spending_core` is a
+`rowsForStep`/tab-level change, which is W9's subject. Recorded rather than
+half-built.
+
+### Judgment call — `kind = PROJECTION` on the parent
+
+The tracker is an *ingest* workflow and none of the eight kinds names that. Of
+the eight, `PROJECTION`'s question — "What happens to the plan as-is over
+time?" — is the one its switch actually answers, because what the toggle
+changes is whether real YTD actuals are blended into the current year's
+projection. `DIAGNOSTICS` ("Is the model itself trustworthy?") describes
+`account_reconciliation`, which is one of its *outputs*, not the tracker.
+Nothing is constrained by the choice in practice: `validate()`'s letter-group
+invariant binds only modules that own a registry sheet, and this one does not.
+
+### One existing test was measuring the wrong set
+
+`test_all_optional_off_stays_off` and `test_module_status_all_off_is_fully_off`
+built their "everything off" map from `OPTIONAL_MODULE_SHEETS`. That was a
+sound proxy for "every switch" while every toggle owned a sheet. The bundle
+parent owns none, so it was absent from the map, its key went unset,
+`_base_enabled` defaulted it **on**, and both bundled members read as ON inside
+a test whose entire subject is that nothing is. Both now build the map from
+`mc.optional_keys()` — the catalog's own list of switches — which is what those
+tests always meant.

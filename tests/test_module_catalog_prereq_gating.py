@@ -120,10 +120,73 @@ def test_independent_module_unaffected_when_on():
 # ── Disabling everything stays disabled ───────────────────────────────────────
 
 def test_all_optional_off_stays_off():
-    c = _cfg(**{k: False for k in OPTIONAL_MODULE_SHEETS})
+    # W8b: the off-map is built from `optional_keys()` -- the catalog's list of
+    # switches -- not from OPTIONAL_MODULE_SHEETS, which is the sheet-gate map.
+    # The two were interchangeable while every toggle owned a sheet. #330 §3.3's
+    # bundle parent (`spending_tracker_ytd`) owns none, so it is absent from the
+    # sheet map; building "everything off" from that map left the parent's key
+    # unset, `_base_enabled` defaulted it on, and its two bundled members read
+    # as ON in a test whose whole subject is that nothing is.
+    c = _cfg(**{k: False for k in mc.optional_keys()})
     assert effective_enabled_modules(c) == set()
     for key in OPTIONAL_MODULE_SHEETS:
         assert module_enabled(c, key) is False, f"{key} should remain disabled"
+    for key in mc.optional_keys():
+        assert module_enabled(c, key) is False, f"{key} should remain disabled"
+
+
+def test_a_bundled_module_follows_its_parents_switch_only():
+    """#330 §3.3 (W8b). One switch, several modules: the member's own key is not
+    a switch, and setting it cannot make the member disagree with its parent.
+
+    This is the property the bundle exists for -- Spending Summary and Account
+    Reconciliation are the Spending Tracker's output, and "neither can compute
+    without the other's data" -- so a state where one is on and the other off is
+    not a configuration, it is a bug.
+    """
+    members = sorted(k for k, m in mc.CATALOG.items() if m.gated_by is not None)
+    assert members, "no bundled modules in the catalog; this test has no subject"
+    parents = {mc.CATALOG[k].gated_by for k in members}
+    assert len(parents) == 1
+    parent = parents.pop()
+
+    # The parent decides, in both directions.
+    off = _cfg(**{parent: False})
+    on = _cfg(**{parent: True})
+    for key in members:
+        assert module_enabled(off, key) is False, f"{key} ignored its parent's OFF"
+        assert module_enabled(on, key) is True, f"{key} ignored its parent's ON"
+
+    # A member's own key is inert -- it cannot override the parent either way.
+    # (A row that *sets* it is separately forbidden; see
+    # tests/test_module_catalog.py::test_every_optional_module_has_a_toggle_row.)
+    for key in members:
+        assert module_enabled(_cfg(**{parent: False, key: True}), key) is False
+        assert module_enabled(_cfg(**{parent: True, key: False}), key) is True
+
+
+def test_force_env_still_reaches_a_bundled_module_by_its_own_name(monkeypatch):
+    """The bundle resolves BELOW the env tier, on purpose: RETIREMENT_SYSTEM_FORCE_*
+    is a per-key admin tier that the gating tests use to name individual
+    modules, and a member named there must still win for itself."""
+    member = next(k for k, m in mc.CATALOG.items() if m.gated_by is not None)
+    parent = mc.CATALOG[member].gated_by
+
+    monkeypatch.setenv("RETIREMENT_SYSTEM_FORCE_DISABLE_MODULES", member)
+    c_on = _cfg(**{parent: True})
+    assert module_enabled(c_on, member) is False, "FORCE_DISABLE on the member lost"
+    assert module_enabled(c_on, parent) is True, "the parent was dragged off with it"
+
+    monkeypatch.delenv("RETIREMENT_SYSTEM_FORCE_DISABLE_MODULES")
+    monkeypatch.setenv("RETIREMENT_SYSTEM_FORCE_ENABLE_MODULES", member)
+    c_off = _cfg(**{parent: False})
+    assert module_enabled(c_off, member) is True, "FORCE_ENABLE on the member lost"
+
+    # And force-disabling the PARENT takes the member with it -- the recursive
+    # resolution runs the parent through the same precedence ladder from the top.
+    monkeypatch.delenv("RETIREMENT_SYSTEM_FORCE_ENABLE_MODULES")
+    monkeypatch.setenv("RETIREMENT_SYSTEM_FORCE_DISABLE_MODULES", parent)
+    assert module_enabled(_cfg(**{parent: True}), member) is False
 
 
 # ── (1) FORCE_DISABLE precedence ──────────────────────────────────────────────
@@ -193,7 +256,9 @@ def test_module_status_reports_auto_enabled_with_required_by():
 
 
 def test_module_status_all_off_is_fully_off():
-    c = _cfg(**{k: False for k in OPTIONAL_MODULE_SHEETS})
+    # See test_all_optional_off_stays_off: `optional_keys()`, not the sheet map,
+    # is what "every switch" means once a toggle can own no sheet (W8b).
+    c = _cfg(**{k: False for k in mc.optional_keys()})
     status = module_status(c)
     for key in OPTIONAL_MODULE_SHEETS:
         assert status[key] == {

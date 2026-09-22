@@ -177,6 +177,16 @@ DECLARED_SITES: dict[tuple[str, str, str], tuple[str, str | None, tuple[str, ...
         "policies` check, so the toggle alone changes nothing on a plan that "
         "configures no disability event.",
     ),
+    ("src/ytd_projection_blend.py", "compute_current_year_overrides",
+     "spending_tracker_ytd"): (
+        ENGINE, None, (),
+        "W8b: the current-year flow blend. Real YTD earned income and spending "
+        "replace the pro-rated projection for the elapsed part of this year, so "
+        "the toggle moves the projection rather than only which sheets exist. "
+        "ANDed with the plan's own `ytd_blend_enabled`, which answers a "
+        "different question (does THIS plan want its tracked actuals) than the "
+        "module toggle (does this household track any).",
+    ),
     ("src/after_tax.py", "business_taxable_estate_value", RAW_OPT): (
         ENGINE, None, ("business_succession",),
         "Adds the owner's projected business interest to the taxable estate, "

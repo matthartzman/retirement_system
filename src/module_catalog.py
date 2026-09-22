@@ -254,6 +254,35 @@ class OutputModule:
     gate_kind: str = GATE_MODULE_TOGGLE
     gate_ref: Optional[Tuple[str, str, str]] = None
     gate_enable_label: Optional[str] = None
+    # ── #330 §3.3 (W8b): one switch, several modules ───────────────────────
+    #
+    # ``gated_by`` names the module whose toggle decides this one. Everything
+    # else about the member stays normal -- it keeps its own key, its own
+    # sheet, its own `module_key` in SHEET_REGISTRY, and its own entry in
+    # OPTIONAL_MODULE_SHEETS -- so the build gate, the prerequisite resolver
+    # and the catalog-to-registry join need no special case at all. The single
+    # place that knows about bundles is :func:`_base_enabled`, which reads the
+    # PARENT's toggle when a member is asked about. That is deliberate and it
+    # is the W7 lesson applied in advance: put the resolution inside the
+    # accessor every call site already goes through, and no call site can
+    # forget it.
+    #
+    # It exists because #330 §3.3 resolves Spending Tracker / YTD,
+    # `spending_summary` and `account_reconciliation` to ONE switch: all three
+    # are YTD-dependent, "a household not tracking transactions has no use for
+    # either and neither can compute without the other's data". Two toggles
+    # that must always agree are not two features; they are one feature with a
+    # way to get into an incoherent state.
+    #
+    # A member carries NO client_optional_functions.csv row of its own -- the
+    # parent's row is its switch, and a second row would be the same double
+    # gate #330 Q2 removed from DAF, arriving from the data side.
+    # `test_every_optional_module_has_a_toggle_row` enforces both halves.
+    #
+    # Bundles are one level deep by construction: `validate()` rejects a
+    # `gated_by` pointing at a module that is itself `gated_by` something, so
+    # the accessor's one-hop resolution is always the whole answer.
+    gated_by: Optional[str] = None
 
 
 def _in(module: str, *elements: str) -> RequiredInput:
@@ -337,11 +366,62 @@ _OUTPUTS: List[OutputModule] = [
         # underlying spending_summary_taxonomy() call), so the "Model core
         # spending assumption" comparison (the one thing unique to this sheet)
         # moved there instead of duplicating a whole sheet.
+        #
+        # #330 §3.3 retracted the "must stay core" verdict on this module and
+        # W8b implements the retraction: reading the builder shows the sheet is
+        # the *YTD spending tracker's* summary (its title renders as
+        # "SPENDING SUMMARY — {year} YTD ({days} days elapsed)" and its body
+        # comes from transaction tracking types), so the #221 reconciliation it
+        # carries is tracker output, not a plan-wide correctness check. It is
+        # near-empty without YTD data, which is the same condition that made
+        # `account_reconciliation` optional -- hence one switch over both,
+        # `gated_by` the tracker rather than a toggle of its own.
         "spending_summary", "Spending Summary", PROJECTION, MEDIUM_HIGH,
         "Category roll-up of spend, including a Core Expenses vs. modeled-assumption reconciliation.",
         domain=SPENDING,
+        optional=True, gated_by="spending_tracker_ytd",
         sheet="29. Spending Summary", tab="1G. Spending Summary",
         requires_inputs=(_in("spending"),),
+    ),
+    OutputModule(
+        # ── #330 §3.3 (W8b): the bundle parent ───────────────────────────────
+        #
+        # Registry gap closed. The Spending Tracker / YTD workflow behaves like
+        # a feature and was never catalogued: `spending_tracker.py`, the YTD
+        # input pages, and `ytd_blend_enabled` -- #330 §2.3 files it as "a
+        # modeling option gating a whole workflow -- the one genuine borderline
+        # case in §2.1's taxonomy", and §3.2 gives it the largest off-surface
+        # of the twelve newly-optional candidates.
+        #
+        # It owns NO workbook sheet of its own. What it owns is the two sheets
+        # that are its output (`spending_summary`, `account_reconciliation`,
+        # both `gated_by` this key) and the current-year blend in
+        # `ytd_projection_blend.py`. That is why it is the parent rather than a
+        # third peer: the other two are things the tracker produces, not
+        # features a household would want independently of it.
+        #
+        # `kind` is PROJECTION, and that was a judgment call (recorded in W8b's
+        # notes doc). The tracker is an *ingest* workflow, which no kind names;
+        # of the eight, PROJECTION's question -- "What happens to the plan as-is
+        # over time?" -- is the one its switch actually answers, because what
+        # the toggle changes is whether real YTD actuals are blended into the
+        # current year's projection. DIAGNOSTICS ("Is the model itself
+        # trustworthy?") describes `account_reconciliation`, which is one of
+        # its outputs, not the tracker. Kind is unconstrained here in practice:
+        # validate()'s letter-group invariant only binds modules that own a
+        # registry sheet, and this one does not.
+        "spending_tracker_ytd", "Spending Tracker / YTD", PROJECTION, MEDIUM_HIGH,
+        "Tracks this year's real income and spending transactions and blends them "
+        "into the current-year projection; the switch behind Spending Summary and "
+        "Account Reconciliation.",
+        domain=SPENDING,
+        optional=True,
+        requires_inputs=(_in("ytd", "transactions", "setup"), _in("spending")),
+        # The toggle moves the projection, not merely which sheets are written:
+        # `ytd_projection_blend.py` blends real current-year flows into the
+        # current year when this is on. Flagged so #330 §3.1's F3 stays
+        # checkable, and so the UI gives the switch its stronger confirmation.
+        engine_participation=True,
     ),
     OutputModule(
         "charts_dashboard", "Charts", PROJECTION, MEDIUM_HIGH,
@@ -699,9 +779,17 @@ _OUTPUTS: List[OutputModule] = [
         requires_outputs=("net_worth",),
     ),
     OutputModule(
+        # W8b: the other half of #330 §3.3's one-switch bundle. This module
+        # already declared `ytd` as a required input -- the only module in the
+        # catalog that did -- which is what makes "reconciliation auto-off"
+        # (§3.2's off-column) a consequence of the tracker's switch rather than
+        # a rule of its own. #330 Q4 refused data-conditional auto-off as a
+        # fifth precedence rule on `module_enabled`; `gated_by` gets the same
+        # outcome for this pair without touching the precedence ladder at all.
         "account_reconciliation", "Account Reconciliation", DIAGNOSTICS, MEDIUM,
         "Reconciles modeled balances against YTD actuals.",
         domain=REPORTS_DOCUMENTATION,
+        optional=True, gated_by="spending_tracker_ytd",
         sheet="25. Account Reconciliation", tab="5C. Account Reconciliation",
         requires_inputs=(_in("holdings"), _in("ytd", "transactions", "setup")),
     ),
@@ -1174,11 +1262,17 @@ SHEET_REGISTRY = dict([
     _visible('22. Glossary', '4', 7, 6, 'Glossary', 'glossary', slug='glossary'),
     _visible('23. Methodology', '4', 6, 5, 'Methodology', 'methodology_rerun', slug='methodology'),
     _hidden('24. Asset Location', '2', 'asset_location', slug='asset_location'),
-    _visible('25. Account Reconciliation', '4', 3, 2, 'Account Reconciliation', slug='account_reconciliation'),
+    # W8b: `module_key` set on both YTD sheets. Each names its OWN module key,
+    # not the bundle parent's -- the bundle is resolved inside
+    # `_base_enabled`, so OPTIONAL_MODULE_SHEETS keeps its one-key-one-sheet
+    # shape and the build gate needs no special case. Before W8b both were
+    # always-on; per W8a's finding, `optional=True` on the CATALOG entry alone
+    # would not have stopped either sheet being built.
+    _visible('25. Account Reconciliation', '4', 3, 2, 'Account Reconciliation', 'account_reconciliation', slug='account_reconciliation'),
     _hidden('26. Workbook Warnings', 'H', slug='workbook_warnings'),
     _visible('27. Planning Levers', '4', 7.5, 7.5, 'Planning Levers', slug='planning_levers'),
     _visible('11B. Tax Capacity', '2', 8, 8, 'Tax Capacity', 'tax_capacity', slug='tax_capacity'),
-    _visible('29. Spending Summary', '1', 6, 6, 'Spending Summary', slug='spending_summary'),
+    _visible('29. Spending Summary', '1', 6, 6, 'Spending Summary', 'spending_summary', slug='spending_summary'),
     _visible('30. Education Funding', '2', 9, 9, 'Education Funding', 'education_funding_529', slug='education_funding'),
     # letter_rank 4-6 (was 3-5): the protection decisions now sit after LTC
     # Stress Test's own tab (2) and Life Insurance Need (3) in '4. Risks'.
@@ -1267,6 +1361,26 @@ def _base_enabled(c, key):
             return True
     if os.environ.get('RETIREMENT_SYSTEM_FORCE_ALL_MODULES') == '1':
         return True
+    # #330 §3.3 (W8b): a bundled module's switch is its parent's row. Resolved
+    # HERE, below the env tier and above the saved-toggle read, which puts it
+    # in exactly one place: every consumer -- the build gate's generic loop
+    # over OPTIONAL_MODULE_SHEETS, effective_enabled_modules(), module_status()
+    # and module_enabled() itself -- goes through this function, so none of
+    # them can forget the bundle the way `deterministic_engine.py` forgot the
+    # accessor before W7.
+    #
+    # Below the env tier on purpose: the RETIREMENT_SYSTEM_FORCE_* variables
+    # are a per-key admin tier (the gating tests name individual modules), and
+    # a member named there must still win for itself. The parent's own force
+    # state is not skipped either -- the recursive call runs it through this
+    # same ladder from the top.
+    # `k` (lower/stripped) as the fallback lookup mirrors the case-insensitive
+    # `opt` scan below: every catalog key is lowercase snake_case, so a caller
+    # spelling one differently would otherwise skip the bundle and fall through
+    # to the member's own (never-set) toggle, silently reading default-on.
+    _parent = getattr(CATALOG.get(key) or CATALOG.get(k), 'gated_by', None)
+    if _parent:
+        return _base_enabled(c, _parent)
     opt = (c or {}).get('opt') or {}
     if key in opt:
         return bool(opt[key])
@@ -1526,6 +1640,35 @@ def validate() -> None:
             assert m.gate_ref is None and m.gate_enable_label is None, (
                 f"{key}: gate_ref/gate_enable_label are plan-flag fields, but "
                 f"gate_kind is {m.gate_kind!r}; the module key is the toggle.")
+        # (4e) #330 §3.3 (W8b). A bundle must be well-formed before anything
+        # resolves through it: `_base_enabled` follows `gated_by` exactly one
+        # hop and treats the answer as final, so a dangling, self-referential
+        # or chained parent would silently mis-gate rather than fail.
+        if m.gated_by is not None:
+            assert m.gated_by != key, f"{key}: gated_by itself"
+            assert m.gated_by in CATALOG, (
+                f"{key}: gated_by {m.gated_by!r}, which is not a catalogued "
+                f"module -- _base_enabled would resolve it to the default-on "
+                f"branch and the bundle would read as permanently ON.")
+            parent = CATALOG[m.gated_by]
+            assert m.optional, (
+                f"{key}: gated_by {m.gated_by!r} but optional=False. A bundled "
+                f"module IS switched -- by its parent's row -- so calling it "
+                f"core would put it in core_keys(), which means always-on.")
+            assert parent.optional, (
+                f"{key}: gated_by {m.gated_by!r}, which is not optional. The "
+                f"parent's toggle is this module's switch; a core parent has "
+                f"no toggle to be one.")
+            assert parent.gate_kind == GATE_MODULE_TOGGLE, (
+                f"{key}: gated_by {m.gated_by!r}, whose gate_kind is "
+                f"{parent.gate_kind!r}. A bundle parent's switch must be a "
+                f"client_optional_functions.csv row, because that is what the "
+                f"member inherits.")
+            assert parent.gated_by is None, (
+                f"{key}: gated_by {m.gated_by!r}, which is itself gated_by "
+                f"{parent.gated_by!r}. Bundles are one level deep -- "
+                f"_base_enabled resolves a single hop, so a chain would stop "
+                f"at the middle module's own (never-set) toggle.")
         # (4c) engine_participation describes what a *toggle* does to the
         # projection. A core module has no toggle.
         if m.engine_participation:

@@ -143,6 +143,13 @@ class ConfigService:
                     "domain": m.domain,
                     "demand": m.demand,
                     "optional": m.optional,
+                    # #330 §3.3 (W8b): the parent whose toggle switches this
+                    # module, or None. Served because the switch page's whole
+                    # promise is that a module's state is explainable -- a
+                    # bundled module has no row of its own, so without this the
+                    # UI could only report "on" with no way to say what decided
+                    # it.
+                    "gated_by": m.gated_by,
                     "description": m.description,
                     # #330 §3.4. Both directions are served, because the UI
                     # needs both and inverting a map in JS would make the
