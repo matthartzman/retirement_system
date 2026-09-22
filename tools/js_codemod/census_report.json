@@ -160,7 +160,6 @@
     "stopDetailedResultsProgress",
     "stressHomeSaleYearRow",
     "stripUiLabelPrefix",
-    "suggestedNext",
     "summaryFromApiPayload",
     "takeBuildSnapshot",
     "toggleDetailColGroup",
@@ -215,7 +214,6 @@
     "STEPS",
     "STEP_HELP",
     "STRATEGY_TABS",
-    "SUGGESTED_NEXT",
     "SYSTEM_CONFIG_FIELD_HELP",
     "TERM_NOTES",
     "YTD_ACTUALS_PERIOD_LS_KEY",
@@ -374,7 +372,6 @@
     "STEPS",
     "STEP_HELP",
     "STRATEGY_TABS",
-    "SUGGESTED_NEXT",
     "SYSTEM_CONFIG_FIELD_HELP",
     "TERM_NOTES",
     "YTD_ACTUALS_PERIOD_LS_KEY",
@@ -2717,6 +2714,12 @@
       "scope": "inside-function"
     },
     {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_income_streams.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "searchText",
       "file": "frontend/js/dashboard_decomp_income_streams.js",
       "kind": "read",
@@ -2945,6 +2948,36 @@
       "scope": "inside-function"
     },
     {
+      "name": "dirty",
+      "file": "frontend/js/dashboard_decomp_optimizer_apply.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "dirty",
+      "file": "frontend/js/dashboard_decomp_optimizer_apply.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "dirty",
+      "file": "frontend/js/dashboard_decomp_optimizer_apply.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "dirty",
+      "file": "frontend/js/dashboard_decomp_optimizer_apply.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_optimizer_apply.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "rows",
       "file": "frontend/js/dashboard_decomp_page_recommendations.js",
       "kind": "read",
@@ -3150,6 +3183,12 @@
     },
     {
       "name": "activeStep",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "STEPS",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
       "scope": "inside-function"
