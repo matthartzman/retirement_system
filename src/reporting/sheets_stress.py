@@ -1548,5 +1548,84 @@ def build_sheet20(ws, c, rows):
        f'RMD start age {rmd_start_age}; H dies {c["h_death_yr"]}; W dies {c["w_death_yr"]}')
 
 
+def build_sheet39(ws, c, rows):
+    """Divorce / QDRO Stress Test.
 
-__all__ = ['build_sheet15', 'build_sheet16', 'build_sheet17', 'build_sheet18', 'build_sheet19', 'build_sheet20']
+    #329 §1.2/§3.3 (W9): `divorce_qdro` was a UI-only stress test with no
+    workbook counterpart -- "the mirror image of the workbook-only
+    optimizers" -- while its own computation already existed inside Sheet 16
+    (Scenario Analysis)'s "Divorce/QDRO Asset Split" comparison row (a
+    `run_scenario()` re-projection with `divorce_split_yr`/`divorce_split_pct`
+    overridden from the plan's `scen_divorce_yr`/`scen_divorce_split_pct`).
+    This sheet reuses that exact computation as its own dedicated tab, the
+    same real-projection-re-run shape every other stress sheet in this file
+    uses, rather than inventing new modeling this workstream's "no
+    calculation changes" constraint would rule out anyway.
+    """
+    from ..planning_engines import _funding_success
+    ws.sheet_view.showGridLines = False
+    section_title(ws, 1, 'DIVORCE / QDRO STRESS TEST', 6)
+
+    base_nw = rows[-1]['total_nw']
+    base_tax = sum(row['total_tax'] for row in rows)
+    threshold = float(c.get('mc_success_liquid_floor', 0.0) or 0.0)
+    divorce_yr = int(c['scen_divorce_yr'])
+    divorce_pct = float(c['scen_divorce_split_pct'])
+
+    _c2, rows2 = _run_scenario(c, overrides={
+        'divorce_split_yr': divorce_yr,
+        'divorce_split_pct': divorce_pct,
+    })
+    scen_nw = rows2[-1]['total_nw'] if rows2 else 0.0
+    scen_tax = sum(row['total_tax'] for row in rows2)
+    survives = _funding_success(rows2, threshold) if rows2 else False
+    split_row = next((row for row in rows2 if row.get('year') == divorce_yr), None)
+    split_amount = float(split_row['divorce_split_amount']) if split_row else 0.0
+
+    r = 3
+    write_hdr(ws, r, 1, 'Headline Comparison', NAVY, WHITE, span=6); r += 1
+    hdrs = ['Scenario', 'Assumption', 'Ending NW', 'Lifetime Tax', 'Plan Survives?', 'Δ vs Base']
+    for i, h in enumerate(hdrs, 1):
+        write_hdr(ws, r, i, h, DGRAY, WHITE)
+    r += 1
+    scenarios = [
+        ('Base Case', 'As modeled', base_nw, base_tax, True, 0),
+        (f'Divorce/QDRO Asset Split ({divorce_pct*100:.0f}%, {divorce_yr})',
+         'One-time, tax-free (IRC §1041) division of all investment accounts '
+         '-- asset split only, does not model ongoing spousal support',
+         scen_nw, scen_tax, survives, scen_nw - base_nw),
+    ]
+    for scen in scenarios:
+        bg = 'E2EFDA' if scen[4] else 'FCE4D6'
+        for i, val in enumerate(scen, 1):
+            fmt = FMT_DOLLAR if i in (3, 4, 6) else None
+            write_cell(ws, r, i,
+                       val if not isinstance(val, bool) else ('YES' if val else 'NO'),
+                       fmt=fmt, bg=bg if i == 5 else None)
+        r += 1
+
+    r += 2
+    write_hdr(ws, r, 1, f'Asset Split Detail — {divorce_yr}', BLUE, WHITE, span=6); r += 1
+    for lbl, val, fmt in [
+        ('Split Year', divorce_yr, FMT_YEAR),
+        ('Split Percentage', divorce_pct, FMT_PCT),
+        ('Total Removed From Investment Accounts', split_amount, FMT_DOLLAR),
+        ('Tax Treatment', 'Not a taxable event (IRC §1041) -- no gain, basis '
+         'adjustment, or tax pass', None),
+        ('Not Modeled', 'Ongoing spousal support / alimony', None),
+    ]:
+        write_cell(ws, r, 1, lbl)
+        if val != '':
+            write_cell(ws, r, 2, val, fmt=fmt)
+        r += 1
+
+    qc('39. Divorce QDRO Stress Test',
+       'Real projection re-run with divorce_split_yr/divorce_split_pct overridden '
+       'from the plan\'s Scenarios/Divorce settings, matching Sheet 16\'s own '
+       'Divorce/QDRO comparison row', True,
+       f'Split year {divorce_yr}; {divorce_pct*100:.0f}% of investment accounts; '
+       f'${split_amount:,.0f} removed')
+
+
+__all__ = ['build_sheet15', 'build_sheet16', 'build_sheet17', 'build_sheet18', 'build_sheet19',
+           'build_sheet20', 'build_sheet39']

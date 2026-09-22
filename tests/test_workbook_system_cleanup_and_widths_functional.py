@@ -23,20 +23,30 @@ def test_system_section_uses_clean_sheet_sequence_without_feature_toggle(built_w
         # LLC) moved to their own '3. Comparisons' group, out of Optimizers.
         # HSA Drawdown (2B) always sits right after Roth Conversion (shares
         # its objective) and is never module-gated, so it is never absent.
-        # Tax-Loss Harvesting/Gain Harvesting sort last within Optimizers as
-        # the "This year's actions" pair (§3.2 F3), after Housing Comparison.
-        '2. Optimizers','2A. Roth Conversion','2B. HSA Drawdown','2C. Asset Allocation','2D. Social Security','2E. Charitable Giving','2F. Estate & Legacy Planning',
+        # #329 §1.2/§3.3 (W9): Withdrawal Sequencing and Asset Location
+        # restored from hidden, right after Asset Allocation (investments
+        # cluster). Tax-Loss Harvesting/Gain Harvesting sort last within
+        # Optimizers as the "This year's actions" pair (§3.2 F3), after
+        # Housing Comparison.
+        '2. Optimizers','2A. Roth Conversion','2B. HSA Drawdown','2C. Asset Allocation',
+        '2D. Withdrawal Sequencing','2E. Social Security','2F. Asset Location',
+        '2G. Charitable Giving','2H. Estate & Legacy Planning',
         # housing-estimate-realism-and-dollar-convention-design.md Slice 3:
         # new optional sheet, lands densely at the end of the plan-optimizer
         # block (highest letter_rank ahead of the "This year's actions" pair).
-        '2G. Housing Comparison',
-        '2H. Tax-Loss Harvesting','2I. Gain Harvesting',
-        '3. Comparisons','3A. State Residency','3B. S-Corp vs LLC',
+        '2I. Housing Comparison',
+        '2J. Tax-Loss Harvesting','2K. Gain Harvesting',
+        # #329 §1.2/§3.3 (W9): Scenario Analysis restored from hidden too,
+        # 3C -- matching the catalog entry's own `tab="3C. Scenario
+        # Analysis"`, set in anticipation of this.
+        '3. Comparisons','3A. State Residency','3B. S-Corp vs LLC','3C. Scenario Analysis',
         # W3 (#329 O10): LTC Stress Test is split back out of the merged Life
         # Insurance sheet into its own '4.1 stress tests' tab; Life Insurance
         # Need is the only '4.2 protection decision' on in this fixture's
         # plan (existing_life_insurance/disability_income_insurance/
-        # property_casualty_umbrella are off).
+        # property_casualty_umbrella are off). Divorce/QDRO (W9, rank 2.5,
+        # between LTC Stress Test and Life Insurance Need) is off by default
+        # in this fixture, so it does not appear and letters compress.
         '4. Risks','4A. Monte Carlo','4B. Survivor','4C. LTC Stress Test','4D. Life Insurance Need',
         # Planning Levers now letters and sorts with the System section it has
         # always physically belonged to, last rather than second (W11 retires
