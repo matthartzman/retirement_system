@@ -376,3 +376,137 @@ parent owns none, so it was absent from the map, its key went unset,
 a test whose entire subject is that nothing is. Both now build the map from
 `mc.optional_keys()` — the catalog's own list of switches — which is what those
 tests always meant.
+
+---
+
+## 6. Golden-master check — zero delta, for a structural reason
+
+This is W8b's slot in the master plan's global ordering rule (§1, §6): H1/B5
+first, then W7, then W8b "if it moves fixtures at all". Both prior checks came
+back zero, and the brief was explicit that this one should not be assumed to —
+W8b touches HSA Drawdown and the YTD blend, which are genuinely engine-adjacent
+in a way W7's two modules and H1/B5's housing step were not. **A delta was
+plausible going in.** It came back zero anyway, and the reason is worth stating
+precisely, because "the toggle happened to default on" is the weaker of the two
+reasons and the only one a future change could erode.
+
+```
+$ python3 tools/regen_golden_master.py measure
+Computed: terminal_nw=5,438,505.25  lifetime_tax=1,255,734.10
+Pinned:   terminal_nw=5,438,505.25  lifetime_tax=1,255,734.10
+Delta:    terminal_nw=+0.00  lifetime_tax=+0.00
+MATCH -- the pin holds at the current worktree state.
+```
+
+### Reason 1 (structural, and the load-bearing one)
+
+W8b makes exactly one edit in the projection layer: the module gate ANDed onto
+`ytd_blend_enabled` inside
+`ytd_projection_blend.compute_current_year_overrides`. That function has
+**exactly one non-test caller** — `workbook_builder.py:986`, inside `main()`,
+the full workbook build. Confirmed by grepping `src/`, `tools/` and `tests/`
+rather than assumed.
+
+The golden masters do not run a workbook build. All three families —
+`test_frozen_sample_plan_golden_master_regression.py` (the dollar-exact pins
+this tool measures), `test_synthetic_golden_master.py` and
+`test_deterministic_engine_full_row_snapshot_regression.py` (the ten synthetic
+scenarios) — call `parse_client()` and then `planning_engines.project()`
+directly. The blend overrides are merged into the config by the *builder*,
+after the config is parsed and before it projects; a caller that projects
+directly never sees them. So W8b's engine edit is **structurally unreachable**
+from every pinned number, not merely inert on today's fixture data.
+
+The other four W8b changes are sheet-level by construction — `hsa_drawdown`,
+`spending_summary` and `account_reconciliation` gained `module_key`, which
+prunes sheets, and sheets are not projections.
+
+### Reason 2 (value, independent, verified not inferred)
+
+Even where the blend *is* reached — any real workbook build — the gate reads
+`True` on the frozen plan. Checked against the actual parsed config rather than
+by reading the CSV:
+
+```
+frozen plan opt keys: 24
+  hsa_drawdown                     in opt=False  module_enabled=True
+  housing_trajectory_comparison    in opt=False  module_enabled=True
+  spending_tracker_ytd             in opt=False  module_enabled=True
+  spending_summary                 in opt=False  module_enabled=True
+  account_reconciliation           in opt=False  module_enabled=True
+ytd_blend_enabled on frozen plan: True
+hsa_withdrawal_mode on frozen plan: smooth_window
+```
+
+None of the five modules W8b touches has a row in the frozen plan's
+`client_optional_functions.csv` (it carries 24 toggles, none of them these), so
+`module_enabled()`'s default-on-when-absent contract keeps every one of them on
+and the new AND is a no-op. The ten synthetic scenarios carry no `opt` map at
+all — the same shape W7's notes documented — so they default on for the same
+reason.
+
+`hsa_withdrawal_mode` is `smooth_window`, so even the *sheet-level* pointer
+gate W8b added to Sheet 11 never fires on this fixture. That is why
+`tests/test_hsa_drawdown_toggle_regression.py` had to construct the
+`optimize`-mode case itself.
+
+### What this means, and what it does not
+
+**It does not mean W8b is behaviorally inert.** The engine AND is real: a plan
+that turns Spending Tracker / YTD off *and* has current-year actuals logged
+will now project the current year without them, which is the intended change
+and is exercised by
+`test_tracker_off_suppresses_the_flow_blend_but_keeps_growth_proration`. No
+fixture that exists today is in that state — the frozen plan defaults the
+module on, and the synthetic scenarios have no YTD workspace at all. That is
+the same "true today, not true by construction" caveat W7 recorded about
+`disability_income_insurance`, and it is recorded here for the same reason:
+adding a fixture that turns the tracker off would move numbers, legitimately,
+and whoever adds one should expect to re-measure rather than be surprised.
+
+### Judgment call — no regen commit, following H1/B5 and W7
+
+The ordering rule says golden-master regeneration commits land alone and "the
+fixture diff is the reviewable artifact". With a measured delta of exactly zero
+across all three families there is no diff to be that artifact, and
+`regen --reason "..."` would rewrite the same two pins to the same two values —
+a commit with no observable content, existing only to say a script ran. H1/B5
+declined that, W7 declined that, and W8b declines it on the same grounds.
+**This section is W8b's golden-master artifact, and it lands alone**, which is
+the part of the rule that still applies.
+
+---
+
+## Verification summary
+
+* `tools/regen_golden_master.py measure` — exact match, `terminal_nw +0.00`,
+  `lifetime_tax +0.00`. Measured after each sub-step, not only at the end.
+* `tests/test_frozen_sample_plan_golden_master_regression.py`,
+  `test_synthetic_golden_master.py`,
+  `test_deterministic_engine_full_row_snapshot_regression.py` — all pass, no
+  fixture JSON changed.
+* `pytest -m "not slow"` — full suite green (exit 0) on the branch head.
+* Five pinned real builds, each against a throwaway workspace seeded from
+  `tests/fixtures/sample_plan_frozen/` and read back with `openpyxl`:
+  1. **all on** — 40 sheets, `2B. HSA Drawdown`, `2G. Housing Comparison`,
+     `1G. Spending Summary`, `5C. Account Reconciliation` all present.
+  2. **`hsa_drawdown` off** — 39; the tab is gone and the Optimizers group
+     reletters cleanly (Asset Allocation takes `2B`).
+  3. **`housing_trajectory_comparison` off** — 39; tab gone, letters reflow.
+  4. **`spending_tracker_ytd` off** — 38; **both** member sheets gone from the
+     one switch, and both their groups reletter (Current vs. Proposed → `1G`,
+     Quality Control → `5C`).
+  5. **all three off together** — 36 (40 − 4), every other sheet present, no
+     `KeyError`, confirming the gates are independent rather than accidentally
+     coupled.
+* New tests: `tests/test_hsa_drawdown_toggle_regression.py` (6/6, confirmed
+  1 fails against the unfixed gate),
+  `tests/test_spending_tracker_ytd_bundle_regression.py` (8/8), plus three
+  bundle-gate tests added to `tests/test_module_catalog_prereq_gating.py` and
+  two switch-partition guards to `tests/test_module_catalog.py` (the toggle-row
+  one verified live by appending a `daf_giving` row and watching it fail).
+* `npm test` — 477/479. The two failures are in
+  `tests/frontend/js_codemod_parser_offsets.test.mjs`, which pins jscodeshift's
+  offset behavior; they reproduce identically with this workstream's changes
+  stashed, and W8b touches zero JS, `.mjs` or `package*.json` files. Same file
+  W6's notes already recorded as environment-dependent.
