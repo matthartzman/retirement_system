@@ -18,6 +18,7 @@ from .workbook_common import (
     get_column_letter,
     indexed_federal_estate_exemption,
     marginal_rate,
+    module_enabled,
     qc,
     resolved_state_estate_exemption,
     salt_cap,
@@ -1133,7 +1134,15 @@ def build_sheet11(ws, c, rows):
     # Point the reader there instead of re-rendering it here. Mode-gated: only
     # relevant when the HSA schedule optimizer is the configured withdrawal
     # mode; otherwise that sheet has nothing to show either.
-    if str(c.get('hsa_withdrawal_mode') or '').strip().lower() == 'optimize':
+    #
+    # W8b also toggle-gates it. `hsa_drawdown` became optional, so the mode can
+    # be 'optimize' while the sheet this sentence names is not in the workbook
+    # at all -- a cross-reference to a tab that does not exist, which is worse
+    # than saying nothing. The pointer is the only thing that goes; Sheet 11's
+    # own content is unaffected either way, which is why this is a
+    # `degrades_without` on roth_conversion_plan rather than a prerequisite.
+    if (str(c.get('hsa_withdrawal_mode') or '').strip().lower() == 'optimize'
+            and module_enabled(c, 'hsa_drawdown')):
         r += 1
         write_cell(
             ws, r, 1,

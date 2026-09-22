@@ -31,3 +31,4 @@ Optional Functions,,tax_capacity,TRUE,boolean,Sheet 11B - Tax Capacity (bracket/
 Optional Functions,,asset_location,TRUE,boolean,Sheet 24 - Asset Location (which assets in which tax bucket)
 Optional Functions,,scorp_vs_llc,TRUE,boolean,S-Corp vs LLC entity-structure comparison
 Optional Functions,,current_vs_proposed,TRUE,boolean,Sheet 37 - Current vs Proposed recommendation deltas
+Optional Functions,,hsa_drawdown,TRUE,boolean,Sheet 11C - HSA Drawdown (drawdown order for HSA dollars; content also needs hsa_withdrawal_mode = optimize)

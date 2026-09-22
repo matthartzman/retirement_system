@@ -84,7 +84,8 @@ OWN_GATE, SOFT, ENGINE, ACCESSOR = "own_gate", "soft", "engine", "accessor"
 
 # ── The fixture: every toggle read in src/, classified ───────────────────────
 #
-# Swept 2026-09-21 (W5). Ten sites. Keyed by (file, function, toggle); the
+# Swept 2026-09-21 (W5); extended by W8a (one site) and W8b. Keyed by
+# (file, function, toggle); the
 # value is (verdict, consumer, keys_read, why). `consumer` is the catalog key
 # whose output the site shapes -- None where there isn't one. `keys_read` is
 # the module keys the site reads when the sweep cannot see them itself (a
@@ -128,6 +129,14 @@ DECLARED_SITES: dict[tuple[str, str, str], tuple[str, str | None, tuple[str, ...
     ("src/reporting/sheets_summary_builder.py", "build_sheet1", "social_security_timing"): (
         SOFT, "executive_summary", (),
         "Suppresses the optimal claim-age headline.",
+    ),
+    ("src/reporting/sheets_strategy.py", "build_sheet11", "hsa_drawdown"): (
+        SOFT, "roth_conversion_plan", (),
+        "W8b: Sheet 11's one-line pointer at the HSA drawdown schedule's own "
+        "tab. The pointer is already mode-gated on hsa_withdrawal_mode == "
+        "'optimize'; the toggle is the second half, because `hsa_drawdown` "
+        "became optional in W8b and the mode can say 'optimize' on a workbook "
+        "that no longer contains that sheet.",
     ),
     ("src/reporting/sheets_projection_charts.py", "build_sheet8",
      "market_luck_stress_test"): (
