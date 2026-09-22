@@ -130,6 +130,76 @@ def roth_strategy_result_payload(c, limit=ROTH_CANDIDATE_DISPLAY_LIMIT):
     }
 
 
+def social_security_timing_payload(ss_sweep, c=None):
+    """The SS claim-age sweep's result, trimmed for ``plan_summary.json``, or None.
+
+    #329 P6 / §4.5 path 1 (W10c): Social Security is the design's *scalar
+    adoption* case -- the whole recommendation is one claim age per person,
+    written into one row each. The apply path needs those two ages on the
+    client, so this projects them out of the sweep ``build_sheet10()`` already
+    returns rather than re-running an 81-pair projection sweep.
+
+    ``h_`` is Member 1 and ``w_`` is Member 2 throughout the engine
+    (``src/data_io.py`` reads ``h_ss_pia`` from ``Member 1`` and ``w_ss_pia``
+    from ``Member 2``); the member numbering is used here because that is how
+    the plan rows this feeds are keyed, and the mapping is asserted by a test
+    rather than left to a reader of two files.
+
+    Returns None when the sweep did not run at all -- the Social Security
+    optimizer module being off is the normal way that happens, and an absent
+    key is how the UI is told there is nothing to apply.
+
+    Deliberately NOT included: the full ``scenarios`` grid. It is up to 81
+    pairs of workbook-depth diagnostics, and apply-to-plan needs the winner,
+    not the grid. The workbook's Sheet 10 remains where the grid lives.
+    """
+    sweep = ss_sweep or {}
+    best = sweep.get('best') or {}
+    if not best:
+        return None
+    rec_1 = _f(best.get('h_age'))
+    rec_2 = _f(best.get('w_age'))
+    if rec_1 is None:
+        return None
+    cfg = sweep.get('current') or {}
+    scenarios = sweep.get('scenarios') or []
+    # `current` is the scored row for the configured pair and is None whenever
+    # the coarse-then-refine pass never scored it, so the configured AGES come
+    # from the sweep's own h_current/w_current, which are always set.
+    cur_1 = _f(sweep.get('h_current'))
+    cur_2 = _f(sweep.get('w_current'))
+    payload = {
+        'member_1_label': str(sweep.get('h_label') or 'Member 1'),
+        'member_2_label': str(sweep.get('w_label') or 'Member 2'),
+        'recommended_member_1_claim_age': int(rec_1),
+        'recommended_member_2_claim_age': int(rec_2) if rec_2 is not None else None,
+        'configured_member_1_claim_age': int(cur_1) if cur_1 is not None else None,
+        'configured_member_2_claim_age': int(cur_2) if cur_2 is not None else None,
+        'pairs_scored': len(scenarios),
+        'rank_score': _f(best.get('rank_score')),
+        'objective_value': _f(best.get('objective_value')),
+        'after_tax_terminal_net_worth': _f(best.get('after_tax_terminal_nw')),
+        'survivor_period_ss_income': _f(best.get('survivor_period_ss_income')),
+        'lcv': _f(best.get('lcv')),
+        'lifetime_ss': _f(best.get('lifetime_ss')),
+        # The configured pair's own figures, when it was scored, so the panel
+        # can show the cost of staying put rather than only the winner.
+        'configured_objective_value': _f(cfg.get('objective_value')),
+        'configured_lcv': _f(cfg.get('lcv')),
+        'configured_after_tax_terminal_net_worth': _f(cfg.get('after_tax_terminal_nw')),
+        'configured_was_scored': bool(cfg),
+        # Every pair failing the essential-funding feasibility gate means the
+        # recommendation is a least-bad fallback, not a feasible plan. Applying
+        # it is still legitimate; presenting it as clean guidance is not.
+        'all_pairs_infeasible': bool(sweep.get('all_infeasible')),
+    }
+    payload['recommendation_matches_plan'] = (
+        payload['recommended_member_1_claim_age'] == payload['configured_member_1_claim_age']
+        and payload['recommended_member_2_claim_age'] == payload['configured_member_2_claim_age']
+    )
+    return payload
+
+
 def roth_strategy_benefit(c):
     """Selected-versus-next-best Roth strategy deltas, or None.
 

@@ -323,7 +323,16 @@ DASHBOARD_JS_MAX_LINES = 7_201
 # REUSES promotePlanningCase()'s confirmation/editValue staging and the
 # Planning Case record type rather than reimplementing either, which is why
 # the file is as small as it is. dashboard.js is untouched (still 7,201).
-TOTAL_JS_MAX_LINES = 34_657
+# 2026-09-22 (W10c, second commit -- Social Security scalar adoption): raised
+# from 34,657 to 34,866. The patch builder, the age <-> claim_date conversion
+# that mirrors src/data_io.py's own resolution, and the strip's empty states
+# live in dashboard_decomp_income_streams.js, beside the rows they patch.
+# Partly OFFSET by a de-duplication in the same commit: W10a's Roth-specific
+# /api/summary cache/fetch pair became one keyed reader
+# (optimizerResultFromLastBuild/fetchOptimizerResult in dashboard_decomp_
+# allocation_optimizer.js) that Social Security reuses, so §4.5 path 1's
+# remaining optimizers do not each hand-write a fourth and fifth copy.
+TOTAL_JS_MAX_LINES = 34_866
 
 
 def _line_count(path: Path) -> int:
