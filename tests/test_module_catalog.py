@@ -328,12 +328,14 @@ def test_the_two_gate_maps_partition_rather_than_overlap():
         assert gate_key in toggle_keys
     for gate in mc.flag_gate_map().values():
         assert gate["key"] in flag_keys
-    for gate in mc.flag_section_gate_map().values():
-        assert gate["key"] in flag_keys
 
-    # No step or section is claimed by both halves.
+    # No step is claimed by both halves.
     assert not (set(mc.step_gate_map()) & set(mc.flag_gate_map()))
-    assert not (set(mc.section_gate_map()) & set(mc.flag_section_gate_map()))
+    # No plan flag declares csv_sections today, so section_gate_map() has
+    # nothing to leak -- confirmed directly rather than via a second map that
+    # has no consumer yet.
+    for key in flag_keys:
+        assert mc.CATALOG[key].csv_sections == ()
 
 
 def test_daf_and_qcd_are_gated_identically():
@@ -344,10 +346,6 @@ def test_daf_and_qcd_are_gated_identically():
     flag owns it now."""
     assert "DAF" not in mc.CATALOG["charitable_giving"].csv_sections
     assert "DAF" not in mc.section_gate_map()
-    # ...and not re-introduced under the flag half either: the DAF flag's own
-    # row lives in the section it would gate, so a section gate there would
-    # hide the switch that turns it back on.
-    assert "DAF" not in mc.flag_section_gate_map()
 
     daf, qcd = mc.CATALOG["daf_giving"], mc.CATALOG["qcd_giving"]
     for m in (daf, qcd):

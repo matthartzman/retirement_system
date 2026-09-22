@@ -96,9 +96,8 @@ class ConfigService:
         frontend needs no separate module-name lookup for its reason/
         activation text.
         """
-        from ..module_catalog import (CATALOG, flag_gate_map,
-                                       flag_section_gate_map,
-                                       section_gate_map, step_gate_map)
+        from ..module_catalog import (CATALOG, flag_gate_map, section_gate_map,
+                                       step_gate_map)
         section_gates = {
             section: {"key": key, "label": f"{CATALOG[key].name} optional workbook module"}
             for section, key in section_gate_map().items()
@@ -112,7 +111,6 @@ class ConfigService:
             # toggle key vs a (section, subsection, label) plan row -- and a
             # merged map would only make the caller re-derive which it held.
             "flag_gates": flag_gate_map(),
-            "flag_section_gates": flag_section_gate_map(),
         }
 
     @staticmethod
