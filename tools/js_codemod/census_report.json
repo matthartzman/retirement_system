@@ -3029,6 +3029,18 @@
       "scope": "inside-function"
     },
     {
+      "name": "sectionFlagEnabled",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "moduleGates",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "moduleGates",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
@@ -6986,6 +6998,12 @@
       "name": "renderMain",
       "file": "frontend/js/dashboard_decomp_strategy_workspace.js",
       "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "moduleGates",
+      "file": "frontend/js/dashboard_decomp_strategy_workspace.js",
+      "kind": "read",
       "scope": "inside-function"
     },
     {
