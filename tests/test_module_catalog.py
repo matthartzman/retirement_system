@@ -85,6 +85,26 @@ def test_every_optional_module_has_a_toggle_row():
     assert not orphans, (
         f"toggle rows naming modules the catalog does not define: {orphans}")
 
+    # W8b: the third failure mode, and the one `validate()` structurally cannot
+    # catch. It rejects `optional=True` on a plan flag (see
+    # test_a_feature_may_not_carry_both_kinds_of_switch), but the double gate
+    # #330 Q2 removed can also arrive from the *data* side -- a
+    # client_optional_functions.csv row naming a plan-flag module. The catalog
+    # would still say `optional=False`, so every assertion in this file would
+    # pass, and the row would be worse than harmless: Plan Features renders one
+    # switch per toggle row (`rowsForStep("optional_functions")` ->
+    # `taxonomy.modules[r.label]`), so the page would show a live ON/OFF control
+    # for a module whose real switch is somewhere else entirely, driving nothing
+    # -- a plan flag owns no sheet, so it is in no OPTIONAL_MODULE_SHEETS entry
+    # for the gate to read.
+    flagged = sorted(set(declared) & set(mc.plan_flag_keys()))
+    assert not flagged, (
+        "client_optional_functions.csv carries a toggle row for a plan-flag "
+        f"module: {flagged}. That is the #330 Q2 double gate arriving through "
+        "the data rather than the catalog, and it renders a dead switch on "
+        "Plan Features. A plan flag's switch is its own plan row "
+        "(`gate_ref`); W8b converts rather than layers.")
+
 
 def test_kind_and_domain_are_independent_axes():
     """#330 §4.1: neither axis may be a relabeling of the other.
@@ -336,6 +356,41 @@ def test_the_two_gate_maps_partition_rather_than_overlap():
     # has no consumer yet.
     for key in flag_keys:
         assert mc.CATALOG[key].csv_sections == ()
+
+
+def test_every_module_has_exactly_one_kind_of_switch_or_none():
+    """W8b's standing check on W6's outcome, and the reason W8b converts
+    nothing.
+
+    The master plan lists Hybrid LTC and DAF+QCD under "newly optional", but
+    W6 had already given all three a switch -- a plan flag -- and `validate()`
+    now rejects `optional=True` on top of one, because that combination *is*
+    the DAF double gate #330 Q2 exists to end. So W8b's job for those three is
+    to keep the partition true, not to move them across it.
+
+    The partition asserted here: every catalogued module is exactly one of
+    core (no switch), toggle-switched (`optional`), or flag-switched
+    (`gate_kind="plan_flag"`) -- never two, never none-of-the-above. W6's
+    `test_the_two_gate_maps_partition_rather_than_overlap` asserts the halves
+    are disjoint; this asserts they are also *exhaustive*, which is what makes
+    "which switch does this feature have?" a question with an answer for every
+    module rather than for the ones someone remembered to classify.
+    """
+    core = set(mc.core_keys())
+    toggles = set(mc.optional_keys())
+    flags = set(mc.plan_flag_keys())
+
+    assert not (core & toggles) and not (core & flags) and not (toggles & flags)
+    assert core | toggles | flags == set(mc.CATALOG), (
+        "modules classified by no switch kind at all: "
+        f"{sorted(set(mc.CATALOG) - (core | toggles | flags))}")
+
+    # And the three W8b names stay on the flag side, with the reason attached.
+    for key in ("hybrid_ltc_policy", "daf_giving", "qcd_giving"):
+        assert key in flags, f"{key} left the plan-flag partition"
+        assert key not in toggles, (
+            f"{key} gained a client_optional_functions.csv toggle on top of its "
+            f"plan flag -- the #330 Q2 double gate")
 
 
 def test_daf_and_qcd_are_gated_identically():
