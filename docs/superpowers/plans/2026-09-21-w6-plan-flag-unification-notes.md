@@ -7,19 +7,21 @@
 
 ## Status
 
-**Commit 1 — HELOC alone, end to end — is landed and green.** The plan's own
-pacing instruction is a checkpoint, not advice:
+**All four features are landed and green: HELOC (commit 1), then Hybrid LTC,
+DAF and QCD (commit 2), then a trim (commit 3) that brought Hybrid LTC's
+shape back in line with the minimal pattern HELOC actually proved.** The
+plan's own pacing instruction is a checkpoint, not advice:
 
 > Do HELOC alone, end to end, first. If HELOC alone is not clean, stop: the
 > mechanism is wrong.
 
-**The mechanism is clean.** HELOC's gate now resolves from a catalog
-declaration through a generic frontend lookup, with no `if` naming it
-anywhere, and nothing user-visible changed. Hybrid LTC, DAF and QCD are
-repetitions of a proven pattern and are the remaining work (see
-"What is still open" below).
+**The mechanism is clean, and it generalized without needing to grow.**
+Every plan flag but HELOC turned out to need *nothing* beyond the four
+`OutputModule` fields commit 1 already added — no second gate map, no new
+server payload key. See Judgment call 6 below for the one place W6 first
+overbuilt this, then cut it back.
 
-## What landed in commit 1
+## What landed in commit 1 (HELOC)
 
 1. **`gate_kind` / `gate_ref` / `gate_enable_label` on `OutputModule`**, plus
    the `GATE_MODULE_TOGGLE` / `GATE_PLAN_FLAG` constants and four new
@@ -102,13 +104,78 @@ delta is unobservable today: no `strategySection()` descriptor passes
 `gate: null`, so the toggle renders in place), so the plan-flag note has no
 live caller. Recorded here rather than silently, because W9 may give it one.
 
+## What landed in commits 2 and 3 (Hybrid LTC, DAF, QCD)
+
+Three more `gate_kind="plan_flag"` catalog entries: `hybrid_ltc_policy`,
+`daf_giving`, `qcd_giving`. DAF and QCD have no `dashboard_step` — their rows
+live inside pages (Charitable Giving / Cashflow) that stay visible regardless
+— so `flag_gate_map()` simply never lists them; no second keying was needed.
+
+**The one deliberately user-visible change (#330 Q2): `charitable_giving`
+drops `csv_sections=("DAF",)`.** DAF was double-gated — the module's toggle
+*and* its own plan flag — while QCD, the same feature from the other side,
+was already gated by its plan flag alone (QCD's rows live in the shared
+`Cashflow` section, which a section gate would take out wholesale). DAF was
+the anomaly; the plan flag now owns it exclusively, matching QCD.
+`entityCharitableGatedRows()` (`dashboard_decomp_estate_insurance.js`)
+already implements the right per-row gating for both — show the enable row,
+hide the rest when off — so this needed no frontend change.
+
+**Verified, not just asserted:** grepped the engine/tax layer for where the
+DAF plan flag actually drives the projection
+(`spending_and_rmd.py`'s `c.get('daf_enabled', False)`, read straight from
+`client_assets.csv`'s `DAF/Settings/enabled` independent of the
+`charitable_giving` toggle) — confirming the double-gate was a *dashboard*
+artifact, not a calculation one, so removing it is within the "no calculation
+changes" global constraint. Also found and fixed a small pre-existing
+truthfulness bug as a side effect: `rowModuleGate("DAF")` fed
+`rowBuildUsageState()`'s "inactive, module off" badge on DAF rows whenever
+`charitable_giving` was off, even though `daf_enabled` meant the engine was
+using them anyway. That badge is gone; DAF rows behave like QCD's always did.
+`tests/test_daf_agi_limitation_and_carryforward.py`,
+`test_daf_grant_deduction_and_inkind_funding.py`,
+`test_daf_optimizer_recommendation.py`, `test_current_vs_proposed_regression.py`
+and the frontend `strategy_screen_rows_aggregate.test.mjs` all still pass.
+
+## Judgment call 6 — Hybrid LTC's row-group gate was over-built, then cut back
+
+First pass gave `hybrid_ltc_policy` a `csv_sections=("Hybrid LTC",)`
+declaration and a new `flag_section_gate_map()` (the section-keyed sibling of
+`flag_gate_map()`), served as a new `module_gates.flag_section_gates` payload
+key, intending it to replace `optionalModuleState()`'s hand-written
+`sec === "Hybrid LTC"` branch in `dashboard.js`.
+
+That branch is real, and it is the Hybrid LTC analogue of the
+`rowsForStep()` branch "Not in scope, deliberately left alone" (below) already
+leaves untouched for HELOC — a *third* hand-written gate, not one of the two
+the scope line names for removal (`stepGatedByOptionalModule()`,
+`strategySectionGatedNote()`).
+Building new catalog fields and a new server payload key to replace it was
+scope creep relative to what commit 1 actually proved: HELOC's pattern needed
+exactly four `OutputModule` fields and zero new maps beyond
+`flag_gate_map()`. Cut back to match: `hybrid_ltc_policy` now declares
+neither `dashboard_step` nor `csv_sections`, exactly like `daf_giving` and
+`qcd_giving`, and `flag_section_gate_map()` is gone. `section_gate_map()`
+keeps the `GATE_MODULE_TOGGLE` filter it gained in the first pass — cheap
+insurance against a future plan flag declaring `csv_sections` and silently
+reading as permanently off, the same bug `step_gate_map()` had — but it is
+now a no-op given today's catalog, not load-bearing.
+
 ## Not in scope, deliberately left alone
 
 - **`rowsForStep()`'s `step === "heloc_strategy" && !helocModuleEnabled()`**
-  (`dashboard_decomp_row_model.js`) is a *different* hand-written HELOC gate —
-  an empty-page note, not step visibility. The scope line names
-  `stepGatedByOptionalModule()` and `strategySectionGatedNote()` only. It is a
-  natural W9 follow-up: it reads `flag_gates` with the same two lines.
+  (`dashboard_decomp_row_model.js`) is a hand-written HELOC gate — an
+  empty-page note, not step visibility.
+- **`optionalModuleState()`'s `sec === "Hybrid LTC" && !ltcLifePolicyModuleEnabled()`**
+  (`dashboard.js`) is the same shape one level down: a hand-written row-group
+  gate, not step or section visibility.
+- Both are natural W9 follow-ups — each reads `flag_gates`
+  (`dashboard_step`-keyed, HELOC) or a small local check
+  (`ltcLifePolicyModuleEnabled()`, Hybrid LTC) with the same two or three
+  lines a generic version would need — but the scope line names
+  `stepGatedByOptionalModule()` and `strategySectionGatedNote()` only, and
+  W6's own checkpoint is "prove the minimal pattern," not "eliminate every
+  hand-written gate in the codebase."
 - **Listing plan flags on the Plan Features page.** §5.3 says both mechanisms
   should appear there, with a link (not a toggle) for a plan flag. The Plan
   Features page is driven by the CSV's toggle *rows*, not by the taxonomy
@@ -118,46 +185,42 @@ live caller. Recorded here rather than silently, because W9 may give it one.
 
 ## Verification
 
-- `tests/test_module_catalog.py`, `tests/test_strategy_workspace_module_gating.py`,
+- `tests/test_module_catalog.py` (29 tests, including six added for W6:
+  the four plan flags' shape, the two gate-map pairs partitioning rather
+  than overlapping, DAF/QCD parity, and the toggle+plan-flag double-gate
+  guard), `tests/test_strategy_workspace_module_gating.py`,
   `tests/test_ui_dependency_ordering_functional.py`,
   `tests/test_optional_module_gating.py`,
   `tests/test_module_catalog_prereq_gating.py`,
   `tests/test_module_toggle_call_site_enforcement.py`,
   `tests/test_sheet_table_consistency.py`,
   `tests/test_strategy_workspace_screens_functional.py`,
-  `tests/test_planning_levers_layout_functional.py` — all pass.
-- `npm test`: 477 pass, 2 fail — both in
+  `tests/test_planning_levers_layout_functional.py`,
+  `tests/test_daf_agi_limitation_and_carryforward.py`,
+  `tests/test_daf_grant_deduction_and_inkind_funding.py`,
+  `tests/test_daf_optimizer_recommendation.py`,
+  `tests/test_current_vs_proposed_regression.py` — all pass.
+- `npm test`, including `tests/frontend/strategy_section_lazy_body.test.mjs`
+  and `strategy_screen_rows_aggregate.test.mjs`: green except two failures in
   `tests/frontend/js_codemod_parser_offsets.test.mjs`, **pre-existing on this
-  branch** (confirmed by stashing the W6 diff and re-running), unrelated to
-  plan-flag gating.
-- `tests/test_frontend_size_ratchet.py` passes: `frontend/js` totals exactly
-  33,604 lines, the existing ceiling, and `dashboard.js` did not grow. The
-  new declarative block is net line-neutral against the two branches it
-  replaced — comments were compressed to keep it so rather than raising a
-  ratchet for a refactor that removes hand-maintained code.
+  branch** (confirmed by stashing the W6 diff and re-running, and separately
+  by CI's `frontend-tests` check passing green on PR #132's commit `45987a5`
+  — those two are a local-environment difference, not something CI even
+  sees), unrelated to plan-flag gating.
+- `tests/test_frontend_size_ratchet.py` passes: `frontend/js` stayed at the
+  existing 33,604-line ceiling through commit 1; commits 2–3 touch only
+  `src/`, `tests/`, and this notes doc, so the ratchet is untouched.
+- CI on PR #132's HELOC commit (`45987a5`): all five checks (`build`,
+  `fast-gates`, `frontend-tests`, `test (windows-latest, 3.14)`,
+  `e2e-tests`) passed.
 
 ## What is still open
 
-The three remaining plan-flag entries, each a repetition of HELOC's pattern:
-
-| Feature | `gate_ref` | Notes |
-|---|---|---|
-| Hybrid LTC | `("Hybrid LTC", "Settings", "enabled")` | read today by `ltcLifePolicyModuleEnabled()`; owns no `dashboard_step` — confirm before assuming one |
-| DAF | `("DAF", "Settings", "enabled")` | **also** requires dropping `charitable_giving`'s `csv_sections=("DAF",)` (#330 Q2) |
-| QCD | `("Cashflow", "Charitable Giving", "qcd_enabled")` | already correct in the product; catalogued for symmetry with DAF |
-
-Two things to work out when they land:
-
-1. `flag_gate_map()` is keyed by `dashboard_step`. DAF and QCD own no step —
-   their rows live inside pages that stay visible — so either the map grows a
-   second keying or they are declared without a step and the map skips them.
-   The latter is probably right for W6 and leaves the Plan Features listing
-   (above) to W9.
-2. Dropping `csv_sections=("DAF",)` is the one **deliberately user-visible**
-   change in W6: DAF rows stop being hidden when the `charitable_giving`
-   module is off, and are governed by the DAF plan flag alone, exactly as QCD
-   rows already are. The spec calls this out (§5.3, Q2) and it deletes no
-   user-set plan row. It needs its own before/after check, unlike commit 1.
+Nothing in W6's own scope. All four features (HELOC, Hybrid LTC, DAF, QCD)
+are catalogued with `gate_kind="plan_flag"`; both hand-written branches named
+in the scope line are gone; `charitable_giving` no longer double-gates DAF.
+The items in "Not in scope, deliberately left alone" above are the residue,
+explicitly deferred rather than overlooked.
 
 ## Consequences for later workstreams
 

@@ -750,14 +750,20 @@ _OUTPUTS: List[OutputModule] = [
         gate_enable_label="Enable HELOC Strategy",
     ),
     OutputModule(
+        # No dashboard_step, no csv_sections -- unlike HELOC, this flag gates
+        # a row GROUP inside Other Assets rather than a page or a shared
+        # workbook-input section, via optionalModuleState()'s own
+        # `sec === "Hybrid LTC"` branch (dashboard.js). That branch is a
+        # THIRD hand-written gate, of the same kind W6 deliberately left
+        # alone on HELOC's side (rowsForStep()'s "heloc_strategy" branch, see
+        # the notes doc) -- not one of the two the scope line names for
+        # removal. Catalogued here so the feature is visible to the taxonomy
+        # and the double-gate guard below, without inventing a third gate map
+        # this workstream has no consumer for.
         "hybrid_ltc_policy", "LTC/Life Policy", PROTECTION, LOW,
         "A hybrid long-term-care / life policy: premiums, face value and the "
         "benefit it pays against a care event.",
         domain=ASSETS_PROTECTION,
-        # No dashboard_step: this flag gates a row GROUP inside Other Assets,
-        # not a page. csv_sections names it so the same declaration serves the
-        # row gate, exactly as it serves a module toggle's.
-        csv_sections=("Hybrid LTC",),
         gate_kind=GATE_PLAN_FLAG,
         gate_ref=("Hybrid LTC", "Settings", "enabled"),
         gate_enable_label="Enabled",
@@ -858,38 +864,19 @@ def section_gate_map() -> Dict[str, str]:
     module gates within a step that stays visible regardless (§7.4).
     Replaces the hand-maintained ``ROW_MODULE_GATES`` object in dashboard.js.
     """
+    # No plan flag declares csv_sections today (see the hybrid_ltc_policy
+    # entry above), so no filter is needed here the way step_gate_map() needs
+    # one for flag-gated steps -- but if a future entry adds one, this walks
+    # ALL of ``_OUTPUTS`` including plan flags, which would silently report
+    # that section permanently off via optionalFunctionEnabled(). Filtering
+    # here preemptively, at zero cost while the case doesn't exist, is cheaper
+    # than re-discovering the bug step_gate_map() had.
     out: Dict[str, str] = {}
     for m in _OUTPUTS:
         if m.gate_kind != GATE_MODULE_TOGGLE:
             continue
         for section in m.csv_sections:
             out[section] = m.key
-    return out
-
-
-def flag_section_gate_map() -> Dict[str, Dict[str, object]]:
-    """{csv_section: {...}} for every input-CSV section gated by a PLAN FLAG.
-
-    Section-keyed sibling of :func:`flag_gate_map`, and filtered out of
-    :func:`section_gate_map` for the same reason ``heloc_strategy`` is filtered
-    out of :func:`step_gate_map`: that map's values are fed to
-    ``optionalFunctionEnabled()``, which looks a key up among the
-    client_optional_functions.csv toggles. A plan flag has no row there, so a
-    merged map would report every one of its sections permanently off.
-
-    Values carry the same shape as :func:`flag_gate_map`'s.
-    """
-    out: Dict[str, Dict[str, object]] = {}
-    for m in _OUTPUTS:
-        if m.gate_kind != GATE_PLAN_FLAG:
-            continue
-        for section in m.csv_sections:
-            out[section] = {
-                "key": m.key,
-                "name": m.name,
-                "ref": list(m.gate_ref or ()),
-                "enable_label": m.gate_enable_label,
-            }
     return out
 
 
