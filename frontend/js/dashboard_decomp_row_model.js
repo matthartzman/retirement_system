@@ -4590,6 +4590,10 @@ export async function loadAll(opts = {}) {
     // would keep showing the PREVIOUS plan's optimizer result, since
     // lastBuildSummary is null until this plan is built in this session.
     rothResultCacheReset();
+    // W10c: the housing search's last result is retained for apply-to-plan,
+    // and it is a result about the PREVIOUS plan's home and finances. Left
+    // behind, its apply strip would offer to write that answer into this one.
+    housingOptResultReset();
     await loadTravelExtras();
     await loadBudgetLines(false);
     await loadLiquidityBuffers();
