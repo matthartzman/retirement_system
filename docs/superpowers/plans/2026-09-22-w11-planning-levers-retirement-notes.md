@@ -202,3 +202,55 @@ This is a product decision, not an engineering one, and it's outside a
 - Nothing downstream was blocked by leaving this sheet in place: it was
   never on the critical path for W12/W13, only for closing out #329 §3.2's
   own open item.
+
+## Addendum (2026-09-22) — resolved: keep Sheet 27, do not retire
+
+**User decision: keep Sheet 27.** Option 1 from "What should happen next"
+above, executed as a small follow-up on this same PR (not a new numbered
+workstream):
+
+1. **Recatalogued.** `planning_levers_echo` in `src/module_catalog.py`
+   changes `kind=REFERENCE` → `kind=WORKSHEET`, matching `current_vs_proposed`
+   (also `REPORTS_DOCUMENTATION`, also computes a delta from figures produced
+   elsewhere) rather than `tax_capacity`'s `REFERENCE` (restates/consolidates,
+   computes nothing new) — the precedent this notes doc pointed at, read
+   closely enough to land on the sibling kind instead of the one literally
+   named, because Sheet 27's lever table computes new estimates (Δ TNW, Δ
+   success, `RANK.EQ`), which `tax_capacity` does not. Display name dropped
+   the misleading `"(echo)"` suffix (now just "Planning Levers"); description
+   rewritten to describe the actual screening behavior instead of "Restates
+   the chosen dial positions with their source."
+2. **Docstring/description corrected** in `module_catalog.py` (above) and in
+   `documentation/reference/FUNCTIONAL_SPEC.md`'s "Planning Levers" glossary
+   entry, which repeated the same "restated (never computed) on the
+   workbook's Planning Levers page" claim this notes doc traced back to one
+   unchecked docstring. `SYSTEM_ARCHITECTURE_DIAGRAM.md`'s mermaid label
+   updated to match (`(worksheet)`, not `(reference)`). The two `#329`/`#330`
+   design specs and the W0/W1/W5/W9/W10b notes docs that repeat the same
+   claim are historical execution records, left as-is.
+3. **`build_sheet27_planning_levers()` itself is untouched** — its behavior,
+   its ten hardcoded levers, its formulas, and its `requires_inputs`
+   declaration are exactly as this notes doc found them. This was a
+   classification/documentation fix only, never a functional change.
+4. **Consequence for placement:** `WORKSHEET`'s letter group is Reports
+   (`'1'`), not System (`'5'`) — recataloguing moved the sheet from
+   `5H. Planning Levers` to `1I. Planning Levers`, and `11B. Tax Capacity`
+   (still `REFERENCE`, still System) shifted `5I` → `5H` behind it. Every
+   pinned tab-strip test/fixture that hardcoded the old letters was updated:
+   `test_workbook_five_area_tabs_functional.py`,
+   `test_workbook_numbered_section_tabs_functional.py`,
+   `test_workbook_system_cleanup_and_widths_functional.py`,
+   `tests/fixtures/workbook_snapshot_expectations.json`, and the display-name
+   string in `test_config_service_extraction_functional.py`.
+5. **Verified:** `module_catalog.validate()` passes standalone (the
+   classification invariant that would catch a `kind`/letter-group
+   disagreement). `pytest -m "not slow"`, `tools/regen_golden_master.py
+   measure` (expected `+0.00` on both pins — no Python file outside
+   `module_catalog.py`'s docstrings/tab strings and test assertions changed,
+   and none of that touches any calculation), and `npm test` were run against
+   this change; see the PR body / commit history for the actual results
+   rather than duplicating them here.
+
+**#329 §3.2's retirement gate, and this master plan's W11 entry, are now
+resolved as "kept, recatalogued" rather than "retired" or "still blocked."**
+PR #132's body updated accordingly.
