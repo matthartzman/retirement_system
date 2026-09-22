@@ -164,3 +164,66 @@ must not depend on a file on disk):
   Features link row that does not exist yet. That is the aspirational
   declaration those two tests exist to prevent, so it waits for its consumer.
   Recorded here so W9 inherits it explicitly rather than rediscovering it.
+
+---
+
+## 4. Housing — confirming the off state, and a name that points at two things
+
+W1 already added this module's missing toggle row, defaulted `TRUE`
+(`2026-09-21-w1-catalog-foundation-notes.md`: "a `FALSE` row would have turned
+the module off and moved golden masters, and W1 is behavior-neutral by
+contract"). `housing_trajectory_comparison` was therefore already
+`optional=True`, already had `module_key='38. Housing Comparison'`'s registry
+wiring, and already had a row. **No catalog change was needed here, and none
+was made.** What W8b owed was the other half: proving the `off` state works end
+to end rather than that a row exists.
+
+### The gap that was actually there
+
+`tests/test_housing_trajectory_comparison_sheet_functional.py::test_full_workbook_build_succeeds_with_the_module_on_and_off`
+built the workbook with the module force-enabled and force-disabled — and
+asserted only that the build returned 0 and produced a file. That is a claim
+about *surviving*, not about *gating*: a build that force-disables a module it
+never actually gates passes both assertions identically. Strengthened so the
+off case asserts the Housing Comparison tab is absent and the on case asserts
+it is present.
+
+The assertion matches on the stable display suffix (`endswith("Housing
+Comparison")`) rather than on `2G.`, because that letter shifts whenever any
+other Optimizers module is toggled — #1.1's shifting-letters defect, which is
+what W2's slugs exist to stop tests from re-introducing. This workstream hit it
+immediately: with `hsa_drawdown` off, Housing Comparison moves from `2G.` to
+`2F.`.
+
+Confirmed by a pinned real build against a workspace seeded from the frozen
+sample plan: module off → 39 sheets, no Housing Comparison tab, letters reflow
+cleanly, build clean. The expensive part is gated too, not just the write — the
+whole three-axis coordinate-descent sweep lives inside
+`build_sheet_housing_comparison`, whose only call site is
+`workbook_builder.py`'s `if '38. Housing Comparison' in sheets:`.
+
+### Judgment call — the plan's "Housing 'Where to live'" names an uncatalogued feature
+
+The master plan's W8b scope line says `Housing "Where to live"`, and the task
+instruction resolves that to `housing_trajectory_comparison`. #330's own spec
+does **not** treat those as the same thing:
+
+| Spec §4.2 name | What it is | Catalogued? |
+| --- | --- | --- |
+| Housing Comparison ("When to move") | `housing_trajectory_comparison`, sheet 38, the sale-year × step-type sweep | yes |
+| Housing Location Search ("Where to live") | `src/housing/`, the ZIP/city screen behind `/api/housing/optimize` and `/api/housing/zip-screen` | **no** |
+
+Verified directly: `src/housing/` has no `OutputModule` anywhere in `CATALOG`
+(the only housing entry is `housing_trajectory_comparison`), and #330 §3.2's
+off-semantics for "Where to live" — "The UI panel is hidden; `src/housing/` is
+not invoked" — describes the location search, which has no workbook sheet at
+all.
+
+**The call:** W8b did what the task instruction names — verified
+`housing_trajectory_comparison`'s off state end to end — and did **not**
+catalogue the location search. Making that one optional is not a toggle row; it
+is a W1-shaped catalog addition (a new `OutputModule` with no sheet) plus
+UI-panel gating, and panel/nav gating is W9's and W12's subject, not W8b's.
+Flagged here rather than silently doing either half, so whoever picks it up
+starts from "this was never catalogued" instead of from "W8b presumably handled
+it".
