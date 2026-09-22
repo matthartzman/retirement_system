@@ -314,6 +314,16 @@ export function renderHsaPolicyOnOtherAssets(rs) {
 export function renderAssetsSpecial() {
   if (searchText.trim()) return renderFields("assets_special");
   const rs = rowsForStep("assets_special");
+  // #330 §5.2 (W12): 529/Equity Compensation/Hybrid LTC rows are filtered out
+  // of `rs` above by rowsForStep()'s own default active-only filter (their
+  // module is off), which is why the groups below used to `return` early --
+  // there was nothing in `rs` to render even if they hadn't. That early
+  // return is exactly the no-hidden-data invariant violation §5.2 exists to
+  // close, so these three groups fetch their own rows WITH inactive ones
+  // included, rather than widening the invariant fix to every other kind of
+  // inactivity (mode-dependent fields, etc.) this step's shared `rs` also
+  // filters -- those are unrelated to a module being off and stay filtered.
+  const rsAll = rowsForStep("assets_special", { includeInactive: true });
   const groups = [
     "Other Asset Items",
     "Note Receivable",
@@ -337,18 +347,33 @@ export function renderAssetsSpecial() {
       html += renderHsaPolicyOnOtherAssets(rs);
       return;
     }
+    // #330 §5.2 (W12): each of these three groups used to `return` with
+    // nothing rendered at all when its module was off -- the no-hidden-data
+    // invariant violation (a household's already-entered 529/equity-comp/
+    // Hybrid-LTC rows would vanish behind the switch). `grAll` re-includes
+    // the rows rowsForStep()'s default active filter drops for exactly that
+    // reason, and featureGatedNote() replaces the blackout with a note (plus
+    // an inline switch) that still leaves the rows themselves visible below.
     if (g === "529 Plans") {
-      if (optionalFunctionEnabled(rowModuleGate("Education Funding").key)) {
-        html += `<details><summary>529 Plans</summary><div class="field-list"><div class="section-note"><b>Purpose:</b> 529 plans are education savings accounts. Enter one section per beneficiary or goal, then add another 529 when a different beneficiary or goal should be tracked separately.</div>${gr.map(fieldHtml).join("")}<div class="table-actions"><button class="btn" type="button" data-requires-app="1" onclick="addEducation529Section()">Add 529 section</button></div></div></details>`;
-      }
+      const grAll = rsAll.filter((r) => friendlyGroup(r) === g);
+      const on = optionalFunctionEnabled(rowModuleGate("Education Funding").key);
+      const note = on ? "" : featureGatedNote("education_funding_529", { title: g, rows: grAll });
+      if (!grAll.length && !note) return;
+      html += `<details><summary>529 Plans</summary><div class="field-list">${note}<div class="section-note"><b>Purpose:</b> 529 plans are education savings accounts. Enter one section per beneficiary or goal, then add another 529 when a different beneficiary or goal should be tracked separately.</div>${grAll.map(fieldHtml).join("")}<div class="table-actions"><button class="btn" type="button" data-requires-app="1" onclick="addEducation529Section()">Add 529 section</button></div></div></details>`;
       return;
     }
-    if (g === "LTC/Life Policy" && !ltcLifePolicyModuleEnabled()) return;
-    if (
-      g === "Equity Compensation" &&
-      !optionalFunctionEnabled(rowModuleGate("Equity Compensation").key)
-    )
+    if (g === "LTC/Life Policy" || g === "Equity Compensation") {
+      const grAll = rsAll.filter((r) => friendlyGroup(r) === g);
+      const on =
+        g === "LTC/Life Policy"
+          ? ltcLifePolicyModuleEnabled()
+          : optionalFunctionEnabled(rowModuleGate("Equity Compensation").key);
+      const key = g === "LTC/Life Policy" ? "hybrid_ltc_policy" : "equity_compensation";
+      const note = on ? "" : featureGatedNote(key, { title: g, rows: grAll });
+      if (!grAll.length && !note) return;
+      html += `<details><summary>${esc(g)}</summary><div class="field-list">${note}${grAll.map(fieldHtml).join("")}</div></details>`;
       return;
+    }
     if (gr.length)
       html += `<details><summary>${esc(g)}</summary><div class="field-list">${gr.map(fieldHtml).join("")}</div></details>`;
   });

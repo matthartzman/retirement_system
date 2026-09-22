@@ -346,7 +346,20 @@ DASHBOARD_JS_MAX_LINES = 7_201
 # "Lock in this schedule" (user_target plus the optimizer's own percentages
 # written into the target_pct rows) are wired. Lives in
 # dashboard_decomp_allocation_optimizer.js, on the Allocation Mode panel.
-TOTAL_JS_MAX_LINES = 35_317
+# 2026-09-22 (W12, #330 P7 -- off-state rendering): raised from 35,317 to
+# 35,485. strategySectionGatedNote() generalized into featureGatedNote()
+# (registry-driven from planModuleTaxonomy(), with a real inline "Turn on"
+# switch replacing a link-only note, dashboard_decomp_strategy_workspace.js),
+# plus the no-hidden-data invariant fix itself: renderInsurancePolicies(),
+# renderAssetsSpecial()'s 529/Equity Compensation/Hybrid LTC groups, and
+# renderEntityCharitable() each used to `return` a static "hidden" message (or
+# omit a group outright) in place of a household's already-entered data when
+# its gating module was off -- exactly the invariant violation §5.2 names
+# Insurance In Force as its own worked example for. Genuine new behavior (a
+# generalized note-and-switch mechanism, plus rendering data that used to be
+# silently dropped), not duplication, per this constant's own contract.
+# dashboard.js is untouched (still 7,201).
+TOTAL_JS_MAX_LINES = 35_485
 
 
 def _line_count(path: Path) -> int:
