@@ -142,13 +142,23 @@ DECLARED_SITES: dict[tuple[str, str, str], tuple[str, str | None, tuple[str, ...
     ),
 
     # ── Engine participation: the toggle moves the projection ────────────────
+    # W7 replaced this file's single raw c['opt'] read with two literal
+    # module_enabled() calls, so the sweep now sees each key itself and
+    # keys_read is empty for both (see _engine_keys below).
     ("src/projection_stages/deterministic_engine.py",
-     "run_deterministic_projection_stage", RAW_OPT): (
-        ENGINE, None, ("equity_compensation", "disability_income_insurance"),
-        "Grant vest/exercise income plus the ISO minimum-tax credit carry, and "
-        "the DI benefit stream. Reads raw c['opt'] on purpose today so golden "
-        "masters do not move under RETIREMENT_SYSTEM_FORCE_ALL_MODULES; W7 "
-        "replaces that with module_enabled() and regenerates them.",
+     "run_deterministic_projection_stage", "equity_compensation"): (
+        ENGINE, None, (),
+        "Grant vest/exercise income and the ISO minimum-tax credit carry. "
+        "Still ANDed with a non-empty c['equity_comp'], so the toggle alone "
+        "cannot conjure grants a plan does not have.",
+    ),
+    ("src/projection_stages/deterministic_engine.py",
+     "run_deterministic_projection_stage", "disability_income_insurance"): (
+        ENGINE, None, (),
+        "The DI benefit stream, which zeroes earned income for the benefit "
+        "period. Guarded downstream by income.py's own `simulate_year and "
+        "policies` check, so the toggle alone changes nothing on a plan that "
+        "configures no disability event.",
     ),
     ("src/after_tax.py", "business_taxable_estate_value", RAW_OPT): (
         ENGINE, None, ("business_succession",),
@@ -298,6 +308,22 @@ def test_soft_sites_are_declared_on_the_consuming_module(site):
         )
 
 
+def _engine_keys(site: tuple[str, str, str]) -> tuple[str, ...]:
+    """The module keys an engine site reads.
+
+    Two spellings reach the same place. A site that reads the whole ``opt``
+    mapping cannot name its keys to the parse tree, so the fixture carries them
+    in ``keys_read``; a site that calls ``module_enabled(c, 'literal')`` names
+    the key in the call, so the sweep already has it and ``keys_read`` is empty.
+    Before W7 the engine used the first spelling and after it the second, which
+    is exactly the migration this helper exists to absorb -- the invariant
+    ("every engine site's keys are declared `engine_participation`") is the same
+    either way, and must not weaken just because the read got more honest.
+    """
+    _v, _c, keys, _w = DECLARED_SITES[site]
+    return keys or (site[2],)
+
+
 @pytest.mark.parametrize(
     "site",
     [s for s, v in DECLARED_SITES.items() if v[0] == ENGINE],
@@ -305,7 +331,8 @@ def test_soft_sites_are_declared_on_the_consuming_module(site):
 )
 def test_engine_sites_declare_engine_participation(site):
     """The projection reading a toggle is what `engine_participation` means."""
-    _verdict, _consumer, keys, why = DECLARED_SITES[site]
+    _verdict, _consumer, _keys, why = DECLARED_SITES[site]
+    keys = _engine_keys(site)
     assert keys, f"{site}: an engine site must record which toggles it reads"
     for key in keys:
         assert key in mc.CATALOG, f"{site}: unknown module {key!r}"
@@ -324,8 +351,8 @@ def test_engine_participation_is_claimed_only_where_the_engine_reads_it():
     §3.1's F3 is trying to leave.
     """
     read_by_engine = {
-        key for (verdict, _c, keys, _w) in DECLARED_SITES.values()
-        if verdict == ENGINE for key in keys
+        key for site, (verdict, _c, _keys, _w) in DECLARED_SITES.items()
+        if verdict == ENGINE for key in _engine_keys(site)
     }
     assert set(mc.engine_participants()) == read_by_engine
 

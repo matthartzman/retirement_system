@@ -64,6 +64,7 @@ from .. import tax_kernel as _tk
 from ..equity_comp import equity_comp_year_events as _equity_comp_year_events
 from ..core import state_for_year
 from ..core import qlac_premium_limit
+from ..module_catalog import module_enabled
 
 # withdrawal_engine/conversion_engine/inheritance_engine/growth_engine were
 # consolidated into planning_engines.py itself; call sites below use
@@ -621,13 +622,16 @@ def run_deterministic_projection_stage(c):
             cut_year, pct = 2032, 0.22
         return 1.0 - pct if int(year) >= cut_year and pct > 0 else 1.0
 
-    # Advanced planning modules (Phase 3 engine integration). Gated purely on the
-    # saved optional-function toggles in c['opt'] — NOT on module_enabled()/the
-    # FORCE_* env flags — so a default plan (all three off) projects identically
-    # and golden masters never move, even under RETIREMENT_SYSTEM_FORCE_ALL_MODULES.
-    _opt = c.get('opt') or {}
-    _equity_on = bool(_opt.get('equity_compensation')) and bool(c.get('equity_comp'))
-    _disability_on = bool(_opt.get('disability_income_insurance'))
+    # Advanced planning modules (Phase 3 engine integration). Gated through
+    # module_enabled() — the same question every other call site asks — so the
+    # engine and the sheets can never disagree about which modules are on (W7,
+    # #330 F3). This deliberately replaces a raw c['opt'] read, which skipped
+    # both the FORCE_* env flags and effective_enabled_modules()' prerequisite
+    # auto-selection: a module auto-enabled as some other module's prerequisite
+    # was on for sheet purposes while the engine still modelled it as off, so
+    # its sheet was built from a projection that excluded its own subject.
+    _equity_on = module_enabled(c, 'equity_compensation') and bool(c.get('equity_comp'))
+    _disability_on = module_enabled(c, 'disability_income_insurance')
     amt_credit_carry = 0.0  # ISO minimum-tax credit carried across years
     # Item 3.5 (F6): running state for the adoptable spending guardrail
     # policy (fixed_real/guyton_klinger/floor_ceiling_band), carried across
