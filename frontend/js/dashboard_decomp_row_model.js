@@ -15,16 +15,16 @@
 let moduleTaxonomy = { modules: {} };
 
 export function stepGatedByOptionalModule(stepId) {
-  // HELOC isn't a client_optional_functions.csv toggle (module_catalog has no
-  // entry for it) — it's a plan-data feature flag (HELOC/Setup/heloc_enabled),
-  // so it and the bundle step that depends on it stay special-cased here.
-  if (stepId === "heloc_strategy") return !helocModuleEnabled();
-  // Special Strategies bundles the HELOC and Charitable Giving input pages, so
-  // it only appears in navigation once at least one of those optional modules
-  // is enabled. Visibility follows capability — there is no separate
-  // "advanced workflow" preference.
-  if (stepId === "special_strategies")
-    return !helocModuleEnabled() && !optionalFunctionEnabled("charitable_giving");
+  // §5.3 (W6): steps gated by a plan-data feature flag, not a
+  // client_optional_functions.csv toggle. The catalog declares the flag's
+  // (section, subsection, label) as gate_ref and flag_gates serves it, exactly
+  // as step_gates serves the toggle half below -- replacing the hand-written
+  // HELOC and Special Strategies branches that used to sit here.
+  const flagGate = (moduleGates.flag_gates || {})[stepId];
+  if (flagGate) {
+    const r = flagGate.ref || [];
+    return !sectionFlagEnabled(r[0], r[1], r[2]);
+  }
   // Ticket 323: Stress Test is a screen of four optional sections, so unlike
   // Optimize and Scenarios (each of which has a never-gated section) it can
   // end up with nothing live at all -- hide it when all four of its modules
@@ -4562,7 +4562,7 @@ export async function loadAll(opts = {}) {
     const cfg = await api("/api/config/rows");
     rows = cfg.rows || [];
     moduleStatus = cfg.module_status || {};
-    moduleGates = cfg.module_gates || { step_gates: {}, section_gates: {} };
+    moduleGates = cfg.module_gates || { step_gates: {}, section_gates: {}, flag_gates: {} };
     // #330 phase 2 + §3.4: both classification axes and the soft-dependency
     // relation, for the Plan Features switch UI. Module-private on purpose --
     // moduleOffImpactWarning() below is the only reader, so unlike

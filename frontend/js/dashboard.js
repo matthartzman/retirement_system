@@ -797,9 +797,9 @@ let apiBase = "",
   appReady = false,
   rows = [],
   moduleStatus = {},
-  // §7.4: server-computed {step_gates, section_gates} from module_catalog,
-  // replacing the hand-maintained stepGatedByOptionalModule/ROW_MODULE_GATES.
-  moduleGates = { step_gates: {}, section_gates: {} },
+  // §7.4 + §5.3: server-computed {step_gates, section_gates, flag_gates} from
+  // module_catalog, replacing hand-maintained gating chains.
+  moduleGates = { step_gates: {}, section_gates: {}, flag_gates: {} },
   liabilitiesText = "",
   liabilitiesChanged = false,
   dirty = new Map(),
