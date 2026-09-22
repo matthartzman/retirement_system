@@ -103,6 +103,34 @@
     }
   }
 
+  /* The live value of a row, normalized the way editValue() would store it.
+
+     The default comparison above reads the raw stored text, which is right
+     for a plain text row. It is NOT right for a currency or percent row: the
+     plan file holds "$400,000" and "35%", while storageValueForInput() -- the
+     function editValue() puts every write through -- normalizes those to
+     "400000" and "35". A patch whose afterRaw is the normalized form (which
+     it must be, so the write is exact) would then compare unequal against a
+     row that already holds exactly that value, and an applied plan would read
+     "not applied".
+
+     So a patch that touches formatted rows declares this as its liveValueOf:
+     both sides then go through the same normalizer, and the comparison stays
+     strict rather than being loosened for everyone. */
+  function liveStorageValueForRowIndex(idx) {
+    try {
+      const rows = window.rows || [];
+      const row = rows.find((r) => r.row_index === idx);
+      if (!row) return undefined;
+      const raw = liveRawValueForRowIndex(idx);
+      return window.storageValueForInput
+        ? window.storageValueForInput(row, raw)
+        : raw;
+    } catch (_e) {
+      return undefined;
+    }
+  }
+
   /* Items a patch can actually write. Items without a row_index are advisory
      (§4.2) -- they route the user to a source page and never take part in
      the applied-state computation, because there is no row to compare. */
@@ -456,6 +484,7 @@
     DIVERGED: DIVERGED,
     sameValue: sameValue,
     liveRawValueForRowIndex: liveRawValueForRowIndex,
+    liveStorageValueForRowIndex: liveStorageValueForRowIndex,
     promotableItems: promotableItems,
     advisoryItems: advisoryItems,
     optimizerAppliedState: optimizerAppliedState,

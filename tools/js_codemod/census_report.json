@@ -2979,6 +2979,12 @@
     },
     {
       "name": "rows",
+      "file": "frontend/js/dashboard_decomp_optimizer_apply.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
       "file": "frontend/js/dashboard_decomp_page_recommendations.js",
       "kind": "read",
       "scope": "inside-function"
@@ -7115,6 +7121,18 @@
       "name": "renderMain",
       "file": "frontend/js/dashboard_decomp_strategy_workspace.js",
       "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_strategy_workspace.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "moduleGates",
+      "file": "frontend/js/dashboard_decomp_strategy_workspace.js",
+      "kind": "read",
       "scope": "inside-function"
     },
     {

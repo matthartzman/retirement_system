@@ -2979,26 +2979,32 @@ export function renderFields(step) {
     html += `<div class="section-note">Grouped by plan area, matching the left navigation, alphabetical within each area. Each field shows its own source page beneath its label.</div>`;
   if (step === "monte_carlo_options")
     html += `<div class="section-note">Advanced mode runs more trials with higher precision and is suitable for final outputs. Quick mode is faster and appropriate for working sessions. Raise trial count for final runs only when the build time budget allows.</div>`;
-  if (step === "divorce_options" && !optionalFunctionEnabled("divorce_qdro"))
-    return '<div class="field-list"><p>Divorce options are hidden until the Divorce/QDRO optional workbook module is enabled.</p></div>';
-  if (
-    step === "ltc_stress" &&
-    !optionalFunctionEnabled("long_term_care_stress")
-  )
-    return '<div class="field-list"><p>Long-Term Care Stress inputs are hidden until the Long-Term-Care Stress optional workbook module is enabled on Plan Features.</p></div>';
-  // #329/#330 W9: generalized from a hand-written HELOC-only branch (the
-  // last of the two `rowsForStep`-adjacent HELOC special cases W6's notes
-  // named for W9) to read any plan-flag-gated step the same way
-  // strategySectionGatedNote() does -- moduleGates.flag_gates[step].ref is
-  // exactly sectionFlagEnabled()'s argument tuple.
+  // #330 §5.2 (W12): a step-owning module that is off gets a note, not a
+  // blackout -- the earlier hand-written versions of these branches each
+  // `return`ed a static "hidden" paragraph in place of the step's rows,
+  // which is exactly the no-hidden-data invariant violation §5.2 exists to
+  // close (a search hit or a direct step visit must not make already-entered
+  // data disappear just because its module is off). featureGatedNote() now
+  // supplies the note -- registry-driven, so a plan-flag step (via
+  // flag_gates) and a module-toggle step (divorce_qdro/long_term_care_stress/
+  // charitable_giving) resolve through the same call -- and rs still renders
+  // below it rather than being replaced by it.
   const _flagGate = (moduleGates.flag_gates || {})[step];
-  if (_flagGate && !sectionFlagEnabled(..._flagGate.ref))
-    return `<div class="field-list"><p>${esc(_flagGate.name)} inputs are hidden until ${esc(_flagGate.enable_label)} is turned on (${_flagGate.ref.slice(0, 2).map((x) => esc(x)).join(" → ")}).</p></div>`;
-  if (
-    step === "entity_charitable" &&
-    !optionalFunctionEnabled("charitable_giving")
-  )
-    return '<div class="field-list"><p>Charitable Giving inputs are hidden until the Charitable Giving optional workbook module is enabled on Plan Features.</p></div>';
+  const gateKey = _flagGate
+    ? _flagGate.key
+    : step === "divorce_options"
+      ? "divorce_qdro"
+      : step === "ltc_stress"
+        ? "long_term_care_stress"
+        : step === "entity_charitable"
+          ? "charitable_giving"
+          : null;
+  const gateOff = _flagGate
+    ? !sectionFlagEnabled(..._flagGate.ref)
+    : gateKey
+      ? !optionalFunctionEnabled(gateKey)
+      : false;
+  if (gateKey && gateOff) html += featureGatedNote(gateKey, { rows: rs });
   if (step === "all_assumptions") return html + renderFieldFinderGroups(rs);
   return html + renderFieldGroups(rs);
 }
