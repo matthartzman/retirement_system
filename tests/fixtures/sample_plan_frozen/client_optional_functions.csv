@@ -24,3 +24,4 @@ Optional Functions,,business_succession,FALSE,boolean,Sheet 28 - Business Succes
 Optional Functions,,equity_compensation,FALSE,boolean,Sheet 29 - Equity Compensation (RSU/ISO/NSO/ESPP)
 Optional Functions,,special_needs_planning,FALSE,boolean,Sheet 30 - Special-Needs Planning (SNT/ABLE)
 Optional Functions,,divorce_qdro,FALSE,boolean,Sheet 31 - Divorce / QDRO
+Optional Functions,,spending_tracker_ytd,TRUE,boolean,Spending Tracker / YTD -- also gates Spending Summary and Account Reconciliation
