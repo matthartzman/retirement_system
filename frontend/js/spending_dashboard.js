@@ -38,11 +38,26 @@ window.getSpendingDivergencePct = getSpendingDivergencePct;
 // this module runs after dashboard.js's own top-level code, so its globals
 // (getStrategyTab, renderStrategyTabs, renderYtdTransactionsStep, etc.) are
 // already attached to window by the time a user triggers a render.
+// #330 §3.3/§5.2 (W12, inherited from W9's own triage: "hiding the YTD tab
+// within spending_core... belongs to W12's own scope"). Actual Spending
+// (YTD) and Spending Analysis are both views over ytd_transactions data via
+// the Spending Tracker / YTD bundle (spending_tracker_ytd, gating
+// spending_summary + account_reconciliation as one switch, #330 §3.3/W8b);
+// neither can compute without it. Collapsed-with-a-note, not removed from
+// the tab strip -- the tab stays reachable and switchable in place, matching
+// every other module-owned section that lives inside a page which stays
+// visible (§5.2). No entered-row count: spending_tracker_ytd owns no
+// dashboard_step/csv_sections rows of its own (its inputs are imported
+// transactions, not typed plan rows), the same reason Plan Features shows no
+// "N items entered" for it either.
 export function renderSpendingWorkspace(tabs) {
   var tab = window.getStrategyTab('spending_core');
+  var ytdOn = window.optionalFunctionEnabled('spending_tracker_ytd');
   var body;
-  if (tab === 'Actual Spending (YTD)') body = window.renderYtdTransactionsStep();
-  else if (tab === 'Spending Analysis') body = window.renderSpendingDashboardOrLoad();
+  if (tab === 'Actual Spending (YTD)')
+    body = ytdOn ? window.renderYtdTransactionsStep() : window.featureGatedNote('spending_tracker_ytd', { title: 'Actual Spending (YTD)' });
+  else if (tab === 'Spending Analysis')
+    body = ytdOn ? window.renderSpendingDashboardOrLoad() : window.featureGatedNote('spending_tracker_ytd', { title: 'Spending Analysis' });
   // Ticket 286: withdrawal order moved here from the Distribution Strategy
   // sub-nav. It answers "which account does spending come out of", which is a
   // spending question, and it was the only reason that sub-nav still existed.
