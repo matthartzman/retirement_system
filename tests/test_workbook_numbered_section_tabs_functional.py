@@ -21,6 +21,10 @@ def test_workbook_uses_numbered_sections_and_lettered_children(built_workbook_pa
         # (not the old static 1H).
         '1G. Spending Summary',
         '1H. Current vs. Proposed',
+        # W11 addendum (2026-09-22): recatalogued WORKSHEET (was REFERENCE) --
+        # an interactive lever-screening tool, not a static echo -- so it now
+        # letters and sorts in Reports instead of System, densely last.
+        '1I. Planning Levers',
         '2. Optimizers',
         '2A. Roth Conversion',
         # HSA Drawdown always sits right after Roth Conversion (shares its
@@ -85,14 +89,12 @@ def test_workbook_uses_numbered_sections_and_lettered_children(built_workbook_pa
         '5E. RMD Audit',
         '5F. Methodology',
         '5G. Glossary',
-        # W1: REFERENCE-kind, and physically in System all along -- it now
-        # letters and sorts there instead of claiming an Optimizers letter.
-        '5H. Planning Levers',
         # REFERENCE-kind, filed in System rather than Reports -- restates
         # figures computed elsewhere for the same audit purpose as Plan
         # Data/Assumptions/Methodology/Glossary, the other four REFERENCE
-        # sheets. Lands densely last, after Planning Levers.
-        '5I. Tax Capacity',
+        # sheets. Planning Levers moved out to Reports (see 1I above, W11
+        # addendum 2026-09-22), so Tax Capacity now lands densely last as 5H.
+        '5H. Tax Capacity',
     ]
     assert visible[: len(expected)] == expected
     assert '5A. Plan Data' in visible

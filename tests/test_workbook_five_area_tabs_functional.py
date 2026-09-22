@@ -69,14 +69,16 @@ def test_source_layout_declares_same_numbered_areas():
     # W3 split LTC Stress Test back out of the merged Life Insurance sheet
     # (#329 O10) -- both are now independent Risks entries.
     assert "17. LTC Stress Test" in flattened
-    # W1 (master implementation plan, #329 3.1): '27. Planning Levers' is
-    # REFERENCE-kind and physically sits in System -- lettering it into
-    # Optimizers was the `2I` contradiction the classification invariant now
-    # rejects. It letters and sorts there until W11 retires the sheet
-    # outright. '11B. Tax Capacity' is also REFERENCE-kind (filed in System
-    # rather than Reports) and lands after it, now last. W3 moved System's
-    # own group code from '4' to '5' -- '4' is now Risks -- but Tax Capacity
-    # and Planning Levers' relative order within System is unchanged.
+    # W11 addendum (2026-09-22): '27. Planning Levers' was found to be a real,
+    # actively-used interactive lever-screening tool, not the static
+    # provenance echo every upstream doc (including this one, previously)
+    # assumed -- see docs/superpowers/plans/2026-09-22-w11-planning-levers-
+    # retirement-notes.md. Kept, and recatalogued WORKSHEET (was REFERENCE),
+    # which moves it out of System and into Reports, densely last there
+    # (its exact '1I.' position is pinned in
+    # test_workbook_numbered_section_tabs_functional.py, not here). '11B. Tax
+    # Capacity' is still REFERENCE-kind (filed in System rather than Reports)
+    # and, with Planning Levers gone, is now densely last in System itself.
     assert flattened[-1] == "11B. Tax Capacity"
-    assert flattened[-2] == "27. Planning Levers"
-    assert flattened[-3] == "22. Glossary"
+    assert flattened[-2] == "22. Glossary"
+    assert flattened[-3] == "23. Methodology"

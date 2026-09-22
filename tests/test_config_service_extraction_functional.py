@@ -91,7 +91,7 @@ def test_module_taxonomy_serves_the_soft_dependency_relation_in_both_directions(
     assert [(d["key"], d["name"], d["loses"]) for d in mc_off] == [
         ("executive_summary", "Executive Summary", "the success-probability headline"),
         ("charts_dashboard", "Charts", "the fan chart"),
-        ("planning_levers_echo", "Planning Levers (echo)",
+        ("planning_levers_echo", "Planning Levers",
          "the Monte Carlo success figure in the model anchor"),
     ]
 
