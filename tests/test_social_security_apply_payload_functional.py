@@ -216,20 +216,46 @@ def test_a_real_build_writes_the_apply_payload_into_plan_summary(tmp_path_factor
     # telling the user to apply something the workbook does not recommend.
     from openpyxl import load_workbook
 
-    book = next(out_dir.glob("*.xlsx"))
-    wb = load_workbook(book, read_only=True, data_only=True)
-    try:
-        ws = wb["1. Executive Summary"]
-        headline = {}
-        for row in ws.iter_rows():
-            vals = [c.value for c in row]
-            for idx, v in enumerate(vals[:-1]):
-                if isinstance(v, str) and v.startswith("Recommended ") and v.endswith("Claim Age"):
-                    headline[v] = vals[idx + 1]
-    finally:
-        wb.close()
-    assert headline, "Sheet 1 printed no Recommended Claim Age headline to compare against"
-    ages = {int(v) for v in headline.values() if isinstance(v, (int, float))}
-    assert payload["recommended_member_1_claim_age"] in ages, (
-        f"payload says {payload['recommended_member_1_claim_age']}, Sheet 1 says {headline}"
+    # The output directory holds more than one .xlsx (the report workbook and
+    # the plan-data export), and only one of them carries the summary sheet --
+    # so the sheet is located by name across the candidates rather than by
+    # assuming which file glob() returns first. Matched by suffix, the way
+    # tests/test_roth_result_panel_payload_functional.py already locates
+    # Sheet 11, so a renumbering does not silently skip the comparison.
+    headline = {}
+    checked = []
+    for book in sorted(out_dir.glob("*.xlsx")):
+        wb = load_workbook(book, read_only=True, data_only=True)
+        try:
+            checked.extend(wb.sheetnames)
+            name = next((n for n in wb.sheetnames if n.endswith("Executive Summary")), None)
+            if name is None:
+                continue
+            for row in wb[name].iter_rows():
+                vals = [c.value for c in row]
+                for idx, v in enumerate(vals[:-1]):
+                    if isinstance(v, str) and v.startswith("Recommended ") and v.endswith("Claim Age"):
+                        headline[v] = vals[idx + 1]
+        finally:
+            wb.close()
+        if headline:
+            break
+    assert headline, (
+        "no Recommended Claim Age headline found to compare against; "
+        f"sheets seen: {checked}"
     )
+    # Sheet 1 prints one combined "<nick> <age> / <nick> <age>" string (see
+    # sheets_summary_builder.py's _ss_age_label), Member 1 first, so the ages
+    # are read back out of it in that order rather than from separate cells.
+    text = " ".join(str(v) for v in headline.values())
+    ages = [int(n) for n in re.findall(r"\b(\d{2})\b", text)]
+    assert ages, f"no ages parsed from Sheet 1's headline: {headline!r}"
+    assert ages[0] == payload["recommended_member_1_claim_age"], (
+        f"payload says Member 1 claims at {payload['recommended_member_1_claim_age']}, "
+        f"Sheet 1 says {headline!r}"
+    )
+    if payload["recommended_member_2_claim_age"] is not None and len(ages) > 1:
+        assert ages[1] == payload["recommended_member_2_claim_age"], (
+            f"payload says Member 2 claims at {payload['recommended_member_2_claim_age']}, "
+            f"Sheet 1 says {headline!r}"
+        )

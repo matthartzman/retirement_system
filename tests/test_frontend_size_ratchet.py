@@ -332,7 +332,14 @@ DASHBOARD_JS_MAX_LINES = 7_201
 # (optimizerResultFromLastBuild/fetchOptimizerResult in dashboard_decomp_
 # allocation_optimizer.js) that Social Security reuses, so §4.5 path 1's
 # remaining optimizers do not each hand-write a fourth and fifth copy.
-TOTAL_JS_MAX_LINES = 34_866
+# 2026-09-22 (W10c, third commit -- Housing structural adoption): raised from
+# 34,866 to 35,121. §4.3's structural case: a candidate's sale year, step
+# type, start year, state and price/rent mapped onto the rows that exist, plus
+# advisory items for the ZIP/city and the financing terms the result does not
+# report back. Lives in dashboard_decomp_housing_optimizer.js beside the
+# results table it hangs off, per §4.4 (Housing's panel is deliberately not
+# analysisFrame()-wrapped, so it gets the strip appended to its own table).
+TOTAL_JS_MAX_LINES = 35_121
 
 
 def _line_count(path: Path) -> int:
