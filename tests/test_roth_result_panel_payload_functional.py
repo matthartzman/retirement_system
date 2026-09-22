@@ -210,3 +210,39 @@ def test_a_real_build_writes_the_panels_payload_into_plan_summary(tmp_path_facto
         # The whole reason the normalization moved into summary_figures: one
         # candidate, one score, on both surfaces.
         assert panel[2] == pytest.approx(sheet[2], abs=1e-6)
+
+
+# ---------------------------------------------------------------------------
+# The per-candidate sentence, which W10a's panel put next to a marker for the
+# row actually in the plan -- where its defect was plain
+# ---------------------------------------------------------------------------
+
+
+def _strategy_result(selected_label):
+    from src.result_contract import build_roth_strategy_result
+
+    c = _config(candidate_count=3)
+    c["roth_optimization"]["selected_label"] = selected_label
+    rows = [{"year": 2030, "roth_conv": 100.0, "total_tax": 10.0, "total_nw": 1.0}]
+    return build_roth_strategy_result(c, rows)
+
+
+def test_the_top_ranked_candidate_is_named_selected_only_when_it_is():
+    """`selected.get('selected_label', label)` tested a key candidate dicts do
+    not carry, so this comparison fell through to `label == label` and rank 1
+    always read "Selected because...". The frozen sample plan runs a
+    user-chosen strategy the optimizer ranks second, so the panel showed
+    "Selected because..." on one row and "in the plan" on another."""
+    result = _strategy_result("Candidate 1")  # not the top-scoring one
+    top, chosen = result.candidates[0], result.candidates[1]
+    assert top.label == "Candidate 0"
+    assert chosen.label == "Candidate 1"
+    assert "Selected because" not in top.why_selected_or_rejected
+    assert "not the strategy this plan is running" in top.why_selected_or_rejected
+    assert chosen.why_selected_or_rejected.startswith("In the plan:")
+
+
+def test_the_original_wording_survives_for_the_case_it_was_written_for():
+    result = _strategy_result("Candidate 0")  # the top-scoring one
+    assert result.candidates[0].why_selected_or_rejected.startswith("Selected because")
+    assert result.candidates[1].why_selected_or_rejected.startswith("Not selected:")

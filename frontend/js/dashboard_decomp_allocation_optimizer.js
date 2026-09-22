@@ -737,6 +737,173 @@ export function renderRothMissingNotice() {
   return `<div class="missing-list"><h3>Roth controls need to be backfilled</h3><p>The page is missing ${missing.length} primary control${missing.length === 1 ? "" : "s"}: ${missing.map(humanLabel).join(", ")}. Reload the current plan or start the app again; v11 now backfills these rows into client_policy.csv without overwriting existing values.</p></div>`;
 }
 
+// ---------------------------------------------------------------------------
+// #329 §4.5 path 1 (W10a): the Roth optimizer's RESULT, on screen
+// ---------------------------------------------------------------------------
+//
+// §1.3's map of this app's Optimize screen: "Roth Conversion --
+// renderRothConversion() -- Input form. Policy/guardrail/calibration rows. No
+// result shown; the candidate table exists only on workbook 11. Roth
+// Conversion." That asymmetry is what makes §4's Apply-to-plan feel missing:
+// for four of five sections there is nothing on screen to apply.
+//
+// This is path 1 of §4.5's three ways to fix it -- read the LAST BUILD's
+// result rather than re-running anything. The optimizer already ran inside
+// that build (roth_policy='optimize' makes optimize_roth_conversion_strategy()
+// run during the build and mutate the config), and its result already reaches
+// disk; W10a's Python half just routes it into plan_summary.json, the artifact
+// /api/summary already serves. Nothing here computes a number: every figure
+// below is printed straight out of that payload, and the "Score (0-100)"
+// column is normalized server-side by the same summary_figures helper Sheet 11
+// reads, so the two surfaces cannot rank the same candidate differently.
+
+// Last /api/summary payload's result, for the reload case. lastBuildSummary /
+// lastBuildCompare are in-memory only and reset to null on every fresh app
+// launch (see planningLeverBase()'s own note on this), so on a reload of an
+// already-built plan neither holds anything -- but the artifact on disk does.
+let rothResultSummaryCache = null;
+// "" (untried) | "pending" | "done". A build that recorded no Roth result is
+// a legitimate answer, so this latches on completion rather than on success:
+// without it a plan with no result would re-fetch on every keystroke, since
+// renderMain() re-renders the whole tree on every field edit.
+let rothResultFetchState = "";
+
+export function rothResultCacheReset() {
+  rothResultSummaryCache = null;
+  rothResultFetchState = "";
+}
+
+// A newer build always wins over the cached artifact read: runBuild() sets
+// lastBuildSummary from the build's own response, so a rebuild's result shows
+// without waiting for (or invalidating) the fetch below.
+export function rothStrategyResultFromLastBuild() {
+  return (
+    (lastBuildSummary && lastBuildSummary.roth_strategy_result) ||
+    (lastBuildCompare &&
+      lastBuildCompare.after &&
+      lastBuildCompare.after.roth_strategy_result) ||
+    rothResultSummaryCache ||
+    null
+  );
+}
+
+export async function fetchRothStrategyResult() {
+  if (rothResultFetchState) return rothResultSummaryCache;
+  rothResultFetchState = "pending";
+  try {
+    const out = await api("/api/summary");
+    const k = summaryFromApiPayload(out);
+    rothResultSummaryCache = (k && k.roth_strategy_result) || null;
+  } catch (_e) {
+    rothResultSummaryCache = null;
+  }
+  rothResultFetchState = "done";
+  if (rothResultSummaryCache) renderMain();
+  return rothResultSummaryCache;
+}
+
+function rothScoreCell(v) {
+  return Number.isFinite(Number(v))
+    ? Number(v).toLocaleString(undefined, { maximumFractionDigits: 1 })
+    : "--";
+}
+
+function rothCandidateRowHtml(cand, selectedLabel) {
+  const isSelected =
+    !!selectedLabel && String(cand.label || "") === String(selectedLabel);
+  return (
+    `<tr class="${isSelected ? "is-selected" : ""}">` +
+    `<td>${esc(cand.rank)}</td>` +
+    `<td>${esc(cand.label || "")}${isSelected ? ' <span class="badge ok">In the plan</span>' : ""}</td>` +
+    `<td>${esc(humanLabel(cand.policy || ""))}</td>` +
+    `<td>${esc(rothScoreCell(cand.relative_score))}</td>` +
+    `<td>${esc(fmtMoney(cand.total_conversions))}</td>` +
+    `<td>${esc(fmtMoney(cand.lifetime_tax))}</td>` +
+    `<td>${esc(fmtMoney(cand.after_tax_terminal_net_worth))}</td>` +
+    `<td>${esc(cand.why_selected_or_rejected || "")}</td>` +
+    "</tr>"
+  );
+}
+
+// Pure renderer: everything it prints comes from `result`, so it is testable
+// against a payload without a build, a DOM or any of this file's shared state.
+export function rothOptimizerResultPanelHtml(result) {
+  if (!result) return "";
+  const candidates = result.candidates || [];
+  const shown = candidates.length;
+  const total = Number(result.candidate_count) || shown;
+  const selected = result.selected_strategy_name || "";
+  const bracket = Number(result.target_bracket);
+  const facts = [
+    ["Selected strategy", esc(selected || "Not available")],
+    ["Objective mode", esc(humanLabel(result.objective_mode || ""))],
+    [
+      "Target bracket",
+      Number.isFinite(bracket) ? esc(fmtPct(bracket * 100)) : "Not available",
+    ],
+    ["Total conversions", esc(fmtMoney(result.total_conversions))],
+    ["Of which forced", esc(fmtMoney(result.forced_conversions))],
+    ["Lifetime tax", esc(fmtMoney(result.lifetime_tax))],
+  ]
+    .map(
+      ([k, v]) => `<div class="pill"><b>${esc(k)}</b><span>${v}</span></div>`,
+    )
+    .join("");
+  let html =
+    '<div class="roth-optimizer-result">' +
+    '<div class="group-title">Optimizer result — from the last build</div>' +
+    `<div class="runtime-grid roth-result-facts">${facts}</div>`;
+  // The optimizer picking the winner and the user picking it are different
+  // facts about the same row, and the contract's own why_selected text says
+  // which happened -- so this prints that text rather than asserting either.
+  if (result.why_selected)
+    html += `<div class="section-note">${esc(result.why_selected)}</div>`;
+  if (result.explanation)
+    html += `<p class="small">${esc(result.explanation)}</p>`;
+  if (!shown) {
+    html +=
+      '<p class="small">The last build scored no alternative strategies, so there is no candidate comparison to show.</p></div>';
+    return html;
+  }
+  html +=
+    '<div class="lot-table-wrap"><table class="lot-table roth-candidate-table"><thead><tr>' +
+    "<th>Rank</th><th>Candidate</th><th>Policy</th><th>Score (0-100)</th>" +
+    "<th>Conversions</th><th>Lifetime tax</th><th>After-tax terminal NW</th>" +
+    "<th>Why selected / rejected</th></tr></thead><tbody>" +
+    candidates.map((c) => rothCandidateRowHtml(c, selected)).join("") +
+    "</tbody></table></div>";
+  // Sheet 11's own wording for the same column, because it is the same
+  // column: a relative ranking, not a projected dollar outcome.
+  html +=
+    '<p class="small">Score (0-100) ranks these candidates relative to each other (100 = best in this set); it is a scoring unit, not a projected dollar outcome.</p>';
+  if (total > shown)
+    html += `<p class="small">Showing the top ${esc(shown)} of ${esc(total)} scored candidates. The workbook's Roth Conversion sheet lists the rest.</p>`;
+  html += "</div>";
+  return html;
+}
+
+// The stateful wrapper: decides WHICH of the three honest answers to show.
+// Kept separate from the renderer above so the renderer stays pure.
+export function renderRothOptimizerResultPanel() {
+  // Same gate §4.5 names for this path -- a result read from the last build is
+  // only meaningful once a build has produced one.
+  if (!planningLeversBaselineReady()) {
+    if (!buildPreflight)
+      setTimeout(() => refreshBuildStatus().catch(function () {}), 0);
+    return '<div class="section-note">The optimizer result appears here once this plan has been built. The controls below stage the inputs; Build Reports runs the optimizer and records what it chose.</div>';
+  }
+  const result = rothStrategyResultFromLastBuild();
+  if (result) return rothOptimizerResultPanelHtml(result);
+  if (rothResultFetchState !== "done") {
+    setTimeout(() => fetchRothStrategyResult().catch(function () {}), 0);
+    return '<div class="section-note">Reading the last build’s optimizer result…</div>';
+  }
+  // Reached by a plan whose newest build predates this panel, and by one whose
+  // Roth policy left the optimizer nothing to score. Says so rather than
+  // rendering an empty table.
+  return '<div class="section-note">The last build recorded no Roth optimizer result. Build Reports again to produce one.</div>';
+}
+
 export function renderRothConversion() {
   if (searchText.trim()) return renderFields("roth_conversion");
   const policy = rothPolicyValue();
@@ -850,6 +1017,10 @@ export function renderRothConversion() {
   // runs server-side (sheets_strategy.py's 9x9 claim-age grid sweep) and was
   // never driven by this card.
   let html = renderRothMissingNotice();
+  // #329 §3.3's one-word change for this module: "Add result display, not just
+  // inputs." The result goes first -- it is what the reader came to this
+  // section for; the controls below it are how they change it.
+  html += renderRothOptimizerResultPanel();
   // Ticket 289: disclose two Roth Conversion Modeling Guide levers this engine
   // does not implement. Gated on the ABSENCE of a row for either future
   // plan-data key, so building the lever removes its own disclosure -- see
@@ -959,5 +1130,10 @@ Object.assign(window, {
   irmaaModeValue,
   renderRothRows,
   renderRothMissingNotice,
+  rothResultCacheReset,
+  rothStrategyResultFromLastBuild,
+  fetchRothStrategyResult,
+  rothOptimizerResultPanelHtml,
+  renderRothOptimizerResultPanel,
   renderRothConversion,
 });

@@ -292,7 +292,14 @@ DASHBOARD_JS_MAX_LINES = 7_201
 # assigned to W9 (HELOC/Hybrid LTC/DAF/QCD now findable on Plan Features, as
 # a link rather than a toggle -- §5.1's "three surfaces, one registry").
 # Genuine new behavior, not duplication, per this constant's own contract.
-TOTAL_JS_MAX_LINES = 33_816
+# 2026-09-22 (W10a, #329 P5 / §4.5 path 1): raised from 33,816 to 33,992 --
+# dashboard_decomp_allocation_optimizer.js gained the Roth optimizer's result
+# panel, which is what §1.3's "Input form... no result shown" describes as the
+# deepest asymmetry in the system: the candidate table existed only on workbook
+# 11. Roth Conversion. Genuine new behavior (a renderer, its three empty-state
+# answers, and the /api/summary read that makes it survive a page reload), not
+# duplication, per this constant's own contract. dashboard.js is untouched.
+TOTAL_JS_MAX_LINES = 33_992
 
 
 def _line_count(path: Path) -> int:
