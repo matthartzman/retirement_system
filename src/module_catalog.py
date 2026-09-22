@@ -469,7 +469,15 @@ _OUTPUTS: List[OutputModule] = [
         requires_inputs=(_in("assets", "daf", "daf_appreciated_securities"),
                          _in("spending", "qcd"), _in("income"),
                          _in("household", "age"), _in("assumptions", "brackets")),
-        dashboard_step="entity_charitable", csv_sections=("DAF",),
+        # #330 Q2 (W6): `csv_sections=("DAF",)` was dropped here. DAF was
+        # double-gated -- by this module's toggle AND by its own plan flag --
+        # and QCD, which is the same feature from the other side, was gated by
+        # its plan flag alone. QCD *cannot* have a section gate: its rows live
+        # in the shared `Cashflow` section, which section gating would take out
+        # wholesale. So DAF was the anomaly, and the plan flag owns it now, as
+        # the `daf_giving` entry below declares. No user-set row is deleted by
+        # the change; DAF rows simply stop disappearing when this module is off.
+        dashboard_step="entity_charitable",
     ),
     OutputModule(
         "state_residency", "State Residency", COMPARISON, MEDIUM,
@@ -741,6 +749,46 @@ _OUTPUTS: List[OutputModule] = [
         gate_ref=("HELOC", "Setup", "heloc_enabled"),
         gate_enable_label="Enable HELOC Strategy",
     ),
+    OutputModule(
+        "hybrid_ltc_policy", "LTC/Life Policy", PROTECTION, LOW,
+        "A hybrid long-term-care / life policy: premiums, face value and the "
+        "benefit it pays against a care event.",
+        domain=ASSETS_PROTECTION,
+        # No dashboard_step: this flag gates a row GROUP inside Other Assets,
+        # not a page. csv_sections names it so the same declaration serves the
+        # row gate, exactly as it serves a module toggle's.
+        csv_sections=("Hybrid LTC",),
+        gate_kind=GATE_PLAN_FLAG,
+        gate_ref=("Hybrid LTC", "Settings", "enabled"),
+        gate_enable_label="Enabled",
+    ),
+    OutputModule(
+        # DAF and QCD are one feature seen from two sides -- bunch giving for
+        # the deduction, or give straight from the IRA -- so they share a
+        # domain and differ only in where their rows live. #330 Q2 resolves
+        # them identically, and QCD is the one that was already right.
+        "daf_giving", "DAF Giving", OPTIMIZATION, LOW,
+        "Contribute to a donor-advised fund in a high-income year and grant "
+        "from it over later years.",
+        domain=ESTATE_LEGACY,
+        # Deliberately no csv_sections. The DAF flag's own row lives in the
+        # section it would gate, so a section gate here would hide the switch
+        # that turns it back on. `entityCharitableGatedRows()` already gates
+        # these rows the right way -- showing the enable row and hiding the
+        # rest -- which is precisely what QCD has always done.
+        gate_kind=GATE_PLAN_FLAG,
+        gate_ref=("DAF", "Settings", "enabled"),
+        gate_enable_label="Enabled",
+    ),
+    OutputModule(
+        "qcd_giving", "QCD Giving", OPTIMIZATION, LOW,
+        "Give directly from an IRA at 70.5+, satisfying required distributions "
+        "without the amount landing in taxable income.",
+        domain=ESTATE_LEGACY,
+        gate_kind=GATE_PLAN_FLAG,
+        gate_ref=("Cashflow", "Charitable Giving", "qcd_enabled"),
+        gate_enable_label="Enabled",
+    ),
 ]
 
 CATALOG: Dict[str, OutputModule] = {m.key: m for m in _OUTPUTS}
@@ -812,8 +860,36 @@ def section_gate_map() -> Dict[str, str]:
     """
     out: Dict[str, str] = {}
     for m in _OUTPUTS:
+        if m.gate_kind != GATE_MODULE_TOGGLE:
+            continue
         for section in m.csv_sections:
             out[section] = m.key
+    return out
+
+
+def flag_section_gate_map() -> Dict[str, Dict[str, object]]:
+    """{csv_section: {...}} for every input-CSV section gated by a PLAN FLAG.
+
+    Section-keyed sibling of :func:`flag_gate_map`, and filtered out of
+    :func:`section_gate_map` for the same reason ``heloc_strategy`` is filtered
+    out of :func:`step_gate_map`: that map's values are fed to
+    ``optionalFunctionEnabled()``, which looks a key up among the
+    client_optional_functions.csv toggles. A plan flag has no row there, so a
+    merged map would report every one of its sections permanently off.
+
+    Values carry the same shape as :func:`flag_gate_map`'s.
+    """
+    out: Dict[str, Dict[str, object]] = {}
+    for m in _OUTPUTS:
+        if m.gate_kind != GATE_PLAN_FLAG:
+            continue
+        for section in m.csv_sections:
+            out[section] = {
+                "key": m.key,
+                "name": m.name,
+                "ref": list(m.gate_ref or ()),
+                "enable_label": m.gate_enable_label,
+            }
     return out
 
 
