@@ -747,6 +747,16 @@ def build_sheet10(ws, c, rows):
     return {
         'best': best, 'current': current, 'scenarios': scenarios,
         'longevity_rows': longevity_rows, 'longevity_pair_is_stable': longevity_pair_is_stable,
+        # #329 P6 (W10c): the configured pair and the two display names, so
+        # summary_figures.social_security_timing_payload() can report what the
+        # plan holds today beside what the sweep recommends without recomputing
+        # either from `c` -- a second definition of "the configured claim age"
+        # is exactly the drift summary_figures.py's own docstring exists to
+        # prevent. `current` above is None whenever the coarse-then-refine
+        # pass never scored the configured pair, so it cannot serve this.
+        'h_current': h_current, 'w_current': w_current,
+        'h_label': _s1, 'w_label': _s2,
+        'all_infeasible': _all_scenarios_infeasible,
     }
 
 _HSA_SECTION_SPAN = 15

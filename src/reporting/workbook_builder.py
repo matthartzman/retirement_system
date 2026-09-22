@@ -1321,12 +1321,25 @@ def main():
         # reload; nothing is recomputed here -- the value is a projection of
         # the RothStrategyResult contract attach_plan_result() already built.
         'roth_strategy_result': None,
+        # #329 P6 (W10c): the Social Security claim-age sweep's winner, so the
+        # Income & Social Security page can offer apply-to-plan on it. Same
+        # artifact and same reasoning as roth_strategy_result above: a
+        # projection of the sweep Sheet 10 already ran, not a second sweep.
+        # Stays None when the Social Security optimizer module is off, exactly
+        # as ss_sweep itself does -- an absent result is how the UI is told
+        # there is nothing to apply.
+        'social_security_timing_result': None,
     }
     try:
         from .summary_figures import roth_strategy_result_payload
         summary_data['roth_strategy_result'] = roth_strategy_result_payload(c)
     except Exception as _roth_payload_exc:
         print(f'Warning: Roth strategy result payload skipped (build continues): {_roth_payload_exc}')
+    try:
+        from .summary_figures import social_security_timing_payload
+        summary_data['social_security_timing_result'] = social_security_timing_payload(ss_sweep, c)
+    except Exception as _ss_payload_exc:
+        print(f'Warning: Social Security timing payload skipped (build continues): {_ss_payload_exc}')
     try:
         after_tax_kpis = estimate_after_tax_terminal_net_worth(c, terminal)
         lifetime_tax = sum(float(r.get('total_tax', 0.0) or 0.0) for r in rows)

@@ -757,49 +757,79 @@ export function renderRothMissingNotice() {
 // column is normalized server-side by the same summary_figures helper Sheet 11
 // reads, so the two surfaces cannot rank the same candidate differently.
 
-// Last /api/summary payload's result, for the reload case. lastBuildSummary /
-// lastBuildCompare are in-memory only and reset to null on every fresh app
-// launch (see planningLeverBase()'s own note on this), so on a reload of an
-// already-built plan neither holds anything -- but the artifact on disk does.
-let rothResultSummaryCache = null;
-// "" (untried) | "pending" | "done". A build that recorded no Roth result is
-// a legitimate answer, so this latches on completion rather than on success:
-// without it a plan with no result would re-fetch on every keystroke, since
-// renderMain() re-renders the whole tree on every field edit.
-let rothResultFetchState = "";
+// Last /api/summary payload's results, for the reload case, keyed by the
+// plan_summary.json key each optimizer's result lives under.
+// lastBuildSummary / lastBuildCompare are in-memory only and reset to null on
+// every fresh app launch (see planningLeverBase()'s own note on this), so on a
+// reload of an already-built plan neither holds anything -- but the artifact
+// on disk does.
+//
+// Keyed rather than one pair of variables per optimizer (W10c): W10a's Roth
+// panel and W10c's Social Security apply path want the identical three-source
+// read, and §4.5 path 1 is the DEFAULT path for the remaining optimizers too,
+// so a second hand-written copy of this would have become a fifth.
+const optimizerResultCache = new Map();
+// "" (untried) | "pending" | "done", per key. A build that recorded no result
+// for an optimizer is a legitimate answer, so this latches on completion
+// rather than on success: without it a plan with no result would re-fetch on
+// every keystroke, since renderMain() re-renders the whole tree on every edit.
+const optimizerResultFetchState = new Map();
 
-export function rothResultCacheReset() {
-  rothResultSummaryCache = null;
-  rothResultFetchState = "";
+// Clears every optimizer's cached read. Called on a plan switch, where each
+// one is equally stale.
+export function optimizerResultCacheReset() {
+  optimizerResultCache.clear();
+  optimizerResultFetchState.clear();
 }
 
 // A newer build always wins over the cached artifact read: runBuild() sets
 // lastBuildSummary from the build's own response, so a rebuild's result shows
 // without waiting for (or invalidating) the fetch below.
-export function rothStrategyResultFromLastBuild() {
+export function optimizerResultFromLastBuild(key) {
   return (
-    (lastBuildSummary && lastBuildSummary.roth_strategy_result) ||
-    (lastBuildCompare &&
-      lastBuildCompare.after &&
-      lastBuildCompare.after.roth_strategy_result) ||
-    rothResultSummaryCache ||
+    (lastBuildSummary && lastBuildSummary[key]) ||
+    (lastBuildCompare && lastBuildCompare.after && lastBuildCompare.after[key]) ||
+    optimizerResultCache.get(key) ||
     null
   );
 }
 
-export async function fetchRothStrategyResult() {
-  if (rothResultFetchState) return rothResultSummaryCache;
-  rothResultFetchState = "pending";
+export function optimizerResultFetchDone(key) {
+  return optimizerResultFetchState.get(key) === "done";
+}
+
+export async function fetchOptimizerResult(key) {
+  if (optimizerResultFetchState.get(key)) return optimizerResultCache.get(key) || null;
+  optimizerResultFetchState.set(key, "pending");
+  let result = null;
   try {
     const out = await api("/api/summary");
     const k = summaryFromApiPayload(out);
-    rothResultSummaryCache = (k && k.roth_strategy_result) || null;
+    result = (k && k[key]) || null;
   } catch (_e) {
-    rothResultSummaryCache = null;
+    result = null;
   }
-  rothResultFetchState = "done";
-  if (rothResultSummaryCache) renderMain();
-  return rothResultSummaryCache;
+  optimizerResultCache.set(key, result);
+  optimizerResultFetchState.set(key, "done");
+  if (result) renderMain();
+  return result;
+}
+
+// Roth's three names are kept as the thin wrappers they now are: loadAll(),
+// renderRothOptimizerResultPanel() and W10a's own tests all call them, and
+// renaming call sites buys nothing here.
+export const ROTH_RESULT_KEY = "roth_strategy_result";
+
+export function rothResultCacheReset() {
+  optimizerResultCacheReset();
+}
+
+export function rothStrategyResultFromLastBuild() {
+  return optimizerResultFromLastBuild(ROTH_RESULT_KEY);
+}
+
+export async function fetchRothStrategyResult() {
+  return fetchOptimizerResult(ROTH_RESULT_KEY);
 }
 
 function rothScoreCell(v) {
@@ -894,7 +924,7 @@ export function renderRothOptimizerResultPanel() {
   }
   const result = rothStrategyResultFromLastBuild();
   if (result) return rothOptimizerResultPanelHtml(result);
-  if (rothResultFetchState !== "done") {
+  if (!optimizerResultFetchDone(ROTH_RESULT_KEY)) {
     setTimeout(() => fetchRothStrategyResult().catch(function () {}), 0);
     return '<div class="section-note">Reading the last build’s optimizer result…</div>';
   }
@@ -1141,6 +1171,10 @@ Object.assign(window, {
   irmaaModeValue,
   renderRothRows,
   renderRothMissingNotice,
+  optimizerResultCacheReset,
+  optimizerResultFromLastBuild,
+  optimizerResultFetchDone,
+  fetchOptimizerResult,
   rothResultCacheReset,
   rothStrategyResultFromLastBuild,
   fetchRothStrategyResult,

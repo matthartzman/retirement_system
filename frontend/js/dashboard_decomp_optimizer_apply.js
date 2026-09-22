@@ -1,4 +1,4 @@
-/* optimizer_apply.js: #329 P6 / §4.2-§4.6 (W10c) -- applying an optimizer's
+/* dashboard_decomp_optimizer_apply.js: #329 P6 / §4.2-§4.6 (W10c) -- applying an optimizer's
    result to the plan.
 
    The whole design is "reuse the promote path, add nothing". An optimizer
@@ -29,9 +29,13 @@
    are plan data and are safe. Never word a string here so that it implies
    the provenance is a durable audit trail.
 
-   Loaded as type="module" after dashboard.js (same position in index.html as
-   dashboard_source_truth_banners.js), so everything it needs from the
-   monolith is read off `window` at call time rather than imported. */
+   Loaded as type="module" after dashboard.js, so everything it needs from the
+   monolith is read off `window` at call time rather than imported. Named
+   dashboard_decomp_* per the frontend size ratchet's own extraction pattern,
+   which also puts it in tests/frontend/load_dashboard.mjs's shared sandbox --
+   safe here, unlike dashboard_source_truth_banners.js (W10b's recorded
+   finding), because nothing in this file monkey-patches renderMain or touches
+   the DOM at load. */
 (function () {
   "use strict";
 
@@ -109,14 +113,28 @@
     return (patch || []).filter((x) => x && x.row_index == null);
   }
 
-  /* §4.6, the heart of this file. NEVER replace this with a stored flag. */
+  /* §4.6, the heart of this file. NEVER replace this with a stored flag.
+
+     `liveValueOf` and an item's optional `compareAfter` exist together, for
+     the case where the stored text and the thing the optimizer chose are not
+     the same quantity. Social Security is the worked example: the row holds a
+     claim DATE, the sweep chose a claim AGE, and a blank date is not "unset"
+     -- the engine reads it as age 70. Comparing the raw text there would
+     report "not applied" for a plan that already does exactly what the
+     optimizer recommends. An optimizer that needs that declares both halves;
+     everything else compares the stored value, which is the honest default. */
   function optimizerAppliedState(patch, liveValueOf) {
     const items = promotableItems(patch);
     if (!items.length) return NOT_APPLIED;
     const read = typeof liveValueOf === "function" ? liveValueOf : liveRawValueForRowIndex;
     let matched = 0;
     items.forEach(function (x) {
-      const want = x.afterRaw != null ? x.afterRaw : x.after;
+      const want =
+        x.compareAfter != null
+          ? x.compareAfter
+          : x.afterRaw != null
+            ? x.afterRaw
+            : x.after;
       if (sameValue(read(x.row_index), want)) matched++;
     });
     if (matched === 0) return NOT_APPLIED;
@@ -393,7 +411,7 @@
     return optimizerApplyStripHtml({
       optimizerId: d.id,
       patch: patch,
-      state: optimizerAppliedState(patch),
+      state: optimizerAppliedState(patch, d.liveValueOf),
       actions: d.actions || [
         { intent: "apply", label: "Apply to plan", primary: true },
       ],

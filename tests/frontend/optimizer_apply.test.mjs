@@ -28,7 +28,7 @@ const APPLY_PATH = path.join(
   "..",
   "frontend",
   "js",
-  "optimizer_apply.js",
+  "dashboard_decomp_optimizer_apply.js",
 );
 const WORKBENCH_PATH = path.join(
   __dirname,
@@ -65,7 +65,7 @@ function loadApplySandbox(windowExtras) {
   box.globalThis = box;
   vm.createContext(box);
   new vm.Script(fs.readFileSync(APPLY_PATH, "utf8"), {
-    filename: "optimizer_apply.js",
+    filename: "dashboard_decomp_optimizer_apply.js",
   }).runInContext(box);
   return box;
 }
