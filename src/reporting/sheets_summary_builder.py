@@ -388,7 +388,20 @@ def build_sheet2(ws, c, rows):
                 _override_note = f" Remainder-of-year {' and '.join(_overrides)} used a manual override instead of the linear pro-rated estimate." if _overrides else ''
                 _cya_text = f"{_cya.get('current_year')}: income/spending actual through {_cya.get('ytd_end')}, projected for the remaining {_remaining_pct} of the year; account growth/contributions prorated to that same remainder.{_override_note}"
             elif _cya.get('flow_blend_skipped_by_user_choice'):
-                _cya_text = f"{_cya.get('current_year')}: modeled as fully hypothetical by user choice (ytd_blend_enabled = FALSE) — real income/spending actuals tracked through {_cya.get('ytd_end')} were excluded; income/spending shown as a full-year projection. Account growth/contributions are still prorated to the remaining {_remaining_pct} of the year, since that proration is date math, not real-data blending."
+                # W8b: two user choices can suppress the flow blend -- this
+                # plan's own `ytd_blend_enabled`, or the Spending Tracker / YTD
+                # module being off. The reason is named by
+                # `flow_blend_skipped_by` rather than assumed, because
+                # asserting `ytd_blend_enabled = FALSE` to a household that
+                # never touched that field and simply turned the feature off
+                # sends them to the wrong screen. Defaults to the pre-W8b
+                # reason when absent, for a blend_meta written by older code.
+                _why = (
+                    'the Spending Tracker / YTD feature is off'
+                    if _cya.get('flow_blend_skipped_by') == 'module_off'
+                    else 'ytd_blend_enabled = FALSE'
+                )
+                _cya_text = f"{_cya.get('current_year')}: modeled as fully hypothetical by user choice ({_why}) — real income/spending actuals tracked through {_cya.get('ytd_end')} were excluded; income/spending shown as a full-year projection. Account growth/contributions are still prorated to the remaining {_remaining_pct} of the year, since that proration is date math, not real-data blending."
             else:
                 _cya_text = f"{_cya.get('current_year')}: account growth/contributions prorated to the remaining {_remaining_pct} of the year; income/spending shown as a full-year projection (add YTD actuals in Settings to blend real results)."
         else:

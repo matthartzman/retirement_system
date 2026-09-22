@@ -1121,10 +1121,18 @@ def main():
     if '24. Asset Location' in sheets:
         print('  Sheet 24 — Asset Location')
         build_sheet24(sheets['24. Asset Location'], c, rows)
-    print('  Sheet 25 — Account Reconciliation')
-    build_sheet25(sheets['25. Account Reconciliation'], c, rows)
-    print('  Sheet 29 — Spending Summary (taxonomy)')
-    build_sheet_spending_summary(sheets['29. Spending Summary'], c)
+    # W8b: both were unconditional -- the same W8a found on '24. Asset
+    # Location' and '37. Current vs Proposed'. Once `module_key` is set on
+    # their SHEET_REGISTRY entries, `disabled_sheets` prunes them out of
+    # `sheets`, and an unguarded call KeyErrors the moment the Spending
+    # Tracker / YTD switch that bundles them is turned off. Same membership
+    # guard every other optional sheet in this function already uses.
+    if '25. Account Reconciliation' in sheets:
+        print('  Sheet 25 — Account Reconciliation')
+        build_sheet25(sheets['25. Account Reconciliation'], c, rows)
+    if '29. Spending Summary' in sheets:
+        print('  Sheet 29 — Spending Summary (taxonomy)')
+        build_sheet_spending_summary(sheets['29. Spending Summary'], c)
     if '37. Current vs Proposed' in sheets:
         print('  Sheet 37 — Current vs. Proposed')
         build_sheet_current_vs_proposed(sheets['37. Current vs Proposed'], c, rows)

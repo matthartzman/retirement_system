@@ -76,10 +76,24 @@ def test_every_optional_module_has_a_toggle_row():
                 if (r.get("section") or "").strip() == "Optional Functions"]
     declared = {(r.get("label") or "").strip() for r in rows}
 
-    missing = sorted(k for k, m in mc.CATALOG.items() if m.optional and k not in declared)
+    # W8b: a bundled module's switch is its PARENT's row (#330 §3.3), so it is
+    # exempt from needing one -- and, below, forbidden from having one.
+    missing = sorted(k for k, m in mc.CATALOG.items()
+                     if m.optional and m.gated_by is None and k not in declared)
     assert not missing, (
         "optional modules with no toggle row in the default plan, so they are "
         f"silently always-on: {missing}")
+
+    bundled = sorted(k for k, m in mc.CATALOG.items()
+                     if m.gated_by is not None and k in declared)
+    assert not bundled, (
+        "client_optional_functions.csv carries a toggle row for a bundled "
+        f"module: {bundled}. The bundle exists because those modules must "
+        "always agree with their parent (#330 §3.3: 'neither can compute "
+        "without the other's data'); a row of their own is a second switch "
+        "that can disagree with the first, and `_base_enabled` would ignore "
+        "it anyway -- it reads the parent's toggle -- so the row would render "
+        "a dead switch on Plan Features.")
 
     orphans = sorted(k for k in declared if k and k not in mc.CATALOG)
     assert not orphans, (
@@ -232,16 +246,25 @@ def test_monte_carlo_off_is_explainable_at_the_switch():
 
 
 def test_engine_participants_are_the_modules_the_engine_reads():
-    """The three toggles that move the projection, not just the sheet set.
+    """The toggles that move the projection, not just the sheet set.
 
     `deterministic_engine.py` reads `equity_compensation` and
     `disability_income_insurance`; `after_tax.business_taxable_estate_value`
-    reads `business_succession`. W7 changes *how* those are read (raw
-    `c['opt']` -> `module_enabled`), not which modules they are, so this pin
-    should survive that workstream unchanged.
+    reads `business_succession`. W7 changed *how* those are read (raw
+    `c['opt']` -> `module_enabled`), not which modules they are, and this pin
+    survived that workstream unchanged.
+
+    W8b adds a fourth: `spending_tracker_ytd` gates
+    `ytd_projection_blend.compute_current_year_overrides`' flow blend, which
+    replaces the pro-rated projection of this year's earned income and core
+    spending with the real tracked amounts for the elapsed part of the year.
+    That is the projection, not a sheet, so the flag is not optional
+    bookkeeping -- it is what makes #330 §3.1's F3 checkable for this module
+    and what earns the stronger toggle confirmation in the UI.
     """
     assert set(mc.engine_participants()) == {
-        "equity_compensation", "disability_income_insurance", "business_succession"}
+        "equity_compensation", "disability_income_insurance",
+        "business_succession", "spending_tracker_ytd"}
 
 
 def test_engine_participation_defaults_off():
