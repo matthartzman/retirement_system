@@ -53,7 +53,8 @@ from .sheets_allocation_helpers import build_sheet4
 from .sheets_projection_facade import build_sheet5, build_sheet6, build_sheet7, build_sheet8
 from .sheets_strategy import build_sheet9, build_sheet10, build_sheet11, build_sheet_hsa_drawdown, build_sheet12, build_sheet_tlh, build_sheet_gain_harvest, build_sheet13, build_sheet14, build_sheet_housing_comparison
 from .sheets_tax_capacity import build_sheet_tax_capacity
-from .sheets_stress import build_sheet15, build_sheet16, build_sheet17, build_sheet18, build_sheet19, build_sheet20
+from .sheets_stress import (build_sheet15, build_sheet16, build_sheet17, build_sheet18,
+                             build_sheet19, build_sheet20, build_sheet39)
 from .sheets_protection import build_existing_life, build_disability, build_pc_umbrella
 from .sheets_wealth import build_education_funding, build_equity_comp, build_special_needs, build_business_succession
 from .sheets_qc_reference import validate_all, build_sheet21, build_sheet22, build_sheet23, build_sheet24, account_reconciliation_rows, build_sheet25
@@ -1109,6 +1110,11 @@ def main():
     if '19. Life Insurance' in sheets:
         print('  Sheet 19 — Life Insurance')
         build_sheet19(sheets['19. Life Insurance'], c, rows)
+    # #329 §1.2/§3.3 (W9): new sheet -- Divorce/QDRO gains a workbook
+    # counterpart, reusing Sheet 16's own re-projection.
+    if '39. Divorce QDRO Stress Test' in sheets:
+        print('  Sheet 39 — Divorce / QDRO Stress Test')
+        build_sheet39(sheets['39. Divorce QDRO Stress Test'], c, rows)
     if '20. RMD Audit' in sheets:
         print('  Sheet 20 — RMD Audit')
         build_sheet20(sheets['20. RMD Audit'], c, rows)

@@ -753,10 +753,15 @@ _OUTPUTS: List[OutputModule] = [
         dashboard_step="ltc_stress",
     ),
     OutputModule(
+        # #329 §1.2/§3.3 (W9): gained a workbook sheet -- "a UI-only stress
+        # test with no workbook counterpart... the mirror image of the
+        # workbook-only optimizers." The sheet reuses the exact re-projection
+        # Sheet 16 (Scenario Analysis)'s own "Divorce/QDRO Asset Split" row
+        # already computes; see build_sheet39 (sheets_stress.py).
         "divorce_qdro", "Divorce / QDRO", STRESS_TEST, NICHE,
         "Plan under an imposed asset split (exogenous life event).",
         domain=RISK_RESILIENCE,
-        optional=True, sheet=None, tab=None,
+        optional=True, sheet="39. Divorce QDRO Stress Test", tab="4D. Divorce QDRO",
         requires_inputs=(_in("household", "divorce_assumptions"), _in("assets"), _in("holdings")),
         requires_outputs=BASE_PROJECTION,
         dashboard_step="divorce_options",
@@ -1213,7 +1218,12 @@ SHEET_REGISTRY = dict([
     _visible('6. Cash Flow Projection', '1', 2, 2, 'Cash Flow', slug='cash_flow'),
     _visible('7. Lifetime Tax', '1', 5, 5, 'Lifetime Taxes', 'lifetime_tax_projection', slug='lifetime_taxes'),
     _visible('8. Charts Dashboard', '1', 4, 4, 'Charts', 'charts_dashboard', slug='charts'),
-    _hidden('9. Retirement Strategy', '1', module_key='retirement_strategy', slug='retirement_strategy'),
+    # #329 §1.2/§3.3 (W9): restored from hidden -- built and gated
+    # identically before and after, only the lettered nav visibility changes.
+    # letter_rank 2 sits it between Asset Allocation (1) and Social Security
+    # (3), matching #329 §3.3's UI ordering (Roth · HSA · Asset Allocation ·
+    # Withdrawal Sequencing · Social Security · ...).
+    _visible('9. Retirement Strategy', '1', 2, 2, 'Withdrawal Sequencing', 'retirement_strategy', slug='retirement_strategy'),
     _visible('S-Corp vs LLC', None, 0, 1, 'S-Corp vs LLC', 'scorp_vs_llc', slug='s_corp_vs_llc'),
     _visible('10. Social Security', '2', 3, 3, 'Social Security', 'social_security_timing', slug='social_security'),
     _visible('11. Roth Conversion', '2', 0, 0, 'Roth Conversion', 'roth_conversion_plan', slug='roth_conversion'),
@@ -1244,7 +1254,10 @@ SHEET_REGISTRY = dict([
     _visible('13. State Residency', '2', 0, 0, 'State Residency', 'state_residency', slug='state_residency'),
     _visible('14. Estate Plan', '2', 6, 6, 'Estate & Legacy Planning', 'estate_legacy_plan', slug='estate_legacy_planning'),
     _visible('15. Market-Luck Stress Test', '3', 0, 0, 'Monte Carlo', 'market_luck_stress_test', slug='monte_carlo'),
-    _hidden('16. Scenario Analysis', 'H', module_key='what_if_analysis', slug='scenario_analysis'),
+    # #329 §1.2/§3.3 (W9): restored from hidden. rank 2 lands it as '3C'
+    # (State Residency=A, S-Corp vs LLC=B) -- matching the catalog entry's
+    # own `tab="3C. Scenario Analysis"`, set in anticipation of this.
+    _visible('16. Scenario Analysis', '3', 2, 2, 'Scenario Analysis', 'what_if_analysis', slug='scenario_analysis'),
     # W3 (#329 O10): LTC Stress Test is no longer merged into Life Insurance
     # -- it gets its own tab under '4. Risks' (4.1 stress tests), letter_rank
     # 2 so it sits between Survivor (1) and the protection decisions (3+).
@@ -1252,6 +1265,13 @@ SHEET_REGISTRY = dict([
     # didn't change, only its visibility.
     _visible('17. LTC Stress Test', '3', 2, 2, 'LTC Stress Test', 'long_term_care_stress', slug='ltc_stress_test'),
     _visible('18. Survivor Stress Test', '3', 1, 1, 'Survivor', 'survivor_stress_test', slug='survivor_stress_test'),
+    # #329 §1.2/§3.3 (W9): new sheet, rank 2.5 -- the fourth "4.1 stress
+    # test", after LTC Stress Test (2) and before the "4.2 protection
+    # decisions" that follow (Life Insurance Need at 3, etc).
+    # display avoids "/" -- illegal in an openpyxl/Excel worksheet title,
+    # unlike the catalog's own "Divorce / QDRO" module name, which only ever
+    # appears in cell text, never as a sheet title.
+    _visible('39. Divorce QDRO Stress Test', '3', 2.5, 2.5, 'Divorce-QDRO', 'divorce_qdro', slug='divorce_qdro_stress_test'),
     # letter_rank 3 (was 2): LTC Stress Test's split-out tab now sits at 2.
     # slug renamed from W2's 'ltc_life_insurance' -- that name matched the
     # merged concept (#329 O10 unmerges it here); 'life_insurance_need'
@@ -1261,7 +1281,10 @@ SHEET_REGISTRY = dict([
     _visible('21. Quality Control', '4', 4, 3, 'Quality Control', slug='quality_control'),
     _visible('22. Glossary', '4', 7, 6, 'Glossary', 'glossary', slug='glossary'),
     _visible('23. Methodology', '4', 6, 5, 'Methodology', 'methodology_rerun', slug='methodology'),
-    _hidden('24. Asset Location', '2', 'asset_location', slug='asset_location'),
+    # #329 §1.2 (W9): restored from hidden. Not in #329 §3.3's UI list (only
+    # Asset Allocation is), so this is workbook-only -- no dashboard_step.
+    # rank 4 sits after Social Security (3), before Charitable Giving (5).
+    _visible('24. Asset Location', '2', 4, 4, 'Asset Location', 'asset_location', slug='asset_location'),
     # W8b: `module_key` set on both YTD sheets. Each names its OWN module key,
     # not the bundle parent's -- the bundle is resolved inside
     # `_base_enabled`, so OPTIONAL_MODULE_SHEETS keeps its one-key-one-sheet

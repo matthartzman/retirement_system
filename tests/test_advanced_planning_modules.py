@@ -33,13 +33,17 @@ MODULES = [
     # Comparisons' group), which pulled every '2'-prefix letter after Estate
     # & Legacy back down by two; W3 also renumbered the protection decisions'
     # group from '3' to '4' ('4. Risks', since '3' is now Comparisons).
-    ("education_funding_529",       "30. Education Funding",       "2G. Education Funding",       build_education_funding),
-    ("equity_compensation",         "35. Equity Compensation",     "2H. Equity Compensation",     build_equity_comp),
-    ("special_needs_planning",      "36. Special-Needs Planning",  "2I. Special-Needs Planning",  build_special_needs),
-    ("existing_life_insurance",     "31. Existing Life Insurance", "4E. Existing Life Insurance", build_existing_life),
-    ("disability_income_insurance", "32. Disability Income",       "4F. Disability Income",       build_disability),
-    ("property_casualty_umbrella",  "33. P&C Umbrella",            "4G. P&C Umbrella",            build_pc_umbrella),
-    ("business_succession",         "34. Business Succession",     "2J. Business Succession",     build_business_succession),
+    # W9 (#329 §1.2/§3.3) pulled every '2'-prefix letter after Asset
+    # Allocation down by two more (Withdrawal Sequencing, Asset Location
+    # restored from hidden) and every '4'-prefix letter after LTC Stress
+    # Test down by one (Divorce/QDRO, rank 2.5, gets a workbook sheet).
+    ("education_funding_529",       "30. Education Funding",       "2I. Education Funding",       build_education_funding),
+    ("equity_compensation",         "35. Equity Compensation",     "2J. Equity Compensation",     build_equity_comp),
+    ("special_needs_planning",      "36. Special-Needs Planning",  "2K. Special-Needs Planning",  build_special_needs),
+    ("existing_life_insurance",     "31. Existing Life Insurance", "4F. Existing Life Insurance", build_existing_life),
+    ("disability_income_insurance", "32. Disability Income",       "4G. Disability Income",       build_disability),
+    ("property_casualty_umbrella",  "33. P&C Umbrella",            "4H. P&C Umbrella",            build_pc_umbrella),
+    ("business_succession",         "34. Business Succession",     "2L. Business Succession",     build_business_succession),
 ]
 
 
