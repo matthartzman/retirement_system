@@ -2717,6 +2717,12 @@
       "scope": "inside-function"
     },
     {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_income_streams.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "searchText",
       "file": "frontend/js/dashboard_decomp_income_streams.js",
       "kind": "read",
@@ -2942,6 +2948,42 @@
       "name": "renderMain",
       "file": "frontend/js/dashboard_decomp_monarch_autoupdate.js",
       "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "dirty",
+      "file": "frontend/js/dashboard_decomp_optimizer_apply.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "dirty",
+      "file": "frontend/js/dashboard_decomp_optimizer_apply.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "dirty",
+      "file": "frontend/js/dashboard_decomp_optimizer_apply.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "dirty",
+      "file": "frontend/js/dashboard_decomp_optimizer_apply.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_optimizer_apply.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_optimizer_apply.js",
+      "kind": "read",
       "scope": "inside-function"
     },
     {
