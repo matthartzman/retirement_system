@@ -162,6 +162,14 @@ every keystroke on this page. A newer build still wins over the cached read,
 because `runBuild()` sets `lastBuildSummary` from the build's own response and
 that source is checked first.
 
+A **plan switch** is the one case that ordering does not cover: after
+`loadAll()` the new plan's `lastBuildSummary` is null until it is built in this
+session, so the cache would keep serving the *previous* plan's result.
+`loadAll()` clears it, beside the `resetAllocationPreview()` call that is
+already there for exactly the same reason one optimizer over. A frontend test
+asserts both that the reset works and that `loadAll` actually calls it, so it
+cannot decay into an exported function nothing invokes.
+
 ### What the panel does not do
 
 - **No apply, pin or lock-in affordance.** §4.4's three-state footer bar is
@@ -201,7 +209,7 @@ that source is checked first.
   slow one is the workbook-versus-payload comparison above; the two
   `_explain_candidate` tests fail against the old guard (confirmed by reverting
   it).
-- `tests/frontend/roth_optimizer_result_panel.test.mjs` — 12 cases, including
+- `tests/frontend/roth_optimizer_result_panel.test.mjs` — 13 cases, including
   the marker following the selected strategy rather than rank 1, the relative-
   score disclosure, the trimmed-list count, null figures reading as "Not
   available" rather than `$0`, and escaping.
@@ -217,7 +225,7 @@ that source is checked first.
 
 `DASHBOARD_JS_MAX_LINES` **unchanged at 7,201** — `dashboard.js` is not touched,
 so nothing was owed and nothing was padded. `TOTAL_JS_MAX_LINES` raised 33,816 →
-33,992, the measured total with no slack: genuine new behavior (the renderer,
+33,997, the measured total with no slack: genuine new behavior (the renderer,
 its three empty states, and the `/api/summary` read), per that ceiling's own
 contract.
 

@@ -299,7 +299,10 @@ DASHBOARD_JS_MAX_LINES = 7_201
 # 11. Roth Conversion. Genuine new behavior (a renderer, its three empty-state
 # answers, and the /api/summary read that makes it survive a page reload), not
 # duplication, per this constant's own contract. dashboard.js is untouched.
-TOTAL_JS_MAX_LINES = 33_992
+# (33,992 -> 33,997 in the same workstream: loadAll() clears the panel's
+# cached /api/summary read on a plan switch, beside the resetAllocationPreview()
+# call that is there for the same reason one plan over.)
+TOTAL_JS_MAX_LINES = 33_997
 
 
 def _line_count(path: Path) -> int:

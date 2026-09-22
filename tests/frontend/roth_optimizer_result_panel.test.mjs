@@ -162,3 +162,21 @@ test("candidate text is escaped, not injected", () => {
   assert.doesNotMatch(html, /<script>x<\/script>/);
   assert.match(html, /&lt;script&gt;/);
 });
+
+test("a plan switch clears the cached read", () => {
+  // The cache exists so the panel survives a page reload (lastBuildSummary is
+  // in-memory only). Without a reset at loadAll(), switching plans would keep
+  // showing the previous plan's optimizer result, since lastBuildSummary is
+  // null until THIS plan is built in this session.
+  const sandbox = loadDashboardSandbox();
+  const { rothResultCacheReset, rothStrategyResultFromLastBuild } = sandbox;
+  assert.equal(typeof rothResultCacheReset, "function");
+  rothResultCacheReset();
+  assert.equal(rothStrategyResultFromLastBuild(), null);
+  // loadAll() is the one caller, so the reset is load-bearing rather than an
+  // exported function nothing invokes.
+  assert.match(
+    sandbox.loadAll.toString(),
+    /rothResultCacheReset\(\)/,
+  );
+});

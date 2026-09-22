@@ -4585,6 +4585,11 @@ export async function loadAll(opts = {}) {
         planSource: opts.source || "Local database",
       });
     resetAllocationPreview();
+    // W10a: same reason, one plan over. The Roth result panel caches the last
+    // /api/summary read so it survives a reload; without this a plan switch
+    // would keep showing the PREVIOUS plan's optimizer result, since
+    // lastBuildSummary is null until this plan is built in this session.
+    rothResultCacheReset();
     await loadTravelExtras();
     await loadBudgetLines(false);
     await loadLiquidityBuffers();
