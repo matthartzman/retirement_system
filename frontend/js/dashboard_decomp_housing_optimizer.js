@@ -1853,6 +1853,10 @@ export function renderHousingOptimizerApplyStrip(payload) {
     id: HOUSING_OPTIMIZER_ID,
     title: "Housing trajectory search",
     buildPatch: () => housingOptimizerPatch(housingOptLastPayload),
+    // The Housing patch writes currency and percent rows, whose stored text
+    // ("$539,400") is not the form editValue() normalizes to ("539400") --
+    // so both sides of the comparison go through that same normalizer.
+    liveValueOf: apply.liveStorageValueForRowIndex,
     actions: [
       { intent: "apply", label: "Apply the recommended option", primary: true },
     ],

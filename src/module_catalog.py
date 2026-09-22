@@ -499,7 +499,7 @@ _OUTPUTS: List[OutputModule] = [
         "Consolidated per-year bracket, IRMAA and ACA headroom, assembled from four other sheets.",
         domain=TAXES,
         optional=True,
-        sheet="11B. Tax Capacity", tab="5I. Tax Capacity",
+        sheet="11B. Tax Capacity", tab="5H. Tax Capacity",
         requires_inputs=(_in("income"), _in("assumptions", "brackets", "irmaa")),
         requires_outputs=BASE_PROJECTION + ("lifetime_tax_projection",),
     ),
@@ -801,10 +801,31 @@ _OUTPUTS: List[OutputModule] = [
 
     # ── Reference / Documentation ─────────────────────────────────────────────
     OutputModule(
-        "planning_levers_echo", "Planning Levers (echo)", REFERENCE, MEDIUM,
-        "Restates the chosen dial positions with their source.",
+        # W11 (2026-09-22) found this catalogued as REFERENCE/"echo" while
+        # `build_sheet27_planning_levers()` itself is, by its own docstring,
+        # "an interactive planning levers / sensitivity dashboard... a
+        # screening worksheet, not a replacement for rebuilding the model":
+        # hardcoded, client-independent lever rows with an editable test-
+        # amount cell each, and formulas that *estimate* directional TNW/
+        # Monte Carlo impact and rank the levers against each other. It reads
+        # none of the `planning_levers` input files despite the dependency
+        # declared below -- it restates nothing chosen, it screens
+        # hypotheticals. User decision (2026-09-22, recorded in
+        # `docs/superpowers/plans/2026-09-22-w11-planning-levers-retirement-
+        # notes.md`): keep the sheet, fix the classification. Kind is
+        # WORKSHEET, matching `current_vs_proposed` (also REPORTS_DOCUMENTATION,
+        # also computes a delta from figures produced elsewhere) rather than
+        # REFERENCE/System, which is for sheets that restate or consolidate
+        # without computing anything new (`tax_capacity`, Plan Data,
+        # Assumptions). WORKSHEET's letter group is Reports, so this also
+        # moves the sheet from System to Reports -- see the SHEET_REGISTRY
+        # entry below.
+        "planning_levers_echo", "Planning Levers", WORKSHEET, MEDIUM,
+        "Interactive lever-screening worksheet: hardcoded test levers with "
+        "editable amounts and formulas estimating directional impact on "
+        "terminal net worth and Monte Carlo success, ranked against each other.",
         domain=REPORTS_DOCUMENTATION,
-        sheet="27. Planning Levers", tab="5H. Planning Levers",
+        sheet="27. Planning Levers", tab="1I. Planning Levers",
         requires_inputs=(_in("planning_levers"),),
         # The "Current model anchor" block keeps its Monte Carlo success row
         # (the lever formulas below it reference fixed anchor cells, so the row
@@ -1293,7 +1314,10 @@ SHEET_REGISTRY = dict([
     # would not have stopped either sheet being built.
     _visible('25. Account Reconciliation', '4', 3, 2, 'Account Reconciliation', 'account_reconciliation', slug='account_reconciliation'),
     _hidden('26. Workbook Warnings', 'H', slug='workbook_warnings'),
-    _visible('27. Planning Levers', '4', 7.5, 7.5, 'Planning Levers', slug='planning_levers'),
+    # W11 addendum (2026-09-22): recatalogued WORKSHEET (was REFERENCE), so
+    # this now derives into Reports instead of System -- rank 8/8 lands it
+    # densely last, right after Current vs Proposed (7/7).
+    _visible('27. Planning Levers', '4', 8, 8, 'Planning Levers', slug='planning_levers'),
     _visible('11B. Tax Capacity', '2', 8, 8, 'Tax Capacity', 'tax_capacity', slug='tax_capacity'),
     _visible('29. Spending Summary', '1', 6, 6, 'Spending Summary', 'spending_summary', slug='spending_summary'),
     _visible('30. Education Funding', '2', 9, 9, 'Education Funding', 'education_funding_529', slug='education_funding'),

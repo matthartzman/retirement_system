@@ -62,16 +62,112 @@ export function strategySectionToggle(key, open) {
   renderMain();
 }
 
-// The "this section's optional module is off" note, generalized over the
-// section, which is why it is one function and not one per section. §5.3 (W6):
-// a plan flag's switch lives WHERE ITS DATA IS, so its note names a click-path
-// into the owning page, built from the catalog's gate_ref/gate_enable_label
-// (moduleGates.flag_gates) rather than the hand-typed `if` this used to carry.
-export function strategySectionGatedNote(title, gateStepId) {
-  const g = (moduleGates.flag_gates || {})[gateStepId];
-  if (g)
-    return `<div class="section-note">${esc(title)} is off. Enable it on <a href="#" onclick="setStep('${escJs(gateStepId)}');return false">${[...(g.ref || []).slice(0, 2), g.enable_label].filter(Boolean).map((x) => esc(x)).join(" &rarr; ")}</a> to use it.</div>`;
-  return `<div class="section-note">${esc(title)} is off. Enable ${esc(title)} on <a href="#" onclick="setStep('optional_functions');return false">Plan Features</a> to use it.</div>`;
+// #330 §5.2/§5.3 (W12): the generalized "Collapsed with a note" off-state.
+// Registry-driven from ONE source -- planModuleTaxonomy(), which already
+// carries gate_kind/gate_ref/gate_enable_label per module (W9 added these for
+// the Plan Features plan-flag rows) -- rather than branching on the
+// mechanism at each call site the way strategySectionGatedNote() used to
+// (module_toggle and plan_flag are now read the same way here; a future gate
+// kind needs a new catalog declaration, not a new branch in this function).
+// §5.1's "offer the switch inline, because the user who is reading that note
+// has already decided": both gate kinds get a real inline "Turn on" control,
+// not just a link to go decide somewhere else.
+//
+// `key` is the module's catalog key. `opts.title` overrides the taxonomy
+// name (callers often show a friendlier in-context label than CATALOG.name);
+// `opts.rows`, when given, are the plan rows this note stands in for, so the
+// note can say how many the household already entered -- §5.2's invariant
+// text: "the note says how many rows are affected". `opts.gateKind`/
+// `opts.gateRef`/`opts.gateEnableLabel`/`opts.destStep` let a caller that
+// already resolved the gate (strategySection(), via a legacy step id and
+// moduleGates) pass that declaration straight through instead of paying for
+// a second read of the same fact from planModuleTaxonomy() -- both
+// ultimately come from the same catalog fields, so a caller that only has
+// the module key (every off-page fix below) still gets identical behavior
+// falling back to the taxonomy.
+export function featureGatedNote(key, opts = {}) {
+  const meta = (planModuleTaxonomy().modules || {})[key] || {};
+  const title = opts.title || meta.name || key;
+  const gateKind = opts.gateKind || meta.gate_kind;
+  const gateRef = opts.gateRef || meta.gate_ref;
+  const gateEnableLabel = opts.gateEnableLabel || meta.gate_enable_label;
+  const isFlag = gateKind === "plan_flag";
+  const n = opts.rows ? enteredRowCount(opts.rows) : 0;
+  const countNote = n
+    ? ` ${n} already-entered ${n === 1 ? "item is" : "items are"} retained.`
+    : "";
+  const inlineSwitch = isFlag
+    ? planFlagInlineSwitch(gateRef)
+    : moduleToggleInlineSwitch(key);
+  const ref = gateRef || [];
+  const pathText =
+    isFlag && ref.length
+      ? [...ref.slice(0, 2), gateEnableLabel].filter(Boolean).map((x) => esc(x)).join(" &rarr; ")
+      : "";
+  let action;
+  if (inlineSwitch) {
+    // Best case: flip it right here. Still name where it lives, for a plan
+    // flag, so the note reads the same whether or not the row happened to be
+    // loaded on this page already.
+    action = inlineSwitch + (pathText ? ` (${pathText})` : "");
+  } else if (opts.destStep) {
+    // No row to flip inline (not loaded on this page) but we know exactly
+    // where it is -- link there by name, same as before this generalization.
+    action = `Enable it on <a href="#" onclick="setStep('${escJs(opts.destStep)}');return false">${pathText || "Plan Features"}</a>`;
+  } else {
+    action = `<a href="#" onclick="setStep('optional_functions');return false">Plan Features</a>`;
+  }
+  return `<div class="section-note">${esc(title)} is off.${countNote} ${action} to use it.</div>`;
+}
+
+// Finds the flag's own plan row so the note's "Turn on" button can flip it
+// directly (editValue + save), instead of only linking to where it lives.
+// Returns "" (falling back to the Plan Features link above) when the row
+// can't be found -- e.g. a stale gate_ref or a not-yet-loaded plan.
+function planFlagInlineSwitch(ref) {
+  if (!ref || ref.length !== 3) return "";
+  const row = rows.find(
+    (r) =>
+      isEditable(r) &&
+      r.section === ref[0] &&
+      norm(r.subsection || "") === norm(ref[1]) &&
+      norm(r.label) === norm(ref[2]),
+  );
+  if (!row) return "";
+  return `<button class="btn tiny" type="button" data-requires-app="1" onclick="editValue(${row.row_index},'YES',null);saveAll(false);renderMain()">Turn on</button>`;
+}
+
+// Same, for a module_toggle: the row lives on the Optional Functions step,
+// labeled by the module key itself (the toggle's own identity).
+function moduleToggleInlineSwitch(key) {
+  const row = (rowsForStep("optional_functions") || []).find(
+    (r) => norm(r.label) === norm(key),
+  );
+  if (!row) return "";
+  return `<button class="btn tiny" type="button" data-requires-app="1" onclick="editValue(${row.row_index},'YES',null);saveAll(false);renderMain()">Turn on</button>`;
+}
+
+// Resolves a legacy dashboard-step id (strategySection()'s own `gate`
+// contract, unchanged -- see test_strategy_workspace_module_gating.py) to the
+// module key and gate declaration that gates it, straight from
+// moduleGates -- the same server payload stepGatedByOptionalModule() itself
+// reads -- so featureGatedNote() can be driven by identity rather than by
+// the step id string.
+function gateDescriptorForStep(stepId) {
+  const flagGate = (moduleGates.flag_gates || {})[stepId];
+  if (flagGate)
+    return {
+      key: flagGate.key,
+      gateKind: "plan_flag",
+      gateRef: flagGate.ref,
+      gateEnableLabel: flagGate.enable_label,
+      // A plan flag's own page IS the step it gates (that's why it has a
+      // dashboard_step at all) -- unlike a module toggle, whose switch lives
+      // on Plan Features, not on the step it hides.
+      destStep: stepId,
+    };
+  const key = (moduleGates.step_gates || {})[stepId];
+  return key ? { key, gateKind: "module_toggle" } : { key: null };
 }
 
 // One collapsible section. bodyFn is called ONLY when the section is open:
@@ -85,7 +181,10 @@ export function strategySection(key, title, bodyFn, gateStepId, defaultOpen) {
   const open = stored === undefined ? !!defaultOpen : stored === true;
   const gated = gateStepId ? stepGatedByOptionalModule(gateStepId) : false;
   const body = gated
-    ? strategySectionGatedNote(title, gateStepId)
+    ? (() => {
+        const gd = gateDescriptorForStep(gateStepId);
+        return featureGatedNote(gd.key, { ...gd, title });
+      })()
     : open
       ? bodyFn()
       : "";
@@ -435,7 +534,7 @@ Object.assign(window, {
   strategySectionResetOpenCache,
   strategySectionSetOpen,
   strategySectionToggle,
-  strategySectionGatedNote,
+  featureGatedNote,
   strategySection,
   renderStrategyScreen,
   renderStrategyOptimize,
