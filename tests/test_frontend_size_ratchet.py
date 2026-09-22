@@ -167,7 +167,16 @@ JS_DIR = ROOT / "frontend" / "js"
 # docstring requires. W4 then grows that page (domain grouping, kind filter
 # chips, demand hints, the off-but-holds-data indicator, the env-override
 # disclosure) inside its own module, where it does not press on this ceiling.
-DASHBOARD_JS_MAX_LINES = 7_246
+# 2026-09-22 (W9, #329 P4 + #330): lowered from 7,246 to 7,201 --
+# hsaWithdrawalPolicyBlock/taxLossHarvestingBlock/gainHarvestBlock/
+# withdrawalMiscBlock extracted to dashboard_decomp_strategy_workspace.js so
+# Optimize's new sections could reuse them without duplicating the filters.
+# dashboard.js also grew (a new activeStep dispatch case for heloc_strategy,
+# a moved/expanded STEPS entry, a generalized flag-gate check), but the
+# extraction outweighed the growth -- measured to the new total with no
+# slack, exactly as this ceiling's own contract requires on a real
+# extraction.
+DASHBOARD_JS_MAX_LINES = 7_201
 
 # Total frontend JS is allowed to grow -- extraction moves lines out of
 # dashboard.js into new modules, which should not be penalised. This ceiling
@@ -266,7 +275,24 @@ DASHBOARD_JS_MAX_LINES = 7_246
 # holds N entries" indicator (§5.4), and Q7's read-only env-override
 # disclosure. New behavior, not duplication, so the ceiling rises to the
 # measured total with no slack, per this constant's own contract.
-TOTAL_JS_MAX_LINES = 33_604
+# 2026-09-22 (W9, #329 P4 + #330): raised from 33,604 to 33,732 -- Optimize
+# gained four new sections (HSA Drawdown, Withdrawal Sequencing, Social
+# Security, Harvesting) per #329 §3.3's UI list, HELOC moved to its own
+# Assets & Protection nav step (a new STEPS entry, a new activeStep dispatch
+# case, and the rowsForStep() HELOC gate generalized to read moduleGates.
+# flag_gates like strategySectionGatedNote() already does), and
+# navigation.js/AUTOSAVE_STEPS/SECTION_REDIRECTS picked up HELOC's new
+# destination. hsaWithdrawalPolicyBlock/taxLossHarvestingBlock/
+# gainHarvestBlock/withdrawalMiscBlock moved out of dashboard.js in the same
+# commit (DASHBOARD_JS_MAX_LINES stays flat, below) -- this rise is genuine
+# new behavior (new panels, new nav step, a generalized gate check), not
+# duplication, per this constant's own contract.
+# 2026-09-22 (W9, #329 P4 + #330 §5.3): raised from 33,732 to 33,816 --
+# dashboard_decomp_plan_features.js gained the plan-flag link rows W6's notes
+# assigned to W9 (HELOC/Hybrid LTC/DAF/QCD now findable on Plan Features, as
+# a link rather than a toggle -- §5.1's "three surfaces, one registry").
+# Genuine new behavior, not duplication, per this constant's own contract.
+TOTAL_JS_MAX_LINES = 33_816
 
 
 def _line_count(path: Path) -> int:

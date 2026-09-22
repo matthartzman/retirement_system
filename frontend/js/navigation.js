@@ -11,7 +11,11 @@
   // and friends, which were deliberately excluded as previews that do not touch
   // the saved plan. state_residency's autosave moved with its table to
   // spending_mortgage_events, already listed.
-  const AUTOSAVE_STEPS=['household_people','income_work','income_retirement','lifestyle_spending','spending_core','spending_setup','retirement_wellness','spending_mortgage_events','ytd_transactions','holdings','assets_home_cash','annuity_death_benefits','assets_special','estate','strategy_optimize','economic_tax_assumptions','optional_functions','all_assumptions'];
+  // #329/#330 W9: heloc_strategy added -- it left strategy_optimize's
+  // aggregate autosave umbrella when it became its own Assets & Protection
+  // step, so it needs its own entry to keep autosaving like its new siblings
+  // (holdings/assets_home_cash/annuity_death_benefits/assets_special/estate).
+  const AUTOSAVE_STEPS=['household_people','income_work','income_retirement','lifestyle_spending','spending_core','spending_setup','retirement_wellness','spending_mortgage_events','ytd_transactions','holdings','assets_home_cash','annuity_death_benefits','assets_special','estate','heloc_strategy','strategy_optimize','economic_tax_assumptions','optional_functions','all_assumptions'];
   // #323 + Workbench: planning_workbench/planning_levers now redirect to
   // strategy_workbench, and the plan-loaded check below runs on the
   // POST-redirect id -- so the screen that now holds them is what has to be
@@ -82,8 +86,12 @@
     allocation_assets:{step:'strategy_optimize',section:'asset_allocation'},
     allocation_policy:{step:'strategy_optimize',section:'asset_allocation'},
     entity_charitable:{step:'strategy_optimize',section:'charitable_giving'},
-    heloc_strategy:{step:'strategy_optimize',section:'heloc'},
-    special_strategies:{step:'strategy_optimize',section:'heloc'},
+    // #329/#330 W9: heloc_strategy is a direct Assets & Protection step now,
+    // not an embedded strategySection -- no redirect needed, `setStep`
+    // resolves it like any other real id. special_strategies (dead per W6's
+    // notes; kept only for stray inbound references) now points at HELOC's
+    // real page instead of a strategySection key that no longer exists.
+    special_strategies:{step:'heloc_strategy'},
     monte_carlo_options:{step:'strategy_stress',section:'monte_carlo'},
     survivor_stress:{step:'strategy_stress',section:'survivor'},
     ltc_stress:{step:'strategy_stress',section:'ltc'},

@@ -1341,7 +1341,10 @@ const STRATEGY_SCREEN_MEMBER_STEPS = {
     "allocation_assets",
     "allocation_policy",
     "entity_charitable",
-    "heloc_strategy",
+    // #329/#330 W9: heloc_strategy moved to its own Assets & Protection nav
+    // step -- see STEPS in dashboard.js. It keeps returning its own rows
+    // unaggregated (via rawRowsForStep("heloc_strategy") directly); it is
+    // simply no longer one of Optimize's member steps.
   ],
   strategy_stress: [
     "monte_carlo_options",
@@ -2948,8 +2951,14 @@ export function renderFields(step) {
     !optionalFunctionEnabled("long_term_care_stress")
   )
     return '<div class="field-list"><p>Long-Term Care Stress inputs are hidden until the Long-Term-Care Stress optional workbook module is enabled on Plan Features.</p></div>';
-  if (step === "heloc_strategy" && !helocModuleEnabled())
-    return '<div class="field-list"><p>HELOC strategy inputs are hidden until Enable HELOC Strategy is turned on (HELOC → Setup).</p></div>';
+  // #329/#330 W9: generalized from a hand-written HELOC-only branch (the
+  // last of the two `rowsForStep`-adjacent HELOC special cases W6's notes
+  // named for W9) to read any plan-flag-gated step the same way
+  // strategySectionGatedNote() does -- moduleGates.flag_gates[step].ref is
+  // exactly sectionFlagEnabled()'s argument tuple.
+  const _flagGate = (moduleGates.flag_gates || {})[step];
+  if (_flagGate && !sectionFlagEnabled(..._flagGate.ref))
+    return `<div class="field-list"><p>${esc(_flagGate.name)} inputs are hidden until ${esc(_flagGate.enable_label)} is turned on (${_flagGate.ref.slice(0, 2).map((x) => esc(x)).join(" → ")}).</p></div>`;
   if (
     step === "entity_charitable" &&
     !optionalFunctionEnabled("charitable_giving")

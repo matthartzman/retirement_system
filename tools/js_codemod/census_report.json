@@ -2993,6 +2993,24 @@
       "scope": "inside-function"
     },
     {
+      "name": "sectionFlagEnabled",
+      "file": "frontend/js/dashboard_decomp_plan_features.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "boolishValue",
+      "file": "frontend/js/dashboard_decomp_plan_features.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "sectionFlagEnabled",
+      "file": "frontend/js/dashboard_decomp_plan_features.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
       "name": "boolishValue",
       "file": "frontend/js/dashboard_decomp_plan_features.js",
       "kind": "call",
@@ -4322,6 +4340,18 @@
       "name": "searchText",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "moduleGates",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "sectionFlagEnabled",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "call",
       "scope": "inside-function"
     },
     {
@@ -7004,6 +7034,42 @@
       "name": "moduleGates",
       "file": "frontend/js/dashboard_decomp_strategy_workspace.js",
       "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_strategy_workspace.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_strategy_workspace.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "withdrawalOtherRows",
+      "file": "frontend/js/dashboard_decomp_strategy_workspace.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "withdrawalOtherRows",
+      "file": "frontend/js/dashboard_decomp_strategy_workspace.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderWithdrawalOrderTable",
+      "file": "frontend/js/dashboard_decomp_strategy_workspace.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "withdrawalOtherRows",
+      "file": "frontend/js/dashboard_decomp_strategy_workspace.js",
+      "kind": "call",
       "scope": "inside-function"
     },
     {

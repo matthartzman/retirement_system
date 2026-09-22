@@ -152,6 +152,22 @@ const STEPS = [
     help: "HSA balances grow tax-free and should reflect intended use. Donor-advised fund configuration is set on Other Spending.",
   },
   {
+    // #329 O11 / #330 §4.3 (W9): moved from Strategy, where the section-list
+    // comment used to call it a special case ("the toggle itself must render
+    // here so it can be turned on in-place"). Assets & Protection is where
+    // #330 §4.3 already puts "coverage you hold" -- HELOC is a liability held
+    // against an asset, not an optimizer. No longer hidden/embedded inside
+    // Optimize's strategySection list: it is a direct nav entry now, next to
+    // the Other Assets page whose HELOC summary block already links here.
+    id: "heloc_strategy",
+    group: "Assets & Protection",
+    title: "Home Equity Line",
+    desc: "Bridge large discretionary spending with home equity, keeping invested assets untouched in early retirement.",
+    intro:
+      "Set credit limit, last draw year, and initial rate with drift. The projection draws from the line when large discretionary spending creates a cash gap, then repays the balance from home sale proceeds.",
+    help: "The strategy improves projected net worth when compound growth on the preserved liquid assets exceeds total borrowing costs. It worsens outcomes when interest drag or reduced home equity at sale outweigh the investment benefit.",
+  },
+  {
     id: "estate",
     group: "Assets & Protection",
     title: "Estate Inputs",
@@ -288,15 +304,6 @@ const STEPS = [
     helpLink: { id: "roth_conversion", label: "Open Strategy → Optimize (Roth Conversion)" },
     hidden: true,
   },
-  {
-    id: "heloc_strategy",
-    group: "Strategy",
-    title: "Home Equity Line",
-    desc: "Bridge large discretionary spending with home equity, keeping invested assets untouched in early retirement.",
-    intro:
-      "Set credit limit, last draw year, and initial rate with drift. The projection draws from the line when large discretionary spending creates a cash gap, then repays the balance from home sale proceeds.",
-    help: "The strategy improves projected net worth when compound growth on the preserved liquid assets exceeds total borrowing costs. It worsens outcomes when interest drag or reduced home equity at sale outweigh the investment benefit.",
-    hidden: true,  },
   {
     id: "entity_charitable",
     group: "Strategy",
@@ -2696,85 +2703,26 @@ function renderWithdrawalOrderTable() {
   const editor = window.withdrawalAccountOrderEditorHtml ? window.withdrawalAccountOrderEditorHtml() : "";
   return `<details><summary>Withdrawal order</summary><div class="field-list"><div class="section-note"><b>Individual-account draw order is user-configurable below.</b> Each account defaults to its registry order and draws first within its account type when priority is tied; set a lower number to draw an account earlier relative to others of the same type (e.g. which of two taxable brokerage accounts drains first). The account-<i>type</i> sequence itself is fixed by the engine and not user-configurable, since it follows tax rules rather than preference: ${esc(FIXED_WITHDRAWAL_CASCADE_DESCRIPTION)}. RMDs are mandatory income; Roth and home equity are preserved until other liquid sources are exhausted.</div>${editor}</div></details>`;
 }
+// #329 §3.3 (W9): hsaWithdrawalPolicyBlock/taxLossHarvestingBlock/
+// gainHarvestBlock/withdrawalMiscBlock used to be inlined directly inside
+// renderWithdrawalStrategy() below. Extracted into
+// dashboard_decomp_strategy_workspace.js (frontend size ratchet -- this file
+// only grows by taking an equal number of lines out elsewhere), and called
+// here as bare globals like every other cross-decomp-file call in this
+// codebase, so Optimize's new HSA Drawdown / Withdrawal Sequencing /
+// Harvesting sections can reuse the exact same row-filtering and rendering
+// the Spending workspace's "Withdrawal Order" tab already had -- one filter
+// predicate per concept, not duplicated in two files that could drift.
 function renderWithdrawalStrategy() {
   if (searchText.trim()) return renderFields("withdrawal_strategy");
   const other = withdrawalOtherRows();
-  const hsa = other.filter(
-    (r) => r.section === "HSA Policy" && r.subsection === "Withdrawals",
+  return (
+    renderWithdrawalOrderTable() +
+    hsaWithdrawalPolicyBlock(other) +
+    taxLossHarvestingBlock(other) +
+    gainHarvestBlock(other) +
+    withdrawalMiscBlock(other)
   );
-  const tlh = other.filter(
-    (r) =>
-      r.section === "Withdrawal Policy" &&
-      r.subsection === "Tax-Loss Harvesting",
-  );
-  // #277: Gain Harvest gets its own collapsible section, on par with TLH.
-  const gainHarvest = other.filter(
-    (r) => r.section === "Withdrawal Policy" && r.subsection === "Gain Harvesting",
-  );
-  const misc = other.filter(
-    (r) =>
-      !(r.section === "HSA Policy" && r.subsection === "Withdrawals") &&
-      !(
-        r.section === "Withdrawal Policy" &&
-        r.subsection === "Tax-Loss Harvesting"
-      ) &&
-      !(
-        r.section === "Withdrawal Policy" &&
-        r.subsection === "Gain Harvesting"
-      ),
-  );
-  let html = renderWithdrawalOrderTable();
-  if (hsa.length) {
-    const modeRow = hsa.find((r) => norm(r.label) === "hsa_withdrawal_mode");
-    const mode = String(modeRow ? valOf(modeRow) : "spend_as_needed")
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "_");
-    let visible = modeRow ? [modeRow] : [];
-    if (mode === "annual_pct" || mode === "annual_percent")
-      visible = visible.concat(
-        hsa.filter((r) =>
-          [
-            "hsa_withdrawal_pct",
-            "hsa_withdrawal_start_year",
-            "hsa_withdrawal_end_year",
-          ].includes(norm(r.label)),
-        ),
-      );
-    else if (mode === "smooth_window" || mode === "window")
-      visible = visible.concat(
-        hsa.filter((r) =>
-          [
-            "hsa_withdrawal_start_year",
-            "hsa_withdrawal_end_year",
-            "withdrawal_window",
-          ].includes(norm(r.label)),
-        ),
-      );
-    else if (mode === "optimize")
-      visible = visible.concat(hsaOptimizeVisibleRows(hsa));
-    else
-      visible = visible.concat(
-        hsa.filter(
-          (r) =>
-            ![
-              "hsa_withdrawal_pct",
-              "hsa_withdrawal_start_year",
-              "hsa_withdrawal_end_year",
-              "withdrawal_window",
-              "hsa_consume_by",
-              "hsa_min_ending_balance",
-            ].includes(norm(r.label)) && r !== modeRow,
-        ),
-      );
-    html += `<details><summary>HSA withdrawal policy</summary><div class="field-list"><div class="section-note"><b>Start here:</b> choose HSA withdrawal mode. The schedule fields below change based on that mode. Default is spend as needed, which hides annual-percentage and window controls.</div>${sortRowsByDependency(visible).map(fieldHtml).join("")}</div></details>`;
-  }
-  if (tlh.length)
-    html += `<details><summary>Tax Loss Harvesting</summary><div class="field-list"><div class="section-note">Controls whether and how the projection harvests capital losses from taxable-account lots each year.</div>${sortRowsByDependency(tlh).map(fieldHtml).join("")}</div></details>`;
-  if (gainHarvest.length)
-    html += `<details><summary>Gain Harvest</summary><div class="field-list"><div class="section-note">Controls whether and how the projection harvests capital gains from taxable-account lots each year (e.g. to fill up a low tax bracket).</div>${sortRowsByDependency(gainHarvest).map(fieldHtml).join("")}</div></details>`;
-  if (misc.length)
-    html += `<details><summary>Other funding and rollover settings</summary><div class="field-list"><div class="section-note">Annual funding tolerance and spousal rollover settings are operational assumptions. They affect workbook QC, survivor account consolidation, RMD timing, and late-life cash-flow output.</div>${sortRowsByDependency(misc).map(fieldHtml).join("")}</div></details>`;
-  return html;
 }
 
 const ROTH_PRIMARY_LABELS = [
@@ -3837,6 +3785,13 @@ let renderMain = function() {
   else if (activeStep === "assets_home_cash")
     content += renderAssetsCashReserves();
   else if (activeStep === "assets_special") content += renderAssetsSpecial();
+  // #329/#330 W9: HELOC moved from Strategy → Assets & Protection (a plan
+  // input against a held asset, not an optimizer). Same content, same
+  // analysisFrame wrapper it always had inside Optimize's strategySection --
+  // only the nav entry point changed, from an embedded section to a direct
+  // step.
+  else if (activeStep === "heloc_strategy")
+    content += analysisFrame(renderHelocOptimizePanel(), "strategy");
   else if (activeStep === "estate") content += renderEstateWithAnnuityLink();
   else if (activeStep === "annuity_death_benefits")
     content += renderSpecialIncomeAnnuitiesInsurance();

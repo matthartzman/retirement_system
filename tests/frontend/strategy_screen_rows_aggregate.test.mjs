@@ -69,9 +69,18 @@ function rawRows(id, rowsOverride) {
 }
 
 describe("rawRowsForStep aggregates the constituent legacy ids (ticket 323)", () => {
-  test("strategy_optimize unions roth_conversion, allocation_assets, allocation_policy, entity_charitable, heloc_strategy", () => {
+  // #329/#330 W9: heloc_strategy left this union when it became its own
+  // Assets & Protection step -- row 5 (HELOC) is still reachable directly
+  // via rawRowsForStep("heloc_strategy") below, just no longer through
+  // strategy_optimize's aggregate.
+  test("strategy_optimize unions roth_conversion, allocation_assets, allocation_policy, entity_charitable", () => {
     const indices = rawRows("strategy_optimize").map((r) => r.row_index).sort();
-    assert.deepEqual(indices, [1, 2, 3, 4, 5]);
+    assert.deepEqual(indices, [1, 2, 3, 4]);
+  });
+
+  test("heloc_strategy still returns its own row directly, unaggregated", () => {
+    const indices = rawRows("heloc_strategy").map((r) => r.row_index).sort();
+    assert.deepEqual(indices, [5]);
   });
 
   test("strategy_stress unions monte_carlo_options, survivor_stress, ltc_stress, divorce_options", () => {
