@@ -328,6 +328,163 @@
     return '<div class="detail-readability-tools" data-roadmap11="detail-readability"><b>Workbook readability</b><span>Use sheet search, summaries, and quick jumps to inspect important rows before sending reports.</span><input id="roadmap11DetailJumpSearch" class="search" placeholder="Jump to row text…" oninput="window.RPDashboardRoadmap11.filterDetailJump(this.value)"><div id="roadmap11DetailJumps" class="detail-jump-list"></div></div>';
   }
 
+  // #329 §4.7 (W10b): row badge + section banner for values that are live
+  // optimizer output, built on this file's own SOURCE_TRUTH_STEPS/badge
+  // machinery rather than a second, differently-styled disclosure system --
+  // exactly what §4.7 warns against. Scoped to the three "policy adoption
+  // (mode switch)" optimizers §4.3 names (Roth Conversion, HSA Drawdown,
+  // Asset Allocation): each has a single mode/policy row whose value decides
+  // whether the engine mutates the projection from a candidate it computed,
+  // continuously, on every build (§4.1a) -- the exact behavior this
+  // disclosure exists to name. Scalar/structural/trade-list optimizers
+  // (Social Security, Withdrawal Sequencing, Housing, Charitable Giving,
+  // Harvesting) have no such switch, so they are out of scope by
+  // construction, not by omission.
+  //
+  // Each entry's `isLive()` reuses the exact classification its own input
+  // renderer already computes (rothPolicyIsOptimizer, hsaWithdrawalModeValue,
+  // allocationModeIsComputed) rather than a second copy of the same string
+  // match -- the hand-maintained-twin failure #329/#330 exist to end.
+  const LIVE_OPTIMIZER_MODES = [
+    {
+      key: "roth_conversion",
+      title: "Roth Conversion",
+      rowLabel: "roth_conversion_policy",
+      isLive: function () {
+        try {
+          return rothPolicyIsOptimizer(rothPolicyValue());
+        } catch (_e) {
+          return false;
+        }
+      },
+    },
+    {
+      key: "hsa_drawdown",
+      title: "HSA Drawdown",
+      rowLabel: "hsa_withdrawal_mode",
+      isLive: function () {
+        try {
+          return hsaWithdrawalModeValue() === "optimize";
+        } catch (_e) {
+          return false;
+        }
+      },
+    },
+    {
+      key: "asset_allocation",
+      title: "Asset Allocation",
+      rowLabel: "allocation_selection_mode",
+      isLive: function () {
+        try {
+          return allocationModeIsComputed(allocationSelectionMode());
+        } catch (_e) {
+          return false;
+        }
+      },
+    },
+  ];
+
+  function liveOptimizerModeRow(entry) {
+    try {
+      return rowByNormLabel(entry.rowLabel) || null;
+    } catch (_e) {
+      return null;
+    }
+  }
+
+  // Pure HTML builders, split out from the DOM-writing functions below the
+  // same way sourceTruthHtml()/insertAfterPaneHead() already split above --
+  // so the markup itself (content, escaping) is directly testable without a
+  // real DOM.
+  function liveOptimizerBadgeHtml(title) {
+    return (
+      '<span class="badge live" data-roadmap11="live-optimizer-badge" title="' +
+      escHtml(
+        title +
+          " is set to an optimizing mode: the plan recomputes this every build rather than using a value you last set.",
+      ) +
+      '">Live optimizer output</span>'
+    );
+  }
+
+  // rowIndex is optional: the jump button only renders when the mode row was
+  // actually found, so a missing row degrades to a banner with no dead link
+  // rather than throwing.
+  function liveOptimizerBannerHtml(title, rowIndex) {
+    const jump =
+      rowIndex == null
+        ? ""
+        : ' <button type="button" class="btn tiny" onclick="window.RPDashboardRoadmap11.jumpToLiveOptimizerRow(' +
+          rowIndex +
+          ');return false">Change to a fixed strategy</button>';
+    return (
+      '<div class="live-optimizer-banner" data-roadmap11="live-optimizer-banner"><b>Live optimizer output:</b> ' +
+      escHtml(title) +
+      " re-optimizes on every build. These numbers are not locked in." +
+      jump +
+      "</div>"
+    );
+  }
+
+  // The mode row itself, not a guess at which downstream fields the engine
+  // does or does not honor once optimizing: §4.1a's auto-optimize path
+  // mutates the in-memory config with the winning candidate's overrides and
+  // never writes them back to a CSV row, so there is no separate "output"
+  // row to point at for any of the three today. The mode row is the one
+  // fact every reader can see and act on -- flip it, and the section stops
+  // self-optimizing.
+  function liveOptimizerRowBadges() {
+    LIVE_OPTIMIZER_MODES.forEach(function (entry) {
+      if (!entry.isLive()) return;
+      const row = liveOptimizerModeRow(entry);
+      if (!row) return;
+      const field = byId("field-" + row.row_index);
+      if (!field) return;
+      const meta = field.querySelector(".field-meta");
+      if (!meta || meta.querySelector('[data-roadmap11="live-optimizer-badge"]'))
+        return;
+      meta.insertAdjacentHTML("beforeend", liveOptimizerBadgeHtml(entry.title));
+    });
+  }
+
+  // Runs only on the Optimize screen, where each optimizer has its own
+  // collapsible strategySection (data-dkey="strategy:<key>") -- unlike
+  // SOURCE_TRUTH_STEPS above, one banner per whole step would not say which
+  // optimizer it is about, so this inserts per-section instead of via
+  // insertAfterPaneHead.
+  function liveOptimizerSectionBanners() {
+    if (currentStep() !== "strategy_optimize") return;
+    LIVE_OPTIMIZER_MODES.forEach(function (entry) {
+      if (!entry.isLive()) return;
+      const section = document.querySelector(
+        '[data-dkey="strategy:' + entry.key + '"]',
+      );
+      if (!section) return;
+      const header = section.querySelector(".section-header");
+      if (!header || section.querySelector('[data-roadmap11="live-optimizer-banner"]'))
+        return;
+      // The "Lock in this schedule" affordance §4.7 describes is W10c's
+      // apply-to-plan patch (§4.3/§4.4) -- not built yet. Rather than a
+      // button that claims to do that and does not, the banner's jump
+      // button goes to the same mode row the badge above marks, which is
+      // the one working way to stop the section from re-optimizing today:
+      // switch the policy off "optimize" by hand.
+      const row = liveOptimizerModeRow(entry);
+      header.insertAdjacentHTML(
+        "afterend",
+        liveOptimizerBannerHtml(entry.title, row ? row.row_index : null),
+      );
+    });
+  }
+
+  function jumpToLiveOptimizerRow(rowIndex) {
+    const field = byId("field-" + rowIndex);
+    if (!field) return;
+    field.scrollIntoView({ block: "center", behavior: "smooth" });
+    const control = field.querySelector("select,input");
+    if (control) control.focus();
+  }
+
   function addStaleAdvisorNotice() {
     const step = currentStep();
     if (!["review", "build_impact", "detailed_results"].includes(step)) return;
@@ -434,6 +591,8 @@
       "detail-readability",
     );
     addStaleAdvisorNotice();
+    liveOptimizerRowBadges();
+    liveOptimizerSectionBanners();
     decorateGlossary(mainPane());
     decorateGlossary(byId("helpPanel"));
     buildDetailJumpList();
@@ -527,6 +686,13 @@
   window.RPDashboardRoadmap11.saveSkipReason = saveSkipReason;
   window.RPDashboardRoadmap11.expandPrintableSections = expandPrintableSections;
   window.RPDashboardRoadmap11.filterDetailJump = filterDetailJump;
+  window.RPDashboardRoadmap11.jumpToLiveOptimizerRow = jumpToLiveOptimizerRow;
+  // Exposed for tests (tests/frontend/live_optimizer_disclosure.test.mjs):
+  // the pure markup builders and the live-mode classification, independent
+  // of the DOM-writing functions above that call them.
+  window.RPDashboardRoadmap11.liveOptimizerModes = LIVE_OPTIMIZER_MODES;
+  window.RPDashboardRoadmap11.liveOptimizerBadgeHtml = liveOptimizerBadgeHtml;
+  window.RPDashboardRoadmap11.liveOptimizerBannerHtml = liveOptimizerBannerHtml;
   installShortcuts();
   if (document.readyState === "loading")
     document.addEventListener("DOMContentLoaded", applyEnhancements);

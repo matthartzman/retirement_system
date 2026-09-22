@@ -302,7 +302,19 @@ DASHBOARD_JS_MAX_LINES = 7_201
 # (33,992 -> 33,997 in the same workstream: loadAll() clears the panel's
 # cached /api/summary read on a plan switch, beside the resetAllocationPreview()
 # call that is there for the same reason one plan over.)
-TOTAL_JS_MAX_LINES = 33_997
+# 2026-09-22 (W10b, #329 §4.7): raised from 33,997 to 34,188 -- the row
+# badge + section banner disclosing that a section's numbers are live
+# optimizer output, built on dashboard_source_truth_banners.js's existing
+# SOURCE_TRUTH_STEPS/badge machinery per the plan's own instruction, not a
+# parallel indicator system. dashboard.js is untouched (still 7,201): every
+# new line lives in dashboard_source_truth_banners.js (the disclosure
+# itself), plus two small named-export extractions this reuses rather than
+# duplicating (rothPolicyIsOptimizer in dashboard_decomp_allocation_
+# optimizer.js, hsaWithdrawalModeValue in dashboard_decomp_strategy_
+# workspace.js) so the "is this optimizing" classification has one
+# definition, not a second copy in the banner file. Genuine new behavior,
+# not duplication, per this constant's own contract.
+TOTAL_JS_MAX_LINES = 34_188
 
 
 def _line_count(path: Path) -> int:

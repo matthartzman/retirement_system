@@ -904,6 +904,19 @@ export function renderRothOptimizerResultPanel() {
   return '<div class="section-note">The last build recorded no Roth optimizer result. Build Reports again to produce one.</div>';
 }
 
+// #329 §4.7 (W10b): named export rather than an inline const inside
+// renderRothConversion() -- dashboard_source_truth_banners.js's live-
+// optimizer disclosure needs this exact classification too, and a second
+// copy of the same string match is the hand-maintained-twin failure #329/
+// #330 exist to end.
+export function rothPolicyIsOptimizer(policy) {
+  return (
+    policy.includes("optimize") ||
+    policy.includes("optimizer") ||
+    policy === "balanced_retirement"
+  );
+}
+
 export function renderRothConversion() {
   if (searchText.trim()) return renderFields("roth_conversion");
   const policy = rothPolicyValue();
@@ -926,10 +939,7 @@ export function renderRothConversion() {
     policy === "fill_target_bracket";
   const policyIsIrmaa =
     policy === "fill_to_irmaa" || policy === "irmaa_guarded";
-  const policyIsOptimizer =
-    policy.includes("optimize") ||
-    policy.includes("optimizer") ||
-    policy === "balanced_retirement";
+  const policyIsOptimizer = rothPolicyIsOptimizer(policy);
   if (policyIsFixed) {
     strategy = orderedRowsByLabel([
       "roth_fixed_annual_amount",
@@ -1127,6 +1137,7 @@ Object.assign(window, {
   renderAllocationRecommendation,
   orderedRowsByLabel,
   rothPolicyValue,
+  rothPolicyIsOptimizer,
   irmaaModeValue,
   renderRothRows,
   renderRothMissingNotice,
