@@ -21,6 +21,14 @@ const TAXONOMY = {
     roth_conversion_plan: { name: "Roth Conversion", kind: "optimization", domain: "Taxes", demand: "high" },
     tax_loss_harvesting: { name: "Tax-Loss Harvesting", kind: "optimization", domain: "Taxes", demand: "low" },
     market_luck_stress_test: { name: "Monte Carlo", kind: "stress_test", domain: "Risk & Resilience", demand: "medium" },
+    // #330 §5.3 (W9): a plan flag, carried in taxonomy.modules like every
+    // other entry but with no client_optional_functions.csv toggle row --
+    // planFeatureGroups must still surface it, from the taxonomy alone.
+    heloc: {
+      name: "HELOC", kind: "optimization", domain: "Assets & Protection", demand: "low",
+      gate_kind: "plan_flag", gate_ref: ["HELOC", "Setup", "heloc_enabled"],
+      gate_enable_label: "Enable HELOC Strategy",
+    },
   },
 };
 
@@ -49,9 +57,13 @@ const TOGGLE_ROWS = [
 
 describe("planFeatureGroups", () => {
   test("groups by domain in the catalog's own domain order", () => {
+    // "Assets & Protection" (the HELOC plan flag's domain) is not in
+    // TAXONOMY.domains, so it sorts last, after every known domain -- same
+    // rule "a toggle with no catalog entry still renders, under Other"
+    // below exercises for an unclassified module.
     assert.deepEqual(
       groups(TOGGLE_ROWS, TAXONOMY, "").map((g) => g.domain),
-      ["Income & Benefits", "Taxes", "Risk & Resilience"],
+      ["Income & Benefits", "Taxes", "Risk & Resilience", "Assets & Protection"],
     );
   });
 
@@ -75,6 +87,30 @@ describe("planFeatureGroups", () => {
     assert.deepEqual(gs[0].keys, ["market_luck_stress_test"]);
   });
 
+  // #330 §5.3 (W9): Plan Features must list a plan flag too, as a link to
+  // the page that owns its data -- but it has no client_optional_functions.csv
+  // row, so the ordinary toggle-row loop above never sees it.
+  test("a plan flag with no toggle row still renders, from the taxonomy alone", () => {
+    const gs = groups(TOGGLE_ROWS, TAXONOMY, "");
+    const assetsProtection = gs.find((g) => g.domain === "Assets & Protection");
+    assert.ok(assetsProtection, "expected an Assets & Protection group for the HELOC plan flag");
+    assert.deepEqual(assetsProtection.keys, ["heloc"]);
+  });
+
+  test("a plan flag respects the kind filter like any other entry", () => {
+    const gs = groups(TOGGLE_ROWS, TAXONOMY, "stress_test");
+    assert.equal(gs.find((g) => g.domain === "Assets & Protection"), undefined);
+  });
+
+  test("a plan flag is never listed twice, even if it somehow also carries a toggle row", () => {
+    // Guarded on the data side too (test_every_optional_module_has_a_toggle_row,
+    // Python) -- this is the defensive frontend half of the same double-gate
+    // #330 Q2 removed from DAF.
+    const gs = groups([...TOGGLE_ROWS, row("heloc")], TAXONOMY, "");
+    const assetsProtection = gs.find((g) => g.domain === "Assets & Protection");
+    assert.equal(assetsProtection.keys.length, 1);
+  });
+
   test("survives a taxonomy that has not loaded yet", () => {
     // Everything lands in "Other" with no demand to rank by, so the name
     // tiebreaker decides -- alphabetical, and deterministic, rather than
@@ -90,21 +126,54 @@ describe("planFeatureGroups", () => {
         ],
       },
     ]);
-    assert.deepEqual(groups(undefined, TAXONOMY, ""), []);
+    // #330 §5.3 (W9): no toggle rows at all, but a plan flag still renders --
+    // it never depended on toggleRows in the first place.
+    assert.deepEqual(groups(undefined, TAXONOMY, ""), [
+      { domain: "Assets & Protection", keys: ["heloc"] },
+    ]);
   });
 });
 
 describe("planFeatureKinds", () => {
-  test("offers only kinds actually present among the toggle rows", () => {
-    // Never a filter that would empty the page.
+  test("offers only kinds actually present among the toggle rows or plan flags", () => {
+    // Never a filter that would empty the page. "optimization" is already
+    // present via roth_conversion_plan/tax_loss_harvesting -- the HELOC plan
+    // flag (also "optimization") adds nothing new here, so this alone
+    // doesn't prove plan flags are included; the next test does.
     assert.deepEqual(here(sandbox.planFeatureKinds(TOGGLE_ROWS, TAXONOMY)), [
       "optimization",
       "stress_test",
     ]);
   });
 
+  test("includes a kind that only a plan flag carries", () => {
+    // Without a toggle row of its own, a plan flag would be invisible to a
+    // kind filter built only from toggleRows -- exactly the "unreachable by
+    // kind" bug this covers.
+    const taxonomy = {
+      ...TAXONOMY,
+      modules: {
+        ...TAXONOMY.modules,
+        hybrid_ltc_policy: {
+          name: "LTC/Life Policy", kind: "protection", domain: "Assets & Protection", demand: "low",
+          gate_kind: "plan_flag", gate_ref: ["Hybrid LTC", "Settings", "enabled"],
+          gate_enable_label: "Enabled",
+        },
+      },
+    };
+    assert.deepEqual(here(sandbox.planFeatureKinds(TOGGLE_ROWS, taxonomy)), [
+      "optimization",
+      "protection",
+      "stress_test",
+    ]);
+  });
+
   test("is empty when nothing is classified", () => {
-    assert.deepEqual(here(sandbox.planFeatureKinds([row("mystery_module")], TAXONOMY)), []);
+    // A taxonomy with no plan flag in it (TAXONOMY now carries one, "heloc")
+    // -- this proves the empty case on its own terms, not by coincidence of
+    // what else the shared fixture happens to carry.
+    const taxonomy = { ...TAXONOMY, modules: {} };
+    assert.deepEqual(here(sandbox.planFeatureKinds([row("mystery_module")], taxonomy)), []);
   });
 });
 

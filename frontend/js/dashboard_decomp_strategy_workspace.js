@@ -110,6 +110,112 @@ export function renderStrategyScreen(sections) {
     .join("");
 }
 
+// #329 §3.3 (W9): hsaWithdrawalPolicyBlock/taxLossHarvestingBlock/
+// gainHarvestBlock/withdrawalMiscBlock moved here from dashboard.js (the
+// frontend size ratchet -- see tests/test_frontend_size_ratchet.py -- only
+// allows growth there by taking an equal number of lines out). Each is one
+// row-filtering concept lifted unchanged from what
+// dashboard.js's renderWithdrawalStrategy() (the Spending workspace's
+// "Withdrawal Order" tab) already rendered inline, so Optimize's new HSA
+// Drawdown / Withdrawal Sequencing / Harvesting sections below reuse the
+// exact same filters and markup rather than duplicating them.
+export function hsaWithdrawalPolicyBlock(other) {
+  const hsa = other.filter(
+    (r) => r.section === "HSA Policy" && r.subsection === "Withdrawals",
+  );
+  if (!hsa.length) return "";
+  const modeRow = hsa.find((r) => norm(r.label) === "hsa_withdrawal_mode");
+  const mode = String(modeRow ? valOf(modeRow) : "spend_as_needed")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_");
+  let visible = modeRow ? [modeRow] : [];
+  if (mode === "annual_pct" || mode === "annual_percent")
+    visible = visible.concat(
+      hsa.filter((r) =>
+        [
+          "hsa_withdrawal_pct",
+          "hsa_withdrawal_start_year",
+          "hsa_withdrawal_end_year",
+        ].includes(norm(r.label)),
+      ),
+    );
+  else if (mode === "smooth_window" || mode === "window")
+    visible = visible.concat(
+      hsa.filter((r) =>
+        [
+          "hsa_withdrawal_start_year",
+          "hsa_withdrawal_end_year",
+          "withdrawal_window",
+        ].includes(norm(r.label)),
+      ),
+    );
+  else if (mode === "optimize")
+    visible = visible.concat(hsaOptimizeVisibleRows(hsa));
+  else
+    visible = visible.concat(
+      hsa.filter(
+        (r) =>
+          ![
+            "hsa_withdrawal_pct",
+            "hsa_withdrawal_start_year",
+            "hsa_withdrawal_end_year",
+            "withdrawal_window",
+            "hsa_consume_by",
+            "hsa_min_ending_balance",
+          ].includes(norm(r.label)) && r !== modeRow,
+      ),
+    );
+  return `<details><summary>HSA withdrawal policy</summary><div class="field-list"><div class="section-note"><b>Start here:</b> choose HSA withdrawal mode. The schedule fields below change based on that mode. Default is spend as needed, which hides annual-percentage and window controls.</div>${sortRowsByDependency(visible).map(fieldHtml).join("")}</div></details>`;
+}
+export function taxLossHarvestingBlock(other) {
+  const tlh = other.filter(
+    (r) =>
+      r.section === "Withdrawal Policy" &&
+      r.subsection === "Tax-Loss Harvesting",
+  );
+  if (!tlh.length) return "";
+  return `<details><summary>Tax Loss Harvesting</summary><div class="field-list"><div class="section-note">Controls whether and how the projection harvests capital losses from taxable-account lots each year.</div>${sortRowsByDependency(tlh).map(fieldHtml).join("")}</div></details>`;
+}
+// #277: Gain Harvest gets its own collapsible section, on par with TLH.
+export function gainHarvestBlock(other) {
+  const gainHarvest = other.filter(
+    (r) => r.section === "Withdrawal Policy" && r.subsection === "Gain Harvesting",
+  );
+  if (!gainHarvest.length) return "";
+  return `<details><summary>Gain Harvest</summary><div class="field-list"><div class="section-note">Controls whether and how the projection harvests capital gains from taxable-account lots each year (e.g. to fill up a low tax bracket).</div>${sortRowsByDependency(gainHarvest).map(fieldHtml).join("")}</div></details>`;
+}
+export function withdrawalMiscBlock(other) {
+  const misc = other.filter(
+    (r) =>
+      !(r.section === "HSA Policy" && r.subsection === "Withdrawals") &&
+      !(
+        r.section === "Withdrawal Policy" &&
+        r.subsection === "Tax-Loss Harvesting"
+      ) &&
+      !(
+        r.section === "Withdrawal Policy" &&
+        r.subsection === "Gain Harvesting"
+      ),
+  );
+  if (!misc.length) return "";
+  return `<details><summary>Other funding and rollover settings</summary><div class="field-list"><div class="section-note">Annual funding tolerance and spousal rollover settings are operational assumptions. They affect workbook QC, survivor account consolidation, RMD timing, and late-life cash-flow output.</div>${sortRowsByDependency(misc).map(fieldHtml).join("")}</div></details>`;
+}
+
+// #329 §3.3 (W9): Social Security has no page of its own -- its claiming-age
+// rows live on the "SS, Pensions & Annuities" step (income_retirement)
+// alongside pensions/annuities. This filters to the Social Security rows
+// only, matching rowsForStep("income_retirement")'s own
+// `sec === "Social Security"` half exactly, and links out for the rest
+// (pensions/annuities) rather than duplicating them here.
+function socialSecurityOptimizePanelHtml() {
+  const rows = rowsForStep("income_retirement").filter(
+    (r) => r.section === "Social Security",
+  );
+  if (!rows.length)
+    return '<div class="field-list"><p class="small">No Social Security rows found.</p></div>';
+  return `<div class="field-list"><div class="section-note">Claiming age and benefit assumptions. Pensions and annuities are entered on <button class="btn linklike" type="button" data-step-id="income_retirement">SS, Pensions &amp; Annuities</button>.</div>${sortRowsByDependency(rows).map(fieldHtml).join("")}</div>`;
+}
+
 export function renderStrategyOptimize() {
   return renderStrategyScreen([
     {
@@ -118,6 +224,23 @@ export function renderStrategyOptimize() {
       gate: "roth_conversion",
       body: () => analysisFrame(renderRothConversion(), "strategy"),
     },
+    // #329 §3.3 (W9): "add" -- was reachable only by setting a mode field on
+    // Other Assets and Liabilities, with no visible consequence. Reuses the
+    // exact HSA-withdrawal-policy block the Spending workspace's Withdrawal
+    // Order tab already renders (dashboard.js's hsaWithdrawalPolicyBlock()),
+    // not a new renderer.
+    {
+      key: "hsa_drawdown",
+      title: "HSA Drawdown",
+      gate: null,
+      body: () => {
+        const html = hsaWithdrawalPolicyBlock(withdrawalOtherRows());
+        return (
+          html ||
+          '<div class="field-list"><p class="small">No HSA withdrawal policy rows — configure HSA on Other Assets and Liabilities.</p></div>'
+        );
+      },
+    },
     {
       key: "asset_allocation",
       title: "Asset Allocation",
@@ -125,6 +248,24 @@ export function renderStrategyOptimize() {
       body: () =>
         analysisFrame(renderAllocationRecommendation(), "strategy") +
         `<details class="decide-embed-sub" open><summary>Allocation policy settings</summary>${renderAllocationPolicy()}</details>`,
+    },
+    // #329 §1.2/§3.3 (W9): "hidden → restore". Reuses the withdrawal-order
+    // table and the misc funding/rollover settings the Withdrawal Order tab
+    // already renders.
+    {
+      key: "withdrawal_sequencing",
+      title: "Withdrawal Sequencing",
+      gate: null,
+      body: () => {
+        const other = withdrawalOtherRows();
+        return renderWithdrawalOrderTable() + withdrawalMiscBlock(other);
+      },
+    },
+    {
+      key: "social_security",
+      title: "Social Security",
+      gate: null,
+      body: () => socialSecurityOptimizePanelHtml(),
     },
     {
       key: "housing",
@@ -145,14 +286,25 @@ export function renderStrategyOptimize() {
       gate: "entity_charitable",
       body: () => analysisFrame(renderEntityCharitable(), "strategy"),
     },
+    // #329 §3.3 (W9): "add, as one panel" -- TLH and Gain Harvest together,
+    // reusing the Withdrawal Order tab's own two blocks.
     {
-      key: "heloc",
-      title: "HELOC",
-      // Not full-section gated (unlike before): the toggle itself must
-      // render here so it can be turned on in-place, like QCD/DAF above.
+      key: "harvesting",
+      title: "Harvesting",
       gate: null,
-      body: () => analysisFrame(renderHelocOptimizePanel(), "strategy"),
+      body: () => {
+        const other = withdrawalOtherRows();
+        const html = taxLossHarvestingBlock(other) + gainHarvestBlock(other);
+        return (
+          html ||
+          '<div class="field-list"><p class="small">No harvesting rows configured.</p></div>'
+        );
+      },
     },
+    // #329 O11 / #330 §4.3 (W9): HELOC moved to Assets & Protection -- a
+    // liability held against an asset, not an optimizer. Its own nav step
+    // (heloc_strategy) renders the same renderHelocOptimizePanel() body it
+    // always did; it is no longer embedded here.
   ]);
 }
 
@@ -277,4 +429,8 @@ Object.assign(window, {
   renderStrategyStress,
   renderStrategyScenarios,
   renderStrategyWorkbench,
+  hsaWithdrawalPolicyBlock,
+  taxLossHarvestingBlock,
+  gainHarvestBlock,
+  withdrawalMiscBlock,
 });

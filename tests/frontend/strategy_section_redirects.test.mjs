@@ -95,8 +95,6 @@ describe("legacy Strategy step ids land on the right screen and section", () => 
     allocation_assets: "asset_allocation",
     allocation_policy: "asset_allocation",
     entity_charitable: "charitable_giving",
-    heloc_strategy: "heloc",
-    special_strategies: "heloc",
   };
   for (const [legacy, section] of Object.entries(OPTIMIZE)) {
     test(`${legacy} -> Optimize / ${section}`, () => {
@@ -161,6 +159,21 @@ describe("destinations that left Strategy entirely", () => {
 
   test("timing_tax lands on the Housing page", () => {
     assert.equal(go("timing_tax"), "spending_mortgage_events");
+  });
+
+  // #329/#330 W9: heloc_strategy is a direct Assets & Protection step now,
+  // not an embedded strategySection -- setStep resolves it like any other
+  // real id, with no SECTION_REDIRECTS entry and no section forced open.
+  // special_strategies (dead per W6's notes) now points at the same real
+  // page instead of a strategySection key that no longer exists.
+  test("heloc_strategy lands directly on its own Assets & Protection page", () => {
+    assert.equal(go("heloc_strategy"), "heloc_strategy");
+    assert.deepEqual(openedSections, []);
+  });
+
+  test("special_strategies lands on the same HELOC page", () => {
+    assert.equal(go("special_strategies"), "heloc_strategy");
+    assert.deepEqual(openedSections, []);
   });
 
   test("withdrawal_strategy lands on the Spending workspace's own tab, not on Strategy", () => {

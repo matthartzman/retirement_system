@@ -191,22 +191,42 @@ describe("strategySection lazy body (ticket 323)", () => {
 // their own "first-visit default open state" block below; this block only
 // needs to correctly describe what these three specific calls produce.)
 describe("the four Strategy screens (ticket 323 + Workbench)", () => {
-  test("Optimize renders its five sections; the first (Roth Conversion) opens with its real body, the rest stay collapsed", () => {
+  // #329 §3.3 (W9): Optimize grew from five sections to eight -- HSA
+  // Drawdown, Withdrawal Sequencing, Social Security and Harvesting added
+  // (each "reachable only by setting a field with no visible consequence"
+  // or hidden entirely before this); HELOC left for its own Assets &
+  // Protection step (O11 / #330 §4.3).
+  test("Optimize renders its eight sections; the first (Roth Conversion) opens with its real body, the rest stay collapsed", () => {
     const html = sandbox.renderStrategyOptimize();
     for (const key of [
       "roth_conversion",
+      "hsa_drawdown",
       "asset_allocation",
+      "withdrawal_sequencing",
+      "social_security",
       "housing",
       "charitable_giving",
-      "heloc",
+      "harvesting",
     ]) {
       assert.ok(
         html.includes(`data-dkey="strategy:${key}"`),
         `missing section ${key}`,
       );
     }
+    assert.ok(
+      !html.includes('data-dkey="strategy:heloc"'),
+      "heloc must no longer live under Optimize",
+    );
     assert.match(html, /data-dkey="strategy:roth_conversion"[^>]*\sopen/);
-    for (const key of ["asset_allocation", "housing", "charitable_giving", "heloc"]) {
+    for (const key of [
+      "hsa_drawdown",
+      "asset_allocation",
+      "withdrawal_sequencing",
+      "social_security",
+      "housing",
+      "charitable_giving",
+      "harvesting",
+    ]) {
       assert.doesNotMatch(
         html,
         new RegExp(`data-dkey="strategy:${key}"[^>]*\\sopen`),
@@ -370,7 +390,10 @@ describe("deletions stay deleted (ticket 323)", () => {
     assert.equal(typeof sandbox.renderDistributionStrategy, "undefined");
   });
 
-  test("ssClaimAgeCoordinationSummaryHtml is gone -- Optimize has no Social Security section", () => {
+  // #329 §3.3 (W9): Optimize does have a Social Security section again --
+  // socialSecurityOptimizePanelHtml() (dashboard_decomp_strategy_workspace.js),
+  // built from rowsForStep("income_retirement"), not this deleted function.
+  test("ssClaimAgeCoordinationSummaryHtml is still gone -- superseded, not resurrected", () => {
     assert.equal(typeof sandbox.ssClaimAgeCoordinationSummaryHtml, "undefined");
   });
 });

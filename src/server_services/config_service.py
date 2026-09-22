@@ -166,6 +166,17 @@ class ConfigService:
                         for dep, loses in soft_dependents(key)
                     ],
                     "engine_participation": m.engine_participation,
+                    # #330 §5.3 (W9): Plan Features lists a plan flag too, but
+                    # as a link to the page that owns its data rather than a
+                    # toggle -- it has no client_optional_functions.csv row
+                    # for the loop that builds every other row on this page to
+                    # find. Served per-module (not only via flag_gate_map(),
+                    # which is dashboard_step-keyed and so covers only HELOC)
+                    # so Hybrid LTC/DAF/QCD -- none of which own a
+                    # dashboard_step -- are still discoverable here.
+                    "gate_kind": m.gate_kind,
+                    "gate_ref": list(m.gate_ref) if m.gate_ref else None,
+                    "gate_enable_label": m.gate_enable_label,
                 }
                 for key, m in CATALOG.items()
             },

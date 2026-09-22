@@ -32,9 +32,11 @@ def test_special_strategies_is_unreachable_so_it_needs_no_gate_of_its_own():
     2. The STEPS entry is an ungrouped, hidden shell (#323 kept it only so row
        routing still keys off the id), and visibleSteps() drops a
        `group === null` step before gating could matter.
-    3. navigation.js redirects the id to strategy_optimize, so it can never
-       become the active step either -- the one case where visibleSteps()
-       ignores the group check.
+    3. navigation.js redirects the id (to heloc_strategy since #329/#330 W9
+       moved HELOC off strategy_optimize -- the redirect target changed, the
+       fact that it always redirects rather than becoming active did not), so
+       it can never become the active step either -- the one case where
+       visibleSteps() ignores the group check.
     """
     dash = dashboard_all()
     assert "showAdvanced" not in dash
@@ -53,7 +55,7 @@ def test_special_strategies_is_unreachable_so_it_needs_no_gate_of_its_own():
 
     # (3) the redirect that keeps it from ever being the active step
     nav = text(ROOT / "frontend" / "js" / "navigation.js")
-    assert "special_strategies:{step:'strategy_optimize'" in nav
+    assert "special_strategies:{step:'heloc_strategy'}" in nav
 
 
 def test_heloc_step_gating_is_declared_not_hand_written():
@@ -64,6 +66,18 @@ def test_heloc_step_gating_is_declared_not_hand_written():
     dash = dashboard_all()
     assert 'if (stepId === "heloc_strategy") return !helocModuleEnabled();' not in dash
     assert "moduleGates.flag_gates" in dash
+
+
+def test_helocs_empty_page_note_is_also_declared_not_hand_written():
+    """#329/#330 W9: rowsForStep()'s renderFields() note -- the LAST hand-
+    written HELOC-only branch named in W6's handoff to W9 -- now reads
+    moduleGates.flag_gates[step] generically (like the two branches above,
+    which W6 already removed) instead of a HELOC-only `if`."""
+    dash = dashboard_all()
+    assert (
+        'if (step === "heloc_strategy" && !helocModuleEnabled())' not in dash
+    )
+    assert "(moduleGates.flag_gates || {})[step]" in dash
 
 
 def test_roth_policy_controls_relevance_and_bracket_strategy_visibility():

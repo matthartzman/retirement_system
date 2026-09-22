@@ -89,6 +89,22 @@ export function enteredRowCount(rows) {
   }).length;
 }
 
+// #330 §5.3 (W9): where each plan flag's row actually renders for editing.
+// Not mechanically derivable from the catalog the way a module toggle's
+// dashboard_step is: HELOC has one (moduleGates.flag_gates), but Hybrid
+// LTC/DAF/QCD don't, and the generic row->step resolver
+// (sourceStepForRow(), which BUILD_IMPACT_SOURCE_STEP_IDS drives) would send
+// Hybrid LTC to "ltc_stress" -- its readiness-stats step, not the page
+// (Other Assets and Liabilities) that actually renders its enable toggle.
+// Same three-line shape as the "Open HELOC strategy page" button already
+// hardcodes on Other Assets and Liabilities (dashboard_decomp_assets_other.js).
+const PLAN_FLAG_DESTINATION_STEP = {
+  heloc: "heloc_strategy",
+  hybrid_ltc_policy: "assets_special",
+  daf_giving: "entity_charitable",
+  qcd_giving: "entity_charitable",
+};
+
 // Group the toggle rows by the catalog's `domain` axis, in DOMAINS order, then
 // by demand within a domain so the common features surface first.
 //
@@ -101,12 +117,27 @@ export function planFeatureGroups(toggleRows, taxonomy, kindFilter) {
   const order = (taxonomy || {}).domains || [];
   const rank = { high: 0, medium_high: 1, medium: 2, low: 3, niche: 4 };
   const byDomain = new Map();
+  const seenKeys = new Set();
   (toggleRows || []).forEach((r) => {
     const meta = modules[r.label] || {};
     if (kindFilter && meta.kind !== kindFilter) return;
+    seenKeys.add(r.label);
     const domain = meta.domain || "Other";
     if (!byDomain.has(domain)) byDomain.set(domain, []);
     byDomain.get(domain).push({ row: r, key: r.label, meta });
+  });
+  // #330 §5.3 (W9): a plan flag has no client_optional_functions.csv row, so
+  // it is invisible to the loop above -- list it from the taxonomy directly.
+  // Plan Features must still show it, as a link to the page that owns it,
+  // not a toggle (§5.1: "for a plan flag it renders a link... not a toggle").
+  Object.keys(modules).forEach((key) => {
+    if (seenKeys.has(key)) return;
+    const meta = modules[key];
+    if (meta.gate_kind !== "plan_flag") return;
+    if (kindFilter && meta.kind !== kindFilter) return;
+    const domain = meta.domain || "Other";
+    if (!byDomain.has(domain)) byDomain.set(domain, []);
+    byDomain.get(domain).push({ row: null, key, meta });
   });
   const sortedDomains = [...byDomain.keys()].sort((a, b) => {
     const ia = order.indexOf(a),
@@ -131,6 +162,12 @@ export function planFeatureKinds(toggleRows, taxonomy) {
   (toggleRows || []).forEach((r) => {
     const kind = (modules[r.label] || {}).kind;
     if (kind) seen.add(kind);
+  });
+  // Plan flags carry a kind too and now render on this page (see
+  // planFeatureGroups) -- a filter chip must include them or a plan flag
+  // whose kind no toggle module shares would become unreachable by kind.
+  Object.values(modules).forEach((meta) => {
+    if (meta.gate_kind === "plan_flag" && meta.kind) seen.add(meta.kind);
   });
   return [...seen].sort();
 }
@@ -170,7 +207,54 @@ function moduleOwnedRows(key) {
   return null;
 }
 
+// Shared by featureRowHtml/planFlagRowHtml and the domain "N of M on" count
+// below -- a plan-flag entry carries no row (moduleGates has no CSV row to
+// read), so its on/off state comes from the live plan data via its gate_ref
+// instead of boolishValue(row).
+function entryIsOn(entry) {
+  if (entry.meta.gate_kind === "plan_flag") {
+    const ref = entry.meta.gate_ref || [];
+    return ref.length === 3 ? sectionFlagEnabled(ref[0], ref[1], ref[2]) : false;
+  }
+  return boolishValue(entry.row);
+}
+
+// #330 §5.3 (W9): a plan flag's row, on Plan Features. No toggle -- the
+// switch lives where its data is, and rendering a second writer for the same
+// value here is the exact double-gate #330 Q2 removed from DAF. `on` reads
+// the live plan row directly (gate_ref is [section, subsection, label],
+// exactly sectionFlagEnabled()'s argument tuple), the same way
+// strategySectionGatedNote() and rowsForStep()'s generalized HELOC check do.
+function planFlagRowHtml(entry) {
+  const meta = entry.meta;
+  const ref = meta.gate_ref || [];
+  const on = ref.length === 3 ? sectionFlagEnabled(ref[0], ref[1], ref[2]) : false;
+  const lbl = meta.name || entry.key;
+  const desc = formatAcronyms(meta.description || "");
+  const hint = demandHint(meta.demand);
+  const step = PLAN_FLAG_DESTINATION_STEP[entry.key] || "";
+
+  let html = '<div class="opt-module-row">';
+  html += '<div class="opt-module-info"><span class="opt-module-name">' + esc(lbl) + "</span>";
+  if (meta.kind) html += '<span class="badge pf-kind">' + esc(meta.kind) + "</span>";
+  if (hint) html += '<span class="pf-demand">' + esc(hint) + "</span>";
+  if (desc) html += '<span class="opt-module-desc">' + esc(desc) + "</span>";
+  html +=
+    '<span class="opt-module-desc pf-plan-flag-note">Switch lives with its data' +
+    (meta.gate_enable_label
+      ? " — " + esc([...ref.slice(0, 2), meta.gate_enable_label].filter(Boolean).join(" → "))
+      : "") +
+    "</span>";
+  html += "</div>";
+  html += step
+    ? `<button class="opt-module-toggle ${on ? "on" : "off"}" type="button" data-step-id="${esc(step)}">${on ? "ON" : "OFF"} · Open</button>`
+    : `<span class="opt-module-toggle ${on ? "on" : "off"}" aria-disabled="true">${on ? "ON" : "OFF"}</span>`;
+  html += "</div>";
+  return html;
+}
+
 function featureRowHtml(entry) {
+  if (entry.meta.gate_kind === "plan_flag") return planFlagRowHtml(entry);
   const r = entry.row;
   const meta = entry.meta;
   const on = boolishValue(r);
