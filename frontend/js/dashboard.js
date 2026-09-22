@@ -69,15 +69,6 @@ const STEPS = [
     help: "Include both Medicare and pre-Medicare premiums plus expected out-of-pocket medical, dental, vision, and drugs. Medical OOP Cap is a cap/reference for non-premium medical spending, not a standalone expense.",
   },
   {
-    id: "spending_mortgage_events",
-    group: "Spending",
-    title: "Housing",
-    desc: "Authoritative Housing budget detail: mortgage, homeowners insurance, maintenance, utilities, real-estate taxes, and home improvements.",
-    intro:
-      "Enter all housing budget detail here. Other pages may reference these numbers, but this is the only editable source for Housing.",
-    help: "Housing includes current mortgage, homeowners insurance, maintenance, utilities, real-estate taxes, and home improvement projects. Rent is shown only when configured with a positive value.",
-  },
-  {
     id: "lifestyle_spending",
     group: "Spending",
     title: "Other Spending",
@@ -116,6 +107,42 @@ const STEPS = [
     help: "Category assignment happens on Spending Model. Accounts & Sources controls account/source type, prior-year balances, and current values.",
     hidden: true,  },
   {
+    // #330 P8 / Q6 (W13): promoted out of Spending. Housing & Property is a
+    // domain of its own in the catalog (module_catalog's HOUSING_PROPERTY,
+    // W1) and Plan Features groups its switches under that name, so filing
+    // this page under Spending is the "where I turn it on" / "where I use
+    // it" divergence §4.3 names. The housing BUDGET rows stay here with the
+    // rest of the page -- the split §4.3 calls honest is between budget
+    // lines and the domain, not between two pages.
+    id: "spending_mortgage_events",
+    group: "Housing & Property",
+    title: "Housing",
+    desc: "Authoritative Housing budget detail: mortgage, homeowners insurance, maintenance, utilities, real-estate taxes, and home improvements.",
+    intro:
+      "Enter all housing budget detail here. Other pages may reference these numbers, but this is the only editable source for Housing.",
+    help: "Housing includes current mortgage, homeowners insurance, maintenance, utilities, real-estate taxes, and home improvement projects. Rent is shown only when configured with a positive value.",
+  },
+  {
+    // #329 O11 / #330 §4.3 (W9): moved out of Strategy -- HELOC is a
+    // liability held against an asset, not an optimizer. No longer
+    // hidden/embedded inside Optimize's strategySection list: it is a direct
+    // nav entry.
+    // #330 P8 / Q6 (W13): ...and its group is now the one the catalog
+    // actually declares for it. `heloc`'s domain is HOUSING_PROPERTY, so
+    // Plan Features lists its switch under Housing & Property; W9 put the
+    // step under Assets & Protection following §4.3's prose, which predates
+    // that declaration. The catalog is the source of truth, and the whole
+    // point of this workstream is that the two surfaces agree. The Other
+    // Assets page keeps its read-only HELOC summary and its link here.
+    id: "heloc_strategy",
+    group: "Housing & Property",
+    title: "Home Equity Line",
+    desc: "Bridge large discretionary spending with home equity, keeping invested assets untouched in early retirement.",
+    intro:
+      "Set credit limit, last draw year, and initial rate with drift. The projection draws from the line when large discretionary spending creates a cash gap, then repays the balance from home sale proceeds.",
+    help: "The strategy improves projected net worth when compound growth on the preserved liquid assets exceeds total borrowing costs. It worsens outcomes when interest drag or reduced home equity at sale outweigh the investment benefit.",
+  },
+  {
     id: "holdings",
     group: "Assets & Protection",
     title: "Investment Holdings",
@@ -150,22 +177,6 @@ const STEPS = [
     intro:
       "Pick the asset type that best describes each item's economic purpose, then enter today's fair value and, for anything illiquid, a planned sale date.",
     help: "HSA balances grow tax-free and should reflect intended use. Donor-advised fund configuration is set on Other Spending.",
-  },
-  {
-    // #329 O11 / #330 §4.3 (W9): moved from Strategy, where the section-list
-    // comment used to call it a special case ("the toggle itself must render
-    // here so it can be turned on in-place"). Assets & Protection is where
-    // #330 §4.3 already puts "coverage you hold" -- HELOC is a liability held
-    // against an asset, not an optimizer. No longer hidden/embedded inside
-    // Optimize's strategySection list: it is a direct nav entry now, next to
-    // the Other Assets page whose HELOC summary block already links here.
-    id: "heloc_strategy",
-    group: "Assets & Protection",
-    title: "Home Equity Line",
-    desc: "Bridge large discretionary spending with home equity, keeping invested assets untouched in early retirement.",
-    intro:
-      "Set credit limit, last draw year, and initial rate with drift. The projection draws from the line when large discretionary spending creates a cash gap, then repays the balance from home sale proceeds.",
-    help: "The strategy improves projected net worth when compound growth on the preserved liquid assets exceeds total borrowing costs. It worsens outcomes when interest drag or reduced home equity at sale outweigh the investment benefit.",
   },
   {
     id: "estate",
@@ -3635,26 +3646,6 @@ function renderSpendingWorkflowBanner(stepId) {
     );
   });
   return `<div class="spending-workflow-banner">${parts.join("")}</div>`;
-}
-const SUGGESTED_NEXT = {
-  household_people: "income_work",
-  income_work: "income_retirement",
-  income_retirement: "holdings",
-  holdings: "assets_home_cash",
-  assets_home_cash: "spending_core",
-  spending_core: "reports_and_review",
-  strategy_optimize: "strategy_stress",
-  strategy_stress: "reports_and_review",
-  // lifestyle_spending and ytd_transactions removed: both now redirect onto
-  // spending_core before activeStep is ever set to them (navigation.js's
-  // WORKSPACE_TAB_REDIRECTS), and suggestedNext() below is only ever called
-  // with the literal activeStep -- these entries could never be looked up.
-};
-function suggestedNext(stepId) {
-  const nextId = SUGGESTED_NEXT[stepId];
-  const st = STEPS.find((s) => s.id === nextId);
-  if (!st) return "";
-  return `<div class="suggested-next">Suggested next: <button class="link-button" type="button" data-step-id="${esc(st.id)}">${esc(st.title)} →</button></div>`;
 }
 function pageStatusHtml(stepId) {
   const st = stepStats(stepId);
@@ -7192,7 +7183,7 @@ Object.assign(window, {
   setNavSearch, setPlanningCaseActive, setSearchScope, setStrategyTab, showPlanDataFileManifest,
   showSpendingModelLoadOverlay, showYtdLoadOverlay, sleep, spendingFlowFooterHtml,
   startDetailedResultsProgress, stepHelpLinkHtml, stepIdForRow, stepSearchText,
-  stopDetailedResultsProgress, stressHomeSaleYearRow, stripUiLabelPrefix, suggestedNext,
+  stopDetailedResultsProgress, stressHomeSaleYearRow, stripUiLabelPrefix,
   summaryFromApiPayload, takeBuildSnapshot, toggleDetailColGroup, toggleDetailColumnGroup,
   toggleHelpSheet, toggleNavDrawer, translatePersonValueLabel, updateSearchToggle,
   updateYtdAccountMoney, validateAllocationTargetsOrMessage, wireStepNavigation, withdrawalOtherRows,

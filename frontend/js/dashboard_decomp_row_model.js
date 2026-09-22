@@ -59,6 +59,41 @@ export function visibleSteps() {
   });
 }
 
+// #330 P8 / Q6 (W13): moved here from dashboard.js, unchanged apart from the
+// new entry and the gating guard below. The guided walk's forward links are
+// nav structure, and they belong beside visibleSteps()/stepGatedByOptional
+// Module(), which is what decides whether the step they name is reachable at
+// all. Moving them out is also what pays for W13's new lines under
+// tests/test_frontend_size_ratchet.py's DASHBOARD_JS_MAX_LINES.
+export const SUGGESTED_NEXT = {
+  household_people: "income_work",
+  income_work: "income_retirement",
+  income_retirement: "holdings",
+  holdings: "assets_home_cash",
+  assets_home_cash: "spending_core",
+  spending_core: "reports_and_review",
+  // W13: Housing is its own nav group now, between Spending and Assets &
+  // Protection -- without a forward link it is the one group the guided walk
+  // can enter and not leave.
+  spending_mortgage_events: "holdings",
+  strategy_optimize: "strategy_stress",
+  strategy_stress: "reports_and_review",
+  // lifestyle_spending and ytd_transactions removed: both now redirect onto
+  // spending_core before activeStep is ever set to them (navigation.js's
+  // WORKSPACE_TAB_REDIRECTS), and suggestedNext() below is only ever called
+  // with the literal activeStep -- these entries could never be looked up.
+};
+export function suggestedNext(stepId) {
+  const nextId = SUGGESTED_NEXT[stepId];
+  const st = STEPS.find((s) => s.id === nextId);
+  // W13: a suggestion pointing at a module-gated step whose module is off is
+  // a link to a page the nav does not show -- the dead end this workstream's
+  // own e2e check exists to keep out. Cheaper to skip the footer than to
+  // hand-maintain a parallel "is this one gated" list per entry.
+  if (!st || stepGatedByOptionalModule(st.id)) return "";
+  return `<div class="suggested-next">Suggested next: <button class="link-button" type="button" data-step-id="${esc(st.id)}">${esc(st.title)} &rarr;</button></div>`;
+}
+
 export function saveWorkbookViewState() {
   try {
     localStorage.setItem("wbSheet", activeDetailedSheet || "");
@@ -5220,6 +5255,8 @@ Object.assign(window, {
   stepTitleById,
   storageValueForInput,
   strategyTabKey,
+  suggestedNext,
+  SUGGESTED_NEXT,
   syncBackends,
   syncCategoryTotal,
   syncTaxonomyBudgetToBudgetLines,

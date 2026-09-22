@@ -339,7 +339,19 @@ DASHBOARD_JS_MAX_LINES = 7_201
 # report back. Lives in dashboard_decomp_housing_optimizer.js beside the
 # results table it hangs off, per §4.4 (Housing's panel is deliberately not
 # analysisFrame()-wrapped, so it gets the strip appended to its own table).
-TOTAL_JS_MAX_LINES = 35_121
+# 2026-09-22 (W13, #330 P8 / Q6 -- first commit, Housing promoted out of
+# Spending): raised from 35,121 to 35,149. dashboard.js FALLS (7,201 ->
+# 7,192): SUGGESTED_NEXT/suggestedNext() moved into
+# dashboard_decomp_row_model.js, beside visibleSteps() and
+# stepGatedByOptionalModule() -- the two functions that decide whether the
+# step a suggestion names is reachable at all. The net rise is the nav-group
+# rationale recorded at the STEPS entries it applies to, the new
+# spending_mortgage_events -> holdings forward link, and suggestedNext()'s
+# new guard against suggesting a module-gated step whose module is off (a
+# dead end, which is exactly what tests/e2e/nav-integrity.spec.js checks
+# for). Genuine new behavior plus a relocation, not duplication, per this
+# constant's own contract.
+TOTAL_JS_MAX_LINES = 35_149
 
 
 def _line_count(path: Path) -> int:
