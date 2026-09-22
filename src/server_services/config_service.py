@@ -83,7 +83,7 @@ class ConfigService:
 
     @staticmethod
     def _module_gates() -> JsonDict:
-        """§7.4: {step_gates, section_gates} the frontend uses to hide a nav
+        """§7.4 + §5.3: {step_gates, section_gates, flag_gates} the frontend uses to hide a nav
         step or an input-CSV section while its owning optional module is
         off — the single source of truth replacing dashboard.js's
         hand-maintained ``stepGatedByOptionalModule``/``ROW_MODULE_GATES``.
@@ -96,12 +96,24 @@ class ConfigService:
         frontend needs no separate module-name lookup for its reason/
         activation text.
         """
-        from ..module_catalog import CATALOG, section_gate_map, step_gate_map
+        from ..module_catalog import (CATALOG, flag_gate_map,
+                                       flag_section_gate_map,
+                                       section_gate_map, step_gate_map)
         section_gates = {
             section: {"key": key, "label": f"{CATALOG[key].name} optional workbook module"}
             for section, key in section_gate_map().items()
         }
-        return {"step_gates": step_gate_map(), "section_gates": section_gates}
+        return {
+            "step_gates": step_gate_map(),
+            "section_gates": section_gates,
+            # #330 §5.3 (W6): the plan-flag half of the same question. Served
+            # beside ``step_gates`` rather than merged into it because the two
+            # are evaluated by different predicates on the frontend -- a
+            # toggle key vs a (section, subsection, label) plan row -- and a
+            # merged map would only make the caller re-derive which it held.
+            "flag_gates": flag_gate_map(),
+            "flag_section_gates": flag_section_gate_map(),
+        }
 
     @staticmethod
     def _module_taxonomy() -> JsonDict:
