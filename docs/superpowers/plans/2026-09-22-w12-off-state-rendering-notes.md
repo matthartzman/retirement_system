@@ -224,15 +224,22 @@ One commit (plus this notes doc and the two ratchet/PR-body updates).
   pins. Expected for a UI-rendering-shaped workstream, verified rather than
   assumed (no Python file outside `tests/` changed; `deterministic_engine.py`
   and every `src/reporting/*` file are untouched).
-- `pytest -m "not slow and not nightly"` — full suite green (a fresh
-  dependency install — `numpy`, `scipy`, `lxml`, `openpyxl`, `matplotlib`,
-  `pillow`, `pytest`/`pytest-xdist`/`pytest-timeout` — was required in this
-  container; the branch head's own environment did not have them, matching
-  the caveat W8a/W9's own verification sections recorded for their
-  containers).
-- `npm test` — 597/598; the one failure is the pre-existing
-  `js_codemod_parser_offsets.test.mjs` environment difference W6/W8b/W9's
-  notes already recorded, reproduced identically with this diff present.
+- `pytest -m "not slow and not nightly" -n auto --dist loadfile` — full
+  suite green. This container had neither the Python runtime deps
+  (`numpy`/`scipy`/`lxml`/`openpyxl`/`matplotlib`/`pillow`/
+  `pytest-xdist`/`pytest-timeout`) nor `node_modules` installed; a fresh
+  install of both was required before the suite would even collect —
+  without `node_modules`, 8 tests that shell out to `tools/js_codemod/*.mjs`
+  failed on `ERR_MODULE_NOT_FOUND` for `@babel/parser`, matching the same
+  caveat W8a/W8b/W9's own verification sections recorded for their
+  containers. All 8 pass once `npm install` runs; re-ran the full suite
+  after both installs for the number that actually counts.
+- `npm test` — 641/643 after `npm install` (up from 597/598 before it — the
+  install itself fixed several tests that were failing only because
+  `node_modules` didn't exist, not because of this diff). The remaining 2
+  are both inside `js_codemod_parser_offsets.test.mjs`, the pre-existing
+  jscodeshift-offset environment difference W6/W8b/W9's notes already
+  recorded, reproduced identically with this diff present.
 - `tests/frontend/feature_gated_note_off_states.test.mjs` — 12/12 (new).
 - `tests/test_strategy_workspace_module_gating.py` — 6/6 (2 changed/added).
 - `tests/test_frontend_size_ratchet.py` — 4/4 after raising

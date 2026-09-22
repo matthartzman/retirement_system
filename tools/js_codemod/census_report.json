@@ -7121,6 +7121,18 @@
       "scope": "inside-function"
     },
     {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_strategy_workspace.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "moduleGates",
+      "file": "frontend/js/dashboard_decomp_strategy_workspace.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "moduleGates",
       "file": "frontend/js/dashboard_decomp_strategy_workspace.js",
       "kind": "read",
