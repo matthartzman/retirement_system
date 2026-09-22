@@ -110,6 +110,14 @@ DECLARED_SITES: dict[tuple[str, str, str], tuple[str, str | None, tuple[str, ...
         "The generic loop over OPTIONAL_MODULE_SHEETS: each module's own gate, "
         "which is why the key is a loop variable and not a literal.",
     ),
+    ("src/reporting/workbook_builder.py", "apply_final_workbook_structure",
+     "scorp_vs_llc"): (
+        OWN_GATE, None, (),
+        "W8a: the S-Corp vs LLC sheet is extracted from Sheet 9 by copying "
+        "rows rather than built from V5_LAYOUT (its registry entry has no "
+        "v5_code), so it sits outside the generic OPTIONAL_MODULE_SHEETS loop "
+        "above and needs its own gate before _extract_scorp_sheet(wb) runs.",
+    ),
 
     # ── Soft dependencies: another module's output is shaped by this toggle ──
     ("src/reporting/sheets_summary_builder.py", "build_sheet1", "market_luck_stress_test"): (
