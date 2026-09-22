@@ -363,16 +363,39 @@ _OUTPUTS: List[OutputModule] = [
         requires_inputs=(_in("planning_levers", "roth_policy", "forced_conversions"),
                          _in("income"), _in("assumptions", "brackets", "irmaa")),
         requires_outputs=BASE_PROJECTION,
+        # W8b: Sheet 11 carries one sentence pointing the reader at the HSA
+        # drawdown schedule's own tab (rendered only in `optimize` mode). With
+        # `hsa_drawdown` newly toggleable that tab can be absent while the mode
+        # still says `optimize`, so the pointer is suppressed rather than left
+        # naming a sheet the workbook does not contain. Soft, not hard: Sheet
+        # 11's own analysis is identical either way.
+        degrades_without=(_soft("hsa_drawdown",
+                                "the pointer to the HSA drawdown schedule's own tab"),),
         dashboard_step="roth_conversion",
     ),
     OutputModule(
         # Registry gap closed (#329 §2.1): a textbook plan optimizer — it
         # enumerates drawdown orders, scores them and ranks — that had a sheet
         # and a builder but no catalog record, so nothing could reason about
-        # it. Core for now: making it toggleable is W8b, not W1.
+        # it. W8b (#330 P6b) makes it toggleable.
+        #
+        # The toggle stops at the sheet, deliberately. #330 §3.2's off-column
+        # reads "Sheet not built; `hsa_withdrawal_mode` stops being honored",
+        # and only the first half is implemented here. `hsa_withdrawal_mode`
+        # is a *planning lever* the household sets on Planning Levers, read by
+        # `planning_engines.withdraw_hsa_window` and by
+        # `workbook_builder._ensure_hsa_schedule_file`; letting a feature
+        # switch suppress it would put a second, invisible gate on a
+        # calculation lever -- the same double-gate shape #330 Q2 removed from
+        # DAF -- and would leave `mode == 'optimize'` matching no engine
+        # branch at all rather than falling back to a named mode. So
+        # `engine_participation` stays False and stays true: turning this
+        # module off removes the analysis sheet, not the drawdown the plan
+        # models. (Recorded in W8b's notes doc, not decided silently.)
         "hsa_drawdown", "HSA Drawdown", OPTIMIZATION, MEDIUM,
         "Drawdown order for HSA dollars; self-gates on hsa_withdrawal_mode == 'optimize'.",
         domain=TAXES,
+        optional=True,
         sheet="11C. HSA Drawdown", tab="2B. HSA Drawdown",
         requires_inputs=(_in("planning_levers", "hsa_withdrawal_mode"),
                          _in("assets"), _in("assumptions", "brackets")),
@@ -1107,11 +1130,16 @@ SHEET_REGISTRY = dict([
     _visible('10. Social Security', '2', 3, 3, 'Social Security', 'social_security_timing', slug='social_security'),
     _visible('11. Roth Conversion', '2', 0, 0, 'Roth Conversion', 'roth_conversion_plan', slug='roth_conversion'),
     # section_rank/letter_rank are sort keys, not slots -- 0.5 sits it right
-    # after Roth Conversion (rank 0) without renumbering anything else. Its
-    # content is optimizer-mode-gated (hsa_withdrawal_mode == 'optimize'),
-    # not a client_optional_functions.csv toggle, so module_key stays None
-    # like 11B: always created, self-gates its own content.
-    _visible('11C. HSA Drawdown', '2', 0.5, 0.5, 'HSA Drawdown', slug='hsa_drawdown'),
+    # after Roth Conversion (rank 0) without renumbering anything else.
+    #
+    # W8b set `module_key`. The sheet still self-gates its *content* on
+    # `hsa_withdrawal_mode == 'optimize'` (it renders a "not applicable" note
+    # in every other mode); that is a planning lever, not a feature switch,
+    # and both now apply. The toggle decides whether the sheet exists at all;
+    # the mode decides what it says when it does. See the `hsa_drawdown`
+    # CATALOG entry for why the toggle stops at the sheet and deliberately
+    # does not reach the engine's `optimize` branch.
+    _visible('11C. HSA Drawdown', '2', 0.5, 0.5, 'HSA Drawdown', 'hsa_drawdown', slug='hsa_drawdown'),
     _visible('12. Charitable Giving', '2', 5, 5, 'Charitable Giving', 'charitable_giving', slug='charitable_giving'),
     # section_rank AND letter_rank 18/19 (above the highest plan-optimizer
     # rank, 17/15 on Housing Comparison, in BOTH dimensions) puts Tax-Loss
