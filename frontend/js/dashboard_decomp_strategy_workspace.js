@@ -119,6 +119,19 @@ export function renderStrategyScreen(sections) {
 // "Withdrawal Order" tab) already rendered inline, so Optimize's new HSA
 // Drawdown / Withdrawal Sequencing / Harvesting sections below reuse the
 // exact same filters and markup rather than duplicating them.
+// #329 §4.7 (W10b): standalone accessor for the HSA drawdown mode, mirroring
+// rothPolicyValue()/irmaaModeValue()'s pattern in dashboard_decomp_
+// allocation_optimizer.js. dashboard_source_truth_banners.js's live-
+// optimizer disclosure reads this to decide whether the mode row is live
+// optimizer output, independent of hsaWithdrawalPolicyBlock()'s own
+// pre-filtered `hsa` lookup below.
+export function hsaWithdrawalModeValue() {
+  const r = rowByNormLabel("hsa_withdrawal_mode");
+  return String(r ? valOf(r) : "spend_as_needed")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_");
+}
+
 export function hsaWithdrawalPolicyBlock(other) {
   const hsa = other.filter(
     (r) => r.section === "HSA Policy" && r.subsection === "Withdrawals",
@@ -430,6 +443,7 @@ Object.assign(window, {
   renderStrategyScenarios,
   renderStrategyWorkbench,
   hsaWithdrawalPolicyBlock,
+  hsaWithdrawalModeValue,
   taxLossHarvestingBlock,
   gainHarvestBlock,
   withdrawalMiscBlock,
