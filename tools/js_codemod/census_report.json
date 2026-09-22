@@ -833,6 +833,54 @@
       "scope": "inside-function"
     },
     {
+      "name": "lastBuildSummary",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildSummary",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildCompare",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildCompare",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildCompare",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "summaryFromApiPayload",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildPreflight",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "searchText",
       "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
       "kind": "read",
