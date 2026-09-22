@@ -1313,7 +1313,20 @@ def main():
         'mc_approximation_status': None,
         'model_risk_rating': None,
         'model_risk_label': None,
+        # #329 §4.5 path 1 (W10a): the Roth optimizer's own result, so the
+        # Strategy > Optimize > Roth Conversion panel can show what the last
+        # build concluded instead of being an input form with nothing on
+        # screen to read. plan_summary.json is the artifact /api/summary
+        # already serves, so this needs no new endpoint and survives a page
+        # reload; nothing is recomputed here -- the value is a projection of
+        # the RothStrategyResult contract attach_plan_result() already built.
+        'roth_strategy_result': None,
     }
+    try:
+        from .summary_figures import roth_strategy_result_payload
+        summary_data['roth_strategy_result'] = roth_strategy_result_payload(c)
+    except Exception as _roth_payload_exc:
+        print(f'Warning: Roth strategy result payload skipped (build continues): {_roth_payload_exc}')
     try:
         after_tax_kpis = estimate_after_tax_terminal_net_worth(c, terminal)
         lifetime_tax = sum(float(r.get('total_tax', 0.0) or 0.0) for r in rows)

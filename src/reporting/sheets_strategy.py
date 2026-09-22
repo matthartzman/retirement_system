@@ -957,12 +957,14 @@ def build_sheet11(ws, c, rows):
     r += 2
 
     # Candidate table with transparent score components.
-    candidates = contract.get('candidates') or ropt.get('candidates') or []
-    top_candidates = candidates[:10]
-    raw_scores = [float(cand.get('total_objective_score', cand.get('score', 0.0)) or 0.0) for cand in top_candidates]
-    score_lo = min(raw_scores) if raw_scores else 0.0
-    score_hi = max(raw_scores) if raw_scores else 0.0
-    score_span = score_hi - score_lo
+    # The cap and the 0-100 normalization live in summary_figures because the
+    # UI's Roth result panel (#329 §4.5 path 1) prints the same two columns off
+    # plan_summary.json -- a second copy of this scale here would let the same
+    # candidate carry a different "Score" on the screen than in the workbook.
+    candidates = summary_figures.roth_strategy_candidates(c)
+    top_candidates = candidates[:summary_figures.ROTH_CANDIDATE_DISPLAY_LIMIT]
+    raw_scores = summary_figures.roth_candidate_objective_values(top_candidates)
+    normalized_scores = summary_figures.roth_candidate_relative_scores(raw_scores)
 
     write_hdr(ws, r, 1, 'Candidate Strategy Comparison — Score Components and Rejection Reasons', NAVY, WHITE, span=15); r += 1
     write_cell(ws, r, 1, 'Score (0-100) ranks these candidates relative to each other (100 = best in this set). Objective Value is the underlying dollar-weighted objective the ranking is computed from; it is a scoring unit, not a projected dollar outcome.', align='left')
@@ -983,7 +985,7 @@ def build_sheet11(ws, c, rows):
         label = cand.get('label') or cand.get('selected_strategy_name') or cand.get('Candidate')
         why_text = cand.get('why_selected_or_rejected') or ('Selected candidate.' if idx == 1 else 'Not selected: lower total objective score.')
         raw_score = raw_scores[idx - 1]
-        normalized_score = 100.0 * (raw_score - score_lo) / score_span if score_span > 0 else 100.0
+        normalized_score = normalized_scores[idx - 1]
         vals = [
             rank,
             label,

@@ -31,6 +31,105 @@ def roth_strategy_candidates(c):
     return contract.get('candidates') or ropt.get('candidates') or []
 
 
+# Sheet 11 (Roth Conversion Plan) prints at most this many candidates, and its
+# "Score (0-100)" column is normalized across exactly that shown set. The UI's
+# Roth result panel (#329 §4.5 path 1) reads the same figures out of
+# plan_summary.json, so the cap and the normalization both live here rather
+# than being re-typed on the screen side -- two copies of this scale would put
+# a different "Score" next to the same candidate on the two surfaces, which is
+# the drift this module's docstring exists to prevent.
+ROTH_CANDIDATE_DISPLAY_LIMIT = 10
+
+
+def roth_candidate_objective_values(candidates):
+    """Raw objective values for a candidate list, newest contract shape first."""
+    return [
+        (_f(cand.get('total_objective_score', cand.get('score', 0.0))) or 0.0)
+        for cand in (candidates or [])
+    ]
+
+
+def roth_candidate_relative_scores(objective_values):
+    """0-100 scores ranking ``objective_values`` against each other.
+
+    100 = best in this set. A set whose values are all equal (including a
+    single-candidate set) scores 100 across the board, since there is no
+    spread to rank within. This is a *relative* scale, not a projected
+    outcome -- Sheet 11 and the UI panel both say so in their own copy.
+    """
+    values = list(objective_values or [])
+    if not values:
+        return []
+    lo, hi = min(values), max(values)
+    span = hi - lo
+    if span <= 0:
+        return [100.0 for _ in values]
+    return [100.0 * (v - lo) / span for v in values]
+
+
+def roth_strategy_result_payload(c, limit=ROTH_CANDIDATE_DISPLAY_LIMIT):
+    """The Roth optimizer result, trimmed for ``plan_summary.json``, or None.
+
+    #329 §4.5 path 1: the UI's Roth panel shows the last build's result rather
+    than re-running the optimizer, and ``plan_summary.json`` is the artifact
+    ``/api/summary`` already serves for exactly that "what did the last build
+    conclude" question. This is a projection of the existing
+    ``RothStrategyResult`` contract, not a second computation of it.
+
+    ``binding_constraints_by_year`` is deliberately left out: it is one row per
+    projected year of workbook-depth diagnostics, and the panel this feeds
+    shows the candidate comparison, not the year-by-year constraint trace.
+    """
+    contract = c.get('roth_strategy_result') or (c.get('plan_result') or {}).get('roth_strategy_result') or {}
+    ropt = c.get('roth_optimization') or {}
+    if not contract and not ropt:
+        return None
+    all_candidates = roth_strategy_candidates(c)
+    shown = list(all_candidates)[: max(0, int(limit))]
+    objective_values = roth_candidate_objective_values(shown)
+    relative_scores = roth_candidate_relative_scores(objective_values)
+    candidates = []
+    for idx, cand in enumerate(shown, 1):
+        candidates.append({
+            'rank': int(_f(cand.get('rank')) or idx),
+            'label': str(cand.get('label') or cand.get('selected_strategy_name') or ''),
+            'policy': str(cand.get('policy') or ''),
+            'relative_score': relative_scores[idx - 1],
+            'objective_value': objective_values[idx - 1],
+            'total_conversions': _f(cand.get('total_conversions', cand.get('total_conversion'))),
+            'lifetime_tax': _f(cand.get('lifetime_tax')),
+            'after_tax_terminal_net_worth': _f(
+                cand.get('after_tax_terminal_net_worth', cand.get('after_tax_terminal_nw'))
+            ),
+            'why_selected_or_rejected': str(cand.get('why_selected_or_rejected') or ''),
+        })
+    return {
+        'selected_strategy_name': str(
+            contract.get('selected_strategy_name') or ropt.get('selected_label') or c.get('roth_policy') or ''
+        ),
+        'selected_policy': str(contract.get('selected_policy') or ropt.get('selected_policy') or ''),
+        'objective_mode': str(
+            contract.get('objective_mode') or ropt.get('objective_mode') or 'BALANCED_RETIREMENT'
+        ),
+        'target_bracket': _f(
+            contract.get('target_bracket', ropt.get('target_bracket', c.get('roth_target_rate')))
+        ),
+        # Not in the RothStrategyResult contract -- Sheet 11 reads it off
+        # roth_optimization for the same reason, to say whether the optimizer
+        # or the user picked the winner.
+        'auto_optimized': bool(contract.get('auto_optimized', ropt.get('auto_optimized', True))),
+        'forced_conversions': _f(contract.get('forced_conversions')),
+        'voluntary_conversions': _f(contract.get('voluntary_conversions')),
+        'total_conversions': _f(contract.get('total_conversions')),
+        'lifetime_tax': _f(contract.get('lifetime_tax')),
+        'after_tax_terminal_net_worth': _f(contract.get('after_tax_terminal_net_worth')),
+        'why_selected': str(contract.get('why_selected') or ''),
+        'explanation': str(contract.get('explanation') or ''),
+        'candidates': candidates,
+        'candidate_count': len(all_candidates),
+    }
+
+
 def roth_strategy_benefit(c):
     """Selected-versus-next-best Roth strategy deltas, or None.
 
