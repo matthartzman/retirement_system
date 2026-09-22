@@ -87,6 +87,164 @@ export function setAllocationSelectionMode(mode) {
   renderMain();
 }
 
+// ---------------------------------------------------------------------------
+// #329 P6 / §4.3 (W10c): Asset Allocation is the design's POLICY ADOPTION vs
+// SCHEDULE FREEZE pair -- the one place §4.3's two named actions are both
+// real, because both ends are ordinary plan rows:
+//
+//   "Let the plan keep optimizing this" -> the mode row holds a computed
+//   mode, so every build re-solves the allocation. This is the DEFAULT, and
+//   deliberately so: it is what plans already do today, so naming the
+//   behavior does not change anyone's numbers. §4.7's disclosure (W10b) is
+//   what makes it honest, not a change to what the plan does.
+//
+//   "Lock in this schedule" -> the mode row holds user_target AND the
+//   optimizer's own computed percentages are written into the target_pct
+//   rows. The plan stops re-optimizing; the numbers become auditable.
+//
+// Roth Conversion and HSA Drawdown are the other two optimizers §4.3 names
+// here. Their policy-adoption half is the same one-row shape, but their
+// schedule-freeze half writes a year-by-year schedule (forced conversions)
+// that lives in its own table rather than in row_index rows, and the W10a
+// result payload deliberately carries no per-year series -- so offering the
+// pair there would mean one real button and one that cannot deliver. They
+// are left to the session that adds their own result panels, with the patch
+// contract now proven on all three shapes.
+// ---------------------------------------------------------------------------
+export const ALLOCATION_OPTIMIZER_ID = "allocation_policy";
+const ALLOCATION_DEFAULT_LIVE_MODE = "optimizer_recommendation";
+
+function allocationPatchItem(row, value, label, rationale) {
+  if (!row) return null;
+  // Through storageValueForInput so afterRaw is byte-for-byte what editValue
+  // will store -- the target_pct rows are percent-formatted, and a bare 35
+  // compared against a stored "35%" would read as not applied.
+  const afterRaw = storageValueForInput(row, value);
+  const beforeRaw = String(valOf(row) || "");
+  return {
+    source: "optimizer",
+    sourceStep: "allocation",
+    sourceTitle: "Asset Allocation",
+    section: String(row.section || ""),
+    subsection: String(row.subsection || ""),
+    field: String(row.label || ""),
+    label: label,
+    before: displayValueForInput(row, beforeRaw) || "(blank)",
+    beforeRaw: beforeRaw,
+    after: displayValueForInput(row, afterRaw) || String(afterRaw),
+    afterRaw: afterRaw,
+    row_index: row.row_index,
+    rationale: rationale,
+  };
+}
+
+// The computed mode this plan should keep using. A plan already on max_sharpe
+// is already letting the plan optimize, so "keep optimizing" must mean THAT
+// mode, not a switch to the default -- otherwise the computed state would
+// read "not applied" for a plan that is doing exactly what the button asks.
+export function allocationLiveModeTarget() {
+  const mode = allocationSelectionMode();
+  return allocationModeIsComputed(mode) ? mode : ALLOCATION_DEFAULT_LIVE_MODE;
+}
+
+export function allocationPolicyAdoptionPatch() {
+  const row = allocationModeRow();
+  if (!row) return [];
+  const target = allocationLiveModeTarget();
+  const item = allocationPatchItem(
+    row,
+    target,
+    "Allocation mode",
+    "The plan re-solves the allocation on every build while this mode is set.",
+  );
+  return item ? [item] : [];
+}
+
+export function allocationScheduleFreezePatch() {
+  const modeRow = allocationModeRow();
+  if (!modeRow) return [];
+  const names = assetClassNamesForAllocation() || [];
+  const out = [];
+  let total = 0;
+  names.forEach(function (asset) {
+    const targetRow = findTargetRow(asset);
+    if (!targetRow) return;
+    // The LIQUID target actually used, not the total-portfolio one: the
+    // target_pct rows are the liquid allocation and are expected to total
+    // 100%, which the total-portfolio figures (which include covered
+    // guaranteed-income and home-equity sleeves) would not.
+    const pct = Number(activeOptimizerUsedTarget(asset) || 0) * 100;
+    const item = allocationPatchItem(
+      targetRow,
+      pct.toFixed(2),
+      asset + " target",
+      "The percentage the optimizer last computed for this class.",
+    );
+    if (item) {
+      out.push(item);
+      total += pct;
+    }
+  });
+  // Nothing coherent to freeze. Two ways to get here, and both must offer
+  // NOTHING rather than a mode switch: no target rows at all, and -- the one
+  // a test drove out -- no optimizer preview loaded, where
+  // activeOptimizerUsedTarget() legitimately returns 0 for every class. That
+  // second case would otherwise write user_target plus a table of zeros, a
+  // plan the app then refuses to save; and a mode switch alone would leave
+  // the stale hand-entered targets driving the plan, which is a silent
+  // change in the opposite direction from the button's promise.
+  //
+  // The total is the test rather than a non-zero count, because it is the
+  // same 100% rule allocationTotalHtml() already enforces before a save.
+  if (!out.length || Math.abs(total - 100) > 0.01) return [];
+  const modeItem = allocationPatchItem(
+    modeRow,
+    "user_target",
+    "Allocation mode",
+    "Stops the plan re-solving the allocation; the percentages below become the plan's own.",
+  );
+  return modeItem ? [modeItem].concat(out) : out;
+}
+
+export function allocationOptimizerApplyStripHtml() {
+  const apply = window.OptimizerApply;
+  if (!apply || !allocationModeRow()) return "";
+  const canFreeze = allocationScheduleFreezePatch().length > 0;
+  const actions = [
+    {
+      intent: "policy",
+      label: "Let the plan keep optimizing this",
+      primary: true,
+      title:
+        "Keeps the allocation mode computed, so every build re-solves it.",
+    },
+  ];
+  if (canFreeze)
+    actions.push({
+      intent: "schedule",
+      label: "Lock in this schedule",
+      title:
+        "Writes the optimizer's current percentages into the plan and stops it re-solving them.",
+    });
+  apply.registerOptimizer({
+    id: ALLOCATION_OPTIMIZER_ID,
+    title: "Asset allocation optimizer",
+    buildPatch: allocationPolicyAdoptionPatch,
+    patchForIntent: (intent) =>
+      intent === "schedule"
+        ? allocationScheduleFreezePatch()
+        : allocationPolicyAdoptionPatch(),
+    liveValueOf: apply.liveStorageValueForRowIndex,
+    actions: actions,
+  });
+  let html = apply.renderApplyStrip(ALLOCATION_OPTIMIZER_ID);
+  if (!html) return "";
+  if (!canFreeze)
+    html +=
+      '<p class="small">"Lock in this schedule" needs the optimizer\'s computed percentages, which appear once the preview above has run. Switch to a computed mode and let it load.</p>';
+  return html;
+}
+
 export function allocationModeHtml() {
   const mode = allocationSelectionMode();
   const modeButtons = [
@@ -106,7 +264,7 @@ export function allocationModeHtml() {
         `<button class="btn ${mode === v ? "primary" : ""}" type="button" onclick="setAllocationSelectionMode('${v}')"${disabled}>${esc(label)}</button>`,
     )
     .join("");
-  return `<div class="holdings"><h3 class="group-title">Allocation Mode</h3><div class="section-note allocation-mode-panel" id="allocationModeNote">Active: ${esc(activeLabel)}. Choose the source below; the page then shows only controls for that source.<div class="table-actions">${buttonsHtml}</div>${r ? "" : '<p class="small">The CSV row for allocation_selection_mode was not found. Reload the current plan so required allocation rows are present.</p>'}</div></div>`;
+  return `<div class="holdings"><h3 class="group-title">Allocation Mode</h3><div class="section-note allocation-mode-panel" id="allocationModeNote">Active: ${esc(activeLabel)}. Choose the source below; the page then shows only controls for that source.<div class="table-actions">${buttonsHtml}</div>${r ? "" : '<p class="small">The CSV row for allocation_selection_mode was not found. Reload the current plan so required allocation rows are present.</p>'}</div>${allocationOptimizerApplyStripHtml()}</div>`;
 }
 
 export function allocationOptimizerRecommendationHtml() {
@@ -1171,6 +1329,11 @@ Object.assign(window, {
   irmaaModeValue,
   renderRothRows,
   renderRothMissingNotice,
+  ALLOCATION_OPTIMIZER_ID,
+  allocationLiveModeTarget,
+  allocationPolicyAdoptionPatch,
+  allocationScheduleFreezePatch,
+  allocationOptimizerApplyStripHtml,
   optimizerResultCacheReset,
   optimizerResultFromLastBuild,
   optimizerResultFetchDone,

@@ -339,7 +339,14 @@ DASHBOARD_JS_MAX_LINES = 7_201
 # report back. Lives in dashboard_decomp_housing_optimizer.js beside the
 # results table it hangs off, per §4.4 (Housing's panel is deliberately not
 # analysisFrame()-wrapped, so it gets the strip appended to its own table).
-TOTAL_JS_MAX_LINES = 35_121
+# 2026-09-22 (W10c, fourth commit -- §4.3's policy-adoption / schedule-freeze
+# pair): raised from 35,121 to 35,317. Asset Allocation is the one optimizer
+# where both of §4.3's named actions are ordinary plan rows, so it is where
+# "Let the plan keep optimizing this" (the mode row holds a computed mode) and
+# "Lock in this schedule" (user_target plus the optimizer's own percentages
+# written into the target_pct rows) are wired. Lives in
+# dashboard_decomp_allocation_optimizer.js, on the Allocation Mode panel.
+TOTAL_JS_MAX_LINES = 35_317
 
 
 def _line_count(path: Path) -> int:
