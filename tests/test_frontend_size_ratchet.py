@@ -314,7 +314,16 @@ DASHBOARD_JS_MAX_LINES = 7_201
 # workspace.js) so the "is this optimizing" classification has one
 # definition, not a second copy in the banner file. Genuine new behavior,
 # not duplication, per this constant's own contract.
-TOTAL_JS_MAX_LINES = 34_188
+# 2026-09-22 (W10c, #329 P6 / §4.2-§4.6): raised from 34,188 to 34,657 --
+# apply-to-plan's core machinery in its own new file, frontend/js/
+# optimizer_apply.js (457 lines), plus the "optimizer" source-enum value and
+# its guard in planning_workbench_ui.js. It is a new file rather than lines
+# added to an existing one precisely because of this ceiling's contract, and
+# it is genuinely new behavior, not duplication: the apply path deliberately
+# REUSES promotePlanningCase()'s confirmation/editValue staging and the
+# Planning Case record type rather than reimplementing either, which is why
+# the file is as small as it is. dashboard.js is untouched (still 7,201).
+TOTAL_JS_MAX_LINES = 34_657
 
 
 def _line_count(path: Path) -> int:
