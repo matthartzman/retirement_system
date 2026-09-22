@@ -7,6 +7,8 @@ pruning). These tests assert the two never drift apart.
 """
 from pathlib import Path
 
+import pytest
+
 import src.module_catalog as mc
 from src.reporting.workbook_common import OPTIONAL_MODULE_SHEETS
 
@@ -287,3 +289,86 @@ def test_module_status_reports_no_override_as_none(monkeypatch):
     row = mc.module_status({"opt": {"market_luck_stress_test": True}})["market_luck_stress_test"]
     # Present and explicitly null, not absent -- the UI branches on the key.
     assert row["forced"] is None and row["forced_by"] is None
+
+
+# ── #330 §5.3 + Q2: plan flags as a gate kind (W6) ───────────────────────────
+
+def test_plan_flags_are_catalogued_and_are_not_toggles():
+    """The four features #330 §5.3 names, each switched by a plan row rather
+    than a client_optional_functions.csv toggle."""
+    assert set(mc.plan_flag_keys()) == {
+        "heloc", "hybrid_ltc_policy", "daf_giving", "qcd_giving"}
+    for key in mc.plan_flag_keys():
+        m = mc.CATALOG[key]
+        assert m.gate_kind == mc.GATE_PLAN_FLAG
+        assert len(m.gate_ref) == 3 and all(m.gate_ref)
+        assert m.gate_enable_label
+        # Not a toggle, and therefore never in the gate the build reads...
+        assert not m.optional
+        assert key not in OPTIONAL_MODULE_SHEETS
+        # ...but not "core always-on" either: HELOC and friends default to NO.
+        assert key not in mc.core_keys()
+        # A plan flag owns no workbook sheet, so it never reaches the
+        # catalog-to-SHEET_REGISTRY join.
+        assert m.sheet is None
+
+
+def test_the_two_gate_maps_partition_rather_than_overlap():
+    """A plan flag must never appear in a map whose values are fed to
+    optionalFunctionEnabled() -- it has no toggle row, so it would read as
+    permanently off. This is the defect that makes the filtering load-bearing
+    rather than tidy."""
+    toggle_keys = set(mc.optional_keys())
+    flag_keys = set(mc.plan_flag_keys())
+    assert not (toggle_keys & flag_keys)
+
+    for gate_key in mc.step_gate_map().values():
+        assert gate_key in toggle_keys
+    for gate_key in mc.section_gate_map().values():
+        assert gate_key in toggle_keys
+    for gate in mc.flag_gate_map().values():
+        assert gate["key"] in flag_keys
+    for gate in mc.flag_section_gate_map().values():
+        assert gate["key"] in flag_keys
+
+    # No step or section is claimed by both halves.
+    assert not (set(mc.step_gate_map()) & set(mc.flag_gate_map()))
+    assert not (set(mc.section_gate_map()) & set(mc.flag_section_gate_map()))
+
+
+def test_daf_and_qcd_are_gated_identically():
+    """#330 Q2. DAF was double-gated -- `charitable_giving`'s csv_sections AND
+    its own plan flag -- while QCD, the same feature from the other side, was
+    gated by its plan flag alone. QCD *cannot* have a section gate: its rows
+    live in the shared `Cashflow` section. So DAF was the anomaly, and the plan
+    flag owns it now."""
+    assert "DAF" not in mc.CATALOG["charitable_giving"].csv_sections
+    assert "DAF" not in mc.section_gate_map()
+    # ...and not re-introduced under the flag half either: the DAF flag's own
+    # row lives in the section it would gate, so a section gate there would
+    # hide the switch that turns it back on.
+    assert "DAF" not in mc.flag_section_gate_map()
+
+    daf, qcd = mc.CATALOG["daf_giving"], mc.CATALOG["qcd_giving"]
+    for m in (daf, qcd):
+        assert m.gate_kind == mc.GATE_PLAN_FLAG
+        assert m.csv_sections == ()
+        assert m.dashboard_step is None
+    assert daf.domain == qcd.domain
+    assert daf.kind == qcd.kind
+
+
+def test_a_feature_may_not_carry_both_kinds_of_switch():
+    """The double-gate Q2 removed must not be re-creatable. `optional=True`
+    plus `gate_kind="plan_flag"` is exactly that shape, and validate() rejects
+    it."""
+    import dataclasses
+    bad = dataclasses.replace(mc.CATALOG["heloc"], optional=True)
+    original = mc.CATALOG["heloc"]
+    mc.CATALOG["heloc"] = bad
+    try:
+        with pytest.raises(AssertionError, match="alternatives, not layers"):
+            mc.validate()
+    finally:
+        mc.CATALOG["heloc"] = original
+    mc.validate()
