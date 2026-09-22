@@ -821,7 +821,8 @@ def apply_final_workbook_structure(wb, c):
     that one fresh mapping instead of a static, hand-typed one.
     """
     _ensure_plan_data_shell(wb)
-    _extract_scorp_sheet(wb)
+    if module_enabled(c, 'scorp_vs_llc'):
+        _extract_scorp_sheet(wb)
     _merge_strategy_into_executive_summary(wb)
     _merge_asset_location_into_allocation(wb)
     # W3 (#329 O10): LTC Stress Test and Life Insurance Need are no longer
@@ -1117,13 +1118,16 @@ def main():
     if '23. Methodology' in sheets:
         print('  Sheet 23 — Methodology')
         build_sheet23(sheets['23. Methodology'], c)
-    build_sheet24(sheets['24. Asset Location'], c, rows)
+    if '24. Asset Location' in sheets:
+        print('  Sheet 24 — Asset Location')
+        build_sheet24(sheets['24. Asset Location'], c, rows)
     print('  Sheet 25 — Account Reconciliation')
     build_sheet25(sheets['25. Account Reconciliation'], c, rows)
     print('  Sheet 29 — Spending Summary (taxonomy)')
     build_sheet_spending_summary(sheets['29. Spending Summary'], c)
-    print('  Sheet 37 — Current vs. Proposed')
-    build_sheet_current_vs_proposed(sheets['37. Current vs Proposed'], c, rows)
+    if '37. Current vs Proposed' in sheets:
+        print('  Sheet 37 — Current vs. Proposed')
+        build_sheet_current_vs_proposed(sheets['37. Current vs Proposed'], c, rows)
     if '26. Workbook Warnings' in sheets:
         print('  Sheet 26 — Workbook Warnings')
         build_sheet26_workbook_warnings(sheets['26. Workbook Warnings'], c, rows)

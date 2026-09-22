@@ -395,6 +395,7 @@ _OUTPUTS: List[OutputModule] = [
         "tax_capacity", "Tax Capacity", REFERENCE, MEDIUM,
         "Consolidated per-year bracket, IRMAA and ACA headroom, assembled from four other sheets.",
         domain=TAXES,
+        optional=True,
         sheet="11B. Tax Capacity", tab="5I. Tax Capacity",
         requires_inputs=(_in("income"), _in("assumptions", "brackets", "irmaa")),
         requires_outputs=BASE_PROJECTION + ("lifetime_tax_projection",),
@@ -428,6 +429,7 @@ _OUTPUTS: List[OutputModule] = [
         "asset_location", "Asset Location", OPTIMIZATION, MEDIUM_HIGH,
         "Which assets to hold in which tax bucket.",
         domain=INVESTMENTS,
+        optional=True,
         sheet="24. Asset Location", tab="24. Asset Location",
         requires_inputs=(_in("holdings", "lots"), _in("planning_levers", "location_policy"),
                          _in("assumptions", "tax_rates")),
@@ -550,6 +552,7 @@ _OUTPUTS: List[OutputModule] = [
         "scorp_vs_llc", "S-Corp vs LLC", COMPARISON, LOW,
         "Entity-structure tax comparison for the self-employed.",
         domain=FAMILY_BUSINESS,
+        optional=True,
         sheet="S-Corp vs LLC", tab="3B. S-Corp vs LLC",
         requires_inputs=(_in("income", "self_employment"), _in("business"),
                          _in("assumptions", "tax")),
@@ -721,6 +724,7 @@ _OUTPUTS: List[OutputModule] = [
         "current_vs_proposed", "Current vs Proposed", WORKSHEET, MEDIUM,
         "Every tracked recommendation, active or proposed, with its cash-flow delta.",
         domain=REPORTS_DOCUMENTATION,
+        optional=True,
         sheet="37. Current vs Proposed", tab="1H. Current vs. Proposed",
         requires_outputs=BASE_PROJECTION,
     ),
@@ -1099,7 +1103,7 @@ SHEET_REGISTRY = dict([
     _visible('7. Lifetime Tax', '1', 5, 5, 'Lifetime Taxes', 'lifetime_tax_projection', slug='lifetime_taxes'),
     _visible('8. Charts Dashboard', '1', 4, 4, 'Charts', 'charts_dashboard', slug='charts'),
     _hidden('9. Retirement Strategy', '1', module_key='retirement_strategy', slug='retirement_strategy'),
-    _visible('S-Corp vs LLC', None, 0, 1, 'S-Corp vs LLC', slug='s_corp_vs_llc'),
+    _visible('S-Corp vs LLC', None, 0, 1, 'S-Corp vs LLC', 'scorp_vs_llc', slug='s_corp_vs_llc'),
     _visible('10. Social Security', '2', 3, 3, 'Social Security', 'social_security_timing', slug='social_security'),
     _visible('11. Roth Conversion', '2', 0, 0, 'Roth Conversion', 'roth_conversion_plan', slug='roth_conversion'),
     # section_rank/letter_rank are sort keys, not slots -- 0.5 sits it right
@@ -1141,11 +1145,11 @@ SHEET_REGISTRY = dict([
     _visible('21. Quality Control', '4', 4, 3, 'Quality Control', slug='quality_control'),
     _visible('22. Glossary', '4', 7, 6, 'Glossary', 'glossary', slug='glossary'),
     _visible('23. Methodology', '4', 6, 5, 'Methodology', 'methodology_rerun', slug='methodology'),
-    _hidden('24. Asset Location', '2', slug='asset_location'),
+    _hidden('24. Asset Location', '2', 'asset_location', slug='asset_location'),
     _visible('25. Account Reconciliation', '4', 3, 2, 'Account Reconciliation', slug='account_reconciliation'),
     _hidden('26. Workbook Warnings', 'H', slug='workbook_warnings'),
     _visible('27. Planning Levers', '4', 7.5, 7.5, 'Planning Levers', slug='planning_levers'),
-    _visible('11B. Tax Capacity', '2', 8, 8, 'Tax Capacity', slug='tax_capacity'),
+    _visible('11B. Tax Capacity', '2', 8, 8, 'Tax Capacity', 'tax_capacity', slug='tax_capacity'),
     _visible('29. Spending Summary', '1', 6, 6, 'Spending Summary', slug='spending_summary'),
     _visible('30. Education Funding', '2', 9, 9, 'Education Funding', 'education_funding_529', slug='education_funding'),
     # letter_rank 4-6 (was 3-5): the protection decisions now sit after LTC
@@ -1156,7 +1160,7 @@ SHEET_REGISTRY = dict([
     _visible('34. Business Succession', '2', 12, 12, 'Business Succession', 'business_succession', slug='business_succession'),
     _visible('35. Equity Compensation', '2', 10, 10, 'Equity Compensation', 'equity_compensation', slug='equity_compensation'),
     _visible('36. Special-Needs Planning', '2', 11, 11, 'Special-Needs Planning', 'special_needs_planning', slug='special_needs_planning'),
-    _visible('37. Current vs Proposed', '1', 7, 7, 'Current vs. Proposed', slug='current_vs_proposed'),
+    _visible('37. Current vs Proposed', '1', 7, 7, 'Current vs. Proposed', 'current_vs_proposed', slug='current_vs_proposed'),
     # 2026-09-09 housing-estimate design, §7.0 H7: the three-axis housing
     # trajectory sweep -- see src/housing_comparison.py.
     # section_rank/letter_rank 17/15 sit right
