@@ -19,6 +19,11 @@ def test_system_section_uses_clean_sheet_sequence_without_feature_toggle(built_w
         # #221: Core Spending merged into Spending Summary -- densely 1G now.
         '1G. Spending Summary',
         '1H. Current vs. Proposed',
+        # W11 addendum (2026-09-22): recatalogued WORKSHEET (was REFERENCE) --
+        # an interactive lever-screening tool, not a static echo -- so it now
+        # letters and sorts in Reports instead of System, densely last. See
+        # the System-section comment below for where it used to sit.
+        '1I. Planning Levers',
         # W3 (#329 O10, F1): COMPARISON modules (State Residency, S-Corp vs
         # LLC) moved to their own '3. Comparisons' group, out of Optimizers.
         # HSA Drawdown (2B) always sits right after Roth Conversion (shares
@@ -48,14 +53,14 @@ def test_system_section_uses_clean_sheet_sequence_without_feature_toggle(built_w
         # between LTC Stress Test and Life Insurance Need) is off by default
         # in this fixture, so it does not appear and letters compress.
         '4. Risks','4A. Monte Carlo','4B. Survivor','4C. LTC Stress Test','4D. Life Insurance Need',
-        # Planning Levers now letters and sorts with the System section it has
-        # always physically belonged to, last rather than second (W11 retires
-        # the sheet outright; until then it stops lying about its group).
+        # W11 addendum (2026-09-22): Planning Levers is recatalogued WORKSHEET
+        # and now sits in '1. Reports' as 1I (see above) instead of here.
         # REFERENCE-kind, filed in System rather than Reports; system review
         # 2026-08-31 item 1.17's always-on consolidated headroom view now
-        # sorts here, densely last, after Planning Levers. W3 renumbered
-        # System's own group code from '4' to '5' -- '4' is now Risks.
-        '5. System','5A. Plan Data','5B. Assumptions','5C. Account Reconciliation','5D. Quality Control','5E. RMD Audit','5F. Methodology','5G. Glossary','5H. Planning Levers','5I. Tax Capacity',
+        # sorts here, densely last -- 5H now that Planning Levers left System.
+        # W3 renumbered System's own group code from '4' to '5' -- '4' is now
+        # Risks.
+        '5. System','5A. Plan Data','5B. Assumptions','5C. Account Reconciliation','5D. Quality Control','5E. RMD Audit','5F. Methodology','5G. Glossary','5H. Tax Capacity',
     ]
     assert visible[:len(expected)] == expected
     assert '4D. Feature Toggle' not in visible
