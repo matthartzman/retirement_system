@@ -386,7 +386,17 @@ export function renderStrategyOptimize() {
     {
       key: "housing",
       title: "Next Housing Move",
-      gate: null,
+      // #330 §3.2 (Housing "Where to live"): "The UI panel is hidden;
+      // `src/housing/` is not invoked". Until this module was catalogued
+      // there was no switch to gate on, so the panel was unconditionally
+      // live. Collapsed-with-note rather than removed from the list (the
+      // Divorce/QDRO treatment below): the note is what tells a reader where
+      // the switch is, and a reader who came to Optimize looking for the
+      // housing search is exactly who needs to be told. The panel's own form
+      // state is browser-local (HOUSING_OPT_STORAGE_KEY) and the household's
+      // housing plan rows live on the always-on Home & Housing page, so
+      // nothing entered is hidden either way.
+      gate: "housing_location_search",
       // Not analysisFrame-wrapped, unlike its siblings above: this is a
       // self-contained search tool with its own Run button and results
       // table, not a "set inputs, preview impact against the baseline"

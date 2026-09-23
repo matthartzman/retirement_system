@@ -225,13 +225,31 @@ class OutputModule:
     engine_participation: bool = False
     # §7.4 (system review Wave 3.5b): the single source of truth for the two
     # ad-hoc gates dashboard.js used to hand-maintain separately —
-    # ``dashboard_step`` names the nav step this module owns outright (the
-    # step is hidden while the module is off); ``csv_sections`` names the
-    # input-CSV ``section`` value(s) this module gates within a step that
-    # stays visible regardless (e.g. DAF rows inside "Other Spending").
-    # Populated only for modules that actually gate dashboard input
-    # visibility today — most Optimization/Stress/Diagnostics modules gate a
-    # workbook *sheet*, not an input page, and have neither.
+    # ``dashboard_step`` names the gated UI surface this module owns
+    # outright; ``csv_sections`` names the input-CSV ``section`` value(s)
+    # this module gates within a step that stays visible regardless (e.g.
+    # DAF rows inside "Other Spending").
+    # Populated only for modules that actually gate a dashboard surface
+    # today — most Optimization/Stress/Diagnostics modules gate a workbook
+    # *sheet*, not a UI surface, and have neither.
+    #
+    # "Surface", not "nav step", because the frontend reads this map from
+    # exactly two places and they are not the same thing:
+    #
+    #   * ``visibleSteps()`` hides the nav STEP whose id matches, and
+    #   * ``strategySection(..., gateStepId)`` replaces a Strategy-screen
+    #     SECTION's body with the enable-note whose id matches.
+    #
+    # Every value here used to be both at once (``roth_conversion``,
+    # ``entity_charitable``, ``divorce_options``, … each name a real STEPS
+    # entry that a Strategy section also gates on), so the distinction never
+    # had to be drawn. ``housing_location_search`` is the first that is a
+    # section and nothing else: the "Where to live" panel is a section of the
+    # Optimize screen and owns no input page of its own (its search
+    # parameters are browser-local, not plan rows). An id naming no STEPS
+    # entry is inert in ``visibleSteps()`` — it filters the STEPS array, so
+    # an id not in it hides nothing — which is why one map still serves both
+    # readers without a second field to say which kind it is.
     dashboard_step: Optional[str] = None
     csv_sections: Tuple[str, ...] = field(default_factory=tuple)
     # ── #330 §5.3 (W6): how this module is switched on ──────────────────────
@@ -631,6 +649,83 @@ _OUTPUTS: List[OutputModule] = [
         optional=True, sheet="38. Housing Comparison", tab="2G. Housing Comparison",
         requires_inputs=(_in("household", "next_housing_steps"), _in("assumptions", "growth")),
         requires_outputs=BASE_PROJECTION,
+    ),
+    OutputModule(
+        # ── Registry gap closed: the OTHER housing engine ────────────────────
+        #
+        # #329 §1.4 named the pair honestly -- "Where to live" (this one,
+        # `src/housing/`, the UI panel) and "When to move"
+        # (`housing_comparison.py`, Sheet 38, `housing_trajectory_comparison`
+        # above) -- and #330 §3.2 listed "Where to live" among the twelve
+        # newly-optional candidates. Neither ever got a CATALOG record, so
+        # #330's off-semantics for it ("The UI panel is hidden; `src/housing/`
+        # is not invoked") described a behavior nothing could express: with no
+        # module there was no switch, and with no switch the panel and both
+        # endpoints were unconditionally live. W8b found this and W9 confirmed
+        # it was out of its own scope; this entry is the W1-shaped addition
+        # both notes asked for.
+        #
+        # `kind` is OPTIMIZATION, from the code rather than from the name.
+        # `optimizer.py`'s own contract is "generate -> filter -> score ->
+        # rank": the ZIP screen enumerates candidate locations inside the
+        # anchors' radii, `candidates`/`search` sweep the original home's sale
+        # year and each move's acquisition year across them, and
+        # `rank_candidates` orders the survivors on one of three objectives
+        # (`net_worth`, `lifetime_cost`, `mc_success_rate`). Where and when to
+        # move are levers the household controls, which is OPTIMIZATION's
+        # question verbatim. COMPARISON was the live alternative and is wrong
+        # on the axis #329 §3.1 drew: a COMPARISON scores *the alternatives the
+        # user named*, and the v2 request body carries no candidate list at all
+        # -- `api.validate_request` REJECTS one ("Manual candidate locations
+        # are no longer supported"). What the user supplies is a search region
+        # (2-5 anchor ZIPs plus a radius per move); the candidates are
+        # generated. Its sibling `housing_trajectory_comparison` is likewise
+        # OPTIMIZATION despite carrying "Comparison" in its display name.
+        #
+        # `domain` is HOUSING_PROPERTY, the same as that sibling: the two
+        # engines answer two halves of one housing decision, and #330 §4.1's
+        # axes are independent, so sharing a domain while differing in nothing
+        # else is exactly right.
+        #
+        # `sheet=None`, and unlike Divorce/QDRO's pre-W9 `sheet=None` this one
+        # is not a gap waiting to be closed. A workbook sheet is built from the
+        # saved plan; this search's inputs (anchor ZIPs, radii, quality floor,
+        # budget bounds, per-move windows, objective) exist only as browser-
+        # local form state -- `HOUSING_OPT_STORAGE_KEY` in
+        # dashboard_decomp_housing_optimizer.js -- and there is no plan CSV
+        # behind them to build from. That is precisely why Sheet 38 exists and
+        # reads `next_housing_steps` instead. Giving this module a sheet would
+        # mean first inventing a plan-input surface for the search parameters,
+        # which is a feature, not a catalog record.
+        #
+        # `engine_participation=False`, and the distinction is worth stating
+        # because this module runs the engine harder than any other: every
+        # candidate is a real `planning_engines.run_scenario` (plus
+        # `monte_carlo` for the shortlist). But `run_scenario` deep-copies and
+        # `plan_variant._apply_candidate` mutates only that copy, so the saved
+        # plan's own projection is untouched whether this is on or off. The
+        # flag means "this toggle moves the projection", not "this module calls
+        # the engine".
+        #
+        # No `degrades_without`: the `mc_success_rate` objective calls
+        # `planning_engines.monte_carlo` directly (optimizer.py), NOT through
+        # `market_luck_stress_test`'s gate, so turning Monte Carlo off does not
+        # make this module say less. Checked rather than assumed -- W5's rule
+        # is that a declaration nothing can observe is worse than none.
+        "housing_location_search", "Housing Location Search", OPTIMIZATION, LOW,
+        "\"Where to live\": screens ZIP codes inside your chosen anchors and radius, "
+        "then sweeps each move's location and year against the plan to rank places to go. "
+        "The workbook's Housing Comparison answers the other half, \"when to move\".",
+        domain=HOUSING_PROPERTY,
+        optional=True,
+        requires_inputs=(_in("household", "state", "next_housing_steps"),
+                         _in("assets", "home_value"), _in("liabilities", "mortgage"),
+                         _in("assumptions", "growth", "home_appreciation", "inflation")),
+        requires_outputs=BASE_PROJECTION,
+        # The Optimize screen's "Next Housing Move" section. A section, not a
+        # nav step -- see the `dashboard_step` field note above for why one map
+        # still serves both readers.
+        dashboard_step="housing_location_search",
     ),
     OutputModule(
         "estate_legacy_plan", "Estate & Legacy", OPTIMIZATION, MEDIUM,

@@ -223,6 +223,21 @@ DECLARED_SITES: dict[tuple[str, str, str], tuple[str, str | None, tuple[str, ...
         "Adds the owner's projected business interest to the taxable estate, "
         "changing computed estate tax and not merely sheet 34's existence.",
     ),
+    ("src/server/plan_routes.py", "_housing_search_config_or_disabled",
+     "housing_location_search"): (
+        OWN_GATE, None, (),
+        "The server half of #330 \u00a73.2's off-semantics for Housing "
+        "\"Where to live\" -- \"`src/housing/` is not invoked\". Shared by "
+        "/api/housing/optimize and /api/housing/zip-screen, the only two "
+        "server-side entries into the location search, so the module's own "
+        "gate is in one place rather than duplicated per route. The FIRST "
+        "gate in a Flask route rather than a builder: hiding the panel does "
+        "not stop a direct POST, and the search runs the deterministic "
+        "engine per candidate, so an ungated endpoint is an off module doing "
+        "its most expensive work. Not ENGINE -- run_scenario deep-copies, so "
+        "the saved plan's own projection is identical either way (see the "
+        "catalog entry's engine_participation note).",
+    ),
 }
 
 
