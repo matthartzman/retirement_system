@@ -18,6 +18,7 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import Any
 
+from ..server_services.strategy_asset_service import HOME_APPR_DEFAULT
 from .models import (
     AREA_TYPES,
     DISPOSITIONS,
@@ -48,6 +49,24 @@ from .zip_screen.screen import (
 from .zip_screen.table import load_table
 
 OPTIMIZE_SCHEMA = 'housing_optimize_v2'
+
+# How many ZIPs the step-1 *preview* promotes for the user to choose from
+# (design 2026-09-19 §5.2/§5.4). This is a preview cap, not a user-facing
+# knob: the per-move "Shortlist size" pulldown left the request schema
+# entirely, because once step 1 ends with the user ticking the ZIPs they
+# want, the count *is* the selection and a second control could only
+# disagree with it. ``parse_move_search`` promotes
+# ``max(DEFAULT_PREVIEW_SIZE, len(anchors))`` so the preview can always show
+# the per-anchor quota's work.
+DEFAULT_PREVIEW_SIZE = 4
+
+# Bounds on ``move{n}.search.selected_zips`` -- the ZIPs step 1 hands the
+# optimizer. The floor is 1 rather than 0 because a move with nothing
+# selected is a search with no candidate locations, which the old
+# shortlist_size could not express; the ceiling bounds the Stage-2 grid the
+# same way the old cap did.
+SELECTED_ZIPS_MIN = 1
+SELECTED_ZIPS_MAX = 10
 
 
 def validate_request(body: dict[str, Any]) -> str | None:
@@ -138,6 +157,14 @@ def validate_request(body: dict[str, Any]) -> str | None:
         if property_type == 'apartment' and str(block.get('action', 'auto')) == 'buy':
             return (f'Apartment is rental-only for {key.replace("move", "move ")}. '
                     "Choose Rent or Auto, or a different property type to buy.")
+        selected = search.get('selected_zips')
+        if not isinstance(selected, (list, tuple)) or not (
+                SELECTED_ZIPS_MIN <= len(selected) <= SELECTED_ZIPS_MAX):
+            return (f'Choose between {SELECTED_ZIPS_MIN} and {SELECTED_ZIPS_MAX} '
+                    f'candidate ZIPs for {key.replace("move", "move ")}. '
+                    'Press "Find candidate locations" and tick the ones to search.')
+        if any(not str(z).strip() for z in selected):
+            return f'Every selected ZIP for {key.replace("move", "move ")} needs a value.'
 
     fp = body.get('family_presence')
     if fp:
@@ -194,17 +221,125 @@ def parse_move_search(raw: dict[str, Any]) -> MultiAnchorRequest:
     except (TypeError, ValueError):
         max_population = None
 
-    size = int(raw.get('shortlist_size', 4) or 4)
-
     return MultiAnchorRequest(
         anchor_zips=anchor_zips,
         radius_miles=radius,
         min_quality_score=min_score,
-        shortlist_size=max(2, min(5, size)),
+        # Not read from the request: ``shortlist_size`` left the wire schema
+        # with the step-1 selection table (§5.4) and survives only as this
+        # internal preview cap. It floors at the anchor count so the preview
+        # can seat every anchor the per-anchor quota reserves a slot for --
+        # the screen enforces the same floor, but stating it here keeps the
+        # preview's size honest at its own layer.
+        shortlist_size=max(DEFAULT_PREVIEW_SIZE, len(anchor_zips)),
         property_spec=dict(raw.get('dwelling') or {}),
         area_type=area_type,
         max_population=max_population,
     )
+
+
+class StaleSelectionError(ValueError):
+    """A ``selected_zips`` entry is not in this move's screened candidates."""
+
+
+def parse_selected_zips(raw: dict[str, Any], move_label: str) -> list[str]:
+    """One move's step-1 ZIP selection, validated for shape only.
+
+    Membership -- every entry appearing in that move's ``all_passing`` -- is
+    checked later by ``_locations_for_selection``, once the screen has
+    actually run.
+    """
+    values = raw.get('selected_zips')
+    if not isinstance(values, (list, tuple)):
+        raise ValueError(
+            f'Choose between {SELECTED_ZIPS_MIN} and {SELECTED_ZIPS_MAX} candidate '
+            f'ZIPs for {move_label}. Press "Find candidate locations" and tick '
+            'the ones to search.'
+        )
+    zips: list[str] = []
+    for value in values:
+        zip_code = str(value or '').strip()
+        if not zip_code:
+            raise ValueError(f'Every selected ZIP for {move_label} needs a value.')
+        if zip_code not in zips:      # a double-tick is not a second search
+            zips.append(zip_code)
+    if not (SELECTED_ZIPS_MIN <= len(zips) <= SELECTED_ZIPS_MAX):
+        raise ValueError(
+            f'Choose between {SELECTED_ZIPS_MIN} and {SELECTED_ZIPS_MAX} candidate '
+            f'ZIPs for {move_label}. Press "Find candidate locations" and tick '
+            'the ones to search.'
+        )
+    return zips
+
+
+def select_screened_zips(
+    screen: ScreenResult, selected_zips: list[str], move_label: str,
+) -> list[ScreenedZip]:
+    """Filter a screen result down to the ZIPs step 1 selected (design §5.5).
+
+    A ZIP that is not in ``all_passing`` was screened against different
+    filters -- a stale ``localStorage`` selection, or a hand-built request.
+    That is an error naming the ZIP, never a silent drop: degrading into a
+    smaller search than the user asked for is the same class of silent
+    discard §1.1 exists to fix.
+
+    Rows come back in ``all_passing``'s own score order rather than the
+    order the client happened to tick them, so two clients sending the same
+    set get the same candidate ordering.
+    """
+    passing = {z.zcta: z for z in screen.all_passing}
+    missing = [z for z in selected_zips if z not in passing]
+    if missing:
+        raise StaleSelectionError(
+            f'ZIP {missing[0]} is not among the screened candidates for '
+            f'{move_label}. The screen filters have changed since it was '
+            'selected -- press "Find candidate locations" again and re-pick.'
+        )
+    wanted = set(selected_zips)
+    return [
+        ScreenedZip(**{**z.__dict__, 'promoted': True})
+        for z in screen.all_passing if z.zcta in wanted
+    ]
+
+
+def _selected_locations(
+    screen: ScreenResult, raw_search: dict[str, Any], move_label: str,
+) -> list[ScreenedZip]:
+    """``select_screened_zips`` unless the screen came back empty.
+
+    An empty screen and a stale selection look identical to
+    ``select_screened_zips`` -- in both cases the requested ZIP is not in
+    ``all_passing`` -- but they are different problems with different
+    remedies, and the spec resolves only the second. A screen that returns
+    nothing is the filters' doing, and the caller already has a message for
+    it ("Widen the radius, lower the minimum quality score, or add anchors")
+    reached through the empty-locations path below; naming one arbitrary ZIP
+    as stale there would send the user to re-pick from a list that has no
+    rows. So emptiness is checked first, and the stale-selection error is
+    reserved for the case it was written for: a screen with candidates that
+    does not contain one the client asked for.
+    """
+    if not screen.all_passing:
+        return []
+    return select_screened_zips(
+        screen, parse_selected_zips(raw_search, move_label), move_label)
+
+
+def _budget_basis(c0: dict[str, Any], earliest_year: int, latest_year: int) -> dict[str, Any]:
+    """The screen's budget-deflation fields for one move's acquisition
+    window (design §6.4 site 4, §5.5). ``home_appr``/``plan_start`` are read
+    server-side from ``c0`` -- the same two keys, with the same fallbacks,
+    that ``plan_variant`` reads -- so no rate travels on the wire and cannot
+    disagree with the one the optimizer itself then uses. ``reference_year``
+    is the window's own midpoint, the same convention
+    ``target_purchase_price_range``'s midpoint is already consumed under.
+    """
+    return {
+        'home_appr': float(c0.get('home_appr', HOME_APPR_DEFAULT) or HOME_APPR_DEFAULT),
+        'plan_start': int(c0.get('plan_start') or 0),
+        'reference_year': (int(earliest_year) + int(latest_year)) // 2
+                          if earliest_year and latest_year else 0,
+    }
 
 
 def _splice_screen_detail(location, screened: ScreenedZip):
@@ -298,17 +433,31 @@ def optimize_housing_from_request(
                 through_year=int(fp_raw.get('through_year') or 0),
             )
 
-        move1_req = parse_move_search(move1.get('search') or {})
+        move1_req = replace(
+            parse_move_search(move1.get('search') or {}),
+            **_budget_basis(c0, move1_window.earliest_acquisition_year,
+                            move1_window.latest_acquisition_year),
+        )
         move1_screen = run_multi_anchor_screen(
             move1_req, table=table, current_state=current_state)
+        move1_selected = _selected_locations(
+            move1_screen, move1.get('search') or {}, 'move 1')
+        move1_screen = replace(
+            move1_screen, shortlist=move1_selected,
+            funnel={**move1_screen.funnel, 'promoted': len(move1_selected)})
         locations1 = _resolve_screened_locations(
-            move1_screen.shortlist, move1_req.property_spec, table,
+            move1_selected, move1_req.property_spec, table,
             family_zip, family_coords)
 
         objective = str(body.get('objective', 'net_worth') or 'net_worth')
         search_mode = str(body.get('search_mode', 'full') or 'full')
         move2_strategy = str(body.get('move2_strategy', 'anchored') or 'anchored')
 
+        # Built from the selection-narrowed screen above, so the funnel's
+        # `promoted` count is what the optimizer actually searched rather than
+        # the preview's. `per_anchor_quota` deliberately still describes the
+        # preview's reserved pass -- it is a fact about the set the user chose
+        # from, not about the choice they made.
         zip_screens: dict[str, Any] = {'move1': screen_payload(move1_screen)}
 
         move2_window = None
@@ -326,11 +475,20 @@ def optimize_housing_from_request(
             move2_concurrent = bool(move2.get('concurrent', False))
             anchor_count = int(move2.get('anchor_count', 5) or 5)
 
-            move2_req = parse_move_search(move2.get('search') or {})
+            move2_req = replace(
+                parse_move_search(move2.get('search') or {}),
+                **_budget_basis(c0, move2_window.earliest_acquisition_year,
+                                move2_window.latest_acquisition_year),
+            )
             move2_screen = run_multi_anchor_screen(
                 move2_req, table=table, current_state=current_state)
+            move2_selected = _selected_locations(
+                move2_screen, move2.get('search') or {}, 'move 2')
+            move2_screen = replace(
+                move2_screen, shortlist=move2_selected,
+                funnel={**move2_screen.funnel, 'promoted': len(move2_selected)})
             locations2 = _resolve_screened_locations(
-                move2_screen.shortlist, move2_req.property_spec, table,
+                move2_selected, move2_req.property_spec, table,
                 family_zip, family_coords)
             zip_screens['move2'] = screen_payload(move2_screen)
 
@@ -419,12 +577,25 @@ def _screened_zip_payload(z: ScreenedZip) -> dict[str, Any]:
         'collapsed': z.collapsed, 'area_type': z.area_type,
         'population': z.population, 'nearest_anchor_zip': z.nearest_anchor_zip,
         'family_distance_miles': z.family_distance_miles,
+        'est_price_basis_year': z.est_price_basis_year,
+        'est_price_move_year': z.est_price_move_year,
+        'est_price_reference_year': z.est_price_reference_year,
+        'quota_reserved': z.quota_reserved,
     }
 
 
-def screen_payload(result: ScreenResult) -> dict[str, Any]:
-    """The ``zip_screen`` block shared by both endpoints."""
-    return {
+def screen_payload(
+    result: ScreenResult, include_all_passing: bool = False
+) -> dict[str, Any]:
+    """The ``zip_screen`` block shared by both endpoints.
+
+    ``include_all_passing`` adds every ZIP that cleared the funnel, not just
+    the promoted preview. Step 1's selection table needs it -- the user may
+    tick ZIPs the quota did not promote (§5.3) -- but the optimize response
+    does not, and carrying a few hundred rows twice per move there would be
+    payload for no reader.
+    """
+    payload = {
         'schema': RESPONSE_SCHEMA,
         'score_model': SCORE_MODEL_VERSION,
         'disclosure': NSS_DISCLOSURE,
@@ -433,8 +604,23 @@ def screen_payload(result: ScreenResult) -> dict[str, Any]:
         'radius_miles': result.radius_miles,
         'funnel': result.funnel,
         'relaxation': result.relaxation,
+        'unrepresented_anchors': result.unrepresented_anchors,
         'shortlist': [_screened_zip_payload(z) for z in result.shortlist],
     }
+    if include_all_passing:
+        # ``promoted``/``quota_reserved`` live on the shortlist's copies, not
+        # on ``all_passing``'s, so they are carried across by ZCTA here --
+        # otherwise every selection-table row would render unchecked and
+        # unbadged, and the default selection would not reproduce the quota.
+        promoted = {z.zcta: z for z in result.shortlist}
+        payload['all_passing'] = [
+            {**_screened_zip_payload(z),
+             'promoted': z.zcta in promoted,
+             'quota_reserved': bool(
+                 promoted[z.zcta].quota_reserved if z.zcta in promoted else False)}
+            for z in result.all_passing
+        ]
+    return payload
 
 
 def zip_screen_from_request(
@@ -444,13 +630,20 @@ def zip_screen_from_request(
 
     Accepts ``{'search': {...}}``, the same shape as ``move1.search`` /
     ``move2.search``, so this one endpoint serves either move without
-    knowing which.
+    knowing which. ``acquisition_window`` (``[earliest, latest]``, optional)
+    gives the affordability filter a reference year for the budget-bounds
+    deflation (§6.4 site 4, §5.5) -- omitted, it defaults to a no-op
+    (today's-dollars bounds), matching this endpoint's pre-existing
+    behavior.
     """
     raw = body.get('search')
     if not isinstance(raw, dict):
         return {'success': False, 'error': 'search block is required.'}, 400
     try:
-        req = parse_move_search(raw)
+        window = body.get('acquisition_window')
+        earliest, latest = (int(window[0]), int(window[1])) \
+            if isinstance(window, (list, tuple)) and len(window) == 2 else (0, 0)
+        req = replace(parse_move_search(raw), **_budget_basis(c0, earliest, latest))
         result = run_multi_anchor_screen(
             req,
             table=load_table(table_path) if table_path else load_table(),
@@ -460,7 +653,8 @@ def zip_screen_from_request(
         return {'success': False, 'error': str(exc)}, 400
     except ValueError as exc:
         return {'success': False, 'error': str(exc)}, 400
-    return {'success': True, 'zip_screen': screen_payload(result)}, 200
+    return {'success': True,
+            'zip_screen': screen_payload(result, include_all_passing=True)}, 200
 
 
 import csv as _csv

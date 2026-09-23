@@ -104,16 +104,24 @@ def test_down_payment_and_rate_come_from_the_request_not_a_constant():
     assert step["mortgage_rate_pct"] == 0.055
 
 
+# Neutral valuation-timing args for tests below that exercise tier
+# selection, not escalation: a 0% home_appr/inflation_general makes the
+# escalation factor 1.0 regardless of years_out, so these reproduce the
+# pre-2026-09-19 (today's-dollars) numbers exactly. Escalation itself is
+# covered in test_housing_valuation_timing_unit.py.
+_NO_ESCALATION = dict(start_year=2020, home_appr=0.0, inflation_general=0.0)
+
+
 def test_purchase_price_prefers_target_range_midpoint():
     loc = Location(state="Texas", target_purchase_price_range=(400000.0, 500000.0), est_price=999999.0)
-    assert _purchase_price_for_location(loc) == 450000.0
+    assert _purchase_price_for_location(loc, **_NO_ESCALATION) == 450000.0
 
 
 def test_purchase_price_falls_back_to_the_zip_scaled_estimate():
     """No price range set: use the ZIP screen's own scaled estimate, not a
     flatter state-wide number."""
     loc = Location(state="Texas", est_price=612345.0)
-    assert _purchase_price_for_location(loc) == 612345.0
+    assert _purchase_price_for_location(loc, **_NO_ESCALATION) == 612345.0
 
 
 def test_purchase_price_honors_an_explicit_zero_est_price():
@@ -121,7 +129,7 @@ def test_purchase_price_honors_an_explicit_zero_est_price():
     as falsy and fall through to the state-level estimate -- an explicit
     None is the only thing that should fall through."""
     loc = Location(state="Texas", est_price=0.0)
-    assert _purchase_price_for_location(loc) == 0.0
+    assert _purchase_price_for_location(loc, **_NO_ESCALATION) == 0.0
 
 
 def test_purchase_price_falls_back_to_state_estimate_when_no_est_price():
@@ -130,16 +138,16 @@ def test_purchase_price_falls_back_to_state_estimate_when_no_est_price():
     _splice_screen_detail always sets est_price) still returns something
     sane rather than raising."""
     loc = Location(state="Texas", city_type="suburban", population_size=150000)
-    price = _purchase_price_for_location(loc)
+    price = _purchase_price_for_location(loc, **_NO_ESCALATION)
     assert price > 0
 
 
 def test_effective_mortgage_rate_prefers_the_explicit_value():
-    assert _effective_mortgage_rate(TX, 0.05) == 0.05
+    assert _effective_mortgage_rate(TX, 0.05, **_NO_ESCALATION) == 0.05
 
 
 def test_effective_mortgage_rate_falls_back_to_the_location_estimate():
-    rate = _effective_mortgage_rate(TX, None)
+    rate = _effective_mortgage_rate(TX, None, **_NO_ESCALATION)
     assert rate > 0
 
 

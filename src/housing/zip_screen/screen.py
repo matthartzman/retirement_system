@@ -11,6 +11,7 @@ import math
 from dataclasses import dataclass, field
 from typing import Any
 
+from ...server_services.strategy_asset_service import HOME_APPR_DEFAULT
 from .geo import haversine_miles, zips_within
 from .quality import score_zip
 from .resolve import city_type_for_density
@@ -36,6 +37,17 @@ class ScreenRequest:
     property_spec: dict[str, Any]
     area_type: str = 'any'
     max_population: int | None = None
+    # Budget-basis fields (design 2026-09-19 §6.4 site 4). ``target_purchase_
+    # price_range`` in ``property_spec`` is move-year dollars (OQ-2); the
+    # screen's own price estimate stays today's dollars (screen.estimate_price
+    # is untouched), so the *bounds* -- never the estimate -- are deflated by
+    # ``home_appr`` over the years from ``plan_start`` to ``reference_year``
+    # before the affordability comparison. Defaults are a no-op (deflator 1),
+    # so a caller that does not care about basis (most existing tests) is
+    # unaffected.
+    home_appr: float = HOME_APPR_DEFAULT
+    plan_start: int = 0
+    reference_year: int = 0
 
 
 @dataclass(frozen=True)
@@ -57,6 +69,23 @@ class ScreenedZip:
     collapsed: list[str] = field(default_factory=list)
     nearest_anchor_zip: str = ''
     family_distance_miles: float | None = None
+    # True when the per-anchor quota's reserved pass promoted this ZIP
+    # (design 2026-09-19 §5.2). Drives step 1's "covers {anchor}" badge, so
+    # the user can see the quota working rather than having to infer it.
+    quota_reserved: bool = False
+    # = plan_start at screen time (design §6.4 site 4), so a downstream
+    # consumer can never mistake est_price's basis: it is always today's
+    # (this) dollars, never the move's own year.
+    est_price_basis_year: int = 0
+    # The same estimate escalated to the reference year the affordability
+    # filter priced against -- the acquisition window's midpoint (§5.5).
+    # Derived here rather than client-side because no rate travels on the
+    # wire (§5.5): the panel's "Estimated price -- as of 2041, midpoint of
+    # 2036-2046" header would otherwise be labelling a today's-dollars
+    # number with a future year. Equals est_price when there is no window,
+    # and est_price_reference_year then equals the basis year.
+    est_price_move_year: float = 0.0
+    est_price_reference_year: int = 0
 
 
 @dataclass(frozen=True)
@@ -69,6 +98,12 @@ class ScreenResult:
     relaxation: dict[str, Any] | None = None
     anchors: list[dict[str, Any]] = field(default_factory=list)
     stage_zctas: dict[str, list[str]] = field(default_factory=dict)
+    # Anchors the user declared for which *no* ZIP survived the screen
+    # (design §5.2). Recorded and reported, never raised: an anchor that
+    # screens empty is a warning the user can act on (widen the radius, lower
+    # the score, drop the anchor), not a failed run. Silence here was the
+    # whole of defect §1.1.
+    unrepresented_anchors: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -80,6 +115,11 @@ class MultiAnchorRequest:
     property_spec: dict[str, Any]
     area_type: str = 'any'
     max_population: int | None = None
+    # See ScreenRequest's matching fields -- same budget-basis deflation,
+    # applied per anchor by run_multi_anchor_screen below.
+    home_appr: float = HOME_APPR_DEFAULT
+    plan_start: int = 0
+    reference_year: int = 0
 
 
 def estimate_price(rec: ZipRecord, base_estimate: float) -> float:
@@ -241,8 +281,25 @@ def run_screen(
     in_radius = zips_within(data, anchor, req.radius_miles)
     funnel = {'in_radius': len(in_radius)}
 
+    # The same years_out/escalator the budget-bound deflation below uses,
+    # hoisted so it also prices each survivor's move-year estimate. Deflating
+    # the bounds and escalating the estimate are two views of one comparison,
+    # so they must never be computed from different rates.
+    years_out = max(0, int(req.reference_year) - int(req.plan_start)) if req.reference_year else 0
+    escalator = (1.0 + float(req.home_appr)) ** years_out if years_out else 1.0
+    reference_year = int(req.reference_year) if years_out else int(req.plan_start)
+
     price_range = req.property_spec.get('target_purchase_price_range')
     lo, hi = (float(price_range[0]), float(price_range[1])) if price_range else (None, None)
+    if lo is not None:
+        # §6.4 site 4: the budget is move-year dollars (OQ-2); the screen's
+        # own est_price stays today's dollars. Deflate the bounds -- never
+        # the estimate -- by the same rate the engine uses for a home's own
+        # appreciation, over the years from plan_start to the reference year
+        # (the move window's midpoint). A current-year window (reference_year
+        # <= plan_start, or unset) deflates by 1 -- a no-op, so funnel counts
+        # are unchanged for it.
+        lo, hi = lo / escalator, hi / escalator
 
     with_data: list[tuple[ZipRecord, float, Any]] = []
     for rec, dist in in_radius:
@@ -290,6 +347,9 @@ def run_screen(
             population=rec.place_population or rec.zcta_population or 0,
             upi_adjusted=nss.upi_adjusted,
             cross_state=rec.state if current_state and rec.state != current_state else None,
+            est_price_basis_year=int(req.plan_start),
+            est_price_move_year=round(price * escalator, 2),
+            est_price_reference_year=reference_year,
         ))
     funnel['affordable'] = len(passing)
     affordable_passing = list(passing)
@@ -337,6 +397,67 @@ def run_screen(
     )
 
 
+def _promote_with_anchor_quota(
+    distinct: list[ScreenedZip], anchor_zips: list[str], shortlist_size: int,
+) -> tuple[list[ScreenedZip], list[str]]:
+    """Two-pass promotion reserving one slot per declared anchor (design §5.2).
+
+    1. **Reserved pass** -- in the user's declared anchor order, promote the
+       highest-scoring surviving ZIP whose ``nearest_anchor_zip`` is that
+       anchor. An anchor with no survivor is skipped and recorded, never
+       raised.
+    2. **Open pass** -- fill the remaining slots from the rest of ``distinct``
+       in existing score order, exactly as before.
+
+    ``distinct`` arrives in score order (``deduplicate`` sorts it), so "first
+    match" *is* "highest scoring" in the reserved pass and the open pass is
+    byte-for-byte the old behaviour.
+
+    The returned shortlist is re-sorted into score order, so when the natural
+    top-N already covers every anchor -- the common case, and why §1.1 went
+    unnoticed -- the output is identical to the pre-quota one. The quota
+    changes *membership*, never presentation order.
+
+    ``shortlist_size`` floors at ``len(anchor_zips)``: a shortlist numerically
+    too small to seat every anchor (the default of 4 against up to 5 anchors,
+    §1.1) would make the guarantee unsatisfiable in principle, and silently
+    dropping an anchor is the defect this exists to fix. A caller asking for
+    zero still gets zero.
+    """
+    cap = max(0, int(shortlist_size))
+    if cap:
+        cap = max(cap, len(anchor_zips))
+
+    unrepresented = [
+        anchor for anchor in anchor_zips
+        if not any(z.nearest_anchor_zip == anchor for z in distinct)
+    ]
+
+    chosen: list[ScreenedZip] = []
+    taken: set[str] = set()
+    for anchor in anchor_zips:
+        if len(chosen) >= cap:
+            break
+        pick = next((z for z in distinct
+                     if z.nearest_anchor_zip == anchor and z.zcta not in taken), None)
+        if pick is None:
+            continue
+        taken.add(pick.zcta)
+        chosen.append(ScreenedZip(
+            **{**pick.__dict__, 'promoted': True, 'quota_reserved': True}))
+
+    for z in distinct:
+        if len(chosen) >= cap:
+            break
+        if z.zcta in taken:
+            continue
+        taken.add(z.zcta)
+        chosen.append(ScreenedZip(**{**z.__dict__, 'promoted': True}))
+
+    chosen.sort(key=lambda z: (-z.nss, z.distance_miles, z.zcta))
+    return chosen, unrepresented
+
+
 def run_multi_anchor_screen(
     req: MultiAnchorRequest, table: dict[str, ZipRecord] | None = None,
     current_state: str = '',
@@ -358,6 +479,8 @@ def run_multi_anchor_screen(
                 shortlist_size=len(data),          # no per-anchor truncation
                 property_spec=req.property_spec,
                 area_type=req.area_type, max_population=req.max_population,
+                home_appr=req.home_appr, plan_start=req.plan_start,
+                reference_year=req.reference_year,
             ),
             table=data, current_state=current_state,
         ))
@@ -386,8 +509,14 @@ def run_multi_anchor_screen(
     funnel['distinct'] = len(distinct)
     funnel['near_family'] = len(distinct)
 
-    shortlist = [ScreenedZip(**{**z.__dict__, 'promoted': True})
-                 for z in distinct[: max(0, int(req.shortlist_size))]]
+    shortlist, unrepresented = _promote_with_anchor_quota(
+        distinct, req.anchor_zips, req.shortlist_size)
+    # Unlike every other funnel key this is a *reservation* count, not a
+    # survivor count: the quota stage reorders promotion rather than filtering,
+    # so what is worth reporting is how many of the shortlist's slots the
+    # reserved pass claimed. It is therefore the one stage that can read lower
+    # than the stage after it.
+    funnel['per_anchor_quota'] = sum(1 for z in shortlist if z.quota_reserved)
     funnel['promoted'] = len(shortlist)
 
     return ScreenResult(
@@ -397,6 +526,7 @@ def run_multi_anchor_screen(
         funnel=funnel,
         shortlist=shortlist,
         all_passing=distinct,
+        unrepresented_anchors=unrepresented,
         relaxation=next((r.relaxation for r in per_anchor if r.relaxation), None)
         if not shortlist else None,
     )

@@ -33,7 +33,53 @@ const HOUSING_OPT_MAX_ANCHORS = 5;
 // open/closed state has something stable to read and restore.
 export const HOUSING_OPT_PANEL_ID = "housingOptPanel";
 const HOUSING_OPT_RESULTS_ID = "housingOptimizeResults";
-export const HOUSING_OPT_STORAGE_KEY = "retirement.housing_optimizer.v1";
+// Bumped from .v1 with the two-step flow (design 2026-09-19 §5.5/OQ-5).
+// The key now also holds each move's selected ZIPs and the current step, and
+// a selection saved under v1 was made against a form that had no selection
+// table at all. Bumping rather than extending discards every pre-existing
+// selection cleanly on first load, so api.py's stale-selection rejection is
+// defence in depth rather than the first thing a returning user hits.
+export const HOUSING_OPT_STORAGE_KEY = "retirement.housing_optimizer.v2";
+
+// One-time dismissible notice (design 2026-09-19 §6.6): move costs are now
+// priced as of the move's own year instead of today's, which changes every
+// objective/ranking and shifts recommendations earlier -- households who saw
+// results before the upgrade should be told once. Its own storage key, kept
+// separate from HOUSING_OPT_STORAGE_KEY (the form-input cache), so
+// dismissing the notice never touches saved inputs and vice versa.
+const HOUSING_OPT_VALUATION_NOTICE_KEY = "retirement.housing_optimizer.valuation_notice_dismissed.v1";
+
+function housingOptValuationNoticeDismissed() {
+  try {
+    return localStorage.getItem(HOUSING_OPT_VALUATION_NOTICE_KEY) === "1";
+  } catch (e) {
+    // Blocked/unavailable storage: show the notice every time rather than
+    // throw -- the same fail-open choice loadHousingOptInputs() makes.
+    return false;
+  }
+}
+
+export function dismissHousingOptValuationNotice() {
+  try {
+    localStorage.setItem(HOUSING_OPT_VALUATION_NOTICE_KEY, "1");
+  } catch (e) {
+    // Blocked/unavailable storage: nothing to persist, but still hide it
+    // for the rest of this session below.
+  }
+  const el = document.getElementById("housingOptValuationNotice");
+  if (el) el.remove();
+}
+
+function housingOptValuationNoticeHtml() {
+  if (housingOptValuationNoticeDismissed()) return "";
+  return (
+    '<div class="housing-opt-notice" id="housingOptValuationNotice">' +
+    "<p class=\"small\">Move costs are now estimated in the dollars of the year you move, " +
+    "not today's dollars. Earlier results understated future moves and favored moving later.</p>" +
+    '<button class="btn tiny" type="button" onclick="dismissHousingOptValuationNotice()">Dismiss</button>' +
+    "</div>"
+  );
+}
 
 // Keys in the stored payload that are not themselves a DOM element's id --
 // the per-move anchor *count* has no backing control (it is the module-level
@@ -45,6 +91,13 @@ const HOUSING_OPT_PERSIST_META_KEYS = new Set([
   "__move1AnchorCount",
   "__move2AnchorCount",
   "__detailsOpen",
+  // The step-1 selection and the wizard's position. Neither is a form
+  // control: the selection lives in housingOptSelectedZips below (its
+  // checkboxes are rendered from a screen response, not from the panel
+  // markup) and the step index is the wizard's own state.
+  "__selectedZips1",
+  "__selectedZips2",
+  "__stepIndex",
 ]);
 
 // Enum/range constants mirroring src/housing/models.py and
@@ -63,6 +116,34 @@ const HOUSING_OPT_FAMILY_RADII_MILES = [10, 25, 50, 100];
 // Per-move anchor counts, keyed by move index. Rendered markup and the
 // add/remove controls both read this, so the two never disagree.
 const housingOptAnchorCounts = { 1: HOUSING_OPT_MIN_ANCHORS, 2: HOUSING_OPT_MIN_ANCHORS };
+
+// Step-1 selection bounds, mirroring src/housing/api.py's
+// SELECTED_ZIPS_MIN/MAX (design §5.5). The count *is* the selection now --
+// there is no separate size control that could disagree with it.
+const HOUSING_OPT_SELECTED_ZIPS_MIN = 1;
+const HOUSING_OPT_SELECTED_ZIPS_MAX = 10;
+
+// Which ZIPs step 1 hands the optimizer, per move. Seeded by the screen
+// (pre-checked exactly as the per-anchor quota promoted them, §5.3, so
+// Continue with no interaction reproduces the old behaviour plus the quota)
+// and edited by the selection table's checkboxes.
+const housingOptSelectedZips = { 1: [], 2: [] };
+
+// The last screen response per move, kept so the selection table can be
+// re-rendered (a tick, a coverage warning) without another round trip.
+const housingOptScreenPayloads = { 1: null, 2: null };
+
+// Client-side screen memo (OQ-6): the filter fingerprint each stored payload
+// was screened under. Re-pressing "Find candidate locations" without having
+// changed anything is then a no-op rather than a second identical request.
+// Keyed on the request body itself, so any field that reaches the screen --
+// including the acquisition window, which now prices the affordability
+// filter -- invalidates it automatically.
+const housingOptScreenFingerprints = { 1: null, 2: null };
+
+// Which of the two steps is showing. 1 = "Where and when could you go?",
+// 2 = "What would it cost?".
+let housingOptStepIndex = 1;
 
 // Populated from src/housing/zip_screen/data/top_cities.csv, served alongside
 // the screen endpoint. Falls back to the free-entry ZIP field when unavailable.
@@ -84,9 +165,9 @@ let housingOptTopCitiesLoaded = false;
 // load time and defers the pageHelp() call to a point where dashboard.js has
 // long since finished loading.
 //
-// Per-move fields (Move 1 and Move 2 share the same six real-content
-// controls -- anchors, radius, min score, area type, max population,
-// shortlist size, lot size) are generated once by housingOptMoveHelpEntries()
+// Per-move fields (Move 1 and Move 2 share the same real-content controls --
+// anchors, radius, min score, area type, max population, selected ZIPs, lot
+// size) are generated once by housingOptMoveHelpEntries()
 // below and registered under both `housingOptMove1<Field>` and
 // `housingOptMove2<Field>` so the wording only has to be written once.
 function housingOptMoveHelpEntries() {
@@ -145,16 +226,16 @@ function housingOptMoveHelpEntries() {
       impact:
         "A ceiling can remove every candidate anchored on or near a dense city; the shortlist preview's relaxation hint calls this out by name (\"the population cap\") when it is the stage that emptied the funnel.",
     },
-    ShortlistSize: {
-      title: "Shortlist size",
+    SelectedZips: {
+      title: "Candidate locations",
       meaning:
-        "How many screened ZIPs are promoted from this move's funnel into the optimizer, at the final `promoted` stage.",
+        "The ZIPs this move's search actually runs on: the ones ticked in the selection table after Find candidate locations. Between 1 and 10.",
       connections:
-        "Everything upstream (radius, score, area type, population cap, price range, distinctness, family presence) narrows the candidate pool; this is the last step, capping how many of the survivors actually reach candidate generation.",
+        "Replaces the old 'Shortlist size' pulldown, which asked how many ZIPs to promote without ever showing you which ones. The rows arrive pre-checked exactly as the screen promoted them -- one reserved slot per anchor, then the highest scorers -- so continuing without touching anything searches the same set the screen would have chosen. A 'covers 60521' badge marks a row that is its anchor's only representative.",
       options:
-        "A larger shortlist (up to 5) lets the optimizer consider more locations per move at the cost of a larger search (and, with a second move, a larger cross-product); a smaller one runs faster but may drop a ZIP that would have scored well.",
+        "Tick more ZIPs to widen the search (each one is a full engine run per acquisition year and action, so the search grows with the count); untick ones the household would not actually move to. Unticking an anchor's last ZIP is allowed -- you will be told the selection no longer covers that anchor, but nothing is blocked.",
       impact:
-        "Increasing it only ever adds candidates for the optimizer to score; it never changes which ZIPs pass screening, only how many of the survivors are kept.",
+        "This is the whole candidate set for the move. A ZIP not ticked here is never scored, and the results table can only ever recommend a location that was in this list.",
     },
     LotSize: {
       title: "Lot size",
@@ -246,13 +327,13 @@ const HOUSING_OPT_FIELD_HELP = (() => {
   }
 
   help._panel = {
-    title: "Optimize next housing move",
+    title: "Where to live",
     meaning:
-      "Searches three independent decisions -- what happens to the current home, and where/what/when each of up to two moves is -- against the same deterministic engine and Monte Carlo runner as the rest of the plan, and ranks every resulting candidate by one objective.",
+      "This is the \"Where to live\" engine. It answers: given the places you would consider, which location, year and action (buy or rent) for each move leaves the plan best off? It searches three independent decisions -- what happens to the current home, and where/what/when each of up to two moves is -- against the same deterministic engine and Monte Carlo runner as the rest of the plan, and ranks every resulting candidate by one objective. It does not answer whether moving at all beats staying put over a range of timings: that is the \"When to move\" engine, the workbook's Housing Comparison sheet, which holds the location fixed and varies the timing instead. The two are complementary, and neither substitutes for the other -- use this one once you know roughly when, and that one once you know roughly where.",
     connections:
-      "Objective picks what is ranked: Ending net worth, Lifetime housing cost (minimized), or Monte Carlo success rate. Each searched move runs its own ZIP-radius screen -- a funnel of in_radius -> with_data -> above_score -> matching_area_type -> under_population_cap -> affordable -> distinct -> near_family -> promoted -- before the survivors are combined into candidates and scored.",
+      "Objective picks what is ranked: Ending net worth, Lifetime housing cost (minimized), or Monte Carlo success rate. Step 1 fixes the places and the timing; step 2 fixes everything the costing needs. Each searched move runs its own ZIP-radius screen -- a funnel of in_radius -> with_data -> above_score -> matching_area_type -> under_population_cap -> affordable -> distinct -> near_family -> per_anchor_quota -> promoted -- and you pick the candidates from what survives it.",
     options:
-      "Start with Full grid search mode for a thorough run; switch to Narrowed only when the search space is too large to run in full. Use the per-move 'Preview shortlist' button to see which ZIPs a move's screen would return before running the whole optimization.",
+      "Start with Full grid search mode for a thorough run; switch to Narrowed only when the search space is too large to run in full. Step 1's 'Find candidate locations' shows exactly which ZIPs each move's screen returns, and what each is estimated to cost in the year you would move, before anything is run.",
     impact:
       "Phase 1 limitation: keeping the current home (Disposition = Keep) is scored as a pure cost center -- its carrying costs keep accruing and no rental income is modelled. A kept home can still win on net worth or lifetime cost by avoiding a sale's costs and capital-gains tax while it appreciates, but the comparison does not yet credit any rent it could earn. That comparison is Phase 2 (see the Disposition field's help for the same note in context).",
   };
@@ -556,13 +637,6 @@ const HOUSING_OPT_PRESENCE_RADII = [
   { value: "100", label: "Within 100 miles" },
 ];
 
-const HOUSING_OPT_SHORTLIST_SIZES = [
-  { value: "2", label: "2" },
-  { value: "3", label: "3" },
-  { value: "4", label: "4", selected: true },
-  { value: "5", label: "5" },
-];
-
 const HOUSING_OPT_OBJECTIVE_LABELS = {
   net_worth: "Ending net worth",
   lifetime_cost: "Lifetime housing cost",
@@ -771,6 +845,13 @@ export function saveHousingOptInputs() {
     data.__move1AnchorCount = housingOptAnchorCounts[1] || HOUSING_OPT_MIN_ANCHORS;
     data.__move2AnchorCount = housingOptAnchorCounts[2] || HOUSING_OPT_MIN_ANCHORS;
     data.__detailsOpen = !!root.open;
+    // The selection and the step. Saved by value rather than read back off
+    // the checkboxes, because the selection table is rendered from a screen
+    // response and is simply absent until one has been run -- reading the
+    // DOM would persist "nothing selected" every time the panel is opened.
+    data.__selectedZips1 = [...(housingOptSelectedZips[1] || [])];
+    data.__selectedZips2 = [...(housingOptSelectedZips[2] || [])];
+    data.__stepIndex = housingOptStepIndex;
     localStorage.setItem(HOUSING_OPT_STORAGE_KEY, JSON.stringify(data));
   } catch (e) {
     // Blocked or unavailable storage is not worth surfacing -- the form
@@ -894,6 +975,11 @@ function housingOptHydratePanelHtml(html, stored) {
       out = housingOptHydrateOne(out, "housingOptMove2Fields", (block) =>
         housingOptSetBooleanAttr(block, "hidden", !raw),
       );
+      // Same problem again for the step-2 half of move 2 (§5.3): the mode
+      // row is governed by this checkbox but rendered in the other step.
+      out = housingOptHydrateOne(out, "housingOptMove2ModeFields", (block) =>
+        housingOptSetBooleanAttr(block, "hidden", !raw),
+      );
     }
   }
   if (stored && "__detailsOpen" in stored) {
@@ -936,7 +1022,17 @@ export function toggleHousingOptMove2Fields() {
   const el = document.getElementById("housingOptMove2Fields");
   const enabled = !!document.getElementById("housingOptMove2Enabled")?.checked;
   if (el) el.hidden = !enabled;
+  // The "Move 2 -- mode" row lives on step 2 (§5.3) but is governed by the
+  // same checkbox, which is on step 1.
+  const modeEl = document.getElementById("housingOptMove2ModeFields");
+  if (modeEl) modeEl.hidden = !enabled;
   if (!enabled) {
+    // A disabled move 2 has no selection to carry into the request, and
+    // leaving one behind would re-enable into a stale set screened under
+    // filters the user may since have changed.
+    housingOptSelectedZips[2] = [];
+    housingOptScreenPayloads[2] = null;
+    housingOptScreenFingerprints[2] = null;
     // Move 2 is being disabled -- concurrent mode (and anything it implies)
     // is moot, so reset it rather than silently posting a stale
     // concurrent=true with no move-2 window.
@@ -1025,12 +1121,6 @@ function housingOptMoveWhereRowHtml(n) {
         "Max population",
         `<input type="number" id="${p}MaxPopulation" class="money" min="0" placeholder="No cap">`,
         "Optional ceiling on the ZIP's population. There is no minimum -- a small town is never excluded for being small.",
-      ) +
-      housingOptField(
-        `${p}ShortlistSize`,
-        "Shortlist size",
-        housingOptSelect(`${p}ShortlistSize`, HOUSING_OPT_SHORTLIST_SIZES),
-        "How many screened ZIPs are promoted into the optimizer for this move.",
       ),
   );
 }
@@ -1081,7 +1171,36 @@ function housingOptMoveWhatRowHtml(n) {
         `<input type="number" id="${p}PriceMax" class="money" min="0" placeholder="e.g. 700000" oninput="debouncedRefreshHousingOptValidation()">`,
         "The only dwelling input that filters the funnel: ZIPs whose estimated price falls outside the range are dropped.",
       ) +
-      `<div class="housing-opt-field-actions"><button class="btn small" type="button" id="${p}Preview" onclick="previewHousingZipShortlist(${n})">Preview shortlist</button></div><div class="housing-opt-shortlist" id="${p}Shortlist"></div>`,
+      "",
+  );
+}
+
+// The per-move selection table (§5.3), rendered into by
+// previewHousingZipShortlist. Kept out of the "what" row above so the three
+// rows read as one block of questions and the answer to them sits below,
+// rather than the table appearing mid-question inside a field row.
+// Two ordering notes for the three row builders above and below.
+//
+// RENDER order is where -> when -> what (§5.3): timing moves up next to
+// location, because the window's midpoint prices the affordability filter,
+// so step 1 cannot screen honestly without it. Both moves are rendered by
+// writing the three calls out per move rather than through a wrapper, so
+// each move's call sites stay individually greppable.
+//
+// DEFINITION order stays Where, What, When.
+// tests/test_zip_screen_property_controls_functional.py reads this file as
+// text and delimits the "what" row by the definition of the "when" one that
+// follows it, so the definition order is an interface contract even though
+// the render order is not. (This comment deliberately spells no builder's
+// name next to the word `function`, so it cannot become that delimiter.)
+function housingOptMoveSelectionHtml(n) {
+  const p = `housingOptMove${n}`;
+  return (
+    `<div class="housing-opt-selection" onclick="showHousingOptFieldHelp('${p}SelectedZips')">` +
+    `<div class="housing-opt-row-label">Move ${n} — candidate locations` +
+    `<sup class="field-info-i" tabindex="0" title="The ZIPs this move's search runs on. Pre-checked as the screen promoted them; tick or untick to change the search." aria-label="More info: candidate locations">i</sup></div>` +
+    `<div class="housing-opt-shortlist" id="${p}Shortlist"><p class="small">Press <em>Find candidate locations</em> to screen ZIPs around this move's anchors.</p></div>` +
+    "</div>"
   );
 }
 
@@ -1127,6 +1246,26 @@ export function renderHousingOptimizePanelHtml() {
   if (storedMove1Anchors) housingOptAnchorCounts[1] = storedMove1Anchors;
   const storedMove2Anchors = clampAnchorCount(housingOptStored.__move2AnchorCount);
   if (storedMove2Anchors) housingOptAnchorCounts[2] = storedMove2Anchors;
+
+  // The saved selection, restored before the markup is built so the step-1
+  // gate and the step-2 chips are right on first paint. The screen payload
+  // itself is NOT persisted (§9.6: nothing derived from a run is), so the
+  // selection table renders empty until the user presses Find again -- the
+  // ZIPs are remembered, the table they were picked from is not. Anything
+  // that no longer screens is caught by api.py's stale-selection rejection.
+  for (const n of [1, 2]) {
+    const saved = housingOptStored[`__selectedZips${n}`];
+    housingOptSelectedZips[n] = Array.isArray(saved)
+      ? saved.map(String).slice(0, HOUSING_OPT_SELECTED_ZIPS_MAX)
+      : [];
+    housingOptScreenPayloads[n] = null;
+    housingOptScreenFingerprints[n] = null;
+  }
+  // Always reopen on step 1. The stored index is kept for a caller that
+  // wants it, but landing a returning user on step 2 would show them a
+  // "Selected locations" summary for a selection they cannot see the table
+  // for until they screen again.
+  housingOptStepIndex = 1;
 
   const objectiveRow = housingOptRow(
     "Objective & constraints",
@@ -1254,6 +1393,10 @@ export function renderHousingOptimizePanelHtml() {
       ),
   );
 
+  // Step 1 (§5.3): the second move's own where/when/what block. "Move 2 --
+  // mode" is NOT here -- concurrency and the anchored strategy's branching
+  // factor are costing questions, not location ones, so they sit on step 2
+  // with the rest of the search controls.
   const move2Row = housingOptRow(
     "Consider a second move",
     housingOptField(
@@ -1262,43 +1405,83 @@ export function renderHousingOptimizePanelHtml() {
       `<input type="checkbox" id="housingOptMove2Enabled" onchange="toggleHousingOptMove2Fields(); debouncedRefreshHousingOptValidation()">`,
       "Adds a second acquisition with its own anchors, window and dwelling spec.",
     ) +
-      `<div class="housing-opt-move2" id="housingOptMove2Fields" hidden>${housingOptMoveWhereRowHtml(2)}${housingOptMoveWhatRowHtml(2)}${housingOptMoveWhenRowHtml(2)}${housingOptRow(
-        "Move 2 — mode",
-        housingOptField(
-          "housingOptMove2Concurrent",
-          "Concurrent with move 1",
-          `<input type="checkbox" id="housingOptMove2Concurrent" onchange="toggleHousingOptMove2ConcurrentAvailability(); debouncedRefreshHousingOptValidation()"><span class="housing-opt-note small" id="housingOptMove2ConcurrentNarrowedNote" hidden>Concurrent mode is only available with Full grid search mode.</span>`,
-          "Keeps the move-1 home and adds this as a second residence rather than replacing it.",
-        ) +
-          housingOptField(
-            "housingOptMove2AnchorCount",
-            "Anchor count",
-            `<input type="number" id="housingOptMove2AnchorCount" class="count" value="5" min="1" max="10" oninput="debouncedRefreshHousingOptValidation()">`,
-            "How many move-1 winners the anchored move-2 strategy branches from.",
-          ),
-      )}</div>`,
+      `<div class="housing-opt-move2" id="housingOptMove2Fields" hidden>${housingOptMoveWhereRowHtml(2)}${housingOptMoveWhenRowHtml(2)}${housingOptMoveWhatRowHtml(2)}${housingOptMoveSelectionHtml(2)}</div>`,
   );
 
-  const html = `<details class="housing-optimize-panel" id="${HOUSING_OPT_PANEL_ID}" oninput="debouncedSaveHousingOptInputs()" onchange="debouncedSaveHousingOptInputs()" ontoggle="debouncedSaveHousingOptInputs()"><summary>Optimize next housing move</summary><div class="housing-opt-body">
-    <div class="housing-opt-head"><div class="section-note">Search the three decisions independently -- what happens to the current home, and where/what/when each move is -- against the same deterministic engine and Monte Carlo runner as the rest of the plan.</div><button class="btn small" type="button" id="housingOptPanelHelp" onclick="showHousingOptFieldHelp('_panel')">Help</button></div>
-    ${objectiveRow}
-    ${presenceRow}
-    ${currentHomeRow}
-    ${purchaseAssumptionsRow}
-    ${housingOptMoveWhereRowHtml(1)}
-    ${housingOptMoveWhatRowHtml(1)}
-    ${housingOptMoveWhenRowHtml(1)}
-    ${move2Row}
-    <div class="housing-opt-run"><div class="housing-opt-validation" id="housingOptValidation" hidden></div><button class="btn primary" type="button" id="housingOptRun" onclick="startHousingOptimization()">Run optimization</button></div>
+  const move2ModeRow = housingOptRow(
+    "Move 2 — mode",
+    housingOptField(
+      "housingOptMove2Concurrent",
+      "Concurrent with move 1",
+      `<input type="checkbox" id="housingOptMove2Concurrent" onchange="toggleHousingOptMove2ConcurrentAvailability(); debouncedRefreshHousingOptValidation()"><span class="housing-opt-note small" id="housingOptMove2ConcurrentNarrowedNote" hidden>Concurrent mode is only available with Full grid search mode.</span>`,
+      "Keeps the move-1 home and adds this as a second residence rather than replacing it.",
+    ) +
+      housingOptField(
+        "housingOptMove2AnchorCount",
+        "Anchor count",
+        `<input type="number" id="housingOptMove2AnchorCount" class="count" value="5" min="1" max="10" oninput="debouncedRefreshHousingOptValidation()">`,
+        "How many move-1 winners the anchored move-2 strategy branches from.",
+      ),
+  );
+
+  // #329 P7, folded in here because the panel is opened once: name the two
+  // housing engines and say what each one does and does not answer, so
+  // "Where to live" and "When to move" stop reading as two spellings of the
+  // same tool.
+  const engineNote =
+    '<div class="section-note">This is the <strong>Where to live</strong> engine: given the places you would consider, ' +
+    "it searches which location, year and action for each move leaves the plan best off. It does not weigh moving " +
+    "against staying put across a range of timings -- that is the <strong>When to move</strong> engine, the " +
+    "workbook's Housing Comparison sheet, which holds the location fixed and varies the timing instead.</div>";
+
+  const html = `<details class="housing-optimize-panel" id="${HOUSING_OPT_PANEL_ID}" oninput="debouncedSaveHousingOptInputs()" onchange="debouncedSaveHousingOptInputs()" ontoggle="debouncedSaveHousingOptInputs()"><summary>Where to live — optimize next housing move<span class="housing-opt-step-indicator" id="housingOptStepIndicator">Step 1 of 2 — Where and when</span></summary><div class="housing-opt-body">
+    <div class="housing-opt-head">${engineNote}<button class="btn small" type="button" id="housingOptPanelHelp" onclick="showHousingOptFieldHelp('_panel')">Help</button></div>
+    ${housingOptValuationNoticeHtml()}
+    <div class="housing-opt-step" id="housingOptStep1">
+      <div class="housing-opt-step-title">Step 1 of 2 — Where and when could you go?</div>
+      ${housingOptMoveWhereRowHtml(1)}${housingOptMoveWhenRowHtml(1)}${housingOptMoveWhatRowHtml(1)}${housingOptMoveSelectionHtml(1)}
+      ${move2Row}
+      <div class="housing-opt-step-actions">
+        <button class="btn small" type="button" id="housingOptFind" onclick="findHousingOptCandidates()">Find candidate locations</button>
+        <div class="housing-opt-validation" id="housingOptStep1Validation" hidden></div>
+        <button class="btn primary" type="button" id="housingOptContinue" onclick="goToHousingOptStep(2)" disabled>Continue</button>
+      </div>
+    </div>
+    <div class="housing-opt-step" id="housingOptStep2" hidden>
+      <div class="housing-opt-step-title">Step 2 of 2 — What would it cost?</div>
+      ${housingOptRow("Selected locations", '<div class="housing-opt-selected-summary" id="housingOptSelectedSummary"></div>')}
+      ${objectiveRow}
+      ${purchaseAssumptionsRow}
+      ${presenceRow}
+      ${currentHomeRow}
+      <div id="housingOptMove2ModeFields" hidden>${move2ModeRow}</div>
+      <div class="housing-opt-run"><button class="btn small" type="button" id="housingOptBack" onclick="goToHousingOptStep(1)">Back</button><div class="housing-opt-validation" id="housingOptValidation" hidden></div><button class="btn primary" type="button" id="housingOptRun" onclick="startHousingOptimization()">Run optimization</button></div>
+    </div>
     <div id="${HOUSING_OPT_RESULTS_ID}"></div>
   </div></details>`;
+  // Continue starts disabled in the markup above (nothing is selected on a
+  // first visit). A restored selection has to re-enable it here rather than
+  // waiting for an input event, or a returning user is stuck on step 1.
+  // Computed from the stored payload, not the DOM: at this point the markup
+  // is still a string and there is no element to read housingOptMove2Enabled
+  // from.
+  const move2Stored = housingOptStored.housingOptMove2Enabled === true;
+  const restoredComplete = (move2Stored ? [1, 2] : [1]).every(
+    (n) => (housingOptSelectedZips[n] || []).length >= HOUSING_OPT_SELECTED_ZIPS_MIN,
+  );
+  const gated = restoredComplete
+    ? housingOptHydrateOne(html, "housingOptContinue", (block) =>
+        housingOptSetBooleanAttr(block, "disabled", false),
+      )
+    : html;
+
   // Restore (§9.6) happens last, against the fully-built markup string above,
   // not against live DOM: this function only ever returns HTML for a caller
   // to assign into innerHTML, so there is no element tree to query yet. Only
   // inputs are restored -- the results div above is always emitted empty, so
   // a stale recommendation from a previous session can never be mistaken for
   // a fresh one.
-  return housingOptHydratePanelHtml(html, housingOptStored);
+  return housingOptHydratePanelHtml(gated, housingOptStored);
 }
 
 // ---------------------------------------------------------------------------
@@ -1340,17 +1523,67 @@ export function housingOptMoveSearchBody(moveIndex) {
     min_quality_score: num(`${p}MinScore`) ?? 60,
     area_type: val(`${p}AreaType`) || "any",
     max_population: num(`${p}MaxPopulation`),
-    shortlist_size: num(`${p}ShortlistSize`) ?? 4,
+    // shortlist_size left the wire with the step-1 selection table (§5.4).
+    // The count is the selection now, so a separate size could only
+    // disagree with it.
+    selected_zips: [...(housingOptSelectedZips[moveIndex] || [])],
     dwelling,
   };
 }
 
-export async function previewHousingZipShortlist(moveIndex) {
+// One move's acquisition window, as the screen endpoint wants it. The
+// affordability filter prices against this window's midpoint (§5.5), which
+// is why the timing row sits on step 1: screening against a window the user
+// has not seen would invalidate their selection the moment they set the
+// real years.
+export function housingOptMoveAcquisitionWindow(moveIndex) {
+  const p = `housingOptMove${moveIndex}`;
+  const earliest = Number(document.getElementById(`${p}Earliest`)?.value || 0);
+  const latest = Number(document.getElementById(`${p}Latest`)?.value || 0);
+  if (!earliest || !latest) return null;
+  return [earliest, latest];
+}
+
+// The reference year the budget filter priced against: the window midpoint.
+// Mirrors src/housing/api.py's _budget_basis, floor division included.
+export function housingOptReferenceYear(window) {
+  if (!window) return 0;
+  return Math.floor((Number(window[0]) + Number(window[1])) / 2);
+}
+
+// Which moves step 1 screens and step 2 costs.
+function housingOptEnabledMoves() {
+  return housingOptDomChecked("housingOptMove2Enabled") ? [1, 2] : [1];
+}
+
+// Screens one move and renders its selection table. Still named for the
+// preview it grew out of -- the endpoint and the funnel it returns are
+// unchanged; what changed is that its rows are now checkboxes the user
+// picks from rather than a read-only shortlist.
+export async function previewHousingZipShortlist(moveIndex, opts = {}) {
   const n = moveIndex || 1;
   const search = housingOptMoveSearchBody(n);
   if (search.anchors.length < HOUSING_OPT_MIN_ANCHORS) {
     showMessage(`Choose between 1 and 5 anchors for move ${n}.`, "error");
-    return;
+    return false;
+  }
+  const window = housingOptMoveAcquisitionWindow(n);
+  // selected_zips is the answer this call produces, not an input to it --
+  // sending the previous run's selection would make the memo fingerprint
+  // change on every tick and re-screen for no reason.
+  const { selected_zips: _ignored, ...screenSearch } = search;
+  const body = window
+    ? { search: screenSearch, acquisition_window: window }
+    : { search: screenSearch };
+  const fingerprint = JSON.stringify(body);
+  // OQ-6's client-side memo: an unchanged filter set is a no-op rather than
+  // an identical second request. Skipped when the caller forces a refresh.
+  if (
+    !opts.force &&
+    housingOptScreenFingerprints[n] === fingerprint &&
+    housingOptScreenPayloads[n]
+  ) {
+    return true;
   }
   const target = document.getElementById(`housingOptMove${n}Shortlist`);
   showHousingOptOverlay(
@@ -1361,20 +1594,74 @@ export async function previewHousingZipShortlist(moveIndex) {
   try {
     const payload = await api("/api/housing/zip-screen", {
       method: "POST",
-      body: JSON.stringify({ search }),
+      body: JSON.stringify(body),
     });
     if (!payload || !payload.success) {
       if (target)
         target.innerHTML = `<p class="small warning">${esc((payload && payload.error) || "Screen failed.")}</p>`;
-      return;
+      return false;
     }
-    if (target) target.innerHTML = renderHousingZipShortlistHtml(payload);
+    housingOptScreenPayloads[n] = payload;
+    housingOptScreenFingerprints[n] = fingerprint;
+    // Pre-checked exactly as the per-anchor quota promoted them (§5.3), so
+    // Continue with no interaction reproduces the old behaviour plus the
+    // quota. A fresh screen replaces the previous selection outright: the
+    // old ZIPs were chosen under different filters, and carrying them
+    // forward is precisely the stale selection api.py would reject.
+    housingOptSelectedZips[n] = (payload.zip_screen?.shortlist || []).map((z) => z.zip);
+    renderHousingOptSelection(n);
+    return true;
   } catch (e) {
     showMessage("Error previewing shortlist: " + e.message, "error");
     if (target) target.innerHTML = "";
+    return false;
   } finally {
     hideHousingOptOverlay();
   }
+}
+
+// Step 1's "Find candidate locations": one screen call per enabled move
+// (§5.3). Two calls rather than one batched request, because batching would
+// cost an endpoint shape change on a path that is not slow (OQ-6).
+export async function findHousingOptCandidates() {
+  for (const n of housingOptEnabledMoves()) {
+    // Not forced: OQ-6's client-side memo is exactly what makes re-pressing
+    // this button a no-op when nothing has changed, and this is the button
+    // it exists for. previewHousingZipShortlist's own fingerprint check
+    // decides whether a request is actually needed.
+    //
+    // Sequential, not Promise.all: both share the one progress overlay, and
+    // a second move's failure should not race the first move's rendering.
+    // eslint-disable-next-line no-await-in-loop
+    await previewHousingZipShortlist(n);
+  }
+  refreshHousingOptValidation();
+}
+
+// Re-renders one move's selection table from the payload already in hand --
+// used after a tick, so a checkbox never costs a round trip.
+export function renderHousingOptSelection(moveIndex) {
+  const n = moveIndex || 1;
+  const target = document.getElementById(`housingOptMove${n}Shortlist`);
+  const payload = housingOptScreenPayloads[n];
+  if (!target) return;
+  target.innerHTML = payload ? renderHousingZipShortlistHtml(payload, { moveIndex: n }) : "";
+}
+
+// A checkbox in the selection table. Coverage is re-checked but never
+// blocks (§5.2/OQ-7): dropping an anchor's last ZIP after seeing its price
+// is a legitimate, informed decision, and forcing the user back to delete
+// the anchor before they may proceed is friction on a defensible choice.
+export function toggleHousingOptZipSelection(moveIndex, zip) {
+  const n = moveIndex || 1;
+  const code = String(zip);
+  const current = housingOptSelectedZips[n] || [];
+  housingOptSelectedZips[n] = current.includes(code)
+    ? current.filter((z) => z !== code)
+    : [...current, code];
+  renderHousingOptSelection(n);
+  refreshHousingOptValidation();
+  debouncedSaveHousingOptInputs();
 }
 
 // ---------------------------------------------------------------------------
@@ -1394,33 +1681,127 @@ const HOUSING_ZIP_RELAX_FIELD_LABELS = {
   target_purchase_price_range: "the target price range",
 };
 
+// Per-anchor coverage, above the table (§5.3):
+// `Aurora, CO — 3 ZIPs · Hinsdale, IL — 1 ZIP · Madison, WI — none found`.
+// Counted over the SELECTION, not the screen, so unticking a row updates it.
+function housingOptCoverageLine(zs, selected) {
+  const anchors = zs.anchors && zs.anchors.length ? zs.anchors : [zs.anchor].filter(Boolean);
+  if (!anchors.length) return "";
+  const chosen = new Set(selected || []);
+  const rows = zs.all_passing || zs.shortlist || [];
+  const parts = anchors.map((a) => {
+    const n = rows.filter((z) => z.nearest_anchor_zip === a.zip && chosen.has(z.zip)).length;
+    const where = a.city ? `${a.city}, ${a.state}` : a.zip;
+    return `${where} — ${n === 0 ? "none selected" : `${n} ZIP${n === 1 ? "" : "s"}`}`;
+  });
+  return `<div class="small">${esc(parts.join(" · "))}</div>`;
+}
+
+// An anchor the user asked for that no surviving ZIP is near, and -- a
+// separate thing -- an anchor whose last covering ZIP the user has just
+// unticked. Both are warnings; neither blocks Continue (§5.2/OQ-7). The
+// quota guarantees the DEFAULT selection covers every anchor, which is what
+// the defect broke; past that the choice is the user's to make and to see.
+function housingOptCoverageWarningHtml(zs, selected) {
+  const out = [];
+  const label = (zip) => {
+    const a = (zs.anchors || []).find((x) => x.zip === zip);
+    return a && a.city ? `${zip} (${a.city}, ${a.state})` : String(zip);
+  };
+  for (const zip of zs.unrepresented_anchors || []) {
+    out.push(
+      `No ZIP near ${label(zip)} survived the screen. The shortlist covers your ` +
+        "other anchors only. Widen the radius, lower the minimum score, or drop this anchor.",
+    );
+  }
+  const chosen = new Set(selected || []);
+  const rows = zs.all_passing || zs.shortlist || [];
+  const unrepresented = new Set(zs.unrepresented_anchors || []);
+  for (const a of zs.anchors || []) {
+    if (unrepresented.has(a.zip)) continue;
+    const covered = rows.some((z) => z.nearest_anchor_zip === a.zip && chosen.has(z.zip));
+    if (!covered) out.push(`Your selection no longer covers ${label(a.zip)}.`);
+  }
+  return out.map((m) => `<p class="small warning">${esc(m)}</p>`).join("");
+}
+
+// "Estimated price — as of 2041, midpoint of 2036–2046" (§5.3). Load-bearing,
+// not decorative: the affordability filter prices at the window's MIDPOINT,
+// which can exclude a ZIP that would be affordable at the earliest year.
+// Naming the year is what keeps that exclusion visible instead of leaving it
+// as a silent discard.
+function housingOptPriceHeader(rows, window) {
+  const row = (rows || []).find((z) => z.est_price_reference_year);
+  const year = row ? row.est_price_reference_year : 0;
+  const start = row ? row.est_price_basis_year : 0;
+  if (!year || !start || year <= start) return "Est. price";
+  const span = window ? `, midpoint of ${window[0]}–${window[1]}` : "";
+  return `Est. price — as of ${year}${span}`;
+}
+
+// Move-year dollars primary, today's as secondary text (§6.4 site 5), the
+// same convention the results table already uses. est_price_move_year is
+// derived server-side because no rate travels on the wire (§5.5).
+function housingOptZipPriceCellHtml(todayValue, moveYearValue) {
+  const today = Math.round(todayValue);
+  const moveYear = Math.round(moveYearValue || todayValue);
+  if (moveYear === today) return `$${today.toLocaleString()}`;
+  return `$${moveYear.toLocaleString()} <span class="small">($${today.toLocaleString()} today)</span>`;
+}
+
+// The selection table (§5.3). Notes on the two renderers below, kept out of
+// their bodies because tests/test_zip_screen_shortlist_render_functional.py
+// reads this file as text and asserts each column token appears within a
+// fixed character window of the renderer's definition -- prose inside those
+// bodies pushes the later columns out of the window:
+//
+//   * Rows come from all_passing (every ZIP that cleared the funnel) when a
+//     moveIndex is given, so the user may tick ZIPs the quota did not
+//     promote. The optimize response sends only the shortlist, and renders
+//     read-only with no checkbox column.
+//   * "From family" only earns a column when there is family data to show.
+//     The plain zip-screen preview never annotates family_distance_miles --
+//     only a full optimizer run with family_presence set does -- so an
+//     explicit opts.familyPresence lets a caller force the column while the
+//     data itself is the default signal.
+//   * The "covers {anchor}" badge marks a row the per-anchor quota's
+//     reserved pass promoted, so the user can see the quota working rather
+//     than having to infer it.
 export function renderHousingZipShortlistHtml(payload, opts = {}) {
   const zs = payload && payload.zip_screen;
   if (!zs) return "";
   const note = `<div class="section-note">${esc(housingZipFunnelText(zs.funnel))}</div>`;
   const disclosure = `<div class="small">${esc(zs.disclosure)}</div>`;
-  if (!zs.shortlist || !zs.shortlist.length) {
+  const n = opts.moveIndex || 0;
+  const source = (n && zs.all_passing) || zs.shortlist || [];
+  const warn = n ? housingOptCoverageWarningHtml(zs, housingOptSelectedZips[n]) : "";
+  if (!source.length) {
     const relax = zs.relaxation
       ? `<p class="small">${esc(housingZipRelaxationText(zs.relaxation))}</p>`
       : "";
-    return note + relax + disclosure;
+    return note + warn + relax + disclosure;
   }
-  // "From family" only earns a column when there is family data to show --
-  // the plain zip-screen preview never annotates family_distance_miles (only
-  // a full optimizer run with family_presence set does), so an explicit
-  // opts.familyPresence lets a caller force it while the data itself is the
-  // default signal.
   const familyPresence =
     opts.familyPresence != null
       ? !!opts.familyPresence
-      : zs.shortlist.some((z) => z.family_distance_miles != null);
-  const rows = zs.shortlist.map((z) => housingZipRowHtml(z, familyPresence)).join("");
+      : source.some((z) => z.family_distance_miles != null);
+  const chosen = new Set(n ? housingOptSelectedZips[n] || [] : []);
+  const rows = source
+    .map((z) => housingZipRowHtml(z, familyPresence, n, chosen.has(z.zip)))
+    .join("");
   const familyHeader = familyPresence ? "<th>From family</th>" : "";
-  const table = `<table class="lot-table scenario-diff-table housing-optimize-table"><thead><tr><th>ZIP</th><th>Distance</th><th>Area type</th><th>Population</th><th>Stability score</th><th>Est. price</th>${familyHeader}</tr></thead><tbody>${rows}</tbody></table>`;
-  return note + table + disclosure;
+  const pick = n ? "<th>Search</th>" : "";
+  const price = esc(housingOptPriceHeader(source, opts.window));
+  const table = `<table class="lot-table scenario-diff-table housing-optimize-table"><thead><tr>${pick}<th>ZIP</th><th>Anchor</th><th>Distance</th><th>Area type</th><th>Population</th><th>Stability score</th><th>${price}</th>${familyHeader}</tr></thead><tbody>${rows}</tbody></table>`;
+  return note + warn + housingOptCoverageLine(zs, n ? housingOptSelectedZips[n] : null) + table + disclosure;
 }
 
-function housingZipRowHtml(z, familyPresence) {
+function housingZipRowHtml(z, familyPresence, moveIndex, checked) {
+  // Hoisted: these three carry the column tokens the text-reading test
+  // asserts, and building them first keeps them inside its window.
+  const score = `${z.nss} <span class="small">${esc(z.band)}</span>`;
+  const price = housingOptZipPriceCellHtml(z.est_price, z.est_price_move_year);
+  const distance = `${z.distance_miles} mi`;
   const cross = z.cross_state
     ? ` <span class="small warning">${esc(z.cross_state)} — different state tax treatment</span>`
     : "";
@@ -1437,25 +1818,45 @@ function housingZipRowHtml(z, familyPresence) {
   const familyCell = familyPresence
     ? `<td>${z.family_distance_miles != null ? `${z.family_distance_miles} mi` : "—"}</td>`
     : "";
-  return `<tr><td>${esc(z.zip)} — ${esc(z.city)}, ${esc(z.state)}${cross}${collapsed}</td>
-    <td>${z.distance_miles} mi</td>
+  const pickCell = moveIndex
+    ? `<td><input type="checkbox" id="housingOptMove${moveIndex}Pick${esc(z.zip)}"${checked ? " checked" : ""} onchange="toggleHousingOptZipSelection(${moveIndex}, '${esc(z.zip)}')" aria-label="Search ${esc(z.zip)}"></td>`
+    : "";
+  const badge = z.quota_reserved
+    ? ` <span class="small">covers ${esc(z.nearest_anchor_zip)}</span>`
+    : "";
+  return `<tr>${pickCell}<td>${esc(z.zip)} — ${esc(z.city)}, ${esc(z.state)}${cross}${collapsed}</td>
+    <td>${esc(z.nearest_anchor_zip || "—")}${badge}</td>
+    <td>${distance}</td>
     <td>${areaType}</td>
     <td>${population}</td>
-    <td>${z.nss} <span class="small">${esc(z.band)}</span>${upi}${coverage}</td>
-    <td>$${Math.round(z.est_price).toLocaleString()}</td>${familyCell}</tr>`;
+    <td>${score}${upi}${coverage}</td>
+    <td>${price}</td>${familyCell}</tr>`;
 }
 
-// Nine stages (design §9.4/§7.2): in_radius -> with_data -> above_score ->
-// matching_area_type -> under_population_cap -> affordable -> distinct ->
-// near_family -> promoted. `distinct` replaced the old `after_dedup` name
-// when the multi-anchor union and the near-family stage were added.
+
+// Ten stages (design §9.4/§7.2, §5.2): in_radius -> with_data ->
+// above_score -> matching_area_type -> under_population_cap -> affordable ->
+// distinct -> near_family -> per_anchor_quota -> promoted. `distinct`
+// replaced the old `after_dedup` name when the multi-anchor union and the
+// near-family stage were added.
+//
+// per_anchor_quota is phrased as "N reserved for your anchors" rather than
+// as a survivor count, because it is one: the stage reorders promotion
+// rather than filtering, so what it reports is how many shortlist slots the
+// reserved pass claimed. Rendering it as "-> N ->" in the chain would read
+// as a drop to N candidates, which is not what happened. Omitted entirely
+// on a single-anchor screen, whose funnel has no such stage.
 function housingZipFunnelText(f) {
   if (!f) return "";
+  const quota =
+    f.per_anchor_quota != null
+      ? ` (${f.per_anchor_quota} reserved to cover your anchors)`
+      : "";
   return (
     `${f.in_radius} ZIPs in range → ${f.with_data} with data → ` +
     `${f.above_score} above the score floor → ${f.matching_area_type} matching area type → ` +
     `${f.under_population_cap} under the population cap → ${f.affordable} affordable → ` +
-    `${f.distinct} distinct → ${f.near_family} near family → ${f.promoted} sent to the optimizer`
+    `${f.distinct} distinct → ${f.near_family} near family → ${f.promoted} sent to the optimizer${quota}`
   );
 }
 
@@ -1542,6 +1943,18 @@ function housingOptActionLabel(action) {
 // `·`-joined string, so a move cell doesn't force horizontal scrolling.
 // Family distance is dropped: it duplicated the search criteria shown
 // elsewhere and was the single biggest source of the cell's width.
+// Every move-cost figure is now priced as of the move's own year (design
+// 2026-09-19 §6.4/§6.6), not today's dollars -- the secondary "(today)"
+// parenthetical is the today's-dollars equivalent, so a household can see
+// both without a second lookup. Omitted when it would round to the same
+// figure as the primary one (a current-year move: years_out = 0).
+function housingOptTodayParenthetical(moveYearValue, todayValue) {
+  if (todayValue == null) return "";
+  const rounded = Math.round(todayValue);
+  if (moveYearValue != null && Math.round(moveYearValue) === rounded) return "";
+  return ` ($${rounded.toLocaleString()} today)`;
+}
+
 function housingOptMoveCellHtml(move) {
   if (!move) return "—";
   const loc = move.location || {};
@@ -1551,12 +1964,14 @@ function housingOptMoveCellHtml(move) {
   if (move.action === "rent") {
     money =
       financing.monthly_rent != null
-        ? `$${Math.round(financing.monthly_rent).toLocaleString()}/mo rent`
+        ? `$${Math.round(financing.monthly_rent).toLocaleString()}/mo rent` +
+          housingOptTodayParenthetical(financing.monthly_rent, financing.monthly_rent_today)
         : "—";
   } else {
     const price =
       financing.purchase_price != null
-        ? `$${Math.round(financing.purchase_price).toLocaleString()} purchase`
+        ? `$${Math.round(financing.purchase_price).toLocaleString()} purchase` +
+          housingOptTodayParenthetical(financing.purchase_price, financing.purchase_price_today)
         : "—";
     const pi =
       financing.monthly_pi_payment != null
@@ -1990,40 +2405,47 @@ export function buildHousingOptRequest() {
 
 // Mirrors src/housing/api.py's validate_request rule-for-rule and in the same
 // order (the `locations` check is omitted: the panel has no control that
-// could ever produce that key). Returns the first violated rule's message,
-// or null when the form is valid.
-export function validateHousingOptForm() {
+// could ever produce that key). Returns `{step, message}` for the first
+// violated rule, or null when the form is valid.
+//
+// Validation splits across the two steps but the GATE does not (§5.3).
+// `step` says only where the message belongs -- next to the field the user
+// would change -- and the rules are still evaluated in one fixed order, so
+// this copy and the server's never disagree about which rule fired first.
+// The Run button on step 2 is disabled while ANY rule on EITHER step fails,
+// so the split cannot be used to smuggle an invalid request through.
+function housingOptFirstViolation() {
   const objective = housingOptDomVal("housingOptObjective") || "net_worth";
   if (!HOUSING_OPT_OBJECTIVES.includes(objective)) {
-    return `Unknown objective: ${housingOptRepr(objective)}.`;
+    return { step: 2, message: `Unknown objective: ${housingOptRepr(objective)}.` };
   }
 
   const search_mode = housingOptDomVal("housingOptSearchMode") || "full";
   if (!HOUSING_OPT_SEARCH_MODES.includes(search_mode)) {
-    return `Unknown search_mode: ${housingOptRepr(search_mode)}.`;
+    return { step: 2, message: `Unknown search_mode: ${housingOptRepr(search_mode)}.` };
   }
 
   const move2_strategy = housingOptDomVal("housingOptMove2Strategy") || "anchored";
   if (!HOUSING_OPT_MOVE2_STRATEGIES.includes(move2_strategy)) {
-    return `Unknown move2_strategy: ${housingOptRepr(move2_strategy)}.`;
+    return { step: 2, message: `Unknown move2_strategy: ${housingOptRepr(move2_strategy)}.` };
   }
 
   const disposition = (housingOptDomVal("housingOptDisposition") || "auto").toLowerCase();
   if (!HOUSING_OPT_DISPOSITIONS.includes(disposition)) {
-    return `Unknown disposition: ${housingOptRepr(disposition)}.`;
+    return { step: 2, message: `Unknown disposition: ${housingOptRepr(disposition)}.` };
   }
 
   const sells = disposition === "sell" || disposition === "auto";
   const earliestSale = housingOptDomNum("housingOptEarliestSale");
   const latestSale = housingOptDomNum("housingOptLatestSale");
   if (sells && earliestSale > latestSale) {
-    return "Earliest sale year must not be after the latest sale year.";
+    return { step: 2, message: "Earliest sale year must not be after the latest sale year." };
   }
 
   const e1 = housingOptDomNum("housingOptMove1Earliest");
   const l1 = housingOptDomNum("housingOptMove1Latest");
   if (e1 > l1) {
-    return "Earliest move-1 year must not be after the latest.";
+    return { step: 1, message: "Earliest move-1 year must not be after the latest." };
   }
 
   const move1Action = housingOptDomVal("housingOptMove1Action") || "auto";
@@ -2033,13 +2455,13 @@ export function validateHousingOptForm() {
     const l2 = housingOptDomNum("housingOptMove2Latest");
     const concurrent = housingOptDomChecked("housingOptMove2Concurrent");
     if (e2 > l2) {
-      return "Earliest move-2 year must not be after the latest.";
+      return { step: 1, message: "Earliest move-2 year must not be after the latest." };
     }
     if (!concurrent && l2 <= e1) {
-      return `Move 2 must be able to happen after move 1. Raise the move-2 latest year above ${e1}.`;
+      return { step: 1, message: `Move 2 must be able to happen after move 1. Raise the move-2 latest year above ${e1}.` };
     }
     if (concurrent && search_mode !== "full") {
-      return "Concurrent mode is only available with Full grid search mode.";
+      return { step: 2, message: "Concurrent mode is only available with Full grid search mode." };
     }
   }
 
@@ -2047,17 +2469,24 @@ export function validateHousingOptForm() {
   const actions = [move1Action];
   if (move2Enabled) actions.push(housingOptDomVal("housingOptMove2Action") || "auto");
   if (noDual && disposition === "keep" && actions.length && actions.every((a) => a === "buy")) {
-    return (
-      "Keeping the current home and buying another means owning two " +
-      "homes. Choose Rent, sell the current home, or turn off " +
-      "'Never own two homes at once'."
-    );
+    return {
+      step: 2,
+      message:
+        "Keeping the current home and buying another means owning two " +
+        "homes. Choose Rent, sell the current home, or turn off " +
+        "'Never own two homes at once'.",
+    };
   }
   if (noDual && disposition === "sell" && move1Action === "buy" && l1 < earliestSale) {
-    return (
-      "With no dual ownership, move 1 cannot be bought before the home " +
-      `is sold. Raise the move-1 latest year to at least ${earliestSale}.`
-    );
+    // Step 1: the remedy the message names ("raise the move-1 latest
+    // year") is a step-1 field, even though the constraint comes from the
+    // current home's sale window on step 2.
+    return {
+      step: 1,
+      message:
+        "With no dual ownership, move 1 cannot be bought before the home " +
+        `is sold. Raise the move-1 latest year to at least ${earliestSale}.`,
+    };
   }
 
   const areaTypeValues = HOUSING_OPT_AREA_TYPES.map((o) => o.value);
@@ -2066,17 +2495,33 @@ export function validateHousingOptForm() {
     const search = housingOptMoveSearchBody(n);
     const label = `move ${n}`;
     if (!(search.anchors.length >= HOUSING_OPT_MIN_ANCHORS && search.anchors.length <= HOUSING_OPT_MAX_ANCHORS)) {
-      return `Choose between 1 and 5 anchors for ${label}.`;
+      return { step: 1, message: `Choose between 1 and 5 anchors for ${label}.` };
     }
     if (!HOUSING_OPT_ALLOWED_RADII_MILES.includes(search.radius_miles)) {
-      return `Radius must be one of ${HOUSING_OPT_ALLOWED_RADII_MILES.join(", ")} miles.`;
+      return { step: 1, message: `Radius must be one of ${HOUSING_OPT_ALLOWED_RADII_MILES.join(", ")} miles.` };
     }
     if (!areaTypeValues.includes(search.area_type)) {
-      return `Unknown area type ${housingOptRepr(search.area_type)}.`;
+      return { step: 1, message: `Unknown area type ${housingOptRepr(search.area_type)}.` };
     }
     const moveAction = housingOptDomVal(`housingOptMove${n}Action`) || "auto";
     if (search.dwelling && search.dwelling.property_type === "apartment" && moveAction === "buy") {
-      return `Apartment is rental-only for ${label}. Choose Rent or Auto, or a different property type to buy.`;
+      return { step: 1, message: `Apartment is rental-only for ${label}. Choose Rent or Auto, or a different property type to buy.` };
+    }
+    // The real gate on leaving step 1 (§5.2): a move with nothing selected
+    // is a search with no candidate locations. Distinct from the anchor
+    // COVERAGE warning, which never blocks.
+    const picked = search.selected_zips || [];
+    if (
+      picked.length < HOUSING_OPT_SELECTED_ZIPS_MIN ||
+      picked.length > HOUSING_OPT_SELECTED_ZIPS_MAX
+    ) {
+      return {
+        step: 1,
+        message:
+          `Choose between ${HOUSING_OPT_SELECTED_ZIPS_MIN} and ` +
+          `${HOUSING_OPT_SELECTED_ZIPS_MAX} candidate ZIPs for ${label}. ` +
+          'Press "Find candidate locations" and tick the ones to search.',
+      };
     }
   }
 
@@ -2085,45 +2530,122 @@ export function validateHousingOptForm() {
     const fromYear = housingOptDomNum("housingOptPresenceFrom");
     const throughYear = housingOptDomNum("housingOptPresenceThrough");
     if (zip.length !== 5 || !/^\d{5}$/.test(zip) || fromYear > throughYear) {
-      return (
-        "Family presence needs a 5-digit ZIP and a from-year no later " +
-        "than the through-year."
-      );
+      return {
+        step: 2,
+        message:
+          "Family presence needs a 5-digit ZIP and a from-year no later " +
+          "than the through-year.",
+      };
     }
     const radius = housingOptDomNum("housingOptPresenceRadius");
     if (!HOUSING_OPT_FAMILY_RADII_MILES.includes(radius)) {
-      return `Family radius must be one of ${HOUSING_OPT_FAMILY_RADII_MILES.join(", ")} miles.`;
+      return { step: 2, message: `Family radius must be one of ${HOUSING_OPT_FAMILY_RADII_MILES.join(", ")} miles.` };
     }
   }
 
   const downPaymentRaw = housingOptDomVal("housingOptDownPaymentPct");
   if (downPaymentRaw !== "" && !(Number(downPaymentRaw) >= 0 && Number(downPaymentRaw) <= 100)) {
-    return "Down payment % must be between 0 and 100.";
+    return { step: 2, message: "Down payment % must be between 0 and 100." };
   }
   const mortgageRaw = housingOptDomVal("housingOptMortgageRatePct");
   if (mortgageRaw !== "" && !(Number(mortgageRaw) >= 0 && Number(mortgageRaw) <= 100)) {
-    return "Mortgage rate % must be between 0 and 100.";
+    return { step: 2, message: "Mortgage rate % must be between 0 and 100." };
   }
 
   return null;
 }
 
+// The first violated rule's message, or null. Unchanged in meaning and in
+// order from before the step split -- callers that only want "is the form
+// valid" keep using this.
+export function validateHousingOptForm() {
+  const violation = housingOptFirstViolation();
+  return violation ? violation.message : null;
+}
+
+// Every enabled move has at least one selected ZIP. This is the gate on
+// leaving step 1 (§5.3's "Step 1 cannot be left until..."), and it is
+// deliberately NOT the anchor-coverage rule: coverage is a warning that
+// never blocks (§5.2/OQ-7).
+export function housingOptStep1SelectionComplete() {
+  return housingOptEnabledMoves().every(
+    (n) => (housingOptSelectedZips[n] || []).length >= HOUSING_OPT_SELECTED_ZIPS_MIN,
+  );
+}
+
 let housingOptValidationTimer = null;
 
-// Runs validateHousingOptForm() immediately, disables the Run button while
-// any rule fails, and writes the first violated message into
-// #housingOptValidation (design §8: "renders messages next to the offending
-// group[s] ... disables the Run button while any rule fails").
+// Runs the rules immediately, disables the Run button while any rule on
+// EITHER step fails, and writes the first violated message into the
+// validation box belonging to that rule's own step (design §8: "renders
+// messages next to the offending group[s] ... disables the Run button while
+// any rule fails"; §5.3 splits where the message lands, not the gate).
 export function refreshHousingOptValidation() {
-  const msg = validateHousingOptForm();
+  const violation = housingOptFirstViolation();
+  const msg = violation ? violation.message : null;
   const runBtn = document.getElementById("housingOptRun");
   if (runBtn) runBtn.disabled = !!msg;
-  const box = document.getElementById("housingOptValidation");
-  if (box) {
-    box.textContent = msg || "";
-    box.hidden = !msg;
+  for (const [id, step] of [
+    ["housingOptStep1Validation", 1],
+    ["housingOptValidation", 2],
+  ]) {
+    const box = document.getElementById(id);
+    if (!box) continue;
+    const mine = violation && violation.step === step;
+    box.textContent = mine ? msg : "";
+    box.hidden = !mine;
+  }
+  // Continue is blocked only by step 1's own rules -- a step-2 rule the
+  // user cannot even see yet must not trap them on step 1.
+  const continueBtn = document.getElementById("housingOptContinue");
+  if (continueBtn) {
+    continueBtn.disabled =
+      !housingOptStep1SelectionComplete() || !!(violation && violation.step === 1);
   }
   return msg;
+}
+
+// Read-only chips summarising what step 1 settled, so step 2 never hides a
+// decision that priced the shortlist (§5.3):
+// `Move 1: 80024, 80122, 60521 · buy · 2036–2046`.
+export function housingOptSelectedLocationsSummaryHtml() {
+  const parts = housingOptEnabledMoves().map((n) => {
+    const zips = housingOptSelectedZips[n] || [];
+    const window = housingOptMoveAcquisitionWindow(n);
+    const action = housingOptDomVal(`housingOptMove${n}Action`) || "auto";
+    const bits = [zips.length ? zips.join(", ") : "no ZIPs selected", action];
+    if (window) bits.push(`${window[0]}–${window[1]}`);
+    return `<span class="housing-opt-chip">${esc(`Move ${n}: ${bits.join(" · ")}`)}</span>`;
+  });
+  return (
+    parts.join("") +
+    '<button class="btn tiny" type="button" onclick="goToHousingOptStep(1)">Edit</button>'
+  );
+}
+
+// Moves between the two steps. Step 1's gate is enforced here as well as on
+// the Continue button, so a stale enabled button cannot skip it.
+export function goToHousingOptStep(step) {
+  const target = step === 2 ? 2 : 1;
+  if (target === 2 && !housingOptStep1SelectionComplete()) {
+    refreshHousingOptValidation();
+    return false;
+  }
+  housingOptStepIndex = target;
+  const step1 = document.getElementById("housingOptStep1");
+  const step2 = document.getElementById("housingOptStep2");
+  if (step1) step1.hidden = target !== 1;
+  if (step2) step2.hidden = target !== 2;
+  const indicator = document.getElementById("housingOptStepIndicator");
+  if (indicator) {
+    indicator.textContent =
+      target === 1 ? "Step 1 of 2 — Where and when" : "Step 2 of 2 — What it would cost";
+  }
+  const summary = document.getElementById("housingOptSelectedSummary");
+  if (summary && target === 2) summary.innerHTML = housingOptSelectedLocationsSummaryHtml();
+  refreshHousingOptValidation();
+  debouncedSaveHousingOptInputs();
+  return true;
 }
 
 // Debounced entry point wired to oninput/onchange on every year, ZIP and
@@ -2227,7 +2749,15 @@ Object.assign(window, {
   toggleHousingOptDispositionFields,
   renderHousingOptimizePanelHtml,
   housingOptMoveSearchBody,
+  housingOptMoveAcquisitionWindow,
+  housingOptReferenceYear,
   previewHousingZipShortlist,
+  findHousingOptCandidates,
+  renderHousingOptSelection,
+  toggleHousingOptZipSelection,
+  housingOptStep1SelectionComplete,
+  housingOptSelectedLocationsSummaryHtml,
+  goToHousingOptStep,
   renderHousingZipShortlistHtml,
   renderHousingOptimizeResultsHtml,
   buildHousingOptRequest,
@@ -2236,4 +2766,5 @@ Object.assign(window, {
   debouncedRefreshHousingOptValidation,
   runHousingOptimization,
   startHousingOptimization,
+  dismissHousingOptValuationNotice,
 });

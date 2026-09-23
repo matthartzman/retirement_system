@@ -330,9 +330,11 @@ def test_optimizer_never_mutates_the_base_plan_config():
 def test_estimate_for_location_passes_characteristics_through_to_pricing():
     from src.housing_optimizer import Location, _estimate_for_location
 
-    baseline = _estimate_for_location(Location(state="Texas"), "purchase")
+    no_escalation = dict(start_year=2020, home_appr=0.0, inflation_general=0.0)
+    baseline = _estimate_for_location(Location(state="Texas"), "purchase", **no_escalation)
     bigger = _estimate_for_location(
         Location(state="Texas", bedrooms=5, sqft_band="over_3500"), "purchase",
+        **no_escalation,
     )
     assert bigger["purchase_price"] > baseline["purchase_price"]
 

@@ -411,7 +411,37 @@ DASHBOARD_JS_MAX_LINES = 7_201
 # entry; guarded each with the null check dashboard.js's own rowGateStatus()
 # already uses for the same call, matching an existing convention rather than
 # inventing one. Pure hardening, no calculation change.
-TOTAL_JS_MAX_LINES = 35_634
+# 2026-09-21 (H1, #331 valuation-as-of-move-year, docs/superpowers/plans/
+# 2026-09-19-optimizers-modules-housing-master-plan.md): on the housing-
+# valuation-h1 branch (PR #133), independently measured at 33,311 before this
+# branch's own changes landed -- the same base value the W5..W13 chain above
+# started from, before either branch could see the other's raises. This
+# branch adds dashboard_decomp_housing_optimizer.js's "both years" results
+# display (purchase_price/monthly_rent shown alongside their today's-dollars
+# equivalent) and its one-time valuation-basis notice, plus dashboard_decomp_
+# housing_scenarios.js's start_year re-estimate prompt and lot_size_band
+# request-body fix (§6.4 sites 5-7). All new behavior, not lines moved from
+# elsewhere -- raised, on that branch, to its own measured total of 33,881.
+# 2026-09-21 (H2/A3, #331 anchor flow, same master plan): the optimizer panel
+# becomes a two-step wizard -- step 1's selection table (checkbox rows, the
+# Anchor column and its "covers {anchor}" badge, the per-anchor coverage line
+# and warning, the reference-year price header), the step gate and navigation,
+# the client-side screen memo, and the selected-ZIP persistence. Net of what
+# it removed (the "Shortlist size" control, its option table and its help
+# entry), all new behavior rather than lines moved from elsewhere.
+# 2026-09-21 (H2/A4, same ticket): A4's frontend tests caught a real bug in
+# A3's own findHousingOptCandidates -- it always passed force:true, which
+# defeated OQ-6's client-side memo entirely (re-pressing "Find candidate
+# locations" with nothing changed re-screened every time). The fix and its
+# explanatory comment add five lines.
+# 2026-09-23 (merging the housing-valuation-h1 branch above, PR #133, into
+# main after PR #132's W4..W13 chain above had already landed): neither
+# branch's diff could see the other's prior raise -- same shape as the
+# 33,076 and 33,217 merge entries earlier in this history. Raised to the
+# genuinely measured total of both real, non-duplicate additions: 35,634
+# (PR #132's own chain) + 570 (PR #133's own delta from 33,311 to 33,881,
+# unchanged by the merge) = 36,204.
+TOTAL_JS_MAX_LINES = 36_204
 
 
 def _line_count(path: Path) -> int:
