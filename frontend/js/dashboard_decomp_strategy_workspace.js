@@ -62,16 +62,112 @@ export function strategySectionToggle(key, open) {
   renderMain();
 }
 
-// The "this section's optional module is off" note, lifted verbatim from the
-// deleted Special Strategies renderer and generalized over the section, which
-// is why it is one function and not one per section. HELOC is not a
-// client_optional_functions.csv toggle -- it is a plan-data feature flag, so
-// its note points at the HELOC setup page rather than Optional Modules, same
-// as it always did.
-export function strategySectionGatedNote(title, gateStepId) {
-  if (gateStepId === "heloc_strategy")
-    return `<div class="section-note">${esc(title)} strategy is off. Enable it on <a href="#" onclick="setStep('heloc_strategy');return false">HELOC &rarr; Setup &rarr; Enable HELOC Strategy</a> to use it.</div>`;
-  return `<div class="section-note">${esc(title)} is off. Enable ${esc(title)} on <a href="#" onclick="setStep('optional_functions');return false">Optional Modules</a> to use it.</div>`;
+// #330 §5.2/§5.3 (W12): the generalized "Collapsed with a note" off-state.
+// Registry-driven from ONE source -- planModuleTaxonomy(), which already
+// carries gate_kind/gate_ref/gate_enable_label per module (W9 added these for
+// the Plan Features plan-flag rows) -- rather than branching on the
+// mechanism at each call site the way strategySectionGatedNote() used to
+// (module_toggle and plan_flag are now read the same way here; a future gate
+// kind needs a new catalog declaration, not a new branch in this function).
+// §5.1's "offer the switch inline, because the user who is reading that note
+// has already decided": both gate kinds get a real inline "Turn on" control,
+// not just a link to go decide somewhere else.
+//
+// `key` is the module's catalog key. `opts.title` overrides the taxonomy
+// name (callers often show a friendlier in-context label than CATALOG.name);
+// `opts.rows`, when given, are the plan rows this note stands in for, so the
+// note can say how many the household already entered -- §5.2's invariant
+// text: "the note says how many rows are affected". `opts.gateKind`/
+// `opts.gateRef`/`opts.gateEnableLabel`/`opts.destStep` let a caller that
+// already resolved the gate (strategySection(), via a legacy step id and
+// moduleGates) pass that declaration straight through instead of paying for
+// a second read of the same fact from planModuleTaxonomy() -- both
+// ultimately come from the same catalog fields, so a caller that only has
+// the module key (every off-page fix below) still gets identical behavior
+// falling back to the taxonomy.
+export function featureGatedNote(key, opts = {}) {
+  const meta = (planModuleTaxonomy().modules || {})[key] || {};
+  const title = opts.title || meta.name || key;
+  const gateKind = opts.gateKind || meta.gate_kind;
+  const gateRef = opts.gateRef || meta.gate_ref;
+  const gateEnableLabel = opts.gateEnableLabel || meta.gate_enable_label;
+  const isFlag = gateKind === "plan_flag";
+  const n = opts.rows ? enteredRowCount(opts.rows) : 0;
+  const countNote = n
+    ? ` ${n} already-entered ${n === 1 ? "item is" : "items are"} retained.`
+    : "";
+  const inlineSwitch = isFlag
+    ? planFlagInlineSwitch(gateRef)
+    : moduleToggleInlineSwitch(key);
+  const ref = gateRef || [];
+  const pathText =
+    isFlag && ref.length
+      ? [...ref.slice(0, 2), gateEnableLabel].filter(Boolean).map((x) => esc(x)).join(" &rarr; ")
+      : "";
+  let action;
+  if (inlineSwitch) {
+    // Best case: flip it right here. Still name where it lives, for a plan
+    // flag, so the note reads the same whether or not the row happened to be
+    // loaded on this page already.
+    action = inlineSwitch + (pathText ? ` (${pathText})` : "");
+  } else if (opts.destStep) {
+    // No row to flip inline (not loaded on this page) but we know exactly
+    // where it is -- link there by name, same as before this generalization.
+    action = `Enable it on <a href="#" onclick="setStep('${escJs(opts.destStep)}');return false">${pathText || "Plan Features"}</a>`;
+  } else {
+    action = `<a href="#" onclick="setStep('optional_functions');return false">Plan Features</a>`;
+  }
+  return `<div class="section-note">${esc(title)} is off.${countNote} ${action} to use it.</div>`;
+}
+
+// Finds the flag's own plan row so the note's "Turn on" button can flip it
+// directly (editValue + save), instead of only linking to where it lives.
+// Returns "" (falling back to the Plan Features link above) when the row
+// can't be found -- e.g. a stale gate_ref or a not-yet-loaded plan.
+function planFlagInlineSwitch(ref) {
+  if (!ref || ref.length !== 3) return "";
+  const row = rows.find(
+    (r) =>
+      isEditable(r) &&
+      r.section === ref[0] &&
+      norm(r.subsection || "") === norm(ref[1]) &&
+      norm(r.label) === norm(ref[2]),
+  );
+  if (!row) return "";
+  return `<button class="btn tiny" type="button" data-requires-app="1" onclick="editValue(${row.row_index},'YES',null);saveAll(false);renderMain()">Turn on</button>`;
+}
+
+// Same, for a module_toggle: the row lives on the Optional Functions step,
+// labeled by the module key itself (the toggle's own identity).
+function moduleToggleInlineSwitch(key) {
+  const row = (rowsForStep("optional_functions") || []).find(
+    (r) => norm(r.label) === norm(key),
+  );
+  if (!row) return "";
+  return `<button class="btn tiny" type="button" data-requires-app="1" onclick="editValue(${row.row_index},'YES',null);saveAll(false);renderMain()">Turn on</button>`;
+}
+
+// Resolves a legacy dashboard-step id (strategySection()'s own `gate`
+// contract, unchanged -- see test_strategy_workspace_module_gating.py) to the
+// module key and gate declaration that gates it, straight from
+// moduleGates -- the same server payload stepGatedByOptionalModule() itself
+// reads -- so featureGatedNote() can be driven by identity rather than by
+// the step id string.
+function gateDescriptorForStep(stepId) {
+  const flagGate = (moduleGates.flag_gates || {})[stepId];
+  if (flagGate)
+    return {
+      key: flagGate.key,
+      gateKind: "plan_flag",
+      gateRef: flagGate.ref,
+      gateEnableLabel: flagGate.enable_label,
+      // A plan flag's own page IS the step it gates (that's why it has a
+      // dashboard_step at all) -- unlike a module toggle, whose switch lives
+      // on Plan Features, not on the step it hides.
+      destStep: stepId,
+    };
+  const key = (moduleGates.step_gates || {})[stepId];
+  return key ? { key, gateKind: "module_toggle" } : { key: null };
 }
 
 // One collapsible section. bodyFn is called ONLY when the section is open:
@@ -85,7 +181,10 @@ export function strategySection(key, title, bodyFn, gateStepId, defaultOpen) {
   const open = stored === undefined ? !!defaultOpen : stored === true;
   const gated = gateStepId ? stepGatedByOptionalModule(gateStepId) : false;
   const body = gated
-    ? strategySectionGatedNote(title, gateStepId)
+    ? (() => {
+        const gd = gateDescriptorForStep(gateStepId);
+        return featureGatedNote(gd.key, { ...gd, title });
+      })()
     : open
       ? bodyFn()
       : "";
@@ -95,9 +194,11 @@ export function strategySection(key, title, bodyFn, gateStepId, defaultOpen) {
 // A screen is a list of section descriptors rendered in order. The first
 // section the reader can actually USE defaults to open on a first visit, so
 // landing on a screen shows content instead of a stack of collapsed bars.
-// Skipping gated-off sections matters on Optimize, whose first section (Roth
-// Conversion) is module-gated: defaulting that one open would greet a reader
-// who has the module off with an enable-note and everything else collapsed.
+// Skipping gated-off sections matters on Stress Test, every one of whose
+// sections is module-gated: defaulting a gated one open would greet a reader
+// who has that module off with an enable-note and everything else collapsed.
+// (Optimize was the original example, via its Roth Conversion section; W13
+// moved that one to the Taxes nav group.)
 export function renderStrategyScreen(sections) {
   const firstUsable = sections.find(
     (s) => !(s.gate && stepGatedByOptionalModule(s.gate)),
@@ -110,13 +211,151 @@ export function renderStrategyScreen(sections) {
     .join("");
 }
 
+// #329 §3.3 (W9): hsaWithdrawalPolicyBlock/taxLossHarvestingBlock/
+// gainHarvestBlock/withdrawalMiscBlock moved here from dashboard.js (the
+// frontend size ratchet -- see tests/test_frontend_size_ratchet.py -- only
+// allows growth there by taking an equal number of lines out). Each is one
+// row-filtering concept lifted unchanged from what
+// dashboard.js's renderWithdrawalStrategy() (the Spending workspace's
+// "Withdrawal Order" tab) already rendered inline, so Optimize's new HSA
+// Drawdown / Withdrawal Sequencing / Harvesting sections below reuse the
+// exact same filters and markup rather than duplicating them.
+// #329 §4.7 (W10b): standalone accessor for the HSA drawdown mode, mirroring
+// rothPolicyValue()/irmaaModeValue()'s pattern in dashboard_decomp_
+// allocation_optimizer.js. dashboard_source_truth_banners.js's live-
+// optimizer disclosure reads this to decide whether the mode row is live
+// optimizer output, independent of hsaWithdrawalPolicyBlock()'s own
+// pre-filtered `hsa` lookup below.
+export function hsaWithdrawalModeValue() {
+  const r = rowByNormLabel("hsa_withdrawal_mode");
+  return String(r ? valOf(r) : "spend_as_needed")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_");
+}
+
+export function hsaWithdrawalPolicyBlock(other) {
+  const hsa = other.filter(
+    (r) => r.section === "HSA Policy" && r.subsection === "Withdrawals",
+  );
+  if (!hsa.length) return "";
+  const modeRow = hsa.find((r) => norm(r.label) === "hsa_withdrawal_mode");
+  const mode = String(modeRow ? valOf(modeRow) : "spend_as_needed")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_");
+  let visible = modeRow ? [modeRow] : [];
+  if (mode === "annual_pct" || mode === "annual_percent")
+    visible = visible.concat(
+      hsa.filter((r) =>
+        [
+          "hsa_withdrawal_pct",
+          "hsa_withdrawal_start_year",
+          "hsa_withdrawal_end_year",
+        ].includes(norm(r.label)),
+      ),
+    );
+  else if (mode === "smooth_window" || mode === "window")
+    visible = visible.concat(
+      hsa.filter((r) =>
+        [
+          "hsa_withdrawal_start_year",
+          "hsa_withdrawal_end_year",
+          "withdrawal_window",
+        ].includes(norm(r.label)),
+      ),
+    );
+  else if (mode === "optimize")
+    visible = visible.concat(hsaOptimizeVisibleRows(hsa));
+  else
+    visible = visible.concat(
+      hsa.filter(
+        (r) =>
+          ![
+            "hsa_withdrawal_pct",
+            "hsa_withdrawal_start_year",
+            "hsa_withdrawal_end_year",
+            "withdrawal_window",
+            "hsa_consume_by",
+            "hsa_min_ending_balance",
+          ].includes(norm(r.label)) && r !== modeRow,
+      ),
+    );
+  return `<details><summary>HSA withdrawal policy</summary><div class="field-list"><div class="section-note"><b>Start here:</b> choose HSA withdrawal mode. The schedule fields below change based on that mode. Default is spend as needed, which hides annual-percentage and window controls.</div>${sortRowsByDependency(visible).map(fieldHtml).join("")}</div></details>`;
+}
+export function taxLossHarvestingBlock(other) {
+  const tlh = other.filter(
+    (r) =>
+      r.section === "Withdrawal Policy" &&
+      r.subsection === "Tax-Loss Harvesting",
+  );
+  if (!tlh.length) return "";
+  return `<details><summary>Tax Loss Harvesting</summary><div class="field-list"><div class="section-note">Controls whether and how the projection harvests capital losses from taxable-account lots each year.</div>${sortRowsByDependency(tlh).map(fieldHtml).join("")}</div></details>`;
+}
+// #277: Gain Harvest gets its own collapsible section, on par with TLH.
+export function gainHarvestBlock(other) {
+  const gainHarvest = other.filter(
+    (r) => r.section === "Withdrawal Policy" && r.subsection === "Gain Harvesting",
+  );
+  if (!gainHarvest.length) return "";
+  return `<details><summary>Gain Harvest</summary><div class="field-list"><div class="section-note">Controls whether and how the projection harvests capital gains from taxable-account lots each year (e.g. to fill up a low tax bracket).</div>${sortRowsByDependency(gainHarvest).map(fieldHtml).join("")}</div></details>`;
+}
+export function withdrawalMiscBlock(other) {
+  const misc = other.filter(
+    (r) =>
+      !(r.section === "HSA Policy" && r.subsection === "Withdrawals") &&
+      !(
+        r.section === "Withdrawal Policy" &&
+        r.subsection === "Tax-Loss Harvesting"
+      ) &&
+      !(
+        r.section === "Withdrawal Policy" &&
+        r.subsection === "Gain Harvesting"
+      ),
+  );
+  if (!misc.length) return "";
+  return `<details><summary>Other funding and rollover settings</summary><div class="field-list"><div class="section-note">Annual funding tolerance and spousal rollover settings are operational assumptions. They affect workbook QC, survivor account consolidation, RMD timing, and late-life cash-flow output.</div>${sortRowsByDependency(misc).map(fieldHtml).join("")}</div></details>`;
+}
+
+// #329 §3.3 (W9): Social Security has no page of its own -- its claiming-age
+// rows live on the "SS, Pensions & Annuities" step (income_retirement)
+// alongside pensions/annuities. This filters to the Social Security rows
+// only, matching rowsForStep("income_retirement")'s own
+// `sec === "Social Security"` half exactly, and links out for the rest
+// (pensions/annuities) rather than duplicating them here.
+function socialSecurityOptimizePanelHtml() {
+  const rows = rowsForStep("income_retirement").filter(
+    (r) => r.section === "Social Security",
+  );
+  if (!rows.length)
+    return '<div class="field-list"><p class="small">No Social Security rows found.</p></div>';
+  return `<div class="field-list"><div class="section-note">Claiming age and benefit assumptions. Pensions and annuities are entered on <button class="btn linklike" type="button" data-step-id="income_retirement">SS, Pensions &amp; Annuities</button>.</div>${sortRowsByDependency(rows).map(fieldHtml).join("")}</div>`;
+}
+
 export function renderStrategyOptimize() {
   return renderStrategyScreen([
+    // #330 P8 / Q6 (W13): Roth Conversion and Charitable Giving left this
+    // screen for the Taxes nav group -- both are TAXES-domain features with
+    // a page of their own, and Optimize is a *kind* grouping (§4.1) that the
+    // left nav no longer has to stand in for now that the domain group
+    // exists. Same move W9 made for HELOC, and for the same reason. What
+    // stays here is what has no page of its own (HSA Drawdown, Withdrawal
+    // Sequencing, Social Security, Harvesting) or is not tax-domain (Asset
+    // Allocation, Next Housing Move).
+    // #329 §3.3 (W9): "add" -- was reachable only by setting a mode field on
+    // Other Assets and Liabilities, with no visible consequence. Reuses the
+    // exact HSA-withdrawal-policy block the Spending workspace's Withdrawal
+    // Order tab already renders (dashboard.js's hsaWithdrawalPolicyBlock()),
+    // not a new renderer.
     {
-      key: "roth_conversion",
-      title: "Roth Conversion",
-      gate: "roth_conversion",
-      body: () => analysisFrame(renderRothConversion(), "strategy"),
+      key: "hsa_drawdown",
+      title: "HSA Drawdown",
+      gate: null,
+      body: () => {
+        const html = hsaWithdrawalPolicyBlock(withdrawalOtherRows());
+        return (
+          html ||
+          '<div class="field-list"><p class="small">No HSA withdrawal policy rows — configure HSA on Other Assets and Liabilities.</p></div>'
+        );
+      },
     },
     {
       key: "asset_allocation",
@@ -126,10 +365,31 @@ export function renderStrategyOptimize() {
         analysisFrame(renderAllocationRecommendation(), "strategy") +
         `<details class="decide-embed-sub" open><summary>Allocation policy settings</summary>${renderAllocationPolicy()}</details>`,
     },
+    // #329 §1.2/§3.3 (W9): "hidden → restore". Reuses the withdrawal-order
+    // table and the misc funding/rollover settings the Withdrawal Order tab
+    // already renders.
+    {
+      key: "withdrawal_sequencing",
+      title: "Withdrawal Sequencing",
+      gate: null,
+      body: () => {
+        const other = withdrawalOtherRows();
+        return renderWithdrawalOrderTable() + withdrawalMiscBlock(other);
+      },
+    },
+    {
+      key: "social_security",
+      title: "Social Security",
+      gate: null,
+      body: () => socialSecurityOptimizePanelHtml(),
+    },
     {
       key: "housing",
       title: "Next Housing Move",
-      gate: null,
+      // #330 §3.2's "the UI panel is hidden" for Housing "Where to live",
+      // now that the module exists to gate on. Collapsed-with-note, not
+      // Hidden: see 2026-09-23-housing-location-search-catalog-notes.md.
+      gate: "housing_location_search",
       // Not analysisFrame-wrapped, unlike its siblings above: this is a
       // self-contained search tool with its own Run button and results
       // table, not a "set inputs, preview impact against the baseline"
@@ -139,20 +399,25 @@ export function renderStrategyOptimize() {
       // non-lever tab in this file.
       body: () => renderHousingOptimizePanelHtml(),
     },
+    // #329 §3.3 (W9): "add, as one panel" -- TLH and Gain Harvest together,
+    // reusing the Withdrawal Order tab's own two blocks.
     {
-      key: "charitable_giving",
-      title: "Charitable Giving",
-      gate: "entity_charitable",
-      body: () => analysisFrame(renderEntityCharitable(), "strategy"),
-    },
-    {
-      key: "heloc",
-      title: "HELOC",
-      // Not full-section gated (unlike before): the toggle itself must
-      // render here so it can be turned on in-place, like QCD/DAF above.
+      key: "harvesting",
+      title: "Harvesting",
       gate: null,
-      body: () => analysisFrame(renderHelocOptimizePanel(), "strategy"),
+      body: () => {
+        const other = withdrawalOtherRows();
+        const html = taxLossHarvestingBlock(other) + gainHarvestBlock(other);
+        return (
+          html ||
+          '<div class="field-list"><p class="small">No harvesting rows configured.</p></div>'
+        );
+      },
     },
+    // #329 O11 / #330 §4.3 (W9): HELOC moved to Assets & Protection -- a
+    // liability held against an asset, not an optimizer. Its own nav step
+    // (heloc_strategy) renders the same renderHelocOptimizePanel() body it
+    // always did; it is no longer embedded here.
   ]);
 }
 
@@ -270,11 +535,16 @@ Object.assign(window, {
   strategySectionResetOpenCache,
   strategySectionSetOpen,
   strategySectionToggle,
-  strategySectionGatedNote,
+  featureGatedNote,
   strategySection,
   renderStrategyScreen,
   renderStrategyOptimize,
   renderStrategyStress,
   renderStrategyScenarios,
   renderStrategyWorkbench,
+  hsaWithdrawalPolicyBlock,
+  hsaWithdrawalModeValue,
+  taxLossHarvestingBlock,
+  gainHarvestBlock,
+  withdrawalMiscBlock,
 });

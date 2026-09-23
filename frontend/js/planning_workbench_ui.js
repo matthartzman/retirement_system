@@ -41,9 +41,15 @@
       return "";
     }
   }
+  // #329 §4.2 (W10c): "optimizer" is the ONE value apply-to-plan adds, not one
+  // per optimizer -- an enum that grows with every optimizer is the same
+  // hand-maintained-list failure mode #329 §3.1 exists to eliminate. Which
+  // optimizer produced a case lives in that case's provenance note
+  // (optimizer_id / optimizer_title / provenance_note, written by
+  // optimizer_apply.js), not in the type system.
   function normalizeSource(v) {
     v = String(v || "manual").toLowerCase();
-    return ["strategy", "scenario", "stress", "manual"].includes(v)
+    return ["strategy", "scenario", "stress", "optimizer", "manual"].includes(v)
       ? v
       : "manual";
   }
@@ -235,6 +241,12 @@
     if (source === "scenario") return currentScenarioOverrideItems(ctx);
     if (source === "strategy") return strategyLeverOverrideItems(ctx);
     if (source === "stress") return stressOverrideItems(ctx);
+    // An "optimizer" case's overrides are the optimizer's patch, handed in by
+    // optimizer_apply.js -- there is nothing on the current page to scrape for
+    // one. Returning the staged manual edits here (the fallthrough below)
+    // would mislabel whatever the user happened to be editing as optimizer
+    // output, so this source deliberately yields nothing instead.
+    if (source === "optimizer") return [];
     return currentManualOverrideItems(ctx);
   }
   async function createCase(ctx, source) {

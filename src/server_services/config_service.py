@@ -77,12 +77,13 @@ class ConfigService:
             "csv_path": str(self.context.csv_path),
             "module_status": self._module_status(_data),
             "module_gates": self._module_gates(),
+            "module_taxonomy": self._module_taxonomy(),
             **payload,
         }, 200
 
     @staticmethod
     def _module_gates() -> JsonDict:
-        """§7.4: {step_gates, section_gates} the frontend uses to hide a nav
+        """§7.4 + §5.3: {step_gates, section_gates, flag_gates} the frontend uses to hide a nav
         step or an input-CSV section while its owning optional module is
         off — the single source of truth replacing dashboard.js's
         hand-maintained ``stepGatedByOptionalModule``/``ROW_MODULE_GATES``.
@@ -95,12 +96,91 @@ class ConfigService:
         frontend needs no separate module-name lookup for its reason/
         activation text.
         """
-        from ..module_catalog import CATALOG, section_gate_map, step_gate_map
+        from ..module_catalog import (CATALOG, flag_gate_map, section_gate_map,
+                                       step_gate_map)
         section_gates = {
             section: {"key": key, "label": f"{CATALOG[key].name} optional workbook module"}
             for section, key in section_gate_map().items()
         }
-        return {"step_gates": step_gate_map(), "section_gates": section_gates}
+        return {
+            "step_gates": step_gate_map(),
+            "section_gates": section_gates,
+            # #330 §5.3 (W6): the plan-flag half of the same question. Served
+            # beside ``step_gates`` rather than merged into it because the two
+            # are evaluated by different predicates on the frontend -- a
+            # toggle key vs a (section, subsection, label) plan row -- and a
+            # merged map would only make the caller re-derive which it held.
+            "flag_gates": flag_gate_map(),
+        }
+
+    @staticmethod
+    def _module_taxonomy() -> JsonDict:
+        """#330 phase 2: the two classification axes, per module, for the UI.
+
+        `domain` is what the Plan Features page groups by (the user is asking
+        "is this about my life"); `kind` is what its filter chips filter by
+        (the ticket's Optimizers/Stress-tests view, on demand). Both are
+        served from `CATALOG` so the switch nav can never become a third
+        hand-maintained taxonomy beside the catalog and the workbook.
+
+        It also carries #330 §3.4's soft-dependency relation in both
+        directions and the `engine_participation` flag, so the switch UI can
+        warn about what an off-toggle removes elsewhere without shipping a
+        second copy of the relation.
+
+        Static and dependency-free for the same reason `_module_gates` is:
+        `module_catalog` imports nothing heavier than the stdlib, so this adds
+        no cost to a payload the dashboard fetches on every save.
+        """
+        from ..module_catalog import CATALOG, DOMAINS, KIND_QUESTION, soft_dependents
+        return {
+            "domains": list(DOMAINS),
+            "kind_questions": dict(KIND_QUESTION),
+            "modules": {
+                key: {
+                    "name": m.name,
+                    "kind": m.kind,
+                    "domain": m.domain,
+                    "demand": m.demand,
+                    "optional": m.optional,
+                    # #330 §3.3 (W8b): the parent whose toggle switches this
+                    # module, or None. Served because the switch page's whole
+                    # promise is that a module's state is explainable -- a
+                    # bundled module has no row of its own, so without this the
+                    # UI could only report "on" with no way to say what decided
+                    # it.
+                    "gated_by": m.gated_by,
+                    "description": m.description,
+                    # #330 §3.4. Both directions are served, because the UI
+                    # needs both and inverting a map in JS would make the
+                    # frontend a second place the relationship is expressed.
+                    #   degrades_without -- what this module needs to be
+                    #     complete ("shows less because X is off");
+                    #   degraded_by -- what turning THIS module off costs
+                    #     elsewhere, which is the warning on its own switch.
+                    "degrades_without": [
+                        {"key": dep, "loses": loses} for dep, loses in m.degrades_without
+                    ],
+                    "degraded_by": [
+                        {"key": dep, "name": CATALOG[dep].name, "loses": loses}
+                        for dep, loses in soft_dependents(key)
+                    ],
+                    "engine_participation": m.engine_participation,
+                    # #330 §5.3 (W9): Plan Features lists a plan flag too, but
+                    # as a link to the page that owns its data rather than a
+                    # toggle -- it has no client_optional_functions.csv row
+                    # for the loop that builds every other row on this page to
+                    # find. Served per-module (not only via flag_gate_map(),
+                    # which is dashboard_step-keyed and so covers only HELOC)
+                    # so Hybrid LTC/DAF/QCD -- none of which own a
+                    # dashboard_step -- are still discoverable here.
+                    "gate_kind": m.gate_kind,
+                    "gate_ref": list(m.gate_ref) if m.gate_ref else None,
+                    "gate_enable_label": m.gate_enable_label,
+                }
+                for key, m in CATALOG.items()
+            },
+        }
 
     @staticmethod
     def _module_status(sectioned_data: dict[str, Any]) -> JsonDict:

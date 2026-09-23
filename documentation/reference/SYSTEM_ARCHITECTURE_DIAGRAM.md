@@ -240,7 +240,7 @@ flowchart LR
     OUT_account_reconciliation["Account Reconciliation\n(diagnostics)"]
     IN_holdings --> OUT_account_reconciliation
     IN_ytd --> OUT_account_reconciliation
-    OUT_planning_levers_echo["Planning Levers (echo)\n(reference)"]
+    OUT_planning_levers_echo["Planning Levers\n(worksheet)"]
     IN_planning_levers --> OUT_planning_levers_echo
     OUT_assumptions_ref["Assumptions\n(reference)"]
     IN_assumptions --> OUT_assumptions_ref

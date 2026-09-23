@@ -69,9 +69,27 @@ function rawRows(id, rowsOverride) {
 }
 
 describe("rawRowsForStep aggregates the constituent legacy ids (ticket 323)", () => {
-  test("strategy_optimize unions roth_conversion, allocation_assets, allocation_policy, entity_charitable, heloc_strategy", () => {
+  // #329/#330 W9: heloc_strategy left this union when it became its own
+  // Assets & Protection step -- row 5 (HELOC) is still reachable directly
+  // via rawRowsForStep("heloc_strategy") below, just no longer through
+  // strategy_optimize's aggregate.
+  // #330 P8 / Q6 (W13): roth_conversion (row 1) and entity_charitable (row 4)
+  // left this union when they became their own Taxes nav steps -- same move,
+  // same reason as heloc_strategy above. Both are still reachable directly,
+  // asserted in "the legacy shell ids still return their own rows" below.
+  test("strategy_optimize unions allocation_assets and allocation_policy", () => {
     const indices = rawRows("strategy_optimize").map((r) => r.row_index).sort();
-    assert.deepEqual(indices, [1, 2, 3, 4, 5]);
+    assert.deepEqual(indices, [2, 3]);
+  });
+
+  test("the two promoted Taxes steps still return their own rows directly", () => {
+    assert.deepEqual(rawRows("roth_conversion").map((r) => r.row_index), [1]);
+    assert.deepEqual(rawRows("entity_charitable").map((r) => r.row_index), [4]);
+  });
+
+  test("heloc_strategy still returns its own row directly, unaggregated", () => {
+    const indices = rawRows("heloc_strategy").map((r) => r.row_index).sort();
+    assert.deepEqual(indices, [5]);
   });
 
   test("strategy_stress unions monte_carlo_options, survivor_stress, ltc_stress, divorce_options", () => {
