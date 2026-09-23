@@ -99,9 +99,28 @@ def _f(x: Any, default: float = 0.0) -> float:
 
 
 def _explain_candidate(candidate: Mapping[str, Any], selected: Mapping[str, Any], rank: int) -> str:
+    """Per-candidate "why selected / rejected" text.
+
+    ``selected`` is the candidate dict the plan is actually running, which is
+    not always the top-ranked one: a household can name a Roth policy the
+    optimizer would not have picked, and ``why_selected`` above says so in as
+    many words. This function used to test ``selected.get('selected_label',
+    label)`` -- a key candidate dicts do not carry -- so the comparison fell
+    through to ``label == label`` and rank 1 *always* read "Selected because
+    it produced the highest total objective score", even when a different row
+    was the one in the plan. W10a's result panel is the first surface to put
+    that sentence next to a marker for the row actually in the plan, where the
+    contradiction is plain; Sheet 11 carried the same text with the same
+    defect. The rank-1 wording is unchanged for the case it was written for.
+    """
     label = str(candidate.get('label', 'Candidate'))
-    if rank == 1 and label == str(selected.get('selected_label', label)):
+    is_selected = bool(label) and label == str(selected.get('label') or '')
+    if is_selected and rank == 1:
         return 'Selected because it produced the highest total objective score under the configured objective, guardrails, estate-tax, survivor-risk, liquidity, and legacy weights.'
+    if is_selected:
+        return 'In the plan: explicitly chosen rather than ranked first by the optimizer. The rows above score higher under the configured objective.'
+    if rank == 1:
+        return 'Ranked first by the optimizer under the configured objective, guardrails, estate-tax, survivor-risk, liquidity, and legacy weights, but not the strategy this plan is running.'
     reasons=[]
     if _f(candidate.get('lifetime_tax')) < _f(selected.get('lifetime_tax')):
         reasons.append('lower lifetime tax')

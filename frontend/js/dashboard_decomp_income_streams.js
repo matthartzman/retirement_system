@@ -149,6 +149,152 @@ export function ssMonthlyAtClaimAgeCell(person, claimDateRow) {
   return `<span class="computed-value">~${esc(fmtMoney(derived))} <span class="small">(derived from FRA)</span></span>`;
 }
 
+// ---------------------------------------------------------------------------
+// #329 P6 / §4.3 (W10c): Social Security is the design's SCALAR ADOPTION case
+// -- the whole recommendation is one claim age per person, so the patch is one
+// existing row each and there is no live/frozen distinction to offer. That is
+// why this optimizer declares a single "Apply to plan" action rather than
+// §4.3's two named policy-adoption actions, which belong to the optimizers
+// whose plan can keep re-optimizing after the fact.
+// ---------------------------------------------------------------------------
+export const SS_TIMING_RESULT_KEY = "social_security_timing_result";
+export const SS_OPTIMIZER_ID = "social_security_timing";
+
+export function socialSecurityTimingResult() {
+  return optimizerResultFromLastBuild(SS_TIMING_RESULT_KEY);
+}
+
+export function ssClaimRow(person) {
+  return findEditableRow("Social Security", person, "claim_date");
+}
+
+// A claim AGE expressed as the claim_date text the engine reads back as that
+// same whole-year age. Mirrors src/data_io.py's _ss_claim_from_date_or_age
+// fallback exactly, which resolves a bare age to (dob_yr + age, dob_month) --
+// claiming in the person's own birth month is the one month for which
+// claim_year - birth_year is unambiguously the age they have reached.
+export function ssClaimDateForAge(person, age) {
+  const dob = ssPersonDobParts(person);
+  // Number(null) is 0 and Number("") is 0, both finite -- so the absence of a
+  // recommendation has to be rejected before the numeric check, or a missing
+  // age would silently become a claim date in the person's birth year.
+  if (age == null || String(age).trim() === "") return "";
+  const n = Number(age);
+  if (!dob || !Number.isFinite(n)) return "";
+  return `${dob.month}/${dob.year + n}`;
+}
+
+// The live claim AGE of a claim_date row, dirty-aware. This is what §4.6's
+// applied-state comparison runs on for this optimizer, rather than the stored
+// text, for two reasons that both make the raw comparison wrong here:
+//
+//   - a BLANK claim_date is not "unset": the engine reads it as age 70, so a
+//     plan with a blank row already does what a 70 recommendation asks;
+//   - the sweep varies whole ages only, so a user who set 4/2035 instead of
+//     the 5/2035 this patch would write has kept the optimizer's answer and
+//     refined the month, which is not a divergence from the recommendation.
+//
+// ssClaimAgeFromDate() already encodes both rules (it returns 70 for blank and
+// claim_year - birth_year otherwise), so this reuses it rather than restating
+// them.
+export function ssLiveClaimAge(person, idx) {
+  const row = (rows || []).find((r) => r.row_index === idx);
+  return row ? ssClaimAgeFromDate(person, row) : undefined;
+}
+
+export function socialSecurityOptimizerPatch(result) {
+  const r = result || socialSecurityTimingResult();
+  if (!r) return [];
+  const out = [];
+  [
+    { key: "Member 1", n: 1, age: r.recommended_member_1_claim_age },
+    { key: "Member 2", n: 2, age: r.recommended_member_2_claim_age },
+  ].forEach(function (p) {
+    if (p.age == null) return;
+    const row = ssClaimRow(p.key);
+    // No row (a single-person household has no Member 2) and no date of birth
+    // (the age cannot be expressed as a date without one) both mean there is
+    // nothing to write. Emitting an item that editValue() would reject is
+    // worse than emitting none: it would make the strip claim a change it
+    // cannot make, and would drag the computed state to "diverged" forever.
+    if (!row) return;
+    const afterRaw = ssClaimDateForAge(p.key, p.age);
+    if (!afterRaw) return;
+    const beforeRaw = String(valOf(row) || "");
+    const beforeAge = ssClaimAgeFromDate(p.key, row);
+    const who = personDisplayName(p.n);
+    out.push({
+      source: "optimizer",
+      sourceStep: "income_retirement",
+      sourceTitle: "Income & Social Security",
+      section: "Social Security",
+      subsection: p.key,
+      field: "claim_date",
+      label: `${who} claim date`,
+      before: beforeRaw
+        ? `${beforeRaw} (age ${beforeAge})`
+        : `Blank — age ${beforeAge} by default`,
+      beforeRaw: beforeRaw,
+      after: `${afterRaw} (age ${p.age})`,
+      afterRaw: afterRaw,
+      // Compare on the age, not the date text -- see ssLiveClaimAge above.
+      compareAfter: Number(p.age),
+      row_index: row.row_index,
+      rationale: `The claim-age sweep ranked age ${p.age} highest for ${who}.`,
+    });
+  });
+  return out;
+}
+
+// The strip, plus the honest empty states. Kept separate from the patch
+// builder so the builder stays a pure function of the result and the rows.
+export function renderSsOptimizerApplyStrip() {
+  const apply = window.OptimizerApply;
+  if (!apply) return "";
+  const result = socialSecurityTimingResult();
+  if (!result) {
+    if (!optimizerResultFetchDone(SS_TIMING_RESULT_KEY)) {
+      setTimeout(
+        () => fetchOptimizerResult(SS_TIMING_RESULT_KEY).catch(function () {}),
+        0,
+      );
+      return "";
+    }
+    // A build that ran with the Social Security optimizer module off records
+    // no result, which is a legitimate answer rather than an error, so this
+    // says nothing rather than showing a strip with nothing behind it.
+    return "";
+  }
+  apply.registerOptimizer({
+    id: SS_OPTIMIZER_ID,
+    title: "Social Security claim-age sweep",
+    buildPatch: () => socialSecurityOptimizerPatch(),
+    liveValueOf: (idx) => {
+      const item = socialSecurityOptimizerPatch().find(
+        (x) => x.row_index === idx,
+      );
+      return item ? ssLiveClaimAge(item.subsection, idx) : undefined;
+    },
+    actions: [{ intent: "apply", label: "Apply to plan", primary: true }],
+  });
+  const patch = socialSecurityOptimizerPatch(result);
+  if (!patch.length) return "";
+  let html = apply.renderApplyStrip(SS_OPTIMIZER_ID);
+  if (!html) return "";
+  const scored = Number(result.pairs_scored) || 0;
+  let note = `The last build scored ${scored} claim-age pair${scored === 1 ? "" : "s"} and ranked this one highest.`;
+  if (result.recommendation_matches_plan)
+    note += " It is the pair this plan already uses.";
+  if (result.all_pairs_infeasible)
+    note +=
+      " Every pair it scored failed the essential-funding feasibility check, so this is the least-bad option rather than a funded one.";
+  html = html.replace(
+    '<div class="optimizer-apply-state">',
+    `<p class="small">${esc(note)}</p><div class="optimizer-apply-state">`,
+  );
+  return html;
+}
+
 export function renderSsCompactTable() {
   const people = [
     { key: "Member 1", n: 1 },
@@ -161,7 +307,12 @@ export function renderSsCompactTable() {
     r.forEach((x) => (by[norm(x.label)] = x));
     html += `<tr><td><b>${esc(personDisplayName(p.n))}</b></td><td>${ssActiveCell(by.fra_age)}</td><td>${ssActiveCell(by.monthly_pia_at_fra_today_dollars)}</td><td>${ssClaimDateCell(p.key, by.claim_date)}</td><td>${ssMonthlyAtClaimAgeCell(p.key, by.claim_date)}</td></tr>`;
   });
-  return html + "</tbody></table></div></div>";
+  return (
+    html +
+    "</tbody></table></div>" +
+    renderSsOptimizerApplyStrip() +
+    "</div>"
+  );
 }
 
 export function fieldControlOnly(r) {
@@ -402,6 +553,12 @@ Object.assign(window, {
   monthInputValueToClaimDate,
   ssMonthlyAtClaimAgeCell,
   renderSsCompactTable,
+  socialSecurityTimingResult,
+  ssClaimRow,
+  ssClaimDateForAge,
+  ssLiveClaimAge,
+  socialSecurityOptimizerPatch,
+  renderSsOptimizerApplyStrip,
   fieldControlOnly,
   incomeStreamSubsections,
   renderIncomeStreamsSection,

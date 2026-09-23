@@ -27,17 +27,23 @@ os.environ.setdefault("RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS", "1")
 
 # (toggle key, legacy build-time sheet, final presentation tab, builder)
 MODULES = [
-    # '2B. HSA Drawdown' inserted right after Roth Conversion pushed every
-    # later '2'-prefix letter down by one (2I->2J etc); '3'-prefix letters
-    # (existing life/disability/P&C, a different letter_prefix group) are
-    # untouched.
-    ("education_funding_529",       "30. Education Funding",       "2K. Education Funding",       build_education_funding),
-    ("equity_compensation",         "35. Equity Compensation",     "2L. Equity Compensation",     build_equity_comp),
-    ("special_needs_planning",      "36. Special-Needs Planning",  "2M. Special-Needs Planning",  build_special_needs),
-    ("existing_life_insurance",     "31. Existing Life Insurance", "3D. Existing Life Insurance", build_existing_life),
-    ("disability_income_insurance", "32. Disability Income",       "3E. Disability Income",       build_disability),
-    ("property_casualty_umbrella",  "33. P&C Umbrella",            "3F. P&C Umbrella",            build_pc_umbrella),
-    ("business_succession",         "34. Business Succession",     "2N. Business Succession",     build_business_succession),
+    # Letters are positions in a group, so they move when the group's
+    # membership does. W3 (#329 O10, F1) moved State Residency and S-Corp vs
+    # LLC out of group '2' entirely (COMPARISON now gets its own '3.
+    # Comparisons' group), which pulled every '2'-prefix letter after Estate
+    # & Legacy back down by two; W3 also renumbered the protection decisions'
+    # group from '3' to '4' ('4. Risks', since '3' is now Comparisons).
+    # W9 (#329 §1.2/§3.3) pulled every '2'-prefix letter after Asset
+    # Allocation down by two more (Withdrawal Sequencing, Asset Location
+    # restored from hidden) and every '4'-prefix letter after LTC Stress
+    # Test down by one (Divorce/QDRO, rank 2.5, gets a workbook sheet).
+    ("education_funding_529",       "30. Education Funding",       "2I. Education Funding",       build_education_funding),
+    ("equity_compensation",         "35. Equity Compensation",     "2J. Equity Compensation",     build_equity_comp),
+    ("special_needs_planning",      "36. Special-Needs Planning",  "2K. Special-Needs Planning",  build_special_needs),
+    ("existing_life_insurance",     "31. Existing Life Insurance", "4F. Existing Life Insurance", build_existing_life),
+    ("disability_income_insurance", "32. Disability Income",       "4G. Disability Income",       build_disability),
+    ("property_casualty_umbrella",  "33. P&C Umbrella",            "4H. P&C Umbrella",            build_pc_umbrella),
+    ("business_succession",         "34. Business Succession",     "2L. Business Succession",     build_business_succession),
 ]
 
 
