@@ -273,7 +273,7 @@ V5_LAYOUT, WORKBOOK_SECTION_LAYOUT, SHEET_LETTER_ORDER, SHEET_DISPLAY_TITLES, _S
 # module_status have no caller left in src/reporting. (SHEET_REGISTRY itself
 # was imported earlier, above WORKBOOK_SECTION_LAYOUT, since the four derived
 # sheet-identity tables need it before this point in the module.)
-from ..module_catalog import OPTIONAL_MODULE_SHEETS, module_enabled
+from ..module_catalog import OPTIONAL_MODULE_SHEETS, module_enabled, plan_flag_enabled
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1179,6 +1179,7 @@ __all__ = [
     "minimize_row_heights",
     "module_enabled",
     "optimize_workbook_layout",
+    "plan_flag_enabled",
     "prepare_config_from_sectioned_data",
     "price_source",
     "pricing_diagnostics",

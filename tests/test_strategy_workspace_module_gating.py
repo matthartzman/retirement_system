@@ -37,6 +37,10 @@ WORKSPACE_JS = (ROOT / "frontend" / "js" / "dashboard_decomp_strategy_workspace.
 SECTION_GATES = {
     "asset_allocation": None,
     "heloc": "heloc_strategy",
+    # #330 §3.2 (Housing "Where to live"): the first gate id in this map
+    # that is a Strategy SECTION and not also a nav step -- the panel owns no
+    # input page of its own. See module_catalog's `dashboard_step` field note.
+    "housing": "housing_location_search",
     "monte_carlo": "monte_carlo_options",
     "survivor": "survivor_stress",
     "ltc": "ltc_stress",
@@ -69,6 +73,7 @@ def test_every_gated_section_names_the_key_step_gate_map_expects():
     assert gates.get("ltc_stress") == "long_term_care_stress"
     assert gates.get("divorce_options") == "divorce_qdro"
     assert gates.get("scenarios") == "what_if_analysis"
+    assert gates.get("housing_location_search") == "housing_location_search"
 
 
 def test_heloc_gates_through_a_declaration_not_a_hand_written_branch():

@@ -225,13 +225,31 @@ class OutputModule:
     engine_participation: bool = False
     # §7.4 (system review Wave 3.5b): the single source of truth for the two
     # ad-hoc gates dashboard.js used to hand-maintain separately —
-    # ``dashboard_step`` names the nav step this module owns outright (the
-    # step is hidden while the module is off); ``csv_sections`` names the
-    # input-CSV ``section`` value(s) this module gates within a step that
-    # stays visible regardless (e.g. DAF rows inside "Other Spending").
-    # Populated only for modules that actually gate dashboard input
-    # visibility today — most Optimization/Stress/Diagnostics modules gate a
-    # workbook *sheet*, not an input page, and have neither.
+    # ``dashboard_step`` names the gated UI surface this module owns
+    # outright; ``csv_sections`` names the input-CSV ``section`` value(s)
+    # this module gates within a step that stays visible regardless (e.g.
+    # DAF rows inside "Other Spending").
+    # Populated only for modules that actually gate a dashboard surface
+    # today — most Optimization/Stress/Diagnostics modules gate a workbook
+    # *sheet*, not a UI surface, and have neither.
+    #
+    # "Surface", not "nav step", because the frontend reads this map from
+    # exactly two places and they are not the same thing:
+    #
+    #   * ``visibleSteps()`` hides the nav STEP whose id matches, and
+    #   * ``strategySection(..., gateStepId)`` replaces a Strategy-screen
+    #     SECTION's body with the enable-note whose id matches.
+    #
+    # Every value here used to be both at once (``roth_conversion``,
+    # ``entity_charitable``, ``divorce_options``, … each name a real STEPS
+    # entry that a Strategy section also gates on), so the distinction never
+    # had to be drawn. ``housing_location_search`` is the first that is a
+    # section and nothing else: the "Where to live" panel is a section of the
+    # Optimize screen and owns no input page of its own (its search
+    # parameters are browser-local, not plan rows). An id naming no STEPS
+    # entry is inert in ``visibleSteps()`` — it filters the STEPS array, so
+    # an id not in it hides nothing — which is why one map still serves both
+    # readers without a second field to say which kind it is.
     dashboard_step: Optional[str] = None
     csv_sections: Tuple[str, ...] = field(default_factory=tuple)
     # ── #330 §5.3 (W6): how this module is switched on ──────────────────────
@@ -254,6 +272,31 @@ class OutputModule:
     gate_kind: str = GATE_MODULE_TOGGLE
     gate_ref: Optional[Tuple[str, str, str]] = None
     gate_enable_label: Optional[str] = None
+    # ── #330 §3.4 follow-up (deferred by W9, confirmed by W12; landed here) ──
+    #
+    # ``gate_config_key`` names the literal key a plan flag's enable row is
+    # parsed into on ``c`` at runtime -- which is NOT derivable from
+    # ``gate_ref``. ``gate_ref``'s third element is the CSV cell's label
+    # (``"enabled"`` for Hybrid LTC), and data_io.py's own parsing is not a
+    # mechanical function of that label: Hybrid LTC's ``enabled`` cell loads
+    # into ``c['ltc_enabled']``, not ``c['hybrid_ltc_policy_enabled']`` or
+    # ``c['enabled']``. Without this field, a direct read of that key (e.g.
+    # ``c.get('ltc_enabled', False)``) has no way to be tied back to the
+    # module it gates, so the call-site enforcement sweep
+    # (tests/test_module_toggle_call_site_enforcement.py) could not recognize
+    # it as a plan-flag read at all -- only ``module_enabled(`` and raw
+    # ``c['opt']`` reads were spellings it knew.
+    #
+    # Populated only where something actually consumes it -- today just
+    # ``hybrid_ltc_policy`` -- rather than backfilled onto every plan flag on
+    # spec: HELOC's and QCD's CSV labels already equal their runtime keys
+    # (``heloc_enabled``, ``qcd_enabled``), so nothing needs this to find
+    # them, and inventing the mapping for a flag nothing reads outside its
+    # own gate would be exactly the aspirational-declaration risk
+    # ``test_every_soft_declaration_is_backed_by_a_swept_call_site`` exists
+    # to catch (W5's Judgment call 2 records the one time that nearly
+    # happened here).
+    gate_config_key: Optional[str] = None
     # ── #330 §3.3 (W8b): one switch, several modules ───────────────────────
     #
     # ``gated_by`` names the module whose toggle decides this one. Everything
@@ -608,6 +651,83 @@ _OUTPUTS: List[OutputModule] = [
         requires_outputs=BASE_PROJECTION,
     ),
     OutputModule(
+        # ── Registry gap closed: the OTHER housing engine ────────────────────
+        #
+        # #329 §1.4 named the pair honestly -- "Where to live" (this one,
+        # `src/housing/`, the UI panel) and "When to move"
+        # (`housing_comparison.py`, Sheet 38, `housing_trajectory_comparison`
+        # above) -- and #330 §3.2 listed "Where to live" among the twelve
+        # newly-optional candidates. Neither ever got a CATALOG record, so
+        # #330's off-semantics for it ("The UI panel is hidden; `src/housing/`
+        # is not invoked") described a behavior nothing could express: with no
+        # module there was no switch, and with no switch the panel and both
+        # endpoints were unconditionally live. W8b found this and W9 confirmed
+        # it was out of its own scope; this entry is the W1-shaped addition
+        # both notes asked for.
+        #
+        # `kind` is OPTIMIZATION, from the code rather than from the name.
+        # `optimizer.py`'s own contract is "generate -> filter -> score ->
+        # rank": the ZIP screen enumerates candidate locations inside the
+        # anchors' radii, `candidates`/`search` sweep the original home's sale
+        # year and each move's acquisition year across them, and
+        # `rank_candidates` orders the survivors on one of three objectives
+        # (`net_worth`, `lifetime_cost`, `mc_success_rate`). Where and when to
+        # move are levers the household controls, which is OPTIMIZATION's
+        # question verbatim. COMPARISON was the live alternative and is wrong
+        # on the axis #329 §3.1 drew: a COMPARISON scores *the alternatives the
+        # user named*, and the v2 request body carries no candidate list at all
+        # -- `api.validate_request` REJECTS one ("Manual candidate locations
+        # are no longer supported"). What the user supplies is a search region
+        # (2-5 anchor ZIPs plus a radius per move); the candidates are
+        # generated. Its sibling `housing_trajectory_comparison` is likewise
+        # OPTIMIZATION despite carrying "Comparison" in its display name.
+        #
+        # `domain` is HOUSING_PROPERTY, the same as that sibling: the two
+        # engines answer two halves of one housing decision, and #330 §4.1's
+        # axes are independent, so sharing a domain while differing in nothing
+        # else is exactly right.
+        #
+        # `sheet=None`, and unlike Divorce/QDRO's pre-W9 `sheet=None` this one
+        # is not a gap waiting to be closed. A workbook sheet is built from the
+        # saved plan; this search's inputs (anchor ZIPs, radii, quality floor,
+        # budget bounds, per-move windows, objective) exist only as browser-
+        # local form state -- `HOUSING_OPT_STORAGE_KEY` in
+        # dashboard_decomp_housing_optimizer.js -- and there is no plan CSV
+        # behind them to build from. That is precisely why Sheet 38 exists and
+        # reads `next_housing_steps` instead. Giving this module a sheet would
+        # mean first inventing a plan-input surface for the search parameters,
+        # which is a feature, not a catalog record.
+        #
+        # `engine_participation=False`, and the distinction is worth stating
+        # because this module runs the engine harder than any other: every
+        # candidate is a real `planning_engines.run_scenario` (plus
+        # `monte_carlo` for the shortlist). But `run_scenario` deep-copies and
+        # `plan_variant._apply_candidate` mutates only that copy, so the saved
+        # plan's own projection is untouched whether this is on or off. The
+        # flag means "this toggle moves the projection", not "this module calls
+        # the engine".
+        #
+        # No `degrades_without`: the `mc_success_rate` objective calls
+        # `planning_engines.monte_carlo` directly (optimizer.py), NOT through
+        # `market_luck_stress_test`'s gate, so turning Monte Carlo off does not
+        # make this module say less. Checked rather than assumed -- W5's rule
+        # is that a declaration nothing can observe is worse than none.
+        "housing_location_search", "Housing Location Search", OPTIMIZATION, LOW,
+        "\"Where to live\": screens ZIP codes inside your chosen anchors and radius, "
+        "then sweeps each move's location and year against the plan to rank places to go. "
+        "The workbook's Housing Comparison answers the other half, \"when to move\".",
+        domain=HOUSING_PROPERTY,
+        optional=True,
+        requires_inputs=(_in("household", "state", "next_housing_steps"),
+                         _in("assets", "home_value"), _in("liabilities", "mortgage"),
+                         _in("assumptions", "growth", "home_appreciation", "inflation")),
+        requires_outputs=BASE_PROJECTION,
+        # The Optimize screen's "Next Housing Move" section. A section, not a
+        # nav step -- see the `dashboard_step` field note above for why one map
+        # still serves both readers.
+        dashboard_step="housing_location_search",
+    ),
+    OutputModule(
         "estate_legacy_plan", "Estate & Legacy", OPTIMIZATION, MEDIUM,
         "Estate-tax exposure, legacy/bequest structure, beneficiary/titling audit, "
         "gifting schedule, and per-beneficiary 10-year drawdown sensitivity.",
@@ -687,6 +807,21 @@ _OUTPUTS: List[OutputModule] = [
         optional=True, sheet="19. Life Insurance", tab="4D. Life Insurance Need",
         requires_inputs=(_in("insurance_estate", "policies"), _in("income")),
         requires_outputs=("survivor_stress_test",),
+        # Sheet 19's Section D (Hybrid Life/LTC vs Term vs GUL comparison)
+        # names this plan's actual policy -- "$500K face, start 2027,
+        # ~$18,500/yr" -- in the verdict cell and the closing paragraph only
+        # while Hybrid LTC is on; off, both fall back to generic boilerplate
+        # ("Not currently configured -- see Section C..."). Section C's
+        # coverage-option table itself is unaffected either way -- it is an
+        # illustrative comparison, not this household's data.
+        #
+        # NOT declared on `long_term_care_stress` (Sheet 17, "LTC Stress
+        # Test"): that sheet's own Hybrid LTC recommendation line is static
+        # text, unconditional on the plan flag, verified by reading
+        # build_sheet17 directly rather than assumed from the sheet's name.
+        degrades_without=(_soft("hybrid_ltc_policy",
+                              "the configured Hybrid LTC policy's own figures in the "
+                              "coverage-comparison verdict and closing summary"),),
     ),
     OutputModule(
         "existing_life_insurance", "Existing Life Insurance", PROTECTION, LOW,
@@ -908,6 +1043,10 @@ _OUTPUTS: List[OutputModule] = [
         gate_kind=GATE_PLAN_FLAG,
         gate_ref=("Hybrid LTC", "Settings", "enabled"),
         gate_enable_label="Enabled",
+        # data_io.py parses this cell into c['ltc_enabled'], not a mechanical
+        # function of gate_ref[2] ("enabled") -- see gate_config_key's own
+        # comment on OutputModule.
+        gate_config_key="ltc_enabled",
     ),
     OutputModule(
         # DAF and QCD are one feature seen from two sides -- bunch giving for
@@ -1041,6 +1180,32 @@ def core_keys() -> List[str]:
 def plan_flag_keys() -> List[str]:
     """Keys of modules switched by a plan-data flag rather than a toggle."""
     return [m.key for m in _OUTPUTS if m.gate_kind == GATE_PLAN_FLAG]
+
+
+def plan_flag_enabled(c, key: str) -> bool:
+    """True when the plan flag ``key`` is on, read from its own config key.
+
+    The plan-flag analogue of :func:`module_enabled` -- a dedicated accessor
+    with the same ``(c, '<literal key>')`` shape, so a call site reads a plan
+    flag the same recognizable way a call site reads a CSV toggle. It exists
+    because a plan flag's state is not stored in ``c['opt']`` at all (that
+    mapping is client_optional_functions.csv toggles only); it is parsed
+    straight off the plan CSV into its own key by data_io.py, named here by
+    :attr:`OutputModule.gate_config_key` rather than re-derived from
+    ``gate_ref`` (which names the CSV cell, not the runtime key it loads
+    into -- see that field's own comment).
+
+    Routing a call site through this accessor, instead of the raw
+    ``c.get('<config key>', False)`` it replaces, is what lets
+    tests/test_module_toggle_call_site_enforcement.py's sweep recognize the
+    site as a plan-flag read at all: unlike ``module_enabled(`` and
+    ``c['opt']``, a raw literal config-key read is syntactically
+    indistinguishable from any other typed input field, so the sweep matches
+    calls to this accessor by name instead of guessing at literals.
+    """
+    key_name = CATALOG[key].gate_config_key
+    assert key_name, f"{key}: plan_flag_enabled() needs a declared gate_config_key"
+    return bool(c.get(key_name, False))
 
 
 def prerequisite_outputs(key: str, transitive: bool = True) -> List[str]:
@@ -1654,8 +1819,11 @@ def validate() -> None:
                 f"soft dependency. requires_outputs auto-enables it, so it can "
                 f"never be off -- pick one.")
             # A core module has no toggle, so it is never off and nothing can
-            # degrade without it.
-            assert CATALOG[dep].optional, (
+            # degrade without it. A plan flag (GATE_PLAN_FLAG) also has a
+            # real switch -- a plan-data row, not a client_optional_functions
+            # .csv toggle -- so it is an equally valid target even though
+            # `optional` is (and must be, per the guard below) False for it.
+            assert CATALOG[dep].optional or CATALOG[dep].gate_kind == GATE_PLAN_FLAG, (
                 f"{key}: degrades_without {dep!r}, which is a core always-on "
                 f"module -- there is no switch for the warning to attach to.")
         # (4d) #330 §5.3 (W6). A gate declaration must be complete and must
@@ -1687,6 +1855,14 @@ def validate() -> None:
             assert m.gate_ref is None and m.gate_enable_label is None, (
                 f"{key}: gate_ref/gate_enable_label are plan-flag fields, but "
                 f"gate_kind is {m.gate_kind!r}; the module key is the toggle.")
+        # `gate_config_key` is meaningful only alongside gate_ref/
+        # gate_enable_label -- it names the same plan flag's runtime key, so
+        # it inherits their gate_kind requirement rather than getting a
+        # third copy of it.
+        if m.gate_config_key is not None:
+            assert m.gate_kind == GATE_PLAN_FLAG, (
+                f"{key}: gate_config_key is a plan-flag field, but gate_kind "
+                f"is {m.gate_kind!r}.")
         # (4e) #330 §3.3 (W8b). A bundle must be well-formed before anything
         # resolves through it: `_base_enabled` follows `gated_by` exactly one
         # hop and treats the answer as final, so a dangling, self-referential
