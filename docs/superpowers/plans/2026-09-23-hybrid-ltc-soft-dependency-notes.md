@@ -179,9 +179,18 @@ the same check.
 - `pytest tests/test_life_insurance_capital_needs_regression.py
   tests/test_optional_module_gating.py
   tests/test_module_catalog_prereq_gating.py` — green (25 tests).
-- Full `pytest -m "not slow"`, `npm test`, and
-  `tools/regen_golden_master.py measure` run before the final push (see
-  PR #132's own updated verification note for this item).
+- `pytest tests/test_engine_module_gate_agrees_with_sheets_regression.py
+  tests/test_strategy_workspace_module_gating.py` — green.
+- Full `pytest -m "not slow"` — green (100% at exit code 0, no failures, only
+  the pre-existing `s`-marked skips).
+- `npm test` — 647/649. The two failures are
+  `tests/frontend/js_codemod_parser_offsets.test.mjs`'s pre-existing
+  jscodeshift-offset-on-CRLF/LF environmental difference, the same one every
+  prior workstream's notes record (W5, W6, W9); reproduced identically
+  running that file alone against the committed tree, confirming it predates
+  this diff (which touches neither `tools/js_codemod/` nor `package.json`).
+- `tools/regen_golden_master.py measure` —
+  `terminal_nw=+0.00  lifetime_tax=+0.00`, exact match against the pin.
 
 ## A mid-task correction worth recording: the branch had moved
 
