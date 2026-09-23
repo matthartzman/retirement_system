@@ -19,22 +19,48 @@ def test_system_section_uses_clean_sheet_sequence_without_feature_toggle(built_w
         # #221: Core Spending merged into Spending Summary -- densely 1G now.
         '1G. Spending Summary',
         '1H. Current vs. Proposed',
-        # #209/#210/#212/#228: 2K (not the old static 2N) -- this fixture's
-        # plan has the advanced modules off, so Gain Harvesting fills the gap
-        # densely instead of leaving one.
+        # W11 addendum (2026-09-22): recatalogued WORKSHEET (was REFERENCE) --
+        # an interactive lever-screening tool, not a static echo -- so it now
+        # letters and sorts in Reports instead of System, densely last. See
+        # the System-section comment below for where it used to sit.
+        '1I. Planning Levers',
+        # W3 (#329 O10, F1): COMPARISON modules (State Residency, S-Corp vs
+        # LLC) moved to their own '3. Comparisons' group, out of Optimizers.
         # HSA Drawdown (2B) always sits right after Roth Conversion (shares
-        # its objective) and is never module-gated, so its insertion pushed
-        # every subsequent '2'-prefix letter here down by one.
-        '2. Optimizers','2A. Roth Conversion','2B. HSA Drawdown','2C. Asset Allocation','2D. State Residency','2E. Social Security','2F. S-Corp vs LLC','2G. Charitable Giving','2H. Estate & Legacy Planning','2J. Tax-Loss Harvesting','2K. Gain Harvesting',
-        # system review 2026-08-31 item 1.17: new always-on core sheet, lands
-        # densely at the end of section 2's letter order (highest letter_rank).
-        '2L. Tax Capacity',
+        # its objective) and is never module-gated, so it is never absent.
+        # #329 §1.2/§3.3 (W9): Withdrawal Sequencing and Asset Location
+        # restored from hidden, right after Asset Allocation (investments
+        # cluster). Tax-Loss Harvesting/Gain Harvesting sort last within
+        # Optimizers as the "This year's actions" pair (§3.2 F3), after
+        # Housing Comparison.
+        '2. Optimizers','2A. Roth Conversion','2B. HSA Drawdown','2C. Asset Allocation',
+        '2D. Withdrawal Sequencing','2E. Social Security','2F. Asset Location',
+        '2G. Charitable Giving','2H. Estate & Legacy Planning',
         # housing-estimate-realism-and-dollar-convention-design.md Slice 3:
-        # new optional sheet, lands densely at the end of section 2's letter
-        # order (highest letter_rank), same pattern as 2L above.
-        '2M. Housing Comparison',
-        '3. Risk & Stress Tests','3A. Monte Carlo','3B. Survivor','3C. LTC + Life Insurance',
-        '4. System','4A. Plan Data','4B. Assumptions','2I. Planning Levers','4C. Account Reconciliation','4D. Quality Control','4E. RMD Audit','4F. Methodology','4G. Glossary',
+        # new optional sheet, lands densely at the end of the plan-optimizer
+        # block (highest letter_rank ahead of the "This year's actions" pair).
+        '2I. Housing Comparison',
+        '2J. Tax-Loss Harvesting','2K. Gain Harvesting',
+        # #329 §1.2/§3.3 (W9): Scenario Analysis restored from hidden too,
+        # 3C -- matching the catalog entry's own `tab="3C. Scenario
+        # Analysis"`, set in anticipation of this.
+        '3. Comparisons','3A. State Residency','3B. S-Corp vs LLC','3C. Scenario Analysis',
+        # W3 (#329 O10): LTC Stress Test is split back out of the merged Life
+        # Insurance sheet into its own '4.1 stress tests' tab; Life Insurance
+        # Need is the only '4.2 protection decision' on in this fixture's
+        # plan (existing_life_insurance/disability_income_insurance/
+        # property_casualty_umbrella are off). Divorce/QDRO (W9, rank 2.5,
+        # between LTC Stress Test and Life Insurance Need) is off by default
+        # in this fixture, so it does not appear and letters compress.
+        '4. Risks','4A. Monte Carlo','4B. Survivor','4C. LTC Stress Test','4D. Life Insurance Need',
+        # W11 addendum (2026-09-22): Planning Levers is recatalogued WORKSHEET
+        # and now sits in '1. Reports' as 1I (see above) instead of here.
+        # REFERENCE-kind, filed in System rather than Reports; system review
+        # 2026-08-31 item 1.17's always-on consolidated headroom view now
+        # sorts here, densely last -- 5H now that Planning Levers left System.
+        # W3 renumbered System's own group code from '4' to '5' -- '4' is now
+        # Risks.
+        '5. System','5A. Plan Data','5B. Assumptions','5C. Account Reconciliation','5D. Quality Control','5E. RMD Audit','5F. Methodology','5G. Glossary','5H. Tax Capacity',
     ]
     assert visible[:len(expected)] == expected
     assert '4D. Feature Toggle' not in visible
@@ -76,7 +102,7 @@ def test_column_width_caps_are_applied_without_header_driven_expansion(built_wor
     max_text_width = round((200 - 5) / 7, 1) + 0.1
     max_dollar_width = round((71 - 5) / 7, 1) + 0.1
     max_int_width = round((40 - 5) / 7, 1) + 0.1
-    assert wb['4F. Methodology'].column_dimensions['A'].width <= _expected_width('23. Methodology', 'A', max_text_width)
+    assert wb['5F. Methodology'].column_dimensions['A'].width <= _expected_width('23. Methodology', 'A', max_text_width)
 
     # RMD Audit column G holds account balances, which can genuinely need
     # more than the hand-tuned template's pinned width (e.g. a 7-figure IRA
@@ -85,7 +111,7 @@ def test_column_width_caps_are_applied_without_header_driven_expansion(built_wor
     # up to what the sheet's actual largest value needs; anything beyond that
     # would signal header-driven (not data-driven) expansion, which this test
     # still guards against.
-    rmd_ws = wb['4E. RMD Audit']
+    rmd_ws = wb['5E. RMD Audit']
     rmd_g_cap = _expected_width('20. RMD Audit', 'G', max_dollar_width)
     g_cells = [
         cell for row in rmd_ws.iter_rows(min_col=7, max_col=7)
@@ -94,4 +120,4 @@ def test_column_width_caps_are_applied_without_header_driven_expansion(built_wor
     needed_for_data = max((_needed_number_width(c.value, c.number_format) or 0 for c in g_cells), default=0)
     assert rmd_ws.column_dimensions['G'].width <= max(rmd_g_cap, needed_for_data) + 1.0
 
-    assert wb['4E. RMD Audit'].column_dimensions['C'].width <= _expected_width('20. RMD Audit', 'C', max_int_width)
+    assert wb['5E. RMD Audit'].column_dimensions['C'].width <= _expected_width('20. RMD Audit', 'C', max_int_width)

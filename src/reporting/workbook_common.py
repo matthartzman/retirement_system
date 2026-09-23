@@ -172,8 +172,9 @@ def section_title(ws, row, text, span=8, bg=None):
 SECTION_COLOR = {
     '1': '2E75B6',  # Reports — blue
     '2': '7030A0',  # Optimizers — purple
-    '3': 'C00000',  # Risk & Stress Tests — red
-    '4': 'B45F06',  # System — amber
+    '3': '548235',  # Comparisons — green
+    '4': 'C00000',  # Risks — red
+    '5': 'B45F06',  # System — amber
     'H': '4472C4',  # Hidden/helper sheets — medium blue
 }
 
@@ -206,14 +207,15 @@ from ..module_catalog import SHEET_REGISTRY as _SHEET_REGISTRY
 _SECTION_META = {
     '1': ('1. Reports', 'Read-only plan reports and advisor-review outputs.'),
     '2': ('2. Optimizers', 'Decision-support modules and optimization outputs.'),
-    '3': ('3. Risk & Stress Tests', 'Monte Carlo, survivor, and protection stress tests.'),
-    '4': ('4. System', 'Plan data snapshot, assumptions, reconciliation, quality control, RMD audit, methodology, and glossary.'),
+    '3': ('3. Comparisons', "Alternatives the user named, scored side by side — no search."),
+    '4': ('4. Risks', 'Stress tests and the protection decisions they motivate.'),
+    '5': ('5. System', 'Plan data snapshot, assumptions, reconciliation, quality control, RMD audit, methodology, and glossary.'),
 }
 
 
 def _derive_sheet_tables(registry):
     """Derive (V5_LAYOUT, WORKBOOK_SECTION_LAYOUT, SHEET_LETTER_ORDER,
-    SHEET_DISPLAY_TITLES) from SHEET_REGISTRY.
+    SHEET_DISPLAY_TITLES, SHEET_SLUGS) from SHEET_REGISTRY.
     tests/test_sheet_table_consistency.py pins the resulting shape against the
     pre-registry hand-typed tables -- if this derivation goes wrong, that test
     (not just a build failure) is what should catch it.
@@ -224,6 +226,7 @@ def _derive_sheet_tables(registry):
     by_section = defaultdict(list)
     by_letter = defaultdict(list)
     display_titles = {}
+    slugs = {}
     for name, spec in registry.items():
         if spec.section is not None:
             by_section[spec.section].append((spec.section_rank, name))
@@ -231,6 +234,7 @@ def _derive_sheet_tables(registry):
             by_letter[spec.letter_prefix].append((spec.letter_rank, name))
         if spec.display is not None:
             display_titles[name] = spec.display
+        slugs[name] = spec.slug
 
     section_layout = [
         {
@@ -245,10 +249,10 @@ def _derive_sheet_tables(registry):
         prefix: [name for _rank, name in sorted(entries)]
         for prefix, entries in by_letter.items()
     }
-    return v5_layout, section_layout, letter_order, display_titles
+    return v5_layout, section_layout, letter_order, display_titles, slugs
 
 
-V5_LAYOUT, WORKBOOK_SECTION_LAYOUT, SHEET_LETTER_ORDER, SHEET_DISPLAY_TITLES = (
+V5_LAYOUT, WORKBOOK_SECTION_LAYOUT, SHEET_LETTER_ORDER, SHEET_DISPLAY_TITLES, _SHEET_SLUGS = (
     _derive_sheet_tables(_SHEET_REGISTRY)
 )
 
@@ -269,7 +273,7 @@ V5_LAYOUT, WORKBOOK_SECTION_LAYOUT, SHEET_LETTER_ORDER, SHEET_DISPLAY_TITLES = (
 # module_status have no caller left in src/reporting. (SHEET_REGISTRY itself
 # was imported earlier, above WORKBOOK_SECTION_LAYOUT, since the four derived
 # sheet-identity tables need it before this point in the module.)
-from ..module_catalog import OPTIONAL_MODULE_SHEETS, module_enabled
+from ..module_catalog import OPTIONAL_MODULE_SHEETS, module_enabled, plan_flag_enabled
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -298,6 +302,13 @@ def compute_final_sheet_renames(wb) -> dict:
     computed mapping is reused everywhere a final sheet name is needed
     (rename, cross-reference text, format overrides/alignments, template
     layout) instead of each place re-deriving or hand-typing it.
+
+    #329 P2 (W2): also dual-keys the same final name under the sheet's
+    letter-independent `slug` (module_catalog.SheetSpec.slug), so
+    `FINAL_SHEET_RENAMES[slug]` always resolves regardless of which letter
+    this build assigned. The stable-name key stays primary -- it is what
+    `wb.sheetnames`, persisted format overrides, and _replace_text_refs'
+    in-cell substring search all key off -- the slug key is additive.
     """
     renames = {}
     present = set(wb.sheetnames)
@@ -309,7 +320,11 @@ def compute_final_sheet_renames(wb) -> dict:
             idx += 1
             letter = get_column_letter(idx)
             title = SHEET_DISPLAY_TITLES.get(stable, stable)
-            renames[stable] = f'{prefix}{letter}. {title}'
+            final_title = f'{prefix}{letter}. {title}'
+            renames[stable] = final_title
+            slug = _SHEET_SLUGS.get(stable)
+            if slug:
+                renames[slug] = final_title
     return renames
 
 
@@ -340,7 +355,10 @@ _SHEET_NUM_TO_STABLE = {
     13: '13. State Residency',
     14: '14. Estate Plan',
     15: '15. Market-Luck Stress Test',
-    17: '19. Life Insurance',
+    # W3 (#329 O10): LTC Stress Test is split back out of Life Insurance, so
+    # "Sheet 17" now resolves to its own tab again, not the sheet it used to
+    # be merged into.
+    17: '17. LTC Stress Test',
     18: '18. Survivor Stress Test',
     19: '19. Life Insurance',
     20: '20. RMD Audit',
@@ -356,10 +374,16 @@ def sheet_num_label_replacements() -> dict:
     """Build the 'Sheet N' -> final-label text-replacement map fresh from this
     build's live FINAL_SHEET_RENAMES. Call only after refresh_final_sheet_renames."""
     def final(stable):
-        return FINAL_SHEET_RENAMES.get(stable, stable)
+        # #329 P2 (W2): resolved through the slug, per the design's naming of
+        # this table as one of the things that must route through
+        # FINAL_SHEET_RENAMES[slug] -- equivalent in value to keying on
+        # `stable` directly (compute_final_sheet_renames dual-keys both to
+        # the same final title) but makes the slug the canonical lookup.
+        slug = _SHEET_SLUGS.get(stable, stable)
+        return FINAL_SHEET_RENAMES.get(slug, stable)
     out = {f'Sheet {n}': final(stable) for n, stable in _SHEET_NUM_TO_STABLE.items()}
     out['Sheet 13 & 14'] = f"{final('13. State Residency')} & {final('14. Estate Plan')}"
-    out['Sheet 17) shows'] = f"{final('19. Life Insurance')} shows"
+    out['Sheet 17) shows'] = f"{final('17. LTC Stress Test')} shows"
     out['Sheet 16'] = 'Scenario Analysis'
     out['Sheet 26'] = 'Workbook Warnings'
     return out
@@ -400,7 +424,19 @@ def _replace_text_refs(wb):
     """Rewrite legacy sheet-name/number/CSV mentions inside cell text to match
     the final relabeled sheet names, using the tables above as the single
     source of truth for what each legacy reference now reads."""
-    text_replacements = dict(FINAL_SHEET_RENAMES)
+    # #329 P2 (W2): search only the stable-name half of FINAL_SHEET_RENAMES,
+    # not the dual-keyed slug half. Sheet builders write stable names (long,
+    # punctuated, e.g. '11B. Tax Capacity') into cell prose, never slugs, and
+    # a slug is a short snake_case fragment ('tax_capacity', 'pc_umbrella')
+    # that a raw substring pass could accidentally match inside unrelated
+    # existing text (an internal identifier, a QC check name). Restricting
+    # the search set to real dict keys of SHEET_REGISTRY keeps this pass as
+    # safe as it was before slugs existed; FINAL_SHEET_RENAMES[slug] is still
+    # resolved into the value on the stable-name side, so the design's
+    # "resolve through FINAL_SHEET_RENAMES[slug]" holds for what gets
+    # written, just not for what gets searched.
+    text_replacements = {name: FINAL_SHEET_RENAMES[name]
+                          for name in _SHEET_REGISTRY if name in FINAL_SHEET_RENAMES}
     text_replacements.update(sheet_num_label_replacements())
     text_replacements.update(CSV_LABEL_REPLACEMENTS)
     for ws in wb.worksheets:
@@ -760,7 +796,14 @@ def apply_template_layout(wb):
     (including user overrides from Settings -> Workbook Formatting) has run,
     since a pinned height only matches the template's own column widths.
     """
-    final_to_stable = {final: stable for stable, final in FINAL_SHEET_RENAMES.items()}
+    # #329 P2 (W2): FINAL_SHEET_RENAMES is dual-keyed by stable name and by
+    # slug (same final value under both). Inverting the whole dict would let
+    # the slug-keyed entries clobber the stable-keyed ones (same value, so
+    # whichever key is iterated last wins) and hand back a slug where a
+    # stable name is required below -- restrict the inversion to the real
+    # SHEET_REGISTRY keys, exactly as _replace_text_refs does.
+    final_to_stable = {FINAL_SHEET_RENAMES[name]: name
+                        for name in _SHEET_REGISTRY if name in FINAL_SHEET_RENAMES}
     for ws in wb.worksheets:
         stable_key = final_to_stable.get(ws.title, ws.title)
         spec = TEMPLATE_LAYOUT.get(stable_key)
@@ -1136,6 +1179,7 @@ __all__ = [
     "minimize_row_heights",
     "module_enabled",
     "optimize_workbook_layout",
+    "plan_flag_enabled",
     "prepare_config_from_sectioned_data",
     "price_source",
     "pricing_diagnostics",

@@ -97,18 +97,56 @@ describe("strategySection lazy body (ticket 323)", () => {
     );
     assert.equal(calls, 0);
     assert.ok(!html.includes("<p>body</p>"));
-    assert.ok(html.includes("Optional Modules"));
+    assert.ok(html.includes("Plan Features"));
   });
 
-  test("the HELOC gate keeps its own enable-it link", () => {
-    sandbox.stepGatedByOptionalModule = (id) => id === "heloc_strategy";
+  // §5.3 (W6): the link is no longer hand-written in
+  // strategySectionGatedNote() -- it is built from the catalog's
+  // gate_ref/gate_enable_label, served as moduleGates.flag_gates. Seeding the
+  // server payload is therefore part of the setup now, and the assertion is
+  // that the note points at the flag's OWN page (a plan flag's switch lives
+  // where its data is) rather than at Plan Features.
+  test("a plan-flag gate links to the page that owns the flag, not Plan Features", () => {
+    const original = sandbox.window.moduleGates;
+    sandbox.window.moduleGates = {
+      step_gates: {},
+      section_gates: {},
+      flag_gates: {
+        heloc_strategy: {
+          key: "heloc",
+          name: "HELOC",
+          ref: ["HELOC", "Setup", "heloc_enabled"],
+          enable_label: "Enable HELOC Strategy",
+        },
+      },
+    };
+    try {
+      sandbox.stepGatedByOptionalModule = (id) => id === "heloc_strategy";
+      const html = sandbox.strategySection(
+        "heloc",
+        "Home Equity Line",
+        () => "<p>body</p>",
+        "heloc_strategy",
+      );
+      assert.ok(html.includes("Enable HELOC Strategy"));
+      assert.ok(html.includes("HELOC &rarr; Setup &rarr; Enable HELOC Strategy"));
+      assert.ok(html.includes("setStep('heloc_strategy')"));
+      assert.ok(!html.includes("Plan Features"));
+      assert.ok(!html.includes("<p>body</p>"));
+    } finally {
+      sandbox.window.moduleGates = original;
+    }
+  });
+
+  test("a step with no flag gate still falls back to the Plan Features note", () => {
+    sandbox.stepGatedByOptionalModule = (id) => id === "entity_charitable";
     const html = sandbox.strategySection(
-      "heloc",
-      "Home Equity Line",
+      "charitable_giving",
+      "Charitable Giving",
       () => "<p>body</p>",
-      "heloc_strategy",
+      "entity_charitable",
     );
-    assert.ok(html.includes("Enable HELOC Strategy"));
+    assert.ok(html.includes("Plan Features"));
   });
 
   test("toggling persists the new state before re-rendering", () => {
@@ -153,22 +191,44 @@ describe("strategySection lazy body (ticket 323)", () => {
 // their own "first-visit default open state" block below; this block only
 // needs to correctly describe what these three specific calls produce.)
 describe("the four Strategy screens (ticket 323 + Workbench)", () => {
-  test("Optimize renders its five sections; the first (Roth Conversion) opens with its real body, the rest stay collapsed", () => {
+  // #329 §3.3 (W9): Optimize grew from five sections to eight -- HSA
+  // Drawdown, Withdrawal Sequencing, Social Security and Harvesting added
+  // (each "reachable only by setting a field with no visible consequence"
+  // or hidden entirely before this); HELOC left for its own Assets &
+  // Protection step (O11 / #330 §4.3).
+  // #330 P8 / Q6 (W13): Roth Conversion and Charitable Giving left Optimize
+  // for the Taxes nav group, the way heloc did in W9 -- so Optimize is six
+  // sections, and the first one (HSA Drawdown) is ungated, which is what now
+  // opens by default.
+  test("Optimize renders its six sections; the first (HSA Drawdown) opens with its real body, the rest stay collapsed", () => {
     const html = sandbox.renderStrategyOptimize();
     for (const key of [
-      "roth_conversion",
+      "hsa_drawdown",
       "asset_allocation",
+      "withdrawal_sequencing",
+      "social_security",
       "housing",
-      "charitable_giving",
-      "heloc",
+      "harvesting",
     ]) {
       assert.ok(
         html.includes(`data-dkey="strategy:${key}"`),
         `missing section ${key}`,
       );
     }
-    assert.match(html, /data-dkey="strategy:roth_conversion"[^>]*\sopen/);
-    for (const key of ["asset_allocation", "housing", "charitable_giving", "heloc"]) {
+    for (const key of ["heloc", "roth_conversion", "charitable_giving"]) {
+      assert.ok(
+        !html.includes(`data-dkey="strategy:${key}"`),
+        `${key} must no longer live under Optimize`,
+      );
+    }
+    assert.match(html, /data-dkey="strategy:hsa_drawdown"[^>]*\sopen/);
+    for (const key of [
+      "asset_allocation",
+      "withdrawal_sequencing",
+      "social_security",
+      "housing",
+      "harvesting",
+    ]) {
       assert.doesNotMatch(
         html,
         new RegExp(`data-dkey="strategy:${key}"[^>]*\\sopen`),
@@ -332,7 +392,10 @@ describe("deletions stay deleted (ticket 323)", () => {
     assert.equal(typeof sandbox.renderDistributionStrategy, "undefined");
   });
 
-  test("ssClaimAgeCoordinationSummaryHtml is gone -- Optimize has no Social Security section", () => {
+  // #329 §3.3 (W9): Optimize does have a Social Security section again --
+  // socialSecurityOptimizePanelHtml() (dashboard_decomp_strategy_workspace.js),
+  // built from rowsForStep("income_retirement"), not this deleted function.
+  test("ssClaimAgeCoordinationSummaryHtml is still gone -- superseded, not resurrected", () => {
     assert.equal(typeof sandbox.ssClaimAgeCoordinationSummaryHtml, "undefined");
   });
 });

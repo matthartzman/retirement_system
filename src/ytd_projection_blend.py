@@ -57,6 +57,7 @@ from datetime import date
 from pathlib import Path
 
 from . import platform_runtime as _platform_runtime
+from .module_catalog import module_enabled
 from typing import Any
 
 from .ytd_tracking import ytd_summary, annual_spending_forecast
@@ -162,7 +163,23 @@ def compute_current_year_overrides(c: dict[str, Any], root: str | Path, *, today
         'ytd_blend_contrib_proration': {current_year: remaining_fraction},
     }
 
-    flow_blend_enabled = c.get('ytd_blend_enabled', True)
+    # #330 §3.2 (W8b): "off" for Spending Tracker / YTD means "`ytd_blend_enabled`
+    # forced off", so the module gate is ANDed onto the plan's own setting
+    # rather than replacing it. Two different questions with two different
+    # answers: the module toggle says whether this household tracks
+    # transactions at all, and `ytd_blend_enabled` says whether a household
+    # that does wants them blended into this particular plan (the "Start New
+    # Plan, deliberately hypothetical" case in this module's own docstring).
+    # Either one saying no is a no.
+    #
+    # Read through `module_enabled()`, not a raw `c['opt']` lookup -- this is
+    # the projection layer, and reading the toggle raw here is precisely the
+    # defect W7 fixed in `deterministic_engine.py`. `spending_tracker_ytd`
+    # declares `engine_participation=True` so this site is a declared ENGINE
+    # entry in W5's call-site sweep rather than an undeclared one.
+    _plan_wants_blend = bool(c.get('ytd_blend_enabled', True))
+    _tracker_on = module_enabled(c, 'spending_tracker_ytd')
+    flow_blend_enabled = _plan_wants_blend and _tracker_on
 
     blend_meta: dict[str, Any] = {
         'current_year': current_year,
@@ -180,6 +197,16 @@ def compute_current_year_overrides(c: dict[str, Any], root: str | Path, *, today
     has_current_year_actuals = flow_blend_enabled and bool(summary.get('enabled')) and bool(summary.get('ytd_end'))
     if not flow_blend_enabled and bool(summary.get('enabled')):
         blend_meta['flow_blend_skipped_by_user_choice'] = True
+        # W8b: two different user choices now reach this branch, and Executive
+        # Summary discloses the reason by name. Before the module gate existed
+        # the reason could only be `ytd_blend_enabled = FALSE`, so that string
+        # was hardcoded there; naming the actual reason here keeps that
+        # disclosure honest instead of asserting a setting the household may
+        # never have touched. `flow_blend_skipped_by_user_choice` stays for the
+        # callers that only need the boolean -- it is still a user choice
+        # either way.
+        blend_meta['flow_blend_skipped_by'] = (
+            'ytd_blend_enabled' if not _plan_wants_blend else 'module_off')
         blend_meta['ytd_end'] = summary.get('ytd_end')
     if has_current_year_actuals:
         actual = summary.get('actual') or {}

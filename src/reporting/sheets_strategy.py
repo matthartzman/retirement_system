@@ -18,6 +18,7 @@ from .workbook_common import (
     get_column_letter,
     indexed_federal_estate_exemption,
     marginal_rate,
+    module_enabled,
     qc,
     resolved_state_estate_exemption,
     salt_cap,
@@ -746,6 +747,16 @@ def build_sheet10(ws, c, rows):
     return {
         'best': best, 'current': current, 'scenarios': scenarios,
         'longevity_rows': longevity_rows, 'longevity_pair_is_stable': longevity_pair_is_stable,
+        # #329 P6 (W10c): the configured pair and the two display names, so
+        # summary_figures.social_security_timing_payload() can report what the
+        # plan holds today beside what the sweep recommends without recomputing
+        # either from `c` -- a second definition of "the configured claim age"
+        # is exactly the drift summary_figures.py's own docstring exists to
+        # prevent. `current` above is None whenever the coarse-then-refine
+        # pass never scored the configured pair, so it cannot serve this.
+        'h_current': h_current, 'w_current': w_current,
+        'h_label': _s1, 'w_label': _s2,
+        'all_infeasible': _all_scenarios_infeasible,
     }
 
 _HSA_SECTION_SPAN = 15
@@ -956,12 +967,14 @@ def build_sheet11(ws, c, rows):
     r += 2
 
     # Candidate table with transparent score components.
-    candidates = contract.get('candidates') or ropt.get('candidates') or []
-    top_candidates = candidates[:10]
-    raw_scores = [float(cand.get('total_objective_score', cand.get('score', 0.0)) or 0.0) for cand in top_candidates]
-    score_lo = min(raw_scores) if raw_scores else 0.0
-    score_hi = max(raw_scores) if raw_scores else 0.0
-    score_span = score_hi - score_lo
+    # The cap and the 0-100 normalization live in summary_figures because the
+    # UI's Roth result panel (#329 §4.5 path 1) prints the same two columns off
+    # plan_summary.json -- a second copy of this scale here would let the same
+    # candidate carry a different "Score" on the screen than in the workbook.
+    candidates = summary_figures.roth_strategy_candidates(c)
+    top_candidates = candidates[:summary_figures.ROTH_CANDIDATE_DISPLAY_LIMIT]
+    raw_scores = summary_figures.roth_candidate_objective_values(top_candidates)
+    normalized_scores = summary_figures.roth_candidate_relative_scores(raw_scores)
 
     write_hdr(ws, r, 1, 'Candidate Strategy Comparison — Score Components and Rejection Reasons', NAVY, WHITE, span=15); r += 1
     write_cell(ws, r, 1, 'Score (0-100) ranks these candidates relative to each other (100 = best in this set). Objective Value is the underlying dollar-weighted objective the ranking is computed from; it is a scoring unit, not a projected dollar outcome.', align='left')
@@ -982,7 +995,7 @@ def build_sheet11(ws, c, rows):
         label = cand.get('label') or cand.get('selected_strategy_name') or cand.get('Candidate')
         why_text = cand.get('why_selected_or_rejected') or ('Selected candidate.' if idx == 1 else 'Not selected: lower total objective score.')
         raw_score = raw_scores[idx - 1]
-        normalized_score = 100.0 * (raw_score - score_lo) / score_span if score_span > 0 else 100.0
+        normalized_score = normalized_scores[idx - 1]
         vals = [
             rank,
             label,
@@ -1133,7 +1146,15 @@ def build_sheet11(ws, c, rows):
     # Point the reader there instead of re-rendering it here. Mode-gated: only
     # relevant when the HSA schedule optimizer is the configured withdrawal
     # mode; otherwise that sheet has nothing to show either.
-    if str(c.get('hsa_withdrawal_mode') or '').strip().lower() == 'optimize':
+    #
+    # W8b also toggle-gates it. `hsa_drawdown` became optional, so the mode can
+    # be 'optimize' while the sheet this sentence names is not in the workbook
+    # at all -- a cross-reference to a tab that does not exist, which is worse
+    # than saying nothing. The pointer is the only thing that goes; Sheet 11's
+    # own content is unaffected either way, which is why this is a
+    # `degrades_without` on roth_conversion_plan rather than a prerequisite.
+    if (str(c.get('hsa_withdrawal_mode') or '').strip().lower() == 'optimize'
+            and module_enabled(c, 'hsa_drawdown')):
         r += 1
         write_cell(
             ws, r, 1,

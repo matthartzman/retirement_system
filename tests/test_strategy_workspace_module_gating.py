@@ -16,7 +16,7 @@ asserted here against the same server-declared single source of truth
 """
 from pathlib import Path
 
-from src.module_catalog import step_gate_map
+from src.module_catalog import flag_gate_map, step_gate_map
 
 ROOT = Path(__file__).resolve().parents[1]
 from tests._decomp_dashboard import dashboard_function_source, dashboard_js_text
@@ -29,11 +29,18 @@ WORKSPACE_JS = (ROOT / "frontend" / "js" / "dashboard_decomp_strategy_workspace.
 # id its `gate` argument names -- None where the section is never gated. Must
 # match dashboard_decomp_strategy_workspace.js's renderStrategyOptimize/
 # renderStrategyStress/renderStrategyScenarios.
+# #330 P8 / Q6 (W13): "roth_conversion" and "charitable_giving" are gone from
+# this table because they are gone from the screens -- both became real Taxes
+# nav steps, the way "heloc" did in W9. The step_gate_map() assertions below
+# deliberately keep naming them: the gate declaration itself is unchanged, it
+# is now read by visibleSteps() rather than by a strategySection() call.
 SECTION_GATES = {
-    "roth_conversion": "roth_conversion",
     "asset_allocation": None,
-    "charitable_giving": "entity_charitable",
     "heloc": "heloc_strategy",
+    # #330 §3.2 (Housing "Where to live"): the first gate id in this map
+    # that is a Strategy SECTION and not also a nav step -- the panel owns no
+    # input page of its own. See module_catalog's `dashboard_step` field note.
+    "housing": "housing_location_search",
     "monte_carlo": "monte_carlo_options",
     "survivor": "survivor_stress",
     "ltc": "ltc_stress",
@@ -66,25 +73,74 @@ def test_every_gated_section_names_the_key_step_gate_map_expects():
     assert gates.get("ltc_stress") == "long_term_care_stress"
     assert gates.get("divorce_options") == "divorce_qdro"
     assert gates.get("scenarios") == "what_if_analysis"
+    assert gates.get("housing_location_search") == "housing_location_search"
 
 
-def test_heloc_stays_the_declared_special_case_not_a_new_hand_picked_one():
-    # HELOC isn't a client_optional_functions.csv toggle (module_catalog has
-    # no entry for it) -- it's a plan-data feature flag
-    # (HELOC/Setup/heloc_enabled), so stepGatedByOptionalModule() special-cases
-    # it explicitly rather than through step_gate_map(). Confirm that's still
-    # the ONLY special case, not a precedent for reintroducing hand-picked
-    # per-module conditionals the way #256 originally had to remove.
-    gates = step_gate_map()
-    assert "heloc_strategy" not in gates
+def test_heloc_gates_through_a_declaration_not_a_hand_written_branch():
+    # HELOC isn't a client_optional_functions.csv toggle -- it's a plan-data
+    # feature flag (HELOC/Setup/heloc_enabled). #330 §5.3 (W6) unified the two
+    # mechanisms at the point of USE: the catalog declares the flag's
+    # (section, subsection, label) and flag_gate_map() serves it beside
+    # step_gate_map(), so stepGatedByOptionalModule() no longer carries an
+    # `if (stepId === "heloc_strategy")`. It is the SAME contract #256 fixed
+    # for toggles, now covering flags too -- a second plan flag must need no
+    # second branch.
+    assert "heloc_strategy" not in step_gate_map()
+    flag = flag_gate_map()["heloc_strategy"]
+    assert flag["key"] == "heloc"
+    assert flag["ref"] == ["HELOC", "Setup", "heloc_enabled"]
+    assert flag["enable_label"] == "Enable HELOC Strategy"
+
     row_model_js = (
         ROOT / "frontend" / "js" / "dashboard_decomp_row_model.js"
     ).read_text(encoding="utf-8")
     gate_fn = dashboard_function_source("stepGatedByOptionalModule", dashboard_js_text())
-    assert 'stepId === "heloc_strategy"' in gate_fn
+    # The declaration is read; the two hand-written branches are gone.
+    assert "flag_gates" in gate_fn
+    assert "sectionFlagEnabled(" in gate_fn
+    assert 'stepId === "heloc_strategy"' not in gate_fn
+    assert 'stepId === "special_strategies"' not in gate_fn
+    assert "helocModuleEnabled()" not in gate_fn
     # No leftover or reintroduced one-off conditionals for any other module.
     assert "divorceLeverButton" not in row_model_js
     assert "ltcLeverButton" not in row_model_js
+
+
+def test_the_enable_note_resolves_its_click_path_from_the_catalog():
+    """§5.2/§5.3 (W12): strategySectionGatedNote() generalized into
+    featureGatedNote(), registry-driven from planModuleTaxonomy() (which
+    carries gate_kind/gate_ref/gate_enable_label per module, W9) instead of
+    branching on the gate mechanism at each call site. No mechanism-specific
+    string may be hand-typed in the function itself -- a plan flag's
+    click-path text comes from the module's own declaration, read generically
+    for whichever module key is passed in, not from an `if` singling out
+    HELOC or any other one module."""
+    note_start = WORKSPACE_JS.index("export function featureGatedNote(")
+    note_fn = WORKSPACE_JS[note_start : WORKSPACE_JS.index("\n}", note_start)]
+    assert 'key === "heloc"' not in note_fn
+    assert "Enable HELOC Strategy" not in note_fn
+    assert "gate_ref" in note_fn
+    assert "gate_enable_label" in note_fn
+    assert "gate_kind" in note_fn
+    # ...and the catalog is where that copy now lives, exactly once.
+    assert flag_gate_map()["heloc_strategy"]["enable_label"] == "Enable HELOC Strategy"
+
+
+def test_the_enable_note_offers_an_inline_switch():
+    """§5.1: 'the gated note... should offer the switch inline, because the
+    user who is reading that note has already decided' -- not only a link to
+    go decide somewhere else."""
+    note_start = WORKSPACE_JS.index("export function featureGatedNote(")
+    note_fn = WORKSPACE_JS[note_start : WORKSPACE_JS.index("\n}", note_start)]
+    assert "InlineSwitch(" in note_fn
+
+    flag_start = WORKSPACE_JS.index("function planFlagInlineSwitch(")
+    flag_fn = WORKSPACE_JS[flag_start : WORKSPACE_JS.index("\n}", flag_start)]
+    assert "editValue(" in flag_fn
+
+    toggle_start = WORKSPACE_JS.index("function moduleToggleInlineSwitch(")
+    toggle_fn = WORKSPACE_JS[toggle_start : WORKSPACE_JS.index("\n}", toggle_start)]
+    assert "editValue(" in toggle_fn
 
 
 def test_every_section_gates_through_the_single_generic_helper():

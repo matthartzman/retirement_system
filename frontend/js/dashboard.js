@@ -38,7 +38,7 @@ const STEPS = [
     intro:
       "Contribution amounts here add to account balances annually until the retirement date. Business salary level affects payroll tax and business-income deductions.",
     help: "High earned income in late working years compresses Roth conversion room below the bracket ceiling — coordinate with the Roth Conversion tab when the retirement date is near.",
-    helpLink: { id: "roth_conversion", label: "Open Strategy → Optimize (Roth Conversion)" },
+    helpLink: { id: "roth_conversion", label: "Open Taxes → Roth Conversion" },
   },
   {
     id: "income_retirement",
@@ -48,7 +48,7 @@ const STEPS = [
     intro:
       "Enter each person’s Social Security benefit from their statement along with the planned claiming age and the household spousal/survivor policy. Delaying past full retirement age adds about 8% per year up to age 70; the higher earner’s delay has the greatest survivor income impact. Survivor percentages control how much pension or annuity income continues after the first death.",
     help: "Early claiming opens gap years for Roth conversion if other income is low — model the joint timing strategy with the Roth Conversion tab. Pensions and annuities with survivor protection can be treated as fixed-income-equivalent coverage in the allocation analysis — set the coverage option on the Asset allocation & location tab.",
-    helpLink: { id: "roth_conversion", label: "Open Strategy → Optimize (Roth Conversion and Asset Allocation)" },
+    helpLink: { id: "roth_conversion", label: "Open Taxes → Roth Conversion (Asset Allocation is on Strategy → Optimize)" },
   },
   {
     id: "spending_core",
@@ -67,15 +67,6 @@ const STEPS = [
     intro:
       "Enter healthcare premium assumptions and non-premium medical spending detail here. Other pages may reference these numbers, but this is the only editable source for Wellness.",
     help: "Include both Medicare and pre-Medicare premiums plus expected out-of-pocket medical, dental, vision, and drugs. Medical OOP Cap is a cap/reference for non-premium medical spending, not a standalone expense.",
-  },
-  {
-    id: "spending_mortgage_events",
-    group: "Spending",
-    title: "Housing",
-    desc: "Authoritative Housing budget detail: mortgage, homeowners insurance, maintenance, utilities, real-estate taxes, and home improvements.",
-    intro:
-      "Enter all housing budget detail here. Other pages may reference these numbers, but this is the only editable source for Housing.",
-    help: "Housing includes current mortgage, homeowners insurance, maintenance, utilities, real-estate taxes, and home improvement projects. Rent is shown only when configured with a positive value.",
   },
   {
     id: "lifestyle_spending",
@@ -115,6 +106,42 @@ const STEPS = [
       "Import transactions, review assignments, and compare the current year with the spending model before updating the plan.",
     help: "Category assignment happens on Spending Model. Accounts & Sources controls account/source type, prior-year balances, and current values.",
     hidden: true,  },
+  {
+    // #330 P8 / Q6 (W13): promoted out of Spending. Housing & Property is a
+    // domain of its own in the catalog (module_catalog's HOUSING_PROPERTY,
+    // W1) and Plan Features groups its switches under that name, so filing
+    // this page under Spending is the "where I turn it on" / "where I use
+    // it" divergence §4.3 names. The housing BUDGET rows stay here with the
+    // rest of the page -- the split §4.3 calls honest is between budget
+    // lines and the domain, not between two pages.
+    id: "spending_mortgage_events",
+    group: "Housing & Property",
+    title: "Housing",
+    desc: "Authoritative Housing budget detail: mortgage, homeowners insurance, maintenance, utilities, real-estate taxes, and home improvements.",
+    intro:
+      "Enter all housing budget detail here. Other pages may reference these numbers, but this is the only editable source for Housing.",
+    help: "Housing includes current mortgage, homeowners insurance, maintenance, utilities, real-estate taxes, and home improvement projects. Rent is shown only when configured with a positive value.",
+  },
+  {
+    // #329 O11 / #330 §4.3 (W9): moved out of Strategy -- HELOC is a
+    // liability held against an asset, not an optimizer. No longer
+    // hidden/embedded inside Optimize's strategySection list: it is a direct
+    // nav entry.
+    // #330 P8 / Q6 (W13): ...and its group is now the one the catalog
+    // actually declares for it. `heloc`'s domain is HOUSING_PROPERTY, so
+    // Plan Features lists its switch under Housing & Property; W9 put the
+    // step under Assets & Protection following §4.3's prose, which predates
+    // that declaration. The catalog is the source of truth, and the whole
+    // point of this workstream is that the two surfaces agree. The Other
+    // Assets page keeps its read-only HELOC summary and its link here.
+    id: "heloc_strategy",
+    group: "Housing & Property",
+    title: "Home Equity Line",
+    desc: "Bridge large discretionary spending with home equity, keeping invested assets untouched in early retirement.",
+    intro:
+      "Set credit limit, last draw year, and initial rate with drift. The projection draws from the line when large discretionary spending creates a cash gap, then repays the balance from home sale proceeds.",
+    help: "The strategy improves projected net worth when compound growth on the preserved liquid assets exceeds total borrowing costs. It worsens outcomes when interest drag or reduced home equity at sale outweigh the investment benefit.",
+  },
   {
     id: "holdings",
     group: "Assets & Protection",
@@ -161,6 +188,46 @@ const STEPS = [
     help: "The federal exemption can change with law updates — confirm the current-law amount in Settings and model the impact of any reduction in Scenarios. Long-term-care hybrid policies with an investment component should also appear on Other assets.",
   },
   {
+    // Ticket 286 embedded this in the Strategy decide box with no nav entry.
+    // #330 P8 / Q6 (W13): it gets one back, in the new Taxes group -- §4.3's
+    // "sharpest finding of the inventory" is that the left nav had no tax
+    // group at all. W9's HELOC move applied to the tax levers; see the notes
+    // doc for why promotion is a group change, not a new page.
+    id: "roth_conversion",
+    group: "Taxes",
+    title: "Roth Conversion",
+    desc: "Conversion policy, ceiling (bracket or fixed dollar), Medicare income surcharge guardrails, and objective weights for tax, legacy, survivor, and estate.",
+    intro:
+      "Choose the policy first — the page shows only controls relevant to that policy. Forced conversion rows run before the optimizer and reduce the space available for voluntary conversions.",
+    help: "Medicare income surcharge guardrails prevent projected income from crossing premium tiers during conversion years. Bracket-fill policies convert up to a marginal rate ceiling determined by the filing status on Household People.",
+  },
+  {
+    // #330 P8 / Q6 (W13): joins Roth Conversion in the Taxes group.
+    // `charitable_giving`'s declared domain is TAXES, and its page also
+    // holds the DAF and QCD plan-flag rows W12 stopped hiding.
+    id: "entity_charitable",
+    group: "Taxes",
+    title: "Charitable Giving",
+    desc: "Charitable giving vehicle — direct gift, donor-advised fund, or qualified charitable distribution.",
+    intro:
+      "Qualified charitable distributions are available at age 70½ and satisfy required distributions tax-free. Annual giving amounts are set on Core spending.",
+    help: "Donor-advised funds are most effective when contributed in a high-income year and granted over time. Qualified charitable distributions also reduce adjusted gross income, which can lower income-related Medicare surcharge tiers — model in combination with Roth Conversion.",
+  },
+  {
+    // #330 P8 / Q6 (W13): the Family & Business nav group. Its features own
+    // no page of their own -- their inputs are row GROUPS on Other Assets
+    // and Liabilities -- so this step is a second way in to rows that keep
+    // their existing home, W9's socialSecurityOptimizePanelHtml() pattern,
+    // not a data move. Business entity choice stays on Work Income.
+    id: "family_business",
+    group: "Family & Business",
+    title: "Education & Equity Comp",
+    desc: "529 education savings and equity compensation — the Family & Business features that carry plan inputs.",
+    intro:
+      "Enter one 529 section per beneficiary or goal, and the grant, vesting and exercise assumptions for any equity compensation. Both are also editable on Other Assets and Liabilities.",
+    help: "Each feature here is an optional module. A feature that is off keeps everything you have entered and says so on its own section, so turning one off never removes your data.",
+  },
+  {
     id: "planning_workbench",
     group: null,
     hidden: true,
@@ -186,7 +253,7 @@ const STEPS = [
     desc: "Adverse-assumption tests: Monte Carlo probability, survivor/early death, long-term care, and divorce.",
     intro:
       "Stress assumptions are adverse tests, not forecasts. Set the inputs for whichever tests apply, then rebuild to see them in the workbook.",
-    help: "Every section here is an optional workbook module — a section only has inputs once its module is enabled on Optional Modules, and this whole page is hidden when all four are off.",
+    help: "Every section here is an optional workbook module — a section only has inputs once its module is enabled on Plan Features, and this whole page is hidden when all four are off.",
   },
   {
     id: "strategy_scenarios",
@@ -246,17 +313,6 @@ const STEPS = [
     hidden: true,
   },
   {
-    id: "roth_conversion",
-    // Ticket 286: embedded in the Strategy decide box; no own nav entry.
-    group: null,
-    title: "Roth Conversion",
-    desc: "Conversion policy, ceiling (bracket or fixed dollar), Medicare income surcharge guardrails, and objective weights for tax, legacy, survivor, and estate.",
-    intro:
-      "Choose the policy first — the page shows only controls relevant to that policy. Forced conversion rows run before the optimizer and reduce the space available for voluntary conversions.",
-    help: "Medicare income surcharge guardrails prevent projected income from crossing premium tiers during conversion years. Bracket-fill policies convert up to a marginal rate ceiling determined by the filing status on Household People.",
-    hidden: true,
-  },
-  {
     id: "allocation_assets",
     // Ticket 286: embedded in the Strategy decide box; no own nav entry.
     group: null,
@@ -285,27 +341,9 @@ const STEPS = [
     intro:
       "Earlier priority means a bucket is drawn sooner. Drawing taxable accounts first can manage required distributions but may realize capital gains; preserving Roth typically maximizes tax-free compounding for legacy.",
     help: "When required distributions exceed annual spending needs, the excess is reinvested in taxable unless converted to Roth — Roth conversion policy is set on the Roth Conversion tab. HSA timing controls are under Other Assets and Liabilities.",
-    helpLink: { id: "roth_conversion", label: "Open Strategy → Optimize (Roth Conversion)" },
+    helpLink: { id: "roth_conversion", label: "Open Taxes → Roth Conversion" },
     hidden: true,
   },
-  {
-    id: "heloc_strategy",
-    group: "Strategy",
-    title: "Home Equity Line",
-    desc: "Bridge large discretionary spending with home equity, keeping invested assets untouched in early retirement.",
-    intro:
-      "Set credit limit, last draw year, and initial rate with drift. The projection draws from the line when large discretionary spending creates a cash gap, then repays the balance from home sale proceeds.",
-    help: "The strategy improves projected net worth when compound growth on the preserved liquid assets exceeds total borrowing costs. It worsens outcomes when interest drag or reduced home equity at sale outweigh the investment benefit.",
-    hidden: true,  },
-  {
-    id: "entity_charitable",
-    group: "Strategy",
-    title: "Charitable Giving",
-    desc: "Charitable giving vehicle — direct gift, donor-advised fund, or qualified charitable distribution.",
-    intro:
-      "Qualified charitable distributions are available at age 70½ and satisfy required distributions tax-free. Annual giving amounts are set on Core spending.",
-    help: "Donor-advised funds are most effective when contributed in a high-income year and granted over time. Qualified charitable distributions also reduce adjusted gross income, which can lower income-related Medicare surcharge tiers — model in combination with Roth Conversion.",
-    hidden: true,  },
   {
     id: "monte_carlo_options",
     group: null,
@@ -427,11 +465,11 @@ const STEPS = [
   {
     id: "optional_functions",
     group: "Settings",
-    title: "Optional Modules",
-    desc: "Enable or disable advanced planning sections: long-term care stress, divorce planning, home equity line, special needs, and others.",
+    title: "Plan Features",
+    desc: "Choose which planning features this plan uses, grouped by the part of life they cover: taxes, housing, protection, risk, and the rest.",
     intro:
-      "Disabled modules are excluded from the build to keep outputs focused. Some modules also add their own input pages to the navigation when enabled.",
-    help: "Modules that add nav steps must be enabled here before those steps appear. Modules that only add workbook output can be toggled without changing the navigation.",
+      "Features are grouped by what they are about, and can be filtered by the kind of question they answer. Turning one off excludes it from the build but never deletes what you have entered.",
+    help: "Features that add nav steps must be enabled here before those steps appear. Features that only add workbook output can be toggled without changing the navigation. A feature that is off but still holds your data says so on its row.",
   },
   {
     id: "all_assumptions",
@@ -715,6 +753,13 @@ const STEP_HELP = {
     "Enter a credit limit, the last year of the draw period, an initial interest rate, and an annual rate drift. The projection automatically draws from the HELOC when large discretionary spending creates a cash gap, up to available credit.",
     "HELOC improves TNW when the compound benefit of undisturbed liquid assets exceeds borrowing costs. It worsens outcomes when interest drag or reduced home equity at sale outweigh the investment benefit.",
   ),
+  family_business: pageHelp(
+    "Education & equity compensation",
+    "This page collects the Family & Business plan inputs: 529 education savings sections and equity compensation grants. The same rows are editable on Other Assets and Liabilities; business entity choice (S-Corp vs LLC) is on Work Income.",
+    "529 balances and contributions connect to education spending and legacy. Equity compensation connects to earned income, payroll and capital-gains tax, and the projection reads it directly when its module is on.",
+    "Enter one 529 section per beneficiary or goal. For equity compensation, use grant-level assumptions rather than a single blended figure where the vesting years differ.",
+    "Equity compensation can concentrate both portfolio risk and taxable income in a few years — check the lifetime-tax and allocation results after entering it.",
+  ),
   entity_charitable: pageHelp(
     "Charitable giving",
     "This strategy page covers the charitable giving vehicle: cash, donor-advised fund, or qualified charitable distribution. Annual giving amounts are entered on Core spending. Business-entity choice (S-Corp vs LLC) is entered on Work Income.",
@@ -779,11 +824,11 @@ const STEP_HELP = {
     "Because this page combines fields from every section, a change can affect almost any output. Holdings, budget lines, transactions, and liabilities are on their dedicated tabs — not here.",
   ),
   optional_functions: pageHelp(
-    "Optional modules",
-    "Enables or disables entire planning sections — long-term care stress, divorce planning, home equity line, charitable giving, special needs, equity compensation, 529 education funding, and others — that are excluded from the build when off.",
-    "Some modules add their own nav pages (Special Strategies, Long-Term Care, Divorce Planning) that only appear once the module is enabled here; other modules only change workbook output without adding a page.",
-    "Enable a module before entering its detail elsewhere in the plan — its input page won't appear in navigation until it's turned on. Turn a module off to exclude it from the build without deleting its saved data.",
-    "Turning a module off removes its section from the workbook build entirely, not just from navigation. Turning one on can add new required fields to complete before the plan is build-ready.",
+    "Plan features",
+    "Enables or disables entire planning sections — long-term care stress, divorce planning, home equity line, charitable giving, special needs, equity compensation, 529 education funding, and others — that are excluded from the build when off. Grouped by the part of life each one covers, and filterable by the kind of question it answers.",
+    "Some features add their own nav pages (Special Strategies, Long-Term Care, Divorce Planning) that only appear once the feature is enabled here; others only change workbook output without adding a page. A feature that is on but depends on another that is off says what it is leaving out.",
+    "Enable a feature before entering its detail elsewhere in the plan — its input page won't appear in navigation until it's turned on. Turn a feature off to exclude it from the build without deleting its saved data; the row then shows how many entries are being held.",
+    "Turning a feature off removes its section from the workbook build entirely, not just from navigation. Turning one on can add new required fields to complete before the plan is build-ready.",
   ),
   workbook_formatting: pageHelp(
     "Workbook formatting",
@@ -797,9 +842,9 @@ let apiBase = "",
   appReady = false,
   rows = [],
   moduleStatus = {},
-  // §7.4: server-computed {step_gates, section_gates} from module_catalog,
-  // replacing the hand-maintained stepGatedByOptionalModule/ROW_MODULE_GATES.
-  moduleGates = { step_gates: {}, section_gates: {} },
+  // §7.4 + §5.3: server-computed {step_gates, section_gates, flag_gates} from
+  // module_catalog, replacing hand-maintained gating chains.
+  moduleGates = { step_gates: {}, section_gates: {}, flag_gates: {} },
   liabilitiesText = "",
   liabilitiesChanged = false,
   dirty = new Map(),
@@ -2552,34 +2597,9 @@ function renderEstateWithAnnuityLink() {
 // (first modularization increment).
 
 /* ── 4.2 + 4.3 Spending step completion notes and auto-advance ── */
-// ytd_transactions and spending_dashboard used to have their own entries
-// here (each a distinct standalone step at the time), but both ids now
-// redirect onto spending_core before activeStep is ever set to them
-// (navigation.js's WORKSPACE_TAB_REDIRECTS) -- spendingFlowFooterHtml() below
-// is only ever called with the literal activeStep, so those two entries
-// could never be looked up again. Removed rather than left dead.
-const SPENDING_COMPLETION = {
-  spending_core: {
-    note: "Done when: budget amounts are entered for the categories you track.",
-    isDoneFn: () =>
-      !!(planLoaded && !stepStats("spending_core").missing.length),
-    nextStep: "ytd_transactions",
-    nextLabel: "Import Transactions",
-  },
-};
-function spendingFlowFooterHtml(stepId) {
-  const cfg = SPENDING_COMPLETION[stepId];
-  if (!cfg) return "";
-  const done = cfg.isDoneFn();
-  let html = `<div class="spending-completion-note${done ? " done" : ""}"><span class="scomp-icon">${done ? "&#10003;" : "&#9675;"}</span><span>${esc(cfg.note)}</span></div>`;
-  if (done && cfg.nextStep) {
-    html += `<div class="spending-advance-prompt"><b>Step complete.</b> Ready for: <button class="btn primary" type="button" data-step-id="${esc(cfg.nextStep)}">${esc(cfg.nextLabel)} &rarr;</button></div>`;
-  }
-  return html;
-}
-
-// Closeout checklist moved to dashboard_decomp_home_panels.js (first
-// modularization increment).
+// SPENDING_COMPLETION/spendingFlowFooterHtml moved to
+// dashboard_decomp_row_model.js beside SUGGESTED_NEXT (W13), and the closeout
+// checklist to dashboard_decomp_home_panels.js.
 
 /* ── 5.6 Session changes log and field undo ── */
 
@@ -2696,85 +2716,26 @@ function renderWithdrawalOrderTable() {
   const editor = window.withdrawalAccountOrderEditorHtml ? window.withdrawalAccountOrderEditorHtml() : "";
   return `<details><summary>Withdrawal order</summary><div class="field-list"><div class="section-note"><b>Individual-account draw order is user-configurable below.</b> Each account defaults to its registry order and draws first within its account type when priority is tied; set a lower number to draw an account earlier relative to others of the same type (e.g. which of two taxable brokerage accounts drains first). The account-<i>type</i> sequence itself is fixed by the engine and not user-configurable, since it follows tax rules rather than preference: ${esc(FIXED_WITHDRAWAL_CASCADE_DESCRIPTION)}. RMDs are mandatory income; Roth and home equity are preserved until other liquid sources are exhausted.</div>${editor}</div></details>`;
 }
+// #329 §3.3 (W9): hsaWithdrawalPolicyBlock/taxLossHarvestingBlock/
+// gainHarvestBlock/withdrawalMiscBlock used to be inlined directly inside
+// renderWithdrawalStrategy() below. Extracted into
+// dashboard_decomp_strategy_workspace.js (frontend size ratchet -- this file
+// only grows by taking an equal number of lines out elsewhere), and called
+// here as bare globals like every other cross-decomp-file call in this
+// codebase, so Optimize's new HSA Drawdown / Withdrawal Sequencing /
+// Harvesting sections can reuse the exact same row-filtering and rendering
+// the Spending workspace's "Withdrawal Order" tab already had -- one filter
+// predicate per concept, not duplicated in two files that could drift.
 function renderWithdrawalStrategy() {
   if (searchText.trim()) return renderFields("withdrawal_strategy");
   const other = withdrawalOtherRows();
-  const hsa = other.filter(
-    (r) => r.section === "HSA Policy" && r.subsection === "Withdrawals",
+  return (
+    renderWithdrawalOrderTable() +
+    hsaWithdrawalPolicyBlock(other) +
+    taxLossHarvestingBlock(other) +
+    gainHarvestBlock(other) +
+    withdrawalMiscBlock(other)
   );
-  const tlh = other.filter(
-    (r) =>
-      r.section === "Withdrawal Policy" &&
-      r.subsection === "Tax-Loss Harvesting",
-  );
-  // #277: Gain Harvest gets its own collapsible section, on par with TLH.
-  const gainHarvest = other.filter(
-    (r) => r.section === "Withdrawal Policy" && r.subsection === "Gain Harvesting",
-  );
-  const misc = other.filter(
-    (r) =>
-      !(r.section === "HSA Policy" && r.subsection === "Withdrawals") &&
-      !(
-        r.section === "Withdrawal Policy" &&
-        r.subsection === "Tax-Loss Harvesting"
-      ) &&
-      !(
-        r.section === "Withdrawal Policy" &&
-        r.subsection === "Gain Harvesting"
-      ),
-  );
-  let html = renderWithdrawalOrderTable();
-  if (hsa.length) {
-    const modeRow = hsa.find((r) => norm(r.label) === "hsa_withdrawal_mode");
-    const mode = String(modeRow ? valOf(modeRow) : "spend_as_needed")
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "_");
-    let visible = modeRow ? [modeRow] : [];
-    if (mode === "annual_pct" || mode === "annual_percent")
-      visible = visible.concat(
-        hsa.filter((r) =>
-          [
-            "hsa_withdrawal_pct",
-            "hsa_withdrawal_start_year",
-            "hsa_withdrawal_end_year",
-          ].includes(norm(r.label)),
-        ),
-      );
-    else if (mode === "smooth_window" || mode === "window")
-      visible = visible.concat(
-        hsa.filter((r) =>
-          [
-            "hsa_withdrawal_start_year",
-            "hsa_withdrawal_end_year",
-            "withdrawal_window",
-          ].includes(norm(r.label)),
-        ),
-      );
-    else if (mode === "optimize")
-      visible = visible.concat(hsaOptimizeVisibleRows(hsa));
-    else
-      visible = visible.concat(
-        hsa.filter(
-          (r) =>
-            ![
-              "hsa_withdrawal_pct",
-              "hsa_withdrawal_start_year",
-              "hsa_withdrawal_end_year",
-              "withdrawal_window",
-              "hsa_consume_by",
-              "hsa_min_ending_balance",
-            ].includes(norm(r.label)) && r !== modeRow,
-        ),
-      );
-    html += `<details><summary>HSA withdrawal policy</summary><div class="field-list"><div class="section-note"><b>Start here:</b> choose HSA withdrawal mode. The schedule fields below change based on that mode. Default is spend as needed, which hides annual-percentage and window controls.</div>${sortRowsByDependency(visible).map(fieldHtml).join("")}</div></details>`;
-  }
-  if (tlh.length)
-    html += `<details><summary>Tax Loss Harvesting</summary><div class="field-list"><div class="section-note">Controls whether and how the projection harvests capital losses from taxable-account lots each year.</div>${sortRowsByDependency(tlh).map(fieldHtml).join("")}</div></details>`;
-  if (gainHarvest.length)
-    html += `<details><summary>Gain Harvest</summary><div class="field-list"><div class="section-note">Controls whether and how the projection harvests capital gains from taxable-account lots each year (e.g. to fill up a low tax bracket).</div>${sortRowsByDependency(gainHarvest).map(fieldHtml).join("")}</div></details>`;
-  if (misc.length)
-    html += `<details><summary>Other funding and rollover settings</summary><div class="field-list"><div class="section-note">Annual funding tolerance and spousal rollover settings are operational assumptions. They affect workbook QC, survivor account consolidation, RMD timing, and late-life cash-flow output.</div>${sortRowsByDependency(misc).map(fieldHtml).join("")}</div></details>`;
-  return html;
 }
 
 const ROTH_PRIMARY_LABELS = [
@@ -3608,47 +3569,6 @@ window.setPlanReportSection = function (id) {
   activePlanReportSection = id;
   renderMain();
 };
-function renderOptionalFunctions() {
-  if (searchText.trim()) return renderFields("optional_functions");
-  const rs = rowsForStep("optional_functions");
-  if (!rs.length)
-    return '<div class="section-note">No optional module rows found. Save Changes to initialize defaults, then reload.</div>';
-  let html = '<div class="opt-module-list">';
-  rs.forEach(function (r) {
-    const on = boolishValue(r);
-    const lbl = humanLabel(r.label, r);
-    const desc = formatAcronyms(r.schema?.description || r.notes || "");
-    const status = moduleStatus[r.label];
-    html += '<div class="opt-module-row">';
-    html +=
-      '<div class="opt-module-info"><span class="opt-module-name">' +
-      esc(lbl) +
-      "</span>";
-    if (desc) html += '<span class="opt-module-desc">' + esc(desc) + "</span>";
-    if (status && status.auto_enabled) {
-      html +=
-        '<span class="badge auto">Auto-enabled — required by ' +
-        esc(status.required_by.join(", ")) +
-        "</span>";
-    }
-    html += "</div>";
-    html +=
-      '<button class="opt-module-toggle ' +
-      (on ? "on" : "off") +
-      '" type="button" data-requires-app="1" ' +
-      'onclick="editValue(' +
-      r.row_index +
-      ",'" +
-      (on ? "NO" : "YES") +
-      "',null);saveAll(false);renderMain()\">" +
-      (on ? "ON" : "OFF") +
-      "</button>";
-    html += "</div>";
-  });
-  html += "</div>";
-  return html;
-}
-
 function renderStrategyTabs(step, tabs, active) {
   return `<div class="workspace-tabs" role="tablist">${tabs.map((t) => `<button class="workspace-tab ${t === active ? "active" : ""}" type="button" role="tab" aria-selected="${t === active ? "true" : "false"}" onclick="setStrategyTab('${escJs(step)}','${escJs(t)}')">${esc(t)}</button>`).join("")}</div>`;
 }
@@ -3728,26 +3648,6 @@ function renderSpendingWorkflowBanner(stepId) {
     );
   });
   return `<div class="spending-workflow-banner">${parts.join("")}</div>`;
-}
-const SUGGESTED_NEXT = {
-  household_people: "income_work",
-  income_work: "income_retirement",
-  income_retirement: "holdings",
-  holdings: "assets_home_cash",
-  assets_home_cash: "spending_core",
-  spending_core: "reports_and_review",
-  strategy_optimize: "strategy_stress",
-  strategy_stress: "reports_and_review",
-  // lifestyle_spending and ytd_transactions removed: both now redirect onto
-  // spending_core before activeStep is ever set to them (navigation.js's
-  // WORKSPACE_TAB_REDIRECTS), and suggestedNext() below is only ever called
-  // with the literal activeStep -- these entries could never be looked up.
-};
-function suggestedNext(stepId) {
-  const nextId = SUGGESTED_NEXT[stepId];
-  const st = STEPS.find((s) => s.id === nextId);
-  if (!st) return "";
-  return `<div class="suggested-next">Suggested next: <button class="link-button" type="button" data-step-id="${esc(st.id)}">${esc(st.title)} →</button></div>`;
 }
 function pageStatusHtml(stepId) {
   const st = stepStats(stepId);
@@ -3878,6 +3778,14 @@ let renderMain = function() {
   else if (activeStep === "assets_home_cash")
     content += renderAssetsCashReserves();
   else if (activeStep === "assets_special") content += renderAssetsSpecial();
+  else if (activeStep === "family_business") content += renderFamilyBusiness();
+  // #329/#330 W9: HELOC moved from Strategy → Assets & Protection (a plan
+  // input against a held asset, not an optimizer). Same content, same
+  // analysisFrame wrapper it always had inside Optimize's strategySection --
+  // only the nav entry point changed, from an embedded section to a direct
+  // step.
+  else if (activeStep === "heloc_strategy")
+    content += analysisFrame(renderHelocOptimizePanel(), "strategy");
   else if (activeStep === "estate") content += renderEstateWithAnnuityLink();
   else if (activeStep === "annuity_death_benefits")
     content += renderSpecialIncomeAnnuitiesInsurance();
@@ -7268,7 +7176,7 @@ Object.assign(window, {
   primaryActionForStep, promotePlanningCase, recoverPriorSpendingBudget, recoverYtdAccountSetup,
   rememberBuildCompare, renderAssetsCashReserves, renderDetailedResultsNav,
   renderDetailedResultsProgressTick, renderEstateWithAnnuityLink, renderFieldFinderGroups,
-  renderHouseholdPeople, renderMeta, renderNav, renderOptionalFunctions, renderRetirementWellness,
+  renderHouseholdPeople, renderMeta, renderNav, renderRetirementWellness,
   renderSpendingDashboardOrLoad, renderSpendingWorkflowBanner, renderStrategyTabs,
   renderWithdrawalOrderTable, renderWithdrawalStrategy, renderWorkspaceSubtabsNav,
   resetAllocationPreview, restoreGroupBudgetModes, restoreWorkbookViewState, revertLastBuildChanges,
@@ -7276,12 +7184,12 @@ Object.assign(window, {
   saveValueForRow, saveYtdAccountSetup, saveYtdPending, scenarioRowKeyFromParts, sectionFlagEnabled,
   setAllDetailColumnGroups, setCombinedSearch, setDetailedResultSheet, setDetailedResultsNavOpen,
   setNavSearch, setPlanningCaseActive, setSearchScope, setStrategyTab, showPlanDataFileManifest,
-  showSpendingModelLoadOverlay, showYtdLoadOverlay, sleep, spendingFlowFooterHtml,
-  startDetailedResultsProgress, stepHelpLinkHtml, stepIdForRow, stepSearchText,
-  stopDetailedResultsProgress, stressHomeSaleYearRow, stripUiLabelPrefix, suggestedNext,
-  summaryFromApiPayload, takeBuildSnapshot, toggleDetailColGroup, toggleDetailColumnGroup,
-  toggleHelpSheet, toggleNavDrawer, translatePersonValueLabel, updateSearchToggle,
-  updateYtdAccountMoney, validateAllocationTargetsOrMessage, wireStepNavigation, withdrawalOtherRows,
-  ytdAccountMoneyDisplay, ytdAccountRoleOptions, ytdInvestmentHoldingAccounts, ytdInvestmentOptions,
-  ytdIsGrowthRole, ytdMappableAccounts, ytdRolloverBannerHtml, ytdStaleGrowthAccounts,
+  showSpendingModelLoadOverlay, showYtdLoadOverlay, sleep, startDetailedResultsProgress,
+  stepHelpLinkHtml, stepIdForRow, stepSearchText, stopDetailedResultsProgress, stressHomeSaleYearRow,
+  stripUiLabelPrefix, summaryFromApiPayload, takeBuildSnapshot, toggleDetailColGroup,
+  toggleDetailColumnGroup, toggleHelpSheet, toggleNavDrawer, translatePersonValueLabel,
+  updateSearchToggle, updateYtdAccountMoney, validateAllocationTargetsOrMessage, wireStepNavigation,
+  withdrawalOtherRows, ytdAccountMoneyDisplay, ytdAccountRoleOptions, ytdInvestmentHoldingAccounts,
+  ytdInvestmentOptions, ytdIsGrowthRole, ytdMappableAccounts, ytdRolloverBannerHtml,
+  ytdStaleGrowthAccounts,
 });

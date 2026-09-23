@@ -56,7 +56,12 @@ source shown in-app.
   conversion policy, withdrawal sequencing, asset-allocation targets and
   mode, Social Security claiming age, state residency choice, giving
   strategy, forced conversions. Levers are inputs, not results — they are
-  restated (never computed) on the workbook's Planning Levers page.
+  captured and edited on the dashboard's Planning Levers input page. The
+  workbook's Sheet 27, also titled "Planning Levers," is a different thing
+  despite the shared name: an interactive what-if screening worksheet with
+  its own hardcoded, client-independent test levers (spending cuts, working
+  longer, etc.) and formulas estimating directional TNW/Monte Carlo impact.
+  It does not restate these dials or read any of their source files.
 - **LCV (Lifetime Consumption-and-transfer Value)** — the headline scoring
   metric for Roth-conversion recommendations: present value of everything the
   household gets to spend over its lifetime plus the after-tax value

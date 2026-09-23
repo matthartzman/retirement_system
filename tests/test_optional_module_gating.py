@@ -17,15 +17,17 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 from tests._decomp_dashboard import dashboard_js_text
 
-# Whole of section 3 (Risk & Stress Tests) plus a couple of System/Optimizer
-# sheets, so we can assert both sheet removal and empty-section pruning.
+# Whole of section 4 (Risks) plus a couple of System/Comparisons sheets, so
+# we can assert both sheet removal and empty-section pruning. W3 (#329 O10)
+# split LTC Stress Test back out of the merged Life Insurance sheet, and
+# moved Risks from letter group '3' to '4' (Comparisons now takes '3').
 FORCED_OFF = [
-    "market_luck_stress_test",   # 3A. Monte Carlo
-    "survivor_stress_test",      # 3B. Survivor
-    "long_term_care_stress",     # 3C. (LTC half)
-    "life_insurance_need",       # 3C. (Life Insurance half)
-    "glossary",                  # 4G. Glossary
-    "state_residency",           # 2C. State Residency
+    "market_luck_stress_test",   # 4A. Monte Carlo
+    "survivor_stress_test",      # 4B. Survivor
+    "long_term_care_stress",     # 4C. LTC Stress Test
+    "life_insurance_need",       # 4D. Life Insurance Need
+    "glossary",                  # 5G. Glossary
+    "state_residency",           # 3A. State Residency
 ]
 
 
@@ -72,12 +74,12 @@ def test_build_succeeds_with_modules_off(gated_build):
 def test_disabled_module_sheets_are_absent(gated_build):
     out_dir, _ = gated_build
     names = _sheet_names(out_dir / "retirement_plan.xlsx")
-    for gone in ["3A. Monte Carlo", "3B. Survivor", "3C. LTC + Life Insurance",
-                 "4G. Glossary", "2D. State Residency"]:
+    for gone in ["4A. Monte Carlo", "4B. Survivor", "4C. LTC Stress Test", "4D. Life Insurance Need",
+                 "5G. Glossary", "3A. State Residency"]:
         assert gone not in names, f"{gone} should be gated out but was present"
     # Core, always-on sheets remain.
     for present in ["1A. Executive Summary", "1C. Cash Flow", "2C. Asset Allocation",
-                    "4A. Plan Data", "4D. Quality Control"]:
+                    "5A. Plan Data", "5D. Quality Control"]:
         assert present in names, f"{present} is core and must always be present"
 
 
@@ -85,12 +87,12 @@ def test_disabled_module_sheets_are_absent(gated_build):
 def test_empty_section_divider_is_dropped(gated_build):
     out_dir, _ = gated_build
     names = _sheet_names(out_dir / "retirement_plan.xlsx")
-    # Every sheet under "3. Risk & Stress Tests" is disabled, so its divider is
-    # dropped entirely; the sections whose sheets survive stay.
-    assert "3. Risk & Stress Tests" not in names
+    # Every sheet under "4. Risks" is disabled, so its divider is dropped
+    # entirely; the sections whose sheets survive stay.
+    assert "4. Risks" not in names
     assert "1. Reports" in names
     assert "2. Optimizers" in names
-    assert "4. System" in names
+    assert "5. System" in names
 
 
 @pytest.mark.slow

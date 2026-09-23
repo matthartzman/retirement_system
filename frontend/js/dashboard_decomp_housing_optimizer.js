@@ -1632,6 +1632,248 @@ function housingOptResultRowHtml(c, objective, baselineValue) {
   </tr>`;
 }
 
+// ---------------------------------------------------------------------------
+// #329 P6 / §4.3 (W10c): Housing is the design's STRUCTURAL ADOPTION case --
+// the only optimizer whose patch is not a set of edits to rows that obviously
+// exist. A winning candidate spans the sale year, then per move a step type,
+// start year, state and price/rent, across two sections. §4.3's resolution:
+// emit row_index items for the Housing rows that DO exist and advisory items
+// for the rest, which route to their own page instead of pretending to write.
+//
+// Deliberately NOT in the patch: insurance_annual / utilities_annual /
+// maintenance_annual. editValue()'s existing housing hook
+// (reestimateHousingCostsOnValueChange) already re-scales those siblings when
+// purchase_price or monthly_rent changes, which is exactly the desired
+// behavior -- writing them here too would fight it and double-apply the same
+// ratio. The one honest caveat, recorded in the strip's own copy: because
+// that re-scaling is a ratio, undoing a price change restores the price
+// exactly but returns the estimated costs to within rounding, not bit-for-bit.
+// ---------------------------------------------------------------------------
+export const HOUSING_OPTIMIZER_ID = "housing_trajectory_comparison";
+
+// The last successful /api/housing/optimize payload. The results table is
+// written straight into innerHTML, so nothing retained it before -- and the
+// patch has to be rebuilt at click time from the result the user is looking
+// at, not from the DOM it was rendered into.
+let housingOptLastPayload = null;
+
+export function housingOptimizerResult() {
+  return housingOptLastPayload;
+}
+
+export function housingOptResultReset() {
+  housingOptLastPayload = null;
+}
+
+// The candidate a bare "apply" means: the one the table stars as rank 1.
+// Applying an arbitrary row would need a per-row affordance and a per-row
+// applied state; this commit covers the recommendation, which is what the
+// star already claims is the answer.
+export function housingOptRecommendedCandidate(payload) {
+  const p = payload || housingOptLastPayload;
+  const candidates = (p && p.candidates) || [];
+  if (!candidates.length) return null;
+  return candidates.find((c) => c.rank === 1) || candidates[0];
+}
+
+function housingPatchItem(row, value, label, rationale) {
+  if (!row) return null;
+  // Through storageValueForInput, so afterRaw is byte-for-byte what
+  // editValue() will store. Comparing a bare 400000 against a stored
+  // "$400,000" would report "not applied" for a plan that is.
+  const afterRaw = storageValueForInput(row, value);
+  const beforeRaw = String(valOf(row) || "");
+  return {
+    source: "optimizer",
+    sourceStep: "assets_home_cash",
+    sourceTitle: "Home & Housing",
+    section: String(row.section || ""),
+    subsection: String(row.subsection || ""),
+    field: String(row.label || ""),
+    label: label,
+    before: displayValueForInput(row, beforeRaw) || "(blank)",
+    beforeRaw: beforeRaw,
+    after: displayValueForInput(row, afterRaw) || String(afterRaw),
+    afterRaw: afterRaw,
+    row_index: row.row_index,
+    rationale: rationale,
+  };
+}
+
+function housingAdvisoryItem(label, value, rationale) {
+  // No row_index: §4.2's advisory shape. It is shown and routed, never
+  // written, and it takes no part in the applied-state comparison.
+  return {
+    source: "optimizer",
+    sourceStep: "assets_home_cash",
+    sourceTitle: "Home & Housing",
+    section: "Housing",
+    subsection: "",
+    field: label,
+    label: label,
+    before: "",
+    after: String(value),
+    rationale: rationale,
+  };
+}
+
+function housingRow(section, subsection, label) {
+  return findEditableRow(section, subsection, label);
+}
+
+export function housingOptimizerPatch(payload, candidate) {
+  const cand = candidate || housingOptRecommendedCandidate(payload);
+  if (!cand) return [];
+  const out = [];
+  const push = (x) => {
+    if (x) out.push(x);
+  };
+
+  // 1. The sale of the current home. "keep" is written as year 0, which is
+  //    how this row already spells "no planned sale".
+  const orig = cand.original_home || {};
+  const saleRow = housingRow("Other Assets", "Home", "home_sale_year");
+  if (saleRow) {
+    const keeping = String(orig.disposition || "").toLowerCase() === "keep";
+    const saleYear = keeping ? 0 : orig.sale_year;
+    if (keeping || saleYear != null)
+      push(
+        housingPatchItem(
+          saleRow,
+          saleYear,
+          "Current home sale year",
+          keeping
+            ? "This option keeps the current home, which this row spells as year 0."
+            : `This option sells the current home in ${saleYear}.`,
+        ),
+      );
+  }
+
+  // 2. Each move, onto the Housing next_step_N rows.
+  (cand.moves || []).forEach(function (move, i) {
+    const sub = `next_step_${i + 1}`;
+    const n = i + 1;
+    const loc = move.location || {};
+    const fin = move.financing || {};
+    const isRent = String(move.action || "").toLowerCase() === "rent";
+    push(
+      housingPatchItem(
+        housingRow("Housing", sub, "type"),
+        isRent ? "rent" : "purchase",
+        `Move ${n} type`,
+        `This option ${isRent ? "rents" : "buys"} on move ${n}.`,
+      ),
+    );
+    push(
+      housingPatchItem(
+        housingRow("Housing", sub, "start_year"),
+        move.acquisition_year,
+        `Move ${n} start year`,
+        `This option starts move ${n} in ${move.acquisition_year}.`,
+      ),
+    );
+    if (loc.state)
+      push(
+        housingPatchItem(
+          housingRow("Housing", sub, "state"),
+          loc.state,
+          `Move ${n} state`,
+          `The winning location for move ${n} is in ${loc.state}.`,
+        ),
+      );
+    if (isRent) {
+      if (fin.monthly_rent != null)
+        push(
+          housingPatchItem(
+            housingRow("Housing", sub, "monthly_rent"),
+            fin.monthly_rent,
+            `Move ${n} monthly rent`,
+            "Estimated utilities and insurance re-scale with this automatically.",
+          ),
+        );
+    } else {
+      if (fin.purchase_price != null)
+        push(
+          housingPatchItem(
+            housingRow("Housing", sub, "purchase_price"),
+            fin.purchase_price,
+            `Move ${n} purchase price`,
+            "Estimated utilities, maintenance and insurance re-scale with this automatically.",
+          ),
+        );
+      // The down payment and mortgage rate are NOT patched, because the
+      // result does not carry them: src/housing/results.py's _format_move
+      // emits only purchase_price and monthly_pi_payment for a buy, and the
+      // search's own down_payment_pct/mortgage_rate_pct are request inputs it
+      // never echoes back. The plan's next_step_N down_payment and
+      // mortgage_rate_pct rows are what the engine computes P&I from, so
+      // applying a price without them means the plan's P&I can differ from
+      // the one the optimizer scored. That is worth saying, and the advisory
+      // item says it with the actual figure rather than leaving the user to
+      // notice.
+      if (fin.monthly_pi_payment != null)
+        push(
+          housingAdvisoryItem(
+            `Move ${n} financing`,
+            `$${Math.round(fin.monthly_pi_payment).toLocaleString()}/mo P&I assumed`,
+            "The search scored this price under its own down payment and mortgage rate, which it does not report back. Check this step's Down Payment and Mortgage Rate on the Home & Housing page so the plan computes the same payment.",
+          ),
+        );
+    }
+    // The ZIP and city the search actually chose have no field on the
+    // Housing step -- it is keyed by state, city_type and population_size.
+    // They are the part of the answer this patch genuinely cannot write, so
+    // they are carried as advisory rather than silently dropped: the state
+    // row alone does not tell you WHICH town the optimizer picked.
+    if (loc.zip_code || loc.city)
+      push(
+        housingAdvisoryItem(
+          `Move ${n} location`,
+          [loc.zip_code, loc.city, loc.state].filter(Boolean).join(" · "),
+          "The Housing step is keyed by state and area type, not ZIP — set the area type and population on the Home & Housing page to match this town.",
+        ),
+      );
+  });
+  return out;
+}
+
+export function renderHousingOptimizerApplyStrip(payload) {
+  const apply = window.OptimizerApply;
+  if (!apply) return "";
+  const p = payload || housingOptLastPayload;
+  if (!p) return "";
+  // The strip must never offer to apply a result other than the one on
+  // screen. Binding the retained payload to whatever is being rendered makes
+  // that true by construction rather than by call-order luck: the patch is
+  // rebuilt at click time from housingOptLastPayload, so if a re-render ever
+  // drew a different payload than the one last run, the button would have
+  // written the stale one.
+  housingOptLastPayload = p;
+  apply.registerOptimizer({
+    id: HOUSING_OPTIMIZER_ID,
+    title: "Housing trajectory search",
+    buildPatch: () => housingOptimizerPatch(housingOptLastPayload),
+    // The Housing patch writes currency and percent rows, whose stored text
+    // ("$539,400") is not the form editValue() normalizes to ("539400") --
+    // so both sides of the comparison go through that same normalizer.
+    liveValueOf: apply.liveStorageValueForRowIndex,
+    actions: [
+      { intent: "apply", label: "Apply the recommended option", primary: true },
+    ],
+  });
+  const patch = housingOptimizerPatch(p);
+  if (!patch.length) return "";
+  let html = apply.renderApplyStrip(HOUSING_OPTIMIZER_ID);
+  if (!html) return "";
+  html = html.replace(
+    '<div class="optimizer-apply-state">',
+    '<p class="small">This applies the starred (rank 1) option. To apply a different row, change the search so it wins, or edit the Home &amp; Housing fields directly.</p><div class="optimizer-apply-state">',
+  );
+  html +=
+    '<p class="small">Estimated utilities, maintenance and insurance re-scale automatically with the price or rent this writes. Because that is a ratio, undoing a price change restores the price exactly and those estimates to within rounding.</p>';
+  return html;
+}
+
 export function renderHousingOptimizeResultsHtml(payload) {
   if (!payload) return "";
   const candidates = payload.candidates || [];
@@ -1646,7 +1888,11 @@ export function renderHousingOptimizeResultsHtml(payload) {
     '<table class="lot-table scenario-diff-table housing-optimize-table"><thead><tr>' +
     "<th>Rank</th><th>Current home</th><th>Move 1</th><th>Move 2</th>" +
     "<th>Objective (impact vs. staying put)</th><th>Notes</th>" +
-    `</tr></thead><tbody>${rows}</tbody></table>`
+    `</tr></thead><tbody>${rows}</tbody></table>` +
+    // §4.4: Housing's panel is not analysisFrame()-wrapped (deliberately -- it
+    // is a self-contained search), so the same action strip is appended to its
+    // own results table instead.
+    renderHousingOptimizerApplyStrip(payload)
   );
 }
 
@@ -1928,12 +2174,15 @@ export async function runHousingOptimization() {
       body: JSON.stringify(body),
     });
     if (!payload || !payload.success) {
+      housingOptLastPayload = null;
       if (target)
         target.innerHTML = `<p class="small warning">${esc((payload && payload.error) || "Optimization failed.")}</p>`;
       return;
     }
+    housingOptLastPayload = payload;
     if (target) target.innerHTML = renderHousingOptimizeResultsHtml(payload);
   } catch (e) {
+    housingOptLastPayload = null;
     showMessage("Error running optimization: " + e.message, "error");
     if (target) target.innerHTML = "";
   } finally {
@@ -1955,6 +2204,12 @@ export function startHousingOptimization() {
 Object.assign(window, {
   HOUSING_OPT_PANEL_ID,
   HOUSING_OPT_STORAGE_KEY,
+  HOUSING_OPTIMIZER_ID,
+  housingOptimizerResult,
+  housingOptResultReset,
+  housingOptRecommendedCandidate,
+  housingOptimizerPatch,
+  renderHousingOptimizerApplyStrip,
   housingOptAnchorEntryHtml,
   renderHousingOptAnchorsHtml,
   toggleHousingOptAnchorMode,
