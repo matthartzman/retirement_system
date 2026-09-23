@@ -221,7 +221,7 @@ zero retained rows for this key (there are none to retain).
   `tests/test_module_toggle_call_site_enforcement.py` (extended with the new
   server-side toggle-read site, `OWN_GATE` verdict) — all green, confirming no
   new contradiction against the five categories W1 found latent in this file.
-- New `tests/test_housing_location_search_catalog.py` (20 tests): the catalog
+- New `tests/test_housing_location_search_catalog_regression.py` (20 tests): the catalog
   record's shape, both engines sharing a domain while differing in kind
   correctly, `sheet=None`'s consequences (absent from
   `OPTIONAL_MODULE_SHEETS`), `engine_participation=False` and no
