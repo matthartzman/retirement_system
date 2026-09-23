@@ -76,6 +76,11 @@ export const SUGGESTED_NEXT = {
   // Protection -- without a forward link it is the one group the guided walk
   // can enter and not leave.
   spending_mortgage_events: "holdings",
+  // W13: the Taxes group, in nav order. Both targets are module-gated, so
+  // the guard in suggestedNext() below drops the footer rather than pointing
+  // at a step the nav is not showing.
+  roth_conversion: "entity_charitable",
+  entity_charitable: "strategy_optimize",
   strategy_optimize: "strategy_stress",
   strategy_stress: "reports_and_review",
   // lifestyle_spending and ytd_transactions removed: both now redirect onto
@@ -1372,14 +1377,16 @@ export function rowIsMonteCarlo(r) {
 // are correctly absent here, not an oversight.
 const STRATEGY_SCREEN_MEMBER_STEPS = {
   strategy_optimize: [
-    "roth_conversion",
     "allocation_assets",
     "allocation_policy",
-    "entity_charitable",
-    // #329/#330 W9: heloc_strategy moved to its own Assets & Protection nav
-    // step -- see STEPS in dashboard.js. It keeps returning its own rows
-    // unaggregated (via rawRowsForStep("heloc_strategy") directly); it is
-    // simply no longer one of Optimize's member steps.
+    // #329/#330 W9: heloc_strategy moved to its own nav step (W13 put it in
+    // Housing & Property) -- see STEPS in dashboard.js. It keeps returning
+    // its own rows unaggregated (via rawRowsForStep("heloc_strategy")
+    // directly); it is simply no longer one of Optimize's member steps.
+    // #330 P8 / Q6 (W13): roth_conversion and entity_charitable left the
+    // same way, for the Taxes group. Each is its own nav step with its own
+    // readiness badge now, so aggregating them into Optimize's would
+    // double-count them across two visible nav entries.
   ],
   strategy_stress: [
     "monte_carlo_options",

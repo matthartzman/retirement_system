@@ -15,7 +15,9 @@
   // aggregate autosave umbrella when it became its own Assets & Protection
   // step, so it needs its own entry to keep autosaving like its new siblings
   // (holdings/assets_home_cash/annuity_death_benefits/assets_special/estate).
-  const AUTOSAVE_STEPS=['household_people','income_work','income_retirement','lifestyle_spending','spending_core','spending_setup','retirement_wellness','spending_mortgage_events','ytd_transactions','holdings','assets_home_cash','annuity_death_benefits','assets_special','estate','heloc_strategy','strategy_optimize','economic_tax_assumptions','optional_functions','all_assumptions'];
+  // #330 P8 / Q6 (W13): roth_conversion and entity_charitable added for the
+  // same reason, leaving the same umbrella to become the Taxes nav group.
+  const AUTOSAVE_STEPS=['household_people','income_work','income_retirement','lifestyle_spending','spending_core','spending_setup','retirement_wellness','spending_mortgage_events','ytd_transactions','holdings','assets_home_cash','annuity_death_benefits','assets_special','estate','heloc_strategy','roth_conversion','entity_charitable','strategy_optimize','economic_tax_assumptions','optional_functions','all_assumptions'];
   // #323 + Workbench: planning_workbench/planning_levers now redirect to
   // strategy_workbench, and the plan-loaded check below runs on the
   // POST-redirect id -- so the screen that now holds them is what has to be
@@ -82,13 +84,16 @@
   const SECTION_REDIRECTS={
     distribution_strategy:{step:'strategy_optimize'},
     investment_strategy:{step:'strategy_optimize'},
-    roth_conversion:{step:'strategy_optimize',section:'roth_conversion'},
     allocation_assets:{step:'strategy_optimize',section:'asset_allocation'},
     allocation_policy:{step:'strategy_optimize',section:'asset_allocation'},
-    entity_charitable:{step:'strategy_optimize',section:'charitable_giving'},
-    // #329/#330 W9: heloc_strategy is a direct Assets & Protection step now,
-    // not an embedded strategySection -- no redirect needed, `setStep`
-    // resolves it like any other real id. special_strategies (dead per W6's
+    // #330 P8 / Q6 (W13): roth_conversion and entity_charitable are direct
+    // Taxes steps now, not embedded strategySections -- `setStep` resolves
+    // them like any other real id, exactly as W9 left heloc_strategy. An
+    // entry here would send every inbound link back to Optimize, which no
+    // longer renders either one.
+    // #329/#330 W9: heloc_strategy is a direct step now (W13 moved it into
+    // the Housing & Property group), not an embedded strategySection -- no
+    // redirect needed, `setStep` resolves it like any other real id. special_strategies (dead per W6's
     // notes; kept only for stray inbound references) now points at HELOC's
     // real page instead of a strategySection key that no longer exists.
     special_strategies:{step:'heloc_strategy'},

@@ -45,11 +45,12 @@ describe("stepHelpLinkHtml (pure render helper)", () => {
 });
 
 // #323: these three steps point the reader at wherever Roth conversion is
-// actually configured. That used to be the Distribution Strategy page; it is
-// now the Roth Conversion section of Strategy -> Optimize. The guard is the
-// same one it always was -- the link must name a destination that still
-// resolves -- so it asserts the id is one navigation.js knows how to route,
-// rather than hard-coding whichever screen currently owns the section.
+// actually configured. That used to be the Distribution Strategy page, then
+// the Roth Conversion section of Strategy -> Optimize; #330 P8 / Q6 (W13)
+// made it a page of its own in the Taxes nav group. The guard is the same
+// one it always was -- the link must name a destination that still resolves
+// -- so it asserts the id resolves, rather than hard-coding whichever screen
+// currently owns it.
 describe("STEPS entries link to a live Roth conversion destination", () => {
   for (const id of ["income_work", "income_retirement", "withdrawal_strategy"]) {
     test(`${id}.helpLink points at the Roth conversion destination`, () => {
@@ -65,10 +66,15 @@ describe("STEPS entries link to a live Roth conversion destination", () => {
       path.join(HERE, "..", "..", "frontend", "js", "navigation.js"),
       "utf8",
     );
-    // Cheap reachability check: navigation.js must carry a redirect entry for
-    // the id, since roth_conversion is a hidden shell step with no nav button
-    // of its own. tests/frontend/strategy_section_redirects.test.mjs asserts
-    // where it actually lands.
-    assert.match(navSrc, /roth_conversion:\s*\{\s*step:\s*'strategy_optimize'/);
+    // W13: roth_conversion is a real STEPS entry with a nav button of its own
+    // now, so setStep() resolves it directly and it must NOT carry a redirect
+    // -- one would bounce every link here back to Optimize, which no longer
+    // renders the section. Reachability is therefore the STEPS entry itself
+    // (a visible group, not a hidden shell), plus the absence of a redirect.
+    // tests/frontend/strategy_section_redirects.test.mjs asserts the landing.
+    const step = stepById("roth_conversion");
+    assert.equal(step.group, "Taxes");
+    assert.notEqual(step.hidden, true);
+    assert.doesNotMatch(navSrc, /\broth_conversion:\s*\{\s*step:/);
   });
 });

@@ -194,9 +194,11 @@ export function strategySection(key, title, bodyFn, gateStepId, defaultOpen) {
 // A screen is a list of section descriptors rendered in order. The first
 // section the reader can actually USE defaults to open on a first visit, so
 // landing on a screen shows content instead of a stack of collapsed bars.
-// Skipping gated-off sections matters on Optimize, whose first section (Roth
-// Conversion) is module-gated: defaulting that one open would greet a reader
-// who has the module off with an enable-note and everything else collapsed.
+// Skipping gated-off sections matters on Stress Test, every one of whose
+// sections is module-gated: defaulting a gated one open would greet a reader
+// who has that module off with an enable-note and everything else collapsed.
+// (Optimize was the original example, via its Roth Conversion section; W13
+// moved that one to the Taxes nav group.)
 export function renderStrategyScreen(sections) {
   const firstUsable = sections.find(
     (s) => !(s.gate && stepGatedByOptionalModule(s.gate)),
@@ -330,12 +332,14 @@ function socialSecurityOptimizePanelHtml() {
 
 export function renderStrategyOptimize() {
   return renderStrategyScreen([
-    {
-      key: "roth_conversion",
-      title: "Roth Conversion",
-      gate: "roth_conversion",
-      body: () => analysisFrame(renderRothConversion(), "strategy"),
-    },
+    // #330 P8 / Q6 (W13): Roth Conversion and Charitable Giving left this
+    // screen for the Taxes nav group -- both are TAXES-domain features with
+    // a page of their own, and Optimize is a *kind* grouping (§4.1) that the
+    // left nav no longer has to stand in for now that the domain group
+    // exists. Same move W9 made for HELOC, and for the same reason. What
+    // stays here is what has no page of its own (HSA Drawdown, Withdrawal
+    // Sequencing, Social Security, Harvesting) or is not tax-domain (Asset
+    // Allocation, Next Housing Move).
     // #329 §3.3 (W9): "add" -- was reachable only by setting a mode field on
     // Other Assets and Liabilities, with no visible consequence. Reuses the
     // exact HSA-withdrawal-policy block the Spending workspace's Withdrawal
@@ -391,12 +395,6 @@ export function renderStrategyOptimize() {
       // "Strategy Levers" (renderStrategyScenarios below), the other
       // non-lever tab in this file.
       body: () => renderHousingOptimizePanelHtml(),
-    },
-    {
-      key: "charitable_giving",
-      title: "Charitable Giving",
-      gate: "entity_charitable",
-      body: () => analysisFrame(renderEntityCharitable(), "strategy"),
     },
     // #329 §3.3 (W9): "add, as one panel" -- TLH and Gain Harvest together,
     // reusing the Withdrawal Order tab's own two blocks.

@@ -196,16 +196,18 @@ describe("the four Strategy screens (ticket 323 + Workbench)", () => {
   // (each "reachable only by setting a field with no visible consequence"
   // or hidden entirely before this); HELOC left for its own Assets &
   // Protection step (O11 / #330 §4.3).
-  test("Optimize renders its eight sections; the first (Roth Conversion) opens with its real body, the rest stay collapsed", () => {
+  // #330 P8 / Q6 (W13): Roth Conversion and Charitable Giving left Optimize
+  // for the Taxes nav group, the way heloc did in W9 -- so Optimize is six
+  // sections, and the first one (HSA Drawdown) is ungated, which is what now
+  // opens by default.
+  test("Optimize renders its six sections; the first (HSA Drawdown) opens with its real body, the rest stay collapsed", () => {
     const html = sandbox.renderStrategyOptimize();
     for (const key of [
-      "roth_conversion",
       "hsa_drawdown",
       "asset_allocation",
       "withdrawal_sequencing",
       "social_security",
       "housing",
-      "charitable_giving",
       "harvesting",
     ]) {
       assert.ok(
@@ -213,18 +215,18 @@ describe("the four Strategy screens (ticket 323 + Workbench)", () => {
         `missing section ${key}`,
       );
     }
-    assert.ok(
-      !html.includes('data-dkey="strategy:heloc"'),
-      "heloc must no longer live under Optimize",
-    );
-    assert.match(html, /data-dkey="strategy:roth_conversion"[^>]*\sopen/);
+    for (const key of ["heloc", "roth_conversion", "charitable_giving"]) {
+      assert.ok(
+        !html.includes(`data-dkey="strategy:${key}"`),
+        `${key} must no longer live under Optimize`,
+      );
+    }
+    assert.match(html, /data-dkey="strategy:hsa_drawdown"[^>]*\sopen/);
     for (const key of [
-      "hsa_drawdown",
       "asset_allocation",
       "withdrawal_sequencing",
       "social_security",
       "housing",
-      "charitable_giving",
       "harvesting",
     ]) {
       assert.doesNotMatch(
