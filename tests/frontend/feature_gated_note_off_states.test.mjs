@@ -166,6 +166,32 @@ describe("no-hidden-data invariant: 529 / Equity Compensation / Hybrid LTC on Ot
     const html = sandbox.renderAssetsSpecial();
     assert.ok(html.includes('data-row="40"'), "the equity-comp grant row must still render");
   });
+
+  // rowModuleGate() returns null when section_gates omits a section --
+  // latent-only in production (config_service.py's _module_gates() always
+  // includes every csv_sections-declared section), but a stale/incomplete
+  // payload must degrade to "render normally" rather than throw on `.key`.
+  test("a missing section_gates entry degrades gracefully instead of throwing", () => {
+    sandbox.window.moduleGates = {
+      step_gates: {},
+      flag_gates: {},
+      section_gates: {
+        "Equity Compensation": { key: "equity_compensation", label: "Equity Compensation optional workbook module" },
+      },
+    };
+    sandbox.window.rows = [
+      {
+        row_index: 30,
+        section: "Education Funding",
+        subsection: "Beneficiary 1",
+        label: "current_balance",
+        value: "15000",
+      },
+    ];
+    assert.doesNotThrow(() => sandbox.renderAssetsSpecial());
+    const html = sandbox.renderAssetsSpecial();
+    assert.ok(html.includes('data-row="30"'), "the 529 balance row must still render");
+  });
 });
 
 // #330 P8 / Q6 (W13): the Family & Business nav step renders the same two

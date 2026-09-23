@@ -254,3 +254,24 @@ One commit (plus this notes doc and the two ratchet/PR-body updates).
   LTC soft-dependency item, already scoped twice now (W9's triage, this
   workstream's confirmation) rather than left to be rediscovered a third
   time.
+
+## Addendum (2026-09-23): the deferred null-check, picked up
+
+The "What was deliberately NOT done" item above (`rowModuleGate(...).key`
+accessed unconditionally in `familyBusinessGroupsHtml()`,
+`dashboard_decomp_assets_other.js`) was picked up as a small, isolated
+hardening fix, out of scope for any numbered workstream. Both call sites
+(529 Plans / Equity Compensation) now hold the `rowModuleGate()` result in a
+local and only read `.key` when it is non-null, falling back to `true`
+("not gated off") otherwise -- the same missing-gate convention
+`dashboard.js`'s `rowGateStatus()` already uses at its own `rowModuleGate()`
+call (`const gate = rowModuleGate(sec); if (gate) { ... }`), matched rather
+than invented. No calculation change; the normal case (server payload
+always present) is unaffected since `gate` is never null in production.
+Covered by a new test
+(`tests/frontend/feature_gated_note_off_states.test.mjs`, "a missing
+section_gates entry degrades gracefully instead of throwing") that seeds
+`section_gates` with only one of the two sections and confirms
+`renderAssetsSpecial()` no longer throws and still renders the other
+section's row. `TOTAL_JS_MAX_LINES` raised 35,621 -> 35,631 for the guard's
+few extra lines.
