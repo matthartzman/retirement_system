@@ -7,11 +7,16 @@ from __future__ import annotations
 
 from typing import Any
 
+from ..server_services.strategy_asset_service import (
+    HOME_APPR_DEFAULT,
+    INFLATION_GENERAL_DEFAULT,
+)
 from .models import Location, Move, ScoredCandidate
 from .plan_variant import (
     _effective_mortgage_rate,
     _estimate_for_location,
     _purchase_price_for_location,
+    _years_out,
     estimate_monthly_pi_payment,
 )
 
@@ -38,19 +43,42 @@ def _format_location(loc: Location) -> dict[str, Any]:
     }
 
 
+def _today_dollars(move_year_value: float, start_year: int, rate: float) -> float:
+    """Deflate a move-year-dollars figure back to today's dollars for
+    display -- the inverse of the escalation ``plan_variant`` applied to
+    price it, at the same rate. Secondary text only (§6.4 site 5); the
+    move-year figure above it is what the objective was actually computed
+    on."""
+    years_out = _years_out(start_year)
+    if not years_out:
+        return move_year_value
+    factor = (1.0 + float(rate)) ** years_out
+    return move_year_value / factor if factor else move_year_value
+
+
 def _format_move(
     move: Move, sec121_lost: bool, *,
     down_payment_pct: float, mortgage_rate_pct: float | None,
+    home_appr: float, inflation_general: float,
 ) -> dict[str, Any]:
     if move.action == 'rent':
+        rent = float(_estimate_for_location(
+            move.location, 'rent', start_year=move.acquisition_year,
+            home_appr=home_appr, inflation_general=inflation_general)['monthly_rent'])
         financing = {
-            'monthly_rent': float(_estimate_for_location(move.location, 'rent')['monthly_rent']),
+            'monthly_rent': rent,
+            'monthly_rent_today': _today_dollars(rent, move.acquisition_year, inflation_general),
         }
     else:
-        price = _purchase_price_for_location(move.location)
-        rate = _effective_mortgage_rate(move.location, mortgage_rate_pct)
+        price = _purchase_price_for_location(
+            move.location, start_year=move.acquisition_year, home_appr=home_appr,
+            inflation_general=inflation_general)
+        rate = _effective_mortgage_rate(
+            move.location, mortgage_rate_pct, start_year=move.acquisition_year,
+            home_appr=home_appr, inflation_general=inflation_general)
         financing = {
             'purchase_price': price,
+            'purchase_price_today': _today_dollars(price, move.acquisition_year, home_appr),
             'monthly_pi_payment': estimate_monthly_pi_payment(price, down_payment_pct, rate),
         }
     return {
@@ -67,6 +95,7 @@ def _format_move(
 def _format_candidate(
     sc: ScoredCandidate, objective: str, rank: int, *,
     down_payment_pct: float, mortgage_rate_pct: float | None,
+    home_appr: float, inflation_general: float,
 ) -> dict[str, Any]:
     cand = sc.candidate
     lost = list(sc.sec121_exclusion_lost)
@@ -80,6 +109,7 @@ def _format_candidate(
             _format_move(
                 m, lost[i] if i < len(lost) else False,
                 down_payment_pct=down_payment_pct, mortgage_rate_pct=mortgage_rate_pct,
+                home_appr=home_appr, inflation_general=inflation_general,
             )
             for i, m in enumerate(cand.moves)
         ],
@@ -100,6 +130,7 @@ def format_output(
     move2_strategy: str, zip_screens: dict[str, Any],
     rejections: dict[str, int], message: str | None = None,
     down_payment_pct: float = 0.20, mortgage_rate_pct: float | None = None,
+    home_appr: float = HOME_APPR_DEFAULT, inflation_general: float = INFLATION_GENERAL_DEFAULT,
     baseline: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """One ranked ``candidates`` list, not a recommendation plus a disjoint
@@ -108,9 +139,11 @@ def format_output(
     remains as an alias of ``candidates[0]``. ``candidates`` is capped at
     ``MAX_CANDIDATES``, but ``candidates_evaluated`` reports the full count.
 
-    ``down_payment_pct``/``mortgage_rate_pct`` default to the same values
-    api.py itself defaults to (20%, location-based rate) so every existing
-    caller that omits them keeps working unchanged.
+    ``down_payment_pct``/``mortgage_rate_pct``/``home_appr``/
+    ``inflation_general`` default to the same values api.py itself defaults
+    to (20%, location-based rate, the same two plan-config fallbacks
+    ``plan_variant`` reads) so every existing caller that omits them keeps
+    working unchanged.
 
     ``baseline`` is the do-nothing (no sale, no move) run's own
     net_worth/lifetime_cost/mc_success_rate, so a consumer can show every
@@ -121,6 +154,7 @@ def format_output(
         _format_candidate(
             sc, objective, i + 1,
             down_payment_pct=down_payment_pct, mortgage_rate_pct=mortgage_rate_pct,
+            home_appr=home_appr, inflation_general=inflation_general,
         )
         for i, sc in enumerate(ranked[:MAX_CANDIDATES])
     ]

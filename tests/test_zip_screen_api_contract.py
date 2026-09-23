@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import pytest
 
-from src.housing.api import zip_screen_from_request
+from src.housing.api import DEFAULT_PREVIEW_SIZE, zip_screen_from_request
 
 pytestmark = pytest.mark.contract
 
@@ -26,7 +26,7 @@ def _body(**overrides):
                    {'kind': 'zip', 'anchor_zip': '60540'}],
         'radius_miles': 25, 'min_quality_score': 60,
         'area_type': 'any', 'max_population': None,
-        'shortlist_size': 4, 'dwelling': dict(DWELLING),
+        'dwelling': dict(DWELLING),
     }
     search.update(overrides.pop('search', {}))
     body = {'search': search}
@@ -107,12 +107,45 @@ def test_unknown_anchor_is_a_400_naming_the_zip():
     assert '99999' in payload['error']
 
 
-def test_shortlist_size_is_clamped_to_two_through_five():
-    for requested, expected in ((1, 2), (9, 5)):
-        payload, _ = zip_screen_from_request(
-            C0, _body(search={'shortlist_size': requested, 'min_quality_score': 0}),
-            table_path=FIXTURE)
-        assert len(payload['zip_screen']['shortlist']) <= expected
+def test_the_preview_size_is_no_longer_a_request_field():
+    """Deliberately inverted (design 2026-09-19 §5.4): ``shortlist_size``
+    left the request schema when step 1 gained the selection table, because
+    once the user ticks the ZIPs they want the count *is* the selection and
+    a second control could only disagree with it. A body still carrying the
+    old key is ignored rather than honoured -- a stale client must not be
+    able to shrink the preview it is choosing from."""
+    payload, _ = zip_screen_from_request(
+        C0, _body(search={'shortlist_size': 1, 'min_quality_score': 0}),
+        table_path=FIXTURE)
+    assert len(payload['zip_screen']['shortlist']) > 1
+
+
+def test_the_preview_always_seats_every_anchor():
+    """§5.2's quota needs room to work: the preview promotes
+    ``max(DEFAULT_PREVIEW_SIZE, len(anchors))`` so a reserved slot per anchor
+    is never squeezed out by the preview cap itself."""
+    payload, _ = zip_screen_from_request(
+        C0, _body(search={'min_quality_score': 0}), table_path=FIXTURE)
+    assert len(payload['zip_screen']['shortlist']) >= DEFAULT_PREVIEW_SIZE
+
+
+def test_the_response_carries_the_full_passing_set_for_the_selection_table():
+    """Step 1 lets the user tick ZIPs the quota did not promote (§5.3), so
+    the preview endpoint -- unlike the optimize response -- sends every ZIP
+    that cleared the funnel, each flagged with whether it was promoted."""
+    payload, _ = zip_screen_from_request(
+        C0, _body(search={'min_quality_score': 0}), table_path=FIXTURE)
+    zs = payload['zip_screen']
+    assert len(zs['all_passing']) >= len(zs['shortlist'])
+    promoted = {z['zip'] for z in zs['all_passing'] if z['promoted']}
+    assert promoted == {z['zip'] for z in zs['shortlist']}
+
+
+def test_unrepresented_anchors_are_reported_not_raised():
+    payload, status = zip_screen_from_request(
+        C0, _body(search={'min_quality_score': 0}), table_path=FIXTURE)
+    assert status == 200
+    assert payload['zip_screen']['unrepresented_anchors'] == []
 
 
 def test_shortlist_rows_carry_the_documented_fields():

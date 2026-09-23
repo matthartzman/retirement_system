@@ -27,7 +27,11 @@ def _body(**over):
                                          {'kind': 'zip', 'anchor_zip': '60521'}],
                              'radius_miles': 25, 'min_quality_score': 60,
                              'area_type': 'any', 'max_population': None,
-                             'shortlist_size': 4, 'dwelling': {}}},
+                             # shortlist_size left the request schema with the
+                             # step-1 selection table (design 2026-09-19 §5.4);
+                             # selected_zips replaced it.
+                             'selected_zips': ['80014', '60521'],
+                             'dwelling': {}}},
     }
     body.update(over)
     return body

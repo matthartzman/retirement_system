@@ -1010,6 +1010,19 @@ body.chart-modal-open{overflow:hidden}
 .housing-opt-field input.zip{width:5em}
 .housing-opt-field input.money,.housing-opt-field input.count{width:8em}
 
+/* Two-step flow (design 2026-09-19 §5.3). Step 1 fixes where and when; step
+   2 fixes what it would cost. Only one is ever in the tree's flow, so the
+   panel never scrolls past questions that do not apply yet. */
+.housing-opt-step-indicator{margin-left:10px;font-size:12px;color:var(--muted);font-weight:400}
+.housing-opt-step-title{margin:8px 0 2px;font-weight:650}
+.housing-opt-step-actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
+/* The validation message sits between the two buttons and takes the slack,
+   so a long message wraps rather than pushing Continue off the row. */
+.housing-opt-step-actions .housing-opt-validation{flex:1 1 12em}
+.housing-opt-selection{padding:6px 0 10px}
+.housing-opt-selected-summary{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.housing-opt-chip{display:inline-block;padding:2px 8px;border:1px solid var(--line);border-radius:12px;font-size:12px;white-space:nowrap}
+
 /* A result may wrap to several lines. Three cues together keep the boundary
    obvious: alternating shade, a heavy rule, and the persistent rank badge. */
 .housing-opt-result-odd{background:#fff}

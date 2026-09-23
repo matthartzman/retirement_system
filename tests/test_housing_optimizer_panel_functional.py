@@ -58,7 +58,14 @@ FULL_CONTENT_KEYS = [
 ] + [
     f"housingOptMove{n}{field}"
     for n in (1, 2)
-    for field in ("AreaType", "MaxPopulation", "LotSize", "MinScore", "Radius", "ShortlistSize")
+    # "ShortlistSize" -> "SelectedZips", deliberately, not as collateral
+    # damage: the 2026-09-19 anchor-flow design §5.4 removes the per-move
+    # "Shortlist size" control outright and step 1's selection table takes
+    # over the decision it stood in for. The help obligation moves with the
+    # decision rather than being dropped -- picking candidate locations is
+    # still a field "carrying a real decision" under §9.5, so it is still
+    # required to be a full four-section entry.
+    for field in ("AreaType", "MaxPopulation", "LotSize", "MinScore", "Radius", "SelectedZips")
 ]
 
 # Year fields (Sec 9.5: "simple year fields get a one-paragraph What this

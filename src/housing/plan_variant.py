@@ -10,7 +10,12 @@ from __future__ import annotations
 from typing import Any
 
 from .. import planning_engines as _pe
-from ..server_services.strategy_asset_service import housing_state_estimate_payload
+from .. import platform_runtime as _platform_runtime
+from ..server_services.strategy_asset_service import (
+    HOME_APPR_DEFAULT,
+    INFLATION_GENERAL_DEFAULT,
+    housing_state_estimate_payload,
+)
 from .models import HousingCandidate, Location, Move
 
 _DEFAULT_MORTGAGE_RATE = 0.0685
@@ -42,7 +47,9 @@ _STATE_ABBREV = {
 # insurance/HOA figures come from the one place the UI already sources them)
 # ---------------------------------------------------------------------------
 
-def _estimate_for_location(loc: Location, housing_type: str) -> dict[str, Any]:
+def _estimate_for_location(loc: Location, housing_type: str, *,
+                           start_year: int, home_appr: float,
+                           inflation_general: float) -> dict[str, Any]:
     payload, _status = housing_state_estimate_payload({
         'state': _STATE_ABBREV.get(loc.state, loc.state),
         'type': housing_type,
@@ -52,33 +59,66 @@ def _estimate_for_location(loc: Location, housing_type: str) -> dict[str, Any]:
         'bathrooms': loc.bathrooms,
         'property_type': loc.property_type,
         'sqft_band': loc.sqft_band,
+        'lot_size_band': loc.lot_size_band,
         'built_within_years': loc.built_within_years,
+        'start_year': int(start_year),
+        'home_appr': float(home_appr),
+        'inflation_general': float(inflation_general),
     })
     return payload['estimate']
 
 
-def _purchase_price_for_location(loc: Location) -> float:
+def _years_out(start_year: int) -> int:
+    """Same formula ``estimate_housing_cost`` uses internally: years from
+    "now" (``platform_runtime.today().year``, the same clock
+    ``data_io.py`` pins ``c['plan_start']`` to) to ``start_year``, floored at
+    zero so a current-year or past move is never discounted backwards."""
+    plan_start = _platform_runtime.today().year
+    return max(0, int(start_year) - plan_start) if start_year else 0
+
+
+def _purchase_price_for_location(loc: Location, *, start_year: int,
+                                 home_appr: float, inflation_general: float) -> float:
     """Price range midpoint, else the ZIP-scaled screening estimate
     (Location.est_price), else a flat state-level estimate. The middle tier
     makes a buy move's actual cost basis match the ZIP-specific number the
-    results table shows -- see Location.est_price's docstring in models.py."""
+    results table shows -- see Location.est_price's docstring in models.py.
+
+    Tier 1 (an explicit price range) is never escalated: OQ-2 resolved its
+    basis to move-year dollars already, so the midpoint is consumed as-is.
+    Tier 2 (``est_price``) is the screen's today's-dollars ZIP estimate
+    (``screen.estimate_price`` stays byte-for-byte -- see screen.py's own
+    docstring) and is escalated here, at the point of use, by the same
+    ``home_appr`` rate the engine uses for the home's own post-purchase
+    growth. Tier 3 already escalates internally via
+    ``_estimate_for_location``.
+    """
     if loc.target_purchase_price_range:
         lo, hi = loc.target_purchase_price_range
         return (float(lo) + float(hi)) / 2.0
     if loc.est_price is not None:
-        return float(loc.est_price)
-    return float(_estimate_for_location(loc, 'purchase')['purchase_price'])
+        years_out = _years_out(start_year)
+        factor = (1.0 + float(home_appr)) ** years_out if years_out else 1.0
+        return float(loc.est_price) * factor
+    return float(_estimate_for_location(
+        loc, 'purchase', start_year=start_year, home_appr=home_appr,
+        inflation_general=inflation_general)['purchase_price'])
 
 
-def _effective_mortgage_rate(loc: Location, mortgage_rate_pct: float | None) -> float:
+def _effective_mortgage_rate(loc: Location, mortgage_rate_pct: float | None, *,
+                             start_year: int, home_appr: float,
+                             inflation_general: float) -> float:
     """Same three-way fallback _purchase_step already applies: an explicit
     rate wins, else the location's own cost-estimate rate, else the flat
     default. Extracted so results.py's display-only payment estimate and
     the engine's actual cost basis can never disagree about which rate a
-    given location uses."""
+    given location uses. Takes the same three year/rate parameters as
+    ``_estimate_for_location`` only because it shares that call -- a rate is
+    not a monetary quantity and is never itself escalated."""
     if mortgage_rate_pct is not None:
         return float(mortgage_rate_pct)
-    est = _estimate_for_location(loc, 'purchase')
+    est = _estimate_for_location(loc, 'purchase', start_year=start_year,
+                                 home_appr=home_appr, inflation_general=inflation_general)
     return float(est.get('mortgage_rate_pct', _DEFAULT_MORTGAGE_RATE) or _DEFAULT_MORTGAGE_RATE)
 
 
@@ -108,22 +148,34 @@ def estimate_monthly_pi_payment(
 
 
 def _purchase_step(step_id: str, loc: Location, start_year: int, end_year: int | None,
-                   *, down_payment_pct: float | None = None,
+                   *, home_appr: float, inflation_general: float,
+                   down_payment_pct: float | None = None,
                    mortgage_rate_pct: float | None = None) -> dict[str, Any]:
     """``step_id`` stays first and the emitted dict's KEYS are unchanged --
     only the two financing values now come from the request instead of a
     module constant, so the optimizer and the spending screen price the same
     house alike. ``mortgage_rate_pct=None`` falls back to the location
     estimate's own rate, which is the pre-2026-09-16 behavior.
+
+    Every dollar-denominated field is priced as of ``start_year`` (this
+    step's own move year), not today -- the engine escalates *from*
+    ``start_year`` onward, so writing a move-year figure into a step whose
+    ``start_year`` is that same year is exactly what it expects and
+    introduces no double counting.
     """
-    est = _estimate_for_location(loc, 'purchase')
+    est = _estimate_for_location(loc, 'purchase', start_year=start_year,
+                                 home_appr=home_appr, inflation_general=inflation_general)
     return {
         'id': step_id, 'type': 'purchase',
         'start_year': start_year, 'end_year': end_year or 0,
         'state': loc.state, 'city_type': loc.city_type, 'population_size': loc.population_size,
-        'purchase_price': _purchase_price_for_location(loc),
+        'purchase_price': _purchase_price_for_location(
+            loc, start_year=start_year, home_appr=home_appr,
+            inflation_general=inflation_general),
         'down_payment_pct': float(DEFAULT_DOWN_PAYMENT_PCT if down_payment_pct is None else down_payment_pct),
-        'mortgage_rate_pct': _effective_mortgage_rate(loc, mortgage_rate_pct),
+        'mortgage_rate_pct': _effective_mortgage_rate(
+            loc, mortgage_rate_pct, start_year=start_year, home_appr=home_appr,
+            inflation_general=inflation_general),
         'monthly_rent': 0.0,
         'insurance_annual': float(est.get('insurance_annual', 0.0) or 0.0),
         'utilities_annual': float(est.get('utilities_annual', 0.0) or 0.0),
@@ -133,8 +185,10 @@ def _purchase_step(step_id: str, loc: Location, start_year: int, end_year: int |
     }
 
 
-def _rent_step(step_id: str, loc: Location, start_year: int, end_year: int | None) -> dict[str, Any]:
-    est = _estimate_for_location(loc, 'rent')
+def _rent_step(step_id: str, loc: Location, start_year: int, end_year: int | None,
+               *, home_appr: float, inflation_general: float) -> dict[str, Any]:
+    est = _estimate_for_location(loc, 'rent', start_year=start_year,
+                                 home_appr=home_appr, inflation_general=inflation_general)
     return {
         'id': step_id, 'type': 'rent',
         'start_year': start_year, 'end_year': end_year or 0,
@@ -184,6 +238,13 @@ def _apply_candidate(c: dict[str, Any], cand: HousingCandidate, *,
     # sold". A kept home has no sale year to write.
     c['home_sale_yr'] = 0 if home.disposition == 'keep' else (home.sale_year or 0)
 
+    # Same two reads, from the same two keys, with the same two fallbacks,
+    # that housing_comparison.py's priced_step performs -- one convention
+    # for translating a today's-dollars estimate into a given step's own
+    # start-year dollars, shared by both callers.
+    home_appr = float(c.get('home_appr', HOME_APPR_DEFAULT) or HOME_APPR_DEFAULT)
+    inflation_general = float(c.get('inf', INFLATION_GENERAL_DEFAULT) or INFLATION_GENERAL_DEFAULT)
+
     m1, m2 = cand.move1, cand.move2
     concurrent = m2 is not None and m2.mode == 'concurrent'
     sequential2 = m2 is not None and not concurrent
@@ -203,6 +264,7 @@ def _apply_candidate(c: dict[str, Any], cand: HousingCandidate, *,
 
     steps = []
     move1_step = _step_for(m1, 'opt_move1', move1_end,
+                           home_appr=home_appr, inflation_general=inflation_general,
                            down_payment_pct=down_payment_pct,
                            mortgage_rate_pct=mortgage_rate_pct)
     if sequential2 and m1.action == 'buy':
@@ -214,6 +276,7 @@ def _apply_candidate(c: dict[str, Any], cand: HousingCandidate, *,
 
     if m2 is not None:
         steps.append(_step_for(m2, 'opt_move2', None,
+                               home_appr=home_appr, inflation_general=inflation_general,
                                down_payment_pct=down_payment_pct,
                                mortgage_rate_pct=mortgage_rate_pct))
 
@@ -222,11 +285,14 @@ def _apply_candidate(c: dict[str, Any], cand: HousingCandidate, *,
 
 
 def _step_for(move: Move, step_id: str, end_year: int | None, *,
+              home_appr: float, inflation_general: float,
               down_payment_pct: float | None,
               mortgage_rate_pct: float | None) -> dict[str, Any]:
     if move.action == 'rent':
-        return _rent_step(step_id, move.location, move.acquisition_year, end_year)
+        return _rent_step(step_id, move.location, move.acquisition_year, end_year,
+                          home_appr=home_appr, inflation_general=inflation_general)
     return _purchase_step(step_id, move.location, move.acquisition_year, end_year,
+                          home_appr=home_appr, inflation_general=inflation_general,
                           down_payment_pct=down_payment_pct,
                           mortgage_rate_pct=mortgage_rate_pct)
 
