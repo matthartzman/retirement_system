@@ -99,6 +99,37 @@ export function suggestedNext(stepId) {
   return `<div class="suggested-next">Suggested next: <button class="link-button" type="button" data-step-id="${esc(st.id)}">${esc(st.title)} &rarr;</button></div>`;
 }
 
+// #330 P8 / Q6 (W13): moved here from dashboard.js, unchanged. renderMain()
+// picks between this footer and suggestedNext() on one line -- they are the
+// two halves of "what does this page point at next", so they belong in one
+// place. Moving them out is also what pays for W13's new lines under
+// tests/test_frontend_size_ratchet.py's DASHBOARD_JS_MAX_LINES.
+// ytd_transactions and spending_dashboard used to have their own entries
+// here (each a distinct standalone step at the time), but both ids now
+// redirect onto spending_core before activeStep is ever set to them
+// (navigation.js's WORKSPACE_TAB_REDIRECTS) -- spendingFlowFooterHtml() below
+// is only ever called with the literal activeStep, so those two entries
+// could never be looked up again. Removed rather than left dead.
+export const SPENDING_COMPLETION = {
+  spending_core: {
+    note: "Done when: budget amounts are entered for the categories you track.",
+    isDoneFn: () =>
+      !!(planLoaded && !stepStats("spending_core").missing.length),
+    nextStep: "ytd_transactions",
+    nextLabel: "Import Transactions",
+  },
+};
+export function spendingFlowFooterHtml(stepId) {
+  const cfg = SPENDING_COMPLETION[stepId];
+  if (!cfg) return "";
+  const done = cfg.isDoneFn();
+  let html = `<div class="spending-completion-note${done ? " done" : ""}"><span class="scomp-icon">${done ? "&#10003;" : "&#9675;"}</span><span>${esc(cfg.note)}</span></div>`;
+  if (done && cfg.nextStep) {
+    html += `<div class="spending-advance-prompt"><b>Step complete.</b> Ready for: <button class="btn primary" type="button" data-step-id="${esc(cfg.nextStep)}">${esc(cfg.nextLabel)} &rarr;</button></div>`;
+  }
+  return html;
+}
+
 export function saveWorkbookViewState() {
   try {
     localStorage.setItem("wbSheet", activeDetailedSheet || "");
@@ -1502,6 +1533,17 @@ export function rawRowsForStep(id) {
             "Hybrid LTC",
           ].includes(sec)
         );
+      // #330 P8 / Q6 (W13): the Family & Business nav group's page. The
+      // catalog declares these two sections as csv_sections of
+      // education_funding_529 and equity_compensation (domain FAMILY_
+      // BUSINESS), which is where the membership comes from -- it is not a
+      // second hand-kept list. This is ADDITIVE: the rows keep their home on
+      // assets_special above, and BUILD_IMPACT_SOURCE_STEP_IDS deliberately
+      // does not list family_business, so sourceStepForRow() still answers
+      // "Other Assets and Liabilities" for every one of them and no other
+      // surface sees the new step at all.
+      case "family_business":
+        return ["Education Funding", "Equity Compensation"].includes(sec);
       case "estate":
         return sec === "Estate Planning" || sec === "Account Titling";
       case "annuity_death_benefits":
@@ -5267,6 +5309,8 @@ Object.assign(window, {
   goToStrategyTab,
   stepTitleById,
   storageValueForInput,
+  spendingFlowFooterHtml,
+  SPENDING_COMPLETION,
   strategyTabKey,
   suggestedNext,
   SUGGESTED_NEXT,

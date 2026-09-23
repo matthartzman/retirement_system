@@ -168,6 +168,71 @@ describe("no-hidden-data invariant: 529 / Equity Compensation / Hybrid LTC on Ot
   });
 });
 
+// #330 P8 / Q6 (W13): the Family & Business nav step renders the same two
+// gated groups from the same code (familyBusinessGroupsHtml), so the
+// invariant above must hold identically on it. Asserted separately rather
+// than assumed: a second entry point that silently drops a household's rows
+// would be exactly the bug W12 closed, arriving through a new door.
+describe("no-hidden-data invariant: the Family & Business step renders the same groups", () => {
+  beforeEach(() => {
+    sandbox.window.moduleGates = {
+      step_gates: {},
+      flag_gates: {},
+      section_gates: {
+        "Education Funding": { key: "education_funding_529", label: "Education Funding 529 optional workbook module" },
+        "Equity Compensation": { key: "equity_compensation", label: "Equity Compensation optional workbook module" },
+      },
+    };
+    sandbox.window.rows = [
+      {
+        row_index: 30,
+        section: "Education Funding",
+        subsection: "Beneficiary 1",
+        label: "current_balance",
+        value: "15000",
+      },
+      {
+        row_index: 40,
+        section: "Equity Compensation",
+        subsection: "equity_compensation",
+        label: "shares_granted",
+        value: "500",
+      },
+    ];
+  });
+
+  test("both groups' rows survive when both modules are off", () => {
+    const html = sandbox.renderFamilyBusiness();
+    assert.ok(html.includes('data-row="30"'), "the 529 balance row must still render");
+    assert.ok(html.includes('data-row="40"'), "the equity-comp grant row must still render");
+    assert.ok(html.includes("is off"), "each off module must say so");
+  });
+
+  test("it links back to the page the rows actually live on", () => {
+    const html = sandbox.renderFamilyBusiness();
+    assert.ok(html.includes('data-step-id="assets_special"'));
+  });
+
+  test("the rows keep Other Assets and Liabilities as their source step", () => {
+    // The new step is additive: nothing moved, so every surface that resolves
+    // a row to its source page (Build Impact, the Field Finder, the closeout
+    // checklist) must still answer assets_special.
+    for (const idx of [30, 40]) {
+      const row = sandbox.window.rows.find((r) => r.row_index === idx);
+      assert.equal(sandbox.sourceStepForRow(row), "assets_special");
+    }
+  });
+
+  test("rawRowsForStep('family_business') is exactly the two catalog-declared sections", () => {
+    sandbox.window.rows = [
+      ...sandbox.window.rows,
+      { row_index: 41, section: "Note Receivable", subsection: "note_1", label: "balance", value: "1" },
+    ];
+    const got = Array.from(sandbox.rawRowsForStep("family_business")).map((r) => r.row_index).sort();
+    assert.deepEqual(got, [30, 40]);
+  });
+});
+
 describe("no-hidden-data invariant: DAF/QCD on Charitable Giving survive charitable_giving being off", () => {
   test("a DAF contribution row survives when charitable_giving is off but the DAF flag is on", () => {
     sandbox.window.rows = [

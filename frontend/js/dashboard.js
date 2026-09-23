@@ -214,6 +214,20 @@ const STEPS = [
     help: "Donor-advised funds are most effective when contributed in a high-income year and granted over time. Qualified charitable distributions also reduce adjusted gross income, which can lower income-related Medicare surcharge tiers — model in combination with Roth Conversion.",
   },
   {
+    // #330 P8 / Q6 (W13): the Family & Business nav group. Its features own
+    // no page of their own -- their inputs are row GROUPS on Other Assets
+    // and Liabilities -- so this step is a second way in to rows that keep
+    // their existing home, W9's socialSecurityOptimizePanelHtml() pattern,
+    // not a data move. Business entity choice stays on Work Income.
+    id: "family_business",
+    group: "Family & Business",
+    title: "Education & Equity Comp",
+    desc: "529 education savings and equity compensation — the Family & Business features that carry plan inputs.",
+    intro:
+      "Enter one 529 section per beneficiary or goal, and the grant, vesting and exercise assumptions for any equity compensation. Both are also editable on Other Assets and Liabilities.",
+    help: "Each feature here is an optional module. A feature that is off keeps everything you have entered and says so on its own section, so turning one off never removes your data.",
+  },
+  {
     id: "planning_workbench",
     group: null,
     hidden: true,
@@ -738,6 +752,13 @@ const STEP_HELP = {
     "HELOC draw reduces gap filled by liquid assets, allowing taxable/IRA balances to compound longer. Interest is paid from cash flow annually. The outstanding balance is repaid from home sale proceeds.",
     "Enter a credit limit, the last year of the draw period, an initial interest rate, and an annual rate drift. The projection automatically draws from the HELOC when large discretionary spending creates a cash gap, up to available credit.",
     "HELOC improves TNW when the compound benefit of undisturbed liquid assets exceeds borrowing costs. It worsens outcomes when interest drag or reduced home equity at sale outweigh the investment benefit.",
+  ),
+  family_business: pageHelp(
+    "Education & equity compensation",
+    "This page collects the Family & Business plan inputs: 529 education savings sections and equity compensation grants. The same rows are editable on Other Assets and Liabilities; business entity choice (S-Corp vs LLC) is on Work Income.",
+    "529 balances and contributions connect to education spending and legacy. Equity compensation connects to earned income, payroll and capital-gains tax, and the projection reads it directly when its module is on.",
+    "Enter one 529 section per beneficiary or goal. For equity compensation, use grant-level assumptions rather than a single blended figure where the vesting years differ.",
+    "Equity compensation can concentrate both portfolio risk and taxable income in a few years — check the lifetime-tax and allocation results after entering it.",
   ),
   entity_charitable: pageHelp(
     "Charitable giving",
@@ -2576,34 +2597,9 @@ function renderEstateWithAnnuityLink() {
 // (first modularization increment).
 
 /* ── 4.2 + 4.3 Spending step completion notes and auto-advance ── */
-// ytd_transactions and spending_dashboard used to have their own entries
-// here (each a distinct standalone step at the time), but both ids now
-// redirect onto spending_core before activeStep is ever set to them
-// (navigation.js's WORKSPACE_TAB_REDIRECTS) -- spendingFlowFooterHtml() below
-// is only ever called with the literal activeStep, so those two entries
-// could never be looked up again. Removed rather than left dead.
-const SPENDING_COMPLETION = {
-  spending_core: {
-    note: "Done when: budget amounts are entered for the categories you track.",
-    isDoneFn: () =>
-      !!(planLoaded && !stepStats("spending_core").missing.length),
-    nextStep: "ytd_transactions",
-    nextLabel: "Import Transactions",
-  },
-};
-function spendingFlowFooterHtml(stepId) {
-  const cfg = SPENDING_COMPLETION[stepId];
-  if (!cfg) return "";
-  const done = cfg.isDoneFn();
-  let html = `<div class="spending-completion-note${done ? " done" : ""}"><span class="scomp-icon">${done ? "&#10003;" : "&#9675;"}</span><span>${esc(cfg.note)}</span></div>`;
-  if (done && cfg.nextStep) {
-    html += `<div class="spending-advance-prompt"><b>Step complete.</b> Ready for: <button class="btn primary" type="button" data-step-id="${esc(cfg.nextStep)}">${esc(cfg.nextLabel)} &rarr;</button></div>`;
-  }
-  return html;
-}
-
-// Closeout checklist moved to dashboard_decomp_home_panels.js (first
-// modularization increment).
+// SPENDING_COMPLETION/spendingFlowFooterHtml moved to
+// dashboard_decomp_row_model.js beside SUGGESTED_NEXT (W13), and the closeout
+// checklist to dashboard_decomp_home_panels.js.
 
 /* ── 5.6 Session changes log and field undo ── */
 
@@ -3782,6 +3778,7 @@ let renderMain = function() {
   else if (activeStep === "assets_home_cash")
     content += renderAssetsCashReserves();
   else if (activeStep === "assets_special") content += renderAssetsSpecial();
+  else if (activeStep === "family_business") content += renderFamilyBusiness();
   // #329/#330 W9: HELOC moved from Strategy → Assets & Protection (a plan
   // input against a held asset, not an optimizer). Same content, same
   // analysisFrame wrapper it always had inside Optimize's strategySection --
@@ -7187,12 +7184,12 @@ Object.assign(window, {
   saveValueForRow, saveYtdAccountSetup, saveYtdPending, scenarioRowKeyFromParts, sectionFlagEnabled,
   setAllDetailColumnGroups, setCombinedSearch, setDetailedResultSheet, setDetailedResultsNavOpen,
   setNavSearch, setPlanningCaseActive, setSearchScope, setStrategyTab, showPlanDataFileManifest,
-  showSpendingModelLoadOverlay, showYtdLoadOverlay, sleep, spendingFlowFooterHtml,
-  startDetailedResultsProgress, stepHelpLinkHtml, stepIdForRow, stepSearchText,
-  stopDetailedResultsProgress, stressHomeSaleYearRow, stripUiLabelPrefix, summaryFromApiPayload,
-  takeBuildSnapshot, toggleDetailColGroup, toggleDetailColumnGroup, toggleHelpSheet, toggleNavDrawer,
-  translatePersonValueLabel, updateSearchToggle, updateYtdAccountMoney,
-  validateAllocationTargetsOrMessage, wireStepNavigation, withdrawalOtherRows,
-  ytdAccountMoneyDisplay, ytdAccountRoleOptions, ytdInvestmentHoldingAccounts, ytdInvestmentOptions,
-  ytdIsGrowthRole, ytdMappableAccounts, ytdRolloverBannerHtml, ytdStaleGrowthAccounts,
+  showSpendingModelLoadOverlay, showYtdLoadOverlay, sleep, startDetailedResultsProgress,
+  stepHelpLinkHtml, stepIdForRow, stepSearchText, stopDetailedResultsProgress, stressHomeSaleYearRow,
+  stripUiLabelPrefix, summaryFromApiPayload, takeBuildSnapshot, toggleDetailColGroup,
+  toggleDetailColumnGroup, toggleHelpSheet, toggleNavDrawer, translatePersonValueLabel,
+  updateSearchToggle, updateYtdAccountMoney, validateAllocationTargetsOrMessage, wireStepNavigation,
+  withdrawalOtherRows, ytdAccountMoneyDisplay, ytdAccountRoleOptions, ytdInvestmentHoldingAccounts,
+  ytdInvestmentOptions, ytdIsGrowthRole, ytdMappableAccounts, ytdRolloverBannerHtml,
+  ytdStaleGrowthAccounts,
 });
