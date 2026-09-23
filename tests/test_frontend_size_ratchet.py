@@ -358,6 +358,13 @@ DASHBOARD_JS_MAX_LINES = 7_201
 # Insurance In Force as its own worked example for. Genuine new behavior (a
 # generalized note-and-switch mechanism, plus rendering data that used to be
 # silently dropped), not duplication, per this constant's own contract.
+# 2026-09-23 (Housing Location Search catalog entry): raised from 35,621 to
+# 35,624. Three comment lines beside the Optimize screen's "Next Housing Move"
+# section, whose `gate: null` becomes `gate: "housing_location_search"` -- the
+# gate itself is net zero. Every sibling section in that array explains its own
+# gate in place, and a bare gate id here would be the only one that does not;
+# the full rationale lives in the notes doc the comment points at rather than
+# in this file.
 # dashboard.js is untouched (still 7,201).
 # 2026-09-22 (W13, #330 P8 / Q6 -- first commit, Housing promoted out of
 # Spending): raised from 35,485 to 35,513. dashboard.js FALLS (7,201 ->
@@ -394,13 +401,17 @@ DASHBOARD_JS_MAX_LINES = 7_201
 # dispatch case: SPENDING_COMPLETION/spendingFlowFooterHtml moved to
 # dashboard_decomp_row_model.js beside SUGGESTED_NEXT, which renderMain()
 # picks between on one line.
+# 2026-09-23 (Housing Location Search off-state coverage, merged in): raised
+# from 35,621 to 35,624 -- three net explanatory-comment lines (see that
+# commit's own message; the housing-section inline comment was trimmed in
+# favor of the notes doc to make room).
 # 2026-09-23 (out-of-scope hardening picked up from W12's own notes): raised
-# from 35,621 to 35,631. familyBusinessGroupsHtml()'s two rowModuleGate()
+# from 35,624 to 35,634. familyBusinessGroupsHtml()'s two rowModuleGate()
 # reads (dashboard_decomp_assets_other.js) threw on a missing section_gates
 # entry; guarded each with the null check dashboard.js's own rowGateStatus()
 # already uses for the same call, matching an existing convention rather than
 # inventing one. Pure hardening, no calculation change.
-TOTAL_JS_MAX_LINES = 35_631
+TOTAL_JS_MAX_LINES = 35_634
 
 
 def _line_count(path: Path) -> int:

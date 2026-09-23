@@ -17,6 +17,7 @@ from .workbook_common import (
     deflate_to_present,
     fill,
     ltcg_tax_on_gain,
+    plan_flag_enabled,
     qc,
     section_title,
     thin_border,
@@ -1293,7 +1294,7 @@ def build_sheet19(ws, c, rows):
         (750000, 27000, 411, 6, 'Premium — extensive coverage; highest ongoing premium'),
     ]
 
-    opt_enabled = c.get('ltc_enabled', False)
+    opt_enabled = plan_flag_enabled(c, 'hybrid_ltc_policy')
     opt_face    = c.get('ltc_face', 500000)
     opt_prem    = c.get('ltc_annual_prem', 0)
     opt_start   = c.get('ltc_start_year', 2027)

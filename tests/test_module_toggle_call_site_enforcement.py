@@ -8,8 +8,12 @@ assert every one of them outside the named module's own gate is backed by a
 catalog declaration.
 
 **What counts as a toggle read.** The plan names two spellings —
-``module_enabled(`` and a raw ``c['opt']`` read — and this sweep looks for
-exactly those, not for a semantic notion of "places that consult a toggle":
+``module_enabled(`` and a raw ``c['opt']`` read — and W5's sweep looked for
+exactly those. A third spelling exists for a plan flag (#330 §5.3, W6): a
+plan flag is not routed through ``module_enabled()`` at all -- its state
+lives on a plan-data key parsed straight off the client CSV, not in
+``c['opt']``. Deferred by W9, confirmed by W12, and added here (see
+``docs/superpowers/plans/2026-09-23-hybrid-ltc-soft-dependency-notes.md``):
 
 * a call to anything whose name ends in ``module_enabled`` (this deliberately
   catches ``spending_tracker._existing_life_insurance_module_enabled``, which
@@ -18,7 +22,20 @@ exactly those, not for a semantic notion of "places that consult a toggle":
 * a read of the ``'opt'`` key off any mapping, whether spelled ``c['opt']`` or
   ``c.get('opt')``. The spec describes ``deterministic_engine.py`` as reading
   ``c['opt']`` "directly"; in the source that is spelled ``.get``, so both
-  spellings are in scope or the sweep would miss the site the spec is about.
+  spellings are in scope or the sweep would miss the site the spec is about;
+* a call to ``module_catalog.plan_flag_enabled(c, '<key>')`` -- the plan-flag
+  analogue of ``module_enabled(c, '<key>')``, and deliberately NOT a bare
+  literal read of the config key itself (``c.get('ltc_enabled', False)``).
+  That literal is not a safe general pattern: `ltc_enabled` and its siblings
+  (``daf_enabled``, ``qcd_enabled``, ...) are ordinary plan-data fields read
+  in plenty of places -- a recommendation engine on Sheet 1 and Sheet 37
+  reads several of them (``cst_enabled``, ``qtip_enabled``, this one) purely
+  to decide whether to *suggest* a feature not yet adopted, which is the
+  opposite relationship from "shows less while the feature is off" and would
+  make a degrades_without declaration read backwards if forced onto it. A
+  named accessor sweeps only the call sites this workstream actually
+  converted, exactly as ``module_enabled(`` never accidentally matches a
+  same-shaped call to an unrelated function.
 
 Writes are not reads: ``data_io.py``'s ``c['opt'] = {...}`` is the loader that
 *populates* the toggles, and it is filtered out by subscript context rather
@@ -157,6 +174,20 @@ DECLARED_SITES: dict[tuple[str, str, str], tuple[str, str | None, tuple[str, ...
         "budget line only while Existing Life Insurance is on. Reads the CSV by "
         "hand instead of calling the accessor -- see this module's own note.",
     ),
+    # Deferred by W9 ("needs a *new* catalog field mapping gate_ref to its
+    # parsed config key, plus a parallel sweep test for plan-flag reads"),
+    # confirmed by W12, landed here. `plan_flag_enabled(c, 'hybrid_ltc_policy')`
+    # takes the module key as a literal, exactly like `module_enabled(c,
+    # '<key>')`, so the sweep already has the module key and `keys` is empty
+    # -- the same as every other site whose literal already names what it
+    # reads.
+    ("src/reporting/sheets_stress.py", "build_sheet19", "hybrid_ltc_policy"): (
+        SOFT, "life_insurance_need", (),
+        "Section D's Hybrid Life/LTC verdict cell and the closing paragraph "
+        "name this plan's actual configured policy (face/premium/start year) "
+        "only while the flag is on; off, both fall back to generic "
+        "boilerplate pointing at Section C's illustrative comparison instead.",
+    ),
 
     # ── Engine participation: the toggle moves the projection ────────────────
     # W7 replaced this file's single raw c['opt'] read with two literal
@@ -191,6 +222,21 @@ DECLARED_SITES: dict[tuple[str, str, str], tuple[str, str | None, tuple[str, ...
         ENGINE, None, ("business_succession",),
         "Adds the owner's projected business interest to the taxable estate, "
         "changing computed estate tax and not merely sheet 34's existence.",
+    ),
+    ("src/server/plan_routes.py", "_housing_search_config_or_disabled",
+     "housing_location_search"): (
+        OWN_GATE, None, (),
+        "The server half of #330 \u00a73.2's off-semantics for Housing "
+        "\"Where to live\" -- \"`src/housing/` is not invoked\". Shared by "
+        "/api/housing/optimize and /api/housing/zip-screen, the only two "
+        "server-side entries into the location search, so the module's own "
+        "gate is in one place rather than duplicated per route. The FIRST "
+        "gate in a Flask route rather than a builder: hiding the panel does "
+        "not stop a direct POST, and the search runs the deterministic "
+        "engine per candidate, so an ungated endpoint is an off module doing "
+        "its most expensive work. Not ENGINE -- run_scenario deep-copies, so "
+        "the saved plan's own projection is identical either way (see the "
+        "catalog entry's engine_participation note).",
     ),
 }
 
@@ -241,12 +287,19 @@ def _toggle_sites(path: Path) -> list[tuple[str, str, str]]:
             found.append((rel, fn, RAW_OPT))
             continue
 
-        # `module_enabled(c, '<key>')`, and any hand-rolled `*_module_enabled`.
+        # `module_enabled(c, '<key>')`, `plan_flag_enabled(c, '<key>')`, and
+        # any hand-rolled `*_module_enabled`. The two named accessors take
+        # the same `(c, '<literal key>')` shape and are keyed identically --
+        # a plan flag's own switch (module_catalog.plan_flag_enabled) is a
+        # toggle read the same way a CSV toggle's is, just backed by a
+        # different mapping. See plan_flag_enabled's own docstring for why
+        # this call-site pattern exists instead of matching a bare literal
+        # config-key read.
         name = node.func.id if isinstance(node.func, ast.Name) else (
             node.func.attr if isinstance(node.func, ast.Attribute) else "")
-        if not name.endswith("module_enabled"):
+        if name not in ("module_enabled", "plan_flag_enabled") and not name.endswith("module_enabled"):
             continue
-        if name != "module_enabled":
+        if name not in ("module_enabled", "plan_flag_enabled"):
             # A bespoke reader names its own module in its name; the fixture
             # records which key it actually reads.
             found.append((rel, fn, name))

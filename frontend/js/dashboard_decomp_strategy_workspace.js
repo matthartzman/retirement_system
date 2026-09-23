@@ -386,7 +386,10 @@ export function renderStrategyOptimize() {
     {
       key: "housing",
       title: "Next Housing Move",
-      gate: null,
+      // #330 §3.2's "the UI panel is hidden" for Housing "Where to live",
+      // now that the module exists to gate on. Collapsed-with-note, not
+      // Hidden: see 2026-09-23-housing-location-search-catalog-notes.md.
+      gate: "housing_location_search",
       // Not analysisFrame-wrapped, unlike its siblings above: this is a
       // self-contained search tool with its own Run button and results
       // table, not a "set inputs, preview impact against the baseline"
