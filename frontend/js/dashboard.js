@@ -38,7 +38,7 @@ const STEPS = [
     intro:
       "Contribution amounts here add to account balances annually until the retirement date. Business salary level affects payroll tax and business-income deductions.",
     help: "High earned income in late working years compresses Roth conversion room below the bracket ceiling — coordinate with the Roth Conversion tab when the retirement date is near.",
-    helpLink: { id: "roth_conversion", label: "Open Strategy → Optimize (Roth Conversion)" },
+    helpLink: { id: "roth_conversion", label: "Open Taxes → Roth Conversion" },
   },
   {
     id: "income_retirement",
@@ -48,7 +48,7 @@ const STEPS = [
     intro:
       "Enter each person’s Social Security benefit from their statement along with the planned claiming age and the household spousal/survivor policy. Delaying past full retirement age adds about 8% per year up to age 70; the higher earner’s delay has the greatest survivor income impact. Survivor percentages control how much pension or annuity income continues after the first death.",
     help: "Early claiming opens gap years for Roth conversion if other income is low — model the joint timing strategy with the Roth Conversion tab. Pensions and annuities with survivor protection can be treated as fixed-income-equivalent coverage in the allocation analysis — set the coverage option on the Asset allocation & location tab.",
-    helpLink: { id: "roth_conversion", label: "Open Strategy → Optimize (Roth Conversion and Asset Allocation)" },
+    helpLink: { id: "roth_conversion", label: "Open Taxes → Roth Conversion (Asset Allocation is on Strategy → Optimize)" },
   },
   {
     id: "spending_core",
@@ -188,6 +188,32 @@ const STEPS = [
     help: "The federal exemption can change with law updates — confirm the current-law amount in Settings and model the impact of any reduction in Scenarios. Long-term-care hybrid policies with an investment component should also appear on Other assets.",
   },
   {
+    // Ticket 286 embedded this in the Strategy decide box with no nav entry.
+    // #330 P8 / Q6 (W13): it gets one back, in the new Taxes group -- §4.3's
+    // "sharpest finding of the inventory" is that the left nav had no tax
+    // group at all. W9's HELOC move applied to the tax levers; see the notes
+    // doc for why promotion is a group change, not a new page.
+    id: "roth_conversion",
+    group: "Taxes",
+    title: "Roth Conversion",
+    desc: "Conversion policy, ceiling (bracket or fixed dollar), Medicare income surcharge guardrails, and objective weights for tax, legacy, survivor, and estate.",
+    intro:
+      "Choose the policy first — the page shows only controls relevant to that policy. Forced conversion rows run before the optimizer and reduce the space available for voluntary conversions.",
+    help: "Medicare income surcharge guardrails prevent projected income from crossing premium tiers during conversion years. Bracket-fill policies convert up to a marginal rate ceiling determined by the filing status on Household People.",
+  },
+  {
+    // #330 P8 / Q6 (W13): joins Roth Conversion in the Taxes group.
+    // `charitable_giving`'s declared domain is TAXES, and its page also
+    // holds the DAF and QCD plan-flag rows W12 stopped hiding.
+    id: "entity_charitable",
+    group: "Taxes",
+    title: "Charitable Giving",
+    desc: "Charitable giving vehicle — direct gift, donor-advised fund, or qualified charitable distribution.",
+    intro:
+      "Qualified charitable distributions are available at age 70½ and satisfy required distributions tax-free. Annual giving amounts are set on Core spending.",
+    help: "Donor-advised funds are most effective when contributed in a high-income year and granted over time. Qualified charitable distributions also reduce adjusted gross income, which can lower income-related Medicare surcharge tiers — model in combination with Roth Conversion.",
+  },
+  {
     id: "planning_workbench",
     group: null,
     hidden: true,
@@ -273,17 +299,6 @@ const STEPS = [
     hidden: true,
   },
   {
-    id: "roth_conversion",
-    // Ticket 286: embedded in the Strategy decide box; no own nav entry.
-    group: null,
-    title: "Roth Conversion",
-    desc: "Conversion policy, ceiling (bracket or fixed dollar), Medicare income surcharge guardrails, and objective weights for tax, legacy, survivor, and estate.",
-    intro:
-      "Choose the policy first — the page shows only controls relevant to that policy. Forced conversion rows run before the optimizer and reduce the space available for voluntary conversions.",
-    help: "Medicare income surcharge guardrails prevent projected income from crossing premium tiers during conversion years. Bracket-fill policies convert up to a marginal rate ceiling determined by the filing status on Household People.",
-    hidden: true,
-  },
-  {
     id: "allocation_assets",
     // Ticket 286: embedded in the Strategy decide box; no own nav entry.
     group: null,
@@ -312,18 +327,9 @@ const STEPS = [
     intro:
       "Earlier priority means a bucket is drawn sooner. Drawing taxable accounts first can manage required distributions but may realize capital gains; preserving Roth typically maximizes tax-free compounding for legacy.",
     help: "When required distributions exceed annual spending needs, the excess is reinvested in taxable unless converted to Roth — Roth conversion policy is set on the Roth Conversion tab. HSA timing controls are under Other Assets and Liabilities.",
-    helpLink: { id: "roth_conversion", label: "Open Strategy → Optimize (Roth Conversion)" },
+    helpLink: { id: "roth_conversion", label: "Open Taxes → Roth Conversion" },
     hidden: true,
   },
-  {
-    id: "entity_charitable",
-    group: "Strategy",
-    title: "Charitable Giving",
-    desc: "Charitable giving vehicle — direct gift, donor-advised fund, or qualified charitable distribution.",
-    intro:
-      "Qualified charitable distributions are available at age 70½ and satisfy required distributions tax-free. Annual giving amounts are set on Core spending.",
-    help: "Donor-advised funds are most effective when contributed in a high-income year and granted over time. Qualified charitable distributions also reduce adjusted gross income, which can lower income-related Medicare surcharge tiers — model in combination with Roth Conversion.",
-    hidden: true,  },
   {
     id: "monte_carlo_options",
     group: null,

@@ -90,11 +90,12 @@ function go(id, planLoaded = true) {
 }
 
 describe("legacy Strategy step ids land on the right screen and section", () => {
+  // #330 P8 / Q6 (W13): roth_conversion and entity_charitable left this table
+  // when they became real Taxes nav steps (see "destinations that left
+  // Strategy entirely" below) -- the same move W9 made for heloc_strategy.
   const OPTIMIZE = {
-    roth_conversion: "roth_conversion",
     allocation_assets: "asset_allocation",
     allocation_policy: "asset_allocation",
-    entity_charitable: "charitable_giving",
   };
   for (const [legacy, section] of Object.entries(OPTIMIZE)) {
     test(`${legacy} -> Optimize / ${section}`, () => {
@@ -161,13 +162,27 @@ describe("destinations that left Strategy entirely", () => {
     assert.equal(go("timing_tax"), "spending_mortgage_events");
   });
 
-  // #329/#330 W9: heloc_strategy is a direct Assets & Protection step now,
-  // not an embedded strategySection -- setStep resolves it like any other
-  // real id, with no SECTION_REDIRECTS entry and no section forced open.
-  // special_strategies (dead per W6's notes) now points at the same real
-  // page instead of a strategySection key that no longer exists.
-  test("heloc_strategy lands directly on its own Assets & Protection page", () => {
+  // #329/#330 W9: heloc_strategy is a direct nav step now (W13 moved it into
+  // the Housing & Property group), not an embedded strategySection -- setStep
+  // resolves it like any other real id, with no SECTION_REDIRECTS entry and
+  // no section forced open. special_strategies (dead per W6's notes) now
+  // points at the same real page instead of a strategySection key that no
+  // longer exists.
+  test("heloc_strategy lands directly on its own Housing & Property page", () => {
     assert.equal(go("heloc_strategy"), "heloc_strategy");
+    assert.deepEqual(openedSections, []);
+  });
+
+  // #330 P8 / Q6 (W13): the two tax levers followed HELOC out of Optimize,
+  // into the new Taxes nav group. Both keep their own renderMain() dispatch
+  // case, so nothing forces a section open on the way.
+  test("roth_conversion lands directly on its own Taxes page", () => {
+    assert.equal(go("roth_conversion"), "roth_conversion");
+    assert.deepEqual(openedSections, []);
+  });
+
+  test("entity_charitable lands directly on its own Taxes page", () => {
+    assert.equal(go("entity_charitable"), "entity_charitable");
     assert.deepEqual(openedSections, []);
   });
 
@@ -192,7 +207,7 @@ describe("Compare & Decide stays reachable before a plan is open", () => {
   });
 
   test("a genuinely plan-dependent Strategy screen still bounces to start", () => {
-    assert.equal(go("roth_conversion", false), "start");
+    assert.equal(go("strategy_optimize", false), "start");
   });
 });
 
@@ -231,6 +246,16 @@ describe("autosave coverage follows the steps that replaced the old ones", () =>
   test("state_residency's autosave moved with its table to the Housing page", () => {
     assert.ok(nav.AUTOSAVE_STEPS.includes("spending_mortgage_events"));
   });
+
+  // #330 P8 / Q6 (W13): both left strategy_optimize's aggregate autosave
+  // umbrella when they became their own Taxes steps, exactly as
+  // heloc_strategy did in W9 -- they are input pages and must keep
+  // autosaving on navigate.
+  test("the two promoted Taxes steps autosave on their own", () => {
+    for (const id of ["roth_conversion", "entity_charitable"]) {
+      assert.ok(nav.AUTOSAVE_STEPS.includes(id), `${id} must autosave`);
+    }
+  });
 });
 
 describe("pendingSectionDkey does not leak across an aborted redirect (final review finding)", () => {
@@ -243,15 +268,17 @@ describe("pendingSectionDkey does not leak across an aborted redirect (final rev
   // have that data-dkey in the DOM -- a surprise side effect disconnected
   // from the user's actual action.
   test("a SECTION_REDIRECTS id clicked before a plan is loaded does not leave a stale pending reveal", () => {
-    // roth_conversion resolves through SECTION_REDIRECTS to strategy_optimize,
-    // which is NOT in PLAN_INDEPENDENT_STEPS -- the early-return path fires.
-    go("roth_conversion", false);
+    // allocation_assets resolves through SECTION_REDIRECTS to
+    // strategy_optimize, which is NOT in PLAN_INDEPENDENT_STEPS -- the
+    // early-return path fires. (This drove roth_conversion until W13 promoted
+    // it to a real step with no SECTION_REDIRECTS entry of its own.)
+    go("allocation_assets", false);
     assert.equal(landedOn[landedOn.length - 1], "start");
 
     // Now load a plan and navigate somewhere else entirely. If the bug is
-    // present, revealPendingSection() still holds "strategy:roth_conversion"
+    // present, revealPendingSection() still holds "strategy:asset_allocation"
     // from the aborted navigation above and will act on it here even though
-    // this navigation has nothing to do with Roth Conversion.
+    // this navigation has nothing to do with Asset Allocation.
     let queried = null;
     sandbox.document.querySelector = (sel) => {
       queried = sel;

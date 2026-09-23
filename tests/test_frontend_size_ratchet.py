@@ -371,7 +371,16 @@ DASHBOARD_JS_MAX_LINES = 7_201
 # dead end, which is exactly what tests/e2e/nav-integrity.spec.js checks
 # for). Genuine new behavior plus a relocation, not duplication, per this
 # constant's own contract.
-TOTAL_JS_MAX_LINES = 35_513
+# 2026-09-22 (W13, second commit -- the Taxes nav group): raised from 35,513
+# to 35,529. roth_conversion and entity_charitable stop being hidden shells
+# redirected into Optimize and become real Taxes steps, which is W9's HELOC
+# move applied to the tax levers: both already owned a renderMain() dispatch
+# case and a pageHelp entry, so the code change is a group/hidden flip, two
+# SECTION_REDIRECTS entries deleted, two AUTOSAVE_STEPS entries added, two
+# strategySection descriptors removed, and the rationale recorded where it
+# applies. dashboard.js FALLS again (7,201 -> 7,198). Not duplication: no
+# renderer is copied, and Optimize loses exactly what Taxes gains.
+TOTAL_JS_MAX_LINES = 35_529
 
 
 def _line_count(path: Path) -> int:

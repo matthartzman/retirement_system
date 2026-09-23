@@ -63,11 +63,15 @@ def test_navigation_no_longer_redirects_roth_or_allocation_off_their_steps():
     # #323: distribution_strategy is retired as a destination, so nothing may
     # redirect TO it any more. What this test has always protected is that
     # roth_conversion and allocation_assets keep their own identity rather than
-    # being folded into a parent page -- they now resolve to their own named
-    # sections of Strategy -> Optimize, asserted behaviorally in
+    # being folded into a parent page. allocation_assets resolves to its own
+    # named section of Strategy -> Optimize; #330 P8 / Q6 (W13) gave
+    # roth_conversion a stronger identity still -- a real nav step in the
+    # Taxes group, so it must NOT be redirected anywhere at all (a redirect
+    # would fold it back into Optimize, which no longer renders it). Both
+    # asserted behaviorally in
     # tests/frontend/strategy_section_redirects.test.mjs.
     assert "'distribution_strategy'" not in navigation
-    assert "roth_conversion:{step:'strategy_optimize',section:'roth_conversion'}" in navigation
+    assert "roth_conversion:{step:" not in navigation
     assert "allocation_assets:{step:'strategy_optimize',section:'asset_allocation'}" in navigation
     # allocation_policy still has no section of its own; it rides along with
     # asset_allocation, which is where its fields render.

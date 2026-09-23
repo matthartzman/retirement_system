@@ -29,10 +29,13 @@ WORKSPACE_JS = (ROOT / "frontend" / "js" / "dashboard_decomp_strategy_workspace.
 # id its `gate` argument names -- None where the section is never gated. Must
 # match dashboard_decomp_strategy_workspace.js's renderStrategyOptimize/
 # renderStrategyStress/renderStrategyScenarios.
+# #330 P8 / Q6 (W13): "roth_conversion" and "charitable_giving" are gone from
+# this table because they are gone from the screens -- both became real Taxes
+# nav steps, the way "heloc" did in W9. The step_gate_map() assertions below
+# deliberately keep naming them: the gate declaration itself is unchanged, it
+# is now read by visibleSteps() rather than by a strategySection() call.
 SECTION_GATES = {
-    "roth_conversion": "roth_conversion",
     "asset_allocation": None,
-    "charitable_giving": "entity_charitable",
     "heloc": "heloc_strategy",
     "monte_carlo": "monte_carlo_options",
     "survivor": "survivor_stress",
