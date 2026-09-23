@@ -33,3 +33,4 @@ Optional Functions,,scorp_vs_llc,TRUE,boolean,S-Corp vs LLC entity-structure com
 Optional Functions,,current_vs_proposed,TRUE,boolean,Sheet 37 - Current vs Proposed recommendation deltas
 Optional Functions,,hsa_drawdown,TRUE,boolean,Sheet 11C - HSA Drawdown (drawdown order for HSA dollars; content also needs hsa_withdrawal_mode = optimize)
 Optional Functions,,spending_tracker_ytd,TRUE,boolean,"Spending Tracker / YTD — tracks this year's real transactions and blends them into the current-year projection. One switch: also turns off Sheet 29 Spending Summary and Sheet 25 Account Reconciliation, which are its output."
+Optional Functions,,housing_location_search,TRUE,boolean,"Housing Location Search (""Where to live"") — the Strategy → Optimize panel that screens ZIP codes and ranks places to move. Off hides the panel and stops /api/housing/optimize and /api/housing/zip-screen from running; your saved housing plan rows are untouched."
