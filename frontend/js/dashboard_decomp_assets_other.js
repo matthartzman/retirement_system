@@ -311,6 +311,63 @@ export function renderHsaPolicyOnOtherAssets(rs) {
   return `<details><summary>HSA</summary><div class="field-list">${body}</div></details>`;
 }
 
+// #330 §5.2 (W12) / P8 · Q6 (W13): one module-gated row group on an
+// otherwise-ungated page. `on` decides whether the gated note renders; the
+// rows themselves render either way, which is the no-hidden-data invariant.
+// `before`/`after` carry the group's own copy and controls.
+export function moduleGatedAssetGroup(rsAll, g, key, on, before, after) {
+  const grAll = rsAll.filter((r) => friendlyGroup(r) === g);
+  const note = on ? "" : featureGatedNote(key, { title: g, rows: grAll });
+  if (!grAll.length && !note) return "";
+  return `<details><summary>${esc(g)}</summary><div class="field-list">${note}${before || ""}${grAll.map(fieldHtml).join("")}${after || ""}</div></details>`;
+}
+
+// The two Family & Business groups (#330 §4.2's domain 8) that live in this
+// page's rows. `only` renders one of them, for renderAssetsSpecial()'s own
+// group loop; omitted, both, for the Family & Business nav step.
+export function familyBusinessGroupsHtml(rsAll, only) {
+  const parts = [];
+  if (!only || only === "529 Plans")
+    parts.push(
+      moduleGatedAssetGroup(
+        rsAll,
+        "529 Plans",
+        "education_funding_529",
+        optionalFunctionEnabled(rowModuleGate("Education Funding").key),
+        `<div class="section-note"><b>Purpose:</b> 529 plans are education savings accounts. Enter one section per beneficiary or goal, then add another 529 when a different beneficiary or goal should be tracked separately.</div>`,
+        `<div class="table-actions"><button class="btn" type="button" data-requires-app="1" onclick="addEducation529Section()">Add 529 section</button></div>`,
+      ),
+    );
+  if (!only || only === "Equity Compensation")
+    parts.push(
+      moduleGatedAssetGroup(
+        rsAll,
+        "Equity Compensation",
+        "equity_compensation",
+        optionalFunctionEnabled(rowModuleGate("Equity Compensation").key),
+      ),
+    );
+  return parts.join("");
+}
+
+// #330 P8 / Q6 (W13): the Family & Business nav group's page. These rows keep
+// their existing home on Other Assets and Liabilities -- nothing moved, and
+// sourceStepForRow() still attributes them there, so Build Impact, the Field
+// Finder and the closeout checklist are untouched. This is a second way IN,
+// the same shape as W9's socialSecurityOptimizePanelHtml() (Social Security
+// has no page of its own either; Optimize filters income_retirement's rows
+// and links out for the rest). It exists because Plan Features groups
+// Education Funding and Equity Compensation under "Family & Business" and
+// the left nav had nowhere by that name to send the reader afterwards.
+export function renderFamilyBusiness() {
+  if (searchText.trim()) return renderFields("family_business");
+  const html = familyBusinessGroupsHtml(
+    rowsForStep("assets_special", { includeInactive: true }),
+  );
+  const note = `<div class="field-list"><div class="section-note">These are the Family &amp; Business features that carry plan inputs. They are also editable in place on <button class="btn linklike" type="button" data-step-id="assets_special">Other Assets and Liabilities</button>, beside the rest of the non-portfolio assets. Business entity choice (S-Corp vs LLC) is entered on <button class="btn linklike" type="button" data-step-id="income_work">Work Income</button>.</div></div>`;
+  return note + (html || '<div class="field-list"><p>No fields in this step.</p></div>');
+}
+
 export function renderAssetsSpecial() {
   if (searchText.trim()) return renderFields("assets_special");
   const rs = rowsForStep("assets_special");
@@ -354,24 +411,15 @@ export function renderAssetsSpecial() {
     // the rows rowsForStep()'s default active filter drops for exactly that
     // reason, and featureGatedNote() replaces the blackout with a note (plus
     // an inline switch) that still leaves the rows themselves visible below.
-    if (g === "529 Plans") {
-      const grAll = rsAll.filter((r) => friendlyGroup(r) === g);
-      const on = optionalFunctionEnabled(rowModuleGate("Education Funding").key);
-      const note = on ? "" : featureGatedNote("education_funding_529", { title: g, rows: grAll });
-      if (!grAll.length && !note) return;
-      html += `<details><summary>529 Plans</summary><div class="field-list">${note}<div class="section-note"><b>Purpose:</b> 529 plans are education savings accounts. Enter one section per beneficiary or goal, then add another 529 when a different beneficiary or goal should be tracked separately.</div>${grAll.map(fieldHtml).join("")}<div class="table-actions"><button class="btn" type="button" data-requires-app="1" onclick="addEducation529Section()">Add 529 section</button></div></div></details>`;
+    // #330 P8 / Q6 (W13): the 529 Plans and Equity Compensation halves of
+    // that fix moved into moduleGatedAssetGroup() so the Family & Business
+    // nav step renders the same two blocks from the same code.
+    if (g === "529 Plans" || g === "Equity Compensation") {
+      html += familyBusinessGroupsHtml(rsAll, g);
       return;
     }
-    if (g === "LTC/Life Policy" || g === "Equity Compensation") {
-      const grAll = rsAll.filter((r) => friendlyGroup(r) === g);
-      const on =
-        g === "LTC/Life Policy"
-          ? ltcLifePolicyModuleEnabled()
-          : optionalFunctionEnabled(rowModuleGate("Equity Compensation").key);
-      const key = g === "LTC/Life Policy" ? "hybrid_ltc_policy" : "equity_compensation";
-      const note = on ? "" : featureGatedNote(key, { title: g, rows: grAll });
-      if (!grAll.length && !note) return;
-      html += `<details><summary>${esc(g)}</summary><div class="field-list">${note}${grAll.map(fieldHtml).join("")}</div></details>`;
+    if (g === "LTC/Life Policy") {
+      html += moduleGatedAssetGroup(rsAll, g, "hybrid_ltc_policy", ltcLifePolicyModuleEnabled());
       return;
     }
     if (gr.length)
@@ -597,6 +645,9 @@ Object.assign(window, {
   deleteNoteReceivable,
   hsaOptimizeVisibleRows,
   renderHsaPolicyOnOtherAssets,
+  moduleGatedAssetGroup,
+  familyBusinessGroupsHtml,
+  renderFamilyBusiness,
   renderAssetsSpecial,
   addEducation529Section,
   renderHELOCInputsOnOtherPage,

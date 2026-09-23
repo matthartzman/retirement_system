@@ -17,7 +17,7 @@
   // (holdings/assets_home_cash/annuity_death_benefits/assets_special/estate).
   // #330 P8 / Q6 (W13): roth_conversion and entity_charitable added for the
   // same reason, leaving the same umbrella to become the Taxes nav group.
-  const AUTOSAVE_STEPS=['household_people','income_work','income_retirement','lifestyle_spending','spending_core','spending_setup','retirement_wellness','spending_mortgage_events','ytd_transactions','holdings','assets_home_cash','annuity_death_benefits','assets_special','estate','heloc_strategy','roth_conversion','entity_charitable','strategy_optimize','economic_tax_assumptions','optional_functions','all_assumptions'];
+  const AUTOSAVE_STEPS=['household_people','income_work','income_retirement','lifestyle_spending','spending_core','spending_setup','retirement_wellness','spending_mortgage_events','ytd_transactions','holdings','assets_home_cash','annuity_death_benefits','assets_special','estate','heloc_strategy','roth_conversion','entity_charitable','family_business','strategy_optimize','economic_tax_assumptions','optional_functions','all_assumptions'];
   // #323 + Workbench: planning_workbench/planning_levers now redirect to
   // strategy_workbench, and the plan-loaded check below runs on the
   // POST-redirect id -- so the screen that now holds them is what has to be

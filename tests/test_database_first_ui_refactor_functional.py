@@ -17,11 +17,12 @@ def test_dashboard_top_level_groups():
     # Ticket 323: the "Stress Tests" group label is gone -- its four members are
     # now collapsible sections on the Strategy group's "Stress Test" screen, and
     # the group had no visible members of its own anyway (all four were hidden).
-    # #330 P8 / Q6 (W13): "Housing & Property" and "Taxes" added -- each is a
-    # catalog domain of its own, and Plan Features already groups its switches
-    # under that name, so leaving the pages filed elsewhere was the mismatch
-    # this workstream exists to close.
-    assert groups == ["Plan Status", "People and Income", "Spending", "Housing & Property", "Assets & Protection", "Taxes", "Strategy", "Reports & Review", "Reports", "Settings"]
+    # #330 P8 / Q6 (W13): "Housing & Property", "Taxes" and "Family &
+    # Business" added -- each is a catalog domain of its own, and Plan
+    # Features already groups its switches under that name, so leaving the
+    # pages filed elsewhere (or nowhere) was the mismatch this workstream
+    # exists to close.
+    assert groups == ["Plan Status", "People and Income", "Spending", "Housing & Property", "Assets & Protection", "Taxes", "Family & Business", "Strategy", "Reports & Review", "Reports", "Settings"]
     assert "Advanced Options" not in re.search(r"function renderSteps\(\).*?box\.innerHTML", js, re.S).group(0)
 
 

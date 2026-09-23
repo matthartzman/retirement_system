@@ -380,7 +380,21 @@ DASHBOARD_JS_MAX_LINES = 7_201
 # strategySection descriptors removed, and the rationale recorded where it
 # applies. dashboard.js FALLS again (7,201 -> 7,198). Not duplication: no
 # renderer is copied, and Optimize loses exactly what Taxes gains.
-TOTAL_JS_MAX_LINES = 35_529
+# 2026-09-22 (W13, third commit -- the Family & Business nav group): raised
+# from 35,529 to 35,621. Its two features (Education Funding 529, Equity
+# Compensation) own no page -- their inputs are row GROUPS on Other Assets
+# and Liabilities -- so the new step is a second way IN to rows that keep
+# their existing home, the same shape as W9's socialSecurityOptimizePanelHtml
+# (Social Security has no page of its own either). Deliberately NOT a copy:
+# W12's own 529/Equity gated-group rendering was extracted into
+# moduleGatedAssetGroup()/familyBusinessGroupsHtml() in dashboard_decomp_
+# assets_other.js and renderAssetsSpecial() now calls the same functions, so
+# the invariant fix has one implementation, not two. dashboard.js FALLS again
+# (7,198 -> 7,195) despite gaining a STEPS entry, a pageHelp entry and a
+# dispatch case: SPENDING_COMPLETION/spendingFlowFooterHtml moved to
+# dashboard_decomp_row_model.js beside SUGGESTED_NEXT, which renderMain()
+# picks between on one line.
+TOTAL_JS_MAX_LINES = 35_621
 
 
 def _line_count(path: Path) -> int:
