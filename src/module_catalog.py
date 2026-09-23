@@ -254,6 +254,31 @@ class OutputModule:
     gate_kind: str = GATE_MODULE_TOGGLE
     gate_ref: Optional[Tuple[str, str, str]] = None
     gate_enable_label: Optional[str] = None
+    # ── #330 §3.4 follow-up (deferred by W9, confirmed by W12; landed here) ──
+    #
+    # ``gate_config_key`` names the literal key a plan flag's enable row is
+    # parsed into on ``c`` at runtime -- which is NOT derivable from
+    # ``gate_ref``. ``gate_ref``'s third element is the CSV cell's label
+    # (``"enabled"`` for Hybrid LTC), and data_io.py's own parsing is not a
+    # mechanical function of that label: Hybrid LTC's ``enabled`` cell loads
+    # into ``c['ltc_enabled']``, not ``c['hybrid_ltc_policy_enabled']`` or
+    # ``c['enabled']``. Without this field, a direct read of that key (e.g.
+    # ``c.get('ltc_enabled', False)``) has no way to be tied back to the
+    # module it gates, so the call-site enforcement sweep
+    # (tests/test_module_toggle_call_site_enforcement.py) could not recognize
+    # it as a plan-flag read at all -- only ``module_enabled(`` and raw
+    # ``c['opt']`` reads were spellings it knew.
+    #
+    # Populated only where something actually consumes it -- today just
+    # ``hybrid_ltc_policy`` -- rather than backfilled onto every plan flag on
+    # spec: HELOC's and QCD's CSV labels already equal their runtime keys
+    # (``heloc_enabled``, ``qcd_enabled``), so nothing needs this to find
+    # them, and inventing the mapping for a flag nothing reads outside its
+    # own gate would be exactly the aspirational-declaration risk
+    # ``test_every_soft_declaration_is_backed_by_a_swept_call_site`` exists
+    # to catch (W5's Judgment call 2 records the one time that nearly
+    # happened here).
+    gate_config_key: Optional[str] = None
     # ── #330 §3.3 (W8b): one switch, several modules ───────────────────────
     #
     # ``gated_by`` names the module whose toggle decides this one. Everything
@@ -687,6 +712,21 @@ _OUTPUTS: List[OutputModule] = [
         optional=True, sheet="19. Life Insurance", tab="4D. Life Insurance Need",
         requires_inputs=(_in("insurance_estate", "policies"), _in("income")),
         requires_outputs=("survivor_stress_test",),
+        # Sheet 19's Section D (Hybrid Life/LTC vs Term vs GUL comparison)
+        # names this plan's actual policy -- "$500K face, start 2027,
+        # ~$18,500/yr" -- in the verdict cell and the closing paragraph only
+        # while Hybrid LTC is on; off, both fall back to generic boilerplate
+        # ("Not currently configured -- see Section C..."). Section C's
+        # coverage-option table itself is unaffected either way -- it is an
+        # illustrative comparison, not this household's data.
+        #
+        # NOT declared on `long_term_care_stress` (Sheet 17, "LTC Stress
+        # Test"): that sheet's own Hybrid LTC recommendation line is static
+        # text, unconditional on the plan flag, verified by reading
+        # build_sheet17 directly rather than assumed from the sheet's name.
+        degrades_without=(_soft("hybrid_ltc_policy",
+                              "the configured Hybrid LTC policy's own figures in the "
+                              "coverage-comparison verdict and closing summary"),),
     ),
     OutputModule(
         "existing_life_insurance", "Existing Life Insurance", PROTECTION, LOW,
@@ -908,6 +948,10 @@ _OUTPUTS: List[OutputModule] = [
         gate_kind=GATE_PLAN_FLAG,
         gate_ref=("Hybrid LTC", "Settings", "enabled"),
         gate_enable_label="Enabled",
+        # data_io.py parses this cell into c['ltc_enabled'], not a mechanical
+        # function of gate_ref[2] ("enabled") -- see gate_config_key's own
+        # comment on OutputModule.
+        gate_config_key="ltc_enabled",
     ),
     OutputModule(
         # DAF and QCD are one feature seen from two sides -- bunch giving for
@@ -1041,6 +1085,32 @@ def core_keys() -> List[str]:
 def plan_flag_keys() -> List[str]:
     """Keys of modules switched by a plan-data flag rather than a toggle."""
     return [m.key for m in _OUTPUTS if m.gate_kind == GATE_PLAN_FLAG]
+
+
+def plan_flag_enabled(c, key: str) -> bool:
+    """True when the plan flag ``key`` is on, read from its own config key.
+
+    The plan-flag analogue of :func:`module_enabled` -- a dedicated accessor
+    with the same ``(c, '<literal key>')`` shape, so a call site reads a plan
+    flag the same recognizable way a call site reads a CSV toggle. It exists
+    because a plan flag's state is not stored in ``c['opt']`` at all (that
+    mapping is client_optional_functions.csv toggles only); it is parsed
+    straight off the plan CSV into its own key by data_io.py, named here by
+    :attr:`OutputModule.gate_config_key` rather than re-derived from
+    ``gate_ref`` (which names the CSV cell, not the runtime key it loads
+    into -- see that field's own comment).
+
+    Routing a call site through this accessor, instead of the raw
+    ``c.get('<config key>', False)`` it replaces, is what lets
+    tests/test_module_toggle_call_site_enforcement.py's sweep recognize the
+    site as a plan-flag read at all: unlike ``module_enabled(`` and
+    ``c['opt']``, a raw literal config-key read is syntactically
+    indistinguishable from any other typed input field, so the sweep matches
+    calls to this accessor by name instead of guessing at literals.
+    """
+    key_name = CATALOG[key].gate_config_key
+    assert key_name, f"{key}: plan_flag_enabled() needs a declared gate_config_key"
+    return bool(c.get(key_name, False))
 
 
 def prerequisite_outputs(key: str, transitive: bool = True) -> List[str]:
@@ -1654,8 +1724,11 @@ def validate() -> None:
                 f"soft dependency. requires_outputs auto-enables it, so it can "
                 f"never be off -- pick one.")
             # A core module has no toggle, so it is never off and nothing can
-            # degrade without it.
-            assert CATALOG[dep].optional, (
+            # degrade without it. A plan flag (GATE_PLAN_FLAG) also has a
+            # real switch -- a plan-data row, not a client_optional_functions
+            # .csv toggle -- so it is an equally valid target even though
+            # `optional` is (and must be, per the guard below) False for it.
+            assert CATALOG[dep].optional or CATALOG[dep].gate_kind == GATE_PLAN_FLAG, (
                 f"{key}: degrades_without {dep!r}, which is a core always-on "
                 f"module -- there is no switch for the warning to attach to.")
         # (4d) #330 §5.3 (W6). A gate declaration must be complete and must
@@ -1687,6 +1760,14 @@ def validate() -> None:
             assert m.gate_ref is None and m.gate_enable_label is None, (
                 f"{key}: gate_ref/gate_enable_label are plan-flag fields, but "
                 f"gate_kind is {m.gate_kind!r}; the module key is the toggle.")
+        # `gate_config_key` is meaningful only alongside gate_ref/
+        # gate_enable_label -- it names the same plan flag's runtime key, so
+        # it inherits their gate_kind requirement rather than getting a
+        # third copy of it.
+        if m.gate_config_key is not None:
+            assert m.gate_kind == GATE_PLAN_FLAG, (
+                f"{key}: gate_config_key is a plan-flag field, but gate_kind "
+                f"is {m.gate_kind!r}.")
         # (4e) #330 §3.3 (W8b). A bundle must be well-formed before anything
         # resolves through it: `_base_enabled` follows `gated_by` exactly one
         # hop and treats the answer as final, so a dangling, self-referential
