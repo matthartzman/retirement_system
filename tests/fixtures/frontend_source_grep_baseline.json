@@ -34,6 +34,7 @@
   "test_frontend_module_extraction_functional.py",
   "test_governance_hardening.py",
   "test_helper_value_definitions_not_boilerplate_functional.py",
+  "test_housing_location_search_catalog_regression.py",
   "test_housing_optimizer_panel_functional.py",
   "test_housing_screen_parity_unit.py",
   "test_large_discretionary_clean_ui_functional.py",

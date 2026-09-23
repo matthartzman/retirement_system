@@ -22,6 +22,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from src import module_catalog as mc  # noqa: E402
+from tests._decomp_dashboard import dashboard_js_text  # noqa: E402
 
 KEY = "housing_location_search"
 
@@ -148,7 +149,7 @@ def test_the_gate_is_a_section_and_not_a_nav_step():
     real STEPS entry; this one is a Strategy-screen section only, and naming no
     STEPS entry is what keeps it inert in `visibleSteps()` -- which filters the
     STEPS array, so an id not in it hides nothing."""
-    dashboard_js = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+    dashboard_js = dashboard_js_text()
     assert f'id: "{KEY}"' not in dashboard_js
     # And it owns no input CSV section either -- there is no plan data behind
     # the panel to hide. This is the no-hidden-data invariant, satisfied by
