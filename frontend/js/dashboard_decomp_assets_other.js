@@ -327,26 +327,36 @@ export function moduleGatedAssetGroup(rsAll, g, key, on, before, after) {
 // group loop; omitted, both, for the Family & Business nav step.
 export function familyBusinessGroupsHtml(rsAll, only) {
   const parts = [];
-  if (!only || only === "529 Plans")
+  if (!only || only === "529 Plans") {
+    // Defensive: rowModuleGate() returns null if the server payload's
+    // section_gates ever omits this section (stale/incomplete payload --
+    // every csv_sections-declared module's section is always present in
+    // production, per config_service.py's _module_gates()). Missing gate is
+    // treated the same as dashboard.js's own rowGateStatus() treats it: not
+    // gated off, so the rows render normally rather than throwing.
+    const eduGate = rowModuleGate("Education Funding");
     parts.push(
       moduleGatedAssetGroup(
         rsAll,
         "529 Plans",
         "education_funding_529",
-        optionalFunctionEnabled(rowModuleGate("Education Funding").key),
+        eduGate ? optionalFunctionEnabled(eduGate.key) : true,
         `<div class="section-note"><b>Purpose:</b> 529 plans are education savings accounts. Enter one section per beneficiary or goal, then add another 529 when a different beneficiary or goal should be tracked separately.</div>`,
         `<div class="table-actions"><button class="btn" type="button" data-requires-app="1" onclick="addEducation529Section()">Add 529 section</button></div>`,
       ),
     );
-  if (!only || only === "Equity Compensation")
+  }
+  if (!only || only === "Equity Compensation") {
+    const equityGate = rowModuleGate("Equity Compensation");
     parts.push(
       moduleGatedAssetGroup(
         rsAll,
         "Equity Compensation",
         "equity_compensation",
-        optionalFunctionEnabled(rowModuleGate("Equity Compensation").key),
+        equityGate ? optionalFunctionEnabled(equityGate.key) : true,
       ),
     );
+  }
   return parts.join("");
 }
 

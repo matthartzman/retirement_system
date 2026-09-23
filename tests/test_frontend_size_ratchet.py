@@ -394,7 +394,13 @@ DASHBOARD_JS_MAX_LINES = 7_201
 # dispatch case: SPENDING_COMPLETION/spendingFlowFooterHtml moved to
 # dashboard_decomp_row_model.js beside SUGGESTED_NEXT, which renderMain()
 # picks between on one line.
-TOTAL_JS_MAX_LINES = 35_621
+# 2026-09-23 (out-of-scope hardening picked up from W12's own notes): raised
+# from 35,621 to 35,631. familyBusinessGroupsHtml()'s two rowModuleGate()
+# reads (dashboard_decomp_assets_other.js) threw on a missing section_gates
+# entry; guarded each with the null check dashboard.js's own rowGateStatus()
+# already uses for the same call, matching an existing convention rather than
+# inventing one. Pure hardening, no calculation change.
+TOTAL_JS_MAX_LINES = 35_631
 
 
 def _line_count(path: Path) -> int:
