@@ -41,9 +41,11 @@ def test_sheet37_registered_in_the_workbook_layout():
 
     assert "37. Current vs Proposed" in SHEET_REGISTRY
     spec = SHEET_REGISTRY["37. Current vs Proposed"]
-    # Always-on: no module_key, matching other flagship report sheets
-    # (Executive Summary, Balance Sheet, Spending Summary).
-    assert spec.module_key is None
+    # W8a (#330 P6a): current_vs_proposed became a toggleable module -- no
+    # other module declares requires_outputs on it, so gating it carries no
+    # cascading risk. module_key now names the client_optional_functions.csv
+    # toggle that gates Sheet 37's build.
+    assert spec.module_key == "current_vs_proposed"
 
 
 def test_report_only_recommendations_are_never_run_through_the_engine():

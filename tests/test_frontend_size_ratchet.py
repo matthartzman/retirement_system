@@ -161,7 +161,22 @@ JS_DIR = ROOT / "frontend" / "js"
 # deletion in the ticket landed, including the ones in sibling
 # dashboard_decomp_*.js files that don't move this number but do free the
 # module-bridge lines that made room for it.
-DASHBOARD_JS_MAX_LINES = 7_293
+# 2026-09-21 (W4, #330 P3): lowered from 7,293 to 7,246 -- renderOptionalFunctions()
+# extracted to frontend/js/dashboard_decomp_plan_features.js. Real extraction,
+# so the ceiling moves DOWN in the same commit, exactly as this file's
+# docstring requires. W4 then grows that page (domain grouping, kind filter
+# chips, demand hints, the off-but-holds-data indicator, the env-override
+# disclosure) inside its own module, where it does not press on this ceiling.
+# 2026-09-22 (W9, #329 P4 + #330): lowered from 7,246 to 7,201 --
+# hsaWithdrawalPolicyBlock/taxLossHarvestingBlock/gainHarvestBlock/
+# withdrawalMiscBlock extracted to dashboard_decomp_strategy_workspace.js so
+# Optimize's new sections could reuse them without duplicating the filters.
+# dashboard.js also grew (a new activeStep dispatch case for heloc_strategy,
+# a moved/expanded STEPS entry, a generalized flag-gate check), but the
+# extraction outweighed the growth -- measured to the new total with no
+# slack, exactly as this ceiling's own contract requires on a real
+# extraction.
+DASHBOARD_JS_MAX_LINES = 7_201
 
 # Total frontend JS is allowed to grow -- extraction moves lines out of
 # dashboard.js into new modules, which should not be penalised. This ceiling
@@ -233,31 +248,200 @@ DASHBOARD_JS_MAX_LINES = 7_293
 # 2026-09-17 (housing-screen-fixes): the Housing screen's inconsistency/gap-
 # year/ZIP-input fixes plus an inline HELOC-enabled toggle on Optimize are
 # real new logic, not duplication -- raised to the measured total.
+# 2026-09-21 (8291678, Build History schema versioning + one-click cache
+# reset): 48 new lines across admin.js, dashboard.js and
+# dashboard_decomp_row_model.js for the Clear-cache button and its
+# reporting of which cache folders were cleared vs. still locked by the
+# running window -- real new behavior, not duplication -- raised to the
+# measured total. The ceiling should have moved with that commit and did
+# not; caught only because a later, unrelated PR's CI ran against main.
+# 2026-09-21 (W5, #330 §3.4 dependency declarations): raised from 33,311 to
+# 33,351 -- the reverse-direction off-impact warning on an optional module's
+# switch ("Turning Monte Carlo off also removes the success-probability
+# headline from Executive Summary and the fan chart from Charts"). 35 lines in
+# dashboard_decomp_row_model.js (the taxonomy payload's module-private state
+# plus moduleOffImpactWarning(), which builds the sentence) and 5 in
+# dashboard.js's renderOptionalFunctions(). New behavior, not duplication:
+# nothing rendered this before, and the helper was put in row_model
+# specifically to keep DASHBOARD_JS_MAX_LINES intact -- dashboard.js had 6
+# lines of headroom and now has 1. Raised to the measured total with no slack,
+# per this ceiling's own contract.
+# 2026-09-21 (W4, #330 P3): raised from 33,351 to 33,604 -- the Plan Features
+# page (frontend/js/dashboard_decomp_plan_features.js). renderOptionalFunctions()
+# moved out of dashboard.js (a wash: DASHBOARD_JS_MAX_LINES drops by the same
+# 45 lines, above), and the rest is the page #330 P3 asks for and that did not
+# exist before: domain grouping with collapsible groups, kind filter chips
+# derived from CATALOG.kind, plain-language demand hints, the "off but still
+# holds N entries" indicator (§5.4), and Q7's read-only env-override
+# disclosure. New behavior, not duplication, so the ceiling rises to the
+# measured total with no slack, per this constant's own contract.
+# 2026-09-22 (W9, #329 P4 + #330): raised from 33,604 to 33,732 -- Optimize
+# gained four new sections (HSA Drawdown, Withdrawal Sequencing, Social
+# Security, Harvesting) per #329 §3.3's UI list, HELOC moved to its own
+# Assets & Protection nav step (a new STEPS entry, a new activeStep dispatch
+# case, and the rowsForStep() HELOC gate generalized to read moduleGates.
+# flag_gates like strategySectionGatedNote() already does), and
+# navigation.js/AUTOSAVE_STEPS/SECTION_REDIRECTS picked up HELOC's new
+# destination. hsaWithdrawalPolicyBlock/taxLossHarvestingBlock/
+# gainHarvestBlock/withdrawalMiscBlock moved out of dashboard.js in the same
+# commit (DASHBOARD_JS_MAX_LINES stays flat, below) -- this rise is genuine
+# new behavior (new panels, new nav step, a generalized gate check), not
+# duplication, per this constant's own contract.
+# 2026-09-22 (W9, #329 P4 + #330 §5.3): raised from 33,732 to 33,816 --
+# dashboard_decomp_plan_features.js gained the plan-flag link rows W6's notes
+# assigned to W9 (HELOC/Hybrid LTC/DAF/QCD now findable on Plan Features, as
+# a link rather than a toggle -- §5.1's "three surfaces, one registry").
+# Genuine new behavior, not duplication, per this constant's own contract.
+# 2026-09-22 (W10a, #329 P5 / §4.5 path 1): raised from 33,816 to 33,992 --
+# dashboard_decomp_allocation_optimizer.js gained the Roth optimizer's result
+# panel, which is what §1.3's "Input form... no result shown" describes as the
+# deepest asymmetry in the system: the candidate table existed only on workbook
+# 11. Roth Conversion. Genuine new behavior (a renderer, its three empty-state
+# answers, and the /api/summary read that makes it survive a page reload), not
+# duplication, per this constant's own contract. dashboard.js is untouched.
+# (33,992 -> 33,997 in the same workstream: loadAll() clears the panel's
+# cached /api/summary read on a plan switch, beside the resetAllocationPreview()
+# call that is there for the same reason one plan over.)
+# 2026-09-22 (W10b, #329 §4.7): raised from 33,997 to 34,188 -- the row
+# badge + section banner disclosing that a section's numbers are live
+# optimizer output, built on dashboard_source_truth_banners.js's existing
+# SOURCE_TRUTH_STEPS/badge machinery per the plan's own instruction, not a
+# parallel indicator system. dashboard.js is untouched (still 7,201): every
+# new line lives in dashboard_source_truth_banners.js (the disclosure
+# itself), plus two small named-export extractions this reuses rather than
+# duplicating (rothPolicyIsOptimizer in dashboard_decomp_allocation_
+# optimizer.js, hsaWithdrawalModeValue in dashboard_decomp_strategy_
+# workspace.js) so the "is this optimizing" classification has one
+# definition, not a second copy in the banner file. Genuine new behavior,
+# not duplication, per this constant's own contract.
+# 2026-09-22 (W10c, #329 P6 / §4.2-§4.6): raised from 34,188 to 34,657 --
+# apply-to-plan's core machinery in its own new file, frontend/js/
+# optimizer_apply.js (457 lines), plus the "optimizer" source-enum value and
+# its guard in planning_workbench_ui.js. It is a new file rather than lines
+# added to an existing one precisely because of this ceiling's contract, and
+# it is genuinely new behavior, not duplication: the apply path deliberately
+# REUSES promotePlanningCase()'s confirmation/editValue staging and the
+# Planning Case record type rather than reimplementing either, which is why
+# the file is as small as it is. dashboard.js is untouched (still 7,201).
+# 2026-09-22 (W10c, second commit -- Social Security scalar adoption): raised
+# from 34,657 to 34,866. The patch builder, the age <-> claim_date conversion
+# that mirrors src/data_io.py's own resolution, and the strip's empty states
+# live in dashboard_decomp_income_streams.js, beside the rows they patch.
+# Partly OFFSET by a de-duplication in the same commit: W10a's Roth-specific
+# /api/summary cache/fetch pair became one keyed reader
+# (optimizerResultFromLastBuild/fetchOptimizerResult in dashboard_decomp_
+# allocation_optimizer.js) that Social Security reuses, so §4.5 path 1's
+# remaining optimizers do not each hand-write a fourth and fifth copy.
+# 2026-09-22 (W10c, third commit -- Housing structural adoption): raised from
+# 34,866 to 35,121. §4.3's structural case: a candidate's sale year, step
+# type, start year, state and price/rent mapped onto the rows that exist, plus
+# advisory items for the ZIP/city and the financing terms the result does not
+# report back. Lives in dashboard_decomp_housing_optimizer.js beside the
+# results table it hangs off, per §4.4 (Housing's panel is deliberately not
+# analysisFrame()-wrapped, so it gets the strip appended to its own table).
+# 2026-09-22 (W10c, fourth commit -- §4.3's policy-adoption / schedule-freeze
+# pair): raised from 35,121 to 35,317. Asset Allocation is the one optimizer
+# where both of §4.3's named actions are ordinary plan rows, so it is where
+# "Let the plan keep optimizing this" (the mode row holds a computed mode) and
+# "Lock in this schedule" (user_target plus the optimizer's own percentages
+# written into the target_pct rows) are wired. Lives in
+# dashboard_decomp_allocation_optimizer.js, on the Allocation Mode panel.
+# 2026-09-22 (W12, #330 P7 -- off-state rendering): raised from 35,317 to
+# 35,485. strategySectionGatedNote() generalized into featureGatedNote()
+# (registry-driven from planModuleTaxonomy(), with a real inline "Turn on"
+# switch replacing a link-only note, dashboard_decomp_strategy_workspace.js),
+# plus the no-hidden-data invariant fix itself: renderInsurancePolicies(),
+# renderAssetsSpecial()'s 529/Equity Compensation/Hybrid LTC groups, and
+# renderEntityCharitable() each used to `return` a static "hidden" message (or
+# omit a group outright) in place of a household's already-entered data when
+# its gating module was off -- exactly the invariant violation §5.2 names
+# Insurance In Force as its own worked example for. Genuine new behavior (a
+# generalized note-and-switch mechanism, plus rendering data that used to be
+# silently dropped), not duplication, per this constant's own contract.
+# 2026-09-23 (Housing Location Search catalog entry): raised from 35,621 to
+# 35,624. Three comment lines beside the Optimize screen's "Next Housing Move"
+# section, whose `gate: null` becomes `gate: "housing_location_search"` -- the
+# gate itself is net zero. Every sibling section in that array explains its own
+# gate in place, and a bare gate id here would be the only one that does not;
+# the full rationale lives in the notes doc the comment points at rather than
+# in this file.
+# dashboard.js is untouched (still 7,201).
+# 2026-09-22 (W13, #330 P8 / Q6 -- first commit, Housing promoted out of
+# Spending): raised from 35,485 to 35,513. dashboard.js FALLS (7,201 ->
+# 7,192): SUGGESTED_NEXT/suggestedNext() moved into
+# dashboard_decomp_row_model.js, beside visibleSteps() and
+# stepGatedByOptionalModule() -- the two functions that decide whether the
+# step a suggestion names is reachable at all. The net rise is the nav-group
+# rationale recorded at the STEPS entries it applies to, the new
+# spending_mortgage_events -> holdings forward link, and suggestedNext()'s
+# new guard against suggesting a module-gated step whose module is off (a
+# dead end, which is exactly what tests/e2e/nav-integrity.spec.js checks
+# for). Genuine new behavior plus a relocation, not duplication, per this
+# constant's own contract.
+# 2026-09-22 (W13, second commit -- the Taxes nav group): raised from 35,513
+# to 35,529. roth_conversion and entity_charitable stop being hidden shells
+# redirected into Optimize and become real Taxes steps, which is W9's HELOC
+# move applied to the tax levers: both already owned a renderMain() dispatch
+# case and a pageHelp entry, so the code change is a group/hidden flip, two
+# SECTION_REDIRECTS entries deleted, two AUTOSAVE_STEPS entries added, two
+# strategySection descriptors removed, and the rationale recorded where it
+# applies. dashboard.js FALLS again (7,201 -> 7,198). Not duplication: no
+# renderer is copied, and Optimize loses exactly what Taxes gains.
+# 2026-09-22 (W13, third commit -- the Family & Business nav group): raised
+# from 35,529 to 35,621. Its two features (Education Funding 529, Equity
+# Compensation) own no page -- their inputs are row GROUPS on Other Assets
+# and Liabilities -- so the new step is a second way IN to rows that keep
+# their existing home, the same shape as W9's socialSecurityOptimizePanelHtml
+# (Social Security has no page of its own either). Deliberately NOT a copy:
+# W12's own 529/Equity gated-group rendering was extracted into
+# moduleGatedAssetGroup()/familyBusinessGroupsHtml() in dashboard_decomp_
+# assets_other.js and renderAssetsSpecial() now calls the same functions, so
+# the invariant fix has one implementation, not two. dashboard.js FALLS again
+# (7,198 -> 7,195) despite gaining a STEPS entry, a pageHelp entry and a
+# dispatch case: SPENDING_COMPLETION/spendingFlowFooterHtml moved to
+# dashboard_decomp_row_model.js beside SUGGESTED_NEXT, which renderMain()
+# picks between on one line.
+# 2026-09-23 (Housing Location Search off-state coverage, merged in): raised
+# from 35,621 to 35,624 -- three net explanatory-comment lines (see that
+# commit's own message; the housing-section inline comment was trimmed in
+# favor of the notes doc to make room).
+# 2026-09-23 (out-of-scope hardening picked up from W12's own notes): raised
+# from 35,624 to 35,634. familyBusinessGroupsHtml()'s two rowModuleGate()
+# reads (dashboard_decomp_assets_other.js) threw on a missing section_gates
+# entry; guarded each with the null check dashboard.js's own rowGateStatus()
+# already uses for the same call, matching an existing convention rather than
+# inventing one. Pure hardening, no calculation change.
 # 2026-09-21 (H1, #331 valuation-as-of-move-year, docs/superpowers/plans/
-# 2026-09-19-optimizers-modules-housing-master-plan.md): measured at 33,311
-# before this branch's own changes landed -- 36 lines already over the prior
-# 33,275 ceiling from an unrelated branch merged to main first (not raised
-# there; folded in here since this is the first touch of this file since).
-# This branch adds dashboard_decomp_housing_optimizer.js's "both years"
-# results display (purchase_price/monthly_rent shown alongside their
-# today's-dollars equivalent) and its one-time valuation-basis notice, plus
-# dashboard_decomp_housing_scenarios.js's start_year re-estimate prompt and
-# lot_size_band request-body fix (§6.4 sites 5-7). All new behavior, not
-# lines moved from elsewhere -- raised to the measured total of both.
+# 2026-09-19-optimizers-modules-housing-master-plan.md): on the housing-
+# valuation-h1 branch (PR #133), independently measured at 33,311 before this
+# branch's own changes landed -- the same base value the W5..W13 chain above
+# started from, before either branch could see the other's raises. This
+# branch adds dashboard_decomp_housing_optimizer.js's "both years" results
+# display (purchase_price/monthly_rent shown alongside their today's-dollars
+# equivalent) and its one-time valuation-basis notice, plus dashboard_decomp_
+# housing_scenarios.js's start_year re-estimate prompt and lot_size_band
+# request-body fix (§6.4 sites 5-7). All new behavior, not lines moved from
+# elsewhere -- raised, on that branch, to its own measured total of 33,881.
 # 2026-09-21 (H2/A3, #331 anchor flow, same master plan): the optimizer panel
 # becomes a two-step wizard -- step 1's selection table (checkbox rows, the
 # Anchor column and its "covers {anchor}" badge, the per-anchor coverage line
 # and warning, the reference-year price header), the step gate and navigation,
 # the client-side screen memo, and the selected-ZIP persistence. Net of what
 # it removed (the "Shortlist size" control, its option table and its help
-# entry), all new behavior rather than lines moved from elsewhere -- raised to
-# the measured total.
+# entry), all new behavior rather than lines moved from elsewhere.
 # 2026-09-21 (H2/A4, same ticket): A4's frontend tests caught a real bug in
 # A3's own findHousingOptCandidates -- it always passed force:true, which
 # defeated OQ-6's client-side memo entirely (re-pressing "Find candidate
 # locations" with nothing changed re-screened every time). The fix and its
-# explanatory comment add five lines -- raised to the measured total.
-TOTAL_JS_MAX_LINES = 33_881
+# explanatory comment add five lines.
+# 2026-09-23 (merging the housing-valuation-h1 branch above, PR #133, into
+# main after PR #132's W4..W13 chain above had already landed): neither
+# branch's diff could see the other's prior raise -- same shape as the
+# 33,076 and 33,217 merge entries earlier in this history. Raised to the
+# genuinely measured total of both real, non-duplicate additions: 35,634
+# (PR #132's own chain) + 570 (PR #133's own delta from 33,311 to 33,881,
+# unchanged by the merge) = 36,204.
+TOTAL_JS_MAX_LINES = 36_204
 
 
 def _line_count(path: Path) -> int:

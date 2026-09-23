@@ -87,6 +87,164 @@ export function setAllocationSelectionMode(mode) {
   renderMain();
 }
 
+// ---------------------------------------------------------------------------
+// #329 P6 / §4.3 (W10c): Asset Allocation is the design's POLICY ADOPTION vs
+// SCHEDULE FREEZE pair -- the one place §4.3's two named actions are both
+// real, because both ends are ordinary plan rows:
+//
+//   "Let the plan keep optimizing this" -> the mode row holds a computed
+//   mode, so every build re-solves the allocation. This is the DEFAULT, and
+//   deliberately so: it is what plans already do today, so naming the
+//   behavior does not change anyone's numbers. §4.7's disclosure (W10b) is
+//   what makes it honest, not a change to what the plan does.
+//
+//   "Lock in this schedule" -> the mode row holds user_target AND the
+//   optimizer's own computed percentages are written into the target_pct
+//   rows. The plan stops re-optimizing; the numbers become auditable.
+//
+// Roth Conversion and HSA Drawdown are the other two optimizers §4.3 names
+// here. Their policy-adoption half is the same one-row shape, but their
+// schedule-freeze half writes a year-by-year schedule (forced conversions)
+// that lives in its own table rather than in row_index rows, and the W10a
+// result payload deliberately carries no per-year series -- so offering the
+// pair there would mean one real button and one that cannot deliver. They
+// are left to the session that adds their own result panels, with the patch
+// contract now proven on all three shapes.
+// ---------------------------------------------------------------------------
+export const ALLOCATION_OPTIMIZER_ID = "allocation_policy";
+const ALLOCATION_DEFAULT_LIVE_MODE = "optimizer_recommendation";
+
+function allocationPatchItem(row, value, label, rationale) {
+  if (!row) return null;
+  // Through storageValueForInput so afterRaw is byte-for-byte what editValue
+  // will store -- the target_pct rows are percent-formatted, and a bare 35
+  // compared against a stored "35%" would read as not applied.
+  const afterRaw = storageValueForInput(row, value);
+  const beforeRaw = String(valOf(row) || "");
+  return {
+    source: "optimizer",
+    sourceStep: "allocation",
+    sourceTitle: "Asset Allocation",
+    section: String(row.section || ""),
+    subsection: String(row.subsection || ""),
+    field: String(row.label || ""),
+    label: label,
+    before: displayValueForInput(row, beforeRaw) || "(blank)",
+    beforeRaw: beforeRaw,
+    after: displayValueForInput(row, afterRaw) || String(afterRaw),
+    afterRaw: afterRaw,
+    row_index: row.row_index,
+    rationale: rationale,
+  };
+}
+
+// The computed mode this plan should keep using. A plan already on max_sharpe
+// is already letting the plan optimize, so "keep optimizing" must mean THAT
+// mode, not a switch to the default -- otherwise the computed state would
+// read "not applied" for a plan that is doing exactly what the button asks.
+export function allocationLiveModeTarget() {
+  const mode = allocationSelectionMode();
+  return allocationModeIsComputed(mode) ? mode : ALLOCATION_DEFAULT_LIVE_MODE;
+}
+
+export function allocationPolicyAdoptionPatch() {
+  const row = allocationModeRow();
+  if (!row) return [];
+  const target = allocationLiveModeTarget();
+  const item = allocationPatchItem(
+    row,
+    target,
+    "Allocation mode",
+    "The plan re-solves the allocation on every build while this mode is set.",
+  );
+  return item ? [item] : [];
+}
+
+export function allocationScheduleFreezePatch() {
+  const modeRow = allocationModeRow();
+  if (!modeRow) return [];
+  const names = assetClassNamesForAllocation() || [];
+  const out = [];
+  let total = 0;
+  names.forEach(function (asset) {
+    const targetRow = findTargetRow(asset);
+    if (!targetRow) return;
+    // The LIQUID target actually used, not the total-portfolio one: the
+    // target_pct rows are the liquid allocation and are expected to total
+    // 100%, which the total-portfolio figures (which include covered
+    // guaranteed-income and home-equity sleeves) would not.
+    const pct = Number(activeOptimizerUsedTarget(asset) || 0) * 100;
+    const item = allocationPatchItem(
+      targetRow,
+      pct.toFixed(2),
+      asset + " target",
+      "The percentage the optimizer last computed for this class.",
+    );
+    if (item) {
+      out.push(item);
+      total += pct;
+    }
+  });
+  // Nothing coherent to freeze. Two ways to get here, and both must offer
+  // NOTHING rather than a mode switch: no target rows at all, and -- the one
+  // a test drove out -- no optimizer preview loaded, where
+  // activeOptimizerUsedTarget() legitimately returns 0 for every class. That
+  // second case would otherwise write user_target plus a table of zeros, a
+  // plan the app then refuses to save; and a mode switch alone would leave
+  // the stale hand-entered targets driving the plan, which is a silent
+  // change in the opposite direction from the button's promise.
+  //
+  // The total is the test rather than a non-zero count, because it is the
+  // same 100% rule allocationTotalHtml() already enforces before a save.
+  if (!out.length || Math.abs(total - 100) > 0.01) return [];
+  const modeItem = allocationPatchItem(
+    modeRow,
+    "user_target",
+    "Allocation mode",
+    "Stops the plan re-solving the allocation; the percentages below become the plan's own.",
+  );
+  return modeItem ? [modeItem].concat(out) : out;
+}
+
+export function allocationOptimizerApplyStripHtml() {
+  const apply = window.OptimizerApply;
+  if (!apply || !allocationModeRow()) return "";
+  const canFreeze = allocationScheduleFreezePatch().length > 0;
+  const actions = [
+    {
+      intent: "policy",
+      label: "Let the plan keep optimizing this",
+      primary: true,
+      title:
+        "Keeps the allocation mode computed, so every build re-solves it.",
+    },
+  ];
+  if (canFreeze)
+    actions.push({
+      intent: "schedule",
+      label: "Lock in this schedule",
+      title:
+        "Writes the optimizer's current percentages into the plan and stops it re-solving them.",
+    });
+  apply.registerOptimizer({
+    id: ALLOCATION_OPTIMIZER_ID,
+    title: "Asset allocation optimizer",
+    buildPatch: allocationPolicyAdoptionPatch,
+    patchForIntent: (intent) =>
+      intent === "schedule"
+        ? allocationScheduleFreezePatch()
+        : allocationPolicyAdoptionPatch(),
+    liveValueOf: apply.liveStorageValueForRowIndex,
+    actions: actions,
+  });
+  let html = apply.renderApplyStrip(ALLOCATION_OPTIMIZER_ID);
+  if (!html) return "";
+  if (!canFreeze)
+    html +=
+      '<p class="small">"Lock in this schedule" needs the optimizer\'s computed percentages, which appear once the preview above has run. Switch to a computed mode and let it load.</p>';
+  return html;
+}
+
 export function allocationModeHtml() {
   const mode = allocationSelectionMode();
   const modeButtons = [
@@ -106,7 +264,7 @@ export function allocationModeHtml() {
         `<button class="btn ${mode === v ? "primary" : ""}" type="button" onclick="setAllocationSelectionMode('${v}')"${disabled}>${esc(label)}</button>`,
     )
     .join("");
-  return `<div class="holdings"><h3 class="group-title">Allocation Mode</h3><div class="section-note allocation-mode-panel" id="allocationModeNote">Active: ${esc(activeLabel)}. Choose the source below; the page then shows only controls for that source.<div class="table-actions">${buttonsHtml}</div>${r ? "" : '<p class="small">The CSV row for allocation_selection_mode was not found. Reload the current plan so required allocation rows are present.</p>'}</div></div>`;
+  return `<div class="holdings"><h3 class="group-title">Allocation Mode</h3><div class="section-note allocation-mode-panel" id="allocationModeNote">Active: ${esc(activeLabel)}. Choose the source below; the page then shows only controls for that source.<div class="table-actions">${buttonsHtml}</div>${r ? "" : '<p class="small">The CSV row for allocation_selection_mode was not found. Reload the current plan so required allocation rows are present.</p>'}</div>${allocationOptimizerApplyStripHtml()}</div>`;
 }
 
 export function allocationOptimizerRecommendationHtml() {
@@ -737,6 +895,216 @@ export function renderRothMissingNotice() {
   return `<div class="missing-list"><h3>Roth controls need to be backfilled</h3><p>The page is missing ${missing.length} primary control${missing.length === 1 ? "" : "s"}: ${missing.map(humanLabel).join(", ")}. Reload the current plan or start the app again; v11 now backfills these rows into client_policy.csv without overwriting existing values.</p></div>`;
 }
 
+// ---------------------------------------------------------------------------
+// #329 §4.5 path 1 (W10a): the Roth optimizer's RESULT, on screen
+// ---------------------------------------------------------------------------
+//
+// §1.3's map of this app's Optimize screen: "Roth Conversion --
+// renderRothConversion() -- Input form. Policy/guardrail/calibration rows. No
+// result shown; the candidate table exists only on workbook 11. Roth
+// Conversion." That asymmetry is what makes §4's Apply-to-plan feel missing:
+// for four of five sections there is nothing on screen to apply.
+//
+// This is path 1 of §4.5's three ways to fix it -- read the LAST BUILD's
+// result rather than re-running anything. The optimizer already ran inside
+// that build (roth_policy='optimize' makes optimize_roth_conversion_strategy()
+// run during the build and mutate the config), and its result already reaches
+// disk; W10a's Python half just routes it into plan_summary.json, the artifact
+// /api/summary already serves. Nothing here computes a number: every figure
+// below is printed straight out of that payload, and the "Score (0-100)"
+// column is normalized server-side by the same summary_figures helper Sheet 11
+// reads, so the two surfaces cannot rank the same candidate differently.
+
+// Last /api/summary payload's results, for the reload case, keyed by the
+// plan_summary.json key each optimizer's result lives under.
+// lastBuildSummary / lastBuildCompare are in-memory only and reset to null on
+// every fresh app launch (see planningLeverBase()'s own note on this), so on a
+// reload of an already-built plan neither holds anything -- but the artifact
+// on disk does.
+//
+// Keyed rather than one pair of variables per optimizer (W10c): W10a's Roth
+// panel and W10c's Social Security apply path want the identical three-source
+// read, and §4.5 path 1 is the DEFAULT path for the remaining optimizers too,
+// so a second hand-written copy of this would have become a fifth.
+const optimizerResultCache = new Map();
+// "" (untried) | "pending" | "done", per key. A build that recorded no result
+// for an optimizer is a legitimate answer, so this latches on completion
+// rather than on success: without it a plan with no result would re-fetch on
+// every keystroke, since renderMain() re-renders the whole tree on every edit.
+const optimizerResultFetchState = new Map();
+
+// Clears every optimizer's cached read. Called on a plan switch, where each
+// one is equally stale.
+export function optimizerResultCacheReset() {
+  optimizerResultCache.clear();
+  optimizerResultFetchState.clear();
+}
+
+// A newer build always wins over the cached artifact read: runBuild() sets
+// lastBuildSummary from the build's own response, so a rebuild's result shows
+// without waiting for (or invalidating) the fetch below.
+export function optimizerResultFromLastBuild(key) {
+  return (
+    (lastBuildSummary && lastBuildSummary[key]) ||
+    (lastBuildCompare && lastBuildCompare.after && lastBuildCompare.after[key]) ||
+    optimizerResultCache.get(key) ||
+    null
+  );
+}
+
+export function optimizerResultFetchDone(key) {
+  return optimizerResultFetchState.get(key) === "done";
+}
+
+export async function fetchOptimizerResult(key) {
+  if (optimizerResultFetchState.get(key)) return optimizerResultCache.get(key) || null;
+  optimizerResultFetchState.set(key, "pending");
+  let result = null;
+  try {
+    const out = await api("/api/summary");
+    const k = summaryFromApiPayload(out);
+    result = (k && k[key]) || null;
+  } catch (_e) {
+    result = null;
+  }
+  optimizerResultCache.set(key, result);
+  optimizerResultFetchState.set(key, "done");
+  if (result) renderMain();
+  return result;
+}
+
+// Roth's three names are kept as the thin wrappers they now are: loadAll(),
+// renderRothOptimizerResultPanel() and W10a's own tests all call them, and
+// renaming call sites buys nothing here.
+export const ROTH_RESULT_KEY = "roth_strategy_result";
+
+export function rothResultCacheReset() {
+  optimizerResultCacheReset();
+}
+
+export function rothStrategyResultFromLastBuild() {
+  return optimizerResultFromLastBuild(ROTH_RESULT_KEY);
+}
+
+export async function fetchRothStrategyResult() {
+  return fetchOptimizerResult(ROTH_RESULT_KEY);
+}
+
+function rothScoreCell(v) {
+  return Number.isFinite(Number(v))
+    ? Number(v).toLocaleString(undefined, { maximumFractionDigits: 1 })
+    : "--";
+}
+
+function rothCandidateRowHtml(cand, selectedLabel) {
+  const isSelected =
+    !!selectedLabel && String(cand.label || "") === String(selectedLabel);
+  return (
+    `<tr class="${isSelected ? "is-selected" : ""}">` +
+    `<td>${esc(cand.rank)}</td>` +
+    `<td>${esc(cand.label || "")}${isSelected ? ' <span class="badge ok">In the plan</span>' : ""}</td>` +
+    `<td>${esc(humanLabel(cand.policy || ""))}</td>` +
+    `<td>${esc(rothScoreCell(cand.relative_score))}</td>` +
+    `<td>${esc(fmtMoney(cand.total_conversions))}</td>` +
+    `<td>${esc(fmtMoney(cand.lifetime_tax))}</td>` +
+    `<td>${esc(fmtMoney(cand.after_tax_terminal_net_worth))}</td>` +
+    `<td>${esc(cand.why_selected_or_rejected || "")}</td>` +
+    "</tr>"
+  );
+}
+
+// Pure renderer: everything it prints comes from `result`, so it is testable
+// against a payload without a build, a DOM or any of this file's shared state.
+export function rothOptimizerResultPanelHtml(result) {
+  if (!result) return "";
+  const candidates = result.candidates || [];
+  const shown = candidates.length;
+  const total = Number(result.candidate_count) || shown;
+  const selected = result.selected_strategy_name || "";
+  const bracket = Number(result.target_bracket);
+  const facts = [
+    ["Selected strategy", esc(selected || "Not available")],
+    ["Objective mode", esc(humanLabel(result.objective_mode || ""))],
+    [
+      "Target bracket",
+      Number.isFinite(bracket) ? esc(fmtPct(bracket * 100)) : "Not available",
+    ],
+    ["Total conversions", esc(fmtMoney(result.total_conversions))],
+    ["Of which forced", esc(fmtMoney(result.forced_conversions))],
+    ["Lifetime tax", esc(fmtMoney(result.lifetime_tax))],
+  ]
+    .map(
+      ([k, v]) => `<div class="pill"><b>${esc(k)}</b><span>${v}</span></div>`,
+    )
+    .join("");
+  let html =
+    '<div class="roth-optimizer-result">' +
+    '<div class="group-title">Optimizer result — from the last build</div>' +
+    `<div class="runtime-grid roth-result-facts">${facts}</div>`;
+  // The optimizer picking the winner and the user picking it are different
+  // facts about the same row, and the contract's own why_selected text says
+  // which happened -- so this prints that text rather than asserting either.
+  if (result.why_selected)
+    html += `<div class="section-note">${esc(result.why_selected)}</div>`;
+  if (result.explanation)
+    html += `<p class="small">${esc(result.explanation)}</p>`;
+  if (!shown) {
+    html +=
+      '<p class="small">The last build scored no alternative strategies, so there is no candidate comparison to show.</p></div>';
+    return html;
+  }
+  html +=
+    '<div class="lot-table-wrap"><table class="lot-table roth-candidate-table"><thead><tr>' +
+    "<th>Rank</th><th>Candidate</th><th>Policy</th><th>Score (0-100)</th>" +
+    "<th>Conversions</th><th>Lifetime tax</th><th>After-tax terminal NW</th>" +
+    "<th>Why selected / rejected</th></tr></thead><tbody>" +
+    candidates.map((c) => rothCandidateRowHtml(c, selected)).join("") +
+    "</tbody></table></div>";
+  // Sheet 11's own wording for the same column, because it is the same
+  // column: a relative ranking, not a projected dollar outcome.
+  html +=
+    '<p class="small">Score (0-100) ranks these candidates relative to each other (100 = best in this set); it is a scoring unit, not a projected dollar outcome.</p>';
+  if (total > shown)
+    html += `<p class="small">Showing the top ${esc(shown)} of ${esc(total)} scored candidates. The workbook's Roth Conversion sheet lists the rest.</p>`;
+  html += "</div>";
+  return html;
+}
+
+// The stateful wrapper: decides WHICH of the three honest answers to show.
+// Kept separate from the renderer above so the renderer stays pure.
+export function renderRothOptimizerResultPanel() {
+  // Same gate §4.5 names for this path -- a result read from the last build is
+  // only meaningful once a build has produced one.
+  if (!planningLeversBaselineReady()) {
+    if (!buildPreflight)
+      setTimeout(() => refreshBuildStatus().catch(function () {}), 0);
+    return '<div class="section-note">The optimizer result appears here once this plan has been built. The controls below stage the inputs; Build Reports runs the optimizer and records what it chose.</div>';
+  }
+  const result = rothStrategyResultFromLastBuild();
+  if (result) return rothOptimizerResultPanelHtml(result);
+  if (!optimizerResultFetchDone(ROTH_RESULT_KEY)) {
+    setTimeout(() => fetchRothStrategyResult().catch(function () {}), 0);
+    return '<div class="section-note">Reading the last build’s optimizer result…</div>';
+  }
+  // Reached by a plan whose newest build predates this panel, and by one whose
+  // Roth policy left the optimizer nothing to score. Says so rather than
+  // rendering an empty table.
+  return '<div class="section-note">The last build recorded no Roth optimizer result. Build Reports again to produce one.</div>';
+}
+
+// #329 §4.7 (W10b): named export rather than an inline const inside
+// renderRothConversion() -- dashboard_source_truth_banners.js's live-
+// optimizer disclosure needs this exact classification too, and a second
+// copy of the same string match is the hand-maintained-twin failure #329/
+// #330 exist to end.
+export function rothPolicyIsOptimizer(policy) {
+  return (
+    policy.includes("optimize") ||
+    policy.includes("optimizer") ||
+    policy === "balanced_retirement"
+  );
+}
+
 export function renderRothConversion() {
   if (searchText.trim()) return renderFields("roth_conversion");
   const policy = rothPolicyValue();
@@ -759,10 +1127,7 @@ export function renderRothConversion() {
     policy === "fill_target_bracket";
   const policyIsIrmaa =
     policy === "fill_to_irmaa" || policy === "irmaa_guarded";
-  const policyIsOptimizer =
-    policy.includes("optimize") ||
-    policy.includes("optimizer") ||
-    policy === "balanced_retirement";
+  const policyIsOptimizer = rothPolicyIsOptimizer(policy);
   if (policyIsFixed) {
     strategy = orderedRowsByLabel([
       "roth_fixed_annual_amount",
@@ -850,6 +1215,10 @@ export function renderRothConversion() {
   // runs server-side (sheets_strategy.py's 9x9 claim-age grid sweep) and was
   // never driven by this card.
   let html = renderRothMissingNotice();
+  // #329 §3.3's one-word change for this module: "Add result display, not just
+  // inputs." The result goes first -- it is what the reader came to this
+  // section for; the controls below it are how they change it.
+  html += renderRothOptimizerResultPanel();
   // Ticket 289: disclose two Roth Conversion Modeling Guide levers this engine
   // does not implement. Gated on the ABSENCE of a row for either future
   // plan-data key, so building the lever removes its own disclosure -- see
@@ -956,8 +1325,23 @@ Object.assign(window, {
   renderAllocationRecommendation,
   orderedRowsByLabel,
   rothPolicyValue,
+  rothPolicyIsOptimizer,
   irmaaModeValue,
   renderRothRows,
   renderRothMissingNotice,
+  ALLOCATION_OPTIMIZER_ID,
+  allocationLiveModeTarget,
+  allocationPolicyAdoptionPatch,
+  allocationScheduleFreezePatch,
+  allocationOptimizerApplyStripHtml,
+  optimizerResultCacheReset,
+  optimizerResultFromLastBuild,
+  optimizerResultFetchDone,
+  fetchOptimizerResult,
+  rothResultCacheReset,
+  rothStrategyResultFromLastBuild,
+  fetchRothStrategyResult,
+  rothOptimizerResultPanelHtml,
+  renderRothOptimizerResultPanel,
   renderRothConversion,
 });

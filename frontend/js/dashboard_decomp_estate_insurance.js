@@ -233,12 +233,20 @@ export function entityCharitableGatedRows(rs) {
 export function renderEntityCharitable() {
   let html = `<div class="section-note">Qualified charitable distributions (age 70½+) satisfy required distributions without the amount appearing as taxable income. S-Corp election is a self-employment decision, entered on <a href="#" onclick="setStep('income_work');return false">Work Income</a>.</div>`;
   if (searchText.trim()) return html + renderFields("entity_charitable");
+  const rs = rowsForStep("entity_charitable", { includeInactive: true });
+  // #330 §5.2/§5.3 (W12): DAF and QCD are each gated by their OWN plan flag,
+  // independent of charitable_giving's own module toggle (§5.3/W6's own
+  // comment on the catalog entry: "DAF rows simply stop disappearing when
+  // this module is off"). But this page used to gate its ENTRY on
+  // charitable_giving alone and `return` a static "hidden" message in its
+  // place -- which took DAF/QCD's rows down with it even though their own
+  // flags may be on and holding data. entityCharitableGatedRows() below
+  // already handles DAF/QCD's own per-flag visibility correctly; the fix is
+  // to stop bypassing it when charitable_giving itself is off, not to keep
+  // gating entry to the whole page on a module that no longer owns DAF/QCD's
+  // visibility.
   if (!optionalFunctionEnabled("charitable_giving"))
-    return (
-      html +
-      '<div class="field-list"><p>Charitable Giving inputs are hidden until the Charitable Giving optional workbook module is enabled on Optional Modules.</p></div>'
-    );
-  const rs = rowsForStep("entity_charitable");
+    html += featureGatedNote("charitable_giving", { title: "Charitable Giving" });
   const missing = rs.filter(isMissing);
   if (missing.length)
     html += `<div class="missing-list"><h3>${missing.length} required field${missing.length === 1 ? "" : "s"} missing in this view</h3><ul>${missing
@@ -449,17 +457,32 @@ export function renderInsurancePolicyGroup(opts) {
 export function renderInsurancePolicies() {
   const title =
     "Insurance Policies (Life, Disability, Long-Term Care, Umbrella, Auto, Home, Property & Casualty, Other)";
-  if (!optionalFunctionEnabled("existing_life_insurance"))
-    return `<div class="holdings"><h3 class="group-title">${esc(title)}</h3><div class="field-list"><p>Existing insurance policy entries are hidden until the Existing Life Insurance optional workbook module is enabled on <a href="#" onclick="setStep('optional_functions');return false">Optional Modules</a>.</p></div></div>`;
-  const rs = rowsForStep("annuity_death_benefits").filter(
+  const rs = rowsForStep("annuity_death_benefits", { includeInactive: true }).filter(
     (r) => r.section === "Insurance In Force",
   );
-  return renderInsurancePolicyGroup({
-    stepId: "annuity_death_benefits",
-    rs,
-    title,
-    addLabel: "Add insurance policy",
-  });
+  // #330 §5.2 (W12): existing_life_insurance's csv_sections gate is the
+  // spec's own named example of the no-hidden-data invariant -- "the
+  // catalog's own comment records that this includes rows whose policy_type
+  // is Disability, LTC or Umbrella, which that module has nothing to do
+  // with... a household can enter disability policies and have them vanish
+  // behind a switch named for life insurance." This used to `return` a
+  // static "hidden" message in place of ALL of it, Disability/LTC/Umbrella
+  // included. Collapsed-with-a-note instead, every policy type included,
+  // whether or not the household has entered any.
+  const note = !optionalFunctionEnabled("existing_life_insurance")
+    ? featureGatedNote("existing_life_insurance", { title, rows: rs })
+    : "";
+  if (!rs.length && note)
+    return `<div class="holdings"><h3 class="group-title">${esc(title)}</h3><div class="field-list">${note}</div></div>`;
+  return (
+    note +
+    renderInsurancePolicyGroup({
+      stepId: "annuity_death_benefits",
+      rs,
+      title,
+      addLabel: "Add insurance policy",
+    })
+  );
 }
 export async function addInsurancePolicy() {
   try {

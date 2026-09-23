@@ -747,15 +747,47 @@ def housing_state_estimate():
         return denied
     return _service_json(strategy_asset_service.housing_state_estimate_payload(request.get_json(force=True, silent=True) or {}))
 
+# #330 §3.2, "Housing \"Where to live\"": off means "the UI panel is hidden;
+# `src/housing/` is not invoked". Hiding the panel is half of that and it is
+# the half a direct POST walks straight past, so the gate lives here too --
+# these two routes are the only server-side entry into the location search.
+#
+# Deliberately NOT applied to `/api/housing/zip-lookup`, `/api/housing/
+# top-cities`, `/api/housing/state-estimate` or `/api/housing/seed`: those are
+# reference/estimate helpers the ALWAYS-ON "Home & Housing" input page calls
+# (see dashboard_decomp_housing_scenarios.js), so gating them would take plan
+# input away from a page this switch does not own. #330 §3.2 names the two
+# search endpoints, and they are the two that run a search.
+#
+# The check reads the ACTIVE plan's toggles, the same `c` every other
+# `module_enabled` call site reads, which is why it comes after the config
+# load -- there is no toggle state before one. The search package is imported
+# only once the gate passes, so an off module costs no import either.
+def _housing_search_config_or_disabled():
+    """``(c0, None)`` when the location search may run, ``(None, response)``
+    when its module is off."""
+    from ..module_catalog import module_enabled
+    from ..report_compute import prepare_config_from_sectioned_data
+    data, _meta = load_active_config()
+    c0 = prepare_config_from_sectioned_data(data, "", optimize_roth=False)
+    if not module_enabled(c0, "housing_location_search"):
+        return None, (jsonify({
+            "success": False,
+            "error": ("Housing Location Search is turned off for this plan. "
+                      "Enable it on Plan Features to run a location search."),
+            "module": "housing_location_search",
+        }), 403)
+    return c0, None
+
 @app.route("/api/housing/optimize", methods=["POST"])
 def housing_optimize():
     denied = _require("read_config")
     if denied:
         return denied
+    c0, disabled = _housing_search_config_or_disabled()
+    if disabled:
+        return disabled
     from ..housing import optimize_housing_from_request
-    from ..report_compute import prepare_config_from_sectioned_data
-    data, _meta = load_active_config()
-    c0 = prepare_config_from_sectioned_data(data, "", optimize_roth=False)
     return _service_json(optimize_housing_from_request(c0, request.get_json(force=True, silent=True) or {}))
 
 @app.route("/api/housing/zip-screen", methods=["POST"])
@@ -763,10 +795,10 @@ def housing_zip_screen():
     denied = _require("read_config")
     if denied:
         return denied
+    c0, disabled = _housing_search_config_or_disabled()
+    if disabled:
+        return disabled
     from ..housing import zip_screen_from_request
-    from ..report_compute import prepare_config_from_sectioned_data
-    data, _meta = load_active_config()
-    c0 = prepare_config_from_sectioned_data(data, "", optimize_roth=False)
     return _service_json(zip_screen_from_request(c0, request.get_json(force=True, silent=True) or {}))
 
 @app.route("/api/housing/top-cities", methods=["GET"])

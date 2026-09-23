@@ -12,17 +12,19 @@
 // dashboard_row_model.js) so existing tests that glob that pattern for a
 // multi-file "full dashboard source" read/smoke-exec pick it up automatically.
 
+let moduleTaxonomy = { modules: {} };
+
 export function stepGatedByOptionalModule(stepId) {
-  // HELOC isn't a client_optional_functions.csv toggle (module_catalog has no
-  // entry for it) — it's a plan-data feature flag (HELOC/Setup/heloc_enabled),
-  // so it and the bundle step that depends on it stay special-cased here.
-  if (stepId === "heloc_strategy") return !helocModuleEnabled();
-  // Special Strategies bundles the HELOC and Charitable Giving input pages, so
-  // it only appears in navigation once at least one of those optional modules
-  // is enabled. Visibility follows capability — there is no separate
-  // "advanced workflow" preference.
-  if (stepId === "special_strategies")
-    return !helocModuleEnabled() && !optionalFunctionEnabled("charitable_giving");
+  // §5.3 (W6): steps gated by a plan-data feature flag, not a
+  // client_optional_functions.csv toggle. The catalog declares the flag's
+  // (section, subsection, label) as gate_ref and flag_gates serves it, exactly
+  // as step_gates serves the toggle half below -- replacing the hand-written
+  // HELOC and Special Strategies branches that used to sit here.
+  const flagGate = (moduleGates.flag_gates || {})[stepId];
+  if (flagGate) {
+    const r = flagGate.ref || [];
+    return !sectionFlagEnabled(r[0], r[1], r[2]);
+  }
   // Ticket 323: Stress Test is a screen of four optional sections, so unlike
   // Optimize and Scenarios (each of which has a never-gated section) it can
   // end up with nothing live at all -- hide it when all four of its modules
@@ -55,6 +57,77 @@ export function visibleSteps() {
     if (!q) return true;
     return stepSearchText(s).includes(q) || s.id === activeStep;
   });
+}
+
+// #330 P8 / Q6 (W13): moved here from dashboard.js, unchanged apart from the
+// new entry and the gating guard below. The guided walk's forward links are
+// nav structure, and they belong beside visibleSteps()/stepGatedByOptional
+// Module(), which is what decides whether the step they name is reachable at
+// all. Moving them out is also what pays for W13's new lines under
+// tests/test_frontend_size_ratchet.py's DASHBOARD_JS_MAX_LINES.
+export const SUGGESTED_NEXT = {
+  household_people: "income_work",
+  income_work: "income_retirement",
+  income_retirement: "holdings",
+  holdings: "assets_home_cash",
+  assets_home_cash: "spending_core",
+  spending_core: "reports_and_review",
+  // W13: Housing is its own nav group now, between Spending and Assets &
+  // Protection -- without a forward link it is the one group the guided walk
+  // can enter and not leave.
+  spending_mortgage_events: "holdings",
+  // W13: the Taxes group, in nav order. Both targets are module-gated, so
+  // the guard in suggestedNext() below drops the footer rather than pointing
+  // at a step the nav is not showing.
+  roth_conversion: "entity_charitable",
+  entity_charitable: "strategy_optimize",
+  strategy_optimize: "strategy_stress",
+  strategy_stress: "reports_and_review",
+  // lifestyle_spending and ytd_transactions removed: both now redirect onto
+  // spending_core before activeStep is ever set to them (navigation.js's
+  // WORKSPACE_TAB_REDIRECTS), and suggestedNext() below is only ever called
+  // with the literal activeStep -- these entries could never be looked up.
+};
+export function suggestedNext(stepId) {
+  const nextId = SUGGESTED_NEXT[stepId];
+  const st = STEPS.find((s) => s.id === nextId);
+  // W13: a suggestion pointing at a module-gated step whose module is off is
+  // a link to a page the nav does not show -- the dead end this workstream's
+  // own e2e check exists to keep out. Cheaper to skip the footer than to
+  // hand-maintain a parallel "is this one gated" list per entry.
+  if (!st || stepGatedByOptionalModule(st.id)) return "";
+  return `<div class="suggested-next">Suggested next: <button class="link-button" type="button" data-step-id="${esc(st.id)}">${esc(st.title)} &rarr;</button></div>`;
+}
+
+// #330 P8 / Q6 (W13): moved here from dashboard.js, unchanged. renderMain()
+// picks between this footer and suggestedNext() on one line -- they are the
+// two halves of "what does this page point at next", so they belong in one
+// place. Moving them out is also what pays for W13's new lines under
+// tests/test_frontend_size_ratchet.py's DASHBOARD_JS_MAX_LINES.
+// ytd_transactions and spending_dashboard used to have their own entries
+// here (each a distinct standalone step at the time), but both ids now
+// redirect onto spending_core before activeStep is ever set to them
+// (navigation.js's WORKSPACE_TAB_REDIRECTS) -- spendingFlowFooterHtml() below
+// is only ever called with the literal activeStep, so those two entries
+// could never be looked up again. Removed rather than left dead.
+export const SPENDING_COMPLETION = {
+  spending_core: {
+    note: "Done when: budget amounts are entered for the categories you track.",
+    isDoneFn: () =>
+      !!(planLoaded && !stepStats("spending_core").missing.length),
+    nextStep: "ytd_transactions",
+    nextLabel: "Import Transactions",
+  },
+};
+export function spendingFlowFooterHtml(stepId) {
+  const cfg = SPENDING_COMPLETION[stepId];
+  if (!cfg) return "";
+  const done = cfg.isDoneFn();
+  let html = `<div class="spending-completion-note${done ? " done" : ""}"><span class="scomp-icon">${done ? "&#10003;" : "&#9675;"}</span><span>${esc(cfg.note)}</span></div>`;
+  if (done && cfg.nextStep) {
+    html += `<div class="spending-advance-prompt"><b>Step complete.</b> Ready for: <button class="btn primary" type="button" data-step-id="${esc(cfg.nextStep)}">${esc(cfg.nextLabel)} &rarr;</button></div>`;
+  }
+  return html;
 }
 
 export function saveWorkbookViewState() {
@@ -1335,11 +1408,16 @@ export function rowIsMonteCarlo(r) {
 // are correctly absent here, not an oversight.
 const STRATEGY_SCREEN_MEMBER_STEPS = {
   strategy_optimize: [
-    "roth_conversion",
     "allocation_assets",
     "allocation_policy",
-    "entity_charitable",
-    "heloc_strategy",
+    // #329/#330 W9: heloc_strategy moved to its own nav step (W13 put it in
+    // Housing & Property) -- see STEPS in dashboard.js. It keeps returning
+    // its own rows unaggregated (via rawRowsForStep("heloc_strategy")
+    // directly); it is simply no longer one of Optimize's member steps.
+    // #330 P8 / Q6 (W13): roth_conversion and entity_charitable left the
+    // same way, for the Taxes group. Each is its own nav step with its own
+    // readiness badge now, so aggregating them into Optimize's would
+    // double-count them across two visible nav entries.
   ],
   strategy_stress: [
     "monte_carlo_options",
@@ -1455,6 +1533,17 @@ export function rawRowsForStep(id) {
             "Hybrid LTC",
           ].includes(sec)
         );
+      // #330 P8 / Q6 (W13): the Family & Business nav group's page. The
+      // catalog declares these two sections as csv_sections of
+      // education_funding_529 and equity_compensation (domain FAMILY_
+      // BUSINESS), which is where the membership comes from -- it is not a
+      // second hand-kept list. This is ADDITIVE: the rows keep their home on
+      // assets_special above, and BUILD_IMPACT_SOURCE_STEP_IDS deliberately
+      // does not list family_business, so sourceStepForRow() still answers
+      // "Other Assets and Liabilities" for every one of them and no other
+      // surface sees the new step at all.
+      case "family_business":
+        return ["Education Funding", "Equity Compensation"].includes(sec);
       case "estate":
         return sec === "Estate Planning" || sec === "Account Titling";
       case "annuity_death_benefits":
@@ -1605,6 +1694,42 @@ export function fieldNumericValue(row) {
 
 export function rowModuleGate(section) {
   return (moduleGates.section_gates || {})[section] || null;
+}
+
+// #330 §3.4 (W5): the reverse-direction warning on an optional module's
+// switch. `degrades_without` is declared on the module that shows less, but
+// the question a user actually has is at the switch they are about to flip:
+// "what do I lose if I turn this off?" The server serves both directions
+// (config_service._module_taxonomy), so this reads the answer rather than
+// inverting the relation here — a second copy of the relation in JS is
+// exactly the hand-maintained twin #329 exists to end.
+//
+// W5 kept `moduleTaxonomy` module-private on the stated grounds that
+// moduleOffImpactWarning() was its only reader. W4's Plan Features page is the
+// second: it groups by `domain` and filters by `kind`, both of which live in
+// the same payload. Exposed as a getter rather than a window accessor on the
+// binding, so this module stays the only writer.
+export function planModuleTaxonomy() {
+  return moduleTaxonomy || { modules: {} };
+}
+
+// Returns "" when nothing degrades without `key`, which is most modules, so
+// the caller can concatenate unconditionally.
+// `taxonomy` is a parameter with a default rather than a closed-over read so
+// the function stays pure and directly testable: a module-scoped `let` is a
+// lexical binding, invisible to the vm-sandbox loader the frontend tests use.
+export function moduleOffImpactWarning(key, taxonomy = moduleTaxonomy) {
+  const mod = ((taxonomy || {}).modules || {})[key];
+  const hit = (mod && mod.degraded_by) || [];
+  if (!hit.length) return "";
+  // "the fan chart from Charts", joined into a list that reads as English:
+  // "A", "A and B", "A, B and C".
+  const parts = hit.map((d) => `${d.loses} from ${d.name}`);
+  const listed =
+    parts.length === 1
+      ? parts[0]
+      : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+  return `Turning ${(mod.name || key)} off also removes ${listed}.`;
 }
 
 export function rowBuildUsageState(row, stepId = "") {
@@ -2903,20 +3028,32 @@ export function renderFields(step) {
     html += `<div class="section-note">Grouped by plan area, matching the left navigation, alphabetical within each area. Each field shows its own source page beneath its label.</div>`;
   if (step === "monte_carlo_options")
     html += `<div class="section-note">Advanced mode runs more trials with higher precision and is suitable for final outputs. Quick mode is faster and appropriate for working sessions. Raise trial count for final runs only when the build time budget allows.</div>`;
-  if (step === "divorce_options" && !optionalFunctionEnabled("divorce_qdro"))
-    return '<div class="field-list"><p>Divorce options are hidden until the Divorce/QDRO optional workbook module is enabled.</p></div>';
-  if (
-    step === "ltc_stress" &&
-    !optionalFunctionEnabled("long_term_care_stress")
-  )
-    return '<div class="field-list"><p>Long-Term Care Stress inputs are hidden until the Long-Term-Care Stress optional workbook module is enabled on Optional Modules.</p></div>';
-  if (step === "heloc_strategy" && !helocModuleEnabled())
-    return '<div class="field-list"><p>HELOC strategy inputs are hidden until Enable HELOC Strategy is turned on (HELOC → Setup).</p></div>';
-  if (
-    step === "entity_charitable" &&
-    !optionalFunctionEnabled("charitable_giving")
-  )
-    return '<div class="field-list"><p>Charitable Giving inputs are hidden until the Charitable Giving optional workbook module is enabled on Optional Modules.</p></div>';
+  // #330 §5.2 (W12): a step-owning module that is off gets a note, not a
+  // blackout -- the earlier hand-written versions of these branches each
+  // `return`ed a static "hidden" paragraph in place of the step's rows,
+  // which is exactly the no-hidden-data invariant violation §5.2 exists to
+  // close (a search hit or a direct step visit must not make already-entered
+  // data disappear just because its module is off). featureGatedNote() now
+  // supplies the note -- registry-driven, so a plan-flag step (via
+  // flag_gates) and a module-toggle step (divorce_qdro/long_term_care_stress/
+  // charitable_giving) resolve through the same call -- and rs still renders
+  // below it rather than being replaced by it.
+  const _flagGate = (moduleGates.flag_gates || {})[step];
+  const gateKey = _flagGate
+    ? _flagGate.key
+    : step === "divorce_options"
+      ? "divorce_qdro"
+      : step === "ltc_stress"
+        ? "long_term_care_stress"
+        : step === "entity_charitable"
+          ? "charitable_giving"
+          : null;
+  const gateOff = _flagGate
+    ? !sectionFlagEnabled(..._flagGate.ref)
+    : gateKey
+      ? !optionalFunctionEnabled(gateKey)
+      : false;
+  if (gateKey && gateOff) html += featureGatedNote(gateKey, { rows: rs });
   if (step === "all_assumptions") return html + renderFieldFinderGroups(rs);
   return html + renderFieldGroups(rs);
 }
@@ -4524,7 +4661,12 @@ export async function loadAll(opts = {}) {
     const cfg = await api("/api/config/rows");
     rows = cfg.rows || [];
     moduleStatus = cfg.module_status || {};
-    moduleGates = cfg.module_gates || { step_gates: {}, section_gates: {} };
+    moduleGates = cfg.module_gates || { step_gates: {}, section_gates: {}, flag_gates: {} };
+    // #330 phase 2 + §3.4: both classification axes and the soft-dependency
+    // relation, for the Plan Features switch UI. Module-private on purpose --
+    // moduleOffImpactWarning() below is the only reader, so unlike
+    // moduleStatus/moduleGates this needs no window accessor.
+    moduleTaxonomy = cfg.module_taxonomy || { modules: {} };
     if (window.RetirementAppStore)
       window.RetirementAppStore.set({
         rows: rows,
@@ -4533,6 +4675,15 @@ export async function loadAll(opts = {}) {
         planSource: opts.source || "Local database",
       });
     resetAllocationPreview();
+    // W10a: same reason, one plan over. The Roth result panel caches the last
+    // /api/summary read so it survives a reload; without this a plan switch
+    // would keep showing the PREVIOUS plan's optimizer result, since
+    // lastBuildSummary is null until this plan is built in this session.
+    rothResultCacheReset();
+    // W10c: the housing search's last result is retained for apply-to-plan,
+    // and it is a result about the PREVIOUS plan's home and finances. Left
+    // behind, its apply strip would offer to write that answer into this one.
+    housingOptResultReset();
     await loadTravelExtras();
     await loadBudgetLines(false);
     await loadLiquidityBuffers();
@@ -5079,6 +5230,7 @@ Object.assign(window, {
   markYtdTransactionsDirty,
   matrixRows,
   mcEngineModeValue,
+  moduleOffImpactWarning,
   navigationContext,
   norm,
   noteReceivableRows,
@@ -5090,6 +5242,7 @@ Object.assign(window, {
   overallStats,
   parsePercentInput,
   personDisplayName,
+  planModuleTaxonomy,
   planStateArtifactsReady,
   planStateFresh,
   planningLeverBase,
@@ -5156,7 +5309,11 @@ Object.assign(window, {
   goToStrategyTab,
   stepTitleById,
   storageValueForInput,
+  spendingFlowFooterHtml,
+  SPENDING_COMPLETION,
   strategyTabKey,
+  suggestedNext,
+  SUGGESTED_NEXT,
   syncBackends,
   syncCategoryTotal,
   syncTaxonomyBudgetToBudgetLines,

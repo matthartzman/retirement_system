@@ -53,7 +53,8 @@ from .sheets_allocation_helpers import build_sheet4
 from .sheets_projection_facade import build_sheet5, build_sheet6, build_sheet7, build_sheet8
 from .sheets_strategy import build_sheet9, build_sheet10, build_sheet11, build_sheet_hsa_drawdown, build_sheet12, build_sheet_tlh, build_sheet_gain_harvest, build_sheet13, build_sheet14, build_sheet_housing_comparison
 from .sheets_tax_capacity import build_sheet_tax_capacity
-from .sheets_stress import build_sheet15, build_sheet16, build_sheet17, build_sheet18, build_sheet19, build_sheet20
+from .sheets_stress import (build_sheet15, build_sheet16, build_sheet17, build_sheet18,
+                             build_sheet19, build_sheet20, build_sheet39)
 from .sheets_protection import build_existing_life, build_disability, build_pc_umbrella
 from .sheets_wealth import build_education_funding, build_equity_comp, build_special_needs, build_business_succession
 from .sheets_qc_reference import validate_all, build_sheet21, build_sheet22, build_sheet23, build_sheet24, account_reconciliation_rows, build_sheet25
@@ -506,6 +507,17 @@ def build_sheet27_planning_levers(ws, c, rows, mc_data):
 
 
 
+# A section's divider tab lists its sheets as one flat list -- Excel has no
+# real subsection (#329 §3.2). "This year's actions" marks the action
+# optimizers (Tax-Loss Harvesting, Gain Harvesting) off from the plan
+# optimizers ahead of them with a labeled row instead, keyed by STABLE sheet
+# name so it survives module gating shifting which sheet is first. Keyed by
+# section code, not sheet name, so it only ever fires inside '2. Optimizers'.
+_SUBGROUP_DIVIDERS = {
+    '2': (('12B. Tax-Loss Harvesting', '12C. Gain Harvesting'), "This year’s actions"),
+}
+
+
 def build_workbook_section_divider(ws, area):
     """Create a read-only navigation divider sheet for one of the five top-level workbook areas."""
     section_name = area.get('section', 'Section')
@@ -520,7 +532,18 @@ def build_workbook_section_divider(ws, area):
     write_cell(ws, 6, 1, section_name, bold=True, bg='EAF2F8')
     ws.merge_cells(start_row=6, start_column=1, end_row=6, end_column=2)
     r = 6
+    subgroup = _SUBGROUP_DIVIDERS.get(area.get('code'))
+    trigger_finals = set()
+    if subgroup:
+        stable_names, _label = subgroup
+        trigger_finals = {FINAL_SHEET_RENAMES[s] for s in stable_names if s in FINAL_SHEET_RENAMES}
+    divider_written = False
     for sheet_name in area.get('sheets', []):
+        if trigger_finals and not divider_written and sheet_name in trigger_finals:
+            write_cell(ws, r, 3, subgroup[1], bold=True, bg='EAF2F8')
+            ws.merge_cells(start_row=r, start_column=3, end_row=r, end_column=7)
+            r += 1
+            divider_written = True
         cell = ws.cell(row=r, column=3, value=sheet_name)
         cell.font = body_font(color='0563C1')
         cell.hyperlink = f"#'{sheet_name}'!A1"
@@ -622,7 +645,7 @@ def _hide_sheet_if_present(wb, name):
 def _ensure_plan_data_shell(wb):
     """#209/#210/#212/#228: create an empty stable-named 'Plan Data' sheet, if
     absent, before refresh_final_sheet_renames runs -- so the letter-count
-    pass sees it and assigns it its "4A." slot, the same as every other
+    pass sees it and assigns it its "5A." slot, the same as every other
     sheet. _build_plan_data_sheet (below) deletes and rebuilds it with real
     content once final names are known."""
     if 'Plan Data' not in wb.sheetnames and '4A. Plan Data' not in wb.sheetnames:
@@ -649,7 +672,8 @@ _PLAN_DATA_SCOPE_PURPOSES = {
     '27. Planning Levers': 'interactive sensitivity dashboard for TNW and probability-of-success levers',
     '15. Market-Luck Stress Test': 'probability-of-success and market stress testing',
     '18. Survivor Stress Test': 'survivor stress test',
-    '19. Life Insurance': 'combined protection stress test',
+    '17. LTC Stress Test': 'long-term-care cost stress test',
+    '19. Life Insurance': 'life insurance coverage decision',
     'Plan Data': 'database-backed plan snapshot and workbook scope',
     '2. Assumptions': 'model assumptions and tax-law inputs',
     '25. Account Reconciliation': 'account-level reconciliation and data checks',
@@ -679,8 +703,10 @@ def _build_plan_data_sheet(wb, c):
     _delete_sheet_if_present(wb, final_self)
     ws = wb.create_sheet(final_self)
     ws.sheet_view.showGridLines = False
-    ws.sheet_properties.tabColor = SECTION_COLOR.get('4')
-    section_title(ws, 1, f'{final_self} — PLAN DATA SNAPSHOT', 6, bg=SECTION_COLOR.get('4'))
+    # Plan Data is REFERENCE-kind and lives in System, letter group '5' since
+    # W3 renumbered System out of '4' (now Risks).
+    ws.sheet_properties.tabColor = SECTION_COLOR.get('5')
+    section_title(ws, 1, f'{final_self} — PLAN DATA SNAPSHOT', 6, bg=SECTION_COLOR.get('5'))
     write_cell(ws, 3, 1, 'The workbook is a generated output. Edit plan data in the database-backed app; CSV remains an import/export utility for large tables only.', fg='666666')
     ws.merge_cells(start_row=3, start_column=1, end_row=3, end_column=6)
 
@@ -738,7 +764,9 @@ def _extract_scorp_sheet(wb):
     _delete_sheet_if_present(wb, 'S-Corp vs LLC')
     ws = wb.create_sheet('S-Corp vs LLC')
     ws.sheet_view.showGridLines = False
-    ws.sheet_properties.tabColor = SECTION_COLOR.get('2')
+    # S-Corp vs LLC is COMPARISON-kind and lives in '3. Comparisons' since W3
+    # (#329 O10) gave COMPARISON its own group, out of Optimizers ('2').
+    ws.sheet_properties.tabColor = SECTION_COLOR.get('3')
     start = _find_row_containing(src, 'S-CORPORATION vs. LLC') or 25
     # Fix #273: a fixed start+15 window bled one row into the next section
     # ("Withdrawal-Sequencing Strategy Comparison") -- its heading got copied
@@ -778,16 +806,6 @@ def _merge_asset_location_into_allocation(wb):
     _copy_rows(src, dst, 1, _used_row(src), dst_start, max_col=src.max_column)
 
 
-def _merge_ltc_into_life_insurance(wb):
-    if '19. Life Insurance' not in wb.sheetnames or '17. LTC Stress Test' not in wb.sheetnames:
-        return
-    dst = wb['19. Life Insurance']
-    src = wb['17. LTC Stress Test']
-    dst['A1'].value = 'COMBINED LTC + LIFE INSURANCE ANALYSIS'
-    dst_start = _used_row(dst) + 3
-    _copy_rows(src, dst, 1, _used_row(src), dst_start, max_col=src.max_column)
-
-
 # _rename_final_sheets is defined once, in workbook_common.py, and imported
 # here via the `from .workbook_common import *` at the top of this module.
 
@@ -804,16 +822,14 @@ def apply_final_workbook_structure(wb, c):
     that one fresh mapping instead of a static, hand-typed one.
     """
     _ensure_plan_data_shell(wb)
-    _extract_scorp_sheet(wb)
+    if module_enabled(c, 'scorp_vs_llc'):
+        _extract_scorp_sheet(wb)
     _merge_strategy_into_executive_summary(wb)
     _merge_asset_location_into_allocation(wb)
-    _merge_ltc_into_life_insurance(wb)
-    # The combined "3C. LTC + Life Insurance" tab is normally the renamed Life
-    # Insurance sheet with LTC merged in.  When life insurance is disabled but
-    # LTC is on, promote the LTC sheet into that slot so it still lands under
-    # Risk & Stress Tests instead of becoming an orphaned legacy tab.
-    if '19. Life Insurance' not in wb.sheetnames and '17. LTC Stress Test' in wb.sheetnames:
-        wb['17. LTC Stress Test'].title = '19. Life Insurance'
+    # W3 (#329 O10): LTC Stress Test and Life Insurance Need are no longer
+    # merged -- each is now its own SHEET_REGISTRY entry under '4. Risks'
+    # (4.1 stress tests / 4.2 protection decisions), gated independently, so
+    # there is nothing left to merge or promote here.
     _delete_sheet_if_present(wb, '4D. System Setting')
 
     refresh_final_sheet_renames(wb)
@@ -822,11 +838,11 @@ def apply_final_workbook_structure(wb, c):
     # _build_plan_data_sheet writes already-final text (sheet names, letters)
     # directly, so it must run AFTER _replace_text_refs -- otherwise that
     # substring-replacement pass matches its own output a second time (e.g.
-    # "Plan Data" inside the already-correct "4A. Plan Data" banner) and
+    # "Plan Data" inside the already-correct "5A. Plan Data" banner) and
     # double-prefixes it.
     _build_plan_data_sheet(wb, c)
 
-    qc_final = FINAL_SHEET_RENAMES.get('21. Quality Control', '4D. Quality Control')
+    qc_final = FINAL_SHEET_RENAMES.get('21. Quality Control', '5D. Quality Control')
     if qc_final in wb.sheetnames and '26. Workbook Warnings' in wb.sheetnames:
         qc_ws = wb[qc_final]
         warn_ws = wb['26. Workbook Warnings']
@@ -834,9 +850,10 @@ def apply_final_workbook_structure(wb, c):
         _copy_rows(warn_ws, qc_ws, 1, _used_row(warn_ws), dst_start, max_col=warn_ws.max_column)
         qc_ws.cell(row=dst_start, column=1).value = 'WORKBOOK WARNINGS — Consistency, Staleness, and Advisor Review'
         qc_ws.cell(row=dst_start, column=1).font = body_font(bold=True, color='FFFFFF')
-        qc_ws.cell(row=dst_start, column=1).fill = PatternFill('solid', fgColor=SECTION_COLOR.get('4'))
+        # Quality Control is DIAGNOSTICS-kind and lives in System, group '5'.
+        qc_ws.cell(row=dst_start, column=1).fill = PatternFill('solid', fgColor=SECTION_COLOR.get('5'))
         _delete_sheet_if_present(wb, '26. Workbook Warnings')
-    for legacy in ['9. Retirement Strategy', '17. LTC Stress Test', '24. Asset Location']:
+    for legacy in ['9. Retirement Strategy', '24. Asset Location']:
         _delete_sheet_if_present(wb, legacy)
     for hidden in ['16. Scenario Analysis']:
         _hide_sheet_if_present(wb, hidden)
@@ -1093,6 +1110,11 @@ def main():
     if '19. Life Insurance' in sheets:
         print('  Sheet 19 — Life Insurance')
         build_sheet19(sheets['19. Life Insurance'], c, rows)
+    # #329 §1.2/§3.3 (W9): new sheet -- Divorce/QDRO gains a workbook
+    # counterpart, reusing Sheet 16's own re-projection.
+    if '39. Divorce QDRO Stress Test' in sheets:
+        print('  Sheet 39 — Divorce / QDRO Stress Test')
+        build_sheet39(sheets['39. Divorce QDRO Stress Test'], c, rows)
     if '20. RMD Audit' in sheets:
         print('  Sheet 20 — RMD Audit')
         build_sheet20(sheets['20. RMD Audit'], c, rows)
@@ -1102,13 +1124,24 @@ def main():
     if '23. Methodology' in sheets:
         print('  Sheet 23 — Methodology')
         build_sheet23(sheets['23. Methodology'], c)
-    build_sheet24(sheets['24. Asset Location'], c, rows)
-    print('  Sheet 25 — Account Reconciliation')
-    build_sheet25(sheets['25. Account Reconciliation'], c, rows)
-    print('  Sheet 29 — Spending Summary (taxonomy)')
-    build_sheet_spending_summary(sheets['29. Spending Summary'], c)
-    print('  Sheet 37 — Current vs. Proposed')
-    build_sheet_current_vs_proposed(sheets['37. Current vs Proposed'], c, rows)
+    if '24. Asset Location' in sheets:
+        print('  Sheet 24 — Asset Location')
+        build_sheet24(sheets['24. Asset Location'], c, rows)
+    # W8b: both were unconditional -- the same W8a found on '24. Asset
+    # Location' and '37. Current vs Proposed'. Once `module_key` is set on
+    # their SHEET_REGISTRY entries, `disabled_sheets` prunes them out of
+    # `sheets`, and an unguarded call KeyErrors the moment the Spending
+    # Tracker / YTD switch that bundles them is turned off. Same membership
+    # guard every other optional sheet in this function already uses.
+    if '25. Account Reconciliation' in sheets:
+        print('  Sheet 25 — Account Reconciliation')
+        build_sheet25(sheets['25. Account Reconciliation'], c, rows)
+    if '29. Spending Summary' in sheets:
+        print('  Sheet 29 — Spending Summary (taxonomy)')
+        build_sheet_spending_summary(sheets['29. Spending Summary'], c)
+    if '37. Current vs Proposed' in sheets:
+        print('  Sheet 37 — Current vs. Proposed')
+        build_sheet_current_vs_proposed(sheets['37. Current vs Proposed'], c, rows)
     if '26. Workbook Warnings' in sheets:
         print('  Sheet 26 — Workbook Warnings')
         build_sheet26_workbook_warnings(sheets['26. Workbook Warnings'], c, rows)
@@ -1280,7 +1313,33 @@ def main():
         'mc_approximation_status': None,
         'model_risk_rating': None,
         'model_risk_label': None,
+        # #329 §4.5 path 1 (W10a): the Roth optimizer's own result, so the
+        # Strategy > Optimize > Roth Conversion panel can show what the last
+        # build concluded instead of being an input form with nothing on
+        # screen to read. plan_summary.json is the artifact /api/summary
+        # already serves, so this needs no new endpoint and survives a page
+        # reload; nothing is recomputed here -- the value is a projection of
+        # the RothStrategyResult contract attach_plan_result() already built.
+        'roth_strategy_result': None,
+        # #329 P6 (W10c): the Social Security claim-age sweep's winner, so the
+        # Income & Social Security page can offer apply-to-plan on it. Same
+        # artifact and same reasoning as roth_strategy_result above: a
+        # projection of the sweep Sheet 10 already ran, not a second sweep.
+        # Stays None when the Social Security optimizer module is off, exactly
+        # as ss_sweep itself does -- an absent result is how the UI is told
+        # there is nothing to apply.
+        'social_security_timing_result': None,
     }
+    try:
+        from .summary_figures import roth_strategy_result_payload
+        summary_data['roth_strategy_result'] = roth_strategy_result_payload(c)
+    except Exception as _roth_payload_exc:
+        print(f'Warning: Roth strategy result payload skipped (build continues): {_roth_payload_exc}')
+    try:
+        from .summary_figures import social_security_timing_payload
+        summary_data['social_security_timing_result'] = social_security_timing_payload(ss_sweep, c)
+    except Exception as _ss_payload_exc:
+        print(f'Warning: Social Security timing payload skipped (build continues): {_ss_payload_exc}')
     try:
         after_tax_kpis = estimate_after_tax_terminal_net_worth(c, terminal)
         lifetime_tax = sum(float(r.get('total_tax', 0.0) or 0.0) for r in rows)

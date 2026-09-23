@@ -20,8 +20,9 @@ def test_output_workbook_uses_numbered_top_level_area_tabs(built_workbook_path):
     expected_sections = [
         "1. Reports",
         "2. Optimizers",
-        "3. Risk & Stress Tests",
-        "4. System",
+        "3. Comparisons",
+        "4. Risks",
+        "5. System",
     ]
     for section in expected_sections:
         assert section in names
@@ -36,8 +37,9 @@ def test_output_workbook_uses_numbered_top_level_area_tabs(built_workbook_path):
         "1F. Lifetime Taxes",
     ]
     assert names[names.index("2. Optimizers") + 1] == "2A. Roth Conversion"
-    assert names[names.index("3. Risk & Stress Tests") + 1] == "3A. Monte Carlo"
-    assert names[names.index("4. System") + 1] == "4A. Plan Data"
+    assert names[names.index("3. Comparisons") + 1] == "3A. State Residency"
+    assert names[names.index("4. Risks") + 1] == "4A. Monte Carlo"
+    assert names[names.index("5. System") + 1] == "5A. Plan Data"
     assert names[-1] == "_Chart Dashboard Data"
 
 
@@ -54,11 +56,29 @@ def test_source_layout_declares_same_numbered_areas():
     assert [a["section"] for a in layout] == [
         "1. Reports",
         "2. Optimizers",
-        "3. Risk & Stress Tests",
-        "4. System",
+        "3. Comparisons",
+        "4. Risks",
+        "5. System",
     ]
     flattened = [sheet for area in layout for sheet in area["sheets"]]
     assert flattened[:3] == ["1. Executive Summary", "5. Net Worth Projection", "6. Cash Flow Projection"]
+    # W3 (#329 O10, F1): COMPARISON modules get their own group, out of
+    # Optimizers -- S-Corp vs LLC and State Residency now sit in Comparisons.
     assert "S-Corp vs LLC" in flattened
     assert "19. Life Insurance" in flattened
-    assert flattened[-1] == "22. Glossary"
+    # W3 split LTC Stress Test back out of the merged Life Insurance sheet
+    # (#329 O10) -- both are now independent Risks entries.
+    assert "17. LTC Stress Test" in flattened
+    # W11 addendum (2026-09-22): '27. Planning Levers' was found to be a real,
+    # actively-used interactive lever-screening tool, not the static
+    # provenance echo every upstream doc (including this one, previously)
+    # assumed -- see docs/superpowers/plans/2026-09-22-w11-planning-levers-
+    # retirement-notes.md. Kept, and recatalogued WORKSHEET (was REFERENCE),
+    # which moves it out of System and into Reports, densely last there
+    # (its exact '1I.' position is pinned in
+    # test_workbook_numbered_section_tabs_functional.py, not here). '11B. Tax
+    # Capacity' is still REFERENCE-kind (filed in System rather than Reports)
+    # and, with Planning Levers gone, is now densely last in System itself.
+    assert flattened[-1] == "11B. Tax Capacity"
+    assert flattened[-2] == "22. Glossary"
+    assert flattened[-3] == "23. Methodology"

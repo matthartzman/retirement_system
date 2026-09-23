@@ -200,7 +200,38 @@ def _build_workbook(tmp_path_factory, *, enabled: bool):
 @pytest.mark.slow
 @pytest.mark.parametrize("enabled", [True, False])
 def test_full_workbook_build_succeeds_with_the_module_on_and_off(tmp_path_factory, enabled):
+    """W8b strengthened this: it used to assert only that the build survived.
+
+    W1 gave this module its missing toggle row, defaulted TRUE so nothing moved
+    (`2026-09-21-w1-catalog-foundation-notes.md`). A row existing and a build
+    surviving are two different claims from "the switch does something" -- a
+    build that force-disables a module it never actually gates would pass both.
+    So the off case now asserts the sheet is *gone* and the on case asserts it
+    is there, which is the thing the toggle promises.
+
+    The final tab is lettered per build (`2G.` today), and that letter shifts
+    whenever any other Optimizers module is toggled, so the assertion matches
+    on the stable display suffix rather than pinning a letter this test has no
+    reason to care about -- #1.1's shifting-letters defect, which is exactly
+    what W2's slugs exist to stop tests from re-introducing.
+    """
     out_dir, result = _build_workbook(tmp_path_factory, enabled=enabled)
     tail = (result.stdout + result.stderr)[-4000:]
     assert result.returncode == 0, f"build with {TOGGLE}={enabled} failed:\n{tail}"
-    assert (out_dir / "retirement_plan.xlsx").exists()
+    book = out_dir / "retirement_plan.xlsx"
+    assert book.exists()
+
+    from openpyxl import load_workbook
+    wb = load_workbook(book, read_only=True)
+    try:
+        present = [n for n in wb.sheetnames if n.endswith("Housing Comparison")]
+    finally:
+        wb.close()
+    if enabled:
+        assert present, (
+            "Housing Comparison is force-enabled but no Housing Comparison tab "
+            f"was built. Sheets: {present}")
+    else:
+        assert not present, (
+            "Housing Comparison is force-disabled but its tab was built anyway "
+            f"-- the toggle gates nothing. Found: {present}")
