@@ -21,6 +21,33 @@ from ..schema_registry import validate_rows as _schema_validate_rows_full
 JsonDict = dict[str, Any]
 AuditFn = Callable[[str, dict[str, Any] | None], None]
 
+OPTIONAL_FUNCTIONS_CSV = "client_optional_functions.csv"
+
+
+def backfill_optional_function_rows(rows: list[JsonDict], effective: dict[str, bool]) -> list[JsonDict]:
+    """Append a row for every switchable catalog module the plan's
+    client_optional_functions.csv lacks, valued at its current effective
+    state, so Plan Features can show and edit it (the missing-row bug).
+
+    ``rows`` are the plan's existing Optional Functions rows (untouched --
+    this never edits or reorders one that's already there); ``effective`` is
+    a ``{module_key: enabled}`` map (e.g. from ``module_status()``), read
+    with ``.get(key, True)`` so a module this map has no opinion on defaults
+    to on rather than silently switching itself off the moment a backfill
+    runs. Only ``GATE_MODULE_TOGGLE`` modules with no ``gated_by`` parent are
+    candidates -- a plan flag has no CSV row by design (§5.3/W9), and a
+    bundled module's state is decided by its parent's toggle, not its own row.
+    """
+    from ..module_catalog import CATALOG, GATE_MODULE_TOGGLE
+    have = {r.get("label") for r in rows}
+    out = list(rows)
+    for key, m in CATALOG.items():
+        if m.optional and m.gate_kind == GATE_MODULE_TOGGLE and not m.gated_by and key not in have:
+            out.append({"section": "Optional Functions", "subsection": "", "label": key,
+                        "value": "TRUE" if effective.get(key, True) else "FALSE",
+                        "units": "boolean", "notes": m.name})
+    return out
+
 
 @dataclass(frozen=True)
 class ConfigServiceContext:
@@ -68,6 +95,7 @@ class ConfigService:
         }, 200
 
     def config_rows_payload(self) -> tuple[JsonDict, int]:
+        self._backfill_optional_function_rows_to_disk()
         payload = self.context.csv_rows_payload()
         _data, meta = self.context.load_active_config()
         return {
@@ -216,6 +244,70 @@ class ConfigService:
             return module_status(cfg)
         except Exception:
             return {}
+
+    def _backfill_optional_function_rows_to_disk(self) -> None:
+        """#330 bug fix: client_optional_functions.csv can predate a catalog
+        module (an older plan folder, or one saved before the module
+        existed), leaving that module with no toggle row -- Plan Features
+        then has no CSV row to render a switch for, so the module is
+        invisible on the one page meant to be its complete list.
+
+        Reads the file, computes what ``backfill_optional_function_rows`` is
+        missing, and -- only if something is missing -- writes it back
+        through ``write_plan_data_file``, the same plan-data save path
+        ``update_config_rows_payload`` already uses (see its own comment on
+        why: it keeps a SQLite-backed backend in sync with disk). Writing
+        before ``csv_rows_payload()`` runs (called right after this, in
+        ``config_rows_payload``) is what gives each backfilled row a real,
+        persisted ``row_index`` -- the ordinary ``editValue(row_index)``
+        toggle click needs nothing else to work on it.
+
+        Best-effort: a missing/unreadable file or a ``module_status()``
+        failure (already degrades to ``{}``, see ``_module_status``) just
+        means nothing gets backfilled this call, not a broken payload.
+        """
+        path = self.context.plan_data_path(OPTIONAL_FUNCTIONS_CSV)
+        try:
+            if not path.exists():
+                return
+            with path.open(newline="", encoding="utf-8-sig") as f:
+                raw_rows = [list(r) for r in csv.reader(f)]
+        except Exception:
+            return
+        if not raw_rows:
+            return
+
+        existing: list[JsonDict] = []
+        for raw in raw_rows[1:]:  # skip header
+            section = str(raw[0] if raw else "").strip()
+            if not section or section.startswith("#"):
+                continue  # comment/blank rows carry no label to key on
+            padded = list(raw) + [""] * max(0, 6 - len(raw))
+            existing.append({
+                "section": padded[0], "subsection": padded[1], "label": padded[2],
+                "value": padded[3], "units": padded[4], "notes": padded[5],
+            })
+
+        try:
+            _data, _meta = self.context.load_active_config()
+            status = self._module_status(_data)
+        except Exception:
+            status = {}
+        effective = {k: bool((v or {}).get("enabled", True)) for k, v in status.items()}
+
+        out = backfill_optional_function_rows(existing, effective)
+        have = {r.get("label") for r in existing}
+        new_rows = [r for r in out if r.get("label") not in have]
+        if not new_rows:
+            return
+
+        all_rows = list(raw_rows)
+        for r in new_rows:
+            all_rows.append([r.get("section", ""), r.get("subsection", ""), r.get("label", ""),
+                              r.get("value", ""), r.get("units", ""), r.get("notes", "")])
+        buf = io.StringIO(newline="")
+        csv.writer(buf, lineterminator="\n").writerows(all_rows)
+        self.context.write_plan_data_file(OPTIONAL_FUNCTIONS_CSV, buf.getvalue())
 
     @staticmethod
     def _sectioned_data_from_ui_rows(ui_rows: list[Any]) -> dict[str, dict[str, dict[str, str]]]:
