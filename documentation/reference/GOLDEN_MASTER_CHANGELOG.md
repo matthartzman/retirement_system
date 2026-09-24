@@ -1,3 +1,15 @@
+## 2026-09-24 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
+
+<!-- pin-provenance: terminal_nw=5347342.47 lifetime_tax=1279063.77 -->
+
+**Old pins.** terminal_nw=5,438,505.25, lifetime_tax=1,255,734.10
+
+**New pins.** terminal_nw=5,347,342.47, lifetime_tax=1,279,063.77
+
+**Reason.**
+
+#334 IRMAA: CPI thresholds from 2025 value year with statutory rounding and 2028 top-tier rule; Part B/D surcharges indexed by med_inf/partd_inf. Hand-verified 2026 (first non-zero surcharge year in the frozen demo plan): threshold round(402000*1.025/2000)*2000=412000 vs engine 412000; surcharge (round(367.8*1.055,1)+round(76.8*1.0125,1))*0.6666666666666666*12 = 465.8*8=3726.40 vs engine 3726.3999999999996 -- matches to the cent.
+
 ## 2026-09-08 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
 
 <!-- pin-provenance: terminal_nw=5438505.25 lifetime_tax=1255734.10 -->
