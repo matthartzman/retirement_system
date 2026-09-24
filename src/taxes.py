@@ -76,7 +76,27 @@ STANDARD_DEDUCTION_BASE_YEAR = dict(_FEDERAL_ENGINE_TABLES.get('standard_deducti
 STANDARD_DEDUCTION_VALUE_YEAR = max((meta['tax_year'] for key, meta in _FEDERAL_DATASET_PROVENANCE.items() if key.startswith('standard_deduction_')), default=TAX_REFERENCE_YEAR)
 STANDARD_DEDUCTION_OVER65_BASE_YEAR = dict(_FEDERAL_ENGINE_TABLES.get('standard_deduction_over65') or {})
 NIIT_THRESHOLD = dict(_FEDERAL_ENGINE_TABLES.get('niit_threshold') or {})
+def _check_irmaa_tiers_monotonic(tiers_by_status):
+    """Raise ValueError naming the filing status if its IRMAA thresholds are
+    not strictly increasing.
+
+    Bad data here fails loudly at load time instead of silently mis-billing
+    a household (e.g. a scanning bug that picks the wrong tier under
+    non-monotonic thresholds). See §9.5 / Task B0: the MFS table once had
+    MFJ's tier3-5 rows leak in via a filing-status fallback, producing
+    (106000, 403000, 335000, 402000, 750000).
+    """
+    for filing, tiers in tiers_by_status.items():
+        thresholds = [t[0] for t in tiers]
+        if thresholds != sorted(set(thresholds)) or len(set(thresholds)) != len(thresholds):
+            raise ValueError(
+                f"IRMAA tier thresholds are not strictly increasing for filing status "
+                f"{filing!r}: {thresholds}"
+            )
+
+
 IRMAA_TIERS_BASE_YEAR = {k: list(v) for k, v in (_FEDERAL_ENGINE_TABLES.get('irmaa_tiers') or {}).items()}
+_check_irmaa_tiers_monotonic(IRMAA_TIERS_BASE_YEAR)
 IRMAA_TIERS_VALUE_YEAR = max((meta['tax_year'] for key, meta in _FEDERAL_DATASET_PROVENANCE.items() if key.startswith('irmaa_tier')), default=TAX_REFERENCE_YEAR)
 LTCG_BRACKETS_BASE_YEAR = dict(_FEDERAL_ENGINE_TABLES.get('ltcg_brackets') or {})
 LTCG_BRACKETS_VALUE_YEAR = max((meta['tax_year'] for key, meta in _FEDERAL_DATASET_PROVENANCE.items() if key.startswith('ltcg_')), default=TAX_REFERENCE_YEAR)
@@ -348,6 +368,7 @@ def load_tax_constants(search_dirs=None):
             LTCG_BRACKETS_BASE_YEAR[filing] = table
         for filing, table in engine.get('irmaa_tiers', {}).items():
             IRMAA_TIERS_BASE_YEAR[filing] = list(table)
+        _check_irmaa_tiers_monotonic(IRMAA_TIERS_BASE_YEAR)
         for item in ds.values:
             key = f"{item.name}_{item.filing_status.lower()}"
             registry[key] = {'value': item.value, 'tax_year': item.effective_year, 'source': item.source}

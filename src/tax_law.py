@@ -81,14 +81,32 @@ class TaxLawDataset:
         }
 
     def _irmaa_tiers(self, year: int, filing_status: str = "MFJ") -> tuple[tuple[float, float, float], ...]:
+        """Build the ordered IRMAA tier table for one filing status.
+
+        `lookup()` falls back to MFJ values when a filing status has no
+        explicit entry for a given key, which is the desired behavior for
+        most tables (e.g. standard deduction overrides). For IRMAA tiers it
+        is wrong: MFS is statutorily defined with only 2 tiers, but the MFJ
+        fallback silently appended MFJ's tier3-5 rows once MFS ran out of its
+        own tiers, producing a non-monotonic threshold list. So here we stop
+        as soon as the filing status has no *own* entry for the next tier,
+        rather than falling through to MFJ's table.
+        """
         tiers: list[tuple[float, float, float]] = []
         for idx in range(1, 10):
+            name_threshold = f"irmaa_tier{idx}_threshold"
+            has_own_tier = any(
+                v.name == name_threshold and v.filing_status == filing_status
+                for v in self.values
+            )
+            if not has_own_tier:
+                break
             try:
-                threshold = self.lookup(f"irmaa_tier{idx}_threshold", year, filing_status=filing_status).value
+                threshold = self.lookup(name_threshold, year, filing_status=filing_status).value
                 part_b = self.lookup(f"irmaa_tier{idx}_part_b_surcharge_monthly", year, filing_status=filing_status).value
                 part_d = self.lookup(f"irmaa_tier{idx}_part_d_surcharge_monthly", year, filing_status=filing_status).value
             except KeyError:
-                continue
+                break
             tiers.append((threshold, part_b, part_d))
         return tuple(tiers)
 
