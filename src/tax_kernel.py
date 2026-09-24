@@ -126,14 +126,29 @@ def irmaa_threshold(c, filing, tier_idx, year):
     return float(round(base * f / step) * step)
 
 
+def irmaa_tier_monthly(c, filing, tier_idx, year):
+    """Indexed, dime-rounded monthly Part B + Part D dollars for one tier.
+
+    ``tier_idx`` is 0-based into the filing status's ``IRMAA_TIERS_BASE_YEAR``
+    row, same convention as ``irmaa_threshold``. This is the single place that
+    turns a table row's raw base-year dollars into a real-year dollar amount
+    -- both ``irmaa_surcharge`` below and ``hsa_schedule``'s IRMAA-cliff term
+    (``_next_tier_surcharge_step``) call this rather than reading
+    ``IRMAA_TIERS_BASE_YEAR`` directly, so there is exactly one IRMAA-dollar
+    model (#334 follow-up finding, Task B4).
+    """
+    tiers = _tiers(filing)
+    _, partb, partd = tiers[tier_idx]
+    return (round(partb * irmaa_partb_factor(c, year), 1)
+            + round(partd * irmaa_partd_factor(c, year), 1))
+
+
 def irmaa_surcharge(agi, year, n_people, filing, c):
     """Annual Part B + Part D IRMAA surcharge for a household at ``agi``."""
     tiers = _tiers(filing)
     for i in range(len(tiers) - 1, -1, -1):
         if agi > irmaa_threshold(c, filing, i, year):
-            _, partb, partd = tiers[i]
-            monthly = (round(partb * irmaa_partb_factor(c, year), 1)
-                       + round(partd * irmaa_partd_factor(c, year), 1))
+            monthly = irmaa_tier_monthly(c, filing, i, year)
             return monthly * n_people * 12
     return 0.0
 
