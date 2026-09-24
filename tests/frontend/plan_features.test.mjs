@@ -12,20 +12,27 @@ import { loadDashboardSandbox } from "./load_dashboard.mjs";
 
 const sandbox = loadDashboardSandbox();
 
-// Shaped as config_service._module_taxonomy() serves it.
+// Shaped as config_service._module_taxonomy() serves it. Domain/answer-type
+// vocabulary matches the current catalog (A1/A2): "Risk & Resilience" was
+// dissolved and market_luck_stress_test's domain re-cut to "Investments";
+// HELOC's domain is "Housing & Property". "Housing & Property" is
+// deliberately left OUT of TAXONOMY.domains below (rather than mirroring the
+// full current DOMAINS list) so the "a domain not in the order list sorts
+// last" behavior this file tests stays exercised on real vocabulary.
 const TAXONOMY = {
-  domains: ["Income & Benefits", "Taxes", "Risk & Resilience", "Reports & Documentation"],
+  domains: ["Income & Benefits", "Taxes", "Investments"],
+  answer_types: ["Reports", "Optimizers", "Comparisons", "Risks", "Reference"],
   kind_questions: {},
   modules: {
-    social_security_timing: { name: "Social Security", kind: "optimization", domain: "Income & Benefits", demand: "high" },
-    roth_conversion_plan: { name: "Roth Conversion", kind: "optimization", domain: "Taxes", demand: "high" },
-    tax_loss_harvesting: { name: "Tax-Loss Harvesting", kind: "optimization", domain: "Taxes", demand: "low" },
-    market_luck_stress_test: { name: "Monte Carlo", kind: "stress_test", domain: "Risk & Resilience", demand: "medium" },
+    social_security_timing: { name: "Social Security", kind: "optimization", answer_type: "Optimizers", domain: "Income & Benefits", demand: "high" },
+    roth_conversion_plan: { name: "Roth Conversion", kind: "optimization", answer_type: "Optimizers", domain: "Taxes", demand: "high" },
+    tax_loss_harvesting: { name: "Tax-Loss Harvesting", kind: "optimization", answer_type: "Optimizers", domain: "Taxes", demand: "low" },
+    market_luck_stress_test: { name: "Monte Carlo", kind: "stress_test", answer_type: "Risks", domain: "Investments", demand: "medium" },
     // #330 §5.3 (W9): a plan flag, carried in taxonomy.modules like every
     // other entry but with no client_optional_functions.csv toggle row --
     // planFeatureGroups must still surface it, from the taxonomy alone.
     heloc: {
-      name: "HELOC", kind: "optimization", domain: "Assets & Protection", demand: "low",
+      name: "HELOC", kind: "optimization", answer_type: "Optimizers", domain: "Housing & Property", demand: "low",
       gate_kind: "plan_flag", gate_ref: ["HELOC", "Setup", "heloc_enabled"],
       gate_enable_label: "Enable HELOC Strategy",
     },
@@ -57,13 +64,13 @@ const TOGGLE_ROWS = [
 
 describe("planFeatureGroups", () => {
   test("groups by domain in the catalog's own domain order", () => {
-    // "Assets & Protection" (the HELOC plan flag's domain) is not in
+    // "Housing & Property" (the HELOC plan flag's domain) is not in
     // TAXONOMY.domains, so it sorts last, after every known domain -- same
     // rule "a toggle with no catalog entry still renders, under Other"
     // below exercises for an unclassified module.
     assert.deepEqual(
       groups(TOGGLE_ROWS, TAXONOMY, "").map((g) => g.domain),
-      ["Income & Benefits", "Taxes", "Risk & Resilience", "Assets & Protection"],
+      ["Income & Benefits", "Taxes", "Investments", "Housing & Property"],
     );
   });
 
@@ -81,9 +88,9 @@ describe("planFeatureGroups", () => {
     assert.equal(gs[gs.length - 1].domain, "Other");
   });
 
-  test("the kind filter narrows to one kind and drops now-empty domains", () => {
-    const gs = groups(TOGGLE_ROWS, TAXONOMY, "stress_test");
-    assert.deepEqual(gs.map((g) => g.domain), ["Risk & Resilience"]);
+  test("the answer-type filter narrows to one answer type and drops now-empty domains", () => {
+    const gs = groups(TOGGLE_ROWS, TAXONOMY, "Risks");
+    assert.deepEqual(gs.map((g) => g.domain), ["Investments"]);
     assert.deepEqual(gs[0].keys, ["market_luck_stress_test"]);
   });
 
@@ -92,14 +99,14 @@ describe("planFeatureGroups", () => {
   // row, so the ordinary toggle-row loop above never sees it.
   test("a plan flag with no toggle row still renders, from the taxonomy alone", () => {
     const gs = groups(TOGGLE_ROWS, TAXONOMY, "");
-    const assetsProtection = gs.find((g) => g.domain === "Assets & Protection");
-    assert.ok(assetsProtection, "expected an Assets & Protection group for the HELOC plan flag");
-    assert.deepEqual(assetsProtection.keys, ["heloc"]);
+    const housingProperty = gs.find((g) => g.domain === "Housing & Property");
+    assert.ok(housingProperty, "expected a Housing & Property group for the HELOC plan flag");
+    assert.deepEqual(housingProperty.keys, ["heloc"]);
   });
 
-  test("a plan flag respects the kind filter like any other entry", () => {
-    const gs = groups(TOGGLE_ROWS, TAXONOMY, "stress_test");
-    assert.equal(gs.find((g) => g.domain === "Assets & Protection"), undefined);
+  test("a plan flag respects the answer-type filter like any other entry", () => {
+    const gs = groups(TOGGLE_ROWS, TAXONOMY, "Risks");
+    assert.equal(gs.find((g) => g.domain === "Housing & Property"), undefined);
   });
 
   test("a plan flag is never listed twice, even if it somehow also carries a toggle row", () => {
@@ -107,8 +114,8 @@ describe("planFeatureGroups", () => {
     // Python) -- this is the defensive frontend half of the same double-gate
     // #330 Q2 removed from DAF.
     const gs = groups([...TOGGLE_ROWS, row("heloc")], TAXONOMY, "");
-    const assetsProtection = gs.find((g) => g.domain === "Assets & Protection");
-    assert.equal(assetsProtection.keys.length, 1);
+    const housingProperty = gs.find((g) => g.domain === "Housing & Property");
+    assert.equal(housingProperty.keys.length, 1);
   });
 
   test("survives a taxonomy that has not loaded yet", () => {
@@ -129,42 +136,60 @@ describe("planFeatureGroups", () => {
     // #330 §5.3 (W9): no toggle rows at all, but a plan flag still renders --
     // it never depended on toggleRows in the first place.
     assert.deepEqual(groups(undefined, TAXONOMY, ""), [
-      { domain: "Assets & Protection", keys: ["heloc"] },
+      { domain: "Housing & Property", keys: ["heloc"] },
     ]);
   });
 });
 
 describe("planFeatureKinds", () => {
-  test("offers only kinds actually present among the toggle rows or plan flags", () => {
-    // Never a filter that would empty the page. "optimization" is already
+  // #332 §1.2: chips show the user-facing answer-type vocabulary
+  // (Reports/Optimizers/Comparisons/Risks/Reference), not the raw internal
+  // `kind` id -- "stress_test" means nothing to a reader, "Risks" does --
+  // and are ordered by taxonomy.answer_types rather than alphabetically.
+  test("chips are answer-type labels, not raw kind ids", () => {
+    const tax = {
+      answer_types: ["Reports", "Optimizers", "Comparisons", "Risks", "Reference"],
+      modules: {
+        a: { kind: "stress_test", answer_type: "Risks", domain: "Investments" },
+        b: { kind: "optimization", answer_type: "Optimizers", domain: "Taxes" },
+      },
+    };
+    const rows = [{ label: "a" }, { label: "b" }];
+    assert.deepEqual(here(sandbox.planFeatureKinds(rows, tax)), ["Optimizers", "Risks"]);
+    const g = groups(rows, tax, "Risks");
+    assert.deepEqual(g.flatMap((x) => x.keys), ["a"]);
+  });
+
+  test("offers only answer types actually present among the toggle rows or plan flags", () => {
+    // Never a filter that would empty the page. "Optimizers" is already
     // present via roth_conversion_plan/tax_loss_harvesting -- the HELOC plan
-    // flag (also "optimization") adds nothing new here, so this alone
+    // flag (also "Optimizers") adds nothing new here, so this alone
     // doesn't prove plan flags are included; the next test does.
     assert.deepEqual(here(sandbox.planFeatureKinds(TOGGLE_ROWS, TAXONOMY)), [
-      "optimization",
-      "stress_test",
+      "Optimizers",
+      "Risks",
     ]);
   });
 
-  test("includes a kind that only a plan flag carries", () => {
-    // Without a toggle row of its own, a plan flag would be invisible to a
-    // kind filter built only from toggleRows -- exactly the "unreachable by
-    // kind" bug this covers.
+  test("includes an answer type that only a plan flag carries", () => {
+    // Without a toggle row of its own, a plan flag would be invisible to an
+    // answer-type filter built only from toggleRows -- exactly the
+    // "unreachable by answer type" bug this covers.
     const taxonomy = {
       ...TAXONOMY,
       modules: {
         ...TAXONOMY.modules,
         hybrid_ltc_policy: {
-          name: "LTC/Life Policy", kind: "protection", domain: "Assets & Protection", demand: "low",
+          name: "LTC/Life Policy", kind: "diagnostics", answer_type: "Reference", domain: "Housing & Property", demand: "low",
           gate_kind: "plan_flag", gate_ref: ["Hybrid LTC", "Settings", "enabled"],
           gate_enable_label: "Enabled",
         },
       },
     };
     assert.deepEqual(here(sandbox.planFeatureKinds(TOGGLE_ROWS, taxonomy)), [
-      "optimization",
-      "protection",
-      "stress_test",
+      "Optimizers",
+      "Risks",
+      "Reference",
     ]);
   });
 
@@ -246,5 +271,48 @@ describe("demandHint", () => {
   test("says nothing for an unknown or absent band", () => {
     assert.equal(sandbox.demandHint(undefined), "");
     assert.equal(sandbox.demandHint("not_a_band"), "");
+  });
+});
+
+describe("row kind badge", () => {
+  // Important #1 (W-A final review): the badge must show the user-facing
+  // answer-type label ("Risks"), not the raw internal kind id
+  // ("stress_test") that planFeatureKinds/kindChipsHtml already moved off
+  // of for the filter chips above.
+  test("featureRowHtml shows the answer type, not the raw kind id", () => {
+    const entry = {
+      key: "market_luck_stress_test",
+      row: row("market_luck_stress_test", "YES"),
+      meta: {
+        name: "Monte Carlo",
+        kind: "stress_test",
+        answer_type: "Risks",
+        domain: "Investments",
+        demand: "medium",
+      },
+    };
+    const html = sandbox.featureRowHtml(entry);
+    assert.match(html, /class="badge pf-kind">Risks</);
+    assert.doesNotMatch(html, /stress_test/);
+  });
+
+  test("planFlagRowHtml shows the answer type, not the raw kind id", () => {
+    const entry = {
+      key: "heloc",
+      meta: TAXONOMY.modules.heloc,
+    };
+    const html = sandbox.planFlagRowHtml(entry);
+    assert.match(html, /class="badge pf-kind">Optimizers</);
+    assert.doesNotMatch(html, />optimization</);
+  });
+
+  test("falls back to the raw kind id when answer_type is missing (stale/cached taxonomy)", () => {
+    const entry = {
+      key: "market_luck_stress_test",
+      row: row("market_luck_stress_test", "YES"),
+      meta: { name: "Monte Carlo", kind: "stress_test", domain: "Investments" },
+    };
+    const html = sandbox.featureRowHtml(entry);
+    assert.match(html, /class="badge pf-kind">stress_test</);
   });
 });

@@ -209,7 +209,7 @@ _SECTION_META = {
     '2': ('2. Optimizers', 'Decision-support modules and optimization outputs.'),
     '3': ('3. Comparisons', "Alternatives the user named, scored side by side — no search."),
     '4': ('4. Risks', 'Stress tests and the protection decisions they motivate.'),
-    '5': ('5. System', 'Plan data snapshot, assumptions, reconciliation, quality control, RMD audit, methodology, and glossary.'),
+    '5': ('5. Reference', 'Plan data snapshot, assumptions, reconciliation, quality control, RMD audit, methodology, and glossary.'),
 }
 
 

@@ -120,7 +120,7 @@ export function planFeatureGroups(toggleRows, taxonomy, kindFilter) {
   const seenKeys = new Set();
   (toggleRows || []).forEach((r) => {
     const meta = modules[r.label] || {};
-    if (kindFilter && meta.kind !== kindFilter) return;
+    if (kindFilter && meta.answer_type !== kindFilter) return;
     seenKeys.add(r.label);
     const domain = meta.domain || "Other";
     if (!byDomain.has(domain)) byDomain.set(domain, []);
@@ -134,7 +134,7 @@ export function planFeatureGroups(toggleRows, taxonomy, kindFilter) {
     if (seenKeys.has(key)) return;
     const meta = modules[key];
     if (meta.gate_kind !== "plan_flag") return;
-    if (kindFilter && meta.kind !== kindFilter) return;
+    if (kindFilter && meta.answer_type !== kindFilter) return;
     const domain = meta.domain || "Other";
     if (!byDomain.has(domain)) byDomain.set(domain, []);
     byDomain.get(domain).push({ row: null, key, meta });
@@ -153,23 +153,28 @@ export function planFeatureGroups(toggleRows, taxonomy, kindFilter) {
   }));
 }
 
-// The kind chips, derived from CATALOG.kind rather than hand-listed: only
-// kinds actually present among the toggle rows get a chip, so the row never
-// offers a filter that would empty the page.
+// The filter chips, labeled with the catalog's user-facing answer-type
+// vocabulary (#332 §1.2: Reports/Optimizers/Comparisons/Risks/Reference)
+// rather than the raw internal `kind` id -- "stress_test" means nothing to a
+// reader, "Risks" does. Only answer types actually present among the toggle
+// rows (or a plan flag) get a chip, so the row never offers a filter that
+// would empty the page, and chips are ordered by taxonomy.answer_types
+// (KIND_LETTER_PREFIX's own order) rather than alphabetically.
 export function planFeatureKinds(toggleRows, taxonomy) {
   const modules = (taxonomy || {}).modules || {};
+  const order = (taxonomy || {}).answer_types || [];
   const seen = new Set();
   (toggleRows || []).forEach((r) => {
-    const kind = (modules[r.label] || {}).kind;
-    if (kind) seen.add(kind);
+    const answerType = (modules[r.label] || {}).answer_type;
+    if (answerType) seen.add(answerType);
   });
-  // Plan flags carry a kind too and now render on this page (see
+  // Plan flags carry an answer type too and now render on this page (see
   // planFeatureGroups) -- a filter chip must include them or a plan flag
-  // whose kind no toggle module shares would become unreachable by kind.
+  // whose answer type no toggle module shares would become unreachable.
   Object.values(modules).forEach((meta) => {
-    if (meta.gate_kind === "plan_flag" && meta.kind) seen.add(meta.kind);
+    if (meta.gate_kind === "plan_flag" && meta.answer_type) seen.add(meta.answer_type);
   });
-  return [...seen].sort();
+  return order.filter((at) => seen.has(at));
 }
 
 function kindChipsHtml(kinds, active) {
@@ -184,7 +189,7 @@ function kindChipsHtml(kinds, active) {
     `<button class="pf-chip${active === kind ? " active" : ""}" type="button" ` +
     `onclick="setPlanFeatureKind('${esc(escJs(kind))}')">${esc(label)}</button>`;
   return (
-    '<div class="pf-chips" role="group" aria-label="Filter by kind">' +
+    '<div class="pf-chips" role="group" aria-label="Filter by answer type">' +
     chip("", "All") +
     kinds.map((k) => chip(k, k)).join("") +
     "</div>"
@@ -236,7 +241,7 @@ function planFlagRowHtml(entry) {
 
   let html = '<div class="opt-module-row">';
   html += '<div class="opt-module-info"><span class="opt-module-name">' + esc(lbl) + "</span>";
-  if (meta.kind) html += '<span class="badge pf-kind">' + esc(meta.kind) + "</span>";
+  if (meta.kind) html += '<span class="badge pf-kind">' + esc(meta.answer_type || meta.kind) + "</span>";
   if (hint) html += '<span class="pf-demand">' + esc(hint) + "</span>";
   if (desc) html += '<span class="opt-module-desc">' + esc(desc) + "</span>";
   html +=
@@ -265,7 +270,7 @@ function featureRowHtml(entry) {
 
   let html = '<div class="opt-module-row">';
   html += '<div class="opt-module-info"><span class="opt-module-name">' + esc(lbl) + "</span>";
-  if (meta.kind) html += '<span class="badge pf-kind">' + esc(meta.kind) + "</span>";
+  if (meta.kind) html += '<span class="badge pf-kind">' + esc(meta.answer_type || meta.kind) + "</span>";
   if (hint) html += '<span class="pf-demand">' + esc(hint) + "</span>";
   if (desc) html += '<span class="opt-module-desc">' + esc(desc) + "</span>";
   if (status.auto_enabled) {

@@ -850,7 +850,7 @@ def apply_final_workbook_structure(wb, c):
         _copy_rows(warn_ws, qc_ws, 1, _used_row(warn_ws), dst_start, max_col=warn_ws.max_column)
         qc_ws.cell(row=dst_start, column=1).value = 'WORKBOOK WARNINGS — Consistency, Staleness, and Advisor Review'
         qc_ws.cell(row=dst_start, column=1).font = body_font(bold=True, color='FFFFFF')
-        # Quality Control is DIAGNOSTICS-kind and lives in System, group '5'.
+        # Quality Control is DIAGNOSTICS-kind and lives in Reference, group '5'.
         qc_ws.cell(row=dst_start, column=1).fill = PatternFill('solid', fgColor=SECTION_COLOR.get('5'))
         _delete_sheet_if_present(wb, '26. Workbook Warnings')
     for legacy in ['9. Retirement Strategy', '24. Asset Location']:

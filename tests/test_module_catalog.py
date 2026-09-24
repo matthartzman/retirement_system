@@ -448,3 +448,58 @@ def test_a_feature_may_not_carry_both_kinds_of_switch():
     finally:
         mc.CATALOG["heloc"] = original
     mc.validate()
+
+
+def test_topics_are_the_nine_life_areas():
+    """#332 topic re-cut (§1.1): Risk & Resilience dissolves, Assets &
+    Protection renames to Insurance & Care, Reports & Documentation renames
+    to Whole Plan."""
+    assert mc.DOMAINS == (
+        "Income & Benefits", "Spending", "Housing & Property", "Investments",
+        "Taxes", "Insurance & Care", "Estate & Legacy", "Family & Business",
+        "Whole Plan",
+    )
+
+
+def test_topic_recut_membership():
+    """#332 §1.1: the 11 modules whose domain moves to a different topic
+    (not merely renamed in place)."""
+    want = {
+        "market_luck_stress_test": "Investments",
+        "daf_giving": "Taxes", "qcd_giving": "Taxes",
+        "life_insurance_need": "Insurance & Care",
+        "survivor_stress_test": "Insurance & Care",
+        "long_term_care_stress": "Insurance & Care",
+        "existing_life_insurance": "Insurance & Care",
+        "hybrid_ltc_policy": "Insurance & Care",
+        "divorce_qdro": "Family & Business",
+        "what_if_analysis": "Whole Plan",
+        "charts_dashboard": "Whole Plan",
+    }
+    assert {k: mc.CATALOG[k].domain for k in want} == want
+
+
+def test_no_module_uses_a_retired_topic():
+    retired = {"Risk & Resilience", "Assets & Protection", "Reports & Documentation"}
+    assert not [k for k, m in mc.CATALOG.items() if m.domain in retired]
+
+
+def test_answer_types_drive_letter_groups():
+    assert mc.ANSWER_TYPES == ("Reports", "Optimizers", "Comparisons", "Risks", "Reference")
+    assert mc.KIND_ANSWER_TYPE == {
+        "projection": "Reports", "worksheet": "Reports",
+        "optimization": "Optimizers", "comparison": "Comparisons",
+        "stress_test": "Risks", "protection": "Risks",
+        "diagnostics": "Reference", "reference": "Reference",
+    }
+    for kind, at in mc.KIND_ANSWER_TYPE.items():
+        assert mc.KIND_LETTER_PREFIX[kind] == str(mc.ANSWER_TYPES.index(at) + 1)
+
+
+def test_workbook_section_titles_match_answer_types():
+    from src.reporting.workbook_common import _SECTION_META
+    assert [t.split(". ", 1)[1] for t, _ in (_SECTION_META[str(i)] for i in range(1, 6))] == list(mc.ANSWER_TYPES)
+
+
+def test_housing_location_search_is_named_next_housing_move():
+    assert mc.CATALOG["housing_location_search"].name == "Next Housing Move"
