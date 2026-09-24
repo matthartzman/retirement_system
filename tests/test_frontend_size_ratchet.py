@@ -441,7 +441,11 @@ DASHBOARD_JS_MAX_LINES = 7_201
 # genuinely measured total of both real, non-duplicate additions: 35,634
 # (PR #132's own chain) + 570 (PR #133's own delta from 33,311 to 33,881,
 # unchanged by the merge) = 36,204.
-TOTAL_JS_MAX_LINES = 36_204
+# 2026-09-24 (#332 W-A, task A3): Plan Features gains answer-type chips and
+# the catalog-driven toggle backfill inside dashboard_decomp_plan_features.js
+# -- real new behavior, not lines moved out of dashboard.js, so there is
+# nothing to extract against. Raised to the measured total: 36,209.
+TOTAL_JS_MAX_LINES = 36_209
 
 
 def _line_count(path: Path) -> int:
