@@ -64,6 +64,21 @@ KIND_QUESTION = {
     REFERENCE:       "What inputs and methods produced this?",
 }
 
+# ── Answer types (#332 §1.2) ─────────────────────────────────────────────────
+# The user-facing vocabulary for `kind`: what SHAPE of answer a module gives,
+# in the words a person (not a developer) would use. The workbook's lettered
+# groups are a CONSEQUENCE of this vocabulary, not a second fact typed beside
+# it -- KIND_LETTER_PREFIX below is derived from KIND_ANSWER_TYPE's order in
+# ANSWER_TYPES, so renumbering the workbook groups means editing ANSWER_TYPES
+# in one place.
+ANSWER_TYPES = ("Reports", "Optimizers", "Comparisons", "Risks", "Reference")
+KIND_ANSWER_TYPE: Dict[str, str] = {
+    PROJECTION: "Reports", WORKSHEET: "Reports",
+    OPTIMIZATION: "Optimizers", COMPARISON: "Comparisons",
+    STRESS_TEST: "Risks", PROTECTION: "Risks",
+    DIAGNOSTICS: "Reference", REFERENCE: "Reference",
+}
+
 # ── Gate kinds (#330 §5.3, W6) ───────────────────────────────────────────────
 # HOW a module is switched on, which is a different question from what it
 # produces (`kind`) or what it concerns (`domain`).
@@ -1338,26 +1353,23 @@ SheetSpec = namedtuple(
 #
 # COMPARISON has its own group ('3. Comparisons'), and PROTECTION joins
 # STRESS_TEST under '4. Risks' -- #329 §3.2's regrouping. DIAGNOSTICS and
-# REFERENCE take '5' ('5. System'): group '4' is claimed by Risks, and #329
-# never named a System section in its own numbering (that section is outside
-# its scope; see docs/superpowers/plans/2026-09-21-w3-workbook-regrouping-notes.md).
+# REFERENCE take '5' ('5. Reference' -- #332 renamed the old '5. System'):
+# group '4' is claimed by Risks, and #329 never named that section in its own
+# numbering (it is outside its scope; see
+# docs/superpowers/plans/2026-09-21-w3-workbook-regrouping-notes.md).
 #
 # WORKSHEET shares '1' with PROJECTION deliberately: a worksheet restates
 # figures computed elsewhere, which is what a report does (`current_vs_
 # proposed`). REFERENCE also restates figures computed elsewhere but files
-# in System instead (`tax_capacity`, alongside Plan Data/Assumptions/
+# in Reference instead (`tax_capacity`, alongside Plan Data/Assumptions/
 # Methodology/Glossary) -- the two kinds exist because the same shape of
 # module can be placed in either group, and `domain` (independent of both)
 # is what a future UI groups by regardless of which one a sheet lands in.
+#
+# Derived from KIND_ANSWER_TYPE / ANSWER_TYPES (#332 §1.2) -- the letter is
+# just that answer type's 1-based position, never hand-typed.
 KIND_LETTER_PREFIX: Dict[str, str] = {
-    PROJECTION:   '1',
-    WORKSHEET:    '1',
-    OPTIMIZATION: '2',
-    COMPARISON:   '3',
-    PROTECTION:   '4',
-    STRESS_TEST:  '4',
-    DIAGNOSTICS:  '5',
-    REFERENCE:    '5',
+    k: str(ANSWER_TYPES.index(at) + 1) for k, at in KIND_ANSWER_TYPE.items()
 }
 
 # Reverse of CATALOG: stable sheet name -> its module's `kind`. Every sheet

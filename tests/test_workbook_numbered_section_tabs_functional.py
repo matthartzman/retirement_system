@@ -81,7 +81,7 @@ def test_workbook_uses_numbered_sections_and_lettered_children(built_workbook_pa
         # fixture's plan (existing_life_insurance/disability_income_insurance/
         # property_casualty_umbrella are off), so it is the only one present.
         '4D. Life Insurance Need',
-        '5. System',
+        '5. Reference',
         '5A. Plan Data',
         '5B. Assumptions',
         '5C. Account Reconciliation',
@@ -111,7 +111,7 @@ def test_summary_tabs_reference_child_tabs(built_workbook_path):
         '2. Optimizers': ['2A. Roth Conversion', '2B. HSA Drawdown', '2C. Asset Allocation', '2D. Withdrawal Sequencing', '2E. Social Security', '2H. Estate & Legacy Planning'],
         '3. Comparisons': ['3A. State Residency', '3B. S-Corp vs LLC', '3C. Scenario Analysis'],
         '4. Risks': ['4A. Monte Carlo', '4B. Survivor', '4C. LTC Stress Test', '4D. Life Insurance Need'],
-        '5. System': ['5A. Plan Data', '5B. Assumptions', '5C. Account Reconciliation', '5D. Quality Control', '5E. RMD Audit', '5F. Methodology', '5G. Glossary'],
+        '5. Reference': ['5A. Plan Data', '5B. Assumptions', '5C. Account Reconciliation', '5D. Quality Control', '5E. RMD Audit', '5F. Methodology', '5G. Glossary'],
     }
     for sheet, children in summary_expected.items():
         ws = wb[sheet]

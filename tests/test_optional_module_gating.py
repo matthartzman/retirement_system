@@ -92,7 +92,7 @@ def test_empty_section_divider_is_dropped(gated_build):
     assert "4. Risks" not in names
     assert "1. Reports" in names
     assert "2. Optimizers" in names
-    assert "5. System" in names
+    assert "5. Reference" in names
 
 
 @pytest.mark.slow

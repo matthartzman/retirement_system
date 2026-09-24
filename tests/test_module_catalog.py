@@ -482,3 +482,20 @@ def test_topic_recut_membership():
 def test_no_module_uses_a_retired_topic():
     retired = {"Risk & Resilience", "Assets & Protection", "Reports & Documentation"}
     assert not [k for k, m in mc.CATALOG.items() if m.domain in retired]
+
+
+def test_answer_types_drive_letter_groups():
+    assert mc.ANSWER_TYPES == ("Reports", "Optimizers", "Comparisons", "Risks", "Reference")
+    assert mc.KIND_ANSWER_TYPE == {
+        "projection": "Reports", "worksheet": "Reports",
+        "optimization": "Optimizers", "comparison": "Comparisons",
+        "stress_test": "Risks", "protection": "Risks",
+        "diagnostics": "Reference", "reference": "Reference",
+    }
+    for kind, at in mc.KIND_ANSWER_TYPE.items():
+        assert mc.KIND_LETTER_PREFIX[kind] == str(mc.ANSWER_TYPES.index(at) + 1)
+
+
+def test_workbook_section_titles_match_answer_types():
+    from src.reporting.workbook_common import _SECTION_META
+    assert [t.split(". ", 1)[1] for t, _ in (_SECTION_META[str(i)] for i in range(1, 6))] == list(mc.ANSWER_TYPES)
