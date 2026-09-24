@@ -253,7 +253,6 @@ _YEAR_LABEL_PATTERNS = [
     (re.compile(r'^coverage_\d{4}_family_months$'), 'coverage_base_year_family_months'),
     (re.compile(r'^coverage_\d{4}_self_only_months$'), 'coverage_base_year_self_only_months'),
     (re.compile(r'^ss_wage_base_\d{4}$'), 'ss_wage_base_base_year'),
-    (re.compile(r'^irmaa_tier2_mfj_\d{4}$'), 'irmaa_tier2_mfj_base_year'),
     (re.compile(r'^ltcg_0pct_top_mfj_\d{4}$'), 'ltcg_0pct_top_mfj_base_year'),
     (re.compile(r'^ltcg_15pct_top_mfj_\d{4}$'), 'ltcg_15pct_top_mfj_base_year'),
     (re.compile(r'^part_b_premium_\d{4}$'), 'part_b_base_premium_monthly'),
@@ -1489,10 +1488,6 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     c['rmd_start_age'] = statutory_rmd_start_age(c['h_dob_yr'])
     c['conv_window_offset']= int(_n(_v(data,'Model Constants','Roth Conversion',
                                      'roth_conv_window_end_offset','-1'), -1))
-    c['irmaa_base']   = _n(_v(data,'Model Constants','IRMAA',
-                                     'irmaa_tier2_mfj_base_year', str(_td.IRMAA_TIERS_BASE_YEAR.get('MFJ', [(0,), (268000,)])[1][0])), 268_000)
-    c['irmaa_inflator']    = _n(_v(data,'Model Constants','IRMAA',
-                                     'irmaa_annual_inflator','0.02'), 0.02)
     # Actual household MAGI for the two tax years immediately before plan
     # start (item 2.6). Seeds the statutory IRMAA 2-year lookback for plan
     # years 1-2, where no projected AGI row exists yet to look back at.
@@ -2157,8 +2152,6 @@ def build_plan_from_json(plan, url_template=''):
     c['ret']             = a.get('return_rate', 0.074)
     c['inf']             = a.get('inflation', 0.025)
     c['brk_inf']         = a.get('bracket_inflation', 0.028)
-    c['irmaa_inflator']  = a.get('irmaa_inflation', 0.02)
-    c['irmaa_base'] = a.get('irmaa_base', 268000)
     c['ret_eq']          = a.get('equity_return', 0.10)
     c['ret_bond']        = a.get('bond_return', 0.04)
     c['mc_vol']          = a.get('mc_volatility', 0.15)

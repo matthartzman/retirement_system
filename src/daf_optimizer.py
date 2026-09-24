@@ -48,7 +48,6 @@ def recommend_daf_contribution(c: Mapping[str, Any], rows: list[dict] | None = N
     plan_start = int(c.get('plan_start', 2024) or 2024)
     year = int(year or c.get('daf_year') or plan_start)
     filing = str(c.get('filing_status', 'MFJ') or 'MFJ')
-    inflator = float(c.get('irmaa_inflator', 0.02) or 0.02)
 
     agi = _agi_for_year(c, rows, year)
     agi_limit_pct = 0.30 if appreciated else 0.60
@@ -61,7 +60,7 @@ def recommend_daf_contribution(c: Mapping[str, Any], rows: list[dict] | None = N
     # decision because a higher-AGI year has both a higher DAF ceiling AND a
     # higher IRMAA tier / more NIIT-taxed investment income -- useful
     # context for choosing WHICH year to bunch a large gift into.
-    tier_now = _core.irmaa_tier(agi, year, plan_start, inflator=inflator, filing=filing)
+    tier_now = _core.irmaa_tier(agi, year, plan_start, filing=filing, c=c)
     niit_threshold = float(_td.NIIT_THRESHOLD.get(filing, 250000) or 250000)
     over_niit_threshold = agi > niit_threshold
 

@@ -148,6 +148,10 @@ def _run_case(*, irmaa_inflator: float, brk_inf: float, plan_start: int):
     c = {
         "ltcg_0_top": LTCG_0_TOP,
         "ltcg_15_top": LTCG_15_TOP,
+        # W-B / #334 (B2): irmaa_inflator is retired from src/ entirely (IRMAA
+        # thresholds follow CPI via tax_kernel). It is still injected here as
+        # a stale-key probe: the LTCG kernel must ignore it. No expectation
+        # changes -- these assertions never depended on its value.
         "irmaa_inflator": irmaa_inflator,
         "brk_inf": brk_inf,
         "plan_start": plan_start,

@@ -34,7 +34,7 @@ from ..person_labels import display_accounts_in_text as _display_accounts_in_tex
 from .. import strategy_sweep
 from . import summary_figures
 from .sheets_strategy_pair_worker import evaluate_claim_age_pair
-from ..planning_engines import _SCENARIO_IRRELEVANT_KEYS
+from ..planning_engines import _SCENARIO_IRRELEVANT_KEYS, _roth_irmaa_target_threshold
 
 # Keys stripped from the config handed to a pool worker. The first group is
 # planning_engines._SCENARIO_IRRELEVANT_KEYS -- derived outputs no projection
@@ -1035,7 +1035,6 @@ def build_sheet11(ws, c, rows):
         write_hdr(ws, r, i, h, NAVY if i in (10, 13, 15) else DGRAY, WHITE, size=8)
     r += 1
 
-    irmaa_thr_base = float(c.get('roth_irmaa_target_threshold_mfj', c.get('irmaa_base', 268000)) or 268000)
     total_conv = total_forced = total_volun = 0.0
     for row in rows:
         yr = row['year']
@@ -1053,7 +1052,9 @@ def build_sheet11(ws, c, rows):
         surplus = row.get('conv_non_roth_surp', 0)
         h_avail = row.get('conv_h_ira_avail', 0)
         w_avail = row.get('conv_w_ira_avail', 0)
-        irmaa_t = irmaa_thr_base * (1 + float(c.get('irmaa_inflator', 0.02))) ** (yr - TAX_BASE_YEAR)
+        # #334: same indexed/rounded target-tier threshold the conversion
+        # engine sized against (single tax_kernel implementation).
+        irmaa_t = _roth_irmaa_target_threshold(c, row.get('filing', c.get('filing_status', 'MFJ')), yr)
         post_agi = row.get('agi', 0)
         if forced > 0 and volun == 0:
             conv_type, status, row_bg = 'Forced', '★ FORCED', 'FFF2CC'

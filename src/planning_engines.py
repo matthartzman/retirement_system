@@ -857,6 +857,7 @@ from typing import Callable, MutableMapping, Sequence
 from .plan_config import ensure_engine_config
 
 from . import core as _ar  # consolidated from account_registry
+from . import tax_kernel as _tk
 
 
 BalanceMap = MutableMapping[str, float]
@@ -1989,33 +1990,32 @@ def _roth_irmaa_guardrail_age_gate_met(c: Mapping, h_age: float, w_age: float) -
     return float(h_age) >= gate_age or float(w_age) >= gate_age
 
 
-def _roth_irmaa_target_threshold_base(c: Mapping, filing: str) -> float:
-    """Un-inflated IRMAA target threshold for the configured tier, by filing status.
+def _roth_irmaa_target_threshold(c: Mapping, filing: str, year: int) -> float:
+    """Indexed IRMAA target threshold for ``roth_irmaa_target_tier``, by
+    filing status, for ``year``.
 
-    ``roth_irmaa_target_threshold_mfj`` (seeded in data_io.py from
-    ``IRMAA_TIERS_BASE_YEAR['MFJ']`` at ``roth_irmaa_target_tier``) is an
-    explicit MFJ override and is honored as-is for MFJ filers. For every other
-    filing status — most importantly a surviving spouse whose filing status
-    switches to Single mid-plan (deterministic_engine.py's survivor-filing
-    transition) — the MFJ dollar figure is the wrong table. Mirror the
-    assessment-side lookup (deterministic_engine.py's ``_irmaa_surcharge_path``/
-    ``_irmaa_tier_path``, which key ``IRMAA_TIERS_BASE_YEAR`` by ``filing``) so
-    the conversion guardrail and the tax assessment agree on which IRMAA tier
-    is being targeted.
+    Keyed by the current year's ``filing`` -- most importantly a surviving
+    spouse whose filing status switches to Single mid-plan
+    (deterministic_engine.py's survivor-filing transition) -- so the
+    conversion guardrail and the tax assessment agree on which IRMAA tier is
+    being targeted. #334 / W-B: the threshold comes from the single kernel
+    implementation (``tax_kernel.irmaa_threshold``: CPI-indexed from the
+    tier tables' value year, statutorily rounded, top-tier-aware); the
+    retired MFJ tier-2 base-year input and the parsed MFJ target-threshold
+    dollar figure are no longer consulted. An absent/unparseable target tier
+    falls back to tier 2 (0-based index 1).
     """
     filing = str(filing or "MFJ")
-    if filing == "MFJ":
-        return float(c.get("roth_irmaa_target_threshold_mfj", c.get("irmaa_base", 268000)) or 268000)
-    tiers = IRMAA_TIERS_BASE_YEAR.get(filing) or IRMAA_TIERS_BASE_YEAR.get("MFJ", [])
-    if not tiers:
-        return float(c.get("roth_irmaa_target_threshold_mfj", c.get("irmaa_base", 268000)) or 268000)
+    if filing not in IRMAA_TIERS_BASE_YEAR:
+        filing = "MFJ"
+    tiers = IRMAA_TIERS_BASE_YEAR[filing]
     tier_name = str(c.get("roth_irmaa_target_tier", "TIER_2") or "TIER_2").strip().upper()
     try:
         idx = int(tier_name.rsplit("_", 1)[-1]) - 1
     except (ValueError, IndexError):
         idx = 1
     idx = min(max(0, idx), len(tiers) - 1)
-    return float(tiers[idx][0])
+    return _tk.irmaa_threshold(c, filing, idx, year)
 
 
 def _roth_ltcg_thresholds_base(c: Mapping, filing: str) -> tuple[float, float]:
@@ -2247,9 +2247,7 @@ def plan_roth_conversion(
             ])
             amount = cap
     elif policy == "fill_to_irmaa":
-        irmaa_thr = _roth_irmaa_target_threshold_base(c, filing) * (
-            (1 + float(c.get("irmaa_inflator", 0.02))) ** (year - int(c.get("plan_start", year)))
-        )
+        irmaa_thr = _roth_irmaa_target_threshold(c, filing, year)
         cap_irmaa = max(0.0, irmaa_thr - pre_agi) * float(c.get('roth_irmaa_headroom_usage_pct', 0.95) or 0.95)
         if ira_total > 5000 and cap_irmaa > 1000:
             caps = [
@@ -2288,9 +2286,7 @@ def plan_roth_conversion(
                 and guard_mode not in ("IGNORE", "WARN_ONLY")
                 and _roth_irmaa_guardrail_age_gate_met(c, h_age, w_age)
             ):
-                irmaa_thr = _roth_irmaa_target_threshold_base(c, filing) * (
-                    (1 + float(c.get("irmaa_inflator", 0.02))) ** (year - int(c.get("plan_start", year)))
-                )
+                irmaa_thr = _roth_irmaa_target_threshold(c, filing, year)
                 cap_irmaa = max(0.0, irmaa_thr - pre_agi) * float(c.get('roth_irmaa_headroom_usage_pct', 0.95) or 0.95)
                 caps.append((str(c.get("roth_irmaa_target_tier", "TIER_2")).replace("_", " ").title(), cap_irmaa))
             caps.extend(_ltcg_niit_caps())
@@ -3468,7 +3464,7 @@ def _clone_for_mc(c: dict) -> dict:
         'asset_correlation_overrides', 'recurring_extras', 'taxable_ids',
         'pre_tax_ids', 'roth_ids', 'hsa_ids', 'invest_ids', 'all_acct_ids',
         'lot_engine', 'return_by_year', 'inflation_index_by_year',
-        'ss_cola_index_by_year', 'bracket_index_by_year', 'irmaa_index_by_year',
+        'ss_cola_index_by_year', 'bracket_index_by_year',
         'medical_index_by_year', 'wellness_shock_by_year',
     }
     for k in deep_keys:
@@ -3590,14 +3586,13 @@ def _sample_inflation_and_health_paths(c: dict, rng: random.Random, years: list[
     inflation_index = {}
     ss_index = {}
     bracket_index = {}
-    irmaa_index = {}
     medical_index = {}
     wellness_shocks = {}
-    inf_factor = ss_factor = brk_factor = irmaa_factor = med_factor = 1.0
+    inf_factor = ss_factor = brk_factor = med_factor = 1.0
     for yr in years:
         if yr == start:
             inflation_rates[yr] = inf_mu
-            inflation_index[yr] = ss_index[yr] = bracket_index[yr] = irmaa_index[yr] = medical_index[yr] = 1.0
+            inflation_index[yr] = ss_index[yr] = bracket_index[yr] = medical_index[yr] = 1.0
         else:
             ret_z = 0.0 if sig <= 1e-9 else (float(returns.get(yr, mu)) - mu) / sig
             surprise = 0.0
@@ -3608,16 +3603,13 @@ def _sample_inflation_and_health_paths(c: dict, rng: random.Random, years: list[
             inf_factor *= (1.0 + annual_inf)
             ss_rate = max(0.0, min(0.10, float(c.get('ss_cola', 0.02) or 0.02) + 0.70 * (annual_inf - inf_mu)))
             brk_rate = max(0.0, min(0.08, float(c.get('brk_inf', 0.02) or 0.02) + (0.65 if c.get('mc_bracket_stochastic', True) else 0.0) * (annual_inf - inf_mu)))
-            irmaa_rate = max(0.0, min(0.08, float(c.get('irmaa_inflator', 0.02) or 0.02) + (0.80 if c.get('mc_irmaa_stochastic', True) else 0.0) * (annual_inf - inf_mu)))
             med_rate = max(0.0, min(0.14, float(c.get('med_inf', 0.055) or 0.055) + 0.85 * (annual_inf - inf_mu)))
             ss_factor *= (1.0 + ss_rate)
             brk_factor *= (1.0 + brk_rate)
-            irmaa_factor *= (1.0 + irmaa_rate)
             med_factor *= (1.0 + med_rate)
             inflation_index[yr] = inf_factor
             ss_index[yr] = ss_factor
             bracket_index[yr] = brk_factor
-            irmaa_index[yr] = irmaa_factor
             medical_index[yr] = med_factor
         if bool(c.get('mc_wellness_shocks', True)):
             prob = max(0.0, min(1.0, float(c.get('mc_wellness_prob', 0.03) or 0.0)))
@@ -3636,12 +3628,10 @@ def _sample_inflation_and_health_paths(c: dict, rng: random.Random, years: list[
         'inflation_index_by_year': inflation_index,
         'ss_cola_index_by_year': ss_index,
         'bracket_index_by_year': bracket_index,
-        'irmaa_index_by_year': irmaa_index,
         'medical_index_by_year': medical_index,
         'wellness_shock_by_year': wellness_shocks,
         'sampled_inflation_geometric': _geom_rate(inflation_index),
         'sampled_bracket_inflation_geometric': _geom_rate(bracket_index),
-        'sampled_irmaa_inflation_geometric': _geom_rate(irmaa_index),
     }
 
 
@@ -3913,8 +3903,9 @@ def _run_one_mc_path(c: dict, rng: random.Random, mu: float, sig: float, use_ass
     for ann_key in ['wife_pension', 'wife_single', 'wife_joint', 'h_single', 'h_joint']:
         if ann_key in c2 and isinstance(c2[ann_key], dict):
             c2[ann_key] = _adjust_annuity_pmt_for_mc(c2[ann_key], returns, inflation_paths, years, mu)
-    # project() consumes the per-year bracket_index_by_year and irmaa_index_by_year
-    # paths directly, so each scalar MC path uses its own sampled tax thresholds
+    # project() consumes the per-year bracket_index_by_year and (for IRMAA
+    # thresholds, #334) inflation_index_by_year paths directly, so each scalar
+    # MC path uses its own sampled tax thresholds
     # rather than a geometric-mean approximation.
     rows = project(c2)
     return rows, years, returns, return_diag, inflation_paths, c2
@@ -4986,7 +4977,6 @@ def _mc_vectorized_inflation_health_paths(c: dict, np_rng, returns, mu: float, s
 
     ss_index = _linked_index(float(c.get('ss_cola', 0.02) or 0.02), 0.70, 0.10)
     brk_index = _linked_index(float(c.get('brk_inf', 0.02) or 0.02), 0.65 if c.get('mc_bracket_stochastic', True) else 0.0, 0.08)
-    irmaa_index = _linked_index(float(c.get('irmaa_inflator', 0.02) or 0.02), 0.80 if c.get('mc_irmaa_stochastic', True) else 0.0, 0.08)
     medical_index = _linked_index(float(c.get('med_inf', 0.055) or 0.055), 0.85, 0.14)
 
     shocks = _np.zeros_like(rates)
@@ -5002,7 +4992,6 @@ def _mc_vectorized_inflation_health_paths(c: dict, np_rng, returns, mu: float, s
         'inflation_index_matrix': inflation_index,
         'ss_cola_index_matrix': ss_index,
         'bracket_index_matrix': brk_index,
-        'irmaa_index_matrix': irmaa_index,
         'medical_index_matrix': medical_index,
         'wellness_shock_matrix': shocks,
     }

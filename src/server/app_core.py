@@ -752,7 +752,6 @@ SSA44_UI_PLAN_DATA_ROWS: list[list[str]] = [
 ]
 ROTH_UI_PLAN_DATA_ROWS: list[list[str]] = [
     ["Model Constants", "Roth Conversion", "roth_conv_window_end_offset", "-1", "years", "CONV_END_YR = H_RMD_start_yr + this offset; default -1 ends voluntary conversions the year before RMDs."],
-    ["Model Constants", "IRMAA", "irmaa_annual_inflator", "2.00%", "pct", "Annual IRMAA threshold inflation rate used when projecting Medicare premium guardrails."],
     ["Withdrawal Policy", "Roth Conversion", "roth_conversion_policy", "optimize_terminal_tax", "choice", "optimize_terminal_tax | fill_to_bracket | fill_to_irmaa | fixed_dollar | none; high-level policy for voluntary conversions."],
     ["Withdrawal Policy", "Roth Conversion", "roth_bracket_strategy", "OPTIMIZER_CHOOSES", "choice", "NONE | FILL_CURRENT_BRACKET | FILL_TARGET_BRACKET | PARTIAL_TARGET_BRACKET | IRMAA_GUARDED | SURVIVOR_TAX_AWARE | RMD_REDUCTION | LEGACY_TARGETED | OPTIMIZER_CHOOSES | FIXED_DOLLAR | PHASE_VARYING; strategy family considered by the Roth optimizer."],
     ["Withdrawal Policy", "Roth Conversion", "roth_objective_mode", "BALANCED_RETIREMENT", "choice", "BALANCED_RETIREMENT | MINIMIZE_LIFETIME_TAX | MAXIMIZE_TERMINAL_NET_WORTH | LEGACY_OPTIMIZED | ESTATE_TAX_AWARE | CUSTOM_WEIGHTED; objective used to rank Roth conversion candidates."],

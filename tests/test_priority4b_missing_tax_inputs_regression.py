@@ -59,7 +59,8 @@ def _no_further_tax(fed_tax, state_tax, *_args, **_kwargs):
 def _config() -> dict[str, Any]:
     return {
         "plan_start": 2026,
-        "irmaa_base": 206_000.0,
+        # W-B / #334 (B2): "irmaa_base" removed -- the input is retired; the
+        # tier-2 threshold now comes from tax_kernel.irmaa_threshold.
         "brk_inf": 0.0,
         "account_registry": [{"id": _IRA_ID, "owner_idx": 0, "tax": "pre_tax"}],
         "pre_tax_ids": [_IRA_ID],
