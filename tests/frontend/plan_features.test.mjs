@@ -273,3 +273,46 @@ describe("demandHint", () => {
     assert.equal(sandbox.demandHint("not_a_band"), "");
   });
 });
+
+describe("row kind badge", () => {
+  // Important #1 (W-A final review): the badge must show the user-facing
+  // answer-type label ("Risks"), not the raw internal kind id
+  // ("stress_test") that planFeatureKinds/kindChipsHtml already moved off
+  // of for the filter chips above.
+  test("featureRowHtml shows the answer type, not the raw kind id", () => {
+    const entry = {
+      key: "market_luck_stress_test",
+      row: row("market_luck_stress_test", "YES"),
+      meta: {
+        name: "Monte Carlo",
+        kind: "stress_test",
+        answer_type: "Risks",
+        domain: "Investments",
+        demand: "medium",
+      },
+    };
+    const html = sandbox.featureRowHtml(entry);
+    assert.match(html, /class="badge pf-kind">Risks</);
+    assert.doesNotMatch(html, /stress_test/);
+  });
+
+  test("planFlagRowHtml shows the answer type, not the raw kind id", () => {
+    const entry = {
+      key: "heloc",
+      meta: TAXONOMY.modules.heloc,
+    };
+    const html = sandbox.planFlagRowHtml(entry);
+    assert.match(html, /class="badge pf-kind">Optimizers</);
+    assert.doesNotMatch(html, />optimization</);
+  });
+
+  test("falls back to the raw kind id when answer_type is missing (stale/cached taxonomy)", () => {
+    const entry = {
+      key: "market_luck_stress_test",
+      row: row("market_luck_stress_test", "YES"),
+      meta: { name: "Monte Carlo", kind: "stress_test", domain: "Investments" },
+    };
+    const html = sandbox.featureRowHtml(entry);
+    assert.match(html, /class="badge pf-kind">stress_test</);
+  });
+});

@@ -1792,6 +1792,14 @@ def validate() -> None:
     ids, unique legacy sheet names, comparison-mode only on Optimization, and
     (#330 §3.4) well-formed soft dependencies / engine-participation flags.
     """
+    # (0) #332 §1.2: KIND_ANSWER_TYPE must cover every kind in KINDS, or a
+    # new kind added to KINDS without a matching answer-type mapping would
+    # not fail here -- it would instead throw a bare KeyError deep inside
+    # _module_taxonomy()'s `KIND_ANSWER_TYPE[m.kind]` lookup, surfacing as a
+    # 500 on /api/config/rows rather than at import time.
+    assert set(KIND_ANSWER_TYPE) == set(KINDS), (
+        f"KIND_ANSWER_TYPE {sorted(KIND_ANSWER_TYPE)} does not match KINDS "
+        f"{sorted(KINDS)} -- every kind needs an answer_type mapping.")
     for key, m in CATALOG.items():
         assert m.key == key, f"catalog key mismatch: {key} != {m.key}"
         assert m.kind in KINDS, f"{key}: bad kind {m.kind!r}"

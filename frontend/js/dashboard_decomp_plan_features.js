@@ -189,7 +189,7 @@ function kindChipsHtml(kinds, active) {
     `<button class="pf-chip${active === kind ? " active" : ""}" type="button" ` +
     `onclick="setPlanFeatureKind('${esc(escJs(kind))}')">${esc(label)}</button>`;
   return (
-    '<div class="pf-chips" role="group" aria-label="Filter by kind">' +
+    '<div class="pf-chips" role="group" aria-label="Filter by answer type">' +
     chip("", "All") +
     kinds.map((k) => chip(k, k)).join("") +
     "</div>"
@@ -241,7 +241,7 @@ function planFlagRowHtml(entry) {
 
   let html = '<div class="opt-module-row">';
   html += '<div class="opt-module-info"><span class="opt-module-name">' + esc(lbl) + "</span>";
-  if (meta.kind) html += '<span class="badge pf-kind">' + esc(meta.kind) + "</span>";
+  if (meta.kind) html += '<span class="badge pf-kind">' + esc(meta.answer_type || meta.kind) + "</span>";
   if (hint) html += '<span class="pf-demand">' + esc(hint) + "</span>";
   if (desc) html += '<span class="opt-module-desc">' + esc(desc) + "</span>";
   html +=
@@ -270,7 +270,7 @@ function featureRowHtml(entry) {
 
   let html = '<div class="opt-module-row">';
   html += '<div class="opt-module-info"><span class="opt-module-name">' + esc(lbl) + "</span>";
-  if (meta.kind) html += '<span class="badge pf-kind">' + esc(meta.kind) + "</span>";
+  if (meta.kind) html += '<span class="badge pf-kind">' + esc(meta.answer_type || meta.kind) + "</span>";
   if (hint) html += '<span class="pf-demand">' + esc(hint) + "</span>";
   if (desc) html += '<span class="opt-module-desc">' + esc(desc) + "</span>";
   if (status.auto_enabled) {
