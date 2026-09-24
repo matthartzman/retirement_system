@@ -448,3 +448,37 @@ def test_a_feature_may_not_carry_both_kinds_of_switch():
     finally:
         mc.CATALOG["heloc"] = original
     mc.validate()
+
+
+def test_topics_are_the_nine_life_areas():
+    """#332 topic re-cut (§1.1): Risk & Resilience dissolves, Assets &
+    Protection renames to Insurance & Care, Reports & Documentation renames
+    to Whole Plan."""
+    assert mc.DOMAINS == (
+        "Income & Benefits", "Spending", "Housing & Property", "Investments",
+        "Taxes", "Insurance & Care", "Estate & Legacy", "Family & Business",
+        "Whole Plan",
+    )
+
+
+def test_topic_recut_membership():
+    """#332 §1.1: the 11 modules whose domain moves to a different topic
+    (not merely renamed in place)."""
+    want = {
+        "market_luck_stress_test": "Investments",
+        "daf_giving": "Taxes", "qcd_giving": "Taxes",
+        "life_insurance_need": "Insurance & Care",
+        "survivor_stress_test": "Insurance & Care",
+        "long_term_care_stress": "Insurance & Care",
+        "existing_life_insurance": "Insurance & Care",
+        "hybrid_ltc_policy": "Insurance & Care",
+        "divorce_qdro": "Family & Business",
+        "what_if_analysis": "Whole Plan",
+        "charts_dashboard": "Whole Plan",
+    }
+    assert {k: mc.CATALOG[k].domain for k in want} == want
+
+
+def test_no_module_uses_a_retired_topic():
+    retired = {"Risk & Resilience", "Assets & Protection", "Reports & Documentation"}
+    assert not [k for k, m in mc.CATALOG.items() if m.domain in retired]
