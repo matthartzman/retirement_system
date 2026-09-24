@@ -116,21 +116,12 @@ def test_config_rows_payload_backfills_the_missing_toggle_onto_disk(tmp_path):
     assert not written
 
 
-def test_backfilled_row_ignores_force_disable_env_override(tmp_path, monkeypatch):
-    """Final review (Important #2/#3, A3): the backfill must never read
-    module_status()'s env-forced override state -- #330 Q7 deliberately
-    never made the RETIREMENT_SYSTEM_FORCE_* tier a writable path, and this
-    backfill writes straight to the plan's permanent CSV/SQLite store on a
-    mere GET. A module that is force-disabled by env must still be
-    backfilled as "TRUE" (the standard missing-row default), not "FALSE"."""
-    from src.module_catalog import CATALOG, GATE_MODULE_TOGGLE
+def _optional_functions_service(tmp_path, *, load_active_config, written):
+    """Shared ConfigService wiring for the two regression tests below --
+    identical to the other tests in this file except for the caller-supplied
+    ``load_active_config`` stub and a shared ``written`` dict to record disk
+    writes into."""
     from src.server_services.config_service import ConfigService, ConfigServiceContext
-
-    toggle_key = next(
-        k for k, m in CATALOG.items()
-        if m.optional and m.gate_kind == GATE_MODULE_TOGGLE and not m.gated_by
-    )
-    monkeypatch.setenv("RETIREMENT_SYSTEM_FORCE_DISABLE_MODULES", toggle_key)
 
     csv_path = tmp_path / "client_optional_functions.csv"
     csv_path.write_text(
@@ -138,20 +129,12 @@ def test_backfilled_row_ignores_force_disable_env_override(tmp_path, monkeypatch
         "Optional Functions,,roth_conversion_plan,TRUE,boolean,Roth Conversion\n",
         encoding="utf-8",
     )
-    written = {}
 
     def write_plan_data(name, content):
         p = tmp_path / name
         p.write_text(content, encoding="utf-8")
         written[name] = content
         return p
-
-    def _blow_up_if_called():  # pragma: no cover - only invoked on regression
-        raise AssertionError(
-            "load_active_config() must not be called when computing the "
-            "backfill's written value -- that path is what let an env "
-            "FORCE_DISABLE override leak into the plan's permanent store"
-        )
 
     service = ConfigService(ConfigServiceContext(
         version="9",
@@ -164,16 +147,107 @@ def test_backfilled_row_ignores_force_disable_env_override(tmp_path, monkeypatch
         csv_rows_payload=lambda: _csv_rows_from_file(csv_path),
         read_schema_map=lambda: {},
         write_plan_data_file=write_plan_data,
-        load_active_config=lambda: _blow_up_if_called(),
+        load_active_config=load_active_config,
         runtime_config=lambda: type("Cfg", (), {"sqlite_db": "", "config_backend": "CSV"})(),
         normalize_date_for_csv=lambda value: value,
         sync_config_backends=lambda: {"success": True},
     ))
+    return service, csv_path
+
+
+# Pinned explicitly (not `next(...)` over the catalog, and deliberately not
+# `roth_conversion_plan` -- that key is already a seeded row in the fixture
+# CSV above, so using it would never exercise the backfill path at all).
+_BACKFILL_TOGGLE_KEY = "housing_location_search"
+
+
+def test_backfilled_row_never_loads_active_config(tmp_path, monkeypatch):
+    """Final review (Important #2/#3, A3), strengthened by a later review
+    round: the backfill must never call ``load_active_config()`` /
+    ``module_status()`` at all -- not "call it but ignore a disabled
+    result." #330 Q7 deliberately never made the RETIREMENT_SYSTEM_FORCE_*
+    tier a writable path, and this backfill writes straight to the plan's
+    permanent CSV/SQLite store on a mere GET.
+
+    A helper that raises on call cannot distinguish "never called" from
+    "called, but the exception was swallowed by a broad ``except
+    Exception``" -- the pre-fix code wrapped its ``load_active_config()``
+    call in exactly such a ``try/except Exception: status = {}``, and
+    ``AssertionError`` is an ``Exception`` subclass. So instead this test
+    *records* every call and asserts the list stays empty.
+    """
+    from src.module_catalog import CATALOG, GATE_MODULE_TOGGLE
+
+    key = _BACKFILL_TOGGLE_KEY
+    m = CATALOG[key]
+    assert m.optional and m.gate_kind == GATE_MODULE_TOGGLE and not m.gated_by, (
+        f"{key!r} must be a switchable module-toggle for this test to "
+        "exercise the backfill path"
+    )
+
+    calls: list[None] = []
+
+    def _record_and_return():
+        calls.append(None)
+        return ({}, {"backend": "CSV"})
+
+    written: dict = {}
+    service, csv_path = _optional_functions_service(
+        tmp_path, load_active_config=_record_and_return, written=written,
+    )
+
+    service._backfill_optional_function_rows_to_disk()
+
+    assert calls == [], (
+        "load_active_config() must not be called at all when computing "
+        "which rows are missing -- that is a pure catalog-vs-existing-"
+        "labels comparison with no config load in it"
+    )
+    assert "client_optional_functions.csv" in written
+    row = next(r for r in _csv_rows_from_file(csv_path)["rows"] if r["label"] == key)
+    assert row["value"] == "TRUE"
+
+
+def test_backfilled_row_ignores_disabled_module_status(tmp_path, monkeypatch):
+    """Companion to the "never loads config" test above: even if something
+    upstream *did* wire up a module-status lookup that reports this toggle
+    disabled (e.g. an env FORCE_DISABLE override folded into
+    ``module_status()[key]["enabled"]``), the backfilled row must still be
+    written "TRUE" -- the standard missing-row default -- not "FALSE".
+
+    Reproduces the review's env-override scenario concretely: monkeypatches
+    ``ConfigService._module_status`` (the method the pre-fix code called,
+    via ``self._module_status(_data)``, to build its ``effective`` map) so
+    that if it *were* consulted, it would report ``key`` as disabled.
+    Against the pre-fix implementation (see ``git show a928fde --
+    src/server_services/config_service.py``), which computed
+    ``effective = {k: bool(status.get(k, {}).get("enabled", True)) ...}``
+    from exactly this method and passed it into
+    ``backfill_optional_function_rows``, this stub would have flipped the
+    written value to "FALSE". Against the fixed code, which never calls
+    ``_module_status`` from the backfill path, the stub is never consulted
+    and the row is still written "TRUE".
+    """
+    from src.module_catalog import CATALOG, GATE_MODULE_TOGGLE
+    from src.server_services.config_service import ConfigService
+
+    key = _BACKFILL_TOGGLE_KEY
+    m = CATALOG[key]
+    assert m.optional and m.gate_kind == GATE_MODULE_TOGGLE and not m.gated_by
+
+    monkeypatch.setenv("RETIREMENT_SYSTEM_FORCE_DISABLE_MODULES", key)
+    monkeypatch.setattr(
+        ConfigService, "_module_status",
+        staticmethod(lambda sectioned_data: {key: {"enabled": False}}),
+    )
+
+    written: dict = {}
+    service, csv_path = _optional_functions_service(
+        tmp_path, load_active_config=lambda: ({}, {"backend": "CSV"}), written=written,
+    )
 
     service._backfill_optional_function_rows_to_disk()
 
     assert "client_optional_functions.csv" in written
-    row = next(
-        r for r in _csv_rows_from_file(csv_path)["rows"] if r["label"] == toggle_key
-    )
+    row = next(r for r in _csv_rows_from_file(csv_path)["rows"] if r["label"] == key)
     assert row["value"] == "TRUE"
