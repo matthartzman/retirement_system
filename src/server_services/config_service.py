@@ -132,14 +132,22 @@ class ConfigService:
         `module_catalog` imports nothing heavier than the stdlib, so this adds
         no cost to a payload the dashboard fetches on every save.
         """
-        from ..module_catalog import CATALOG, DOMAINS, KIND_QUESTION, soft_dependents
+        from ..module_catalog import (
+            ANSWER_TYPES, CATALOG, DOMAINS, KIND_ANSWER_TYPE, KIND_QUESTION,
+            soft_dependents,
+        )
         return {
             "domains": list(DOMAINS),
             "kind_questions": dict(KIND_QUESTION),
+            # #332 §1.2: the user-facing vocabulary for `kind` (what SHAPE of
+            # answer a module gives), served alongside `kind` so the frontend
+            # never has to hand-maintain its own kind->label map.
+            "answer_types": list(ANSWER_TYPES),
             "modules": {
                 key: {
                     "name": m.name,
                     "kind": m.kind,
+                    "answer_type": KIND_ANSWER_TYPE[m.kind],
                     "domain": m.domain,
                     "demand": m.demand,
                     "optional": m.optional,

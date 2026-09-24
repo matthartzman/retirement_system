@@ -60,7 +60,7 @@ def test_system_section_uses_clean_sheet_sequence_without_feature_toggle(built_w
         # sorts here, densely last -- 5H now that Planning Levers left System.
         # W3 renumbered System's own group code from '4' to '5' -- '4' is now
         # Risks.
-        '5. System','5A. Plan Data','5B. Assumptions','5C. Account Reconciliation','5D. Quality Control','5E. RMD Audit','5F. Methodology','5G. Glossary','5H. Tax Capacity',
+        '5. Reference','5A. Plan Data','5B. Assumptions','5C. Account Reconciliation','5D. Quality Control','5E. RMD Audit','5F. Methodology','5G. Glossary','5H. Tax Capacity',
     ]
     assert visible[:len(expected)] == expected
     assert '4D. Feature Toggle' not in visible

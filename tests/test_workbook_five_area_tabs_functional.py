@@ -22,7 +22,7 @@ def test_output_workbook_uses_numbered_top_level_area_tabs(built_workbook_path):
         "2. Optimizers",
         "3. Comparisons",
         "4. Risks",
-        "5. System",
+        "5. Reference",
     ]
     for section in expected_sections:
         assert section in names
@@ -39,7 +39,7 @@ def test_output_workbook_uses_numbered_top_level_area_tabs(built_workbook_path):
     assert names[names.index("2. Optimizers") + 1] == "2A. Roth Conversion"
     assert names[names.index("3. Comparisons") + 1] == "3A. State Residency"
     assert names[names.index("4. Risks") + 1] == "4A. Monte Carlo"
-    assert names[names.index("5. System") + 1] == "5A. Plan Data"
+    assert names[names.index("5. Reference") + 1] == "5A. Plan Data"
     assert names[-1] == "_Chart Dashboard Data"
 
 
@@ -58,7 +58,7 @@ def test_source_layout_declares_same_numbered_areas():
         "2. Optimizers",
         "3. Comparisons",
         "4. Risks",
-        "5. System",
+        "5. Reference",
     ]
     flattened = [sheet for area in layout for sheet in area["sheets"]]
     assert flattened[:3] == ["1. Executive Summary", "5. Net Worth Projection", "6. Cash Flow Projection"]
