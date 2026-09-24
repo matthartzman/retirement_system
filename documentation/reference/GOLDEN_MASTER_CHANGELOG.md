@@ -10,6 +10,36 @@
 
 #334 IRMAA: CPI thresholds from 2025 value year with statutory rounding and 2028 top-tier rule; Part B/D surcharges indexed by med_inf/partd_inf. Hand-verified 2026 (first non-zero surcharge year in the frozen demo plan): threshold round(402000*1.025/2000)*2000=412000 vs engine 412000; surcharge (round(367.8*1.055,1)+round(76.8*1.0125,1))*0.6666666666666666*12 = 465.8*8=3726.40 vs engine 3726.3999999999996 -- matches to the cent.
 
+## 2026-09-24 — Correction: `single_filer`/`early_survivor_compression` repin rationale (#334)
+
+The synthetic-golden-master and full-row-snapshot repins accompanying the
+above #334 entry moved `first_rmd_total` for every scenario, and the internal
+task report attributed the `single_filer` and `early_survivor_compression`
+moves to "generally higher IRMAA thresholds." That is wrong for these two
+scenarios specifically (it is the correct cause for the MFJ scenarios, e.g.
+`baseline` 58,383.18 -> 53,058.22, which is CPI/Medicare-indexing per the
+entry above).
+
+Actual cause for `single_filer` (first_rmd_total 0 -> 38,416.70) and
+`early_survivor_compression` (-> 92,989.76 after its 2032 switch to Single):
+`src/projection_stages/withdrawal_cascade_ira_true_up.py`'s IRA-withdrawal
+cap previously used `c['irmaa_base']`, a single MFJ-scale (~$268,000)
+threshold applied regardless of filing status. Single/survivor scenarios
+could therefore overdraw pre-tax accounts past their real (much lower,
+~$133,000 base) tier-1 threshold, emptying the IRA before RMD age (the old
+pin's 0). B2 routed this call through `_tk.irmaa_threshold(c, filing, 1,
+year)`, so Single filers now use their own lower threshold, capping
+withdrawals earlier and leaving a real pre-tax balance at RMD age. Hand-
+verified to the cent: `single_filer` 2029 threshold
+`round(133,000 * 1.025**4 / 1000) * 1000 = 147,000` matches the engine across
+all 139 withdrawal calls in that scenario; 2038 year-end pretax balance
+$945,050.71 / Uniform Lifetime divisor 24.6 (age 75) = $38,416.696 ->
+$38,416.70. `early_survivor_compression` verified the same way (2031 MFJ
+threshold $310,000, 2032+ Single threshold $158,000, first_rmd_total
+$92,989.76 = $2,287,548.16 / 24.6).
+
+No pin/fixture values changed by this entry — documentation correction only.
+
 ## 2026-09-08 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
 
 <!-- pin-provenance: terminal_nw=5438505.25 lifetime_tax=1255734.10 -->
