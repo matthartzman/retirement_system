@@ -362,7 +362,7 @@ Check `/usage` against these as the plan executes.
 | WS | Scope | Model / effort | Relative usage (5-h Pro session) | Drivers | Depends on |
 |---|---|---|---|---|---|
 | W-A | Taxonomy vocabulary + Plan Features | Sonnet / medium | Moderate | `module_catalog.py` (grep), catalog tests pinning domains | — |
-| W-B | IRMAA indexing, value-year base, statutory rounding, MFS table fix | Opus / high | Moderate | 8 call sites; tax-law JSON; golden-master verification | — |
+| W-B | IRMAA indexing, value-year base, statutory rounding, MFS table fix | Opus / medium | Moderate | 8 call sites; tax-law JSON; golden-master verification | — |
 | W-C | Spending Model consolidation | Opus / medium | **Heavy ⚠** | `dashboard.js` ratchet, renderer extraction, redirects, many UI tests | W-A |
 | W-D | Large Discretionary + Adjustments | Opus / medium | **Heavy ⚠** | budget resolver + engine + migration + two tables | W-C |
 | W-E | Housing restructure | Opus / medium | Moderate–heavy | loader gating, catalog, Optimize section | W-A |
