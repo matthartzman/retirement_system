@@ -73,18 +73,21 @@ order, so there is one table, not two.
 A nav group label is either (a) a Topic label, (b) a join of Topic labels
 with `&` (e.g. *Investments & Property* = Investments + Housing & Property),
 or (c) in the explicit utility allowlist
-`{Plan Status, People and Income, Strategy, Reports & Review, Settings}`.
+`{Plan Status, Household, Strategy, Reports & Review, Settings}`.
 A surface may **merge** topics under a join; it may never **reuse** a Topic
 label for a different membership. Plan Features chip labels must equal the
 workbook section titles minus their number prefix.
 
-Workbook sheet numbers are **not** renumbered — slugs are the stable identity.
+Workbook tab names are already lettered by answer-type section
+(`1A. Executive Summary` … `5H. Tax Capacity`); §9.1 makes the order *within*
+a section follow Topic, so the workbook shows both facets.
 
 ## 2. Target left nav
 
 ```
 Plan Status
-People and Income        Household & People · Work Income · SS/Pensions/Annuities
+Household                Household & People
+Income & Benefits        Work Income · SS/Pensions/Annuities
 Spending                 Spending Model
 Investments & Property   Investment Holdings · Reserve Requirements · Other Assets and Liabilities · Home Equity Line
 Insurance & Care         Insurance
@@ -92,7 +95,7 @@ Estate & Legacy          Estate Inputs
 Taxes                    Roth Conversion · Charitable Giving
 Family & Business        Education & Equity Comp
 Strategy                 Optimize (incl. Next Housing Move) · Stress Test · Scenarios · Workbench
-Reports & Review         Actual Spending · Build Impact
+Reports & Review         Actual Spending · Build & Results
 Settings                 (unchanged)
 ```
 
@@ -108,7 +111,12 @@ Changes vs. today: *Housing & Property* nav group dissolves (its topic lives on
 in Plan Features and the workbook; the merge rule allows this); *Assets &
 Protection* splits into *Investments & Property*, *Insurance & Care*, *Estate &
 Legacy*; *Wellness* and *Housing* pages leave the nav (§3); *Actual Spending*
-is new; the visible `reports_and_review` step is retitled **Build Impact**.
+is new; the visible `reports_and_review` hub is retitled **Build & Results**
+[decided: C] — it holds readiness, build, impact, results, downloads and plan
+data review, so a name covering only "impact" would undersell it. The hidden
+sub-page `build_impact` keeps its title "Impact & Build History" (no longer
+a near-duplicate). *People and Income* splits into *Household* (utility) and
+*Income & Benefits* (topic) — §9.2.
 
 Note: the brainstorming mockup labelled the group "Investments and assets";
 it is *Investments & Property* here so the label is a legal join under §1.4
@@ -243,12 +251,67 @@ engine — `c['cash_other']` comes from `_Checking` holdings accounts
 CSV and the schema. On load, a plan with a non-zero value and no `_Checking`
 holdings account gets an import warning naming the amount.
 
-## 9. Out of scope
+## 9. Formerly out of scope — now resolved
 
-- Renumbering workbook sheets.
-- Splitting *People and Income* into topic groups.
-- `IRMAA_TIERS_VALUE_YEAR` vs `plan_start` base-year offset (pre-existing).
-- Rounding indexed IRMAA thresholds to statutory $1,000 steps.
+### 9.1 Workbook sheet numbering
+
+Finding: user-visible tab names are **already** derived — section number +
+letter (`compute_final_sheet_renames`, e.g. `'11B. Tax Capacity'` →
+`'5H. Tax Capacity'`). The legacy numbers survive only in internal
+`SHEET_REGISTRY` dict keys, which users never see and which the in-cell
+text-substitution pass depends on.
+
+Resolution:
+- **Within each answer-type section, order sheets by Topic** (`DOMAINS`
+  order), then by the existing `letter_rank`. Letters stay derived, so the
+  tab strip shows answer type (number) and topic (sequence). Example,
+  section 2: Social Security (Income & Benefits) → Housing Comparison
+  (Housing & Property) → Asset Allocation, Withdrawal Sequencing, Asset
+  Location (Investments) → Roth, HSA, Charitable, Tax-Loss, Gain Harvesting
+  (Taxes) → Estate (Estate & Legacy) → Education, Equity Comp, Special
+  Needs, Business Succession (Family & Business).
+- Internal dict keys are **not** renamed (all churn, no user value); a guard
+  test asserts no final tab name carries a legacy number.
+- Sheets without a module (`Plan Data`, `Assumptions`, `Balance Sheet`,
+  `Net Worth`, `Cash Flow`, `Executive Summary`, …) sort as *Whole Plan*.
+
+### 9.2 People and Income split
+
+*People and Income* is neither a Topic nor a join. Split it:
+**Household** (utility group, like Plan Status — plan-wide facts:
+Household & People) and **Income & Benefits** (Topic: Work Income,
+SS/Pensions/Annuities). Utility allowlist replaces *People and Income* with
+*Household*.
+
+### 9.3 IRMAA base year
+
+The tier tables are in `IRMAA_TIERS_VALUE_YEAR` (2025) dollars, but today's
+growth compounds from `plan_start`, so a 2026-start plan applies 2025
+thresholds in 2026 — one year of indexing lost. All IRMAA factors grow from
+`IRMAA_TIERS_VALUE_YEAR`. Monte Carlo paths (which are 1.0 at `plan_start`)
+are bridged by the deterministic rate from value year to `plan_start`.
+
+### 9.4 IRMAA statutory rounding and top tier
+
+- Indexed thresholds round to the nearest **$1,000** (Single, HOH, MFS) and
+  **$2,000** (MFJ, which is twice the individual amount).
+- The **top tier** is frozen through 2027 and indexed from **2028** on its
+  2027 value (Bipartisan Budget Act of 2018).
+- Monthly surcharge amounts round to the nearest **$0.10**.
+
+### 9.5 Found while resolving: broken MFS table
+
+`IRMAA_TIERS_BASE_YEAR['MFS']` has 5 rows where the statute has 2, with
+non-monotonic thresholds (106k, 403k, 335k, 402k, 750k) — the last three are
+MFJ rows appended in error. Under `reversed()` scanning, an MFS household at
+$410k MAGI is billed the 367.8 tier instead of the top tier. Fix the source
+data (`reference_data/tax_law_v10.json` MFS `irmaa_tier3..5` entries —
+delete; re-check tiers 1–2 against the CMS annual notice) and add a validator:
+every filing status's thresholds strictly increase.
+
+### 9.6 Still out of scope
+
+Nothing from the original list remains out of scope.
 
 ---
 
@@ -299,11 +362,11 @@ Check `/usage` against these as the plan executes.
 | WS | Scope | Model / effort | Relative usage (5-h Pro session) | Drivers | Depends on |
 |---|---|---|---|---|---|
 | W-A | Taxonomy vocabulary + Plan Features | Sonnet / medium | Moderate | `module_catalog.py` (grep), catalog tests pinning domains | — |
-| W-B | IRMAA indexing | Opus / high | Moderate | 8 call sites; golden-master verification | — |
+| W-B | IRMAA indexing, value-year base, statutory rounding, MFS table fix | Opus / high | Moderate | 8 call sites; tax-law JSON; golden-master verification | — |
 | W-C | Spending Model consolidation | Opus / high | **Heavy ⚠** | `dashboard.js` ratchet, renderer extraction, redirects, many UI tests | W-A |
 | W-D | Large Discretionary + Adjustments | Opus / high | **Heavy ⚠** | budget resolver + engine + migration + two tables | W-C |
 | W-E | Housing restructure | Opus / high | Moderate–heavy | loader gating, catalog, Optimize section | W-A |
-| W-F | Nav regroup, reserve checking, workbook, consistency test | Sonnet / medium | Moderate | nav pin tests, e2e nav-integrity | W-A, W-C, W-E |
+| W-F | Nav regroup (incl. Household / Income & Benefits), reserve checking, workbook Topic column + topic ordering, consistency test | Sonnet / medium | Moderate | nav pin tests, sheet-order pins, e2e nav-integrity | W-A, W-C, W-E |
 
 **Expensive-step flags:**
 - W-C Task C2 (renderer extraction): scope by grepping the render function
@@ -507,16 +570,39 @@ Call it where the config payload assembles optional-function rows (grep `client_
 
 ## W-B — IRMAA indexing (#334)
 
-### Task B1: Single IRMAA indexing implementation in `tax_kernel`
+### Task B0: Fix the MFS IRMAA table; monotonicity validator (§9.5)
+
+**Files:** `reference_data/tax_law_v10.json` (MFS `irmaa_tier3_*`..`irmaa_tier5_*` entries); `src/taxes.py:349-350` (table load); Test new `tests/test_irmaa_tables_valid.py`
+
+- [ ] **Step 1: Failing test**
+
+```python
+from src import taxes as _td
+
+def test_every_filing_status_has_increasing_thresholds():
+    for filing, tiers in _td.IRMAA_TIERS_BASE_YEAR.items():
+        thr = [t[0] for t in tiers]
+        assert thr == sorted(set(thr)), (filing, thr)
+
+def test_mfs_has_the_two_statutory_tiers():
+    assert len(_td.IRMAA_TIERS_BASE_YEAR["MFS"]) == 2
+```
+
+- [ ] **Step 2:** `pytest tests/test_irmaa_tables_valid.py -v` — FAIL (MFS: 106000, 403000, 335000, …).
+- [ ] **Step 3:** `grep -n "irmaa_tier" reference_data/tax_law_v10.json` and delete the MFS `irmaa_tier3/4/5` threshold and surcharge entries; confirm the remaining MFS tier 1–2 thresholds and surcharges against the CMS annual Medicare premium notice for the value year, correcting if they differ. In `src/taxes.py`, after the table load, raise `ValueError` naming the filing status if thresholds are not strictly increasing (so bad data fails at import, not silently).
+- [ ] **Step 4:** `pytest tests/test_irmaa_tables_valid.py -v` — PASS; `measure` → `+0.00` (demo is MFJ).
+- [ ] **Step 5:** Commit `fix(irmaa): MFS table had three MFJ rows appended; validate monotonic thresholds`
+
+### Task B1: Single IRMAA indexing implementation in `tax_kernel` (§7, §9.3, §9.4)
 
 **Files:** Modify `src/tax_kernel.py:70-99`; Test new `tests/test_irmaa_indexing_unit.py`
 
 **Interfaces — Produces:**
-`irmaa_threshold_factor(c, year) -> float`, `irmaa_partb_factor(c, year) -> float`,
-`irmaa_partd_factor(c, year) -> float`; `irmaa_surcharge(agi, year, n_people, filing, c)`
-and `irmaa_tier(agi, year, filing, c)` keep their signatures.
-`irmaa_factor_for_year` is kept as an alias of `irmaa_threshold_factor`
-(consumers in `projection_pipeline.py:92`).
+`irmaa_threshold(c, filing, tier_idx, year) -> float` (indexed, rounded, top-tier rule);
+`irmaa_threshold_factor(c, year) -> float` (unrounded CPI growth from the value year, for callers that scale one base amount);
+`irmaa_partb_factor(c, year)`, `irmaa_partd_factor(c, year) -> float`;
+`irmaa_surcharge(agi, year, n_people, filing, c)` and `irmaa_tier(agi, year, filing, c)` keep their signatures.
+`irmaa_factor_for_year = irmaa_threshold_factor` (alias; `projection_pipeline.py:92` exports it).
 
 - [ ] **Step 1: Failing test**
 
@@ -525,85 +611,127 @@ import pytest
 from src import tax_kernel as tk
 from src import taxes as _td
 
+VY = _td.IRMAA_TIERS_VALUE_YEAR          # 2025
 C = {"plan_start": 2026, "inf": 0.03, "med_inf": 0.055, "partd_inf": 0.0125}
 
-def test_threshold_grows_with_cpi_not_irmaa_inflator():
-    c = dict(C, irmaa_inflator=0.10)  # must be ignored
-    assert tk.irmaa_threshold_factor(c, 2036) == pytest.approx(1.03 ** 10)
+def _round(x, step):
+    return round(x / step) * step
 
-def test_surcharge_dollars_grow_with_medicare_rates():
-    tiers = _td.IRMAA_TIERS_BASE_YEAR["MFJ"]
-    thr, pb, pd = tiers[-1]
-    agi = thr * 1.03 ** 10 * 1.5
-    want = (pb * 1.055 ** 10 + pd * 1.0125 ** 10) * 2 * 12
-    assert tk.irmaa_surcharge(agi, 2036, 2, "MFJ", C) == pytest.approx(want)
+def test_threshold_is_cpi_indexed_from_value_year_and_rounded():
+    c = dict(C, irmaa_inflator=0.10)                      # must be ignored
+    n = 2036 - VY
+    assert tk.irmaa_threshold(c, "MFJ", 0, 2036) == _round(212000 * 1.03 ** n, 2000)
+    assert tk.irmaa_threshold(c, "Single", 0, 2036) == _round(106000 * 1.03 ** n, 1000)
 
-def test_monte_carlo_paths_are_used_when_present():
+def test_top_tier_frozen_through_2027_then_indexed():
+    top = len(_td.IRMAA_TIERS_BASE_YEAR["MFJ"]) - 1
+    assert tk.irmaa_threshold(C, "MFJ", top, 2027) == 750000
+    assert tk.irmaa_threshold(C, "MFJ", top, 2030) == _round(750000 * 1.03 ** 3, 2000)
+
+def test_surcharge_dollars_grow_with_medicare_rates_rounded_to_dimes():
+    _, pb, pd = _td.IRMAA_TIERS_BASE_YEAR["MFJ"][-1]
+    n = 2036 - VY
+    want = (round(pb * 1.055 ** n, 1) + round(pd * 1.0125 ** n, 1)) * 2 * 12
+    assert tk.irmaa_surcharge(10_000_000, 2036, 2, "MFJ", C) == pytest.approx(want)
+
+def test_monte_carlo_path_bridged_from_value_year():
     c = dict(C, inflation_index_by_year={2030: 1.5}, medical_index_by_year={2030: 2.0})
-    assert tk.irmaa_threshold_factor(c, 2030) == 1.5
-    assert tk.irmaa_partb_factor(c, 2030) == 2.0
-    assert tk.irmaa_partd_factor(c, 2030) == pytest.approx(1.0125 ** 4)
+    assert tk.irmaa_threshold_factor(c, 2030) == pytest.approx(1.03 ** (2026 - VY) * 1.5)
+    assert tk.irmaa_partb_factor(c, 2030) == pytest.approx(1.055 ** (2026 - VY) * 2.0)
+    assert tk.irmaa_partd_factor(c, 2030) == pytest.approx(1.0125 ** (2030 - VY))
 
-def test_tier_uses_cpi_threshold():
-    thr = _td.IRMAA_TIERS_BASE_YEAR["MFJ"][0][0]
-    assert tk.irmaa_tier(thr * 1.03 ** 10 - 1, 2036, "MFJ", C) == 0
-    assert tk.irmaa_tier(thr * 1.03 ** 10 + 1, 2036, "MFJ", C) == 1
+def test_tier_boundaries_use_rounded_threshold():
+    t = tk.irmaa_threshold(C, "MFJ", 0, 2036)
+    assert tk.irmaa_tier(t, 2036, "MFJ", C) == 0          # statute: "more than"
+    assert tk.irmaa_tier(t + 1, 2036, "MFJ", C) == 1
 ```
 
-- [ ] **Step 2: Run** `pytest tests/test_irmaa_indexing_unit.py -v` — FAIL (`irmaa_threshold_factor` undefined).
+- [ ] **Step 2: Run** `pytest tests/test_irmaa_indexing_unit.py -v` — FAIL (`irmaa_threshold` undefined).
 - [ ] **Step 3: Implement** — replace `tax_kernel.py:70-99`:
 
 ```python
-def _index_factor(c, path_key, rate, year):
+# #334 / spec §9.4: statutory indexing rules for IRMAA.
+IRMAA_TOP_TIER_INDEX_START = 2028   # BBA 2018: top tier indexed from 2028
+
+
+def _index_factor(c, path_key, rate, year, base_year):
+    """Growth from ``base_year`` to ``year``. Monte Carlo paths are 1.0 at
+    plan_start, so they are bridged from base_year at the deterministic rate."""
+    r = float(rate or 0.0)
     path = c.get(path_key)
     if isinstance(path, dict):
         v = path.get(year, path.get(int(year)))
         if v is not None:
-            return float(v)
-    return (1.0 + float(rate or 0.0)) ** (int(year) - int(c.get('plan_start', year)))
+            ps = int(c.get('plan_start', year))
+            return (1.0 + r) ** (ps - int(base_year)) * float(v)
+    return (1.0 + r) ** (int(year) - int(base_year))
 
 
 def irmaa_threshold_factor(c, year):
-    """IRMAA MAGI thresholds are CPI-indexed (#334)."""
-    return _index_factor(c, 'inflation_index_by_year', c.get('inf', 0.025), year)
-
-
-def irmaa_partb_factor(c, year):
-    """Part B IRMAA dollars scale with the Part B premium (#334)."""
-    return _index_factor(c, 'medical_index_by_year', c.get('med_inf', c.get('inf', 0.025)), year)
-
-
-def irmaa_partd_factor(c, year):
-    """Part D IRMAA dollars scale with the Part D base premium (#334)."""
-    return _index_factor(c, 'partd_index_by_year', c.get('partd_inf', c.get('med_inf', 0.0125)), year)
+    """CPI growth of IRMAA MAGI thresholds from the tier tables' value year."""
+    return _index_factor(c, 'inflation_index_by_year', c.get('inf', 0.025),
+                         year, _td.IRMAA_TIERS_VALUE_YEAR)
 
 
 irmaa_factor_for_year = irmaa_threshold_factor
 
 
+def irmaa_partb_factor(c, year):
+    """Part B IRMAA dollars scale with the Part B premium."""
+    return _index_factor(c, 'medical_index_by_year',
+                         c.get('med_inf', c.get('inf', 0.025)),
+                         year, _td.IRMAA_TIERS_VALUE_YEAR)
+
+
+def irmaa_partd_factor(c, year):
+    """Part D IRMAA dollars scale with the Part D base premium."""
+    return _index_factor(c, 'partd_index_by_year',
+                         c.get('partd_inf', c.get('med_inf', 0.0125)),
+                         year, _td.IRMAA_TIERS_VALUE_YEAR)
+
+
+def _tiers(filing):
+    return _td.IRMAA_TIERS_BASE_YEAR.get(filing, _td.IRMAA_TIERS_BASE_YEAR['MFJ'])
+
+
+def irmaa_threshold(c, filing, tier_idx, year):
+    """Indexed, statutorily rounded MAGI threshold for 0-based ``tier_idx``."""
+    tiers = _tiers(filing)
+    base = tiers[tier_idx][0]
+    if tier_idx == len(tiers) - 1:
+        if int(year) < IRMAA_TOP_TIER_INDEX_START:
+            return float(base)
+        f = (irmaa_threshold_factor(c, year)
+             / irmaa_threshold_factor(c, IRMAA_TOP_TIER_INDEX_START - 1))
+    else:
+        f = irmaa_threshold_factor(c, year)
+    step = 2000 if filing == 'MFJ' else 1000
+    return float(round(base * f / step) * step)
+
+
 def irmaa_surcharge(agi, year, n_people, filing, c):
     """Annual Part B + Part D IRMAA surcharge for a household at ``agi``."""
-    tiers = _td.IRMAA_TIERS_BASE_YEAR.get(filing, _td.IRMAA_TIERS_BASE_YEAR['MFJ'])
-    t = irmaa_threshold_factor(c, year)
-    for threshold, partb, partd in reversed(tiers):
-        if agi > threshold * t:
-            return (partb * irmaa_partb_factor(c, year)
-                    + partd * irmaa_partd_factor(c, year)) * n_people * 12
+    tiers = _tiers(filing)
+    for i in range(len(tiers) - 1, -1, -1):
+        if agi > irmaa_threshold(c, filing, i, year):
+            _, partb, partd = tiers[i]
+            monthly = (round(partb * irmaa_partb_factor(c, year), 1)
+                       + round(partd * irmaa_partd_factor(c, year), 1))
+            return monthly * n_people * 12
     return 0.0
 
 
 def irmaa_tier(agi, year, filing, c):
     """1-indexed IRMAA tier (0 = no surcharge) for a household at ``agi``."""
-    tiers = _td.IRMAA_TIERS_BASE_YEAR.get(filing, _td.IRMAA_TIERS_BASE_YEAR['MFJ'])
-    t = irmaa_threshold_factor(c, year)
-    for i, (threshold, _, _) in enumerate(reversed(tiers)):
-        if agi > threshold * t:
-            return len(tiers) - i
+    tiers = _tiers(filing)
+    for i in range(len(tiers) - 1, -1, -1):
+        if agi > irmaa_threshold(c, filing, i, year):
+            return i + 1
     return 0
 ```
 
 - [ ] **Step 4: Run** `pytest tests/test_irmaa_indexing_unit.py -v` — PASS.
-- [ ] **Step 5: Commit** `feat(irmaa): CPI-indexed thresholds, Medicare-indexed surcharges (#334)`
+- [ ] **Step 5: Commit** `feat(irmaa): CPI thresholds from value year, statutory rounding, top-tier 2028 rule, Medicare-indexed surcharges (#334)`
 
 ### Task B2: Route every caller through `tax_kernel`; retire `irmaa_inflator`
 
@@ -620,15 +748,15 @@ def test_no_irmaa_inflator_outside_kernel():
 ```
 
 - [ ] **Step 2: Run** — FAIL (lists the files above).
-- [ ] **Step 3: Implement.** `core.irmaa_surcharge/irmaa_tier`: keep signatures for back-compat but build `c={'plan_start': plan_start, 'inf': inflator}` only if no config is passed — better: add a `c=None` kwarg and delegate to `tax_kernel`; update `daf_optimizer` to pass `c`. `planning_engines` 2251/2292 and `sheets_strategy.py:1056`: replace the inline `(1+irmaa_inflator)**n` with `_tk.irmaa_threshold_factor(c, year)`. `sheets_tax_capacity.py:68-76`: replace the mirror function body with `return _tk.irmaa_threshold_factor(c, year)`. MC builder (3611/3639/4989): delete `irmaa_rate`/`irmaa_factor`/`irmaa_index` and the `'irmaa_index_by_year'` and `'sampled_irmaa_inflation_geometric'` keys (thresholds now follow `inflation_index_by_year`); also remove `'irmaa_index_by_year'` from the key list at 3471. `data_io.py`: delete both `c['irmaa_inflator']` assignments. Remove the demo/fixture CSV row and the schema row; frontend: remove the field from whatever renders it (grep hits).
+- [ ] **Step 3: Implement.** `core.irmaa_surcharge/irmaa_tier`: keep signatures for back-compat but build `c={'plan_start': plan_start, 'inf': inflator}` only if no config is passed — better: add a `c=None` kwarg and delegate to `tax_kernel`; update `daf_optimizer` to pass `c`. `planning_engines` 2251/2292, `sheets_strategy.py:1056` and `withdrawal_cascade_ira_true_up.py:45` (`c['irmaa_base'] * factor`): replace with `_tk.irmaa_threshold(c, filing, tier_idx, year)` so every caller sees the same rounded, top-tier-aware threshold (`c['irmaa_base']` is MFJ tier 2 ⇒ `tier_idx=1`); use `_tk.irmaa_threshold_factor` only where a non-tier amount is scaled. `sheets_tax_capacity.py:68-76`: replace the mirror function body with `return _tk.irmaa_threshold_factor(c, year)`. MC builder (3611/3639/4989): delete `irmaa_rate`/`irmaa_factor`/`irmaa_index` and the `'irmaa_index_by_year'` and `'sampled_irmaa_inflation_geometric'` keys (thresholds now follow `inflation_index_by_year`); also remove `'irmaa_index_by_year'` from the key list at 3471. `data_io.py`: delete both `c['irmaa_inflator']` assignments. Remove the demo/fixture CSV row and the schema row; frontend: remove the field from whatever renders it (grep hits).
 - [ ] **Step 4: Run** `pytest -m "not slow"`; fix tests that asserted the 2% inflator (`test_irmaa_guardrail_dedup_functional.py`, `test_ltcg_cross_implementation_equivalence_unit.py`, `test_roth_user_ui_render_fix.py`, `test_withdrawal_roth_ui_cleanup.py`, `test_active_input_recursion_guard_functional.py`, `test_after_tax_cap_gain_estate_functional.py`) by updating their expectations to CPI/Medicare indexing — each edit must state the reason. `npm test` — PASS.
 - [ ] **Step 5: Commit** `refactor(irmaa): one indexing implementation; retire irmaa_annual_inflator`
 
 ### Task B3: Golden master — measure, verify one delta by hand, regen once
 
 - [ ] **Step 1:** `python tools/regen_golden_master.py measure` — record deltas.
-- [ ] **Step 2:** Hand-verify one year: pick the first demo year with a non-zero IRMAA surcharge from the projection output; recompute `(partB×1.055^n + partD×1.0125^n)×people×12` and the CPI threshold by hand; must match the engine to the cent.
-- [ ] **Step 3:** `python tools/regen_golden_master.py regen --reason "#334 IRMAA: thresholds CPI-indexed, Part B/D surcharges indexed by med_inf/partd_inf"`.
+- [ ] **Step 2:** Hand-verify one year: pick the first demo year with a non-zero IRMAA surcharge from the projection output; with `n = year − 2025`, recompute `(round(partB×1.055^n, 1) + round(partD×1.0125^n, 1))×people×12` and the threshold `round(base×1.03^n / 2000)×2000` (MFJ) by hand; must match the engine to the cent.
+- [ ] **Step 3:** `python tools/regen_golden_master.py regen --reason "#334 IRMAA: CPI thresholds from 2025 value year with statutory rounding and 2028 top-tier rule; Part B/D surcharges indexed by med_inf/partd_inf"`.
 - [ ] **Step 4:** `pytest` (full) — PASS.
 - [ ] **Step 5:** Commit `test(golden): repin for #334 IRMAA indexing`
 
@@ -689,15 +817,15 @@ test("no 'Annualized Actual' copy in frontend", () => {
 - [ ] **Step 4:** `npm test`; `pytest -m "not slow"`.
 - [ ] **Step 5:** Commit `feat(spending): drop Withdrawal Order tab — every row lives on Optimize`
 
-### Task C5: Actual Spending step; rename Reports & Review hub to Build Impact
+### Task C5: Actual Spending step; rename Reports & Review hub to Build & Results
 
 **Files:** `frontend/js/dashboard.js:396-440` (STEPS for `reports_and_review`, `spending_dashboard`, `ytd_transactions`, `build_impact`); `dashboard.js:2357,3720` (group-name mapping); Test `tests/frontend/actual_spending_step.test.mjs`
 
-**Interfaces — Produces:** step `{ id: "actual_spending", group: "Reports & Review", title: "Actual Spending" }` rendering two tabs, "This year" (ytd_transactions body) and "Analysis" (spending_dashboard body). Step `reports_and_review` keeps its id, `title: "Build Impact"`. The existing hidden step `build_impact` ("Impact & Build History") keeps its id; if the hub already embeds it, its title changes to "Build history" to avoid two "Build Impact" labels.
+**Interfaces — Produces:** step `{ id: "actual_spending", group: "Reports & Review", title: "Actual Spending" }` rendering two tabs, "This year" (ytd_transactions body) and "Analysis" (spending_dashboard body). Step `reports_and_review` keeps its id, `title: "Build & Results"`. The hidden step `build_impact` keeps its id and title "Impact & Build History". Every other hard-coded "Reports & Review" button label that means the hub (grep `data-step-id="reports_and_review"` in `frontend/js/*.js`: "Review Reports", "View Reports", "Review and Build", "Go to Build") is reworded to name "Build & Results".
 
-- [ ] **Step 1:** Failing tests: visible nav group "Reports & Review" = `["Actual Spending", "Build Impact"]`; `setStep("ytd_transactions")` and `setStep("spending_dashboard")` land on `actual_spending` with the right tab; no STEPS entry has `group: "Reports"` (the hidden hub sub-pages `review`, `build_impact`, `detailed_results`, `plan_data_report` carry `group: "Reports & Review"`); `fieldFinderCategoryName("Reports & Review") === "Reports & Review"` with the `"Reports"` special case removed (`dashboard.js:2357`) and the `_eyebrow` list at `dashboard.js:3720` reduced to `["Reports & Review", "Settings"]`.
+- [ ] **Step 1:** Failing tests: visible nav group "Reports & Review" = `["Actual Spending", "Build & Results"]`; `setStep("ytd_transactions")` and `setStep("spending_dashboard")` land on `actual_spending` with the right tab; no STEPS entry has `group: "Reports"` (the hidden hub sub-pages `review`, `build_impact`, `detailed_results`, `plan_data_report` carry `group: "Reports & Review"`); `fieldFinderCategoryName("Reports & Review") === "Reports & Review"` with the `"Reports"` special case removed (`dashboard.js:2357`) and the `_eyebrow` list at `dashboard.js:3720` reduced to `["Reports & Review", "Settings"]`.
 - [ ] **Step 2–4:** Implement, run `npm test`, `pytest -m "not slow"`, e2e nav-integrity.
-- [ ] **Step 5:** Commit `feat(nav): Actual Spending under Reports & Review; hub renamed Build Impact`
+- [ ] **Step 5:** Commit `feat(nav): Actual Spending under Reports & Review; hub renamed Build & Results`
 
 ---
 
@@ -849,6 +977,55 @@ def test_end_year_is_inclusive_then_reverts():
 - [ ] **Step 2–4:** Implement; `pytest -m "not slow"`; `measure` → `+0.00`.
 - [ ] **Step 5:** Commit `feat(workbook): Topic column in the section index`
 
+### Task F5: Split People and Income (§9.2)
+
+**Files:** `frontend/js/dashboard.js:20-50` STEPS `group:` values (`household`, `income_work`, `income_retirement` — confirm ids by grep `group: "People and Income"`); `SPENDING_COMPLETION`/`SUGGESTED_NEXT` in `dashboard_decomp_row_model.js` if they name the group; `tests/test_database_first_ui_refactor_functional.py::test_dashboard_top_level_groups`
+
+- [ ] **Step 1:** Failing test: pinned group list begins `["Plan Status", "Household", "Income & Benefits", "Spending", …]`; the Household group holds only Household & People; Income & Benefits holds Work Income and SS/Pensions/Annuities; no STEPS entry has `group: "People and Income"`.
+- [ ] **Step 2–3:** Change the three `group:` strings; `grep -rn "People and Income" frontend src tests` and update copy/pins (Field Finder order follows STEPS automatically).
+- [ ] **Step 4:** `npm test`; `pytest -m "not slow"`; e2e nav-integrity.
+- [ ] **Step 5:** Commit `feat(nav): Household utility group + Income & Benefits topic group`
+
+### Task F6: Topic order within workbook sections (§9.1)
+
+**Files:** `src/reporting/workbook_common.py` (`_derive_sheet_tables` — where `SHEET_LETTER_ORDER` is built from `letter_rank`); Test new `tests/test_workbook_topic_order.py`; existing `tests/test_sheet_table_consistency.py` (pins order)
+
+**Interfaces — Consumes:** `DOMAINS`, `CATALOG[module_key].domain`, `SHEET_REGISTRY[name].letter_rank`. **Produces:** `sheet_topic(name) -> str` in `workbook_common.py` (module's domain, or `"Whole Plan"` when `module_key` is None).
+
+- [ ] **Step 1: Failing tests**
+
+```python
+from src import module_catalog as mc
+from src.module_catalog import SHEET_REGISTRY
+from src.reporting import workbook_common as w
+
+class _WB:
+    sheetnames = list(SHEET_REGISTRY)
+
+def _final_order():
+    r = w.compute_final_sheet_renames(_WB())
+    return sorted({v for k, v in r.items() if k in SHEET_REGISTRY})
+
+def test_sheets_within_a_section_follow_topic_order():
+    rank = {d: i for i, d in enumerate(mc.DOMAINS)}
+    inv = {v: k for k, v in w.compute_final_sheet_renames(_WB()).items() if k in SHEET_REGISTRY}
+    by_section = {}
+    for final in _final_order():
+        by_section.setdefault(final[0], []).append(rank[w.sheet_topic(inv[final])])
+    for sec, ranks in by_section.items():
+        assert ranks == sorted(ranks), sec
+
+def test_no_final_tab_name_carries_a_legacy_number():
+    import re
+    for final in _final_order():
+        assert re.match(r"^[1-5][A-Z]{1,2}\. ", final), final
+```
+
+- [ ] **Step 2:** `pytest tests/test_workbook_topic_order.py -v` — first test FAILS (e.g. section 2 starts with Roth Conversion, a Taxes sheet, before Social Security).
+- [ ] **Step 3:** Add `sheet_topic()`; in `_derive_sheet_tables` sort each letter group by `(DOMAINS.index(sheet_topic(name)), letter_rank)` instead of `letter_rank` alone. Update the order pinned in `test_sheet_table_consistency.py`, stating the reason (#332 §9.1).
+- [ ] **Step 4:** `pytest -m "not slow"`; `measure` → `+0.00` (order only).
+- [ ] **Step 5:** Commit `feat(workbook): sheets ordered by topic within each answer-type section`
+
 ### Task F4: Cross-surface consistency guard
 
 **Files:** new `tests/test_taxonomy_cross_surface_consistency.py`
@@ -860,7 +1037,7 @@ import re, pathlib
 from src import module_catalog as mc
 from src.reporting.workbook_common import _SECTION_META
 
-UTILITY = {"Plan Status", "People and Income", "Strategy", "Reports & Review", "Settings"}
+UTILITY = {"Plan Status", "Household", "Strategy", "Reports & Review", "Settings"}
 
 def _nav_groups():
     src = pathlib.Path("frontend/js/dashboard.js").read_text(encoding="utf-8")
@@ -889,14 +1066,15 @@ def test_topic_label_never_reused_for_other_membership():
                 assert hit.group(1) == m.domain, (m.dashboard_step, hit.group(1), m.domain)
 ```
 
-- [ ] **Step 2:** Run — PASS (after W-A, W-C, W-E, F1). If it fails, fix the surface, not the test.
+- [ ] **Step 2:** Run — PASS (after W-A, W-C, W-E, F1, F5). If it fails, fix the surface, not the test.
 - [ ] **Step 3:** Commit `test: cross-surface taxonomy consistency guard (#332)`
 
 ---
 
 ## Self-review notes
 
-- Spec coverage: §1 → A1–A3, F3, F4; §2 → C3, C5, E3, F1; §3 → C1–C5;
-  §4 → D1–D2; §5 → D3–D4; §6 → A3 (backfill), A4, E1–E3; §7 → B1–B3; §8 → F2.
+- Spec coverage: §1 → A1–A3, F3, F4; §2 → C3, C5, E3, F1, F5; §3 → C1–C5;
+  §4 → D1–D2; §5 → D3–D4; §6 → A3 (backfill), A4, E1–E3; §7 → B1–B3; §8 → F2;
+  §9.1 → F6; §9.2 → F5; §9.3–9.4 → B1; §9.5 → B0.
 - Deliberate detail gap: W-C–W-F code for `dashboard.js` regions is written at
   each task's Locate step (see "Detail level").
