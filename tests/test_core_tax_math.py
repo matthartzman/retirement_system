@@ -51,8 +51,13 @@ class Phase5ClosedFormTaxTests(unittest.TestCase):
     def test_irmaa_and_niit_simple_threshold_behavior(self):
         from src.core import irmaa_surcharge, irmaa_tier
         self.assertEqual(irmaa_tier(200000, 2026, 2026, filing="MFJ"), 0)
-        self.assertEqual(irmaa_tier(213000, 2026, 2026, filing="MFJ"), 1)
-        self.assertGreater(irmaa_surcharge(213000, 2026, 2026, filing="MFJ"), 0)
+        # W-B / #334 (B2): core.irmaa_* now delegate to tax_kernel, which
+        # CPI-indexes the 2025-dollar tier table to 2026 (212,000 * 1.025,
+        # rounded to $2,000 for MFJ = 218,000), so 213,000 no longer clears
+        # tier 1. Probe just above the indexed threshold instead.
+        self.assertEqual(irmaa_tier(218000, 2026, 2026, filing="MFJ"), 0)
+        self.assertEqual(irmaa_tier(219000, 2026, 2026, filing="MFJ"), 1)
+        self.assertGreater(irmaa_surcharge(219000, 2026, 2026, filing="MFJ"), 0)
 
 
 @pytest.mark.unit

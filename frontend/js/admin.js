@@ -535,7 +535,6 @@ function titleCaseLabel(s) {
     roth_irmaa_target_tier: "Medicare IRMAA Tier Ceiling",
     irmaa_guardrail_mode: "IRMAA Guardrail Behavior",
     roth_irmaa_headroom_usage_pct: "IRMAA Headroom Used",
-    irmaa_annual_inflator: "IRMAA Threshold Inflation",
   };
   if (labelMap[key]) return labelMap[key];
   let out = String(s || "")

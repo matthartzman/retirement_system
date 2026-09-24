@@ -98,10 +98,12 @@ def test_fill_to_irmaa_policy_also_carries_the_ltcg_and_niit_guardrails():
     # fill_to_irmaa (system review 2026-07-21, P1 adjacent gap): a policy that
     # only caps to the IRMAA threshold must not ignore LTCG/NIIT cliffs either.
     c, plan = _plan(
-        # MFJ resolves its IRMAA threshold from roth_irmaa_target_threshold_mfj
-        # (see _roth_irmaa_target_threshold_base), not the tier table -- push
-        # it far out of the way so only the LTCG cap can bind here.
-        {'roth_policy': 'fill_to_irmaa', 'roth_irmaa_target_threshold_mfj': 10_000_000.0, 'roth_niit_cap': False},
+        # W-B / #334 (B2): the roth_irmaa_target_threshold_mfj dollar override is
+        # retired; the IRMAA target now always comes from the indexed tier table
+        # (tax_kernel.irmaa_threshold). Target the top tier (MFJ $750k, frozen
+        # through 2027) so the IRMAA cap sits above the 15% LTCG ceiling and
+        # only the LTCG cap can bind here.
+        {'roth_policy': 'fill_to_irmaa', 'roth_irmaa_target_tier': 'TIER_5', 'roth_niit_cap': False},
         portfolio_qualified=200_000.0,
     )
     top0, top15 = _roth_ltcg_thresholds_base(c, 'MFJ')

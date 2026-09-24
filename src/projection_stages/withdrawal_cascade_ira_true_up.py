@@ -42,7 +42,9 @@ def _bracket_caps_and_marginal_rate(
             "fix withdrawal_bracket_target_rate rather than silently capping pre-tax withdrawals "
             "against a hardcoded $400,000 bracket top"
         )
-    irmaa_thr_yr = c['irmaa_base'] * _tk.irmaa_factor_for_year(c, year)
+    # #334: IRMAA tier-2 threshold (0-based tier_idx 1) for this year's filing
+    # status, from the single tax_kernel implementation.
+    irmaa_thr_yr = _tk.irmaa_threshold(c, filing, 1, year)
     marg = marginal_rate(taxable_inc, year, filing, c['brk_inf'])
     return top_24_yr, irmaa_thr_yr, marg
 

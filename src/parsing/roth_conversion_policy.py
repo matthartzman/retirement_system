@@ -89,11 +89,6 @@ def parse_roth_conversion_policy(data):
     if _roth_irmaa_target_tier not in ('TIER_1', 'TIER_2', 'TIER_3', 'TIER_4', 'TIER_5'):
         _roth_irmaa_target_tier = 'TIER_2'
     out['roth_irmaa_target_tier'] = _roth_irmaa_target_tier
-    try:
-        _idx = int(_roth_irmaa_target_tier.split('_')[-1]) - 1
-        out['roth_irmaa_target_threshold_mfj'] = float(_td.IRMAA_TIERS_BASE_YEAR.get('MFJ', [])[max(0, _idx)][0])
-    except Exception:
-        out['roth_irmaa_target_threshold_mfj'] = 268000.0
     out['roth_fixed_amount'] = _n(_v(data, 'Withdrawal Policy', 'Roth Conversion',
                                    'roth_fixed_annual_amount', '50000'), 50000)
     out['roth_max_annual_conversion_pct_of_traditional_ira'] = min(1.0, max(0.0, _n(_v(data, 'Withdrawal Policy', 'Roth Conversion',

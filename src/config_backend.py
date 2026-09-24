@@ -41,7 +41,6 @@ _YEAR_LABEL_PATTERNS = [
     (re.compile(r"^coverage_\d{4}_family_months$"), "coverage_base_year_family_months"),
     (re.compile(r"^coverage_\d{4}_self_only_months$"), "coverage_base_year_self_only_months"),
     (re.compile(r"^ss_wage_base_\d{4}$"), "ss_wage_base_base_year"),
-    (re.compile(r"^irmaa_tier2_mfj_\d{4}$"), "irmaa_tier2_mfj_base_year"),
     (re.compile(r"^ltcg_0pct_top_mfj_\d{4}$"), "ltcg_0pct_top_mfj_base_year"),
     (re.compile(r"^ltcg_15pct_top_mfj_\d{4}$"), "ltcg_15pct_top_mfj_base_year"),
     (re.compile(r"^part_b_premium_\d{4}$"), "part_b_base_premium_monthly"),

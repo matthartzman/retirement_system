@@ -16,7 +16,7 @@ implementations genuinely disagreed in practice -- up to ~$7,869 over a
 divergence, both fixed by consolidating here:
 
 1. **Inflation index.** ``core.ltcg_tax_on_gain`` inflated bracket tops using
-   ``irmaa_inflator``; the engine used ``brk_inf``
+   the IRMAA threshold inflator (retired in #334); the engine used ``brk_inf``
    (``fed_tax_bracket_inflator``). These are independently settable and do
    diverge in shipped config (0.02 vs 0.028 in one real fixture).
 2. **Compounding base year.** ``core.py`` compounded from ``plan_start``; the

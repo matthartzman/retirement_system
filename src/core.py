@@ -1082,21 +1082,20 @@ _STATE_INCOME_BRACKETS = {
     ('New York','HOH'): [(0, 12800, .04), (12800, 17650, .045), (17650, 20900, .0525), (20900, 107650, .055), (107650, 269300, .06), (269300, 1616450, .0685), (1616450, 5000000, .0965), (5000000, 25000000, .103), (25000000, float('inf'), .109)],
 }
 
-def irmaa_surcharge(agi, year, plan_start, inflator=0.02, n_people=2, filing='MFJ'):
-    tiers = IRMAA_TIERS_BASE_YEAR.get(filing, IRMAA_TIERS_BASE_YEAR['MFJ'])
-    infl = (1 + inflator) ** (year - plan_start)
-    for threshold, partb, partd in reversed(tiers):
-        if agi > threshold * infl:
-            return (partb + partd) * n_people * 12
-    return 0.0
+def _irmaa_cfg(plan_start, c):
+    # #334 / W-B: IRMAA indexing lives only in tax_kernel. Callers without a
+    # config get the kernel defaults (CPI thresholds, Medicare-indexed $).
+    return c if c is not None else {'plan_start': plan_start}
 
-def irmaa_tier(agi, year, plan_start, inflator=0.02, filing='MFJ'):
-    tiers = IRMAA_TIERS_BASE_YEAR.get(filing, IRMAA_TIERS_BASE_YEAR['MFJ'])
-    infl = (1 + inflator) ** (year - plan_start)
-    for i, (threshold, _, _) in enumerate(reversed(tiers)):
-        if agi > threshold * infl:
-            return len(tiers) - i
-    return 0
+def irmaa_surcharge(agi, year, plan_start, inflator=0.02, n_people=2, filing='MFJ', c=None):
+    """Delegates to ``tax_kernel.irmaa_surcharge``. ``inflator`` is retained
+    only for signature back-compat and is ignored (#334)."""
+    return _tk.irmaa_surcharge(agi, year, n_people, filing, _irmaa_cfg(plan_start, c))
+
+def irmaa_tier(agi, year, plan_start, inflator=0.02, filing='MFJ', c=None):
+    """Delegates to ``tax_kernel.irmaa_tier``. ``inflator`` is retained only
+    for signature back-compat and is ignored (#334)."""
+    return _tk.irmaa_tier(agi, year, filing, _irmaa_cfg(plan_start, c))
 
 def niit_tax(nii, magi, filing='MFJ'):
     threshold = _td.NIIT_THRESHOLD.get(filing, 250000)
@@ -1422,7 +1421,8 @@ def ltcg_tax_on_gain(c, gain, ordinary_income, year):
     """Thin call site into the canonical kernel implementation.
 
     Tax-kernel extraction (system review Wave 2 item 2.1): this used to
-    inflate LTCG bracket tops using ``irmaa_inflator`` compounded from
+    inflate LTCG bracket tops using the (since retired) IRMAA threshold
+    inflator compounded from
     ``plan_start``. It now delegates to ``tax_kernel.ltcg_tax_on_gain``,
     which uses ``brk_inf`` (``fed_tax_bracket_inflator``) compounded from
     the brackets' statutory value year -- see ``src/tax_kernel.py``'s module
