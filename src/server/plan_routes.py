@@ -773,7 +773,7 @@ def _housing_search_config_or_disabled():
     if not module_enabled(c0, "housing_location_search"):
         return None, (jsonify({
             "success": False,
-            "error": ("Housing Location Search is turned off for this plan. "
+            "error": ("Next Housing Move is turned off for this plan. "
                       "Enable it on Plan Features to run a location search."),
             "module": "housing_location_search",
         }), 403)

@@ -725,7 +725,7 @@ _OUTPUTS: List[OutputModule] = [
         # `market_luck_stress_test`'s gate, so turning Monte Carlo off does not
         # make this module say less. Checked rather than assumed -- W5's rule
         # is that a declaration nothing can observe is worse than none.
-        "housing_location_search", "Housing Location Search", OPTIMIZATION, LOW,
+        "housing_location_search", "Next Housing Move", OPTIMIZATION, LOW,
         "\"Where to live\": screens ZIP codes inside your chosen anchors and radius, "
         "then sweeps each move's location and year against the plan to rank places to go. "
         "The workbook's Housing Comparison answers the other half, \"when to move\".",

@@ -499,3 +499,7 @@ def test_answer_types_drive_letter_groups():
 def test_workbook_section_titles_match_answer_types():
     from src.reporting.workbook_common import _SECTION_META
     assert [t.split(". ", 1)[1] for t, _ in (_SECTION_META[str(i)] for i in range(1, 6))] == list(mc.ANSWER_TYPES)
+
+
+def test_housing_location_search_is_named_next_housing_move():
+    assert mc.CATALOG["housing_location_search"].name == "Next Housing Move"
