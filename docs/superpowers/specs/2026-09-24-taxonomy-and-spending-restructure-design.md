@@ -73,7 +73,7 @@ order, so there is one table, not two.
 A nav group label is either (a) a Topic label, (b) a join of Topic labels
 with `&` (e.g. *Investments & Property* = Investments + Housing & Property),
 or (c) in the explicit utility allowlist
-`{Plan Status, People and Income, Strategy, Reports & Review, Reports, Settings}`.
+`{Plan Status, People and Income, Strategy, Reports & Review, Settings}`.
 A surface may **merge** topics under a join; it may never **reuse** a Topic
 label for a different membership. Plan Features chip labels must equal the
 workbook section titles minus their number prefix.
@@ -93,9 +93,16 @@ Taxes                    Roth Conversion · Charitable Giving
 Family & Business        Education & Equity Comp
 Strategy                 Optimize (incl. Next Housing Move) · Stress Test · Scenarios · Workbench
 Reports & Review         Actual Spending · Build Impact
-Reports                  (unchanged)
 Settings                 (unchanged)
 ```
+
+There is exactly **one** reports group. Today a second group string,
+`"Reports"`, exists only on hidden hub sub-pages (`review` "Download
+Reports", `build_impact`, `detailed_results`, `plan_data_report`,
+`spending_dashboard`); it never renders in the nav and the Field Finder
+already relabels it (`fieldFinderCategoryName`, `dashboard.js:2357`). Those
+sub-pages move to `group: "Reports & Review"` and the relabel special case is
+deleted, so the string `"Reports"` no longer exists as a group.
 
 Changes vs. today: *Housing & Property* nav group dissolves (its topic lives on
 in Plan Features and the workbook; the merge rule allows this); *Assets &
@@ -688,7 +695,7 @@ test("no 'Annualized Actual' copy in frontend", () => {
 
 **Interfaces — Produces:** step `{ id: "actual_spending", group: "Reports & Review", title: "Actual Spending" }` rendering two tabs, "This year" (ytd_transactions body) and "Analysis" (spending_dashboard body). Step `reports_and_review` keeps its id, `title: "Build Impact"`. The existing hidden step `build_impact` ("Impact & Build History") keeps its id; if the hub already embeds it, its title changes to "Build history" to avoid two "Build Impact" labels.
 
-- [ ] **Step 1:** Failing tests: visible nav group "Reports & Review" = `["Actual Spending", "Build Impact"]`; `setStep("ytd_transactions")` and `setStep("spending_dashboard")` land on `actual_spending` with the right tab.
+- [ ] **Step 1:** Failing tests: visible nav group "Reports & Review" = `["Actual Spending", "Build Impact"]`; `setStep("ytd_transactions")` and `setStep("spending_dashboard")` land on `actual_spending` with the right tab; no STEPS entry has `group: "Reports"` (the hidden hub sub-pages `review`, `build_impact`, `detailed_results`, `plan_data_report` carry `group: "Reports & Review"`); `fieldFinderCategoryName("Reports & Review") === "Reports & Review"` with the `"Reports"` special case removed (`dashboard.js:2357`) and the `_eyebrow` list at `dashboard.js:3720` reduced to `["Reports & Review", "Settings"]`.
 - [ ] **Step 2–4:** Implement, run `npm test`, `pytest -m "not slow"`, e2e nav-integrity.
 - [ ] **Step 5:** Commit `feat(nav): Actual Spending under Reports & Review; hub renamed Build Impact`
 
@@ -853,7 +860,7 @@ import re, pathlib
 from src import module_catalog as mc
 from src.reporting.workbook_common import _SECTION_META
 
-UTILITY = {"Plan Status", "People and Income", "Strategy", "Reports & Review", "Reports", "Settings"}
+UTILITY = {"Plan Status", "People and Income", "Strategy", "Reports & Review", "Settings"}
 
 def _nav_groups():
     src = pathlib.Path("frontend/js/dashboard.js").read_text(encoding="utf-8")
