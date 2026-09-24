@@ -92,22 +92,20 @@ GATE_KINDS = (GATE_MODULE_TOGGLE, GATE_PLAN_FLAG)
 # kind (a flat Excel tab strip); the Plan Features switch nav groups by domain
 # (the user is asking "is this about me"). NEITHER IS DERIVABLE FROM THE OTHER:
 # Housing Comparison is an OPTIMIZATION in the Housing & Property domain,
-# Monte Carlo a STRESS_TEST in Risk & Resilience, Lifetime Taxes a PROJECTION
+# Monte Carlo a STRESS_TEST in Investments, Lifetime Taxes a PROJECTION
 # in Taxes. validate() asserts every module declares both, separately.
 INCOME_BENEFITS = "Income & Benefits"
 SPENDING = "Spending"
 HOUSING_PROPERTY = "Housing & Property"
 INVESTMENTS = "Investments"
 TAXES = "Taxes"
-ASSETS_PROTECTION = "Assets & Protection"
+INSURANCE_CARE = "Insurance & Care"
 ESTATE_LEGACY = "Estate & Legacy"
 FAMILY_BUSINESS = "Family & Business"
-RISK_RESILIENCE = "Risk & Resilience"
-REPORTS_DOCUMENTATION = "Reports & Documentation"
+WHOLE_PLAN = "Whole Plan"
 
 DOMAINS = (INCOME_BENEFITS, SPENDING, HOUSING_PROPERTY, INVESTMENTS, TAXES,
-           ASSETS_PROTECTION, ESTATE_LEGACY, FAMILY_BUSINESS, RISK_RESILIENCE,
-           REPORTS_DOCUMENTATION)
+           INSURANCE_CARE, ESTATE_LEGACY, FAMILY_BUSINESS, WHOLE_PLAN)
 
 # High demand → obscure, five bands (ordered most- to least-common).
 HIGH = "high"
@@ -354,7 +352,7 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "net_worth", "Net Worth", PROJECTION, HIGH,
         "Year-by-year total net worth; the plan's headline trajectory.",
-        domain=REPORTS_DOCUMENTATION,
+        domain=WHOLE_PLAN,
         sheet="5. Net Worth Projection", tab="1B. Net Worth",
         requires_inputs=(_in("household", "ages", "timing"), _in("assets", "balances"),
                          _in("liabilities", "balances"), _in("holdings", "balances"),
@@ -363,7 +361,7 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "cash_flow", "Cash Flow", PROJECTION, HIGH,
         "Annual inflows/outflows, funding gaps, and withdrawal need.",
-        domain=REPORTS_DOCUMENTATION,
+        domain=WHOLE_PLAN,
         sheet="6. Cash Flow Projection", tab="1C. Cash Flow",
         requires_inputs=(_in("income", "all_streams"), _in("spending", "all"),
                          _in("liabilities", "payments"), _in("household", "ss", "timing")),
@@ -378,14 +376,14 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "balance_sheet", "Balance Sheet", PROJECTION, HIGH,
         "Point-in-time assets/liabilities by account and tax type.",
-        domain=REPORTS_DOCUMENTATION,
+        domain=WHOLE_PLAN,
         sheet="3. Balance Sheet", tab="1D. Balance Sheet",
         requires_inputs=(_in("assets"), _in("liabilities"), _in("holdings")),
     ),
     OutputModule(
         "executive_summary", "Executive Summary", PROJECTION, HIGH,
         "One-page KPI roll-up of the whole plan.",
-        domain=REPORTS_DOCUMENTATION,
+        domain=WHOLE_PLAN,
         sheet="1. Executive Summary", tab="1A. Executive Summary",
         requires_outputs=("net_worth", "cash_flow", "balance_sheet"),
         # Two headline blocks are suppressed rather than zeroed when their
@@ -469,7 +467,7 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "charts_dashboard", "Charts", PROJECTION, MEDIUM_HIGH,
         "Visual consolidation of the projection series.",
-        domain=INVESTMENTS,
+        domain=WHOLE_PLAN,
         optional=True, sheet="8. Charts Dashboard", tab="1E. Charts",
         requires_outputs=("net_worth", "cash_flow", "asset_allocation"),
         # The percentile-band ("fan") chart is embedded only when Monte Carlo
@@ -583,7 +581,7 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "what_if_analysis", "What-If / Scenario", COMPARISON, MEDIUM_HIGH,
         "Side-by-side of 2-3 saved lever bundles with deltas (comparison mode).",
-        domain=RISK_RESILIENCE,
+        domain=WHOLE_PLAN,
         optional=True, sheet="16. Scenario Analysis", tab="3C. Scenario Analysis",
         mode=MODE_COMPARISON,
         requires_inputs=(_in("planning_levers", "bundled_positions"),),
@@ -803,7 +801,7 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "life_insurance_need", "Life Insurance Need", PROTECTION, MEDIUM,
         "Coverage to buy vs survivor shortfall — a decision that reads a stress.",
-        domain=RISK_RESILIENCE,
+        domain=INSURANCE_CARE,
         optional=True, sheet="19. Life Insurance", tab="4D. Life Insurance Need",
         requires_inputs=(_in("insurance_estate", "policies"), _in("income")),
         requires_outputs=("survivor_stress_test",),
@@ -826,7 +824,7 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "existing_life_insurance", "Existing Life Insurance", PROTECTION, LOW,
         "Adequacy of in-force policies.",
-        domain=ASSETS_PROTECTION,
+        domain=INSURANCE_CARE,
         optional=True, sheet="31. Existing Life Insurance", tab="4E. Existing Life Insurance",
         requires_inputs=(_in("insurance_estate", "life_policies"),),
         requires_outputs=("survivor_stress_test",),
@@ -840,7 +838,7 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "disability_income_insurance", "Disability Income", PROTECTION, LOW,
         "DI coverage vs income-replacement need.",
-        domain=ASSETS_PROTECTION,
+        domain=INSURANCE_CARE,
         optional=True, sheet="32. Disability Income", tab="4F. Disability Income",
         requires_inputs=(_in("insurance_estate", "di_policies"), _in("income")),
         requires_outputs=("cash_flow",),
@@ -850,7 +848,7 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "property_casualty_umbrella", "P&C / Umbrella", PROTECTION, NICHE,
         "Liability coverage adequacy vs net worth.",
-        domain=ASSETS_PROTECTION,
+        domain=INSURANCE_CARE,
         optional=True, sheet="33. P&C Umbrella", tab="4G. P&C Umbrella",
         requires_inputs=(_in("insurance_estate", "pc_policies"),),
         requires_outputs=("net_worth",),
@@ -860,7 +858,7 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "market_luck_stress_test", "Monte Carlo", STRESS_TEST, HIGH,
         "Probability of success across market-return paths.",
-        domain=RISK_RESILIENCE,
+        domain=INVESTMENTS,
         optional=True, sheet="15. Market-Luck Stress Test", tab="4A. Monte Carlo",
         requires_inputs=(_in("assumptions", "cma", "correlations"),
                          _in("planning_levers", "mc_settings")),
@@ -870,7 +868,7 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "survivor_stress_test", "Survivor / Early Death", STRESS_TEST, MEDIUM,
         "Plan solvency after one spouse's early death.",
-        domain=RISK_RESILIENCE,
+        domain=INSURANCE_CARE,
         optional=True, sheet="18. Survivor Stress Test", tab="4B. Survivor",
         requires_inputs=(_in("household", "survivor_state"),
                          _in("income", "survivor_continuation"), _in("insurance_estate")),
@@ -880,7 +878,7 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "long_term_care_stress", "LTC Stress", STRESS_TEST, MEDIUM,
         "Impact of a long-term-care event.",
-        domain=RISK_RESILIENCE,
+        domain=INSURANCE_CARE,
         optional=True, sheet="17. LTC Stress Test", tab="4C. LTC Stress Test",
         requires_inputs=(_in("insurance_estate", "ltc_policy"), _in("assets", "liquidity"),
                          _in("assumptions", "ltc_cost")),
@@ -895,7 +893,7 @@ _OUTPUTS: List[OutputModule] = [
         # already computes; see build_sheet39 (sheets_stress.py).
         "divorce_qdro", "Divorce / QDRO", STRESS_TEST, NICHE,
         "Plan under an imposed asset split (exogenous life event).",
-        domain=RISK_RESILIENCE,
+        domain=FAMILY_BUSINESS,
         optional=True, sheet="39. Divorce QDRO Stress Test", tab="4D. Divorce QDRO",
         requires_inputs=(_in("household", "divorce_assumptions"), _in("assets"), _in("holdings")),
         requires_outputs=BASE_PROJECTION,
@@ -906,7 +904,7 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "quality_control", "Quality Control", DIAGNOSTICS, MEDIUM,
         "Pass/fail checks on the projection's internal consistency.",
-        domain=REPORTS_DOCUMENTATION,
+        domain=WHOLE_PLAN,
         sheet="21. Quality Control", tab="5D. Quality Control",
         requires_outputs=BASE_PROJECTION,
     ),
@@ -928,7 +926,7 @@ _OUTPUTS: List[OutputModule] = [
         # outcome for this pair without touching the precedence ladder at all.
         "account_reconciliation", "Account Reconciliation", DIAGNOSTICS, MEDIUM,
         "Reconciles modeled balances against YTD actuals.",
-        domain=REPORTS_DOCUMENTATION,
+        domain=WHOLE_PLAN,
         optional=True, gated_by="spending_tracker_ytd",
         sheet="25. Account Reconciliation", tab="5C. Account Reconciliation",
         requires_inputs=(_in("holdings"), _in("ytd", "transactions", "setup")),
@@ -948,7 +946,7 @@ _OUTPUTS: List[OutputModule] = [
         # hypotheticals. User decision (2026-09-22, recorded in
         # `docs/superpowers/plans/2026-09-22-w11-planning-levers-retirement-
         # notes.md`): keep the sheet, fix the classification. Kind is
-        # WORKSHEET, matching `current_vs_proposed` (also REPORTS_DOCUMENTATION,
+        # WORKSHEET, matching `current_vs_proposed` (also WHOLE_PLAN,
         # also computes a delta from figures produced elsewhere) rather than
         # REFERENCE/System, which is for sheets that restate or consolidate
         # without computing anything new (`tax_capacity`, Plan Data,
@@ -959,7 +957,7 @@ _OUTPUTS: List[OutputModule] = [
         "Interactive lever-screening worksheet: hardcoded test levers with "
         "editable amounts and formulas estimating directional impact on "
         "terminal net worth and Monte Carlo success, ranked against each other.",
-        domain=REPORTS_DOCUMENTATION,
+        domain=WHOLE_PLAN,
         sheet="27. Planning Levers", tab="1I. Planning Levers",
         requires_inputs=(_in("planning_levers"),),
         # The "Current model anchor" block keeps its Monte Carlo success row
@@ -971,21 +969,21 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "assumptions_ref", "Assumptions", REFERENCE, MEDIUM,
         "Echoes the economic/tax assumptions used, for auditability.",
-        domain=REPORTS_DOCUMENTATION,
+        domain=WHOLE_PLAN,
         sheet="2. Assumptions", tab="5B. Assumptions",
         requires_inputs=(_in("assumptions"),),
     ),
     OutputModule(
         "plan_data_ref", "Plan Data", REFERENCE, MEDIUM,
         "Snapshot of all inputs behind the run.",
-        domain=REPORTS_DOCUMENTATION,
+        domain=WHOLE_PLAN,
         sheet="Plan Data", tab="5A. Plan Data",
         requires_inputs=tuple(_in(m) for m in ALL_INPUTS),
     ),
     OutputModule(
         "methodology_rerun", "Methodology & Re-Run", REFERENCE, LOW,
         "Explains the model and how to reproduce the run.",
-        domain=REPORTS_DOCUMENTATION,
+        domain=WHOLE_PLAN,
         optional=True, sheet="23. Methodology", tab="5F. Methodology",
     ),
     OutputModule(
@@ -995,7 +993,7 @@ _OUTPUTS: List[OutputModule] = [
         # before and after the recommendations it already tracks.
         "current_vs_proposed", "Current vs Proposed", WORKSHEET, MEDIUM,
         "Every tracked recommendation, active or proposed, with its cash-flow delta.",
-        domain=REPORTS_DOCUMENTATION,
+        domain=WHOLE_PLAN,
         optional=True,
         sheet="37. Current vs Proposed", tab="1H. Current vs. Proposed",
         requires_outputs=BASE_PROJECTION,
@@ -1003,7 +1001,7 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "glossary", "Glossary", REFERENCE, LOW,
         "Defines terms used across the workbook.",
-        domain=REPORTS_DOCUMENTATION,
+        domain=WHOLE_PLAN,
         optional=True, sheet="22. Glossary", tab="5G. Glossary",
     ),
 
@@ -1039,7 +1037,7 @@ _OUTPUTS: List[OutputModule] = [
         "hybrid_ltc_policy", "LTC/Life Policy", PROTECTION, LOW,
         "A hybrid long-term-care / life policy: premiums, face value and the "
         "benefit it pays against a care event.",
-        domain=ASSETS_PROTECTION,
+        domain=INSURANCE_CARE,
         gate_kind=GATE_PLAN_FLAG,
         gate_ref=("Hybrid LTC", "Settings", "enabled"),
         gate_enable_label="Enabled",
@@ -1056,7 +1054,7 @@ _OUTPUTS: List[OutputModule] = [
         "daf_giving", "DAF Giving", OPTIMIZATION, LOW,
         "Contribute to a donor-advised fund in a high-income year and grant "
         "from it over later years.",
-        domain=ESTATE_LEGACY,
+        domain=TAXES,
         # Deliberately no csv_sections. The DAF flag's own row lives in the
         # section it would gate, so a section gate here would hide the switch
         # that turns it back on. `entityCharitableGatedRows()` already gates
@@ -1070,7 +1068,7 @@ _OUTPUTS: List[OutputModule] = [
         "qcd_giving", "QCD Giving", OPTIMIZATION, LOW,
         "Give directly from an IRA at 70.5+, satisfying required distributions "
         "without the amount landing in taxable income.",
-        domain=ESTATE_LEGACY,
+        domain=TAXES,
         gate_kind=GATE_PLAN_FLAG,
         gate_ref=("Cashflow", "Charitable Giving", "qcd_enabled"),
         gate_enable_label="Enabled",
