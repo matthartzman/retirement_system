@@ -262,9 +262,25 @@ class ConfigService:
         persisted ``row_index`` -- the ordinary ``editValue(row_index)``
         toggle click needs nothing else to work on it.
 
-        Best-effort: a missing/unreadable file or a ``module_status()``
-        failure (already degrades to ``{}``, see ``_module_status``) just
-        means nothing gets backfilled this call, not a broken payload.
+        Best-effort: a missing/unreadable file just means nothing gets
+        backfilled this call, not a broken payload.
+
+        Deliberately does NOT call ``load_active_config``/``module_status``
+        to decide a missing row's value. Two reasons (final review on A3):
+        (1) which rows are even missing is a pure catalog-vs-existing-labels
+        comparison, so doing a full config prepare unconditionally on every
+        ``/api/config/rows`` GET -- before even checking whether anything is
+        missing -- was wasted work, done twice over (``config_rows_payload``
+        calls ``_module_status`` again right after this for the real
+        payload). (2) ``module_status()[k]["enabled"]`` folds in the
+        build-time ``RETIREMENT_SYSTEM_FORCE_*`` env-var override tier
+        (#330 Q7), which was deliberately never made a writable path -- a
+        missing row already defaults to enabled per ``module_enabled``'s own
+        "absent keys default to enabled" rule, so using ``module_status()``
+        here could only ever differ from that default by silently baking a
+        FORCE_DISABLE override into the plan's permanent store on a mere
+        GET. So a missing row is always written ``"TRUE"``, matching the
+        ordinary missing-row default, regardless of any env override.
         """
         path = self.context.plan_data_path(OPTIONAL_FUNCTIONS_CSV)
         try:
@@ -288,14 +304,11 @@ class ConfigService:
                 "value": padded[3], "units": padded[4], "notes": padded[5],
             })
 
-        try:
-            _data, _meta = self.context.load_active_config()
-            status = self._module_status(_data)
-        except Exception:
-            status = {}
-        effective = {k: bool((v or {}).get("enabled", True)) for k, v in status.items()}
-
-        out = backfill_optional_function_rows(existing, effective)
+        # effective={} -- backfill_optional_function_rows() reads it with
+        # .get(key, True), so an empty map always falls through to the
+        # standard "TRUE" missing-row default described above, with no
+        # config load at all.
+        out = backfill_optional_function_rows(existing, effective={})
         have = {r.get("label") for r in existing}
         new_rows = [r for r in out if r.get("label") not in have]
         if not new_rows:

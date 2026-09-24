@@ -114,3 +114,66 @@ def test_config_rows_payload_backfills_the_missing_toggle_onto_disk(tmp_path):
     written.clear()
     service.config_rows_payload()
     assert not written
+
+
+def test_backfilled_row_ignores_force_disable_env_override(tmp_path, monkeypatch):
+    """Final review (Important #2/#3, A3): the backfill must never read
+    module_status()'s env-forced override state -- #330 Q7 deliberately
+    never made the RETIREMENT_SYSTEM_FORCE_* tier a writable path, and this
+    backfill writes straight to the plan's permanent CSV/SQLite store on a
+    mere GET. A module that is force-disabled by env must still be
+    backfilled as "TRUE" (the standard missing-row default), not "FALSE"."""
+    from src.module_catalog import CATALOG, GATE_MODULE_TOGGLE
+    from src.server_services.config_service import ConfigService, ConfigServiceContext
+
+    toggle_key = next(
+        k for k, m in CATALOG.items()
+        if m.optional and m.gate_kind == GATE_MODULE_TOGGLE and not m.gated_by
+    )
+    monkeypatch.setenv("RETIREMENT_SYSTEM_FORCE_DISABLE_MODULES", toggle_key)
+
+    csv_path = tmp_path / "client_optional_functions.csv"
+    csv_path.write_text(
+        "section,subsection,label,value,units,notes\n"
+        "Optional Functions,,roth_conversion_plan,TRUE,boolean,Roth Conversion\n",
+        encoding="utf-8",
+    )
+    written = {}
+
+    def write_plan_data(name, content):
+        p = tmp_path / name
+        p.write_text(content, encoding="utf-8")
+        written[name] = content
+        return p
+
+    def _blow_up_if_called():  # pragma: no cover - only invoked on regression
+        raise AssertionError(
+            "load_active_config() must not be called when computing the "
+            "backfill's written value -- that path is what let an env "
+            "FORCE_DISABLE override leak into the plan's permanent store"
+        )
+
+    service = ConfigService(ConfigServiceContext(
+        version="9",
+        base_dir=tmp_path,
+        csv_path=csv_path,
+        plan_data_csv_files=["client_optional_functions.csv"],
+        client_data_csv_file_set={"client_optional_functions.csv"},
+        plan_data_path=lambda name, *a, **k: tmp_path / name,
+        client_csv_rows=lambda: [],
+        csv_rows_payload=lambda: _csv_rows_from_file(csv_path),
+        read_schema_map=lambda: {},
+        write_plan_data_file=write_plan_data,
+        load_active_config=lambda: _blow_up_if_called(),
+        runtime_config=lambda: type("Cfg", (), {"sqlite_db": "", "config_backend": "CSV"})(),
+        normalize_date_for_csv=lambda value: value,
+        sync_config_backends=lambda: {"success": True},
+    ))
+
+    service._backfill_optional_function_rows_to_disk()
+
+    assert "client_optional_functions.csv" in written
+    row = next(
+        r for r in _csv_rows_from_file(csv_path)["rows"] if r["label"] == toggle_key
+    )
+    assert row["value"] == "TRUE"

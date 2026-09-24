@@ -25,3 +25,12 @@ Optional Functions,,equity_compensation,FALSE,boolean,Sheet 29 - Equity Compensa
 Optional Functions,,special_needs_planning,FALSE,boolean,Sheet 30 - Special-Needs Planning (SNT/ABLE)
 Optional Functions,,divorce_qdro,FALSE,boolean,Sheet 31 - Divorce / QDRO
 Optional Functions,,spending_tracker_ytd,TRUE,boolean,Spending Tracker / YTD -- also gates Spending Summary and Account Reconciliation
+Optional Functions,,asset_location,TRUE,boolean,Asset Location
+Optional Functions,,current_vs_proposed,TRUE,boolean,Current vs Proposed
+Optional Functions,,gain_harvesting,TRUE,boolean,Gain Harvesting
+Optional Functions,,housing_location_search,TRUE,boolean,Next Housing Move
+Optional Functions,,housing_trajectory_comparison,TRUE,boolean,Housing Comparison
+Optional Functions,,hsa_drawdown,TRUE,boolean,HSA Drawdown
+Optional Functions,,scorp_vs_llc,TRUE,boolean,S-Corp vs LLC
+Optional Functions,,tax_capacity,TRUE,boolean,Tax Capacity
+Optional Functions,,tax_loss_harvesting,TRUE,boolean,Tax-Loss Harvesting
