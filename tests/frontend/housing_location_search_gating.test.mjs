@@ -23,7 +23,7 @@ beforeEach(() => {
     flag_gates: {},
   };
   sandbox.window.moduleTaxonomy = {
-    modules: { [KEY]: { name: "Housing Location Search", gate_kind: "module_toggle" } },
+    modules: { [KEY]: { name: "Next Housing Move", gate_kind: "module_toggle" } },
   };
 });
 
