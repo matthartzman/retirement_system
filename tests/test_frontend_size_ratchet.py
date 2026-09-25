@@ -176,7 +176,7 @@ JS_DIR = ROOT / "frontend" / "js"
 # extraction outweighed the growth -- measured to the new total with no
 # slack, exactly as this ceiling's own contract requires on a real
 # extraction.
-DASHBOARD_JS_MAX_LINES = 7_168
+DASHBOARD_JS_MAX_LINES = 7_144
 
 # Total frontend JS is allowed to grow -- extraction moves lines out of
 # dashboard.js into new modules, which should not be penalised. This ceiling
@@ -458,7 +458,10 @@ DASHBOARD_JS_MAX_LINES = 7_168
 # redirected into Spending Model; renderRetirementWellness() and both
 # renderMain dispatch branches deleted. dashboard.js FALLS 7,174 -> 7,168
 # (DASHBOARD_JS_MAX_LINES lowered to match); total unchanged.
-TOTAL_JS_MAX_LINES = 36_304
+# 2026-09-25 (#338 W-C, task C4): Withdrawal Order tab removed after the
+# parity test; renderWithdrawalStrategy() deleted. dashboard.js FALLS
+# 7,168 -> 7,144; total lowered to the measured 36,283.
+TOTAL_JS_MAX_LINES = 36_283
 
 
 def _line_count(path: Path) -> int:

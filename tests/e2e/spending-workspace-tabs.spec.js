@@ -13,22 +13,25 @@ import { openCurrentPlan, navigateToStep } from './helpers.js';
 
 // Ticket 286 added a fifth tab: Withdrawal Order, moved here from the
 // Distribution Strategy sub-nav (which that ticket removed entirely).
-// Other Spending's removal (2026-09) brought the count back down to 4.
+// Other Spending's removal (2026-09) brought the count back down to 4, and
+// Withdrawal Order's move to Optimize (#338 W-C) to 3.
 test('the Spending nav step tab-switches between its merged pages', async ({ page }) => {
   await openCurrentPlan(page);
   await navigateToStep(page, 'spending_core', 'Spending Model');
 
   const tabs = page.locator('.spending-workspace .workspace-tab');
-  await expect(tabs).toHaveCount(4);
+  await expect(tabs).toHaveCount(3);
+  await expect(page.getByRole('tab', { name: 'Withdrawal Order' })).toHaveCount(0);
   await expect(tabs.first()).toHaveClass(/active/);
   await expect(tabs.first()).toHaveText('Spending Model');
   await expect(page.getByRole('tab', { name: 'Other Spending' })).toHaveCount(0);
 
   // Default tab renders the Spending Model field groups, and now also the
-  // former Other Spending accordions (Travel/Large Items) below them -- the
-  // Wave 1.4 jump-to-field fix depends on them staying <details>-based.
+  // former Other Spending accordion (Large Items) below them -- the Wave 1.4
+  // jump-to-field fix depends on it staying <details>-based. Travel is its
+  // own Tracking Type accordion since #338 W-C, not repeated here.
   await expect(page.locator('.workspace-tab-body')).not.toBeEmpty();
-  await expect(page.locator('.lifestyle-workspace > details > summary', { hasText: 'Travel' })).toBeVisible();
+  await expect(page.locator('.lifestyle-workspace > details > summary', { hasText: 'Travel' })).toHaveCount(0);
   await expect(page.locator('.lifestyle-workspace > details > summary', { hasText: 'Large Items' })).toBeVisible();
   // DAF is deliberately NOT here: #269 removed the duplicate Donor-Advised
   // Fund section from Other Spending, leaving the canonical one on the

@@ -50,16 +50,12 @@
   // (Other Spending's own former step id, now that its content -- see
   // renderCoreSpendingUnified(), dashboard_decomp_spending_taxonomy.js --
   // lives on the Spending Model tab rather than a tab of its own).
-  // withdrawal_strategy has the same shape but already redirects elsewhere
-  // via STEP_REDIRECTS below, so it never reaches this bug.
+  // withdrawal_strategy has the same shape but redirects to Optimize via
+  // SECTION_REDIRECTS below, so it never reaches this bug.
   const WORKSPACE_TAB_REDIRECTS={
     spending_dashboard:{step:'spending_core',tab:'Spending Analysis'},
     ytd_transactions:{step:'spending_core',tab:'Actual Spending (YTD)'},
-    lifestyle_spending:{step:'spending_core',tab:'Spending Model'},
-    // #323: Withdrawal Order left Strategy scope entirely. It used to hop
-    // through distribution_strategy; it now lands on the Spending workspace
-    // tab that has been its only real home since ticket 286.
-    withdrawal_strategy:{step:'spending_core',tab:'Withdrawal Order'}
+    lifestyle_spending:{step:'spending_core',tab:'Spending Model'}
   };
   const STEP_REDIRECTS={
     // Travel's own step ids now land directly on Spending Model (the
@@ -83,6 +79,10 @@
   // residency table that moved to the Housing page is the only one.
   const SECTION_REDIRECTS={
     distribution_strategy:{step:'strategy_optimize'},
+    // #338 W-C (C4): the Spending workspace's Withdrawal Order tab is gone --
+    // every row it rendered renders on these three Optimize sections
+    // (tests/frontend/withdrawal_order_parity.test.mjs), so all three open.
+    withdrawal_strategy:{step:'strategy_optimize',section:['withdrawal_sequencing','hsa_drawdown','harvesting']},
     investment_strategy:{step:'strategy_optimize'},
     allocation_assets:{step:'strategy_optimize',section:'asset_allocation'},
     allocation_policy:{step:'strategy_optimize',section:'asset_allocation'},
@@ -186,9 +186,10 @@
       // the section renders with its body on the first pass. strategySection
       // bodies are lazy -- opening afterwards would show the collapsed stub
       // until something triggered a second render.
-      if(_sr.section)safeCall(()=>window.strategySectionSetOpen(_sr.section,true));
+      const _secs=[].concat(_sr.section||[]);
+      _secs.forEach((k)=>safeCall(()=>window.strategySectionSetOpen(k,true)));
       if(_sr.open||_sr.tab)safeCall(()=>window.setStrategyTab(_sr.step,_sr.tab||'Spending Model'));
-      pendingSectionDkey=_sr.dkey||(_sr.open?'budget:core:'+_sr.open:'')||(_sr.section?'strategy:'+_sr.section:'');
+      pendingSectionDkey=_sr.dkey||(_sr.open?'budget:core:'+_sr.open:'')||(_secs.length?'strategy:'+_secs[0]:'');
       id=_sr.step;
     }else if(STEP_REDIRECTS[id]){
       id=STEP_REDIRECTS[id];

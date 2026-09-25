@@ -1404,6 +1404,10 @@ const STRATEGY_SCREEN_MEMBER_STEPS = {
   strategy_optimize: [
     "allocation_assets",
     "allocation_policy",
+    // #338 W-C (C4): the Spending workspace's Withdrawal Order tab is gone;
+    // its rows render on Optimize's HSA Drawdown / Withdrawal Sequencing /
+    // Harvesting sections and are counted here.
+    "withdrawal_strategy",
     // #329/#330 W9: heloc_strategy moved to its own nav step (W13 put it in
     // Housing & Property) -- see STEPS in dashboard.js. It keeps returning
     // its own rows unaggregated (via rawRowsForStep("heloc_strategy")

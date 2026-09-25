@@ -203,10 +203,17 @@ describe("destinations that left Strategy entirely", () => {
     assert.deepEqual(openedSections, []);
   });
 
-  test("withdrawal_strategy lands on the Spending workspace's own tab, not on Strategy", () => {
+  // #338 W-C (C4): the Spending workspace's Withdrawal Order tab is gone;
+  // every row it rendered renders on these three Optimize sections.
+  test("withdrawal_strategy lands on Optimize with its three withdrawal sections open", () => {
     const landed = go("withdrawal_strategy");
-    assert.equal(landed, "spending_core");
-    assert.deepEqual(openedTabs, [["spending_core", "Withdrawal Order"]]);
+    assert.equal(landed, "strategy_optimize");
+    assert.deepEqual(openedTabs, []);
+    assert.deepEqual(openedSections, [
+      ["withdrawal_sequencing", true],
+      ["hsa_drawdown", true],
+      ["harvesting", true],
+    ]);
   });
 });
 
