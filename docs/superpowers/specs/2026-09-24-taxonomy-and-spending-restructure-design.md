@@ -841,7 +841,7 @@ test("no 'Annualized Actual' copy in frontend", () => {
 `migrate_repeatable(sectioned) -> tuple[list[LdItem], list[str]]` (items, notices);
 `ld_budget_for_year(items, year) -> float`; `ld_cashflow_by_year(items) -> dict[int,float]`.
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```python
 from src.large_discretionary import LdItem, ld_budget_for_year, ld_cashflow_by_year, migrate_repeatable
@@ -864,10 +864,10 @@ def test_repeatable_rows_expand_with_notice():
     assert any("Core category" in n for n in notices)  # 12 rows > 10
 ```
 
-- [ ] **Step 2:** Run — FAIL.
-- [ ] **Step 3:** Implement `src/large_discretionary.py` (category map per spec §4), wire the loader to produce items, replace the annualization path for Large Discretionary in the YTD/budget resolvers with `ld_budget_for_year`, and feed `ld_cashflow_by_year` into the projection where `extra_N` amounts are applied today.
-- [ ] **Step 4:** `pytest -m "not slow"`; `measure` — demo LD rows are one-time already, expected `+0.00`; any delta is investigated before proceeding.
-- [ ] **Step 5:** Commit `feat(ld): large discretionary is one-time, never annualized (#336)`
+- [x] **Step 2:** Run — FAIL.
+- [x] **Step 3:** Implement `src/large_discretionary.py` (category map per spec §4), wire the loader to produce items, replace the annualization path for Large Discretionary in the YTD/budget resolvers with `ld_budget_for_year`, and feed `ld_cashflow_by_year` into the projection where `extra_N` amounts are applied today.
+- [x] **Step 4:** `pytest -m "not slow"`; `measure` — demo LD rows are one-time already, expected `+0.00`; any delta is investigated before proceeding.
+- [x] **Step 5:** Commit `feat(ld): large discretionary is one-time, never annualized (#336)`
 
 ### Task D2: Large Discretionary UI
 

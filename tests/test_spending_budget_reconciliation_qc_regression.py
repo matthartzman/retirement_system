@@ -236,13 +236,16 @@ category,boat,Boat Fund,4000,,,,large-disc category with NO detail lines
     resolved = resolve_spending_inputs(root, config={"plan_start": 2026, "plan_end": 2030})
     # Only groceries is core.
     assert resolved["spend_base"] == 6000
-    # The Travel/Large-Disc category budgets still project, as recurring extras
-    # over the plan window (Travel/Other columns), not as core spending.
+    # The Travel/Large-Disc category budgets still project (Travel as a
+    # recurring extra over the plan window), not as core spending.
     extras = {e["category_id"]: e for e in resolved["recurring_extras"]}
     assert extras["entertainment_recreation"]["amount"] == 3270
     assert extras["entertainment_recreation"]["start_year"] == 2026
     assert extras["entertainment_recreation"]["end_year"] == 2030
-    assert extras["boat"]["amount"] == 4000
+    # #336: Large Discretionary is one-time only -- a year-less LD category
+    # budget is migrated to one dated lump per plan year, never a recurring extra.
+    assert "boat" not in extras
+    assert all(resolved["lump"].get(y) == 4000 for y in range(2026, 2031))
     # UI core base agrees with the resolver.
     model = st.spending_model(root, year=2026)
     assert model["totals"]["budget_derived_core_spend_base"] == resolved["spend_base"] == 6000
