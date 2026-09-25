@@ -50,22 +50,20 @@ window.getSpendingDivergencePct = getSpendingDivergencePct;
 // dashboard_step/csv_sections rows of its own (its inputs are imported
 // transactions, not typed plan rows), the same reason Plan Features shows no
 // "N items entered" for it either.
-export function renderSpendingWorkspace(tabs) {
-  var tab = window.getStrategyTab('spending_core');
+// #338 W-C: these two tabs are the Actual Spending step under Reports &
+// Review now (ytd_transactions + spending_dashboard merged), not tabs of
+// Spending Model.
+export function renderActualSpendingWorkspace(tabs) {
+  var tab = window.getStrategyTab('actual_spending');
   var ytdOn = window.optionalFunctionEnabled('spending_tracker_ytd');
   var body;
-  if (tab === 'Actual Spending (YTD)')
-    body = ytdOn ? window.renderYtdTransactionsStep() : window.featureGatedNote('spending_tracker_ytd', { title: 'Actual Spending (YTD)' });
-  else if (tab === 'Spending Analysis')
+  if (tab === 'Analysis')
     body = ytdOn ? window.renderSpendingDashboardOrLoad() : window.featureGatedNote('spending_tracker_ytd', { title: 'Spending Analysis' });
-  // Ticket 286: withdrawal order moved here from the Distribution Strategy
-  // sub-nav. It answers "which account does spending come out of", which is a
-  // spending question, and it was the only reason that sub-nav still existed.
-  else if (tab === 'Withdrawal Order') body = window.analysisFrame(window.renderWithdrawalStrategy(), 'strategy');
-  else body = window.renderCoreSpendingUnified();
-  return '<div class="tabbed-workspace spending-workspace">' + window.renderStrategyTabs('spending_core', tabs, tab) + '<div class="workspace-tab-body">' + body + '</div></div>';
+  else
+    body = ytdOn ? window.renderYtdTransactionsStep() : window.featureGatedNote('spending_tracker_ytd', { title: 'Actual Spending (This Year)' });
+  return '<div class="tabbed-workspace spending-workspace">' + window.renderStrategyTabs('actual_spending', tabs, tab) + '<div class="workspace-tab-body">' + body + '</div></div>';
 }
-window.renderSpendingWorkspace = renderSpendingWorkspace;
+window.renderActualSpendingWorkspace = renderActualSpendingWorkspace;
 
 export function fmtSpend(n) { var v = Math.round(Number(n) || 0); return (v < 0 ? '-$' : '$') + Math.abs(v).toLocaleString('en-US') }
 // Signed variance display (e.g. "+3.2%" over budget) — distinct from the
@@ -214,14 +212,14 @@ export function renderSpendingSummary(d) {
   var html = '<div class="spend-summary">';
   html += '<div class="spend-kpi"><span class="spend-kpi-value">' + fmtSpend(d.income_total||0) + '</span><span class="spend-kpi-label">This Year Income</span></div>';
   html += '<div class="spend-kpi"><span class="spend-kpi-value">' + fmtSpend(d.actuals_total) + '</span><span class="spend-kpi-label">This Year Expenses</span></div>';
-  html += '<div class="spend-kpi"><span class="spend-kpi-value">' + fmtSpend(annualized) + '</span><span class="spend-kpi-label">Annualized Actual Expenses</span>';
+  html += '<div class="spend-kpi"><span class="spend-kpi-value">' + fmtSpend(annualized) + '</span><span class="spend-kpi-label">Annualized Expenses</span>';
   if (annualized > 0) {
     html += '<button class="btn tiny good" data-requires-app="1" onclick="applySpendingForecast()" title="Updates the retirement model\'s core spending assumption to this annualized rate">Sync Actual Rate → 30-Year Model</button>';
   }
   html += '</div>';
   html += '<div class="spend-kpi"><span class="spend-kpi-value">' + fmtSpend(budget || d.model_core_spending) + '</span><span class="spend-kpi-label">' + (budget ? 'Annual Budget' : 'Model Spending Categories') + '</span></div>';
   var cls = vpct > 15 ? 'spend-kpi over' : vpct > 5 ? 'spend-kpi watch' : 'spend-kpi ok';
-  html += '<div class="' + cls + '"><span class="spend-kpi-value">' + fmtVariancePct(vpct) + '</span><span class="spend-kpi-label">' + (budget ? 'Annualized Actual vs. Annual Budget' : 'Annualized Actual vs. Model Spending Categories') + '</span></div>';
+  html += '<div class="' + cls + '"><span class="spend-kpi-value">' + fmtVariancePct(vpct) + '</span><span class="spend-kpi-label">' + (budget ? 'Annualized vs. Annual Budget' : 'Annualized vs. Model Spending Categories') + '</span></div>';
   html += '</div>';
   // Companion all-in figures (incl. internal transfers, e.g. credit card
   // payments, brokerage buys/sells, 401k/HSA contributions) -- kept as a
@@ -236,7 +234,7 @@ export function renderSpendingSummary(d) {
   var hasAllInDelta = Math.abs(transferAnnualized) >= 0.5 || Math.abs(transferBudget) >= 0.5;
   if (hasAllInDelta) {
     html += '<div class="spend-summary spend-summary-all-in">';
-    html += '<div class="spend-kpi"><span class="spend-kpi-value">' + fmtSpend(annualizedAllIn) + '</span><span class="spend-kpi-label">Annualized Actual, All-In (Incl. Transfers)</span></div>';
+    html += '<div class="spend-kpi"><span class="spend-kpi-value">' + fmtSpend(annualizedAllIn) + '</span><span class="spend-kpi-label">Annualized, All-In (Incl. Transfers)</span></div>';
     html += '<div class="spend-kpi"><span class="spend-kpi-value">' + fmtSpend(budgetAllIn) + '</span><span class="spend-kpi-label">Annual Budget, All-In (Incl. Transfers)</span></div>';
     html += '</div>';
   }
@@ -296,7 +294,7 @@ export function renderSpendingBars(d) {
     (window.spendingExpandedKeys.size ? ' <button class="btn tiny" type="button" onclick="collapseAllSpending()">Collapse all</button>' : '') +
     '</h3>';
   html += '<div class="spend-bars">';
-  html += '<div class="spend-bar-header"><span>Tracking type · Group · Category</span><span>Annualized Actual vs. Annual Budget</span><span>YTD Actual | Annualized Actual | Annual Budget | Projection</span></div>';
+  html += '<div class="spend-bar-header"><span>Tracking type · Group · Category</span><span>Annualized vs. Annual Budget</span><span>YTD Actual | Annualized | Annual Budget | Projection</span></div>';
 
   var shownAny = false;
   types.forEach(function (t) {

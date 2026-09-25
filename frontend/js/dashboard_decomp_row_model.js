@@ -72,10 +72,6 @@ export const SUGGESTED_NEXT = {
   holdings: "assets_home_cash",
   assets_home_cash: "spending_core",
   spending_core: "reports_and_review",
-  // W13: Housing is its own nav group now, between Spending and Assets &
-  // Protection -- without a forward link it is the one group the guided walk
-  // can enter and not leave.
-  spending_mortgage_events: "holdings",
   // W13: the Taxes group, in nav order. Both targets are module-gated, so
   // the guard in suggestedNext() below drops the footer rather than pointing
   // at a step the nav is not showing.
@@ -115,7 +111,7 @@ export const SPENDING_COMPLETION = {
     note: "Done when: budget amounts are entered for the categories you track.",
     isDoneFn: () =>
       !!(planLoaded && !stepStats("spending_core").missing.length),
-    nextStep: "ytd_transactions",
+    nextStep: "actual_spending",
     nextLabel: "Import Transactions",
   },
 };
@@ -1408,6 +1404,10 @@ const STRATEGY_SCREEN_MEMBER_STEPS = {
   strategy_optimize: [
     "allocation_assets",
     "allocation_policy",
+    // #338 W-C (C4): the Spending workspace's Withdrawal Order tab is gone;
+    // its rows render on Optimize's HSA Drawdown / Withdrawal Sequencing /
+    // Harvesting sections and are counted here.
+    "withdrawal_strategy",
     // #329/#330 W9: heloc_strategy moved to its own nav step (W13 put it in
     // Housing & Property) -- see STEPS in dashboard.js. It keeps returning
     // its own rows unaggregated (via rawRowsForStep("heloc_strategy")
@@ -1501,7 +1501,10 @@ export function rawRowsForStep(id) {
             lbl === "inflation_general") ||
           (sec === "Model Constants" &&
             sub === "retirement" &&
-            lbl === "spending_freeze_year")
+            lbl === "spending_freeze_year") ||
+          // #338 W-C: Housing costs and Wellness are edited in Spending
+          // Model's accordions, so sourceStepForRow() lands there.
+          rowIsSpendingSourceRow(r)
         );
       case "spending_travel_extras":
         return false;
@@ -2127,10 +2130,13 @@ export function stepStats(id) {
   // into ANY step's stepStats() -- editing the table has never raised an
   // "Edited" nav badge on its own page. The gap moved with the table onto
   // spending_mortgage_events; it does not fix itself.
-  if (id === "spending_mortgage_events" && residencyScheduleChanged)
+  if (
+    (id === "spending_mortgage_events" || id === "spending_core") &&
+    residencyScheduleChanged
+  )
     d.push({});
   if (
-    id === "ytd_transactions" &&
+    (id === "ytd_transactions" || id === "actual_spending") &&
     (ytdTransactionsChanged || ytdAccountsChanged)
   )
     d.push({});
@@ -2334,7 +2340,7 @@ export function renderSteps() {
       planLoaded &&
       !planStateFresh();
     const spendingWarn =
-      s.id === "ytd_transactions" &&
+      s.id === "actual_spending" &&
       typeof window.getSpendingDivergencePct === "function" &&
       Math.abs(Number(window.getSpendingDivergencePct())) > 0.03;
     if (st.missing.length)
@@ -4036,7 +4042,7 @@ export async function goToStrategyTab(step, tab) {
   try {
     localStorage.setItem(strategyTabKey(step), next);
   } catch (_e) {}
-  const goingToYtd = step === "spending_core" && next === "Actual Spending (YTD)";
+  const goingToYtd = step === "actual_spending" && next === "This year";
   // Ticket 290: setStep(step) below triggers a full synchronous renderMain()
   // of the spending workspace, which measured ~1.5s even before any YTD data
   // loads -- so EVERY tab into spending_core (not just YTD) pays this cost,
@@ -4046,7 +4052,7 @@ export async function goToStrategyTab(step, tab) {
   // a locked, affordance-free screen. Show the overlay and yield one frame so
   // the browser actually paints it BEFORE the blocking render begins --
   // painting an overlay you never yield to is why it used to appear late.
-  const isSpendingWorkspace = step === "spending_core";
+  const isSpendingWorkspace = step === "actual_spending";
   // Final-review finding (2026-08-19): showYtdLoadOverlay() sets the
   // no-cancel class, so a throw from setStep/loadYtdStatus/renderMain below
   // used to leave the user stranded behind an undismissable overlay --
@@ -4772,8 +4778,7 @@ export async function saveWorkingCopy() {
     homeSaleSplits.length &&
     Math.abs(homeSaleSplitPctTotal() - 100) >= 0.01
   ) {
-    activeStep = "spending_mortgage_events";
-    renderMain();
+    setStep("spending_mortgage_events");
     showMessage(
       `Home sale split percentages must total 100% before saving (currently ${homeSaleSplitPctTotal().toFixed(1)}%).`,
       "error",

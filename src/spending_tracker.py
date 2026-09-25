@@ -1674,10 +1674,10 @@ def spending_summary_taxonomy(root=None, year=None):
         "income_annualized": round(sum(t.get("annualized", 0.0) for t in output_types if t.get("tracking_type") == "Income"), 2),
         # Bug fix: these previously excluded only "Income", so Income Taxes
         # (tracking_type "Transfer") leaked into the "This Year Expenses" /
-        # "Annualized Actual Expenses" KPI tiles while grand_budget above
+        # "Annualized Expenses" KPI tiles while grand_budget above
         # excluded them -- contradicting the UI's own "all figures exclude
         # income taxes and transfers" disclaimer (spending_dashboard.js) and
-        # making "Annualized Actual vs. Annual Budget" a scope mismatch.
+        # making "Annualized vs. Annual Budget" a scope mismatch.
         # Now excludes Income + Transfer, matching grand_actual/grand_budget.
         "expense_actual": round(sum(t.get("actual", 0.0) for t in output_types if t.get("tracking_type") != "Income" and t.get("tracking_type") not in _TRANSFER_NAMES), 2),
         "expense_annualized": round(sum(t.get("annualized", 0.0) for t in output_types if t.get("tracking_type") != "Income" and t.get("tracking_type") not in _TRANSFER_NAMES), 2),

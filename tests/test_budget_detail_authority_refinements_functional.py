@@ -22,9 +22,13 @@ def rows(name):
 
 def test_home_current_section_excludes_budget_detail_fields():
     js = dashboard_js_text()
-    assert '_CURRENT_MORTGAGE_EXCL = ["annual_real_estate_taxes"]' in js
-    assert '"homeowners_insurance_annual",\n    "home_maintenance_annual",\n    "utilities_annual"' in js
-    assert 'Real-estate taxes, homeowners insurance, maintenance, and utilities are entered in Housing Budget Detail below.' in js
+    # #338 W-C: the housing cost field group moved to
+    # dashboard_decomp_spending_sources.js (Spending Model's Housing
+    # accordion). Budgeted costs stay out of it; the mortgage balance is a
+    # housing plan input (housingPlanSectionsHtml), not a cost.
+    assert 'const HOUSING_MORTGAGE_NON_COST = [\n  "annual_real_estate_taxes",\n  "balance_as_of_plan_start",\n];' in js
+    assert '"homeowners_insurance_annual",\n  "home_maintenance_annual",\n  "utilities_annual"' in js
+    assert 'Real-estate taxes, homeowners insurance, maintenance, utilities, and HOA are budgeted in the groups below.' in js
 
 
 def test_home_improvement_is_single_category_and_line_target():

@@ -33,7 +33,6 @@
     "detailedSheetByName",
     "discardAndExit",
     "dismissMessage",
-    "domainBudgetNote",
     "downloadBlob",
     "exitApp",
     "expandAllDetailColumnsOnPage",
@@ -118,12 +117,10 @@
     "renderMain",
     "renderMeta",
     "renderNav",
-    "renderRetirementWellness",
     "renderSpendingDashboardOrLoad",
     "renderSpendingWorkflowBanner",
     "renderStrategyTabs",
     "renderWithdrawalOrderTable",
-    "renderWithdrawalStrategy",
     "renderWorkspaceSubtabsNav",
     "resetAllocationPreview",
     "restoreGroupBudgetModes",
@@ -2711,18 +2708,6 @@
       "scope": "inside-function"
     },
     {
-      "name": "activeStep",
-      "file": "frontend/js/dashboard_decomp_housing_scenarios.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "renderMain",
-      "file": "frontend/js/dashboard_decomp_housing_scenarios.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
       "name": "rows",
       "file": "frontend/js/dashboard_decomp_income_streams.js",
       "kind": "read",
@@ -3756,12 +3741,6 @@
     },
     {
       "name": "rows",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "IRMAA_OFF_MODES",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
       "scope": "inside-function"
@@ -5573,12 +5552,6 @@
       "scope": "inside-function"
     },
     {
-      "name": "domainBudgetNote",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
       "name": "budgetLinesChanged",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
@@ -6251,18 +6224,6 @@
       "scope": "inside-function"
     },
     {
-      "name": "activeStep",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "renderMain",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
       "name": "residencySchedule",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
@@ -6649,6 +6610,36 @@
     {
       "name": "appReady",
       "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rowIsRetirementWellness",
+      "file": "frontend/js/dashboard_decomp_spending_sources.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_spending_sources.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_spending_sources.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rowIsRetirementWellness",
+      "file": "frontend/js/dashboard_decomp_spending_sources.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "searchText",
+      "file": "frontend/js/dashboard_decomp_spending_sources.js",
       "kind": "read",
       "scope": "inside-function"
     },

@@ -31,7 +31,7 @@
   // that page already has its own build/review flow (Compare & Decide ->
   // Build Reports -> View/Download), so surfacing the spending-input flow
   // guide there too is out of place, not merely redundant.
-  const SPENDING_STEPS = ["spending_core"];
+  const SPENDING_STEPS = ["spending_core", "actual_spending"];
   // Glossary terms come from the canonical source (src/glossary.py, served by
   // GET /api/glossary and merged into dashboard.js's ACRONYM_DEFINITIONS at
   // startup). This file previously carried its OWN third copy, which the
@@ -146,12 +146,11 @@
   // Spending Analysis while on spending_core means checking the current
   // workspace tab instead of comparing step directly.
   function effectiveSpendingStage(step) {
-    if (step === "spending_core") {
+    // #338 W-C: Transactions/Spending Analysis are actual_spending's tabs.
+    if (step === "actual_spending") {
       const tab =
-        typeof getStrategyTab === "function" ? getStrategyTab("spending_core") : "";
-      if (tab === "Actual Spending (YTD)") return "ytd_transactions";
-      if (tab === "Spending Analysis") return "spending_dashboard";
-      return "spending_core";
+        typeof getStrategyTab === "function" ? getStrategyTab("actual_spending") : "";
+      return tab === "Analysis" ? "spending_dashboard" : "ytd_transactions";
     }
     if (step === "reports_and_review") return "review";
     return step;
@@ -212,6 +211,7 @@
           "spending_travel_extras",
           "ytd_transactions",
           "spending_dashboard",
+          "actual_spending",
         ],
         next: "spending_core",
       },
@@ -262,7 +262,7 @@
     } catch (_e) {}
     const btnLabel =
       firstIncompleteStep === "reports_and_review"
-        ? "Review and Build"
+        ? "Open Build & Results"
         : "Continue Data Entry";
     return (
       '<div class="first-run-closeout" data-roadmap11="first-run-closeout"><b>First-run closeout</b><span>Required sections should be complete before advisor-ready reports. Optional skips should include a reason.</span><label class="small">Optional skip reason <input id="firstRunSkipReason" value="' +

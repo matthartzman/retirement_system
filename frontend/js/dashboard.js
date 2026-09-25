@@ -54,7 +54,7 @@ const STEPS = [
     id: "spending_core",
     group: "Spending",
     title: "Spending Model",
-    desc: "Comprehensive income/expense category hierarchy, budget references, and projection spending controls, plus Travel and Large Items budgets below them. Also the entry point for Actual Spending (YTD) and Spending Analysis -- see the tabs above the content.",
+    desc: "Comprehensive income/expense category hierarchy, budget references, and projection spending controls, with one editable accordion per Tracking Type. Actual Spending (YTD) and Spending Analysis are under Reports & Review.",
     intro:
       "Review the full Tracking Type → Group → Category model here. It should account for all income and all expenses, including taxes, except internal transfers; lifestyle detail pages still hold scheduled spending inputs.",
     help: "Spending Model is the category manager. Transaction assignment appears here as Advanced Auto-Mapping Rules only when needed.",
@@ -67,6 +67,7 @@ const STEPS = [
     intro:
       "Enter healthcare premium assumptions and non-premium medical spending detail here. Other pages may reference these numbers, but this is the only editable source for Wellness.",
     help: "Include both Medicare and pre-Medicare premiums plus expected out-of-pocket medical, dental, vision, and drugs. Medical OOP Cap is a cap/reference for non-premium medical spending, not a standalone expense.",
+    hidden: true,
   },
   {
     id: "lifestyle_spending",
@@ -94,18 +95,9 @@ const STEPS = [
     desc: "Large occasional non-housing, non-Wellness, non-travel expenses such as weddings, vehicles, gifts, or family support.",
     intro:
       "Each row is an annual amount active from start year through end year. Set start year equal to end year for a single-year expense.",
-    help: "Home Improvements are entered on Housing. Travel is entered on Travel. Keep this page for other flexible large expenses.",
+    help: "Home Improvements are entered with Housing and Travel with Travel, both on Spending Model. Keep this page for other flexible large expenses.",
     hidden: true,
   },
-  {
-    id: "ytd_transactions",
-    group: "Spending",
-    title: "Actual Spending (This Year)",
-    desc: "Import, assign, review, and sync current-year income and expense transactions.",
-    intro:
-      "Import transactions, review assignments, and compare the current year with the spending model before updating the plan.",
-    help: "Category assignment happens on Spending Model. Accounts & Sources controls account/source type, prior-year balances, and current values.",
-    hidden: true,  },
   {
     // #330 P8 / Q6 (W13): promoted out of Spending. Housing & Property is a
     // domain of its own in the catalog (module_catalog's HOUSING_PROPERTY,
@@ -121,6 +113,7 @@ const STEPS = [
     intro:
       "Enter all housing budget detail here. Other pages may reference these numbers, but this is the only editable source for Housing.",
     help: "Housing includes current mortgage, homeowners insurance, maintenance, utilities, real-estate taxes, and home improvement projects. Rent is shown only when configured with a positive value.",
+    hidden: true,
   },
   {
     // #329 O11 / #330 §4.3 (W9): moved out of Strategy -- HELOC is a
@@ -157,7 +150,7 @@ const STEPS = [
     title: "Reserve Requirements",
     desc: "The cash reserve floor the plan protects before drawing investments, plus spendable checking cash.",
     intro:
-      "Reserve rules set how many months of spending to hold outside the investment portfolio. Home value and home sale inputs are on the Housing page.",
+      "Reserve rules set how many months of spending to hold outside the investment portfolio. Home value and home sale inputs are in the Housing accordion of Spending Model.",
     help: "The reserve floor is the last buffer in probability analysis — the plan counts as failing when it cannot maintain this floor without depleting all accounts.",
   },
   {
@@ -334,7 +327,7 @@ const STEPS = [
     hidden: true,  },
   {
     id: "withdrawal_strategy",
-    // Ticket 286: now the Spending workspace’s "Withdrawal Order" tab.
+    // #338 W-C: redirects to Optimize's withdrawal sections.
     group: null,
     title: "Withdrawal sequencing",
     desc: "Bucket draw order, trust withdrawals, and spousal rollover election. HSA withdrawal timing is set on Other Assets and Liabilities.",
@@ -394,9 +387,26 @@ const STEPS = [
     help: "Enter the projected transfer value, not the current account balance. Alimony is taxable to recipient and deductible to payor only under pre-2019 agreements — flag the agreement date when modeling.",
     hidden: true,  },
   {
+    id: "ytd_transactions",
+    group: "Reports & Review",
+    title: "Actual Spending (This Year)",
+    desc: "Import, assign, review, and sync current-year income and expense transactions.",
+    intro:
+      "Import transactions, review assignments, and compare the current year with the spending model before updating the plan.",
+    help: "Category assignment happens on Spending Model. Accounts & Sources controls account/source type, prior-year balances, and current values.",
+    hidden: true,  },
+  {
+    id: "actual_spending",
+    group: "Reports & Review",
+    title: "Actual Spending",
+    desc: "This year's imported income and expense transactions, and how they compare with the spending model.",
+    intro: "Import and assign this year's transactions on This year; compare annualized spending with the plan on Analysis, then sync the actual rate before building.",
+    help: "Category assignment happens on Spending Model. Accounts & Sources controls account/source type, prior-year balances, and current values.",
+  },
+  {
     id: "reports_and_review",
     group: "Reports & Review",
-    title: "Reports & Review",
+    title: "Build & Results",
     desc: "One workspace for readiness, build, impact, results, downloads, and plan data review.",
     intro:
       "Build current reports (readiness checks appear right above the Build button), review impact and results, then download or print the final package.",
@@ -404,7 +414,7 @@ const STEPS = [
   },
   {
     id: "spending_dashboard",
-    group: "Reports",
+    group: "Reports & Review",
     title: "Spending Analysis",
     desc: "Actual vs budget by spending group, portfolio growth year-to-date, and alignment with the 30-year model.",
     intro:
@@ -415,7 +425,7 @@ const STEPS = [
 
   {
     id: "review",
-    group: "Reports",
+    group: "Reports & Review",
     title: "Download Reports",
     desc: "Build and download the workbook — downloads automatically save first when there are pending changes.",
     intro:
@@ -425,7 +435,7 @@ const STEPS = [
   },
   {
     id: "build_impact",
-    group: "Reports",
+    group: "Reports & Review",
     title: "Impact & Build History",
     desc: "Universal comparison surface for baseline builds, planning cases, scenario comparisons, and stress-suite results.",
     intro:
@@ -435,7 +445,7 @@ const STEPS = [
   },
   {
     id: "detailed_results",
-    group: "Reports",
+    group: "Reports & Review",
     title: "Results",
     desc: "In-app view of all workbook sheets, charts, and data tables after a build — column groups can be collapsed to focus on key metrics.",
     intro:
@@ -445,7 +455,7 @@ const STEPS = [
   },
   {
     id: "plan_data_report",
-    group: "Reports",
+    group: "Reports & Review",
     title: "Plan Data Review",
     desc: "Printable summary of every plan input, grouped by section — not editable here.",
     intro:
@@ -587,7 +597,7 @@ const STEP_HELP = {
   ),
   spending_core: pageHelp(
     "Spending Categories",
-    "This page is the comprehensive category model for income and expenses, including taxes but excluding internal transfers (401k/HSA contributions, brokerage buys/sells, credit card payments). Projection spending controls, plus Travel and Large Items budgets, live here; Housing and Wellness detailed budget inputs stay on their own pages.",
+    "This page is the comprehensive category model for income and expenses, including taxes but excluding internal transfers (401k/HSA contributions, brokerage buys/sells, credit card payments). Projection spending controls live here, with one editable accordion per Tracking Type: Core Expenses, Housing, Wellness, Travel, Large Discretionary, Taxes, and Business.",
     "Core spending flows directly into annual withdrawals, taxable income, liquidity stress, Monte Carlo success, and planning-lever sensitivity. Growth mode and freeze year determine how that spending changes over time.",
     "Use CPI/general inflation when spending should rise with inflation. Use manual override when lifestyle spending should grow at a different rate. Use the freeze year when spending increases stop or intentionally flatten.",
     "Higher recurring spending usually lowers terminal net worth and probability of success. Lower spending or earlier spending freezes usually improve both, especially in the first retirement decade.",
@@ -838,6 +848,7 @@ const STEP_HELP = {
     "No planning impact — this changes only the appearance of the Excel output, never any calculated value.",
   ),
 };
+STEP_HELP.actual_spending = STEP_HELP.ytd_transactions;
 let apiBase = "",
   appReady = false,
   rows = [],
@@ -2354,7 +2365,7 @@ function dependencyRank(label) {
 }
 
 function fieldFinderCategoryName(group) {
-  return group === "Reports" ? "Reports & Review" : group || "Uncategorized";
+  return group || "Uncategorized";
 }
 function fieldFinderCategoryOrder() {
   const order = [];
@@ -2617,20 +2628,13 @@ const DEFAULT_TRAVEL_TYPES = ["Wedding", "Large Gifts", "Other"];
 // Mirrors src/projection_stages/deterministic_engine.py _fra_for_birth_year /
 // _ss_claim_factor closely enough for this preview cell. The workbook build
 // always uses the authoritative Python engine; this is a display estimate.
-function renderRetirementWellness() {
-  if (searchText.trim()) return renderFields("retirement_wellness");
-  let html =
-    '<div class="section-note"><b>Wellness Budget Detail is the authoritative view for healthcare spending.</b> Enter Pre-65 premiums, Medicare Part B/D/G premiums, and non-premium medical, dental, vision, Rx/OTC, and out-of-pocket estimates. The projection uses these values as-entered for cash flow and income impact; Medicare premium categories are split to match spending taxonomy.</div>';
-  html += renderDomainBudgetPage("healthcare");
-  return html;
-}
 function renderAssetsCashReserves() {
   if (searchText.trim())
     return renderFields("assets_home_cash") + renderLiquidityBuffers();
   const rs = rowsForStep("assets_home_cash");
   const cash = rs.filter((r) => norm(r.subsection || "") === "cash");
   let html =
-    '<div class="section-note">Spendable cash outside the investment accounts, and the reserve floor the plan protects before drawing from the portfolio. <b>Home value and home sale inputs are on the <a href="#" onclick="setStep(\'spending_mortgage_events\');return false">Housing tab</a>.</b></div>';
+    '<div class="section-note">Spendable cash outside the investment accounts, and the reserve floor the plan protects before drawing from the portfolio. <b>Home value and home sale inputs are in the <a href="#" onclick="setStep(\'spending_mortgage_events\');return false">Housing</a> accordion of Spending Model.</b></div>';
   if (cash.length)
     html +=
       '<div class="field-list">' + cash.map(fieldHtml).join("") + "</div>";
@@ -2716,28 +2720,6 @@ function renderWithdrawalOrderTable() {
   const editor = window.withdrawalAccountOrderEditorHtml ? window.withdrawalAccountOrderEditorHtml() : "";
   return `<details><summary>Withdrawal order</summary><div class="field-list"><div class="section-note"><b>Individual-account draw order is user-configurable below.</b> Each account defaults to its registry order and draws first within its account type when priority is tied; set a lower number to draw an account earlier relative to others of the same type (e.g. which of two taxable brokerage accounts drains first). The account-<i>type</i> sequence itself is fixed by the engine and not user-configurable, since it follows tax rules rather than preference: ${esc(FIXED_WITHDRAWAL_CASCADE_DESCRIPTION)}. RMDs are mandatory income; Roth and home equity are preserved until other liquid sources are exhausted.</div>${editor}</div></details>`;
 }
-// #329 §3.3 (W9): hsaWithdrawalPolicyBlock/taxLossHarvestingBlock/
-// gainHarvestBlock/withdrawalMiscBlock used to be inlined directly inside
-// renderWithdrawalStrategy() below. Extracted into
-// dashboard_decomp_strategy_workspace.js (frontend size ratchet -- this file
-// only grows by taking an equal number of lines out elsewhere), and called
-// here as bare globals like every other cross-decomp-file call in this
-// codebase, so Optimize's new HSA Drawdown / Withdrawal Sequencing /
-// Harvesting sections can reuse the exact same row-filtering and rendering
-// the Spending workspace's "Withdrawal Order" tab already had -- one filter
-// predicate per concept, not duplicated in two files that could drift.
-function renderWithdrawalStrategy() {
-  if (searchText.trim()) return renderFields("withdrawal_strategy");
-  const other = withdrawalOtherRows();
-  return (
-    renderWithdrawalOrderTable() +
-    hsaWithdrawalPolicyBlock(other) +
-    taxLossHarvestingBlock(other) +
-    gainHarvestBlock(other) +
-    withdrawalMiscBlock(other)
-  );
-}
-
 const ROTH_PRIMARY_LABELS = [
   "roth_conversion_policy",
   "roth_bracket_strategy",
@@ -3498,17 +3480,6 @@ async function recoverPriorSpendingBudget() {
   }
 }
 
-function domainBudgetNote(domain) {
-  if (domain === "core")
-    return "Spending Categories is comprehensive: Income and every expense Tracking Type, including Taxes, should appear in the hierarchy -- only internal transfers are excluded. Detailed budget authority still lives on Housing, Wellness, and Travel where applicable; this view keeps the full accounting model visible. Each group header shows both Annual Budget (what you entered) and Projection (the value the projection engine actually uses as the starting spend amount). They are usually equal — expand the help below to see when and why they can differ.";
-  if (domain === "housing")
-    return "Housing is the only editable place for mortgage/rent, homeowners insurance, home maintenance, utilities, real-estate taxes, and home improvement projects.";
-  if (domain === "healthcare")
-    return "Wellness is the only editable place for the Healthcare Premium group (Pre-65 Healthcare Premium plus Medicare Part B, Part D, and Part G), medical, dental, vision, drugs Rx/OTC, vitamins/supplements, and the medical OOP cap/reference.";
-  if (domain === "travel")
-    return "Travel is the only editable place for recurring travel projection inputs plus transaction-based travel detail. Domestic-travel and lifestyle labels are intentionally not used here.";
-  return "Large Discretionary Budget Detail supports only Wedding, Large Gifts, and Other projection rows.";
-}
 async function hideUnusedTemplateCategories() {
   if (
     !(await showInAppConfirm(
@@ -3575,12 +3546,9 @@ function renderStrategyTabs(step, tabs, active) {
 // used to be several separate nav steps -- keyed by the merged step's own
 // id, reused by getStrategyTab/setStrategyTab/goToStrategyTab/renderStrategyTabs
 // below regardless of which workspace it's for.
-// Ticket 286: distribution_strategy's sub-nav is gone. Its four tabs duplicated
-// nav entries that already existed at top level; Withdrawal Order moved to the
-// Spending workspace below, and Roth Conversion / Allocation & Location are now
-// embedded in the Strategy decide box (renderPlanningLevers).
+// #338 W-C: Actual Spending (ytd_transactions + spending_dashboard) is the only one left.
 const STRATEGY_TABS = {
-  spending_core: ["Spending Model", "Actual Spending (YTD)", "Spending Analysis", "Withdrawal Order"],
+  actual_spending: ["This year", "Analysis"],
 };
 
 // Shared left-nav sub-tab strip for any STRATEGY_TABS-registered workspace step.
@@ -3616,20 +3584,17 @@ const SPENDING_WORKFLOW_STEPS = [
 ];
 const SPENDING_WORKFLOW_INDEX = {
   spending_core: 0,
+  actual_spending: 1,
   ytd_transactions: 1,
   spending_dashboard: 2,
 };
 function renderSpendingWorkflowBanner(stepId) {
-  // stepId (activeStep) can only be "spending_core" now for this banner --
-  // ytd_transactions/spending_dashboard both redirect there instead
-  // (navigation.js's WORKSPACE_TAB_REDIRECTS) -- so resolve which workflow
-  // stage is effectively active from the current tab instead.
+  // ytd_transactions/spending_dashboard redirect onto actual_spending's two
+  // tabs (navigation.js's WORKSPACE_TAB_REDIRECTS), so resolve the stage
+  // from the current tab there.
   let effectiveStepId = stepId;
-  if (stepId === "spending_core") {
-    const tab = getStrategyTab("spending_core");
-    if (tab === "Actual Spending (YTD)") effectiveStepId = "ytd_transactions";
-    else if (tab === "Spending Analysis") effectiveStepId = "spending_dashboard";
-  }
+  if (stepId === "actual_spending")
+    effectiveStepId = getStrategyTab(stepId) === "Analysis" ? "spending_dashboard" : "ytd_transactions";
   const activeIdx = SPENDING_WORKFLOW_INDEX[effectiveStepId] ?? -1;
   if (activeIdx < 0) return "";
   const parts = [];
@@ -3679,7 +3644,7 @@ function primaryActionForStep(stepId) {
     return `<button class="btn primary" type="button" onclick="planningCaseCreate('manual')">Save Case</button>`;
   if (hasUnsavedPlanChanges())
     return '<button class="btn primary" type="button" onclick="saveAll(true)">Save Changes</button>';
-  return '<button class="btn" type="button" data-step-id="reports_and_review">Review Reports</button>';
+  return '<button class="btn" type="button" data-step-id="reports_and_review">Open Build & Results</button>';
 }
 // #285: preserve focus (and, when safe, selection) across the innerHTML
 // replace that renderMain() performs below. This is a GENERAL fix, not a
@@ -3716,7 +3681,7 @@ let renderMain = function() {
   }
   const st = STEPS.find((s) => s.id === activeStep) || STEPS[0];
   const _stIdx = visibleSteps().findIndex((x) => x.id === st.id) + 1;
-  const _eyebrow = ["Reports", "Reports & Review", "Settings"].includes(
+  const _eyebrow = ["Reports & Review", "Settings"].includes(
     st.group,
   )
     ? st.group
@@ -3733,8 +3698,9 @@ let renderMain = function() {
     content += renderSpendingWorkflowBanner(activeStep);
   }
   if (activeStep === "start") content += renderWelcome();
-  else if (activeStep === "spending_core")
-    content += window.renderSpendingWorkspace(STRATEGY_TABS.spending_core);
+  else if (activeStep === "spending_core") content += renderCoreSpendingUnified();
+  else if (activeStep === "actual_spending")
+    content += window.renderActualSpendingWorkspace(STRATEGY_TABS.actual_spending);
   else if (activeStep === "lifestyle_spending")
     content += renderLifestyleSpending();
   else if (activeStep === "spending_travel")
@@ -3742,15 +3708,9 @@ let renderMain = function() {
   else if (activeStep === "spending_travel_extras")
     content += renderLargeDiscretionaryBudgetPage();
   else if (activeStep === "spending_setup") content += renderSpendingSetup();
-  else if (activeStep === "ytd_transactions")
-    content += renderYtdTransactionsStep();
-  else if (activeStep === "spending_dashboard")
-    content += renderSpendingDashboardOrLoad();
   else if (activeStep === "income_work") content += renderIncomeWork();
   else if (activeStep === "income_retirement")
     content += renderRetirementIncome();
-  else if (activeStep === "retirement_wellness")
-    content += renderRetirementWellness();
   else if (activeStep === "strategy_optimize") content += renderStrategyOptimize();
   else if (activeStep === "strategy_stress") content += renderStrategyStress();
   else if (activeStep === "strategy_scenarios")
@@ -3772,8 +3732,6 @@ let renderMain = function() {
   else if (activeStep === "ltc_stress")
     content += analysisFrame(renderLtcStress(), "stress");
   else if (activeStep === "holdings") content += renderHoldings();
-  else if (activeStep === "spending_mortgage_events")
-    content += renderSpendingHousing();
   else if (activeStep === "assets_home_cash")
     content += renderAssetsCashReserves();
   else if (activeStep === "assets_special") content += renderAssetsSpecial();
@@ -3788,8 +3746,6 @@ let renderMain = function() {
   else if (activeStep === "estate") content += renderEstateWithAnnuityLink();
   else if (activeStep === "annuity_death_benefits")
     content += renderSpecialIncomeAnnuitiesInsurance();
-  else if (activeStep === "withdrawal_strategy")
-    content += analysisFrame(renderWithdrawalStrategy(), "strategy");
   else if (activeStep === "roth_conversion")
     content += analysisFrame(renderRothConversion(), "strategy");
   else if (activeStep === "system_configuration")
@@ -7149,33 +7105,32 @@ Object.assign(window, {
   checkAppStatus, chooseDefaultDetailedSheet, cloneSummary, closeChartModal, closeExitModal,
   closeNavDrawer, collapseAllDetailGroups, decimalsFromText, deleteYtdAccount, dependencyRank,
   deriveTotalRothConversions, detailProgressState, detailedProgressHtml, detailedSheetByName,
-  discardAndExit, dismissMessage, domainBudgetNote, downloadBlob, exitApp,
-  expandAllDetailColumnsOnPage, expandAllDetailGroups, fetchWithTimeout, fieldConnection,
-  fieldDefaultMeaning, fieldFinderCategoryName, fieldFinderCategoryOrder, fieldLabelNoteHtml,
-  fieldLikelyImpact, fieldSizeClass, fieldTooltipHtml, fieldTooltipPreview, finiteOrNull,
-  focusYtdAccountMoney, focusableEntries, getStrategyTab, groupModelData,
-  hideSpendingModelLoadOverlay, hideUnusedTemplateCategories, hideYtdLoadOverlay, humanizeGroupKey,
-  leverPctPoints, loadCanonicalGlossary, loadDetailedResults, makeYtdAccountRow,
-  mergeDetailedSheetMeta, moneyNegativeClass, moveToNextEntry, normalizePlanningCaseRunType,
-  normalizePlanningCaseSource, normalizeValueForSave, noteSessionFieldChange,
-  noteSpecialSessionChange, numberDisplayDecimals, openExitModal, openNavDrawer,
-  openNextCollapsedSectionFrom, optionalModuleState, pageHelp, pageSaveMode, pageSaveModeHtml,
-  pageStatusHtml, parseCsvLine, parseDollarLike, percentDisplayDecimals, percentRaw, personCellInput,
-  personNickPlaceholder, personTokenLabel, planningCaseActiveId, planningCaseAdopt,
-  planningCaseArchive, planningCaseBaseSnapshotId, planningCaseCardsHtml, planningCaseCreate,
-  planningCaseDelete, planningCaseId, planningCaseMatrixHtml, planningCaseMetricSummary,
-  planningCaseNowIso, planningCaseOverrideFromRow, planningCaseOverrideTable,
-  planningCaseOverridesForSource, planningCaseReadAll, planningCaseSaveAll,
-  planningCaseSourceButtons, planningWorkbenchBuildImpactHtml, planningWorkbenchStressSelectorHtml,
-  primaryActionForStep, promotePlanningCase, recoverPriorSpendingBudget, recoverYtdAccountSetup,
-  rememberBuildCompare, renderAssetsCashReserves, renderDetailedResultsNav,
-  renderDetailedResultsProgressTick, renderEstateWithAnnuityLink, renderFieldFinderGroups,
-  renderHouseholdPeople, renderMeta, renderNav, renderRetirementWellness,
+  discardAndExit, dismissMessage, downloadBlob, exitApp, expandAllDetailColumnsOnPage,
+  expandAllDetailGroups, fetchWithTimeout, fieldConnection, fieldDefaultMeaning,
+  fieldFinderCategoryName, fieldFinderCategoryOrder, fieldLabelNoteHtml, fieldLikelyImpact,
+  fieldSizeClass, fieldTooltipHtml, fieldTooltipPreview, finiteOrNull, focusYtdAccountMoney,
+  focusableEntries, getStrategyTab, groupModelData, hideSpendingModelLoadOverlay,
+  hideUnusedTemplateCategories, hideYtdLoadOverlay, humanizeGroupKey, leverPctPoints,
+  loadCanonicalGlossary, loadDetailedResults, makeYtdAccountRow, mergeDetailedSheetMeta,
+  moneyNegativeClass, moveToNextEntry, normalizePlanningCaseRunType, normalizePlanningCaseSource,
+  normalizeValueForSave, noteSessionFieldChange, noteSpecialSessionChange, numberDisplayDecimals,
+  openExitModal, openNavDrawer, openNextCollapsedSectionFrom, optionalModuleState, pageHelp,
+  pageSaveMode, pageSaveModeHtml, pageStatusHtml, parseCsvLine, parseDollarLike,
+  percentDisplayDecimals, percentRaw, personCellInput, personNickPlaceholder, personTokenLabel,
+  planningCaseActiveId, planningCaseAdopt, planningCaseArchive, planningCaseBaseSnapshotId,
+  planningCaseCardsHtml, planningCaseCreate, planningCaseDelete, planningCaseId,
+  planningCaseMatrixHtml, planningCaseMetricSummary, planningCaseNowIso, planningCaseOverrideFromRow,
+  planningCaseOverrideTable, planningCaseOverridesForSource, planningCaseReadAll,
+  planningCaseSaveAll, planningCaseSourceButtons, planningWorkbenchBuildImpactHtml,
+  planningWorkbenchStressSelectorHtml, primaryActionForStep, promotePlanningCase,
+  recoverPriorSpendingBudget, recoverYtdAccountSetup, rememberBuildCompare, renderAssetsCashReserves,
+  renderDetailedResultsNav, renderDetailedResultsProgressTick, renderEstateWithAnnuityLink,
+  renderFieldFinderGroups, renderHouseholdPeople, renderMeta, renderNav,
   renderSpendingDashboardOrLoad, renderSpendingWorkflowBanner, renderStrategyTabs,
-  renderWithdrawalOrderTable, renderWithdrawalStrategy, renderWorkspaceSubtabsNav,
-  resetAllocationPreview, restoreGroupBudgetModes, restoreWorkbookViewState, revertLastBuildChanges,
-  rollForwardYtdAccounts, rowConfigValue, rowIsRetirementWellness, saveAndExit, saveChanges,
-  saveValueForRow, saveYtdAccountSetup, saveYtdPending, scenarioRowKeyFromParts, sectionFlagEnabled,
+  renderWithdrawalOrderTable, renderWorkspaceSubtabsNav, resetAllocationPreview,
+  restoreGroupBudgetModes, restoreWorkbookViewState, revertLastBuildChanges, rollForwardYtdAccounts,
+  rowConfigValue, rowIsRetirementWellness, saveAndExit, saveChanges, saveValueForRow,
+  saveYtdAccountSetup, saveYtdPending, scenarioRowKeyFromParts, sectionFlagEnabled,
   setAllDetailColumnGroups, setCombinedSearch, setDetailedResultSheet, setDetailedResultsNavOpen,
   setNavSearch, setPlanningCaseActive, setSearchScope, setStrategyTab, showPlanDataFileManifest,
   showSpendingModelLoadOverlay, showYtdLoadOverlay, sleep, startDetailedResultsProgress,
