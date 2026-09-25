@@ -25,7 +25,14 @@ def test_dashboard_top_level_groups():
     # #338 W-E: the Housing & Property nav group dissolves (design
     # 2026-09-24 §2) -- HELOC moves to "Investments & Property", and the
     # hidden Housing redirect step is filed under Spending.
-    assert groups == ["Plan Status", "People and Income", "Spending", "Investments & Property", "Assets & Protection", "Taxes", "Family & Business", "Strategy", "Reports & Review", "Settings"]
+    # #332 W-F Task F1 (design 2026-09-24 §2): "Assets & Protection" splits
+    # into "Investments & Property" (holdings, reserves, other assets,
+    # HELOC), "Insurance & Care" (annuities/insurance) and "Estate & Legacy"
+    # (estate inputs) -- each is now a legal Topic label under §1.4.
+    # #332 W-F Task F5 (design 2026-09-24 §9.2): "People and Income" splits
+    # into "Household" (utility group: Household & People only) and
+    # "Income & Benefits" (Topic group: Work Income, SS/Pensions/Annuities).
+    assert groups == ["Plan Status", "Household", "Income & Benefits", "Spending", "Investments & Property", "Insurance & Care", "Estate & Legacy", "Taxes", "Family & Business", "Strategy", "Reports & Review", "Settings"]
     assert "Advanced Options" not in re.search(r"function renderSteps\(\).*?box\.innerHTML", js, re.S).group(0)
     # #338 W-C: Housing and Wellness are edited inside Spending Model; their
     # old steps stay only as hidden redirect targets.
