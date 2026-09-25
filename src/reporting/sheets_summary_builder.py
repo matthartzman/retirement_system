@@ -540,7 +540,7 @@ def build_sheet2(ws, c, rows):
         ('NIIT Rate',                     0.038,    'decimal','3.8% on NII above MAGI threshold'),
         ('NIIT MAGI Threshold (MFJ)',     250000,   'USD', 'NOT indexed'),
         ('Standard Deduction MFJ — Reference Year',  31500,    'USD', '+ $1,650/spouse age 65+'),
-        ('IRMAA Tier 2 Threshold (MFJ)', 268000,   'USD', 'reference-year threshold, inflated annually'),
+        ('IRMAA Tier 2 Threshold (MFJ)', 266000,   'USD', 'reference-year threshold, inflated annually'),
     ])
 
     # Projected brackets table (simplified)

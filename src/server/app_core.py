@@ -1194,7 +1194,7 @@ def _irmaa_tier_choice_options(value_mode: str = "tier", filing: str = "MFJ") ->
             })
         return out
     except Exception:
-        vals=[(1,212000,106000),(2,268000,133000),(3,335000,167000),(4,402000,200000),(5,750000,500000)]
+        vals=[(1,212000,106000),(2,266000,133000),(3,334000,167000),(4,400000,200000),(5,750000,500000)]
         return [{"value": (f"TIER_{i}" if value_mode=="tier" else str(mfj)), "label": f"Tier {i} — MFJ ${mfj:,.0f} / Single ${sgl:,.0f} MAGI"} for i,mfj,sgl in vals]
 
 
