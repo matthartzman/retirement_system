@@ -7,17 +7,18 @@ different module membership. This test PASSES once every earlier W-F task
 failure here means fix the surface (nav grouping), never this test.
 """
 import re
-import pathlib
 
 from src import module_catalog as mc
 from src.reporting.workbook_common import _SECTION_META
+from tests._decomp_dashboard import dashboard_js_text
 
 UTILITY = {"Plan Status", "Household", "Strategy", "Reports & Review", "Settings"}
 
 
 def _nav_groups():
-    src = pathlib.Path("frontend/js/dashboard.js").read_text(encoding="utf-8")
-    return list(dict.fromkeys(re.findall(r'group:\s*"([^"]+)"', src)))
+    src = dashboard_js_text()
+    steps_block = re.search(r"const STEPS = \[(.*?)\n\];", src, re.S).group(1)
+    return list(dict.fromkeys(re.findall(r'group:\s*"([^"]+)"', steps_block)))
 
 
 def _is_join(label):
@@ -39,7 +40,7 @@ def test_answer_type_labels_equal_workbook_sections():
 def test_topic_label_never_reused_for_other_membership():
     # A nav group named exactly like a topic may only hold steps owned by
     # modules of that topic.
-    src = pathlib.Path("frontend/js/dashboard.js").read_text(encoding="utf-8")
+    src = dashboard_js_text()
     for m in mc.CATALOG.values():
         if m.dashboard_step:
             hit = re.search(r'id:\s*"%s",\s*group:\s*"([^"]+)"' % re.escape(m.dashboard_step), src)
