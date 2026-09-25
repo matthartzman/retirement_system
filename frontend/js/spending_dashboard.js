@@ -50,18 +50,20 @@ window.getSpendingDivergencePct = getSpendingDivergencePct;
 // dashboard_step/csv_sections rows of its own (its inputs are imported
 // transactions, not typed plan rows), the same reason Plan Features shows no
 // "N items entered" for it either.
-export function renderSpendingWorkspace(tabs) {
-  var tab = window.getStrategyTab('spending_core');
+// #338 W-C: these two tabs are the Actual Spending step under Reports &
+// Review now (ytd_transactions + spending_dashboard merged), not tabs of
+// Spending Model.
+export function renderActualSpendingWorkspace(tabs) {
+  var tab = window.getStrategyTab('actual_spending');
   var ytdOn = window.optionalFunctionEnabled('spending_tracker_ytd');
   var body;
-  if (tab === 'Actual Spending (YTD)')
-    body = ytdOn ? window.renderYtdTransactionsStep() : window.featureGatedNote('spending_tracker_ytd', { title: 'Actual Spending (YTD)' });
-  else if (tab === 'Spending Analysis')
+  if (tab === 'Analysis')
     body = ytdOn ? window.renderSpendingDashboardOrLoad() : window.featureGatedNote('spending_tracker_ytd', { title: 'Spending Analysis' });
-  else body = window.renderCoreSpendingUnified();
-  return '<div class="tabbed-workspace spending-workspace">' + window.renderStrategyTabs('spending_core', tabs, tab) + '<div class="workspace-tab-body">' + body + '</div></div>';
+  else
+    body = ytdOn ? window.renderYtdTransactionsStep() : window.featureGatedNote('spending_tracker_ytd', { title: 'Actual Spending (This Year)' });
+  return '<div class="tabbed-workspace spending-workspace">' + window.renderStrategyTabs('actual_spending', tabs, tab) + '<div class="workspace-tab-body">' + body + '</div></div>';
 }
-window.renderSpendingWorkspace = renderSpendingWorkspace;
+window.renderActualSpendingWorkspace = renderActualSpendingWorkspace;
 
 export function fmtSpend(n) { var v = Math.round(Number(n) || 0); return (v < 0 ? '-$' : '$') + Math.abs(v).toLocaleString('en-US') }
 // Signed variance display (e.g. "+3.2%" over budget) — distinct from the

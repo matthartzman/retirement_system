@@ -461,7 +461,12 @@ DASHBOARD_JS_MAX_LINES = 7_144
 # 2026-09-25 (#338 W-C, task C4): Withdrawal Order tab removed after the
 # parity test; renderWithdrawalStrategy() deleted. dashboard.js FALLS
 # 7,168 -> 7,144; total lowered to the measured 36,283.
-TOTAL_JS_MAX_LINES = 36_283
+# 2026-09-25 (#338 W-C, task C5): the new actual_spending step (two tabs,
+# ytd_transactions + spending_dashboard merged) and its workspace renderer
+# replace Spending Model's tab strip; dashboard.js stays flat at 7,144 (the
+# new STEPS entry is paid for by the deleted dispatch branches and the
+# "Reports" group special case). New behavior: raised to the measured 36,285.
+TOTAL_JS_MAX_LINES = 36_285
 
 
 def _line_count(path: Path) -> int:

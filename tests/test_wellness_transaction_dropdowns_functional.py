@@ -32,9 +32,15 @@ def test_income_expense_transactions_is_last_spending_step():
     js = dashboard_js_text()
     steps_src = js.split("const STEPS = [", 1)[1].split("\n];", 1)[0]
     step_blocks = steps_src.split("\n  {\n")
-    spending_blocks = [b for b in step_blocks if 'group: "Spending"' in b]
-    assert spending_blocks[-1].startswith('    id: "ytd_transactions"')
-    assert "Actual Spending (This Year)" in spending_blocks[-1]
+    # #338 W-C: Income & Expense Transactions left the Spending group -- it is
+    # the "This year" tab of the Actual Spending step under Reports & Review,
+    # and its hidden STEPS entry sits directly before that step.
+    assert not any('id: "ytd_transactions"' in b for b in step_blocks if 'group: "Spending"' in b)
+    ids = [b.split('id: "', 1)[1].split('"', 1)[0] for b in step_blocks if 'id: "' in b]
+    assert ids[ids.index("ytd_transactions") + 1] == "actual_spending"
+    ytd = next(b for b in step_blocks if b.startswith('    id: "ytd_transactions"'))
+    assert 'group: "Reports & Review"' in ytd
+    assert "Actual Spending (This Year)" in ytd
 
 
 def test_ytd_transaction_merchant_category_account_pick_from_existing_values():

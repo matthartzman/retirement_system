@@ -165,7 +165,6 @@ describe("destinations that left Strategy entirely", () => {
   // under Spending Model's Housing accordion.
   test("state_residency lands on Spending Model's residency section", () => {
     assert.equal(go("state_residency"), "spending_core");
-    assert.deepEqual(openedTabs, [["spending_core", "Spending Model"]]);
     assert.deepEqual(revealed, ['[data-dkey="housing:residency"]']);
   });
 
@@ -325,7 +324,6 @@ describe("Housing and Wellness steps redirect into Spending Model (#338)", () =>
   for (const [legacy, accordion] of Object.entries(OPEN)) {
     test(`${legacy} -> Spending Model / ${accordion} accordion`, () => {
       assert.equal(go(legacy), "spending_core");
-      assert.deepEqual(openedTabs, [["spending_core", "Spending Model"]]);
       assert.deepEqual(revealed, [`[data-dkey="budget:core:${accordion}"]`]);
     });
   }
