@@ -664,9 +664,14 @@ export function renderDomainBudgetTable(domain) {
     // #338 W-C: Housing, Wellness and Travel are edited here now -- their
     // source pages' field groups render in the accordion body
     // (dashboard_decomp_spending_sources.js), no longer a read-only mirror.
-    html += `<details class="taxonomy-type-section" data-dkey="budget:${esc(domain)}:${esc(tt)}"><summary><b>${esc(tt)}</b> <span class="small">YTD ${dollars0(ttActual)} · Annualized ${dollars0(ttAnnualized)} · Budget ${dollars0(ttTotal)} · Projection ${dollars0(ttProjection || ttTotal)}</span>${tt === "Business" ? ` <span class="small" style="font-weight:400;color:var(--muted)">modeled; excluded from core spend base</span>` : ""}</summary>`;
+    // #336: Large Discretionary is one-time only -- never annualized, so
+    // its header carries no Annualized figure.
+    const isLd = tt === "Large Discretionary";
+    const ttAnnText = isLd ? "" : ` · Annualized ${dollars0(ttAnnualized)}`;
+    html += `<details class="taxonomy-type-section" data-dkey="budget:${esc(domain)}:${esc(tt)}"><summary><b>${esc(tt)}</b> <span class="small">YTD ${dollars0(ttActual)}${ttAnnText} · Budget ${dollars0(ttTotal)} · Projection ${dollars0(ttProjection || ttTotal)}</span>${tt === "Business" ? ` <span class="small" style="font-weight:400;color:var(--muted)">modeled; excluded from core spend base</span>` : ""}</summary>`;
     if (domain === "core") html += spendingSourceHeadHtml(tt);
-    (typeData.groups || []).forEach(function (grp) {
+    // The Large Discretionary accordion body is the one-time rows table alone.
+    (domain === "core" && isLd ? [] : typeData.groups || []).forEach(function (grp) {
       const gname = grp.group;
       const gj = esc(gname).replace(/'/g, "\\'");
       const gmode = groupIsSummary(tt, gname) ? "summary" : "detail";
@@ -751,10 +756,8 @@ export function renderCoreSpendingUnified() {
   html +=
     '<div style="margin-top:32px">' + renderDomainBudgetPage("core") + "</div>";
   html += '<div style="margin-top:32px">' + renderTaxonomyManager() + "</div>";
-  // Other Spending (Travel + Large Items) folded in here rather than kept as
-  // its own workspace tab -- same editable accordions renderLifestyleSpending()
-  // always rendered, just relocated onto the page they logically belong on.
-  html += '<div style="margin-top:32px">' + renderLifestyleSpending() + "</div>";
+  // #336: Large Discretionary (the former "Large Items") is edited in its own
+  // Spending Model accordion, so nothing is appended here any more.
   return html;
 }
 

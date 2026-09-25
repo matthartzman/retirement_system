@@ -873,9 +873,9 @@ def test_repeatable_rows_expand_with_notice():
 
 **Files:** `frontend/js/dashboard_decomp_large_discretionary.js`; `input/demo/client_spending_taxonomy.csv` (retire LD groups: status `deleted`); Test `tests/frontend/large_discretionary.test.mjs`
 
-- [ ] **Step 1:** Failing tests: pulldown options equal `LD_CATEGORIES` (Education labelled "Education (not 529-funded)"); rows have Amount, Year, Note, In budget; no start/end-year inputs; header shows no "Annualized"; caution line present when `education_funding_529` is on.
-- [ ] **Step 2–4:** Implement; `npm test`; `pytest -m "not slow"`.
-- [ ] **Step 5:** Commit `feat(ld): one section, five categories, In-budget column`
+- [x] **Step 1:** Failing tests: pulldown options equal `LD_CATEGORIES` (Education labelled "Education (not 529-funded)"); rows have Amount, Year, Note, In budget; no start/end-year inputs; header shows no "Annualized"; caution line present when `education_funding_529` is on.
+- [x] **Step 2–4:** Implement; `npm test`; `pytest -m "not slow"`.
+- [x] **Step 5:** Commit `feat(ld): one section, five categories, In-budget column`
 
 ### Task D3: Spending Adjustments engine
 
