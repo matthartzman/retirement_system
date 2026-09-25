@@ -20,7 +20,8 @@ def test_after_tax_helper_models_taxable_cap_gain_components():
         "model_niit": True,
         "ltcg_0_top": 96700,
         "ltcg_15_top": 600050,
-        "irmaa_inflator": 0.02,
+        # W-B / #334 (B2): "irmaa_inflator" removed -- the key is retired and
+        # never read (LTCG uses brk_inf; IRMAA follows CPI via tax_kernel).
     }
     terminal = {
         "year": 2056,

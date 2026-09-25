@@ -45,6 +45,7 @@ from .workbook_common import (
     write_hdr,
 )
 from .. import gain_harvest as _gh
+from .. import tax_kernel as _tk
 
 
 def _bracket_top(taxable_inc, year, filing, brk_inf):
@@ -64,18 +65,6 @@ def _bracket_top(taxable_inc, year, filing, brk_inf):
     return brk[-1][1] if brk else float('inf')
 
 
-def _irmaa_inflation_factor(c, year):
-    """Mirror deterministic_engine.py's ``_irmaa_factor_for_year``
-    (src/projection_stages/deterministic_engine.py:454) so the "$ to next
-    IRMAA tier" column is inflated on the exact same basis the engine used
-    to set ``row['irmaa_tier']`` for this row.
-    """
-    idx = c.get('irmaa_index_by_year') if isinstance(c.get('irmaa_index_by_year'), dict) else None
-    if idx:
-        return float(idx.get(year, idx.get(int(year), 1.0)) or 1.0)
-    return (1.0 + float(c.get('irmaa_inflator', 0.02) or 0.0)) ** (int(year) - int(c.get('plan_start', year)))
-
-
 def _next_irmaa_tier_distance(magi, year, filing, c):
     """Dollars of MAGI remaining before the next IRMAA tier.
 
@@ -87,9 +76,10 @@ def _next_irmaa_tier_distance(magi, year, filing, c):
     is already above the top tier.
     """
     tiers = IRMAA_TIERS_BASE_YEAR.get(filing, IRMAA_TIERS_BASE_YEAR['MFJ'])
-    infl = _irmaa_inflation_factor(c, year)
-    for threshold, _partb, _partd in tiers:
-        t = threshold * infl
+    # #334: the same indexed, statutorily rounded, top-tier-aware threshold
+    # the engine's tier assignment uses (single kernel implementation).
+    for i in range(len(tiers)):
+        t = _tk.irmaa_threshold(c, filing, i, year)
         if magi < t:
             return t - magi
     return None

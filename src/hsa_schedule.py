@@ -377,7 +377,7 @@ def score_year(c: Mapping[str, Any], row: Mapping[str, Any], amount: Any) -> flo
         return 0.0
 
     displacement = amount * _displaced_dollar_rate(row)
-    cliff = _irmaa_cliff_value(row, amount)
+    cliff = _irmaa_cliff_value(c, row, amount)
     return (displacement + cliff) * _pv_factor(c, row)
 
 
@@ -392,7 +392,7 @@ def _displaced_dollar_rate(row: Mapping[str, Any]) -> float:
     return rate
 
 
-def _irmaa_cliff_value(row: Mapping[str, Any], amount: float) -> float:
+def _irmaa_cliff_value(c: Mapping[str, Any], row: Mapping[str, Any], amount: float) -> float:
     """Value of the IRMAA tier crossing this draw avoids, in dollars.
 
     `irmaa_headroom` is the room left under the next tier's threshold. If the
@@ -415,7 +415,7 @@ def _irmaa_cliff_value(row: Mapping[str, Any], amount: float) -> float:
     if headroom < 0.0:
         return 0.0
 
-    step = _next_tier_surcharge_step(row)
+    step = _next_tier_surcharge_step(c, row)
     if step <= 0.0:
         return 0.0
     if amount >= headroom:
@@ -423,12 +423,21 @@ def _irmaa_cliff_value(row: Mapping[str, Any], amount: float) -> float:
     return step * (amount / headroom) ** 2
 
 
-def _next_tier_surcharge_step(row: Mapping[str, Any]) -> float:
+def _next_tier_surcharge_step(c: Mapping[str, Any], row: Mapping[str, Any]) -> float:
     """Annual household cost of moving from this row's IRMAA tier to the next.
 
-    Read off the same `IRMAA_TIERS_BASE_YEAR` table `core.irmaa_surcharge`
-    uses, at this row's filing status, so this is not a second IRMAA model.
-    Zero at the top tier -- there is no next tier to cross.
+    Delegates each tier's dollar amount to `tax_kernel.irmaa_tier_monthly` --
+    the same Medicare-inflation-indexed (`med_inf`/`partd_inf`, compounded
+    from the table's value year) and dime-rounded Part B + Part D dollars
+    `tax_kernel.irmaa_surcharge` charges a household at this row's filing
+    status and year. `IRMAA_TIERS_BASE_YEAR` itself holds only 2025-dollar
+    base amounts; reading it directly here (as this function used to) computes
+    a stale, unindexed surcharge for any year past the table's value year --
+    off by `med_inf`/`partd_inf` compounded across the gap, e.g. ~1.055^20 =
+    2.9x low by 2045 at a 5.5% Part B inflation assumption. Routing through
+    `tax_kernel` keeps this a single IRMAA-dollar model rather than a second
+    one (#334 follow-up finding, Task B4). Zero at the top tier -- there is no
+    next tier to cross.
     """
     filing = _filing(row)
     tiers = _irmaa_tiers_for(filing)
@@ -440,8 +449,14 @@ def _next_tier_surcharge_step(row: Mapping[str, Any]) -> float:
     if tier >= len(tiers):
         return 0.0
 
+    year = row.get('year')
+    if year is None:
+        return 0.0
+
+    filing_key = _irmaa_filing_key(filing)
     enrollees = _IRMAA_ENROLLEES.get(filing, 1)
-    return max(0.0, (_tier_annual(tiers, tier + 1) - _tier_annual(tiers, tier)) * enrollees)
+    return max(0.0, (_tier_annual(c, filing_key, tier + 1, year)
+                      - _tier_annual(c, filing_key, tier, year)) * enrollees)
 
 
 def _irmaa_tiers_for(filing: str) -> Sequence[Sequence[float]]:
@@ -461,16 +476,35 @@ def _irmaa_tiers_for(filing: str) -> Sequence[Sequence[float]]:
     return IRMAA_TIERS_BASE_YEAR.get('MFJ') or []
 
 
-def _tier_annual(tiers: Sequence[Sequence[float]], tier: int) -> float:
+def _irmaa_filing_key(filing: str) -> str:
+    """Table-cased filing key for `tax_kernel` calls, from an upper-cased one.
+
+    `tax_kernel._tiers` (and `IRMAA_TIERS_BASE_YEAR`) key on the table's own
+    mixed case ('Single', 'MFJ', 'MFS', 'HOH'); `_filing` normalizes rows to
+    upper case. An exact `.get(filing, ...)` with the upper-cased value would
+    miss every non-MFJ status and silently fall back to MFJ tiers, so this
+    resolves back to the table's own casing the same way `_irmaa_tiers_for`
+    does.
+    """
+    from .taxes import IRMAA_TIERS_BASE_YEAR
+    for key in IRMAA_TIERS_BASE_YEAR:
+        if key.upper() == filing:
+            return key
+    return 'MFJ'
+
+
+def _tier_annual(c: Mapping[str, Any], filing_key: str, tier: int, year: Any) -> float:
     """Per-beneficiary annual Part B + Part D surcharge at `tier` (0 = none).
 
     Tier numbering follows `core.irmaa_tier`: 0 is below the lowest threshold,
-    and tier k is the k-th entry of the table.
+    and tier k is the k-th entry of the table. The dollar amount itself comes
+    from `tax_kernel.irmaa_tier_monthly`, not from `IRMAA_TIERS_BASE_YEAR`
+    directly -- see `_next_tier_surcharge_step` for why.
     """
     if tier <= 0:
         return 0.0
-    part_b, part_d = tiers[tier - 1][1], tiers[tier - 1][2]
-    return (float(part_b) + float(part_d)) * 12.0
+    from . import tax_kernel
+    return tax_kernel.irmaa_tier_monthly(c, filing_key, tier - 1, int(year)) * 12.0
 
 
 def _pv_factor(c: Mapping[str, Any], row: Mapping[str, Any]) -> float:

@@ -44,7 +44,10 @@ def test_withdrawal_cascade_description_matches_engine_constant():
 def test_roth_page_uses_collapsible_sections_and_does_not_show_legacy_irmaa_base():
     js = dashboard_js_text()
     assert 'details class="roth-section"' in js
-    assert 'ROTH_ENGINE_LABELS' in js and 'roth_conv_window_end_offset' in js and 'irmaa_annual_inflator' in js
+    assert 'ROTH_ENGINE_LABELS' in js and 'roth_conv_window_end_offset' in js
+    # W-B / #334 (B2): irmaa_annual_inflator is retired (IRMAA thresholds follow
+    # CPI via tax_kernel), so the Roth page must no longer render it.
+    assert 'irmaa_annual_inflator' not in js
     assert 'irmaa_tier2_mfj_base_year' not in js
 
 

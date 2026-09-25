@@ -16,7 +16,7 @@ implementations genuinely disagreed in practice -- up to ~$7,869 over a
 divergence, both fixed by consolidating here:
 
 1. **Inflation index.** ``core.ltcg_tax_on_gain`` inflated bracket tops using
-   ``irmaa_inflator``; the engine used ``brk_inf``
+   the IRMAA threshold inflator (retired in #334); the engine used ``brk_inf``
    (``fed_tax_bracket_inflator``). These are independently settable and do
    diverge in shipped config (0.02 vs 0.028 in one real fixture).
 2. **Compounding base year.** ``core.py`` compounded from ``plan_start``; the
@@ -67,35 +67,98 @@ def bracket_factor_for_year(c, year):
     return (1.0 + rate) ** (int(year) - int(base_year))
 
 
-def irmaa_factor_for_year(c, year):
-    """Inflation factor applied to IRMAA MAGI thresholds for ``year``,
-    compounded from ``plan_start`` using ``c['irmaa_inflator']``. Kept
-    distinct from ``bracket_factor_for_year``: IRMAA is a Medicare premium
-    threshold, not a federal tax bracket, and uses its own index by design.
+# #334 / spec §9.4: statutory indexing rules for IRMAA.
+IRMAA_TOP_TIER_INDEX_START = 2028   # BBA 2018: top tier indexed from 2028
+
+
+def _index_factor(c, path_key, rate, year, base_year):
+    """Growth from ``base_year`` to ``year``. Monte Carlo paths are 1.0 at
+    plan_start, so they are bridged from base_year at the deterministic rate."""
+    r = float(rate or 0.0)
+    path = c.get(path_key)
+    if isinstance(path, dict):
+        v = path.get(year, path.get(int(year)))
+        if v is not None:
+            ps = int(c.get('plan_start', year))
+            return (1.0 + r) ** (ps - int(base_year)) * float(v)
+    return (1.0 + r) ** (int(year) - int(base_year))
+
+
+def irmaa_threshold_factor(c, year):
+    """CPI growth of IRMAA MAGI thresholds from the tier tables' value year."""
+    return _index_factor(c, 'inflation_index_by_year', c.get('inf', 0.025),
+                         year, _td.IRMAA_TIERS_VALUE_YEAR)
+
+
+irmaa_factor_for_year = irmaa_threshold_factor
+
+
+def irmaa_partb_factor(c, year):
+    """Part B IRMAA dollars scale with the Part B premium."""
+    return _index_factor(c, 'medical_index_by_year',
+                         c.get('med_inf', c.get('inf', 0.025)),
+                         year, _td.IRMAA_TIERS_VALUE_YEAR)
+
+
+def irmaa_partd_factor(c, year):
+    """Part D IRMAA dollars scale with the Part D base premium."""
+    return _index_factor(c, 'partd_index_by_year',
+                         c.get('partd_inf', c.get('med_inf', 0.0125)),
+                         year, _td.IRMAA_TIERS_VALUE_YEAR)
+
+
+def _tiers(filing):
+    return _td.IRMAA_TIERS_BASE_YEAR.get(filing, _td.IRMAA_TIERS_BASE_YEAR['MFJ'])
+
+
+def irmaa_threshold(c, filing, tier_idx, year):
+    """Indexed, statutorily rounded MAGI threshold for 0-based ``tier_idx``."""
+    tiers = _tiers(filing)
+    base = tiers[tier_idx][0]
+    if tier_idx == len(tiers) - 1:
+        if int(year) < IRMAA_TOP_TIER_INDEX_START:
+            return float(base)
+        f = (irmaa_threshold_factor(c, year)
+             / irmaa_threshold_factor(c, IRMAA_TOP_TIER_INDEX_START - 1))
+    else:
+        f = irmaa_threshold_factor(c, year)
+    step = 2000 if filing == 'MFJ' else 1000
+    return float(round(base * f / step) * step)
+
+
+def irmaa_tier_monthly(c, filing, tier_idx, year):
+    """Indexed, dime-rounded monthly Part B + Part D dollars for one tier.
+
+    ``tier_idx`` is 0-based into the filing status's ``IRMAA_TIERS_BASE_YEAR``
+    row, same convention as ``irmaa_threshold``. This is the single place that
+    turns a table row's raw base-year dollars into a real-year dollar amount
+    -- both ``irmaa_surcharge`` below and ``hsa_schedule``'s IRMAA-cliff term
+    (``_next_tier_surcharge_step``) call this rather than reading
+    ``IRMAA_TIERS_BASE_YEAR`` directly, so there is exactly one IRMAA-dollar
+    model (#334 follow-up finding, Task B4).
     """
-    idx = c.get('irmaa_index_by_year') if isinstance(c.get('irmaa_index_by_year'), dict) else None
-    if idx:
-        return float(idx.get(year, idx.get(int(year), 1.0)) or 1.0)
-    return (1.0 + float(c.get('irmaa_inflator', 0.02) or 0.0)) ** (int(year) - int(c.get('plan_start', year)))
+    tiers = _tiers(filing)
+    _, partb, partd = tiers[tier_idx]
+    return (round(partb * irmaa_partb_factor(c, year), 1)
+            + round(partd * irmaa_partd_factor(c, year), 1))
 
 
 def irmaa_surcharge(agi, year, n_people, filing, c):
     """Annual Part B + Part D IRMAA surcharge for a household at ``agi``."""
-    tiers = _td.IRMAA_TIERS_BASE_YEAR.get(filing, _td.IRMAA_TIERS_BASE_YEAR['MFJ'])
-    infl = irmaa_factor_for_year(c, year)
-    for threshold, partb, partd in reversed(tiers):
-        if agi > threshold * infl:
-            return (partb + partd) * n_people * 12
+    tiers = _tiers(filing)
+    for i in range(len(tiers) - 1, -1, -1):
+        if agi > irmaa_threshold(c, filing, i, year):
+            monthly = irmaa_tier_monthly(c, filing, i, year)
+            return monthly * n_people * 12
     return 0.0
 
 
 def irmaa_tier(agi, year, filing, c):
     """1-indexed IRMAA tier (0 = no surcharge) for a household at ``agi``."""
-    tiers = _td.IRMAA_TIERS_BASE_YEAR.get(filing, _td.IRMAA_TIERS_BASE_YEAR['MFJ'])
-    infl = irmaa_factor_for_year(c, year)
-    for i, (threshold, _, _) in enumerate(reversed(tiers)):
-        if agi > threshold * infl:
-            return len(tiers) - i
+    tiers = _tiers(filing)
+    for i in range(len(tiers) - 1, -1, -1):
+        if agi > irmaa_threshold(c, filing, i, year):
+            return i + 1
     return 0
 
 

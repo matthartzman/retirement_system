@@ -117,7 +117,8 @@ def base_plan() -> Dict[str, Any]:
             "return_rate": 0.06,
             "inflation": 0.025,
             "bracket_inflation": 0.02,
-            "irmaa_inflation": 0.02,
+            # W-B / #334 (B2): "irmaa_inflation" retired -- IRMAA thresholds
+            # follow "inflation" (CPI) via tax_kernel.
             "ss_cola": 0.02,
             "mc_volatility": 0.12,
             "roth_policy": "fill_to_bracket",

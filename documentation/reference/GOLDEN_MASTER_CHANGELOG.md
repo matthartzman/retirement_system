@@ -1,3 +1,151 @@
+## 2026-09-24 — CMS-data-accuracy correction to the base-year IRMAA table (#334, Task B5)
+
+This is a **CMS-data-accuracy correction**, not an indexing-mechanism change. A
+whole-branch review plus CMS-data verification found that `reference_data/tax_law_v10.json`'s
+entire base-year IRMAA table (not just the MFS rows Task B0 fixed) used
+surcharge-dollar amounts and some thresholds that did not match the actual,
+verified 2025 CMS Medicare Part B/D premium figures (Kiplinger/CMS,
+cross-confirmed across two web searches). The indexing/rounding mechanism
+introduced by the earlier #334 work is unchanged; only the base-year dollar
+inputs to that mechanism were corrected.
+
+**Part B surcharge, monthly (all four filing statuses share these five dollar
+amounts; only the income thresholds differ by filing status).**
+Old: 76.20 / 190.50 / 276.10 / 367.80 / 395.60
+New: 74.00 / 185.00 / 295.90 / 406.90 / 443.90
+
+**Part D surcharge, monthly.**
+Old: 14.10 / 36.60 / 59.00 / 76.80 / 83.50
+New: 13.70 / 35.30 / 57.00 / 78.60 / 85.80
+
+**MFJ thresholds** (tier1 $212,000 and tier5 $750,000 were already correct,
+unchanged): tier2 $268,000 -> $266,000, tier3 $335,000 -> $334,000,
+tier4 $402,000 -> $400,000.
+
+**MFS thresholds** (tier1 $106,000 was already correct, unchanged): tier2
+(top) $403,000 -> $394,000. MFS's two tiers continue to borrow the general
+schedule's tier4/tier5 dollar amounts (now 406.90/78.60 and 443.90/85.80
+respectively) — that structural mapping was already correct and untouched.
+
+Single/HOH thresholds were already correct and are unchanged.
+
+Files changed: `reference_data/tax_law_v10.json` (38 value corrections),
+`src/reporting/sheets_summary_builder.py` (hardcoded "IRMAA Tier 2 Threshold
+(MFJ)" report line, 268000 -> 266000), `src/server/app_core.py` (hardcoded
+MFJ-threshold fallback list used only if the live table import fails,
+268000/335000/402000 -> 266000/334000/400000), and `frontend/js/admin.js`
+(hardcoded Roth IRMAA target-tier dropdown labels, found by a follow-up
+review after this entry was first written: MFJ 268000/335000/402000 ->
+266000/334000/400000).
+
+Three frozen fixtures moved as a result, all via the same
+`tax_kernel.irmaa_threshold`/`irmaa_surcharge` code path (no formula or
+code-path change):
+
+1. **Main pin** (`tests/test_frozen_sample_plan_golden_master_regression.py`) — see
+   the entry immediately below.
+2. **`tests/fixtures/synthetic_golden_master_cases.json`** — regenerated via
+   `tools/regen_synthetic_golden_master.py`. All 10 scenarios' `first_rmd_total`/
+   `lifetime_tax`/`terminal_*_nw` moved. Hand-verified `baseline_balanced_couple`
+   to the cent: the corrected, *lower* MFJ tier2 base (266,000 vs 268,000)
+   produces a lower indexed withdrawal-cap threshold in `withdrawal_cascade_ira_true_up.py`
+   (e.g. its 2036 threshold moved 352,000 -> 350,000), which caps IRA-elective
+   withdrawals slightly earlier in some prior years, retaining more balance in
+   `Member_1_IRA` by 2039 (opening balance 1,305,232.11 -> 1,322,206.88, +16,974.77),
+   producing a proportionally larger RMD via the same Uniform Lifetime divisor
+   (24.6): +16,974.77 / 24.6 = +690.03, which matches the observed
+   `first_rmd_total` delta (53,058.22 -> 53,748.25) exactly. `single_filer` moved
+   only +4.99 — consistent, since Single/HOH thresholds are unchanged and only
+   the uniform surcharge-dollar correction reaches that scenario.
+3. **`tests/fixtures/deterministic_engine_full_row_snapshot_cases.json`** —
+   regenerated via `tools/regen_full_row_snapshot.py`. Same four pinned
+   scenarios (`baseline_balanced_couple`, `single_filer`,
+   `early_survivor_compression`, `tax_loss_harvesting`) move via the identical
+   mechanism verified above; `tax_loss_harvesting`'s 2057/2058 `Member_2_IRA`
+   balance and RMD increases are the same lower-cap-retains-more-balance
+   direction.
+
+Source: verified 2025 CMS Medicare Part B/D premium figures, obtained via web
+search by the task's controller (Kiplinger/CMS, cross-confirmed across two
+searches) and supplied as ground truth to this task; not independently
+re-verified inside this sandboxed session.
+
+## 2026-09-24 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
+
+<!-- pin-provenance: terminal_nw=5349803.80 lifetime_tax=1278590.53 -->
+
+**Old pins.** terminal_nw=5,347,342.47, lifetime_tax=1,279,063.77
+
+**New pins.** terminal_nw=5,349,803.80, lifetime_tax=1,278,590.53
+
+**Reason.**
+
+CMS-data-accuracy correction (#334): the base-year IRMAA table used the wrong
+2025 CMS dollar amounts for the Part B/D surcharges (all four filing statuses)
+and wrong MFJ tier2-4 / MFS tier2 income thresholds. Corrected to the verified
+2025 CMS Medicare Part B/D premium figures (Kiplinger/CMS, cross-confirmed
+across two web searches): Part B tiers now 74.00/185.00/295.90/406.90/443.90,
+Part D tiers now 13.70/35.30/57.00/78.60/85.80; MFJ tier2 268000->266000,
+tier3 335000->334000, tier4 402000->400000; MFS tier2 403000->394000. Single/
+HOH thresholds, MFJ tier1/tier5, and MFS tier1 were already correct and are
+unchanged.
+
+Hand-verified the demo plan's 2026 year (first non-zero IRMAA surcharge year,
+filing status MFJ), the same mechanism/formula as the prior #334 repin:
+tier index 3 (2nd-highest, not top) threshold =
+round(400000 * 1.025^1 / 2000) * 2000 = round(410000/2000)*2000 = 410000,
+matching engine's tax_kernel.irmaa_threshold(c, 'MFJ', 3, 2026) = 410000.0.
+AGI 455,284.18 falls between that threshold and the unindexed pre-2028 top
+tier (750,000), so tier index 3's dollar amounts apply. Monthly surcharge =
+round(406.9 * 1.055, 1) + round(78.6 * 1.0125, 1) = 429.3 + 79.6 = 508.9.
+Annual surcharge = 508.9 * n_people(0.6666666666666666) * 12 = 508.9 * 8 =
+4071.2, matching tax_kernel.irmaa_surcharge(agi, 2026, 0.6666666666666666,
+'MFJ', c) = 4071.2 exactly (verified interactively). This is a pure data
+correction within the same indexing/rounding mechanism introduced by the
+prior #334 work -- no formula or code-path change.
+
+## 2026-09-24 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
+
+<!-- pin-provenance: terminal_nw=5347342.47 lifetime_tax=1279063.77 -->
+
+**Old pins.** terminal_nw=5,438,505.25, lifetime_tax=1,255,734.10
+
+**New pins.** terminal_nw=5,347,342.47, lifetime_tax=1,279,063.77
+
+**Reason.**
+
+#334 IRMAA: CPI thresholds from 2025 value year with statutory rounding and 2028 top-tier rule; Part B/D surcharges indexed by med_inf/partd_inf. Hand-verified 2026 (first non-zero surcharge year in the frozen demo plan): threshold round(402000*1.025/2000)*2000=412000 vs engine 412000; surcharge (round(367.8*1.055,1)+round(76.8*1.0125,1))*0.6666666666666666*12 = 465.8*8=3726.40 vs engine 3726.3999999999996 -- matches to the cent.
+
+## 2026-09-24 — Correction: `single_filer`/`early_survivor_compression` repin rationale (#334)
+
+The synthetic-golden-master and full-row-snapshot repins accompanying the
+above #334 entry moved `first_rmd_total` for every scenario, and the internal
+task report attributed the `single_filer` and `early_survivor_compression`
+moves to "generally higher IRMAA thresholds." That is wrong for these two
+scenarios specifically (it is the correct cause for the MFJ scenarios, e.g.
+`baseline` 58,383.18 -> 53,058.22, which is CPI/Medicare-indexing per the
+entry above).
+
+Actual cause for `single_filer` (first_rmd_total 0 -> 38,416.70) and
+`early_survivor_compression` (-> 92,989.76 after its 2032 switch to Single):
+`src/projection_stages/withdrawal_cascade_ira_true_up.py`'s IRA-withdrawal
+cap previously used `c['irmaa_base']`, a single MFJ-scale (~$268,000)
+threshold applied regardless of filing status. Single/survivor scenarios
+could therefore overdraw pre-tax accounts past their real (much lower,
+~$133,000 base) tier-1 threshold, emptying the IRA before RMD age (the old
+pin's 0). B2 routed this call through `_tk.irmaa_threshold(c, filing, 1,
+year)`, so Single filers now use their own lower threshold, capping
+withdrawals earlier and leaving a real pre-tax balance at RMD age. Hand-
+verified to the cent: `single_filer` 2029 threshold
+`round(133,000 * 1.025**4 / 1000) * 1000 = 147,000` matches the engine across
+all 139 withdrawal calls in that scenario; 2038 year-end pretax balance
+$945,050.71 / Uniform Lifetime divisor 24.6 (age 75) = $38,416.696 ->
+$38,416.70. `early_survivor_compression` verified the same way (2031 MFJ
+threshold $310,000, 2032+ Single threshold $158,000, first_rmd_total
+$92,989.76 = $2,287,548.16 / 24.6).
+
+No pin/fixture values changed by this entry — documentation correction only.
+
 ## 2026-09-08 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
 
 <!-- pin-provenance: terminal_nw=5438505.25 lifetime_tax=1255734.10 -->

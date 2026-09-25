@@ -535,7 +535,6 @@ function titleCaseLabel(s) {
     roth_irmaa_target_tier: "Medicare IRMAA Tier Ceiling",
     irmaa_guardrail_mode: "IRMAA Guardrail Behavior",
     roth_irmaa_headroom_usage_pct: "IRMAA Headroom Used",
-    irmaa_annual_inflator: "IRMAA Threshold Inflation",
   };
   if (labelMap[key]) return labelMap[key];
   let out = String(s || "")
@@ -759,9 +758,9 @@ function choiceDisplay(label, value) {
   if (label === "roth_irmaa_target_tier") {
     const m = {
       TIER_1: "Tier 1 — MFJ $212,000 / Single $106,000",
-      TIER_2: "Tier 2 — MFJ $268,000 / Single $133,000",
-      TIER_3: "Tier 3 — MFJ $335,000 / Single $167,000",
-      TIER_4: "Tier 4 — MFJ $402,000 / Single $200,000",
+      TIER_2: "Tier 2 — MFJ $266,000 / Single $133,000",
+      TIER_3: "Tier 3 — MFJ $334,000 / Single $167,000",
+      TIER_4: "Tier 4 — MFJ $400,000 / Single $200,000",
       TIER_5: "Tier 5 — MFJ $750,000 / Single $500,000",
     };
     return m[v] || v;

@@ -26,7 +26,6 @@ Economic Assumptions,,social_security_taxable_fraction,percent,TRUE,85.00%,0,100
 Economic Assumptions,,annuity_default_dividend_rate,percent,FALSE,5.00%,0,20,Default dividend rate for annuities WITHOUT an explicit dividend rate of their own; has no effect on any annuity stream that already carries its own override rate
 Model Constants,Retirement,rollover_401k_year,year,TRUE,2030,2026,2060,401k->IRA rollover year
 Model Constants,Retirement,spending_freeze_year,year,TRUE,2040,2026,2060,Year spending stops inflating
-Model Constants,IRMAA,irmaa_annual_inflator,percent,TRUE,2.00%,0,5,IRMAA inflation rate
 Model Constants,IRMAA,irmaa_actual_magi_2yr_prior,dollars,FALSE,,0,,Actual household MAGI from the tax year two years before plan start (from filed tax returns). Seeds the statutory IRMAA two-year lookback for plan year 1. Leave blank to fall back to retirement-year AGI (see Build preflight for a reminder).
 Model Constants,IRMAA,irmaa_actual_magi_1yr_prior,dollars,FALSE,,0,,Actual household MAGI from the tax year one year before plan start (from filed tax returns). Seeds the statutory IRMAA two-year lookback for plan year 2. Leave blank to fall back to retirement-year AGI (see Build preflight for a reminder).
 Model Constants,IRMAA,h_ssa44_relief_year,year,FALSE,,2026,2100,First year Member 1's IRMAA surcharge is suppressed following an approved Form SSA-44 life-changing-event appeal. Leave blank if none filed. An appeal outcome is granted case-by-case, never guaranteed — this input only models an already-approved appeal.
