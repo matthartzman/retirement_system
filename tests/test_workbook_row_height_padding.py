@@ -166,7 +166,7 @@ def test_real_executive_summary_c26_is_no_longer_clipped_to_one_line(built_workb
     height tall enough for its real 2-line wrap, not the clipped 1-line
     height the flat-ratio bug produced."""
     wb = load_workbook(built_workbook_path, data_only=False)
-    ws = wb['1A. Executive Summary']
+    ws = wb['1C. Executive Summary']
     row = next(
         r for r in range(1, ws.max_row + 1)
         if isinstance(ws.cell(r, 3).value, str) and 'terminal net worth alone' in ws.cell(r, 3).value

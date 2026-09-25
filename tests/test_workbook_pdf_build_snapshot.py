@@ -385,7 +385,7 @@ class Phase5WorkbookSnapshotTests(unittest.TestCase):
         wb = openpyxl.load_workbook(self.workbook_path, data_only=True, read_only=True)
         combined = "\n".join(
             str(cell)
-            for sheet in ["1A. Executive Summary", "4B. Assumptions", "2A. Roth Conversion"]
+            for sheet in ["1C. Executive Summary", "4B. Assumptions", "2E. Roth Conversion"]
             if sheet in wb.sheetnames
             for row in wb[sheet].iter_rows(values_only=True)
             for cell in row

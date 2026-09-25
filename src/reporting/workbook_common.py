@@ -203,6 +203,7 @@ SECTION_COLOR = {
 # Analysis', '26. Workbook Warnings') that are created and dispatched but
 # deliberately absent from the visible nav (no `section`/`letter_prefix`).
 from ..module_catalog import SHEET_REGISTRY as _SHEET_REGISTRY
+from ..module_catalog import CATALOG as _CATALOG, WHOLE_PLAN as _WHOLE_PLAN, DOMAINS as _DOMAINS
 
 _SECTION_META = {
     '1': ('1. Reports', 'Read-only plan reports and advisor-review outputs.'),
@@ -211,6 +212,18 @@ _SECTION_META = {
     '4': ('4. Risks', 'Stress tests and the protection decisions they motivate.'),
     '5': ('5. Reference', 'Plan data snapshot, assumptions, reconciliation, quality control, RMD audit, methodology, and glossary.'),
 }
+
+
+def sheet_topic(name):
+    """Topic (catalog domain) a stable sheet name belongs to (design
+    2026-09-24 §9.1/§1.3): the owning module's domain, or "Whole Plan" for a
+    sheet with no module (Plan Data, Assumptions, Balance Sheet, ...).
+    """
+    spec = _SHEET_REGISTRY.get(name)
+    module_key = spec.module_key if spec is not None else None
+    if module_key and module_key in _CATALOG:
+        return _CATALOG[module_key].domain
+    return _WHOLE_PLAN
 
 
 def _derive_sheet_tables(registry):
@@ -228,10 +241,18 @@ def _derive_sheet_tables(registry):
     display_titles = {}
     slugs = {}
     for name, spec in registry.items():
+        # #332 W-F Task F6 (design 2026-09-24 §9.1): within a section, sheets
+        # order by Topic first, then by the existing section_rank/letter_rank
+        # -- letters stay derived, so the tab strip shows both facets
+        # (answer-type number, Topic sequence). Both by_section (drives
+        # physical tab order) and by_letter (drives letter assignment) get
+        # the same Topic prefix so a sheet's letter always matches its
+        # physical position.
+        topic_rank = _DOMAINS.index(sheet_topic(name))
         if spec.section is not None:
-            by_section[spec.section].append((spec.section_rank, name))
+            by_section[spec.section].append(((topic_rank, spec.section_rank), name))
         if spec.letter_prefix is not None:
-            by_letter[spec.letter_prefix].append((spec.letter_rank, name))
+            by_letter[spec.letter_prefix].append(((topic_rank, spec.letter_rank), name))
         if spec.display is not None:
             display_titles[name] = spec.display
         slugs[name] = spec.slug
@@ -1191,6 +1212,7 @@ __all__ = [
     "salt_cap",
     "sanitize_id",
     "section_title",
+    "sheet_topic",
     "standard_deduction",
     "state_estate_tax",
     "state_income_tax",
