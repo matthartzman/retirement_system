@@ -40,19 +40,24 @@ Default depth is `standard`. Use `deep` for deep, thorough, exhaustive, full, co
 
 ## Output and invocation
 
-Default: `documentation/archive/reports/SYSTEM_REVIEW_<YYYY-MM-DD>.md`. Use the date from context, not `Date.now()`. If occupied, append `-2`, `-3`, and so on; never overwrite.
+Default: `documentation/archive/reports/SYSTEM_REVIEW_<YYYY-MM-DD>.md`. Use the date from context, not `Date.now()`. If occupied, the workflow itself tries `-2`, `-3`, ... up to `-20`; never overwrite.
+
+Load the `workflow-authoring` skill first if you have not already this session — it documents the script API this workflow is written against. Invoke by `scriptPath`, not `name` (this workflow is not a saved/registered workflow):
 
 ```text
 Workflow({
-  name: "system-review",
+  scriptPath: ".claude/workflows/system-review.js",
   args: {
     scope: "<scope, or 'the entire system'>",
     date: "<YYYY-MM-DD>",
-    outPath: "<selected path>",
-    depth: "standard|deep"
+    outPath: "<selected path, or omit for the default>",
+    depth: "standard|deep",
+    scratch: "<absolute directory OUTSIDE the project for intermediate artifacts>"
   }
 })
 ```
+
+`date` and `scratch` are required — the Workflow runtime has no clock and no filesystem access of its own, so the script cannot default either. Pick `scratch` under the system temp/scratch directory available to this session, never inside the project (the workflow verifies this and aborts otherwise). The workflow reports its own completion summary (see below); relay it rather than re-deriving one.
 
 See linked references for detailed procedure. Read each when its phase of the review is reached, not all up front:
 
@@ -63,7 +68,7 @@ See linked references for detailed procedure. Read each when its phase of the re
 - [Runtime-validation policy](references/runtime-validation.md) — read before claiming anything about test or runtime behavior.
 - [Report template](references/report-template.md) — read before synthesis: the 14-section report structure and the pre-finalization quality gate.
 - [Coverage schema](schemas/coverage.schema.json) / [Findings schema](schemas/findings.schema.json) — machine-checkable shapes for the coverage matrix and finding register; validate the structured data against these before treating the Markdown report as final.
-- [Host adapter contract](references/adapter-contract.md) — read only if implementing or debugging `workflows/system-review.js`: signatures and failure behavior for every host/project adapter the workflow calls.
+- [Workflow script contract](references/adapter-contract.md) — read only if implementing or debugging `workflows/system-review.js`: the stage-by-stage contract (each stage delegated to an `agent()` call, not a host adapter), required `args`, and the scratch-artifact layout.
 
 ## If the `Workflow` tool is unavailable
 
