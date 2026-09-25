@@ -399,7 +399,9 @@ export function renderAssetsSpecial() {
     "Equity Compensation",
     "LTC/Life Policy",
   ];
-  let html = "";
+  // #338 W-E: home value, basis and the mortgage balance are always in
+  // effect (design 2026-09-24 §6) -- never gated by Next Housing Move.
+  let html = `<details><summary>Primary home</summary><div class="field-list">${primaryHomeFieldsHtml(rowsForStep("spending_mortgage_events"))}</div></details>`;
   groups.forEach((g, idx) => {
     const gr = rs.filter((r) => friendlyGroup(r) === g);
     if (g === "Other Asset Items") {

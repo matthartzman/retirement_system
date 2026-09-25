@@ -484,7 +484,18 @@ DASHBOARD_JS_MAX_LINES = 7_134
 # always shows the Large Discretionary and Adjustments accordions on the
 # core page, even before any spending category has a value (e2e caught
 # that an empty model left neither reachable). Measured 36,595.
-TOTAL_JS_MAX_LINES = 36_595
+# 2026-09-25 (#338 W-E, task E2): the housing plan inputs move into
+# Optimize -> Next Housing Move. housingPlanSectionsHtml() splits into
+# primaryHomeFieldsHtml / nextHousingMoveInputsHtml / homeImprovementsHtml
+# (the legacy Housing page still composes all three), plus the new off-state
+# (nextHousingMoveOffNoteHtml: saved-field count, muted value list, Plan
+# Features link), rowIsNextHousingMoveInput and strategySection's offBody
+# hook. dashboard.js is unchanged. New behavior: raised to the measured 36,666.
+# Task E3: Other Assets and Liabilities gains the always-in-effect "Primary
+# home" group (home value, basis, mortgage balance) and sourceStepForRow
+# routes those rows there; HELOC regroups to Investments & Property in
+# place (dashboard.js flat). Raised to the measured 36,669.
+TOTAL_JS_MAX_LINES = 36_669
 
 
 def _line_count(path: Path) -> int:

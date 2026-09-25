@@ -647,6 +647,10 @@ _OUTPUTS: List[OutputModule] = [
         optional=True, sheet="13. State Residency", tab="3A. State Residency",
         requires_inputs=(_in("planning_levers", "residency_choice"), _in("income"),
                          _in("assumptions", "state_tax")),
+        # Design 2026-09-24 §6: the state-over-time schedule is a Next Housing
+        # Move input, blanked by the loader when that switch is off.
+        degrades_without=(_soft("housing_location_search",
+                                "the planned mid-plan state moves"),),
     ),
     OutputModule(
         # Slice 4 (2026-09-09 housing-estimate design, §4, §7.0 H9-H11):
@@ -662,6 +666,10 @@ _OUTPUTS: List[OutputModule] = [
         optional=True, sheet="38. Housing Comparison", tab="2G. Housing Comparison",
         requires_inputs=(_in("household", "next_housing_steps"), _in("assumptions", "growth")),
         requires_outputs=BASE_PROJECTION,
+        # The baseline trajectory it sweeps from (sale year, next steps) is a
+        # Next Housing Move input; off, the sweep starts from "stay put".
+        degrades_without=(_soft("housing_location_search",
+                                "the saved sale year and next housing steps as the baseline"),),
     ),
     OutputModule(
         # ── Registry gap closed: the OTHER housing engine ────────────────────
@@ -711,14 +719,13 @@ _OUTPUTS: List[OutputModule] = [
         # mean first inventing a plan-input surface for the search parameters,
         # which is a feature, not a catalog record.
         #
-        # `engine_participation=False`, and the distinction is worth stating
-        # because this module runs the engine harder than any other: every
-        # candidate is a real `planning_engines.run_scenario` (plus
-        # `monte_carlo` for the shortlist). But `run_scenario` deep-copies and
-        # `plan_variant._apply_candidate` mutates only that copy, so the saved
-        # plan's own projection is untouched whether this is on or off. The
-        # flag means "this toggle moves the projection", not "this module calls
-        # the engine".
+        # `engine_participation=True` (design 2026-09-24 §6 [C]): the switch
+        # now owns the household's whole housing plan -- home sale, next
+        # housing steps 1 & 2, state residency over time. Off, the loader
+        # (`data_io.parse_client`) treats all of them as blank, so the plan
+        # stays in the current home and state; the rows themselves persist.
+        # The search's own candidate runs still deep-copy (`run_scenario`), so
+        # it is the gating, not the search, that moves the projection.
         #
         # No `degrades_without`: the `mc_success_rate` objective calls
         # `planning_engines.monte_carlo` directly (optimizer.py), NOT through
@@ -735,6 +742,7 @@ _OUTPUTS: List[OutputModule] = [
                          _in("assets", "home_value"), _in("liabilities", "mortgage"),
                          _in("assumptions", "growth", "home_appreciation", "inflation")),
         requires_outputs=BASE_PROJECTION,
+        engine_participation=True,
         # The Optimize screen's "Next Housing Move" section. A section, not a
         # nav step -- see the `dashboard_step` field note above for why one map
         # still serves both readers.
