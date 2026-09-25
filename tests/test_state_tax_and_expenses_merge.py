@@ -136,6 +136,9 @@ def test_state_residency_button_removed_from_planning_levers_decide_card():
     # (renderSpendingHousing), and deleted renderStateResidency along with
     # its dead State Comparison half. The feature still has to exist
     # somewhere -- that somewhere is now Housing.
+    # #338 W-C: renderSpendingHousing's non-cost sections (residency
+    # included) are housingPlanSectionsHtml now, shown under Spending
+    # Model's Housing accordion.
     assert 'renderResidencySchedule()' in dashboard_function_source(
-        'renderSpendingHousing', js
+        'housingPlanSectionsHtml', js
     )

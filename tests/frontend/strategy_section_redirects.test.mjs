@@ -17,6 +17,7 @@ import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
 import { fileURLToPath } from "node:url";
+import { loadDashboardSandbox } from "./load_dashboard.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const NAV_JS = path.join(HERE, "..", "..", "frontend", "js", "navigation.js");
@@ -62,6 +63,7 @@ let nav;
 let landedOn;
 let openedSections;
 let openedTabs;
+let revealed;
 
 beforeEach(() => {
   sandbox = loadNavigation();
@@ -72,6 +74,11 @@ beforeEach(() => {
   sandbox.window.strategySectionSetOpen = (key, open) =>
     openedSections.push([key, open]);
   sandbox.window.setStrategyTab = (step, tab) => openedTabs.push([step, tab]);
+  revealed = [];
+  sandbox.document.querySelector = (sel) => {
+    revealed.push(sel);
+    return null;
+  };
 });
 
 function go(id, planLoaded = true) {
@@ -154,12 +161,16 @@ describe("legacy Strategy step ids land on the right screen and section", () => 
 });
 
 describe("destinations that left Strategy entirely", () => {
-  test("state_residency lands on the Housing page", () => {
-    assert.equal(go("state_residency"), "spending_mortgage_events");
+  // #338 W-C: the Housing page left the nav; its residency table sits
+  // under Spending Model's Housing accordion.
+  test("state_residency lands on Spending Model's residency section", () => {
+    assert.equal(go("state_residency"), "spending_core");
+    assert.deepEqual(revealed, ['[data-dkey="housing:residency"]']);
   });
 
-  test("timing_tax lands on the Housing page", () => {
-    assert.equal(go("timing_tax"), "spending_mortgage_events");
+  test("timing_tax lands on Spending Model's residency section", () => {
+    assert.equal(go("timing_tax"), "spending_core");
+    assert.deepEqual(revealed, ['[data-dkey="housing:residency"]']);
   });
 
   // #329/#330 W9: heloc_strategy is a direct nav step now (W13 moved it into
@@ -191,10 +202,17 @@ describe("destinations that left Strategy entirely", () => {
     assert.deepEqual(openedSections, []);
   });
 
-  test("withdrawal_strategy lands on the Spending workspace's own tab, not on Strategy", () => {
+  // #338 W-C (C4): the Spending workspace's Withdrawal Order tab is gone;
+  // every row it rendered renders on these three Optimize sections.
+  test("withdrawal_strategy lands on Optimize with its three withdrawal sections open", () => {
     const landed = go("withdrawal_strategy");
-    assert.equal(landed, "spending_core");
-    assert.deepEqual(openedTabs, [["spending_core", "Withdrawal Order"]]);
+    assert.equal(landed, "strategy_optimize");
+    assert.deepEqual(openedTabs, []);
+    assert.deepEqual(openedSections, [
+      ["withdrawal_sequencing", true],
+      ["hsa_drawdown", true],
+      ["harvesting", true],
+    ]);
   });
 });
 
@@ -243,8 +261,14 @@ describe("autosave coverage follows the steps that replaced the old ones", () =>
     }
   });
 
-  test("state_residency's autosave moved with its table to the Housing page", () => {
-    assert.ok(nav.AUTOSAVE_STEPS.includes("spending_mortgage_events"));
+  test("state_residency's autosave moved with its table to Spending Model", () => {
+    assert.ok(nav.AUTOSAVE_STEPS.includes("spending_core"));
+  });
+
+  test("the retired Housing and Wellness step ids are not autosave destinations (#338)", () => {
+    for (const id of ["spending_mortgage_events", "retirement_wellness"]) {
+      assert.ok(!nav.AUTOSAVE_STEPS.includes(id), id);
+    }
   });
 
   // #330 P8 / Q6 (W13): both left strategy_optimize's aggregate autosave
@@ -290,5 +314,36 @@ describe("pendingSectionDkey does not leak across an aborted redirect (final rev
       null,
       `a stale pending section reveal from the aborted navigation leaked into an unrelated one (queried ${queried})`,
     );
+  });
+});
+
+// #338 W-C task C3: Housing and Wellness are edited inside Spending Model;
+// their old step ids land there with the matching accordion open.
+describe("Housing and Wellness steps redirect into Spending Model (#338)", () => {
+  const OPEN = { spending_mortgage_events: "Housing", retirement_wellness: "Wellness" };
+  for (const [legacy, accordion] of Object.entries(OPEN)) {
+    test(`${legacy} -> Spending Model / ${accordion} accordion`, () => {
+      assert.equal(go(legacy), "spending_core");
+      assert.deepEqual(revealed, [`[data-dkey="budget:core:${accordion}"]`]);
+    });
+  }
+
+  test("the reveal opens every collapsed ancestor, not just the target", () => {
+    const outer = { tagName: "DETAILS", open: false, parentElement: null };
+    const inner = { tagName: "DETAILS", open: false, parentElement: outer };
+    const target = { tagName: "DETAILS", open: false, parentElement: inner, scrollIntoView() {} };
+    sandbox.document.querySelector = () => target;
+    go("state_residency");
+    assert.equal(target.open, true);
+    assert.equal(inner.open, true);
+    assert.equal(outer.open, true);
+  });
+
+  test("neither id is a visible nav step", () => {
+    const dash = loadDashboardSandbox();
+    vm.runInContext("planLoaded = true; activeStep = 'spending_core';", dash);
+    const ids = vm.runInContext("visibleSteps().map((s) => s.id)", dash);
+    assert.ok(ids.includes("spending_core"));
+    for (const id of Object.keys(OPEN)) assert.ok(!ids.includes(id), id);
   });
 });

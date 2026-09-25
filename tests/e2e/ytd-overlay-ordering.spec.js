@@ -68,11 +68,11 @@ test('the overlay is shown before Actual Spending (YTD)\'s render runs, not afte
   // Fire it without awaiting the returned promise so this can observe the
   // overlay WHILE the operation is still in flight.
   await page.evaluate(() => {
-    window.goToStrategyTab('spending_core', 'Actual Spending (YTD)');
+    window.goToStrategyTab('actual_spending', 'This year');
   });
   await expect(page.locator('#buildOverlay')).toHaveClass(/active/, { timeout: 500 });
 
-  await expect(page.getByRole('tab', { name: 'Actual Spending (YTD)' })).toHaveClass(/active/, { timeout: 15_000 });
+  await expect(page.getByRole('tab', { name: 'This year' })).toHaveClass(/active/, { timeout: 15_000 });
   await expect(page.locator('.workspace-tab-body')).not.toBeEmpty();
 
   const result = await page.evaluate(() => ({

@@ -125,7 +125,9 @@ export function renderLargeDiscretionaryBudgetPage() {
 
 export function renderLifestyleSpending() {
   // #269: DAF settings duplicate Special Strategies -> Charitable Giving; drop here.
-  return `<div class="lifestyle-workspace"><details><summary>Travel</summary>${renderTravelBudgetPage()}</details><details><summary>Large Items</summary>${renderLargeDiscretionaryBudgetPage()}</details></div>`;
+  // #338 W-C: Travel has its own editable Spending Model accordion now, so
+  // only Large Items stays here.
+  return `<div class="lifestyle-workspace"><details><summary>Large Items</summary>${renderLargeDiscretionaryBudgetPage()}</details></div>`;
 }
 
 // Every export above is also re-attached to window: dashboard.js calls these

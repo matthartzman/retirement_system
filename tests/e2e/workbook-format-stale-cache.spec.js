@@ -83,7 +83,7 @@ test('a rebuilt column width replaces the stale "Last built" value after navigat
     expect(finalTitle).toBe('Build complete');
 
     // The actual regression: navigate away, then back, with no page reload.
-    await navigateToStep(page, 'reports_and_review', 'Reports & Review');
+    await navigateToStep(page, 'reports_and_review', 'Build & Results');
     await navigateToStep(page, 'workbook_formatting', 'Workbook Formatting');
     await expandFirstColumn(page);
 

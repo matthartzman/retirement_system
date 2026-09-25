@@ -32,9 +32,13 @@ def test_spending_nav_and_save_copy():
     spending_core = js.index('id: "spending_core"')
     travel = js.index('id: "spending_travel"')
     large = js.index('id: "spending_travel_extras"')
-    ytd = js.index('id: "ytd_transactions"')
     holdings = js.index('id: "holdings"')
-    assert spending_core < travel < large < ytd < holdings
+    assert spending_core < travel < large < holdings
+    # #338 W-C: transactions moved to Reports & Review, as the hidden entry
+    # right before the Actual Spending step whose "This year" tab it is.
+    ytd = js.index('id: "ytd_transactions"')
+    actual = js.index('id: "actual_spending"')
+    assert holdings < ytd < actual
     assert 'title: "Spending Model"' in js
     assert 'Save Budget' not in js
     assert 'saveAll(true)' in js
