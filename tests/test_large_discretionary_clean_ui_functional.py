@@ -87,7 +87,10 @@ def test_user_ui_uses_visible_category_select_not_vacation_only_button():
     assert "function renderLargeDiscretionaryBudgetPage" in js
     assert '<select onchange="updateLargeDiscLine(' in js
     # The dropdown is populated from a real category list, not a single button.
-    assert 'LARGE_DISC_TYPES = ["Wedding", "Large Gifts", "Other"]' in js
+    # #336: the five one-time Large Discretionary categories.
+    assert "export const LARGE_DISC_TYPES = [" in js
+    for cat in ("Weddings", "Large Gifts", "Education", "Auto", "Other"):
+        assert f'  "{cat}",' in js
     assert "function largeDiscTypeFromLine" in js
     # Rows are user-addable and user-removable, not a fixed vacation-only row.
     assert "function addLargeDiscLine" in js

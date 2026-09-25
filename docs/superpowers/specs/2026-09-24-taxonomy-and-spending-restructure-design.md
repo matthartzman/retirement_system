@@ -841,7 +841,7 @@ test("no 'Annualized Actual' copy in frontend", () => {
 `migrate_repeatable(sectioned) -> tuple[list[LdItem], list[str]]` (items, notices);
 `ld_budget_for_year(items, year) -> float`; `ld_cashflow_by_year(items) -> dict[int,float]`.
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```python
 from src.large_discretionary import LdItem, ld_budget_for_year, ld_cashflow_by_year, migrate_repeatable
@@ -864,18 +864,18 @@ def test_repeatable_rows_expand_with_notice():
     assert any("Core category" in n for n in notices)  # 12 rows > 10
 ```
 
-- [ ] **Step 2:** Run — FAIL.
-- [ ] **Step 3:** Implement `src/large_discretionary.py` (category map per spec §4), wire the loader to produce items, replace the annualization path for Large Discretionary in the YTD/budget resolvers with `ld_budget_for_year`, and feed `ld_cashflow_by_year` into the projection where `extra_N` amounts are applied today.
-- [ ] **Step 4:** `pytest -m "not slow"`; `measure` — demo LD rows are one-time already, expected `+0.00`; any delta is investigated before proceeding.
-- [ ] **Step 5:** Commit `feat(ld): large discretionary is one-time, never annualized (#336)`
+- [x] **Step 2:** Run — FAIL.
+- [x] **Step 3:** Implement `src/large_discretionary.py` (category map per spec §4), wire the loader to produce items, replace the annualization path for Large Discretionary in the YTD/budget resolvers with `ld_budget_for_year`, and feed `ld_cashflow_by_year` into the projection where `extra_N` amounts are applied today.
+- [x] **Step 4:** `pytest -m "not slow"`; `measure` — demo LD rows are one-time already, expected `+0.00`; any delta is investigated before proceeding.
+- [x] **Step 5:** Commit `feat(ld): large discretionary is one-time, never annualized (#336)`
 
 ### Task D2: Large Discretionary UI
 
 **Files:** `frontend/js/dashboard_decomp_large_discretionary.js`; `input/demo/client_spending_taxonomy.csv` (retire LD groups: status `deleted`); Test `tests/frontend/large_discretionary.test.mjs`
 
-- [ ] **Step 1:** Failing tests: pulldown options equal `LD_CATEGORIES` (Education labelled "Education (not 529-funded)"); rows have Amount, Year, Note, In budget; no start/end-year inputs; header shows no "Annualized"; caution line present when `education_funding_529` is on.
-- [ ] **Step 2–4:** Implement; `npm test`; `pytest -m "not slow"`.
-- [ ] **Step 5:** Commit `feat(ld): one section, five categories, In-budget column`
+- [x] **Step 1:** Failing tests: pulldown options equal `LD_CATEGORIES` (Education labelled "Education (not 529-funded)"); rows have Amount, Year, Note, In budget; no start/end-year inputs; header shows no "Annualized"; caution line present when `education_funding_529` is on.
+- [x] **Step 2–4:** Implement; `npm test`; `pytest -m "not slow"`.
+- [x] **Step 5:** Commit `feat(ld): one section, five categories, In-budget column`
 
 ### Task D3: Spending Adjustments engine
 
@@ -883,7 +883,7 @@ def test_repeatable_rows_expand_with_notice():
 
 **Interfaces — Produces:** `Adjustment(category:str, start:int, end:int|None, pct:float)` where `category` is a category id or `"ALL:<tracking type>"`; `adjustment_factor(adjs, category_id, tracking_type, year) -> float`.
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```python
 import pytest
@@ -905,18 +905,18 @@ def test_end_year_is_inclusive_then_reverts():
     assert adjustment_factor(A, "home_aide", "Wellness", 2051) == 1.0
 ```
 
-- [ ] **Step 2:** Run — FAIL.
-- [ ] **Step 3:** Implement; load `Spending Adjustments` rows (`adj_N_category/start_year/end_year/change_pct`); multiply each category's inflated spend by `adjustment_factor` in the projection.
-- [ ] **Step 4:** `pytest -m "not slow"`; `measure` → `+0.00` (demo has no rows).
-- [ ] **Step 5:** Commit `feat(spending): category step-downs/step-ups by year (#335)`
+- [x] **Step 2:** Run — FAIL.
+- [x] **Step 3:** Implement; load `Spending Adjustments` rows (`adj_N_category/start_year/end_year/change_pct`); multiply each category's inflated spend by `adjustment_factor` in the projection.
+- [x] **Step 4:** `pytest -m "not slow"`; `measure` → `+0.00` (demo has no rows).
+- [x] **Step 5:** Commit `feat(spending): category step-downs/step-ups by year (#335)`
 
 ### Task D4: Spending Adjustments table UI
 
 **Files:** new `frontend/js/dashboard_decomp_spending_adjustments.js`; accordion host in `dashboard_decomp_spending_taxonomy.js`; Test `tests/frontend/spending_adjustments.test.mjs`
 
-- [ ] **Step 1:** Failing tests: pulldown = active categories of Core/Housing/Wellness/Travel + four "All ‹type›" options, none from Large Discretionary/Taxes/Business; add/edit/delete write `adj_N_*` rows; helper text shows the compounded result ("72% of today's level").
-- [ ] **Step 2–4:** Implement; `npm test`.
-- [ ] **Step 5:** Commit `feat(spending): Adjustments table in Spending Model`
+- [x] **Step 1:** Failing tests: pulldown = active categories of Core/Housing/Wellness/Travel + four "All ‹type›" options, none from Large Discretionary/Taxes/Business; add/edit/delete write `adj_N_*` rows; helper text shows the compounded result ("72% of today's level").
+- [x] **Step 2–4:** Implement; `npm test`.
+- [x] **Step 5:** Commit `feat(spending): Adjustments table in Spending Model`
 
 ---
 
