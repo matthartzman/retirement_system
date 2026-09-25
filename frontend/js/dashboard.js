@@ -22,8 +22,9 @@ const STEPS = [
     help: "Start with opening or creating a plan. Once a plan is loaded, save changes, build reports, and review results from here.",
   },
   {
+    // #332 W-F F5: "People and Income" splits into "Household" (utility) and "Income & Benefits" (Topic, below).
     id: "household_people",
-    group: "People and Income",
+    group: "Household",
     title: "Household & People",
     desc: "Names, birth dates, state of residence, tax filing status, retirement dates, planning horizon, and survivor income and filing assumptions.",
     intro:
@@ -32,7 +33,7 @@ const STEPS = [
   },
   {
     id: "income_work",
-    group: "People and Income",
+    group: "Income & Benefits",
     title: "Work Income",
     desc: "Salary or self-employment income, payroll assumptions, and retirement plan contributions while still working.",
     intro:
@@ -42,7 +43,7 @@ const STEPS = [
   },
   {
     id: "income_retirement",
-    group: "People and Income",
+    group: "Income & Benefits",
     title: "SS, Pensions, & Annuities",
     desc: "Social Security claiming age and benefit for each person, plus pension amounts, annuity income, start ages, survivor percentages, and cost-of-living settings.",
     intro:
@@ -116,6 +117,33 @@ const STEPS = [
     hidden: true,
   },
   {
+    id: "holdings",
+    group: "Investments & Property",
+    title: "Investment Holdings",
+    desc: "One row per tax lot: account, ticker, shares, purchase date, and cost basis.",
+    intro:
+      "Add holdings from your broker here — a broker statement or CSV export usually lists everything a row needs directly.",
+    help: "Lot-level cost basis enables tax-aware sell guidance in the allocation output. Use CASH at price 1.00 for money market and cash positions. Export before replacing to preserve a backup.",
+  },
+  {
+    id: "assets_home_cash",
+    group: "Investments & Property",
+    title: "Reserve Requirements",
+    desc: "The cash reserve floor the plan protects before drawing investments.",
+    intro:
+      "Reserve rules set how many months of spending to hold outside the investment portfolio. Home value and mortgage balance are on Other Assets and Liabilities; home sale is in Optimize → Next Housing Move.",
+    help: "The reserve floor is the last buffer in probability analysis — the plan counts as failing when it cannot maintain this floor without depleting all accounts.",
+  },
+  {
+    id: "assets_special",
+    group: "Investments & Property",
+    title: "Other Assets and Liabilities",
+    desc: "Non-portfolio assets: notes receivable, HSA, 529 plans, equity compensation, collectibles, and personal property.",
+    intro:
+      "Pick the asset type that best describes each item's economic purpose, then enter today's fair value and, for anything illiquid, a planned sale date.",
+    help: "HSA balances grow tax-free and should reflect intended use. Donor-advised fund configuration is set on Other Spending.",
+  },
+  {
     // #329 O11 / #330 §4.3 (W9): moved out of Strategy -- HELOC is a
     // liability held against an asset, not an optimizer. No longer
     // hidden/embedded inside Optimize's strategySection list: it is a direct
@@ -136,26 +164,9 @@ const STEPS = [
     help: "The strategy improves projected net worth when compound growth on the preserved liquid assets exceeds total borrowing costs. It worsens outcomes when interest drag or reduced home equity at sale outweigh the investment benefit.",
   },
   {
-    id: "holdings",
-    group: "Assets & Protection",
-    title: "Investment Holdings",
-    desc: "One row per tax lot: account, ticker, shares, purchase date, and cost basis.",
-    intro:
-      "Add holdings from your broker here — a broker statement or CSV export usually lists everything a row needs directly.",
-    help: "Lot-level cost basis enables tax-aware sell guidance in the allocation output. Use CASH at price 1.00 for money market and cash positions. Export before replacing to preserve a backup.",
-  },
-  {
-    id: "assets_home_cash",
-    group: "Assets & Protection",
-    title: "Reserve Requirements",
-    desc: "The cash reserve floor the plan protects before drawing investments, plus spendable checking cash.",
-    intro:
-      "Reserve rules set how many months of spending to hold outside the investment portfolio. Home value and mortgage balance are on Other Assets and Liabilities; home sale is in Optimize → Next Housing Move.",
-    help: "The reserve floor is the last buffer in probability analysis — the plan counts as failing when it cannot maintain this floor without depleting all accounts.",
-  },
-  {
+    // #332 W-F F1: "Assets & Protection" splits by Topic -- annuities/insurance are Insurance & Care.
     id: "annuity_death_benefits",
-    group: "Assets & Protection",
+    group: "Insurance & Care",
     title: "Insurance",
     desc: "Year-by-year carrier illustration values for annuities and special income, plus all insurance policies (life, disability, long-term care, umbrella, auto, home, property and casualty, and other).",
     intro:
@@ -163,17 +174,9 @@ const STEPS = [
     help: "Rider benefits that step down or expire early can leave the survivor without protection — compare benefit schedules against the planning horizon set on Retirement Timing. Policy names must match any cross-references on stress pages.",
   },
   {
-    id: "assets_special",
-    group: "Assets & Protection",
-    title: "Other Assets and Liabilities",
-    desc: "Non-portfolio assets: notes receivable, HSA, 529 plans, equity compensation, collectibles, and personal property.",
-    intro:
-      "Pick the asset type that best describes each item's economic purpose, then enter today's fair value and, for anything illiquid, a planned sale date.",
-    help: "HSA balances grow tax-free and should reflect intended use. Donor-advised fund configuration is set on Other Spending.",
-  },
-  {
+    // #332 W-F F1: "Assets & Protection" splits by Topic -- estate inputs are Estate & Legacy.
     id: "estate",
-    group: "Assets & Protection",
+    group: "Estate & Legacy",
     title: "Estate Inputs",
     desc: "Federal and state exemptions, trust structure, beneficiary needs, lifetime gifting, and charitable intent.",
     intro:
@@ -653,9 +656,9 @@ const STEP_HELP = {
   ),
   assets_home_cash: pageHelp(
     "Cash reserves",
-    "This page captures checking cash and liquidity reserve rules. Home value and related fields have moved to the Housing tab.",
-    "Cash and reserve rules connect to withdrawal sequencing, liquidity floors, and Monte Carlo failure modes.",
-    "Checking cash is spendable cash outside the holdings table. Reserve rules describe how many years of spending to preserve and which account bucket should be protected. Home value and home sale fields are now on the Housing tab.",
+    "This page captures liquidity reserve rules. Home value and related fields have moved to the Housing tab.",
+    "Reserve rules connect to withdrawal sequencing, liquidity floors, and Monte Carlo failure modes.",
+    "Reserve rules describe how many years of spending to preserve and which account bucket should be protected. Home value and home sale fields are now on the Housing tab.",
     "Higher cash reserves improve liquidity resilience but can reduce expected return if too much capital stays out of the portfolio.",
   ),
   assets_special: pageHelp(
@@ -2631,13 +2634,8 @@ const DEFAULT_TRAVEL_TYPES = ["Wedding", "Large Gifts", "Other"];
 function renderAssetsCashReserves() {
   if (searchText.trim())
     return renderFields("assets_home_cash") + renderLiquidityBuffers();
-  const rs = rowsForStep("assets_home_cash");
-  const cash = rs.filter((r) => norm(r.subsection || "") === "cash");
   let html =
-    '<div class="section-note">Spendable cash outside the investment accounts, and the reserve floor the plan protects before drawing from the portfolio. <b>Home value and mortgage balance are on <a href="#" onclick="setStep(\'assets_special\');return false">Other Assets and Liabilities</a>; home sale is in <a href="#" onclick="setStep(\'strategy_optimize\');return false">Optimize → Next Housing Move</a>.</b></div>';
-  if (cash.length)
-    html +=
-      '<div class="field-list">' + cash.map(fieldHtml).join("") + "</div>";
+    '<div class="section-note">The reserve floor the plan protects before drawing from the portfolio. <b>Home value and mortgage balance are on <a href="#" onclick="setStep(\'assets_special\');return false">Other Assets and Liabilities</a>; home sale is in <a href="#" onclick="setStep(\'strategy_optimize\');return false">Optimize → Next Housing Move</a>.</b></div>';
   html += renderLiquidityBuffers();
   return html;
 }
@@ -3956,7 +3954,7 @@ const FIELD_GUIDANCE_OVERRIDES = {
     impact:
       "This value affects starting net worth and may affect liquidity, allocation context, estate values, or cash-flow reporting depending on the row.",
     consider:
-      "For Cash, this means checking-account cash outside the investment holdings table. For other assets, use today's fair market value.",
+      "Use today's fair market value or account balance for this item.",
   },
   face_value: {
     purpose: "The outstanding principal still owed on the note receivable.",
