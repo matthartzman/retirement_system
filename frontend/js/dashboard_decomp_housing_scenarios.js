@@ -773,32 +773,32 @@ export function renderCollapsibleDomainBudgetSection(domain, openByDefault) {
 
 export function renderSpendingHousing() {
   const rs = rowsForStep("spending_mortgage_events");
-  const _CURRENT_MORTGAGE_EXCL = ["annual_real_estate_taxes"];
-  const mortgage = rs.filter(
+  return (
+    renderCollapsibleDomainBudgetSection("housing", true) +
+    '<details><summary class="section-header">Housing costs</summary><div class="section-body">' +
+    housingCostGroupsHtml(rs) +
+    "</div></details>" +
+    housingPlanSectionsHtml(rs)
+  );
+}
+
+// #338 W-C: the housing PLAN inputs (home value/basis, mortgage balance, home
+// sale, residency over time, next moves, improvements) -- everything the old
+// Housing page rendered that is not a recurring cost. Housing costs render in
+// Spending Model's Housing accordion via housingCostGroupsHtml()
+// (dashboard_decomp_spending_sources.js); these sit in a collapsed section
+// under it until W-E moves them to Other Assets and Next Housing Move.
+export function housingPlanSectionsHtml(rs) {
+  const mortgageBalance = rs.filter(
     (r) =>
       String(r.section || "").trim() === "Cashflow" &&
       norm(r.subsection || "") === "mortgage" &&
-      !_CURRENT_MORTGAGE_EXCL.includes(norm(r.label || "")),
+      norm(r.label || "") === "balance_as_of_plan_start",
   );
   const homeRows = rs.filter(
     (r) =>
       String(r.section || "").trim() === "Other Assets" &&
       norm(r.subsection || "") === "home",
-  );
-  const _CURRENT_HOME_EXCL = [
-    "city_type",
-    "population_size",
-    "hoa_pct",
-    "hoa_annual",
-    "homeowners_insurance_annual",
-    "home_maintenance_annual",
-    "utilities_annual",
-  ];
-  const housingOpRows = rs.filter(
-    (r) =>
-      String(r.section || "").trim() === "Housing" &&
-      norm(r.subsection || "") === "current_home" &&
-      !_CURRENT_HOME_EXCL.includes(norm(r.label || "")),
   );
   const homeImprovRows = rs.filter(
     (r) =>
@@ -833,25 +833,14 @@ export function renderSpendingHousing() {
 
   let html = "";
 
-  html += renderCollapsibleDomainBudgetSection("housing", true);
-
   html +=
     '<details><summary class="section-header">Current home</summary><div class="section-body">';
   html +=
-    '<div class="section-note">Current mortgage payment timing and home value. Real-estate taxes, homeowners insurance, maintenance, and utilities are entered in Housing Budget Detail below. Click <button class="btn btn-sm" type="button" onclick="seedHousingRows()">Seed Housing Fields</button> to add insurance, utilities, maintenance, and next-housing-step fields if not yet present.</div>';
-  if (mortgage.length)
+    '<div class="section-note">Home value, basis, and the mortgage balance at plan start. Mortgage payment timing and recurring housing costs are entered with the Housing budget.</div>';
+  const currentHome = mortgageBalance.concat(keyHomeRows);
+  if (currentHome.length)
     html +=
-      '<div class="field-list">' + mortgage.map(fieldHtml).join("") + "</div>";
-  if (housingOpRows.length)
-    html +=
-      '<div class="field-list">' +
-      housingOpRows.map(fieldHtml).join("") +
-      "</div>";
-  if (keyHomeRows.length)
-    html +=
-      '<div class="field-list">' +
-      keyHomeRows.map(fieldHtml).join("") +
-      "</div>";
+      '<div class="field-list">' + currentHome.map(fieldHtml).join("") + "</div>";
   html += "</div></details>";
 
   html +=
@@ -1410,6 +1399,7 @@ Object.assign(window, {
   renderNextHousingStepSection,
   renderCollapsibleDomainBudgetSection,
   renderSpendingHousing,
+  housingPlanSectionsHtml,
   homeSaleScenarioYearRow,
   addUniqueRow,
   renderBaseHomeSaleRows,

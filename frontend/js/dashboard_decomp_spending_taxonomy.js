@@ -72,7 +72,7 @@ export function renderSpendingCore() {
   if (searchText.trim()) return renderFields("spending_core");
   /* DAF contributions are intentionally routed to Charitable Giving, not Core Spending. */ const rs =
     rowsForStep("spending_core").filter(
-      (r) => norm(r.label) !== "daf_annual_contribution",
+      (r) => norm(r.label) !== "daf_annual_contribution" && !rowIsSpendingSourceRow(r),
     );
   const mode = coreSpendingGrowthMode();
   const hidden = new Set([
@@ -642,16 +642,13 @@ export function renderDomainBudgetTable(domain) {
   // in the taxonomy, not just the domain being viewed -- repeating it on each
   // domain tab would imply a per-domain scope it does not have.
   //
-  // Deliberately NOT guarded by readOnlyRef: that const is declared per
-  // tracking type inside the data.forEach below (it means "this tracking type
-  // is budgeted on its source page"), so it is both out of scope here and the
-  // wrong question to ask -- there is no workspace-wide read-only mode. The
+  // There is no workspace-wide read-only mode to guard this with; the
   // showInAppConfirm() inside loadAnnualizedActuals is the guard.
   if (domain === "core") {
     html += `<div class="table-actions"><button class="btn" type="button" onclick="loadAnnualizedActuals()" title="Overwrite every category budget with its annualized current-year spend; new transaction categories are merged into the taxonomy">Load annualized current spend</button> <span class="small" style="color:var(--muted)">Overwrites all category budgets across every tracking type.</span></div>`;
   }
   html += '<div class="taxonomy-tree">';
-  data.forEach(function (typeData) {
+  (domain === "core" ? sortByTrackingTypeOrder(data) : data).forEach(function (typeData) {
     const tt = typeData.tracking_type;
     let ttTotal = 0,
       ttActual = 0,
@@ -664,12 +661,11 @@ export function renderDomainBudgetTable(domain) {
       ttActual += spendingRowYtd(g);
       ttAnnualized += spendingRowAnnualized(g);
     });
-    const readOnlyRef =
-      domain === "core" && ["Housing", "Wellness", "Travel"].includes(tt);
-    html += `<details class="taxonomy-type-section" data-dkey="budget:${esc(domain)}:${esc(tt)}"><summary><b>${esc(tt)}</b> <span class="small">YTD ${dollars0(ttActual)} · Annualized ${dollars0(ttAnnualized)} · Budget ${dollars0(ttTotal)} · Projection ${dollars0(ttProjection || ttTotal)}</span>${tt === "Business" ? ` <span class="small" style="font-weight:400;color:var(--muted)">modeled; excluded from core spend base</span>` : ""}${readOnlyRef ? ` <span class="small" style="font-weight:400;color:var(--muted)">read-only reference</span>` : ""}</summary>`;
-    if (readOnlyRef)
-      html +=
-        '<div class="section-note">This Tracking Type is budgeted on its source page. Values appear here as read-only reference so Spending Categories remains comprehensive without creating duplicate inputs.</div>';
+    // #338 W-C: Housing, Wellness and Travel are edited here now -- their
+    // source pages' field groups render in the accordion body
+    // (dashboard_decomp_spending_sources.js), no longer a read-only mirror.
+    html += `<details class="taxonomy-type-section" data-dkey="budget:${esc(domain)}:${esc(tt)}"><summary><b>${esc(tt)}</b> <span class="small">YTD ${dollars0(ttActual)} · Annualized ${dollars0(ttAnnualized)} · Budget ${dollars0(ttTotal)} · Projection ${dollars0(ttProjection || ttTotal)}</span>${tt === "Business" ? ` <span class="small" style="font-weight:400;color:var(--muted)">modeled; excluded from core spend base</span>` : ""}</summary>`;
+    if (domain === "core") html += spendingSourceHeadHtml(tt);
     (typeData.groups || []).forEach(function (grp) {
       const gname = grp.group;
       const gj = esc(gname).replace(/'/g, "\\'");
@@ -678,14 +674,14 @@ export function renderDomainBudgetTable(domain) {
       const catSum = groupCatSum(tt, gname);
       const eff = groupEffectiveBudget(tt, gname);
       const catCount = (grp.categories || []).length;
-      html += `<div class="taxonomy-group"><h4 class="taxonomy-group-title" style="display:flex;align-items:center;gap:8px;flex-wrap:nowrap"><span style="white-space:nowrap">${esc(gname)}</span><span class="small" style="font-weight:400;white-space:nowrap">YTD ${dollars0(spendingRowYtd(grp))} · Annualized ${dollars0(spendingRowAnnualized(grp))} · Budget ${dollars0(eff)} · Projection ${dollars0(spendingRowProjectionSeed(grp) || eff)}</span><span style="margin-left:auto;display:flex;align-items:center;gap:6px;flex-shrink:0"><button class="btn" style="padding:0 8px" ${readOnlyRef ? "disabled " : ""}onclick="loadTemplateGroup('${esc(tt)}','${gj}')">Load template categories for group</button> <button class="btn ${gmode === "summary" ? "primary" : ""}" style="padding:0 8px" ${readOnlyRef ? "disabled " : ""}onclick="setGroupBudgetMode('${esc(tt)}','${gj}','summary')">Summary</button> <button class="btn ${gmode === "detail" ? "primary" : ""}" style="padding:0 8px" ${readOnlyRef ? "disabled " : ""}onclick="setGroupBudgetMode('${esc(tt)}','${gj}','detail')">Detail</button>${catCount === 0 ? deleteIconBtn(`deleteTaxonomyGroup('${esc(tt).replace(/'/g, "\\'")}','${gj}')`) : ""}</span></h4>`;
+      html += `<div class="taxonomy-group"><h4 class="taxonomy-group-title" style="display:flex;align-items:center;gap:8px;flex-wrap:nowrap"><span style="white-space:nowrap">${esc(gname)}</span><span class="small" style="font-weight:400;white-space:nowrap">YTD ${dollars0(spendingRowYtd(grp))} · Annualized ${dollars0(spendingRowAnnualized(grp))} · Budget ${dollars0(eff)} · Projection ${dollars0(spendingRowProjectionSeed(grp) || eff)}</span><span style="margin-left:auto;display:flex;align-items:center;gap:6px;flex-shrink:0"><button class="btn" style="padding:0 8px" onclick="loadTemplateGroup('${esc(tt)}','${gj}')">Load template categories for group</button> <button class="btn ${gmode === "summary" ? "primary" : ""}" style="padding:0 8px" onclick="setGroupBudgetMode('${esc(tt)}','${gj}','summary')">Summary</button> <button class="btn ${gmode === "detail" ? "primary" : ""}" style="padding:0 8px" onclick="setGroupBudgetMode('${esc(tt)}','${gj}','detail')">Detail</button>${catCount === 0 ? deleteIconBtn(`deleteTaxonomyGroup('${esc(tt).replace(/'/g, "\\'")}','${gj}')`) : ""}</span></h4>`;
       if (gmode === "summary") {
         // #231: Travel/Large Discretionary group budgets are time-bounded in
         // the projection (spending_budget_resolver.py TIME_BOUNDED_LINE_TRACKING_TYPES)
         // -- only these two tracking types honor start/end year on the group
         // row, so only show the fields where they actually take effect.
         const gYearFields = ["Travel", "Large Discretionary"].includes(tt)
-          ? `<label class="small">Start year&nbsp;</label><input ${readOnlyRef ? "disabled " : ""}type="number" value="${esc((taxBudget[gk] || {}).start_year || "")}" placeholder="plan start" oninput="updateTaxBudget('${esc(gk)}','start_year',this.value)" style="width:90px"> <label class="small">End year&nbsp;</label><input ${readOnlyRef ? "disabled " : ""}type="number" value="${esc((taxBudget[gk] || {}).end_year || "")}" placeholder="plan end" oninput="updateTaxBudget('${esc(gk)}','end_year',this.value)" style="width:90px"> `
+          ? `<label class="small">Start year&nbsp;</label><input type="number" value="${esc((taxBudget[gk] || {}).start_year || "")}" placeholder="plan start" oninput="updateTaxBudget('${esc(gk)}','start_year',this.value)" style="width:90px"> <label class="small">End year&nbsp;</label><input type="number" value="${esc((taxBudget[gk] || {}).end_year || "")}" placeholder="plan end" oninput="updateTaxBudget('${esc(gk)}','end_year',this.value)" style="width:90px"> `
           : "";
         const gNoAnnualizeRaw = (taxBudget[gk] || {}).no_annualize || "";
         const gIsNoAnnualize = gNoAnnualizeRaw === "TRUE";
@@ -693,9 +689,8 @@ export function renderDomainBudgetTable(domain) {
           annualizeToggleBtn(
             `toggleAnnualizeFlag('${esc(gk)}',${gIsNoAnnualize})`,
             gIsNoAnnualize,
-            { disabled: readOnlyRef },
           ) + " ";
-        html += `<div class="table-actions" style="flex-wrap:nowrap;overflow-x:auto"><label class="small" style="white-space:nowrap">Group budget / yr&nbsp;</label><input ${readOnlyRef ? "disabled " : ""}type="text" class="budget-money-input" value="${esc(budgetMoneyInputValue((taxBudget[gk] || {}).annual_budget))}" placeholder="${catSum > 0 ? dollars0(catSum) : "$0"}" onfocus="focusBudgetMoney(this)" oninput="updateTaxBudgetMoney('${esc(gk)}','annual_budget',this)" onblur="blurBudgetMoney(this)" style="width:140px;flex-shrink:0"> ${gYearFields}${gAnnualizeField}<span class="small" style="white-space:nowrap">category and line detail disabled — group number wins</span></div>`;
+        html += `<div class="table-actions" style="flex-wrap:nowrap;overflow-x:auto"><label class="small" style="white-space:nowrap">Group budget / yr&nbsp;</label><input type="text" class="budget-money-input" value="${esc(budgetMoneyInputValue((taxBudget[gk] || {}).annual_budget))}" placeholder="${catSum > 0 ? dollars0(catSum) : "$0"}" onfocus="focusBudgetMoney(this)" oninput="updateTaxBudgetMoney('${esc(gk)}','annual_budget',this)" onblur="blurBudgetMoney(this)" style="width:140px;flex-shrink:0"> ${gYearFields}${gAnnualizeField}<span class="small" style="white-space:nowrap">category and line detail disabled — group number wins</span></div>`;
       } else {
         html += '<div class="budget-cat-detail-list">';
         (grp.categories || []).forEach(function (cat) {
@@ -721,7 +716,7 @@ export function renderDomainBudgetTable(domain) {
               : cNoAnnualizeRaw === "FALSE"
                 ? false
                 : !!cat.no_annualize;
-          html += `<div class="budget-cat-entry"><div class="budget-cat-header"><span class="budget-cat-name" style="font-weight:500">${esc(cat.label)}</span><span class="small" style="color:var(--muted)">${cat.actual || cat.annualized || hasData ? `YTD Actual ${dollars0(spendingRowYtd(cat))} · Annualized ${dollars0(spendingRowAnnualized(cat))}${hasData ? ` · Annual Budget ${dollars0(displayTotal)}/yr · Projection ${dollars0(spendingRowProjectionSeed(cat) || displayTotal)}` : ""}` : ""}</span><label class="small">Annual <input ${readOnlyRef ? "disabled " : ""}type="text" class="budget-money-input" value="${esc(budgetMoneyInputValue(b.annual_budget))}" placeholder="$0" onfocus="focusBudgetMoney(this)" oninput="updateTaxBudgetMoney('${cidEsc}','annual_budget',this)" onblur="blurBudgetMoney(this)" style="width:100px"></label><span style="margin-left:auto;display:flex;align-items:center;gap:6px;flex-shrink:0">${annualizeToggleBtn(`toggleAnnualizeFlag('${cidEsc}',${cIsNoAnnualize})`, cIsNoAnnualize, { disabled: readOnlyRef })}${deleteIconBtn(`deleteTaxonomyCat('${cidEsc}','${esc(cat.label).replace(/'/g, "\\'")}')`, { disabled: readOnlyRef })}</span></div></div>`;
+          html += `<div class="budget-cat-entry"><div class="budget-cat-header"><span class="budget-cat-name" style="font-weight:500">${esc(cat.label)}</span><span class="small" style="color:var(--muted)">${cat.actual || cat.annualized || hasData ? `YTD Actual ${dollars0(spendingRowYtd(cat))} · Annualized ${dollars0(spendingRowAnnualized(cat))}${hasData ? ` · Annual Budget ${dollars0(displayTotal)}/yr · Projection ${dollars0(spendingRowProjectionSeed(cat) || displayTotal)}` : ""}` : ""}</span><label class="small">Annual <input type="text" class="budget-money-input" value="${esc(budgetMoneyInputValue(b.annual_budget))}" placeholder="$0" onfocus="focusBudgetMoney(this)" oninput="updateTaxBudgetMoney('${cidEsc}','annual_budget',this)" onblur="blurBudgetMoney(this)" style="width:100px"></label><span style="margin-left:auto;display:flex;align-items:center;gap:6px;flex-shrink:0">${annualizeToggleBtn(`toggleAnnualizeFlag('${cidEsc}',${cIsNoAnnualize})`, cIsNoAnnualize)}${deleteIconBtn(`deleteTaxonomyCat('${cidEsc}','${esc(cat.label).replace(/'/g, "\\'")}')`)}</span></div></div>`;
         });
         html += "</div>";
         const allGroupLines = [];
@@ -735,14 +730,15 @@ export function renderDomainBudgetTable(domain) {
           allGroupLines.forEach(function (l) {
             const lid = esc(l.line_id);
             const cidEsc = esc(l.category_id || "");
-            html += `<tr><td><select ${readOnlyRef ? "disabled " : ""} onchange="updateGroupDetailCategory('${lid}',this.value,'${cidEsc}')">${(grp.categories || []).map((c) => `<option value="${esc(c.id)}"${c.id === l.category_id ? " selected" : ""}>${esc(c.label)}</option>`).join("")}</select></td><td><input value="${esc(l.label || "")}" placeholder="description" oninput="updateCategoryDetail('${lid}','label',this.value,'${cidEsc}')" style="width:120px"></td><td><input type="number" value="${esc(l.start_year || "")}" placeholder="—" oninput="updateCategoryDetail('${lid}','start_year',this.value,'${cidEsc}')" style="width:72px"></td><td><input type="number" value="${esc(l.end_year || "")}" placeholder="forever" oninput="updateCategoryDetail('${lid}','end_year',this.value,'${cidEsc}')" style="width:72px"></td><td><input type="number" value="${esc(l.one_time_year || "")}" placeholder="—" oninput="updateCategoryDetail('${lid}','one_time_year',this.value,'${cidEsc}')" style="width:72px"></td><td><input type="text" class="budget-money-input" value="${esc(budgetMoneyInputValue(l.amount_per_year))}" placeholder="$0" onfocus="focusBudgetMoney(this)" oninput="updateCategoryDetailMoney('${lid}','amount_per_year',this,'${cidEsc}')" onblur="blurBudgetMoney(this)" style="width:100px"></td><td>${deleteIconBtn(`deleteCategoryDetailRow('${lid}','${cidEsc}')`, { disabled: readOnlyRef })}</td></tr>`;
+            html += `<tr><td><select  onchange="updateGroupDetailCategory('${lid}',this.value,'${cidEsc}')">${(grp.categories || []).map((c) => `<option value="${esc(c.id)}"${c.id === l.category_id ? " selected" : ""}>${esc(c.label)}</option>`).join("")}</select></td><td><input value="${esc(l.label || "")}" placeholder="description" oninput="updateCategoryDetail('${lid}','label',this.value,'${cidEsc}')" style="width:120px"></td><td><input type="number" value="${esc(l.start_year || "")}" placeholder="—" oninput="updateCategoryDetail('${lid}','start_year',this.value,'${cidEsc}')" style="width:72px"></td><td><input type="number" value="${esc(l.end_year || "")}" placeholder="forever" oninput="updateCategoryDetail('${lid}','end_year',this.value,'${cidEsc}')" style="width:72px"></td><td><input type="number" value="${esc(l.one_time_year || "")}" placeholder="—" oninput="updateCategoryDetail('${lid}','one_time_year',this.value,'${cidEsc}')" style="width:72px"></td><td><input type="text" class="budget-money-input" value="${esc(budgetMoneyInputValue(l.amount_per_year))}" placeholder="$0" onfocus="focusBudgetMoney(this)" oninput="updateCategoryDetailMoney('${lid}','amount_per_year',this,'${cidEsc}')" onblur="blurBudgetMoney(this)" style="width:100px"></td><td>${deleteIconBtn(`deleteCategoryDetailRow('${lid}','${cidEsc}')`)}</td></tr>`;
           });
           html += "</tbody></table>";
         }
-        html += `<div class="table-actions" style="margin-top:4px"><button class="btn" style="font-size:12px" ${readOnlyRef ? "disabled " : ""} onclick="addGroupDetailRow('${esc(tt)}','${gj}')">+ Add row</button></div>`;
+        html += `<div class="table-actions" style="margin-top:4px"><button class="btn" style="font-size:12px"  onclick="addGroupDetailRow('${esc(tt)}','${gj}')">+ Add row</button></div>`;
       }
       html += "</div>";
     });
+    if (domain === "core") html += spendingSourceTailHtml(tt);
     html += "</details>";
   });
   html += `<div class="section-note" style="margin-top:12px"><b>${esc(domainBudgetTitle(domain))} total: $${Math.round(grandTotal).toLocaleString()}/yr</b></div>`;

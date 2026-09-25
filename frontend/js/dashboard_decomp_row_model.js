@@ -1501,7 +1501,10 @@ export function rawRowsForStep(id) {
             lbl === "inflation_general") ||
           (sec === "Model Constants" &&
             sub === "retirement" &&
-            lbl === "spending_freeze_year")
+            lbl === "spending_freeze_year") ||
+          // #338 W-C: Housing costs and Wellness are edited in Spending
+          // Model's accordions, so sourceStepForRow() lands there.
+          rowIsSpendingSourceRow(r)
         );
       case "spending_travel_extras":
         return false;
