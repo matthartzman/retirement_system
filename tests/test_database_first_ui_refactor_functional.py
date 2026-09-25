@@ -22,7 +22,10 @@ def test_dashboard_top_level_groups():
     # Features already groups its switches under that name, so leaving the
     # pages filed elsewhere (or nowhere) was the mismatch this workstream
     # exists to close.
-    assert groups == ["Plan Status", "People and Income", "Spending", "Housing & Property", "Assets & Protection", "Taxes", "Family & Business", "Strategy", "Reports & Review", "Settings"]
+    # #338 W-E: the Housing & Property nav group dissolves (design
+    # 2026-09-24 §2) -- HELOC moves to "Investments & Property", and the
+    # hidden Housing redirect step is filed under Spending.
+    assert groups == ["Plan Status", "People and Income", "Spending", "Investments & Property", "Assets & Protection", "Taxes", "Family & Business", "Strategy", "Reports & Review", "Settings"]
     assert "Advanced Options" not in re.search(r"function renderSteps\(\).*?box\.innerHTML", js, re.S).group(0)
     # #338 W-C: Housing and Wellness are edited inside Spending Model; their
     # old steps stay only as hidden redirect targets.

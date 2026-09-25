@@ -491,7 +491,11 @@ DASHBOARD_JS_MAX_LINES = 7_134
 # (nextHousingMoveOffNoteHtml: saved-field count, muted value list, Plan
 # Features link), rowIsNextHousingMoveInput and strategySection's offBody
 # hook. dashboard.js is unchanged. New behavior: raised to the measured 36,666.
-TOTAL_JS_MAX_LINES = 36_666
+# Task E3: Other Assets and Liabilities gains the always-in-effect "Primary
+# home" group (home value, basis, mortgage balance) and sourceStepForRow
+# routes those rows there; HELOC regroups to Investments & Property in
+# place (dashboard.js flat). Raised to the measured 36,669.
+TOTAL_JS_MAX_LINES = 36_669
 
 
 def _line_count(path: Path) -> int:

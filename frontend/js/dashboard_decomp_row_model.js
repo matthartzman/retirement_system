@@ -826,6 +826,7 @@ export function stepTitleById(id) {
 export function sourceStepForRow(row) {
   if (!row) return "";
   if (rowIsNextHousingMoveInput(row)) return "strategy_optimize";
+  if (primaryHomeRows([row]).length) return "assets_special";
   try {
     for (const id of BUILD_IMPACT_SOURCE_STEP_IDS) {
       if (rawRowsForStep(id).some((x) => x.row_index === row.row_index))
