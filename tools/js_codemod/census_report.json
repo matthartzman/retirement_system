@@ -186,6 +186,7 @@
   "variables": [
     "BUILD_HISTORY_LS_KEY",
     "BUILD_HISTORY_MAX",
+    "BUILD_HISTORY_SCHEMA_VERSION",
     "BUILD_IMPACT_SOURCE_STEP_IDS",
     "DEFAULT_TRAVEL_TYPES",
     "FIELD_GUIDANCE_OVERRIDES",
@@ -344,6 +345,7 @@
   "const_variables": [
     "BUILD_HISTORY_LS_KEY",
     "BUILD_HISTORY_MAX",
+    "BUILD_HISTORY_SCHEMA_VERSION",
     "BUILD_IMPACT_SOURCE_STEP_IDS",
     "DEFAULT_TRAVEL_TYPES",
     "FIELD_GUIDANCE_OVERRIDES",
@@ -1306,6 +1308,18 @@
       "scope": "inside-function"
     },
     {
+      "name": "buildOverlayStartedAt",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildOverlayStartedAt",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "buildOverlayTimer",
       "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
       "kind": "read",
@@ -2155,6 +2169,12 @@
       "name": "searchText",
       "file": "frontend/js/dashboard_decomp_estate_insurance.js",
       "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "boolishValue",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
       "scope": "inside-function"
     },
     {
@@ -3089,6 +3109,12 @@
     },
     {
       "name": "buildHistory",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "BUILD_HISTORY_SCHEMA_VERSION",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
       "scope": "inside-function"
@@ -9119,6 +9145,7 @@
   "externally_referenced_variables": [
     "BUILD_HISTORY_LS_KEY",
     "BUILD_HISTORY_MAX",
+    "BUILD_HISTORY_SCHEMA_VERSION",
     "BUILD_IMPACT_SOURCE_STEP_IDS",
     "DEFAULT_TRAVEL_TYPES",
     "FIELD_GUIDANCE_OVERRIDES",
