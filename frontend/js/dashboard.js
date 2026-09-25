@@ -54,7 +54,7 @@ const STEPS = [
     id: "spending_core",
     group: "Spending",
     title: "Spending Model",
-    desc: "Comprehensive income/expense category hierarchy, budget references, and projection spending controls, plus Travel and Large Items budgets below them. Also the entry point for Actual Spending (YTD) and Spending Analysis -- see the tabs above the content.",
+    desc: "Comprehensive income/expense category hierarchy, budget references, and projection spending controls, with one editable accordion per Tracking Type. Actual Spending (YTD) and Spending Analysis are under Reports & Review.",
     intro:
       "Review the full Tracking Type → Group → Category model here. It should account for all income and all expenses, including taxes, except internal transfers; lifestyle detail pages still hold scheduled spending inputs.",
     help: "Spending Model is the category manager. Transaction assignment appears here as Advanced Auto-Mapping Rules only when needed.",
@@ -98,15 +98,6 @@ const STEPS = [
     help: "Home Improvements are entered with Housing and Travel with Travel, both on Spending Model. Keep this page for other flexible large expenses.",
     hidden: true,
   },
-  {
-    id: "ytd_transactions",
-    group: "Spending",
-    title: "Actual Spending (This Year)",
-    desc: "Import, assign, review, and sync current-year income and expense transactions.",
-    intro:
-      "Import transactions, review assignments, and compare the current year with the spending model before updating the plan.",
-    help: "Category assignment happens on Spending Model. Accounts & Sources controls account/source type, prior-year balances, and current values.",
-    hidden: true,  },
   {
     // #330 P8 / Q6 (W13): promoted out of Spending. Housing & Property is a
     // domain of its own in the catalog (module_catalog's HOUSING_PROPERTY,
@@ -396,9 +387,26 @@ const STEPS = [
     help: "Enter the projected transfer value, not the current account balance. Alimony is taxable to recipient and deductible to payor only under pre-2019 agreements — flag the agreement date when modeling.",
     hidden: true,  },
   {
+    id: "ytd_transactions",
+    group: "Reports & Review",
+    title: "Actual Spending (This Year)",
+    desc: "Import, assign, review, and sync current-year income and expense transactions.",
+    intro:
+      "Import transactions, review assignments, and compare the current year with the spending model before updating the plan.",
+    help: "Category assignment happens on Spending Model. Accounts & Sources controls account/source type, prior-year balances, and current values.",
+    hidden: true,  },
+  {
+    id: "actual_spending",
+    group: "Reports & Review",
+    title: "Actual Spending",
+    desc: "This year's imported income and expense transactions, and how they compare with the spending model.",
+    intro: "Import and assign this year's transactions on This year; compare annualized spending with the plan on Analysis, then sync the actual rate before building.",
+    help: "Category assignment happens on Spending Model. Accounts & Sources controls account/source type, prior-year balances, and current values.",
+  },
+  {
     id: "reports_and_review",
     group: "Reports & Review",
-    title: "Reports & Review",
+    title: "Build & Results",
     desc: "One workspace for readiness, build, impact, results, downloads, and plan data review.",
     intro:
       "Build current reports (readiness checks appear right above the Build button), review impact and results, then download or print the final package.",
@@ -406,7 +414,7 @@ const STEPS = [
   },
   {
     id: "spending_dashboard",
-    group: "Reports",
+    group: "Reports & Review",
     title: "Spending Analysis",
     desc: "Actual vs budget by spending group, portfolio growth year-to-date, and alignment with the 30-year model.",
     intro:
@@ -417,7 +425,7 @@ const STEPS = [
 
   {
     id: "review",
-    group: "Reports",
+    group: "Reports & Review",
     title: "Download Reports",
     desc: "Build and download the workbook — downloads automatically save first when there are pending changes.",
     intro:
@@ -427,7 +435,7 @@ const STEPS = [
   },
   {
     id: "build_impact",
-    group: "Reports",
+    group: "Reports & Review",
     title: "Impact & Build History",
     desc: "Universal comparison surface for baseline builds, planning cases, scenario comparisons, and stress-suite results.",
     intro:
@@ -437,7 +445,7 @@ const STEPS = [
   },
   {
     id: "detailed_results",
-    group: "Reports",
+    group: "Reports & Review",
     title: "Results",
     desc: "In-app view of all workbook sheets, charts, and data tables after a build — column groups can be collapsed to focus on key metrics.",
     intro:
@@ -447,7 +455,7 @@ const STEPS = [
   },
   {
     id: "plan_data_report",
-    group: "Reports",
+    group: "Reports & Review",
     title: "Plan Data Review",
     desc: "Printable summary of every plan input, grouped by section — not editable here.",
     intro:
@@ -840,6 +848,7 @@ const STEP_HELP = {
     "No planning impact — this changes only the appearance of the Excel output, never any calculated value.",
   ),
 };
+STEP_HELP.actual_spending = STEP_HELP.ytd_transactions;
 let apiBase = "",
   appReady = false,
   rows = [],
@@ -2356,7 +2365,7 @@ function dependencyRank(label) {
 }
 
 function fieldFinderCategoryName(group) {
-  return group === "Reports" ? "Reports & Review" : group || "Uncategorized";
+  return group || "Uncategorized";
 }
 function fieldFinderCategoryOrder() {
   const order = [];
@@ -3537,12 +3546,9 @@ function renderStrategyTabs(step, tabs, active) {
 // used to be several separate nav steps -- keyed by the merged step's own
 // id, reused by getStrategyTab/setStrategyTab/goToStrategyTab/renderStrategyTabs
 // below regardless of which workspace it's for.
-// Ticket 286: distribution_strategy's sub-nav is gone. Its four tabs duplicated
-// nav entries that already existed at top level; Withdrawal Order moved to the
-// Spending workspace below, and Roth Conversion / Allocation & Location are now
-// embedded in the Strategy decide box (renderPlanningLevers).
+// #338 W-C: Actual Spending (ytd_transactions + spending_dashboard) is the only one left.
 const STRATEGY_TABS = {
-  spending_core: ["Spending Model", "Actual Spending (YTD)", "Spending Analysis"],
+  actual_spending: ["This year", "Analysis"],
 };
 
 // Shared left-nav sub-tab strip for any STRATEGY_TABS-registered workspace step.
@@ -3578,20 +3584,17 @@ const SPENDING_WORKFLOW_STEPS = [
 ];
 const SPENDING_WORKFLOW_INDEX = {
   spending_core: 0,
+  actual_spending: 1,
   ytd_transactions: 1,
   spending_dashboard: 2,
 };
 function renderSpendingWorkflowBanner(stepId) {
-  // stepId (activeStep) can only be "spending_core" now for this banner --
-  // ytd_transactions/spending_dashboard both redirect there instead
-  // (navigation.js's WORKSPACE_TAB_REDIRECTS) -- so resolve which workflow
-  // stage is effectively active from the current tab instead.
+  // ytd_transactions/spending_dashboard redirect onto actual_spending's two
+  // tabs (navigation.js's WORKSPACE_TAB_REDIRECTS), so resolve the stage
+  // from the current tab there.
   let effectiveStepId = stepId;
-  if (stepId === "spending_core") {
-    const tab = getStrategyTab("spending_core");
-    if (tab === "Actual Spending (YTD)") effectiveStepId = "ytd_transactions";
-    else if (tab === "Spending Analysis") effectiveStepId = "spending_dashboard";
-  }
+  if (stepId === "actual_spending")
+    effectiveStepId = getStrategyTab(stepId) === "Analysis" ? "spending_dashboard" : "ytd_transactions";
   const activeIdx = SPENDING_WORKFLOW_INDEX[effectiveStepId] ?? -1;
   if (activeIdx < 0) return "";
   const parts = [];
@@ -3641,7 +3644,7 @@ function primaryActionForStep(stepId) {
     return `<button class="btn primary" type="button" onclick="planningCaseCreate('manual')">Save Case</button>`;
   if (hasUnsavedPlanChanges())
     return '<button class="btn primary" type="button" onclick="saveAll(true)">Save Changes</button>';
-  return '<button class="btn" type="button" data-step-id="reports_and_review">Review Reports</button>';
+  return '<button class="btn" type="button" data-step-id="reports_and_review">Open Build & Results</button>';
 }
 // #285: preserve focus (and, when safe, selection) across the innerHTML
 // replace that renderMain() performs below. This is a GENERAL fix, not a
@@ -3678,7 +3681,7 @@ let renderMain = function() {
   }
   const st = STEPS.find((s) => s.id === activeStep) || STEPS[0];
   const _stIdx = visibleSteps().findIndex((x) => x.id === st.id) + 1;
-  const _eyebrow = ["Reports", "Reports & Review", "Settings"].includes(
+  const _eyebrow = ["Reports & Review", "Settings"].includes(
     st.group,
   )
     ? st.group
@@ -3695,8 +3698,9 @@ let renderMain = function() {
     content += renderSpendingWorkflowBanner(activeStep);
   }
   if (activeStep === "start") content += renderWelcome();
-  else if (activeStep === "spending_core")
-    content += window.renderSpendingWorkspace(STRATEGY_TABS.spending_core);
+  else if (activeStep === "spending_core") content += renderCoreSpendingUnified();
+  else if (activeStep === "actual_spending")
+    content += window.renderActualSpendingWorkspace(STRATEGY_TABS.actual_spending);
   else if (activeStep === "lifestyle_spending")
     content += renderLifestyleSpending();
   else if (activeStep === "spending_travel")
@@ -3704,10 +3708,6 @@ let renderMain = function() {
   else if (activeStep === "spending_travel_extras")
     content += renderLargeDiscretionaryBudgetPage();
   else if (activeStep === "spending_setup") content += renderSpendingSetup();
-  else if (activeStep === "ytd_transactions")
-    content += renderYtdTransactionsStep();
-  else if (activeStep === "spending_dashboard")
-    content += renderSpendingDashboardOrLoad();
   else if (activeStep === "income_work") content += renderIncomeWork();
   else if (activeStep === "income_retirement")
     content += renderRetirementIncome();

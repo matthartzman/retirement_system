@@ -14,8 +14,8 @@ test('YTD Transactions table pins its first column and collapses secondary colum
   // spending_core (WORKSPACE_TAB_REDIRECTS, navigation.js), whose own <h2>
   // is always "Spending Model" regardless of which tab is active, so
   // navigating by the old step id/heading pair never resolves anymore.
-  await navigateToStep(page, 'spending_core', 'Spending Model');
-  await page.getByRole('tab', { name: 'Actual Spending (YTD)' }).click();
+  await navigateToStep(page, 'actual_spending', 'Actual Spending');
+  await page.getByRole('tab', { name: 'This year' }).click();
 
   const wrap = page.locator('.ytd-tx-table-wrap');
   await expect(wrap).toHaveClass(/pinned-col/);

@@ -111,7 +111,7 @@ export const SPENDING_COMPLETION = {
     note: "Done when: budget amounts are entered for the categories you track.",
     isDoneFn: () =>
       !!(planLoaded && !stepStats("spending_core").missing.length),
-    nextStep: "ytd_transactions",
+    nextStep: "actual_spending",
     nextLabel: "Import Transactions",
   },
 };
@@ -2136,7 +2136,7 @@ export function stepStats(id) {
   )
     d.push({});
   if (
-    id === "ytd_transactions" &&
+    (id === "ytd_transactions" || id === "actual_spending") &&
     (ytdTransactionsChanged || ytdAccountsChanged)
   )
     d.push({});
@@ -2340,7 +2340,7 @@ export function renderSteps() {
       planLoaded &&
       !planStateFresh();
     const spendingWarn =
-      s.id === "ytd_transactions" &&
+      s.id === "actual_spending" &&
       typeof window.getSpendingDivergencePct === "function" &&
       Math.abs(Number(window.getSpendingDivergencePct())) > 0.03;
     if (st.missing.length)
@@ -4042,7 +4042,7 @@ export async function goToStrategyTab(step, tab) {
   try {
     localStorage.setItem(strategyTabKey(step), next);
   } catch (_e) {}
-  const goingToYtd = step === "spending_core" && next === "Actual Spending (YTD)";
+  const goingToYtd = step === "actual_spending" && next === "This year";
   // Ticket 290: setStep(step) below triggers a full synchronous renderMain()
   // of the spending workspace, which measured ~1.5s even before any YTD data
   // loads -- so EVERY tab into spending_core (not just YTD) pays this cost,
@@ -4052,7 +4052,7 @@ export async function goToStrategyTab(step, tab) {
   // a locked, affordance-free screen. Show the overlay and yield one frame so
   // the browser actually paints it BEFORE the blocking render begins --
   // painting an overlay you never yield to is why it used to appear late.
-  const isSpendingWorkspace = step === "spending_core";
+  const isSpendingWorkspace = step === "actual_spending";
   // Final-review finding (2026-08-19): showYtdLoadOverlay() sets the
   // no-cancel class, so a throw from setStep/loadYtdStatus/renderMain below
   // used to leave the user stranded behind an undismissable overlay --

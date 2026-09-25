@@ -513,7 +513,7 @@ export function firstRunChecklistHtml(compact = false) {
       next: "reports_and_review",
     },
   ];
-  let html = `<div class="first-run-checklist ${compact ? "compact" : ""}"><div class="first-run-head"><div><h3>${compact ? "Workflow checklist" : "Recommended workflow"}</h3><p class="small">A low-risk path through the plan: enter source data first, then strategy, stress tests, build, and review.</p></div>${compact ? "" : '<button class="btn primary" type="button" data-step-id="reports_and_review">Review and Build</button>'}</div><div class="first-run-items">`;
+  let html = `<div class="first-run-checklist ${compact ? "compact" : ""}"><div class="first-run-head"><div><h3>${compact ? "Workflow checklist" : "Recommended workflow"}</h3><p class="small">A low-risk path through the plan: enter source data first, then strategy, stress tests, build, and review.</p></div>${compact ? "" : '<button class="btn primary" type="button" data-step-id="reports_and_review">Open Build &amp; Results</button>'}</div><div class="first-run-items">`;
   items.forEach((item) => {
     const st = checklistItemStatus(item.steps);
     html += `<button class="first-run-item ${st.cls}" type="button" data-step-id="${esc(item.next)}"><span class="check-status">${esc(st.label)}</span><b>${esc(item.title)}</b><small>${esc(item.desc)}</small></button>`;
@@ -780,7 +780,7 @@ export function renderReview() {
   if (unsaved)
     statusHtml = `<div class="section-note warning"><b>${unsaved} unsaved change${unsaved === 1 ? "" : "s"}.</b> Changes are saved automatically before download. <button class="btn tiny" type="button" data-requires-app="1" onclick="saveAll(true)">Save Now</button></div>`;
   else if (!fresh)
-    statusHtml = `<div class="section-note warning"><b>Outputs may be stale.</b> Inputs changed since last build. <button class="btn tiny" type="button" data-step-id="reports_and_review">Go to Build →</button></div>`;
+    statusHtml = `<div class="section-note warning"><b>Outputs may be stale.</b> Inputs changed since last build. <button class="btn tiny" type="button" data-step-id="reports_and_review">Go to Build &amp; Results →</button></div>`;
   else if (arts)
     statusHtml =
       '<div class="section-note ok">Report outputs are current.</div>';

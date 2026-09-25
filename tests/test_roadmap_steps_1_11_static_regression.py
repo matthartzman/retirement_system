@@ -39,7 +39,7 @@ def test_css_and_docs_record_roadmap_steps_1_11():
 
 def test_static_journey_guards_for_remaining_roadmap_items():
     js = read("frontend/js/dashboard_source_truth_banners.js")
-    assert "Review and Build" in js
+    assert "Open Build & Results" in js  # #338 W-C: hub renamed
     assert "Categories → Transactions → Spending Analysis" in js
     assert "Open source input" in js
     assert "window.print" in js

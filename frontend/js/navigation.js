@@ -17,7 +17,7 @@
   // (holdings/assets_home_cash/annuity_death_benefits/assets_special/estate).
   // #330 P8 / Q6 (W13): roth_conversion and entity_charitable added for the
   // same reason, leaving the same umbrella to become the Taxes nav group.
-  const AUTOSAVE_STEPS=['household_people','income_work','income_retirement','lifestyle_spending','spending_core','spending_setup','ytd_transactions','holdings','assets_home_cash','annuity_death_benefits','assets_special','estate','heloc_strategy','roth_conversion','entity_charitable','family_business','strategy_optimize','economic_tax_assumptions','optional_functions','all_assumptions'];
+  const AUTOSAVE_STEPS=['household_people','income_work','income_retirement','lifestyle_spending','spending_core','spending_setup','ytd_transactions','actual_spending','holdings','assets_home_cash','annuity_death_benefits','assets_special','estate','heloc_strategy','roth_conversion','entity_charitable','family_business','strategy_optimize','economic_tax_assumptions','optional_functions','all_assumptions'];
   // #323 + Workbench: planning_workbench/planning_levers now redirect to
   // strategy_workbench, and the plan-loaded check below runs on the
   // POST-redirect id -- so the screen that now holds them is what has to be
@@ -53,9 +53,9 @@
   // withdrawal_strategy has the same shape but redirects to Optimize via
   // SECTION_REDIRECTS below, so it never reaches this bug.
   const WORKSPACE_TAB_REDIRECTS={
-    spending_dashboard:{step:'spending_core',tab:'Spending Analysis'},
-    ytd_transactions:{step:'spending_core',tab:'Actual Spending (YTD)'},
-    lifestyle_spending:{step:'spending_core',tab:'Spending Model'}
+    // #338 W-C: both merged into actual_spending under Reports & Review.
+    spending_dashboard:{step:'actual_spending',tab:'Analysis'},
+    ytd_transactions:{step:'actual_spending',tab:'This year'}
   };
   const STEP_REDIRECTS={
     // Travel's own step ids now land directly on Spending Model (the
@@ -64,6 +64,7 @@
     // so the extra hop through it would have been redundant.
     spending_travel:'spending_core',
     spending_travel_extras:'spending_core',
+    lifestyle_spending:'spending_core',
     ss_timing:'income_retirement'
   };
   // #323: the Strategy section became three screens -- Optimize, Stress Test
@@ -109,8 +110,8 @@
     // reader at all. timing_tax used to hop through it.
     // #338 W-C: ...and the Housing page itself is now Spending Model's
     // Housing accordion, so the table sits under it.
-    state_residency:{step:'spending_core',tab:'Spending Model',dkey:'housing:residency'},
-    timing_tax:{step:'spending_core',tab:'Spending Model',dkey:'housing:residency'},
+    state_residency:{step:'spending_core',dkey:'housing:residency'},
+    timing_tax:{step:'spending_core',dkey:'housing:residency'},
     // #338 W-C: Housing and Wellness are edited inside Spending Model.
     // `open` names the Tracking Type accordion to reveal.
     spending_mortgage_events:{step:'spending_core',open:'Housing'},
@@ -188,7 +189,6 @@
       // until something triggered a second render.
       const _secs=[].concat(_sr.section||[]);
       _secs.forEach((k)=>safeCall(()=>window.strategySectionSetOpen(k,true)));
-      if(_sr.open||_sr.tab)safeCall(()=>window.setStrategyTab(_sr.step,_sr.tab||'Spending Model'));
       pendingSectionDkey=_sr.dkey||(_sr.open?'budget:core:'+_sr.open:'')||(_secs.length?'strategy:'+_secs[0]:'');
       id=_sr.step;
     }else if(STEP_REDIRECTS[id]){

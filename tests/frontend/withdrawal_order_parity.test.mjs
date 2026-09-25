@@ -103,7 +103,7 @@ describe("Withdrawal Order parity with Optimize (#338 C4)", () => {
   });
 
   test("the Withdrawal Order tab is gone from the Spending workspace", () => {
-    const tabs = vm.runInContext("STRATEGY_TABS.spending_core", sandbox);
+    const tabs = vm.runInContext("STRATEGY_TABS.spending_core || []", sandbox);
     assert.ok(!tabs.includes("Withdrawal Order"));
   });
 });
