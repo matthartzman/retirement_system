@@ -219,7 +219,9 @@ export function renderStrategyScreen(sections) {
 // dashboard.js's renderWithdrawalStrategy() (the Spending workspace's
 // "Withdrawal Order" tab) already rendered inline, so Optimize's new HSA
 // Drawdown / Withdrawal Sequencing / Harvesting sections below reuse the
-// exact same filters and markup rather than duplicating them.
+// exact same filters and markup rather than duplicating them. #338 W-C (C4):
+// that tab and renderWithdrawalStrategy() are gone; these sections are the
+// only home for its rows (tests/frontend/withdrawal_order_parity.test.mjs).
 // #329 §4.7 (W10b): standalone accessor for the HSA drawdown mode, mirroring
 // rothPolicyValue()/irmaaModeValue()'s pattern in dashboard_decomp_
 // allocation_optimizer.js. dashboard_source_truth_banners.js's live-

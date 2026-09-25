@@ -121,7 +121,6 @@
     "renderSpendingWorkflowBanner",
     "renderStrategyTabs",
     "renderWithdrawalOrderTable",
-    "renderWithdrawalStrategy",
     "renderWorkspaceSubtabsNav",
     "resetAllocationPreview",
     "restoreGroupBudgetModes",

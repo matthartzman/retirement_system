@@ -95,7 +95,7 @@ const STEPS = [
     desc: "Large occasional non-housing, non-Wellness, non-travel expenses such as weddings, vehicles, gifts, or family support.",
     intro:
       "Each row is an annual amount active from start year through end year. Set start year equal to end year for a single-year expense.",
-    help: "Home Improvements are entered on Housing. Travel is entered on Travel. Keep this page for other flexible large expenses.",
+    help: "Home Improvements are entered with Housing and Travel with Travel, both on Spending Model. Keep this page for other flexible large expenses.",
     hidden: true,
   },
   {
@@ -159,7 +159,7 @@ const STEPS = [
     title: "Reserve Requirements",
     desc: "The cash reserve floor the plan protects before drawing investments, plus spendable checking cash.",
     intro:
-      "Reserve rules set how many months of spending to hold outside the investment portfolio. Home value and home sale inputs are on the Housing page.",
+      "Reserve rules set how many months of spending to hold outside the investment portfolio. Home value and home sale inputs are in the Housing accordion of Spending Model.",
     help: "The reserve floor is the last buffer in probability analysis — the plan counts as failing when it cannot maintain this floor without depleting all accounts.",
   },
   {
@@ -336,7 +336,7 @@ const STEPS = [
     hidden: true,  },
   {
     id: "withdrawal_strategy",
-    // Ticket 286: now the Spending workspace’s "Withdrawal Order" tab.
+    // #338 W-C: redirects to Optimize's withdrawal sections.
     group: null,
     title: "Withdrawal sequencing",
     desc: "Bucket draw order, trust withdrawals, and spousal rollover election. HSA withdrawal timing is set on Other Assets and Liabilities.",
@@ -589,7 +589,7 @@ const STEP_HELP = {
   ),
   spending_core: pageHelp(
     "Spending Categories",
-    "This page is the comprehensive category model for income and expenses, including taxes but excluding internal transfers (401k/HSA contributions, brokerage buys/sells, credit card payments). Projection spending controls, plus Travel and Large Items budgets, live here; Housing and Wellness detailed budget inputs stay on their own pages.",
+    "This page is the comprehensive category model for income and expenses, including taxes but excluding internal transfers (401k/HSA contributions, brokerage buys/sells, credit card payments). Projection spending controls live here, with one editable accordion per Tracking Type: Core Expenses, Housing, Wellness, Travel, Large Discretionary, Taxes, and Business.",
     "Core spending flows directly into annual withdrawals, taxable income, liquidity stress, Monte Carlo success, and planning-lever sensitivity. Growth mode and freeze year determine how that spending changes over time.",
     "Use CPI/general inflation when spending should rise with inflation. Use manual override when lifestyle spending should grow at a different rate. Use the freeze year when spending increases stop or intentionally flatten.",
     "Higher recurring spending usually lowers terminal net worth and probability of success. Lower spending or earlier spending freezes usually improve both, especially in the first retirement decade.",
@@ -2711,28 +2711,6 @@ function renderWithdrawalOrderTable() {
   const editor = window.withdrawalAccountOrderEditorHtml ? window.withdrawalAccountOrderEditorHtml() : "";
   return `<details><summary>Withdrawal order</summary><div class="field-list"><div class="section-note"><b>Individual-account draw order is user-configurable below.</b> Each account defaults to its registry order and draws first within its account type when priority is tied; set a lower number to draw an account earlier relative to others of the same type (e.g. which of two taxable brokerage accounts drains first). The account-<i>type</i> sequence itself is fixed by the engine and not user-configurable, since it follows tax rules rather than preference: ${esc(FIXED_WITHDRAWAL_CASCADE_DESCRIPTION)}. RMDs are mandatory income; Roth and home equity are preserved until other liquid sources are exhausted.</div>${editor}</div></details>`;
 }
-// #329 §3.3 (W9): hsaWithdrawalPolicyBlock/taxLossHarvestingBlock/
-// gainHarvestBlock/withdrawalMiscBlock used to be inlined directly inside
-// renderWithdrawalStrategy() below. Extracted into
-// dashboard_decomp_strategy_workspace.js (frontend size ratchet -- this file
-// only grows by taking an equal number of lines out elsewhere), and called
-// here as bare globals like every other cross-decomp-file call in this
-// codebase, so Optimize's new HSA Drawdown / Withdrawal Sequencing /
-// Harvesting sections can reuse the exact same row-filtering and rendering
-// the Spending workspace's "Withdrawal Order" tab already had -- one filter
-// predicate per concept, not duplicated in two files that could drift.
-function renderWithdrawalStrategy() {
-  if (searchText.trim()) return renderFields("withdrawal_strategy");
-  const other = withdrawalOtherRows();
-  return (
-    renderWithdrawalOrderTable() +
-    hsaWithdrawalPolicyBlock(other) +
-    taxLossHarvestingBlock(other) +
-    gainHarvestBlock(other) +
-    withdrawalMiscBlock(other)
-  );
-}
-
 const ROTH_PRIMARY_LABELS = [
   "roth_conversion_policy",
   "roth_bracket_strategy",
@@ -3564,7 +3542,7 @@ function renderStrategyTabs(step, tabs, active) {
 // Spending workspace below, and Roth Conversion / Allocation & Location are now
 // embedded in the Strategy decide box (renderPlanningLevers).
 const STRATEGY_TABS = {
-  spending_core: ["Spending Model", "Actual Spending (YTD)", "Spending Analysis", "Withdrawal Order"],
+  spending_core: ["Spending Model", "Actual Spending (YTD)", "Spending Analysis"],
 };
 
 // Shared left-nav sub-tab strip for any STRATEGY_TABS-registered workspace step.
@@ -3768,8 +3746,6 @@ let renderMain = function() {
   else if (activeStep === "estate") content += renderEstateWithAnnuityLink();
   else if (activeStep === "annuity_death_benefits")
     content += renderSpecialIncomeAnnuitiesInsurance();
-  else if (activeStep === "withdrawal_strategy")
-    content += analysisFrame(renderWithdrawalStrategy(), "strategy");
   else if (activeStep === "roth_conversion")
     content += analysisFrame(renderRothConversion(), "strategy");
   else if (activeStep === "system_configuration")
@@ -7151,10 +7127,10 @@ Object.assign(window, {
   renderDetailedResultsNav, renderDetailedResultsProgressTick, renderEstateWithAnnuityLink,
   renderFieldFinderGroups, renderHouseholdPeople, renderMeta, renderNav,
   renderSpendingDashboardOrLoad, renderSpendingWorkflowBanner, renderStrategyTabs,
-  renderWithdrawalOrderTable, renderWithdrawalStrategy, renderWorkspaceSubtabsNav,
-  resetAllocationPreview, restoreGroupBudgetModes, restoreWorkbookViewState, revertLastBuildChanges,
-  rollForwardYtdAccounts, rowConfigValue, rowIsRetirementWellness, saveAndExit, saveChanges,
-  saveValueForRow, saveYtdAccountSetup, saveYtdPending, scenarioRowKeyFromParts, sectionFlagEnabled,
+  renderWithdrawalOrderTable, renderWorkspaceSubtabsNav, resetAllocationPreview,
+  restoreGroupBudgetModes, restoreWorkbookViewState, revertLastBuildChanges, rollForwardYtdAccounts,
+  rowConfigValue, rowIsRetirementWellness, saveAndExit, saveChanges, saveValueForRow,
+  saveYtdAccountSetup, saveYtdPending, scenarioRowKeyFromParts, sectionFlagEnabled,
   setAllDetailColumnGroups, setCombinedSearch, setDetailedResultSheet, setDetailedResultsNavOpen,
   setNavSearch, setPlanningCaseActive, setSearchScope, setStrategyTab, showPlanDataFileManifest,
   showSpendingModelLoadOverlay, showYtdLoadOverlay, sleep, startDetailedResultsProgress,

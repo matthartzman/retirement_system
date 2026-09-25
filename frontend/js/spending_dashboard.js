@@ -58,10 +58,6 @@ export function renderSpendingWorkspace(tabs) {
     body = ytdOn ? window.renderYtdTransactionsStep() : window.featureGatedNote('spending_tracker_ytd', { title: 'Actual Spending (YTD)' });
   else if (tab === 'Spending Analysis')
     body = ytdOn ? window.renderSpendingDashboardOrLoad() : window.featureGatedNote('spending_tracker_ytd', { title: 'Spending Analysis' });
-  // Ticket 286: withdrawal order moved here from the Distribution Strategy
-  // sub-nav. It answers "which account does spending come out of", which is a
-  // spending question, and it was the only reason that sub-nav still existed.
-  else if (tab === 'Withdrawal Order') body = window.analysisFrame(window.renderWithdrawalStrategy(), 'strategy');
   else body = window.renderCoreSpendingUnified();
   return '<div class="tabbed-workspace spending-workspace">' + window.renderStrategyTabs('spending_core', tabs, tab) + '<div class="workspace-tab-body">' + body + '</div></div>';
 }

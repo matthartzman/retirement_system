@@ -7,7 +7,8 @@ import assert from "node:assert/strict";
 import { loadDashboardSandbox } from "./load_dashboard.mjs";
 
 describe("STRATEGY_TABS.spending_core no longer lists Other Spending", () => {
-  test("has exactly the four remaining tabs, in order", () => {
+  // #338 W-C (C4): Withdrawal Order left too -- its rows live on Optimize.
+  test("has exactly the three remaining tabs, in order", () => {
     const sandbox = loadDashboardSandbox();
     // Spread into a plain array first: STRATEGY_TABS.spending_core is a
     // native array of the vm sandbox's own realm, and assert/strict's
@@ -19,7 +20,6 @@ describe("STRATEGY_TABS.spending_core no longer lists Other Spending", () => {
       "Spending Model",
       "Actual Spending (YTD)",
       "Spending Analysis",
-      "Withdrawal Order",
     ]);
   });
 });
