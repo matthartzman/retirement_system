@@ -75,18 +75,13 @@ def test_the_location_search_owns_no_workbook_sheet():
     assert "spending_tracker_ytd" not in OPTIONAL_MODULE_SHEETS
 
 
-def test_the_toggle_does_not_claim_to_move_the_projection():
-    """`engine_participation=False`, although this module runs the engine more
-    than any other.
-
-    `plan_variant._run_engine` goes through `planning_engines.run_scenario`,
-    which deep-copies before `_apply_candidate` mutates anything, so the saved
-    plan's own projection is identical whether this module is on or off. The
-    flag means "this toggle changes the projection", which is #330 §3.1's F3 --
-    not "this module calls the engine".
-    """
-    assert mc.CATALOG[KEY].engine_participation is False
-    assert KEY not in mc.engine_participants()
+def test_the_toggle_moves_the_projection():
+    """`engine_participation=True` since design 2026-09-24 §6 [C]: the switch
+    owns the housing plan inputs (home sale, next housing steps, state over
+    time), and off, the loader blanks them. See
+    tests/test_next_housing_move_gating.py for the behavior itself."""
+    assert mc.CATALOG[KEY].engine_participation is True
+    assert KEY in mc.engine_participants()
 
 
 def test_no_soft_dependency_on_monte_carlo_is_claimed():
