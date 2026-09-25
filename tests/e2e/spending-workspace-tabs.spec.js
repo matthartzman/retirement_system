@@ -28,13 +28,11 @@ test('Spending Model has no tabs; Actual Spending tab-switches between its merge
   await expect(page.locator('.spending-workspace .workspace-tab')).toHaveCount(0);
   await expect(page.getByRole('tab', { name: 'Withdrawal Order' })).toHaveCount(0);
 
-  // Spending Model renders its field groups, and the former Other Spending
-  // accordion (Large Items) below them -- the Wave 1.4 jump-to-field fix
-  // depends on it staying <details>-based. Travel is its own Tracking Type
-  // accordion since #338 W-C, not repeated here.
-  await expect(page.locator('#mainPane .lifestyle-workspace')).toBeVisible();
-  await expect(page.locator('.lifestyle-workspace > details > summary', { hasText: 'Travel' })).toHaveCount(0);
-  await expect(page.locator('.lifestyle-workspace > details > summary', { hasText: 'Large Items' })).toBeVisible();
+  // #336: the former Other Spending "Large Items" block is gone -- Large
+  // Discretionary is edited in its own Tracking Type accordion (one-time
+  // rows table), and Travel has its own accordion since #338 W-C.
+  await expect(page.locator('#mainPane .lifestyle-workspace')).toHaveCount(0);
+  await expect(page.locator('#mainPane details[data-dkey="budget:core:Large Discretionary"] .large-disc-table')).toHaveCount(1);
   // DAF is deliberately NOT here: #269 removed the duplicate Donor-Advised
   // Fund section from Other Spending, leaving the canonical one on the
   // Charitable Giving step (entity_charitable). Asserted negatively so the

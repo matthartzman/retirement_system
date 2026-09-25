@@ -213,7 +213,9 @@ Large Discretionary,Recreation / Hobbies,hobby_studio,Hobby Studio / Equipment,t
 Large Discretionary,Recreation / Hobbies,ski_passes,Ski Passes,template,deleted,Season ski passes and resort fees
 Large Discretionary,Recreation / Hobbies,sporting_equipment,Sporting Equipment,template,deleted,Bikes
 Large Discretionary,Wedding,children_weddings,Children Weddings,transaction,deleted,Promoted from legacy spending_category_map.csv during unified spending migration
-Large Discretionary,Wedding,weddings,Weddings,template,active,Wedding and rehearsal dinner costs
+Large Discretionary,Weddings,weddings,Weddings,template,active,Wedding and rehearsal dinner costs
+Large Discretionary,Education,ld_education,Education (not 529-funded),template,active,One-time education costs not paid from a 529 (#336)
+Large Discretionary,Auto,ld_auto,Auto,template,active,One-time vehicle purchases (#336)
 Business,Business,advertising_promotion,Advertising & Promotion,transaction,deleted,Promoted from legacy spending_category_map.csv during unified spending migration
 Business,Business,advertising,Advertising / Marketing,template,deleted,Paid ads
 Business,Business,banking_fees,Banking / Filing Fees,template,deleted,Business bank fees and state filing costs
