@@ -89,7 +89,6 @@ Other Assets,Home,home_sale_year,year,TRUE,0,0,,0=no sale; >0=sale year
 Other Assets,Home,home_sale_price,dollars,FALSE,,,Gross sale price,
 Other Assets,Home,home_basis,dollars,FALSE,,,Cost basis,
 Other Assets,Home,home_sale_proceeds_account,text,FALSE,Member_2_Trust,,,Destination account
-Other Assets,Cash,value,dollars,FALSE,$0,0,,Checking-account cash outside the investment holdings table.
 Scenarios,Retire Later,member_1_retire_year,year,TRUE,2029,,,Extended retire year
 Scenarios,Retire Later,income_growth_rate_override,percent,TRUE,0.00%,0,10,Extension year growth
 Scenarios,Retire Later,salary_override,dollars,TRUE,50000,0,,Extension year salary

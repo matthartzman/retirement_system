@@ -296,6 +296,23 @@ def _v(data, section, subsection, label, default=''):
     except KeyError:
         return default
 
+
+def reserve_checking_import_warning(legacy_value, balances):
+    """#339 spec §8 (2026-09-24 W-F Task F2): the retired Reserve Requirements
+    "Checking accounts" field was never read by the engine -- ``cash_other``
+    has always come from ``_Checking``-suffixed holdings accounts. Returns an
+    import warning naming the stale amount when a plan still carries a
+    non-zero legacy value with no such account to receive it, else None.
+    """
+    if not legacy_value or any(str(k).endswith('_Checking') for k in balances):
+        return None
+    return (
+        f"Reserve Requirements had an unused Checking accounts value of "
+        f"${legacy_value:,.0f} that the plan never applied. Add it as a "
+        f"_Checking holdings account on Investment Holdings if it should count "
+        f"toward the cash reserve."
+    )
+
 MC_ENGINE_MODE_DEFAULT = 'quick_vectorized'
 
 def _mc_engine_mode_from_plan_data(data):
@@ -1827,6 +1844,17 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
         balances[acct] = total
     c['balances'] = balances
     c['cash_other'] = sum(v for k, v in balances.items() if k.endswith('_Checking'))
+
+    # #339 spec §8 (2026-09-24 W-F Task F2): the legacy Reserve Requirements
+    # "Checking accounts" field (Other Assets,Cash,value) was removed from the
+    # UI, demo CSV and schema -- it was never read by the engine, which has
+    # always sourced cash_other from _Checking holdings accounts above. Kept
+    # here only to warn a plan carrying a stale non-zero value forward: it
+    # is not counted toward reserves unless re-entered as a _Checking account.
+    _legacy_checking_value = _n(_v(data, 'Other Assets', 'Cash', 'value', '0'), 0.0)
+    _checking_warning = reserve_checking_import_warning(_legacy_checking_value, balances)
+    if _checking_warning:
+        c.setdefault('config_contract_warnings', []).append(_checking_warning)
 
     # ── Account Registry (generic calculator) ────────────────────────────────
     # Build a data-driven registry from whatever accounts exist in the balances.
