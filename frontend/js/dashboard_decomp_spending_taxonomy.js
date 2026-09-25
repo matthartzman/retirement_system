@@ -518,7 +518,7 @@ export async function loadAnnualizedActuals() {
     !(await showInAppConfirm(
       "Load annualized current spend into EVERY category budget? This overwrites all category totals and adds any new transaction categories to the taxonomy.",
       {
-        title: "Load Annualized Actuals",
+        title: "Load annualized amounts",
         confirmLabel: "Load",
         variant: "warn",
       },
@@ -625,7 +625,7 @@ export function renderDomainBudgetTable(domain) {
     return (
       '<div class="question"><b>No ' +
       esc(domainBudgetTitle(domain)) +
-      ' transaction categories loaded.</b><p class="small">Spending Categories shows Tracking Types, Groups, and Categories with non-zero YTD Actual, Annualized Actual, Annual Budget, or Projection. Use Income &amp; Expense Transactions to import transactions, or add budget/projection values on the source page, then Reload.</p></div>'
+      ' transaction categories loaded.</b><p class="small">Spending Categories shows Tracking Types, Groups, and Categories with non-zero YTD Actual, Annualized, Annual Budget, or Projection. Use Income &amp; Expense Transactions to import transactions, or add budget/projection values on the source page, then Reload.</p></div>'
     );
   let grandTotal = 0;
   data.forEach(function (t) {
@@ -721,7 +721,7 @@ export function renderDomainBudgetTable(domain) {
               : cNoAnnualizeRaw === "FALSE"
                 ? false
                 : !!cat.no_annualize;
-          html += `<div class="budget-cat-entry"><div class="budget-cat-header"><span class="budget-cat-name" style="font-weight:500">${esc(cat.label)}</span><span class="small" style="color:var(--muted)">${cat.actual || cat.annualized || hasData ? `YTD Actual ${dollars0(spendingRowYtd(cat))} · Annualized Actual ${dollars0(spendingRowAnnualized(cat))}${hasData ? ` · Annual Budget ${dollars0(displayTotal)}/yr · Projection ${dollars0(spendingRowProjectionSeed(cat) || displayTotal)}` : ""}` : ""}</span><label class="small">Annual <input ${readOnlyRef ? "disabled " : ""}type="text" class="budget-money-input" value="${esc(budgetMoneyInputValue(b.annual_budget))}" placeholder="$0" onfocus="focusBudgetMoney(this)" oninput="updateTaxBudgetMoney('${cidEsc}','annual_budget',this)" onblur="blurBudgetMoney(this)" style="width:100px"></label><span style="margin-left:auto;display:flex;align-items:center;gap:6px;flex-shrink:0">${annualizeToggleBtn(`toggleAnnualizeFlag('${cidEsc}',${cIsNoAnnualize})`, cIsNoAnnualize, { disabled: readOnlyRef })}${deleteIconBtn(`deleteTaxonomyCat('${cidEsc}','${esc(cat.label).replace(/'/g, "\\'")}')`, { disabled: readOnlyRef })}</span></div></div>`;
+          html += `<div class="budget-cat-entry"><div class="budget-cat-header"><span class="budget-cat-name" style="font-weight:500">${esc(cat.label)}</span><span class="small" style="color:var(--muted)">${cat.actual || cat.annualized || hasData ? `YTD Actual ${dollars0(spendingRowYtd(cat))} · Annualized ${dollars0(spendingRowAnnualized(cat))}${hasData ? ` · Annual Budget ${dollars0(displayTotal)}/yr · Projection ${dollars0(spendingRowProjectionSeed(cat) || displayTotal)}` : ""}` : ""}</span><label class="small">Annual <input ${readOnlyRef ? "disabled " : ""}type="text" class="budget-money-input" value="${esc(budgetMoneyInputValue(b.annual_budget))}" placeholder="$0" onfocus="focusBudgetMoney(this)" oninput="updateTaxBudgetMoney('${cidEsc}','annual_budget',this)" onblur="blurBudgetMoney(this)" style="width:100px"></label><span style="margin-left:auto;display:flex;align-items:center;gap:6px;flex-shrink:0">${annualizeToggleBtn(`toggleAnnualizeFlag('${cidEsc}',${cIsNoAnnualize})`, cIsNoAnnualize, { disabled: readOnlyRef })}${deleteIconBtn(`deleteTaxonomyCat('${cidEsc}','${esc(cat.label).replace(/'/g, "\\'")}')`, { disabled: readOnlyRef })}</span></div></div>`;
         });
         html += "</div>";
         const allGroupLines = [];
