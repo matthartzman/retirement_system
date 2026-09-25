@@ -43,6 +43,9 @@ def test_active_input_mode_helpers_do_not_call_filtered_rows_for_step():
 
 
 def test_active_input_usage_state_smoke_does_not_recurse(tmp_path):
+    # W-B / #334 (B2): smoke row 8 used the retired irmaa_annual_inflator
+    # label (IRMAA thresholds now follow CPI); it now exercises a live
+    # Model Constants/IRMAA row instead.
     script = tmp_path / "dashboard_recursion_smoke.js"
     script.write_text(textwrap.dedent(f"""
         const fs = require('fs');
@@ -73,7 +76,7 @@ def test_active_input_usage_state_smoke_does_not_recurse(tmp_path):
             {{row_index:5,section:'Withdrawal Policy',subsection:'Roth_Conversion',label:'roth_conversion_policy',value:'none'}},
             {{row_index:6,section:'Withdrawal Policy',subsection:'Roth_Conversion',label:'roth_fixed_annual_amount',value:'10000'}},
             {{row_index:7,section:'Model Constants',subsection:'IRMAA',label:'irmaa_guardrail_mode',value:'OFF'}},
-            {{row_index:8,section:'Model Constants',subsection:'IRMAA',label:'irmaa_annual_inflator',value:'2%'}}
+            {{row_index:8,section:'Model Constants',subsection:'IRMAA',label:'irmaa_actual_magi_2yr_prior',value:'250000'}}
           ];
           rows.map(r => rowBuildUsageState(r, 'all_assumptions'));
           overallStats();

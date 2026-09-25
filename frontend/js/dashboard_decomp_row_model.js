@@ -469,8 +469,6 @@ export function humanLabel(label, row) {
     return "IRMAA Guardrail Behavior";
   if (row && norm(row.label) === "roth_irmaa_headroom_usage_pct")
     return "IRMAA Headroom Used";
-  if (row && norm(row.label) === "irmaa_annual_inflator")
-    return "IRMAA Threshold Inflation";
   if (
     row &&
     row.section === "Other Assets" &&
@@ -1669,10 +1667,7 @@ export function rawRowsForStep(id) {
           (sec === "Withdrawal Policy" &&
             sub === "roth_conversion" &&
             lbl !== "roth_irmaa_cap") ||
-          (sec === "Model Constants" && sub === "roth_conversion") ||
-          (sec === "Model Constants" &&
-            sub === "irmaa" &&
-            lbl === "irmaa_annual_inflator")
+          (sec === "Model Constants" && sub === "roth_conversion")
         );
       case "all_assumptions":
         return true;
@@ -2079,27 +2074,6 @@ export function rowBuildUsageState(row, stepId = "") {
         activation: "Choose an optimizer-style Roth policy.",
         effect:
           "Would change Roth strategy scoring, lifetime tax tradeoffs, survivor protection, estate/legacy weighting, and recommended conversions.",
-      };
-  }
-  if (
-    s === "Model Constants" &&
-    sub === "irmaa" &&
-    l === "irmaa_annual_inflator"
-  ) {
-    const policy = rothPolicyValue(),
-      mode = irmaaModeValue();
-    if (
-      !["fill_to_irmaa", "irmaa_guarded"].includes(policy) &&
-      IRMAA_OFF_MODES.includes(mode)
-    )
-      return {
-        active: false,
-        reason:
-          "IRMAA guardrails are ignored/warn-only for the active Roth policy.",
-        activation:
-          "Choose Fill to IRMAA or set IRMAA Guardrail Behavior to a cap/avoidance mode.",
-        effect:
-          "Would change Medicare-premium threshold growth and can affect Roth conversion headroom, IRMAA warnings, lifetime taxes, and terminal net worth.",
       };
   }
   return { active: true };

@@ -1145,7 +1145,6 @@ export function renderRothConversion() {
     strategy = orderedRowsByLabel([
       "roth_irmaa_target_tier",
       "roth_irmaa_headroom_usage_pct",
-      "irmaa_annual_inflator",
       ...ROTH_WINDOW_LABELS,
     ]);
   } else if (policyIsOptimizer) {
@@ -1175,7 +1174,6 @@ export function renderRothConversion() {
         orderedRowsByLabel([
           "roth_irmaa_target_tier",
           "roth_irmaa_headroom_usage_pct",
-          "irmaa_annual_inflator",
         ]),
       );
     if (irmaaMode === "CUSTOM_MAGI_CAP")

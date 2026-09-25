@@ -2755,7 +2755,6 @@ const ROTH_IRMAA_LABELS = [
   "irmaa_guardrail_mode",
   "roth_irmaa_target_tier",
   "roth_irmaa_headroom_usage_pct",
-  "irmaa_annual_inflator",
 ];
 const ROTH_ENGINE_LABELS = [
   "roth_conv_window_end_offset",
@@ -5282,11 +5281,6 @@ const FIELD_GUIDANCE_OVERRIDES = {
     purpose: "This is your actual household income from the tax year two years before your plan starts, from your filed tax return. Social Security uses this to calculate year 1 of Medicare premium surcharges.",
     impact: "Using the actual number gives a precise forecast for your first year of Medicare costs. Leaving it blank forces an estimate.",
     consider: "If your income was unusually high or low two years ago, using the real number matters even more.",
-  },
-  irmaa_annual_inflator: {
-    purpose: "This is the annual percentage increase applied to Medicare IRMAA income thresholds each year. Congress sets this each year, and it usually runs 1-3%.",
-    impact: "Higher inflation means thresholds rise faster, so you're less likely to cross into higher surcharge tiers. Lower inflation means thresholds stay lower.",
-    consider: "Check Medicare.gov or Social Security's latest guidance for the current year's rate; ask your tax advisor if unsure.",
   },
   inflation_sigma: {
     purpose: "This measures how much inflation bounces around year-to-year in the plan's stress-test simulations. Higher values mean the model assumes inflation could swing wider in either direction.",
