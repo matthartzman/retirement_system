@@ -193,7 +193,9 @@ check("Housing: RENT_REST includes the Slice 2 characteristic fields (housing-es
 check("Housing: Estimate button references 3BR/2BA/40x40",
       "40×40 ft backyard" in dash or "40x40 ft backyard" in dash)
 check("Housing: city_type/population_size excluded from current home",
-      "_CURRENT_HOME_EXCL" in dash and "city_type" in dash and "population_size" in dash)
+      # #338 W-C: the current-home cost filter moved to
+      # dashboard_decomp_spending_sources.js as HOUSING_CURRENT_HOME_NON_COST.
+      "HOUSING_CURRENT_HOME_NON_COST" in dash and "city_type" in dash and "population_size" in dash)
 check("Housing: estimateHousingFromState sends city_type+population",
       has_code(dash, "city_type:cityTypeVal", "population_size:parseInt"))
 check("Housing: renderSpendingHousing defined", "function renderSpendingHousing()" in dash)
