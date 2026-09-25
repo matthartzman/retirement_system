@@ -203,6 +203,16 @@ CONTRACTS: tuple[EndpointContract, ...] = (
     ),
 
     EndpointContract(
+        "/api/spending-adjustments", "GET", "spending_adjustments_v1",
+        response_fields=(_f("success", "bool", True), _f("adjustments", "list", True)),
+        notes="#335 Spending Model Adjustments table: category/ALL:<tracking type> step changes by year.",
+    ),
+    EndpointContract(
+        "/api/spending-adjustments", "POST", "spending_adjustments_update_v1",
+        request_fields=(_f("adjustments", "list", True), _f("sync", "bool")),
+        response_fields=(_f("success", "bool", True), _f("count", "int", True), _f("sync", "dict")),
+    ),
+    EndpointContract(
         "/api/large-discretionary-expenses", "GET", "large_discretionary_expenses_v1",
         response_fields=(_f("success", "bool", True), _f("types", "list", True), _f("events", "list", True)),
         notes="Large discretionary expense events used by Travel/Large Discretionary workflow pages.",

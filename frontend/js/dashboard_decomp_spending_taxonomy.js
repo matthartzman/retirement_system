@@ -746,6 +746,8 @@ export function renderDomainBudgetTable(domain) {
     if (domain === "core") html += spendingSourceTailHtml(tt);
     html += "</details>";
   });
+  // #335: the Adjustments accordion follows the Tracking Type accordions.
+  if (domain === "core") html += renderSpendingAdjustmentsAccordion();
   html += `<div class="section-note" style="margin-top:12px"><b>${esc(domainBudgetTitle(domain))} total: $${Math.round(grandTotal).toLocaleString()}/yr</b></div>`;
   html += "</div>";
   return html;

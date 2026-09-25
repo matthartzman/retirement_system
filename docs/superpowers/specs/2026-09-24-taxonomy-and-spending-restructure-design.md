@@ -914,9 +914,9 @@ def test_end_year_is_inclusive_then_reverts():
 
 **Files:** new `frontend/js/dashboard_decomp_spending_adjustments.js`; accordion host in `dashboard_decomp_spending_taxonomy.js`; Test `tests/frontend/spending_adjustments.test.mjs`
 
-- [ ] **Step 1:** Failing tests: pulldown = active categories of Core/Housing/Wellness/Travel + four "All ‹type›" options, none from Large Discretionary/Taxes/Business; add/edit/delete write `adj_N_*` rows; helper text shows the compounded result ("72% of today's level").
-- [ ] **Step 2–4:** Implement; `npm test`.
-- [ ] **Step 5:** Commit `feat(spending): Adjustments table in Spending Model`
+- [x] **Step 1:** Failing tests: pulldown = active categories of Core/Housing/Wellness/Travel + four "All ‹type›" options, none from Large Discretionary/Taxes/Business; add/edit/delete write `adj_N_*` rows; helper text shows the compounded result ("72% of today's level").
+- [x] **Step 2–4:** Implement; `npm test`.
+- [x] **Step 5:** Commit `feat(spending): Adjustments table in Spending Model`
 
 ---
 
