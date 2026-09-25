@@ -272,6 +272,8 @@ def test_dwelling_option_sets_match_field_for_field(extraction, spending_fn, opt
 
 
 def test_the_cross_link_names_what_carries_across():
-    assert 'Optimize next housing move' in SCENARIOS_JS
+    # #338 W-E: the plan inputs and the search now share the Next Housing
+    # Move section, so the cross-link became an in-section pointer.
+    assert '<b>Where to live</b> search below' in SCENARIOS_JS
     for word in ('ZIP', 'price', 'distance'):
         assert word in SCENARIOS_JS

@@ -174,14 +174,18 @@ function gateDescriptorForStep(stepId) {
 // renderMain() re-renders the whole tree on every field edit, and
 // renderAllocationRecommendation() alone emits seven sub-panels, so eager
 // bodies would multiply per-keystroke cost on the heaviest screen in the app.
-export function strategySection(key, title, bodyFn, gateStepId, defaultOpen) {
+// `offBodyFn`, when given, replaces the generic featureGatedNote() off-state
+// (Next Housing Move's, which lists its kept-but-unapplied values instead).
+export function strategySection(key, title, bodyFn, gateStepId, defaultOpen, offBodyFn) {
   // An explicit stored value is the reader's own choice and always wins.
   // defaultOpen only applies before they have expressed one.
   const stored = strategySectionOpenMap()[key];
   const open = stored === undefined ? !!defaultOpen : stored === true;
   const gated = gateStepId ? stepGatedByOptionalModule(gateStepId) : false;
   const body = gated
-    ? (() => {
+    ? offBodyFn
+      ? offBodyFn()
+      : (() => {
         const gd = gateDescriptorForStep(gateStepId);
         return featureGatedNote(gd.key, { ...gd, title });
       })()
@@ -206,7 +210,7 @@ export function renderStrategyScreen(sections) {
   const defaultKey = firstUsable ? firstUsable.key : null;
   return sections
     .map((s) =>
-      strategySection(s.key, s.title, s.body, s.gate, s.key === defaultKey),
+      strategySection(s.key, s.title, s.body, s.gate, s.key === defaultKey, s.offBody),
     )
     .join("");
 }
@@ -399,7 +403,14 @@ export function renderStrategyOptimize() {
       // (Planning overview)" footer would not apply to it. Matches
       // "Strategy Levers" (renderStrategyScenarios below), the other
       // non-lever tab in this file.
-      body: () => renderHousingOptimizePanelHtml(),
+      // #338 W-E: the section owns the housing plan inputs too (sale, next
+      // steps, residency over time). Off, the engine ignores them; the note
+      // lists them and links to Plan Features -- no inline switch.
+      offBody: () =>
+        nextHousingMoveOffNoteHtml(rowsForStep("spending_mortgage_events")),
+      body: () =>
+        nextHousingMoveInputsHtml(rowsForStep("spending_mortgage_events")) +
+        renderHousingOptimizePanelHtml(),
     },
     // #329 §3.3 (W9): "add, as one panel" -- TLH and Gain Harvest together,
     // reusing the Withdrawal Order tab's own two blocks.

@@ -2662,6 +2662,30 @@
       "scope": "inside-function"
     },
     {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_housing_scenarios.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_housing_scenarios.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "residencySchedule",
+      "file": "frontend/js/dashboard_decomp_housing_scenarios.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "homeSaleSplits",
+      "file": "frontend/js/dashboard_decomp_housing_scenarios.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "SCENARIO_SET_STORAGE_KEY",
       "file": "frontend/js/dashboard_decomp_housing_scenarios.js",
       "kind": "read",

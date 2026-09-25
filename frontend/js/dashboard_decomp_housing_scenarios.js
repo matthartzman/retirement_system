@@ -782,91 +782,73 @@ export function renderSpendingHousing() {
   );
 }
 
-// #338 W-C: the housing PLAN inputs (home value/basis, mortgage balance, home
-// sale, residency over time, next moves, improvements) -- everything the old
-// Housing page rendered that is not a recurring cost. Housing costs render in
-// Spending Model's Housing accordion via housingCostGroupsHtml()
-// (dashboard_decomp_spending_sources.js); these sit in a collapsed section
-// under it until W-E moves them to Other Assets and Next Housing Move.
+// #338 W-C/W-E: the housing PLAN inputs (home value/basis, mortgage balance,
+// home sale, residency over time, next moves, improvements) -- everything the
+// old Housing page rendered that is not a recurring cost. W-E split them by
+// owner: primaryHomeFieldsHtml() (Other Assets and Liabilities, always in
+// effect), nextHousingMoveInputsHtml() (Strategy -> Optimize -> Next Housing
+// Move, gated by that switch) and homeImprovementsHtml() (Spending Model's
+// Housing accordion). This composition keeps the legacy Housing page whole.
 export function housingPlanSectionsHtml(rs) {
+  return (
+    '<details><summary class="section-header">Current home</summary><div class="section-body">' +
+    primaryHomeFieldsHtml(rs) +
+    "</div></details>" +
+    nextHousingMoveInputsHtml(rs) +
+    homeImprovementsHtml(rs)
+  );
+}
+
+// Home value, basis and the mortgage balance at plan start.
+export function primaryHomeRows(rs) {
   const mortgageBalance = rs.filter(
     (r) =>
       String(r.section || "").trim() === "Cashflow" &&
       norm(r.subsection || "") === "mortgage" &&
       norm(r.label || "") === "balance_as_of_plan_start",
   );
-  const homeRows = rs.filter(
+  const keyHomeRows = rs.filter(
     (r) =>
       String(r.section || "").trim() === "Other Assets" &&
-      norm(r.subsection || "") === "home",
+      norm(r.subsection || "") === "home" &&
+      (homeValueLabelIsCanonical(r.label) || norm(r.label || "") === "home_basis"),
   );
-  const homeImprovRows = rs.filter(
+  return mortgageBalance.concat(keyHomeRows);
+}
+
+export function primaryHomeFieldsHtml(rs) {
+  const rows = primaryHomeRows(rs);
+  return (
+    '<div class="section-note">Home value, basis, and the mortgage balance at plan start. Mortgage payment timing and recurring housing costs are entered with the Housing budget.</div>' +
+    (rows.length
+      ? '<div class="field-list">' + rows.map(fieldHtml).join("") + "</div>"
+      : "")
+  );
+}
+
+function housingStepRows(rs, n) {
+  return rs.filter(
     (r) =>
       String(r.section || "").trim() === "Housing" &&
-      norm(r.subsection || "") === "home_improvements",
+      norm(r.subsection || "") === "next_step_" + n,
   );
-  const nextStep1Rows = rs.filter(
-    (r) =>
-      String(r.section || "").trim() === "Housing" &&
-      norm(r.subsection || "") === "next_step_1",
-  );
-  const nextStep2Rows = rs.filter(
-    (r) =>
-      String(r.section || "").trim() === "Housing" &&
-      norm(r.subsection || "") === "next_step_2",
-  );
-  const keyHomeRows = homeRows.filter((r) => {
-    const l = norm(r.label || "");
-    return homeValueLabelIsCanonical(r.label) || l === "home_basis";
-  });
+}
 
-  // Determine if any next housing step is a Purchase — home improvements only show then.
-  const nextStep1TypeRow = nextStep1Rows.find((r) => norm(r.label) === "type");
-  const nextStep2TypeRow = nextStep2Rows.find((r) => norm(r.label) === "type");
-  const nextStep1IsBuy =
-    !nextStep1TypeRow ||
-    String(valOf(nextStep1TypeRow) || "purchase").toLowerCase() === "purchase";
-  const nextStep2IsBuy =
-    !nextStep2TypeRow ||
-    String(valOf(nextStep2TypeRow) || "purchase").toLowerCase() === "purchase";
-  const anyNextStepIsBuy = nextStep1IsBuy || nextStep2IsBuy;
-
-  let html = "";
-
-  html +=
-    '<details><summary class="section-header">Current home</summary><div class="section-body">';
-  html +=
-    '<div class="section-note">Home value, basis, and the mortgage balance at plan start. Mortgage payment timing and recurring housing costs are entered with the Housing budget.</div>';
-  const currentHome = mortgageBalance.concat(keyHomeRows);
-  if (currentHome.length)
-    html +=
-      '<div class="field-list">' + currentHome.map(fieldHtml).join("") + "</div>";
-  html += "</div></details>";
-
-  html +=
-    '<details data-dkey="housing:residency"><summary class="section-header">State residency over time</summary><div class="section-body">';
-  html += renderResidencySchedule();
-  html += "</div></details>";
-
+// Residency over time, the current home's sale, and next housing steps 1 & 2.
+export function nextHousingMoveInputsHtml(rs) {
+  const nextStep1Rows = housingStepRows(rs, 1);
+  const nextStep2Rows = housingStepRows(rs, 2);
+  let html =
+    '<details data-dkey="housing:residency"><summary class="section-header">State residency over time</summary><div class="section-body">' +
+    renderResidencySchedule() +
+    "</div></details>";
   html += renderBaseHomeSaleRows(rs);
-
   html +=
-    '<div class="section-note">Not sure what year or location to plan for? The <a href="#" onclick="setStep(\'strategy_optimize\');return false">Optimize next housing move</a> tool (Strategy → Optimize → Next Housing Move) searches candidate sale/purchase years, locations, and dwelling specs (area type, bedrooms, bathrooms, property type, square footage, lot size) and reuses the same engine as the rest of the plan. Each of its results now reports the ZIP code, an estimated price, and the distance to your anchor -- run it, then transcribe the winning candidate\'s state, area type, population, ZIP, and dwelling fields into the fields below.</div>';
-
-  if (nextStep1Rows.length) {
-    html += renderNextHousingStepSection(
-      nextStep1Rows,
-      "Next Housing Step 1",
-      1,
-    );
-  }
-  if (nextStep2Rows.length) {
-    html += renderNextHousingStepSection(
-      nextStep2Rows,
-      "Next Housing Step 2",
-      2,
-    );
-  }
+    '<div class="section-note">Not sure what year or location to plan for? The <b>Where to live</b> search below sweeps candidate sale/purchase years, locations, and dwelling specs (area type, bedrooms, bathrooms, property type, square footage, lot size) with the same engine as the rest of the plan. Each result reports the ZIP code, an estimated price, and the distance to your anchor -- transcribe the winning candidate\'s state, area type, population, ZIP, and dwelling fields into the steps here.</div>';
+  if (nextStep1Rows.length)
+    html += renderNextHousingStepSection(nextStep1Rows, "Next Housing Step 1", 1);
+  if (nextStep2Rows.length)
+    html += renderNextHousingStepSection(nextStep2Rows, "Next Housing Step 2", 2);
   if (!nextStep1Rows.length && !nextStep2Rows.length) {
     html +=
       '<details><summary class="section-header">Next Housing Step (Purchase)</summary><div class="section-body">';
@@ -874,21 +856,71 @@ export function housingPlanSectionsHtml(rs) {
       '<div class="section-note">Next-step housing fields not found. Click <button class="btn btn-sm" type="button" onclick="seedHousingRows()">Seed Housing Fields</button> to add fields for future housing steps.</div>';
     html += "</div></details>";
   }
-
-  // Home improvement projects — only relevant for purchase (not rent).
-  if (homeImprovRows.length && anyNextStepIsBuy) {
-    html +=
-      '<details><summary class="section-header">Home improvement projects</summary><div class="section-body">';
-    html +=
-      '<div class="section-note">Planned improvement costs are entered here as part of Housing. Other pages may reference them read-only.</div>';
-    html +=
-      '<div class="field-list">' +
-      homeImprovRows.map(fieldHtml).join("") +
-      "</div>";
-    html += "</div></details>";
-  }
-
   return html;
+}
+
+// Home improvement projects -- only relevant when a next step is a purchase.
+export function homeImprovementsHtml(rs) {
+  const homeImprovRows = rs.filter(
+    (r) =>
+      String(r.section || "").trim() === "Housing" &&
+      norm(r.subsection || "") === "home_improvements",
+  );
+  const isBuy = (stepRows) => {
+    const t = stepRows.find((r) => norm(r.label) === "type");
+    return !t || String(valOf(t) || "purchase").toLowerCase() === "purchase";
+  };
+  if (
+    !homeImprovRows.length ||
+    !(isBuy(housingStepRows(rs, 1)) || isBuy(housingStepRows(rs, 2)))
+  )
+    return "";
+  return (
+    '<details><summary class="section-header">Home improvement projects</summary><div class="section-body">' +
+    '<div class="section-note">Planned improvement costs are entered here as part of Housing. Other pages may reference them read-only.</div>' +
+    '<div class="field-list">' +
+    homeImprovRows.map(fieldHtml).join("") +
+    "</div></div></details>"
+  );
+}
+
+// #338 W-E: Next Housing Move's off-state (design 2026-09-24 §6). No inline
+// switch -- the only one lives on Plan Features under Housing & Property.
+// The saved values are listed so the reader sees exactly what is kept but
+// not applied.
+export function nextHousingMoveSavedFields(rs) {
+  const out = [];
+  rs.filter(rowIsNextHousingMoveInput).forEach((r) => {
+    const v = String(valOf(r) == null ? "" : valOf(r)).trim();
+    if (enteredRowCount([{ value: v }]) === 0) return;
+    const m = /^next_step_(\d)$/.exec(norm(r.subsection || ""));
+    const prefix = m ? `Next Housing Step ${m[1]} ` + "\u2014 " : "";
+    out.push({ label: prefix + humanLabel(r.label, r), value: v });
+  });
+  (residencySchedule || []).forEach((p) => {
+    if (!String(p.state || "").trim()) return;
+    out.push({
+      label: "State residency",
+      value: `${p.state} from ${p.start_year || "?"}${p.end_year ? " to " + p.end_year : ""}`,
+    });
+  });
+  (homeSaleSplits || []).forEach((sp) => {
+    if (!String(sp.account || "").trim()) return;
+    out.push({
+      label: "Sale proceeds split",
+      value: `${accountDisplayLabel(sp.account)} ${sp.percentage || ""}`.trim(),
+    });
+  });
+  return out;
+}
+
+export function nextHousingMoveOffNoteHtml(rs) {
+  const saved = nextHousingMoveSavedFields(rs || []);
+  const n = saved.length;
+  const list = n
+    ? `<ul class="small next-housing-saved">${saved.map((f) => `<li>${esc(f.label)}: ${esc(f.value)}</li>`).join("")}</ul>`
+    : "";
+  return `<div class="section-note">Off \u2014 ${n} saved ${n === 1 ? "field" : "fields"} not applied: the plan assumes you stay in your current home and state. <a href="#" onclick="setStep('optional_functions');return false">Open Plan Features</a></div>${list}`;
 }
 
 export function homeSaleScenarioYearRow(home) {
@@ -1374,6 +1406,12 @@ export async function seedHousingRows() {
 // module scoping. New code should prefer `import` from this module; this
 // bridge exists only for callers that cannot move to import in the same pass.
 Object.assign(window, {
+  primaryHomeRows,
+  primaryHomeFieldsHtml,
+  nextHousingMoveInputsHtml,
+  homeImprovementsHtml,
+  nextHousingMoveSavedFields,
+  nextHousingMoveOffNoteHtml,
   rowIsCanonicalHomeBasis,
   rowIsHomeSaleAssumption,
   rowIsEconomyScenario,

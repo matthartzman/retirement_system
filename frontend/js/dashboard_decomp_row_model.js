@@ -825,6 +825,7 @@ export function stepTitleById(id) {
 
 export function sourceStepForRow(row) {
   if (!row) return "";
+  if (rowIsNextHousingMoveInput(row)) return "strategy_optimize";
   try {
     for (const id of BUILD_IMPACT_SOURCE_STEP_IDS) {
       if (rawRowsForStep(id).some((x) => x.row_index === row.row_index))
@@ -1360,6 +1361,22 @@ export function rowIsBaseHomeSaleInput(r) {
       sub === "home" &&
       (lbl.startsWith("home_sale_") || lbl === "home_basis")) ||
     (sec === "Model Constants" && sub === "home_sale")
+  );
+}
+
+// #338 W-E: the housing PLAN inputs the Next Housing Move switch owns
+// (design 2026-09-24 §6) -- the current home's sale and next housing steps
+// 1 & 2. Residency periods and sale splits are table rows, not plan rows.
+// Off, the engine ignores them (data_io.parse_client) and the CSV keeps them.
+export function rowIsNextHousingMoveInput(r) {
+  const sec = String(r.section || "").trim();
+  const sub = norm(r.subsection || "");
+  const lbl = norm(r.label);
+  return (
+    (sec === "Other Assets" &&
+      sub === "home" &&
+      (lbl.startsWith("home_sale_") || lbl === "planned_home_sale_year")) ||
+    (sec === "Housing" && (sub === "next_step_1" || sub === "next_step_2"))
   );
 }
 
@@ -5252,6 +5269,7 @@ Object.assign(window, {
   rowBuildUsageState,
   rowByNormLabel,
   rowIsBaseHomeSaleInput,
+  rowIsNextHousingMoveInput,
   rowIsCanonicalHomeValue,
   rowIsDivorceScenario,
   rowIsMonteCarlo,
