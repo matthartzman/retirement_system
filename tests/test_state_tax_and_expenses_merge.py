@@ -139,6 +139,8 @@ def test_state_residency_button_removed_from_planning_levers_decide_card():
     # #338 W-C: renderSpendingHousing's non-cost sections (residency
     # included) are housingPlanSectionsHtml now, shown under Spending
     # Model's Housing accordion.
+    # #338 W-E: ...and then into Optimize -> Next Housing Move, via
+    # nextHousingMoveInputsHtml (housingPlanSectionsHtml composes it).
     assert 'renderResidencySchedule()' in dashboard_function_source(
-        'housingPlanSectionsHtml', js
+        'nextHousingMoveInputsHtml', js
     )
