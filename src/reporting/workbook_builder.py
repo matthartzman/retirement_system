@@ -39,6 +39,7 @@ from .workbook_common import (
     run_projection_artifacts,
     sanitize_id,
     section_title,
+    sheet_topic,
     thin_border,
     widen_overflowing_number_columns,
     workspace_input_dir,
@@ -732,7 +733,8 @@ def _build_plan_data_sheet(wb, c):
     r += 1
     write_hdr(ws, r, 1, 'Section', DGRAY, WHITE)
     write_hdr(ws, r, 2, 'Sheet', DGRAY, WHITE)
-    write_hdr(ws, r, 3, 'Purpose', DGRAY, WHITE, span=4)
+    write_hdr(ws, r, 3, 'Topic', DGRAY, WHITE)
+    write_hdr(ws, r, 4, 'Purpose', DGRAY, WHITE, span=3)
     r += 1
     for area in WORKBOOK_SECTION_LAYOUT:
         for stable_name in area.get('sheets', []):
@@ -744,10 +746,14 @@ def _build_plan_data_sheet(wb, c):
                 continue
             write_cell(ws, r, 1, area.get('section'))
             write_cell(ws, r, 2, FINAL_SHEET_RENAMES[stable_name])
-            write_cell(ws, r, 3, _PLAN_DATA_SCOPE_PURPOSES.get(stable_name, ''))
-            ws.merge_cells(start_row=r, start_column=3, end_row=r, end_column=6)
+            # #332 W-F Task F3 (design 2026-09-24 §1.3): the Topic column
+            # names each sheet's catalog domain, giving the answer-type
+            # workbook structure a second, Plan-Features-aligned facet.
+            write_cell(ws, r, 3, sheet_topic(stable_name))
+            write_cell(ws, r, 4, _PLAN_DATA_SCOPE_PURPOSES.get(stable_name, ''))
+            ws.merge_cells(start_row=r, start_column=4, end_row=r, end_column=6)
             r += 1
-    for col, width in {'A':18,'B':24,'C':28,'D':10,'E':10,'F':10}.items():
+    for col, width in {'A':18,'B':24,'C':20,'D':28,'E':10,'F':10}.items():
         ws.column_dimensions[col].width = width
 
 

@@ -27,19 +27,22 @@ def test_output_workbook_uses_numbered_top_level_area_tabs(built_workbook_path):
     for section in expected_sections:
         assert section in names
 
+    # #332 W-F Task F6 (design 2026-09-24 §9.1): sheets within a section now
+    # order by Topic first -- see test_workbook_numbered_section_tabs_functional.py
+    # for the full pinned order and its rationale.
     assert names[:7] == [
         "1. Reports",
-        "1A. Executive Summary",
-        "1B. Net Worth",
-        "1C. Cash Flow",
-        "1D. Balance Sheet",
-        "1E. Charts",
-        "1F. Lifetime Taxes",
+        "1A. Spending Summary",
+        "1B. Lifetime Taxes",
+        "1C. Executive Summary",
+        "1D. Net Worth",
+        "1E. Cash Flow",
+        "1F. Balance Sheet",
     ]
-    assert names[names.index("2. Optimizers") + 1] == "2A. Roth Conversion"
+    assert names[names.index("2. Optimizers") + 1] == "2A. Social Security"
     assert names[names.index("3. Comparisons") + 1] == "3A. State Residency"
     assert names[names.index("4. Risks") + 1] == "4A. Monte Carlo"
-    assert names[names.index("5. Reference") + 1] == "5A. Plan Data"
+    assert names[names.index("5. Reference") + 1] == "5A. RMD Audit"
     assert names[-1] == "_Chart Dashboard Data"
 
 
