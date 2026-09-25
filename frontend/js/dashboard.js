@@ -99,15 +99,15 @@ const STEPS = [
     hidden: true,
   },
   {
-    // #330 P8 / Q6 (W13): promoted out of Spending. Housing & Property is a
-    // domain of its own in the catalog (module_catalog's HOUSING_PROPERTY,
-    // W1) and Plan Features groups its switches under that name, so filing
-    // this page under Spending is the "where I turn it on" / "where I use
-    // it" divergence §4.3 names. The housing BUDGET rows stay here with the
-    // rest of the page -- the split §4.3 calls honest is between budget
-    // lines and the domain, not between two pages.
+    // #338 W-C/W-E: a hidden redirect target now -- housing costs are
+    // edited in Spending Model's Housing accordion, home value and mortgage
+    // balance on Other Assets and Liabilities, and sale / next steps /
+    // residency in Optimize -> Next Housing Move. The Housing & Property
+    // nav group dissolves (design 2026-09-24 §2): its topic lives on in
+    // Plan Features and the workbook. Filed under Spending, where the
+    // redirect lands.
     id: "spending_mortgage_events",
-    group: "Housing & Property",
+    group: "Spending",
     title: "Housing",
     desc: "Authoritative Housing budget detail: mortgage, homeowners insurance, maintenance, utilities, real-estate taxes, and home improvements.",
     intro:
@@ -120,15 +120,15 @@ const STEPS = [
     // liability held against an asset, not an optimizer. No longer
     // hidden/embedded inside Optimize's strategySection list: it is a direct
     // nav entry.
-    // #330 P8 / Q6 (W13): ...and its group is now the one the catalog
-    // actually declares for it. `heloc`'s domain is HOUSING_PROPERTY, so
-    // Plan Features lists its switch under Housing & Property; W9 put the
-    // step under Assets & Protection following §4.3's prose, which predates
-    // that declaration. The catalog is the source of truth, and the whole
-    // point of this workstream is that the two surfaces agree. The Other
-    // Assets page keeps its read-only HELOC summary and its link here.
+    // #338 W-E (design 2026-09-24 §2/§6): Investments & Property, beside
+    // home value on Other Assets. A legal join under §1.4 -- HELOC's topic
+    // is Housing & Property, which that group label names. Still gated by
+    // its own plan flag (heloc_enabled), not by the Next Housing Move
+    // switch. Plan Features keeps listing the switch under Housing &
+    // Property. The Other Assets page keeps its read-only HELOC summary
+    // and its link here.
     id: "heloc_strategy",
-    group: "Housing & Property",
+    group: "Investments & Property",
     title: "Home Equity Line",
     desc: "Bridge large discretionary spending with home equity, keeping invested assets untouched in early retirement.",
     intro:
@@ -150,7 +150,7 @@ const STEPS = [
     title: "Reserve Requirements",
     desc: "The cash reserve floor the plan protects before drawing investments, plus spendable checking cash.",
     intro:
-      "Reserve rules set how many months of spending to hold outside the investment portfolio. Home value and home sale inputs are in the Housing accordion of Spending Model.",
+      "Reserve rules set how many months of spending to hold outside the investment portfolio. Home value and mortgage balance are on Other Assets and Liabilities; home sale is in Optimize → Next Housing Move.",
     help: "The reserve floor is the last buffer in probability analysis — the plan counts as failing when it cannot maintain this floor without depleting all accounts.",
   },
   {
@@ -2634,7 +2634,7 @@ function renderAssetsCashReserves() {
   const rs = rowsForStep("assets_home_cash");
   const cash = rs.filter((r) => norm(r.subsection || "") === "cash");
   let html =
-    '<div class="section-note">Spendable cash outside the investment accounts, and the reserve floor the plan protects before drawing from the portfolio. <b>Home value and home sale inputs are in the <a href="#" onclick="setStep(\'spending_mortgage_events\');return false">Housing</a> accordion of Spending Model.</b></div>';
+    '<div class="section-note">Spendable cash outside the investment accounts, and the reserve floor the plan protects before drawing from the portfolio. <b>Home value and mortgage balance are on <a href="#" onclick="setStep(\'assets_special\');return false">Other Assets and Liabilities</a>; home sale is in <a href="#" onclick="setStep(\'strategy_optimize\');return false">Optimize → Next Housing Move</a>.</b></div>';
   if (cash.length)
     html +=
       '<div class="field-list">' + cash.map(fieldHtml).join("") + "</div>";
