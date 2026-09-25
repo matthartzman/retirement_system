@@ -6,3 +6,11 @@
 # checked-out bytes are identical across platforms and CI runners.
 *.csv text eol=lf
 input/plan_data_manifest.json text eol=lf
+
+# .claude/workflows/*.js scripts are passed verbatim to the Workflow tool's
+# permission-approval dialog, which rejects any embedded \r as a hidden
+# control character. On Windows, core.autocrlf=true silently reintroduces
+# CRLF into these files on checkout, breaking Workflow invocation with a
+# "script contains control characters" error. Force LF so the checked-out
+# bytes never contain \r, on any platform.
+.claude/workflows/*.js text eol=lf
