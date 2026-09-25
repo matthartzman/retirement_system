@@ -11,13 +11,12 @@
 
    Only Housing COSTS render in the Housing accordion. Home value / mortgage
    balance and home sale / next moves / state over time are housing plan
-   inputs, not spending; they stay in housingPlanSectionsHtml()
-   (dashboard_decomp_housing_scenarios.js), shown in a collapsed section
-   under the Housing accordion until W-E moves them to Other Assets and
-   Next Housing Move.
+   inputs, not spending: W-E moved them to Other Assets and Liabilities
+   and to Optimize -> Next Housing Move. Only home improvements (a
+   spending line) stay here, via homeImprovementsHtml().
 
    Everything this module calls (fieldHtml, norm, esc, rowsForStep,
-   rowIsRetirementWellness, housingPlanSectionsHtml, searchText) resolves
+   rowIsRetirementWellness, homeImprovementsHtml, searchText) resolves
    through the window bridge at call time, so it has no load-order
    dependency on dashboard.js. */
 
@@ -120,11 +119,16 @@ export function spendingSourceHeadHtml(tt) {
   return "";
 }
 
-// Body suffix, after the budget groups: the housing plan inputs that are
-// not spending but have no other home until W-E.
+// Body suffix, after the budget groups: home improvement projects. #338 W-E
+// moved the other housing plan inputs out -- home value and mortgage balance
+// to Other Assets and Liabilities, sale/next steps/residency to Strategy ->
+// Optimize -> Next Housing Move.
 export function spendingSourceTailHtml(tt) {
   if (tt !== "Housing") return "";
-  return `<details class="taxonomy-type-subsection" data-dkey="housing:plan"><summary class="section-header">Home value, sale &amp; next moves</summary><div class="section-body">${housingPlanSectionsHtml(rowsForStep("spending_mortgage_events"))}</div></details>`;
+  return (
+    homeImprovementsHtml(rowsForStep("spending_mortgage_events")) +
+    '<div class="section-note">Home value and mortgage balance are on <a href="#" onclick="setStep(\'assets_special\');return false">Other Assets and Liabilities</a>; home sale, next housing steps and state residency are in <a href="#" onclick="setStep(\'strategy_optimize\');return false">Optimize &rarr; Next Housing Move</a>.</div>'
+  );
 }
 
 export function domainBudgetNote(domain) {
