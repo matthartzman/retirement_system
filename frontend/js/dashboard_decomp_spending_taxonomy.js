@@ -612,7 +612,7 @@ export function renderDomainBudgetTable(domain) {
   if (!spendingModelData && !spendingModelLoading) {
     setTimeout(() => loadSpendingModel(false), 0);
   }
-  const data = currentSpendingTreeForDomain(domain);
+  let data = currentSpendingTreeForDomain(domain);
   if (spendingModelError && !data.length)
     return (
       '<div class="missing-list"><p>' +
@@ -621,19 +621,24 @@ export function renderDomainBudgetTable(domain) {
       esc(domain) +
       "')\">Reload</button></div>"
     );
-  if (!data.length)
-    return (
-      '<div class="question"><b>No ' +
+  const emptyNote = data.length
+    ? ""
+    : '<div class="question"><b>No ' +
       esc(domainBudgetTitle(domain)) +
-      ' transaction categories loaded.</b><p class="small">Spending Categories shows Tracking Types, Groups, and Categories with non-zero YTD Actual, Annualized, Annual Budget, or Projection. Use Income &amp; Expense Transactions to import transactions, or add budget/projection values on the source page, then Reload.</p></div>'
-    );
+      ' transaction categories loaded.</b><p class="small">Spending Categories shows Tracking Types, Groups, and Categories with non-zero YTD Actual, Annualized, Annual Budget, or Projection. Use Income &amp; Expense Transactions to import transactions, or add budget/projection values on the source page, then Reload.</p></div>';
+  // #336/#335: the Large Discretionary rows table and the Adjustments table
+  // are how those inputs are first entered, so the core page always shows
+  // both -- even before any Large Discretionary category has a value.
+  if (domain !== "core" && !data.length) return emptyNote;
+  if (domain === "core" && !data.some((t) => t.tracking_type === "Large Discretionary"))
+    data = [...data, { tracking_type: "Large Discretionary", groups: [] }];
   let grandTotal = 0;
   data.forEach(function (t) {
     (t.groups || []).forEach(function (g) {
       grandTotal += groupEffectiveBudget(t.tracking_type, g.group);
     });
   });
-  let html = "";
+  let html = emptyNote;
   if (domain === "core") {
     html += `<details class="section-note help-detail"><summary style="cursor:pointer;font-weight:500;list-style:none;display:flex;align-items:center;gap:6px"><span style="font-size:13px">▸</span> Annual Budget vs. Projection — when do they differ?</summary><div style="margin-top:8px"><p class="small"><b>Annual Budget</b> is what you entered. <b>Projection</b> is what the engine uses as the year-one spending base for that category. In most cases they are equal. They diverge in four scenarios:</p><ul class="small" style="margin:6px 0 0 18px;line-height:1.8"><li><b>Cap/reference categories</b> (e.g., Medical OOP Cap in Wellness): Annual Budget holds the cap value so you can see it; Projection is forced to <b>$0</b> because a cap is a ceiling on out-of-pocket costs, not a recurring spending input.</li><li><b>Group in Summary mode</b>: The single group-level override number becomes the Projection for the whole group. Any per-category Annual Budget values that were entered before switching to Summary are stale — the engine ignores them and uses the group total.</li><li><b>Detail-line total disagrees with the Annual Budget override</b>: In Detail mode, Projection equals the sum of the detail lines. If you also typed a manual value in the Annual field, it is stored but overridden by the line sum in the projection.</li><li><b>$0 budget categories with transaction history</b>: The category appears in the table because transactions were imported, but Projection = $0, so it contributes nothing to the projected spend base.</li></ul><p class="small" style="margin-top:8px">The <b>Projection</b> column in each group header shows the value that feeds the projection. If it looks wrong compared to Annual Budget, check whether Summary mode is active or whether a cap/reference flag is set on that category.</p></div></details>`;
   }

@@ -480,8 +480,11 @@ DASHBOARD_JS_MAX_LINES = 7_134
 # <tracking type>" options, compounded-result helper text, add/edit/delete,
 # load/save through /api/spending-adjustments) -- plus its save / dirty /
 # reset hooks in row_model and closeout. dashboard.js is unchanged. New
-# behavior: raised to the measured 36,590.
-TOTAL_JS_MAX_LINES = 36_590
+# behavior: raised to the measured 36,590. Then +5: renderDomainBudgetTable
+# always shows the Large Discretionary and Adjustments accordions on the
+# core page, even before any spending category has a value (e2e caught
+# that an empty model left neither reachable). Measured 36,595.
+TOTAL_JS_MAX_LINES = 36_595
 
 
 def _line_count(path: Path) -> int:
