@@ -72,10 +72,6 @@ export const SUGGESTED_NEXT = {
   holdings: "assets_home_cash",
   assets_home_cash: "spending_core",
   spending_core: "reports_and_review",
-  // W13: Housing is its own nav group now, between Spending and Assets &
-  // Protection -- without a forward link it is the one group the guided walk
-  // can enter and not leave.
-  spending_mortgage_events: "holdings",
   // W13: the Taxes group, in nav order. Both targets are module-gated, so
   // the guard in suggestedNext() below drops the footer rather than pointing
   // at a step the nav is not showing.
@@ -2130,7 +2126,10 @@ export function stepStats(id) {
   // into ANY step's stepStats() -- editing the table has never raised an
   // "Edited" nav badge on its own page. The gap moved with the table onto
   // spending_mortgage_events; it does not fix itself.
-  if (id === "spending_mortgage_events" && residencyScheduleChanged)
+  if (
+    (id === "spending_mortgage_events" || id === "spending_core") &&
+    residencyScheduleChanged
+  )
     d.push({});
   if (
     id === "ytd_transactions" &&
@@ -4775,8 +4774,7 @@ export async function saveWorkingCopy() {
     homeSaleSplits.length &&
     Math.abs(homeSaleSplitPctTotal() - 100) >= 0.01
   ) {
-    activeStep = "spending_mortgage_events";
-    renderMain();
+    setStep("spending_mortgage_events");
     showMessage(
       `Home sale split percentages must total 100% before saving (currently ${homeSaleSplitPctTotal().toFixed(1)}%).`,
       "error",

@@ -67,6 +67,7 @@ const STEPS = [
     intro:
       "Enter healthcare premium assumptions and non-premium medical spending detail here. Other pages may reference these numbers, but this is the only editable source for Wellness.",
     help: "Include both Medicare and pre-Medicare premiums plus expected out-of-pocket medical, dental, vision, and drugs. Medical OOP Cap is a cap/reference for non-premium medical spending, not a standalone expense.",
+    hidden: true,
   },
   {
     id: "lifestyle_spending",
@@ -121,6 +122,7 @@ const STEPS = [
     intro:
       "Enter all housing budget detail here. Other pages may reference these numbers, but this is the only editable source for Housing.",
     help: "Housing includes current mortgage, homeowners insurance, maintenance, utilities, real-estate taxes, and home improvement projects. Rent is shown only when configured with a positive value.",
+    hidden: true,
   },
   {
     // #329 O11 / #330 §4.3 (W9): moved out of Strategy -- HELOC is a
@@ -2617,17 +2619,13 @@ const DEFAULT_TRAVEL_TYPES = ["Wedding", "Large Gifts", "Other"];
 // Mirrors src/projection_stages/deterministic_engine.py _fra_for_birth_year /
 // _ss_claim_factor closely enough for this preview cell. The workbook build
 // always uses the authoritative Python engine; this is a display estimate.
-function renderRetirementWellness() {
-  if (searchText.trim()) return renderFields("retirement_wellness");
-  return wellnessGroupsHtml([]) + renderDomainBudgetPage("healthcare");
-}
 function renderAssetsCashReserves() {
   if (searchText.trim())
     return renderFields("assets_home_cash") + renderLiquidityBuffers();
   const rs = rowsForStep("assets_home_cash");
   const cash = rs.filter((r) => norm(r.subsection || "") === "cash");
   let html =
-    '<div class="section-note">Spendable cash outside the investment accounts, and the reserve floor the plan protects before drawing from the portfolio. <b>Home value and home sale inputs are on the <a href="#" onclick="setStep(\'spending_mortgage_events\');return false">Housing tab</a>.</b></div>';
+    '<div class="section-note">Spendable cash outside the investment accounts, and the reserve floor the plan protects before drawing from the portfolio. <b>Home value and home sale inputs are in the <a href="#" onclick="setStep(\'spending_mortgage_events\');return false">Housing</a> accordion of Spending Model.</b></div>';
   if (cash.length)
     html +=
       '<div class="field-list">' + cash.map(fieldHtml).join("") + "</div>";
@@ -3735,8 +3733,6 @@ let renderMain = function() {
   else if (activeStep === "income_work") content += renderIncomeWork();
   else if (activeStep === "income_retirement")
     content += renderRetirementIncome();
-  else if (activeStep === "retirement_wellness")
-    content += renderRetirementWellness();
   else if (activeStep === "strategy_optimize") content += renderStrategyOptimize();
   else if (activeStep === "strategy_stress") content += renderStrategyStress();
   else if (activeStep === "strategy_scenarios")
@@ -3758,8 +3754,6 @@ let renderMain = function() {
   else if (activeStep === "ltc_stress")
     content += analysisFrame(renderLtcStress(), "stress");
   else if (activeStep === "holdings") content += renderHoldings();
-  else if (activeStep === "spending_mortgage_events")
-    content += renderSpendingHousing();
   else if (activeStep === "assets_home_cash")
     content += renderAssetsCashReserves();
   else if (activeStep === "assets_special") content += renderAssetsSpecial();
@@ -7155,7 +7149,7 @@ Object.assign(window, {
   planningWorkbenchStressSelectorHtml, primaryActionForStep, promotePlanningCase,
   recoverPriorSpendingBudget, recoverYtdAccountSetup, rememberBuildCompare, renderAssetsCashReserves,
   renderDetailedResultsNav, renderDetailedResultsProgressTick, renderEstateWithAnnuityLink,
-  renderFieldFinderGroups, renderHouseholdPeople, renderMeta, renderNav, renderRetirementWellness,
+  renderFieldFinderGroups, renderHouseholdPeople, renderMeta, renderNav,
   renderSpendingDashboardOrLoad, renderSpendingWorkflowBanner, renderStrategyTabs,
   renderWithdrawalOrderTable, renderWithdrawalStrategy, renderWorkspaceSubtabsNav,
   resetAllocationPreview, restoreGroupBudgetModes, restoreWorkbookViewState, revertLastBuildChanges,

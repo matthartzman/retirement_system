@@ -17,7 +17,7 @@
   // (holdings/assets_home_cash/annuity_death_benefits/assets_special/estate).
   // #330 P8 / Q6 (W13): roth_conversion and entity_charitable added for the
   // same reason, leaving the same umbrella to become the Taxes nav group.
-  const AUTOSAVE_STEPS=['household_people','income_work','income_retirement','lifestyle_spending','spending_core','spending_setup','retirement_wellness','spending_mortgage_events','ytd_transactions','holdings','assets_home_cash','annuity_death_benefits','assets_special','estate','heloc_strategy','roth_conversion','entity_charitable','family_business','strategy_optimize','economic_tax_assumptions','optional_functions','all_assumptions'];
+  const AUTOSAVE_STEPS=['household_people','income_work','income_retirement','lifestyle_spending','spending_core','spending_setup','ytd_transactions','holdings','assets_home_cash','annuity_death_benefits','assets_special','estate','heloc_strategy','roth_conversion','entity_charitable','family_business','strategy_optimize','economic_tax_assumptions','optional_functions','all_assumptions'];
   // #323 + Workbench: planning_workbench/planning_levers now redirect to
   // strategy_workbench, and the plan-loaded check below runs on the
   // POST-redirect id -- so the screen that now holds them is what has to be
@@ -107,8 +107,14 @@
     // State Residency Analysis is gone; its residency-over-time table is now a
     // section of the Housing page and the rest of that page had no backend
     // reader at all. timing_tax used to hop through it.
-    state_residency:{step:'spending_mortgage_events',dkey:'housing:residency'},
-    timing_tax:{step:'spending_mortgage_events',dkey:'housing:residency'}
+    // #338 W-C: ...and the Housing page itself is now Spending Model's
+    // Housing accordion, so the table sits under it.
+    state_residency:{step:'spending_core',tab:'Spending Model',dkey:'housing:residency'},
+    timing_tax:{step:'spending_core',tab:'Spending Model',dkey:'housing:residency'},
+    // #338 W-C: Housing and Wellness are edited inside Spending Model.
+    // `open` names the Tracking Type accordion to reveal.
+    spending_mortgage_events:{step:'spending_core',open:'Housing'},
+    retirement_wellness:{step:'spending_core',open:'Wellness'}
   };
 
   function noop(){}
@@ -131,7 +137,9 @@
       // A non-strategySection collapsible (the Housing residency table) has no
       // persisted open state of its own, so open it here. For a strategySection
       // this is already true and assigning it again changes nothing.
-      if(el.open===false)el.open=true;
+      // #338: open every collapsed ancestor too -- the residency table sits
+      // inside Spending Model's Housing accordion, two <details> deep.
+      for(let a=el;a;a=a.parentElement){if(a.open===false)a.open=true;}
       if(el.scrollIntoView)el.scrollIntoView({block:'start',behavior:'smooth'});
     }catch(_e){}
   }
@@ -179,7 +187,8 @@
       // bodies are lazy -- opening afterwards would show the collapsed stub
       // until something triggered a second render.
       if(_sr.section)safeCall(()=>window.strategySectionSetOpen(_sr.section,true));
-      pendingSectionDkey=_sr.dkey||(_sr.section?'strategy:'+_sr.section:'');
+      if(_sr.open||_sr.tab)safeCall(()=>window.setStrategyTab(_sr.step,_sr.tab||'Spending Model'));
+      pendingSectionDkey=_sr.dkey||(_sr.open?'budget:core:'+_sr.open:'')||(_sr.section?'strategy:'+_sr.section:'');
       id=_sr.step;
     }else if(STEP_REDIRECTS[id]){
       id=STEP_REDIRECTS[id];

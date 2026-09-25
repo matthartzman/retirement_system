@@ -1354,8 +1354,7 @@ export async function seedHousingRows() {
     const resp = await api("/api/housing/seed", { method: "POST" });
     if (resp && resp.seeded !== undefined) {
       await loadAll({ source: planSource, preferLocal: false, silent: true });
-      activeStep = "spending_mortgage_events";
-      renderMain();
+      setStep("spending_mortgage_events");
       showMessage(
         "Housing fields added (" +
           resp.seeded +

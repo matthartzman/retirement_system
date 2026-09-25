@@ -176,7 +176,7 @@ JS_DIR = ROOT / "frontend" / "js"
 # extraction outweighed the growth -- measured to the new total with no
 # slack, exactly as this ceiling's own contract requires on a real
 # extraction.
-DASHBOARD_JS_MAX_LINES = 7_174
+DASHBOARD_JS_MAX_LINES = 7_168
 
 # Total frontend JS is allowed to grow -- extraction moves lines out of
 # dashboard.js into new modules, which should not be penalised. This ceiling
@@ -454,6 +454,10 @@ DASHBOARD_JS_MAX_LINES = 7_174
 # order, housing-cost row ownership), not duplication: the old read-only
 # mirror and the page-local copies were removed. Raised to the measured
 # total: 36,304.
+# 2026-09-25 (#338 W-C, task C3): Housing and Wellness steps hidden and
+# redirected into Spending Model; renderRetirementWellness() and both
+# renderMain dispatch branches deleted. dashboard.js FALLS 7,174 -> 7,168
+# (DASHBOARD_JS_MAX_LINES lowered to match); total unchanged.
 TOTAL_JS_MAX_LINES = 36_304
 
 

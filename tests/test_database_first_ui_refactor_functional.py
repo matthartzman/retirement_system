@@ -24,6 +24,11 @@ def test_dashboard_top_level_groups():
     # exists to close.
     assert groups == ["Plan Status", "People and Income", "Spending", "Housing & Property", "Assets & Protection", "Taxes", "Family & Business", "Strategy", "Reports & Review", "Reports", "Settings"]
     assert "Advanced Options" not in re.search(r"function renderSteps\(\).*?box\.innerHTML", js, re.S).group(0)
+    # #338 W-C: Housing and Wellness are edited inside Spending Model; their
+    # old steps stay only as hidden redirect targets.
+    for step_id in ("spending_mortgage_events", "retirement_wellness"):
+        entry = re.search(r'id: "%s",(.*?)\n  \}' % step_id, steps_block, re.S).group(1)
+        assert "hidden: true" in entry, step_id
 
 
 def test_primary_workflow_is_database_first_not_csv_folder_save_load():

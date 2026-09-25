@@ -117,7 +117,6 @@
     "renderMain",
     "renderMeta",
     "renderNav",
-    "renderRetirementWellness",
     "renderSpendingDashboardOrLoad",
     "renderSpendingWorkflowBanner",
     "renderStrategyTabs",
@@ -2707,18 +2706,6 @@
       "name": "planSource",
       "file": "frontend/js/dashboard_decomp_housing_scenarios.js",
       "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "activeStep",
-      "file": "frontend/js/dashboard_decomp_housing_scenarios.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "renderMain",
-      "file": "frontend/js/dashboard_decomp_housing_scenarios.js",
-      "kind": "call",
       "scope": "inside-function"
     },
     {
@@ -6235,18 +6222,6 @@
       "name": "homeSaleSplits",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "activeStep",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "renderMain",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
       "scope": "inside-function"
     },
     {
