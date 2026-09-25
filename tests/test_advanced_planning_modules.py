@@ -37,13 +37,16 @@ MODULES = [
     # Allocation down by two more (Withdrawal Sequencing, Asset Location
     # restored from hidden) and every '4'-prefix letter after LTC Stress
     # Test down by one (Divorce/QDRO, rank 2.5, gets a workbook sheet).
-    ("education_funding_529",       "30. Education Funding",       "2I. Education Funding",       build_education_funding),
-    ("equity_compensation",         "35. Equity Compensation",     "2J. Equity Compensation",     build_equity_comp),
-    ("special_needs_planning",      "36. Special-Needs Planning",  "2K. Special-Needs Planning",  build_special_needs),
-    ("existing_life_insurance",     "31. Existing Life Insurance", "4F. Existing Life Insurance", build_existing_life),
-    ("disability_income_insurance", "32. Disability Income",       "4G. Disability Income",       build_disability),
-    ("property_casualty_umbrella",  "33. P&C Umbrella",            "4H. P&C Umbrella",            build_pc_umbrella),
-    ("business_succession",         "34. Business Succession",     "2L. Business Succession",     build_business_succession),
+    # #332 W-F Task F6 (design 2026-09-24 §9.1): sheets within a section now
+    # order by Topic (module_catalog.DOMAINS order) first and the legacy
+    # rank second, which reshuffled every letter below.
+    ("education_funding_529",       "30. Education Funding",       "2K. Education Funding",       build_education_funding),
+    ("equity_compensation",         "35. Equity Compensation",     "2L. Equity Compensation",     build_equity_comp),
+    ("special_needs_planning",      "36. Special-Needs Planning",  "2M. Special-Needs Planning",  build_special_needs),
+    ("existing_life_insurance",     "31. Existing Life Insurance", "4E. Existing Life Insurance", build_existing_life),
+    ("disability_income_insurance", "32. Disability Income",       "4F. Disability Income",       build_disability),
+    ("property_casualty_umbrella",  "33. P&C Umbrella",            "4G. P&C Umbrella",            build_pc_umbrella),
+    ("business_succession",         "34. Business Succession",     "2N. Business Succession",     build_business_succession),
 ]
 
 
