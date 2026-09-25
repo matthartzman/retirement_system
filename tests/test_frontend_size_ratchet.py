@@ -475,7 +475,13 @@ DASHBOARD_JS_MAX_LINES = 7_134
 # client-side migration of legacy repeatable rows (with import notices).
 # renderLifestyleSpending() and the start/end-year columns were deleted. New
 # behavior, not duplication: raised to the measured 36,353.
-TOTAL_JS_MAX_LINES = 36_353
+# 2026-09-25 (#335 W-D, task D4): new dashboard_decomp_spending_adjustments.js
+# -- the Adjustments accordion's editable table (category pulldown with "All
+# <tracking type>" options, compounded-result helper text, add/edit/delete,
+# load/save through /api/spending-adjustments) -- plus its save / dirty /
+# reset hooks in row_model and closeout. dashboard.js is unchanged. New
+# behavior: raised to the measured 36,590.
+TOTAL_JS_MAX_LINES = 36_590
 
 
 def _line_count(path: Path) -> int:

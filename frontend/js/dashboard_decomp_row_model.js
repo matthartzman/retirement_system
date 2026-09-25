@@ -4764,7 +4764,8 @@ export function hasUnsavedPlanChanges() {
     ytdAccountsChanged ||
     rulesChanged ||
     taxBudgetChanged ||
-    budgetLinesChanged
+    budgetLinesChanged ||
+    !!(window.spendingAdjustmentsDirty && window.spendingAdjustmentsDirty())
   );
 }
 
@@ -4826,6 +4827,7 @@ export async function saveWorkingCopy() {
   if (rulesChanged) await saveMappingRulesData();
   if (taxBudgetChanged) await saveTaxonomyBudgetData();
   if (budgetLinesChanged) await saveBudgetLines();
+  if (window.saveSpendingAdjustments) await window.saveSpendingAdjustments(false);
   if (window.withdrawalAccountOrderIsDirty && window.withdrawalAccountOrderIsDirty() && window.saveWithdrawalAccountOrder)
     await window.saveWithdrawalAccountOrder();
   await saveHoldings();
