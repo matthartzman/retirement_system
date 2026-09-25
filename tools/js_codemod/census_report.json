@@ -33,7 +33,6 @@
     "detailedSheetByName",
     "discardAndExit",
     "dismissMessage",
-    "domainBudgetNote",
     "downloadBlob",
     "exitApp",
     "expandAllDetailColumnsOnPage",
@@ -3761,12 +3760,6 @@
       "scope": "inside-function"
     },
     {
-      "name": "IRMAA_OFF_MODES",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
       "name": "inactiveEditReveals",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
@@ -5573,12 +5566,6 @@
       "scope": "inside-function"
     },
     {
-      "name": "domainBudgetNote",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
       "name": "budgetLinesChanged",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
@@ -6649,6 +6636,36 @@
     {
       "name": "appReady",
       "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rowIsRetirementWellness",
+      "file": "frontend/js/dashboard_decomp_spending_sources.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_spending_sources.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_spending_sources.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rowIsRetirementWellness",
+      "file": "frontend/js/dashboard_decomp_spending_sources.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "searchText",
+      "file": "frontend/js/dashboard_decomp_spending_sources.js",
       "kind": "read",
       "scope": "inside-function"
     },

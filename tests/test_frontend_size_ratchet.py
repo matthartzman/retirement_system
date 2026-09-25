@@ -176,7 +176,7 @@ JS_DIR = ROOT / "frontend" / "js"
 # extraction outweighed the growth -- measured to the new total with no
 # slack, exactly as this ceiling's own contract requires on a real
 # extraction.
-DASHBOARD_JS_MAX_LINES = 7_201
+DASHBOARD_JS_MAX_LINES = 7_174
 
 # Total frontend JS is allowed to grow -- extraction moves lines out of
 # dashboard.js into new modules, which should not be penalised. This ceiling
@@ -445,7 +445,16 @@ DASHBOARD_JS_MAX_LINES = 7_201
 # dashboard_decomp_plan_features.js -- the toggle backfill is Python, in
 # config_service.py, not counted here. Real new JS behavior, not lines
 # moved out of dashboard.js. Raised to the measured total: 36,209.
-TOTAL_JS_MAX_LINES = 36_209
+# 2026-09-25 (#338 W-C, task C2): new dashboard_decomp_spending_sources.js
+# holds the Housing/Wellness/Travel field groups Spending Model's accordions
+# now edit in place, TRACKING_TYPE_ORDER, and domainBudgetNote() (moved out
+# of dashboard.js, which FALLS 7,189 -> 7,174 -- DASHBOARD_JS_MAX_LINES
+# lowered to match). renderSpendingHousing() splits into costs +
+# housingPlanSectionsHtml(). New behavior (editable accordions, planning
+# order, housing-cost row ownership), not duplication: the old read-only
+# mirror and the page-local copies were removed. Raised to the measured
+# total: 36,304.
+TOTAL_JS_MAX_LINES = 36_304
 
 
 def _line_count(path: Path) -> int:

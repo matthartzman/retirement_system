@@ -2619,10 +2619,7 @@ const DEFAULT_TRAVEL_TYPES = ["Wedding", "Large Gifts", "Other"];
 // always uses the authoritative Python engine; this is a display estimate.
 function renderRetirementWellness() {
   if (searchText.trim()) return renderFields("retirement_wellness");
-  let html =
-    '<div class="section-note"><b>Wellness Budget Detail is the authoritative view for healthcare spending.</b> Enter Pre-65 premiums, Medicare Part B/D/G premiums, and non-premium medical, dental, vision, Rx/OTC, and out-of-pocket estimates. The projection uses these values as-entered for cash flow and income impact; Medicare premium categories are split to match spending taxonomy.</div>';
-  html += renderDomainBudgetPage("healthcare");
-  return html;
+  return wellnessGroupsHtml([]) + renderDomainBudgetPage("healthcare");
 }
 function renderAssetsCashReserves() {
   if (searchText.trim())
@@ -3498,17 +3495,6 @@ async function recoverPriorSpendingBudget() {
   }
 }
 
-function domainBudgetNote(domain) {
-  if (domain === "core")
-    return "Spending Categories is comprehensive: Income and every expense Tracking Type, including Taxes, should appear in the hierarchy -- only internal transfers are excluded. Detailed budget authority still lives on Housing, Wellness, and Travel where applicable; this view keeps the full accounting model visible. Each group header shows both Annual Budget (what you entered) and Projection (the value the projection engine actually uses as the starting spend amount). They are usually equal — expand the help below to see when and why they can differ.";
-  if (domain === "housing")
-    return "Housing is the only editable place for mortgage/rent, homeowners insurance, home maintenance, utilities, real-estate taxes, and home improvement projects.";
-  if (domain === "healthcare")
-    return "Wellness is the only editable place for the Healthcare Premium group (Pre-65 Healthcare Premium plus Medicare Part B, Part D, and Part G), medical, dental, vision, drugs Rx/OTC, vitamins/supplements, and the medical OOP cap/reference.";
-  if (domain === "travel")
-    return "Travel is the only editable place for recurring travel projection inputs plus transaction-based travel detail. Domestic-travel and lifestyle labels are intentionally not used here.";
-  return "Large Discretionary Budget Detail supports only Wedding, Large Gifts, and Other projection rows.";
-}
 async function hideUnusedTemplateCategories() {
   if (
     !(await showInAppConfirm(
@@ -7149,28 +7135,27 @@ Object.assign(window, {
   checkAppStatus, chooseDefaultDetailedSheet, cloneSummary, closeChartModal, closeExitModal,
   closeNavDrawer, collapseAllDetailGroups, decimalsFromText, deleteYtdAccount, dependencyRank,
   deriveTotalRothConversions, detailProgressState, detailedProgressHtml, detailedSheetByName,
-  discardAndExit, dismissMessage, domainBudgetNote, downloadBlob, exitApp,
-  expandAllDetailColumnsOnPage, expandAllDetailGroups, fetchWithTimeout, fieldConnection,
-  fieldDefaultMeaning, fieldFinderCategoryName, fieldFinderCategoryOrder, fieldLabelNoteHtml,
-  fieldLikelyImpact, fieldSizeClass, fieldTooltipHtml, fieldTooltipPreview, finiteOrNull,
-  focusYtdAccountMoney, focusableEntries, getStrategyTab, groupModelData,
-  hideSpendingModelLoadOverlay, hideUnusedTemplateCategories, hideYtdLoadOverlay, humanizeGroupKey,
-  leverPctPoints, loadCanonicalGlossary, loadDetailedResults, makeYtdAccountRow,
-  mergeDetailedSheetMeta, moneyNegativeClass, moveToNextEntry, normalizePlanningCaseRunType,
-  normalizePlanningCaseSource, normalizeValueForSave, noteSessionFieldChange,
-  noteSpecialSessionChange, numberDisplayDecimals, openExitModal, openNavDrawer,
-  openNextCollapsedSectionFrom, optionalModuleState, pageHelp, pageSaveMode, pageSaveModeHtml,
-  pageStatusHtml, parseCsvLine, parseDollarLike, percentDisplayDecimals, percentRaw, personCellInput,
-  personNickPlaceholder, personTokenLabel, planningCaseActiveId, planningCaseAdopt,
-  planningCaseArchive, planningCaseBaseSnapshotId, planningCaseCardsHtml, planningCaseCreate,
-  planningCaseDelete, planningCaseId, planningCaseMatrixHtml, planningCaseMetricSummary,
-  planningCaseNowIso, planningCaseOverrideFromRow, planningCaseOverrideTable,
-  planningCaseOverridesForSource, planningCaseReadAll, planningCaseSaveAll,
-  planningCaseSourceButtons, planningWorkbenchBuildImpactHtml, planningWorkbenchStressSelectorHtml,
-  primaryActionForStep, promotePlanningCase, recoverPriorSpendingBudget, recoverYtdAccountSetup,
-  rememberBuildCompare, renderAssetsCashReserves, renderDetailedResultsNav,
-  renderDetailedResultsProgressTick, renderEstateWithAnnuityLink, renderFieldFinderGroups,
-  renderHouseholdPeople, renderMeta, renderNav, renderRetirementWellness,
+  discardAndExit, dismissMessage, downloadBlob, exitApp, expandAllDetailColumnsOnPage,
+  expandAllDetailGroups, fetchWithTimeout, fieldConnection, fieldDefaultMeaning,
+  fieldFinderCategoryName, fieldFinderCategoryOrder, fieldLabelNoteHtml, fieldLikelyImpact,
+  fieldSizeClass, fieldTooltipHtml, fieldTooltipPreview, finiteOrNull, focusYtdAccountMoney,
+  focusableEntries, getStrategyTab, groupModelData, hideSpendingModelLoadOverlay,
+  hideUnusedTemplateCategories, hideYtdLoadOverlay, humanizeGroupKey, leverPctPoints,
+  loadCanonicalGlossary, loadDetailedResults, makeYtdAccountRow, mergeDetailedSheetMeta,
+  moneyNegativeClass, moveToNextEntry, normalizePlanningCaseRunType, normalizePlanningCaseSource,
+  normalizeValueForSave, noteSessionFieldChange, noteSpecialSessionChange, numberDisplayDecimals,
+  openExitModal, openNavDrawer, openNextCollapsedSectionFrom, optionalModuleState, pageHelp,
+  pageSaveMode, pageSaveModeHtml, pageStatusHtml, parseCsvLine, parseDollarLike,
+  percentDisplayDecimals, percentRaw, personCellInput, personNickPlaceholder, personTokenLabel,
+  planningCaseActiveId, planningCaseAdopt, planningCaseArchive, planningCaseBaseSnapshotId,
+  planningCaseCardsHtml, planningCaseCreate, planningCaseDelete, planningCaseId,
+  planningCaseMatrixHtml, planningCaseMetricSummary, planningCaseNowIso, planningCaseOverrideFromRow,
+  planningCaseOverrideTable, planningCaseOverridesForSource, planningCaseReadAll,
+  planningCaseSaveAll, planningCaseSourceButtons, planningWorkbenchBuildImpactHtml,
+  planningWorkbenchStressSelectorHtml, primaryActionForStep, promotePlanningCase,
+  recoverPriorSpendingBudget, recoverYtdAccountSetup, rememberBuildCompare, renderAssetsCashReserves,
+  renderDetailedResultsNav, renderDetailedResultsProgressTick, renderEstateWithAnnuityLink,
+  renderFieldFinderGroups, renderHouseholdPeople, renderMeta, renderNav, renderRetirementWellness,
   renderSpendingDashboardOrLoad, renderSpendingWorkflowBanner, renderStrategyTabs,
   renderWithdrawalOrderTable, renderWithdrawalStrategy, renderWorkspaceSubtabsNav,
   resetAllocationPreview, restoreGroupBudgetModes, restoreWorkbookViewState, revertLastBuildChanges,

@@ -25,13 +25,21 @@ describe("STRATEGY_TABS.spending_core no longer lists Other Spending", () => {
 });
 
 describe("renderCoreSpendingUnified includes the former Other Spending content", () => {
-  test("output contains the Travel and Large Items accordions", () => {
+  test("output contains the Large Items accordion", () => {
     const sandbox = loadDashboardSandbox();
     sandbox.window.rows = [];
     sandbox.window.spendingModelData = null;
     const out = sandbox.renderCoreSpendingUnified();
     assert.match(out, /class="lifestyle-workspace"/);
-    assert.match(out, /<summary>Travel<\/summary>/);
     assert.match(out, /<summary>Large Items<\/summary>/);
+  });
+
+  // #338 W-C: Travel is edited in its own Spending Model tracking-type
+  // accordion now; a second Travel editor here would be a duplicate.
+  test("does not repeat Travel -- it has its own tracking-type accordion", () => {
+    const sandbox = loadDashboardSandbox();
+    sandbox.window.rows = [];
+    sandbox.window.spendingModelData = null;
+    assert.doesNotMatch(sandbox.renderCoreSpendingUnified(), /<summary>Travel<\/summary>/);
   });
 });
