@@ -768,7 +768,7 @@ def test_no_irmaa_inflator_outside_kernel():
 
 **Files:** `frontend/js/spending_dashboard.js:217-299`; `frontend/js/dashboard_decomp_spending_taxonomy.js:521,628,724`; `src/spending_tracker.py:1677-1680` (comments only); Test new `tests/frontend/annualized_label.test.mjs`
 
-- [ ] **Step 1: Failing test**
+- [x] **Step 1: Failing test**
 
 ```js
 import { readFileSync, readdirSync } from "node:fs";
@@ -780,10 +780,10 @@ test("no 'Annualized Actual' copy in frontend", () => {
 });
 ```
 
-- [ ] **Step 2:** `npm test -- tests/frontend/annualized_label.test.mjs` — FAIL.
-- [ ] **Step 3:** Replace "Annualized Actual" → "Annualized" (and "Load Annualized Actuals" → "Load annualized amounts") in the listed files; `grep -rn "Annualized Actual" tests` and update pinned strings.
-- [ ] **Step 4:** `npm test`; `pytest -m "not slow" -k spending` — PASS.
-- [ ] **Step 5:** Commit `fix(spending): label is Annualized at every level (#337)`
+- [x] **Step 2:** `npm test -- tests/frontend/annualized_label.test.mjs` — FAIL.
+- [x] **Step 3:** Replace "Annualized Actual" → "Annualized" (and "Load Annualized Actuals" → "Load annualized amounts") in the listed files; `grep -rn "Annualized Actual" tests` and update pinned strings.
+- [x] **Step 4:** `npm test`; `pytest -m "not slow" -k spending` — PASS.
+- [x] **Step 5:** Commit `fix(spending): label is Annualized at every level (#337)`
 
 ### Task C2: Tracking-type accordion order and editable Housing/Wellness/Travel
 
@@ -791,31 +791,31 @@ test("no 'Annualized Actual' copy in frontend", () => {
 
 **Interfaces — Produces:** `TRACKING_TYPE_ORDER = ["Core Expenses","Housing","Wellness","Travel","Large Discretionary","Taxes","Business"]`; `housingCostGroupsHtml(rows)`, `wellnessGroupsHtml(rows)`, `travelGroupsHtml(rows)` exported from `dashboard_decomp_spending_sources.js`, each returning HTML of editable fields keyed by `row_index`.
 
-- [ ] **Step 1: Locate.** `Grep` the three render functions and the "read-only reference" note; Read only those regions.
-- [ ] **Step 2: Failing tests** — assert (a) accordion headers render in `TRACKING_TYPE_ORDER`; (b) the Housing/Wellness/Travel bodies contain `<input` elements whose `data-row-index` match the rows the old pages rendered for the demo fixture; (c) the string "read-only reference" is absent; (d) `sourceStepForRow()` for a housing-cost row returns `spending_core`.
-- [ ] **Step 3: Implement** — extract the three renderers into the new module (moving lines out of `dashboard.js` pays the ratchet), call them from the accordion bodies, reorder by `TRACKING_TYPE_ORDER`, remove the read-only note. Rows for home value/mortgage balance and home sale/next steps/state are excluded here (they move in W-E).
-- [ ] **Step 4:** `npm test`; `pytest -m "not slow"`; census + convert codemod; `measure` → `+0.00`.
-- [ ] **Step 5:** Commit `feat(spending): one editable accordion per tracking type, in planning order`
+- [x] **Step 1: Locate.** `Grep` the three render functions and the "read-only reference" note; Read only those regions.
+- [x] **Step 2: Failing tests** — assert (a) accordion headers render in `TRACKING_TYPE_ORDER`; (b) the Housing/Wellness/Travel bodies contain `<input` elements whose `data-row-index` match the rows the old pages rendered for the demo fixture; (c) the string "read-only reference" is absent; (d) `sourceStepForRow()` for a housing-cost row returns `spending_core`.
+- [x] **Step 3: Implement** — extract the three renderers into the new module (moving lines out of `dashboard.js` pays the ratchet), call them from the accordion bodies, reorder by `TRACKING_TYPE_ORDER`, remove the read-only note. Rows for home value/mortgage balance and home sale/next steps/state are excluded here (they move in W-E).
+- [x] **Step 4:** `npm test`; `pytest -m "not slow"`; census + convert codemod; `measure` → `+0.00`.
+- [x] **Step 5:** Commit `feat(spending): one editable accordion per tracking type, in planning order`
 
 ### Task C3: Remove Housing and Wellness nav steps; redirects
 
 **Files:** `frontend/js/dashboard.js` STEPS (lines ~55–140), `SECTION_REDIRECTS` (grep), `AUTOSAVE_STEPS`, `SUGGESTED_NEXT` in `dashboard_decomp_row_model.js`; Test `tests/frontend/strategy_section_redirects.test.mjs`, `tests/test_database_first_ui_refactor_functional.py::test_dashboard_top_level_groups`
 
-- [ ] **Step 1:** Failing tests: `setStep("spending_mortgage_events")` and `setStep("retirement_wellness")` land on `spending_core` with the matching accordion open; neither id appears in `visibleSteps()`.
-- [ ] **Step 2:** Run — FAIL.
-- [ ] **Step 3:** Mark both steps `hidden: true` with `SECTION_REDIRECTS` entries `{ step: "spending_core", open: "Housing" | "Wellness" }`; remove from `SUGGESTED_NEXT`; update `helpLink`s that target them (grep).
-- [ ] **Step 4:** `npm test`; `pytest -m "not slow"`; `npx playwright test tests/e2e/nav-integrity.spec.js`.
-- [ ] **Step 5:** Commit `feat(nav): Housing and Wellness edit inside Spending Model`
+- [x] **Step 1:** Failing tests: `setStep("spending_mortgage_events")` and `setStep("retirement_wellness")` land on `spending_core` with the matching accordion open; neither id appears in `visibleSteps()`.
+- [x] **Step 2:** Run — FAIL.
+- [x] **Step 3:** Mark both steps `hidden: true` with `SECTION_REDIRECTS` entries `{ step: "spending_core", open: "Housing" | "Wellness" }`; remove from `SUGGESTED_NEXT`; update `helpLink`s that target them (grep).
+- [x] **Step 4:** `npm test`; `pytest -m "not slow"`; `npx playwright test tests/e2e/nav-integrity.spec.js`.
+- [x] **Step 5:** Commit `feat(nav): Housing and Wellness edit inside Spending Model`
 
 ### Task C4: Withdrawal Order parity, then removal
 
 **Files:** `frontend/js/dashboard.js:337,2727,3580-3584`; `dashboard_decomp_row_model.js` (grep `withdrawal_order`); Test new `tests/frontend/withdrawal_order_parity.test.mjs`
 
-- [ ] **Step 1:** Failing parity test: the set of `row_index` values rendered by the Withdrawal Order tab for the demo fixture ⊆ the union rendered by Optimize's sections (`rawRowsForStep("strategy_optimize")`).
-- [ ] **Step 2:** Run. If it FAILS on specific rows, add those rows to the Optimize section that owns their topic (Withdrawal Sequencing by default) until it PASSES — do not delete the tab first.
-- [ ] **Step 3:** Remove "Withdrawal Order" from the `spending_core` tab list at `dashboard.js:3584` and its renderer branch; redirect its dkey to `strategy_optimize`.
-- [ ] **Step 4:** `npm test`; `pytest -m "not slow"`.
-- [ ] **Step 5:** Commit `feat(spending): drop Withdrawal Order tab — every row lives on Optimize`
+- [x] **Step 1:** Failing parity test: the set of `row_index` values rendered by the Withdrawal Order tab for the demo fixture ⊆ the union rendered by Optimize's sections (`rawRowsForStep("strategy_optimize")`).
+- [x] **Step 2:** Run. If it FAILS on specific rows, add those rows to the Optimize section that owns their topic (Withdrawal Sequencing by default) until it PASSES — do not delete the tab first.
+- [x] **Step 3:** Remove "Withdrawal Order" from the `spending_core` tab list at `dashboard.js:3584` and its renderer branch; redirect its dkey to `strategy_optimize`.
+- [x] **Step 4:** `npm test`; `pytest -m "not slow"`.
+- [x] **Step 5:** Commit `feat(spending): drop Withdrawal Order tab — every row lives on Optimize`
 
 ### Task C5: Actual Spending step; rename Reports & Review hub to Build & Results
 
@@ -823,9 +823,9 @@ test("no 'Annualized Actual' copy in frontend", () => {
 
 **Interfaces — Produces:** step `{ id: "actual_spending", group: "Reports & Review", title: "Actual Spending" }` rendering two tabs, "This year" (ytd_transactions body) and "Analysis" (spending_dashboard body). Step `reports_and_review` keeps its id, `title: "Build & Results"`. The hidden step `build_impact` keeps its id and title "Impact & Build History". Every other hard-coded "Reports & Review" button label that means the hub (grep `data-step-id="reports_and_review"` in `frontend/js/*.js`: "Review Reports", "View Reports", "Review and Build", "Go to Build") is reworded to name "Build & Results".
 
-- [ ] **Step 1:** Failing tests: visible nav group "Reports & Review" = `["Actual Spending", "Build & Results"]`; `setStep("ytd_transactions")` and `setStep("spending_dashboard")` land on `actual_spending` with the right tab; no STEPS entry has `group: "Reports"` (the hidden hub sub-pages `review`, `build_impact`, `detailed_results`, `plan_data_report` carry `group: "Reports & Review"`); `fieldFinderCategoryName("Reports & Review") === "Reports & Review"` with the `"Reports"` special case removed (`dashboard.js:2357`) and the `_eyebrow` list at `dashboard.js:3720` reduced to `["Reports & Review", "Settings"]`.
-- [ ] **Step 2–4:** Implement, run `npm test`, `pytest -m "not slow"`, e2e nav-integrity.
-- [ ] **Step 5:** Commit `feat(nav): Actual Spending under Reports & Review; hub renamed Build & Results`
+- [x] **Step 1:** Failing tests: visible nav group "Reports & Review" = `["Actual Spending", "Build & Results"]`; `setStep("ytd_transactions")` and `setStep("spending_dashboard")` land on `actual_spending` with the right tab; no STEPS entry has `group: "Reports"` (the hidden hub sub-pages `review`, `build_impact`, `detailed_results`, `plan_data_report` carry `group: "Reports & Review"`); `fieldFinderCategoryName("Reports & Review") === "Reports & Review"` with the `"Reports"` special case removed (`dashboard.js:2357`) and the `_eyebrow` list at `dashboard.js:3720` reduced to `["Reports & Review", "Settings"]`.
+- [x] **Step 2–4:** Implement, run `npm test`, `pytest -m "not slow"`, e2e nav-integrity.
+- [x] **Step 5:** Commit `feat(nav): Actual Spending under Reports & Review; hub renamed Build & Results`
 
 ---
 
