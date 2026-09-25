@@ -883,7 +883,7 @@ def test_repeatable_rows_expand_with_notice():
 
 **Interfaces — Produces:** `Adjustment(category:str, start:int, end:int|None, pct:float)` where `category` is a category id or `"ALL:<tracking type>"`; `adjustment_factor(adjs, category_id, tracking_type, year) -> float`.
 
-- [ ] **Step 1: Failing tests**
+- [x] **Step 1: Failing tests**
 
 ```python
 import pytest
@@ -905,10 +905,10 @@ def test_end_year_is_inclusive_then_reverts():
     assert adjustment_factor(A, "home_aide", "Wellness", 2051) == 1.0
 ```
 
-- [ ] **Step 2:** Run — FAIL.
-- [ ] **Step 3:** Implement; load `Spending Adjustments` rows (`adj_N_category/start_year/end_year/change_pct`); multiply each category's inflated spend by `adjustment_factor` in the projection.
-- [ ] **Step 4:** `pytest -m "not slow"`; `measure` → `+0.00` (demo has no rows).
-- [ ] **Step 5:** Commit `feat(spending): category step-downs/step-ups by year (#335)`
+- [x] **Step 2:** Run — FAIL.
+- [x] **Step 3:** Implement; load `Spending Adjustments` rows (`adj_N_category/start_year/end_year/change_pct`); multiply each category's inflated spend by `adjustment_factor` in the projection.
+- [x] **Step 4:** `pytest -m "not slow"`; `measure` → `+0.00` (demo has no rows).
+- [x] **Step 5:** Commit `feat(spending): category step-downs/step-ups by year (#335)`
 
 ### Task D4: Spending Adjustments table UI
 

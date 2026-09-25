@@ -11,6 +11,7 @@ from ..planning_engines import (
     social_security_taxable_amount,
 )
 from .budget_rollups import category_budget_rollup, housing_budget_rollup
+from ..spending_adjustments import adjustment_factor
 
 
 class SpendingAndRMDResult(NamedTuple):
@@ -195,6 +196,11 @@ def apply_spending_and_rmd(
         spend = c['spend_base'] * spending_factor(year)
     else:
         spend = c['spend_base'] * spending_factor(c['spending_freeze_yr'])
+    # #335 Spending Adjustments: the core base's compounded step factor for
+    # this year (inflation continues on the stepped base). Absent = 1.0.
+    _adj_by_year = c.get('spend_base_adjustment_by_year') or {}
+    if _adj_by_year:
+        spend *= float(_adj_by_year.get(year, _adj_by_year.get(str(year), 1.0)))
     spend = c.get('ytd_blend_spend_override', {}).get(year, spend)
     # Survivor scaling is applied last, after the YTD blend override, so a
     # blended current-year figure is scaled too if that year ever became a
@@ -240,6 +246,7 @@ def apply_spending_and_rmd(
     if year <= c.get('vac_end', c['plan_start'] - 1):
         rec_extra += c.get('vac', 0.0) * infl_factor(year)
     _travel_end_year = int(c.get('travel_end_year', 0) or 0)
+    _spending_adjs = c.get('spending_adjustments') or []
     for ev in c.get('recurring_extras', []):
         start_yr = int(ev.get('start_year') or c['plan_start'])
         end_yr = int(ev.get('end_year') or start_yr)
@@ -251,6 +258,9 @@ def apply_spending_and_rmd(
         if start_yr <= year <= end_yr:
             base_yr = max(c['plan_start'], start_yr)
             _ev_amt = float(ev.get('amount') or 0.0) * infl_ratio(year, base_yr)
+            if _spending_adjs:
+                _ev_amt *= adjustment_factor(_spending_adjs, str(ev.get('category_id') or ''),
+                                             str(ev.get('tracking_type') or ''), year)
             if ev.get('is_home_improvement'):
                 home_improvement_extra += _ev_amt
             else:

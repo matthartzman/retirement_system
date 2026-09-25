@@ -929,6 +929,13 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     c['home_improvement_lump'] = {}
     c['recurring_extras'] = []
     c['ld_import_notices'] = []
+    # #335 Spending Adjustments (Cashflow / Spending Adjustments adj_N_* rows),
+    # read before the unified budget resolver so it can apply them.
+    try:
+        from .spending_adjustments import load_adjustments as _load_spending_adjustments
+        c['spending_adjustments'] = _load_spending_adjustments(data.get('Cashflow') or {})
+    except Exception:
+        c['spending_adjustments'] = []
     c.setdefault('home_proj', 0.0)
     c.setdefault('home_proj_end', c['plan_start'] - 1)
     c.setdefault('vac', 0.0)

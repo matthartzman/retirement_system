@@ -16,11 +16,13 @@ try:  # package import
     from .large_discretionary import (
         LD_TRACKING_TYPE, LdItem, expand_repeatable, ld_category_for_id, ld_cashflow_by_year,
     )
+    from .spending_adjustments import ADJUSTABLE_TRACKING_TYPES, adjustment_factor
 except ImportError:  # direct script/test import
     import spending_tracker as st  # type: ignore
     from large_discretionary import (  # type: ignore
         LD_TRACKING_TYPE, LdItem, expand_repeatable, ld_category_for_id, ld_cashflow_by_year,
     )
+    from spending_adjustments import ADJUSTABLE_TRACKING_TYPES, adjustment_factor  # type: ignore
 
 EXCLUDED_FROM_SPEND_BASE = {"Income", "Transfer", "Transfers", "Business", "Housing", "Wellness", "Taxes"}
 TIME_BOUNDED_LINE_TRACKING_TYPES = {"Travel", "Large Discretionary"}
@@ -355,7 +357,18 @@ def resolve_spending_inputs(root: str | Path | None = None, year_range: Iterable
     tier_overrides = load_spending_tier_overrides(r)
     spend_base_tier_totals: dict[str, float] = defaultdict(float)
 
+    # #335 Spending Adjustments: compounded per-category step factors. With no
+    # adjustment rows every factor is exactly 1.0, so rollups are unchanged.
+    adjustments = list((config or {}).get("spending_adjustments") or [])
+    spend_base_parts: list[tuple[str, str, float]] = []
+
+    def _fa(cid: str, tt: str, year: int) -> float:
+        if not adjustments or tt not in ADJUSTABLE_TRACKING_TYPES:
+            return 1.0
+        return adjustment_factor(adjustments, cid, tt, year)
+
     def _tag_spend_base_tier(cid: str, tt: str, grp: str, amount: float) -> None:
+        spend_base_parts.append((cid, tt, amount))
         tier = resolve_spending_tier(cid, tt, grp, tier_overrides)
         if tier:
             spend_base_tier_totals[tier] += amount
@@ -416,7 +429,7 @@ def resolve_spending_inputs(root: str | Path | None = None, year_range: Iterable
             group_mode_categories.add(cid)
         for y in years:
             tt_map = by_year.setdefault(y, {}).setdefault(tt, {})
-            tt_map[grp] = tt_map.get(grp, 0.0) + amount
+            tt_map[grp] = tt_map.get(grp, 0.0) + amount * _fa("", tt, y)
 
     # Category budgets are recurring unless their group is in group mode.
     # When a category also has explicit line (detail) rows, those line rows are
@@ -477,8 +490,8 @@ def resolve_spending_inputs(root: str | Path | None = None, year_range: Iterable
             _tag_spend_base_tier(cid, tt, grp, amount)
         for y in years:
             tt_map = by_year.setdefault(y, {}).setdefault(tt, {})
-            tt_map[grp] = tt_map.get(grp, 0.0) + amount
-            by_category_year.setdefault(y, {})[cid] = by_category_year.setdefault(y, {}).get(cid, 0.0) + amount
+            tt_map[grp] = tt_map.get(grp, 0.0) + amount * _fa(cid, tt, y)
+            by_category_year.setdefault(y, {})[cid] = by_category_year.setdefault(y, {}).get(cid, 0.0) + amount * _fa(cid, tt, y)
 
     # Line rows feed extras.  Category-budget entries are ignored when their
     # group is in group mode (the group budget takes precedence).  Pure line
@@ -516,8 +529,8 @@ def resolve_spending_inputs(root: str | Path | None = None, year_range: Iterable
                 _tag_spend_base_tier(cid, tt, grp, amount)
                 for y in active_years or years:
                     tt_map = by_year.setdefault(y, {}).setdefault(tt, {})
-                    tt_map[grp] = tt_map.get(grp, 0.0) + amount
-                    by_category_year.setdefault(y, {})[cid] = by_category_year.setdefault(y, {}).get(cid, 0.0) + amount
+                    tt_map[grp] = tt_map.get(grp, 0.0) + amount * _fa(cid, tt, y)
+                    by_category_year.setdefault(y, {})[cid] = by_category_year.setdefault(y, {}).get(cid, 0.0) + amount * _fa(cid, tt, y)
                 continue
             if tt == LD_TRACKING_TYPE and not is_home:
                 if one_year:
@@ -560,8 +573,8 @@ def resolve_spending_inputs(root: str | Path | None = None, year_range: Iterable
                 })
             for y in active_years:
                 tt_map = by_year.setdefault(y, {}).setdefault(tt, {})
-                tt_map[grp] = tt_map.get(grp, 0.0) + amount
-                by_category_year.setdefault(y, {})[cid] = by_category_year.setdefault(y, {}).get(cid, 0.0) + amount
+                tt_map[grp] = tt_map.get(grp, 0.0) + amount * _fa(cid, tt, y)
+                by_category_year.setdefault(y, {})[cid] = by_category_year.setdefault(y, {}).get(cid, 0.0) + amount * _fa(cid, tt, y)
 
     # Convert group-level time-bounded budgets to recurring_extras so they project.
     # These are Travel or Large Discretionary groups in summary mode that suppressed
@@ -592,12 +605,21 @@ def resolve_spending_inputs(root: str | Path | None = None, year_range: Iterable
                 if y < start or y > end:
                     continue
                 tt_map = by_year.setdefault(y, {}).setdefault(tt, {})
-                tt_map[grp] = tt_map.get(grp, 0.0) + amount
+                tt_map[grp] = tt_map.get(grp, 0.0) + amount * _fa("", tt, y)
 
     # Large Discretionary: every item lands in its own year, never annualized.
     for y, amount in ld_cashflow_by_year(ld_items).items():
         lump[y] += amount
         lump_by_tt[y][LD_TRACKING_TYPE] += amount
+
+    # spend_base is one plan-wide scalar; its adjusted share per year is the
+    # amount-weighted factor of the categories it is built from.
+    spend_base_adjustment_by_year: dict[int, float] = {}
+    _parts_total = sum(a for _c, _t, a in spend_base_parts)
+    if adjustments and _parts_total > 0:
+        for y in years:
+            spend_base_adjustment_by_year[y] = sum(
+                a * _fa(c, t, y) for c, t, a in spend_base_parts) / _parts_total
 
     # spend_base's tier composition, as fractions of spend_base (spend_base
     # itself is a single plan-wide scalar, not by-year, so this is too).
@@ -634,6 +656,7 @@ def resolve_spending_inputs(root: str | Path | None = None, year_range: Iterable
         "spending_tier_rollup_by_year": spending_tier_rollup_by_year,
         "budget_drives_projection": True,
         "ld_import_notices": ld_notices,
+        "spend_base_adjustment_by_year": spend_base_adjustment_by_year,
     }
 
 
@@ -667,4 +690,5 @@ def apply_budget_to_engine_config(config: dict, root: str | Path | None = None) 
     config["spending_tier_rollup_by_year"] = resolved.get("spending_tier_rollup_by_year", {})
     config["budget_drives_projection"] = True
     config["ld_import_notices"] = list(resolved.get("ld_import_notices") or [])
+    config["spend_base_adjustment_by_year"] = dict(resolved.get("spend_base_adjustment_by_year") or {})
     return config
