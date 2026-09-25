@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 
 from src.data_io import parse_client, reserve_checking_import_warning
+from tests._decomp_dashboard import dashboard_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -43,7 +44,7 @@ def test_schema_has_no_checking_field():
 
 
 def test_reserve_requirements_copy_does_not_mention_checking():
-    js = (ROOT / "frontend/js/dashboard.js").read_text(encoding="utf-8")
+    js = dashboard_js_text()
     start = js.index('id: "assets_home_cash"')
     end = js.index("\n  },", start)
     assert "checking" not in js[start:end].lower()
