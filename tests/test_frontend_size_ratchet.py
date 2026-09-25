@@ -176,7 +176,10 @@ JS_DIR = ROOT / "frontend" / "js"
 # extraction outweighed the growth -- measured to the new total with no
 # slack, exactly as this ceiling's own contract requires on a real
 # extraction.
-DASHBOARD_JS_MAX_LINES = 7_144
+# 2026-09-25 (#336 W-D, task D2): LARGE_DISC_TYPES / LARGE_DISC_CATEGORY_IDS
+# moved out of dashboard.js into dashboard_decomp_large_discretionary.js
+# (with their two generated window accessors). Lowered to the measured 7,134.
+DASHBOARD_JS_MAX_LINES = 7_134
 
 # Total frontend JS is allowed to grow -- extraction moves lines out of
 # dashboard.js into new modules, which should not be penalised. This ceiling
@@ -466,7 +469,22 @@ DASHBOARD_JS_MAX_LINES = 7_144
 # replace Spending Model's tab strip; dashboard.js stays flat at 7,144 (the
 # new STEPS entry is paid for by the deleted dispatch branches and the
 # "Reports" group special case). New behavior: raised to the measured 36,285.
-TOTAL_JS_MAX_LINES = 36_285
+# 2026-09-25 (#336 W-D, task D2): Large Discretionary becomes one section in
+# its Spending Model accordion -- five one-time categories, the Education
+# label, the In-budget column, the 529 double-count caution and the
+# client-side migration of legacy repeatable rows (with import notices).
+# renderLifestyleSpending() and the start/end-year columns were deleted. New
+# behavior, not duplication: raised to the measured 36,353.
+# 2026-09-25 (#335 W-D, task D4): new dashboard_decomp_spending_adjustments.js
+# -- the Adjustments accordion's editable table (category pulldown with "All
+# <tracking type>" options, compounded-result helper text, add/edit/delete,
+# load/save through /api/spending-adjustments) -- plus its save / dirty /
+# reset hooks in row_model and closeout. dashboard.js is unchanged. New
+# behavior: raised to the measured 36,590. Then +5: renderDomainBudgetTable
+# always shows the Large Discretionary and Adjustments accordions on the
+# core page, even before any spending category has a value (e2e caught
+# that an empty model left neither reachable). Measured 36,595.
+TOTAL_JS_MAX_LINES = 36_595
 
 
 def _line_count(path: Path) -> int:

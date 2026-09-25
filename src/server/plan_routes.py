@@ -515,6 +515,34 @@ def save_large_discretionary_expenses():
     body = request.get_json(silent=True) or {}
     return _service_json(_strategy_asset_feature_service().save_large_discretionary_payload(body))
 
+@app.route("/api/spending-adjustments", methods=["GET"])
+def get_spending_adjustments():
+    """#335: Spending Model Adjustments table (Cashflow / Spending Adjustments)."""
+    denied = _require("read_config")
+    if denied:
+        return denied
+    from ..spending_adjustments import adjustment_dicts_from_rows
+    rows = _csv_read_rows(_client_section_path("Cashflow", "client_spending.csv"))
+    return jsonify({"success": True, "adjustments": adjustment_dicts_from_rows(rows)})
+
+@app.route("/api/spending-adjustments", methods=["POST"])
+def save_spending_adjustments():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    if not _runtime_config().allow_csv_write:
+        return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
+    from ..spending_adjustments import replace_adjustment_rows, validate_adjustment_dicts
+    body = request.get_json(silent=True) or {}
+    clean, error = validate_adjustment_dicts(body.get("adjustments"))
+    if error:
+        return jsonify({"success": False, "error": error}), 400
+    path = _client_section_path("Cashflow", "client_spending.csv")
+    _write_client_rows(path, replace_adjustment_rows(_ensure_header(_csv_read_rows(path)), clean))
+    _audit("spending_adjustments_saved", {"count": len(clean)})
+    sync_result = _sync_config_backends() if body.get("sync") else None
+    return jsonify({"success": True, "count": len(clean), "sync": sync_result})
+
 @app.route("/api/forced-roth-conversions", methods=["GET"])
 def get_forced_roth_conversions():
     denied = _require("read_config")

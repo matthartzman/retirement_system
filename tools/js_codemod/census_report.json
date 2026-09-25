@@ -188,8 +188,6 @@
     "FIXED_WITHDRAWAL_CASCADE_DESCRIPTION",
     "GROUP_KEY_LABELS",
     "IRMAA_OFF_MODES",
-    "LARGE_DISC_CATEGORY_IDS",
-    "LARGE_DISC_TYPES",
     "LIABILITY_HEADER",
     "PERSON_TABLE_LABELS",
     "PERSON_VALUE_TOKEN_RE",
@@ -345,8 +343,6 @@
     "FIXED_WITHDRAWAL_CASCADE_DESCRIPTION",
     "GROUP_KEY_LABELS",
     "IRMAA_OFF_MODES",
-    "LARGE_DISC_CATEGORY_IDS",
-    "LARGE_DISC_TYPES",
     "LIABILITY_HEADER",
     "PERSON_TABLE_LABELS",
     "PERSON_VALUE_TOKEN_RE",
@@ -2774,6 +2770,24 @@
       "scope": "inside-function"
     },
     {
+      "name": "rowConfigValue",
+      "file": "frontend/js/dashboard_decomp_large_discretionary.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rowConfigValue",
+      "file": "frontend/js/dashboard_decomp_large_discretionary.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rowConfigValue",
+      "file": "frontend/js/dashboard_decomp_large_discretionary.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
       "name": "budgetLinesLoaded",
       "file": "frontend/js/dashboard_decomp_large_discretionary.js",
       "kind": "read",
@@ -2786,19 +2800,13 @@
       "scope": "inside-function"
     },
     {
-      "name": "LARGE_DISC_CATEGORY_IDS",
+      "name": "budgetLines",
       "file": "frontend/js/dashboard_decomp_large_discretionary.js",
       "kind": "read",
       "scope": "inside-function"
     },
     {
       "name": "budgetLinesChanged",
-      "file": "frontend/js/dashboard_decomp_large_discretionary.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "LARGE_DISC_TYPES",
       "file": "frontend/js/dashboard_decomp_large_discretionary.js",
       "kind": "read",
       "scope": "inside-function"
@@ -6614,6 +6622,60 @@
       "scope": "inside-function"
     },
     {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_spending_adjustments.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "noteSpecialSessionChange",
+      "file": "frontend/js/dashboard_decomp_spending_adjustments.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildOk",
+      "file": "frontend/js/dashboard_decomp_spending_adjustments.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "appReady",
+      "file": "frontend/js/dashboard_decomp_spending_adjustments.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxonomyFlat",
+      "file": "frontend/js/dashboard_decomp_spending_adjustments.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_spending_adjustments.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_spending_adjustments.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxonomyData",
+      "file": "frontend/js/dashboard_decomp_spending_adjustments.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxonomyFlat",
+      "file": "frontend/js/dashboard_decomp_spending_adjustments.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "rowIsRetirementWellness",
       "file": "frontend/js/dashboard_decomp_spending_sources.js",
       "kind": "call",
@@ -9422,8 +9484,6 @@
     "DEFAULT_TRAVEL_TYPES",
     "FIELD_GUIDANCE_OVERRIDES",
     "IRMAA_OFF_MODES",
-    "LARGE_DISC_CATEGORY_IDS",
-    "LARGE_DISC_TYPES",
     "LIABILITY_HEADER",
     "PERSON_VALUE_TOKEN_RE",
     "PLAN_DATA_FILES",

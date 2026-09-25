@@ -980,36 +980,22 @@ def annual_real_estate_tax_spending(root: str | Path, current_year: int) -> floa
 
 
 def annual_large_discretionary_spending(root: str | Path, current_year: int) -> float:
-    """Return planned large discretionary expenses active in the current year."""
-    grouped: dict[str, dict[str, str]] = {}
-    for row in _iter_cashflow_rows(root):
-        if _norm_label(row.get("subsection")) != "large discretionary expenses":
-            continue
-        label = str(row.get("label", "") or "").strip()
-        match = re.match(r"extra_(\d+)_(type|amount|year|start_year|end_year|comment)$", label)
-        if not match:
-            continue
-        grouped.setdefault(match.group(1), {})[match.group(2)] = str(row.get("value", "") or "")
+    """Planned Large Discretionary spending dated in the current year (#336).
 
-    total = 0.0
-    for item in grouped.values():
-        amount = parse_money(item.get("amount"))
-        if amount <= 0:
+    Large Discretionary is one-time only: a row counts toward the current
+    year's budget only when its year equals the current year. Legacy
+    repeatable rows are migrated to one dated row per year first (an
+    open-ended row runs at least through the current year).
+    """
+    from .large_discretionary import LD_SUBSECTION, ld_budget_for_year, load_ld_items
+
+    section: dict[str, str] = {}
+    for row in _iter_cashflow_rows(root):
+        if _norm_label(row.get("subsection")) != _norm_label(LD_SUBSECTION):
             continue
-        one_time_year = _parse_int(item.get("year"))
-        start_year = _parse_int(item.get("start_year"))
-        end_year = _parse_int(item.get("end_year"))
-        if one_time_year:
-            if one_time_year == current_year:
-                total += amount
-            continue
-        if start_year and current_year < start_year:
-            continue
-        if end_year and current_year > end_year:
-            continue
-        if start_year or end_year:
-            total += amount
-    return total
+        section[str(row.get("label", "") or "").strip()] = str(row.get("value", "") or "")
+    items = load_ld_items({LD_SUBSECTION: section}, plan_end=current_year)
+    return ld_budget_for_year(items, current_year)
 
 
 def planned_spending_components(root: str | Path, current_year: int) -> dict[str, float]:

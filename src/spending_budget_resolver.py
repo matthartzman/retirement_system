@@ -13,8 +13,16 @@ from typing import Any, Iterable
 
 try:  # package import
     from . import spending_tracker as st
+    from .large_discretionary import (
+        LD_TRACKING_TYPE, LdItem, expand_repeatable, ld_category_for_id, ld_cashflow_by_year,
+    )
+    from .spending_adjustments import ADJUSTABLE_TRACKING_TYPES, adjustment_factor
 except ImportError:  # direct script/test import
     import spending_tracker as st  # type: ignore
+    from large_discretionary import (  # type: ignore
+        LD_TRACKING_TYPE, LdItem, expand_repeatable, ld_category_for_id, ld_cashflow_by_year,
+    )
+    from spending_adjustments import ADJUSTABLE_TRACKING_TYPES, adjustment_factor  # type: ignore
 
 EXCLUDED_FROM_SPEND_BASE = {"Income", "Transfer", "Transfers", "Business", "Housing", "Wellness", "Taxes"}
 TIME_BOUNDED_LINE_TRACKING_TYPES = {"Travel", "Large Discretionary"}
@@ -324,6 +332,23 @@ def resolve_spending_inputs(root: str | Path | None = None, year_range: Iterable
     by_year: dict[int, dict[str, dict[str, float]]] = {y: {} for y in years}
     by_category_year: dict[int, dict[str, float]] = {y: {} for y in years}
     business_reference = 0.0
+    # #336: Large Discretionary is one-time only. Every LD budget row becomes
+    # dated items (a year-less or ranged row is migrated into one item per
+    # year, with an import notice) and lands in the projection as lumps.
+    ld_items: list[LdItem] = []
+    ld_notices: list[str] = []
+
+    def _add_ld_range(cid: str, label: str, amount: float, start: int, end: int, note: str = "") -> list[int]:
+        items, notice = expand_repeatable(ld_category_for_id(cid, label), amount, start, max(start, end),
+                                          note, source=label or cid)
+        ld_items.extend(items)
+        ld_notices.append(notice)
+        return [i.year for i in items]
+
+    def _plan_window() -> tuple[int, int]:
+        start = min(years) if years else _int((config or {}).get("plan_start"), 0)
+        end = max(years) if years else _int((config or {}).get("plan_end"), start) or start
+        return start, max(start, end)
 
     # Spending-tier classification (Phase 0). spend_base is a single
     # plan-wide scalar (not a by-year series), so its tier composition is
@@ -332,7 +357,18 @@ def resolve_spending_inputs(root: str | Path | None = None, year_range: Iterable
     tier_overrides = load_spending_tier_overrides(r)
     spend_base_tier_totals: dict[str, float] = defaultdict(float)
 
+    # #335 Spending Adjustments: compounded per-category step factors. With no
+    # adjustment rows every factor is exactly 1.0, so rollups are unchanged.
+    adjustments = list((config or {}).get("spending_adjustments") or [])
+    spend_base_parts: list[tuple[str, str, float]] = []
+
+    def _fa(cid: str, tt: str, year: int) -> float:
+        if not adjustments or tt not in ADJUSTABLE_TRACKING_TYPES:
+            return 1.0
+        return adjustment_factor(adjustments, cid, tt, year)
+
     def _tag_spend_base_tier(cid: str, tt: str, grp: str, amount: float) -> None:
+        spend_base_parts.append((cid, tt, amount))
         tier = resolve_spending_tier(cid, tt, grp, tier_overrides)
         if tier:
             spend_base_tier_totals[tier] += amount
@@ -364,6 +400,18 @@ def resolve_spending_inputs(root: str | Path | None = None, year_range: Iterable
 
         if tt == "Business":
             business_reference += amount
+        if tt == LD_TRACKING_TYPE:
+            for cid in groups_by_key.get(gkey, []):
+                group_mode_categories.add(cid)
+            if amount > 0:
+                ps, pe = _plan_window()
+                for y in _add_ld_range(f"{tt.lower()}::{grp.lower()}", grp, amount,
+                                       _int(grow.get("start_year"), 0) or ps,
+                                       _int(grow.get("end_year"), 0) or pe):
+                    if y in by_year:
+                        tt_map = by_year[y].setdefault(tt, {})
+                        tt_map[grp] = tt_map.get(grp, 0.0) + amount
+            continue
         # Time-bounded group budgets (Travel, Large Discretionary) that are set in
         # group mode (summary) should project as recurring_extras, not disappear.
         # Record them for later conversion to recurring_extras.
@@ -381,7 +429,7 @@ def resolve_spending_inputs(root: str | Path | None = None, year_range: Iterable
             group_mode_categories.add(cid)
         for y in years:
             tt_map = by_year.setdefault(y, {}).setdefault(tt, {})
-            tt_map[grp] = tt_map.get(grp, 0.0) + amount
+            tt_map[grp] = tt_map.get(grp, 0.0) + amount * _fa("", tt, y)
 
     # Category budgets are recurring unless their group is in group mode.
     # When a category also has explicit line (detail) rows, those line rows are
@@ -407,6 +455,17 @@ def resolve_spending_inputs(root: str | Path | None = None, year_range: Iterable
         grp = info.get("group") or "Other"
         if tt == "Business":
             business_reference += amount
+        if tt == LD_TRACKING_TYPE:
+            # A year-less LD category budget is a legacy annual amount:
+            # migrate it to one dated item per plan year (#336).
+            if amount > 0:
+                ps, pe = _plan_window()
+                for y in _add_ld_range(cid, info.get("label") or cid, amount, ps, pe, row.get("notes", "")):
+                    if y in by_year:
+                        tt_map = by_year[y].setdefault(tt, {})
+                        tt_map[grp] = tt_map.get(grp, 0.0) + amount
+                        by_category_year[y][cid] = by_category_year[y].get(cid, 0.0) + amount
+            continue
         if tt in TIME_BOUNDED_LINE_TRACKING_TYPES:
             # Core spending must never absorb Travel/Large-Discretionary dollars.
             # A category-level budget with no detail lines still projects — as a
@@ -431,8 +490,8 @@ def resolve_spending_inputs(root: str | Path | None = None, year_range: Iterable
             _tag_spend_base_tier(cid, tt, grp, amount)
         for y in years:
             tt_map = by_year.setdefault(y, {}).setdefault(tt, {})
-            tt_map[grp] = tt_map.get(grp, 0.0) + amount
-            by_category_year.setdefault(y, {})[cid] = by_category_year.setdefault(y, {}).get(cid, 0.0) + amount
+            tt_map[grp] = tt_map.get(grp, 0.0) + amount * _fa(cid, tt, y)
+            by_category_year.setdefault(y, {})[cid] = by_category_year.setdefault(y, {}).get(cid, 0.0) + amount * _fa(cid, tt, y)
 
     # Line rows feed extras.  Category-budget entries are ignored when their
     # group is in group mode (the group budget takes precedence).  Pure line
@@ -470,10 +529,23 @@ def resolve_spending_inputs(root: str | Path | None = None, year_range: Iterable
                 _tag_spend_base_tier(cid, tt, grp, amount)
                 for y in active_years or years:
                     tt_map = by_year.setdefault(y, {}).setdefault(tt, {})
-                    tt_map[grp] = tt_map.get(grp, 0.0) + amount
-                    by_category_year.setdefault(y, {})[cid] = by_category_year.setdefault(y, {}).get(cid, 0.0) + amount
+                    tt_map[grp] = tt_map.get(grp, 0.0) + amount * _fa(cid, tt, y)
+                    by_category_year.setdefault(y, {})[cid] = by_category_year.setdefault(y, {}).get(cid, 0.0) + amount * _fa(cid, tt, y)
                 continue
-            if one_year:
+            if tt == LD_TRACKING_TYPE and not is_home:
+                if one_year:
+                    ld_items.append(LdItem(ld_category_for_id(cid, info.get("label")), amount, one_year,
+                                           row.get("notes", "")))
+                elif active_years or not years:
+                    if active_years:
+                        start, end = min(active_years), max(active_years)
+                    else:
+                        ps, pe = _plan_window()
+                        start = _int(row.get("start_year"), 0) or ps
+                        end = _int(row.get("end_year"), 0) or pe
+                    _add_ld_range(cid, row.get("label") or info.get("label") or cid, amount, start, end,
+                                  row.get("notes", ""))
+            elif one_year:
                 if is_home:
                     home_improvement_lump[one_year] += amount
                 else:
@@ -501,8 +573,8 @@ def resolve_spending_inputs(root: str | Path | None = None, year_range: Iterable
                 })
             for y in active_years:
                 tt_map = by_year.setdefault(y, {}).setdefault(tt, {})
-                tt_map[grp] = tt_map.get(grp, 0.0) + amount
-                by_category_year.setdefault(y, {})[cid] = by_category_year.setdefault(y, {}).get(cid, 0.0) + amount
+                tt_map[grp] = tt_map.get(grp, 0.0) + amount * _fa(cid, tt, y)
+                by_category_year.setdefault(y, {})[cid] = by_category_year.setdefault(y, {}).get(cid, 0.0) + amount * _fa(cid, tt, y)
 
     # Convert group-level time-bounded budgets to recurring_extras so they project.
     # These are Travel or Large Discretionary groups in summary mode that suppressed
@@ -533,7 +605,21 @@ def resolve_spending_inputs(root: str | Path | None = None, year_range: Iterable
                 if y < start or y > end:
                     continue
                 tt_map = by_year.setdefault(y, {}).setdefault(tt, {})
-                tt_map[grp] = tt_map.get(grp, 0.0) + amount
+                tt_map[grp] = tt_map.get(grp, 0.0) + amount * _fa("", tt, y)
+
+    # Large Discretionary: every item lands in its own year, never annualized.
+    for y, amount in ld_cashflow_by_year(ld_items).items():
+        lump[y] += amount
+        lump_by_tt[y][LD_TRACKING_TYPE] += amount
+
+    # spend_base is one plan-wide scalar; its adjusted share per year is the
+    # amount-weighted factor of the categories it is built from.
+    spend_base_adjustment_by_year: dict[int, float] = {}
+    _parts_total = sum(a for _c, _t, a in spend_base_parts)
+    if adjustments and _parts_total > 0:
+        for y in years:
+            spend_base_adjustment_by_year[y] = sum(
+                a * _fa(c, t, y) for c, t, a in spend_base_parts) / _parts_total
 
     # spend_base's tier composition, as fractions of spend_base (spend_base
     # itself is a single plan-wide scalar, not by-year, so this is too).
@@ -569,6 +655,8 @@ def resolve_spending_inputs(root: str | Path | None = None, year_range: Iterable
         "spend_base_tier_shares": spend_base_tier_shares,
         "spending_tier_rollup_by_year": spending_tier_rollup_by_year,
         "budget_drives_projection": True,
+        "ld_import_notices": ld_notices,
+        "spend_base_adjustment_by_year": spend_base_adjustment_by_year,
     }
 
 
@@ -601,4 +689,6 @@ def apply_budget_to_engine_config(config: dict, root: str | Path | None = None) 
     config["spend_base_tier_shares"] = resolved.get("spend_base_tier_shares", {})
     config["spending_tier_rollup_by_year"] = resolved.get("spending_tier_rollup_by_year", {})
     config["budget_drives_projection"] = True
+    config["ld_import_notices"] = list(resolved.get("ld_import_notices") or [])
+    config["spend_base_adjustment_by_year"] = dict(resolved.get("spend_base_adjustment_by_year") or {})
     return config

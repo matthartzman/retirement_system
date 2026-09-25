@@ -116,6 +116,7 @@ export function spendingSourceHeadHtml(tt) {
   if (tt === "Wellness")
     return wellnessGroupsHtml(rowsForStep("retirement_wellness"));
   if (tt === "Travel") return travelGroupsHtml();
+  if (tt === "Large Discretionary") return renderLargeDiscretionaryBudgetPage();
   return "";
 }
 
@@ -135,7 +136,7 @@ export function domainBudgetNote(domain) {
     return "Wellness is the only editable place for the Healthcare Premium group (Pre-65 Healthcare Premium plus Medicare Part B, Part D, and Part G), medical, dental, vision, drugs Rx/OTC, vitamins/supplements, and the medical OOP cap/reference.";
   if (domain === "travel")
     return "Travel is the only editable place for recurring travel projection inputs plus transaction-based travel detail. Domestic-travel and lifestyle labels are intentionally not used here.";
-  return "Large Discretionary Budget Detail supports only Wedding, Large Gifts, and Other projection rows.";
+  return "Large Discretionary rows are one-time: Weddings, Large Gifts, Education (not 529-funded), Auto, or Other -- one amount in one year, never annualized.";
 }
 
 // Every export above is also re-attached to window: dashboard.js and the

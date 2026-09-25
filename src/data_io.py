@@ -919,11 +919,23 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
             _bal_i = max(0.0, _bal_i - _principal)
         else:
             _bal_i = 0.0
-    # Large Discretionary Expenses use only the canonical Cashflow rows.
-    # Home Improvement items are routed to housing costs; all others go to rec_extra.
+    # Large Discretionary is one-time only (#336, src/large_discretionary.py):
+    # the unified budget resolver below turns every LD budget row into dated
+    # lumps (legacy ranged rows are expanded one row per year, with import
+    # notices in c['ld_import_notices']). The legacy Cashflow rows under
+    # "Large Discretionary Expenses" (extra_N_*) are not an engine input.
+    # Home Improvement items route to housing costs.
     c['lump'] = {}
     c['home_improvement_lump'] = {}
     c['recurring_extras'] = []
+    c['ld_import_notices'] = []
+    # #335 Spending Adjustments (Cashflow / Spending Adjustments adj_N_* rows),
+    # read before the unified budget resolver so it can apply them.
+    try:
+        from .spending_adjustments import load_adjustments as _load_spending_adjustments
+        c['spending_adjustments'] = _load_spending_adjustments(data.get('Cashflow') or {})
+    except Exception:
+        c['spending_adjustments'] = []
     c.setdefault('home_proj', 0.0)
     c.setdefault('home_proj_end', c['plan_start'] - 1)
     c.setdefault('vac', 0.0)

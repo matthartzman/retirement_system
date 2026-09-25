@@ -1300,6 +1300,7 @@ export async function startNewPlan() {
     taxonomyData = null;
     taxonomyFlat = {};
     taxonomyError = "";
+    if (window.resetSpendingAdjustments) window.resetSpendingAdjustments();
     spendingModelData = null;
     spendingModelError = "";
     mappingRules = null;

@@ -3508,14 +3508,6 @@ async function hideUnusedTemplateCategories() {
     });
 }
 
-const LARGE_DISC_TYPES = ["Wedding", "Large Gifts", "Other"];
-const LARGE_DISC_CATEGORY_IDS = [
-  "weddings",
-  "children_weddings",
-  "significant_gifts",
-  "other_large_discretionary",
-];
-
 function renderSpendingDashboardOrLoad() {
   if (typeof renderSpendingDashboard === "function")
     return renderSpendingDashboard();
@@ -3702,7 +3694,7 @@ let renderMain = function() {
   else if (activeStep === "actual_spending")
     content += window.renderActualSpendingWorkspace(STRATEGY_TABS.actual_spending);
   else if (activeStep === "lifestyle_spending")
-    content += renderLifestyleSpending();
+    content += renderLargeDiscretionaryBudgetPage();
   else if (activeStep === "spending_travel")
     content += renderTravelBudgetPage();
   else if (activeStep === "spending_travel_extras")
@@ -6962,8 +6954,6 @@ Object.defineProperty(window, "BUILD_IMPACT_SOURCE_STEP_IDS", { get: () => BUILD
 Object.defineProperty(window, "DEFAULT_TRAVEL_TYPES", { get: () => DEFAULT_TRAVEL_TYPES, configurable: true });
 Object.defineProperty(window, "FIELD_GUIDANCE_OVERRIDES", { get: () => FIELD_GUIDANCE_OVERRIDES, configurable: true });
 Object.defineProperty(window, "IRMAA_OFF_MODES", { get: () => IRMAA_OFF_MODES, configurable: true });
-Object.defineProperty(window, "LARGE_DISC_CATEGORY_IDS", { get: () => LARGE_DISC_CATEGORY_IDS, configurable: true });
-Object.defineProperty(window, "LARGE_DISC_TYPES", { get: () => LARGE_DISC_TYPES, configurable: true });
 Object.defineProperty(window, "LIABILITY_HEADER", { get: () => LIABILITY_HEADER, configurable: true });
 Object.defineProperty(window, "PERSON_VALUE_TOKEN_RE", { get: () => PERSON_VALUE_TOKEN_RE, configurable: true });
 Object.defineProperty(window, "PLAN_DATA_FILES", { get: () => PLAN_DATA_FILES, configurable: true });
