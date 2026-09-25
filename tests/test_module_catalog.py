@@ -264,7 +264,9 @@ def test_engine_participants_are_the_modules_the_engine_reads():
     """
     assert set(mc.engine_participants()) == {
         "equity_compensation", "disability_income_insurance",
-        "business_succession", "spending_tracker_ytd"}
+        "business_succession", "spending_tracker_ytd",
+        # Design 2026-09-24 §6 [C]: off blanks the housing plan inputs.
+        "housing_location_search"}
 
 
 def test_engine_participation_defaults_off():

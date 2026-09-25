@@ -1417,6 +1417,16 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     # Workbook optional-function toggles are system/model controls.
     opts = system_data.get('Optional Functions',{}).get('',{}) or data.get('Optional Functions',{}).get('',{})
     c['opt'] = {k: _b(v) for k,v in opts.items()}
+    # Next Housing Move off (design 2026-09-24 §6 [C]): the plan stays in the
+    # current home and state for its whole length. Only the engine view is
+    # blanked -- the rows in `data` (and so the CSV) are kept, and come back
+    # when the switch is turned on again.
+    from .module_catalog import module_enabled
+    if not module_enabled(c, 'housing_location_search'):
+        c['home_sale_yr'] = 0
+        c['home_sale_splits'] = []
+        c['next_housing_steps'] = []
+        c['residency_schedule'] = []
 
     # Advanced planning modules (529, existing life, disability, P&C/umbrella,
     # equity comp, special-needs, business succession). Report-only in Phase 1.

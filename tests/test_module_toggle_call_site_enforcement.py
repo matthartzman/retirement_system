@@ -223,6 +223,13 @@ DECLARED_SITES: dict[tuple[str, str, str], tuple[str, str | None, tuple[str, ...
         "Adds the owner's projected business interest to the taxable estate, "
         "changing computed estate tax and not merely sheet 34's existence.",
     ),
+    ("src/data_io.py", "parse_client", "housing_location_search"): (
+        ENGINE, None, (),
+        "Design 2026-09-24 \u00a76 [C]: Next Housing Move off blanks the home "
+        "sale, next housing steps and state-over-time schedule on the engine "
+        "config (the CSV rows are kept), so the plan stays in the current "
+        "home and state. See INPUT_GATE_SOFT for the two modules this shapes.",
+    ),
     ("src/server/plan_routes.py", "_housing_search_config_or_disabled",
      "housing_location_search"): (
         OWN_GATE, None, (),
@@ -461,6 +468,17 @@ def test_recorded_keys_still_appear_in_their_file(site):
         )
 
 
+# ENGINE sites that gate plan *inputs* at load time also shape every module
+# built from those inputs. The site has one verdict (ENGINE), so the soft pairs
+# it backs are recorded here: (consumer, toggle).
+INPUT_GATE_SOFT: dict[tuple[str, str, str], tuple[tuple[str, str], ...]] = {
+    ("src/data_io.py", "parse_client", "housing_location_search"): (
+        ("housing_trajectory_comparison", "housing_location_search"),
+        ("state_residency", "housing_location_search"),
+    ),
+}
+
+
 def test_every_soft_declaration_is_backed_by_a_swept_call_site():
     """No `degrades_without` without a call site that justifies it.
 
@@ -474,6 +492,9 @@ def test_every_soft_declaration_is_backed_by_a_swept_call_site():
             continue
         for key in (keys or (site[2],)):
             swept.add((consumer, key))
+    for site, pairs in INPUT_GATE_SOFT.items():
+        assert DECLARED_SITES[site][0] == ENGINE, site
+        swept.update(pairs)
 
     declared = {
         (key, dep)
