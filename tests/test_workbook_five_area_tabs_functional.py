@@ -27,19 +27,22 @@ def test_output_workbook_uses_numbered_top_level_area_tabs(built_workbook_path):
     for section in expected_sections:
         assert section in names
 
+    # #332 W-F Task F6 (design 2026-09-24 §9.1): sheets within a section now
+    # order by Topic first -- see test_workbook_numbered_section_tabs_functional.py
+    # for the full pinned order and its rationale.
     assert names[:7] == [
         "1. Reports",
-        "1A. Executive Summary",
-        "1B. Net Worth",
-        "1C. Cash Flow",
-        "1D. Balance Sheet",
-        "1E. Charts",
-        "1F. Lifetime Taxes",
+        "1A. Spending Summary",
+        "1B. Lifetime Taxes",
+        "1C. Executive Summary",
+        "1D. Net Worth",
+        "1E. Cash Flow",
+        "1F. Balance Sheet",
     ]
-    assert names[names.index("2. Optimizers") + 1] == "2A. Roth Conversion"
+    assert names[names.index("2. Optimizers") + 1] == "2A. Social Security"
     assert names[names.index("3. Comparisons") + 1] == "3A. State Residency"
     assert names[names.index("4. Risks") + 1] == "4A. Monte Carlo"
-    assert names[names.index("5. Reference") + 1] == "5A. Plan Data"
+    assert names[names.index("5. Reference") + 1] == "5A. RMD Audit"
     assert names[-1] == "_Chart Dashboard Data"
 
 
@@ -61,7 +64,10 @@ def test_source_layout_declares_same_numbered_areas():
         "5. Reference",
     ]
     flattened = [sheet for area in layout for sheet in area["sheets"]]
-    assert flattened[:3] == ["1. Executive Summary", "5. Net Worth Projection", "6. Cash Flow Projection"]
+    # #332 W-F Task F6 (design 2026-09-24 §9.1): sheets within a section now
+    # order by Topic first -- Spending Summary (Spending) and Lifetime Tax
+    # (Taxes) sort ahead of the Topic-less ("Whole Plan") Executive Summary.
+    assert flattened[:3] == ["29. Spending Summary", "7. Lifetime Tax", "1. Executive Summary"]
     # W3 (#329 O10, F1): COMPARISON modules get their own group, out of
     # Optimizers -- S-Corp vs LLC and State Residency now sit in Comparisons.
     assert "S-Corp vs LLC" in flattened
@@ -69,16 +75,9 @@ def test_source_layout_declares_same_numbered_areas():
     # W3 split LTC Stress Test back out of the merged Life Insurance sheet
     # (#329 O10) -- both are now independent Risks entries.
     assert "17. LTC Stress Test" in flattened
-    # W11 addendum (2026-09-22): '27. Planning Levers' was found to be a real,
-    # actively-used interactive lever-screening tool, not the static
-    # provenance echo every upstream doc (including this one, previously)
-    # assumed -- see docs/superpowers/plans/2026-09-22-w11-planning-levers-
-    # retirement-notes.md. Kept, and recatalogued WORKSHEET (was REFERENCE),
-    # which moves it out of System and into Reports, densely last there
-    # (its exact '1I.' position is pinned in
-    # test_workbook_numbered_section_tabs_functional.py, not here). '11B. Tax
-    # Capacity' is still REFERENCE-kind (filed in System rather than Reports)
-    # and, with Planning Levers gone, is now densely last in System itself.
-    assert flattened[-1] == "11B. Tax Capacity"
-    assert flattened[-2] == "22. Glossary"
-    assert flattened[-3] == "23. Methodology"
+    # '11B. Tax Capacity' (Taxes) now sorts with RMD Audit near the front of
+    # Reference, ahead of the Topic-less ("Whole Plan") sheets -- see
+    # test_workbook_numbered_section_tabs_functional.py for the full order.
+    assert flattened[-1] == "22. Glossary"
+    assert flattened[-2] == "23. Methodology"
+    assert flattened[-3] == "21. Quality Control"
