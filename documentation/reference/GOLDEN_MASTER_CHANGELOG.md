@@ -33,7 +33,10 @@ Files changed: `reference_data/tax_law_v10.json` (38 value corrections),
 `src/reporting/sheets_summary_builder.py` (hardcoded "IRMAA Tier 2 Threshold
 (MFJ)" report line, 268000 -> 266000), `src/server/app_core.py` (hardcoded
 MFJ-threshold fallback list used only if the live table import fails,
-268000/335000/402000 -> 266000/334000/400000).
+268000/335000/402000 -> 266000/334000/400000), and `frontend/js/admin.js`
+(hardcoded Roth IRMAA target-tier dropdown labels, found by a follow-up
+review after this entry was first written: MFJ 268000/335000/402000 ->
+266000/334000/400000).
 
 Three frozen fixtures moved as a result, all via the same
 `tax_kernel.irmaa_threshold`/`irmaa_surcharge` code path (no formula or
