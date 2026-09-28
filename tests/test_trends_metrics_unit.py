@@ -82,3 +82,15 @@ def test_no_transactions_yet_does_not_crash(tmp_path):
     snapshot = compute_snapshot(base_dir, today=date(2026, 1, 20))
     assert snapshot["ytd_expenses_by_category"] == {}
     assert snapshot["as_of_date"]
+
+
+def test_as_of_date_is_the_run_day_not_the_latest_transaction_date(tmp_path):
+    # A run day with no fresh transaction (e.g. the bank hasn't posted one
+    # yet) must still get its own as_of_date -- otherwise trends_log's
+    # same-date overwrite silently collapses it into a prior day's entry.
+    # Latest transaction here is 2026-01-15, but the job runs on 2026-01-20.
+    base_dir = _workspace(tmp_path)
+    _seed(base_dir)
+    snapshot = compute_snapshot(base_dir, today=date(2026, 1, 20))
+    assert snapshot["as_of_date"] == "2026-01-20"
+    assert snapshot["data_through_date"] == "2026-01-15"
