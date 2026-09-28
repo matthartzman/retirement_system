@@ -361,7 +361,10 @@ def migrate_plan_data_at_rest(input_dir, db_path=None, dry_run: bool = False) ->
         migrated[path.name] = changed
         total += changed
         if not dry_run:
-            path.write_text(new_content, encoding="utf-8", newline="")
+            from .plan_file_io import atomic_write  # noqa: PLC0415
+
+            with atomic_write(path) as handle:
+                handle.write(new_content)
 
     try:
         snapshot_changed = rewrite_sectioned_snapshots(

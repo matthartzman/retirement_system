@@ -17,6 +17,7 @@ from typing import Dict, Tuple, Optional as _Optional, List as _List
 
 from .system_config import discover_system_config_csv, load_system_config, system_setting
 from . import platform_runtime
+from .plan_file_io import write_text_atomic
 from .plan_data_registry import CLIENT_DATA_PART_FILES
 
 # PROJECT_ROOT stays the code/package root (read-only assets). Writable data
@@ -375,5 +376,5 @@ def materialize_workspace_files(workspace_id: str = "local", client_id: str = "l
             continue
         content = get_client_file(name, db_path=db_path)
         if content is not None:
-            dest.write_text(content, encoding="utf-8")
+            write_text_atomic(dest, content)
     return out_dir
