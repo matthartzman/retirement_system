@@ -70,9 +70,11 @@ function rawRows(id, rowsOverride) {
 
 describe("rawRowsForStep aggregates the constituent legacy ids (ticket 323)", () => {
   // #329/#330 W9: heloc_strategy left this union when it became its own
-  // Assets & Protection step -- row 5 (HELOC) is still reachable directly
+  // Assets & Protection step -- row 5 (HELOC) used to be reachable directly
   // via rawRowsForStep("heloc_strategy") below, just no longer through
-  // strategy_optimize's aggregate.
+  // strategy_optimize's aggregate. Ticket 340 then moved heloc_enabled's
+  // switch itself onto Plan Features, so row 5 (the enable flag) is excluded
+  // from heloc_strategy too now -- see that test below.
   // #330 P8 / Q6 (W13): roth_conversion (row 1) and entity_charitable (row 4)
   // left this union when they became their own Taxes nav steps -- same move,
   // same reason as heloc_strategy above. Both are still reachable directly,
@@ -88,8 +90,11 @@ describe("rawRowsForStep aggregates the constituent legacy ids (ticket 323)", ()
   });
 
   test("heloc_strategy still returns its own row directly, unaggregated", () => {
+    // Ticket 340: heloc_enabled (row 5) moved to Plan Features, so it no
+    // longer renders on heloc_strategy itself -- this fixture's only HELOC
+    // row is exactly the one excluded, leaving nothing.
     const indices = rawRows("heloc_strategy").map((r) => r.row_index).sort();
-    assert.deepEqual(indices, [5]);
+    assert.deepEqual(indices, []);
   });
 
   test("strategy_stress unions monte_carlo_options, survivor_stress, ltc_stress, divorce_options", () => {
