@@ -18,21 +18,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 
-def _set_local_mode_defaults() -> None:
-    defaults = {
-        "RETIREMENT_SYSTEM_APP_MODE": "LOCAL",
-        "RETIREMENT_SYSTEM_WORKSPACE_ID": "local",
-        "RETIREMENT_SYSTEM_CLIENT_ID": "local",
-        "RETIREMENT_SYSTEM_DASHBOARD_HOST": "127.0.0.1",
-        "RETIREMENT_SYSTEM_DASHBOARD_PORT": "5050",
-        "RETIREMENT_SYSTEM_REQUIRE_API_TOKEN": "NO",
-        "RETIREMENT_SYSTEM_ALLOW_UNAUTHENTICATED_SAAS": "YES",
-        "RETIREMENT_SYSTEM_FORCE_HTTPS": "NO",
-        "RETIREMENT_SYSTEM_REVERSE_PROXY_ENABLED": "NO",
-        "RETIREMENT_SYSTEM_NO_AUTO_OPEN": "1",
-    }
-    for k, v in defaults.items():
-        os.environ.setdefault(k, v)
+from src.bootstrap import run_startup_bootstrap  # noqa: E402
 
 
 _SHUTDOWN_URLS = frozenset(["/api/shutdown", "/api/admin/server/shutdown"])
@@ -54,10 +40,29 @@ class DesktopApi:
     """PyWebView JS-API class.  One instance lives for the app\'s lifetime."""
 
     def __init__(self) -> None:
-        _set_local_mode_defaults()
+        # System review 2026-09-25, Wave 0 WI-000 / ARC-002: shared with
+        # main.py and tools/launchers/START_DESKTOP.py via src/bootstrap.py,
+        # rather than this module's own (previously incomplete -- it omitted
+        # CONFIG_FILE/OUTPUT_DIR/JSON_CONFIG_FILE/YAML_CONFIG_FILE) copy of
+        # the local-mode env defaults. Also runs the at-rest Plan Data
+        # migration, guarded to run at most once per process.
+        run_startup_bootstrap()
+        # Desktop-bridge-specific, not part of the shared bootstrap (server
+        # mode wants its own auto-open behavior): suppress the local HTTP
+        # runtime's auto browser-open, since this bridge never starts one.
+        os.environ.setdefault("RETIREMENT_SYSTEM_NO_AUTO_OPEN", "1")
         from src.server import create_app  # noqa: PLC0415
         from src.server.workbook_routes import register_progress_push  # noqa: PLC0415
         self._app = create_app()
+        # ARC-001 (system review 2026-09-25): _security_gate's CSRF/Origin
+        # allow-list exists to stop a remote page from forging a non-GET
+        # request. This bridge dispatches every call in-process through
+        # test_client() below -- no socket is ever opened (see module
+        # docstring) -- so there is no network boundary for a remote page to
+        # cross, and it never sends an Origin/Referer or CSRF token anyway
+        # (headers are not forwarded across the bridge). Marked once, here,
+        # rather than guessed at in _security_gate from header shape.
+        self._app._no_http_transport = True
         self._client = self._app.test_client()
         self._request_lock = threading.Lock()
         self._last_push_key: tuple = ()
