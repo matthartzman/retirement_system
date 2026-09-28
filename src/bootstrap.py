@@ -135,6 +135,8 @@ def run_startup_bootstrap(*, run_migration: bool = True) -> dict:
     global _BOOTSTRAPPED
     set_local_mode_env_defaults()
     configure_logging()
+    from src.platform_runtime import seed_frozen_workspace  # noqa: PLC0415
+    seed_frozen_workspace()  # no-op from source; per-user workspace when frozen
     if not run_migration or _BOOTSTRAPPED:
         return {"migrated": [], "total_changed": 0, "already_ran": _BOOTSTRAPPED}
     _BOOTSTRAPPED = True

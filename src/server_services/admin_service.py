@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import io
 import json
 from pathlib import Path
 from typing import Any, Iterable
@@ -11,6 +12,50 @@ from src.plan_file_io import atomic_write, plan_file_lock, write_text_atomic
 ADMIN_PLAN_DATA_FILES = set(client_data_csv_files()) | {
     "client_holdings.csv", "client_liabilities.csv", "target_allocation.csv",
 }
+
+
+# ARC-006 / WI-206: provider API keys belong in the local secret store, never
+# in the tracked system_config.csv (which also lands in the admin CSV backup
+# zip and the project backup). Rows with these labels are diverted on save.
+SECRET_CONFIG_LABELS = frozenset({"fmp_api_key", "alpha_vantage_api_key"})
+
+
+def divert_secret_rows(rows: list[list[str]], set_secret_fn=None) -> tuple[list[list[str]], list[str]]:
+    """Move non-empty values of SECRET_CONFIG_LABELS rows into the secret store.
+
+    Returns ``(rows, stored_names)`` where the diverted rows have a blank value
+    cell. Values are never logged or returned. ``rows`` is not mutated.
+    """
+    if set_secret_fn is None:
+        from ..secrets_store import set_secret as set_secret_fn
+    out: list[list[str]] = []
+    stored: list[str] = []
+    for row in rows:
+        row = list(row)
+        if len(row) > 3 and str(row[2]).strip() in SECRET_CONFIG_LABELS and str(row[3]).strip():
+            name = str(row[2]).strip()
+            set_secret_fn(name, str(row[3]).strip())
+            row[3] = ""
+            if name not in stored:
+                stored.append(name)
+        out.append(row)
+    return out, stored
+
+
+def _scrub_system_config_body(content, rows, set_secret_fn=None):
+    """Return ``(content, rows, stored_names)`` with secret cells diverted."""
+    if content is not None:
+        parsed = list(csv.reader(io.StringIO(str(content))))
+        scrubbed, stored = divert_secret_rows(parsed, set_secret_fn)
+        if stored:
+            buf = io.StringIO()
+            csv.writer(buf, lineterminator="\n").writerows(scrubbed)
+            content = buf.getvalue()
+        return content, rows, stored
+    if isinstance(rows, list):
+        rows, stored = divert_secret_rows(rows, set_secret_fn)
+        return content, rows, stored
+    return content, rows, []
 
 
 def read_csv_rows(path: Path) -> list[list[str]]:
@@ -72,6 +117,9 @@ def save_csv_file(kind: str, file_name: str, body: dict[str, Any], *, base_dir: 
         before_rows = read_csv_rows(p) if p.exists() else []
         content = body.get("csv_content") if isinstance(body, dict) else None
         rows = body.get("rows") if isinstance(body, dict) else None
+        stored: list[str] = []
+        if str(kind or "").strip().lower() == "system":
+            content, rows, stored = _scrub_system_config_body(content, rows)
         if content is not None:
             write_text_atomic(p, str(content))
         elif isinstance(rows, list):
@@ -80,6 +128,8 @@ def save_csv_file(kind: str, file_name: str, body: dict[str, Any], *, base_dir: 
             return {"success": False, "error": "csv_content or rows required"}, 400, before_rows, before_rows
         after_rows = read_csv_rows(p) if p.exists() else []
     payload = {"success": True, "kind": str(kind).lower(), "file": p.name, "path": str(p)}
+    if stored:
+        payload["secrets_stored"] = stored
     return payload, 200, before_rows, after_rows
 
 
@@ -97,6 +147,7 @@ def save_system_config(body: dict[str, Any], system_config_path: Path) -> tuple[
         before_rows = read_csv_rows(system_config_path) if system_config_path.exists() else []
         content = body.get("csv_content") if isinstance(body, dict) else None
         rows = body.get("rows") if isinstance(body, dict) else None
+        content, rows, stored = _scrub_system_config_body(content, rows)
         if content is not None:
             write_text_atomic(system_config_path, str(content))
         elif isinstance(rows, list):
@@ -104,7 +155,10 @@ def save_system_config(body: dict[str, Any], system_config_path: Path) -> tuple[
         else:
             return {"success": False, "error": "csv_content or rows required"}, 400, before_rows, before_rows
         after_rows = read_csv_rows(system_config_path) if system_config_path.exists() else []
-    return {"success": True, "path": str(system_config_path)}, 200, before_rows, after_rows
+    payload: dict[str, Any] = {"success": True, "path": str(system_config_path)}
+    if stored:
+        payload["secrets_stored"] = stored
+    return payload, 200, before_rows, after_rows
 
 
 def reference_files_payload(base_dir: Path) -> dict[str, Any]:
