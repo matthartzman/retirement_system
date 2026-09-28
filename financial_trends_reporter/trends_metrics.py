@@ -110,8 +110,22 @@ def compute_snapshot(base_dir: str | Path, *, today=None) -> dict[str, Any]:
         ),
     }
 
+    # as_of_date is the log's dedup/sort key (trends_log.append_or_replace_entry
+    # overwrites same-date entries) and must be the calendar day this snapshot
+    # was taken -- NOT the latest transaction date. Those two routinely
+    # diverge (bank transactions post with a lag, some days have none at
+    # all), and keying on the transaction date caused any day without a
+    # freshly-posted transaction to silently overwrite the prior day's whole
+    # snapshot -- holdings/net-worth included, even though those change daily
+    # independent of transaction activity. data_through_date keeps the
+    # transaction-coverage info (what the YTD expense/income figures actually
+    # reflect) available separately, for anything that wants it.
+    as_of_date = (today or date.today()).isoformat()
+    data_through_date = summary.get("through_date") or summary.get("ytd_end") or as_of_date
+
     return {
-        "as_of_date": summary.get("through_date") or summary.get("ytd_end") or (today or date.today()).isoformat(),
+        "as_of_date": as_of_date,
+        "data_through_date": data_through_date,
         "ytd_expenses_by_category": ytd_expenses_by_category,
         "holdings": holdings,
         "net_worth": net_worth,
