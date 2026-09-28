@@ -17,6 +17,7 @@ pytestmark = pytest.mark.contract
 
 def _make_db(path: Path, value: str):
     conn = sqlite3.connect(path)
+    conn.execute("CREATE TABLE IF NOT EXISTS client_files(file_name TEXT PRIMARY KEY, content TEXT)")
     conn.execute("CREATE TABLE IF NOT EXISTS marker(value TEXT)")
     conn.execute("DELETE FROM marker")
     conn.execute("INSERT INTO marker(value) VALUES (?)", (value,))

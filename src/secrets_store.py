@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 import json
 
+from .plan_file_io import write_text_atomic
+
 DEFAULT_SECRETS = Path(__file__).resolve().parent.parent / "local_state" / "secrets.local.json"
 
 def _load(path: str | Path = DEFAULT_SECRETS) -> dict:
@@ -15,7 +17,7 @@ def _load(path: str | Path = DEFAULT_SECRETS) -> dict:
         return {}
 
 def _save(data: dict, path: str | Path = DEFAULT_SECRETS) -> None:
-    p = Path(path); p.parent.mkdir(parents=True, exist_ok=True); p.write_text(json.dumps(data, indent=2, sort_keys=True), encoding='utf-8')
+    write_text_atomic(path, json.dumps(data, indent=2, sort_keys=True))
 
 def encryption_status(*args, **kwargs) -> dict:
     # Finding SEC-5 (system review 2026-09-07, Wave 6 item W6-1): this used to
