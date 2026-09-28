@@ -4635,6 +4635,7 @@ export async function api(path, opts = {}) {
     if (!res.ok) {
       const err = new Error((data && data.error) || text || res.statusText);
       if (data && Array.isArray(data.errors)) err.errors = data.errors;
+      err.status = res.status; // ARC-004: real status, not message-text matching
       throw err;
     }
     return data;

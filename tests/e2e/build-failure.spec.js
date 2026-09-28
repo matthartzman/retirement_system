@@ -63,3 +63,69 @@ test('a failed build surfaces "Build failed" and the real error message, not a s
   const toast = page.locator('#actionMessage');
   await expect(toast).toContainText(FAKE_ERROR, { timeout: 5_000 });
 });
+
+// ARC-004 / UX-009 (system review 2026-09-25, Wave 1 item WI-106):
+// buildWithProgress()'s fallback to the legacy synchronous /api/build
+// endpoint used to be a catch wrapping the ENTIRE polling loop, keyed on
+// free-text-matching the error message for "404"/"not found" -- so a real
+// build failure whose own error text happens to contain "not found" (e.g.
+// "Plan Data folder not found: ...", see src/local_plan_data_sync.py) was
+// indistinguishable from the /api/build/start endpoint itself being
+// missing, and triggered a second, fully synchronous build instead of
+// surfacing the real failure. This pins that a job that reports "failed"
+// with a "not found" message never issues that second POST /api/build,
+// once a job_id has already been returned.
+test('a failed job whose error mentions "not found" does not trigger a fallback build', async ({ page }) => {
+  const FAKE_JOB_ID = 'e2e-synthetic-not-found-failed-job';
+  const FAKE_ERROR = 'Plan Data folder not found: input/missing_plan';
+  let fallbackBuildCalled = false;
+
+  await page.route('**/api/build/start', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ success: true, job_id: FAKE_JOB_ID, progress: 0, phase: 'Preparing build' }),
+    });
+  });
+
+  await page.route(`**/api/build/progress/${FAKE_JOB_ID}`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        job: {
+          job_id: FAKE_JOB_ID,
+          status: 'failed',
+          progress: 100,
+          phase: 'Build failed',
+          detail: 'Build process returned an error.',
+          result: { success: false, returncode: 1, error: FAKE_ERROR },
+        },
+      }),
+    });
+  });
+
+  // The legacy fallback endpoint -- must never be called from this scenario.
+  await page.route('**/api/build', async (route) => {
+    if (route.request().method() === 'POST') {
+      fallbackBuildCalled = true;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true }),
+      });
+      return;
+    }
+    await route.continue();
+  });
+
+  await openCurrentPlan(page);
+
+  const finalTitle = await triggerBuildAndWaitForOverlay(page);
+  expect(finalTitle).toBe('Build failed');
+
+  const toast = page.locator('#actionMessage');
+  await expect(toast).toContainText(FAKE_ERROR, { timeout: 5_000 });
+  expect(fallbackBuildCalled).toBe(false);
+});

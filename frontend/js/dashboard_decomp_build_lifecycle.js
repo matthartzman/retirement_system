@@ -250,69 +250,17 @@ export function updateBuildProgress(job) {
   }
 }
 export async function buildWithProgress(buildBody) {
+  // ARC-004/UX-009: fallback to /api/build is now scoped to only this
+  // initial call (real HTTP status, not free-text "not found" matching);
+  // nothing after a job_id issues ever falls back.
+  let started;
   try {
-    const started = await api("/api/build/start", {
+    started = await api("/api/build/start", {
       method: "POST",
       body: JSON.stringify(buildBody),
     });
-    if (!started || !started.job_id)
-      throw new Error("Build progress endpoint did not return a job id.");
-    let lastProgress = Math.max(0, Number(started.progress) || 0);
-    updateBuildOverlay(
-      started.phase || "Preparing build",
-      "Build accepted. Waiting for live build telemetry.",
-      lastProgress,
-    );
-    startSmoothProgress(lastProgress, 82, 22, 5000);
-    let lastKnownProgress = lastProgress;
-    let lastChange = Date.now();
-    try {
-      for (let i = 0; i < 1600; i++) {
-        await sleep(i < 40 ? 750 : 1500);
-        const out = await api(
-          "/api/build/progress/" + encodeURIComponent(started.job_id),
-        );
-        const job = out.job || {};
-        let pct = Number.isFinite(Number(job.progress))
-          ? Number(job.progress)
-          : lastKnownProgress;
-        if (pct > lastKnownProgress) {
-          lastKnownProgress = pct;
-          lastChange = Date.now();
-        } else if (job.status === "running" && Date.now() - lastChange > 9000) {
-          pct = "indeterminate";
-        }
-        lastProgress =
-          pct === "indeterminate" ? lastProgress : Math.max(lastProgress, pct);
-        updateBuildOverlay(
-          job.phase || "Building workbook",
-          job.detail || "Working through the current Monte Carlo/build step...",
-          pct === "indeterminate" ? "indeterminate" : lastProgress,
-          job.status === "failed" ? "error" : undefined,
-        );
-        if (job.status === "done") {
-          const result = job.result || { success: true };
-          if (result.success === false)
-            throw new Error(result.error || job.detail || "Build failed.");
-          return result;
-        }
-        if (job.status === "failed") {
-          const result = job.result || {};
-          throw new Error(result.error || job.detail || "Build failed.");
-        }
-      }
-    } finally {
-      stopSmoothProgress();
-    }
-    throw new Error("Build progress polling timed out after about 40 minutes.");
   } catch (e) {
-    stopSmoothProgress();
-    if (
-      String((e && e.message) || e).includes("404") ||
-      String((e && e.message) || e)
-        .toLowerCase()
-        .includes("not found")
-    ) {
+    if (e && e.status === 404) {
       updateBuildOverlay(
         "Building workbook",
         "Progress telemetry unavailable; using the standard build endpoint.",
@@ -325,6 +273,56 @@ export async function buildWithProgress(buildBody) {
     }
     throw e;
   }
+  if (!started || !started.job_id)
+    throw new Error("Build progress endpoint did not return a job id.");
+  let lastProgress = Math.max(0, Number(started.progress) || 0);
+  updateBuildOverlay(
+    started.phase || "Preparing build",
+    "Build accepted. Waiting for live build telemetry.",
+    lastProgress,
+  );
+  startSmoothProgress(lastProgress, 82, 22, 5000);
+  let lastKnownProgress = lastProgress;
+  let lastChange = Date.now();
+  try {
+    for (let i = 0; i < 1600; i++) {
+      await sleep(i < 40 ? 750 : 1500);
+      const out = await api(
+        "/api/build/progress/" + encodeURIComponent(started.job_id),
+      );
+      const job = out.job || {};
+      let pct = Number.isFinite(Number(job.progress))
+        ? Number(job.progress)
+        : lastKnownProgress;
+      if (pct > lastKnownProgress) {
+        lastKnownProgress = pct;
+        lastChange = Date.now();
+      } else if (job.status === "running" && Date.now() - lastChange > 9000) {
+        pct = "indeterminate";
+      }
+      lastProgress =
+        pct === "indeterminate" ? lastProgress : Math.max(lastProgress, pct);
+      updateBuildOverlay(
+        job.phase || "Building workbook",
+        job.detail || "Working through the current Monte Carlo/build step...",
+        pct === "indeterminate" ? "indeterminate" : lastProgress,
+        job.status === "failed" ? "error" : undefined,
+      );
+      if (job.status === "done") {
+        const result = job.result || { success: true };
+        if (result.success === false)
+          throw new Error(result.error || job.detail || "Build failed.");
+        return result;
+      }
+      if (job.status === "failed") {
+        const result = job.result || {};
+        throw new Error(result.error || job.detail || "Build failed.");
+      }
+    }
+  } finally {
+    stopSmoothProgress();
+  }
+  throw new Error("Build progress polling timed out after about 40 minutes.");
 }
 
 export async function fetchCurrentSummaryKpi() {

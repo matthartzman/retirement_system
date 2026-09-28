@@ -586,6 +586,33 @@ def run_deterministic_projection_stage(c):
         extra = max(0, early - 36) * (5.0 / 1200.0)
         return max(0.0, 1.0 - first36 - extra)
 
+    def _ss_survivor_reduction_factor(age_at_start, dob_year, fra_override=None):
+        """Survivor-benefit early-claim reduction, FIN-001 (system review
+        2026-09-25). Distinct from _ss_claim_factor (a worker's own
+        retirement reduction/delayed-credit schedule, which runs from age 62
+        to beyond FRA and grants delayed credits) and from
+        _ss_spousal_excess_factor (the excess-spousal top-up schedule): SSA
+        reduces a survivor benefit linearly from 71.5% of the full amount at
+        exactly age 60 up to 100% at the survivor's own FRA, and -- unlike a
+        worker's own benefit -- grants no delayed credit for waiting past
+        FRA to start it (capped at 1.0). The true SSA table is not perfectly
+        linear between 60 and FRA; this linear approximation is within a
+        fraction of a percent of the published table across that span and is
+        adopted here in the same spirit as _fra_for_birth_year's own
+        piecewise-linear FRA formula.
+        """
+        fra = _fra_for_birth_year(dob_year, fra_override)
+        age_at_start = float(age_at_start or fra)
+        if age_at_start >= fra:
+            return 1.0
+        if age_at_start <= 60.0:
+            return 0.715
+        span = fra - 60.0
+        if span <= 0:
+            return 1.0
+        frac_early = (fra - age_at_start) / span
+        return max(0.715, 1.0 - 0.285 * frac_early)
+
     def _basis_stepup_fraction(decedent_owned=True):
         regime = str(c.get('basis_step_up_property_regime', 'COMMON_LAW') or 'COMMON_LAW').upper()
         if regime in ('COMMUNITY_PROPERTY', 'FULL_STEP_UP'):
@@ -837,6 +864,7 @@ def run_deterministic_projection_stage(c):
             ss_first_claim_year_month_fraction=_ss_first_claim_year_month_fraction,
             ss_claim_factor=_ss_claim_factor,
             ss_spousal_excess_factor=_ss_spousal_excess_factor,
+            ss_survivor_reduction_factor=_ss_survivor_reduction_factor,
             ss_funding_factor=_ss_funding_factor,
         )
         earned_base = _stage5.earned_base
@@ -942,6 +970,7 @@ def run_deterministic_projection_stage(c):
         _stage8 = _apply_roth_conversion_stage(
             c, bal, bal_basis_free, row,
             year=year, filing=filing, h_age=h_age, w_age=w_age,
+            h_alive=h_alive, w_alive=w_alive,
             earned_base=earned_base, net_earned_taxable=net_earned_taxable,
             half_se_ded=half_se_ded, sehi_ded=sehi_ded, h_ss=h_ss, w_ss=w_ss,
             rmd_taxable_total=rmd_taxable_total, pension=pension,
@@ -967,7 +996,8 @@ def run_deterministic_projection_stage(c):
         # only after its own LTCG/NIIT fixed point converges.
         _stage9 = _apply_agi_and_tax(
             c, bal, row, rows,
-            year=year, filing=filing, h_age=h_age, w_age=w_age, n_alive=n_alive,
+            year=year, filing=filing, h_age=h_age, w_age=w_age,
+            h_alive=h_alive, w_alive=w_alive, n_alive=n_alive,
             home_val=home_val, payroll_tax=payroll_tax,
             net_earned_taxable=net_earned_taxable, half_se_ded=half_se_ded, sehi_ded=sehi_ded,
             rmd_taxable_total=rmd_taxable_total, roth_conv=roth_conv, pension=pension,

@@ -6575,6 +6575,8 @@ async function _checkAppStatusRun(show) {
         window.__retirementApiBase = b;
         if (window.RetirementApiClient) window.RetirementApiClient.setBase(b);
         appReady = true;
+        // ARC-001: fetch the CSRF token _security_gate now checks.
+        if (!csrfToken) try { const sj = await api("/api/auth/session"); if (sj && sj.csrf_token) csrfToken = sj.csrf_token; } catch (_e) {}
         const ok = document.getElementById("appStatus");
         if (ok) {
           ok.className = "status ok";

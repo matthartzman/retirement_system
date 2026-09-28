@@ -32,16 +32,14 @@ from pathlib import Path
 
 from ..http_runtime.wsgi_facade import request
 from src.security import (
-    constant_time_token_ok,
     extract_bearer_or_header,
-    get_server_token,
     is_sensitive_change_label,
     redact_secret,
     redact_text,
 )
 from src.permissions import UserContext
 from src.workspace_context import sanitize_id, workspace_output_dir
-from src.config_backend import append_audit_event_sqlite, lookup_api_token
+from src.config_backend import append_audit_event_sqlite
 
 from . import app_core as _app_core
 
@@ -80,47 +78,6 @@ def _public_path() -> bool:
 
 def _has_bearer_or_api_header() -> bool:
     return bool(str(request.headers.get("Authorization", "")).strip() or str(request.headers.get("X-API-Token", "")).strip())
-
-
-def _cookie_secure_for_request(cfg) -> bool:
-    return bool(cfg.session_cookie_secure or request.is_secure or str(request.headers.get("X-Forwarded-Proto", "")).lower() == "https")
-
-
-def _set_auth_cookie(response, token: str):
-    cfg = _app_core._runtime_config()
-    response.set_cookie(
-        cfg.session_cookie_name,
-        token,
-        max_age=int(cfg.session_max_age_hours * 3600),
-        httponly=True,
-        secure=_cookie_secure_for_request(cfg),
-        samesite=cfg.session_cookie_samesite,
-    )
-    return response
-
-
-def _clear_auth_cookie(response):
-    cfg = _app_core._runtime_config()
-    response.delete_cookie(cfg.session_cookie_name)
-    return response
-
-
-def _identity_from_token(token: str) -> tuple[bool, UserContext | None]:
-    if not token:
-        return False, None
-    cfg = _app_core._runtime_config()
-    token_row = lookup_api_token(token, _app_core._sqlite_db())
-    if token_row:
-        return True, UserContext(
-            user_id=str(token_row.get("user_id") or "api-user"),
-            email=str(token_row.get("email") or token_row.get("user_id") or "api-user"),
-            role=str(token_row.get("role") or cfg.default_role),
-            workspace_id=sanitize_id(token_row.get("workspace_id") or cfg.workspace_id),
-        )
-    expected = get_server_token()
-    if constant_time_token_ok(token, expected):
-        return True, UserContext(user_id="server-token", email="server-token", role=cfg.default_role, workspace_id=sanitize_id(cfg.workspace_id))
-    return False, None
 
 
 def _authorized_and_identity() -> tuple[bool, UserContext | None]:
