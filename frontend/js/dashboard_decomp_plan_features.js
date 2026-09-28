@@ -224,12 +224,17 @@ function entryIsOn(entry) {
   return boolishValue(entry.row);
 }
 
-// #330 §5.3 (W9): a plan flag's row, on Plan Features. No toggle -- the
-// switch lives where its data is, and rendering a second writer for the same
-// value here is the exact double-gate #330 Q2 removed from DAF. `on` reads
-// the live plan row directly (gate_ref is [section, subsection, label],
+// #330 §5.3 (W9): a plan flag's row, on Plan Features. Normally no toggle --
+// the switch lives where its data is, and rendering a second writer for the
+// same value here is the exact double-gate #330 Q2 removed from DAF. `on`
+// reads the live plan row directly (gate_ref is [section, subsection, label],
 // exactly sectionFlagEnabled()'s argument tuple), the same way
 // strategySectionGatedNote() and rowsForStep()'s generalized HELOC check do.
+//
+// Ticket 340 makes HELOC the one exception: its switch moved OFF the Home
+// Equity Line page onto this one (rowsForStep()'s "heloc_strategy" case now
+// excludes the heloc_enabled row, so there is no second writer to double-gate
+// against). DAF/QCD/Hybrid LTC keep the link-only rendering below.
 function planFlagRowHtml(entry) {
   const meta = entry.meta;
   const ref = meta.gate_ref || [];
@@ -244,6 +249,34 @@ function planFlagRowHtml(entry) {
   if (meta.kind) html += '<span class="badge pf-kind">' + esc(meta.answer_type || meta.kind) + "</span>";
   if (hint) html += '<span class="pf-demand">' + esc(hint) + "</span>";
   if (desc) html += '<span class="opt-module-desc">' + esc(desc) + "</span>";
+
+  if (entry.key === "heloc") {
+    const row = ref.length === 3
+      ? rows.find(
+          (r) =>
+            isEditable(r) &&
+            r.section === ref[0] &&
+            norm(r.subsection || "") === norm(ref[1]) &&
+            norm(r.label) === norm(ref[2]),
+        )
+      : null;
+    html += "</div>";
+    html += row
+      ? '<button class="opt-module-toggle ' +
+        (on ? "on" : "off") +
+        '" type="button" data-requires-app="1" ' +
+        'onclick="editValue(' +
+        row.row_index +
+        ",'" +
+        (on ? "NO" : "YES") +
+        "',null);saveAll(false);renderMain()\">" +
+        (on ? "ON" : "OFF") +
+        "</button>"
+      : `<span class="opt-module-toggle ${on ? "on" : "off"}" aria-disabled="true">${on ? "ON" : "OFF"}</span>`;
+    html += "</div>";
+    return html;
+  }
+
   html +=
     '<span class="opt-module-desc pf-plan-flag-note">Switch lives with its data' +
     (meta.gate_enable_label

@@ -495,7 +495,15 @@ DASHBOARD_JS_MAX_LINES = 7_134
 # home" group (home value, basis, mortgage balance) and sourceStepForRow
 # routes those rows there; HELOC regroups to Investments & Property in
 # place (dashboard.js flat). Raised to the measured 36,669.
-TOTAL_JS_MAX_LINES = 36_669
+# 2026-09-28 (ticket 340/342): HELOC's enable switch moves onto Plan
+# Features (planFlagRowHtml's new heloc special case, plus rowsForStep's
+# heloc_strategy exclusion of that row); the entity_charitable nav/step gate
+# now checks DAF/QCD directly instead of the unrelated charitable_giving
+# toggle; and navigation.js refreshes the build-overlay elapsed timer right
+# after Field Finder's synchronous renderMain() so it stops reading frozen.
+# dashboard.js is unchanged. New behavior, not duplication: raised to the
+# measured 36,723.
+TOTAL_JS_MAX_LINES = 36_723
 
 
 def _line_count(path: Path) -> int:
