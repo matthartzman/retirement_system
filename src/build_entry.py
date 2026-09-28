@@ -15,6 +15,7 @@ PASS`` stdout line — so existing progress-parsing and summary-reading callers
 are unchanged.
 """
 
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -43,7 +44,9 @@ def _materialize_server_working_copy() -> None:
     try:
         materialize_workspace_files(file_names=PLAN_DATA_FILES, overwrite_existing=False)
     except Exception as exc:
-        print(f"WARN: Could not materialize saved Plan Data files from local store: {exc}")
+        message = f"Could not materialize saved Plan Data files from local store: {exc}"
+        logging.getLogger("retirement_system.build").warning(message)
+        print(f"WARN: {message}")  # keep stdout for the subprocess build-progress reader
 
 
 def run_build(root: str | Path | None = None) -> BuildResult:

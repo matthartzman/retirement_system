@@ -306,5 +306,6 @@ def run_projection_artifacts(c: Mapping[str, Any], run_mc: bool = True, enforce_
         from .local_store import save_result_snapshot
         save_result_snapshot(cfg.get('plan_result', {}), cfg.get('projection_event_log', []))
     except Exception:
-        pass
+        import logging
+        logging.getLogger('retirement_system.report').warning('save_result_snapshot failed', exc_info=True)
     return ProjectionArtifacts(cfg, rows, mc_data, validation)
