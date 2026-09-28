@@ -125,8 +125,15 @@ def _node_smoke(js_body: str, tmp_path: Path) -> str:
         // The real declarations (appReady, apiBase, etc.) live earlier in the
         // file in an unrelated destructured `let` chain -- declare stand-ins
         // here rather than pulling in that whole chain's other dependencies.
+        // csrfToken: ARC-001 (system review 2026-09-25) added a CSRF-token
+        // fetch inside the ping-success branch, gated on `if (!csrfToken)` --
+        // that read isn't inside its own try/catch (only the api() call that
+        // follows it is), so an undeclared csrfToken here would throw and be
+        // swallowed by _checkAppStatusRun's OUTER per-base try/catch,
+        // silently falling through every base and leaving appReady false.
         let appReady = false;
         let apiBase = '';
+        let csrfToken = 'test-csrf-token';
         let detailedResultsLoading = false;
         let detailedResultSheetLoading = false;
         function renderSteps() {{}}

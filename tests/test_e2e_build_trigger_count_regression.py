@@ -39,7 +39,15 @@ E2E_DIR = ROOT / "tests" / "e2e"
 # workbook-format-stale-cache.spec.js's second build (the actual
 # cache-invalidation regression under test) trigger real builds;
 # build-failure.spec.js's call is against intercepted/synthetic routes.
-BUILD_TRIGGER_CALL_SITE_MAX = 3
+#
+# 2026-09-28 (system review 2026-09-25, Wave 1 WI-106/ARC-004): raised to 4
+# for a second call in build-failure.spec.js -- a "failed" job whose error
+# text contains "not found" must not trigger the legacy /api/build fallback
+# (the actual bug: the fallback used to free-text-match "not found" in ANY
+# thrown error, including a real failure's own message). Same as the
+# existing call in that file, this one is against fully intercepted/
+# synthetic routes and spawns no real build subprocess.
+BUILD_TRIGGER_CALL_SITE_MAX = 4
 
 _CALL_PATTERN = re.compile(r"triggerBuildAndWaitForOverlay\s*\(")
 

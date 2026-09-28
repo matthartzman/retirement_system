@@ -192,6 +192,8 @@ def apply_roth_conversion_stage(
     standard_deduction_fn: Callable[[int, str, Any, int], float],
     compute_fed_tax_fn: Callable[[float, int, str, Any], float],
     emit: Callable[[Any], None],
+    h_alive: bool = True,
+    w_alive: bool = True,
 ) -> RothConversionResult:
     """Design doc Stage 8 (Roth Conversions), plus the DAF in-kind
     (appreciated-securities) gift the legacy engine applies immediately
@@ -236,6 +238,7 @@ def apply_roth_conversion_stage(
         wife_joint_ann=wife_joint_ann, h_single_ann=h_single_ann,
         h_joint_ann=h_joint_ann, note_int_yr=note_int_yr, note_princ_yr=note_princ_yr,
         total_spend_need=total_spend_need, spend=spend, h_age=h_age, w_age=w_age,
+        h_alive=h_alive, w_alive=w_alive,
         portfolio_ordinary=portfolio_ordinary, portfolio_qualified=portfolio_qualified,
         portfolio_tax_exempt=portfolio_tax_exempt,
         aca_bridge_people=bridge_people,
@@ -418,6 +421,8 @@ def apply_agi_and_tax(
     w_age: float,
     n_alive: int,
     home_val: float,
+    h_alive: bool = True,
+    w_alive: bool = True,
     payroll_tax: float,
     net_earned_taxable: float,
     half_se_ded: float,
@@ -706,7 +711,13 @@ def apply_agi_and_tax(
     row['charitable_deduction_yr'] = char
 
     # Standard vs itemized
-    n65 = (1 if h_age >= 65 else 0) + (1 if w_age >= 65 else 0)
+    # FIN-003 (system review 2026-09-25): h_age/w_age are computed from raw
+    # birth-year arithmetic for both spouses whether or not they are still
+    # alive (deterministic_engine.py's year loop), so a survivor year used to
+    # count the deceased spouse's own age-65 add-on and OBBBA senior bonus on
+    # top of the survivor's -- gate each count on the alive flag, which is
+    # already threaded through from deaths_and_spousal_rollover.py.
+    n65 = (1 if (h_alive and h_age >= 65) else 0) + (1 if (w_alive and w_age >= 65) else 0)
     senior_bonus = senior_bonus_deduction(year, filing, agi, n65)
     std_ded = standard_deduction_fn(year, filing, c['brk_inf'], n65) + senior_bonus
     # Sec 213 medical expense deduction: Medicare/bridge premiums, wellness

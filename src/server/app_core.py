@@ -301,15 +301,16 @@ def _request_system_config_csv() -> Path:
 # combined into one file due to bidirectional call coupling between the two
 # clusters (see that file's own top-of-file comment). Several more names are
 # defined there too (_bootstrap_workspace, _bootstrap_client,
-# _candidate_token, _has_bearer_or_api_header, _cookie_secure_for_request,
-# _set_auth_cookie, _clear_auth_cookie, _identity_from_token,
-# _admin_change_log_path_for, _last_build_metadata_path_for,
-# _row_key_for_change, _summarize_csv_row_changes) but are used only
-# internally within security_audit.py's own functions -- never re-exported
-# here, since nothing outside that file needs them (system review 4.9,
-# verified via AST analysis of every name app_core.py/admin_routes.py/
-# base_routes.py/workbook_routes.py/plan_routes.py actually load that isn't
-# locally defined or otherwise imported).
+# _candidate_token, _admin_change_log_path_for, _last_build_metadata_path_for,
+# _row_key_for_change, _summarize_csv_row_changes) but are used only internally within
+# security_audit.py's own functions -- never re-exported here, since nothing
+# outside that file needs them (system review 4.9, verified via AST analysis
+# of every name app_core.py/admin_routes.py/base_routes.py/workbook_routes.py/
+# plan_routes.py actually load that isn't locally defined or otherwise
+# imported). _has_bearer_or_api_header used to be in that unused bucket too
+# (ARC-010, same review) until ARC-001's CSRF/Origin gate below started using
+# it to exempt bearer/API-token clients, which are not cookie-auto-attached
+# and so are not CSRF targets.
 try:
     from .security_audit import (
         _admin_changes_between,
@@ -319,6 +320,7 @@ try:
         _client_id,
         _csrf_token_for_current_request,
         _current_user,
+        _has_bearer_or_api_header,
         _html_request,
         _public_path,
         _read_last_build_timestamp,
@@ -336,6 +338,7 @@ except ImportError:
         _client_id,
         _csrf_token_for_current_request,
         _current_user,
+        _has_bearer_or_api_header,
         _html_request,
         _public_path,
         _read_last_build_timestamp,
@@ -1930,18 +1933,83 @@ def _require(permission: str):
         return jsonify({"success": False, "error": str(exc)}), 403
 
 
+def _origin_or_referer_netloc(value: str) -> str:
+    return value.split("://", 1)[-1].rstrip("/").split("/", 1)[0]
+
+
+def _cross_site_request() -> bool:
+    """True if this request names a different host than the one it hit.
+
+    Mirrors financial_trends_reporter/main.py's own Origin allow-list
+    (ARC-4, system review 2026-09-07): a request naming a different Origin
+    (or, lacking that, a different Referer host) than this server's own Host
+    is cross-site; one carrying neither header -- ordinary same-origin
+    navigation/fetch in most browsers, and every non-browser local script --
+    is not flagged as cross-site on that basis alone.
+    """
+    host = str(request.headers.get("Host", "") or "")
+    origin = str(request.headers.get("Origin", "") or "")
+    if origin:
+        return _origin_or_referer_netloc(origin) != host
+    referer = str(request.headers.get("Referer", "") or "")
+    if referer:
+        return _origin_or_referer_netloc(referer) != host
+    return False
+
+
+def _csrf_and_origin_gate():
+    """ARC-001 (system review 2026-09-25): server mode issued an
+    X-CSRF-Token (see _csrf_token_for_current_request / base_routes.py's
+    login and session endpoints) but never checked it, and had no
+    Origin/Referer/Host allow-list at all -- a cross-site page (a plain
+    auto-submitting form needs no JavaScript and no CORS preflight) could
+    POST/PUT/DELETE any non-GET route and overwrite plan data, exfiltrate a
+    full DB copy, or swap in an attacker-controlled database.
+
+    A request naming a foreign Origin/Referer is always rejected. One naming
+    neither -- which includes every existing same-origin browser request and
+    non-browser automation script -- is rejected only once it also fails a
+    same-origin-scoped CSRF token check; this keeps a foreign-origin request
+    (which always carries an Origin header in current browsers, even for a
+    same-site POST) from being let through by a missing token alone, while
+    not requiring every non-browser caller to start minting tokens it has no
+    way to fetch. A request carrying its own bearer-style credential
+    (Authorization / X-API-Token) is not cookie/browser-auto-attached and so
+    is not a CSRF target regardless of Origin -- and a cross-origin page
+    cannot itself attach an arbitrary Authorization header without a CORS
+    preflight this server never grants (see the SEC-1 comment above).
+    """
+    if _cross_site_request():
+        return jsonify({"success": False, "error": "Cross-origin requests are not allowed"}), 403
+    has_origin_evidence = bool(request.headers.get("Origin") or request.headers.get("Referer"))
+    if not has_origin_evidence or _has_bearer_or_api_header():
+        return None
+    token = str(request.headers.get("X-CSRF-Token", "") or "")
+    if not token or not constant_time_token_ok(token, _csrf_token_for_current_request()):
+        return jsonify({"success": False, "error": "Missing or invalid CSRF token"}), 403
+    if request.path.startswith("/api/") and request.get_data():
+        content_type = str(request.headers.get("Content-Type", "") or "").split(";", 1)[0].strip().lower()
+        if content_type not in {"application/json", "text/plain"}:
+            return jsonify({"success": False, "error": "Unsupported Content-Type"}), 403
+    return None
+
+
 @app.before_request
 def _security_gate():
     if request.method == "OPTIONS":
         return None
-    cfg = _runtime_config()
-    if cfg.force_https and not request.is_secure and str(request.headers.get("X-Forwarded-Proto", "")).lower() != "https":
-        if request.method in {"GET", "HEAD"} and not request.path.startswith("/api/"):
-            target = request.url.replace("http://", "https://", 1)
-            return redirect(target, code=302)
-        return jsonify({"success": False, "error": "HTTPS is required"}), 426
     if _public_path():
         return None
+    # The desktop bridge (DesktopApi.request in src/desktop_api.py) dispatches
+    # every call in-process through this same app's test_client() and never
+    # opens a real socket -- there is no network boundary for a remote page
+    # to cross -- so it is marked exempt once, at construction, rather than
+    # guessed at here from header shape (it sends neither an Origin/Referer
+    # nor a CSRF token, since headers are never forwarded across the bridge).
+    if request.method not in {"GET", "HEAD"} and not getattr(app, "_no_http_transport", False):
+        denied = _csrf_and_origin_gate()
+        if denied:
+            return denied
     # System review 4.5: this package only ever ships as LOCAL (VALID_APP_MODES
     # = {LOCAL} in runtime_config.py; load_runtime_config() hardcodes
     # app_mode = LOCAL unconditionally), so the token-auth rejection this
