@@ -239,7 +239,16 @@
       // seconds with no visible progress bar. Yield one tick so it paints.
       safeCall(()=>setBuildOverlay(true,'Loading all assumptions','Aggregating all plan fields across sections. This takes a moment.','waiting','loadAllAssumptions'));
       setTimeout(()=>{
+        // #342: renderMain() below is synchronous and can run for several
+        // seconds on a big plan -- it blocks the main thread, so the 1s
+        // setInterval driving the overlay's "Elapsed" readout never gets a
+        // chance to tick during the freeze, and the overlay is torn down
+        // ~70ms after it returns. The timer looked stuck at "Elapsed 0:00"
+        // for the whole wait. Force one refresh right after the heavy work
+        // finishes so the readout reflects the real elapsed time before the
+        // overlay disappears.
         safeCall(ctx.renderMain);
+        safeCall(refreshBuildOverlayTimer);
         setTimeout(()=>safeCall(hideBuildOverlay),50);
         scrollAndFocus();
       },20);

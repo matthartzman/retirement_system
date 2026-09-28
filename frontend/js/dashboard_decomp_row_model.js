@@ -37,6 +37,16 @@ export function stepGatedByOptionalModule(stepId) {
       .map((id) => gates[id])
       .every((m) => m && !optionalFunctionEnabled(m));
   }
+  // Ticket 340: Charitable Giving should be reachable whenever either DAF or
+  // QCD is on, independent of the (now-decoupled, see
+  // dashboard_decomp_estate_insurance.js) charitable_giving workbook toggle
+  // that module_catalog otherwise wires up as this step's step_gate.
+  if (stepId === "entity_charitable") {
+    return (
+      !sectionFlagEnabled("DAF", "Settings", "enabled") &&
+      !sectionFlagEnabled("Cashflow", "Charitable Giving", "qcd_enabled")
+    );
+  }
   // §7.4: every other module-gated step is server-declared (module_catalog's
   // dashboard_step, via moduleGates.step_gates) rather than hand-listed here —
   // when the module is off, no computation runs and no sheet is built, so the
@@ -1667,7 +1677,11 @@ export function rawRowsForStep(id) {
           !(sub === "auto_insurance" && lbl === "current_state_baseline_annual")
         );
       case "heloc_strategy":
-        return sec === "HELOC";
+        // Ticket 340: the enable switch itself now lives on Plan Features
+        // (see dashboard_decomp_plan_features.js's HELOC special-case in
+        // planFlagRowHtml), not on this page -- it would otherwise render
+        // twice.
+        return sec === "HELOC" && lbl !== "heloc_enabled";
       case "entity_charitable":
         return (
           sec === "DAF" ||
