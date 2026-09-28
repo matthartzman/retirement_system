@@ -1,3 +1,44 @@
+## 2026-09-28 — Survivor Social Security COLA continuation and deduction alive-gating (system review 2026-09-25, Wave 1 WI-103/WI-104, FIN-001/FIN-003)
+
+**Engine change, not data drift.** Two deliberate correctness fixes in
+`src/projection_stages/income.py` and `src/projection_stages/roth_conversion_and_agi_tax.py`
+/ `src/planning_engines.py`:
+
+- **FIN-001 (WI-103):** the Social Security survivor benefit used to be a
+  one-time snapshot taken at the death year -- zero if the worker died
+  before their planned claim year, frozen at its death-year nominal dollar
+  amount forever after (no COLA), and payable at any survivor age with no
+  age-60 gate or early-survivor-claim reduction. It is now rebuilt each year
+  from the deceased's own record (the RIB-LIM widow(er) limit if they had
+  claimed, PIA plus delayed retirement credits earned to death if not),
+  indexed by COLA through the current year, gated on survivor age 60+, and
+  reduced for an early survivor claim.
+- **FIN-003 (WI-104):** the over-65 standard-deduction add-on count (`n65`)
+  and the OBBBA senior bonus were built from raw birth-year age arithmetic
+  with no alive check, so a survivor year double-counted the deceased
+  spouse's own age-65 add-on and senior bonus. `n65` is now gated on each
+  spouse's alive flag, and the senior bonus is denied to MFS filers (OBBBA
+  Sec. 70103 requires a joint return).
+
+**Fixture regenerated:** `tests/fixtures/deterministic_engine_full_row_snapshot_cases.json`
+via `tools/regen_full_row_snapshot.py`, for the `tax_loss_harvesting`
+scenario only (the one scenario library member whose members' configured
+mortality ages produce a natural death within the pinned horizon, around
+projection year 2054). `w_ss` rises and keeps compounding from the death
+year forward (previously frozen); `std_ded` drops by roughly one inflated
+over-65 add-on (previously double-counted); every other diverging field
+(`taxable_inc`, `fed_tax`, account balances, `roth_nw`/`trust_nw`) is a
+downstream consequence of those two, hand-verified consistent in direction
+and magnitude with the code change.
+
+**Not yet regenerated:** the primary `tools/regen_golden_master.py`-managed
+pin (`PINNED_TERMINAL_NW`/`PINNED_LIFETIME_TAX`) shows a `measure`d mismatch
+of `terminal_nw +$3,719.01`, `lifetime_tax +$718.55` on the frozen sample
+plan, consistent with WI-105/FIN-002 (fill-to-bracket now sizes conversions
+against taxable income, not AGI, converting more). Left un-regenerated
+pending qualified-planner review of FIN-001/FIN-002 per this review's
+financial-governance policy.
+
 ## 2026-09-24 — CMS-data-accuracy correction to the base-year IRMAA table (#334, Task B5)
 
 This is a **CMS-data-accuracy correction**, not an indexing-mechanism change. A

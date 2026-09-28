@@ -62,27 +62,13 @@ if getattr(sys, "frozen", False) and len(sys.argv) >= 2 and _is_script_arg(sys.a
 
 
 # ---------------------------------------------------------------------------
-# Shared env-var defaults (both modes need these)
+# Shared startup sequence (env defaults + at-rest Plan Data migration) --
+# system review 2026-09-25, Wave 0 WI-000 / ARC-002. Moved to src/bootstrap.py
+# so tools/launchers/START_DESKTOP.py and DesktopApi.__init__ share the exact
+# same defaults and migration call instead of each maintaining (and drifting
+# from) their own copy. Imported lazily inside main(), matching this file's
+# existing pattern for every other src.* import.
 # ---------------------------------------------------------------------------
-def _set_local_mode_defaults() -> None:
-    defaults = {
-        "RETIREMENT_SYSTEM_APP_MODE": "LOCAL",
-        "RETIREMENT_SYSTEM_WORKSPACE_ID": "local",
-        "RETIREMENT_SYSTEM_CLIENT_ID": "local",
-        "RETIREMENT_SYSTEM_DASHBOARD_HOST": "127.0.0.1",
-        "RETIREMENT_SYSTEM_DASHBOARD_PORT": "5050",
-        "RETIREMENT_SYSTEM_REQUIRE_API_TOKEN": "NO",
-        "RETIREMENT_SYSTEM_ALLOW_UNAUTHENTICATED_SAAS": "YES",
-        "RETIREMENT_SYSTEM_FORCE_HTTPS": "NO",
-        "RETIREMENT_SYSTEM_REVERSE_PROXY_ENABLED": "NO",
-        "RETIREMENT_SYSTEM_PUBLIC_BASE_URL": "",
-        "RETIREMENT_SYSTEM_CONFIG_FILE": "input/client_data.csv",
-        "RETIREMENT_SYSTEM_JSON_CONFIG_FILE": "input/client_data.json",
-        "RETIREMENT_SYSTEM_YAML_CONFIG_FILE": "input/client_data.yaml",
-        "RETIREMENT_SYSTEM_OUTPUT_DIR": "output",
-    }
-    for key, value in defaults.items():
-        os.environ.setdefault(key, value)
 
 
 # ---------------------------------------------------------------------------
@@ -126,8 +112,6 @@ def _run_server() -> int:
 # Entry point
 # ---------------------------------------------------------------------------
 def main() -> int:
-    _set_local_mode_defaults()
-
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument(
         "--mode",
@@ -141,20 +125,19 @@ def main() -> int:
         parser.print_help()
         return 0
 
-    # Migrate stored Plan Data once, before either mode opens it. This runs
-    # after _set_local_mode_defaults() because the workspace root it resolves
-    # against is env-driven, and before the dispatch below so both modes get it.
-    #
-    # It is deliberately NOT above the frozen script-runner branch at module
-    # scope: that path runs tools/build_workbook.py in a subprocess, and a
-    # build has no business rewriting plan data at rest.
+    # Sets local-mode env defaults, then migrates stored Plan Data once,
+    # before either mode opens it (the workspace root it resolves against is
+    # env-driven, so the defaults must land first). Shared with
+    # tools/launchers/START_DESKTOP.py and DesktopApi.__init__ via
+    # src/bootstrap.py (system review 2026-09-25, WI-000/ARC-002) so every
+    # launch path runs the identical sequence -- previously only this one did.
     #
     # run_startup_plan_data_migration() swallows its own failures by design --
     # a bad CSV degrades to the existing per-load normalization rather than
     # stopping the app from booting.
-    from src.plan_data_migration import run_startup_plan_data_migration
-    _migration = run_startup_plan_data_migration()
-    if _migration["total_changed"]:
+    from src.bootstrap import run_startup_bootstrap
+    _migration = run_startup_bootstrap()
+    if _migration.get("total_changed"):
         print(f"Plan Data migrated at rest: {_migration['migrated']}")
     if _migration.get("error"):
         # DB snapshots stayed unmigrated this boot; CSVs (if any changed above)

@@ -92,7 +92,20 @@ def test_conversion_never_exceeds_bracket_ceiling_once_rmd_is_included():
     # was the binding constraint -- proof the RMD dollars were already
     # counted in conv_pre_agi before the conversion was sized, not added on
     # top of a headroom figure that ignored them.
-    _, rows = _scenario()
+    #
+    # FIN-002 (system review 2026-09-25): fixing bracket_room to add the
+    # standard deduction/senior bonus back in (previously compared AGI
+    # directly against a taxable-income threshold) made the bracket ceiling
+    # itself larger, so the shared _scenario()'s TIER_1 IRMAA guardrail --
+    # unaffected by this fix, isolated on MAGI -- now binds in EVERY
+    # RMD-active year instead of coexisting with the bracket as the binding
+    # limit in some years. Isolated here (roth_irmaa_cap disabled), the same
+    # way this fixture already isolates LTCG/NIIT/ACA, since
+    # test_irmaa_guardrail_still_participates_in_rmd_active_years above
+    # already covers IRMAA binding on the shared scenario.
+    c, rows = _scenario()
+    c["roth_irmaa_cap"] = False
+    _, rows = c, project(c)
     checked_any = False
     for r in rows:
         if r["h_age"] < 75 or r.get("rmd_total", 0.0) <= 0:
@@ -100,5 +113,12 @@ def test_conversion_never_exceeds_bracket_ceiling_once_rmd_is_included():
         if r.get("conv_binding_limit") != "22% bracket":
             continue
         checked_any = True
-        assert r["conv_pre_agi"] + r["roth_conv"] <= r["conv_top_24"] + 1.0  # $1 float slack
+        # FIN-002: conv_pre_agi + roth_conv is now expected to exceed
+        # conv_top_24 by roughly the standard deduction/senior bonus --
+        # bracket_room itself (= top_target + deduction - pre_agi) is the
+        # right thing to check the conversion against: the fill_to_bracket
+        # branch never sizes roth_conv above conv_bracket_room * headroom_pct
+        # (headroom_pct <= 1), so this is the bracket-sizing invariant that
+        # survives the fix intact.
+        assert r["roth_conv"] <= r["conv_bracket_room"] + 1.0  # $1 float slack
     assert checked_any, "expected at least one RMD-active year where the bracket (not IRMAA) bound the conversion"

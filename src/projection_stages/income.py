@@ -71,6 +71,7 @@ def apply_income(
     ss_first_claim_year_month_fraction: Callable[[int, int, Any], float],
     ss_claim_factor: Callable[..., float],
     ss_spousal_excess_factor: Callable[..., float],
+    ss_survivor_reduction_factor: Callable[..., float],
     ss_funding_factor: Callable[[int], float],
 ) -> IncomeResult:
     """Earned income, payroll/SE tax, 401(k)/HSA contributions, Social
@@ -115,8 +116,9 @@ def apply_income(
     see its docstring for why a named tuple.
 
     The Social Security age-factor/date-math helpers (``ss_claim_factor``,
-    ``ss_spousal_excess_factor``, ``ss_ratio``,
-    ``ss_first_claim_year_month_fraction``, ``ss_funding_factor``) and the
+    ``ss_spousal_excess_factor``, ``ss_survivor_reduction_factor``,
+    ``ss_ratio``, ``ss_first_claim_year_month_fraction``,
+    ``ss_funding_factor``) and the
     SEHI-source helper (``sehi_deduction_source_amount``) are passed in
     rather than reimplemented here: in the legacy engine they are nested
     closures over ``c`` (and, transitively, over sibling closures like
@@ -391,23 +393,70 @@ def apply_income(
     # SS survivor benefit is symmetrical: survivor receives the larger
     # claimed benefit record (subject to survivor percentage), regardless of
     # which spouse dies first.
+    #
+    # FIN-001 (system review 2026-09-25): this used to take a one-time
+    # snapshot at the death year -- zero if the worker died before their
+    # planned claim year, frozen at its death-year nominal dollar amount
+    # forever after (no COLA), and paid at any survivor age with no age-60
+    # gate or early-survivor-claim reduction. Rebuilt to derive the
+    # survivor's benefit each year from the deceased's own record: if the
+    # worker had already claimed, the widow(er) limit (the greater of their
+    # claimed amount and 82.5% of PIA); if they died before claiming, their
+    # PIA plus any delayed retirement credits earned up to death. That base
+    # amount is indexed by COLA through the CURRENT year (not frozen at
+    # death), gated on the survivor being at least 60, and reduced for an
+    # early survivor claim exactly like a worker's own early retirement
+    # claim is.
+    _survivor_uses_deceased_claim_age = bool(c.get('survivor_benefit_uses_deceased_claim_age', True))
+
+    def _survivor_base_and_reference_year(record_pia, record_monthly_claim, record_claim_yr, record_dob_yr, record_fra_override, death_yr, record_benefit_table):
+        if not _survivor_uses_deceased_claim_age:
+            # Policy override (survivor_benefit_uses_deceased_claim_age =
+            # FALSE): ignore the deceased's actual claim record/age and value
+            # the survivor benefit as if they had delayed to age 70, same
+            # dollar figure this flag has always selected. Indexed from the
+            # deceased's actual claim year, same as the pre-fix code did for
+            # this branch.
+            return record_benefit_table.get(70, record_pia), record_claim_yr
+        if death_yr >= record_claim_yr:
+            # Already claimed: RIB-LIM widow(er) limit -- the greater of the
+            # deceased's own claimed (possibly early-claim-reduced) monthly
+            # amount and 82.5% of their full PIA.
+            return max(record_monthly_claim, 0.825 * record_pia), record_claim_yr
+        # Died before claiming: PIA plus DRCs earned to death (no reduction
+        # for dying before FRA -- the full, un-reduced PIA applies; a claim
+        # age past FRA credits delayed retirement credits up to age 70).
+        age_at_death = death_yr - record_dob_yr
+        drc_claim_age = max(67.0, min(70.0, float(age_at_death)))
+        drc_factor = ss_claim_factor(drc_claim_age, record_dob_yr, record_fra_override) if age_at_death > 67 else 1.0
+        return record_pia * drc_factor, death_yr
+
     if not h_alive and w_alive and year > c['h_death_yr']:
-        if c.get('survivor_benefit_uses_deceased_claim_age', True):
-            h_record = h_monthly_claim
+        h_survivor_base, h_survivor_ref_yr = _survivor_base_and_reference_year(
+            h_pia, h_monthly_claim, h_ss_yr, c['h_dob_yr'], h_fra_override, c['h_death_yr'], h_benefit_table)
+        if w_age >= 60:
+            # The reduction factor is fixed at the survivor's age in their
+            # first eligible year (age 60, or their age at the death year if
+            # already past 60), not recomputed off the growing current age --
+            # matching SSA's own "the percentage is set once you start
+            # collecting" convention.
+            w_survivor_start_age = max(60.0, float(c['h_death_yr'] + 1 - c['w_dob_yr']))
+            w_reduction = ss_survivor_reduction_factor(w_survivor_start_age, c['w_dob_yr'], w_fra_override)
+            h_ss_at_death = h_survivor_base * 12 * ss_ratio(year, h_survivor_ref_yr) * w_reduction
         else:
-            h_record = h_benefit_table.get(70, h_pia)
-        h_ss_at_death = h_record * 12 * ss_ratio(c['h_death_yr'], h_ss_yr) if c['h_death_yr'] >= h_ss_yr else 0
-        w_ss_at_death = w_monthly_claim * 12 * ss_ratio(c['h_death_yr'], w_ss_yr) if c['h_death_yr'] >= w_ss_yr else 0
-        w_ss = max(w_ss, h_ss_at_death * c['ss_surv'], w_ss_at_death)
+            h_ss_at_death = 0.0
+        w_ss = max(w_ss, h_ss_at_death * c['ss_surv'])
         h_ss = 0
     if not w_alive and h_alive and year > c['w_death_yr']:
-        if c.get('survivor_benefit_uses_deceased_claim_age', True):
-            w_record = w_monthly_claim
+        w_survivor_base, w_survivor_ref_yr = _survivor_base_and_reference_year(
+            w_pia, w_monthly_claim, w_ss_yr, c['w_dob_yr'], w_fra_override, c['w_death_yr'], w_benefit_table)
+        if h_age >= 60:
+            h_survivor_start_age = max(60.0, float(c['w_death_yr'] + 1 - c['h_dob_yr']))
+            h_reduction = ss_survivor_reduction_factor(h_survivor_start_age, c['h_dob_yr'], h_fra_override)
+            w_ss_at_death = w_survivor_base * 12 * ss_ratio(year, w_survivor_ref_yr) * h_reduction
         else:
-            w_record = w_benefit_table.get(70, w_pia)
-        w_ss_at_death = w_record * 12 * ss_ratio(c['w_death_yr'], w_ss_yr) if c['w_death_yr'] >= w_ss_yr else 0
-        h_ss_at_death = h_monthly_claim * 12 * ss_ratio(c['w_death_yr'], h_ss_yr) if c['w_death_yr'] >= h_ss_yr else 0
-        h_ss = max(h_ss, w_ss_at_death * c['ss_surv'], h_ss_at_death)
+            w_ss_at_death = 0.0
+        h_ss = max(h_ss, w_ss_at_death * c['ss_surv'])
         w_ss = 0
 
     row['h_ss_claim_age_used'] = h_claim_age

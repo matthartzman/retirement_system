@@ -2091,6 +2091,8 @@ def plan_roth_conversion(
     aca_bridge_people: int = 0,
     h_age: float,
     w_age: float,
+    h_alive: bool = True,
+    w_alive: bool = True,
     brackets_by_status: Mapping,
     brackets_mfj: list,
     inflate_brackets_fn: Callable,
@@ -2152,9 +2154,12 @@ def plan_roth_conversion(
     )
     pre_ss_taxable = social_security_taxable_amount(h_ss + w_ss, pre_non_ss + portfolio_tax_exempt, filing)
     pre_agi = pre_non_ss + pre_ss_taxable
-    bracket_room = max(0.0, top_target - pre_agi)
 
-    _n65_est = (1 if h_age >= 65 else 0) + (1 if w_age >= 65 else 0)
+    # FIN-003 (system review 2026-09-25): gate each spouse's over-65 count on
+    # their own alive flag, same fix as roth_conversion_and_agi_tax.py's
+    # apply_agi_and_tax -- otherwise a survivor year double-counts the
+    # deceased spouse's own age-65 add-on and OBBBA senior bonus.
+    _n65_est = (1 if (h_alive and h_age >= 65) else 0) + (1 if (w_alive and w_age >= 65) else 0)
     std = standard_deduction_fn(
         year, filing, float(c.get("brk_inf", 0.02)),
         _n65_est,
@@ -2164,6 +2169,20 @@ def plan_roth_conversion(
     except Exception:
         pass
     base_tax_est = compute_fed_tax_fn(max(0.0, pre_agi - std), year, filing, float(c.get("brk_inf", 0.02)))
+    # FIN-002 (system review 2026-09-25): top_target is a taxable-income
+    # bracket threshold, but pre_agi is income before any deduction -- comparing
+    # them directly (the old `bracket_room = max(0.0, top_target - pre_agi)`)
+    # left a standard-deduction's worth of headroom unused, understating
+    # fill_to_bracket conversions by roughly $30-45k/year for a 65+ couple.
+    # Add the deduction back so bracket_room is sized against AGI, matching
+    # the taxable-income threshold it is meant to fill. This planning-pass
+    # sizing function has no itemized-deduction estimate available to it (the
+    # authoritative itemized-vs-standard comparison happens later in
+    # apply_agi_and_tax, against this year's actual, finalized AGI); using
+    # the standard deduction alone is the defensible floor in its absence and
+    # is never smaller than the true deduction taken.
+    deduction_for_bracket_room = std
+    bracket_room = max(0.0, top_target + deduction_for_bracket_room - pre_agi)
     base_tax_est += state_tax_estimate_fn(pre_agi, year)
 
     income_streams = (
