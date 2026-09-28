@@ -1,3 +1,15 @@
+## 2026-09-28 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
+
+<!-- pin-provenance: terminal_nw=5353522.81 lifetime_tax=1279309.08 -->
+
+**Old pins.** terminal_nw=5,349,803.80, lifetime_tax=1,278,590.53
+
+**New pins.** terminal_nw=5,353,522.81, lifetime_tax=1,279,309.08
+
+**Reason.**
+
+Wave 1 WI-105 (system review 2026-09-25, FIN-002): fill_to_bracket's bracket_room now adds the standard deduction/senior bonus back in (bracket_room = top_target + deduction - pre_agi), matching the taxable-income threshold it fills instead of comparing that threshold directly against pre-deduction AGI. Sizes conversions larger (roughly a standard deduction's worth of headroom that was previously left unused), moving terminal_nw +$3,719.01 and lifetime_tax +$718.55 on the frozen sample plan. Hand-verified via tools/regen_golden_master.py measure before this regen.
+
 ## 2026-09-28 — Survivor Social Security COLA continuation and deduction alive-gating (system review 2026-09-25, Wave 1 WI-103/WI-104, FIN-001/FIN-003)
 
 **Engine change, not data drift.** Two deliberate correctness fixes in
