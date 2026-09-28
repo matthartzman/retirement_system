@@ -496,7 +496,7 @@ export async function saveHoldings() {
   const content = serializeHoldings();
   const res = await fetch(apiUrl("/api/holdings"), {
     method: "POST",
-    headers: { "Content-Type": "text/csv" },
+    headers: { "Content-Type": "text/csv", "X-CSRF-Token": window.csrfToken || "" },
     body: content,
   });
   if (!res.ok) throw new Error(await res.text());
