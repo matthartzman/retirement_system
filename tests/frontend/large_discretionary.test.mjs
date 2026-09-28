@@ -65,6 +65,15 @@ describe("Large Discretionary section (#336)", () => {
     assert.deepEqual(cells, ["—", "✓"]);
   });
 
+  test("#344: category detail sums count only rows dated this year", () => {
+    // weddings row is dated 2031 (not in budget); ld_auto is dated this year.
+    assert.equal(run('catDetailSum("weddings")'), 0);
+    assert.equal(run('catDetailSum("ld_auto")'), 45000);
+    // a repeating (start/end) line still counts only inside its range
+    sandbox.__lines.push({ section: "travel", line_id: "t1", category_id: "trips", start_year: String(THIS_YEAR + 1), end_year: "", amount_per_year: "9000" });
+    assert.equal(run('catDetailSum("trips")'), 0);
+  });
+
   test("the accordion shows no Annualized figure; other types still do", () => {
     const html = sandbox.renderDomainBudgetTable("core");
     const body = ldBody(html);
