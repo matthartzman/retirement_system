@@ -643,14 +643,22 @@ EvRMD        = namedtuple('EvRMD',        ['year','acct','bal','divisor','amount
 EvWarning    = namedtuple('EvWarning',    ['year','code','msg'])
 EvScenario   = namedtuple('EvScenario',   ['name','term_nw','life_tax','delta'])
 
+# IRS Publication 590-B, Appendix B, Table III (Uniform Lifetime), in force
+# for distribution calendar years 2022+ (Treas. Reg. §1.401(a)(9)-9(c)).
+# WI-303 / FIN-013: age 83 corrected 17.8 -> 17.7 and rows 116-120 added
+# (120 means "120 and over"), replacing a linear post-115 extrapolation.
+# Rows 83 and 116-120 were entered from reviewer knowledge of the table and
+# need human verification against the published Pub. 590-B.
 RMD_DIVISORS = {
     72:27.4, 73:26.5, 74:25.5, 75:24.6, 76:23.7, 77:22.9, 78:22.0, 79:21.1,
-    80:20.2, 81:19.4, 82:18.5, 83:17.8, 84:16.8, 85:16.0, 86:15.2, 87:14.4,
+    80:20.2, 81:19.4, 82:18.5, 83:17.7, 84:16.8, 85:16.0, 86:15.2, 87:14.4,
     88:13.7, 89:12.9, 90:12.2, 91:11.5, 92:10.8, 93:10.1, 94:9.5,  95:8.9,
     96:8.4,  97:7.8,  98:7.3,  99:6.8,  100:6.4, 101:6.0, 102:5.6, 103:5.2,
     104:4.9, 105:4.6, 106:4.3, 107:4.1, 108:3.9, 109:3.7, 110:3.5,
-    111:3.4, 112:3.3, 113:3.1, 114:3.0, 115:2.9,
+    111:3.4, 112:3.3, 113:3.1, 114:3.0, 115:2.9, 116:2.8, 117:2.7, 118:2.5,
+    119:2.3, 120:2.0,
 }
+RMD_UNIFORM_TABLE_MAX_AGE = max(RMD_DIVISORS)  # "120 and over" row
 
 # IRS Publication 590-B (2025), Appendix B, Table II (Joint and Last Survivor
 # Life Expectancy) -- "For Use by Owners Whose Spouses Are More Than 10 Years
