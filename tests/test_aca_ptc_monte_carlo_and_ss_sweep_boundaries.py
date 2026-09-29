@@ -91,7 +91,7 @@ class FullChecklistRemainingTests(unittest.TestCase):
         cfg = self._fast_cfg()
         mc = monte_carlo(cfg, seed=7)
         self.assertEqual(mc["mc_engine"], "vectorized_batched_tax_withdrawal")
-        self.assertIn(mc["mc_approximation_status"], {"APPROXIMATE_PENDING_SCALAR_PARITY", "EXACT"})
+        self.assertIn(mc["mc_approximation_status"], {"TOLERANCE_BOUNDED", "EXACT"})
         cfg["mc_engine_mode"] = "vectorized"
         mc_vec = monte_carlo(cfg, seed=7)
         self.assertEqual(mc_vec["mc_engine"], "vectorized_batched_tax_withdrawal")

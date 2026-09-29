@@ -5,7 +5,7 @@ from pathlib import Path
 
 from src.data_io import load_csv
 from src.report_compute import prepare_config_from_sectioned_data
-from src.planning_engines import monte_carlo
+from src.planning_engines import MC_VECTORIZED_PARITY_TOLERANCE_PP, monte_carlo
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -24,7 +24,7 @@ class ReleaseMonteCarloBehaviorTests(unittest.TestCase):
         cfg["plan_end"] = cfg["plan_start"] + 1
         mc = monte_carlo(cfg, seed=81)
         self.assertEqual(mc["mc_engine"], "vectorized_batched_tax_withdrawal")
-        self.assertIn(mc["mc_approximation_status"], {"EXACT", "APPROXIMATE_PENDING_SCALAR_PARITY"})
+        self.assertIn(mc["mc_approximation_status"], {"EXACT", "TOLERANCE_BOUNDED"})
         self.assertIn("success_rate_ci_low", mc)
         self.assertLessEqual(mc["success_rate_ci_low"], mc["success_rate_ci_high"])
         cfg["mc_engine_mode"] = "vectorized"
@@ -106,10 +106,10 @@ class ReleaseMonteCarloBehaviorTests(unittest.TestCase):
         # representation noise at that exact boundary, not a real tolerance change.
         self.assertLessEqual(
             drift_pp,
-            10.0 + 1e-9,
+            MC_VECTORIZED_PARITY_TOLERANCE_PP + 1e-9,
             f"vectorized success_rate={rate_vec:.4f} vs exact_scalar={rate_scalar:.4f} "
-            f"({drift_pp:.2f} percentage points) exceeds the 10pp tolerance; "
-            "investigate before relying on exact_scalar as a validation oracle.",
+            f"({drift_pp:.2f} percentage points) exceeds the {MC_VECTORIZED_PARITY_TOLERANCE_PP:g}pp tolerance; "
+            f"investigate before relying on exact_scalar as a validation oracle.",
         )
 
     def test_plan_data_without_an_engine_row_resolves_to_vectorized(self):
