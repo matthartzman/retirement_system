@@ -1710,8 +1710,8 @@
       "value": 2025,
       "effective_year": 2025,
       "expires_year": null,
-      "source": "assumption: enhanced PTC scheduled to lapse after 2025; whether Congress extended it is UNVERIFIED -- verify before relying (WI-307 / FIN-007); used only when the plan's enhanced_subsidies_through_year field is blank",
-      "status": "assumption"
+      "source": "Inflation Reduction Act of 2022 extended the ARPA-enhanced IRC 36B credit through taxable years ending 2025-12-31; the enhancement expired 2026-01-01 unless Congress enacted a later extension (owner-confirmed 2026-09-29). NOT verified: whether a later extension was enacted -- enter the last enhanced year in the plan's enhanced_subsidies_through_year field if it was. Used only when that plan field is blank.",
+      "status": "legislated"
     },
     {
       "jurisdiction": "US",
