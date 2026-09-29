@@ -196,7 +196,7 @@ export function renderLargeDiscretionaryBudgetPage() {
     const inBudget = parseInt(l.one_time_year, 10) === thisYear;
     html += `<tr><td><select onchange="updateLargeDiscLine('${lid}','type',this.value)">${LARGE_DISC_TYPES.map((t) => `<option value="${esc(t)}" ${t === typ ? "selected" : ""}>${esc(largeDiscTypeLabel(t))}</option>`).join("")}</select></td><td><input type="text" class="budget-money-input" value="${esc(budgetMoneyInputValue(l.amount_per_year))}" onfocus="focusBudgetMoney(this)" oninput="updateLargeDiscLineMoney('${lid}','amount_per_year',this)" onblur="blurBudgetMoney(this)" style="width:110px"></td><td><input type="number" value="${esc(l.one_time_year || "")}" oninput="updateLargeDiscLine('${lid}','one_time_year',this.value)" style="width:90px"></td><td><input value="${esc(l.notes || "")}" placeholder="Optional" oninput="updateLargeDiscLine('${lid}','notes',this.value)" style="width:200px"></td><td class="large-disc-in-budget" title="Counts toward this year's budget only when its year is ${thisYear}">${inBudget ? "✓" : "—"}</td><td>${deleteIconBtn(`deleteLargeDiscLine('${lid}')`)}</td></tr>`;
   });
-  html += `</tbody></table></div><div class="section-note"><b>This year's budget: $${Math.round(budgetThisYear).toLocaleString()}</b> (rows dated ${thisYear}). Each row is one-time: it projects only in its own year and is never annualized.</div></div>`;
+  html += `</tbody></table></div><div class="section-note"><b>This year's budget: $${Math.round(budgetThisYear).toLocaleString()}</b> (rows dated ${thisYear}). Each row is one-time: it projects only in its own year (inflated from today's dollars) and is never annualized.</div></div>`;
   return html;
 }
 
