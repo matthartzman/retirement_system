@@ -16,6 +16,13 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+# WI-302 / FIN-005: src/taxes.py reads TAX_REFERENCE_YEAR at import time and
+# otherwise defaults it to today's calendar year. Pin it (before any src
+# import) so the suite -- and every golden master -- is reproducible across a
+# January 1st boundary. Tests needing another reference year override this.
+FROZEN_TAX_REFERENCE_YEAR = "2026"
+os.environ.setdefault("TAX_REFERENCE_YEAR", FROZEN_TAX_REFERENCE_YEAR)
+
 # The committed, static, self-contained plan every test should load instead of
 # the user's live input/. Kept in sync with test_199's FROZEN_TODAY.
 _FROZEN_PLAN_DIR = ROOT / "tests" / "fixtures" / "sample_plan_frozen"

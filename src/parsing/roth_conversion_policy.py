@@ -152,6 +152,8 @@ def parse_roth_conversion_policy(data):
     _heir_filing = str(_v(data, 'Withdrawal Policy', 'Roth Conversion',
                                    'heir_filing_status', 'Single') or 'Single').strip()
     out['roth_heir_filing_status'] = _heir_filing if _heir_filing in ('Single', 'MFJ', 'HOH', 'MFS') else 'Single'
+    out['roth_heir_other_taxable_income'] = max(0.0, _n(_v(data, 'Withdrawal Policy', 'Roth Conversion',
+                                   'heir_other_taxable_income', '80000'), 80000.0))
     out['roth_pre_tax_bequest_penalty_pct'] = _n(_v(data, 'Withdrawal Policy', 'Roth Conversion',
                                    'pre_tax_bequest_penalty_pct', '15%'), 0.15)
     out['roth_bequest_preference_bonus_pct'] = _n(_v(data, 'Withdrawal Policy', 'Roth Conversion',

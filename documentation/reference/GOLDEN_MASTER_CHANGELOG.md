@@ -1,3 +1,81 @@
+## 2026-09-29 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
+
+<!-- pin-provenance: terminal_nw=5283512.01 lifetime_tax=1275337.74 -->
+
+**Old pins.** terminal_nw=5,283,516.99, lifetime_tax=1,275,335.17
+
+**New pins.** terminal_nw=5,283,512.01, lifetime_tax=1,275,337.74
+
+**Reason.**
+
+Wave 3 combined re-pin (WI-302..WI-310 merged): WI-310 (Large Discretionary inflated from plan-start dollars) had set the pins to 5,283,516.99 / 1,275,335.17 before WI-303 (RMD Uniform Lifetime age-83 divisor 17.8->17.7, rows 116-120) landed on top. Measured on the combined code: terminal_nw -4.98 and lifetime_tax +2.57 versus the WI-310 pins, matching WI-303's standalone effect (-4.95 / +2.56), so the two changes do not interact. WI-302 (SALT/CA vintage), WI-304 (IRMAA lookback MAGI/filing status), WI-305 (per-person NY/CO exclusions), WI-306 and WI-308 moved no pin on the frozen sample plan. Hand-verified via tools/regen_golden_master.py measure before this regen.
+
+## 2026-09-29 — IRMAA lookback uses MAGI and the lookback return's filing status (system review 2026-09-25, Wave 3 WI-304, FIN-009)
+
+**Engine change, not data drift.** `core.irmaa_lookback_magi_and_filing`
+now returns the lookback row's `irmaa_magi_current` (AGI + tax-exempt
+interest) and that row's `filing`; `apply_agi_and_tax` assesses the IRMAA
+surcharge/tier on that filing status's table and records it as the new row
+field `irmaa_filing_used`.
+
+**Frozen sample-plan pin: unchanged** (`measure` MATCH; the fixture has no
+tax-exempt interest and no death inside a lookback window with an IRMAA tier).
+
+**Regenerated:**
+
+- `tests/fixtures/synthetic_golden_master_cases.json`
+  (`tools/regen_synthetic_golden_master.py`): only two scenarios moved, both
+  from a survivor's first two post-death years now being assessed on the MFJ
+  table instead of Single. `early_survivor_compression` lifetime_tax
+  -$6,962.40 (terminal NW +$32,011.68): IRMAA tier 1 -> 0 in 2032 and
+  4 -> 1 in 2033. `no_voluntary_roth_policy` lifetime_tax -$7,422.00
+  (terminal NW +$9,216.44): Alex dies 2054, joint MAGI of ~$285-291k in
+  2053-2054 no longer lands in a Single-table tier in 2055-2056.
+- `tests/fixtures/deterministic_engine_full_row_snapshot_cases.json`
+  (`tools/regen_full_row_snapshot.py`): every row gains `irmaa_filing_used`;
+  the only value changes are `early_survivor_compression` 2032-2033 (`irmaa`,
+  `irmaa_tier`, trust withdrawal) and their downstream trust/NW compounding.
+
+## 2026-09-29 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
+
+<!-- pin-provenance: terminal_nw=5283516.99 lifetime_tax=1275335.17 -->
+
+**Old pins.** terminal_nw=5,353,522.81, lifetime_tax=1,279,309.08
+
+**New pins.** terminal_nw=5,283,516.99, lifetime_tax=1,275,335.17
+
+**Reason.**
+
+Wave 3 WI-310 (system review 2026-09-25, FIN-011): Large Discretionary lumps are now defined in plan-start dollars and inflated to their year in the projection (spending_and_rmd.py), matching Core spending; migrated legacy repeating rows expand at a constant plan-start amount and so inflate each year. The budget display (ld_budget_for_year) is unchanged. Lowers frozen sample plan terminal_nw by about $70,006 and lifetime_tax by about $3,974 because future LD spending is larger in nominal terms. Hand-verified via tools/regen_golden_master.py measure before this regen.
+
+## 2026-09-29 — Golden-master pin regenerated via `tools/regen_golden_master.py regen` (WI-303, measured before WI-310 landed; superseded by the combined re-pin below if present)
+
+<!-- pin-provenance: terminal_nw=5353517.86 lifetime_tax=1279311.64 -->
+
+**Old pins.** terminal_nw=5,353,522.81, lifetime_tax=1,279,309.08
+
+**New pins.** terminal_nw=5,353,517.86, lifetime_tax=1,279,311.64
+
+**Reason.**
+
+WI-303 (system review 2026-09-25, FIN-013): RMD Uniform Lifetime divisor for age 83 corrected 17.8->17.7 per IRS Pub. 590-B Table III and rows 116-120 added (2.8/2.7/2.5/2.3/2.0) replacing the linear post-115 extrapolation. The age-83 RMD rises about 0.56%, moving terminal_nw -$4.95 and lifetime_tax +$2.56 on the frozen sample plan (larger RMD in the age-83 year, more ordinary income taxed, less left compounding). Hand-verified via tools/regen_golden_master.py measure before this regen.
+
+**Also regenerated (same reason):**
+
+- `tests/fixtures/synthetic_golden_master_cases.json` via `tools/regen_synthetic_golden_master.py`:
+  only `lifetime_tax` moved, by -$15 to +$50 per scenario (most up, because the
+  age-83 RMD is larger; `high_spending_pressure` -$15.41 and
+  `lower_return_environment` -$6.05 fall slightly as the smaller remaining IRA
+  produces smaller later RMDs).
+- `tests/fixtures/deterministic_engine_full_row_snapshot_cases.json` via
+  `tools/regen_full_row_snapshot.py`: every scenario's first material divergence
+  is the year a member turns 83 (larger `_rmd_by_account`, `agi`, `fed_tax`,
+  lower IRA balance), with only downstream consequences after that. Earlier
+  diffs are last-bit float noise in `gross_cash_flow_yr` (~1e-11).
+- WI-302 (SALT schedule / CA vintage, same branch) moved no pin: the fixture
+  households are not CA residents and do not itemize above the phase-down
+  threshold.
+
 ## 2026-09-28 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
 
 <!-- pin-provenance: terminal_nw=5353522.81 lifetime_tax=1279309.08 -->

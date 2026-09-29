@@ -643,14 +643,22 @@ EvRMD        = namedtuple('EvRMD',        ['year','acct','bal','divisor','amount
 EvWarning    = namedtuple('EvWarning',    ['year','code','msg'])
 EvScenario   = namedtuple('EvScenario',   ['name','term_nw','life_tax','delta'])
 
+# IRS Publication 590-B, Appendix B, Table III (Uniform Lifetime), in force
+# for distribution calendar years 2022+ (Treas. Reg. §1.401(a)(9)-9(c)).
+# WI-303 / FIN-013: age 83 corrected 17.8 -> 17.7 and rows 116-120 added
+# (120 means "120 and over"), replacing a linear post-115 extrapolation.
+# Rows 83 and 116-120 were entered from reviewer knowledge of the table and
+# need human verification against the published Pub. 590-B.
 RMD_DIVISORS = {
     72:27.4, 73:26.5, 74:25.5, 75:24.6, 76:23.7, 77:22.9, 78:22.0, 79:21.1,
-    80:20.2, 81:19.4, 82:18.5, 83:17.8, 84:16.8, 85:16.0, 86:15.2, 87:14.4,
+    80:20.2, 81:19.4, 82:18.5, 83:17.7, 84:16.8, 85:16.0, 86:15.2, 87:14.4,
     88:13.7, 89:12.9, 90:12.2, 91:11.5, 92:10.8, 93:10.1, 94:9.5,  95:8.9,
     96:8.4,  97:7.8,  98:7.3,  99:6.8,  100:6.4, 101:6.0, 102:5.6, 103:5.2,
     104:4.9, 105:4.6, 106:4.3, 107:4.1, 108:3.9, 109:3.7, 110:3.5,
-    111:3.4, 112:3.3, 113:3.1, 114:3.0, 115:2.9,
+    111:3.4, 112:3.3, 113:3.1, 114:3.0, 115:2.9, 116:2.8, 117:2.7, 118:2.5,
+    119:2.3, 120:2.0,
 }
+RMD_UNIFORM_TABLE_MAX_AGE = max(RMD_DIVISORS)  # "120 and over" row
 
 # IRS Publication 590-B (2025), Appendix B, Table II (Joint and Last Survivor
 # Life Expectancy) -- "For Use by Owners Whose Spouses Are More Than 10 Years
@@ -892,43 +900,48 @@ def social_security_taxable_amount(ss_total, other_income, filing='MFJ'):
     taxable = 0.85 * (provisional - base2) + min(0.50 * ss_total, 0.50 * max(0.0, base2 - base1))
     return min(0.85 * ss_total, taxable)
 
-def irmaa_lookback_magi(rows, current_agi, lookback_years=2, historical_magi=None):
-    """Return MAGI used for IRMAA, applying statutory two-year lookback.
+def irmaa_lookback_magi_and_filing(rows, current_magi, current_filing, lookback_years=2, historical_magi=None):
+    """Return ``(magi, filing)`` for this year's IRMAA assessment.
 
-    Once ``lookback_years`` prior projected plan-year rows exist, the
-    lookback MAGI is that prior row's actual AGI -- the normal statutory
-    case.
+    WI-304 / FIN-009: SSA assesses IRMAA on MAGI (AGI plus tax-exempt
+    interest) from the tax return filed ``lookback_years`` (2) years earlier,
+    compared against the IRMAA table for the filing status ON THAT RETURN
+    (20 CFR 418.1115/418.1120). So once ``lookback_years`` prior projected
+    rows exist, this returns that row's ``irmaa_magi_current`` (falling back
+    to its ``agi`` for rows that predate the field) and that row's ``filing``.
+    A survivor in the first two years after a death is therefore assessed on
+    the couple's joint MAGI against the MFJ table, not the Single table.
 
-    For the first ``lookback_years`` plan years, the lookback target falls
-    before plan start, so no projected row exists yet to look back at
-    (``rows`` only accumulates as the projection runs). ``historical_magi``,
-    if supplied, is a mapping of {years_before_plan_start: actual MAGI} --
-    e.g. {2: <MAGI two tax years before plan start>, 1: <MAGI one tax year
-    before plan start>} -- sourced from the household's actual tax returns
-    (item 2.6). When the entry for the needed year is present, it seeds the
-    lookback with that real historical value instead of a stand-in.
-
-    Absent a usable ``historical_magi`` entry (including saved plans made
-    before these inputs existed), this falls back to ``current_agi`` -- the
-    current plan year's own AGI is used as a stand-in, exactly as before
-    these inputs existed. That fallback is a known approximation: it is
-    often materially different from actual final-working-year MAGI, so
-    callers should surface a preflight nudge to fill in the actual values
-    when they are missing.
+    For the first ``lookback_years`` plan years no projected row exists for
+    the lookback year. ``historical_magi``, if supplied, maps
+    {years_before_plan_start: actual MAGI} from the household's actual tax
+    returns (item 2.6) and seeds the lookback when present. Otherwise the
+    current year's own MAGI is used as a stand-in (a known approximation that
+    callers surface as a preflight nudge). In both pre-plan cases the current
+    filing status is used, since no earlier-return filing status is modeled.
     """
     if lookback_years <= 0:
-        return current_agi
+        return current_magi, current_filing
     if len(rows) >= lookback_years:
-        return rows[-lookback_years].get('agi', current_agi)
+        prior = rows[-lookback_years]
+        magi = prior.get('irmaa_magi_current', prior.get('agi', current_magi))
+        return magi, (prior.get('filing') or current_filing)
     years_before_start = lookback_years - len(rows)
     hist = historical_magi or {}
     value = hist.get(years_before_start)
     if value not in (None, ''):
         try:
-            return float(value)
+            return float(value), current_filing
         except (TypeError, ValueError):
             pass
-    return current_agi
+    return current_magi, current_filing
+
+
+def irmaa_lookback_magi(rows, current_agi, lookback_years=2, historical_magi=None):
+    """Back-compat wrapper: the lookback MAGI only (see
+    ``irmaa_lookback_magi_and_filing``, which also returns the lookback
+    return's filing status and is what the engine uses)."""
+    return irmaa_lookback_magi_and_filing(rows, current_agi, None, lookback_years, historical_magi)[0]
 
 def supported_states():
     """States with modeled state-tax rules, derived from STATE_TAX_RULES.
@@ -1020,6 +1033,17 @@ def state_for_year(c, year):
     return c.get('state', '') or schedule[0]['state']
 
 
+def state_retirement_exclusion_count(h_age, w_age, h_alive=True, w_alive=True, min_age=65):
+    """Number of living household members eligible for a state's per-person
+    retirement-income exclusion (NY/CO), each gated on their OWN age and
+    alive flag (WI-305 / FIN-006). A deceased spouse's age never qualifies.
+
+    ``min_age`` stays at the engine's existing 65 gate; NY's statutory
+    age-59 1/2 eligibility needs professional review before it is modeled.
+    """
+    return (1 if (h_alive and h_age >= min_age) else 0) + (1 if (w_alive and w_age >= min_age) else 0)
+
+
 def state_income_tax(state, earned, retirement_dist, ss_taxable, investment_inc,
                      nonqual_annuity, roth_conv, year, age_over_65=True, filing='MFJ', brk_inf=0.02):
     _require_supported_state(state)
@@ -1040,8 +1064,15 @@ def state_income_tax(state, earned, retirement_dist, ss_taxable, investment_inc,
     if not rules.get('exempt_retirement'):
         retirement_taxable = retirement_dist + roth_conv
         exempt_amt = rules.get('retirement_exempt_over_65', 0)
-        if age_over_65 and exempt_amt > 0:
-            retirement_taxable = max(0, retirement_taxable - exempt_amt)
+        # WI-305 / FIN-006: the exclusion is per qualifying person. Callers
+        # pass the COUNT of qualifying living members (see
+        # state_retirement_exclusion_count); a legacy bool still means one
+        # exclusion (True == 1). The household total is capped by the
+        # household's retirement income -- an interim approximation of
+        # per-owner caps, since distributions are pooled here.
+        n_qualifying = max(0, int(age_over_65 or 0))
+        if n_qualifying and exempt_amt > 0:
+            retirement_taxable = max(0, retirement_taxable - exempt_amt * n_qualifying)
         taxable += retirement_taxable
     if not rules.get('exempt_ss'):
         taxable += ss_taxable
@@ -1050,13 +1081,13 @@ def state_income_tax(state, earned, retirement_dist, ss_taxable, investment_inc,
     # rate badly distorts residency comparisons; use a conservative bracket
     # schedule and fall back to the CSV rate for any unlisted graduated state.
     # Item 4.6 (P10 second half): these thresholds are only accurate as of
-    # _STATE_INCOME_BRACKETS_VALUE_YEAR — inflate them by brk_inf the same way
+    # _STATE_INCOME_BRACKETS_VALUE_YEARS[state] — inflate them by brk_inf the same way
     # compute_fed_tax inflates the federal brackets, or a 30-year projection
     # shows CA/NY state tax drifting steadily upward relative to federal
     # purely from frozen bracket thresholds, not from any real law change.
     brackets = _STATE_INCOME_BRACKETS.get((state, filing)) or _STATE_INCOME_BRACKETS.get((state, 'Single'))
     if rules.get('type') == 'graduated' and brackets:
-        years = int(year) - _STATE_INCOME_BRACKETS_VALUE_YEAR
+        years = int(year) - _STATE_INCOME_BRACKETS_VALUE_YEARS.get(state, TAX_BASE_YEAR)
         if years:
             brackets = inflate_brackets(brackets, brk_inf, years)
         return _bracket_tax(taxable, brackets)
@@ -1072,12 +1103,22 @@ def _bracket_tax(taxable, brackets):
     return max(0.0, tax)
 
 
-_STATE_INCOME_BRACKETS_VALUE_YEAR = TAX_BASE_YEAR
+# WI-302 / FIN-005: each state's bracket thresholds are tagged with the
+# absolute tax year their dollar figures come from, never the run-date year,
+# so the schedules do not re-anchor (and silently under-index) every January.
+#   California: the thresholds below are the 2024 FTB (R&TC §17041) figures.
+#   New York: NY does not index its brackets; these are current-law statutory
+#     thresholds (Tax Law §601), tagged 2026 so the pre-WI-302 behaviour for a
+#     2026 run is preserved. Refresh via the annual tax-data workflow.
+_STATE_INCOME_BRACKETS_VALUE_YEARS = {
+    'California': 2024,
+    'New York': 2026,
+}
 
 _STATE_INCOME_BRACKETS = {
     # Approximate current-law schedules used only where state_tax.csv marks a
     # state as graduated.  Thresholds should be refreshed in the annual tax-data
-    # governance workflow. Accurate as of _STATE_INCOME_BRACKETS_VALUE_YEAR;
+    # governance workflow. Accurate as of _STATE_INCOME_BRACKETS_VALUE_YEARS[state];
     # state_income_tax() inflates them forward by brk_inf for later years.
     ('California','Single'): [(0, 10756, .01), (10756, 25499, .02), (25499, 40245, .04), (40245, 55866, .06), (55866, 70606, .08), (70606, 360659, .093), (360659, 432787, .103), (432787, 721314, .113), (721314, float('inf'), .123)],
     ('California','MFJ'): [(0, 21512, .01), (21512, 50998, .02), (50998, 80490, .04), (80490, 111732, .06), (111732, 141212, .08), (141212, 721318, .093), (721318, 865574, .103), (865574, 1442628, .113), (1442628, float('inf'), .123)],
@@ -1204,19 +1245,34 @@ def amt_tax(regular_taxable_income, regular_tax, amt_preferences, filing='MFJ',
     credit_used = min(carry, reg - tmt)
     return -credit_used, carry - credit_used
 
-def salt_cap(year, magi):
-    schedule = {
-        TAX_BASE_YEAR - 1: 40000,
-        TAX_BASE_YEAR: 40400,
-        TAX_BASE_YEAR + 1: 40804,
-        TAX_BASE_YEAR + 2: 41212,
-        TAX_BASE_YEAR + 3: 41624,
-    }
-    if year >= _td.SALT_REVERSION_YEAR:
-        return 10000
-    cap = schedule.get(year, schedule.get(TAX_BASE_YEAR, 40000))
-    thr = 500000 + (year - (TAX_BASE_YEAR - 1)) * 500
-    return max(cap - 0.30 * max(magi - thr, 0), 10000)
+def salt_cap(year, magi, filing='MFJ'):
+    """Federal SALT deduction cap for ``year`` (IRC §164(b)(6)/(7)).
+
+    WI-302 / FIN-005: the schedule is keyed by absolute statutory year from the
+    dated rows in tax_law_v10.json (``_td.SALT_CAP_ROWS``), so it never shifts
+    with the run date or ``TAX_REFERENCE_YEAR``. During the enhanced-cap window
+    the cap phases down by 30% of MAGI above the threshold, but never below the
+    base (TCJA) cap. MFS gets half of every dollar figure.
+    """
+    year = int(year)
+    rows = _td.SALT_CAP_ROWS
+    base_cap = rows[0][2] if rows else 10000.0
+    cap = _td.dated_row_value(rows, year)
+    if cap is None:
+        # Only reachable for years before the first dated row (pre-2018, never
+        # a projection year); return the base cap rather than an unbounded one.
+        cap = base_cap
+    half = 0.5 if str(filing or '').strip().upper().startswith('MFS') else 1.0
+    floor = base_cap * half
+    if cap <= base_cap:
+        return cap * half
+    thr0 = _td.dated_row_value(_td.SALT_PHASEDOWN_THRESHOLD_ROWS, year)
+    growth = _td.dated_row_value(_td.SALT_PHASEDOWN_GROWTH_ROWS, year, 0.0) or 0.0
+    if thr0 is None:
+        return cap * half
+    thr_start = min(eff for eff, _x, _v in _td.SALT_PHASEDOWN_THRESHOLD_ROWS if eff <= year)
+    thr = thr0 * (1.0 + growth) ** (year - thr_start)
+    return max(cap * half - 0.30 * max(magi - thr * half, 0), floor)
 
 def state_death_tax_credit(taxable_estate):
     """Pre-2005 federal state-death-tax-credit table used by Illinois."""

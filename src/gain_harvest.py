@@ -35,6 +35,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
+from . import tax_kernel as _tk
 from .tlh import _is_long_term
 
 
@@ -119,7 +120,11 @@ def scan_gain_harvest_opportunities(c: Mapping[str, Any], year: int, *,
     in `year`, for the reporting sheet."""
     ltcg_0_top = float(c.get('ltcg_0_top', 96_700) or 0.0)
     try:
-        bf = (1.0 + float(c.get('bracket_inf', 0.02) or 0.0)) ** (int(year) - int(c.get('plan_start', year)))
+        # WI-306 / FIN-014: kernel indexing convention (brk_inf compounded
+        # from FEDERAL_BRACKETS_VALUE_YEAR) -- same factor the projection's
+        # gain-harvest step uses, instead of the never-set `bracket_inf` key
+        # compounded from plan_start.
+        bf = _tk.bracket_factor_for_year(c, int(year))
     except Exception:
         bf = 1.0
     headroom = compute_zero_bracket_headroom(ltcg_0_top, bf, ordinary_income)

@@ -27,7 +27,7 @@ def compute_effective_marginal_rate(
     nii: float,
     n_medicare: int,
     irmaa_magi_current: float,
-    h_over_65: bool,
+    h_over_65: int,
     compute_fed_tax: Callable[[float, int, str, Any], float],
     irmaa_tier: Callable[[float, int, str], int],
 ) -> tuple[float | None, bool]:
