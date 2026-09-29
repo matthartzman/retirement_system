@@ -41,9 +41,10 @@ export function planKpiMetricsHtml() {
   const approxStatus =
     lastBuildSummary && lastBuildSummary.mc_approximation_status;
   if (approxStatus && approxStatus !== "EXACT") {
-    successLabel += " (approximate)";
-    successTitle +=
-      " -- computed with the fast, approximate Monte Carlo engine; treat as directional. " +
+    const tol = Number(lastBuildSummary.mc_parity_tolerance_pp);
+    const bounded = approxStatus === "TOLERANCE_BOUNDED" && Number.isFinite(tol);
+    successLabel += bounded ? ` (\u00b1${tol}pp)` : " (approximate)";
+    successTitle += (bounded ? ` -- fast vectorized Monte Carlo engine, tested within ${tol} percentage points of the exact scalar engine. ` : " -- computed with the fast, approximate Monte Carlo engine; treat as directional. ") +
       (lastBuildSummary.model_risk_label ||
         "Switch to the exact scalar engine mode for advisor-ready validation.");
   }
