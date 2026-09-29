@@ -80,6 +80,60 @@ class TaxLawDataset:
             "salt_cap": self.lookup("salt_cap", year, filing_status="MFJ").value if any(v.name == "salt_cap" for v in self.values) else None,
         }
 
+    def latest_value(self, name: str, jurisdiction: str = "US", filing_status: str = "MFJ") -> TaxLawValue:
+        """The row with the latest ``effective_year`` for ``name`` (the
+        dataset's current knowledge), regardless of the projection year."""
+        matches = [v for v in self.values if v.name == name and v.jurisdiction == jurisdiction and v.filing_status == filing_status]
+        if not matches:
+            raise KeyError(f"No tax law value for {jurisdiction}/{filing_status}/{name}")
+        return sorted(matches, key=lambda v: v.effective_year)[-1]
+
+    def lookup_or_earliest(self, name: str, year: int, jurisdiction: str = "US", filing_status: str = "MFJ") -> TaxLawValue:
+        """``lookup`` but, for a year before the earliest dated row, the
+        earliest row (documented assumption: an older table is not held)."""
+        try:
+            return self.lookup(name, year, jurisdiction=jurisdiction, filing_status=filing_status)
+        except KeyError:
+            matches = [v for v in self.values if v.name == name and v.jurisdiction == jurisdiction and v.filing_status == filing_status]
+            if not matches:
+                raise
+            return sorted(matches, key=lambda v: v.effective_year)[0]
+
+    def aca_applicable_pct_table(self, regime: str, year: int) -> dict[str, Any]:
+        """WI-307 / FIN-007: the dated ACA applicable-percentage table for
+        ``regime`` ("enhanced" or "original" §36B) in force in ``year``.
+
+        Rows are ``aca_applicable_pct_<regime>_band<N>_{fpl_floor,initial,final}``
+        (N = 1, 2, ... contiguous; a band runs from its floor to the next
+        band's floor, or to ``max_fpl`` for the last band, and the required
+        contribution interpolates linearly from ``initial`` to ``final``), plus
+        ``_max_fpl``, ``_credit_above_max`` (1 = credit continues above
+        ``max_fpl`` at ``_above_max_pct``; 0 = no credit, the 400% FPL cliff)
+        and, when the credit continues, ``_above_max_pct``. A year after the
+        latest dated row uses that row; a year before the earliest uses the
+        earliest (both documented assumptions).
+        """
+        prefix = f"aca_applicable_pct_{regime}"
+        bands: list[tuple[float, float, float]] = []
+        for idx in range(1, 50):
+            base = f"{prefix}_band{idx}"
+            if not any(v.name == f"{base}_fpl_floor" for v in self.values):
+                break
+            bands.append((
+                float(self.lookup_or_earliest(f"{base}_fpl_floor", year).value),
+                float(self.lookup_or_earliest(f"{base}_initial", year).value),
+                float(self.lookup_or_earliest(f"{base}_final", year).value),
+            ))
+        if not bands:
+            raise KeyError(f"No ACA applicable-percentage table for regime {regime!r}")
+        credit_above = bool(float(self.lookup_or_earliest(f"{prefix}_credit_above_max", year).value))
+        return {
+            "bands": tuple(sorted(bands)),
+            "max_fpl": float(self.lookup_or_earliest(f"{prefix}_max_fpl", year).value),
+            "credit_above_max": credit_above,
+            "above_max_pct": float(self.lookup_or_earliest(f"{prefix}_above_max_pct", year).value) if credit_above else None,
+        }
+
     def _irmaa_tiers(self, year: int, filing_status: str = "MFJ") -> tuple[tuple[float, float, float], ...]:
         """Build the ordered IRMAA tier table for one filing status.
 
@@ -122,6 +176,24 @@ def load_tax_law_dataset(path: str | Path = DEFAULT_TAX_LAW_JSON) -> TaxLawDatas
     if ds.schema != "tax_law_v10" or not ds.values or not ds.brackets:
         raise ValueError("Invalid or incomplete tax_law_v10 dataset")
     return ds
+
+
+_DEFAULT_DATASET_CACHE: list[TaxLawDataset] = []
+
+
+def default_tax_law_dataset() -> TaxLawDataset:
+    """The default dataset, loaded once per process (read-only use)."""
+    if not _DEFAULT_DATASET_CACHE:
+        _DEFAULT_DATASET_CACHE.append(load_tax_law_dataset())
+    return _DEFAULT_DATASET_CACHE[0]
+
+
+def aca_enhanced_subsidies_through_year_default() -> int:
+    """WI-307 / FIN-007: last enhanced-PTC year used when a plan leaves
+    Wellness/ACA Premium Tax Credit/enhanced_subsidies_through_year blank.
+    Read from the latest dated ``aca_enhanced_subsidies_through_year`` row;
+    see that row's ``status``/``source`` for how far it is verified."""
+    return int(default_tax_law_dataset().latest_value("aca_enhanced_subsidies_through_year").value)
 
 
 def dataset_freshness_summary(path: str | Path = DEFAULT_TAX_LAW_JSON) -> dict[str, Any]:
