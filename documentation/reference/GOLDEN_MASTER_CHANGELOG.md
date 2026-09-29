@@ -1,3 +1,15 @@
+## 2026-09-29 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
+
+<!-- pin-provenance: terminal_nw=5283516.99 lifetime_tax=1275335.17 -->
+
+**Old pins.** terminal_nw=5,353,522.81, lifetime_tax=1,279,309.08
+
+**New pins.** terminal_nw=5,283,516.99, lifetime_tax=1,275,335.17
+
+**Reason.**
+
+Wave 3 WI-310 (system review 2026-09-25, FIN-011): Large Discretionary lumps are now defined in plan-start dollars and inflated to their year in the projection (spending_and_rmd.py), matching Core spending; migrated legacy repeating rows expand at a constant plan-start amount and so inflate each year. The budget display (ld_budget_for_year) is unchanged. Lowers frozen sample plan terminal_nw by about $70,006 and lifetime_tax by about $3,974 because future LD spending is larger in nominal terms. Hand-verified via tools/regen_golden_master.py measure before this regen.
+
 ## 2026-09-28 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
 
 <!-- pin-provenance: terminal_nw=5353522.81 lifetime_tax=1279309.08 -->

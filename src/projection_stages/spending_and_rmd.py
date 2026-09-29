@@ -286,6 +286,13 @@ def apply_spending_and_rmd(
 
     # Lump events (including a cash DAF contribution as a deductible lump)
     lump_yr = c['lump'].get(year, 0)
+    # WI-310 / FIN-011: Large Discretionary amounts are entered in plan-start
+    # dollars (like Core spending) and inflate to their year here. The budget
+    # display (ld_budget_for_year) stays in today's dollars as entered.
+    _ld_by_tt = c.get('lump_by_tracking_type') or {}
+    _ld_yr = float((_ld_by_tt.get(year) or _ld_by_tt.get(str(year)) or {}).get('Large Discretionary', 0.0) or 0.0)
+    if _ld_yr:
+        lump_yr += _ld_yr * (infl_ratio(year, int(c.get('plan_start', year) or year)) - 1.0)
     # DAF contribution. A *cash* gift is a real cash outflow: it joins the
     # lump line, lands in total_spend_need, and the withdrawal waterfall
     # funds it like any other spending need.
