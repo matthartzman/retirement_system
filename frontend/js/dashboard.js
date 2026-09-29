@@ -3407,7 +3407,7 @@ function hideSpendingModelLoadOverlay() {
 
 
 function catEffectiveBudget(catId) {
-  if (categoryBudgetMode[catId] === "detail") return catDetailSum(catId);
+  if (categoryBudgetMode[catId] === "detail" || catDetailLines(catId).length) return catDetailSum(catId); // #344: lines win; stored total may hold other years
   if (hasExplicitBudget(catId))
     return budgetAmount(taxBudget[catId].annual_budget);
   return catDetailSum(catId);
