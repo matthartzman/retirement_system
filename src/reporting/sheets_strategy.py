@@ -32,6 +32,7 @@ from .workbook_common import (
 )
 from ..person_labels import display_accounts_in_text as _display_accounts_in_text
 from .. import strategy_sweep
+from ..core import state_retirement_exclusion_count
 from . import summary_figures
 from .sheets_strategy_pair_worker import evaluate_claim_age_pair
 from ..planning_engines import _SCENARIO_IRRELEVANT_KEYS, _roth_irmaa_target_threshold
@@ -1749,7 +1750,12 @@ def build_sheet13(ws, c, rows):
     home_val_avg = c['home_val'] * (1 + c['home_appr']) ** (yrs // 2)
     taxable_spend = sum(row.get('spend_base_yr', 0) for row in rows) * 0.4
 
-    over_65 = True  # most of plan horizon is post-65
+    # WI-305 / FIN-006: per-person NY/CO retirement exclusions -- count each
+    # row's qualifying living members instead of one household-wide flag.
+    def _n_qualifying(row):
+        return state_retirement_exclusion_count(
+            row.get('h_age', 0), row.get('w_age', 0),
+            row.get('h_alive', True), row.get('w_alive', True))
     state_rows = []  # collect all rows, then sort
     for state_name, rules in STATE_TAX_RULES.items():
         # Compute state income tax year-by-year using actual components
@@ -1764,13 +1770,12 @@ def build_sheet13(ws, c, rows):
                 row.get('state_investment', 0),
                 row.get('state_nonqual_ann', 0),
                 row.get('state_roth_conv', 0),
-                row['year'], over_65, brk_inf=c.get('brk_inf', 0.02))
+                row['year'], _n_qualifying(row), brk_inf=c.get('brk_inf', 0.02))
             inc_tax += yr_tax
             # Track how much retirement income is taxed in this state
             if not rules.get('exempt_retirement'):
                 ret_this_yr = row.get('state_retirement', 0) + row.get('state_roth_conv', 0)
-                if state_name == 'Colorado' and over_65:
-                    ret_this_yr = max(0, ret_this_yr - rules.get('retirement_exempt_over_65', 0))
+                ret_this_yr = max(0, ret_this_yr - rules.get('retirement_exempt_over_65', 0) * _n_qualifying(row))
                 retirement_taxed += ret_this_yr
 
         prop_tax = home_val_avg * rules.get('prop_rate', 0) * yrs

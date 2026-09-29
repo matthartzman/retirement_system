@@ -1033,6 +1033,17 @@ def state_for_year(c, year):
     return c.get('state', '') or schedule[0]['state']
 
 
+def state_retirement_exclusion_count(h_age, w_age, h_alive=True, w_alive=True, min_age=65):
+    """Number of living household members eligible for a state's per-person
+    retirement-income exclusion (NY/CO), each gated on their OWN age and
+    alive flag (WI-305 / FIN-006). A deceased spouse's age never qualifies.
+
+    ``min_age`` stays at the engine's existing 65 gate; NY's statutory
+    age-59 1/2 eligibility needs professional review before it is modeled.
+    """
+    return (1 if (h_alive and h_age >= min_age) else 0) + (1 if (w_alive and w_age >= min_age) else 0)
+
+
 def state_income_tax(state, earned, retirement_dist, ss_taxable, investment_inc,
                      nonqual_annuity, roth_conv, year, age_over_65=True, filing='MFJ', brk_inf=0.02):
     _require_supported_state(state)
@@ -1053,8 +1064,15 @@ def state_income_tax(state, earned, retirement_dist, ss_taxable, investment_inc,
     if not rules.get('exempt_retirement'):
         retirement_taxable = retirement_dist + roth_conv
         exempt_amt = rules.get('retirement_exempt_over_65', 0)
-        if age_over_65 and exempt_amt > 0:
-            retirement_taxable = max(0, retirement_taxable - exempt_amt)
+        # WI-305 / FIN-006: the exclusion is per qualifying person. Callers
+        # pass the COUNT of qualifying living members (see
+        # state_retirement_exclusion_count); a legacy bool still means one
+        # exclusion (True == 1). The household total is capped by the
+        # household's retirement income -- an interim approximation of
+        # per-owner caps, since distributions are pooled here.
+        n_qualifying = max(0, int(age_over_65 or 0))
+        if n_qualifying and exempt_amt > 0:
+            retirement_taxable = max(0, retirement_taxable - exempt_amt * n_qualifying)
         taxable += retirement_taxable
     if not rules.get('exempt_ss'):
         taxable += ss_taxable
