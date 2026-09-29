@@ -50,8 +50,45 @@ class HomeSaleEconomics(NamedTuple):
     net_proceeds_after_costs_and_mortgage: float
 
 
+def first_death_home_basis(basis: float, fmv_at_death: float, step_up_fraction: float) -> float:
+    """WI-308 / FIN-008: IRC §1014 basis adjustment for a jointly held
+    residence at the FIRST spousal death. Only the deceased's share is
+    re-based to date-of-death fair market value: ``step_up_fraction`` is
+    0.5 for a common-law qualified joint interest (§2040(b)) and 1.0 for
+    community property (§1014(b)(6) "double step-up") -- the same
+    regime-driven fraction ``deterministic_engine._basis_stepup_fraction``
+    returns. §1014 re-bases in both directions, so a home below basis at
+    death is stepped down by the same rule.
+    """
+    frac = max(0.0, min(1.0, float(step_up_fraction or 0.0)))
+    return float(basis) + frac * (float(fmv_at_death) - float(basis))
+
+
+def surviving_spouse_sec121_window(
+    c: dict[str, Any], *, year: int, first_death_yr: int | None,
+) -> bool:
+    """WI-308 / FIN-008: IRC §121(b)(4) -- an unmarried surviving spouse who
+    sells no later than two years after the spouse's death keeps the $500k
+    joint exclusion, regardless of filing status (no dependent is required,
+    unlike QSS filing). Modeled at year granularity: the sale year is on or
+    before ``first_death_yr + 2``. ``c['survivor_remarriage_yr']`` (optional;
+    the engine does not otherwise model remarriage) closes the window from
+    that year onward.
+    """
+    if not first_death_yr:
+        return False
+    if not (int(first_death_yr) <= int(year) <= int(first_death_yr) + 2):
+        return False
+    try:
+        remarried = int(c.get('survivor_remarriage_yr') or 0)
+    except (TypeError, ValueError):
+        remarried = 0
+    return not (remarried and int(year) >= remarried)
+
+
 def _compute_home_sale_economics(
     c: dict[str, Any], *, gross_proceeds: float, mort_payoff: float, basis: float, filing: str,
+    surviving_spouse_window: bool = False,
 ) -> HomeSaleEconomics:
     """Selling costs, capital gain, §121 exclusion, taxable gain, and net
     proceeds (before any HELOC payoff) for a single home sale. ``c['sec121']``
@@ -59,11 +96,16 @@ def _compute_home_sale_economics(
     models, original home or a later one alike; there is deliberately no
     per-home override, matching how the rest of the plan config is a single
     household-level set of assumptions.
+
+    ``surviving_spouse_window`` (WI-308): the sale falls inside the
+    §121(b)(4) two-year surviving-spouse window (see
+    :func:`surviving_spouse_sec121_window`), so the $500k joint exclusion
+    applies even though filing status has already reverted to Single.
     """
     selling_costs = gross_proceeds * c['home_sell_cost_pct']
     proceeds_after = max(0, gross_proceeds - selling_costs - mort_payoff)
     cap_gain = max(0, gross_proceeds - selling_costs - basis)
-    sec121_exclusion = 500000.0 if filing == 'MFJ' else 250000.0
+    sec121_exclusion = 500000.0 if (filing == 'MFJ' or surviving_spouse_window) else 250000.0
     sec121_exclusion = min(float(c.get('sec121', sec121_exclusion) or sec121_exclusion), sec121_exclusion)
     taxable_gain = max(0, cap_gain - sec121_exclusion)
     return HomeSaleEconomics(
@@ -83,9 +125,19 @@ def apply_home_sale(
     bal: dict[str, float],
     bal_basis_free: dict[str, float],
     emit: Callable[[Any], None],
+    adjusted_basis: float | None = None,
+    surviving_spouse_window: bool = False,
 ) -> HomeSaleResult:
     """Appreciate or sell the home for the year, pay off HELOC/mortgage at
     sale, and route sale proceeds.
+
+    WI-308: ``adjusted_basis`` is the home's basis after the first-death
+    §1014 adjustment (see :func:`first_death_home_basis`), carried by the
+    engine; ``None`` means no adjustment has happened and the configured
+    ``home_basis`` applies. ``surviving_spouse_window`` grants the
+    §121(b)(4) $500k survivor exclusion. When either is in effect, the sale
+    year also records ``home_sale_basis`` and
+    ``home_sale_sec121_survivor_window`` for audit.
 
     In the sale year (the configured ``home_sale_yr``, or an estate sale
     forced at the second death), this:
@@ -167,9 +219,19 @@ def apply_home_sale(
         mort_bal_yr = 0.0  # mortgage retired at sale
         # Assets receive a basis step-up at death, so an estate sale in the
         # year of the second death realizes no taxable gain.
-        basis = gross_proceeds if _estate_sale else (c.get('home_basis', 0) or c['home_val'] * 0.5)
+        if _estate_sale:
+            basis = gross_proceeds
+        elif adjusted_basis is not None:
+            basis = float(adjusted_basis)
+        else:
+            basis = c.get('home_basis', 0) or c['home_val'] * 0.5
+        _survivor_rule = bool(surviving_spouse_window) and not _estate_sale
         _econ = _compute_home_sale_economics(
-            c, gross_proceeds=gross_proceeds, mort_payoff=mort_payoff, basis=basis, filing=filing)
+            c, gross_proceeds=gross_proceeds, mort_payoff=mort_payoff, basis=basis, filing=filing,
+            surviving_spouse_window=_survivor_rule)
+        if adjusted_basis is not None or _survivor_rule:
+            row['home_sale_basis'] = basis
+            row['home_sale_sec121_survivor_window'] = _survivor_rule
         selling_costs = _econ.selling_costs
         cap_gain = _econ.cap_gain
         sec121_exclusion = _econ.sec121_exclusion
@@ -273,6 +335,7 @@ def apply_next_housing_sale(
     bal: dict[str, float],
     bal_basis_free: dict[str, float],
     emit: Callable[[Any], None],
+    surviving_spouse_window: bool = False,
 ) -> NextHousingSaleResult:
     """Sell a *second* home -- one purchased through a ``next_housing_steps``
     entry rather than the household's original home -- with the same
@@ -286,7 +349,9 @@ def apply_next_housing_sale(
     model. Differences from :func:`apply_home_sale` are structural, not
     computational: no HELOC (HELOCs are only modeled against the original
     home), no estate-sale/basis-step-up branch (a second home mid-plan is not
-    the estate-disposition path), and no in-place ``home_val``/``mort_bal_yr``
+    the estate-disposition path; a WI-308 first-death basis adjustment, when
+    one applies, is already folded into the ``basis`` the engine passes), and
+    no in-place ``home_val``/``mort_bal_yr``
     threading -- a ``next_housing_steps`` home's value and mortgage balance
     are already a pure function of its own step config and ``year`` (see
     ``deterministic_engine._next_housing_for_year``), recomputed by the
@@ -308,7 +373,8 @@ def apply_next_housing_sale(
     same year's tax pass, so it is written as a ``0.0`` placeholder here.
     """
     econ = _compute_home_sale_economics(
-        c, gross_proceeds=gross_proceeds, mort_payoff=mort_payoff, basis=basis, filing=filing)
+        c, gross_proceeds=gross_proceeds, mort_payoff=mort_payoff, basis=basis, filing=filing,
+        surviving_spouse_window=surviving_spouse_window)
     net_proceeds = max(0, econ.net_proceeds_after_costs_and_mortgage)
     row['_home_sale_taxable_gain_pending'] = (
         float(row.get('_home_sale_taxable_gain_pending', 0.0) or 0.0) + econ.taxable_gain)

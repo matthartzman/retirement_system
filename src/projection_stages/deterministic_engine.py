@@ -20,6 +20,8 @@ from .cashflow_breakdown import compute_cashflow_breakdown as _compute_cashflow_
 from .effective_marginal_rate import compute_effective_marginal_rate as _compute_effective_marginal_rate
 from .home_sale import apply_home_sale as _apply_home_sale
 from .home_sale import apply_next_housing_sale as _apply_next_housing_sale
+from .home_sale import first_death_home_basis as _first_death_home_basis
+from .home_sale import surviving_spouse_sec121_window as _surviving_spouse_sec121_window
 from .income import apply_income as _apply_income
 from .portfolio_growth_and_net_worth import apply_portfolio_growth_and_net_worth as _apply_portfolio_growth_and_net_worth
 from .roth_conversion_and_agi_tax import apply_agi_and_tax as _apply_agi_and_tax
@@ -375,6 +377,17 @@ def run_deterministic_projection_stage(c):
     # single-member plan data_io forces w_death_yr into the past, so max() is
     # still that member's own death.
     _second_death_yr = max(int(c['h_death_yr']), int(c['w_death_yr']))
+    # WI-308 / FIN-008: the first spousal death drives two home-sale rules --
+    # a §1014 basis adjustment on the deceased's share of the residence (and
+    # of any next_housing_steps purchase owned at that death), and the
+    # §121(b)(4) two-year surviving-spouse $500k exclusion. Only a genuine
+    # couple whose deaths fall in different years has a "first" death that a
+    # survivor outlives.
+    _first_death_home_yr = min(int(c['h_death_yr']), int(c['w_death_yr']))
+    if not _household_is_couple or _first_death_home_yr >= _second_death_yr:
+        _first_death_home_yr = None
+    _home_basis_adjusted = None        # original home's post-first-death basis
+    _next_housing_basis_adjusted = {}  # id(step) -> post-first-death basis
 
     def _survivor_factor(n_alive):
         """1.0 unless exactly one member of a couple is still alive.
@@ -775,6 +788,8 @@ def run_deterministic_projection_stage(c):
         # pins that exact key set. home_val/home_equity/mort_bal_yr ARE
         # plain floats returned via HomeSaleResult and must be reassigned
         # here -- same caveat as the appreciation/divorce/QLAC stage above.
+        _sec121_survivor_window = _surviving_spouse_sec121_window(
+            c, year=year, first_death_yr=_first_death_home_yr)
         _stage4 = _apply_home_sale(
             c,
             row,
@@ -785,10 +800,42 @@ def run_deterministic_projection_stage(c):
             bal=bal,
             bal_basis_free=bal_basis_free,
             emit=emit,
+            adjusted_basis=_home_basis_adjusted,
+            surviving_spouse_window=_sec121_survivor_window,
         )
         home_val = _stage4.home_val
         home_equity = _stage4.home_equity
         mort_bal_yr = _stage4.mort_bal_yr
+
+        # WI-308 / FIN-008: first-death §1014 adjustment of the deceased's
+        # share of the home, at this year's (end-of-year, post-appreciation)
+        # value -- the FMV a sale next year is priced from. Jointly held, so
+        # decedent_owned=False: half under common law (§2040(b)), full under
+        # community property. Recorded on the row for audit.
+        if _first_death_home_yr is not None and year == _first_death_home_yr:
+            _home_step_frac = _basis_stepup_fraction(decedent_owned=False)
+            if home_val > 0:
+                _home_basis_before = float(c.get('home_basis', 0) or c['home_val'] * 0.5)
+                _home_basis_adjusted = _first_death_home_basis(
+                    _home_basis_before, home_val, _home_step_frac)
+                row['home_basis_first_death_step_up'] = _home_basis_adjusted - _home_basis_before
+                row['home_basis_after_first_death'] = _home_basis_adjusted
+            for _nh_step in c.get('next_housing_steps', []) or []:
+                if str(_nh_step.get('type') or 'purchase').strip().lower() != 'purchase':
+                    continue
+                try:
+                    _nh_price = float(_nh_step.get('purchase_price', 0.0) or 0.0)
+                    _nh_start = int(_nh_step.get('start_year') or 0)
+                    _nh_end = int(_nh_step.get('end_year') or 0)
+                    _nh_sale = int(_nh_step.get('sale_year') or 0)
+                except Exception:
+                    continue
+                if (_nh_price <= 0 or not _nh_start or year < _nh_start
+                        or (_nh_end and year > _nh_end) or (_nh_sale and year >= _nh_sale)):
+                    continue
+                _nh_fmv = _nh_price * ((1.0 + float(c.get('home_appr', 0.0) or 0.0)) ** max(0, year - _nh_start + 1))
+                _next_housing_basis_adjusted[id(_nh_step)] = _first_death_home_basis(
+                    _nh_price, _nh_fmv, _home_step_frac)
 
         # ── Second-home sale (next_housing_steps `sale_year`) ────────────────
         # A next_housing_steps purchase step can itself be sold with a real
@@ -814,11 +861,13 @@ def run_deterministic_projection_stage(c):
                 step_id=str(_nh_step.get('id') or 'next_housing'),
                 gross_proceeds=_nh_gross,
                 mort_payoff=_nh_mort_payoff,
-                basis=float(_nh_step.get('purchase_price', 0.0) or 0.0),
+                basis=_next_housing_basis_adjusted.get(
+                    id(_nh_step), float(_nh_step.get('purchase_price', 0.0) or 0.0)),
                 filing=filing,
                 bal=bal,
                 bal_basis_free=bal_basis_free,
                 emit=emit,
+                surviving_spouse_window=_sec121_survivor_window,
             )
 
         # Note Receivable — sum principal/interest across every note, since
