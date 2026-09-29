@@ -109,3 +109,6 @@ coverage.xml
 ~$*.pptx
 ~WRL*.tmp
 .superpowers/
+
+# PyInstaller smoke-test environment (scripts/pyinstaller_smoke.py)
+.smoke_env/
