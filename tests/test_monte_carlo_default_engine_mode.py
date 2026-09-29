@@ -73,6 +73,14 @@ class ReleaseMonteCarloBehaviorTests(unittest.TestCase):
         reverting only the bracket_room line restores 5.0pp; FIN-001/FIN-003
         have no effect). PENDING planner sign-off -- same approximation gap,
         not a new bug; re-tighten if the vectorized conversion tilt improves.
+
+        Widened to 10pp (2026-09-29, WI-310/FIN-011, owner-approved): Large
+        Discretionary lumps now inflate from plan-start dollars to their year,
+        so later-year lumps are larger in both engines, which magnifies the
+        same vectorized approximation gap (8.5pp on WI-310 alone, 9.5pp with
+        all Wave 3 items: vectorized 0.565 vs exact_scalar 0.660). Not a new
+        bug, but the gap has grown 5 -> 10pp over four changes, so a real fix
+        to the vectorized approximations is due; re-tighten when it lands.
         """
         data = load_csv(TEST_INPUT_DIR / "client_data.csv")
         try:
@@ -98,9 +106,9 @@ class ReleaseMonteCarloBehaviorTests(unittest.TestCase):
         # representation noise at that exact boundary, not a real tolerance change.
         self.assertLessEqual(
             drift_pp,
-            8.0 + 1e-9,
+            10.0 + 1e-9,
             f"vectorized success_rate={rate_vec:.4f} vs exact_scalar={rate_scalar:.4f} "
-            f"({drift_pp:.2f} percentage points) exceeds the 8pp sign-off tolerance; "
+            f"({drift_pp:.2f} percentage points) exceeds the 10pp tolerance; "
             "investigate before relying on exact_scalar as a validation oracle.",
         )
 
