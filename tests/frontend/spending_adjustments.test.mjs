@@ -85,12 +85,16 @@ describe("Spending Adjustments table (#335)", () => {
     assert.equal(Math.round(sandbox.adjustmentFactor(adjs, "hotels", "Travel", 2039) * 100), 50);
   });
 
-  test("the Adjustments accordion follows the tracking-type accordions", () => {
+  test("Adjustments is no longer a Spending Categories accordion; it lives in Projection Controls", () => {
     sandbox.__model = { tracking_types: [{ tracking_type: "Core Expenses", groups: [] }, { tracking_type: "Travel", groups: [] }] };
     run("spendingModelData = globalThis.__model; taxonomyData = globalThis.__model.tracking_types;");
-    const html = sandbox.renderDomainBudgetTable("core");
-    const adj = html.indexOf('data-dkey="budget:core:adjustments"');
-    assert.ok(adj > html.indexOf('data-dkey="budget:core:Travel"'));
-    assert.match(html.slice(adj), /<summary><b>Adjustments<\/b>/);
+    assert.doesNotMatch(sandbox.renderDomainBudgetTable("core"), /budget:core:adjustments/);
+    const page = sandbox.renderCoreSpendingUnified();
+    const pc = page.indexOf('data-dkey="budget:core:projection_controls"');
+    assert.ok(pc > page.indexOf("Spending Categories total"), "Projection Controls follows the total");
+    assert.ok(pc < page.indexOf("Category Manager"), "Projection Controls precedes the Category Manager");
+    const body = page.slice(pc, page.indexOf("Category Manager"));
+    assert.match(body, /<h4 class="group-title">Adjustments/);
+    assert.match(body, /Add Adjustment/);
   });
 });
