@@ -302,6 +302,10 @@ jobs:
       run: |
         python build.py --no-backup
 
+    - name: Smoke-test the frozen executable
+      run: |
+        python scripts/pyinstaller_smoke.py --skip-build --dist dist/retirement_planner
+
     - name: Upload build artifact
       uses: actions/upload-artifact@v7
       with:

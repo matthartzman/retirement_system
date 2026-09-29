@@ -47,10 +47,10 @@ def _heir_filing_status(c: Mapping[str, Any]) -> str:
     return filing if filing in ("Single", "MFJ", "HOH", "MFS") else "Single"
 
 
-#: Default heir other taxable income (plan-start dollars): roughly a median
-#: working-age household income, so an inherited IRA is not assumed to be the
+#: Default heir other taxable income (plan-start dollars): a high-earning
+#: working-age household income ($200k today), so an inherited IRA is not assumed to be the
 #: heir's only income (FIN-012).
-DEFAULT_HEIR_OTHER_TAXABLE_INCOME = 80000.0
+DEFAULT_HEIR_OTHER_TAXABLE_INCOME = 200000.0
 
 
 def heir_other_taxable_income(c: Mapping[str, Any]) -> float:
@@ -141,7 +141,13 @@ def hsa_terminal_tax(c: Mapping[str, Any], hsa_balance: Any,
     if terminal_year is None:
         terminal_year = c.get("plan_end", c.get("plan_start", 0))
     year0 = int(_f(terminal_year, 0.0))
-    return max(0.0, compute_fed_tax(bal, year0, filing, brk_inf))
+    # Stack the lump on the heir's other taxable income (same assumption, and
+    # same growth to the death year, as effective_heir_ten_year_rate) so the
+    # cliff is priced as the heir's marginal tax, not as their only income.
+    plan_start = int(_f(c.get("plan_start", year0), year0))
+    base = heir_other_taxable_income(c) * (1.0 + brk_inf) ** max(0, year0 - plan_start)
+    return max(0.0, compute_fed_tax(base + bal, year0, filing, brk_inf)
+               - compute_fed_tax(base, year0, filing, brk_inf))
 
 
 # Item 3.3 (F4): SECURE Act eligible-designated-beneficiary categories that

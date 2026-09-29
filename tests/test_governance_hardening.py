@@ -46,7 +46,7 @@ class GovernanceHardeningTests(unittest.TestCase):
         cfg['mc_engine_mode']='vectorized'
         approx=monte_carlo(dict(cfg), seed=812)
         self.assertIn('vectorized', approx.get('mc_engine',''))
-        self.assertEqual(approx.get('mc_approximation_status'), 'APPROXIMATE_PENDING_SCALAR_PARITY')
+        self.assertEqual(approx.get('mc_approximation_status'), 'TOLERANCE_BOUNDED')
         self.assertGreaterEqual(approx['success_rate'],0.0)
         self.assertLessEqual(approx['success_rate'],1.0)
 
