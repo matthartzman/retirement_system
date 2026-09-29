@@ -5806,7 +5806,7 @@ const FIELD_GUIDANCE_OVERRIDES = {
   enhanced_subsidies_through_year: {
     purpose: "The last year that current, more generous ACA subsidy rules are in effect. After this year, subsidy calculations may change to less generous rules unless Congress extends them.",
     impact: "Subsidy amounts in years through this date use enhanced rules; later years may use different (possibly smaller) subsidies. The plan changes subsidy calculations at this cutoff.",
-    consider: "This is set by federal law and may be extended or expire. Use the current law's expiration date. The plan will show you how subsidies drop or change after this year.",
+    consider: "Blank uses the dataset default of 2025, an unverified assumption that the enhanced credit lapsed after 2025. Verify current law and enter the year if it was extended.",
   },
   federal_poverty_level_base_year: {
     purpose: "The dollar amount the federal government defines as the poverty line for your household size in a reference year. ACA subsidy eligibility is calculated as a percentage of this threshold.",

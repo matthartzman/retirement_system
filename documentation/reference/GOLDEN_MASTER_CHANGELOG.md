@@ -1,5 +1,35 @@
 ## 2026-09-29 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
 
+<!-- pin-provenance: terminal_nw=5300641.69 lifetime_tax=1270063.40 -->
+
+**Old pins.** terminal_nw=5,283,512.01, lifetime_tax=1,275,337.74
+
+**New pins.** terminal_nw=5,300,641.69, lifetime_tax=1,270,063.40
+
+**Reason.**
+
+WI-301 (system review 2026-09-25, FIN-004), on ASSUMPTIONS because irs.gov/cms.gov were unreachable: the 2025 standard deductions are corrected to the OBBBA amounts (MFJ 30,000->31,500, Single/MFS 15,000->15,750, HOH 22,500->23,625) and dated 2026 rows are added for standard deductions (32,200/16,100/24,150), over-65 additions, ordinary brackets, LTCG 0%/15% thresholds, IRMAA tiers/surcharges and the Part B base premium. All new rows are status 'assumption', recalled and UNVERIFIED; the dashboard rows are set to REVIEW_REQUIRED. The engine's bracket/deduction base year moves from 2025 to 2026 (FEDERAL_BRACKETS_VALUE_YEAR etc. derive from the latest dated row), so higher deductions and wider 2026 brackets lower tax: measured on the frozen sample plan terminal_nw +17,129.68 and lifetime_tax -5,274.34 (about $130/yr over the horizon). Direction and size are consistent with the review's estimate for the deduction gap alone. Hand-verified via tools/regen_golden_master.py measure before this regen; closed-form 2026 ladder checks added in test_core_tax_math.py.
+
+**Also regenerated (same reason):**
+
+- `tests/fixtures/synthetic_golden_master_cases.json` via `tools/regen_synthetic_golden_master.py`:
+  every scenario's `lifetime_tax` falls (-$4,620 `lower_return_environment` to -$16,440
+  `no_voluntary_roth_policy`), `terminal_total_nw` rises ($11.7k to $43.3k), and
+  `first_year_total_tax` falls $552.56 for the MFJ scenarios and $297.94 for `single_filer`
+  (higher standard deduction and wider 2026 brackets). Fill-to-bracket conversions size up
+  slightly (+$2,310 first conversion, MFJ) because bracket headroom is larger.
+- `tests/fixtures/deterministic_engine_full_row_snapshot_cases.json` via
+  `tools/regen_full_row_snapshot.py`: every scenario diverges from the first projection
+  year (federal tax, AGI-derived fields, downstream balances).
+- Tests with hard-coded tax figures were recomputed by hand from the 2026 ladders
+  (`test_core_tax_math.py`, `cross_tool_reconciliation_cases.csv`, `test_irmaa_indexing_unit.py`,
+  `test_after_tax_cap_gain_estate_functional.py` = 10 x 5,752, `test_roth_ltcg_cap_kernel_indexing_regression.py`).
+- **All 2026 values are unverified planning assumptions** (irs.gov / cms.gov were unreachable);
+  the dashboard rows are REVIEW_REQUIRED until someone checks them against Rev. Proc. 2025-32
+  and the CMS 2026 fact sheet. If a value changes on verification, re-measure and re-pin.
+
+## 2026-09-29 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
+
 <!-- pin-provenance: terminal_nw=5283512.01 lifetime_tax=1275337.74 -->
 
 **Old pins.** terminal_nw=5,283,516.99, lifetime_tax=1,275,335.17

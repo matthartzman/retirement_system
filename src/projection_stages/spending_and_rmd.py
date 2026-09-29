@@ -6,6 +6,7 @@ from .. import core as _ar  # consolidated from account_registry
 from .. import planning_engines as _legacy_pe
 from ..planning_engines import (
     EvRMD,
+    aca_magi,
     aca_premium_tax_credit,
     rmd_divisor,
     social_security_taxable_amount,
@@ -536,7 +537,9 @@ def apply_spending_and_rmd(
     # changes reduce the subsidy before the withdrawal cascade runs.
     _aca_pre_non_ss = (net_earned_taxable - half_se_ded - sehi_ded + rmd_taxable_total + pension + wife_single_ann + wife_joint_ann + h_single_ann + h_joint_ann + note_int_yr + portfolio_ordinary + portfolio_qualified)
     _aca_pre_ss_tax = social_security_taxable_amount(h_ss + w_ss, _aca_pre_non_ss + portfolio_tax_exempt, filing)
-    aca_ptc_pre_conversion = aca_premium_tax_credit(c, year=year, magi=_aca_pre_non_ss + _aca_pre_ss_tax + portfolio_tax_exempt, bridge_people=bridge_people)
+    # ACA MAGI includes the non-taxable part of SS (WI-307 / FIN-007).
+    _aca_pre_magi = aca_magi(_aca_pre_non_ss + _aca_pre_ss_tax, portfolio_tax_exempt, h_ss + w_ss, _aca_pre_ss_tax)
+    aca_ptc_pre_conversion = aca_premium_tax_credit(c, year=year, magi=_aca_pre_magi, bridge_people=bridge_people)
     aca_ptc_yr = aca_ptc_pre_conversion
     bridge_premium_yr = max(0.0, bridge_premium_gross - aca_ptc_yr)
     partb_yr = medicare_fraction_people * float(c.get('partb', 0.0) or 0.0) * 12 * path_factor('medical_index_by_year', c.get('med_inf', c['inf']), year)
