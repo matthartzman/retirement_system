@@ -35,7 +35,6 @@ from .workbook_common import (
     LGRAY,
     NAVY,
     NIIT_THRESHOLD,
-    TAX_BASE_YEAR,
     WHITE,
     get_column_letter,
     inflate_brackets,
@@ -46,6 +45,7 @@ from .workbook_common import (
 )
 from .. import gain_harvest as _gh
 from .. import tax_kernel as _tk
+from .. import taxes as _td
 
 
 def _bracket_top(taxable_inc, year, filing, brk_inf):
@@ -58,7 +58,9 @@ def _bracket_top(taxable_inc, year, filing, brk_inf):
     reads from the exact table that column already uses.
     """
     brk = FEDERAL_BRACKETS_BASE_YEAR.get(filing, FEDERAL_BRACKETS_BASE_YEAR['Single'])
-    brk = inflate_brackets(brk, brk_inf, year - TAX_BASE_YEAR)
+    # WI-302: inflate from the brackets' own value year (as core.marginal_rate
+    # does), not the run-date TAX_BASE_YEAR.
+    brk = inflate_brackets(brk, brk_inf, year - _td.FEDERAL_BRACKETS_VALUE_YEAR)
     for lo, hi, _rate in brk:
         if lo <= taxable_inc < hi:
             return hi
@@ -114,11 +116,6 @@ def build_sheet_tax_capacity(ws, c, rows):
 
     plan_start = int(c.get('plan_start', rows[0]['year'] if rows else 2026))
     brk_inf = float(c.get('brk_inf', 0.02) or 0.02)
-    # gain_harvest.py's scan_gain_harvest_opportunities (src/gain_harvest.py:122)
-    # inflates ltcg_0_top with c['bracket_inf'], not c['brk_inf'] -- mirrored
-    # here verbatim so this column's current-year value reconciles exactly
-    # with Sheet 12C's headroom figure rather than quietly using a different key.
-    bracket_inf_gh = float(c.get('bracket_inf', 0.02) or 0.02)
     ltcg_0_top = float(c.get('ltcg_0_top', 96_700) or 0.0)
     aca_fpl_base = max(0.0, float(c.get('aca_fpl_base', 0.0) or 0.0))
 
@@ -148,14 +145,17 @@ def build_sheet_tax_capacity(ws, c, rows):
         # compute_zero_bracket_headroom, src/gain_harvest.py:39 -- the exact
         # function Sheet 12C calls (via scan_gain_harvest_opportunities) for
         # the current plan year only; called here for every row instead.
-        bf = (1.0 + bracket_inf_gh) ** (year - plan_start)
+        # WI-306 / FIN-014: same kernel factor scan_gain_harvest_opportunities uses.
+        bf = _tk.bracket_factor_for_year(c, year)
         ltcg_headroom = _gh.compute_zero_bracket_headroom(ltcg_0_top, bf, taxable_inc)
 
         # irmaa_magi_used, src/projection_stages/deterministic_engine.py:1985
         # -- the actual two-year-lookback MAGI the engine used to assess this
         # row's IRMAA surcharge/tier (irmaa_lookback_magi, src/core.py:870).
         irmaa_magi = float(row.get('irmaa_magi_used', agi) or agi)
-        irmaa_dist = _next_irmaa_tier_distance(irmaa_magi, year, filing, c)
+        # WI-304: measure against the table the engine assessed on (the
+        # lookback return's filing status), not this year's filing.
+        irmaa_dist = _next_irmaa_tier_distance(irmaa_magi, year, row.get('irmaa_filing_used') or filing, c)
 
         # Bridge-year test mirrors deterministic_engine.py:1391-1396's own
         # h_bridge/w_bridge/bridge_people computation (pre-65 ACA eligibility).

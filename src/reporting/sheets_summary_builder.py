@@ -21,7 +21,6 @@ from .workbook_common import (
     LGRAY,
     NAVY,
     ORANGE,
-    TAX_BASE_YEAR,
     WHITE,
     _ao,
     datetime,
@@ -430,6 +429,7 @@ def build_sheet2(ws, c, rows):
         ('Roth Legacy Objective Mode', c.get('roth_legacy_objective_mode', 'OFF'), 'text', 'OFF, LOW, BALANCED, or STRONG; weights future tax-rate risk and inheritance tax burden in Roth conversion selection.'),
         ('Roth Future Tax Stress', c.get('roth_future_tax_rate_stress_pct', 0.0), 'decimal', 'Additional ordinary-tax-rate stress used only in the Roth conversion objective.'),
         ('Assumed Heir Filing Status', c.get('roth_heir_filing_status', 'Single'), 'text', 'Beneficiary filing status assumed when deriving the effective inherited-IRA tax rate below.'),
+        ('Heir Other Taxable Income', c.get('roth_heir_other_taxable_income', 80000.0), 'USD', "Assumed heir income (plan-start dollars) that inherited pre-tax distributions stack on. Edit under Withdrawal Policy > Roth Conversion > heir_other_taxable_income; the derived heir rate below responds."),
         ('Heir Ordinary Tax Rate (effective)',
          (c.get('roth_heir_ordinary_tax_rate_effective') or c.get('roth_heir_ordinary_tax_rate_assumption', 0.0)),
          'decimal',
@@ -550,7 +550,9 @@ def build_sheet2(ws, c, rows):
     write_hdr(ws, r, 2, 'Reference Bracket Top', DGRAY, WHITE)
     r += 1
     for yr in range(c['plan_start'], min(c['plan_end']+1, c['plan_start']+31)):
-        top = 201050 * (1+c['brk_inf'])**(yr - TAX_BASE_YEAR)
+        # WI-302: 201,050 is the 2024 MFJ 22% bracket top; index it from its
+        # own value year, not the run-date TAX_BASE_YEAR.
+        top = 201050 * (1+c['brk_inf'])**(yr - 2024)
         write_cell(ws, r, 1, yr, fmt=FMT_YEAR, align='center')
         write_cell(ws, r, 2, top, fmt=FMT_DOLLAR)
         r += 1

@@ -47,6 +47,20 @@ def _heir_filing_status(c: Mapping[str, Any]) -> str:
     return filing if filing in ("Single", "MFJ", "HOH", "MFS") else "Single"
 
 
+#: Default heir other taxable income (plan-start dollars): roughly a median
+#: working-age household income, so an inherited IRA is not assumed to be the
+#: heir's only income (FIN-012).
+DEFAULT_HEIR_OTHER_TAXABLE_INCOME = 80000.0
+
+
+def heir_other_taxable_income(c: Mapping[str, Any]) -> float:
+    """Heir's other taxable income (plan-start dollars); blank -> default, 0 is honored."""
+    raw = c.get("roth_heir_other_taxable_income")
+    if raw is None or (isinstance(raw, str) and raw.strip() == ""):
+        return DEFAULT_HEIR_OTHER_TAXABLE_INCOME
+    return max(0.0, _f(raw, DEFAULT_HEIR_OTHER_TAXABLE_INCOME))
+
+
 def _is_flat_default(value: Any) -> bool:
     """True when a configured rate is absent or equals the historical flat 24%.
 
@@ -84,7 +98,16 @@ def effective_heir_ten_year_rate(c: Mapping[str, Any], pretax_balance: Any,
         terminal_year = c.get("plan_end", c.get("plan_start", 0))
     year0 = int(_f(terminal_year, 0.0))
     annual = bal / 10.0
-    total_tax = sum(compute_fed_tax(annual, year0 + i, filing, brk_inf) for i in range(10))
+    # WI-309 / FIN-012: each slice stacks on the heir's other taxable income
+    # (household input, plan-start dollars, grown with the bracket inflator to
+    # the distribution year) via _slice_ordinary_tax, instead of being taxed
+    # as the heir's sole income. A baseline of 0 reproduces the old behavior.
+    baseline = heir_other_taxable_income(c)
+    plan_start = int(_f(c.get("plan_start", year0), year0))
+    total_tax = sum(
+        _slice_ordinary_tax(annual, baseline * (1.0 + brk_inf) ** max(0, year0 + i - plan_start),
+                            year0 + i, filing, brk_inf, "")
+        for i in range(10))
     return max(0.0, min(1.0, total_tax / bal))
 
 

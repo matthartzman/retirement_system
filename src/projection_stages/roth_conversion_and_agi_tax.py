@@ -12,13 +12,13 @@ from ..planning_engines import (
     STATE_TAX_RULES,
     aca_premium_tax_credit,
     annuity_cash_income,
-    irmaa_lookback_magi,
+    irmaa_lookback_magi_and_filing,
     salt_cap,
     senior_bonus_deduction,
     social_security_taxable_amount,
     state_income_tax,
 )
-from ..core import state_for_year
+from ..core import state_for_year, state_retirement_exclusion_count
 from .home_sale import resolve_home_sale_gain_tax as _resolve_home_sale_gain_tax
 from .spending_tiers import compute_spend_by_tier as _compute_spend_by_tier
 
@@ -77,6 +77,8 @@ def _state_tax_estimate_for_conversion(
     note_int_yr: float,
     portfolio_ordinary: float,
     portfolio_qualified: float,
+    h_alive: bool = True,
+    w_alive: bool = True,
 ) -> Callable[[float, int], float]:
     """Build the Roth-sizing planner's pre-conversion state-tax estimator.
 
@@ -131,7 +133,7 @@ def _state_tax_estimate_for_conversion(
         return state_income_tax(
             state_for_year(c, _tax_year), max(0, net_earned_taxable - half_se_ded - sehi_ded),
             rmd_taxable_total + _qual_ann_est, _ss_taxable_est, note_int_yr + portfolio_ordinary + portfolio_qualified,
-            _nonqual_ann_est, 0.0, _tax_year, h_age >= 65 or w_age >= 65, filing=filing,
+            _nonqual_ann_est, 0.0, _tax_year, state_retirement_exclusion_count(h_age, w_age, h_alive, w_alive), filing=filing,
             brk_inf=c['brk_inf'],
         )
 
@@ -229,6 +231,7 @@ def apply_roth_conversion_stage(
         pension=pension, wife_joint_ann=wife_joint_ann, h_joint_ann=h_joint_ann,
         note_int_yr=note_int_yr, portfolio_ordinary=portfolio_ordinary,
         portfolio_qualified=portfolio_qualified,
+        h_alive=h_alive, w_alive=w_alive,
     )
 
     conv_plan = _legacy_pe.plan_roth_conversion(
@@ -396,7 +399,7 @@ class AgiTaxResult(NamedTuple):
     retirement_dist: float
     earned_net: float
     nonqual_ann: float
-    h_over_65: bool
+    h_over_65: int  # WI-305: count of members qualifying for a per-person state retirement exclusion
 
     # Home-sale LTCG resolution (already-extracted stage, called from here
     # in its original position) -- seeds the withdrawal cascade's LTCG
@@ -632,7 +635,7 @@ def apply_agi_and_tax(
     prop_tax_yr = configured_prop_tax_yr if configured_prop_tax_yr > 0 else estimated_prop_tax_yr
     mort_interest_yr = float((c.get('mort_interest_schedule') or {}).get(year, 0.0) or 0.0)
     salt_gross = il_tax_est + prop_tax_yr
-    salt = min(salt_gross, salt_cap(year, agi))
+    salt = min(salt_gross, salt_cap(year, agi, filing))
     # Item 4.1: QCD dollars already left AGI above (never a deduction);
     # treat char_low as the household's total giving intent and net the
     # QCD portion out of the itemizable cash-gift component so the same
@@ -745,7 +748,10 @@ def apply_agi_and_tax(
     qual_ann, nonqual_ann = _qualified_and_nonqualified_annuity_income(c, year)
     retirement_dist = rmd_taxable_total + qual_ann  # pension already included in qual_ann if qualified
     earned_net = max(0, net_earned_taxable - half_se_ded - sehi_ded)
-    h_over_65 = h_age >= 65 or w_age >= 65
+    # WI-305 / FIN-006: count of qualifying LIVING members (per-person NY/CO
+    # retirement exclusion), not a household-wide OR of both ages. Name kept
+    # for the downstream stages that thread it into state_income_tax.
+    h_over_65 = state_retirement_exclusion_count(h_age, w_age, h_alive, w_alive)
     state_tax = state_income_tax(state_for_year(c, year), earned_net, retirement_dist,
                                  ss_taxable, note_int_yr + portfolio_ordinary + portfolio_qualified, nonqual_ann,
                                  roth_conv, year, h_over_65, filing=filing, brk_inf=c['brk_inf'])
@@ -782,11 +788,15 @@ def apply_agi_and_tax(
         2: c.get('irmaa_actual_magi_2yr_prior'),
         1: c.get('irmaa_actual_magi_1yr_prior'),
     }
-    irmaa_magi = irmaa_lookback_magi(rows, irmaa_magi_current, c.get('irmaa_lookback_years', 2),
-                                      historical_magi=_irmaa_historical_magi)
+    # WI-304 / FIN-009: assess on the lookback row's MAGI (AGI + tax-exempt
+    # interest) against the filing status of THAT year's return.
+    irmaa_magi, irmaa_filing = irmaa_lookback_magi_and_filing(
+        rows, irmaa_magi_current, filing, c.get('irmaa_lookback_years', 2),
+        historical_magi=_irmaa_historical_magi)
     row['irmaa_magi_used'] = irmaa_magi
-    irmaa_yr = irmaa_surcharge_fn(irmaa_magi, year, n_medicare, filing) if n_medicare > 0 else 0.0
-    row['irmaa_tier'] = irmaa_tier_fn(irmaa_magi, year, filing)
+    row['irmaa_filing_used'] = irmaa_filing
+    irmaa_yr = irmaa_surcharge_fn(irmaa_magi, year, n_medicare, irmaa_filing) if n_medicare > 0 else 0.0
+    row['irmaa_tier'] = irmaa_tier_fn(irmaa_magi, year, irmaa_filing)
 
     # Resolve the deferred home-sale taxable-gain tax (extracted stage):
     # apply_home_sale() (earlier this same year) computed the gain but

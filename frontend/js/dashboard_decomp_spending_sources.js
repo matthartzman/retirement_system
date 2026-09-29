@@ -140,7 +140,7 @@ export function domainBudgetNote(domain) {
     return "Wellness is the only editable place for the Healthcare Premium group (Pre-65 Healthcare Premium plus Medicare Part B, Part D, and Part G), medical, dental, vision, drugs Rx/OTC, vitamins/supplements, and the medical OOP cap/reference.";
   if (domain === "travel")
     return "Travel is the only editable place for recurring travel projection inputs plus transaction-based travel detail. Domestic-travel and lifestyle labels are intentionally not used here.";
-  return "Large Discretionary rows are one-time: Weddings, Large Gifts, Education (not 529-funded), Auto, or Other -- one amount in one year, never annualized.";
+  return "Large Discretionary rows are one-time: Weddings, Large Gifts, Education (not 529-funded), Auto, or Other -- one amount in one year, never annualized. Enter amounts in today's dollars; the projection inflates each to its year.";
 }
 
 // Every export above is also re-attached to window: dashboard.js and the

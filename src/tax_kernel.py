@@ -236,6 +236,6 @@ def rmd_divisor(age, spouse_age=None, sole_beneficiary_spouse=False, table=None)
         return float(table[age_i])
     if age_i in RMD_DIVISORS:
         return float(RMD_DIVISORS[age_i])
-    # Beyond table age, keep declining conservatively without corrupting
-    # known-table ages such as age 80 (20.2, not a linear approximation).
-    return max(2.0, RMD_DIVISORS[115] - max(0, age_i - 115) * 0.1)
+    # WI-303 / FIN-013: the published table's last row is "120 and over",
+    # so every older age uses that row (no extrapolation).
+    return float(RMD_DIVISORS[max(RMD_DIVISORS)])

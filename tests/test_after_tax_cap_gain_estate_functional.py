@@ -32,6 +32,7 @@ def test_after_tax_helper_models_taxable_cap_gain_components():
         "taxable_inc": 150_000,
         "agi": 180_000,
     }
+    c["roth_heir_other_taxable_income"] = 0.0  # WI-309: isolate the sole-income derivation this test pins
     result = estimate_after_tax_terminal_net_worth(c, terminal)
     # Item 4.3 (commit 73378f5) replaced the flat 24% heir-tax haircut with a
     # derived effective rate from the SECURE Act 10-year level-distribution
