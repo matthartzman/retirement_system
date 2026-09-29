@@ -2,9 +2,10 @@
 Table III (Uniform Lifetime Table, 2022+) row by row through age 120 ("120 and
 over"), and ages past the table use the final row rather than an extrapolation.
 
-The expected table below was entered from knowledge of the published table
-(age 83 = 17.7; 116-120 = 2.8, 2.7, 2.5, 2.3, 2.0) and must be re-verified
-against the IRS PDF whenever Pub. 590-B is refreshed.
+VERIFIED 2026-09-29: all 49 rows (ages 72-120) were compared programmatically with
+Table III in IRS Publication 590-B (2025), Appendix B, page 67 of the PDF supplied
+by the owner; none differ. Re-verify against the IRS PDF whenever Pub. 590-B is
+refreshed.
 """
 from __future__ import annotations
 
