@@ -510,7 +510,11 @@ DASHBOARD_JS_MAX_LINES = 7_134
 # instead of its own accordion, and Category Manager reuses
 # sortByTrackingTypeOrder. New behavior, not duplication: raised to the
 # measured 36,735.
-TOTAL_JS_MAX_LINES = 36_735
+# 2026-09-29 (PR #147 merge): the heir-income wording change in
+# dashboard_decomp_home_panels.js adds one line on main; PR #147 did not raise the
+# ceiling, so main sat at 36,736 against 36,735. New behavior, not duplication:
+# raised to the measured 36,736.
+TOTAL_JS_MAX_LINES = 36_736
 
 
 def _line_count(path: Path) -> int:
