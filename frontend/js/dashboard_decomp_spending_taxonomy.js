@@ -121,9 +121,23 @@ export function renderSpendingCore() {
     (!have.core_spending_manual_growth_rate && mode === "manual_override")
   )
     missingMsg = `<div class="section-note warning" id="coreSpendingRowsMissing"><b>Core spending controls are being created:</b> save or reload Plan Data if any control is missing. Expected rows are Core Spending Base, Core Spending Increase Stops, Core Spending Increase Method, and the relevant increase-rate field.</div>`;
-  let html = `<div class="section-note"><b>Projection controls:</b> Core spending base/growth controls feed recurring lifestyle spending. The category hierarchy below is the comprehensive income/expense model, including taxes, except internal transfers. Category assignment happens here; Accounts & Sources lives on Income & Expense Transactions.</div>${missingMsg}`;
-  html += `<div class="field-list core-spending-flat">${ordered.map(fieldHtml).join("")}</div>`;
-  return html;
+  const v = (l) => {
+    const r = rs.find((x) => norm(x.label) === l);
+    return r ? String(valOf(r) || "").trim() : "";
+  };
+  const manual = mode === "manual_override";
+  const nAdj = spendingAdjustments.length;
+  const unsaved =
+    ordered.some((r) => valOf(r) !== (r.value || "")) || spendingAdjustmentsDirty();
+  const bits = [
+    ["Increase method", manual ? "Manual rate" : "General CPI"],
+    ["Rate", (manual ? v("core_spending_manual_growth_rate") : v("inflation_general")) || "not set"],
+    ["Increases stop", v("spending_freeze_year") || "not set"],
+    ["Adjustments", `${nAdj} step change${nAdj === 1 ? "" : "s"}`],
+  ];
+  // Collapsed by default; opens itself when a control is missing so that
+  // warning is never buried. Open state persists across re-renders via data-dkey.
+  return `<details class="taxonomy-type-section projection-controls" data-dkey="budget:core:projection_controls"${missingMsg ? " open" : ""}><summary><b>Projection Controls</b> <span class="pc-readout small">${bits.map(([k, x]) => `<span><b>${k}</b> ${esc(x)}</span>`).join("")}</span>${unsaved ? '<span class="pc-unsaved">Unsaved</span>' : ""}</summary><div class="pc-body"><div class="section-note">Core spending base and growth feed recurring lifestyle spending in the projection.</div>${missingMsg}<div class="field-list inline-row core-spending-flat">${ordered.map(fieldHtml).join("")}</div>${renderSpendingAdjustmentsBlock()}</div></details>`;
 }
 
 export function renderTaxonomyManager() {
@@ -143,7 +157,7 @@ export function renderTaxonomyManager() {
       '<div class="table-actions"><button class="btn" onclick="showTaxonomyAddForm()">+ Add Category</button><button class="btn" onclick="loadTaxonomy(true)">Reload</button></div>';
     html += '<div id="taxonomyAddForm" style="display:none"></div>';
     html += '<div class="taxonomy-tree">';
-    (taxonomyData || []).forEach(function (typeData) {
+    sortByTrackingTypeOrder(taxonomyData || []).forEach(function (typeData) {
       const totalCats = (typeData.groups || []).reduce(
         (s, g) => s + (g.categories || []).length,
         0,
@@ -751,20 +765,19 @@ export function renderDomainBudgetTable(domain) {
     if (domain === "core") html += spendingSourceTailHtml(tt);
     html += "</details>";
   });
-  // #335: the Adjustments accordion follows the Tracking Type accordions.
-  if (domain === "core") html += renderSpendingAdjustmentsAccordion();
   html += `<div class="section-note" style="margin-top:12px"><b>${esc(domainBudgetTitle(domain))} total: $${Math.round(grandTotal).toLocaleString()}/yr</b></div>`;
   html += "</div>";
   return html;
 }
 
 export function renderCoreSpendingUnified() {
-  let html = renderSpendingCore();
-  html +=
-    '<div style="margin-top:32px">' + renderDomainBudgetPage("core") + "</div>";
+  // Search results replace the controls block and stay on top; otherwise the
+  // page is Spending Categories, Projection Controls (collapsed), Category Manager.
+  const searching = !!searchText.trim();
+  let html = searching ? renderSpendingCore() : "";
+  html += '<div style="margin-top:' + (searching ? 32 : 0) + 'px">' + renderDomainBudgetPage("core") + "</div>";
+  if (!searching) html += '<div style="margin-top:16px">' + renderSpendingCore() + "</div>";
   html += '<div style="margin-top:32px">' + renderTaxonomyManager() + "</div>";
-  // #336: Large Discretionary (the former "Large Items") is edited in its own
-  // Spending Model accordion, so nothing is appended here any more.
   return html;
 }
 

@@ -503,7 +503,14 @@ DASHBOARD_JS_MAX_LINES = 7_134
 # after Field Finder's synchronous renderMain() so it stops reading frozen.
 # dashboard.js is unchanged. New behavior, not duplication: raised to the
 # measured 36,723.
-TOTAL_JS_MAX_LINES = 36_723
+# 2026-09-29 (Projection Controls): the core-spending controls block moves from
+# the top of Spending Categories into a collapsed Projection Controls section
+# after it (compact readout of the current inputs, Unsaved tag, auto-open when a
+# control is missing), Adjustments moves inside it as an always-visible block
+# instead of its own accordion, and Category Manager reuses
+# sortByTrackingTypeOrder. New behavior, not duplication: raised to the
+# measured 36,735.
+TOTAL_JS_MAX_LINES = 36_735
 
 
 def _line_count(path: Path) -> int:
