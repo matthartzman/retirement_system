@@ -10,6 +10,7 @@ from ..planning_engines import (
     FEDERAL_BRACKETS_BASE_YEAR,
     FEDERAL_BRACKETS_MFJ,
     STATE_TAX_RULES,
+    aca_magi,
     aca_premium_tax_credit,
     annuity_cash_income,
     irmaa_lookback_magi_and_filing,
@@ -563,10 +564,13 @@ def apply_agi_and_tax(
     row['irmaa_magi_current'] = irmaa_magi_current
 
     # Recompute ACA Premium Tax Credit after actual Roth conversions. ACA
-    # MAGI is federal AGI plus tax-exempt interest. If a conversion reduces
+    # MAGI is federal AGI plus tax-exempt interest plus the non-taxable part
+    # of Social Security (WI-307 / FIN-007) -- a distinct figure from
+    # irmaa_magi_current, which omits the SS term. If a conversion reduces
     # the credit, the extra net premium is included in spending before the
     # withdrawal cascade and is also exposed to the Roth optimizer metrics.
-    aca_ptc_final = aca_premium_tax_credit(c, year=year, magi=irmaa_magi_current, bridge_people=bridge_people)
+    aca_magi_current = aca_magi(agi, portfolio_tax_exempt, ss_total, ss_taxable)
+    aca_ptc_final = aca_premium_tax_credit(c, year=year, magi=aca_magi_current, bridge_people=bridge_people)
     # n_alive guard: the ACA recompute rebuilds wellness_base_yr and
     # total_spend_need from premium components, which would resurrect
     # spending the estate-mode block above just zeroed.

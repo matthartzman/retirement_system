@@ -58,6 +58,18 @@ place mislabels its value year and silently mis-indexes every later year.
    - `ss_wage_base`
    - `salt_cap`, `salt_phasedown_threshold`, `salt_phasedown_growth` (the cap is
      keyed to absolute statutory years -- extend the schedule when law changes)
+   - ACA premium tax credit (WI-307): `aca_enhanced_subsidies_through_year`
+     (default used only when a plan leaves the field blank), the original
+     IRC 36B applicable-percentage table `aca_applicable_pct_original_band1..6_*`
+     (`_fpl_floor`, `_initial`, `_final`) plus `aca_applicable_pct_original_max_fpl`
+     and `aca_applicable_pct_original_credit_above_max` (from the year's IRS
+     Rev. Proc.), and the enhanced table `aca_applicable_pct_enhanced_band1..5_*`
+     plus `aca_applicable_pct_enhanced_max_fpl`,
+     `aca_applicable_pct_enhanced_credit_above_max` and
+     `aca_applicable_pct_enhanced_above_max_pct`. A year after the latest dated
+     table uses that table. The rows first entered for 2026 are recalled,
+     unverified assumptions -- verify them against Rev. Proc. 2025-25 and the
+     current enhanced-credit status.
    Leave the previous rows in place: the lookup uses them for earlier years.
 3. Update `reference_data/tax_update_dashboard.csv`: for each family you just
    refreshed, set `year` to the new value year and `last_reviewed` to today.
