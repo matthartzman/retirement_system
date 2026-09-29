@@ -41,7 +41,9 @@ def test_after_tax_helper_models_taxable_cap_gain_components():
     # than being honored as an override: $500k spread over 10 years of MFJ
     # ordinary income (bracket-inflated from 2056) lands at an ~11.8% blended
     # federal rate, below the old flat 24% assumption.
-    assert result["terminal_deferred_pretax_tax"] == 59_140.0
+    # Hand check: heir files Single, each $50,000 slice (no other income, brk_inf 0)
+    # = 12,400*10% + (50,000-12,400)*12% = 5,752 on the 2026 ladder; x10 slices.
+    assert result["terminal_deferred_pretax_tax"] == 57_520.0
     assert result["terminal_taxable_unrealized_gain_est"] == 200_000
     assert result["terminal_deferred_taxable_cap_gain_tax"] > 0
     assert result["terminal_deferred_tax_total"] > result["terminal_deferred_pretax_tax"]

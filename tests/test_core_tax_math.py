@@ -33,14 +33,19 @@ FIXTURES = ROOT / "tests" / "fixtures"
 class Phase5ClosedFormTaxTests(unittest.TestCase):
     def test_federal_tax_closed_form_bracket_edges(self):
         from src.core import compute_fed_tax
-        self.assertAlmostEqual(compute_fed_tax(100000, 2025, "MFJ", 0.0), 11828.00, places=2)
-        self.assertAlmostEqual(compute_fed_tax(50000, 2025, "Single", 0.0), 5914.00, places=2)
-        self.assertAlmostEqual(compute_fed_tax(206700, 2025, "MFJ", 0.0), 35302.00, places=2)
+        # 2026 brackets (WI-301; unverified planning assumption), hand-computed:
+        #   MFJ 100,000 = 24,800*10% + (100,000-24,800)*12% = 2,480 + 9,024
+        #   Single 50,000 = 12,400*10% + (50,000-12,400)*12% = 1,240 + 4,512
+        #   MFJ 211,400 (top of the 22% band) = 2,480 + 76,000*12% + 110,600*22% = 2,480 + 9,120 + 24,332
+        self.assertAlmostEqual(compute_fed_tax(100000, 2026, "MFJ", 0.0), 11504.00, places=2)
+        self.assertAlmostEqual(compute_fed_tax(50000, 2026, "Single", 0.0), 5752.00, places=2)
+        self.assertAlmostEqual(compute_fed_tax(211400, 2026, "MFJ", 0.0), 35932.00, places=2)
 
     def test_standard_deduction_and_state_tax_closed_form(self):
         from src.core import standard_deduction, state_income_tax
-        self.assertAlmostEqual(standard_deduction(2025, "MFJ", 0.0, n_over_65=2), 33200.00, places=2)
-        self.assertAlmostEqual(standard_deduction(2025, "Single", 0.0, n_over_65=1), 17000.00, places=2)
+        # 2026: MFJ 32,200 + 2 x 1,650; Single 16,100 + 1 x 2,050 (senior bonus is separate).
+        self.assertAlmostEqual(standard_deduction(2026, "MFJ", 0.0, n_over_65=2), 35500.00, places=2)
+        self.assertAlmostEqual(standard_deduction(2026, "Single", 0.0, n_over_65=1), 18150.00, places=2)
         il_tax = state_income_tax(
             "Illinois", earned=100000, retirement_dist=100000, ss_taxable=20000,
             investment_inc=10000, nonqual_annuity=5000, roth_conv=50000, year=2025,
@@ -84,8 +89,9 @@ class Phase5IRSExampleReconciliationTests(unittest.TestCase):
 class Phase5CrossToolReconciliationTests(unittest.TestCase):
     def _manual_fed_tax(self, filing: str, taxable: float) -> float:
         brackets = {
-            "MFJ": [(0, 23850, .10), (23850, 96950, .12), (96950, 206700, .22), (206700, 394600, .24), (394600, 501050, .32), (501050, 751600, .35), (751600, float("inf"), .37)],
-            "Single": [(0, 11925, .10), (11925, 48475, .12), (48475, 103350, .22), (103350, 197300, .24), (197300, 250525, .32), (250525, 626350, .35), (626350, float("inf"), .37)],
+            # 2026 ladders (unverified planning assumption; verify against Rev. Proc. 2025-32).
+            "MFJ": [(0, 24800, .10), (24800, 100800, .12), (100800, 211400, .22), (211400, 403550, .24), (403550, 512450, .32), (512450, 768700, .35), (768700, float("inf"), .37)],
+            "Single": [(0, 12400, .10), (12400, 50400, .12), (50400, 105700, .22), (105700, 201775, .24), (201775, 256225, .32), (256225, 640600, .35), (640600, float("inf"), .37)],
         }[filing]
         tax = 0.0
         for lo, hi, rate in brackets:
