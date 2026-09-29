@@ -1190,8 +1190,8 @@
       "value": 218000,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1200,8 +1200,8 @@
       "value": 81.2,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1210,8 +1210,8 @@
       "value": 14.5,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1220,8 +1220,8 @@
       "value": 274000,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1230,8 +1230,8 @@
       "value": 202.9,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1240,8 +1240,8 @@
       "value": 37.5,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1250,8 +1250,8 @@
       "value": 342000,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1260,8 +1260,8 @@
       "value": 324.6,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1270,8 +1270,8 @@
       "value": 60.4,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1280,18 +1280,18 @@
       "value": 410000,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
       "filing_status": "MFJ",
       "name": "irmaa_tier4_part_b_surcharge_monthly",
-      "value": 446.4,
+      "value": 446.3,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1300,8 +1300,8 @@
       "value": 83.3,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1310,8 +1310,8 @@
       "value": 750000,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1320,8 +1320,8 @@
       "value": 487.0,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1330,8 +1330,8 @@
       "value": 91.0,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1340,8 +1340,8 @@
       "value": 109000,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1350,8 +1350,8 @@
       "value": 81.2,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1360,8 +1360,8 @@
       "value": 14.5,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1370,8 +1370,8 @@
       "value": 137000,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1380,8 +1380,8 @@
       "value": 202.9,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1390,8 +1390,8 @@
       "value": 37.5,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1400,8 +1400,8 @@
       "value": 171000,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1410,8 +1410,8 @@
       "value": 324.6,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1420,8 +1420,8 @@
       "value": 60.4,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1430,18 +1430,18 @@
       "value": 205000,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
       "filing_status": "Single",
       "name": "irmaa_tier4_part_b_surcharge_monthly",
-      "value": 446.4,
+      "value": 446.3,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1450,8 +1450,8 @@
       "value": 83.3,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1460,8 +1460,8 @@
       "value": 500000,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1470,8 +1470,8 @@
       "value": 487.0,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1480,8 +1480,8 @@
       "value": 91.0,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1490,8 +1490,8 @@
       "value": 109000,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1500,8 +1500,8 @@
       "value": 81.2,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1510,8 +1510,8 @@
       "value": 14.5,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1520,8 +1520,8 @@
       "value": 137000,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1530,8 +1530,8 @@
       "value": 202.9,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1540,8 +1540,8 @@
       "value": 37.5,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1550,8 +1550,8 @@
       "value": 171000,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1560,8 +1560,8 @@
       "value": 324.6,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1570,8 +1570,8 @@
       "value": 60.4,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1580,18 +1580,18 @@
       "value": 205000,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
       "filing_status": "HOH",
       "name": "irmaa_tier4_part_b_surcharge_monthly",
-      "value": 446.4,
+      "value": 446.3,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1600,8 +1600,8 @@
       "value": 83.3,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1610,8 +1610,8 @@
       "value": 500000,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1620,8 +1620,8 @@
       "value": 487.0,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1630,8 +1630,8 @@
       "value": 91.0,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1640,18 +1640,18 @@
       "value": 109000,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
       "filing_status": "MFS",
       "name": "irmaa_tier1_part_b_surcharge_monthly",
-      "value": 446.4,
+      "value": 446.3,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1660,8 +1660,8 @@
       "value": 83.3,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1670,8 +1670,8 @@
       "value": 391000,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1680,8 +1680,8 @@
       "value": 487.0,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1690,8 +1690,8 @@
       "value": 91.0,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1700,8 +1700,8 @@
       "value": 202.9,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
