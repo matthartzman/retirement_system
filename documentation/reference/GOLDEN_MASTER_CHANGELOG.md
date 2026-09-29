@@ -1,3 +1,15 @@
+## 2026-09-29 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
+
+<!-- pin-provenance: terminal_nw=5283512.01 lifetime_tax=1275337.74 -->
+
+**Old pins.** terminal_nw=5,283,516.99, lifetime_tax=1,275,335.17
+
+**New pins.** terminal_nw=5,283,512.01, lifetime_tax=1,275,337.74
+
+**Reason.**
+
+Wave 3 combined re-pin (WI-302..WI-310 merged): WI-310 (Large Discretionary inflated from plan-start dollars) had set the pins to 5,283,516.99 / 1,275,335.17 before WI-303 (RMD Uniform Lifetime age-83 divisor 17.8->17.7, rows 116-120) landed on top. Measured on the combined code: terminal_nw -4.98 and lifetime_tax +2.57 versus the WI-310 pins, matching WI-303's standalone effect (-4.95 / +2.56), so the two changes do not interact. WI-302 (SALT/CA vintage), WI-304 (IRMAA lookback MAGI/filing status), WI-305 (per-person NY/CO exclusions), WI-306 and WI-308 moved no pin on the frozen sample plan. Hand-verified via tools/regen_golden_master.py measure before this regen.
+
 ## 2026-09-29 — IRMAA lookback uses MAGI and the lookback return's filing status (system review 2026-09-25, Wave 3 WI-304, FIN-009)
 
 **Engine change, not data drift.** `core.irmaa_lookback_magi_and_filing`
