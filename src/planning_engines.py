@@ -1927,35 +1927,102 @@ def spending_guardrail_year(
 
 
 
-def aca_applicable_percentage(fpl_pct: float, enhanced: bool = True, cap: float = 0.085) -> float:
-    """Approximate ACA applicable percentage schedule for bridge-year PTC.
+_ACA_TABLE_CACHE: dict = {}
 
-    Enhanced-subsidy years cap benchmark premiums at the configured cap above
-    400% FPL. Non-enhanced years include a 400% FPL cliff by returning a very
-    high required contribution above 400% FPL.
+
+def _aca_regime_table(enhanced: bool, year: int | None) -> dict:
+    """WI-307 / FIN-007: the dated applicable-percentage table for one ACA
+    regime, read from tax_law_v10.json (``aca_applicable_pct_enhanced_*`` or
+    ``aca_applicable_pct_original_*`` rows). ``year=None`` means the latest
+    dated table."""
+    from .tax_law import default_tax_law_dataset
+    key = (bool(enhanced), None if year is None else int(year))
+    if key not in _ACA_TABLE_CACHE:
+        regime = 'enhanced' if enhanced else 'original'
+        _ACA_TABLE_CACHE[key] = default_tax_law_dataset().aca_applicable_pct_table(regime, 9999 if year is None else int(year))
+    return _ACA_TABLE_CACHE[key]
+
+
+def aca_enhanced_through_year(c: Mapping) -> int:
+    """The plan's last enhanced-PTC year; a blank/missing field falls back to
+    the dated ``aca_enhanced_subsidies_through_year`` dataset row."""
+    raw = c.get('aca_enhanced_subsidies_through_year')
+    try:
+        if raw is not None and str(raw).strip() != '' and int(float(raw)) > 0:
+            return int(float(raw))
+    except (TypeError, ValueError):
+        pass
+    from .tax_law import aca_enhanced_subsidies_through_year_default
+    return aca_enhanced_subsidies_through_year_default()
+
+
+def aca_regime_is_enhanced(c: Mapping, year: int) -> bool:
+    """Single regime switch for the PTC and the Roth-conversion guardrail:
+    enhanced iff ``year`` <= the enhanced-through year."""
+    return int(year) <= aca_enhanced_through_year(c)
+
+
+def aca_fpl_for_year(c: Mapping, year: int) -> float:
+    """Household FPL dollars for ``year`` (base-year FPL indexed by ``inf``)."""
+    fpl_base = max(1.0, float(c.get('aca_fpl_base', 0.0) or 0.0))
+    return fpl_base * ((1.0 + float(c.get('inf', 0.025) or 0.0)) ** max(0, int(year) - int(c.get('plan_start', year))))
+
+
+def aca_guardrail_max_fpl_multiple(c: Mapping, year: int) -> float:
+    """MAGI ceiling (as a multiple of FPL) for the Roth-conversion ACA
+    guardrail, taken from the same regime table as the PTC: a regime with a
+    cliff stops at its ``max_fpl``; one whose credit continues above it may
+    use the plan's ``aca_ptc_guardrail_fpl_pct`` when that is higher."""
+    table = _aca_regime_table(aca_regime_is_enhanced(c, year), year)
+    if not table['credit_above_max']:
+        return float(table['max_fpl'])
+    return max(float(table['max_fpl']), float(c.get('aca_ptc_guardrail_fpl_pct', 4.0) or 4.0))
+
+
+def aca_magi(agi: float, tax_exempt_interest: float, ss_gross: float, ss_taxable: float) -> float:
+    """ACA (IRC 36B(d)(2)(B)) MAGI: AGI + tax-exempt interest + the non-taxable
+    part of Social Security. Distinct from IRMAA MAGI, which omits the SS term."""
+    return float(agi or 0.0) + float(tax_exempt_interest or 0.0) + max(0.0, float(ss_gross or 0.0) - float(ss_taxable or 0.0))
+
+
+def aca_applicable_percentage(fpl_pct: float, enhanced: bool = True, cap: float = 0.085, year: int | None = None) -> float:
+    """ACA applicable percentage for bridge-year PTC from the dated regime
+    table in tax_law_v10.json (WI-307 / FIN-007).
+
+    Within a band the required contribution interpolates linearly from the
+    band's initial to its final percentage. The enhanced regime's top-band
+    final and above-``max_fpl`` percentages are the plan's ``cap``; the
+    original §36B regime has no credit above ``max_fpl`` (400% FPL cliff),
+    signalled by returning a very high required contribution. ``year=None``
+    uses the latest dated table.
     """
     f = max(0.0, float(fpl_pct or 0.0))
     cap = max(0.0, min(0.20, float(cap or 0.085)))
-    if not enhanced and f > 4.0:
-        return 9_999.0
-    # Simplified current-law/enhanced schedule suitable for planning sensitivity.
-    points = [(1.5, 0.00), (2.0, 0.02), (2.5, 0.04), (3.0, 0.06), (4.0, cap)]
-    if f <= points[0][0]:
-        return points[0][1]
-    for (x0,y0),(x1,y1) in zip(points, points[1:]):
-        if f <= x1:
-            return y0 + (y1-y0) * ((f-x0)/(x1-x0))
+    table = _aca_regime_table(enhanced, year)
+    bands = list(table['bands'])
+    max_fpl = float(table['max_fpl'])
+    if f > max_fpl:
+        if not table['credit_above_max']:
+            return 9_999.0
+        return cap if enhanced else float(table['above_max_pct'])
+    for i, (floor, initial, final) in enumerate(bands):
+        top = bands[i + 1][0] if i + 1 < len(bands) else max_fpl
+        if enhanced and i + 1 == len(bands):
+            final = cap
+        if f < top or i + 1 == len(bands):
+            width = top - floor
+            frac = 0.0 if width <= 0 else min(1.0, max(0.0, (f - floor) / width))
+            return initial + (final - initial) * frac
     return cap
 
 
 def aca_premium_tax_credit(c: Mapping, *, year: int, magi: float, bridge_people: int) -> float:
     if not c.get('aca_ptc_enabled', True) or bridge_people <= 0:
         return 0.0
-    fpl_base = max(1.0, float(c.get('aca_fpl_base', 0.0) or 0.0))
-    fpl = fpl_base * ((1.0 + float(c.get('inf', 0.025) or 0.0)) ** max(0, int(year) - int(c.get('plan_start', year))))
+    fpl = aca_fpl_for_year(c, year)
     fpl_pct = max(0.0, float(magi or 0.0) / fpl)
-    enhanced = int(year) <= int(c.get('aca_enhanced_subsidies_through_year', year) or year)
-    app_pct = aca_applicable_percentage(fpl_pct, enhanced=enhanced, cap=float(c.get('aca_applicable_pct_cap', 0.085) or 0.085))
+    enhanced = aca_regime_is_enhanced(c, year)
+    app_pct = aca_applicable_percentage(fpl_pct, enhanced=enhanced, cap=float(c.get('aca_applicable_pct_cap', 0.085) or 0.085), year=year)
     if app_pct > 1.0:
         return 0.0
     benchmark = float(c.get('aca_benchmark_silver_premium', c.get('bridge_premium', 0.0)) or 0.0)
@@ -2282,9 +2349,8 @@ def plan_roth_conversion(
                 # ACA guardrail, an ACA-bridge client on "fill to IRMAA" gets
                 # conversions sized straight into subsidy-destroying MAGI.
                 # Mirrors the fill_to_bracket branch's guardrail above.
-                fpl = max(1.0, float(c.get('aca_fpl_base', 0.0) or 0.0) * ((1.0 + float(c.get('inf', 0.025) or 0.0)) ** max(0, year - int(c.get('plan_start', year)))))
-                enhanced = int(year) <= int(c.get('aca_enhanced_subsidies_through_year', year) or year)
-                max_fpl = 4.0 if not enhanced else max(4.0, float(c.get('aca_ptc_guardrail_fpl_pct', 4.0) or 4.0))
+                fpl = aca_fpl_for_year(c, year)
+                max_fpl = aca_guardrail_max_fpl_multiple(c, year)
                 caps.append(("ACA PTC MAGI guardrail", max(0.0, max_fpl * fpl - pre_agi)))
             caps.extend(_ltcg_niit_caps())
             cap, binding, secondary_binding = _ranked_caps(caps)
@@ -2297,9 +2363,8 @@ def plan_roth_conversion(
                 # Roth conversions in bridge years can destroy ACA premium tax
                 # credits.  Add a guardrail that keeps MAGI below the point where
                 # the configured benchmark subsidy is largely lost.
-                fpl = max(1.0, float(c.get('aca_fpl_base', 0.0) or 0.0) * ((1.0 + float(c.get('inf', 0.025) or 0.0)) ** max(0, year - int(c.get('plan_start', year)))))
-                enhanced = int(year) <= int(c.get('aca_enhanced_subsidies_through_year', year) or year)
-                max_fpl = 4.0 if not enhanced else max(4.0, float(c.get('aca_ptc_guardrail_fpl_pct', 4.0) or 4.0))
+                fpl = aca_fpl_for_year(c, year)
+                max_fpl = aca_guardrail_max_fpl_multiple(c, year)
                 caps.append(("ACA PTC MAGI guardrail", max(0.0, max_fpl * fpl - pre_agi)))
             guard_mode = str(c.get("irmaa_guardrail_mode", "AVOID_NEXT_TIER") or "AVOID_NEXT_TIER").upper()
             if (

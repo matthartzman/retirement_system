@@ -812,7 +812,12 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     c['aca_fpl_base'] = _n(_v(data,'Wellness','ACA Premium Tax Credit','federal_poverty_level_base_year','21150'), 21150)
     c['aca_benchmark_silver_premium'] = _n(_v(data,'Wellness','ACA Premium Tax Credit','benchmark_silver_premium_annual','32000'), 32000)
     c['aca_applicable_pct_cap'] = _n(_v(data,'Wellness','ACA Premium Tax Credit','applicable_pct_cap','8.50%'), 0.085)
-    c['aca_enhanced_subsidies_through_year'] = int(_n(_v(data,'Wellness','ACA Premium Tax Credit','enhanced_subsidies_through_year','2026'), 2026))
+    # WI-307 / FIN-007: a blank field takes the dated
+    # aca_enhanced_subsidies_through_year row in tax_law_v10.json (an
+    # UNVERIFIED assumption -- see that row's source); an explicit value wins.
+    from .tax_law import aca_enhanced_subsidies_through_year_default as _aca_thru_default
+    _aca_thru_raw = _n(_v(data,'Wellness','ACA Premium Tax Credit','enhanced_subsidies_through_year',''), None)
+    c['aca_enhanced_subsidies_through_year'] = int(_aca_thru_raw) if _aca_thru_raw else _aca_thru_default()
 
     # Cashflow / income
     c['earned']     = _n(_v(data,'Cashflow','Earned Income','annual_earned_income','290000'), 290000)

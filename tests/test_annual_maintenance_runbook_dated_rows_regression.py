@@ -22,6 +22,10 @@ def test_runbook_names_every_value_family_in_the_dataset():
     def covered(n):
         if n.startswith("irmaa_tier"):
             return "irmaa_tier1..5" in RUNBOOK
+        # ACA applicable-percentage band rows are listed by band range (WI-307).
+        for regime in ("original", "enhanced"):
+            if n.startswith(f"aca_applicable_pct_{regime}_band"):
+                return f"aca_applicable_pct_{regime}_band1.." in RUNBOOK
         return n in RUNBOOK
     missing = sorted(n for n in names if not covered(n))
     assert not missing, f"runbook omits value families in tax_law_v10.json: {missing}"

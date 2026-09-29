@@ -16,7 +16,9 @@ from tests.test_roth_ltcg_niit_guardrails import _plan
 
 def test_ltcg_cap_threshold_matches_kernel_ltcg_tax_threshold():
     year = 2031
-    c, plan = _plan({'roth_niit_cap': False, 'brk_inf': 0.03},
+    # plan_start differs from the brackets' value year (2026) on purpose so the
+    # old (year - plan_start) convention would give a visibly different factor.
+    c, plan = _plan({'roth_niit_cap': False, 'brk_inf': 0.03, 'plan_start': 2028},
                     year=year, portfolio_qualified=200_000.0)
     assert plan.binding_limit == 'LTCG rate tier'
     top0, top15 = pe._roth_ltcg_thresholds_base(c, 'MFJ')
@@ -25,7 +27,7 @@ def test_ltcg_cap_threshold_matches_kernel_ltcg_tax_threshold():
     assert abs(ceiling - top15 * factor) < 1e-6
     # The old plan_start convention gives a different factor (guards against
     # a silent revert): the brackets' value year is not plan_start here.
-    assert abs(factor - 1.03 ** (year - 2026)) > 1e-6
+    assert abs(factor - 1.03 ** (year - 2028)) > 1e-6
 
     # The kernel's own LTCG stacking crosses 15% -> 20% exactly at the ceiling.
     kc = {**c, 'ltcg_0_top': top0, 'ltcg_15_top': top15}
