@@ -2,7 +2,7 @@ import pytest
 from src import tax_kernel as tk
 from src import taxes as _td
 
-VY = _td.IRMAA_TIERS_VALUE_YEAR          # 2025
+VY = _td.IRMAA_TIERS_VALUE_YEAR          # 2026 (WI-301)
 C = {"plan_start": 2026, "inf": 0.03, "med_inf": 0.055, "partd_inf": 0.0125}
 
 def _round(x, step):
@@ -11,8 +11,8 @@ def _round(x, step):
 def test_threshold_is_cpi_indexed_from_value_year_and_rounded():
     c = dict(C, irmaa_inflator=0.10)                      # must be ignored
     n = 2036 - VY
-    assert tk.irmaa_threshold(c, "MFJ", 0, 2036) == _round(212000 * 1.03 ** n, 2000)
-    assert tk.irmaa_threshold(c, "Single", 0, 2036) == _round(106000 * 1.03 ** n, 1000)
+    assert tk.irmaa_threshold(c, "MFJ", 0, 2036) == _round(218000 * 1.03 ** n, 2000)
+    assert tk.irmaa_threshold(c, "Single", 0, 2036) == _round(109000 * 1.03 ** n, 1000)
 
 def test_top_tier_frozen_through_2027_then_indexed():
     top = len(_td.IRMAA_TIERS_BASE_YEAR["MFJ"]) - 1
