@@ -10,6 +10,34 @@
 
 Wave 3 WI-310 (system review 2026-09-25, FIN-011): Large Discretionary lumps are now defined in plan-start dollars and inflated to their year in the projection (spending_and_rmd.py), matching Core spending; migrated legacy repeating rows expand at a constant plan-start amount and so inflate each year. The budget display (ld_budget_for_year) is unchanged. Lowers frozen sample plan terminal_nw by about $70,006 and lifetime_tax by about $3,974 because future LD spending is larger in nominal terms. Hand-verified via tools/regen_golden_master.py measure before this regen.
 
+## 2026-09-29 — Golden-master pin regenerated via `tools/regen_golden_master.py regen` (WI-303, measured before WI-310 landed; superseded by the combined re-pin below if present)
+
+<!-- pin-provenance: terminal_nw=5353517.86 lifetime_tax=1279311.64 -->
+
+**Old pins.** terminal_nw=5,353,522.81, lifetime_tax=1,279,309.08
+
+**New pins.** terminal_nw=5,353,517.86, lifetime_tax=1,279,311.64
+
+**Reason.**
+
+WI-303 (system review 2026-09-25, FIN-013): RMD Uniform Lifetime divisor for age 83 corrected 17.8->17.7 per IRS Pub. 590-B Table III and rows 116-120 added (2.8/2.7/2.5/2.3/2.0) replacing the linear post-115 extrapolation. The age-83 RMD rises about 0.56%, moving terminal_nw -$4.95 and lifetime_tax +$2.56 on the frozen sample plan (larger RMD in the age-83 year, more ordinary income taxed, less left compounding). Hand-verified via tools/regen_golden_master.py measure before this regen.
+
+**Also regenerated (same reason):**
+
+- `tests/fixtures/synthetic_golden_master_cases.json` via `tools/regen_synthetic_golden_master.py`:
+  only `lifetime_tax` moved, by -$15 to +$50 per scenario (most up, because the
+  age-83 RMD is larger; `high_spending_pressure` -$15.41 and
+  `lower_return_environment` -$6.05 fall slightly as the smaller remaining IRA
+  produces smaller later RMDs).
+- `tests/fixtures/deterministic_engine_full_row_snapshot_cases.json` via
+  `tools/regen_full_row_snapshot.py`: every scenario's first material divergence
+  is the year a member turns 83 (larger `_rmd_by_account`, `agi`, `fed_tax`,
+  lower IRA balance), with only downstream consequences after that. Earlier
+  diffs are last-bit float noise in `gross_cash_flow_yr` (~1e-11).
+- WI-302 (SALT schedule / CA vintage, same branch) moved no pin: the fixture
+  households are not CA residents and do not itemize above the phase-down
+  threshold.
+
 ## 2026-09-28 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
 
 <!-- pin-provenance: terminal_nw=5353522.81 lifetime_tax=1279309.08 -->
