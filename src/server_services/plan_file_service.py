@@ -14,6 +14,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
 
+from ..plan_db_replace import replace_active_db
 from ..build_snapshot import (
     SNAPSHOT_FILENAME,
     compare_snapshot_to_current,
@@ -28,6 +29,8 @@ class PlanFileServiceContext:
     audit: Callable[[str, dict[str, Any]], None]
     retention_count: int = 10
     output_dir: Callable[[], Path] | None = None
+    # Runs the at-rest plan-data migration against the freshly replaced DB.
+    migrate: Callable[[Path], Any] | None = None
 
 
 def _sidecar_paths(db_path: Path) -> list[Path]:
@@ -105,21 +108,16 @@ class PlanFileService:
         if not src.exists() or not src.is_file():
             return {"success": False, "error": "Saved plan file not found"}
         dest = self.ctx.sqlite_db()
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        _checkpoint_sqlite(dest)
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_name = f"retirement_system_v10.db.before_load_{ts}"
         backup = dest.parent / backup_name
-        if dest.exists():
-            shutil.copy2(str(dest), str(backup))
+        result = replace_active_db(src, dest, backup_path=backup, migrate=self.ctx.migrate)
+        if not result.get("success"):
+            return {"success": False, "error": result.get("error", "Could not load plan file")}
         pruned = self._prune_backups(dest.parent, "retirement_system_v10.db.before_load_*")
-        sidecars_removed = _remove_sidecars(dest)
-        shutil.copy2(str(src), str(dest))
-        _remove_sidecars(dest)
-        _checkpoint_sqlite(dest, truncate=True)
         self.ctx.audit(
             "plan_loaded_file",
-            {"source": str(src), "backup": backup_name if backup.exists() else None, "sidecars_removed": sidecars_removed, "pruned": pruned},
+            {"source": str(src), "backup": backup_name if backup.exists() else None, "sidecars_removed": result.get("sidecars_removed", 0), "pruned": pruned},
         )
         return {"success": True, "backup": backup_name if backup.exists() else None}
 
@@ -155,6 +153,7 @@ class PlanFileService:
             snapshot_path,
             self.ctx.sqlite_db(),
             backup_suffix=str(body.get("backup_suffix") or "").strip() or None,
+            migrate=self.ctx.migrate,
         )
         if payload.get("success"):
             self.ctx.audit("plan_snapshot_restored", {"snapshot_path": str(snapshot_path), "backup_database": payload.get("backup_database")})

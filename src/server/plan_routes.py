@@ -1211,6 +1211,12 @@ def spending_budget_unified():
 
 # PlanFileService owns SQLite copy semantics including wal_checkpoint(FULL),
 # wal_checkpoint(TRUNCATE), not src.exists(), and before_load backups.
+def _migrate_after_db_replace(db_path):
+    from ..plan_data_migration import run_startup_plan_data_migration
+
+    return run_startup_plan_data_migration(db_path=db_path)
+
+
 def _plan_file_feature_service() -> plan_file_service.PlanFileService:
     return plan_file_service.PlanFileService(
         plan_file_service.PlanFileServiceContext(
@@ -1218,6 +1224,7 @@ def _plan_file_feature_service() -> plan_file_service.PlanFileService:
             audit=_audit,
             retention_count=10,
             output_dir=_workspace_output,
+            migrate=_migrate_after_db_replace,
         )
     )
 
@@ -1260,6 +1267,11 @@ def plan_load_file():
             except Exception as mat_exc:
                 _audit("plan_load_file_materialize_warning", {"error": str(mat_exc)})
                 result["materialize_warning"] = str(mat_exc)
+                # The DB was replaced but the disk-first read path would still
+                # serve the previous plan's files, so this is not a clean load.
+                result["success"] = False
+                result["db_replaced"] = True
+                result["error"] = "Plan database loaded, but its data files could not be written to disk: " + str(mat_exc)
         return jsonify(result)
     except Exception as exc:  # noqa: BLE001
         return jsonify({"success": False, "error": str(exc)})

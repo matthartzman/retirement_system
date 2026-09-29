@@ -25,6 +25,7 @@ def _make_db(path: Path, marker: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(path))
     try:
+        conn.execute("CREATE TABLE IF NOT EXISTS client_files(file_name TEXT PRIMARY KEY, content TEXT)")
         conn.execute("CREATE TABLE IF NOT EXISTS marker (value TEXT)")
         conn.execute("DELETE FROM marker")
         conn.execute("INSERT INTO marker(value) VALUES (?)", (marker,))

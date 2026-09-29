@@ -20,6 +20,7 @@ single-user local desktop/server process.
 import contextvars
 import html
 import json
+import logging
 import mimetypes
 import os
 import re
@@ -331,16 +332,22 @@ def _compile_rule(rule: str) -> tuple[re.Pattern[str], dict[str, Callable[[str],
 
 
 class _Logger:
-    def exception(self, message: str, exc_info: Any = None) -> None:  # pragma: no cover - diagnostic path
-        print(message)
-        if exc_info:
-            traceback.print_exception(exc_info if isinstance(exc_info, BaseException) else None)
+    """app.logger shim routed through the stdlib logging module (ARC-003)."""
 
-    def info(self, message: str, *args: Any) -> None:  # pragma: no cover
-        print(message % args if args else message)
+    def __init__(self) -> None:
+        self._log = logging.getLogger("retirement_system.http")
 
-    def warning(self, message: str, *args: Any) -> None:  # pragma: no cover
-        print(message % args if args else message)
+    def exception(self, message: str, exc_info: Any = None) -> None:
+        if isinstance(exc_info, BaseException):
+            self._log.error(message, exc_info=exc_info)
+        else:
+            self._log.error(message, exc_info=bool(exc_info))
+
+    def info(self, message: str, *args: Any) -> None:
+        self._log.info(message, *args)
+
+    def warning(self, message: str, *args: Any) -> None:
+        self._log.warning(message, *args)
 
 
 class Flask:

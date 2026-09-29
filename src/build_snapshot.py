@@ -131,7 +131,7 @@ def compare_snapshot_to_current(snapshot: dict[str, Any], *, sqlite_db_path: str
     }
 
 
-def restore_sqlite_database_from_snapshot(snapshot_path: str | Path, active_sqlite_db_path: str | Path, *, backup_suffix: str | None = None) -> dict[str, Any]:
+def restore_sqlite_database_from_snapshot(snapshot_path: str | Path, active_sqlite_db_path: str | Path, *, backup_suffix: str | None = None, migrate: Any = None) -> dict[str, Any]:
     """Restore the SQLite database copy referenced by a build snapshot.
 
     The current active DB is copied to ``*.before_snapshot_restore_<ts>`` before
@@ -153,14 +153,17 @@ def restore_sqlite_database_from_snapshot(snapshot_path: str | Path, active_sqli
     if expected_hash and actual_hash != expected_hash:
         return {"success": False, "error": "Snapshot database hash mismatch.", "expected_sha256": expected_hash, "actual_sha256": actual_hash}
     active = Path(active_sqlite_db_path)
-    active.parent.mkdir(parents=True, exist_ok=True)
     backup_path = None
     if active.exists():
         stamp = backup_suffix or datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
         backup_path = active.with_name(active.name + f".before_snapshot_restore_{stamp}")
-        _checkpoint_sqlite(active)
-        shutil.copy2(str(active), str(backup_path))
-    shutil.copy2(str(db_copy), str(active))
+    # Shared validated replacement (WI-201): integrity/table check, verified
+    # checkpoint, SQLite-API backup, atomic replace, sidecar cleanup.
+    from .plan_db_replace import replace_active_db  # noqa: PLC0415
+
+    replaced = replace_active_db(db_copy, active, backup_path=backup_path, migrate=migrate)
+    if not replaced.get("success"):
+        return {"success": False, "error": replaced.get("error", "Snapshot restore failed.")}
     return {
         "success": True,
         "schema": "plan_snapshot_restore_v1",

@@ -25,7 +25,10 @@ mode calls this, then ``src.desktop_app.start()`` constructs a
 """
 from __future__ import annotations
 
+import logging
+import logging.handlers
 import os
+from pathlib import Path
 
 _BOOTSTRAPPED = False
 
@@ -58,6 +61,56 @@ def set_local_mode_env_defaults() -> None:
         os.environ.setdefault(key, value)
 
 
+LOG_LOGGER_NAME = "retirement_system"
+LOG_MAX_BYTES = 1_000_000
+LOG_BACKUP_COUNT = 3
+_LOG_HANDLER_TAG = "_retirement_system_file_handler"
+
+
+class _RedactingFormatter(logging.Formatter):
+    """Applies the app's existing redaction to every formatted record."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        text = super().format(record)
+        try:
+            from src.security import redact_text  # noqa: PLC0415
+            return redact_text(text)
+        except Exception:
+            return text
+
+
+def configure_logging(log_dir: str | Path | None = None) -> Path | None:
+    """Attach one size-bounded rotating file handler (``local_state/logs/
+    app.log``) to the ``retirement_system`` logger (ARC-003 / WI-204).
+
+    Idempotent: a second call reuses the handler already attached. Returns
+    the log file path, or None if the file could not be opened (logging must
+    never stop the app from starting).
+    """
+    logger = logging.getLogger(LOG_LOGGER_NAME)
+    for h in logger.handlers:
+        if getattr(h, _LOG_HANDLER_TAG, False):
+            return Path(h.baseFilename)
+    try:
+        if log_dir is None:
+            from src import platform_runtime  # noqa: PLC0415
+            log_dir = platform_runtime.workspace_root() / "local_state" / "logs"
+        directory = Path(log_dir)
+        directory.mkdir(parents=True, exist_ok=True)
+        handler = logging.handlers.RotatingFileHandler(
+            directory / "app.log", maxBytes=LOG_MAX_BYTES,
+            backupCount=LOG_BACKUP_COUNT, encoding="utf-8",
+        )
+    except Exception:
+        return None
+    handler.setFormatter(_RedactingFormatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+    setattr(handler, _LOG_HANDLER_TAG, True)
+    logger.addHandler(handler)
+    if logger.level == logging.NOTSET or logger.level > logging.INFO:
+        logger.setLevel(logging.INFO)
+    return Path(handler.baseFilename)
+
+
 def run_startup_bootstrap(*, run_migration: bool = True) -> dict:
     """Set local-mode env defaults and, once per process, run the at-rest
     Plan Data migration.
@@ -81,6 +134,9 @@ def run_startup_bootstrap(*, run_migration: bool = True) -> dict:
     """
     global _BOOTSTRAPPED
     set_local_mode_env_defaults()
+    configure_logging()
+    from src.platform_runtime import seed_frozen_workspace  # noqa: PLC0415
+    seed_frozen_workspace()  # no-op from source; per-user workspace when frozen
     if not run_migration or _BOOTSTRAPPED:
         return {"migrated": [], "total_changed": 0, "already_ran": _BOOTSTRAPPED}
     _BOOTSTRAPPED = True
