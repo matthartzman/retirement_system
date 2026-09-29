@@ -115,11 +115,11 @@ describe("Large Discretionary section (#336)", () => {
 });
 
 describe("Large Discretionary is reachable before it has any rows (#336)", () => {
-  test("empty spending model still renders the LD table and Adjustments", () => {
+  test("empty spending model still renders the LD table", () => {
     run(`spendingModelData = { tracking_types: [] }; taxonomyData = []; budgetLines = [];`);
     const html = sandbox.renderDomainBudgetTable("core");
     assert.match(html, /transaction categories loaded/);
     assert.match(ldBody(html), /class="lot-table large-disc-table"/);
-    assert.match(html, /data-dkey="budget:core:adjustments"/);
+    assert.doesNotMatch(html, /data-dkey="budget:core:adjustments"/);
   });
 });

@@ -1058,3 +1058,11 @@ body.chart-modal-open{overflow:hidden}
 .pf-group-name{font-weight:900;font-size:12px;text-transform:uppercase;letter-spacing:.06em}
 .pf-group-count{font-size:11px;color:var(--muted);font-weight:800}
 .pf-override{border-color:#fde68a;background:#fffbeb;color:#92400e}
+
+/* Projection Controls: collapsed section after Spending Categories, with a compact readout of the current inputs */
+.projection-controls>summary{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 12px}
+.projection-controls .pc-readout{display:inline-flex;flex-wrap:wrap;gap:4px 14px;font-weight:600;color:var(--ink)}
+.projection-controls .pc-readout b{color:var(--muted);font-weight:600}
+.projection-controls .pc-unsaved{margin-left:auto;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;background:var(--warn);color:#fff;border-radius:6px;padding:1px 7px}
+.projection-controls .pc-body{padding:14px;display:flex;flex-direction:column;gap:16px}
+.projection-controls .field-list.inline-row .field{flex:1 1 170px}

@@ -1,5 +1,5 @@
-/* Spending Adjustments table (#335, spec §5) -- the Adjustments accordion
-   at the end of Spending Model, hosted by renderDomainBudgetTable() in
+/* Spending Adjustments table (#335, spec §5) -- the Adjustments block inside
+   the Projection Controls section, hosted by renderSpendingCore() in
    dashboard_decomp_spending_taxonomy.js.
 
    Each row is a one-time step applied multiplicatively from its start year
@@ -200,9 +200,10 @@ export function renderSpendingAdjustmentsTable() {
   return html + "</tbody></table></div>";
 }
 
-// The Adjustments accordion, after the Tracking Type accordions.
-export function renderSpendingAdjustmentsAccordion() {
-  return `<details class="taxonomy-type-section spending-adjustments" data-dkey="budget:core:adjustments"><summary><b>Adjustments</b> <span class="small">${spendingAdjustments.length} step change${spendingAdjustments.length === 1 ? "" : "s"}</span></summary>${renderSpendingAdjustmentsTable()}</details>`;
+// The Adjustments block, always visible inside the Projection Controls section.
+export function renderSpendingAdjustmentsBlock() {
+  const n = spendingAdjustments.length;
+  return `<div class="spending-adjustments"><h4 class="group-title">Adjustments <span class="small">${n} step change${n === 1 ? "" : "s"}</span></h4>${renderSpendingAdjustmentsTable()}</div>`;
 }
 
 // Every export above is also re-attached to window: saveWorkingCopy() and
@@ -221,7 +222,7 @@ Object.assign(window, {
   updateSpendingAdjustment,
   deleteSpendingAdjustment,
   renderSpendingAdjustmentsTable,
-  renderSpendingAdjustmentsAccordion,
+  renderSpendingAdjustmentsBlock,
 });
 Object.defineProperty(window, "spendingAdjustments", {
   get: () => spendingAdjustments,
