@@ -2,9 +2,10 @@
 enhanced-through-year default from a dated dataset row, and ACA MAGI that
 includes non-taxable Social Security.
 
-The 2026 original-IRC-36B table and the 2025 enhanced-through-year default are
-recalled, UNVERIFIED assumptions (status "assumption" in tax_law_v10.json);
-these tests pin the engine to the dataset, not to verified law.
+The 2026 original-IRC-36B table is VERIFIED against IRS Rev. Proc. 2025-25. The
+enhanced (ARPA/IRA) table and the 2025 enhanced-through-year default are recalled,
+UNVERIFIED assumptions (status "assumption" in tax_law_v10.json); those tests pin
+the engine to the dataset, not to verified law.
 """
 from __future__ import annotations
 
@@ -42,15 +43,23 @@ def _cfg(**over):
     return c
 
 
-def test_every_new_aca_row_is_an_unverified_assumption():
+def test_aca_row_verification_status_matches_what_was_checked():
     rows = [r for r in json.loads((ROOT / 'reference_data/tax_law_v10.json').read_text(encoding='utf-8'))['values']
             if r['name'].startswith('aca_')]
     assert rows
-    for r in rows:
+    # The 2026 original-36B table was checked against IRS Rev. Proc. 2025-25 (2026-09-29).
+    orig = [r for r in rows if r['name'].startswith('aca_applicable_pct_original')]
+    assert orig
+    for r in orig:
+        assert r['status'] == 'verified', r['name']
+        assert 'Rev. Proc. 2025-25' in r['source'], r['name']
+    # Everything else (the enhanced ARPA/IRA table and the enhanced-through-year default)
+    # is NOT covered by a supplied document and stays an unverified assumption.
+    others = [r for r in rows if r not in orig]
+    assert others
+    for r in others:
         assert r['status'] == 'assumption', r['name']
         assert 'UNVERIFIED' in r['source'], r['name']
-    orig = [r for r in rows if r['name'].startswith('aca_applicable_pct_original')]
-    assert orig and all('Rev. Proc. 2025-25' in r['source'] for r in orig)
 
 
 @pytest.mark.parametrize('fpl_mult, pct', [
