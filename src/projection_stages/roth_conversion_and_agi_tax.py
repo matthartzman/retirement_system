@@ -12,7 +12,7 @@ from ..planning_engines import (
     STATE_TAX_RULES,
     aca_premium_tax_credit,
     annuity_cash_income,
-    irmaa_lookback_magi,
+    irmaa_lookback_magi_and_filing,
     salt_cap,
     senior_bonus_deduction,
     social_security_taxable_amount,
@@ -782,11 +782,15 @@ def apply_agi_and_tax(
         2: c.get('irmaa_actual_magi_2yr_prior'),
         1: c.get('irmaa_actual_magi_1yr_prior'),
     }
-    irmaa_magi = irmaa_lookback_magi(rows, irmaa_magi_current, c.get('irmaa_lookback_years', 2),
-                                      historical_magi=_irmaa_historical_magi)
+    # WI-304 / FIN-009: assess on the lookback row's MAGI (AGI + tax-exempt
+    # interest) against the filing status of THAT year's return.
+    irmaa_magi, irmaa_filing = irmaa_lookback_magi_and_filing(
+        rows, irmaa_magi_current, filing, c.get('irmaa_lookback_years', 2),
+        historical_magi=_irmaa_historical_magi)
     row['irmaa_magi_used'] = irmaa_magi
-    irmaa_yr = irmaa_surcharge_fn(irmaa_magi, year, n_medicare, filing) if n_medicare > 0 else 0.0
-    row['irmaa_tier'] = irmaa_tier_fn(irmaa_magi, year, filing)
+    row['irmaa_filing_used'] = irmaa_filing
+    irmaa_yr = irmaa_surcharge_fn(irmaa_magi, year, n_medicare, irmaa_filing) if n_medicare > 0 else 0.0
+    row['irmaa_tier'] = irmaa_tier_fn(irmaa_magi, year, irmaa_filing)
 
     # Resolve the deferred home-sale taxable-gain tax (extracted stage):
     # apply_home_sale() (earlier this same year) computed the gain but
