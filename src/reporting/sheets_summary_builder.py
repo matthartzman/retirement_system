@@ -430,6 +430,7 @@ def build_sheet2(ws, c, rows):
         ('Roth Legacy Objective Mode', c.get('roth_legacy_objective_mode', 'OFF'), 'text', 'OFF, LOW, BALANCED, or STRONG; weights future tax-rate risk and inheritance tax burden in Roth conversion selection.'),
         ('Roth Future Tax Stress', c.get('roth_future_tax_rate_stress_pct', 0.0), 'decimal', 'Additional ordinary-tax-rate stress used only in the Roth conversion objective.'),
         ('Assumed Heir Filing Status', c.get('roth_heir_filing_status', 'Single'), 'text', 'Beneficiary filing status assumed when deriving the effective inherited-IRA tax rate below.'),
+        ('Heir Other Taxable Income', c.get('roth_heir_other_taxable_income', 80000.0), 'USD', "Assumed heir income (plan-start dollars) that inherited pre-tax distributions stack on. Edit under Withdrawal Policy > Roth Conversion > heir_other_taxable_income; the derived heir rate below responds."),
         ('Heir Ordinary Tax Rate (effective)',
          (c.get('roth_heir_ordinary_tax_rate_effective') or c.get('roth_heir_ordinary_tax_rate_assumption', 0.0)),
          'decimal',
