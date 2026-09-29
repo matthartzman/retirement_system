@@ -13,6 +13,7 @@ can consult it without risking an import cycle.
 
 import datetime as _datetime
 import os
+import shutil
 import sys
 from pathlib import Path
 
@@ -21,6 +22,7 @@ WORKSPACE_SUBDIRS = ("input", "output", "local_state", "saved_plans")
 WORKSPACE_ROOT_ENV = "RETIREMENT_SYSTEM_WORKSPACE_ROOT"
 NO_AUTO_OPEN_ENV = "RETIREMENT_SYSTEM_NO_AUTO_OPEN"
 FROZEN_TODAY_ENV = "RETIREMENT_SYSTEM_FROZEN_TODAY"
+FROZEN_WORKSPACE_DIRNAME = "RetirementPlanner"
 
 
 def today() -> _datetime.date:
@@ -72,12 +74,51 @@ def workspace_root() -> Path:
     """Directory that holds all writable data.
 
     Honors ``RETIREMENT_SYSTEM_WORKSPACE_ROOT`` when set to a non-empty value.
-    Defaults to :func:`package_root`.
+    Defaults to :func:`package_root` from source, or to the per-user
+    :func:`frozen_workspace_root` in a frozen build.
     """
     override = (os.getenv(WORKSPACE_ROOT_ENV) or "").strip()
     if override:
         return Path(override).expanduser()
+    if is_frozen():
+        return frozen_workspace_root()
     return package_root()
+
+
+def frozen_workspace_root() -> Path:
+    """Per-user writable root for a frozen (PyInstaller) build.
+
+    The bundle's own directory is wiped by every rebuild and is shareable, so
+    user data must live elsewhere (ARC-007): ``%LOCALAPPDATA%\\RetirementPlanner``
+    on Windows, else ``$XDG_DATA_HOME`` or ``~/.local/share`` under the same name.
+    """
+    local = (os.getenv("LOCALAPPDATA") or "").strip()
+    if local:
+        return Path(local) / FROZEN_WORKSPACE_DIRNAME
+    xdg = (os.getenv("XDG_DATA_HOME") or "").strip()
+    base = Path(xdg) if xdg else Path.home() / ".local" / "share"
+    return base / FROZEN_WORKSPACE_DIRNAME
+
+
+def seed_frozen_workspace() -> bool:
+    """Seed an empty per-user workspace ``input/`` from the bundled demo plan.
+
+    Only acts when frozen and the workspace is not the package root, and only
+    when ``input/client_data.csv`` is absent, so existing user data is never
+    overwritten. Returns True when files were copied.
+    """
+    root = workspace_root()
+    if not is_frozen() or root == package_root():
+        return False
+    demo = package_root() / "input" / "demo"
+    target = root / "input"
+    if (target / "client_data.csv").exists() or not demo.is_dir():
+        return False
+    ensure_workspace_dirs()
+    for src_file in demo.iterdir():
+        if src_file.is_file():
+            shutil.copy2(src_file, target / src_file.name)
+    return True
 
 
 def workspace_subdir(name: str, *, create: bool = False) -> Path:

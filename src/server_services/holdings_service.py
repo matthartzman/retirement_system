@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from ..plan_file_io import write_text_atomic
+
 EMPTY_HOLDINGS_CSV = "account,symbol,purchase_date,shares,purchase_price,lot_type,note\n"
 EMPTY_LIABILITIES_CSV = "liability_id,type,label,balance,interest_rate,monthly_payment,start_year,payoff_year,notes\n"
 EMPTY_HSA_SCHEDULE_CSV = "year,optimizer_amount,override_amount,locked,note\n"
@@ -29,7 +31,7 @@ def save_holdings(*, content: str, base_dir: Path, workspace_id: str, client_id:
         raise ValueError("No content in request")
     p = workspace_file("client_holdings.csv", workspace_id, base_dir, prefer_existing=False)
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(content, encoding="utf-8")
+    write_text_atomic(p, content)
     set_client_file("client_holdings.csv", content, workspace_id, client_id, user_id, db_path)
     return {"success": True, "path": str(p), "bytes": len(content)}
 
@@ -53,7 +55,7 @@ def save_liabilities(*, content: str, base_dir: Path, workspace_id: str, client_
         raise ValueError("No content in request")
     p = workspace_file("client_liabilities.csv", workspace_id, base_dir, prefer_existing=False)
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(content, encoding="utf-8")
+    write_text_atomic(p, content)
     set_client_file("client_liabilities.csv", content, workspace_id, client_id, user_id, db_path)
     return {"success": True, "path": str(p), "bytes": len(content)}
 
@@ -82,6 +84,6 @@ def save_hsa_schedule(*, content: str, base_dir: Path, workspace_id: str, client
         raise ValueError("No content in request")
     p = workspace_file("client_hsa_schedule.csv", workspace_id, base_dir, prefer_existing=False)
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(content, encoding="utf-8")
+    write_text_atomic(p, content)
     set_client_file("client_hsa_schedule.csv", content, workspace_id, client_id, user_id, db_path)
     return {"success": True, "path": str(p), "bytes": len(content)}

@@ -159,7 +159,7 @@ export async function saveLiabilities() {
   const content = serializeLiabilities();
   const res = await fetch(apiUrl("/api/liabilities"), {
     method: "POST",
-    headers: { "Content-Type": "text/csv" },
+    headers: { "Content-Type": "text/plain", "X-CSRF-Token": window.csrfToken || "" },
     body: content,
   });
   if (!res.ok) throw new Error(await res.text());
@@ -1018,7 +1018,7 @@ export async function saveHsaSchedule() {
   const content = serializeHsaSchedule();
   const res = await fetch(apiUrl("/api/hsa-schedule"), {
     method: "POST",
-    headers: { "Content-Type": "text/csv" },
+    headers: { "Content-Type": "text/plain", "X-CSRF-Token": window.csrfToken || "" },
     body: content,
   });
   if (!res.ok) throw new Error(await res.text());

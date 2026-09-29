@@ -3855,12 +3855,10 @@ export function budgetAmount(value) {
   return budgetMoneyNumber(value);
 }
 
+// #344: mirrors spending_tracker._line_amount_for_year (dated lines count only in their year).
 export function catDetailSum(catId) {
-  let s = 0;
-  catDetailLines(catId).forEach((l) => {
-    s += budgetAmount(l.amount_per_year) || 0;
-  });
-  return s;
+  const y = new Date().getFullYear(), n = (v) => parseInt(v, 10) || 0, ok = (l) => n(l.one_time_year) ? n(l.one_time_year) === y : !((n(l.start_year) && y < n(l.start_year)) || (n(l.end_year) && y > n(l.end_year)));
+  return catDetailLines(catId).reduce((s, l) => s + (ok(l) ? budgetAmount(l.amount_per_year) || 0 : 0), 0);
 }
 
 export function hasExplicitBudget(key) {

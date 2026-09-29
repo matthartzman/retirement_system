@@ -54,7 +54,7 @@ class RuntimeConfig:
     require_api_token: bool = False
     allow_unauthenticated_saas: bool = False
     lan_auth_opt_out_ack: bool = False
-    audit_log_enabled: bool = False
+    audit_log_enabled: bool = True
     redact_secrets_in_logs: bool = True
     allow_csv_write: bool = True
     allow_downloads: bool = True
@@ -106,7 +106,8 @@ def load_runtime_config(path: str | Path | None = None) -> RuntimeConfig:
     allow_unauthenticated_saas = False
     require_api_token = False
     lan_auth_opt_out_ack = False
-    audit_log_enabled = False
+    # ARC-003/WI-204: on by default; set RETIREMENT_SYSTEM_AUDIT_LOG_ENABLED=NO to opt out.
+    audit_log_enabled = _env_bool("RETIREMENT_SYSTEM_AUDIT_LOG_ENABLED", True)
 
     try:
         max_build_seconds = int(float(
