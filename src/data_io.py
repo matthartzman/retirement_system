@@ -2328,7 +2328,7 @@ def build_plan_from_json(plan, url_template=''):
     # 10-year-rule heir ordinary tax rate (see parse_client for the CSV path).
     _heir_filing_json = str(a.get('roth_heir_filing_status', 'Single') or 'Single').strip()
     c['roth_heir_filing_status'] = _heir_filing_json if _heir_filing_json in ('Single','MFJ','HOH','MFS') else 'Single'
-    c['roth_heir_other_taxable_income'] = a.get('roth_heir_other_taxable_income', 80000.0)
+    c['roth_heir_other_taxable_income'] = a.get('roth_heir_other_taxable_income', 200000.0)
     c['roth_brk']           = c['roth_target_rate']
     # -1 matches the CSV path's schema-documented default (see parse_client
     # above) so conversion_window_end_year's default-vs-explicit signal

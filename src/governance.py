@@ -69,7 +69,11 @@ def model_risk_rating(mc_data: dict[str, Any] | None, deterministic: bool = Fals
     elif 'vectorized' in engine:
         rating = 'APPROXIMATE_VECTORIZED_MC' if status != 'TOLERANCE_BOUNDED' else 'TOLERANCE_BOUNDED_VECTORIZED_MC'
         label = 'Approximate vectorized Monte Carlo' if status != 'TOLERANCE_BOUNDED' else 'Tolerance-bounded vectorized Monte Carlo'
-        desc = 'Batched engine for speed; exact scalar parity checks must remain within tolerance before advisor-ready reliance.'
+        tol = mc_data.get('mc_parity_tolerance_pp')
+        desc = ('Batched engine for speed. Headline success rate is tested to stay within '
+                f'{float(tol):g} percentage points of the exact scalar engine; use exact scalar mode for validation.'
+                if status == 'TOLERANCE_BOUNDED' and tol is not None else
+                'Batched engine for speed; exact scalar parity checks must remain within tolerance before advisor-ready reliance.')
     elif mc_data:
         rating = 'SCENARIO_OR_UNKNOWN_OUTPUT'
         label = 'Scenario/unknown probabilistic output'
