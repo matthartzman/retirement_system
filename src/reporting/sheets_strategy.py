@@ -1290,7 +1290,7 @@ def build_sheet12(ws, c, rows):
         mort_int_base    = 0.0
         senior_bonus_base = 0.0
 
-    salt_base    = min(salt_gross_base, salt_cap(opt_year, est_agi_base))
+    salt_base    = min(salt_gross_base, salt_cap(opt_year, est_agi_base, filing_base))
     std_ded_base = standard_deduction(opt_year, filing_base, brk_inf, n65_base) + senior_bonus_base
     # DAF deduction limit = 60% of AGI
     max_daf_deductible = est_agi_base * 0.60

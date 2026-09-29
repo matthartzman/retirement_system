@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import unittest
 
-from src.core import TAX_BASE_YEAR, state_income_tax
+from src.core import TAX_BASE_YEAR, _STATE_INCOME_BRACKETS_VALUE_YEARS, state_income_tax
 
 
 class StateBracketInflationTests(unittest.TestCase):
@@ -84,7 +84,9 @@ class StateBracketInflationTests(unittest.TestCase):
         self.assertAlmostEqual(tax_a, tax_b, places=6)
 
     def test_zero_years_elapsed_is_unaffected_by_brk_inf(self):
-        year0 = TAX_BASE_YEAR
+        # WI-302: CA thresholds are tagged with their real value year (2024),
+        # so "zero years elapsed" is that year, not the run-date year.
+        year0 = _STATE_INCOME_BRACKETS_VALUE_YEARS['California']
         kwargs = dict(earned=0.0, retirement_dist=0.0, ss_taxable=0.0,
                       investment_inc=300_000.0, nonqual_annuity=0.0, roth_conv=0.0,
                       age_over_65=True, filing='MFJ', year=year0)

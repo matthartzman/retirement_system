@@ -31,7 +31,6 @@ STANDARD_DEDUCTION_VALUE_YEAR = int(os.environ.get('STANDARD_DEDUCTION_VALUE_YEA
 IRMAA_TIERS_VALUE_YEAR = int(os.environ.get('IRMAA_TIERS_VALUE_YEAR') or 2025)
 LTCG_BRACKETS_VALUE_YEAR = int(os.environ.get('LTCG_BRACKETS_VALUE_YEAR') or 2025)
 SS_WAGE_BASE_VALUE_YEAR = int(os.environ.get('SS_WAGE_BASE_VALUE_YEAR') or 2025)
-SALT_REVERSION_YEAR = TAX_REFERENCE_YEAR + 4
 
 FILING_STATUSES = ['MFJ', 'Single', 'HOH', 'MFS']
 
@@ -101,7 +100,58 @@ IRMAA_TIERS_VALUE_YEAR = max((meta['tax_year'] for key, meta in _FEDERAL_DATASET
 LTCG_BRACKETS_BASE_YEAR = dict(_FEDERAL_ENGINE_TABLES.get('ltcg_brackets') or {})
 LTCG_BRACKETS_VALUE_YEAR = max((meta['tax_year'] for key, meta in _FEDERAL_DATASET_PROVENANCE.items() if key.startswith('ltcg_')), default=TAX_REFERENCE_YEAR)
 SS_WAGE_BASE_VALUE_YEAR = TAX_REFERENCE_YEAR
-SALT_REVERSION_YEAR = TAX_REFERENCE_YEAR + 4
+
+
+def _load_salt_schedule():
+    """WI-302 / FIN-005: the SALT cap schedule keyed by ABSOLUTE statutory year.
+
+    Read straight from the dated ``salt_cap`` / ``salt_phasedown_*`` rows in
+    tax_law_v10.json so the schedule (and its reversion year) never depends on
+    the calendar year the app runs in or on ``TAX_REFERENCE_YEAR``.
+    Returns ``(cap_rows, threshold_rows, growth_rows)``, each a tuple of
+    ``(effective_year, expires_year_or_None, value)`` sorted by effective year.
+    """
+    from .tax_law import load_tax_law_dataset
+    ds = load_tax_law_dataset()
+
+    def _rows(name):
+        return tuple(sorted(
+            (int(v.effective_year), None if v.expires_year is None else int(v.expires_year), float(v.value))
+            for v in ds.values
+            if v.name == name and v.jurisdiction == 'US' and v.filing_status == 'MFJ'
+        ))
+    return _rows('salt_cap'), _rows('salt_phasedown_threshold'), _rows('salt_phasedown_growth')
+
+
+SALT_CAP_ROWS, SALT_PHASEDOWN_THRESHOLD_ROWS, SALT_PHASEDOWN_GROWTH_ROWS = _load_salt_schedule()
+
+
+def dated_row_value(rows, year, default=None):
+    """Value of the latest ``(effective, expires, value)`` row in force in ``year``."""
+    year = int(year)
+    best = None
+    for eff, exp, val in rows:
+        if eff <= year and (exp is None or year <= exp):
+            best = (eff, val) if best is None or eff >= best[0] else best
+    return default if best is None else best[1]
+
+
+def _salt_reversion_year(cap_rows):
+    """First statutory year after the enhanced-cap window when the cap returns
+    to its pre-enhancement (TCJA) level. Absolute, never run-date relative."""
+    if not cap_rows:
+        return None
+    base_cap = cap_rows[0][2]
+    seen_enhanced = False
+    for eff, _exp, val in cap_rows:
+        if val > base_cap:
+            seen_enhanced = True
+        elif seen_enhanced and val <= base_cap:
+            return eff
+    return None
+
+
+SALT_REVERSION_YEAR = _salt_reversion_year(SALT_CAP_ROWS)
 
 TAX_YEAR_PROVENANCE = {
     'federal_brackets': {'tax_year': FEDERAL_BRACKETS_VALUE_YEAR, 'source': _FEDERAL_DATASET_SOURCE},

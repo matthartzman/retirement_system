@@ -35,7 +35,6 @@ from .workbook_common import (
     LGRAY,
     NAVY,
     NIIT_THRESHOLD,
-    TAX_BASE_YEAR,
     WHITE,
     get_column_letter,
     inflate_brackets,
@@ -46,6 +45,7 @@ from .workbook_common import (
 )
 from .. import gain_harvest as _gh
 from .. import tax_kernel as _tk
+from .. import taxes as _td
 
 
 def _bracket_top(taxable_inc, year, filing, brk_inf):
@@ -58,7 +58,9 @@ def _bracket_top(taxable_inc, year, filing, brk_inf):
     reads from the exact table that column already uses.
     """
     brk = FEDERAL_BRACKETS_BASE_YEAR.get(filing, FEDERAL_BRACKETS_BASE_YEAR['Single'])
-    brk = inflate_brackets(brk, brk_inf, year - TAX_BASE_YEAR)
+    # WI-302: inflate from the brackets' own value year (as core.marginal_rate
+    # does), not the run-date TAX_BASE_YEAR.
+    brk = inflate_brackets(brk, brk_inf, year - _td.FEDERAL_BRACKETS_VALUE_YEAR)
     for lo, hi, _rate in brk:
         if lo <= taxable_inc < hi:
             return hi

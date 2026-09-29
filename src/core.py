@@ -1050,13 +1050,13 @@ def state_income_tax(state, earned, retirement_dist, ss_taxable, investment_inc,
     # rate badly distorts residency comparisons; use a conservative bracket
     # schedule and fall back to the CSV rate for any unlisted graduated state.
     # Item 4.6 (P10 second half): these thresholds are only accurate as of
-    # _STATE_INCOME_BRACKETS_VALUE_YEAR — inflate them by brk_inf the same way
+    # _STATE_INCOME_BRACKETS_VALUE_YEARS[state] — inflate them by brk_inf the same way
     # compute_fed_tax inflates the federal brackets, or a 30-year projection
     # shows CA/NY state tax drifting steadily upward relative to federal
     # purely from frozen bracket thresholds, not from any real law change.
     brackets = _STATE_INCOME_BRACKETS.get((state, filing)) or _STATE_INCOME_BRACKETS.get((state, 'Single'))
     if rules.get('type') == 'graduated' and brackets:
-        years = int(year) - _STATE_INCOME_BRACKETS_VALUE_YEAR
+        years = int(year) - _STATE_INCOME_BRACKETS_VALUE_YEARS.get(state, TAX_BASE_YEAR)
         if years:
             brackets = inflate_brackets(brackets, brk_inf, years)
         return _bracket_tax(taxable, brackets)
@@ -1072,12 +1072,22 @@ def _bracket_tax(taxable, brackets):
     return max(0.0, tax)
 
 
-_STATE_INCOME_BRACKETS_VALUE_YEAR = TAX_BASE_YEAR
+# WI-302 / FIN-005: each state's bracket thresholds are tagged with the
+# absolute tax year their dollar figures come from, never the run-date year,
+# so the schedules do not re-anchor (and silently under-index) every January.
+#   California: the thresholds below are the 2024 FTB (R&TC §17041) figures.
+#   New York: NY does not index its brackets; these are current-law statutory
+#     thresholds (Tax Law §601), tagged 2026 so the pre-WI-302 behaviour for a
+#     2026 run is preserved. Refresh via the annual tax-data workflow.
+_STATE_INCOME_BRACKETS_VALUE_YEARS = {
+    'California': 2024,
+    'New York': 2026,
+}
 
 _STATE_INCOME_BRACKETS = {
     # Approximate current-law schedules used only where state_tax.csv marks a
     # state as graduated.  Thresholds should be refreshed in the annual tax-data
-    # governance workflow. Accurate as of _STATE_INCOME_BRACKETS_VALUE_YEAR;
+    # governance workflow. Accurate as of _STATE_INCOME_BRACKETS_VALUE_YEARS[state];
     # state_income_tax() inflates them forward by brk_inf for later years.
     ('California','Single'): [(0, 10756, .01), (10756, 25499, .02), (25499, 40245, .04), (40245, 55866, .06), (55866, 70606, .08), (70606, 360659, .093), (360659, 432787, .103), (432787, 721314, .113), (721314, float('inf'), .123)],
     ('California','MFJ'): [(0, 21512, .01), (21512, 50998, .02), (50998, 80490, .04), (80490, 111732, .06), (111732, 141212, .08), (141212, 721318, .093), (721318, 865574, .103), (865574, 1442628, .113), (1442628, float('inf'), .123)],
@@ -1204,19 +1214,34 @@ def amt_tax(regular_taxable_income, regular_tax, amt_preferences, filing='MFJ',
     credit_used = min(carry, reg - tmt)
     return -credit_used, carry - credit_used
 
-def salt_cap(year, magi):
-    schedule = {
-        TAX_BASE_YEAR - 1: 40000,
-        TAX_BASE_YEAR: 40400,
-        TAX_BASE_YEAR + 1: 40804,
-        TAX_BASE_YEAR + 2: 41212,
-        TAX_BASE_YEAR + 3: 41624,
-    }
-    if year >= _td.SALT_REVERSION_YEAR:
-        return 10000
-    cap = schedule.get(year, schedule.get(TAX_BASE_YEAR, 40000))
-    thr = 500000 + (year - (TAX_BASE_YEAR - 1)) * 500
-    return max(cap - 0.30 * max(magi - thr, 0), 10000)
+def salt_cap(year, magi, filing='MFJ'):
+    """Federal SALT deduction cap for ``year`` (IRC §164(b)(6)/(7)).
+
+    WI-302 / FIN-005: the schedule is keyed by absolute statutory year from the
+    dated rows in tax_law_v10.json (``_td.SALT_CAP_ROWS``), so it never shifts
+    with the run date or ``TAX_REFERENCE_YEAR``. During the enhanced-cap window
+    the cap phases down by 30% of MAGI above the threshold, but never below the
+    base (TCJA) cap. MFS gets half of every dollar figure.
+    """
+    year = int(year)
+    rows = _td.SALT_CAP_ROWS
+    base_cap = rows[0][2] if rows else 10000.0
+    cap = _td.dated_row_value(rows, year)
+    if cap is None:
+        # Only reachable for years before the first dated row (pre-2018, never
+        # a projection year); return the base cap rather than an unbounded one.
+        cap = base_cap
+    half = 0.5 if str(filing or '').strip().upper().startswith('MFS') else 1.0
+    floor = base_cap * half
+    if cap <= base_cap:
+        return cap * half
+    thr0 = _td.dated_row_value(_td.SALT_PHASEDOWN_THRESHOLD_ROWS, year)
+    growth = _td.dated_row_value(_td.SALT_PHASEDOWN_GROWTH_ROWS, year, 0.0) or 0.0
+    if thr0 is None:
+        return cap * half
+    thr_start = min(eff for eff, _x, _v in _td.SALT_PHASEDOWN_THRESHOLD_ROWS if eff <= year)
+    thr = thr0 * (1.0 + growth) ** (year - thr_start)
+    return max(cap * half - 0.30 * max(magi - thr * half, 0), floor)
 
 def state_death_tax_credit(taxable_estate):
     """Pre-2005 federal state-death-tax-credit table used by Illinois."""

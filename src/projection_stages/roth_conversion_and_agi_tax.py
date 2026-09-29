@@ -632,7 +632,7 @@ def apply_agi_and_tax(
     prop_tax_yr = configured_prop_tax_yr if configured_prop_tax_yr > 0 else estimated_prop_tax_yr
     mort_interest_yr = float((c.get('mort_interest_schedule') or {}).get(year, 0.0) or 0.0)
     salt_gross = il_tax_est + prop_tax_yr
-    salt = min(salt_gross, salt_cap(year, agi))
+    salt = min(salt_gross, salt_cap(year, agi, filing))
     # Item 4.1: QCD dollars already left AGI above (never a deduction);
     # treat char_low as the household's total giving intent and net the
     # QCD portion out of the itemizable cash-gift component so the same

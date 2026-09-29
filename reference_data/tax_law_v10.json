@@ -389,8 +389,8 @@
       "name": "salt_cap",
       "value": 10000,
       "effective_year": 2018,
-      "expires_year": 2025,
-      "source": "TCJA local dataset",
+      "expires_year": 2024,
+      "source": "IRC 164(b)(6) as enacted by TCJA (P.L. 115-97)",
       "status": "legislated"
     },
     {
@@ -398,9 +398,80 @@
       "filing_status": "MFJ",
       "name": "salt_cap",
       "value": 40000,
+      "effective_year": 2025,
+      "expires_year": 2025,
+      "source": "IRC 164(b)(7) as amended by OBBBA (P.L. 119-21); FIN-005 schedule, pending professional verification",
+      "status": "legislated"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "salt_cap",
+      "value": 40400,
       "effective_year": 2026,
-      "source": "planning assumption dataset",
-      "status": "assumption"
+      "expires_year": 2026,
+      "source": "IRC 164(b)(7) as amended by OBBBA (P.L. 119-21); FIN-005 schedule, pending professional verification",
+      "status": "legislated"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "salt_cap",
+      "value": 40804,
+      "effective_year": 2027,
+      "expires_year": 2027,
+      "source": "IRC 164(b)(7) as amended by OBBBA (P.L. 119-21); FIN-005 schedule, pending professional verification",
+      "status": "legislated"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "salt_cap",
+      "value": 41212,
+      "effective_year": 2028,
+      "expires_year": 2028,
+      "source": "IRC 164(b)(7) as amended by OBBBA (P.L. 119-21); FIN-005 schedule, pending professional verification",
+      "status": "legislated"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "salt_cap",
+      "value": 41624,
+      "effective_year": 2029,
+      "expires_year": 2029,
+      "source": "IRC 164(b)(7) as amended by OBBBA (P.L. 119-21); FIN-005 schedule, pending professional verification",
+      "status": "legislated"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "salt_cap",
+      "value": 10000,
+      "effective_year": 2030,
+      "expires_year": null,
+      "source": "IRC 164(b)(7) as amended by OBBBA (P.L. 119-21): reversion to $10,000; FIN-005 schedule, pending professional verification",
+      "status": "legislated"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "salt_phasedown_threshold",
+      "value": 500000,
+      "effective_year": 2025,
+      "expires_year": 2029,
+      "source": "IRC 164(b)(7) as amended by OBBBA (P.L. 119-21): $500,000 for 2025, grown 1% a year through 2029 by the engine (salt_phasedown_growth); FIN-005, pending professional verification",
+      "status": "legislated"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "salt_phasedown_growth",
+      "value": 0.01,
+      "effective_year": 2025,
+      "expires_year": 2029,
+      "source": "IRC 164(b)(7) as amended by OBBBA (P.L. 119-21); FIN-005, pending professional verification",
+      "status": "legislated"
     },
     {
       "jurisdiction": "US",
@@ -947,16 +1018,6 @@
       "filing_status": "MFJ",
       "name": "part_d_base_premium_monthly",
       "value": 40.0,
-      "effective_year": 2025,
-      "expires_year": null,
-      "source": "v10 local dated tax-law dataset",
-      "status": "assumption"
-    },
-    {
-      "jurisdiction": "US",
-      "filing_status": "MFJ",
-      "name": "salt_cap",
-      "value": 10000,
       "effective_year": 2025,
       "expires_year": null,
       "source": "v10 local dated tax-law dataset",
