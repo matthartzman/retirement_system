@@ -153,7 +153,9 @@ def build_sheet_tax_capacity(ws, c, rows):
         # -- the actual two-year-lookback MAGI the engine used to assess this
         # row's IRMAA surcharge/tier (irmaa_lookback_magi, src/core.py:870).
         irmaa_magi = float(row.get('irmaa_magi_used', agi) or agi)
-        irmaa_dist = _next_irmaa_tier_distance(irmaa_magi, year, filing, c)
+        # WI-304: measure against the table the engine assessed on (the
+        # lookback return's filing status), not this year's filing.
+        irmaa_dist = _next_irmaa_tier_distance(irmaa_magi, year, row.get('irmaa_filing_used') or filing, c)
 
         # Bridge-year test mirrors deterministic_engine.py:1391-1396's own
         # h_bridge/w_bridge/bridge_people computation (pre-65 ACA eligibility).

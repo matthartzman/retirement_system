@@ -1,3 +1,29 @@
+## 2026-09-29 — IRMAA lookback uses MAGI and the lookback return's filing status (system review 2026-09-25, Wave 3 WI-304, FIN-009)
+
+**Engine change, not data drift.** `core.irmaa_lookback_magi_and_filing`
+now returns the lookback row's `irmaa_magi_current` (AGI + tax-exempt
+interest) and that row's `filing`; `apply_agi_and_tax` assesses the IRMAA
+surcharge/tier on that filing status's table and records it as the new row
+field `irmaa_filing_used`.
+
+**Frozen sample-plan pin: unchanged** (`measure` MATCH; the fixture has no
+tax-exempt interest and no death inside a lookback window with an IRMAA tier).
+
+**Regenerated:**
+
+- `tests/fixtures/synthetic_golden_master_cases.json`
+  (`tools/regen_synthetic_golden_master.py`): only two scenarios moved, both
+  from a survivor's first two post-death years now being assessed on the MFJ
+  table instead of Single. `early_survivor_compression` lifetime_tax
+  -$6,962.40 (terminal NW +$32,011.68): IRMAA tier 1 -> 0 in 2032 and
+  4 -> 1 in 2033. `no_voluntary_roth_policy` lifetime_tax -$7,422.00
+  (terminal NW +$9,216.44): Alex dies 2054, joint MAGI of ~$285-291k in
+  2053-2054 no longer lands in a Single-table tier in 2055-2056.
+- `tests/fixtures/deterministic_engine_full_row_snapshot_cases.json`
+  (`tools/regen_full_row_snapshot.py`): every row gains `irmaa_filing_used`;
+  the only value changes are `early_survivor_compression` 2032-2033 (`irmaa`,
+  `irmaa_tier`, trust withdrawal) and their downstream trust/NW compounding.
+
 ## 2026-09-29 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
 
 <!-- pin-provenance: terminal_nw=5283516.99 lifetime_tax=1275335.17 -->
