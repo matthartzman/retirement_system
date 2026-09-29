@@ -42,10 +42,11 @@ def test_item_6_tax_law_dataset_drives_engine_tables_without_csv_requirement():
     ds = load_tax_law_dataset()
     tables = ds.as_engine_tables(2025)
     assert tables['ordinary_brackets']['MFJ'][0] == (0, 23850, 0.10)
-    assert tables['standard_deduction']['MFJ'] == 30000
+    assert tables['standard_deduction']['MFJ'] == 31500  # OBBBA 2025 amount
     registry = load_tax_constants([])
     assert registry['_v11_tax_law_dataset']['value'] >= 20
-    assert FEDERAL_BRACKETS_BASE_YEAR['MFJ'][0] == (0, 23850, 0.10)
+    # The engine tables load for the pinned reference year (2026): the dated 2026 row wins.
+    assert FEDERAL_BRACKETS_BASE_YEAR['MFJ'][0] == (0, 24800, 0.10)
 
 
 def test_items_1_2_result_contract_contains_projection_pages_report_spec_and_events():

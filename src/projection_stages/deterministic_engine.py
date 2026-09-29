@@ -248,9 +248,11 @@ def run_deterministic_projection_stage(c):
 
     # TCJA warning
     emit(EvWarning(0, 'TCJA_PERMANENT',
-         'Tax brackets assume TCJA made permanent. If TCJA sunsets, '
-         'brackets revert to higher 2017 levels — Roth conversion strategy '
-         'and lifetime tax estimates would change materially.'))
+         'Federal brackets and the standard deduction reflect the One Big '
+         'Beautiful Bill Act (2025), which made the TCJA individual rates '
+         'permanent; thresholds are indexed forward at the plan inflation '
+         'assumption. A future change in law would change Roth conversion '
+         'strategy and lifetime tax estimates materially.'))
 
     # Mutable per-run/year state is explicitly separated from immutable run
     # configuration.  The deterministic stage keeps legacy variable names below

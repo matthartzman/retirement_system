@@ -57,7 +57,7 @@ def test_tax_and_irmaa_tables_updated_to_2025_and_workflow_documents_annual_revi
     assert 'FEDERAL_BRACKETS_VALUE_YEAR = int(os.environ.get(\'FEDERAL_BRACKETS_VALUE_YEAR\') or 2025)' in taxes
     assert '2025' in tax_dashboard
     assert 'Annual process:' in tax_dashboard
-    assert 'std_ded_mfj,2025,30000' in constants
+    assert 'std_ded_mfj,2025,31500' in constants  # OBBBA 2025 amount (was 30,000 pre-OBBBA)
     assert 'ss_wage_base,2026,184500' in constants
 
 
