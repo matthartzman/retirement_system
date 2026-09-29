@@ -74,6 +74,16 @@ describe("Large Discretionary section (#336)", () => {
     assert.equal(run('catDetailSum("trips")'), 0);
   });
 
+  test("#344: header Budget and the domain total ignore stale stored totals and other years", () => {
+    // Older saves persisted the all-years sum as the category's explicit annual_budget.
+    sandbox.__lines.push({ section: "large_discretionary", line_id: "w2", label: "Wedding", category_id: "weddings", one_time_year: String(THIS_YEAR), amount_per_year: "45000", notes: "" });
+    run(`taxBudget = { weddings: { annual_budget: "250000" } };`);
+    assert.equal(run('catEffectiveBudget("weddings")'), 45000);
+    const html = sandbox.renderDomainBudgetTable("core");
+    assert.match(ldBody(html), /Budget \$45,000/);
+    assert.match(html, /total: \$45,000\/yr/);
+  });
+
   test("the accordion shows no Annualized figure; other types still do", () => {
     const html = sandbox.renderDomainBudgetTable("core");
     const body = ldBody(html);
