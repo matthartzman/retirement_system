@@ -273,7 +273,7 @@ Wellness,ACA Premium Tax Credit,household_size,integer,FALSE,2,1,12,ACA househol
 Wellness,ACA Premium Tax Credit,federal_poverty_level_base_year,dollars,FALSE,21150,0,,Base-year FPL.
 Wellness,ACA Premium Tax Credit,benchmark_silver_premium_annual,dollars,FALSE,32000,0,,Benchmark silver premium.
 Wellness,ACA Premium Tax Credit,applicable_pct_cap,percent,FALSE,8.50%,0,20,"Highest household contribution percentage used by the ACA premium-tax-credit estimate, shown as a percent such as 8.50%."
-Wellness,ACA Premium Tax Credit,enhanced_subsidies_through_year,year,FALSE,,2024,2100,"Last enhanced subsidy year. Blank uses the dataset default (2025 in tax_law_v10.json), an UNVERIFIED assumption that the enhanced credit lapsed after 2025; verify current law and enter the year if Congress extended it. Later years use the original IRC 36B table with the 400% FPL cliff."
+Wellness,ACA Premium Tax Credit,enhanced_subsidies_through_year,year,FALSE,,2024,2100,"Last enhanced subsidy year. Blank uses the dataset default (2025 in tax_law_v10.json): the Inflation Reduction Act extended the enhanced credit through 2025 and it expired 2026-01-01 unless Congress extended it again. If Congress did, enter the last enhanced year here. Later years use the original IRC 36B table with the 400% FPL cliff."
 Cashflow,Retirement Contributions,index_401k_limit,boolean,FALSE,TRUE,,,Index 401(k) limit.
 HSA Policy,Contributions,index_hsa_limit,boolean,FALSE,TRUE,,,Index HSA limit.
 HSA Policy,Contributions,requires_hdhp,boolean,FALSE,TRUE,,,Require HDHP eligibility for HSA contributions.
