@@ -209,8 +209,8 @@
       "name": "standard_deduction",
       "value": 31500,
       "effective_year": 2025,
-      "source": "OBBBA (P.L. 119-21) 2025 standard deduction; recalled, UNVERIFIED -- verify against IRS OBBBA guidance / Rev. Proc. 2025-32",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -254,8 +254,8 @@
       "name": "standard_deduction",
       "value": 15750,
       "effective_year": 2025,
-      "source": "OBBBA (P.L. 119-21) 2025 standard deduction; recalled, UNVERIFIED -- verify against IRS OBBBA guidance / Rev. Proc. 2025-32",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -299,8 +299,8 @@
       "name": "standard_deduction",
       "value": 23625,
       "effective_year": 2025,
-      "source": "OBBBA (P.L. 119-21) 2025 standard deduction; recalled, UNVERIFIED -- verify against IRS OBBBA guidance / Rev. Proc. 2025-32",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -344,8 +344,8 @@
       "name": "standard_deduction",
       "value": 15750,
       "effective_year": 2025,
-      "source": "OBBBA (P.L. 119-21) 2025 standard deduction; recalled, UNVERIFIED -- verify against IRS OBBBA guidance / Rev. Proc. 2025-32",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1029,8 +1029,8 @@
       "name": "standard_deduction",
       "value": 32200,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption",
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified",
       "expires_year": null
     },
     {
@@ -1039,8 +1039,8 @@
       "name": "standard_deduction_over65",
       "value": 1650,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption",
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified",
       "expires_year": null
     },
     {
@@ -1049,8 +1049,8 @@
       "name": "ltcg_0pct_top",
       "value": 98900,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption",
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified",
       "expires_year": null
     },
     {
@@ -1059,8 +1059,8 @@
       "name": "ltcg_15pct_top",
       "value": 613700,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption",
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified",
       "expires_year": null
     },
     {
@@ -1069,8 +1069,8 @@
       "name": "standard_deduction",
       "value": 16100,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption",
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified",
       "expires_year": null
     },
     {
@@ -1079,8 +1079,8 @@
       "name": "standard_deduction_over65",
       "value": 2050,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption",
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified",
       "expires_year": null
     },
     {
@@ -1089,8 +1089,8 @@
       "name": "ltcg_0pct_top",
       "value": 49450,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption",
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified",
       "expires_year": null
     },
     {
@@ -1099,8 +1099,8 @@
       "name": "ltcg_15pct_top",
       "value": 545500,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption",
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified",
       "expires_year": null
     },
     {
@@ -1109,8 +1109,8 @@
       "name": "standard_deduction",
       "value": 24150,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption",
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified",
       "expires_year": null
     },
     {
@@ -1119,8 +1119,8 @@
       "name": "standard_deduction_over65",
       "value": 2050,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption",
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified",
       "expires_year": null
     },
     {
@@ -1129,8 +1129,8 @@
       "name": "ltcg_0pct_top",
       "value": 66200,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption",
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified",
       "expires_year": null
     },
     {
@@ -1139,8 +1139,8 @@
       "name": "ltcg_15pct_top",
       "value": 579600,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption",
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified",
       "expires_year": null
     },
     {
@@ -1149,8 +1149,8 @@
       "name": "standard_deduction",
       "value": 16100,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption",
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified",
       "expires_year": null
     },
     {
@@ -1159,8 +1159,8 @@
       "name": "standard_deduction_over65",
       "value": 1650,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption",
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified",
       "expires_year": null
     },
     {
@@ -1169,8 +1169,8 @@
       "name": "ltcg_0pct_top",
       "value": 49450,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption",
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified",
       "expires_year": null
     },
     {
@@ -1179,8 +1179,8 @@
       "name": "ltcg_15pct_top",
       "value": 306850,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption",
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified",
       "expires_year": null
     },
     {
@@ -1190,8 +1190,8 @@
       "value": 218000,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1200,8 +1200,8 @@
       "value": 81.2,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1210,8 +1210,8 @@
       "value": 14.5,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1220,8 +1220,8 @@
       "value": 274000,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1230,8 +1230,8 @@
       "value": 202.9,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1240,8 +1240,8 @@
       "value": 37.5,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1250,8 +1250,8 @@
       "value": 342000,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1260,8 +1260,8 @@
       "value": 324.6,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1270,8 +1270,8 @@
       "value": 60.4,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1280,18 +1280,18 @@
       "value": 410000,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
       "filing_status": "MFJ",
       "name": "irmaa_tier4_part_b_surcharge_monthly",
-      "value": 446.4,
+      "value": 446.3,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1300,8 +1300,8 @@
       "value": 83.3,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1310,8 +1310,8 @@
       "value": 750000,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1320,8 +1320,8 @@
       "value": 487.0,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1330,8 +1330,8 @@
       "value": 91.0,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1340,8 +1340,8 @@
       "value": 109000,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1350,8 +1350,8 @@
       "value": 81.2,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1360,8 +1360,8 @@
       "value": 14.5,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1370,8 +1370,8 @@
       "value": 137000,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1380,8 +1380,8 @@
       "value": 202.9,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1390,8 +1390,8 @@
       "value": 37.5,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1400,8 +1400,8 @@
       "value": 171000,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1410,8 +1410,8 @@
       "value": 324.6,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1420,8 +1420,8 @@
       "value": 60.4,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1430,18 +1430,18 @@
       "value": 205000,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
       "filing_status": "Single",
       "name": "irmaa_tier4_part_b_surcharge_monthly",
-      "value": 446.4,
+      "value": 446.3,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1450,8 +1450,8 @@
       "value": 83.3,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1460,8 +1460,8 @@
       "value": 500000,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1470,8 +1470,8 @@
       "value": 487.0,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1480,8 +1480,8 @@
       "value": 91.0,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1490,8 +1490,8 @@
       "value": 109000,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1500,8 +1500,8 @@
       "value": 81.2,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1510,8 +1510,8 @@
       "value": 14.5,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1520,8 +1520,8 @@
       "value": 137000,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1530,8 +1530,8 @@
       "value": 202.9,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1540,8 +1540,8 @@
       "value": 37.5,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1550,8 +1550,8 @@
       "value": 171000,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1560,8 +1560,8 @@
       "value": 324.6,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1570,8 +1570,8 @@
       "value": 60.4,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1580,18 +1580,18 @@
       "value": 205000,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
       "filing_status": "HOH",
       "name": "irmaa_tier4_part_b_surcharge_monthly",
-      "value": 446.4,
+      "value": 446.3,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1600,8 +1600,8 @@
       "value": 83.3,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1610,8 +1610,8 @@
       "value": 500000,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1620,8 +1620,8 @@
       "value": 487.0,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1630,8 +1630,8 @@
       "value": 91.0,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1640,18 +1640,18 @@
       "value": 109000,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
       "filing_status": "MFS",
       "name": "irmaa_tier1_part_b_surcharge_monthly",
-      "value": 446.4,
+      "value": 446.3,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1660,8 +1660,8 @@
       "value": 83.3,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1670,8 +1670,8 @@
       "value": 391000,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1680,8 +1680,8 @@
       "value": 487.0,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1690,8 +1690,8 @@
       "value": 91.0,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1700,8 +1700,8 @@
       "value": 202.9,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "2026 planning assumption; recalled/derived, UNVERIFIED -- verify against the CMS 2026 Medicare Parts A & B premiums fact sheet",
-      "status": "assumption"
+      "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (published 2025-11-14); checked against the fact sheet PDF on 2026-09-29",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1720,8 +1720,8 @@
       "value": 0.0,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "recalled/UNVERIFIED (not checked against the primary source; irs.gov unreachable when entered): original IRC 36B applicable-percentage table for 2026 as recalled from IRS Rev. Proc. 2025-25 -- verify against IRS Rev. Proc. 2025-25 before relying (WI-307 / FIN-007)",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-25 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1730,8 +1730,8 @@
       "value": 0.021,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "recalled/UNVERIFIED (not checked against the primary source; irs.gov unreachable when entered): original IRC 36B applicable-percentage table for 2026 as recalled from IRS Rev. Proc. 2025-25 -- verify against IRS Rev. Proc. 2025-25 before relying (WI-307 / FIN-007)",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-25 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1740,8 +1740,8 @@
       "value": 0.021,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "recalled/UNVERIFIED (not checked against the primary source; irs.gov unreachable when entered): original IRC 36B applicable-percentage table for 2026 as recalled from IRS Rev. Proc. 2025-25 -- verify against IRS Rev. Proc. 2025-25 before relying (WI-307 / FIN-007)",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-25 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1750,8 +1750,8 @@
       "value": 1.33,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "recalled/UNVERIFIED (not checked against the primary source; irs.gov unreachable when entered): original IRC 36B applicable-percentage table for 2026 as recalled from IRS Rev. Proc. 2025-25 -- verify against IRS Rev. Proc. 2025-25 before relying (WI-307 / FIN-007)",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-25 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1760,8 +1760,8 @@
       "value": 0.0314,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "recalled/UNVERIFIED (not checked against the primary source; irs.gov unreachable when entered): original IRC 36B applicable-percentage table for 2026 as recalled from IRS Rev. Proc. 2025-25 -- verify against IRS Rev. Proc. 2025-25 before relying (WI-307 / FIN-007)",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-25 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1770,8 +1770,8 @@
       "value": 0.0419,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "recalled/UNVERIFIED (not checked against the primary source; irs.gov unreachable when entered): original IRC 36B applicable-percentage table for 2026 as recalled from IRS Rev. Proc. 2025-25 -- verify against IRS Rev. Proc. 2025-25 before relying (WI-307 / FIN-007)",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-25 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1780,8 +1780,8 @@
       "value": 1.5,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "recalled/UNVERIFIED (not checked against the primary source; irs.gov unreachable when entered): original IRC 36B applicable-percentage table for 2026 as recalled from IRS Rev. Proc. 2025-25 -- verify against IRS Rev. Proc. 2025-25 before relying (WI-307 / FIN-007)",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-25 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1790,8 +1790,8 @@
       "value": 0.0419,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "recalled/UNVERIFIED (not checked against the primary source; irs.gov unreachable when entered): original IRC 36B applicable-percentage table for 2026 as recalled from IRS Rev. Proc. 2025-25 -- verify against IRS Rev. Proc. 2025-25 before relying (WI-307 / FIN-007)",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-25 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1800,8 +1800,8 @@
       "value": 0.066,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "recalled/UNVERIFIED (not checked against the primary source; irs.gov unreachable when entered): original IRC 36B applicable-percentage table for 2026 as recalled from IRS Rev. Proc. 2025-25 -- verify against IRS Rev. Proc. 2025-25 before relying (WI-307 / FIN-007)",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-25 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1810,8 +1810,8 @@
       "value": 2.0,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "recalled/UNVERIFIED (not checked against the primary source; irs.gov unreachable when entered): original IRC 36B applicable-percentage table for 2026 as recalled from IRS Rev. Proc. 2025-25 -- verify against IRS Rev. Proc. 2025-25 before relying (WI-307 / FIN-007)",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-25 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1820,8 +1820,8 @@
       "value": 0.066,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "recalled/UNVERIFIED (not checked against the primary source; irs.gov unreachable when entered): original IRC 36B applicable-percentage table for 2026 as recalled from IRS Rev. Proc. 2025-25 -- verify against IRS Rev. Proc. 2025-25 before relying (WI-307 / FIN-007)",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-25 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1830,8 +1830,8 @@
       "value": 0.0844,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "recalled/UNVERIFIED (not checked against the primary source; irs.gov unreachable when entered): original IRC 36B applicable-percentage table for 2026 as recalled from IRS Rev. Proc. 2025-25 -- verify against IRS Rev. Proc. 2025-25 before relying (WI-307 / FIN-007)",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-25 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1840,8 +1840,8 @@
       "value": 2.5,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "recalled/UNVERIFIED (not checked against the primary source; irs.gov unreachable when entered): original IRC 36B applicable-percentage table for 2026 as recalled from IRS Rev. Proc. 2025-25 -- verify against IRS Rev. Proc. 2025-25 before relying (WI-307 / FIN-007)",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-25 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1850,8 +1850,8 @@
       "value": 0.0844,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "recalled/UNVERIFIED (not checked against the primary source; irs.gov unreachable when entered): original IRC 36B applicable-percentage table for 2026 as recalled from IRS Rev. Proc. 2025-25 -- verify against IRS Rev. Proc. 2025-25 before relying (WI-307 / FIN-007)",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-25 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1860,8 +1860,8 @@
       "value": 0.0996,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "recalled/UNVERIFIED (not checked against the primary source; irs.gov unreachable when entered): original IRC 36B applicable-percentage table for 2026 as recalled from IRS Rev. Proc. 2025-25 -- verify against IRS Rev. Proc. 2025-25 before relying (WI-307 / FIN-007)",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-25 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1870,8 +1870,8 @@
       "value": 3.0,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "recalled/UNVERIFIED (not checked against the primary source; irs.gov unreachable when entered): original IRC 36B applicable-percentage table for 2026 as recalled from IRS Rev. Proc. 2025-25 -- verify against IRS Rev. Proc. 2025-25 before relying (WI-307 / FIN-007)",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-25 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1880,8 +1880,8 @@
       "value": 0.0996,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "recalled/UNVERIFIED (not checked against the primary source; irs.gov unreachable when entered): original IRC 36B applicable-percentage table for 2026 as recalled from IRS Rev. Proc. 2025-25 -- verify against IRS Rev. Proc. 2025-25 before relying (WI-307 / FIN-007)",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-25 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1890,8 +1890,8 @@
       "value": 0.0996,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "recalled/UNVERIFIED (not checked against the primary source; irs.gov unreachable when entered): original IRC 36B applicable-percentage table for 2026 as recalled from IRS Rev. Proc. 2025-25 -- verify against IRS Rev. Proc. 2025-25 before relying (WI-307 / FIN-007)",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-25 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1900,8 +1900,8 @@
       "value": 4.0,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "recalled/UNVERIFIED (not checked against the primary source; irs.gov unreachable when entered): original IRC 36B applicable-percentage table for 2026 as recalled from IRS Rev. Proc. 2025-25 -- verify against IRS Rev. Proc. 2025-25 before relying (WI-307 / FIN-007)",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-25 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1910,8 +1910,8 @@
       "value": 0,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "recalled/UNVERIFIED (not checked against the primary source; irs.gov unreachable when entered): original IRC 36B applicable-percentage table for 2026 as recalled from IRS Rev. Proc. 2025-25 -- verify against IRS Rev. Proc. 2025-25 before relying (WI-307 / FIN-007); 0 = no credit above max_fpl (400% FPL cliff)",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-25 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -2411,8 +2411,8 @@
       "upper": 24800,
       "rate": 0.1,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -2422,8 +2422,8 @@
       "upper": 100800,
       "rate": 0.12,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -2433,8 +2433,8 @@
       "upper": 211400,
       "rate": 0.22,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -2444,8 +2444,8 @@
       "upper": 403550,
       "rate": 0.24,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -2455,8 +2455,8 @@
       "upper": 512450,
       "rate": 0.32,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -2466,8 +2466,8 @@
       "upper": 768700,
       "rate": 0.35,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -2477,8 +2477,8 @@
       "upper": null,
       "rate": 0.37,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -2488,8 +2488,8 @@
       "upper": 12400,
       "rate": 0.1,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -2499,8 +2499,8 @@
       "upper": 50400,
       "rate": 0.12,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -2510,8 +2510,8 @@
       "upper": 105700,
       "rate": 0.22,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -2521,8 +2521,8 @@
       "upper": 201775,
       "rate": 0.24,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -2532,8 +2532,8 @@
       "upper": 256225,
       "rate": 0.32,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -2543,8 +2543,8 @@
       "upper": 640600,
       "rate": 0.35,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -2554,8 +2554,8 @@
       "upper": null,
       "rate": 0.37,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -2565,8 +2565,8 @@
       "upper": 17700,
       "rate": 0.1,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -2576,8 +2576,8 @@
       "upper": 67450,
       "rate": 0.12,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -2587,8 +2587,8 @@
       "upper": 105700,
       "rate": 0.22,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -2598,8 +2598,8 @@
       "upper": 201750,
       "rate": 0.24,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -2609,8 +2609,8 @@
       "upper": 256200,
       "rate": 0.32,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -2620,8 +2620,8 @@
       "upper": 640600,
       "rate": 0.35,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -2631,8 +2631,8 @@
       "upper": null,
       "rate": 0.37,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -2642,8 +2642,8 @@
       "upper": 12400,
       "rate": 0.1,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -2653,8 +2653,8 @@
       "upper": 50400,
       "rate": 0.12,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -2664,8 +2664,8 @@
       "upper": 105700,
       "rate": 0.22,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -2675,8 +2675,8 @@
       "upper": 201775,
       "rate": 0.24,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -2686,8 +2686,8 @@
       "upper": 256225,
       "rate": 0.32,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -2697,8 +2697,8 @@
       "upper": 384350,
       "rate": 0.35,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -2708,8 +2708,8 @@
       "upper": null,
       "rate": 0.37,
       "effective_year": 2026,
-      "source": "2026 planning assumption; recalled, UNVERIFIED -- verify against IRS Rev. Proc. 2025-32",
-      "status": "assumption"
+      "source": "IRS Rev. Proc. 2025-32 (checked against the PDF on 2026-09-29)",
+      "status": "verified"
     }
   ]
 }

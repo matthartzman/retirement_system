@@ -1,5 +1,17 @@
 ## 2026-09-29 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
 
+<!-- pin-provenance: terminal_nw=5300663.15 lifetime_tax=1270059.16 -->
+
+**Old pins.** terminal_nw=5,300,641.69, lifetime_tax=1,270,063.40
+
+**New pins.** terminal_nw=5,300,663.15, lifetime_tax=1,270,059.16
+
+**Reason.**
+
+IRMAA 2026 rows checked against the CMS 2026 Medicare Parts A & B fact sheet (2025-11-14): the tier-4 Part B surcharge is 446.30, not the 446.40 derived earlier, so the sample plan pays $0.10/month less in that tier. Measured on the frozen plan: terminal_nw +21.46 and lifetime_tax -4.24, consistent with a small surcharge reduction accumulated over the years spent in tier 4. Hand-verified via tools/regen_golden_master.py measure before this regen.
+
+## 2026-09-29 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
+
 <!-- pin-provenance: terminal_nw=5300641.69 lifetime_tax=1270063.40 -->
 
 **Old pins.** terminal_nw=5,283,512.01, lifetime_tax=1,275,337.74
