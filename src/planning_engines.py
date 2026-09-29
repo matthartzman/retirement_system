@@ -2232,8 +2232,10 @@ def plan_roth_conversion(
         this same year).
         """
         extra: list[tuple[str, float]] = []
-        plan_start = int(c.get("plan_start", year))
-        bracket_factor = (1 + float(c.get("brk_inf", 0.02) or 0.0)) ** (year - plan_start)
+        # WI-306 / FIN-014: use the kernel's signed-off indexing convention
+        # (compounded from FEDERAL_BRACKETS_VALUE_YEAR, not plan_start) so the
+        # guardrail threshold matches what tax_kernel.ltcg_tax_on_gain uses.
+        bracket_factor = _tk.bracket_factor_for_year(c, year)
 
         if c.get("roth_ltcg_cap", True) and portfolio_qualified > 0:
             ltcg_top0, ltcg_top15 = _roth_ltcg_thresholds_base(c, filing)

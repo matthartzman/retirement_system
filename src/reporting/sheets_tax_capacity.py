@@ -114,11 +114,6 @@ def build_sheet_tax_capacity(ws, c, rows):
 
     plan_start = int(c.get('plan_start', rows[0]['year'] if rows else 2026))
     brk_inf = float(c.get('brk_inf', 0.02) or 0.02)
-    # gain_harvest.py's scan_gain_harvest_opportunities (src/gain_harvest.py:122)
-    # inflates ltcg_0_top with c['bracket_inf'], not c['brk_inf'] -- mirrored
-    # here verbatim so this column's current-year value reconciles exactly
-    # with Sheet 12C's headroom figure rather than quietly using a different key.
-    bracket_inf_gh = float(c.get('bracket_inf', 0.02) or 0.02)
     ltcg_0_top = float(c.get('ltcg_0_top', 96_700) or 0.0)
     aca_fpl_base = max(0.0, float(c.get('aca_fpl_base', 0.0) or 0.0))
 
@@ -148,7 +143,8 @@ def build_sheet_tax_capacity(ws, c, rows):
         # compute_zero_bracket_headroom, src/gain_harvest.py:39 -- the exact
         # function Sheet 12C calls (via scan_gain_harvest_opportunities) for
         # the current plan year only; called here for every row instead.
-        bf = (1.0 + bracket_inf_gh) ** (year - plan_start)
+        # WI-306 / FIN-014: same kernel factor scan_gain_harvest_opportunities uses.
+        bf = _tk.bracket_factor_for_year(c, year)
         ltcg_headroom = _gh.compute_zero_bracket_headroom(ltcg_0_top, bf, taxable_inc)
 
         # irmaa_magi_used, src/projection_stages/deterministic_engine.py:1985
