@@ -1,5 +1,17 @@
 ## 2026-09-29 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
 
+<!-- pin-provenance: terminal_nw=5300641.69 lifetime_tax=1270063.40 -->
+
+**Old pins.** terminal_nw=5,283,512.01, lifetime_tax=1,275,337.74
+
+**New pins.** terminal_nw=5,300,641.69, lifetime_tax=1,270,063.40
+
+**Reason.**
+
+WI-301 (system review 2026-09-25, FIN-004), on ASSUMPTIONS because irs.gov/cms.gov were unreachable: the 2025 standard deductions are corrected to the OBBBA amounts (MFJ 30,000->31,500, Single/MFS 15,000->15,750, HOH 22,500->23,625) and dated 2026 rows are added for standard deductions (32,200/16,100/24,150), over-65 additions, ordinary brackets, LTCG 0%/15% thresholds, IRMAA tiers/surcharges and the Part B base premium. All new rows are status 'assumption', recalled and UNVERIFIED; the dashboard rows are set to REVIEW_REQUIRED. The engine's bracket/deduction base year moves from 2025 to 2026 (FEDERAL_BRACKETS_VALUE_YEAR etc. derive from the latest dated row), so higher deductions and wider 2026 brackets lower tax: measured on the frozen sample plan terminal_nw +17,129.68 and lifetime_tax -5,274.34 (about $130/yr over the horizon). Direction and size are consistent with the review's estimate for the deduction gap alone. Hand-verified via tools/regen_golden_master.py measure before this regen; closed-form 2026 ladder checks added in test_core_tax_math.py.
+
+## 2026-09-29 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
+
 <!-- pin-provenance: terminal_nw=5283512.01 lifetime_tax=1275337.74 -->
 
 **Old pins.** terminal_nw=5,283,516.99, lifetime_tax=1,275,335.17
