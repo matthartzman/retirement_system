@@ -3,9 +3,10 @@ enhanced-through-year default from a dated dataset row, and ACA MAGI that
 includes non-taxable Social Security.
 
 The 2026 original-IRC-36B table is VERIFIED against IRS Rev. Proc. 2025-25. The
-enhanced (ARPA/IRA) table and the 2025 enhanced-through-year default are recalled,
-UNVERIFIED assumptions (status "assumption" in tax_law_v10.json); those tests pin
-the engine to the dataset, not to verified law.
+2025 enhanced-through-year default follows the statutory schedule (status
+"legislated"; the "no later extension" caveat is kept in its source text). The
+enhanced (ARPA/IRA) percentage table is a recalled, UNVERIFIED assumption (status
+"assumption" in tax_law_v10.json); those tests pin the engine to the dataset.
 """
 from __future__ import annotations
 
@@ -53,9 +54,16 @@ def test_aca_row_verification_status_matches_what_was_checked():
     for r in orig:
         assert r['status'] == 'verified', r['name']
         assert 'Rev. Proc. 2025-25' in r['source'], r['name']
-    # Everything else (the enhanced ARPA/IRA table and the enhanced-through-year default)
-    # is NOT covered by a supplied document and stays an unverified assumption.
-    others = [r for r in rows if r not in orig]
+    # The enhanced-through-year default follows the statutory schedule (Inflation Reduction Act:
+    # enhanced credit through 2025, expired 2026-01-01 unless extended; owner-confirmed 2026-09-29),
+    # with the unverified "no later extension" caveat kept in its source text.
+    default = [r for r in rows if r['name'] == 'aca_enhanced_subsidies_through_year']
+    assert len(default) == 1 and default[0]['value'] == 2025
+    assert default[0]['status'] == 'legislated'
+    assert 'Inflation Reduction Act' in default[0]['source'] and 'NOT verified' in default[0]['source']
+    # The enhanced ARPA/IRA percentage table is NOT covered by a supplied document and stays an
+    # unverified assumption.
+    others = [r for r in rows if r not in orig and r not in default]
     assert others
     for r in others:
         assert r['status'] == 'assumption', r['name']
