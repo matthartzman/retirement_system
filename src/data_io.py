@@ -2397,7 +2397,6 @@ def build_plan_from_json(plan, url_template=''):
                 'action': 'Confirm the override is intentional; otherwise clear it to use the statutory default.',
             })
     c['rollover_yr']       = a.get('rollover_year', c['plan_start'] + 5)
-    c['salt_cap']          = a.get('salt_cap', 10000)
     c['payroll_wage_base'] = a.get('ss_wage_base', DEFAULT_SS_WAGE_BASE)
     c['payroll_ee_rate']   = 0.0765
     c['ltcg_0_top']        = _td.LTCG_BRACKETS_BASE_YEAR.get(c['filing_status'], {}).get('zero_top', 96700)

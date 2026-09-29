@@ -21,7 +21,6 @@ from .workbook_common import (
     LGRAY,
     NAVY,
     ORANGE,
-    TAX_BASE_YEAR,
     WHITE,
     _ao,
     datetime,
@@ -551,7 +550,9 @@ def build_sheet2(ws, c, rows):
     write_hdr(ws, r, 2, 'Reference Bracket Top', DGRAY, WHITE)
     r += 1
     for yr in range(c['plan_start'], min(c['plan_end']+1, c['plan_start']+31)):
-        top = 201050 * (1+c['brk_inf'])**(yr - TAX_BASE_YEAR)
+        # WI-302: 201,050 is the 2024 MFJ 22% bracket top; index it from its
+        # own value year, not the run-date TAX_BASE_YEAR.
+        top = 201050 * (1+c['brk_inf'])**(yr - 2024)
         write_cell(ws, r, 1, yr, fmt=FMT_YEAR, align='center')
         write_cell(ws, r, 2, top, fmt=FMT_DOLLAR)
         r += 1
