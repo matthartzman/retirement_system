@@ -5,7 +5,7 @@
    tools/js_codemod/extract_module.mjs.
 
    Third domain cluster of the Wave 6.4 domain-module split (see
-   docs/superpowers/specs/2026-08-10-dashboard-js-split-codemod-design.md),
+   documentation/archive/superpowers/specs/2026-08-10-dashboard-js-split-codemod-design.md),
    after dashboard_decomp_assets_other.js and
    dashboard_decomp_spending_taxonomy.js. Selected as a connected component of
    dashboard.js's internal call graph (tools/js_codemod/find_clusters.mjs),

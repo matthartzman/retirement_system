@@ -356,7 +356,7 @@
       },
     ].concat(cases.filter((c) => !c.archived));
     let html =
-      '<div class="lot-table-wrap"><table class="lot-table planning-workbench-matrix"><thead><tr><th>Case</th><th>Source</th><th>Run type</th><th>Success</th><th>LCV</th><th>ELTR</th><th>Roth conversions</th><th>Decision</th></tr></thead><tbody>';
+      '<div class="lot-table-wrap"><table class="lot-table planning-workbench-matrix"><thead><tr><th>Case</th><th>Source</th><th>Run type</th><th>Success</th><th title="Lifetime Consumption-and-Transfer Value">Lifetime value (LCV)</th><th title="Effective Lifetime Tax Rate">Lifetime tax rate (ELTR)</th><th>Roth conversions</th><th>Decision</th></tr></thead><tbody>';
     rows.forEach(function (c, i) {
       const r = c.result_summary || {};
       html += `<tr class="${i === 0 ? "baseline-row" : ""}"><td><b>${esc(ctx, c.name || "Built Baseline")}</b><div class="small">${esc(ctx, c.base_snapshot_id || "latest build")}</div></td><td>${esc(ctx, c.source || "baseline")}</td><td>${esc(ctx, c.run_type || "baseline")}</td><td>${ctx.fmtPct((Number(r.success_probability ?? r.mc_success ?? 0) || 0) * 100)}</td><td>${ctx.fmtMoney(Number(r.lcv ?? r.lcv_score ?? 0) || 0)}</td><td>${ctx.fmtPct((Number(r.eltr ?? r.effective_lifetime_tax_rate ?? 0) || 0) * 100)}</td><td>${ctx.fmtMoney(Number(r.roth_conversion_total ?? 0) || 0)}</td><td>${i === 0 ? "—" : `<button class="btn tiny" type="button" onclick="setPlanningCaseActive('${escJs(ctx, c.case_id)}')">Review</button>`}</td></tr>`;
@@ -372,10 +372,10 @@
     // above. Deliberately its own panel, not a column on the Impact matrix.
     const last = call(ctx.getLastBuildSummary) || {};
     if (!Object.keys(last).length)
-      return '<div class="feature-card forward-looking-panel"><h3>Forward-Looking (From Today)</h3><p class="small">Build the plan to see FCV/EFTR from today forward.</p></div>';
+      return '<div class="feature-card forward-looking-panel"><h3>Forward-Looking (From Today)</h3><p class="small">Build the plan to see Future Consumption Value (FCV) and Effective Future Tax Rate (EFTR) from today forward.</p></div>';
     const fcv = Number(last.fcv ?? 0) || 0;
     const eftr = Number(last.eftr ?? 0) || 0;
-    return `<div class="feature-card forward-looking-panel"><h3>Forward-Looking (From Today)</h3><p class="small">Supplemental to the Impact matrix above, not a substitute: what's left from today forward in the latest build, not the whole-lifetime figures used for comparing cases.</p><div class="impact-grid"><div class="impact-card"><span>FCV</span><b>${ctx.fmtMoney(fcv)}</b></div><div class="impact-card"><span>EFTR</span><b>${ctx.fmtPct(eftr * 100)}</b></div></div></div>`;
+    return `<div class="feature-card forward-looking-panel"><h3>Forward-Looking (From Today)</h3><p class="small">Supplemental to the Impact matrix above, not a substitute: what's left from today forward in the latest build, not the whole-lifetime figures used for comparing cases.</p><div class="impact-grid"><div class="impact-card"><span title="Future Consumption Value">Future value (FCV)</span><b>${ctx.fmtMoney(fcv)}</b></div><div class="impact-card"><span title="Effective Future Tax Rate">Future tax rate (EFTR)</span><b>${ctx.fmtPct(eftr * 100)}</b></div></div></div>`;
   }
   function cardsHtml(ctx, cases, active) {
     if (!cases.length)

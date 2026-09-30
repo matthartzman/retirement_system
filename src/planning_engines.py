@@ -10,7 +10,7 @@ from __future__ import annotations
 # mortality_engine section, and project(), defined in the projection_engine
 # section) — splitting naively reintroduces a circular import between
 # whichever files end up on each side of the cut. See
-# documentation/SYSTEM_REVIEW_AND_REFACTOR_PLAN.md Phase 2c for the analysis
+# documentation/archive/legacy/SYSTEM_REVIEW_AND_REFACTOR_PLAN.md Phase 2c for the analysis
 # that led to keeping this as one file.
 #
 # `_ar` below (account_registry/account_access, consolidated into core.py) is

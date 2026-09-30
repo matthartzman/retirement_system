@@ -54,3 +54,21 @@ def test_irmaa_definition_is_reconciled_not_divergent():
     # fuller, more informative wording.
     assert "Medicare" in GLOSSARY["IRMAA"]
     assert "MAGI" in GLOSSARY["IRMAA"]
+
+
+def test_headline_decision_metrics_are_defined_in_the_canonical_glossary():
+    terms = build_glossary()
+    for term in ("LCV", "ELTR", "FCV", "EFTR", "QLAC", "TLH", "NPV of Future Taxes"):
+        assert term in terms, term
+        assert len(terms[term]) > len(term) + 10
+    assert "Lifetime Consumption-and-Transfer Value" in terms["LCV"]
+    assert "Effective Lifetime Tax Rate" in terms["ELTR"]
+
+
+def test_workbench_matrix_headers_expand_the_acronyms():
+    from pathlib import Path
+
+    js = (Path(__file__).resolve().parents[1] / "frontend" / "js" / "planning_workbench_ui.js").read_text("utf-8")
+    assert "<th>LCV</th>" not in js and "<th>ELTR</th>" not in js
+    assert "Lifetime value (LCV)" in js and "Lifetime tax rate (ELTR)" in js
+    assert "Future value (FCV)" in js and "Future tax rate (EFTR)" in js

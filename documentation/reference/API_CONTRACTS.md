@@ -1,6 +1,8 @@
 # API Contracts
 
-Generated: 2026-06-29
+Generated: 2026-06-29 (partially updated 2026-09-30)
+
+Scope note: this document covers the high-value contracts only. The authoritative list of every registered route is `src/server/route_manifest.py` (served at `/api/contracts`), which `tests/test_api_contracts_and_route_manifest_contract.py` keeps equal to the registered routes.
 
 This document captures the stable local API contracts used by the v10 desktop UI. Routes remain under `/api/...`; schema names are carried in payloads instead of URL prefixes.
 
@@ -487,12 +489,13 @@ Methods:
 - `GET`: returns the local build-history array stored in `output/run_history.json`; returns an empty array if no history exists or the file cannot be parsed.
 - `POST`: appends the request JSON body as one history entry, retention-trims to the latest 50 entries, and returns `{ success, count, path }`.
 
-### `/api/xlsx` and `/api/pdf`
+### `/api/xlsx`
 
 Method:
 - `GET`.
 
 Behavior:
+- There is no `/api/pdf` route; the PDF report route was removed and only the workbook download exists.
 - Resolves the requested artifact from the active workspace output directory.
 - Falls back to the package `output/` directory for non-local workspace portability.
 - Returns a file download when present or `404` with a build-first message when missing.

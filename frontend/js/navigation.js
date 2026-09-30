@@ -361,7 +361,8 @@
       el.value=scope==='nav'?(safeCall(ctx.getNavSearchText)||''):(safeCall(ctx.getSearchText)||'');
       el.placeholder=scope==='nav'?'Search navigation...':'Search this page...';
     }
-    document.querySelectorAll('[data-search-scope]').forEach(b=>b.classList.toggle('primary',b.dataset.searchScope===scope));
+    // UX-010 (WI-509): expose the selected scope as aria-pressed, not colour only.
+    document.querySelectorAll('[data-search-scope]').forEach(b=>{const on=b.dataset.searchScope===scope;b.classList.toggle('primary',on);b.setAttribute('aria-pressed',on?'true':'false');});
   }
 
   function setNavSearch(ctx,q){safeCall(()=>ctx.setNavSearchText(q));safeCall(ctx.renderSteps);}

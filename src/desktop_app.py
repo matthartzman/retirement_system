@@ -46,6 +46,9 @@ def start() -> int:
         maximized=True,
         # Resizable native window — no server address bar
         text_select=True,
+        # Allow Ctrl+wheel / pinch zoom (pywebview defaults to False, which
+        # blocks page zoom entirely -- WCAG 1.4.4).
+        zoomable=True,
     )
 
     # Expose a helper so the bridge shim can detect desktop mode before

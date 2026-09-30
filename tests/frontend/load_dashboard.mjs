@@ -17,7 +17,7 @@
 // need to grow with it. Most of the remaining ~810 functions are tightly
 // coupled to a large set of shared mutable state (the `rows`/`dirty`/
 // `activeStep`/... globals — see
-// documentation/SYSTEM_REVIEW_AND_REFACTOR_PLAN.md Phase 2d) and cannot be
+// documentation/archive/legacy/SYSTEM_REVIEW_AND_REFACTOR_PLAN.md Phase 2d) and cannot be
 // safely unit-tested in isolation without a much larger DOM/fetch simulation
 // effort. This loader deliberately targets only the small set of functions
 // that take explicit parameters and return a value with no dependency on

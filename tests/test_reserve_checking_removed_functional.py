@@ -17,7 +17,7 @@ from tests._decomp_dashboard import dashboard_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
 
-HEADER = "section,subsection,label,value,units,notes\nHousehold,,residence_state,Illinois,text,\n"
+HEADER = "section,subsection,label,value,units,notes\nHousehold,,residence_state,Illinois,text,\nHousehold,,member_1_dob,1/1/1960,date,\nHousehold,,member_2_dob,1/1/1962,date,\n"
 
 
 def _parse(csv_text: str):

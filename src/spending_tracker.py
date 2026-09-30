@@ -19,6 +19,8 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
+from . import platform_runtime as _platform_runtime  # WI-403: frozen-date seam for every "today" read
+
 __all__ = [
     'load_transactions',
     'load_transactions_extended',
@@ -129,7 +131,7 @@ def _annualization_period_days(txns, year: int, today: date | None = None) -> in
     which stays today-anchored because "how much of the year is left to spend"
     depends on the calendar, not on whether anyone imported transactions.
     """
-    today = today or date.today()
+    today = today or _platform_runtime.today()
     jan1 = date(year, 1, 1)
     dec31 = date(year, 12, 31)
     if year < today.year:
@@ -187,7 +189,7 @@ def group_actuals(root: Path | None = None, year: int | None = None) -> dict:
     """
     r = _root(root)
     if year is None:
-        year = date.today().year
+        year = _platform_runtime.today().year
 
     cat_map = load_category_map(r)
     txns = load_transactions(r, year)
@@ -1399,7 +1401,7 @@ def ytd_core_spending_actual(root=None, year=None):
     """
     r = _root(root)
     if year is None:
-        year = date.today().year
+        year = _platform_runtime.today().year
     flat = taxonomy_flat(r)
     if not flat:
         return None
@@ -1434,7 +1436,7 @@ def ytd_actual_by_tracking_type(root=None, year=None):
     """
     r = _root(root)
     if year is None:
-        year = date.today().year
+        year = _platform_runtime.today().year
     flat = taxonomy_flat(r)
     if not flat:
         return None
@@ -1472,7 +1474,7 @@ def spending_summary_taxonomy(root=None, year=None):
     """Unified model: Tracking Type -> Group -> Category with actuals, budget, aliases and deleted tray."""
     r = _root(root)
     if year is None:
-        year = date.today().year
+        year = _platform_runtime.today().year
     flat = taxonomy_flat(r)
     all_flat = taxonomy_flat(r, include_deleted=True)
     aliases = load_aliases(r)
@@ -1740,7 +1742,7 @@ def monthly_series(root: Path | None = None, year: int | None = None, total_budg
     """
     r = _root(root)
     if year is None:
-        year = date.today().year
+        year = _platform_runtime.today().year
     flat = taxonomy_flat(r)
     aliases = load_aliases(r)
     txns = load_transactions_extended(r, year)
@@ -1759,7 +1761,7 @@ def monthly_series(root: Path | None = None, year: int | None = None, total_budg
     labels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
     series = []
     cum_actual = cum_budget = 0.0
-    today = date.today()
+    today = _platform_runtime.today()
     for i in range(12):
         if date(year, i + 1, 1) > today and i > 0:
             break
@@ -1773,7 +1775,7 @@ def spending_dashboard(root: Path | None = None, year: int | None = None, core_s
     """Dashboard payload backed by the unified taxonomy summary."""
     r = _root(root)
     if year is None:
-        year = date.today().year
+        year = _platform_runtime.today().year
     summary = spending_summary_taxonomy(r, year)
     groups = []
     business = None

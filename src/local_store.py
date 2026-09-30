@@ -274,7 +274,7 @@ def rewrite_sectioned_snapshots(transform, db_path: str | Path | None = None, dr
     ALL snapshots are migrated, not just the latest. Old snapshots are restorable, and a
     restore that resurrects legacy keys after the schema version has already been
     stamped would defeat the gate permanently -- the store would report "migrated" while
-    still able to serve legacy shapes. See docs/superpowers/sdd/task-5-brief.md.
+    still able to serve legacy shapes.
 
     Ordering is preserved by construction: the UPDATE touches only ``sectioned_json`` --
     never ``created_at`` -- and SQLite does not reassign a row's ``rowid`` on UPDATE (only

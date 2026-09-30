@@ -47,4 +47,4 @@ and readable whole.
 
 Never enter a regenerate-run-regenerate loop: at scale a wrong rate is
 indistinguishable from a right one. Verify one representative delta by hand
-first. See `documentation/GOLDEN_MASTER_RECOVERY_RUNBOOK.md`.
+first. See `documentation/reference/GOLDEN_MASTER_RECOVERY_RUNBOOK.md`.

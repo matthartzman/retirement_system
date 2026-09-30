@@ -42,7 +42,7 @@ To try something out without writing throwaway code, use the bundled
 harness: ``python tools/housing_lab.py --help`` runs a real optimization
 against a plan folder and prints/exports the ranked candidates.
 
-Implements docs/superpowers/specs/2026-09-09-housing-optimization-design.md.
+Implements documentation/archive/superpowers/specs/2026-09-09-housing-optimization-design.md.
 Given a set of candidate locations and search windows, generates plan-config
 variants, runs them through the existing deterministic engine
 (``planning_engines.run_scenario`` -> ``projection_stages.deterministic_engine``)

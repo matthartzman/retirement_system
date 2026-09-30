@@ -166,7 +166,8 @@ def build_sheet_spending_summary(ws, c):
     ws.sheet_properties.outlinePr.summaryBelow = False
     ws.freeze_panes = 'B5'
 
-    current_year = datetime.date.today().year
+    from .. import platform_runtime as _platform_runtime
+    current_year = _platform_runtime.today().year
 
     try:
         data = spending_summary_taxonomy(year=current_year)
@@ -990,7 +991,11 @@ def main():
         print(f'Warning: HSA schedule search skipped ({_exc}); incumbent schedule kept.')
     try:
         from ..ytd_projection_blend import compute_current_year_overrides
-        c.update(compute_current_year_overrides(c, workspace_input_dir(workspace_id), today=datetime.date.today()))
+        from .. import platform_runtime as _platform_runtime
+        # WI-403 (QA-003): the frozen-date seam, not the wall clock -- passing
+        # the wall-clock date here overrode the blend's own seam default, so
+        # a RETIREMENT_SYSTEM_FROZEN_TODAY build still prorated by the real date.
+        c.update(compute_current_year_overrides(c, workspace_input_dir(workspace_id), today=_platform_runtime.today()))
         if c.get('ytd_blend_applied', {}).get('flows_blended'):
             print(f"  Current year ({c['ytd_blend_applied']['current_year']}) blends YTD actuals through {c['ytd_blend_applied'].get('ytd_end')} with projected remainder.")
     except Exception as exc:

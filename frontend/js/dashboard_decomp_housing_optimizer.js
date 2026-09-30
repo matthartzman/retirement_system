@@ -2100,8 +2100,8 @@ function housingPatchItem(row, value, label, rationale) {
   const beforeRaw = String(valOf(row) || "");
   return {
     source: "optimizer",
-    sourceStep: "assets_home_cash",
-    sourceTitle: "Home & Housing",
+    sourceStep: "strategy_optimize",
+    sourceTitle: stepTitleById("strategy_optimize"),
     section: String(row.section || ""),
     subsection: String(row.subsection || ""),
     field: String(row.label || ""),
@@ -2120,8 +2120,8 @@ function housingAdvisoryItem(label, value, rationale) {
   // written, and it takes no part in the applied-state comparison.
   return {
     source: "optimizer",
-    sourceStep: "assets_home_cash",
-    sourceTitle: "Home & Housing",
+    sourceStep: "strategy_optimize",
+    sourceTitle: stepTitleById("strategy_optimize"),
     section: "Housing",
     subsection: "",
     field: label,
@@ -2231,12 +2231,12 @@ export function housingOptimizerPatch(payload, candidate) {
           housingAdvisoryItem(
             `Move ${n} financing`,
             `$${Math.round(fin.monthly_pi_payment).toLocaleString()}/mo P&I assumed`,
-            "The search scored this price under its own down payment and mortgage rate, which it does not report back. Check this step's Down Payment and Mortgage Rate on the Home & Housing page so the plan computes the same payment.",
+            "The search scored this price under its own down payment and mortgage rate, which it does not report back. Check the Down Payment and Mortgage Rate in Optimize > Next Housing Move so the plan computes the same payment.",
           ),
         );
     }
     // The ZIP and city the search actually chose have no field on the
-    // Housing step -- it is keyed by state, city_type and population_size.
+    // Next Housing Move inputs -- keyed by state, city_type and population_size.
     // They are the part of the answer this patch genuinely cannot write, so
     // they are carried as advisory rather than silently dropped: the state
     // row alone does not tell you WHICH town the optimizer picked.
@@ -2245,7 +2245,7 @@ export function housingOptimizerPatch(payload, candidate) {
         housingAdvisoryItem(
           `Move ${n} location`,
           [loc.zip_code, loc.city, loc.state].filter(Boolean).join(" · "),
-          "The Housing step is keyed by state and area type, not ZIP — set the area type and population on the Home & Housing page to match this town.",
+          "Housing inputs are keyed by state and area type, not ZIP — set the area type and population in Optimize > Next Housing Move to match this town.",
         ),
       );
   });
