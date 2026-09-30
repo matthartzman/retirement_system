@@ -210,8 +210,8 @@ export function renderSpendingSummary(d) {
   var annualizedAllIn = d.annualized_total_all_in || 0;
   var budgetAllIn = d.annual_budget_total_all_in || 0;
   var html = '<div class="spend-summary">';
-  html += '<div class="spend-kpi"><span class="spend-kpi-value">' + fmtSpend(d.income_total||0) + '</span><span class="spend-kpi-label">This Year Income</span></div>';
-  html += '<div class="spend-kpi"><span class="spend-kpi-value">' + fmtSpend(d.actuals_total) + '</span><span class="spend-kpi-label">This Year Expenses</span></div>';
+  // This Year Income / Expenses tiles removed: they duplicate the YTD income
+  // and YTD spending cards in This Year Performance (same classifier).
   html += '<div class="spend-kpi"><span class="spend-kpi-value">' + fmtSpend(annualized) + '</span><span class="spend-kpi-label">Annualized Expenses</span>';
   if (annualized > 0) {
     html += '<button class="btn tiny good" data-requires-app="1" onclick="applySpendingForecast()" title="Updates the retirement model\'s core spending assumption to this annualized rate">Sync Actual Rate → 30-Year Model</button>';

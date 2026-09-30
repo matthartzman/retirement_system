@@ -2405,18 +2405,13 @@ export function renderSteps() {
     html += `<details class="nav-group" ${open}><summary class="nav-group-summary">${esc(g.name)}${badge}</summary><div class="nav-group-steps">`;
     g.steps.forEach((s) => {
       html += stepButton(s);
-      // Workspace parents expose their tabs as indented nav children, so the
-      // left nav is a complete map of every reachable destination and clicking
-      // a child opens the workspace on that tab. Reports & Review dropped its
-      // sub-nav in the redesign (it now shows Impact + Plan Data Review
-      // together, with no tabs to switch between) -- detailed_results is a
-      // hidden step (only appears in this loop when it IS activeStep, see the
-      // `s.hidden && s.id !== activeStep` filter above), so this branch's
-      // sheet-picker nav only ever renders while actually viewing it.
+      // Workspace tabs (e.g. Actual Spending's This year / Analysis) are
+      // switched inside the page itself, so they no longer get left-nav
+      // children. detailed_results is a hidden step (only appears in this
+      // loop when it IS activeStep, see the `s.hidden && s.id !== activeStep`
+      // filter above), so its sheet-picker nav only renders while viewing it.
       if (s.id === "detailed_results") {
         html += renderDetailedResultsNav();
-      } else if (STRATEGY_TABS[s.id]) {
-        html += renderWorkspaceSubtabsNav(s.id);
       }
     });
     html += `</div></details>`;

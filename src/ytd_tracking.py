@@ -133,6 +133,12 @@ EXCLUDED_SPENDING_CATEGORIES = {
     "hsa contribution",
 }
 
+# ATM and cash withdrawals are always spending (cash leaving the household),
+# never a transfer or investment withdrawal, even though the description
+# usually contains "withdrawal".
+CASH_WITHDRAWAL_CATEGORIES = {"cash and atm", "cash & atm", "atm", "cash", "atm withdrawal", "cash withdrawal"}
+CASH_WITHDRAWAL_RE = re.compile(r"\b(atm|cash withdrawal)\b", re.I)
+
 ALLOWED_INCOME_CATEGORY_KINDS = {
     "paychecks": "earned_income",
     "redmane annual note p&i": "note_receivable_income",
@@ -713,6 +719,15 @@ def income_kind_for_category(row: dict[str, Any]) -> str | None:
     return ALLOWED_INCOME_CATEGORY_KINDS.get(_income_category_key(row.get("Category")))
 
 
+def is_cash_withdrawal(row: dict[str, Any]) -> bool:
+    """Return True for outgoing ATM/cash withdrawals, which are always spending."""
+    if parse_money(row.get("Amount")) >= 0:
+        return False
+    if _norm_label(row.get("Category")) in CASH_WITHDRAWAL_CATEGORIES:
+        return True
+    return bool(CASH_WITHDRAWAL_RE.search(" ".join(str(row.get(k, "")) for k in ("Merchant", "Original Statement"))))
+
+
 def is_ignored_ytd_spending_flow(row: dict[str, Any]) -> bool:
     """Return True for bookkeeping/investment-flow rows that must not count as spending.
 
@@ -721,6 +736,8 @@ def is_ignored_ytd_spending_flow(row: dict[str, Any]) -> bool:
     Phrase checks below catch common transfer/contribution text in statement
     descriptions even when the Category field is less specific.
     """
+    if is_cash_withdrawal(row):
+        return False
     category = _norm_label(row.get("Category"))
     if category in EXCLUDED_SPENDING_CATEGORIES:
         return True
@@ -736,6 +753,8 @@ def classify_cash_transaction(row: dict[str, Any]) -> str:
     # tests/test_monarch_transaction_sign_convention_contract.py.
     amount = parse_money(row.get("Amount"))
     text = transaction_text(row)
+    if is_cash_withdrawal(row):
+        return "spending"
     if is_ignored_ytd_spending_flow(row):
         return "transfer"
     if TAX_RE.search(text):
