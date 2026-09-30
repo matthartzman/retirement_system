@@ -1037,6 +1037,12 @@ PLAN_DATA_BACKFILL_ENTRIES: list[plan_data_backfill.BackfillEntry] = [
     ),
     plan_data_backfill.BackfillEntry(
         "client_household.csv",
+        [["Economic Assumptions", "", "state_income_tax_rate", "", "pct",
+          "Override for state income-tax rate. Blank = Auto: the residence state's own rules. A value taxes state income at this flat rate (state retirement and Social Security exemptions still apply)."]],
+        plan_data_backfill.insert_after_last(plan_data_backfill.section_subsection_is("Economic Assumptions", "")),
+    ),
+    plan_data_backfill.BackfillEntry(
+        "client_household.csv",
         [["Economic Assumptions", "", "cash_yield_rate", "2.00%", "pct",
           "Growth rate applied to dividends/interest that convert to cash inside an account (Reinvest Dividends = NO) instead of compounding with the rest of the holding."]],
         plan_data_backfill.insert_after_last(plan_data_backfill.section_subsection_is("Economic Assumptions", "")),

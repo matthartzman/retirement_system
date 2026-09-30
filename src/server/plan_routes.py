@@ -594,6 +594,13 @@ def save_home_sale_splits():
     body = request.get_json(silent=True) or {}
     return _service_json(_strategy_asset_feature_service().save_home_sale_splits_payload(body))
 
+@app.route("/api/tax-assumptions", methods=["GET"])
+def get_tax_assumptions():
+    denied = _require("read_config")
+    if denied:
+        return denied
+    return _service_json(_strategy_asset_feature_service().tax_assumptions_payload())
+
 @app.route("/api/residency-schedule", methods=["GET"])
 def get_residency_schedule():
     denied = _require("read_config")

@@ -40,7 +40,7 @@ ROUTE_MODULES = {
         "/api/estate-state-options", "/api/estate-state/add", "/api/trust-account/add",
         "/api/insurance-policy/add", "/api/insurance-policy/delete", "/api/life-illustration/seed", "/api/capital-market/assumptions",
         "/api/capital-market/correlations", "/api/housing/seed", "/api/housing/state-estimate", "/api/housing/optimize", "/api/wellness/seed", "/api/config/sync",
-        "/api/home-sale-splits", "/api/residency-schedule",
+        "/api/home-sale-splits", "/api/residency-schedule", "/api/tax-assumptions",
         "/api/daf/recommendation", "/api/qlac/recommendation", "/api/housing/top-cities", "/api/housing/zip-lookup", "/api/housing/zip-screen",
         "/api/hsa-schedule", "/api/liabilities", "/api/withdrawal-account-order",
     ],

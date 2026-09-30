@@ -530,7 +530,7 @@ def run_deterministic_projection_stage(c):
         new_state_tax = state_income_tax(
             state_for_year(c, year), earned_net, retirement_dist_base + ira_wd_cumulative, ss_taxable,
             investment_inc, nonqual_ann, roth_conv, year, h_over_65, filing=filing,
-            brk_inf=c['brk_inf'],
+            brk_inf=c['brk_inf'], rate_override=c.get('state_rate_override'),
         )
         delta = (new_fed_tax - fed_tax_base) + (new_state_tax - state_tax_base)
         return delta, new_fed_tax, new_state_tax
