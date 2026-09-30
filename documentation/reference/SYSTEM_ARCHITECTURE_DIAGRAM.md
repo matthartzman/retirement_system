@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 192 Python files under `src/`, 45 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 192 Python files under `src/`, 46 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -12,7 +12,7 @@ Every box is a real directory in the repo. Every arrow is a real `import` found 
 flowchart TB
     User(["Desktop user"]) --> FE
     subgraph FE["Frontend SPA (frontend/)"]
-        FEcount["45 JS files, browser-loaded via index.html script tags"]
+        FEcount["46 JS files, browser-loaded via index.html script tags"]
     end
     FE -->|fetch /api/*| L_HTTP_Routes
     subgraph L_HTTP_Routes["HTTP Routes (11 modules)"]
@@ -352,17 +352,18 @@ Script load order, as declared in `frontend/index.html` (this is the frontend's 
 33. `js/dashboard.js?v=63`
 34. `js/dashboard_decomp_workbook_formatting.js?v=2`
 35. `js/dashboard_decomp_plan_features.js?v=1`
-36. `js/dashboard_decomp_misc.js?v=1`
-37. `js/dashboard_decomp_state_inputs.js?v=2`
-38. `js/dashboard_decomp_home_panels.js?v=2`
-39. `js/modules/phase3_module_manifest.js?v=2`
-40. `js/dashboard_source_truth_banners.js?v=2`
-41. `js/dashboard_decomp_optimizer_apply.js?v=1`
-42. `js/dashboard_batch_assumption_edit.js?v=2`
-43. `js/dashboard_decomp_holdings.js?v=1`
-44. `js/spending_dashboard.js?v=12`
+36. `js/dashboard_decomp_tax_assumptions.js?v=1`
+37. `js/dashboard_decomp_misc.js?v=1`
+38. `js/dashboard_decomp_state_inputs.js?v=2`
+39. `js/dashboard_decomp_home_panels.js?v=2`
+40. `js/modules/phase3_module_manifest.js?v=2`
+41. `js/dashboard_source_truth_banners.js?v=2`
+42. `js/dashboard_decomp_optimizer_apply.js?v=1`
+43. `js/dashboard_batch_assumption_edit.js?v=2`
+44. `js/dashboard_decomp_holdings.js?v=1`
+45. `js/spending_dashboard.js?v=12`
 
-All `.js` files found under `frontend/` (45):
+All `.js` files found under `frontend/` (46):
 
 - `frontend/js/admin.js`
 - `frontend/js/api_client.js`
@@ -398,6 +399,7 @@ All `.js` files found under `frontend/` (45):
 - `frontend/js/dashboard_decomp_state_inputs.js`
 - `frontend/js/dashboard_decomp_strategy_workspace.js`
 - `frontend/js/dashboard_decomp_supplemental_tables.js`
+- `frontend/js/dashboard_decomp_tax_assumptions.js`
 - `frontend/js/dashboard_decomp_workbook_formatting.js`
 - `frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js`
 - `frontend/js/dashboard_shared_helpers.js`
@@ -590,7 +592,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/projection_stages/budget_rollups.py` | — | — |
 | `src/projection_stages/cashflow_breakdown.py` | — | — |
 | `src/projection_stages/deaths_and_spousal_rollover.py` | `planning_engines` | — |
-| `src/projection_stages/deterministic_engine.py` | `core`, `equity_comp`, `module_catalog`, `planning_engines`, `projection_stages.amt_equity_comp_true_up`, `projection_stages.appreciation_divorce_qlac`, `projection_stages.budget_rollups`, `projection_stages.cashflow_breakdown`, `projection_stages.deaths_and_spousal_rollover`, `projection_stages.effective_marginal_rate`, `projection_stages.home_sale`, `projection_stages.income`, `projection_stages.portfolio_growth_and_net_worth`, `projection_stages.roth_conversion_and_agi_tax`, `projection_stages.spending_and_rmd`, `projection_stages.withdrawal_cascade_daf_makeup`, `projection_stages.withdrawal_cascade_final_draws`, `projection_stages.withdrawal_cascade_gap_assembly`, `projection_stages.withdrawal_cascade_hsa_priority_draws`, `projection_stages.withdrawal_cascade_hsa_reimbursement_correction`, `projection_stages.withdrawal_cascade_investment_tax`, `projection_stages.withdrawal_cascade_ira_true_up`, `projection_stages.withdrawal_cascade_taxable_trust`, `projection_stages.year_state` | — |
+| `src/projection_stages/deterministic_engine.py` | `core`, `equity_comp`, `module_catalog`, `planning_engines`, `projection_stages.amt_equity_comp_true_up`, `projection_stages.appreciation_divorce_qlac`, `projection_stages.budget_rollups`, `projection_stages.cashflow_breakdown`, `projection_stages.deaths_and_spousal_rollover`, `projection_stages.effective_marginal_rate`, `projection_stages.home_sale`, `projection_stages.income`, `projection_stages.portfolio_growth_and_net_worth`, `projection_stages.roth_conversion_and_agi_tax`, `projection_stages.spending_and_rmd`, `projection_stages.withdrawal_cascade_daf_makeup`, `projection_stages.withdrawal_cascade_final_draws`, `projection_stages.withdrawal_cascade_gap_assembly`, `projection_stages.withdrawal_cascade_hsa_priority_draws`, `projection_stages.withdrawal_cascade_hsa_reimbursement_correction`, `projection_stages.withdrawal_cascade_investment_tax`, `projection_stages.withdrawal_cascade_ira_true_up`, `projection_stages.withdrawal_cascade_taxable_trust`, `projection_stages.year_state`, `tax_assumptions` | — |
 | `src/projection_stages/effective_marginal_rate.py` | `core`, `planning_engines` | — |
 | `src/projection_stages/home_sale.py` | `planning_engines` | — |
 | `src/projection_stages/income.py` | `equity_comp`, `planning_engines` | — |
