@@ -53,18 +53,16 @@ window.getSpendingDivergencePct = getSpendingDivergencePct;
 // #338 W-C: these two tabs are the Actual Spending step under Reports &
 // Review now (ytd_transactions + spending_dashboard merged), not tabs of
 // Spending Model.
-// Explains the "! >3%" left-nav badge (same 3% threshold as stepButton).
+// Explains the "! >3%" left-nav badge (same 3% threshold as stepButton): all
+// spending Tracking Types, annualized, vs. the annual budget for those same types.
 export function spendingDivergenceNoteHtml() {
   var pct = Number(getSpendingDivergencePct()) || 0;
-  if (Math.abs(pct) <= 0.03) return '';
+  if (pct <= 0.03) return '';
   var d = window.spendingData || {};
-  var detail = d.model_core_spending
-    ? ' Annualized actual spending is <b>' + fmtSpend(d.annualized_total) + '</b> vs. the model\'s core spending of <b>' + fmtSpend(d.model_core_spending) + '</b>.'
-    : '';
-  return '<div class="section-note warning spending-divergence-note"><b>! &gt;3% &mdash; spending is ' +
-    Math.abs(pct * 100).toFixed(1) + '% ' + (pct > 0 ? 'above' : 'below') + ' the model.</b>' + detail +
-    ' The "! &gt;3%" badge in the left nav appears when your annualized actual spending differs from the plan\'s core spending by more than 3%, in either direction.' +
-    ' If actual spending is the right run rate, use <b>Sync Actual Rate &rarr; 30-Year Model</b> on the Analysis tab to update the plan.</div>';
+  return '<div class="section-note warning spending-divergence-note"><b>! &gt;3% &mdash; annualized spending is ' +
+    (pct * 100).toFixed(1) + '% over the annual budget.</b> Annualized spending (all Tracking Types, including taxes) is <b>' +
+    fmtSpend(d.annualized_total) + '</b> vs. an annual budget of <b>' + fmtSpend(d.budget_total) + '</b>.' +
+    ' The "! &gt;3%" badge in the left nav appears when this exceeds 3%. Review the categories below, or raise the budget if this is the right run rate.</div>';
 }
 window.spendingDivergenceNoteHtml = spendingDivergenceNoteHtml;
 
@@ -179,7 +177,11 @@ export function renderSpendingDashboard() {
       '<div class="table-actions"><button class="btn" onclick="loadSpendingDashboard(true)">Retry</button></div></div>';
   }
   var d = window.spendingData || {};
-  window.spendingDivergencePct = d.model_core_spending ? ((Number(d.annualized_total || 0) - Number(d.model_core_spending || 0)) / Number(d.model_core_spending || 1)) : (Number(d.variance_pct || 0) / 100);
+  // Same scope on both sides: annualized spending and the annual budget cover
+  // the same Tracking Types (not the core-only model assumption).
+  var prevOver = Number(window.spendingDivergencePct) > 0.03;
+  window.spendingDivergencePct = Number(d.budget_total) > 0 ? (Number(d.annualized_total || 0) - Number(d.budget_total)) / Number(d.budget_total) : 0;
+  if (prevOver !== (window.spendingDivergencePct > 0.03)) setTimeout(function () { if (window.renderSteps) window.renderSteps(); }, 0);
   if (!d.enabled) {
     return '<div class="holdings spending-dashboard"><div class="question"><b>No transaction data loaded.</b> ' +
       'Import transactions on the <a href="#" onclick="setStep(\'ytd_transactions\');return false">Income &amp; Expense Transactions tab</a> first, then return here to track budget vs actuals.</div></div>';
