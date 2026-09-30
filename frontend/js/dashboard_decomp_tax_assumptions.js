@@ -4,7 +4,6 @@
 // renders, the card is appended to #mainPane. State is module-local; pure
 // helpers take their data as parameters so tests can call them directly.
 // Backend: GET/POST /api/tax-assumptions (src/tax_assumptions.py).
-
 const TAX_STEP = "economic_tax_assumptions";
 let taxPayload = null; // last GET payload
 let taxDrafts = {}; // key -> text typed but not saved
