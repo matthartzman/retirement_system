@@ -1045,7 +1045,8 @@ def state_retirement_exclusion_count(h_age, w_age, h_alive=True, w_alive=True, m
 
 
 def state_income_tax(state, earned, retirement_dist, ss_taxable, investment_inc,
-                     nonqual_annuity, roth_conv, year, age_over_65=True, filing='MFJ', brk_inf=0.02):
+                     nonqual_annuity, roth_conv, year, age_over_65=True, filing='MFJ', brk_inf=0.02,
+                     rate_override=None):
     _require_supported_state(state)
     # Item 291 (2026-08-19): a Step 7.7 sweep flagged this fallback and it was
     # reverted after a genuine scope conflict with Class 1's own deliberate,
@@ -1058,7 +1059,7 @@ def state_income_tax(state, earned, retirement_dist, ss_taxable, investment_inc,
     # this repo deliberately keeps lenient, and changing its shape here was
     # out of scope for those callers, not a live silent-Illinois-in-output bug.
     rules = STATE_TAX_RULES.get(state, STATE_TAX_RULES.get('Illinois', _td.STATE_TAX_DEFAULTS.get('Illinois')))
-    if rules['type'] == 'none':
+    if rules['type'] == 'none' and rate_override is None:
         return 0.0
     taxable = earned + investment_inc + nonqual_annuity
     if not rules.get('exempt_retirement'):
@@ -1085,6 +1086,10 @@ def state_income_tax(state, earned, retirement_dist, ss_taxable, investment_inc,
     # compute_fed_tax inflates the federal brackets, or a 30-year projection
     # shows CA/NY state tax drifting steadily upward relative to federal
     # purely from frozen bracket thresholds, not from any real law change.
+    if rate_override is not None:
+        # Plan-level override (src/tax_assumptions.py): tax state income at a
+        # flat rate; the state's exemptions above still apply.
+        return max(0.0, taxable * float(rate_override))
     brackets = _STATE_INCOME_BRACKETS.get((state, filing)) or _STATE_INCOME_BRACKETS.get((state, 'Single'))
     if rules.get('type') == 'graduated' and brackets:
         years = int(year) - _STATE_INCOME_BRACKETS_VALUE_YEARS.get(state, TAX_BASE_YEAR)

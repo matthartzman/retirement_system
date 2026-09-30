@@ -4484,6 +4484,7 @@ const FIELD_GUIDANCE_OVERRIDES = {
     impact: "A higher inflator means tax brackets shift up each year faster, potentially keeping you in a lower tax bracket as your income rises. A lower inflator means brackets creep up slower, causing more of your income to be taxed at higher rates over time.",
     consider: "Use the actual inflation rate your government announces each year, or use your expected long-term inflation rate if forecasting multiple years ahead.",
   },
+  state_income_tax_rate: { purpose: "Leave blank (Auto) to use your state's own income-tax rules. Enter a rate to tax state income at that flat rate instead.", impact: "A higher rate raises projected state tax every year. Your state's retirement and Social Security exemptions still apply.", consider: "Use an override to test a rate change or a blended rate from a recent return. A rate more than 2 points from the state's headline rate is flagged as unusual." },
   inflation_general: {
     purpose: "This is your assumption for the overall annual inflation rate — the rate at which the cost of everyday goods, housing, and cars is expected to rise.",
     impact: "A higher inflation rate means your purchasing power erodes faster, requiring larger cash flow each year to maintain the same lifestyle. A lower rate means your money goes further and you need less cash.",

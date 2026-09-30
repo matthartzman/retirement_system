@@ -384,6 +384,21 @@ def _date_parts(v):
     return _plan_dates.parse_plan_date(v, bare_year_as='end')
 
 
+def _apply_tax_assumptions(c, raw, scenario_raw=None):
+    """Resolve plan tax levers (Auto vs override) into the engine config."""
+    from . import tax_assumptions as _ta
+    from .core import STATE_TAX_RULES as _rules
+    resolved = _ta.resolve_tax_assumptions(
+        raw, _n, state=c.get('state', ''), state_rules=_rules)
+    _ta.apply_to_config(c, resolved)
+    scen = _ta.resolve_law_scenario(
+        (scenario_raw or {}).get('tax_law_scenario'),
+        (scenario_raw or {}).get('higher_rates_start_year'),
+        int(c.get('plan_start') or _platform_runtime.today().year), _n)
+    c['law_scenario'] = scen
+    c['tax_assumptions_effective']['tax_law_scenario'] = dict(scen)
+
+
 def _month_year_parts(v):
     """Return (year, month) for a MM/YYYY (or M/YYYY, YYYY-MM) string, else
     None. Distinct from _date_parts, which requires a day component -- a
@@ -785,8 +800,16 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     c['med_inf']   = _n(_v(data,'Economic Assumptions','','medicare_part_b_inflation','0.055'), 0.055)
     c['partd_inf'] = _n(_v(data,'Economic Assumptions','','medicare_part_d_inflation','0.0125'), 0.0125)
     c['ret']       = _n(_v(data,'Economic Assumptions','','portfolio_nominal_return','0.06'), 0.06)
-    c['brk_inf']   = _n(_v(data,'Economic Assumptions','','fed_tax_bracket_inflator','0.02'), 0.02)
-    c['ss_taxable']= _n(_v(data,'Economic Assumptions','','social_security_taxable_fraction','0.85'), 0.85)
+    # Tax assumptions resolve through one place (Auto model value vs. plan
+    # override); see src/tax_assumptions.py. Blank/absent fields mean Auto.
+    _apply_tax_assumptions(c, {
+        'fed_tax_bracket_inflator': _v(data,'Economic Assumptions','','fed_tax_bracket_inflator',''),
+        'social_security_taxable_fraction': _v(data,'Economic Assumptions','','social_security_taxable_fraction',''),
+        'state_income_tax_rate': _v(data,'Economic Assumptions','','state_income_tax_rate',''),
+    }, {
+        'tax_law_scenario': _v(data,'Economic Assumptions','','tax_law_scenario',''),
+        'higher_rates_start_year': _v(data,'Economic Assumptions','','higher_rates_start_year',''),
+    })
     # Social Security solvency / funding haircut. This explicit assumption reduces
     # gross Social Security benefits from the configured year onward when the
     # user wants to model trust-fund underfunding risk.
@@ -2242,13 +2265,19 @@ def build_plan_from_json(plan, url_template=''):
     a = plan.get('assumptions', {})
     c['ret']             = a.get('return_rate', 0.074)
     c['inf']             = a.get('inflation', 0.025)
-    c['brk_inf']         = a.get('bracket_inflation', 0.028)
+    _apply_tax_assumptions(c, {
+        'fed_tax_bracket_inflator': a.get('bracket_inflation'),
+        'social_security_taxable_fraction': a.get('ss_taxable_pct'),
+        'state_income_tax_rate': a.get('state_income_tax_rate'),
+    }, {
+        'tax_law_scenario': a.get('tax_law_scenario'),
+        'higher_rates_start_year': a.get('higher_rates_start_year'),
+    })
     c['ret_eq']          = a.get('equity_return', 0.10)
     c['ret_bond']        = a.get('bond_return', 0.04)
     c['mc_vol']          = a.get('mc_volatility', 0.15)
     c['mc_paths']        = int(a.get('mc_paths', 1000))
     c['ss_cola']         = a.get('ss_cola', 0.023)
-    c['ss_taxable']      = a.get('ss_taxable_pct', 0.85)
 
     # ── Accounts & Balances ───────────────────────────────────────────────
     accounts_in = plan.get('accounts', [])

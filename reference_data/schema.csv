@@ -23,6 +23,10 @@ Economic Assumptions,,reinvest_dividends_default,boolean,FALSE,NO,,,Global defau
 Economic Assumptions,,cash_yield_rate,percent,FALSE,2.00%,0,10,Growth rate applied to dividends/interest that convert to cash inside an account instead of compounding
 Economic Assumptions,,fed_tax_bracket_inflator,percent,TRUE,2.00%,0,5,Annual bracket expansion
 Economic Assumptions,,social_security_taxable_fraction,percent,TRUE,85.00%,0,100,SS fraction in AGI
+Economic Assumptions,,state_income_tax_rate,percent,FALSE,,0,15,"Override for state income-tax rate. Blank = Auto: the residence state's own rules from reference_data/state_tax.csv. A value taxes state income at this flat rate (state retirement and Social Security exemptions still apply)."
+Economic Assumptions,,tax_law_scenario,choice,FALSE,current_law,,,"current_law | higher_rates. higher_rates is a stress: from the start year, federal ordinary income is taxed at the pre-2018 rates (10/15/25/28/33/35/39.6%) with today's bracket thresholds. Only tax owed is stressed; Roth and withdrawal decisions keep using today's brackets."
+Economic Assumptions,,higher_rates_start_year,year,FALSE,,2026,2100,"First year the higher_rates stress applies. Blank = the first plan year."
+Economic Assumptions,,tax_model_baseline,text,FALSE,,,,"System-written record of the model values at the time each tax override was saved; used only to show drift notices. Do not edit."
 Economic Assumptions,,annuity_default_dividend_rate,percent,FALSE,5.00%,0,20,Default dividend rate for annuities WITHOUT an explicit dividend rate of their own; has no effect on any annuity stream that already carries its own override rate
 Model Constants,Retirement,rollover_401k_year,year,TRUE,2030,2026,2060,401k->IRA rollover year
 Model Constants,Retirement,spending_freeze_year,year,TRUE,2040,2026,2060,Year spending stops inflating

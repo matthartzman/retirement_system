@@ -135,7 +135,7 @@ def _state_tax_estimate_for_conversion(
             state_for_year(c, _tax_year), max(0, net_earned_taxable - half_se_ded - sehi_ded),
             rmd_taxable_total + _qual_ann_est, _ss_taxable_est, note_int_yr + portfolio_ordinary + portfolio_qualified,
             _nonqual_ann_est, 0.0, _tax_year, state_retirement_exclusion_count(h_age, w_age, h_alive, w_alive), filing=filing,
-            brk_inf=c['brk_inf'],
+            brk_inf=c['brk_inf'], rate_override=c.get('state_rate_override'),
         )
 
     return _estimate
@@ -633,7 +633,8 @@ def apply_agi_and_tax(
     # 1); this fallback exists only for lower-level/defensive callers this
     # repo deliberately keeps lenient, out of scope for this ticket.
     _state_rules = STATE_TAX_RULES.get(state_for_year(c, year), STATE_TAX_RULES['Illinois'])
-    il_tax_est = agi * _state_rules.get('rate', 0.0495)
+    _sro = c.get('state_rate_override')
+    il_tax_est = agi * (_state_rules.get('rate', 0.0495) if _sro is None else _sro)
     configured_prop_tax_yr = float(row.get('real_estate_tax_yr', 0.0) or 0.0)
     estimated_prop_tax_yr = (home_val * _state_rules.get('prop_rate', 0.0)) if home_val > 0 else 0.0
     prop_tax_yr = configured_prop_tax_yr if configured_prop_tax_yr > 0 else estimated_prop_tax_yr
@@ -758,7 +759,8 @@ def apply_agi_and_tax(
     h_over_65 = state_retirement_exclusion_count(h_age, w_age, h_alive, w_alive)
     state_tax = state_income_tax(state_for_year(c, year), earned_net, retirement_dist,
                                  ss_taxable, note_int_yr + portfolio_ordinary + portfolio_qualified, nonqual_ann,
-                                 roth_conv, year, h_over_65, filing=filing, brk_inf=c['brk_inf'])
+                                 roth_conv, year, h_over_65, filing=filing, brk_inf=c['brk_inf'],
+                                 rate_override=c.get('state_rate_override'))
 
     # NIIT placeholder — computed after trust draws where ltcg_gain is available
     niit = 0.0
