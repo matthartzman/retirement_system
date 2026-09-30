@@ -29,8 +29,8 @@ export function planKpiMetricsHtml() {
     lastBuildSummary && lastBuildSummary.spending_policy_active;
   const worstCutPct =
     lastBuildSummary && lastBuildSummary.worst_modeled_spending_cut_pct;
-  let successLabel = "Probability of Success";
-  let successTitle = "Percentage of simulated scenarios where the plan stays solvent";
+  let successLabel = "Probability plan is fully funded";
+  let successTitle = "Percentage of simulated scenarios where spending is fully funded through the plan; any account, including Roth as a last resort, may fund any spending";
   // W4-2 (N1) disclosure: the shipped default Monte Carlo engine
   // (vectorized) is a documented approximation of the exact_scalar oracle,
   // within a planner-signed-off tolerance -- see
@@ -48,8 +48,9 @@ export function planKpiMetricsHtml() {
       (lastBuildSummary.model_risk_label ||
         "Switch to the exact scalar engine mode for advisor-ready validation.");
   }
+  if (!spendPolicyActive && lastBuildSummary && lastBuildSummary.mc_success_within_tier_policy != null && Number.isFinite(Number(lastBuildSummary.mc_success_within_tier_policy))) successVal += ` <span class="small" title="Approximate. Same simulation, but discretionary and important spending may never draw Roth, and discretionary never draws HSA.">(without using Roth for extras: ${fmtPct(Number(lastBuildSummary.mc_success_within_tier_policy) * 100)})</span>`;
   if (spendPolicyActive) {
-    successLabel = "Probability of Success (conditional on modelled cuts)";
+    successLabel = "Probability plan is fully funded (conditional on modelled cuts)";
     successTitle =
       "Percentage of simulated scenarios where the guardrail-managed portfolio never failed to " +
       "cover its own, dynamically self-cut withdrawal -- conditional on the modelled spending " +
