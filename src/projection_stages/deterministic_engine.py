@@ -9,6 +9,7 @@ stage module.  Additional fine-grained stage files can replace pieces behind
 this same contract without changing callers.
 """
 
+from ..tax_assumptions import stressed_ordinary_brackets as _ta_stressed_brackets
 from .amt_equity_comp_true_up import apply_amt_and_equity_comp_true_up as _apply_amt_and_equity_comp_true_up
 from .appreciation_divorce_qlac import apply_appreciation_divorce_qlac as _apply_appreciation_divorce_qlac
 from .deaths_and_spousal_rollover import (
@@ -505,6 +506,8 @@ def run_deterministic_projection_stage(c):
     def _compute_fed_tax_path(taxable, year, filing, brk_inf_unused=None):
         brk = FEDERAL_BRACKETS_BASE_YEAR.get(filing, FEDERAL_BRACKETS_BASE_YEAR['Single'])
         brk = _inflate_brackets_path(brk, None, int(year) - int(c.get('plan_start', year)))
+        # Tax-law stress (src/tax_assumptions.py): rates only, tax owed only.
+        brk = _ta_stressed_brackets(brk, year, c.get('law_scenario'))
         tax = 0.0
         taxable = max(0.0, float(taxable or 0.0))
         for lo, hi, rate in brk:
@@ -530,7 +533,7 @@ def run_deterministic_projection_stage(c):
         new_state_tax = state_income_tax(
             state_for_year(c, year), earned_net, retirement_dist_base + ira_wd_cumulative, ss_taxable,
             investment_inc, nonqual_ann, roth_conv, year, h_over_65, filing=filing,
-            brk_inf=c['brk_inf'],
+            brk_inf=c['brk_inf'], rate_override=c.get('state_rate_override'),
         )
         delta = (new_fed_tax - fed_tax_base) + (new_state_tax - state_tax_base)
         return delta, new_fed_tax, new_state_tax

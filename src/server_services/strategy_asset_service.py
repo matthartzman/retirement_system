@@ -667,6 +667,113 @@ class StrategyAssetService:
             self._audit("config_backends_synced", sync_result)
         return {"success": True, "count": len(clean), "sync": sync_result}, 200
 
+    def tax_assumptions_payload(self) -> tuple[dict[str, Any], int]:
+        """Resolved tax levers (model value, override, effective, basis) for
+        the current plan. Read-only: overrides are edited in the plan form."""
+        from .. import tax_assumptions as ta
+        from ..core import STATE_TAX_RULES
+        from ..data_io import _n
+
+        def _values(section: str) -> dict[str, str]:
+            out: dict[str, str] = {}
+            rows = self.context.read_client_section_rows(section, "client_household.csv")
+            for row in rows[1:]:
+                if len(row) >= 4 and str(row[0]).strip() == section:
+                    out[str(row[2]).strip()] = str(row[3]).strip()
+            return out
+
+        econ = _values("Economic Assumptions")
+        state = _values("Household").get("residence_state", "")
+        try:
+            resolved = ta.resolve_tax_assumptions(
+                {k: econ.get(k) for k in ta.LEVER_BY_KEY}, _n,
+                state=state, state_rules=STATE_TAX_RULES)
+        except ta.TaxAssumptionError as exc:
+            return {"success": False, "error": str(exc)}, 400
+        baseline = ta.parse_baseline(econ.get(ta.BASELINE_LABEL))
+        levers = ta.with_drift([r.as_dict() for r in resolved.values()], baseline)
+        # Residency schedule (#302): the model state rate for each period.
+        periods = []
+        try:
+            sched_rows = self.context.read_client_section_rows("State Residency Schedule", "client_data.csv")
+            for p in self.context.residency_schedule_from_csv_rows(sched_rows):
+                rules = STATE_TAX_RULES.get(str(p.get("state", "")))
+                periods.append({**p, "model_rate": float(rules.get("rate", 0.0)) if rules else None})
+        except Exception:
+            periods = []
+        scenario = ta.resolve_law_scenario(
+            econ.get("tax_law_scenario"), econ.get("higher_rates_start_year"),
+            _platform_runtime.today().year, _n)
+        return {"success": True, "state": state, "levers": levers,
+                "law_scenario": scenario, "residency_periods": periods,
+                "law_table": ta.law_reference_table()}, 200
+
+    def save_tax_assumptions_payload(self, body: dict[str, Any]) -> tuple[dict[str, Any], int]:
+        """Upsert override rows (blank = Auto) and record the model value at
+        override time so later drift can be shown."""
+        from .. import tax_assumptions as ta
+        from ..core import STATE_TAX_RULES
+        from ..data_io import _n
+
+        overrides = body.get("overrides")
+        if not isinstance(overrides, dict) or not overrides:
+            return {"success": False, "error": "overrides must be a non-empty object"}, 400
+        for key, text in overrides.items():
+            err = ta.validate_override_text(str(key), text)
+            if err:
+                return {"success": False, "error": err}, 400
+        path = self.context.client_section_path("Economic Assumptions", "client_household.csv")
+        with plan_file_lock(path):
+            rows = self.context.ensure_header(self.context.csv_read_rows(path))
+
+            def find(label: str) -> int | None:
+                for i, r in enumerate(rows):
+                    if len(r) >= 3 and str(r[0]).strip() == "Economic Assumptions" and str(r[2]).strip() == label:
+                        return i
+                return None
+
+            def upsert(label: str, value: str, units: str, note: str) -> None:
+                i = find(label)
+                if i is not None:
+                    row = list(rows[i]) + [""] * max(0, 6 - len(rows[i]))
+                    row[3] = value
+                    rows[i] = row
+                    return
+                last = max((i for i, r in enumerate(rows)
+                            if r and str(r[0]).strip() == "Economic Assumptions"), default=len(rows) - 1)
+                rows.insert(last + 1, ["Economic Assumptions", "", label, value, units, note])
+
+            household_state = ""
+            for r in self.context.read_client_section_rows("Household", "client_household.csv")[1:]:
+                if len(r) >= 4 and str(r[0]).strip() == "Household" and str(r[2]).strip() == "residence_state":
+                    household_state = str(r[3]).strip()
+            try:
+                models = {k: v.model_value for k, v in ta.resolve_tax_assumptions(
+                    {}, _n, state=household_state, state_rules=STATE_TAX_RULES).items()}
+            except ta.TaxAssumptionError as exc:
+                return {"success": False, "error": str(exc)}, 400
+            i = find(ta.BASELINE_LABEL)
+            baseline = ta.parse_baseline(rows[i][3] if i is not None and len(rows[i]) > 3 else "")
+            for key, text in overrides.items():
+                key = str(key)
+                new_text = "" if text is None else str(text).strip()
+                j = find(key)
+                old_text = str(rows[j][3]).strip() if j is not None and len(rows[j]) > 3 else ""
+                upsert(key, new_text, "pct", ta.LEVER_BY_KEY[key].help)
+                if not new_text:
+                    baseline.pop(key, None)
+                elif new_text != old_text or key not in baseline:
+                    baseline[key] = models[key]
+            upsert(ta.BASELINE_LABEL, ta.format_baseline(baseline), "text",
+                   "Model values at the time each tax override was saved (used for drift notices).")
+            self.context.write_client_rows(path, rows)
+        self._audit("tax_assumptions_saved", {"keys": sorted(str(k) for k in overrides)})
+        sync_result = None
+        if body.get("sync"):
+            sync_result = self.context.sync_config_backends()
+            self._audit("config_backends_synced", sync_result)
+        return {"success": True, "count": len(overrides), "sync": sync_result}, 200
+
     def residency_schedule_payload(self) -> tuple[dict[str, Any], int]:
         rows = self.context.read_client_section_rows("State Residency Schedule", "client_data.csv")
         return {"success": True, "schedule": self.context.residency_schedule_from_csv_rows(rows)}, 200

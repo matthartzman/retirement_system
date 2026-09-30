@@ -105,7 +105,8 @@ def compute_effective_marginal_rate(
         state = state_income_tax(
             state_for_year(c, year), earned_net, retirement_dist + ira_wd + extra_ordinary, ss_tax,
             note_int_yr + portfolio_ordinary + portfolio_qualified, nonqual_ann, roth_conv,
-            year, h_over_65, filing=filing, brk_inf=c['brk_inf'])
+            year, h_over_65, filing=filing, brk_inf=c['brk_inf'],
+            rate_override=c.get('state_rate_override'))
         niit_v = niit_tax(nii or 0.0, cur_agi, filing)
         return fed + state + niit_v
 
