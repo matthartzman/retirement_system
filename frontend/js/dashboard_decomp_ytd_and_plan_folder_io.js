@@ -587,10 +587,11 @@ export function ytdMetricCard(
   extra = "",
   forecastLabel = "Projected full year",
   sparkOptions = null,
+  breakdown = "",
 ) {
   const isLastYear = !!ytdData?.summary?.is_last_year;
   const actualLabel = isLastYear ? "Actual (last year)" : "Actual YTD";
-  return `<div class="ytd-metric"><h3>${esc(title)}</h3><div class="ytd-metric-values"><span><b>${ytdMoney(actual)}</b><small>${esc(actualLabel)}</small></span><span><b>${ytdMoney(forecast)}</b><small>${esc(forecastLabel)}</small></span></div>${ytdSparkline(series, actualKey, forecastKey, sparkOptions)}${extra ? `<p class="small">${esc(extra)}</p>` : ""}</div>`;
+  return `<div class="ytd-metric"><h3>${esc(title)}</h3><div class="ytd-metric-values"><span><b>${ytdMoney(actual)}</b><small>${esc(actualLabel)}</small></span><span><b>${ytdMoney(forecast)}</b><small>${esc(forecastLabel)}</small></span></div>${ytdSparkline(series, actualKey, forecastKey, sparkOptions)}${breakdown ? `<div class="ytd-breakdown">${breakdown}</div>` : ""}${extra ? `<p class="small">${esc(extra)}</p>` : ""}</div>`;
 }
 
 export function renderYtdUploadPanel(enabled) {
@@ -616,7 +617,11 @@ export function renderYtdSummary() {
   const windowLabel = s.is_last_year
     ? "Last year reporting window"
     : "YTD reporting window";
-  return `<div class="ytd-status-grid"><div class="pill"><b>Earliest transaction</b><span>${esc(s.earliest_transaction_date || "—")}</span></div><div class="pill"><b>Latest transaction</b><span>${esc(s.latest_transaction_date || "—")}</span></div><div class="pill"><b>${esc(windowLabel)}</b><span>${esc(s.ytd_start || "—")} through ${esc(s.through_date || "—")}</span></div><div class="pill"><b>Transactions</b><span>${esc(s.transaction_count || 0)}</span></div><div class="pill"><b>Earned income</b><span>${ytdMoney(s.actual?.earned_income)}</span></div><div class="pill"><b>Investment income</b><span>${ytdMoney(s.actual?.investment_income)}</span></div><div class="pill"><b>Tax payments</b><span>${ytdMoney(s.actual?.taxes)}</span></div><div class="pill"><b>Net investment cashflow</b><span>${ytdMoney(inv.net_ytd_investment_cashflow)}</span></div></div><div class="ytd-metric-grid">${ytdMetricCard("YTD spending", s.actual?.spending, s.forecast?.spending, s.series, "actual_spending", "forecast_spending", spendingExtra, "Expected YTD")}${ytdMetricCard("YTD income", s.actual?.income, s.forecast?.income, s.series, "actual_income", "forecast_income", `Income categories only: ${(s.allowed_income_categories || []).join(", ") || "No income categories configured"}. Earned forecast remaining: ${ytdMoney(s.forecast?.earned_income_remaining)}. Note receivable included to date only: ${ytdMoney(comp.note_receivable_income)}. Investment/other income straight-lined: ${ytdMoney(s.forecast?.investment_income_annualized)} / ${ytdMoney(s.forecast?.other_income_annualized)}.`)}${ytdMetricCard("YTD growth", s.actual?.growth, inv.current_balance, growthSeries, "balance", null, growthExtra, "Current value", { scale: "range" })}</div>`;
+  const windowLine = `${esc(windowLabel)}: ${esc(s.ytd_start || "—")} – ${esc(s.through_date || "—")} · ${esc(s.transaction_count || 0)} transactions`;
+  const spendingBreakdown = `<b>Taxes paid ${ytdMoney(s.actual?.taxes)}</b> · excluded from spending`;
+  const incomeBreakdown = `Earned <b>${ytdMoney(s.actual?.earned_income)}</b> · Investment <b>${ytdMoney(s.actual?.investment_income)}</b> · Note <b>${ytdMoney(comp.note_receivable_income)}</b> · Other <b>${ytdMoney(comp.other_income)}</b>`;
+  const growthBreakdown = `Net investment cashflow <b>${ytdMoney(inv.net_ytd_investment_cashflow)}</b> · diagnostic only`;
+  return `<p class="ytd-window-line">${windowLine}</p><div class="ytd-metric-grid">${ytdMetricCard("YTD spending", s.actual?.spending, s.forecast?.spending, s.series, "actual_spending", "forecast_spending", spendingExtra, "Expected YTD", null, spendingBreakdown)}${ytdMetricCard("YTD income", s.actual?.income, s.forecast?.income, s.series, "actual_income", "forecast_income", `Income categories only: ${(s.allowed_income_categories || []).join(", ") || "No income categories configured"}. Earned forecast remaining: ${ytdMoney(s.forecast?.earned_income_remaining)}. Note receivable included to date only: ${ytdMoney(comp.note_receivable_income)}. Investment/other income straight-lined: ${ytdMoney(s.forecast?.investment_income_annualized)} / ${ytdMoney(s.forecast?.other_income_annualized)}.`, "Projected full year", null, incomeBreakdown)}${ytdMetricCard("YTD growth", s.actual?.growth, inv.current_balance, growthSeries, "balance", null, growthExtra, "Current value", { scale: "range" }, growthBreakdown)}</div>`;
 }
 
 export function renderYtdTransactions() {
