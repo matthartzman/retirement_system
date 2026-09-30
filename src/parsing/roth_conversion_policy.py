@@ -107,6 +107,12 @@ def parse_roth_conversion_policy(data):
                                    'roth_headroom_usage_pct', '95%'), 0.95)))
     out['roth_irmaa_headroom_usage_pct'] = min(1.0, max(0.0, _n(_v(data, 'Withdrawal Policy', 'Roth Conversion',
                                    'roth_irmaa_headroom_usage_pct', '95%'), 0.95)))
+    for _lbl, _key in (('roth_ltcg_headroom_usage_pct', 'roth_ltcg_headroom_usage_pct'),
+                       ('roth_niit_headroom_usage_pct', 'roth_niit_headroom_usage_pct')):
+        out[_key] = min(1.0, max(0.0, _n(_v(data, 'Withdrawal Policy', 'Roth Conversion', _lbl, '95%'), 0.95)))
+    for _lbl, _key in (('roth_ltcg_guardrail', 'roth_ltcg_cap'), ('roth_niit_guardrail', 'roth_niit_cap')):
+        _raw = str(_v(data, 'Withdrawal Policy', 'Roth Conversion', _lbl, 'TRUE') or 'TRUE').strip().upper()
+        out[_key] = _raw not in ('FALSE', 'NO', 'OFF', '0', 'N')
     out['irmaa_guardrail_mode'] = normalize_irmaa_guardrail_mode(_v(data, 'Withdrawal Policy', 'Roth Conversion',
                                    'irmaa_guardrail_mode', 'AVOID_NEXT_TIER'), 'AVOID_NEXT_TIER')
     if out['irmaa_guardrail_mode'] not in ('IGNORE', 'WARN_ONLY', 'AVOID_NEXT_TIER', 'AVOID_TIER_2_OR_ABOVE', 'CUSTOM_MAGI_CAP'):
