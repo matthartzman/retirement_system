@@ -241,7 +241,10 @@
 .spend-kpi{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center}
 .spend-kpi .btn{display:block;margin:8px auto 0}
 .spend-kpi-value{display:block;font-size:22px;font-weight:900;font-variant-numeric:tabular-nums}
-.spend-kpi-label{display:block;font-size:11px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.05em}
+.spend-kpi-value,.spend-kpi .btn{white-space:nowrap}
+.ytd-window-line{margin:0 0 10px;font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ytd-breakdown{margin:10px 0 0;padding:8px 10px;background:#f1eee6;border-radius:8px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.spend-kpi-label{white-space:nowrap;display:block;font-size:11px;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:.05em}
 .spend-kpi.ok .spend-kpi-value{color:var(--ok)}
 .spend-kpi.watch .spend-kpi-value{color:var(--warn)}
 .spend-kpi.over .spend-kpi-value{color:var(--danger)}
