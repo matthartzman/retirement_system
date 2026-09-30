@@ -78,7 +78,7 @@ def test_parse_client_reads_legacy_household_via_migration():
     from src.data_io import parse_client
     data = {
         "Household": {"": {"husband_name": "Robert", "wife_name": "Susan",
-                            "residence_state": "Illinois"}},
+                            "residence_state": "Illinois", "husband_dob": "1/1/1960", "wife_dob": "1/1/1962"}},
         "Social Security": {"Husband": {"claim_age": "70"}, "Wife": {"claim_age": "67"}},
     }
     migrated, _ = migrate_sectioned_data({k: {s: dict(v) for s, v in sd.items()} for k, sd in data.items()})

@@ -16,7 +16,7 @@ mutate one, so it cannot introduce cash-flow drift in existing golden
 masters.
 """
 
-import datetime
+from . import platform_runtime as _platform_runtime
 
 # Bucket starts (in years-from-now); the implied ranges are 0-2, 3-5, 6-10,
 # 11-15, 16+. Chosen to roughly track the chart's near/short/mid/long groupings.
@@ -67,7 +67,7 @@ def withdrawal_liability_schedule(rows, c):
     (compute_human_capital, compute_allocation_coverage) — precision to the
     exact CPI path is not needed for a holding-period *bucket* assignment.
     """
-    plan_start = int(c.get('plan_start', datetime.date.today().year))
+    plan_start = int(c.get('plan_start', _platform_runtime.today().year))
     _raw_inf = c.get('inf', 0.025)
     inf = float(_raw_inf) if _raw_inf is not None else 0.025
     schedule: dict[int, float] = {}
@@ -130,7 +130,7 @@ def holding_period_profile(rows, c, bucket_edges=DEFAULT_BUCKET_EDGES, bucket_la
             'source': 'no_projected_withdrawals',
         }
 
-    plan_start = int(c.get('plan_start', datetime.date.today().year))
+    plan_start = int(c.get('plan_start', _platform_runtime.today().year))
     plan_end_offset = max(0, int(c.get('plan_end', plan_start)) - plan_start)
 
     remaining = liquid_nw
@@ -181,6 +181,6 @@ def withdrawal_weighted_horizon(rows, c, default=None):
         return horizon
     if default is not None:
         return default
-    plan_start = int(c.get('plan_start', datetime.date.today().year))
+    plan_start = int(c.get('plan_start', _platform_runtime.today().year))
     plan_end = int(c.get('plan_end', plan_start + 30))
     return max(1, plan_end - plan_start)

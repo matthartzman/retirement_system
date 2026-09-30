@@ -54,8 +54,12 @@ def test_planning_workbench_route_is_available_before_plan_load():
     # what has to be listed, or the "Compare & Decide" button in every page
     # header bounces to Plan Status whenever no plan is open. Where it lands
     # is asserted behaviorally in tests/frontend/strategy_section_redirects.test.mjs.
-    assert '"strategy_scenarios",\n        "strategy_workbench",\n        "reports_and_review",\n      ].includes(s.id)' in dashboard
-    assert '"strategy_scenarios",\n        "strategy_workbench",\n        "reports_and_review",\n      ].includes(activeStep)' in dashboard
+    # UX-008 (WI-508): the nav-disable and renderMain gates no longer keep
+    # their own inline copies of this list -- both read navigation.js's
+    # PLAN_INDEPENDENT_STEPS through planIndependentSteps(). Behaviour is
+    # pinned in tests/frontend/plan_independent_steps_render.test.mjs.
+    assert "!planIndependentSteps().includes(s.id)" in dashboard
+    assert "!planIndependentSteps().includes(activeStep)" in dashboard
     assert "strategy_scenarios','strategy_workbench','reports_and_review'" in navigation
     assert "!PLAN_INDEPENDENT_STEPS.includes(id)" in navigation
     assert "planning_workbench:{step:'strategy_workbench',section:'levers'}" in navigation

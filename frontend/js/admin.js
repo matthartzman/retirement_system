@@ -794,6 +794,12 @@ function settingHelpDataAttrs(row) {
 function settingHelpButton(row, label) {
   return `<button type="button" class="setting-help-btn" title="Help for ${esc(label)}" aria-label="Help for ${esc(label)}"${settingHelpDataAttrs(row)} onclick="showSettingHelpFromControl(this)">?</button>`;
 }
+// UX-002 (system review 2026-09-25, WI-503): the setting-name cell is a
+// <label for> pointing at this id, so each .cfg-input/.cfg-select has a
+// programmatic name (and clicking the name focuses the control).
+function settingControlId(i) {
+  return "cfg-ctl-" + i;
+}
 function settingControl(row, i) {
   const value = rowCell(row, 3);
   const label = rowCell(row, 2).trim();
@@ -809,13 +815,13 @@ function settingControl(row, i) {
     const customOption = choices.includes(value)
       ? ""
       : `<option value="${esc(value)}" selected>Custom: ${esc(value)}</option>`;
-    return `<select class="cfg-select" data-row="${i}"${helpDataAttrs} onchange="markActiveChanged(this)"${helpAttrs}>${choices.map((c) => `<option value="${esc(c)}" ${String(c) === value ? "selected" : ""}>${esc(choiceDisplay(label, c))}</option>`).join("")}${customOption}</select>`;
+    return `<select class="cfg-select" id="${settingControlId(i)}" data-row="${i}"${helpDataAttrs} onchange="markActiveChanged(this)"${helpAttrs}>${choices.map((c) => `<option value="${esc(c)}" ${String(c) === value ? "selected" : ""}>${esc(choiceDisplay(label, c))}</option>`).join("")}${customOption}</select>`;
   }
   const type =
     units === "secret" || /token|secret|password|api_key/i.test(label)
       ? "password"
       : "text";
-  return `<input class="cfg-input" type="${type}" data-row="${i}"${helpDataAttrs} value="${esc(value)}" oninput="markActiveChanged(this)"${helpAttrs}>`;
+  return `<input class="cfg-input" id="${settingControlId(i)}" type="${type}" data-row="${i}"${helpDataAttrs} value="${esc(value)}" oninput="markActiveChanged(this)"${helpAttrs}>`;
 }
 function impactNote(row) {
   const label = rowCell(row, 2).trim();
@@ -1018,7 +1024,7 @@ function buildSectionSettings(rows, opts = {}) {
       // the client UI, which never shows a field's internal name or data
       // type, only its label plus help text. That detail still reaches the
       // help panel via data-help-units on the control/button below.
-      tbody += `<tr data-filter="${esc((section + " " + sub + " " + rowCell(row, 2) + " " + rowCell(row, 3) + " " + rowCell(row, 5)).toLowerCase())}"><td><span class="setting-name">${esc(label)}</span></td><td>${settingControl(row, i)}</td><td>${settingHelpButton(row, label)}</td></tr>`;
+      tbody += `<tr data-filter="${esc((section + " " + sub + " " + rowCell(row, 2) + " " + rowCell(row, 3) + " " + rowCell(row, 5)).toLowerCase())}"><td><label class="setting-name" for="${settingControlId(i)}">${esc(label)}</label></td><td>${settingControl(row, i)}</td><td>${settingHelpButton(row, label)}</td></tr>`;
     });
     const table = `<table><thead><tr><th style="width:45%">Setting</th><th>Value</th><th style="width:46px">Help</th></tr></thead><tbody>${tbody}</tbody></table>`;
     const help =
@@ -1800,7 +1806,7 @@ function renderAdminNav() {
             : "";
         if (group !== lastGroup) lastGroup = group;
         stepNo++;
-        return `${label}<button class="stepbtn ${it.id === activeAdminStep ? "active" : ""}" data-admin-step="${esc(it.id)}" onclick="${it.action}"><span class="num">${stepNo}</span><span><span class="step-title">${esc(it.title)}</span><div class="step-desc">${esc(it.desc || "Open this page")}</div></span></button>`;
+        return `${label}<button class="stepbtn ${it.id === activeAdminStep ? "active" : ""}"${it.id === activeAdminStep ? ' aria-current="step"' : ""} data-admin-step="${esc(it.id)}" onclick="${it.action}"><span class="num">${stepNo}</span><span><span class="step-title">${esc(it.title)}</span><div class="step-desc">${esc(it.desc || "Open this page")}</div></span></button>`;
       })
       .join("") || '<div class="no-results">No navigation matches.</div>';
 }

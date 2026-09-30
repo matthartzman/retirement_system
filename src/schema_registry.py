@@ -1,10 +1,11 @@
 from __future__ import annotations
 """Schema-driven validation/help registry for Plan Data rows."""
-import csv, re
+import csv, math, re
 from pathlib import Path
 from typing import Dict, Tuple
 from .plan_data_registry import client_data_csv_files
 from . import platform_runtime
+from . import plan_dates as _plan_dates
 ROOT = Path(__file__).resolve().parent.parent
 SCHEMA_PATH = ROOT / 'reference_data' / 'schema.csv'
 GENERATED_SCHEMA_PATH = ROOT / 'reference_data' / 'generated_schema_coverage.csv'
@@ -96,6 +97,18 @@ def validate_value(value: str, spec: dict) -> list[str]:
     if typ in {'number','currency'}:
         try: float(val.replace('$','').replace(',','').replace('%',''))
         except Exception: errors.append('expected numeric/currency value')
+    # WI-401: NaN/inf parse as floats and every min/max comparison against
+    # NaN is False, so a non-finite value used to pass every numeric check.
+    if typ in {'integer','year','number','currency','percent','pct'}:
+        _x = _numeric_value(val, typ)
+        if _x is not None and not math.isfinite(_x):
+            errors.append('expected a finite number')
+    # WI-401: date fields previously got only the required check, so an
+    # ambiguous '8/3/62' or garbage text passed validation.
+    if typ == 'date':
+        _date_err = _plan_dates.date_format_error(val)
+        if _date_err:
+            errors.append(_date_err)
     if typ in {'boolean','yes/no'} and val.upper() not in {'TRUE','FALSE','YES','NO'}:
         errors.append('expected TRUE/FALSE or YES/NO')
     # Enforce schema min/max where present. Percent schema bounds are in human

@@ -238,9 +238,11 @@ describe("the structural patch", () => {
     assert.match(item.before, /400,000/);
   });
 
-  test("every written item routes back to the Home & Housing page", () => {
-    for (const x of housingOptimizerPatch(payload()))
-      assert.equal(x.sourceStep, "assets_home_cash");
+  test("every written item routes back to Optimize > Next Housing Move", () => {
+    for (const x of housingOptimizerPatch(payload())) {
+      assert.equal(x.sourceStep, "strategy_optimize");
+      assert.equal(x.sourceTitle, "Optimize");
+    }
   });
 });
 

@@ -38,7 +38,10 @@ class AllocationTableAndLoadPathTests(unittest.TestCase):
         html = (ROOT / 'frontend' / 'index.html').read_text(encoding='utf-8')
         server = (ROOT / 'src' / 'server' / 'plan_routes.py').read_text(encoding='utf-8')
         self.assertIn('Import Plan Data CSV set', html)
-        self.assertIn('pathModalInput', html)
+        # #pathModal (and its pathModalInput) was dead markup -- no JS ever
+        # opened it -- and was removed by WI-502 (system review 2026-09-25,
+        # UX-004). The folder-path import flow lives in the page's own
+        # Browse.../plan-data/load-from-path markup asserted below.
         self.assertIn('Browse...', html)
         self.assertIn('plan-data/load-from-path', html)
         # System review 4.5: the previous assertion here checked for

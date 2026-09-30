@@ -23,6 +23,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 from . import platform_runtime as _platform_runtime
+from . import plan_dates as _plan_dates
 from .plan_file_io import atomic_write
 from typing import Any
 
@@ -947,9 +948,12 @@ def _last_earned_income_year_from_retirement_timing(root: str | Path, default: i
                     if _norm_label(row.get("label")) != "member_1_retirement_date":
                         continue
                     raw = row.get("value")
-                    d = parse_date(raw)
-                    if d:
-                        return d.year - 1 if (d.month == 1 and d.day == 1) else d.year
+                    # Same shared plan-date parser (and 2-digit-year century
+                    # rule) as data_io's retirement-date reader (WI-401).
+                    parts = _plan_dates.parse_plan_date(raw)
+                    if parts:
+                        y, m, d = parts
+                        return y - 1 if (m == 1 and d == 1) else y
                     yr = _parse_int(raw)
                     if yr:
                         return yr

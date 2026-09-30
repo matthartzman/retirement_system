@@ -38,16 +38,16 @@
 <h1>Financial trends</h1>
 <div class="sub">YTD expenses by category, holdings value/performance, net worth, and cashflow — one entry per weekday close.</div>
 <div class="toolbar" id="timeframeBar">
-  <button data-tf="day">Day</button>
-  <button data-tf="week">Week</button>
-  <button data-tf="month">Month</button>
-  <button data-tf="quarter">Quarter</button>
-  <button data-tf="ytd" class="active">YTD</button>
-  <button data-tf="12m">12-month</button>
-  <button data-tf="all">All time</button>
-  <input type="date" id="customFrom" style="display:none">
-  <input type="date" id="customTo" style="display:none">
-  <button data-tf="custom">Custom</button>
+  <button data-tf="day" aria-pressed="false">Day</button>
+  <button data-tf="week" aria-pressed="false">Week</button>
+  <button data-tf="month" aria-pressed="false">Month</button>
+  <button data-tf="quarter" aria-pressed="false">Quarter</button>
+  <button data-tf="ytd" class="active" aria-pressed="true">YTD</button>
+  <button data-tf="12m" aria-pressed="false">12-month</button>
+  <button data-tf="all" aria-pressed="false">All time</button>
+  <input type="date" id="customFrom" style="display:none" aria-label="Custom range start date">
+  <input type="date" id="customTo" style="display:none" aria-label="Custom range end date">
+  <button data-tf="custom" aria-pressed="false">Custom</button>
   <button id="runNow">Run now</button>
 </div>
 <div class="grid">
@@ -112,7 +112,11 @@ document.getElementById("timeframeBar").addEventListener("click", (e) => {
   const btn = e.target.closest("button[data-tf]");
   if (!btn) return;
   timeframe = btn.dataset.tf;
-  document.querySelectorAll("#timeframeBar button[data-tf]").forEach(b => b.classList.toggle("active", b === btn));
+  // UX-010 (WI-509): selected timeframe is exposed as aria-pressed, not only the "active" class.
+  document.querySelectorAll("#timeframeBar button[data-tf]").forEach(b => {
+    b.classList.toggle("active", b === btn);
+    b.setAttribute("aria-pressed", b === btn ? "true" : "false");
+  });
   document.getElementById("customFrom").style.display = timeframe === "custom" ? "inline-block" : "none";
   document.getElementById("customTo").style.display = timeframe === "custom" ? "inline-block" : "none";
   render();

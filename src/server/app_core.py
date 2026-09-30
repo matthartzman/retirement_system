@@ -1365,7 +1365,9 @@ def _normalize_date_for_csv(value: str) -> str:
     if m:
         y = m.group(3)
         if len(y) == 2:
-            y = ("19" if int(y) > 40 else "20") + y
+            # One century rule shared with the engine's date reader (WI-401).
+            from ..plan_dates import expand_two_digit_year
+            y = str(expand_two_digit_year(int(y)))
         return f"{y.zfill(4)}-{m.group(1).zfill(2)}-{m.group(2).zfill(2)}"
     if re.match(r"^\d{4}$", text):
         return f"{text}-01-01"

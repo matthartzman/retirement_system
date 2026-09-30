@@ -78,6 +78,15 @@ GLOSSARY: dict[str, str] = {
     "Sequence-of-Returns Risk": "The risk that poor investment returns early in retirement permanently impair a portfolio, even when average returns are fine over the full horizon",
     "Spousal Rollover": "A surviving spouse's option to inherit a deceased spouse's IRA as their own, deferring RMDs to their own age",
     "Standard Deduction": "The tax-reference-year MFJ base plus over-65 add-ons; inflated annually",
+    # Headline decision metrics on the Strategy Workbench compare/decide screen,
+    # Impact & Build History and the workbook strategy sheets (WI-507).
+    "LCV": "Lifetime Consumption-and-Transfer Value — total spending across the plan plus the after-tax, after-estate-tax amount left to heirs; the headline score used to compare plans",
+    "ELTR": "Effective Lifetime Tax Rate — total taxes paid over the whole plan as a share of total gross cash flow",
+    "FCV": "Future Consumption Value — the forward-looking counterpart of LCV, counting only years from today onward",
+    "EFTR": "Effective Future Tax Rate — the forward-looking counterpart of ELTR: taxes from today onward as a share of gross cash flow from today onward",
+    "QLAC": "Qualified Longevity Annuity Contract — a deferred annuity bought with pre-tax retirement funds whose payments begin late in life (no later than age 85) and whose premium is excluded from RMDs up to a limit",
+    "TLH": "Tax-Loss Harvesting — selling investments at a loss to offset taxable gains or income, then reinvesting",
+    "NPV of Future Taxes": "Net present value of future taxes — all taxes still to be paid, discounted to today's dollars; lower is better",
     "Step-Up in Basis": "Reset of an asset's cost basis to fair market value at death for non-retirement assets, erasing built-in gain for the heir",
 }
 
@@ -99,3 +108,8 @@ def build_glossary(tax_year: int = TAX_BASE_YEAR) -> dict[str, str]:
     terms = dict(GLOSSARY)
     terms["SALT Cap"] = _salt_cap_definition(tax_year)
     return terms
+
+
+def canonical_glossary(tax_year: int = TAX_BASE_YEAR) -> dict[str, str]:
+    """Alias of :func:`build_glossary` (the canonical term -> definition map)."""
+    return build_glossary(tax_year)

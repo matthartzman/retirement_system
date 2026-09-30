@@ -1,6 +1,6 @@
 """Unit tests for src/market_data.py.
 
-Scope (see documentation/SYSTEM_REVIEW_AND_REFACTOR_PLAN.md Phase 5):
+Scope (see documentation/archive/legacy/SYSTEM_REVIEW_AND_REFACTOR_PLAN.md Phase 5):
 
 - Pure/deterministic helpers: _clean_secret, _secret_fingerprint, _clean_symbol,
   _is_good_price, _to_price, _redact_url, _parse_money_text.

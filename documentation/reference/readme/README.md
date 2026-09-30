@@ -7,7 +7,14 @@ SQLite working copy, building report outputs, and reviewing the advisor package.
 
 Double-click the desktop shortcut (or `launchers/START_APP.bat`) to open the
 planner. Everything you enter is saved automatically to a local database on
-this computer — nothing is sent anywhere over the internet. Use the
+this computer, and your plan data is never uploaded. The one exception is
+market prices: in the default **LIVE** pricing mode the app looks up current
+quotes from outside price services (for example Yahoo, Stooq, Nasdaq, and
+Financial Modeling Prep or Alpha Vantage if you add a key), which means the
+ticker symbols of your holdings, and your IP address, are sent to those
+services. Choose **CACHE** or **OFFLINE** pricing mode in **System
+Configuration → Pricing mode** to stop this: OFFLINE makes no outside calls
+at all and uses saved prices (or your cost basis when none exist). Use the
 in-app **Build** screen to generate the Excel/PDF report package once your
 Plan Data is complete.
 
