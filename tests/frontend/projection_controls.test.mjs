@@ -48,9 +48,9 @@ describe("Projection Controls section", () => {
   test("collapsed by default, with a compact readout of the current inputs", () => {
     seed({ withRows: true });
     const page = sandbox.renderCoreSpendingUnified();
-    const tag = page.match(/<details class="taxonomy-type-section projection-controls"[^>]*>/)[0];
+    const tag = page.match(/<details class="taxonomy-type-section page-accordion projection-controls"[^>]*>/)[0];
     assert.doesNotMatch(tag, /\bopen\b/);
-    const summary = page.match(/<details class="taxonomy-type-section projection-controls"[^>]*><summary>(.*?)<\/summary>/s)[1];
+    const summary = page.match(/<details class="taxonomy-type-section page-accordion projection-controls"[^>]*><summary>(.*?)<\/summary>/s)[1];
     assert.match(summary, /Projection Controls/);
     assert.match(summary, /Increase method<\/b> General CPI/);
     assert.match(summary, /Rate<\/b> 2\.50%/);
@@ -63,14 +63,14 @@ describe("Projection Controls section", () => {
     const page = sandbox.renderCoreSpendingUnified();
     const pc = page.indexOf('data-dkey="budget:core:projection_controls"');
     const body = page.slice(pc, page.indexOf("Category Manager"));
-    assert.match(body, /<h4 class="group-title">Adjustments/);
+    assert.match(body, /<h4 class="taxonomy-group-title">Adjustments/);
     assert.doesNotMatch(body, /<details[^>]*spending-adjustments/);
   });
 
   test("opens by itself when a control is missing", () => {
     seed({ withRows: false });
     const page = sandbox.renderCoreSpendingUnified();
-    assert.match(page, /<details class="taxonomy-type-section projection-controls"[^>]*\bopen\b/);
+    assert.match(page, /<details class="taxonomy-type-section page-accordion projection-controls"[^>]*\bopen\b/);
     assert.match(page, /Core spending controls are being created/);
   });
 
@@ -89,5 +89,36 @@ describe("Category Manager tracking-type order", () => {
     const mgr = sandbox.renderTaxonomyManager();
     const order = [...mgr.matchAll(/<details class="taxonomy-type-section"><summary><b>([^<]+)<\/b>/g)].map((m) => m[1]);
     assert.deepEqual(order, ["Core Expenses", "Travel", "Taxes", "Business", "Income"]);
+  });
+});
+
+describe("Spending page accordions", () => {
+  test("Spending Categories, Projection Controls and Category Manager are sibling accordions", () => {
+    seed({ withRows: true });
+    const page = sandbox.renderCoreSpendingUnified();
+    const heads = [...page.matchAll(/<details class="taxonomy-type-section page-accordion[^"]*" data-dkey="budget:core:(\w+)"[^>]*><summary><b>([^<]+)<\/b>/g)].map((m) => m[2]);
+    assert.deepEqual(heads, ["Spending Categories", "Projection Controls", "Category Manager"]);
+    assert.match(page, /data-dkey="budget:core:spending_categories" open>/);
+    assert.doesNotMatch(page, /<h3 class="group-title">(Spending Categories|Category Manager)/);
+  });
+
+  test("controls sit in two rows: method, rate, stop year, then YTD override and blend", () => {
+    const rows = [
+      row(1, "Cashflow", "Spending", "core_spending_growth_mode", "cpi"),
+      row(2, "Model Constants", "Retirement", "spending_freeze_year", "2050"),
+      row(3, "Economic Assumptions", "", "inflation_general", "3.00%"),
+      row(4, "Cashflow", "Spending", "ytd_remainder_spending_override", ""),
+      row(5, "Cashflow", "Spending", "ytd_blend_enabled", "TRUE"),
+    ];
+    seed({ withRows: true });
+    sandbox.__rows = rows;
+    run("rows = globalThis.__rows;");
+    const page = sandbox.renderCoreSpendingUnified();
+    const r1 = page.match(/pc-row-1">(.*?)<div class="pc-row pc-row-2">(.*?)<div class="spending-adjustments"/s);
+    assert.ok(r1, "two pc-row containers");
+    const ids = (html) => [...html.matchAll(/id="field-(\d+)"/g)].map((m) => Number(m[1]));
+    // rows: 1 = method, 3 = rate (CPI), 2 = stop year | 4 = YTD override, 5 = YTD blend
+    assert.deepEqual(ids(r1[1]), [1, 3, 2]);
+    assert.deepEqual(ids(r1[2]), [4, 5]);
   });
 });
