@@ -250,6 +250,10 @@ CONTRACTS: tuple[EndpointContract, ...] = (
         response_fields=(_f("success", "bool", True), _f("count", "int", True), _f("sync", "dict")),
     ),
     EndpointContract(
+        "/api/tax-assumptions", "GET", "tax_assumptions_v1",
+        response_fields=(_f("success", "bool", True), _f("state", "str"), _f("levers", "list", True)),
+    ),
+    EndpointContract(
         "/api/residency-schedule", "GET", "residency_schedule_v1",
         response_fields=(_f("success", "bool", True), _f("schedule", "list", True)),
     ),

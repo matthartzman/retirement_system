@@ -667,6 +667,33 @@ class StrategyAssetService:
             self._audit("config_backends_synced", sync_result)
         return {"success": True, "count": len(clean), "sync": sync_result}, 200
 
+    def tax_assumptions_payload(self) -> tuple[dict[str, Any], int]:
+        """Resolved tax levers (model value, override, effective, basis) for
+        the current plan. Read-only: overrides are edited in the plan form."""
+        from .. import tax_assumptions as ta
+        from ..core import STATE_TAX_RULES
+        from ..data_io import _n
+
+        def _values(section: str) -> dict[str, str]:
+            out: dict[str, str] = {}
+            rows = self.context.read_client_section_rows(section, "client_household.csv")
+            for row in rows[1:]:
+                if len(row) >= 4 and str(row[0]).strip() == section:
+                    out[str(row[2]).strip()] = str(row[3]).strip()
+            return out
+
+        econ = _values("Economic Assumptions")
+        state = _values("Household").get("residence_state", "")
+        try:
+            resolved = ta.resolve_tax_assumptions(
+                {k: econ.get(k) for k in ta.LEVER_BY_KEY}, _n,
+                state=state, state_rules=STATE_TAX_RULES)
+        except ta.TaxAssumptionError as exc:
+            return {"success": False, "error": str(exc)}, 400
+        return {"success": True, "state": state,
+                "levers": [r.as_dict() for r in resolved.values()],
+                "law_table": ta.law_reference_table()}, 200
+
     def residency_schedule_payload(self) -> tuple[dict[str, Any], int]:
         rows = self.context.read_client_section_rows("State Residency Schedule", "client_data.csv")
         return {"success": True, "schedule": self.context.residency_schedule_from_csv_rows(rows)}, 200
