@@ -4856,6 +4856,7 @@ def _mc_survivor_bucket_flows(c: dict, base_rows: list[dict]):
     for f in scalar_fields:
         arrays[f] = _np.zeros((n_buckets, n_years), dtype=float)
     tier_arrays: dict = {}
+    cst_at_death = _np.zeros(n_buckets, dtype=float)
 
     for spouse_first in (0, 1):  # 0 = H dies first, 1 = W dies first
         for year_idx, fd_year in enumerate(years):
@@ -4869,6 +4870,7 @@ def _mc_survivor_bucket_flows(c: dict, base_rows: list[dict]):
             _c2, rows2 = run_scenario(c, overrides=overrides)
             flows2 = _mc_row_bucket_flows(_c2, rows2)
             bucket_id = spouse_first * n_years + year_idx
+            cst_at_death[bucket_id] = float(rows2[year_idx].get('cst_funded_yr', 0.0) or 0.0)
             for name in withdrawal_names:
                 for b in withdrawal_buckets:
                     arrays[f'{name}.{b}'][bucket_id] = flows2[name][b]
@@ -4886,6 +4888,7 @@ def _mc_survivor_bucket_flows(c: dict, base_rows: list[dict]):
         'plan_start': plan_start,
         'arrays': arrays,
         'spend_by_tier': tier_arrays,
+        'cst_funded_at_death': cst_at_death,
     }
     _memo[_key] = _result
     return _result
@@ -5199,7 +5202,7 @@ def _mc_tier_priority_retained(tier_scaled: dict, cut_mult) -> dict:
 
 
 def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation_paths: dict, max_death_years, spend_cut_frac=0.0,
-                               h_death_years=None, w_death_years=None, survivor_buckets=None):
+                               h_death_years=None, w_death_years=None, survivor_buckets=None, allocation='tier'):
     """Vectorized tax-bucket withdrawal recursion for Monte Carlo paths.
 
     ``spend_cut_frac``: per-path uniform reduction (0..1) applied to the
@@ -5220,6 +5223,26 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
     spending factor, SS/pension changes, and filing-status tax effects to the
     WITHDRAWAL REQUESTS themselves (not just a reported side-metric), for
     years after that path's own sampled first death.
+
+    ``allocation`` selects how each year's need is assigned to account buckets:
+
+    * ``'tier'`` (default): the per-tier cascade under
+      ``SPENDING_TIER_BUCKET_POLICY`` (a tier's need never reaches a bucket
+      outside its own policy, e.g. discretionary never reaches Roth). Yields
+      the per-tier funding/shortfall figures and the "within tier-bucket
+      rules" success definition.
+    * ``'replay'``: replay the deterministic engine's own per-bucket draws
+      (scaled by path inflation) with any-bucket fallback for what a bucket
+      cannot cover, i.e. Roth is a last resort for ANY spending, exactly as in
+      the deterministic and exact-scalar engines. The replayed draws already
+      contain the tax on themselves, so no blended ``tax_drag`` gross-up is
+      applied. This is the "funded as asked" definition used for the headline
+      success rate (see N1_MC_PARITY_RESIDUAL_DIAGNOSTIC_2026-09-30.md).
+
+    In both modes, at a path's first death the credit-shelter trust (when the
+    plan has one) sequesters the taxable/cash balance the deterministic engine
+    sequesters (``survivor_buckets['cst_funded_at_death']``); that money is not
+    available to the survivor.
     """
     n_sims, n_years = returns.shape
     starts = _mc_bucket_starting_balances(c)
@@ -5304,6 +5327,10 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
     # provable no-op and this engine is bit-identical to a plan whose rows
     # never carried spend_by_tier (Phase 0 never ran).
     tier_scaled = {tier: det_arr * spending_scale for tier, det_arr in eff['spend_by_tier'].items()}
+    if allocation == 'replay':
+        # The replayed deterministic draws already include tax on themselves.
+        tax_drag = tax_drag * 0.0
+        tier_scaled = {}
     tier_retained = _mc_tier_priority_retained(tier_scaled, cut_mult) if tier_scaled else {}
     if tier_scaled:
         from .spending_budget_resolver import (
@@ -5325,6 +5352,16 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
 
     for j in range(n_years):
         act = active[:, j]
+        if bucket_id is not None and 'cst_funded_at_death' in survivor_buckets:
+            # Credit-shelter trust funding at this path's first death: the
+            # deterministic engine moves up to min(cs_amount, shelter cap) out
+            # of the survivor's taxable (then cash) accounts into a trust that
+            # is excluded from the survivor's spendable/liquid assets.
+            _fd_now = act & (first_death == years[j])
+            if _np.any(_fd_now):
+                _cst_want = _np.where(_fd_now, survivor_buckets['cst_funded_at_death'][bucket_id], 0.0)
+                _, _cst_left = _mc_apply_withdrawal_bucket(balances, _cst_want, 'taxable')
+                _mc_apply_withdrawal_bucket(balances, _cst_left, 'cash')
         # Wellness shocks are the sampled half of the contingent_liability
         # tier, and drawing them from the HSA first is this engine's own
         # long-standing precedent -- but it was ungated, while the
@@ -5752,8 +5789,14 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
     return out
 
 
-def _mc_vectorized_batch(c: dict, base_rows: list[dict], n_sims: int, seed: int, mu: float, sig: float, success_threshold: float, use_asset_classes: bool = True, survivor_buckets=None):
-    """``survivor_buckets`` (optimization refactor Phase 1 items 4-6): pass
+def _mc_vectorized_batch(c: dict, base_rows: list[dict], n_sims: int, seed: int, mu: float, sig: float, success_threshold: float, use_asset_classes: bool = True, survivor_buckets=None, allocation: str = 'tier', tier_shadow: bool = False):
+    """``allocation``/``tier_shadow``: see ``_mc_vectorized_projection``. With
+    ``allocation='replay'`` the headline ``path_success`` is the "funded as
+    asked" definition; ``tier_shadow=True`` additionally runs the tier-bucket
+    cascade on the same paths to supply the per-tier funding figures and
+    ``within_policy_path_success`` (funded without breaking tier bucket rules).
+
+    ``survivor_buckets`` (optimization refactor Phase 1 items 4-6): pass
     the caller's already-built ``_mc_survivor_bucket_flows(c, base_rows)``
     result to avoid rebuilding it (2 * n_years project() calls) on every one
     of the many _mc_vectorized_batch calls a single monte_carlo() invocation
@@ -5774,7 +5817,18 @@ def _mc_vectorized_batch(c: dict, base_rows: list[dict], n_sims: int, seed: int,
         survivor_buckets = _mc_survivor_bucket_flows(c, base_rows)
     projection = _mc_vectorized_projection(c, base_rows, returns, inflation_paths, max_death,
                                             h_death_years=h_death, w_death_years=w_death,
-                                            survivor_buckets=survivor_buckets)
+                                            survivor_buckets=survivor_buckets, allocation=allocation)
+    within_policy_path_success = None
+    if allocation == 'replay' and tier_shadow:
+        _shadow = _mc_vectorized_projection(c, base_rows, returns, inflation_paths, max_death,
+                                            h_death_years=h_death, w_death_years=w_death,
+                                            survivor_buckets=survivor_buckets, allocation='tier')
+        for _k in _shadow:
+            if _k.startswith('spend_') or _k in ('essential_shortfall_real', 'essential_fully_funded'):
+                projection[_k] = _shadow[_k]
+        _act = _np.array(years, dtype=int).reshape(1, -1) <= max_death.reshape(-1, 1)
+        within_policy_path_success = ~_np.any(
+            ((_shadow['unfunded'] > 1.0) | (_shadow['liquid'] <= float(success_threshold))) & _act, axis=1)
     active = _np.array(years, dtype=int).reshape(1, -1) <= max_death.reshape(-1, 1)
     failure_matrix = ((projection['unfunded'] > 1.0) | (projection['liquid'] <= float(success_threshold))) & active
     path_success = ~_np.any(failure_matrix, axis=1)
@@ -5933,6 +5987,8 @@ def _mc_vectorized_batch(c: dict, base_rows: list[dict], n_sims: int, seed: int,
         'inflation_paths': inflation_paths,
         'projection': projection,
         'path_success': path_success,
+        'within_policy_path_success': within_policy_path_success,
+        'allocation': allocation,
         'first_failure_years': first_failure_years,
         'return_diag': return_diag,
         'h_death_years': h_death,
@@ -5960,7 +6016,7 @@ def _mc_vectorized_batch(c: dict, base_rows: list[dict], n_sims: int, seed: int,
 
 
 def _mc_vectorized_sensitivity_success_rate(c: dict, base_rows: list[dict], mu: float, sig: float, n_sims: int, seed: int, threshold: float, survivor_buckets=None) -> float:
-    batch = _mc_vectorized_batch(c, base_rows, max(1, int(n_sims)), seed, mu, sig, threshold, use_asset_classes=False, survivor_buckets=survivor_buckets)
+    batch = _mc_vectorized_batch(c, base_rows, max(1, int(n_sims)), seed, mu, sig, threshold, use_asset_classes=False, survivor_buckets=survivor_buckets, allocation='replay')
     try:
         return float(_np.mean(batch['path_success']))
     except Exception:
@@ -5999,7 +6055,8 @@ def _mc_required_cut_distribution(c: dict, base_rows: list[dict], batch: dict, s
 
     def _succeeds(cut_vec):
         proj = _mc_vectorized_projection(c, base_rows, returns_f, infl_f, max_death_f, spend_cut_frac=cut_vec,
-                                          h_death_years=h_death_f, w_death_years=w_death_f, survivor_buckets=survivor_buckets)
+                                          h_death_years=h_death_f, w_death_years=w_death_f, survivor_buckets=survivor_buckets,
+                                          allocation=batch.get('allocation', 'tier'))
         active = years.reshape(1, -1) <= max_death_f.reshape(-1, 1)
         failure = ((proj['unfunded'] > 1.0) | (proj['liquid'] <= float(success_threshold))) & active
         return ~_np.any(failure, axis=1)
@@ -6032,7 +6089,8 @@ def _mc_success_rate_for_uniform_cut(c: dict, base_rows: list[dict], batch: dict
     during a bisection."""
     proj = _mc_vectorized_projection(c, base_rows, batch['returns'], batch['inflation_paths'], batch['max_death_years'], spend_cut_frac=cut_frac,
                                       h_death_years=batch.get('h_death_years'), w_death_years=batch.get('w_death_years'),
-                                      survivor_buckets=batch.get('survivor_buckets'))
+                                      survivor_buckets=batch.get('survivor_buckets'),
+                                      allocation=batch.get('allocation', 'tier'))
     years = _np.array(batch['years'], dtype=int)
     active = years.reshape(1, -1) <= batch['max_death_years'].reshape(-1, 1)
     failure = ((proj['unfunded'] > 1.0) | (proj['liquid'] <= float(success_threshold))) & active
@@ -6283,10 +6341,11 @@ def sustainable_spending_solve(c: dict, base_rows: list[dict], batch: dict, succ
 #: Disclosed accuracy band of the vectorized engine's headline success rate vs.
 #: the exact_scalar oracle, in percentage points. Enforced by
 #: tests/test_monte_carlo_default_engine_mode.py; the status stays
-#: TOLERANCE_BOUNDED only while that gate passes. Five heuristic patches to
-#: close the gap failed (N1_MC_PARITY_DIAGNOSTIC_2026-09-07.md), so the engine
-#: is disclosed as bounded rather than claimed exact.
-MC_VECTORIZED_PARITY_TOLERANCE_PP = 10.0
+#: TOLERANCE_BOUNDED only while that gate passes. Tightened 10 -> 5pp
+#: (2026-09-30, owner-approved) after the replay-funding fix closed the
+#: headline gap (N1_MC_PARITY_RESIDUAL_DIAGNOSTIC_2026-09-30.md); the engine is
+#: still disclosed as bounded rather than claimed exact.
+MC_VECTORIZED_PARITY_TOLERANCE_PP = 5.0
 
 
 def monte_carlo(c, n_sims=1000, seed=42, base_rows=None, survivor_buckets='__unset__'):
@@ -6383,7 +6442,7 @@ def monte_carlo(c, n_sims=1000, seed=42, base_rows=None, survivor_buckets='__uns
             if bool(c.get('mc_vectorized_survivor_economics', True)) else None
         )
     print(f'Monte Carlo vectorized batch: sampling {max(1, N)} paths', flush=True)
-    batch = _mc_vectorized_batch(c, base_rows, max(1, N), int(seed), mu, sig, success_threshold, use_asset_classes=True, survivor_buckets=survivor_buckets)
+    batch = _mc_vectorized_batch(c, base_rows, max(1, N), int(seed), mu, sig, success_threshold, use_asset_classes=True, survivor_buckets=survivor_buckets, allocation='replay', tier_shadow=True)
     print('Monte Carlo vectorized batch: main batch complete', flush=True)
     proj = batch['projection']
     returns = batch['returns']
@@ -6494,7 +6553,18 @@ def monte_carlo(c, n_sims=1000, seed=42, base_rows=None, survivor_buckets='__uns
             "cover its own, dynamically self-cut withdrawal -- this is conditional on the modelled "
             "spending cuts (see worst_modeled_spending_cut_pct), not funded-as-asked."
             if bool(proj.get('guardrail_policy_active') is not None and _np.any(proj.get('guardrail_policy_active')))
-            else 'No unfunded annual spending gap and liquid retirement assets remain above configured floor in every active projected year.'
+            else 'No unfunded annual spending gap and liquid retirement assets remain above configured floor in every active projected year '
+                 '(funded as asked: any account, including Roth as a last resort, may fund any spending).'
+        ),
+        'success_rate_within_tier_policy': (
+            float(_np.mean(batch['within_policy_path_success']))
+            if batch.get('within_policy_path_success') is not None else None
+        ),
+        'success_definition_within_tier_policy': (
+            'Same test, but each spending tier may draw only from the account types its policy allows '
+            '(important/discretionary spending never draws Roth; discretionary never draws HSA). '
+            'Approximate: per-path tax is not recomputed. Answers "would I get through without ever '
+            'dipping into Roth for extras", not "will the money last".'
         ),
         'success_liquid_floor': success_threshold,
         'success_liquid_floor_source': success_threshold_source,
