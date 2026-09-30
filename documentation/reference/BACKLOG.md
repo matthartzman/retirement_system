@@ -15,5 +15,4 @@ section 9.
 | Server-side Planning Cases | #329 | Not planned. |
 | Mark Build History snapshots unreproducible when their module set no longer matches | #330 | Not planned. |
 | Data-conditional auto-off of modules | #330 | Not planned. |
-| Confirm the disposition of #333 | taxonomy-and-spending-restructure spec | No spec, commit or PR references it. |
 | Close the vectorized-vs-scalar Monte Carlo success-rate level bias (~14-18 pp optimistic on the frozen fixture; same issue as the widened drift gate in `test_monte_carlo_default_engine_mode.py`) | system review 2026-09-25-2 QA-006 | Investigation in a separate session; see `N1_MC_PARITY_DIAGNOSTIC_2026-09-07.md`. |
