@@ -564,7 +564,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/server_forecast.py` | `after_tax`, `core`, `report_compute` | — |
 | `src/spending_adjustments.py` | — | — |
 | `src/spending_budget_resolver.py` | `large_discretionary`, `spending_adjustments`, `spending_tracker` | — |
-| `src/spending_tracker.py` | `platform_runtime` | — |
+| `src/spending_tracker.py` | `platform_runtime`, `ytd_tracking` | — |
 | `src/strategy_sweep.py` | — | — |
 | `src/system_config.py` | `plan_file_io` | — |
 | `src/tax_kernel.py` | `core` | — |
