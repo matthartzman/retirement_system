@@ -8,17 +8,15 @@ Important behavioral note (documented, not "fixed"): `set_secret`,
 `get_secret`, `delete_secret`, and `list_secrets` all accept a `db_path`
 keyword argument, but none of them actually use it -- internally they call
 `_load()` / `_save(data)` with NO arguments, so those calls always fall
-back to `_load`/`_save`'s own default parameter (`DEFAULT_SECRETS`),
+back to the default location from `secrets_path()`,
 completely ignoring whatever `db_path` the caller supplied. `db_path` is
 effectively a no-op placeholder today (likely there for a future/SaaS
 signature match). Tests below cover this explicitly.
 
 To keep tests from ever touching the real `local_state/secrets.local.json`
-file, an autouse fixture redirects `_load`/`_save`'s default `path`
-parameter (via their `__defaults__`) to a file under `tmp_path`, and also
-patches `DEFAULT_SECRETS` for good measure. Since default-argument values
-are read from the function object at call time, rebinding `__defaults__`
-is sufficient to redirect every call that relies on the default.
+file, an autouse fixture redirects `secrets_path()` -- the single place the
+default location is resolved, per call, from `workspace_root()` -- to a file
+under `tmp_path`.
 """
 
 from __future__ import annotations
@@ -29,39 +27,41 @@ import pytest
 
 import src.secrets_store as secrets_store
 
-# Captured at import time, before any per-test monkeypatching occurs, so we
-# can assert on the module's real production path resolution without ever
-# touching the live (test-patched) attribute or reloading the module.
-_ORIGINAL_DEFAULT_SECRETS = secrets_store.DEFAULT_SECRETS
 
 
 @pytest.fixture(autouse=True)
 def _redirect_default_secrets_path(tmp_path, monkeypatch):
-    """Redirect the module's default secrets file into tmp_path.
-
-    This must patch the *default arguments* of `_load`/`_save` (not just
-    the `DEFAULT_SECRETS` module attribute) because Python binds default
-    parameter values once, at function-definition time. Simply reassigning
-    `secrets_store.DEFAULT_SECRETS` after import would have no effect on
-    calls like `_load()` that rely on the pre-bound default.
-    """
+    """Redirect the module's default secrets file into tmp_path."""
     fake_path = tmp_path / "secrets.local.json"
-    monkeypatch.setattr(secrets_store._load, "__defaults__", (fake_path,))
-    monkeypatch.setattr(secrets_store._save, "__defaults__", (fake_path,))
-    monkeypatch.setattr(secrets_store, "DEFAULT_SECRETS", fake_path)
+    monkeypatch.setattr(secrets_store, "secrets_path", lambda: fake_path)
     return fake_path
 
 
 # ---------------------------------------------------------------------------
-# DEFAULT_SECRETS path resolution (sanity check only, no I/O)
+# secrets_path() resolution (sanity check only, no I/O)
 # ---------------------------------------------------------------------------
 
-def test_default_secrets_points_under_local_state():
-    # Uses the path captured at import time (before any per-test patching)
-    # so this reflects the real production wiring, not the tmp_path redirect
-    # that the autouse fixture applies for the rest of this test file.
-    assert _ORIGINAL_DEFAULT_SECRETS.parent.name == "local_state"
-    assert _ORIGINAL_DEFAULT_SECRETS.name == "secrets.local.json"
+def test_secrets_path_follows_the_workspace_root(tmp_path, monkeypatch):
+    """Frozen-build regression: the path must come from workspace_root(), not
+    from the package location (the read-only, rebuild-wiped bundle folder)."""
+    monkeypatch.undo()  # drop the autouse redirect so the real resolver runs
+    monkeypatch.setenv("RETIREMENT_SYSTEM_WORKSPACE_ROOT", str(tmp_path / "ws"))
+    assert secrets_store.secrets_path() == tmp_path / "ws" / "local_state" / "secrets.local.json"
+
+
+def test_secrets_path_defaults_to_local_state_under_the_project_root(monkeypatch):
+    monkeypatch.undo()
+    monkeypatch.delenv("RETIREMENT_SYSTEM_WORKSPACE_ROOT", raising=False)
+    p = secrets_store.secrets_path()
+    assert p.parent.name == "local_state" and p.name == "secrets.local.json"
+
+
+def test_set_secret_writes_into_the_workspace(tmp_path, monkeypatch):
+    monkeypatch.undo()
+    monkeypatch.setenv("RETIREMENT_SYSTEM_WORKSPACE_ROOT", str(tmp_path / "ws"))
+    secrets_store.set_secret("api_key", "abc")
+    assert (tmp_path / "ws" / "local_state" / "secrets.local.json").is_file()
+    assert secrets_store.get_secret("api_key") == "abc"
 
 
 # ---------------------------------------------------------------------------
