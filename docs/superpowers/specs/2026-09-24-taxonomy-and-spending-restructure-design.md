@@ -23,10 +23,12 @@ task (W-B's Task B3) from the unticked boxes.
 | W-E Housing restructure | #338 | #138 | `c4c0296` | Merged (2026-09-25) |
 | W-F Nav regroup, reserve checking, workbook, consistency guard | #339, #332 | #139 | `5799063` | Merged (2026-09-25) |
 
-**#333** has no workstream in this spec and no commit, PR or file in the
-repository references it. Its disposition is unrecorded; it is treated as
-not part of this restructure until the owner confirms otherwise. (Open item:
-owner to confirm and replace this sentence.) Deferred work is tracked in
+**#333** does not exist in this repository (GitHub returns 404 for it), and the
+system review's reference to it is most likely a transposition of **#133**, the
+housing move-year valuation and anchor-then-search PR (H1+H2), which was
+merged to `main` on 2026-09-23 (merge commit `3a3f893`). That merge predates
+this restructure and is not one of its workstreams. No action is open.
+Deferred work is tracked in
 `documentation/reference/BACKLOG.md`.
 
 
