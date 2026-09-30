@@ -2422,12 +2422,12 @@ export function renderSteps() {
     const spendingWarn =
       s.id === "actual_spending" &&
       typeof window.getSpendingDivergencePct === "function" &&
-      Math.abs(Number(window.getSpendingDivergencePct())) > 0.03;
+      Number(window.getSpendingDivergencePct()) > 0.03;
     if (st.missing.length)
       badge = `<span class="badge bad">${st.missing.length}</span>`;
     else if (st.dirty.length) badge = `<span class="badge dirty">Edited</span>`;
     else if (spendingWarn)
-      badge = `<span class="nav-badge nav-badge--warn" title="Annualized actual spending differs from the model's core spending by more than 3% (details at the top of Actual Spending)">! &gt;3%</span>`;
+      badge = `<span class="nav-badge nav-badge--warn" title="Annualized spending is more than 3% over the annual budget (details at the top of Actual Spending)">! &gt;3%</span>`;
     else if (reportStale) badge = `<span class="badge warn">Stale</span>`;
     else if (st.required.length) badge = `<span class="badge ok">OK</span>`;
     // UX-010 (WI-509): the current step is announced, not shown by colour only.

@@ -241,7 +241,8 @@ def compute_current_year_overrides(c: dict[str, Any], root: str | Path, *, today
             blend_meta['spend_actual_core'] = round(float(core_scope.get('core_actual') or 0.0), 2)
             blend_meta['spend_actual_unmatched_included'] = round(float(core_scope.get('unmatched_spending_actual') or 0.0), 2)
         else:
-            spend_actual = float(actual.get('spending') or 0.0)
+            # Taxes are modeled separately by the engine, so blend only non-tax spending.
+            spend_actual = float(actual.get('spending_excl_taxes', actual.get('spending')) or 0.0)
             blend_meta['spend_scope'] = 'all_spending_no_taxonomy'
 
         # Annual core plan for the remainder: the same spend_base the engine
