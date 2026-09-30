@@ -1323,6 +1323,7 @@ def main():
         # report_compute.run_projection_artifacts()'s advisor_readiness call.
         'mc_approximation_status': None,
         'mc_parity_tolerance_pp': None,
+        'mc_success_within_tier_policy': None,
         'model_risk_rating': None,
         'model_risk_label': None,
         # #329 §4.5 path 1 (W10a): the Roth optimizer's own result, so the
@@ -1383,6 +1384,7 @@ def main():
             'mc_success': mc_success,
             'mc_approximation_status': (mc_data or {}).get('mc_approximation_status'),
             'mc_parity_tolerance_pp': (mc_data or {}).get('mc_parity_tolerance_pp'),
+            'mc_success_within_tier_policy': (mc_data or {}).get('success_rate_within_tier_policy'),
             'model_risk_rating': model_risk.get('rating') or (mc_data or {}).get('model_risk_rating'),
             'model_risk_label': model_risk.get('label'),
             'after_tax_terminal_nw': float(after_tax_kpis.get('after_tax_terminal_nw', 0.0) or 0.0),

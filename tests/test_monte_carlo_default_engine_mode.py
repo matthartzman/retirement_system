@@ -96,13 +96,22 @@ class ReleaseMonteCarloBehaviorTests(unittest.TestCase):
         fixed alone. Do not tighten this gate below ~10pp at n=200 without
         raising n or moving to paired paths
         (tests/test_scalar_vectorized_paired_path_agreement_regression.py).
+
+        Tightened to 5pp at n=400 (2026-09-30, owner-approved) after the
+        replay-funding fix: seed 2026 reads 2.0pp (vec 0.6575 vs scalar
+        0.6375). Other seeds at n=400 read 4.5pp (seed 7) and 4.75pp (seed
+        99), all with the vectorized engine ABOVE scalar (mean +3.75pp) in this
+        default-config plan where wellness shocks are on -- a small residual the
+        shock-free paired harness does not exercise. The margin to 5pp is thin
+        for seeds other than 2026; if a legitimate change trips this gate,
+        check the signed gap first and re-measure across seeds before widening.
         """
         data = load_csv(TEST_INPUT_DIR / "client_data.csv")
         try:
             cfg = prepare_config_from_sectioned_data(data, "")
         except ValueError as exc:
             self.skipTest(f"Sample legacy flat input is missing current engine registry fields: {exc}")
-        cfg["mc_sims"] = 200
+        cfg["mc_sims"] = 400
         cfg["mc_sensitivity_sims"] = 1
 
         cfg_vec = dict(cfg)

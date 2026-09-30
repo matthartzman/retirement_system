@@ -102,7 +102,7 @@ source shown in-app.
   floor-ceiling band), which genuinely governs the plan's actual
   discretionary spend in both the deterministic projection and Monte Carlo
   — this is no longer a shadow comparison. When a guardrail policy is
-  active, Monte Carlo's headline "Probability of Success" is relabeled
+  active, Monte Carlo's headline "Probability plan is fully funded" is relabeled
   conditional on the plan's own modeled spending cuts, and the worst
   single-year modeled cut is disclosed alongside it; essential spending's
   own funded-probability is unaffected, since guardrails only govern
