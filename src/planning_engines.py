@@ -6341,10 +6341,11 @@ def sustainable_spending_solve(c: dict, base_rows: list[dict], batch: dict, succ
 #: Disclosed accuracy band of the vectorized engine's headline success rate vs.
 #: the exact_scalar oracle, in percentage points. Enforced by
 #: tests/test_monte_carlo_default_engine_mode.py; the status stays
-#: TOLERANCE_BOUNDED only while that gate passes. Five heuristic patches to
-#: close the gap failed (N1_MC_PARITY_DIAGNOSTIC_2026-09-07.md), so the engine
-#: is disclosed as bounded rather than claimed exact.
-MC_VECTORIZED_PARITY_TOLERANCE_PP = 10.0
+#: TOLERANCE_BOUNDED only while that gate passes. Tightened 10 -> 5pp
+#: (2026-09-30, owner-approved) after the replay-funding fix closed the
+#: headline gap (N1_MC_PARITY_RESIDUAL_DIAGNOSTIC_2026-09-30.md); the engine is
+#: still disclosed as bounded rather than claimed exact.
+MC_VECTORIZED_PARITY_TOLERANCE_PP = 5.0
 
 
 def monte_carlo(c, n_sims=1000, seed=42, base_rows=None, survivor_buckets='__unset__'):
