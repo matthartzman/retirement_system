@@ -1,0 +1,85 @@
+diff --git a/src/planning_engines.py b/src/planning_engines.py
+index eabc49b..ea933cd 100644
+--- a/src/planning_engines.py
++++ b/src/planning_engines.py
+@@ -4856,6 +4856,7 @@ def _mc_survivor_bucket_flows(c: dict, base_rows: list[dict]):
+     for f in scalar_fields:
+         arrays[f] = _np.zeros((n_buckets, n_years), dtype=float)
+     tier_arrays: dict = {}
++    cst_at_death = _np.zeros(n_buckets, dtype=float)
+ 
+     for spouse_first in (0, 1):  # 0 = H dies first, 1 = W dies first
+         for year_idx, fd_year in enumerate(years):
+@@ -4869,6 +4870,7 @@ def _mc_survivor_bucket_flows(c: dict, base_rows: list[dict]):
+             _c2, rows2 = run_scenario(c, overrides=overrides)
+             flows2 = _mc_row_bucket_flows(_c2, rows2)
+             bucket_id = spouse_first * n_years + year_idx
++            cst_at_death[bucket_id] = float(rows2[year_idx].get('cst_funded_yr', 0.0) or 0.0)
+             for name in withdrawal_names:
+                 for b in withdrawal_buckets:
+                     arrays[f'{name}.{b}'][bucket_id] = flows2[name][b]
+@@ -4886,6 +4888,7 @@ def _mc_survivor_bucket_flows(c: dict, base_rows: list[dict]):
+         'plan_start': plan_start,
+         'arrays': arrays,
+         'spend_by_tier': tier_arrays,
++        'cst_funded_at_death': cst_at_death,
+     }
+     _memo[_key] = _result
+     return _result
+@@ -5304,6 +5307,11 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
+     # provable no-op and this engine is bit-identical to a plan whose rows
+     # never carried spend_by_tier (Phase 0 never ran).
+     tier_scaled = {tier: det_arr * spending_scale for tier, det_arr in eff['spend_by_tier'].items()}
++    _X = c.get('_x_mode', '')  # EXPERIMENT
++    if 'nodrag' in _X and 'ptax' not in _X:
++        tax_drag = tax_drag * 0.0
++    if 'replay' in _X:
++        tier_scaled = {}
+     tier_retained = _mc_tier_priority_retained(tier_scaled, cut_mult) if tier_scaled else {}
+     if tier_scaled:
+         from .spending_budget_resolver import (
+@@ -5325,6 +5333,12 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
+ 
+     for j in range(n_years):
+         act = active[:, j]
++        if 'cst' in _X and bucket_id is not None:  # EXPERIMENT: credit-shelter trust sequesters taxable/cash at first death
++            _fd_now = act & (first_death == years[j])
++            if _np.any(_fd_now):
++                _want = _np.where(_fd_now, survivor_buckets['cst_funded_at_death'][bucket_id], 0.0)
++                _t1, _left = _mc_apply_withdrawal_bucket(balances, _want, 'taxable')
++                _mc_apply_withdrawal_bucket(balances, _left, 'cash')
+         # Wellness shocks are the sampled half of the contingent_liability
+         # tier, and drawing them from the HSA first is this engine's own
+         # long-standing precedent -- but it was ungated, while the
+@@ -5368,6 +5382,15 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
+                 + eff['withdrawals']['roth'][:, j] + eff['withdrawals']['cash'][:, j]
+                 - sum(eff['spend_by_tier'][t][:, j] for t in eff['spend_by_tier'])
+             ))
++            if 'other' in _X:  # EXPERIMENT: tax bill net of income left after spending tiers
++                _S = sum(eff['spend_by_tier'][t][:, j] for t in eff['spend_by_tier'])
++                other_nominal = _np.maximum(0.0, eff['total_tax'][:, j] - _np.maximum(0.0, eff['income_funding'][:, j] - _S))
++                if 'ptax' in _X:  # EXPERIMENT: split tax into fixed part + marginal-on-pretax-draw part
++                    _m = tax_drag[:, j]
++                    _Pdet = eff['withdrawals']['pretax'][:, j] + eff['conversions_out']['pretax'][:, j]
++                    _Tfix = _np.maximum(0.0, eff['total_tax'][:, j] - _m * _Pdet)
++                    other_nominal = _np.maximum(0.0, _Tfix + _m * eff['conversions_out']['pretax'][:, j]
++                                                - _np.maximum(0.0, eff['income_funding'][:, j] - _S))
+             need_by_label = {'other': _np.where(act, other_nominal * spending_scale[:, j], 0.0)}
+             for tier in tier_retained:
+                 tier_need = _np.where(act, tier_retained[tier][:, j], 0.0)
+@@ -5408,7 +5431,15 @@ def _mc_vectorized_projection(c: dict, base_rows: list[dict], returns, inflation
+                 if label not in need_by_label:
+                     continue
+                 bucket_order = SPENDING_TIER_BUCKET_POLICY.get(label, _other_bucket_order)
++                if 'hsa' in _X:  # EXPERIMENT: HSA as late fallback
++                    bucket_order = tuple(x for x in bucket_order if x != 'hsa')
++                    if label != SPENDING_TIER_BUCKET_POLICY.get('discretionary') and label != 'discretionary':
++                        bucket_order = bucket_order + ('hsa',) if 'roth' not in bucket_order else tuple(x for x in bucket_order if x!='roth') + ('hsa','roth')
+                 drag = tax_drag[:, j] if 'pretax' in bucket_order else None
++                if 'rothall' in _X and 'roth' not in bucket_order:
++                    bucket_order = bucket_order + ('roth',)
++                if 'ptax' in _X and label == 'other':
++                    drag = None
+                 shortfall = _mc_tier_bucket_cascade(balances, need_by_label[label], bucket_order, tax_drag=drag)
+                 if label != 'other':
+                     tier_shortfall[label][:, j] = shortfall
