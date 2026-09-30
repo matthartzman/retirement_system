@@ -82,28 +82,27 @@ export function renderSpendingCore() {
     "annual_charitable_giving_low",
     "annual_charitable_giving_high",
   ]);
-  const labels =
-    mode === "manual_override"
-      ? [
-          "core_spending_growth_mode",
-          "annual_spending_base_year",
-          "spending_freeze_year",
-          "core_spending_manual_growth_rate",
-        ]
-      : [
-          "core_spending_growth_mode",
-          "annual_spending_base_year",
-          "spending_freeze_year",
-          "inflation_general",
-        ];
   const ordered = [];
-  labels.forEach((l) => {
+  const rateLabel =
+    mode === "manual_override" ? "core_spending_manual_growth_rate" : "inflation_general";
+  // Row 1: method, rate, stop year. Row 2: the YTD controls (then anything else).
+  const row1Labels = ["core_spending_growth_mode", rateLabel, "spending_freeze_year"];
+  const row2Labels = ["ytd_remainder_spending_override", "ytd_blend_enabled"];
+  const row1 = [];
+  const row2 = [];
+  row1Labels.forEach((l) => {
     const r = rs.find((x) => norm(x.label) === norm(l));
-    if (r) ordered.push(r);
+    if (r) row1.push(r);
+  });
+  row2Labels.forEach((l) => {
+    const r = rs.find((x) => norm(x.label) === norm(l));
+    if (r) row2.push(r);
   });
   rs.forEach((r) => {
-    if (!ordered.includes(r) && !hidden.has(norm(r.label))) ordered.push(r);
+    if (!row1.includes(r) && !row2.includes(r) && !hidden.has(norm(r.label)) && norm(r.label) !== "annual_spending_base_year")
+      row2.push(r);
   });
+  ordered.push(...row1, ...row2);
   const have = Object.fromEntries(
     [
       "annual_spending_base_year",
@@ -137,15 +136,18 @@ export function renderSpendingCore() {
   ];
   // Collapsed by default; opens itself when a control is missing so that
   // warning is never buried. Open state persists across re-renders via data-dkey.
-  return `<details class="taxonomy-type-section projection-controls" data-dkey="budget:core:projection_controls"${missingMsg ? " open" : ""}><summary><b>Projection Controls</b> <span class="pc-readout small">${bits.map(([k, x]) => `<span><b>${k}</b> ${esc(x)}</span>`).join("")}</span>${unsaved ? '<span class="pc-unsaved">Unsaved</span>' : ""}</summary><div class="pc-body"><div class="section-note">Core spending base and growth feed recurring lifestyle spending in the projection.</div>${missingMsg}<div class="field-list inline-row core-spending-flat">${ordered.map(fieldHtml).join("")}</div>${renderSpendingAdjustmentsBlock()}</div></details>`;
+  return `<details class="taxonomy-type-section page-accordion projection-controls" data-dkey="budget:core:projection_controls"${missingMsg ? " open" : ""}><summary><b>Projection Controls</b> <span class="pc-readout small">${bits.map(([k, x]) => `<span><b>${k}</b> ${esc(x)}</span>`).join("")}</span>${unsaved ? '<span class="pc-unsaved">Unsaved</span>' : ""}</summary><div class="pc-body"><div class="section-note">Core spending base and growth feed recurring lifestyle spending in the projection.</div>${missingMsg}<div class="pc-fields"><div class="pc-row pc-row-1">${row1.map(fieldHtml).join("")}</div>${row2.length ? `<div class="pc-row pc-row-2">${row2.map(fieldHtml).join("")}</div>` : ""}</div>${renderSpendingAdjustmentsBlock()}</div></details>`;
 }
 
 export function renderTaxonomyManager() {
   if (!taxonomyData && !taxonomyLoading && !taxonomyError) {
     setTimeout(() => loadTaxonomy(false), 0);
   }
-  let html =
-    '<div class="holdings taxonomy-manager"><h3 class="group-title">Category Manager</h3>';
+  const mgrCats = (taxonomyData || []).reduce(
+    (n, t) => n + (t.groups || []).reduce((m, g) => m + (g.categories || []).length, 0),
+    0,
+  );
+  let html = `<details class="taxonomy-type-section page-accordion" data-dkey="budget:core:category_manager"><summary><b>Category Manager</b> <span class="small">${taxonomyData ? `${mgrCats} categories` : "Tracking Type → Group → Category"}</span></summary><div class="holdings taxonomy-manager">`;
   html +=
     '<div class="section-note">Manage the canonical <b>Tracking Type → Group → Category</b> tree. Transaction assignment uses these canonical categories, so there is no separate group-mapping table to maintain.</div>';
   if (taxonomyLoading) {
@@ -183,7 +185,7 @@ export function renderTaxonomyManager() {
     '<details class="advanced-mapping-rules" style="margin-top:32px"><summary><b>Advanced Auto-Mapping Rules</b><span class="small" style="margin-left:8px;font-weight:400;color:var(--muted)">merchant/category text rules</span></summary>' +
     renderCategoryMappingRules() +
     "</details>";
-  html += "</div>";
+  html += "</div></details>";
   return html;
 }
 
@@ -771,13 +773,18 @@ export function renderDomainBudgetTable(domain) {
 }
 
 export function renderCoreSpendingUnified() {
-  // Search results replace the controls block and stay on top; otherwise the
-  // page is Spending Categories, Projection Controls (collapsed), Category Manager.
+  // Three sibling accordions with one look: Spending Categories (open by
+  // default), Projection Controls and Category Manager (collapsed). Search
+  // results replace the controls block and stay on top.
   const searching = !!searchText.trim();
+  const categories =
+    '<details class="taxonomy-type-section page-accordion" data-dkey="budget:core:spending_categories" open><summary><b>Spending Categories</b> <span class="small">Tracking Types, Groups and Categories</span></summary>' +
+    renderDomainBudgetPage("core", { embedded: true }) +
+    "</details>";
   let html = searching ? renderSpendingCore() : "";
-  html += '<div style="margin-top:' + (searching ? 32 : 0) + 'px">' + renderDomainBudgetPage("core") + "</div>";
-  if (!searching) html += '<div style="margin-top:16px">' + renderSpendingCore() + "</div>";
-  html += '<div style="margin-top:32px">' + renderTaxonomyManager() + "</div>";
+  html += categories;
+  if (!searching) html += renderSpendingCore();
+  html += renderTaxonomyManager();
   return html;
 }
 

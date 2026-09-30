@@ -94,7 +94,7 @@ describe("Spending Adjustments table (#335)", () => {
     assert.ok(pc > page.indexOf("Spending Categories total"), "Projection Controls follows the total");
     assert.ok(pc < page.indexOf("Category Manager"), "Projection Controls precedes the Category Manager");
     const body = page.slice(pc, page.indexOf("Category Manager"));
-    assert.match(body, /<h4 class="group-title">Adjustments/);
+    assert.match(body, /<h4 class="taxonomy-group-title">Adjustments/);
     assert.match(body, /Add Adjustment/);
   });
 });
