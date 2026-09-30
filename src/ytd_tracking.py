@@ -1002,6 +1002,20 @@ def annual_real_estate_tax_spending(root: str | Path, current_year: int) -> floa
     return annual_real_estate_tax_from_transactions(root, current_year)
 
 
+def annual_large_discretionary_items(root: str | Path, current_year: int) -> list[dict[str, Any]]:
+    """Current-year Large Discretionary rows (category, amount, note), for the YTD note."""
+    from .large_discretionary import LD_SUBSECTION, load_ld_items
+
+    section: dict[str, str] = {}
+    for row in _iter_cashflow_rows(root):
+        if _norm_label(row.get("subsection")) != _norm_label(LD_SUBSECTION):
+            continue
+        section[str(row.get("label", "") or "").strip()] = str(row.get("value", "") or "")
+    items = load_ld_items({LD_SUBSECTION: section}, plan_end=current_year)
+    return [{"category": i.category, "amount": round(i.amount, 2), "note": i.note}
+            for i in items if i.year == current_year and i.amount]
+
+
 def annual_large_discretionary_spending(root: str | Path, current_year: int) -> float:
     """Planned Large Discretionary spending dated in the current year (#336).
 
@@ -1278,7 +1292,9 @@ def ytd_summary(root: str | Path, *, today: date | None = None, period: str | No
             elif kind == "tax":
                 val = -amount
                 taxes += val
+                spending += val
                 monthly[d.month]["taxes"] += val
+                monthly[d.month]["spending"] += val
             else:
                 transfer += amount
             continue
@@ -1289,7 +1305,9 @@ def ytd_summary(root: str | Path, *, today: date | None = None, period: str | No
         if kind == "tax":
             val = -amount
             taxes += val
+            spending += val
             monthly[d.month]["taxes"] += val
+            monthly[d.month]["spending"] += val
         elif kind == "earned_income":
             val = abs(amount)
             earned_income += val
@@ -1425,7 +1443,9 @@ def ytd_summary(root: str | Path, *, today: date | None = None, period: str | No
     benchmark_spending = annual_spending_forecast(root)
     spending_plan_components = planned_spending_components(root, current_year)
     annual_planned_spending = spending_plan_components["annual_total"]
-    spending_expected_ytd = annual_planned_spending * (ytd_days / year_days) if ytd_rows and annual_planned_spending else None
+    # Taxes paid count as spending, but the plan inputs don't budget them, so the
+    # expected figure adds taxes at their actual pace (taxes_annualized).
+    spending_expected_ytd = (annual_planned_spending * (ytd_days / year_days) + taxes) if ytd_rows and annual_planned_spending else None
     monthly_series = []
     cum_sp = cum_in = cum_tax = 0.0
     for m in range(1, 13):
@@ -1440,7 +1460,7 @@ def ytd_summary(root: str | Path, *, today: date | None = None, period: str | No
             "actual_spending": round(cum_sp, 2),
             "actual_income": round(cum_in, 2),
             "actual_taxes": round(cum_tax, 2),
-            "forecast_spending": round(annual_planned_spending * progress, 2) if annual_planned_spending else None,
+            "forecast_spending": round(annual_planned_spending * progress + (taxes_annualized or 0.0) * progress, 2) if annual_planned_spending else None,
             "forecast_income": round((income_annualized or 0.0) * progress, 2) if income_annualized is not None else None,
             "forecast_taxes": round((taxes_annualized or 0.0) * progress, 2) if taxes_annualized is not None else None,
             "forecast_growth": round((growth_annualized or 0.0) * progress, 2) if growth_annualized is not None else None,
@@ -1483,6 +1503,7 @@ def ytd_summary(root: str | Path, *, today: date | None = None, period: str | No
             "growth": round(growth_annualized, 2) if growth_annualized is not None else None,
             "spending_plan_benchmark": round(benchmark_spending, 2) if benchmark_spending is not None else None,
             "spending_plan_components": {k: round(v, 2) for k, v in spending_plan_components.items()},
+            "large_discretionary_breakdown": annual_large_discretionary_items(root, current_year),
         },
         "investment_balance": {
             "prior_year_end_balance": round(prior_bal, 2),
