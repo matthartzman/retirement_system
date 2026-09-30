@@ -39,3 +39,14 @@ def test_phase3_route_manifest_groups_domains():
     assert "build_results" in ROUTE_MODULES
     assert "/api/report-package" in ROUTE_MODULES["build_results"]
     assert "/api/spending/model" in ROUTE_MODULES["spending"]
+
+
+def test_route_manifest_classifies_every_registered_route_and_no_stale_ones():
+    """ARC-009: the manifest served via /api/contracts must equal the registered routes."""
+    from src.server import app
+
+    registered = {r.rule for r in app.url_map.iter_rules()}
+    classified = [p for paths in ROUTE_MODULES.values() for p in paths]
+    assert len(classified) == len(set(classified)), "a route is classified under two groups"
+    assert sorted(registered - set(classified)) == [], "registered routes missing from ROUTE_MODULES"
+    assert sorted(set(classified) - registered) == [], "ROUTE_MODULES lists routes that are not registered"

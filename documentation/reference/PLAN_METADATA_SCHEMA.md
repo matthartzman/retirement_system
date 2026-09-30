@@ -155,5 +155,5 @@ input/
 **See also:**
 - `tools/migrate_plan_data.py` — migrator implementation (retired in v10.2; recoverable from git history)
 - `src/data_io.py` — loader that gates on metadata
-- `documentation/PHASE_C_ARCHITECTURAL_DECISIONS.md` — design rationale
+- `documentation/archive/legacy/PHASE_C_ARCHITECTURAL_DECISIONS.md` — design rationale
 

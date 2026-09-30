@@ -7,6 +7,29 @@
 > 2026-09-23/24 brainstorming session; each is marked **[decided]** with the
 > option chosen. Part 1 is the design; Part 2 is the implementation plan.
 
+## Status (verified against merged commits, 2026-09-30)
+
+The per-step checkboxes below were ticked by hand for W-C and W-D only and are
+**not** a reliable record. The table is the authoritative progress record;
+every row below is merged to `main`. Do not re-run a workstream's golden-master
+task (W-B's Task B3) from the unticked boxes.
+
+| Workstream | Items | PR | Merge commit | Status |
+|---|---|---|---|---|
+| W-A Taxonomy vocabulary | #332 | #134 | `c30ee27` | Merged (2026-09-24) |
+| W-B IRMAA indexing | #334 | #135 | `f9ef25c` | Merged (2026-09-24); golden master re-pinned in Task B3 (`365f156`), CMS-data correction recorded as Task B5 |
+| W-C Spending Model consolidation | #337, #338 | #136 | `dd1f9bf` | Merged (2026-09-25) |
+| W-D Large Discretionary + Spending Adjustments | #336, #335 | #137 | `9f8af0d` | Merged (2026-09-25) |
+| W-E Housing restructure | #338 | #138 | `c4c0296` | Merged (2026-09-25) |
+| W-F Nav regroup, reserve checking, workbook, consistency guard | #339, #332 | #139 | `5799063` | Merged (2026-09-25) |
+
+**#333** has no workstream in this spec and no commit, PR or file in the
+repository references it. Its disposition is unrecorded; it is treated as
+not part of this restructure until the owner confirms otherwise. (Open item:
+owner to confirm and replace this sentence.) Deferred work is tracked in
+`documentation/reference/BACKLOG.md`.
+
+
 ---
 
 # Part 1 — Design
@@ -759,6 +782,19 @@ def test_no_irmaa_inflator_outside_kernel():
 - [ ] **Step 3:** `python tools/regen_golden_master.py regen --reason "#334 IRMAA: CPI thresholds from 2025 value year with statutory rounding and 2028 top-tier rule; Part B/D surcharges indexed by med_inf/partd_inf"`.
 - [ ] **Step 4:** `pytest` (full) — PASS.
 - [ ] **Step 5:** Commit `test(golden): repin for #334 IRMAA indexing`
+
+### Task B5: CMS-data-accuracy correction to the base-year IRMAA table (addendum)
+
+Added after W-B's review; not part of the original plan. A whole-branch review
+found that the entire base-year IRMAA table in `reference_data/tax_law_v10.json`
+(not only the MFS rows fixed in Task B0) used Part B/D surcharge amounts and
+some thresholds that did not match the verified 2025 CMS figures. The
+indexing/rounding mechanism from B1 is unchanged; only the base-year inputs
+were corrected, the golden master was re-pinned again (`bb8d8b6`), and the
+stale MFJ threshold labels in the Roth IRMAA tier dropdown were fixed
+(`531d89f`). The record is the `2026-09-24 — CMS-data-accuracy correction`
+entry in `documentation/reference/GOLDEN_MASTER_CHANGELOG.md` (commit
+`daad703`). Do not re-run B3 or B5.
 
 ---
 

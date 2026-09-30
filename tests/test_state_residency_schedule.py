@@ -100,7 +100,7 @@ class ResidencyScheduleDataIoTests(unittest.TestCase):
             data.setdefault(sec, {}).setdefault(sub, {})[lbl] = val
         return parse_client(data, "")
 
-    HEADER = "section,subsection,label,value,units,notes\nHousehold,,residence_state,Illinois,text,\n"
+    HEADER = "section,subsection,label,value,units,notes\nHousehold,,residence_state,Illinois,text,\nHousehold,,member_1_dob,1/1/1960,date,\nHousehold,,member_2_dob,1/1/1962,date,\n"
 
     def test_parses_schedule_rows_sorted_by_start_year(self):
         c = self._parse(

@@ -1,6 +1,7 @@
 # Retirement Planning System — Current System Design Spec
 
-Generated: 2026-08-29. This describes the system as implemented in the
+Generated: 2026-08-29, updated 2026-09-30 (§7.3 nav model, housing optimizer,
+Spending Adjustments; WI-703). This describes the system as implemented in the
 current codebase, verified against source (not against prior design docs).
 Where an earlier design intent has been superseded, this document describes
 only what the code does now. See `documentation/reference/FUNCTIONAL_SPEC.md` for the
@@ -105,7 +106,7 @@ else. Current service modules: `base_service`, `admin_service`,
 
 | Route group | Representative routes | Backing module |
 |---|---|---|
-| Build/results | `/api/build/start`, `/api/build/preflight`, `/api/build/status`, `/api/detailed-results`, `/api/report-package`, `/api/history`, `/api/xlsx`, `/api/pdf`, `/files/<path>` | `workbook_routes.py` → `build_service.py`, `build_job_service.py`, `report_service.py` |
+| Build/results | `/api/build/start`, `/api/build/preflight`, `/api/build/status`, `/api/detailed-results`, `/api/report-package`, `/api/history`, `/api/xlsx`, `/files/<path>` | `workbook_routes.py` → `build_service.py`, `build_job_service.py`, `report_service.py` |
 | Plan data files | `/api/plan-data/files`, `/api/plan-data/blank`, `/api/plan-data/<file_name>` | `workbook_routes.py` → `plan_data_file_service.py` |
 | Plan forms (SQLite-native) | `/api/plan/forms`, `/api/plan/forms/<path>` | `base_routes.py`/`workbook_routes.py` → `plan_forms_service.py` → `local_store.py` |
 | Plan file lifecycle | `/api/plan/save-as`, `/api/plan/load-file`, `/api/plan/exit-snapshot`, `/api/plan/snapshot/compare`, `/api/plan/snapshot/restore` | `plan_routes.py` → `plan_file_service.py` |
@@ -485,11 +486,47 @@ preservation across the replace. Server communication is plain `fetch`/
 
 ### 7.3 Navigation model
 
-Guided steps are grouped: Plan Status, People and Income, Spending, Assets &
-Protection, Strategy, Stress Tests, Reports & Review, Settings, plus the
-cross-cutting Planning Workbench. Optional-module-gated steps show an
-explanatory placeholder when their module is off rather than being removed
-from navigation.
+Guided steps are grouped (in `STEPS`, `frontend/js/dashboard.js`): Plan
+Status, Household, Income & Benefits, Spending, Investments & Property,
+Insurance & Care, Estate & Legacy, Taxes, Family & Business, Strategy,
+Reports & Review and Settings, plus the cross-cutting Planning Workbench (no
+group). The former Housing & Property group was dissolved in #338: housing
+costs are edited in Spending Model's Housing accordion, home value and
+mortgage balance on Other Assets and Liabilities, and sale / next steps /
+residency in Strategy → Optimize → Next Housing Move. Optional-module-gated
+steps show an explanatory placeholder when their module is off rather than
+being removed from navigation. Settings → Plan Features
+(`optional_functions`) is the one place optional modules are switched.
+
+#### 7.3.1 Housing optimizer and Next Housing Move
+
+`src/housing/` is the housing move optimizer package (the older
+`src/housing_optimizer.py` remains as a re-export shim). A candidate is an
+original-home disposition (sold in a searched year, or kept) plus a tuple of
+up to five `Move`s, each with its own acquisition year and an explicit
+buy/rent action; selling is decoupled from moving. `src/housing/zip_screen/`
+is Stage 1 (ZIP screening) and produces ordinary `Location` objects, so the
+search, scoring, constraint and plan-variant modules never see ZIP codes.
+`plan_variant.py` is the only place that knows the plan-config wire format or
+calls the engine. The UI is `dashboard_decomp_housing_optimizer.js`, rendered
+as the Next Housing Move section of Optimize and gated by the
+`housing_location_search` module (off: the section shows its saved values
+without applying them). Routes: `/api/housing/optimize`,
+`/api/housing/zip-screen`, `/api/housing/zip-lookup`,
+`/api/housing/top-cities`, `/api/housing/state-estimate`,
+`/api/housing/seed`.
+
+#### 7.3.2 Spending Adjustments and Large Discretionary
+
+`src/spending_adjustments.py` implements category step-downs/step-ups
+(`adj_N_category/start_year/end_year/change_pct` rows under Cashflow /
+Spending Adjustments in `client_spending.csv`, served by
+`/api/spending-adjustments`); factors compound multiplicatively in start-year
+order and `ALL:<tracking type>` rows compound with a category's own rows.
+Only Core Expenses, Housing, Wellness and Travel are adjustable. Large
+Discretionary is a one-time-only model: `migrateLargeDiscLines`
+(`dashboard_decomp_large_discretionary.js`) converts legacy repeating rows
+into one dated row per year and never annualizes.
 
 ## 8. Reporting/output architecture
 

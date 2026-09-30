@@ -9,9 +9,9 @@ Security estimate, annuity contract, holding lot, account balance, note
 receivable, property value, budget amount or budget-line name, target
 allocation, bank/card account name, vendor name, or spending category in this
 folder is copied from the advisor's own plan. Illinois is retained as the
-residence state on purpose: it is the only state the engine models an estate tax
-for, so it is what makes the Estate Plan / Credit Shelter Trust / State Residency
-sheets meaningful in a demo. Statutory constants that are the same for everyone
+residence state on purpose: the engine models a state estate tax for Illinois
+and New York, and Illinois is what makes the Estate Plan / Credit Shelter
+Trust / State Residency sheets meaningful in a demo. Statutory constants that are the same for everyone
 (Medicare Part B/D/G premiums, HSA and 401(k) limits, SS wage base, federal and
 Illinois estate exemptions, gift exclusion) are also shared, as they should be.
 
@@ -32,7 +32,7 @@ annuities, and $132K of core spending. The plan is comfortably funded across
 
 ## To use it
 
-In the app: **Settings -> Data & Maintenance -> Open Demo Plan**. That backs up
+In the app: the **Welcome** page's **Open Demo Plan** button (it is not on the Data & Maintenance page). That backs up
 your real plan (DB + `client_data.csv` + the budget recovery seed)
 automatically, applies these files, and **Open Current Plan** restores it. The
 backup file's existence is the source of truth for whether a demo is active, so

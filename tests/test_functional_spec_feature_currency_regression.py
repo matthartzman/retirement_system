@@ -33,6 +33,10 @@ FEATURE_MARKERS = [
     ("phase-varying", "phase-varying Roth conversion strategy", False),
     ("floor-ceiling", "floor-ceiling band spending policy", False),
     ("Guyton-Klinger", "Guyton-Klinger adaptive spending guardrail", True),
+    ("Next Housing Move", "Next Housing Move / housing optimizer", True),
+    ("Plan Features", "Plan Features page", True),
+    ("Spending Adjustments", "Spending Adjustments (category step-downs)", True),
+    ("Large Discretionary", "one-time Large Discretionary model", True),
 ]
 
 
@@ -66,3 +70,13 @@ def test_functional_spec_states_it_has_been_updated_past_its_original_date():
         "generation date with no later 'updated' note -- update the header "
         "whenever the manifest in this test file grows."
     )
+
+
+DESIGN_SPEC_PATH = ROOT / "documentation" / "reference" / "CURRENT_SYSTEM_DESIGN_SPEC.md"
+DESIGN_SPEC_MARKERS = ["Next Housing Move", "Plan Features", "Spending Adjustments", "Large Discretionary"]
+
+
+def test_design_spec_mentions_housing_and_spending_features():
+    text = DESIGN_SPEC_PATH.read_text(encoding="utf-8")
+    missing = [m for m in DESIGN_SPEC_MARKERS if m not in text]
+    assert missing == [], f"CURRENT_SYSTEM_DESIGN_SPEC.md is missing: {missing}"

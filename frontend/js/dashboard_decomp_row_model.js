@@ -147,12 +147,51 @@ export function apiUrl(p) {
   return (apiBase || "") + p;
 }
 
+// UX-003 (system review 2026-09-25, WI-504): callers routinely build error
+// toasts as "Error building: " + e.message, and an unhandled server
+// exception's message is the raw "<ExceptionClass>: <text>" string
+// (src/server/app_core.py _json_unhandled_error). Split that into a
+// plain-language summary plus the raw text, which showMessage then puts in
+// its existing "Technical details" disclosure instead of the headline.
+// Returns null when the message does not carry a raw exception string.
+const RAW_EXCEPTION_RE =
+  /^([\s\S]*?)\b([A-Z][A-Za-z0-9_]*(?:Error|Exception|Warning|Interrupt|Exit)):\s*([\s\S]*)$/;
+export function splitRawErrorText(msg) {
+  const text = String(msg ?? "");
+  const m = text.match(RAW_EXCEPTION_RE);
+  if (!m) return null;
+  const prefix = m[1].replace(/[\s:\-–—]+$/, "").trim();
+  const summary =
+    (prefix || "Something went wrong") +
+    ". The app reported an internal problem; open Technical details for the exact message, or try again.";
+  return { summary: summary, detail: (m[2] + ": " + m[3]).trim() };
+}
+
 export function showMessage(msg, kind = "info", opts) {
   const el = document.getElementById("actionMessage");
   if (!el) return;
-  const persistent = !!(opts && opts.persistent);
-  const techDetail =
+  const isError = kind === "error";
+  // Errors stay until dismissed (WCAG 2.2.1) unless a caller explicitly
+  // opts out with {persistent:false}; other kinds keep the 10 s auto-hide.
+  const persistent =
+    opts && typeof opts.persistent === "boolean"
+      ? opts.persistent
+      : isError;
+  let techDetail =
     opts && opts.technicalDetail ? String(opts.technicalDetail) : "";
+  if (isError) {
+    const split = splitRawErrorText(msg);
+    if (split) {
+      msg = split.summary;
+      techDetail = techDetail ? split.detail + "\n" + techDetail : split.detail;
+    }
+  }
+  // Announce: errors as an alert, everything else politely (WCAG 4.1.3).
+  if (el.setAttribute) {
+    el.setAttribute("role", isError ? "alert" : "status");
+    el.setAttribute("aria-live", isError ? "assertive" : "polite");
+    el.setAttribute("aria-atomic", "true");
+  }
   const actionHtml =
     opts && opts.action
       ? `<button class="msg-action" onclick="${escJs(opts.action.fn)}">${esc(opts.action.label)}</button>`
@@ -826,6 +865,26 @@ export function buildHistoryProvenance(preflight) {
       "results_explorer_model.json",
     ),
   };
+}
+
+// UX-008 (system review 2026-09-25, WI-508): single source for the steps
+// that render without a loaded plan. navigation.js owns the list (setStep()
+// routes by it); the fallback only covers the brief window before
+// navigation.js has published window.RetirementNavigation, and matches it.
+const PLAN_INDEPENDENT_STEPS_FALLBACK = [
+  "start",
+  "system_configuration",
+  "workbook_formatting",
+  "detailed_results",
+  "strategy_scenarios",
+  "strategy_workbench",
+  "reports_and_review",
+];
+export function planIndependentSteps() {
+  const nav = window.RetirementNavigation;
+  return nav && Array.isArray(nav.PLAN_INDEPENDENT_STEPS)
+    ? nav.PLAN_INDEPENDENT_STEPS
+    : PLAN_INDEPENDENT_STEPS_FALLBACK;
 }
 
 export function stepTitleById(id) {
@@ -2346,21 +2405,10 @@ export function renderSteps() {
           : st.required.length
             ? "complete"
             : "";
-    const navDisabled =
-      !planLoaded &&
-      ![
-        "start",
-        "system_configuration",
-        "detailed_results",
-        // #323/Planning Workbench Strategy Integration: strategy_scenarios and
-        // strategy_workbench are the real nav buttons the retired
-        // planning_workbench/planning_levers/scenarios step ids redirect
-        // into -- these must stay enabled before a plan is open so those
-        // redirects (and the header's "Compare & Decide" button) still work.
-        "strategy_scenarios",
-        "strategy_workbench",
-        "reports_and_review",
-      ].includes(s.id);
+    // #323 / UX-008 (WI-508): the steps usable before a plan is open come
+    // from navigation.js's PLAN_INDEPENDENT_STEPS -- the same list setStep()
+    // routes by -- so the nav, the router and renderMain cannot disagree.
+    const navDisabled = !planLoaded && !planIndependentSteps().includes(s.id);
     let badge = "";
     const reportStale =
       [
@@ -2382,7 +2430,9 @@ export function renderSteps() {
       badge = `<span class="nav-badge nav-badge--warn">!</span>`;
     else if (reportStale) badge = `<span class="badge warn">Stale</span>`;
     else if (st.required.length) badge = `<span class="badge ok">OK</span>`;
-    return `<button class="stepbtn ${cls}" type="button" data-step-id="${s.id}" ${navDisabled ? "disabled" : ""} ><span class="num">${stepNumber}</span><span><span class="step-title">${esc(s.title)}</span><br><span class="step-desc">${esc(s.desc)}</span></span>${badge}</button>`;
+    // UX-010 (WI-509): the current step is announced, not shown by colour only.
+    const current = s.id === activeStep ? ' aria-current="step"' : "";
+    return `<button class="stepbtn ${cls}" type="button" data-step-id="${s.id}"${current} ${navDisabled ? "disabled" : ""} ><span class="num">${stepNumber}</span><span><span class="step-title">${esc(s.title)}</span><br><span class="step-desc">${esc(s.desc)}</span></span>${badge}</button>`;
   }
   const groups = [];
   let cg = null;
@@ -2659,6 +2709,19 @@ export function finishEdit(idx, el) {
   }
 }
 
+// UX-003 (WI-504): row_index values the backend's save validation rejected
+// on the last failed save. fieldHtml marks those controls aria-invalid; the
+// set is replaced on every failed save and cleared on a successful one.
+export const saveValidationInvalidRows = new Set();
+
+// UX-002 (system review 2026-09-25, WI-503): stable ids tying each plan-data
+// control to its visible label and its describing text (unit caption,
+// Required badge, inactive-value note), so assistive tech announces the
+// field name, required state and help rather than "edit text"/"YES".
+export function fieldControlId(rowIndex) {
+  return "field-" + rowIndex + "-ctl";
+}
+
 export function fieldHtml(r, opts) {
   const hideUnit = !!(opts && opts.hideUnit);
   const value = valOf(r);
@@ -2671,18 +2734,40 @@ export function fieldHtml(r, opts) {
     type === "boolean" ||
     /^(yes\/no|true\/false)$/i.test(units) ||
     /^(YES|NO|TRUE|FALSE)$/i.test(value);
+  const ctlId = fieldControlId(r.row_index);
+  const lblId = "field-" + r.row_index + "-lbl";
+  const unitId = "field-" + r.row_index + "-unit";
+  const reqId = "field-" + r.row_index + "-req";
+  const inactiveId = "field-" + r.row_index + "-inactive";
+  const inactiveState = rowBuildUsageState(r, activeStep);
+  const inactiveRevealed =
+    inactiveEditReveals.has(r.row_index) && !inactiveState.active;
+  const describedBy = [
+    missing ? reqId : "",
+    units && !hideUnit ? unitId : "",
+    inactiveRevealed ? inactiveId : "",
+  ].filter(Boolean);
+  const invalid = missing || saveValidationInvalidRows.has(r.row_index);
+  // Shared by every control branch below. Checkboxes additionally get
+  // aria-labelledby: they sit inside the .toggle-switch <label>, whose own
+  // YES/NO text would otherwise become their accessible name.
+  const a11y =
+    ` id="${ctlId}"` +
+    (describedBy.length ? ` aria-describedby="${describedBy.join(" ")}"` : "") +
+    (isRequired(r) ? ' aria-required="true"' : "") +
+    (invalid ? ' aria-invalid="true"' : "");
   let control = "";
   if (
     lblNorm === "allocation_selection_mode" ||
     lblNorm === "allocation_mode"
   ) {
     const mode = allocationSelectionMode();
-    control = `<select data-row="${r.row_index}" onchange="editValue(${r.row_index},this.value,this);renderMain()" onfocus="showFieldHelp(${r.row_index})"><option value="user_target" ${mode === "user_target" ? "selected" : ""}>Use user-specified allocation</option><option value="optimizer_recommendation" ${mode === "optimizer_recommendation" ? "selected" : ""}>Use allocation optimizer recommendation</option><option value="max_sharpe" ${mode === "max_sharpe" ? "selected" : ""}>Best risk-adjusted mix, staying within the risk limits you set (max-Sharpe)</option><option value="tangency" ${mode === "tangency" ? "selected" : ""}>Best risk-adjusted mix, ignoring your risk limits (tangency)</option><option value="real_loss_aware" ${mode === "real_loss_aware" ? "selected" : ""}>Match each dollar to when you’ll spend it, minimizing the chance of a loss after inflation</option></select>`;
+    control = `<select${a11y} data-row="${r.row_index}" onchange="editValue(${r.row_index},this.value,this);renderMain()" onfocus="showFieldHelp(${r.row_index})"><option value="user_target" ${mode === "user_target" ? "selected" : ""}>Use user-specified allocation</option><option value="optimizer_recommendation" ${mode === "optimizer_recommendation" ? "selected" : ""}>Use allocation optimizer recommendation</option><option value="max_sharpe" ${mode === "max_sharpe" ? "selected" : ""}>Best risk-adjusted mix, staying within the risk limits you set (max-Sharpe)</option><option value="tangency" ${mode === "tangency" ? "selected" : ""}>Best risk-adjusted mix, ignoring your risk limits (tangency)</option><option value="real_loss_aware" ${mode === "real_loss_aware" ? "selected" : ""}>Match each dollar to when you’ll spend it, minimizing the chance of a loss after inflation</option></select>`;
   } else if (boolish) {
     const yes =
       String(value).toUpperCase() === "YES" ||
       String(value).toUpperCase() === "TRUE";
-    control = `<label class="toggle-switch" data-row="${r.row_index}"><input type="checkbox" ${yes ? "checked" : ""} onchange="editValue(${r.row_index},this.checked?'YES':'NO',this)" onfocus="showFieldHelp(${r.row_index})"><span class="toggle-track" aria-hidden="true"></span><span class="toggle-text toggle-text-yes">YES</span><span class="toggle-text toggle-text-no">NO</span></label>`;
+    control = `<label class="toggle-switch" data-row="${r.row_index}"><input type="checkbox"${a11y} aria-labelledby="${lblId}" ${yes ? "checked" : ""} onchange="editValue(${r.row_index},this.checked?'YES':'NO',this)" onfocus="showFieldHelp(${r.row_index})"><span class="toggle-track" aria-hidden="true"></span><span class="toggle-text toggle-text-yes" aria-hidden="true">YES</span><span class="toggle-text toggle-text-no" aria-hidden="true">NO</span></label>`;
   } else if (type === "choice" || norm(units) === "choice" || window.STATE_INPUT_LABELS.has(lblNorm)) {
     const opts = choiceOptions(r);
     if (opts.length) {
@@ -2692,7 +2777,7 @@ export function fieldHtml(r, opts) {
         lblNorm === "roth_conversion_policy" ||
         lblNorm === "irmaa_guardrail_mode" ||
         lblNorm === "hsa_withdrawal_mode";
-      control = `<select data-row="${r.row_index}" onchange="editValue(${r.row_index},this.value,this);${rerender ? "renderMain()" : ""}" onfocus="showFieldHelp(${r.row_index})">${opts
+      control = `<select${a11y} data-row="${r.row_index}" onchange="editValue(${r.row_index},this.value,this);${rerender ? "renderMain()" : ""}" onfocus="showFieldHelp(${r.row_index})">${opts
         .map((o) => {
           const ov = choiceValue(o),
             ol = choiceLabel(o);
@@ -2704,25 +2789,24 @@ export function fieldHtml(r, opts) {
       // captureMainPaneFocus/restoreMainPaneFocus revive this exact input
       // (and its caret) if something -- e.g. a Housing row's reestimate
       // ripple -- calls renderMain() synchronously while it's focused.
-      control = `<input type="text" data-row="${r.row_index}" data-focus-key="field:${r.row_index}" value="${esc(String(value || ""))}" placeholder="${esc(r.schema?.default || "")}" oninput="editValue(${r.row_index},this.value,this)" onfocus="beginEdit(${r.row_index},this)" onblur="finishEdit(${r.row_index},this)">`;
+      control = `<input type="text"${a11y} data-row="${r.row_index}" data-focus-key="field:${r.row_index}" value="${esc(String(value || ""))}" placeholder="${esc(r.schema?.default || "")}" oninput="editValue(${r.row_index},this.value,this)" onfocus="beginEdit(${r.row_index},this)" onblur="finishEdit(${r.row_index},this)">`;
     }
   } else {
     const inputType = isDateField(r) ? "date" : "text";
     const inputValue = displayValueForInput(r, value);
-    control = `<input type="${inputType}" data-row="${r.row_index}" data-focus-key="field:${r.row_index}" value="${esc(inputValue)}" placeholder="${esc(r.schema?.default || "")}" oninput="editValue(${r.row_index},this.value,this)" onfocus="beginEdit(${r.row_index},this)" onblur="finishEdit(${r.row_index},this)">`;
+    control = `<input type="${inputType}"${a11y} data-row="${r.row_index}" data-focus-key="field:${r.row_index}" value="${esc(inputValue)}" placeholder="${esc(r.schema?.default || "")}" oninput="editValue(${r.row_index},this.value,this)" onfocus="beginEdit(${r.row_index},this)" onblur="finishEdit(${r.row_index},this)">`;
   }
   const note = formatAcronyms(r.schema?.description || r.notes || "");
-  const req = missing ? '<span class="badge req">Required</span>' : "";
-  const inactiveState = rowBuildUsageState(r, activeStep);
-  const inactiveRevealed =
-    inactiveEditReveals.has(r.row_index) && !inactiveState.active;
+  const req = missing
+    ? `<span class="badge req" id="${reqId}">Required</span>`
+    : "";
   const inactiveBadge = inactiveRevealed
     ? '<span class="badge warn">Inactive unless activated</span>'
     : "";
   // hideUnit: some callers (e.g. the Next Housing Step editor) render their
   // own compact hint and opt out of this raw type-token caption.
   const unit = units && !hideUnit
-    ? `<div class="unit">${esc(formatAcronyms(units))}</div>`
+    ? `<div class="unit" id="${unitId}">${esc(formatAcronyms(units))}</div>`
     : "";
   const kind = valueKind(r);
   const negClass = kind === "currency" ? moneyNegativeClass(value) : "";
@@ -2738,7 +2822,7 @@ export function fieldHtml(r, opts) {
   // inside the same bordered card.
   const sizeClass = fieldSizeClass(r);
   const flow = dependencyRank(r.label) > "01" && sizeClass !== "w-long";
-  return `<div class="field ${missing ? "missing" : ""} ${dirtyHere ? "dirty" : ""} ${inactiveRevealed ? "inactive-edit" : ""}${paired ? " paired" : ""}${flow ? " flow" : ""}${sizeClass ? " " + sizeClass : ""}${negClass}" id="field-${r.row_index}" onclick="showFieldHelp(${r.row_index})"><div><div class="field-label">${esc(humanLabel(r.label, r))}${fieldLabelNoteHtml(r)}${fieldTooltipHtml(lblNorm, r)}</div><div class="field-meta">${req}${dirtyHere ? '<span class="badge dirty">Edited</span>' : ""}${inactiveBadge}</div></div><div>${control}${unit}${inactiveRevealed ? `<div class="unit">${esc(formatAcronyms(inactiveState.activation || "Change this value or its controlling setting to make it active in the build."))}</div>` : ""}</div></div>`;
+  return `<div class="field ${missing ? "missing" : ""} ${dirtyHere ? "dirty" : ""} ${inactiveRevealed ? "inactive-edit" : ""}${paired ? " paired" : ""}${flow ? " flow" : ""}${sizeClass ? " " + sizeClass : ""}${negClass}" id="field-${r.row_index}" onclick="showFieldHelp(${r.row_index})"><div><div class="field-label"><label id="${lblId}"${boolish ? "" : ` for="${ctlId}"`}>${esc(humanLabel(r.label, r))}${fieldLabelNoteHtml(r)}</label>${fieldTooltipHtml(lblNorm, r)}</div><div class="field-meta">${req}${dirtyHere ? '<span class="badge dirty">Edited</span>' : ""}${inactiveBadge}</div></div><div>${control}${unit}${inactiveRevealed ? `<div class="unit" id="${inactiveId}">${esc(formatAcronyms(inactiveState.activation || "Change this value or its controlling setting to make it active in the build."))}</div>` : ""}</div></div>`;
 }
 
 export function sortRowsByDependency(rs) {
@@ -3160,6 +3244,54 @@ function _trapTabWithinModal(e, overlay) {
     e.preventDefault();
     first.focus();
   }
+}
+
+// UX-004 (system review 2026-09-25, WI-502): the static dialogs declared in
+// index.html (#exitModal, #chartModal) carry role=dialog/aria-modal but used
+// to be opened/closed by toggling style.display alone -- no focus move, no
+// Tab trap, no Escape, no focus restore. These two helpers give them the
+// same behaviour showInAppConfirm/showSaveDiscardStayModal already have.
+//   opts.display       CSS display value to show with (default "flex")
+//   opts.initialFocus  selector (inside modal) for the safe default button
+//   opts.onEscape      called on Escape (default: closeStaticDialog(modal))
+export function openStaticDialog(modal, opts) {
+  if (!modal) return;
+  opts = opts || {};
+  if (modal.__staticDialog) closeStaticDialog(modal, { restoreFocus: false });
+  const opener = document.activeElement;
+  function onKey(e) {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      if (typeof opts.onEscape === "function") opts.onEscape();
+      else closeStaticDialog(modal);
+      return;
+    }
+    if (e.key === "Tab") _trapTabWithinModal(e, modal);
+  }
+  modal.__staticDialog = { opener: opener, onKey: onKey };
+  modal.style.display = opts.display || "flex";
+  document.addEventListener("keydown", onKey);
+  const target =
+    (opts.initialFocus && modal.querySelector(opts.initialFocus)) ||
+    modal.querySelector(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+    );
+  if (target && typeof target.focus === "function") target.focus();
+}
+
+export function closeStaticDialog(modal, opts) {
+  if (!modal) return;
+  const state = modal.__staticDialog;
+  modal.style.display = "none";
+  if (!state) return;
+  modal.__staticDialog = null;
+  document.removeEventListener("keydown", state.onKey);
+  if (
+    !(opts && opts.restoreFocus === false) &&
+    state.opener &&
+    typeof state.opener.focus === "function"
+  )
+    state.opener.focus();
 }
 
 export function showSaveDiscardStayModal(message, opts) {
@@ -4869,6 +5001,51 @@ export async function saveWorkingCopy() {
   return true;
 }
 
+// UX-003 (WI-504): the backend's validation errors are strings of the form
+// "('<section>', '<subsection>', '<label>'): <message>; got '<value>'"
+// (src/schema_registry.py validate_rows). Resolve each back to a row,
+// remember it for fieldHtml's aria-invalid, and mark any control already on
+// screen. Returns the matched row_index values in error order.
+const SAVE_ERROR_KEY_RE = /^\(\s*(['"])(.*?)\1\s*,\s*(['"])(.*?)\3\s*,\s*(['"])(.*?)\5\s*\)/;
+export function rowIndexesForSaveErrors(errs) {
+  const out = [];
+  for (const err of errs || []) {
+    const m = String(err || "").match(SAVE_ERROR_KEY_RE);
+    if (!m) continue;
+    const sec = m[2].trim(),
+      sub = m[4].trim(),
+      lbl = m[6].trim();
+    const row = (rows || []).find(
+      (r) =>
+        String(r.section || "").trim() === sec &&
+        String(r.subsection || "").trim() === sub &&
+        String(r.label || "").trim() === lbl,
+    );
+    if (row && !out.includes(row.row_index)) out.push(row.row_index);
+  }
+  return out;
+}
+export function markSaveValidationErrors(errs) {
+  const bad = rowIndexesForSaveErrors(errs);
+  saveValidationInvalidRows.clear();
+  bad.forEach((i) => saveValidationInvalidRows.add(i));
+  bad.forEach((i) => {
+    const el = document.getElementById(fieldControlId(i));
+    if (el && el.setAttribute) el.setAttribute("aria-invalid", "true");
+  });
+  return bad;
+}
+export function goToInvalidField(rowIndex) {
+  const row = (rows || []).find((r) => r.row_index === rowIndex);
+  if (!row) return;
+  const step = sourceStepForRow(row);
+  if (step && step !== activeStep) setStep(step);
+  setTimeout(() => {
+    const el = document.getElementById(fieldControlId(rowIndex));
+    if (el && typeof el.focus === "function") el.focus();
+  }, 0);
+}
+
 export async function saveAll(sync = true) {
   try {
     if (!planLoaded) {
@@ -4877,6 +5054,7 @@ export async function saveAll(sync = true) {
     }
     const saved = await saveWorkingCopy();
     if (!saved) return false;
+    saveValidationInvalidRows.clear();
     showMessage("Changes saved.");
     await loadAll({
       source: "Local database",
@@ -4900,9 +5078,19 @@ export async function saveAll(sync = true) {
     if (typeof console !== "undefined" && console.error)
       console.error("Save failed:", e, errs || undefined);
     if (errs && errs.length) {
+      // UX-003 (WI-504): tie each validation error back to its field --
+      // aria-invalid on the control, and a "Go to" action for the first.
+      const bad = markSaveValidationErrors(errs);
+      const first = bad.length ? rows.find((r) => r.row_index === bad[0]) : null;
       showMessage("Error saving: " + e.message, "error", {
         persistent: true,
         technicalDetail: errs.join("\n"),
+        action: first
+          ? {
+              label: "Go to " + humanLabel(first.label, first),
+              fn: "goToInvalidField(" + Number(first.row_index) + ")",
+            }
+          : undefined,
       });
     } else {
       showMessage("Error saving: " + e.message, "error");
@@ -5047,7 +5235,7 @@ export async function runBuild(queue = false, opts = {}) {
       sessionSpecialChanges.clear();
       updateBuildOverlay(
         "Build complete",
-        fromDownload ? "Build complete." : "Opening the Build Impact page.",
+        fromDownload ? "Build complete." : "Opening Impact & Build History.",
         100,
         "done",
       );
@@ -5068,7 +5256,7 @@ export async function runBuild(queue = false, opts = {}) {
     setAppControls(appReady);
     updateBuildOverlay(
       "Build failed",
-      "The build stopped before the Build Impact page could be displayed.",
+      "The build stopped before Impact & Build History could be displayed.",
       100,
       "error",
     );
@@ -5314,6 +5502,10 @@ Object.assign(window, {
   showInAppPrompt,
   showMessage,
   showSaveDiscardStayModal,
+  goToInvalidField,
+  planIndependentSteps,
+  openStaticDialog,
+  closeStaticDialog,
   shutdownAndClose,
   sortRowsByDependency,
   sourceStepForRow,

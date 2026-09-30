@@ -1,7 +1,7 @@
 // Unit tests for the pure/stateless helper functions in frontend/js/dashboard.js.
 //
 // This is the first JS test coverage of any kind in this repo (see
-// documentation/SYSTEM_REVIEW_AND_REFACTOR_PLAN.md Phase 5/2d — previously
+// documentation/archive/legacy/SYSTEM_REVIEW_AND_REFACTOR_PLAN.md Phase 5/2d — previously
 // dashboard.js behavior was verified only indirectly, via Python tests that
 // read the file as text and assert substrings are present). Run with:
 //

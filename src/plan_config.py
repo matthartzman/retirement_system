@@ -160,6 +160,15 @@ def normalize_engine_config(config: Mapping[str, Any] | PlanConfig, source: str 
         who = m.get('name') or m.get('role') or 'household member'
         dob_yr = m.get('dob_yr')
         retire_yr = m.get('retire_yr')
+        # WI-401 (QA-001): a 2-digit birth year (62) or a far-future one
+        # passes the retire/mortality gates below yet silently models the
+        # member as dead (or unborn) in every plan year.
+        if dob_yr is not None and not (1900 < int(dob_yr) <= int(c['plan_start'])):
+            raise ValueError(
+                f'{who!r} has an implausible birth year ({dob_yr}); it must be after 1900 '
+                f'and no later than the plan start year ({c["plan_start"]}) — check the '
+                f'date-of-birth input for this person (use M/D/YYYY with a 4-digit year).'
+            )
         if dob_yr is not None and retire_yr is not None and int(retire_yr) < int(dob_yr):
             raise ValueError(
                 f'{who!r} has a retirement year ({retire_yr}) before their birth year '

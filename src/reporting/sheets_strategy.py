@@ -643,7 +643,7 @@ def build_sheet10(ws, c, rows):
     ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=14)
     ws.row_dimensions[r].height = 40
     r += 1
-    hdrs = ['Rank', f'{_s1} Claim', f'{_s2} Claim', 'Score (0-100)', 'Objective Value', 'After-Tax Terminal NW', 'Survivor-Period SS Income', 'LCV', 'Δ LCV', 'Lifetime SS', 'NPV of Future Taxes', 'IRMAA', 'Survivor Years', 'Worst-Case Ending Wealth (5th %ile)']
+    hdrs = ['Rank', f'{_s1} Claim', f'{_s2} Claim', 'Score (0-100)', 'Objective Value', 'After-Tax Terminal NW', 'Survivor-Period SS Income', 'Lifetime Consumption-and-Transfer Value (LCV)', 'Δ Lifetime Value (LCV)', 'Lifetime SS', 'NPV of Future Taxes', 'IRMAA', 'Survivor Years', 'Worst-Case Ending Wealth (5th %ile)']
     for i, h in enumerate(hdrs, 1):
         write_hdr(ws, r, i, h, DGRAY, WHITE)
     r += 1
@@ -715,7 +715,7 @@ def build_sheet10(ws, c, rows):
 
     r += 2
     write_hdr(ws, r, 1, f'Coarse-then-refine {h_floor}–70 × {w_floor}–70 spouse-pair sweep ({len(scenarios)} pairs scored)', NAVY, WHITE, span=13); r += 1
-    hdrs = [f'{_s1} Claim', f'{_s2} Claim', 'Score (0-100)', 'Objective Value', 'After-Tax Terminal NW', 'Survivor-Period SS Income', 'LCV', 'Δ LCV', 'Lifetime SS', 'NPV of Future Taxes', 'IRMAA', 'Survivor Years', 'Worst-Case Ending Wealth (5th %ile)']
+    hdrs = [f'{_s1} Claim', f'{_s2} Claim', 'Score (0-100)', 'Objective Value', 'After-Tax Terminal NW', 'Survivor-Period SS Income', 'Lifetime Consumption-and-Transfer Value (LCV)', 'Δ Lifetime Value (LCV)', 'Lifetime SS', 'NPV of Future Taxes', 'IRMAA', 'Survivor Years', 'Worst-Case Ending Wealth (5th %ile)']
     for i, h in enumerate(hdrs, 1):
         write_hdr(ws, r, i, h, DGRAY, WHITE)
     r += 1
@@ -2424,7 +2424,7 @@ def build_sheet_housing_comparison(ws, c, rows):
     r += 1
 
     headers = ['Rank', 'Sale Year', 'Step 1 (Type / Year)', 'Step 2 (Type / Year)', 'Score (0-100)',
-               'Objective Value', 'After-Tax Terminal NW', 'LCV', 'Δ LCV', 'NPV of Future Taxes',
+               'Objective Value', 'After-Tax Terminal NW', 'Lifetime Consumption-and-Transfer Value (LCV)', 'Δ Lifetime Value (LCV)', 'NPV of Future Taxes',
                'Equity at Plan End', 'Feasibility Gate Met', 'Worst-Case Ending Wealth (5th %ile)']
     for i, h in enumerate(headers, 1):
         write_hdr(ws, r, i, h, DGRAY, WHITE)

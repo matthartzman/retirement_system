@@ -3,7 +3,7 @@
 Date: 2026-09-16
 Status: Approved for planning
 Supersedes parts of: `documentation/archive/superpowers/specs/2026-09-09-housing-optimization-design.md`,
-`docs/superpowers/specs/2026-09-15-zip-code-housing-screening-design.md`
+`documentation/archive/superpowers/specs/2026-09-15-zip-code-housing-screening-design.md`
 
 ## 1. Problem
 
@@ -4105,11 +4105,11 @@ The `_EXPORTS` map and `__all__` were already rewritten during Task 2 (commit `f
 - [x] **Step 3: Archive the superseded specs**
 
 ```bash
-git mv docs/superpowers/specs/2026-09-15-zip-code-housing-screening-design.md \
+git mv documentation/archive/superpowers/specs/2026-09-15-zip-code-housing-screening-design.md \
        documentation/archive/superpowers/specs/
-git mv docs/superpowers/plans/2026-09-15-zip-code-housing-screening.md \
+git mv documentation/archive/superpowers/plans/2026-09-15-zip-code-housing-screening.md \
        documentation/archive/superpowers/plans/
-git mv docs/superpowers/plans/2026-09-15-zip-code-housing-screening-followup.md \
+git mv documentation/archive/superpowers/plans/2026-09-15-zip-code-housing-screening-followup.md \
        documentation/archive/superpowers/plans/
 ```
 

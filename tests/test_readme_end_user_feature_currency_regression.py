@@ -34,3 +34,15 @@ def test_readme_mentions_every_known_shipped_optional_feature():
         "this guard exists because the README went stale on exactly this "
         "point once already (finding DOC-204, system review 2026-09-07)."
     )
+
+
+def test_readme_does_not_claim_nothing_leaves_the_machine():
+    """DOC-002: LIVE pricing sends ticker symbols to outside quote services."""
+    text = README_PATH.read_text(encoding="utf-8")
+    assert "nothing is sent anywhere over the internet" not in text
+    assert "OFFLINE" in text and "ticker symbols" in text
+
+
+def test_pricing_mode_card_discloses_outbound_calls():
+    js = (ROOT / "frontend" / "js" / "dashboard_decomp_checklist_closeout.js").read_text(encoding="utf-8")
+    assert "ticker symbols of your holdings" in js and "OFFLINE mode makes no outside calls" in js

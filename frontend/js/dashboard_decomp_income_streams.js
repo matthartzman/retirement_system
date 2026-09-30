@@ -226,7 +226,7 @@ export function socialSecurityOptimizerPatch(result) {
     out.push({
       source: "optimizer",
       sourceStep: "income_retirement",
-      sourceTitle: "Income & Social Security",
+      sourceTitle: stepTitleById("income_retirement"),
       section: "Social Security",
       subsection: p.key,
       field: "claim_date",

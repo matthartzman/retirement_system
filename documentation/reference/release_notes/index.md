@@ -11,5 +11,9 @@ matches the repository's documentation layout — long-form docs under
 enforces both halves of this: no `RELEASE_NOTES*.md` at the project root, and
 this directory must exist.
 
+Entries:
+
+- [`2026-09-changes-334-339.md`](2026-09-changes-334-339.md) -- IRMAA indexing (#334), one-time Large Discretionary (#336), Next Housing Move gating (#338) and related changes.
+
 For the running record of golden-master projection changes, see
 [`../GOLDEN_MASTER_CHANGELOG.md`](../GOLDEN_MASTER_CHANGELOG.md).
