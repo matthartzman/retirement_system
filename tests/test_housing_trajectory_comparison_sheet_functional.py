@@ -49,7 +49,7 @@ _FAST_MC_SIMS = 8
 
 REFINE_TABLE_HEADERS = [
     'Rank', 'Sale Year', 'Step 1 (Type / Year)', 'Step 2 (Type / Year)', 'Score (0-100)',
-    'Objective Value', 'After-Tax Terminal NW', 'LCV', 'Δ LCV', 'NPV of Future Taxes',
+    'Objective Value', 'After-Tax Terminal NW', 'Lifetime Consumption-and-Transfer Value (LCV)', 'Δ Lifetime Value (LCV)', 'NPV of Future Taxes',
     'Equity at Plan End', 'Feasibility Gate Met', 'Worst-Case Ending Wealth (5th %ile)',
 ]
 

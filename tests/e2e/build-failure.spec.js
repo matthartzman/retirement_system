@@ -62,6 +62,14 @@ test('a failed build surfaces "Build failed" and the real error message, not a s
   // than ever showing job.detail/result.error.
   const toast = page.locator('#actionMessage');
   await expect(toast).toContainText(FAKE_ERROR, { timeout: 5_000 });
+
+  // UX-003 (system review 2026-09-25, WI-504): the error is announced
+  // (role=alert) and stays until dismissed instead of vanishing after the
+  // old 10 s auto-hide. The raw "ValueError: ..." text now sits in the
+  // toast's Technical details disclosure (still part of its text, above).
+  await expect(toast).toHaveAttribute('role', 'alert');
+  await page.waitForTimeout(11_000);
+  await expect(toast).toBeVisible();
 });
 
 // ARC-004 / UX-009 (system review 2026-09-25, Wave 1 item WI-106):

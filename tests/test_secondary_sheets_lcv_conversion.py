@@ -94,8 +94,8 @@ class SsTimingSweepLcvConversionTests(unittest.TestCase):
         ws = Workbook().active
         result = build_sheet10(ws, c, rows)
         texts = [str(cell.value) for row in ws.iter_rows() for cell in row if cell.value is not None]
-        assert any(t == "LCV" for t in texts)
-        assert any(t == "Δ LCV" for t in texts)
+        assert any(t == "Lifetime Consumption-and-Transfer Value (LCV)" for t in texts)
+        assert any(t == "Δ Lifetime Value (LCV)" for t in texts)
         assert any(t == "NPV of Future Taxes" for t in texts)
         assert any("Worst-Case Ending Wealth" in t for t in texts)
         assert not any(t == "Terminal NW" for t in texts)

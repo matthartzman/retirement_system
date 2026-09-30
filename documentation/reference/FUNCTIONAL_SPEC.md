@@ -4,7 +4,10 @@ Generated: 2026-08-29, updated 2026-09-07 (Wave 5 item W4-8, finding DOC-201:
 backfilled QLAC, the Monarch Money auto-import module, the Financial Trends
 Reporter companion app, phase-varying Roth conversions, and the adoptable
 Guyton-Klinger/floor-ceiling spending policy -- all shipped after the
-original generation date and previously undocumented here). Describes the
+original generation date and previously undocumented here); updated 2026-09-30
+(WI-703, finding DOC-003: backfilled the housing optimizer and Next Housing
+Move, Plan Features, Spending Adjustments and the one-time Large Discretionary
+model). Describes the
 system as the code currently behaves. This is not a changelog — it does not
 describe how the system got here, only what it does today.
 
@@ -151,6 +154,22 @@ out-of-pocket medical cap, travel, and large one-time discretionary items.
 Household can enter budget lines with start/end years or one-time years and
 CPI or manually-overridden growth.
 
+**Large Discretionary** items (major trips, weddings, big gifts and similar)
+are one-time only: each is entered as a single dated row for one year and is
+never spread over several years. Older plans that stored a repeating
+start-to-end-year row are converted on load into one one-time row per year,
+with a notice; an item that would repeat for more than ten years is flagged
+as better placed in a Core category.
+
+**Spending Adjustments** let the household step a category's spending down or
+up from a given year (for example "Travel −20% from 2035"). Each adjustment
+names a category (or "All" for a whole tracking type: Core Expenses, Housing,
+Wellness or Travel), a start year, an optional end year (blank means the end
+of the plan) and a percent change. Inflation keeps applying on the adjusted
+amount, and several adjustments on the same category compound in start-year
+order (−20% then −10% is 0.72 of the original). Large Discretionary, Taxes and
+Business spending cannot be adjusted this way.
+
 ### 4.3 Assets, holdings, and liabilities
 Enter tax-lot-level investment holdings (account, symbol, purchase date,
 shares, cost basis, lot type), cash reserves/liquidity buffers, home and
@@ -186,6 +205,21 @@ household owns a business.
   "consider alternate first" preferences (e.g., let guaranteed income stand
   in for bonds).
 - **State residency** — compare projected tax impact of relocating.
+- **Next Housing Move (housing optimizer)** — found under Strategy →
+  Optimize. The household describes what might happen to the current home
+  (sell it in some year, or keep it) and up to five later moves, each with
+  its own year and a buy-or-rent choice. Selling and moving are separate
+  decisions, so renting for a couple of years while the old home is on the
+  market can be modelled. The tool works in two steps: it first screens
+  candidate ZIP codes and towns against the household's constraints (for
+  example being near family and never owning two homes at once), then runs
+  the projection engine on the surviving location and timing combinations
+  and ranks them by their effect on the plan. Housing costs there are
+  estimated from state and area type (city size and population), not from
+  the ZIP code itself. A kept home earns no rental income in the model. This
+  section is gated by the Next Housing Move feature switch on Plan
+  Features: while it is off, the saved sale, next-step and residency values
+  are kept and listed on the page but the projection ignores them.
 - **Special strategies** — HELOC as a spending backstop, charitable giving
   (bunching, QCD, DAF sizing recommendations), 529 education funding, equity
   compensation (RSU/RSA/NSO/ISO/ESPP) timing.
@@ -242,6 +276,16 @@ constants, state tax tables), optional-module toggles, a field-finder search
 across every plan input, per-sheet/column workbook formatting overrides, and
 data/maintenance tools (pricing snapshot management, local backups, CSV
 export, a low-level config console).
+
+### 4.11a Plan Features
+Settings → Plan Features is the single place where the household turns
+optional planning features on or off. Features are grouped by the part of life
+they cover (taxes, housing, protection, risk and so on) and can be filtered
+by the kind of question they answer. Turning a feature off excludes it from
+the build and hides its navigation step, but never deletes what was entered;
+a feature that is off while still holding data says so on its row. Features
+that only add workbook output can be toggled without changing the navigation.
+The Next Housing Move switch also lives here (Housing & Property group).
 
 ### 4.12 Admin console (advisor/system scope)
 A separate console for system-wide (not per-plan) settings: app/runtime

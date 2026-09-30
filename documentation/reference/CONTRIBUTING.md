@@ -28,7 +28,7 @@ Run the full suite after any non-trivial change and resolve every new
 failure before considering a change complete. A handful of pre-existing
 failures are environment-specific (missing optional `lxml`, a stale Plan
 Data manifest checksum, and one tax-aware-rebalance edge case) — see
-`documentation/SYSTEM_REVIEW_AND_REFACTOR_PLAN.md` Section 1 if a fresh
+`documentation/archive/legacy/SYSTEM_REVIEW_AND_REFACTOR_PLAN.md` Section 1 if a fresh
 clone shows failures beyond what you introduced.
 
 ## Running frontend JS tests
@@ -82,9 +82,32 @@ python build.py --no-backup  # build only, skip the backup step
   related coverage (e.g. `grep -l "from src.optimization" tests/*.py`).
 - `tools/` — build, packaging, and maintenance scripts. `tools/build_workbook.py`
   is the CLI entry point for generating the workbook/report artifacts.
-- `documentation/` — architecture notes, changelog, and
-  `SYSTEM_REVIEW_AND_REFACTOR_PLAN.md` (the current cleanup/refactor plan).
+- `documentation/` — three tiers, see "Documentation layout" below; start
+  from `documentation/DOCUMENTATION_INDEX.md`.
 
 See `documentation/reference/CLAUDE.md` for the fuller architecture and testing-discipline
 notes originally written for AI-assisted development sessions — most of it
 applies equally to a human contributor.
+
+## Documentation layout
+
+All documentation lives under `documentation/` (commit 88f6559 consolidated the
+former `docs/` tree into it). There are three tiers, chosen by what the
+document *is*, not by when it was written:
+
+| Tier | Holds | Rule |
+|---|---|---|
+| `documentation/reference/` | Living documents that describe the system as it is today: README, runbooks, functional/design specs, API contracts, this file, changelogs. | Must be kept true. If code changes behavior a reference doc describes, update the doc in the same change. Nothing historical, no prompts, no one-off reports. |
+| `documentation/future/` | Plans and specs for work that is not yet implemented (`future/superpowers/{plans,specs}`). | Move the file to `archive/` when the work ships, and record what shipped. |
+| `documentation/archive/` | Implemented, superseded or obsolete material, including dated system reviews (`archive/reports/`), shipped specs/plans (`archive/superpowers/`) and legacy notes (`archive/legacy/`). | Never cited as "current". Do not edit except to fix links. |
+
+Do not create new files under a top-level `docs/` directory. `docs/superpowers/`
+reappeared after the consolidation and still holds some specs and plans; treat
+it as a legacy location: new specs and plans go to `documentation/future/`,
+and existing ones move to `documentation/archive/` when their work ships. The
+index of what lives where is `documentation/DOCUMENTATION_INDEX.md`.
+
+When you move or rename a document, grep the repository for its old path
+(code comments, tests, tools and other docs cite paths); a test
+(`tests/test_documentation_path_citations_regression.py`) fails on a citation
+of a documentation path that does not exist.

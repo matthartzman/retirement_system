@@ -520,7 +520,17 @@ DASHBOARD_JS_MAX_LINES = 7_134
 # Controls fields are laid out in two explicit rows (method, rate, stop year /
 # YTD override, YTD blend). New behavior, not duplication: raised to the
 # measured 36,743.
-TOTAL_JS_MAX_LINES = 36_743
+# 2026-09-30 (in-app text-size preference): new frontend/js/text_size.js (54
+# lines) -- a self-contained module, so dashboard.js does not grow. New
+# behavior, not duplication: raised by 54 to 36,797.
+# 2026-09-30 (system review 2026-09-25 Wave 5 accessibility, WI-501/502/503/
+# 504/508/509): shared openStaticDialog/closeStaticDialog focus management for
+# the static exit/chart dialogs, label/aria wiring in fieldHtml and admin
+# settings, persistent + announced error toasts with raw-exception split and
+# save-validation field linking, and one shared plan-independent step list --
+# all in dashboard_decomp_row_model.js; dashboard.js itself did not grow. New
+# behavior, not duplication: raised to the measured 36,999.
+TOTAL_JS_MAX_LINES = 36_999
 
 
 def _line_count(path: Path) -> int:

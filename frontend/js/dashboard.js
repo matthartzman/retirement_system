@@ -1281,7 +1281,7 @@ var chartCache = {};
 var chartCacheSeq = 0;
 function closeChartModal() {
   var modal = document.getElementById("chartModal");
-  if (modal) modal.style.display = "none";
+  if (modal) closeStaticDialog(modal); // WI-502: also restores focus to the opener
   document.body.classList.remove("chart-modal-open");
 }
 
@@ -3653,17 +3653,8 @@ let renderMain = function() {
   renderSteps();
   renderMeta();
   updateUnsaved();
-  if (
-    (!planLoaded &&
-      ![
-        "detailed_results",
-        "system_configuration",
-        "strategy_scenarios",
-        "strategy_workbench",
-        "reports_and_review",
-      ].includes(activeStep)) ||
-    activeStep === "start"
-  ) {
+  // UX-008 (WI-508): one plan-independent list, shared with navigation.js's router.
+  if ((!planLoaded && !planIndependentSteps().includes(activeStep)) || activeStep === "start") {
     document.getElementById("mainPane").innerHTML = renderWelcome();
     setAppControls(appReady);
     showStepHelp("start");
@@ -6715,11 +6706,12 @@ async function buildWithDesktopProgress(buildBody) {
   });
 }
 
+// WI-502/UX-004: focus Keep Editing, trap Tab, Escape keeps editing, restore focus (exitApp name kept for desktop_app.py).
 function openExitModal() {
-  document.getElementById("exitModal").style.display = "flex";
+  openStaticDialog(document.getElementById("exitModal"), { initialFocus: ".exit-keep-editing", onEscape: closeExitModal });
 }
 function closeExitModal() {
-  document.getElementById("exitModal").style.display = "none";
+  closeStaticDialog(document.getElementById("exitModal"));
 }
 
 async function exitApp() {
@@ -6779,9 +6771,12 @@ function openNextCollapsedSectionFrom(el) {
     n = n.nextElementSibling;
   }
 }
+// Enter/Tab advances between plan-data fields. UX-001 (WI-501): acts ONLY on focusableEntries() inputs/selects
+// outside dialogs; buttons, textareas, nav/search and dialog controls keep native keys (no preventDefault).
 function moveToNextEntry(e) {
   const el = e.target;
-  if (!el.matches("input,select,button,textarea")) return;
+  if (!el || typeof el.matches !== "function" || e.defaultPrevented) return;
+  if (!el.matches("input,select")) return;
   if (el.classList.contains("helpbtn")) return;
   // Workbook Formatting's width fields have their own dedicated Tab handler
   // (wfWidthInputKeydown) that jumps specifically between width inputs,
@@ -6789,14 +6784,17 @@ function moveToNextEntry(e) {
   // handler active too would race it via this function's deferred setTimeout
   // focus-move, sometimes stealing focus to an unrelated element.
   if (el.closest(".wf-col-width")) return;
-  if (e.key === "Enter" && el.tagName.toLowerCase() === "textarea") return;
+  if (el.closest('[role="dialog"],[aria-modal="true"]')) return; // dialogs trap their own focus
   if (e.key === "Enter" || (e.key === "Tab" && !e.shiftKey)) {
+    const current = focusableEntries();
+    const at = current.indexOf(el);
+    if (at < 0 || at >= current.length - 1) return;
     e.preventDefault();
     openNextCollapsedSectionFrom(el);
     setTimeout(() => {
-      const f = focusableEntries();
+      const f = focusableEntries(); // re-read: a collapsed section may have opened
       let i = f.indexOf(el);
-      if (i < 0) i = 0;
+      if (i < 0) i = at;
       const next = f[Math.min(f.length - 1, i + 1)];
       if (next) {
         next.focus();

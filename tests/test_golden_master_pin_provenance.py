@@ -194,3 +194,57 @@ def test_provenance_date_matches_changelog():
         f"{CHANGELOG_FILE}. Every pin move needs a dated changelog entry, same day as the "
         f"pin file's provenance line, whose marker states the new values. {HELP}"
     )
+
+
+# ---------------------------------------------------------------------------
+# WI-404 (system review 2026-09-25-2, QA-006): the synthetic and full-row
+# snapshot golden masters were never bound to provenance, so a hand-edit of
+# either JSON fixture passed silently. Each fixture's canonical content digest
+# must now appear in a `fixture-provenance` changelog marker; changing any
+# pinned value without recording a new marker fails here. See
+# tests/golden_fixture_provenance.py.
+
+import pytest  # noqa: E402
+
+from tests.golden_fixture_provenance import (  # noqa: E402
+    FIXTURE_PROVENANCE_MARKER_RE,
+    FIXTURES,
+    fixture_digest,
+    fixture_marker,
+)
+
+
+@pytest.mark.parametrize("fixture", FIXTURES, ids=lambda p: p.name)
+def test_snapshot_fixture_digest_has_changelog_marker(fixture):
+    digest = fixture_digest(fixture)
+    changelog_text = CHANGELOG_FILE.read_text(encoding="utf-8")
+    recorded = {
+        m["digest"]
+        for m in FIXTURE_PROVENANCE_MARKER_RE.finditer(changelog_text)
+        if m["name"] == fixture.name
+    }
+    assert digest in recorded, (
+        f"{fixture.name} does not match any fixture-provenance marker in {CHANGELOG_FILE}. "
+        f"Its pinned values changed without a recorded regeneration. Regenerate it with its "
+        f"tools/regen_*.py --reason ... tool (never by hand) and add a dated changelog entry "
+        f"containing:\n    {fixture_marker(fixture)}"
+    )
+
+
+def test_fixture_digest_detects_a_changed_value(tmp_path):
+    """Guard-can-fail check: one moved number yields a different digest,
+    while re-indentation / line endings do not."""
+    import json
+
+    src = FIXTURES[0]
+    data = json.loads(src.read_text(encoding="utf-8"))
+    reformatted = tmp_path / src.name
+    reformatted.write_text(json.dumps(data, indent=4).replace("\n", "\r\n"), encoding="utf-8")
+    assert fixture_digest(reformatted) == fixture_digest(src)
+
+    scenario = next(iter(data))
+    metric = next(k for k, v in data[scenario].items() if isinstance(v, (int, float)))
+    data[scenario][metric] = data[scenario][metric] + 1
+    moved = tmp_path / ("moved_" + src.name)
+    moved.write_text(json.dumps(data), encoding="utf-8")
+    assert fixture_digest(moved) != fixture_digest(src)

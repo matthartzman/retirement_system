@@ -1,3 +1,20 @@
+## 2026-09-30 — Provenance binding for the synthetic and full-row snapshot fixtures (no value change)
+
+<!-- fixture-provenance: synthetic_golden_master_cases.json sha256=b3a5840513e53005bb862cd19c16228f9840c77c97bf5844f28faaa76da61102 -->
+<!-- fixture-provenance: deterministic_engine_full_row_snapshot_cases.json sha256=bcb2879aaac56fc93b431a60c0ed46acd816548035d747184ce4082597a751ba -->
+
+WI-404 (system review 2026-09-25-2, QA-006). `tests/test_golden_master_pin_provenance.py` now also binds
+`tests/fixtures/synthetic_golden_master_cases.json` and
+`tests/fixtures/deterministic_engine_full_row_snapshot_cases.json` to a canonical content digest
+(`tests/golden_fixture_provenance.py`) that must appear in a `fixture-provenance` marker in this file.
+These two markers record the fixtures exactly as they stand at this commit (last regenerated in the
+2026-09-29 WI-301 entry); no pinned value moved. From now on, a regeneration via
+`tools/regen_synthetic_golden_master.py` / `tools/regen_full_row_snapshot.py` prints the new marker,
+which goes into that regeneration's dated entry; a hand-edit without one fails the suite.
+
+The frozen-plan pins are unchanged (`tools/regen_golden_master.py measure`: MATCH, delta +0.00 / +0.00,
+measured before and after the WI-401 date-parsing and WI-403 frozen-date changes in the same work).
+
 ## 2026-09-29 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
 
 <!-- pin-provenance: terminal_nw=5300663.15 lifetime_tax=1270059.16 -->

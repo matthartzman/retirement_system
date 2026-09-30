@@ -846,9 +846,9 @@ def compute_allocation_coverage(c, now_yr=None):
     These values are policy-controlled. They answer: which non-liquid assets are
     allowed to satisfy target allocation sleeves before recommending liquid ETFs?
     """
-    import datetime
     if now_yr is None:
-        now_yr = datetime.date.today().year
+        from . import platform_runtime as _platform_runtime
+        now_yr = _platform_runtime.today().year  # WI-403: frozen-date seam
     policy = _coverage_policy(c)
     plan_years = max(0, int(c.get('plan_end', now_yr + 30) - now_yr))
     discount = float(c.get('ret', 0.07) or 0.07)
@@ -1219,8 +1219,8 @@ def compute_optimal_allocation(c, force_mode=None, projection_rows=None):
     the existing manual-horizon capital-market assumptions. Phase 1: this is
     purely observational and does not change the computed allocation.
     """
-    import datetime
-    now_yr = datetime.date.today().year
+    from . import platform_runtime as _platform_runtime
+    now_yr = _platform_runtime.today().year  # WI-403: frozen-date seam
 
     capital_market_diagnostics = apply_capital_market_config(c)
 

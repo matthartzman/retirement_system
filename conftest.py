@@ -3,7 +3,7 @@
 New tests should prefer these fixtures over redefining `ROOT`/`sample_config`
 locally or reading the git-tracked `output/retirement_plan.xlsx` directly.
 Existing test files are migrated incrementally; see
-documentation/SYSTEM_REVIEW_AND_REFACTOR_PLAN.md Phase 5.
+documentation/archive/legacy/SYSTEM_REVIEW_AND_REFACTOR_PLAN.md Phase 5.
 """
 from __future__ import annotations
 

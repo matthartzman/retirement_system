@@ -8,7 +8,7 @@ and §9's question 4 were rewritten from its numbers.
 **Subject:** `src/planning_engines.py`, 6,418 lines
 **Predecessors:** `documentation/archive/superpowers/plans/2026-09-08-deterministic-engine-stage-decomposition-design.md`
 (ticket 3.10, Stages 1–10, complete as of commit `b1613c7`),
-`documentation/SYSTEM_REVIEW_AND_REFACTOR_PLAN.md` Phase 2c (the analysis that
+`documentation/archive/legacy/SYSTEM_REVIEW_AND_REFACTOR_PLAN.md` Phase 2c (the analysis that
 consolidated eight engine files into this one).
 
 ---

@@ -21,6 +21,7 @@ from pathlib import Path
 # can pin the date; see that function's docstring for why data alone is not
 # enough to make a projection reproducible.
 from . import platform_runtime as _platform_runtime
+from . import plan_dates as _plan_dates
 
 
 # Fallback Social Security wage base used only when a plan's own
@@ -374,27 +375,13 @@ def _date_parts(v):
     Retirement dates are date-effective boundaries. A retirement date of
     1/1/2027 means earned income stops before 2027; a later date in 2027
     still allows modeled 2027 work income in the annual projection.
+
+    Delegates to src/plan_dates.parse_plan_date (WI-401): a 2-digit year uses
+    the single shared century pivot (yy > 40 -> 19yy, else 20yy, matching the
+    UI/grid-save normalizer) instead of the old blanket +2000, and a bare YYYY
+    keeps its long-standing Dec 31 reading.
     """
-    s = str(v or '').strip()
-    if not s:
-        return None
-    try:
-        if '/' in s:
-            parts = [int(float(x)) for x in s.split('/') if str(x).strip()]
-            if len(parts) >= 3:
-                m, d, y = parts[0], parts[1], parts[2]
-                if y < 100:
-                    y += 2000
-                return (y, m, d)
-        if '-' in s:
-            head = s.split('T', 1)[0]
-            parts = [int(float(x)) for x in head.split('-') if str(x).strip()]
-            if len(parts) >= 3:
-                return (parts[0], parts[1], parts[2])
-        y = int(float(s))
-        return (y, 12, 31)
-    except Exception:
-        return None
+    return _plan_dates.parse_plan_date(v, bare_year_as='end')
 
 
 def _month_year_parts(v):
@@ -462,6 +449,42 @@ def _ss_claim_from_date_or_age(data, person, dob_yr, dob_month, legacy_default_a
         return claim_age, claim_year, claim_month, claim_age_precise
     claim_age = int(_n(_v(data, 'Social Security', person, 'claim_age', legacy_default_age), 70))
     return claim_age, dob_yr + claim_age, dob_month, float(claim_age)
+
+
+def _parse_member_dob(raw, label):
+    """Parse a household member's date of birth via the shared plan-date rule.
+
+    Raises ValueError (with a message naming the field) when the value is
+    blank, uses an ambiguous 2-digit year, or cannot be parsed -- a DOB drives
+    every age milestone and the plan horizon, so guessing is never safe.
+    Returns (year, month, day).
+    """
+    s = str(raw or '').strip()
+    if not s:
+        raise ValueError(
+            f'{label} is not set. A date of birth is required for every household '
+            f'member (it drives every age milestone and the plan horizon). Enter it '
+            f'as M/D/YYYY on the Household page (Plan Data field: {label}), then rebuild.'
+        )
+    if _plan_dates.has_two_digit_year(s):
+        raise ValueError(
+            f'{label} {s!r} has a 2-digit year, which is ambiguous for a date of birth. '
+            f'Enter it as M/D/YYYY with a 4-digit year (Plan Data field: {label}).'
+        )
+    parts = _plan_dates.parse_plan_date(s)
+    if parts is None:
+        raise ValueError(
+            f'{label} {s!r} is not a recognizable date. Enter it as M/D/YYYY '
+            f'(Plan Data field: {label}).'
+        )
+    return parts
+
+
+def _retirement_year(raw, default):
+    """Calendar year of a retirement date, using the shared plan-date parser
+    (so '1/1/27' is 2027, not 27); falls back to _y for anything else."""
+    parts = _plan_dates.parse_plan_date(raw)
+    return parts[0] if parts else _y(raw, default)
 
 
 def _last_earned_income_year_from_retirement_date(v, default=0):
@@ -602,20 +625,31 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
         return str(full_name or '').strip().split(' ')[0] if str(full_name or '').strip() else ''
     c['h_nick'] = _nick(_v(data,'Household','','member_1_nickname',''), c['h_name'])
     c['w_nick'] = _nick(_v(data,'Household','','member_2_nickname',''), c['w_name'])
-    c['h_dob_yr']  = _y(_v(data,'Household','','member_1_dob','8/3/1962').split('/')[-1], 1962)
-    c['w_dob_yr']  = _y(_v(data,'Household','','member_2_dob','5/30/1961').split('/')[-1], 1961)
-    # Birth month, extracted from the same full member_*_dob (M/D/YYYY) value
-    # already collected above. Used only to prorate the Medicare/pre-65 bridge
-    # premium switch in the calendar year someone turns 65 (Medicare begins
-    # the 1st of the birth month) — see deterministic_engine._medicare_month_fraction.
-    _h_dob_parts = _date_parts(_v(data,'Household','','member_1_dob','8/3/1962'))
-    _w_dob_parts = _date_parts(_v(data,'Household','','member_2_dob','5/30/1961'))
-    c['h_dob_month'] = _h_dob_parts[1] if _h_dob_parts else 1
-    c['w_dob_month'] = _w_dob_parts[1] if _w_dob_parts else 1
+    # WI-401 (system review 2026-09-25-2, QA-001): DOBs go through the one
+    # shared plan-date parser, and a missing/blank/unparseable/2-digit-year
+    # DOB is a hard error instead of a silent literal fallback ('8/3/1962',
+    # '5/30/1961') or a raw 2-digit birth year (which modeled the member as
+    # dead in every plan year). Member 2's DOB is only required when there is
+    # a member 2 (resolved below, once member_2_name is known).
+    _h_dob_parts = _parse_member_dob(_v(data,'Household','','member_1_dob',''), 'member_1_dob')
+    _w_dob_raw = _v(data,'Household','','member_2_dob','')
+    try:
+        _w_dob_parts = _parse_member_dob(_w_dob_raw, 'member_2_dob')
+        _w_dob_error = None
+    except ValueError as _exc:
+        _w_dob_parts, _w_dob_error = None, _exc
+    c['h_dob_yr'] = _h_dob_parts[0]
+    c['w_dob_yr'] = _w_dob_parts[0] if _w_dob_parts else c['h_dob_yr']
+    # Birth month, from the same parsed member_*_dob value. Used only to
+    # prorate the Medicare/pre-65 bridge premium switch in the calendar year
+    # someone turns 65 (Medicare begins the 1st of the birth month) -- see
+    # deterministic_engine._medicare_month_fraction.
+    c['h_dob_month'] = _h_dob_parts[1]
+    c['w_dob_month'] = _w_dob_parts[1] if _w_dob_parts else c['h_dob_month']
     _h_ret_raw = _v(data,'Household','','member_1_retirement_date','1/1/2027')
     _w_ret_raw = _v(data,'Household','','member_2_retirement_date','2/28/2023')
-    c['h_ret_yr']  = _y(_h_ret_raw, 2027)
-    c['w_ret_yr']  = _y(_w_ret_raw, 2023)
+    c['h_ret_yr']  = _retirement_year(_h_ret_raw, 2027)
+    c['w_ret_yr']  = _retirement_year(_w_ret_raw, 2023)
     c['h_earned_last_year'] = _last_earned_income_year_from_retirement_date(_h_ret_raw, c['h_ret_yr'])
     c['h_mort_age']= _n(_v(data,'Household','','member_1_mortality_age','92'), 92)
     c['w_mort_age']= _n(_v(data,'Household','','member_2_mortality_age','95'), 95)
@@ -716,6 +750,8 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     }
     _has_member_2 = bool(c['w_name'] and c['w_name'].strip())
     if _has_member_2:
+        if _w_dob_error is not None:
+            raise _w_dob_error
         _m2 = {
             'name':          c['w_name'],
             'nickname':      c['w_nick'],

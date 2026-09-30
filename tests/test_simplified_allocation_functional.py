@@ -35,7 +35,8 @@ class SimplifiedAllocationTests(unittest.TestCase):
         html = (ROOT / 'frontend' / 'index.html').read_text(encoding='utf-8')
         self.assertIn('allocationTargetsValid', js)
         self.assertIn('Active included/alternate target rows must total 100.00%', js)
-        self.assertIn('id="pathModalInput"', html)
+        # WI-502 (UX-004): the unused #pathModal/#pathModalInput markup was removed.
+        self.assertNotIn('id="pathModal"', html)
         manifest_fn = dashboard_function_source('showPlanDataFileManifest', js)
         self.assertNotIn('getElementById', manifest_fn)
         self.assertNotIn('These are the filenames found in the selected folder', js)

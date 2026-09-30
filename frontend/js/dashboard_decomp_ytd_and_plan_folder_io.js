@@ -50,7 +50,12 @@ export function openCachedChart(id) {
   var bodyEl = document.getElementById("chartModalBody");
   if (titleEl) titleEl.textContent = c.title;
   if (bodyEl) bodyEl.innerHTML = c.html;
-  modal.style.display = "flex";
+  // WI-502 / UX-004: move focus to Close, trap Tab, Escape closes, focus
+  // returns to the chart button that opened it.
+  openStaticDialog(modal, {
+    initialFocus: ".chart-modal-close",
+    onEscape: closeChartModal,
+  });
   document.body.classList.add("chart-modal-open");
 }
 

@@ -1273,7 +1273,7 @@
     let html = `<details class="detailed-results-nav" ${navOpen ? "open" : ""} ontoggle="setDetailedResultsNavOpen(this.open)"><summary>Retirement Plan Workbook</summary><div class="detailed-results-nav-body">`;
     const activeCls =
       call(ctx.getActiveStep) === "detailed_results" ? "active" : "";
-    html += `<button class="stepbtn ${activeCls}" type="button" data-step-id="detailed_results"><span class="num">↳</span><span><span class="step-title">Retirement Plan Workbook</span><div class="step-desc">Every workbook result sheet — charts and tables.</div></span></button>`;
+    html += `<button class="stepbtn ${activeCls}" type="button" data-step-id="detailed_results"${activeCls ? ' aria-current="step"' : ""}><span class="num">↳</span><span><span class="step-title">Retirement Plan Workbook</span><div class="step-desc">Every workbook result sheet — charts and tables.</div></span></button>`;
     const data = call(ctx.getDetailedResultsData);
     if (data && data.success && Array.isArray(data.sheets)) {
       const allSheets = data.sheets;

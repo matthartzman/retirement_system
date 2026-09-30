@@ -1,7 +1,7 @@
 from __future__ import annotations
 """Local auth-identity and audit-logging helpers.
 
-Extracted from app_core.py (see documentation/SYSTEM_REVIEW_AND_REFACTOR_PLAN.md
+Extracted from app_core.py (see documentation/archive/legacy/SYSTEM_REVIEW_AND_REFACTOR_PLAN.md
 Phase 2 "Gap 2"). These two clusters were originally investigated as separate
 extraction candidates, but a call-graph pass showed bidirectional coupling
 (`_security_gate`/`_require` call `_audit`; `_audit`/`_record_admin_config_change`

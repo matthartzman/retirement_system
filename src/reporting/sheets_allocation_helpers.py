@@ -43,13 +43,14 @@ from .workbook_common import (
     write_hdr,
 )
 from .. import allocation_policy as _ap
+from .. import platform_runtime as _platform_runtime
 from ..person_labels import display_account
 
 # ── Asset Allocation (Sheet 4) shared constants and helpers ──────────────────
 # Hoisted out of build_sheet4 (previously ~1,400 lines in one function): pure
 # lookup tables and small helpers with no dependency on build_sheet4's local
 # state, used only by that sheet's build. Behavior is unchanged from the
-# nested versions this replaces — see documentation/SYSTEM_REVIEW_AND_REFACTOR_PLAN.md
+# nested versions this replaces — see documentation/archive/legacy/SYSTEM_REVIEW_AND_REFACTOR_PLAN.md
 # Phase 2a.
 
 ASSET_ALLOCATION_BUCKET_MAP = {
@@ -242,7 +243,7 @@ def _estimate_taxable_sale(c, acct, sym, sell_amt, price):
     sell_amt = max(0.0, _safe_float(sell_amt, 0.0))
     price = max(0.0, _safe_float(price, 0.0))
     rates = _trade_tax_rates(c)
-    current_year = int(_safe_float(c.get('plan_start'), datetime.date.today().year) or datetime.date.today().year)
+    current_year = int(_safe_float(c.get('plan_start'), _platform_runtime.today().year) or _platform_runtime.today().year)
     _lot_source = c.get('rebalance_lots_by_account') or c.get('lots_by_account') or {}
     lots = list(((_lot_source.get(acct) or {}).get(sym)) or [])
     fallback_gain_fraction = _safe_float(c.get('trust_gain_fraction', 0.50), 0.50)

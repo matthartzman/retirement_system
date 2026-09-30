@@ -123,8 +123,8 @@ function allocationPatchItem(row, value, label, rationale) {
   const beforeRaw = String(valOf(row) || "");
   return {
     source: "optimizer",
-    sourceStep: "allocation",
-    sourceTitle: "Asset Allocation",
+    sourceStep: "allocation_assets",
+    sourceTitle: stepTitleById("allocation_assets"),
     section: String(row.section || ""),
     subsection: String(row.subsection || ""),
     field: String(row.label || ""),

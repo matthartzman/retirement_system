@@ -97,10 +97,13 @@ def cmd_regen(args) -> int:
     )
     print(f"Wrote {FIXTURE.relative_to(ROOT)} ({FIXTURE.stat().st_size:,} bytes).")
     print(f"Reason: {reason}")
+    from tests.golden_fixture_provenance import fixture_marker
     print(
-        "Remember to record this regeneration (commit message, changelog, or PR "
-        "description) -- this tool does not append to a changelog file on its own."
+        "Record this regeneration in a dated entry of "
+        "documentation/reference/GOLDEN_MASTER_CHANGELOG.md containing this marker "
+        "(tests/test_golden_master_pin_provenance.py fails until it is there):"
     )
+    print(f"    {fixture_marker(FIXTURE)}")
     return 0
 
 
