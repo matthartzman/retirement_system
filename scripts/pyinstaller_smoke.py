@@ -12,7 +12,10 @@ script does, in an isolated environment:
   3. script-runner mode runs scripts/pyinstaller_smoke_probe.py inside the
      frozen interpreter (numpy/scipy/lxml/openpyxl imports, bundled ``src``,
      bundled demo plan, a real vectorized Monte Carlo run);
-  4. server mode boots on a free port with an empty temp workspace, seeds it
+  4. run without the workspace override (LOCALAPPDATA/HOME pointed at a temp
+     dir): user data and the secrets file must land in the per-user default
+     workspace, never inside the bundle (scripts/pyinstaller_smoke_workspace_probe.py);
+  5. server mode boots on a free port with an empty temp workspace, seeds it
      from the bundled demo, serves ``/`` and ``/api/status``, and stops.
 
 Usage:
@@ -91,6 +94,30 @@ def check_probe(exe: Path, env: dict[str, str]) -> None:
     print(f"    probe ok: {info}")
 
 
+def check_default_workspace(exe: Path, env: dict[str, str]) -> None:
+    """Run without the workspace override: user data must land in the per-user
+    default location (not the read-only bundle), including the secrets file."""
+    home = Path(tempfile.mkdtemp(prefix="rp_smoke_home_"))
+    try:
+        env = {k: v for k, v in env.items() if k != "RETIREMENT_SYSTEM_WORKSPACE_ROOT"}
+        env.update(LOCALAPPDATA=str(home), XDG_DATA_HOME=str(home), HOME=str(home), USERPROFILE=str(home))
+        probe = ROOT / "scripts" / "pyinstaller_smoke_workspace_probe.py"
+        r = run([str(exe), str(probe)], env=env, capture_output=True, text=True, timeout=300)
+        line = next((ln for ln in r.stdout.splitlines() if ln.startswith("SMOKE_WORKSPACE_OK ")), None)
+        assert r.returncode == 0 and line, f"workspace probe failed ({r.returncode})\n{r.stdout[-2000:]}\n{r.stderr[-2000:]}"
+        info = json.loads(line.split(" ", 1)[1])
+        ws, pkg, sec = Path(info["workspace_root"]), Path(info["package_root"]), Path(info["secrets_path"])
+        assert info["frozen"] is True, f"probe did not run frozen: {info}"
+        assert home in ws.parents and ws != pkg, f"default workspace is not per-user: {info}"
+        assert sec == ws / "local_state" / "secrets.local.json", f"secrets not under the workspace: {info}"
+        assert pkg not in sec.parents, f"secrets landed inside the bundle: {info}"
+        assert sec.is_file(), f"secrets file was not written: {sec}"
+        assert (ws / "input" / "client_data.csv").is_file(), "default workspace was not seeded from bundled demo"
+        print(f"    default workspace ok: {ws}")
+    finally:
+        shutil.rmtree(home, ignore_errors=True)
+
+
 def _free_port() -> int:
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
@@ -153,6 +180,7 @@ def main() -> int:
     try:
         for label, fn in (("help", lambda: check_help(exe, env)),
                           ("script-runner probe", lambda: check_probe(exe, env)),
+                          ("default per-user workspace + secrets", lambda: check_default_workspace(exe, env)),
                           ("server mode", lambda: check_server(exe, env, workspace))):
             print(f"== {label}", flush=True)
             fn()
