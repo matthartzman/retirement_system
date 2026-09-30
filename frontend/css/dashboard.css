@@ -607,15 +607,11 @@ body.chart-modal-open{overflow:hidden}
 .page-recommendations,
 .batch-edit-panel,
 .impact-narrative,
-.build-impact-source-list,
 .scenario-management-head,
 .page-recommendations-head,
 .batch-edit-head{
   display:grid;
   gap:8px;
-}
-.build-impact-source-list{
-  margin-top:8px;
 }
 .scenario-template-grid{
   display:grid;

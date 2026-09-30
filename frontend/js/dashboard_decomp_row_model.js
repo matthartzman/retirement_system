@@ -2427,7 +2427,7 @@ export function renderSteps() {
       badge = `<span class="badge bad">${st.missing.length}</span>`;
     else if (st.dirty.length) badge = `<span class="badge dirty">Edited</span>`;
     else if (spendingWarn)
-      badge = `<span class="nav-badge nav-badge--warn">!</span>`;
+      badge = `<span class="nav-badge nav-badge--warn" title="Annualized actual spending differs from the model's core spending by more than 3% (details at the top of Actual Spending)">! &gt;3%</span>`;
     else if (reportStale) badge = `<span class="badge warn">Stale</span>`;
     else if (st.required.length) badge = `<span class="badge ok">OK</span>`;
     // UX-010 (WI-509): the current step is announced, not shown by colour only.
@@ -3657,11 +3657,16 @@ export function commitYtdExistingValue(i, field, el) {
   if (match !== cur) updateYtdTxn(i, field, match);
 }
 
+// An <input list> only offers options matching its text, so clear the text on
+// focus to show every existing value; restore it on blur if nothing was chosen.
+export function ytdOpenExistingList(el) { el.dataset.prev = el.value; el.value = ""; }
+export function ytdRestoreExistingList(el) { if (!el.value) el.value = el.dataset.prev || ""; }
+
 export function ytdSelectFieldHtml(i, field, value) {
   const has = ytdHasExistingValues(field);
   const disabled = has ? "" : " disabled";
   const placeholder = has ? `Select existing ${field}` : "No existing values";
-  return `<input class="ytd-existing-select" list="${ytdDatalistId(field)}"${disabled} placeholder="${esc(placeholder)}" value="${esc(value || "")}" onchange="commitYtdExistingValue(${i},'${field}',this)">`;
+  return `<input class="ytd-existing-select" list="${ytdDatalistId(field)}"${disabled} placeholder="${esc(placeholder)}" value="${esc(value || "")}" onfocus="ytdOpenExistingList(this)" onblur="ytdRestoreExistingList(this)" onchange="commitYtdExistingValue(${i},'${field}',this)">`;
 }
 
 export function ytdTransactionAccounts() {
@@ -5538,7 +5543,9 @@ Object.assign(window, {
   ytdExistingDatalistsHtml,
   ytdExistingValues,
   ytdHasExistingValues,
+  ytdOpenExistingList,
   ytdRawMoney,
+  ytdRestoreExistingList,
   ytdSelectFieldHtml,
   ytdTransactionAccounts,
   ytdTxnMoneyDisplay,

@@ -53,6 +53,21 @@ window.getSpendingDivergencePct = getSpendingDivergencePct;
 // #338 W-C: these two tabs are the Actual Spending step under Reports &
 // Review now (ytd_transactions + spending_dashboard merged), not tabs of
 // Spending Model.
+// Explains the "! >3%" left-nav badge (same 3% threshold as stepButton).
+export function spendingDivergenceNoteHtml() {
+  var pct = Number(getSpendingDivergencePct()) || 0;
+  if (Math.abs(pct) <= 0.03) return '';
+  var d = window.spendingData || {};
+  var detail = d.model_core_spending
+    ? ' Annualized actual spending is <b>' + fmtSpend(d.annualized_total) + '</b> vs. the model\'s core spending of <b>' + fmtSpend(d.model_core_spending) + '</b>.'
+    : '';
+  return '<div class="section-note warning spending-divergence-note"><b>! &gt;3% &mdash; spending is ' +
+    Math.abs(pct * 100).toFixed(1) + '% ' + (pct > 0 ? 'above' : 'below') + ' the model.</b>' + detail +
+    ' The "! &gt;3%" badge in the left nav appears when your annualized actual spending differs from the plan\'s core spending by more than 3%, in either direction.' +
+    ' If actual spending is the right run rate, use <b>Sync Actual Rate &rarr; 30-Year Model</b> on the Analysis tab to update the plan.</div>';
+}
+window.spendingDivergenceNoteHtml = spendingDivergenceNoteHtml;
+
 export function renderActualSpendingWorkspace(tabs) {
   var tab = window.getStrategyTab('actual_spending');
   var ytdOn = window.optionalFunctionEnabled('spending_tracker_ytd');
@@ -61,7 +76,7 @@ export function renderActualSpendingWorkspace(tabs) {
     body = ytdOn ? window.renderSpendingDashboardOrLoad() : window.featureGatedNote('spending_tracker_ytd', { title: 'Spending Analysis' });
   else
     body = ytdOn ? window.renderYtdTransactionsStep() : window.featureGatedNote('spending_tracker_ytd', { title: 'Actual Spending (This Year)' });
-  return '<div class="tabbed-workspace spending-workspace">' + window.renderStrategyTabs('actual_spending', tabs, tab) + '<div class="workspace-tab-body">' + body + '</div></div>';
+  return '<div class="tabbed-workspace spending-workspace">' + spendingDivergenceNoteHtml() + window.renderStrategyTabs('actual_spending', tabs, tab) + '<div class="workspace-tab-body">' + body + '</div></div>';
 }
 window.renderActualSpendingWorkspace = renderActualSpendingWorkspace;
 
