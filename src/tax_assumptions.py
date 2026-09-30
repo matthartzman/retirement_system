@@ -176,3 +176,59 @@ def law_reference_table(year: int | None = None) -> dict[str, Any]:
             for status, rows in (tables.get("ordinary_brackets") or {}).items()
         },
     }
+
+
+# ── Drift record ─────────────────────────────────────────────────────────────
+# When an override is saved, the model value at that moment is recorded in one
+# plan row ("tax_model_baseline", "key=value;key=value"). If the model value
+# later changes (new tax dataset, different residence state), the panel shows
+# "model value changed from X to Y since you overrode".
+
+BASELINE_LABEL = "tax_model_baseline"
+
+
+def parse_baseline(text: Any) -> dict[str, float]:
+    out: dict[str, float] = {}
+    for part in str(text or "").split(";"):
+        key, _, val = part.partition("=")
+        key = key.strip()
+        if key in LEVER_BY_KEY:
+            try:
+                out[key] = float(val)
+            except ValueError:
+                continue
+    return out
+
+
+def format_baseline(baseline: Mapping[str, float]) -> str:
+    return ";".join(f"{k}={baseline[k]:.10g}" for k in LEVER_BY_KEY if k in baseline)
+
+
+def validate_override_text(key: str, text: Any) -> str:
+    """Return an error message for a bad override, or '' when it is valid
+    (blank = Auto is valid)."""
+    lever = LEVER_BY_KEY.get(key)
+    if lever is None:
+        return f"Unknown tax lever {key!r}."
+    if _is_blank(text):
+        return ""
+    if not _is_numeric_text(text):
+        return f"{lever.label}: {text!r} is not a number."
+    raw = str(text).strip()
+    value = float(raw.rstrip("%")) / 100.0 if raw.endswith("%") else float(raw)
+    if not (lever.minimum <= value <= lever.maximum):
+        return (f"{lever.label}: {value:.2%} is outside "
+                f"{lever.minimum:.2%} to {lever.maximum:.2%}.")
+    return ""
+
+
+def with_drift(levers: list[dict[str, Any]], baseline: Mapping[str, float]) -> list[dict[str, Any]]:
+    """Add ``baseline_model_value`` and ``drifted`` to each lever dict."""
+    out = []
+    for lv in levers:
+        rec = dict(lv)
+        base = baseline.get(lv["key"]) if lv["source"] == "override" else None
+        rec["baseline_model_value"] = base
+        rec["drifted"] = base is not None and abs(base - lv["model_value"]) > 1e-9
+        out.append(rec)
+    return out

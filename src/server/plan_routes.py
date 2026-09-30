@@ -601,6 +601,16 @@ def get_tax_assumptions():
         return denied
     return _service_json(_strategy_asset_feature_service().tax_assumptions_payload())
 
+@app.route("/api/tax-assumptions", methods=["POST"])
+def save_tax_assumptions():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    if not _runtime_config().allow_csv_write:
+        return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
+    body = request.get_json(silent=True) or {}
+    return _service_json(_strategy_asset_feature_service().save_tax_assumptions_payload(body))
+
 @app.route("/api/residency-schedule", methods=["GET"])
 def get_residency_schedule():
     denied = _require("read_config")

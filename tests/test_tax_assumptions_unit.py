@@ -7,6 +7,7 @@ must equal what the pre-resolver code produced (2.00% inflator, 85% SS).
 from __future__ import annotations
 
 import copy
+from pathlib import Path
 import unittest
 
 from src.core import STATE_TAX_RULES, state_income_tax
@@ -173,3 +174,59 @@ class LawTableTests(unittest.TestCase):
         self.assertIn("MFJ", t["standard_deduction"])
         self.assertTrue(t["ordinary_brackets"]["MFJ"])
         self.assertIsNone(t["ordinary_brackets"]["MFJ"][-1]["upper"])
+
+
+class DriftAndSaveTests(unittest.TestCase):
+    def test_baseline_round_trip_and_unknown_keys_dropped(self):
+        from src.tax_assumptions import format_baseline, parse_baseline
+        text = format_baseline({"fed_tax_bracket_inflator": 0.02, "state_income_tax_rate": 0.0495})
+        self.assertEqual(parse_baseline(text), {"fed_tax_bracket_inflator": 0.02,
+                                                "state_income_tax_rate": 0.0495})
+        self.assertEqual(parse_baseline("bogus=1;fed_tax_bracket_inflator=x"), {})
+
+    def test_validate_override_text(self):
+        from src.tax_assumptions import validate_override_text as v
+        self.assertEqual(v("fed_tax_bracket_inflator", ""), "")
+        self.assertEqual(v("fed_tax_bracket_inflator", "3%"), "")
+        self.assertTrue(v("fed_tax_bracket_inflator", "9%"))
+        self.assertTrue(v("fed_tax_bracket_inflator", "abc"))
+        self.assertTrue(v("nope", "1%"))
+
+    def test_with_drift_flags_only_changed_overrides(self):
+        from src.tax_assumptions import with_drift
+        levers = [
+            {"key": "fed_tax_bracket_inflator", "source": "override", "model_value": 0.025},
+            {"key": "state_income_tax_rate", "source": "model", "model_value": 0.05},
+        ]
+        out = with_drift(levers, {"fed_tax_bracket_inflator": 0.02, "state_income_tax_rate": 0.05})
+        self.assertTrue(out[0]["drifted"])
+        self.assertFalse(out[1]["drifted"])
+
+    def test_save_upserts_rows_and_records_baseline(self):
+        from types import SimpleNamespace
+        from src.server_services.strategy_asset_service import StrategyAssetService
+        rows = [["section", "subsection", "label", "value", "units", "note"],
+                ["Household", "", "residence_state", "Illinois", "text", ""],
+                ["Economic Assumptions", "", "fed_tax_bracket_inflator", "2.00%", "pct", ""]]
+        written = {}
+        ctx = SimpleNamespace(
+            client_section_path=lambda *a: Path("x.csv"),
+            ensure_header=lambda r: r,
+            csv_read_rows=lambda p: rows,
+            read_client_section_rows=lambda sec, f="": [rows[0]] + [r for r in rows[1:] if r[0] == sec],
+            write_client_rows=lambda p, r: written.setdefault("rows", r),
+            sync_config_backends=lambda: {},
+            audit=None,
+        )
+        svc = StrategyAssetService.__new__(StrategyAssetService)
+        svc.context = ctx
+        svc._audit = lambda *a, **k: None
+        body, status = svc.save_tax_assumptions_payload(
+            {"overrides": {"fed_tax_bracket_inflator": "3.00%", "state_income_tax_rate": "6%"}})
+        self.assertEqual(status, 200, body)
+        by_label = {r[2]: r for r in written["rows"] if r[0] == "Economic Assumptions"}
+        self.assertEqual(by_label["fed_tax_bracket_inflator"][3], "3.00%")
+        self.assertEqual(by_label["state_income_tax_rate"][3], "6%")
+        self.assertIn("fed_tax_bracket_inflator=0.02", by_label["tax_model_baseline"][3])
+        bad, st = svc.save_tax_assumptions_payload({"overrides": {"state_income_tax_rate": "40%"}})
+        self.assertEqual(st, 400)
