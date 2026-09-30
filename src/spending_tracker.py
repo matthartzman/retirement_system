@@ -386,8 +386,24 @@ def load_transactions_extended(root=None, year=None):
                 "mapped_category_id": (row.get("MappedCategoryId") or "").strip(),
                 "confirmed":          (row.get("Confirmed") or "").strip().lower() in ("1","true","yes"),
                 "notes":              (row.get("Notes") or "").strip(),
+                "statement":          (row.get("Original Statement") or "").strip(),
+                "tags":               (row.get("Tags") or "").strip(),
             })
     return rows
+
+
+def _shared_ytd_class(txn: dict) -> str:
+    """Classify a loaded transaction with the YTD panel's classifier.
+
+    Single source of truth so the Spending Budget Tracker and This Year
+    Performance agree on which rows are transfers (excluded) versus spending.
+    """
+    from .ytd_tracking import classify_cash_transaction
+    return classify_cash_transaction({
+        "Category": txn.get("category", ""), "Merchant": txn.get("merchant", ""),
+        "Notes": txn.get("notes", ""), "Tags": txn.get("tags", ""),
+        "Original Statement": txn.get("statement", ""), "Amount": txn.get("amount", 0),
+    })
 
 
 # ------------------------------------------------------------------
@@ -1351,6 +1367,8 @@ def _actuals_by_taxonomy(root, year: int):
         amount = txn.get("amount", 0)
         if amount == 0:
             continue
+        if _shared_ytd_class(txn) == "transfer":
+            continue
         cid = _resolve_alias(txn, aliases, flat)
         raw_cat = txn.get("category") or ""
         if cid and cid in flat:
@@ -1748,6 +1766,8 @@ def monthly_series(root: Path | None = None, year: int | None = None, total_budg
     for txn in txns:
         amount = float(txn.get("amount", 0) or 0)
         if amount >= 0:
+            continue
+        if _shared_ytd_class(txn) == "transfer":
             continue
         cid = _resolve_alias(txn, aliases, flat)
         info = flat.get(cid, {}) if cid else {}
