@@ -89,6 +89,7 @@ def build_sheet15(ws, c, rows, mc_data):
         ('Net Portfolio Draw',     'Spending + taxes minus non-portfolio income streams; stochastic inflation and wellness shocks apply inside MC'),
         ('Plan Horizon',           f'{c["plan_start"]}–{c["plan_end"]}  ({len(yrs)} years)'),
         ('Success Definition',     mc_data.get('success_definition', 'Liquid assets remain positive and no annual spending gap is unfunded')),
+        *([('Success Within Tier Rules (approx.)', mc_data.get('success_definition_within_tier_policy'))] if mc_data.get('success_rate_within_tier_policy') is not None else []),
         ('Success Rate 95% CI',    f'{mc_data.get("success_rate_ci_low", suc):.1%}–{mc_data.get("success_rate_ci_high", suc):.1%} (SE {mc_data.get("success_rate_standard_error", 0):.1%})'),
         ('Sequence-of-Returns',    'Sims sorted by first-5-year average return, split into quintiles'),
         ('Asset Location',         'Per-account holdings differences enter as a constant return offset per tax bucket, '
@@ -132,6 +133,7 @@ def build_sheet15(ws, c, rows, mc_data):
         ('Plan Funding Success Rate',            suc,      FMT_PCT,    suc >= 0.85),
         ('Success Rate CI Low (95%)',            mc_data.get('success_rate_ci_low', suc), FMT_PCT, mc_data.get('success_rate_ci_low', suc) >= 0.80),
         ('Success Rate CI High (95%)',           mc_data.get('success_rate_ci_high', suc), FMT_PCT, True),
+        *([('Success Without Using Roth for Extras (approx.)', mc_data['success_rate_within_tier_policy'], FMT_PCT, True)] if mc_data.get('success_rate_within_tier_policy') is not None else []),
         ('Median Terminal Liquid Assets (P50)',  n50_end,  FMT_DOLLAR, n50_end > 0),
         ('P10 Terminal Liquid Assets',           n10_end,  FMT_DOLLAR, n10_end > 0),
         ('P25 Terminal Liquid Assets',           n25_end,  FMT_DOLLAR, n25_end > 0),
