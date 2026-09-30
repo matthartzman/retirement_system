@@ -232,3 +232,44 @@ def with_drift(levers: list[dict[str, Any]], baseline: Mapping[str, float]) -> l
         rec["drifted"] = base is not None and abs(base - lv["model_value"]) > 1e-9
         out.append(rec)
     return out
+
+
+# ── Tax-law stress scenario ──────────────────────────────────────────────────
+# ``higher_rates``: from a start year, federal ordinary income is taxed at the
+# pre-2018 rate schedule (tier for tier; bracket thresholds unchanged). Only
+# tax *owed* is stressed; bracket-fill targets and Roth/withdrawal decisions
+# keep using today's brackets, so this answers "what if taxes are higher than
+# the plan assumed" without re-optimizing the strategy.
+
+PRE_2018_ORDINARY_RATES = (0.10, 0.15, 0.25, 0.28, 0.33, 0.35, 0.396)
+LAW_SCENARIOS = ("current_law", "higher_rates")
+
+
+def resolve_law_scenario(raw_scenario: Any, raw_start_year: Any, plan_start: int,
+                         parse: Callable[[Any, Any], Any]) -> dict[str, Any]:
+    """Return the effective scenario record (always a dict; ``active`` tells
+    whether the stress applies). Invalid input falls back to current law with
+    a warning, like the numeric levers."""
+    warning = ""
+    name = "current_law" if _is_blank(raw_scenario) else str(raw_scenario).strip().lower()
+    if name not in LAW_SCENARIOS:
+        warning = f"Unknown tax law scenario {raw_scenario!r}; using current law."
+        name = "current_law"
+    start = int(plan_start)
+    if not _is_blank(raw_start_year):
+        parsed = parse(raw_start_year, None) if _is_numeric_text(raw_start_year) else None
+        if parsed is None or not (1900 <= int(parsed) <= 2200):
+            warning = warning or f"Stress start year {raw_start_year!r} is invalid; using the first plan year."
+        else:
+            start = int(parsed)
+    return {"scenario": name, "active": name == "higher_rates", "start_year": start, "warning": warning}
+
+
+def stressed_ordinary_brackets(brackets, year: int, scenario: Mapping[str, Any] | None):
+    """Apply the higher-rates stress to ``brackets`` for ``year`` (no-op when
+    inactive, before the start year, or for a non-seven-tier table)."""
+    if not scenario or not scenario.get("active") or int(year) < int(scenario.get("start_year", 0)):
+        return brackets
+    if len(brackets) != len(PRE_2018_ORDINARY_RATES):
+        return brackets
+    return [(lo, hi, PRE_2018_ORDINARY_RATES[i]) for i, (lo, hi, _r) in enumerate(brackets)]

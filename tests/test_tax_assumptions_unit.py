@@ -75,7 +75,7 @@ class BuildIntegrationTests(unittest.TestCase):
         eff = c["tax_assumptions_effective"]
         self.assertEqual(set(eff), {"fed_tax_bracket_inflator",
                                     "social_security_taxable_fraction",
-                                    "state_income_tax_rate"})
+                                    "state_income_tax_rate", "tax_law_scenario"})
 
     def test_missing_json_inflator_uses_single_model_default(self):
         plan = copy.deepcopy(base_plan())
@@ -230,3 +230,48 @@ class DriftAndSaveTests(unittest.TestCase):
         self.assertIn("fed_tax_bracket_inflator=0.02", by_label["tax_model_baseline"][3])
         bad, st = svc.save_tax_assumptions_payload({"overrides": {"state_income_tax_rate": "40%"}})
         self.assertEqual(st, 400)
+
+
+class LawScenarioTests(unittest.TestCase):
+    def _rows(self, **assumptions):
+        plan = copy.deepcopy(base_plan())
+        plan["assumptions"].update(assumptions)
+        c = ensure_engine_config(build_plan_from_json(plan, ""), source="test_law_scenario")
+        rows = project(c)
+        return c, (rows[0] if isinstance(rows, tuple) else rows)
+
+    def test_resolver_defaults_and_fallbacks(self):
+        from src.tax_assumptions import resolve_law_scenario as r
+        self.assertFalse(r("", "", 2026, _n)["active"])
+        self.assertFalse(r("current_law", "", 2026, _n)["active"])
+        hi = r("higher_rates", "", 2026, _n)
+        self.assertTrue(hi["active"])
+        self.assertEqual(hi["start_year"], 2026)
+        self.assertEqual(r("higher_rates", "2030", 2026, _n)["start_year"], 2030)
+        bad = r("bogus", "abc", 2026, _n)
+        self.assertFalse(bad["active"])
+        self.assertTrue(bad["warning"])
+
+    def test_stressed_brackets_gate_on_year_and_shape(self):
+        from src.tax_assumptions import PRE_2018_ORDINARY_RATES, stressed_ordinary_brackets as s
+        br = [(i * 10_000.0, (i + 1) * 10_000.0, r) for i, r in
+              enumerate((0.10, 0.12, 0.22, 0.24, 0.32, 0.35, 0.37))]
+        scen = {"active": True, "start_year": 2030}
+        self.assertEqual(s(br, 2029, scen), br)
+        self.assertEqual([r for _l, _h, r in s(br, 2030, scen)], list(PRE_2018_ORDINARY_RATES))
+        self.assertEqual(s(br[:3], 2031, scen), br[:3])
+        self.assertEqual(s(br, 2031, {"active": False, "start_year": 0}), br)
+
+    def test_current_law_is_unchanged_and_stress_raises_federal_tax(self):
+        def fed_total(**kw):
+            _c, rows = self._rows(**kw)
+            return sum(float(r.get("fed_tax", 0.0) or 0.0) for r in rows)
+        base = fed_total()
+        self.assertEqual(base, fed_total(tax_law_scenario="current_law"))
+        self.assertGreater(fed_total(tax_law_scenario="higher_rates"), base)
+
+    def test_effective_payload_reports_scenario(self):
+        c, _rows = self._rows(tax_law_scenario="higher_rates", higher_rates_start_year="2031")
+        eff = c["tax_assumptions_effective"]["tax_law_scenario"]
+        self.assertTrue(eff["active"])
+        self.assertEqual(eff["start_year"], 2031)

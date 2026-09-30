@@ -48,6 +48,13 @@ def _tax_assumption_note(c, key, fallback):
     return f"Auto: {eff['basis']}"
 
 
+def _law_scenario_label(c):
+    s = c.get('law_scenario') or {}
+    if s.get('active'):
+        return f"HIGHER RATES from {s.get('start_year')}"
+    return 'Current law'
+
+
 def _state_rate_display(c):
     eff = (c.get('tax_assumptions_effective') or {}).get('state_income_tax_rate')
     return eff['value'] if eff else 0.0
@@ -442,6 +449,7 @@ def build_sheet2(ws, c, rows):
         ('Fed Bracket Inflator',       c['brk_inf'],   'decimal', _tax_assumption_note(c, 'fed_tax_bracket_inflator', '2.00%/yr')),
         ('SS Taxable Fraction',        c['ss_taxable'],'decimal', _tax_assumption_note(c, 'social_security_taxable_fraction', '85%')),
         ('State Income-Tax Rate',      _state_rate_display(c), 'decimal', _tax_assumption_note(c, 'state_income_tax_rate', 'State rules')),
+        ('Tax Law Scenario',           _law_scenario_label(c), 'text', 'higher_rates = STRESS: pre-2018 federal ordinary rates from the start year; thresholds and strategy unchanged.'),
         ('Roth Conversion Target Bracket', c['roth_brk'], 'decimal', 'Configured target bracket used when the selected strategy fills bracket headroom.'),
         ('Roth Legacy Objective Mode', c.get('roth_legacy_objective_mode', 'OFF'), 'text', 'OFF, LOW, BALANCED, or STRONG; weights future tax-rate risk and inheritance tax burden in Roth conversion selection.'),
         ('Roth Future Tax Stress', c.get('roth_future_tax_rate_stress_pct', 0.0), 'decimal', 'Additional ordinary-tax-rate stress used only in the Roth conversion objective.'),
