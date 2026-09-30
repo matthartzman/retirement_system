@@ -48,8 +48,7 @@ export function planKpiMetricsHtml() {
       (lastBuildSummary.model_risk_label ||
         "Switch to the exact scalar engine mode for advisor-ready validation.");
   }
-  const tierRate = Number(lastBuildSummary && lastBuildSummary.mc_success_within_tier_policy);
-  if (!spendPolicyActive && Number.isFinite(tierRate) && lastBuildSummary.mc_success_within_tier_policy !== null) successVal += ` <span class="small" title="Approximate. Same simulation, but discretionary and important spending may never draw Roth, and discretionary never draws HSA.">(without using Roth for extras: ${fmtPct(tierRate * 100)})</span>`;
+  if (!spendPolicyActive && lastBuildSummary && lastBuildSummary.mc_success_within_tier_policy != null && Number.isFinite(Number(lastBuildSummary.mc_success_within_tier_policy))) successVal += ` <span class="small" title="Approximate. Same simulation, but discretionary and important spending may never draw Roth, and discretionary never draws HSA.">(without using Roth for extras: ${fmtPct(Number(lastBuildSummary.mc_success_within_tier_policy) * 100)})</span>`;
   if (spendPolicyActive) {
     successLabel = "Probability plan is fully funded (conditional on modelled cuts)";
     successTitle =
