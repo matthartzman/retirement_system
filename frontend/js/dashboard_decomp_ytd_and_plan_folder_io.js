@@ -534,7 +534,7 @@ export function ytdSparkline(series, actualKey, forecastKey, opts = null) {
   // Layout: y-axis labels at left (x=0-44), plot area x=50-330, x-axis labels below y=125
   const X0 = 50,
     X1 = 330,
-    Y_TOP = 14,
+    Y_TOP = 22,
     Y_BOT = 118;
   function px(i) {
     return X0 + i * ((X1 - X0) / Math.max(1, series.length - 1));
@@ -571,7 +571,8 @@ export function ytdSparkline(series, actualKey, forecastKey, opts = null) {
   const forecastLine = forecastKey
     ? `<polyline class="forecast" points="${points(forecastKey)}"/>`
     : "";
-  var svgStr = `<svg class="ytd-chart" viewBox="0 0 340 145" role="img" aria-label="YTD chart"><line x1="${X0}" y1="${Y_BOT}" x2="${X1}" y2="${Y_BOT}"/><line x1="${X0}" y1="${Y_TOP}" x2="${X0}" y2="${Y_BOT}"/>${yLabels}${forecastLine}<polyline class="actual" points="${points(actualKey)}"/>${xLabels}</svg>`;
+  const legend = ((opts && opts.legend) || []).map(([cls, label], n) => `<polyline class="${cls}" points="${X0 + n * 110},6 ${X0 + n * 110 + 16},6"/><text x="${X0 + n * 110 + 20}" y="9">${esc(label)}</text>`).join("");
+  var svgStr = `<svg class="ytd-chart" viewBox="0 0 340 145" role="img" aria-label="YTD chart"><line x1="${X0}" y1="${Y_BOT}" x2="${X1}" y2="${Y_BOT}"/><line x1="${X0}" y1="${Y_TOP}" x2="${X0}" y2="${Y_BOT}"/>${legend}${yLabels}${forecastLine}<polyline class="actual" points="${points(actualKey)}"/>${xLabels}</svg>`;
   var sparkId = cacheChart(svgStr, "Chart");
   return (
     '<div class="ytd-chart-wrap chart-expandable" onclick="openCachedChart(\'' +
@@ -596,7 +597,7 @@ export function ytdMetricCard(
 ) {
   const isLastYear = !!ytdData?.summary?.is_last_year;
   const actualLabel = isLastYear ? "Actual (last year)" : "Actual YTD";
-  return `<div class="ytd-metric"><h3>${esc(title)}</h3><div class="ytd-metric-values"><span><b>${ytdMoney(actual)}</b><small>${esc(actualLabel)}</small></span><span><b>${ytdMoney(forecast)}</b><small>${esc(forecastLabel)}</small></span></div>${ytdSparkline(series, actualKey, forecastKey, sparkOptions)}${breakdown ? `<div class="ytd-breakdown">${breakdown}</div>` : ""}${extra ? `<p class="small">${esc(extra)}</p>` : ""}</div>`;
+  return `<div class="ytd-metric"><h3>${esc(title)}</h3><div class="ytd-metric-values"><span><b>${ytdMoney(actual)}</b><small>${esc(actualLabel)}</small></span><span><b>${ytdMoney(forecast)}</b><small>${esc(forecastLabel)}</small></span></div>${ytdSparkline(series, actualKey, forecastKey, { ...(sparkOptions || {}), legend: [["actual", isLastYear ? "Actual (last year)" : "Actual YTD"], ...(forecastKey ? [["forecast", forecastLabel]] : [])] })}${breakdown ? `<div class="ytd-breakdown">${breakdown}</div>` : ""}${extra ? `<p class="small">${esc(extra)}</p>` : ""}</div>`;
 }
 
 export function renderYtdUploadPanel(enabled) {
@@ -613,8 +614,9 @@ export function renderYtdSummary() {
     : "Actual growth needs account setup rows with prior-year balances and either mapped holdings or current values.";
   const comp = s.cashflow_components || {};
   const spc = s.forecast?.spending_plan_components || {};
+  const ldMakeup = (s.forecast?.large_discretionary_breakdown || []).map((i) => `${i.category} ${ytdMoney(i.amount)}`).join("; ");
   const spendingExtra = s.forecast?.spending_annual_plan
-    ? `Expected YTD = annual plan ${ytdMoney(s.forecast.spending_annual_plan)} × year complete (${esc(s.ytd_days || 0)}/${esc(s.year_days || 365)}). Core: ${ytdMoney(spc.core_spending)}. Mortgage and RE Tax: ${ytdMoney(spc.mortgage_and_re_tax ?? spc.mortgage)} (mortgage ${ytdMoney(spc.mortgage_payment)}, RE tax ${ytdMoney(spc.real_estate_taxes)}, annual adjustment ${ytdPct(spc.real_estate_tax_annual_adjustment_pct)}). Large discretionary: ${ytdMoney(spc.large_discretionary)}.`
+    ? `Expected YTD = annual plan ${ytdMoney(s.forecast.spending_annual_plan)} × year complete (${esc(s.ytd_days || 0)}/${esc(s.year_days || 365)}). Core: ${ytdMoney(spc.core_spending)}. Mortgage and RE Tax: ${ytdMoney(spc.mortgage_and_re_tax ?? spc.mortgage)} (mortgage ${ytdMoney(spc.mortgage_payment)}, RE tax ${ytdMoney(spc.real_estate_taxes)}, annual adjustment ${ytdPct(spc.real_estate_tax_annual_adjustment_pct)}). Large discretionary: ${ytdMoney(spc.large_discretionary)}${ldMakeup ? ` (${ldMakeup})` : ""}. Taxes paid to date (${ytdMoney(s.actual?.taxes)}) are included in actual spending and added to Expected YTD at their actual pace, since the plan inputs do not budget them.`
     : s.forecast?.spending_plan_benchmark
       ? `Current annual core-spending benchmark: ${ytdMoney(s.forecast.spending_plan_benchmark)}.`
       : "";
@@ -623,9 +625,9 @@ export function renderYtdSummary() {
     ? "Last year reporting window"
     : "YTD reporting window";
   const windowLine = `${esc(windowLabel)}: ${esc(s.ytd_start || "—")} – ${esc(s.through_date || "—")} · ${esc(s.transaction_count || 0)} transactions`;
-  const spendingBreakdown = `<b>Taxes paid ${ytdMoney(s.actual?.taxes)}</b> · excluded from spending`;
-  const incomeBreakdown = `Earned <b>${ytdMoney(s.actual?.earned_income)}</b> · Investment <b>${ytdMoney(s.actual?.investment_income)}</b> · Note <b>${ytdMoney(comp.note_receivable_income)}</b> · Other <b>${ytdMoney(comp.other_income)}</b>`;
-  const growthBreakdown = `Net investment cashflow <b>${ytdMoney(inv.net_ytd_investment_cashflow)}</b> · diagnostic only`;
+  const spendingBreakdown = `<span>Includes income taxes <b>${ytdMoney(s.actual?.taxes)}</b></span><span>and real estate tax <b>${ytdMoney(s.actual?.real_estate_taxes)}</b></span>`;
+  const incomeBreakdown = `<span>Earned <b>${ytdMoney(s.actual?.earned_income)}</b></span><span>Investment <b>${ytdMoney(s.actual?.investment_income)}</b></span><span>Note <b>${ytdMoney(comp.note_receivable_income)}</b></span><span>Other <b>${ytdMoney(comp.other_income)}</b></span>`;
+  const growthBreakdown = `<span>Net investment cashflow <b>${ytdMoney(inv.net_ytd_investment_cashflow)}</b></span><span>diagnostic only</span>`;
   return `<p class="ytd-window-line">${windowLine}</p><div class="ytd-metric-grid">${ytdMetricCard("YTD spending", s.actual?.spending, s.forecast?.spending, s.series, "actual_spending", "forecast_spending", spendingExtra, "Expected YTD", null, spendingBreakdown)}${ytdMetricCard("YTD income", s.actual?.income, s.forecast?.income, s.series, "actual_income", "forecast_income", `Income categories only: ${(s.allowed_income_categories || []).join(", ") || "No income categories configured"}. Earned forecast remaining: ${ytdMoney(s.forecast?.earned_income_remaining)}. Note receivable included to date only: ${ytdMoney(comp.note_receivable_income)}. Investment/other income straight-lined: ${ytdMoney(s.forecast?.investment_income_annualized)} / ${ytdMoney(s.forecast?.other_income_annualized)}.`, "Projected full year", null, incomeBreakdown)}${ytdMetricCard("YTD growth", s.actual?.growth, inv.current_balance, growthSeries, "balance", null, growthExtra, "Current value", { scale: "range" }, growthBreakdown)}</div>`;
 }
 
