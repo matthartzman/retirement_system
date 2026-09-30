@@ -1060,9 +1060,20 @@ body.chart-modal-open{overflow:hidden}
 .pf-override{border-color:#fde68a;background:#fffbeb;color:#92400e}
 
 /* Projection Controls: collapsed section after Spending Categories, with a compact readout of the current inputs */
+/* Spending page: three sibling accordions share one look; the page
+   recommendations disclosure uses the same chevron so it reads as collapsible. */
+details.page-accordion>summary,.page-recommendations>summary{position:relative;padding-left:32px;list-style:none;font-weight:850}
+details.page-accordion>summary::-webkit-details-marker,.page-recommendations>summary::-webkit-details-marker{display:none}
+details.page-accordion>summary::before,.page-recommendations>summary::before{content:"\25B8";position:absolute;left:13px;top:12px;color:var(--muted);font-size:13px;line-height:1.45}
+details.page-accordion[open]>summary::before,.page-recommendations[open]>summary::before{content:"\25BE"}
+.page-recommendations>summary::before{top:14px}
 .projection-controls>summary{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 12px}
 .projection-controls .pc-readout{display:inline-flex;flex-wrap:wrap;gap:4px 14px;font-weight:600;color:var(--ink)}
 .projection-controls .pc-readout b{color:var(--muted);font-weight:600}
 .projection-controls .pc-unsaved{margin-left:auto;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;background:var(--warn);color:#fff;border-radius:6px;padding:1px 7px}
 .projection-controls .pc-body{padding:14px;display:flex;flex-direction:column;gap:16px}
-.projection-controls .field-list.inline-row .field{flex:1 1 170px}
+.projection-controls .pc-fields{display:flex;flex-direction:column;gap:10px;container-type:inline-size}
+.projection-controls .pc-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.projection-controls .pc-row .field{grid-template-columns:1fr;gap:6px;margin:0;min-width:0}
+.projection-controls .pc-row .field-label{white-space:nowrap;font-size:13px}
+@container (max-width:740px){.projection-controls .pc-row{grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}}

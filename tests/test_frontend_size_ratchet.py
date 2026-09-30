@@ -514,7 +514,13 @@ DASHBOARD_JS_MAX_LINES = 7_134
 # dashboard_decomp_home_panels.js adds one line on main; PR #147 did not raise the
 # ceiling, so main sat at 36,736 against 36,735. New behavior, not duplication:
 # raised to the measured 36,736.
-TOTAL_JS_MAX_LINES = 36_736
+# 2026-09-30 (Spending page accordions): Spending Categories, Projection
+# Controls and Category Manager become three sibling accordions with one look
+# (Spending Categories wrapper, Category Manager summary), and the Projection
+# Controls fields are laid out in two explicit rows (method, rate, stop year /
+# YTD override, YTD blend). New behavior, not duplication: raised to the
+# measured 36,743.
+TOTAL_JS_MAX_LINES = 36_743
 
 
 def _line_count(path: Path) -> int:

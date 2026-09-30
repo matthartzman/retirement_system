@@ -203,7 +203,7 @@ export function renderSpendingAdjustmentsTable() {
 // The Adjustments block, always visible inside the Projection Controls section.
 export function renderSpendingAdjustmentsBlock() {
   const n = spendingAdjustments.length;
-  return `<div class="spending-adjustments"><h4 class="group-title">Adjustments <span class="small">${n} step change${n === 1 ? "" : "s"}</span></h4>${renderSpendingAdjustmentsTable()}</div>`;
+  return `<div class="spending-adjustments"><h4 class="taxonomy-group-title">Adjustments <span class="small">${n} step change${n === 1 ? "" : "s"}</span></h4>${renderSpendingAdjustmentsTable()}</div>`;
 }
 
 // Every export above is also re-attached to window: saveWorkingCopy() and
