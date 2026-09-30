@@ -701,8 +701,11 @@ class StrategyAssetService:
                 periods.append({**p, "model_rate": float(rules.get("rate", 0.0)) if rules else None})
         except Exception:
             periods = []
+        scenario = ta.resolve_law_scenario(
+            econ.get("tax_law_scenario"), econ.get("higher_rates_start_year"),
+            _platform_runtime.today().year, _n)
         return {"success": True, "state": state, "levers": levers,
-                "residency_periods": periods,
+                "law_scenario": scenario, "residency_periods": periods,
                 "law_table": ta.law_reference_table()}, 200
 
     def save_tax_assumptions_payload(self, body: dict[str, Any]) -> tuple[dict[str, Any], int]:

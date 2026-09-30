@@ -1037,6 +1037,14 @@ PLAN_DATA_BACKFILL_ENTRIES: list[plan_data_backfill.BackfillEntry] = [
     ),
     plan_data_backfill.BackfillEntry(
         "client_household.csv",
+        [["Economic Assumptions", "", "tax_law_scenario", "current_law", "choice",
+          "current_law | higher_rates. higher_rates taxes federal ordinary income at pre-2018 rates from the start year (a stress; thresholds unchanged)."],
+         ["Economic Assumptions", "", "higher_rates_start_year", "", "year",
+          "First year the higher_rates stress applies. Blank = the first plan year."]],
+        plan_data_backfill.insert_after_last(plan_data_backfill.section_subsection_is("Economic Assumptions", "")),
+    ),
+    plan_data_backfill.BackfillEntry(
+        "client_household.csv",
         [["Economic Assumptions", "", "state_income_tax_rate", "", "pct",
           "Override for state income-tax rate. Blank = Auto: the residence state's own rules. A value taxes state income at this flat rate (state retirement and Social Security exemptions still apply)."]],
         plan_data_backfill.insert_after_last(plan_data_backfill.section_subsection_is("Economic Assumptions", "")),

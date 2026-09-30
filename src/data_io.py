@@ -384,13 +384,19 @@ def _date_parts(v):
     return _plan_dates.parse_plan_date(v, bare_year_as='end')
 
 
-def _apply_tax_assumptions(c, raw):
+def _apply_tax_assumptions(c, raw, scenario_raw=None):
     """Resolve plan tax levers (Auto vs override) into the engine config."""
     from . import tax_assumptions as _ta
     from .core import STATE_TAX_RULES as _rules
     resolved = _ta.resolve_tax_assumptions(
         raw, _n, state=c.get('state', ''), state_rules=_rules)
     _ta.apply_to_config(c, resolved)
+    scen = _ta.resolve_law_scenario(
+        (scenario_raw or {}).get('tax_law_scenario'),
+        (scenario_raw or {}).get('higher_rates_start_year'),
+        int(c.get('plan_start') or _platform_runtime.today().year), _n)
+    c['law_scenario'] = scen
+    c['tax_assumptions_effective']['tax_law_scenario'] = dict(scen)
 
 
 def _month_year_parts(v):
@@ -800,6 +806,9 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
         'fed_tax_bracket_inflator': _v(data,'Economic Assumptions','','fed_tax_bracket_inflator',''),
         'social_security_taxable_fraction': _v(data,'Economic Assumptions','','social_security_taxable_fraction',''),
         'state_income_tax_rate': _v(data,'Economic Assumptions','','state_income_tax_rate',''),
+    }, {
+        'tax_law_scenario': _v(data,'Economic Assumptions','','tax_law_scenario',''),
+        'higher_rates_start_year': _v(data,'Economic Assumptions','','higher_rates_start_year',''),
     })
     # Social Security solvency / funding haircut. This explicit assumption reduces
     # gross Social Security benefits from the configured year onward when the
@@ -2260,6 +2269,9 @@ def build_plan_from_json(plan, url_template=''):
         'fed_tax_bracket_inflator': a.get('bracket_inflation'),
         'social_security_taxable_fraction': a.get('ss_taxable_pct'),
         'state_income_tax_rate': a.get('state_income_tax_rate'),
+    }, {
+        'tax_law_scenario': a.get('tax_law_scenario'),
+        'higher_rates_start_year': a.get('higher_rates_start_year'),
     })
     c['ret_eq']          = a.get('equity_return', 0.10)
     c['ret_bond']        = a.get('bond_return', 0.04)
