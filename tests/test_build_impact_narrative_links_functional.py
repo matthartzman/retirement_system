@@ -11,8 +11,10 @@ def test_build_impact_has_natural_language_summary_and_source_links():
     js = dashboard_js_text()
     assert "function buildImpactNarrativeHtml" in js
     assert "Plain-English Build Impact summary" in js
-    assert "Source-page links" in js
-    assert "function buildImpactSourceLinksHtml" in js
+    # Source-page jump links live only in the "Input and configuration changes"
+    # table (Source column); the narrative no longer repeats them.
+    assert "Source-page links" not in js
+    assert "function buildImpactSourceLinksHtml" not in js
     assert "buildSourceJumpHtml" in js
     assert "latestBuildImpactHtml(buildHistory[0])" in js
 
@@ -29,4 +31,3 @@ def test_build_impact_summary_is_styled():
     css = DASHBOARD_CSS.read_text(encoding="utf-8")
     assert ".latest-build-impact" in css
     assert ".impact-narrative" in css
-    assert ".build-impact-source-list" in css

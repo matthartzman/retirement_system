@@ -523,32 +523,6 @@ export function impactDirectionWord(delta, kind) {
   return d > 0 ? "improved" : "declined";
 }
 
-export function buildImpactSourceLinksHtml(changes) {
-  const byStep = new Map();
-  (changes || []).forEach((c) => {
-    const step = c.sourceStep || sourceStepForSpecialLabel(c.label || "");
-    if (!step) return;
-    const rec = byStep.get(step) || {
-      title: c.sourceTitle || stepTitleById(step),
-      count: 0,
-      labels: [],
-    };
-    rec.count += 1;
-    if (c.label && rec.labels.length < 3) rec.labels.push(c.label);
-    byStep.set(step, rec);
-  });
-  if (!byStep.size)
-    return '<p class="small">No source-page links were captured for this build.</p>';
-  const items = [...byStep.entries()]
-    .slice(0, 8)
-    .map(
-      ([step, rec]) =>
-        `<li>${buildSourceJumpHtml(step, rec.title)}<span>${rec.count} captured change${rec.count === 1 ? "" : "s"}${rec.labels.length ? `: ${rec.labels.map(esc).join(", ")}` : ""}</span></li>`,
-    )
-    .join("");
-  return `<ul class="build-impact-source-list">${items}</ul>`;
-}
-
 // #293: narrative points reference LCV / NPV of Future Taxes / Worst-Case
 // (5th %ile) Ending Wealth instead of raw terminal net worth, nominal
 // lifetime tax, and Monte Carlo pass/fail probability.
@@ -616,7 +590,7 @@ export function buildImpactNarrativeHtml(entry) {
   else if (Number.isFinite(dAfterTax) && dAfterTax < 0)
     riskNote =
       "After-tax inheritance fell; start with the largest source-page change and test one rollback or lever at a time.";
-  return `<div class="impact-narrative"><h4>Plain-English Build Impact summary</h4><p>${esc(lead)}</p><ul>${points.map((p) => `<li>${esc(p)}</li>`).join("")}</ul><p class="small"><b>Next check:</b> ${esc(riskNote)}</p><h4>Source-page links</h4>${buildImpactSourceLinksHtml(entry.changes || [])}</div>`;
+  return `<div class="impact-narrative"><h4>Plain-English Build Impact summary</h4><p>${esc(lead)}</p><ul>${points.map((p) => `<li>${esc(p)}</li>`).join("")}</ul><p class="small"><b>Next check:</b> ${esc(riskNote)}</p></div>`;
 }
 
 export function latestBuildImpactHtml(entry) {
@@ -937,7 +911,6 @@ Object.assign(window, {
   impactCardHtml,
   buildImpactCardsHtml,
   impactDirectionWord,
-  buildImpactSourceLinksHtml,
   buildImpactNarrativeHtml,
   latestBuildImpactHtml,
   mhBool,
