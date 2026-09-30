@@ -4,11 +4,23 @@ from pathlib import Path
 import json
 
 from .plan_file_io import write_text_atomic
+from .platform_runtime import workspace_root
 
-DEFAULT_SECRETS = Path(__file__).resolve().parent.parent / "local_state" / "secrets.local.json"
 
-def _load(path: str | Path = DEFAULT_SECRETS) -> dict:
-    p = Path(path)
+def secrets_path() -> Path:
+    """Secrets file location, resolved per call from the writable workspace.
+
+    Resolving at call time (not import time) matters in a frozen build: the
+    package root is the bundle's read-only, rebuild-wiped ``_internal`` folder,
+    while ``workspace_root()`` is the per-user data directory (or the
+    ``RETIREMENT_SYSTEM_WORKSPACE_ROOT`` override). From source both are the
+    project root, so ``local_state/secrets.local.json`` is unchanged.
+    """
+    return workspace_root() / "local_state" / "secrets.local.json"
+
+
+def _load(path: str | Path | None = None) -> dict:
+    p = Path(path) if path is not None else secrets_path()
     if not p.exists():
         return {}
     try:
@@ -16,8 +28,8 @@ def _load(path: str | Path = DEFAULT_SECRETS) -> dict:
     except Exception:
         return {}
 
-def _save(data: dict, path: str | Path = DEFAULT_SECRETS) -> None:
-    write_text_atomic(path, json.dumps(data, indent=2, sort_keys=True))
+def _save(data: dict, path: str | Path | None = None) -> None:
+    write_text_atomic(path if path is not None else secrets_path(), json.dumps(data, indent=2, sort_keys=True))
 
 def encryption_status(*args, **kwargs) -> dict:
     # Finding SEC-5 (system review 2026-09-07, Wave 6 item W6-1): this used to
