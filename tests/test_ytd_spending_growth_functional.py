@@ -203,8 +203,10 @@ def test_ytd_real_estate_taxes_are_housing_spending_not_income_tax(tmp_path):
     # projection. RE tax has its own actual bucket instead (not annualized --
     # the correct full-year figure already comes from
     # forecast.spending_plan_components.real_estate_taxes).
-    # Income taxes now count as spending; RE tax stays out of this total.
-    assert s['actual']['spending'] == 3000.0
+    # Income and real estate taxes both count in actual spending to date; the
+    # non-tax scope is reported separately and stays empty here.
+    assert s['actual']['spending'] == 12000.0
+    assert s['actual']['spending_excl_taxes'] == 0.0
     assert s['actual']['real_estate_taxes'] == 9000.0
     assert s['actual']['taxes'] == 3000.0
     assert s['category_totals'] == [{'category': 'Real Estate Taxes', 'amount': 9000.0}]

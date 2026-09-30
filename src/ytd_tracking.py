@@ -1252,7 +1252,9 @@ def ytd_summary(root: str | Path, *, today: date | None = None, period: str | No
     # RE tax figure is already modeled correctly and separately (see
     # annual_real_estate_tax_spending, forecast.spending_plan_components), so
     # RE tax transactions are tracked here for the category breakdown but kept
-    # out of the day-prorated spending/spending_annualized totals entirely.
+    # out of the day-prorated spending_annualized run rate. They (and income
+    # taxes) DO count in the actual-to-date "spending" total, matching the
+    # Spending Budget Tracker; "spending_excl_taxes" keeps the old core-style scope.
     real_estate_tax_actual = 0.0
     category_totals: dict[str, float] = {}
     income_category_totals: dict[str, float] = {}
@@ -1337,18 +1339,16 @@ def ytd_summary(root: str | Path, *, today: date | None = None, period: str | No
             cat = str(row.get("Category", "") or "Uncategorized").strip() or "Uncategorized"
             if _real_estate_tax_category(row):
                 real_estate_tax_actual += val
-            else:
-                spending += val
-                monthly[d.month]["spending"] += val
+            spending += val
+            monthly[d.month]["spending"] += val
             category_totals[cat] = category_totals.get(cat, 0.0) + val
         elif kind == "spending_refund":
             val = abs(amount)
             cat = str(row.get("Category", "") or "Uncategorized").strip() or "Uncategorized"
             if _real_estate_tax_category(row):
                 real_estate_tax_actual -= val
-            else:
-                spending -= val
-                monthly[d.month]["spending"] -= val
+            spending -= val
+            monthly[d.month]["spending"] -= val
             category_totals[cat] = category_totals.get(cat, 0.0) - val
 
         account = str(row.get("Account", "") or "Unassigned").strip() or "Unassigned"
@@ -1427,7 +1427,8 @@ def ytd_summary(root: str | Path, *, today: date | None = None, period: str | No
             },
         ]
 
-    spending_annualized = spending / ytd_days * year_days if ytd_rows else None
+    spending_excl_taxes = spending - taxes - real_estate_tax_actual
+    spending_annualized = spending_excl_taxes / ytd_days * year_days if ytd_rows else None
     earned_income_annual_plan = annual_earned_income_forecast(root, current_year)
     earned_income_remaining = max(0.0, earned_income_annual_plan - earned_income)
     investment_income_annualized = investment_income / ytd_days * year_days if ytd_rows else None
@@ -1480,6 +1481,7 @@ def ytd_summary(root: str | Path, *, today: date | None = None, period: str | No
         "year_days": year_days,
         "actual": {
             "spending": round(spending, 2),
+            "spending_excl_taxes": round(spending_excl_taxes, 2),
             "income": round(total_income, 2),
             "earned_income": round(earned_income, 2),
             "investment_income": round(investment_income, 2),
