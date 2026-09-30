@@ -30,8 +30,8 @@ run it, the PR-tier CI filter skips it) and a reduced default path count
 with one Monte Carlo run shared by both assertions.
 
 Running it again surfaced that the strict "ON narrows the gap" criterion no
-longer holds on the current frozen fixture (measured 2026-09-30, seed 123:
-n=800 scalar 0.611, gap ON 0.180 vs OFF 0.139; n=200 seeds 1/7/42 agree).
+longer holds on the current frozen fixture (measured 2026-09-30 before the replay-funding change, seed 123:
+n=800 scalar 0.611, gap ON 0.180 vs OFF 0.139).
 On this fixture the vectorized engine is already optimistic versus the
 scalar engine (~0.80 vs ~0.61, the known tax_drag approximation), and
 survivor economics moves it further in that same direction, so the
@@ -40,21 +40,14 @@ measured every run and flips to a hard failure the day it starts passing;
 the loose sanity bound remains a normal assertion.
 
 Resolved 2026-09-30 (documentation/archive/reports/
-N1_MC_PARITY_RESIDUAL_DIAGNOSTIC_2026-09-30.md): the strict "ON narrows the
-gap" premise is retired. It conflated two things. (1) Survivor economics
-(spending step-down, survivor SS benefit, filing-status change) can only relieve
-funding pressure, so it MUST raise the vectorized success rate -- ON > OFF on
-identical paths, measured +2.0..+5.5pp over five seeds at n=200. (2) The level
-bias against the scalar engine (~+17pp on this roth_policy=none fixture) is
-pre-existing and comes from other components (tier-cascade tax funding, bucket
-allocation order, and the credit-shelter-trust sequestration at first death
-that the vectorized engine does not model), none of which survivor economics
-touches. On a deterministic-replay skeleton with the credit-shelter
-sequestration added, survivor economics ON lands within 0.2pp of the scalar
-engine (paired-path agreement 96%), i.e. the survivor adjustment is directionally
-correct; it just cannot be judged by a gap it was never responsible for. The test now asserts
-the direction (ON >= OFF on the same seed, hence the same sampled paths) and
-keeps the loose sanity bound.
+N1_MC_PARITY_RESIDUAL_DIAGNOSTIC_2026-09-30.md): the strict xfail is gone.
+The premise was sound but the gap it measured was dominated by other
+vectorized-engine defects (tax funding dropped, tier-ordered bucket allocation,
+Roth barred from non-essential tiers, and no credit-shelter-trust
+sequestration at first death). With the headline funding decision replaying the
+deterministic engine's bucket draws and the trust modelled, the measured gap on
+this fixture is scalar 0.611 vs vectorized ON 0.650 / OFF 0.670 (n=800, seed
+123): ON narrows it, as originally intended.
 """
 
 from __future__ import annotations
@@ -107,15 +100,18 @@ def reconciliation():
     }
 
 
-def test_survivor_economics_raises_vectorized_success(reconciliation):
-    # Same seed => the ON and OFF runs sample identical returns, inflation and
-    # death years, so the difference isolates the survivor adjustment. It can
-    # only relieve pressure (lower survivor spending, survivor SS benefit), so
-    # ON must not be below OFF; strictly above means the wiring is engaging.
+def test_survivor_economics_narrows_scalar_vectorized_gap(reconciliation):
+    # Primary acceptance evidence for the phase that wired survivor economics
+    # into the vectorized engine: ON must narrow the gap to the scalar
+    # engine's (correct) answer relative to OFF. Strict inequality -- a flat
+    # tie would mean the fix isn't engaging. Holds again (was a strict xfail
+    # 2026-09-30) now that the vectorized engine models the credit-shelter
+    # trust at first death: survivor economics raises success, the trust
+    # sequestration lowers it, and ON lands closest to the scalar engine.
     r = reconciliation
-    assert r["vector_on_rate"] > r["vector_off_rate"], (
-        f"survivor economics ON ({r['vector_on_rate']:.4f}) did not raise vectorized success above "
-        f"OFF ({r['vector_off_rate']:.4f}) -- the survivor adjustment may not be engaging on this fixture"
+    assert r["gap_on"] < r["gap_off"], (
+        f"survivor economics ON ({r['gap_on']:.4f} gap to scalar) did not narrow the gap "
+        f"relative to OFF ({r['gap_off']:.4f}) -- the fix may not be engaging on this fixture"
     )
 
 
