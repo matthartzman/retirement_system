@@ -109,3 +109,19 @@ Measured on the shipping engine, single changes: A-fix (`other_nodrag`) fixes `n
 ## 6. Caveats
 
 Single frozen household (couple, `cs_enabled`, $1.66M pretax / $0.52M taxable / $0.46M Roth at plan start); numbers will differ for other plans, especially single-person plans (no survivor or CST effects) and plans without conversions. Wellness shocks are off in all paired runs (the drift gate has them on; the sampled shocks are the same in both engines' definition but were not injected into the scalar side). n=1000 paired runs carry ~1.5pp standard error on the level and ~1pp on agreement; components under ~2pp (E alone, `cst`) are directionally supported but not individually significant on the shipping engine. The default-regime numbers use the engine's default `roth_policy` (`fill_to_bracket`); other policies were not run. The flat-return deterministic harness is not exactly deterministic in the scalar engine (sampled-inflation indices still differ slightly from the base projection), so absolute dollar diffs in §3.1/3.4 are indicative to ~±5%.
+
+## 7. Addendum — fix shipped (owner-approved direction: "funded as asked")
+
+Implemented on `claude/mc-vectorized-replay-funding`: (1) the headline success rate is computed with `allocation='replay'` (deterministic per-bucket draws, any-bucket fallback, no `tax_drag` gross-up); (2) `_mc_survivor_bucket_flows` now records `cst_funded_yr` and the projection sequesters that amount from taxable then cash at each path's first death; (3) the tier-bucket cascade still runs on the same paths as a shadow, supplying per-tier spend/shortfall, `essential_fully_funded_probability` and a new secondary output `success_rate_within_tier_policy` (+ `success_definition_within_tier_policy`). `_mc_vectorized_projection`/`_mc_vectorized_batch` default to `allocation='tier'`, so direct callers and every tier-policy test are unchanged; `monte_carlo()` and its sensitivity/required-cut/sustainable-spending helpers use replay.
+
+Measured after the change (frozen plan, survivor ON, wellness shocks off):
+
+| | scalar | vectorized before | vectorized after |
+|---|---|---|---|
+| `none`, n=800 seed 123 | 0.611 | 0.791 | **0.650** |
+| default, n=800 seed 123 | 0.675 | 0.625 | **0.675** |
+| paired agreement, n=200 (seeds 11/5/3) | | 82–85% / 91% | **95.5–100%** |
+
+Within-tier-policy secondary (n=800, seed 123): 0.785 (`none`), 0.620 (default). It keeps the tier engine's known biases (§3.1/3.4) and is labelled approximate. Survivor ON now narrows the gap to scalar (0.039 vs OFF 0.059), so that test's strict premise is restored without xfail. Fast tier (-n 4) and all nightly-marked tests pass; the only failures are 8 dashboard JS-codemod tests that also fail on the base branch (no Node in the container). No golden-master pin moved (deterministic projection untouched), so no changelog entry.
+
+Planner-review notes: headline success on `roth_policy=none` plans falls (~0.79→0.65 on the sample); on Roth-conversion plans it rises (~0.63→0.675). Plans with a credit-shelter trust lose the trust balance from the survivor's spendable assets, which is how the deterministic projection already treats it. The 10pp drift gate is unchanged pending owner sign-off; the measured gap now supports tightening (n=200/seed 2026 reading to be re-taken before proposing a value).
