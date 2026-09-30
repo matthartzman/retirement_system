@@ -30,9 +30,9 @@ def _fn_body(js: str, decl: str) -> str:
 def test_core_spending_renderer_is_flat_ordered_and_excludes_daf():
     js = _js()
     body = _fn_body(js, "function renderSpendingCore()")
-    assert "core-spending-flat" in body
+    assert "pc-fields" in body
     assert "renderFieldGroups(ordered)" not in body
-    assert "daf_annual_contribution" not in body.split("const labels =", 1)[1].split("const ordered = [];", 1)[0]
+    assert "daf_annual_contribution" not in body.split("const row1Labels =", 1)[1].split("const ordered = [];", 1)[0]
     assert "DAF contributions" in body
 
 
@@ -44,29 +44,18 @@ def test_core_spending_route_excludes_daf_annual_contribution():
 
 
 def test_core_spending_control_order_in_renderer():
+    """Two rows: method, rate (mode-dependent), stop year / YTD override, YTD blend."""
     js = _js()
     body = _fn_body(js, "function renderSpendingCore()")
-    labels_region = body.split("const labels =", 1)[1].split("const ordered = [];", 1)[0]
-    manual_branch, cpi_branch = labels_region.split('mode === "manual_override"', 1)[1].split("? [", 1)[1].split(
-        "]\n      : [", 1
-    )
-    cpi_branch = cpi_branch.split("];", 1)[0]
-    order = [
-        "core_spending_growth_mode",
-        "annual_spending_base_year",
-        "spending_freeze_year",
-        "inflation_general",
-    ]
-    pos = [cpi_branch.index(f'"{x}"') for x in order]
+    rate = body.split("const rateLabel =", 1)[1].split(";", 1)[0]
+    assert '"core_spending_manual_growth_rate"' in rate and '"inflation_general"' in rate
+    row1 = body.split("const row1Labels =", 1)[1].split(";", 1)[0]
+    pos = [row1.index(x) for x in ('"core_spending_growth_mode"', "rateLabel", '"spending_freeze_year"')]
     assert pos == sorted(pos)
-    manual_order = [
-        "core_spending_growth_mode",
-        "annual_spending_base_year",
-        "spending_freeze_year",
-        "core_spending_manual_growth_rate",
-    ]
-    # Use the manual label list specifically so CPI branch does not satisfy this by accident.
-    manual_pos = [manual_branch.index(f'"{x}"') for x in manual_order]
-    assert manual_pos == sorted(manual_pos)
+    row2 = body.split("const row2Labels =", 1)[1].split(";", 1)[0]
+    assert row2.index('"ytd_remainder_spending_override"') < row2.index('"ytd_blend_enabled"')
+    # The legacy single Core-Spending base input stays out of the controls.
+    assert 'norm(r.label) !== "annual_spending_base_year"' in body
+
 
 

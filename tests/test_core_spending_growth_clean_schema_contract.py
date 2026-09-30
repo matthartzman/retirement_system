@@ -10,8 +10,9 @@ def test_core_spending_step_has_growth_mode_and_relevant_rates():
     assert "core_spending_growth_mode" in js
     assert "core_spending_manual_growth_rate" in js
     assert "coreSpendingGrowthMode" in js
-    assert 'mode === "manual_override"\n      ? [\n          "core_spending_growth_mode",\n          "annual_spending_base_year",\n          "spending_freeze_year",\n          "core_spending_manual_growth_rate"' in js
-    assert ': [\n          "core_spending_growth_mode",\n          "annual_spending_base_year",\n          "spending_freeze_year",\n          "inflation_general"' in js
+    # Row 1 is method, rate (manual rate in manual mode, else general inflation), stop year.
+    assert 'mode === "manual_override" ? "core_spending_manual_growth_rate" : "inflation_general"' in js.replace("\n    ", " ")
+    assert 'const row1Labels = ["core_spending_growth_mode", rateLabel, "spending_freeze_year"];' in js
 
 
 def test_clean_forward_schema_removed_old_roth_and_planned_spending_aliases():
