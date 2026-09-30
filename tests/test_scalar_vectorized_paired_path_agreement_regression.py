@@ -10,17 +10,17 @@ engine's own generators and feeds the identical paths to both engines --
 ``project()`` per path for the exact scalar engine, ``_mc_vectorized_projection``
 for the vectorized one -- then compares path by path.
 
-What it pins is the *measured* state of the vectorized engine, not a promise of
-parity: see ``documentation/archive/reports/N1_MC_PARITY_RESIDUAL_DIAGNOSTIC_2026-09-30.md``
-for the decomposition of the residual gap. Measured on the frozen sample plan
-(n=1000, seed 11, survivor economics ON, wellness shocks off, 30-year horizon):
+What it pins: the vectorized engine's headline ("funded as asked") funding
+allocation replays the deterministic engine's per-bucket draws, sequesters the
+credit-shelter trust at first death, and so tracks the exact scalar engine path
+by path -- see documentation/archive/reports/N1_MC_PARITY_RESIDUAL_DIAGNOSTIC_2026-09-30.md
+for the decomposition that led here. Measured on the frozen sample plan (n=200,
+seeds 11/5/3, survivor economics ON, wellness shocks off, 30-year horizon):
+path agreement 95.5-100%, signed success-rate gap within +-3.5pp, for both
+roth_policy none and fill_to_bracket (before the change: agreement 82-85% with
+a +17pp gap under none, 91% with a -6pp gap under fill_to_bracket).
 
-    roth_policy none:          scalar 0.631, vectorized 0.804, agree 82.7%
-    roth_policy fill_to_bracket: scalar 0.673, vectorized 0.609, agree 90.8%
-
-The floors below sit ~2 standard errors under those figures at the default
-n=200, so they catch a real degradation of path-level fidelity without
-flaking. Raise them when the residual-gap fixes in the report land.
+The floors below leave ~2.5 standard errors of margin at the default n=200.
 """
 
 from __future__ import annotations
@@ -66,7 +66,7 @@ def _paired_success(c: dict, n: int, seed: int):
 
     proj = pe._mc_vectorized_projection(
         c, base_rows, returns, infl, max_death,
-        h_death_years=h_death, w_death_years=w_death, survivor_buckets=survivor)
+        h_death_years=h_death, w_death_years=w_death, survivor_buckets=survivor, allocation="replay")
     active = np.array(years).reshape(1, -1) <= max_death.reshape(-1, 1)
     vec_fail = ((proj["unfunded"] > 1.0) | (proj["liquid"] <= floor)) & active
     vec_ok = ~vec_fail.any(axis=1)
@@ -98,7 +98,7 @@ def _paired_success(c: dict, n: int, seed: int):
     return scalar_ok, vec_ok
 
 
-@pytest.fixture(scope="module", params=[("none", 0.77), (None, 0.85)], ids=["roth_none", "roth_fill_to_bracket"])
+@pytest.fixture(scope="module", params=[("none", 0.90), (None, 0.90)], ids=["roth_none", "roth_fill_to_bracket"])
 def paired(request):
     policy, floor = request.param
     scalar_ok, vec_ok = _paired_success(_config(policy), N_PATHS, SEED)
@@ -111,6 +111,14 @@ def test_path_level_agreement_holds_the_measured_floor(paired):
         f"paired-path scalar/vectorized agreement {agree:.3f} fell below the measured floor "
         f"{paired['floor']:.2f} (scalar success {paired['scalar'].mean():.3f}, vectorized "
         f"{paired['vec'].mean():.3f}); see N1_MC_PARITY_RESIDUAL_DIAGNOSTIC_2026-09-30.md"
+    )
+
+
+def test_success_rate_level_matches_scalar(paired):
+    gap = abs(float(paired["vec"].mean()) - float(paired["scalar"].mean()))
+    assert gap <= 0.06, (
+        f"paired-path success-rate gap {gap:.3f} (scalar {paired['scalar'].mean():.3f}, "
+        f"vectorized {paired['vec'].mean():.3f}) exceeds 6pp"
     )
 
 
