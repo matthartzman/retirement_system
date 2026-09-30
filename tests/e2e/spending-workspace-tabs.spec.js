@@ -50,9 +50,9 @@ test('Spending Model has no tabs; Actual Spending tab-switches between its merge
   await expect(page.getByRole('tab', { name: 'Analysis' })).toHaveClass(/active/);
   await expect(page.locator('.workspace-tab-body')).not.toBeEmpty();
 
-  // The tab choice is also a left-nav sub-tab, and is persisted to
-  // localStorage.
-  await expect(page.locator('.nav-subtab', { hasText: 'Analysis' })).toHaveClass(/active/);
+  // The tabs live inside the page only (no left-nav sub-tabs), and the choice
+  // is persisted to localStorage.
+  await expect(page.locator('.nav-subtab')).toHaveCount(0);
   const savedTab = await page.evaluate(() => localStorage.getItem('strategy_tab_actual_spending'));
   expect(savedTab).toBe('Analysis');
 });
