@@ -81,6 +81,21 @@ class ReleaseMonteCarloBehaviorTests(unittest.TestCase):
         all Wave 3 items: vectorized 0.565 vs exact_scalar 0.660). Not a new
         bug, but the gap has grown 5 -> 10pp over four changes, so a real fix
         to the vectorized approximations is due; re-tighten when it lands.
+
+        Measured 2026-09-30 (N1_MC_PARITY_RESIDUAL_DIAGNOSTIC_2026-09-30.md),
+        NOT a tolerance change: at n=200/seed 2026 this test reads exactly
+        10.00pp (vectorized 0.565 vs exact_scalar 0.665), but that is mostly
+        sampling noise -- the two engines draw from different RNG streams, so a
+        200-path difference has ~4.8pp of standard error. At n=800 the same
+        comparison reads 4.6pp (seed 2026) and 4.0pp (seed 7), always with the
+        vectorized engine BELOW scalar; on identical (paired) paths at n=1000 the
+        signed gap is -6.4pp. The drift is a small net of two large offsetting
+        biases (a tier-policy Roth/HSA restriction that fails paths the scalar
+        engine funds, ~-25pp, against missing tax-funding/RMD/credit-shelter
+        mechanics, ~+17-25pp), so it will not shrink monotonically as either is
+        fixed alone. Do not tighten this gate below ~10pp at n=200 without
+        raising n or moving to paired paths
+        (tests/test_scalar_vectorized_paired_path_agreement_regression.py).
         """
         data = load_csv(TEST_INPUT_DIR / "client_data.csv")
         try:

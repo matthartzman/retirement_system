@@ -38,6 +38,23 @@ survivor economics moves it further in that same direction, so the
 gap widens. That assertion is kept as a strict xfail so it is still
 measured every run and flips to a hard failure the day it starts passing;
 the loose sanity bound remains a normal assertion.
+
+Resolved 2026-09-30 (documentation/archive/reports/
+N1_MC_PARITY_RESIDUAL_DIAGNOSTIC_2026-09-30.md): the strict "ON narrows the
+gap" premise is retired. It conflated two things. (1) Survivor economics
+(spending step-down, survivor SS benefit, filing-status change) can only relieve
+funding pressure, so it MUST raise the vectorized success rate -- ON > OFF on
+identical paths, measured +2.0..+5.5pp over five seeds at n=200. (2) The level
+bias against the scalar engine (~+17pp on this roth_policy=none fixture) is
+pre-existing and comes from other components (tier-cascade tax funding, bucket
+allocation order, and the credit-shelter-trust sequestration at first death
+that the vectorized engine does not model), none of which survivor economics
+touches. On a deterministic-replay skeleton with the credit-shelter
+sequestration added, survivor economics ON lands within 0.2pp of the scalar
+engine (paired-path agreement 96%), i.e. the survivor adjustment is directionally
+correct; it just cannot be judged by a gap it was never responsible for. The test now asserts
+the direction (ON >= OFF on the same seed, hence the same sampled paths) and
+keeps the loose sanity bound.
 """
 
 from __future__ import annotations
@@ -84,28 +101,21 @@ def reconciliation():
         "scalar_rate": scalar_rate,
         "scalar_se": scalar_res["success_rate_standard_error"],
         "vector_on_rate": vector_on_res["success_rate"],
+        "vector_off_rate": vector_off_res["success_rate"],
         "gap_on": abs(scalar_rate - vector_on_res["success_rate"]),
         "gap_off": abs(scalar_rate - vector_off_res["success_rate"]),
     }
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "On the current frozen fixture the vectorized engine is already optimistic vs. "
-        "the scalar engine, and survivor economics moves it further the same way, so the "
-        "gap widens (see module docstring). Strict: an unexpected pass fails the run."
-    ),
-)
-def test_survivor_economics_narrows_scalar_vectorized_gap(reconciliation):
-    # Primary acceptance evidence for the phase that wired survivor economics
-    # into the vectorized engine: ON must narrow the gap to the scalar
-    # engine's (correct) answer relative to OFF. Strict inequality -- a flat
-    # tie would mean the fix isn't engaging.
+def test_survivor_economics_raises_vectorized_success(reconciliation):
+    # Same seed => the ON and OFF runs sample identical returns, inflation and
+    # death years, so the difference isolates the survivor adjustment. It can
+    # only relieve pressure (lower survivor spending, survivor SS benefit), so
+    # ON must not be below OFF; strictly above means the wiring is engaging.
     r = reconciliation
-    assert r["gap_on"] < r["gap_off"], (
-        f"survivor economics ON ({r['gap_on']:.4f} gap to scalar) did not narrow the gap "
-        f"relative to OFF ({r['gap_off']:.4f}) -- the fix may not be engaging on this fixture"
+    assert r["vector_on_rate"] > r["vector_off_rate"], (
+        f"survivor economics ON ({r['vector_on_rate']:.4f}) did not raise vectorized success above "
+        f"OFF ({r['vector_off_rate']:.4f}) -- the survivor adjustment may not be engaging on this fixture"
     )
 
 
