@@ -530,7 +530,11 @@ DASHBOARD_JS_MAX_LINES = 7_134
 # save-validation field linking, and one shared plan-independent step list --
 # all in dashboard_decomp_row_model.js; dashboard.js itself did not grow. New
 # behavior, not duplication: raised to the measured 36,999.
-TOTAL_JS_MAX_LINES = 36_999
+# 2026-09-30 (Tax Assumptions card): new frontend/js/dashboard_decomp_tax_assumptions.js
+# (202 lines) -- a new feature module (Tax Assumptions card on Economic & Tax
+# Assumptions), so dashboard.js does not grow. New behavior, not duplication:
+# raised by 202 to 37,201.
+TOTAL_JS_MAX_LINES = 37_201
 
 
 def _line_count(path: Path) -> int:

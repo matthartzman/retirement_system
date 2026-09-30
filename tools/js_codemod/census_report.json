@@ -2428,6 +2428,12 @@
       "scope": "inside-function"
     },
     {
+      "name": "lastBuildSummary",
+      "file": "frontend/js/dashboard_decomp_home_panels.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "planLoaded",
       "file": "frontend/js/dashboard_decomp_home_panels.js",
       "kind": "read",
@@ -3142,6 +3148,12 @@
       "scope": "inside-function"
     },
     {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_plan_features.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "boolishValue",
       "file": "frontend/js/dashboard_decomp_plan_features.js",
       "kind": "call",
@@ -3187,6 +3199,18 @@
       "name": "moduleGates",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "sectionFlagEnabled",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "sectionFlagEnabled",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "call",
       "scope": "inside-function"
     },
     {
@@ -4138,19 +4162,13 @@
       "scope": "inside-function"
     },
     {
-      "name": "renderDetailedResultsNav",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "STRATEGY_TABS",
+      "name": "activeStep",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
       "scope": "inside-function"
     },
     {
-      "name": "renderWorkspaceSubtabsNav",
+      "name": "renderDetailedResultsNav",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "call",
       "scope": "inside-function"
@@ -6340,7 +6358,31 @@
       "scope": "inside-function"
     },
     {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "activeStep",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "planLoaded",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
       "scope": "inside-function"
@@ -6755,6 +6797,18 @@
     },
     {
       "name": "taxonomyError",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxonomyData",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "taxonomyData",
       "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
       "kind": "read",
       "scope": "inside-function"
@@ -7223,6 +7277,12 @@
     },
     {
       "name": "taxBudget",
+      "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "searchText",
       "file": "frontend/js/dashboard_decomp_spending_taxonomy.js",
       "kind": "read",
       "scope": "inside-function"
@@ -8021,6 +8081,12 @@
     },
     {
       "name": "chartCache",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "closeChartModal",
       "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
       "kind": "read",
       "scope": "inside-function"
@@ -9456,12 +9522,6 @@
     {
       "name": "renderMain",
       "file": "frontend/js/spending_dashboard.js",
-      "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "closeChartModal",
-      "file": "frontend/index.html (inline)",
       "kind": "call",
       "scope": "inside-function"
     },
