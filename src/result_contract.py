@@ -211,7 +211,8 @@ def build_roth_strategy_result(c: Mapping[str, Any], rows: Sequence[Mapping[str,
     explanation = (
         f"Forced/user-directed conversions total ${forced:,.0f}; optimizer-selected voluntary conversions total ${voluntary:,.0f}; "
         f"total conversions are ${total:,.0f}. The configured target bracket is {_f(ropt.get('target_bracket', c.get('roth_target_rate',0.22))):.0%}, "
-        f"with {_f(ropt.get('headroom_usage_pct',0.95)):.0%} tax headroom and {_f(ropt.get('irmaa_headroom_usage_pct',0.95)):.0%} IRMAA headroom."
+        f"with {_f(ropt.get('headroom_usage_pct',0.95)):.0%} tax headroom and {_f(ropt.get('irmaa_headroom_usage_pct',0.95)):.0%} IRMAA headroom. "
+        "The bracket is a ceiling, not a target: each year's conversion is the smallest of the active caps (bracket room, IRMAA tier, LTCG rate tier, NIIT threshold, ACA guardrail, IRA balance, annual IRA percentage), and the Primary/Secondary Binding Limit columns name the ones that applied."
     )
     return RothStrategyResult(
         selected_strategy_name=selected_label,
