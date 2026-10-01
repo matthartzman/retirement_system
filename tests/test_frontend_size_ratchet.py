@@ -537,7 +537,10 @@ DASHBOARD_JS_MAX_LINES = 7_134
 # 2026-10-01 (Roth guardrail panel): new frontend/js/dashboard_decomp_roth_guardrails.js
 # (378 lines) -- a new feature module (ranked guardrail panel on Roth Conversion), so
 # dashboard.js does not grow. New behavior, not duplication: raised by 378 to 37,579.
-TOTAL_JS_MAX_LINES = 37_579
+# 2026-10-02 (Roth guardrail panel follow-up): live on/off state, IRMAA behavior select,
+# forced-year messaging and de-duplication of the generic Roth rows (+61 lines across
+# the panel module and the Roth page renderer). New behavior, not duplication: raised to 37,640.
+TOTAL_JS_MAX_LINES = 37_640
 
 
 def _line_count(path: Path) -> int:
