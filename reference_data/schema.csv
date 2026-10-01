@@ -241,6 +241,8 @@ Withdrawal Policy,Roth Conversion,estate_tax_objective_mode,choice,FALSE,BALANCE
 Withdrawal Policy,Roth Conversion,roth_headroom_usage_pct,percent,FALSE,95.00%,0,100,Percentage of tax bracket headroom to use for voluntary Roth conversions.
 Withdrawal Policy,Roth Conversion,irmaa_guardrail_mode,choice,FALSE,AVOID_NEXT_TIER,,,IGNORE | WARN_ONLY | AVOID_NEXT_TIER | AVOID_TIER_2_OR_ABOVE | CUSTOM_MAGI_CAP; Medicare threshold guardrail for Roth conversions.
 Withdrawal Policy,Roth Conversion,roth_irmaa_headroom_usage_pct,percent,FALSE,95.00%,0,100,Percentage of IRMAA headroom to use before stopping voluntary Roth conversions.
+Withdrawal Policy,Roth Conversion,roth_bracket_guardrail,boolean,FALSE,TRUE,,,TRUE | FALSE; cap voluntary Roth conversions at the room left in the target tax bracket.
+Withdrawal Policy,Roth Conversion,roth_aca_guardrail,boolean,FALSE,TRUE,,,TRUE | FALSE; in ACA bridge years cap conversions to keep premium credits. Off does not change how credits are modeled.
 Withdrawal Policy,Roth Conversion,roth_ltcg_guardrail,boolean,FALSE,TRUE,,,TRUE | FALSE; cap voluntary Roth conversions at the top of the current 0%/15% LTCG rate band. The smallest active cap wins.
 Withdrawal Policy,Roth Conversion,roth_ltcg_band,choice,FALSE,auto,,,auto | 0% | 15%; which long-term capital gain rate band conversions must stay within. auto uses the band your income is in.
 Withdrawal Policy,Roth Conversion,roth_ltcg_headroom_usage_pct,percent,FALSE,95.00%,0,100,Percentage of LTCG rate-band headroom to use before stopping voluntary Roth conversions.

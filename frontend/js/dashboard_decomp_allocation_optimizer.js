@@ -1112,6 +1112,8 @@ export const ROTH_GUARDRAIL_PANEL_LABELS = [
   "irmaa_guardrail_mode",
   "roth_irmaa_target_tier",
   "roth_irmaa_headroom_usage_pct",
+  "roth_bracket_guardrail",
+  "roth_aca_guardrail",
   "roth_ltcg_guardrail",
   "roth_ltcg_band",
   "roth_ltcg_headroom_usage_pct",

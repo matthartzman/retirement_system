@@ -2538,6 +2538,11 @@ export function valueKind(r) {
   // (that keyword is for genuine dollar exclusions like
   // section_121_exclusion_mfj and annual_exclusion_per_donee).
   if (r && l === "exclusion_ratio") return "percent_fraction";
+  // Every *_weight setting (Roth optimizer and legacy weights, real-loss
+  // weight) is stored as a raw multiplier (0.35, 1.00) and shown as a percent
+  // (35%, 100%). Checked before the keyword matching below, which reads a
+  // "tax" in the label as a dollar amount.
+  if (r && /_weight$/.test(l)) return "percent_fraction";
   if (
     !r ||
     isDateField(r) ||

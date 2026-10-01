@@ -112,7 +112,8 @@ def parse_roth_conversion_policy(data):
         out[_key] = min(1.0, max(0.0, _n(_v(data, 'Withdrawal Policy', 'Roth Conversion', _lbl, '95%'), 0.95)))
     _band = str(_v(data, 'Withdrawal Policy', 'Roth Conversion', 'roth_ltcg_band', 'auto') or 'auto').strip().lower()
     out['roth_ltcg_band'] = _band if _band in ('auto', '0%', '15%') else 'auto'
-    for _lbl, _key in (('roth_ltcg_guardrail', 'roth_ltcg_cap'), ('roth_niit_guardrail', 'roth_niit_cap')):
+    for _lbl, _key in (('roth_ltcg_guardrail', 'roth_ltcg_cap'), ('roth_niit_guardrail', 'roth_niit_cap'),
+                       ('roth_bracket_guardrail', 'roth_bracket_cap'), ('roth_aca_guardrail', 'roth_aca_cap')):
         _raw = str(_v(data, 'Withdrawal Policy', 'Roth Conversion', _lbl, 'TRUE') or 'TRUE').strip().upper()
         out[_key] = _raw not in ('FALSE', 'NO', 'OFF', '0', 'N')
     out['irmaa_guardrail_mode'] = normalize_irmaa_guardrail_mode(_v(data, 'Withdrawal Policy', 'Roth Conversion',
