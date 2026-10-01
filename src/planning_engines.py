@@ -3153,9 +3153,27 @@ def roth_guardrail_analysis(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, An
             "terminal_wealth_pv_change": terminal_pv_delta,
             "lcv_change": m2["lcv_score"] - base_metrics["lcv_score"],
         }
+    # Dollar thresholds behind each dropdown choice, for the first plan year
+    # (indexed to that year), so the panel can print "Tier 2 - $266,000".
+    options: Dict[str, Any] = {}
+    try:
+        _y0 = years[0]["year"]
+        _filing = str(rows[0].get("filing_status") or rows[0].get("filing") or "MFJ")
+        _f0 = _tk.bracket_factor_for_year(c, _y0)
+        _t0, _t15 = _roth_ltcg_thresholds_base(c, _filing)
+        options = {
+            "year": _y0,
+            "irmaa": {t: _roth_irmaa_target_threshold({**dict(c), "roth_irmaa_target_tier": t}, _filing, _y0)
+                      for t in ("TIER_1", "TIER_2", "TIER_3", "TIER_4", "TIER_5")},
+            "ltcg": {"0%": _t0 * _f0, "15%": _t15 * _f0},
+            "niit": _roth_niit_threshold_base(c, _filing),
+        }
+    except Exception:
+        options = {}
     return {
         "years": years,
         "whatif": whatif,
+        "options": options,
         "baseline": {
             "total_conversions": base_metrics["total_conversion"],
             "lifetime_tax_pv": base_metrics["lifetime_tax"],
