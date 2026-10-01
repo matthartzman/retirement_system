@@ -280,6 +280,12 @@ def run_projection_artifacts(c: Mapping[str, Any], run_mc: bool = True, enforce_
     except Exception as exc:
         cfg['advisor_readiness'] = {'status': 'REVIEW_REQUIRED', 'warnings': [str(exc)], 'is_advisor_ready': False}
     try:
+        if cfg.get('roth_policy') not in (None, '', 'none'):
+            from .planning_engines import roth_guardrail_analysis
+            cfg['roth_guardrail_analysis'] = roth_guardrail_analysis(cfg, rows)
+    except Exception as exc:
+        cfg.setdefault('config_contract_warnings', []).append(f'Roth guardrail analysis skipped: {exc}')
+    try:
         cfg = attach_plan_result(cfg, rows, mc_data, validation)
     except Exception as exc:
         cfg.setdefault('config_contract_warnings', []).append(f'PlanResult contract build failed: {exc}')

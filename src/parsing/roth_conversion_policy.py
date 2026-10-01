@@ -110,6 +110,8 @@ def parse_roth_conversion_policy(data):
     for _lbl, _key in (('roth_ltcg_headroom_usage_pct', 'roth_ltcg_headroom_usage_pct'),
                        ('roth_niit_headroom_usage_pct', 'roth_niit_headroom_usage_pct')):
         out[_key] = min(1.0, max(0.0, _n(_v(data, 'Withdrawal Policy', 'Roth Conversion', _lbl, '95%'), 0.95)))
+    _band = str(_v(data, 'Withdrawal Policy', 'Roth Conversion', 'roth_ltcg_band', 'auto') or 'auto').strip().lower()
+    out['roth_ltcg_band'] = _band if _band in ('auto', '0%', '15%') else 'auto'
     for _lbl, _key in (('roth_ltcg_guardrail', 'roth_ltcg_cap'), ('roth_niit_guardrail', 'roth_niit_cap')):
         _raw = str(_v(data, 'Withdrawal Policy', 'Roth Conversion', _lbl, 'TRUE') or 'TRUE').strip().upper()
         out[_key] = _raw not in ('FALSE', 'NO', 'OFF', '0', 'N')
