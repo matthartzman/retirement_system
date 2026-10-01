@@ -780,7 +780,7 @@ ROTH_UI_PLAN_DATA_ROWS: list[list[str]] = [
     ["Withdrawal Policy", "Roth Conversion", "max_conversion_years", "10", "years", "Maximum number of years in the voluntary conversion window, also bounded by the RMD-age window."],
     ["Withdrawal Policy", "Roth Conversion", "roth_optimize_terminal_weight", "1.00", "number", "Weight on after-tax terminal net worth in the optimizer objective."],
     ["Withdrawal Policy", "Roth Conversion", "roth_optimize_lifetime_tax_weight", "0.25", "number", "Weight on lifetime tax penalty in the optimizer objective."],
-    ["Withdrawal Policy", "Roth Conversion", "roth_optimize_terminal_pretax_tax_rate", "24.00%", "percent", "After-tax haircut applied to terminal pre-tax balances for objective scoring."],
+    ["Withdrawal Policy", "Roth Conversion", "roth_optimize_terminal_pretax_tax_rate", "24.00%", "percent", "Haircut on end-of-plan pre-tax balances: the tax rate subtracted from pre-tax money left at the end of the plan, because heirs owe income tax on it."],
     ["Withdrawal Policy", "Roth Conversion", "legacy_objective_mode", "BALANCED", "choice", "OFF | LOW | BALANCED | STRONG; adds future-tax and inheritance-burden weighting to Roth conversion optimization."],
     ["Withdrawal Policy", "Roth Conversion", "future_tax_rate_stress_pct", "10.00%", "percent", "Additional future ordinary-tax-rate stress used only for scoring Roth conversion candidates."],
     ["Withdrawal Policy", "Roth Conversion", "future_tax_risk_weight", "0.35", "number", "Weight on reducing future pre-tax IRA exposure if tax rates rise faster than modeled."],
