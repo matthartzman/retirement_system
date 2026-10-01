@@ -81,3 +81,30 @@ test("no guardrail data renders nothing", () => {
   assert.equal(rothGuardrailPanelHtml(null, ctx()), "");
   assert.equal(rothGuardrailPanelHtml({ years: [] }, ctx()), "");
 });
+
+test("switching a guardrail off follows the saved setting, not the last build", () => {
+  const { rothGuardrailPanelHtml, rgLiveOff } = loadDashboardSandbox();
+  const off = rgLiveOff((k) => ({ roth_ltcg_guardrail: "FALSE", irmaa_guardrail_mode: "AVOID_NEXT_TIER" }[k] ?? ""));
+  assert.equal(off.ltcg, true);
+  assert.equal(off.irmaa, false);
+  const html = rothGuardrailPanelHtml(g(), ctx({ val: (k) => ({ roth_ltcg_guardrail: "FALSE" }[k] ?? "") }));
+  assert.match(html, /rg-badge boff">Off</);
+  assert.doesNotMatch(html, /Binding now<\/span>\s*<\/div><div class="rg-desc">Stops before/);
+});
+
+test("IRMAA is a behavior pulldown with every mode, not a switch", () => {
+  const { rothGuardrailPanelHtml } = loadDashboardSandbox();
+  const html = rothGuardrailPanelHtml(g(), ctx({ idx: () => 3, val: () => "" }));
+  for (const m of ["AVOID_NEXT_TIER", "AVOID_TIER_2_OR_ABOVE", "CUSTOM_MAGI_CAP", "WARN_ONLY", "IGNORE"])
+    assert.match(html, new RegExp(`value="${m}"`));
+});
+
+test("a forced-conversion year is selectable and says the forced amount is not limited", () => {
+  const { rothGuardrailPanelHtml } = loadDashboardSandbox();
+  const data = g();
+  data.years.unshift({ year: 2026, amount: 125000, forced: true, caps: [] });
+  const html = rothGuardrailPanelHtml(data, ctx({ year: 2026 }));
+  assert.match(html, /<option value="2026" selected>/);
+  assert.match(html, /forced conversion of <b>\$125,000<\/b>/);
+  assert.match(html, /Forced Roth Conversions table/);
+});

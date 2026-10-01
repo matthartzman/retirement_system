@@ -56,3 +56,11 @@ def test_full_pipeline_analysis_reports_measured_whatif():
         assert gid in ("irmaa", "ltcg", "niit")
         assert set(w) == {"extra_converted", "lifetime_tax_pv_change", "terminal_wealth_pv_change", "lcv_change"}
     assert out["settings"]["switches"].keys() == {"irmaa", "ltcg", "niit"}
+
+
+def test_forced_conversion_year_is_listed_even_with_no_caps():
+    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+    out = roth_guardrail_analysis(c, project(c))
+    first = out["years"][0]
+    assert first["forced"] is True
+    assert first["amount"] == 125000.0
