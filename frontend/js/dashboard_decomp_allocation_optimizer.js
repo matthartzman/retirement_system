@@ -1105,6 +1105,21 @@ export function rothPolicyIsOptimizer(policy) {
   );
 }
 
+// Settings the guardrail panel (dashboard_decomp_roth_guardrails.js) edits.
+export const ROTH_GUARDRAIL_PANEL_LABELS = [
+  "roth_target_bracket_rate",
+  "roth_headroom_usage_pct",
+  "irmaa_guardrail_mode",
+  "roth_irmaa_target_tier",
+  "roth_irmaa_headroom_usage_pct",
+  "roth_ltcg_guardrail",
+  "roth_ltcg_band",
+  "roth_ltcg_headroom_usage_pct",
+  "roth_niit_guardrail",
+  "roth_niit_headroom_usage_pct",
+  "max_annual_conversion_pct_of_traditional_ira",
+];
+
 export function renderRothConversion() {
   if (searchText.trim()) return renderFields("roth_conversion");
   const policy = rothPolicyValue();
@@ -1194,6 +1209,17 @@ export function renderRothConversion() {
   } else if (policyIsBracket) {
     calibration = orderedRowsByLabel(["roth_tax_discount_rate"]);
   }
+  // Once the last build has produced the guardrail panel, it owns these
+  // settings (same rows, edited there). Showing them again below would be two
+  // inputs for one value, so the generic rows are dropped. Before a build the
+  // panel is absent and these rows are the only way to edit them.
+  const panelRes = rothStrategyResultFromLastBuild();
+  if (panelRes && panelRes.guardrails) {
+    const owned = new Set(ROTH_GUARDRAIL_PANEL_LABELS);
+    const keep = (r) => !owned.has(norm(r.label));
+    strategy = strategy.filter(keep);
+    guardrail = guardrail.filter(keep);
+  }
   const used = new Set(
     [...control, ...strategy, ...guardrail, ...calibration, ...scoring]
       .map((r) => r && norm(r.label))
@@ -1202,6 +1228,11 @@ export function renderRothConversion() {
   const other = rowsForStep("roth_conversion").filter(
     (r) =>
       !used.has(norm(r.label)) &&
+      !(
+        panelRes &&
+        panelRes.guardrails &&
+        ROTH_GUARDRAIL_PANEL_LABELS.includes(norm(r.label))
+      ) &&
       !norm(r.label).startsWith("roth_conversion_") &&
       !norm(r.label).startsWith("forced_"),
   );

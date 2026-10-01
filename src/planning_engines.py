@@ -2195,12 +2195,24 @@ def plan_roth_conversion(
     state_tax_estimate_fn: Callable[[float, int], float],
 ) -> ConversionPlan:
     """Compute the Roth conversion amount and diagnostics for a projection year."""
+    _call_args = dict(locals())
     forced_amount = float((c.get("forced_roth", {}) or {}).get(year, 0.0) or 0.0)
     if forced_amount > 0:
 
         forced_rows = (c.get('forced_roth_accounts') or {}).get(year, []) or []
         forced_source = str(forced_rows[0].get('source_account','') if forced_rows else '')
-        return ConversionPlan(amount=forced_amount, forced=True, binding_limit='Forced action', secondary_binding_limit='User-entered forced action', source_account=forced_source, forced_sources=forced_rows)
+        # The forced amount is not limited by any guardrail, but the panel still
+        # shows what each guardrail would have allowed that year, so size the
+        # caps as if no conversion were forced and keep only that diagnostic.
+        _caps_json = ""
+        try:
+            _c2 = dict(c)
+            _c2["forced_roth"] = {k: v for k, v in (c.get("forced_roth") or {}).items() if k != year}
+            _call_args["c"] = _c2
+            _caps_json = plan_roth_conversion(**_call_args).guardrail_caps
+        except Exception:
+            _caps_json = ""
+        return ConversionPlan(amount=forced_amount, forced=True, binding_limit='Forced action', secondary_binding_limit='User-entered forced action', source_account=forced_source, forced_sources=forced_rows, guardrail_caps=_caps_json)
 
     policy = (c.get("roth_policy", "fill_to_bracket") or "fill_to_bracket").lower()
     if policy in ("optimize", "optimize_terminal_tax", "terminal_tax_optimize", "balanced_optimize"):
@@ -3114,13 +3126,12 @@ def roth_guardrail_analysis(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, An
     seen_ids: List[str] = []
     for r in rows:
         raw = r.get("conv_guardrail_caps")
-        if not raw:
-            continue
         try:
-            caps = json.loads(raw) if isinstance(raw, str) else list(raw)
+            caps = (json.loads(raw) if isinstance(raw, str) else list(raw)) if raw else []
         except Exception:
-            continue
-        if not caps:
+            caps = []
+        forced_year = str(r.get("conv_binding_limit") or "") == "Forced action"
+        if not caps and not forced_year and not float(r.get("roth_conv", 0.0) or 0.0):
             continue
         for cap in caps:
             if cap.get("id") not in seen_ids:
@@ -3129,6 +3140,7 @@ def roth_guardrail_analysis(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, An
             "year": int(r.get("year", 0) or 0),
             "pre_agi": float(r.get("conv_pre_agi", 0.0) or 0.0),
             "amount": float(r.get("roth_conv", 0.0) or 0.0),
+            "forced": str(r.get("conv_binding_limit") or "") == "Forced action",
             "binding": str(r.get("conv_binding_limit") or ""),
             "secondary": str(r.get("conv_secondary_binding_limit") or ""),
             "caps": caps,

@@ -30,12 +30,34 @@ const RG_DESC = {
 // Which setting rows each guardrail edits. `on` rows are switches.
 const RG_ROWS = {
   bracket: { select: "roth_target_bracket_rate", pct: "roth_headroom_usage_pct" },
-  irmaa: { on: "irmaa_guardrail_mode", select: "roth_irmaa_target_tier", pct: "roth_irmaa_headroom_usage_pct" },
+  irmaa: { mode: "irmaa_guardrail_mode", select: "roth_irmaa_target_tier", pct: "roth_irmaa_headroom_usage_pct" },
   ltcg: { on: "roth_ltcg_guardrail", select: "roth_ltcg_band", pct: "roth_ltcg_headroom_usage_pct" },
   niit: { on: "roth_niit_guardrail", pct: "roth_niit_headroom_usage_pct" },
   pct: { pct: "max_annual_conversion_pct_of_traditional_ira" },
 };
 const RG_SWITCHABLE = ["irmaa", "ltcg", "niit"];
+const RG_IRMAA_MODES = [
+  ["AVOID_NEXT_TIER", "Avoid the next tier"],
+  ["AVOID_TIER_2_OR_ABOVE", "Avoid Tier 2 or above"],
+  ["CUSTOM_MAGI_CAP", "Custom income cap"],
+  ["WARN_ONLY", "Warn only (no cap)"],
+  ["IGNORE", "Ignore"],
+];
+
+// A switch row is "off" when its saved value says so. Returns {id: bool} for
+// the guardrails whose setting row is present, so the panel follows edits
+// made since the last build instead of snapping back to the build's value.
+export function rgLiveOff(val) {
+  const out = {};
+  const yes = (v) => !/^(false|no|off|0)$/i.test(String(v).trim());
+  const lt = val("roth_ltcg_guardrail");
+  if (lt !== "" && lt != null) out.ltcg = !yes(lt);
+  const ni = val("roth_niit_guardrail");
+  if (ni !== "" && ni != null) out.niit = !yes(ni);
+  const mode = String(val("irmaa_guardrail_mode") || "").trim().toUpperCase();
+  if (mode) out.irmaa = mode === "IGNORE" || mode === "WARN_ONLY";
+  return out;
+}
 
 let rgYear = null;
 let rgManual = false;
@@ -72,7 +94,7 @@ export function rgPctNumber(text, fallback) {
 }
 
 // Guardrails for one plan year, ranked. `order` (ids) wins when `manual`.
-export function rgRankRows(guardrails, year, order, manual) {
+export function rgRankRows(guardrails, year, order, manual, offMap) {
   const years = (guardrails && guardrails.years) || [];
   const entry = years.find((y) => String(y.year) === String(year)) || years[0];
   if (!entry) return { entry: null, rows: [] };
@@ -80,7 +102,10 @@ export function rgRankRows(guardrails, year, order, manual) {
   (entry.caps || []).forEach((c) => {
     if (c.id !== "balance") capById[c.id] = c;
   });
-  const switches = (guardrails.settings && guardrails.settings.switches) || {};
+  const switches = Object.assign({}, (guardrails.settings && guardrails.settings.switches) || {});
+  Object.keys(offMap || {}).forEach((k) => {
+    switches[k] = !offMap[k];
+  });
   const ids = [];
   years.forEach((y) =>
     (y.caps || []).forEach((c) => {
@@ -95,7 +120,7 @@ export function rgRankRows(guardrails, year, order, manual) {
     return {
       id,
       name: cap && id === "bracket" ? cap.name : RG_NAMES[id] || (cap && cap.name) || id,
-      active: !!cap,
+      active: !!cap && switches[id] !== false,
       cap: cap ? cap.cap : null,
       off: switches[id] === false,
     };
@@ -164,6 +189,8 @@ function rgControls(row, g, ctx) {
   const opts = g.options || {};
   let h = "";
   if (map.on) h += rgSwitch(map.on, ctx, !row.off, "Use " + row.name);
+  if (map.mode)
+    h += rgSelect("Behavior", map.mode, ctx.val(map.mode) || "AVOID_NEXT_TIER", RG_IRMAA_MODES, ctx);
   if (row.id === "bracket")
     h += rgSelect("Target bracket", map.select, ctx.val(map.select) || "", RG_RATES.map((r) => [r, r]), ctx);
   if (row.id === "irmaa") {
@@ -214,7 +241,7 @@ function rgWhatIfHtml(row, g) {
 export function rothGuardrailPanelHtml(g, ctx) {
   if (!g || !(g.years || []).length) return "";
   const year = ctx.year != null ? ctx.year : g.years[0].year;
-  const { entry, rows, maxCap } = rgRankRows(g, year, ctx.order, ctx.manual);
+  const { entry, rows, maxCap } = rgRankRows(g, year, ctx.order, ctx.manual, rgLiveOff(ctx.val));
   if (!entry) return "";
   const yearOpts = g.years
     .map((y) => `<option value="${y.year}"${String(y.year) === String(entry.year) ? " selected" : ""}>${y.year}</option>`)
@@ -222,9 +249,14 @@ export function rothGuardrailPanelHtml(g, ctx) {
   const live = rows.filter((r) => r.active).sort((a, b) => a.cap - b.cap);
   const win = live[0];
   const second = live[1];
-  const summary = win
-    ? `In ${entry.year}, conversions were held to <b>${rgMoney(entry.amount)}</b>, limited by <b>${rgEsc(win.name)}</b>${second ? `, with <b>${rgEsc(second.name)}</b> next at ${rgMoney(second.cap)}` : ""}.`
-    : `No guardrail capped a conversion in ${entry.year}.`;
+  const forcedNote = entry.forced
+    ? `${entry.year} has a forced conversion of <b>${rgMoney(entry.amount)}</b>, which no guardrail limits. Change it in the Forced Roth Conversions table further down this page. `
+    : "";
+  const summary = forcedNote + (win
+    ? entry.forced
+      ? `Left to the guardrails, ${entry.year} would have been held to <b>${rgMoney(win.cap)}</b> by <b>${rgEsc(win.name)}</b>${second ? `, with <b>${rgEsc(second.name)}</b> next at ${rgMoney(second.cap)}` : ""}.`
+      : `In ${entry.year}, conversions were held to <b>${rgMoney(entry.amount)}</b>, limited by <b>${rgEsc(win.name)}</b>${second ? `, with <b>${rgEsc(second.name)}</b> next at ${rgMoney(second.cap)}` : ""}.`
+    : `No guardrail sized a conversion in ${entry.year}${entry.forced ? "" : ": there was no room under your limits that year"}.`);
   const items = rows
     .map((r, i) => {
       const badge = !r.active
@@ -368,6 +400,7 @@ try {
 Object.assign(window, {
   rgMoney,
   rgRankRows,
+  rgLiveOff,
   rgWhatIf,
   rothGuardrailPanelHtml,
   rothGuardrailSetYear,
