@@ -127,6 +127,7 @@ def roth_strategy_result_payload(c, limit=ROTH_CANDIDATE_DISPLAY_LIMIT):
         'explanation': str(contract.get('explanation') or ''),
         'candidates': candidates,
         'candidate_count': len(all_candidates),
+        'guardrails': c.get('roth_guardrail_analysis') or None,
     }
 
 

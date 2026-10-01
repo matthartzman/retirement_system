@@ -534,7 +534,10 @@ DASHBOARD_JS_MAX_LINES = 7_134
 # (202 lines) -- a new feature module (Tax Assumptions card on Economic & Tax
 # Assumptions), so dashboard.js does not grow. New behavior, not duplication:
 # raised by 202 to 37,201.
-TOTAL_JS_MAX_LINES = 37_201
+# 2026-10-01 (Roth guardrail panel): new frontend/js/dashboard_decomp_roth_guardrails.js
+# (378 lines) -- a new feature module (ranked guardrail panel on Roth Conversion), so
+# dashboard.js does not grow. New behavior, not duplication: raised by 378 to 37,579.
+TOTAL_JS_MAX_LINES = 37_579
 
 
 def _line_count(path: Path) -> int:

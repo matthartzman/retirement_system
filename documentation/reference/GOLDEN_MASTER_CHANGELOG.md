@@ -1,3 +1,12 @@
+## 2026-10-01 — Full-row snapshot regenerated: new row field `conv_guardrail_caps` (no value change)
+
+<!-- fixture-provenance: deterministic_engine_full_row_snapshot_cases.json sha256=735105ff7de4964d4949ed06029163ff49a055fe13e013f23b09a566e37a5c15 -->
+
+Projection rows gain one field, `conv_guardrail_caps`: a JSON string listing every Roth conversion cap sized
+that year (id, name, dollars), so the Roth guardrail panel can rank all of them rather than only the two that
+bound. Regenerated with `tools/regen_full_row_snapshot.py`; the diff is only that added field. No existing
+field, balance, tax or aggregate moved, and the frozen-plan and synthetic golden-master pins are untouched.
+
 ## 2026-09-30 — Provenance binding for the synthetic and full-row snapshot fixtures (no value change)
 
 <!-- fixture-provenance: synthetic_golden_master_cases.json sha256=b3a5840513e53005bb862cd19c16228f9840c77c97bf5844f28faaa76da61102 -->

@@ -1718,6 +1718,29 @@ projection loop.  It is intentionally side-effect free except for
 # above (system review 4.1: removed this section's own duplicate re-import).
 
 
+def roth_guardrail_id(name: str) -> str:
+    """Stable id for a conversion cap's display name (used by the guardrail panel)."""
+    n = str(name or "")
+    low = n.lower()
+    if low.endswith("bracket"):
+        return "bracket"
+    if low.startswith("tier"):
+        return "irmaa"
+    if low.startswith("ltcg"):
+        return "ltcg"
+    if low.startswith("niit"):
+        return "niit"
+    if low.startswith("aca"):
+        return "aca"
+    if low.startswith("annual ira"):
+        return "pct"
+    if low.startswith("ira balance"):
+        return "balance"
+    if low.startswith("fixed"):
+        return "fixed"
+    return low.replace(" ", "_")
+
+
 @dataclass(frozen=True)
 class ConversionPlan:
     amount: float = 0.0
@@ -1735,6 +1758,9 @@ class ConversionPlan:
     by_dest: Dict[str, float] = field(default_factory=dict)
     source_account: str = ""
     forced_sources: List[Dict[str, float | str]] = field(default_factory=list)
+    # JSON list of {"id","name","cap"} for every cap that was sized this year
+    # (not just the two that bound), so the Roth guardrail panel can rank them.
+    guardrail_caps: str = ""
 
     def as_row_fields(self) -> Dict[str, float | str]:
         return {
@@ -1748,6 +1774,7 @@ class ConversionPlan:
             "conv_w_ira_avail": self.secondary_pretax_available,
             "conv_binding_limit": self.binding_limit,
             "conv_secondary_binding_limit": self.secondary_binding_limit,
+            "conv_guardrail_caps": self.guardrail_caps,
         }
 
 
@@ -2281,9 +2308,12 @@ def plan_roth_conversion(
     max_pct = min(1.0, max(0.0, max_pct))
     max_pct_cap = ira_total * max_pct if max_pct > 0 else float("inf")
 
+    caps_seen: list[dict] = []
+
     def _ranked_caps(caps: list[tuple[str, float]]) -> tuple[float, str, str]:
         clean = [(name, max(0.0, float(val))) for name, val in caps if val is not None]
         clean.sort(key=lambda x: x[1])
+        caps_seen[:] = [{"id": roth_guardrail_id(n), "name": n, "cap": round(v, 2)} for n, v in clean]
         if not clean:
             return 0.0, "", ""
         primary = clean[0]
@@ -2308,7 +2338,16 @@ def plan_roth_conversion(
             ltcg_top0, ltcg_top15 = _roth_ltcg_thresholds_base(c, filing)
             ltcg_top0 *= bracket_factor
             ltcg_top15 *= bracket_factor
-            if pre_agi < ltcg_top0:
+            # roth_ltcg_band: 'auto' stays within whichever band income is in
+            # today; '0%' / '15%' name the band to stay within. A named band
+            # income has already passed cannot be stayed within, so it adds no
+            # cap (a cap of $0 would silently block every conversion).
+            _band = str(c.get("roth_ltcg_band", "auto") or "auto").strip().lower()
+            if _band in ("0%", "0", "zero"):
+                ltcg_ceiling = ltcg_top0 if pre_agi < ltcg_top0 else None
+            elif _band in ("15%", "15", "fifteen"):
+                ltcg_ceiling = ltcg_top15 if pre_agi < ltcg_top15 else None
+            elif pre_agi < ltcg_top0:
                 ltcg_ceiling = ltcg_top0
             elif pre_agi < ltcg_top15:
                 ltcg_ceiling = ltcg_top15
@@ -2396,6 +2435,7 @@ def plan_roth_conversion(
         secondary_pretax_available=secondary_avail,
         binding_limit=binding,
         secondary_binding_limit=secondary_binding,
+        guardrail_caps=json.dumps(caps_seen) if caps_seen else "",
     )
 
 
@@ -2605,6 +2645,7 @@ Version 7.5 MC correction:
 
 import contextlib
 import copy
+import json
 import io
 from collections import defaultdict
 from . import strategy_sweep
@@ -3044,6 +3085,114 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
         'score': score,
         'consumption_pv': consumption_pv,
         'lcv_score': lcv_score,
+    }
+
+
+# Guardrails whose on/off switch is a plain config key, so a what-if rerun can
+# flip them. The bracket and annual-share limits are part of the chosen policy
+# itself (not switches) and the ACA limit follows aca_ptc_enabled, so none of
+# those three get a what-if.
+ROTH_GUARDRAIL_SWITCHES = {
+    "irmaa": ("roth_irmaa_cap", "Medicare IRMAA tier"),
+    "ltcg": ("roth_ltcg_cap", "Capital gains rate band"),
+    "niit": ("roth_niit_cap", "3.8% investment income tax"),
+}
+
+
+def roth_guardrail_analysis(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, Any]:
+    """Per-year guardrail caps plus a what-if for each switchable guardrail.
+
+    ``years`` comes straight from the projection rows' ``conv_guardrail_caps``.
+    ``whatif`` reruns the projection with one switch turned off and reports the
+    change against the baseline in total conversions, PV lifetime tax, PV
+    after-tax terminal wealth and LCV (PV lifetime consumption + PV after-tax
+    terminal transfer -- the same measure the Roth optimizer already ranks by).
+    Reads and writes nothing on ``c``.
+    """
+    rows = list(rows or [])
+    years: List[Dict[str, Any]] = []
+    seen_ids: List[str] = []
+    for r in rows:
+        raw = r.get("conv_guardrail_caps")
+        if not raw:
+            continue
+        try:
+            caps = json.loads(raw) if isinstance(raw, str) else list(raw)
+        except Exception:
+            continue
+        if not caps:
+            continue
+        for cap in caps:
+            if cap.get("id") not in seen_ids:
+                seen_ids.append(cap.get("id"))
+        years.append({
+            "year": int(r.get("year", 0) or 0),
+            "pre_agi": float(r.get("conv_pre_agi", 0.0) or 0.0),
+            "amount": float(r.get("roth_conv", 0.0) or 0.0),
+            "binding": str(r.get("conv_binding_limit") or ""),
+            "secondary": str(r.get("conv_secondary_binding_limit") or ""),
+            "caps": caps,
+        })
+    if not years:
+        return {}
+
+    base_metrics = _roth_strategy_metrics(c, rows)
+    whatif: Dict[str, Any] = {}
+    for gid, (key, _label) in ROTH_GUARDRAIL_SWITCHES.items():
+        if gid not in seen_ids or not c.get(key, True):
+            continue
+        try:
+            c2, rows2 = run_scenario(c, {key: False})
+            m2 = _roth_strategy_metrics(c2, rows2)
+        except Exception:
+            continue
+        terminal_pv_delta = (m2["lcv_score"] - m2["consumption_pv"]) - (base_metrics["lcv_score"] - base_metrics["consumption_pv"])
+        whatif[gid] = {
+            "extra_converted": m2["total_conversion"] - base_metrics["total_conversion"],
+            "lifetime_tax_pv_change": m2["lifetime_tax"] - base_metrics["lifetime_tax"],
+            "terminal_wealth_pv_change": terminal_pv_delta,
+            "lcv_change": m2["lcv_score"] - base_metrics["lcv_score"],
+        }
+    # Dollar thresholds behind each dropdown choice, for the first plan year
+    # (indexed to that year), so the panel can print "Tier 2 - $266,000".
+    options: Dict[str, Any] = {}
+    try:
+        _y0 = years[0]["year"]
+        _filing = str(rows[0].get("filing_status") or rows[0].get("filing") or "MFJ")
+        _f0 = _tk.bracket_factor_for_year(c, _y0)
+        _t0, _t15 = _roth_ltcg_thresholds_base(c, _filing)
+        options = {
+            "year": _y0,
+            "irmaa": {t: _roth_irmaa_target_threshold({**dict(c), "roth_irmaa_target_tier": t}, _filing, _y0)
+                      for t in ("TIER_1", "TIER_2", "TIER_3", "TIER_4", "TIER_5")},
+            "ltcg": {"0%": _t0 * _f0, "15%": _t15 * _f0},
+            "niit": _roth_niit_threshold_base(c, _filing),
+        }
+    except Exception:
+        options = {}
+    return {
+        "years": years,
+        "whatif": whatif,
+        "options": options,
+        "baseline": {
+            "total_conversions": base_metrics["total_conversion"],
+            "lifetime_tax_pv": base_metrics["lifetime_tax"],
+            "lcv": base_metrics["lcv_score"],
+        },
+        "settings": {
+            "policy": str(c.get("roth_policy", "")),
+            "target_rate": c.get("roth_target_rate"),
+            "irmaa_tier": c.get("roth_irmaa_target_tier"),
+            "ltcg_band": c.get("roth_ltcg_band", "auto"),
+            "switches": {gid: bool(c.get(key, True)) for gid, (key, _l) in ROTH_GUARDRAIL_SWITCHES.items()},
+            "headroom_pct": {
+                "bracket": c.get("roth_headroom_usage_pct"),
+                "irmaa": c.get("roth_irmaa_headroom_usage_pct"),
+                "ltcg": c.get("roth_ltcg_headroom_usage_pct"),
+                "niit": c.get("roth_niit_headroom_usage_pct"),
+            },
+            "annual_share_pct": c.get("roth_max_annual_conversion_pct_of_traditional_ira"),
+        },
     }
 
 
