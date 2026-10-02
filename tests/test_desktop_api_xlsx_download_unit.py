@@ -118,3 +118,35 @@ def test_json_and_text_responses_are_unaffected():
     api = _bare_desktop_api()
     resp = _FakeResponse("application/json", b'{"success": true, "value": 1}', "")
     assert api._convert(resp) == {"success": True, "value": 1}
+
+
+def test_locked_destination_falls_back_to_a_numbered_name(tmp_path, monkeypatch):
+    """The same-named workbook is still open in Excel (Windows locks it), so the
+    first write raises PermissionError; the download must land as "name (2).xlsx"
+    instead of failing."""
+    from src import system_config
+
+    monkeypatch.setattr(system_config, "load_system_config", lambda *a, **k: {})
+    downloads = tmp_path / "Downloads"
+    downloads.mkdir()
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+    locked = downloads / "Retirement Workbook 20261001 1954.xlsx"
+    real_write = Path.write_bytes
+
+    def write_bytes(self, data):
+        if self == locked:
+            raise PermissionError(13, "Permission denied", str(self))
+        return real_write(self, data)
+
+    monkeypatch.setattr(Path, "write_bytes", write_bytes)
+
+    api = _bare_desktop_api()
+    resp = _FakeResponse("application/vnd.ms-excel", b"bytes", locked.name)
+    with patch.object(api, "_open_path") as mock_open:
+        result = api._convert(resp)
+
+    alt = downloads / "Retirement Workbook 20261001 1954 (2).xlsx"
+    assert alt.read_bytes() == b"bytes"
+    assert result == {"success": True, "opened": True, "path": str(alt)}
+    mock_open.assert_called_once_with(alt)

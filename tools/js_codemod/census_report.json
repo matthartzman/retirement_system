@@ -820,6 +820,18 @@
       "scope": "inside-function"
     },
     {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "lastBuildSummary",
       "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
       "kind": "read",
@@ -905,12 +917,6 @@
     },
     {
       "name": "IRMAA_OFF_MODES",
-      "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "ROTH_LEGACY_LABELS",
       "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
       "kind": "read",
       "scope": "inside-function"
@@ -2434,6 +2440,30 @@
       "scope": "inside-function"
     },
     {
+      "name": "lastBuildSummary",
+      "file": "frontend/js/dashboard_decomp_home_panels.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildSummary",
+      "file": "frontend/js/dashboard_decomp_home_panels.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildSummary",
+      "file": "frontend/js/dashboard_decomp_home_panels.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "lastBuildSummary",
+      "file": "frontend/js/dashboard_decomp_home_panels.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "planLoaded",
       "file": "frontend/js/dashboard_decomp_home_panels.js",
       "kind": "read",
@@ -3181,6 +3211,48 @@
       "name": "boolishValue",
       "file": "frontend/js/dashboard_decomp_plan_features.js",
       "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_roth_guardrails.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_roth_guardrails.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_roth_guardrails.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_roth_guardrails.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_roth_guardrails.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_roth_guardrails.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_roth_guardrails.js",
+      "kind": "read",
       "scope": "inside-function"
     },
     {
@@ -9575,7 +9647,6 @@
     "RECOMMENDATION_ENGINE_VERSION",
     "RECOMMENDATION_STEP_IDS",
     "REQUIRED_PLAN_DATA_FILES",
-    "ROTH_LEGACY_LABELS",
     "ROTH_WINDOW_LABELS",
     "SCENARIO_SET_STORAGE_KEY",
     "STEPS",

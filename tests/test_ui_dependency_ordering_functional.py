@@ -84,7 +84,10 @@ def test_roth_policy_controls_relevance_and_bracket_strategy_visibility():
     dash = dashboard_all()
     assert 'if (policyIsFixed) {\n    strategy = orderedRowsByLabel([\n      "roth_fixed_annual_amount"' in dash
     assert 'else if (policyIsBracket) {\n    strategy = orderedRowsByLabel([\n      "roth_bracket_strategy",\n      "roth_target_bracket_rate"' in dash
-    assert 'else if (policyIsOptimizer) {\n    strategy = orderedRowsByLabel([\n      "roth_objective_mode",\n      "roth_bracket_strategy"' in dash
+    # Objective mode now lives in "Other Roth-related controls" > Objectives, so the
+    # optimizer's strategy list starts at the bracket strategy.
+    assert 'else if (policyIsOptimizer) {\n    strategy = orderedRowsByLabel([\n      "roth_bracket_strategy"' in dash
+    assert '"roth_objective_mode"' not in dash.split("else if (policyIsOptimizer) {")[1].split("} else if (policyIsNone)")[0]
     assert '} else if (policyIsNone) {\n    strategy = orderedRowsByLabel(["max_conversion_years"]);' in dash
 
 

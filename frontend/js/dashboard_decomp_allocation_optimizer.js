@@ -884,6 +884,10 @@ export function irmaaModeValue() {
 // this page (hideUnit) -- the label and the box already say what is expected.
 const ROTH_GROUPS = [
   [
+    "Objectives",
+    ["roth_objective_mode", "estate_tax_objective_mode", "legacy_objective_mode"],
+  ],
+  [
     "Tax assumptions",
     [
       "roth_tax_discount_rate",
@@ -893,10 +897,6 @@ const ROTH_GROUPS = [
       "roth_bequest_preference_bonus_pct",
       "future_tax_rate_stress_pct",
     ],
-  ],
-  [
-    "Objective",
-    ["roth_objective_mode", "estate_tax_objective_mode", "legacy_objective_mode"],
   ],
   [
     "Scoring weights",
@@ -916,23 +916,6 @@ const ROTH_GROUPS = [
       "max_annual_conversion_pct_of_traditional_ira",
     ],
   ],  [
-    "Guardrails",
-    [
-      "roth_bracket_guardrail",
-      "roth_target_bracket_rate",
-      "roth_headroom_usage_pct",
-      "irmaa_guardrail_mode",
-      "roth_irmaa_target_tier",
-      "roth_irmaa_headroom_usage_pct",
-      "roth_ltcg_guardrail",
-      "roth_ltcg_band",
-      "roth_ltcg_headroom_usage_pct",
-      "roth_niit_guardrail",
-      "roth_niit_headroom_usage_pct",
-      "roth_aca_guardrail",
-    ],
-  ],
-  [
     "Phase-varying brackets",
     [
       "roth_phase_count",
@@ -951,7 +934,7 @@ export function rothGroupFor(label) {
 
 export function rothCompactFieldsHtml(rs, grouped) {
   const rows = sortRowsByDependency(rs);
-  const one = (r) => fieldHtml(r, { hideUnit: true });
+  const one = (r) => fieldHtml(r, { hideUnit: true, dropRoth: true });
   if (!grouped) return rows.map(one).join("");
   const order = ROTH_GROUPS.map(([name]) => name).concat("Other");
   return order
@@ -964,9 +947,12 @@ export function rothCompactFieldsHtml(rs, grouped) {
     .join("");
 }
 
-export function renderRothRows(title, description, rs, open = false, grouped = false) {
-  if (!rs.length) return "";
-  return `<details class="roth-section"><summary>${esc(title)}</summary><div class="field-list roth-compact"><div class="section-note">${esc(description)}</div>${rothCompactFieldsHtml(rs, grouped)}</div></details>`;
+export function renderRothRows(title, description, rs, open = false, grouped = false, emptyNote = "") {
+  if (!rs.length && !emptyNote) return "";
+  const body = rs.length
+    ? rothCompactFieldsHtml(rs, grouped)
+    : `<div class="section-note">${esc(emptyNote)}</div>`;
+  return `<details class="roth-section"><summary>${esc(title)}</summary><div class="field-list roth-compact">${description ? `<div class="section-note">${esc(description)}</div>` : ""}${body}</div></details>`;
 }
 
 export function renderRothMissingNotice() {
@@ -1214,7 +1200,6 @@ export function renderRothConversion() {
   const control = orderedRowsByLabel(["roth_conversion_policy"]);
   let strategy = [];
   let guardrail = [];
-  let scoring = [];
   const policyIsNone = [
     "none",
     "off",
@@ -1250,7 +1235,6 @@ export function renderRothConversion() {
     ]);
   } else if (policyIsOptimizer) {
     strategy = orderedRowsByLabel([
-      "roth_objective_mode",
       "roth_bracket_strategy",
       "roth_target_bracket_rate",
       "roth_headroom_usage_pct",
@@ -1285,16 +1269,24 @@ export function renderRothConversion() {
         ),
       );
   }
-  // No separate calibration section: the two optimizer weights join the other
-  // scoring weights, and the tax discount rate is left in "Other Roth-related
-  // controls" (it is not in `used`, so it lands there).
-  if (policyIsOptimizer) {
-    scoring = orderedRowsByLabel([
-      "roth_optimize_terminal_weight",
-      "roth_optimize_lifetime_tax_weight",
-      ...ROTH_LEGACY_LABELS,
-    ]);
+  // Every guardrail except the IRMAA ones above is a switch plus its settings;
+  // they apply whenever voluntary conversions are sized by a ceiling (not for
+  // "none" or a fixed dollar amount). Fill-to-IRMAA has no separate bracket cap.
+  if (!policyIsNone && !policyIsFixed) {
+    guardrail = guardrail.concat(
+      orderedRowsByLabel([
+        ...(policyIsIrmaa ? [] : ["roth_bracket_guardrail"]),
+        "roth_ltcg_guardrail",
+        "roth_ltcg_band",
+        "roth_ltcg_headroom_usage_pct",
+        "roth_niit_guardrail",
+        "roth_niit_headroom_usage_pct",
+        "roth_aca_guardrail",
+      ]),
+    );
   }
+  // Objectives, tax assumptions and scoring weights are not listed in `used`,
+  // so they land in "Other Roth-related controls", grouped there.
   // Once the last build has produced the guardrail panel, it owns these
   // settings (same rows, edited there). Showing them again below would be two
   // inputs for one value, so the generic rows are dropped. Before a build the
@@ -1307,7 +1299,7 @@ export function renderRothConversion() {
     guardrail = guardrail.filter(keep);
   }
   const used = new Set(
-    [...control, ...strategy, ...guardrail, ...scoring]
+    [...control, ...strategy, ...guardrail]
       .map((r) => r && norm(r.label))
       .filter(Boolean),
   );
@@ -1344,7 +1336,7 @@ export function renderRothConversion() {
   ) {
     html += `<div class="section-note">This model does not yet choose <b>how</b> conversion taxes are paid (taxable cash vs. withholding from the IRA) or preferentially convert higher-growth holdings inside the IRA first (asset-location-aware conversion). Both apply the same conversion mechanics either way; see the workbook's Roth Conversion sheet for the full disclosure.</div>`;
   }
-  html += `<div class="field-list"><div class="section-note">Choose a conversion policy first — the page shows only the controls relevant to that choice. Fill-to-IRMAA uses the Medicare premium tier boundary as the conversion ceiling; choosing it hides the separate IRMAA guardrail to avoid duplicate controls. Bracket strategy options appear only for bracket-fill and optimizer policies.</div>${control.map((r) => fieldHtml(r, { hideUnit: true })).join("")}</div>`;
+  html += `<div class="field-list"><div class="section-note">Choose a conversion policy first — the page shows only the controls relevant to that choice. Fill-to-IRMAA uses the Medicare premium tier boundary as the conversion ceiling; choosing it hides the separate IRMAA guardrail to avoid duplicate controls. Bracket strategy options appear only for bracket-fill and optimizer policies.</div>${control.map((r) => fieldHtml(r, { hideUnit: true, dropRoth: true })).join("")}</div>`;
   html += renderForcedConversionsTable();
   const policyLabel = policyIsFixed
     ? "Fixed-dollar conversion controls"
@@ -1364,26 +1356,34 @@ export function renderRothConversion() {
       : policyIsOptimizer
         ? 'To actually change behavior, changing Roth Conversion Policy away from optimize terminal tax is the blunt instrument. To keep auto-optimization but bias its search, use Roth Bracket Strategy. To keep the full search but change which candidate "wins" a close race, use Roth Objective Mode — and note it does nothing unless Roth Conversion Policy is left at optimize terminal tax.'
         : "";
-  html += renderRothRows(policyLabel, policyDesc, strategy, true);
+  // The same sections appear under every policy, in the same order; only what
+  // each one contains depends on the policy.
+  const panelHasGuardrails = !!(panelRes && panelRes.guardrails);
   html += renderRothRows(
-    "IRMAA guardrails",
-    "For non-IRMAA-fill policies, this single behavior control determines whether IRMAA is ignored, warned only, or used as a sizing cap. Target tier and headroom appear only for cap-style modes.",
-    guardrail,
+    "Strategy controls",
+    [policyLabel, policyDesc].filter(Boolean).join(": "),
+    strategy,
+    true,
     false,
+    "No strategy controls for the current policy.",
   );
   html += renderRothRows(
-    "Scoring weights and objective",
-    "Shown only when the optimizer can use these scoring weights.",
-    scoring,
+    "Guardrails",
+    "Limits that cap each year's voluntary conversion. The lowest active cap wins.",
+    guardrail,
     false,
-    true,
+    false,
+    panelHasGuardrails
+      ? "These limits are edited in the Conversion guardrails panel above."
+      : "No guardrails apply to the current policy.",
   );
   html += renderRothRows(
     "Other Roth-related controls",
-    "Rows found in Plan Data that are not part of the active simplified policy flow.",
+    "Objectives, tax assumptions, scoring weights and anything else saved with this plan. Optimizer-only settings take effect only under an optimizer policy.",
     other,
     false,
     true,
+    "No other Roth-related controls.",
   );
   return html;
 }
