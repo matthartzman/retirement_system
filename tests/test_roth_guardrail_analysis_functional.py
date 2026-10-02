@@ -114,3 +114,16 @@ def test_every_guardrail_is_quantified_even_when_not_enforced():
     assert caps["pct"]["active"] is True
     assert all(isinstance(c["cap"], float) for c in caps.values())
     assert plan.binding_limit != "NIIT threshold"
+
+
+def test_fill_to_irmaa_with_no_headroom_reports_irmaa_as_the_binding_limit():
+    """Under fill-to-IRMAA, income already above the chosen tier line leaves no room.
+    IRMAA must show as the enforced limit ($0), not as "not enforced"."""
+    c, plan = _plan({'roth_policy': 'fill_to_irmaa', 'roth_irmaa_cap': True,
+                     'roth_irmaa_target_tier': 'TIER_1', 'roth_niit_cap': False,
+                     'roth_ltcg_cap': False}, earned_base=400_000.0, h_age=70.0, w_age=68.0)
+    caps = {c["id"]: c for c in json.loads(plan.guardrail_caps)}
+    assert caps["irmaa"]["active"] is True
+    assert caps["irmaa"]["cap"] == 0.0
+    assert caps["pct"]["active"] is True
+    assert plan.amount == 0.0
