@@ -106,41 +106,20 @@ def test_heloc_gates_through_a_declaration_not_a_hand_written_branch():
     assert "ltcLeverButton" not in row_model_js
 
 
-def test_the_enable_note_resolves_its_click_path_from_the_catalog():
-    """§5.2/§5.3 (W12): strategySectionGatedNote() generalized into
-    featureGatedNote(), registry-driven from planModuleTaxonomy() (which
-    carries gate_kind/gate_ref/gate_enable_label per module, W9) instead of
-    branching on the gate mechanism at each call site. No mechanism-specific
-    string may be hand-typed in the function itself -- a plan flag's
-    click-path text comes from the module's own declaration, read generically
-    for whichever module key is passed in, not from an `if` singling out
-    HELOC or any other one module."""
+def test_the_enable_note_is_one_generic_link_to_plan_features():
+    """Every optional feature's switch (module toggles and plan flags alike,
+    including HELOC/DAF/QCD/LTC-Life) lives on Plan Features only. The gated
+    note therefore carries no inline switch and no per-module copy: one link
+    to Plan Features, identical for whichever module key is passed in."""
     note_start = WORKSPACE_JS.index("export function featureGatedNote(")
     note_fn = WORKSPACE_JS[note_start : WORKSPACE_JS.index("\n}", note_start)]
     assert 'key === "heloc"' not in note_fn
     assert "Enable HELOC Strategy" not in note_fn
-    assert "gate_ref" in note_fn
-    assert "gate_enable_label" in note_fn
-    assert "gate_kind" in note_fn
-    # ...and the catalog is where that copy now lives, exactly once.
+    assert "InlineSwitch(" not in note_fn
+    assert "editValue(" not in note_fn
+    assert "setStep('optional_functions')" in note_fn
+    # The catalog still owns the flag's own enable label.
     assert flag_gate_map()["heloc_strategy"]["enable_label"] == "Enable HELOC Strategy"
-
-
-def test_the_enable_note_offers_an_inline_switch():
-    """§5.1: 'the gated note... should offer the switch inline, because the
-    user who is reading that note has already decided' -- not only a link to
-    go decide somewhere else."""
-    note_start = WORKSPACE_JS.index("export function featureGatedNote(")
-    note_fn = WORKSPACE_JS[note_start : WORKSPACE_JS.index("\n}", note_start)]
-    assert "InlineSwitch(" in note_fn
-
-    flag_start = WORKSPACE_JS.index("function planFlagInlineSwitch(")
-    flag_fn = WORKSPACE_JS[flag_start : WORKSPACE_JS.index("\n}", flag_start)]
-    assert "editValue(" in flag_fn
-
-    toggle_start = WORKSPACE_JS.index("function moduleToggleInlineSwitch(")
-    toggle_fn = WORKSPACE_JS[toggle_start : WORKSPACE_JS.index("\n}", toggle_start)]
-    assert "editValue(" in toggle_fn
 
 
 def test_every_section_gates_through_the_single_generic_helper():

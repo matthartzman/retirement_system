@@ -242,7 +242,6 @@ function planFlagRowHtml(entry) {
   const lbl = meta.name || entry.key;
   const desc = formatAcronyms(meta.description || "");
   const hint = demandHint(meta.demand);
-  const step = PLAN_FLAG_DESTINATION_STEP[entry.key] || "";
 
   let html = '<div class="opt-module-row">';
   html += '<div class="opt-module-info"><span class="opt-module-name">' + esc(lbl) + "</span>";
@@ -250,42 +249,29 @@ function planFlagRowHtml(entry) {
   if (hint) html += '<span class="pf-demand">' + esc(hint) + "</span>";
   if (desc) html += '<span class="opt-module-desc">' + esc(desc) + "</span>";
 
-  if (entry.key === "heloc") {
-    const row = ref.length === 3
-      ? rows.find(
-          (r) =>
-            isEditable(r) &&
-            r.section === ref[0] &&
-            norm(r.subsection || "") === norm(ref[1]) &&
-            norm(r.label) === norm(ref[2]),
-        )
-      : null;
-    html += "</div>";
-    html += row
-      ? '<button class="opt-module-toggle ' +
-        (on ? "on" : "off") +
-        '" type="button" data-requires-app="1" ' +
-        'onclick="editValue(' +
-        row.row_index +
-        ",'" +
-        (on ? "NO" : "YES") +
-        "',null);saveAll(false);renderMain()\">" +
-        (on ? "ON" : "OFF") +
-        "</button>"
-      : `<span class="opt-module-toggle ${on ? "on" : "off"}" aria-disabled="true">${on ? "ON" : "OFF"}</span>`;
-    html += "</div>";
-    return html;
-  }
-
-  html +=
-    '<span class="opt-module-desc pf-plan-flag-note">Switch lives with its data' +
-    (meta.gate_enable_label
-      ? " — " + esc([...ref.slice(0, 2), meta.gate_enable_label].filter(Boolean).join(" → "))
-      : "") +
-    "</span>";
+  // Every plan flag (HELOC, DAF, QCD, LTC/Life Policy) is switched here and
+  // only here; the page that owns its data carries no second switch.
+  const row = ref.length === 3
+    ? rows.find(
+        (r) =>
+          isEditable(r) &&
+          r.section === ref[0] &&
+          norm(r.subsection || "") === norm(ref[1]) &&
+          norm(r.label) === norm(ref[2]),
+      )
+    : null;
   html += "</div>";
-  html += step
-    ? `<button class="opt-module-toggle ${on ? "on" : "off"}" type="button" data-step-id="${esc(step)}">${on ? "ON" : "OFF"} · Open</button>`
+  html += row
+    ? '<button class="opt-module-toggle ' +
+      (on ? "on" : "off") +
+      '" type="button" data-requires-app="1" ' +
+      'onclick="editValue(' +
+      row.row_index +
+      ",'" +
+      (on ? "NO" : "YES") +
+      "',null);saveAll(false);renderMain()\">" +
+      (on ? "ON" : "OFF") +
+      "</button>"
     : `<span class="opt-module-toggle ${on ? "on" : "off"}" aria-disabled="true">${on ? "ON" : "OFF"}</span>`;
   html += "</div>";
   return html;
@@ -356,6 +342,51 @@ function featureRowHtml(entry) {
   return html;
 }
 
+// Modules with no dashboard_step of their own whose rows still live on a
+// given page, plus hub pages that front several legacy steps.
+const PAGE_EXTRA_MODULES = {
+  assets_special: ["education_funding_529", "equity_compensation"],
+  family_business: ["education_funding_529", "equity_compensation"],
+};
+const PAGE_STEP_ALIASES = {
+  strategy_stress: ["monte_carlo_options", "survivor_stress", "ltc_stress", "divorce_options"],
+  strategy_scenarios: ["scenarios"],
+};
+
+// Optional features that would add content to `stepId` if they were on.
+// Returns [{key, name}] for every owned module that is currently off.
+export function offFeaturesForPage(stepId, taxonomy) {
+  const modules = (taxonomy || {}).modules || {};
+  const steps = new Set([stepId, ...(PAGE_STEP_ALIASES[stepId] || [])]);
+  const extra = new Set(PAGE_EXTRA_MODULES[stepId] || []);
+  const out = [];
+  Object.keys(modules).forEach((key) => {
+    const meta = modules[key];
+    const isFlag = meta.gate_kind === "plan_flag";
+    if (!isFlag && !meta.optional) return;
+    const owner = PLAN_FLAG_DESTINATION_STEP[key] || meta.dashboard_step;
+    if (!extra.has(key) && !steps.has(owner)) return;
+    const on = isFlag
+      ? entryIsOn({ meta })
+      : optionalFunctionEnabled(key);
+    if (!on) out.push({ key, name: meta.name || key });
+  });
+  return out;
+}
+
+// One compact line on a nav page: the optional features that are off and
+// would appear here if enabled, with the single link to Plan Features.
+export function offFeaturesLineHtml(stepId) {
+  if (stepId === "optional_functions") return "";
+  const off = offFeaturesForPage(stepId, planModuleTaxonomy());
+  if (!off.length) return "";
+  return (
+    '<div class="section-note pf-off-features">Optional features not enabled that would appear here: ' +
+    off.map((f) => esc(f.name)).join(", ") +
+    '. <a href="#" onclick="setStep(\'optional_functions\');return false">Turn on in Plan Features</a></div>'
+  );
+}
+
 export function renderOptionalFunctions() {
   if (searchText.trim()) return renderFields("optional_functions");
   const rs = rowsForStep("optional_functions");
@@ -376,7 +407,7 @@ export function renderOptionalFunctions() {
 
   groups.forEach(function (g) {
     const open = !planFeatureCollapsed.has(g.domain);
-    const onCount = g.entries.filter((e) => boolishValue(e.row)).length;
+    const onCount = g.entries.filter(entryIsOn).length;
     html +=
       '<div class="pf-group"><button class="pf-group-head" type="button" ' +
       `aria-expanded="${open}" onclick="togglePlanFeatureGroup('${esc(escJs(g.domain))}')">` +
@@ -401,6 +432,8 @@ export function renderOptionalFunctions() {
 
 Object.assign(window, {
   demandHint,
+  offFeaturesForPage,
+  offFeaturesLineHtml,
   enteredRowCount,
   envOverrideNotice,
   planFeatureGroups,
