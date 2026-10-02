@@ -53,9 +53,9 @@ def test_full_pipeline_analysis_reports_measured_whatif():
     first = out["years"][0]
     assert first["caps"] and all({"id", "name", "cap"} <= set(x) for x in first["caps"])
     for gid, w in out["whatif"].items():
-        assert gid in ("irmaa", "ltcg", "niit")
+        assert gid in ("bracket", "aca", "irmaa", "ltcg", "niit")
         assert set(w) == {"extra_converted", "lifetime_tax_pv_change", "terminal_wealth_pv_change", "lcv_change"}
-    assert out["settings"]["switches"].keys() == {"irmaa", "ltcg", "niit"}
+    assert out["settings"]["switches"].keys() == {"bracket", "aca", "irmaa", "ltcg", "niit"}
 
 
 def test_forced_conversion_year_is_listed_even_with_no_caps():
@@ -64,3 +64,21 @@ def test_forced_conversion_year_is_listed_even_with_no_caps():
     first = out["years"][0]
     assert first["forced"] is True
     assert first["amount"] == 125000.0
+
+
+def test_bracket_guardrail_off_removes_the_bracket_cap_and_sizes_the_rest():
+    _c, on = _plan({'roth_niit_cap': False, 'roth_ltcg_cap': False})
+    _c, off = _plan({'roth_niit_cap': False, 'roth_ltcg_cap': False, 'roth_bracket_cap': False})
+    assert "bracket" in [c["id"] for c in json.loads(on.guardrail_caps)]
+    off_ids = [c["id"] for c in json.loads(off.guardrail_caps)]
+    assert "bracket" not in off_ids and "pct" in off_ids
+    assert off.amount >= on.amount
+
+
+def test_aca_guardrail_off_drops_the_aca_cap_in_a_bridge_year():
+    kw = {'aca_bridge_people': 1}
+    base = {'roth_niit_cap': False, 'roth_ltcg_cap': False, 'aca_ptc_enabled': True}
+    _c, on = _plan(base, **kw)
+    _c, off = _plan({**base, 'roth_aca_cap': False}, **kw)
+    assert "aca" in [c["id"] for c in json.loads(on.guardrail_caps)]
+    assert "aca" not in [c["id"] for c in json.loads(off.guardrail_caps)]

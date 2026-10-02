@@ -2394,7 +2394,7 @@ def plan_roth_conversion(
                 ("IRA balance", ira_total),
                 ("Annual IRA percentage cap", max_pct_cap),
             ]
-            if aca_bridge_people and c.get('aca_ptc_enabled', True):
+            if aca_bridge_people and c.get('aca_ptc_enabled', True) and c.get('roth_aca_cap', True):
                 # P1 (system review 2026-07-21): this policy caps to the IRMAA
                 # threshold alone, which sits far above 400% FPL -- with no
                 # ACA guardrail, an ACA-bridge client on "fill to IRMAA" gets
@@ -2407,10 +2407,16 @@ def plan_roth_conversion(
             cap, binding, secondary_binding = _ranked_caps(caps)
             amount = cap
     else:
-        if bracket_room > 1000:
+        # roth_bracket_cap off: the target bracket no longer limits conversions
+        # (the other active guardrails still do), so the caps are sized even
+        # when the bracket has no room left.
+        _bracket_on = bool(c.get('roth_bracket_cap', True))
+        if bracket_room > 1000 or not _bracket_on:
             cap_bracket = bracket_room * float(c.get('roth_headroom_usage_pct', 0.95) or 0.95)
-            caps = [(f"{int(target_rate * 100)}% bracket", cap_bracket), ("IRA balance", ira_total), ("Annual IRA percentage cap", max_pct_cap)]
-            if aca_bridge_people and c.get('aca_ptc_enabled', True):
+            caps = [("IRA balance", ira_total), ("Annual IRA percentage cap", max_pct_cap)]
+            if _bracket_on:
+                caps.insert(0, (f"{int(target_rate * 100)}% bracket", cap_bracket))
+            if aca_bridge_people and c.get('aca_ptc_enabled', True) and c.get('roth_aca_cap', True):
                 # Roth conversions in bridge years can destroy ACA premium tax
                 # credits.  Add a guardrail that keeps MAGI below the point where
                 # the configured benchmark subsidy is largely lost.
@@ -3101,10 +3107,12 @@ def _roth_strategy_metrics(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, flo
 
 
 # Guardrails whose on/off switch is a plain config key, so a what-if rerun can
-# flip them. The bracket and annual-share limits are part of the chosen policy
-# itself (not switches) and the ACA limit follows aca_ptc_enabled, so none of
-# those three get a what-if.
+# flip them. Only the annual-share limit has no switch (it is a sizing preference,
+# not a cliff). Turning the ACA guardrail off stops it from capping conversions;
+# it does not change how premium credits themselves are modeled (aca_ptc_enabled).
 ROTH_GUARDRAIL_SWITCHES = {
+    "bracket": ("roth_bracket_cap", "Tax bracket"),
+    "aca": ("roth_aca_cap", "ACA subsidy limit"),
     "irmaa": ("roth_irmaa_cap", "Medicare IRMAA tier"),
     "ltcg": ("roth_ltcg_cap", "Capital gains rate band"),
     "niit": ("roth_niit_cap", "3.8% investment income tax"),

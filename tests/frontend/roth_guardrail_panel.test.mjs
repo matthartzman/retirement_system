@@ -108,3 +108,16 @@ test("a forced-conversion year is selectable and says the forced amount is not l
   assert.match(html, /forced conversion of <b>\$125,000<\/b>/);
   assert.match(html, /Forced Roth Conversions table/);
 });
+
+test("tax bracket and ACA limit have their own on/off switches that follow the saved setting", () => {
+  const { rothGuardrailPanelHtml, rgLiveOff } = loadDashboardSandbox();
+  const off = rgLiveOff((k) => ({ roth_bracket_guardrail: "FALSE", roth_aca_guardrail: "FALSE" }[k] ?? ""));
+  assert.equal(off.bracket, true);
+  assert.equal(off.aca, true);
+  const html = rothGuardrailPanelHtml(
+    g(),
+    ctx({ idx: (k) => ({ roth_bracket_guardrail: 20, roth_aca_guardrail: 21 }[k] ?? null), val: () => "" }),
+  );
+  assert.match(html, /editValue\(20,this\.checked\?'TRUE':'FALSE'/);
+  assert.match(html, /editValue\(21,this\.checked\?'TRUE':'FALSE'/);
+});

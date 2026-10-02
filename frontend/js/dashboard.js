@@ -5951,7 +5951,7 @@ const FIELD_GUIDANCE_OVERRIDES = {
     consider: "Set this higher if you strongly believe tax rates will rise and want to move money to Roth before that happens. Set lower if you're more concerned about your annual cash flow than lifetime totals.",
   },
   roth_optimize_terminal_pretax_tax_rate: {
-    purpose: "This assumes what income tax rate you'll pay on pretax retirement accounts eventually. The plan uses it to decide whether Roth conversions today—paying tax now to avoid tax later—are worthwhile.",
+    purpose: "A haircut on end-of-plan pre-tax balances: the income tax rate the plan subtracts from pre-tax retirement money still left at the end, because whoever inherits it will owe tax on it. It is a tax rate, not a growth rate.",
     impact: "A higher assumed rate pushes toward more Roth conversions to escape future taxes. A lower assumed rate suggests fewer conversions.",
     consider: "Use a realistic estimate of your late-retirement tax rate based on expected withdrawals and Social Security income.",
   },
@@ -5986,7 +5986,7 @@ const FIELD_GUIDANCE_OVERRIDES = {
     consider: "Estimate where normal withdrawals and Social Security would land, then choose the bracket just below—this fills that bracket without jumping higher and wasting money.",
   },
   roth_tax_discount_rate: {
-    purpose: "The discount rate used to compare paying taxes now versus later, accounting for investment growth and inflation. It helps the plan decide if today's Roth conversion is worth the immediate tax cost.",
+    purpose: "A time-value rate for comparing taxes across years: it converts taxes paid in different years into present-day dollars, so paying tax now can be weighed fairly against tax avoided later. It is a growth rate, not a tax rate.",
     impact: "Higher rate means paying taxes later becomes more attractive, driving more conversions. Lower rate suggests waiting to pay taxes is better, driving fewer conversions.",
     consider: "Set this to your expected long-term investment return—usually 5-8%—so the comparison reflects realistic growth assumptions.",
   },

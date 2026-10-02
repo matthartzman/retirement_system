@@ -6,7 +6,7 @@
 //      (test_scenario_home_value_display_fix.py -- home value/basis/proceeds).
 //   2. A field whose schema explicitly declares a numeric type must render as
 //      a plain number even when its label contains a currency-ish keyword, or
-//      roth_optimize_lifetime_tax_weight shows as "$0.25" instead of "0.25".
+//      roth_optimize_lifetime_tax_weight shows as "$0.25" (it now shows as 25%).
 //
 // Rule 2 was implemented by moving the schema-type branch above the label
 // heuristic. The Python test had pinned rule 1 by asserting the *source order*
@@ -39,7 +39,9 @@ describe("valueKind: money-like label with no schema type and no units", () => {
 });
 
 describe("valueKind: schema-declared numeric type beats a currency-ish label", () => {
-  // Roth optimizer weights are 0-1 decimals whose labels contain "tax".
+  // Roth optimizer weights are 0-1 multipliers whose labels contain "tax".
+  // They must never render as dollars, and they now render as percents
+  // (0.25 -> 25%) -- see weight_fields_percent.test.mjs.
   const weightLabels = [
     "roth_optimize_lifetime_tax_weight",
     "future_tax_risk_weight",
@@ -48,13 +50,20 @@ describe("valueKind: schema-declared numeric type beats a currency-ish label", (
   ];
 
   for (const label of weightLabels) {
-    test(`${label} stays a plain number`, () => {
+    test(`${label} is a percent, not dollars`, () => {
       assert.equal(
         valueKind({ label, units: "", schema: { type: "number" } }),
-        "number",
+        "percent_fraction",
       );
     });
   }
+
+  test("a non-weight numeric field with a tax-ish label stays a plain number", () => {
+    assert.equal(
+      valueKind({ label: "tax_filing_count", units: "", schema: { type: "number" } }),
+      "number",
+    );
+  });
 });
 
 describe("valueKind: an explicit currency type is still honored", () => {

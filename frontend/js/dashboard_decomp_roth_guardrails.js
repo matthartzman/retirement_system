@@ -11,6 +11,7 @@ const RG_ORDER_KEY = "rothGuardrailOrder";
 const RG_RATES = ["10.00%", "12.00%", "22.00%", "24.00%", "32.00%", "35.00%", "37.00%"];
 const RG_LTCG_BANDS = ["auto", "0%", "15%"];
 const RG_NAMES = {
+  bracket: "Tax bracket",
   irmaa: "Medicare IRMAA tier",
   ltcg: "Capital gains rate band",
   niit: "3.8% investment income tax",
@@ -23,19 +24,20 @@ const RG_DESC = {
   irmaa: "Keeps income under the chosen Medicare premium tier.",
   ltcg: "Stops before conversions push dividends and gains into a higher rate band.",
   niit: "Keeps income under the 3.8% investment income tax threshold.",
-  aca: "Keeps income under the limit where ACA premium credits shrink.",
+  aca: "Keeps income under the limit where ACA premium credits shrink. Turning it off can cost premium credits.",
   pct: "Caps one year at a share of your pre-tax balance.",
   fixed: "The fixed annual amount you set.",
 };
 // Which setting rows each guardrail edits. `on` rows are switches.
 const RG_ROWS = {
-  bracket: { select: "roth_target_bracket_rate", pct: "roth_headroom_usage_pct" },
+  bracket: { on: "roth_bracket_guardrail", select: "roth_target_bracket_rate", pct: "roth_headroom_usage_pct" },
   irmaa: { mode: "irmaa_guardrail_mode", select: "roth_irmaa_target_tier", pct: "roth_irmaa_headroom_usage_pct" },
   ltcg: { on: "roth_ltcg_guardrail", select: "roth_ltcg_band", pct: "roth_ltcg_headroom_usage_pct" },
   niit: { on: "roth_niit_guardrail", pct: "roth_niit_headroom_usage_pct" },
+  aca: { on: "roth_aca_guardrail" },
   pct: { pct: "max_annual_conversion_pct_of_traditional_ira" },
 };
-const RG_SWITCHABLE = ["irmaa", "ltcg", "niit"];
+const RG_SWITCHABLE = ["bracket", "irmaa", "ltcg", "niit", "aca"];
 const RG_IRMAA_MODES = [
   ["AVOID_NEXT_TIER", "Avoid the next tier"],
   ["AVOID_TIER_2_OR_ABOVE", "Avoid Tier 2 or above"],
@@ -54,6 +56,10 @@ export function rgLiveOff(val) {
   if (lt !== "" && lt != null) out.ltcg = !yes(lt);
   const ni = val("roth_niit_guardrail");
   if (ni !== "" && ni != null) out.niit = !yes(ni);
+  const br = val("roth_bracket_guardrail");
+  if (br !== "" && br != null) out.bracket = !yes(br);
+  const ac = val("roth_aca_guardrail");
+  if (ac !== "" && ac != null) out.aca = !yes(ac);
   const mode = String(val("irmaa_guardrail_mode") || "").trim().toUpperCase();
   if (mode) out.irmaa = mode === "IGNORE" || mode === "WARN_ONLY";
   return out;

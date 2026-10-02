@@ -540,7 +540,11 @@ DASHBOARD_JS_MAX_LINES = 7_134
 # 2026-10-02 (Roth guardrail panel follow-up): live on/off state, IRMAA behavior select,
 # forced-year messaging and de-duplication of the generic Roth rows (+61 lines across
 # the panel module and the Roth page renderer). New behavior, not duplication: raised to 37,640.
-TOTAL_JS_MAX_LINES = 37_640
+# 2026-10-02 (Roth guardrail panel: tax bracket and ACA on/off switches +8; *_weight settings shown
+# as percents +5): raised to 37,653.
+# 2026-10-02 (Roth page layout: grouped compact rows, forced table under the policy, no
+# calibration section, +55; two more groups, +25): raised to 37,733.
+TOTAL_JS_MAX_LINES = 37_733
 
 
 def _line_count(path: Path) -> int:
