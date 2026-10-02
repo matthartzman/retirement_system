@@ -6959,7 +6959,6 @@ Object.defineProperty(window, "PROTECTED_CLIENT_DATA_KEYS", { get: () => PROTECT
 Object.defineProperty(window, "RECOMMENDATION_ENGINE_VERSION", { get: () => RECOMMENDATION_ENGINE_VERSION, configurable: true });
 Object.defineProperty(window, "RECOMMENDATION_STEP_IDS", { get: () => RECOMMENDATION_STEP_IDS, configurable: true });
 Object.defineProperty(window, "REQUIRED_PLAN_DATA_FILES", { get: () => REQUIRED_PLAN_DATA_FILES, configurable: true });
-Object.defineProperty(window, "ROTH_LEGACY_LABELS", { get: () => ROTH_LEGACY_LABELS, configurable: true });
 Object.defineProperty(window, "ROTH_WINDOW_LABELS", { get: () => ROTH_WINDOW_LABELS, configurable: true });
 Object.defineProperty(window, "SCENARIO_SET_STORAGE_KEY", { get: () => SCENARIO_SET_STORAGE_KEY, configurable: true });
 Object.defineProperty(window, "STEPS", { get: () => STEPS, configurable: true });
