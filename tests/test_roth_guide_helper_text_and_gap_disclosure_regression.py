@@ -99,7 +99,7 @@ def test_ui_discloses_both_gaps_near_the_conversion_controls():
     # conversion policy controls" per the brief.
     fn_start = js.index("export function renderRothConversion()")
     disclosure_pos = js.index("how</b> conversion taxes are paid", fn_start)
-    control_render_pos = js.index('${control.map(fieldHtml).join("")}', fn_start)
+    control_render_pos = js.index('${control.map((r) => fieldHtml(r, { hideUnit: true })).join("")}', fn_start)
     assert disclosure_pos < control_render_pos
 
 
