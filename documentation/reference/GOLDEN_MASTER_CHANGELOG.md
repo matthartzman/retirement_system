@@ -1,3 +1,13 @@
+## 2026-10-02 — Full-row snapshot regenerated: `conv_guardrail_caps` filled for every conversion-window year (no value change)
+
+<!-- fixture-provenance: deterministic_engine_full_row_snapshot_cases.json sha256=0ece204f4747c6528a87eb1582531db785d8f2143dafac7d8a2297a4219613e6 -->
+
+`conv_guardrail_caps` (added 2026-10-01) was empty in years where the target bracket had no room and nothing
+converted, so deleting a forced conversion made that year vanish from the Roth guardrail panel. The caps are now
+sized every year in the conversion window; the conversion amount and binding limits are unchanged (a year whose
+lowest cap is under $1,000 still converts nothing). Regenerated with `tools/regen_full_row_snapshot.py`; the diff
+is only that one field. No balance, tax or aggregate moved, and the frozen-plan and synthetic pins are untouched.
+
 ## 2026-10-01 — Full-row snapshot regenerated: new row field `conv_guardrail_caps` (no value change)
 
 <!-- fixture-provenance: deterministic_engine_full_row_snapshot_cases.json sha256=735105ff7de4964d4949ed06029163ff49a055fe13e013f23b09a566e37a5c15 -->

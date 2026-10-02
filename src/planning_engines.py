@@ -2408,35 +2408,35 @@ def plan_roth_conversion(
             amount = cap
     else:
         # roth_bracket_cap off: the target bracket no longer limits conversions
-        # (the other active guardrails still do), so the caps are sized even
-        # when the bracket has no room left.
+        # (the other active guardrails still do).
         _bracket_on = bool(c.get('roth_bracket_cap', True))
-        if bracket_room > 1000 or not _bracket_on:
-            cap_bracket = bracket_room * float(c.get('roth_headroom_usage_pct', 0.95) or 0.95)
-            caps = [("IRA balance", ira_total), ("Annual IRA percentage cap", max_pct_cap)]
-            if _bracket_on:
-                caps.insert(0, (f"{int(target_rate * 100)}% bracket", cap_bracket))
-            if aca_bridge_people and c.get('aca_ptc_enabled', True) and c.get('roth_aca_cap', True):
-                # Roth conversions in bridge years can destroy ACA premium tax
-                # credits.  Add a guardrail that keeps MAGI below the point where
-                # the configured benchmark subsidy is largely lost.
-                fpl = aca_fpl_for_year(c, year)
-                max_fpl = aca_guardrail_max_fpl_multiple(c, year)
-                caps.append(("ACA PTC MAGI guardrail", max(0.0, max_fpl * fpl - pre_agi)))
-            guard_mode = str(c.get("irmaa_guardrail_mode", "AVOID_NEXT_TIER") or "AVOID_NEXT_TIER").upper()
-            if (
-                c.get("roth_irmaa_cap", True)
-                and guard_mode not in ("IGNORE", "WARN_ONLY")
-                and _roth_irmaa_guardrail_age_gate_met(c, h_age, w_age)
-            ):
-                irmaa_thr = _roth_irmaa_target_threshold(c, filing, year)
-                cap_irmaa = max(0.0, irmaa_thr - pre_agi) * float(c.get('roth_irmaa_headroom_usage_pct', 0.95) or 0.95)
-                caps.append((str(c.get("roth_irmaa_target_tier", "TIER_2")).replace("_", " ").title(), cap_irmaa))
-            caps.extend(_ltcg_niit_caps())
-            if ira_total > 5000:
-                cap, binding, secondary_binding = _ranked_caps(caps)
-                if cap > 1000:
-                    amount = cap
+        # Caps are sized every year, even when the bracket has no room left
+        # (the amount then stays 0), so the guardrail panel can show why.
+        cap_bracket = bracket_room * float(c.get('roth_headroom_usage_pct', 0.95) or 0.95)
+        caps = [("IRA balance", ira_total), ("Annual IRA percentage cap", max_pct_cap)]
+        if _bracket_on:
+            caps.insert(0, (f"{int(target_rate * 100)}% bracket", cap_bracket))
+        if aca_bridge_people and c.get('aca_ptc_enabled', True) and c.get('roth_aca_cap', True):
+            # Roth conversions in bridge years can destroy ACA premium tax
+            # credits.  Add a guardrail that keeps MAGI below the point where
+            # the configured benchmark subsidy is largely lost.
+            fpl = aca_fpl_for_year(c, year)
+            max_fpl = aca_guardrail_max_fpl_multiple(c, year)
+            caps.append(("ACA PTC MAGI guardrail", max(0.0, max_fpl * fpl - pre_agi)))
+        guard_mode = str(c.get("irmaa_guardrail_mode", "AVOID_NEXT_TIER") or "AVOID_NEXT_TIER").upper()
+        if (
+            c.get("roth_irmaa_cap", True)
+            and guard_mode not in ("IGNORE", "WARN_ONLY")
+            and _roth_irmaa_guardrail_age_gate_met(c, h_age, w_age)
+        ):
+            irmaa_thr = _roth_irmaa_target_threshold(c, filing, year)
+            cap_irmaa = max(0.0, irmaa_thr - pre_agi) * float(c.get('roth_irmaa_headroom_usage_pct', 0.95) or 0.95)
+            caps.append((str(c.get("roth_irmaa_target_tier", "TIER_2")).replace("_", " ").title(), cap_irmaa))
+        caps.extend(_ltcg_niit_caps())
+        if ira_total > 5000:
+            cap, binding, secondary_binding = _ranked_caps(caps)
+            if cap > 1000:
+                amount = cap
 
     if amount < 1000:
         amount = 0.0
@@ -3130,6 +3130,10 @@ def roth_guardrail_analysis(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, An
     Reads and writes nothing on ``c``.
     """
     rows = list(rows or [])
+    try:
+        window_end = int(conversion_window_end_year(c))
+    except Exception:
+        window_end = 0
     years: List[Dict[str, Any]] = []
     seen_ids: List[str] = []
     for r in rows:
@@ -3139,7 +3143,8 @@ def roth_guardrail_analysis(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, An
         except Exception:
             caps = []
         forced_year = str(r.get("conv_binding_limit") or "") == "Forced action"
-        if not caps and not forced_year and not float(r.get("roth_conv", 0.0) or 0.0):
+        in_window = int(r.get("year", 0) or 0) <= window_end
+        if not caps and not forced_year and not in_window and not float(r.get("roth_conv", 0.0) or 0.0):
             continue
         for cap in caps:
             if cap.get("id") not in seen_ids:

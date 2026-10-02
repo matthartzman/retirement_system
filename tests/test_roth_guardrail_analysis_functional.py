@@ -82,3 +82,18 @@ def test_aca_guardrail_off_drops_the_aca_cap_in_a_bridge_year():
     _c, off = _plan({**base, 'roth_aca_cap': False}, **kw)
     assert "aca" in [c["id"] for c in json.loads(on.guardrail_caps)]
     assert "aca" not in [c["id"] for c in json.loads(off.guardrail_caps)]
+
+
+def test_a_year_with_no_room_under_the_limits_is_still_listed_with_its_caps():
+    """After a forced conversion is deleted, that year used to vanish from the panel
+    (nothing was sized because the bracket had no room). It must stay selectable,
+    show its caps, and convert nothing."""
+    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+    c["forced_roth"] = {}
+    c["forced_roth_accounts"] = {}
+    out = roth_guardrail_analysis(c, project(c))
+    first = out["years"][0]
+    assert first["year"] == c["plan_start"]
+    assert first["forced"] is False
+    assert first["amount"] == 0
+    assert first["caps"], "caps should be sized even when no conversion fits"
