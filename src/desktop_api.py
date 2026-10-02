@@ -185,8 +185,7 @@ class DesktopApi:
                      if p.is_dir()),
                     Path.home(),
                 )
-            dest = folder / (filename or "Retirement Workbook.xlsx")
-            dest.write_bytes(raw)
+            dest = self._write_unique(folder / (filename or "Retirement Workbook.xlsx"), raw)
             self._open_path(dest)
             return {"success": True, "opened": True, "path": str(dest)}
 
@@ -202,6 +201,25 @@ class DesktopApi:
             tmp = Path(tf.name)
         self._open_path(tmp)
         return {"success": True, "opened": True}
+
+    @staticmethod
+    def _write_unique(dest: Path, raw: bytes) -> Path:
+        """Write ``raw`` to ``dest``; if that file cannot be written (on Windows,
+        typically because the same-named workbook from a moments-ago download is
+        still open in Excel and locked), write "name (2).xlsx", "name (3).xlsx", ...
+        instead of failing the download."""
+        try:
+            dest.write_bytes(raw)
+            return dest
+        except PermissionError as first_error:
+            for n in range(2, 100):
+                alt = dest.with_name(f"{dest.stem} ({n}){dest.suffix}")
+                try:
+                    alt.write_bytes(raw)
+                    return alt
+                except PermissionError:
+                    continue
+            raise first_error
 
     @staticmethod
     def _open_path(path: Path) -> None:
