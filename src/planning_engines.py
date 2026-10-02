@@ -2388,7 +2388,10 @@ def plan_roth_conversion(
     elif policy == "fill_to_irmaa":
         irmaa_thr = _roth_irmaa_target_threshold(c, filing, year)
         cap_irmaa = max(0.0, irmaa_thr - pre_agi) * float(c.get('roth_irmaa_headroom_usage_pct', 0.95) or 0.95)
-        if ira_total > 5000 and cap_irmaa > 1000:
+        # Caps are sized even when the IRMAA tier has no room left (cap_irmaa
+        # <= 1000): the amount then stays 0 (reset below), but the guardrail
+        # panel can show the IRMAA tier as the limit actually holding it down.
+        if ira_total > 5000:
             caps = [
                 (str(c.get("roth_irmaa_target_tier", "TIER_2")).replace("_", " ").title(), cap_irmaa),
                 ("IRA balance", ira_total),
