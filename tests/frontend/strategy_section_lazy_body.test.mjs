@@ -106,7 +106,7 @@ describe("strategySection lazy body (ticket 323)", () => {
   // server payload is therefore part of the setup now, and the assertion is
   // that the note points at the flag's OWN page (a plan flag's switch lives
   // where its data is) rather than at Plan Features.
-  test("a plan-flag gate links to the page that owns the flag, not Plan Features", () => {
+  test("a plan-flag gate links to Plan Features, where every switch lives", () => {
     const original = sandbox.window.moduleGates;
     sandbox.window.moduleGates = {
       step_gates: {},
@@ -128,10 +128,8 @@ describe("strategySection lazy body (ticket 323)", () => {
         () => "<p>body</p>",
         "heloc_strategy",
       );
-      assert.ok(html.includes("Enable HELOC Strategy"));
-      assert.ok(html.includes("HELOC &rarr; Setup &rarr; Enable HELOC Strategy"));
-      assert.ok(html.includes("setStep('heloc_strategy')"));
-      assert.ok(!html.includes("Plan Features"));
+      assert.ok(html.includes("setStep('optional_functions')"));
+      assert.ok(html.includes("Plan Features"));
       assert.ok(!html.includes("<p>body</p>"));
     } finally {
       sandbox.window.moduleGates = original;

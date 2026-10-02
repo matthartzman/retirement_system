@@ -213,6 +213,9 @@ class ConfigService:
                     "gate_kind": m.gate_kind,
                     "gate_ref": list(m.gate_ref) if m.gate_ref else None,
                     "gate_enable_label": m.gate_enable_label,
+                    # Lets a nav page list the optional features that would
+                    # appear on it if enabled (one link to Plan Features).
+                    "dashboard_step": m.dashboard_step,
                 }
                 for key, m in CATALOG.items()
             },

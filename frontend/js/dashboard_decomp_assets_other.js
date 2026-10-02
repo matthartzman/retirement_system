@@ -315,8 +315,10 @@ export function renderHsaPolicyOnOtherAssets(rs) {
 // otherwise-ungated page. `on` decides whether the gated note renders; the
 // rows themselves render either way, which is the no-hidden-data invariant.
 // `before`/`after` carry the group's own copy and controls.
-export function moduleGatedAssetGroup(rsAll, g, key, on, before, after) {
-  const grAll = rsAll.filter((r) => friendlyGroup(r) === g);
+export function moduleGatedAssetGroup(rsAll, g, key, on, before, after, skip) {
+  const grAll = rsAll.filter(
+    (r) => friendlyGroup(r) === g && !(skip && skip(r)),
+  );
   const note = on ? "" : featureGatedNote(key, { title: g, rows: grAll });
   if (!grAll.length && !note) return "";
   return `<details><summary>${esc(g)}</summary><div class="field-list">${note}${before || ""}${grAll.map(fieldHtml).join("")}${after || ""}</div></details>`;
@@ -431,7 +433,19 @@ export function renderAssetsSpecial() {
       return;
     }
     if (g === "LTC/Life Policy") {
-      html += moduleGatedAssetGroup(rsAll, g, "hybrid_ltc_policy", ltcLifePolicyModuleEnabled());
+      // The Hybrid LTC enable switch lives on Plan Features only.
+      html += moduleGatedAssetGroup(
+        rsAll,
+        g,
+        "hybrid_ltc_policy",
+        ltcLifePolicyModuleEnabled(),
+        "",
+        "",
+        (r) =>
+          r.section === "Hybrid LTC" &&
+          norm(r.subsection || "") === "settings" &&
+          norm(r.label) === "enabled",
+      );
       return;
     }
     if (gr.length)
