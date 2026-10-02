@@ -216,19 +216,58 @@ export function renderToggleRows(title, description, rs, open = false) {
 // rather than in dashboard.js (frontend_size_ratchet keeps that file
 // shrinking, not growing -- see test_frontend_size_ratchet.py).
 export function entityCharitableGatedRows(rs) {
+  // The enable switches live on Plan Features only; this page shows each
+  // group's fields only while its flag is on (a note covers the off case).
   const dafRows = rs.filter((r) => r.section === "DAF");
-  const dafEnabled = dafRows.find((r) => norm(r.label) === "enabled");
-  const dafShown =
-    !dafEnabled || boolishValue(dafEnabled) ? dafRows : [dafEnabled];
+  const dafShown = sectionFlagEnabled("DAF", "Settings", "enabled")
+    ? dafRows
+    : [];
   const qcdRows = rs.filter(
     (r) =>
       r.section === "Cashflow" && norm(r.subsection) === "charitable_giving",
   );
-  const qcdEnabled = qcdRows.find((r) => norm(r.label) === "qcd_enabled");
-  const qcdShown =
-    !qcdEnabled || boolishValue(qcdEnabled) ? qcdRows : [qcdEnabled];
+  const qcdShown = sectionFlagEnabled(
+    "Cashflow",
+    "Charitable Giving",
+    "qcd_enabled",
+  )
+    ? qcdRows
+    : [];
   const other = rs.filter((r) => !dafRows.includes(r) && !qcdRows.includes(r));
   return [...dafShown, ...qcdShown, ...other];
+}
+const QCD_COLUMNS = [
+  ["annual_amount", "Annual Amount"],
+  ["start_year", "Start Year"],
+  ["end_year", "End Year"],
+];
+function isQcdRow(r) {
+  return (
+    r.section === "Cashflow" && norm(r.subsection) === "charitable_giving"
+  );
+}
+// One row per person (nickname, not "H"/"W"): Name, Annual Amount, Start
+// Year, End Year. Reads/writes the same h_/w_qcd_* plan rows as before.
+export function renderQcdTable(rs) {
+  const cell = (prefix, key, who, title) => {
+    const r = rs.find((x) => norm(x.label) === `${prefix}_qcd_${key}`);
+    return r
+      ? `<td><input class="year-cell" type="text" value="${esc(displayValueForInput(r, valOf(r)))}" aria-label="${esc(who)} ${esc(title)}" oninput="editValue(${r.row_index},this.value,this)" onfocus="beginEdit(${r.row_index},this)" onblur="finishEdit(${r.row_index},this)"></td>`
+      : '<td><span class="small">—</span></td>';
+  };
+  const people = [["h", 1]];
+  const m2 = householdPersonRow(2, "name");
+  if ((m2 && String(valOf(m2) || "").trim()) || rs.some((r) => norm(r.label).startsWith("w_qcd_")))
+    people.push(["w", 2]);
+  let html = `<h3 class="group-title">Qualified Charitable Distribution (QCD)</h3><div class="matrix-wrap" role="region" aria-label="Qualified charitable distributions by person" tabindex="0"><table class="matrix-table"><thead><tr><th>Name</th>${QCD_COLUMNS.map(([, t]) => `<th>${esc(t)}</th>`).join("")}</tr></thead><tbody>`;
+  people.forEach(([prefix, n]) => {
+    const who = personDisplayName(n);
+    html += `<tr><td>${esc(who)}</td>${QCD_COLUMNS.map(([k, t]) => cell(prefix, k, who, t)).join("")}</tr>`;
+  });
+  return (
+    html +
+    `</tbody></table></div><p class="small">Capped at each person's own required distribution and the annual QCD limit. Blank start year = the year they turn 70½; blank end year = through plan end.</p>`
+  );
 }
 export function renderEntityCharitable() {
   let html = `<div class="section-note">Qualified charitable distributions (age 70½+) satisfy required distributions without the amount appearing as taxable income. S-Corp election is a self-employment decision, entered on <a href="#" onclick="setStep('income_work');return false">Work Income</a>.</div>`;
@@ -247,13 +286,37 @@ export function renderEntityCharitable() {
   // visibility.
   if (!optionalFunctionEnabled("charitable_giving"))
     html += featureGatedNote("charitable_giving", { title: "Charitable Giving" });
+  if (!sectionFlagEnabled("DAF", "Settings", "enabled"))
+    html += featureGatedNote("daf_giving", {
+      title: "DAF Giving",
+      rows: rs.filter((r) => r.section === "DAF"),
+    });
+  if (!sectionFlagEnabled("Cashflow", "Charitable Giving", "qcd_enabled"))
+    html += featureGatedNote("qcd_giving", {
+      title: "QCD Giving",
+      rows: rs.filter(
+        (r) =>
+          r.section === "Cashflow" && norm(r.subsection) === "charitable_giving",
+      ),
+    });
   const missing = rs.filter(isMissing);
   if (missing.length)
     html += `<div class="missing-list"><h3>${missing.length} required field${missing.length === 1 ? "" : "s"} missing in this view</h3><ul>${missing
       .slice(0, 8)
       .map((r) => `<li>${esc(humanLabel(r.label, r))}</li>`)
       .join("")}</ul></div>`;
-  return html + renderFieldGroups(entityCharitableGatedRows(rs));
+  const shown = entityCharitableGatedRows(rs);
+  const qcdOn = sectionFlagEnabled("Cashflow", "Charitable Giving", "qcd_enabled");
+  const daf = shown.filter((r) => r.section === "DAF");
+  const other = shown.filter((r) => r.section !== "DAF" && !isQcdRow(r));
+  return (
+    html +
+    (daf.length
+      ? `<div class="field-list"><h3 class="group-title">Donor Advised Fund (DAF)</h3>${sortRowsByDependency(daf).map(fieldHtml).join("")}</div>`
+      : "") +
+    (qcdOn ? renderQcdTable(shown.filter(isQcdRow)) : "") +
+    (other.length ? renderFieldGroups(other) : "")
+  );
 }
 // Keeps HELOC's own enable toggle visible on the Optimize screen (like
 // QCD/DAF above) -- renderFields("heloc_strategy") hard-hides the toggle
