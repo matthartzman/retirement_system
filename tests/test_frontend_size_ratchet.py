@@ -544,7 +544,9 @@ DASHBOARD_JS_MAX_LINES = 7_134
 # as percents +5): raised to 37,653.
 # 2026-10-02 (Roth page layout: grouped compact rows, forced table under the policy, no
 # calibration section, +55; two more groups, +25): raised to 37,733.
-TOTAL_JS_MAX_LINES = 37_733
+# 2026-10-02 (DAF/QCD/LTC-Life switches moved to Plan Features; per-page "optional features not
+# enabled" line; QCD per-person table, +~75 net of removed inline-switch code): raised to 37_810.
+TOTAL_JS_MAX_LINES = 37_810
 
 
 def _line_count(path: Path) -> int:

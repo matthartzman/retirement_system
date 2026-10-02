@@ -1857,7 +1857,7 @@ function optionalModuleState(row) {
       reason:
         "LTC/Life Policy is turned off (Hybrid LTC → Settings → Enabled).",
       activation:
-        "Turn on Enabled under Hybrid LTC → Settings on Other Assets and Liabilities.",
+        "Turn on LTC/Life Policy in Plan Features.",
       effect:
         "The related workbook section will begin using these values in cash-flow, insurance, estate, legacy, or planning-module calculations.",
       listAlways: false,
@@ -3747,6 +3747,7 @@ let renderMain = function() {
   else if (activeStep === "household_people" && !searchText.trim())
     content += renderHouseholdPeople();
   else content += renderFields(activeStep);
+  content += offFeaturesLineHtml(activeStep);
   if (SPENDING_COMPLETION[activeStep])
     content += spendingFlowFooterHtml(activeStep);
   if (!SPENDING_COMPLETION[activeStep]) content += suggestedNext(activeStep);

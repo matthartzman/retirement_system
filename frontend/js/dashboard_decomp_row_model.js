@@ -668,7 +668,12 @@ export function friendlyGroup(r) {
   if (r.section === "Note Receivable" && norm(r.subsection) === "summary")
     return "Note Receivable";
   if (r.section === "HSA Policy") return "HSA";
-  if (r.section === "DAF") return "DAF";
+  if (r.section === "DAF") return "Donor Advised Fund (DAF)";
+  if (
+    r.section === "Cashflow" &&
+    norm(r.subsection) === "charitable_giving"
+  )
+    return "Qualified Charitable Distribution (QCD)";
   if (r.section === "Hybrid LTC" || r.section === "Insurance In Force")
     return "LTC/Life Policy";
   if (r.section === "Education Funding") return "529 Plans";
@@ -1742,9 +1747,12 @@ export function rawRowsForStep(id) {
         // twice.
         return sec === "HELOC" && lbl !== "heloc_enabled";
       case "entity_charitable":
+        // The DAF/QCD enable switches live on Plan Features only.
         return (
-          sec === "DAF" ||
-          (sec === "Cashflow" && sub === "charitable_giving")
+          (sec === "DAF" && lbl !== "enabled") ||
+          (sec === "Cashflow" &&
+            sub === "charitable_giving" &&
+            lbl !== "qcd_enabled")
         );
       case "survivor_stress":
         return (

@@ -88,63 +88,14 @@ export function strategySectionToggle(key, open) {
 export function featureGatedNote(key, opts = {}) {
   const meta = (planModuleTaxonomy().modules || {})[key] || {};
   const title = opts.title || meta.name || key;
-  const gateKind = opts.gateKind || meta.gate_kind;
-  const gateRef = opts.gateRef || meta.gate_ref;
-  const gateEnableLabel = opts.gateEnableLabel || meta.gate_enable_label;
-  const isFlag = gateKind === "plan_flag";
   const n = opts.rows ? enteredRowCount(opts.rows) : 0;
   const countNote = n
     ? ` ${n} already-entered ${n === 1 ? "item is" : "items are"} retained.`
     : "";
-  const inlineSwitch = isFlag
-    ? planFlagInlineSwitch(gateRef)
-    : moduleToggleInlineSwitch(key);
-  const ref = gateRef || [];
-  const pathText =
-    isFlag && ref.length
-      ? [...ref.slice(0, 2), gateEnableLabel].filter(Boolean).map((x) => esc(x)).join(" &rarr; ")
-      : "";
-  let action;
-  if (inlineSwitch) {
-    // Best case: flip it right here. Still name where it lives, for a plan
-    // flag, so the note reads the same whether or not the row happened to be
-    // loaded on this page already.
-    action = inlineSwitch + (pathText ? ` (${pathText})` : "");
-  } else if (opts.destStep) {
-    // No row to flip inline (not loaded on this page) but we know exactly
-    // where it is -- link there by name, same as before this generalization.
-    action = `Enable it on <a href="#" onclick="setStep('${escJs(opts.destStep)}');return false">${pathText || "Plan Features"}</a>`;
-  } else {
-    action = `<a href="#" onclick="setStep('optional_functions');return false">Plan Features</a>`;
-  }
-  return `<div class="section-note">${esc(title)} is off.${countNote} ${action} to use it.</div>`;
-}
-
-// Finds the flag's own plan row so the note's "Turn on" button can flip it
-// directly (editValue + save), instead of only linking to where it lives.
-// Returns "" (falling back to the Plan Features link above) when the row
-// can't be found -- e.g. a stale gate_ref or a not-yet-loaded plan.
-function planFlagInlineSwitch(ref) {
-  if (!ref || ref.length !== 3) return "";
-  const row = rows.find(
-    (r) =>
-      isEditable(r) &&
-      r.section === ref[0] &&
-      norm(r.subsection || "") === norm(ref[1]) &&
-      norm(r.label) === norm(ref[2]),
-  );
-  if (!row) return "";
-  return `<button class="btn tiny" type="button" data-requires-app="1" onclick="editValue(${row.row_index},'YES',null);saveAll(false);renderMain()">Turn on</button>`;
-}
-
-// Same, for a module_toggle: the row lives on the Optional Functions step,
-// labeled by the module key itself (the toggle's own identity).
-function moduleToggleInlineSwitch(key) {
-  const row = (rowsForStep("optional_functions") || []).find(
-    (r) => norm(r.label) === norm(key),
-  );
-  if (!row) return "";
-  return `<button class="btn tiny" type="button" data-requires-app="1" onclick="editValue(${row.row_index},'YES',null);saveAll(false);renderMain()">Turn on</button>`;
+  // Every optional feature's switch lives on Plan Features only -- no inline
+  // switch here, just the one link.
+  const action = `<a href="#" onclick="setStep('optional_functions');return false">Turn it on in Plan Features</a>`;
+  return `<div class="section-note">${esc(title)} is off.${countNote} ${action}.</div>`;
 }
 
 // Resolves a legacy dashboard-step id (strategySection()'s own `gate`

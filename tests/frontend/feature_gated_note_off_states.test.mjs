@@ -16,7 +16,7 @@
 //     (a module-owned nav step with no data) still hides today, matching
 //     the spec's three-off-states table (§5.2).
 
-import { test, describe, beforeEach } from "node:test";
+import { test, describe, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { loadDashboardSandbox } from "./load_dashboard.mjs";
 
@@ -38,16 +38,17 @@ describe("featureGatedNote (Collapsed-with-a-note, #330 §5.2)", () => {
     assert.ok(!html.includes("<button"));
   });
 
-  test("module_toggle: offers an inline switch when the toggle row is loaded", () => {
+  test("module_toggle: never offers an inline switch, even when the toggle row is loaded", () => {
     sandbox.window.rows = [
       { row_index: 1, section: "Optional Functions", label: "existing_life_insurance", value: "NO" },
     ];
     const html = sandbox.featureGatedNote("existing_life_insurance", { title: "Existing Life Insurance" });
-    assert.ok(html.includes("<button"));
-    assert.ok(html.includes("editValue(1,'YES',null)"));
+    assert.ok(!html.includes("<button"));
+    assert.ok(!html.includes("editValue"));
+    assert.ok(html.includes("Plan Features"));
   });
 
-  test("plan_flag: offers an inline switch and names where the flag lives when the row is loaded", () => {
+  test("plan_flag: no inline switch; one link to Plan Features", () => {
     sandbox.window.rows = [
       { row_index: 7, section: "Hybrid LTC", subsection: "Settings", label: "enabled", value: "NO" },
     ];
@@ -57,8 +58,8 @@ describe("featureGatedNote (Collapsed-with-a-note, #330 §5.2)", () => {
       gateRef: ["Hybrid LTC", "Settings", "enabled"],
       gateEnableLabel: "Enabled",
     });
-    assert.ok(html.includes("editValue(7,'YES',null)"));
-    assert.ok(html.includes("Hybrid LTC &rarr; Settings &rarr; Enabled"));
+    assert.ok(!html.includes("editValue"));
+    assert.ok(html.includes("setStep('optional_functions')"));
   });
 
   test("shows how many already-entered rows are affected, per §5.2's invariant text", () => {
@@ -301,5 +302,71 @@ describe("Hidden is unchanged for a module-owned nav step (§5.2's first state)"
     };
     sandbox.optionalFunctionEnabled = () => false;
     assert.equal(sandbox.stepGatedByOptionalModule("ltc_stress"), true);
+  });
+});
+
+describe("DAF / QCD / LTC-Life switches live only on Plan Features", () => {
+  const flagMeta = (ref) => ({ gate_kind: "plan_flag", gate_ref: ref, optional: false, name: "X", demand: "low" });
+  const realTaxonomy = sandbox.planModuleTaxonomy;
+  afterEach(() => {
+    sandbox.planModuleTaxonomy = realTaxonomy;
+  });
+  beforeEach(() => {
+    const tax = {
+      modules: {
+        daf_giving: { ...flagMeta(["DAF", "Settings", "enabled"]), name: "DAF Giving" },
+        qcd_giving: { ...flagMeta(["Cashflow", "Charitable Giving", "qcd_enabled"]), name: "QCD Giving" },
+        hybrid_ltc_policy: { ...flagMeta(["Hybrid LTC", "Settings", "enabled"]), name: "LTC/Life Policy" },
+      },
+    };
+    sandbox.planModuleTaxonomy = () => tax;
+    sandbox.window.rows = [
+      { row_index: 1, section: "DAF", subsection: "Settings", label: "enabled", value: "NO" },
+      { row_index: 2, section: "DAF", subsection: "Settings", label: "annual_daf_contribution", value: "5000" },
+      { row_index: 3, section: "Cashflow", subsection: "Charitable Giving", label: "qcd_enabled", value: "NO" },
+      { row_index: 4, section: "Hybrid LTC", subsection: "Settings", label: "enabled", value: "NO" },
+      { row_index: 5, section: "Hybrid LTC", subsection: "Policy", label: "annual_premium", value: "3000" },
+    ];
+  });
+
+  test("Charitable Giving page has no enable rows", () => {
+    const html = sandbox.renderEntityCharitable();
+    assert.ok(!html.includes('data-row="1"'));
+    assert.ok(!html.includes('data-row="3"'));
+    assert.ok(html.includes("DAF Giving is off"));
+    assert.ok(html.includes("QCD Giving is off"));
+  });
+
+  test("Other Assets LTC/Life group has no enable row but keeps its data", () => {
+    const html = sandbox.renderAssetsSpecial();
+    assert.ok(!html.includes('data-row="4"'));
+    assert.ok(html.includes('data-row="5"'));
+  });
+
+  test("nav page lists off optional features with one Plan Features link", () => {
+    const html = sandbox.offFeaturesLineHtml("entity_charitable");
+    assert.ok(html.includes("DAF Giving"));
+    assert.ok(html.includes("QCD Giving"));
+    assert.equal(html.split("Plan Features").length - 1, 1);
+    assert.equal(sandbox.offFeaturesLineHtml("optional_functions"), "");
+  });
+});
+
+describe("QCD section is one row per person with nickname labels", () => {
+  test("Name / Annual Amount / Start Year / End Year, no H/W or QCD prefixes", () => {
+    sandbox.window.rows = [
+      { row_index: 1, section: "Household", label: "member_1_name", value: "Matthew" },
+      { row_index: 2, section: "Household", label: "member_1_nickname", value: "Matt" },
+      { row_index: 3, section: "Household", label: "member_2_name", value: "Patricia" },
+      { row_index: 4, section: "Household", label: "member_2_nickname", value: "Pat" },
+      { row_index: 10, section: "Cashflow", subsection: "Charitable Giving", label: "qcd_enabled", value: "YES" },
+      { row_index: 11, section: "Cashflow", subsection: "Charitable Giving", label: "h_qcd_annual_amount", value: "5000" },
+      { row_index: 12, section: "Cashflow", subsection: "Charitable Giving", label: "w_qcd_annual_amount", value: "3000" },
+    ];
+    const html = sandbox.renderEntityCharitable();
+    assert.ok(html.includes("Qualified Charitable Distribution (QCD)"));
+    assert.ok(html.includes("<th>Name</th><th>Annual Amount</th><th>Start Year</th><th>End Year</th>"));
+    assert.ok(html.includes("<td>Matt</td>") && html.includes("<td>Pat</td>"));
+    assert.ok(html.includes("editValue(11,") && html.includes("editValue(12,"));
   });
 });
