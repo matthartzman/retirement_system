@@ -1128,3 +1128,4 @@ details.page-accordion[open]>summary::before,.page-recommendations[open]>summary
 .roth-group-title:first-child{border-top:0;margin-top:2px}
 .field-list.roth-compact{grid-template-columns:1fr;gap:0}
 .field-list.roth-compact>.field,.field-list.roth-compact>.field.flow,.field-list.roth-compact>.field.paired{grid-column:1/-1}
+.rg-would{color:var(--muted)}

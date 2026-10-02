@@ -123,10 +123,12 @@ export function rgRankRows(guardrails, year, order, manual, offMap) {
   });
   const rows = ids.map((id) => {
     const cap = capById[id];
+    // `cap.active === false` means the engine sized what this guardrail WOULD
+    // allow but did not enforce it that year (switched off, or not applicable).
     return {
       id,
       name: cap && id === "bracket" ? cap.name : RG_NAMES[id] || (cap && cap.name) || id,
-      active: !!cap && switches[id] !== false,
+      active: !!cap && cap.active !== false && switches[id] !== false,
       cap: cap ? cap.cap : null,
       off: switches[id] === false,
     };
@@ -143,7 +145,10 @@ export function rgRankRows(guardrails, year, order, manual, offMap) {
     };
     ordered = rows.slice().sort((a, b) => pos(a.id) - pos(b.id));
   } else {
-    ordered = live.concat(rows.filter((r) => !r.active));
+    const rest = rows
+      .filter((r) => !r.active)
+      .sort((a, b) => (a.cap == null) - (b.cap == null) || (a.cap || 0) - (b.cap || 0));
+    ordered = live.concat(rest);
   }
   return { entry, rows: ordered, maxCap: Math.max(1, ...live.map((r) => r.cap)) };
 }
@@ -266,7 +271,7 @@ export function rothGuardrailPanelHtml(g, ctx) {
   const items = rows
     .map((r, i) => {
       const badge = !r.active
-        ? `<span class="rg-badge boff">${r.off ? "Off" : "Not this year"}</span>`
+        ? `<span class="rg-badge boff">${r.off ? "Off" : r.cap == null ? "Not this year" : "Not enforced this year"}</span>`
         : r.binding === "now"
           ? '<span class="rg-badge b1">Binding now</span>'
           : r.binding === "next"
@@ -277,7 +282,7 @@ export function rothGuardrailPanelHtml(g, ctx) {
         `<li class="rg-row${r.binding === "now" ? " p1" : ""}${r.active ? "" : " off"}" data-gid="${rgEsc(r.id)}">` +
         `<span class="rg-grip" title="Drag to reorder" aria-label="Drag to reorder ${rgEsc(r.name)}" role="button" tabindex="0">⋮⋮</span>` +
         `<div class="rg-main"><div class="rg-name">${i + 1}. ${rgEsc(r.name)} ${badge}</div><div class="rg-desc">${rgEsc(RG_DESC[r.id] || "")}</div></div>` +
-        `<div class="rg-cap">${r.active ? rgMoney(r.cap) : "—"}<small>${r.active ? "allows up to" : "not counted"}</small></div>` +
+        `<div class="rg-cap${r.active ? "" : " rg-would"}">${r.cap == null ? "—" : rgMoney(r.cap)}<small>${r.active ? "allows up to" : r.cap == null ? "no figure" : "would allow, not applied"}</small></div>` +
         bar +
         `<div class="rg-ctl">${rgControls(r, g, ctx)}</div>` +
         rgWhatIfHtml(r, g) +

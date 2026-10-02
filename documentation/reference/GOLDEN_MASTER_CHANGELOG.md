@@ -1,3 +1,13 @@
+## 2026-10-02 — Full-row snapshot regenerated: `conv_guardrail_caps` quantifies every guardrail (no value change)
+
+<!-- fixture-provenance: deterministic_engine_full_row_snapshot_cases.json sha256=30d98aca1f0aa5efda8d1b0c13be8f6a109caf479db32bceb96ed3ed389ce339 -->
+
+`conv_guardrail_caps` now lists every Roth guardrail each year. Guardrails enforced that year keep their real
+caps (`active: true`); the rest (switched off, or not applicable that year) carry the dollars they would allow
+with `active: false`, so the guardrail panel can always show a figure. Regenerated with
+`tools/regen_full_row_snapshot.py`; the diff is only that one field. Conversion amounts, binding limits, balances
+and taxes did not move, and the frozen-plan and synthetic pins are untouched.
+
 ## 2026-10-02 — Full-row snapshot regenerated: `conv_guardrail_caps` filled for every conversion-window year (no value change)
 
 <!-- fixture-provenance: deterministic_engine_full_row_snapshot_cases.json sha256=0ece204f4747c6528a87eb1582531db785d8f2143dafac7d8a2297a4219613e6 -->

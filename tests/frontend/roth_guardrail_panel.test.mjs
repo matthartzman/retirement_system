@@ -121,3 +121,15 @@ test("tax bracket and ACA limit have their own on/off switches that follow the s
   assert.match(html, /editValue\(20,this\.checked\?'TRUE':'FALSE'/);
   assert.match(html, /editValue\(21,this\.checked\?'TRUE':'FALSE'/);
 });
+
+test("a guardrail that is sized but not enforced still shows its dollars", () => {
+  const { rothGuardrailPanelHtml, rgRankRows } = loadDashboardSandbox();
+  const data = g();
+  data.years[0].caps.push({ id: "irmaa", name: "Tier 2", cap: 195000, active: false });
+  const irmaa = rgRankRows(data, 2027, [], false).rows.find((r) => r.id === "irmaa");
+  assert.equal(irmaa.active, false);
+  assert.equal(irmaa.cap, 195000);
+  const html = rothGuardrailPanelHtml(data, ctx());
+  assert.match(html, /\$195,000<small>would allow, not applied/);
+  assert.match(html, /Not enforced this year/);
+});
