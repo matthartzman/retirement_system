@@ -23,7 +23,8 @@ def test_plan_exposes_all_sized_caps_not_just_two():
     caps = json.loads(plan.guardrail_caps)
     ids = [c["id"] for c in caps]
     assert {"bracket", "ltcg", "niit", "pct", "balance"} <= set(ids)
-    assert [c["cap"] for c in caps] == sorted(c["cap"] for c in caps)
+    enforced = [c["cap"] for c in caps if c["active"]]
+    assert enforced == sorted(enforced), "enforced caps are listed lowest first"
     assert plan.as_row_fields()["conv_guardrail_caps"] == plan.guardrail_caps
 
 
@@ -70,8 +71,9 @@ def test_bracket_guardrail_off_removes_the_bracket_cap_and_sizes_the_rest():
     _c, on = _plan({'roth_niit_cap': False, 'roth_ltcg_cap': False})
     _c, off = _plan({'roth_niit_cap': False, 'roth_ltcg_cap': False, 'roth_bracket_cap': False})
     assert "bracket" in [c["id"] for c in json.loads(on.guardrail_caps)]
-    off_ids = [c["id"] for c in json.loads(off.guardrail_caps)]
-    assert "bracket" not in off_ids and "pct" in off_ids
+    off_caps = {c["id"]: c for c in json.loads(off.guardrail_caps)}
+    assert off_caps["bracket"]["active"] is False, "still quantified, but not enforced"
+    assert off_caps["pct"]["active"] is True
     assert off.amount >= on.amount
 
 
@@ -80,8 +82,10 @@ def test_aca_guardrail_off_drops_the_aca_cap_in_a_bridge_year():
     base = {'roth_niit_cap': False, 'roth_ltcg_cap': False, 'aca_ptc_enabled': True}
     _c, on = _plan(base, **kw)
     _c, off = _plan({**base, 'roth_aca_cap': False}, **kw)
-    assert "aca" in [c["id"] for c in json.loads(on.guardrail_caps)]
-    assert "aca" not in [c["id"] for c in json.loads(off.guardrail_caps)]
+    on_caps = {c["id"]: c for c in json.loads(on.guardrail_caps)}
+    off_caps = {c["id"]: c for c in json.loads(off.guardrail_caps)}
+    assert on_caps["aca"]["active"] is True
+    assert off_caps["aca"]["active"] is False and off_caps["aca"]["cap"] >= 0
 
 
 def test_a_year_with_no_room_under_the_limits_is_still_listed_with_its_caps():
@@ -97,3 +101,16 @@ def test_a_year_with_no_room_under_the_limits_is_still_listed_with_its_caps():
     assert first["forced"] is False
     assert first["amount"] == 0
     assert first["caps"], "caps should be sized even when no conversion fits"
+
+
+def test_every_guardrail_is_quantified_even_when_not_enforced():
+    """Switched-off or not-applicable guardrails still carry the dollars they would
+    allow (active False), so the panel never has to show a bare dash."""
+    _c, plan = _plan({'roth_niit_cap': False, 'roth_ltcg_cap': False, 'roth_bracket_cap': False},
+                     portfolio_qualified=200_000.0)
+    caps = {c["id"]: c for c in json.loads(plan.guardrail_caps)}
+    assert {"bracket", "irmaa", "ltcg", "niit", "pct", "balance"} <= set(caps)
+    assert caps["bracket"]["active"] is False and caps["niit"]["active"] is False
+    assert caps["pct"]["active"] is True
+    assert all(isinstance(c["cap"], float) for c in caps.values())
+    assert plan.binding_limit != "NIIT threshold"

@@ -2443,6 +2443,43 @@ def plan_roth_conversion(
         binding = ""
         secondary_binding = ""
 
+    # Every guardrail is quantified every year. The ones enforced this year are
+    # the real caps ("active": True); the rest (switched off, or not applicable
+    # this year -- IRMAA before the age gate, ACA outside bridge years, no
+    # qualified income, a different policy) carry the dollars they WOULD allow
+    # with "active": False, so the panel can always show a number.
+    for _e in caps_seen:
+        _e["active"] = True
+    _have = {_e["id"] for _e in caps_seen}
+
+    def _would_allow(gid: str, name: str, cap: float) -> None:
+        if gid not in _have:
+            caps_seen.append({"id": gid, "name": name, "cap": round(max(0.0, float(cap)), 2), "active": False})
+            _have.add(gid)
+
+    try:
+        _bf = _tk.bracket_factor_for_year(c, year)
+        _would_allow("bracket", f"{int(target_rate * 100)}% bracket",
+                     bracket_room * float(c.get('roth_headroom_usage_pct', 0.95) or 0.95))
+        _would_allow("irmaa", str(c.get("roth_irmaa_target_tier", "TIER_2")).replace("_", " ").title(),
+                     (_roth_irmaa_target_threshold(c, filing, year) - pre_agi)
+                     * float(c.get('roth_irmaa_headroom_usage_pct', 0.95) or 0.95))
+        _t0, _t15 = _roth_ltcg_thresholds_base(c, filing)
+        _ceil = _t0 * _bf if pre_agi < _t0 * _bf else (_t15 * _bf if pre_agi < _t15 * _bf else None)
+        if _ceil is not None:
+            _would_allow("ltcg", "LTCG rate tier",
+                         (_ceil - pre_agi) * float(c.get('roth_ltcg_headroom_usage_pct', 0.95) or 0.95))
+        _would_allow("niit", "NIIT threshold",
+                     (_roth_niit_threshold_base(c, filing) - pre_agi)
+                     * float(c.get('roth_niit_headroom_usage_pct', 0.95) or 0.95))
+        if aca_bridge_people:
+            _would_allow("aca", "ACA PTC MAGI guardrail",
+                         aca_guardrail_max_fpl_multiple(c, year) * aca_fpl_for_year(c, year) - pre_agi)
+        _would_allow("pct", "Annual IRA percentage cap", ira_total * max_pct)
+        _would_allow("balance", "IRA balance", ira_total)
+    except Exception:
+        pass
+
     return ConversionPlan(
         amount=amount,
         pre_agi=pre_agi,
@@ -3147,7 +3184,7 @@ def roth_guardrail_analysis(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, An
         if not caps and not forced_year and not in_window and not float(r.get("roth_conv", 0.0) or 0.0):
             continue
         for cap in caps:
-            if cap.get("id") not in seen_ids:
+            if cap.get("active", True) and cap.get("id") not in seen_ids:
                 seen_ids.append(cap.get("id"))
         years.append({
             "year": int(r.get("year", 0) or 0),
