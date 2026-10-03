@@ -1628,7 +1628,11 @@ def _base_enabled(c, key):
     # = DAF or QCD). Same spot as the bundle rule, for the same reason.
     _flags = getattr(CATALOG.get(key) or CATALOG.get(k), 'gated_by_any_flag', ())
     if _flags:
-        return any(plan_flag_enabled(c, f) for f in _flags)
+        cfg = c or {}
+        # With no flag keys in `c` (no plan parsed) fall through to the
+        # ordinary toggle read below, which defaults an absent key to on.
+        if any(CATALOG[f].gate_config_key in cfg for f in _flags):
+            return any(plan_flag_enabled(cfg, f) for f in _flags)
     opt = (c or {}).get('opt') or {}
     if key in opt:
         return bool(opt[key])
