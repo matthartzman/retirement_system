@@ -2482,6 +2482,11 @@ def plan_roth_conversion(
         _would_allow("balance", "IRA balance", ira_total)
     except Exception:
         pass
+    # Record which bracket rate this year's bracket cap used (a phase-varying or
+    # optimizer-chosen strategy can differ from the configured target bracket).
+    for _e in caps_seen:
+        if _e["id"] == "bracket":
+            _e["rate"] = round(float(target_rate), 4)
 
     return ConversionPlan(
         amount=amount,

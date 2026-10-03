@@ -1,3 +1,13 @@
+## 2026-10-03 — Full-row snapshot regenerated: bracket entries in `conv_guardrail_caps` record their rate (no value change)
+
+<!-- fixture-provenance: deterministic_engine_full_row_snapshot_cases.json sha256=3fdb272f8e0f383b523cc6c0771d36ea6577053f000bf01ba83654b7182ddf3a -->
+
+The `bracket` entry inside `conv_guardrail_caps` now carries `rate`, the federal bracket rate that year's
+bracket cap used (an optimizer-chosen or phase-varying strategy can differ from the configured target), so the
+guardrail panel can name it. Regenerated with `tools/regen_full_row_snapshot.py`; the diff is only that one
+field's content. No conversion amount, binding limit, balance or tax moved, and the frozen-plan and synthetic
+pins are untouched.
+
 ## 2026-10-02 — Full-row snapshot regenerated: `conv_guardrail_caps` quantifies every guardrail (no value change)
 
 <!-- fixture-provenance: deterministic_engine_full_row_snapshot_cases.json sha256=30d98aca1f0aa5efda8d1b0c13be8f6a109caf479db32bceb96ed3ed389ce339 -->

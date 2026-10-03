@@ -11,7 +11,7 @@ const RG_ORDER_KEY = "rothGuardrailOrder";
 const RG_RATES = ["10.00%", "12.00%", "22.00%", "24.00%", "32.00%", "35.00%", "37.00%"];
 const RG_LTCG_BANDS = ["auto", "0%", "15%"];
 const RG_NAMES = {
-  bracket: "Tax bracket",
+  bracket: "Federal tax bracket",
   irmaa: "Medicare IRMAA tier",
   ltcg: "Capital gains rate band",
   niit: "3.8% investment income tax",
@@ -127,7 +127,8 @@ export function rgRankRows(guardrails, year, order, manual, offMap) {
     // allow but did not enforce it that year (switched off, or not applicable).
     return {
       id,
-      name: cap && id === "bracket" ? cap.name : RG_NAMES[id] || (cap && cap.name) || id,
+      name: RG_NAMES[id] || (cap && cap.name) || id,
+      rate: cap && cap.rate != null ? Number(cap.rate) : null,
       active: !!cap && cap.active !== false && switches[id] !== false,
       cap: cap ? cap.cap : null,
       off: switches[id] === false,
@@ -248,6 +249,21 @@ function rgWhatIfHtml(row, g) {
   );
 }
 
+// One-line description of a guardrail. For the federal bracket it names the rate
+// the last build actually used, and says so when that differs from the
+// Target bracket setting (an optimizer-chosen or phase-varying strategy picks its
+// own rate; the setting is used as-is only under Fill to bracket).
+export function rgDesc(row, ctx) {
+  if (row.id !== "bracket") return RG_DESC[row.id] || "";
+  if (row.rate == null) return RG_DESC.bracket;
+  const used = Math.round(row.rate * 100);
+  const setting = ctx && ctx.val ? rgPctNumber(ctx.val("roth_target_bracket_rate"), null) : null;
+  let t = `Room left in the ${used}% federal bracket, after the standard deduction.`;
+  if (setting != null && Math.round(setting) !== used)
+    t += ` The last build used ${used}% (your Target bracket setting is ${Math.round(setting)}%): under an optimizer or phase-varying strategy the strategy picks the rate, and the setting applies as-is only under Fill to bracket. Rebuild after changing it.`;
+  return t;
+}
+
 // ctx: { year, order, manual, val(labelKey)->string, idx(labelKey)->row index|null }
 export function rothGuardrailPanelHtml(g, ctx) {
   if (!g || !(g.years || []).length) return "";
@@ -281,7 +297,7 @@ export function rothGuardrailPanelHtml(g, ctx) {
       return (
         `<li class="rg-row${r.binding === "now" ? " p1" : ""}${r.active ? "" : " off"}" data-gid="${rgEsc(r.id)}">` +
         `<span class="rg-grip" title="Drag to reorder" aria-label="Drag to reorder ${rgEsc(r.name)}" role="button" tabindex="0">⋮⋮</span>` +
-        `<div class="rg-main"><div class="rg-name">${i + 1}. ${rgEsc(r.name)} ${badge}</div><div class="rg-desc">${rgEsc(RG_DESC[r.id] || "")}</div></div>` +
+        `<div class="rg-main"><div class="rg-name">${i + 1}. ${rgEsc(r.name)} ${badge}</div><div class="rg-desc">${rgEsc(rgDesc(r, ctx))}</div></div>` +
         `<div class="rg-cap${r.active ? "" : " rg-would"}">${r.cap == null ? "—" : rgMoney(r.cap)}<small>${r.active ? "allows up to" : r.cap == null ? "no figure" : "would allow, not applied"}</small></div>` +
         bar +
         `<div class="rg-ctl">${rgControls(r, g, ctx)}</div>` +
@@ -413,6 +429,7 @@ Object.assign(window, {
   rgRankRows,
   rgLiveOff,
   rgWhatIf,
+  rgDesc,
   rothGuardrailPanelHtml,
   rothGuardrailSetYear,
   rothGuardrailAuto,
