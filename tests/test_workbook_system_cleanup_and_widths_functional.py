@@ -20,11 +20,11 @@ def test_system_section_uses_clean_sheet_sequence_without_feature_toggle(built_w
     # test_workbook_numbered_section_tabs_functional.py for the full
     # per-sheet rationale.
     expected = [
-        '1. Reports','1A. Spending Summary','1B. Lifetime Taxes','1C. Executive Summary','1D. Net Worth','1E. Cash Flow','1F. Balance Sheet','1G. Charts','1H. Current vs. Proposed','1I. Planning Levers',
+        '1. Reports','1A. Executive Summary','1B. Net Worth','1C. Cash Flow','1D. Balance Sheet','1E. Lifetime Taxes','1F. Charts','1G. Spending Summary',
         '2. Optimizers','2A. Social Security','2B. Housing Comparison','2C. Withdrawal Sequencing','2D. Asset Location',
         '2E. Roth Conversion','2F. HSA Drawdown','2G. Charitable Giving','2H. Tax-Loss Harvesting','2I. Gain Harvesting',
         '2J. Estate & Legacy Planning','2K. Asset Allocation',
-        '3. Comparisons','3A. State Residency','3B. S-Corp vs LLC','3C. Scenario Analysis',
+        '3. Comparisons','3A. State Residency','3B. S-Corp vs LLC','3C. Scenario Analysis','3D. Current vs. Proposed','3E. Planning Levers',
         '4. Risks','4A. Monte Carlo','4B. Survivor','4C. LTC Stress Test','4D. Life Insurance Need',
         '5. Reference','5A. RMD Audit','5B. Tax Capacity','5C. Plan Data','5D. Assumptions','5E. Account Reconciliation','5F. Quality Control','5G. Methodology','5H. Glossary',
     ]

@@ -248,11 +248,17 @@ def _derive_sheet_tables(registry):
         # physical tab order) and by_letter (drives letter assignment) get
         # the same Topic prefix so a sheet's letter always matches its
         # physical position.
+        #
+        # Section 1 (Reports) is the exception: it reads as a narrative
+        # (Executive Summary, Net Worth, Cash Flow, Balance Sheet, Lifetime
+        # Taxes, Charts, Spending Summary), so it orders by rank alone.
         topic_rank = _DOMAINS.index(sheet_topic(name))
         if spec.section is not None:
-            by_section[spec.section].append(((topic_rank, spec.section_rank), name))
+            by_section[spec.section].append(
+                ((0 if spec.section == '1' else topic_rank, spec.section_rank), name))
         if spec.letter_prefix is not None:
-            by_letter[spec.letter_prefix].append(((topic_rank, spec.letter_rank), name))
+            by_letter[spec.letter_prefix].append(
+                ((0 if spec.letter_prefix == '1' else topic_rank, spec.letter_rank), name))
         if spec.display is not None:
             display_titles[name] = spec.display
         slugs[name] = spec.slug

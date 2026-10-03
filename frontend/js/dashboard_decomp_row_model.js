@@ -3149,9 +3149,7 @@ export function renderFields(step) {
       ? "divorce_qdro"
       : step === "ltc_stress"
         ? "long_term_care_stress"
-        : step === "entity_charitable"
-          ? "charitable_giving"
-          : null;
+        : null;
   const gateOff = _flagGate
     ? !sectionFlagEnabled(..._flagGate.ref)
     : gateKey

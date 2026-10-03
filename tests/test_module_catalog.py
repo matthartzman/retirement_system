@@ -79,7 +79,8 @@ def test_every_optional_module_has_a_toggle_row():
     # W8b: a bundled module's switch is its PARENT's row (#330 §3.3), so it is
     # exempt from needing one -- and, below, forbidden from having one.
     missing = sorted(k for k, m in mc.CATALOG.items()
-                     if m.optional and m.gated_by is None and k not in declared)
+                     if m.optional and m.gated_by is None
+                     and not m.gated_by_any_flag and k not in declared)
     assert not missing, (
         "optional modules with no toggle row in the default plan, so they are "
         f"silently always-on: {missing}")
@@ -94,6 +95,12 @@ def test_every_optional_module_has_a_toggle_row():
         "that can disagree with the first, and `_base_enabled` would ignore "
         "it anyway -- it reads the parent's toggle -- so the row would render "
         "a dead switch on Plan Features.")
+
+    # Charitable Giving is DAF-or-QCD (gated_by_any_flag): a row of its own
+    # would be a third switch that `_base_enabled` ignores.
+    derived = sorted(k for k, m in mc.CATALOG.items()
+                     if m.gated_by_any_flag and k in declared)
+    assert not derived, f"toggle row for a flag-derived module: {derived}"
 
     orphans = sorted(k for k in declared if k and k not in mc.CATALOG)
     assert not orphans, (
@@ -489,7 +496,7 @@ def test_no_module_uses_a_retired_topic():
 def test_answer_types_drive_letter_groups():
     assert mc.ANSWER_TYPES == ("Reports", "Optimizers", "Comparisons", "Risks", "Reference")
     assert mc.KIND_ANSWER_TYPE == {
-        "projection": "Reports", "worksheet": "Reports",
+        "projection": "Reports", "worksheet": "Comparisons",
         "optimization": "Optimizers", "comparison": "Comparisons",
         "stress_test": "Risks", "protection": "Risks",
         "diagnostics": "Reference", "reference": "Reference",
@@ -505,3 +512,21 @@ def test_workbook_section_titles_match_answer_types():
 
 def test_housing_location_search_is_named_next_housing_move():
     assert mc.CATALOG["housing_location_search"].name == "Next Housing Move"
+
+
+def test_charitable_giving_follows_daf_or_qcd_flags(monkeypatch):
+    """Charitable Giving has no switch of its own: the sheet and the nav page
+    exist iff DAF or QCD is on, and each of those is its own on/off feature."""
+    for var in ("RETIREMENT_SYSTEM_FORCE_ENABLE_MODULES",
+                "RETIREMENT_SYSTEM_FORCE_DISABLE_MODULES",
+                "RETIREMENT_SYSTEM_FORCE_ALL_MODULES"):
+        monkeypatch.delenv(var, raising=False)
+    key = "charitable_giving"
+    assert mc.CATALOG[key].gated_by_any_flag == ("daf_giving", "qcd_giving")
+    assert not mc.module_enabled({"daf_enabled": False, "qcd_enabled": False}, key)
+    assert mc.module_enabled({"daf_enabled": True, "qcd_enabled": False}, key)
+    assert mc.module_enabled({"daf_enabled": False, "qcd_enabled": True}, key)
+    assert mc.module_enabled({"daf_enabled": True, "qcd_enabled": True}, key)
+    # A stray saved toggle cannot override the flags.
+    assert not mc.module_enabled(
+        {"opt": {key: True}, "daf_enabled": False, "qcd_enabled": False}, key)
