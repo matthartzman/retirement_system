@@ -127,3 +127,9 @@ def test_fill_to_irmaa_with_no_headroom_reports_irmaa_as_the_binding_limit():
     assert caps["irmaa"]["cap"] == 0.0
     assert caps["pct"]["active"] is True
     assert plan.amount == 0.0
+
+
+def test_bracket_entries_record_the_rate_they_used():
+    _c, plan = _plan({'roth_niit_cap': False, 'roth_ltcg_cap': False, 'roth_target_rate': 0.35})
+    bracket = next(c for c in json.loads(plan.guardrail_caps) if c["id"] == "bracket")
+    assert bracket["rate"] == 0.35

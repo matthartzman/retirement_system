@@ -133,3 +133,16 @@ test("a guardrail that is sized but not enforced still shows its dollars", () =>
   assert.match(html, /\$195,000<small>would allow, not applied/);
   assert.match(html, /Not enforced this year/);
 });
+
+test("the bracket row is titled generically and names the rate the build used", () => {
+  const { rothGuardrailPanelHtml, rgDesc } = loadDashboardSandbox();
+  const data = g();
+  data.years[0].caps.find((c) => c.id === "bracket").rate = 0.12;
+  const html = rothGuardrailPanelHtml(data, ctx({ val: (k) => ({ roth_target_bracket_rate: "24.00%" }[k] ?? "") }));
+  assert.match(html, /\d\. Federal tax bracket/);
+  assert.doesNotMatch(html, /12% bracket<\/div>|>\d\. 12% bracket/);
+  assert.match(html, /Room left in the 12% federal bracket/);
+  assert.match(html, /last build used 12% \(your Target bracket setting is 24%\)/);
+  const same = rgDesc({ id: "bracket", rate: 0.24 }, { val: () => "24.00%" });
+  assert.doesNotMatch(same, /last build used/);
+});
