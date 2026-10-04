@@ -1,6 +1,6 @@
-# Feature tiers and unified switches — design (DRAFT for review)
+# Feature tiers and unified switches — design
 
-Status: draft, decisions 1-8 confirmed by the owner on 2026-10-04; items under "Still open" need an answer before implementation starts.
+Status: approved by the owner on 2026-10-04 (decisions 1-11 below). Ready for implementation planning, phase by phase.
 Baseline: `documentation/reference/NAV_FEATURE_MAP.md` (25 nav pages, 21 always on, 4 switchable).
 
 ## 1. Goals
@@ -21,6 +21,9 @@ Baseline: `documentation/reference/NAV_FEATURE_MAP.md` (25 nav pages, 21 always 
 | 6 | Existing plans are mapped to a tier and the rest is switched off, subject to the safeguard in section 6. |
 | 7 | Switching off a feature the engine reads means the projection ignores it, with a visible warning. Data is kept. |
 | 8 | Field tiers are a `min_tier` column in the field catalog (`reference_data/schema.csv`). |
+| 9 | Migration safeguard (section 6) accepted as written. |
+| 10 | The workbook keeps its five answer-type sections; only the vocabulary and within-section order align with the nav (section 5). |
+| 11 | Tier membership (section 4) accepted as proposed. |
 
 ## 3. The model
 
@@ -35,7 +38,7 @@ Off semantics (uniform):
 
 **Field tier** = `min_tier` on each field. A page shows fields at or below the plan's tier; a "Show advanced" control reveals the rest for that page. Required fields are never hidden.
 
-## 4. Tier assignments (proposal — review this table)
+## 4. Tier assignments (approved)
 
 | Tier | Adds (cumulative) |
 |---|---|
@@ -46,7 +49,7 @@ Off semantics (uniform):
 
 Reference sheets (Plan Data, Assumptions, Quality Control, Methodology, Glossary) follow the core and are always built.
 
-## 5. Taxonomy alignment (interpretation to confirm)
+## 5. Taxonomy alignment (approved)
 
 Today the nav has 12 groups, the workbook has 5 answer-type sections (Reports, Optimizers, Comparisons, Risks, Reference), and the catalog has 9 domains. Proposal:
 - The 5 workbook sections stay as they are (they were just reordered and answer a different question: what kind of result).
@@ -57,7 +60,7 @@ Today the nav has 12 groups, the workbook has 5 answer-type sections (Reports, O
 
 Rule from decision 6: map the plan to the smallest tier that contains its current features and switch off the rest.
 
-**Safeguard (needs sign-off).** Because "off" now means ignored, switching off an engine-participating feature that holds data would change results. So the migration:
+**Safeguard (approved).** Because "off" now means ignored, switching off an engine-participating feature that holds data would change results. So the migration:
 1. never switches off a feature that participates in the engine and has entered data (it stays on and the plan shows as customized);
 2. runs the projection before and after, and shows the difference on first open; any non-zero difference blocks automatic migration and asks the user.
 
@@ -85,6 +88,4 @@ Each phase ships on its own and keeps all gates green (frontend size ratchet, fu
 
 ## 9. Still open
 
-1. Section 6 safeguard: accept as written, or migrate strictly by tier and accept result changes?
-2. Section 5: confirm the 5 workbook sections stay and only the vocabulary aligns.
-3. Section 4: review tier membership, especially Social Security timing, Asset Allocation and Reserve Requirements in Standard, and whether Charitable Giving belongs in Standard.
+None. Implementation starts at P1; each phase gets its own plan and PR.
