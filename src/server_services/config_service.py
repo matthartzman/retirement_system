@@ -42,7 +42,7 @@ def backfill_optional_function_rows(rows: list[JsonDict], effective: dict[str, b
     have = {r.get("label") for r in rows}
     out = list(rows)
     for key, m in CATALOG.items():
-        if m.optional and m.gate_kind == GATE_MODULE_TOGGLE and not m.gated_by and key not in have:
+        if m.optional and m.gate_kind == GATE_MODULE_TOGGLE and not m.gated_by and not m.gated_by_any_flag and key not in have:
             out.append({"section": "Optional Functions", "subsection": "", "label": key,
                         "value": "TRUE" if effective.get(key, True) else "FALSE",
                         "units": "boolean", "notes": m.name})
@@ -186,6 +186,7 @@ class ConfigService:
                     # UI could only report "on" with no way to say what decided
                     # it.
                     "gated_by": m.gated_by,
+                    "gated_by_any_flag": list(m.gated_by_any_flag),
                     "description": m.description,
                     # #330 §3.4. Both directions are served, because the UI
                     # needs both and inverting a map in JS would make the

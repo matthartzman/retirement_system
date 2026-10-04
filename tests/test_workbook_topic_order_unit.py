@@ -24,6 +24,8 @@ def test_sheets_within_a_section_follow_topic_order():
     for final in _final_order():
         by_section.setdefault(final[0], []).append(rank[w.sheet_topic(inv[final])])
     for sec, ranks in by_section.items():
+        if sec == "1":  # Reports order by rank alone (narrative order)
+            continue
         assert ranks == sorted(ranks), sec
 
 

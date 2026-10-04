@@ -1,6 +1,6 @@
 {
   "required_sheets": [
-    "1C. Executive Summary",
+    "1A. Executive Summary",
     "5D. Assumptions",
     "2E. Roth Conversion",
     "2F. HSA Drawdown",
@@ -9,7 +9,7 @@
     "5B. Tax Capacity"
   ],
   "required_phrases": {
-    "1C. Executive Summary": ["RETIREMENT", "Roth"],
+    "1A. Executive Summary": ["RETIREMENT", "Roth"],
     "2E. Roth Conversion": ["AUTO-OPTIMIZED ROTH CONVERSION STRATEGY", "Target Bracket Top", "Binding Limit"],
     "2F. HSA Drawdown": ["reports the optimizer's proposed HSA drawdown schedule"],
     "5F. Quality Control": ["WORKBOOK WARNINGS"],

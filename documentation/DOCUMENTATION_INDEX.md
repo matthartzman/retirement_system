@@ -23,6 +23,7 @@ legacy location; do not add new files there.
 | `reference/BACKLOG.md` | Deferred work tracker |
 | `reference/CI_SETUP.md`, `reference/TESTING_REFACTOR_RECOMMENDATIONS.md`, `reference/HAPPY_PATH_E2E_TEST_PLAN.md` | CI and testing |
 | `reference/OPTIMIZATION_DOCS_INDEX.md`, `reference/OPTIMIZATION_REFACTOR_STATUS.md`, `reference/roth_conversion_modeling_guide.md` | Optimization documents |
+| `reference/NAV_FEATURE_MAP.md` | Left-nav inventory: gating, switches, current state, order |
 
 ## future/
 
