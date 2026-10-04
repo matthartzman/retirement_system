@@ -113,6 +113,10 @@ DECLARED_SITES: dict[tuple[str, str, str], tuple[str, str | None, tuple[str, ...
         ACCESSOR, None, (),
         "The gate's own implementation: env overrides layered over saved c['opt'].",
     ),
+    ("src/module_catalog.py", "_base_enabled", DYNAMIC): (
+        ACCESSOR, None, (),
+        "Reads the DAF/QCD plan flags that decide Charitable Giving (gated_by_any_flag).",
+    ),
     ("src/module_catalog.py", "module_status", DYNAMIC): (
         ACCESSOR, None, (),
         "Reports every optional module's gate state to the settings UI.",

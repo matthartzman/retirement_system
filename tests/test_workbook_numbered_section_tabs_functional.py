@@ -19,15 +19,13 @@ def test_workbook_uses_numbered_sections_and_lettered_children(built_workbook_pa
     # workbook_common.sheet_topic() returns "Whole Plan" for it.
     expected = [
         '1. Reports',
-        '1A. Spending Summary',
-        '1B. Lifetime Taxes',
-        '1C. Executive Summary',
-        '1D. Net Worth',
-        '1E. Cash Flow',
-        '1F. Balance Sheet',
-        '1G. Charts',
-        '1H. Current vs. Proposed',
-        '1I. Planning Levers',
+        '1A. Executive Summary',
+        '1B. Net Worth',
+        '1C. Cash Flow',
+        '1D. Balance Sheet',
+        '1E. Lifetime Taxes',
+        '1F. Charts',
+        '1G. Spending Summary',
         '2. Optimizers',
         '2A. Social Security',
         '2B. Housing Comparison',
@@ -51,6 +49,8 @@ def test_workbook_uses_numbered_sections_and_lettered_children(built_workbook_pa
         '3A. State Residency',
         '3B. S-Corp vs LLC',
         '3C. Scenario Analysis',
+        '3D. Current vs. Proposed',
+        '3E. Planning Levers',
         '4. Risks',
         '4A. Monte Carlo',
         '4B. Survivor',
@@ -90,9 +90,9 @@ def test_workbook_uses_numbered_sections_and_lettered_children(built_workbook_pa
 def test_summary_tabs_reference_child_tabs(built_workbook_path):
     wb = load_workbook(built_workbook_path, read_only=False, data_only=False)
     summary_expected = {
-        '1. Reports': ['1C. Executive Summary', '1D. Net Worth', '1E. Cash Flow', '1F. Balance Sheet', '1G. Charts'],
+        '1. Reports': ['1A. Executive Summary', '1B. Net Worth', '1C. Cash Flow', '1D. Balance Sheet', '1F. Charts'],
         '2. Optimizers': ['2E. Roth Conversion', '2F. HSA Drawdown', '2K. Asset Allocation', '2C. Withdrawal Sequencing', '2A. Social Security', '2J. Estate & Legacy Planning'],
-        '3. Comparisons': ['3A. State Residency', '3B. S-Corp vs LLC', '3C. Scenario Analysis'],
+        '3. Comparisons': ['3A. State Residency', '3B. S-Corp vs LLC', '3C. Scenario Analysis', '3D. Current vs. Proposed', '3E. Planning Levers'],
         '4. Risks': ['4A. Monte Carlo', '4B. Survivor', '4C. LTC Stress Test', '4D. Life Insurance Need'],
         '5. Reference': ['5C. Plan Data', '5D. Assumptions', '5E. Account Reconciliation', '5F. Quality Control', '5A. RMD Audit', '5G. Methodology', '5H. Glossary'],
     }
@@ -105,7 +105,7 @@ def test_summary_tabs_reference_child_tabs(built_workbook_path):
 
 def test_strategy_scorp_ltc_and_asset_location_merges_are_present(built_workbook_path):
     wb = load_workbook(built_workbook_path, read_only=False, data_only=False)
-    exec_text = ' '.join(str(c.value or '') for row in wb['1C. Executive Summary'].iter_rows() for c in row)
+    exec_text = ' '.join(str(c.value or '') for row in wb['1A. Executive Summary'].iter_rows() for c in row)
     scorp_text = ' '.join(str(c.value or '') for row in wb['3B. S-Corp vs LLC'].iter_rows() for c in row)
     allocation_text = ' '.join(str(c.value or '') for row in wb['2K. Asset Allocation'].iter_rows() for c in row)
     ltc_text = ' '.join(str(c.value or '') for row in wb['4C. LTC Stress Test'].iter_rows() for c in row)

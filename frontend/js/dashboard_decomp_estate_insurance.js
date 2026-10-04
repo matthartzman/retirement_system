@@ -284,8 +284,6 @@ export function renderEntityCharitable() {
   // to stop bypassing it when charitable_giving itself is off, not to keep
   // gating entry to the whole page on a module that no longer owns DAF/QCD's
   // visibility.
-  if (!optionalFunctionEnabled("charitable_giving"))
-    html += featureGatedNote("charitable_giving", { title: "Charitable Giving" });
   if (!sectionFlagEnabled("DAF", "Settings", "enabled"))
     html += featureGatedNote("daf_giving", {
       title: "DAF Giving",

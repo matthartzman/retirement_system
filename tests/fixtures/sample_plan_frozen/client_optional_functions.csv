@@ -5,7 +5,6 @@ Optional Functions,,charts_dashboard,TRUE,boolean,Sheet 8 - Charts Dashboard (al
 Optional Functions,,retirement_strategy,TRUE,boolean,Sheet 9 - Retirement Strategy & Sequencing
 Optional Functions,,social_security_timing,TRUE,boolean,Sheet 10 - Social Security Claiming Strategy
 Optional Functions,,roth_conversion_plan,TRUE,boolean,Sheet 11 - Roth Conversion Plan
-Optional Functions,,charitable_giving,TRUE,boolean,Sheet 12 - Charitable Giving / Bunching / QCD
 Optional Functions,,state_residency,TRUE,boolean,Sheet 13 - State Residency Analysis
 Optional Functions,,estate_legacy_plan,TRUE,boolean,Sheet 14 - Estate & Legacy Plan
 Optional Functions,,market_luck_stress_test,TRUE,boolean,Sheet 15 - Market-Luck (Monte Carlo) Stress Test

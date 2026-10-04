@@ -2200,13 +2200,13 @@
       "scope": "inside-function"
     },
     {
-      "name": "boolishValue",
+      "name": "sectionFlagEnabled",
       "file": "frontend/js/dashboard_decomp_estate_insurance.js",
       "kind": "call",
       "scope": "inside-function"
     },
     {
-      "name": "boolishValue",
+      "name": "sectionFlagEnabled",
       "file": "frontend/js/dashboard_decomp_estate_insurance.js",
       "kind": "call",
       "scope": "inside-function"
@@ -2215,6 +2215,24 @@
       "name": "searchText",
       "file": "frontend/js/dashboard_decomp_estate_insurance.js",
       "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "sectionFlagEnabled",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "sectionFlagEnabled",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "sectionFlagEnabled",
+      "file": "frontend/js/dashboard_decomp_estate_insurance.js",
+      "kind": "call",
       "scope": "inside-function"
     },
     {
@@ -3205,12 +3223,6 @@
       "name": "moduleStatus",
       "file": "frontend/js/dashboard_decomp_plan_features.js",
       "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "boolishValue",
-      "file": "frontend/js/dashboard_decomp_plan_features.js",
-      "kind": "call",
       "scope": "inside-function"
     },
     {
@@ -7363,12 +7375,6 @@
       "name": "renderMain",
       "file": "frontend/js/dashboard_decomp_strategy_workspace.js",
       "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "rows",
-      "file": "frontend/js/dashboard_decomp_strategy_workspace.js",
-      "kind": "read",
       "scope": "inside-function"
     },
     {

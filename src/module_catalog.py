@@ -73,7 +73,9 @@ KIND_QUESTION = {
 # in one place.
 ANSWER_TYPES = ("Reports", "Optimizers", "Comparisons", "Risks", "Reference")
 KIND_ANSWER_TYPE: Dict[str, str] = {
-    PROJECTION: "Reports", WORKSHEET: "Reports",
+    # Worksheets (Current vs Proposed, Planning Levers) answer "how do these
+    # alternatives compare?", so they file under Comparisons, not Reports.
+    PROJECTION: "Reports", WORKSHEET: "Comparisons",
     OPTIMIZATION: "Optimizers", COMPARISON: "Comparisons",
     STRESS_TEST: "Risks", PROTECTION: "Risks",
     DIAGNOSTICS: "Reference", REFERENCE: "Reference",
@@ -339,6 +341,12 @@ class OutputModule:
     # `gated_by` pointing at a module that is itself `gated_by` something, so
     # the accessor's one-hop resolution is always the whole answer.
     gated_by: Optional[str] = None
+    # ``gated_by_any_flag`` -- the plan-flag counterpart of ``gated_by``: this
+    # module has no switch of its own and is ON exactly when at least one of
+    # the named PLAN-FLAG modules is on (Charitable Giving = DAF or QCD). It
+    # carries no client_optional_functions.csv row, for the same reason a
+    # ``gated_by`` member does. Resolved in :func:`_base_enabled`.
+    gated_by_any_flag: Tuple[str, ...] = field(default_factory=tuple)
 
 
 def _in(module: str, *elements: str) -> RequiredInput:
@@ -411,7 +419,7 @@ _OUTPUTS: List[OutputModule] = [
         "lifetime_tax_projection", "Lifetime Taxes", PROJECTION, HIGH,
         "Cumulative federal/state/NIIT/IRMAA/payroll/cap-gains over the plan.",
         domain=TAXES,
-        optional=True, sheet="7. Lifetime Tax", tab="1F. Lifetime Taxes",
+        optional=True, sheet="7. Lifetime Tax", tab="1E. Lifetime Taxes",
         requires_inputs=(_in("income"), _in("spending"), _in("holdings"),
                          _in("assumptions", "tax_law")),
         requires_outputs=BASE_PROJECTION,
@@ -483,7 +491,7 @@ _OUTPUTS: List[OutputModule] = [
         "charts_dashboard", "Charts", PROJECTION, MEDIUM_HIGH,
         "Visual consolidation of the projection series.",
         domain=WHOLE_PLAN,
-        optional=True, sheet="8. Charts Dashboard", tab="1E. Charts",
+        optional=True, sheet="8. Charts Dashboard", tab="1F. Charts",
         requires_outputs=("net_worth", "cash_flow", "asset_allocation"),
         # The percentile-band ("fan") chart is embedded only when Monte Carlo
         # ran; the rest of the dashboard is unaffected.
@@ -622,6 +630,9 @@ _OUTPUTS: List[OutputModule] = [
         "Bunching / QCD / DAF strategy and tax effect.",
         domain=TAXES,
         optional=True, sheet="12. Charitable Giving", tab="2E. Charitable Giving",
+        # No toggle of its own: the sheet and the nav page exist iff DAF or
+        # QCD is on (2026-10-03). Each is its own on/off feature below.
+        gated_by_any_flag=("daf_giving", "qcd_giving"),
         # QCD (item 4.1) and DAF-appreciated-securities (item 4.2) fields
         # landed in Wave 4, after this entry was first authored — added here
         # as the Wave 3.5a rework the review's own §9.1 called for ("new
@@ -973,15 +984,15 @@ _OUTPUTS: List[OutputModule] = [
         # also computes a delta from figures produced elsewhere) rather than
         # REFERENCE/System, which is for sheets that restate or consolidate
         # without computing anything new (`tax_capacity`, Plan Data,
-        # Assumptions). WORKSHEET's letter group is Reports, so this also
-        # moves the sheet from System to Reports -- see the SHEET_REGISTRY
-        # entry below.
+        # Assumptions). WORKSHEET's letter group is Comparisons (it was Reports
+        # until 2026-10-03), so this also moves the sheet from System to
+        # Comparisons -- see the SHEET_REGISTRY entry below.
         "planning_levers_echo", "Planning Levers", WORKSHEET, MEDIUM,
         "Interactive lever-screening worksheet: hardcoded test levers with "
         "editable amounts and formulas estimating directional impact on "
         "terminal net worth and Monte Carlo success, ranked against each other.",
         domain=WHOLE_PLAN,
-        sheet="27. Planning Levers", tab="1I. Planning Levers",
+        sheet="27. Planning Levers", tab="3E. Planning Levers",
         requires_inputs=(_in("planning_levers"),),
         # The "Current model anchor" block keeps its Monte Carlo success row
         # (the lever formulas below it reference fixed anchor cells, so the row
@@ -1018,7 +1029,7 @@ _OUTPUTS: List[OutputModule] = [
         "Every tracked recommendation, active or proposed, with its cash-flow delta.",
         domain=WHOLE_PLAN,
         optional=True,
-        sheet="37. Current vs Proposed", tab="1H. Current vs. Proposed",
+        sheet="37. Current vs Proposed", tab="3D. Current vs. Proposed",
         requires_outputs=BASE_PROJECTION,
     ),
     OutputModule(
@@ -1086,6 +1097,7 @@ _OUTPUTS: List[OutputModule] = [
         gate_kind=GATE_PLAN_FLAG,
         gate_ref=("DAF", "Settings", "enabled"),
         gate_enable_label="Enabled",
+        gate_config_key="daf_enabled",
     ),
     OutputModule(
         "qcd_giving", "QCD Giving", OPTIMIZATION, LOW,
@@ -1095,6 +1107,7 @@ _OUTPUTS: List[OutputModule] = [
         gate_kind=GATE_PLAN_FLAG,
         gate_ref=("Cashflow", "Charitable Giving", "qcd_enabled"),
         gate_enable_label="Enabled",
+        gate_config_key="qcd_enabled",
     ),
 ]
 
@@ -1420,8 +1433,8 @@ SHEET_REGISTRY = dict([
     _visible('4. Asset Allocation', '2', 1, 1, 'Asset Allocation', slug='asset_allocation'),
     _visible('5. Net Worth Projection', '1', 1, 1, 'Net Worth', slug='net_worth'),
     _visible('6. Cash Flow Projection', '1', 2, 2, 'Cash Flow', slug='cash_flow'),
-    _visible('7. Lifetime Tax', '1', 5, 5, 'Lifetime Taxes', 'lifetime_tax_projection', slug='lifetime_taxes'),
-    _visible('8. Charts Dashboard', '1', 4, 4, 'Charts', 'charts_dashboard', slug='charts'),
+    _visible('7. Lifetime Tax', '1', 4, 4, 'Lifetime Taxes', 'lifetime_tax_projection', slug='lifetime_taxes'),
+    _visible('8. Charts Dashboard', '1', 5, 5, 'Charts', 'charts_dashboard', slug='charts'),
     # #329 §1.2/§3.3 (W9): restored from hidden -- built and gated
     # identically before and after, only the lettered nav visibility changes.
     # letter_rank 2 sits it between Asset Allocation (1) and Social Security
@@ -1497,10 +1510,10 @@ SHEET_REGISTRY = dict([
     # would not have stopped either sheet being built.
     _visible('25. Account Reconciliation', '4', 3, 2, 'Account Reconciliation', 'account_reconciliation', slug='account_reconciliation'),
     _hidden('26. Workbook Warnings', 'H', slug='workbook_warnings'),
-    # W11 addendum (2026-09-22): recatalogued WORKSHEET (was REFERENCE), so
-    # this now derives into Reports instead of System -- rank 8/8 lands it
-    # densely last, right after Current vs Proposed (7/7).
-    _visible('27. Planning Levers', '4', 8, 8, 'Planning Levers', slug='planning_levers'),
+    # W11 addendum (2026-09-22): recatalogued WORKSHEET (was REFERENCE).
+    # 2026-10-03: WORKSHEET now files under Comparisons, so rank 4/4 lands it
+    # right after Current vs Proposed (3/3), which follows Scenario Analysis (2/2).
+    _visible('27. Planning Levers', '4', 4, 4, 'Planning Levers', slug='planning_levers'),
     _visible('11B. Tax Capacity', '2', 8, 8, 'Tax Capacity', 'tax_capacity', slug='tax_capacity'),
     _visible('29. Spending Summary', '1', 6, 6, 'Spending Summary', 'spending_summary', slug='spending_summary'),
     _visible('30. Education Funding', '2', 9, 9, 'Education Funding', 'education_funding_529', slug='education_funding'),
@@ -1512,7 +1525,7 @@ SHEET_REGISTRY = dict([
     _visible('34. Business Succession', '2', 12, 12, 'Business Succession', 'business_succession', slug='business_succession'),
     _visible('35. Equity Compensation', '2', 10, 10, 'Equity Compensation', 'equity_compensation', slug='equity_compensation'),
     _visible('36. Special-Needs Planning', '2', 11, 11, 'Special-Needs Planning', 'special_needs_planning', slug='special_needs_planning'),
-    _visible('37. Current vs Proposed', '1', 7, 7, 'Current vs. Proposed', 'current_vs_proposed', slug='current_vs_proposed'),
+    _visible('37. Current vs Proposed', '1', 3, 3, 'Current vs. Proposed', 'current_vs_proposed', slug='current_vs_proposed'),
     # 2026-09-09 housing-estimate design, §7.0 H7: the three-axis housing
     # trajectory sweep -- see src/housing_comparison.py.
     # section_rank/letter_rank 17/15 sit right
@@ -1611,6 +1624,15 @@ def _base_enabled(c, key):
     _parent = getattr(CATALOG.get(key) or CATALOG.get(k), 'gated_by', None)
     if _parent:
         return _base_enabled(c, _parent)
+    # A module gated by plan flags is on iff any of them is (Charitable Giving
+    # = DAF or QCD). Same spot as the bundle rule, for the same reason.
+    _flags = getattr(CATALOG.get(key) or CATALOG.get(k), 'gated_by_any_flag', ())
+    if _flags:
+        cfg = c or {}
+        # With no flag keys in `c` (no plan parsed) fall through to the
+        # ordinary toggle read below, which defaults an absent key to on.
+        if any(CATALOG[f].gate_config_key in cfg for f in _flags):
+            return any(plan_flag_enabled(cfg, f) for f in _flags)
     opt = (c or {}).get('opt') or {}
     if key in opt:
         return bool(opt[key])
@@ -1918,6 +1940,19 @@ def validate() -> None:
                 f"{parent.gated_by!r}. Bundles are one level deep -- "
                 f"_base_enabled resolves a single hop, so a chain would stop "
                 f"at the middle module's own (never-set) toggle.")
+        # (4f) gated_by_any_flag: every named gate must be a catalogued plan
+        # flag with a runtime key, and the member must be switchable (it is
+        # in OPTIONAL_MODULE_SHEETS) without also being a bundle member.
+        if m.gated_by_any_flag:
+            assert m.optional and m.gated_by is None, (
+                f"{key}: gated_by_any_flag needs optional=True and no gated_by")
+            for flag in m.gated_by_any_flag:
+                assert flag in CATALOG and CATALOG[flag].gate_kind == GATE_PLAN_FLAG, (
+                    f"{key}: gated_by_any_flag names {flag!r}, which is not a "
+                    f"catalogued plan flag")
+                assert CATALOG[flag].gate_config_key, (
+                    f"{key}: gated_by_any_flag names {flag!r}, which declares "
+                    f"no gate_config_key for plan_flag_enabled() to read")
         # (4c) engine_participation describes what a *toggle* does to the
         # projection. A core module has no toggle.
         if m.engine_participation:

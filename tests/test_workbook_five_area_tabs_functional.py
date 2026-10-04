@@ -32,12 +32,12 @@ def test_output_workbook_uses_numbered_top_level_area_tabs(built_workbook_path):
     # for the full pinned order and its rationale.
     assert names[:7] == [
         "1. Reports",
-        "1A. Spending Summary",
-        "1B. Lifetime Taxes",
-        "1C. Executive Summary",
-        "1D. Net Worth",
-        "1E. Cash Flow",
-        "1F. Balance Sheet",
+        "1A. Executive Summary",
+        "1B. Net Worth",
+        "1C. Cash Flow",
+        "1D. Balance Sheet",
+        "1E. Lifetime Taxes",
+        "1F. Charts",
     ]
     assert names[names.index("2. Optimizers") + 1] == "2A. Social Security"
     assert names[names.index("3. Comparisons") + 1] == "3A. State Residency"
@@ -64,10 +64,9 @@ def test_source_layout_declares_same_numbered_areas():
         "5. Reference",
     ]
     flattened = [sheet for area in layout for sheet in area["sheets"]]
-    # #332 W-F Task F6 (design 2026-09-24 §9.1): sheets within a section now
-    # order by Topic first -- Spending Summary (Spending) and Lifetime Tax
-    # (Taxes) sort ahead of the Topic-less ("Whole Plan") Executive Summary.
-    assert flattened[:3] == ["29. Spending Summary", "7. Lifetime Tax", "1. Executive Summary"]
+    # Section 1 (Reports) orders by rank alone (narrative order); the other
+    # sections order by Topic first (#332 W-F Task F6).
+    assert flattened[:3] == ["1. Executive Summary", "5. Net Worth Projection", "6. Cash Flow Projection"]
     # W3 (#329 O10, F1): COMPARISON modules get their own group, out of
     # Optimizers -- S-Corp vs LLC and State Residency now sit in Comparisons.
     assert "S-Corp vs LLC" in flattened

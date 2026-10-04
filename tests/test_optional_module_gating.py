@@ -80,7 +80,7 @@ def test_disabled_module_sheets_are_absent(gated_build):
     # Core, always-on sheets remain. #332 W-F Task F6 (design 2026-09-24
     # §9.1): letters shifted -- sheets within a section now order by Topic
     # first, then the legacy rank.
-    for present in ["1C. Executive Summary", "1E. Cash Flow", "2K. Asset Allocation",
+    for present in ["1A. Executive Summary", "1C. Cash Flow", "2K. Asset Allocation",
                     "5C. Plan Data", "5F. Quality Control"]:
         assert present in names, f"{present} is core and must always be present"
 

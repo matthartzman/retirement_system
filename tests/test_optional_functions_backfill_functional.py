@@ -11,7 +11,7 @@ def test_missing_module_toggle_rows_are_backfilled():
     rows = [{"section": "Optional Functions", "label": "roth_conversion_plan", "value": "TRUE"}]
     out = backfill_optional_function_rows(rows, effective={"housing_location_search": True})
     labels = {r["label"] for r in out}
-    toggles = {k for k, m in CATALOG.items() if m.optional and m.gate_kind == GATE_MODULE_TOGGLE and not m.gated_by}
+    toggles = {k for k, m in CATALOG.items() if m.optional and m.gate_kind == GATE_MODULE_TOGGLE and not m.gated_by and not m.gated_by_any_flag}
     assert toggles <= labels
     hls = next(r for r in out if r["label"] == "housing_location_search")
     assert hls["value"] == "TRUE"
@@ -20,7 +20,7 @@ def test_missing_module_toggle_rows_are_backfilled():
 
 def test_backfilled_row_defaults_to_true_when_not_in_effective_map():
     out = backfill_optional_function_rows([], effective={})
-    toggles = {k for k, m in CATALOG.items() if m.optional and m.gate_kind == GATE_MODULE_TOGGLE and not m.gated_by}
+    toggles = {k for k, m in CATALOG.items() if m.optional and m.gate_kind == GATE_MODULE_TOGGLE and not m.gated_by and not m.gated_by_any_flag}
     # effective.get(key, True) -- absent from the effective map defaults to on,
     # not off, so a module missing its row (e.g. an older plan folder) does not
     # silently switch itself off the moment this backfill runs.
@@ -96,7 +96,7 @@ def test_config_rows_payload_backfills_the_missing_toggle_onto_disk(tmp_path):
     assert status == 200
 
     labels = {r["label"] for r in payload["rows"]}
-    toggles = {k for k, m in CATALOG.items() if m.optional and m.gate_kind == GATE_MODULE_TOGGLE and not m.gated_by}
+    toggles = {k for k, m in CATALOG.items() if m.optional and m.gate_kind == GATE_MODULE_TOGGLE and not m.gated_by and not m.gated_by_any_flag}
     # Every switchable module now has a row -- the missing-row bug is fixed.
     assert toggles <= labels
     # It was actually written to disk (through write_plan_data_file), not
