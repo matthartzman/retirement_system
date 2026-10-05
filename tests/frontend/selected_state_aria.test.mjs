@@ -113,10 +113,10 @@ describe("trends reporter timeframe buttons expose aria-pressed", () => {
   const INDEX = path.join(ROOT, "financial_trends_reporter", "frontend", "index.html");
   const html = fs.readFileSync(INDEX, "utf8");
 
-  test("initial markup: only the default YTD button is pressed", () => {
+  test("initial markup: only the default Month button is pressed", () => {
     const tf = [...html.matchAll(/<button data-tf="([^"]+)"[^>]*aria-pressed="(true|false)"/g)];
     assert.ok(tf.length >= 7, "every timeframe button must declare aria-pressed");
-    assert.deepEqual(tf.filter((m) => m[2] === "true").map((m) => m[1]), ["ytd"]);
+    assert.deepEqual(tf.filter((m) => m[2] === "true").map((m) => m[1]), ["month"]);
   });
 
   test("clicking a timeframe moves aria-pressed to it", () => {

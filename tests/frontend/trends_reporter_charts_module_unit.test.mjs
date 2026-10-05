@@ -8,7 +8,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import {
   filterByTimeframe, granularityForTimeframe, aggregateByGranularity, labelForDate,
-  lineChartSvg, barChartSvg, escSvg, fmtMoney, niceRange, cashflowNet, buildHierarchyRows, detailPopupHtml, detailTreeHtml,
+  lineChartSvg, barChartSvg, escSvg, fmtMoney, niceRange, cashflowNet, buildHierarchyRows, detailPopupHtml, categoryListHtml,
 } from "../../financial_trends_reporter/frontend/charts.js";
 
 describe("filterByTimeframe", () => {
@@ -97,25 +97,35 @@ describe("barChartSvg axes and hover", () => {
 });
 
 describe("granularityForTimeframe", () => {
-  test("week/month map to daily granularity", () => {
+  const span = (days) => [{ as_of_date: "2026-01-01" }, { as_of_date: new Date(Date.UTC(2026, 0, 1 + days)).toISOString().slice(0, 10) }];
+
+  test("with unknown/short row history, nominal granularity applies", () => {
     for (const tf of ["week", "month"]) assert.equal(granularityForTimeframe(tf, []), "day");
-  });
-
-  test("quarter maps to weekly granularity", () => {
     assert.equal(granularityForTimeframe("quarter", []), "week");
-  });
-
-  test("ytd, 12m, and all map to monthly granularity", () => {
     for (const tf of ["ytd", "12m", "all"]) assert.equal(granularityForTimeframe(tf, []), "month");
   });
 
+  test("monthly ranges with 4+ months of data stay monthly", () => {
+    for (const tf of ["ytd", "12m", "all"]) assert.equal(granularityForTimeframe(tf, span(150)), "month");
+  });
+
+  test("monthly ranges with under 4 months of data revert to weekly", () => {
+    for (const tf of ["ytd", "12m", "all"]) assert.equal(granularityForTimeframe(tf, span(60)), "week");
+  });
+
+  test("and to daily with under 4 weeks of data", () => {
+    for (const tf of ["ytd", "12m", "all", "quarter"]) assert.equal(granularityForTimeframe(tf, span(20)), "day");
+  });
+
+  test("quarter stays weekly with 4+ weeks of data; week/month stay daily", () => {
+    assert.equal(granularityForTimeframe("quarter", span(60)), "week");
+    for (const tf of ["week", "month"]) assert.equal(granularityForTimeframe(tf, span(90)), "day");
+  });
+
   test("custom infers granularity from the span of the filtered rows", () => {
-    const short = [{ as_of_date: "2026-01-01" }, { as_of_date: "2026-01-10" }];
-    const medium = [{ as_of_date: "2026-01-01" }, { as_of_date: "2026-03-01" }];
-    const long = [{ as_of_date: "2020-01-01" }, { as_of_date: "2026-01-01" }];
-    assert.equal(granularityForTimeframe("custom", short), "day");
-    assert.equal(granularityForTimeframe("custom", medium), "week");
-    assert.equal(granularityForTimeframe("custom", long), "month");
+    assert.equal(granularityForTimeframe("custom", span(9)), "day");
+    assert.equal(granularityForTimeframe("custom", span(59)), "week");
+    assert.equal(granularityForTimeframe("custom", span(2000)), "month");
   });
 });
 
@@ -209,43 +219,32 @@ describe("category rows and detail popup", () => {
     assert.equal(m.total, 190);
   });
 
-  test("each row carries group > category > merchant levels for the popup", () => {
+  test("each row lists its categories (across groups) with their merchants", () => {
     const m = buildHierarchyRows(hier);
-    const mortgage = m.rows[0].tree[0];
-    assert.equal(mortgage.name, "Mortgage");
-    assert.equal(mortgage.children[0].name, "Mortgage");
-    assert.equal(mortgage.children[0].children[0].name, "Bank");
+    const housing = m.rows[0];
+    assert.deepEqual(housing.categories.map(c => [c.name, c.value]), [["Mortgage", 100], ["Gas & Electric", 50]]);
+    assert.deepEqual(housing.categories[1].merchants, [["ComEd", 30], ["Nicor", 20]]);
   });
 
-  test("tree popup shows levels 2-4 and the type total, escaping names", () => {
-    const m = buildHierarchyRows({ T: { "G<b>": { C: { M: 5 } } } });
-    const html = detailTreeHtml("T", m.rows[0].tree);
-    assert.ok(html.includes("G&lt;b&gt;") && html.includes("pop-d2") && html.includes("pop-d3"));
+  test("category popup tags each row for the merchant step, escapes names, shows the total", () => {
+    const m = buildHierarchyRows({ T: { G: { "C<b>": { M: 5 } } } });
+    const html = categoryListHtml("T", m.rows[0].categories);
+    assert.ok(html.includes("C&lt;b&gt;") && html.includes('data-cat="0"'));
     assert.match(html, /pop-total[^>]*><span>Total<\/span><span>\$5<\/span>/);
   });
 
-  test("rolling over 'n more' (its key in `expanded`) lists every entry at that level", () => {
-    const big = { T: {} };
-    for (let g = 0; g < 12; g++) big.T["g" + g] = { c: { m: g + 1 } };
-    const tree = buildHierarchyRows(big).rows[0].tree;
-    const collapsed = detailTreeHtml("T", tree, 36);
-    const key = collapsed.match(/data-more="([^"]+)"/)[1];
-    const open = detailTreeHtml("T", tree, 36, new Set([key]));
-    assert.ok(!open.includes("data-more="), "level should be fully expanded");
-    assert.ok(open.includes(">g0<") && open.includes(">g11<"));
+  test("lists every category and merchant, with no 'n more' truncation", () => {
+    const big = { T: { G: {} } };
+    for (let c = 0; c < 30; c++) big.T.G["c" + c] = { m: c + 1 };
+    const html = categoryListHtml("T", buildHierarchyRows(big).rows[0].categories);
+    assert.equal((html.match(/data-cat=/g) || []).length, 30);
+    assert.ok(!html.includes(" more"));
   });
 
   test("a negative line (refunds & credits) has no bar and the total stays net", () => {
     const m = buildHierarchyRows({ T: { G: { C: { A: 100, "Refunds & credits": -20 } } } });
     assert.equal(m.total, 80);
-    assert.ok(detailTreeHtml("T", m.rows[0].tree).includes("pop-neg"));
-  });
-
-  test("a huge tree is trimmed to fit with a 'more' line", () => {
-    const big = { T: {} };
-    for (let g = 0; g < 12; g++) big.T["g" + g] = { c: { m: g + 1 } };
-    const html = detailTreeHtml("T", buildHierarchyRows(big).rows[0].tree, 36);
-    assert.ok(html.includes("more"));
+    assert.ok(detailPopupHtml("C", m.rows[0].categories[0].merchants).includes("pop-neg"));
   });
 
   test("popup shows the detail bars and a total", () => {
@@ -271,5 +270,22 @@ describe("cashflowNet", () => {
   });
   test("missing income/expenses yields null", () => {
     assert.equal(cashflowNet({ cashflow: { income: null, expenses: 1 } }), null);
+  });
+});
+
+describe("line chart x labels and scrolling", () => {
+  test("the newest point's label is always drawn and the right margin leaves room for it", () => {
+    const pts = Array.from({ length: 40 }, (_, i) => ({ label: `L${i}`, value: i }));
+    const svg = lineChartSvg(pts, {});
+    assert.ok(svg.includes(">L39<"), "last label missing");
+    const w = Number(svg.match(/class="chart-inner" style="width:(\d+)px"/)[1]);
+    const lastX = Number(svg.match(/<text x="([\d.]+)"[^>]*>L39</)[1]);
+    assert.ok(w - lastX >= 30, `last label centre only ${w - lastX}px from the right edge`);
+  });
+
+  test("the pinned y-axis is shorter than the chart so it can't hide the first x label", () => {
+    const svg = lineChartSvg([{ label: "a", value: 1 }, { label: "b", value: 2 }], {});
+    const axisH = Number(svg.match(/class="chart-yaxis" width="\d+" height="(\d+)"/)[1]);
+    assert.ok(axisH < 188, `axis height ${axisH} reaches the x-label row`);
   });
 });
