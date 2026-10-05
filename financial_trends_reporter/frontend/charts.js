@@ -194,27 +194,31 @@ export function lineChartSvg(points, opts) {
   return svg + dataTableFallbackHtml(label, ["Date", "Value"], points.map(p => [p.label, fmtMoney(p.value)]));
 }
 
-// Rows for the YTD-expenses chart: the top `topN` categories, then one
-// "Other" row rolling up the rest, plus a grand total. Each row carries the
-// next level of detail for its hover popup: a category's top merchants, the
-// Other row's rolled-up categories, the total's full category list.
-export function buildCategoryRows(byCategory, byMerchant, topN) {
-  topN = topN || 10;
-  const all = Object.entries(byCategory || {}).filter(e => e[1] > 0).sort((a, b) => b[1] - a[1]);
-  const total = all.reduce((t, e) => t + e[1], 0);
-  const rows = all.slice(0, topN).map(([name, amount]) => ({
-    name, amount, kind: "category",
-    detailTitle: `${name} - top merchants`,
-    detail: Object.entries((byMerchant && byMerchant[name]) || {}).sort((a, b) => b[1] - a[1]),
+// Rows for the YTD-expenses chart. Level 1 (Tracking Type) is what the bars
+// show; levels 2-4 (Group -> Category -> Merchant) ride along in each row's
+// `tree` for the hover popup. `hierarchy` is
+// {trackingType: {group: {category: {merchant: amount}}}}.
+function sumLeaves(node) {
+  return typeof node === "number" ? node : Object.values(node).reduce((t, v) => t + sumLeaves(v), 0);
+}
+
+export function hierarchyToTree(node) {
+  if (typeof node === "number") return [];
+  return Object.entries(node)
+    .map(([name, child]) => ({ name, value: sumLeaves(child), children: hierarchyToTree(child) }))
+    .filter(n => Math.abs(n.value) > 0.005)
+    .sort((a, b) => b.value - a.value);
+}
+
+export function buildHierarchyRows(hierarchy) {
+  const rows = hierarchyToTree(hierarchy || {}).map(n => ({
+    name: n.name, amount: n.value, kind: "category", detailTitle: n.name, tree: n.children,
   }));
-  const rest = all.slice(topN);
-  if (rest.length) {
-    rows.push({
-      name: "Other", amount: rest.reduce((t, e) => t + e[1], 0), kind: "other",
-      detailTitle: `Other - ${rest.length} smaller categories`, detail: rest,
-    });
-  }
-  return { total, rows, totalDetail: { detailTitle: "Total - all categories", detail: all } };
+  const total = rows.reduce((t, r) => t + r.amount, 0);
+  return {
+    total, rows,
+    totalDetail: { detailTitle: "Total - by tracking type", detail: rows.map(r => [r.name, r.amount]) },
+  };
 }
 
 // Popup body: title, a mini bar chart of up to `maxLines` entries (the
@@ -233,6 +237,53 @@ export function detailPopupHtml(title, detail, maxLines) {
     `<div class="pop-row"><span class="pop-name">${escSvg(n)}</span>` +
     `<span class="pop-bar"><i style="width:${Math.max(1, (v / max) * 100).toFixed(1)}%"></i></span>` +
     `<span class="pop-val">${escSvg(fmtMoney(v))}</span></div>`).join("");
+  return `<div class="pop-title">${escSvg(title)}</div>${body}` +
+    `<div class="pop-total"><span>Total</span><span>${escSvg(fmtMoney(total))}</span></div>`;
+}
+
+// Popup body for a Tracking Type: its Group -> Category -> Merchant tree as
+// indented mini bars, plus the type's total. Per-level caps shrink until the
+// popup fits `maxLines`, with the remainder at each level rolled into one
+// "n more" line, so a large tree stays readable.
+const TREE_LIMITS = [[6, 4, 3], [6, 3, 2], [6, 3, 1], [6, 2, 1], [6, 2, 0], [6, 0, 0]];
+
+// `expanded` holds the keys of "n more" rows the viewer has rolled over; those
+// levels list every entry instead of being capped.
+function treeLines(nodes, depth, limits, parentMax, out, path, expanded) {
+  const moreKey = `${path}|more`;
+  const open = expanded.has(moreKey);
+  const cap = open ? nodes.length : limits[depth - 1];
+  const shown = nodes.slice(0, cap);
+  const hidden = nodes.slice(cap);
+  for (const n of shown) {
+    out.push({ depth, name: n.name, value: n.value, max: parentMax });
+    if (depth < 3 && n.children.length && limits[depth] > 0) {
+      treeLines(n.children, depth + 1, limits, n.value, out, `${path}/${n.name}`, expanded);
+    }
+  }
+  if (hidden.length) {
+    out.push({ depth, name: `${hidden.length} more`, value: hidden.reduce((t, n) => t + n.value, 0), max: parentMax, muted: true, moreKey });
+  }
+}
+
+export function detailTreeHtml(title, tree, maxLines, expanded) {
+  maxLines = maxLines || 36;
+  expanded = expanded || new Set();
+  const total = tree.reduce((t, n) => t + n.value, 0);
+  if (!tree.length) return `<div class="pop-title">${escSvg(title)}</div><div class="empty">No further detail logged.</div>`;
+  let lines = [];
+  // Once something is expanded, stop shrinking caps to fit: the popup scrolls instead.
+  const presets = expanded.size ? [TREE_LIMITS[0]] : TREE_LIMITS;
+  for (const limits of presets) {
+    lines = [];
+    treeLines(tree, 1, limits, total, lines, "", expanded);
+    if (lines.length <= maxLines) break;
+  }
+  const body = lines.map(l =>
+    `<div class="pop-row pop-d${l.depth}${l.muted ? " pop-muted" : ""}${l.value < 0 ? " pop-neg" : ""}"` +
+    `${l.moreKey ? ` data-more="${escSvg(l.moreKey)}"` : ""}><span class="pop-name">${escSvg(l.name)}</span>` +
+    `<span class="pop-bar"><i style="width:${l.value > 0 ? Math.max(1, (l.value / (l.max || 1)) * 100).toFixed(1) : 0}%"></i></span>` +
+    `<span class="pop-val">${escSvg(fmtMoney(l.value))}</span></div>`).join("");
   return `<div class="pop-title">${escSvg(title)}</div>${body}` +
     `<div class="pop-total"><span>Total</span><span>${escSvg(fmtMoney(total))}</span></div>`;
 }
@@ -277,10 +328,10 @@ export function barChartSvg(entries) {
       `<rect x="${padL}" y="${y}" width="${bw}" height="${barH}" fill="${fill}" rx="3">${tip}</rect>` +
       `<text x="${padL + bw + 6}" y="${y + barH - 5}">${escSvg(fmtMoney(e[1]))}</text></g>`;
   }).join("");
-  const svg = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="YTD expenses by category, bar chart">
+  const svg = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="YTD expenses by tracking type, bar chart">
     ${xAxis}
     <line x1="${padL}" y1="0" x2="${padL}" y2="${h - padB}" stroke="#999" stroke-width="1"/>
     ${bars}
   </svg>`;
-  return svg + dataTableFallbackHtml("YTD expenses by category", ["Category", "Amount"], entries.map(e => [e[0], fmtMoney(e[1])]));
+  return svg + dataTableFallbackHtml("YTD expenses by tracking type", ["Tracking type", "Amount"], entries.map(e => [e[0], fmtMoney(e[1])]));
 }

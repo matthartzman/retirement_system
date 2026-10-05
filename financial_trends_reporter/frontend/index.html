@@ -34,14 +34,20 @@
   .note { font-size: 11px; color: #777; margin-top: 8px; line-height: 1.45; }
   .bar-row { cursor: default; }
   .bar-row:hover rect[fill] { filter: brightness(1.15); }
-  #detailPopup { position: fixed; z-index: 10; display: none; min-width: 260px; max-width: 360px; padding: 10px 12px;
+  #detailPopup { position: fixed; z-index: 10; display: none; min-width: 340px; max-width: 420px; padding: 10px 12px;
     background: var(--card-bg); color: inherit; border: 1px solid #c8c8cc; border-radius: 8px;
-    box-shadow: 0 4px 16px rgba(0,0,0,.18); font-size: 12px; pointer-events: none; }
+    box-shadow: 0 4px 16px rgba(0,0,0,.18); font-size: 12px; max-height: 80vh; overflow-y: auto; }
   .pop-title { font-weight: 600; margin-bottom: 6px; }
-  .pop-row { display: grid; grid-template-columns: 110px 1fr 64px; gap: 6px; align-items: center; margin: 2px 0; }
+  .pop-row { display: grid; grid-template-columns: 150px 1fr 64px; gap: 6px; align-items: center; margin: 2px 0; }
   .pop-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .pop-bar { background: rgba(127,127,127,.18); border-radius: 3px; height: 8px; }
   .pop-bar i { display: block; height: 100%; background: #2563eb; border-radius: 3px; }
+  .pop-d2 .pop-name { padding-left: 10px; }
+  .pop-d3 .pop-name { padding-left: 20px; opacity: .8; }
+  .pop-d1 .pop-name { font-weight: 600; }
+  .pop-muted[data-more] { cursor: pointer; opacity: .85; text-decoration: underline dotted; }
+  .pop-neg .pop-val { color: #b91c1c; }
+  .pop-muted { opacity: .6; font-style: italic; }
   .pop-val { text-align: right; font-variant-numeric: tabular-nums; }
   .pop-total { display: flex; justify-content: space-between; border-top: 1px solid rgba(127,127,127,.4); margin-top: 6px; padding-top: 4px; font-weight: 600; }
   .legend { font-size: 11px; color: #888; margin-top: 6px; }
@@ -70,12 +76,12 @@
 </div>
 <div class="grid">
   <div class="card"><h2>Net worth</h2><div id="chartNetWorth"></div>
-    <div class="note">Net worth = all asset accounts (investments at live holdings value, annuities/pensions at their stream value, cash and other accounts at their account-setup balance) minus credit cards, mortgages and other liabilities. Points logged before 2026-10-05 were rebuilt from each day's logged holdings.</div></div>
+    <div class="note">Net worth = investments (live holdings) + annuities/pension + home, startup equity, cash and autos from the plan inputs, minus the mortgage (amortized from its plan-start balance) and any other liabilities. Home and other plan values are held at their plan-start figures, so day-to-day movement is mostly investments.</div></div>
   <div class="card"><h2>Holdings value</h2><div id="chartHoldings"></div></div>
   <div class="card"><h2>Cashflow (income vs. expenses)</h2><div id="chartCashflow"></div>
     <div class="note">Cashflow on any date = year-to-date income minus year-to-date expenses, from Jan 1 through that date (a running total, not a single day's or month's flow). Expenses include income and real-estate taxes paid, so this figure is lower than the category total shown in the expenses chart.</div></div>
-  <div class="card"><h2>YTD expenses by category (latest)</h2><div id="chartCategories"></div>
-    <div class="note">Hover a bar for the next level of detail: a category shows its top merchants, "Other" shows the smaller categories rolled into it, and Total lists every category. Category totals exclude taxes (those appear in Cashflow expenses).</div></div>
+  <div class="card"><h2>YTD expenses by tracking type (latest)</h2><div id="chartCategories"></div>
+    <div class="note">Hover a bar to see its Groups, Categories and Merchants (top few at each level). Move onto the popup and roll over an "n more" line to expand it. Totals follow the Spending Analysis mapping and include taxes; the Cashflow figure uses the YTD tracker, so the two can differ slightly (credits such as pension or balance adjustments net against spending in the tracker).</div></div>
 </div>
 <div id="detailPopup" role="tooltip"></div>
 
@@ -83,7 +89,7 @@
 // Finding QUA-302 (Wave 6 item W6-11): the chart-rendering logic below used
 // to be defined inline, right here, with no module boundary. It now lives
 // in ./charts.js, importable and testable directly.
-import { fmtMoney, escSvg, filterByTimeframe, aggregateByGranularity, granularityForTimeframe, labelForDate, dataTableFallbackHtml, lineChartSvg, barChartSvg, buildCategoryRows, detailPopupHtml } from "./charts.js";
+import { fmtMoney, escSvg, filterByTimeframe, aggregateByGranularity, granularityForTimeframe, labelForDate, dataTableFallbackHtml, lineChartSvg, barChartSvg, buildHierarchyRows, detailPopupHtml, detailTreeHtml } from "./charts.js";
 
 let history = [];
 let timeframe = "ytd";
@@ -123,14 +129,15 @@ function render() {
     rows.map(r => ({ label: labelForDate(r.as_of_date, granularity), value: cashflowNet(r) })), { color: "#d97706", title: "Cashflow" }
   );
   const latest = filtered[filtered.length - 1];
-  categoryModel = latest && latest.ytd_expenses_by_category
-    ? buildCategoryRows(latest.ytd_expenses_by_category, latest.ytd_expense_merchants, 10) : null;
+  categoryModel = latest && latest.ytd_expense_hierarchy ? buildHierarchyRows(latest.ytd_expense_hierarchy) : null;
   const categories = [];
   if (categoryModel && categoryModel.rows.length) {
     categories.push(["Total", categoryModel.total, { kind: "total", ...categoryModel.totalDetail }]);
     for (const r of categoryModel.rows) categories.push([r.name, r.amount, r]);
   }
-  document.getElementById("chartCategories").innerHTML = barChartSvg(categories);
+  document.getElementById("chartCategories").innerHTML = categories.length
+    ? barChartSvg(categories)
+    : '<div class="empty">No tracking-type breakdown logged yet - click Run now to capture one.</div>';
   scrollChartsToLatest();
 }
 
@@ -179,16 +186,42 @@ function rowForEvent(e) {
   if (idx === 0) return categoryModel.totalDetail;
   return categoryModel.rows[idx - 1] || null;
 }
+// The popup stays open while the pointer is over the bar or the popup itself
+// (short hide delay bridges the gap), so its "n more" rows can be rolled over:
+// hovering one expands that level in place (the popup then scrolls if tall).
+let popRow = null, popExpanded = new Set(), hideTimer = null;
+function renderPopup() {
+  popup.innerHTML = popRow.tree ? detailTreeHtml(popRow.detailTitle, popRow.tree, 36, popExpanded)
+                                : detailPopupHtml(popRow.detailTitle, popRow.detail);
+}
+function placePopup(e) {
+  const pw = popup.offsetWidth, ph = popup.offsetHeight;
+  popup.style.left = Math.max(8, Math.min(e.clientX + 12, window.innerWidth - pw - 8)) + "px";
+  popup.style.top = Math.max(8, Math.min(e.clientY + 8, window.innerHeight - ph - 8)) + "px";
+}
+function scheduleHide() { clearTimeout(hideTimer); hideTimer = setTimeout(() => { popup.style.display = "none"; popRow = null; }, 350); }
 catBox.addEventListener("mousemove", (e) => {
   const row = rowForEvent(e);
-  if (!row) { popup.style.display = "none"; return; }
-  popup.innerHTML = detailPopupHtml(row.detailTitle, row.detail);
-  popup.style.display = "block";
-  const pw = popup.offsetWidth, ph = popup.offsetHeight;
-  popup.style.left = Math.max(8, Math.min(e.clientX + 16, window.innerWidth - pw - 8)) + "px";
-  popup.style.top = Math.max(8, Math.min(e.clientY + 12, window.innerHeight - ph - 8)) + "px";
+  if (!row) { scheduleHide(); return; }
+  clearTimeout(hideTimer);
+  if (row !== popRow) {
+    popRow = row; popExpanded = new Set(); renderPopup();
+    popup.style.display = "block"; popup.scrollTop = 0; placePopup(e);
+  }
 });
-catBox.addEventListener("mouseleave", () => { popup.style.display = "none"; });
+catBox.addEventListener("mouseleave", scheduleHide);
+popup.addEventListener("mouseenter", () => clearTimeout(hideTimer));
+popup.addEventListener("mouseleave", scheduleHide);
+popup.addEventListener("mouseover", (e) => {
+  const more = e.target.closest && e.target.closest("[data-more]");
+  if (!more || !popRow) return;
+  const key = more.dataset.more;
+  if (popExpanded.has(key)) return;
+  popExpanded.add(key);
+  const top = popup.scrollTop;
+  renderPopup();
+  popup.scrollTop = top;
+});
 
 document.getElementById("customFrom").addEventListener("change", () => { if (timeframe === "custom") render(); });
 document.getElementById("customTo").addEventListener("change", () => { if (timeframe === "custom") render(); });

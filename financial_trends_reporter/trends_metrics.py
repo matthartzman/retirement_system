@@ -23,15 +23,12 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from src import ytd_tracking as ytd  # noqa: E402
+from src import spending_tracker, ytd_tracking as ytd  # noqa: E402
 from src.plan_data_read import read_plan_data_file  # noqa: E402
 
 # Account-setup roles ytd_tracking.ROLE_OPTIONS marks as liabilities -- their
 # "Current Value"/"Current Balance" subtracts from, rather than adds to,
 # net worth. Everything else non-Ignore is treated as an asset.
-MERCHANT_DETAIL_CATEGORIES = 12
-MERCHANTS_PER_CATEGORY = 6
-
 LIABILITY_ROLES = frozenset({"Credit card", "Mortgage", "HELOC", "Loan", "Other liability"})
 
 
@@ -74,6 +71,56 @@ def _net_worth_from_account_setup(
     return {"assets": assets, "account_liabilities": account_liabilities}
 
 
+def _plan_rows(base_dir: Path, db_path: Path, filename: str) -> dict[tuple[str, str, str], str]:
+    """{(section, subsection, label): value} for a section/subsection/label/value plan CSV."""
+    content = read_plan_data_file(filename, base_dir, db_path)
+    out: dict[tuple[str, str, str], str] = {}
+    if not content:
+        return out
+    for row in csv.reader(io.StringIO(content)):
+        if len(row) >= 4 and row[0] and not row[0].startswith("#"):
+            out[(row[0].strip(), row[1].strip(), row[2].strip())] = row[3].strip()
+    return out
+
+
+def _amortized_balance(balance: float, annual_rate: float, payment: float, months: int) -> float:
+    monthly_rate = annual_rate / 12.0
+    for _ in range(max(0, months)):
+        balance = max(0.0, balance * (1 + monthly_rate) - payment)
+    return balance
+
+
+def _plan_assets_and_mortgage(base_dir: Path, db_path: Path, as_of: date) -> dict[str, float]:
+    """Non-account assets (home, startup equity, cash, autos) and the mortgage.
+
+    Account setup only knows investment/annuity/pension balances; the plan
+    inputs hold the rest, as the main app's Balance Sheet does. Values are the
+    plan's own "as of plan start" figures; the mortgage is amortized from its
+    plan-start balance (4/1/2026 in the spending inputs) to ``as_of``.
+    """
+    assets = _plan_rows(base_dir, db_path, "client_assets.csv")
+    spending = _plan_rows(base_dir, db_path, "client_spending.csv")
+
+    def money(rows, key):
+        return ytd.parse_money(rows.get(key))
+
+    other = {
+        "home": money(assets, ("Other Assets", "Home", "value_as_of_plan_start")),
+        "startup_equity": money(assets, ("Other Assets", "Startup Equity", "value")),
+        "cash": money(assets, ("Other Assets", "Cash", "value")),
+        "autos": money(assets, ("Other Assets", "Autos", "value")),
+    }
+    mortgage = money(spending, ("Cashflow", "Mortgage", "balance_as_of_plan_start"))
+    if mortgage:
+        rate = ytd.parse_money(str(spending.get(("Cashflow", "Mortgage", "interest_rate"), "0")).rstrip("%")) / 100.0
+        payment = money(spending, ("Cashflow", "Mortgage", "monthly_payment"))
+        start = date(2026, 4, 1)  # "Outstanding balance 4/1/2026" per the input's note
+        months = (as_of.year - start.year) * 12 + (as_of.month - start.month) - (1 if as_of.day < start.day else 0)
+        mortgage = _amortized_balance(mortgage, rate, payment, months)
+    other["mortgage"] = mortgage
+    return other
+
+
 def compute_snapshot(base_dir: str | Path, *, today=None) -> dict[str, Any]:
     """Return one snapshot's worth of the four metric groups.
 
@@ -92,22 +139,11 @@ def compute_snapshot(base_dir: str | Path, *, today=None) -> dict[str, Any]:
         row["category"]: row["amount"] for row in summary.get("category_totals", [])
     }
 
-    # Next level of detail for the category bars' hover popup: top merchants
-    # within each of the largest categories (the rest rolled into one line),
-    # capped so the append-only daily log doesn't balloon.
-    merchant_totals = summary.get("category_merchant_totals", {})
-    ytd_expense_merchants: dict[str, dict[str, float]] = {}
-    for category in list(ytd_expenses_by_category)[:MERCHANT_DETAIL_CATEGORIES]:
-        ranked = sorted(
-            ((m, v) for m, v in merchant_totals.get(category, {}).items() if v > 0),
-            key=lambda kv: -kv[1],
-        )
-        detail = {m: round(v, 2) for m, v in ranked[:MERCHANTS_PER_CATEGORY]}
-        rest = sum(v for _, v in ranked[MERCHANTS_PER_CATEGORY:])
-        if rest > 0.005:
-            detail["Other merchants"] = round(rest, 2)
-        if detail:
-            ytd_expense_merchants[category] = detail
+    # Tracking Type -> Group -> Category -> Merchant, for the expenses chart:
+    # level 1 is displayed, levels 2-4 appear in the hover popup.
+    ytd_expense_hierarchy = spending_tracker.ytd_spending_hierarchy(
+        base_dir, (today or date.today()).year
+    )
 
     inv = summary.get("investment_balance", {})
     current_value = inv.get("current_balance")
@@ -126,9 +162,14 @@ def compute_snapshot(base_dir: str | Path, *, today=None) -> dict[str, Any]:
     from_accounts = _net_worth_from_account_setup(
         summary.get("accounts", []), inv.get("account_growth_rows", [])
     )
-    assets = from_accounts["assets"]
-    liabilities = from_accounts["account_liabilities"] + liabilities_csv_total
+    plan = _plan_assets_and_mortgage(base_dir, db_path, today or date.today())
+    plan_assets = plan["home"] + plan["startup_equity"] + plan["cash"] + plan["autos"]
+    assets = from_accounts["assets"] + plan_assets
+    liabilities = from_accounts["account_liabilities"] + liabilities_csv_total + plan["mortgage"]
     net_worth = {
+        "home": round(plan["home"], 2),
+        "other_assets": round(plan["startup_equity"] + plan["cash"] + plan["autos"], 2),
+        "mortgage": round(plan["mortgage"], 2),
         "assets": round(assets, 2),
         "liabilities": round(liabilities, 2),
         "total": round(assets - liabilities, 2),
@@ -165,7 +206,7 @@ def compute_snapshot(base_dir: str | Path, *, today=None) -> dict[str, Any]:
         "as_of_date": as_of_date,
         "data_through_date": data_through_date,
         "ytd_expenses_by_category": ytd_expenses_by_category,
-        "ytd_expense_merchants": ytd_expense_merchants,
+        "ytd_expense_hierarchy": ytd_expense_hierarchy,
         "holdings": holdings,
         "net_worth": net_worth,
         "cashflow": cashflow,

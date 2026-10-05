@@ -121,8 +121,42 @@ def test_net_worth_uses_live_holdings_value_for_investment_accounts(tmp_path):
     assert snapshot["net_worth"]["assets"] == snapshot["holdings"]["current_value"] + 1500.0
 
 
-def test_expense_merchant_detail_is_logged_per_category(tmp_path):
+def test_expense_hierarchy_is_tracking_type_group_category_merchant(tmp_path):
     base_dir = _workspace(tmp_path)
     _seed(base_dir)
     snapshot = compute_snapshot(base_dir, today=date(2026, 1, 20))
-    assert snapshot["ytd_expense_merchants"]["Groceries"] == {"Kroger": 100.0}
+    tree = snapshot["ytd_expense_hierarchy"]
+
+    def total(node):
+        return node if isinstance(node, (int, float)) else sum(total(v) for v in node.values())
+
+    assert total(tree) == 100.0
+    (tracking_type, groups), = tree.items()
+    (group, categories), = groups.items()
+    assert list(categories.values())[0] == {"Kroger": 100.0}
+
+
+def test_net_worth_includes_plan_assets_and_mortgage(tmp_path):
+    base_dir = _workspace(tmp_path)
+    _seed(base_dir)
+    db_path = base_dir / "local_state" / "retirement_system_v10.db"
+    config_backend.set_client_file(
+        "client_assets.csv",
+        "section,subsection,label,value\n"
+        "Other Assets,Home,value_as_of_plan_start,1000000\n"
+        "Other Assets,Cash,value,100000\n",
+        db_path=db_path,
+    )
+    config_backend.set_client_file(
+        "client_spending.csv",
+        "section,subsection,label,value\n"
+        "Cashflow,Mortgage,balance_as_of_plan_start,200000\n"
+        "Cashflow,Mortgage,interest_rate,2.0%\n"
+        "Cashflow,Mortgage,monthly_payment,3000\n",
+        db_path=db_path,
+    )
+    nw = compute_snapshot(base_dir, today=date(2026, 4, 1))["net_worth"]
+    assert nw["home"] == 1000000.0
+    assert nw["mortgage"] == 200000.0
+    assert nw["total"] == nw["assets"] - nw["liabilities"]
+    assert nw["assets"] == 111500.0 + 1100000.0

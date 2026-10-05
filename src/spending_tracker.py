@@ -1404,6 +1404,65 @@ def _actuals_by_taxonomy(root, year: int):
     return actuals, alias_hits, list(unmatched.values()), days_elapsed, annual_factor
 
 
+def ytd_spending_hierarchy(root=None, year=None, merchants_per_category: int = 5):
+    """YTD spending as Tracking Type -> Group -> Category -> Merchant -> amount.
+
+    Uses the same transaction-to-taxonomy mapping and sign rules as the
+    Spending Analysis (transfers and Income excluded, refunds net against
+    their category). Spend with no taxonomy mapping lands under an
+    "Unmapped" tracking type so totals still reconcile. Each category keeps
+    its top ``merchants_per_category`` merchants; the rest roll into
+    "Other merchants". Tracking types / groups / categories netting to zero
+    or less are dropped.
+    """
+    r = _root(root)
+    if year is None:
+        year = _platform_runtime.today().year
+    flat = taxonomy_flat(r)
+    aliases = load_aliases(r)
+    tree: dict[str, dict[str, dict[str, dict[str, float]]]] = {}
+    for txn in load_transactions_extended(r, year):
+        amount = txn.get("amount", 0)
+        if amount == 0 or _shared_ytd_class(txn) == "transfer":
+            continue
+        merchant = txn.get("merchant") or "(no merchant)"
+        cid = _resolve_alias(txn, aliases, flat)
+        if cid and cid in flat:
+            info = flat[cid]
+            tt, grp, cat = info.get("tracking_type"), info.get("group") or "Other", info.get("label") or cid
+            if tt in _TRANSFER_NAMES or tt == "Income":
+                continue
+            value = -abs(amount) if amount > 0 else abs(amount)
+        else:
+            raw_cat = txn.get("category") or ""
+            if not raw_cat or amount >= 0:
+                continue
+            tt, grp, cat, value = "Unmapped", "Unmapped", raw_cat, abs(amount)
+        merchants = tree.setdefault(tt, {}).setdefault(grp, {}).setdefault(cat, {})
+        merchants[merchant] = merchants.get(merchant, 0.0) + value
+
+    out: dict[str, dict] = {}
+    for tt, groups in tree.items():
+        for grp, cats in groups.items():
+            for cat, merchants in cats.items():
+                net = sum(merchants.values())
+                if abs(net) <= 0.005:
+                    continue
+                ranked = sorted(((m, v) for m, v in merchants.items() if v > 0.005), key=lambda kv: -kv[1])
+                kept = {m: round(v, 2) for m, v in ranked[:merchants_per_category]}
+                rest = sum(v for _, v in ranked[merchants_per_category:])
+                if rest > 0.005:
+                    kept["Other merchants"] = round(rest, 2)
+                # Merchants whose refunds exceed their purchases net against the
+                # category as one negative line, so every level still sums to
+                # the true net (matching the Spending Analysis total).
+                credits = sum(v for v in merchants.values() if v < -0.005)
+                if credits < -0.005:
+                    kept["Refunds & credits"] = round(credits, 2)
+                out.setdefault(tt, {}).setdefault(grp, {})[cat] = kept
+    return out
+
+
 def ytd_core_spending_actual(root=None, year=None):
     """Return YTD actual spending scoped to the projection's core spend base.
 

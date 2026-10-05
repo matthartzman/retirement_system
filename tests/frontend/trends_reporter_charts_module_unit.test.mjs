@@ -8,7 +8,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import {
   filterByTimeframe, granularityForTimeframe, aggregateByGranularity, labelForDate,
-  lineChartSvg, barChartSvg, escSvg, fmtMoney, niceRange, buildCategoryRows, detailPopupHtml,
+  lineChartSvg, barChartSvg, escSvg, fmtMoney, niceRange, buildHierarchyRows, detailPopupHtml, detailTreeHtml,
 } from "../../financial_trends_reporter/frontend/charts.js";
 
 describe("filterByTimeframe", () => {
@@ -199,14 +199,53 @@ describe("scrollable line chart", () => {
 });
 
 describe("category rows and detail popup", () => {
-  const byCat = { A: 50, B: 40, C: 30, D: 20, E: 10 };
-  test("rolls categories beyond topN into Other and keeps the total", () => {
-    const m = buildCategoryRows(byCat, { A: { x: 30, y: 20 } }, 3);
-    assert.equal(m.total, 150);
-    assert.deepEqual(m.rows.map(r => r.name), ["A", "B", "C", "Other"]);
-    assert.equal(m.rows[3].amount, 30);
-    assert.deepEqual(m.rows[3].detail.map(d => d[0]), ["D", "E"]);
-    assert.deepEqual(m.rows[0].detail, [["x", 30], ["y", 20]]);
+  const hier = {
+    Housing: { Utilities: { "Gas & Electric": { ComEd: 30, Nicor: 20 } }, Mortgage: { Mortgage: { Bank: 100 } } },
+    Travel: { Travel: { Trips: { Airline: 40 } } },
+  };
+  test("level 1 rows are tracking types sorted by amount, with a grand total", () => {
+    const m = buildHierarchyRows(hier);
+    assert.deepEqual(m.rows.map(r => [r.name, r.amount]), [["Housing", 150], ["Travel", 40]]);
+    assert.equal(m.total, 190);
+  });
+
+  test("each row carries group > category > merchant levels for the popup", () => {
+    const m = buildHierarchyRows(hier);
+    const mortgage = m.rows[0].tree[0];
+    assert.equal(mortgage.name, "Mortgage");
+    assert.equal(mortgage.children[0].name, "Mortgage");
+    assert.equal(mortgage.children[0].children[0].name, "Bank");
+  });
+
+  test("tree popup shows levels 2-4 and the type total, escaping names", () => {
+    const m = buildHierarchyRows({ T: { "G<b>": { C: { M: 5 } } } });
+    const html = detailTreeHtml("T", m.rows[0].tree);
+    assert.ok(html.includes("G&lt;b&gt;") && html.includes("pop-d2") && html.includes("pop-d3"));
+    assert.match(html, /pop-total[^>]*><span>Total<\/span><span>\$5<\/span>/);
+  });
+
+  test("rolling over 'n more' (its key in `expanded`) lists every entry at that level", () => {
+    const big = { T: {} };
+    for (let g = 0; g < 12; g++) big.T["g" + g] = { c: { m: g + 1 } };
+    const tree = buildHierarchyRows(big).rows[0].tree;
+    const collapsed = detailTreeHtml("T", tree, 36);
+    const key = collapsed.match(/data-more="([^"]+)"/)[1];
+    const open = detailTreeHtml("T", tree, 36, new Set([key]));
+    assert.ok(!open.includes("data-more="), "level should be fully expanded");
+    assert.ok(open.includes(">g0<") && open.includes(">g11<"));
+  });
+
+  test("a negative line (refunds & credits) has no bar and the total stays net", () => {
+    const m = buildHierarchyRows({ T: { G: { C: { A: 100, "Refunds & credits": -20 } } } });
+    assert.equal(m.total, 80);
+    assert.ok(detailTreeHtml("T", m.rows[0].tree).includes("pop-neg"));
+  });
+
+  test("a huge tree is trimmed to fit with a 'more' line", () => {
+    const big = { T: {} };
+    for (let g = 0; g < 12; g++) big.T["g" + g] = { c: { m: g + 1 } };
+    const html = detailTreeHtml("T", buildHierarchyRows(big).rows[0].tree, 36);
+    assert.ok(html.includes("more"));
   });
 
   test("popup shows the detail bars and a total", () => {
