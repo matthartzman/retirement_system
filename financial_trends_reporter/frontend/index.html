@@ -89,20 +89,11 @@
 // Finding QUA-302 (Wave 6 item W6-11): the chart-rendering logic below used
 // to be defined inline, right here, with no module boundary. It now lives
 // in ./charts.js, importable and testable directly.
-import { fmtMoney, escSvg, filterByTimeframe, aggregateByGranularity, granularityForTimeframe, labelForDate, dataTableFallbackHtml, lineChartSvg, barChartSvg, buildHierarchyRows, detailPopupHtml, detailTreeHtml } from "./charts.js";
+import { fmtMoney, escSvg, filterByTimeframe, aggregateByGranularity, granularityForTimeframe, labelForDate, dataTableFallbackHtml, lineChartSvg, barChartSvg, buildHierarchyRows, detailPopupHtml, detailTreeHtml, cashflowNet } from "./charts.js";
 
 let history = [];
 let timeframe = "ytd";
 let categoryModel = null;
-
-// Cashflow = YTD income - YTD expenses. Expenses already include taxes, so the
-// stored "net" (which older log entries computed as income - expenses - taxes)
-// is recomputed here rather than trusted.
-function cashflowNet(r) {
-  const cf = r.cashflow;
-  if (!cf || cf.income == null || cf.expenses == null) return null;
-  return cf.income - cf.expenses;
-}
 
 // Show the newest dates first: scrolled all the way to the right.
 function scrollChartsToLatest() {

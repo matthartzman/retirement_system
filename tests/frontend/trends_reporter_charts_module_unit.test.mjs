@@ -8,7 +8,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import {
   filterByTimeframe, granularityForTimeframe, aggregateByGranularity, labelForDate,
-  lineChartSvg, barChartSvg, escSvg, fmtMoney, niceRange, buildHierarchyRows, detailPopupHtml, detailTreeHtml,
+  lineChartSvg, barChartSvg, escSvg, fmtMoney, niceRange, cashflowNet, buildHierarchyRows, detailPopupHtml, detailTreeHtml,
 } from "../../financial_trends_reporter/frontend/charts.js";
 
 describe("filterByTimeframe", () => {
@@ -256,5 +256,20 @@ describe("category rows and detail popup", () => {
   test("total and other rows render with data-row hooks", () => {
     const svg = barChartSvg([["Total", 100, { kind: "total" }], ["A", 60, { kind: "category" }], ["Other", 40, { kind: "other" }]]);
     assert.equal((svg.match(/data-row=/g) || []).length, 3);
+  });
+});
+
+describe("cashflowNet", () => {
+  const cats = { Groceries: 237514, "Real Estate Taxes": 17291 }; // total 254,805
+  test("current-definition entries: income - expenses", () => {
+    const r = { cashflow: { income: 433512, expenses: 305515, taxes: 51213 }, ytd_expenses_by_category: cats };
+    assert.equal(cashflowNet(r), 433512 - 305515);
+  });
+  test("pre-9/30 entries get income and real estate taxes added back, so there is no step", () => {
+    const old = { cashflow: { income: 433512, expenses: 236805, taxes: 51213 }, ytd_expenses_by_category: cats };
+    assert.equal(cashflowNet(old), 433512 - (236805 + 51213 + 17291));
+  });
+  test("missing income/expenses yields null", () => {
+    assert.equal(cashflowNet({ cashflow: { income: null, expenses: 1 } }), null);
   });
 });

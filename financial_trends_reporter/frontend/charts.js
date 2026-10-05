@@ -335,3 +335,23 @@ export function barChartSvg(entries) {
   </svg>`;
   return svg + dataTableFallbackHtml("YTD expenses by tracking type", ["Tracking type", "Amount"], entries.map(e => [e[0], fmtMoney(e[1])]));
 }
+
+// Cashflow = YTD income - YTD expenses, on one consistent definition of
+// "expenses" (spending including income taxes and real estate taxes).
+// Log entries written before 2026-09-30's tracker change (#158) excluded both
+// taxes from expenses; they're recognizable because expenses came in below the
+// category total (which includes real estate tax), whereas current expenses are
+// category total + income taxes. Those older entries get the two taxes added
+// back so the series has no artificial step. The stored "net" is never used:
+// older entries also subtracted taxes a second time.
+export function cashflowNet(r) {
+  const cf = r && r.cashflow;
+  if (!cf || cf.income == null || cf.expenses == null) return null;
+  let expenses = cf.expenses;
+  const cats = r.ytd_expenses_by_category;
+  if (cats) {
+    const categoryTotal = Object.values(cats).reduce((t, v) => t + v, 0);
+    if (expenses < categoryTotal) expenses += (cf.taxes || 0) + (cats["Real Estate Taxes"] || 0);
+  }
+  return cf.income - expenses;
+}
