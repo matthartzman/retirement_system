@@ -1,5 +1,8 @@
 # Eliminate CSV / JSON / YAML runtime dependencies — design and implementation plan
 
+> **Sequencing and staffing are superseded by [`2026-10-05-master-plan-tiers-and-file-elimination.md`](2026-10-05-master-plan-tiers-and-file-elimination.md).** This document remains the authority for the design detail it covers; the master plan decides order, merged phases, models and effort.
+
+
 Status: approved by the owner on 2026-10-05 (decisions 1-9 in section 1A). Ready for per-phase planning.
 Evidence: a read-only audit of every runtime file dependency (counts and file:line citations are quoted from it below). It found that SQLite today holds only a *derived* plan snapshot, and that the real edit and build surface is still the `input/` files.
 
@@ -79,6 +82,7 @@ Why two writable databases: Load Saved Plan and snapshot restore replace the who
 | `target_allocation` | `target_allocation.csv` | only the drift report reads it |
 | `spending_taxonomy`, `spending_aliases`, `spending_budget`, `spending_budget_lines`, `spending_rules`, `spending_category_map`, `spending_tier_overrides` | the 9 spending files and recovery seeds | recovery copies become `plan_revisions`, not extra files |
 | `ytd_transactions`, `ytd_accounts`, `ytd_import_history` | the 3 YTD files | indexed by year and account |
+| `rental_properties`, `rental_improvements`, `rental_year_overrides` | none (new feature) | typed tables for the Rental Properties module (design `2026-10-05-rental-property-module-design.md`), added in master plan WP12b |
 | `plan_revisions(id, created_at, source, note, rows_sha256)` plus a retained row copy | `plan_snapshots`, pre-recovery backups, demo backups | undo / compare / restore; retention-capped |
 | `build_results(build_id, summary_json, explorer_json, package_json, snapshot_json)` | `plan_summary.json`, `results_explorer_model.json`, `report_package.json`, `build_snapshot.json` | the server reads these instead of re-reading files |
 | `kpi_snapshots`, `build_events`, `result_snapshots` | same names | already in SQLite |
