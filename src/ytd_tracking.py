@@ -1257,7 +1257,6 @@ def ytd_summary(root: str | Path, *, today: date | None = None, period: str | No
     # Spending Budget Tracker; "spending_excl_taxes" keeps the old core-style scope.
     real_estate_tax_actual = 0.0
     category_totals: dict[str, float] = {}
-    category_merchant_totals: dict[str, dict[str, float]] = {}
     income_category_totals: dict[str, float] = {}
     account_totals: dict[str, float] = {}
     transaction_type_totals: dict[str, float] = {}
@@ -1343,9 +1342,6 @@ def ytd_summary(root: str | Path, *, today: date | None = None, period: str | No
             spending += val
             monthly[d.month]["spending"] += val
             category_totals[cat] = category_totals.get(cat, 0.0) + val
-            merch = str(row.get("Merchant", "") or "").strip() or "(no merchant)"
-            by_merch = category_merchant_totals.setdefault(cat, {})
-            by_merch[merch] = by_merch.get(merch, 0.0) + val
         elif kind == "spending_refund":
             val = abs(amount)
             cat = str(row.get("Category", "") or "Uncategorized").strip() or "Uncategorized"
@@ -1354,9 +1350,6 @@ def ytd_summary(root: str | Path, *, today: date | None = None, period: str | No
             spending -= val
             monthly[d.month]["spending"] -= val
             category_totals[cat] = category_totals.get(cat, 0.0) - val
-            merch = str(row.get("Merchant", "") or "").strip() or "(no merchant)"
-            by_merch = category_merchant_totals.setdefault(cat, {})
-            by_merch[merch] = by_merch.get(merch, 0.0) - val
 
         account = str(row.get("Account", "") or "Unassigned").strip() or "Unassigned"
         account_totals[account] = account_totals.get(account, 0.0) + amount
@@ -1537,10 +1530,6 @@ def ytd_summary(root: str | Path, *, today: date | None = None, period: str | No
         "transaction_type_totals": sorted([{"type": k, "amount": round(v, 2)} for k, v in transaction_type_totals.items()], key=lambda x: x["type"]),
         "allowed_income_categories": ALLOWED_INCOME_CATEGORIES,
         "category_totals": sorted([{"category": k, "amount": round(v, 2)} for k, v in category_totals.items() if round(v, 2) > 0], key=lambda x: -x["amount"]),
-        "category_merchant_totals": {
-            cat: {m: round(v, 2) for m, v in merchants.items()}
-            for cat, merchants in category_merchant_totals.items()
-        },
         "income_category_totals": sorted([{"category": k, "amount": round(v, 2)} for k, v in income_category_totals.items() if round(v, 2) > 0], key=lambda x: -x["amount"]),
         "account_totals": sorted([{"account": k, "amount": round(v, 2)} for k, v in account_totals.items()], key=lambda x: x["account"]),
         "growth_series": growth_balance_series,
