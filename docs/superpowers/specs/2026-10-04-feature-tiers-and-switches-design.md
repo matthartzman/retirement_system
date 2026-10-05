@@ -47,7 +47,7 @@ Off semantics (uniform):
 |---|---|
 | **Simple** (~8 pages) | Core pages; Roth Conversion; Monte Carlo; Lifetime Taxes; Charts |
 | **Standard** | Estate; Insurance (existing life, disability); Reserve Requirements; Social Security timing; Asset Allocation; Survivor stress; Education 529; Hybrid LTC |
-| **Advanced** | Charitable Giving (DAF, QCD); Withdrawal Sequencing; Asset Location; Harvesting (loss, gain); State Residency; Scenarios; Actual Spending / YTD; LTC stress; Next Housing Move; Housing Comparison; HSA Drawdown; Tax Capacity; HELOC |
+| **Advanced** | Charitable Giving (DAF, QCD); Withdrawal Sequencing; Asset Location; Harvesting (loss, gain); State Residency; Scenarios; Actual Spending / YTD; LTC stress; Next Housing Move; Housing Comparison; HSA Drawdown; Tax Capacity; HELOC; Rental Properties |
 | **Expert** | Workbench; Equity Compensation; Business Succession; S-Corp vs LLC; Special-Needs; Divorce/QDRO; P&C Umbrella; RMD audit; Account Reconciliation |
 
 Reference sheets (Plan Data, Assumptions, Quality Control, Methodology, Glossary) follow the core and are always built.

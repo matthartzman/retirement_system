@@ -5,6 +5,7 @@ This document is the single sequencing, staffing and gating plan for two approve
 
 - Tiers design: `2026-10-04-feature-tiers-and-switches-design.md` (referred to as **T**)
 - File-elimination design and plan: `2026-10-05-eliminate-file-dependencies-design.md` (referred to as **F**)
+- Rental Properties module design: `2026-10-05-rental-property-module-design.md` (referred to as **R**; scheduled as WP12)
 
 ## 1. The combined design in one page
 
@@ -29,13 +30,16 @@ This document is the single sequencing, staffing and gating plan for two approve
 | 6 | T-P7 retires about 24 hidden redirect steps and renames domains; F-P3 edits the same frontend and endpoints. | Retire redirects and rename domains first (WP1.1): a smaller surface for every later PR and lower frontend-size-ratchet pressure. |
 | 7 | F-P0.2 moves ~150 tests onto a fixture helper; T would touch many of the same tests. | Helper lands first (WP0.2); all later PRs use it. |
 | 8 | New CSV-specific code could creep in during the code-only tier work. | WP0.3's static audit ratchet fails any PR that adds file I/O. |
+| 9 | The rental module (R) needs the feature registry, typed tables, `reference.db` tax constants and the build-I/O layer; built on today's CSV model it would be rewritten. | Split it: the tax and projection engine lands early behind the switch (no storage), while data, UI and workbook wait for storage (WP12 below). The engine reads one parse boundary, so only the parser's source changes later. |
+| 10 | R's tax constants (passive-loss thresholds, 27.5-year life, 25% recapture cap) belong in the tax reference data. | Added to `tax_law_v10.json` in WP12.1; WP3.2 carries them into `reference.db` unchanged. |
 
 ## 3. Work packages and sequence
 
 ```
-WP0 safety net ─┬─► WP1 features & nav (code only, parallel lane) ───────────────┐
+WP0 safety net ─┬─► WP1 features & nav ─► WP12a rental engine (no storage) ─┐ (lane B)
                 └─► WP2 stores ─► WP3 reference.db ─► WP4 plan rows ─┬─► WP5 tiers UI ┤
-                                          │                          ├─► WP6 datasets ─► WP7 build I/O ─► WP9 csv_exchange ─► WP10 conversion ─► WP11 cleanup
+                                          │                          ├─► WP6 datasets ─► WP7 build I/O ─► WP12b rental data/UI/workbook/housing
+                                          │                          │                          └─► WP9 csv_exchange ─► WP12c rental CSV ─► WP10 conversion ─► WP11 cleanup
                                           └─► WP8 app state (after WP2, parallel lane) ┘
 ```
 
@@ -52,9 +56,13 @@ WP0 safety net ─┬─► WP1 features & nav (code only, parallel lane) ──
 | WP8 | `system_config` split, `SecretStore`, app state, plan registry and demo coexistence (F-P6) | 4 | WP2 (8.4 needs WP4) | C |
 | WP9 | `csv_exchange` and adapters, frontend folder IO (F-P7) | 4 | WP4, WP6 | A |
 | WP10 | Converter incl. tier mapping, verification, UI, rehearsals (F-P8, T-P8) | 5 | steps authored in WP4-WP8; assembly after WP9 | A |
+| WP12a | Rental Properties engine: tax core, projection integration and feature registration (default off), parse boundary, home-conversion hooks (R sections 4, 5, 8) | 3 | WP1.2 (feature accessor), WP0 (golden) | B |
+| WP12b | Rental data (typed tables), UI mock and page, workbook sheet and report lines, housing-optimizer `rent_out` integration (R sections 3, 6, 7) | 5 | WP6, WP7, WP12a | B |
+| WP12c | Rental CSV import/export template | 1 | WP9, WP12b | A |
 | WP11 | Dead-code deletion, packaging, enforcing audit, tests, docs (F-P9) | 5 (+1 later) | WP10 | A |
 
 Critical path: WP0 → WP2 → WP4 → WP6 → WP7 → WP9 → WP10 → WP11. Lanes B and C run beside it and touch different files (nav and registry code, then tier UI; app-state modules), so they do not collide with lane A.
+Rental Properties is a **new** dataset, so it needs no conversion step; WP10's rehearsals include a plan with rental properties to prove the converter leaves it intact. The tier table gains Rental Properties in **Advanced** (see T section 4).
 **Conversion steps are written in the WP that changes the dataset** (part of that PR's definition of done); WP10 assembles, verifies and ships them.
 
 ## 4. Models and effort
@@ -119,7 +127,17 @@ Model guide (Claude 5 family and Haiku): **Fable 5.1** or **Opus 5.5** for desig
 | 11.5 | Documentation | Haiku 4.5 | low | Reviewed once |
 | 11.6 | Delete converter (later release) | Haiku 4.5 | low | |
 
-About 10 PRs are Opus-class (or Fable on the three xhigh checkpoints), roughly 40 are Sonnet, and 3-4 are Haiku.
+| 12.1 | Rental tax core: depreciation, Schedule E, passive-loss limits, recapture (pure functions, IRS-style tests; constants added to `tax_law_v10.json`) | **Opus 5.5** | **xhigh** | **Owner/tax-preparer checkpoint on rules and worked examples** |
+| 12.2 | Engine integration (AGI, MAGI, NIIT, cash flow, net worth, sale), feature registration default off, golden unchanged | Opus 5.5 | high | `/code-review` at medium |
+| 12.3 | Parse boundary + in-code fixtures + home-conversion hooks (carrying-cost shift, converted-home §121 two-of-five test, recapture at sale) | Opus 5.5 | high | Roth-conversion-under-passive-loss test |
+| 12.4 | Typed tables and repository (`rental_properties`, `rental_improvements`, `rental_year_overrides`), field tier tags | Sonnet 5.5 | high | Follows the SpendingRepo pattern (6.3a) |
+| 12.5 | UI mockup for owner review (summary strip, property list, detail tabs, convert-my-home) | Sonnet 5.5 | medium | **Owner review checkpoint** before the build |
+| 12.6 | Rental Properties page | Sonnet 5.5 | high | Mobile-friendly cards; frontend and Playwright tests |
+| 12.7 | Workbook sheet and report lines (Executive Summary, Cash Flow, Net Worth, Balance Sheet, Lifetime Taxes, Charts) | Sonnet 5.5 | high | **Owner reviews sheet layout** |
+| 12.8 | Housing optimizer `rent_out` candidates, dual-ownership predicate, disclosure removal | Opus 5.5 | high | Most coupled part; own PR |
+| 12.9 | CSV import/export template for properties | Sonnet 5.5 | medium | After `csv_exchange` exists |
+
+Count: 18 PRs are Opus-class (the five xhigh ones — 2.2, 4.1, 6.3a, 10.3 and 12.1 — may use Fable 5.1), 44 are Sonnet, and 4 are Haiku; 66 PRs in total.
 
 ## 5. Token-minimizing practices
 
@@ -132,13 +150,13 @@ About 10 PRs are Opus-class (or Fable on the three xhigh checkpoints), roughly 4
 7. **Batch same-file work in one agent run** (for example 1.1 and 1.3 both edit the nav step list).
 8. **Calibrate early.** The cost bands below are assumptions. Record actual spend after WP0 and WP1 and re-baseline the rest.
 
-Planning bands (assumption, not measured): S about 0.2-0.5M tokens, M 0.5-1M, L 1-2M, XL 2-4M. On those bands the whole program is on the order of 40M tokens, so it cannot run in one session; run it **one WP per session** with a short handoff note.
+Planning bands (assumption, not measured): S about 0.2-0.5M tokens, M 0.5-1M, L 1-2M, XL 2-4M. On those bands the whole program, including the rental module (about 8-10M of it), is on the order of 45-50M tokens, so it cannot run in one session; run it **one WP per session** with a short handoff note.
 
 ## 6. Gates, checkpoints, rollback
 
 - **Every PR:** the five CI jobs, the golden equality test, the frontend size ratchet, architecture-diagram freshness, and the static audit ratchet (no new file I/O).
 - **Numbers must not move by accident.** WP1 with defaults, WP2-WP9 and WP10 leave every computed number unchanged. Switching a feature off in WP5 changes results only by design, and the pinned engine tests (1.5) record exactly how.
-- **Owner checkpoints:** 2.2 (store API), 3.7 (tier tags), 4.1 (row model), 5.1 and 5.3 (screens and wording), 6.3a (spending repository), 10.3 (verification).
+- **Owner checkpoints:** 2.2 (store API), 3.7 (tier tags), 4.1 (row model), 5.1 and 5.3 (screens and wording), 6.3a (spending repository), 10.3 (verification), and for rental: 12.1 (tax rules and worked examples), 12.5 (screen mockup), 12.7 (workbook layout).
 - **Approval gates:** a go per WP; a copy of the live plan before WP4's first rehearsal; approval of the credential-store dependency before 8.2.
 - **Rollback:** each PR is independently revertible; the converter is idempotent and writes only new files; originals are never modified.
 
