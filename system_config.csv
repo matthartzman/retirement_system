@@ -116,13 +116,6 @@ Annuity Calibration,Reserve Decay,mortality_credit_boost,1.29,decimal,Multiplier
 Annuity Calibration,Reserve Decay,post_credit_decay_rate,0.96,decimal,Annual reserve decay factor applied after the mortality-credit boost.
 Annuity Calibration,Reserve Decay,post_credit_decay_period,16,years,Years the post-credit decay factor applies before the late-life growth phase.
 Annuity Calibration,Reserve Decay,late_life_growth_rate,1.07,decimal,Annual reserve growth factor applied in the late-life transition phase.
-System Configuration,Plan Chat,enabled,NO,yes/no,NO keeps the Plan Chat UI/API feature disabled until AI chat implementation is intentionally re-enabled.
-System Configuration,Plan Chat,provider,OPENAI,choice,OPENAI uses ChatGPT/OpenAI API only when the named encrypted secret is configured; local fallback remains available.
-System Configuration,Plan Chat,openai_api_key,,secret,Deprecated; plaintext Plan Chat keys in CSV are ignored. Store the key in the encrypted secrets store and reference it with openai_api_key_secret_name.
-System Configuration,Plan Chat,openai_api_key_secret_name,plan_chat_openai_api_key,secret_name,Encrypted secrets-store entry containing the OpenAI API key.
-System Configuration,Plan Chat,openai_model,gpt-4o-mini,model,OpenAI model for plan chat. Change as needed for your account.
-System Configuration,Plan Chat,max_context_chars,24000,characters,Maximum generated plan context sent to ChatGPT or searched locally.
-System Configuration,Plan Chat,allow_local_fallback,YES,yes/no,YES answers from local generated plan context if ChatGPT is not configured or fails.
 System Configuration,Runtime,plan_data_canonical_format,CSV,choice,CSV is authoritative. JSON/YAML exports must be regenerated and checksum-synchronized from CSV Plan Data.
 System Configuration,Runtime,plan_data_manifest,input/plan_data_manifest.json,path,Checksum manifest for canonical CSV Plan Data synchronization.
 System Configuration,Runtime,release_gate_version_grep,YES,yes/no,Release gate scans user-visible surfaces and system_config.csv for stale version labels.
@@ -132,8 +125,6 @@ System Configuration,Tax Governance,max_tax_table_lag_years,1,years,Maximum perm
 System Configuration,Advisor Governance,require_assumption_signoff,NO,yes/no,Assumption signoff is available as an advisor workflow but does not force illustration-only language by default.
 System Configuration,Advisor Governance,output_status_mode,STANDARD_WITH_WARNINGS,choice,Outputs show warnings and model-risk labels without mandatory illustration-until-signed language.
 Market Pricing,Holdings,advisor_ready_max_fallback_value_pct,10.00%,pct,Block advisor-ready status when fallback/stale pricing exceeds this share of priced holdings value.
-System Configuration,Plan Chat,require_consent,YES,yes/no,Require per-request client consent before any context can be sent to a third-party AI provider.
-System Configuration,Plan Chat,redact_context,YES,yes/no,"Redact names, emails, phone numbers, and addresses before sending Plan Chat context to third-party AI."
 System Configuration,Runtime,max_build_seconds,1800,seconds,"Maximum local workbook build runtime before timeout. Default is 30 minutes; increase for very large Advanced Exact Scalar Monte Carlo, sensitivity grids, or slower machines."
 System Configuration,Downloads,filename_root,Retirement Workbook,text,Root name for downloaded workbook files.
 System Configuration,Downloads,desktop_download_folder,,path,Desktop app only: folder workbook downloads are saved to. Blank uses the OS Downloads folder.
