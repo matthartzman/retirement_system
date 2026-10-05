@@ -8,7 +8,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import {
   filterByTimeframe, granularityForTimeframe, aggregateByGranularity, labelForDate,
-  lineChartSvg, barChartSvg, escSvg, fmtMoney,
+  lineChartSvg, barChartSvg, escSvg, fmtMoney, niceRange, buildCategoryRows, detailPopupHtml,
 } from "../../financial_trends_reporter/frontend/charts.js";
 
 describe("filterByTimeframe", () => {
@@ -18,7 +18,7 @@ describe("filterByTimeframe", () => {
 
   test("a single data point survives every non-custom timeframe filter", () => {
     const rows = [{ as_of_date: "2026-06-15" }];
-    for (const tf of ["day", "week", "month", "quarter", "ytd", "12m", "all"]) {
+    for (const tf of ["week", "month", "quarter", "ytd", "12m", "all"]) {
       assert.equal(filterByTimeframe(rows, tf).length, 1, `timeframe=${tf}`);
     }
   });
@@ -97,8 +97,8 @@ describe("barChartSvg axes and hover", () => {
 });
 
 describe("granularityForTimeframe", () => {
-  test("day/week/month map to daily granularity", () => {
-    for (const tf of ["day", "week", "month"]) assert.equal(granularityForTimeframe(tf, []), "day");
+  test("week/month map to daily granularity", () => {
+    for (const tf of ["week", "month"]) assert.equal(granularityForTimeframe(tf, []), "day");
   });
 
   test("quarter maps to weekly granularity", () => {
@@ -166,5 +166,56 @@ describe("escSvg / fmtMoney", () => {
   test("fmtMoney handles null/undefined without throwing", () => {
     assert.equal(fmtMoney(null), "-");
     assert.equal(fmtMoney(undefined), "-");
+  });
+});
+
+describe("niceRange", () => {
+  test("does not anchor at zero and brackets the data with round ticks", () => {
+    const r = niceRange(4200000, 4260000);
+    assert.ok(r.min > 4000000 && r.min <= 4200000, `min=${r.min}`);
+    assert.ok(r.max >= 4260000 && r.max < 4500000, `max=${r.max}`);
+    assert.ok(r.ticks.length >= 3);
+  });
+
+  test("a flat series still yields a non-degenerate range", () => {
+    const r = niceRange(100, 100);
+    assert.ok(r.min < 100 && r.max > 100);
+  });
+
+  test("line chart y-axis labels start near the data, not at $0", () => {
+    const svg = lineChartSvg([{ label: "a", value: 4200000 }, { label: "b", value: 4260000 }], {});
+    assert.ok(!svg.includes(">$0<"));
+  });
+});
+
+describe("scrollable line chart", () => {
+  test("many points widen the chart beyond the card so it scrolls", () => {
+    const pts = Array.from({ length: 60 }, (_, i) => ({ label: `d${i}`, value: i }));
+    const svg = lineChartSvg(pts, {});
+    assert.match(svg, /class="chart-scroll"/);
+    const w = Number(svg.match(/class="chart-inner" style="width:(\d+)px"/)[1]);
+    assert.ok(w > 560);
+  });
+});
+
+describe("category rows and detail popup", () => {
+  const byCat = { A: 50, B: 40, C: 30, D: 20, E: 10 };
+  test("rolls categories beyond topN into Other and keeps the total", () => {
+    const m = buildCategoryRows(byCat, { A: { x: 30, y: 20 } }, 3);
+    assert.equal(m.total, 150);
+    assert.deepEqual(m.rows.map(r => r.name), ["A", "B", "C", "Other"]);
+    assert.equal(m.rows[3].amount, 30);
+    assert.deepEqual(m.rows[3].detail.map(d => d[0]), ["D", "E"]);
+    assert.deepEqual(m.rows[0].detail, [["x", 30], ["y", 20]]);
+  });
+
+  test("popup shows the detail bars and a total", () => {
+    const html = detailPopupHtml("T", [["x", 30], ["y", 20]]);
+    assert.match(html, /pop-total[^>]*><span>Total<\/span><span>\$50<\/span>/);
+  });
+
+  test("total and other rows render with data-row hooks", () => {
+    const svg = barChartSvg([["Total", 100, { kind: "total" }], ["A", 60, { kind: "category" }], ["Other", 40, { kind: "other" }]]);
+    assert.equal((svg.match(/data-row=/g) || []).length, 3);
   });
 });

@@ -34,8 +34,7 @@ export function filterByTimeframe(rows, tf) {
   if (!rows.length) return rows;
   const last = new Date(rows[rows.length - 1].as_of_date);
   let from = null;
-  if (tf === "day") { from = new Date(last); from.setDate(from.getDate() - 1); }
-  else if (tf === "week") { from = new Date(last); from.setDate(from.getDate() - 7); }
+  if (tf === "week") { from = new Date(last); from.setDate(from.getDate() - 7); }
   else if (tf === "month") { from = new Date(last); from.setMonth(from.getMonth() - 1); }
   else if (tf === "quarter") { from = new Date(last); from.setMonth(from.getMonth() - 3); }
   else if (tf === "ytd") { from = new Date(last.getFullYear(), 0, 1); }
@@ -55,11 +54,11 @@ export function filterByTimeframe(rows, tf) {
   return rows.filter(r => new Date(r.as_of_date) >= from);
 }
 
-// Granularity requirement: daily points for day/week/month ranges, weekly
+// Granularity requirement: daily points for week/month ranges, weekly
 // for quarter, monthly for ytd/12-month/all-time. A custom range has no
 // fixed answer, so it's inferred from how many days the range spans.
 export function granularityForTimeframe(tf, rows) {
-  const fixed = { day: "day", week: "day", month: "day", quarter: "week", ytd: "month", "12m": "month", all: "month" };
+  const fixed = { week: "day", month: "day", quarter: "week", ytd: "month", "12m": "month", all: "month" };
   if (fixed[tf]) return fixed[tf];
   if (!rows || rows.length < 2) return "day";
   const first = new Date(rows[0].as_of_date);
@@ -114,33 +113,59 @@ export function dataTableFallbackHtml(caption, columnHeaders, rows) {
     `<thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
 }
 
+// "Nice" axis bounds a little beyond the data (not anchored at zero): pads
+// the data range by ~8% each side, then snaps to a round tick step so the
+// gridline labels read as clean numbers.
+export function niceRange(min, max, tickTarget) {
+  tickTarget = tickTarget || 4;
+  if (!(max > min)) {
+    const pad = Math.abs(max) * 0.05 || 1;
+    min -= pad; max += pad;
+  } else {
+    const pad = (max - min) * 0.08;
+    min -= pad; max += pad;
+  }
+  const rough = (max - min) / tickTarget;
+  const mag = Math.pow(10, Math.floor(Math.log10(rough)));
+  const norm = rough / mag;
+  const step = (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 2.5 ? 2.5 : norm <= 5 ? 5 : 10) * mag;
+  const lo = Math.floor(min / step) * step;
+  const hi = Math.ceil(max / step) * step;
+  const ticks = [];
+  for (let v = lo; v <= hi + step / 1e6; v += step) ticks.push(Math.round(v / step) * step);
+  return { min: ticks[0], max: ticks[ticks.length - 1], ticks };
+}
+
+// Line chart wide enough to give each point `pxPerPoint` of room; when that
+// exceeds the card, the chart scrolls horizontally (.chart-scroll) with the
+// y-axis labels pinned in a sticky overlay so they stay visible.
 export function lineChartSvg(points, opts) {
   opts = opts || {};
-  const w = 560, h = 200, padL = 56, padR = 16, padT = 16, padB = 28;
+  const minW = 560, h = 200, padL = 56, padR = 16, padT = 16, padB = 28;
+  const pxPerPoint = opts.pxPerPoint || 36;
   const label = (opts.title || "Chart") + ", line chart";
   if (!points.length) return '<div class="empty">No data yet for this range.</div>';
   const values = points.map(p => p.value).filter(v => v !== null && v !== undefined);
   if (!values.length) return '<div class="empty">No data yet for this range.</div>';
-  const min = Math.min(0, ...values), max = Math.max(...values, 1);
+  const range = niceRange(Math.min(...values), Math.max(...values));
+  const min = range.min, max = range.max;
+  const w = Math.max(minW, padL + padR + (points.length - 1) * pxPerPoint);
   const plotW = w - padL - padR, plotH = h - padT - padB;
   const xStep = points.length > 1 ? plotW / (points.length - 1) : 0;
   const x = i => padL + i * xStep;
   const y = v => padT + plotH - ((v - min) / (max - min || 1)) * plotH;
   const path = points.map((p, i) => `${i === 0 ? "M" : "L"}${x(i)},${y(p.value ?? 0)}`).join(" ");
 
-  // Y-axis: gridlines + value labels at 4 evenly-spaced ticks.
-  const yTickCount = 4;
-  let yAxis = "";
-  for (let i = 0; i <= yTickCount; i++) {
-    const v = min + ((max - min) * i) / yTickCount;
+  // Y-axis: gridlines in the scrolling plot, value labels in the sticky overlay.
+  let grid = "", yLabels = "";
+  for (const v of range.ticks) {
     const yy = y(v);
-    yAxis += `<line x1="${padL}" y1="${yy}" x2="${w - padR}" y2="${yy}" stroke="#e5e5e5" stroke-width="1"/>` +
-      `<text x="${padL - 6}" y="${yy + 3}" text-anchor="end" style="font-size:10px">${escSvg(fmtMoney(v))}</text>`;
+    grid += `<line x1="${padL}" y1="${yy}" x2="${w - padR}" y2="${yy}" stroke="#e5e5e5" stroke-width="1"/>`;
+    yLabels += `<text x="${padL - 6}" y="${yy + 3}" text-anchor="end" style="font-size:10px">${escSvg(fmtMoney(v))}</text>`;
   }
 
-  // X-axis: date labels, thinned out so they don't overlap on long ranges.
-  const maxXLabels = 6;
-  const xLabelStep = points.length > 1 ? Math.max(1, Math.ceil((points.length - 1) / (maxXLabels - 1))) : 1;
+  // X-axis: date labels, thinned out so they don't overlap.
+  const xLabelStep = xStep > 0 ? Math.max(1, Math.ceil(60 / xStep)) : 1;
   let xAxis = "";
   points.forEach((p, i) => {
     if (i % xLabelStep !== 0 && i !== points.length - 1) return;
@@ -148,8 +173,7 @@ export function lineChartSvg(points, opts) {
   });
 
   // Hover targets: one dot per point, with a native tooltip giving the
-  // x label and y value (no charting library in play, so this is the
-  // simplest reliable way to surface hover data across browsers).
+  // x label and y value.
   let dots = "";
   points.forEach((p, i) => {
     if (p.value === null || p.value === undefined) return;
@@ -157,21 +181,70 @@ export function lineChartSvg(points, opts) {
       `<title>${escSvg(p.label)}: ${escSvg(fmtMoney(p.value))}</title></circle>`;
   });
 
-  const svg = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="${escSvg(label)}">
-    ${yAxis}
+  const axisSvg = `<svg class="chart-yaxis" width="${padL}" height="${h}" aria-hidden="true">${yLabels}</svg>`;
+  const svg = `<div class="chart-scroll"><div class="chart-inner" style="width:${w}px">${axisSvg}` +
+    `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" role="img" aria-label="${escSvg(label)}">
+    ${grid}
     <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${h - padB}" stroke="#999" stroke-width="1"/>
     <line x1="${padL}" y1="${h - padB}" x2="${w - padR}" y2="${h - padB}" stroke="#999" stroke-width="1"/>
     <path d="${path}" fill="none" stroke="${opts.color || '#2563eb'}" stroke-width="2"/>
     ${dots}
     ${xAxis}
-  </svg>`;
+  </svg></div></div>`;
   return svg + dataTableFallbackHtml(label, ["Date", "Value"], points.map(p => [p.label, fmtMoney(p.value)]));
 }
 
+// Rows for the YTD-expenses chart: the top `topN` categories, then one
+// "Other" row rolling up the rest, plus a grand total. Each row carries the
+// next level of detail for its hover popup: a category's top merchants, the
+// Other row's rolled-up categories, the total's full category list.
+export function buildCategoryRows(byCategory, byMerchant, topN) {
+  topN = topN || 10;
+  const all = Object.entries(byCategory || {}).filter(e => e[1] > 0).sort((a, b) => b[1] - a[1]);
+  const total = all.reduce((t, e) => t + e[1], 0);
+  const rows = all.slice(0, topN).map(([name, amount]) => ({
+    name, amount, kind: "category",
+    detailTitle: `${name} - top merchants`,
+    detail: Object.entries((byMerchant && byMerchant[name]) || {}).sort((a, b) => b[1] - a[1]),
+  }));
+  const rest = all.slice(topN);
+  if (rest.length) {
+    rows.push({
+      name: "Other", amount: rest.reduce((t, e) => t + e[1], 0), kind: "other",
+      detailTitle: `Other - ${rest.length} smaller categories`, detail: rest,
+    });
+  }
+  return { total, rows, totalDetail: { detailTitle: "Total - all categories", detail: all } };
+}
+
+// Popup body: title, a mini bar chart of up to `maxLines` entries (the
+// remainder collapsed into one line), and the level's total.
+export function detailPopupHtml(title, detail, maxLines) {
+  maxLines = maxLines || 12;
+  if (!detail.length) return `<div class="pop-title">${escSvg(title)}</div><div class="empty">No further detail logged.</div>`;
+  const total = detail.reduce((t, e) => t + e[1], 0);
+  let lines = detail.slice(0, maxLines);
+  if (detail.length > maxLines) {
+    const more = detail.slice(maxLines);
+    lines = lines.concat([[`${more.length} more`, more.reduce((t, e) => t + e[1], 0)]]);
+  }
+  const max = Math.max(...lines.map(e => e[1]), 1);
+  const body = lines.map(([n, v]) =>
+    `<div class="pop-row"><span class="pop-name">${escSvg(n)}</span>` +
+    `<span class="pop-bar"><i style="width:${Math.max(1, (v / max) * 100).toFixed(1)}%"></i></span>` +
+    `<span class="pop-val">${escSvg(fmtMoney(v))}</span></div>`).join("");
+  return `<div class="pop-title">${escSvg(title)}</div>${body}` +
+    `<div class="pop-total"><span>Total</span><span>${escSvg(fmtMoney(total))}</span></div>`;
+}
+
+// entries: [name, amount, meta?] -- meta.kind is "total" (text-only summary
+// row, not scaled), "other" (muted bar) or anything else (normal bar). Rows
+// with meta carry data-row so the page can attach the detail popup; rows
+// without it keep a native <title> tooltip.
 export function barChartSvg(entries) {
   if (!entries.length) return '<div class="empty">No expenses recorded yet.</div>';
   const w = 560, barH = 18, gap = 6, padL = 120, padR = 60, padB = 20;
-  const max = Math.max(...entries.map(e => e[1]), 1);
+  const max = Math.max(...entries.filter(e => !(e[2] && e[2].kind === "total")).map(e => e[1]), 1);
   const plotW = w - padL - padR;
   const h = entries.length * (barH + gap) + padB;
 
@@ -188,12 +261,21 @@ export function barChartSvg(entries) {
 
   const bars = entries.map((e, i) => {
     const y = i * (barH + gap);
+    const meta = e[2];
+    const row = meta ? ` data-row="${i}"` : "";
+    const hit = `<rect x="0" y="${y - 2}" width="${w}" height="${barH + 4}" fill="transparent"/>`;
+    if (meta && meta.kind === "total") {
+      return `<g${row} class="bar-row">${hit}` +
+        `<text x="0" y="${y + barH - 5}" style="font-weight:600">${escSvg(e[0])}</text>` +
+        `<text x="${padL + 6}" y="${y + barH - 5}" style="font-weight:600">${escSvg(fmtMoney(e[1]))}</text></g>`;
+    }
     const bw = (e[1] / max) * plotW;
-    return `<text x="0" y="${y + barH - 5}">${escSvg(e[0])}</text>
-      <rect x="${padL}" y="${y}" width="${bw}" height="${barH}" fill="#2563eb" rx="3">
-        <title>${escSvg(e[0])}: ${escSvg(fmtMoney(e[1]))}</title>
-      </rect>
-      <text x="${padL + bw + 6}" y="${y + barH - 5}">${escSvg(fmtMoney(e[1]))}</text>`;
+    const fill = meta && meta.kind === "other" ? "#94a3b8" : "#2563eb";
+    const tip = meta ? "" : `<title>${escSvg(e[0])}: ${escSvg(fmtMoney(e[1]))}</title>`;
+    return `<g${row} class="bar-row">${hit}` +
+      `<text x="0" y="${y + barH - 5}">${escSvg(e[0])}</text>` +
+      `<rect x="${padL}" y="${y}" width="${bw}" height="${barH}" fill="${fill}" rx="3">${tip}</rect>` +
+      `<text x="${padL + bw + 6}" y="${y + barH - 5}">${escSvg(fmtMoney(e[1]))}</text></g>`;
   }).join("");
   const svg = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="YTD expenses by category, bar chart">
     ${xAxis}

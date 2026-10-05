@@ -29,6 +29,9 @@ from src.plan_data_read import read_plan_data_file  # noqa: E402
 # Account-setup roles ytd_tracking.ROLE_OPTIONS marks as liabilities -- their
 # "Current Value"/"Current Balance" subtracts from, rather than adds to,
 # net worth. Everything else non-Ignore is treated as an asset.
+MERCHANT_DETAIL_CATEGORIES = 12
+MERCHANTS_PER_CATEGORY = 6
+
 LIABILITY_ROLES = frozenset({"Credit card", "Mortgage", "HELOC", "Loan", "Other liability"})
 
 
@@ -42,14 +45,28 @@ def _liabilities_csv_total(base_dir: Path, db_path: Path) -> float:
     return total
 
 
-def _net_worth_from_account_setup(accounts: list[dict[str, Any]]) -> dict[str, float]:
+def _net_worth_from_account_setup(
+    accounts: list[dict[str, Any]], growth_rows: list[dict[str, Any]] | None = None
+) -> dict[str, float]:
+    # Investment/annuity/pension accounts carry their live value in the
+    # holdings-/income-stream-derived ``growth_rows`` (the same figures the
+    # Holdings chart sums); the account-setup "Current Value" field is blank or
+    # stale for them, which previously left net worth far below holdings value.
+    live_values = {
+        str(r.get("account") or "").strip(): ytd.parse_money(r.get("current_value"))
+        for r in (growth_rows or [])
+    }
     assets = 0.0
     account_liabilities = 0.0
     for row in accounts:
         role = str(row.get("Role") or "").strip()
         if role == "Ignore":
             continue
-        value = ytd.parse_money(row.get("Current Value") or row.get("Current Balance"))
+        name = str(row.get("Account") or "").strip()
+        if role in ytd.GROWTH_ROLES and name in live_values:
+            value = live_values[name]
+        else:
+            value = ytd.parse_money(row.get("Current Value") or row.get("Current Balance"))
         if role in LIABILITY_ROLES:
             account_liabilities += value
         else:
@@ -75,6 +92,23 @@ def compute_snapshot(base_dir: str | Path, *, today=None) -> dict[str, Any]:
         row["category"]: row["amount"] for row in summary.get("category_totals", [])
     }
 
+    # Next level of detail for the category bars' hover popup: top merchants
+    # within each of the largest categories (the rest rolled into one line),
+    # capped so the append-only daily log doesn't balloon.
+    merchant_totals = summary.get("category_merchant_totals", {})
+    ytd_expense_merchants: dict[str, dict[str, float]] = {}
+    for category in list(ytd_expenses_by_category)[:MERCHANT_DETAIL_CATEGORIES]:
+        ranked = sorted(
+            ((m, v) for m, v in merchant_totals.get(category, {}).items() if v > 0),
+            key=lambda kv: -kv[1],
+        )
+        detail = {m: round(v, 2) for m, v in ranked[:MERCHANTS_PER_CATEGORY]}
+        rest = sum(v for _, v in ranked[MERCHANTS_PER_CATEGORY:])
+        if rest > 0.005:
+            detail["Other merchants"] = round(rest, 2)
+        if detail:
+            ytd_expense_merchants[category] = detail
+
     inv = summary.get("investment_balance", {})
     current_value = inv.get("current_balance")
     prior_value = inv.get("prior_year_end_balance")
@@ -89,7 +123,9 @@ def compute_snapshot(base_dir: str | Path, *, today=None) -> dict[str, Any]:
     }
 
     liabilities_csv_total = _liabilities_csv_total(base_dir, db_path)
-    from_accounts = _net_worth_from_account_setup(summary.get("accounts", []))
+    from_accounts = _net_worth_from_account_setup(
+        summary.get("accounts", []), inv.get("account_growth_rows", [])
+    )
     assets = from_accounts["assets"]
     liabilities = from_accounts["account_liabilities"] + liabilities_csv_total
     net_worth = {
@@ -103,10 +139,12 @@ def compute_snapshot(base_dir: str | Path, *, today=None) -> dict[str, Any]:
         "income": actual.get("income"),
         "expenses": actual.get("spending"),
         "taxes": actual.get("taxes"),
+        # ytd_summary's "spending" already includes taxes paid, so net is
+        # income - expenses (subtracting taxes again double-counted them).
         "net": (
             None
-            if actual.get("income") is None or actual.get("spending") is None or actual.get("taxes") is None
-            else round(actual["income"] - actual["spending"] - actual["taxes"], 2)
+            if actual.get("income") is None or actual.get("spending") is None
+            else round(actual["income"] - actual["spending"], 2)
         ),
     }
 
@@ -127,6 +165,7 @@ def compute_snapshot(base_dir: str | Path, *, today=None) -> dict[str, Any]:
         "as_of_date": as_of_date,
         "data_through_date": data_through_date,
         "ytd_expenses_by_category": ytd_expenses_by_category,
+        "ytd_expense_merchants": ytd_expense_merchants,
         "holdings": holdings,
         "net_worth": net_worth,
         "cashflow": cashflow,

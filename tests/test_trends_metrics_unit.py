@@ -94,3 +94,35 @@ def test_as_of_date_is_the_run_day_not_the_latest_transaction_date(tmp_path):
     snapshot = compute_snapshot(base_dir, today=date(2026, 1, 20))
     assert snapshot["as_of_date"] == "2026-01-20"
     assert snapshot["data_through_date"] == "2026-01-15"
+
+
+def test_cashflow_net_is_income_minus_expenses_without_double_counting_taxes(tmp_path):
+    # "expenses" (ytd_summary spending) already includes taxes paid, so net
+    # must not subtract the taxes figure a second time.
+    base_dir = _workspace(tmp_path)
+    _seed(base_dir)
+    snapshot = compute_snapshot(base_dir, today=date(2026, 1, 20))
+    cf = snapshot["cashflow"]
+    assert cf["net"] == round(cf["income"] - cf["expenses"], 2)
+
+
+def test_net_worth_uses_live_holdings_value_for_investment_accounts(tmp_path):
+    # Net worth must follow the same live figure the Holdings chart uses, not
+    # the account-setup "Current Value" (blank/stale for mapped accounts).
+    base_dir = _workspace(tmp_path)
+    _seed(base_dir)
+    rows = ytd.read_account_setup(base_dir / "input")
+    for row in rows:
+        if row.get("Account") == "Brokerage":
+            row["Current Value"] = "0"
+            row["Current Balance"] = "0"
+    ytd.write_account_setup(base_dir / "input", rows)
+    snapshot = compute_snapshot(base_dir, today=date(2026, 1, 20))
+    assert snapshot["net_worth"]["assets"] == snapshot["holdings"]["current_value"] + 1500.0
+
+
+def test_expense_merchant_detail_is_logged_per_category(tmp_path):
+    base_dir = _workspace(tmp_path)
+    _seed(base_dir)
+    snapshot = compute_snapshot(base_dir, today=date(2026, 1, 20))
+    assert snapshot["ytd_expense_merchants"]["Groceries"] == {"Kroger": 100.0}

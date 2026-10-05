@@ -25,6 +25,25 @@
   svg text { fill: currentColor; font-size: 12px; }
   .chart-dot { cursor: pointer; }
   .chart-dot:hover { r: 5; }
+  :root { --card-bg: #fff; }
+  @media (prefers-color-scheme: dark) { :root { --card-bg: #1e2126; } }
+  .chart-scroll { overflow-x: auto; }
+  .chart-inner { position: relative; }
+  .chart-yaxis { position: sticky; left: 0; z-index: 2; display: block; background: var(--card-bg); margin-bottom: -200px; }
+  .chart-inner > svg:not(.chart-yaxis) { display: block; }
+  .note { font-size: 11px; color: #777; margin-top: 8px; line-height: 1.45; }
+  .bar-row { cursor: default; }
+  .bar-row:hover rect[fill] { filter: brightness(1.15); }
+  #detailPopup { position: fixed; z-index: 10; display: none; min-width: 260px; max-width: 360px; padding: 10px 12px;
+    background: var(--card-bg); color: inherit; border: 1px solid #c8c8cc; border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.18); font-size: 12px; pointer-events: none; }
+  .pop-title { font-weight: 600; margin-bottom: 6px; }
+  .pop-row { display: grid; grid-template-columns: 110px 1fr 64px; gap: 6px; align-items: center; margin: 2px 0; }
+  .pop-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pop-bar { background: rgba(127,127,127,.18); border-radius: 3px; height: 8px; }
+  .pop-bar i { display: block; height: 100%; background: #2563eb; border-radius: 3px; }
+  .pop-val { text-align: right; font-variant-numeric: tabular-nums; }
+  .pop-total { display: flex; justify-content: space-between; border-top: 1px solid rgba(127,127,127,.4); margin-top: 6px; padding-top: 4px; font-weight: 600; }
   .legend { font-size: 11px; color: #888; margin-top: 6px; }
   .error { color: #b91c1c; font-size: 13px; }
   @media (prefers-color-scheme: dark) { .error { color: #f87171; } }
@@ -36,9 +55,8 @@
 </head>
 <body>
 <h1>Financial trends</h1>
-<div class="sub">YTD expenses by category, holdings value/performance, net worth, and cashflow — one entry per weekday close.</div>
+<div class="sub">YTD expenses by category, holdings value/performance, net worth, and cashflow — one entry per weekday close. Scroll a chart sideways to see earlier dates.</div>
 <div class="toolbar" id="timeframeBar">
-  <button data-tf="day" aria-pressed="false">Day</button>
   <button data-tf="week" aria-pressed="false">Week</button>
   <button data-tf="month" aria-pressed="false">Month</button>
   <button data-tf="quarter" aria-pressed="false">Quarter</button>
@@ -51,20 +69,43 @@
   <button id="runNow">Run now</button>
 </div>
 <div class="grid">
-  <div class="card"><h2>Net worth</h2><div id="chartNetWorth"></div></div>
+  <div class="card"><h2>Net worth</h2><div id="chartNetWorth"></div>
+    <div class="note">Net worth = all asset accounts (investments at live holdings value, annuities/pensions at their stream value, cash and other accounts at their account-setup balance) minus credit cards, mortgages and other liabilities. Points logged before 2026-10-05 were rebuilt from each day's logged holdings.</div></div>
   <div class="card"><h2>Holdings value</h2><div id="chartHoldings"></div></div>
-  <div class="card"><h2>Cashflow (income vs. expenses)</h2><div id="chartCashflow"></div></div>
-  <div class="card"><h2>YTD expenses by category (latest)</h2><div id="chartCategories"></div></div>
+  <div class="card"><h2>Cashflow (income vs. expenses)</h2><div id="chartCashflow"></div>
+    <div class="note">Cashflow on any date = year-to-date income minus year-to-date expenses, from Jan 1 through that date (a running total, not a single day's or month's flow). Expenses include income and real-estate taxes paid, so this figure is lower than the category total shown in the expenses chart.</div></div>
+  <div class="card"><h2>YTD expenses by category (latest)</h2><div id="chartCategories"></div>
+    <div class="note">Hover a bar for the next level of detail: a category shows its top merchants, "Other" shows the smaller categories rolled into it, and Total lists every category. Category totals exclude taxes (those appear in Cashflow expenses).</div></div>
 </div>
+<div id="detailPopup" role="tooltip"></div>
 
 <script type="module">
 // Finding QUA-302 (Wave 6 item W6-11): the chart-rendering logic below used
 // to be defined inline, right here, with no module boundary. It now lives
 // in ./charts.js, importable and testable directly.
-import { fmtMoney, escSvg, filterByTimeframe, aggregateByGranularity, granularityForTimeframe, labelForDate, dataTableFallbackHtml, lineChartSvg, barChartSvg } from "./charts.js";
+import { fmtMoney, escSvg, filterByTimeframe, aggregateByGranularity, granularityForTimeframe, labelForDate, dataTableFallbackHtml, lineChartSvg, barChartSvg, buildCategoryRows, detailPopupHtml } from "./charts.js";
 
 let history = [];
 let timeframe = "ytd";
+let categoryModel = null;
+
+// Cashflow = YTD income - YTD expenses. Expenses already include taxes, so the
+// stored "net" (which older log entries computed as income - expenses - taxes)
+// is recomputed here rather than trusted.
+function cashflowNet(r) {
+  const cf = r.cashflow;
+  if (!cf || cf.income == null || cf.expenses == null) return null;
+  return cf.income - cf.expenses;
+}
+
+// Show the newest dates first: scrolled all the way to the right.
+function scrollChartsToLatest() {
+  for (const id of ["chartNetWorth", "chartHoldings", "chartCashflow"]) {
+    const box = document.getElementById(id);
+    const sc = box && box.querySelector && box.querySelector(".chart-scroll");
+    if (sc) sc.scrollLeft = sc.scrollWidth;
+  }
+}
 
 function render() {
   const filtered = filterByTimeframe(history, timeframe);
@@ -79,11 +120,18 @@ function render() {
     rows.map(r => ({ label: labelForDate(r.as_of_date, granularity), value: r.holdings && r.holdings.current_value })), { color: "#2563eb", title: "Holdings value" }
   );
   document.getElementById("chartCashflow").innerHTML = lineChartSvg(
-    rows.map(r => ({ label: labelForDate(r.as_of_date, granularity), value: r.cashflow && r.cashflow.net })), { color: "#d97706", title: "Cashflow" }
+    rows.map(r => ({ label: labelForDate(r.as_of_date, granularity), value: cashflowNet(r) })), { color: "#d97706", title: "Cashflow" }
   );
   const latest = filtered[filtered.length - 1];
-  const categories = latest && latest.ytd_expenses_by_category ? Object.entries(latest.ytd_expenses_by_category).sort((a, b) => b[1] - a[1]).slice(0, 10) : [];
+  categoryModel = latest && latest.ytd_expenses_by_category
+    ? buildCategoryRows(latest.ytd_expenses_by_category, latest.ytd_expense_merchants, 10) : null;
+  const categories = [];
+  if (categoryModel && categoryModel.rows.length) {
+    categories.push(["Total", categoryModel.total, { kind: "total", ...categoryModel.totalDetail }]);
+    for (const r of categoryModel.rows) categories.push([r.name, r.amount, r]);
+  }
   document.getElementById("chartCategories").innerHTML = barChartSvg(categories);
+  scrollChartsToLatest();
 }
 
 // Finding UX-106 (Wave 5 item W5-6): a failed history fetch previously left
@@ -121,6 +169,27 @@ document.getElementById("timeframeBar").addEventListener("click", (e) => {
   document.getElementById("customTo").style.display = timeframe === "custom" ? "inline-block" : "none";
   render();
 });
+// Hover popup: next level of detail for a category bar (with its total).
+const popup = document.getElementById("detailPopup");
+const catBox = document.getElementById("chartCategories");
+function rowForEvent(e) {
+  const g = e.target.closest && e.target.closest("[data-row]");
+  if (!g || !categoryModel) return null;
+  const idx = Number(g.dataset.row);
+  if (idx === 0) return categoryModel.totalDetail;
+  return categoryModel.rows[idx - 1] || null;
+}
+catBox.addEventListener("mousemove", (e) => {
+  const row = rowForEvent(e);
+  if (!row) { popup.style.display = "none"; return; }
+  popup.innerHTML = detailPopupHtml(row.detailTitle, row.detail);
+  popup.style.display = "block";
+  const pw = popup.offsetWidth, ph = popup.offsetHeight;
+  popup.style.left = Math.max(8, Math.min(e.clientX + 16, window.innerWidth - pw - 8)) + "px";
+  popup.style.top = Math.max(8, Math.min(e.clientY + 12, window.innerHeight - ph - 8)) + "px";
+});
+catBox.addEventListener("mouseleave", () => { popup.style.display = "none"; });
+
 document.getElementById("customFrom").addEventListener("change", () => { if (timeframe === "custom") render(); });
 document.getElementById("customTo").addEventListener("change", () => { if (timeframe === "custom") render(); });
 document.getElementById("runNow").addEventListener("click", async () => {
