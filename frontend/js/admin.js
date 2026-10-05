@@ -244,8 +244,13 @@ const AREA_DEFS = {
       {
         kind: "reference",
         file: "capital_market_assumptions.csv",
-        title: "Capital market assumptions",
+        title: "Custom capital market assumptions file",
         profile: "capital_market",
+        // Not a nav entry of its own: reached from the "Capital market
+        // assumptions" page (SYSTEM_CONFIG_PAGES 'assumptions'), which owns
+        // the nav slot and highlights it while this file is open.
+        navHidden: true,
+        navStep: "syscfg_assumptions",
         note: "Expected return, volatility, and correlation inputs used by optimizer and Monte Carlo outputs. These are governance assumptions, not client facts.",
       },
       {
@@ -274,19 +279,6 @@ const AREA_DEFS = {
         title: "State tax reference",
         profile: "state_tax",
         note: "State tax assumptions used for residency, tax projections, and tax-law freshness output.",
-      },
-      {
-        kind: "system",
-        file: "system_config.csv",
-        title: "Tax-aware trade optimizer assumptions",
-        profile: "section_settings",
-        filterSections: ["Rebalancing"],
-        filterSubsections: [
-          "Tax-aware Trades",
-          "Risk Controls",
-          "Objective Weights",
-        ],
-        note: "System-level marginal tax-rate and risk-control settings used by recommended trades.",
       },
     ],
   },
@@ -1613,9 +1605,14 @@ function shouldRenderAsSectionSettings(rows, def) {
   );
 }
 
+// Each page belongs to one nav group (see NAV_GROUP_ORDER). Pages scoped to a
+// system_config.csv section/subsection. 'assumptions' (Market data) is the one
+// capital-market page: it edits the Asset Class Assumptions settings and links
+// to the custom assumptions CSV, rather than two nav entries for one topic.
 const SYSTEM_CONFIG_PAGES = [
   {
     id: "runtime",
+    group: "System configuration",
     title: "Runtime & files",
     desc: "Core version, config backend, file paths, output paths, and local Plan Data defaults.",
     filterSections: ["System Configuration"],
@@ -1623,150 +1620,160 @@ const SYSTEM_CONFIG_PAGES = [
   },
   {
     id: "access",
-    title: "App settings",
-    desc: "Local dashboard host, port, build timeout, and local-only settings.",
+    group: "System configuration",
+    title: "Dashboard & security",
+    desc: "Local dashboard host, port, and local-only security settings.",
     filterSections: ["System Configuration"],
     filterSubsections: ["Dashboard", "Security"],
   },
   {
-    id: "jobs",
-    title: "Refresh, drift & Plan Chat",
-    desc: "Nightly refresh, drift thresholds, portfolio file links, and Plan Chat toggles.",
-    filterSections: ["System Configuration"],
-    filterSubsections: ["Price Refresh", "Portfolio Drift", "Plan Chat"],
-  },
-  {
     id: "build_timeout",
+    group: "System configuration",
     title: "Build timeout",
     desc: "Maximum build runtime before timeout. Increase this for exact scalar Monte Carlo or larger simulation counts.",
     filterSections: ["System Configuration"],
     filterKeys: ["max_build_seconds"],
   },
   {
-    id: "plan",
-    title: "Plan settings",
-    desc: "System-level annuity valuation, NIIT, and estate-tax model switches.",
-    filterSections: ["Plan Settings"],
+    id: "jobs",
+    group: "Market data",
+    title: "Refresh & drift",
+    desc: "Nightly price refresh, drift thresholds, and portfolio file links.",
+    filterSections: ["System Configuration"],
+    filterSubsections: ["Price Refresh", "Portfolio Drift"],
+    helpKey: "pricing",
   },
   {
     id: "assumptions",
-    title: "Capital-market assumptions",
+    group: "Market data",
+    title: "Capital market assumptions",
     desc: "Expected returns, volatility, custom assumption files, and long-term optimizer inputs.",
     filterSections: ["Asset Class Assumptions"],
+    helpKey: "etf",
+    companion: {
+      label: "Edit the custom assumptions file (capital_market_assumptions.csv)",
+      action: "openAreaFile('etf',0)",
+      hint: "Expert file, read only when 'use_custom_capital_market_file' is YES.",
+    },
   },
   {
-    id: "correlations",
-    title: "Asset correlations",
-    desc: "Pairwise correlation settings used by optimizer diversification calculations.",
-    filterSections: ["Asset Correlations"],
+    id: "plan",
+    group: "Tax & accounts",
+    title: "Tax modeling",
+    desc: "System-level switches for the Net Investment Income Tax (NIIT) and residence-state estate tax.",
+    filterSections: ["Plan Settings"],
+    helpKey: "tax",
   },
   {
     id: "rebalancing",
+    group: "Tax & accounts",
     title: "Global rebalancing controls",
     desc: "Household-level tax-aware optimizer mode, risk limits, tax-aware trade controls, and objective weights.",
     filterSections: ["Rebalancing"],
+    helpKey: "optimizer",
   },
   {
     id: "annuity_calibration",
+    group: "Tax & accounts",
     title: "Annuity calibration",
     desc: "Carrier-agnostic annuity purchase-rate curve and reserve-decay factors used to value annuity income. Edit to match a specific carrier's rates.",
     filterSections: ["Annuity Calibration"],
+    helpKey: "tax",
   },
 ];
 function systemConfigPage(id) {
   return SYSTEM_CONFIG_PAGES.find((p) => p.id === id) || SYSTEM_CONFIG_PAGES[0];
 }
+const NAV_GROUP_ORDER = [
+  "System configuration",
+  "Market data",
+  "Tax & accounts",
+  "Reference data",
+];
 function adminNavItems() {
-  const items = [
-    {
-      id: "app_settings",
-      group: "System setup",
-      title: "App settings",
-      desc: "Local host, port, build timeout, and start commands",
-      action: "showAppSettings()",
-      helpKey: "app_settings",
-    },
-  ];
-  SYSTEM_CONFIG_PAGES.forEach((p) =>
-    items.push({
-      id: "syscfg_" + p.id,
-      group: "System configuration",
-      title: p.title,
-      desc: p.desc,
-      action: `showSystemConfig('${p.id}')`,
-      helpKey: "system_config",
-    }),
-  );
-  items.push(
-    {
-      id: "tax_law_dashboard",
-      group: "Tax governance",
-      title: "Tax-law update dashboard",
-      desc: "Federal/state/IRMAA/Social Security/RMD constants, source, year, and review status",
-      action: "showTaxLawDashboard()",
-      helpKey: "tax",
-    },
-    {
-      id: "pricing_controls",
-      group: "Market data",
-      title: "Pricing controls",
-      desc: "CACHE, LIVE, OFFLINE, cache window, and provider settings",
-      action: "openPricingControls()",
-      helpKey: "pricing",
-    },
-    {
-      id: "pricing_security",
-      group: "Market data",
-      title: "Security master",
-      desc: "Ticker mapping, ETF universe, and asset-class mapping",
-      action: "openSecurityMaster()",
-      helpKey: "pricing",
-    },
-  );
-  // #combine-market-data: the 'etf' area's remaining files (security_master.csv
-  // was removed above -- it duplicated the "Security master" entry just
-  // pushed) are folded in here, immediately after the other two "Market
-  // data" entries, so the group prints once as one consecutive block instead
-  // of appearing a second time later in the nav via the generic AREA_DEFS
-  // loop below.
-  (AREA_DEFS.etf?.files || []).forEach((f, idx) =>
-    items.push({
-      id: `area_etf_${idx}`,
-      group: "Market data",
-      title: f.title,
-      desc: f.note || AREA_DEFS.etf.title,
-      action: `openAreaFile('etf',${idx})`,
-      helpKey: "etf",
-    }),
-  );
-  items.push({
+  const byGroup = {};
+  const add = (item) => (byGroup[item.group] = byGroup[item.group] || []).push(item);
+  const pageItem = (p) => ({
+    id: "syscfg_" + p.id,
+    group: p.group,
+    title: p.title,
+    desc: p.desc,
+    action: `showSystemConfig('${p.id}')`,
+    helpKey: p.helpKey || "system_config",
+  });
+  const areaItems = (areaId, group) =>
+    (AREA_DEFS[areaId]?.files || [])
+      .map((f, idx) => ({
+        id: `area_${areaId}_${idx}`,
+        group,
+        title: f.title,
+        desc: f.note || AREA_DEFS[areaId].title,
+        action: `openAreaFile('${areaId}',${idx})`,
+        helpKey: areaId,
+        hidden: !!f.navHidden,
+      }))
+      .filter((it) => !it.hidden);
+  const pages = (group) =>
+    SYSTEM_CONFIG_PAGES.filter((p) => p.group === group).map(pageItem);
+
+  // System configuration: app/runtime pages, then build diagnostics.
+  add({
+    id: "app_settings",
+    group: "System configuration",
+    title: "App settings",
+    desc: "Local host, port, start commands, and shutdown / cache tools",
+    action: "showAppSettings()",
+    helpKey: "app_settings",
+  });
+  pages("System configuration").forEach(add);
+  add({
     id: "diagnostics",
-    group: "Operations",
+    group: "System configuration",
     title: "Workbook build diagnostics",
     desc: "Last build source, QC, forecast package status",
     action: "showDiagnostics()",
     helpKey: "diagnostics",
   });
-  Object.entries(AREA_DEFS || {}).forEach(([areaId, area]) => {
-    if (areaId === "etf") return; // handled above, kept in the Market data group
-    const group =
-      {
-        accountsTax: "Tax & accounts",
-        household: "Planning inputs",
-        optional: "Workbook options",
-      }[areaId] || area.title;
-    (area.files || []).forEach((f, idx) =>
-      items.push({
-        id: `area_${areaId}_${idx}`,
-        group,
-        title: f.title,
-        desc: f.note || area.title,
-        action: `openAreaFile('${areaId}',${idx})`,
-        helpKey: areaId,
-      }),
-    );
+
+  // Market data: pricing, securities, capital-market inputs, refresh & drift.
+  add({
+    id: "pricing_controls",
+    group: "Market data",
+    title: "Pricing controls",
+    desc: "CACHE, LIVE, OFFLINE, cache window, and provider settings",
+    action: "openPricingControls()",
+    helpKey: "pricing",
   });
-  items.push({
+  add({
+    id: "pricing_security",
+    group: "Market data",
+    title: "Security master",
+    desc: "Ticker mapping, ETF universe, and asset-class mapping",
+    action: "openSecurityMaster()",
+    helpKey: "pricing",
+  });
+  pages("Market data")
+    .filter((i) => i.id === "syscfg_assumptions")
+    .forEach(add);
+  areaItems("etf", "Market data").forEach(add);
+  pages("Market data")
+    .filter((i) => i.id !== "syscfg_assumptions")
+    .forEach(add);
+
+  // Tax & accounts: tax-law dashboard, tax reference tables, then tax-model
+  // and optimizer switches.
+  add({
+    id: "tax_law_dashboard",
+    group: "Tax & accounts",
+    title: "Tax-law update dashboard",
+    desc: "Federal/state/IRMAA/Social Security/RMD constants, source, year, and review status",
+    action: "showTaxLawDashboard()",
+    helpKey: "tax",
+  });
+  areaItems("accountsTax", "Tax & accounts").forEach(add);
+  pages("Tax & accounts").forEach(add);
+
+  add({
     id: "reference",
     group: "Reference data",
     title: "Reference files",
@@ -1774,7 +1781,7 @@ function adminNavItems() {
     action: "showReferenceFiles()",
     helpKey: "reference",
   });
-  return items;
+  return NAV_GROUP_ORDER.flatMap((g) => byGroup[g] || []);
 }
 function renderAdminNav() {
   const box = document.getElementById("adminSteps");
@@ -1882,10 +1889,18 @@ async function showSystemConfig(pageId = "runtime") {
       "afterend",
       summarizeRows(filteredSettingRows(sysCfgRows, def).map((x) => x.r)),
     );
+  if (h && page.companion)
+    h.insertAdjacentHTML(
+      "afterend",
+      `<div class="note-box"><button type="button" onclick="${page.companion.action}">${esc(page.companion.label)}</button> <span class="muted">${esc(page.companion.hint)}</span></div>`,
+    );
 }
 async function openAreaFile(id, idx) {
   const area = AREA_DEFS[id];
-  const def = { ...area.files[idx], navStep: `area_${id}_${idx}` };
+  const def = {
+    ...area.files[idx],
+    navStep: area.files[idx].navStep || `area_${id}_${idx}`,
+  };
   setAdminStep(def.navStep);
   await loadCsvEditor(def, `openAreaFile('${id}',${idx})`);
 }

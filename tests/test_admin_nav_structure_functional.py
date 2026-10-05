@@ -23,12 +23,9 @@ def test_admin_left_nav_has_non_clickable_intuitive_groups():
     html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_CSS.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8")
     assert 'nav-group-label' in html
     for group in [
-        'System setup',
         'System configuration',
-        'Investment policy',
         'Market data',
         'Tax & accounts',
-        'Operations',
         'Reference data',
     ]:
         assert group in html
@@ -57,7 +54,7 @@ def test_system_config_pages_split_into_left_nav_with_correct_labels():
     assert "SYSTEM_CONFIG_PAGES" in html
     for label in [
         "Runtime & files",
-        "Capital-market assumptions",
+        "Dashboard & security",
         "Global rebalancing controls",
     ]:
         assert label in html
@@ -124,3 +121,39 @@ def test_system_config_compact_editor_uses_syscfg_prefix():
     """System config fields use syscfg_ namespace/prefix."""
     html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8")
     assert "syscfg_" in html
+
+
+def _nav_groups():
+    """Evaluate adminNavItems() in node and return {group: [titles]} in nav order."""
+    import json
+    import shutil
+    import subprocess
+
+    node = shutil.which("node")
+    assert node, "node is required"
+    src = ADMIN_JS.read_text(encoding="utf-8")
+    start = src.index("const AREA_DEFS = {")
+    end = src.index("const COLUMN_HELPERS")
+    pages_start = src.index("const SYSTEM_CONFIG_PAGES = [")
+    nav_end = src.index("function renderAdminNav()")
+    code = src[start:end] + "\n" + src[pages_start:nav_end] + "\nconsole.log(JSON.stringify(adminNavItems().map(i=>[i.group,i.title,i.id])));"
+    out = subprocess.run([node, "-e", code], capture_output=True, text=True, check=True).stdout
+    groups = {}
+    for g, t, _id in json.loads(out):
+        groups.setdefault(g, []).append(t)
+    return groups, [i for _, _, i in json.loads(out)]
+
+
+def test_admin_nav_rationalized_groups_and_placement():
+    groups, ids = _nav_groups()
+    assert list(groups) == ["System configuration", "Market data", "Tax & accounts", "Reference data"]
+    assert len(ids) == len(set(ids)), "duplicate nav ids"
+    titles = [t for ts in groups.values() for t in ts]
+    assert len(titles) == len(set(titles)), f"duplicate nav titles: {titles}"
+    for t in ("App settings", "Workbook build diagnostics"):
+        assert t in groups["System configuration"]
+    for t in ("Capital market assumptions", "Asset correlations", "Refresh & drift"):
+        assert t in groups["Market data"]
+    for t in ("Tax-law update dashboard", "Tax modeling", "Global rebalancing controls", "Annuity calibration"):
+        assert t in groups["Tax & accounts"]
+    assert not any("Plan Chat" in t for t in titles)
