@@ -63,7 +63,9 @@ def test_dropped_packages_are_not_imported_anywhere_in_project_code():
     """Import scan backing the removal from the spec and requirements."""
     files = [ROOT / "main.py", ROOT / "build.py"]
     for d in ("src", "tools", "financial_trends_reporter", "Monarch Extractor", "launchers"):
-        files += list((ROOT / d).rglob("*.py"))
+        # Skip gitignored virtualenvs: their third-party code is not project code.
+        files += [f for f in (ROOT / d).rglob("*.py")
+                  if not {".venv", "site-packages"} & set(f.relative_to(ROOT).parts)]
     offenders = []
     for f in files:
         tree = ast.parse(f.read_text(encoding="utf-8", errors="replace"))

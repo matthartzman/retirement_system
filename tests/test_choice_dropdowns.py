@@ -48,5 +48,6 @@ def test_plan_data_contains_roth_irmaa_tier_choice_row():
         rows = list(csv.DictReader(f))
     row = next(r for r in rows if r['section']=='Withdrawal Policy' and r['subsection']=='Roth Conversion' and r['label']=='roth_irmaa_target_tier')
     assert row['units'] == 'choice'
-    assert row['value'] == 'TIER_2'
+    # Live input/ is the user's own plan data, so any valid tier is acceptable.
+    assert row['value'] in {f'TIER_{i}' for i in range(1, 6)}
     assert 'TIER_1' in row['notes'] and 'TIER_5' in row['notes']
