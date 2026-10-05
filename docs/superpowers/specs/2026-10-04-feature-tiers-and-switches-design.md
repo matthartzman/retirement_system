@@ -1,5 +1,8 @@
 # Feature tiers and unified switches — design
 
+> **Sequencing and staffing are superseded by [`2026-10-05-master-plan-tiers-and-file-elimination.md`](2026-10-05-master-plan-tiers-and-file-elimination.md).** This document remains the authority for the design detail it covers; the master plan decides order, merged phases, models and effort.
+
+
 Status: approved by the owner on 2026-10-04 (decisions 1-11 below). Ready for implementation planning, phase by phase.
 Baseline: `documentation/reference/NAV_FEATURE_MAP.md` (25 nav pages, 21 always on, 4 switchable).
 
