@@ -22,26 +22,30 @@ UPDATES = {
     ("System Configuration", "Security", "session_cookie_secure"): "NO",
 }
 
-def main() -> int:
-    if not CONFIG.exists():
-        raise SystemExit(f"Missing {CONFIG}")
-    with CONFIG.open(newline="", encoding="utf-8-sig") as f:
-        reader = csv.DictReader(f)
-        fieldnames = reader.fieldnames or ["section", "subsection", "label", "value", "units", "notes"]
-        rows = list(reader)
+def main(config: Path = CONFIG) -> int:
+    if not config.exists():
+        raise SystemExit(f"Missing {config}")
+    # Plain csv.reader keeps rows with extra/unquoted fields intact (DictReader
+    # files them under a None key, which DictWriter then rejects).
+    with config.open(newline="", encoding="utf-8-sig") as f:
+        rows = [list(r) for r in csv.reader(f)]
     seen = set()
     for row in rows:
-        key = (row.get("section", ""), row.get("subsection", ""), row.get("label", ""))
-        if key in UPDATES:
-            row["value"] = UPDATES[key]
+        key = tuple(c.strip() for c in row[:3])
+        if len(key) == 3 and key in UPDATES and len(row) > 3:
+            row[3] = UPDATES[key]
             seen.add(key)
     for key, value in UPDATES.items():
         if key not in seen:
-            rows.append({"section": key[0], "subsection": key[1], "label": key[2], "value": value, "units": "", "notes": "Set by local-mode reset."})
-    with CONFIG.open("w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames, lineterminator="\n")
-        writer.writeheader()
-        writer.writerows(rows)
+            rows.append([key[0], key[1], key[2], value, "", "Set by local-mode reset."])
+    # Write to a temp file and rename so a failure can never truncate the config.
+    tmp = config.with_name(config.name + ".tmp")
+    try:
+        with tmp.open("w", newline="", encoding="utf-8") as f:
+            csv.writer(f, lineterminator="\n").writerows(rows)
+        tmp.replace(config)
+    finally:
+        tmp.unlink(missing_ok=True)
     print("Local development mode restored.")
     print("Open UI: http://127.0.0.1:5050")
     print("Admin UI: http://127.0.0.1:5050/admin")

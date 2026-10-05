@@ -14,13 +14,13 @@ System Configuration,Security,encryption_enabled,NO,yes/no,YES encrypts API keys
 System Configuration,Security,secrets_store,local_state/secrets.db,path,Local encrypted/obfuscated API key storage for optional Plan Chat and pricing keys.
 # -- Build queue / jobs --------------------------------------,,,,,The default UI runs builds immediately. Enable queue only when using a worker.
 # -- Price refresh / portfolio drift -------------------------,,,,,Shared operational settings used by tools and APIs.
-System Configuration,Price Refresh,nightly_enabled,NO,yes/no,YES enables scheduled/manual nightly price refresh tool.
+System Configuration,Price Refresh,nightly_enabled,TRUE,yes/no,YES enables scheduled/manual nightly price refresh tool.
 System Configuration,Price Refresh,nightly_time,2:00,HH:MM,Preferred local refresh time for scheduler/cron.
 System Configuration,Price Refresh,snapshot_retention_days,365,days,Historical price snapshot retention.
 System Configuration,Portfolio Drift,target_allocation_file,target_allocation.csv,path,Optional target allocation file. Local input folder is searched first.
 System Configuration,Portfolio Drift,security_master_file,security_master.csv,path,Ticker-to-asset-class map. Local input folder is searched first.
 System Configuration,Portfolio Drift,rebalance_threshold_pct,5.00%,pct,Report assets outside target allocation by this absolute threshold.
-Market Pricing,Holdings,pricing_mode,LIVE,choice,CACHE = use any cache first, even stale; LIVE = prefer live providers before cache/fallback; OFFLINE = no live calls. Cost basis is used only when no cache exists.
+Market Pricing,Holdings,pricing_mode,LIVE,choice,"CACHE = use any cache first, even stale; LIVE = prefer live providers before cache/fallback; OFFLINE = no live calls. Cost basis is used only when no cache exists."
 Market Pricing,Holdings,cache_hours,24,hours,Fresh cache window for holdings prices.
 Market Pricing,API,fmp_api_key,,secret,Secret value intentionally blank in secure release package; configure via secret store or environment.
 Market Pricing,API,alpha_vantage_api_key,,secret,Secret value intentionally blank in secure release package; configure via secret store or environment.
