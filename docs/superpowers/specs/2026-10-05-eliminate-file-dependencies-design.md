@@ -1,6 +1,6 @@
-# Eliminate CSV / JSON / YAML runtime dependencies — design and implementation plan (DRAFT for review)
+# Eliminate CSV / JSON / YAML runtime dependencies — design and implementation plan
 
-Status: draft. Decisions 1-4 were chosen by the owner on 2026-10-05; items under "Open items" need an answer before the phase that depends on them.
+Status: approved by the owner on 2026-10-05 (decisions 1-9 in section 1A). Ready for per-phase planning.
 Evidence: a read-only audit of every runtime file dependency (counts and file:line citations are quoted from it below). It found that SQLite today holds only a *derived* plan snapshot, and that the real edit and build surface is still the `input/` files.
 
 ## 1. Goal, scope, rules
@@ -16,6 +16,20 @@ Evidence: a read-only audit of every runtime file dependency (counts and file:li
 - JSON *text stored inside a SQLite column* (opaque result payloads, event details) is not a file dependency and is allowed. Anything the code filters, sorts or edits by field gets typed columns.
 - JSON used as the HTTP request/response format is not a file dependency.
 - Dev-time authoring sources (for example the annual tax-law update) may live as source files in the repository, but nothing in the shipped runtime reads them.
+
+## 1A. Confirmed decisions
+
+| # | Decision |
+|---|---|
+| 1 | Plan data is a row store plus typed tables. |
+| 2 | Shipped reference data is a read-only `reference.db`, never edited at runtime; user edits are overrides stored in the plan. |
+| 3 | Databases: `plan.db` (the `.rpx` plan file) and `app.db` (install state) are the only databases a user ever has; `reference.db` is a shipped asset like the frontend. A single database was considered and rejected: plan files are shared and replaced, so they must not carry secrets, preferences or reference data. |
+| 4 | One-time conversion on first launch; the user's old files are left untouched. |
+| 5 | API keys live in the operating system credential store, not in any file or database. |
+| 6 | The sibling apps (`financial_trends_reporter`, `Monarch Extractor`) are out of scope; they keep working from the bulk CSV export. |
+| 7 | `#` comment lines in plan CSVs: a comment attached to a row becomes that row's note; free-floating header comments are dropped. |
+| 8 | The demo plan and the actual plan coexist as separate plan files, one active at a time (section 5A). No swapping, no restore. |
+| 9 | The release tool builds one seed demo plan file from source data. |
 
 ## 2. What exists today (from the audit)
 
@@ -72,13 +86,23 @@ Why two writable databases: Load Saved Plan and snapshot restore replace the who
 | `custom_cma`, `custom_correlations`, `security_overrides` | writes into `reference_data/` by the admin and import routes | user edits are overrides over reference.db, never edits to shipped data |
 | Engine settings (Rebalancing, Asset Class Assumptions, Annuity Calibration, Plan Settings) | those sections of `system_config.csv` | they are already merged into the plan data at load (`config_backend.py:143`), so they become ordinary `plan_rows` |
 
+Row notes: a CSV `#` comment attached to a row is stored in that row's `notes`; free-floating header comments are not kept.
+
 Dropped outright: `client_files` (raw file text), the unused `build_jobs` table, the relational summary tables nothing reads (`plan_members`, `plan_accounts`, `plan_income_streams`, `plan_spending_policy`) unless a consumer is found in P3.
 
 ## 5. reference.db and app.db
 
 **reference.db** is built at release time by `tools/build_reference_db.py` from dev-only source tables. Runtime never sees the sources. The annual tax update becomes: edit source tables, run the tool, run the golden tests. Table groups: `tax_law` (structured by year / status / key), `cma`, `correlations`, `mortality`, `real_loss`, `state_tax`, `security_master`, `schema_fields` (this also carries the tier column planned in the feature-tiers design), `zip_metrics`, `top_cities`, `tax_update_status`, `monarch_field_map`, `template_layout`. `tax_constants.csv` is a fallback used only if the tax-law load fails (`taxes.py:420-425`), so it is deleted rather than ported.
 
-**app.db** holds: `settings(key, value)` (runtime flags from `system_config.csv`, `prefs.json`, backup scheduler, Monarch policy and status), `secrets` (see open items), `audit_events` (the `audit_log.jsonl` duplicate is dropped), `admin_change_log`, `run_history`, `last_build`, `backup_manifest`, `price_cache`, `price_snapshots`, `pricing_freezes`, `pricing_diagnostics`. Locating the databases needs no config file: platform runtime paths (`platform_runtime.py`) plus one environment override and a command-line flag.
+**app.db** holds: `plan_registry` and `active_plan` (section 5A), `settings(key, value)` (runtime flags from `system_config.csv`, `prefs.json`, backup scheduler, Monarch policy and status), `audit_events` (the `audit_log.jsonl` duplicate is dropped), `admin_change_log`, `run_history`, `last_build`, `backup_manifest`, `price_cache`, `price_snapshots`, `pricing_freezes`, `pricing_diagnostics`. API keys are not stored in any database: they go to the operating system credential store through one `SecretStore` wrapper (Windows Credential Manager, and the platform equivalents). Locating the databases needs no config file: platform runtime paths (`platform_runtime.py`) plus one environment override and a command-line flag.
+
+## 5A. Plans, the demo plan, and the active plan
+
+- Every plan is its own file: the user's plan (for example `My Plan.rpx`), `demo.rpx`, and any saved case. `app.db.plan_registry` lists known plan files (path, name, kind, last opened); `app.db.active_plan` names the one in use.
+- **Open demo** creates `demo.rpx` from the bundled seed if it does not exist, then switches the active plan to it. **Exit demo** switches back. The user's plan file is never modified, copied over or restored by this. **Reset demo** re-copies the seed.
+- Load Saved Plan, restore from backup and Save As all become registry operations over files; `plan_db_replace.py`'s validate-then-swap safeguards are kept for restoring a backup into a plan file.
+- Builds and outputs are per plan: the output folder is derived from the plan's registry id, so the demo's workbook never overwrites the real one.
+- Removed: `demo_mode_marker.json`, `local_state/demo_plan/*`, every `*.before_demo` file and the file-swapping code in `demo_plan_service.py`.
 
 ## 6. Import / export (the only CSV left)
 
@@ -101,7 +125,7 @@ A single removable module, `legacy_conversion/`, run at first launch of the new 
 1. If the conversion marker is absent and an old `input/` folder or old database exists, convert; otherwise do nothing.
 2. Source precedence: the files in `input/` first (the audit shows they are the real edit surface), then `client_files` and the latest `plan_snapshots` for anything missing.
 3. Reuse `csv_exchange` import, extended with the legacy file names, plus the row renames from `plan_data_migration.py` applied once. That renaming machinery moves into the converter and leaves the runtime.
-4. Write plan.db, app.db settings (from `system_config.csv`, `prefs.json`, the old backup and Monarch state) and the marker.
+4. Write the converted plan to a new plan file (named from the household), register it as the active plan, fill app.db settings (from `system_config.csv`, `prefs.json`, the old backup and Monarch state) and move API keys from `secrets.local.json` into the operating system credential store. The old plain-text secrets file is the one original the converter offers to delete after confirmation, since it is the only unprotected copy of the keys. Then write the marker.
 5. **Originals are never modified or deleted.** The user's old folder remains as the backup.
 6. Verification, built in: build the converted plan and compare the result with the pre-conversion result using the existing full-row snapshot and workbook expectations; any difference is shown to the user and blocks the marker.
 7. Because each phase adds its own conversion step with a per-dataset marker, an intermediate build never leaves the user's live plan half-converted. After the final release has shipped for one version, the module is deleted.
@@ -118,10 +142,10 @@ Rule for every phase: the PR switches **readers and writers of one dataset toget
 | **P3** Plan rows | `plan_rows` and `PlanStore`; grid and `config_service`; the 25 `strategy_asset_service` endpoints; `app_core._replace_*`, backfill, row-ensure tables; `module_catalog` reads; remove `_sync_config_backends`, the 20 mirrors, `client_files`, `/api/plan/forms` split-brain, `/api/csv` | `app_core.py`, `config_service.py`, `strategy_asset_service.py`, `config_backend.py`, `plan_forms_service.py` |
 | **P4** Tabular datasets | In order: holdings, liabilities, HSA (build stops writing a file), target allocation; then the spending set (re-platform `spending_tracker.py` onto repositories); then YTD | `holdings_service.py`, `data_io.py`, `hsa_policy.py`, `spending_tracker.py`, `spending_budget_resolver.py`, `ytd_tracking.py`, `ytd_service.py` |
 | **P5** Build I/O | `parse_client` and `ytd_tracking` read through the stores; results to `build_results`; remove the JSON sidecars and the re-read logic; fingerprint from DB | `report_compute.py`, `workbook_builder.py`, `build_service.py`, `build_snapshot.py`, `results_model.py`, `report_package.py` |
-| **P6** App state | Split `system_config.csv` (flags to `app.db`, engine settings to plan rows); prefs, secrets, audit, change log, run history, backup policy and manifests, price cache and freezes, diagnostics, Monarch state; demo mode becomes "load the seed plan into plan.db with a revision backup", not file swapping | `system_config.py`, `runtime_config.py`, `security_audit.py`, `local_backup_scheduler.py`, `market_data.py`, `demo_plan_service.py`, `base_service.py` |
+| **P6** App state | Split `system_config.csv` (flags to `app.db`, engine settings to plan rows); prefs, secrets, audit, change log, run history, backup policy and manifests, price cache and freezes, diagnostics, Monarch state; demo mode becomes the plan registry and per-plan files of section 5A (no swapping); API keys move to the credential store (`SecretStore`) | `system_config.py`, `runtime_config.py`, `security_audit.py`, `local_backup_scheduler.py`, `market_data.py`, `demo_plan_service.py`, `base_service.py` |
 | **P7** `csv_exchange` | Consolidate all import / export into the one package; preview and diff; per-dataset export; remove the admin file editor and folder-sync routes; replace with reference-override screens | `import_preview.py`, `monarch_import.py`, `plan_routes.py`, `admin_service.py`, frontend folder-IO modules |
 | **P8** Conversion | Finish `legacy_conversion/`: all dataset steps, verification, marker, UI notice; rehearse on copies of the demo plan, the frozen sample plan, and (with permission) the owner's real plan | new `legacy_conversion/` |
-| **P9** Cleanup and packaging | Delete everything in the audit's dead-code list (`export_latest_plan*`, `latest_plan_input`, stub client registry, `forecast_package`, CSV backend branch, ten `system_config` path rows, env defaults); ship `reference.db` and a seed `.rpx` instead of `reference_data/` and `input/demo`; update `retirement_planner.spec` and smoke tests; turn the static test to enforcing; update docs; migrate or regenerate the 609-file test suite's fixtures through the helper | `retirement_planner.spec`, `scripts/pyinstaller_smoke*.py`, `tests/` |
+| **P9** Cleanup and packaging | Delete everything in the audit's dead-code list (`export_latest_plan*`, `latest_plan_input`, stub client registry, `forecast_package`, CSV backend branch, ten `system_config` path rows, env defaults); ship `reference.db` and the seed demo `.rpx` instead of `reference_data/` and `input/demo`; update `retirement_planner.spec` and smoke tests; turn the static test to enforcing; update docs; migrate or regenerate the 609-file test suite's fixtures through the helper | `retirement_planner.spec`, `scripts/pyinstaller_smoke*.py`, `tests/` |
 
 Phases P2 and P3 can overlap; P4 depends on P3; P5 depends on P3 and P4; P6 is independent after P1; P8 grows with every phase and is finished last.
 
@@ -137,6 +161,8 @@ Phases P2 and P3 can overlap; P4 depends on P3; P5 depends on P3 and P4; P6 is i
 
 - **Row-edit semantics.** The UI addresses rows by `row_index` / `source_row_index`; the store must keep stable ids and ordering, and the CSV comment lines (`# ...`) need a decision (store as notes or drop).
 - **Concurrency.** The build subprocess reads while the UI writes: WAL plus one read transaction per build.
+- **Multiple plan files:** the active-plan switch must close and reopen connections cleanly (no builds or writes in flight), and every per-plan path (outputs, backups) must derive from the plan, not from a fixed folder.
+- **Credential store availability:** headless or frozen environments without a credential service need a clear error path; the app must not silently fall back to plain text.
 - **Spending tracker re-platform** is the single largest piece (about 2,000 lines, nine files).
 - **Frozen app paths.** `system_config.csv` is already missing from the PyInstaller data list, so frozen behavior of today's config load is unverified.
 - **Test churn** across about 300 test files; mitigated by the fixture helper.
@@ -145,7 +171,4 @@ Phases P2 and P3 can overlap; P4 depends on P3; P5 depends on P3 and P4; P6 is i
 
 ## 12. Open items
 
-1. **Secrets** (API keys, today plain JSON in `local_state/secrets.local.json`): store in `app.db` (simple, plain) or in the operating system's credential store (better, more platform code)?
-2. **Sibling apps** (`financial_trends_reporter`, `Monarch Extractor`) read `input/*.csv` and write JSON logs; in or out of scope?
-3. **CSV comment lines** in plan files: keep as row notes, or drop?
-4. **Demo plan:** seed as a bundled `.rpx` (recommended), or import the bundled CSV set through the adapter on first run?
+None. Each phase gets its own implementation plan and PR before work starts.
