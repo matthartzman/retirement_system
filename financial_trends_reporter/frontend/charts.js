@@ -54,18 +54,25 @@ export function filterByTimeframe(rows, tf) {
   return rows.filter(r => new Date(r.as_of_date) >= from);
 }
 
-// Granularity requirement: daily points for week/month ranges, weekly
-// for quarter, monthly for ytd/12-month/all-time. A custom range has no
-// fixed answer, so it's inferred from how many days the range spans.
+// Nominal granularity: daily points for week/month ranges, weekly for
+// quarter, monthly for ytd/12-month/all-time -- but never finer than the data
+// supports: monthly points revert to weekly when the rows span under 4 months,
+// and weekly to daily when they span under 4 weeks. A custom range has no
+// nominal answer, so it's inferred from how many days the range spans.
 export function granularityForTimeframe(tf, rows) {
-  const fixed = { week: "day", month: "day", quarter: "week", ytd: "month", "12m": "month", all: "month" };
-  if (fixed[tf]) return fixed[tf];
-  if (!rows || rows.length < 2) return "day";
-  const first = new Date(rows[0].as_of_date);
-  const last = new Date(rows[rows.length - 1].as_of_date);
-  const spanDays = (last - first) / 86400000;
-  if (spanDays <= 31) return "day";
-  if (spanDays <= 120) return "week";
+  const spanDays = rows && rows.length >= 2
+    ? (new Date(rows[rows.length - 1].as_of_date) - new Date(rows[0].as_of_date)) / 86400000
+    : null;
+  const nominal = { week: "day", month: "day", quarter: "week", ytd: "month", "12m": "month", all: "month" }[tf];
+  if (nominal) {
+    if (spanDays === null) return nominal;
+    if (nominal === "month" && spanDays < 120) return spanDays < 28 ? "day" : "week";
+    if (nominal === "week" && spanDays < 28) return "day";
+    return nominal;
+  }
+  if (spanDays === null) return "day";
+  if (spanDays < 28) return "day";
+  if (spanDays < 120) return "week";
   return "month";
 }
 
@@ -141,7 +148,7 @@ export function niceRange(min, max, tickTarget) {
 // y-axis labels pinned in a sticky overlay so they stay visible.
 export function lineChartSvg(points, opts) {
   opts = opts || {};
-  const minW = 560, h = 200, padL = 56, padR = 16, padT = 16, padB = 28;
+  const minW = 560, h = 200, padL = 56, padR = 34, padT = 16, padB = 28;
   const pxPerPoint = opts.pxPerPoint || 36;
   const label = (opts.title || "Chart") + ", line chart";
   if (!points.length) return '<div class="empty">No data yet for this range.</div>';
@@ -167,8 +174,10 @@ export function lineChartSvg(points, opts) {
   // X-axis: date labels, thinned out so they don't overlap.
   const xLabelStep = xStep > 0 ? Math.max(1, Math.ceil(60 / xStep)) : 1;
   let xAxis = "";
+  // Counted back from the newest point so the last label is always drawn and
+  // never crowds its neighbour; padR leaves room for it to render untruncated.
   points.forEach((p, i) => {
-    if (i % xLabelStep !== 0 && i !== points.length - 1) return;
+    if ((points.length - 1 - i) % xLabelStep !== 0) return;
     xAxis += `<text x="${x(i)}" y="${h - padB + 16}" text-anchor="middle" style="font-size:10px">${escSvg(p.label)}</text>`;
   });
 
@@ -181,7 +190,9 @@ export function lineChartSvg(points, opts) {
       `<title>${escSvg(p.label)}: ${escSvg(fmtMoney(p.value))}</title></circle>`;
   });
 
-  const axisSvg = `<svg class="chart-yaxis" width="${padL}" height="${h}" aria-hidden="true">${yLabels}</svg>`;
+  // The pinned y-axis stops above the x-axis labels so it can't clip the first one.
+  const axisH = h - padB + 8;
+  const axisSvg = `<svg class="chart-yaxis" width="${padL}" height="${axisH}" style="margin-bottom:-${axisH}px" aria-hidden="true">${yLabels}</svg>`;
   const svg = `<div class="chart-scroll"><div class="chart-inner" style="width:${w}px">${axisSvg}` +
     `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" role="img" aria-label="${escSvg(label)}">
     ${grid}
@@ -195,25 +206,32 @@ export function lineChartSvg(points, opts) {
 }
 
 // Rows for the YTD-expenses chart. Level 1 (Tracking Type) is what the bars
-// show; levels 2-4 (Group -> Category -> Merchant) ride along in each row's
-// `tree` for the hover popup. `hierarchy` is
+// show. Rolling over a bar lists its categories (`categories`); rolling over a
+// category lists its merchants. `hierarchy` is
 // {trackingType: {group: {category: {merchant: amount}}}}.
 function sumLeaves(node) {
   return typeof node === "number" ? node : Object.values(node).reduce((t, v) => t + sumLeaves(v), 0);
 }
 
-export function hierarchyToTree(node) {
-  if (typeof node === "number") return [];
-  return Object.entries(node)
-    .map(([name, child]) => ({ name, value: sumLeaves(child), children: hierarchyToTree(child) }))
-    .filter(n => Math.abs(n.value) > 0.005)
-    .sort((a, b) => b.value - a.value);
-}
-
 export function buildHierarchyRows(hierarchy) {
-  const rows = hierarchyToTree(hierarchy || {}).map(n => ({
-    name: n.name, amount: n.value, kind: "category", detailTitle: n.name, tree: n.children,
-  }));
+  const rows = [];
+  for (const [name, groups] of Object.entries(hierarchy || {})) {
+    const categories = [];
+    for (const [group, cats] of Object.entries(groups)) {
+      for (const [cat, merchants] of Object.entries(cats)) {
+        const value = sumLeaves(merchants);
+        if (Math.abs(value) < 0.005) continue;
+        categories.push({
+          name: cat, group, value,
+          merchants: Object.entries(merchants).filter(e => Math.abs(e[1]) > 0.005).sort((a, b) => b[1] - a[1]),
+        });
+      }
+    }
+    categories.sort((a, b) => b.value - a.value);
+    const amount = categories.reduce((t, c) => t + c.value, 0);
+    if (amount > 0.005) rows.push({ name, amount, kind: "category", detailTitle: name, categories });
+  }
+  rows.sort((a, b) => b.amount - a.amount);
   const total = rows.reduce((t, r) => t + r.amount, 0);
   return {
     total, rows,
@@ -221,10 +239,24 @@ export function buildHierarchyRows(hierarchy) {
   };
 }
 
+// Step-1 popup: a tracking type's categories (each tagged data-cat for the
+// step-2 merchant popup), with the type's total.
+export function categoryListHtml(title, categories) {
+  if (!categories.length) return `<div class="pop-title">${escSvg(title)}</div><div class="empty">No further detail logged.</div>`;
+  const total = categories.reduce((t, c) => t + c.value, 0);
+  const max = Math.max(...categories.map(c => c.value), 1);
+  const body = categories.map((c, i) =>
+    `<div class="pop-row pop-cat${c.value < 0 ? " pop-neg" : ""}" data-cat="${i}"><span class="pop-name" title="${escSvg(c.group)}">${escSvg(c.name)}</span>` +
+    `<span class="pop-bar"><i style="width:${c.value > 0 ? Math.max(1, (c.value / max) * 100).toFixed(1) : 0}%"></i></span>` +
+    `<span class="pop-val">${escSvg(fmtMoney(c.value))}</span></div>`).join("");
+  return `<div class="pop-title">${escSvg(title)} <span class="pop-hint">- roll over a category for merchants</span></div>${body}` +
+    `<div class="pop-total"><span>Total</span><span>${escSvg(fmtMoney(total))}</span></div>`;
+}
+
 // Popup body: title, a mini bar chart of up to `maxLines` entries (the
 // remainder collapsed into one line), and the level's total.
 export function detailPopupHtml(title, detail, maxLines) {
-  maxLines = maxLines || 12;
+  maxLines = maxLines || Infinity;
   if (!detail.length) return `<div class="pop-title">${escSvg(title)}</div><div class="empty">No further detail logged.</div>`;
   const total = detail.reduce((t, e) => t + e[1], 0);
   let lines = detail.slice(0, maxLines);
@@ -234,56 +266,9 @@ export function detailPopupHtml(title, detail, maxLines) {
   }
   const max = Math.max(...lines.map(e => e[1]), 1);
   const body = lines.map(([n, v]) =>
-    `<div class="pop-row"><span class="pop-name">${escSvg(n)}</span>` +
-    `<span class="pop-bar"><i style="width:${Math.max(1, (v / max) * 100).toFixed(1)}%"></i></span>` +
+    `<div class="pop-row${v < 0 ? " pop-neg" : ""}"><span class="pop-name">${escSvg(n)}</span>` +
+    `<span class="pop-bar"><i style="width:${v > 0 ? Math.max(1, (v / max) * 100).toFixed(1) : 0}%"></i></span>` +
     `<span class="pop-val">${escSvg(fmtMoney(v))}</span></div>`).join("");
-  return `<div class="pop-title">${escSvg(title)}</div>${body}` +
-    `<div class="pop-total"><span>Total</span><span>${escSvg(fmtMoney(total))}</span></div>`;
-}
-
-// Popup body for a Tracking Type: its Group -> Category -> Merchant tree as
-// indented mini bars, plus the type's total. Per-level caps shrink until the
-// popup fits `maxLines`, with the remainder at each level rolled into one
-// "n more" line, so a large tree stays readable.
-const TREE_LIMITS = [[6, 4, 3], [6, 3, 2], [6, 3, 1], [6, 2, 1], [6, 2, 0], [6, 0, 0]];
-
-// `expanded` holds the keys of "n more" rows the viewer has rolled over; those
-// levels list every entry instead of being capped.
-function treeLines(nodes, depth, limits, parentMax, out, path, expanded) {
-  const moreKey = `${path}|more`;
-  const open = expanded.has(moreKey);
-  const cap = open ? nodes.length : limits[depth - 1];
-  const shown = nodes.slice(0, cap);
-  const hidden = nodes.slice(cap);
-  for (const n of shown) {
-    out.push({ depth, name: n.name, value: n.value, max: parentMax });
-    if (depth < 3 && n.children.length && limits[depth] > 0) {
-      treeLines(n.children, depth + 1, limits, n.value, out, `${path}/${n.name}`, expanded);
-    }
-  }
-  if (hidden.length) {
-    out.push({ depth, name: `${hidden.length} more`, value: hidden.reduce((t, n) => t + n.value, 0), max: parentMax, muted: true, moreKey });
-  }
-}
-
-export function detailTreeHtml(title, tree, maxLines, expanded) {
-  maxLines = maxLines || 36;
-  expanded = expanded || new Set();
-  const total = tree.reduce((t, n) => t + n.value, 0);
-  if (!tree.length) return `<div class="pop-title">${escSvg(title)}</div><div class="empty">No further detail logged.</div>`;
-  let lines = [];
-  // Once something is expanded, stop shrinking caps to fit: the popup scrolls instead.
-  const presets = expanded.size ? [TREE_LIMITS[0]] : TREE_LIMITS;
-  for (const limits of presets) {
-    lines = [];
-    treeLines(tree, 1, limits, total, lines, "", expanded);
-    if (lines.length <= maxLines) break;
-  }
-  const body = lines.map(l =>
-    `<div class="pop-row pop-d${l.depth}${l.muted ? " pop-muted" : ""}${l.value < 0 ? " pop-neg" : ""}"` +
-    `${l.moreKey ? ` data-more="${escSvg(l.moreKey)}"` : ""}><span class="pop-name">${escSvg(l.name)}</span>` +
-    `<span class="pop-bar"><i style="width:${l.value > 0 ? Math.max(1, (l.value / (l.max || 1)) * 100).toFixed(1) : 0}%"></i></span>` +
-    `<span class="pop-val">${escSvg(fmtMoney(l.value))}</span></div>`).join("");
   return `<div class="pop-title">${escSvg(title)}</div>${body}` +
     `<div class="pop-total"><span>Total</span><span>${escSvg(fmtMoney(total))}</span></div>`;
 }
