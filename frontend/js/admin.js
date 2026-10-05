@@ -246,9 +246,7 @@ const AREA_DEFS = {
         file: "capital_market_assumptions.csv",
         title: "Custom capital market assumptions file",
         profile: "capital_market",
-        // Not a nav entry of its own: reached from the "Capital market
-        // assumptions" page (SYSTEM_CONFIG_PAGES 'assumptions'), which owns
-        // the nav slot and highlights it while this file is open.
+        // Reached from the 'assumptions' page, which owns the nav slot.
         navHidden: true,
         navStep: "syscfg_assumptions",
         note: "Expected return, volatility, and correlation inputs used by optimizer and Monte Carlo outputs. These are governance assumptions, not client facts.",
@@ -1684,12 +1682,7 @@ const SYSTEM_CONFIG_PAGES = [
 function systemConfigPage(id) {
   return SYSTEM_CONFIG_PAGES.find((p) => p.id === id) || SYSTEM_CONFIG_PAGES[0];
 }
-const NAV_GROUP_ORDER = [
-  "System configuration",
-  "Market data",
-  "Tax & accounts",
-  "Reference data",
-];
+const NAV_GROUP_ORDER = ["System configuration", "Market data", "Tax & accounts", "Reference data"];
 function adminNavItems() {
   const byGroup = {};
   const add = (item) => (byGroup[item.group] = byGroup[item.group] || []).push(item);
@@ -1716,7 +1709,6 @@ function adminNavItems() {
   const pages = (group) =>
     SYSTEM_CONFIG_PAGES.filter((p) => p.group === group).map(pageItem);
 
-  // System configuration: app/runtime pages, then build diagnostics.
   add({
     id: "app_settings",
     group: "System configuration",
@@ -1735,7 +1727,6 @@ function adminNavItems() {
     helpKey: "diagnostics",
   });
 
-  // Market data: pricing, securities, capital-market inputs, refresh & drift.
   add({
     id: "pricing_controls",
     group: "Market data",
@@ -1760,8 +1751,6 @@ function adminNavItems() {
     .filter((i) => i.id !== "syscfg_assumptions")
     .forEach(add);
 
-  // Tax & accounts: tax-law dashboard, tax reference tables, then tax-model
-  // and optimizer switches.
   add({
     id: "tax_law_dashboard",
     group: "Tax & accounts",
