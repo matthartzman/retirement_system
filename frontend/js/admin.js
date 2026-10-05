@@ -246,16 +246,15 @@ const AREA_DEFS = {
         file: "capital_market_assumptions.csv",
         title: "Custom capital market assumptions file",
         profile: "capital_market",
-        // Reached from the 'assumptions' page, which owns the nav slot.
-        navHidden: true,
         navStep: "syscfg_assumptions",
         note: "Expected return, volatility, and correlation inputs used by optimizer and Monte Carlo outputs. These are governance assumptions, not client facts.",
       },
       {
         kind: "reference",
         file: "asset_correlations.csv",
-        title: "Asset correlations",
+        title: "Custom asset correlations file",
         profile: "asset_correlations",
+        navStep: "syscfg_correlations",
         note: "Correlation matrix inputs used in portfolio diversification and covariance calculations.",
       },
     ],
@@ -1604,9 +1603,8 @@ function shouldRenderAsSectionSettings(rows, def) {
 }
 
 // Each page belongs to one nav group (see NAV_GROUP_ORDER). Pages scoped to a
-// system_config.csv section/subsection. 'assumptions' (Market data) is the one
-// capital-market page: it edits the Asset Class Assumptions settings and links
-// to the custom assumptions CSV, rather than two nav entries for one topic.
+// system_config.csv section/subsection. 'assumptions' and 'correlations' each
+// edit their settings and link to the matching custom CSV (one nav entry each).
 const SYSTEM_CONFIG_PAGES = [
   {
     id: "runtime",
@@ -1633,6 +1631,30 @@ const SYSTEM_CONFIG_PAGES = [
     filterKeys: ["max_build_seconds"],
   },
   {
+    id: "assumptions",
+    group: "Market data",
+    title: "Capital market assumptions",
+    desc: "Expected returns, volatility, custom assumption files, and long-term optimizer inputs.",
+    filterSections: ["Asset Class Assumptions"],
+    companion: {
+      label: "Edit the custom assumptions file (capital_market_assumptions.csv)",
+      action: "openAreaFile('etf',0)",
+      hint: "Expert file, read only when 'use_custom_capital_market_file' is YES.",
+    },
+  },
+  {
+    id: "correlations",
+    group: "Market data",
+    title: "Asset correlations",
+    desc: "Pairwise correlation settings used by optimizer diversification calculations.",
+    filterSections: ["Asset Correlations"],
+    companion: {
+      label: "Edit the custom correlations file (asset_correlations.csv)",
+      action: "openAreaFile('etf',1)",
+      hint: "Expert file, read only when 'use_custom_correlations_file' is YES.",
+    },
+  },
+  {
     id: "jobs",
     group: "Market data",
     title: "Refresh & drift",
@@ -1640,19 +1662,6 @@ const SYSTEM_CONFIG_PAGES = [
     filterSections: ["System Configuration"],
     filterSubsections: ["Price Refresh", "Portfolio Drift"],
     helpKey: "pricing",
-  },
-  {
-    id: "assumptions",
-    group: "Market data",
-    title: "Capital market assumptions",
-    desc: "Expected returns, volatility, custom assumption files, and long-term optimizer inputs.",
-    filterSections: ["Asset Class Assumptions"],
-    helpKey: "etf",
-    companion: {
-      label: "Edit the custom assumptions file (capital_market_assumptions.csv)",
-      action: "openAreaFile('etf',0)",
-      hint: "Expert file, read only when 'use_custom_capital_market_file' is YES.",
-    },
   },
   {
     id: "plan",
@@ -1695,17 +1704,14 @@ function adminNavItems() {
     helpKey: p.helpKey || "system_config",
   });
   const areaItems = (areaId, group) =>
-    (AREA_DEFS[areaId]?.files || [])
-      .map((f, idx) => ({
-        id: `area_${areaId}_${idx}`,
-        group,
-        title: f.title,
-        desc: f.note || AREA_DEFS[areaId].title,
-        action: `openAreaFile('${areaId}',${idx})`,
-        helpKey: areaId,
-        hidden: !!f.navHidden,
-      }))
-      .filter((it) => !it.hidden);
+    (AREA_DEFS[areaId]?.files || []).map((f, idx) => ({
+      id: `area_${areaId}_${idx}`,
+      group,
+      title: f.title,
+      desc: f.note || AREA_DEFS[areaId].title,
+      action: `openAreaFile('${areaId}',${idx})`,
+      helpKey: areaId,
+    }));
   const pages = (group) =>
     SYSTEM_CONFIG_PAGES.filter((p) => p.group === group).map(pageItem);
 
@@ -1743,13 +1749,7 @@ function adminNavItems() {
     action: "openSecurityMaster()",
     helpKey: "pricing",
   });
-  pages("Market data")
-    .filter((i) => i.id === "syscfg_assumptions")
-    .forEach(add);
-  areaItems("etf", "Market data").forEach(add);
-  pages("Market data")
-    .filter((i) => i.id !== "syscfg_assumptions")
-    .forEach(add);
+  pages("Market data").forEach(add);
 
   add({
     id: "tax_law_dashboard",
