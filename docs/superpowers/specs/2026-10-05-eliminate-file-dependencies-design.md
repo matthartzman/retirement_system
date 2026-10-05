@@ -172,3 +172,197 @@ Phases P2 and P3 can overlap; P4 depends on P3; P5 depends on P3 and P4; P6 is i
 ## 12. Open items
 
 None. Each phase gets its own implementation plan and PR before work starts.
+
+---
+
+# 13. Implementation plan (NOT STARTED — do not execute until the owner gives a go for a specific phase)
+
+This section turns the design above into ordered, reviewable work. It is a plan only: no code, schema or file has been changed. Each phase needs an explicit owner go before its first PR.
+
+## 13.1 Conventions and definition of done (apply to every PR)
+
+1. **One dataset, one PR, no coexistence.** A PR switches all readers and writers of its dataset together and deletes the old path in the same PR. There is never dual-writing and never a fallback to files. The only legacy code allowed is in `legacy_conversion/` (section 8).
+2. **Gates that must be green:** the five CI jobs (`fast-gates`, `test (windows-latest, 3.14)`, `frontend-tests`, `build`, `e2e-tests`), the golden equality test from P0, the frontend size ratchet, the architecture-diagram freshness test (regenerate with `tools/generate_system_diagram.py`), and the JS codemod census if frontend JS changes.
+3. **Sanctioned regeneration only:** golden fixtures and the full-row snapshot change only through their regeneration tools with a dated entry in `GOLDEN_MASTER_CHANGELOG.md`. A storage change must not change any computed number; if one does, it is a bug, not a fixture update.
+4. **Each PR carries its conversion step** (section 13.4) and its own tests; docs for the touched area are updated in the same PR.
+5. **Docs-only and tool-only PRs** follow the same rules but skip CI where the workflow ignores them.
+6. **Size rule:** a PR that cannot be reviewed in one sitting is split by module, not by half-finished behavior.
+
+## 13.2 Order, dependencies and parallelism
+
+```
+P0 safety net ─► P1 stores ─┬─► P2 reference.db (8 slices, parallelizable)
+                            ├─► P3 plan rows ─► P4 datasets ─► P5 build I/O ─┐
+                            └─► P6 app state (independent after P1) ─────────┤
+                                                       P7 csv_exchange ◄─────┤ (needs P3, P4)
+                                                       P8 conversion (grows with every phase; finished last)
+                                                       P9 cleanup and packaging
+```
+
+- **Critical path:** P0 → P1 → P3 → P4 → P5 → P7 → P8 → P9.
+- **Parallel lanes:** P2 slices are independent of each other and of P3; P6 can run beside P3/P4; the feature-tiers design's phases 1-3 do not touch storage and can run in parallel with all of this (tiers phases 4-5 are easier after P3).
+- **Relative size:** S = small, M = medium, L = large, XL = the single largest piece. About 50 PRs in total (P0 3, P1 3, P2 8, P3 7, P4 7, P5 3, P6 4, P7 4, P8 5, P9 6).
+
+## 13.3 Phase-by-phase plan
+
+### P0 — Safety net (3 PRs; S, M, S)
+
+Objective: make "nothing computed changed" mechanically checkable before any storage moves.
+
+| PR | Scope | Files |
+|---|---|---|
+| P0.1 | Golden before/after harness: build the frozen sample plan and the demo plan in a temp workspace; record full-row engine output, the workbook cell values of the required sheets, and the headline KPIs from `plan_summary.json`; baseline committed once; `tests/test_phase_golden_equality.py` compares live output to the baseline | `tools/golden_compare.py`, `tests/fixtures/golden_phase_baseline/`, new test |
+| P0.2 | Plan-fixture helper `tests/plan_fixture.py` (`make_plan(tmp_path, fixture=...)`). Today it still lays down the CSV folder. Mechanically move the ~150 tests that name `sample_plan_frozen`, `client_data.csv` or `client_holdings.csv` onto it, in codemod batches, so later phases change only the helper's internals | `tests/plan_fixture.py`, ~150 test files |
+| P0.3 | Static file-I/O audit test in report mode: AST scan for `csv`, `json.load/dump`, `yaml`, `open()` of data files, outside an allowlist; writes a count and a ratchet that can only go down | `tests/test_no_data_file_io_report.py` |
+
+Exit: golden test green on main; every plan-creating test goes through the helper; audit count recorded.
+Rollback: revert the PR (tests and tools only; no product change).
+
+### P1 — Stores (3 PRs; M, M, S)
+
+Objective: the three access layers exist and are tested in isolation; nothing uses them yet.
+
+| PR | Scope |
+|---|---|
+| P1.1 | `src/stores/`: connection helpers (WAL, pragmas, transactions), forward-only schema versioning with `PRAGMA user_version`, schema defined as Python strings (no `.sql` files), in-memory test harness |
+| P1.2 | `PlanStore` skeleton and API (rows by section, get/set/insert/delete, `transaction()`, typed repository interfaces, deterministic `revision()` hash, revisions retention); `AppStore` with `plan_registry` and `active_plan`; path derivation `plan_paths(plan_id)` (outputs, backups) |
+| P1.3 | `RefData` skeleton: read-only open, version table, content hash, getters that return plain Python structures; error if the file is missing or the hash is wrong |
+
+Exit: unit tests for every store API; no product code imports them yet; audit ratchet unchanged.
+Rollback: delete the package.
+
+### P2 — reference.db (8 slices; S to M each, parallelizable)
+
+Objective: all shipped reference data comes from one read-only database; `reference_data/` and the two shipped JSON files leave the runtime.
+
+| PR | Scope | Consumers switched |
+|---|---|---|
+| P2.1 | `tools/build_reference_db.py`, dev-only source folder `reference_src/`, deterministic build (sorted rows, no timestamps), schema and content hash, golden test: each `RefData` getter equals the structure the old loader returned (captured as fixtures before the old loaders are deleted) | none yet |
+| P2.2 | Tax law | `tax_law.py:16,168-176`, `taxes.py:51,114`, `planning_engines.py:1965,1982`, `data_io.py:877`, `result_contract.py:257`; `tools/bump_version.py` filename reference |
+| P2.3 | State tax and the dead `tax_constants` path | `taxes.py:335-443`; the admin state-tax editor (`strategy_asset_service.py:958-974`) writes plan-side `state_tax_overrides`, not shipped data |
+| P2.4 | CMAs and correlations, including the custom-file option replaced by plan-side `custom_cma` / `custom_correlations` | `data_io.py:96-135`, `optimization.py:241-262,381-409`, `parsing/allocation_optimizer_inputs.py`, import routes `plan_routes.py:754-772` |
+| P2.5 | Mortality, real-loss curves, tax-update dashboard | `planning_engines.py:759-762`, `real_loss_curves.py:119,144`, `allocation_policy.py`, `governance.py:12,28` |
+| P2.6 | Security master with plan-side `security_overrides` | `data_io.py:1949-1965`, `tlh.py:42`, `portfolio_analytics.py:21,227`, `import_preview.py:223-229`, `tools/analyze_drift.py`, `tools/refresh_prices.py` |
+| P2.7 | Field schema (`schema.csv`) and coverage report | `schema_registry.py:10,42,70,83`, `app_core.py:165`, `tools/generate_schema_coverage.py` |
+| P2.8 | ZIP metrics and top cities, Monarch field map, workbook template layout | `housing/zip_screen/table.py`, `housing/api.py:667-682`, `monarch_import.py:49,97`, `reporting/workbook_common.py:793-799`, `scripts/build_zip_metrics.py` |
+
+Exit: no runtime read of `reference_data/` or the shipped JSON; PyInstaller `datas` lists `reference.db`; golden test green after every slice.
+Rollback: per slice; the old loader is restored by reverting that slice's PR (reference sources are retained in `reference_src/`).
+
+### P3 — Plan rows (7 PRs; M, M, L, L, L, L, M)
+
+Objective: the sectioned plan data lives in `plan_rows`; the CSV files stop being the edit surface.
+
+| PR | Scope | Main files |
+|---|---|---|
+| P3.1 | `plan_rows` schema and `PlanStore` row API; minimal `csv_exchange` importer (used by the fixture helper and the converter); helper now builds `plan.db` from the CSV fixtures | `src/stores/`, `tests/plan_fixture.py` |
+| P3.2 | Read path: `load_active_config`/`load_sqlite` replaced by `PlanStore` sectioned view; `_client_csv_rows`, `_client_section_path`; `module_catalog` and `config_service` reads | `config_backend.py`, `app_core.py:1103-1152`, `config_service.py:293,452,479`, `module_catalog.py` |
+| P3.3 | Grid write path: `update_config_rows_payload`, stable `row_index`, schema validation, unification of `/api/plan/forms` with the row store (removes the split-brain) | `config_service.py:483-538`, `plan_forms_service.py:17-36` |
+| P3.4a | Asset and liability endpoints | `strategy_asset_service.py` (assets, liabilities, holdings-adjacent sections) |
+| P3.4b | Roth, strategy and policy endpoints; `roth_ui_build_guard.py` | `strategy_asset_service.py`, `roth_ui_build_guard.py:142-158` |
+| P3.4c | Allocation, liquidity and housing endpoints; `app_core._replace_*` (5 functions), `plan_data_backfill.py`, `_ensure_user_ui_plan_data_rows` and its ~20 row tables | `strategy_asset_service.py`, `app_core.py:940-1100,1490-1850`, `plan_data_backfill.py:106-112` |
+| P3.5 | Delete `_sync_config_backends`, the 20 JSON/YAML mirrors and their references (`PLAN_DATA_FILES` in `dashboard.js:978-1010`, `runtime_config.py:68-69,165-166`, `bootstrap.py:50-51`, `system_config` path rows), `client_files` for sectioned parts, `/api/csv` anchor routes, `plan_data_file_service` JSON/YAML types, `tools/sync_config_backends.py`, `tools/init_backend.py`; keep the startup row migration only until the converter replaces it (P8) | many |
+
+Conversion step C3: sectioned CSV set (and `plan_snapshots.sectioned_json` for anything missing) → `plan_rows`, applying the legacy row renames once.
+Exit: grid editing, strategy pages and module toggles work on `plan.db`; golden test green; the audit count drops by the sectioned-file readers.
+Risks specific to P3: duplicate labels, row ordering, notes and units (decision 7: comments to notes); concurrency of a build reading while the grid writes (build takes one read transaction).
+
+### P4 — Tabular datasets (7 PRs; M, S, L, L, M, M, L)
+
+Objective: every dataset the build still reads from `input/` moves to a typed table.
+
+| PR | Scope | Main files |
+|---|---|---|
+| P4.1 | Holdings lots, liabilities, target allocation | `holdings_service.py`, `data_io.py:1767-1813`, `ytd_tracking.py:1082,1155`, `portfolio_analytics.py:19,232,247`, `app_core.py:1541-1590`, `tools/refresh_prices.py`, `tools/analyze_drift.py` |
+| P4.2 | HSA schedule; the default schedule is created through `PlanStore` when needed, never as a build side effect | `parsing/hsa_policy.py:136-144`, `hsa_schedule.py`, `workbook_builder.py:925-937` |
+| P4.3a | `SpendingRepo` interface plus taxonomy and aliases | `spending_tracker.py` (68 functions), `import_preview.py:56-64` |
+| P4.3b | Budget, budget lines, tier overrides | `spending_budget_resolver.py:182-251`, `data_io.py:1038-1044`, `app_core.py:352-374` (`_spending_budget_save_result` diff on rows) |
+| P4.3c | Rules, category map; recovery copies become `plan_revisions` | `spending_tracker.py`, `tools/migrate_spending_model.py` (deleted; its one-time purpose folds into converter step C4b) |
+| P4.4 | YTD transactions, accounts, import history | `ytd_tracking.py` (64 functions), `ytd_service.py`, `monarch_db_sync.py`, `monarch_autoimport_job.py`, `spending_tracker.py:86,368` |
+
+Conversion steps: C4a (holdings, liabilities, HSA, targets), C4b (spending set, including rules, category map, tier overrides, recovery seed handling), C4c (YTD).
+Exit: `input/` is not read by any product path; audit count drops accordingly; golden test green with spending history and YTD present (the P0 fixtures must include both).
+
+### P5 — Build I/O (3 PRs; L, L, S)
+
+| PR | Scope | Main files |
+|---|---|---|
+| P5.1 | The build receives `PLAN_DB` and `REVISION` (environment) and reads one read transaction through `PlanStore`/`RefData`; delete `candidate_input_files` (11 callers), `workspace_file` (8 callers), `local_plan_data_sync.py`, `materialize_workspace_files`, `build_entry._materialize_server_working_copy` | `build_entry.py`, `data_io.py`, `workspace_context.py`, `report_compute.py`, `workbook_builder.py:945-1010` |
+| P5.2 | `build_results` table replaces `plan_summary.json`, `results_explorer_model.json`, `report_package.json`, `build_snapshot.json`; `interpret_build_result` reads the table; fingerprint hashes rows at the revision; JSON sidecar writers and readers deleted; `pricing_diagnostics`, `price_refresh_result`, `portfolio_drift` and `forecast_package` JSON replaced by in-process return or `app.db` rows | `build_service.py:45-49,141`, `report_package.py`, `results_model.py:733-743`, `detailed_results.py`, `build_snapshot.py`, `admin_service.py:256`, `market_data.py:1604`, `tools/refresh_prices.py`, `tools/analyze_drift.py` |
+| P5.3 | Per-plan output folder derived from the plan registry id; xlsx/html/pdf remain files | `workspace_context.py`, `runtime_config.py`, `report_service.py` |
+
+Exit: a build with an empty `input/` folder succeeds and equals the golden baseline.
+
+### P6 — App state (4 PRs; M, M, L, L)
+
+| PR | Scope | Main files |
+|---|---|---|
+| P6.1 | Split `system_config.csv`: runtime flags to `app.db.settings`; engine knobs become `plan_rows` sections; the app version string moves to a Python constant (so `bump_version` and `check_version_surfaces` stop editing a data file); `tools/set_local_mode.py` becomes a settings command | `system_config.py`, `runtime_config.py:150-185`, `data_io.py:615`, `config_backend.py:143,259`, `admin_service.py:136-186`, `tools/bump_version.py`, `tools/check_version_surfaces.py` |
+| P6.2 | `SecretStore` over the operating system credential store (new third-party dependency, `keyring` or equivalent: **approval gate before this PR**), PyInstaller hidden imports for the platform backend, explicit error path when no credential service exists (never a silent plain-text fallback) | `secrets_store.py`, `retirement_planner.spec`, `scripts/pyinstaller_smoke*.py` |
+| P6.3 | Preferences, audit log (drop the `.jsonl` duplicate), admin change log, run history, last-build record, backup policy and manifests, Monarch policy and status, price cache | `base_service.py:59-87`, `security_audit.py:111-139,280-330`, `report_service.py:118-139`, `local_backup_scheduler.py`, `monarch_autoupdate.py`, `market_data.py:205,393,407` |
+| P6.4 | Plan registry and active plan (section 5A): Load / Save As / restore / backup over plan files, demo and actual plans as separate files, demo seed creation and reset, frontend plan switcher (list, open demo, exit demo, reset demo); delete demo file swapping | `plan_file_service.py`, `desktop_api.py:264-353`, `plan_db_replace.py`, `demo_plan_service.py`, `platform_runtime.py`, frontend plan-file modules |
+
+Conversion steps: C6a (settings from `system_config.csv`, `prefs.json`, backup and Monarch state), C6b (keys from `secrets.local.json` to the credential store, then offer to delete the plain file), C6c (the converted plan registered as the active plan).
+
+### P7 — csv_exchange (4 PRs; L, M, M, L)
+
+| PR | Scope |
+|---|---|
+| P7.1 | Package skeleton: file-shape to table mapping declared once, parse, validate against `schema_fields`, preview, diff, single-transaction commit |
+| P7.2 | Plan CSV set import and export (zip), including the legacy file names the converter needs; per-dataset export |
+| P7.3 | Holdings, YTD, Monarch, CMA, correlation and security-master adapters re-pointed at the package; `import_preview.py`, `monarch_import.py`, `plan_routes.py:924-1000` |
+| P7.4 | Frontend: folder import/export posts rows to the import API; remove the mirror names; admin screens for reference overrides; delete the raw admin file editor and `/api/admin/csv-file/...`, `/api/admin/reference-files`, `plan_data_files.py` allowlists, `local_plan_data_dir` folder sync, `tools/sync_plan_data_from_folder.py`, `tools/check_plan_data_sync.py` |
+
+Exit: the static audit shows CSV access only inside `csv_exchange`.
+
+### P8 — One-time conversion (5 PRs; M, L, M, M, S)
+
+| PR | Scope |
+|---|---|
+| P8.1 | `legacy_conversion/` skeleton: runner, per-step markers, dry-run mode, report, "originals are never modified" guard (opens source files read-only) |
+| P8.2 | Assemble steps C3, C4a-c, C6a-c in order; source precedence (files in `input/` first, then `client_files` and the latest `plan_snapshots`); the row renames from `plan_data_migration.py` move here and leave the runtime |
+| P8.3 | Verification: the converter reads the last results the old version produced (`output/plan_summary.json`, `kpi_snapshots`), builds the converted plan, and compares the deterministic KPIs; any difference is shown to the user and blocks the done marker |
+| P8.4 | First-launch UI: notice, progress, report, "view differences", and a clear message that originals are untouched |
+| P8.5 | Rehearsals: the demo plan, the frozen sample plan, a plan with spending history and YTD, a plan with a legacy database and no `input/` files, and (with the owner's permission) a copy of the owner's real plan; results recorded in a rehearsal log |
+
+Rollback: converter steps are idempotent and write only to new files; deleting the new plan file and the marker lets the step run again.
+
+### P9 — Cleanup and packaging (6 PRs)
+
+| PR | Scope |
+|---|---|
+| P9.1 | Delete the dead code listed in the audit: `export_latest_plan*`, `latest_plan_input`, the stub client registry and `local_plan_registry.csv` constant, `forecast_package`, the CSV backend branch, the ten `system_config` path rows, env defaults, `build_jobs` table, `live_pricing_test_results.json` exclusions |
+| P9.2 | Packaging: `retirement_planner.spec` ships `reference.db` and the seed demo `.rpx`; remove `reference_data/` and `input/demo` from `datas`; update `scripts/pyinstaller_smoke*.py`, `tools/build_release_package.py`, `tools/check_package_clean.py`; `seed_frozen_workspace` creates the plan and app databases |
+| P9.3 | Turn the static audit into an enforcing test (zero allowed outside the allowlist) |
+| P9.4 | Test suite finalization: CSV fixtures kept only for the importer and converter tests (`tests/fixtures/csv_exchange/`); remove tests of deleted behavior; regenerate sanctioned fixtures with changelog entries |
+| P9.5 | Documentation: `FUNCTIONAL_SPEC`, `CURRENT_SYSTEM_DESIGN_SPEC`, `API_CONTRACTS`, `CLAUDE.md`, `CONTRIBUTING`, `ANNUAL_MAINTENANCE_RUNBOOK` (tax update = edit `reference_src/` + run the reference build tool), release notes, architecture diagram |
+| P9.6 | **Later release, not part of the first:** delete `legacy_conversion/` once every active install has converted |
+
+## 13.4 Conversion rollout and release cadence
+
+- Each phase adds its conversion step to the same removable module, with a per-step marker, so any build on `main` converts the owner's live plan safely and incrementally.
+- Recommended cadence: merge a phase to `main` only after its conversion step has run on a copy of the owner's plan (P8.5 rehearsal, brought forward per phase), then update the live install.
+- The old `input/` folder and legacy database are never modified or deleted by any step, so every step can be re-run from the originals.
+
+## 13.5 Test and gate matrix
+
+| Phase | Golden equality | Converter rehearsal | Static audit | Packaging smoke |
+|---|---|---|---|---|
+| P0 | creates baseline | n/a | report | unchanged |
+| P1 | green | n/a | report | unchanged |
+| P2 | green after each slice | n/a | ratchet down | `reference.db` present |
+| P3 | green | C3 | ratchet down | unchanged |
+| P4 | green with spending and YTD | C4a-c | ratchet down | unchanged |
+| P5 | green, `input/` empty | all prior | ratchet down | unchanged |
+| P6 | green | C6a-c | ratchet down | credential store path |
+| P7 | green | all prior | CSV only in `csv_exchange` | unchanged |
+| P8 | green | full rehearsals | unchanged | unchanged |
+| P9 | green | final | **enforcing** | full smoke on frozen build |
+
+## 13.6 Start conditions and approval gates
+
+Before any phase begins, the owner confirms: the go for that phase; a copy of the live plan available for rehearsals (from P3 on); and, before P6.2, approval of the new credential-store dependency and its frozen-build behavior.
+
+## 13.7 Deliberately deferred
+
+Running the build in-process instead of a subprocess; multi-user or hosted storage; moving the sibling apps onto the stores; encrypting `plan.db` at rest.
