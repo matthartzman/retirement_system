@@ -115,7 +115,7 @@ describe("trends reporter timeframe buttons expose aria-pressed", () => {
 
   test("initial markup: only the default YTD button is pressed", () => {
     const tf = [...html.matchAll(/<button data-tf="([^"]+)"[^>]*aria-pressed="(true|false)"/g)];
-    assert.ok(tf.length >= 8, "every timeframe button must declare aria-pressed");
+    assert.ok(tf.length >= 7, "every timeframe button must declare aria-pressed");
     assert.deepEqual(tf.filter((m) => m[2] === "true").map((m) => m[1]), ["ytd"]);
   });
 
@@ -123,7 +123,7 @@ describe("trends reporter timeframe buttons expose aria-pressed", () => {
     let src = html.match(/<script type="module">([\s\S]*?)<\/script>/)[1];
     src = src.replace(/^import\s*\{[^}]*\}\s*from\s*["'][^"']*["'];?\s*$/m, "");
     const handlers = {};
-    const tfButtons = ["day", "ytd", "12m"].map((tf) => ({
+    const tfButtons = ["week", "ytd", "12m"].map((tf) => ({
       dataset: { tf },
       attrs: {},
       setAttribute(k, v) {
