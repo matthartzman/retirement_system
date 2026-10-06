@@ -30,12 +30,14 @@ from tests.reference_golden import write_golden  # noqa: E402
 
 
 def _tax_update_dashboard() -> Any:
-    # governance.tax_law_dashboard reads the CSV, then marks rows stale relative
-    # to reference_year. With a lag larger than any year gap the overlay leaves
-    # every dated row untouched, so this is the loader's raw read (WP3.5 replaces
-    # that read with src.stores.ref_getters.tax_update_dashboard).
-    from src import governance
-    return governance.tax_law_dashboard(reference_year=2026, max_lag_years=10**6)
+    # Raw read of the old loader's CSV (before governance's staleness overlay), with
+    # the loader's field typing: strings, blocking -> bool, file order.
+    import csv
+    with (ROOT / "reference_data" / "tax_update_dashboard.csv").open(encoding="utf-8-sig", newline="") as fh:
+        rows = [dict(r) for r in csv.DictReader(fh)]
+    for r in rows:
+        r["blocking"] = str(r.get("blocking", "")).strip().upper() in {"TRUE", "YES", "1"}
+    return rows
 
 
 CAPTURES: dict[str, Callable[[], Any]] = {

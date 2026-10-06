@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
+import re
 import sqlite3
 import threading
 from pathlib import Path
@@ -26,7 +28,7 @@ from .errors import NotFoundError, StoreError, ValidationError
 REF_SCHEMA_VERSION = 1
 REF_APPLICATION_ID = 0x52504644  # "RPFD"
 _META = "ref_meta"
-_IDENT = __import__("re").compile(r"[A-Za-z_][A-Za-z0-9_]*")
+_IDENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 _MIGRATIONS = (
     f"PRAGMA application_id={REF_APPLICATION_ID}; "
     f"CREATE TABLE {_META} (key TEXT PRIMARY KEY, value TEXT NOT NULL) WITHOUT ROWID;",
@@ -81,7 +83,7 @@ class RefData:
         except sqlite3.Error as exc:
             con.close()
             raise RefDataError(f"reference data unreadable: {exc}") from exc
-        except RefDataError:
+        except StoreError:
             con.close()
             raise
 
@@ -117,6 +119,10 @@ class RefData:
             raise NotFoundError(f"reference table {name!r} not found")
         return [dict(r) for r in self.query(f'SELECT * FROM "{name}" ORDER BY rowid')]
 
+    @property
+    def closed(self) -> bool:
+        return self._con is None
+
     def close(self) -> None:
         with self._lock:
             if self._con is not None:
@@ -151,6 +157,8 @@ def _checked_rows(name: str, cols: Sequence[str], rows: Iterable[Sequence[Any]])
         if len(t) != len(cols):
             raise ValidationError(f"reference table {name!r}: row has {len(t)} cells, expected {len(cols)}")
         for v in t:
+            if isinstance(v, float) and not math.isfinite(v):
+                raise ValidationError(f"reference table {name!r}: non-finite float cell {v!r}")
             if type(v) not in _CELL_TYPES:  # exact types: bool, Decimal, numpy scalars are refused
                 raise ValidationError(
                     f"reference table {name!r}: cell {v!r} is {type(v).__name__}; use None/int/float/str")
