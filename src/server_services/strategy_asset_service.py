@@ -955,12 +955,10 @@ class StrategyAssetService:
         return {"success": True, "section": sub, "message": f"Added {sub}."}, 200
 
     def estate_state_options_payload(self) -> tuple[dict[str, Any], int]:
-        path = self.base_dir / "reference_data" / "state_tax.csv"
+        from ..stores.ref_getters.state_tax import state_tax_rows
         states: list[dict[str, str]] = []
-        if path.exists():
-            with path.open(newline="", encoding="utf-8-sig") as f:
-                for r in csv.DictReader(f):
-                    states.append({"state": str(r.get("state") or "").strip(), "estate": str(r.get("estate") or "").strip(), "estate_exempt": str(r.get("estate_exempt") or "").strip(), "source": str(r.get("source") or "").strip()})
+        for r in state_tax_rows():
+            states.append({"state": str(r.get("state") or "").strip(), "estate": str(r.get("estate") or "").strip(), "estate_exempt": str(r.get("estate_exempt") or "").strip(), "source": str(r.get("source") or "").strip()})
         return {"success": True, "states": [s for s in states if s.get("state")]}, 200
 
     def add_estate_state_payload(self, body: dict[str, Any]) -> tuple[dict[str, Any], int]:
@@ -968,14 +966,12 @@ class StrategyAssetService:
         if not state:
             return {"success": False, "error": "state is required"}, 400
         ref: dict[str, Any] = {}
-        path_ref = self.base_dir / "reference_data" / "state_tax.csv"
-        if path_ref.exists():
-            with path_ref.open(newline="", encoding="utf-8-sig") as f:
-                for r in csv.DictReader(f):
-                    if str(r.get("state") or "").strip().lower() == state.lower():
-                        ref = r
-                        state = str(r.get("state") or state).strip()
-                        break
+        from ..stores.ref_getters.state_tax import state_tax_rows
+        for r in state_tax_rows():
+            if str(r.get("state") or "").strip().lower() == state.lower():
+                ref = r
+                state = str(r.get("state") or state).strip()
+                break
         path = self.context.client_section_path("Estate Planning", "client_insurance_estate.csv")
         with plan_file_lock(path):
             rows = self.context.ensure_header(self.context.csv_read_rows(path))

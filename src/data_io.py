@@ -1701,10 +1701,8 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     c.update(parse_allocation_optimizer_inputs(data))
 
     # ── Tax Provenance Registry (9.6) ─────────────────────────────────────────
-    # Load scalar overrides from tax_constants.csv; record provenance.
-    _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    _search_dirs = [_project_root, os.getcwd(), '/mnt/user-data/outputs']
-    c['tax_constants_registry'] = _td.load_tax_constants(_search_dirs)
+    # Provenance of the dated tax-law constants.
+    c['tax_constants_registry'] = _td.load_tax_constants()
     c['tax_provenance'] = dict(_td.TAX_YEAR_PROVENANCE)  # copy for the methodology sheet
     c['tax_table_currency_warnings'] = _td.tax_table_currency_warnings(max_lag_years=int(c.get('tax_table_currency_max_lag_years', 1) or 1))
 
