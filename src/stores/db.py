@@ -18,12 +18,15 @@ from .errors import SchemaVersionError, StoreError  # re-exported: ``from .db im
 MEMORY = ":memory:"
 
 
-def connect(path: str | Path = MEMORY, *, readonly: bool = False) -> sqlite3.Connection:
+def connect(path: str | Path = MEMORY, *, readonly: bool = False,
+            check_same_thread: bool = True) -> sqlite3.Connection:
     """Open a connection with the project pragmas (WAL, foreign keys, row factory).
 
     Autocommit mode (``isolation_level=None``): transactions are explicit via
     ``transaction()``. ``readonly`` opens a URI ``mode=ro`` connection and
-    raises ``StoreError`` if the file does not exist.
+    raises ``StoreError`` if the file does not exist. ``check_same_thread=False``
+    is for a connection shared across threads behind the caller's own lock
+    (``RefData`` does this for the process-wide reference handle).
     """
     target = str(path)
     if readonly:
@@ -32,9 +35,10 @@ def connect(path: str | Path = MEMORY, *, readonly: bool = False) -> sqlite3.Con
         p = Path(target)
         if not p.is_file():
             raise StoreError(f"database file not found: {target}")
-        con = sqlite3.connect(f"{p.resolve().as_uri()}?mode=ro", uri=True, isolation_level=None)
+        con = sqlite3.connect(f"{p.resolve().as_uri()}?mode=ro", uri=True, isolation_level=None,
+                              check_same_thread=check_same_thread)
     else:
-        con = sqlite3.connect(target, isolation_level=None)
+        con = sqlite3.connect(target, isolation_level=None, check_same_thread=check_same_thread)
     con.row_factory = sqlite3.Row
     con.execute("PRAGMA foreign_keys=ON")
     if not readonly and target != MEMORY:

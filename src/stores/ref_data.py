@@ -1,19 +1,24 @@
-"""RefData skeleton over the read-only, shipped ``reference.db`` (WP2.3).
+"""RefData over the read-only, shipped ``reference.db`` (WP2.3, WP3.1).
 
 Layout (schema v1): ``ref_meta(key, value)`` holds ``schema``, ``data_version`` and
 ``content_hash``; every other table is a data table. The content hash is SHA-256 over
-all data tables (sorted by table name; rows in primary-key/rowid order; compact JSON
-per row), computed from the database content itself so no file is read directly.
-``open`` verifies it. Getters return plain Python structures (list of dicts).
-Later WPs add typed getters per slice; ``build`` exists for the release tool and tests.
+all data tables (sorted by table name; rows in rowid order; compact JSON per row),
+computed from the database content itself so no file is read directly. ``open``
+verifies it. Getters return plain Python structures (list of dicts).
+
+Per-slice typed getters live in ``src/stores/ref_getters/``; the process-wide handle
+is ``src.stores.ref_access.reference()``. ``build`` is used only by
+``tools/build_reference_db.py`` and tests. One ``RefData`` may be shared across
+threads: every query runs under the instance lock.
 """
 from __future__ import annotations
 
 import hashlib
 import json
 import sqlite3
+import threading
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Callable, Iterable, Mapping, Sequence
 
 from . import db
 from .errors import NotFoundError, StoreError, ValidationError
@@ -54,13 +59,14 @@ class RefData:
 
     def __init__(self, con: sqlite3.Connection, path: str) -> None:
         self._con: sqlite3.Connection | None = con
+        self._lock = threading.RLock()
         self.path = path
         self._meta = {r[0]: r[1] for r in con.execute(f"SELECT key, value FROM {_META}")}
 
     @classmethod
     def open(cls, path: str | Path, *, verify: bool = True) -> "RefData":
         try:
-            con = db.connect(path, readonly=True)
+            con = db.connect(path, readonly=True, check_same_thread=False)
         except StoreError as exc:
             raise RefDataError(f"reference data not available: {exc}") from exc
         try:
@@ -92,19 +98,30 @@ class RefData:
         return dict(self._meta)
 
     # ----------------------------------------------------------------- getters
+    def query(self, sql: str, params: Sequence[Any] = ()) -> list[sqlite3.Row]:
+        """Run one read query under the instance lock; rows are fully fetched.
+
+        This is what slice getters (``src/stores/ref_getters/``) call. The
+        connection is opened ``mode=ro``, so a write statement fails.
+        """
+        with self._lock:
+            return self._c().execute(sql, tuple(params)).fetchall()
+
     def tables(self) -> list[str]:
-        return _data_tables(self._c())
+        with self._lock:
+            return _data_tables(self._c())
 
     def table(self, name: str) -> list[dict[str, Any]]:
         """All rows of a data table as plain dicts, in stored order."""
         if name not in self.tables():
             raise NotFoundError(f"reference table {name!r} not found")
-        return [dict(r) for r in self._c().execute(f'SELECT * FROM "{name}" ORDER BY rowid')]
+        return [dict(r) for r in self.query(f'SELECT * FROM "{name}" ORDER BY rowid')]
 
     def close(self) -> None:
-        if self._con is not None:
-            self._con.close()
-            self._con = None
+        with self._lock:
+            if self._con is not None:
+                self._con.close()
+                self._con = None
 
     def __enter__(self) -> "RefData":
         return self
@@ -118,9 +135,39 @@ class RefData:
         return self._con
 
 
+_CELL_TYPES = (type(None), int, float, str)
+
+
+def _row_sort_key(row: tuple) -> tuple:
+    """Total order over cells of mixed type (None < numbers < text); ties broken by type name."""
+    return (tuple((0, 0) if v is None else (1, v) if isinstance(v, (int, float)) else (2, v) for v in row),
+            tuple(type(v).__name__ for v in row))
+
+
+def _checked_rows(name: str, cols: Sequence[str], rows: Iterable[Sequence[Any]]) -> list[tuple]:
+    out = []
+    for r in rows:
+        t = tuple(r)
+        if len(t) != len(cols):
+            raise ValidationError(f"reference table {name!r}: row has {len(t)} cells, expected {len(cols)}")
+        for v in t:
+            if type(v) not in _CELL_TYPES:  # exact types: bool, Decimal, numpy scalars are refused
+                raise ValidationError(
+                    f"reference table {name!r}: cell {v!r} is {type(v).__name__}; use None/int/float/str")
+        out.append(t)
+    return sorted(out, key=_row_sort_key)
+
+
 def build(path: str | Path, tables: Mapping[str, tuple[Sequence[str], Iterable[Sequence[Any]]]],
-          *, data_version: str) -> str:
-    """Write a deterministic reference.db; return its content hash (release tool / tests)."""
+          *, data_version: str | Callable[[str], str]) -> str:
+    """Write a deterministic reference.db; return its content hash (release tool / tests).
+
+    Rows are sorted (put an explicit ``seq`` column first when source order matters),
+    cells must be ``None``/``int``/``float``/``str`` and are stored exactly as given
+    (columns carry no type affinity). ``data_version`` may be a callable receiving the
+    content hash, so the version string can embed it. The file is left in rollback-journal
+    mode so a read-only install directory can open it.
+    """
     p = Path(path)
     if p.exists():
         raise ValidationError(f"refusing to overwrite {p}")
@@ -135,11 +182,12 @@ def build(path: str | Path, tables: Mapping[str, tuple[Sequence[str], Iterable[S
                 con.execute(f'CREATE TABLE "{name}" ({", ".join(chr(34) + c + chr(34) for c in cols)})')
                 con.executemany(
                     f'INSERT INTO "{name}" VALUES ({", ".join("?" * len(cols))})',
-                    [tuple(r) for r in rows],
+                    _checked_rows(name, cols, rows),
                 )
             digest = compute_content_hash(con)
+            version = data_version(digest) if callable(data_version) else data_version
             con.executemany(f"INSERT INTO {_META} VALUES (?, ?)", [
-                ("schema", str(REF_SCHEMA_VERSION)), ("data_version", data_version), ("content_hash", digest)])
+                ("schema", str(REF_SCHEMA_VERSION)), ("data_version", version), ("content_hash", digest)])
         con.execute("PRAGMA journal_mode=DELETE")
     finally:
         con.close()
