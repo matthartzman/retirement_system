@@ -43,11 +43,20 @@ def connect(path: str | Path = MEMORY, *, readonly: bool = False) -> sqlite3.Con
     return con
 
 
+def _end(con: sqlite3.Connection, sql: str) -> None:
+    """ROLLBACK that tolerates SQLite having already ended the transaction."""
+    try:
+        con.execute(sql)
+    except sqlite3.Error:
+        pass
+
+
 @contextmanager
 def transaction(con: sqlite3.Connection, *, immediate: bool = True) -> Iterator[sqlite3.Connection]:
     """Explicit transaction; commit on success, rollback on any exception.
 
-    Nested use joins the outer transaction via a savepoint.
+    Nested use joins the outer transaction via a savepoint. A failed COMMIT
+    rolls back before the error propagates, so the connection is never left open.
     """
     if con.in_transaction:
         name = f"sp_{id(object())}"
@@ -55,18 +64,19 @@ def transaction(con: sqlite3.Connection, *, immediate: bool = True) -> Iterator[
         try:
             yield con
         except BaseException:
-            con.execute(f"ROLLBACK TO {name}")
-            con.execute(f"RELEASE {name}")
+            _end(con, f"ROLLBACK TO {name}")
+            _end(con, f"RELEASE {name}")
             raise
         con.execute(f"RELEASE {name}")
         return
     con.execute("BEGIN IMMEDIATE" if immediate else "BEGIN")
     try:
         yield con
+        con.execute("COMMIT")
     except BaseException:
-        con.execute("ROLLBACK")
+        if con.in_transaction:
+            _end(con, "ROLLBACK")
         raise
-    con.execute("COMMIT")
 
 
 def get_version(con: sqlite3.Connection) -> int:
@@ -86,14 +96,22 @@ def migrate(con: sqlite3.Connection, migrations: Sequence[str]) -> int:
     for ver in range(current, target):
         try:
             con.execute("BEGIN IMMEDIATE")
+        except sqlite3.Error as exc:
+            raise StoreError(f"cannot lock database for migration: {exc}") from exc
+        try:
+            if get_version(con) > ver:  # another process migrated while we waited for the lock
+                _end(con, "ROLLBACK")
+                continue
             for stmt in _split(migrations[ver]):
                 con.execute(stmt)
             con.execute(f"PRAGMA user_version={ver + 1}")
             con.execute("COMMIT")
-        except sqlite3.Error as exc:
+        except BaseException as exc:
             if con.in_transaction:
-                con.execute("ROLLBACK")
-            raise SchemaVersionError(f"migration to v{ver + 1} failed: {exc}") from exc
+                _end(con, "ROLLBACK")
+            if isinstance(exc, sqlite3.Error):
+                raise SchemaVersionError(f"migration to v{ver + 1} failed: {exc}") from exc
+            raise
     return target
 
 

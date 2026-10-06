@@ -135,14 +135,14 @@ def hash_rows(rows: Iterable[Mapping[str, Any] | tuple]) -> str:
     return h.hexdigest()
 
 
-_PLAN_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
+_PLAN_ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}")
 _WINDOWS_RESERVED = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))}
 
 
 def validate_plan_id(plan_id: Any) -> str:
     """A plan id is also a directory name: 1-64 of ``[A-Za-z0-9_-]``, starting alphanumeric,
     not a Windows device name."""
-    if not isinstance(plan_id, str) or not _PLAN_ID_RE.match(plan_id) or plan_id.upper() in _WINDOWS_RESERVED:
+    if not isinstance(plan_id, str) or not _PLAN_ID_RE.fullmatch(plan_id) or plan_id.upper() in _WINDOWS_RESERVED:
         raise ValidationError(f"invalid plan id: {plan_id!r}")
     return plan_id
 
@@ -287,7 +287,10 @@ class PlanStore(_SqliteStore):
 
     @property
     def revision_retention(self) -> int:
-        return int(self._meta(RETENTION_KEY) or DEFAULT_REVISION_RETENTION)
+        try:
+            return max(1, int(self._meta(RETENTION_KEY) or DEFAULT_REVISION_RETENTION))
+        except ValueError:
+            return DEFAULT_REVISION_RETENTION
 
     def set_revision_retention(self, keep: int) -> None:
         """Keep at most ``keep`` (>= 1) revisions; prunes immediately."""
@@ -349,10 +352,13 @@ class PlanStore(_SqliteStore):
             if len(rows) != header["row_count"] or hash_rows(r[1:] for r in rows) != header["rows_sha256"]:
                 raise IntegrityError(f"revision {revision_id} copy does not match its recorded hash")
             backup_id = (
-                self._snapshot(con, "pre-restore", f"before restoring revision {revision_id}") if backup else None
+                self._snapshot(con, "pre-restore", f"before restoring revision {revision_id}", prune=False)
+                if backup
+                else None
             )
             con.execute("DELETE FROM plan_rows")
             con.executemany(f"INSERT INTO plan_rows ({_ROW_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", rows)
+            self._prune(con, self.revision_retention, protect=revision_id)
             return backup_id
 
     # ----------------------------------------------------------------------- meta
@@ -389,7 +395,7 @@ class PlanStore(_SqliteStore):
             raise NotFoundError(f"plan revision {revision_id} not found")
         return dict(r)
 
-    def _snapshot(self, con: Any, source: str, note: str) -> int:
+    def _snapshot(self, con: Any, source: str, note: str, *, prune: bool = True) -> int:
         rows = [
             tuple(r)
             for r in con.execute(f"SELECT {_ROW_COLUMNS} FROM plan_rows ORDER BY section, sort_order, row_id")
@@ -403,14 +409,17 @@ class PlanStore(_SqliteStore):
             f"INSERT INTO revision_rows (revision_id, {_ROW_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [(rev_id, *r) for r in rows],
         )
-        self._prune(con, self.revision_retention)
+        if prune:
+            self._prune(con, self.revision_retention)
         return rev_id
 
     @staticmethod
-    def _prune(con: Any, keep: int) -> None:
+    def _prune(con: Any, keep: int, protect: int | None = None) -> None:
+        """Keep the newest ``keep`` revisions (and ``protect``, e.g. the one just restored)."""
         con.execute(
-            "DELETE FROM plan_revisions WHERE id NOT IN (SELECT id FROM plan_revisions ORDER BY id DESC LIMIT ?)",
-            (keep,),
+            "DELETE FROM plan_revisions WHERE id NOT IN (SELECT id FROM plan_revisions ORDER BY id DESC LIMIT ?) "
+            "AND id IS NOT ?",
+            (keep, protect),
         )
 
 
