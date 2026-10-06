@@ -17,12 +17,13 @@ Secrets never go here (design decision 5: OS credential store).
 from __future__ import annotations
 
 import json
+import os
 import uuid
 from pathlib import Path
 from typing import Any
 
 from ._base import _SqliteStore
-from .errors import NotFoundError, ValidationError
+from .errors import NotFoundError, StoreError, ValidationError
 from .plan_store import validate_plan_id
 
 APP_APPLICATION_ID = 0x52504150  # "RPAP"
@@ -69,7 +70,7 @@ def _check_path(path: Any) -> str:
     p = Path(path)
     if not p.is_absolute():
         raise ValidationError(f"plan path must be absolute: {path!s}")
-    return str(p)
+    return os.path.normpath(str(p))
 
 
 def _check_kind(kind: Any) -> str:
@@ -183,7 +184,7 @@ class AppStore(_SqliteStore):
         _check_str("key", key)
         with self._read() as con:
             r = con.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
-        return default if r is None else json.loads(r[0])
+        return default if r is None else _loads(key, r[0])
 
     def set_setting(self, key: str, value: Any) -> None:
         """Store any JSON-serialisable value (``ValidationError`` otherwise, including NaN)."""
@@ -207,7 +208,7 @@ class AppStore(_SqliteStore):
     def settings(self) -> dict[str, Any]:
         """All settings, decoded, keyed in sorted order."""
         with self._read() as con:
-            return {k: json.loads(v) for k, v in con.execute("SELECT key, value FROM settings ORDER BY key")}
+            return {k: _loads(k, v) for k, v in con.execute("SELECT key, value FROM settings ORDER BY key")}
 
     # ------------------------------------------------------------------- internals
     @staticmethod
@@ -219,3 +220,10 @@ class AppStore(_SqliteStore):
 
 
 __all__ = ["APP_APPLICATION_ID", "APP_MIGRATIONS", "APP_SCHEMA_VERSION", "AppStore", "PLAN_KINDS"]
+
+
+def _loads(key: str, text: str):
+    try:
+        return json.loads(text)
+    except ValueError as exc:
+        raise StoreError(f"setting {key!r} holds invalid JSON") from exc

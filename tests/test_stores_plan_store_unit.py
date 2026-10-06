@@ -425,3 +425,18 @@ def test_no_product_code_imports_stores_yet():
         if "stores" not in f.relative_to(ROOT / "src").parts[:1] and pat.search(f.read_text(encoding="utf-8"))
     ]
     assert offenders == []
+
+
+def test_review_fixes_plan_id_newline_and_restore_keeps_target():
+    import pytest
+    from src.stores import PlanStore, ValidationError
+    from src.stores.plan_store import validate_plan_id
+    with pytest.raises(ValidationError):
+        validate_plan_id("abc\n")
+    s = PlanStore.open()
+    s.insert_row("A", label="x", value="1")
+    first = s.snapshot_revision("t")
+    s.set_revision_retention(1)
+    s.insert_row("A", label="y", value="2")
+    s.restore_revision(first)
+    assert any(r["id"] == first for r in s.list_revisions())
