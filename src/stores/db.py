@@ -13,15 +13,9 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator, Sequence
 
+from .errors import SchemaVersionError, StoreError  # re-exported: ``from .db import StoreError`` keeps working
+
 MEMORY = ":memory:"
-
-
-class StoreError(Exception):
-    """Base class for all store-layer errors."""
-
-
-class SchemaVersionError(StoreError):
-    """Database is newer than this code understands, or a migration failed."""
 
 
 def connect(path: str | Path = MEMORY, *, readonly: bool = False) -> sqlite3.Connection:
