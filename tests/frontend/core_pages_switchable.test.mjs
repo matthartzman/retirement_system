@@ -37,3 +37,13 @@ test("a module with a CSV row but no row loaded stays off (unchanged behavior)",
 test("Family & Business hides only when both of its modules are off", () => {
   assert.equal(sandbox.stepGatedByOptionalModule("family_business"), true);
 });
+
+test("WP1.4: Optimize sections follow their sheet toggles; Harvesting is any-of", () => {
+  sandbox.window.moduleGates = {
+    ...GATES,
+    step_gates: { ...GATES.step_gates, hsa_drawdown: "hsa_drawdown", social_security: "social_security_timing", withdrawal_sequencing: "retirement_strategy" },
+  };
+  for (const id of ["hsa_drawdown", "social_security", "withdrawal_sequencing", "harvesting"]) {
+    assert.equal(sandbox.stepGatedByOptionalModule(id), true, id); // no rows loaded = off
+  }
+});
