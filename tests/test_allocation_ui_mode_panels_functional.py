@@ -1,4 +1,5 @@
 from __future__ import annotations
+from tests.plan_fixture import plan_data
 import csv
 import copy
 import unittest
@@ -30,7 +31,7 @@ class AllocationUIModePanelsTests(unittest.TestCase):
         self.assertEqual(seen_override, expected)
 
     def test_parser_loads_blank_optimizer_overrides_without_activating_them(self):
-        data = load_csv(TEST_INPUT_DIR / 'client_data.csv')
+        data = plan_data()
         c = parse_client(data, '')
         self.assertEqual(set(c['allocation_optimizer_override_pct']), set(ap.DEFAULT_ALLOCATION_TARGETS))
         self.assertAlmostEqual(c['allocation_optimizer_override_sum'], 0.0)
@@ -38,7 +39,7 @@ class AllocationUIModePanelsTests(unittest.TestCase):
         self.assertEqual(out['diagnostics']['allocation_policy_mode'], 'optimizer_recommendation')
 
     def test_optimizer_override_replaces_computed_optimizer_when_entered(self):
-        data = load_csv(TEST_INPUT_DIR / 'client_data.csv')
+        data = plan_data()
         c = parse_client(data, '')
         c = copy.deepcopy(c)
         c['allocation_selection_mode'] = ap.ALLOCATION_MODE_OPTIMIZER

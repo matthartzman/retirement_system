@@ -6,6 +6,7 @@ plan-start dollar in the optimizer's score.
 """
 from __future__ import annotations
 
+from tests.plan_fixture import plan_config
 import pytest
 
 from src.data_io import load_csv, parse_client
@@ -16,7 +17,7 @@ from conftest import TEST_INPUT_DIR
 
 
 def sample_config():
-    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+    c = plan_config()
     c["roth_policy"] = "none"
     c["mc_paths"] = 5
     c["mc_sensitivity_sims"] = 1

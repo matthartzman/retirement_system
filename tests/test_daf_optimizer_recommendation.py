@@ -8,6 +8,7 @@ already reads.
 """
 from __future__ import annotations
 
+from tests.plan_fixture import plan_config
 from src.daf_optimizer import recommend_daf_contribution
 from src.data_io import load_csv, parse_client
 from tests.golden_pricing import FROZEN_GOLDEN_MASTER_PRICES, frozen_holdings_prices
@@ -16,7 +17,7 @@ from conftest import TEST_INPUT_DIR
 
 
 def sample_config():
-    return parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+    return plan_config()
 
 
 def test_cash_limit_is_60pct_of_agi_and_appreciated_is_30pct():

@@ -13,6 +13,7 @@ that outlives its own RMD start age -- the shipped default
 (conv_window_offset=-1) always closes voluntary conversions the year
 before RMDs begin.
 """
+from tests.plan_fixture import plan_config
 from pathlib import Path
 
 from src.core import statutory_rmd_start_age
@@ -25,7 +26,7 @@ from conftest import TEST_INPUT_DIR
 
 
 def _scenario():
-    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+    c = plan_config()
     c["roth_policy"] = "fill_to_bracket"
     c["roth_target_rate"] = 0.22
     c["roth_irmaa_cap"] = True

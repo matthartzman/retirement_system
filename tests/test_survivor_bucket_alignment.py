@@ -15,6 +15,7 @@ exactly the bucket those death years imply.
 """
 from __future__ import annotations
 
+from tests.plan_fixture import plan_config
 import unittest
 from pathlib import Path
 
@@ -34,7 +35,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def _base_config():
-    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+    c = plan_config()
     c["roth_policy"] = "none"
     c["plan_end"] = min(int(c["plan_end"]), int(c["plan_start"]) + 12)
     c["mc_sensitivity_sims"] = 1

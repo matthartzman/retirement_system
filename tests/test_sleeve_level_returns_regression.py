@@ -17,6 +17,7 @@ matrix) not included in this pass.
 """
 from __future__ import annotations
 
+from tests.plan_fixture import plan_data
 from src.data_io import load_csv, parse_client
 from src.plan_config import ensure_engine_config
 from tests.golden_pricing import FROZEN_GOLDEN_MASTER_PRICES, frozen_holdings_prices
@@ -25,7 +26,7 @@ from conftest import TEST_INPUT_DIR
 
 
 def sample_config():
-    data = load_csv(TEST_INPUT_DIR / "client_data.csv")
+    data = plan_data()
     with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
         c = ensure_engine_config(parse_client(data, ""), source="test")
     return c

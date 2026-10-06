@@ -2,6 +2,7 @@
 screen-spliced Locations (design 2026-09-16 §7.1/§7.2)."""
 from __future__ import annotations
 
+from tests.plan_fixture import plan_config
 import pytest
 
 from src.housing.api import optimize_housing_from_request
@@ -25,7 +26,7 @@ def _base_config():
     """The same engine config the existing housing integration suite uses
     (tests/test_housing_optimizer_integration.py:20). Skips itself on a fresh
     worktree, where input/ is gitignored."""
-    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+    c = plan_config()
     with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
         return ensure_engine_config(dict(c), source="test")
 

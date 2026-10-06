@@ -32,6 +32,7 @@ config, preserving the original intent of exercising a real-shaped
 household config rather than a hand-built stub.
 """
 
+from tests.plan_fixture import plan_config
 import re
 from pathlib import Path
 
@@ -50,7 +51,7 @@ from conftest import TEST_INPUT_DIR
 
 
 def _real_config_and_rows():
-    c = ensure_engine_config(parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), ""), source="test")
+    c = ensure_engine_config(plan_config(), source="test")
     with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
         rows = project(c)
     return c, rows

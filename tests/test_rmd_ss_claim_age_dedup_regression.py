@@ -17,6 +17,7 @@ revision, which blocked 195 until this was named explicitly):
 """
 from __future__ import annotations
 
+from tests.plan_fixture import plan_config
 import unittest
 from pathlib import Path
 
@@ -96,7 +97,7 @@ class Item195RmdSsClaimAgeDedupTests(unittest.TestCase):
     def test_engine_derives_rmd_start_age_purely_from_statutory_default(self):
         from conftest import TEST_INPUT_DIR
         from src.data_io import load_csv, parse_client
-        c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+        c = plan_config()
         from src.core import statutory_rmd_start_age
         self.assertEqual(c["rmd_start_age"], statutory_rmd_start_age(c["h_dob_yr"]))
         self.assertEqual(c["ss_claim_age"], 70)

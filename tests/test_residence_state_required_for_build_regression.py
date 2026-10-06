@@ -29,8 +29,9 @@ from pathlib import Path
 
 import pytest
 
+from tests.plan_fixture import make_plan
+
 ROOT = Path(__file__).resolve().parents[1]
-FROZEN_DIR = ROOT / "tests" / "fixtures" / "sample_plan_frozen"
 
 
 def _staged_workspace(*, residence_state=None):
@@ -38,10 +39,7 @@ def _staged_workspace(*, residence_state=None):
     residence_state in the staged client_household.csv. `residence_state=None`
     leaves the fixture's own value (Illinois) untouched."""
     workspace = Path(tempfile.mkdtemp(prefix="residence_state_test_"))
-    (workspace / "input").mkdir(parents=True)
-    for f in sorted(FROZEN_DIR.iterdir()):
-        if f.is_file():
-            shutil.copy(f, workspace / "input" / f.name)
+    make_plan(workspace)
 
     if residence_state is not None:
         household = workspace / "input" / "client_household.csv"

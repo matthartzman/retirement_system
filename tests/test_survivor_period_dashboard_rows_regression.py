@@ -20,6 +20,7 @@ window within the modeled horizon.
 """
 from __future__ import annotations
 
+from tests.plan_fixture import plan_config
 from conftest import TEST_INPUT_DIR
 from src.data_io import load_csv, parse_client
 from src.planning_engines import (
@@ -32,7 +33,7 @@ import pytest
 
 
 def _two_spouse_config(**overrides):
-    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+    c = plan_config()
     c["roth_policy"] = "none"
     # A long enough horizon that at least one spouse's death plausibly
     # falls within it for most sampled paths -- short horizons (as used by

@@ -4,6 +4,7 @@ monte_carlo() pipeline to prove the policy selector reaches the actual
 spending figure and the Monte Carlo success rate, not just the pure
 per-year helper functions.
 """
+from tests.plan_fixture import plan_config
 import contextlib
 import io
 
@@ -16,7 +17,7 @@ from conftest import TEST_INPUT_DIR
 
 
 def _project(policy=None, **overrides):
-    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+    c = plan_config()
     c["mc_paths"] = 5
     if policy is not None:
         c["spending_policy"] = policy

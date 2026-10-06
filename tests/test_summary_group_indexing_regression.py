@@ -10,6 +10,7 @@ These are exercised through the real projection engine (parse_client + project,
 the same pattern as test_119) so a regression in the resolver span, the engine's
 inflation indexing, or the current-year top-up hook is caught end to end.
 """
+from tests.plan_fixture import plan_config
 from pathlib import Path
 
 from src.data_io import load_csv, parse_client
@@ -49,7 +50,7 @@ def test_summary_group_budget_resolves_to_full_window_extra(tmp_path):
 
 
 def _config_with_travel_summary():
-    cfg = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+    cfg = plan_config()
     ps = int(cfg["plan_start"])
     # A summary Travel group resolves to a single recurring extra spanning the
     # whole plan window (see resolve_spending_inputs). Model that directly and

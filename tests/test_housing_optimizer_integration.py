@@ -7,6 +7,7 @@ no engine run and stays fast.
 """
 from __future__ import annotations
 
+from tests.plan_fixture import plan_config
 import pytest
 
 from src.data_io import load_csv, parse_client
@@ -20,7 +21,7 @@ pytestmark = pytest.mark.integration
 
 
 def _base_config():
-    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+    c = plan_config()
     with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
         return ensure_engine_config(dict(c), source="test")
 

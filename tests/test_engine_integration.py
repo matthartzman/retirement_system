@@ -6,6 +6,7 @@ business-succession estate-tax effect. Every integration is gated on the saved
 optional-function toggle in ``c['opt']`` (NOT module_enabled/FORCE_* env), so a
 default plan projects identically — the off-state inertness test locks that in.
 """
+from tests.plan_fixture import plan_data
 import os
 
 import pytest
@@ -27,7 +28,7 @@ def base_cfg():
     # files resolved through the redirected workspace -- an incoherent hybrid
     # config whose values depended on how far the two trees had diverged.
     from conftest import TEST_INPUT_DIR
-    return prepare_config_from_sectioned_data(load_csv(TEST_INPUT_DIR / "client_data.csv"))
+    return prepare_config_from_sectioned_data(plan_data())
 
 
 # ── AMT engine ────────────────────────────────────────────────────────────────

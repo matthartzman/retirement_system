@@ -5,6 +5,7 @@ of P12 already landed as item 2.6 (`irmaa_actual_magi_2yr_prior`/`1yr_prior`).
 """
 from __future__ import annotations
 
+from tests.plan_fixture import plan_config
 import copy
 import unittest
 from pathlib import Path
@@ -18,7 +19,7 @@ from conftest import TEST_INPUT_DIR
 
 
 def _config():
-    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+    c = plan_config()
     c["roth_policy"] = "none"
     return c
 

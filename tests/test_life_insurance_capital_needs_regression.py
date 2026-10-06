@@ -22,6 +22,7 @@ The fix:
 """
 from __future__ import annotations
 
+from tests.plan_fixture import plan_config
 from src.data_io import load_csv, parse_client
 from src.plan_config import ensure_engine_config
 from src.planning_engines import project
@@ -32,7 +33,7 @@ from conftest import TEST_INPUT_DIR
 
 
 def sample_config_and_rows():
-    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+    c = plan_config()
     c["roth_policy"] = "none"
     c = ensure_engine_config(c, source="test")
     with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):

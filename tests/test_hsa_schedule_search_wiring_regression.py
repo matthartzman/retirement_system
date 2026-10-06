@@ -24,6 +24,7 @@ household's own configuration.
 """
 from __future__ import annotations
 
+from tests.plan_fixture import plan_config
 import unittest
 
 from conftest import TEST_INPUT_DIR
@@ -37,7 +38,7 @@ from src.hsa_schedule import (
 
 
 def _config(mode="optimize"):
-    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+    c = plan_config()
     c["roth_policy"] = "none"
     c["hsa_withdrawal_mode"] = mode
     return c

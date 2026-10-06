@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from tests.plan_fixture import plan_data
 import copy
 import unittest
 from pathlib import Path
@@ -17,7 +18,7 @@ from conftest import TEST_INPUT_DIR
 
 class AllocationScenarioTests(unittest.TestCase):
     def _config(self):
-        data = load_csv(TEST_INPUT_DIR / 'client_data.csv')
+        data = plan_data()
         c = parse_client(data, '')
         c['mc_sims'] = 5
         c['mc_sensitivity_sims'] = 1

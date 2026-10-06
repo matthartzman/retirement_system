@@ -35,11 +35,12 @@ from pathlib import Path
 
 import pytest
 
+from tests.plan_fixture import make_plan
+
 from src import local_store, platform_runtime
 from src.config_backend import export_client_json_yaml
 
 ROOT = Path(__file__).resolve().parents[1]
-_FROZEN_PLAN_DIR = ROOT / "tests" / "fixtures" / "sample_plan_frozen"
 
 # A week apart, and deliberately distinct from tests/conftest.py's shared
 # session date (FROZEN_PLAN_TODAY = "2026-08-04") so a snapshot written by
@@ -58,10 +59,7 @@ def _seed_workspace(workspace_root: Path) -> None:
     dollar figures against)."""
     for name in platform_runtime.WORKSPACE_SUBDIRS:
         (workspace_root / name).mkdir(parents=True, exist_ok=True)
-    input_dir = workspace_root / "input"
-    for f in sorted(_FROZEN_PLAN_DIR.iterdir()):
-        if f.is_file():
-            shutil.copy(f, input_dir / f.name)
+    input_dir = make_plan(workspace_root).input_dir
     export_client_json_yaml(input_dir / "client_data.csv", input_dir)
 
 
