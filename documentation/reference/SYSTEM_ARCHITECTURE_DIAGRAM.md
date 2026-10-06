@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 199 Python files under `src/`, 47 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 202 Python files under `src/`, 47 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -24,7 +24,7 @@ flowchart TB
     subgraph L_HTTP_Runtime["HTTP Runtime (3 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
-    subgraph L_Core_Engine___Domain["Core Engine & Domain (119 modules)"]
+    subgraph L_Core_Engine___Domain["Core Engine & Domain (122 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
     subgraph L_Projection_Stages["Projection Stages (23 modules)"]
@@ -572,13 +572,16 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/spending_adjustments.py` | — | — |
 | `src/spending_budget_resolver.py` | `large_discretionary`, `spending_adjustments`, `spending_tracker` | — |
 | `src/spending_tracker.py` | `platform_runtime`, `ytd_tracking` | — |
-| `src/stores/__init__.py` | `stores.app_store`, `stores.db`, `stores.errors`, `stores.plan_store`, `stores.ref_data` | — |
+| `src/stores/__init__.py` | `stores.app_store`, `stores.db`, `stores.errors`, `stores.plan_store`, `stores.ref_access`, `stores.ref_data` | — |
 | `src/stores/_base.py` | `stores`, `stores.errors` | — |
 | `src/stores/app_store.py` | `stores._base`, `stores.errors`, `stores.plan_store` | — |
 | `src/stores/db.py` | `stores.errors` | — |
 | `src/stores/errors.py` | — | — |
 | `src/stores/plan_store.py` | `stores._base`, `stores.errors` | — |
+| `src/stores/ref_access.py` | `stores.ref_data` | — |
 | `src/stores/ref_data.py` | `stores`, `stores.errors` | — |
+| `src/stores/ref_getters/__init__.py` | `stores.ref_data`, `stores.ref_getters` | — |
+| `src/stores/ref_getters/tax_update_dashboard.py` | `stores.ref_access`, `stores.ref_data` | — |
 | `src/strategy_sweep.py` | — | — |
 | `src/system_config.py` | `plan_file_io` | — |
 | `src/tax_assumptions.py` | `tax_law` | — |

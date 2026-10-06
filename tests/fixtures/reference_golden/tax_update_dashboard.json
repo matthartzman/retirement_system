@@ -1,0 +1,98 @@
+[
+ {
+  "constant": "federal_brackets",
+  "category": "Federal ordinary income tax",
+  "year": "2026",
+  "source": "IRS Rev. Proc. 2025-32 Section 4.01 tax rate tables; dated rows in reference_data/tax_law_v10.json",
+  "source_url": "https://www.irs.gov/pub/irs-drop/rp-25-32.pdf",
+  "last_reviewed": "2026-09-29",
+  "review_frequency": "annual",
+  "status": "CURRENT_WITHIN_POLICY",
+  "blocking": false,
+  "notes": "VERIFIED 2026-09-29 against the Rev. Proc. 2025-32 PDF: all 28 ordinary-bracket rows (4 filing statuses x 7) match on thresholds, rates and the published cumulative tax amounts. Annual process: after IRS releases the next-year inflation adjustment revenue procedure, ADD a new dated bracket table (new effective_year) to reference_data/tax_law_v10.json -- never overwrite an existing row -- then update schema bracket choices, workbook tests, and this dashboard."
+ },
+ {
+  "constant": "standard_deduction",
+  "category": "Federal deduction",
+  "year": "2026",
+  "source": "IRS Rev. Proc. 2025-32 (2025 OBBBA amounts in Section 3.01; 2026 amounts and aged/blind additions in Section 4.14); dated rows in reference_data/tax_law_v10.json (tax_constants.csv is a fallback only)",
+  "source_url": "https://www.irs.gov/pub/irs-drop/rp-25-32.pdf",
+  "last_reviewed": "2026-09-29",
+  "review_frequency": "annual",
+  "status": "CURRENT_WITHIN_POLICY",
+  "blocking": false,
+  "notes": "VERIFIED 2026-09-29 against the Rev. Proc. 2025-32 PDF: the 2025 OBBBA and 2026 standard deductions and the 2026 aged/blind additions (1650; 2050 if unmarried). The 2025 additions come from Rev. Proc. 2024-40 (not re-checked). Annual process: ADD new dated standard_deduction and standard_deduction_over65 rows (every filing status) to reference_data/tax_law_v10.json, then update closed-form tax tests and this dashboard. Contribution limits are per-household Plan Data fields, not reference data."
+ },
+ {
+  "constant": "irmaa_tiers",
+  "category": "Medicare IRMAA",
+  "year": "2026",
+  "source": "CMS 2026 Medicare Parts A & B Premiums and Deductibles fact sheet (2025-11-14); dated rows in reference_data/tax_law_v10.json",
+  "source_url": "https://www.cms.gov/newsroom/fact-sheets/2026-medicare-parts-b-premiums-deductibles",
+  "last_reviewed": "2026-09-29",
+  "review_frequency": "annual",
+  "status": "CURRENT_WITHIN_POLICY",
+  "blocking": false,
+  "notes": "VERIFIED 2026-09-29 against the CMS fact sheet PDF: every 2026 IRMAA threshold (individual, joint, married filing separately), the Part B and Part D surcharges and the $202.90 standard Part B premium. The part_d_base_premium_monthly row is a household plan-premium estimate (the CMS 2026 Part D bid fact sheet gives the national base beneficiary premium of 38.99, a different quantity), so it is left as a planning assumption. Annual process: after CMS publishes new Medicare Part B/D premiums and IRMAA tables, ADD new dated irmaa_tier thresholds, Part B/Part D surcharges and base premiums (every filing status) to reference_data/tax_law_v10.json, then update UI tier labels, Roth IRMAA tests, and this dashboard."
+ },
+ {
+  "constant": "ltcg_brackets",
+  "category": "Long-term capital gains",
+  "year": "2026",
+  "source": "IRS Rev. Proc. 2025-32 Section 4.03 maximum zero and 15 percent rate amounts; dated rows in reference_data/tax_law_v10.json",
+  "source_url": "https://www.irs.gov/pub/irs-drop/rp-25-32.pdf",
+  "last_reviewed": "2026-09-29",
+  "review_frequency": "annual",
+  "status": "CURRENT_WITHIN_POLICY",
+  "blocking": false,
+  "notes": "VERIFIED 2026-09-29 against the Rev. Proc. 2025-32 PDF: all 2026 zero-rate and 15 percent-rate thresholds. Annual process: ADD new dated ltcg_0pct_top and ltcg_15pct_top rows to reference_data/tax_law_v10.json, then update source notes, capital-gain tests, and this dashboard."
+ },
+ {
+  "constant": "ss_wage_base",
+  "category": "Social Security wage base",
+  "year": "2026",
+  "source": "SSA 2026 wage base; dated row in reference_data/tax_law_v10.json",
+  "source_url": "https://www.ssa.gov/",
+  "last_reviewed": "2026-07-01",
+  "review_frequency": "annual",
+  "status": "CURRENT_WITHIN_POLICY",
+  "blocking": false,
+  "notes": "Annual process: ADD a new dated ss_wage_base row to reference_data/tax_law_v10.json and update payroll tax tests; per-household wage base fields are separate."
+ },
+ {
+  "constant": "rmd_divisors",
+  "category": "Required minimum distributions",
+  "year": "2022",
+  "source": "IRS Uniform Lifetime Table effective 2022 (IRS Publication 590-B (2025) Appendix B Table III)",
+  "source_url": "https://www.irs.gov/pub/irs-pdf/p590b.pdf",
+  "last_reviewed": "2026-09-29",
+  "review_frequency": "annual",
+  "status": "CURRENT_UNTIL_LAW_CHANGE",
+  "blocking": false,
+  "notes": "VERIFIED 2026-09-29: all ages 72-120 match Publication 590-B (2025) Table III. Annual process: confirm no statutory/table changes; update RMD divisor test fixtures if law changes."
+ },
+ {
+  "constant": "state_tax",
+  "category": "State income/estate assumptions",
+  "year": "varies",
+  "source": "reference_data/state_tax.csv sources per state",
+  "source_url": "",
+  "last_reviewed": "2026-06-10",
+  "review_frequency": "annual",
+  "status": "REVIEW_REQUIRED_BY_STATE",
+  "blocking": true,
+  "notes": "Annual process: verify residence-state income, retirement-income, property, sales and estate-tax law before advisor-ready state-specific use."
+ },
+ {
+  "constant": "capital_market_assumptions",
+  "category": "Capital Markets",
+  "year": "2026",
+  "source": "reference_data/capital_market_assumptions.csv and asset_correlations.csv row-level refresh notes",
+  "source_url": "",
+  "last_reviewed": "2026-06-09",
+  "review_frequency": "annual",
+  "status": "CURRENT_WITHIN_POLICY",
+  "blocking": false,
+  "notes": "Annual process (or sooner if market outlook materially changes): review expected return/volatility/correlation assumptions across all presets and horizons in capital_market_assumptions.csv and asset_correlations.csv, then update the refresh date in both this row and the CSV row-level notes."
+ }
+]

@@ -22,6 +22,10 @@ saved_plans/
 *.db
 *.db-wal
 *.db-shm
+# ...except the shipped, read-only reference database (built by
+# tools/build_reference_db.py from reference_src/; committed so the app and
+# the frozen bundle ship it like the frontend).
+!/src/reference/reference.db
 
 # financial_trends_reporter's own runtime log: real net worth, cashflow, and
 # spending-by-category figures for every logged day -- same PII sensitivity
