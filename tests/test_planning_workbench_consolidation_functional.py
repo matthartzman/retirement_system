@@ -68,13 +68,11 @@ def test_planning_workbench_route_is_available_before_plan_load():
 def test_legacy_pages_use_workbench_language_and_preserve_routes():
     js = dashboard_js_text()
 
+    # WP1.1: these ids are retired from STEPS; navigation.js still routes them.
     for step_id in ["planning_levers", "scenarios", "monte_carlo_options", "build_impact"]:
-        assert f'id: "{step_id}"' in js
+        assert f'id: "{step_id}"' not in js
 
-    assert "Strategy Levers" in js
-    assert "Scenario Change Sets" in js
     assert "Stress Suite & Monte Carlo" in js
-    assert "Impact & Build History" in js
     assert 'planningWorkbenchBuildImpactHtml() + latestBuildImpactHtml' in js
     assert "No strategy or scenario" not in js  # proposal wording moved into implemented guardrails/docs
     assert "Planning cases never mutate the saved plan automatically" in js
