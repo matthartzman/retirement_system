@@ -173,5 +173,5 @@ Planning bands (assumption, not measured): S about 0.2-0.5M tokens, M 0.5-1M, L 
 | WP1.2 | in review | same PR | `feature_enabled()` / `set_feature()` in `module_catalog.py` (one read path, one write path); `tier`, `nav_group`, `default_on` on every catalog entry; payload keys added to `module_taxonomy`; `/code-review` medium run, findings fixed |
 | WP1.3 | in review | same PR | Estate, Insurance, Reserve Requirements, Family & Business, Scenarios, Workbench pages switchable, default on; three new rowless features (`csv_row=False`, no `client_optional_functions.csv` rows, no backfill); switch not user-writable for those three until WP4 |
 | WP1.4 | in review | same PR | HSA Drawdown, Withdrawal Sequencing, Social Security, Harvesting sections on Optimize follow their module switches |
-| WP1.5 | in review | same PR | one off wording ("Off · N rows entered"), engine-ignored warning, `tests/test_engine_participating_features_off_pinned.py` pins each engine-participating feature off |
+| WP1.5 | in review | same PR | one off wording ("Off · N rows entered"), engine-ignored warning, `tests/test_engine_participating_features_off_pinned_regression.py` pins each engine-participating feature off |
 | WP2 - WP12c | not started | none | planning only |
