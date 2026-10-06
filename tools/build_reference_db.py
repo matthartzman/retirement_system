@@ -47,6 +47,9 @@ DEFAULT_OUT = shipped_reference_path()
 Tables = dict[str, tuple[list[str], list[tuple]]]
 
 
+_IGNORED = {".DS_Store", "Thumbs.db", "desktop.ini", ".gitkeep"}
+
+
 class ReferenceBuildError(RuntimeError):
     """The sources or slice registry are inconsistent; nothing was written."""
 
@@ -71,7 +74,7 @@ def collect_tables(src_dir: Path = SOURCE_DIR, slices: tuple[str, ...] = SLICES)
             if table in tables:
                 raise ReferenceBuildError(f"table {table} produced by two slices (second: {name})")
             tables[table] = (list(cols), list(rows))
-    present = {p.relative_to(src_dir).as_posix() for p in src_dir.rglob("*") if p.is_file()}
+    present = {p.relative_to(src_dir).as_posix() for p in src_dir.rglob("*") if p.is_file() and p.name not in _IGNORED}
     unowned = sorted(present - set(owner))
     if unowned:
         raise ReferenceBuildError(f"reference_src files not owned by any slice: {unowned}")

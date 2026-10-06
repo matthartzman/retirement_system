@@ -48,10 +48,10 @@ def reference() -> RefData:
     """The shared, hash-verified reference handle (opened on first call)."""
     global _handle
     handle = _handle
-    if handle is not None:
+    if handle is not None and not handle.closed:
         return handle
     with _lock:
-        if _handle is None:
+        if _handle is None or _handle.closed:
             _handle = RefData.open(reference_path(), verify=True)
         return _handle
 
