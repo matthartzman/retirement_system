@@ -1933,7 +1933,9 @@ def set_feature(c, key: str, on: bool) -> None:
     follows its flags). Writing a row nothing reads would only make the
     stored state lie.
     """
-    m = CATALOG[key]
+    m = _catalog_entry(key)
+    if m is None:
+        raise KeyError(key)
     if m.gated_by:
         raise ValueError(f"{key} has no switch of its own; it follows {m.gated_by!r}")
     if m.gated_by_any_flag:
@@ -2128,6 +2130,10 @@ def validate() -> None:
             f"{key}: nav_group {m.nav_group!r} is not one of {DOMAINS}")
         assert isinstance(m.default_on, bool), (
             f"{key}: default_on must be a bool, got {m.default_on!r}")
+        # Convention (read side relies on it): module toggles default on when
+        # no row is stored, plan flags default off.
+        assert m.default_on == (m.gate_kind == GATE_MODULE_TOGGLE), (
+            f"{key}: default_on={m.default_on} disagrees with gate_kind={m.gate_kind}")
         # feature_enabled() reads every plan flag through gate_config_key.
         if m.gate_kind == GATE_PLAN_FLAG:
             assert m.gate_config_key, (
