@@ -16,6 +16,7 @@ in ``src/stores/ref_getters/<slice>.py``.
 Register a new slice by appending its module name to ``SLICES``.
 """
 SLICES: tuple[str, ...] = (
+    "state_tax",
     "tax_law",
     "tax_update_dashboard",
 )

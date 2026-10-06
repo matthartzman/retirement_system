@@ -159,9 +159,6 @@
    "csv": 2,
    "path_io": 2
   },
-  "src/server_services/strategy_asset_service.py": {
-   "csv": 2
-  },
   "src/server_services/ytd_service.py": {
    "csv": 1,
    "path_io": 6
@@ -174,10 +171,6 @@
   "src/system_config.py": {
    "csv": 3
   },
-  "src/taxes.py": {
-   "csv": 2,
-   "open": 2
-  },
   "src/tlh.py": {
    "csv": 1
   },
@@ -186,5 +179,5 @@
    "path_io": 1
   }
  },
- "total": 236
+ "total": 230
 }
