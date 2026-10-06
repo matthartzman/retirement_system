@@ -89,7 +89,7 @@ def test_ca_brackets_tagged_with_their_2024_value_year():
 
 
 def test_dataset_salt_rows_do_not_overlap():
-    data = json.loads((ROOT / "reference_data" / "tax_law_v10.json").read_text(encoding="utf-8"))
+    data = json.loads((ROOT / "reference_src" / "tax_law_v10.json").read_text(encoding="utf-8"))
     rows = sorted((v["effective_year"], v.get("expires_year")) for v in data["values"] if v["name"] == "salt_cap")
     for (eff_a, exp_a), (eff_b, _exp_b) in zip(rows, rows[1:]):
         assert exp_a is not None and exp_a < eff_b, rows

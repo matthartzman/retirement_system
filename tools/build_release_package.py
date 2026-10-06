@@ -17,6 +17,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = ROOT.parent / f"{ROOT.name}.zip"
 EXCLUDED_DIR_NAMES = {
+    "reference_src",
     ".claude",
     "input",
     "data",
@@ -33,6 +34,7 @@ EXCLUDED_DIR_NAMES = {
 }
 EXCLUDED_SUFFIXES = {".pyc", ".pyo"}
 ADVISOR_SAFE_FORBIDDEN_SUFFIXES = {".db", ".sqlite", ".sqlite3", ".log"}
+SHIPPED_DB_PATHS = {Path("src") / "reference" / "reference.db"}  # read-only reference data, required at runtime
 EXCLUDED_RELATIVE_PATHS = {
     Path("wsgi.py"),
     Path("output") / "market_price_cache.json",
@@ -46,7 +48,7 @@ def _skip_rel(rel: Path) -> bool:
         return True
     if rel.suffix.lower() in EXCLUDED_SUFFIXES:
         return True
-    if rel.suffix.lower() in ADVISOR_SAFE_FORBIDDEN_SUFFIXES:
+    if rel.suffix.lower() in ADVISOR_SAFE_FORBIDDEN_SUFFIXES and rel not in SHIPPED_DB_PATHS:
         return True
     if rel in EXCLUDED_RELATIVE_PATHS:
         return True

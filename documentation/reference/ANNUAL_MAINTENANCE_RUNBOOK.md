@@ -29,7 +29,7 @@ This document is the actual step list for that person.
 
 ## Tax-year checklist (maintainer-level, ~30-60 minutes, do in mid-to-late January after the IRS Revenue Procedure for the new year is published)
 
-**The one rule.** `reference_data/tax_law_v10.json` is the only source of federal
+**The one rule.** `reference_src/tax_law_v10.json` (built into the shipped `src/reference/reference.db`) is the only source of federal
 statutory values the engine reads (`src/taxes.py` builds every federal table from
 it; `src/tax_law.py` picks, for a given year, the row with the latest
 `effective_year` that is on or before that year and not past its `expires_year`).
@@ -42,8 +42,10 @@ place mislabels its value year and silently mis-indexes every later year.
 
 1. Read the relevant IRS Revenue Procedure, CMS Medicare fact sheet and SSA
    announcement for the new tax year, and note the document and date you used
-   for each value.
-2. In `reference_data/tax_law_v10.json`, append a row (or, for brackets, a full
+   for each value. After editing `reference_src/`, rebuild the shipped database with
+   `python tools/build_reference_db.py` (bump `REFERENCE_RELEASE` in that tool) and run the
+   golden tests; the engine reads only `reference.db`.
+2. In `reference_src/tax_law_v10.json`, append a row (or, for brackets, a full
    table) with the new `effective_year`, a `source` naming the document, and
    `status` set to reflect whether the value is verified or an assumption, for
    **every value family the file holds**, for every filing status the family
