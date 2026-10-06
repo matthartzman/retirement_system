@@ -33,8 +33,8 @@ def backfill_optional_function_rows(rows: list[JsonDict], effective: dict[str, b
     this never edits or reorders one that's already there); ``effective`` is
     a ``{module_key: enabled}`` map (e.g. from ``module_status()``), read
     with ``.get(key, m.default_on)`` (True for every module toggle) so a
-    module this map has no opinion on defaults to on rather than silently switching itself off the moment a backfill
-    runs. Only ``GATE_MODULE_TOGGLE`` modules with no ``gated_by`` parent are
+    module this map has no opinion on defaults to on rather than silently
+    switching itself off the moment a backfill runs. Only ``GATE_MODULE_TOGGLE`` modules with no ``gated_by`` parent are
     candidates -- a plan flag has no CSV row by design (§5.3/W9), and a
     bundled module's state is decided by its parent's toggle, not its own row.
     """
