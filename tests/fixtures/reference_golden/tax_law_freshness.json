@@ -1,0 +1,8 @@
+{
+ "schema": "tax_law_v10",
+ "version": "v10",
+ "value_count": 211,
+ "bracket_count": 56,
+ "latest_effective_year": 2030,
+ "source": "v10 local dated tax-law dataset; no embedded fallback required for new code"
+}

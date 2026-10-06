@@ -46,7 +46,7 @@ def _cfg(**over):
 
 
 def test_aca_row_verification_status_matches_what_was_checked():
-    rows = [r for r in json.loads((ROOT / 'reference_data/tax_law_v10.json').read_text(encoding='utf-8'))['values']
+    rows = [r for r in json.loads((ROOT / 'reference_src/tax_law_v10.json').read_text(encoding='utf-8'))['values']
             if r['name'].startswith('aca_')]
     assert rows
     # The 2026 original-36B table was checked against IRS Rev. Proc. 2025-25 (2026-09-29).

@@ -174,9 +174,6 @@
   "src/system_config.py": {
    "csv": 3
   },
-  "src/tax_law.py": {
-   "path_io": 1
-  },
   "src/taxes.py": {
    "csv": 2,
    "open": 2
@@ -189,5 +186,5 @@
    "path_io": 1
   }
  },
- "total": 237
+ "total": 236
 }
