@@ -9,8 +9,8 @@
    "yaml": 1
   },
   "src/data_io.py": {
-   "csv": 6,
-   "open": 6
+   "csv": 4,
+   "open": 4
   },
   "src/desktop_api.py": {
    "path_io": 4
@@ -29,8 +29,8 @@
    "path_io": 1
   },
   "src/import_preview.py": {
-   "csv": 3,
-   "open": 2
+   "csv": 2,
+   "open": 1
   },
   "src/local_backup_scheduler.py": {
    "path_io": 4
@@ -69,7 +69,7 @@
    "path_io": 1
   },
   "src/portfolio_analytics.py": {
-   "csv": 3
+   "csv": 2
   },
   "src/report_package.py": {
    "path_io": 2
@@ -159,13 +159,10 @@
   "src/system_config.py": {
    "csv": 3
   },
-  "src/tlh.py": {
-   "csv": 1
-  },
   "src/ytd_tracking.py": {
    "csv": 12,
    "path_io": 1
   }
  },
- "total": 223
+ "total": 215
 }

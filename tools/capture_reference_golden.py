@@ -40,7 +40,9 @@ def _csv_rows(name: str) -> Any:
 # run this tool, move the source, switch consumers, delete the entry (see the runbook).
 # The slices landed so far have all been captured and their old loaders deleted; their
 # fixtures under tests/fixtures/reference_golden/ are the permanent record.
-CAPTURES: dict[str, Callable[[], Any]] = {}
+CAPTURES: dict[str, Callable[[], Any]] = {
+    "security_master_rows": lambda: _csv_rows("security_master.csv"),
+}
 
 
 def main(argv: list[str] | None = None) -> int:

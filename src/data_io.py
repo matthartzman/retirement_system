@@ -1923,37 +1923,17 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
 
     # Taxable portfolio income assumptions.  Taxable-account ETFs/funds distribute
     # dividends/interest that must enter AGI, SS provisional income, IRMAA MAGI,
-    # NIIT, and cash-flow funding.  Use security_master.csv to identify asset
+    # NIIT, and cash-flow funding.  Use the security master to identify asset
     # class, with conservative defaults when a symbol is unmapped.
     def _load_security_classes():
+        # Shipped reference data (reference.db), not per-workspace plan data: a
+        # workspace redirect must not make symbol classification vanish.
+        from .stores.ref_getters.security_master import security_master_rows
         out = {}
-        # Deliberately package-root scoped, unlike the plan-data lookups above:
-        # security_master.csv is read-only REFERENCE data that ships with the
-        # code (platform_runtime.package_root), not per-workspace writable plan
-        # data. A workspace redirect must not make symbol classification vanish.
-        _root = __import__('pathlib').Path(_project_root)
-        for _sm in candidate_input_files('security_master.csv', active_workspace_id(), root=_root):
-            if os.path.exists(_sm):
-                try:
-                    with open(_sm, newline='', encoding='utf-8-sig') as _sf:
-                        for _r in _csv.DictReader(_sf):
-                            _sym = (_r.get('symbol') or '').strip().upper()
-                            if _sym:
-                                out[_sym] = (_r.get('asset_class') or '').strip().upper()
-                    break
-                except Exception:
-                    pass
-        if not out:
-            _fallback = _root / 'reference_data' / 'security_master.csv'
-            if _fallback.exists():
-                try:
-                    with open(_fallback, newline='', encoding='utf-8-sig') as _sf:
-                        for _r in _csv.DictReader(_sf):
-                            _sym = (_r.get('symbol') or '').strip().upper()
-                            if _sym:
-                                out[_sym] = (_r.get('asset_class') or '').strip().upper()
-                except Exception:
-                    pass
+        for _r in security_master_rows():
+            _sym = (_r.get('symbol') or '').strip().upper()
+            if _sym:
+                out[_sym] = (_r.get('asset_class') or '').strip().upper()
         return out
 
     _security_classes = _load_security_classes()
