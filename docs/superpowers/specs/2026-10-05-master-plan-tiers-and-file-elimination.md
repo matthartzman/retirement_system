@@ -166,5 +166,5 @@ Planning bands (assumption, not measured): S about 0.2-0.5M tokens, M 0.5-1M, L 
 |---|---|---|---|
 | WP0 (WP0.1) | WP0.1 in review | draft PR on `claude/wp0-1-golden-harness` | golden baseline for sample_frozen + demo committed; `tools/golden_compare.py`, `tests/test_phase_golden_equality_regression.py` |
 | WP0.2 | in review | draft PR on `claude/wp0-2-fixture-helper` (stacked on WP0.1) | `tests/plan_fixture.py` (`make_plan`, `plan_data`, `plan_config`, `fixture_dir`); 106 tests codemodded onto it; ratchet in `tests/test_plan_fixture_helper_unit.py` |
-| WP0.3 | not started | none | |
+| WP0.3 | in review | draft PR on `claude/wp0-3-static-audit` (stacked on WP0.2) | `tests/test_no_data_file_io_report_regression.py` + `tests/fixtures/file_io_audit_baseline.json`; baseline 237 data-file I/O calls in 55 `src/` files (csv/json/yaml/open/Path IO), ratchet down only |
 | WP1 - WP11 | not started | none | planning only |
