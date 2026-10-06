@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 208 Python files under `src/`, 47 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 211 Python files under `src/`, 47 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -24,7 +24,7 @@ flowchart TB
     subgraph L_HTTP_Runtime["HTTP Runtime (3 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
-    subgraph L_Core_Engine___Domain["Core Engine & Domain (128 modules)"]
+    subgraph L_Core_Engine___Domain["Core Engine & Domain (131 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
     subgraph L_Projection_Stages["Projection Stages (23 modules)"]
@@ -495,7 +495,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/governance.py` | `src`, `stores.ref_getters.tax_update_dashboard`, `version` | — |
 | `src/holding_period.py` | — | — |
 | `src/housing/__init__.py` | — | — |
-| `src/housing/api.py` | `housing.models`, `housing.optimizer`, `housing.zip_screen.resolve`, `housing.zip_screen.schema`, `housing.zip_screen.screen`, `housing.zip_screen.table`, `server_services.strategy_asset_service` | — |
+| `src/housing/api.py` | `housing.models`, `housing.optimizer`, `housing.zip_screen.resolve`, `housing.zip_screen.schema`, `housing.zip_screen.screen`, `housing.zip_screen.table`, `server_services.strategy_asset_service`, `stores.ref_getters.zip_data` | — |
 | `src/housing/candidates.py` | `housing.models` | — |
 | `src/housing/constraints.py` | `housing.models`, `housing.zip_screen.geo` | — |
 | `src/housing/models.py` | — | — |
@@ -510,7 +510,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/housing/zip_screen/resolve.py` | `housing.models`, `housing.zip_screen.schema` | — |
 | `src/housing/zip_screen/schema.py` | — | — |
 | `src/housing/zip_screen/screen.py` | `housing.zip_screen.geo`, `housing.zip_screen.quality`, `housing.zip_screen.resolve`, `housing.zip_screen.schema`, `housing.zip_screen.table`, `server_services.strategy_asset_service` | — |
-| `src/housing/zip_screen/table.py` | `housing.zip_screen.schema` | — |
+| `src/housing/zip_screen/table.py` | `housing.zip_screen.schema`, `stores.ref_getters.zip_data` | — |
 | `src/housing_comparison.py` | `after_tax`, `planning_engines`, `server_services.strategy_asset_service` | — |
 | `src/housing_optimizer.py` | `housing` | — |
 | `src/hsa_schedule.py` | `after_tax`, `planning_engines`, `taxes` | — |
@@ -524,7 +524,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/monarch_autoimport_job.py` | — | — |
 | `src/monarch_autoupdate.py` | — | — |
 | `src/monarch_db_sync.py` | — | — |
-| `src/monarch_import.py` | `ytd_tracking` | — |
+| `src/monarch_import.py` | `stores.ref_getters.monarch_field_map`, `ytd_tracking` | — |
 | `src/money.py` | — | — |
 | `src/observability.py` | — | — |
 | `src/onedrive_guard.py` | — | — |
@@ -582,12 +582,15 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/stores/ref_data.py` | `stores`, `stores.errors` | — |
 | `src/stores/ref_getters/__init__.py` | `stores.ref_data`, `stores.ref_getters` | — |
 | `src/stores/ref_getters/cma.py` | `stores.ref_access`, `stores.ref_data` | — |
+| `src/stores/ref_getters/monarch_field_map.py` | `stores.ref_access`, `stores.ref_data` | — |
 | `src/stores/ref_getters/mortality_real_loss.py` | `stores.ref_access`, `stores.ref_data` | — |
 | `src/stores/ref_getters/schema_fields.py` | `stores.ref_access`, `stores.ref_data` | — |
 | `src/stores/ref_getters/security_master.py` | `stores.ref_access`, `stores.ref_data` | — |
 | `src/stores/ref_getters/state_tax.py` | `stores.ref_access`, `stores.ref_data`, `taxes` | — |
 | `src/stores/ref_getters/tax_law.py` | `stores.ref_access`, `stores.ref_data`, `tax_law` | — |
 | `src/stores/ref_getters/tax_update_dashboard.py` | `stores.ref_access`, `stores.ref_data` | — |
+| `src/stores/ref_getters/template_layout.py` | `stores.ref_access`, `stores.ref_data` | — |
+| `src/stores/ref_getters/zip_data.py` | `housing.zip_screen.schema`, `stores.ref_access`, `stores.ref_data` | — |
 | `src/strategy_sweep.py` | — | — |
 | `src/system_config.py` | `plan_file_io` | — |
 | `src/tax_assumptions.py` | `tax_law` | — |
@@ -655,7 +658,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/reporting/sheets_wealth.py` | `reporting.workbook_common` | — |
 | `src/reporting/summary_figures.py` | `after_tax`, `core` | — |
 | `src/reporting/workbook_builder.py` | `after_tax`, `build_snapshot`, `governance`, `hsa_schedule`, `local_store`, `planning_engines`, `report_package`, `reporting.dashboard`, `reporting.sheets_allocation_helpers`, `reporting.sheets_current_vs_proposed`, `reporting.sheets_projection_facade`, `reporting.sheets_protection`, `reporting.sheets_qc_reference`, `reporting.sheets_strategy`, `reporting.sheets_stress`, `reporting.sheets_summary_builder`, `reporting.sheets_tax_capacity`, `reporting.sheets_tax_reporter`, `reporting.sheets_wealth`, `reporting.summary_figures`, `reporting.workbook_common`, `reporting.workbook_format_config`, `results_model`, `spending_tracker`, `workspace_context`, `ytd_projection_blend` | — |
-| `src/reporting/workbook_common.py` | `config_backend`, `core`, `data_io`, `market_data`, `module_catalog`, `report_compute`, `workspace_context` | `openpyxl` |
+| `src/reporting/workbook_common.py` | `config_backend`, `core`, `data_io`, `market_data`, `module_catalog`, `report_compute`, `stores.ref_getters.template_layout`, `workspace_context` | `openpyxl` |
 | `src/reporting/workbook_format_config.py` | `workspace_context` | `openpyxl` |
 | `src/reporting/workbook_xml_optimizer.py` | — | `lxml`, `openpyxl` |
 

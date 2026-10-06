@@ -6,6 +6,8 @@ import pytest
 from src.housing.zip_screen.quality import score_zip
 from src.housing.zip_screen.schema import UPI_THRESHOLD, ZipRecord
 from src.housing.zip_screen.table import clear_cache, load_table
+from src.stores.ref_access import set_reference_for_tests
+from tests.zip_fixture import use_zip_test_db
 
 pytestmark = pytest.mark.unit
 
@@ -13,10 +15,12 @@ FIXTURE = 'tests/fixtures/zip_metrics_sample.csv'
 
 
 @pytest.fixture(autouse=True)
-def _clean_cache():
+def _setup_test_db():
+    use_zip_test_db(FIXTURE)
     clear_cache()
     yield
     clear_cache()
+    set_reference_for_tests(None)
 
 
 def _rec(upi: float) -> ZipRecord:
@@ -61,7 +65,7 @@ def test_dekalb_fixture_score_rises_materially_but_stays_in_the_bottom_band():
     # full Safety+StreetEnvironment+Stability model), the adjustment is real
     # and material but does not by itself cross the 50-point band boundary
     # for this fixture -- unlike the source PDF's full-model DeKalb example.
-    res = score_zip(load_table(FIXTURE)['60115'])
+    res = score_zip(load_table()['60115'])
     assert res.upi_adjusted is True
     assert res.score > 35.0
     assert res.band == 'Relatively Unfavorable'

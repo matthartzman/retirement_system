@@ -18,13 +18,6 @@
   "src/domain_models.py": {
    "path_io": 1
   },
-  "src/housing/api.py": {
-   "csv": 1,
-   "open": 1
-  },
-  "src/housing/zip_screen/table.py": {
-   "csv": 1
-  },
   "src/http_runtime/wsgi_facade.py": {
    "path_io": 1
   },
@@ -81,10 +74,6 @@
    "json": 1,
    "open": 1,
    "path_io": 3
-  },
-  "src/reporting/workbook_common.py": {
-   "json": 1,
-   "open": 1
   },
   "src/reporting/workbook_format_config.py": {
    "json": 6,
@@ -161,5 +150,5 @@
    "path_io": 1
   }
  },
- "total": 212
+ "total": 207
 }
