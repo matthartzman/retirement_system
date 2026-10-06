@@ -31,7 +31,6 @@ def main() -> int:
     rows = analyze_drift(
         target_file=target_file,
         holdings_csv=first_existing(candidate_input_files("client_holdings.csv", workspace_id, ROOT)) or (ROOT / "input/client_holdings.csv"),
-        security_master_csv=first_existing(candidate_input_files("security_master.csv", workspace_id, ROOT)) or (ROOT / "reference_data" / "security_master.csv"),
         threshold_pct=threshold,
         workspace_id=workspace_id,
     )
