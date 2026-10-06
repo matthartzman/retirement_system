@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from tests.plan_fixture import plan_data
 import copy
 import unittest
 from pathlib import Path
@@ -16,7 +17,7 @@ from conftest import TEST_INPUT_DIR
 
 class AllocationOptimizerToggleTests(unittest.TestCase):
     def _config(self):
-        data = load_csv(TEST_INPUT_DIR / 'client_data.csv')
+        data = plan_data()
         return parse_client(data, '')
 
     def test_allocation_mode_defaults_to_user_target_and_optimizer_available(self):

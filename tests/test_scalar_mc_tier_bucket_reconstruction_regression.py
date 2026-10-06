@@ -18,6 +18,7 @@ coverage), plus one integration check against the real fixture through
 """
 from __future__ import annotations
 
+from tests.plan_fixture import plan_config
 from conftest import TEST_INPUT_DIR
 from src.data_io import load_csv, parse_client
 from src.planning_engines import (
@@ -156,7 +157,7 @@ def test_second_year_balance_carries_forward_from_reconstructed_state():
 # tier and runs in the nightly full-suite workflow instead.
 @pytest.mark.nightly
 def test_scalar_engine_essential_fully_funded_probability_still_sane_on_real_fixture():
-    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+    c = plan_config()
     c["roth_policy"] = "none"
     c["plan_end"] = min(int(c["plan_end"]), int(c["plan_start"]) + 8)
     c["mc_sensitivity_sims"] = 1

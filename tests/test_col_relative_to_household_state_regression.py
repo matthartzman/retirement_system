@@ -16,6 +16,7 @@ in new clothes.
 """
 from __future__ import annotations
 
+from tests.plan_fixture import plan_data
 from openpyxl import Workbook
 
 from src.data_io import load_csv, parse_client
@@ -27,7 +28,7 @@ from conftest import TEST_INPUT_DIR
 
 
 def _config_for_state(state):
-    data = load_csv(TEST_INPUT_DIR / "client_data.csv")
+    data = plan_data()
     c = parse_client(data, "")
     c["roth_policy"] = "none"
     c["mc_paths"] = 5

@@ -5,6 +5,7 @@ change as the de-double-count -- a bare de-double-count would have biased
 the headline toward early claiming, since the removed lifetime_ss term
 happened to reward delay for the wrong (double-counted) reason.
 """
+from tests.plan_fixture import plan_config
 from pathlib import Path
 
 import pytest
@@ -20,7 +21,7 @@ from conftest import TEST_INPUT_DIR
 
 
 def _base_config():
-    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+    c = plan_config()
     c["roth_policy"] = "none"
     c["mc_paths"] = 5
     c["mc_sensitivity_sims"] = 1

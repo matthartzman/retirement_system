@@ -215,7 +215,7 @@ Objective: make "nothing computed changed" mechanically checkable before any sto
 
 | PR | Scope | Files |
 |---|---|---|
-| P0.1 | Golden before/after harness: build the frozen sample plan and the demo plan in a temp workspace; record full-row engine output, the workbook cell values of the required sheets, and the headline KPIs from `plan_summary.json`; baseline committed once; `tests/test_phase_golden_equality.py` compares live output to the baseline | `tools/golden_compare.py`, `tests/fixtures/golden_phase_baseline/`, new test |
+| P0.1 | Golden before/after harness: build the frozen sample plan and the demo plan in a temp workspace; record full-row engine output, the workbook cell values of the required sheets, and the headline KPIs from `plan_summary.json`; baseline committed once; `tests/test_phase_golden_equality_regression.py` compares live output to the baseline | `tools/golden_compare.py`, `tests/fixtures/golden_phase_baseline/`, new test |
 | P0.2 | Plan-fixture helper `tests/plan_fixture.py` (`make_plan(tmp_path, fixture=...)`). Today it still lays down the CSV folder. Mechanically move the ~150 tests that name `sample_plan_frozen`, `client_data.csv` or `client_holdings.csv` onto it, in codemod batches, so later phases change only the helper's internals | `tests/plan_fixture.py`, ~150 test files |
 | P0.3 | Static file-I/O audit test in report mode: AST scan for `csv`, `json.load/dump`, `yaml`, `open()` of data files, outside an allowlist; writes a count and a ratchet that can only go down | `tests/test_no_data_file_io_report.py` |
 

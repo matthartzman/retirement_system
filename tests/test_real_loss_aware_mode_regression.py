@@ -15,6 +15,7 @@ separate holding_period_allocation_enabled flag is required.
 
 from __future__ import annotations
 
+from tests.plan_fixture import plan_data
 import copy
 from pathlib import Path
 
@@ -31,12 +32,12 @@ from conftest import TEST_INPUT_DIR
 
 
 def sample_config():
-    data = load_csv(TEST_INPUT_DIR / "client_data.csv")
+    data = plan_data()
     return parse_client(data, "")
 
 
 def sample_data():
-    return load_csv(TEST_INPUT_DIR / "client_data.csv")
+    return plan_data()
 
 
 # ---------------------------------------------------------------------------

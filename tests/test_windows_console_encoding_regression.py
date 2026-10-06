@@ -25,6 +25,7 @@ process's standard streams, which pytest's own output capture can mask.
 """
 from __future__ import annotations
 
+from tests.plan_fixture import fixture_dir
 import os
 import subprocess
 import sys
@@ -87,7 +88,7 @@ def test_client_policy_note_that_originally_triggered_this_is_still_present():
     other test, and carries the same μ note (see its mc_sensitivity_simulations
     row) since it was captured from a real shipped plan.
     """
-    csv_path = ROOT / "tests" / "fixtures" / "sample_plan_frozen" / "client_policy.csv"
+    csv_path = fixture_dir() / "client_policy.csv"
     text = csv_path.read_text(encoding="utf-8-sig")
     assert MU in text, (
         "tests/fixtures/sample_plan_frozen/client_policy.csv no longer contains "

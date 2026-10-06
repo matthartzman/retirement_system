@@ -14,6 +14,7 @@ src.data_io.parse_client still produces the same field via the re-export.
 """
 from __future__ import annotations
 
+from tests.plan_fixture import plan_data
 import unittest
 
 from src.parsing.withdrawal_order import parse_account_draw_priority
@@ -110,7 +111,7 @@ class ParseClientReExportIntegrationTests(unittest.TestCase):
         from conftest import TEST_INPUT_DIR
         from src.data_io import load_csv, parse_client
 
-        data = copy.deepcopy(load_csv(TEST_INPUT_DIR / "client_data.csv"))
+        data = copy.deepcopy(plan_data())
         data.setdefault('Withdrawal Policy', {})['Account Order'] = {
             'Alice_Trad_IRA': '1',
         }

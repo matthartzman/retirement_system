@@ -24,18 +24,16 @@ from pathlib import Path
 
 import pytest
 
+from tests.plan_fixture import make_plan
+
 ROOT = Path(__file__).resolve().parents[1]
-FROZEN_DIR = ROOT / "tests" / "fixtures" / "sample_plan_frozen"
 
 
 def _staged_workspace(*, rename_account=None, rename_to=None):
     """Copy the frozen fixture into a temp workspace, optionally renaming one
     account (in client_holdings.csv) to a different identifier."""
     workspace = Path(tempfile.mkdtemp(prefix="account_type_guardrail_test_"))
-    (workspace / "input").mkdir(parents=True)
-    for f in sorted(FROZEN_DIR.iterdir()):
-        if f.is_file():
-            shutil.copy(f, workspace / "input" / f.name)
+    make_plan(workspace)
 
     if rename_account is not None:
         holdings = workspace / "input" / "client_holdings.csv"

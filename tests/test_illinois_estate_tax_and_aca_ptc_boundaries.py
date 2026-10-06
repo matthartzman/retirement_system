@@ -1,3 +1,4 @@
+from tests.plan_fixture import plan_data
 import math
 from src.core import illinois_estate_tax
 from src.planning_engines import aca_premium_tax_credit
@@ -22,7 +23,7 @@ def test_scalar_projection_uses_per_year_tax_index_paths():
     from src.data_io import load_csv, parse_client
     from src.planning_engines import project
     from conftest import TEST_INPUT_DIR
-    data = load_csv(TEST_INPUT_DIR / 'client_data.csv')
+    data = plan_data()
     c = parse_client(data, '')
     c['plan_end'] = c['plan_start'] + 2
     # Pin roth_policy so this isolates the bracket-index plumbing being tested,

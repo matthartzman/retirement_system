@@ -34,6 +34,7 @@ fixture (not just unit-tested against synthetic numbers):
 """
 from __future__ import annotations
 
+from tests.plan_fixture import plan_config
 import pytest
 
 from src.data_io import load_csv, parse_client
@@ -56,7 +57,7 @@ def sample_config_and_rows():
     # output/market_price_cache.json. The strategies here are ranked against
     # each other by margins well under a percent, so a stale quote flips them.
     with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
-        c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+        c = plan_config()
         c["roth_policy"] = "none"
         c = ensure_engine_config(c, source="test")
         rows = project(c)

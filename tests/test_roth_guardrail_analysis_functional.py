@@ -1,5 +1,6 @@
 """Roth guardrail panel data: every sized cap is exposed per year, the LTCG band
 setting is honored, and the what-if rerun reports measured (not assumed) changes."""
+from tests.plan_fixture import plan_config
 import json
 from pathlib import Path
 
@@ -43,7 +44,7 @@ def test_ltcg_band_named_fifteen_caps_at_fifteen_top():
 
 
 def test_full_pipeline_analysis_reports_measured_whatif():
-    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+    c = plan_config()
     c["roth_policy"] = "fill_to_bracket"
     c["roth_target_rate"] = 0.24
     c["plan_start"] = 2026
@@ -60,7 +61,7 @@ def test_full_pipeline_analysis_reports_measured_whatif():
 
 
 def test_forced_conversion_year_is_listed_even_with_no_caps():
-    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+    c = plan_config()
     out = roth_guardrail_analysis(c, project(c))
     first = out["years"][0]
     assert first["forced"] is True
@@ -92,7 +93,7 @@ def test_a_year_with_no_room_under_the_limits_is_still_listed_with_its_caps():
     """After a forced conversion is deleted, that year used to vanish from the panel
     (nothing was sized because the bracket had no room). It must stay selectable,
     show its caps, and convert nothing."""
-    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+    c = plan_config()
     c["forced_roth"] = {}
     c["forced_roth_accounts"] = {}
     out = roth_guardrail_analysis(c, project(c))

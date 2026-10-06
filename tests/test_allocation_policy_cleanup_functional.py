@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from tests.plan_fixture import plan_data
 import copy
 import unittest
 from pathlib import Path
@@ -70,7 +71,7 @@ class AllocationPolicyCleanupTests(unittest.TestCase):
                     self.assertNotIn(token, text, f'{token} remained in {path.relative_to(ROOT)}')
 
     def test_switching_allocation_mode_changes_projection_assumptions_and_terminal_value(self):
-        data = load_csv(TEST_INPUT_DIR / 'client_data.csv')
+        data = plan_data()
         user_cfg = parse_client(copy.deepcopy(data), '')
         opt_data = copy.deepcopy(data)
         opt_data.setdefault('Asset Allocation Policy', {}).setdefault('Global', {})['allocation_selection_mode'] = ap.ALLOCATION_MODE_OPTIMIZER

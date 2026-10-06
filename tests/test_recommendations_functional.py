@@ -1,3 +1,4 @@
+from tests.plan_fixture import plan_data
 import json
 import unittest
 from pathlib import Path
@@ -14,7 +15,7 @@ from conftest import TEST_INPUT_DIR
 
 
 def sample_config():
-    data = load_csv(TEST_INPUT_DIR / 'client_data.csv')
+    data = plan_data()
     c = parse_client(data, '')
     c['roth_policy'] = 'none'
     c['mc_paths'] = 5

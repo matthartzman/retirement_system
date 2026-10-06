@@ -11,6 +11,7 @@ h/w-first cases and occurs within a realistic horizon).
 """
 from __future__ import annotations
 
+from tests.plan_fixture import plan_config
 import copy
 import unittest
 from pathlib import Path
@@ -25,7 +26,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def _base_config():
-    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+    c = plan_config()
     c["roth_policy"] = "none"
     c["plan_end"] = int(c["plan_start"]) + 30  # long enough horizon for
     # first-death events to actually occur within the plan for a meaningful

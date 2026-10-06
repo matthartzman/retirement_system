@@ -19,6 +19,7 @@ removed 18,439 against a 10,168 reimbursement in one fixture year.
 """
 from __future__ import annotations
 
+from tests.plan_fixture import plan_config
 import unittest
 
 from conftest import TEST_INPUT_DIR
@@ -27,7 +28,7 @@ from src.planning_engines import project
 
 
 def _config(**over):
-    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+    c = plan_config()
     c["roth_policy"] = "none"
     c.update(over)
     return c

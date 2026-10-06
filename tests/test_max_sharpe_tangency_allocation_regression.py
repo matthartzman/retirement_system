@@ -24,6 +24,7 @@ logic reflects a realistic household rather than a hand-built stub.
 
 from __future__ import annotations
 
+from tests.plan_fixture import plan_data
 from pathlib import Path
 
 import pytest
@@ -38,7 +39,7 @@ from conftest import TEST_INPUT_DIR
 
 
 def sample_config():
-    data = load_csv(TEST_INPUT_DIR / "client_data.csv")
+    data = plan_data()
     return parse_client(data, "")
 
 

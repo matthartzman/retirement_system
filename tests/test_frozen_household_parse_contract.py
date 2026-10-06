@@ -17,6 +17,7 @@ the second half even though the first half would still coincide.
 """
 from __future__ import annotations
 
+from tests.plan_fixture import plan_data, fixture_dir
 import copy
 import csv
 from pathlib import Path
@@ -26,7 +27,7 @@ import pytest
 from conftest import TEST_INPUT_DIR
 from src.data_io import load_csv, parse_client
 
-FIXTURE_HOUSEHOLD = Path(__file__).resolve().parent / "fixtures" / "sample_plan_frozen" / "client_household.csv"
+FIXTURE_HOUSEHOLD = fixture_dir() / "client_household.csv"
 
 LABELS = (
     "member_1_dob",
@@ -55,7 +56,7 @@ def _year(raw: str) -> int:
 
 @pytest.fixture(scope="module")
 def frozen_data():
-    return load_csv(TEST_INPUT_DIR / "client_data.csv")
+    return plan_data()
 
 
 def test_fixture_has_every_household_row():

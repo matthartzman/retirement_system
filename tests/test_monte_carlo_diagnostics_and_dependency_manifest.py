@@ -1,3 +1,4 @@
+from tests.plan_fixture import plan_config
 import random
 import unittest
 from pathlib import Path
@@ -12,7 +13,7 @@ from conftest import TEST_INPUT_DIR
 
 
 def fast_config():
-    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+    c = plan_config()
     c["roth_policy"] = "none"
     c["plan_end"] = min(int(c["plan_end"]), int(c["plan_start"]) + 1)
     c["mc_sims"] = 4

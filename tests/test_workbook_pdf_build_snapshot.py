@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from tests.plan_fixture import plan_data
 import csv
 import json
 import os
@@ -13,6 +14,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.plan_fixture import make_plan
+
 ROOT = Path(__file__).resolve().parents[1]
 
 from conftest import TEST_INPUT_DIR
@@ -24,7 +27,7 @@ from tests.golden_pricing import frozen_holdings_prices
 def _load_engine_config():
     from src.data_io import load_csv
     from src.report_compute import prepare_config_from_sectioned_data
-    return prepare_config_from_sectioned_data(load_csv(TEST_INPUT_DIR / "client_data.csv"), "", optimize_roth=True)
+    return prepare_config_from_sectioned_data(plan_data(), "", optimize_roth=True)
 
 
 def _project_metrics(c):
@@ -99,7 +102,6 @@ class Phase5WorkbookSnapshotTests(unittest.TestCase):
         # human last saved" is what makes this an e2e/reporting-contract test
         # rather than a live-plan diagnostic (that diagnostic already exists,
         # warn-only, in test_recommendations_functional.py).
-        FROZEN_DIR = ROOT / "tests" / "fixtures" / "sample_plan_frozen"
         tmp_input = tmp_root / "input"
 
         def _clear_readonly(func, path, _exc_info):
@@ -111,10 +113,7 @@ class Phase5WorkbookSnapshotTests(unittest.TestCase):
 
         if tmp_input.exists():
             shutil.rmtree(tmp_input, onerror=_clear_readonly)
-        tmp_input.mkdir(parents=True)
-        for f in sorted(FROZEN_DIR.iterdir()):
-            if f.is_file():
-                shutil.copy(f, tmp_input / f.name)
+        make_plan(tmp_root)
         env = os.environ.copy()
         # Force the subprocess to treat tmp_root (its own copied tree) as the
         # workspace root, overriding any RETIREMENT_SYSTEM_WORKSPACE_ROOT the
