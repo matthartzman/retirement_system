@@ -1,0 +1,730 @@
+[
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "US Large Cap",
+  "asset_class_b": "US Mid Cap",
+  "correlation": "0.94",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "US Large Cap",
+  "asset_class_b": "US Small Cap",
+  "correlation": "0.88",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "US Large Cap",
+  "asset_class_b": "International",
+  "correlation": "0.82",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "US Large Cap",
+  "asset_class_b": "Emerging Markets",
+  "correlation": "0.72",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "US Large Cap",
+  "asset_class_b": "Commodities",
+  "correlation": "0.15",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "US Large Cap",
+  "asset_class_b": "Bonds",
+  "correlation": "-0.20",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "US Large Cap",
+  "asset_class_b": "Short-Term Bonds",
+  "correlation": "0.05",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "US Large Cap",
+  "asset_class_b": "TIPS",
+  "correlation": "0.10",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "US Large Cap",
+  "asset_class_b": "Municipal Bonds",
+  "correlation": "-0.10",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "US Large Cap",
+  "asset_class_b": "Managed Futures",
+  "correlation": "-0.05",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "US Large Cap",
+  "asset_class_b": "Private Credit",
+  "correlation": "0.45",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "US Large Cap",
+  "asset_class_b": "REITs",
+  "correlation": "0.65",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "US Large Cap",
+  "asset_class_b": "Cash",
+  "correlation": "-0.05",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "US Mid Cap",
+  "asset_class_b": "US Small Cap",
+  "correlation": "0.92",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "US Mid Cap",
+  "asset_class_b": "International",
+  "correlation": "0.78",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "US Mid Cap",
+  "asset_class_b": "Emerging Markets",
+  "correlation": "0.70",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "US Mid Cap",
+  "asset_class_b": "Commodities",
+  "correlation": "0.18",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "US Mid Cap",
+  "asset_class_b": "Bonds",
+  "correlation": "-0.17",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "US Mid Cap",
+  "asset_class_b": "Short-Term Bonds",
+  "correlation": "0.05",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "US Mid Cap",
+  "asset_class_b": "TIPS",
+  "correlation": "0.09",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "US Mid Cap",
+  "asset_class_b": "Municipal Bonds",
+  "correlation": "-0.08",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "US Mid Cap",
+  "asset_class_b": "Managed Futures",
+  "correlation": "-0.05",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "US Mid Cap",
+  "asset_class_b": "Private Credit",
+  "correlation": "0.48",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "US Mid Cap",
+  "asset_class_b": "REITs",
+  "correlation": "0.68",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "US Mid Cap",
+  "asset_class_b": "Cash",
+  "correlation": "-0.05",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "US Small Cap",
+  "asset_class_b": "International",
+  "correlation": "0.75",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "US Small Cap",
+  "asset_class_b": "Emerging Markets",
+  "correlation": "0.70",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "US Small Cap",
+  "asset_class_b": "Commodities",
+  "correlation": "0.20",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "US Small Cap",
+  "asset_class_b": "Bonds",
+  "correlation": "-0.15",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "US Small Cap",
+  "asset_class_b": "Short-Term Bonds",
+  "correlation": "0.05",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "US Small Cap",
+  "asset_class_b": "TIPS",
+  "correlation": "0.08",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "US Small Cap",
+  "asset_class_b": "Municipal Bonds",
+  "correlation": "-0.07",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "US Small Cap",
+  "asset_class_b": "Managed Futures",
+  "correlation": "-0.05",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "US Small Cap",
+  "asset_class_b": "Private Credit",
+  "correlation": "0.50",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "US Small Cap",
+  "asset_class_b": "REITs",
+  "correlation": "0.70",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "US Small Cap",
+  "asset_class_b": "Cash",
+  "correlation": "-0.05",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "International",
+  "asset_class_b": "Emerging Markets",
+  "correlation": "0.85",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "International",
+  "asset_class_b": "Commodities",
+  "correlation": "0.25",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "International",
+  "asset_class_b": "Bonds",
+  "correlation": "-0.10",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "International",
+  "asset_class_b": "Short-Term Bonds",
+  "correlation": "0.02",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "International",
+  "asset_class_b": "TIPS",
+  "correlation": "0.08",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "International",
+  "asset_class_b": "Municipal Bonds",
+  "correlation": "-0.05",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "International",
+  "asset_class_b": "Managed Futures",
+  "correlation": "-0.05",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "International",
+  "asset_class_b": "Private Credit",
+  "correlation": "0.40",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "International",
+  "asset_class_b": "REITs",
+  "correlation": "0.55",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "International",
+  "asset_class_b": "Cash",
+  "correlation": "-0.03",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "Emerging Markets",
+  "asset_class_b": "Commodities",
+  "correlation": "0.35",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "Emerging Markets",
+  "asset_class_b": "Bonds",
+  "correlation": "-0.05",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "Emerging Markets",
+  "asset_class_b": "Short-Term Bonds",
+  "correlation": "0.05",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "Emerging Markets",
+  "asset_class_b": "TIPS",
+  "correlation": "0.10",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "Emerging Markets",
+  "asset_class_b": "Municipal Bonds",
+  "correlation": "-0.02",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "Emerging Markets",
+  "asset_class_b": "Managed Futures",
+  "correlation": "-0.05",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "Emerging Markets",
+  "asset_class_b": "Private Credit",
+  "correlation": "0.50",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "Emerging Markets",
+  "asset_class_b": "REITs",
+  "correlation": "0.50",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "Emerging Markets",
+  "asset_class_b": "Cash",
+  "correlation": "-0.02",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "Commodities",
+  "asset_class_b": "Bonds",
+  "correlation": "-0.10",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "Commodities",
+  "asset_class_b": "Short-Term Bonds",
+  "correlation": "0.00",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "Commodities",
+  "asset_class_b": "TIPS",
+  "correlation": "0.20",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "Commodities",
+  "asset_class_b": "Municipal Bonds",
+  "correlation": "-0.05",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "Commodities",
+  "asset_class_b": "Managed Futures",
+  "correlation": "0.15",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "Commodities",
+  "asset_class_b": "Private Credit",
+  "correlation": "0.20",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "Commodities",
+  "asset_class_b": "REITs",
+  "correlation": "0.25",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "Commodities",
+  "asset_class_b": "Cash",
+  "correlation": "0.00",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "Bonds",
+  "asset_class_b": "Short-Term Bonds",
+  "correlation": "0.75",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "Bonds",
+  "asset_class_b": "TIPS",
+  "correlation": "0.55",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "Bonds",
+  "asset_class_b": "Municipal Bonds",
+  "correlation": "0.70",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "Bonds",
+  "asset_class_b": "Managed Futures",
+  "correlation": "0.00",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "Bonds",
+  "asset_class_b": "Private Credit",
+  "correlation": "0.35",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "Bonds",
+  "asset_class_b": "REITs",
+  "correlation": "0.20",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "Bonds",
+  "asset_class_b": "Cash",
+  "correlation": "0.50",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "Short-Term Bonds",
+  "asset_class_b": "TIPS",
+  "correlation": "0.35",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "Short-Term Bonds",
+  "asset_class_b": "Municipal Bonds",
+  "correlation": "0.55",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "Short-Term Bonds",
+  "asset_class_b": "Managed Futures",
+  "correlation": "0.00",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "Short-Term Bonds",
+  "asset_class_b": "Private Credit",
+  "correlation": "0.20",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "Short-Term Bonds",
+  "asset_class_b": "REITs",
+  "correlation": "0.10",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "Short-Term Bonds",
+  "asset_class_b": "Cash",
+  "correlation": "0.30",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "TIPS",
+  "asset_class_b": "Municipal Bonds",
+  "correlation": "0.40",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "TIPS",
+  "asset_class_b": "Managed Futures",
+  "correlation": "0.00",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "TIPS",
+  "asset_class_b": "Private Credit",
+  "correlation": "0.25",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "TIPS",
+  "asset_class_b": "REITs",
+  "correlation": "0.25",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "TIPS",
+  "asset_class_b": "Cash",
+  "correlation": "0.10",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "Municipal Bonds",
+  "asset_class_b": "Managed Futures",
+  "correlation": "0.00",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "Municipal Bonds",
+  "asset_class_b": "Private Credit",
+  "correlation": "0.30",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "Municipal Bonds",
+  "asset_class_b": "REITs",
+  "correlation": "0.15",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "Municipal Bonds",
+  "asset_class_b": "Cash",
+  "correlation": "0.35",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "Managed Futures",
+  "asset_class_b": "Private Credit",
+  "correlation": "0.00",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "Managed Futures",
+  "asset_class_b": "REITs",
+  "correlation": "0.00",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "Managed Futures",
+  "asset_class_b": "Cash",
+  "correlation": "0.00",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "Private Credit",
+  "asset_class_b": "REITs",
+  "correlation": "0.35",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "Private Credit",
+  "asset_class_b": "Cash",
+  "correlation": "0.05",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ },
+ {
+  "horizon_years": "",
+  "preset": "BASELINE",
+  "asset_class_a": "REITs",
+  "asset_class_b": "Cash",
+  "correlation": "0.05",
+  "notes": "Baseline pairwise planning correlation. Blank horizon applies to all horizons."
+ }
+]

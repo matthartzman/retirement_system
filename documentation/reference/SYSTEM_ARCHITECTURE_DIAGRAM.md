@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 204 Python files under `src/`, 47 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 205 Python files under `src/`, 47 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -24,7 +24,7 @@ flowchart TB
     subgraph L_HTTP_Runtime["HTTP Runtime (3 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
-    subgraph L_Core_Engine___Domain["Core Engine & Domain (124 modules)"]
+    subgraph L_Core_Engine___Domain["Core Engine & Domain (125 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
     subgraph L_Projection_Stages["Projection Stages (23 modules)"]
@@ -484,7 +484,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/config_backend.py` | `local_store`, `plan_data_registry`, `plan_file_io`, `system_config` | `pyyaml` |
 | `src/core.py` | `person_labels` | — |
 | `src/daf_optimizer.py` | — | — |
-| `src/data_io.py` | `config_backend`, `core`, `market_data`, `module_catalog`, `money`, `parsing.advanced_modules`, `parsing.allocation_optimizer_inputs`, `parsing.daf`, `parsing.estate_planning`, `parsing.hsa_policy`, `parsing.insurance`, `parsing.note_receivable`, `parsing.roth_conversion_policy`, `parsing.validation`, `parsing.withdrawal_order`, `parsing.withdrawal_policy`, `plan_config`, `plan_data_migration`, `plan_data_registry`, `portfolio_analytics`, `report_compute`, `roth_ui_build_guard`, `spending_adjustments`, `spending_budget_resolver`, `system_config`, `tax_law`, `workspace_context` | — |
+| `src/data_io.py` | `config_backend`, `core`, `market_data`, `module_catalog`, `money`, `parsing.advanced_modules`, `parsing.allocation_optimizer_inputs`, `parsing.daf`, `parsing.estate_planning`, `parsing.hsa_policy`, `parsing.insurance`, `parsing.note_receivable`, `parsing.roth_conversion_policy`, `parsing.validation`, `parsing.withdrawal_order`, `parsing.withdrawal_policy`, `plan_config`, `plan_data_migration`, `plan_data_registry`, `portfolio_analytics`, `report_compute`, `roth_ui_build_guard`, `spending_adjustments`, `spending_budget_resolver`, `stores.ref_getters.cma`, `system_config`, `tax_law`, `workspace_context` | — |
 | `src/desktop_api.py` | `src`, `bootstrap`, `server`, `server.app_core`, `server.workbook_routes`, `server_services` | `pywebview` |
 | `src/desktop_app.py` | `desktop_api` | `pywebview` |
 | `src/detailed_results.py` | `results_model` | `openpyxl` |
@@ -528,7 +528,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/money.py` | — | — |
 | `src/observability.py` | — | — |
 | `src/onedrive_guard.py` | — | — |
-| `src/optimization.py` | `allocation_policy`, `holding_period`, `real_loss_curves`, `vectorized_fast_core`, `workspace_context` | `numpy`, `scipy` |
+| `src/optimization.py` | `allocation_policy`, `holding_period`, `real_loss_curves`, `stores.ref_getters.cma`, `vectorized_fast_core` | `numpy`, `scipy` |
 | `src/parsing/__init__.py` | — | — |
 | `src/parsing/advanced_modules.py` | `data_io` | — |
 | `src/parsing/allocation_optimizer_inputs.py` | `data_io` | — |
@@ -581,6 +581,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/stores/ref_access.py` | `stores.ref_data` | — |
 | `src/stores/ref_data.py` | `stores`, `stores.errors` | — |
 | `src/stores/ref_getters/__init__.py` | `stores.ref_data`, `stores.ref_getters` | — |
+| `src/stores/ref_getters/cma.py` | `stores.ref_access`, `stores.ref_data` | — |
 | `src/stores/ref_getters/state_tax.py` | `stores.ref_access`, `stores.ref_data`, `taxes` | — |
 | `src/stores/ref_getters/tax_law.py` | `stores.ref_access`, `stores.ref_data`, `tax_law` | — |
 | `src/stores/ref_getters/tax_update_dashboard.py` | `stores.ref_access`, `stores.ref_data` | — |

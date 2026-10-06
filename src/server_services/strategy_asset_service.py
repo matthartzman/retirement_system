@@ -1112,14 +1112,9 @@ class StrategyAssetService:
         )
 
     def import_reference_csv_payload(self, *, file_name: str, body: dict[str, Any], audit_event: str) -> tuple[dict[str, Any], int]:
-        content = body.get("csv_content", "")
-        if not content:
-            return {"success": False, "error": "No csv_content in request"}, 400
-        path = self.context.reference_file_path(file_name)
-        with plan_file_lock(path):
-            write_text_atomic(path, content)
-        self._audit(audit_event, {"bytes": len(content), "path": str(path)})
-        return {"success": True, "path": str(path), "bytes": len(content)}, 200
+        # Shipped reference data now lives in the read-only reference.db; custom
+        # assumptions become plan-side overrides (plan storage work package).
+        return {"success": False, "error": f"{file_name} is part of the read-only reference data and can no longer be replaced by upload; custom assumptions will be stored in the plan."}, 410
 
     def seed_housing_payload(self) -> tuple[dict[str, Any], int]:
         return self._seed_rows(file_name="client_spending.csv", seed_rows=HOUSING_SEED_ROWS, audit_event="housing_rows_seeded")

@@ -9,7 +9,7 @@
    "yaml": 1
   },
   "src/data_io.py": {
-   "csv": 8,
+   "csv": 6,
    "open": 6
   },
   "src/desktop_api.py": {
@@ -56,9 +56,6 @@
   "src/monarch_import.py": {
    "csv": 1,
    "path_io": 2
-  },
-  "src/optimization.py": {
-   "csv": 2
   },
   "src/parsing/hsa_policy.py": {
    "csv": 1,
@@ -179,5 +176,5 @@
    "path_io": 1
   }
  },
- "total": 230
+ "total": 226
 }
