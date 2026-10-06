@@ -35,6 +35,8 @@ This document is the single sequencing, staffing and gating plan for two approve
 
 ## 3. Work packages and sequence
 
+**Delivery rule (owner decision):** one session and **one PR per work package** (WP0, WP1, ...). The numbered PR rows in sections 3 and 4 (0.1, 0.2, 1.1 ...) are **units of work inside that WP's single PR**, done sequentially as separate commits, never as separate sessions or PRs. No parallel work without explicit owner sign-off. Full e2e and CI run once per WP, at its end. Where a unit carries an owner checkpoint (section 6), the WP's PR stays draft until it is cleared.
+
 ```
 WP0 safety net ─┬─► WP1 features & nav ─► WP12a rental engine (no storage) ─┐ (lane B)
                 └─► WP2 stores ─► WP3 reference.db ─► WP4 plan rows ─┬─► WP5 tiers UI ┤
@@ -43,7 +45,7 @@ WP0 safety net ─┬─► WP1 features & nav ─► WP12a rental engine (no st
                                           └─► WP8 app state (after WP2, parallel lane) ┘
 ```
 
-| WP | Contents (source) | PRs | Depends on | Lane |
+| WP | Contents (source) | Units (commits, 1 PR per WP) | Depends on | Lane |
 |---|---|---|---|---|
 | WP0 | Golden harness, fixture helper, static audit (F-P0) | 3 | none | A |
 | WP1 | Retire redirects + domain rename (T-P7); `feature_enabled()` accessor (T-P1); shrink the core (T-P2); sheet-only toggles (T-P3); uniform off semantics | 5 | WP0 | B |
@@ -69,7 +71,7 @@ Rental Properties is a **new** dataset, so it needs no conversion step; WP10's r
 
 Model guide (Claude 5 family and Haiku): **Fable 5.1** or **Opus 5.5** for design-critical work where a wrong shape is expensive to undo; **Sonnet 5.5** for most implementation following an established pattern; **Haiku 4.5** for mechanical edits, searches and doc updates. Effort: low (mechanical), medium (routine, pattern given), high (cross-module or financial-correctness), xhigh (shapes everything downstream).
 
-| PR | Scope | Model | Effort | Approach |
+| Unit | Scope | Model | Effort | Approach |
 |---|---|---|---|---|
 | 0.1 | Golden harness | Sonnet 5.5 | high | One agent; fixtures from frozen sample + demo plan |
 | 0.2 | Fixture helper + migrate ~150 tests | Sonnet 5.5 | medium | **Scripted codemod**, not per-file LLM edits; Haiku reviews the diff summary |
@@ -137,7 +139,7 @@ Model guide (Claude 5 family and Haiku): **Fable 5.1** or **Opus 5.5** for desig
 | 12.8 | Housing optimizer `rent_out` candidates, dual-ownership predicate, disclosure removal | Opus 5.5 | high | Most coupled part; own PR |
 | 12.9 | CSV import/export template for properties | Sonnet 5.5 | medium | After `csv_exchange` exists |
 
-Count: 18 PRs are Opus-class (the five xhigh ones — 2.2, 4.1, 6.3a, 10.3 and 12.1 — may use Fable 5.1), 44 are Sonnet, and 4 are Haiku; 66 PRs in total.
+Count: 18 units are Opus-class (the five xhigh ones — 2.2, 4.1, 6.3a, 10.3 and 12.1 — may use Fable 5.1), 44 are Sonnet, and 4 are Haiku; 66 units in total, delivered as 13 PRs (one per WP: WP0-WP12c).
 
 ## 5. Token-minimizing practices
 
@@ -154,7 +156,7 @@ Planning bands (assumption, not measured): S about 0.2-0.5M tokens, M 0.5-1M, L 
 
 ## 6. Gates, checkpoints, rollback
 
-- **Every PR:** the five CI jobs, the golden equality test, the frontend size ratchet, architecture-diagram freshness, and the static audit ratchet (no new file I/O).
+- **Every WP PR:** the five CI jobs, the golden equality test, the frontend size ratchet, architecture-diagram freshness, and the static audit ratchet (no new file I/O).
 - **Numbers must not move by accident.** WP1 with defaults, WP2-WP9 and WP10 leave every computed number unchanged. Switching a feature off in WP5 changes results only by design, and the pinned engine tests (1.5) record exactly how.
 - **Owner checkpoints:** 2.2 (store API), 3.7 (tier tags), 4.1 (row model), 5.1 and 5.3 (screens and wording), 6.3a (spending repository), 10.3 (verification), and for rental: 12.1 (tax rules and worked examples), 12.5 (screen mockup), 12.7 (workbook layout).
 - **Approval gates:** a go per WP; a copy of the live plan before WP4's first rehearsal; approval of the credential-store dependency before 8.2.
@@ -164,4 +166,5 @@ Planning bands (assumption, not measured): S about 0.2-0.5M tokens, M 0.5-1M, L 
 
 | WP | State | Last PR | Notes |
 |---|---|---|---|
-| WP0 - WP11 | not started | none | planning only |
+| WP0 | in progress | single WP0 PR (consolidating #176 and follow-ons) | 0.1 done; 0.2, 0.3 in progress |
+| WP1 - WP12c | not started | none | planning only |
