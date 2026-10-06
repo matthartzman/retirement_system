@@ -89,9 +89,7 @@ export function featureGatedNote(key, opts = {}) {
   const meta = (planModuleTaxonomy().modules || {})[key] || {};
   const title = opts.title || meta.name || key;
   const n = opts.rows ? enteredRowCount(opts.rows) : 0;
-  const countNote = n
-    ? ` ${n} already-entered ${n === 1 ? "item is" : "items are"} retained.`
-    : "";
+  const countNote = (n ? ` ${offRowsLabel(n)}.` : "") + (engineIgnoredWarning(meta) ? ` ${engineIgnoredWarning(meta)}` : "");
   // Every optional feature's switch lives on Plan Features only -- no inline
   // switch here, just the one link.
   const action = `<a href="#" onclick="setStep('optional_functions');return false">Turn it on in Plan Features</a>`;

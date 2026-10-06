@@ -89,6 +89,20 @@ export function enteredRowCount(rows) {
   }).length;
 }
 
+// WP1.5: the one wording for "off, but your data is still here", shared by
+// Plan Features and every page-level off note.
+export function offRowsLabel(n) {
+  return "Off · " + n + (n === 1 ? " row" : " rows") + " entered";
+}
+
+// WP1.5: when a feature the projection itself reads is off, say what the
+// switch does to the numbers (design 2026-10-04 section 3, off semantics).
+export function engineIgnoredWarning(meta) {
+  return meta && meta.engine_participation
+    ? "While " + (meta.name || "this feature") + " is off, the projection ignores it. Your entries are kept."
+    : "";
+}
+
 // #330 §5.3 (W9): where each plan flag's row actually renders for editing.
 // Not mechanically derivable from the catalog the way a module toggle's
 // dashboard_step is: HELOC has one (moduleGates.flag_gates), but Hybrid
@@ -327,7 +341,9 @@ function featureRowHtml(entry) {
     const owned = moduleOwnedRows(entry.key);
     const n = owned === null ? 0 : enteredRowCount(owned);
     if (n)
-      html += '<span class="pf-retained">Off · ' + n + (n === 1 ? " item" : " items") + " entered</span>";
+      html += '<span class="pf-retained">' + offRowsLabel(n) + "</span>";
+    const ignored = engineIgnoredWarning(meta);
+    if (ignored) html += '<span class="pf-engine-ignored">' + esc(ignored) + "</span>";
   }
   if (status.forced) {
     html +=
@@ -454,6 +470,8 @@ Object.assign(window, {
   offFeaturesForPage,
   offFeaturesLineHtml,
   enteredRowCount,
+  offRowsLabel,
+  engineIgnoredWarning,
   envOverrideNotice,
   planFeatureGroups,
   planFeatureKinds,
