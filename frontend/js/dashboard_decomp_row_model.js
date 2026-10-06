@@ -53,6 +53,10 @@ export function stepGatedByOptionalModule(stepId) {
   // input page is hidden.
   // WP1.3: the Family & Business hub fronts two modules; it hides only when
   // both are off (like entity_charitable above, a hand-written any-of rule).
+  // WP1.4: Harvesting is one Optimize section over two modules (loss, gain).
+  if (stepId === "harvesting") {
+    return !optionalFunctionEnabled("tax_loss_harvesting") && !optionalFunctionEnabled("gain_harvesting");
+  }
   if (stepId === "family_business") {
     return !optionalFunctionEnabled("education_funding_529") && !optionalFunctionEnabled("equity_compensation");
   }

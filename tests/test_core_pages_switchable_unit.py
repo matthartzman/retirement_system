@@ -38,3 +38,12 @@ def test_set_feature_turns_them_off_in_memory():
     c = {}
     mc.set_feature(c, "planning_workbench", False)
     assert mc.feature_enabled(c, "planning_workbench") is False
+
+
+def test_sheet_only_toggles_gate_their_optimize_sections():
+    """WP1.4: HSA, Withdrawal Sequencing and Social Security sections follow
+    the module switch that already owns their workbook sheet."""
+    gates = mc.step_gate_map()
+    assert gates["hsa_drawdown"] == "hsa_drawdown"
+    assert gates["withdrawal_sequencing"] == "retirement_strategy"
+    assert gates["social_security"] == "social_security_timing"

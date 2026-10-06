@@ -117,7 +117,7 @@ function gateDescriptorForStep(stepId) {
       // on Plan Features, not on the step it hides.
       destStep: stepId,
     };
-  const key = (moduleGates.step_gates || {})[stepId];
+  const key = (moduleGates.step_gates || {})[stepId] || (stepId === "harvesting" ? "tax_loss_harvesting" : null);
   return key ? { key, gateKind: "module_toggle" } : { key: null };
 }
 
@@ -305,7 +305,7 @@ export function renderStrategyOptimize() {
     {
       key: "hsa_drawdown",
       title: "HSA Drawdown",
-      gate: null,
+      gate: "hsa_drawdown",
       body: () => {
         const html = hsaWithdrawalPolicyBlock(withdrawalOtherRows());
         return (
@@ -328,7 +328,7 @@ export function renderStrategyOptimize() {
     {
       key: "withdrawal_sequencing",
       title: "Withdrawal Sequencing",
-      gate: null,
+      gate: "withdrawal_sequencing",
       body: () => {
         const other = withdrawalOtherRows();
         return renderWithdrawalOrderTable() + withdrawalMiscBlock(other);
@@ -337,7 +337,7 @@ export function renderStrategyOptimize() {
     {
       key: "social_security",
       title: "Social Security",
-      gate: null,
+      gate: "social_security",
       body: () => socialSecurityOptimizePanelHtml(),
     },
     {
@@ -368,7 +368,7 @@ export function renderStrategyOptimize() {
     {
       key: "harvesting",
       title: "Harvesting",
-      gate: null,
+      gate: "harvesting",
       body: () => {
         const other = withdrawalOtherRows();
         const html = taxLossHarvestingBlock(other) + gainHarvestBlock(other);

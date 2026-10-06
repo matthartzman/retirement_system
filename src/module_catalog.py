@@ -589,6 +589,7 @@ _OUTPUTS: List[OutputModule] = [
         domain=TAXES, tier=ADVANCED,
         optional=True,
         sheet="11C. HSA Drawdown", tab="2B. HSA Drawdown",
+        extra_steps=("hsa_drawdown",),  # WP1.4: gates its Optimize section
         requires_inputs=(_in("planning_levers", "hsa_withdrawal_mode"),
                          _in("assets"), _in("assumptions", "brackets")),
         requires_outputs=BASE_PROJECTION,
@@ -628,6 +629,7 @@ _OUTPUTS: List[OutputModule] = [
         "Optimal claiming age; lifetime-benefit comparison.",
         domain=INCOME_BENEFITS, tier=STANDARD,
         optional=True, sheet="10. Social Security", tab="2D. Social Security",
+        extra_steps=("social_security",),  # WP1.4: gates its Optimize section
         requires_inputs=(_in("household", "ss_policy", "dob", "earnings"),
                          _in("planning_levers", "claiming_age")),
         requires_outputs=BASE_PROJECTION,
@@ -637,6 +639,7 @@ _OUTPUTS: List[OutputModule] = [
         "Draw order across account tax types.",
         domain=INVESTMENTS, tier=ADVANCED,
         optional=True, sheet="9. Retirement Strategy", tab="9. Retirement Strategy",
+        extra_steps=("withdrawal_sequencing",),  # WP1.4: gates its Optimize section
         requires_inputs=(_in("planning_levers", "sequencing"), _in("assets"), _in("holdings")),
         requires_outputs=BASE_PROJECTION,
     ),
