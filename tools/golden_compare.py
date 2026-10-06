@@ -5,7 +5,7 @@ Builds the frozen sample plan and the demo plan in a throwaway workspace and
 records three things per plan: full-row engine output, the cell values of the
 required workbook sheets, and the headline KPIs from ``plan_summary.json``.
 The committed baseline lives in ``tests/fixtures/golden_phase_baseline/``;
-``tests/test_phase_golden_equality.py`` compares live output to it.
+``tests/test_phase_golden_equality_regression.py`` compares live output to it.
 
 Usage
 -----
