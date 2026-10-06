@@ -416,14 +416,19 @@ def test_error_hierarchy_and_db_compat():
     assert issubclass(NotFoundError, LookupError) and issubclass(ValidationError, ValueError)
 
 
-def test_no_product_code_imports_stores_yet():
-    """P1 exit criterion; P3 deletes this test when the first consumer switches."""
-    pat = re.compile(r"^\s*(from\s+(src\.stores|\.+stores)\b|import\s+src\.stores\b)", re.M)
-    offenders = [
-        str(f.relative_to(ROOT))
-        for f in (ROOT / "src").rglob("*.py")
-        if "stores" not in f.relative_to(ROOT / "src").parts[:1] and pat.search(f.read_text(encoding="utf-8"))
-    ]
+def test_product_code_uses_only_the_reference_side_of_the_stores_yet():
+    """WP3 switched product code to the read-only reference getters; the plan/app stores
+    (PlanStore, AppStore, db helpers) stay unused by product code until WP4/WP8."""
+    pat = re.compile(r"^\s*(from\s+(src\.stores|\.+stores)(\.\w+)?\s+import\s+[^\n]+|import\s+src\.stores\b[^\n]*)", re.M)
+    allowed = ("ref_getters", "ref_access", "ref_data")
+    offenders = []
+    for f in (ROOT / "src").rglob("*.py"):
+        if f.relative_to(ROOT / "src").parts[:1] == ("stores",):
+            continue
+        for m in pat.finditer(f.read_text(encoding="utf-8")):
+            line = m.group(0)
+            if not any(a in line for a in allowed):
+                offenders.append(f"{f.relative_to(ROOT)}: {line.strip()}")
     assert offenders == []
 
 
