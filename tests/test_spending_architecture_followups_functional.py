@@ -30,15 +30,13 @@ def test_taxonomy_realignment_for_104():
 def test_spending_nav_and_save_copy():
     js = dashboard_js_sources()
     spending_core = js.index('id: "spending_core"')
-    travel = js.index('id: "spending_travel"')
-    large = js.index('id: "spending_travel_extras"')
     holdings = js.index('id: "holdings"')
-    assert spending_core < travel < large < holdings
-    # #338 W-C: transactions moved to Reports & Review, as the hidden entry
-    # right before the Actual Spending step whose "This year" tab it is.
-    ytd = js.index('id: "ytd_transactions"')
+    assert spending_core < holdings
+    # WP1.1: travel / large discretionary / ytd steps are retired redirects.
+    for gone in ("spending_travel", "spending_travel_extras", "ytd_transactions"):
+        assert 'id: "%s"' % gone not in js
     actual = js.index('id: "actual_spending"')
-    assert holdings < ytd < actual
+    assert holdings < actual
     assert 'title: "Spending Model"' in js
     assert 'Save Budget' not in js
     assert 'saveAll(true)' in js

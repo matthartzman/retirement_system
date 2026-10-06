@@ -11,8 +11,7 @@ OLD_STEP = "retirement_" + "health" + "care"
 
 def test_wellness_uses_healthcare_premium_language_without_renaming_step():
     js = dashboard_js_text()
-    assert 'id: "retirement_wellness"' in js
-    assert 'title: "Wellness"' in js
+    assert 'id: "retirement_wellness"' not in js  # retired (WP1.1); redirects to Spending Model
     assert OLD_STEP not in js
     assert HEALTHCARE_PREMIUM in js
 

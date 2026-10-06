@@ -131,7 +131,7 @@ def test_state_residency_button_removed_from_planning_levers_decide_card():
     assert 'data-step-id="state_residency">State residency</button>' not in fn
     # The State Residency page/nav step itself must still exist elsewhere --
     # this only removes the lever quick-nav shortcut, not the whole feature.
-    assert 'id: "state_residency"' in js
+    assert 'id: "state_residency"' not in js  # retired (WP1.1); redirects to Housing residency
     # Ticket 323 moved the residency schedule itself onto the Housing page
     # (renderSpendingHousing), and deleted renderStateResidency along with
     # its dead State Comparison half. The feature still has to exist
