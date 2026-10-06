@@ -47,3 +47,13 @@ test("WP1.4: Optimize sections follow their sheet toggles; Harvesting is any-of"
     assert.equal(sandbox.stepGatedByOptionalModule(id), true, id); // no rows loaded = off
   }
 });
+
+test("WP1.5: one off wording, and an engine-ignored warning", () => {
+  assert.equal(sandbox.offRowsLabel(1), "Off · 1 row entered");
+  assert.equal(sandbox.offRowsLabel(4), "Off · 4 rows entered");
+  assert.equal(sandbox.engineIgnoredWarning({ name: "Disability Income", engine_participation: false }), "");
+  assert.match(
+    sandbox.engineIgnoredWarning({ name: "Disability Income", engine_participation: true }),
+    /Disability Income is off, the projection ignores it/,
+  );
+});
