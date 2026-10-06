@@ -89,60 +89,48 @@ __all__ = [
 def _load_capital_market_income_assumptions() -> dict:
     """Read yield/qualified-dividend/tax-exempt assumptions from reference data.
 
-    The projection falls back to conservative defaults, but the editable
-    capital_market_assumptions.csv is the authoritative source when it contains
+    The projection falls back to conservative defaults, but the shipped
+    capital-market reference table is the authoritative source when it contains
     distribution_yield, qualified_dividend_fraction, and tax_exempt_yield.
     """
-    path = Path(__file__).resolve().parent.parent / 'reference_data' / 'capital_market_assumptions.csv'
+    from .stores.ref_getters.cma import capital_market_rows
     out = {}
-    if not path.exists():
-        return out
-    try:
-        with path.open(newline='', encoding='utf-8-sig') as f:
-            for row in csv.DictReader(f):
-                preset = str(row.get('preset') or 'BASELINE').strip().upper()
-                cls = _ap.canonical_asset_class(row.get('asset_class') or '')
-                if not cls:
-                    continue
-                y = _n(row.get('distribution_yield',''), None)
-                q = _n(row.get('qualified_dividend_fraction',''), None)
-                te = _n(row.get('tax_exempt_yield',''), None)
-                if y is None and q is None and te is None:
-                    continue
-                out[(preset, cls)] = (
-                    max(0.0, float(y if y is not None else 0.0)),
-                    max(0.0, min(1.0, float(q if q is not None else 0.0))),
-                    max(0.0, float(te if te is not None else 0.0)),
-                )
-    except Exception:
-        return {}
+    for row in capital_market_rows():
+        preset = str(row.get('preset') or 'BASELINE').strip().upper()
+        cls = _ap.canonical_asset_class(row.get('asset_class') or '')
+        if not cls:
+            continue
+        y = _n(row.get('distribution_yield',''), None)
+        q = _n(row.get('qualified_dividend_fraction',''), None)
+        te = _n(row.get('tax_exempt_yield',''), None)
+        if y is None and q is None and te is None:
+            continue
+        out[(preset, cls)] = (
+            max(0.0, float(y if y is not None else 0.0)),
+            max(0.0, min(1.0, float(q if q is not None else 0.0))),
+            max(0.0, float(te if te is not None else 0.0)),
+        )
     return out
 
 def _load_capital_market_return_assumptions() -> dict:
     """Read expected_return by (preset, asset_class) from reference data.
 
-    Same file/shape as _load_capital_market_income_assumptions, just the
+    Same table/shape as _load_capital_market_income_assumptions, just the
     return column instead of the income columns. Used to derive per-account
     (sleeve-level) growth rates from each account's actual holdings mix --
     see the account_returns block below.
     """
-    path = Path(__file__).resolve().parent.parent / 'reference_data' / 'capital_market_assumptions.csv'
+    from .stores.ref_getters.cma import capital_market_rows
     out = {}
-    if not path.exists():
-        return out
-    try:
-        with path.open(newline='', encoding='utf-8-sig') as f:
-            for row in csv.DictReader(f):
-                preset = str(row.get('preset') or 'BASELINE').strip().upper()
-                cls = _ap.canonical_asset_class(row.get('asset_class') or '')
-                if not cls:
-                    continue
-                ret = _n(row.get('expected_return', ''), None)
-                if ret is None:
-                    continue
-                out[(preset, cls)] = float(ret)
-    except Exception:
-        return {}
+    for row in capital_market_rows():
+        preset = str(row.get('preset') or 'BASELINE').strip().upper()
+        cls = _ap.canonical_asset_class(row.get('asset_class') or '')
+        if not cls:
+            continue
+        ret = _n(row.get('expected_return', ''), None)
+        if ret is None:
+            continue
+        out[(preset, cls)] = float(ret)
     return out
 
 

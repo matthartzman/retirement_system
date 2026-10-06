@@ -40,7 +40,15 @@ def _tax_update_dashboard() -> Any:
     return rows
 
 
+def _csv_rows(name: str) -> Any:
+    import csv
+    with (ROOT / "reference_data" / name).open(encoding="utf-8-sig", newline="") as fh:
+        return [dict(r) for r in csv.DictReader(fh)]
+
+
 CAPTURES: dict[str, Callable[[], Any]] = {
+    "capital_market_rows": lambda: _csv_rows("capital_market_assumptions.csv"),
+    "correlation_rows": lambda: _csv_rows("asset_correlations.csv"),
     "tax_update_dashboard": _tax_update_dashboard,
 }
 

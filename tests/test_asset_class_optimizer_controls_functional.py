@@ -44,12 +44,9 @@ class TestAssetClassOptimizerControls(unittest.TestCase):
         out = opt.compute_optimal_allocation(cfg, force_mode=ap.ALLOCATION_MODE_OPTIMIZER)
         self.assertNotIn('US Mid Cap', out.get('liquid_targets', {}))
 
-    def test_reference_correlation_csv_contains_all_pairs(self):
-        p = ROOT / 'reference_data' / 'asset_correlations.csv'
-        seen = set()
-        with p.open(newline='', encoding='utf-8-sig') as f:
-            for row in csv.DictReader(f):
-                seen.add((row['asset_class_a'], row['asset_class_b']))
+    def test_reference_correlation_table_contains_all_pairs(self):
+        from src.stores.ref_getters.cma import correlation_rows
+        seen = {(row['asset_class_a'], row['asset_class_b']) for row in correlation_rows()}
         for pair in itertools.combinations(opt.ASSET_CLASSES.keys(), 2):
             self.assertIn(pair, seen)
 

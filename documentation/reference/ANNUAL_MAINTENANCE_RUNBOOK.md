@@ -113,8 +113,8 @@ place mislabels its value year and silently mis-indexes every later year.
 
 ## As-needed, not calendar-bound
 
-- **Capital market assumptions** (`reference_data/capital_market_assumptions.csv`,
-  `reference_data/asset_correlations.csv`): review whenever your long-term
+- **Capital market assumptions** (`reference_src/capital_market_assumptions.csv`,
+  `reference_src/asset_correlations.csv`; rebuild `reference.db` after editing): review whenever your long-term
   market outlook actually changes, at minimum annually. Update the
   `capital_market_assumptions` row in `tax_update_dashboard.csv`'s
   `last_reviewed` date after any refresh so the staleness banner reflects it.
