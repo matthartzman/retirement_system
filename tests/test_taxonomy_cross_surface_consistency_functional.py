@@ -45,4 +45,9 @@ def test_topic_label_never_reused_for_other_membership():
         if m.dashboard_step:
             hit = re.search(r'id:\s*"%s",\s*group:\s*"([^"]+)"' % re.escape(m.dashboard_step), src)
             if hit and hit.group(1) in mc.DOMAINS:
-                assert hit.group(1) == m.domain, (m.dashboard_step, hit.group(1), m.domain)
+                # Housing & Property's nav group dissolved into Investments &
+                # Property (#338), so its modules' steps may sit there.
+                ok = {m.domain}
+                if m.domain == mc.HOUSING_PROPERTY:
+                    ok.add(mc.INVESTMENTS)
+                assert hit.group(1) in ok, (m.dashboard_step, hit.group(1), m.domain)

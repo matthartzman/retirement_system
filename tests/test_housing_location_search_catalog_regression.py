@@ -158,7 +158,9 @@ def test_the_home_and_housing_input_page_is_not_gated_by_this_switch():
     (current home, sale year, next housing steps, rent) live on the always-on
     "Home & Housing" page. Turning the search off must not touch them."""
     steps = mc.step_gate_map()
-    assert "assets_home_cash" not in steps
+    # WP1.3: assets_home_cash (Reserve Requirements) has its own switch now;
+    # what must hold is that THIS switch never gates it.
+    assert steps.get("assets_home_cash") != KEY
     assert "spending_housing" not in steps
 
 

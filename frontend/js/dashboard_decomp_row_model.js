@@ -51,6 +51,15 @@ export function stepGatedByOptionalModule(stepId) {
   // dashboard_step, via moduleGates.step_gates) rather than hand-listed here —
   // when the module is off, no computation runs and no sheet is built, so the
   // input page is hidden.
+  // WP1.3: the Family & Business hub fronts two modules; it hides only when
+  // both are off (like entity_charitable above, a hand-written any-of rule).
+  // WP1.4: Harvesting is one Optimize section over two modules (loss, gain).
+  if (stepId === "harvesting") {
+    return !optionalFunctionEnabled("tax_loss_harvesting") && !optionalFunctionEnabled("gain_harvesting");
+  }
+  if (stepId === "family_business") {
+    return !optionalFunctionEnabled("education_funding_529") && !optionalFunctionEnabled("equity_compensation");
+  }
   const gateModule = (moduleGates.step_gates || {})[stepId];
   if (gateModule) return !optionalFunctionEnabled(gateModule);
   return false;
@@ -1377,7 +1386,8 @@ export function optionalFunctionEnabled(labelName) {
       r.section === "Optional Functions" &&
       norm(r.label) === norm(labelName),
   );
-  if (!row) return false;
+  // WP1.3: a feature registered without a CSV row reads its registry default.
+  if (!row) return !!(moduleGates.rowless_defaults || {})[labelName];
   const v = String(valOf(row) || "")
     .trim()
     .toUpperCase();

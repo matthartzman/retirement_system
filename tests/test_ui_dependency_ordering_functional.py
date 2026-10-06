@@ -47,11 +47,8 @@ def test_special_strategies_is_unreachable_so_it_needs_no_gate_of_its_own():
         not in dash
     )
 
-    # (2) the hidden, ungrouped shell
-    shell = text(DASH)[text(DASH).index('id: "special_strategies"') :][:200]
-    assert "group: null" in shell
-    assert "hidden: true" in shell
-    assert 'if (s.group === null && s.id !== activeStep) return false;' in dash
+    # (2) WP1.1: the shell is retired entirely; the id only redirects.
+    assert 'id: "special_strategies"' not in text(DASH)
 
     # (3) the redirect that keeps it from ever being the active step
     nav = text(ROOT / "frontend" / "js" / "navigation.js")
