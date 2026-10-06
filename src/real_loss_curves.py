@@ -6,12 +6,12 @@ Shipped defaults are digitized from the Discipline Funds "Probability of a
 Real Loss by Holding Period" reference chart: four curves (Cash/T-bills,
 short-intermediate real bonds, a 60/40 blend, and 100% equities), each
 sampled at holding years 0,3,5,7,9,11,13,15,17,19,21. Like
-reference_data/capital_market_assumptions.csv, this is an editable planning
+the capital market assumptions, this is an editable planning
 assumption, not a market forecast: cash's real-loss probability rises with
 holding period (inflation erosion), while equities' falls (mean reversion
-dominates over long horizons). Advanced users can replace
-reference_data/real_loss_probability.csv with their own curves; the CSV is
-authoritative when present, and this module's constants are the fallback.
+dominates over long horizons). The shipped curves live in the read-only
+reference.db (source reference_src/real_loss_probability.csv); plan-side override
+rows can replace individual curves, and this module's constants are the fallback.
 """
 
 from pathlib import Path
@@ -27,7 +27,7 @@ BONDS_CURVE = 'Bonds_Short_Intermediate'
 BLEND_CURVE = 'Blend_60_40'
 EQUITY_CURVE = 'Equities_100'
 
-# Fallback curves if the shipped reference_data CSV is missing or damaged.
+# Fallback curves for any curve the shipped reference table lacks.
 # {curve_name: [(holding_years, real_loss_prob), ...]} sorted ascending.
 _BASE_CURVES = {
     CASH_CURVE: [
@@ -90,65 +90,40 @@ def _parse_pct(value, default=None):
         return default
 
 
-def _resolve_reference_path(filename):
-    root = Path(__file__).resolve().parent.parent
-    candidates = [root / 'reference_data' / filename, root / filename]
-    try:
-        from .workspace_context import active_workspace_id, candidate_input_files, first_existing
-        found = first_existing(candidate_input_files(filename, active_workspace_id(), root))
-        if found:
-            return found
-    except Exception:
-        pass
-    for candidate in candidates:
-        if candidate.exists():
-            return candidate
-    return candidates[0]
+def _curve_points(rows):
+    """Build {curve_name: [(years, prob), ...]} sorted ascending from rows.
 
-
-def _load_curve_rows(path_value):
-    """Load {curve_name: [(years, prob), ...]} sorted ascending from a CSV.
-
-    Expected columns: curve_name,holding_years,real_loss_prob,notes.
+    Row columns: curve_name,holding_years,real_loss_prob,notes.
     """
-    p = Path(str(path_value)) if path_value else None
-    if not p or not p.exists():
-        return {}
-    import csv
-    rows = {}
-    with p.open(newline='', encoding='utf-8-sig') as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            name = (row.get('curve_name') or '').strip()
-            years = _parse_pct(row.get('holding_years'), None)
-            prob = _parse_pct(row.get('real_loss_prob'), None)
-            if not name or years is None or prob is None:
-                continue
-            rows.setdefault(name, []).append((float(years), max(0.0, min(1.0, prob))))
-    for name in rows:
-        rows[name].sort(key=lambda t: t[0])
-    return rows
+    out = {}
+    for row in rows:
+        name = (row.get('curve_name') or '').strip()
+        years = _parse_pct(row.get('holding_years'), None)
+        prob = _parse_pct(row.get('real_loss_prob'), None)
+        if not name or years is None or prob is None:
+            continue
+        out.setdefault(name, []).append((float(years), max(0.0, min(1.0, prob))))
+    for name in out:
+        out[name].sort(key=lambda t: t[0])
+    return out
 
 
 def load_real_loss_curves(c=None):
     """Return {curve_name: [(holding_years, real_loss_prob), ...]}.
 
-    The shipped reference_data/real_loss_probability.csv is authoritative
-    when present (mirrors capital_market_assumptions.csv's precedence); the
-    hardcoded _BASE_CURVES table is a last-resort fallback for damaged or
-    missing reference data. An optional custom file
-    (c['real_loss_curves_file']) can override individual curves, same
-    pattern as the capital-market custom-file override.
+    The shipped reference table (reference.db) is authoritative; the hardcoded
+    _BASE_CURVES table is a last-resort fallback for curves it lacks. Optional
+    plan-side override rows (c['real_loss_curve_rows'], same columns as the shipped
+    rows) replace individual curves.
     """
+    from .stores.ref_getters.mortality_real_loss import real_loss_rows
     curves = {name: list(pts) for name, pts in _BASE_CURVES.items()}
-    shipped = _load_curve_rows(_resolve_reference_path('real_loss_probability.csv'))
-    for name, pts in shipped.items():
+    for name, pts in _curve_points(real_loss_rows()).items():
         curves[name] = pts
 
-    custom_file = (c or {}).get('real_loss_curves_file') if c else None
-    if custom_file:
-        custom = _load_curve_rows(_resolve_reference_path(custom_file))
-        for name, pts in custom.items():
+    custom_rows = (c or {}).get('real_loss_curve_rows') if c else None
+    if custom_rows:
+        for name, pts in _curve_points(custom_rows).items():
             curves[name] = pts
     return curves
 
@@ -186,7 +161,7 @@ def real_loss_prob(asset_class, holding_years, c=None, curves=None):
 
     ``curves`` lets callers reuse one load_real_loss_curves() result across
     many lookups (e.g. inside an optimizer objective) instead of re-reading
-    the CSV every call.
+    the table every call.
     """
     curves = curves if curves is not None else load_real_loss_curves(c)
     curve_name = curve_for_asset_class(asset_class)

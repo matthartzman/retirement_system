@@ -7,7 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNBOOK = (ROOT / "documentation/reference/ANNUAL_MAINTENANCE_RUNBOOK.md").read_text(encoding="utf-8")
-DASH = ROOT / "reference_data/tax_update_dashboard.csv"
+DASH = ROOT / "reference_src/tax_update_dashboard.csv"
 
 
 def test_runbook_states_the_dated_row_rule():

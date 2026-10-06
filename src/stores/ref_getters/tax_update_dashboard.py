@@ -2,7 +2,7 @@
 
 Table ``tax_update_status`` (built by ``tools/reference_slices/tax_update_dashboard.py``).
 The getter reproduces the rows ``governance.tax_law_dashboard`` reads from
-``reference_data/tax_update_dashboard.csv`` before its staleness overlay: every
+``reference_src/tax_update_dashboard.csv`` before its staleness overlay: every
 field a ``str`` in CSV column order, ``blocking`` a ``bool``, rows in file order.
 ``governance`` is switched over in WP3.5; until then nothing in the product calls this.
 """

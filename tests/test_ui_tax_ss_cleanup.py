@@ -52,7 +52,7 @@ def test_social_security_funding_discount_defaults_and_engine_application_are_pr
 
 def test_tax_and_irmaa_tables_updated_to_2025_and_workflow_documents_annual_review():
     taxes = read('src/taxes.py')
-    tax_dashboard = read('reference_data/tax_update_dashboard.csv')
+    tax_dashboard = read('reference_src/tax_update_dashboard.csv')
     assert 'FEDERAL_BRACKETS_VALUE_YEAR = int(os.environ.get(\'FEDERAL_BRACKETS_VALUE_YEAR\') or 2025)' in taxes
     assert '2025' in tax_dashboard
     assert 'Annual process:' in tax_dashboard

@@ -26,7 +26,7 @@ from . import plan_dates as _plan_dates
 
 # Fallback Social Security wage base used only when a plan's own
 # ss_wage_base_base_year field is blank. The household field is expected to be
-# populated per-plan (see reference_data/tax_update_dashboard.csv's
+# populated per-plan (see reference_src/tax_update_dashboard.csv's
 # ss_wage_base row for the current authoritative annual figure); this constant
 # exists once so it can't drift across the CSV- and JSON-parsing code paths.
 DEFAULT_SS_WAGE_BASE = 184500
