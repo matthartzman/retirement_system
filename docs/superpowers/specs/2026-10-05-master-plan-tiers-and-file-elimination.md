@@ -164,4 +164,6 @@ Planning bands (assumption, not measured): S about 0.2-0.5M tokens, M 0.5-1M, L 
 
 | WP | State | Last PR | Notes |
 |---|---|---|---|
-| WP0 - WP11 | not started | none | planning only |
+| WP0 (WP0.1) | WP0.1 in review | draft PR on `claude/wp0-1-golden-harness` | golden baseline for sample_frozen + demo committed; `tools/golden_compare.py`, `tests/test_phase_golden_equality.py` |
+| WP0.2 - WP0.3 | not started | none | |
+| WP1 - WP11 | not started | none | planning only |
