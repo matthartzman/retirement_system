@@ -39,7 +39,7 @@ def test_demo_csv_has_no_checking_field():
 
 
 def test_schema_has_no_checking_field():
-    text = (ROOT / "reference_data/schema.csv").read_text(encoding="utf-8")
+    text = (ROOT / "reference_src/schema.csv").read_text(encoding="utf-8")
     assert "Other Assets,Cash,value" not in text
 
 

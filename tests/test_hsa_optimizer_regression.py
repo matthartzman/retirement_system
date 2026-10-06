@@ -225,7 +225,7 @@ class ScoringTests(unittest.TestCase):
         self.assertGreater(score_year({}, single, 10_000.0), score_year({}, joint, 10_000.0))
 
     def test_an_hoh_survivor_also_gets_the_compressed_bracket_premium(self):
-        """`survivor_filing_status` is `Single | HOH` (reference_data/schema.csv),
+        """`survivor_filing_status` is `Single | HOH` (reference_src/schema.csv),
         and the engine writes that value straight into `row['filing']`. HOH
         brackets are compressed relative to MFJ for the same reason Single's
         are, so an HOH survivor must out-score an MFJ year at the same rate."""

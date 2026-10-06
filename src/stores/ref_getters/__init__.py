@@ -26,6 +26,7 @@ from typing import Any, Callable
 from ..ref_data import RefData
 from . import cma as _cma
 from . import mortality_real_loss as _mrl
+from . import schema_fields as _schema_fields
 from . import security_master as _security_master
 from . import state_tax as _state_tax
 from . import tax_law as _tax_law
@@ -36,6 +37,7 @@ GOLDEN_GETTERS: dict[str, Callable[[RefData], Any]] = {
     "correlation_rows": _cma.correlation_rows,
     "mortality_qx_table": _mrl.mortality_qx_table,
     "real_loss_rows": _mrl.real_loss_rows,
+    "schema_fields": _schema_fields.schema_fields,
     "security_master_rows": _security_master.security_master_rows,
     "state_tax_rows": _state_tax.state_tax_rows,
     "state_tax_rules": _state_tax.state_tax_rules,

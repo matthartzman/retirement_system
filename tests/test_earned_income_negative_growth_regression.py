@@ -1,7 +1,7 @@
 """#252: a -50% earned_income_annual_increase must be accepted and must
 actually halve the following year's earned income.
 
-Root cause: reference_data/schema.csv hardcoded min=-20 (percent) for this
+Root cause: reference_src/schema.csv hardcoded min=-20 (percent) for this
 field, even though its own description already said "can be negative for a
 planned pay cut, sabbatical year, or reduced hours" -- so ConfigService's
 grid save (schema_registry.validate_rows) rejected any cut steeper than

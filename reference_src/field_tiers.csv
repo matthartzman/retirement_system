@@ -1,0 +1,470 @@
+section,subsection,label,min_tier
+Household,,member_1_name,simple
+Household,,member_1_nickname,simple
+Household,,member_1_dob,simple
+Household,,member_1_retirement_date,simple
+Household,,member_1_mortality_age,simple
+Household,,member_2_name,simple
+Household,,member_2_nickname,simple
+Household,,member_2_dob,simple
+Household,,member_2_retirement_date,simple
+Household,,member_2_mortality_age,simple
+Household,,residence_state,simple
+Household,,filing_status,simple
+Household,,survivor_filing_status,standard
+Household,,survivor_has_dependent,standard
+Household,,survivor_spend_factor,standard
+Plan Settings,Tax Detail,model_niit,standard
+Plan Settings,Estate,model_state_estate_tax,standard
+Economic Assumptions,,inflation_general,simple
+Economic Assumptions,,social_security_cola,simple
+Economic Assumptions,,portfolio_nominal_return,simple
+Economic Assumptions,,reinvest_dividends_default,standard
+Economic Assumptions,,cash_yield_rate,standard
+Economic Assumptions,,fed_tax_bracket_inflator,simple
+Economic Assumptions,,social_security_taxable_fraction,simple
+Economic Assumptions,,state_income_tax_rate,standard
+Economic Assumptions,,tax_law_scenario,advanced
+Economic Assumptions,,higher_rates_start_year,advanced
+Economic Assumptions,,tax_model_baseline,advanced
+Economic Assumptions,,annuity_default_dividend_rate,advanced
+Model Constants,Retirement,rollover_401k_year,simple
+Model Constants,Retirement,spending_freeze_year,simple
+Model Constants,IRMAA,irmaa_actual_magi_2yr_prior,advanced
+Model Constants,IRMAA,irmaa_actual_magi_1yr_prior,advanced
+Model Constants,IRMAA,h_ssa44_relief_year,advanced
+Model Constants,IRMAA,w_ssa44_relief_year,advanced
+Model Constants,Monte Carlo,mc_portfolio_sigma,standard
+Model Constants,Monte Carlo,mc_simulations,advanced
+Model Constants,Monte Carlo,mc_sensitivity_simulations,advanced
+Model Constants,Monte Carlo,mc_engine_mode,expert
+Model Constants,Monte Carlo,success_liquid_floor,advanced
+Model Constants,Monte Carlo,stochastic_tax_brackets,expert
+Model Constants,Monte Carlo,stochastic_irmaa,expert
+Model Constants,Monte Carlo,wellness_cost_shocks,expert
+Model Constants,Monte Carlo,wellness_shock_annual_prob,expert
+Model Constants,Monte Carlo,wellness_shock_mean_cost,expert
+Model Constants,Monte Carlo,mc_home_equity_contingency,expert
+Model Constants,Monte Carlo,mc_home_equity_haircut,expert
+Model Constants,Monte Carlo,mc_home_equity_access_lag_years,expert
+Model Constants,Asset Allocation,equity_pct,standard
+Model Constants,Asset Allocation,commodity_pct,standard
+Model Constants,Asset Allocation,cash_pct,standard
+Model Constants,Home Sale,selling_cost_pct,standard
+Model Constants,Capital Gains,ltcg_0pct_top_mfj_base_year,expert
+Model Constants,Capital Gains,ltcg_15pct_top_mfj_base_year,expert
+Model Constants,Capital Gains,niit_magi_threshold_mfj,expert
+Cashflow,Earned Income,annual_earned_income,simple
+Cashflow,Earned Income,earned_income_start_year,simple
+Cashflow,Earned Income,earned_income_annual_increase,simple
+Cashflow,Earned Income,entity_type,expert
+Cashflow,S-Corp,reasonable_salary_annual,expert
+Cashflow,Spending,annual_spending_base_year,simple
+Cashflow,Spending,core_spending_growth_mode,standard
+Cashflow,Spending,core_spending_manual_growth_rate,standard
+Cashflow,Spending,travel_end_year,standard
+Cashflow,Mortgage,monthly_payment,simple
+Cashflow,Mortgage,balance_as_of_plan_start,simple
+Cashflow,Mortgage,interest_rate,simple
+Cashflow,Mortgage,last_payment_year,simple
+Cashflow,Mortgage,annual_real_estate_taxes,standard
+Cashflow,Mortgage,real_estate_tax_annual_adjustment_pct,advanced
+Social Security,Member 1,ss_benefit_age_62,standard
+Social Security,Member 1,ss_benefit_age_63,standard
+Social Security,Member 1,ss_benefit_age_64,standard
+Social Security,Member 1,ss_benefit_age_65,standard
+Social Security,Member 1,ss_benefit_age_66,standard
+Social Security,Member 1,ss_benefit_age_67,standard
+Social Security,Member 1,ss_benefit_age_68,standard
+Social Security,Member 1,ss_benefit_age_69,standard
+Social Security,Member 1,ss_benefit_age_70,standard
+Social Security,Member 2,ss_benefit_age_62,standard
+Social Security,Member 2,ss_benefit_age_63,standard
+Social Security,Member 2,ss_benefit_age_64,standard
+Social Security,Member 2,ss_benefit_age_65,standard
+Social Security,Member 2,ss_benefit_age_66,standard
+Social Security,Member 2,ss_benefit_age_67,standard
+Social Security,Member 2,ss_benefit_age_68,standard
+Social Security,Member 2,ss_benefit_age_69,standard
+Social Security,Member 2,ss_benefit_age_70,standard
+Other Assets,Home,value_as_of_plan_start,simple
+Other Assets,Home,appreciation_rate,simple
+Other Assets,Home,home_sale_year,simple
+Other Assets,Home,home_sale_price,standard
+Other Assets,Home,home_basis,standard
+Other Assets,Home,home_sale_proceeds_account,standard
+Scenarios,Retire Later,member_1_retire_year,advanced
+Scenarios,Retire Later,income_growth_rate_override,advanced
+Scenarios,Retire Later,salary_override,advanced
+Scenarios,Sell Home,home_sale_year,advanced
+Scenarios,Sell Home,home_sale_proceeds_account,advanced
+Scenarios,Higher Spending,spend_multiplier,advanced
+Scenarios,High Inflation,inflation_override,advanced
+Scenarios,Low Return,portfolio_return_override,advanced
+Withdrawal Policy,Tax-Loss Harvesting,tlh_policy,advanced
+Withdrawal Policy,Tax-Loss Harvesting,tlh_min_loss_dollars,advanced
+Withdrawal Policy,Tax-Loss Harvesting,tlh_min_loss_pct,advanced
+Withdrawal Policy,Tax-Loss Harvesting,tlh_annual_ceiling,expert
+Withdrawal Policy,Tax-Loss Harvesting,tlh_transaction_cost_bps,expert
+Withdrawal Policy,Tax-Loss Harvesting,tlh_fraction_sold_before_death,expert
+Withdrawal Policy,Gain Harvesting,gain_harvest_policy,advanced
+Withdrawal Policy,Gain Harvesting,gain_harvest_min_gain_dollars,advanced
+Withdrawal Policy,Gain Harvesting,gain_harvest_min_gain_pct,advanced
+Withdrawal Policy,Gain Harvesting,gain_harvest_transaction_cost_bps,expert
+Withdrawal Policy,Roth Conversion,roth_conversion_policy,simple
+Withdrawal Policy,Roth Conversion,max_conversion_years,simple
+Withdrawal Policy,Roth Conversion,max_annual_conversion_pct_of_traditional_ira,standard
+Withdrawal Policy,Roth Conversion,roth_bracket_strategy,standard
+Withdrawal Policy,Roth Conversion,roth_target_bracket_rate,standard
+Withdrawal Policy,Roth Conversion,roth_phase_first_bracket_rate,advanced
+Withdrawal Policy,Roth Conversion,roth_phase_second_bracket_rate,advanced
+Withdrawal Policy,Roth Conversion,roth_phase_third_bracket_rate,advanced
+Withdrawal Policy,Roth Conversion,roth_phase_count,standard
+Withdrawal Policy,Roth Conversion,roth_fixed_annual_amount,standard
+Withdrawal Policy,Roth Conversion,roth_optimize_terminal_weight,expert
+Withdrawal Policy,Roth Conversion,roth_optimize_lifetime_tax_weight,expert
+Withdrawal Policy,Roth Conversion,roth_optimize_terminal_pretax_tax_rate,expert
+Withdrawal Policy,Roth Conversion,heir_filing_status,expert
+Withdrawal Policy,Roth Conversion,heir_other_taxable_income,expert
+Annuity Calibration,Purchase Rate,seg1_age_start,expert
+Annuity Calibration,Purchase Rate,seg1_age_end,expert
+Annuity Calibration,Purchase Rate,seg1_base_rate,expert
+Annuity Calibration,Purchase Rate,seg1_slope,expert
+Annuity Calibration,Purchase Rate,seg2_age_start,expert
+Annuity Calibration,Purchase Rate,seg2_age_end,expert
+Annuity Calibration,Purchase Rate,seg2_base_rate,expert
+Annuity Calibration,Purchase Rate,seg2_slope,expert
+Annuity Calibration,Purchase Rate,seg3_age_start,expert
+Annuity Calibration,Purchase Rate,seg3_age_end,expert
+Annuity Calibration,Purchase Rate,seg3_base_rate,expert
+Annuity Calibration,Purchase Rate,seg3_slope,expert
+Annuity Calibration,Purchase Rate,seg4_age_start,expert
+Annuity Calibration,Purchase Rate,seg4_age_end,expert
+Annuity Calibration,Purchase Rate,seg4_base_rate,expert
+Annuity Calibration,Purchase Rate,seg4_slope,expert
+Annuity Calibration,Purchase Rate,seg5_age_start,expert
+Annuity Calibration,Purchase Rate,seg5_age_end,expert
+Annuity Calibration,Purchase Rate,seg5_base_rate,expert
+Annuity Calibration,Purchase Rate,seg5_slope,expert
+Annuity Calibration,Reserve Decay,reserve_decay_rate,expert
+Annuity Calibration,Reserve Decay,reserve_decay_period,expert
+Annuity Calibration,Reserve Decay,mortality_credit_boost,expert
+Annuity Calibration,Reserve Decay,post_credit_decay_rate,expert
+Annuity Calibration,Reserve Decay,post_credit_decay_period,expert
+Annuity Calibration,Reserve Decay,late_life_growth_rate,expert
+Model Constants,Allocation,risk_tolerance,standard
+Model Constants,Allocation,human_capital_stability,advanced
+Model Constants,Allocation,concentration_employer_stock,advanced
+Model Constants,Allocation,concentration_real_estate,advanced
+Model Constants,Allocation,concentration_business,advanced
+Model Constants,Allocation,glide_path,standard
+Model Constants,Allocation,inflation_sensitive_spending_pct,advanced
+Model Constants,Allocation,include_home_equity_in_allocation_view,advanced
+Model Constants,Allocation,liquid_reit_target_pct_when_home_not_counted,advanced
+Market Pricing,Holdings,pricing_mode,simple
+Market Pricing,Holdings,cache_hours,simple
+Market Pricing,API,fmp_api_key,standard
+Market Pricing,API,alpha_vantage_api_key,standard
+Asset Class Assumptions,US Equity,expected_return,advanced
+Asset Class Assumptions,US Equity,volatility,advanced
+Asset Allocation Policy,Global,allocation_selection_mode,standard
+Asset Allocation Policy,Global,holding_period_allocation_enabled,expert
+Asset Allocation Policy,Global,holding_period_floor_strength,expert
+Asset Allocation Policy,Global,real_loss_aware_risk_aversion,expert
+Asset Allocation Policy,Global,real_loss_aware_weight,expert
+Asset Allocation Policy,US Equity,target_pct,standard
+Asset Allocation Policy,US Small/Value,target_pct,standard
+Asset Allocation Policy,International,target_pct,standard
+Asset Allocation Policy,Emerging Markets,target_pct,standard
+Asset Allocation Policy,Bonds,target_pct,standard
+Asset Allocation Policy,Short-Term Bonds,target_pct,standard
+Asset Allocation Policy,TIPS,target_pct,standard
+Asset Allocation Policy,REITs,target_pct,standard
+Asset Allocation Policy,Commodities,target_pct,standard
+Asset Allocation Policy,Managed Futures,target_pct,standard
+Asset Allocation Policy,Private Credit,target_pct,standard
+Asset Allocation Policy,Cash,target_pct,standard
+Asset Class Assumptions,US Small/Value,expected_return,advanced
+Asset Class Assumptions,US Small/Value,volatility,advanced
+Asset Class Assumptions,International,expected_return,advanced
+Asset Class Assumptions,International,volatility,advanced
+Asset Class Assumptions,Emerging Markets,expected_return,advanced
+Asset Class Assumptions,Emerging Markets,volatility,advanced
+Asset Class Assumptions,Commodities,expected_return,advanced
+Asset Class Assumptions,Commodities,volatility,advanced
+Asset Class Assumptions,Bonds,expected_return,advanced
+Asset Class Assumptions,Bonds,volatility,advanced
+Asset Class Assumptions,REITs,expected_return,advanced
+Asset Class Assumptions,REITs,volatility,advanced
+Asset Class Assumptions,Cash,expected_return,advanced
+Asset Class Assumptions,Cash,volatility,advanced
+Asset Class Assumptions,Short-Term Bonds,expected_return,advanced
+Asset Class Assumptions,Short-Term Bonds,volatility,advanced
+Asset Class Assumptions,TIPS,expected_return,advanced
+Asset Class Assumptions,TIPS,volatility,advanced
+Asset Class Assumptions,Managed Futures,expected_return,advanced
+Asset Class Assumptions,Managed Futures,volatility,advanced
+Asset Class Assumptions,Private Credit,expected_return,advanced
+Asset Class Assumptions,Private Credit,volatility,advanced
+Asset Class Assumptions,Global,capital_market_assumption_mode,advanced
+Asset Class Assumptions,Global,capital_market_assumption_horizon_years,advanced
+Asset Class Assumptions,Global,capital_market_assumption_horizon_source,advanced
+Asset Class Assumptions,Global,capital_market_assumption_preset,advanced
+Asset Class Assumptions,Global,use_custom_capital_market_file,expert
+Asset Class Assumptions,Global,custom_capital_market_file,expert
+Asset Class Assumptions,Global,correlation_assumption_mode,advanced
+Asset Class Assumptions,Global,correlation_preset,advanced
+Asset Class Assumptions,Global,use_custom_correlations_file,expert
+Asset Class Assumptions,Global,custom_correlations_file,expert
+Asset Correlations,US Equity|Emerging Markets,correlation,expert
+Asset Correlations,US Equity|Bonds,correlation,expert
+Asset Correlations,US Equity|Managed Futures,correlation,expert
+Asset Correlations,Bonds|TIPS,correlation,expert
+Asset Correlations,Private Credit|US Equity,correlation,expert
+Model Constants,Monte Carlo,recenter_regime_returns,expert
+Asset Class Optimizer Controls,US Large Cap,include_in_optimizer,advanced
+Asset Class Optimizer Controls,US Mid Cap,include_in_optimizer,advanced
+Asset Class Optimizer Controls,US Small Cap,include_in_optimizer,advanced
+Asset Class Optimizer Controls,International,include_in_optimizer,advanced
+Asset Class Optimizer Controls,Emerging Markets,include_in_optimizer,advanced
+Asset Class Optimizer Controls,Commodities,include_in_optimizer,advanced
+Asset Class Optimizer Controls,Bonds,include_in_optimizer,advanced
+Asset Class Optimizer Controls,Short-Term Bonds,include_in_optimizer,advanced
+Asset Class Optimizer Controls,TIPS,include_in_optimizer,advanced
+Asset Class Optimizer Controls,Municipal Bonds,include_in_optimizer,advanced
+Asset Class Optimizer Controls,Managed Futures,include_in_optimizer,advanced
+Asset Class Optimizer Controls,Private Credit,include_in_optimizer,advanced
+Asset Class Optimizer Controls,REITs,include_in_optimizer,advanced
+Asset Class Optimizer Controls,Cash,include_in_optimizer,advanced
+Withdrawal Policy,Roth Conversion,roth_objective_mode,standard
+Withdrawal Policy,Roth Conversion,estate_tax_objective_mode,advanced
+Withdrawal Policy,Roth Conversion,roth_headroom_usage_pct,standard
+Withdrawal Policy,Roth Conversion,irmaa_guardrail_mode,advanced
+Withdrawal Policy,Roth Conversion,roth_irmaa_headroom_usage_pct,advanced
+Withdrawal Policy,Roth Conversion,roth_bracket_guardrail,advanced
+Withdrawal Policy,Roth Conversion,roth_aca_guardrail,advanced
+Withdrawal Policy,Roth Conversion,roth_ltcg_guardrail,expert
+Withdrawal Policy,Roth Conversion,roth_ltcg_band,expert
+Withdrawal Policy,Roth Conversion,roth_ltcg_headroom_usage_pct,expert
+Withdrawal Policy,Roth Conversion,roth_niit_guardrail,expert
+Withdrawal Policy,Roth Conversion,roth_niit_headroom_usage_pct,expert
+Withdrawal Policy,Roth Conversion,roth_irmaa_target_tier,advanced
+HSA Policy,Withdrawals,hsa_withdrawal_mode,advanced
+HSA Policy,Withdrawals,hsa_annual_spend_pct,advanced
+HSA Policy,Withdrawals,hsa_withdrawal_start_year,advanced
+HSA Policy,Withdrawals,hsa_withdrawal_end_year,advanced
+HSA Policy,Beneficiary,hsa_beneficiary_type,advanced
+HSA Policy,Withdrawals,hsa_consume_by,advanced
+HSA Policy,Withdrawals,hsa_expense_bank,advanced
+HSA Policy,Withdrawals,hsa_nonqualified_treatment,advanced
+HSA Policy,Withdrawals,hsa_state_conformity,advanced
+HSA Policy,Withdrawals,hsa_irmaa_guardrail_mode,advanced
+HSA Policy,Withdrawals,hsa_min_ending_balance,advanced
+Social Security,Funding Discount,ss_funding_discount_year,advanced
+Social Security,Funding Discount,ss_funding_discount_pct,advanced
+Liquidity Buffer,buffer_1,reserve_account,standard
+Education Funding,529 Plan 1,beneficiary,standard
+Education Funding,529 Plan 1,current_balance,standard
+Education Funding,529 Plan 1,annual_contribution,standard
+Education Funding,529 Plan 1,contribution_start_year,standard
+Education Funding,529 Plan 1,contribution_end_year,standard
+Education Funding,529 Plan 1,expected_use_year,standard
+Social Security,Member 1,monthly_pia_at_fra_today_dollars,simple
+Social Security,Member 2,monthly_pia_at_fra_today_dollars,simple
+Social Security,Member 1,claim_date,standard
+Social Security,Member 2,claim_date,standard
+Social Security,Member 1,claim_age,simple
+Social Security,Member 2,claim_age,simple
+Social Security,Member 1,fra_age,standard
+Social Security,Member 2,fra_age,standard
+Social Security,Policy,spousal_benefits_enabled,standard
+Social Security,Policy,survivor_benefit_uses_deceased_claim_age,standard
+Wellness,ACA Premium Tax Credit,enabled,advanced
+Wellness,ACA Premium Tax Credit,household_size,advanced
+Wellness,ACA Premium Tax Credit,federal_poverty_level_base_year,advanced
+Wellness,ACA Premium Tax Credit,benchmark_silver_premium_annual,advanced
+Wellness,ACA Premium Tax Credit,applicable_pct_cap,advanced
+Wellness,ACA Premium Tax Credit,enhanced_subsidies_through_year,advanced
+Cashflow,Retirement Contributions,index_401k_limit,advanced
+HSA Policy,Contributions,index_hsa_limit,advanced
+HSA Policy,Contributions,requires_hdhp,advanced
+Model Constants,Retirement,member_1_rmd_start_age,standard
+Model Constants,Retirement,member_2_rmd_start_age,standard
+Reporting,Output,real_dollar_reporting_enabled,simple
+Withdrawal Policy,Roth Conversion,roth_tax_discount_rate,expert
+Estate Planning,Legacy,legacy_floor,standard
+Estate Planning,Federal,portability_enabled,standard
+Estate Planning,Step-Up,property_regime,standard
+System Configuration,Plan Chat,openai_api_key_secret_name,standard
+Wellness,Pre-65 Bridge,annual_premium_base_year,standard
+Wellness,Medicare,part_b_base_premium_monthly,standard
+Wellness,Medicare,part_d_base_premium_monthly,standard
+Wellness,Medicare,part_g_base_premium_monthly,standard
+Wellness,Out-of-Pocket,annual_oop_estimate_today,standard
+Payroll Tax,Social Security,ss_wage_base_base_year,standard
+Social Security,Policy,survivor_pct_of_higher_benefit,advanced
+Cashflow,Retirement Contributions,annual_401k_limit_base_year,standard
+HSA Policy,Window,withdrawal_window,advanced
+HSA Policy,Contributions,family_annual_limit_base_year,advanced
+HSA Policy,Contributions,self_only_annual_limit_base_year,advanced
+Equity Compensation,RSU_2024,vest_schedule,expert
+Scenarios,Sell Home,monthly_rent_post_sale,advanced
+Other Assets,Other Asset 1,type,simple
+Other Assets,Other Asset 1,name,simple
+Other Assets,Other Asset 1,value,simple
+Other Assets,Other Asset 1,as_of_date,standard
+Other Assets,Other Asset 1,annual_appreciation_pct,standard
+Other Assets,Other Asset 1,basis,standard
+Other Assets,Other Asset 1,sell_date,standard
+Other Assets,Other Asset 2,type,simple
+Other Assets,Other Asset 2,name,simple
+Other Assets,Other Asset 2,value,simple
+Other Assets,Other Asset 2,as_of_date,standard
+Other Assets,Other Asset 2,annual_appreciation_pct,standard
+Other Assets,Other Asset 2,basis,standard
+Other Assets,Other Asset 2,sell_date,standard
+Other Assets,Other Asset 3,type,simple
+Other Assets,Other Asset 3,name,simple
+Other Assets,Other Asset 3,value,simple
+Other Assets,Other Asset 3,as_of_date,standard
+Other Assets,Other Asset 3,annual_appreciation_pct,standard
+Other Assets,Other Asset 3,basis,standard
+Other Assets,Other Asset 3,sell_date,standard
+Other Assets,Other Asset 4,type,simple
+Other Assets,Other Asset 4,name,simple
+Other Assets,Other Asset 4,value,simple
+Other Assets,Other Asset 4,as_of_date,standard
+Other Assets,Other Asset 4,annual_appreciation_pct,standard
+Other Assets,Other Asset 4,basis,standard
+Other Assets,Other Asset 4,sell_date,standard
+Other Assets,Other Asset 5,type,simple
+Other Assets,Other Asset 5,name,simple
+Other Assets,Other Asset 5,value,simple
+Other Assets,Other Asset 5,as_of_date,standard
+Other Assets,Other Asset 5,annual_appreciation_pct,standard
+Other Assets,Other Asset 5,basis,standard
+Other Assets,Other Asset 5,sell_date,standard
+Other Assets,Other Asset 6,type,simple
+Other Assets,Other Asset 6,name,simple
+Other Assets,Other Asset 6,value,simple
+Other Assets,Other Asset 6,as_of_date,standard
+Other Assets,Other Asset 6,annual_appreciation_pct,standard
+Other Assets,Other Asset 6,basis,standard
+Other Assets,Other Asset 6,sell_date,standard
+Other Assets,Other Asset 7,type,simple
+Other Assets,Other Asset 7,name,simple
+Other Assets,Other Asset 7,value,simple
+Other Assets,Other Asset 7,as_of_date,standard
+Other Assets,Other Asset 7,annual_appreciation_pct,standard
+Other Assets,Other Asset 7,basis,standard
+Other Assets,Other Asset 7,sell_date,standard
+Other Assets,Other Asset 8,type,simple
+Other Assets,Other Asset 8,name,simple
+Other Assets,Other Asset 8,value,simple
+Other Assets,Other Asset 8,as_of_date,standard
+Other Assets,Other Asset 8,annual_appreciation_pct,standard
+Other Assets,Other Asset 8,basis,standard
+Other Assets,Other Asset 8,sell_date,standard
+Other Assets,Other Asset 9,type,simple
+Other Assets,Other Asset 9,name,simple
+Other Assets,Other Asset 9,value,simple
+Other Assets,Other Asset 9,as_of_date,standard
+Other Assets,Other Asset 9,annual_appreciation_pct,standard
+Other Assets,Other Asset 9,basis,standard
+Other Assets,Other Asset 9,sell_date,standard
+Other Assets,Other Asset 10,type,simple
+Other Assets,Other Asset 10,name,simple
+Other Assets,Other Asset 10,value,simple
+Other Assets,Other Asset 10,as_of_date,standard
+Other Assets,Other Asset 10,annual_appreciation_pct,standard
+Other Assets,Other Asset 10,basis,standard
+Other Assets,Other Asset 10,sell_date,standard
+Other Assets,Other Asset 11,type,simple
+Other Assets,Other Asset 11,name,simple
+Other Assets,Other Asset 11,value,simple
+Other Assets,Other Asset 11,as_of_date,standard
+Other Assets,Other Asset 11,annual_appreciation_pct,standard
+Other Assets,Other Asset 11,basis,standard
+Other Assets,Other Asset 11,sell_date,standard
+Other Assets,Other Asset 12,type,simple
+Other Assets,Other Asset 12,name,simple
+Other Assets,Other Asset 12,value,simple
+Other Assets,Other Asset 12,as_of_date,standard
+Other Assets,Other Asset 12,annual_appreciation_pct,standard
+Other Assets,Other Asset 12,basis,standard
+Other Assets,Other Asset 12,sell_date,standard
+Other Assets,Other Asset 13,type,simple
+Other Assets,Other Asset 13,name,simple
+Other Assets,Other Asset 13,value,simple
+Other Assets,Other Asset 13,as_of_date,standard
+Other Assets,Other Asset 13,annual_appreciation_pct,standard
+Other Assets,Other Asset 13,basis,standard
+Other Assets,Other Asset 13,sell_date,standard
+Other Assets,Other Asset 14,type,simple
+Other Assets,Other Asset 14,name,simple
+Other Assets,Other Asset 14,value,simple
+Other Assets,Other Asset 14,as_of_date,standard
+Other Assets,Other Asset 14,annual_appreciation_pct,standard
+Other Assets,Other Asset 14,basis,standard
+Other Assets,Other Asset 14,sell_date,standard
+Other Assets,Other Asset 15,type,simple
+Other Assets,Other Asset 15,name,simple
+Other Assets,Other Asset 15,value,simple
+Other Assets,Other Asset 15,as_of_date,standard
+Other Assets,Other Asset 15,annual_appreciation_pct,standard
+Other Assets,Other Asset 15,basis,standard
+Other Assets,Other Asset 15,sell_date,standard
+Other Assets,Other Asset 16,type,simple
+Other Assets,Other Asset 16,name,simple
+Other Assets,Other Asset 16,value,simple
+Other Assets,Other Asset 16,as_of_date,standard
+Other Assets,Other Asset 16,annual_appreciation_pct,standard
+Other Assets,Other Asset 16,basis,standard
+Other Assets,Other Asset 16,sell_date,standard
+Other Assets,Other Asset 17,type,simple
+Other Assets,Other Asset 17,name,simple
+Other Assets,Other Asset 17,value,simple
+Other Assets,Other Asset 17,as_of_date,standard
+Other Assets,Other Asset 17,annual_appreciation_pct,standard
+Other Assets,Other Asset 17,basis,standard
+Other Assets,Other Asset 17,sell_date,standard
+Other Assets,Other Asset 18,type,simple
+Other Assets,Other Asset 18,name,simple
+Other Assets,Other Asset 18,value,simple
+Other Assets,Other Asset 18,as_of_date,standard
+Other Assets,Other Asset 18,annual_appreciation_pct,standard
+Other Assets,Other Asset 18,basis,standard
+Other Assets,Other Asset 18,sell_date,standard
+Other Assets,Other Asset 19,type,simple
+Other Assets,Other Asset 19,name,simple
+Other Assets,Other Asset 19,value,simple
+Other Assets,Other Asset 19,as_of_date,standard
+Other Assets,Other Asset 19,annual_appreciation_pct,standard
+Other Assets,Other Asset 19,basis,standard
+Other Assets,Other Asset 19,sell_date,standard
+Other Assets,Other Asset 20,type,simple
+Other Assets,Other Asset 20,name,simple
+Other Assets,Other Asset 20,value,simple
+Other Assets,Other Asset 20,as_of_date,standard
+Other Assets,Other Asset 20,annual_appreciation_pct,standard
+Other Assets,Other Asset 20,basis,standard
+Other Assets,Other Asset 20,sell_date,standard
+Optional Functions,,ltc_life_policy,standard
+Cashflow,Charitable Giving,qcd_enabled,advanced
+Cashflow,Charitable Giving,h_qcd_annual_amount,advanced
+Cashflow,Charitable Giving,w_qcd_annual_amount,advanced
+Cashflow,Charitable Giving,h_qcd_start_year,advanced
+Cashflow,Charitable Giving,h_qcd_end_year,advanced
+Cashflow,Charitable Giving,w_qcd_start_year,advanced
+Cashflow,Charitable Giving,w_qcd_end_year,advanced
+DAF,Settings,enabled,advanced
+DAF,Settings,contribution_amount,advanced
+DAF,Settings,contribution_year,advanced
+DAF,Settings,annual_grant_amount,advanced
+DAF,Settings,grant_start_year,advanced
+DAF,Settings,grant_end_year,advanced
+DAF,Settings,contribution_is_appreciated,advanced
+Estate Planning,Step-Up,former_spouse_name,expert
+Forced Actions,Roth Conversion 1,source_account,advanced
+Forced Actions,Roth Conversion 1,year,advanced
+Forced Actions,Roth Conversion 1,amount,advanced

@@ -53,7 +53,7 @@ def test_input_package_contains_all_primary_roth_controls_with_defaults():
     assert ROTH_PRIMARY <= labels
     defaults = {r['label']: r['value'] for r in rows if r['section'] == 'Withdrawal Policy' and r['subsection'] == 'Roth Conversion'}
     # The frozen sample household explicitly overrides this to
-    # MAXIMIZE_TERMINAL_NET_WORTH (reference_data/schema.csv's own declared
+    # MAXIMIZE_TERMINAL_NET_WORTH (reference_src/schema.csv's own declared
     # default is BALANCED_RETIREMENT -- this asserts the fixture's actual
     # per-household choice, not the schema default).
     assert defaults['roth_objective_mode'] == 'MAXIMIZE_TERMINAL_NET_WORTH'
@@ -99,7 +99,7 @@ def test_roth_conversion_controls_moved_to_user_ui_not_admin_editor():
 def test_schema_exposes_roth_optimizer_governance_controls():
     """Reference data schema includes roth objective and headroom controls."""
     labels = set()
-    with (ROOT / 'reference_data/schema.csv').open(newline='', encoding='utf-8') as f:
+    with (ROOT / 'reference_src/schema.csv').open(newline='', encoding='utf-8') as f:
         for row in csv.reader(f):
             if len(row) > 2:
                 labels.add(row[2])
@@ -181,7 +181,7 @@ def test_phase_varying_added_to_bracket_strategy_choice_enum():
 
 def test_phase_varying_config_fields_present_in_schema_and_backfill():
     labels = set()
-    with (ROOT / 'reference_data/schema.csv').open(newline='', encoding='utf-8') as f:
+    with (ROOT / 'reference_src/schema.csv').open(newline='', encoding='utf-8') as f:
         for row in csv.reader(f):
             if len(row) > 2:
                 labels.add(row[2])

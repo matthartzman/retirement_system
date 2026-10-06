@@ -992,7 +992,7 @@ def _require_supported_state(state):
     Illinois.
 
     A blank/missing state is intentionally NOT raised here: residence_state
-    is a required Plan Data field (reference_data/schema.csv) already
+    is a required Plan Data field (reference_src/schema.csv) already
     enforced by the separate "missing required field" preflight check, so an
     empty string reaching this function is that upstream validation's
     problem, not a "wrong state name" problem. Raising here too would risk

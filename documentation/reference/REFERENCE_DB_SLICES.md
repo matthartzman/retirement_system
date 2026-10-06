@@ -36,3 +36,7 @@ Runtime access: `from src.stores.ref_access import reference` (shared handle, ha
 - Shipped data changes (for example the annual tax update) edit `reference_src/`, rebuild, and bump `REFERENCE_RELEASE` in the tool.
 - `--check` compares content (`ref_meta` and table DDL), not bytes, because the SQLite header records the library version. Two builds with the same library are byte-identical.
 - Every file in `reference_src/` must belong to exactly one slice, or the build fails.
+
+## Field tiers (`min_tier`)
+
+`reference_src/field_tiers.csv` tags every field of the catalog (`schema.csv` plus `generated_schema_coverage.csv`) with the smallest tier that shows it: `simple`, `standard`, `advanced` or `expert` (cumulative). The build fails if a field is untagged or a tag names no field. Rules used for the first tagging: a field is at least as high as the feature that owns its section (Equity Compensation and Divorce/QDRO fields are `expert`, DAF/QCD/HSA/Scenarios are `advanced`, Education 529 and Reserves are `standard`); inside a feature, the headline inputs are lower and tuning knobs higher (Monte Carlo simulation counts `advanced`, regime and shock knobs `expert`; Roth policy and years `simple`, guardrails `expert`). The UI filter (a later work package) always shows a required field that is empty, whatever its tag. To retag a field, edit the CSV and rebuild.

@@ -2,7 +2,7 @@
 
 Finding P8 (documentation/archive/reports/PLANNER_SIGNOFF_2026-08-17.md): the field is a
 live UI control, persisted to client_assets.csv and validated against
-reference_data/schema.csv, and it was read by no engine code. `withdraw_taxable_trust`
+reference_src/schema.csv, and it was read by no engine code. `withdraw_taxable_trust`
 applied the reserve floor to the taxable bucket unconditionally, so a user who
 selected "Roth" or "HSA" silently got taxable treatment -- the opposite of what
 they configured, since the bucket they asked to protect was left fully drainable

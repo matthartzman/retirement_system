@@ -40,7 +40,13 @@ def _csv_rows(name: str) -> Any:
 # run this tool, move the source, switch consumers, delete the entry (see the runbook).
 # The slices landed so far have all been captured and their old loaders deleted; their
 # fixtures under tests/fixtures/reference_golden/ are the permanent record.
+def _schema_fields() -> Any:
+    from src.schema_registry import load_schema
+    return load_schema()
+
+
 CAPTURES: dict[str, Callable[[], Any]] = {
+    "schema_fields": _schema_fields,
     "security_master_rows": lambda: _csv_rows("security_master.csv"),
 }
 

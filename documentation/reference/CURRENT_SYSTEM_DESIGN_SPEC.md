@@ -203,7 +203,7 @@ endpoints in §3.4.
 
 ### 4.4 Schema and migration
 
-- `src/schema_registry.py` loads `reference_data/schema.csv` (plus a
+- `src/schema_registry.py` loads `reference_src/schema.csv` (plus a
   generated coverage backfill) into a `(section, subsection, label) → spec`
   map, used for validation, UI type inference, and `/api/config/rows`
   metadata.

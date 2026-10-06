@@ -5,7 +5,7 @@ after_tax_terminal_nw_pct/post_tax_inheritance_pct) meets or exceeds a
 household-configured ``legacy_floor`` dollar target.
 
 Schema: ``Estate Planning / Legacy / legacy_floor`` (dollars, default 0) in
-``reference_data/schema.csv``, read by ``parse_client`` into
+``reference_src/schema.csv``, read by ``parse_client`` into
 ``c['legacy_floor']`` (src/data_io.py). Both engines still read it
 defensively via ``c.get('legacy_floor', 0.0)`` and report ``None`` (not a
 misleading 0.0 or 1.0) whenever the value is 0/unset, matching the same
