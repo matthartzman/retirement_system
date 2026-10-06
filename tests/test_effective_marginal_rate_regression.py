@@ -13,6 +13,7 @@ the same functions the year itself used.
 """
 from __future__ import annotations
 
+from tests.plan_fixture import plan_data
 import pytest
 
 from conftest import TEST_INPUT_DIR
@@ -24,7 +25,7 @@ from src.report_compute import prepare_config_from_sectioned_data
 
 @pytest.fixture(scope="module")
 def projected():
-    c = prepare_config_from_sectioned_data(load_csv(TEST_INPUT_DIR / "client_data.csv"))
+    c = prepare_config_from_sectioned_data(plan_data())
     return c, project(c)
 
 

@@ -21,6 +21,7 @@ are used for multi-year assertions instead of exact dollar amounts).
 """
 from __future__ import annotations
 
+from tests.plan_fixture import plan_config
 import numpy as np
 
 from conftest import TEST_INPUT_DIR
@@ -217,7 +218,7 @@ def test_empty_rows_returns_none():
 # tier and runs in the nightly full-suite workflow instead.
 @pytest.mark.nightly
 def test_both_engines_surface_guardrail_fields_and_agree_in_ballpark_on_real_fixture():
-    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+    c = plan_config()
     c["roth_policy"] = "none"
     c["plan_end"] = min(int(c["plan_end"]), int(c["plan_start"]) + 15)
     c["mc_sensitivity_sims"] = 1

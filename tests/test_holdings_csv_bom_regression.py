@@ -10,6 +10,7 @@ input a user hits via "Preview & replace CSV". No prior test caught this:
 synthetic_plans.py and the golden-master fixtures inject
 c['lots_by_account'] directly, bypassing the CSV-parsing path entirely.
 """
+from tests.plan_fixture import plan_config
 import shutil
 
 from conftest import TEST_INPUT_DIR
@@ -25,7 +26,7 @@ def test_holdings_load_when_client_holdings_csv_has_a_utf8_bom(tmp_path):
         # utf-8-sig encode == plain utf-8 content with a leading BOM, matching
         # what Excel/many broker CSV exporters actually produce.
         holdings_path.write_bytes(b"\xef\xbb\xbf" + original.lstrip(b"\xef\xbb\xbf"))
-        c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+        c = plan_config()
         lots_by_account = c.get("lots_by_account") or {}
         assert lots_by_account, (
             "holdings were silently dropped when client_holdings.csv had a "

@@ -12,6 +12,7 @@ never gets refreshed.
 """
 from __future__ import annotations
 
+from tests.plan_fixture import plan_data
 import copy
 import unittest
 from pathlib import Path
@@ -24,7 +25,7 @@ from conftest import TEST_INPUT_DIR
 
 
 def _base_data():
-    return copy.deepcopy(load_csv(TEST_INPUT_DIR / "client_data.csv"))
+    return copy.deepcopy(plan_data())
 
 
 class NoteReceivableLegacySnapshotShapeTests(unittest.TestCase):

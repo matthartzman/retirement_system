@@ -15,6 +15,7 @@ objective_value across every longevity variant (silently doing nothing).
 test_longevity_variants_actually_change_the_score below guards against
 that regression directly.
 """
+from tests.plan_fixture import plan_config
 import time
 from pathlib import Path
 
@@ -31,7 +32,7 @@ import pytest
 
 
 def _run():
-    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+    c = plan_config()
     c["roth_policy"] = "none"
     c["mc_paths"] = 5
     c["mc_sensitivity_sims"] = 1

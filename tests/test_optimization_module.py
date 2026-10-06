@@ -20,6 +20,7 @@ experimentation against this module before writing assertions:
 
 from __future__ import annotations
 
+from tests.plan_fixture import plan_data
 import math
 
 import numpy as np
@@ -35,7 +36,7 @@ from conftest import TEST_INPUT_DIR
 
 
 def sample_config():
-    data = load_csv(TEST_INPUT_DIR / "client_data.csv")
+    data = plan_data()
     return parse_client(data, "")
 
 

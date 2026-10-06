@@ -6,6 +6,7 @@ app's actual post-1.1-flip default (advanced_exact_scalar, input/client_policy.c
 This pins the corrected, non-contradictory note text; it does not change
 either file's mc_engine_mode *value*.
 """
+from tests.plan_fixture import fixture_dir
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -19,7 +20,7 @@ def _mc_engine_mode_row(path: Path) -> str:
 
 
 def test_frozen_fixture_note_no_longer_calls_quick_vectorized_the_default():
-    row = _mc_engine_mode_row(ROOT / "tests" / "fixtures" / "sample_plan_frozen" / "client_policy.csv")
+    row = _mc_engine_mode_row(fixture_dir() / "client_policy.csv")
     assert row.split(",", 3)[3].startswith("quick_vectorized"), "this test must not change the pinned value"
     assert "Advisor-ready default exact scalar path" not in row
     assert "advanced_exact_scalar" not in row.lower() or "Advanced Exact Scalar" in row

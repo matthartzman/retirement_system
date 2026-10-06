@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from tests.plan_fixture import plan_data
 import unittest
 from pathlib import Path
 
@@ -21,7 +22,7 @@ class SimplifiedAllocationTests(unittest.TestCase):
             self.assertGreaterEqual(len(examples), 3, cls)
 
     def test_client_policy_target_pct_drives_recommended_allocation(self):
-        data = load_csv(TEST_INPUT_DIR / 'client_data.csv')
+        data = plan_data()
         c = parse_client(data, '')
         self.assertAlmostEqual(c['allocation_target_sum'], 1.0, places=8)
         opt = compute_optimal_allocation(c)

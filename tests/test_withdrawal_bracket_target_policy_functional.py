@@ -23,6 +23,7 @@ interact at the Priority-3 level (tested directly here); a plan's total
 elective withdrawal across the whole cascade is not expected to stay under
 the bracket ceiling, and asserting that would test the wrong thing.
 """
+from tests.plan_fixture import plan_config
 from src.data_io import load_csv, parse_client
 from src.planning_engines import project, withdraw_pretax_elective
 
@@ -30,7 +31,7 @@ from conftest import TEST_INPUT_DIR
 
 
 def _scenario(**overrides):
-    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+    c = plan_config()
     c["roth_policy"] = "none"  # isolate the withdrawal cascade from Roth conversion sizing
     c["mc_paths"] = 5
     c["mc_sensitivity_sims"] = 1

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from tests.plan_fixture import plan_config
 import inspect
 import unittest
 from pathlib import Path
@@ -15,7 +16,7 @@ from conftest import TEST_INPUT_DIR
 
 class FullChecklistRemainingTests(unittest.TestCase):
     def _fast_cfg(self):
-        cfg = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+        cfg = plan_config()
         cfg["plan_end"] = cfg["plan_start"] + 2
         cfg["roth_policy"] = "none"
         cfg["mc_sims"] = 3

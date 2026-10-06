@@ -12,6 +12,7 @@ system review itself specified.
 """
 from __future__ import annotations
 
+from tests.plan_fixture import plan_config
 import random
 
 import numpy as np
@@ -30,7 +31,7 @@ from conftest import TEST_INPUT_DIR
 
 
 def sample_config():
-    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+    c = plan_config()
     return ensure_engine_config(c, source="test")
 
 

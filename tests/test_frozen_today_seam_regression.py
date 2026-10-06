@@ -18,6 +18,7 @@ directly, so a frozen build still prorated by the real date.
 """
 from __future__ import annotations
 
+from tests.plan_fixture import plan_config
 import datetime as _real_datetime
 import re
 from pathlib import Path
@@ -101,7 +102,7 @@ def test_ytd_blend_is_independent_of_the_real_clock(monkeypatch):
     from src.ytd_projection_blend import compute_current_year_overrides
 
     assert os.environ.get(platform_runtime.FROZEN_TODAY_ENV), "conftest must pin the frozen date"
-    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+    c = plan_config()
 
     def run():
         return compute_current_year_overrides(dict(c), TEST_INPUT_DIR, today=platform_runtime.today())

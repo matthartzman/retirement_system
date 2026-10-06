@@ -7,6 +7,7 @@ in the output to flag it. Only the target-rate-based policies actually
 consume this cap; fixed_dollar and fill_to_irmaa compute it as an unused
 diagnostic field, so they must not be gated on it matching.
 """
+from tests.plan_fixture import plan_config
 import pytest
 
 from src.data_io import load_csv, parse_client
@@ -16,7 +17,7 @@ from conftest import TEST_INPUT_DIR
 
 
 def _config(**overrides):
-    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+    c = plan_config()
     c["mc_paths"] = 5
     c["mc_sensitivity_sims"] = 1
     c.update(overrides)

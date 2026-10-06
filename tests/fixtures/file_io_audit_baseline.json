@@ -1,0 +1,193 @@
+{
+ "files": {
+  "src/build_snapshot.py": {
+   "path_io": 2
+  },
+  "src/config_backend.py": {
+   "csv": 1,
+   "path_io": 3,
+   "yaml": 1
+  },
+  "src/data_io.py": {
+   "csv": 8,
+   "open": 6
+  },
+  "src/desktop_api.py": {
+   "path_io": 4
+  },
+  "src/domain_models.py": {
+   "path_io": 1
+  },
+  "src/governance.py": {
+   "csv": 1
+  },
+  "src/housing/api.py": {
+   "csv": 1,
+   "open": 1
+  },
+  "src/housing/zip_screen/table.py": {
+   "csv": 1
+  },
+  "src/http_runtime/wsgi_facade.py": {
+   "path_io": 1
+  },
+  "src/import_preview.py": {
+   "csv": 3,
+   "open": 2
+  },
+  "src/local_backup_scheduler.py": {
+   "path_io": 4
+  },
+  "src/local_store.py": {
+   "csv": 1,
+   "path_io": 5,
+   "yaml": 1
+  },
+  "src/market_data.py": {
+   "csv": 1,
+   "path_io": 4
+  },
+  "src/monarch_autoupdate.py": {
+   "path_io": 4
+  },
+  "src/monarch_db_sync.py": {
+   "path_io": 1
+  },
+  "src/monarch_import.py": {
+   "csv": 1,
+   "path_io": 2
+  },
+  "src/optimization.py": {
+   "csv": 2
+  },
+  "src/parsing/hsa_policy.py": {
+   "csv": 1,
+   "open": 1
+  },
+  "src/plan_data_backfill.py": {
+   "csv": 2
+  },
+  "src/plan_data_migration.py": {
+   "csv": 4,
+   "path_io": 1
+  },
+  "src/plan_data_read.py": {
+   "path_io": 1
+  },
+  "src/planning_engines.py": {
+   "csv": 1
+  },
+  "src/portfolio_analytics.py": {
+   "csv": 3
+  },
+  "src/real_loss_curves.py": {
+   "csv": 1
+  },
+  "src/report_package.py": {
+   "path_io": 2
+  },
+  "src/reporting/dashboard.py": {
+   "open": 1
+  },
+  "src/reporting/workbook_builder.py": {
+   "json": 1,
+   "open": 1,
+   "path_io": 3
+  },
+  "src/reporting/workbook_common.py": {
+   "json": 1,
+   "open": 1
+  },
+  "src/reporting/workbook_format_config.py": {
+   "json": 6,
+   "open": 6
+  },
+  "src/results_model.py": {
+   "path_io": 2
+  },
+  "src/roth_ui_build_guard.py": {
+   "csv": 2
+  },
+  "src/schema_registry.py": {
+   "csv": 3
+  },
+  "src/secrets_store.py": {
+   "path_io": 1
+  },
+  "src/server/app_core.py": {
+   "csv": 33,
+   "path_io": 4
+  },
+  "src/server/plan_routes.py": {
+   "path_io": 1
+  },
+  "src/server/security_audit.py": {
+   "path_io": 5
+  },
+  "src/server/workbook_routes.py": {
+   "path_io": 1
+  },
+  "src/server_services/admin_service.py": {
+   "csv": 4,
+   "path_io": 5
+  },
+  "src/server_services/base_service.py": {
+   "path_io": 3
+  },
+  "src/server_services/build_service.py": {
+   "path_io": 4
+  },
+  "src/server_services/config_service.py": {
+   "csv": 5
+  },
+  "src/server_services/demo_plan_service.py": {
+   "path_io": 8
+  },
+  "src/server_services/plan_data_file_service.py": {
+   "csv": 2
+  },
+  "src/server_services/portfolio_service.py": {
+   "path_io": 1
+  },
+  "src/server_services/pricing_service.py": {
+   "path_io": 1
+  },
+  "src/server_services/report_service.py": {
+   "path_io": 2
+  },
+  "src/server_services/spending_service.py": {
+   "csv": 2,
+   "path_io": 2
+  },
+  "src/server_services/strategy_asset_service.py": {
+   "csv": 2
+  },
+  "src/server_services/ytd_service.py": {
+   "csv": 1,
+   "path_io": 6
+  },
+  "src/spending_tracker.py": {
+   "csv": 8,
+   "open": 6,
+   "path_io": 2
+  },
+  "src/system_config.py": {
+   "csv": 3
+  },
+  "src/tax_law.py": {
+   "path_io": 1
+  },
+  "src/taxes.py": {
+   "csv": 2,
+   "open": 2
+  },
+  "src/tlh.py": {
+   "csv": 1
+  },
+  "src/ytd_tracking.py": {
+   "csv": 12,
+   "path_io": 1
+  }
+ },
+ "total": 237
+}

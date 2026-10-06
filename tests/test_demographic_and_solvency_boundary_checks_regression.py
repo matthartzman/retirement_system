@@ -13,6 +13,7 @@ that already carries its immutable-boundary marker. Mutating the source data
 and re-parsing exercises the real, first-time validation path a malformed
 CSV/JSON input would actually hit, rather than a synthetic double-call.
 """
+from tests.plan_fixture import plan_data
 import copy
 from pathlib import Path
 
@@ -27,7 +28,7 @@ from conftest import TEST_INPUT_DIR
 
 
 def load_sample_data():
-    return load_csv(TEST_INPUT_DIR / 'client_data.csv')
+    return plan_data()
 
 
 def parse(data):

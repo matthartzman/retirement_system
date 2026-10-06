@@ -1,6 +1,7 @@
 """T1a (system review 2026-07-21, P4): the Federal Estate Tax sheet must not
 print "no federal tax likely" when a positive federal estate tax is computed
 directly above it."""
+from tests.plan_fixture import plan_data
 import unittest
 from pathlib import Path
 
@@ -17,7 +18,7 @@ from conftest import TEST_INPUT_DIR
 
 
 def sample_config():
-    data = load_csv(TEST_INPUT_DIR / 'client_data.csv')
+    data = plan_data()
     c = parse_client(data, '')
     c['roth_policy'] = 'none'
     c['mc_paths'] = 5

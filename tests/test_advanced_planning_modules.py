@@ -5,6 +5,7 @@ Covers the three layers each module touches without a full workbook build:
 parsing (data_io.parse_advanced_modules), the sheet builders, and the
 optional-module registration that gates/renames them.
 """
+from tests.plan_fixture import plan_data
 import os
 
 import pytest
@@ -52,13 +53,13 @@ MODULES = [
 
 @pytest.fixture(scope="module")
 def cfg_rows():
-    data = load_csv(TEST_INPUT_DIR / "client_data.csv")
+    data = plan_data()
     c = prepare_config_from_sectioned_data(data)
     return c, project(c)
 
 
 def test_parse_returns_all_module_keys():
-    data = load_csv(TEST_INPUT_DIR / "client_data.csv")
+    data = plan_data()
     m = parse_advanced_modules(data)
     for key in ["edu_funding", "life_policies", "disability", "pc_umbrella",
                 "equity_comp", "special_needs", "business_succession"]:
@@ -69,7 +70,7 @@ def test_parse_returns_all_module_keys():
 
 
 def test_parse_classifies_insurance_by_kind():
-    data = load_csv(TEST_INPUT_DIR / "client_data.csv")
+    data = plan_data()
     m = parse_advanced_modules(data)
     # A life policy carries a face amount; a DI policy a monthly benefit; a P&C
     # policy a coverage limit. Classification must not cross-contaminate.

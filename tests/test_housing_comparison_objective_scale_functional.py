@@ -18,6 +18,7 @@ exactly once and shares the results.
 """
 from __future__ import annotations
 
+from tests.plan_fixture import plan_config
 from pathlib import Path
 
 import pytest
@@ -38,7 +39,7 @@ _FAST_MC_SIMS = 8
 
 @pytest.fixture(scope="module")
 def both_sheets():
-    c = ensure_engine_config(parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), ""), source="test")
+    c = ensure_engine_config(plan_config(), source="test")
     # Same config object for both sheets -- the point of the comparison is that
     # they score the same underlying plan, so any difference in magnitude is
     # attributable to the scoring convention, not to the inputs.

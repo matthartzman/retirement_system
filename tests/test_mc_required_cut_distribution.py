@@ -10,6 +10,7 @@ The success rate itself must never move.
 """
 from __future__ import annotations
 
+from tests.plan_fixture import plan_config
 import copy
 import unittest
 from pathlib import Path
@@ -31,7 +32,7 @@ from conftest import TEST_INPUT_DIR
 
 
 def _base_config():
-    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+    c = plan_config()
     c["roth_policy"] = "none"
     c["plan_end"] = min(int(c["plan_end"]), int(c["plan_start"]) + 10)
     c["mc_sims"] = 80

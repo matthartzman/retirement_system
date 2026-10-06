@@ -7,6 +7,7 @@ draw series after the 10 income streams. This also understated each bar's
 displayed total by the dropped dollars, since truncation discarded values
 instead of folding them into an "Other" bucket.
 """
+from tests.plan_fixture import plan_data
 from pathlib import Path
 
 from src.data_io import load_csv, parse_client
@@ -21,7 +22,7 @@ from conftest import TEST_INPUT_DIR
 
 
 def sample_config():
-    data = load_csv(TEST_INPUT_DIR / 'client_data.csv')
+    data = plan_data()
     c = parse_client(data, '')
     return ensure_engine_config(c, source='test')
 

@@ -18,6 +18,7 @@ fallback and §4.1(c)'s "no second move" collapse at the same time.
 """
 from __future__ import annotations
 
+from tests.plan_fixture import plan_config
 import copy
 from pathlib import Path
 
@@ -48,7 +49,7 @@ _FAST_MC_SIMS = 8
 
 
 def _config():
-    c = ensure_engine_config(parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), ""), source="test")
+    c = ensure_engine_config(plan_config(), source="test")
     c['mc_sims'] = _FAST_MC_SIMS
     c['mc_sensitivity_sims'] = 1
     c['housing_sweep_mc_sims'] = _FAST_MC_SIMS

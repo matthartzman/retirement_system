@@ -3,6 +3,7 @@ the symmetric counterpart to tax-loss harvesting the engine previously never
 modeled despite already computing every input it needs (ltcg_0_top, the
 bracket-stacking formula, and per-lot holding periods).
 """
+from tests.plan_fixture import plan_data
 import unittest
 from pathlib import Path
 
@@ -41,7 +42,7 @@ def _pin_holdings_prices():
 
 
 def sample_config(gain_harvest_policy='off'):
-    data = load_csv(TEST_INPUT_DIR / 'client_data.csv')
+    data = plan_data()
     c = parse_client(data, '')
     c['roth_policy'] = 'none'
     c['mc_paths'] = 5
@@ -61,7 +62,7 @@ def baseline_config_without_gain_harvest_overrides():
     baseline_config_without_tlh_overrides() for the same reason: a hardcoded
     dollar pin against the live, routinely edited client_data.csv would go
     stale independent of whether the off-by-default no-op property holds."""
-    data = load_csv(TEST_INPUT_DIR / 'client_data.csv')
+    data = plan_data()
     c = parse_client(data, '')
     c['roth_policy'] = 'none'
     c['mc_paths'] = 5

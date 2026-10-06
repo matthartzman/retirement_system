@@ -21,6 +21,7 @@ to the existing hardcoded pattern, no framework change):
 """
 from __future__ import annotations
 
+from tests.plan_fixture import plan_config
 import pytest
 from openpyxl import Workbook
 
@@ -32,7 +33,7 @@ from src import core as _ar
 
 
 def _base_config():
-    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+    c = plan_config()
     c["roth_policy"] = "none"
     c["mc_sensitivity_sims"] = 1
     return c

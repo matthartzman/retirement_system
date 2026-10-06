@@ -15,6 +15,7 @@ Target: the client's stated 2026 total wellness premium
 (bridge + Part B + Part D + Part G, i.e. row['wellness_premiums_yr']) is
 $22,173.30.
 """
+from tests.plan_fixture import plan_data
 import unittest
 from pathlib import Path
 
@@ -27,7 +28,7 @@ from conftest import TEST_INPUT_DIR
 
 
 def sample_config():
-    data = load_csv(TEST_INPUT_DIR / 'client_data.csv')
+    data = plan_data()
     c = parse_client(data, '')
     c['roth_policy'] = 'none'
     c['mc_paths'] = 5

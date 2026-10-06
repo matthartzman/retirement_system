@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from tests.plan_fixture import plan_data
 import unittest
 from pathlib import Path
 
@@ -14,7 +15,7 @@ from conftest import TEST_INPUT_DIR
 
 class ReleaseMonteCarloBehaviorTests(unittest.TestCase):
     def test_monte_carlo_defaults_to_vectorized_and_exact_scalar_is_opt_in(self):
-        data = load_csv(TEST_INPUT_DIR / "client_data.csv")
+        data = plan_data()
         try:
             cfg = prepare_config_from_sectioned_data(data, "")
         except ValueError as exc:
@@ -106,7 +107,7 @@ class ReleaseMonteCarloBehaviorTests(unittest.TestCase):
         for seeds other than 2026; if a legitimate change trips this gate,
         check the signed gap first and re-measure across seeds before widening.
         """
-        data = load_csv(TEST_INPUT_DIR / "client_data.csv")
+        data = plan_data()
         try:
             cfg = prepare_config_from_sectioned_data(data, "")
         except ValueError as exc:
