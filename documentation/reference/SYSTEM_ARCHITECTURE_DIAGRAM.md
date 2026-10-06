@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 207 Python files under `src/`, 47 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 208 Python files under `src/`, 47 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -24,7 +24,7 @@ flowchart TB
     subgraph L_HTTP_Runtime["HTTP Runtime (3 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
-    subgraph L_Core_Engine___Domain["Core Engine & Domain (127 modules)"]
+    subgraph L_Core_Engine___Domain["Core Engine & Domain (128 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
     subgraph L_Projection_Stages["Projection Stages (23 modules)"]
@@ -565,7 +565,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/results_model.py` | `person_labels`, `version` | — |
 | `src/roth_ui_build_guard.py` | — | — |
 | `src/runtime_config.py` | `system_config` | — |
-| `src/schema_registry.py` | `plan_data_registry` | — |
+| `src/schema_registry.py` | `plan_data_registry`, `stores.ref_getters.schema_fields` | — |
 | `src/secrets_store.py` | `plan_file_io`, `platform_runtime` | — |
 | `src/security.py` | `runtime_config` | — |
 | `src/server_forecast.py` | `after_tax`, `core`, `report_compute` | — |
@@ -583,6 +583,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/stores/ref_getters/__init__.py` | `stores.ref_data`, `stores.ref_getters` | — |
 | `src/stores/ref_getters/cma.py` | `stores.ref_access`, `stores.ref_data` | — |
 | `src/stores/ref_getters/mortality_real_loss.py` | `stores.ref_access`, `stores.ref_data` | — |
+| `src/stores/ref_getters/schema_fields.py` | `stores.ref_access`, `stores.ref_data` | — |
 | `src/stores/ref_getters/security_master.py` | `stores.ref_access`, `stores.ref_data` | — |
 | `src/stores/ref_getters/state_tax.py` | `stores.ref_access`, `stores.ref_data`, `taxes` | — |
 | `src/stores/ref_getters/tax_law.py` | `stores.ref_access`, `stores.ref_data`, `tax_law` | — |

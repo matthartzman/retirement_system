@@ -81,7 +81,7 @@ def test_withdrawal_order_is_fixed_and_reserve_ui_controls_are_dropdown_based():
     # exist"), not a live input/client_assets.csv -- a household with no
     # Liquidity Buffer rows configured legitimately has zero reserve_account
     # rows in its own CSV, which isn't a regression.
-    schema = read('reference_data/schema.csv')
+    schema = read('reference_src/schema.csv')
     assert 'FIXED_WITHDRAWAL_CASCADE_DESCRIPTION' in user_js
     assert 'renderWithdrawalOrderTable' in user_js and 'not user-configurable' in user_js
     assert 'reserve_account' in schema

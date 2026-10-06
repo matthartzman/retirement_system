@@ -18,6 +18,7 @@ Register a new slice by appending its module name to ``SLICES``.
 SLICES: tuple[str, ...] = (
     "cma",
     "mortality_real_loss",
+    "schema_fields",
     "security_master",
     "state_tax",
     "tax_law",

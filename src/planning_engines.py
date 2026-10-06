@@ -1475,7 +1475,7 @@ def withdraw_pretax_elective(
 
 # A Liquidity Buffer row's reserve_account names the bucket whose balance the
 # reserve is meant to preserve. These are the choices offered by the UI and
-# reference_data/schema.csv; anything unrecognized falls back to taxable, which
+# reference_src/schema.csv; anything unrecognized falls back to taxable, which
 # is both the schema default and the behavior every plan had before the field
 # was honored (P8).
 LIQUIDITY_RESERVE_BUCKETS = {

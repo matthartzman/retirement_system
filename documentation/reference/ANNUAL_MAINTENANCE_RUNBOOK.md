@@ -85,7 +85,7 @@ place mislabels its value year and silently mis-indexes every later year.
    `annual_401k_limit_base_year` (Cashflow > Retirement Contributions) and
    `self_only_annual_limit_base_year` / `family_annual_limit_base_year` (HSA
    Policy > Contributions), each with an `index_*_limit` toggle. Update them in
-   the plan (see the Contributions rows of `reference_data/schema.csv`), not in
+   the plan (see the Contributions rows of `reference_src/schema.csv`), not in
    the tax-law dataset.
 6. If your own household's per-plan Social Security wage base or Medicare
    premium fields (`input/client_household.csv`, "Payroll Tax" / "Wellness >

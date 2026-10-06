@@ -49,3 +49,21 @@ def test_sources_not_yet_moved_do_not_drift():
         legacy = ROOT / "reference_data" / src.relative_to(ROOT / "reference_src")
         if src.is_file() and legacy.is_file():
             assert src.read_bytes() == legacy.read_bytes(), f"{src.name} differs between reference_src/ and reference_data/"
+
+
+def test_field_tiers_cover_the_catalog_with_known_tiers(shipped):
+    from src.stores.ref_getters.schema_fields import TIERS, field_tiers, schema_fields
+    fields, tiers = schema_fields(shipped), field_tiers(shipped)
+    assert list(tiers) == list(fields)  # one tag per catalog field, same order
+    assert set(tiers.values()) <= set(TIERS)
+    assert set(tiers.values()) == set(TIERS)  # every tier is used
+
+
+def test_field_tier_spot_checks_follow_the_approved_feature_tiers(shipped):
+    from src.stores.ref_getters.schema_fields import field_tiers
+    t = field_tiers(shipped)
+    assert t[("Household", "", "member_1_name")] == "simple"
+    assert t[("Withdrawal Policy", "Roth Conversion", "roth_conversion_policy")] == "simple"
+    assert t[("Education Funding", "529 Plan 1", "current_balance")] == "standard"
+    assert t[("DAF", "Settings", "enabled")] == "advanced"
+    assert t[("Equity Compensation", "RSU_2024", "vest_schedule")] == "expert"
