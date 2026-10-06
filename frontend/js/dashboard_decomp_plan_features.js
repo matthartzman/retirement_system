@@ -133,7 +133,9 @@ export function planFeatureGroups(toggleRows, taxonomy, kindFilter) {
   Object.keys(modules).forEach((key) => {
     if (seenKeys.has(key)) return;
     const meta = modules[key];
-    if (meta.gate_kind !== "plan_flag") return;
+    // WP1.3: a switchable feature with no CSV row is listed the same way.
+    if (meta.gate_kind !== "plan_flag" && meta.csv_row !== false) return;
+    if (meta.csv_row === false && !meta.optional) return;
     if (kindFilter && meta.answer_type !== kindFilter) return;
     const domain = meta.domain || "Other";
     if (!byDomain.has(domain)) byDomain.set(domain, []);
@@ -221,6 +223,7 @@ function entryIsOn(entry) {
     const ref = entry.meta.gate_ref || [];
     return ref.length === 3 ? sectionFlagEnabled(ref[0], ref[1], ref[2]) : false;
   }
+  if (!entry.row) return entry.meta.default_on !== false;
   return boolishValue(entry.row);
 }
 
@@ -277,8 +280,24 @@ function planFlagRowHtml(entry) {
   return html;
 }
 
+// WP1.3: a switchable feature with no CSV row (default-on page switch). Shown
+// as its state, not a button: nothing stores the switch until plan_rows (WP4).
+function rowlessFeatureRowHtml(entry) {
+  const meta = entry.meta;
+  const on = meta.default_on !== false;
+  let html = '<div class="opt-module-row">';
+  html += '<div class="opt-module-info"><span class="opt-module-name">' + esc(meta.name || entry.key) + "</span>";
+  if (meta.kind) html += '<span class="badge pf-kind">' + esc(meta.answer_type || meta.kind) + "</span>";
+  const desc = formatAcronyms(meta.description || "");
+  if (desc) html += '<span class="opt-module-desc">' + esc(desc) + "</span>";
+  html += "</div>";
+  html += '<span class="opt-module-toggle ' + (on ? "on" : "off") + '" aria-disabled="true">' + (on ? "ON" : "OFF") + "</span></div>";
+  return html;
+}
+
 function featureRowHtml(entry) {
   if (entry.meta.gate_kind === "plan_flag") return planFlagRowHtml(entry);
+  if (!entry.row) return rowlessFeatureRowHtml(entry);
   const r = entry.row;
   const meta = entry.meta;
   const on = boolishValue(r);

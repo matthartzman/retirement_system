@@ -383,6 +383,14 @@ class OutputModule:
     tier: str = ADVANCED
     nav_group: Optional[str] = None
     default_on: bool = True
+    # WP1.3: False for a switchable feature that owns NO client_optional_
+    # functions.csv row (new features get ``default_on`` in this registry and
+    # no CSV row/backfill; WP4 moves the switch into plan_rows). The switch
+    # reads ``default_on`` until something writes ``c['opt'][key]``.
+    csv_row: bool = True
+    # WP1.3: further nav steps this module's switch also hides (a hub page that
+    # fronts the module, beside its own ``dashboard_step``).
+    extra_steps: Tuple[str, ...] = ()
 
     def __post_init__(self):
         if self.nav_group is None:
@@ -649,7 +657,7 @@ _OUTPUTS: List[OutputModule] = [
         mode=MODE_COMPARISON,
         requires_inputs=(_in("planning_levers", "bundled_positions"),),
         requires_outputs=BASE_PROJECTION,
-        dashboard_step="scenarios",
+        dashboard_step="scenarios", extra_steps=("strategy_scenarios",),
     ),
     OutputModule(
         "tax_loss_harvesting", "Tax-Loss Harvesting", OPTIMIZATION, MEDIUM,
@@ -805,6 +813,7 @@ _OUTPUTS: List[OutputModule] = [
         "gifting schedule, and per-beneficiary 10-year drawdown sensitivity.",
         domain=ESTATE_LEGACY, tier=STANDARD,
         optional=True, sheet="14. Estate Plan", tab="2F. Estate & Legacy Planning",
+        dashboard_step="estate",
         # Account titling (4.7), gifting schedule (4.8), and the per-beneficiary
         # drawdown (4.9) all shipped in Wave 4, after this entry was first
         # authored, and landed as new sections on this same sheet rather than
@@ -1157,6 +1166,29 @@ _OUTPUTS: List[OutputModule] = [
         gate_config_key="qcd_enabled",
         default_on=False,
     ),
+    # ── WP1.3: page-level switches for pages that used to be always on. ──
+    # Default-on, no workbook sheet, no CSV row (see ``csv_row``): existing
+    # plans see no change; the switch becomes writable with plan_rows (WP4).
+    OutputModule(
+        "insurance_inputs", "Insurance", WORKSHEET, MEDIUM_HIGH,
+        "Insurance policies and annuity/special-income illustrations the "
+        "survivor, estate and life-insurance sections read.",
+        domain=INSURANCE_CARE, tier=STANDARD,
+        optional=True, csv_row=False, dashboard_step="annuity_death_benefits",
+    ),
+    OutputModule(
+        "reserve_requirements", "Reserve Requirements", WORKSHEET, MEDIUM_HIGH,
+        "The cash reserve floor the plan protects before drawing investments.",
+        domain=INVESTMENTS, tier=STANDARD,
+        optional=True, csv_row=False, dashboard_step="assets_home_cash",
+    ),
+    OutputModule(
+        "planning_workbench", "Planning Workbench", WORKSHEET, LOW,
+        "Compare the baseline, named change sets and stress-suite results in "
+        "one place, then decide what to adopt.",
+        domain=WHOLE_PLAN, tier=EXPERT,
+        optional=True, csv_row=False, dashboard_step="strategy_workbench",
+    ),
 ]
 
 CATALOG: Dict[str, OutputModule] = {m.key: m for m in _OUTPUTS}
@@ -1184,8 +1216,21 @@ def step_gate_map() -> Dict[str, str]:
     module is off, replacing a hand-maintained if/else chain
     (``stepGatedByOptionalModule``) with this single source of truth.
     """
-    return {m.dashboard_step: m.key for m in _OUTPUTS
-            if m.dashboard_step and m.gate_kind == GATE_MODULE_TOGGLE}
+    out = {m.dashboard_step: m.key for m in _OUTPUTS
+           if m.dashboard_step and m.gate_kind == GATE_MODULE_TOGGLE}
+    for m in _OUTPUTS:
+        if m.gate_kind == GATE_MODULE_TOGGLE:
+            for step in m.extra_steps:
+                out[step] = m.key
+    return out
+
+
+def rowless_defaults() -> Dict[str, bool]:
+    """{module_key: default_on} for switchable features with no CSV row
+    (``csv_row=False``). The frontend reads an absent row as off for every
+    other toggle; for these it must read the registry default instead."""
+    return {m.key: m.default_on for m in _OUTPUTS
+            if m.optional and m.gate_kind == GATE_MODULE_TOGGLE and not m.csv_row}
 
 
 def flag_gate_map() -> Dict[str, Dict[str, object]]:
@@ -2132,6 +2177,9 @@ def validate() -> None:
             f"{key}: default_on must be a bool, got {m.default_on!r}")
         # Convention (read side relies on it): module toggles default on when
         # no row is stored, plan flags default off.
+        if not m.csv_row:
+            assert m.optional and m.gate_kind == GATE_MODULE_TOGGLE and m.default_on, (
+                f"{key}: csv_row=False needs an optional, default-on module toggle")
         assert m.default_on == (m.gate_kind == GATE_MODULE_TOGGLE), (
             f"{key}: default_on={m.default_on} disagrees with gate_kind={m.gate_kind}")
         # feature_enabled() reads every plan flag through gate_config_key.
