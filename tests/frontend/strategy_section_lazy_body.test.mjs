@@ -339,12 +339,9 @@ describe("STEPS wiring for the four Strategy screens (ticket 323 + Workbench)", 
     assert.equal(between.filter((s) => s.group === "Strategy").length, positions.length);
   });
 
-  test("the superseded steps survive as hidden, ungrouped shells (row routing still keys off them)", () => {
+  test("the superseded steps are retired (WP1.1); their ids live on as redirects", () => {
     for (const id of ["distribution_strategy", "state_residency", "special_strategies"]) {
-      const step = stepById(id);
-      assert.ok(step, `missing STEPS shell for ${id}`);
-      assert.equal(step.group, null, id);
-      assert.equal(step.hidden, true, id);
+      assert.equal(stepById(id), undefined, `${id} should no longer be a STEPS entry`);
     }
   });
 
@@ -362,11 +359,9 @@ describe("STEPS wiring for the four Strategy screens (ticket 323 + Workbench)", 
     assert.ok(step.help, "strategy_workbench missing help");
   });
 
-  test("planning_workbench and planning_levers are now hidden shells", () => {
+  test("planning_workbench and planning_levers are retired (WP1.1)", () => {
     for (const id of ["planning_workbench", "planning_levers"]) {
-      const step = stepById(id);
-      assert.ok(step, `missing STEPS shell for ${id}`);
-      assert.equal(step.hidden, true, id);
+      assert.equal(stepById(id), undefined, id);
     }
   });
 });

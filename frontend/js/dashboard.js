@@ -61,62 +61,6 @@ const STEPS = [
     help: "Spending Model is the category manager. Transaction assignment appears here as Advanced Auto-Mapping Rules only when needed.",
   },
   {
-    id: "retirement_wellness",
-    group: "Spending",
-    title: "Wellness",
-    desc: "Authoritative Wellness budget detail: healthcare premiums, medical, dental, vision, Rx/OTC, and medical OOP cap reference.",
-    intro:
-      "Enter healthcare premium assumptions and non-premium medical spending detail here. Other pages may reference these numbers, but this is the only editable source for Wellness.",
-    help: "Include both Medicare and pre-Medicare premiums plus expected out-of-pocket medical, dental, vision, and drugs. Medical OOP Cap is a cap/reference for non-premium medical spending, not a standalone expense.",
-    hidden: true,
-  },
-  {
-    id: "lifestyle_spending",
-    group: "Spending",
-    title: "Other Spending",
-    desc: "Travel, large planned expenses, and donor-advised fund giving in one place.",
-    intro:
-      "Use this page for expenses that are scheduled, flexible, or easier to review together: travel, large one-time items, and DAF contribution/grant settings.",
-    help: "The sections below keep their existing source inputs, but the combined page makes the spending flow simpler.",
-    hidden: true,  },
-  {
-    id: "spending_travel",
-    group: "Spending",
-    title: "Travel",
-    desc: "Authoritative Travel budget detail and time-bounded travel plans.",
-    intro:
-      "Enter Travel budget categories and scheduled trip spending here. Spending Categories and reports show Travel as reference where needed.",
-    help: "Travel is its own Tracking Type and no longer lives on the Spending Categories budget editor.",
-    hidden: true,
-  },
-  {
-    id: "spending_travel_extras",
-    group: "Spending",
-    title: "Large Discretionary",
-    desc: "Large occasional non-housing, non-Wellness, non-travel expenses such as weddings, vehicles, gifts, or family support.",
-    intro:
-      "Each row is an annual amount active from start year through end year. Set start year equal to end year for a single-year expense.",
-    help: "Home Improvements are entered with Housing and Travel with Travel, both on Spending Model. Keep this page for other flexible large expenses.",
-    hidden: true,
-  },
-  {
-    // #338 W-C/W-E: a hidden redirect target now -- housing costs are
-    // edited in Spending Model's Housing accordion, home value and mortgage
-    // balance on Other Assets and Liabilities, and sale / next steps /
-    // residency in Optimize -> Next Housing Move. The Housing & Property
-    // nav group dissolves (design 2026-09-24 §2): its topic lives on in
-    // Plan Features and the workbook. Filed under Spending, where the
-    // redirect lands.
-    id: "spending_mortgage_events",
-    group: "Spending",
-    title: "Housing",
-    desc: "Authoritative Housing budget detail: mortgage, homeowners insurance, maintenance, utilities, real-estate taxes, and home improvements.",
-    intro:
-      "Enter all housing budget detail here. Other pages may reference these numbers, but this is the only editable source for Housing.",
-    help: "Housing includes current mortgage, homeowners insurance, maintenance, utilities, real-estate taxes, and home improvement projects. Rent is shown only when configured with a positive value.",
-    hidden: true,
-  },
-  {
     id: "holdings",
     group: "Investments & Property",
     title: "Investment Holdings",
@@ -224,16 +168,6 @@ const STEPS = [
     help: "Each feature here is an optional module. A feature that is off keeps everything you have entered and says so on its own section, so turning one off never removes your data.",
   },
   {
-    id: "planning_workbench",
-    group: null,
-    hidden: true,
-    title: "Planning Workbench",
-    desc: "Unified place to review the baseline, assemble change sets, compare scenarios, run stress suites, and decide what to adopt.",
-    intro:
-      "Pick a baseline, stage a change set to test, choose Scenario or Stress as the run type, then review Impact and record a Decision.",
-    help: "Planning cases are browser-local change sets. They do not alter the saved plan until you explicitly jump to source pages, edit inputs, save, and rebuild.",
-  },
-  {
     id: "strategy_optimize",
     group: "Strategy",
     title: "Optimize",
@@ -270,135 +204,6 @@ const STEPS = [
     help: "Planning cases are browser-local change sets. They do not alter the saved plan until you explicitly jump to source pages, edit inputs, save, and rebuild.",
   },
   {
-    id: "distribution_strategy",
-    group: null,
-    hidden: true,
-    title: "Distribution Strategy",
-    desc: "Planning levers, Roth conversions, withdrawal order, and allocation & location in one decision workspace.",
-    intro:
-      "Use this page to decide when money comes out, from which buckets, how the portfolio is allocated and located, and whether Roth conversions improve the plan.",
-    help: "Tabs preserve the existing source pages while making distribution and investment decisions easier to review together.",
-  },
-  {
-    id: "state_residency",
-    group: null,
-    hidden: true,
-    title: "State Residency Analysis",
-    desc: "Compare state income-tax treatment and estimate geographic cost differences for auto insurance, homeowners insurance, utilities, and maintenance if you relocate.",
-    intro:
-      "Baseline state is set on Household People and the current budgeted amounts are the baseline. Enter a target relocation state to see estimated annual and lifetime deltas.",
-    help: "Relocation interacts with Roth conversion room, state taxes, insurance costs, utilities, and survivor income. The geographic cost deltas are estimates you can override with real quotes.",
-  },
-  {
-    id: "special_strategies",
-    group: null,
-    hidden: true,
-    title: "Special Strategies",
-    desc: "Home equity and charitable strategies for advanced planning cases.",
-    intro:
-      "Use only when the plan intentionally includes home-equity borrowing or charitable giving strategies.",
-    help: "These strategies can improve outcomes, but they add assumptions and should be isolated in comparisons.",  },
-  {
-    id: "planning_levers",
-    group: "Strategy",
-    title: "Strategy Levers",
-    desc: "Ranked estimates for every major lever — spending, retirement timing, Roth, allocation, home sale, and risk. Launch point for Strategy and Stress Test tools.",
-    intro:
-      "Each row estimates the isolated impact of one change, assuming all other inputs stay fixed. Use the rankings to prioritize, then make the actual change on its source page and rebuild.",
-    help: "Changing a test amount on any row resizes the estimate without changing your plan. Only changes made on source pages and rebuilt into outputs affect actual projections.",
-    hidden: true,
-  },
-  {
-    id: "allocation_assets",
-    // Ticket 286: embedded in the Strategy decide box; no own nav entry.
-    group: null,
-    title: "Asset allocation & location",
-    desc: "User-defined targets or optimizer recommendation, asset-class include/exclude/alternate settings, and optional overrides.",
-    intro:
-      "In optimizer mode, the table controls which asset classes are eligible and whether existing holdings satisfy a sleeve before new buys are recommended. In user-defined mode, the same table is the allocation editor.",
-    help: "Alternate-first means an existing holding already counts toward a sleeve target before new trades are recommended — use it to avoid unnecessary buy recommendations when an equivalent is already held.",
-    hidden: true,
-  },
-  {
-    id: "allocation_policy",
-    group: "Strategy",
-    title: "Allocation policy settings",
-    desc: "Risk tolerance, glide path, concentration limits, expected return, volatility, and correlation assumptions that drive optimizer recommendations.",
-    intro:
-      "Supporting inputs for the optimizer — configure before running an optimizer recommendation. Capital-market assumptions here also connect to probability analysis when enabled.",
-    help: "Higher return assumptions increase expected terminal net worth but can overstate success if volatility is understated. Glide path controls whether the target allocation de-risks as retirement approaches.",
-    hidden: true,  },
-  {
-    id: "withdrawal_strategy",
-    // #338 W-C: redirects to Optimize's withdrawal sections.
-    group: null,
-    title: "Withdrawal sequencing",
-    desc: "Bucket draw order, trust withdrawals, and spousal rollover election. HSA withdrawal timing is set on Other Assets and Liabilities.",
-    intro:
-      "Earlier priority means a bucket is drawn sooner. Drawing taxable accounts first can manage required distributions but may realize capital gains; preserving Roth typically maximizes tax-free compounding for legacy.",
-    help: "When required distributions exceed annual spending needs, the excess is reinvested in taxable unless converted to Roth — Roth conversion policy is set on the Roth Conversion tab. HSA timing controls are under Other Assets and Liabilities.",
-    helpLink: { id: "roth_conversion", label: "Open Taxes → Roth Conversion" },
-    hidden: true,
-  },
-  {
-    id: "monte_carlo_options",
-    group: null,
-    title: "Probability Analysis",
-    desc: "Adverse-assumption and probability settings: simulation engine, trial count, return volatility, liquidity floor, and Wellness shock settings.",
-    intro:
-      "Quick mode is appropriate for workbench comparisons. Advanced mode runs more trials with advisor-ready precision — use before downloading final outputs.",
-    help: "Stress assumptions are adverse tests, not forecasts. Success counts only trials where the plan maintains the reserve floor through the planning horizon.",
-    hidden: true,
-  },
-  {
-    id: "scenarios",
-    group: "Strategy",
-    title: "Scenario Change Sets",
-    desc: "Named deterministic planning cases with specific assumption overrides — returns, inflation, home sale timing, spending adjustments, or custom changes.",
-    intro:
-      "Each scenario is a named Change Set. Save reusable cases here, then compare them in the Planning Workbench and workbook scenario columns.",
-    help: "Use scenario change sets for questions with a specific answer (retire 2 years later, sell home in 2028, returns at 4%). Use Monte Carlo or Stress Suite for probability ranges and adverse assumptions around the base plan.",
-    hidden: true,
-  },
-  {
-    id: "survivor_stress",
-    group: null,
-    title: "Survivor / Early Death",
-    desc: "Mortality ages, survivor filing status, income reduction, and account rollover treatment.",
-    intro:
-      "Early death shifts the survivor to single-filer tax brackets with reduced Social Security income. Key assumptions live on Retirement Timing — this page surfaces them so you can review what drives the stress result.",
-    help: "The primary survivor risks: single-filer tax bracket compression, loss of one Social Security stream, and accelerated required distributions. Roth balances and survivor-protected pension income are the strongest offsets.",
-    hidden: true,
-  },
-  {
-    id: "ltc_stress",
-    group: null,
-    title: "Long-Term Care",
-    desc: "Annual care cost, duration, and coverage benefit — showing the net out-of-pocket gap the portfolio must fund.",
-    intro:
-      "Set care cost and duration, then rebuild. The workbook LTC section shows the net gap after coverage and its effect on portfolio balance during the care years.",
-    help: "Enable this under Settings → Optional modules to include LTC results in workbook outputs. Policy details (benefit amount, elimination period) are entered on Insurance & LTC Policies.",
-    hidden: true,
-  },
-  {
-    id: "divorce_options",
-    group: null,
-    title: "Divorce Planning",
-    desc: "Retirement account transfer, alimony terms, asset division, and post-divorce Wellness — applied as a scenario overlay on the base plan.",
-    intro:
-      "All inputs here apply only to the divorce scenario — filing status shifts to Single and account balances reflect the transfer amount. The base plan is not affected.",
-    help: "Enter the projected transfer value, not the current account balance. Alimony is taxable to recipient and deductible to payor only under pre-2019 agreements — flag the agreement date when modeling.",
-    hidden: true,  },
-  {
-    id: "ytd_transactions",
-    group: "Reports & Review",
-    title: "Actual Spending (This Year)",
-    desc: "Import, assign, review, and sync current-year income and expense transactions.",
-    intro:
-      "Import transactions, review assignments, and compare the current year with the spending model before updating the plan.",
-    help: "Category assignment happens on Spending Model. Accounts & Sources controls account/source type, prior-year balances, and current values.",
-    hidden: true,  },
-  {
     id: "actual_spending",
     group: "Reports & Review",
     title: "Actual Spending",
@@ -416,37 +221,6 @@ const STEPS = [
     help: "Use this page for anything related to output. It keeps report readiness and results in one flow.",
   },
   {
-    id: "spending_dashboard",
-    group: "Reports & Review",
-    title: "Spending Analysis",
-    desc: "Actual vs budget by spending group, portfolio growth year-to-date, and alignment with the 30-year model.",
-    intro:
-      "Use Sync Actual Rate to compare annualized current-year spending with the Spending Categories projection controls — the primary feedback loop between real spending data and the retirement projection.",
-    help: "Growth tracking compares investment accounts to prior-year balances. Unmapped categories appear as Other until assigned on Spending Categories.",
-    hidden: true,
-  },
-
-  {
-    id: "review",
-    group: "Reports & Review",
-    title: "Download Reports",
-    desc: "Build and download the workbook — downloads automatically save first when there are pending changes.",
-    intro:
-      "A build saves all current inputs, runs the full projection engine (cash flow, taxes, RMDs, Monte Carlo, scenarios), and writes the workbook. It is a read-only snapshot — edit values here, then rebuild.",
-    help: "A successful build updates projected final net worth, lifetime taxes, Monte Carlo success, and all narrative sections. Use Save Changes to save without triggering a rebuild.",
-    hidden: true,
-  },
-  {
-    id: "build_impact",
-    group: "Reports & Review",
-    title: "Impact & Build History",
-    desc: "Universal comparison surface for baseline builds, planning cases, scenario comparisons, and stress-suite results.",
-    intro:
-      "Use the Planning Workbench to define the comparison, then use Impact & Build History to inspect the latest built result, snapshots, and before/after movement.",
-    help: "Revert applies only to user-entered plan inputs — it does not undo system configuration, pricing changes, or browser-local planning cases. After a revert, rebuild to propagate restored values to outputs.",
-    hidden: true,
-  },
-  {
     id: "detailed_results",
     group: "Reports & Review",
     title: "Results",
@@ -454,16 +228,6 @@ const STEPS = [
     intro:
       "Sheet navigation and row-level search are in the left panel. Download the workbook for full Excel fidelity on complex charts and conditional formatting.",
     help: "The Cash Flow Projection, Monte Carlo, and Allocation sheets have the most complex rendering. If a chart or table looks incomplete in this view, the downloaded workbook is authoritative.",
-    hidden: true,
-  },
-  {
-    id: "plan_data_report",
-    group: "Reports & Review",
-    title: "Plan Data Review",
-    desc: "Printable summary of every plan input, grouped by section — not editable here.",
-    intro:
-      "Holdings are summarized by account total, not lot level. All values reflect the last saved state — unsaved changes are not shown.",
-    help: "Use as a preflight check before sharing with a client or advisor, or to audit all inputs before downloading final outputs.",
     hidden: true,
   },
   {

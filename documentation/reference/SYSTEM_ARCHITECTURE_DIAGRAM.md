@@ -290,9 +290,12 @@ flowchart LR
     OUT_hybrid_ltc_policy["LTC/Life Policy\n(protection)"]
     OUT_daf_giving["DAF Giving\n(optimization)"]
     OUT_qcd_giving["QCD Giving\n(optimization)"]
+    OUT_insurance_inputs["Insurance\n(worksheet)"]
+    OUT_reserve_requirements["Reserve Requirements\n(worksheet)"]
+    OUT_planning_workbench["Planning Workbench\n(worksheet)"]
 ```
 
-Input modules: 13. Output modules: 49.
+Input modules: 13. Output modules: 52.
 
 ## 4. Frontend ↔ Server API Surface
 

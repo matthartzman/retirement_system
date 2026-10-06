@@ -52,7 +52,7 @@ describe("stepHelpLinkHtml (pure render helper)", () => {
 // -- so it asserts the id resolves, rather than hard-coding whichever screen
 // currently owns it.
 describe("STEPS entries link to a live Roth conversion destination", () => {
-  for (const id of ["income_work", "income_retirement", "withdrawal_strategy"]) {
+  for (const id of ["income_work", "income_retirement"]) {
     test(`${id}.helpLink points at the Roth conversion destination`, () => {
       const step = stepById(id);
       assert.ok(step, `expected a STEPS entry with id ${id}`);

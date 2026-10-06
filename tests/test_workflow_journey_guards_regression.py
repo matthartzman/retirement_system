@@ -62,8 +62,7 @@ def test_transactions_to_spending_sync_journey_invalidates_spending_model():
     js = _dashboard_js()
     routes = _plan_routes()
 
-    assert 'id: "ytd_transactions"' in js
-    assert 'id: "spending_dashboard"' in js
+    assert 'id: "actual_spending"' in js  # ytd_transactions/spending_dashboard retired (WP1.1)
     assert "Sync Actual Rate" in js
     assert "async function saveYtdTransactions" in js
     assert "/api/ytd/transactions/bulk" in js
@@ -79,7 +78,7 @@ def test_holdings_to_allocation_journey_refreshes_preview_contract():
     routes = _plan_routes() + "\n" + _workbook_routes()
 
     assert 'id: "holdings"' in js
-    assert 'id: "allocation_assets"' in js
+    assert 'id: "strategy_optimize"' in js  # allocation_assets retired (WP1.1)
     assert "holdingsChanged" in js
     assert "allocationPreviewFingerprint" in js
     assert "holdingsLen" in js

@@ -216,7 +216,7 @@ _SECTION_META = {
 
 def sheet_topic(name):
     """Topic (catalog domain) a stable sheet name belongs to (design
-    2026-09-24 §9.1/§1.3): the owning module's domain, or "Whole Plan" for a
+    2026-09-24 §9.1/§1.3): the owning module's domain, or "Reports & Review" for a
     sheet with no module (Plan Data, Assumptions, Balance Sheet, ...).
     """
     spec = _SHEET_REGISTRY.get(name)

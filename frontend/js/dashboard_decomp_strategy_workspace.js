@@ -89,9 +89,7 @@ export function featureGatedNote(key, opts = {}) {
   const meta = (planModuleTaxonomy().modules || {})[key] || {};
   const title = opts.title || meta.name || key;
   const n = opts.rows ? enteredRowCount(opts.rows) : 0;
-  const countNote = n
-    ? ` ${n} already-entered ${n === 1 ? "item is" : "items are"} retained.`
-    : "";
+  const countNote = (n ? ` ${offRowsLabel(n)}.` : "") + (engineIgnoredWarning(meta) ? ` ${engineIgnoredWarning(meta)}` : "");
   // Every optional feature's switch lives on Plan Features only -- no inline
   // switch here, just the one link.
   const action = `<a href="#" onclick="setStep('optional_functions');return false">Turn it on in Plan Features</a>`;
@@ -117,7 +115,7 @@ function gateDescriptorForStep(stepId) {
       // on Plan Features, not on the step it hides.
       destStep: stepId,
     };
-  const key = (moduleGates.step_gates || {})[stepId];
+  const key = (moduleGates.step_gates || {})[stepId] || (stepId === "harvesting" ? "tax_loss_harvesting" : null);
   return key ? { key, gateKind: "module_toggle" } : { key: null };
 }
 
@@ -305,7 +303,7 @@ export function renderStrategyOptimize() {
     {
       key: "hsa_drawdown",
       title: "HSA Drawdown",
-      gate: null,
+      gate: "hsa_drawdown",
       body: () => {
         const html = hsaWithdrawalPolicyBlock(withdrawalOtherRows());
         return (
@@ -328,7 +326,7 @@ export function renderStrategyOptimize() {
     {
       key: "withdrawal_sequencing",
       title: "Withdrawal Sequencing",
-      gate: null,
+      gate: "withdrawal_sequencing",
       body: () => {
         const other = withdrawalOtherRows();
         return renderWithdrawalOrderTable() + withdrawalMiscBlock(other);
@@ -337,7 +335,7 @@ export function renderStrategyOptimize() {
     {
       key: "social_security",
       title: "Social Security",
-      gate: null,
+      gate: "social_security",
       body: () => socialSecurityOptimizePanelHtml(),
     },
     {
@@ -368,7 +366,7 @@ export function renderStrategyOptimize() {
     {
       key: "harvesting",
       title: "Harvesting",
-      gate: null,
+      gate: "harvesting",
       body: () => {
         const other = withdrawalOtherRows();
         const html = taxLossHarvestingBlock(other) + gainHarvestBlock(other);
