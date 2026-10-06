@@ -177,4 +177,12 @@ Planning bands (assumption, not measured): S about 0.2-0.5M tokens, M 0.5-1M, L 
 | WP2.1 | merged | PR #180 | `src/stores/db.py`: connect (WAL/pragmas), `transaction()`, forward-only `migrate()` on `PRAGMA user_version` |
 | WP2.2 | merged (OWNER REVIEW CHECKPOINT) | PR #180 | `PlanStore`, `AppStore`, error model, `plan_paths`; API summary in PR body;owner-reviewed |
 | WP2.3 | merged | PR #180 | `RefData` skeleton (read-only, content hash, plain getters, `build()` for tool/tests) |
-| WP3 - WP12c | not started | none | planning only |
+| WP3.1 | in review | draft PR (single WP3 PR, units as commits) | `tools/build_reference_db.py` (deterministic, `--check`), slice builders in `tools/reference_slices/`, getters in `src/stores/ref_getters/`, `reference()` accessor (`src/stores/ref_access.py`), golden-getter pattern (`tests/reference_golden.py`), runbook `documentation/reference/REFERENCE_DB_SLICES.md`; `/code-review` medium run, findings fixed |
+| WP3.2 | in review | same PR | tax law (`tax_law_v10.json` to `reference_src/`); `load_tax_law_dataset()` reads the getter; golden equals the old loader's dataclasses; release package allows `src/reference/reference.db` |
+| WP3.3 | in review | same PR | state tax rows + overlay getter; `tax_constants.csv` fallback deleted; engine still uses `STATE_TAX_DEFAULTS` as before (the CSV overlay was never applied, and wiring it would move numbers, e.g. Colorado sales rate): owner decision |
+| WP3.4 | in review | same PR | CMAs and correlations; `custom_*_file` options become override rows (`custom_capital_market_rows`, `custom_correlation_rows`); upload routes return 410 |
+| WP3.5 | in review | same PR | mortality, real-loss curves (`real_loss_curve_rows` override), tax-update dashboard (governance) |
+| WP3.6 | in review | same PR | security master (portfolio analytics, TLH, import preview, engine classes, drift tool) |
+| WP3.7 | in review (OWNER REVIEW CHECKPOINT) | same PR | field schema + `min_tier` (`reference_src/field_tiers.csv`, 469 fields: 99 simple, 169 standard, 130 advanced, 71 expert); full tag list in the PR body |
+| WP3.8 | in review | same PR | ZIP metrics + top cities (5.8 MB db; golden stored as SHA-256), Monarch field map, workbook template layout; `reference_data/` is empty; data-file I/O audit 237 to 207; admin reference-file editor emptied (`SYSTEM_REFERENCE_FILES = []`), its frontend screens retire with WP9 |
+| WP4 - WP12c | not started | none | planning only |
