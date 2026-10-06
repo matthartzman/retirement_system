@@ -24,6 +24,7 @@ took for the same reason.
 """
 from __future__ import annotations
 
+from tests.plan_fixture import plan_config
 from pathlib import Path
 
 import pytest
@@ -89,7 +90,7 @@ def test_the_soft_dependency_is_declared_on_the_consumer():
 @pytest.fixture(scope="module")
 def _projected():
     c = ensure_engine_config(
-        parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), ""), source="test")
+        plan_config(), source="test")
     c['mc_sims'] = 8
     c['mc_sensitivity_sims'] = 1
     with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from tests.plan_fixture import plan_config
 import copy
 import tempfile
 import unittest
@@ -17,7 +18,7 @@ from conftest import TEST_INPUT_DIR
 
 class CoveredAllocationTargetsTests(unittest.TestCase):
     def _config(self):
-        return parse_client(load_csv(TEST_INPUT_DIR / 'client_data.csv'), '')
+        return plan_config()
 
     def test_selected_user_targets_exclude_fully_covered_fixed_income_from_active_liquid_recommendation(self):
         cfg = self._config()

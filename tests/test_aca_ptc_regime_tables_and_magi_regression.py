@@ -10,6 +10,7 @@ enhanced (ARPA/IRA) percentage table is a recalled, UNVERIFIED assumption (statu
 """
 from __future__ import annotations
 
+from tests.plan_fixture import plan_data
 import json
 import math
 from pathlib import Path
@@ -109,7 +110,7 @@ def test_guardrail_uses_same_regime_tables():
 
 
 def _plan_data():
-    return load_csv(TEST_INPUT_DIR / 'client_data.csv')
+    return plan_data()
 
 
 def _set_field(data, value):

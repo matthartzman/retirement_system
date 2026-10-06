@@ -10,6 +10,7 @@ lot/balance state (the discovery projection runs on a deepcopy).
 
 from __future__ import annotations
 
+from tests.plan_fixture import plan_data
 import copy
 from pathlib import Path
 
@@ -40,12 +41,12 @@ def test_horizon_source_dropdown_options_are_clean_enum_values():
 
 
 def sample_config():
-    data = load_csv(TEST_INPUT_DIR / "client_data.csv")
+    data = plan_data()
     return parse_client(data, "")
 
 
 def sample_data():
-    return load_csv(TEST_INPUT_DIR / "client_data.csv")
+    return plan_data()
 
 
 # ---------------------------------------------------------------------------

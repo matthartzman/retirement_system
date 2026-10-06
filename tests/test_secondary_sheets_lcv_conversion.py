@@ -8,6 +8,7 @@ recommended) is deliberately left untouched.
 """
 from __future__ import annotations
 
+from tests.plan_fixture import plan_config
 import unittest
 
 from openpyxl import Workbook
@@ -24,7 +25,7 @@ import pytest
 
 
 def _sample_config_and_rows():
-    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+    c = plan_config()
     c["roth_policy"] = "none"
     c = ensure_engine_config(c, source="test")
     with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
@@ -74,7 +75,7 @@ class CurrentVsProposedLcvConversionTests(unittest.TestCase):
 
 
 def _fast_ss_sweep_config():
-    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+    c = plan_config()
     c["roth_policy"] = "none"
     c["mc_paths"] = 5
     c["mc_sensitivity_sims"] = 1

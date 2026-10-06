@@ -8,6 +8,7 @@ on again.
 """
 from __future__ import annotations
 
+from tests.plan_fixture import plan_data
 import copy
 import hashlib
 
@@ -21,7 +22,7 @@ KEY = "housing_location_search"
 def _demo_with_housing_plan():
     """The demo plan with every Next Housing Move input filled in (the demo
     itself ships them blank, which would make the off-state vacuous)."""
-    data = load_csv(TEST_INPUT_DIR / "client_data.csv")
+    data = plan_data()
     data.setdefault("Other Assets", {}).setdefault("Home", {})["home_sale_year"] = "2040"
     step = data.setdefault("Housing", {}).setdefault("next_step_1", {})
     step.update({"type": "rent", "start_year": "2040", "state": "FL",

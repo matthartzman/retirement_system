@@ -25,6 +25,7 @@ The floors below leave ~2.5 standard errors of margin at the default n=200.
 
 from __future__ import annotations
 
+from tests.plan_fixture import plan_config
 import copy
 import os
 
@@ -42,7 +43,7 @@ SEED = 11
 
 
 def _config(roth_policy: str | None):
-    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+    c = plan_config()
     if roth_policy:
         c["roth_policy"] = roth_policy
     c["plan_end"] = int(c["plan_start"]) + 30

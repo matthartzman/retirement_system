@@ -14,6 +14,7 @@ gate in ``ensure_engine_config``.
 """
 from __future__ import annotations
 
+from tests.plan_fixture import plan_data
 import copy
 
 import pytest
@@ -107,7 +108,7 @@ def test_validate_value_rejects_non_finite_numbers(typ, raw):
 
 @pytest.fixture(scope="module")
 def frozen_data():
-    return load_csv(TEST_INPUT_DIR / "client_data.csv")
+    return plan_data()
 
 
 def _with_household(data, **overrides):

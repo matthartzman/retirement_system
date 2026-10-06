@@ -22,6 +22,7 @@ total_tax, and surplus is read authoritatively rather than re-derived -- so the
 tolerances below are tiny (rounding only), not the multi-thousand-dollar gaps
 the plug produced.
 """
+from tests.plan_fixture import plan_config
 from pathlib import Path
 
 from openpyxl import Workbook
@@ -40,7 +41,7 @@ from conftest import TEST_INPUT_DIR
 
 
 def _real_rows():
-    c = ensure_engine_config(parse_client(load_csv(TEST_INPUT_DIR / 'client_data.csv'), ''), source='test')
+    c = ensure_engine_config(plan_config(), source='test')
     with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
         rows = project(c)
     return c, rows

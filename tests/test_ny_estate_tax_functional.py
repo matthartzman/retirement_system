@@ -4,6 +4,7 @@ gift add-back reaches the estate-tax figure through the real gifting
 schedule (not just the pure new_york_estate_tax function in isolation),
 and that the reporting layer renders a NY household without error.
 """
+from tests.plan_fixture import plan_config
 from openpyxl import Workbook
 
 from src.data_io import load_csv, parse_client
@@ -15,7 +16,7 @@ from conftest import TEST_INPUT_DIR
 
 
 def _ny_config(**overrides):
-    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+    c = plan_config()
     c["mc_paths"] = 5
     c["state"] = "New York"
     c.update(overrides)
@@ -67,7 +68,7 @@ def test_ny_household_at_the_shipped_exemption_default_builds_sheets_without_err
 
 
 def test_illinois_household_estate_tax_is_unaffected_by_the_ny_addition():
-    c_il = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+    c_il = plan_config()
     c_il["mc_paths"] = 5
     rows = project(c_il)
     tax = estimate_terminal_estate_tax(c_il, rows[-1])

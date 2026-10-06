@@ -58,8 +58,10 @@ from pathlib import Path
 
 import pytest
 
+from tests.plan_fixture import make_plan, fixture_dir
+
 ROOT = Path(__file__).resolve().parents[1]
-FROZEN_DIR = ROOT / "tests" / "fixtures" / "sample_plan_frozen"
+FROZEN_DIR = fixture_dir()
 
 # Pinned wall-clock date. plan_start derives from the current year and the YTD
 # blend prorates the current year by day-of-year, so the pins below are only
@@ -243,10 +245,7 @@ def _frozen_config(withhold: tuple[str, ...] = ()):
     from src.plan_config import ensure_engine_config
 
     workspace = Path(tempfile.mkdtemp(prefix="frozen_sample_plan_"))
-    (workspace / "input").mkdir(parents=True)
-    for f in sorted(FROZEN_DIR.iterdir()):
-        if f.is_file() and f.name not in withhold:
-            shutil.copy(f, workspace / "input" / f.name)
+    make_plan(workspace, withhold=withhold)
 
     _prev_root = os.environ.get("RETIREMENT_SYSTEM_WORKSPACE_ROOT")
     _prev_today = os.environ.get("RETIREMENT_SYSTEM_FROZEN_TODAY")

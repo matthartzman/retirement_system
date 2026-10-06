@@ -52,6 +52,7 @@ this fixture is scalar 0.611 vs vectorized ON 0.650 / OFF 0.670 (n=800, seed
 
 from __future__ import annotations
 
+from tests.plan_fixture import plan_config
 import copy
 import os
 
@@ -68,7 +69,7 @@ SEED = 123
 
 
 def _base_config(n_sims: int):
-    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+    c = plan_config()
     c["roth_policy"] = "none"
     c["plan_end"] = int(c["plan_start"]) + 30
     c["mc_sensitivity_sims"] = 1

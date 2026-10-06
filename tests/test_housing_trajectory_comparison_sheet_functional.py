@@ -23,6 +23,7 @@ proven survivable inside a real build, not only in-process.
 """
 from __future__ import annotations
 
+from tests.plan_fixture import plan_config
 import os
 import subprocess
 import sys
@@ -56,7 +57,7 @@ REFINE_TABLE_HEADERS = [
 
 @pytest.fixture(scope="module")
 def built_sheet():
-    c = ensure_engine_config(parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), ""), source="test")
+    c = ensure_engine_config(plan_config(), source="test")
     c['mc_sims'] = _FAST_MC_SIMS
     c['mc_sensitivity_sims'] = 1
     c['housing_sweep_mc_sims'] = _FAST_MC_SIMS

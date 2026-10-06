@@ -4,6 +4,7 @@ that steps its target bracket rate down by Social Security claim year.
 """
 from __future__ import annotations
 
+from tests.plan_fixture import plan_config, plan_data
 import pytest
 
 from conftest import TEST_INPUT_DIR
@@ -17,7 +18,7 @@ from src.planning_engines import (
 
 
 def _base_config():
-    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+    c = plan_config()
     c["roth_policy"] = "none"
     c["plan_end"] = min(int(c["plan_end"]), int(c["plan_start"]) + 10)
     c["mc_sensitivity_sims"] = 1
@@ -174,7 +175,7 @@ def test_parse_client_sets_phase_config_defaults():
 
 def test_parse_client_accepts_phase_varying_as_bracket_strategy():
     from src.data_io import load_csv, parse_client as _parse_client
-    raw = load_csv(TEST_INPUT_DIR / "client_data.csv")
+    raw = plan_data()
     # Directly inject the CSV row parse_client() reads via _v(), mirroring
     # how the frozen fixture's own client_policy.csv rows are structured.
     raw['Withdrawal Policy']['Roth Conversion']['roth_bracket_strategy'] = 'PHASE_VARYING'

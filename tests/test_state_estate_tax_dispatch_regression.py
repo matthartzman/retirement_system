@@ -20,6 +20,7 @@ rather than a real shipped state, since none currently occupies that bucket.
 """
 from __future__ import annotations
 
+from tests.plan_fixture import plan_data
 from pathlib import Path
 
 import pytest
@@ -114,7 +115,7 @@ def test_every_state_tax_rules_entry_has_an_estate_calc():
 
 
 def _config_for_state(state):
-    data = load_csv(TEST_INPUT_DIR / "client_data.csv")
+    data = plan_data()
     c = parse_client(data, "")
     c["roth_policy"] = "none"
     c["mc_paths"] = 5

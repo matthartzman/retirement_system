@@ -1,4 +1,5 @@
 from __future__ import annotations
+from tests.plan_fixture import plan_data
 import csv
 import itertools
 import unittest
@@ -30,14 +31,14 @@ class TestAssetClassOptimizerControls(unittest.TestCase):
         self.assertEqual(missing, [])
 
     def test_separate_optimizer_controls_csv_loads(self):
-        data = load_csv(TEST_INPUT_DIR / 'client_data.csv')
+        data = plan_data()
         self.assertIn('Asset Class Optimizer Controls', data)
         cfg = parse_client(data, '')
         self.assertTrue(cfg['asset_class_enabled']['US Mid Cap'])
         self.assertTrue(cfg['asset_class_enabled']['Municipal Bonds'])
 
     def test_excluding_class_removes_it_from_optimizer_targets(self):
-        data = load_csv(TEST_INPUT_DIR / 'client_data.csv')
+        data = plan_data()
         data['Asset Class Optimizer Controls']['US Mid Cap']['selection_action'] = 'exclude'
         cfg = parse_client(data, '')
         out = opt.compute_optimal_allocation(cfg, force_mode=ap.ALLOCATION_MODE_OPTIMIZER)

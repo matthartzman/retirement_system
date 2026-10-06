@@ -28,6 +28,7 @@ guard below red.
 """
 from __future__ import annotations
 
+from tests.plan_fixture import plan_config
 import unittest
 
 from conftest import TEST_INPUT_DIR
@@ -39,7 +40,7 @@ LTC_PREMIUM = 18_500
 
 
 def _config(ltc_enabled: bool, **over):
-    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+    c = plan_config()
     c["roth_policy"] = "none"
     c["ltc_enabled"] = ltc_enabled
     c["ltc_annual_prem"] = LTC_PREMIUM

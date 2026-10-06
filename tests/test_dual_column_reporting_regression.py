@@ -5,6 +5,7 @@ forecast API, so a 2056 dollar is never presented as directly comparable to a
 """
 from __future__ import annotations
 
+from tests.plan_fixture import plan_config
 from openpyxl import Workbook
 
 from src.core import deflate_to_present
@@ -21,7 +22,7 @@ from conftest import TEST_INPUT_DIR
 
 
 def sample_config_and_rows():
-    c = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+    c = plan_config()
     c["roth_policy"] = "none"
     c["mc_paths"] = 5
     c["mc_sensitivity_sims"] = 1

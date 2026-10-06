@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from tests.plan_fixture import plan_config
 import unittest
 from pathlib import Path
 
@@ -24,7 +25,7 @@ class AllocationTableAndLoadPathTests(unittest.TestCase):
         self.assertIn('assetCategory(asset)', html)
 
     def test_cash_target_and_existing_asset_credits_parse_from_first_table(self):
-        cfg = parse_client(load_csv(TEST_INPUT_DIR / 'client_data.csv'), '')
+        cfg = plan_config()
         self.assertAlmostEqual(cfg['cash_target_pct'], cfg['allocation_target_pct']['Cash'], places=8)
         self.assertIn(cfg['allocation_source_target_class']['Guaranteed income + note receivable'], {'Bonds', 'Short-Term Bonds', 'TIPS', 'Municipal Bonds'})
         self.assertEqual(cfg['allocation_source_target_class']['Home Equity'], 'REITs')

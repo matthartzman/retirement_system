@@ -1,3 +1,4 @@
+from tests.plan_fixture import plan_config
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -13,7 +14,7 @@ def test_ira_conversion_outflows_are_reported_separately_from_cash_withdrawals()
     from src.data_io import load_csv, parse_client
     from src.planning_engines import project
 
-    cfg = parse_client(load_csv(TEST_INPUT_DIR / "client_data.csv"), "")
+    cfg = plan_config()
     rows = project(cfg)
     wife_opening = float(rows[0]["_account_opening"].get("Wife_IRA", 0.0) or 0.0)
     wife_conversion = sum(float(r.get("w_ira_conversion", 0.0) or 0.0) for r in rows)
