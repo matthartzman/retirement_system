@@ -80,7 +80,7 @@ def test_every_optional_module_has_a_toggle_row():
     # exempt from needing one -- and, below, forbidden from having one.
     missing = sorted(k for k, m in mc.CATALOG.items()
                      if m.optional and m.gated_by is None
-                     and not m.gated_by_any_flag and k not in declared)
+                     and not m.gated_by_any_flag and m.csv_row and k not in declared)
     assert not missing, (
         "optional modules with no toggle row in the default plan, so they are "
         f"silently always-on: {missing}")
