@@ -111,15 +111,20 @@ GATE_KINDS = (GATE_MODULE_TOGGLE, GATE_PLAN_FLAG)
 # Housing Comparison is an OPTIMIZATION in the Housing & Property domain,
 # Monte Carlo a STRESS_TEST in Investments, Lifetime Taxes a PROJECTION
 # in Taxes. validate() asserts every module declares both, separately.
+# WP1.1 (T-P7): domains carry the left-nav group names. Investments became
+# "Investments & Property" and Whole Plan became "Reports & Review". Housing &
+# Property stays a separate Plan Features topic (its nav group dissolved in
+# #338, so there is no nav name to adopt) and DOMAINS keeps its order: it
+# drives the workbook's within-section sheet order, which must not move.
 INCOME_BENEFITS = "Income & Benefits"
 SPENDING = "Spending"
 HOUSING_PROPERTY = "Housing & Property"
-INVESTMENTS = "Investments"
+INVESTMENTS = "Investments & Property"
 TAXES = "Taxes"
 INSURANCE_CARE = "Insurance & Care"
 ESTATE_LEGACY = "Estate & Legacy"
 FAMILY_BUSINESS = "Family & Business"
-WHOLE_PLAN = "Whole Plan"
+WHOLE_PLAN = "Reports & Review"
 
 DOMAINS = (INCOME_BENEFITS, SPENDING, HOUSING_PROPERTY, INVESTMENTS, TAXES,
            INSURANCE_CARE, ESTATE_LEGACY, FAMILY_BUSINESS, WHOLE_PLAN)

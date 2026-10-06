@@ -26,8 +26,8 @@ def test_planning_workbench_contract_helper_validates_shape():
 def test_dashboard_adds_planning_workbench_step_and_case_store():
     js = dashboard_js_text()
 
-    assert 'id: "planning_workbench"' in js
-    assert 'title: "Planning Workbench"' in js
+    # WP1.1: planning_workbench is a retired step id; it redirects (navigation.js).
+    assert 'id: "planning_workbench"' not in js
     assert "retirement.planning_case_v1" in js
     # renderPlanningWorkbench() was a wrapper around planning_workbench_ui.js's
     # renderWorkbench(), which Planning Workbench Strategy Integration Task 4

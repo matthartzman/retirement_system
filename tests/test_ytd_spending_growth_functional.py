@@ -86,7 +86,7 @@ def test_ytd_growth_uses_current_holdings_minus_prior_year_balance(tmp_path):
 
 def test_ytd_ui_contains_step_upload_table_and_account_mapping():
     text = dashboard_js_text()
-    assert 'id: "ytd_transactions"' in text
+    assert 'id: "ytd_transactions"' not in text  # retired (WP1.1)
     assert 'YTD spending and growth' in text
     assert 'Income &amp; Expense Transactions' in text
     assert 'Replace all' in text

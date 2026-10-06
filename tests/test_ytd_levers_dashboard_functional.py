@@ -62,7 +62,7 @@ def test_ytd_re_tax_income_and_growth_rules(tmp_path):
 def test_planning_levers_ui_and_workbook_source_present():
     js = dashboard_js_text()
     wb = Path('src/reporting/workbook_builder.py').read_text(encoding='utf-8')
-    assert 'id: "planning_levers"' in js
+    assert 'id: "planning_levers"' not in js  # retired (WP1.1); redirects to strategy_workbench
     assert 'renderPlanningLevers' in js
     # #209/#210/#212/#228: '2H.' is computed fresh per build, not hard-coded;
     # the sheet's stable (build-time) identity is what's checked here.
