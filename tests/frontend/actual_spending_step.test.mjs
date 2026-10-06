@@ -96,15 +96,15 @@ describe("one reports group (#338 C5)", () => {
   test("no STEPS entry is in a 'Reports' group; hub sub-pages are Reports & Review", () => {
     const groups = JSON.parse(run("JSON.stringify(Object.fromEntries(STEPS.map((s) => [s.id, s.group])))"));
     assert.ok(!Object.values(groups).includes("Reports"));
-    for (const id of ["review", "build_impact", "detailed_results", "plan_data_report", "spending_dashboard"]) {
+    // review/build_impact/plan_data_report/spending_dashboard were retired (WP1.1) and now redirect.
+    for (const id of ["detailed_results"]) {
       assert.equal(groups[id], "Reports & Review", id);
     }
   });
 
-  test("reports_and_review is titled Build & Results; build_impact keeps its title", () => {
+  test("reports_and_review is titled Build & Results", () => {
     const titles = JSON.parse(run("JSON.stringify(Object.fromEntries(STEPS.map((s) => [s.id, s.title])))"));
     assert.equal(titles.reports_and_review, "Build & Results");
-    assert.equal(titles.build_impact, "Impact & Build History");
   });
 
   test("fieldFinderCategoryName has no 'Reports' special case", () => {
