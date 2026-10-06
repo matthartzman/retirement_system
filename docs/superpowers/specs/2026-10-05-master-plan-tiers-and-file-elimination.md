@@ -169,4 +169,9 @@ Planning bands (assumption, not measured): S about 0.2-0.5M tokens, M 0.5-1M, L 
 | WP0.1 | in review | PR #176 (single WP0 PR: 0.1 + 0.2 + 0.3 as commits) | golden baseline for sample_frozen + demo committed; `tools/golden_compare.py`, `tests/test_phase_golden_equality_regression.py` |
 | WP0.2 | in review | PR #176 (same PR) | `tests/plan_fixture.py` (`make_plan`, `plan_data`, `plan_config`, `fixture_dir`); 106 tests codemodded onto it; ratchet in `tests/test_plan_fixture_helper_unit.py` |
 | WP0.3 | in review | PR #176 (same PR) | `tests/test_no_data_file_io_report_regression.py` + `tests/fixtures/file_io_audit_baseline.json`; baseline 237 data-file I/O calls in 55 `src/` files (csv/json/yaml/open/Path IO), ratchet down only |
-| WP1 - WP12c | not started | none | planning only |
+| WP1.1 | in review | draft PR (single WP1 PR, units as commits) | 23 hidden redirect steps removed from `STEPS` (ids live on in `navigation.js` redirects; `detailed_results` kept, it is a real page); catalog domains renamed to nav group names (`Investments` to `Investments & Property`, `Whole Plan` to `Reports & Review`); `Housing & Property` kept as its own topic so workbook sheet order does not move |
+| WP1.2 | in review | same PR | `feature_enabled()` / `set_feature()` in `module_catalog.py` (one read path, one write path); `tier`, `nav_group`, `default_on` on every catalog entry; payload keys added to `module_taxonomy`; `/code-review` medium run, findings fixed |
+| WP1.3 | in review | same PR | Estate, Insurance, Reserve Requirements, Family & Business, Scenarios, Workbench pages switchable, default on; three new rowless features (`csv_row=False`, no `client_optional_functions.csv` rows, no backfill); switch not user-writable for those three until WP4 |
+| WP1.4 | in review | same PR | HSA Drawdown, Withdrawal Sequencing, Social Security, Harvesting sections on Optimize follow their module switches |
+| WP1.5 | in review | same PR | one off wording ("Off · N rows entered"), engine-ignored warning, `tests/test_engine_participating_features_off_pinned.py` pins each engine-participating feature off |
+| WP2 - WP12c | not started | none | planning only |
