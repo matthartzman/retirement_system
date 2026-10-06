@@ -6,6 +6,8 @@ import pytest
 from src.housing.zip_screen.quality import score_zip
 from src.housing.zip_screen.schema import NSS_WEIGHTS, ZipRecord
 from src.housing.zip_screen.table import clear_cache, load_table
+from src.stores.ref_access import set_reference_for_tests
+from tests.zip_fixture import use_zip_test_db
 
 pytestmark = pytest.mark.unit
 
@@ -13,10 +15,12 @@ FIXTURE = 'tests/fixtures/zip_metrics_sample.csv'
 
 
 @pytest.fixture(autouse=True)
-def _clean_cache():
+def _setup_test_db():
+    use_zip_test_db(FIXTURE)
     clear_cache()
     yield
     clear_cache()
+    set_reference_for_tests(None)
 
 
 def _full(**overrides) -> ZipRecord:
@@ -95,12 +99,12 @@ def test_band_is_attached():
 def test_hinsdale_fixture_lands_in_a_high_band():
     # Fixture percentiles mirror the PDF's 60521 profile; its Stability
     # component there was 89.7, so NSS must land Very Favorable or better.
-    res = score_zip(load_table(FIXTURE)['60521'])
+    res = score_zip(load_table()['60521'])
     assert res.score >= 80.0
     assert res.band in ('Very Favorable', 'Exceptional')
 
 
 def test_high_poverty_chicago_fixture_lands_low():
-    res = score_zip(load_table(FIXTURE)['60623'])
+    res = score_zip(load_table()['60623'])
     assert res.score < 50.0
     assert res.band == 'Relatively Unfavorable'

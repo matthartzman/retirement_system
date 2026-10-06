@@ -46,11 +46,9 @@ try:  # package import
 except ImportError:  # pragma: no cover - direct execution fallback
     import ytd_tracking as ytd  # type: ignore
 
-DEFAULT_FIELD_MAP_PATH = Path(__file__).with_name("monarch_field_map.json")
-
-# Fallback used only if the shipped monarch_field_map.json is missing or
+# Fallback used only if the shipped reference database is missing or
 # unreadable -- keeps the importer functional (with the same placeholder
-# guesses) rather than crashing on a missing/corrupt config file.
+# guesses) rather than crashing on a missing/corrupt database.
 _FALLBACK_FIELD_MAP: dict[str, str] = {
     "id_column": "id",
     "date_column": "date",
@@ -91,18 +89,32 @@ CONSUMABLE_FILENAMES = ("new_transactions.csv", "changed_transactions.csv")
 
 
 def load_field_map(path: str | Path | None = None) -> dict[str, str]:
-    """Load the Monarch column-name mapping, falling back to built-in guesses."""
-    candidate = Path(path) if path else DEFAULT_FIELD_MAP_PATH
+    """Load the Monarch column-name mapping, falling back to built-in guesses.
+
+    If path is provided (user-supplied explicit path), reads it from the file.
+    Otherwise loads from the shipped reference database via the getter.
+    """
+    # Support user-supplied explicit paths (if they already existed as a feature)
+    if path:
+        candidate = Path(path)
+        try:
+            raw = json.loads(candidate.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return dict(_FALLBACK_FIELD_MAP)
+        merged = dict(_FALLBACK_FIELD_MAP)
+        for key in _FALLBACK_FIELD_MAP:
+            value = raw.get(key)
+            if isinstance(value, str) and value.strip():
+                merged[key] = value.strip()
+        return merged
+
+    # Load from reference database
     try:
-        raw = json.loads(candidate.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+        from .stores.ref_getters.monarch_field_map import monarch_field_map_data
+        return monarch_field_map_data()
+    except Exception:
+        # If the reference database load fails, use fallback
         return dict(_FALLBACK_FIELD_MAP)
-    merged = dict(_FALLBACK_FIELD_MAP)
-    for key in _FALLBACK_FIELD_MAP:
-        value = raw.get(key)
-        if isinstance(value, str) and value.strip():
-            merged[key] = value.strip()
-    return merged
 
 
 def map_monarch_csv_text(text: str, field_map: dict[str, str]) -> tuple[list[dict[str, str]], list[str]]:
@@ -128,7 +140,7 @@ def map_monarch_csv_text(text: str, field_map: dict[str, str]) -> tuple[list[dic
         return [], [
             f"CSV is missing the configured Monarch id column ('{field_map.get('id_column')}'). "
             f"Header received: {', '.join(reader.fieldnames)}. "
-            "Update src/monarch_field_map.json's id_column to match, or fix the export."
+            "Update the Monarch field map's id_column to match, or fix the export."
         ]
 
     resolved: dict[str, str] = {}  # internal column -> actual CSV header

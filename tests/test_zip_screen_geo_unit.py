@@ -9,6 +9,8 @@ from src.housing.zip_screen.geo import (
     zips_within,
 )
 from src.housing.zip_screen.table import clear_cache, load_table
+from src.stores.ref_access import set_reference_for_tests
+from tests.zip_fixture import use_zip_test_db
 
 pytestmark = pytest.mark.unit
 
@@ -16,10 +18,12 @@ FIXTURE = 'tests/fixtures/zip_metrics_sample.csv'
 
 
 @pytest.fixture(autouse=True)
-def _clean_cache():
+def _setup_test_db():
+    use_zip_test_db(FIXTURE)
     clear_cache()
     yield
     clear_cache()
+    set_reference_for_tests(None)
 
 
 def test_distance_to_self_is_zero():
@@ -39,13 +43,13 @@ def test_distance_is_symmetric():
 
 
 def test_radius_includes_the_anchor_itself_at_zero_miles():
-    table = load_table(FIXTURE)
+    table = load_table()
     hits = zips_within(table, table['60521'], 25)
     assert any(r.zcta == '60521' and d == pytest.approx(0.0, abs=1e-9) for r, d in hits)
 
 
 def test_radius_excludes_zips_beyond_it():
-    table = load_table(FIXTURE)
+    table = load_table()
     hits = {r.zcta for r, _ in zips_within(table, table['60521'], 5)}
     assert '60521' in hits
     assert '33143' not in hits
@@ -53,21 +57,21 @@ def test_radius_excludes_zips_beyond_it():
 
 
 def test_larger_radius_is_a_superset_of_a_smaller_one():
-    table = load_table(FIXTURE)
+    table = load_table()
     small = {r.zcta for r, _ in zips_within(table, table['60521'], 10)}
     large = {r.zcta for r, _ in zips_within(table, table['60521'], 50)}
     assert small <= large
 
 
 def test_results_are_sorted_by_distance():
-    table = load_table(FIXTURE)
+    table = load_table()
     distances = [d for _, d in zips_within(table, table['80206'], 50)]
     assert distances == sorted(distances)
 
 
 def test_radius_crosses_state_lines():
     # A 50-mile radius must not be clipped at a state boundary (spec D4).
-    table = load_table(FIXTURE)
+    table = load_table()
     hits = zips_within(table, table['80206'], 50)
     assert all(isinstance(d, float) for _, d in hits)
     assert {r.state for r, _ in hits} == {'Colorado'}
@@ -75,6 +79,6 @@ def test_radius_crosses_state_lines():
 
 @pytest.mark.parametrize('bad', [0, 3, 15, 100, -5])
 def test_disallowed_radius_is_rejected(bad):
-    table = load_table(FIXTURE)
+    table = load_table()
     with pytest.raises(InvalidRadiusError, match='5, 10, 25, 50'):
         zips_within(table, table['60521'], bad)

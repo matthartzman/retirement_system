@@ -18,6 +18,7 @@ import dataclasses
 import datetime as _dt
 import decimal
 import difflib
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -85,12 +86,24 @@ def write_golden(name: str, value: Any, *, force: bool = False) -> Path:
     return path
 
 
+DIGEST_KEY = "$sha256_of_canonical_text"
+
+
+def digest_golden(text: str) -> str:
+    """Compact golden for a huge value (the national ZIP table): the SHA-256 of the
+    exact canonical text that ``write_golden`` would have written, plus its size."""
+    return json.dumps({DIGEST_KEY: hashlib.sha256(text.encode("utf-8")).hexdigest(), "chars": len(text)}, indent=1) + "\n"
+
+
 def assert_getter_matches_golden(name: str, value: Any, *, context: int = 3, max_lines: int = 60) -> None:
     """Fail with a unified diff if ``value`` does not encode exactly to golden ``name``."""
     path = golden_path(name)
     assert path.is_file(), f"no golden fixture {path.relative_to(ROOT)}; capture it from the old loader first"
     expected = path.read_text(encoding="utf-8")
     actual = dumps(value)
+    if expected.lstrip().startswith("{") and DIGEST_KEY in expected[:80]:
+        assert digest_golden(actual) == expected, f"getter {name!r} differs from its digest golden (sha256 of canonical text)"
+        return
     if actual != expected:
         diff = list(difflib.unified_diff(expected.splitlines(), actual.splitlines(),
                                          f"golden/{name}.json", f"getter {name}", n=context, lineterm=""))

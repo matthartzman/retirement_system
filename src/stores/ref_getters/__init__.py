@@ -25,16 +25,20 @@ from typing import Any, Callable
 
 from ..ref_data import RefData
 from . import cma as _cma
+from . import monarch_field_map as _monarch_field_map
 from . import mortality_real_loss as _mrl
 from . import schema_fields as _schema_fields
 from . import security_master as _security_master
 from . import state_tax as _state_tax
 from . import tax_law as _tax_law
 from . import tax_update_dashboard as _tax_update_dashboard
+from . import template_layout as _template_layout
+from . import zip_data as _zip_data
 
 GOLDEN_GETTERS: dict[str, Callable[[RefData], Any]] = {
     "capital_market_rows": _cma.capital_market_rows,
     "correlation_rows": _cma.correlation_rows,
+    "monarch_field_map": _monarch_field_map.monarch_field_map_data,
     "mortality_qx_table": _mrl.mortality_qx_table,
     "real_loss_rows": _mrl.real_loss_rows,
     "schema_fields": _schema_fields.schema_fields,
@@ -44,4 +48,7 @@ GOLDEN_GETTERS: dict[str, Callable[[RefData], Any]] = {
     "tax_law": _tax_law.tax_law_dataset,
     "tax_law_freshness": _tax_law.tax_law_freshness,
     "tax_update_dashboard": _tax_update_dashboard.tax_update_dashboard,
+    "template_layout": _template_layout.template_layout_data,
+    "top_cities_rows": _zip_data.top_cities_rows,
+    "zip_table": _zip_data.zip_table,
 }
