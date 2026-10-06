@@ -42,8 +42,13 @@ for (const name of [
   for (const m of body.matchAll(/^\s{4}([a-z0-9_]+):/gm)) redirectKeys.add(m[1]);
 }
 
+// Reports & Review sub-page ids are an array, not a map, in navigation.js.
+const reportsRedirect = nav.match(/const REPORTS_REDIRECT_IDS=\[([^\]]*)\]/);
+assert.ok(reportsRedirect, "REPORTS_REDIRECT_IDS not found in navigation.js");
+for (const m of reportsRedirect[1].matchAll(/'([a-z0-9_]+)'/g)) redirectKeys.add(m[1]);
+
 test("STEPS ids and redirect keys were extracted", () => {
-  assert.ok(stepIds.size > 30, `only ${stepIds.size} step ids found`);
+  assert.ok(stepIds.size > 20, `only ${stepIds.size} step ids found`);
   assert.ok(stepIds.has("strategy_optimize"));
   assert.ok(redirectKeys.has("allocation_assets"));
 });

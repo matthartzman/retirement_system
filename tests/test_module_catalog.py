@@ -80,7 +80,7 @@ def test_every_optional_module_has_a_toggle_row():
     # exempt from needing one -- and, below, forbidden from having one.
     missing = sorted(k for k, m in mc.CATALOG.items()
                      if m.optional and m.gated_by is None
-                     and not m.gated_by_any_flag and k not in declared)
+                     and not m.gated_by_any_flag and m.csv_row and k not in declared)
     assert not missing, (
         "optional modules with no toggle row in the default plan, so they are "
         f"silently always-on: {missing}")
@@ -464,9 +464,9 @@ def test_topics_are_the_nine_life_areas():
     Protection renames to Insurance & Care, Reports & Documentation renames
     to Whole Plan."""
     assert mc.DOMAINS == (
-        "Income & Benefits", "Spending", "Housing & Property", "Investments",
+        "Income & Benefits", "Spending", "Housing & Property", "Investments & Property",
         "Taxes", "Insurance & Care", "Estate & Legacy", "Family & Business",
-        "Whole Plan",
+        "Reports & Review",
     )
 
 
@@ -474,7 +474,7 @@ def test_topic_recut_membership():
     """#332 §1.1: the 11 modules whose domain moves to a different topic
     (not merely renamed in place)."""
     want = {
-        "market_luck_stress_test": "Investments",
+        "market_luck_stress_test": "Investments & Property",
         "daf_giving": "Taxes", "qcd_giving": "Taxes",
         "life_insurance_need": "Insurance & Care",
         "survivor_stress_test": "Insurance & Care",
@@ -482,8 +482,8 @@ def test_topic_recut_membership():
         "existing_life_insurance": "Insurance & Care",
         "hybrid_ltc_policy": "Insurance & Care",
         "divorce_qdro": "Family & Business",
-        "what_if_analysis": "Whole Plan",
-        "charts_dashboard": "Whole Plan",
+        "what_if_analysis": "Reports & Review",
+        "charts_dashboard": "Reports & Review",
     }
     assert {k: mc.CATALOG[k].domain for k in want} == want
 

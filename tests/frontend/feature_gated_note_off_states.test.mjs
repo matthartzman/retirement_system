@@ -71,7 +71,7 @@ describe("featureGatedNote (Collapsed-with-a-note, #330 §5.2)", () => {
         { row_index: 3, value: "" },
       ],
     });
-    assert.ok(html.includes("2 already-entered items are retained"));
+    assert.ok(html.includes("Off · 2 rows entered"));
   });
 });
 

@@ -89,6 +89,20 @@ export function enteredRowCount(rows) {
   }).length;
 }
 
+// WP1.5: the one wording for "off, but your data is still here", shared by
+// Plan Features and every page-level off note.
+export function offRowsLabel(n) {
+  return "Off · " + n + (n === 1 ? " row" : " rows") + " entered";
+}
+
+// WP1.5: when a feature the projection itself reads is off, say what the
+// switch does to the numbers (design 2026-10-04 section 3, off semantics).
+export function engineIgnoredWarning(meta) {
+  return meta && meta.engine_participation
+    ? "While " + (meta.name || "this feature") + " is off, the projection ignores it. Your entries are kept."
+    : "";
+}
+
 // #330 §5.3 (W9): where each plan flag's row actually renders for editing.
 // Not mechanically derivable from the catalog the way a module toggle's
 // dashboard_step is: HELOC has one (moduleGates.flag_gates), but Hybrid
@@ -133,7 +147,9 @@ export function planFeatureGroups(toggleRows, taxonomy, kindFilter) {
   Object.keys(modules).forEach((key) => {
     if (seenKeys.has(key)) return;
     const meta = modules[key];
-    if (meta.gate_kind !== "plan_flag") return;
+    // WP1.3: a switchable feature with no CSV row is listed the same way.
+    if (meta.gate_kind !== "plan_flag" && meta.csv_row !== false) return;
+    if (meta.csv_row === false && !meta.optional) return;
     if (kindFilter && meta.answer_type !== kindFilter) return;
     const domain = meta.domain || "Other";
     if (!byDomain.has(domain)) byDomain.set(domain, []);
@@ -221,6 +237,7 @@ function entryIsOn(entry) {
     const ref = entry.meta.gate_ref || [];
     return ref.length === 3 ? sectionFlagEnabled(ref[0], ref[1], ref[2]) : false;
   }
+  if (!entry.row) return entry.meta.default_on !== false;
   return boolishValue(entry.row);
 }
 
@@ -277,8 +294,24 @@ function planFlagRowHtml(entry) {
   return html;
 }
 
+// WP1.3: a switchable feature with no CSV row (default-on page switch). Shown
+// as its state, not a button: nothing stores the switch until plan_rows (WP4).
+function rowlessFeatureRowHtml(entry) {
+  const meta = entry.meta;
+  const on = meta.default_on !== false;
+  let html = '<div class="opt-module-row">';
+  html += '<div class="opt-module-info"><span class="opt-module-name">' + esc(meta.name || entry.key) + "</span>";
+  if (meta.kind) html += '<span class="badge pf-kind">' + esc(meta.answer_type || meta.kind) + "</span>";
+  const desc = formatAcronyms(meta.description || "");
+  if (desc) html += '<span class="opt-module-desc">' + esc(desc) + "</span>";
+  html += "</div>";
+  html += '<span class="opt-module-toggle ' + (on ? "on" : "off") + '" aria-disabled="true">' + (on ? "ON" : "OFF") + "</span></div>";
+  return html;
+}
+
 function featureRowHtml(entry) {
   if (entry.meta.gate_kind === "plan_flag") return planFlagRowHtml(entry);
+  if (!entry.row) return rowlessFeatureRowHtml(entry);
   const r = entry.row;
   const meta = entry.meta;
   const on = boolishValue(r);
@@ -308,7 +341,9 @@ function featureRowHtml(entry) {
     const owned = moduleOwnedRows(entry.key);
     const n = owned === null ? 0 : enteredRowCount(owned);
     if (n)
-      html += '<span class="pf-retained">Off · ' + n + (n === 1 ? " item" : " items") + " entered</span>";
+      html += '<span class="pf-retained">' + offRowsLabel(n) + "</span>";
+    const ignored = engineIgnoredWarning(meta);
+    if (ignored) html += '<span class="pf-engine-ignored">' + esc(ignored) + "</span>";
   }
   if (status.forced) {
     html +=
@@ -435,6 +470,8 @@ Object.assign(window, {
   offFeaturesForPage,
   offFeaturesLineHtml,
   enteredRowCount,
+  offRowsLabel,
+  engineIgnoredWarning,
   envOverrideNotice,
   planFeatureGroups,
   planFeatureKinds,

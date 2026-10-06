@@ -11,8 +11,7 @@ OLD_STEP = "retirement_" + "health" + "care"
 
 def test_wellness_uses_healthcare_premium_language_without_renaming_step():
     js = dashboard_js_text()
-    assert 'id: "retirement_wellness"' in js
-    assert 'title: "Wellness"' in js
+    assert 'id: "retirement_wellness"' not in js  # retired (WP1.1); redirects to Spending Model
     assert OLD_STEP not in js
     assert HEALTHCARE_PREMIUM in js
 
@@ -36,11 +35,8 @@ def test_income_expense_transactions_is_last_spending_step():
     # the "This year" tab of the Actual Spending step under Reports & Review,
     # and its hidden STEPS entry sits directly before that step.
     assert not any('id: "ytd_transactions"' in b for b in step_blocks if 'group: "Spending"' in b)
-    ids = [b.split('id: "', 1)[1].split('"', 1)[0] for b in step_blocks if 'id: "' in b]
-    assert ids[ids.index("ytd_transactions") + 1] == "actual_spending"
-    ytd = next(b for b in step_blocks if b.startswith('    id: "ytd_transactions"'))
-    assert 'group: "Reports & Review"' in ytd
-    assert "Actual Spending (This Year)" in ytd
+    # WP1.1: ytd_transactions is retired (redirects to actual_spending).
+    assert not any('id: "ytd_transactions"' in b for b in step_blocks)
 
 
 def test_ytd_transaction_merchant_category_account_pick_from_existing_values():
