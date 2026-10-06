@@ -9,7 +9,6 @@ from .version import VERSION, RELEASE_LABEL
 from src import taxes
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-TAX_DASHBOARD = PROJECT_ROOT / "reference_data" / "tax_update_dashboard.csv"
 
 def _pct(value: object, default: float = 0.0) -> float:
     s = str(value or '').strip()
@@ -24,12 +23,8 @@ def _pct(value: object, default: float = 0.0) -> float:
 
 def tax_law_dashboard(reference_year: int | None = None, max_lag_years: int = 1) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
-    if TAX_DASHBOARD.exists():
-        with TAX_DASHBOARD.open(newline='', encoding='utf-8-sig') as f:
-            for row in csv.DictReader(f):
-                row = dict(row)
-                row['blocking'] = str(row.get('blocking','')).strip().upper() in {'TRUE','YES','1'}
-                rows.append(row)
+    from .stores.ref_getters.tax_update_dashboard import tax_update_dashboard
+    rows.extend(tax_update_dashboard())
     if not rows:
         for key, meta in sorted(getattr(taxes, 'TAX_YEAR_PROVENANCE', {}).items()):
             yr = meta.get('tax_year','')

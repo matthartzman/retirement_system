@@ -25,6 +25,7 @@ from typing import Any, Callable
 
 from ..ref_data import RefData
 from . import cma as _cma
+from . import mortality_real_loss as _mrl
 from . import state_tax as _state_tax
 from . import tax_law as _tax_law
 from . import tax_update_dashboard as _tax_update_dashboard
@@ -32,6 +33,8 @@ from . import tax_update_dashboard as _tax_update_dashboard
 GOLDEN_GETTERS: dict[str, Callable[[RefData], Any]] = {
     "capital_market_rows": _cma.capital_market_rows,
     "correlation_rows": _cma.correlation_rows,
+    "mortality_qx_table": _mrl.mortality_qx_table,
+    "real_loss_rows": _mrl.real_loss_rows,
     "state_tax_rows": _state_tax.state_tax_rows,
     "state_tax_rules": _state_tax.state_tax_rules,
     "tax_law": _tax_law.tax_law_dataset,

@@ -73,7 +73,7 @@ place mislabels its value year and silently mis-indexes every later year.
      unverified assumptions -- verify them against Rev. Proc. 2025-25 and the
      current enhanced-credit status.
    Leave the previous rows in place: the lookup uses them for earlier years.
-3. Update `reference_data/tax_update_dashboard.csv`: for each family you just
+3. Update `reference_src/tax_update_dashboard.csv`: for each family you just
    refreshed, set `year` to the new value year and `last_reviewed` to today.
    The staleness banner compares `year` with the reference year, so do this
    **only after every row of that family is added** -- a bumped date over stale
@@ -133,7 +133,7 @@ place mislabels its value year and silently mis-indexes every later year.
 ## How the system tells you something is due
 
 - **Plan Status page banner**: surfaces any row from
-  `reference_data/tax_update_dashboard.csv` whose computed status is stale or
+  `reference_src/tax_update_dashboard.csv` whose computed status is stale or
   blocking (via `src/governance.py:tax_law_dashboard()`), fetched from
   `GET /api/admin/tax-law-dashboard`. Rows marked `CURRENT_UNTIL_LAW_CHANGE`
   (e.g., the RMD divisor table) are excluded even if their `year` is old,

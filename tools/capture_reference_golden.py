@@ -29,28 +29,18 @@ if str(ROOT) not in sys.path:
 from tests.reference_golden import write_golden  # noqa: E402
 
 
-def _tax_update_dashboard() -> Any:
-    # Raw read of the old loader's CSV (before governance's staleness overlay), with
-    # the loader's field typing: strings, blocking -> bool, file order.
-    import csv
-    with (ROOT / "reference_data" / "tax_update_dashboard.csv").open(encoding="utf-8-sig", newline="") as fh:
-        rows = [dict(r) for r in csv.DictReader(fh)]
-    for r in rows:
-        r["blocking"] = str(r.get("blocking", "")).strip().upper() in {"TRUE", "YES", "1"}
-    return rows
-
-
 def _csv_rows(name: str) -> Any:
+    """Helper for captures of plain-CSV loaders: rows as str dicts (``csv.DictReader`` shape)."""
     import csv
     with (ROOT / "reference_data" / name).open(encoding="utf-8-sig", newline="") as fh:
         return [dict(r) for r in csv.DictReader(fh)]
 
 
-CAPTURES: dict[str, Callable[[], Any]] = {
-    "capital_market_rows": lambda: _csv_rows("capital_market_assumptions.csv"),
-    "correlation_rows": lambda: _csv_rows("asset_correlations.csv"),
-    "tax_update_dashboard": _tax_update_dashboard,
-}
+# Old-loader captures live here only while the old loader still exists: add the entry,
+# run this tool, move the source, switch consumers, delete the entry (see the runbook).
+# The slices landed so far have all been captured and their old loaders deleted; their
+# fixtures under tests/fixtures/reference_golden/ are the permanent record.
+CAPTURES: dict[str, Callable[[], Any]] = {}
 
 
 def main(argv: list[str] | None = None) -> int:

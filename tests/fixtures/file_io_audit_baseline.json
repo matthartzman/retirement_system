@@ -18,9 +18,6 @@
   "src/domain_models.py": {
    "path_io": 1
   },
-  "src/governance.py": {
-   "csv": 1
-  },
   "src/housing/api.py": {
    "csv": 1,
    "open": 1
@@ -71,14 +68,8 @@
   "src/plan_data_read.py": {
    "path_io": 1
   },
-  "src/planning_engines.py": {
-   "csv": 1
-  },
   "src/portfolio_analytics.py": {
    "csv": 3
-  },
-  "src/real_loss_curves.py": {
-   "csv": 1
   },
   "src/report_package.py": {
    "path_io": 2
@@ -176,5 +167,5 @@
    "path_io": 1
   }
  },
- "total": 226
+ "total": 223
 }
