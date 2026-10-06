@@ -2,6 +2,7 @@
 from .app_store import APP_SCHEMA_VERSION, PLAN_KINDS, AppStore
 from .db import connect, get_version, migrate, transaction
 from .errors import IntegrityError, NotFoundError, SchemaVersionError, StoreError, ValidationError
+from .ref_data import REF_SCHEMA_VERSION, RefData, RefDataError
 from .plan_store import (
     DEFAULT_REVISION_RETENTION,
     PLAN_SCHEMA_VERSION,
@@ -31,6 +32,9 @@ __all__ = [
     "PLAN_SCHEMA_VERSION",
     "PlanPaths",
     "PlanStore",
+    "REF_SCHEMA_VERSION",
+    "RefData",
+    "RefDataError",
     "SchemaVersionError",
     "StoreError",
     "TargetAllocationRepository",

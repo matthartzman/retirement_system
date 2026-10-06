@@ -169,4 +169,7 @@ Planning bands (assumption, not measured): S about 0.2-0.5M tokens, M 0.5-1M, L 
 | WP0.1 | in review | PR #176 (single WP0 PR: 0.1 + 0.2 + 0.3 as commits) | golden baseline for sample_frozen + demo committed; `tools/golden_compare.py`, `tests/test_phase_golden_equality_regression.py` |
 | WP0.2 | in review | PR #176 (same PR) | `tests/plan_fixture.py` (`make_plan`, `plan_data`, `plan_config`, `fixture_dir`); 106 tests codemodded onto it; ratchet in `tests/test_plan_fixture_helper_unit.py` |
 | WP0.3 | in review | PR #176 (same PR) | `tests/test_no_data_file_io_report_regression.py` + `tests/fixtures/file_io_audit_baseline.json`; baseline 237 data-file I/O calls in 55 `src/` files (csv/json/yaml/open/Path IO), ratchet down only |
+| WP2.1 | in review | WP2 draft PR | `src/stores/db.py`: connect (WAL/pragmas), `transaction()`, forward-only `migrate()` on `PRAGMA user_version` |
+| WP2.2 | in review (OWNER REVIEW CHECKPOINT) | WP2 draft PR | `PlanStore`, `AppStore`, error model, `plan_paths`; API summary in PR body; keep draft until owner signs off |
+| WP2.3 | in review | WP2 draft PR | `RefData` skeleton (read-only, content hash, plain getters, `build()` for tool/tests) |
 | WP1 - WP12c | not started | none | planning only |
