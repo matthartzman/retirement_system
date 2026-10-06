@@ -109,13 +109,21 @@ OWN_GATE, SOFT, ENGINE, ACCESSOR = "own_gate", "soft", "engine", "accessor"
 # dynamic key, or a raw `opt` mapping read); empty otherwise.
 DECLARED_SITES: dict[tuple[str, str, str], tuple[str, str | None, tuple[str, ...], str]] = {
     # ── The accessor itself ──────────────────────────────────────────────────
-    ("src/module_catalog.py", "_base_enabled", RAW_OPT): (
+    # WP1.2: the raw storage read moved out of `_base_enabled` into
+    # `_read_switch`, the one function that reads a switch's stored value
+    # (c['opt'] for a toggle, c[gate_config_key] for a plan flag). The two
+    # legacy accessors are now wrappers over `feature_enabled`.
+    ("src/module_catalog.py", "_read_switch", RAW_OPT): (
         ACCESSOR, None, (),
-        "The gate's own implementation: env overrides layered over saved c['opt'].",
+        "The gate's storage read: a module toggle's saved c['opt'] value.",
     ),
-    ("src/module_catalog.py", "_base_enabled", DYNAMIC): (
+    ("src/module_catalog.py", "module_enabled", DYNAMIC): (
         ACCESSOR, None, (),
-        "Reads the DAF/QCD plan flags that decide Charitable Giving (gated_by_any_flag).",
+        "WP1.2: legacy wrapper delegating to feature_enabled().",
+    ),
+    ("src/module_catalog.py", "plan_flag_enabled", DYNAMIC): (
+        ACCESSOR, None, (),
+        "WP1.2: legacy wrapper delegating to feature_enabled().",
     ),
     ("src/module_catalog.py", "module_status", DYNAMIC): (
         ACCESSOR, None, (),
@@ -269,6 +277,12 @@ def _enclosing_functions(tree: ast.AST) -> dict[int, str]:
     return spans
 
 
+# The named `(c, '<key>')` accessors. WP1.2 added `feature_enabled`, the
+# unified read the other two now delegate to; a call to it is a toggle read
+# exactly as a call to either legacy name is.
+ACCESSORS = ("module_enabled", "plan_flag_enabled", "feature_enabled")
+
+
 def _toggle_sites(path: Path) -> list[tuple[str, str, str]]:
     """``(file, function, toggle)`` for every toggle read in ``path``."""
     rel = path.relative_to(ROOT).as_posix()
@@ -298,8 +312,9 @@ def _toggle_sites(path: Path) -> list[tuple[str, str, str]]:
             found.append((rel, fn, RAW_OPT))
             continue
 
-        # `module_enabled(c, '<key>')`, `plan_flag_enabled(c, '<key>')`, and
-        # any hand-rolled `*_module_enabled`. The two named accessors take
+        # `module_enabled(c, '<key>')`, `plan_flag_enabled(c, '<key>')`,
+        # `feature_enabled(c, '<key>')` (WP1.2), and any hand-rolled
+        # `*_module_enabled`. The two named accessors take
         # the same `(c, '<literal key>')` shape and are keyed identically --
         # a plan flag's own switch (module_catalog.plan_flag_enabled) is a
         # toggle read the same way a CSV toggle's is, just backed by a
@@ -308,9 +323,9 @@ def _toggle_sites(path: Path) -> list[tuple[str, str, str]]:
         # config-key read.
         name = node.func.id if isinstance(node.func, ast.Name) else (
             node.func.attr if isinstance(node.func, ast.Attribute) else "")
-        if name not in ("module_enabled", "plan_flag_enabled") and not name.endswith("module_enabled"):
+        if name not in ACCESSORS and not name.endswith("module_enabled"):
             continue
-        if name not in ("module_enabled", "plan_flag_enabled"):
+        if name not in ACCESSORS:
             # A bespoke reader names its own module in its name; the fixture
             # records which key it actually reads.
             found.append((rel, fn, name))

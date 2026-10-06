@@ -139,6 +139,20 @@ NICHE = "niche"
 DEMAND_BANDS = (HIGH, MEDIUM_HIGH, MEDIUM, LOW, NICHE)
 DEMAND_RANK = {band: i for i, band in enumerate(DEMAND_BANDS)}
 
+# ── Feature tiers (design 2026-10-04 §4, WP1.2) ─────────────────────────────
+# A tier is a starting set of switches, cumulative: Standard holds everything
+# Simple does, and so on. `OutputModule.tier` is the SMALLEST tier whose preset
+# turns the feature on. Metadata only in WP1.2 -- nothing reads it to decide a
+# switch yet (WP5's presets will). Always-on core modules and the reference
+# sheets carry SIMPLE because every tier builds them.
+SIMPLE = "simple"
+STANDARD = "standard"
+ADVANCED = "advanced"
+EXPERT = "expert"
+
+TIERS = (SIMPLE, STANDARD, ADVANCED, EXPERT)
+TIER_RANK = {tier: i for i, tier in enumerate(TIERS)}
+
 # ``What-If``'s side-by-side layout is a *presentation mode*; the fact that it
 # scores alternatives the user supplied is its `kind` (COMPARISON, #329 §3.1,
 # promoted from this flag). Same string on purpose — the flag was a half-built
@@ -307,15 +321,11 @@ class OutputModule:
     # it as a plan-flag read at all -- only ``module_enabled(`` and raw
     # ``c['opt']`` reads were spellings it knew.
     #
-    # Populated only where something actually consumes it -- today just
-    # ``hybrid_ltc_policy`` -- rather than backfilled onto every plan flag on
-    # spec: HELOC's and QCD's CSV labels already equal their runtime keys
-    # (``heloc_enabled``, ``qcd_enabled``), so nothing needs this to find
-    # them, and inventing the mapping for a flag nothing reads outside its
-    # own gate would be exactly the aspirational-declaration risk
-    # ``test_every_soft_declaration_is_backed_by_a_swept_call_site`` exists
-    # to catch (W5's Judgment call 2 records the one time that nearly
-    # happened here).
+    # WP1.2: every plan flag declares it, and validate() requires that,
+    # because :func:`feature_enabled` (via ``_read_switch``) now reads every
+    # plan flag through this one field. Before WP1.2 it was populated only
+    # where a reader existed (Hybrid LTC, then DAF/QCD for Charitable
+    # Giving); HELOC's was added when the unified accessor became its reader.
     gate_config_key: Optional[str] = None
     # ── #330 §3.3 (W8b): one switch, several modules ───────────────────────
     #
@@ -352,6 +362,31 @@ class OutputModule:
     # carries no client_optional_functions.csv row, for the same reason a
     # ``gated_by`` member does. Resolved in :func:`_base_enabled`.
     gated_by_any_flag: Tuple[str, ...] = field(default_factory=tuple)
+    # ── WP1.2 (design 2026-10-04 §3-§5): profile metadata ───────────────────
+    #
+    # ``tier`` -- the smallest tier (TIERS) whose preset includes this feature,
+    # per the design's §4 table. Every entry sets it explicitly; the default
+    # only exists so the field can follow the other keyword fields.
+    #
+    # ``nav_group`` -- the left-nav / Plan Features group this feature lists
+    # under, in the DOMAINS vocabulary (WP1.1 renamed the domains to the nav
+    # group names). None means "same as ``domain``", filled in by
+    # ``__post_init__``; a module overrides it only if its nav home differs
+    # from its life-area domain.
+    #
+    # ``default_on`` -- what :func:`feature_enabled` returns when the switch's
+    # storage holds no value for this key. True for every module toggle
+    # (``_base_enabled`` has always read an absent ``c['opt']`` entry as on)
+    # and False for every plan flag (``plan_flag_enabled`` has always read an
+    # absent config key as off). Declared here so the default lives on the
+    # feature instead of in two hard-coded branches of the accessor.
+    tier: str = ADVANCED
+    nav_group: Optional[str] = None
+    default_on: bool = True
+
+    def __post_init__(self):
+        if self.nav_group is None:
+            object.__setattr__(self, "nav_group", self.domain)
 
 
 def _in(module: str, *elements: str) -> RequiredInput:
@@ -380,7 +415,7 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "net_worth", "Net Worth", PROJECTION, HIGH,
         "Year-by-year total net worth; the plan's headline trajectory.",
-        domain=WHOLE_PLAN,
+        domain=WHOLE_PLAN, tier=SIMPLE,
         sheet="5. Net Worth Projection", tab="1B. Net Worth",
         requires_inputs=(_in("household", "ages", "timing"), _in("assets", "balances"),
                          _in("liabilities", "balances"), _in("holdings", "balances"),
@@ -389,7 +424,7 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "cash_flow", "Cash Flow", PROJECTION, HIGH,
         "Annual inflows/outflows, funding gaps, and withdrawal need.",
-        domain=WHOLE_PLAN,
+        domain=WHOLE_PLAN, tier=SIMPLE,
         sheet="6. Cash Flow Projection", tab="1C. Cash Flow",
         requires_inputs=(_in("income", "all_streams"), _in("spending", "all"),
                          _in("liabilities", "payments"), _in("household", "ss", "timing")),
@@ -404,14 +439,14 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "balance_sheet", "Balance Sheet", PROJECTION, HIGH,
         "Point-in-time assets/liabilities by account and tax type.",
-        domain=WHOLE_PLAN,
+        domain=WHOLE_PLAN, tier=SIMPLE,
         sheet="3. Balance Sheet", tab="1D. Balance Sheet",
         requires_inputs=(_in("assets"), _in("liabilities"), _in("holdings")),
     ),
     OutputModule(
         "executive_summary", "Executive Summary", PROJECTION, HIGH,
         "One-page KPI roll-up of the whole plan.",
-        domain=WHOLE_PLAN,
+        domain=WHOLE_PLAN, tier=SIMPLE,
         sheet="1. Executive Summary", tab="1A. Executive Summary",
         requires_outputs=("net_worth", "cash_flow", "balance_sheet"),
         # Two headline blocks are suppressed rather than zeroed when their
@@ -423,7 +458,7 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "lifetime_tax_projection", "Lifetime Taxes", PROJECTION, HIGH,
         "Cumulative federal/state/NIIT/IRMAA/payroll/cap-gains over the plan.",
-        domain=TAXES,
+        domain=TAXES, tier=SIMPLE,
         optional=True, sheet="7. Lifetime Tax", tab="1E. Lifetime Taxes",
         requires_inputs=(_in("income"), _in("spending"), _in("holdings"),
                          _in("assumptions", "tax_law")),
@@ -447,7 +482,7 @@ _OUTPUTS: List[OutputModule] = [
         # `gated_by` the tracker rather than a toggle of its own.
         "spending_summary", "Spending Summary", PROJECTION, MEDIUM_HIGH,
         "Category roll-up of spend, including a Core Expenses vs. modeled-assumption reconciliation.",
-        domain=SPENDING,
+        domain=SPENDING, tier=ADVANCED,
         optional=True, gated_by="spending_tracker_ytd",
         sheet="29. Spending Summary", tab="1G. Spending Summary",
         requires_inputs=(_in("spending"),),
@@ -483,7 +518,7 @@ _OUTPUTS: List[OutputModule] = [
         "Tracks this year's real income and spending transactions and blends them "
         "into the current-year projection; the switch behind Spending Summary and "
         "Account Reconciliation.",
-        domain=SPENDING,
+        domain=SPENDING, tier=ADVANCED,
         optional=True,
         requires_inputs=(_in("ytd", "transactions", "setup"), _in("spending")),
         # The toggle moves the projection, not merely which sheets are written:
@@ -495,7 +530,7 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "charts_dashboard", "Charts", PROJECTION, MEDIUM_HIGH,
         "Visual consolidation of the projection series.",
-        domain=WHOLE_PLAN,
+        domain=WHOLE_PLAN, tier=SIMPLE,
         optional=True, sheet="8. Charts Dashboard", tab="1F. Charts",
         requires_outputs=("net_worth", "cash_flow", "asset_allocation"),
         # The percentile-band ("fan") chart is embedded only when Monte Carlo
@@ -507,7 +542,7 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "roth_conversion_plan", "Roth Conversion", OPTIMIZATION, HIGH,
         "Conversion amounts / bracket-fill; quantifies lifetime tax savings.",
-        domain=TAXES,
+        domain=TAXES, tier=SIMPLE,
         optional=True, sheet="11. Roth Conversion", tab="2A. Roth Conversion",
         requires_inputs=(_in("planning_levers", "roth_policy", "forced_conversions"),
                          _in("income"), _in("assumptions", "brackets", "irmaa")),
@@ -543,7 +578,7 @@ _OUTPUTS: List[OutputModule] = [
         # models. (Recorded in W8b's notes doc, not decided silently.)
         "hsa_drawdown", "HSA Drawdown", OPTIMIZATION, MEDIUM,
         "Drawdown order for HSA dollars; self-gates on hsa_withdrawal_mode == 'optimize'.",
-        domain=TAXES,
+        domain=TAXES, tier=ADVANCED,
         optional=True,
         sheet="11C. HSA Drawdown", tab="2B. HSA Drawdown",
         requires_inputs=(_in("planning_levers", "hsa_withdrawal_mode"),
@@ -566,7 +601,7 @@ _OUTPUTS: List[OutputModule] = [
         # which workbook group the sheet letters into.
         "tax_capacity", "Tax Capacity", REFERENCE, MEDIUM,
         "Consolidated per-year bracket, IRMAA and ACA headroom, assembled from four other sheets.",
-        domain=TAXES,
+        domain=TAXES, tier=ADVANCED,
         optional=True,
         sheet="11B. Tax Capacity", tab="5H. Tax Capacity",
         requires_inputs=(_in("income"), _in("assumptions", "brackets", "irmaa")),
@@ -575,7 +610,7 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "asset_allocation", "Asset Allocation", OPTIMIZATION, HIGH,
         "Target vs actual mix, drift, and rebalancing guidance.",
-        domain=INVESTMENTS,
+        domain=INVESTMENTS, tier=STANDARD,
         sheet="4. Asset Allocation", tab="2C. Asset Allocation",
         requires_inputs=(_in("planning_levers", "targets", "controls"), _in("holdings"),
                          _in("assumptions", "cma")),
@@ -583,7 +618,7 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "social_security_timing", "Social Security", OPTIMIZATION, HIGH,
         "Optimal claiming age; lifetime-benefit comparison.",
-        domain=INCOME_BENEFITS,
+        domain=INCOME_BENEFITS, tier=STANDARD,
         optional=True, sheet="10. Social Security", tab="2D. Social Security",
         requires_inputs=(_in("household", "ss_policy", "dob", "earnings"),
                          _in("planning_levers", "claiming_age")),
@@ -592,7 +627,7 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "retirement_strategy", "Withdrawal Sequencing", OPTIMIZATION, MEDIUM_HIGH,
         "Draw order across account tax types.",
-        domain=INVESTMENTS,
+        domain=INVESTMENTS, tier=ADVANCED,
         optional=True, sheet="9. Retirement Strategy", tab="9. Retirement Strategy",
         requires_inputs=(_in("planning_levers", "sequencing"), _in("assets"), _in("holdings")),
         requires_outputs=BASE_PROJECTION,
@@ -600,7 +635,7 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "asset_location", "Asset Location", OPTIMIZATION, MEDIUM_HIGH,
         "Which assets to hold in which tax bucket.",
-        domain=INVESTMENTS,
+        domain=INVESTMENTS, tier=ADVANCED,
         optional=True,
         sheet="24. Asset Location", tab="24. Asset Location",
         requires_inputs=(_in("holdings", "lots"), _in("planning_levers", "location_policy"),
@@ -609,7 +644,7 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "what_if_analysis", "What-If / Scenario", COMPARISON, MEDIUM_HIGH,
         "Side-by-side of 2-3 saved lever bundles with deltas (comparison mode).",
-        domain=WHOLE_PLAN,
+        domain=WHOLE_PLAN, tier=ADVANCED,
         optional=True, sheet="16. Scenario Analysis", tab="3C. Scenario Analysis",
         mode=MODE_COMPARISON,
         requires_inputs=(_in("planning_levers", "bundled_positions"),),
@@ -619,21 +654,21 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "tax_loss_harvesting", "Tax-Loss Harvesting", OPTIMIZATION, MEDIUM,
         "Harvestable losses given current lots.",
-        domain=TAXES,
+        domain=TAXES, tier=ADVANCED,
         optional=True, sheet="12B. Tax-Loss Harvesting", tab="2H. Tax-Loss Harvesting",
         requires_inputs=(_in("holdings", "lots", "basis"), _in("pricing")),
     ),
     OutputModule(
         "gain_harvesting", "Gain Harvesting", OPTIMIZATION, MEDIUM,
         "0%-bracket long-term gains harvestable given current lots.",
-        domain=TAXES,
+        domain=TAXES, tier=ADVANCED,
         optional=True, sheet="12C. Gain Harvesting", tab="2I. Gain Harvesting",
         requires_inputs=(_in("holdings", "lots", "basis"), _in("pricing")),
     ),
     OutputModule(
         "charitable_giving", "Charitable Giving", OPTIMIZATION, MEDIUM,
         "Bunching / QCD / DAF strategy and tax effect.",
-        domain=TAXES,
+        domain=TAXES, tier=ADVANCED,
         optional=True, sheet="12. Charitable Giving", tab="2E. Charitable Giving",
         # No toggle of its own: the sheet and the nav page exist iff DAF or
         # QCD is on (2026-10-03). Each is its own on/off feature below.
@@ -659,7 +694,7 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "state_residency", "State Residency", COMPARISON, MEDIUM,
         "Tax impact of relocating.",
-        domain=HOUSING_PROPERTY,
+        domain=HOUSING_PROPERTY, tier=ADVANCED,
         optional=True, sheet="13. State Residency", tab="3A. State Residency",
         requires_inputs=(_in("planning_levers", "residency_choice"), _in("income"),
                          _in("assumptions", "state_tax")),
@@ -678,7 +713,7 @@ _OUTPUTS: List[OutputModule] = [
         "housing_trajectory_comparison", "Housing Comparison", OPTIMIZATION, LOW,
         "Sweeps the current-home sale year and both future housing steps (buy vs. rent x year) "
         "by coordinate descent, ranked on the same LCV basis as the Social Security sweep.",
-        domain=HOUSING_PROPERTY,
+        domain=HOUSING_PROPERTY, tier=ADVANCED,
         optional=True, sheet="38. Housing Comparison", tab="2G. Housing Comparison",
         requires_inputs=(_in("household", "next_housing_steps"), _in("assumptions", "growth")),
         requires_outputs=BASE_PROJECTION,
@@ -752,7 +787,7 @@ _OUTPUTS: List[OutputModule] = [
         "\"Where to live\": screens ZIP codes inside your chosen anchors and radius, "
         "then sweeps each move's location and year against the plan to rank places to go. "
         "The workbook's Housing Comparison answers the other half, \"when to move\".",
-        domain=HOUSING_PROPERTY,
+        domain=HOUSING_PROPERTY, tier=ADVANCED,
         optional=True,
         requires_inputs=(_in("household", "state", "next_housing_steps"),
                          _in("assets", "home_value"), _in("liabilities", "mortgage"),
@@ -768,7 +803,7 @@ _OUTPUTS: List[OutputModule] = [
         "estate_legacy_plan", "Estate & Legacy", OPTIMIZATION, MEDIUM,
         "Estate-tax exposure, legacy/bequest structure, beneficiary/titling audit, "
         "gifting schedule, and per-beneficiary 10-year drawdown sensitivity.",
-        domain=ESTATE_LEGACY,
+        domain=ESTATE_LEGACY, tier=STANDARD,
         optional=True, sheet="14. Estate Plan", tab="2F. Estate & Legacy Planning",
         # Account titling (4.7), gifting schedule (4.8), and the per-beneficiary
         # drawdown (4.9) all shipped in Wave 4, after this entry was first
@@ -790,7 +825,7 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "education_funding_529", "Education Funding 529", OPTIMIZATION, LOW,
         "529 sizing vs education goals.",
-        domain=FAMILY_BUSINESS,
+        domain=FAMILY_BUSINESS, tier=STANDARD,
         optional=True, sheet="30. Education Funding", tab="2J. Education Funding",
         requires_inputs=(_in("insurance_estate", "529_accounts", "goals"),
                          _in("assumptions", "growth")),
@@ -799,7 +834,7 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "equity_compensation", "Equity Compensation", OPTIMIZATION, LOW,
         "RSU / ISO / NSO / ESPP tax and timing.",
-        domain=FAMILY_BUSINESS,
+        domain=FAMILY_BUSINESS, tier=EXPERT,
         optional=True, sheet="35. Equity Compensation", tab="2K. Equity Compensation",
         requires_inputs=(_in("insurance_estate", "grants"), _in("assumptions", "tax")),
         csv_sections=("Equity Compensation",),
@@ -811,7 +846,7 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "scorp_vs_llc", "S-Corp vs LLC", COMPARISON, LOW,
         "Entity-structure tax comparison for the self-employed.",
-        domain=FAMILY_BUSINESS,
+        domain=FAMILY_BUSINESS, tier=EXPERT,
         optional=True,
         sheet="S-Corp vs LLC", tab="3B. S-Corp vs LLC",
         requires_inputs=(_in("income", "self_employment"), _in("business"),
@@ -820,7 +855,7 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "business_succession", "Business Succession", OPTIMIZATION, LOW,
         "Buy-sell / key-person / valuation planning.",
-        domain=FAMILY_BUSINESS,
+        domain=FAMILY_BUSINESS, tier=EXPERT,
         optional=True, sheet="34. Business Succession", tab="2M. Business Succession",
         requires_inputs=(_in("business", "entity", "valuation", "funding"),),
         # after_tax.business_taxable_estate_value() adds the owner's projected
@@ -831,7 +866,7 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "special_needs_planning", "Special-Needs Planning", OPTIMIZATION, NICHE,
         "SNT / ABLE structure for a dependent.",
-        domain=FAMILY_BUSINESS,
+        domain=FAMILY_BUSINESS, tier=EXPERT,
         optional=True, sheet="36. Special-Needs Planning", tab="2L. Special-Needs Planning",
         requires_inputs=(_in("household", "dependents"), _in("insurance_estate")),
     ),
@@ -840,7 +875,7 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "life_insurance_need", "Life Insurance Need", PROTECTION, MEDIUM,
         "Coverage to buy vs survivor shortfall — a decision that reads a stress.",
-        domain=INSURANCE_CARE,
+        domain=INSURANCE_CARE, tier=STANDARD,
         optional=True, sheet="19. Life Insurance", tab="4D. Life Insurance Need",
         requires_inputs=(_in("insurance_estate", "policies"), _in("income")),
         requires_outputs=("survivor_stress_test",),
@@ -863,7 +898,7 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "existing_life_insurance", "Existing Life Insurance", PROTECTION, LOW,
         "Adequacy of in-force policies.",
-        domain=INSURANCE_CARE,
+        domain=INSURANCE_CARE, tier=STANDARD,
         optional=True, sheet="31. Existing Life Insurance", tab="4E. Existing Life Insurance",
         requires_inputs=(_in("insurance_estate", "life_policies"),),
         requires_outputs=("survivor_stress_test",),
@@ -877,7 +912,7 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "disability_income_insurance", "Disability Income", PROTECTION, LOW,
         "DI coverage vs income-replacement need.",
-        domain=INSURANCE_CARE,
+        domain=INSURANCE_CARE, tier=STANDARD,
         optional=True, sheet="32. Disability Income", tab="4F. Disability Income",
         requires_inputs=(_in("insurance_estate", "di_policies"), _in("income")),
         requires_outputs=("cash_flow",),
@@ -887,7 +922,7 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "property_casualty_umbrella", "P&C / Umbrella", PROTECTION, NICHE,
         "Liability coverage adequacy vs net worth.",
-        domain=INSURANCE_CARE,
+        domain=INSURANCE_CARE, tier=EXPERT,
         optional=True, sheet="33. P&C Umbrella", tab="4G. P&C Umbrella",
         requires_inputs=(_in("insurance_estate", "pc_policies"),),
         requires_outputs=("net_worth",),
@@ -897,7 +932,7 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "market_luck_stress_test", "Monte Carlo", STRESS_TEST, HIGH,
         "Probability of success across market-return paths.",
-        domain=INVESTMENTS,
+        domain=INVESTMENTS, tier=SIMPLE,
         optional=True, sheet="15. Market-Luck Stress Test", tab="4A. Monte Carlo",
         requires_inputs=(_in("assumptions", "cma", "correlations"),
                          _in("planning_levers", "mc_settings")),
@@ -907,7 +942,7 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "survivor_stress_test", "Survivor / Early Death", STRESS_TEST, MEDIUM,
         "Plan solvency after one spouse's early death.",
-        domain=INSURANCE_CARE,
+        domain=INSURANCE_CARE, tier=STANDARD,
         optional=True, sheet="18. Survivor Stress Test", tab="4B. Survivor",
         requires_inputs=(_in("household", "survivor_state"),
                          _in("income", "survivor_continuation"), _in("insurance_estate")),
@@ -917,7 +952,7 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "long_term_care_stress", "LTC Stress", STRESS_TEST, MEDIUM,
         "Impact of a long-term-care event.",
-        domain=INSURANCE_CARE,
+        domain=INSURANCE_CARE, tier=ADVANCED,
         optional=True, sheet="17. LTC Stress Test", tab="4C. LTC Stress Test",
         requires_inputs=(_in("insurance_estate", "ltc_policy"), _in("assets", "liquidity"),
                          _in("assumptions", "ltc_cost")),
@@ -932,7 +967,7 @@ _OUTPUTS: List[OutputModule] = [
         # already computes; see build_sheet39 (sheets_stress.py).
         "divorce_qdro", "Divorce / QDRO", STRESS_TEST, NICHE,
         "Plan under an imposed asset split (exogenous life event).",
-        domain=FAMILY_BUSINESS,
+        domain=FAMILY_BUSINESS, tier=EXPERT,
         optional=True, sheet="39. Divorce QDRO Stress Test", tab="4D. Divorce QDRO",
         requires_inputs=(_in("household", "divorce_assumptions"), _in("assets"), _in("holdings")),
         requires_outputs=BASE_PROJECTION,
@@ -943,14 +978,14 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "quality_control", "Quality Control", DIAGNOSTICS, MEDIUM,
         "Pass/fail checks on the projection's internal consistency.",
-        domain=WHOLE_PLAN,
+        domain=WHOLE_PLAN, tier=SIMPLE,
         sheet="21. Quality Control", tab="5D. Quality Control",
         requires_outputs=BASE_PROJECTION,
     ),
     OutputModule(
         "rmd_audit", "RMD Audit", DIAGNOSTICS, MEDIUM,
         "Verifies RMD amounts/timing against tax rules.",
-        domain=TAXES,
+        domain=TAXES, tier=EXPERT,
         optional=True, sheet="20. RMD Audit", tab="5E. RMD Audit",
         requires_inputs=(_in("household", "ages"), _in("assumptions", "rmd_tables")),
         requires_outputs=("net_worth",),
@@ -965,7 +1000,7 @@ _OUTPUTS: List[OutputModule] = [
         # outcome for this pair without touching the precedence ladder at all.
         "account_reconciliation", "Account Reconciliation", DIAGNOSTICS, MEDIUM,
         "Reconciles modeled balances against YTD actuals.",
-        domain=WHOLE_PLAN,
+        domain=WHOLE_PLAN, tier=EXPERT,
         optional=True, gated_by="spending_tracker_ytd",
         sheet="25. Account Reconciliation", tab="5C. Account Reconciliation",
         requires_inputs=(_in("holdings"), _in("ytd", "transactions", "setup")),
@@ -996,7 +1031,7 @@ _OUTPUTS: List[OutputModule] = [
         "Interactive lever-screening worksheet: hardcoded test levers with "
         "editable amounts and formulas estimating directional impact on "
         "terminal net worth and Monte Carlo success, ranked against each other.",
-        domain=WHOLE_PLAN,
+        domain=WHOLE_PLAN, tier=ADVANCED,
         sheet="27. Planning Levers", tab="3E. Planning Levers",
         requires_inputs=(_in("planning_levers"),),
         # The "Current model anchor" block keeps its Monte Carlo success row
@@ -1008,21 +1043,21 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "assumptions_ref", "Assumptions", REFERENCE, MEDIUM,
         "Echoes the economic/tax assumptions used, for auditability.",
-        domain=WHOLE_PLAN,
+        domain=WHOLE_PLAN, tier=SIMPLE,
         sheet="2. Assumptions", tab="5B. Assumptions",
         requires_inputs=(_in("assumptions"),),
     ),
     OutputModule(
         "plan_data_ref", "Plan Data", REFERENCE, MEDIUM,
         "Snapshot of all inputs behind the run.",
-        domain=WHOLE_PLAN,
+        domain=WHOLE_PLAN, tier=SIMPLE,
         sheet="Plan Data", tab="5A. Plan Data",
         requires_inputs=tuple(_in(m) for m in ALL_INPUTS),
     ),
     OutputModule(
         "methodology_rerun", "Methodology & Re-Run", REFERENCE, LOW,
         "Explains the model and how to reproduce the run.",
-        domain=WHOLE_PLAN,
+        domain=WHOLE_PLAN, tier=SIMPLE,
         optional=True, sheet="23. Methodology", tab="5F. Methodology",
     ),
     OutputModule(
@@ -1032,7 +1067,7 @@ _OUTPUTS: List[OutputModule] = [
         # before and after the recommendations it already tracks.
         "current_vs_proposed", "Current vs Proposed", WORKSHEET, MEDIUM,
         "Every tracked recommendation, active or proposed, with its cash-flow delta.",
-        domain=WHOLE_PLAN,
+        domain=WHOLE_PLAN, tier=ADVANCED,
         optional=True,
         sheet="37. Current vs Proposed", tab="3D. Current vs. Proposed",
         requires_outputs=BASE_PROJECTION,
@@ -1040,7 +1075,7 @@ _OUTPUTS: List[OutputModule] = [
     OutputModule(
         "glossary", "Glossary", REFERENCE, LOW,
         "Defines terms used across the workbook.",
-        domain=WHOLE_PLAN,
+        domain=WHOLE_PLAN, tier=SIMPLE,
         optional=True, sheet="22. Glossary", tab="5G. Glossary",
     ),
 
@@ -1056,11 +1091,16 @@ _OUTPUTS: List[OutputModule] = [
         "heloc", "HELOC", OPTIMIZATION, LOW,
         "Draw from a home-equity line for large discretionary spending "
         "instead of liquidating portfolio assets.",
-        domain=HOUSING_PROPERTY,
+        domain=HOUSING_PROPERTY, tier=ADVANCED,
         dashboard_step="heloc_strategy",
         gate_kind=GATE_PLAN_FLAG,
         gate_ref=("HELOC", "Setup", "heloc_enabled"),
         gate_enable_label="Enable HELOC Strategy",
+        # WP1.2: feature_enabled() reads every plan flag through this field,
+        # so HELOC declares it too (data_io.py parses the cell into
+        # c['heloc_enabled']).
+        gate_config_key="heloc_enabled",
+        default_on=False,
     ),
     OutputModule(
         # No dashboard_step, no csv_sections -- unlike HELOC, this flag gates
@@ -1076,7 +1116,7 @@ _OUTPUTS: List[OutputModule] = [
         "hybrid_ltc_policy", "LTC/Life Policy", PROTECTION, LOW,
         "A hybrid long-term-care / life policy: premiums, face value and the "
         "benefit it pays against a care event.",
-        domain=INSURANCE_CARE,
+        domain=INSURANCE_CARE, tier=STANDARD,
         gate_kind=GATE_PLAN_FLAG,
         gate_ref=("Hybrid LTC", "Settings", "enabled"),
         gate_enable_label="Enabled",
@@ -1084,6 +1124,7 @@ _OUTPUTS: List[OutputModule] = [
         # function of gate_ref[2] ("enabled") -- see gate_config_key's own
         # comment on OutputModule.
         gate_config_key="ltc_enabled",
+        default_on=False,
     ),
     OutputModule(
         # DAF and QCD are one feature seen from two sides -- bunch giving for
@@ -1093,7 +1134,7 @@ _OUTPUTS: List[OutputModule] = [
         "daf_giving", "DAF Giving", OPTIMIZATION, LOW,
         "Contribute to a donor-advised fund in a high-income year and grant "
         "from it over later years.",
-        domain=TAXES,
+        domain=TAXES, tier=ADVANCED,
         # Deliberately no csv_sections. The DAF flag's own row lives in the
         # section it would gate, so a section gate here would hide the switch
         # that turns it back on. `entityCharitableGatedRows()` already gates
@@ -1103,16 +1144,18 @@ _OUTPUTS: List[OutputModule] = [
         gate_ref=("DAF", "Settings", "enabled"),
         gate_enable_label="Enabled",
         gate_config_key="daf_enabled",
+        default_on=False,
     ),
     OutputModule(
         "qcd_giving", "QCD Giving", OPTIMIZATION, LOW,
         "Give directly from an IRA at 70.5+, satisfying required distributions "
         "without the amount landing in taxable income.",
-        domain=TAXES,
+        domain=TAXES, tier=ADVANCED,
         gate_kind=GATE_PLAN_FLAG,
         gate_ref=("Cashflow", "Charitable Giving", "qcd_enabled"),
         gate_enable_label="Enabled",
         gate_config_key="qcd_enabled",
+        default_on=False,
     ),
 ]
 
@@ -1241,10 +1284,12 @@ def plan_flag_enabled(c, key: str) -> bool:
     ``c['opt']``, a raw literal config-key read is syntactically
     indistinguishable from any other typed input field, so the sweep matches
     calls to this accessor by name instead of guessing at literals.
+
+    WP1.2: a thin wrapper over :func:`feature_enabled`, which owns the read.
     """
-    key_name = CATALOG[key].gate_config_key
-    assert key_name, f"{key}: plan_flag_enabled() needs a declared gate_config_key"
-    return bool(c.get(key_name, False))
+    assert CATALOG[key].gate_kind == GATE_PLAN_FLAG, (
+        f"{key}: plan_flag_enabled() is for plan flags; use feature_enabled()")
+    return feature_enabled(c, key)
 
 
 def prerequisite_outputs(key: str, transitive: bool = True) -> List[str]:
@@ -1598,7 +1643,10 @@ def _base_enabled(c, key):
     """Raw toggle state for ``key`` from env overrides + saved ``c['opt']``.
 
     This is the pre-Phase-2 gating logic, WITHOUT prerequisite auto-selection.
-    Absent keys default to enabled so always-on core sheets are never dropped.
+    Absent keys read the module's ``default_on`` (True for every module
+    toggle, and for unknown keys) so always-on core sheets are never dropped.
+    Only reached for module toggles: :func:`feature_enabled` answers plan
+    flags before it gets here.
     """
     k = str(key).strip().lower()
     if _force_disabled(key):
@@ -1622,29 +1670,82 @@ def _base_enabled(c, key):
     # a member named there must still win for itself. The parent's own force
     # state is not skipped either -- the recursive call runs it through this
     # same ladder from the top.
-    # `k` (lower/stripped) as the fallback lookup mirrors the case-insensitive
-    # `opt` scan below: every catalog key is lowercase snake_case, so a caller
-    # spelling one differently would otherwise skip the bundle and fall through
-    # to the member's own (never-set) toggle, silently reading default-on.
-    _parent = getattr(CATALOG.get(key) or CATALOG.get(k), 'gated_by', None)
-    if _parent:
-        return _base_enabled(c, _parent)
+    # The case-insensitive catalog lookup (`_catalog_entry`) mirrors the
+    # case-insensitive `opt` scan in `_read_switch`: every catalog key is
+    # lowercase snake_case, so a caller spelling one differently would
+    # otherwise skip the bundle and fall through to the member's own
+    # (never-set) toggle, silently reading default-on.
+    m = _catalog_entry(key)
+    if m is not None and m.gated_by:
+        return _base_enabled(c, m.gated_by)
     # A module gated by plan flags is on iff any of them is (Charitable Giving
     # = DAF or QCD). Same spot as the bundle rule, for the same reason.
-    _flags = getattr(CATALOG.get(key) or CATALOG.get(k), 'gated_by_any_flag', ())
-    if _flags:
-        cfg = c or {}
-        # With no flag keys in `c` (no plan parsed) fall through to the
+    if m is not None and m.gated_by_any_flag:
+        states = [_read_switch(c, f) for f in m.gated_by_any_flag]
+        # With no flag stored in `c` (no plan parsed) fall through to the
         # ordinary toggle read below, which defaults an absent key to on.
-        if any(CATALOG[f].gate_config_key in cfg for f in _flags):
-            return any(plan_flag_enabled(cfg, f) for f in _flags)
-    opt = (c or {}).get('opt') or {}
+        # A flag that is absent while a sibling is stored reads off, exactly
+        # as plan_flag_enabled() always read an absent config key.
+        if any(s is not None for s in states):
+            return any(bool(s) for s in states)
+    stored = _read_switch(c, key)
+    if stored is not None:
+        return stored
+    return m.default_on if m is not None else True
+
+
+# ── WP1.2: the switch's storage, read and written in exactly one place each ──
+#
+# Today a switch lives in one of two places on the in-memory config ``c``:
+#   * a module toggle in ``c['opt'][key]`` (loaded from
+#     client_optional_functions.csv), and
+#   * a plan flag in ``c[gate_config_key]`` (parsed off the plan's own rows).
+# WP4 moves both onto ``plan_rows`` settings; only these two functions should
+# have to change when it does. Everything above them -- env overrides,
+# bundles, prerequisite auto-selection, defaults -- is resolution, not storage.
+
+def _catalog_entry(key) -> Optional[OutputModule]:
+    """``CATALOG[key]``, tolerating case/whitespace; None for unknown keys."""
+    return CATALOG.get(key) or CATALOG.get(str(key).strip().lower())
+
+
+def _read_switch(c, key) -> Optional[bool]:
+    """The stored value of ``key``'s own switch, or None when nothing is stored.
+
+    No defaults, no env tier, no bundles: a raw read of the storage only.
+    A key the catalog does not know is read as a module toggle, which is how
+    :func:`module_enabled` has always treated one.
+    """
+    cfg = c or {}
+    m = _catalog_entry(key)
+    if m is not None and m.gate_kind == GATE_PLAN_FLAG:
+        name = m.gate_config_key
+        return bool(cfg[name]) if name in cfg else None
+    opt = cfg.get('opt') or {}
     if key in opt:
         return bool(opt[key])
+    k = str(key).strip().lower()
     for kk, vv in opt.items():
         if str(kk).strip().lower() == k:
             return bool(vv)
-    return True
+    return None
+
+
+def _write_switch(c, m: OutputModule, on: bool) -> None:
+    """Store ``on`` as ``m``'s own switch on the in-memory config ``c``.
+
+    The single write path behind :func:`set_feature`. In-memory only: it never
+    touches a file -- persisting the plan is the caller's business, through
+    whatever save path already owns that.
+    """
+    if m.gate_kind == GATE_PLAN_FLAG:
+        c[m.gate_config_key] = bool(on)
+        return
+    opt = c.setdefault('opt', {})
+    if not isinstance(opt, dict):
+        opt = {}
+        c['opt'] = opt
+    opt[m.key] = bool(on)
 
 
 def effective_enabled_modules(c):
@@ -1690,7 +1791,7 @@ def module_status(c):
     directly-enabled module — this function is how the UI explains "why is this on
     when I turned it off?" instead of leaving that invisible.
 
-      * ``enabled`` — the final build-time state (delegates to :func:`module_enabled`,
+      * ``enabled`` — the final build-time state (delegates to :func:`feature_enabled`,
         so precedence/env-override logic lives in exactly one place).
       * ``auto_enabled`` — True only when the module is on *solely* because it's a
         prerequisite of something else, i.e. its own toggle is not directly on.
@@ -1725,7 +1826,7 @@ def module_status(c):
         # build uses. This only says so out loud.
         forced = force_override(key)
         status[key] = {
-            "enabled": module_enabled(c, key),
+            "enabled": feature_enabled(c, key),
             "auto_enabled": bool(auto),
             "required_by": required_by_map.get(key, []),
             "forced": forced[0] if forced else None,
@@ -1763,7 +1864,38 @@ def module_enabled(c, key):
       2. Directly enabled (FORCE_ENABLE / FORCE_ALL / saved toggle / default-on).
       3. Auto-selected as a prerequisite of an enabled optional module.
       4. Otherwise off.
+
+    WP1.2: a thin wrapper over :func:`feature_enabled`, which owns this ladder.
     """
+    return feature_enabled(c, key)
+
+
+def feature_enabled(c, key) -> bool:
+    """Is feature ``key`` on? The single resolution of every feature switch.
+
+    Replaces the three read paths that grew up separately -- the module toggle
+    row (``c['opt']``), the plan flag (``c[gate_config_key]``) and the
+    ``gated_by`` / ``gated_by_any_flag`` bundles -- with one entry point.
+    :func:`module_enabled` and :func:`plan_flag_enabled` now delegate here.
+
+    Resolution, by the feature's ``gate_kind``:
+
+    * **Plan flag** -- the stored flag, or ``default_on`` (False) when ``c``
+      holds none. The ``RETIREMENT_SYSTEM_FORCE_*`` env tier does not apply to
+      plan flags, and never has; nor does prerequisite auto-selection (no
+      plan flag owns a sheet or appears in ``requires_outputs``).
+    * **Module toggle** (and any key the catalog does not know) -- the ladder
+      documented on :func:`module_enabled`, unchanged:
+        1. FORCE_DISABLE naming ``key`` -- off, whatever else is true;
+        2. directly on (FORCE_ENABLE / FORCE_ALL / the bundle rule /
+           the stored toggle / ``default_on`` when absent) -- on;
+        3. auto-selected as a prerequisite of an enabled module -- on;
+        4. otherwise off.
+    """
+    m = _catalog_entry(key)
+    if m is not None and m.gate_kind == GATE_PLAN_FLAG:
+        stored = _read_switch(c, key)
+        return m.default_on if stored is None else stored
     # (1) A directly-named FORCE_DISABLE always wins, even over auto-selection.
     if _force_disabled(key):
         return False
@@ -1780,6 +1912,36 @@ def module_enabled(c, key):
         return True
     # (4) Explicitly disabled and needed by nothing enabled.
     return False
+
+
+def set_feature(c, key: str, on: bool) -> None:
+    """Switch feature ``key`` on or off in the in-memory config ``c``.
+
+    The write-side twin of :func:`feature_enabled`: it stores the switch in
+    the same place that accessor reads it from (``c['opt']`` for a module
+    toggle, ``c[gate_config_key]`` for a plan flag), through the one private
+    writer, ``_write_switch``. It writes nothing to disk.
+
+    It sets the *stored* switch only. Reading back can still differ when a
+    higher tier decides: a ``RETIREMENT_SYSTEM_FORCE_*`` override, or
+    prerequisite auto-selection keeping an off module on because an enabled
+    module needs it (see :func:`module_status`'s ``auto_enabled``).
+
+    Raises ``KeyError`` for an unknown key and ``ValueError`` for a feature
+    with no switch of its own: an always-on core module, a ``gated_by`` bundle
+    member (its switch is the parent's) or a ``gated_by_any_flag`` module (it
+    follows its flags). Writing a row nothing reads would only make the
+    stored state lie.
+    """
+    m = CATALOG[key]
+    if m.gated_by:
+        raise ValueError(f"{key} has no switch of its own; it follows {m.gated_by!r}")
+    if m.gated_by_any_flag:
+        raise ValueError(f"{key} has no switch of its own; it is on when any of "
+                         f"{list(m.gated_by_any_flag)} is on")
+    if m.gate_kind == GATE_MODULE_TOGGLE and not m.optional:
+        raise ValueError(f"{key} is an always-on core module; it has no switch")
+    _write_switch(c, m, on)
 
 
 def resolve_selection(selected: List[str]) -> Dict[str, object]:
@@ -1958,6 +2120,28 @@ def validate() -> None:
                 assert CATALOG[flag].gate_config_key, (
                     f"{key}: gated_by_any_flag names {flag!r}, which declares "
                     f"no gate_config_key for plan_flag_enabled() to read")
+        # (4g) WP1.2 profile metadata. A tier outside TIERS would drop the
+        # feature from every preset; a nav_group outside DOMAINS would list it
+        # under a heading the nav does not have.
+        assert m.tier in TIERS, f"{key}: bad tier {m.tier!r}; expected one of {TIERS}"
+        assert m.nav_group in DOMAINS, (
+            f"{key}: nav_group {m.nav_group!r} is not one of {DOMAINS}")
+        assert isinstance(m.default_on, bool), (
+            f"{key}: default_on must be a bool, got {m.default_on!r}")
+        # feature_enabled() reads every plan flag through gate_config_key.
+        if m.gate_kind == GATE_PLAN_FLAG:
+            assert m.gate_config_key, (
+                f"{key}: a plan flag needs gate_config_key -- feature_enabled() "
+                f"has no other way to find its stored value")
+        # A tier preset that enables this module must not need a switchable
+        # prerequisite from a higher tier: auto-selection would quietly turn
+        # on a feature the tier does not include.
+        for dep in m.requires_outputs:
+            d = CATALOG.get(dep)
+            if d is not None and d.optional:
+                assert TIER_RANK[d.tier] <= TIER_RANK[m.tier], (
+                    f"{key} (tier {m.tier!r}) requires {dep!r} from the higher "
+                    f"tier {d.tier!r}")
         # (4c) engine_participation describes what a *toggle* does to the
         # projection. A core module has no toggle.
         if m.engine_participation:

@@ -32,8 +32,8 @@ def backfill_optional_function_rows(rows: list[JsonDict], effective: dict[str, b
     ``rows`` are the plan's existing Optional Functions rows (untouched --
     this never edits or reorders one that's already there); ``effective`` is
     a ``{module_key: enabled}`` map (e.g. from ``module_status()``), read
-    with ``.get(key, True)`` so a module this map has no opinion on defaults
-    to on rather than silently switching itself off the moment a backfill
+    with ``.get(key, m.default_on)`` (True for every module toggle) so a
+    module this map has no opinion on defaults to on rather than silently switching itself off the moment a backfill
     runs. Only ``GATE_MODULE_TOGGLE`` modules with no ``gated_by`` parent are
     candidates -- a plan flag has no CSV row by design (§5.3/W9), and a
     bundled module's state is decided by its parent's toggle, not its own row.
@@ -44,7 +44,7 @@ def backfill_optional_function_rows(rows: list[JsonDict], effective: dict[str, b
     for key, m in CATALOG.items():
         if m.optional and m.gate_kind == GATE_MODULE_TOGGLE and not m.gated_by and not m.gated_by_any_flag and key not in have:
             out.append({"section": "Optional Functions", "subsection": "", "label": key,
-                        "value": "TRUE" if effective.get(key, True) else "FALSE",
+                        "value": "TRUE" if effective.get(key, m.default_on) else "FALSE",
                         "units": "boolean", "notes": m.name})
     return out
 
@@ -162,7 +162,7 @@ class ConfigService:
         """
         from ..module_catalog import (
             ANSWER_TYPES, CATALOG, DOMAINS, KIND_ANSWER_TYPE, KIND_QUESTION,
-            soft_dependents,
+            TIERS, soft_dependents,
         )
         return {
             "domains": list(DOMAINS),
@@ -171,6 +171,8 @@ class ConfigService:
             # answer a module gives), served alongside `kind` so the frontend
             # never has to hand-maintain its own kind->label map.
             "answer_types": list(ANSWER_TYPES),
+            # WP1.2: the tier vocabulary, smallest first (design 2026-10-04 §4).
+            "tiers": list(TIERS),
             "modules": {
                 key: {
                     "name": m.name,
@@ -217,6 +219,11 @@ class ConfigService:
                     # Lets a nav page list the optional features that would
                     # appear on it if enabled (one link to Plan Features).
                     "dashboard_step": m.dashboard_step,
+                    # WP1.2 profile metadata, additive. Not read by the
+                    # frontend yet; WP5's tier picker will.
+                    "tier": m.tier,
+                    "nav_group": m.nav_group,
+                    "default_on": m.default_on,
                 }
                 for key, m in CATALOG.items()
             },
@@ -309,9 +316,9 @@ class ConfigService:
             })
 
         # effective={} -- backfill_optional_function_rows() reads it with
-        # .get(key, True), so an empty map always falls through to the
-        # standard "TRUE" missing-row default described above, with no
-        # config load at all.
+        # .get(key, m.default_on) -- True for every toggle -- so an empty map
+        # always falls through to the standard "TRUE" missing-row default
+        # described above, with no config load at all.
         out = backfill_optional_function_rows(existing, effective={})
         have = {r.get("label") for r in existing}
         new_rows = [r for r in out if r.get("label") not in have]
