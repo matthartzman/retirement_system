@@ -10,6 +10,9 @@ This module is the one definition:
   carried its own copy of the home's value and basis; the current model reads them from
   Other Assets, and the legacy loader dropped them at every load:
   :func:`is_retired_scenario_home_row`.
+* **Rows the plan never keeps** (:func:`dropped_at_load`): the retired rows above and
+  ``label`` header rows. The CSV bridge into ``plan_rows`` and the ``/api/plan/forms`` writer
+  (WP4.3) both apply it, so a key the CSV path would drop is never stored by another path.
 
 Pure, no imports beyond ``re``.
 """
@@ -52,3 +55,9 @@ def canonical_label(label: object) -> str:
 def is_retired_scenario_home_row(section: str, subsection: str, label: str) -> bool:
     """``True`` for a ``Scenarios / Sell Home`` row the current model no longer reads."""
     return section == "Scenarios" and subsection == "Sell Home" and label in RETIRED_SCENARIO_HOME_LABELS
+
+
+def dropped_at_load(section: str, subsection: str, label: str) -> bool:
+    """``True`` for a row the plan never keeps: a ``label`` header row or a retired
+    ``Scenarios / Sell Home`` row (the legacy loader's two load-time drops)."""
+    return label.lower() == "label" or is_retired_scenario_home_row(section, subsection, label)
