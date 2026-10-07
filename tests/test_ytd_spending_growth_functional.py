@@ -4,6 +4,7 @@ from pathlib import Path
 from datetime import date
 
 from src import ytd_tracking as ytd
+from tests.plan_fixture import stage_plan_csv
 from tests._decomp_dashboard import dashboard_function_source, dashboard_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -213,6 +214,18 @@ def test_ytd_real_estate_taxes_are_housing_spending_not_income_tax(tmp_path):
 
 
 def test_ytd_spending_excludes_investment_transfers_and_uses_expected_plan_ytd(tmp_path):
+    inp = stage_plan_csv(tmp_path, {'client_spending.csv': '''section,subsection,label,value,units,notes
+Cashflow,Spending,annual_spending_base_year,"$120,000",,
+Cashflow,Mortgage,monthly_payment,"$3,000",,
+Cashflow,Mortgage,annual_real_estate_taxes,"$12,000",USD,
+Cashflow,Mortgage,real_estate_tax_annual_adjustment_pct,0.00%,percent,
+Cashflow,Mortgage,last_payment_year,2030,,
+Cashflow,Large Discretionary Expenses,extra_1_amount,"$12,000",USD,
+Cashflow,Large Discretionary Expenses,extra_1_year,2026,year,
+Cashflow,Large Discretionary Expenses,extra_2_amount,"$6,000",USD,
+Cashflow,Large Discretionary Expenses,extra_2_start_year,2025,year,
+Cashflow,Large Discretionary Expenses,extra_2_end_year,2027,year,
+'''})
     tx = '''Date,Merchant,Category,Account,Original Statement,Notes,Amount,Tags,Owner
 2026-06-30,Grocery,Groceries,Checking,Bank,,-100,,Household
 2026-06-30,Mortgage Co,Mortgage,Checking,Bank,,-2000,,Household
@@ -226,21 +239,9 @@ def test_ytd_spending_excludes_investment_transfers_and_uses_expected_plan_ytd(t
 2026-06-30,HSA,HSA Contribution,Checking,Bank,,-100,,Household
 2026-06-30,Best Buy,Electronics,Checking,Bank,,-50,,Household
 '''
-    (tmp_path / 'client_spending.csv').write_text('''section,subsection,label,value,units,notes
-Cashflow,Spending,annual_spending_base_year,"$120,000",,
-Cashflow,Mortgage,monthly_payment,"$3,000",,
-Cashflow,Mortgage,annual_real_estate_taxes,"$12,000",USD,
-Cashflow,Mortgage,real_estate_tax_annual_adjustment_pct,0.00%,percent,
-Cashflow,Mortgage,last_payment_year,2030,,
-Cashflow,Large Discretionary Expenses,extra_1_amount,"$12,000",USD,
-Cashflow,Large Discretionary Expenses,extra_1_year,2026,year,
-Cashflow,Large Discretionary Expenses,extra_2_amount,"$6,000",USD,
-Cashflow,Large Discretionary Expenses,extra_2_start_year,2025,year,
-Cashflow,Large Discretionary Expenses,extra_2_end_year,2027,year,
-''', encoding='utf-8')
-    ytd.import_transactions(tmp_path, tx, mode='replace', today=date(2026, 6, 30))
+    ytd.import_transactions(inp, tx, mode='replace', today=date(2026, 6, 30))
 
-    s = ytd.ytd_summary(tmp_path, today=date(2026, 6, 30))
+    s = ytd.ytd_summary(inp, today=date(2026, 6, 30))
 
     assert s['actual']['spending'] == 7150.0
     assert s['ytd_days'] == 181
@@ -338,15 +339,15 @@ def test_ytd_income_category_totals_use_only_allowed_income_categories(tmp_path)
     assert s['category_totals'] == [{'category': 'Groceries', 'amount': 75.0}]
 
 def test_planned_spending_components_include_real_estate_taxes_with_mortgage(tmp_path):
-    (tmp_path / 'client_spending.csv').write_text("""section,subsection,label,value,units,notes
+    inp = stage_plan_csv(tmp_path, {'client_spending.csv': """section,subsection,label,value,units,notes
 Cashflow,Spending,annual_spending_base_year,"$100,000",,
 Cashflow,Mortgage,monthly_payment,"$2,000",,
 Cashflow,Mortgage,annual_real_estate_taxes,"$10,000",USD,
 Cashflow,Mortgage,real_estate_tax_annual_adjustment_pct,3.00%,percent,
 Cashflow,Mortgage,last_payment_year,2030,,
-""", encoding='utf-8')
+"""})
 
-    components = ytd.planned_spending_components(tmp_path, 2026)
+    components = ytd.planned_spending_components(inp, 2026)
 
     assert components['core_spending'] == 100000.0
     assert components['mortgage_payment'] == 24000.0
@@ -358,15 +359,14 @@ Cashflow,Mortgage,last_payment_year,2030,,
 
 
 def test_planned_real_estate_taxes_apply_annual_adjustment_when_plan_start_known(tmp_path):
-    (tmp_path / 'client_household.csv').write_text("""section,subsection,label,value,units,notes
+    inp = stage_plan_csv(tmp_path, {'client_household.csv': """section,subsection,label,value,units,notes
 Household,Plan,plan_start,2025,year,
-""", encoding='utf-8')
-    (tmp_path / 'client_spending.csv').write_text("""section,subsection,label,value,units,notes
+""", 'client_spending.csv': """section,subsection,label,value,units,notes
 Cashflow,Mortgage,annual_real_estate_taxes,"$10,000",USD,
 Cashflow,Mortgage,real_estate_tax_annual_adjustment_pct,3.00%,percent,
-""", encoding='utf-8')
+"""})
 
-    assert round(ytd.annual_real_estate_tax_spending(tmp_path, 2027), 2) == 10609.0
+    assert round(ytd.annual_real_estate_tax_spending(inp, 2027), 2) == 10609.0
 
 
 def test_ytd_save_buttons_enable_immediately_after_inline_edits():

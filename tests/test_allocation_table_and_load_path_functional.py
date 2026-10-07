@@ -4,7 +4,6 @@ from tests.plan_fixture import plan_config
 import unittest
 from pathlib import Path
 
-from src.config_backend import load_csv
 from src.data_io import parse_client
 
 ROOT = Path(__file__).resolve().parents[1]

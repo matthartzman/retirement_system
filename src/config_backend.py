@@ -1,143 +1,42 @@
 from __future__ import annotations
-"""Local-only configuration backends for v11.
+"""Local-only configuration backend for v11.
 
-The runtime source of truth is the local SQLite plan store. CSV/JSON/YAML are
-lossless import/export adapters for portability and transition from older
-folders. Compatibility functions keep older route call sites working, but all
+The plan rows are read from the active plan file (``plan.rpx``, ``src/active_plan.py``):
+``load_active_config`` returns its sectioned view merged with the system configuration.
+Nothing mirrors plan data into CSV, JSON or YAML files any more (WP4.5); CSV import/export
+is ``csv_exchange`` (WP9). The legacy local database (``init_sqlite``) still holds the
+flat datasets' text (``client_files``: holdings, spending, YTD ...), audit events and build
+history until WP6/WP8. Compatibility functions keep older route call sites working, but all
 identity/client arguments are ignored and resolved to the single local plan.
 """
 
-import csv
 import hashlib
 import json
-import re
-import sqlite3
+import os
 from pathlib import Path
 from typing import Dict, Tuple, Optional as _Optional, List as _List
 
 from .system_config import discover_system_config_csv, load_system_config, system_setting
 from . import platform_runtime
+from .sqlite_util import connect as closing_connect
 from .plan_file_io import write_text_atomic
-from .plan_data_registry import CLIENT_DATA_PART_FILES
 
 # PROJECT_ROOT stays the code/package root (read-only assets). Writable data
 # (input/, local_state/) hangs off the workspace root, which equals the package
 # root on desktop and app-private storage on mobile.
 PROJECT_ROOT = platform_runtime.package_root()
 _WORKSPACE_ROOT = platform_runtime.workspace_root()
-DEFAULT_CSV = _WORKSPACE_ROOT / "input" / "client_data.csv"
-DEFAULT_JSON = _WORKSPACE_ROOT / "input" / "client_data.json"
-DEFAULT_YAML = _WORKSPACE_ROOT / "input" / "client_data.yaml"
 DEFAULT_DB = _WORKSPACE_ROOT / "local_state" / "retirement_system_v10.db"
 DEFAULT_CLIENTS_CSV = _WORKSPACE_ROOT / "local_state" / "local_plan_registry.csv"
 SettingMap = Dict[str, Dict[str, Dict[str, str]]]
 
-_YEAR_LABEL_PATTERNS = [
-    (re.compile(r"^annual_401k_limit_\d{4}$"), "annual_401k_limit_base_year"),
-    (re.compile(r"^annual_spending_\d{4}$"), "annual_spending_base_year"),
-    (re.compile(r"^balance_\d{1,2}_\d{1,2}_\d{4}$"), "balance_as_of_plan_start"),
-    (re.compile(r"^value_\d{1,2}_\d{1,2}_\d{4}$"), "value_as_of_plan_start"),
-    (re.compile(r"^family_annual_limit_\d{4}$"), "family_annual_limit_base_year"),
-    (re.compile(r"^self_only_annual_limit_\d{4}$"), "self_only_annual_limit_base_year"),
-    (re.compile(r"^coverage_\d{4}_family_months$"), "coverage_base_year_family_months"),
-    (re.compile(r"^coverage_\d{4}_self_only_months$"), "coverage_base_year_self_only_months"),
-    (re.compile(r"^ss_wage_base_\d{4}$"), "ss_wage_base_base_year"),
-    (re.compile(r"^ltcg_0pct_top_mfj_\d{4}$"), "ltcg_0pct_top_mfj_base_year"),
-    (re.compile(r"^ltcg_15pct_top_mfj_\d{4}$"), "ltcg_15pct_top_mfj_base_year"),
-    (re.compile(r"^part_b_premium_\d{4}$"), "part_b_base_premium_monthly"),
-    (re.compile(r"^part_d_premium_\d{4}$"), "part_d_base_premium_monthly"),
-    (re.compile(r"^annual_premium_\d{4}$"), "annual_premium_base_year"),
-]
 SYSTEM_CONFIG_SECTIONS = {"Market Pricing", "Plan Settings", "Asset Class Assumptions", "Asset Correlations"}
-
-
-
-_RETIRED_SCENARIO_HOME_LABELS = {
-    "home_sale_price",
-    "home_basis",
-    "home_value",
-    "house_value",
-    "value_as_of_plan_start",
-    "current_home_value",
-    "current_value",
-    "market_value",
-}
-
-
-def _is_retired_scenario_home_key(section: object, subsection: object, label: object) -> bool:
-    return _clean(section) == "Scenarios" and _clean(subsection) == "Sell Home" and _clean(label) in _RETIRED_SCENARIO_HOME_LABELS
-
-def _clean(x: object) -> str:
-    return str(x or "").strip()
-
-
-def _normalize_label(label: object) -> str:
-    text = _clean(label)
-    for pattern, replacement in _YEAR_LABEL_PATTERNS:
-        if pattern.match(text):
-            return replacement
-    return text
-
-
-def _add(result: SettingMap, section: object, subsection: object, label: object, value: object) -> None:
-    sec, sub, lbl = _clean(section), _clean(subsection), _normalize_label(label)
-    if not sec or sec.startswith("#") or not lbl or lbl.lower() == "label":
-        return
-    if _is_retired_scenario_home_key(sec, sub, lbl):
-        return
-    result.setdefault(sec, {}).setdefault(sub, {})[lbl] = _clean(value)
+# The backend name the config payloads report: the plan file is a SQLite database.
+ACTIVE_BACKEND = "SQLITE"
 
 
 def setting(data: SettingMap, section: str, subsection: str, label: str, default: str = "") -> str:
     return data.get(section, {}).get(subsection, {}).get(label, default)
-
-
-def _client_data_csv_paths(path: str | Path) -> list[Path]:
-    p = Path(path)
-    paths: list[Path] = []
-    if p.exists():
-        paths.append(p)
-    if p.name == "client_data.csv":
-        for name in CLIENT_DATA_PART_FILES:
-            part = p.parent / name
-            if part.exists():
-                paths.append(part)
-    return paths
-
-
-def _load_csv_file(path: str | Path, result: SettingMap | None = None) -> SettingMap:
-    result = result if result is not None else {}
-    p = Path(path)
-    if not p.exists():
-        return result
-    with p.open(newline="", encoding="utf-8-sig") as f:
-        for row in csv.DictReader(f):
-            _add(result, row.get("section"), row.get("subsection"), row.get("label"), row.get("value"))
-    return result
-
-
-def load_csv(path: str | Path = DEFAULT_CSV) -> SettingMap:
-    result: SettingMap = {}
-    p = Path(path)
-    for csv_path in _client_data_csv_paths(p):
-        _load_csv_file(csv_path, result)
-    return result
-
-
-def save_json(data: SettingMap, path: str | Path = DEFAULT_JSON) -> Path:
-    p = Path(path); p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
-    return p
-
-
-def save_yaml(data: SettingMap, path: str | Path = DEFAULT_YAML) -> Path:
-    p = Path(path); p.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        import yaml  # type: ignore
-        p.write_text(yaml.safe_dump(data, sort_keys=True, allow_unicode=True), encoding="utf-8")
-    except Exception:
-        p.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
-    return p
 
 
 def _merge_system_config_sections(data: SettingMap, system_data: SettingMap) -> SettingMap:
@@ -160,7 +59,7 @@ def resolve_path(path: str | Path | None, default: Path) -> Path:
 def init_sqlite(db_path: str | Path = DEFAULT_DB) -> Path:
     p = resolve_path(db_path, DEFAULT_DB)
     p.parent.mkdir(parents=True, exist_ok=True)
-    with sqlite3.connect(p) as con:
+    with closing_connect(p) as con:
         con.execute("PRAGMA journal_mode=WAL")
         con.execute("PRAGMA synchronous=NORMAL")
         con.execute("""CREATE TABLE IF NOT EXISTS client_files(
@@ -201,124 +100,30 @@ def init_sqlite(db_path: str | Path = DEFAULT_DB) -> Path:
     return p
 
 
-def import_csv_to_sqlite(csv_path: str | Path = DEFAULT_CSV, db_path: str | Path = DEFAULT_DB,
-                         workspace_id: str = "local", *, data: dict | None = None) -> Path:
-    """Import the sectioned plan data into SQLite.
-
-    ``data``: see export_client_json_yaml. Passing an already-parsed mapping
-    avoids a second ten-file read when both run in the same sync.
-    """
-    data = load_csv(csv_path) if data is None else data
-    if not data:
-        raise FileNotFoundError(f"No Plan Data CSV rows found at {csv_path} or split Plan Data files beside it.")
-    p = init_sqlite(db_path)
-    # v11 canonical: the typed sectioned snapshot (local_store) is the sole
-    # source of truth. The flat key-value `settings` table was a pre-v1.0 store
-    # that nothing reads anymore, so we no longer write it here.
-    try:
-        from .local_store import import_sectioned_plan
-        import_sectioned_plan(data, source="csv_import", db_path=p)
-    except Exception:
-        pass
-    return p
-
-
-def load_sqlite(db_path: str | Path = DEFAULT_DB, workspace_id: str = "local") -> SettingMap:
-    p = resolve_path(db_path, DEFAULT_DB)
-    if not p.exists():
-        return {}
-    # v11 canonical: the latest typed plan snapshot is the sole source of truth.
-    # The pre-v1.0 key-value `settings` table read fallback was removed with the
-    # drop of pre-v1.0 plan support — the snapshot is written on every import, and
-    # a missing snapshot falls through to a fresh CSV re-import in
-    # load_active_config rather than reading legacy rows.
-    try:
-        from .local_store import latest_sectioned_data
-        return latest_sectioned_data(p) or {}
-    except Exception:
-        return {}
-
-
-def load_config(backend: str = "SQLITE", path: str | Path | None = None, workspace_id: str = "local") -> SettingMap:
-    # Item 2.4 (finding A3): JSON/YAML config backends retired -- SQLITE is
-    # the v11 runtime source of truth (system_config.csv's config_backend
-    # default and only shipped value); CSV remains for one-time bootstrap
-    # migration. save_json/save_yaml still write the derived
-    # client_data.json/.yaml portability mirrors (export_client_json_yaml);
-    # only READING config from those files as an active backend is retired.
-    b = (backend or "SQLITE").strip().upper()
-    if b == "CSV":
-        return load_csv(resolve_path(path, DEFAULT_CSV))
-    return load_sqlite(resolve_path(path, DEFAULT_DB))
-
-
 def discover_bootstrap_csv() -> Path:
     return discover_system_config_csv()
 
 
-def load_active_config(cli_backend: str | None = None, cli_path: str | Path | None = None, workspace_id: str | None = None) -> Tuple[SettingMap, Dict[str, str]]:
+def load_active_config() -> Tuple[SettingMap, Dict[str, str]]:
+    """The active plan's sectioned rows merged with the system configuration, plus meta.
+
+    Reads ``plan_rows`` of the active plan file (``active_plan.active_plan_data``).
+    ``meta['sqlite_db']`` is still the legacy local database (``client_files`` of the flat
+    datasets, KPI and build history); ``meta['plan_db']`` is the plan file the build
+    checkpoints and snapshots.
+    """
+    from .active_plan import active_plan_data, active_plan_path
     bootstrap_csv = discover_bootstrap_csv()
     bootstrap = load_system_config(bootstrap_csv)
-    # Fall back to a RELATIVE default, not str(DEFAULT_DB): DEFAULT_DB is an
-    # absolute path frozen at this module's own import time
-    # (_WORKSPACE_ROOT = platform_runtime.workspace_root(), evaluated once).
-    # system_config.csv has no "sqlite_db" row today, so this fallback is
-    # what actually fires on every call -- an absolute frozen path here makes
-    # resolve_path()'s `if p.is_absolute(): return p` short-circuit and skip
-    # rejoining against the live (possibly test-isolated, possibly later
-    # redirected) platform_runtime.workspace_root() entirely. A relative
-    # default forces that live rejoin every time, matching
-    # runtime_config.py's own sqlite_db field default
-    # ("local_state/retirement_system_v10.db"). See
-    # tests/test_sync_config_backends_snapshot_freshness_regression.py.
+    # A relative default, joined against the LIVE workspace root on every call.
     _default_sqlite_db_rel = "local_state/retirement_system_v10.db"
     sqlite_db = setting(bootstrap, "System Configuration", "Runtime", "sqlite_db", _default_sqlite_db_rel) or _default_sqlite_db_rel
-    backend = (cli_backend or setting(bootstrap, "System Configuration", "Runtime", "config_backend", "SQLITE") or "SQLITE").upper()
-    if cli_path:
-        config_ref = str(cli_path)
-    elif backend == "CSV":
-        config_ref = setting(bootstrap, "System Configuration", "Runtime", "config_file", "input/client_data.csv") or "input/client_data.csv"
-    else:
-        # Also catches a config_backend value of JSON/YAML (retired, item
-        # 2.4) or anything else unrecognized -- falls back to SQLITE rather
-        # than erroring on stale/hand-edited system_config.csv.
-        backend = "SQLITE"
-        config_ref = sqlite_db
-        db_path = resolve_path(sqlite_db, DEFAULT_DB)
-        if not db_path.exists() or not load_sqlite(db_path):
-            # One-time migration/bootstrap from previous-format CSV files.
-            csv_ref = setting(bootstrap, "System Configuration", "Runtime", "config_file", "input/client_data.csv") or "input/client_data.csv"
-            csv_path = resolve_path(csv_ref, DEFAULT_CSV)
-            if csv_path.exists():
-                import_csv_to_sqlite(csv_path, db_path)
-    data = _merge_system_config_sections(load_config(backend, config_ref), bootstrap)
-    return data, {"backend": backend, "path": str(resolve_path(config_ref, DEFAULT_DB)), "bootstrap_csv": str(bootstrap_csv), "sqlite_db": str(resolve_path(sqlite_db, DEFAULT_DB)), "workspace_id": "local", "client_id": "local"}
+    plan_db = active_plan_path()
+    data = _merge_system_config_sections(active_plan_data(), bootstrap)
+    return data, {"backend": ACTIVE_BACKEND, "path": str(plan_db), "plan_db": str(plan_db),
+                  "bootstrap_csv": str(bootstrap_csv), "sqlite_db": str(resolve_path(sqlite_db, DEFAULT_DB)),
+                  "workspace_id": "local", "client_id": "local"}
 
-
-def export_client_json_yaml(csv_anchor: str | Path = DEFAULT_CSV, output_dir: str | Path | None = None,
-                            *, data: dict | None = None) -> dict[str, str]:
-    """Write the JSON/YAML mirrors of the sectioned plan data.
-
-    ``data`` lets a caller that has already parsed the CSVs pass the result in
-    rather than have this function re-read them. One ``load_csv`` on the
-    client_data.csv anchor opens and DictReader-parses TEN files (itself plus
-    the nine part files in plan_data_registry.CLIENT_DATA_PART_FILES), and the
-    plan-data save path calls this alongside import_csv_to_sqlite, so the
-    default behaviour costs twenty file reads per saved field.
-    """
-    anchor = Path(csv_anchor)
-    out_dir = Path(output_dir) if output_dir is not None else anchor.parent
-    out_dir.mkdir(parents=True, exist_ok=True)
-    data = load_csv(anchor) if data is None else data
-    written = {}
-    for path in (save_json(data, out_dir / "client_data.json"), save_yaml(data, out_dir / "client_data.yaml")):
-        written[path.name] = str(path)
-    return written
-
-
-def export_default_configs() -> None:
-    export_client_json_yaml(DEFAULT_CSV, DEFAULT_CSV.parent)
-    import_csv_to_sqlite(DEFAULT_CSV, DEFAULT_DB)
 
 # Compatibility functions for older route call sites. They are local-only and do not create hosted identities.
 def token_hash(token: str) -> str:
@@ -335,7 +140,7 @@ def lookup_api_token(*args, **kwargs) -> _Optional[dict]:
 
 def append_audit_event_sqlite(event: str, details: dict | None = None, workspace_id: str = "local", user_id: str = "local", db_path: str | Path = DEFAULT_DB) -> None:
     p = init_sqlite(db_path)
-    with sqlite3.connect(p) as con:
+    with closing_connect(p) as con:
         con.execute("INSERT INTO audit_events(user_id,event,details_json) VALUES(?,?,?)", ("local", event, json.dumps(details or {}, sort_keys=True, default=str)))
 
 def load_clients_csv(*args, **kwargs) -> list[dict]:
@@ -356,14 +161,14 @@ def get_client(client_id: str = "local", db_path: str | Path = DEFAULT_DB) -> _O
 def set_client_file(file_name: str, content: str, workspace_id: str = "local", client_id: str = "local", updated_by: str = "local", db_path: str | Path = DEFAULT_DB) -> None:
     p = init_sqlite(db_path)
     name = Path(file_name).name
-    with sqlite3.connect(p) as con:
+    with closing_connect(p) as con:
         con.execute("INSERT OR REPLACE INTO client_files(file_name, content, updated_by) VALUES(?,?,?)", (name, content, "local"))
 
 def get_client_file(file_name: str, workspace_id: str = "local", client_id: str = "local", db_path: str | Path = DEFAULT_DB) -> _Optional[str]:
     p = resolve_path(db_path, DEFAULT_DB)
     if not p.exists():
         return None
-    with sqlite3.connect(p) as con:
+    with closing_connect(p) as con:
         row = con.execute("SELECT content FROM client_files WHERE file_name=?", (Path(file_name).name,)).fetchone()
     return row[0] if row else None
 

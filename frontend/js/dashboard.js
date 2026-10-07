@@ -739,45 +739,6 @@ let allocationPreview = null,
   allocationPreviewLoading = false,
   allocationPreviewError = "",
   allocationPreviewSeq = 0;
-const PLAN_DATA_FILES = [
-  "client_data.csv",
-  "client_household.csv",
-  "client_income.csv",
-  "client_spending.csv",
-  "client_assets.csv",
-  "client_policy.csv",
-  "client_insurance_estate.csv",
-  "client_optional_functions.csv",
-  "asset_class_optimizer_controls.csv",
-  "client_holdings.csv",
-  "target_allocation.csv",
-  "ytd_transactions.csv",
-  "ytd_account_setup.csv",
-  "ytd_import_history.csv",
-  "client_data.json",
-  "client_data.yaml",
-  "client_household.json",
-  "client_income.json",
-  "client_spending.json",
-  "client_assets.json",
-  "client_policy.json",
-  "client_insurance_estate.json",
-  "client_optional_functions.json",
-  "asset_class_optimizer_controls.json",
-  "client_household.yaml",
-  "client_income.yaml",
-  "client_spending.yaml",
-  "client_assets.yaml",
-  "client_policy.yaml",
-  "client_insurance_estate.yaml",
-  "client_optional_functions.yaml",
-  "asset_class_optimizer_controls.yaml",
-];
-const REQUIRED_PLAN_DATA_FILES = ["client_data.csv", "client_holdings.csv"];
-const PROTECTED_CLIENT_DATA_KEYS = new Set([
-  "Household\x1f\x1fmember_1_retirement_date",
-  "Household\x1f\x1fmember_2_retirement_date",
-]);
 let buildProgressTicker = null;
 let _smoothDelayTimer = null,
   _smoothIntervalTimer = null,
@@ -818,12 +779,6 @@ let planningLeverInputs = {
   ltcCoverage: 250000,
 };
 // Build compare is session-only; populated after first successful build.
-let planFileNames = {
-  clientData: "client_data.csv",
-  clientHoldings: "client_holdings.csv",
-};
-let planFolderHandle = null,
-  planFolderName = "";
 let _autoLoadPref = null; // null = not yet loaded from server; bool after first API check
 
 function stepHelpLinkHtml(st) {
@@ -1518,9 +1473,8 @@ async function revertLastBuildChanges() {
     }));
     await api("/api/config/rows", {
       method: "POST",
-      body: JSON.stringify({ updates, sync: false }),
+      body: JSON.stringify({ updates }),
     });
-    await syncBackends();
     dirty.clear();
     sessionChanges.clear();
     sessionSpecialChanges.clear();
@@ -6719,11 +6673,8 @@ Object.defineProperty(window, "FIELD_GUIDANCE_OVERRIDES", { get: () => FIELD_GUI
 Object.defineProperty(window, "IRMAA_OFF_MODES", { get: () => IRMAA_OFF_MODES, configurable: true });
 Object.defineProperty(window, "LIABILITY_HEADER", { get: () => LIABILITY_HEADER, configurable: true });
 Object.defineProperty(window, "PERSON_VALUE_TOKEN_RE", { get: () => PERSON_VALUE_TOKEN_RE, configurable: true });
-Object.defineProperty(window, "PLAN_DATA_FILES", { get: () => PLAN_DATA_FILES, configurable: true });
-Object.defineProperty(window, "PROTECTED_CLIENT_DATA_KEYS", { get: () => PROTECTED_CLIENT_DATA_KEYS, configurable: true });
 Object.defineProperty(window, "RECOMMENDATION_ENGINE_VERSION", { get: () => RECOMMENDATION_ENGINE_VERSION, configurable: true });
 Object.defineProperty(window, "RECOMMENDATION_STEP_IDS", { get: () => RECOMMENDATION_STEP_IDS, configurable: true });
-Object.defineProperty(window, "REQUIRED_PLAN_DATA_FILES", { get: () => REQUIRED_PLAN_DATA_FILES, configurable: true });
 Object.defineProperty(window, "ROTH_WINDOW_LABELS", { get: () => ROTH_WINDOW_LABELS, configurable: true });
 Object.defineProperty(window, "SCENARIO_SET_STORAGE_KEY", { get: () => SCENARIO_SET_STORAGE_KEY, configurable: true });
 Object.defineProperty(window, "STEPS", { get: () => STEPS, configurable: true });
@@ -6803,8 +6754,6 @@ Object.defineProperty(window, "moduleGates", { get: () => moduleGates, set: (v) 
 Object.defineProperty(window, "moduleStatus", { get: () => moduleStatus, set: (v) => { moduleStatus = v; }, configurable: true });
 Object.defineProperty(window, "navSearchText", { get: () => navSearchText, set: (v) => { navSearchText = v; }, configurable: true });
 Object.defineProperty(window, "planChatMessages", { get: () => planChatMessages, set: (v) => { planChatMessages = v; }, configurable: true });
-Object.defineProperty(window, "planFolderHandle", { get: () => planFolderHandle, set: (v) => { planFolderHandle = v; }, configurable: true });
-Object.defineProperty(window, "planFolderName", { get: () => planFolderName, set: (v) => { planFolderName = v; }, configurable: true });
 Object.defineProperty(window, "planLoaded", { get: () => planLoaded, set: (v) => { planLoaded = v; }, configurable: true });
 Object.defineProperty(window, "planSource", { get: () => planSource, set: (v) => { planSource = v; }, configurable: true });
 Object.defineProperty(window, "planningLeverInputs", { get: () => planningLeverInputs, set: (v) => { planningLeverInputs = v; }, configurable: true });

@@ -5,7 +5,6 @@ import copy
 import unittest
 from pathlib import Path
 
-from src.config_backend import load_csv
 from src.data_io import parse_client
 from src.planning_engines import project
 from src import allocation_policy as ap

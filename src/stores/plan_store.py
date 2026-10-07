@@ -1,15 +1,20 @@
 """PlanStore: the access layer over ``plan.db`` (the ``.rpx`` plan file). WP2.2 / P1.2.
 
-Nothing in the product imports this yet (P3 switches plan rows onto it).
+WP4.1 finalised the row model (``documentation/reference/PLAN_ROWS_MODEL.md``): the
+plan CSV importer (``src/csv_exchange``) and conversion step C3 (``src/legacy_conversion``)
+write it; the product read and write paths move onto it in WP4.2-WP4.5.
 
 Schema v1 (``PRAGMA user_version = 1``, ``PRAGMA application_id = PLAN_APPLICATION_ID``)
 ---------------------------------------------------------------------------------------
 ``plan_rows``       the sectioned plan rows. ``row_id`` is ``INTEGER PRIMARY KEY
                     AUTOINCREMENT``: ids are stable for the life of the file and never
                     reused after a delete, so the grid's ``row_index`` can be a ``row_id``.
-                    Display order inside a section is ``(sort_order, row_id)``. Text
-                    columns are ``TEXT NOT NULL DEFAULT ''`` (``value`` is text because the
-                    plan CSVs are text); ``section`` must be non-empty.
+                    Display order inside a section is ``(sort_order, row_id)``; sections
+                    are in creation order (their lowest ``row_id``), which after an import
+                    is the order of the legacy CSV set. Text columns are ``TEXT NOT NULL
+                    DEFAULT ''`` (``value`` is text because the plan CSVs are text);
+                    ``section`` must be non-empty. A ``(section, subsection, label)`` key
+                    may repeat; the last row in display order is the effective one.
 ``plan_revisions``  one row per snapshot: ``id, created_at, source, note, rows_sha256,
                     row_count``.
 ``revision_rows``   the retained full copy of ``plan_rows`` (ids included) for each
@@ -203,6 +208,13 @@ class PlanStore(_SqliteStore):
             )
             return [dict(r) for r in cur]
 
+    def section_order(self) -> list[str]:
+        """Section names in display order: by each section's lowest ``row_id`` (creation
+        order; after an import, the order of the CSV set). ``sectioned_data`` uses it."""
+        with self._read() as con:
+            return [r[0] for r in con.execute(
+                "SELECT section FROM plan_rows GROUP BY section ORDER BY MIN(row_id)")]
+
     def all_rows(self) -> list[dict[str, Any]]:
         """Every row in canonical order (sections by name, then display order)."""
         with self._read() as con:
@@ -275,6 +287,81 @@ class PlanStore(_SqliteStore):
         with self._write() as con:
             if con.execute("DELETE FROM plan_rows WHERE row_id = ?", (row_id,)).rowcount == 0:
                 raise NotFoundError(f"plan row {row_id} not found")
+
+    def clear_rows(self) -> int:
+        """Delete every row (ids are not reused); return how many were deleted."""
+        with self._write() as con:
+            return con.execute("DELETE FROM plan_rows").rowcount
+
+    # ------------------------------------------------------------- keyed access (WP4.1)
+    def find_rows(self, section: str, subsection: str, label: str) -> list[dict[str, Any]]:
+        """Rows with exactly this ``(section, subsection, label)`` key, in display order.
+
+        Usually zero or one; a key can repeat (the legacy CSV set has such duplicates),
+        and then the last row is the effective one (see ``sectioned_data``).
+        """
+        for name, val in (("section", section), ("subsection", subsection), ("label", label)):
+            _check_text(name, val)
+        with self._read() as con:
+            cur = con.execute(
+                f"SELECT {_ROW_COLUMNS} FROM plan_rows WHERE section = ? AND subsection = ? AND label = ? "
+                "ORDER BY sort_order, row_id",
+                (section, subsection, label),
+            )
+            return [dict(r) for r in cur]
+
+    def set_value(
+        self,
+        section: str,
+        subsection: str,
+        label: str,
+        value: str,
+        *,
+        units: str | None = None,
+        notes: str | None = None,
+    ) -> int:
+        """Write ``value`` under a key and return the row id written.
+
+        Updates the effective row (the last one in display order) when the key exists,
+        otherwise appends a new row at the end of the section. ``units`` / ``notes`` are
+        written only when given. This is the one keyed write for plan settings (feature
+        switches, the plan tier) and for endpoints that address a field by name.
+        """
+        fields = {"section": section, "subsection": subsection, "label": label, "value": value}
+        for name, val in fields.items():
+            _check_field(name, val)
+        extra = {k: v for k, v in (("units", units), ("notes", notes)) if v is not None}
+        for name, val in extra.items():
+            _check_text(name, val)
+        with self._write():
+            existing = self.find_rows(section, subsection, label)
+            if existing:
+                row_id = existing[-1]["row_id"]
+                self.set_row(row_id, value=value, **extra)
+                return row_id
+            return self.insert_row(section, subsection=subsection, label=label, value=value, **extra)
+
+    def sectioned_data(self) -> dict[str, dict[str, dict[str, str]]]:
+        """The engine view: ``{section: {subsection: {label: value}}}``.
+
+        Same read rules and the same key order as the legacy ``data_io.load_csv`` over the
+        CSV set the plan was imported from: sections in creation order, rows in display
+        order, the last row of a repeated key wins (keeping the key's first position),
+        values and keys stripped, rows without a label (or with a ``#`` section) skipped.
+        """
+        out: dict[str, dict[str, dict[str, str]]] = {}
+        with self._read() as con:
+            cur = con.execute(
+                "SELECT r.section, r.subsection, r.label, r.value FROM plan_rows AS r "
+                "JOIN (SELECT section, MIN(row_id) AS first_id FROM plan_rows GROUP BY section) AS f "
+                "ON f.section = r.section ORDER BY f.first_id, r.sort_order, r.row_id"
+            )
+            for section, subsection, label, value in cur:
+                sec, sub, lbl = section.strip(), subsection.strip(), label.strip()
+                if not sec or sec.startswith("#") or not lbl:
+                    continue
+                out.setdefault(sec, {}).setdefault(sub, {})[lbl] = value.strip()
+        return out
 
     # ------------------------------------------------------------------ revisions
     def revision(self) -> str:

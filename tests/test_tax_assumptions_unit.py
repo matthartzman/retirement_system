@@ -128,20 +128,16 @@ if __name__ == "__main__":
 
 class PayloadAndReportTests(unittest.TestCase):
     def _service(self, econ_rows, state="Illinois"):
-        from types import SimpleNamespace
-        from src.server_services.strategy_asset_service import StrategyAssetService
+        import tempfile
+        from tests.strategy_service_rows import service_over_rows
 
-        header = ["section", "subsection", "label", "value"]
-
-        def read_rows(section, _file="client_household.csv"):
-            if section == "Economic Assumptions":
-                return [header] + [["Economic Assumptions", "", k, v] for k, v in econ_rows.items()]
-            if section == "Household":
-                return [header, ["Household", "", "residence_state", state]]
-            return []
-
-        svc = StrategyAssetService.__new__(StrategyAssetService)
-        svc.context = SimpleNamespace(read_client_section_rows=read_rows)
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        svc, store, _events = service_over_rows(
+            Path(tmp.name),
+            [("Economic Assumptions", "", k, v) for k, v in econ_rows.items()]
+            + [("Household", "", "residence_state", state)])
+        self.addCleanup(store.close)
         return svc
 
     def test_payload_reports_auto_and_override(self):
@@ -203,33 +199,31 @@ class DriftAndSaveTests(unittest.TestCase):
         self.assertFalse(out[1]["drifted"])
 
     def test_save_upserts_rows_and_records_baseline(self):
-        from types import SimpleNamespace
-        from src.server_services.strategy_asset_service import StrategyAssetService
-        rows = [["section", "subsection", "label", "value", "units", "note"],
-                ["Household", "", "residence_state", "Illinois", "text", ""],
-                ["Economic Assumptions", "", "fed_tax_bracket_inflator", "2.00%", "pct", ""]]
-        written = {}
-        ctx = SimpleNamespace(
-            client_section_path=lambda *a: Path("x.csv"),
-            ensure_header=lambda r: r,
-            csv_read_rows=lambda p: rows,
-            read_client_section_rows=lambda sec, f="": [rows[0]] + [r for r in rows[1:] if r[0] == sec],
-            write_client_rows=lambda p, r: written.setdefault("rows", r),
-            sync_config_backends=lambda: {},
-            audit=None,
-        )
-        svc = StrategyAssetService.__new__(StrategyAssetService)
-        svc.context = ctx
-        svc._audit = lambda *a, **k: None
-        body, status = svc.save_tax_assumptions_payload(
-            {"overrides": {"fed_tax_bracket_inflator": "3.00%", "state_income_tax_rate": "6%"}})
-        self.assertEqual(status, 200, body)
-        by_label = {r[2]: r for r in written["rows"] if r[0] == "Economic Assumptions"}
-        self.assertEqual(by_label["fed_tax_bracket_inflator"][3], "3.00%")
-        self.assertEqual(by_label["state_income_tax_rate"][3], "6%")
-        self.assertIn("fed_tax_bracket_inflator=0.02", by_label["tax_model_baseline"][3])
-        bad, st = svc.save_tax_assumptions_payload({"overrides": {"state_income_tax_rate": "40%"}})
-        self.assertEqual(st, 400)
+        import tempfile
+        from tests.strategy_service_rows import service_over_rows
+        with tempfile.TemporaryDirectory() as tmp:
+            svc, store, events = service_over_rows(Path(tmp), [
+                ("Household", "", "residence_state", "Illinois"),
+                ("Economic Assumptions", "", "fed_tax_bracket_inflator", "2.00%"),
+                ("Cashflow", "Spending", "annual_spending_base_year", "90000")])
+            with store:
+                before = {r["label"]: r for r in store.rows("Economic Assumptions")}
+                body, status = svc.save_tax_assumptions_payload(
+                    {"overrides": {"fed_tax_bracket_inflator": "3.00%", "state_income_tax_rate": "6%"}})
+                self.assertEqual(status, 200, body)
+                self.assertEqual(body, {"success": True, "count": 2})
+                by_label = {r["label"]: r for r in store.rows("Economic Assumptions")}
+                self.assertEqual(by_label["fed_tax_bracket_inflator"]["value"], "3.00%")
+                # an existing row keeps its id; a new one goes to the end of the section
+                self.assertEqual(by_label["fed_tax_bracket_inflator"]["row_id"], before["fed_tax_bracket_inflator"]["row_id"])
+                self.assertEqual([r["label"] for r in store.rows("Economic Assumptions")],
+                                 ["fed_tax_bracket_inflator", "state_income_tax_rate", "tax_model_baseline"])
+                self.assertEqual((by_label["state_income_tax_rate"]["value"], by_label["state_income_tax_rate"]["units"]), ("6%", "pct"))
+                self.assertIn("fed_tax_bracket_inflator=0.02", by_label["tax_model_baseline"]["value"])
+                self.assertEqual(events, [("tax_assumptions_saved", {"keys": ["fed_tax_bracket_inflator", "state_income_tax_rate"]})])
+                bad, st = svc.save_tax_assumptions_payload({"overrides": {"state_income_tax_rate": "40%"}})
+                self.assertEqual(st, 400)
+                self.assertEqual(store.sectioned_data()["Economic Assumptions"][""]["state_income_tax_rate"], "6%")
 
 
 class LawScenarioTests(unittest.TestCase):

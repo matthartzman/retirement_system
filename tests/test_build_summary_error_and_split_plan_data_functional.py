@@ -10,8 +10,9 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 
-def test_load_csv_accepts_split_plan_data_without_client_data_anchor(tmp_path):
-    from src.config_backend import load_csv
+def test_plan_import_accepts_split_plan_data_without_client_data_anchor(tmp_path):
+    from src.csv_exchange import import_plan_csv_set
+    from src.stores import PlanStore
 
     part = tmp_path / "client_household.csv"
     with part.open("w", newline="", encoding="utf-8") as f:
@@ -20,7 +21,10 @@ def test_load_csv_accepts_split_plan_data_without_client_data_anchor(tmp_path):
             ["Household", "Husband", "current_age", "60", "years", ""],
         ])
 
-    data = load_csv(tmp_path / "client_data.csv")
+    with PlanStore.open() as store:
+        report = import_plan_csv_set(tmp_path, store)
+        data = store.sectioned_data()
+    assert "client_data.csv" in report.files_missing
     assert data["Household"]["Husband"]["current_age"] == "60"
 
 

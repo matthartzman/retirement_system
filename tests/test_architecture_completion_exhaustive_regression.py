@@ -60,9 +60,11 @@ def test_async_local_build_queue_and_sse_event_routes_exist():
 def test_database_backed_forms_are_first_class_runtime_routes():
     routes = read("src/server/workbook_routes.py")
     assert "/api/plan/forms" in routes
-    assert "latest_sectioned_data" in routes
-    assert "import_sectioned_plan" in routes
-    assert '"backend": "sqlite"' in routes
+    assert "plan_forms_service.get_forms_payload" in routes
+    # WP4.2: the forms read and write the active plan file's rows.
+    service = read("src/server_services/plan_forms_service.py")
+    assert "active_plan_store" in service
+    assert 'BACKEND = "sqlite"' in service
 
 
 def test_structured_performance_observability_is_in_result_contract():

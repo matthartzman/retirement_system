@@ -298,11 +298,6 @@ def main(argv=None) -> int:
     write_csv(INPUT / "client_spending_aliases.csv", ALIAS_HEADER, aliases)
     write_csv(INPUT / "client_spending_budget.csv", BUDGET_HEADER, budget)
 
-    # Regenerate manifest when the project helper is available.
-    helper = ROOT / "tools" / "check_plan_data_sync.py"
-    if helper.exists():
-        import subprocess
-        subprocess.run([sys.executable, str(helper), "--write"], cwd=str(ROOT), check=False)
     print(f"Backed up legacy spending files to {bdir}")
     return 0
 

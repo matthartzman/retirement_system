@@ -1,5 +1,4 @@
 from pathlib import Path
-import csv
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -20,17 +19,16 @@ def test_non_january_first_retirement_date_keeps_existing_annual_boundary():
 
 def test_ytd_earned_income_forecast_uses_same_january_first_boundary(tmp_path):
     from src.ytd_tracking import annual_earned_income_forecast
+    from tests.plan_fixture import stage_plan_csv
 
-    with (tmp_path / "client_income.csv").open("w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=["section", "subsection", "label", "value", "type", "notes"])
-        w.writeheader()
-        w.writerow({"section":"Cashflow","subsection":"Earned Income","label":"annual_earned_income","value":"100000"})
-        w.writerow({"section":"Cashflow","subsection":"Earned Income","label":"earned_income_start_year","value":"2026"})
-        w.writerow({"section":"Cashflow","subsection":"Earned Income","label":"earned_income_annual_increase","value":"3%"})
-    with (tmp_path / "client_household.csv").open("w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=["section", "subsection", "label", "value", "type", "notes"])
-        w.writeheader()
-        w.writerow({"section":"Household","subsection":"","label":"member_1_retirement_date","value":"1/1/2027"})
+    head = "section,subsection,label,value,type,notes\n"
+    inp = stage_plan_csv(tmp_path, {
+        "client_income.csv": head
+        + "Cashflow,Earned Income,annual_earned_income,100000,,\n"
+        + "Cashflow,Earned Income,earned_income_start_year,2026,,\n"
+        + "Cashflow,Earned Income,earned_income_annual_increase,3%,,\n",
+        "client_household.csv": head + "Household,,member_1_retirement_date,1/1/2027,,\n",
+    })
 
-    assert annual_earned_income_forecast(tmp_path, 2026) == 100000
-    assert annual_earned_income_forecast(tmp_path, 2027) == 0.0
+    assert annual_earned_income_forecast(inp, 2026) == 100000
+    assert annual_earned_income_forecast(inp, 2027) == 0.0

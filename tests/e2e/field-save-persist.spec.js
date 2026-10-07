@@ -11,7 +11,7 @@
 import { test, expect } from './fixtures.js';
 import { openCurrentPlan, navigateToStep } from './helpers.js';
 
-// Real target on the frozen fixture: row 28 is "Residence State" on the
+// Real target on the frozen fixture: "Residence State" (Household / residence_state) on the
 // household_people step -- a <select> of the 50 states + DC (#260,
 // dashboard_decomp_state_inputs.js), not the plain text input it used to be.
 // household_people is one of the AUTOSAVE_STEPS (navigation.js), but this
@@ -19,13 +19,21 @@ import { openCurrentPlan, navigateToStep } from './helpers.js';
 // that button calls saveAll(true), the same saveWorkingCopy() both the
 // autosave and manual-save paths share, so it exercises the identical save
 // mechanism without depending on navigation-triggered autosave timing.
-const FIELD_ROW = 28;
+// Row ids are stable plan_rows ids (WP4.3), not positions, so look the row up by key.
+async function residenceStateRow(page) {
+  const resp = await page.request.get('/api/config/rows', { headers: { 'X-User-Role': 'admin' } });
+  const rows = (await resp.json()).rows;
+  const row = rows.find((r) => r.section === 'Household' && r.label === 'residence_state');
+  if (!row) throw new Error('residence_state row not found in /api/config/rows');
+  return row.row_index;
+}
 const ORIGINAL_VALUE = 'Illinois';
 const EDITED_VALUE = 'Wisconsin';
 
 test('editing a field, saving, and reloading persists the change', async ({ page }) => {
   await openCurrentPlan(page);
   await navigateToStep(page, 'household_people', 'Household & People');
+  const FIELD_ROW = await residenceStateRow(page);
 
   const field = page.locator(`[data-row="${FIELD_ROW}"]`);
   await expect(field).toHaveValue(ORIGINAL_VALUE);

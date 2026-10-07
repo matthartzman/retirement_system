@@ -122,42 +122,29 @@ class HomeSaleSplitDataIoTests(unittest.TestCase):
         self.assertEqual(c["home_sale_splits"], [])
 
 
-class HomeSaleSplitCsvRoundTripTests(unittest.TestCase):
-    def test_write_then_read_round_trips_through_the_csv_file(self):
-        import csv
+class HomeSaleSplitRoundTripTests(unittest.TestCase):
+    def test_save_then_read_round_trips_through_the_plan_rows(self):
         import tempfile
         from pathlib import Path
-        from src.server.app_core import (
-            _home_sale_split_rows,
-            _home_sale_splits_from_csv_rows,
-            _replace_home_sale_splits,
-        )
+        from tests.strategy_service_rows import service_over_rows
 
         with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "client_assets.csv"
-            path.write_text("section,subsection,label,value,units,notes\n", encoding="utf-8")
-            import src.server.app_core as app_core
-            orig = app_core._client_section_path
-            app_core._client_section_path = lambda section, fallback="client_assets.csv": path
-            try:
-                _replace_home_sale_splits([
+            service, store, _events = service_over_rows(Path(tmp), [])
+            with store:
+                payload, status = service.save_home_sale_splits_payload({"splits": [
                     {"account": "Joint_Trust", "percentage": "60"},
                     {"account": "Family_Checking", "percentage": "40"},
-                ])
-            finally:
-                app_core._client_section_path = orig
-
-            with path.open(newline="", encoding="utf-8-sig") as f:
-                rows = list(csv.reader(f))
-            splits = _home_sale_splits_from_csv_rows(rows)
-            self.assertEqual(splits, [
-                {"account": "Joint_Trust", "percentage": "60"},
-                {"account": "Family_Checking", "percentage": "40"},
+                ]})
+                self.assertEqual(status, 200, payload)
+                payload, status = service.home_sale_splits_payload()
+                rows = store.rows("Home Sale Split")
+            self.assertEqual(payload["splits"], [
+                {"account": "Joint_Trust", "percentage": "60.0"},
+                {"account": "Family_Checking", "percentage": "40.0"},
             ])
-            # Also sanity-check the raw row shape _home_sale_split_rows emits.
-            generated = _home_sale_split_rows([{"account": "A", "percentage": "100"}])
-            self.assertIn(["Home Sale Split", "split_1", "account", "A", "choice",
-                            "Account to receive this share of house sale proceeds", "", ""], generated)
+            self.assertIn(("split_1", "account", "Joint_Trust", "choice",
+                           "Account to receive this share of house sale proceeds"),
+                          [(r["subsection"], r["label"], r["value"], r["units"], r["notes"]) for r in rows])
 
 
 if __name__ == "__main__":

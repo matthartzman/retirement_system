@@ -71,32 +71,24 @@ from ..local_store import save_kpi_snapshot
 
 
 def _build_plan_input_fingerprint(base_dir, config_meta):
-    """Return a stable fingerprint of the exact Plan Data files seen by this build."""
+    """Return a stable fingerprint of the exact plan data seen by this build: the plan rows'
+    revision hash (``PlanStore.revision()``), the flat dataset files still read from the
+    workspace, and the system configuration."""
     import hashlib as _hashlib
-    import json as _json
     from pathlib import Path as _Path
 
-    plan_names = [
-        "client_data.csv", "client_household.csv", "client_income.csv", "client_spending.csv",
-        "client_assets.csv", "client_policy.csv", "client_insurance_estate.csv",
-        "client_business.csv", "client_optional_functions.csv", "asset_class_optimizer_controls.csv",
-        "client_holdings.csv", "target_allocation.csv",
-        "client_data.json", "client_data.yaml", "client_household.json", "client_income.json",
-        "client_spending.json", "client_assets.json", "client_policy.json",
-        "client_insurance_estate.json", "client_business.json", "client_optional_functions.json",
-        "asset_class_optimizer_controls.json", "client_household.yaml", "client_income.yaml",
-        "client_spending.yaml", "client_assets.yaml", "client_policy.yaml",
-        "client_insurance_estate.yaml", "client_business.yaml", "client_optional_functions.yaml",
-        "asset_class_optimizer_controls.yaml",
-    ]
+    flat_names = ["client_holdings.csv", "target_allocation.csv"]
     root = _Path(base_dir)
-    meta_path = _Path(str((config_meta or {}).get("path") or root / "input" / "client_data.csv"))
-    if not meta_path.is_absolute():
-        meta_path = root / meta_path
-    plan_dir = meta_path.parent if meta_path.suffix else root / "input"
+    plan_dir = root / "input"
     files = []
     h = _hashlib.sha256()
-    for name in plan_names:
+    plan_db = (config_meta or {}).get("plan_db")
+    if plan_db and _Path(str(plan_db)).is_file():
+        from ..active_plan import plan_file_fingerprint as _plan_file_fingerprint
+        revision, row_count = _plan_file_fingerprint(plan_db)
+        files.append({"file": "plan_rows", "sha256": revision, "bytes": row_count})
+        h.update(b"plan_rows\0"); h.update(revision.encode("ascii")); h.update(b"\0")
+    for name in flat_names:
         path = plan_dir / name
         if not path.exists() or not path.is_file():
             continue
@@ -954,7 +946,7 @@ def main():
     # Checkpoint the WAL now, before any output artifact is written -- see
     # checkpoint_sqlite_database()'s docstring for why this must happen here
     # and not only inside write_build_snapshot() at the end of this function.
-    checkpoint_sqlite_database(config_meta.get('sqlite_db') or config_meta.get('path'))
+    checkpoint_sqlite_database(config_meta.get('plan_db') or config_meta.get('sqlite_db') or config_meta.get('path'))
     workspace_id = sanitize_id(config_meta.get('workspace_id', 'local'))
     client_id = sanitize_id(config_meta.get('client_id', workspace_id))
     output_path_dir = workspace_output_dir(workspace_id)
@@ -1444,7 +1436,7 @@ def main():
     # checkpoint_sqlite_database() call above and this whole reordering
     # exist to prevent. Checkpointing here, before any essential artifact is
     # written, makes that later checkpoint a no-op.
-    checkpoint_sqlite_database(config_meta.get('sqlite_db') or config_meta.get('path'))
+    checkpoint_sqlite_database(config_meta.get('plan_db') or config_meta.get('sqlite_db') or config_meta.get('path'))
 
     # Widen any numeric column that would otherwise render "#####" at its
     # current width before row heights are computed from final widths --
@@ -1497,7 +1489,7 @@ def main():
         summary=summary_data,
         system_config_path=_os.path.join(base_dir, 'system_config.csv'),
         pricing_diagnostics_path=_os.path.join(str(output_path_dir), 'pricing_diagnostics.json'),
-        sqlite_db_path=(config_meta or {}).get('sqlite_db') or (config_meta or {}).get('path'),
+        sqlite_db_path=(config_meta or {}).get('plan_db') or (config_meta or {}).get('sqlite_db') or (config_meta or {}).get('path'),
     )
     print(f'Build snapshot written: {_os.path.join(str(output_path_dir), SNAPSHOT_FILENAME)} ({snapshot.get("artifact_count", 0)} artifacts)')
 

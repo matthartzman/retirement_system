@@ -72,6 +72,7 @@ from .market_data import PRICE_CACHE, fetch_price, prewarm_prices, set_fallback_
 from .workspace_context import candidate_input_files, active_workspace_id
 from .roth_ui_build_guard import normalize_roth_policy, normalize_irmaa_guardrail_mode, percent_to_float, is_explicit_user_roth_policy, strategy_for_roth_policy
 from .plan_data_migration import migrate_sectioned_data
+from .plan_label_rules import canonical_label
 try:
     from .system_config import load_system_config
 except ImportError:  # direct execution fallback
@@ -232,29 +233,8 @@ def _resolve_holding_period_floors_and_reapply(c):
     return resolve_holding_period_floors_and_reapply(c)
 
 
-_YEAR_LABEL_PATTERNS = [
-    (re.compile(r'^annual_401k_limit_\d{4}$'), 'annual_401k_limit_base_year'),
-    (re.compile(r'^annual_spending_\d{4}$'), 'annual_spending_base_year'),
-    (re.compile(r'^balance_\d{1,2}_\d{1,2}_\d{4}$'), 'balance_as_of_plan_start'),
-    (re.compile(r'^value_\d{1,2}_\d{1,2}_\d{4}$'), 'value_as_of_plan_start'),
-    (re.compile(r'^family_annual_limit_\d{4}$'), 'family_annual_limit_base_year'),
-    (re.compile(r'^self_only_annual_limit_\d{4}$'), 'self_only_annual_limit_base_year'),
-    (re.compile(r'^coverage_\d{4}_family_months$'), 'coverage_base_year_family_months'),
-    (re.compile(r'^coverage_\d{4}_self_only_months$'), 'coverage_base_year_self_only_months'),
-    (re.compile(r'^ss_wage_base_\d{4}$'), 'ss_wage_base_base_year'),
-    (re.compile(r'^ltcg_0pct_top_mfj_\d{4}$'), 'ltcg_0pct_top_mfj_base_year'),
-    (re.compile(r'^ltcg_15pct_top_mfj_\d{4}$'), 'ltcg_15pct_top_mfj_base_year'),
-    (re.compile(r'^part_b_premium_\d{4}$'), 'part_b_base_premium_monthly'),
-    (re.compile(r'^part_d_premium_\d{4}$'), 'part_d_base_premium_monthly'),
-    (re.compile(r'^annual_premium_\d{4}$'), 'annual_premium_base_year'),
-]
-
-def _normalize_label(label):
-    label = (label or '').strip()
-    for pat, replacement in _YEAR_LABEL_PATTERNS:
-        if pat.match(label):
-            return replacement
-    return label
+# Year-stamped label canonicalisation: src/plan_label_rules.py (single source, shared with csv_exchange).
+_normalize_label = canonical_label
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 1.  CSV LOADER
@@ -665,8 +645,8 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     # open-ended). Purely additive -- when empty, every consumer keeps using
     # the single c['state'] field above unchanged. Rows live under numbered
     # 'State Residency Schedule'/'period_N' subsections (see
-    # src/server/app_core.py's _residency_schedule_from_csv_rows /
-    # _replace_residency_schedule, the read/write pair the UI's add/delete-row
+    # src/server_services/strategy_asset_service.py's residency_schedule_payload /
+    # save_residency_schedule_payload, the read/write pair the UI's add/delete-row
     # editor round-trips through). state_for_year() in deterministic_engine.py
     # is the resolver every state-tax call site uses instead of the static
     # field, so this is where "taxes actually change" lives.
@@ -1096,8 +1076,8 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     # #299: house sale proceeds may be split across multiple accounts by
     # percentage instead of going to a single account. Rows live under
     # numbered 'Home Sale Split N' subsections (see
-    # src/server/app_core.py's _home_sale_splits_from_csv_rows /
-    # _replace_home_sale_splits, the read/write pair the UI's add/delete-row
+    # src/server_services/strategy_asset_service.py's home_sale_splits_payload /
+    # save_home_sale_splits_payload, the read/write pair the UI's add/delete-row
     # editor round-trips through). Empty when unconfigured -- the engine
     # falls back to the single home_sale_acct field above in that case.
     c['home_sale_splits'] = []

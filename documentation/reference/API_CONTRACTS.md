@@ -11,7 +11,7 @@ This document captures the stable local API contracts used by the v10 desktop UI
 - All JSON endpoints return `success: true` on normal success unless documented otherwise.
 - Write endpoints may return `403` when local runtime permissions disable the operation.
 - Build/report contracts are versioned with explicit `schema` fields.
-- The saved SQLite-backed working copy is the runtime source of truth. CSV endpoints are import/export or large-table adapters.
+- The plan file (`plan.rpx`, `plan_rows`) is the runtime source of truth for the sectioned plan data; no CSV, JSON or YAML file mirrors it (WP4.5). The CSV endpoints that remain are adapters for the flat datasets (holdings, liabilities, spending, YTD) until WP6.
 - Existing route names remain stable while newer contracts are added beside them.
 
 ## `/api/config/rows`
@@ -19,15 +19,15 @@ This document captures the stable local API contracts used by the v10 desktop UI
 Purpose: canonical editable Plan Data rows for the guided UI.
 
 Methods:
-- `GET`: returns the current saved working-copy rows.
-- `POST`: writes row-value updates by `row_index`.
+- `GET`: returns the active plan's rows (`plan_rows`, WP4.3).
+- `POST`: writes row-value updates by `row_index` in one transaction.
 
 GET response fields:
 - `success`: boolean.
 - `version`: app version string.
 - `active_backend`: backend label, normally `SQLITE`.
-- `csv_path`: configured CSV adapter path.
-- `rows`: ordered row objects with `row_index`, `section`, `subsection`, `label`, `value`, `units`, `notes`, schema metadata, and source-file metadata.
+- `rows`: row objects in plan display order with `row_index`, `section`, `subsection`, `label`, `value`, `units`, `notes`, `schema`, `choice_options` and `group`. `row_index` is the plan row's id: stable while the row exists, never reused.
+- `revision`: the plan's content revision (`PlanStore.revision()`).
 
 POST request:
 
@@ -35,20 +35,26 @@ POST request:
 {
   "updates": [
     {"row_index": 12, "value": "2028"}
-  ],
-  "sync": false
+  ]
 }
 ```
 
 POST response:
 - `success`: boolean.
 - `updated`: count of written rows.
-- `skipped`: skipped update records with reasons.
-- `sync`: optional backend-sync result when requested.
+- `skipped`: skipped update records with reasons (an unknown or stale `row_index`).
+- `revision`: the plan's revision after the save.
 
 Validation:
 - Invalid `updates` shape returns `400`.
-- Plan Data validation failures return `422` with `errors`.
+- Plan Data validation failures return `422` with `errors`; no update is written.
+
+## Removed in WP4.5 (the CSV bridge)
+
+- `POST /api/config/sync` and the `sync` request flag / response key of the save endpoints: there is nothing to sync, the plan rows are the only store (the `config_sync_v1` contract is gone).
+- `GET/POST /api/csv` (the sectioned plan anchor as CSV text) and the plan kind of `/api/admin/csv-file/<kind>/<file>` (the system kind stays). A request for `client_data.csv`, a plan part file or a JSON/YAML mirror through `/api/plan-data/...` answers `410`; the flat dataset files keep their routes until WP6.
+- `GET /api/config/backends` no longer reports `csv_path`, `json_path` or `yaml_path`; it reports `plan_path`.
+- `/api/plan/save-as`, `/api/plan/load-file`, `/api/plan/exit-snapshot`, `/api/plan/snapshot/*`, the demo routes and Start New Plan work on the plan file (`plan.rpx`). A `.rpx` that is not a plan file (for example an older Save As of the legacy database) is refused by Load with a validation error and the active plan is untouched.
 
 ## `/api/spending/model`
 
@@ -336,17 +342,18 @@ Method:
 
 Response:
 - `success`: boolean.
-- `snapshot`: created file name when a database exists.
+- `snapshot`: created legacy-database file name when that database exists.
+- `plan_snapshot`: created plan-file name when the plan file exists.
 - `message`: informational message when no database exists.
 
 Side effects:
 - Runs SQLite WAL checkpoint when possible.
-- Copies `local_state/retirement_system_v10.db` to `retirement_system_v10.db.version_<YYYYMMDD_HHMMSS>`.
-- Keeps the latest 10 version snapshots.
+- Copies `local_state/retirement_system_v10.db` to `retirement_system_v10.db.version_<YYYYMMDD_HHMMSS>` and the plan file to `plan.rpx.version_<YYYYMMDD_HHMMSS>` (`plan_snapshot` in the response).
+- Keeps the latest 10 of each.
 
 ## `/api/plan/snapshot/compare`
 
-Purpose: compare the current local SQLite database to the database copy captured in a build snapshot.
+Purpose: compare the active plan file to the plan-file copy captured in a build snapshot (`plan_database_snapshot.rpx`).
 
 Methods:
 - `GET`: compares against `output/build_snapshot.json`.
@@ -368,7 +375,7 @@ Failure:
 
 ## `/api/plan/snapshot/restore`
 
-Purpose: restore the active local SQLite database from the database copy captured in a build snapshot.
+Purpose: restore the active plan file from the plan-file copy captured in a build snapshot (validated as a plan file first).
 
 Method:
 - `POST`.
@@ -382,8 +389,8 @@ Response:
 - `schema`: `plan_snapshot_restore_v1`.
 - `restored_from`: build snapshot path.
 - `restored_database`: snapshot-side SQLite database copy.
-- `active_database`: replaced active SQLite database path.
-- `backup_database`: pre-restore backup path written before replacement.
+- `active_database`: replaced active plan file path.
+- `backup_database`: pre-restore backup path (`plan.rpx.before_snapshot_restore_<ts>`) written before replacement.
 - `sha256`: restored database hash.
 
 Guardrails:
@@ -527,14 +534,13 @@ Service-owned route families:
 - `/api/estate-state-options` and `/api/estate-state/add`
 - `/api/trust-account/add`
 - `/api/insurance-policy/add` and `/api/insurance-policy/delete`
-- `/api/capital-market/assumptions` and `/api/capital-market/correlations`
+- `/api/capital-market/assumptions`, `/api/capital-market/correlations` and `/api/capital-market/real-loss-curves` (plan override rows: body `{"rows": [...]}`, validated; `400` without rows or with invalid rows (`errors`), `410` for a CSV body)
 - `/api/housing/seed`
 - `/api/wellness/seed` route for healthcare OOP seed rows
-- `/api/config/sync`
 
 Ownership:
 - HTTP permissions, CSV-write gating, request extraction, and JSON serialization remain in `plan_routes.py`.
-- Row normalization, validation, seed row definitions, reference CSV writing, and audit payload composition live in `strategy_asset_service.py`.
+- Row normalization, validation, seed row definitions, override-row validation and storage, and audit payload composition live in `strategy_asset_service.py`.
 
-Representative typed contracts are also exposed by `/api/contracts` using the `large_discretionary_expenses_v1`, `forced_roth_conversions_v1`, `liquidity_buffers_v1`, `insurance_policy_add_v1`, `insurance_policy_delete_v1`, and `config_sync_v1` schemas.
+Representative typed contracts are also exposed by `/api/contracts` using the `large_discretionary_expenses_v1`, `forced_roth_conversions_v1`, `liquidity_buffers_v1`, `insurance_policy_add_v1`, and `insurance_policy_delete_v1` schemas.
 

@@ -146,32 +146,38 @@ the exe path, not `BASE_DIR`, in frozen mode.
 
 ### 4.1 Canonical source hierarchy
 
-1. **`local_state/retirement_system_v10.db`** (SQLite) — the canonical
-   source of truth. Two SQLite layers coexist in this one file:
-   - `src/local_store.py` owns `plan_snapshots` (full sectioned+typed plan
-     JSON, content-addressed by a SHA256-derived `snapshot_id`),
-     `result_snapshots` (pruned to the last 10), `build_events`,
-     `local_settings`, and relational mirrors `plan_members` /
-     `plan_accounts` / `plan_income_streams` / `plan_spending_policy`.
-   - `src/config_backend.py` owns `client_files` (raw CSV text per file —
-     what `get_client_file()`/`set_client_file()` read and write),
-     `audit_events`, `build_jobs`, and `price_snapshots`.
-2. **`input/client_*.csv`** — an on-disk import/export mirror, not the
-   canonical read source. Used to bootstrap the DB on first run/fresh
-   checkout, and for folder download/portability.
-3. **`input/client_*.yaml` / `.json`** — derived outputs regenerated from
-   the DB by `export_client_json_yaml()`.
+0. **`<workspace>/plan.rpx`** (the plan file, `PlanStore`) — the only store of
+   the sectioned plan data (`plan_rows`): the engine, the build and the server
+   read it (`src/active_plan.py`, `config_backend.load_active_config()`) and
+   every writer edits it through one transaction
+   (`active_plan.edit_active_plan`). No CSV, JSON or YAML file mirrors it
+   (WP4.5 deleted the bridge and the 20 mirrors). See
+   `documentation/reference/PLAN_ROWS_MODEL.md`.
+1. **`local_state/retirement_system_v10.db`** (SQLite) — two SQLite layers
+   coexist in this one file:
+   - `src/local_store.py` owns `result_snapshots` (pruned to the last 10),
+     `build_events`, `local_settings`, KPI snapshots, and the retired
+     `plan_snapshots` tables (no longer read or written since WP4.2; kept
+     for the one-time conversion).
+   - `src/config_backend.py` owns `client_files` (raw CSV text of the **flat
+     datasets** only: holdings, liabilities, spending set, YTD; the sectioned
+     plan parts are no longer stored there), `audit_events`, `build_jobs`,
+     and `price_snapshots`. WP6 moves the flat datasets into the plan file.
+2. **`input/client_*.csv`** — the flat datasets' on-disk files (holdings,
+   liabilities, HSA schedule, target allocation, spending set, YTD). The
+   sectioned `client_data.csv` and its nine part files are no longer read or
+   written at runtime: they are test fixtures, the demo seed (`input/demo`)
+   and the converter's source (WP10).
 
-**Read path** (`_read_plan_data_file()` in `app_core.py`): reads the DB via
-`get_client_file()` first; falls back to the on-disk CSV only to bootstrap,
-lazily seeding the DB from it so subsequent reads are DB-canonical.
-**Write path** (`_write_plan_data_file()`): writes the DB first
-(authoritative) via `set_client_file()`, then the on-disk CSV mirror.
-`client_data.csv` (the sectioned anchor) is the one exception — never stored
-in SQLite, always materialized on disk only.
+**Read path** for a flat dataset (`_read_plan_data_file()` in `app_core.py`):
+reads the DB via `get_client_file()` first; falls back to the on-disk CSV
+only to bootstrap, lazily seeding the DB from it. **Write path**
+(`_write_plan_data_file()`): writes the DB first (authoritative) via
+`set_client_file()`, then the on-disk CSV. A request for a sectioned plan
+file through these helpers raises `RetiredPlanDataFile` (HTTP 410).
 
-**Flat tables** (not section/subsection/label rows, no YAML counterpart),
-stored only in `client_files` and on disk: `client_holdings.csv` (per-lot
+**Flat tables** (not section/subsection/label rows), stored only in
+`client_files` and on disk: `client_holdings.csv` (per-lot
 account/symbol/date/shares/price/type), `client_liabilities.csv`
 (auto/HELOC/student-loan debts amortized into cash flow),
 `client_spending_budget_lines.csv` (per-line budget rows).
@@ -185,20 +191,29 @@ wraps `atomic_write()` (unique temp file + `os.replace`).
 ### 4.3 Plan snapshot lifecycle
 
 "Save As" / "Load Saved Plan" / "Save & Exit" (`plan_file_service.py`)
-operate on the **whole SQLite file**, not row-level: checkpoint the WAL
-(`PRAGMA wal_checkpoint`), `shutil.copy2` the `.db` file, remove `-wal`/
-`-shm` sidecars on load (plus `PRAGMA wal_checkpoint(TRUNCATE)`, preventing
-stale WAL data from silently rolling back a loaded plan), and prune old
-backups to the last N:
+operate on the **whole plan file** (`plan.rpx`), not row-level. Save As
+copies it through the SQLite backup API (`plan_db_replace.copy_sqlite_file`,
+WAL folded in). Load and snapshot restore go through
+`plan_db_replace.replace_active_db` with `validate_plan_file`: the selected
+file must open as a plan file, the active file is backed up, the WAL is
+checkpointed (`PRAGMA wal_checkpoint(TRUNCATE)`, preventing stale WAL data
+from silently rolling back a loaded plan), the replace is atomic and the
+`-wal`/`-shm` sidecars are removed; then `plan_data_migration.migrate_plan_file`
+re-applies the label renames to the loaded rows. Old backups are pruned to
+the last N:
 
-- `retirement_system_v10.db.version_<timestamp>` — on Save & Exit, last 10 kept.
-- `.before_load_<timestamp>` — before each Load Saved Plan.
-- `.overlaid_<timestamp>` — after a plan overlay (e.g. Start New Plan on top of existing data).
-- `.before_csv_import_<timestamp>` / `.overwritten_<timestamp>` — before bulk CSV import/overwrite.
+- `plan.rpx.version_<timestamp>` (and `retirement_system_v10.db.version_<timestamp>` for the legacy database) — on Save & Exit, last 10 kept.
+- `plan.rpx.before_load_<timestamp>` — before each Load Saved Plan.
+- `plan.rpx.before_snapshot_restore_<timestamp>` — before a build-snapshot restore.
+- `plan.rpx.before_demo` — while the demo plan is open (the real plan, put back by Open Current Plan).
+- `plan.rpx.before_blank_<timestamp>` — before Start New Plan clears the household facts.
+
+Until WP6 a saved `.rpx` carries the plan rows only; the flat datasets stay
+in the legacy database and the workspace's `input/`.
 
 Build-time reproducibility snapshots are separate: `src/build_snapshot.py`
 writes `build_snapshot.json` (fingerprints/hashes of build artifacts) plus a
-`plan_database_snapshot.rpx` DB copy, consumed by the compare/restore
+`plan_database_snapshot.rpx` plan-file copy, consumed by the compare/restore
 endpoints in §3.4.
 
 ### 4.4 Schema and migration
@@ -209,16 +224,16 @@ endpoints in §3.4.
   metadata.
 - `src/plan_data_migration.py` — a versioned (`PLAN_DATA_SCHEMA_VERSION = 5`)
   idempotent at-rest **label-rename** migration (e.g. `husband_*` →
-  `member_1_*`), applied to both CSV rows and every stored
-  `plan_snapshots.sectioned_json` row in one transaction with rollback on
-  error, run once at startup by `main.py`.
+  `member_1_*`), applied to the plan file's rows (in place,
+  one transaction with rollback on error), run once at startup by `main.py`.
 - `src/plan_data_backfill.py` — a separate, declarative mechanism
   (`PLAN_DATA_BACKFILL_ENTRIES` in `app_core.py`) that inserts *new*
   canonical rows (e.g. Roth conversion params, HELOC, QCD, TLH) into
-  existing CSVs/DB content at defined anchor points — additive schema
+  the active plan's `plan_rows` at defined anchor points inside their section
+  (WP4.4c; formerly into the CSV files) — additive schema
   evolution, distinct from the rename migration above.
 - `src/plan_data_registry.py` — the single-source list of sectioned CSV file
-  names (`CLIENT_DATA_PART_FILES`), consumed by ~8 other modules to avoid
+  names (`CLIENT_DATA_PART_FILES`; the converter and test fixtures only since WP4.5) and the flat dataset lists, consumed by ~8 other modules to avoid
   copy-paste drift.
 
 ### 4.5 Plan row schema

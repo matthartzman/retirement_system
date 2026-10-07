@@ -1,6 +1,12 @@
+import contextlib
 import csv
+import tempfile
 import unittest
 from pathlib import Path
+
+import pytest
+
+from tests.plan_fixture import make_plan
 
 from src.schema_registry import PLAN_FILES, validate_rows
 from src.workspace_context import workspace_input_dir
@@ -22,6 +28,16 @@ ROOT = Path(__file__).resolve().parents[1]
 INPUT = workspace_input_dir()
 
 
+@contextlib.contextmanager
+def _isolated_workspace():
+    """A fixture plan in its own workspace: the routes edit its plan file, not the session's."""
+    with tempfile.TemporaryDirectory() as tmp, pytest.MonkeyPatch.context() as mp:
+        plan = make_plan(Path(tmp) / "ws")
+        mp.setenv("RETIREMENT_SYSTEM_WORKSPACE_ROOT", str(plan.root))
+        mp.delenv("RETIREMENT_SYSTEM_PLAN_DB", raising=False)
+        yield plan
+
+
 class InsuranceDeleteAndSaveValidationTests(unittest.TestCase):
     def setUp(self):
         if self._testMethodName.startswith(('test_save_endpoint', 'test_insurance_policy_delete')) and app is None:
@@ -38,9 +54,7 @@ class InsuranceDeleteAndSaveValidationTests(unittest.TestCase):
         self.assertEqual([], validate_rows(rows))
 
     def test_save_endpoint_accepts_percent_rows_stored_as_human_percent(self):
-        path = INPUT / "client_household.csv"
-        original = path.read_bytes()
-        try:
+        with _isolated_workspace():
             client = app.test_client()
             fetched = client.get("/api/config/rows", headers={"X-User-Role": "admin"})
             self.assertEqual(200, fetched.status_code)
@@ -52,13 +66,10 @@ class InsuranceDeleteAndSaveValidationTests(unittest.TestCase):
             )
             self.assertEqual(200, saved.status_code, saved.get_data(as_text=True))
             self.assertTrue(saved.get_json().get("success"))
-        finally:
-            path.write_bytes(original)
 
     def test_insurance_policy_delete_route_removes_entire_policy_section(self):
-        path = INPUT / "client_insurance_estate.csv"
-        original = path.read_bytes()
-        try:
+        with _isolated_workspace() as plan:
+            self.assertIn("Life_Term_Matthew", plan.store_data()["Insurance In Force"])
             client = app.test_client()
             response = client.post(
                 "/api/insurance-policy/delete",
@@ -69,11 +80,7 @@ class InsuranceDeleteAndSaveValidationTests(unittest.TestCase):
             payload = response.get_json()
             self.assertTrue(payload.get("success"))
             self.assertGreater(payload.get("rows_removed", 0), 0)
-            with path.open(newline="", encoding="utf-8-sig") as f:
-                remaining = list(csv.DictReader(f))
-            self.assertFalse(any(r.get("subsection") == "Life_Term_Matthew" for r in remaining))
-        finally:
-            path.write_bytes(original)
+            self.assertNotIn("Life_Term_Matthew", plan.store_data()["Insurance In Force"])
 
 
 if __name__ == "__main__":

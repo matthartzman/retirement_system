@@ -3,23 +3,29 @@ from __future__ import annotations
 """Feature-owned Open Demo Plan / Open Current Plan logic (ticket #240).
 
 Route modules adapt permissions and request bodies. This service owns the
-demo-plan swap-in/swap-out semantics: a one-time DB backup, applying the
-input/demo/*.csv fixture through the real plan-data write path, and
-restoring the pre-demo DB from that backup. The backup file's existence is
-the sole source of truth for whether a demo is currently active -- no other
-flag (in-memory or marker file) is ever trusted for that decision, so a
+demo-plan swap-in/swap-out semantics: a one-time backup of the plan file and the legacy
+database, applying the demo household, and restoring the pre-demo files from those backups.
+The backup file's existence is the sole source of truth for whether a demo is currently
+active -- no other flag (in-memory or marker file) is ever trusted for that decision, so a
 crash or restart can't cause the real backup to be silently clobbered.
 
-client_data.csv (and its derived .json/.yaml) is the one plan-data file that
-lives only on disk, never in the SQLite DB (see app_core._read_plan_data_file /
-_write_plan_data_file) -- so it is NOT restored by swapping the DB back. It
-gets its own small text backup alongside the DB backup for that reason.
+WP4.5: the sectioned plan data is the plan file's rows, so the demo swaps PLAN FILES: Open
+Demo copies ``plan.rpx`` to ``plan.rpx.before_demo``, builds the demo plan file (a copy of the
+slot's file when there is one, else the ``input/demo`` CSV set read once through the
+``csv_exchange`` importer) and replaces the active plan with it through the validated
+``plan_db_replace`` path; Open Current Plan puts the backup back the same way. No plan CSV
+file is written or read at runtime. WP8.4 replaces this swap with the plan registry (a demo
+plan file beside the real one).
 
-TEXT_BACKUP_FILES are the same story for a different reason: they are read by
-the app but are not in PLAN_DATA_CSV_FILES, so neither the caller's file list
-nor the restore-side materialize() covers them, yet leaving the real file in
-place during a demo leaks real plan data. Each one is applied from input/demo/
-on open and restored from its own text backup, exactly like client_data.csv:
+The flat datasets (holdings, liabilities, spending, YTD ... ) still live in the legacy local
+database's ``client_files`` until WP6, so they ride along as before: the legacy database is
+backed up and restored beside the plan file, and every flat demo file is applied through the
+real plan-data write path.
+
+TEXT_BACKUP_FILES are read by the app but are not in PLAN_DATA_CSV_FILES, so neither the
+caller's file list nor the restore-side materialize() covers them, yet leaving the real file
+in place during a demo leaks real plan data. Each one is applied from input/demo/ on open and
+restored from its own text backup:
 
   * client_spending_budget.recovery_seed.csv --
     spending_tracker.load_unified_budget() silently merges this into the
@@ -36,25 +42,29 @@ on open and restored from its own text backup, exactly like client_data.csv:
     already shipped a fictionalized copy of this one, but nothing applied it.
 
 The demo slot (local_state/demo_plan/, see DEMO_SLOT_DIR): Open Current Plan
-used to simply discard whatever was in the demo when it swapped the real DB
-back. Restore now captures the demo's live state into this slot first, and
-Open Demo Plan prefers a file from the slot over its input/demo/ counterpart,
-so edits made during one demo session are still there the next time the demo
-is opened. input/demo/ itself is never written to -- it stays the pristine
-first-run seed, and "Reset Demo to Defaults" just deletes the slot so the next
-open falls back to it.
+used to simply discard whatever was in the demo when it swapped the real files
+back. Restore now captures the demo's live state into this slot first (the demo plan file as
+``plan.rpx`` and each flat file), and Open Demo Plan prefers a file from the slot over its
+input/demo/ counterpart, so edits made during one demo session are still there the next
+time the demo is opened. input/demo/ itself is never written to -- it stays the pristine
+first-run seed, and "Reset Demo to Defaults" just deletes the slot so the next open falls back
+to it.
 """
 
 import json
+import os
 import shutil
 import sqlite3
+import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
+from ..active_plan import build_plan_file_from_csv_folder, ensure_plan_file
+from ..plan_db_replace import PLAN_FILE_TABLES, copy_sqlite_file, replace_active_db, validate_plan_file
+
 JsonDict = dict[str, Any]
-CLIENT_DATA_CSV = "client_data.csv"
 TEXT_BACKUP_FILES = (
     "client_spending_budget.recovery_seed.csv",
     "client_spending_rules.csv",
@@ -65,33 +75,31 @@ TEXT_BACKUP_FILES = (
 # separate from input/demo/ (which ships in the repo and must stay pristine
 # for the anti-leak tests) and from the live plan slot.
 DEMO_SLOT_DIR = "demo_plan"
+# The demo plan file's name inside the slot.
+SLOT_PLAN_FILE = "plan.rpx"
 
 
 @dataclass(frozen=True)
 class DemoPlanServiceContext:
     sqlite_db: Callable[[], Path]
+    plan_db: Callable[[], Path]
     demo_dir: Callable[[], Path]
     plan_data_csv_files: list[str]
     read_plan_data_file: Callable[[str], str | None]
     write_plan_data_file: Callable[[str, str], Path]
-    sync_config_backends: Callable[[], Any]
     ensure_user_ui_plan_data_rows: Callable[[], None]
-    load_saved_db: Callable[[dict[str, Any]], dict[str, Any]]
     materialize: Callable[[], None]
     audit: Callable[[str, dict[str, Any]], None] | None = None
     demo_slot_dir: Callable[[], Path] | None = None
-    # read_plan_data_file is DB-first (see app_core._read_plan_data_file) --
-    # correct for the client_data.csv / TEXT_BACKUP_FILES restore paths above,
-    # which is what it was written for. But the Plan Data grid's Save Changes
-    # (config_service.update_config_rows_payload) writes ordinary plan-data
-    # fields (household, income, holdings, ...) straight to the on-disk CSV
-    # mirror and never touches the DB row -- so during a demo, DB-first reads
-    # can miss a field the advisor just edited on screen. Capture needs the
-    # disk mirror, the same thing the grid reads and writes, or an edit made
-    # through the ordinary UI during a demo would silently be dropped from
-    # the slot. Defaulted so existing constructions/tests are unaffected;
-    # falls back to read_plan_data_file when not supplied.
+    # read_plan_data_file is DB-first (see app_core._read_plan_data_file) -- correct for the
+    # TEXT_BACKUP_FILES restore path above. Capture reads the on-disk copy, the same thing the
+    # flat-file editors write, or an edit made during a demo could be dropped from the slot.
+    # Defaulted so existing constructions/tests are unaffected; falls back to
+    # read_plan_data_file when not supplied.
     read_plan_data_disk_file: Callable[[str], str | None] | None = None
+    # Runs after every plan file swap (demo open and demo exit), as in PlanFileService: brings
+    # the rows of the plan that just became active to the current key names.
+    migrate: Callable[[Path], Any] | None = None
 
 
 class DemoPlanService:
@@ -105,13 +113,15 @@ class DemoPlanService:
             self.context.audit(event, details or {})
 
     def _backup_path(self) -> Path:
+        """The pre-demo copy of the plan file: its existence is what ``is_active`` means."""
+        return Path(str(self.context.plan_db()) + ".before_demo")
+
+    def _legacy_backup_path(self) -> Path:
+        """The pre-demo copy of the legacy local database (the flat datasets' ``client_files``)."""
         return Path(str(self.context.sqlite_db()) + ".before_demo")
 
     def _file_backup_path(self, name: str) -> Path:
         return self.context.sqlite_db().parent / f"{name}.before_demo"
-
-    def _client_data_backup_path(self) -> Path:
-        return self._file_backup_path(CLIENT_DATA_CSV)
 
     def _slot_dir(self) -> Path:
         if self.context.demo_slot_dir is not None:
@@ -140,8 +150,10 @@ class DemoPlanService:
             return
         try:
             conn = sqlite3.connect(str(db_path))
-            conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
-            conn.close()
+            try:
+                conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            finally:
+                conn.close()
         except Exception:
             pass
 
@@ -153,19 +165,32 @@ class DemoPlanService:
         marker = self._read_marker() if active else {}
         return {"success": True, "active": active, "opened_at": marker.get("opened_at")}
 
+    def _seed_plan_file(self, slot_dir: Path, demo_dir: Path, dest: Path) -> str:
+        """Build the demo plan file at ``dest``: a copy of the slot's plan file, else the
+        ``input/demo`` CSV set read through the importer. Returns "slot" or "demo"."""
+        slot_plan = slot_dir / SLOT_PLAN_FILE
+        if slot_plan.is_file():
+            copy_sqlite_file(slot_plan, dest)
+            return "slot"
+        if not build_plan_file_from_csv_folder(dest, demo_dir):
+            raise FileNotFoundError(f"no demo plan rows found in {demo_dir}")
+        return "demo"
+
     def open_demo_payload(self) -> JsonDict:
         backup = self._backup_path()
+        plan_db = Path(self.context.plan_db())
         dest = Path(self.context.sqlite_db())
         if not backup.exists():
-            # First open this session: snapshot the real DB (and the
-            # disk-only client_data.csv, which the DB backup can't cover)
-            # before touching anything. If a backup is already present, a
-            # demo is already active -- re-applying demo files below must
-            # not overwrite either backup.
+            # First open this session: snapshot the real plan file and legacy DB (and the
+            # disk-only text files) before touching anything. If a backup is already present,
+            # a demo is already active -- re-applying demo files below must not overwrite
+            # any backup.
+            ensure_plan_file(plan_db)  # a fresh workspace: an empty plan to back up
+            copy_sqlite_file(plan_db, backup)
             if dest.exists():
                 self._checkpoint_sqlite(dest)
-                shutil.copy2(str(dest), str(backup))
-            for name in (CLIENT_DATA_CSV, *TEXT_BACKUP_FILES):
+                shutil.copy2(str(dest), str(self._legacy_backup_path()))
+            for name in TEXT_BACKUP_FILES:
                 try:
                     real_content = self.context.read_plan_data_file(name)
                     if real_content is not None:
@@ -185,6 +210,21 @@ class DemoPlanService:
         slot_dir = self._slot_dir()
         written: list[dict[str, Any]] = []
         skipped: list[str] = []
+
+        # The plan rows: build the demo plan file beside the active one and swap it in.
+        fd, tmp_name = tempfile.mkstemp(dir=str(plan_db.parent), prefix=plan_db.name + ".", suffix=".demo")
+        os.close(fd)
+        tmp = Path(tmp_name)
+        try:
+            plan_source = self._seed_plan_file(slot_dir, demo_dir, tmp)
+            replaced = replace_active_db(tmp, plan_db, required_tables=PLAN_FILE_TABLES, validate=validate_plan_file,
+                                         migrate=self.context.migrate)
+        finally:
+            tmp.unlink(missing_ok=True)
+        if not replaced.get("success"):
+            raise RuntimeError(replaced.get("error") or "Could not apply the demo plan")
+        written.append({"name": plan_db.name, "path": str(plan_db), "bytes": plan_db.stat().st_size, "source": plan_source})
+
         for name in self._demo_file_names():
             # Prefer the persistent slot per file, not per directory -- a
             # fixture added to input/demo/ in a later release must still be
@@ -206,10 +246,6 @@ class DemoPlanService:
             self.context.ensure_user_ui_plan_data_rows()
         except Exception as exc:
             self._audit("demo_plan_ui_row_warning", {"error": str(exc)})
-        try:
-            self.context.sync_config_backends()
-        except Exception as exc:
-            self._audit("demo_plan_sync_warning", {"error": str(exc)})
 
         self._audit("demo_plan_opened", {"files": [w["name"] for w in written], "skipped": skipped})
         return {"success": True, "files": written, "skipped": skipped}
@@ -224,6 +260,11 @@ class DemoPlanService:
         otherwise), so this never runs against a real (non-demo) plan."""
         slot_dir = self._slot_dir()
         read_disk = self.context.read_plan_data_disk_file or self.context.read_plan_data_file
+        try:
+            slot_dir.mkdir(parents=True, exist_ok=True)
+            copy_sqlite_file(self.context.plan_db(), slot_dir / SLOT_PLAN_FILE)
+        except Exception as exc:
+            self._audit("demo_plan_capture_warning", {"file": SLOT_PLAN_FILE, "error": str(exc)})
         for name in self._demo_file_names():
             try:
                 content = read_disk(name)
@@ -257,7 +298,9 @@ class DemoPlanService:
 
         self._capture_demo_slot()
 
-        result = self.context.load_saved_db({"path": str(backup)})
+        plan_db = Path(self.context.plan_db())
+        result = replace_active_db(backup, plan_db, required_tables=PLAN_FILE_TABLES, validate=validate_plan_file,
+                                  migrate=self.context.migrate)
         if not result.get("success"):
             self._audit("demo_plan_restore_failed", {"error": result.get("error")})
             return {
@@ -265,41 +308,21 @@ class DemoPlanService:
                 "error": result.get("error") or "Could not restore your plan.",
                 "restored": False,
             }
+        legacy_backup = self._legacy_backup_path()
+        if legacy_backup.exists():
+            legacy = replace_active_db(legacy_backup, Path(self.context.sqlite_db()))
+            if not legacy.get("success"):
+                self._audit("demo_plan_restore_legacy_warning", {"error": legacy.get("error")})
+            else:
+                try:
+                    legacy_backup.unlink()
+                except Exception:
+                    pass
 
         try:
             self.context.materialize()
         except Exception as exc:
             self._audit("demo_plan_materialize_warning", {"error": str(exc)})
-
-        client_data_backup = self._client_data_backup_path()
-        if client_data_backup.exists():
-            try:
-                real_client_data = client_data_backup.read_text(encoding="utf-8")
-                self.context.write_plan_data_file(CLIENT_DATA_CSV, real_client_data)
-                # client_data.json/.yaml are derived from client_data.csv --
-                # regenerate them now that the real CSV is back, or they'd
-                # keep showing demo values until the next unrelated save.
-                sync_result = self.context.sync_config_backends() or {}
-                derived = sync_result.get("derived") or {}
-                # sync_config_backends() only rewrites the derived files on
-                # disk. But _read_plan_data_file seeds a DB-cached copy of a
-                # file the first time anything GETs it while it's missing
-                # from the DB -- so if client_data.json/.yaml was ever read
-                # while demo content was still on disk (e.g. a page open
-                # mid-demo), the DB now holds a stale demo copy a disk-only
-                # rewrite can't reach. Push the regenerated content through
-                # the real write path too so any such cache entry is
-                # overwritten with the restored data.
-                for derived_name in ("client_data.json", "client_data.yaml"):
-                    derived_path = derived.get(derived_name)
-                    if derived_path and Path(derived_path).exists():
-                        self.context.write_plan_data_file(derived_name, Path(derived_path).read_text(encoding="utf-8"))
-            except Exception as exc:
-                self._audit("demo_plan_client_data_restore_warning", {"error": str(exc)})
-            try:
-                client_data_backup.unlink()
-            except Exception:
-                pass
 
         # Files outside PLAN_DATA_CSV_FILES that materialize() cannot bring
         # back -- restore them from the text backup taken on open, or the

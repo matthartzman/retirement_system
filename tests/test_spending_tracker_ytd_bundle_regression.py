@@ -34,6 +34,7 @@ from datetime import date
 
 import src.module_catalog as mc
 from src import ytd_tracking as ytd
+from tests.plan_fixture import stage_plan_csv
 from src.reporting.workbook_common import OPTIONAL_MODULE_SHEETS
 from src.ytd_projection_blend import compute_current_year_overrides
 
@@ -89,19 +90,19 @@ def _cfg(**overrides):
 
 
 def _with_actuals(tmp_path):
-    (tmp_path / "client_spending.csv").write_text(
+    inp = stage_plan_csv(tmp_path, {"client_spending.csv": (
         "section,subsection,label,value,units,notes\n"
-        'Cashflow,Spending,annual_spending_base_year,"$120,000",,\n',
-        encoding="utf-8",
-    )
+        'Cashflow,Spending,annual_spending_base_year,"$120,000",,\n'
+    )})
     ytd.import_transactions(
-        tmp_path,
+        inp,
         "Date,Merchant,Category,Account,Original Statement,Notes,Amount,Tags,Owner\n"
         "2026-02-01,Employer,Paychecks,Checking,Bank,,50000,,Household\n"
         "2026-02-01,Grocery,Groceries,Checking,Bank,,-40000,,Household\n",
         mode="replace",
         today=date(2026, 7, 2),
     )
+    return inp
 
 
 def test_the_module_declares_that_it_moves_the_projection():
@@ -112,9 +113,9 @@ def test_the_module_declares_that_it_moves_the_projection():
 def test_tracker_on_blends_real_actuals_into_the_current_year(tmp_path):
     """The control: without this the assertion below could pass on a plan whose
     blend never fired for an unrelated reason."""
-    _with_actuals(tmp_path)
+    inp = _with_actuals(tmp_path)
     overrides = compute_current_year_overrides(
-        _cfg(opt={PARENT: True}), tmp_path, today=date(2026, 7, 2))
+        _cfg(opt={PARENT: True}), inp, today=date(2026, 7, 2))
     assert overrides["ytd_blend_applied"]["flow_blend_enabled"] is True
     assert overrides["ytd_blend_applied"]["flows_blended"] is True
     assert "ytd_blend_earned_override" in overrides
@@ -126,9 +127,9 @@ def test_tracker_off_suppresses_the_flow_blend_but_keeps_growth_proration(tmp_pa
     date math with no real-data blending, and this module's own docstring says
     it always applies. A module toggle that silently stopped it would change a
     number for a reason no user asked about."""
-    _with_actuals(tmp_path)
+    inp = _with_actuals(tmp_path)
     c = _cfg(opt={PARENT: False})
-    overrides = compute_current_year_overrides(c, tmp_path, today=date(2026, 7, 2))
+    overrides = compute_current_year_overrides(c, inp, today=date(2026, 7, 2))
 
     assert overrides["ytd_blend_applied"]["flow_blend_enabled"] is False
     assert overrides["ytd_blend_applied"]["flows_blended"] is False
@@ -146,16 +147,16 @@ def test_the_two_suppression_reasons_are_told_apart(tmp_path):
     `ytd_blend_enabled = FALSE`, so that string was hardcoded there. Two
     reasons reach that branch now; telling a household that never touched that
     field to go change it would send them to the wrong screen."""
-    _with_actuals(tmp_path)
+    inp = _with_actuals(tmp_path)
 
     by_setting = compute_current_year_overrides(
         _cfg(ytd_blend_enabled=False, opt={PARENT: True}),
-        tmp_path, today=date(2026, 7, 2))["ytd_blend_applied"]
+        inp, today=date(2026, 7, 2))["ytd_blend_applied"]
     assert by_setting["flow_blend_skipped_by_user_choice"] is True
     assert by_setting["flow_blend_skipped_by"] == "ytd_blend_enabled"
 
     by_module = compute_current_year_overrides(
-        _cfg(opt={PARENT: False}), tmp_path, today=date(2026, 7, 2))["ytd_blend_applied"]
+        _cfg(opt={PARENT: False}), inp, today=date(2026, 7, 2))["ytd_blend_applied"]
     assert by_module["flow_blend_skipped_by_user_choice"] is True
     assert by_module["flow_blend_skipped_by"] == "module_off"
 
@@ -165,13 +166,13 @@ def test_the_engine_gate_reads_through_the_accessor_not_a_raw_opt_lookup(tmp_pat
     have reintroduced: a raw `c['opt']` read skips the env overrides and the
     prerequisite auto-selection that `module_enabled()` applies. Exercised
     through the override the raw read would have ignored."""
-    _with_actuals(tmp_path)
+    inp = _with_actuals(tmp_path)
     import os
 
     os.environ["RETIREMENT_SYSTEM_FORCE_DISABLE_MODULES"] = PARENT
     try:
         meta = compute_current_year_overrides(
-            _cfg(opt={PARENT: True}), tmp_path, today=date(2026, 7, 2)
+            _cfg(opt={PARENT: True}), inp, today=date(2026, 7, 2)
         )["ytd_blend_applied"]
         assert meta["flow_blend_enabled"] is False, (
             "FORCE_DISABLE did not reach the blend -- the site is reading the "

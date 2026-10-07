@@ -113,6 +113,7 @@ def check_default_workspace(exe: Path, env: dict[str, str]) -> None:
         assert pkg not in sec.parents, f"secrets landed inside the bundle: {info}"
         assert sec.is_file(), f"secrets file was not written: {sec}"
         assert (ws / "input" / "client_data.csv").is_file(), "default workspace was not seeded from bundled demo"
+        assert (ws / "plan.rpx").is_file(), "default workspace plan file was not seeded from bundled demo"
         print(f"    default workspace ok: {ws}")
     finally:
         shutil.rmtree(home, ignore_errors=True)
@@ -147,6 +148,7 @@ def check_server(exe: Path, env: dict[str, str], workspace: Path) -> None:
             body = resp.read().decode("utf-8", "replace").lower()
             assert resp.status == 200 and "<html" in body, "/ did not serve the bundled frontend"
         assert (workspace / "input" / "client_data.csv").is_file(), "workspace was not seeded from bundled demo"
+        assert (workspace / "plan.rpx").is_file(), "workspace plan file was not seeded from bundled demo"
         print(f"    server ok: /api/status keys={sorted(status)[:6]}")
     finally:
         proc.terminate()

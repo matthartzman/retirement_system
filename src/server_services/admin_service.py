@@ -6,13 +6,8 @@ import json
 from pathlib import Path
 from typing import Any, Iterable
 
-from ..plan_data_registry import SYSTEM_REFERENCE_FILES, client_data_csv_files
+from ..plan_data_registry import SYSTEM_REFERENCE_FILES
 from src.plan_file_io import atomic_write, plan_file_lock, write_text_atomic
-
-ADMIN_PLAN_DATA_FILES = set(client_data_csv_files()) | {
-    "client_holdings.csv", "client_liabilities.csv", "target_allocation.csv",
-}
-
 
 # ARC-006 / WI-206: provider API keys belong in the local secret store, never
 # in the tracked system_config.csv (which also lands in the admin CSV backup
@@ -88,10 +83,7 @@ def admin_csv_path(kind: str, file_name: str, *, base_dir: Path, system_config_p
         if name != "system_config.csv":
             raise ValueError("Unsupported system CSV file")
         return system_config_path
-    if kind_norm == "plan":
-        if name not in ADMIN_PLAN_DATA_FILES:
-            raise ValueError("Unsupported Plan Data CSV file")
-        return base_dir / "input" / name
+    # No "plan" kind: the plan data is the plan file's rows (WP4.5), edited in the app.
     if kind_norm == "reference":
         return reference_file_path(base_dir, name)
     raise ValueError("Unsupported admin CSV kind")
@@ -338,9 +330,6 @@ def local_mode_updates() -> dict[tuple[str, str, str], str]:
     return {
         ("System Configuration", "Runtime", "app_mode"): "LOCAL",
         ("System Configuration", "Dashboard", "host"): "127.0.0.1",
-        ("System Configuration", "Runtime", "config_file"): "input/client_data.csv",
-        ("System Configuration", "Runtime", "json_config_file"): "input/client_data.json",
-        ("System Configuration", "Runtime", "yaml_config_file"): "input/client_data.yaml",
         ("System Configuration", "Runtime", "output_dir"): "output",
     }
 

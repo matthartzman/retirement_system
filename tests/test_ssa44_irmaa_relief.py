@@ -91,10 +91,11 @@ class Ssa44IrmaaReliefTests(unittest.TestCase):
         text2 = "\n".join(str(cell.value) for row in ws2.iter_rows() for cell in row if cell.value is not None)
         self.assertNotIn("SSA-44", text2)
 
-    def test_backfill_entry_wires_ssa44_rows_into_client_policy_csv(self):
+    def test_backfill_entry_wires_ssa44_rows_into_the_plan(self):
         import src.server.app_core as app_core
         entry = next(e for e in app_core.PLAN_DATA_BACKFILL_ENTRIES if e.rows is app_core.SSA44_UI_PLAN_DATA_ROWS)
-        self.assertEqual(entry.file_name, "client_policy.csv")
+        self.assertEqual({r[0] for r in entry.rows}, {"Model Constants"})
+        self.assertIsNone(entry.anchor)  # the end of the Model Constants section
 
 
 if __name__ == "__main__":

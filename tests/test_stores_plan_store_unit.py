@@ -180,6 +180,51 @@ def test_insert_validation(store):
     assert store.sections() == []
 
 
+def test_find_rows_and_set_value_write_the_effective_row(store):
+    """WP4.1 keyed access: a repeated key's effective row is the last in display order."""
+    a = store.insert_row("Scenarios", subsection="Base", label="mode", value="x")
+    b = store.insert_row("Scenarios", subsection="Base", label="mode", value="y")
+    assert [r["row_id"] for r in store.find_rows("Scenarios", "Base", "mode")] == [a, b]
+    assert store.find_rows("Scenarios", "Base", "nope") == []
+    assert store.set_value("Scenarios", "Base", "mode", "z") == b
+    assert store.get_row(a)["value"] == "x" and store.get_row(b)["value"] == "z"
+    store.set_row(a, sort_order=5)  # a now displays last, so it becomes the effective row
+    assert store.set_value("Scenarios", "Base", "mode", "w", notes="n") == a
+    assert store.get_row(a)["notes"] == "n" and store.get_row(a)["units"] == ""
+    new = store.set_value("Plan Settings", "Profile", "plan_tier", "simple", units="choice")
+    assert store.get_row(new) == {"row_id": new, "section": "Plan Settings", "subsection": "Profile",
+                                  "label": "plan_tier", "value": "simple", "units": "choice", "notes": "",
+                                  "sort_order": 0}
+    with pytest.raises(ValidationError):
+        store.set_value("Plan Settings", "Profile", "plan_tier", 3)
+    with pytest.raises(ValidationError):
+        store.set_value("", "Profile", "plan_tier", "x")
+
+
+def test_set_value_inside_a_transaction_rolls_back_with_it(store):
+    with pytest.raises(RuntimeError):
+        with store.transaction():
+            store.set_value("S", "", "k", "1")
+            raise RuntimeError("boom")
+    assert store.find_rows("S", "", "k") == []
+
+
+def test_sectioned_data_is_the_load_csv_shape(store):
+    store.insert_row("B", label="b", value=" 2 ")
+    store.insert_row("A", subsection="s", label="x", value="1")
+    store.insert_row("A", subsection="s", label="y", value="2")
+    store.insert_row("A", subsection="s", label="x", value="3")       # repeated key: last wins
+    store.insert_row("A", subsection="t", label="", value="ignored")  # no label: skipped
+    store.insert_row("#C", label="z", value="ignored")               # comment section: skipped
+    first_c = store.insert_row("C", label="c", value="0", sort_order=0)
+    view = store.sectioned_data()
+    assert view == {"B": {"": {"b": "2"}}, "A": {"s": {"x": "3", "y": "2"}}, "C": {"": {"c": "0"}}}
+    assert list(view) == ["B", "A", "C"]  # sections in creation order, not by name or sort_order
+    assert list(view["A"]["s"]) == ["x", "y"]
+    store.delete_row(first_c)
+    assert "C" not in store.sectioned_data()
+
+
 def test_row_ids_are_never_reused(store):
     a = store.insert_row("S")
     b = store.insert_row("S")
@@ -416,19 +461,27 @@ def test_error_hierarchy_and_db_compat():
     assert issubclass(NotFoundError, LookupError) and issubclass(ValidationError, ValueError)
 
 
-def test_product_code_uses_only_the_reference_side_of_the_stores_yet():
-    """WP3 switched product code to the read-only reference getters; the plan/app stores
-    (PlanStore, AppStore, db helpers) stay unused by product code until WP4/WP8."""
+def test_product_code_reaches_the_plan_store_only_through_the_active_plan_module():
+    """WP3 switched product code to the read-only reference getters. WP4.2 gave PlanStore
+    its first consumers: the active plan accessor (src/active_plan.py), the at-rest
+    row migration of a plan file (src/plan_data_migration.py) and the plan file replace
+    validation (src/plan_db_replace.py). Everything else goes through src/active_plan.py. AppStore and the db helpers stay unused until WP8."""
     pat = re.compile(r"^\s*(from\s+(src\.stores|\.+stores)(\.\w+)?\s+import\s+[^\n]+|import\s+src\.stores\b[^\n]*)", re.M)
     allowed = ("ref_getters", "ref_access", "ref_data")
+    # plan_db_replace opens a candidate plan file as a PlanStore to validate it before a swap (WP4.5)
+    plan_store_users = {"src/active_plan.py", "src/plan_data_migration.py", "src/plan_db_replace.py"}
     offenders = []
     for f in (ROOT / "src").rglob("*.py"):
         if f.relative_to(ROOT / "src").parts[:1] == ("stores",):
             continue
+        rel = f.relative_to(ROOT).as_posix()
         for m in pat.finditer(f.read_text(encoding="utf-8")):
             line = m.group(0)
-            if not any(a in line for a in allowed):
-                offenders.append(f"{f.relative_to(ROOT)}: {line.strip()}")
+            if any(a in line for a in allowed):
+                continue
+            if rel in plan_store_users and re.search(r"import\s+PlanStore\s*$", line.strip()):
+                continue
+            offenders.append(f"{rel}: {line.strip()}")
     assert offenders == []
 
 

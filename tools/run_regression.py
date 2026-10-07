@@ -295,7 +295,7 @@ pr_text = file_text("src/server/plan_routes.py")
 check("PlanRoutes: /api/plan/save-as defined", '"/api/plan/save-as"' in pr_text)
 check("PlanRoutes: /api/plan/load-file defined", '"/api/plan/load-file"' in pr_text)
 check("PlanRoutes: plan_save_as WAL checkpoint", "wal_checkpoint" in pr_text)
-check("PlanRoutes: plan_load_file checks file exists", "not src.exists()" in pr_text)
+check("PlanRoutes: plan_load_file checks file exists", "not src.exists()" in file_text("src/server_services/plan_file_service.py"))
 
 # ---------------------------------------------------------------------------
 # 15. pywebview bridge
