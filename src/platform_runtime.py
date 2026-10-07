@@ -137,15 +137,9 @@ def seed_frozen_workspace() -> bool:
 
 
 def _plan_file_has_rows(plan_file: Path) -> bool:
-    """True when ``plan_file`` exists, is an initialised plan and holds at least one row."""
-    if not plan_file.is_file():
-        return False
-    from .stores import PlanStore  # noqa: PLC0415 - keep this module import-free at load time
-    try:
-        with PlanStore.open(plan_file, create=False, readonly=True) as store:
-            return bool(store.all_rows())
-    except LookupError:  # not an initialised plan file
-        return False
+    """True when ``plan_file`` is an initialised plan holding at least one row."""
+    from .active_plan import plan_file_has_rows  # noqa: PLC0415 - keep this module import-free at load time
+    return plan_file_has_rows(plan_file)
 
 
 def workspace_subdir(name: str, *, create: bool = False) -> Path:

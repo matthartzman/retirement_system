@@ -563,7 +563,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/plan_overrides.py` | `allocation_policy`, `optimization` | — |
 | `src/planning_engines.py` | `after_tax`, `core`, `data_io`, `hsa_schedule`, `observability`, `optimization`, `person_labels`, `plan_config`, `projection_stages`, `spending_budget_resolver`, `stores.ref_getters.mortality_real_loss`, `tax_kernel`, `tax_law`, `vectorized_fast_core` | `numpy` |
 | `src/planning_workbench.py` | — | — |
-| `src/platform_runtime.py` | `active_plan`, `stores` | — |
+| `src/platform_runtime.py` | `active_plan` | — |
 | `src/portfolio_analytics.py` | `config_backend`, `sqlite_util`, `stores.ref_getters.security_master` | — |
 | `src/projection_pipeline.py` | `observability`, `planning_engines` | — |
 | `src/qlac_optimizer.py` | — | — |
