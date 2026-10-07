@@ -143,7 +143,9 @@ def test_part_files_deleted_or_emptied_leave_client_files(ws):
     assert "client_household.csv" in files
     # a load's materialize step cannot bring them back
     from src.config_backend import materialize_workspace_files
-    materialize_workspace_files(file_names=["client_business.csv", "client_income.csv"], overwrite_existing=True)
+    # this workspace's database (the default is the session workspace's, fixed at import)
+    materialize_workspace_files(db_path=ws.root / "local_state" / "retirement_system_v10.db",
+                                file_names=["client_business.csv", "client_income.csv"], overwrite_existing=True)
     assert not (ws.input_dir / "client_business.csv").exists()
 
 

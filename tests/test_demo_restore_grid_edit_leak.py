@@ -25,6 +25,7 @@ import shutil
 import sqlite3
 from pathlib import Path
 
+from src import active_plan
 from src.config_backend import get_client_file, materialize_workspace_files, set_client_file
 from src.server_services.config_service import ConfigService, ConfigServiceContext
 
@@ -90,13 +91,12 @@ def _make_config_service(db_path: Path, disk_dir: Path) -> ConfigService:
         version="9",
         base_dir=disk_dir,
         csv_path=disk_dir / "client_data.csv",
-        plan_data_csv_files=[FILE_NAME],
         client_data_csv_file_set={FILE_NAME},
         plan_data_path=lambda n, *a, **k: disk_dir / n,
-        client_csv_rows=lambda: [
-            {"row_index": 0, "source_file": FILE_NAME, "source_row_index": 0, "columns": []},
-            {"row_index": 1, "source_file": FILE_NAME, "source_row_index": 1, "columns": []},
-        ],
+        # WP4.3: the grid writes the plan rows and writes the edit back into the CSV set
+        # through write_plan_data_file, which is the path under test here
+        edit_plan=lambda: active_plan.edit_active_plan(
+            disk_dir, lambda n, c: _write_plan_data_file(n, c, db_path=db_path, disk_dir=disk_dir)),
         csv_rows_payload=lambda: {"rows": [], "schema_count": 0},
         read_schema_map=lambda: {},
         write_plan_data_file=lambda n, c: _write_plan_data_file(n, c, db_path=db_path, disk_dir=disk_dir),
@@ -109,6 +109,7 @@ def _make_config_service(db_path: Path, disk_dir: Path) -> ConfigService:
 
 def test_demo_grid_edit_does_not_survive_restore_of_real_plan(tmp_path, monkeypatch):
     monkeypatch.setenv("RETIREMENT_SYSTEM_WORKSPACE_ROOT", str(tmp_path))
+    monkeypatch.delenv(active_plan.PLAN_DB_ENV, raising=False)
 
     db_path = tmp_path / "retirement_system_v10.db"
     disk_dir = tmp_path / "input"
@@ -122,10 +123,13 @@ def test_demo_grid_edit_does_not_survive_restore_of_real_plan(tmp_path, monkeypa
         )
 
     (disk_dir / FILE_NAME).write_text(row("Placeholder"), encoding="utf-8")
+    active_plan.refresh_active_plan(disk_dir)
+    with active_plan.active_plan_store() as store:
+        row_id = store.find_rows("Household", "", "client_name")[0]["row_id"]
 
     # The advisor's real edit, made only through the grid-save path.
     result, status = service.update_config_rows_payload(
-        {"updates": [{"row_index": 1, "value": "Real Advisor Name"}]}, allow_csv_write=True
+        {"updates": [{"row_index": row_id, "value": "Real Advisor Name"}]}, allow_csv_write=True
     )
     assert status == 200 and result["success"]
 
@@ -145,7 +149,7 @@ def test_demo_grid_edit_does_not_survive_restore_of_real_plan(tmp_path, monkeypa
     # While "in the demo", the advisor edits the same field via the grid --
     # the exact repro step from the ticket.
     result, status = service.update_config_rows_payload(
-        {"updates": [{"row_index": 1, "value": "Accidental Demo Edit"}]}, allow_csv_write=True
+        {"updates": [{"row_index": row_id, "value": "Accidental Demo Edit"}]}, allow_csv_write=True
     )
     assert status == 200 and result["success"]
     assert "Accidental Demo Edit" in (disk_dir / FILE_NAME).read_text(encoding="utf-8")

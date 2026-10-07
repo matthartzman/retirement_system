@@ -37,6 +37,10 @@ def test_module_already_present_is_not_duplicated():
     assert matches[0]["value"] == "FALSE"  # untouched, not overwritten by `effective`
 
 
+def _no_plan_edit():
+    raise AssertionError("a GET of the config rows never edits the plan rows")
+
+
 def _csv_rows_from_file(path):
     """Minimal stand-in for app_core._csv_rows_payload: real row_index per
     row, in file order -- enough to prove a backfilled row gets one it can
@@ -79,10 +83,9 @@ def test_config_rows_payload_backfills_the_missing_toggle_onto_disk(tmp_path):
         version="9",
         base_dir=tmp_path,
         csv_path=csv_path,
-        plan_data_csv_files=["client_optional_functions.csv"],
         client_data_csv_file_set={"client_optional_functions.csv"},
         plan_data_path=lambda name, *a, **k: tmp_path / name,
-        client_csv_rows=lambda: [],
+        edit_plan=_no_plan_edit,
         csv_rows_payload=lambda: _csv_rows_from_file(csv_path),
         read_schema_map=lambda: {},
         write_plan_data_file=write_plan_data,
@@ -140,10 +143,9 @@ def _optional_functions_service(tmp_path, *, load_active_config, written):
         version="9",
         base_dir=tmp_path,
         csv_path=csv_path,
-        plan_data_csv_files=["client_optional_functions.csv"],
         client_data_csv_file_set={"client_optional_functions.csv"},
         plan_data_path=lambda name, *a, **k: tmp_path / name,
-        client_csv_rows=lambda: [],
+        edit_plan=_no_plan_edit,
         csv_rows_payload=lambda: _csv_rows_from_file(csv_path),
         read_schema_map=lambda: {},
         write_plan_data_file=write_plan_data,

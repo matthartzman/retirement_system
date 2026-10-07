@@ -10,13 +10,16 @@ Flask-free runtime.
 
 import csv
 import io
+from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
+from ..csv_exchange import PlanCsvError
 from ..roth_ui_build_guard import normalize_roth_csv_value
 from .. import allocation_policy as allocation_policy_mod
 from ..schema_registry import validate_rows as _schema_validate_rows_full
+from ..stores import NotFoundError
 
 JsonDict = dict[str, Any]
 AuditFn = Callable[[str, dict[str, Any] | None], None]
@@ -49,15 +52,24 @@ def backfill_optional_function_rows(rows: list[JsonDict], effective: dict[str, b
     return out
 
 
+class _Rejected(Exception):
+    """Rolls the grid's edit transaction back (a schema validation failure)."""
+
+    def __init__(self, errors: list[str]):
+        super().__init__("Plan Data validation failed")
+        self.errors = errors
+
+
 @dataclass(frozen=True)
 class ConfigServiceContext:
     version: str
     base_dir: Path
     csv_path: Path
-    plan_data_csv_files: list[str]
     client_data_csv_file_set: set[str]
     plan_data_path: Callable[..., Path]
-    client_csv_rows: Callable[[], list[dict[str, Any]]]
+    # WP4.3: the grid writes the active plan's rows by row_id through this edit context
+    # (app_core._edit_active_plan: one transaction, touched keys written back to the CSV set)
+    edit_plan: Callable[[], AbstractContextManager[Any]]
     csv_rows_payload: Callable[[], dict[str, Any]]
     read_schema_map: Callable[[], dict[Any, dict[str, Any]]]
     write_plan_data_file: Callable[[str, str], Path]
@@ -450,99 +462,63 @@ class ConfigService:
             self._audit("qlac_recommendation_failed", {"error": str(exc)})
             return {"success": False, "error": str(exc)}, 500
 
-    def _validate_all_workspace_plan_rows(self, file_rows: dict[str, list[list[str]]]) -> list[str]:
-        combined: list[dict[str, str]] = []
-        names = [n for n in self.context.plan_data_csv_files if n != "client_holdings.csv"]
-        for name in names:
-            rows = file_rows.get(name)
-            if rows is None:
-                p = self.context.plan_data_path(name)
-                if not p.exists():
-                    continue
-                with p.open(newline="", encoding="utf-8-sig") as f:
-                    rows = list(csv.reader(f))
-            if not rows:
-                continue
-            header = list(rows[0])
-            if not {"section", "subsection", "label", "value"}.issubset(set(header)):
-                continue
-            for raw in rows[1:]:
-                padded = list(raw) + [""] * max(0, len(header) - len(raw))
-                combined.append({header[i]: padded[i] if i < len(padded) else "" for i in range(len(header))})
-        return _schema_validate_rows_full(combined)
-
     def update_config_rows_payload(self, body: dict[str, Any], *, allow_csv_write: bool) -> tuple[JsonDict, int]:
+        """Save grid edits: ``updates`` = ``[{row_index, value}]``, ``row_index`` = ``row_id`` (WP4.3).
+
+        One transaction on the active plan's rows (``context.edit_plan``): each value is
+        normalized as before (dates for date fields, canonical Roth values; stripped, as
+        every reader strips it), the whole plan is validated against the field schema, and
+        a validation failure rolls every update back (422). An unknown ``row_index`` (the
+        row was deleted, or the plan was reloaded since the grid read it) is skipped and
+        reported. The edit context writes the changed keys back into the plan CSV set for
+        the remaining CSV writers. ``sync`` also runs ``sync_config_backends`` (the
+        JSON/YAML mirrors), as before.
+        """
         if not allow_csv_write:
             return {"success": False, "error": "CSV writes are disabled"}, 403
         updates = body.get("updates") or []
         if not isinstance(updates, list):
             return {"success": False, "error": "updates must be a list"}, 400
 
-        row_map = {int(e["row_index"]): e for e in self.context.client_csv_rows()}
-        file_rows: dict[str, list[list[str]]] = {}
+        schema = self.context.read_schema_map()
         updated = 0
         skipped: list[dict[str, Any]] = []
+        try:
+            with self.context.edit_plan() as edit:
+                store = edit.store
+                for u in updates:
+                    try:
+                        row_id = int(u.get("row_index"))
+                        row = store.get_row(row_id)
+                    except NotFoundError:
+                        skipped.append({"row_index": row_id, "reason": "out of range or stale row index"})
+                        continue
+                    except Exception:
+                        skipped.append({"update": u, "reason": "invalid row_index"})
+                        continue
+                    section, subsection, label = row["section"], row["subsection"], row["label"]
+                    value = str(u.get("value", ""))
+                    spec = schema.get((section, subsection, label), {})
+                    if (spec.get("type") or "").lower() == "date" or row["units"].strip().lower() == "date":
+                        value = self.context.normalize_date_for_csv(value)
+                    value = normalize_roth_csv_value(section, subsection, label, value).strip()
+                    store.set_row(row_id, value=value)
+                    updated += 1
+                errors = _schema_validate_rows_full(store.all_rows())
+                if errors:
+                    raise _Rejected(errors)
+            revision = edit.revision
+        except _Rejected as exc:
+            self._audit("config_rows_validation_failed", {"updated_attempted": updated, "error_count": len(exc.errors)})
+            return {"success": False, "error": "Plan Data validation failed", "errors": exc.errors[:50]}, 422
+        except PlanCsvError as exc:
+            self._audit("config_rows_write_back_failed", {"error": str(exc)})
+            return {"success": False, "error": f"Plan Data could not be saved: {exc}"}, 409
 
-        def rows_for_file(name: str) -> list[list[str]]:
-            if name not in file_rows:
-                path = self.context.plan_data_path(name)
-                with path.open(newline="", encoding="utf-8-sig") as f:
-                    file_rows[name] = list(csv.reader(f))
-            return file_rows[name]
-
-        for u in updates:
-            try:
-                idx = int(u.get("row_index"))
-            except Exception:
-                skipped.append({"update": u, "reason": "invalid row_index"})
-                continue
-            entry = row_map.get(idx)
-            if not entry:
-                skipped.append({"row_index": idx, "reason": "out of range or stale row index"})
-                continue
-            source_file = str(entry["source_file"])
-            source_idx = int(entry["source_row_index"])
-            rows = rows_for_file(source_file)
-            if source_idx <= 0 or source_idx >= len(rows):
-                skipped.append({"row_index": idx, "reason": "out of range or header row"})
-                continue
-            row = rows[source_idx]
-            while len(row) < 6:
-                row.append("")
-            section = str(row[0] or "").strip()
-            label = str(row[2] or "").strip()
-            if section.startswith("#") or not label:
-                skipped.append({"row_index": idx, "reason": "comment/blank row is not editable"})
-                continue
-            value = str(u.get("value", ""))
-            spec = self.context.read_schema_map().get((str(row[0]).strip(), str(row[1]).strip(), str(row[2]).strip()), {})
-            if (spec.get("type") or "").lower() == "date" or str(row[4] if len(row) > 4 else "").strip().lower() == "date":
-                value = self.context.normalize_date_for_csv(value)
-            value = normalize_roth_csv_value(row[0], row[1], row[2], value)
-            row[3] = value
-            updated += 1
-
-        validation_errors = self._validate_all_workspace_plan_rows(file_rows)
-        if validation_errors:
-            self._audit("config_rows_validation_failed", {"updated_attempted": updated, "error_count": len(validation_errors)})
-            return {"success": False, "error": "Plan Data validation failed", "errors": validation_errors[:50]}, 422
-
-        # Route through write_plan_data_file (not the raw write_client_rows) so the
-        # SQLite client_files row stays in sync with disk -- callers that read this
-        # file DB-first (e.g. demo-mode restore, _read_plan_data_file) would
-        # otherwise keep serving the pre-edit value after a grid save (#240).
-        for source_file, rows in file_rows.items():
-            buf = io.StringIO(newline="")
-            # write_plan_data_file's disk write goes through Path.write_text(),
-            # which translates "\n" to os.linesep -- an embedded "\r\n" from the
-            # csv module's default dialect would double up into "\r\r\n" on
-            # Windows, so force "\n" line endings (matches _csv_write_rows).
-            csv.writer(buf, lineterminator="\n").writerows(rows)
-            self.context.write_plan_data_file(source_file, buf.getvalue())
-
-        self._audit("config_rows_saved", {"updated": updated, "skipped": len(skipped), "files": sorted(file_rows)})
+        self._audit("config_rows_saved", {"updated": updated, "skipped": len(skipped), "revision": revision})
         sync_result = None
         if body.get("sync"):
             sync_result = self.context.sync_config_backends()
             self._audit("config_backends_synced", sync_result)
-        return {"success": True, "updated": updated, "skipped": skipped, "sync": sync_result}, 200
+        return {"success": True, "updated": updated, "skipped": skipped, "sync": sync_result,
+                "revision": revision}, 200

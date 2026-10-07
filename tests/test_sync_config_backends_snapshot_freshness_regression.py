@@ -27,6 +27,9 @@ revert commit), so the "not slow" tier had no guard against it recurring.
 """
 from __future__ import annotations
 
+import pytest
+
+import src.server.app_core as app_core
 from src.active_plan import active_plan_store
 from src.config_backend import load_active_config
 from src.server import app
@@ -34,7 +37,20 @@ from src.server import app
 HEADERS = {"X-User-Role": "admin"}
 
 
-def test_sync_config_backends_keeps_the_plan_file_fresh():
+@pytest.fixture
+def own_workspace(tmp_path, monkeypatch):
+    """WP4.3: a workspace of this test's own. The shared session workspace is shared by
+    every xdist worker, and other tests save the same Home value concurrently."""
+    from tests.plan_fixture import make_plan
+    ws = make_plan(tmp_path / "ws")
+    monkeypatch.setenv("RETIREMENT_SYSTEM_WORKSPACE_ROOT", str(ws.root))
+    monkeypatch.delenv("RETIREMENT_SYSTEM_PLAN_DB", raising=False)
+    monkeypatch.delenv("RETIREMENT_SYSTEM_CONFIG_FILE", raising=False)
+    monkeypatch.setattr(app_core, "CSV_PATH", ws.input_dir / "client_data.csv")
+    return ws
+
+
+def test_sync_config_backends_keeps_the_plan_file_fresh(own_workspace):
     client = app.test_client()
 
     rows_resp = client.get("/api/config/rows", headers=HEADERS)

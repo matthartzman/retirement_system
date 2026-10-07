@@ -85,6 +85,6 @@ def test_retired_label_set_has_one_source():
     assert not hasattr(c3, "RETIRED_SCENARIO_HOME_LABELS")
     assert not hasattr(active_plan, "RETIRED_SCENARIO_HOME_LABELS")
     for module in (c3, active_plan):
-        assert "is_retired_scenario_home_row" in inspect.getsource(module)
+        assert "plan_label_rules" in inspect.getsource(module)
     assert plan_label_rules.is_retired_scenario_home_row("Scenarios", "Sell Home", "home_value")
     assert not plan_label_rules.is_retired_scenario_home_row("Scenarios", "Base", "home_value")
