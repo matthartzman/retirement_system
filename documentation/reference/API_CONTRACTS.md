@@ -49,6 +49,34 @@ Validation:
 - Invalid `updates` shape returns `400`.
 - Plan Data validation failures return `422` with `errors`; no update is written.
 
+GET also carries the Plan Features tier data (WP5.1):
+- `plan_profile`: `{tier, tier_stored, customized, label, differing}` from `module_catalog.plan_profile` (no tier row reads as `expert` with `tier_stored: false`; `differing` lists the switch keys whose stored state differs from the tier's preset; `label` is e.g. `Advanced (customized)`).
+- `tier_presets`: `{default, switchable, tiers: [{key, label, description, features}]}`, smallest tier first; `features` are the switch keys the tier turns on (cumulative).
+
+## `/api/plan/tier`
+
+Purpose: pick the plan's tier (WP5.1). Schema `plan_tier_v1`.
+
+POST request: `{"tier": "standard", "preview": true}`. `tier` is one of `simple`, `standard`, `advanced`, `expert`; `preview` (default false) makes it a dry run that writes nothing (needs only `read_config`).
+
+Response (both modes): `success`, `preview`, `tier`, `label`, `turn_on` (`[{key, name}]`), `turn_off` (`[{key, name, entered_rows, engine_participation}]`; `entered_rows` is null when the catalog declares no data section for the feature), `engine_ignored` (`[{key, name}]`, the engine-participating features turning off), `unchanged`. A preview adds `current` (the plan profile now); an apply adds `profile` (after) and `revision`. Applying writes `Plan Settings / Profile / plan_tier` and every switch that differs from the preset in one edit transaction; entered data is kept. Audit event `plan_tier_applied`.
+
+Validation: an unknown tier or a non-boolean `preview` returns `400`; nothing is written.
+
+## `/api/plan/feature`
+
+Purpose: override one feature switch (`module_catalog.set_feature`), e.g. a page switch that has no row yet. Schema `plan_feature_v1`.
+
+POST request: `{"key": "planning_workbench", "on": false}`. Response: `success`, `key`, `on`, `profile` (after), `revision`. An unknown key, a feature with no switch of its own, or a non-boolean `on` returns `400`. Audit event `plan_feature_set`.
+
+## `/api/plan/interview`
+
+Purpose: the plan interview (WP5.3). `GET` returns `{success, questions: [{id, text, kind, options?}]}` (`kind` is `choice` for the first question, `yes_no` for the rest). Schemas `plan_interview_questions_v1`, `plan_interview_v1`.
+
+POST request: `{"answers": {"detail": "standard", "heloc": true}, "apply": false}`. `detail` (a tier key) is required; the yes/no answers are optional booleans. Response: `success`, `applied`, `tier`, `label`, `extra_on` (switch keys the answers turn on beyond the tier preset, so a non-empty list makes the plan customized), `reasons` (`[{key, name, question}]`), `change` (the same shape as `/api/plan/tier`), and when applied `profile` and `revision`. Applying writes the tier preset and the extras in one edit transaction; entered data is kept. A missing or unknown answer, or a non-boolean `apply`, returns `400`. Audit event `plan_interview_applied`.
+
+`GET /api/config/rows` also carries `feature_suggestions`: `[{key, name, entered_rows, text}]`, the off features that hold entered data (`text` reads "Turn on HELOC? You have 3 rows entered for it."), and each row carries `min_tier` (WP5.2; empty for rows the field catalog does not list).
+
 ## Removed in WP4.5 (the CSV bridge)
 
 - `POST /api/config/sync` and the `sync` request flag / response key of the save endpoints: there is nothing to sync, the plan rows are the only store (the `config_sync_v1` contract is gone).

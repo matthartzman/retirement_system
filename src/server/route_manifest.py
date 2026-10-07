@@ -15,7 +15,7 @@ ROUTE_MODULES = {
         "/api/plan/demo-status", "/api/plan/open-demo", "/api/plan/reset-demo", "/api/plan/restore-current", "/api/plan/exit-snapshot",
         "/api/plan-data/blank", "/api/plan-data/files", "/api/plan-data/<path:file_name>",
     ],
-    "plan_config": ["/api/config/backends", "/api/config/rows", "/api/allocation-preview"],
+    "plan_config": ["/api/config/backends", "/api/config/rows", "/api/allocation-preview", "/api/plan/tier", "/api/plan/feature", "/api/plan/interview"],
     "pricing": ["/api/prices/refresh", "/api/prices/snapshots", "/api/prices/freeze", "/api/prices/unfreeze", "/api/prices/test-symbol", "/api/prices/test-symbol/start", "/api/prices/test-symbol/status/<job_id>"],
     "portfolio": ["/api/portfolio/drift"],
     "security": ["/api/secrets"],
