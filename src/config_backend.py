@@ -1,19 +1,18 @@
 from __future__ import annotations
-"""Local-only configuration backends for v11.
+"""Local-only configuration backend for v11.
 
-The plan rows are read from the active plan file (``plan.rpx``, ``src/active_plan.py``,
-WP4.2): ``load_active_config`` returns its sectioned view merged with the system
-configuration. The plan CSV set in ``input/`` is still what the writers edit until
-WP4.3-4.5 move them onto ``plan_rows``; ``app_core._sync_config_backends`` carries each
-write into the plan file. CSV/JSON/YAML are import/export adapters. Compatibility
-functions keep older route call sites working, but all identity/client arguments are
-ignored and resolved to the single local plan.
+The plan rows are read from the active plan file (``plan.rpx``, ``src/active_plan.py``):
+``load_active_config`` returns its sectioned view merged with the system configuration.
+Nothing mirrors plan data into CSV, JSON or YAML files any more (WP4.5); CSV import/export
+is ``csv_exchange`` (WP9). The legacy local database (``init_sqlite``) still holds the
+flat datasets' text (``client_files``: holdings, spending, YTD ...), audit events and build
+history until WP6/WP8. Compatibility functions keep older route call sites working, but all
+identity/client arguments are ignored and resolved to the single local plan.
 """
 
 import hashlib
 import json
 import os
-import sqlite3
 from pathlib import Path
 from typing import Dict, Tuple, Optional as _Optional, List as _List
 
@@ -27,9 +26,6 @@ from .plan_file_io import write_text_atomic
 # root on desktop and app-private storage on mobile.
 PROJECT_ROOT = platform_runtime.package_root()
 _WORKSPACE_ROOT = platform_runtime.workspace_root()
-DEFAULT_CSV = _WORKSPACE_ROOT / "input" / "client_data.csv"
-DEFAULT_JSON = _WORKSPACE_ROOT / "input" / "client_data.json"
-DEFAULT_YAML = _WORKSPACE_ROOT / "input" / "client_data.yaml"
 DEFAULT_DB = _WORKSPACE_ROOT / "local_state" / "retirement_system_v10.db"
 DEFAULT_CLIENTS_CSV = _WORKSPACE_ROOT / "local_state" / "local_plan_registry.csv"
 SettingMap = Dict[str, Dict[str, Dict[str, str]]]
@@ -41,22 +37,6 @@ ACTIVE_BACKEND = "SQLITE"
 
 def setting(data: SettingMap, section: str, subsection: str, label: str, default: str = "") -> str:
     return data.get(section, {}).get(subsection, {}).get(label, default)
-
-
-def save_json(data: SettingMap, path: str | Path = DEFAULT_JSON) -> Path:
-    p = Path(path); p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
-    return p
-
-
-def save_yaml(data: SettingMap, path: str | Path = DEFAULT_YAML) -> Path:
-    p = Path(path); p.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        import yaml  # type: ignore
-        p.write_text(yaml.safe_dump(data, sort_keys=True, allow_unicode=True), encoding="utf-8")
-    except Exception:
-        p.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
-    return p
 
 
 def _merge_system_config_sections(data: SettingMap, system_data: SettingMap) -> SettingMap:
@@ -124,60 +104,25 @@ def discover_bootstrap_csv() -> Path:
     return discover_system_config_csv()
 
 
-def configured_plan_csv_path(bootstrap: SettingMap | None = None) -> Path:
-    """The plan CSV anchor (``client_data.csv``): ``RETIREMENT_SYSTEM_CONFIG_FILE``, else
-    ``System Configuration / Runtime / config_file``, else ``<workspace>/input/client_data.csv``.
-
-    The ONE resolver of the plan CSV set's location (same precedence as
-    ``runtime_config.load_runtime_config``): the server's ``CSV_PATH``, the sync into the
-    plan file, the first-read bootstrap and the at-rest migration all come from here.
-    """
-    ref = os.environ.get("RETIREMENT_SYSTEM_CONFIG_FILE", "").strip()
-    if not ref:
-        if bootstrap is None:
-            bootstrap = load_system_config(discover_bootstrap_csv())
-        ref = setting(bootstrap, "System Configuration", "Runtime", "config_file", "")
-    return resolve_path(ref or "input/client_data.csv", DEFAULT_CSV)
-
-
-def configured_plan_input_dir(bootstrap: SettingMap | None = None) -> Path:
-    """The folder holding the plan CSV set (``configured_plan_csv_path``'s folder): where an
-    empty plan file is filled from and what every sync reads."""
-    return configured_plan_csv_path(bootstrap).parent
-
-
 def load_active_config() -> Tuple[SettingMap, Dict[str, str]]:
     """The active plan's sectioned rows merged with the system configuration, plus meta.
 
-    Reads ``plan_rows`` of the active plan file (``active_plan.active_plan_data``); an
-    empty plan is filled from the configured plan CSV set first. ``meta['sqlite_db']`` is
-    still the legacy local database (``client_files``, KPI and build history), which the
-    build checkpoints and snapshots; ``meta['plan_db']`` is the plan file.
+    Reads ``plan_rows`` of the active plan file (``active_plan.active_plan_data``).
+    ``meta['sqlite_db']`` is still the legacy local database (``client_files`` of the flat
+    datasets, KPI and build history); ``meta['plan_db']`` is the plan file the build
+    checkpoints and snapshots.
     """
     from .active_plan import active_plan_data, active_plan_path
     bootstrap_csv = discover_bootstrap_csv()
     bootstrap = load_system_config(bootstrap_csv)
-    # A relative default, joined against the LIVE workspace root on every call (see
-    # tests/test_sync_config_backends_snapshot_freshness_regression.py).
+    # A relative default, joined against the LIVE workspace root on every call.
     _default_sqlite_db_rel = "local_state/retirement_system_v10.db"
     sqlite_db = setting(bootstrap, "System Configuration", "Runtime", "sqlite_db", _default_sqlite_db_rel) or _default_sqlite_db_rel
     plan_db = active_plan_path()
-    data = _merge_system_config_sections(active_plan_data(configured_plan_input_dir(bootstrap)), bootstrap)
+    data = _merge_system_config_sections(active_plan_data(), bootstrap)
     return data, {"backend": ACTIVE_BACKEND, "path": str(plan_db), "plan_db": str(plan_db),
                   "bootstrap_csv": str(bootstrap_csv), "sqlite_db": str(resolve_path(sqlite_db, DEFAULT_DB)),
                   "workspace_id": "local", "client_id": "local"}
-
-
-def export_client_json_yaml(data: SettingMap, output_dir: str | Path) -> dict[str, str]:
-    """Write the JSON/YAML mirrors (``client_data.json`` / ``.yaml``) of the sectioned plan
-    data into ``output_dir``. Derived portability files only; nothing reads them as a
-    backend. P3.5 deletes them."""
-    out_dir = Path(output_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
-    written = {}
-    for path in (save_json(data, out_dir / "client_data.json"), save_yaml(data, out_dir / "client_data.yaml")):
-        written[path.name] = str(path)
-    return written
 
 
 # Compatibility functions for older route call sites. They are local-only and do not create hosted identities.
@@ -218,34 +163,6 @@ def set_client_file(file_name: str, content: str, workspace_id: str = "local", c
     name = Path(file_name).name
     with closing_connect(p) as con:
         con.execute("INSERT OR REPLACE INTO client_files(file_name, content, updated_by) VALUES(?,?,?)", (name, content, "local"))
-
-def set_client_files(files: dict[str, str], db_path: str | Path = DEFAULT_DB) -> None:
-    """``set_client_file`` for several files in one connection and transaction."""
-    if not files:
-        return
-    p = init_sqlite(db_path)
-    con = sqlite3.connect(p)
-    try:
-        with con:
-            con.executemany("INSERT OR REPLACE INTO client_files(file_name, content, updated_by) VALUES(?,?,?)",
-                            [(Path(name).name, content, "local") for name, content in files.items()])
-    finally:
-        con.close()  # closed now, not at garbage collection: Load Saved Plan replaces this file
-
-def delete_client_files(file_names, db_path: str | Path = DEFAULT_DB) -> int:
-    """Remove files from ``client_files`` (a plan CSV part file deleted or emptied on disk
-    must not be brought back by ``materialize_workspace_files``). Returns the rows removed."""
-    names = [Path(n).name for n in file_names]
-    p = resolve_path(db_path, DEFAULT_DB)
-    if not names or not p.exists():
-        return 0
-    con = sqlite3.connect(p)
-    try:
-        with con:
-            cur = con.executemany("DELETE FROM client_files WHERE file_name=?", [(n,) for n in names])
-            return max(cur.rowcount, 0)
-    finally:
-        con.close()
 
 def get_client_file(file_name: str, workspace_id: str = "local", client_id: str = "local", db_path: str | Path = DEFAULT_DB) -> _Optional[str]:
     p = resolve_path(db_path, DEFAULT_DB)

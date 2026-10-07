@@ -1,16 +1,13 @@
 """Roth UI/build handoff guards for Retirement System v12.
 
 These helpers keep user-selected Roth conversion settings canonical as they move
-from the browser UI to the plan rows (``canonicalize_roth_rows``), the plan CSV set
-(``canonicalize_roth_csv_content``, the CSV bridge until WP4.5 deletes it), JSON/YAML
-mirrors, and the projection engine. The core safety rule is that an explicit user-selected Roth policy
+from the browser UI to the plan rows (``canonicalize_roth_rows``) and the projection
+engine. The core safety rule is that an explicit user-selected Roth policy
 (fill_to_bracket, fill_to_irmaa, fixed_dollar, or none) must not be treated as
 OPTIMIZER_CHOOSES during workbook build.
 """
 from __future__ import annotations
 
-import csv
-import io
 import re
 from typing import Any
 
@@ -151,24 +148,3 @@ def canonicalize_roth_rows(store: Any) -> int:
             store.set_row(row["row_id"], value=new_value)
             changed += 1
     return changed
-
-
-def canonicalize_roth_csv_content(content: str) -> str:
-    """Canonicalize Roth controls in a CSV string without changing other rows (the plan CSV
-    set's file writer, ``app_core._write_plan_data_file``; goes with the CSV set in WP4.5)."""
-    rows = list(csv.reader(io.StringIO(content or "")))
-    changed = False
-    for row in rows:
-        if len(row) < 4:
-            continue
-        while len(row) < 6:
-            row.append("")
-        new_value = normalize_roth_csv_value(row[0], row[1], row[2], row[3])
-        if new_value != row[3]:
-            row[3] = new_value
-            changed = True
-    if not changed:
-        return content
-    out = io.StringIO()
-    csv.writer(out, lineterminator="\n").writerows(rows)
-    return out.getvalue()

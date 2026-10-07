@@ -43,7 +43,7 @@ class DesktopApi:
         # System review 2026-09-25, Wave 0 WI-000 / ARC-002: shared with
         # main.py and tools/launchers/START_DESKTOP.py via src/bootstrap.py,
         # rather than this module's own (previously incomplete -- it omitted
-        # CONFIG_FILE/OUTPUT_DIR/JSON_CONFIG_FILE/YAML_CONFIG_FILE) copy of
+        # OUTPUT_DIR) copy of
         # the local-mode env defaults. Also runs the at-rest Plan Data
         # migration, guarded to run at most once per process.
         run_startup_bootstrap()

@@ -132,9 +132,10 @@ def compare_snapshot_to_current(snapshot: dict[str, Any], *, sqlite_db_path: str
 
 
 def restore_sqlite_database_from_snapshot(snapshot_path: str | Path, active_sqlite_db_path: str | Path, *, backup_suffix: str | None = None, migrate: Any = None) -> dict[str, Any]:
-    """Restore the SQLite database copy referenced by a build snapshot.
+    """Restore the plan file copy referenced by a build snapshot (WP4.5: the snapshot's
+    database copy is the plan file the build read).
 
-    The current active DB is copied to ``*.before_snapshot_restore_<ts>`` before
+    The current plan file is copied to ``*.before_snapshot_restore_<ts>`` before
     replacement.  The caller is responsible for exposing this only in local,
     trusted desktop contexts.
     """
@@ -159,9 +160,10 @@ def restore_sqlite_database_from_snapshot(snapshot_path: str | Path, active_sqli
         backup_path = active.with_name(active.name + f".before_snapshot_restore_{stamp}")
     # Shared validated replacement (WI-201): integrity/table check, verified
     # checkpoint, SQLite-API backup, atomic replace, sidecar cleanup.
-    from .plan_db_replace import replace_active_db  # noqa: PLC0415
+    from .plan_db_replace import PLAN_FILE_TABLES, replace_active_db, validate_plan_file  # noqa: PLC0415
 
-    replaced = replace_active_db(db_copy, active, backup_path=backup_path, migrate=migrate)
+    replaced = replace_active_db(db_copy, active, backup_path=backup_path, required_tables=PLAN_FILE_TABLES,
+                                 validate=validate_plan_file, migrate=migrate)
     if not replaced.get("success"):
         return {"success": False, "error": replaced.get("error", "Snapshot restore failed.")}
     return {

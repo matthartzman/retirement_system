@@ -1,17 +1,15 @@
 """Sectioned Plan Data form payloads over the active plan's rows (WP4.2, unified in WP4.3).
 
 The forms and the grid (``/api/config/rows``) read and write the same ``plan_rows``. ``GET``
-returns ``PlanStore.sectioned_data()`` after the CSV-set bridge ran (``refresh``), as the
-grid does; when the CSV files cannot be read the stored rows are served with a ``warning``.
+returns ``PlanStore.sectioned_data()``.
 ``POST`` upserts the posted keys (a posted key keeps its row and ``row_id``; a new key is
 appended to its section) and deletes nothing, unless the payload is flagged complete
 (``replace=True``): then every stored key of a section the payload contains with at least one
-key, and not posted, is deleted (write-back carries a deletion into the CSV set for good, so a
-partial payload must never delete). Sections the payload does not name are never touched;
+key, and not posted, is deleted (a partial payload must never delete). Sections the payload
+does not name are never touched;
 ``PATCH`` sets one subsection's values by key (``PlanStore.set_value``). Both go
 through the server's edit context (``app_core._edit_active_plan``), the same one the grid
-uses: one transaction, and every touched key is written back into the plan CSV set, so a
-later CSV write or bridge run keeps the form edit instead of overwriting it.
+uses: one transaction on the plan file's rows.
 
 Keys and values follow the CSV path's rules: cells stripped, year-stamped labels stored
 under their canonical name, and the rows the CSV path never keeps (``label`` header rows,
@@ -24,7 +22,6 @@ from contextlib import AbstractContextManager
 from typing import Any, Callable
 
 from ..active_plan import active_plan_store
-from ..csv_exchange import PlanCsvError
 from ..csv_exchange.plan_csv import Key
 from ..plan_label_rules import canonical_label, dropped_at_load
 from ..roth_ui_build_guard import normalize_roth_csv_value
@@ -47,14 +44,10 @@ def _value(key: Key, value: Any) -> str:
     return normalize_roth_csv_value(*key, "" if value is None else value).strip()
 
 
-def get_forms_payload(refresh: Callable[[], Any] | None = None) -> dict[str, Any]:
-    warning = refresh() if refresh is not None else ""
+def get_forms_payload() -> dict[str, Any]:
     with active_plan_store() as store:
         sections = store.sectioned_data()
-    payload = {"success": True, "schema": SCHEMA, "backend": BACKEND, "sections": sections}
-    if warning:
-        payload["warning"] = warning
-    return payload
+    return {"success": True, "schema": SCHEMA, "backend": BACKEND, "sections": sections}
 
 
 def save_forms_payload(sections: Any, *, edit_plan: EditPlan, replace: bool = False) -> tuple[dict[str, Any], int]:
@@ -74,24 +67,21 @@ def save_forms_payload(sections: Any, *, edit_plan: EditPlan, replace: bool = Fa
                     skipped.append({"section": str(section), "subsection": str(subsection), "label": str(label)})
                 else:
                     wanted[key] = _value(key, value)
-    try:
-        with edit_plan() as edit:
-            store, kept = edit.store, set()
-            replaced_sections = {key[0] for key in wanted} if replace else set()
-            for row in store.all_rows():
-                key = (row["section"], row["subsection"], row["label"])
-                if key not in wanted:
-                    if key[0] in replaced_sections:
-                        store.delete_row(row["row_id"])
-                    continue
-                kept.add(key)
-                if row["value"] != wanted[key]:
-                    store.set_row(row["row_id"], value=wanted[key])
-            for key, value in wanted.items():
-                if key not in kept:
-                    store.insert_row(key[0], subsection=key[1], label=key[2], value=value)
-    except PlanCsvError as exc:
-        return {"success": False, "error": f"Plan Data could not be saved: {exc}"}, 409
+    with edit_plan() as edit:
+        store, kept = edit.store, set()
+        replaced_sections = {key[0] for key in wanted} if replace else set()
+        for row in store.all_rows():
+            key = (row["section"], row["subsection"], row["label"])
+            if key not in wanted:
+                if key[0] in replaced_sections:
+                    store.delete_row(row["row_id"])
+                continue
+            kept.add(key)
+            if row["value"] != wanted[key]:
+                store.set_row(row["row_id"], value=wanted[key])
+        for key, value in wanted.items():
+            if key not in kept:
+                store.insert_row(key[0], subsection=key[1], label=key[2], value=value)
     with active_plan_store() as store:
         data = store.sectioned_data()
     return {"success": True, "backend": BACKEND, "revision": edit.revision, "sections": data,
@@ -106,16 +96,13 @@ def patch_forms_payload(section_path: str, values: Any, *, edit_plan: EditPlan) 
         return {"success": False, "error": "values must be an object"}, 400
     section, subsection = parts[0].strip(), parts[1].strip()
     skipped: list[str] = []
-    try:
-        with edit_plan() as edit:
-            for label, value in values.items():
-                key = _key(section, subsection, label)
-                if key is None:
-                    skipped.append(str(label))
-                else:
-                    edit.store.set_value(*key, _value(key, value))
-    except PlanCsvError as exc:
-        return {"success": False, "error": f"Plan Data could not be saved: {exc}"}, 409
+    with edit_plan() as edit:
+        for label, value in values.items():
+            key = _key(section, subsection, label)
+            if key is None:
+                skipped.append(str(label))
+            else:
+                edit.store.set_value(*key, _value(key, value))
     with active_plan_store() as store:
         current = store.sectioned_data().get(section, {}).get(subsection, {})
     return {"success": True, "backend": BACKEND, "revision": edit.revision, "section": section,

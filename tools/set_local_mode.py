@@ -12,11 +12,7 @@ ROOT = Path(__file__).resolve().parent.parent
 CONFIG = ROOT / "system_config.csv"
 UPDATES = {
     ("System Configuration", "Runtime", "app_mode"): "LOCAL",
-    ("System Configuration", "Runtime", "config_file"): "input/client_data.csv",
-    ("System Configuration", "Runtime", "json_config_file"): "input/client_data.json",
-    ("System Configuration", "Runtime", "yaml_config_file"): "input/client_data.yaml",
     ("System Configuration", "Runtime", "output_dir"): "output",
-    ("System Configuration", "Runtime", "local_plan_data_dir"): "",
     ("System Configuration", "Dashboard", "host"): "127.0.0.1",
     ("System Configuration", "Dashboard", "port"): "5050",
     ("System Configuration", "Security", "session_cookie_secure"): "NO",

@@ -38,7 +38,7 @@ TEST_INPUT_DIR: Path
 # deeper in the load/save layer falls back to the default workspace root
 # (src/platform_runtime.py workspace_root(), which defaults to the repo root)
 # instead of an explicit path, so running certain tests together has silently
-# overwritten the real input/client_data.json/.yaml/client_household.csv (SS
+# overwritten the real input/client_household.csv (SS
 # claim ages, dropped keys) — see memory: pytest_mutates_input_files. This uses
 # the RETIREMENT_SYSTEM_WORKSPACE_ROOT override, so every load/save path that
 # resolves lazily via workspace_root() lands in the throwaway copy instead of
@@ -95,17 +95,12 @@ if not os.environ.get("RETIREMENT_SYSTEM_WORKSPACE_ROOT"):
             for _f in sorted(_FROZEN_PLAN_DIR.iterdir()):
                 if _f.is_file():
                     shutil.copy(_f, _TEST_WORKSPACE_ROOT / _name / _f.name)
-            # client_data.json/.yaml are DERIVED outputs (architecture: "CSV is
-            # canonical"), not hand-maintained fixture inputs, so the frozen
-            # fixture directory deliberately does not commit them -- generate
-            # them here instead of staging a second, driftable copy. Any test
-            # asserting against TEST_INPUT_DIR/client_data.json (e.g. a
-            # forecast-API config-contract check) needs this present.
-            # WP4.2: the session plan file (<workspace>/plan.rpx, the rows the engine
-            # and the server read) is built from the same CSVs, as make_plan does.
-            from src.active_plan import sync_active_plan_from_csv as _sync_plan
-            from src.config_backend import export_client_json_yaml as _export_json_yaml
-            _export_json_yaml(_sync_plan(_TEST_WORKSPACE_ROOT / _name).data, _TEST_WORKSPACE_ROOT / _name)
+            # The session plan file (<workspace>/plan.rpx, the rows the engine and the
+            # server read) is built from the same CSVs through the importer, as make_plan does.
+            from src.csv_exchange import import_plan_csv_set as _import_plan_csv_set
+            from src.stores import PlanStore as _PlanStore
+            with _PlanStore.open(_TEST_WORKSPACE_ROOT / "plan.rpx") as _plan_store:
+                _import_plan_csv_set(_TEST_WORKSPACE_ROOT / _name, _plan_store)
         else:
             (_TEST_WORKSPACE_ROOT / _name).mkdir(parents=True, exist_ok=True)
     # Pin the date too: plan_start derives from the current year and the YTD

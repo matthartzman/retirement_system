@@ -1,8 +1,6 @@
 try:
     from .app_core import (
         BASE_DIR,
-        CLIENT_DATA_CSV_FILE_SET,
-        CSV_PATH,
         PLAN_DATA_CSV_FILES,
         YTD_PLAN_DATA_FILES,
         Path,
@@ -28,7 +26,6 @@ try:
         _runtime_config,
         _spending_budget_save_result,
         _sqlite_db,
-        _sync_config_backends,
         _workspace_id,
         _workspace_output,
         _write_plan_data_file,
@@ -46,8 +43,6 @@ try:
 except ImportError:
     from src.server.app_core import (
         BASE_DIR,
-        CLIENT_DATA_CSV_FILE_SET,
-        CSV_PATH,
         PLAN_DATA_CSV_FILES,
         YTD_PLAN_DATA_FILES,
         Path,
@@ -73,7 +68,6 @@ except ImportError:
         _runtime_config,
         _spending_budget_save_result,
         _sqlite_db,
-        _sync_config_backends,
         _workspace_id,
         _workspace_output,
         _write_plan_data_file,
@@ -88,6 +82,7 @@ except ImportError:
         request,
         set_client_file,
     )
+from ..active_plan import active_plan_path
 from ..version import VERSION
 from ..server_services import base_service, config_service, demo_plan_service, pricing_service, ytd_service, plan_file_service, portfolio_service, secret_service, spending_service, strategy_asset_service
 from ..portfolio_analytics import freeze_latest_pricing_snapshot, unfreeze_pricing_snapshot
@@ -108,8 +103,6 @@ def _strategy_asset_feature_service() -> strategy_asset_service.StrategyAssetSer
             normalize_large_discretionary_type=_normalize_large_discretionary_type,
             pre_tax_account_options_from_holdings=_pre_tax_account_options_from_holdings,
             all_account_ids_from_holdings=_all_account_ids_from_holdings,
-            ensure_user_ui_plan_data_rows=_ensure_user_ui_plan_data_rows,
-            sync_config_backends=_sync_config_backends,
             audit=_audit,
             travel_extra_types=TRAVEL_EXTRA_TYPES,
         )
@@ -121,17 +114,13 @@ def _config_feature_service() -> config_service.ConfigService:
         config_service.ConfigServiceContext(
             version=VERSION,
             base_dir=BASE_DIR,
-            csv_path=CSV_PATH,
-            client_data_csv_file_set=CLIENT_DATA_CSV_FILE_SET,
-            plan_data_path=_plan_data_path,
             edit_plan=_edit_active_plan,
+            read_plan=_read_active_plan,
             csv_rows_payload=_csv_rows_payload,
             read_schema_map=_read_schema_map,
-            write_plan_data_file=_write_plan_data_file,
             load_active_config=load_active_config,
             runtime_config=_runtime_config,
             normalize_date_for_csv=_normalize_date_for_csv,
-            sync_config_backends=_sync_config_backends,
             audit=_audit,
         )
     )
@@ -143,7 +132,7 @@ def _service_json(result):
 
 def _path_roots_from_config():
     cfg = _runtime_config()
-    raw = str(getattr(cfg, "local_plan_data_roots", "") or getattr(cfg, "local_plan_data_dir", "") or "")
+    raw = str(getattr(cfg, "local_plan_data_roots", "") or "")
     roots = []
     for part in re.split(r"[;|]", raw):
         part = part.strip()
@@ -156,8 +145,6 @@ def _path_roots_from_config():
             roots.append(p.resolve())
         except Exception:
             pass
-    # LOCAL loopback mode may use the configured local Plan Data directory. local
-    # must opt into explicit allowlisted roots.
     return roots
 
 
@@ -806,13 +793,6 @@ def housing_zip_lookup():
     from ..housing import zip_lookup
     return _service_json(zip_lookup(request.args.get("zip", "")))
 
-@app.route("/api/config/sync", methods=["POST"])
-def config_sync():
-    denied = _require("write_config")
-    if denied:
-        return denied
-    return _service_json(_strategy_asset_feature_service().config_sync_payload())
-
 # ---------------------------------------------------------------------------
 # YTD spending, income, and growth tracking
 # ---------------------------------------------------------------------------
@@ -1170,18 +1150,20 @@ def spending_budget_unified():
     body = request.get_json(silent=True) or {}
     return _spending_budget_save_result(lambda: _spending_feature_service().save_unified_budget_payload(body))
 
-# PlanFileService owns SQLite copy semantics including wal_checkpoint(FULL),
-# wal_checkpoint(TRUNCATE), not src.exists(), and before_load backups.
-def _migrate_after_db_replace(db_path):
-    from ..plan_data_migration import run_startup_plan_data_migration
+# PlanFileService owns the plan file's copy/replace/backup semantics (wal_checkpoint, validated
+# atomic replace, before_load backups); WP4.5: Save As / Load / snapshot restore / the demo swap
+# operate on the plan file itself, with no CSV step.
+def _migrate_after_db_replace(plan_path):
+    from ..plan_data_migration import migrate_plan_file
 
-    return run_startup_plan_data_migration(db_path=db_path)
+    return migrate_plan_file(plan_path)
 
 
 def _plan_file_feature_service() -> plan_file_service.PlanFileService:
     return plan_file_service.PlanFileService(
         plan_file_service.PlanFileServiceContext(
             sqlite_db=_sqlite_db,
+            plan_db=active_plan_path,
             audit=_audit,
             retention_count=10,
             output_dir=_workspace_output,
@@ -1192,7 +1174,7 @@ def _plan_file_feature_service() -> plan_file_service.PlanFileService:
 
 @app.route("/api/plan/exit-snapshot", methods=["POST"])
 def plan_exit_snapshot():
-    """Create a versioned DB copy at exit time. Keeps only the last 10."""
+    """Create a versioned copy of the plan file and the local database at exit time. Keeps only the last 10 of each."""
     try:
         return jsonify(_plan_file_feature_service().exit_snapshot())
     except Exception as exc:  # noqa: BLE001
@@ -1201,16 +1183,8 @@ def plan_exit_snapshot():
 
 @app.route("/api/plan/save-as", methods=["POST"])
 def plan_save_as():
-    """Copy the current SQLite database to a user-chosen path (.rpx file)."""
+    """Copy the current plan file to a user-chosen path (.rpx file)."""
     try:
-        # WP4.2: the copy carries the plan as client_files; bring them up to the
-        # current CSV set first (Load Saved Plan rebuilds the CSV set from them).
-        sync = _sync_config_backends()
-        if not sync.get("success"):
-            # The copy would carry client_files older than the plan on screen.
-            _audit("plan_save_as_sync_failed", {"error": sync.get("error")})
-            return jsonify({"success": False, "error": "Plan not saved: the current plan could not be "
-                            "brought up to date first: " + str(sync.get("error"))}), 500
         return jsonify(_plan_file_feature_service().save_as(request.get_json(silent=True) or {}))
     except Exception as exc:  # noqa: BLE001
         return jsonify({"success": False, "error": str(exc)})
@@ -1218,67 +1192,22 @@ def plan_save_as():
 
 @app.route("/api/plan/load-file", methods=["POST"])
 def plan_load_file():
-    """Replace the current SQLite database with a user-chosen .rpx file."""
+    """Replace the current plan file with a user-chosen .rpx plan file."""
     try:
-        result = _plan_file_feature_service().load_file(request.get_json(silent=True) or {})
-        if result.get("success"):
-            # Materialize client files (holdings, spending, YTD, etc.) from the
-            # loaded SQLite onto disk so that the disk-first read path in
-            # _read_plan_data_file serves loaded-plan data, not stale old files.
-            try:
-                materialize_workspace_files(
-                    workspace_id=_workspace_id(),
-                    client_id=_client_id(),
-                    db_path=_sqlite_db(),
-                    file_names=[n for n in PLAN_DATA_CSV_FILES if n != "client_data.csv"] + YTD_PLAN_DATA_FILES,
-                    overwrite_existing=True,
-                )
-            except Exception as mat_exc:
-                _audit("plan_load_file_materialize_warning", {"error": str(mat_exc)})
-                result["materialize_warning"] = str(mat_exc)
-                # The DB was replaced but the disk-first read path would still
-                # serve the previous plan's files, so this is not a clean load.
-                result["success"] = False
-                result["db_replaced"] = True
-                result["error"] = "Plan database loaded, but its data files could not be written to disk: " + str(mat_exc)
-            else:
-                _sync_plan_rows_after_swap(result)
-        return jsonify(result)
+        return jsonify(_plan_file_feature_service().load_file(request.get_json(silent=True) or {}))
     except Exception as exc:  # noqa: BLE001
         return jsonify({"success": False, "error": str(exc)})
 
 
-def _sync_plan_rows_after_swap(result: dict) -> bool:
-    """WP4.2: after a database swap rebuilt the CSV set from ``client_files``, carry it
-    into the active plan's rows (the engine and the build read those, no longer the
-    swapped-in database's sectioned snapshot). A failed sync is a failed load: the plan
-    on screen and the build would still be the one from before the swap."""
-    sync = _sync_config_backends()
-    if sync.get("success"):
-        return True
-    _audit("plan_rows_sync_after_swap_warning", {"error": sync.get("error")})
-    result["sync_warning"] = sync.get("error")
-    result["success"] = False
-    result["db_replaced"] = True
-    result["error"] = "Plan database loaded, but its plan rows could not be updated: " + str(sync.get("error"))
-    return False
-
-
-# DemoPlanService owns Open Demo Plan / Open Current Plan swap semantics
-# (#240). It reuses this same PlanFileService instance's load_file() to
-# restore the pre-demo database, and the same materialize_workspace_files
-# resync the /api/plan/load-file route uses after a DB swap. #248 made Open
-# Demo Plan's file list (below) match this materialize() list -- both now
-# cover YTD_PLAN_DATA_FILES, so ytd_transactions.csv is swapped to the demo
-# fixture on open and swapped back to the real backup on restore, the same
-# as every other plan-data file the demo touches.
+# DemoPlanService owns Open Demo Plan / Open Current Plan swap semantics (#240): it swaps the
+# plan file (the demo household is built from input/demo through the csv_exchange importer, or
+# taken from the demo slot) and carries the flat datasets (client_files) as before. #248: its
+# file list covers YTD_PLAN_DATA_FILES, so ytd_transactions.csv is swapped to the demo fixture
+# on open and swapped back to the real backup on restore, as every other flat plan-data file.
 def _demo_plan_feature_service() -> demo_plan_service.DemoPlanService:
     def _read_plan_data_disk_file(name: str) -> str | None:
-        # update_config_rows_payload (Save Changes on the Plan Data grid)
-        # writes ordinary fields straight to this on-disk CSV mirror and
-        # never touches the DB row _read_plan_data_file prefers -- capturing
-        # the demo slot from the DB-first reader would silently drop any
-        # field edit made through the grid during a demo session.
+        # Capturing the demo slot must read the on-disk copy the flat-file editors write, not
+        # the DB-first reader's copy.
         path = _plan_data_path(name, prefer_existing=True)
         return path.read_text(encoding="utf-8-sig") if path.exists() else None
 
@@ -1287,29 +1216,19 @@ def _demo_plan_feature_service() -> demo_plan_service.DemoPlanService:
             workspace_id=_workspace_id(),
             client_id=_client_id(),
             db_path=_sqlite_db(),
-            file_names=[n for n in PLAN_DATA_CSV_FILES if n != "client_data.csv"] + YTD_PLAN_DATA_FILES,
+            file_names=PLAN_DATA_CSV_FILES + YTD_PLAN_DATA_FILES,
             overwrite_existing=True,
         )
-        if not _sync_plan_rows_after_swap({}):
-            raise RuntimeError("plan rows could not be updated after the plan swap")
 
     return demo_plan_service.DemoPlanService(
         demo_plan_service.DemoPlanServiceContext(
             sqlite_db=_sqlite_db,
+            plan_db=active_plan_path,
             demo_dir=lambda: WORKSPACE_ROOT / "input" / "demo",
-            # #248: Open Demo Plan wrote every core plan-data file (household,
-            # income/annuities, holdings, ...) but left YTD_PLAN_DATA_FILES
-            # (ytd_transactions.csv and friends -- "Actual Spending (This
-            # Year)") untouched, so that screen kept showing the advisor's
-            # real transactions while the rest of the app showed the demo
-            # household. _materialize() below (used on restore) already
-            # treats YTD files as part of the swap; open must match.
             plan_data_csv_files=PLAN_DATA_CSV_FILES + YTD_PLAN_DATA_FILES,
             read_plan_data_file=_read_plan_data_file,
-            write_plan_data_file=lambda name, content: _write_plan_data_file(name, content, preserve_protected=False),
-            sync_config_backends=_sync_config_backends,
+            write_plan_data_file=_write_plan_data_file,
             ensure_user_ui_plan_data_rows=_ensure_user_ui_plan_data_rows,
-            load_saved_db=_plan_file_feature_service().load_file,
             materialize=_materialize,
             audit=_audit,
             read_plan_data_disk_file=_read_plan_data_disk_file,
@@ -1388,24 +1307,4 @@ def plan_snapshot_restore():
     if denied:
         return denied
     payload, status = _plan_file_feature_service().snapshot_restore_payload(request.get_json(silent=True) or {})
-    if status == 200:
-        # Same resync as Load Saved Plan: the restored database's client_files become the
-        # CSV set, and the CSV set becomes the active plan's rows (WP4.2).
-        try:
-            materialize_workspace_files(
-                workspace_id=_workspace_id(),
-                client_id=_client_id(),
-                db_path=_sqlite_db(),
-                file_names=[n for n in PLAN_DATA_CSV_FILES if n != "client_data.csv"] + YTD_PLAN_DATA_FILES,
-                overwrite_existing=True,
-            )
-            _sync_plan_rows_after_swap(payload)
-        except Exception as exc:  # noqa: BLE001
-            _audit("plan_snapshot_restore_materialize_warning", {"error": str(exc)})
-            payload["materialize_warning"] = str(exc)
-            payload["success"] = False
-            payload["db_replaced"] = True
-            payload["error"] = "Snapshot restored, but its data files could not be written to disk: " + str(exc)
-        if payload.get("success") is False:
-            status = 500
     return jsonify(payload), status

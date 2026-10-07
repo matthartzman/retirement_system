@@ -35,17 +35,17 @@ row into an empty plan, in one transaction. Rules:
 from __future__ import annotations
 
 import csv
-import hashlib
 import io
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable
 
-from ..plan_label_rules import canonical_label
+from ..plan_label_rules import canonical_label, dropped_at_load
 
 # The plan CSV set, in read order (anchor first). Equals
-# plan_data_registry.client_data_csv_files() until WP4.5 retires that registry.
+# plan_data_registry.client_data_csv_files() (the layout ``data_io.load_csv`` still reads for
+# the golden tool and tests).
 PLAN_CSV_FILES: tuple[str, ...] = (
     "client_data.csv",
     "client_household.csv",
@@ -336,21 +336,6 @@ def read_plan_csv_set(folder: str | Path, files: Iterable[str] = PLAN_CSV_FILES)
     return out
 
 
-def plan_csv_set_fingerprint(folder: str | Path, files: Iterable[str] = PLAN_CSV_FILES) -> str:
-    """A hash of the bytes of every present file of the set (cheap change check, no parsing)."""
-    root = Path(folder)
-    digest = hashlib.sha256()
-    for name in files:
-        path = root / name
-        try:
-            data = path.read_bytes() if path.is_file() else None
-        except OSError:
-            data = None
-        digest.update(name.encode("utf-8") + b"\0")
-        digest.update(b"-" if data is None else hashlib.sha256(data).digest())
-    return digest.hexdigest()
-
-
 # ------------------------------------------------------------------------------- write
 def write_plan_rows(store: Any, rows: Iterable[PlanCsvRow]) -> int:
     """Write rows, in order, into an empty plan (an open, writable ``PlanStore``).
@@ -373,62 +358,14 @@ def write_plan_rows(store: Any, rows: Iterable[PlanCsvRow]) -> int:
     return count
 
 
-def sync_plan_rows(store: Any, rows: Iterable[PlanCsvRow]) -> dict[str, int]:
-    """Make the plan's rows equal ``rows`` (in order) in one transaction; WP4.2.
+def import_plan_csv_set(folder: str | Path, store: Any, files: Iterable[str] = PLAN_CSV_FILES, *,
+                        drop_never_kept: bool = False) -> ImportReport:
+    """Read the plan CSV set from ``folder`` and write it into the empty plan ``store``.
 
-    Unlike :func:`write_plan_rows` the plan need not be empty. The result is what an
-    import of ``rows`` into an empty plan would give (same sectioned view, same display
-    order), but a row keeps its ``row_id`` when its key's occurrence survives: the n-th
-    row of a ``(section, subsection, label)`` key is matched to the n-th wanted row of
-    that key and updated in place. Unmatched rows are deleted, new ones inserted. If
-    that would change the order of the sections (they are ordered by their lowest
-    ``row_id``), every row is rewritten instead. Nothing is written when nothing
-    changed. Returns ``{"updated", "inserted", "deleted", "rewritten"}`` counts.
-    """
-    rows, _ = collapse_duplicate_keys(rows)
-    wanted: list[tuple[str, dict[str, str], int]] = []
-    next_order: dict[str, int] = {}
-    section_order: list[str] = []
-    for row in rows:
-        if row.section not in next_order:
-            section_order.append(row.section)
-        order = next_order.get(row.section, 0)
-        next_order[row.section] = order + 1
-        wanted.append((row.section, row.fields(), order))
-    counts = {"updated": 0, "inserted": 0, "deleted": 0, "rewritten": 0}
-    with store.transaction():
-        existing: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
-        for old in store.all_rows():
-            existing.setdefault((old["section"], old["subsection"], old["label"]), []).append(old)
-        for queue in existing.values():
-            queue.reverse()  # pop() takes the first occurrence
-        for section, fields, order in wanted:
-            queue = existing.get((section, fields["subsection"], fields["label"]))
-            if queue:
-                old = queue.pop()
-                changed = {k: v for k, v in fields.items() if old[k] != v}
-                if old["sort_order"] != order:
-                    changed["sort_order"] = order
-                if changed:
-                    store.set_row(old["row_id"], **changed)
-                    counts["updated"] += 1
-            else:
-                store.insert_row(section, sort_order=order, **fields)
-                counts["inserted"] += 1
-        for queue in existing.values():
-            for old in queue:
-                store.delete_row(old["row_id"])
-                counts["deleted"] += 1
-        if store.section_order() != section_order:
-            store.clear_rows()
-            for section, fields, order in wanted:
-                store.insert_row(section, sort_order=order, **fields)
-            counts = {"updated": 0, "inserted": len(wanted), "deleted": 0, "rewritten": 1}
-    return counts
-
-
-def import_plan_csv_set(folder: str | Path, store: Any, files: Iterable[str] = PLAN_CSV_FILES) -> ImportReport:
-    """Read the plan CSV set from ``folder`` and write it into the empty plan ``store``."""
+    ``drop_never_kept`` also drops the rows no plan keeps (``plan_label_rules.dropped_at_load``:
+    ``label`` header rows and the retired ``Scenarios / Sell Home`` labels), as the old loader
+    did at every load; the demo seed uses it."""
     parsed = read_plan_csv_set(folder, files)
-    parsed.report.rows = write_plan_rows(store, parsed.rows)
+    rows = [r for r in parsed.rows if not dropped_at_load(r.section, r.subsection, r.label)] if drop_never_kept else parsed.rows
+    parsed.report.rows = write_plan_rows(store, rows)
     return parsed.report

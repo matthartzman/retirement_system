@@ -61,7 +61,7 @@ auto-kept slot.
 ## What is here, and why
 
 - **Every file the demo swaps has a counterpart in this folder.** That is
-  `local_plan_data_sync.PLAN_DATA_CSV_FILES` + `YTD_PLAN_DATA_FILES` +
+  `server.plan_data_files.PLAN_DATA_CSV_FILES` + `YTD_PLAN_DATA_FILES` +
   `demo_plan_service.TEXT_BACKUP_FILES`. A file missing from here is *not*
   replaced, so your real one stays live for the whole demo —
   `test_demo_covers_every_file_open_demo_plan_applies` fails the build if the
@@ -74,9 +74,9 @@ auto-kept slot.
 - `ytd_blend_enabled` is **FALSE** here on purpose. The YTD files *are* swapped
   (#248), but the blend stays off so the demo's current-year projection is
   driven by the demo's own figures rather than a partial year of transactions.
-- No JSON/YAML companions live here. Those are derived from `client_data.csv`;
-  regenerate with `python tools/check_plan_data_sync.py --write` if you need
-  them.
+- The sectioned household files (`client_data.csv` and its parts) are read once through
+  the `csv_exchange` importer into a demo plan file when the demo opens; nothing writes them.
+  There are no JSON/YAML companions.
 
 `tests/test_demo_plan_data_is_fictional.py` fails the build if any of this data
 ever starts matching the live plan again.
