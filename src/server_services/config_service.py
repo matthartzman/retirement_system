@@ -482,18 +482,20 @@ class ConfigService:
         schema = self.context.read_schema_map()
         updated = 0
         skipped: list[dict[str, Any]] = []
+        applied: dict[int, tuple[tuple[str, str, str], str]] = {}  # row_id -> (key, value set)
         try:
             with self.context.edit_plan() as edit:
                 store = edit.store
                 for u in updates:
                     try:
                         row_id = int(u.get("row_index"))
-                        row = store.get_row(row_id)
-                    except LookupError:  # stores.NotFoundError: no row with this id
-                        skipped.append({"row_index": row_id, "reason": "out of range or stale row index"})
-                        continue
-                    except Exception:
+                    except (AttributeError, TypeError, ValueError):
                         skipped.append({"update": u, "reason": "invalid row_index"})
+                        continue
+                    try:
+                        row = store.get_row(row_id)
+                    except LookupError:  # stores.NotFoundError: no row with this id (any other store error fails the save)
+                        skipped.append({"row_index": row_id, "reason": "out of range or stale row index"})
                         continue
                     section, subsection, label = row["section"], row["subsection"], row["label"]
                     value = str(u.get("value", ""))
@@ -502,18 +504,31 @@ class ConfigService:
                         value = self.context.normalize_date_for_csv(value)
                     value = normalize_roth_csv_value(section, subsection, label, value).strip()
                     store.set_row(row_id, value=value)
-                    updated += 1
+                    applied[row_id] = ((section, subsection, label), value)
                 errors = _schema_validate_rows_full(store.all_rows())
                 if errors:
                     raise _Rejected(errors)
             revision = edit.revision
         except _Rejected as exc:
-            self._audit("config_rows_validation_failed", {"updated_attempted": updated, "error_count": len(exc.errors)})
+            self._audit("config_rows_validation_failed", {"updated_attempted": len(applied), "error_count": len(exc.errors)})
             return {"success": False, "error": "Plan Data validation failed", "errors": exc.errors[:50]}, 422
         except PlanCsvError as exc:
             self._audit("config_rows_write_back_failed", {"error": str(exc)})
             return {"success": False, "error": f"Plan Data could not be saved: {exc}"}, 409
+        except Exception as exc:
+            self._audit("config_rows_save_failed", {"error": str(exc)})
+            return {"success": False, "error": f"Plan Data could not be saved: {exc}"}, 500
 
+        # The final pull applies the plan's own rules (protected retirement dates, canonical
+        # Roth values): a value the plan did not keep is not an update.
+        for row_id, (key, value) in applied.items():
+            kept = edit.final_values.get(key)
+            if kept == value:
+                updated += 1
+            else:
+                skipped.append({"row_index": row_id, "section": key[0], "subsection": key[1], "label": key[2],
+                                "reason": f"value not kept: the plan rules keep {kept!r} for this field"
+                                          if kept is not None else "row no longer in the plan"})
         self._audit("config_rows_saved", {"updated": updated, "skipped": len(skipped), "revision": revision})
         sync_result = None
         if body.get("sync"):

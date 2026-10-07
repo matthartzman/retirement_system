@@ -38,17 +38,17 @@ from typing import Any, Iterable, Mapping, Sequence
 from ..plan_label_rules import canonical_label, dropped_at_load
 from .plan_csv import (
     PLAN_CSV_FILES,
+    Key,
     PlanCsvError,
     _Columns,
+    _HEADER,
+    _REPEATED_HEADER,
     _read_header,
     collapse_duplicate_keys,
     parse_plan_csv,
     part_file_for_section,
 )
 
-Key = tuple[str, str, str]
-_HEADER = ["section", "subsection", "label", "value", "units", "notes"]
-_REPEATED_HEADER = ["section", "subsection", "label"]
 
 
 @dataclass
@@ -94,7 +94,7 @@ class _File:
             return None
         section, subsection = cols.cell(raw, cols.section), cols.cell(raw, cols.subsection)
         label = canonical_label(cols.cell(raw, cols.label))
-        if not section or not label or [section.lower(), subsection.lower(), label.lower()] == _REPEATED_HEADER:
+        if not section or not label or (section.lower(), subsection.lower(), label.lower()) == _REPEATED_HEADER:
             return None
         return (section, subsection, label)
 

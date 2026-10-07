@@ -2,9 +2,13 @@
 
 The forms and the grid (``/api/config/rows``) read and write the same ``plan_rows``. ``GET``
 returns ``PlanStore.sectioned_data()`` after the CSV-set bridge ran (``refresh``), as the
-grid does. ``POST`` replaces the plan's content with the posted sections by key (a posted
-key keeps its row and ``row_id``; a key not posted is deleted; a new key is appended to its
-section); ``PATCH`` sets one subsection's values by key (``PlanStore.set_value``). Both go
+grid does; when the CSV files cannot be read the stored rows are served with a ``warning``.
+``POST`` upserts the posted keys (a posted key keeps its row and ``row_id``; a new key is
+appended to its section) and deletes nothing, unless the payload is flagged complete
+(``replace=True``): then every stored key of a section the payload contains with at least one
+key, and not posted, is deleted (write-back carries a deletion into the CSV set for good, so a
+partial payload must never delete). Sections the payload does not name are never touched;
+``PATCH`` sets one subsection's values by key (``PlanStore.set_value``). Both go
 through the server's edit context (``app_core._edit_active_plan``), the same one the grid
 uses: one transaction, and every touched key is written back into the plan CSV set, so a
 later CSV write or bridge run keeps the form edit instead of overwriting it.
@@ -21,13 +25,13 @@ from typing import Any, Callable
 
 from ..active_plan import active_plan_store
 from ..csv_exchange import PlanCsvError
+from ..csv_exchange.plan_csv import Key
 from ..plan_label_rules import canonical_label, dropped_at_load
 from ..roth_ui_build_guard import normalize_roth_csv_value
 
 SCHEMA = "plan_forms_v1"
 BACKEND = "sqlite"
 
-Key = tuple[str, str, str]
 EditPlan = Callable[[], AbstractContextManager[Any]]
 
 
@@ -44,14 +48,16 @@ def _value(key: Key, value: Any) -> str:
 
 
 def get_forms_payload(refresh: Callable[[], Any] | None = None) -> dict[str, Any]:
-    if refresh is not None:
-        refresh()
+    warning = refresh() if refresh is not None else ""
     with active_plan_store() as store:
         sections = store.sectioned_data()
-    return {"success": True, "schema": SCHEMA, "backend": BACKEND, "sections": sections}
+    payload = {"success": True, "schema": SCHEMA, "backend": BACKEND, "sections": sections}
+    if warning:
+        payload["warning"] = warning
+    return payload
 
 
-def save_forms_payload(sections: Any, *, edit_plan: EditPlan) -> tuple[dict[str, Any], int]:
+def save_forms_payload(sections: Any, *, edit_plan: EditPlan, replace: bool = False) -> tuple[dict[str, Any], int]:
     if not isinstance(sections, dict):
         return {"success": False, "error": "sections must be an object"}, 400
     wanted: dict[Key, str] = {}
@@ -71,10 +77,12 @@ def save_forms_payload(sections: Any, *, edit_plan: EditPlan) -> tuple[dict[str,
     try:
         with edit_plan() as edit:
             store, kept = edit.store, set()
+            replaced_sections = {key[0] for key in wanted} if replace else set()
             for row in store.all_rows():
                 key = (row["section"], row["subsection"], row["label"])
                 if key not in wanted:
-                    store.delete_row(row["row_id"])
+                    if key[0] in replaced_sections:
+                        store.delete_row(row["row_id"])
                     continue
                 kept.add(key)
                 if row["value"] != wanted[key]:
@@ -87,7 +95,7 @@ def save_forms_payload(sections: Any, *, edit_plan: EditPlan) -> tuple[dict[str,
     with active_plan_store() as store:
         data = store.sectioned_data()
     return {"success": True, "backend": BACKEND, "revision": edit.revision, "sections": data,
-            "skipped": skipped}, 200
+            "replace": replace, "skipped": skipped}, 200
 
 
 def patch_forms_payload(section_path: str, values: Any, *, edit_plan: EditPlan) -> tuple[dict[str, Any], int]:

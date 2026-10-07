@@ -168,13 +168,37 @@ def test_forms_post_replaces_by_key_and_keeps_row_ids(ws):
     home = _row(_grid(client), HOME)  # the grid GET's backfill runs first (it adds rows)
     sections = client.get("/api/plan/forms", headers=HEADERS).get_json()["sections"]
     sections["Other Assets"]["Home"]["value_as_of_plan_start"] = "$1,111,111"
-    del sections["Liquidity Buffer"]
-    resp = client.post("/api/plan/forms", headers=HEADERS, json={"sections": sections})
+    del sections["Liquidity Buffer"]["buffer_1"]["reserve_account"]
+    resp = client.post("/api/plan/forms", headers=HEADERS, json={"sections": sections, "replace": True})
     assert resp.status_code == 200 and resp.get_json()["sections"] == sections
     assert _row(_grid(client), HOME)["row_index"] == home["row_index"]
-    assert "Liquidity Buffer," not in (ws.input_dir / "client_assets.csv").read_text(encoding="utf-8")
+    assert "reserve_account" not in (ws.input_dir / "client_assets.csv").read_text(encoding="utf-8")
     assert app_core._sync_config_backends()["success"] is True
     assert load_active_config()[0]["Other Assets"]["Home"]["value_as_of_plan_start"] == "$1,111,111"
+    assert "reserve_account" not in _buffer_1()
+
+
+def test_forms_post_never_deletes_without_replace_and_only_inside_posted_sections(ws):
+    """A partial payload must not delete: write-back would carry the deletion into the CSV set."""
+    client = app.test_client()
+    _grid(client)
+    before = client.get("/api/plan/forms", headers=HEADERS).get_json()["sections"]
+    partial = {"Other Assets": {"Home": {"value_as_of_plan_start": "$2,222,222"}}}
+    resp = client.post("/api/plan/forms", headers=HEADERS, json={"sections": partial})
+    out = resp.get_json()
+    assert resp.status_code == 200 and out["replace"] is False
+    expected = {sec: {sub: dict(vals) for sub, vals in subs.items()} for sec, subs in before.items()}
+    expected["Other Assets"]["Home"]["value_as_of_plan_start"] = "$2,222,222"
+    assert out["sections"] == expected
+    assert "reserve_account" in (ws.input_dir / "client_assets.csv").read_text(encoding="utf-8")
+    # flagged complete, it replaces the sections it names (here: one subsection of Other Assets)
+    # and leaves every other section alone
+    resp = client.post("/api/plan/forms", headers=HEADERS, json={"sections": partial, "replace": True})
+    out = resp.get_json()
+    assert resp.status_code == 200 and out["replace"] is True
+    assert out["sections"]["Other Assets"] == partial["Other Assets"]
+    assert {k: v for k, v in out["sections"].items() if k != "Other Assets"} == \
+        {k: v for k, v in expected.items() if k != "Other Assets"}
 
 
 def test_the_csv_writers_own_rules_reach_the_rows(ws):
@@ -193,3 +217,113 @@ def test_the_csv_writers_own_rules_reach_the_rows(ws):
     assert status == 200
     assert _plan_value(bracket) == "22.00%" and "roth_target_bracket_rate,22.00%," in policy.read_text(encoding="utf-8")
     assert _plan_value(("Withdrawal Policy", "Roth Conversion", "max_conversion_years")) == "9"
+
+
+# ------------------------------------------------------------- WP4.3 review fixes
+RETIRE = ("Household", "", "member_2_retirement_date")
+
+
+def test_a_grid_edit_the_plan_rules_revert_is_skipped_not_updated(ws):
+    """The file writer's rules (protected retirement dates, canonical Roth values) can give a
+    value back in the final pull: that row is reported skipped, not updated."""
+    from types import SimpleNamespace
+
+    from src import active_plan
+    from src.server_services.config_service import ConfigService
+
+    client = app.test_client()
+    grid = _grid(client)
+    protected, home = _row(grid, RETIRE), _row(grid, HOME)
+    household = ws.input_dir / "client_household.csv"
+
+    def write_file(name, text):
+        if name == "client_household.csv":  # the protected merge puts the old date back
+            text = text.replace("member_2_retirement_date,3/1/2030,", f"member_2_retirement_date,{protected['value']},")
+        (ws.input_dir / name).write_text(text, encoding="utf-8")
+        return ws.input_dir / name
+
+    ctx = SimpleNamespace(
+        read_schema_map=lambda: {}, normalize_date_for_csv=lambda v: v, audit=None, sync_config_backends=lambda: None,
+        edit_plan=lambda: active_plan.edit_active_plan(ws.input_dir, write_file))
+    out, status = ConfigService(ctx).update_config_rows_payload(
+        {"updates": [{"row_index": protected["row_index"], "value": "3/1/2030"},
+                     {"row_index": home["row_index"], "value": "$1,500,001"}]}, allow_csv_write=True)
+    assert status == 200 and out["updated"] == 1
+    (skipped,) = out["skipped"]
+    assert skipped["row_index"] == protected["row_index"] and skipped["label"] == RETIRE[2]
+    assert "value not kept" in skipped["reason"] and protected["value"] in skipped["reason"]
+    assert _plan_value(RETIRE) == protected["value"] and _plan_value(HOME) == "$1,500,001"
+    assert "member_2_retirement_date,3/1/2030," not in household.read_text(encoding="utf-8")
+
+
+def test_reads_with_an_unparsable_part_file_serve_the_stored_rows_with_a_warning(ws):
+    client = app.test_client()
+    grid = _grid(client)
+    (ws.input_dir / "client_business.csv").write_text("not,a,plan\n1,2,3\n", encoding="utf-8")
+    again = client.get("/api/config/rows", headers=HEADERS)
+    assert again.status_code == 200
+    payload = again.get_json()
+    assert "client_business.csv" in payload["warning"] and payload["rows"] == grid["rows"]
+    forms = client.get("/api/plan/forms", headers=HEADERS)
+    assert forms.status_code == 200 and "client_business.csv" in forms.get_json()["warning"]
+    assert app_core._csv_rows_payload()["rows"] == grid["rows"]  # the build preflight's read
+    # a write needs the CSV set: refused, rows unchanged
+    row = _row(grid, HOME)
+    status, out = _save(client, [{"row_index": row["row_index"], "value": "$9"}])
+    assert status == 409 and "could not be saved" in out["error"]
+    assert _plan_value(HOME) == row["value"]
+
+
+def test_a_failed_second_bridge_run_leaves_neither_rows_nor_csv_changed(ws, monkeypatch):
+    from src import active_plan
+
+    client = app.test_client()
+    home = _row(_grid(client), HOME)
+    before = {p.name: p.read_text(encoding="utf-8") for p in ws.input_dir.glob("*.csv")}
+    real, calls = active_plan._pull, []
+
+    def pull(store, input_dir):
+        calls.append(1)
+        if len(calls) == 2:
+            raise active_plan.PlanCsvError("second bridge run failed")
+        return real(store, input_dir)
+
+    monkeypatch.setattr(active_plan, "_pull", pull)
+    status, out = _save(client, [{"row_index": home["row_index"], "value": "$3,333,333"}])
+    assert status == 409 and out["success"] is False
+    monkeypatch.undo()
+    assert {p.name: p.read_text(encoding="utf-8") for p in ws.input_dir.glob("*.csv")} == before
+    assert _plan_value(HOME) == home["value"]
+
+
+def test_unchanged_grid_and_forms_reads_do_not_run_the_bridge(ws, monkeypatch):
+    from src import active_plan
+
+    client = app.test_client()
+    _grid(client)  # first read syncs (and the backfill may write once)
+    _grid(client)
+    runs = []
+    real = active_plan.sync_active_plan_from_csv
+    monkeypatch.setattr(active_plan, "sync_active_plan_from_csv", lambda d: (runs.append(1), real(d))[1])
+    for _ in range(2):
+        assert client.get("/api/config/rows", headers=HEADERS).status_code == 200
+        assert client.get("/api/plan/forms", headers=HEADERS).status_code == 200
+    assert runs == []
+    _save_buffers(client, BUFFERS, sync=False)  # a CSV write changes the set: the next read syncs it
+    assert client.get("/api/plan/forms", headers=HEADERS).status_code == 200 and len(runs) == 1
+    assert _buffer_1()["start_year"] == "2031"
+
+
+def test_a_store_error_while_looking_up_a_row_fails_the_save_not_skips_it(ws, monkeypatch):
+    from src.stores import PlanStore, StoreError
+
+    client = app.test_client()
+    row = _row(_grid(client), HOME)
+
+    def broken(self, row_id):
+        raise StoreError("plan file is corrupt")
+
+    monkeypatch.setattr(PlanStore, "get_row", broken)
+    status, out = _save(client, [{"row_index": row["row_index"], "value": "$5"}])
+    assert status == 500 and out["success"] is False and "corrupt" in out["error"]
+    assert "skipped" not in out

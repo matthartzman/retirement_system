@@ -35,6 +35,7 @@ row into an empty plan, in one transaction. Rules:
 from __future__ import annotations
 
 import csv
+import hashlib
 import io
 import re
 from dataclasses import dataclass, field
@@ -85,6 +86,8 @@ _REQUIRED_COLUMNS = ("section", "label")
 _UNITS_COLUMNS = ("units", "unit", "type")
 _NOTES_COLUMNS = ("notes", "note")
 _REPEATED_HEADER = ("section", "subsection", "label")
+_HEADER = ("section", "subsection", "label", "value", "units", "notes")
+Key = tuple[str, str, str]  # (section, subsection, label): a plan row's identity
 
 _ALNUM = re.compile(r"[A-Za-z0-9]")
 _RULE_ENDS = re.compile(r"^[-=]{2,}\s*|\s*[-=]{2,}$")
@@ -331,6 +334,21 @@ def read_plan_csv_set(folder: str | Path, files: Iterable[str] = PLAN_CSV_FILES)
     out.rows, out.report.duplicates_collapsed = collapse_duplicate_keys(out.rows)
     out.report.rows = len(out.rows)
     return out
+
+
+def plan_csv_set_fingerprint(folder: str | Path, files: Iterable[str] = PLAN_CSV_FILES) -> str:
+    """A hash of the bytes of every present file of the set (cheap change check, no parsing)."""
+    root = Path(folder)
+    digest = hashlib.sha256()
+    for name in files:
+        path = root / name
+        try:
+            data = path.read_bytes() if path.is_file() else None
+        except OSError:
+            data = None
+        digest.update(name.encode("utf-8") + b"\0")
+        digest.update(b"-" if data is None else hashlib.sha256(data).digest())
+    return digest.hexdigest()
 
 
 # ------------------------------------------------------------------------------- write
