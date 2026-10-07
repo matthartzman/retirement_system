@@ -66,6 +66,16 @@ def _csv_text(ws):
     return "\n".join(p.read_text(encoding="utf-8") for p in sorted(ws.input_dir.glob("client_*.csv")))
 
 
+def _csv_edit(ws, old, new):
+    """Edit a plan part file as the Plan Data file editor would (text replace; no bridge run)."""
+    for path in sorted(ws.input_dir.glob("client_*.csv")):
+        text = path.read_text(encoding="utf-8")
+        if old in text:
+            path.write_text(text.replace(old, new), encoding="utf-8")
+            return
+    raise AssertionError(old)
+
+
 def _ids(rows):
     return {(r["subsection"], r["label"]): r["row_id"] for r in rows}
 
@@ -308,9 +318,9 @@ def test_tax_assumptions_state_comes_from_the_household_row(ws, client):
 def test_policy_edits_then_csv_writer_then_policy_edit_keep_everything(ws, client):
     assert _post(client, "/api/residency-schedule", {"schedule": [{"state": "Texas", "start_year": "2027", "end_year": ""}]})[0] == 200
     assert _post(client, "/api/forced-roth-conversions", {"conversions": [{"source_account": "Member_1_IRA", "year": "2030", "amount": "9"}]})[0] == 200
-    # a still-CSV writer (read-modify-write of a part file, then the bridge)
-    buffers = [{"start_year": "2031", "end_year": "2036", "years_of_expenses": "2", "reserve_account": "Cash"}]
-    assert client.post("/api/liquidity-buffers", headers=HEADERS, json={"buffers": buffers, "sync": True}).status_code == 200
+    # a CSV writer (the Plan Data file editor: a part file edited by hand, then the bridge)
+    _csv_edit(ws, "Liquidity Buffer,buffer_1,reserve_account,Taxable/Trust", "Liquidity Buffer,buffer_1,reserve_account,Cash")
+    app_core._sync_config_backends()
     data = load_active_config()[0]
     assert data["State Residency Schedule"]["period_1"]["state"] == "Texas"
     assert data["Forced Actions"]["Roth Conversion 1"]["amount"] == "$9"
@@ -325,8 +335,7 @@ def test_policy_edits_then_csv_writer_then_policy_edit_keep_everything(ws, clien
 
 
 def test_a_csv_write_not_synced_yet_is_kept_by_the_next_policy_edit(ws, client):
-    buffers = [{"start_year": "2031", "end_year": "2036", "years_of_expenses": "2", "reserve_account": "Cash"}]
-    assert client.post("/api/liquidity-buffers", headers=HEADERS, json={"buffers": buffers}).status_code == 200  # CSV only
+    _csv_edit(ws, "Liquidity Buffer,buffer_1,start_year,2027", "Liquidity Buffer,buffer_1,start_year,2031")  # CSV only
     assert _post(client, "/api/forced-roth-conversions", {"conversions": []})[0] == 200
     data = load_active_config()[0]
     assert data["Liquidity Buffer"]["buffer_1"]["start_year"] == "2031" and "Forced Actions" not in data
@@ -344,7 +353,8 @@ def test_a_part_file_that_cannot_take_the_edit_answers_409_and_changes_nothing(w
     revision = ws.store(readonly=True).revision()
     for path, body in [("/api/residency-schedule", {"schedule": []}), ("/api/forced-roth-conversions", {"conversions": []}),
                        ("/api/large-discretionary-expenses", {"events": []}), ("/api/tax-assumptions", {"overrides": {"state_income_tax_rate": ""}}),
-                       ("/api/withdrawal-account-order", {"accounts": []}), ("/api/spending-adjustments", {"adjustments": []})]:
+                       ("/api/withdrawal-account-order", {"accounts": []}), ("/api/spending-adjustments", {"adjustments": []}),
+                       ("/api/liquidity-buffers", {"buffers": []}), ("/api/home-sale-splits", {"splits": []})]:
         status, out = _post(client, path, body)
         assert status == 409 and out["success"] is False and "part file does not parse" in out["error"], path
     assert ws.store(readonly=True).revision() == revision
