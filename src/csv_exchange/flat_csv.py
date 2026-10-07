@@ -18,3 +18,25 @@ def parse_csv_dicts(text: str) -> list[dict[str, str]]:
         if any(clean.values()):
             out.append(clean)
     return out
+
+
+def dataset_csv_text(repo) -> str:
+    """A flat plan dataset (``store.holdings`` ...) as the legacy CSV: header line, then one
+    line per row, cells exactly as stored."""
+    buf = io.StringIO()
+    w = csv.writer(buf, lineterminator="\n")
+    w.writerow(repo.columns)
+    for r in repo.rows():
+        w.writerow([r[c] for c in repo.columns])
+    return buf.getvalue()
+
+
+def replace_dataset_from_csv_text(repo, text: str) -> int:
+    """Replace a flat plan dataset from CSV text (UTF-8 BOM ignored, missing columns empty,
+    extra columns dropped, fully blank lines skipped, cells kept unstripped)."""
+    rows = []
+    for raw in csv.DictReader(io.StringIO((text or "").lstrip("\ufeff"))):
+        row = {c: (raw.get(c) or "") for c in repo.columns}
+        if any(v.strip() for v in row.values()):
+            rows.append(row)
+    return repo.replace_all(rows)
