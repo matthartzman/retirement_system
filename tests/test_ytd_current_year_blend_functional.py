@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 
 from src import ytd_tracking as ytd
-from tests.plan_fixture import stage_plan_csv
+from tests.plan_fixture import stage_plan_csv, write_plan_dataset
 from src.ytd_projection_blend import compute_current_year_overrides
 from src.planning_engines import apply_end_of_year_growth
 
@@ -173,19 +173,17 @@ def test_spend_blend_is_core_scoped_when_taxonomy_exists(tmp_path):
 
     input_dir = tmp_path / 'input'
     input_dir.mkdir()
-    (input_dir / 'client_spending_taxonomy.csv').write_text(
+    write_plan_dataset(input_dir.parent, 'client_spending_taxonomy.csv',
         'tracking_type,group,category_id,label,origin,status,notes\n'
         'Core Expenses,Food,groceries,Groceries,template,active,\n'
         'Housing,Home,mortgage_cat,Mortgage,template,active,\n'
         'Travel,Trips,vacation,Vacation,template,active,\n',
-        encoding='utf-8',
     )
-    (input_dir / 'client_spending_aliases.csv').write_text(
+    write_plan_dataset(input_dir.parent, 'client_spending_aliases.csv',
         'match_value,match_field,exact,priority,category_id,source\n'
         'Groceries,category,1,80,groceries,seed\n'
         'Mortgage,category,1,80,mortgage_cat,seed\n'
         'Vacation,category,1,80,vacation,seed\n',
-        encoding='utf-8',
     )
     tx = (
         'Date,Merchant,Category,Account,Original Statement,Notes,Amount,Tags,Owner\n'
@@ -238,17 +236,15 @@ def _travel_plan(tmp_path, travel_actual: int):
     """Build an input dir with a Travel taxonomy and a YTD travel transaction."""
     input_dir = tmp_path / 'input'
     input_dir.mkdir()
-    (input_dir / 'client_spending_taxonomy.csv').write_text(
+    write_plan_dataset(input_dir.parent, 'client_spending_taxonomy.csv',
         'tracking_type,group,category_id,label,origin,status,notes\n'
         'Core Expenses,Food,groceries,Groceries,template,active,\n'
         'Travel,Travel,vacation,Vacation,template,active,\n',
-        encoding='utf-8',
     )
-    (input_dir / 'client_spending_aliases.csv').write_text(
+    write_plan_dataset(input_dir.parent, 'client_spending_aliases.csv',
         'match_value,match_field,exact,priority,category_id,source\n'
         'Groceries,category,1,80,groceries,seed\n'
         'Vacation,category,1,80,vacation,seed\n',
-        encoding='utf-8',
     )
     tx = (
         'Date,Merchant,Category,Account,Original Statement,Notes,Amount,Tags,Owner\n'

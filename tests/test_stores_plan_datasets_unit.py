@@ -63,7 +63,7 @@ def test_dataset_writes_join_the_enclosing_transaction(store):
     assert store.liabilities.rows() == []
 
 
-def test_v1_file_upgrades_to_v2_keeping_rows(tmp_path):
+def test_v1_file_upgrades_to_current_keeping_rows(tmp_path):
     p = tmp_path / "old.rpx"
     con = db.connect(str(p))
     db.migrate(con, (_SCHEMA_V1,))
@@ -71,7 +71,7 @@ def test_v1_file_upgrades_to_v2_keeping_rows(tmp_path):
     con.commit()
     con.close()
     with PlanStore.open(p) as s:
-        assert s.schema_version == 2
+        assert s.schema_version == 3
         assert [r["section"] for r in s.all_rows()] == ["Household"]
         assert s.holdings.rows() == []
 
@@ -83,3 +83,74 @@ def test_extra_columns_survive_the_round_trip(store):
     assert row["market_value"] == "1,500" and row["purchase_price"] == ""
     assert store.holdings.extra_columns() == ["market_value"]
     assert dataset_csv_text(store.holdings).splitlines()[0].endswith("note,market_value")
+
+
+# ------------------------------------------------------------ WP6.3a: the spending set
+TAXONOMY_CSV = (
+    "tracking_type,group,category_id,label,origin,status,notes\n"
+    "Core Expenses,Food & Dining,groceries,Groceries,template,active,\"weekly, mostly\"\n"
+    "Housing,Mortgage,mortgage,Mortgage,custom,deleted,\n"
+)
+ALIASES_CSV = (
+    "match_value,match_field,exact,priority,category_id,source\n"
+    "Groceries,category,1,90,groceries,user\n"
+    "WHOLE FOODS,merchant,0,50,groceries,seed\n"
+)
+
+
+def test_v2_file_upgrades_to_v3_with_empty_spending_tables(tmp_path):
+    from src.stores.datasets import SCHEMA_V2_DDL
+    p = tmp_path / "v2.rpx"
+    con = db.connect(str(p))
+    db.migrate(con, (_SCHEMA_V1, SCHEMA_V2_DDL))
+    con.execute("INSERT INTO holdings_lots (position, account) VALUES (0, 'A_IRA')")
+    con.commit()
+    con.close()
+    with PlanStore.open(p) as s:
+        assert s.schema_version == 3
+        assert s.holdings.rows()[0]["account"] == "A_IRA"
+        assert s.spending.taxonomy.rows() == [] and s.spending.aliases.rows() == []
+
+
+def test_spending_repo_shape_and_planned_stubs(store):
+    from src.stores import SpendingRepository
+    from src.stores.spending_repo import PLANNED_SPENDING_DATASETS, SPENDING_DATASETS
+    repo = store.spending
+    assert isinstance(repo, SpendingRepository)
+    for name in SPENDING_DATASETS:
+        ds = repo.dataset(name)
+        assert isinstance(ds, DatasetRepository) and ds.rows() == []
+        assert store.dataset(f"spending_{name}").table == ds.table
+    assert repo.taxonomy.columns == ("tracking_type", "group", "category_id", "label", "origin", "status", "notes")
+    assert repo.aliases.columns == ("match_value", "match_field", "exact", "priority", "category_id", "source")
+    assert set(PLANNED_SPENDING_DATASETS) == {"budget", "budget_lines", "tier_overrides", "rules", "category_map"}
+    for name, unit in PLANNED_SPENDING_DATASETS.items():
+        with pytest.raises(NotImplementedError, match=unit):
+            repo.dataset(name)
+    with pytest.raises(KeyError):
+        repo.dataset("nope")
+    with pytest.raises(KeyError):
+        store.dataset("spending_nope")
+
+
+def test_spending_tables_round_trip_lossless_in_file_order(store):
+    assert replace_dataset_from_csv_text(store.spending.taxonomy, TAXONOMY_CSV) == 2
+    assert replace_dataset_from_csv_text(store.spending.aliases, ALIASES_CSV) == 2
+    assert dataset_csv_text(store.spending.taxonomy) == TAXONOMY_CSV
+    assert dataset_csv_text(store.spending.aliases) == ALIASES_CSV
+    rows = store.spending.taxonomy.rows()
+    assert [r["category_id"] for r in rows] == ["groceries", "mortgage"]
+    assert rows[0]["group"] == "Food & Dining" and rows[0]["notes"] == "weekly, mostly"
+
+
+def test_spending_extra_columns_and_transactions(store):
+    replace_dataset_from_csv_text(store.spending.aliases, "match_value,category_id,comment\nX,groceries,kept\n")
+    assert store.spending.aliases.extra_columns() == ["comment"]
+    assert store.spending.aliases.rows()[0]["comment"] == "kept"
+    with pytest.raises(RuntimeError):
+        with store.transaction():
+            store.spending.taxonomy.replace_all([{"category_id": "x"}])
+            raise RuntimeError("roll back")
+    assert store.spending.taxonomy.rows() == []
+    with pytest.raises(ValidationError):
+        store.spending.taxonomy.replace_all([{"category_id": 5}])

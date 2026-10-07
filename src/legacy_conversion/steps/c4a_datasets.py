@@ -18,6 +18,8 @@ from ...csv_exchange import import_flat_datasets
 
 STEP_ID = "C4a"
 MARKER_KEY = "legacy_conversion.c4a"
+# The datasets this step converts (the spending set is step C4b's).
+DATASETS = ("holdings", "liabilities", "hsa_schedule", "target_allocation")
 
 
 @dataclass
@@ -34,6 +36,6 @@ def run(input_dir: str | Path, store: Any) -> C4aReport:
     if store.get_meta(MARKER_KEY) is not None:
         return C4aReport(STEP_ID, skipped=True)
     with store.transaction():
-        written = import_flat_datasets(input_dir, store)
+        written = import_flat_datasets(input_dir, store, DATASETS)
         store.set_meta(MARKER_KEY, "rows=" + ",".join(f"{k}:{n}" for k, n in sorted(written.items())))
     return C4aReport(STEP_ID, skipped=False, rows_written=written)

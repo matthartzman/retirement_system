@@ -42,7 +42,7 @@ def store():
 # ------------------------------------------------------------------------ schema / open
 def test_fresh_memory_store_schema(store):
     con = store._con
-    assert store.schema_version == PLAN_SCHEMA_VERSION == 2
+    assert store.schema_version == PLAN_SCHEMA_VERSION == 3
     assert con.execute("PRAGMA application_id").fetchone()[0] == PLAN_APPLICATION_ID
     tables = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     assert {"plan_rows", "plan_revisions", "revision_rows", "plan_meta"} <= tables

@@ -20,10 +20,11 @@ def test_c4a_converts_the_fixture_files_and_is_idempotent(tmp_path):
     with PlanStore.open(tmp_path / "p.rpx") as store:
         report = c4a_datasets.run(fixture_dir("sample_frozen"), store)
         assert not report.skipped
-        for name, file in FLAT_DATASET_FILES.items():
-            src = fixture_dir("sample_frozen") / file
+        for name in c4a_datasets.DATASETS:
+            src = fixture_dir("sample_frozen") / FLAT_DATASET_FILES[name]
             expected = len(_csv_rows(src)) if src.is_file() else 0
-            assert getattr(store, name).count() == expected == report.rows_written.get(name, 0)
+            assert store.dataset(name).count() == expected == report.rows_written.get(name, 0)
+        assert store.spending.taxonomy.count() == 0  # the spending set is step C4b's
         assert store.get_meta(c4a_datasets.MARKER_KEY)
         assert c4a_datasets.run(fixture_dir("sample_frozen"), store).skipped
 

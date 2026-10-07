@@ -17,6 +17,7 @@ from .plan_store import (
     TargetAllocationRepository,
     plan_paths,
 )
+from .spending_repo import SpendingRepo, SpendingRepository
 
 __all__ = [
     "APP_SCHEMA_VERSION",
@@ -38,6 +39,8 @@ __all__ = [
     "RefData",
     "RefDataError",
     "SchemaVersionError",
+    "SpendingRepo",
+    "SpendingRepository",
     "StoreError",
     "TargetAllocationRepository",
     "ValidationError",

@@ -220,7 +220,7 @@ def _dataset_text(path: Path, name: str) -> str | None:
         return None
     try:
         with PlanStore.open(path, create=False) as store:
-            repo = getattr(store, name)
+            repo = store.dataset(name)
             return dataset_csv_text(repo) if repo.count() else None
     except LookupError:  # stores.NotFoundError: not an initialised plan file
         return None
@@ -249,7 +249,7 @@ def write_active_dataset(name: str, text: str) -> int:
     from .csv_exchange import replace_dataset_from_csv_text  # noqa: PLC0415
 
     with active_plan_store() as store:
-        return replace_dataset_from_csv_text(getattr(store, name), text)
+        return replace_dataset_from_csv_text(store.dataset(name), text)
 
 
 def dataset_fingerprint(path: str | Path) -> dict[str, str]:
@@ -262,7 +262,49 @@ def dataset_fingerprint(path: str | Path) -> dict[str, str]:
     out: dict[str, str] = {}
     with PlanStore.open(path, create=False) as store:
         for name, file in FLAT_DATASET_FILES.items():
-            repo = getattr(store, name)
+            repo = store.dataset(name)
             if repo.count():
                 out[file] = hashlib.sha256(dataset_csv_text(repo).encode("utf-8")).hexdigest()
     return out
+
+
+# ------------------------------------------------------------- spending set (WP6.3)
+# The spending taxonomy and aliases are tables of the plan file (``store.spending``). The
+# spending readers are handed a workspace root (``<root>/input`` was their folder): the live
+# workspace means the active plan, any other root means the ``plan.rpx`` in it.
+def plan_path_for_workspace(root: str | Path) -> Path:
+    """The plan file of workspace ``root``: the active plan for the live workspace, else
+    ``<root>/plan.rpx``."""
+    try:
+        same = Path(root).resolve() == platform_runtime.workspace_root().resolve()
+    except OSError:
+        same = False
+    return active_plan_path() if same else Path(root) / PLAN_FILE_NAME
+
+
+def _dataset_rows(path: Path, name: str) -> list[dict[str, str]]:
+    if not path.is_file():
+        return []
+    try:
+        with PlanStore.open(path, create=False) as store:
+            return store.dataset(name).rows()
+    except LookupError:  # stores.NotFoundError: not an initialised plan file
+        return []
+
+
+def workspace_dataset_rows(root: str | Path, name: str) -> list[dict[str, str]]:
+    """Rows of dataset ``name`` (``"spending_taxonomy"`` ...) in the plan of workspace ``root``
+    (``[]`` when there is no plan file). Never creates a plan file."""
+    return _dataset_rows(plan_path_for_workspace(root), name)
+
+
+def dataset_rows_for_input_dir(input_dir: str | Path, name: str) -> list[dict[str, str]]:
+    """:func:`workspace_dataset_rows` for code handed a workspace's ``input`` folder."""
+    return workspace_dataset_rows(Path(input_dir).parent, name)
+
+
+def write_workspace_dataset_rows(root: str | Path, name: str, rows: list[dict[str, Any]]) -> int:
+    """Replace dataset ``name`` in the plan of workspace ``root`` (created when missing) with
+    ``rows`` (text values; ``None`` is stored empty). Returns the rows written."""
+    with PlanStore.open(plan_path_for_workspace(root)) as store:
+        return store.dataset(name).replace_all(rows)

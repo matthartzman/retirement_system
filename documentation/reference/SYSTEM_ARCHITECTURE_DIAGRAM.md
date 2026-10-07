@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 227 Python files under `src/`, 48 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 229 Python files under `src/`, 48 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -24,7 +24,7 @@ flowchart TB
     subgraph L_HTTP_Runtime["HTTP Runtime (3 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
-    subgraph L_Core_Engine___Domain["Core Engine & Domain (146 modules)"]
+    subgraph L_Core_Engine___Domain["Core Engine & Domain (148 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
     subgraph L_Projection_Stages["Projection Stages (23 modules)"]
@@ -522,13 +522,14 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/housing_comparison.py` | `after_tax`, `planning_engines`, `server_services.strategy_asset_service` | — |
 | `src/housing_optimizer.py` | `housing` | — |
 | `src/hsa_schedule.py` | `after_tax`, `planning_engines`, `taxes` | — |
-| `src/import_preview.py` | `stores.ref_getters.security_master`, `ytd_tracking` | — |
+| `src/import_preview.py` | `plan_datasets`, `stores.ref_getters.security_master`, `ytd_tracking` | — |
 | `src/large_discretionary.py` | — | — |
 | `src/legacy_conversion/__init__.py` | — | — |
 | `src/legacy_conversion/steps/__init__.py` | — | — |
 | `src/legacy_conversion/steps/c3_plan_rows.py` | `csv_exchange`, `plan_data_migration`, `plan_label_rules` | — |
 | `src/legacy_conversion/steps/c3b_plan_overrides.py` | `csv_exchange`, `plan_overrides` | — |
 | `src/legacy_conversion/steps/c4a_datasets.py` | `csv_exchange` | — |
+| `src/legacy_conversion/steps/c4b_spending.py` | `csv_exchange` | — |
 | `src/local_backup_scheduler.py` | — | — |
 | `src/local_store.py` | `sqlite_util` | — |
 | `src/market_data.py` | `platform_runtime`, `secrets_store`, `version` | `requests` |
@@ -587,15 +588,15 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/server_forecast.py` | `after_tax`, `core`, `report_compute` | — |
 | `src/spending_adjustments.py` | — | — |
 | `src/spending_budget_resolver.py` | `large_discretionary`, `spending_adjustments`, `spending_tracker` | — |
-| `src/spending_tracker.py` | `active_plan`, `platform_runtime`, `ytd_tracking` | — |
+| `src/spending_tracker.py` | `active_plan`, `plan_datasets`, `platform_runtime`, `ytd_tracking` | — |
 | `src/sqlite_util.py` | — | — |
-| `src/stores/__init__.py` | `stores.app_store`, `stores.db`, `stores.errors`, `stores.plan_store`, `stores.ref_access`, `stores.ref_data` | — |
+| `src/stores/__init__.py` | `stores.app_store`, `stores.db`, `stores.errors`, `stores.plan_store`, `stores.ref_access`, `stores.ref_data`, `stores.spending_repo` | — |
 | `src/stores/_base.py` | `stores`, `stores.errors` | — |
 | `src/stores/app_store.py` | `stores._base`, `stores.errors`, `stores.plan_store` | — |
 | `src/stores/datasets.py` | `stores.errors` | — |
 | `src/stores/db.py` | `stores.errors` | — |
 | `src/stores/errors.py` | — | — |
-| `src/stores/plan_store.py` | `stores._base`, `stores.datasets`, `stores.errors` | — |
+| `src/stores/plan_store.py` | `stores._base`, `stores.datasets`, `stores.errors`, `stores.spending_repo` | — |
 | `src/stores/ref_access.py` | `stores.ref_data` | — |
 | `src/stores/ref_data.py` | `stores`, `stores.errors` | — |
 | `src/stores/ref_getters/__init__.py` | `stores.ref_data`, `stores.ref_getters` | — |
@@ -609,6 +610,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/stores/ref_getters/tax_update_dashboard.py` | `stores.ref_access`, `stores.ref_data` | — |
 | `src/stores/ref_getters/template_layout.py` | `stores.ref_access`, `stores.ref_data` | — |
 | `src/stores/ref_getters/zip_data.py` | `housing.zip_screen.schema`, `stores.ref_access`, `stores.ref_data` | — |
+| `src/stores/spending_repo.py` | `stores.datasets` | — |
 | `src/strategy_sweep.py` | — | — |
 | `src/system_config.py` | `plan_file_io` | — |
 | `src/tax_assumptions.py` | `tax_law` | — |

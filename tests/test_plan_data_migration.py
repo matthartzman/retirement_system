@@ -213,7 +213,7 @@ def test_a_plan_file_arriving_later_is_swept_even_when_the_csv_part_is_stamped(t
     from src.stores import PlanStore
     with PlanStore.open(tmp_path / "plan.rpx") as store:
         store.insert_row("Household", label="husband_mortality_age", value="92")
-    assert migrate_plan_file(tmp_path / "plan.rpx") == {"plan_rows": 1, "total_changed": 1}
+    assert migrate_plan_file(tmp_path / "plan.rpx") == {"plan_rows": 1, "plan_datasets": 0, "total_changed": 1}
     assert migrate_plan_file(tmp_path / "plan.rpx")["total_changed"] == 0
     assert migrate_plan_file(tmp_path / "missing.rpx")["total_changed"] == 0  # no plan file: nothing to do
     assert "member_1_mortality_age" in _plan_rows(tmp_path)["Household"][""]

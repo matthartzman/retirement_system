@@ -3,6 +3,7 @@ import pytest
 
 from src.spending_adjustments import Adjustment, adjustment_factor, load_adjustments
 from src.spending_budget_resolver import resolve_spending_inputs
+from tests.plan_fixture import write_plan_dataset
 
 A = [Adjustment("dining", 2035, None, -0.20), Adjustment("dining", 2042, None, -0.10),
      Adjustment("ALL:Travel", 2038, None, -0.50), Adjustment("home_aide", 2045, 2050, 0.40)]
@@ -44,14 +45,14 @@ def test_load_adjustments_reads_percent_rows():
 
 def _seed(root):
     (root / "input").mkdir(parents=True, exist_ok=True)
-    (root / "input/client_spending_taxonomy.csv").write_text(
+    write_plan_dataset(root, "client_spending_taxonomy.csv",
         "tracking_type,group,category_id,label,origin,status,notes\n"
         "Core Expenses,Food,groceries,Groceries,template,active,\n"
         "Core Expenses,Food,dining,Dining,template,active,\n"
         "Travel,Trips,hotels,Hotels,template,active,\n"
-        "Wellness,Care,home_aide,Home Aide,template,active,\n", encoding="utf-8")
-    (root / "input/client_spending_aliases.csv").write_text(
-        "match_value,match_field,exact,priority,category_id,source\n", encoding="utf-8")
+        "Wellness,Care,home_aide,Home Aide,template,active,\n")
+    write_plan_dataset(root, "client_spending_aliases.csv",
+        "match_value,match_field,exact,priority,category_id,source\n")
     (root / "input/client_spending_budget.csv").write_text(
         "kind,key,label,annual_budget,start_year,end_year,one_time_year,notes\n"
         "category,groceries,Groceries,6000,,,,\n"

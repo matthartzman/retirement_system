@@ -188,3 +188,23 @@ def stage_flat_datasets(tmp_path, files: dict[str, str], *, input_subdir: str = 
     with PlanStore.open(Path(tmp_path) / PLAN_FILE_NAME) as store:
         import_flat_datasets(input_dir, store)
     return input_dir
+
+
+def write_plan_dataset(root, file_name: str, text: str) -> None:
+    """Put a flat dataset (``"client_spending_taxonomy.csv"``, ``"client_holdings.csv"`` ...) given
+    as its legacy CSV text into the table of ``<root>/plan.rpx`` (created when missing): the
+    plan the spending readers handed ``root`` read since WP6.3a."""
+    from src.csv_exchange import FLAT_DATASET_FILES, replace_dataset_from_csv_text
+    from src.stores import PlanStore
+    name = {f: n for n, f in FLAT_DATASET_FILES.items()}[file_name]
+    with PlanStore.open(Path(root) / PLAN_FILE_NAME) as store:
+        replace_dataset_from_csv_text(store.dataset(name), text)
+
+
+def plan_dataset_rows(root, file_name: str) -> list[dict]:
+    """Rows of a flat dataset table of ``<root>/plan.rpx``, keyed by the legacy CSV columns."""
+    from src.csv_exchange import FLAT_DATASET_FILES
+    from src.stores import PlanStore
+    name = {f: n for n, f in FLAT_DATASET_FILES.items()}[file_name]
+    with PlanStore.open(Path(root) / PLAN_FILE_NAME, create=False) as store:
+        return store.dataset(name).rows()
