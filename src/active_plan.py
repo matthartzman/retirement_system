@@ -208,3 +208,61 @@ def plan_db_env(env: dict[str, Any]) -> dict[str, Any]:
     """Set ``PLAN_DB_ENV`` in a subprocess environment to the active plan file."""
     env[PLAN_DB_ENV] = str(active_plan_path())
     return env
+
+
+# ----------------------------------------------------------------- flat datasets (WP6)
+# Holdings, liabilities, HSA schedule and target allocation are tables of the plan file.
+# Readers get CSV text (the shape their parsers take) or ``None`` for "no rows".
+def _dataset_text(path: Path, name: str) -> str | None:
+    from .csv_exchange import dataset_csv_text  # noqa: PLC0415
+
+    if not path.is_file():
+        return None
+    try:
+        with PlanStore.open(path, create=False) as store:
+            repo = getattr(store, name)
+            return dataset_csv_text(repo) if repo.count() else None
+    except LookupError:  # stores.NotFoundError: not an initialised plan file
+        return None
+
+
+def active_dataset_text(name: str) -> str | None:
+    """CSV text of dataset ``name`` in the active plan; ``None`` when there is no plan file or
+    the table is empty. Never creates a plan file."""
+    return _dataset_text(active_plan_path(), name)
+
+
+def dataset_text_for_input_dir(input_dir: str | Path, name: str) -> str | None:
+    """For code handed a workspace's ``input`` folder: the active plan when it is the live
+    workspace's ``input``, else the ``plan.rpx`` of the workspace that holds it."""
+    live = platform_runtime.workspace_root() / "input"
+    try:
+        same = Path(input_dir).resolve() == live.resolve()
+    except OSError:
+        same = False
+    return active_dataset_text(name) if same else _dataset_text(Path(input_dir).parent / PLAN_FILE_NAME, name)
+
+
+def write_active_dataset(name: str, text: str) -> int:
+    """Replace dataset ``name`` of the active plan from CSV text (creating the plan file when
+    there is none); returns the rows written."""
+    from .csv_exchange import replace_dataset_from_csv_text  # noqa: PLC0415
+
+    with active_plan_store() as store:
+        return replace_dataset_from_csv_text(getattr(store, name), text)
+
+
+def dataset_fingerprint(path: str | Path) -> dict[str, str]:
+    """``{file name: sha256 of the dataset's CSV text}`` for the non-empty datasets of a plan
+    file (the build's input fingerprint)."""
+    import hashlib  # noqa: PLC0415
+
+    from .csv_exchange import FLAT_DATASET_FILES, dataset_csv_text  # noqa: PLC0415
+
+    out: dict[str, str] = {}
+    with PlanStore.open(path, create=False) as store:
+        for name, file in FLAT_DATASET_FILES.items():
+            repo = getattr(store, name)
+            if repo.count():
+                out[file] = hashlib.sha256(dataset_csv_text(repo).encode("utf-8")).hexdigest()
+    return out

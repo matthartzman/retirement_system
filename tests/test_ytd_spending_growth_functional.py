@@ -4,7 +4,7 @@ from pathlib import Path
 from datetime import date
 
 from src import ytd_tracking as ytd
-from tests.plan_fixture import stage_plan_csv
+from tests.plan_fixture import stage_flat_datasets, stage_plan_csv
 from tests._decomp_dashboard import dashboard_function_source, dashboard_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -65,10 +65,10 @@ def test_ytd_summary_gates_until_transactions_uploaded(tmp_path):
 
 
 def test_ytd_growth_uses_current_holdings_minus_prior_year_balance(tmp_path):
+    root = stage_flat_datasets(tmp_path, {'client_holdings.csv': 'account,symbol,purchase_date,shares,purchase_price,lot_type\nJoint Brokerage,CASH,2026-01-01,112000,1,buy\n'})
     tx = 'Date,Merchant,Category,Account,Original Statement,Notes,Amount,Tags,Owner\n2026-02-01,Transfer,Investment,Joint Brokerage,Bank,,5000,,Household\n'
-    ytd.import_transactions(tmp_path, tx, mode='replace')
-    (tmp_path / 'client_holdings.csv').write_text('account,symbol,purchase_date,shares,purchase_price,lot_type\nJoint Brokerage,CASH,2026-01-01,112000,1,buy\n', encoding='utf-8')
-    ytd.write_account_setup(tmp_path, [{
+    ytd.import_transactions(root, tx, mode='replace')
+    ytd.write_account_setup(root, [{
         'Account': 'Joint Brokerage',
         'Role': 'Investment',
         'Mapped Investment Account': 'Joint Brokerage',
@@ -76,7 +76,7 @@ def test_ytd_growth_uses_current_holdings_minus_prior_year_balance(tmp_path):
         'Prior Year End Balance': '100000',
         'Notes': '',
     }])
-    s = ytd.ytd_summary(tmp_path, today=date(2026, 6, 12))
+    s = ytd.ytd_summary(root, today=date(2026, 6, 12))
     assert s['investment_balance']['actual_growth_available'] is True
     assert s['actual']['growth'] == 12000.0
     assert s['growth_series'] == [
@@ -154,10 +154,10 @@ def test_ytd_summary_last_year_period_reports_prior_calendar_year(tmp_path):
 
 
 def test_ytd_growth_is_point_to_point_and_reports_external_flows_diagnostics(tmp_path):
+    root = stage_flat_datasets(tmp_path, {'client_holdings.csv': 'account,symbol,purchase_date,shares,purchase_price,lot_type\nJoint Brokerage,CASH,2026-01-01,110000,1,buy\n'})
     tx = 'Date,Merchant,Category,Account,Original Statement,Notes,Amount,Tags,Owner\n2026-01-10,ACH,Deposit,Joint Brokerage,Bank,,5000,,Household\n2026-02-10,ETF Distribution,Dividends and Capital Gains,Joint Brokerage,Broker,,200,,Household\n2026-03-10,Transfer Out,Withdrawal,Joint Brokerage,Broker,,-1000,,Household\n'
-    ytd.import_transactions(tmp_path, tx, mode='replace', today=date(2026, 6, 12))
-    (tmp_path / 'client_holdings.csv').write_text('account,symbol,purchase_date,shares,purchase_price,lot_type\nJoint Brokerage,CASH,2026-01-01,110000,1,buy\n', encoding='utf-8')
-    ytd.write_account_setup(tmp_path, [{
+    ytd.import_transactions(root, tx, mode='replace', today=date(2026, 6, 12))
+    ytd.write_account_setup(root, [{
         'Account': 'Joint Brokerage',
         'Role': 'Investment',
         'Mapped Investment Account': 'Joint Brokerage',
@@ -165,7 +165,7 @@ def test_ytd_growth_is_point_to_point_and_reports_external_flows_diagnostics(tmp
         'Prior Year End Balance': '100000',
         'Notes': '',
     }])
-    s = ytd.ytd_summary(tmp_path, today=date(2026, 6, 12))
+    s = ytd.ytd_summary(root, today=date(2026, 6, 12))
     assert s['investment_balance']['external_deposits'] == 5000.0
     assert s['investment_balance']['external_withdrawals'] == 1000.0
     assert s['investment_balance']['net_ytd_investment_cashflow'] == 4000.0
@@ -260,10 +260,10 @@ Cashflow,Large Discretionary Expenses,extra_2_end_year,2027,year,
 
 
 def test_ytd_status_exposes_account_dropdown_sources(tmp_path):
+    root = stage_flat_datasets(tmp_path, {'client_holdings.csv': 'account,symbol,purchase_date,shares,purchase_price,lot_type\nJoint Brokerage,VTI,2026-01-01,1,100,buy\n'})
     tx = 'Date,Merchant,Category,Account,Original Statement,Notes,Amount,Tags,Owner\n2026-01-02,New,Groceries,Checking,Bank,,-20,,Household\n'
-    ytd.import_transactions(tmp_path, tx, mode='replace', today=date(2026, 6, 12))
-    (tmp_path / 'client_holdings.csv').write_text('account,symbol,purchase_date,shares,purchase_price,lot_type\nJoint Brokerage,VTI,2026-01-01,1,100,buy\n', encoding='utf-8')
-    s = ytd.ytd_summary(tmp_path, today=date(2026, 6, 12))
+    ytd.import_transactions(root, tx, mode='replace', today=date(2026, 6, 12))
+    s = ytd.ytd_summary(root, today=date(2026, 6, 12))
     assert s['transaction_accounts'] == ['Checking']
     assert s['investment_holding_accounts'] == ['Joint Brokerage']
 
