@@ -23,6 +23,20 @@ when the capital-market config selects custom assumptions (``use_custom_*_file``
 :func:`validate_rows` is the typed check of a posted table (numbers parse, asset classes and
 presets are known); :func:`replace_rows` writes a validated table into an open plan, replacing
 the previous rows of that table.
+
+Accepted cell forms (the engine reads them with ``optimization._parse_number``, which divides a
+value ending in ``%`` by 100 and takes anything else as it stands):
+
+* ``horizon_years``, ``holding_years``: whole numbers (``30``), never a percent.
+* ``expected_return``, ``volatility``: a percent (``7.5%``) or a fraction (``0.075``). A bare number
+  outside -1..1 is refused (``7.5`` would be read as 750%; write ``7.5%``). Volatility is not negative.
+* ``stock_index_correlation``, ``correlation``: a fraction or percent whose value is between -1 and 1.
+* ``real_loss_prob``: a fraction or percent between 0 and 1 (0%-100%).
+
+A stored cell is the typed text with spaces, thousands commas and a leading ``+`` removed; the digits
+and a trailing ``%`` are kept as typed, so the engine reads exactly what the user wrote. Rows whose
+cells are all empty are dropped (a grid's blank trailing rows); a table posted with only empty rows
+is refused (post ``[]`` to clear it).
 """
 from __future__ import annotations
 
@@ -55,10 +69,32 @@ NUMBER_COLUMNS = {
     CORRELATIONS: ("horizon_years", "correlation"),
     REAL_LOSS: ("holding_years", "real_loss_prob"),
 }
+# Number columns that may carry a trailing ``%`` (the rest are whole numbers).
+PERCENT_COLUMNS = {
+    CMA: ("expected_return", "volatility", "stock_index_correlation"),
+    CORRELATIONS: ("correlation",),
+    REAL_LOSS: ("real_loss_prob",),
+}
+INTEGER_COLUMNS = {
+    CMA: ("horizon_years",),
+    CORRELATIONS: ("horizon_years",),
+    REAL_LOSS: ("holding_years",),
+}
+# Inclusive value range of a percent column (as a fraction); ``None`` = unbounded.
+VALUE_RANGE = {
+    "expected_return": (-1.0, None),
+    "volatility": (0.0, None),
+    "stock_index_correlation": (-1.0, 1.0),
+    "correlation": (-1.0, 1.0),
+    "real_loss_prob": (0.0, 1.0),
+}
+# Columns whose bare (no ``%``) value must already be a fraction.
+FRACTION_IF_BARE = ("expected_return", "volatility")
 ASSET_CLASS_COLUMNS = {CMA: ("asset_class",), CORRELATIONS: ("asset_class_a", "asset_class_b"), REAL_LOSS: ()}
 UNITS = "text"
 _ROW_SUBSECTION = re.compile(r"^row_(\d+)$")
 _NUMBER = re.compile(r"^[+-]?(\d+(\.\d*)?|\.\d+)%?$")
+_INTEGER = re.compile(r"^\d+$")
 
 
 class OverrideRowsError(ValueError):
@@ -69,8 +105,24 @@ class OverrideRowsError(ValueError):
         self.errors = errors
 
 
+def _normalise_number(text: str) -> str:
+    """The typed text without spaces, thousands commas and a leading ``+`` (digits and ``%`` as typed)."""
+    out = str(text).replace(",", "").replace(" ", "").replace("\u00a0", "")
+    return out[1:] if out.startswith("+") else out
+
+
 def _number_ok(text: str) -> bool:
-    return bool(_NUMBER.match(text.replace(",", "").replace(" ", "")))
+    return bool(_NUMBER.match(_normalise_number(text)))
+
+
+def _fraction(text: str) -> float:
+    """The value of a number cell as the engine reads it (a trailing ``%`` divides by 100)."""
+    norm = _normalise_number(text)
+    return float(norm.rstrip("%")) / (100.0 if norm.endswith("%") else 1.0)
+
+
+def _is_blank_row(row: Mapping[str, Any], columns: Iterable[str]) -> bool:
+    return not any(str(row.get(col) if row.get(col) is not None else "").strip() for col in columns)
 
 
 def override_rows(data: Mapping[str, Any], kind: str) -> list[dict[str, str]]:
@@ -103,6 +155,7 @@ def validate_rows(kind: str, rows: Any) -> list[dict[str, str]]:
     columns, optional = COLUMNS[kind], OPTIONAL[kind]
     errors: list[str] = []
     clean: list[dict[str, str]] = []
+    skipped_blank = 0
     for i, raw in enumerate(rows, 1):
         if not isinstance(raw, Mapping):
             errors.append(f"row {i}: must be an object")
@@ -110,27 +163,41 @@ def validate_rows(kind: str, rows: Any) -> list[dict[str, str]]:
         unknown = sorted(set(map(str, raw)) - set(columns))
         if unknown:
             errors.append(f"row {i}: unknown column(s) {', '.join(unknown)}")
+        if _is_blank_row(raw, columns):  # a grid's blank trailing row
+            skipped_blank += 1
+            continue
         row = {col: ("" if raw.get(col) is None else str(raw.get(col)).strip()) for col in columns}
         for col in columns:
             if not row[col] and col not in optional:
                 errors.append(f"row {i}: {col} is required")
         for col in NUMBER_COLUMNS[kind]:
-            if row[col] and not _number_ok(row[col]):
+            if not row[col]:
+                continue
+            if not _number_ok(row[col]):
                 errors.append(f"row {i}: {col} must be a number, got {row[col]!r}")
+                continue
+            row[col] = _normalise_number(row[col])
+            if col in INTEGER_COLUMNS[kind]:
+                if not _INTEGER.match(row[col]):
+                    errors.append(f"row {i}: {col} must be a whole number of years, got {row[col]!r}")
+                continue
+            bare = not row[col].endswith("%")
+            value = _fraction(row[col])
+            low, high = VALUE_RANGE[col]
+            if col in FRACTION_IF_BARE and bare and not -1.0 <= value <= 1.0:
+                errors.append(f"row {i}: {col} {row[col]!r} is not a fraction; write it as a percent such as {row[col]}%")
+            elif low is not None and value < low or high is not None and value > high:
+                bounds = {"real_loss_prob": "between 0 and 1 (or 0%-100%)", "volatility": "not negative"}.get(
+                    col, "between -1 and 1" if col != "expected_return" else "at least -100%")
+                errors.append(f"row {i}: {col} must be {bounds}")
         for col in ASSET_CLASS_COLUMNS[kind]:
             if row[col] and canonical_asset_class(row[col]) not in _BASE_ASSET_CLASSES:
                 errors.append(f"row {i}: {col} is not a known asset class: {row[col]!r}")
         if "preset" in columns and row["preset"] and row["preset"].upper() not in CAPITAL_MARKET_PRESETS:
             errors.append(f"row {i}: preset must be one of {', '.join(sorted(CAPITAL_MARKET_PRESETS))}")
-        if kind == CORRELATIONS and row["correlation"] and _number_ok(row["correlation"]):
-            value = float(row["correlation"].replace(",", "").rstrip("%")) / (100.0 if row["correlation"].endswith("%") else 1.0)
-            if not -1.0 <= value <= 1.0:
-                errors.append(f"row {i}: correlation must be between -1 and 1")
-        if kind == REAL_LOSS and row["real_loss_prob"] and _number_ok(row["real_loss_prob"]):
-            value = float(row["real_loss_prob"].replace(",", "").rstrip("%")) / (100.0 if row["real_loss_prob"].endswith("%") else 1.0)
-            if not 0.0 <= value <= 1.0:
-                errors.append(f"row {i}: real_loss_prob must be between 0 and 1 (or 0%-100%)")
         clean.append({col: row[col] for col in columns if row[col]})
+    if skipped_blank and not clean and not errors:
+        errors.append("every row is empty; fill a row in, or post an empty list to clear the table")
     if errors:
         raise OverrideRowsError(errors)
     return clean
@@ -138,12 +205,19 @@ def validate_rows(kind: str, rows: Any) -> list[dict[str, str]]:
 
 def replace_rows(store: Any, kind: str, rows: Iterable[Mapping[str, str]]) -> int:
     """Replace table ``kind`` in the open, writable plan ``store`` with ``rows`` (already
-    validated; call inside the caller's edit transaction). Returns the number of rows written."""
+    validated; call inside the caller's edit transaction). Rows whose cells are all empty are
+    skipped without using up a ``row_N`` number. An empty list clears the table; a list holding
+    only empty rows is refused (:class:`OverrideRowsError`) and the table is left as it was.
+    Returns the number of rows written."""
     section = SECTIONS[kind]
+    given = list(rows)
+    kept = [row for row in given if not _is_blank_row(row, COLUMNS[kind])]
+    if given and not kept:
+        raise OverrideRowsError(["every row is empty; fill a row in, or post an empty list to clear the table"])
     for old in store.rows(section):
         store.delete_row(old["row_id"])
     count = 0
-    for row in rows:
+    for row in kept:
         count += 1
         for col in COLUMNS[kind]:
             if col in row and str(row[col]).strip():

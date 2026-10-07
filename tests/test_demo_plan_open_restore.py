@@ -502,3 +502,20 @@ def test_every_text_backup_file_passes_the_write_allowlist():
 
     missing = [name for name in TEXT_BACKUP_FILES if name not in PLAN_DATA_FILE_SET]
     assert not missing, f"TEXT_BACKUP_FILES entries missing from PLAN_DATA_FILE_SET: {missing}"
+
+
+def test_demo_open_and_exit_run_the_migrate_hook_after_each_swap(tmp_path):
+    """migrate_plan_file's contract: it runs after every plan file swap (demo open and demo exit too)."""
+    service, active_db, plan_db, *_ = _make_service(tmp_path)
+    swapped = []
+    service = DemoPlanService(dataclasses.replace(
+        service.context, migrate=lambda path: swapped.append((Path(path), _plan_view(Path(path))))))
+    service.open_demo_payload()
+    assert swapped and swapped[-1][0] == plan_db and swapped[-1][1]["Household"][""]["member_1_name"] == "Demo Person"
+    service.restore_current_payload()
+    assert len(swapped) == 2 and swapped[-1][1] == {"Marker": {"": {"value": "real-plan"}}}
+
+
+def test_the_routes_wire_the_migrate_hook_into_the_demo_service():
+    from src.server import plan_routes
+    assert plan_routes._demo_plan_feature_service().context.migrate is plan_routes._migrate_after_db_replace

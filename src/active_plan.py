@@ -13,7 +13,8 @@ copy, its bridge and the JSON/YAML mirrors). Two entries:
 * readers use :func:`active_plan_data` (the engine view, ``PlanStore.sectioned_data()``) or
   open the store with :func:`active_plan_store`;
 * writers edit through :func:`edit_active_plan`: one transaction on the plan file, the Roth
-  controls made canonical and the protected retirement dates kept before it commits.
+  controls made canonical before it commits (and, for the grid and the forms, the protected
+  retirement dates kept).
 """
 from __future__ import annotations
 
@@ -34,8 +35,16 @@ PLAN_FILE_NAME = "plan.rpx"
 SectionedData = dict[str, dict[str, dict[str, str]]]
 Key = tuple[str, str, str]  # (section, subsection, label)
 
-# Easy-to-lose fields: a save that blanks one of these keeps the value the plan already holds
-# (a blank incoming value never erases a retirement date; entering another value replaces it).
+# Easy-to-lose fields: a grid or form save that blanks one of these keeps the value the plan
+# already holds (a blank incoming value never erases a retirement date; entering another value
+# replaces it). This is the retired file writer's rule (``_merge_protected_client_data_values``),
+# which only guarded the saves of the household's own data: the config grid and the forms
+# (Member 1 / Member 2 pages). It never applied to Start New Plan, the demo swap, Save As / Load /
+# restore or an import, nor to the strategy endpoints and the UI-row backfill. The same scoping
+# holds here: protection is opt-in (``edit_active_plan(protect_values=True)``) and only the grid
+# and the forms ask for it (``app_core._edit_active_plan_protected``). A date that is not blank in
+# the plan is the only thing protected; a household with no Member 2 starts blank and stays editable,
+# and a row the edit deletes stays deleted.
 PROTECTED_PLAN_KEYS: frozenset[Key] = frozenset({
     ("Household", "", "member_1_retirement_date"),
     ("Household", "", "member_2_retirement_date"),
@@ -95,14 +104,15 @@ def _keep_protected_values(store: PlanStore, before: dict[Key, tuple[int, str]])
 
 
 @contextmanager
-def edit_active_plan(*, protect_values: bool = True) -> Iterator[PlanEdit]:
+def edit_active_plan(*, protect_values: bool = False) -> Iterator[PlanEdit]:
     """Edit the active plan's rows in one transaction; every row writer's one entry.
 
     Yields a :class:`PlanEdit`; the caller edits ``edit.store`` by ``row_id`` or key (an
     exception rolls everything back and propagates). Before the commit the Roth controls are
-    made canonical (``roth_ui_build_guard``) and, unless ``protect_values`` is off (a blank
-    plan, which clears them on purpose), a protected retirement date the edit blanked is put
-    back. After the block ``PlanEdit.revision`` is the plan's revision.
+    made canonical (``roth_ui_build_guard``) and, when ``protect_values`` is on (the config grid
+    and the forms; see ``PROTECTED_PLAN_KEYS``), a protected retirement date the edit blanked is
+    put back. Every other caller (blank plan, strategy endpoints, backfill) leaves it off.
+    After the block ``PlanEdit.revision`` is the plan's revision.
     """
     with _PLAN_LOCK, active_plan_store() as store:
         edit = PlanEdit(store)

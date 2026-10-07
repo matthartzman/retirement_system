@@ -1256,14 +1256,33 @@ def save_budget_by_category(root, budget):
 
 
 def _plan_view(root) -> dict:
-    """The sectioned plan rows of the workspace ``root`` (``None``: the active plan), read
+    """The sectioned plan rows of the workspace ``root`` (default: ``_root()``'s rule, so
+    ``RETIREMENT_SYSTEM_BASE_DIR`` is honoured; with neither given, the active plan file), read
     without creating anything; ``{}`` when there is no plan file."""
     from .active_plan import peek_plan_data
-    return peek_plan_data(root)
+    if root is None and not os.environ.get("RETIREMENT_SYSTEM_BASE_DIR"):
+        return peek_plan_data()
+    return peek_plan_data(_root(root))
+
+
+def _plan_section(root, section: str) -> dict[str, dict[str, str]]:
+    """``{subsection: {label: value}}`` of one section of the plan, matched the way the retired CSV
+    readers matched it: section, subsection and label compared stripped and case-insensitively
+    (the labels come back lower-cased and stripped)."""
+    want = section.strip().lower()
+    out: dict[str, dict[str, str]] = {}
+    for sec, subs in _plan_view(root).items():
+        if str(sec).strip().lower() != want:
+            continue
+        for sub, values in subs.items():
+            fields = out.setdefault(str(sub).strip(), {})
+            for label, value in values.items():
+                fields[str(label).strip().lower()] = value
+    return out
 
 
 def _existing_life_insurance_module_enabled(root) -> bool:
-    value = _plan_view(root).get("Optional Functions", {}).get("", {}).get("existing_life_insurance")
+    value = _plan_section(root, "Optional Functions").get("", {}).get("existing_life_insurance")
     return str(value or "").strip().upper() in ("TRUE", "YES", "1")
 
 
@@ -1277,7 +1296,7 @@ def _insurance_policy_premium_sum(root, policy_type: str) -> float:
     already subject to elsewhere in the app. Reads the plan's rows."""
     if not _existing_life_insurance_module_enabled(root):
         return 0.0
-    by_sub = _plan_view(root).get("Insurance In Force", {})
+    by_sub = _plan_section(root, "Insurance In Force")
     target = policy_type.strip().lower()
     total = 0.0
     for fields in by_sub.values():
