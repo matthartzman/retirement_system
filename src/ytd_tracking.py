@@ -575,6 +575,35 @@ def _transaction_content_differs(a: dict[str, Any], b: dict[str, Any]) -> bool:
     return any(str(a.get(col, "")) != str(b.get(col, "")) for col in TRANSACTION_COLUMNS)
 
 
+def _identity_key(row: dict[str, str]) -> tuple[str, str, str, str]:
+    """Who/when/how-much of a transaction, ignoring everything a Monarch edit
+    can change (category, notes, tags, owner, statement text)."""
+    return (
+        row.get("Date", ""),
+        row.get("Account", "").strip().lower(),
+        row.get("Amount", ""),
+        row.get("Merchant", "").strip().lower(),
+    )
+
+
+def _collapse_id_twins(rows: list[dict[str, str]]) -> tuple[list[dict[str, str]], int]:
+    """Drop the stale id-less copy of a transaction that now also exists with a
+    Monarch id (same identity key). Collapsed only when the id-less and
+    id-bearing counts for an identity are equal (a clean pairing, including
+    several genuinely separate same-day/same-amount purchases); any other
+    imbalance is left untouched."""
+    groups: dict[tuple[str, str, str, str], list[int]] = {}
+    for i, r in enumerate(rows):
+        groups.setdefault(_identity_key(r), []).append(i)
+    drop: set[int] = set()
+    for idxs in groups.values():
+        idless = [i for i in idxs if not rows[i].get("Monarch Id")]
+        with_id = [i for i in idxs if rows[i].get("Monarch Id")]
+        if idless and len(idless) == len(with_id):
+            drop.update(idless)
+    return [r for i, r in enumerate(rows) if i not in drop], len(drop)
+
+
 def upsert_transactions_by_monarch_id(
     root: str | Path, incoming_rows: list[dict[str, Any]], *, today: date | None = None
 ) -> dict[str, Any]:
@@ -593,10 +622,14 @@ def upsert_transactions_by_monarch_id(
     auto-update was ever enabled, for the same overlap window Monarch's own
     first pull covers), that existing row is backfilled with the Monarch id
     in place rather than appended as a duplicate. Matching is exact-content
-    only (never fuzzy) -- it can under-match (miss a real duplicate whose
-    text differs slightly) but can never merge two genuinely different
-    transactions, and never touches a row that isn't uniquely identified by
-    its content among the id-less rows.
+    first; failing that, a row edited in Monarch since it was stored (e.g.
+    re-categorized) is adopted by its identity key (date, account, amount,
+    merchant) -- but only when that key picks out exactly one id-less stored
+    row for each incoming row (equal counts, paired off in order), so a
+    different number of same-day purchases is never guessed at. Adopting replaces the stored row with
+    Monarch's current version, so the edit lands instead of becoming a
+    duplicate. Afterwards any id-less row left as a clean 1:1 twin of an
+    id-bearing row is dropped.
 
     ``incoming_rows`` are already mapped to the internal column names (see
     the Monarch field-mapping loader) -- this function only merges, it does
@@ -621,6 +654,19 @@ def upsert_transactions_by_monarch_id(
         idless_hash_counts[h] = idless_hash_counts.get(h, 0) + 1
         idless_hash_to_index[h] = i
     adoptable_hashes = {h for h, count in idless_hash_counts.items() if count == 1}
+
+    # Identity-key adoption (see docstring): unique among id-less stored rows
+    # and among incoming id-bearing rows.
+    idless_key_to_index: dict[tuple[str, str, str, str], list[int]] = {}
+    for i, r in enumerate(existing):
+        if not r.get("Monarch Id"):
+            idless_key_to_index.setdefault(_identity_key(r), []).append(i)
+    incoming_key_counts: dict[tuple[str, str, str, str], int] = {}
+    idless_key_totals = {k: len(v) for k, v in idless_key_to_index.items()}
+    for r in normalized_incoming:
+        if r.get("Monarch Id", "").strip():
+            k = _identity_key(r)
+            incoming_key_counts[k] = incoming_key_counts.get(k, 0) + 1
 
     added: list[dict[str, str]] = []
     updated: list[dict[str, str]] = []
@@ -647,10 +693,20 @@ def upsert_transactions_by_monarch_id(
                     adoptable_hashes.discard(h)  # this id-less row is now claimed
                     adopted.append(row)
                 else:
-                    existing.append(row)
-                    by_monarch_id[monarch_id] = len(existing) - 1
-                    existing_hashes.add(transaction_hash(row))
-                    added.append(row)
+                    key = _identity_key(row)
+                    key_matches = idless_key_to_index.get(key, [])
+                    if key_matches and idless_key_totals.get(key) == incoming_key_counts.get(key):
+                        key_idx = key_matches.pop(0)
+                        existing_hashes.discard(transaction_hash(existing[key_idx]))
+                        existing[key_idx] = row
+                        by_monarch_id[monarch_id] = key_idx
+                        existing_hashes.add(h)
+                        adopted.append(row)
+                    else:
+                        existing.append(row)
+                        by_monarch_id[monarch_id] = len(existing) - 1
+                        existing_hashes.add(transaction_hash(row))
+                        added.append(row)
             elif _transaction_content_differs(existing[idx], row):
                 existing[idx] = row
                 updated.append(row)
@@ -664,6 +720,7 @@ def upsert_transactions_by_monarch_id(
             existing_hashes.add(h)
             added.append(row)
 
+    existing, collapsed = _collapse_id_twins(existing)
     existing.sort(key=lambda r: (format_date(parse_date(r.get("Date"))) or "9999-12-31", r.get("Account", ""), r.get("Merchant", "")))
     write_transactions(root, existing, today=today)
     ensure_account_setup_for_transactions(root, today=today)
@@ -679,7 +736,8 @@ def upsert_transactions_by_monarch_id(
         "Latest Transaction Date": format_date(max(all_dates) if all_dates else None),
         "Notes": (
             f"Monarch auto-update: {len(added)} added, {len(updated)} updated, "
-            f"{len(adopted)} adopted (matched to an existing manually-entered row by exact content), "
+            f"{len(adopted)} adopted (matched to an existing manually-entered row), "
+            f"{collapsed} stale duplicate(s) removed, "
             f"{total_skipped} skipped."
         ),
         "Rows Updated": str(len(updated) + len(adopted)),
@@ -690,6 +748,7 @@ def upsert_transactions_by_monarch_id(
         "added": len(added),
         "updated": len(updated),
         "adopted": len(adopted),
+        "duplicates_removed": collapsed,
         "skipped": total_skipped,
         "invalid_date_rows": invalid_date_rows,
         "total": len(existing),

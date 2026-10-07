@@ -166,20 +166,66 @@ def test_ambiguous_manual_duplicates_are_not_adopted(tmp_path):
     assert len(ytd.read_transactions(tmp_path)) == 3
 
 
-def test_content_mismatch_is_not_adopted_and_creates_a_second_row(tmp_path):
-    # Documents the known limitation: adoption is exact-content-only. If
-    # Monarch's own text differs even slightly from what was manually
-    # uploaded (e.g. a re-categorization), it won't match and a duplicate is
-    # created -- safer than a fuzzy match that could merge distinct
-    # transactions, but still a duplicate the user would need to notice.
+def test_recategorized_row_is_adopted_by_identity_so_the_edit_lands(tmp_path):
+    # A transaction stored before Monarch auto-update (no id) that was later
+    # re-categorized in Monarch must be replaced by Monarch's version, not
+    # duplicated alongside its stale copy (which double counts the spend).
     manual_row = _row("", Category="Groceries")
     del manual_row["Monarch Id"]
     ytd.write_transactions(tmp_path, [manual_row])
 
     result = ytd.upsert_transactions_by_monarch_id(tmp_path, [_row("mid-1", Category="Dining")])
-    assert result["adopted"] == 0
-    assert result["added"] == 1
-    assert len(ytd.read_transactions(tmp_path)) == 2
+    assert result["adopted"] == 1
+    assert result["added"] == 0
+    stored = ytd.read_transactions(tmp_path)
+    assert len(stored) == 1
+    assert stored[0]["Category"] == "Dining" and stored[0]["Monarch Id"] == "mid-1"
+
+
+def test_identity_adoption_pairs_equal_counts_of_same_day_purchases(tmp_path):
+    a = _row("", Category="Groceries")
+    del a["Monarch Id"]
+    b = _row("", Category="Groceries")
+    del b["Monarch Id"]
+    ytd.write_transactions(tmp_path, [a, b])
+    result = ytd.upsert_transactions_by_monarch_id(
+        tmp_path, [_row("mid-1", Category="Dining"), _row("mid-2", Category="Dining")])
+    assert result["adopted"] == 2 and result["added"] == 0
+    stored = ytd.read_transactions(tmp_path)
+    assert len(stored) == 2 and {r["Monarch Id"] for r in stored} == {"mid-1", "mid-2"}
+
+
+def test_identity_adoption_does_not_guess_when_counts_differ(tmp_path):
+    a = _row("", Category="Groceries")
+    del a["Monarch Id"]
+    b = _row("", Category="Groceries")
+    del b["Monarch Id"]
+    ytd.write_transactions(tmp_path, [a, b])
+    result = ytd.upsert_transactions_by_monarch_id(tmp_path, [_row("mid-1", Category="Dining")])
+    assert result["adopted"] == 0 and result["added"] == 1
+    assert len(ytd.read_transactions(tmp_path)) == 3
+
+
+def test_stale_id_less_twin_of_an_id_bearing_row_is_removed(tmp_path):
+    stale = _row("", Category="Shopping")
+    del stale["Monarch Id"]
+    current = _row("mid-1", Category="Gifts")
+    ytd.write_transactions(tmp_path, [stale, current])
+    result = ytd.upsert_transactions_by_monarch_id(tmp_path, [])
+    assert result["duplicates_removed"] == 1
+    stored = ytd.read_transactions(tmp_path)
+    assert [r["Category"] for r in stored] == ["Gifts"]
+
+
+def test_unbalanced_same_key_rows_are_left_alone(tmp_path):
+    a = _row("", Category="Groceries")
+    del a["Monarch Id"]
+    b = _row("", Category="Groceries")
+    del b["Monarch Id"]
+    ytd.write_transactions(tmp_path, [a, b, _row("mid-1")])
+    result = ytd.upsert_transactions_by_monarch_id(tmp_path, [])
+    assert result["duplicates_removed"] == 0
+    assert len(ytd.read_transactions(tmp_path)) == 3
 
 
 def test_adopting_one_row_does_not_consume_a_second_distinct_manual_row(tmp_path):
