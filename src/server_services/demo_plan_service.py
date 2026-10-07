@@ -97,6 +97,9 @@ class DemoPlanServiceContext:
     # Defaulted so existing constructions/tests are unaffected; falls back to
     # read_plan_data_file when not supplied.
     read_plan_data_disk_file: Callable[[str], str | None] | None = None
+    # Runs after every plan file swap (demo open and demo exit), as in PlanFileService: brings
+    # the rows of the plan that just became active to the current key names.
+    migrate: Callable[[Path], Any] | None = None
 
 
 class DemoPlanService:
@@ -212,7 +215,8 @@ class DemoPlanService:
         tmp = Path(tmp_name)
         try:
             plan_source = self._seed_plan_file(slot_dir, demo_dir, tmp)
-            replaced = replace_active_db(tmp, plan_db, required_tables=PLAN_FILE_TABLES, validate=validate_plan_file)
+            replaced = replace_active_db(tmp, plan_db, required_tables=PLAN_FILE_TABLES, validate=validate_plan_file,
+                                         migrate=self.context.migrate)
         finally:
             tmp.unlink(missing_ok=True)
         if not replaced.get("success"):
@@ -293,7 +297,8 @@ class DemoPlanService:
         self._capture_demo_slot()
 
         plan_db = Path(self.context.plan_db())
-        result = replace_active_db(backup, plan_db, required_tables=PLAN_FILE_TABLES, validate=validate_plan_file)
+        result = replace_active_db(backup, plan_db, required_tables=PLAN_FILE_TABLES, validate=validate_plan_file,
+                                  migrate=self.context.migrate)
         if not result.get("success"):
             self._audit("demo_plan_restore_failed", {"error": result.get("error")})
             return {

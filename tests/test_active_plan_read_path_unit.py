@@ -146,16 +146,16 @@ def test_roth_controls_are_made_canonical_before_the_commit(workspace):
     assert edit.final_values[key] == "22.00%" and workspace.store_data()[key[0]][key[1]][key[2]] == "22.00%"
 
 
-def test_a_blanked_protected_date_is_put_back_unless_protection_is_off(workspace):
+def test_a_blanked_protected_date_is_put_back_only_when_protection_is_asked_for(workspace):
     key = ("Household", "", "member_1_retirement_date")
     kept = workspace.store_data()[key[0]][key[1]][key[2]]
     assert kept
-    with active_plan.edit_active_plan() as edit:
+    with active_plan.edit_active_plan(protect_values=True) as edit:  # the grid and the forms
         edit.store.set_value(*key, "")
     assert edit.final_values[key] == kept and workspace.store_data()["Household"][""][key[2]] == kept
-    with active_plan.edit_active_plan() as edit:  # a replaced value is not blank: it wins
+    with active_plan.edit_active_plan(protect_values=True) as edit:  # a replaced value is not blank: it wins
         edit.store.set_value(*key, "2031-06-01")
     assert workspace.store_data()["Household"][""][key[2]] == "2031-06-01"
-    with active_plan.edit_active_plan(protect_values=False) as edit:  # a blank plan clears it on purpose
+    with active_plan.edit_active_plan() as edit:  # any other caller (a blank plan, an import) clears it on purpose
         edit.store.set_value(*key, "")
     assert workspace.store_data()["Household"][""][key[2]] == ""

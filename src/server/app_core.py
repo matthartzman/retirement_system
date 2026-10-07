@@ -987,9 +987,16 @@ def _csv_rows_payload() -> dict:
 
 
 def _edit_active_plan(**kwargs):
-    """The row writers' edit context (grid, ``/api/plan/forms``, the strategy endpoints): one
+    """The row writers' edit context (the strategy endpoints, the UI-row backfill): one
     transaction on the active plan's rows (``active_plan.edit_active_plan``)."""
     return edit_active_plan(**kwargs)
+
+
+def _edit_active_plan_protected():
+    """The edit context of the config grid and ``/api/plan/forms``: ``_edit_active_plan`` with the
+    protected retirement dates kept (``active_plan.PROTECTED_PLAN_KEYS``) -- the one rule the
+    retired file writer applied, and only to those saves."""
+    return edit_active_plan(protect_values=True)
 
 
 @contextmanager

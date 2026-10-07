@@ -17,7 +17,10 @@ import csv
 import hashlib
 import io
 import json
+import functools
 import re
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
@@ -802,11 +805,46 @@ def classify_transaction(row: dict[str, Any], *, role: str = "Cash / spending") 
     return classify_cash_transaction(row)
 
 
+# The plan view read once per request: every plan-value helper below reads the plan, and a
+# summary calls dozens of them. Inside a ``_plan_view_memo`` block they share one read of the
+# plan file (keyed by root); the memo exists only for the block, so a write between two calls
+# is never served stale.
+_PLAN_VIEW_MEMO: ContextVar[dict | None] = ContextVar("ytd_plan_view_memo", default=None)
+
+
+@contextmanager
+def _plan_view_memo():
+    if _PLAN_VIEW_MEMO.get() is not None:  # nested: the outer block owns the memo
+        yield
+        return
+    token = _PLAN_VIEW_MEMO.set({})
+    try:
+        yield
+    finally:
+        _PLAN_VIEW_MEMO.reset(token)
+
+
+def _reads_plan_once(fn):
+    """Decorator for a public helper that reads many plan values: run it inside one
+    ``_plan_view_memo`` so the plan file is opened and materialised once, not once per value."""
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        with _plan_view_memo():
+            return fn(*args, **kwargs)
+    return wrapper
+
+
 def _plan_view(root: str | Path) -> dict[str, dict[str, dict[str, str]]]:
     """The sectioned plan rows behind ``root`` (the workspace ``input`` folder); ``{}`` when
-    there is no plan file. Read-only: creates nothing."""
+    there is no plan file. Read-only: creates nothing. Memoised inside a ``_plan_view_memo``."""
     from .active_plan import peek_plan_data_for_input_dir
-    return peek_plan_data_for_input_dir(root)
+    memo = _PLAN_VIEW_MEMO.get()
+    if memo is None:
+        return peek_plan_data_for_input_dir(root)
+    key = str(root)
+    if key not in memo:
+        memo[key] = peek_plan_data_for_input_dir(root)
+    return memo[key]
 
 
 def annual_spending_forecast(root: str | Path) -> float | None:
@@ -817,6 +855,7 @@ def annual_spending_forecast(root: str | Path) -> float | None:
     return None
 
 
+@_reads_plan_once
 def annual_earned_income_forecast(root: str | Path, current_year: int) -> float:
     """Return current-year earned-income forecast from plan inputs.
 
@@ -964,6 +1003,7 @@ def annual_mortgage_spending(root: str | Path, current_year: int) -> float:
     return monthly * 12
 
 
+@_reads_plan_once
 def annual_real_estate_tax_spending(root: str | Path, current_year: int) -> float:
     """Return this year's planned real-estate taxes from the Mortgage section.
 
@@ -979,6 +1019,7 @@ def annual_real_estate_tax_spending(root: str | Path, current_year: int) -> floa
     return annual_real_estate_tax_from_transactions(root, current_year)
 
 
+@_reads_plan_once
 def annual_large_discretionary_items(root: str | Path, current_year: int) -> list[dict[str, Any]]:
     """Current-year Large Discretionary rows (category, amount, note), for the YTD note."""
     from .large_discretionary import LD_SUBSECTION, load_ld_items
@@ -1012,6 +1053,7 @@ def annual_large_discretionary_spending(root: str | Path, current_year: int) -> 
     return ld_budget_for_year(items, current_year)
 
 
+@_reads_plan_once
 def planned_spending_components(root: str | Path, current_year: int) -> dict[str, float]:
     core = annual_spending_forecast(root) or 0.0
     mortgage_payment = annual_mortgage_spending(root, current_year)
@@ -1157,6 +1199,7 @@ def normalize_actuals_period(period: str | None) -> str:
     return "last_year" if p in {"last_year", "prior_year", "last-year"} else "ytd"
 
 
+@_reads_plan_once
 def ytd_summary(root: str | Path, *, today: date | None = None, period: str | None = None) -> dict[str, Any]:
     """Return the actuals summary for either the current year-to-date or the
     prior calendar year, selected via ``period`` ("ytd" default, or
@@ -1498,6 +1541,7 @@ def ytd_summary(root: str | Path, *, today: date | None = None, period: str | No
     }
 
 
+@_reads_plan_once
 def status_payload(root: str | Path, *, period: str | None = None) -> dict[str, Any]:
     return {
         "success": True,

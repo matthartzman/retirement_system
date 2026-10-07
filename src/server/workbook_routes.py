@@ -32,7 +32,7 @@ from .app_core import (
     _client_id,
     _csv_rows_payload,
     _current_user,
-    _edit_active_plan,
+    _edit_active_plan_protected,
     _ensure_user_ui_plan_data_rows,
     _blank_plan_rows,
     _make_blank_plan_files,
@@ -104,17 +104,22 @@ def _file_meta(path: Path) -> dict[str, Any]:
     return build_service.file_meta(path)
 
 
-def _newest_plan_store_path() -> Path:
-    """The plan file or the legacy local database (flat datasets), whichever was written last:
-    the outputs are stale once either is newer than them."""
-    paths = [p for p in (active_plan_path(), _sqlite_db()) if p.exists()]
-    return max(paths, key=lambda p: p.stat().st_mtime) if paths else _sqlite_db()
+def _plan_staleness_path() -> Path:
+    """The file whose write time says the plan changed since the outputs were built: the plan
+    file, or its write-ahead log while that holds newer commits (the plan file is in WAL mode, so
+    a commit is in ``plan.rpx-wal`` until the next checkpoint). The legacy local database is not
+    consulted: audit-log and KPI-snapshot writes land there and are not plan edits."""
+    plan = active_plan_path()
+    wal = plan.with_name(plan.name + "-wal")
+    if plan.exists() and wal.exists() and wal.stat().st_mtime > plan.stat().st_mtime:
+        return wal
+    return plan
 
 
 def _build_preflight_payload() -> dict[str, Any]:
     return build_service.build_preflight_payload(
         output_dir=_workspace_output(),
-        db_path=_newest_plan_store_path(),
+        db_path=_plan_staleness_path(),
         snapshot_filename=SNAPSHOT_FILENAME,
         read_build_snapshot=read_build_snapshot,
         csv_rows_payload=_csv_rows_payload,
@@ -881,7 +886,7 @@ def plan_forms_post():
     body = request.get_json(silent=True) or {}
     sections = body.get("sections") or body.get("data") or {}
     payload, status = plan_forms_service.save_forms_payload(
-        sections, edit_plan=_edit_active_plan, replace=body.get("replace") is True)
+        sections, edit_plan=_edit_active_plan_protected, replace=body.get("replace") is True)
     if status == 200:
         _audit("plan_forms_saved", {"revision": payload.get("revision"), "section_count": len(sections) if isinstance(sections, dict) else 0})
     return jsonify(payload), status
@@ -894,7 +899,7 @@ def plan_forms_patch(section_path):
         return denied
     body = request.get_json(silent=True) or {}
     values = body.get("values") or body.get("fields") or {}
-    payload, status = plan_forms_service.patch_forms_payload(section_path, values, edit_plan=_edit_active_plan)
+    payload, status = plan_forms_service.patch_forms_payload(section_path, values, edit_plan=_edit_active_plan_protected)
     if status == 200:
         _audit("plan_form_section_saved", {"revision": payload.get("revision"), "section": payload.get("section"), "subsection": payload.get("subsection")})
     return jsonify(payload), status

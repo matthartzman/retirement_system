@@ -8,6 +8,7 @@ try:
         WORKSPACE_ROOT,
         _audit,
         _edit_active_plan,
+        _edit_active_plan_protected,
         _client_id,
         _csv_rows_payload,
         _current_user,
@@ -50,6 +51,7 @@ except ImportError:
         WORKSPACE_ROOT,
         _audit,
         _edit_active_plan,
+        _edit_active_plan_protected,
         _client_id,
         _csv_rows_payload,
         _current_user,
@@ -114,7 +116,7 @@ def _config_feature_service() -> config_service.ConfigService:
         config_service.ConfigServiceContext(
             version=VERSION,
             base_dir=BASE_DIR,
-            edit_plan=_edit_active_plan,
+            edit_plan=_edit_active_plan_protected,
             read_plan=_read_active_plan,
             csv_rows_payload=_csv_rows_payload,
             read_schema_map=_read_schema_map,
@@ -1236,6 +1238,7 @@ def _demo_plan_feature_service() -> demo_plan_service.DemoPlanService:
             materialize=_materialize,
             audit=_audit,
             read_plan_data_disk_file=_read_plan_data_disk_file,
+            migrate=_migrate_after_db_replace,
         )
     )
 

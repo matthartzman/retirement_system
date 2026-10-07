@@ -80,20 +80,47 @@ class PlanDataFileService:
         return self._backup_file(Path(self.context.sqlite_db()), "before_blank")
 
     def start_blank_payload(self, *, ytd_blend_enabled: bool | None = None) -> tuple[JsonDict, int]:
+        """Start a blank plan, all or nothing.
+
+        Order: back up the plan file and the legacy database, prepare the blank flat datasets, write
+        them (remembering what each held), and only then clear the plan rows in their one
+        transaction. A failure in any step returns an error payload and leaves the plan as it was:
+        before the row change nothing of the plan has been touched, and a failed row change puts the
+        flat datasets back as they were.
+        """
+        def fail(stage: str, exc: Exception) -> tuple[JsonDict, int]:
+            self._audit("blank_plan_failed", {"stage": stage, "error": str(exc)})
+            return {"success": False, "error": f"Could not start a blank plan ({stage}): {exc}. Your plan is unchanged."}, 500
+
         try:
             backup = self._backup_current_database()
-            if backup:
-                self._audit("blank_plan_backup", {"backup": backup})
         except Exception as exc:
-            self._audit("blank_plan_backup_warning", {"error": str(exc)})
-        cleared = self.context.blank_plan_rows(ytd_blend_enabled=ytd_blend_enabled)
+            return fail("backup", exc)
+        if backup:
+            self._audit("blank_plan_backup", {"backup": backup})
+        try:
+            files = self.context.make_blank_plan_files()
+        except Exception as exc:
+            return fail("prepare", exc)
+        previous: dict[str, str | None] = {}
+        written = []
+        try:
+            for name, content in files.items():
+                previous[name] = self.context.read_plan_data_file(name)
+                path = self.context.write_plan_data_file(name, content)
+                written.append({"name": name, "path": str(path), "bytes": len(content)})
+            cleared = self.context.blank_plan_rows(ytd_blend_enabled=ytd_blend_enabled)
+        except Exception as exc:
+            for name, content in previous.items():  # put the flat datasets back as they were
+                if content is None:
+                    continue
+                try:
+                    self.context.write_plan_data_file(name, content)
+                except Exception as restore_exc:
+                    self._audit("blank_plan_restore_warning", {"file": name, "error": str(restore_exc)})
+            return fail("write", exc)
         if ytd_blend_enabled is not None:
             self._audit("blank_plan_ytd_blend_choice", {"ytd_blend_enabled": bool(ytd_blend_enabled)})
-        files = self.context.make_blank_plan_files()
-        written = []
-        for name, content in files.items():
-            path = self.context.write_plan_data_file(name, content)
-            written.append({"name": name, "path": str(path), "bytes": len(content)})
         try:
             self.context.ensure_user_ui_plan_data_rows()
         except Exception as exc:
