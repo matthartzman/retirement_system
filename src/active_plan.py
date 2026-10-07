@@ -9,22 +9,33 @@ WP8.4 replaces the body of :func:`active_plan_path` with the registry lookup.
 
 Readers use :func:`active_plan_data` (the engine view, ``PlanStore.sectioned_data()``).
 
-Transition until WP4.3 / 4.4 / 4.5 switch the writers: the plan CSV set in ``input/`` is
-still what the writers edit. Every CSV writer ends with ``app_core._sync_config_backends()``,
-which calls :func:`sync_active_plan_from_csv`, so the plan rows follow each write
-(``csv_exchange.sync_plan_rows`` keeps a row's id while its key survives). A plan file with
-no rows is filled from the CSV set on first read, as the old SQLite snapshot was.
+Transition until WP4.4 / 4.5 switch the remaining writers: ``plan_rows`` is the plan's
+truth, and the plan CSV set in ``input/`` is a working copy kept equal to it for the writers
+that still edit CSV. One mechanism, two directions:
+
+* the remaining CSV writers end with ``app_core._sync_config_backends()``, which calls
+  :func:`sync_active_plan_from_csv` (CSV set -> rows; ``csv_exchange.sync_plan_rows`` keeps
+  a row's id while its key survives);
+* the row-store writers (the grid, ``/api/plan/forms``; WP4.3) edit through
+  :func:`edit_active_plan`, which writes every key they touch back into the CSV set
+  (``csv_exchange.write_back_rows``) in the same transaction, so the next bridge run reads
+  their edit back instead of overwriting it, and a CSV writer that reads its file sees it.
+
+A plan file with no rows is filled from the CSV set on first read, as the old SQLite
+snapshot was.
 """
 from __future__ import annotations
 
 import os
+import threading
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, Iterator
 
 from . import platform_runtime
-from .plan_label_rules import is_retired_scenario_home_row
-from .csv_exchange import PlanCsvRow, read_plan_csv_set, sync_plan_rows
+from .plan_label_rules import dropped_at_load
+from .csv_exchange import PlanCsvRow, read_plan_csv_set, sync_plan_rows, write_back_rows
 from .stores import PlanStore
 
 PLAN_DB_ENV = "RETIREMENT_SYSTEM_PLAN_DB"
@@ -54,10 +65,7 @@ def active_plan_store(*, readonly: bool = False) -> PlanStore:
 
 def _engine_rows(rows: list[PlanCsvRow]) -> list[PlanCsvRow]:
     """The CSV rows the plan keeps: the old loader's two load-time drops still apply."""
-    return [
-        r for r in rows
-        if r.label.lower() != "label" and not is_retired_scenario_home_row(r.section, r.subsection, r.label)
-    ]
+    return [r for r in rows if not dropped_at_load(r.section, r.subsection, r.label)]
 
 
 class EmptyPlanCsvSet(FileNotFoundError):
@@ -80,7 +88,8 @@ def sync_active_plan_from_csv(input_dir: str | Path) -> PlanSyncResult:
     """Make the active plan's rows equal the plan CSV set in ``input_dir`` (WP4.2 bridge).
 
     The one place the CSV writers' edits reach ``plan_rows`` until those writers write the
-    rows themselves (WP4.3-4.5); then this function and its callers are deleted.
+    rows themselves (WP4.4-4.5); then this function, :func:`edit_active_plan`'s write-back
+    and their callers are deleted (P3.5).
     Raises :class:`EmptyPlanCsvSet`, leaving the plan as it is, when the set holds no rows.
     """
     parsed = read_plan_csv_set(input_dir)
@@ -92,6 +101,64 @@ def sync_active_plan_from_csv(input_dir: str | Path) -> PlanSyncResult:
         data = store.sectioned_data()
     return PlanSyncResult(data=data, texts=dict(parsed.texts), counts=counts,
                           files_read=list(parsed.report.files_read), rows_by_file=dict(parsed.rows_by_file))
+
+
+def refresh_active_plan(input_dir: str | Path) -> PlanSyncResult | None:
+    """Run the bridge (:func:`sync_active_plan_from_csv`) before reading or editing the rows,
+    so a CSV write not yet synced (a writer called with ``sync`` off, the GET-time
+    backfills) is in the rows. ``None`` when the CSV set holds no rows (the rows stay)."""
+    try:
+        return sync_active_plan_from_csv(input_dir)
+    except EmptyPlanCsvSet:
+        return None
+
+
+_EDIT_LOCK = threading.RLock()
+
+Key = tuple[str, str, str]
+
+
+def _row_fields(rows: list[dict[str, Any]]) -> dict[Key, tuple[str, str, str]]:
+    return {(r["section"], r["subsection"], r["label"]): (r["value"], r["units"], r["notes"]) for r in rows}
+
+
+@contextmanager
+def edit_active_plan(input_dir: str | Path, write_file: Callable[[str, str], Any]) -> Iterator[PlanStore]:
+    """Edit the active plan's rows in one transaction; the row-store writers' one entry (WP4.3).
+
+    1. :func:`refresh_active_plan`: the rows equal the CSV set before the edit;
+    2. yields the open store inside ``transaction()``; the caller edits by ``row_id`` or key
+       (an exception rolls everything back and propagates);
+    3. before the commit, every key whose row was set, inserted or deleted is written back
+       into the CSV set (``csv_exchange.write_back_rows``) through ``write_file(name, text)``
+       (the server's plan-data file writer, which also keeps ``client_files`` current); a
+       write-back that would not read back as the rows raises ``PlanCsvError`` and rolls the
+       edit back instead of letting the next bridge run lose it;
+    4. after the commit, the bridge runs again, so ``write_file``'s own rules (canonical Roth
+       values, protected retirement dates) reach the rows.
+
+    With no CSV set (nothing to refresh from) the whole plan is written out. Serialized in
+    this process by a lock. Read the result through :func:`active_plan_store` afterwards.
+    """
+    with _EDIT_LOCK:
+        synced = refresh_active_plan(input_dir)
+        if synced is not None:
+            texts = synced.texts
+        else:
+            texts = read_plan_csv_set(input_dir).texts if Path(input_dir).is_dir() else {}
+        with active_plan_store() as store:
+            before = _row_fields(store.all_rows())
+            with store.transaction():
+                yield store
+                after_rows = store.all_rows()
+                after = _row_fields(after_rows)
+                touched = set(after) if synced is None else {
+                    k for k in set(before) | set(after) if before.get(k) != after.get(k)}
+                if touched:
+                    for name, text in write_back_rows(texts, after_rows, touched).items():
+                        write_file(name, text)
+        if touched:
+            refresh_active_plan(input_dir)
 
 
 def active_plan_data(bootstrap_input_dir: str | Path | None = None) -> SectionedData:
