@@ -183,6 +183,7 @@ Planning bands (assumption, not measured): S about 0.2-0.5M tokens, M 0.5-1M, L 
 | WP3.4 | in review | same PR | CMAs and correlations; `custom_*_file` options become override rows (`custom_capital_market_rows`, `custom_correlation_rows`); upload routes return 410 |
 | WP3.5 | in review | same PR | mortality, real-loss curves (`real_loss_curve_rows` override), tax-update dashboard (governance) |
 | WP3.6 | in review | same PR | security master (portfolio analytics, TLH, import preview, engine classes, drift tool) |
-| WP3.7 | in review (OWNER REVIEW CHECKPOINT) | same PR | field schema + `min_tier` (`reference_src/field_tiers.csv`, 469 fields: 99 simple, 169 standard, 130 advanced, 71 expert); full tag list in the PR body |
+| WP3.7 | in review (OWNER REVIEW CHECKPOINT; tag list reported approved as is via the orchestrating session, awaiting confirmation) | same PR | field schema + `min_tier` (`reference_src/field_tiers.csv`, 469 fields: 99 simple, 169 standard, 130 advanced, 71 expert); full tag list in the PR body |
 | WP3.8 | in review | same PR | ZIP metrics + top cities (5.8 MB db; golden stored as SHA-256), Monarch field map, workbook template layout; `reference_data/` is empty; data-file I/O audit 237 to 207; admin reference-file editor emptied (`SYSTEM_REFERENCE_FILES = []`), its frontend screens retire with WP9 |
+| WP3 decisions | recorded (relayed from the orchestrating session, not yet confirmed by the owner directly) | PR #183 | 469-field tier list approved as is; engine stays on built-in state-tax defaults (no CSV wiring); custom CMA/correlation/real-loss files become plan-side override rows, upload routes return 410 until WP4/WP9; `/api/schema` returns JSON |
 | WP4 - WP12c | not started | none | planning only |
