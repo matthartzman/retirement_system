@@ -1259,6 +1259,9 @@ def plan_exit_snapshot():
 def plan_save_as():
     """Copy the current SQLite database to a user-chosen path (.rpx file)."""
     try:
+        # WP4.2: the copy carries the plan as client_files; bring them up to the
+        # current CSV set first (Load Saved Plan rebuilds the CSV set from them).
+        _sync_config_backends()
         return jsonify(_plan_file_feature_service().save_as(request.get_json(silent=True) or {}))
     except Exception as exc:  # noqa: BLE001
         return jsonify({"success": False, "error": str(exc)})
