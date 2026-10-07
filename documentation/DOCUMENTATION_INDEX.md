@@ -21,6 +21,7 @@ legacy location; do not add new files there.
 | `reference/ANNUAL_MAINTENANCE_RUNBOOK.md` | Yearly tax-table and data refresh |
 | `reference/REFERENCE_DB_SLICES.md` | How to move a reference dataset into the shipped `reference.db` (build tool, getters, golden fixtures) |
 | `reference/PLAN_ROWS_MODEL.md` | The `plan_rows` model in the plan file: keys, order, CSV import rules, switch and tier rows, old CSV file to sections |
+| `reference/CONVERSION_REHEARSAL.md` | Owner steps (PowerShell) to rehearse the C3/C3b plan conversion on a copy of a plan with `tools/rehearse_conversion.py`; privacy-safe report |
 | `reference/release_notes/` | Plain-language record of changes that move results |
 | `reference/BACKLOG.md` | Deferred work tracker |
 | `reference/CI_SETUP.md`, `reference/TESTING_REFACTOR_RECOMMENDATIONS.md`, `reference/HAPPY_PATH_E2E_TEST_PLAN.md` | CI and testing |
