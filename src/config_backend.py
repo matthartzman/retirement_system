@@ -19,6 +19,7 @@ from typing import Dict, Tuple, Optional as _Optional, List as _List
 
 from .system_config import discover_system_config_csv, load_system_config, system_setting
 from . import platform_runtime
+from .sqlite_util import connect as closing_connect
 from .plan_file_io import write_text_atomic
 
 # PROJECT_ROOT stays the code/package root (read-only assets). Writable data
@@ -78,7 +79,7 @@ def resolve_path(path: str | Path | None, default: Path) -> Path:
 def init_sqlite(db_path: str | Path = DEFAULT_DB) -> Path:
     p = resolve_path(db_path, DEFAULT_DB)
     p.parent.mkdir(parents=True, exist_ok=True)
-    with sqlite3.connect(p) as con:
+    with closing_connect(p) as con:
         con.execute("PRAGMA journal_mode=WAL")
         con.execute("PRAGMA synchronous=NORMAL")
         con.execute("""CREATE TABLE IF NOT EXISTS client_files(
@@ -194,7 +195,7 @@ def lookup_api_token(*args, **kwargs) -> _Optional[dict]:
 
 def append_audit_event_sqlite(event: str, details: dict | None = None, workspace_id: str = "local", user_id: str = "local", db_path: str | Path = DEFAULT_DB) -> None:
     p = init_sqlite(db_path)
-    with sqlite3.connect(p) as con:
+    with closing_connect(p) as con:
         con.execute("INSERT INTO audit_events(user_id,event,details_json) VALUES(?,?,?)", ("local", event, json.dumps(details or {}, sort_keys=True, default=str)))
 
 def load_clients_csv(*args, **kwargs) -> list[dict]:
@@ -215,7 +216,7 @@ def get_client(client_id: str = "local", db_path: str | Path = DEFAULT_DB) -> _O
 def set_client_file(file_name: str, content: str, workspace_id: str = "local", client_id: str = "local", updated_by: str = "local", db_path: str | Path = DEFAULT_DB) -> None:
     p = init_sqlite(db_path)
     name = Path(file_name).name
-    with sqlite3.connect(p) as con:
+    with closing_connect(p) as con:
         con.execute("INSERT OR REPLACE INTO client_files(file_name, content, updated_by) VALUES(?,?,?)", (name, content, "local"))
 
 def set_client_files(files: dict[str, str], db_path: str | Path = DEFAULT_DB) -> None:
@@ -250,7 +251,7 @@ def get_client_file(file_name: str, workspace_id: str = "local", client_id: str 
     p = resolve_path(db_path, DEFAULT_DB)
     if not p.exists():
         return None
-    with sqlite3.connect(p) as con:
+    with closing_connect(p) as con:
         row = con.execute("SELECT content FROM client_files WHERE file_name=?", (Path(file_name).name,)).fetchone()
     return row[0] if row else None
 

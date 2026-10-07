@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from . import platform_runtime
+from .sqlite_util import connect as closing_connect
 
 # PROJECT_ROOT is the code root; the SQLite store is writable data and hangs off
 # the workspace root (== package root on desktop, app-private storage on mobile).
@@ -71,7 +72,7 @@ def _resolve(db_path: str | Path | None = None) -> Path:
 def init_local_store(db_path: str | Path | None = None) -> Path:
     p = _resolve(db_path)
     p.parent.mkdir(parents=True, exist_ok=True)
-    with sqlite3.connect(p) as con:
+    with closing_connect(p) as con:
         con.execute("PRAGMA journal_mode=WAL")
         con.execute("PRAGMA synchronous=NORMAL")
         con.execute("""CREATE TABLE IF NOT EXISTS plan_snapshots(
@@ -207,7 +208,7 @@ def get_local_setting(key: str, default: Any = None, db_path: str | Path | None 
     p = _resolve(db_path)
     if not p.exists():
         return default
-    with sqlite3.connect(p) as con:
+    with closing_connect(p) as con:
         row = con.execute("SELECT value_json FROM local_settings WHERE key=?", (key,)).fetchone()
     if not row:
         return default
@@ -220,7 +221,7 @@ def get_local_setting(key: str, default: Any = None, db_path: str | Path | None 
 def set_local_setting(key: str, value: Any, db_path: str | Path | None = None) -> None:
     """Write one JSON-encoded value to local_settings, upserting on the key."""
     p = init_local_store(db_path)
-    with sqlite3.connect(p) as con:
+    with closing_connect(p) as con:
         con.execute(
             "INSERT INTO local_settings(key, value_json, updated_at) VALUES(?,?,?) "
             "ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json, updated_at=excluded.updated_at",
@@ -232,7 +233,7 @@ def save_result_snapshot(result: dict[str, Any], event_log: list[dict[str, Any]]
     p = init_local_store(db_path)
     result_sha = _digest(result)
     result_id = result_sha[:16]
-    with sqlite3.connect(p) as con:
+    with closing_connect(p) as con:
         con.execute("""INSERT INTO result_snapshots(result_id, created_at, plan_snapshot_id, result_json, event_log_json, result_sha256)
                        VALUES(?,?,?,?,?,?)
                        ON CONFLICT(result_id) DO UPDATE SET result_json=excluded.result_json,
@@ -264,7 +265,7 @@ def prune_result_snapshots(keep: int = DEFAULT_RESULT_SNAPSHOT_RETENTION, db_pat
     p = _resolve(db_path)
     if not p.exists():
         return 0
-    with sqlite3.connect(p) as con:
+    with closing_connect(p) as con:
         return _prune_result_snapshots(con, keep)
 
 
@@ -299,7 +300,7 @@ def save_kpi_snapshot(
     payload = dict(kpis)
     payload["build_id"] = build_id
     payload["created_at"] = created
-    with sqlite3.connect(p) as con:
+    with closing_connect(p) as con:
         con.execute(
             """INSERT INTO kpi_snapshots(
                    snapshot_id, created_at, build_id, probability_of_success,
@@ -358,7 +359,7 @@ def prune_kpi_snapshots(keep: int = DEFAULT_KPI_SNAPSHOT_RETENTION, db_path: str
     p = _resolve(db_path)
     if not p.exists():
         return 0
-    with sqlite3.connect(p) as con:
+    with closing_connect(p) as con:
         return _prune_kpi_snapshots(con, keep)
 
 
@@ -379,7 +380,7 @@ def list_kpi_snapshots(limit: int = DEFAULT_KPI_SNAPSHOT_RETENTION, db_path: str
     p = _resolve(db_path)
     if not p.exists():
         return []
-    with sqlite3.connect(p) as con:
+    with closing_connect(p) as con:
         rows = con.execute(
             "SELECT snapshot_id, created_at, build_id, kpi_json FROM kpi_snapshots ORDER BY created_at DESC, snapshot_id DESC LIMIT ?",
             (max(1, int(limit)),),
@@ -391,7 +392,7 @@ def get_kpi_snapshot(snapshot_id: str, db_path: str | Path | None = None) -> dic
     p = _resolve(db_path)
     if not p.exists() or not snapshot_id:
         return None
-    with sqlite3.connect(p) as con:
+    with closing_connect(p) as con:
         row = con.execute(
             "SELECT snapshot_id, created_at, build_id, kpi_json FROM kpi_snapshots WHERE snapshot_id=?",
             (snapshot_id,),
@@ -406,7 +407,7 @@ def get_kpi_snapshot_by_build_id(build_id: str, db_path: str | Path | None = Non
     p = _resolve(db_path)
     if not p.exists() or not build_id:
         return None
-    with sqlite3.connect(p) as con:
+    with closing_connect(p) as con:
         row = con.execute(
             "SELECT snapshot_id, created_at, build_id, kpi_json FROM kpi_snapshots WHERE build_id=? ORDER BY created_at DESC, snapshot_id DESC LIMIT 1",
             (build_id,),
@@ -462,6 +463,6 @@ def compare_kpi_snapshots(
 
 def append_build_event(stage: str, event_type: str, detail: dict[str, Any] | None = None, build_id: str | None = None, db_path: str | Path | None = None) -> None:
     p = init_local_store(db_path)
-    with sqlite3.connect(p) as con:
+    with closing_connect(p) as con:
         con.execute("INSERT INTO build_events(created_at, build_id, stage, event_type, detail_json) VALUES(?,?,?,?,?)",
                     (now_utc(), build_id or "local", stage, event_type, json.dumps(detail or {}, sort_keys=True, default=str)))
