@@ -547,7 +547,9 @@ DASHBOARD_JS_MAX_LINES = 7_134
 # 2026-10-02 (DAF/QCD/LTC-Life switches moved to Plan Features; per-page "optional features not
 # enabled" line; QCD per-person table, +~75 net of removed inline-switch code): raised to 37_810.
 # 2026-10-03 (Roth guardrail panel: generic bracket title and the rate the build used, +14): raised to 37,824.
-TOTAL_JS_MAX_LINES = 37_824
+# 2026-10-07 (WP5: tier picker, field-tier filter, plan interview and self-suggest in
+# dashboard_decomp_plan_tiers.js, +~190 with the plan-features changes): raised to 37,900.
+TOTAL_JS_MAX_LINES = 37_900
 
 
 def _line_count(path: Path) -> int:
