@@ -6,6 +6,7 @@ writers still edit into an existing plan (``src/active_plan.py``) until WP4.3-4.
 (preview, diff, per-dataset adapters, export); the static file-I/O audit allowlists it.
 """
 from .plan_csv import (
+    ANCHOR_FILE,
     PART_FILE_SECTIONS,
     PLAN_CSV_FILES,
     ImportReport,
@@ -23,6 +24,7 @@ from .plan_csv import (
 )
 
 __all__ = [
+    "ANCHOR_FILE",
     "ImportReport",
     "PART_FILE_SECTIONS",
     "PLAN_CSV_FILES",

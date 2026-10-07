@@ -1261,7 +1261,12 @@ def plan_save_as():
     try:
         # WP4.2: the copy carries the plan as client_files; bring them up to the
         # current CSV set first (Load Saved Plan rebuilds the CSV set from them).
-        _sync_config_backends()
+        sync = _sync_config_backends()
+        if not sync.get("success"):
+            # The copy would carry client_files older than the plan on screen.
+            _audit("plan_save_as_sync_failed", {"error": sync.get("error")})
+            return jsonify({"success": False, "error": "Plan not saved: the current plan could not be "
+                            "brought up to date first: " + str(sync.get("error"))}), 500
         return jsonify(_plan_file_feature_service().save_as(request.get_json(silent=True) or {}))
     except Exception as exc:  # noqa: BLE001
         return jsonify({"success": False, "error": str(exc)})
@@ -1299,14 +1304,20 @@ def plan_load_file():
         return jsonify({"success": False, "error": str(exc)})
 
 
-def _sync_plan_rows_after_swap(result: dict) -> None:
+def _sync_plan_rows_after_swap(result: dict) -> bool:
     """WP4.2: after a database swap rebuilt the CSV set from ``client_files``, carry it
     into the active plan's rows (the engine and the build read those, no longer the
-    swapped-in database's sectioned snapshot)."""
+    swapped-in database's sectioned snapshot). A failed sync is a failed load: the plan
+    on screen and the build would still be the one from before the swap."""
     sync = _sync_config_backends()
-    if not sync.get("success"):
-        _audit("plan_rows_sync_after_swap_warning", {"error": sync.get("error")})
-        result["sync_warning"] = sync.get("error")
+    if sync.get("success"):
+        return True
+    _audit("plan_rows_sync_after_swap_warning", {"error": sync.get("error")})
+    result["sync_warning"] = sync.get("error")
+    result["success"] = False
+    result["db_replaced"] = True
+    result["error"] = "Plan database loaded, but its plan rows could not be updated: " + str(sync.get("error"))
+    return False
 
 
 # DemoPlanService owns Open Demo Plan / Open Current Plan swap semantics
@@ -1335,7 +1346,8 @@ def _demo_plan_feature_service() -> demo_plan_service.DemoPlanService:
             file_names=[n for n in PLAN_DATA_CSV_FILES if n != "client_data.csv"] + YTD_PLAN_DATA_FILES,
             overwrite_existing=True,
         )
-        _sync_plan_rows_after_swap({})
+        if not _sync_plan_rows_after_swap({}):
+            raise RuntimeError("plan rows could not be updated after the plan swap")
 
     return demo_plan_service.DemoPlanService(
         demo_plan_service.DemoPlanServiceContext(
@@ -1447,4 +1459,9 @@ def plan_snapshot_restore():
         except Exception as exc:  # noqa: BLE001
             _audit("plan_snapshot_restore_materialize_warning", {"error": str(exc)})
             payload["materialize_warning"] = str(exc)
+            payload["success"] = False
+            payload["db_replaced"] = True
+            payload["error"] = "Snapshot restored, but its data files could not be written to disk: " + str(exc)
+        if payload.get("success") is False:
+            status = 500
     return jsonify(payload), status

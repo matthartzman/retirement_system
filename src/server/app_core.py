@@ -78,9 +78,13 @@ try:
         UI_NAMES,
         YTD_PLAN_DATA_FILES,
     )
-    from ..active_plan import active_plan_store, sync_active_plan_from_csv
+    from ..active_plan import peek_plan_data, sync_active_plan_from_csv
+    from ..csv_exchange import ANCHOR_FILE, PLAN_CSV_FILES
     from ..config_backend import (
         DEFAULT_DB,
+        configured_plan_csv_path,
+        configured_plan_input_dir,
+        delete_client_files,
         append_audit_event_sqlite,
         get_client,
         get_client_file,
@@ -121,9 +125,13 @@ except ImportError:  # direct execution fallback
         UI_NAMES,
         YTD_PLAN_DATA_FILES,
     )
-    from src.active_plan import active_plan_store, sync_active_plan_from_csv
+    from src.active_plan import peek_plan_data, sync_active_plan_from_csv
+    from src.csv_exchange import ANCHOR_FILE, PLAN_CSV_FILES
     from src.config_backend import (
         DEFAULT_DB,
+        configured_plan_csv_path,
+        configured_plan_input_dir,
+        delete_client_files,
         append_audit_event_sqlite,
         get_client,
         get_client_file,
@@ -186,13 +194,9 @@ def _package_instance_payload(version: str | None = None) -> dict:
         package_instance_id = ""
     return {"package_root": root, "package_instance_id": package_instance_id}
 
-def _configured_plan_csv_path(cfg=None) -> Path:
-    cfg = cfg or RUNTIME_CONFIG
-    raw = getattr(cfg, "config_file", "") or "input/client_data.csv"
-    p = Path(raw)
-    return p if p.is_absolute() else WORKSPACE_ROOT / p
-
-CSV_PATH = _configured_plan_csv_path(RUNTIME_CONFIG)
+# The plan CSV set's location comes from ONE resolver (config_backend), shared with the
+# sync into the plan file, the first-read bootstrap and the at-rest migration.
+CSV_PATH = configured_plan_csv_path()
 
 
 @app.errorhandler(Exception)
@@ -635,7 +639,8 @@ def _merge_protected_client_data_values(incoming: str, fallback: str | None) -> 
 def _protected_client_data_status(content: str | None = None) -> dict:
     """Return non-secret preservation status for validation/UI diagnostics.
 
-    ``content`` is one CSV file's text; without it the active plan's rows are read."""
+    ``content`` is one CSV file's text; without it the active plan's rows are read (the plan
+    CSV set when the plan has no rows yet), without creating or writing the plan file."""
     values: dict[tuple[str, str, str], str] = {}
     if content is not None:
         for row in csv.reader(io.StringIO(content or "")):
@@ -643,8 +648,7 @@ def _protected_client_data_status(content: str | None = None) -> dict:
             if key in PROTECTED_CLIENT_DATA_KEYS:
                 values[key] = row[3] if len(row) > 3 else ""
     else:
-        with active_plan_store() as store:
-            data = store.sectioned_data()
+        data = peek_plan_data(configured_plan_input_dir())  # read-only: creates nothing
         for section, subsection, label in PROTECTED_CLIENT_DATA_KEYS:
             if label in data.get(section, {}).get(subsection, {}):
                 values[(section, subsection, label)] = data[section][subsection][label]
@@ -1884,9 +1888,14 @@ def _sync_config_backends() -> dict:
     plan's sectioned view.
     """
     try:
-        synced = sync_active_plan_from_csv(CSV_PATH.parent)
-        set_client_files({n: t for n, t in synced.texts.items() if n != "client_data.csv"}, _sqlite_db())
-        derived = export_client_json_yaml(synced.data, CSV_PATH.parent)
+        input_dir = configured_plan_input_dir()
+        synced = sync_active_plan_from_csv(input_dir)
+        parts = [n for n in PLAN_CSV_FILES if n != ANCHOR_FILE]
+        set_client_files({n: synced.texts[n] for n in parts if synced.rows_by_file.get(n)}, _sqlite_db())
+        # A part file deleted or emptied on disk leaves client_files too, or
+        # materialize_workspace_files would bring it back after a Load / restore.
+        delete_client_files([n for n in parts if not synced.rows_by_file.get(n)], _sqlite_db())
+        derived = export_client_json_yaml(synced.data, input_dir)
         return {"success": True, "derived": derived, "json": derived.get("client_data.json"),
                 "yaml": derived.get("client_data.yaml"), "plan_rows": synced.counts}
     except Exception as exc:
