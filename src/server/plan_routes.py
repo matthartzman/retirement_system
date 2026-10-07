@@ -86,7 +86,7 @@ except ImportError:
     )
 from ..active_plan import active_plan_path, peek_plan_data
 from ..version import VERSION
-from ..server_services import base_service, config_service, demo_plan_service, pricing_service, ytd_service, plan_file_service, portfolio_service, secret_service, spending_service, strategy_asset_service
+from ..server_services import base_service, config_service, demo_plan_service, plan_tier_service, pricing_service, ytd_service, plan_file_service, portfolio_service, secret_service, spending_service, strategy_asset_service
 from ..portfolio_analytics import freeze_latest_pricing_snapshot, unfreeze_pricing_snapshot
 from .. import local_backup_scheduler
 from .. import monarch_autoupdate
@@ -123,6 +123,15 @@ def _config_feature_service() -> config_service.ConfigService:
             load_active_config=load_active_config,
             runtime_config=_runtime_config,
             normalize_date_for_csv=_normalize_date_for_csv,
+            audit=_audit,
+        )
+    )
+
+def _plan_tier_feature_service() -> plan_tier_service.PlanTierService:
+    return plan_tier_service.PlanTierService(
+        plan_tier_service.PlanTierServiceContext(
+            edit_plan=_edit_active_plan,
+            read_plan=_read_active_plan,
             audit=_audit,
         )
     )
@@ -395,6 +404,35 @@ def config_rows():
     return jsonify(payload), status
 
 
+
+
+@app.route("/api/plan/tier", methods=["POST"])
+def plan_tier():
+    """WP5.1: pick the plan's tier (``{tier}``), or with ``preview: true`` only answer what
+    picking it would change. A preview reads; applying writes the plan rows."""
+    body = request.get_json(silent=True) or {}
+    if not isinstance(body, dict):
+        return jsonify({"success": False, "error": "JSON object body required"}), 400
+    denied = _require("read_config" if body.get("preview") is True else "write_config")
+    if denied:
+        return denied
+    if body.get("preview") is not True and not _runtime_config().allow_csv_write:
+        return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
+    return _service_json(_plan_tier_feature_service().apply_tier_payload(body))
+
+
+@app.route("/api/plan/feature", methods=["POST"])
+def plan_feature():
+    """WP5.1: override one feature switch (``{key, on}``) through ``module_catalog.set_feature``."""
+    denied = _require("write_config")
+    if denied:
+        return denied
+    if not _runtime_config().allow_csv_write:
+        return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
+    body = request.get_json(silent=True) or {}
+    if not isinstance(body, dict):
+        return jsonify({"success": False, "error": "JSON object body required"}), 400
+    return _service_json(_plan_tier_feature_service().set_feature_payload(body))
 
 
 @app.route("/api/allocation-preview", methods=["POST"])

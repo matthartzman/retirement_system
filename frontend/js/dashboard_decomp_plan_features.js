@@ -265,6 +265,7 @@ function planFlagRowHtml(entry) {
   if (meta.kind) html += '<span class="badge pf-kind">' + esc(meta.answer_type || meta.kind) + "</span>";
   if (hint) html += '<span class="pf-demand">' + esc(hint) + "</span>";
   if (desc) html += '<span class="opt-module-desc">' + esc(desc) + "</span>";
+  html += planTierDiffBadgeHtml(entry.key);
 
   // Every plan flag (HELOC, DAF, QCD, LTC/Life Policy) is switched here and
   // only here; the page that owns its data carries no second switch.
@@ -289,13 +290,23 @@ function planFlagRowHtml(entry) {
       "',null);saveAll(false);renderMain()\">" +
       (on ? "ON" : "OFF") +
       "</button>"
-    : `<span class="opt-module-toggle ${on ? "on" : "off"}" aria-disabled="true">${on ? "ON" : "OFF"}</span>`;
+    : rowlessSwitchHtml(entry.key, on);
   html += "</div>";
   return html;
 }
 
-// WP1.3: a switchable feature with no CSV row (default-on page switch). Shown
-// as its state, not a button: nothing stores the switch until plan_rows (WP4).
+// WP5.1: a switch the plan holds no row for yet is still a switch -- the click
+// writes its row through POST /api/plan/feature (module_catalog.set_feature).
+function rowlessSwitchHtml(key, on) {
+  return (
+    `<button class="opt-module-toggle ${on ? "on" : "off"}" type="button" data-requires-app="1" ` +
+    `onclick="setPlanFeatureSwitch('${esc(escJs(key))}',${on ? "false" : "true"})">${on ? "ON" : "OFF"}</button>`
+  );
+}
+
+// WP1.3: a switchable feature with no CSV row (default-on page switch). WP5.1:
+// its first flip writes the row (rowlessSwitchHtml); from then on it is an
+// ordinary toggle row.
 function rowlessFeatureRowHtml(entry) {
   const meta = entry.meta;
   const on = meta.default_on !== false;
@@ -304,8 +315,9 @@ function rowlessFeatureRowHtml(entry) {
   if (meta.kind) html += '<span class="badge pf-kind">' + esc(meta.answer_type || meta.kind) + "</span>";
   const desc = formatAcronyms(meta.description || "");
   if (desc) html += '<span class="opt-module-desc">' + esc(desc) + "</span>";
+  html += planTierDiffBadgeHtml(entry.key);
   html += "</div>";
-  html += '<span class="opt-module-toggle ' + (on ? "on" : "off") + '" aria-disabled="true">' + (on ? "ON" : "OFF") + "</span></div>";
+  html += rowlessSwitchHtml(entry.key, on) + "</div>";
   return html;
 }
 
@@ -345,6 +357,7 @@ function featureRowHtml(entry) {
     const ignored = engineIgnoredWarning(meta);
     if (ignored) html += '<span class="pf-engine-ignored">' + esc(ignored) + "</span>";
   }
+  html += planTierDiffBadgeHtml(entry.key);
   if (status.forced) {
     html +=
       '<span class="badge warn pf-forced">Forced ' +
@@ -434,6 +447,9 @@ export function renderOptionalFunctions() {
   const notice = envOverrideNotice(moduleStatus);
   if (notice) html += '<div class="section-note pf-override">' + esc(notice) + "</div>";
 
+  // WP5.1: the tier picker (dashboard_decomp_plan_tiers.js) heads the page.
+  html += planTierPickerHtml();
+
   html += kindChipsHtml(planFeatureKinds(rs, taxonomy), planFeatureKind);
 
   const groups = planFeatureGroups(rs, taxonomy, planFeatureKind);
@@ -473,6 +489,7 @@ Object.assign(window, {
   offRowsLabel,
   engineIgnoredWarning,
   envOverrideNotice,
+  moduleOwnedRows,
   planFeatureGroups,
   planFeatureKinds,
   renderOptionalFunctions,

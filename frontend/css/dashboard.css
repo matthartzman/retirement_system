@@ -1058,6 +1058,24 @@ body.chart-modal-open{overflow:hidden}
 .pf-group-name{font-weight:900;font-size:12px;text-transform:uppercase;letter-spacing:.06em}
 .pf-group-count{font-size:11px;color:var(--muted);font-weight:800}
 .pf-override{border-color:#fde68a;background:#fffbeb;color:#92400e}
+.pf-engine-ignored{font-size:12px;color:var(--warn);line-height:1.35}
+/* Plan tier picker (WP5.1): four cards on desktop, two by two on a phone. */
+.pf-tier{border:1px solid var(--line);border-radius:12px;background:var(--soft);padding:12px;margin:6px 0 14px}
+.pf-tier-head{font-weight:900;font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+.pf-tier-intro{font-size:12px;color:var(--muted);margin:3px 0 10px}
+.pf-tier-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.pf-tier-card{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;border:1px solid var(--line2);border-radius:10px;background:#fff;padding:10px;cursor:pointer;font:inherit;color:var(--ink);min-width:0}
+.pf-tier-card:hover{border-color:#9bc4f5}
+.pf-tier-card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.pf-tier-card.selected{border:2px solid var(--accent);background:var(--accent2);padding:9px}
+.pf-tier-name{font-weight:900}
+.pf-tier-pages{font-size:11px;font-weight:800;color:var(--accent)}
+.pf-tier-desc{font-size:12px;color:var(--muted);line-height:1.35}
+.pf-tier-current{font-size:11px;font-weight:900;color:var(--accent);text-transform:uppercase;letter-spacing:.05em}
+.pf-tier-status{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-top:10px;font-size:13px}
+.badge.pf-tier-diff{background:#fff7ed;color:#9a3412;align-self:flex-start}
+.pf-tier-preview{max-height:50vh;overflow:auto}
+@media(max-width:720px){.pf-tier-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 /* Projection Controls: collapsed section after Spending Categories, with a compact readout of the current inputs */
 /* Spending page: three sibling accordions share one look; the page
