@@ -7,6 +7,7 @@ try:
         Path,
         TRAVEL_EXTRA_TYPES,
         WORKSPACE_ROOT,
+        platform_runtime,
         _audit,
         _edit_active_plan,
         _edit_active_plan_protected,
@@ -51,6 +52,7 @@ except ImportError:
         Path,
         TRAVEL_EXTRA_TYPES,
         WORKSPACE_ROOT,
+        platform_runtime,
         _audit,
         _edit_active_plan,
         _edit_active_plan_protected,
@@ -1003,9 +1005,11 @@ def ytd_transactions_bulk_save():
 # SpendingService owns taxonomy/budget/alias/model behavior; this module keeps
 # only permissions, request extraction, route decorators, and JSON serialization.
 def _spending_feature_service() -> spending_service.SpendingService:
+    # The spending service's root is the WORKSPACE (where the active plan and the YTD files live),
+    # read fresh per request; BASE_DIR is the code folder, which in a frozen build is not it.
     return spending_service.SpendingService(
         spending_service.SpendingServiceContext(
-            base_dir=BASE_DIR,
+            base_dir=platform_runtime.workspace_root(),
             read_plan_data_file=_read_plan_data_file,
             plan_data=peek_plan_data,
             audit=_audit,

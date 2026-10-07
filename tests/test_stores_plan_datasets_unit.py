@@ -71,7 +71,7 @@ def test_v1_file_upgrades_to_current_keeping_rows(tmp_path):
     con.commit()
     con.close()
     with PlanStore.open(p) as s:
-        assert s.schema_version == 4
+        assert s.schema_version == 5
         assert [r["section"] for r in s.all_rows()] == ["Household"]
         assert s.holdings.rows() == []
 
@@ -107,7 +107,7 @@ def test_v2_file_upgrades_to_v3_with_empty_spending_tables(tmp_path):
     con.commit()
     con.close()
     with PlanStore.open(p) as s:
-        assert s.schema_version == 4
+        assert s.schema_version == 5
         assert s.holdings.rows()[0]["account"] == "A_IRA"
         assert s.spending.taxonomy.rows() == [] and s.spending.aliases.rows() == []
 
@@ -121,7 +121,7 @@ def test_v3_file_upgrades_to_v4_with_empty_budget_tables(tmp_path):
     con.commit()
     con.close()
     with PlanStore.open(p) as s:
-        assert s.schema_version == 4
+        assert s.schema_version == 5
         assert s.spending.aliases.rows()[0]["category_id"] == "groceries"
         assert s.spending.budget.rows() == [] and s.spending.budget_lines.rows() == []
         assert s.spending.tier_overrides.rows() == []
@@ -156,8 +156,12 @@ def test_spending_repo_shape_and_planned_stubs(store):
     assert repo.budget.columns[:4] == ("kind", "key", "label", "annual_budget")
     assert repo.budget_lines.columns[:2] == ("section", "line_id")
     assert repo.tier_overrides.columns == ("category_id", "tier", "notes")
-    assert set(SPENDING_DATASETS) == {"taxonomy", "aliases", "budget", "budget_lines", "tier_overrides"}
-    assert set(PLANNED_SPENDING_DATASETS) == {"rules", "category_map"}
+    assert set(SPENDING_DATASETS) == {"taxonomy", "aliases", "budget", "budget_lines", "tier_overrides",
+                                      "rules", "category_map", "group_budget"}
+    assert repo.rules.columns == ("keyword", "category_id", "match_field", "exact", "priority")
+    assert repo.category_map.columns == ("super_group", "group", "category", "tracking")
+    assert repo.group_budget.columns == ("group", "budget_pct", "budget_override", "notes")
+    assert PLANNED_SPENDING_DATASETS == {}
     for name, unit in PLANNED_SPENDING_DATASETS.items():
         with pytest.raises(NotImplementedError, match=unit):
             repo.dataset(name)

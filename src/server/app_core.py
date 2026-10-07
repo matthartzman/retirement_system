@@ -311,7 +311,7 @@ except ImportError:
 def _spending_budget_table_rows() -> list[list[str]]:
     """The plan's ``spending_budget`` table as header + rows (the shape the Build Impact diff
     compares); empty when the table has no rows."""
-    rows = _plan_datasets.workspace_dataset_rows(BASE_DIR, "spending_budget")
+    rows = _plan_datasets.workspace_dataset_rows(platform_runtime.workspace_root(), "spending_budget")
     if not rows:
         return []
     header = list(rows[0])
@@ -325,7 +325,7 @@ def _spending_budget_save_result(save_fn):
     after_rows = _spending_budget_table_rows()
     change_event = _record_admin_config_change(
         "spending_budget", "client_spending_budget.csv",
-        str(_plan_datasets.plan_path_for_workspace(BASE_DIR)), before_rows, after_rows)
+        str(_plan_datasets.plan_path_for_workspace(platform_runtime.workspace_root())), before_rows, after_rows)
     if isinstance(payload, dict) and change_event:
         payload["change_event"] = change_event
     return jsonify(payload), status

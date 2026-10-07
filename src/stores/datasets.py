@@ -1,7 +1,7 @@
 """Typed flat datasets of ``plan.db``: holdings lots, liabilities, HSA schedule and target
 allocation (schema v2, WP6.1 / P4.1); spending taxonomy and aliases (schema v3, WP6.3a, reached
 through ``store.spending``, see ``spending_repo.py``); spending budget, budget lines and tier
-overrides (schema v4, WP6.3b).
+overrides (schema v4, WP6.3b); spending rules, category map and group budget (schema v5, WP6.3c).
 
 Each dataset is one table that replaces one legacy CSV file. Columns keep the CSV column
 names and are stored as text exactly as entered, so the build parses the same strings it
@@ -39,6 +39,11 @@ SPENDING_BUDGET_LINES_COLUMNS = (
 )
 SPENDING_TIER_OVERRIDES_COLUMNS = ("category_id", "tier", "notes")
 
+# Spending rules, category map and group budget (WP6.3c).
+SPENDING_RULES_COLUMNS = ("keyword", "category_id", "match_field", "exact", "priority")
+SPENDING_CATEGORY_MAP_COLUMNS = ("super_group", "group", "category", "tracking")
+SPENDING_GROUP_BUDGET_COLUMNS = ("group", "budget_pct", "budget_override", "notes")
+
 _V2_DATASETS: dict[str, tuple[str, ...]] = {
     "holdings_lots": HOLDINGS_COLUMNS,
     "liabilities": LIABILITIES_COLUMNS,
@@ -54,8 +59,13 @@ _V4_DATASETS: dict[str, tuple[str, ...]] = {
     "spending_budget_lines": SPENDING_BUDGET_LINES_COLUMNS,
     "spending_tier_overrides": SPENDING_TIER_OVERRIDES_COLUMNS,
 }
+_V5_DATASETS: dict[str, tuple[str, ...]] = {
+    "spending_rules": SPENDING_RULES_COLUMNS,
+    "spending_category_map": SPENDING_CATEGORY_MAP_COLUMNS,
+    "spending_group_budget": SPENDING_GROUP_BUDGET_COLUMNS,
+}
 # Every flat dataset table -> its columns (a later schema version adds its tables here).
-_DATASETS: dict[str, tuple[str, ...]] = {**_V2_DATASETS, **_V3_DATASETS, **_V4_DATASETS}
+_DATASETS: dict[str, tuple[str, ...]] = {**_V2_DATASETS, **_V3_DATASETS, **_V4_DATASETS, **_V5_DATASETS}
 
 
 def _q(name: str) -> str:
@@ -77,6 +87,17 @@ def _ddl(datasets: Mapping[str, tuple[str, ...]], *, quote: bool = True) -> str:
 SCHEMA_V2_DDL = _ddl(_V2_DATASETS, quote=False)  # as shipped in v2 (its names need no quoting)
 SCHEMA_V3_DDL = _ddl(_V3_DATASETS)
 SCHEMA_V4_DDL = _ddl(_V4_DATASETS)
+# v5 also adds the revision-scoped dataset copies (recovery copies of a flat dataset: the rows
+# of a dataset as they were when a plan revision was taken, JSON per row, cascade-deleted with it).
+SCHEMA_V5_DDL = _ddl(_V5_DATASETS) + """
+CREATE TABLE revision_datasets (
+    revision_id INTEGER NOT NULL REFERENCES plan_revisions (id) ON DELETE CASCADE,
+    dataset     TEXT    NOT NULL CHECK (dataset <> ''),
+    position    INTEGER NOT NULL,
+    row         TEXT    NOT NULL,
+    PRIMARY KEY (revision_id, dataset, position)
+) WITHOUT ROWID;
+"""
 
 
 class FlatDatasetRepository:

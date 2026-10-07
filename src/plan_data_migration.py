@@ -327,10 +327,13 @@ def _migrate_plan_file_rows(plan_path, dry_run: bool) -> int:
     return changed
 
 
-# The plan file's flat dataset tables that carry a category id (WP6.3a/b): the spending taxonomy,
-# aliases, budget lines and tier overrides. They get the same whole-cell renames as their legacy
-# files did.
-_CATEGORY_KEYED_PLAN_DATASETS = ("spending_taxonomy", "spending_aliases", "spending_budget_lines", "spending_tier_overrides")
+# The plan file's flat dataset tables that carry a category id (WP6.3a/b/c): the spending taxonomy,
+# aliases, budget lines, tier overrides, rules and category map. They get the same whole-cell
+# renames as their legacy files did.
+_CATEGORY_KEYED_PLAN_DATASETS = (
+    "spending_taxonomy", "spending_aliases", "spending_budget_lines", "spending_tier_overrides",
+    "spending_rules", "spending_category_map",
+)
 
 
 def _migrate_plan_file_datasets(plan_path, dry_run: bool) -> int:

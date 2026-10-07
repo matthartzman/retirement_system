@@ -76,7 +76,25 @@ FLAT_DATASET_FILES: dict[str, str] = {
     "spending_budget": "client_spending_budget.csv",
     "spending_budget_lines": "client_spending_budget_lines.csv",
     "spending_tier_overrides": "client_spending_tier_overrides.csv",
+    "spending_rules": "client_spending_rules.csv",
+    "spending_category_map": "spending_category_map.csv",
+    "spending_group_budget": "spending_budget.csv",
 }
+
+
+# The spending budget's recovery seed (a known-good budget): a plan revision, not a table.
+RECOVERY_SEED_FILE = "client_spending_budget.recovery_seed.csv"
+
+
+def import_recovery_seed(folder: str | Path, store: Any) -> int:
+    """Keep the recovery seed file found in ``folder`` as the plan's recovery seed revision
+    (``store.spending.set_recovery_seed``); a missing file leaves the plan as it is. Returns
+    the rows kept (0 when there is no file)."""
+    path = Path(folder) / RECOVERY_SEED_FILE
+    if not path.is_file():
+        return 0
+    _, rows = read_dataset_csv_file(path)
+    return store.spending.set_recovery_seed(rows)
 
 
 def import_flat_datasets(folder: str | Path, store: Any, names: Iterable[str] | None = None) -> dict[str, int]:

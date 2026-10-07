@@ -1,6 +1,6 @@
 """Flat datasets of the active plan (WP6): holdings, liabilities, HSA schedule, target
 allocation, and the spending set (taxonomy, aliases, budget, budget lines, tier overrides:
-WP6.3). The functions live in ``active_plan`` (the one product module that opens the plan
+WP6.3), and the spending recovery copies (WP6.3c). The functions live in ``active_plan`` (the one product module that opens the plan
 file); this module is their import point for readers."""
 from __future__ import annotations
 
@@ -10,10 +10,14 @@ from .active_plan import (
     dataset_fingerprint,
     dataset_rows_for_input_dir,
     dataset_text_for_input_dir,
+    keep_workspace_pre_recovery_copy,
     plan_path_for_workspace,
+    restore_workspace_pre_recovery_copy,
     workspace_dataset_rows,
+    workspace_recovery_seed_rows,
     write_active_dataset,
     write_workspace_dataset_rows,
+    write_workspace_recovery_seed,
 )
 from .csv_exchange import FLAT_DATASET_FILES
 
@@ -27,8 +31,12 @@ __all__ = [
     "dataset_fingerprint",
     "dataset_rows_for_input_dir",
     "dataset_text_for_input_dir",
+    "keep_workspace_pre_recovery_copy",
     "plan_path_for_workspace",
+    "restore_workspace_pre_recovery_copy",
     "workspace_dataset_rows",
+    "workspace_recovery_seed_rows",
     "write_active_dataset",
     "write_workspace_dataset_rows",
+    "write_workspace_recovery_seed",
 ]

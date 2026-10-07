@@ -17,8 +17,7 @@
    "path_io": 1
   },
   "src/import_preview.py": {
-   "csv": 2,
-   "open": 1
+   "csv": 1
   },
   "src/local_backup_scheduler.py": {
    "path_io": 4
@@ -95,7 +94,7 @@
    "path_io": 4
   },
   "src/server_services/demo_plan_service.py": {
-   "path_io": 6
+   "path_io": 4
   },
   "src/server_services/portfolio_service.py": {
    "path_io": 1
@@ -114,8 +113,8 @@
    "path_io": 6
   },
   "src/spending_tracker.py": {
-   "csv": 6,
-   "open": 6
+   "csv": 2,
+   "open": 2
   },
   "src/system_config.py": {
    "csv": 3
@@ -125,5 +124,5 @@
    "path_io": 1
   }
  },
- "total": 141
+ "total": 129
 }
