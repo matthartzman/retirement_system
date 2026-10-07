@@ -327,8 +327,19 @@ def _migrate_plan_file_rows(plan_path, dry_run: bool) -> int:
     return changed
 
 
+def migrate_plan_file(plan_path, dry_run: bool = False) -> dict:
+    """Rename the legacy keys in a plan file's rows, in place (idempotent, no version stamp).
+
+    Runs at startup and after every plan file swap (Load Saved Plan, snapshot restore, demo),
+    so a plan saved by an older version is brought to the current key names whenever it
+    becomes the active plan. Returns ``{"plan_rows": n, "total_changed": n}``.
+    """
+    changed = _migrate_plan_file_rows(plan_path, dry_run)
+    return {"plan_rows": changed, "total_changed": changed}
+
+
 def migrate_plan_data_at_rest(input_dir, db_path=None, dry_run: bool = False, plan_path=None) -> dict:
-    """Migrate every sectioned Plan Data CSV, AND the plan file's rows, once, in place.
+    """Migrate the plan file's rows, AND the flat Plan Data CSVs in ``input_dir``, once, in place.
 
     Returns ``{"migrated": {name: changed}, "total_changed": int, "skipped": bool,
     "plan_rows": int}``, plus an ``"error"`` key (str) ONLY when the plan-row sweep
@@ -336,46 +347,57 @@ def migrate_plan_data_at_rest(input_dir, db_path=None, dry_run: bool = False, pl
     ``total_changed`` is the sum of CSV field changes and migrated plan rows, so callers
     that only look at ``total_changed`` (e.g. ``main.py``'s startup log) keep working.
 
-    Only files that actually change are rewritten, so untouched files keep their
-    mtime and their plan_data_manifest.json hash -- otherwise a migration that
-    changed one file would look like it changed all of them. When the store is
-    already stamped at the current version this is a no-op (``skipped=True``).
-    ``dry_run=True`` reports what would change without writing or stamping,
-    including for the plan-row sweep.
+    The plan file is canonical (WP4.2): the engine reads ``plan_rows`` of the active plan, so
+    its rows are migrated (``plan_path``, default the active plan; :func:`migrate_plan_file`).
+    That sweep is idempotent and not version-gated, so a plan file that arrives from outside
+    (Load Saved Plan) is swept the same way. A store error during the sweep is NOT swallowed:
+    it aborts the call and leaves the CSV version unstamped, so everything retries next boot.
 
-    The plan file is canonical (WP4.2): the engine reads ``plan_rows`` of the active plan,
-    so its rows are migrated too (``plan_path``; by default the active plan when
-    ``input_dir`` is the workspace's plan CSV folder, otherwise no plan file); ticket 287 did the same for the old sectioned SQLite snapshots, which nothing
-    reads any more. The sweep runs after the CSV loop and before the version is stamped.
-    A store error during the sweep is NOT swallowed the way a per-file CSV read error is:
-    it aborts the whole call and leaves the version unstamped (the sweep's transaction
-    rolled back), so the migration retries in full next boot.
+    WP4.5: the sectioned plan CSV set (the ``client_data.csv`` anchor and its part files) is the
+    legacy source of the converter now and is never rewritten here. The flat dataset CSVs
+    (spending taxonomy, aliases, budget, rules, category map, YTD ...) are still migrated
+    (their category renames), only files that actually change are rewritten, and that part is a
+    no-op once the store is stamped at the current version. ``dry_run=True`` reports what would
+    change without writing or stamping, including for the plan-row sweep.
     """
     from pathlib import Path
 
+    from .csv_exchange import PLAN_CSV_FILES
+
+    try:
+        if plan_path is None:
+            from .active_plan import active_plan_path  # noqa: PLC0415
+            plan_path = active_plan_path()
+        plan_rows_changed = _migrate_plan_file_rows(plan_path, dry_run)
+    except Exception as exc:
+        # Never stamp the version over a sweep that did not finish, so the next boot retries
+        # everything. The caller (run_startup_plan_data_migration / main.py) still must not
+        # raise -- a bad store must not stop the server booting -- but the failure is reported.
+        return {
+            "migrated": {}, "total_changed": 0, "skipped": False,
+            "plan_rows": 0, "error": f"{type(exc).__name__}: {exc}",
+        }
+
     if not dry_run and not needs_migration(db_path=db_path):
-        return {"migrated": {}, "total_changed": 0, "skipped": True, "plan_rows": 0}
+        return {"migrated": {}, "total_changed": plan_rows_changed, "skipped": True, "plan_rows": plan_rows_changed}
 
     root = Path(input_dir)
     migrated: dict = {}
     total = 0
     for path in sorted(root.glob("*.csv")):
+        if path.name in PLAN_CSV_FILES:
+            continue  # the legacy sectioned set is the converter's source: left exactly as it is
         try:
             content = path.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
-            # A file we cannot read is left exactly as it is. The per-load
-            # migrate_sectioned_data normalization still covers it in memory.
+            # A file we cannot read is left exactly as it is.
             continue
-        # Both transforms are attempted on every file, and each is a no-op on
-        # data it does not recognise: migrate_rows needs a (section, subsection,
-        # label) triple, migrate_flat_category_content needs a category-id
-        # column header. Running both beats maintaining a filename list that
-        # would silently miss the next flat file added -- which is exactly how
-        # client_spending_aliases.csv was missed on the first inventory pass.
-        new_content, changed = migrate_csv_content(content)
-        flat_content, flat_changed = migrate_flat_category_content(new_content)
-        if flat_changed:
-            new_content, changed = flat_content, changed + flat_changed
+        # The flat-category transform is attempted on every flat file; it is a no-op on data
+        # it does not recognise (it needs a category-id column header). Running it on every
+        # file beats maintaining a filename list that would silently miss the next flat file
+        # added -- which is exactly how client_spending_aliases.csv was missed on the first
+        # inventory pass.
+        new_content, changed = migrate_flat_category_content(content)
         if not changed:
             continue
         migrated[path.name] = changed
@@ -385,25 +407,6 @@ def migrate_plan_data_at_rest(input_dir, db_path=None, dry_run: bool = False, pl
 
             with atomic_write(path) as handle:
                 handle.write(new_content)
-
-    try:
-        if plan_path is None:
-            # The active plan is the one built from the workspace's plan CSV folder; a
-            # migration of some other folder does not touch it.
-            from .active_plan import active_plan_path  # noqa: PLC0415
-            from .config_backend import configured_plan_input_dir  # noqa: PLC0415
-            if root.resolve() == configured_plan_input_dir().resolve():
-                plan_path = active_plan_path()
-        plan_rows_changed = _migrate_plan_file_rows(plan_path, dry_run) if plan_path is not None else 0
-    except Exception as exc:
-        # Never stamp the version over a sweep that did not finish, so the next boot
-        # retries everything (CSVs already migrated are idempotent no-ops). The caller
-        # (run_startup_plan_data_migration / main.py) still must not raise -- a bad
-        # store must not stop the server booting -- but the failure is reported.
-        return {
-            "migrated": migrated, "total_changed": total, "skipped": False,
-            "plan_rows": 0, "error": f"{type(exc).__name__}: {exc}",
-        }
 
     total += plan_rows_changed
     if not dry_run:
@@ -415,22 +418,20 @@ def run_startup_plan_data_migration(input_dir=None, db_path=None) -> dict:
     """Startup entry point: migrate stored Plan Data once, never fatally.
 
     Any failure degrades to the existing per-load ``migrate_sectioned_data``
-    normalization, which still yields correct reads -- a bad CSV must not stop
+    normalization, which still yields correct reads -- a bad store must not stop
     the server from booting.
 
-    The input directory is the plan CSV folder from the single resolver
-    (``config_backend.configured_plan_input_dir``, which resolves through
-    ``platform_runtime.workspace_root()``) and NOT from a ``__file__``-derived repo root. That distinction is the whole
-    of the 2026-08-12 frozen-gate bug: a hardcoded root in data_io silently
-    ignored RETIREMENT_SYSTEM_WORKSPACE_ROOT, so every run under a custom
-    workspace resolved plan data against the wrong directory. A migration that
-    got this wrong would not merely read the wrong files -- it would REWRITE
-    them, which is not recoverable the way a bad read is.
+    The input directory is the workspace's ``input`` folder (``platform_runtime.workspace_root()``)
+    and NOT a ``__file__``-derived repo root. That distinction is the whole of the 2026-08-12
+    frozen-gate bug: a hardcoded root in data_io silently ignored RETIREMENT_SYSTEM_WORKSPACE_ROOT,
+    so every run under a custom workspace resolved plan data against the wrong directory. A
+    migration that got this wrong would not merely read the wrong files -- it would REWRITE them,
+    which is not recoverable the way a bad read is.
     """
     try:
         if input_dir is None:
-            from .config_backend import configured_plan_input_dir
-            input_dir = configured_plan_input_dir()
+            from . import platform_runtime
+            input_dir = platform_runtime.workspace_root() / "input"
         return migrate_plan_data_at_rest(input_dir, db_path=db_path)
     except Exception:
         return {"migrated": {}, "total_changed": 0, "skipped": True}

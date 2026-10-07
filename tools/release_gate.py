@@ -29,10 +29,8 @@ def _run(args: list[str]) -> None:
 def main() -> int:
     _remove_runtime_artifacts()
     _run([sys.executable, 'tools/generate_schema_coverage.py'])
-    _run([sys.executable, 'tools/check_plan_data_sync.py', '--write'])
     _run([sys.executable, '-m', 'unittest', 'discover', '-s', 'tests', '-v'])
     _run([sys.executable, 'tools/check_version_surfaces.py'])
-    _run([sys.executable, 'tools/check_plan_data_sync.py'])
     _remove_runtime_artifacts()  # unittest imports create pycache; release packages must not.
     with tempfile.TemporaryDirectory(prefix='retirement_release_gate_') as tmp:
         package_check = Path(tmp) / 'release_gate_package_check.zip'

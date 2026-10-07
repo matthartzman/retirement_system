@@ -1,11 +1,17 @@
-"""Single validated path for replacing the active plan SQLite database.
+"""Single validated path for replacing the active plan file (the SQLite ``plan.rpx``).
 
 System review 2026-09-25, WI-201 (closes ARC-005 and QA-004).  Load Saved Plan
-(``PlanFileService.load_file``) and snapshot restore
-(``build_snapshot.restore_sqlite_database_from_snapshot``) used to implement
+(``PlanFileService.load_file``), snapshot restore
+(``build_snapshot.restore_sqlite_database_from_snapshot``) and the demo swap used to implement
 DB replacement separately, with non-overlapping safeguards: one validated
 nothing and removed WAL sidecars, the other checked a hash but left a stale
-``-wal`` beside the replaced file.  Both now go through :func:`replace_active_db`.
+``-wal`` beside the replaced file.  All go through :func:`replace_active_db`.
+
+WP4.5: the file replaced is the plan file (``active_plan.active_plan_path()``), not the
+legacy local database. :func:`validate_plan_file` is the plan-file check (the tables of
+``PlanStore`` and an open through ``PlanStore``, which also upgrades the incoming copy).
+Callers close every ``PlanStore`` they hold before replacing the file (an open connection
+blocks the replace on Windows).
 
 Order of operations (nothing touches the active DB until every check passes):
 
@@ -30,8 +36,10 @@ from typing import Any, Callable, Iterable
 
 SQLITE_HEADER = b"SQLite format 3\x00"
 
-# ``client_files`` is created by config_backend.init_sqlite for every plan DB.
+# ``client_files`` is created by config_backend.init_sqlite for the legacy local database.
 DEFAULT_REQUIRED_TABLES: tuple[str, ...] = ("client_files",)
+# The tables of a plan file (``PlanStore`` schema v1).
+PLAN_FILE_TABLES: tuple[str, ...] = ("plan_rows", "plan_revisions", "revision_rows", "plan_meta")
 
 
 def sidecar_paths(db_path: Path) -> list[Path]:
@@ -75,6 +83,39 @@ def validate_plan_db(path: Path, required_tables: Iterable[str] = DEFAULT_REQUIR
     return None
 
 
+def validate_plan_file(path: Path) -> str | None:
+    """``replace_active_db``'s ``validate`` hook for a plan file: the file must open as a
+    ``PlanStore`` (right application id, a schema version this code can use; an older plan
+    is upgraded in place, the incoming temp copy only). Returns an error message or None."""
+    from .stores import PlanStore  # noqa: PLC0415 - keep this module import-light
+    from .stores.errors import StoreError  # noqa: PLC0415
+
+    try:
+        PlanStore.open(path, create=False).close()
+    except StoreError as exc:
+        return f"The selected file is not a usable plan file: {exc}"
+    return None
+
+
+def copy_sqlite_file(src: Path | str, dest: Path | str) -> None:
+    """Copy a SQLite database (WAL included) to ``dest`` through the SQLite backup API and
+    an atomic replace, so ``dest`` is a consistent, self-contained file."""
+    src_p, dest_p = Path(src), Path(dest)
+    dest_p.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(dir=str(dest_p.parent), prefix=dest_p.name + ".", suffix=".tmp")
+    os.close(fd)
+    tmp = Path(tmp_name)
+    try:
+        _backup_with_api(src_p, tmp)
+        os.replace(str(tmp), str(dest_p))
+    finally:
+        try:
+            if tmp.exists():
+                tmp.unlink()
+        except OSError:
+            pass
+
+
 def _checkpoint_truncate(db_path: Path) -> str | None:
     """Truncate the WAL; return an error string if the checkpoint was blocked."""
     try:
@@ -108,6 +149,7 @@ def replace_active_db(
     *,
     backup_path: Path | str | None = None,
     required_tables: Iterable[str] = DEFAULT_REQUIRED_TABLES,
+    validate: Callable[[Path], str | None] | None = None,
     migrate: Callable[[Path], Any] | None = None,
 ) -> dict[str, Any]:
     """Validate ``src`` and atomically make it the active plan DB.
@@ -129,6 +171,8 @@ def replace_active_db(
     try:
         shutil.copyfile(str(src_p), str(tmp))
         error = validate_plan_db(tmp, required_tables)
+        if not error and validate is not None:
+            error = validate(tmp)
         if error:
             return {"success": False, "error": error}
         backup: Path | None = None

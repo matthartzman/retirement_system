@@ -24,8 +24,6 @@ from typing import Any
 from .app_core import (
     BASE_DIR,
     BUILD_SCRIPT,
-    CLIENT_DATA_CSV_FILE_SET,
-    CSV_PATH,
     PLAN_DATA_FILES,
     SPENDING_BUDGET_SECTIONS,
     WORKSPACE_ROOT,
@@ -36,19 +34,18 @@ from .app_core import (
     _current_user,
     _edit_active_plan,
     _ensure_user_ui_plan_data_rows,
+    _blank_plan_rows,
     _make_blank_plan_files,
     _make_request_system_config_csv_for,
     _normalize_plan_data_file_name,
     _protected_client_data_status,
     _read_last_build_timestamp,
     _read_plan_data_file,
-    _refresh_active_plan,
     _request_system_config_csv,
     _require,
     _runtime_config,
     _spending_budget_save_result,
     _sqlite_db,
-    _sync_config_backends,
     _workspace_id,
     _workspace_output,
     _write_last_build_metadata,
@@ -74,7 +71,7 @@ from ..results_model import RESULTS_MODEL_FILENAME
 from ..server_services import build_job_service, build_service, holdings_service, plan_data_file_service, plan_forms_service, report_service, spending_service
 
 from ..local_store import list_kpi_snapshots, compare_kpi_snapshots
-from ..active_plan import plan_db_env
+from ..active_plan import active_plan_path, plan_db_env
 
 
 # Build-job orchestration is owned by server_services.build_job_service.
@@ -107,10 +104,17 @@ def _file_meta(path: Path) -> dict[str, Any]:
     return build_service.file_meta(path)
 
 
+def _newest_plan_store_path() -> Path:
+    """The plan file or the legacy local database (flat datasets), whichever was written last:
+    the outputs are stale once either is newer than them."""
+    paths = [p for p in (active_plan_path(), _sqlite_db()) if p.exists()]
+    return max(paths, key=lambda p: p.stat().st_mtime) if paths else _sqlite_db()
+
+
 def _build_preflight_payload() -> dict[str, Any]:
     return build_service.build_preflight_payload(
         output_dir=_workspace_output(),
-        db_path=_sqlite_db(),
+        db_path=_newest_plan_store_path(),
         snapshot_filename=SNAPSHOT_FILENAME,
         read_build_snapshot=read_build_snapshot,
         csv_rows_payload=_csv_rows_payload,
@@ -143,16 +147,15 @@ def _plan_data_file_feature_service() -> plan_data_file_service.PlanDataFileServ
     return plan_data_file_service.PlanDataFileService(
         plan_data_file_service.PlanDataFileServiceContext(
             plan_data_files=PLAN_DATA_FILES,
-            client_data_csv_file_set=CLIENT_DATA_CSV_FILE_SET,
             sqlite_db=_sqlite_db,
+            plan_db=active_plan_path,
             normalize_plan_data_file_name=_normalize_plan_data_file_name,
             read_plan_data_file=_read_plan_data_file,
-            write_plan_data_file=lambda name, content: _write_plan_data_file(name, content),
-            write_blank_plan_data_file=lambda name, content: _write_plan_data_file(name, content, preserve_protected=False),
+            write_plan_data_file=_write_plan_data_file,
             make_blank_plan_files=_make_blank_plan_files,
+            blank_plan_rows=_blank_plan_rows,
             protected_client_data_status=_protected_client_data_status,
             ensure_user_ui_plan_data_rows=_ensure_user_ui_plan_data_rows,
-            sync_config_backends=_sync_config_backends,
             audit=_audit,
         )
     )
@@ -216,7 +219,7 @@ def build_start():
     if body.get("csv_content") or body.get("plan_data_files"):
         return jsonify({
             "success": False,
-            "error": "Direct CSV payloads are no longer accepted by the build endpoint. Import Plan Data CSV files in System Configuration, save the local database, then build outputs from the SQLite snapshot.",
+            "error": "Direct CSV payloads are no longer accepted by the build endpoint. Edit the plan in the app, then build outputs from the saved plan.",
         }), 400
 
     workspace_id = _workspace_id()
@@ -241,7 +244,6 @@ def build_start():
     env["RETIREMENT_SYSTEM_SYSTEM_CONFIG_CSV"] = str(_make_request_system_config_csv_for(workspace_id, client_id, output_dir))
     env["PYTHONIOENCODING"] = env.get("PYTHONIOENCODING", "utf-8:replace")
     env["PYTHONUNBUFFERED"] = "1"
-    env["RETIREMENT_SYSTEM_SKIP_PLAN_DATA_ENV_SYNC"] = "1"
     plan_db_env(env)  # WP4.2: the build reads the plan rows of this server's active plan file
     job_id = uuid.uuid4().hex
     build_start_ts = time.time()
@@ -340,7 +342,7 @@ def build():
     if body.get("csv_content") or body.get("plan_data_files"):
         return jsonify({
             "success": False,
-            "error": "Direct CSV payloads are no longer accepted by the build endpoint. Import Plan Data CSV files in System Configuration, save the local database, then build outputs from the SQLite snapshot.",
+            "error": "Direct CSV payloads are no longer accepted by the build endpoint. Edit the plan in the app, then build outputs from the saved plan.",
         }), 400
 
     # Local-only package builds from the saved SQLite-backed working copy; input/ files are import/export adapters.
@@ -348,7 +350,6 @@ def build():
     env["RETIREMENT_SYSTEM_SYSTEM_CONFIG_CSV"] = str(_request_system_config_csv())
     env["PYTHONIOENCODING"] = env.get("PYTHONIOENCODING", "utf-8:replace")
     env["PYTHONUNBUFFERED"] = "1"
-    env["RETIREMENT_SYSTEM_SKIP_PLAN_DATA_ENV_SYNC"] = "1"
     plan_db_env(env)  # WP4.2: the build reads the plan rows of this server's active plan file
     start = time.time()
     build_id = uuid.uuid4().hex
@@ -389,31 +390,6 @@ def build():
         "stderr": redact_text((result.stderr or "")[-1000:]) if cfg.redact_secrets_in_logs else (result.stderr or "")[-1000:],
         "error": outcome.error_message,
     })
-
-
-@app.route("/api/csv", methods=["GET"])
-def get_csv():
-    denied = _require("read_config")
-    if denied:
-        return denied
-    if CSV_PATH.exists():
-        return send_file(str(CSV_PATH), mimetype="text/csv")
-    return jsonify({"error": "CSV not found"}), 404
-
-
-@app.route("/api/csv", methods=["POST"])
-def save_csv():
-    denied = _require("write_config")
-    if denied:
-        return denied
-    if not _runtime_config().allow_csv_write:
-        return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
-    data = request.get_json(silent=True) or {}
-    if "csv_content" not in data:
-        return jsonify({"success": False, "error": "No csv_content in request"}), 400
-    _write_plan_data_file("client_data.csv", data["csv_content"])
-    _audit("csv_saved", {"bytes": len(data["csv_content"])})
-    return jsonify({"success": True})
 
 
 def _download_file(name: str, download_name: str | None = None):
@@ -886,14 +862,14 @@ def shutdown():
 # ---- Versioned SaaS/readiness APIs ----
 
 
-# Sectioned Plan Data form APIs over the active plan's rows: the same rows, edit context and
-# CSV write-back as the grid (/api/config/rows; WP4.3).
+# Sectioned Plan Data form APIs over the active plan's rows: the same rows and edit context
+# as the grid (/api/config/rows; WP4.3).
 @app.route("/api/plan/forms", methods=["GET"])
 def plan_forms_get():
     denied = _require("view_dashboard")
     if denied:
         return denied
-    return jsonify(plan_forms_service.get_forms_payload(refresh=_refresh_active_plan))
+    return jsonify(plan_forms_service.get_forms_payload())
 
 
 @app.route("/api/plan/forms", methods=["POST"])

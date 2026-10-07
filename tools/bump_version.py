@@ -9,8 +9,7 @@ What it does:
     2b. Updates frontend/admin.html  "Retirement System v<OLD>" → "...v<NEW>"
         (a separate page from index.html, easy to miss -- found 2026-09-04)
     3. Updates system_config.csv  system_version,OLD → system_version,NEW
-    4. Re-runs tools/check_plan_data_sync.py --write  (regenerates manifest)
-    5. Re-runs tools/check_version_surfaces.py --old-version <OLD>  (validates
+    4. Re-runs tools/check_version_surfaces.py --old-version <OLD>  (validates
        no stale "Retirement System v<OLD>" / User-Agent / version-badge text
        remains anywhere in src/, frontend/, tools/, top-level documentation/*.md,
        or a hardcoded absolute workspace path in tests/ -- in addition to that
@@ -358,17 +357,6 @@ def bump(new_version: str) -> str | None:
     else:
         csv_path.write_text(updated_csv, encoding='utf-8')
         print(f'  updated {csv_path.relative_to(ROOT)}')
-
-    # 5. Re-generate plan data manifest
-    print('\nRegenerating plan data manifest...')
-    r = subprocess.run(
-        [sys.executable, 'tools/check_plan_data_sync.py', '--write'],
-        cwd=ROOT, text=True, capture_output=True,
-    )
-    print(r.stdout.strip())
-    if r.returncode != 0:
-        print(r.stderr.strip(), file=sys.stderr)
-        fail('check_plan_data_sync.py --write failed')
 
     # 6. Validate version surfaces. --old-version makes this check dynamic
     # for THIS bump (leftover "Retirement System v<old>" text etc.), not just

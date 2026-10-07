@@ -15,13 +15,11 @@ from pathlib import Path
 from typing import Any, Callable
 
 from .. import platform_runtime as _platform_runtime
-from ..csv_exchange import PlanCsvError
 from ..plan_data_backfill import insert_rows_at
 from ..spending_adjustments import ADJ_SUBSECTION, adjustment_dicts_from_plan_rows, adjustment_plan_rows, validate_adjustment_dicts
 
 AuditFn = Callable[[str, dict[str, Any] | None], None]
 PathFn = Callable[[str], Path]
-SyncFn = Callable[[], dict[str, Any]]
 
 # #215: year-by-year carrier-illustration schedule for Life insurance policies
 # (cash value, death benefit, premium), stored the same way as the existing
@@ -512,14 +510,12 @@ class StrategyAssetServiceContext:
     normalize_large_discretionary_type: Callable[[str], str]
     pre_tax_account_options_from_holdings: Callable[[], list[str]]
     ensure_user_ui_plan_data_rows: Callable[[], None]
-    sync_config_backends: SyncFn
     audit: AuditFn | None = None
     travel_extra_types: list[str] | None = None
-    # WP4.4: the endpoints moved to the plan rows read the active plan through ``read_plan``
-    # (a store, after the CSV bridge ran: app_core._read_active_plan) and edit it through
-    # ``edit_plan`` (app_core._edit_active_plan: one transaction, touched keys written back to
-    # the CSV set).  Defaulted like the fields below, so a context built for a not-yet-moved
-    # endpoint needs neither.
+    # The endpoints read the active plan through ``read_plan`` (an open store:
+    # app_core._read_active_plan) and edit it through ``edit_plan`` (app_core._edit_active_plan:
+    # one transaction on the plan file's rows).  Defaulted like the fields below, so a context
+    # built for an endpoint that needs neither can leave them out.
     edit_plan: Callable[[], AbstractContextManager[Any]] = _no_plan_edit
     read_plan: Callable[[], AbstractContextManager[Any]] = _no_plan_read
     # #276: added after the other fields with a default so existing call
@@ -544,15 +540,11 @@ class StrategyAssetService:
         return (str(cols[0]).strip(), str(cols[1]).strip(), str(cols[2]).strip())
 
     def _edit(self, work: Callable[[Any], _Outcome]) -> tuple[dict[str, Any], int]:
-        """Run ``work(store)`` in one rows transaction of the active plan (the edit context
-        writes every touched key back into the plan CSV set; WP4.3).  ``work`` returns
+        """Run ``work(store)`` in one rows transaction of the active plan.  ``work`` returns
         ``(payload, status, audit)``; an ``audit`` ``(event, details)`` is recorded after the
-        edit committed.  A plan CSV set that cannot take the edit answers 409 and changes nothing."""
-        try:
-            with self.context.edit_plan() as edit:
-                payload, status, audit = work(edit.store)
-        except PlanCsvError as exc:
-            return {"success": False, "error": f"Plan Data could not be saved: {exc}"}, 409
+        edit committed."""
+        with self.context.edit_plan() as edit:
+            payload, status, audit = work(edit.store)
         if audit:
             self._audit(*audit)
         return payload, status
@@ -597,17 +589,6 @@ class StrategyAssetService:
     _WITHDRAWAL_ACCOUNT_ORDER_SECTION = "Withdrawal Policy"
     _WITHDRAWAL_ACCOUNT_ORDER_SUBSECTION = "Account Order"
     _WITHDRAWAL_ACCOUNT_ORDER_NOTE = "Individual-account withdrawal draw priority (lower = drawn first); blank/default = app's optimized order."
-
-    def _with_sync(self, payload: dict[str, Any], status: int, body: dict[str, Any]) -> tuple[dict[str, Any], int]:
-        """The ``sync`` tail of a save: with ``sync`` in the request, the JSON/YAML mirrors are
-        refreshed (``sync_config_backends``) and the result added to the response."""
-        if status != 200:
-            return payload, status
-        sync_result = None
-        if body.get("sync"):
-            sync_result = self.context.sync_config_backends()
-            self._audit("config_backends_synced", sync_result)
-        return {**payload, "sync": sync_result}, status
 
     def withdrawal_account_order_payload(self) -> tuple[dict[str, Any], int]:
         account_ids = self.context.all_account_ids_from_holdings()
@@ -711,7 +692,7 @@ class StrategyAssetService:
             return ({"success": True, "count": len(clean)}, 200,
                     ("large_discretionary_expenses_saved", {"count": len(clean)}))
 
-        return self._with_sync(*self._edit(work), body)
+        return self._edit(work)
 
     def forced_roth_conversions_payload(self) -> tuple[dict[str, Any], int]:
         with self.context.read_plan() as store:
@@ -759,7 +740,7 @@ class StrategyAssetService:
             _replace_block(store, "Forced Actions", lambda r: True, wanted)
             return ({"success": True, "count": len(clean)}, 200, ("forced_roth_conversions_saved", {"count": len(clean)}))
 
-        return self._with_sync(*self._edit(work), body)
+        return self._edit(work)
 
     # Liquidity Buffer: one ``buffer_N`` group of four rows per year-ranged reserve rule.
     _LIQUIDITY_BUFFER_FIELDS = (
@@ -810,7 +791,7 @@ class StrategyAssetService:
             _replace_block(store, "Liquidity Buffer", lambda r: True, wanted)
             return {"success": True, "count": len(clean)}, 200, ("liquidity_buffers_saved", {"count": len(clean)})
 
-        return self._with_sync(*self._edit(work), body)
+        return self._edit(work)
 
     # Home Sale Split (#299): one ``split_N`` pair of rows per receiving account.
     _HOME_SALE_SPLIT_FIELDS = (
@@ -861,7 +842,7 @@ class StrategyAssetService:
             _replace_block(store, "Home Sale Split", lambda r: True, wanted)
             return {"success": True, "count": len(clean)}, 200, ("home_sale_splits_saved", {"count": len(clean)})
 
-        return self._with_sync(*self._edit(work), body)
+        return self._edit(work)
 
     def tax_assumptions_payload(self) -> tuple[dict[str, Any], int]:
         """Resolved tax levers (model value, override, effective, basis) for
@@ -949,7 +930,7 @@ class StrategyAssetService:
             return ({"success": True, "count": len(overrides)}, 200,
                     ("tax_assumptions_saved", {"keys": sorted(str(k) for k in overrides)}))
 
-        return self._with_sync(*self._edit(work), body)
+        return self._edit(work)
 
     def residency_schedule_payload(self) -> tuple[dict[str, Any], int]:
         with self.context.read_plan() as store:
@@ -997,7 +978,7 @@ class StrategyAssetService:
             _replace_block(store, "State Residency Schedule", lambda r: True, wanted)
             return ({"success": True, "count": len(clean)}, 200, ("residency_schedule_saved", {"count": len(clean)}))
 
-        return self._with_sync(*self._edit(work), body)
+        return self._edit(work)
 
     def spending_adjustments_payload(self) -> tuple[dict[str, Any], int]:
         """#335: the Spending Model Adjustments table (Cashflow / Spending Adjustments)."""
@@ -1014,7 +995,7 @@ class StrategyAssetService:
             _replace_block(store, "Cashflow", lambda r: r["subsection"].lower() == ADJ_SUBSECTION.lower(), wanted)
             return {"success": True, "count": len(clean)}, 200, ("spending_adjustments_saved", {"count": len(clean)})
 
-        return self._with_sync(*self._edit(work), body)
+        return self._edit(work)
 
     # ---- asset / estate / insurance section endpoints (WP4.4a) -------------------------
     # These read and write the active plan's rows through the edit context (one rows
@@ -1242,12 +1223,3 @@ class StrategyAssetService:
 
     def seed_healthcare_oop_payload(self) -> tuple[dict[str, Any], int]:
         return self._seed_rows(seed_rows=HEALTHCARE_OOP_SEED_ROWS, audit_event="healthcare_oop_rows_seeded")
-
-    def config_sync_payload(self) -> tuple[dict[str, Any], int]:
-        try:
-            self.context.ensure_user_ui_plan_data_rows()
-        except Exception as exc:
-            self._audit("config_sync_ui_row_warning", {"error": str(exc)})
-        result = self.context.sync_config_backends()
-        self._audit("config_backends_synced", result)
-        return result, 200 if result.get("success") else 500

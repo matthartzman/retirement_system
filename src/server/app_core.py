@@ -61,40 +61,30 @@ try:
     from ..permissions import UserContext, require as require_permission, user_from_headers
     from ..secrets_store import encryption_status, set_secret  # require_secure_master_key: system review 4.5, its one call site (SaaS-only) removed
     from ..workspace_context import sanitize_id, workspace_file, workspace_output_dir
-    from ..roth_ui_build_guard import canonicalize_roth_csv_content, normalize_roth_csv_value
+    from ..blank_plan import blank_plan_rows
+    from ..roth_ui_build_guard import normalize_roth_csv_value
     from ..us_states import state_abbr_choice_options, state_name_choice_options
     from ..plan_file_io import atomic_write, plan_file_lock, write_text_atomic
     from .plan_data_files import (
-        CLIENT_DATA_CSV_FILES,
-        CLIENT_DATA_CSV_FILE_SET,
-        CLIENT_DATA_DERIVED_FILES,
-        CLIENT_DATA_DERIVED_FILE_SET,
         PLAN_DATA_CSV_FILES,
-        PLAN_DATA_CSV_FILE_SET,
-        PLAN_DATA_DERIVED_FILES,
         PLAN_DATA_FILES,
         PLAN_DATA_FILE_SET,
+        RETIRED_PLAN_PART_FILES,
         SYSTEM_REFERENCE_FILES,
         UI_NAMES,
         YTD_PLAN_DATA_FILES,
     )
-    from ..active_plan import active_plan_store, edit_active_plan, peek_plan_data, refresh_active_plan, sync_active_plan_from_csv
-    from ..csv_exchange import ANCHOR_FILE, PLAN_CSV_FILES, PlanCsvError
+    from ..active_plan import PROTECTED_PLAN_KEYS, active_plan_store, edit_active_plan, peek_plan_data
     from ..config_backend import (
         DEFAULT_DB,
-        configured_plan_csv_path,
-        configured_plan_input_dir,
-        delete_client_files,
         append_audit_event_sqlite,
         get_client,
         get_client_file,
         init_sqlite,
         load_active_config,
-        export_client_json_yaml,
         lookup_api_token,
         materialize_workspace_files,
         set_client_file,
-        set_client_files,
         sync_clients_csv_to_sqlite,
         upsert_client,
     )
@@ -107,40 +97,30 @@ except ImportError:  # direct execution fallback
     from src.permissions import UserContext, require as require_permission, user_from_headers
     from src.secrets_store import encryption_status, set_secret
     from src.workspace_context import sanitize_id, workspace_file, workspace_output_dir
-    from src.roth_ui_build_guard import canonicalize_roth_csv_content, normalize_roth_csv_value
+    from src.blank_plan import blank_plan_rows
+    from src.roth_ui_build_guard import normalize_roth_csv_value
     from src.plan_file_io import atomic_write, plan_file_lock, write_text_atomic
     from src.us_states import state_abbr_choice_options, state_name_choice_options
     from src.server.plan_data_files import (
-        CLIENT_DATA_CSV_FILES,
-        CLIENT_DATA_CSV_FILE_SET,
-        CLIENT_DATA_DERIVED_FILES,
-        CLIENT_DATA_DERIVED_FILE_SET,
         PLAN_DATA_CSV_FILES,
-        PLAN_DATA_CSV_FILE_SET,
-        PLAN_DATA_DERIVED_FILES,
         PLAN_DATA_FILES,
         PLAN_DATA_FILE_SET,
+        RETIRED_PLAN_PART_FILES,
         SYSTEM_REFERENCE_FILES,
         UI_NAMES,
         YTD_PLAN_DATA_FILES,
     )
-    from src.active_plan import active_plan_store, edit_active_plan, peek_plan_data, refresh_active_plan, sync_active_plan_from_csv
-    from src.csv_exchange import ANCHOR_FILE, PLAN_CSV_FILES, PlanCsvError
+    from src.active_plan import PROTECTED_PLAN_KEYS, active_plan_store, edit_active_plan, peek_plan_data
     from src.config_backend import (
         DEFAULT_DB,
-        configured_plan_csv_path,
-        configured_plan_input_dir,
-        delete_client_files,
         append_audit_event_sqlite,
         get_client,
         get_client_file,
         init_sqlite,
         load_active_config,
-        export_client_json_yaml,
         lookup_api_token,
         materialize_workspace_files,
         set_client_file,
-        set_client_files,
         sync_clients_csv_to_sqlite,
         upsert_client,
     )
@@ -154,8 +134,10 @@ except ImportError:
 
 try:
     from .. import plan_data_backfill
+    from ..plan_data_registry import RetiredPlanDataFile
 except ImportError:
     from src import plan_data_backfill
+    from src.plan_data_registry import RetiredPlanDataFile
 
 try:
     from .. import platform_runtime
@@ -168,7 +150,6 @@ except ImportError:  # direct execution fallback
 # same directory on desktop, app-private storage on mobile.
 BASE_DIR = Path(__file__).resolve().parents[2]
 WORKSPACE_ROOT = platform_runtime.workspace_root()
-DEFAULT_CSV_PATH = WORKSPACE_ROOT / "input" / "client_data.csv"
 BUILD_SCRIPT = BASE_DIR / "tools" / "build_workbook.py"
 app = Flask(__name__, static_folder=str(BASE_DIR))
 RUNTIME_CONFIG = load_runtime_config()
@@ -193,11 +174,6 @@ def _package_instance_payload(version: str | None = None) -> dict:
         package_instance_id = ""
     return {"package_root": root, "package_instance_id": package_instance_id}
 
-# The plan CSV set's location comes from ONE resolver (config_backend), shared with the
-# sync into the plan file, the first-read bootstrap and the at-rest migration.
-CSV_PATH = configured_plan_csv_path()
-
-
 @app.errorhandler(Exception)
 def _json_unhandled_error(exc):
     """Return API failures as JSON so the UI does not show raw framework HTML."""
@@ -221,18 +197,12 @@ def _runtime_config():
 
 
 def _sqlite_db() -> Path:
-    # Deliberately calls platform_runtime.workspace_root() fresh on every
-    # call rather than the module-level WORKSPACE_ROOT constant (frozen at
-    # this module's own import time): a caller that redirects the workspace
-    # AFTER app_core has already been imported (e.g. tests/conftest.py's
-    # RETIREMENT_SYSTEM_WORKSPACE_ROOT isolation, set before importing
-    # config_backend but potentially after app_core is already loaded via
-    # some other import chain) would otherwise see this resolve against the
-    # stale, pre-redirect workspace while config_backend.resolve_path() (also
-    # a fresh call) resolves against the current one -- the exact split that
-    # made _sync_config_backends()'s write and load_active_config()'s read
-    # land in two different SQLite files. See
-    # tests/test_sync_config_backends_snapshot_freshness_regression.py.
+    # Deliberately calls platform_runtime.workspace_root() fresh on every call rather than the
+    # module-level WORKSPACE_ROOT constant (frozen at this module's own import time): a caller
+    # that redirects the workspace AFTER app_core has already been imported (e.g.
+    # tests/conftest.py's RETIREMENT_SYSTEM_WORKSPACE_ROOT isolation) would otherwise resolve
+    # against the stale, pre-redirect workspace while config_backend.resolve_path() (also a
+    # fresh call) resolves against the current one.
     cfg = _runtime_config()
     p = Path(cfg.sqlite_db or DEFAULT_DB)
     return p if p.is_absolute() else platform_runtime.workspace_root() / p
@@ -248,10 +218,9 @@ _REQUEST_SYSTEM_CONFIG_CSV_CACHE: dict[str, tuple[int, int]] = {}
 def _request_system_config_csv() -> Path:
     """Create a per-request system_config.csv copy for subprocess builds/tools.
 
-    The transform below is deterministic given the source file's content (it
-    always sets the same runtime path values), so a request can safely reuse
-    the target written by a previous request as long as the source hasn't
-    changed and the target still exists.
+    The copy is deterministic given the source file's content, so a request can safely
+    reuse the target written by a previous request as long as the source hasn't changed
+    and the target still exists.
     """
     source = _system_config_path()
     target = _workspace_output() / "system_config.active.csv"
@@ -275,20 +244,6 @@ def _request_system_config_csv() -> Path:
     if not rows:
         rows = [["section", "subsection", "label", "value", "units", "notes"]]
 
-    def set_value(section: str, subsection: str, label: str, value: str) -> None:
-        nonlocal rows
-        for row in rows:
-            while len(row) < 6:
-                row.append("")
-            if row[0] == section and row[1] == subsection and row[2] == label:
-                row[3] = value
-                return
-        rows.append([section, subsection, label, value, "", "Per-request runtime value."])
-
-    plan_dir = "input"
-    set_value("System Configuration", "Runtime", "config_file", f"{plan_dir}/client_data.csv")
-    set_value("System Configuration", "Runtime", "json_config_file", f"{plan_dir}/client_data.json")
-    set_value("System Configuration", "Runtime", "yaml_config_file", f"{plan_dir}/client_data.yaml")
     target.parent.mkdir(parents=True, exist_ok=True)
     with target.open("w", newline="", encoding="utf-8") as f:
         csv.writer(f, lineterminator="\n").writerows(rows)
@@ -387,21 +342,8 @@ def _make_request_system_config_csv_for(workspace: str, client: str, out_dir: Pa
     if not rows:
         rows = [["section", "subsection", "label", "value", "units", "notes"]]
 
-    def set_value(section: str, subsection: str, label: str, value: str) -> None:
-        for row in rows:
-            while len(row) < 6:
-                row.append("")
-            if row[0] == section and row[1] == subsection and row[2] == label:
-                row[3] = value
-                return
-        rows.append([section, subsection, label, value, "", "Per-request runtime value."])
-
     workspace = "local"
     client = "local"
-    plan_dir = "input"
-    set_value("System Configuration", "Runtime", "config_file", f"{plan_dir}/client_data.csv")
-    set_value("System Configuration", "Runtime", "json_config_file", f"{plan_dir}/client_data.json")
-    set_value("System Configuration", "Runtime", "yaml_config_file", f"{plan_dir}/client_data.yaml")
     target.parent.mkdir(parents=True, exist_ok=True)
     with target.open("w", newline="", encoding="utf-8") as f:
         csv.writer(f, lineterminator="\n").writerows(rows)
@@ -409,6 +351,10 @@ def _make_request_system_config_csv_for(workspace: str, client: str, out_dir: Pa
 
 def _normalize_plan_data_file_name(file_name: str) -> str:
     name = Path(str(file_name or "")).name
+    if name in RETIRED_PLAN_PART_FILES:
+        raise RetiredPlanDataFile(
+            "The plan data is stored in the plan file, not in CSV, JSON or YAML files. "
+            "Import and export of plan CSV files returns with the CSV import/export feature.")
     if name not in PLAN_DATA_FILE_SET:
         raise ValueError("Unsupported Plan Data file")
     return name
@@ -462,78 +408,6 @@ def _set_system_config_values(updates: dict[tuple[str, str, str], str]) -> None:
     _write_csv_rows_file(p, rows)
 
 
-USER_DATA_BLANK_FILES = {
-    "client_household.csv",
-    "client_income.csv",
-    "client_spending.csv",
-    "client_assets.csv",
-    "client_insurance_estate.csv",
-    "client_business.csv",
-}
-
-
-# Rows a blank plan must still start from, because they are SYSTEM DEFAULTS
-# that the input package curates -- not facts about a household. Blanking them
-# does not give a new plan "no opinion"; it drops the engine onto whatever
-# hardcoded fallback happens to exist in code, which is a different and
-# undocumented number.
-#
-# The test is what the row's own notes claim. "Default 2032" and "default
-# annual growth applied when an entity omits its own rate" are defaults and are
-# preserved. Deliberately NOT preserved, because their notes show the stored
-# value was a client OVERRIDE rather than the default:
-#   Liquidity Buffer/years_of_expenses  -- "default is 0", stored 2
-#   HSA Policy/hsa_withdrawal_mode      -- "default spend_as_needed", stored smooth_window
-PRESERVED_SYSTEM_DEFAULT_KEYS = {
-    # Economic and tax assumptions.
-    ("Economic Assumptions", "", "inflation_general"),
-    ("Economic Assumptions", "", "social_security_cola"),
-    ("Economic Assumptions", "", "portfolio_nominal_return"),
-    ("Economic Assumptions", "", "fed_tax_bracket_inflator"),
-    ("Economic Assumptions", "", "social_security_taxable_fraction"),
-    # Annuity fallbacks: apply ONLY to streams with no explicit rate of their own.
-    ("Economic Assumptions", "", "annuity_default_dividend_rate"),
-    ("Economic Assumptions", "", "annuity_default_additional_income_pct"),
-    # Global dividend-reinvestment policy switch.
-    ("Economic Assumptions", "", "reinvest_dividends_default"),
-    # Social Security trust-fund underfunding stress (statutory-style defaults).
-    ("Social Security", "Funding Discount", "ss_funding_discount_year"),
-    ("Social Security", "Funding Discount", "ss_funding_discount_pct"),
-    # Business-succession valuation fallback.
-    ("Business Succession", "Policy", "valuation_growth_default"),
-}
-
-# Back-compat alias: the original name only covered the five economic rows.
-PRESERVED_ECONOMIC_ASSUMPTION_KEYS = PRESERVED_SYSTEM_DEFAULT_KEYS
-
-
-def _blank_user_data_csv(content: str, preserve_keys: set[tuple[str, str, str]] | None = None) -> str:
-    """Keep row metadata but blank the value column for user-entered plan facts.
-
-    preserve_keys: optional (section, subsection, label) tuples whose value is
-    left intact -- used for system-default assumptions (e.g. inflation, COLA)
-    that a blank plan should still start from rather than leave empty.
-    """
-    rows = list(csv.reader(io.StringIO(content or "")))
-    out_rows = []
-    for i, row in enumerate(rows):
-        row = list(row)
-        if not row:
-            out_rows.append(row)
-            continue
-        first = str(row[0] or "").strip()
-        is_header = i == 0 and any(str(c).strip().lower() == "value" for c in row)
-        is_comment = first.startswith("#")
-        if not is_header and not is_comment and len(row) >= 4:
-            key = (first, str(row[1] or "").strip(), str(row[2] or "").strip())
-            if not preserve_keys or key not in preserve_keys:
-                row[3] = ""
-        out_rows.append(row)
-    out = io.StringIO()
-    csv.writer(out, lineterminator="\n").writerows(out_rows)
-    return out.getvalue()
-
-
 def _blank_holdings_csv(content: str) -> str:
     rows = list(csv.reader(io.StringIO(content or "")))
     header = rows[0] if rows else ["account", "symbol", "purchase_date", "shares", "purchase_price", "lot_type", "note"]
@@ -559,165 +433,80 @@ def _blank_hsa_schedule_csv(content: str) -> str:
 
 
 def _make_blank_plan_files() -> dict[str, str]:
-    """Create a blank-client-data Plan Data set from packaged templates."""
+    """The flat datasets a new plan starts empty (holdings, liabilities, HSA schedule), from the
+    workspace's current files (their header is kept). The sectioned plan rows are blanked by
+    ``blank_plan.blank_plan_rows``; every other flat file is left as it is."""
     source_dir = WORKSPACE_ROOT / "input"
+    blankers = {
+        "client_holdings.csv": _blank_holdings_csv,
+        "client_liabilities.csv": _blank_liabilities_csv,
+        "client_hsa_schedule.csv": _blank_hsa_schedule_csv,
+    }
     files: dict[str, str] = {}
-    for name in PLAN_DATA_CSV_FILES:
+    for name, blank in blankers.items():
         src = source_dir / name
-        text = src.read_text(encoding="utf-8-sig") if src.exists() else ""
-        if name in USER_DATA_BLANK_FILES:
-            # Applied to every blanked file, not just client_household.csv: the
-            # preserved defaults also live in client_income.csv (Social Security
-            # funding discount) and client_business.csv (valuation growth). Keys
-            # are (section, subsection, label) so they do not collide across files.
-            text = _blank_user_data_csv(text, preserve_keys=PRESERVED_SYSTEM_DEFAULT_KEYS)
-        elif name == "client_holdings.csv":
-            text = _blank_holdings_csv(text)
-        elif name == "client_liabilities.csv":
-            text = _blank_liabilities_csv(text)
-        elif name == "client_hsa_schedule.csv":
-            text = _blank_hsa_schedule_csv(text)
-        files[name] = text
+        files[name] = blank(src.read_text(encoding="utf-8-sig") if src.exists() else "")
     return files
 
 
-
-PROTECTED_CLIENT_DATA_KEYS = {
-    ("Household", "", "member_1_retirement_date"),
-    ("Household", "", "member_2_retirement_date"),
-}
-
-
-def _client_data_key(row: list[str]) -> tuple[str, str, str] | None:
-    if len(row) < 3:
-        return None
-    return (str(row[0] or "").strip(), str(row[1] or "").strip(), str(row[2] or "").strip())
+def _blank_plan_rows(*, ytd_blend_enabled: bool | None = None) -> int:
+    """Start New Plan on the plan rows: clear the household's facts in one edit transaction
+    (``blank_plan.blank_plan_rows``). A blank plan clears the retirement dates on purpose, so
+    the protected-value rule is off. Returns the number of values cleared."""
+    with edit_active_plan(protect_values=False) as edit:
+        return blank_plan_rows(edit.store, ytd_blend_enabled=ytd_blend_enabled)
 
 
-def _merge_protected_client_data_values(incoming: str, fallback: str | None) -> str:
-    """Prevent blank incoming saves from erasing local retirement dates.
-
-    Folder load/save can involve a browser-local folder plus the app working copy.
-    For these easy-to-lose fields, a non-empty value already present in the
-    local/app copy wins over a blank value in the incoming payload. A user can
-    still replace a value by entering another non-empty value. API keys and
-    other system settings are no longer stored in client_data.csv.
-    """
-    if not fallback:
-        return incoming
-    try:
-        incoming_rows = list(csv.reader(io.StringIO(incoming)))
-        fallback_rows = list(csv.reader(io.StringIO(fallback)))
-    except Exception:
-        return incoming
-    fallback_values: dict[tuple[str, str, str], str] = {}
-    for row in fallback_rows:
-        key = _client_data_key(row)
-        if key in PROTECTED_CLIENT_DATA_KEYS:
-            value = row[3] if len(row) > 3 else ""
-            if str(value).strip():
-                fallback_values[key] = value
-    if not fallback_values:
-        return incoming
-    changed = False
-    for row in incoming_rows:
-        key = _client_data_key(row)
-        if key in fallback_values:
-            while len(row) < 4:
-                row.append("")
-            if not str(row[3] or "").strip():
-                row[3] = fallback_values[key]
-                changed = True
-    if not changed:
-        return incoming
-    out = io.StringIO()
-    csv.writer(out, lineterminator="\n").writerows(incoming_rows)
-    return out.getvalue()
-
-
-def _protected_client_data_status(content: str | None = None) -> dict:
-    """Return non-secret preservation status for validation/UI diagnostics.
-
-    ``content`` is one CSV file's text; without it the active plan's rows are read (the plan
-    CSV set when the plan has no rows yet), without creating or writing the plan file."""
-    values: dict[tuple[str, str, str], str] = {}
-    if content is not None:
-        for row in csv.reader(io.StringIO(content or "")):
-            key = _client_data_key(row)
-            if key in PROTECTED_CLIENT_DATA_KEYS:
-                values[key] = row[3] if len(row) > 3 else ""
-    else:
-        data = peek_plan_data(configured_plan_input_dir())  # read-only: creates nothing
-        for section, subsection, label in PROTECTED_CLIENT_DATA_KEYS:
-            if label in data.get(section, {}).get(subsection, {}):
-                values[(section, subsection, label)] = data[section][subsection][label]
+def _protected_client_data_status() -> dict:
+    """Non-secret preservation status for validation/UI diagnostics: whether each retirement
+    date is on file. Reads the active plan's rows without creating or writing the plan file."""
+    data = peek_plan_data()
+    present = {
+        label: bool(str(data.get(section, {}).get(subsection, {}).get(label, "")).strip())
+        for section, subsection, label in PROTECTED_PLAN_KEYS
+    }
     return {
-        "member_1_retirement_date_present": bool(str(values.get(("Household", "", "member_1_retirement_date"), "")).strip()),
-        "member_2_retirement_date_present": bool(str(values.get(("Household", "", "member_2_retirement_date"), "")).strip()),
+        "member_1_retirement_date_present": present.get("member_1_retirement_date", False),
+        "member_2_retirement_date_present": present.get("member_2_retirement_date", False),
     }
 
 
 def _plan_data_path(file_name: str, prefer_existing: bool = True) -> Path:
     name = _normalize_plan_data_file_name(file_name)
-    if name in CLIENT_DATA_CSV_FILE_SET:
-        return CSV_PATH if name == "client_data.csv" else CSV_PATH.parent / name
-    if name in CLIENT_DATA_DERIVED_FILE_SET:
-        return CSV_PATH.parent / name
     return workspace_file(name, _workspace_id(), WORKSPACE_ROOT, prefer_existing=prefer_existing)
-
 
 
 def _read_plan_data_file(file_name: str) -> str | None:
     name = _normalize_plan_data_file_name(file_name)
-    # The SQLite plan store is the canonical source of truth for Plan Data. Read
-    # it first. The on-disk input/*.csv are import/export mirrors, used only to
-    # bootstrap the DB on a fresh checkout / first run / folder import — when we
-    # read a CSV for that reason we lazily seed the DB so subsequent reads are
-    # DB-canonical. client_data.csv is the sectioned anchor and is not stored in
-    # the DB (it is always materialized on disk).
-    if name != "client_data.csv":
-        content = get_client_file(name, _workspace_id(), _client_id(), _sqlite_db())
-        if content is not None:
-            return content
+    # The legacy local database's client_files holds the flat datasets' text (holdings,
+    # spending, YTD ...) until WP6 moves them into the plan file. Read it first; the on-disk
+    # input/*.csv is used only to bootstrap it on a fresh checkout / first run, and when we
+    # read a CSV for that reason we lazily seed the DB so subsequent reads are DB-canonical.
+    content = get_client_file(name, _workspace_id(), _client_id(), _sqlite_db())
+    if content is not None:
+        return content
     path = _plan_data_path(name, prefer_existing=True)
     if path.exists():
         csv_content = path.read_text(encoding="utf-8-sig")
-        if name != "client_data.csv":
-            try:
-                set_client_file(name, csv_content, _workspace_id(), _client_id(), _current_user().user_id, _sqlite_db())
-            except Exception as exc:
-                _audit("plan_data_db_bootstrap_warning", {"file": name, "error": str(exc)})
+        try:
+            set_client_file(name, csv_content, _workspace_id(), _client_id(), _current_user().user_id, _sqlite_db())
+        except Exception as exc:
+            _audit("plan_data_db_bootstrap_warning", {"file": name, "error": str(exc)})
         return csv_content
     return None
 
 
-def _write_plan_data_file(file_name: str, content: str, *, preserve_protected: bool = True) -> Path:
+def _write_plan_data_file(file_name: str, content: str) -> Path:
+    """Write one flat dataset file (client_files first, then the on-disk copy)."""
     name = _normalize_plan_data_file_name(file_name)
     path = _plan_data_path(name, prefer_existing=False)
     with plan_file_lock(path):
-        if name in CLIENT_DATA_CSV_FILE_SET:
-            content = canonicalize_roth_csv_content(content)
-        if preserve_protected and name in CLIENT_DATA_CSV_FILE_SET and path.exists():
-            try:
-                content = _merge_protected_client_data_values(content, path.read_text(encoding="utf-8-sig"))
-            except Exception as exc:
-                _audit("protected_client_data_merge_warning", {"file": name, "error": str(exc)})
-        # The SQLite plan store is canonical: write it first, authoritatively. The
-        # on-disk CSV is then written as an import/export mirror (folder
-        # download/portability; the build materializes plan data from the DB).
-        # client_data.csv is the sectioned anchor and is not stored in the DB.
-        if name != "client_data.csv":
-            try:
-                set_client_file(name, content, _workspace_id(), _client_id(), _current_user().user_id, _sqlite_db())
-            except Exception as exc:
-                _audit("plan_data_db_write_warning", {"file": name, "error": str(exc)})
-        # write_text_atomic keeps write_text's "\n" -> os.linesep translation,
-        # which _merge_protected_client_data_values above depends on.
+        try:
+            set_client_file(name, content, _workspace_id(), _client_id(), _current_user().user_id, _sqlite_db())
+        except Exception as exc:
+            _audit("plan_data_db_write_warning", {"file": name, "error": str(exc)})
         write_text_atomic(path, content)
     return path
-
-
-
 
 
 SSA44_UI_PLAN_DATA_ROWS: list[list[str]] = [
@@ -975,29 +764,29 @@ PLAN_DATA_BACKFILL_ENTRIES: list[plan_data_backfill.BackfillEntry] = [
 ]
 
 
+def _plan_input_dir() -> Path:
+    """The workspace folder of the flat datasets (``client_holdings.csv`` ...): the one place
+    the per-account backfill rows are read from."""
+    return platform_runtime.workspace_root() / "input"
+
+
 def _ensure_user_ui_plan_data_rows() -> None:
     """Materialize forward-schema rows that the guided User UI depends on.
 
-    Folder imports and browser saves can bring in valid model inputs that lack
-    newer UI control rows. The UI should never hide a new control merely because
-    the imported folder predates that control. This function adds canonical
-    current-schema rows only; it does not read previous-name aliases, and never
-    changes a row the plan already holds.
+    A plan can lack newer UI control rows (it predates that control). The UI should never
+    hide a new control merely because the plan predates it. This function adds canonical
+    current-schema rows only; it does not read previous-name aliases, and never changes a row
+    the plan already holds.
 
-    WP4.4c: works on the active plan's rows (``plan_data_backfill.apply_backfill`` in one
-    ``_edit_active_plan`` transaction, which writes the added keys back into the CSV working
-    copy). A plan with every row already there is only read. A plan with no rows is left
-    alone (nothing to backfill into), and so is one whose CSV working copy cannot be read
-    (the refresh warning reports it); neither is an error.
+    Works on the active plan's rows (``plan_data_backfill.apply_backfill`` in one
+    ``_edit_active_plan`` transaction). A plan with every row already there is only read; a
+    plan with no rows is left alone (nothing to backfill into).
     """
     with _read_active_plan() as store:
-        if not store.section_order() or not plan_data_backfill.pending_rows(store, PLAN_DATA_BACKFILL_ENTRIES, CSV_PATH.parent):
+        if not store.section_order() or not plan_data_backfill.pending_rows(store, PLAN_DATA_BACKFILL_ENTRIES, _plan_input_dir()):
             return
-    try:
-        with _edit_active_plan() as edit:
-            plan_data_backfill.apply_backfill(edit.store, PLAN_DATA_BACKFILL_ENTRIES, CSV_PATH.parent)
-    except PlanCsvError:
-        return
+    with _edit_active_plan() as edit:
+        plan_data_backfill.apply_backfill(edit.store, PLAN_DATA_BACKFILL_ENTRIES, _plan_input_dir())
 
 
 def _read_schema_map() -> dict:
@@ -1169,9 +958,8 @@ def _csv_rows_payload() -> dict:
 
     WP4.3: one row per ``plan_rows`` row in display order (sections by creation, rows by
     ``sort_order``); ``row_index`` is the row's ``row_id``, stable while the row exists, and
-    what ``update_config_rows_payload`` writes by. The GET-time backfill still writes CSV
-    (WP4.4), so the bridge runs first and the rows include what it added, and any CSV write
-    not synced yet. ``revision`` is ``PlanStore.revision()`` of the rows served.
+    what ``update_config_rows_payload`` writes by. The GET-time backfill runs first, so the
+    rows include what it added. ``revision`` is ``PlanStore.revision()`` of the rows served.
     """
     _ensure_user_ui_plan_data_rows()
     warning = _refresh_active_plan()
@@ -1196,35 +984,18 @@ def _csv_rows_payload() -> dict:
             "choice_options": _choice_options_for_config_row(section, subsection, label, r["units"], r["notes"], spec),
             "group": _classify_config_row(section, subsection, label),
         })
-    payload = {"rows": rows, "schema_count": len(schema), "revision": revision}
-    if warning:
-        payload["warning"] = warning
-    return payload
+    return {"rows": rows, "schema_count": len(schema), "revision": revision}
 
 
-def _edit_active_plan():
-    """The row-store writers' edit context (grid, ``/api/plan/forms``; WP4.3): one rows
-    transaction whose touched keys are written back into the plan CSV set through
-    ``_write_plan_data_file`` for the remaining CSV writers (``active_plan.edit_active_plan``)."""
-    return edit_active_plan(
-        configured_plan_input_dir(), _write_plan_data_file,
-        # a failed edit puts the previous file texts back as they were (no protected-value merge)
-        lambda name, content: _write_plan_data_file(name, content, preserve_protected=False))
-
-
-def _refresh_active_plan() -> str:
-    """Run the CSV-set bridge before a read of the rows (``active_plan.refresh_active_plan``).
-    Returns a warning ("" normally) when the CSV files could not be read and the stored rows
-    are served instead."""
-    return refresh_active_plan(configured_plan_input_dir())
+def _edit_active_plan(**kwargs):
+    """The row writers' edit context (grid, ``/api/plan/forms``, the strategy endpoints): one
+    transaction on the active plan's rows (``active_plan.edit_active_plan``)."""
+    return edit_active_plan(**kwargs)
 
 
 @contextmanager
 def _read_active_plan():
-    """The strategy endpoints' read context (WP4.4): the open active-plan store after the
-    CSV-set bridge ran, so a CSV write not yet synced is in the rows. A CSV set that cannot be
-    read serves the stored rows (``_refresh_active_plan`` reports why; a read does not fail)."""
-    _refresh_active_plan()
+    """The strategy endpoints' read context: the open active-plan store."""
     with active_plan_store() as store:
         yield store
 
@@ -1353,40 +1124,6 @@ def _investment_account_ids_from_holdings(holdings_dir: Path | None = None) -> l
                 accounts.add(acct)
     return sorted(accounts)
 
-
-
-def _sync_config_backends() -> dict:
-    """Carry the plan CSV set into the active plan file after a CSV write (WP4.2).
-
-    Every plan-data CSV writer (config_service, demo_plan_service, plan_data_file_service,
-    strategy_asset_service, this module's payload handlers, the Load Saved Plan and
-    snapshot-restore routes) calls this after writing. The engine, the build and the
-    server read ``plan_rows`` of the active plan (``src/active_plan.py``), so this is
-    the one place their CSV edits reach the rows until WP4.4-4.5 switch the remaining
-    writers to ``PlanStore`` and P3.5 deletes it. ``csv_exchange.sync_plan_rows`` keeps row
-    ids of surviving keys and writes nothing when nothing changed. The grid and
-    ``/api/plan/forms`` already write the rows (WP4.3, ``_edit_active_plan``) and write
-    their edits back into the CSV set, so this never undoes them.
-
-    It also stores each part file's text in the legacy database's ``client_files``:
-    Save As / Load Saved Plan / Open Demo carry the plan as that database file and
-    rebuild the CSV set from ``client_files``, which the plan_snapshots copy (the
-    pre-WP4.2 sync target) used to back up; and writes the JSON/YAML mirrors from the
-    plan's sectioned view.
-    """
-    try:
-        input_dir = configured_plan_input_dir()
-        synced = sync_active_plan_from_csv(input_dir)
-        parts = [n for n in PLAN_CSV_FILES if n != ANCHOR_FILE]
-        set_client_files({n: synced.texts[n] for n in parts if synced.rows_by_file.get(n)}, _sqlite_db())
-        # A part file deleted or emptied on disk leaves client_files too, or
-        # materialize_workspace_files would bring it back after a Load / restore.
-        delete_client_files([n for n in parts if not synced.rows_by_file.get(n)], _sqlite_db())
-        derived = export_client_json_yaml(synced.data, input_dir)
-        return {"success": True, "derived": derived, "json": derived.get("client_data.json"),
-                "yaml": derived.get("client_data.yaml"), "plan_rows": synced.counts}
-    except Exception as exc:
-        return {"success": False, "error": str(exc), "trace": traceback.format_exc()}
 
 
 def _permission_denied_html(message: str, permission: str):

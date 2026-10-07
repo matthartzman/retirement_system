@@ -1,10 +1,9 @@
 """csv_exchange: the one product package that reads or writes CSV (design F section 6).
 
-WP4.1 lands the minimal plan-CSV-set importer (used by the test fixture helper and by
-conversion step C3). WP4.2 adds ``sync_plan_rows``, which carries the CSV set the legacy
-writers still edit into an existing plan (``src/active_plan.py``) until WP4.3-4.5; WP4.3 adds
-``write_back_rows``, which writes the grid's and the forms' row edits back into the CSV set for
-those writers (both are deleted with the last CSV writer). WP9 grows this package into the full import/export surface
+WP4.1 lands the minimal plan-CSV-set importer (used by the test fixture helper, the demo seed
+and conversion step C3). WP4.5 deleted the transition bridge (``sync_plan_rows``,
+``write_back_rows``, the set fingerprint): the plan rows are the only store, and nothing
+writes a plan CSV any more. WP9 grows this package into the full import/export surface
 (preview, diff, per-dataset adapters, export); the static file-I/O audit allowlists it.
 """
 from ..plan_label_rules import canonical_label
@@ -21,12 +20,9 @@ from .plan_csv import (
     import_plan_csv_set,
     parse_plan_csv,
     part_file_for_section,
-    plan_csv_set_fingerprint,
     read_plan_csv_set,
-    sync_plan_rows,
     write_plan_rows,
 )
-from .write_back import write_back_rows
 
 __all__ = [
     "ANCHOR_FILE",
@@ -39,12 +35,9 @@ __all__ = [
     "SkippedRecord",
     "canonical_label",
     "collapse_duplicate_keys",
-    "plan_csv_set_fingerprint",
     "import_plan_csv_set",
     "parse_plan_csv",
     "part_file_for_section",
     "read_plan_csv_set",
-    "sync_plan_rows",
-    "write_back_rows",
     "write_plan_rows",
 ]
