@@ -158,7 +158,7 @@ def test_write_is_one_transaction_and_needs_an_empty_plan(store, tmp_path):
 
 def test_part_file_mapping_is_the_legacy_primary_file():
     """Every fixture section maps to the first part file that holds it, which is where the
-    legacy writers (app_core._client_section_path) put that section's rows."""
+    legacy writers (the old app_core._client_section_path) put that section's rows."""
     for fixture in pf.FIXTURES:
         first_file: dict[str, str] = {}
         for name in PLAN_CSV_FILES[1:]:

@@ -37,11 +37,8 @@ def test_strategy_asset_service_validates_insurance_delete_before_mutation(tmp_p
     ctx = StrategyAssetServiceContext(
         base_dir=tmp_path,
         reference_file_path=lambda name: tmp_path / name,
-        read_client_section_rows=lambda section, file_name: [],
         normalize_large_discretionary_type=lambda value: str(value),
         pre_tax_account_options_from_holdings=lambda: [],
-        liquidity_buffers_from_csv_rows=lambda rows: [],
-        replace_liquidity_buffers=lambda buffers: None,
         ensure_user_ui_plan_data_rows=lambda: None,
         sync_config_backends=lambda: {"success": True},
         audit=lambda event, details=None: audit_events.append((event, details or {})),
@@ -54,32 +51,12 @@ def test_strategy_asset_service_validates_insurance_delete_before_mutation(tmp_p
 
 
 def test_home_sale_splits_reject_percentages_that_do_not_sum_to_100(tmp_path):
-    """#299: percentages must sum to 100% before writing the split to disk --
+    """#299: percentages must sum to 100% before writing the split to the plan --
     silently accepting an under/over-100% split would either strand proceeds
     or fabricate money the sale never produced."""
-    from src.server_services.strategy_asset_service import StrategyAssetService, StrategyAssetServiceContext
+    from tests.strategy_service_rows import service_over_rows
 
-    audit_events = []
-    written: list[list[dict]] = []
-
-    def replace_splits(splits):
-        written.append(splits)
-
-    ctx = StrategyAssetServiceContext(
-        base_dir=tmp_path,
-        reference_file_path=lambda name: tmp_path / name,
-        read_client_section_rows=lambda section, file_name: [],
-        normalize_large_discretionary_type=lambda value: str(value),
-        pre_tax_account_options_from_holdings=lambda: [],
-        liquidity_buffers_from_csv_rows=lambda rows: [],
-        replace_liquidity_buffers=lambda buffers: None,
-        ensure_user_ui_plan_data_rows=lambda: None,
-        sync_config_backends=lambda: {"success": True},
-        audit=lambda event, details=None: audit_events.append((event, details or {})),
-        home_sale_splits_from_csv_rows=lambda rows: [],
-        replace_home_sale_splits=replace_splits,
-    )
-    service = StrategyAssetService(ctx)
+    service, store, audit_events = service_over_rows(tmp_path, [])
 
     payload, status = service.save_home_sale_splits_payload({
         "splits": [
@@ -90,7 +67,7 @@ def test_home_sale_splits_reject_percentages_that_do_not_sum_to_100(tmp_path):
     assert status == 400
     assert payload["success"] is False
     assert not audit_events
-    assert not written
+    assert not store.rows("Home Sale Split")
 
     payload, status = service.save_home_sale_splits_payload({
         "splits": [
@@ -101,4 +78,4 @@ def test_home_sale_splits_reject_percentages_that_do_not_sum_to_100(tmp_path):
     assert status == 200
     assert payload["success"] is True
     assert payload["count"] == 2
-    assert written and len(written[0]) == 2
+    assert len(store.rows("Home Sale Split")) == 4

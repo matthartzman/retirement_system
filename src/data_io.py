@@ -645,8 +645,8 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     # open-ended). Purely additive -- when empty, every consumer keeps using
     # the single c['state'] field above unchanged. Rows live under numbered
     # 'State Residency Schedule'/'period_N' subsections (see
-    # src/server/app_core.py's _residency_schedule_from_csv_rows /
-    # _replace_residency_schedule, the read/write pair the UI's add/delete-row
+    # src/server_services/strategy_asset_service.py's residency_schedule_payload /
+    # save_residency_schedule_payload, the read/write pair the UI's add/delete-row
     # editor round-trips through). state_for_year() in deterministic_engine.py
     # is the resolver every state-tax call site uses instead of the static
     # field, so this is where "taxes actually change" lives.
@@ -1076,8 +1076,8 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     # #299: house sale proceeds may be split across multiple accounts by
     # percentage instead of going to a single account. Rows live under
     # numbered 'Home Sale Split N' subsections (see
-    # src/server/app_core.py's _home_sale_splits_from_csv_rows /
-    # _replace_home_sale_splits, the read/write pair the UI's add/delete-row
+    # src/server_services/strategy_asset_service.py's home_sale_splits_payload /
+    # save_home_sale_splits_payload, the read/write pair the UI's add/delete-row
     # editor round-trips through). Empty when unconfigured -- the engine
     # falls back to the single home_sale_acct field above in that case.
     c['home_sale_splits'] = []
