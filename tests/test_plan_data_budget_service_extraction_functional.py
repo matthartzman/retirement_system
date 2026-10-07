@@ -57,12 +57,12 @@ def test_spending_service_owns_budget_line_contracts(tmp_path):
     save_payload, save_status = service.save_budget_lines_payload({"lines": payload["lines"]})
     assert save_status == 200
     assert save_payload["success"] is True
-    # Lines persist through the unified budget store (client_spending_budget.csv,
-    # the same file spending_tracker reads for reporting) rather than the legacy
-    # client_spending_budget_lines.csv file, so a reload sees the saved line.
-    budget_csv = tmp_path / "input" / "client_spending_budget.csv"
-    assert budget_csv.exists()
-    assert "charitable_donations" in budget_csv.read_text(encoding="utf-8")
+    # Lines persist through the unified budget store (the plan file's spending_budget table,
+    # the same one spending_tracker reads for reporting) rather than the legacy
+    # budget-lines dataset, so a reload sees the saved line.
+    from tests.plan_fixture import plan_dataset_rows
+    budget_rows = plan_dataset_rows(tmp_path, "client_spending_budget.csv")
+    assert any(r["kind"] == "line" and r["key"] == "charitable_donations" for r in budget_rows)
     reload_payload, reload_status = service.budget_lines_payload()
     assert reload_status == 200
     assert any(line["category_id"] == "charitable_donations" and line["amount_per_year"] for line in reload_payload["lines"])

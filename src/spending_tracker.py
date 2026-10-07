@@ -426,7 +426,8 @@ def _shared_ytd_class(txn: dict) -> str:
 #     tracking_type, group, category_id, label, origin, status, notes
 #   - aliases (plan file table ``spending_aliases``, WP6.3a; was client_spending_aliases.csv):
 #     match_value, match_field, exact, priority, category_id, source
-#   - client_spending_budget.csv: kind, key, label, annual_budget, start_year, end_year, one_time_year, notes
+#   - budget (plan file table ``spending_budget``, WP6.3b; was client_spending_budget.csv):
+#     kind, key, label, annual_budget, start_year, end_year, one_time_year, notes, ...
 # The taxonomy and aliases live in the plan of the workspace ``root`` (the active plan for the
 # live workspace, else ``<root>/plan.rpx``; ``active_plan.plan_path_for_workspace``).
 
@@ -446,7 +447,7 @@ _TIME_BOUNDED_TRACKING_TYPES = {"Travel", "Large Discretionary", "Taxes"}
 # household's annual budget, with no undo.
 #
 # This is the DEFAULT only. A category or group's own budget row
-# ("no_annualize" in client_spending_budget.csv, toggled from the Budgeting
+# ("no_annualize" in the plan's spending_budget table, toggled from the Budgeting
 # UI -- see _row_no_annualize/_resolve_no_annualize below) always overrides
 # it, so a household can flag any other lumpy line item (or un-flag one of
 # these defaults) without a code change. Category id is used here rather
@@ -644,7 +645,7 @@ def _normalize_spending_group_assignment(tracking_type: str, group: str, categor
 
 
 def _plan_spending_rows(root, name: str) -> list[dict]:
-    """Rows of spending dataset ``name`` (``"taxonomy"`` / ``"aliases"``) in the plan of
+    """Rows of spending dataset ``name`` (``"taxonomy"``, ``"aliases"``, ``"budget"`` ...) in the plan of
     workspace ``root``."""
     from .plan_datasets import workspace_dataset_rows  # noqa: PLC0415 - keeps the module import light
 
@@ -1023,8 +1024,7 @@ def save_mapping_rules(root, rules):
 
 
 def _legacy_budget_to_unified(root=None) -> list[dict]:
-    path = _root(root) / "input" / "client_spending_budget.csv"
-    header, rows = _read_csv_dicts(path)
+    rows = _plan_spending_rows(root, "budget")
     out: list[dict] = []
     if not rows:
         return out
@@ -1131,12 +1131,13 @@ def recover_spending_budget_from_seed(root=None, *, persist: bool = True, force:
         return {"success": False, "recovered": 0, "error": "Recovery seed has no nonzero budget values."}
     merged, changed = _merge_budget_seed(current, seed, only_when_zero=not force)
     if changed and persist:
+        # One-time copy of the pre-recovery budget rows (a recovery copy: WP6.3c turns these
+        # into plan revisions; until then it stays the file it always was).
         try:
-            budget_path = r / "input" / "client_spending_budget.csv"
-            if budget_path.exists():
-                backup_path = budget_path.with_suffix(budget_path.suffix + ".pre_recovery_backup")
-                if not backup_path.exists():
-                    backup_path.write_text(budget_path.read_text(encoding="utf-8-sig", errors="replace"), encoding="utf-8")
+            backup_path = r / "input" / "client_spending_budget.csv.pre_recovery_backup"
+            before = _plan_spending_rows(r, "budget")
+            if before and not backup_path.exists():
+                _write_csv_dicts(backup_path, _BUDGET_HEADER, before)
         except Exception:
             pass
         save_unified_budget(r, merged)
@@ -1194,7 +1195,7 @@ def save_unified_budget(root, rows: list[dict]) -> None:
             ) if kind in {"category", "group"} else "",
         }
         out.append(out_row)
-    _write_csv_dicts(_root(root) / "input" / "client_spending_budget.csv", _BUDGET_HEADER, out)
+    _write_plan_spending_rows(root, "budget", _BUDGET_HEADER, out)
 
 
 def load_budget_by_category(root=None):

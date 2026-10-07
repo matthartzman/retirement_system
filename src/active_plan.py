@@ -232,6 +232,12 @@ def active_dataset_text(name: str) -> str | None:
     return _dataset_text(active_plan_path(), name)
 
 
+def active_dataset_rows(name: str) -> list[dict[str, str]]:
+    """Rows of dataset ``name`` (``"spending_budget_lines"`` ...) in the active plan (``[]`` when
+    there is no plan file). Never creates a plan file."""
+    return _dataset_rows(active_plan_path(), name)
+
+
 def dataset_text_for_input_dir(input_dir: str | Path, name: str) -> str | None:
     """For code handed a workspace's ``input`` folder: the active plan when it is the live
     workspace's ``input``, else the ``plan.rpx`` of the workspace that holds it."""

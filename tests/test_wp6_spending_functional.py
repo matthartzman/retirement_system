@@ -1,5 +1,5 @@
-"""WP6.3a: the spending taxonomy and aliases live in plan.db tables (``store.spending``);
-conversion step C4b fills them from the legacy files; the spending readers and writers, the
+"""WP6.3a/b: the spending taxonomy, aliases, budget, budget lines and tier overrides live in
+plan.db tables (``store.spending``); conversion step C4b fills them from the legacy files; the spending readers and writers, the
 import preview, the generic plan-data file routes and the at-rest category renames all use the
 active plan's tables, never the workspace files."""
 import csv
@@ -15,6 +15,9 @@ from tests.plan_fixture import fixture_dir, make_plan, plan_dataset_rows, write_
 
 TAXONOMY = "client_spending_taxonomy.csv"
 ALIASES = "client_spending_aliases.csv"
+BUDGET = "client_spending_budget.csv"
+LINES = "client_spending_budget_lines.csv"
+TIERS = "client_spending_tier_overrides.csv"
 
 
 def _csv_rows(path):
@@ -39,6 +42,9 @@ def test_c4b_converts_the_fixture_files_cell_for_cell_and_is_idempotent(tmp_path
         report = c4b_spending.run(src, store)
         assert not report.skipped and not report.legacy_taxonomy_layout and not report.aliases_ignored
         for name, file in c4b_spending.FILES.items():
+            if not (src / file).is_file():  # the fixture carries no tier overrides file
+                assert name not in report.rows_written and store.spending.dataset(name).count() == 0
+                continue
             want = _csv_rows(src / file)
             repo = store.spending.dataset(name)
             assert repo.count() == len(want) == report.rows_written[name]
@@ -49,6 +55,35 @@ def test_c4b_converts_the_fixture_files_cell_for_cell_and_is_idempotent(tmp_path
         store.spending.aliases.replace_all([])
         assert c4b_spending.run(src, store).skipped
         assert store.spending.aliases.count() == 0  # a second run changes nothing
+
+
+def test_c4b_completes_a_plan_converted_by_the_6_3a_version_of_the_step(tmp_path):
+    src = fixture_dir("sample_frozen")
+    (tmp_path / "client_spending_tier_overrides.csv").write_text(
+        "category_id,tier,notes\ngroceries,discretionary,mine\n", encoding="utf-8")
+    for f in ("client_spending_budget.csv", "client_spending_budget_lines.csv"):
+        (tmp_path / f).write_bytes((src / f).read_bytes())
+    with PlanStore.open(tmp_path / "plan.rpx") as store:
+        # What the 6.3a step left: taxonomy and aliases done, the step marker, no dataset markers.
+        store.spending.taxonomy.replace_all([{"tracking_type": "Travel", "group": "Travel", "category_id": "kept"}])
+        store.set_meta(c4b_spending.MARKER_KEY, "rows=taxonomy:1")
+        report = c4b_spending.run(tmp_path, store)
+        assert not report.skipped and set(report.rows_written) == {"budget", "budget_lines", "tier_overrides"}
+        assert [r["category_id"] for r in store.spending.taxonomy.rows()] == ["kept"]  # untouched
+        assert store.spending.tier_overrides.rows() == [{"category_id": "groceries", "tier": "discretionary", "notes": "mine"}]
+        assert store.spending.budget.count() == len(_csv_rows(src / "client_spending_budget.csv"))
+        assert store.get_meta(c4b_spending.MARKER_KEY).startswith("rows=")
+        assert c4b_spending.run(tmp_path, store).skipped  # second run: nothing left to do
+        store.spending.tier_overrides.replace_all([])
+        assert c4b_spending.run(tmp_path, store).skipped and store.spending.tier_overrides.count() == 0
+
+
+def test_c4b_late_conversion_never_overwrites_a_filled_table(tmp_path):
+    (tmp_path / "client_spending_tier_overrides.csv").write_text("category_id,tier,notes\nx,essential,\n", encoding="utf-8")
+    with PlanStore.open(tmp_path / "plan.rpx") as store:
+        store.spending.tier_overrides.replace_all([{"category_id": "y", "tier": "important"}])
+        c4b_spending.run(tmp_path, store)
+        assert [r["category_id"] for r in store.spending.tier_overrides.rows()] == ["y"]
 
 
 def test_c4b_missing_files_leave_tables_empty(tmp_path):
@@ -160,7 +195,7 @@ def test_plan_data_file_routes_read_and_write_the_tables(ws):
 
 def test_the_spending_files_travel_with_the_plan_file_not_as_files():
     from src.plan_data_registry import FLAT_PLAN_DATA_CSV_FILES, PLAN_TABLE_DATASET_FILES
-    assert {TAXONOMY, ALIASES} <= PLAN_TABLE_DATASET_FILES <= set(FLAT_PLAN_DATA_CSV_FILES)
+    assert {TAXONOMY, ALIASES, BUDGET, LINES} <= PLAN_TABLE_DATASET_FILES <= set(FLAT_PLAN_DATA_CSV_FILES)
 
 
 def test_at_rest_category_renames_reach_the_plan_tables(tmp_path):
@@ -177,3 +212,84 @@ def test_at_rest_category_renames_reach_the_plan_tables(tmp_path):
     assert plan_dataset_rows(tmp_path, TAXONOMY)[0]["category_id"] == "pre65_healthcare_premium"
     assert plan_dataset_rows(tmp_path, ALIASES)[0]["category_id"] == "pre65_healthcare_premium"
     assert migrate_plan_file(plan)["total_changed"] == 0
+
+
+# ------------------------------------------------------------ WP6.3b: budget, lines, tier overrides
+def test_budget_reads_and_writes_follow_the_plan_table_not_the_file(ws):
+    want = [r for r in _csv_rows(ws.input_dir / BUDGET) if r["key"]]
+    (ws.input_dir / BUDGET).unlink()
+    loaded = st.load_unified_budget(ws.root)
+    assert [(r["kind"], r["key"]) for r in loaded] == [(r["kind"].lower(), r["key"]) for r in want]
+    assert st.load_unified_budget() == loaded  # root=None is the live workspace -> the active plan
+    st.save_unified_budget(ws.root, [*loaded, {"kind": "category", "key": "brand_new", "annual_budget": "1234"}])
+    assert not (ws.input_dir / BUDGET).exists()  # no workspace file is written
+    rows = plan_dataset_rows(ws.root, BUDGET)
+    assert rows[-1]["key"] == "brand_new" and rows[-1]["annual_budget"] == "1234"
+    assert set(rows[-1]) >= set(st._BUDGET_HEADER)
+
+
+def test_tier_overrides_round_trip_through_the_plan_table(tmp_path):
+    from src import spending_budget_resolver as sbr
+    assert sbr.load_spending_tier_overrides(tmp_path) == {}
+    sbr.save_spending_tier_override(tmp_path, "groceries", "Discretionary", "mine")
+    sbr.save_spending_tier_override(tmp_path, "dining", "important")
+    assert sbr.load_spending_tier_overrides(tmp_path) == {"groceries": "discretionary", "dining": "important"}
+    assert plan_dataset_rows(tmp_path, TIERS)[0] == {"category_id": "groceries", "tier": "discretionary", "notes": "mine"}
+    assert not (tmp_path / "input").exists()
+    sbr.save_spending_tier_override(tmp_path, "groceries", "")
+    assert sbr.load_spending_tier_overrides(tmp_path) == {"dining": "important"}
+
+
+def test_build_reads_the_budget_lines_table_of_the_active_plan(ws, monkeypatch):
+    """A line staged in the plan's ``spending_budget_lines`` table reaches the engine config (the
+    unified budget resolver, which supersedes the legacy lines afterwards, is switched off)."""
+    from src import spending_budget_resolver
+    from src.data_io import parse_client
+    monkeypatch.setattr(spending_budget_resolver, "apply_budget_to_engine_config", lambda c, root=None: c)
+    base = parse_client(ws.data(), "")
+    n_extras, lump_total = len(base["recurring_extras"]), sum(base["lump"].values())
+    write_plan_dataset(ws.root, LINES, "section,line_id,label,category_id,start_year,end_year,one_time_year,amount_per_year,mode,notes\n"
+                                       "travel,t1,Big trip,,,,2031,7777,summary,\n"
+                                       "travel,t2,Yearly trip,,2027,2029,,500,summary,\n"
+                                       "gifts_charity,g1,Giving,,,,,9999,summary,\n")
+    cfg = parse_client(ws.data(), "")
+    assert cfg["lump"].get(2031, 0) - base["lump"].get(2031, 0) == 7777
+    assert any(e["type"] == "Yearly trip" and e["amount"] == 500 for e in cfg["recurring_extras"])
+    assert len(cfg["recurring_extras"]) == n_extras + 1  # gifts_charity stays out of spending
+    assert sum(cfg["lump"].values()) == lump_total + 7777
+
+
+def test_budget_save_diff_reads_the_plan_table(ws, monkeypatch):
+    import src.server.app_core as app_core
+    monkeypatch.setattr(app_core, "BASE_DIR", ws.root)
+    before = app_core._spending_budget_table_rows()
+    assert before and before[0][:4] == ["kind", "key", "label", "annual_budget"]
+    events = []
+    monkeypatch.setattr(app_core, "_record_admin_config_change", lambda *a, **k: events.append(a) or {"id": 1})
+    monkeypatch.setattr(app_core, "jsonify", lambda p: p)
+    payload, status = app_core._spending_budget_save_result(
+        lambda: (st.save_unified_budget(ws.root, [{"kind": "category", "key": "x_cat", "annual_budget": "5"}]) or ({"ok": 1}, 200)))
+    assert status == 200 and payload["change_event"] == {"id": 1}
+    kind, name, path, old, new = events[0]
+    assert (kind, name, path) == ("spending_budget", "client_spending_budget.csv", str(ws.plan_db))
+    assert old == before and new[1][:2] == ["category", "x_cat"]
+
+
+def test_plan_data_file_routes_serve_the_budget_tables(ws):
+    import src.server.app_core as app_core
+    text = app_core._read_plan_data_file(BUDGET)
+    assert text.splitlines()[0].startswith("kind,key,label,annual_budget")
+    new = "section,line_id,label,category_id,start_year,end_year,one_time_year,amount_per_year,mode,notes\ntravel,a,A,,,,2030,10,summary,\n"
+    before = (ws.input_dir / LINES).read_bytes()
+    assert app_core._write_plan_data_file(LINES, new) == ws.plan_db
+    assert (ws.input_dir / LINES).read_bytes() == before
+    assert app_core._read_plan_data_file(LINES) == new
+
+
+def test_at_rest_category_renames_reach_lines_and_tier_overrides(tmp_path):
+    from src.plan_data_migration import migrate_plan_file
+    write_plan_dataset(tmp_path, LINES, "section,line_id,label,category_id\ntravel,a,A,pre65_wellness_premium\n")
+    write_plan_dataset(tmp_path, TIERS, "category_id,tier,notes\npre65_wellness_premium,essential,\n")
+    assert migrate_plan_file(tmp_path / "plan.rpx")["plan_datasets"] == 2
+    assert plan_dataset_rows(tmp_path, LINES)[0]["category_id"] == "pre65_healthcare_premium"
+    assert plan_dataset_rows(tmp_path, TIERS)[0]["category_id"] == "pre65_healthcare_premium"

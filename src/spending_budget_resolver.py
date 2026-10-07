@@ -177,19 +177,14 @@ _TIER_UNCLASSIFIED_TRACKING_TYPES = {"Income", "Transfer", "Transfers", "Busines
 _TIER_OVERRIDE_HEADER = ["category_id", "tier", "notes"]
 
 
-def _tier_override_path(root: str | Path | None) -> Path:
-    r = Path(root) if root is not None else st._root(None)  # type: ignore[attr-defined]
-    return r / "input" / "client_spending_tier_overrides.csv"
-
-
 def load_spending_tier_overrides(root: str | Path | None = None) -> dict[str, str]:
     """Household-specific category_id -> tier overrides.
 
-    Stored under input/ alongside the rest of the unified spending
-    configuration (taxonomy, budget, aliases) so it travels through the
-    same CSV backup/sync/import path used for other user settings.
+    Stored in the plan file's ``spending_tier_overrides`` table (WP6.3b; it was
+    ``client_spending_tier_overrides.csv``), alongside the rest of the unified spending
+    configuration (taxonomy, budget, aliases).
     """
-    _, rows = st._read_csv_dicts(_tier_override_path(root))  # type: ignore[attr-defined]
+    rows = st._plan_spending_rows(root, "tier_overrides")  # type: ignore[attr-defined]
     overrides: dict[str, str] = {}
     for row in rows:
         cid = (row.get("category_id") or "").strip()
@@ -201,12 +196,11 @@ def load_spending_tier_overrides(root: str | Path | None = None) -> dict[str, st
 
 def save_spending_tier_override(root: str | Path | None, category_id: str, tier: str, notes: str = "") -> None:
     """Persist one household tier override; passing a falsy tier clears it."""
-    path = _tier_override_path(root)
-    _, rows = st._read_csv_dicts(path)  # type: ignore[attr-defined]
+    rows = st._plan_spending_rows(root, "tier_overrides")  # type: ignore[attr-defined]
     rows = [r for r in rows if (r.get("category_id") or "").strip() != category_id]
     if tier:
         rows.append({"category_id": category_id, "tier": tier.strip().lower(), "notes": notes})
-    st._write_csv_dicts(path, _TIER_OVERRIDE_HEADER, rows)  # type: ignore[attr-defined]
+    st._write_plan_spending_rows(root, "tier_overrides", _TIER_OVERRIDE_HEADER, rows)  # type: ignore[attr-defined]
 
 
 def resolve_spending_tier(category_id: str, tracking_type: str, group: str,

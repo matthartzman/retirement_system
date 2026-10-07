@@ -21,7 +21,7 @@ Business,Operations,biz_services,Business Services,template,active,
 Groceries,category,1,80,groceries,seed
 Business Services,category,1,80,biz_services,seed
 """)
-    write(root / "input/client_spending_budget.csv", """kind,key,label,annual_budget,start_year,end_year,one_time_year,notes
+    write_plan_dataset(root, "client_spending_budget.csv", """kind,key,label,annual_budget,start_year,end_year,one_time_year,notes
 group,Core Expenses::Food,Food,12000,,,,group wins
 category,groceries,Groceries,5000,,,,ignored in group mode
 category,restaurants,Restaurants,3000,,,,ignored in group mode
@@ -49,7 +49,7 @@ Housing,Projects,other_improvement,Other Improvement,template,active,
 Business,Operations,biz_services,Business Services,template,active,
 """)
     write_plan_dataset(root, "client_spending_aliases.csv", "match_value,match_field,exact,priority,category_id,source\n")
-    write(root / "input/client_spending_budget.csv", """kind,key,label,annual_budget,start_year,end_year,one_time_year,notes
+    write_plan_dataset(root, "client_spending_budget.csv", """kind,key,label,annual_budget,start_year,end_year,one_time_year,notes
 line,charity,Charitable Giving,5000,,,,core recurring line remains in spend_base
 line,domestic_flights,Annual Vacation,25000,2026,2028,,time bounded travel extra
 line,other_improvement,Home Project,10000,2027,2027,,home improvement extra
@@ -82,7 +82,7 @@ Travel,Travel,travel_housing,Travel - Housing,transaction,active,
     # budget row and a matching detail line (as travel_vacation/travel_housing do
     # in input/client_spending_budget.csv). In detail mode the lines are the
     # authority; a summary group budget must suppress this whole breakdown.
-    write(root / "input/client_spending_budget.csv", """kind,key,label,annual_budget,start_year,end_year,one_time_year,notes
+    write_plan_dataset(root, "client_spending_budget.csv", """kind,key,label,annual_budget,start_year,end_year,one_time_year,notes
 category,travel_vacation,Travel & Vacation,8000,,,,
 category,travel_housing,Travel - Housing,2000,,,,
 line,travel_vacation,Travel & Vacation,8000,,,,
@@ -129,7 +129,7 @@ Core Expenses,Food,restaurants,Restaurants,template,active,
     write_plan_dataset(root, "client_spending_aliases.csv", """match_value,match_field,exact,priority,category_id,source
 Groceries,category,1,80,groceries,seed
 """)
-    write(root / "input/client_spending_budget.csv", """kind,key,label,annual_budget,start_year,end_year,one_time_year,notes
+    write_plan_dataset(root, "client_spending_budget.csv", """kind,key,label,annual_budget,start_year,end_year,one_time_year,notes
 category,groceries,Groceries,1000,,,,
 """)
     write(root / "input/ytd_transactions.csv", """Date,Merchant,Category,Account,Amount,Owner
@@ -159,7 +159,7 @@ Groceries,category,1,80,groceries,seed
 Business Services,category,1,80,biz_services,seed
 Income Taxes,category,1,80,income_taxes,seed
 """)
-    write(root / "input/client_spending_budget.csv", "kind,key,label,annual_budget,start_year,end_year,one_time_year,notes\n")
+    write_plan_dataset(root, "client_spending_budget.csv", "kind,key,label,annual_budget,start_year,end_year,one_time_year,notes\n")
     write(root / "input/ytd_transactions.csv", """Date,Merchant,Category,Account,Amount,Owner
 2026-01-10,Employer,Paychecks,Bank,10000,Shared
 2026-01-11,Store,Groceries,Card,-100,Shared
@@ -192,7 +192,7 @@ Transfer,Tax,state_income_tax,Income Taxes,transaction,active,
 Income Taxes,category,1,80,income_taxes,seed
 Franchise Tax Board,merchant,1,90,state_income_tax,seed
 """)
-    write(root / "input/client_spending_budget.csv", "kind,key,label,annual_budget,start_year,end_year,one_time_year,notes\n")
+    write_plan_dataset(root, "client_spending_budget.csv", "kind,key,label,annual_budget,start_year,end_year,one_time_year,notes\n")
     write(root / "input/ytd_transactions.csv", """Date,Merchant,Category,Account,Amount,Owner
 2026-01-13,IRS,Income Taxes,Bank,-500,Shared
 2026-01-14,Franchise Tax Board,Income Taxes,Bank,-200,Shared

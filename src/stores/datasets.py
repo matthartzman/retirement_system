@@ -1,6 +1,7 @@
 """Typed flat datasets of ``plan.db``: holdings lots, liabilities, HSA schedule and target
 allocation (schema v2, WP6.1 / P4.1); spending taxonomy and aliases (schema v3, WP6.3a, reached
-through ``store.spending``, see ``spending_repo.py``).
+through ``store.spending``, see ``spending_repo.py``); spending budget, budget lines and tier
+overrides (schema v4, WP6.3b).
 
 Each dataset is one table that replaces one legacy CSV file. Columns keep the CSV column
 names and are stored as text exactly as entered, so the build parses the same strings it
@@ -27,6 +28,17 @@ TARGET_ALLOCATION_COLUMNS = ("asset_class", "target_pct")
 SPENDING_TAXONOMY_COLUMNS = ("tracking_type", "group", "category_id", "label", "origin", "status", "notes")
 SPENDING_ALIASES_COLUMNS = ("match_value", "match_field", "exact", "priority", "category_id", "source")
 
+# Spending budget, budget lines and tier overrides (WP6.3b).
+SPENDING_BUDGET_COLUMNS = (
+    "kind", "key", "label", "annual_budget", "start_year", "end_year", "one_time_year",
+    "notes", "_mode", "line_section", "line_mode", "no_annualize",
+)
+SPENDING_BUDGET_LINES_COLUMNS = (
+    "section", "line_id", "label", "category_id", "start_year", "end_year",
+    "one_time_year", "amount_per_year", "mode", "notes",
+)
+SPENDING_TIER_OVERRIDES_COLUMNS = ("category_id", "tier", "notes")
+
 _V2_DATASETS: dict[str, tuple[str, ...]] = {
     "holdings_lots": HOLDINGS_COLUMNS,
     "liabilities": LIABILITIES_COLUMNS,
@@ -37,8 +49,13 @@ _V3_DATASETS: dict[str, tuple[str, ...]] = {
     "spending_taxonomy": SPENDING_TAXONOMY_COLUMNS,
     "spending_aliases": SPENDING_ALIASES_COLUMNS,
 }
+_V4_DATASETS: dict[str, tuple[str, ...]] = {
+    "spending_budget": SPENDING_BUDGET_COLUMNS,
+    "spending_budget_lines": SPENDING_BUDGET_LINES_COLUMNS,
+    "spending_tier_overrides": SPENDING_TIER_OVERRIDES_COLUMNS,
+}
 # Every flat dataset table -> its columns (a later schema version adds its tables here).
-_DATASETS: dict[str, tuple[str, ...]] = {**_V2_DATASETS, **_V3_DATASETS}
+_DATASETS: dict[str, tuple[str, ...]] = {**_V2_DATASETS, **_V3_DATASETS, **_V4_DATASETS}
 
 
 def _q(name: str) -> str:
@@ -59,6 +76,7 @@ def _ddl(datasets: Mapping[str, tuple[str, ...]], *, quote: bool = True) -> str:
 
 SCHEMA_V2_DDL = _ddl(_V2_DATASETS, quote=False)  # as shipped in v2 (its names need no quoting)
 SCHEMA_V3_DDL = _ddl(_V3_DATASETS)
+SCHEMA_V4_DDL = _ddl(_V4_DATASETS)
 
 
 class FlatDatasetRepository:

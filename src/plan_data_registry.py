@@ -69,6 +69,8 @@ PLAN_TABLE_DATASET_FILES: frozenset[str] = frozenset({
     "target_allocation.csv",
     "client_spending_taxonomy.csv",
     "client_spending_aliases.csv",
+    "client_spending_budget.csv",
+    "client_spending_budget_lines.csv",
 })
 YTD_PLAN_DATA_FILES: list[str] = [
     "ytd_transactions.csv",

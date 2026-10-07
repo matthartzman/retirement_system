@@ -60,8 +60,8 @@ def _seed(root: Path, budget: str) -> None:
         "Large Discretionary,Auto,ld_auto,Auto,template,active,\n")
     write_plan_dataset(root, "client_spending_aliases.csv",
         "match_value,match_field,exact,priority,category_id,source\n")
-    (root / "input/client_spending_budget.csv").write_text(
-        "kind,key,label,annual_budget,start_year,end_year,one_time_year,notes\n" + budget, encoding="utf-8")
+    write_plan_dataset(root, "client_spending_budget.csv",
+        "kind,key,label,annual_budget,start_year,end_year,one_time_year,notes\n" + budget)
 
 
 def test_resolver_projects_ld_only_in_each_rows_year(tmp_path):

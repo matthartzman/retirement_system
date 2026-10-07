@@ -4,8 +4,8 @@
    "path_io": 2
   },
   "src/data_io.py": {
-   "csv": 4,
-   "open": 2
+   "csv": 3,
+   "open": 1
   },
   "src/desktop_api.py": {
    "path_io": 4
@@ -72,7 +72,7 @@
    "path_io": 1
   },
   "src/server/app_core.py": {
-   "csv": 14,
+   "csv": 13,
    "path_io": 1
   },
   "src/server/plan_routes.py": {
@@ -115,8 +115,7 @@
   },
   "src/spending_tracker.py": {
    "csv": 6,
-   "open": 6,
-   "path_io": 2
+   "open": 6
   },
   "src/system_config.py": {
    "csv": 3
@@ -126,5 +125,5 @@
    "path_io": 1
   }
  },
- "total": 146
+ "total": 141
 }

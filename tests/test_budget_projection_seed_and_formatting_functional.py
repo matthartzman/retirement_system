@@ -21,7 +21,7 @@ Housing,Maintenance,home_maintenance,Home Maintenance,custom,active,
 Housing,Other,ho_insurance,Homeowners Insurance,template,active,
 ''')
     write_plan_dataset(root, "client_spending_aliases.csv", 'match_value,match_field,exact,priority,category_id,source\n')
-    write(root / 'input/client_spending_budget.csv', '''kind,key,label,annual_budget,start_year,end_year,one_time_year,notes
+    write_plan_dataset(root, 'client_spending_budget.csv', '''kind,key,label,annual_budget,start_year,end_year,one_time_year,notes
 category,housing_utilities,Utilities,2100,,,,
 category,home_maintenance,Home Maintenance,1200,,,,
 category,ho_insurance,Homeowners Insurance,2000,,,,
@@ -45,7 +45,7 @@ def test_home_improvement_line_controls_projection_window_over_category_actual(t
 Housing,Home Improvement,home_improvement,Home Improvement,custom,active,
 ''')
     write_plan_dataset(root, "client_spending_aliases.csv", 'match_value,match_field,exact,priority,category_id,source\n')
-    write(root / 'input/client_spending_budget.csv', '''kind,key,label,annual_budget,start_year,end_year,one_time_year,notes
+    write_plan_dataset(root, 'client_spending_budget.csv', '''kind,key,label,annual_budget,start_year,end_year,one_time_year,notes
 category,home_improvement,Home Improvement,15082,,,,annualized actual should not run forever when detail line exists
 line,home_improvement,Home Improvement,25000,2026,2030,,projection window
 ''')
