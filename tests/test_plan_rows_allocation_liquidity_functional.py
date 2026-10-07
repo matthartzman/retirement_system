@@ -1,10 +1,9 @@
 """WP4.4c: liquidity buffers, home sale splits and the UI-row backfill work on ``plan_rows``.
 
 ``/api/liquidity-buffers`` and ``/api/home-sale-splits`` read the active plan's rows and edit
-them through ``app_core._edit_active_plan`` (one rows transaction; the touched keys are written
-back into the CSV working copy until 4.5); a block that exists is edited in place. The
-canonical-row backfill (``_ensure_user_ui_plan_data_rows``, run by the grid GET, the config sync
-and the Plan Data file endpoints) inserts missing rows into the plan rows.
+them through ``app_core._edit_active_plan`` (one rows transaction on the plan file); a block that
+exists is edited in place. The canonical-row backfill (``_ensure_user_ui_plan_data_rows``, run by
+the grid GET and the Plan Data file endpoints) inserts missing rows into the plan rows.
 """
 from __future__ import annotations
 
@@ -12,7 +11,6 @@ import pytest
 
 import src.server.app_core as app_core
 from src.config_backend import load_active_config
-from src.csv_exchange import PlanCsvError
 from src.server import app, plan_routes
 from tests.plan_fixture import make_plan
 
@@ -26,7 +24,6 @@ def ws(tmp_path, monkeypatch):
     monkeypatch.setenv("RETIREMENT_SYSTEM_WORKSPACE_ROOT", str(plan.root))
     monkeypatch.delenv("RETIREMENT_SYSTEM_PLAN_DB", raising=False)
     monkeypatch.delenv("RETIREMENT_SYSTEM_CONFIG_FILE", raising=False)
-    monkeypatch.setattr(app_core, "CSV_PATH", plan.input_dir / "client_data.csv")
     monkeypatch.setattr(plan_routes, "_all_account_ids_from_holdings", lambda: list(ACCOUNTS))
     return plan
 
@@ -51,10 +48,6 @@ def _rows(ws, section):
         return store.rows(section)
 
 
-def _csv_text(ws):
-    return "\n".join(p.read_text(encoding="utf-8") for p in sorted(ws.input_dir.glob("client_*.csv")))
-
-
 # ------------------------------------------------------------------ liquidity buffers
 def test_liquidity_buffers_read_the_plan_and_replace_their_block(ws, client):
     assert _get(client, "/api/liquidity-buffers") == (200, {"success": True, "buffers": [
@@ -64,7 +57,7 @@ def test_liquidity_buffers_read_the_plan_and_replace_their_block(ws, client):
     ids = {(r["subsection"], r["label"]): r["row_id"] for r in _rows(ws, "Liquidity Buffer")}
     buffers = [{"start_year": "2031", "end_year": "2036", "years_of_expenses": "3", "reserve_account": "Cash"},
                {"start_year": "2037", "end_year": "", "years_of_expenses": "", "preserve_account": "Roth"}, "junk"]
-    assert _post(client, "/api/liquidity-buffers", {"buffers": buffers}) == (200, {"success": True, "count": 2, "sync": None})
+    assert _post(client, "/api/liquidity-buffers", {"buffers": buffers}) == (200, {"success": True, "count": 2})
     rows = _rows(ws, "Liquidity Buffer")
     assert [(r["subsection"], r["label"], r["value"]) for r in rows] == [
         ("buffer_1", "start_year", "2031"), ("buffer_1", "end_year", "2036"), ("buffer_1", "years_of_expenses", "3"),
@@ -77,26 +70,20 @@ def test_liquidity_buffers_read_the_plan_and_replace_their_block(ws, client):
     assert _get(client, "/api/liquidity-buffers")[1]["buffers"][1] == {
         "start_year": "2037", "end_year": "", "years_of_expenses": "0", "reserve_account": "Roth"}
     assert load_active_config()[0]["Liquidity Buffer"]["buffer_2"]["reserve_account"] == "Roth"
-    assert "Liquidity Buffer,buffer_2,reserve_account,Roth" in _csv_text(ws)
     # fewer buffers drop the rest; none empties the block
     assert _post(client, "/api/liquidity-buffers", {"buffers": buffers[:1]})[1]["count"] == 1
     assert {r["subsection"] for r in _rows(ws, "Liquidity Buffer")} == {"buffer_1"}
-    assert "buffer_2" not in _csv_text(ws)
     assert _post(client, "/api/liquidity-buffers", {"buffers": []})[1]["count"] == 0
     assert not _rows(ws, "Liquidity Buffer")
     assert _get(client, "/api/liquidity-buffers")[1]["buffers"] == []
 
 
-def test_liquidity_buffers_legacy_label_and_sync_flag(ws, client, monkeypatch):
+def test_liquidity_buffers_read_the_legacy_label(ws, client):
     with app_core._edit_active_plan() as edit:
         for r in edit.store.rows("Liquidity Buffer"):
             if r["label"] == "years_of_expenses":
                 edit.store.set_row(r["row_id"], label="years_of_expenses_in_trust")
     assert _get(client, "/api/liquidity-buffers")[1]["buffers"][0]["years_of_expenses"] == "2"
-    synced = []
-    monkeypatch.setattr(plan_routes, "_sync_config_backends", lambda: synced.append(1) or {"success": True})
-    status, out = _post(client, "/api/liquidity-buffers", {"buffers": [], "sync": True})
-    assert status == 200 and out["sync"] == {"success": True} and synced == [1]
 
 
 # ------------------------------------------------------------------- home sale splits
@@ -109,7 +96,7 @@ def test_home_sale_splits_read_validate_and_replace(ws, client):
     assert not _rows(ws, "Home Sale Split")
     splits = [{"account": "Family_Checking", "percentage": "60%"}, {"account": "Member_1_Roth", "percentage": "40"},
               {"account": "", "percentage": "0"}, "junk"]
-    assert _post(client, "/api/home-sale-splits", {"splits": splits}) == (200, {"success": True, "count": 2, "sync": None})
+    assert _post(client, "/api/home-sale-splits", {"splits": splits}) == (200, {"success": True, "count": 2})
     assert _get(client, "/api/home-sale-splits")[1]["splits"] == [
         {"account": "Family_Checking", "percentage": "60.0"}, {"account": "Member_1_Roth", "percentage": "40.0"}]
     rows = _rows(ws, "Home Sale Split")
@@ -117,21 +104,17 @@ def test_home_sale_splits_read_validate_and_replace(ws, client):
         ("split_1", "account", "choice"), ("split_1", "percentage", "percent"),
         ("split_2", "account", "choice"), ("split_2", "percentage", "percent")]
     assert load_active_config()[0]["Home Sale Split"]["split_2"] == {"account": "Member_1_Roth", "percentage": "40.0"}
-    assert "Home Sale Split,split_1,account,Family_Checking" in _csv_text(ws)
     ids = {(r["subsection"], r["label"]): r["row_id"] for r in rows}
     _post(client, "/api/home-sale-splits", {"splits": [{"account": "Member_1_Roth", "percentage": "100"}]})
     rows = _rows(ws, "Home Sale Split")
     assert [(r["subsection"], r["label"], r["value"]) for r in rows] == [
         ("split_1", "account", "Member_1_Roth"), ("split_1", "percentage", "100.0")]
     assert rows[0]["row_id"] == ids[("split_1", "account")]
-    assert "split_2" not in _csv_text(ws)
 
 
-def test_liquidity_and_split_edits_then_csv_writer_then_edit_keep_everything(ws, client):
+def test_liquidity_and_split_edits_through_several_endpoints_keep_everything(ws, client):
     assert _post(client, "/api/home-sale-splits", {"splits": [{"account": "Family_Checking", "percentage": "100"}]})[0] == 200
-    text = (ws.input_dir / "client_policy.csv").read_text(encoding="utf-8")
-    (ws.input_dir / "client_policy.csv").write_text(text.rstrip("\n") + "\nWithdrawal Policy,Account Order,Member_1_IRA,2,int,\n", encoding="utf-8")
-    app_core._sync_config_backends()
+    assert _post(client, "/api/withdrawal-account-order", {"accounts": [{"account_id": "Member_1_IRA", "priority": "2"}]})[0] == 200
     assert _post(client, "/api/liquidity-buffers", {"buffers": [
         {"start_year": "2040", "end_year": "", "years_of_expenses": "1", "reserve_account": "IRA"}]})[0] == 200
     data = load_active_config()[0]
@@ -150,7 +133,7 @@ def test_liquidity_and_split_audit_events_after_the_edit(ws, client, monkeypatch
 
 
 # --------------------------------------------------------------------------- backfill
-def test_the_config_sync_endpoint_backfills_missing_canonical_rows_into_the_plan(ws, client):
+def test_the_ui_row_backfill_adds_missing_canonical_rows_into_the_plan(ws, client):
     keys = {(r[0], r[1], r[2]) for e in app_core.PLAN_DATA_BACKFILL_ENTRIES if not callable(e.rows) for r in e.rows}
     with app_core._edit_active_plan() as edit:
         for row in edit.store.all_rows():
@@ -158,12 +141,11 @@ def test_the_config_sync_endpoint_backfills_missing_canonical_rows_into_the_plan
                 edit.store.delete_row(row["row_id"])
     with ws.store(readonly=True) as store:
         assert not keys & {(r["section"], r["subsection"], r["label"]) for r in store.all_rows()}
-    status, out = _post(client, "/api/config/sync")
-    assert status == 200, out
+    status, out = _get(client, "/api/config/rows")  # the grid GET runs the backfill
+    assert status == 200
     with ws.store(readonly=True) as store:
         present = {(r["section"], r["subsection"], r["label"]) for r in store.all_rows()}
     assert keys <= present
-    assert "allocation_selection_mode" in _csv_text(ws)
 
 
 def test_the_grid_get_shows_backfilled_rows(ws, client):
@@ -174,23 +156,6 @@ def test_the_grid_get_shows_backfilled_rows(ws, client):
     status, out = _get(client, "/api/config/rows")
     assert status == 200
     assert [r for r in out["rows"] if r["label"] == "mc_engine_mode" and r["value"] == "quick_vectorized"]
-
-
-def test_a_part_file_that_cannot_be_read_does_not_fail_the_backfill(ws, monkeypatch):
-    class Refusing:
-        def __enter__(self):
-            raise PlanCsvError("part file does not parse")
-
-        def __exit__(self, *exc):
-            return False
-
-    with app_core._edit_active_plan() as edit:
-        for row in edit.store.all_rows():
-            if row["label"] == "mc_engine_mode":
-                edit.store.delete_row(row["row_id"])
-    monkeypatch.setattr(app_core, "_edit_active_plan", lambda: Refusing())
-    app_core._ensure_user_ui_plan_data_rows()  # no exception; the row is added when the CSV set reads again
-    assert not [r for r in _rows(ws, "Model Constants") if r["label"] == "mc_engine_mode"]
 
 
 # --------------------------------------------------------------------- conversion (C3)

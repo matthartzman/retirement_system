@@ -263,7 +263,6 @@ def test_real_build_keeps_a_grid_edit_after_csv_and_form_edits(monkeypatch, tmp_
     monkeypatch.setenv("RETIREMENT_SYSTEM_WORKSPACE_ROOT", str(ws.root))
     monkeypatch.delenv("RETIREMENT_SYSTEM_PLAN_DB", raising=False)
     monkeypatch.delenv("RETIREMENT_SYSTEM_CONFIG_FILE", raising=False)
-    monkeypatch.setattr(app_core, "CSV_PATH", ws.input_dir / "client_data.csv")
     monkeypatch.setenv("RETIREMENT_SYSTEM_OUTPUT_DIR", str(tmp_path / "out"))
     client = app.test_client()
 
@@ -314,7 +313,6 @@ def test_real_build_keeps_an_added_asset_after_a_grid_edit_and_a_csv_writer(monk
     monkeypatch.setenv("RETIREMENT_SYSTEM_WORKSPACE_ROOT", str(ws.root))
     monkeypatch.delenv("RETIREMENT_SYSTEM_PLAN_DB", raising=False)
     monkeypatch.delenv("RETIREMENT_SYSTEM_CONFIG_FILE", raising=False)
-    monkeypatch.setattr(app_core, "CSV_PATH", ws.input_dir / "client_data.csv")
     monkeypatch.setenv("RETIREMENT_SYSTEM_OUTPUT_DIR", str(tmp_path / "out"))
     client = app.test_client()
     autos_before = parse_client(load_active_config()[0], "")["autos"]
@@ -358,7 +356,6 @@ def test_real_build_keeps_policy_edits_after_a_grid_edit_and_a_csv_writer(monkey
     monkeypatch.setenv("RETIREMENT_SYSTEM_WORKSPACE_ROOT", str(ws.root))
     monkeypatch.delenv("RETIREMENT_SYSTEM_PLAN_DB", raising=False)
     monkeypatch.delenv("RETIREMENT_SYSTEM_CONFIG_FILE", raising=False)
-    monkeypatch.setattr(app_core, "CSV_PATH", ws.input_dir / "client_data.csv")
     monkeypatch.setenv("RETIREMENT_SYSTEM_OUTPUT_DIR", str(tmp_path / "out"))
     monkeypatch.setattr(plan_routes, "_pre_tax_account_options_from_holdings",
                         lambda: ["Member_1_401k", "Member_1_IRA", "Member_2_IRA"])

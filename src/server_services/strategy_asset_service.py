@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from .. import platform_runtime as _platform_runtime
+from .. import plan_overrides as _plan_overrides
 from ..plan_data_backfill import insert_rows_at
 from ..spending_adjustments import ADJ_SUBSECTION, adjustment_dicts_from_plan_rows, adjustment_plan_rows, validate_adjustment_dicts
 
@@ -509,7 +510,6 @@ class StrategyAssetServiceContext:
     reference_file_path: PathFn
     normalize_large_discretionary_type: Callable[[str], str]
     pre_tax_account_options_from_holdings: Callable[[], list[str]]
-    ensure_user_ui_plan_data_rows: Callable[[], None]
     audit: AuditFn | None = None
     travel_extra_types: list[str] | None = None
     # The endpoints read the active plan through ``read_plan`` (an open store:
@@ -1213,10 +1213,29 @@ class StrategyAssetService:
         ]
         return self._seed_rows(seed_rows=seed_rows, audit_event="life_illustration_seeded")
 
-    def import_reference_csv_payload(self, *, file_name: str, body: dict[str, Any], audit_event: str) -> tuple[dict[str, Any], int]:
-        # Shipped reference data now lives in the read-only reference.db; custom
-        # assumptions become plan-side overrides (plan storage work package).
-        return {"success": False, "error": f"{file_name} is part of the read-only reference data and can no longer be replaced by upload; custom assumptions will be stored in the plan."}, 410
+    def save_override_rows_payload(self, *, kind: str, body: dict[str, Any], audit_event: str) -> tuple[dict[str, Any], int]:
+        """Replace one plan-side override table over the shipped reference data (``plan_overrides``):
+        custom capital-market assumptions, custom correlations or custom real-loss curves.
+
+        Takes ``{"rows": [{column: value, ...}, ...]}`` (an empty list clears the table), validates
+        every cell (numbers, known asset classes and presets) and replaces the table's plan rows in
+        one edit. A CSV body is refused (410): reading a CSV file is ``csv_exchange`` work.
+        """
+        if not isinstance(body, dict) or "rows" not in body:
+            if isinstance(body, dict) and (body.get("csv") or body.get("content") or body.get("csv_content")):
+                return {"success": False, "error": "CSV upload of reference overrides is not available yet; post the rows as "
+                        "{\"rows\": [{column: value}]}. Columns: " + ", ".join(_plan_overrides.COLUMNS[kind])}, 410
+            return {"success": False, "error": "rows is required: {\"rows\": [{column: value}]}"}, 400
+        try:
+            rows = _plan_overrides.validate_rows(kind, body["rows"])
+        except _plan_overrides.OverrideRowsError as exc:
+            return {"success": False, "error": "Override rows are not valid", "errors": exc.errors[:50]}, 400
+
+        def work(store: Any) -> _Outcome:
+            count = _plan_overrides.replace_rows(store, kind, rows)
+            return {"success": True, "count": count}, 200, (audit_event, {"count": count})
+
+        return self._edit(work)
 
     def seed_housing_payload(self) -> tuple[dict[str, Any], int]:
         return self._seed_rows(seed_rows=HOUSING_SEED_ROWS, audit_event="housing_rows_seeded")

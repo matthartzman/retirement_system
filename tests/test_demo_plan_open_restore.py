@@ -1,24 +1,45 @@
-"""#240: Open Demo Plan / Open Current Plan toggle.
+"""#240: Open Demo Plan / Open Current Plan toggle (WP4.5: the demo swaps plan FILES).
 
-Exercises DemoPlanService in full isolation (tmp_path DBs/dirs, no real
-input/ or local_state/ touched -- these must never be mutated by a test run)
-following the same pattern test_backend_service_extraction_continuation_functional.py
-uses for PlanFileService: a tiny throwaway sqlite DB with a single marker
-row, swapped around by the service under test.
+Exercises DemoPlanService in full isolation (tmp_path plan file, legacy database and folders,
+no real input/ or local_state/ touched -- these must never be mutated by a test run). The plan
+file is a real ``PlanStore`` holding a marker row; the legacy database is a tiny sqlite file with
+``client_files`` and a marker, swapped around by the service under test. The demo household is
+built from the demo folder's CSV set through the ``csv_exchange`` importer.
 """
 import dataclasses
 import sqlite3
 from pathlib import Path
 
+import pytest
+
 from src.server_services.demo_plan_service import (
     DEMO_SLOT_DIR,
+    SLOT_PLAN_FILE,
     TEXT_BACKUP_FILES,
     DemoPlanService,
     DemoPlanServiceContext,
 )
-from src.server_services.plan_file_service import PlanFileService, PlanFileServiceContext
+from src.stores import PlanStore
 
 SEED = "client_spending_budget.recovery_seed.csv"
+HEADER = "section,subsection,label,value,units,notes\n"
+FLAT = ["client_holdings.csv", "client_liabilities.csv", "ytd_transactions.csv"]
+
+
+def _make_plan(path: Path, marker: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with PlanStore.open(path) as store:
+        store.set_value("Marker", "", "value", marker)
+
+
+def _plan_marker(path: Path):
+    with PlanStore.open(path, create=False, readonly=True) as store:
+        return store.sectioned_data().get("Marker", {}).get("", {}).get("value")
+
+
+def _plan_view(path: Path):
+    with PlanStore.open(path, create=False, readonly=True) as store:
+        return store.sectioned_data()
 
 
 def _make_db(path: Path, marker: str) -> None:
@@ -43,29 +64,31 @@ def _read_marker(path: Path) -> str:
         conn.close()
 
 
-def _make_service(tmp_path: Path, *, real_client_data: str = "real client_data.csv content\n"):
+def _make_service(tmp_path: Path):
     active_db = tmp_path / "local_state" / "retirement_system_v10.db"
+    plan_db = tmp_path / "plan.rpx"
     demo_dir = tmp_path / "input" / "demo"
     demo_dir.mkdir(parents=True, exist_ok=True)
-    (demo_dir / "client_household.csv").write_text("demo household content\n", encoding="utf-8")
-    (demo_dir / "client_data.csv").write_text("demo client_data.csv content\n", encoding="utf-8")
-    # Every TEXT_BACKUP_FILES entry gets a fixture, matching the real
-    # input/demo/ -- the service adds them to the applied list itself, so a
-    # missing one here would show up as an unexpected "skipped" entry.
+    # The demo household's plan rows come from the plan CSV set (read once by the importer).
+    (demo_dir / "client_household.csv").write_text(
+        HEADER + "Household,,member_1_name,Demo Person,text,\nHousehold,,state,TX,text,\n", encoding="utf-8")
+    (demo_dir / "client_data.csv").write_text(HEADER + "Scenarios,Base,growth,1,pct,\n", encoding="utf-8")
+    # The flat datasets and every TEXT_BACKUP_FILES entry get a fixture, matching the real
+    # input/demo/ -- the service adds them to the applied list itself, so a missing one here
+    # would show up as an unexpected "skipped" entry.
+    (demo_dir / "client_holdings.csv").write_text("demo holdings content\n", encoding="utf-8")
+    (demo_dir / "ytd_transactions.csv").write_text("demo ytd content\n", encoding="utf-8")
     for name in TEXT_BACKUP_FILES:
         (demo_dir / name).write_text(f"demo {name}\n", encoding="utf-8")
-    # client_income.csv intentionally has no demo counterpart -- exercises "skipped".
-    _make_db(active_db, "real-plan")
-
-    input_dir = tmp_path / "input"
-    input_dir.mkdir(parents=True, exist_ok=True)
+    # client_liabilities.csv intentionally has no demo counterpart -- exercises "skipped".
+    _make_db(active_db, "real-legacy")
+    _make_plan(plan_db, "real-plan")
 
     audits = []
     written: dict[str, str] = {}
-    # client_data.csv lives only on disk in the real app (never in the DB) --
-    # model that here with a plain dict standing in for the on-disk file.
     disk_files = {
-        "client_data.csv": real_client_data,
+        "client_holdings.csv": "real holdings\n",
+        "ytd_transactions.csv": "real ytd\n",
         **{name: f"real {name}\n" for name in TEXT_BACKUP_FILES},
     }
 
@@ -77,44 +100,19 @@ def _make_service(tmp_path: Path, *, real_client_data: str = "real client_data.c
         disk_files[name] = content
         return tmp_path / "input" / name
 
-    plan_file_service = PlanFileService(PlanFileServiceContext(
-        sqlite_db=lambda: active_db,
-        audit=lambda event, payload: audits.append((event, payload)),
-        retention_count=10,
-    ))
-
     materialized = {"count": 0}
-    sync_calls = {"count": 0}
-
-    def sync_config_backends():
-        # Real export_client_json_yaml() derives client_data.json/.yaml from
-        # whatever client_data.csv currently holds on disk -- mirror that so
-        # the restore path's re-push of the derived files is meaningfully
-        # exercised, not just a no-op stub.
-        sync_calls["count"] += 1
-        json_path = input_dir / "client_data.json"
-        yaml_path = input_dir / "client_data.yaml"
-        content = disk_files.get("client_data.csv", "")
-        json_path.write_text(content, encoding="utf-8")
-        yaml_path.write_text(content, encoding="utf-8")
-        return {
-            "success": True,
-            "derived": {"client_data.json": str(json_path), "client_data.yaml": str(yaml_path)},
-        }
-
     service = DemoPlanService(DemoPlanServiceContext(
         sqlite_db=lambda: active_db,
+        plan_db=lambda: plan_db,
         demo_dir=lambda: demo_dir,
-        plan_data_csv_files=["client_data.csv", "client_household.csv", "client_income.csv"],
+        plan_data_csv_files=FLAT,
         read_plan_data_file=read_plan_data_file,
         write_plan_data_file=write_plan_data_file,
-        sync_config_backends=sync_config_backends,
         ensure_user_ui_plan_data_rows=lambda: None,
-        load_saved_db=plan_file_service.load_file,
         materialize=lambda: materialized.__setitem__("count", materialized["count"] + 1),
         audit=lambda event, payload: audits.append((event, payload)),
     ))
-    return service, active_db, demo_dir, audits, written, materialized, disk_files, sync_calls
+    return service, active_db, plan_db, demo_dir, audits, written, materialized, disk_files
 
 
 def test_status_is_inactive_before_any_demo_is_opened(tmp_path):
@@ -122,50 +120,58 @@ def test_status_is_inactive_before_any_demo_is_opened(tmp_path):
     assert service.status_payload() == {"success": True, "active": False, "opened_at": None}
 
 
-def test_open_demo_writes_available_files_reports_skipped_and_backs_up_once(tmp_path):
-    service, active_db, demo_dir, audits, written, _materialized, disk_files, _sync = _make_service(tmp_path)
+def test_open_demo_swaps_the_plan_file_writes_flat_files_reports_skipped_and_backs_up_once(tmp_path):
+    service, active_db, plan_db, demo_dir, audits, written, _mat, disk_files = _make_service(tmp_path)
 
     result = service.open_demo_payload()
 
     assert result["success"] is True
-    assert written["client_household.csv"] == "demo household content\n"
-    assert disk_files["client_data.csv"] == "demo client_data.csv content\n"
-    assert result["skipped"] == ["client_income.csv"]
+    # the plan rows are the demo household, built through the importer; nothing is written as a CSV
+    assert _plan_view(plan_db) == {"Household": {"": {"member_1_name": "Demo Person", "state": "TX"}},
+                                   "Scenarios": {"Base": {"growth": "1"}}}
+    plan_entry = next(w for w in result["files"] if w["name"] == "plan.rpx")
+    assert plan_entry["source"] == "demo" and plan_entry["path"] == str(plan_db)
+    assert "client_household.csv" not in written and "client_data.csv" not in written
+    assert written["client_holdings.csv"] == "demo holdings content\n"
+    assert result["skipped"] == ["client_liabilities.csv"]
     # The recovery seed is outside plan_data_csv_files; the service adds it.
     assert disk_files[SEED] == f"demo {SEED}\n"
 
-    backup = Path(str(active_db) + ".before_demo")
-    assert backup.exists()
-    assert _read_marker(backup) == "real-plan"
-
-    client_data_backup = active_db.parent / "client_data.csv.before_demo"
-    assert client_data_backup.read_text(encoding="utf-8") == "real client_data.csv content\n"
-
-    marker_json = active_db.parent / "demo_mode_marker.json"
-    assert marker_json.exists()
+    plan_backup = Path(str(plan_db) + ".before_demo")
+    assert plan_backup.exists() and _plan_marker(plan_backup) == "real-plan"
+    legacy_backup = Path(str(active_db) + ".before_demo")
+    assert legacy_backup.exists() and _read_marker(legacy_backup) == "real-legacy"
+    assert (active_db.parent / "demo_mode_marker.json").exists()
 
     status = service.status_payload()
-    assert status["active"] is True
-    assert status["opened_at"]
+    assert status["active"] is True and status["opened_at"]
     assert any(event == "demo_plan_opened" for event, _ in audits)
 
 
 def test_open_demo_twice_does_not_reclobber_either_backup(tmp_path):
-    service, active_db, demo_dir, audits, written, _materialized, disk_files, _sync = _make_service(tmp_path)
+    service, active_db, plan_db, *_ = _make_service(tmp_path)
 
     service.open_demo_payload()
-    # Simulate the live DB/client_data.csv now actually holding demo-state
-    # content, as they would after write_plan_data_file's real writes.
     _make_db(active_db, "demo-state")
-    disk_files["client_data.csv"] = "demo client_data.csv content\n"
+    with PlanStore.open(plan_db) as store:  # the live plan now holds demo-state edits
+        store.set_value("Household", "", "member_1_name", "Edited In Demo")
 
     service.open_demo_payload()
 
-    backup = Path(str(active_db) + ".before_demo")
-    assert _read_marker(backup) == "real-plan", "second Open Demo Plan click must not overwrite the real DB backup"
-    client_data_backup = active_db.parent / "client_data.csv.before_demo"
-    assert client_data_backup.read_text(encoding="utf-8") == "real client_data.csv content\n", \
-        "second Open Demo Plan click must not overwrite the real client_data.csv backup"
+    assert _plan_marker(Path(str(plan_db) + ".before_demo")) == "real-plan", \
+        "second Open Demo Plan click must not overwrite the real plan backup"
+    assert _read_marker(Path(str(active_db) + ".before_demo")) == "real-legacy", \
+        "second Open Demo Plan click must not overwrite the real database backup"
+
+
+def test_open_demo_on_a_fresh_workspace_backs_up_an_empty_plan(tmp_path):
+    service, active_db, plan_db, *_ = _make_service(tmp_path)
+    plan_db.unlink()
+    service.open_demo_payload()
+    backup = Path(str(plan_db) + ".before_demo")
+    assert backup.exists() and _plan_view(backup) == {}
+    assert service.restore_current_payload() == {"success": True, "restored": True}
+    assert _plan_view(plan_db) == {}
 
 
 def test_restore_current_when_no_demo_is_active_is_a_safe_noop(tmp_path):
@@ -173,39 +179,38 @@ def test_restore_current_when_no_demo_is_active_is_a_safe_noop(tmp_path):
     assert service.restore_current_payload() == {"success": True, "restored": False}
 
 
-def test_restore_current_swaps_db_and_client_data_csv_back_and_clears_backups(tmp_path):
-    service, active_db, demo_dir, audits, written, materialized, disk_files, sync_calls = _make_service(tmp_path)
+def test_restore_current_swaps_the_plan_file_and_database_back_and_clears_backups(tmp_path):
+    service, active_db, plan_db, demo_dir, audits, written, materialized, disk_files = _make_service(tmp_path)
 
     service.open_demo_payload()
-    _make_db(active_db, "demo-state")  # live DB now diverged from the backup
-    disk_files["client_data.csv"] = "demo client_data.csv content\n"
-    sync_calls["count"] = 0
+    _make_db(active_db, "demo-state")  # live legacy DB now diverged from the backup
 
     result = service.restore_current_payload()
 
     assert result == {"success": True, "restored": True}
-    assert _read_marker(active_db) == "real-plan"
-    # client_data.csv is disk-only (never in the DB) -- restoring the DB alone
-    # can't bring it back, so restore must write it back explicitly and
-    # regenerate its .json/.yaml derivatives via sync_config_backends.
-    assert disk_files["client_data.csv"] == "real client_data.csv content\n"
-    assert sync_calls["count"] == 1
-    # Regenerating client_data.json/.yaml on disk isn't enough by itself:
-    # _read_plan_data_file seeds a DB-cached copy the first time anything
-    # GETs a file missing from the DB, so a page opened mid-demo could have
-    # already cached the demo version. Restore must push the regenerated
-    # content through write_plan_data_file too, to overwrite any such entry.
-    assert written["client_data.json"] == "real client_data.csv content\n"
-    assert written["client_data.yaml"] == "real client_data.csv content\n"
+    assert _plan_marker(plan_db) == "real-plan" and "Household" not in _plan_view(plan_db)
+    assert _read_marker(active_db) == "real-legacy"
     assert materialized["count"] == 1
+    assert not Path(str(plan_db) + ".before_demo").exists()
     assert not Path(str(active_db) + ".before_demo").exists()
-    assert not (active_db.parent / "client_data.csv.before_demo").exists()
     assert not (active_db.parent / f"{SEED}.before_demo").exists()
     assert not (active_db.parent / "demo_mode_marker.json").exists()
     assert any(event == "demo_plan_restored" for event, _ in audits)
 
     # Idempotent: a second click with nothing left to restore is a no-op.
     assert service.restore_current_payload() == {"success": True, "restored": False}
+
+
+def test_a_restore_that_cannot_validate_the_backup_changes_nothing(tmp_path):
+    service, active_db, plan_db, *_ = _make_service(tmp_path)
+    service.open_demo_payload()
+    Path(str(plan_db) + ".before_demo").write_bytes(b"not a database")
+
+    result = service.restore_current_payload()
+
+    assert result["success"] is False and result["restored"] is False and result["error"]
+    assert _plan_view(plan_db)["Household"][""]["member_1_name"] == "Demo Person"  # still the demo
+    assert service.status_payload()["active"] is True
 
 
 def test_demo_swaps_and_restores_the_budget_recovery_seed(tmp_path):
@@ -216,7 +221,7 @@ def test_demo_swaps_and_restores_the_budget_recovery_seed(tmp_path):
     annualized actuals (down to named categories) into the demo household's
     budget, so the service applies the demo copy and restores the real one."""
     assert SEED in TEXT_BACKUP_FILES
-    service, active_db, _demo_dir, _audits, _written, _mat, disk_files, _sync = _make_service(tmp_path)
+    service, active_db, _plan_db, _demo_dir, _audits, _written, _mat, disk_files = _make_service(tmp_path)
 
     service.open_demo_payload()
     assert disk_files[SEED] == f"demo {SEED}\n"
@@ -233,7 +238,23 @@ def test_demo_swaps_and_restores_the_budget_recovery_seed(tmp_path):
     assert not seed_backup.exists()
 
 
-def test_plan_routes_wire_demo_plan_service_with_protected_fields_bypassed():
+def test_the_real_demo_folder_builds_the_demo_plan_equal_to_the_loader(tmp_path):
+    """The shipped input/demo household is the demo plan's seed: the importer's rows equal the
+    legacy loader's view (what ``tests.plan_fixture.make_plan('demo')`` also guarantees)."""
+    from src.data_io import load_csv
+    from src.plan_label_rules import dropped_at_load
+
+    service, active_db, plan_db, *_ = _make_service(tmp_path)
+    real_demo = Path("input") / "demo"
+    service = DemoPlanService(dataclasses.replace(service.context, demo_dir=lambda: real_demo, plan_data_csv_files=[]))
+    service.open_demo_payload()
+    view = _plan_view(plan_db)
+    expected = load_csv(real_demo / "client_data.csv")
+    assert view == expected
+    assert not any(dropped_at_load(s, sub, lbl) for s, subs in view.items() for sub, vals in subs.items() for lbl in vals)
+
+
+def test_plan_routes_wire_demo_plan_service():
     routes = Path("src/server/plan_routes.py").read_text(encoding="utf-8")
     assert "def _demo_plan_feature_service()" in routes
     assert "DemoPlanServiceContext" in routes
@@ -241,10 +262,10 @@ def test_plan_routes_wire_demo_plan_service_with_protected_fields_bypassed():
     assert ".open_demo_payload()" in routes
     assert ".restore_current_payload()" in routes
     assert "read_plan_data_file=_read_plan_data_file" in routes
-    # Demo data must fully replace plan-data fields, not merge in the real
-    # user's protected values (e.g. retirement dates) -- see app_core.py's
-    # PROTECTED_CLIENT_DATA_KEYS / _merge_protected_client_data_values.
-    assert "preserve_protected=False" in routes
+    assert "plan_db=active_plan_path" in routes
+    # Demo data replaces the plan file as a whole: no field-by-field merge with the real plan, and
+    # no CSV step in either direction.
+    assert "_sync_config_backends" not in routes and "preserve_protected" not in routes
 
 
 def test_demo_open_swaps_ytd_actual_spending_too():
@@ -290,31 +311,37 @@ def test_demo_ytd_fixture_files_exist_and_are_fictional():
 
 
 def test_slot_captures_edits_on_restore_and_reapplies_on_next_open(tmp_path):
-    """An edit made while the demo is open (a Save Changes write, modeled
-    here by mutating disk_files directly) must survive Open Current Plan and
-    reappear -- sourced from the slot, not the shipped fixture -- the next
-    time Open Demo Plan runs."""
-    service, active_db, demo_dir, audits, written, materialized, disk_files, sync_calls = _make_service(tmp_path)
+    """An edit made while the demo is open (a plan edit, or a flat file edit modeled by mutating
+    disk_files) must survive Open Current Plan and reappear -- sourced from the slot, not the
+    shipped fixture -- the next time Open Demo Plan runs."""
+    service, active_db, plan_db, demo_dir, audits, written, materialized, disk_files = _make_service(tmp_path)
 
     service.open_demo_payload()
-    disk_files["client_household.csv"] = "edited household content\n"
+    with PlanStore.open(plan_db) as store:
+        store.set_value("Household", "", "member_1_name", "Edited In Demo")
+    disk_files["client_holdings.csv"] = "edited holdings content\n"
 
     service.restore_current_payload()
 
     slot_dir = active_db.parent / DEMO_SLOT_DIR
-    assert (slot_dir / "client_household.csv").read_text(encoding="utf-8") == "edited household content\n"
+    assert (slot_dir / "client_holdings.csv").read_text(encoding="utf-8") == "edited holdings content\n"
+    assert _plan_view(slot_dir / SLOT_PLAN_FILE)["Household"][""]["member_1_name"] == "Edited In Demo"
+    assert _plan_marker(plan_db) == "real-plan"
 
     result = service.open_demo_payload()
-    assert disk_files["client_household.csv"] == "edited household content\n"
-    entry = next(w for w in result["files"] if w["name"] == "client_household.csv")
-    assert entry["source"] == "slot"
+    assert _plan_view(plan_db)["Household"][""]["member_1_name"] == "Edited In Demo"
+    assert disk_files["client_holdings.csv"] == "edited holdings content\n"
+    by_name = {w["name"]: w["source"] for w in result["files"]}
+    assert by_name["plan.rpx"] == "slot" and by_name["client_holdings.csv"] == "slot"
 
 
 def test_reset_demo_deletes_slot_and_next_open_falls_back_to_fixture(tmp_path):
-    service, active_db, demo_dir, audits, written, materialized, disk_files, sync_calls = _make_service(tmp_path)
+    service, active_db, plan_db, demo_dir, audits, written, materialized, disk_files = _make_service(tmp_path)
 
     service.open_demo_payload()
-    disk_files["client_household.csv"] = "edited household content\n"
+    with PlanStore.open(plan_db) as store:
+        store.set_value("Household", "", "member_1_name", "Edited In Demo")
+    disk_files["client_holdings.csv"] = "edited holdings content\n"
     service.restore_current_payload()
 
     slot_dir = active_db.parent / DEMO_SLOT_DIR
@@ -326,9 +353,10 @@ def test_reset_demo_deletes_slot_and_next_open_falls_back_to_fixture(tmp_path):
     assert any(event == "demo_plan_slot_reset" for event, _ in audits)
 
     result = service.open_demo_payload()
-    assert disk_files["client_household.csv"] == "demo household content\n"
-    entry = next(w for w in result["files"] if w["name"] == "client_household.csv")
-    assert entry["source"] == "demo"
+    assert _plan_view(plan_db)["Household"][""]["member_1_name"] == "Demo Person"
+    assert disk_files["client_holdings.csv"] == "demo holdings content\n"
+    by_name = {w["name"]: w["source"] for w in result["files"]}
+    assert by_name["plan.rpx"] == "demo" and by_name["client_holdings.csv"] == "demo"
 
 
 def test_reset_demo_refused_while_demo_is_active(tmp_path):
@@ -336,7 +364,7 @@ def test_reset_demo_refused_while_demo_is_active(tmp_path):
     reset while it's open would just be immediately undone -- refuse it and
     tell the advisor to close the demo first, rather than silently no-op or
     (worse) delete a slot the close is about to recreate."""
-    service, active_db, demo_dir, audits, written, materialized, disk_files, sync_calls = _make_service(tmp_path)
+    service, active_db, *_ = _make_service(tmp_path)
     service.open_demo_payload()
 
     result = service.reset_demo_payload()
@@ -347,7 +375,7 @@ def test_reset_demo_refused_while_demo_is_active(tmp_path):
 
 
 def test_capture_never_runs_when_no_demo_is_active(tmp_path):
-    service, active_db, demo_dir, audits, written, materialized, disk_files, sync_calls = _make_service(tmp_path)
+    service, active_db, *_ = _make_service(tmp_path)
 
     result = service.restore_current_payload()
 
@@ -359,12 +387,12 @@ def test_capture_failure_is_non_fatal_and_still_restores_the_real_plan(tmp_path)
     """Capture must never block getting the real plan back -- the single most
     important invariant in the restore path. A read failure for one file is
     audited and that file is skipped; every other file still restores."""
-    service, active_db, demo_dir, audits, written, materialized, disk_files, sync_calls = _make_service(tmp_path)
+    service, active_db, plan_db, demo_dir, audits, written, materialized, disk_files = _make_service(tmp_path)
     service.open_demo_payload()
-    disk_files["client_household.csv"] = "edited household content\n"
+    disk_files["client_holdings.csv"] = "edited holdings content\n"
 
     def raising_read(name):
-        if name == "client_household.csv":
+        if name == "client_holdings.csv":
             raise RuntimeError("disk full")
         return disk_files.get(name)
 
@@ -375,28 +403,42 @@ def test_capture_failure_is_non_fatal_and_still_restores_the_real_plan(tmp_path)
     assert result == {"success": True, "restored": True}
     assert any(event == "demo_plan_capture_warning" for event, _ in audits)
     slot_dir = active_db.parent / DEMO_SLOT_DIR
-    assert not (slot_dir / "client_household.csv").exists()
-    assert _read_marker(active_db) == "real-plan"
+    assert not (slot_dir / "client_holdings.csv").exists()
+    assert (slot_dir / SLOT_PLAN_FILE).exists()  # the plan file was captured regardless
+    assert _plan_marker(plan_db) == "real-plan" and _read_marker(active_db) == "real-legacy"
 
 
-def test_slot_missing_one_file_falls_back_to_demo_fixture_for_that_file_only(tmp_path):
+def test_a_slot_plan_file_that_is_not_a_plan_is_refused_and_leaves_the_real_plan(tmp_path):
+    service, active_db, plan_db, *_ = _make_service(tmp_path)
+    slot_dir = active_db.parent / DEMO_SLOT_DIR
+    slot_dir.mkdir(parents=True)
+    (slot_dir / SLOT_PLAN_FILE).write_bytes(b"garbage")
+
+    with pytest.raises(Exception):
+        service.open_demo_payload()
+
+    assert _plan_marker(plan_db) == "real-plan"
+
+
+def test_slot_missing_one_flat_file_falls_back_to_demo_fixture_for_that_file_only(tmp_path):
     """A fixture added to input/demo/ in a later release must still be picked
     up per-file by a user who already has a slot but not that file yet."""
-    service, active_db, demo_dir, audits, written, materialized, disk_files, sync_calls = _make_service(tmp_path)
+    service, active_db, plan_db, demo_dir, audits, written, materialized, disk_files = _make_service(tmp_path)
     service.open_demo_payload()
-    disk_files["client_household.csv"] = "edited household content\n"
+    disk_files["client_holdings.csv"] = "edited holdings content\n"
+    disk_files["ytd_transactions.csv"] = "edited ytd content\n"
     service.restore_current_payload()
 
     slot_dir = active_db.parent / DEMO_SLOT_DIR
-    (slot_dir / "client_data.csv").unlink()
+    (slot_dir / "ytd_transactions.csv").unlink()
 
     result = service.open_demo_payload()
 
-    assert disk_files["client_household.csv"] == "edited household content\n"
-    assert disk_files["client_data.csv"] == "demo client_data.csv content\n"
+    assert disk_files["client_holdings.csv"] == "edited holdings content\n"
+    assert disk_files["ytd_transactions.csv"] == "demo ytd content\n"
     by_name = {w["name"]: w["source"] for w in result["files"]}
-    assert by_name["client_household.csv"] == "slot"
-    assert by_name["client_data.csv"] == "demo"
+    assert by_name["client_holdings.csv"] == "slot"
+    assert by_name["ytd_transactions.csv"] == "demo"
 
 
 def test_capture_never_writes_back_into_the_demo_fixture_directory(tmp_path):
@@ -404,27 +446,27 @@ def test_capture_never_writes_back_into_the_demo_fixture_directory(tmp_path):
     edit must never touch the shipped fixtures, or the anti-leak tests in
     test_demo_plan_data_is_fictional.py (which read input/demo/ directly)
     could start seeing captured session data instead of the fictional seed."""
-    service, active_db, demo_dir, audits, written, materialized, disk_files, sync_calls = _make_service(tmp_path)
-    original_fixture = (demo_dir / "client_household.csv").read_text(encoding="utf-8")
+    service, active_db, plan_db, demo_dir, audits, written, materialized, disk_files = _make_service(tmp_path)
+    original = {p.name: p.read_bytes() for p in demo_dir.iterdir()}
 
     service.open_demo_payload()
-    disk_files["client_household.csv"] = "edited household content\n"
+    with PlanStore.open(plan_db) as store:
+        store.set_value("Household", "", "member_1_name", "Edited In Demo")
+    disk_files["client_holdings.csv"] = "edited holdings content\n"
     service.restore_current_payload()
 
-    assert (demo_dir / "client_household.csv").read_text(encoding="utf-8") == original_fixture
+    assert {p.name: p.read_bytes() for p in demo_dir.iterdir()} == original
 
 
 def test_capture_prefers_the_disk_mirror_over_the_db_reader(tmp_path):
-    """config_service.update_config_rows_payload (Save Changes on the Plan
-    Data grid) writes ordinary fields straight to the on-disk CSV mirror and
-    never touches the DB row read_plan_data_file prefers -- if capture used
-    read_plan_data_file, a field edited through the grid during a demo would
-    be silently dropped from the slot. read_plan_data_disk_file must win
-    whenever the context supplies one."""
-    service, active_db, demo_dir, audits, written, materialized, disk_files, sync_calls = _make_service(tmp_path)
+    """A flat file edited through the ordinary UI writes the on-disk copy and never touches the DB
+    row read_plan_data_file prefers -- if capture used read_plan_data_file, an edit made during a
+    demo would be silently dropped from the slot. read_plan_data_disk_file must win whenever the
+    context supplies one."""
+    service, active_db, *_ = _make_service(tmp_path)
     service.open_demo_payload()
 
-    disk_only = {"client_household.csv": "grid-edited household content\n"}
+    disk_only = {"client_holdings.csv": "grid-edited holdings content\n"}
     disk_reader_context = dataclasses.replace(
         service.context, read_plan_data_disk_file=lambda name: disk_only.get(name)
     )
@@ -433,7 +475,7 @@ def test_capture_prefers_the_disk_mirror_over_the_db_reader(tmp_path):
     service_with_disk_reader.restore_current_payload()
 
     slot_dir = active_db.parent / DEMO_SLOT_DIR
-    assert (slot_dir / "client_household.csv").read_text(encoding="utf-8") == "grid-edited household content\n"
+    assert (slot_dir / "client_holdings.csv").read_text(encoding="utf-8") == "grid-edited holdings content\n"
 
 
 def test_plan_routes_wire_reset_demo_endpoint():

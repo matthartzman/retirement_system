@@ -8,8 +8,6 @@ taxonomy, budget, alias, and mapping behavior so the spending model can evolve
 without adding more business logic to route files.
 """
 
-import csv
-import io
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -28,6 +26,9 @@ class SpendingServiceContext:
     read_plan_data_file: ReadPlanDataFn | None = None
     write_plan_data_file: WritePlanDataFn | None = None
     audit: AuditFn | None = None
+    # The plan's sectioned rows (``active_plan.peek_plan_data``); by default the plan file of
+    # ``base_dir`` (its ``plan.rpx``), read without creating anything.
+    plan_data: Callable[[], dict] | None = None
 
 
 class SpendingService:
@@ -57,18 +58,18 @@ class SpendingService:
         path.write_text(content, encoding="utf-8")
         return path
 
+    def _plan_view(self) -> dict:
+        if self.context.plan_data:
+            return self.context.plan_data()
+        from ..active_plan import peek_plan_data
+        return peek_plan_data(self.base_dir)
+
     def core_spending_from_plan(self) -> float:
-        content = self._read_plan_data_file("client_spending.csv")
-        if not content:
-            return 0.0
-        reader = csv.DictReader(io.StringIO(content))
-        for row in reader:
-            if (
-                str(row.get("section", "")).strip() == "Cashflow"
-                and str(row.get("subsection", "")).strip().lower() == "spending"
-                and str(row.get("label", "")).strip() == "annual_spending_base_year"
-            ):
-                raw = str(row.get("value", "") or "").replace(",", "").replace("$", "").strip()
+        """``Cashflow / Spending / annual_spending_base_year`` of the plan's rows (0.0 when
+        absent or not a number)."""
+        for sub, values in self._plan_view().get("Cashflow", {}).items():
+            if str(sub).strip().lower() == "spending" and "annual_spending_base_year" in values:
+                raw = str(values["annual_spending_base_year"] or "").replace(",", "").replace("$", "").strip()
                 try:
                     return float(raw)
                 except ValueError:
@@ -215,15 +216,14 @@ class SpendingService:
         Only used when no line rows exist yet in the unified budget; once a
         real charitable_donations line is saved, this seed is not consulted.
         """
-        content = self._read_plan_data_file("client_spending.csv") or ""
         giving = ""
-        try:
-            for row in csv.DictReader(io.StringIO(content)):
-                if str(row.get("label") or "").strip() == "annual_charitable_giving_high":
-                    giving = str(row.get("value") or "").strip()
+        for subs in self._plan_view().values():
+            for values in subs.values():
+                if "annual_charitable_giving_high" in values:
+                    giving = str(values["annual_charitable_giving_high"] or "").strip()
                     break
-        except Exception:
-            giving = ""
+            if giving:
+                break
         if not giving:
             return None
         return {

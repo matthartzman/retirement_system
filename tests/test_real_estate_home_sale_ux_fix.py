@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.active_plan import PLAN_DB_ENV, sync_active_plan_from_csv
+from src.active_plan import build_plan_file_from_csv_folder, peek_plan_data
 from src.report_compute import build_model_heard_assumptions
 
 
@@ -66,9 +66,9 @@ def test_split_plan_data_sync_preserves_canonical_home_basis_and_re_tax(tmp_path
         f"{retired_duplicate}\n",
         encoding="utf-8",
     )
-    # WP4.2: the sync carries the CSV set into the plan file the engine reads.
-    monkeypatch.setenv(PLAN_DB_ENV, str(tmp_path / "plan.rpx"))
-    sectioned = sync_active_plan_from_csv(input_dir).data
+    # The importer carries the CSV set into the plan file the engine reads (retired rows dropped).
+    build_plan_file_from_csv_folder(tmp_path / "plan.rpx", input_dir)
+    sectioned = peek_plan_data(tmp_path)
 
     assert sectioned["Cashflow"]["Mortgage"]["annual_real_estate_taxes"] == "$17,000"
     assert sectioned["Other Assets"]["Home"]["home_basis"] == "$1,000,000"

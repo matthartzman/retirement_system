@@ -123,7 +123,6 @@ def ws(tmp_path, monkeypatch):
     monkeypatch.setenv("RETIREMENT_SYSTEM_WORKSPACE_ROOT", str(plan.root))
     monkeypatch.delenv("RETIREMENT_SYSTEM_PLAN_DB", raising=False)
     monkeypatch.delenv("RETIREMENT_SYSTEM_CONFIG_FILE", raising=False)
-    monkeypatch.setattr(ac, "CSV_PATH", plan.input_dir / "client_data.csv")
     return plan
 
 
@@ -188,7 +187,6 @@ def test_ensure_rows_skips_a_plan_with_no_rows(tmp_path, monkeypatch):
     import src.server.app_core as ac
     monkeypatch.setenv("RETIREMENT_SYSTEM_WORKSPACE_ROOT", str(tmp_path))
     monkeypatch.delenv("RETIREMENT_SYSTEM_PLAN_DB", raising=False)
-    monkeypatch.setattr(ac, "CSV_PATH", tmp_path / "input" / "client_data.csv")
     ac._ensure_user_ui_plan_data_rows()
     assert not (tmp_path / "input").exists() or not list((tmp_path / "input").glob("client_*.csv"))
 

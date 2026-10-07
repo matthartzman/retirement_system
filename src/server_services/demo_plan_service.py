@@ -61,9 +61,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
-from ..csv_exchange import import_plan_csv_set
+from ..active_plan import build_plan_file_from_csv_folder, ensure_plan_file
 from ..plan_db_replace import PLAN_FILE_TABLES, copy_sqlite_file, replace_active_db, validate_plan_file
-from ..stores import PlanStore
 
 JsonDict = dict[str, Any]
 TEXT_BACKUP_FILES = (
@@ -168,10 +167,7 @@ class DemoPlanService:
         if slot_plan.is_file():
             copy_sqlite_file(slot_plan, dest)
             return "slot"
-        dest.unlink(missing_ok=True)
-        with PlanStore.open(dest) as store:
-            report = import_plan_csv_set(demo_dir, store, drop_never_kept=True)
-        if not report.rows:
+        if not build_plan_file_from_csv_folder(dest, demo_dir):
             raise FileNotFoundError(f"no demo plan rows found in {demo_dir}")
         return "demo"
 
@@ -184,8 +180,7 @@ class DemoPlanService:
             # disk-only text files) before touching anything. If a backup is already present,
             # a demo is already active -- re-applying demo files below must not overwrite
             # any backup.
-            if not plan_db.exists():
-                PlanStore.open(plan_db).close()  # a fresh workspace: an empty plan to back up
+            ensure_plan_file(plan_db)  # a fresh workspace: an empty plan to back up
             copy_sqlite_file(plan_db, backup)
             if dest.exists():
                 self._checkpoint_sqlite(dest)

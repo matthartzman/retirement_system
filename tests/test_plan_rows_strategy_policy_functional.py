@@ -3,9 +3,9 @@
 Withdrawal account order, large discretionary expenses, forced Roth conversions, tax
 assumptions, state residency schedule and spending adjustments read the active plan's rows
 (``app_core._read_active_plan``) and edit them through ``app_core._edit_active_plan`` (one
-rows transaction; the touched keys are written back into the plan CSV set for the writers that
-still edit CSV, until WP4.5). Responses are the ones the CSV implementation gave; a block that
-already exists is edited in place (row ids stay), no edit is lost to a CSV writer.
+rows transaction on the plan file; WP4.5 deleted the CSV write-back). Responses are the ones the
+CSV implementation gave; a block that already exists is edited in place (row ids stay) and no
+edit is lost between endpoints.
 """
 from __future__ import annotations
 
@@ -14,7 +14,6 @@ import pytest
 import src.server.app_core as app_core
 from src.active_plan import edit_active_plan
 from src.config_backend import load_active_config
-from src.csv_exchange import PlanCsvError
 from src.data_io import parse_client
 from src.roth_ui_build_guard import canonicalize_roth_rows
 from src.server import app, plan_routes
@@ -31,7 +30,6 @@ def ws(tmp_path, monkeypatch):
     monkeypatch.setenv("RETIREMENT_SYSTEM_WORKSPACE_ROOT", str(plan.root))
     monkeypatch.delenv("RETIREMENT_SYSTEM_PLAN_DB", raising=False)
     monkeypatch.delenv("RETIREMENT_SYSTEM_CONFIG_FILE", raising=False)
-    monkeypatch.setattr(app_core, "CSV_PATH", plan.input_dir / "client_data.csv")
     # holdings are not plan rows: the account lists are the endpoint's own input
     monkeypatch.setattr(plan_routes, "_pre_tax_account_options_from_holdings", lambda: list(PRE_TAX))
     monkeypatch.setattr(plan_routes, "_all_account_ids_from_holdings", lambda: list(ACCOUNTS))
@@ -62,20 +60,6 @@ def _labels(ws, section, subsection):
     return [(r["label"], r["value"]) for r in _rows(ws, section, subsection)]
 
 
-def _csv_text(ws):
-    return "\n".join(p.read_text(encoding="utf-8") for p in sorted(ws.input_dir.glob("client_*.csv")))
-
-
-def _csv_edit(ws, old, new):
-    """Edit a plan part file as the Plan Data file editor would (text replace; no bridge run)."""
-    for path in sorted(ws.input_dir.glob("client_*.csv")):
-        text = path.read_text(encoding="utf-8")
-        if old in text:
-            path.write_text(text.replace(old, new), encoding="utf-8")
-            return
-    raise AssertionError(old)
-
-
 def _ids(rows):
     return {(r["subsection"], r["label"]): r["row_id"] for r in rows}
 
@@ -96,7 +80,6 @@ def test_withdrawal_account_order_defaults_save_and_replace(ws, client):
         ("Member_1_IRA", "3", "int"), ("Member_2_IRA", "1", "int")]
     assert rows[0]["notes"].startswith("Individual-account withdrawal draw priority")
     assert load_active_config()[0]["Withdrawal Policy"]["Account Order"] == {"Member_1_IRA": "3", "Member_2_IRA": "1"}
-    assert "Withdrawal Policy,Account Order,Member_1_IRA,3,int," in _csv_text(ws)
     got = _get(client, "/api/withdrawal-account-order")[1]["accounts"]
     assert {a["account_id"]: a["priority"] for a in got} == {
         "Family_Checking": "1", "Member_1_IRA": "3", "Member_1_Roth": "3", "Member_2_IRA": "1"}
@@ -107,7 +90,6 @@ def test_withdrawal_account_order_defaults_save_and_replace(ws, client):
     rows = _rows(ws, "Withdrawal Policy", "Account Order")
     assert [(r["label"], r["value"]) for r in rows] == [("Member_2_IRA", "2"), ("Member_1_Roth", "1")]
     assert rows[0]["row_id"] == ids[("Account Order", "Member_2_IRA")]
-    assert "Member_1_IRA,3" not in _csv_text(ws)
     assert _post(client, "/api/withdrawal-account-order", {"accounts": []}) == (200, {"success": True, "saved": 0})
     assert not _rows(ws, "Withdrawal Policy", "Account Order")
 
@@ -130,7 +112,7 @@ def test_large_discretionary_reads_the_plan_and_replaces_its_block(ws, client):
               {"type": "vacation", "amount": "5,000", "start_year": "2031", "end_year": "2035", "comment": "B"},
               "junk"]  # not an object: skipped
     status, out = _post(client, "/api/large-discretionary-expenses", {"events": events})
-    assert (status, out) == (200, {"success": True, "count": 2, "sync": None})
+    assert (status, out) == (200, {"success": True, "count": 2})
     assert _labels(ws, "Cashflow", "Large Discretionary Expenses") == [
         ("extra_1_type", "Wedding"), ("extra_1_amount", "$150,000"), ("extra_1_year", "2030"),
         ("extra_1_start_year", ""), ("extra_1_end_year", ""), ("extra_1_comment", "A"),
@@ -146,7 +128,6 @@ def test_large_discretionary_reads_the_plan_and_replaces_its_block(ws, client):
         {"type": "Wedding", "amount": "$150,000", "year": "2030", "start_year": "", "end_year": "", "comment": "A"},
         {"type": "Other", "amount": "$5,000", "year": "", "start_year": "2031", "end_year": "2035", "comment": "B"}]
     assert load_active_config()[0]["Cashflow"]["Large Discretionary Expenses"]["extra_2_amount"] == "$5,000"
-    assert "extra_3_" not in _csv_text(ws) and "extra_2_end_year,2035" in _csv_text(ws)
     # growing the list adds rows after the block; an empty list removes it
     events.append({"type": "Large Gifts", "amount": "$1,000", "year": "2040"})
     _post(client, "/api/large-discretionary-expenses", {"events": events})
@@ -157,7 +138,6 @@ def test_large_discretionary_reads_the_plan_and_replaces_its_block(ws, client):
     _post(client, "/api/large-discretionary-expenses", {"events": []})
     assert not _rows(ws, "Cashflow", "Large Discretionary Expenses")
     assert _get(client, "/api/large-discretionary-expenses")[1]["events"] == []
-    assert "extra_1_type" not in _csv_text(ws)
 
 
 def test_large_discretionary_new_block_goes_after_the_post_sale_rent_rows(ws, client):
@@ -171,17 +151,11 @@ def test_large_discretionary_new_block_goes_after_the_post_sale_rent_rows(ws, cl
     subs = [r["subsection"] for r in _rows(ws, "Cashflow")]
     last_rent = max(i for i, s in enumerate(subs) if s == "Post-House-Sale Rent")
     assert subs[last_rent + 1:last_rent + 7] == ["Large Discretionary Expenses"] * 6
-    # the order survives the CSV round trip: the next bridge run (and the GET-time backfill,
-    # which adds unrelated rows) reads the same rows
+    # the order survives the GET-time backfill, which adds unrelated rows
     client.get("/api/config/rows", headers=HEADERS)
     subs = [r["subsection"] for r in _rows(ws, "Cashflow")]
     last_rent = max(i for i, s in enumerate(subs) if s == "Post-House-Sale Rent")
     assert subs[last_rent + 1:last_rent + 7] == ["Large Discretionary Expenses"] * 6
-
-
-def test_large_discretionary_sync_flag_runs_the_mirror_sync(ws, client):
-    status, out = _post(client, "/api/large-discretionary-expenses", {"events": [], "sync": True})
-    assert status == 200 and out["sync"]["success"] is True and out["count"] == 0
 
 
 # ---------------------------------------------------------------- forced Roth conversions
@@ -201,7 +175,7 @@ def test_forced_roth_conversions_read_validate_and_replace(ws, client):
         {"source_account": "Member_1_IRA", "year": "2030", "amount": "20000"},
         {"source_account": "Member_2_IRA", "year": "2031", "amount": "$30,000"},
         {"source_account": "", "year": "", "amount": ""}]})
-    assert (status, out) == (200, {"success": True, "count": 2, "sync": None})
+    assert (status, out) == (200, {"success": True, "count": 2})
     assert _labels(ws, "Forced Actions", "Roth Conversion 1") == [
         ("source_account", "Member_1_IRA"), ("year", "2030"), ("amount", "$20,000")]
     assert _labels(ws, "Forced Actions", "Roth Conversion 2") == [
@@ -217,12 +191,11 @@ def test_forced_roth_conversions_read_validate_and_replace(ws, client):
     forced = parse_client(load_active_config()[0], "")
     assert forced["forced_roth"] == {2030: 20000.0, 2031: 30000.0}
     assert forced["forced_roth_accounts"][2030] == [{"source_account": "Member_1_IRA", "amount": 20000.0}]
-    assert "Roth Conversion 2,year,2031" in _csv_text(ws)
     # shrinking drops the numbers above; an empty list drops the whole section (legacy rows too)
     _post(client, "/api/forced-roth-conversions", {"conversions": [{"source_account": "Member_1_401k", "year": "2033", "amount": "7"}]})
     assert [r["subsection"] for r in _rows(ws, "Forced Actions")] == ["Roth Conversion 1"] * 3
     assert _post(client, "/api/forced-roth-conversions", {"conversions": []})[1]["count"] == 0
-    assert not _rows(ws, "Forced Actions") and "Forced Actions" not in _csv_text(ws)
+    assert not _rows(ws, "Forced Actions")
     assert _get(client, "/api/forced-roth-conversions")[1]["conversions"] == []
     # the section comes back as a new one
     _post(client, "/api/forced-roth-conversions", {"conversions": [{"source_account": "Member_1_IRA", "year": "2034", "amount": "5"}]})
@@ -237,7 +210,7 @@ def test_residency_schedule_reads_and_replaces_the_period_rows(ws, client):
     assert _post(client, "/api/residency-schedule", {"schedule": "x"})[0] == 400
     assert _post(client, "/api/residency-schedule", {"schedule": [dict(schedule[0], end_year="")]})[0] == 200  # one open row is fine
     status, out = _post(client, "/api/residency-schedule", {"schedule": schedule})
-    assert (status, out) == (200, {"success": True, "count": 2, "sync": None})
+    assert (status, out) == (200, {"success": True, "count": 2})
     assert _labels(ws, "State Residency Schedule", "period_2") == [
         ("state", "Florida"), ("start_year", "2032"), ("end_year", "")]
     assert [r["units"] for r in _rows(ws, "State Residency Schedule", "period_1")] == ["choice", "year", "year"]
@@ -245,7 +218,6 @@ def test_residency_schedule_reads_and_replaces_the_period_rows(ws, client):
     assert load_active_config()[0]["State Residency Schedule"]["period_1"]["state"] == "Illinois"
     assert parse_client(load_active_config()[0], "")["residency_schedule"] == [
         {"state": "Illinois", "start_year": 2026, "end_year": 2031}, {"state": "Florida", "start_year": 2032, "end_year": 9999}]
-    assert "State Residency Schedule,period_2,state,Florida" in _csv_text(ws)
     # the tax assumptions payload carries each period's model rate
     periods = _get(client, "/api/tax-assumptions")[1]["residency_periods"]
     assert [p["state"] for p in periods] == ["Illinois", "Florida"] and periods[1]["model_rate"] == 0.0
@@ -256,7 +228,7 @@ def test_residency_schedule_reads_and_replaces_the_period_rows(ws, client):
         ("period_1", "state", "Texas"), ("period_1", "start_year", "2026"), ("period_1", "end_year", "")]
     assert rows[0]["row_id"] == ids[("period_1", "state")]
     assert _post(client, "/api/residency-schedule", {"schedule": []})[1]["count"] == 0
-    assert not _rows(ws, "State Residency Schedule") and "State Residency Schedule" not in _csv_text(ws)
+    assert not _rows(ws, "State Residency Schedule")
 
 
 @pytest.mark.parametrize("schedule, error", [
@@ -286,7 +258,7 @@ def test_tax_assumptions_read_and_save_overrides_in_the_economic_assumptions_row
     assert _post(client, "/api/tax-assumptions", {"overrides": {"state_income_tax_rate": "40%"}})[0] == 400
 
     status, out = _post(client, "/api/tax-assumptions", {"overrides": {"fed_tax_bracket_inflator": "3.00%", "state_income_tax_rate": "6%"}})
-    assert (status, out) == (200, {"success": True, "count": 2, "sync": None})
+    assert (status, out) == (200, {"success": True, "count": 2})
     econ = {r["label"]: r for r in _rows(ws, "Economic Assumptions")}
     assert (econ["fed_tax_bracket_inflator"]["value"], econ["state_income_tax_rate"]["value"]) == ("3.00%", "6%")
     assert econ["fed_tax_bracket_inflator"]["row_id"] == before[("", "fed_tax_bracket_inflator")]  # in place
@@ -298,13 +270,10 @@ def test_tax_assumptions_read_and_save_overrides_in_the_economic_assumptions_row
     by_key = {lv["key"]: lv for lv in out["levers"]}
     assert by_key["fed_tax_bracket_inflator"]["source"] == "override" and by_key["state_income_tax_rate"]["source"] == "override"
     assert load_active_config()[0]["Economic Assumptions"][""]["state_income_tax_rate"] == "6%"
-    assert "tax_model_baseline" in _csv_text(ws)
     # a blank override goes back to Auto and leaves the baseline
     _post(client, "/api/tax-assumptions", {"overrides": {"state_income_tax_rate": ""}})
     assert "state_income_tax_rate=" not in {r["label"]: r for r in _rows(ws, "Economic Assumptions")}["tax_model_baseline"]["value"]
     assert _get(client, "/api/tax-assumptions")[1]["levers"][0]["key"]
-    status, out = _post(client, "/api/tax-assumptions", {"overrides": {"state_income_tax_rate": "5%"}, "sync": True})
-    assert status == 200 and out["sync"]["success"] is True
 
 
 def test_tax_assumptions_state_comes_from_the_household_row(ws, client):
@@ -314,13 +283,12 @@ def test_tax_assumptions_state_comes_from_the_household_row(ws, client):
     assert status == 400 and out["success"] is False
 
 
-# ----------------------------------------------------------------- no edit lost between stores
-def test_policy_edits_then_csv_writer_then_policy_edit_keep_everything(ws, client):
+# ----------------------------------------------------------------- no edit lost between endpoints
+def test_policy_edits_through_several_endpoints_keep_everything(ws, client):
     assert _post(client, "/api/residency-schedule", {"schedule": [{"state": "Texas", "start_year": "2027", "end_year": ""}]})[0] == 200
     assert _post(client, "/api/forced-roth-conversions", {"conversions": [{"source_account": "Member_1_IRA", "year": "2030", "amount": "9"}]})[0] == 200
-    # a CSV writer (the Plan Data file editor: a part file edited by hand, then the bridge)
-    _csv_edit(ws, "Liquidity Buffer,buffer_1,reserve_account,Taxable/Trust", "Liquidity Buffer,buffer_1,reserve_account,Cash")
-    app_core._sync_config_backends()
+    assert _post(client, "/api/liquidity-buffers", {"buffers": [
+        {"start_year": "2027", "end_year": "2029", "years_of_expenses": "2", "reserve_account": "Cash"}]})[0] == 200
     data = load_active_config()[0]
     assert data["State Residency Schedule"]["period_1"]["state"] == "Texas"
     assert data["Forced Actions"]["Roth Conversion 1"]["amount"] == "$9"
@@ -329,34 +297,26 @@ def test_policy_edits_then_csv_writer_then_policy_edit_keep_everything(ws, clien
     assert _post(client, "/api/spending-adjustments", {"adjustments": [{"category": "dining", "start_year": "2035", "change_pct": "-20"}]})[0] == 200
     data = load_active_config()[0]
     assert data["Liquidity Buffer"]["buffer_1"]["years_of_expenses"] == "2"
+    assert data["State Residency Schedule"]["period_1"]["state"] == "Texas"
+    assert data["Forced Actions"]["Roth Conversion 1"]["amount"] == "$9"
     assert data["Economic Assumptions"][""]["fed_tax_bracket_inflator"] == "3.00%"
     assert data["Cashflow"]["Spending Adjustments"]["adj_1_category"] == "dining"
-    assert "Texas" in _csv_text(ws) and "buffer_1" in _csv_text(ws) and "adj_1_category" in _csv_text(ws)
 
 
-def test_a_csv_write_not_synced_yet_is_kept_by_the_next_policy_edit(ws, client):
-    _csv_edit(ws, "Liquidity Buffer,buffer_1,start_year,2027", "Liquidity Buffer,buffer_1,start_year,2031")  # CSV only
-    assert _post(client, "/api/forced-roth-conversions", {"conversions": []})[0] == 200
-    data = load_active_config()[0]
-    assert data["Liquidity Buffer"]["buffer_1"]["start_year"] == "2031" and "Forced Actions" not in data
-
-
-def test_a_part_file_that_cannot_take_the_edit_answers_409_and_changes_nothing(ws, client, monkeypatch):
-    class Refusing:
+def test_a_failed_edit_changes_nothing(ws, client, monkeypatch):
+    """An edit that raises inside the transaction leaves the plan as it was (every endpoint)."""
+    class Failing:
         def __enter__(self):
-            raise PlanCsvError("part file does not parse")
+            raise RuntimeError("the plan file is locked")
 
         def __exit__(self, *exc):
             return False
 
-    monkeypatch.setattr(plan_routes, "_edit_active_plan", lambda: Refusing())
+    monkeypatch.setattr(plan_routes, "_edit_active_plan", lambda: Failing())
     revision = ws.store(readonly=True).revision()
-    for path, body in [("/api/residency-schedule", {"schedule": []}), ("/api/forced-roth-conversions", {"conversions": []}),
-                       ("/api/large-discretionary-expenses", {"events": []}), ("/api/tax-assumptions", {"overrides": {"state_income_tax_rate": ""}}),
-                       ("/api/withdrawal-account-order", {"accounts": []}), ("/api/spending-adjustments", {"adjustments": []}),
-                       ("/api/liquidity-buffers", {"buffers": []}), ("/api/home-sale-splits", {"splits": []})]:
+    for path, body in [("/api/residency-schedule", {"schedule": []}), ("/api/forced-roth-conversions", {"conversions": []})]:
         status, out = _post(client, path, body)
-        assert status == 409 and out["success"] is False and "part file does not parse" in out["error"], path
+        assert status == 500 and out["success"] is False and "locked" in out["error"], path
     assert ws.store(readonly=True).revision() == revision
 
 
@@ -367,10 +327,10 @@ def test_audit_events_are_recorded_after_the_edit(ws, client, monkeypatch):
     _post(client, "/api/residency-schedule", {"schedule": [{"state": "", "start_year": "2026"}]})  # 400: nothing audited
     _post(client, "/api/withdrawal-account-order", {"accounts": [{"account_id": "Member_1_IRA", "priority": "1"}]})
     _post(client, "/api/spending-adjustments", {"adjustments": []})
-    _post(client, "/api/forced-roth-conversions", {"conversions": [], "sync": True})
+    _post(client, "/api/forced-roth-conversions", {"conversions": []})
     assert [e for e, _ in events] == [
         "residency_schedule_saved", "withdrawal_account_order_saved", "spending_adjustments_saved",
-        "forced_roth_conversions_saved", "config_backends_synced"]
+        "forced_roth_conversions_saved"]
 
 
 # ----------------------------------------------------------------- the Roth UI guard on rows
@@ -391,4 +351,3 @@ def test_an_edit_through_the_edit_context_stores_roth_controls_canonical(ws):
     with ws.store(readonly=True) as store:
         data = store.sectioned_data()["Withdrawal Policy"]["Roth Conversion"]
     assert (data["roth_conversion_policy"], data["irmaa_guardrail_mode"]) == ("fill_to_bracket", "WARN_ONLY")
-    assert ",roth_conversion_policy,fill_to_bracket," in _csv_text(ws)

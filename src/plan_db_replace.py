@@ -87,12 +87,11 @@ def validate_plan_file(path: Path) -> str | None:
     """``replace_active_db``'s ``validate`` hook for a plan file: the file must open as a
     ``PlanStore`` (right application id, a schema version this code can use; an older plan
     is upgraded in place, the incoming temp copy only). Returns an error message or None."""
-    from .stores import PlanStore  # noqa: PLC0415 - keep this module import-light
-    from .stores.errors import StoreError  # noqa: PLC0415
+    from .stores import PlanStore
 
     try:
         PlanStore.open(path, create=False).close()
-    except StoreError as exc:
+    except Exception as exc:  # noqa: BLE001 - a StoreError, or any sqlite error on a file that is no database
         return f"The selected file is not a usable plan file: {exc}"
     return None
 

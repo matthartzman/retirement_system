@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date
 
 from src import ytd_tracking as ytd
+from tests.plan_fixture import stage_plan_csv
 from src.ytd_projection_blend import compute_current_year_overrides
 from src.planning_engines import apply_end_of_year_growth
 
@@ -49,20 +50,19 @@ def test_remaining_fraction_matches_elapsed_days(tmp_path):
 
 
 def test_ytd_data_present_blends_actual_earned_income_and_spending(tmp_path):
-    (tmp_path / 'client_spending.csv').write_text(
+    inp = stage_plan_csv(tmp_path, {'client_spending.csv': (
         'section,subsection,label,value,units,notes\n'
-        'Cashflow,Spending,annual_spending_base_year,"$120,000",,\n',
-        encoding='utf-8',
-    )
+        'Cashflow,Spending,annual_spending_base_year,"$120,000",,\n'
+    )})
     tx = (
         'Date,Merchant,Category,Account,Original Statement,Notes,Amount,Tags,Owner\n'
         '2026-02-01,Employer,Paychecks,Checking,Bank,,50000,,Household\n'
         '2026-02-01,Grocery,Groceries,Checking,Bank,,-40000,,Household\n'
     )
-    ytd.import_transactions(tmp_path, tx, mode='replace', today=date(2026, 7, 2))
+    ytd.import_transactions(inp, tx, mode='replace', today=date(2026, 7, 2))
 
     c = _minimal_config()
-    overrides = compute_current_year_overrides(c, tmp_path, today=date(2026, 7, 2))
+    overrides = compute_current_year_overrides(c, inp, today=date(2026, 7, 2))
 
     assert overrides['ytd_blend_applied']['flows_blended'] is True
     # Earned income: actual so far + remaining plan estimate for the rest of
@@ -77,23 +77,22 @@ def test_ytd_data_present_blends_actual_earned_income_and_spending(tmp_path):
 
 
 def test_manual_remainder_overrides_replace_linear_proration(tmp_path):
-    (tmp_path / 'client_spending.csv').write_text(
+    inp = stage_plan_csv(tmp_path, {'client_spending.csv': (
         'section,subsection,label,value,units,notes\n'
-        'Cashflow,Spending,annual_spending_base_year,"$120,000",,\n',
-        encoding='utf-8',
-    )
+        'Cashflow,Spending,annual_spending_base_year,"$120,000",,\n'
+    )})
     tx = (
         'Date,Merchant,Category,Account,Original Statement,Notes,Amount,Tags,Owner\n'
         '2026-02-01,Employer,Paychecks,Checking,Bank,,50000,,Household\n'
         '2026-02-01,Grocery,Groceries,Checking,Bank,,-40000,,Household\n'
     )
-    ytd.import_transactions(tmp_path, tx, mode='replace', today=date(2026, 7, 2))
+    ytd.import_transactions(inp, tx, mode='replace', today=date(2026, 7, 2))
 
     c = _minimal_config(
         ytd_remainder_earned_income_override=9999.0,
         ytd_remainder_spending_override=5555.0,
     )
-    overrides = compute_current_year_overrides(c, tmp_path, today=date(2026, 7, 2))
+    overrides = compute_current_year_overrides(c, inp, today=date(2026, 7, 2))
 
     # actual (50000/40000) + the explicit override, not the computed estimate.
     assert overrides['ytd_blend_earned_override'][2026] == 50000.0 + 9999.0
@@ -105,16 +104,15 @@ def test_manual_remainder_overrides_replace_linear_proration(tmp_path):
 def test_blank_remainder_overrides_keep_linear_proration_behavior(tmp_path):
     """None (the default when a plan doesn't set these fields) must not be
     mistaken for an explicit override of 0."""
-    (tmp_path / 'client_spending.csv').write_text(
+    inp = stage_plan_csv(tmp_path, {'client_spending.csv': (
         'section,subsection,label,value,units,notes\n'
-        'Cashflow,Spending,annual_spending_base_year,"$120,000",,\n',
-        encoding='utf-8',
-    )
+        'Cashflow,Spending,annual_spending_base_year,"$120,000",,\n'
+    )})
     tx = 'Date,Merchant,Category,Account,Original Statement,Notes,Amount,Tags,Owner\n2026-02-01,Employer,Paychecks,Checking,Bank,,50000,,Household\n'
-    ytd.import_transactions(tmp_path, tx, mode='replace', today=date(2026, 7, 2))
+    ytd.import_transactions(inp, tx, mode='replace', today=date(2026, 7, 2))
 
     c = _minimal_config(ytd_remainder_earned_income_override=None, ytd_remainder_spending_override=None)
-    overrides = compute_current_year_overrides(c, tmp_path, today=date(2026, 7, 2))
+    overrides = compute_current_year_overrides(c, inp, today=date(2026, 7, 2))
 
     assert 'earned_remainder_overridden' not in overrides['ytd_blend_applied']
     assert 'spend_remainder_overridden' not in overrides['ytd_blend_applied']
@@ -125,20 +123,19 @@ def test_ytd_blend_enabled_false_skips_flow_blend_but_keeps_growth_proration(tmp
     the always-on growth/contribution date proration - only the flow
     (earned income/spending) blend, which pulls in real workspace data, is
     suppressed."""
-    (tmp_path / 'client_spending.csv').write_text(
+    inp = stage_plan_csv(tmp_path, {'client_spending.csv': (
         'section,subsection,label,value,units,notes\n'
-        'Cashflow,Spending,annual_spending_base_year,"$120,000",,\n',
-        encoding='utf-8',
-    )
+        'Cashflow,Spending,annual_spending_base_year,"$120,000",,\n'
+    )})
     tx = (
         'Date,Merchant,Category,Account,Original Statement,Notes,Amount,Tags,Owner\n'
         '2026-02-01,Employer,Paychecks,Checking,Bank,,50000,,Household\n'
         '2026-02-01,Grocery,Groceries,Checking,Bank,,-40000,,Household\n'
     )
-    ytd.import_transactions(tmp_path, tx, mode='replace', today=date(2026, 7, 2))
+    ytd.import_transactions(inp, tx, mode='replace', today=date(2026, 7, 2))
 
     c = _minimal_config(ytd_blend_enabled=False)
-    overrides = compute_current_year_overrides(c, tmp_path, today=date(2026, 7, 2))
+    overrides = compute_current_year_overrides(c, inp, today=date(2026, 7, 2))
 
     # Growth/contribution proration is unaffected by this setting.
     assert 2026 in overrides['return_by_year']
@@ -221,19 +218,18 @@ def test_spend_blend_without_taxonomy_falls_back_to_unscoped_legacy_behavior(tmp
     """Plans with no spending taxonomy have nothing to scope with: the blend
     keeps the legacy behavior (all tracked spending + legacy core plan field)
     and says so in the meta."""
-    (tmp_path / 'client_spending.csv').write_text(
+    inp = stage_plan_csv(tmp_path, {'client_spending.csv': (
         'section,subsection,label,value,units,notes\n'
-        'Cashflow,Spending,annual_spending_base_year,"$120,000",,\n',
-        encoding='utf-8',
-    )
+        'Cashflow,Spending,annual_spending_base_year,"$120,000",,\n'
+    )})
     tx = (
         'Date,Merchant,Category,Account,Original Statement,Notes,Amount,Tags,Owner\n'
         '2026-02-01,Grocery,Groceries,Checking,Bank,,-40000,,Household\n'
     )
-    ytd.import_transactions(tmp_path, tx, mode='replace', today=date(2026, 7, 2))
+    ytd.import_transactions(inp, tx, mode='replace', today=date(2026, 7, 2))
 
     c = _minimal_config()
-    overrides = compute_current_year_overrides(c, tmp_path, today=date(2026, 7, 2))
+    overrides = compute_current_year_overrides(c, inp, today=date(2026, 7, 2))
     assert overrides['ytd_blend_applied']['spend_scope'] == 'all_spending_no_taxonomy'
     assert 40000.0 <= overrides['ytd_blend_spend_override'][2026] < 120000.0
 

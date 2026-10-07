@@ -463,12 +463,13 @@ def test_error_hierarchy_and_db_compat():
 
 def test_product_code_reaches_the_plan_store_only_through_the_active_plan_module():
     """WP3 switched product code to the read-only reference getters. WP4.2 gave PlanStore
-    its first consumers: the active plan accessor (src/active_plan.py) and the at-rest
-    row migration of a plan file (src/plan_data_migration.py). Everything else goes
-    through src/active_plan.py. AppStore and the db helpers stay unused until WP8."""
+    its first consumers: the active plan accessor (src/active_plan.py), the at-rest
+    row migration of a plan file (src/plan_data_migration.py) and the plan file replace
+    validation (src/plan_db_replace.py). Everything else goes through src/active_plan.py. AppStore and the db helpers stay unused until WP8."""
     pat = re.compile(r"^\s*(from\s+(src\.stores|\.+stores)(\.\w+)?\s+import\s+[^\n]+|import\s+src\.stores\b[^\n]*)", re.M)
     allowed = ("ref_getters", "ref_access", "ref_data")
-    plan_store_users = {"src/active_plan.py", "src/plan_data_migration.py"}
+    # plan_db_replace opens a candidate plan file as a PlanStore to validate it before a swap (WP4.5)
+    plan_store_users = {"src/active_plan.py", "src/plan_data_migration.py", "src/plan_db_replace.py"}
     offenders = []
     for f in (ROOT / "src").rglob("*.py"):
         if f.relative_to(ROOT / "src").parts[:1] == ("stores",):

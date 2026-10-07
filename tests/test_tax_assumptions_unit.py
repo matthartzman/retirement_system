@@ -211,7 +211,7 @@ class DriftAndSaveTests(unittest.TestCase):
                 body, status = svc.save_tax_assumptions_payload(
                     {"overrides": {"fed_tax_bracket_inflator": "3.00%", "state_income_tax_rate": "6%"}})
                 self.assertEqual(status, 200, body)
-                self.assertEqual(body, {"success": True, "count": 2, "sync": None})
+                self.assertEqual(body, {"success": True, "count": 2})
                 by_label = {r["label"]: r for r in store.rows("Economic Assumptions")}
                 self.assertEqual(by_label["fed_tax_bracket_inflator"]["value"], "3.00%")
                 # an existing row keeps its id; a new one goes to the end of the section

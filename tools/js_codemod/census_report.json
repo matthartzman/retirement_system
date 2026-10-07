@@ -191,11 +191,8 @@
     "LIABILITY_HEADER",
     "PERSON_TABLE_LABELS",
     "PERSON_VALUE_TOKEN_RE",
-    "PLAN_DATA_FILES",
-    "PROTECTED_CLIENT_DATA_KEYS",
     "RECOMMENDATION_ENGINE_VERSION",
     "RECOMMENDATION_STEP_IDS",
-    "REQUIRED_PLAN_DATA_FILES",
     "ROTH_ENGINE_LABELS",
     "ROTH_IRMAA_LABELS",
     "ROTH_LEGACY_LABELS",
@@ -286,9 +283,6 @@
     "moduleStatus",
     "navSearchText",
     "planChatMessages",
-    "planFileNames",
-    "planFolderHandle",
-    "planFolderName",
     "planLoaded",
     "planSource",
     "planningLeverInputs",
@@ -346,11 +340,8 @@
     "LIABILITY_HEADER",
     "PERSON_TABLE_LABELS",
     "PERSON_VALUE_TOKEN_RE",
-    "PLAN_DATA_FILES",
-    "PROTECTED_CLIENT_DATA_KEYS",
     "RECOMMENDATION_ENGINE_VERSION",
     "RECOMMENDATION_STEP_IDS",
-    "REQUIRED_PLAN_DATA_FILES",
     "ROTH_ENGINE_LABELS",
     "ROTH_IRMAA_LABELS",
     "ROTH_LEGACY_LABELS",
@@ -1927,18 +1918,6 @@
       "name": "lastBuildSummary",
       "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
       "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "planFolderHandle",
-      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "planFolderName",
-      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
-      "kind": "assign",
       "scope": "inside-function"
     },
     {
@@ -3791,6 +3770,12 @@
     },
     {
       "name": "rows",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "moduleGates",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
       "scope": "inside-function"
@@ -6256,18 +6241,6 @@
       "scope": "inside-function"
     },
     {
-      "name": "PLAN_DATA_FILES",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "REQUIRED_PLAN_DATA_FILES",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
       "name": "dirty",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
@@ -6547,12 +6520,6 @@
       "name": "renderMain",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "call",
-      "scope": "inside-function"
-    },
-    {
-      "name": "planFolderHandle",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
       "scope": "inside-function"
     },
     {
@@ -8212,30 +8179,6 @@
       "scope": "inside-function"
     },
     {
-      "name": "PROTECTED_CLIENT_DATA_KEYS",
-      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "rows",
-      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "PROTECTED_CLIENT_DATA_KEYS",
-      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "rows",
-      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
       "name": "liabilitiesText",
       "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
       "kind": "assign",
@@ -9028,48 +8971,6 @@
       "scope": "inside-function"
     },
     {
-      "name": "PLAN_DATA_FILES",
-      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "planFolderHandle",
-      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "planFolderHandle",
-      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "planFolderHandle",
-      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "planFolderHandle",
-      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "PLAN_DATA_FILES",
-      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "planFolderHandle",
-      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
       "name": "rows",
       "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
       "kind": "read",
@@ -9648,11 +9549,8 @@
     "IRMAA_OFF_MODES",
     "LIABILITY_HEADER",
     "PERSON_VALUE_TOKEN_RE",
-    "PLAN_DATA_FILES",
-    "PROTECTED_CLIENT_DATA_KEYS",
     "RECOMMENDATION_ENGINE_VERSION",
     "RECOMMENDATION_STEP_IDS",
-    "REQUIRED_PLAN_DATA_FILES",
     "ROTH_WINDOW_LABELS",
     "SCENARIO_SET_STORAGE_KEY",
     "STEPS",
@@ -9732,8 +9630,6 @@
     "moduleStatus",
     "navSearchText",
     "planChatMessages",
-    "planFolderHandle",
-    "planFolderName",
     "planLoaded",
     "planSource",
     "planningLeverInputs",

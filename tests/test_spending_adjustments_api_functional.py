@@ -16,7 +16,6 @@ def ws(tmp_path, monkeypatch):
     monkeypatch.setenv("RETIREMENT_SYSTEM_WORKSPACE_ROOT", str(plan.root))
     monkeypatch.delenv("RETIREMENT_SYSTEM_PLAN_DB", raising=False)
     monkeypatch.delenv("RETIREMENT_SYSTEM_CONFIG_FILE", raising=False)
-    monkeypatch.setattr(app_core, "CSV_PATH", plan.input_dir / "client_data.csv")
     return plan
 
 
@@ -36,9 +35,8 @@ def test_add_edit_delete_round_trip(ws):
     assert client.get("/api/spending-adjustments").get_json()["adjustments"] == rows
     assert load_adjustments(_cashflow(ws)) == [
         Adjustment("dining", 2035, None, -0.20), Adjustment("ALL:Travel", 2038, 2045, -0.50)]
-    # Other rows untouched; the new rows are in the plan CSV set too (write-back).
+    # Other rows untouched.
     assert _cashflow(ws)["Mortgage"] == mortgage
-    assert "adj_2_change_pct" in (ws.input_dir / "client_spending.csv").read_text(encoding="utf-8")
 
     # Edit + delete: post the shortened list; stale adj_2_* rows are removed. The edited row keeps its id.
     with ws.store(readonly=True) as store:
@@ -52,7 +50,6 @@ def test_add_edit_delete_round_trip(ws):
 
     client.post("/api/spending-adjustments", json={"adjustments": []}, headers=HEADERS)
     assert "Spending Adjustments" not in _cashflow(ws)
-    assert "adj_1_" not in (ws.input_dir / "client_spending.csv").read_text(encoding="utf-8")
 
 
 @pytest.mark.parametrize("bad", [

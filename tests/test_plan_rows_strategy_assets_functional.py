@@ -1,9 +1,8 @@
 """WP4.4a: the asset, estate, insurance and seed endpoints read and write ``plan_rows``.
 
 Each endpoint edits the active plan's rows through ``app_core._edit_active_plan`` (one rows
-transaction; the touched keys are written back into the plan CSV set for the writers that still
-edit CSV, until WP4.5). The responses are the ones the CSV implementation gave. No edit is lost
-to a CSV writer, and a CSV write not synced yet is kept by these endpoints.
+transaction on the plan file; WP4.5 deleted the CSV write-back). The responses are the ones the
+CSV implementation gave, and no edit is lost between endpoints.
 """
 from __future__ import annotations
 
@@ -11,7 +10,6 @@ import pytest
 
 import src.server.app_core as app_core
 from src.config_backend import load_active_config
-from src.csv_exchange import PlanCsvError
 from src.server import app, plan_routes
 from src.server_services.strategy_asset_service import (HEALTHCARE_OOP_SEED_ROWS, HOUSING_SEED_ROWS,
                                                          LIFE_ILLUSTRATION_SECTIONS)
@@ -27,7 +25,6 @@ def ws(tmp_path, monkeypatch):
     monkeypatch.setenv("RETIREMENT_SYSTEM_WORKSPACE_ROOT", str(plan.root))
     monkeypatch.delenv("RETIREMENT_SYSTEM_PLAN_DB", raising=False)
     monkeypatch.delenv("RETIREMENT_SYSTEM_CONFIG_FILE", raising=False)
-    monkeypatch.setattr(app_core, "CSV_PATH", plan.input_dir / "client_data.csv")
     return plan
 
 
@@ -54,12 +51,8 @@ def _subs(ws, section):
     return out
 
 
-def _csv_text(ws):
-    return "\n".join(p.read_text(encoding="utf-8") for p in sorted(ws.input_dir.glob("client_*.csv")))
-
-
 def _drop(ws, section, subsection=None):
-    """Delete rows through the same edit context the endpoints use (leaves the CSV set in step)."""
+    """Delete rows through the same edit context the endpoints use."""
     with app_core._edit_active_plan() as edit:
         for r in edit.store.rows(section):
             if subsection is None or r["subsection"] == subsection:
@@ -77,8 +70,7 @@ def test_add_other_asset_adds_the_seven_rows_and_numbers_after_the_highest(ws, c
     assert [r["value"] for r in rows][:3] == ["Boat", "Boat", "$0"]
     assert [r["units"] for r in rows][:3] == ["choice", "text", "dollars"]
     assert _subs(ws, "Other Assets") == [*before, f"Other Asset {n}"]
-    # the plan CSV set carries it (write-back) and the build input sees it
-    assert f"Other Asset {n}" in _csv_text(ws)
+    # the build input sees it
     assert load_active_config()[0]["Other Assets"][f"Other Asset {n}"]["type"] == "Boat"
     status, out = _post(client, "/api/other-asset/add")  # the default type
     assert out["section"] == f"Other Asset {n + 1}" and out["message"] == "Added Auto other asset."
@@ -94,7 +86,6 @@ def test_delete_other_asset_validates_then_removes_only_that_section(ws, client)
     status, out = _post(client, "/api/other-asset/delete", {"subsection": "Other Asset 2"})
     assert status == 200 and out["rows_removed"] == len(target) and out["message"] == "Deleted Other Asset 2."
     assert _subs(ws, "Other Assets") == [s for s in others if s != "Other Asset 2"]
-    assert "Other Asset 2," not in _csv_text(ws)
     assert "Other Asset 2" not in load_active_config()[0]["Other Assets"]
 
 
@@ -141,8 +132,6 @@ def test_add_estate_state_goes_before_the_gifting_rows_and_is_idempotent(ws, cli
         "state_estate_exemption", "state_estate_tax_applies", "state_estate_rate_note"]
     after = _subs(ws, "Estate Planning")
     assert after == [*before[:before.index("Gifting")], "New York", *before[before.index("Gifting"):]]
-    csv_text = _csv_text(ws)
-    assert csv_text.index("Estate Planning,New York,") < csv_text.index("Estate Planning,Gifting,")
     revision = ws.store(readonly=True).revision()
     status, out = _post(client, "/api/estate-state/add", {"state": "New York"})
     assert (status, out["message"]) == (200, "New York already exists in Estate Information.")
@@ -167,7 +156,7 @@ def test_add_trust_account_numbers_and_places_the_rows(ws, client):
     assert _rows(ws, "Estate Planning", "Trust Account 2")[1]["value"] == "Revocable"
     subs = _subs(ws, "Estate Planning")
     assert subs[subs.index("Trust Account 1") + 1] == "Trust Account 2" and subs[subs.index("Trust Account 2") + 1] == "Gifting"
-    # the order survives the CSV round trip (the next bridge run reads the same rows)
+    # the order is the stored order the grid GET serves
     client.get("/api/config/rows", headers=HEADERS)
     assert _subs(ws, "Estate Planning") == subs
 
@@ -215,7 +204,6 @@ def test_delete_insurance_policy_validates_and_removes_the_section(ws, client):
     assert status == 200 and out["rows_removed"] >= count > 0
     assert out["message"] == "Deleted insurance policy Life_Term_Matthew."
     assert "Life_Term_Matthew" not in load_active_config()[0]["Insurance In Force"]
-    assert "Life_Term_Matthew" not in _csv_text(ws)
 
 
 # ------------------------------------------------------------------------- seed rows
@@ -242,49 +230,22 @@ def test_seed_housing_and_healthcare_add_only_the_missing_keys(ws, client):
     assert load_active_config()[0]["Wellness"]["Out-of-Pocket"]["medical_annual"] == "$1,234"
 
 
-# ------------------------------------------------- no edit lost between the two stores
+# ------------------------------------------------------ no edit lost between endpoints
 def _buffer_1():
     return load_active_config()[0].get("Liquidity Buffer", {}).get("buffer_1", {})
 
 
-def test_row_edit_then_csv_writer_then_row_edit_keeps_everything(ws, client):
+def test_edits_through_several_endpoints_keep_everything(ws, client):
     status, added = _post(client, "/api/note-receivable/add", {"name": "Seller Note"})
     assert status == 200
-    # a still-CSV writer of the same part file (read-modify-write, then the bridge)
-    resp = client.post("/api/liquidity-buffers", headers=HEADERS, json={"buffers": BUFFERS, "sync": True})
+    resp = client.post("/api/liquidity-buffers", headers=HEADERS, json={"buffers": BUFFERS})
     assert resp.status_code == 200
     assert load_active_config()[0]["Note Receivable"][added["section"]]["name"] == "Seller Note"
     assert _buffer_1()["reserve_account"] == "Cash"
-    # and a row-store endpoint keeps the CSV writer's rows
     status, trust = _post(client, "/api/trust-account/add", {"account_name": "T"})
     assert status == 200
     assert _buffer_1()["years_of_expenses"] == "2"
     assert load_active_config()[0]["Estate Planning"][trust["section"]]["account_name"] == "T"
-    assert added["section"] in _csv_text(ws) and "buffer_1" in _csv_text(ws)
-
-
-def test_a_csv_write_not_synced_yet_is_kept_by_the_next_endpoint_edit(ws, client):
-    resp = client.post("/api/liquidity-buffers", headers=HEADERS, json={"buffers": BUFFERS})  # no sync: CSV only
-    assert resp.status_code == 200
-    status, out = _post(client, "/api/education-529/add")
-    assert status == 200
-    assert _buffer_1()["start_year"] == "2031"
-    assert out["section"] in load_active_config()[0]["Education Funding"]
-
-
-def test_a_part_file_that_cannot_take_the_edit_answers_409_and_changes_nothing(ws, client, monkeypatch):
-    class Refusing:
-        def __enter__(self):
-            raise PlanCsvError("part file does not parse")
-
-        def __exit__(self, *exc):
-            return False
-
-    monkeypatch.setattr(plan_routes, "_edit_active_plan", lambda: Refusing())
-    revision = ws.store(readonly=True).revision()
-    status, out = _post(client, "/api/other-asset/add", {"asset_type": "Art"})
-    assert status == 409 and out["success"] is False and "part file does not parse" in out["error"]
-    assert ws.store(readonly=True).revision() == revision
 
 
 def test_audit_events_are_recorded_after_the_edit(ws, client, monkeypatch):

@@ -203,7 +203,7 @@ class ResidencyScheduleServiceValidationTests(unittest.TestCase):
             {"state": "Florida", "start_year": "2032", "end_year": ""},
         ])
         self.assertEqual(status, 200)
-        self.assertEqual(payload, {"success": True, "count": 2, "sync": None})
+        self.assertEqual(payload, {"success": True, "count": 2})
         self.assertEqual(rows, [
             ("period_1", "state", "Illinois"), ("period_1", "start_year", "2026"), ("period_1", "end_year", "2031"),
             ("period_2", "state", "Florida"), ("period_2", "start_year", "2032"), ("period_2", "end_year", ""),

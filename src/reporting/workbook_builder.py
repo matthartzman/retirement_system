@@ -84,9 +84,8 @@ def _build_plan_input_fingerprint(base_dir, config_meta):
     h = _hashlib.sha256()
     plan_db = (config_meta or {}).get("plan_db")
     if plan_db and _Path(str(plan_db)).is_file():
-        from ..stores import PlanStore as _PlanStore
-        with _PlanStore.open(str(plan_db), create=False, readonly=True) as _store:
-            revision, row_count = _store.revision(), len(_store.all_rows())
+        from ..active_plan import plan_file_fingerprint as _plan_file_fingerprint
+        revision, row_count = _plan_file_fingerprint(plan_db)
         files.append({"file": "plan_rows", "sha256": revision, "bytes": row_count})
         h.update(b"plan_rows\0"); h.update(revision.encode("ascii")); h.update(b"\0")
     for name in flat_names:

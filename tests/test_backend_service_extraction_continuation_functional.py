@@ -1,5 +1,4 @@
 from pathlib import Path
-import sqlite3
 
 from src.build_snapshot import sha256_file, write_build_snapshot
 
@@ -39,7 +38,7 @@ def test_plan_routes_delegate_ytd_and_plan_file_logic_to_services():
 def test_plan_file_service_has_load_file_safety_contracts():
     text = Path("src/server_services/plan_file_service.py").read_text(encoding="utf-8")
     assert "Saved plan file not found" in text
-    assert "retirement_system_v10.db.before_load_" in text
+    assert ".before_load_" in text
     assert "wal_checkpoint(FULL)" in text
     assert "wal_checkpoint(TRUNCATE)" in text
     assert "-wal" in text and "-shm" in text
@@ -47,22 +46,18 @@ def test_plan_file_service_has_load_file_safety_contracts():
 
 
 def _make_db(path: Path, marker: str) -> None:
+    """A plan file (``PlanStore``) holding one marker row: snapshots and Load operate on it."""
+    from src.stores import PlanStore
+
     path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(path))
-    try:
-        conn.execute("CREATE TABLE IF NOT EXISTS client_files(file_name TEXT PRIMARY KEY, content TEXT)")
-        conn.execute("CREATE TABLE IF NOT EXISTS marker (value TEXT)")
-        conn.execute("DELETE FROM marker")
-        conn.execute("INSERT INTO marker(value) VALUES (?)", (marker,))
-        conn.commit()
-    finally:
-        conn.close()
+    with PlanStore.open(path) as store:
+        store.set_value("Marker", "", "value", marker)
 
 
 def test_plan_file_service_owns_snapshot_compare_and_restore(tmp_path):
     from src.server_services.plan_file_service import PlanFileService, PlanFileServiceContext
 
-    active_db = tmp_path / "local_state" / "retirement_system_v10.db"
+    active_db = tmp_path / "plan.rpx"
     source_db = tmp_path / "snapshot_source.rpx"
     output = tmp_path / "output"
     audits = []
@@ -71,7 +66,8 @@ def test_plan_file_service_owns_snapshot_compare_and_restore(tmp_path):
     write_build_snapshot(output, build_id="phase3", sqlite_db_path=source_db, output_files=[])
 
     service = PlanFileService(PlanFileServiceContext(
-        sqlite_db=lambda: active_db,
+        sqlite_db=lambda: tmp_path / "local_state" / "retirement_system_v10.db",
+        plan_db=lambda: active_db,
         audit=lambda event, payload: audits.append((event, payload)),
         output_dir=lambda: output,
     ))

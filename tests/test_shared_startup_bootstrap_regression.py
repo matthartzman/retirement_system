@@ -2,8 +2,8 @@
 the local-mode environment-variable defaults were maintained in three
 separately-drifting copies (main.py, tools/launchers/START_DESKTOP.py,
 src/desktop_api.py -- the last already missing
-CONFIG_FILE/OUTPUT_DIR/JSON_CONFIG_FILE/YAML_CONFIG_FILE relative to the
-other two), and the at-rest Plan Data migration ran only from main.py --
+OUTPUT_DIR relative to the other two; WP4.5 later deleted the CONFIG_FILE /
+JSON_CONFIG_FILE / YAML_CONFIG_FILE defaults with the plan CSV mirrors), and the at-rest Plan Data migration ran only from main.py --
 so launching via the desktop shortcut or START_APP.bat (both of which run
 START_DESKTOP.py, not main.py) never migrated legacy flat category ids in
 budget/rules/alias files.
@@ -35,9 +35,6 @@ _EXPECTED_ENV_DEFAULTS = (
     "RETIREMENT_SYSTEM_FORCE_HTTPS",
     "RETIREMENT_SYSTEM_REVERSE_PROXY_ENABLED",
     "RETIREMENT_SYSTEM_PUBLIC_BASE_URL",
-    "RETIREMENT_SYSTEM_CONFIG_FILE",
-    "RETIREMENT_SYSTEM_JSON_CONFIG_FILE",
-    "RETIREMENT_SYSTEM_YAML_CONFIG_FILE",
     "RETIREMENT_SYSTEM_OUTPUT_DIR",
 )
 

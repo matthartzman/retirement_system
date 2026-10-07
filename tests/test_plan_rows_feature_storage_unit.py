@@ -1,9 +1,10 @@
-"""WP4.1: feature switches and the plan tier are ordinary plan_rows settings.
+"""WP4.1 / WP4.5: feature switches and the plan tier are ordinary plan_rows settings.
 
-Pins the storage contract WP4.5 moves ``_read_switch`` / ``_write_switch`` onto (their
-internals are unchanged here): every switch the fixtures store sits in the row
-``module_catalog.feature_row_key`` names, and reading that row with the parser's own boolean
-rule gives the switch ``parse_client`` stores today.
+Pins the storage contract ``_read_switch`` / ``_write_switch`` work on: every switch the fixtures
+store sits in the row ``module_catalog.feature_row_key`` names, and reading that row with the
+parser's own boolean rule gives the switch ``parse_client`` stores. Since WP4.5 the same two
+functions read and write those rows when handed an open ``PlanStore`` (``set_feature`` /
+``feature_enabled``), in one transaction.
 """
 from __future__ import annotations
 
@@ -84,3 +85,58 @@ def test_tier_row_is_an_ordinary_setting_the_engine_ignores(tmp_path):
     with ws.store() as store:
         store.set_value(*mc.feature_row_key("heloc"), mc.SWITCH_OFF)
     assert pf.plain(parse_client(ws.store_data(), "", skip_live_pricing=True)) == pf.plain(before)
+
+
+# ----------------------------------------------------------------- WP4.5: the rows themselves
+def test_feature_enabled_reads_the_rows_of_an_open_plan(tmp_path):
+    ws = pf.make_plan(tmp_path)
+    parsed = parse_client(ws.store_data(), "", skip_live_pricing=True)
+    with ws.store() as store:
+        for key, _row in _own_switches():
+            # the rows answer what the parsed config answers (stored switches, default_on otherwise)
+            assert mc.feature_enabled(store, key) == mc.feature_enabled(parsed, key), key
+            stored = mc._read_switch(store, key)
+            if stored is not None:  # a stored row is what the parser stored (a flag with no row parses as off)
+                assert stored == mc._read_switch(parsed, key), key
+
+
+def test_set_feature_writes_the_named_row_in_one_transaction(tmp_path):
+    ws = pf.make_plan(tmp_path)
+    key = "planning_workbench"  # a rowless WP1.3 page: no row until it is flipped
+    with ws.store() as store:
+        row = mc.feature_row_key(key)
+        assert not store.find_rows(*row) and mc.feature_enabled(store, key) is True
+        mc.set_feature(store, key, False)
+        (stored,) = store.find_rows(*row)
+        assert stored["value"] == mc.SWITCH_OFF and mc.feature_enabled(store, key) is False
+        mc.set_feature(store, key, True)  # updated in place
+        assert [r["row_id"] for r in store.find_rows(*row)] == [stored["row_id"]]
+        assert store.find_rows(*row)[0]["value"] == mc.SWITCH_ON
+        # a plan flag writes its own row; reading follows the parser's rule (default off)
+        assert mc.feature_enabled(store, "heloc") is False
+        mc.set_feature(store, "heloc", True)
+        assert store.find_rows("HELOC", "Setup", "heloc_enabled")[0]["value"] == "TRUE" and mc.feature_enabled(store, "heloc")
+    # persisted: the parsed config of the same plan reads the same
+    parsed = parse_client(ws.store_data(), "", skip_live_pricing=True)
+    assert parsed["heloc_enabled"] is True and mc.feature_enabled(parsed, key) is True
+
+
+def test_set_feature_on_a_store_rolls_back_with_the_enclosing_transaction(tmp_path):
+    ws = pf.make_plan(tmp_path)
+    with ws.store() as store:
+        with pytest.raises(RuntimeError):
+            with store.transaction():
+                mc.set_feature(store, "planning_workbench", False)
+                raise RuntimeError("boom")
+        assert not store.find_rows(*mc.feature_row_key("planning_workbench"))
+
+
+def test_set_feature_still_refuses_features_without_a_switch_of_their_own(tmp_path):
+    ws = pf.make_plan(tmp_path)
+    core = next(k for k, m in mc.CATALOG.items() if m.gate_kind == mc.GATE_MODULE_TOGGLE and not m.optional)
+    with ws.store() as store:
+        with pytest.raises(ValueError, match="always-on core"):
+            mc.set_feature(store, core, False)
+        with pytest.raises(KeyError):
+            mc.set_feature(store, "no_such_feature", True)
+        assert store.all_rows() == ws.store().all_rows()

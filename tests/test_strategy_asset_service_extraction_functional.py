@@ -39,8 +39,6 @@ def test_strategy_asset_service_validates_insurance_delete_before_mutation(tmp_p
         reference_file_path=lambda name: tmp_path / name,
         normalize_large_discretionary_type=lambda value: str(value),
         pre_tax_account_options_from_holdings=lambda: [],
-        ensure_user_ui_plan_data_rows=lambda: None,
-        sync_config_backends=lambda: {"success": True},
         audit=lambda event, details=None: audit_events.append((event, details or {})),
     )
     service = StrategyAssetService(ctx)

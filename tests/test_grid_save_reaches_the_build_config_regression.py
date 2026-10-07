@@ -1,35 +1,17 @@
-"""Wave 4.11 regression guard (system review 2026-08-04, `csv-roundtrip-on-every-save`).
+"""Wave 4.11 regression guard (system review 2026-08-04, `csv-roundtrip-on-every-save`), kept
+for the plan file (WP4.5 deleted the CSV bridge it originally guarded).
 
-`_sync_config_backends()` must carry the on-disk CSV set into the active plan file's
-rows (WP4.2: `plan.rpx`; before WP4.2 the typed sectioned snapshot `plan_snapshots`),
-or `load_active_config()` -- what a real build reads via `workbook_builder.main()` --
-silently serves a stale plan after any edit.
-
-This is the exact bug the original Wave 4.11 attempt introduced (commit
-f454117, reverted at 7d1ca0f): the trace "every real write caller already
-writes the DB first" checked `client_files` (written by
-`_write_plan_data_file()`), not the SEPARATE `local_store.plan_snapshots`
-table, which only `import_csv_to_sqlite()` refreshes -- see the long comment
-on `_sync_config_backends()` in src/server/app_core.py for the full root
-cause (two independent SQLite stores).
+A grid save must reach the plan file's rows, and so `load_active_config()` -- what a real build
+reads via `workbook_builder.main()` -- or a build silently serves a stale plan after an edit.
 
 Checks both the plan file's rows directly (the store the build reads) and
-`load_active_config()` itself (what a real build actually calls) --
-the latter only became a reliable check for this test workspace after fixing
-conftest.py's own import-ordering bug (it imported src.config_backend, which
-caches platform_runtime.workspace_root() into module-level constants at
-import time, before setting RETIREMENT_SYSTEM_WORKSPACE_ROOT).
-
-Deliberately fast (no subprocess build, no `@pytest.mark.slow`): the
-original regression was ONLY caught by the slow, full-FILE run of
-tests/test_e2e_build_journey.py (it doesn't reproduce standalone, per the
-revert commit), so the "not slow" tier had no guard against it recurring.
+`load_active_config()` itself (what a real build actually calls). Deliberately fast (no
+subprocess build, no `@pytest.mark.slow`).
 """
 from __future__ import annotations
 
 import pytest
 
-import src.server.app_core as app_core
 from src.active_plan import active_plan_store
 from src.config_backend import load_active_config
 from src.server import app
@@ -45,12 +27,10 @@ def own_workspace(tmp_path, monkeypatch):
     ws = make_plan(tmp_path / "ws")
     monkeypatch.setenv("RETIREMENT_SYSTEM_WORKSPACE_ROOT", str(ws.root))
     monkeypatch.delenv("RETIREMENT_SYSTEM_PLAN_DB", raising=False)
-    monkeypatch.delenv("RETIREMENT_SYSTEM_CONFIG_FILE", raising=False)
-    monkeypatch.setattr(app_core, "CSV_PATH", ws.input_dir / "client_data.csv")
     return ws
 
 
-def test_sync_config_backends_keeps_the_plan_file_fresh(own_workspace):
+def test_a_grid_save_keeps_the_plan_file_and_the_build_config_fresh(own_workspace):
     client = app.test_client()
 
     rows_resp = client.get("/api/config/rows", headers=HEADERS)
@@ -79,10 +59,7 @@ def test_sync_config_backends_keeps_the_plan_file_fresh(own_workspace):
     try:
         saved = client.post(
             "/api/config/rows",
-            json={
-                "updates": [{"row_index": row_index, "value": f"${NEW_HOME_VALUE:,}"}],
-                "sync": True,
-            },
+            json={"updates": [{"row_index": row_index, "value": f"${NEW_HOME_VALUE:,}"}]},
             headers=HEADERS,
         )
         assert saved.status_code == 200, saved.get_data(as_text=True)
@@ -103,7 +80,7 @@ def test_sync_config_backends_keeps_the_plan_file_fresh(own_workspace):
         assert str(NEW_HOME_VALUE) in _stripped(snapshot_value), (
             f"the plan file returned a STALE value ({snapshot_value!r}) after a real save "
             f"wrote {NEW_HOME_VALUE} -- its rows were not refreshed. This is the Wave 4.11 "
-            "regression: _sync_config_backends() must carry the CSV set into the plan file."
+            "regression: a save must reach the rows the build reads."
         )
 
         # load_active_config() is the actual call site a real build uses
@@ -122,7 +99,7 @@ def test_sync_config_backends_keeps_the_plan_file_fresh(own_workspace):
     finally:
         restored = client.post(
             "/api/config/rows",
-            json={"updates": [{"row_index": row_index, "value": original_value}], "sync": True},
+            json={"updates": [{"row_index": row_index, "value": original_value}]},
             headers=HEADERS,
         )
         assert restored.status_code == 200, restored.get_data(as_text=True)

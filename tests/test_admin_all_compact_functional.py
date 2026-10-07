@@ -55,4 +55,4 @@ def test_admin_routes_still_support_reference_csv_and_read_only_local_diagnostic
     assert "/api/admin/csv-file/<kind>/<path:file_name>" in routes
     assert "admin_diagnostics" in routes
     assert "removed-client-registry" not in routes
-    assert "ADMIN_PLAN_DATA_FILES" in routes
+    assert "ADMIN_PLAN_DATA_FILES" not in routes  # WP4.5: no plan-data kind in the raw file editor

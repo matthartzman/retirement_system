@@ -1,8 +1,7 @@
 """A ``StrategyAssetService`` over a real plan file holding given rows, for unit tests that
 exercise a service method without the Flask app (WP4.4b).
 
-``read_plan`` and ``edit_plan`` are the real thing minus the CSV set: the plan's open store
-(the edit has no write-back, there is no CSV set).
+``read_plan`` and ``edit_plan`` are the plan's open store (``edit_plan`` in one transaction).
 """
 from __future__ import annotations
 
@@ -38,8 +37,6 @@ def service_over_rows(tmp_path: Path, rows: list[tuple[str, str, str, str]], **c
         reference_file_path=lambda name: tmp_path / name,
         normalize_large_discretionary_type=lambda value: str(value),
         pre_tax_account_options_from_holdings=lambda: [],
-        ensure_user_ui_plan_data_rows=lambda: None,
-        sync_config_backends=lambda: {"success": True},
         audit=lambda event, details=None: events.append((event, details or {})),
         edit_plan=edit_plan,
         read_plan=read_plan,

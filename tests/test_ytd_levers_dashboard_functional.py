@@ -6,6 +6,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.ytd_tracking import ytd_summary
+from tests.plan_fixture import stage_plan_csv
 from tests._decomp_dashboard import dashboard_js_text
 
 
@@ -19,7 +20,7 @@ def write_csv(path: Path, rows, fieldnames):
 
 
 def test_ytd_re_tax_income_and_growth_rules(tmp_path):
-    root = tmp_path
+    root = tmp_path / 'plan_input'
     plan_cols = ['section','subsection','label','value','units','notes']
     write_csv(root/'client_spending.csv', [
         {'section':'Cashflow','subsection':'Spending','label':'annual_spending_base_year','value':'100000'},
@@ -48,6 +49,7 @@ def test_ytd_re_tax_income_and_growth_rules(tmp_path):
         {'account':'InvAcct','symbol':'VTI','purchase_date':'2025-12-31','shares':'10','purchase_price':'100','current_price':'120','lot_type':'buy'},
     ], ['account','symbol','purchase_date','shares','purchase_price','current_price','lot_type'])
 
+    stage_plan_csv(tmp_path, {})  # plan.rpx beside the folder, built from the plan CSVs written above
     s = ytd_summary(root, today=date(2026, 6, 30))
     assert s['forecast']['spending_plan_components']['real_estate_taxes'] > 4000
     assert s['forecast']['earned_income_remaining'] == 60000
