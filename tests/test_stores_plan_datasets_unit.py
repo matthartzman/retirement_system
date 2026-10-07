@@ -43,8 +43,6 @@ def test_replace_all_is_atomic_and_ordered(store):
     ])
     with pytest.raises(ValidationError):
         store.target_allocation.replace_all([{"asset_class": "X", "target_pct": 5}])
-    with pytest.raises(ValidationError):
-        store.target_allocation.replace_all([{"bogus": "x"}])
     assert [r["asset_class"] for r in store.target_allocation.rows()] == ["US Large Cap", "Bonds"]
     assert store.target_allocation.replace_all([]) == 0
     assert store.target_allocation.rows() == []
@@ -76,3 +74,12 @@ def test_v1_file_upgrades_to_v2_keeping_rows(tmp_path):
         assert s.schema_version == 2
         assert [r["section"] for r in s.all_rows()] == ["Household"]
         assert s.holdings.rows() == []
+
+
+def test_extra_columns_survive_the_round_trip(store):
+    text = "account,symbol,shares,market_value\nA_IRA,VTI,10,\"1,500\"\n"
+    replace_dataset_from_csv_text(store.holdings, text)
+    row = store.holdings.rows()[0]
+    assert row["market_value"] == "1,500" and row["purchase_price"] == ""
+    assert store.holdings.extra_columns() == ["market_value"]
+    assert dataset_csv_text(store.holdings).splitlines()[0].endswith("note,market_value")

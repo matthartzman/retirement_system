@@ -77,7 +77,7 @@ def _build_plan_input_fingerprint(base_dir, config_meta):
     import hashlib as _hashlib
     from pathlib import Path as _Path
 
-    flat_names = ["client_holdings.csv", "target_allocation.csv"]
+    flat_names: list[str] = []  # the flat datasets are plan file tables (hashed below)
     root = _Path(base_dir)
     plan_dir = root / "input"
     files = []
@@ -88,6 +88,10 @@ def _build_plan_input_fingerprint(base_dir, config_meta):
         revision, row_count = _plan_file_fingerprint(plan_db)
         files.append({"file": "plan_rows", "sha256": revision, "bytes": row_count})
         h.update(b"plan_rows\0"); h.update(revision.encode("ascii")); h.update(b"\0")
+        from ..plan_datasets import dataset_fingerprint as _dataset_fingerprint
+        for dname, digest in _dataset_fingerprint(plan_db).items():
+            files.append({"file": f"plan_datasets/{dname}", "sha256": digest})
+            h.update(dname.encode("utf-8")); h.update(b"\0"); h.update(digest.encode("ascii")); h.update(b"\0")
     for name in flat_names:
         path = plan_dir / name
         if not path.exists() or not path.is_file():
@@ -890,7 +894,7 @@ def _ensure_active_plan_data_loaded(data, config_meta):
 
 def _ensure_hsa_default_schedule(c, workspace_id):
     """Write a default HSA schedule the first time a build runs in `optimize`
-    mode with no `client_hsa_schedule.csv` yet -- fixes a real bug
+    mode with no HSA schedule rows in the plan yet -- fixes a real bug
     (2026-08-20): with no schedule to consult, `withdraw_hsa_window`'s
     `optimize` branch fell back to a per-year-recalculated level draw that is
     guaranteed to dump 100% of the remaining balance into the plan's final
@@ -900,8 +904,8 @@ def _ensure_hsa_default_schedule(c, workspace_id):
 
     Runs once per build, here (not inside the per-year engine call, which
     would mean writing a file thousands of times per Monte Carlo trial) and
-    only when `hsa_withdrawal_mode == 'optimize'`. Only writes when the file
-    is genuinely absent -- a build never overwrites an existing schedule, so
+    only when `hsa_withdrawal_mode == 'optimize'`. Only writes when the table
+    is genuinely empty -- a build never overwrites an existing schedule, so
     a household's own manual entries (or, eventually, a real optimizer run)
     are always safe once they exist. Failure here degrades to the prior
     per-year fallback rather than failing the build -- a schedule a household
@@ -912,10 +916,9 @@ def _ensure_hsa_default_schedule(c, workspace_id):
     if c.get('hsa_schedule_rows'):
         return
     try:
-        from ..workspace_context import workspace_file
+        from ..plan_datasets import active_dataset_text, write_active_dataset
         from ..hsa_schedule import generate_default_schedule
-        path = workspace_file('client_hsa_schedule.csv', workspace_id, prefer_existing=False)
-        if path.exists():
+        if active_dataset_text('hsa_schedule') is not None:
             return
         rows = generate_default_schedule(c)
         if not rows:
@@ -925,11 +928,10 @@ def _ensure_hsa_default_schedule(c, workspace_id):
             note = str(r['note']).replace('"', '""')
             lines.append(f"{r['year']},{r['optimizer_amount']},,FALSE,\"{note}\"")
         content = '\n'.join(lines) + '\n'
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content, encoding='utf-8')
+        write_active_dataset('hsa_schedule', content)
         c['hsa_schedule_rows'] = rows
         c['hsa_schedule_by_year'] = {r['year']: r for r in rows}
-        print(f"HSA optimize mode: wrote a default level-draw schedule ({len(rows)} years) -- {path}")
+        print(f"HSA optimize mode: wrote a default level-draw schedule ({len(rows)} years) to the plan file")
     except Exception as exc:
         print(f"Warning: could not write a default HSA schedule ({exc}); optimize mode will use its per-year fallback for this build.")
 

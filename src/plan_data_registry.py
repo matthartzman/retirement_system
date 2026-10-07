@@ -60,6 +60,14 @@ FLAT_PLAN_DATA_CSV_FILES: list[str] = [
     "client_spending_budget.csv",
     "client_spending_budget_lines.csv",
 ]
+# The flat datasets that live in the plan file's tables since WP6 (they travel with the plan
+# file: Save As, Load, restore, the demo swap), so nothing materializes or swaps them as files.
+PLAN_TABLE_DATASET_FILES: frozenset[str] = frozenset({
+    "client_holdings.csv",
+    "client_liabilities.csv",
+    "client_hsa_schedule.csv",
+    "target_allocation.csv",
+})
 YTD_PLAN_DATA_FILES: list[str] = [
     "ytd_transactions.csv",
     "ytd_account_setup.csv",

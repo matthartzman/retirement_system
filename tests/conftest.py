@@ -97,10 +97,12 @@ if not os.environ.get("RETIREMENT_SYSTEM_WORKSPACE_ROOT"):
                     shutil.copy(_f, _TEST_WORKSPACE_ROOT / _name / _f.name)
             # The session plan file (<workspace>/plan.rpx, the rows the engine and the
             # server read) is built from the same CSVs through the importer, as make_plan does.
+            from src.csv_exchange import import_flat_datasets as _import_flat_datasets
             from src.csv_exchange import import_plan_csv_set as _import_plan_csv_set
             from src.stores import PlanStore as _PlanStore
             with _PlanStore.open(_TEST_WORKSPACE_ROOT / "plan.rpx") as _plan_store:
                 _import_plan_csv_set(_TEST_WORKSPACE_ROOT / _name, _plan_store)
+                _import_flat_datasets(_TEST_WORKSPACE_ROOT / _name, _plan_store)
         else:
             (_TEST_WORKSPACE_ROOT / _name).mkdir(parents=True, exist_ok=True)
     # Pin the date too: plan_start derives from the current year and the YTD

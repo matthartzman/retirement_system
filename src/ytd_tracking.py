@@ -27,6 +27,7 @@ from pathlib import Path
 
 from . import platform_runtime as _platform_runtime
 from . import plan_dates as _plan_dates
+from .plan_datasets import dataset_text_for_input_dir
 from .plan_file_io import atomic_write
 from typing import Any
 
@@ -1157,16 +1158,14 @@ def _local_price_snapshot(root: str | Path) -> dict[str, float]:
 
 def investment_holding_accounts(root: str | Path) -> list[str]:
     """Return investment account names available in client_holdings.csv for UI dropdowns."""
-    p = Path(root) / "client_holdings.csv"
+    text = dataset_text_for_input_dir(root, "holdings")
     accounts: set[str] = set()
-    if p.exists():
+    if text:
         try:
-            with p.open(newline="", encoding="utf-8-sig") as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    acct = str(row.get("account") or row.get("Account") or "").strip()
-                    if acct:
-                        accounts.add(acct)
+            for row in csv.DictReader(io.StringIO(text)):
+                acct = str(row.get("account") or row.get("Account") or "").strip()
+                if acct:
+                    accounts.add(acct)
         except Exception:
             pass
     return sorted(accounts, key=lambda x: x.lower())
@@ -1209,36 +1208,35 @@ def investment_holding_account_values(root: str | Path) -> dict[str, float]:
     otherwise approximate lot value from shares × purchase_price, with CASH lots
     treated as dollar balances when no price is supplied.
     """
-    p = Path(root) / "client_holdings.csv"
+    text = dataset_text_for_input_dir(root, "holdings")
     values: dict[str, float] = {}
-    if not p.exists():
+    if not text:
         return values
     local_prices = _local_price_snapshot(root)
     try:
-        with p.open(newline="", encoding="utf-8-sig") as f:
-            for row in csv.DictReader(f):
-                acct = str(row.get("account") or row.get("Account") or "").strip()
-                if not acct:
-                    continue
-                explicit = None
-                for col in ("market_value", "current_value", "value", "Current Value", "Market Value"):
-                    if str(row.get(col, "") or "").strip():
-                        explicit = parse_money(row.get(col))
-                        break
-                if explicit is not None:
-                    lot_value = explicit
-                else:
-                    shares = parse_money(row.get("shares") or row.get("Shares"))
-                    symbol = str(row.get("symbol") or row.get("Symbol") or "").strip().upper()
-                    price = parse_money(row.get("current_price") or row.get("Current Price") or row.get("price") or row.get("Price"))
-                    if price == 0 and symbol in {"CASH", "USD", "MMF", "MONEY MARKET"}:
-                        price = 1.0
-                    if price == 0 and symbol in local_prices:
-                        price = local_prices[symbol]
-                    if price == 0:
-                        price = parse_money(row.get("purchase_price") or row.get("Purchase Price"))
-                    lot_value = shares * price
-                values[acct] = values.get(acct, 0.0) + lot_value
+        for row in csv.DictReader(io.StringIO(text)):
+            acct = str(row.get("account") or row.get("Account") or "").strip()
+            if not acct:
+                continue
+            explicit = None
+            for col in ("market_value", "current_value", "value", "Current Value", "Market Value"):
+                if str(row.get(col, "") or "").strip():
+                    explicit = parse_money(row.get(col))
+                    break
+            if explicit is not None:
+                lot_value = explicit
+            else:
+                shares = parse_money(row.get("shares") or row.get("Shares"))
+                symbol = str(row.get("symbol") or row.get("Symbol") or "").strip().upper()
+                price = parse_money(row.get("current_price") or row.get("Current Price") or row.get("price") or row.get("Price"))
+                if price == 0 and symbol in {"CASH", "USD", "MMF", "MONEY MARKET"}:
+                    price = 1.0
+                if price == 0 and symbol in local_prices:
+                    price = local_prices[symbol]
+                if price == 0:
+                    price = parse_money(row.get("purchase_price") or row.get("Purchase Price"))
+                lot_value = shares * price
+            values[acct] = values.get(acct, 0.0) + lot_value
     except Exception:
         return values
     return values

@@ -9,6 +9,7 @@ parsed from the file (no number formatting can move a result). Row order is the
 """
 from __future__ import annotations
 
+import json
 from typing import Any, Iterable, Mapping
 
 from .errors import ValidationError
@@ -33,7 +34,10 @@ def _ddl() -> str:
     parts = []
     for table, cols in _DATASETS.items():
         body = ",\n    ".join(f"{c} TEXT NOT NULL DEFAULT ''" for c in cols)
-        parts.append(f"CREATE TABLE {table} (\n    position INTEGER PRIMARY KEY,\n    {body}\n);")
+        parts.append(
+            f"CREATE TABLE {table} (\n    position INTEGER PRIMARY KEY,\n    {body},\n"
+            "    extra TEXT NOT NULL DEFAULT '{}'\n);"
+        )
     return "\n".join(parts)
 
 
@@ -41,7 +45,12 @@ SCHEMA_V2_DDL = _ddl()
 
 
 class FlatDatasetRepository:
-    """One flat dataset table of a ``PlanStore`` (implements ``DatasetRepository``)."""
+    """One flat dataset table of a ``PlanStore`` (implements ``DatasetRepository``).
+
+    A legacy file can carry columns beyond the known ones (``market_value``, ``asset_class``
+    ... in a holdings file); they are kept per row as JSON in ``extra`` and come back from
+    ``rows()`` as ordinary keys (``extra_columns()`` lists their names).
+    """
 
     def __init__(self, store: Any, table: str) -> None:
         self._store = store
@@ -49,24 +58,39 @@ class FlatDatasetRepository:
         self.columns = _DATASETS[table]
 
     def rows(self) -> list[dict[str, str]]:
-        """Rows in file order, keyed by the CSV column names."""
+        """Rows in file order, keyed by the CSV column names (known columns first, then any
+        extra columns the file carried)."""
         with self._store._read() as con:
-            cur = con.execute(f"SELECT {', '.join(self.columns)} FROM {self.table} ORDER BY position")
-            return [dict(zip(self.columns, r)) for r in cur]
+            cur = con.execute(f"SELECT {', '.join(self.columns)}, extra FROM {self.table} ORDER BY position")
+            out = []
+            for r in cur:
+                row = dict(zip(self.columns, r[:-1]))
+                for k, v in json.loads(r[-1]).items():
+                    row.setdefault(k, v)
+                out.append(row)
+            return out
+
+    def extra_columns(self) -> list[str]:
+        """Names of the extra (unknown) columns used by any row, sorted."""
+        with self._store._read() as con:
+            names: set[str] = set()
+            for (blob,) in con.execute(f"SELECT extra FROM {self.table}"):
+                names.update(json.loads(blob))
+        return sorted(names)
 
     def replace_all(self, rows: Iterable[Mapping[str, Any]]) -> int:
         """Atomically replace the dataset; return the number of rows written.
 
-        Values must be text (``None`` is stored as an empty string); unknown column names
-        raise ``ValidationError``. A failure leaves the old rows in place.
+        Values must be text (``None`` is stored as an empty string); columns other than the
+        known ones are kept as extra columns. A failure leaves the old rows in place.
         """
         clean = [self._clean(r) for r in rows]
-        marks = ", ".join("?" for _ in range(len(self.columns) + 1))
+        marks = ", ".join("?" for _ in range(len(self.columns) + 2))
         with self._store._write() as con:
             con.execute(f"DELETE FROM {self.table}")
             con.executemany(
-                f"INSERT INTO {self.table} (position, {', '.join(self.columns)}) VALUES ({marks})",
-                [(i, *r) for i, r in enumerate(clean)],
+                f"INSERT INTO {self.table} (position, {', '.join(self.columns)}, extra) VALUES ({marks})",
+                [(i, *vals, json.dumps(extra, ensure_ascii=False, sort_keys=True)) for i, (vals, extra) in enumerate(clean)],
             )
         return len(clean)
 
@@ -74,18 +98,20 @@ class FlatDatasetRepository:
         with self._store._read() as con:
             return int(con.execute(f"SELECT COUNT(*) FROM {self.table}").fetchone()[0])
 
-    def _clean(self, row: Mapping[str, Any]) -> tuple[str, ...]:
+    def _clean(self, row: Mapping[str, Any]) -> tuple[tuple[str, ...], dict[str, str]]:
         if not isinstance(row, Mapping):
             raise ValidationError(f"{self.table} row must be a mapping, got {type(row).__name__}")
-        unknown = sorted(set(row) - set(self.columns))
-        if unknown:
-            raise ValidationError(f"unknown {self.table} column(s): {', '.join(unknown)}")
-        out = []
-        for c in self.columns:
-            v = row.get(c, "")
+        known: list[str] = []
+        extra: dict[str, str] = {}
+        for k, v in row.items():
             if v is None:
                 v = ""
+            if not isinstance(k, str) or not k:
+                raise ValidationError(f"{self.table} column names must be non-empty text")
             if not isinstance(v, str):
-                raise ValidationError(f"{self.table}.{c} must be str, got {type(v).__name__}")
-            out.append(v)
-        return tuple(out)
+                raise ValidationError(f"{self.table}.{k} must be str, got {type(v).__name__}")
+            if k not in self.columns:
+                extra[k] = v
+        for c in self.columns:
+            known.append(row.get(c) or "")
+        return tuple(known), extra

@@ -231,7 +231,14 @@ def build_csv_backup_zip(base_dir: Path) -> tuple[bytes, str]:
 
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        from ..plan_datasets import DATASET_BY_FILE, active_dataset_text
+
         for name in CSV_BACKUP_PLAN_DATA_FILES:
+            if name in DATASET_BY_FILE:  # a table of the active plan file
+                text = active_dataset_text(DATASET_BY_FILE[name])
+                if text is not None:
+                    zf.writestr(name, text)
+                continue
             p = base_dir / "input" / name
             if p.exists():
                 zf.write(p, arcname=name)

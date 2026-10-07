@@ -1,4 +1,5 @@
 try:
+    from ..plan_data_registry import PLAN_TABLE_DATASET_FILES
     from .app_core import (
         BASE_DIR,
         PLAN_DATA_CSV_FILES,
@@ -42,6 +43,7 @@ try:
         set_client_file,
     )
 except ImportError:
+    from src.plan_data_registry import PLAN_TABLE_DATASET_FILES
     from src.server.app_core import (
         BASE_DIR,
         PLAN_DATA_CSV_FILES,
@@ -1274,6 +1276,9 @@ def plan_load_file():
 # file list covers YTD_PLAN_DATA_FILES, so ytd_transactions.csv is swapped to the demo fixture
 # on open and swapped back to the real backup on restore, as every other flat plan-data file.
 def _demo_plan_feature_service() -> demo_plan_service.DemoPlanService:
+    # The datasets in the plan file's tables travel with the plan file swap, not as files.
+    _FILE_BACKED_PLAN_DATA_FILES = [f for f in PLAN_DATA_CSV_FILES + YTD_PLAN_DATA_FILES if f not in PLAN_TABLE_DATASET_FILES]
+
     def _read_plan_data_disk_file(name: str) -> str | None:
         # Capturing the demo slot must read the on-disk copy the flat-file editors write, not
         # the DB-first reader's copy.
@@ -1285,7 +1290,7 @@ def _demo_plan_feature_service() -> demo_plan_service.DemoPlanService:
             workspace_id=_workspace_id(),
             client_id=_client_id(),
             db_path=_sqlite_db(),
-            file_names=PLAN_DATA_CSV_FILES + YTD_PLAN_DATA_FILES,
+            file_names=_FILE_BACKED_PLAN_DATA_FILES,
             overwrite_existing=True,
         )
 
@@ -1294,7 +1299,7 @@ def _demo_plan_feature_service() -> demo_plan_service.DemoPlanService:
             sqlite_db=_sqlite_db,
             plan_db=active_plan_path,
             demo_dir=lambda: WORKSPACE_ROOT / "input" / "demo",
-            plan_data_csv_files=PLAN_DATA_CSV_FILES + YTD_PLAN_DATA_FILES,
+            plan_data_csv_files=_FILE_BACKED_PLAN_DATA_FILES,
             read_plan_data_file=_read_plan_data_file,
             write_plan_data_file=_write_plan_data_file,
             ensure_user_ui_plan_data_rows=_ensure_user_ui_plan_data_rows,

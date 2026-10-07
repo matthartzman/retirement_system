@@ -17,7 +17,7 @@ Two functions, per the design doc's recommendation:
   convenience: neither reads anything the other computes, and neither
   reads any value built in between them (confirmed against the current
   parse_client body, not just the design doc's line numbers).
-- ``parse_hsa_withdrawal_schedule()`` — loads ``client_hsa_schedule.csv``
+- ``parse_hsa_withdrawal_schedule()`` — loads the plan's HSA schedule table
   (a separate file, not a ``data`` section), mirroring the adjacent
   liabilities-CSV load it was written to model. Left with no ``data``/
   ``plan_start`` parameters since it reads only the filesystem, matching
@@ -35,6 +35,7 @@ estate_planning.py.
 from __future__ import annotations
 
 import csv
+import io
 import os
 
 from ..data_io import _b, _n, _v, _y
@@ -122,7 +123,7 @@ def parse_hsa_policy(data, plan_start):
 
 
 def parse_hsa_withdrawal_schedule():
-    """Load the HSA withdrawal schedule from ``client_hsa_schedule.csv``.
+    """Load the HSA withdrawal schedule from the plan's HSA schedule table.
 
     Flat table: year, optimizer_amount, override_amount, locked, note. Rows
     feed hsa_schedule.resolve_year_amount, consumed by
@@ -132,39 +133,34 @@ def parse_hsa_withdrawal_schedule():
     fallback for every year), matching a plan that never used this feature.
     """
     hsa_schedule_rows = []
-    hsa_sched_file = None
-    for _hs_path in candidate_input_files('client_hsa_schedule.csv', active_workspace_id()):
-        _hs = str(_hs_path)
-        if os.path.exists(_hs):
-            hsa_sched_file = _hs
-            break
-    if hsa_sched_file:
+    from ..plan_datasets import active_dataset_text
+    hsa_text = active_dataset_text('hsa_schedule')
+    if hsa_text:
         try:
-            with open(hsa_sched_file, newline='', encoding='utf-8-sig') as hf:
-                for row in csv.DictReader(hf):
-                    year_raw = (row.get('year', '') or '').strip()
-                    if not year_raw:
-                        continue
-                    try:
-                        year = int(float(year_raw))
-                    except Exception:
-                        continue
+            for row in csv.DictReader(io.StringIO(hsa_text)):
+                year_raw = (row.get('year', '') or '').strip()
+                if not year_raw:
+                    continue
+                try:
+                    year = int(float(year_raw))
+                except Exception:
+                    continue
 
-                    def _clean_opt_num(raw):
-                        raw = (str(raw or '')).replace('$', '').replace(',', '').strip()
-                        if not raw:
-                            return None
-                        try:
-                            return float(raw)
-                        except Exception:
-                            return None
-                    hsa_schedule_rows.append({
-                        'year': year,
-                        'optimizer_amount': _clean_opt_num(row.get('optimizer_amount')),
-                        'override_amount': _clean_opt_num(row.get('override_amount')),
-                        'locked': str(row.get('locked', '') or '').strip().lower() in ('true', '1', 'yes'),
-                        'note': (row.get('note', '') or '').strip(),
-                    })
+                def _clean_opt_num(raw):
+                    raw = (str(raw or '')).replace('$', '').replace(',', '').strip()
+                    if not raw:
+                        return None
+                    try:
+                        return float(raw)
+                    except Exception:
+                        return None
+                hsa_schedule_rows.append({
+                    'year': year,
+                    'optimizer_amount': _clean_opt_num(row.get('optimizer_amount')),
+                    'override_amount': _clean_opt_num(row.get('override_amount')),
+                    'locked': str(row.get('locked', '') or '').strip().lower() in ('true', '1', 'yes'),
+                    'note': (row.get('note', '') or '').strip(),
+                })
         except Exception:
             hsa_schedule_rows = []
 

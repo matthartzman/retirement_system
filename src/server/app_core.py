@@ -74,7 +74,8 @@ try:
         UI_NAMES,
         YTD_PLAN_DATA_FILES,
     )
-    from ..active_plan import PROTECTED_PLAN_KEYS, active_plan_store, edit_active_plan, peek_plan_data
+    from ..active_plan import PROTECTED_PLAN_KEYS, active_plan_path, active_plan_store, edit_active_plan, peek_plan_data
+    from .. import plan_datasets as _plan_datasets
     from ..config_backend import (
         DEFAULT_DB,
         append_audit_event_sqlite,
@@ -110,7 +111,8 @@ except ImportError:  # direct execution fallback
         UI_NAMES,
         YTD_PLAN_DATA_FILES,
     )
-    from src.active_plan import PROTECTED_PLAN_KEYS, active_plan_store, edit_active_plan, peek_plan_data
+    from src.active_plan import PROTECTED_PLAN_KEYS, active_plan_path, active_plan_store, edit_active_plan, peek_plan_data
+    from src import plan_datasets as _plan_datasets
     from src.config_backend import (
         DEFAULT_DB,
         append_audit_event_sqlite,
@@ -436,7 +438,6 @@ def _make_blank_plan_files() -> dict[str, str]:
     """The flat datasets a new plan starts empty (holdings, liabilities, HSA schedule), from the
     workspace's current files (their header is kept). The sectioned plan rows are blanked by
     ``blank_plan.blank_plan_rows``; every other flat file is left as it is."""
-    source_dir = WORKSPACE_ROOT / "input"
     blankers = {
         "client_holdings.csv": _blank_holdings_csv,
         "client_liabilities.csv": _blank_liabilities_csv,
@@ -444,8 +445,7 @@ def _make_blank_plan_files() -> dict[str, str]:
     }
     files: dict[str, str] = {}
     for name, blank in blankers.items():
-        src = source_dir / name
-        files[name] = blank(src.read_text(encoding="utf-8-sig") if src.exists() else "")
+        files[name] = blank(_plan_datasets.active_dataset_text(_plan_datasets.DATASET_BY_FILE[name]) or "")
     return files
 
 
@@ -478,6 +478,8 @@ def _plan_data_path(file_name: str, prefer_existing: bool = True) -> Path:
 
 def _read_plan_data_file(file_name: str) -> str | None:
     name = _normalize_plan_data_file_name(file_name)
+    if name in _plan_datasets.DATASET_BY_FILE:  # holdings, liabilities, HSA schedule, targets: plan file tables
+        return _plan_datasets.active_dataset_text(_plan_datasets.DATASET_BY_FILE[name])
     # The legacy local database's client_files holds the flat datasets' text (holdings,
     # spending, YTD ...) until WP6 moves them into the plan file. Read it first; the on-disk
     # input/*.csv is used only to bootstrap it on a fresh checkout / first run, and when we
@@ -499,6 +501,9 @@ def _read_plan_data_file(file_name: str) -> str | None:
 def _write_plan_data_file(file_name: str, content: str) -> Path:
     """Write one flat dataset file (client_files first, then the on-disk copy)."""
     name = _normalize_plan_data_file_name(file_name)
+    if name in _plan_datasets.DATASET_BY_FILE:
+        _plan_datasets.write_active_dataset(_plan_datasets.DATASET_BY_FILE[name], content)
+        return active_plan_path()
     path = _plan_data_path(name, prefer_existing=False)
     with plan_file_lock(path):
         try:
@@ -1075,17 +1080,22 @@ SPENDING_BUDGET_SECTIONS = [
 
 
 
+def _holdings_dataset_rows(holdings_dir: Path | None = None) -> list[dict[str, str]]:
+    """Rows of the plan's holdings table (the active plan, or the plan that holds the
+    ``input`` folder ``holdings_dir``)."""
+    text = (_plan_datasets.active_dataset_text("holdings") if holdings_dir is None
+            else _plan_datasets.dataset_text_for_input_dir(holdings_dir, "holdings"))
+    return list(csv.DictReader(io.StringIO(text))) if text else []
+
+
 def _pre_tax_account_options_from_holdings() -> list[str]:
     """Return pre-tax account ids that can source forced Roth conversions."""
-    path = _plan_data_path("client_holdings.csv", prefer_existing=False)
     accounts = set()
-    if path.exists():
-        with path.open(newline="", encoding="utf-8-sig") as f:
-            for r in csv.DictReader(f):
-                acct = str(r.get("account") or "").strip()
-                low = acct.lower()
-                if acct and ("_ira" in low or "_401k" in low or "_403b" in low or "_sep" in low) and "roth" not in low:
-                    accounts.add(acct)
+    for r in _holdings_dataset_rows():
+        acct = str(r.get("account") or "").strip()
+        low = acct.lower()
+        if acct and ("_ira" in low or "_401k" in low or "_403b" in low or "_sep" in low) and "roth" not in low:
+            accounts.add(acct)
     return sorted(accounts)
 
 
@@ -1097,14 +1107,11 @@ def _all_account_ids_from_holdings(holdings_dir: Path | None = None) -> list[str
     accounts commonly carry their own TOD/POD designation -- so every
     account needs an Account Titling backfill row.
     """
-    path = (holdings_dir / "client_holdings.csv") if holdings_dir is not None else _plan_data_path("client_holdings.csv", prefer_existing=False)
     accounts = set()
-    if path.exists():
-        with path.open(newline="", encoding="utf-8-sig") as f:
-            for r in csv.DictReader(f):
-                acct = str(r.get("account") or "").strip()
-                if acct:
-                    accounts.add(acct)
+    for r in _holdings_dataset_rows(holdings_dir):
+        acct = str(r.get("account") or "").strip()
+        if acct:
+            accounts.add(acct)
     return sorted(accounts)
 
 
@@ -1120,19 +1127,16 @@ def _investment_account_ids_from_holdings(holdings_dir: Path | None = None) -> l
     a second, independently-resolved path). Defaults to the live workspace
     for any other caller.
     """
-    path = (holdings_dir / "client_holdings.csv") if holdings_dir is not None else _plan_data_path("client_holdings.csv", prefer_existing=False)
     accounts = set()
     excluded_tokens = ("_checking", "_529")
-    if path.exists():
-        with path.open(newline="", encoding="utf-8-sig") as f:
-            for r in csv.DictReader(f):
-                acct = str(r.get("account") or "").strip()
-                if not acct:
-                    continue
-                low = acct.lower()
-                if any(tok in low for tok in excluded_tokens):
-                    continue
-                accounts.add(acct)
+    for r in _holdings_dataset_rows(holdings_dir):
+        acct = str(r.get("account") or "").strip()
+        if not acct:
+            continue
+        low = acct.lower()
+        if any(tok in low for tok in excluded_tokens):
+            continue
+        accounts.add(acct)
     return sorted(accounts)
 
 

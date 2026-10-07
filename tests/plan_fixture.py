@@ -126,12 +126,13 @@ class PlanWorkspace:
 
 
 def _build_plan_file(input_dir: Path, plan_db: Path) -> None:
-    from src.csv_exchange import import_plan_csv_set
+    from src.csv_exchange import import_flat_datasets, import_plan_csv_set
     from src.stores import PlanStore
     for stale in (plan_db, plan_db.with_name(plan_db.name + "-wal"), plan_db.with_name(plan_db.name + "-shm")):
         stale.unlink(missing_ok=True)
     with PlanStore.open(plan_db) as store:
         import_plan_csv_set(input_dir, store)
+        import_flat_datasets(input_dir, store)
 
 
 def make_plan(tmp_path, fixture: str = DEFAULT_FIXTURE, *, input_subdir: str = "input",
