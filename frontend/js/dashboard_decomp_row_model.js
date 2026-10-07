@@ -3132,8 +3132,11 @@ export function renderFields(step) {
         .includes(q),
     );
   }
+  const tierView = fieldTierView(step, rs, !!searchText.trim());
+  rs = tierView.rows;
   const missing = rs.filter(isMissing);
-  let html = missing.length
+  let html = tierView.controlHtml;
+  html += missing.length
     ? `<div class="missing-list"><h3>${missing.length} required field${missing.length === 1 ? "" : "s"} missing in this view</h3><ul>${missing
         .slice(0, 8)
         .map((r) => `<li>${esc(humanLabel(r.label, r))}</li>`)

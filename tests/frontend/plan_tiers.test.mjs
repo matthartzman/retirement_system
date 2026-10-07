@@ -171,3 +171,42 @@ describe("tierPageCount", () => {
     assert.equal(sandbox.stepGatedByOptionalModule("start", () => false), false);
   });
 });
+
+describe("field tier filter (WP5.2)", () => {
+  const rows = [
+    { row_index: 1, label: "a", min_tier: "simple" },
+    { row_index: 2, label: "b", min_tier: "standard" },
+    { row_index: 3, label: "c", min_tier: "advanced" },
+    { row_index: 4, label: "d", min_tier: "expert" },
+    { row_index: 5, label: "e", min_tier: "" },
+  ];
+  const ids = (xs) => [...xs.map((r) => r.row_index)];
+
+  test("a Standard plan hides advanced and expert fields; untiered rows stay", () => {
+    const { shown, hidden } = sandbox.splitFieldsByTier(rows, "standard", () => false);
+    assert.deepEqual(ids(shown), [1, 2, 5]);
+    assert.deepEqual(ids(hidden), [3, 4]);
+  });
+
+  test("an Expert plan (the default) hides nothing", () => {
+    const { shown, hidden } = sandbox.splitFieldsByTier(rows, "expert", () => false);
+    assert.equal(shown.length, 5);
+    assert.equal(hidden.length, 0);
+  });
+
+  test("a required field that is still empty is never hidden", () => {
+    const { shown } = sandbox.splitFieldsByTier(rows, "simple", (r) => r.row_index === 4);
+    assert.deepEqual(ids(shown), [1, 4, 5]);
+  });
+
+  test("an unknown plan tier hides nothing", () => {
+    assert.equal(sandbox.splitFieldsByTier(rows, undefined, () => false).hidden.length, 0);
+  });
+
+  test("the control names how many fields are behind it", () => {
+    assert.equal(sandbox.fieldTierControlHtml("income", 0, false), "");
+    assert.match(sandbox.fieldTierControlHtml("income", 2, false), /Show advanced \(2 more fields\)/);
+    assert.match(sandbox.fieldTierControlHtml("income", 1, false), /\(1 more field\)/);
+    assert.match(sandbox.fieldTierControlHtml("income", 2, true), /Hide advanced fields/);
+  });
+});

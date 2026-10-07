@@ -136,3 +136,13 @@ def test_bad_requests_are_refused_and_write_nothing(ws, client, events, path, bo
     assert status == 400 and out["success"] is False and error in out["error"]
     assert _revision(ws) == revision and events == []
 
+
+
+def test_config_rows_carry_min_tier(ws, client):
+    """WP5.2: every catalogued row serves its reference.db min_tier; rows the catalog
+    does not list serve an empty tier (always shown)."""
+    from src.stores.ref_getters.schema_fields import TIERS
+    rows = client.get("/api/config/rows", headers=HEADERS).get_json()["rows"]
+    tiers = {r["min_tier"] for r in rows}
+    assert tiers <= set(TIERS) | {""}
+    assert tiers & set(TIERS)

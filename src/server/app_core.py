@@ -963,6 +963,8 @@ def _csv_rows_payload() -> dict:
     """
     _ensure_user_ui_plan_data_rows()
     schema = _read_schema_map()
+    from ..stores.ref_getters.schema_fields import field_tiers
+    tiers = field_tiers()
     with active_plan_store() as store:
         order = {section: i for i, section in enumerate(store.section_order())}
         plan_rows = sorted(store.all_rows(), key=lambda r: (order[r["section"]], r["sort_order"], r["row_id"]))
@@ -980,6 +982,9 @@ def _csv_rows_payload() -> dict:
             "units": r["units"],
             "notes": r["notes"],
             "schema": spec,
+            # WP5.2: the smallest tier that shows this field by default; a field the
+            # catalog does not list (user-added rows) has none and is always shown.
+            "min_tier": tiers.get((section.strip(), subsection.strip(), label.strip()), ""),
             "choice_options": _choice_options_for_config_row(section, subsection, label, r["units"], r["notes"], spec),
             "group": _classify_config_row(section, subsection, label),
         })
