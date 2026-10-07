@@ -83,7 +83,7 @@
    "path_io": 1
   },
   "src/server/app_core.py": {
-   "csv": 33,
+   "csv": 32,
    "path_io": 3
   },
   "src/server/plan_routes.py": {
@@ -106,7 +106,7 @@
    "path_io": 4
   },
   "src/server_services/config_service.py": {
-   "csv": 5
+   "csv": 2
   },
   "src/server_services/demo_plan_service.py": {
    "path_io": 8
@@ -144,5 +144,5 @@
    "path_io": 1
   }
  },
- "total": 198
+ "total": 194
 }

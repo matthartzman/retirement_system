@@ -1866,9 +1866,11 @@ def _sync_config_backends() -> dict:
     strategy_asset_service, this module's payload handlers, the Load Saved Plan and
     snapshot-restore routes) calls this after writing. The engine, the build and the
     server read ``plan_rows`` of the active plan (``src/active_plan.py``), so this is
-    the one place their CSV edits reach the rows until WP4.3-4.5 switch the writers to
-    ``PlanStore`` and delete it (P3.5). ``csv_exchange.sync_plan_rows`` keeps row ids of
-    surviving keys and writes nothing when nothing changed.
+    the one place their CSV edits reach the rows until WP4.4-4.5 switch the remaining
+    writers to ``PlanStore`` and P3.5 deletes it. ``csv_exchange.sync_plan_rows`` keeps row
+    ids of surviving keys and writes nothing when nothing changed. The grid and
+    ``/api/plan/forms`` already write the rows (WP4.3, ``_edit_active_plan``) and write
+    their edits back into the CSV set, so this never undoes them.
 
     It also stores each part file's text in the legacy database's ``client_files``:
     Save As / Load Saved Plan / Open Demo carry the plan as that database file and
