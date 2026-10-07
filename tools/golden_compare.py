@@ -151,6 +151,9 @@ def capture(plan: str) -> dict:
             while grid and all(v is None for v in grid[-1]):
                 grid.pop()
             sheets[name] = grid
+        # Release the read-only workbook handle: on Windows the open file blocks
+        # TemporaryDirectory cleanup (WinError 32).
+        wb.close()
         summary = json.loads((ws / "output" / "plan_summary.json").read_text(encoding="utf-8"))
     return {
         "engine_rows": _round(captured["rows"]),
