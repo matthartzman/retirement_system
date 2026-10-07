@@ -32,7 +32,7 @@ def _make_db(path: Path, marker: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(path))
     try:
-        conn.execute("CREATE TABLE IF NOT EXISTS client_files (name TEXT)")  # required by replace_active_db
+        conn.execute("CREATE TABLE IF NOT EXISTS client_files (file_name TEXT PRIMARY KEY, content TEXT, updated_by TEXT)")  # real columns: restore reads them
         conn.execute("CREATE TABLE IF NOT EXISTS marker (value TEXT)")
         conn.execute("DELETE FROM marker")
         conn.execute("INSERT INTO marker(value) VALUES (?)", (marker,))
@@ -167,7 +167,7 @@ def test_live_snapshot_compare_and_restore_routes_round_trip(monkeypatch, tmp_pa
     assert compare_payload["database_matches"] is False
 
     restored = client.post("/api/plan/snapshot/restore", json={"backup_suffix": "journey"}, headers=HEADERS)
-    assert restored.status_code == 200
+    assert restored.status_code == 200, restored.get_data(as_text=True)
     restore_payload = restored.get_json()
     assert restore_payload["schema"] == "plan_snapshot_restore_v1"
     assert Path(restore_payload["backup_database"]).exists()
