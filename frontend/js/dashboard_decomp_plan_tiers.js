@@ -148,6 +148,64 @@ export function tierPreviewHtml(preview, localCount) {
   return html + "</div>";
 }
 
+// ── Field tiers (WP5.2) ───────────────────────────────────────────────────────
+// Each row carries `min_tier` (reference.db). A page shows the fields at or below
+// the plan's tier; "Show advanced" reveals the rest for that page. A required
+// field that is still empty is never hidden, and a row with no tier always shows.
+const FIELD_TIER_RANK = { simple: 0, standard: 1, advanced: 2, expert: 3 };
+
+// -> {shown, hidden}: `rows` split by the field filter. `isMissing(row)` marks the
+// required-empty rows that must stay visible. An unknown plan tier hides nothing.
+export function splitFieldsByTier(rows, planTier, isMissingFn) {
+  const limit = FIELD_TIER_RANK[planTier];
+  const shown = [];
+  const hidden = [];
+  (rows || []).forEach((r) => {
+    const rank = FIELD_TIER_RANK[(r && r.min_tier) || ""];
+    if (limit === undefined || rank === undefined || rank <= limit || (isMissingFn && isMissingFn(r))) shown.push(r);
+    else hidden.push(r);
+  });
+  return { shown, hidden };
+}
+
+export function fieldTierControlHtml(step, hiddenCount, expanded) {
+  if (!hiddenCount) return "";
+  const n = hiddenCount;
+  const label = expanded
+    ? "Hide advanced fields"
+    : "Show advanced (" + n + " more field" + (n === 1 ? "" : "s") + ")";
+  return (
+    '<div class="section-note pf-show-advanced"><button class="btn" type="button" aria-pressed="' +
+    (expanded ? "true" : "false") +
+    '" onclick="toggleShowAdvanced(\'' +
+    esc(escJs(step)) +
+    "')\">" +
+    esc(label) +
+    "</button></div>"
+  );
+}
+
+// Per-page UI state only (not persisted, not sent to the server).
+const showAdvancedSteps = new Set();
+
+export function toggleShowAdvanced(step) {
+  if (showAdvancedSteps.has(step)) showAdvancedSteps.delete(step);
+  else showAdvancedSteps.add(step);
+  renderMain();
+}
+
+// What renderFields() calls: {rows, controlHtml}. The filter is off while searching.
+export function fieldTierView(step, rows, searching) {
+  const tier = (planTierPayload.profile || {}).tier;
+  if (searching) return { rows, controlHtml: "" };
+  const { shown, hidden } = splitFieldsByTier(rows, tier, isMissing);
+  const expanded = showAdvancedSteps.has(step);
+  return {
+    rows: expanded ? rows : shown,
+    controlHtml: fieldTierControlHtml(step, hidden.length, expanded),
+  };
+}
+
 // ── Page wiring (reads the shared state) ──────────────────────────────────────
 
 export function planTierPickerHtml() {
@@ -226,6 +284,10 @@ Object.assign(window, {
   planTierPickerHtml,
   setPlanFeatureSwitch,
   setPlanTierPayload,
+  fieldTierControlHtml,
+  fieldTierView,
+  splitFieldsByTier,
+  toggleShowAdvanced,
   tierCardsHtml,
   tierDiffBadgeHtml,
   tierPageCount,

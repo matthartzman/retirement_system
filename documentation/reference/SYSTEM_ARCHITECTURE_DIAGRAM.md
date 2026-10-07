@@ -432,7 +432,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/server/__init__.py` | `server`, `server.app_core` | — |
 | `src/server/__main__.py` | `http_runtime.server`, `server` | — |
 | `src/server/admin_routes.py` | `governance`, `server.app_core`, `server_services`, `version` | — |
-| `src/server/app_core.py` | `src`, `active_plan`, `blank_plan`, `config_backend`, `http_runtime.wsgi_facade`, `permissions`, `plan_data_registry`, `plan_dates`, `plan_file_io`, `roth_ui_build_guard`, `runtime_config`, `schema_registry`, `secrets_store`, `security`, `server.plan_data_files`, `server.security_audit`, `system_config`, `us_states`, `workspace_context` | — |
+| `src/server/app_core.py` | `src`, `active_plan`, `blank_plan`, `config_backend`, `http_runtime.wsgi_facade`, `permissions`, `plan_data_registry`, `plan_dates`, `plan_file_io`, `roth_ui_build_guard`, `runtime_config`, `schema_registry`, `secrets_store`, `security`, `server.plan_data_files`, `server.security_audit`, `stores.ref_getters.schema_fields`, `system_config`, `us_states`, `workspace_context` | — |
 | `src/server/base_routes.py` | `api_contracts`, `glossary`, `server.app_core`, `server.route_manifest`, `server_services`, `version` | — |
 | `src/server/plan_data_files.py` | `plan_data_registry` | — |
 | `src/server/plan_routes.py` | `active_plan`, `housing`, `module_catalog`, `monarch_autoimport_job`, `plan_data_migration`, `portfolio_analytics`, `report_compute`, `secrets_store`, `server.app_core`, `server_services`, `version` | — |
