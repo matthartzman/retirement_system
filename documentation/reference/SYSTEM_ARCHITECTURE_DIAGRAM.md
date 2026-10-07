@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 216 Python files under `src/`, 47 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 217 Python files under `src/`, 47 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -24,7 +24,7 @@ flowchart TB
     subgraph L_HTTP_Runtime["HTTP Runtime (3 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
-    subgraph L_Core_Engine___Domain["Core Engine & Domain (136 modules)"]
+    subgraph L_Core_Engine___Domain["Core Engine & Domain (137 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
     subgraph L_Projection_Stages["Projection Stages (23 modules)"]
@@ -430,13 +430,13 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/server/__init__.py` | `server`, `server.app_core` | — |
 | `src/server/__main__.py` | `http_runtime.server`, `server` | — |
 | `src/server/admin_routes.py` | `governance`, `server.app_core`, `server_services`, `version` | — |
-| `src/server/app_core.py` | `src`, `config_backend`, `http_runtime.wsgi_facade`, `permissions`, `plan_dates`, `plan_file_io`, `roth_ui_build_guard`, `runtime_config`, `schema_registry`, `secrets_store`, `security`, `server.plan_data_files`, `server.security_audit`, `system_config`, `us_states`, `workspace_context` | — |
+| `src/server/app_core.py` | `src`, `active_plan`, `config_backend`, `http_runtime.wsgi_facade`, `permissions`, `plan_dates`, `plan_file_io`, `roth_ui_build_guard`, `runtime_config`, `schema_registry`, `secrets_store`, `security`, `server.plan_data_files`, `server.security_audit`, `system_config`, `us_states`, `workspace_context` | — |
 | `src/server/base_routes.py` | `api_contracts`, `glossary`, `server.app_core`, `server.route_manifest`, `server_services`, `version` | — |
 | `src/server/plan_data_files.py` | `plan_data_registry` | — |
 | `src/server/plan_routes.py` | `housing`, `module_catalog`, `monarch_autoimport_job`, `plan_data_migration`, `portfolio_analytics`, `report_compute`, `secrets_store`, `server.app_core`, `server_services`, `spending_adjustments`, `version` | — |
 | `src/server/route_manifest.py` | — | — |
 | `src/server/security_audit.py` | `config_backend`, `http_runtime.wsgi_facade`, `permissions`, `security`, `server`, `workspace_context` | — |
-| `src/server/workbook_routes.py` | `build_snapshot`, `http_runtime.wsgi_facade`, `import_preview`, `local_store`, `reporting`, `results_model`, `schema_registry`, `server.app_core`, `server_forecast`, `server_services` | — |
+| `src/server/workbook_routes.py` | `active_plan`, `build_snapshot`, `http_runtime.wsgi_facade`, `import_preview`, `local_store`, `reporting`, `results_model`, `schema_registry`, `server.app_core`, `server_forecast`, `server_services` | — |
 | `src/server/wsgi.py` | `server` | — |
 
 ### Server Services
@@ -453,7 +453,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/server_services/holdings_service.py` | `config_backend`, `plan_file_io`, `workspace_context` | — |
 | `src/server_services/plan_data_file_service.py` | — | — |
 | `src/server_services/plan_file_service.py` | `build_snapshot`, `plan_db_replace` | — |
-| `src/server_services/plan_forms_service.py` | `local_store` | — |
+| `src/server_services/plan_forms_service.py` | `active_plan` | — |
 | `src/server_services/portfolio_service.py` | — | — |
 | `src/server_services/pricing_service.py` | `config_backend`, `market_data`, `portfolio_analytics` | — |
 | `src/server_services/report_service.py` | `detailed_results`, `report_package`, `system_config` | — |
@@ -475,13 +475,14 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | Module | Internal imports | External imports |
 |---|---|---|
 | `src/__init__.py` | `version` | — |
+| `src/active_plan.py` | `csv_exchange`, `stores` | — |
 | `src/after_tax.py` | `core` | — |
 | `src/allocation_policy.py` | — | — |
 | `src/api_contracts.py` | — | — |
 | `src/bootstrap.py` | `src`, `plan_data_migration`, `platform_runtime`, `security` | — |
 | `src/build_entry.py` | `config_backend`, `local_plan_data_sync`, `reporting.workbook_builder` | — |
 | `src/build_snapshot.py` | `plan_db_replace`, `version` | — |
-| `src/config_backend.py` | `local_store`, `plan_data_registry`, `plan_file_io`, `system_config` | `pyyaml` |
+| `src/config_backend.py` | `active_plan`, `plan_file_io`, `system_config` | `pyyaml` |
 | `src/core.py` | `person_labels` | — |
 | `src/csv_exchange/__init__.py` | `csv_exchange.plan_csv` | — |
 | `src/csv_exchange/plan_csv.py` | — | — |
@@ -523,7 +524,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/legacy_conversion/steps/c3_plan_rows.py` | `csv_exchange`, `plan_data_migration` | — |
 | `src/local_backup_scheduler.py` | — | — |
 | `src/local_plan_data_sync.py` | `plan_data_registry`, `runtime_config`, `workspace_context` | — |
-| `src/local_store.py` | `domain_models` | `pyyaml` |
+| `src/local_store.py` | — | — |
 | `src/market_data.py` | `platform_runtime`, `secrets_store`, `version` | `requests` |
 | `src/module_catalog.py` | — | — |
 | `src/monarch_autoimport_job.py` | — | — |
@@ -550,7 +551,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/person_labels.py` | — | — |
 | `src/plan_config.py` | — | — |
 | `src/plan_data_backfill.py` | `plan_file_io` | — |
-| `src/plan_data_migration.py` | `local_store`, `plan_file_io`, `platform_runtime` | — |
+| `src/plan_data_migration.py` | `active_plan`, `config_backend`, `local_store`, `plan_file_io`, `platform_runtime`, `stores` | — |
 | `src/plan_data_read.py` | — | — |
 | `src/plan_data_registry.py` | — | — |
 | `src/plan_dates.py` | — | — |
