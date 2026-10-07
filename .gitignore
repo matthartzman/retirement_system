@@ -19,6 +19,8 @@ local_state/
 _recovery_local_state_*/
 saved_plans/
 *.rpx
+*.rpx-wal
+*.rpx-shm
 *.db
 *.db-wal
 *.db-shm
