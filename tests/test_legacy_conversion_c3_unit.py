@@ -5,7 +5,7 @@ import hashlib
 
 import pytest
 
-from src.config_backend import load_csv as legacy_load
+from src.data_io import load_csv as legacy_load
 from src.csv_exchange import PlanCsvError, parse_plan_csv
 from src.legacy_conversion.steps import c3_plan_rows as c3
 from src.plan_data_migration import _target_key, migrate_sectioned_data
@@ -78,6 +78,7 @@ def test_convert_rows_renames_once_current_key_wins_and_drops_retired_labels():
     assert rows[1].source_file == "client_household.csv" and rows[1].line == 4
 
 
-def test_retired_label_list_matches_the_old_loader():
-    from src import config_backend
-    assert c3.RETIRED_SCENARIO_HOME_LABELS == frozenset(config_backend._RETIRED_SCENARIO_HOME_LABELS)
+def test_retired_label_list_matches_the_runtime_sync_rule():
+    # WP4.2: the old loader's load-time drop now lives in the CSV -> plan rows sync.
+    from src import active_plan
+    assert c3.RETIRED_SCENARIO_HOME_LABELS == active_plan.RETIRED_SCENARIO_HOME_LABELS

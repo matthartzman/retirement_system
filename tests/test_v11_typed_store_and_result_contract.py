@@ -1,10 +1,6 @@
 from __future__ import annotations
 
-import sqlite3
-
-from src.config_backend import import_csv_to_sqlite, load_sqlite
 from src.domain_models import plan_input_from_sectioned_data
-from src.local_store import latest_plan_snapshot, save_plan_input
 from src.projection_pipeline import run_projection_pipeline
 from src.result_contract import attach_plan_result
 from src.report_spec import report_spec_from_plan_result
@@ -25,17 +21,13 @@ def _sample_sectioned():
     }
 
 
-def test_items_2_3_4_5_canonical_typed_store_is_runtime_source(tmp_path):
+def test_items_2_3_4_5_typed_plan_input_normalizes_accounts_and_spending():
+    # WP4.2 removed the typed snapshot store; the runtime source is the plan file's rows.
     plan = plan_input_from_sectioned_data(_sample_sectioned())
-    db = tmp_path / 'local.db'
-    sid = save_plan_input(plan, source='unit', db_path=db)
-    snap = latest_plan_snapshot(db)
-    assert snap and snap['snapshot_id'] == sid
-    assert any(a['account_id'] == 'Visa' and a['account_type'] == 'credit_card' for a in snap['accounts'])
-    assert load_sqlite(db)['YTD Account Setup']['Visa']['Account Type'] == 'credit_card'
-    with sqlite3.connect(db) as con:
-        assert con.execute('select count(*) from plan_accounts where snapshot_id=?', (sid,)).fetchone()[0] == 2
-        assert con.execute('select annual_core_spending_cents from plan_spending_policy where snapshot_id=?', (sid,)).fetchone()[0] == 20_000_000
+    assert any(a.id == 'Visa' and a.account_type == 'credit_card' for a in plan.accounts)
+    assert len(plan.accounts) == 2
+    assert plan.to_sectioned_data()['YTD Account Setup']['Visa']['Account Type'] == 'credit_card'
+    assert plan.spending_policy.annual_core_spending_cents == 20_000_000
 
 
 def test_item_6_tax_law_dataset_drives_engine_tables_without_csv_requirement():

@@ -2,9 +2,11 @@ from __future__ import annotations
 
 """Local-only SQLite persistence for v11.
 
-This store replaces CSV folders as the runtime source of truth while preserving
-CSV/JSON/YAML as import-export adapters.  It intentionally contains no tenant,
-workspace, user, role, token, or hosted identity concepts.
+Local settings, result and KPI snapshots and build events. The sectioned plan
+snapshots (``plan_snapshots`` and its summary tables) are no longer written or read
+since WP4.2: the plan rows live in the plan file (``src/active_plan.py``). Their tables
+stay in the schema until the one-time conversion (WP10) has read them. It intentionally
+contains no tenant, workspace, user, role, token, or hosted identity concepts.
 """
 
 from datetime import datetime, UTC
@@ -14,7 +16,6 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
-from .domain_models import PlanInput, SectionedData, plan_input_from_sectioned_data
 from . import platform_runtime
 
 # PROJECT_ROOT is the code root; the SQLite store is writable data and hangs off
@@ -190,139 +191,6 @@ def _stable_json(obj: Any) -> str:
 
 def _digest(obj: Any) -> str:
     return hashlib.sha256(_stable_json(obj).encode("utf-8")).hexdigest()
-
-
-def save_plan_input(plan: PlanInput, source: str = "ui", db_path: str | Path | None = None, note: str = "") -> str:
-    plan.validate()
-    p = init_local_store(db_path)
-    payload = plan.to_dict()
-    sectioned = plan.to_sectioned_data()
-    input_sha = _digest(payload)
-    snapshot_id = input_sha[:16]
-    with sqlite3.connect(p) as con:
-        con.execute("""INSERT INTO plan_snapshots(snapshot_id, created_at, source, input_json, sectioned_json, input_sha256, note)
-                       VALUES(?,?,?,?,?,?,?)
-                       ON CONFLICT(snapshot_id) DO UPDATE SET source=excluded.source, input_json=excluded.input_json,
-                         sectioned_json=excluded.sectioned_json, input_sha256=excluded.input_sha256, note=excluded.note""",
-                    (snapshot_id, now_utc(), source, json.dumps(payload, indent=2, sort_keys=True), json.dumps(sectioned, sort_keys=True), input_sha, note))
-        con.execute("DELETE FROM plan_members WHERE snapshot_id=?", (snapshot_id,))
-        con.execute("DELETE FROM plan_accounts WHERE snapshot_id=?", (snapshot_id,))
-        con.execute("DELETE FROM plan_income_streams WHERE snapshot_id=?", (snapshot_id,))
-        con.execute("DELETE FROM plan_spending_policy WHERE snapshot_id=?", (snapshot_id,))
-        for m in plan.members:
-            con.execute("INSERT INTO plan_members(snapshot_id, member_id, display_name, birth_year, owner_role) VALUES(?,?,?,?,?)",
-                        (snapshot_id, m.id, m.display_name, m.birth_year, m.owner_role))
-        for a in plan.accounts:
-            con.execute("""INSERT INTO plan_accounts(snapshot_id, account_id, display_name, owner_id, account_type, tax_treatment, current_value_cents, prior_year_end_value_cents)
-                           VALUES(?,?,?,?,?,?,?,?)""",
-                        (snapshot_id, a.id, a.display_name, a.owner_id, a.account_type, a.tax_treatment, a.current_value_cents, a.prior_year_end_value_cents))
-        for s in plan.income_streams:
-            con.execute("""INSERT INTO plan_income_streams(snapshot_id, income_id, label, owner_id, income_type, annual_amount_cents, start_year, end_year, inflation_index)
-                           VALUES(?,?,?,?,?,?,?,?,?)""",
-                        (snapshot_id, s.id, s.label, s.owner_id, s.income_type, s.annual_amount_cents, s.start_year, s.end_year, s.inflation_index))
-        sp = plan.spending_policy
-        con.execute("""INSERT INTO plan_spending_policy(snapshot_id, annual_core_spending_cents, core_growth_method, manual_core_growth_rate, annual_mortgage_cents, annual_real_estate_tax_cents, real_estate_tax_growth_rate)
-                       VALUES(?,?,?,?,?,?,?)""",
-                    (snapshot_id, sp.annual_core_spending_cents, sp.core_growth_method, str(sp.manual_core_growth_rate), sp.annual_mortgage_cents, sp.annual_real_estate_tax_cents, str(sp.real_estate_tax_growth_rate)))
-    return snapshot_id
-
-
-def import_sectioned_plan(data: SectionedData, source: str = "csv_import", db_path: str | Path | None = None) -> str:
-    return save_plan_input(plan_input_from_sectioned_data(data), source=source, db_path=db_path)
-
-
-def latest_plan_input(db_path: str | Path | None = None) -> PlanInput | None:
-    p = _resolve(db_path)
-    if not p.exists():
-        return None
-    with sqlite3.connect(p) as con:
-        # created_at has only second precision (now_utc() truncates to seconds),
-        # so two saves landing in the same wall-clock second (routine for a
-        # save-then-sync-then-build sequence) tie there; rowid -- monotonically
-        # assigned per INSERT, unaffected by the ON CONFLICT UPDATE path since
-        # that only fires for a repeat of identical content under the same
-        # snapshot_id -- breaks the tie deterministically in favor of the
-        # truly-latest snapshot instead of an arbitrary same-second one.
-        row = con.execute("SELECT input_json FROM plan_snapshots ORDER BY created_at DESC, rowid DESC LIMIT 1").fetchone()
-    if not row:
-        return None
-    raw = json.loads(row[0])
-    tmp = p.parent / ".latest_plan_input.json"
-    tmp.write_text(json.dumps(raw), encoding="utf-8")
-    from .domain_models import plan_input_from_json
-    return plan_input_from_json(tmp)
-
-
-def latest_sectioned_data(db_path: str | Path | None = None) -> SectionedData:
-    p = _resolve(db_path)
-    if not p.exists():
-        return {}
-    with sqlite3.connect(p) as con:
-        # See latest_plan_input() for why rowid breaks same-second created_at ties.
-        row = con.execute("SELECT sectioned_json FROM plan_snapshots ORDER BY created_at DESC, rowid DESC LIMIT 1").fetchone()
-    return json.loads(row[0]) if row else {}
-
-
-def rewrite_sectioned_snapshots(transform, db_path: str | Path | None = None, dry_run: bool = False) -> int:
-    """Apply ``transform`` to every ``plan_snapshots.sectioned_json`` row, in place.
-
-    ``transform`` has the same contract as ``migrate_sectioned_data``: it takes a parsed
-    sectioned dict and returns ``(new_dict, changed_count)``. Only rows where the
-    transform reports a nonzero ``changed_count`` are UPDATEd; untouched rows are left
-    completely alone.
-
-    ALL snapshots are migrated, not just the latest. Old snapshots are restorable, and a
-    restore that resurrects legacy keys after the schema version has already been
-    stamped would defeat the gate permanently -- the store would report "migrated" while
-    still able to serve legacy shapes.
-
-    Ordering is preserved by construction: the UPDATE touches only ``sectioned_json`` --
-    never ``created_at`` -- and SQLite does not reassign a row's ``rowid`` on UPDATE (only
-    on delete+reinsert, or an explicit write to an INTEGER PRIMARY KEY rowid alias, which
-    ``plan_snapshots`` does not have; its primary key is the TEXT ``snapshot_id``). So the
-    ``created_at DESC, rowid DESC`` tie-break that ``latest_sectioned_data`` and
-    ``latest_plan_input`` rely on to resolve same-second saves cannot be disturbed by this
-    sweep, and which snapshot is "latest" cannot change.
-
-    The whole sweep runs as one transaction: if ``transform`` raises partway through, the
-    ``with`` block rolls back every UPDATE made so far rather than leaving some rows
-    migrated and others not. The caller depends on this -- a partial migration must not
-    have the version stamped over it, or the un-migrated remainder would be skipped
-    forever.
-
-    ``dry_run=True`` reports what would change without writing anything.
-
-    Returns the number of snapshot rows changed (0 if the store does not exist yet).
-    """
-    p = _resolve(db_path)
-    if not p.exists():
-        return 0
-    with sqlite3.connect(p) as con:
-        rows = con.execute("SELECT rowid, sectioned_json FROM plan_snapshots").fetchall()
-        total = len(rows)
-        touched = 0
-        for i, (rowid, sectioned_json) in enumerate(rows, start=1):
-            data = json.loads(sectioned_json)
-            new_data, changed = transform(data)
-            if changed:
-                touched += 1
-                if not dry_run:
-                    con.execute(
-                        "UPDATE plan_snapshots SET sectioned_json=? WHERE rowid=?",
-                        (json.dumps(new_data, sort_keys=True), rowid),
-                    )
-            # A boot that appears hung is its own defect (ticket 290) -- surface
-            # progress on a large table rather than migrating silently.
-            if total >= 50 and (i % 50 == 0 or i == total):
-                print(f"Migrating plan snapshots at rest: {i}/{total}...")
-        if not dry_run and touched:
-            print(f"Migrated {touched}/{total} plan snapshot(s) at rest.")
-        if dry_run:
-            # Never commit a write in dry-run mode; rolling back is the safest way
-            # to guarantee that even if a future edit accidentally queues one, it
-            # never reaches disk.
-            con.rollback()
-    return touched
 
 
 def get_local_setting(key: str, default: Any = None, db_path: str | Path | None = None) -> Any:
@@ -597,70 +465,3 @@ def append_build_event(stage: str, event_type: str, detail: dict[str, Any] | Non
     with sqlite3.connect(p) as con:
         con.execute("INSERT INTO build_events(created_at, build_id, stage, event_type, detail_json) VALUES(?,?,?,?,?)",
                     (now_utc(), build_id or "local", stage, event_type, json.dumps(detail or {}, sort_keys=True, default=str)))
-
-
-def export_latest_plan_json(path: str | Path, db_path: str | Path | None = None) -> Path:
-    plan = latest_plan_input(db_path)
-    if plan is None:
-        raise FileNotFoundError("No local v11 plan snapshot exists")
-    out = Path(path)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(plan.to_json(), encoding="utf-8")
-    return out
-
-
-def latest_plan_snapshot(db_path: str | Path | None = None) -> dict[str, Any] | None:
-    """Return the latest canonical local plan snapshot payload and relational summaries."""
-    p = _resolve(db_path)
-    if not p.exists():
-        return None
-    with sqlite3.connect(p) as con:
-        row = con.execute("SELECT snapshot_id, created_at, source, input_json, sectioned_json, input_sha256 FROM plan_snapshots ORDER BY created_at DESC LIMIT 1").fetchone()
-        if not row:
-            return None
-        snapshot_id, created_at, source, input_json, sectioned_json, input_sha = row
-        members = [dict(zip(["snapshot_id","member_id","display_name","birth_year","owner_role"], r)) for r in con.execute("SELECT snapshot_id, member_id, display_name, birth_year, owner_role FROM plan_members WHERE snapshot_id=? ORDER BY member_id", (snapshot_id,)).fetchall()]
-        accounts = [dict(zip(["snapshot_id","account_id","display_name","owner_id","account_type","tax_treatment","current_value_cents","prior_year_end_value_cents"], r)) for r in con.execute("SELECT snapshot_id, account_id, display_name, owner_id, account_type, tax_treatment, current_value_cents, prior_year_end_value_cents FROM plan_accounts WHERE snapshot_id=? ORDER BY account_id", (snapshot_id,)).fetchall()]
-        income_streams = [dict(zip(["snapshot_id","income_id","label","owner_id","income_type","annual_amount_cents","start_year","end_year","inflation_index"], r)) for r in con.execute("SELECT snapshot_id, income_id, label, owner_id, income_type, annual_amount_cents, start_year, end_year, inflation_index FROM plan_income_streams WHERE snapshot_id=? ORDER BY income_id", (snapshot_id,)).fetchall()]
-        spending = con.execute("SELECT annual_core_spending_cents, core_growth_method, manual_core_growth_rate, annual_mortgage_cents, annual_real_estate_tax_cents, real_estate_tax_growth_rate FROM plan_spending_policy WHERE snapshot_id=?", (snapshot_id,)).fetchone()
-    return {
-        "snapshot_id": snapshot_id,
-        "created_at": created_at,
-        "source": source,
-        "input": json.loads(input_json),
-        "sectioned_data": json.loads(sectioned_json),
-        "input_sha256": input_sha,
-        "members": members,
-        "accounts": accounts,
-        "income_streams": income_streams,
-        "spending_policy": dict(zip(["annual_core_spending_cents","core_growth_method","manual_core_growth_rate","annual_mortgage_cents","annual_real_estate_tax_cents","real_estate_tax_growth_rate"], spending)) if spending else {},
-    }
-
-
-def export_latest_plan(path: str | Path, fmt: str = "json", db_path: str | Path | None = None) -> Path:
-    """Losslessly export the canonical local plan snapshot to JSON/YAML/CSV adapter files."""
-    snap = latest_plan_snapshot(db_path)
-    if not snap:
-        raise FileNotFoundError("No local v11 plan snapshot exists")
-    out = Path(path)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    fmt = (fmt or out.suffix.lstrip(".") or "json").lower()
-    if fmt in {"yaml", "yml"}:
-        try:
-            import yaml  # type: ignore
-            out.write_text(yaml.safe_dump(snap["input"], sort_keys=True, allow_unicode=True), encoding="utf-8")
-        except Exception:
-            out.write_text(json.dumps(snap["input"], indent=2, sort_keys=True), encoding="utf-8")
-    elif fmt == "csv":
-        import csv
-        sectioned = snap["sectioned_data"]
-        with out.open("w", newline="", encoding="utf-8") as f:
-            w = csv.DictWriter(f, fieldnames=["section", "subsection", "label", "value"])
-            w.writeheader()
-            for section, subs in sectioned.items():
-                for subsection, labels in subs.items():
-                    for label, value in labels.items():
-                        w.writerow({"section": section, "subsection": subsection, "label": label, "value": value})
-    else:
-        out.write_text(json.dumps(snap["input"], indent=2, sort_keys=True), encoding="utf-8")
-    return out

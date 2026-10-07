@@ -1,9 +1,9 @@
 """Wave 4.11 regression guard (system review 2026-08-04, `csv-roundtrip-on-every-save`).
 
-`_sync_config_backends()` must re-import the on-disk CSV into local_store's
-typed sectioned snapshot (`plan_snapshots`), or `load_active_config()` --
-what a real build reads via `workbook_builder.main()` -- silently serves a
-stale plan after any edit.
+`_sync_config_backends()` must carry the on-disk CSV set into the active plan file's
+rows (WP4.2: `plan.rpx`; before WP4.2 the typed sectioned snapshot `plan_snapshots`),
+or `load_active_config()` -- what a real build reads via `workbook_builder.main()` --
+silently serves a stale plan after any edit.
 
 This is the exact bug the original Wave 4.11 attempt introduced (commit
 f454117, reverted at 7d1ca0f): the trace "every real write caller already
@@ -13,8 +13,8 @@ table, which only `import_csv_to_sqlite()` refreshes -- see the long comment
 on `_sync_config_backends()` in src/server/app_core.py for the full root
 cause (two independent SQLite stores).
 
-Checks both `local_store.plan_snapshots` directly (the exact table that went
-stale) and `load_active_config()` itself (what a real build actually calls) --
+Checks both the plan file's rows directly (the store the build reads) and
+`load_active_config()` itself (what a real build actually calls) --
 the latter only became a reliable check for this test workspace after fixing
 conftest.py's own import-ordering bug (it imported src.config_backend, which
 caches platform_runtime.workspace_root() into module-level constants at
@@ -27,15 +27,14 @@ revert commit), so the "not slow" tier had no guard against it recurring.
 """
 from __future__ import annotations
 
-import src.server.app_core as app_core
+from src.active_plan import active_plan_store
 from src.config_backend import load_active_config
-from src.local_store import latest_sectioned_data
 from src.server import app
 
 HEADERS = {"X-User-Role": "admin"}
 
 
-def test_sync_config_backends_keeps_plan_snapshots_fresh():
+def test_sync_config_backends_keeps_the_plan_file_fresh():
     client = app.test_client()
 
     rows_resp = client.get("/api/config/rows", headers=HEADERS)
@@ -76,20 +75,19 @@ def test_sync_config_backends_keeps_plan_snapshots_fresh():
         def _stripped(v):
             return str(v).replace(",", "").replace("$", "")
 
-        # plan_snapshots is what load_sqlite() -> local_store.latest_sectioned_data()
-        # reads; it must reflect the value just saved, not whatever the last
-        # import_csv_to_sqlite() call happened to hold.
-        snapshot_data = latest_sectioned_data(app_core._sqlite_db())
+        # The plan file's rows are what load_active_config() reads; they must
+        # reflect the value just saved.
+        with active_plan_store(readonly=True) as store:
+            snapshot_data = store.sectioned_data()
         snapshot_value = snapshot_data.get("Other Assets", {}).get("Home", {}).get("value_as_of_plan_start")
         assert snapshot_value is not None, (
-            "plan_snapshots has no value_as_of_plan_start at all -- "
+            "the plan file has no value_as_of_plan_start at all -- "
             f"Other Assets/Home section was: {snapshot_data.get('Other Assets', {}).get('Home', {})}"
         )
         assert str(NEW_HOME_VALUE) in _stripped(snapshot_value), (
-            f"plan_snapshots returned a STALE value ({snapshot_value!r}) after a real save "
-            f"wrote {NEW_HOME_VALUE} -- local_store.plan_snapshots was not refreshed. "
-            "This is the Wave 4.11 regression: _sync_config_backends() must still call "
-            "import_csv_to_sqlite()."
+            f"the plan file returned a STALE value ({snapshot_value!r}) after a real save "
+            f"wrote {NEW_HOME_VALUE} -- its rows were not refreshed. This is the Wave 4.11 "
+            "regression: _sync_config_backends() must carry the CSV set into the plan file."
         )
 
         # load_active_config() is the actual call site a real build uses

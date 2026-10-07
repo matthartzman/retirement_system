@@ -34,7 +34,7 @@ from ...plan_data_migration import migrate_rows
 STEP_ID = "C3"
 MARKER_KEY = "legacy_conversion.c3"
 
-# config_backend._RETIRED_SCENARIO_HOME_LABELS: the Sell Home scenario once carried its own
+# active_plan.RETIRED_SCENARIO_HOME_LABELS (the old loader's load-time rule): the Sell Home scenario once carried its own
 # copy of the home's value and basis; the current model reads them from Other Assets.
 RETIRED_SCENARIO_HOME_LABELS = frozenset({
     "home_sale_price", "home_basis", "home_value", "house_value", "value_as_of_plan_start",

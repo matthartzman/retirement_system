@@ -101,8 +101,11 @@ if not os.environ.get("RETIREMENT_SYSTEM_WORKSPACE_ROOT"):
             # them here instead of staging a second, driftable copy. Any test
             # asserting against TEST_INPUT_DIR/client_data.json (e.g. a
             # forecast-API config-contract check) needs this present.
+            # WP4.2: the session plan file (<workspace>/plan.rpx, the rows the engine
+            # and the server read) is built from the same CSVs, as make_plan does.
+            from src.active_plan import sync_active_plan_from_csv as _sync_plan
             from src.config_backend import export_client_json_yaml as _export_json_yaml
-            _export_json_yaml(_TEST_WORKSPACE_ROOT / _name / "client_data.csv", _TEST_WORKSPACE_ROOT / _name)
+            _export_json_yaml(_sync_plan(_TEST_WORKSPACE_ROOT / _name).data, _TEST_WORKSPACE_ROOT / _name)
         else:
             (_TEST_WORKSPACE_ROOT / _name).mkdir(parents=True, exist_ok=True)
     # Pin the date too: plan_start derives from the current year and the YTD

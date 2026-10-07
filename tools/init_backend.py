@@ -5,12 +5,11 @@ import sys
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+from src.active_plan import active_plan_path, sync_active_plan_from_csv
 from src.config_backend import (
     DEFAULT_DB,
-    import_csv_to_sqlite,
     init_sqlite,
     load_clients_csv,
-    load_csv,
     export_client_json_yaml,
     sync_clients_csv_to_sqlite,
     set_client_file,
@@ -59,10 +58,11 @@ def main() -> int:
 
     active_csv = _resolve(cfg.config_file or 'input/client_data.csv')
     if active_csv.exists():
-        exports = export_client_json_yaml(active_csv, active_csv.parent)
+        synced = sync_active_plan_from_csv(active_csv.parent)
+        exports = export_client_json_yaml(synced.data, active_csv.parent)
         for name, path in sorted(exports.items()):
             print(path)
-        print(import_csv_to_sqlite(active_csv, db, workspace_id=cfg.workspace_id or 'local'))
+        print(active_plan_path())
     else:
         print(f'Active config file not found, skipped import: {active_csv}')
 
@@ -79,10 +79,10 @@ def main() -> int:
         client_id = client.get('client_id') or workspace
         cfg_ref = _resolve(client.get('config_ref') or 'input/client_data.csv')
         if cfg_ref.exists():
-            workspace_exports = export_client_json_yaml(cfg_ref, cfg_ref.parent)
+            synced = sync_active_plan_from_csv(cfg_ref.parent)
+            workspace_exports = export_client_json_yaml(synced.data, cfg_ref.parent)
             for _, path in sorted(workspace_exports.items()):
                 print(path)
-            print(import_csv_to_sqlite(cfg_ref, db, workspace_id=workspace))
         input_dir = cfg_ref.parent
         for name in PLAN_FILES:
             p = input_dir / name

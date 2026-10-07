@@ -1289,9 +1289,21 @@ def plan_load_file():
                 result["success"] = False
                 result["db_replaced"] = True
                 result["error"] = "Plan database loaded, but its data files could not be written to disk: " + str(mat_exc)
+            else:
+                _sync_plan_rows_after_swap(result)
         return jsonify(result)
     except Exception as exc:  # noqa: BLE001
         return jsonify({"success": False, "error": str(exc)})
+
+
+def _sync_plan_rows_after_swap(result: dict) -> None:
+    """WP4.2: after a database swap rebuilt the CSV set from ``client_files``, carry it
+    into the active plan's rows (the engine and the build read those, no longer the
+    swapped-in database's sectioned snapshot)."""
+    sync = _sync_config_backends()
+    if not sync.get("success"):
+        _audit("plan_rows_sync_after_swap_warning", {"error": sync.get("error")})
+        result["sync_warning"] = sync.get("error")
 
 
 # DemoPlanService owns Open Demo Plan / Open Current Plan swap semantics
@@ -1320,6 +1332,7 @@ def _demo_plan_feature_service() -> demo_plan_service.DemoPlanService:
             file_names=[n for n in PLAN_DATA_CSV_FILES if n != "client_data.csv"] + YTD_PLAN_DATA_FILES,
             overwrite_existing=True,
         )
+        _sync_plan_rows_after_swap({})
 
     return demo_plan_service.DemoPlanService(
         demo_plan_service.DemoPlanServiceContext(
@@ -1416,4 +1429,19 @@ def plan_snapshot_restore():
     if denied:
         return denied
     payload, status = _plan_file_feature_service().snapshot_restore_payload(request.get_json(silent=True) or {})
+    if status == 200:
+        # Same resync as Load Saved Plan: the restored database's client_files become the
+        # CSV set, and the CSV set becomes the active plan's rows (WP4.2).
+        try:
+            materialize_workspace_files(
+                workspace_id=_workspace_id(),
+                client_id=_client_id(),
+                db_path=_sqlite_db(),
+                file_names=[n for n in PLAN_DATA_CSV_FILES if n != "client_data.csv"] + YTD_PLAN_DATA_FILES,
+                overwrite_existing=True,
+            )
+            _sync_plan_rows_after_swap(payload)
+        except Exception as exc:  # noqa: BLE001
+            _audit("plan_snapshot_restore_materialize_warning", {"error": str(exc)})
+            payload["materialize_warning"] = str(exc)
     return jsonify(payload), status
