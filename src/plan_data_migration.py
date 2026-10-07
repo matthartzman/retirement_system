@@ -418,8 +418,9 @@ def run_startup_plan_data_migration(input_dir=None, db_path=None) -> dict:
     normalization, which still yields correct reads -- a bad CSV must not stop
     the server from booting.
 
-    The input directory is resolved through ``platform_runtime.workspace_root()``
-    and NOT from a ``__file__``-derived repo root. That distinction is the whole
+    The input directory is the plan CSV folder from the single resolver
+    (``config_backend.configured_plan_input_dir``, which resolves through
+    ``platform_runtime.workspace_root()``) and NOT from a ``__file__``-derived repo root. That distinction is the whole
     of the 2026-08-12 frozen-gate bug: a hardcoded root in data_io silently
     ignored RETIREMENT_SYSTEM_WORKSPACE_ROOT, so every run under a custom
     workspace resolved plan data against the wrong directory. A migration that
@@ -428,8 +429,8 @@ def run_startup_plan_data_migration(input_dir=None, db_path=None) -> dict:
     """
     try:
         if input_dir is None:
-            from .platform_runtime import workspace_root
-            input_dir = workspace_root() / "input"
+            from .config_backend import configured_plan_input_dir
+            input_dir = configured_plan_input_dir()
         return migrate_plan_data_at_rest(input_dir, db_path=db_path)
     except Exception:
         return {"migrated": {}, "total_changed": 0, "skipped": True}

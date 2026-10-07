@@ -12,6 +12,7 @@ ignored and resolved to the single local plan.
 
 import hashlib
 import json
+import os
 import sqlite3
 from pathlib import Path
 from typing import Dict, Tuple, Optional as _Optional, List as _List
@@ -122,13 +123,26 @@ def discover_bootstrap_csv() -> Path:
     return discover_system_config_csv()
 
 
+def configured_plan_csv_path(bootstrap: SettingMap | None = None) -> Path:
+    """The plan CSV anchor (``client_data.csv``): ``RETIREMENT_SYSTEM_CONFIG_FILE``, else
+    ``System Configuration / Runtime / config_file``, else ``<workspace>/input/client_data.csv``.
+
+    The ONE resolver of the plan CSV set's location (same precedence as
+    ``runtime_config.load_runtime_config``): the server's ``CSV_PATH``, the sync into the
+    plan file, the first-read bootstrap and the at-rest migration all come from here.
+    """
+    ref = os.environ.get("RETIREMENT_SYSTEM_CONFIG_FILE", "").strip()
+    if not ref:
+        if bootstrap is None:
+            bootstrap = load_system_config(discover_bootstrap_csv())
+        ref = setting(bootstrap, "System Configuration", "Runtime", "config_file", "")
+    return resolve_path(ref or "input/client_data.csv", DEFAULT_CSV)
+
+
 def configured_plan_input_dir(bootstrap: SettingMap | None = None) -> Path:
-    """The folder holding the plan CSV set (``System Configuration / Runtime / config_file``'s
-    folder, default ``<workspace>/input``): where an empty plan file is filled from."""
-    if bootstrap is None:
-        bootstrap = load_system_config(discover_bootstrap_csv())
-    ref = setting(bootstrap, "System Configuration", "Runtime", "config_file", "input/client_data.csv") or "input/client_data.csv"
-    return resolve_path(ref, DEFAULT_CSV).parent
+    """The folder holding the plan CSV set (``configured_plan_csv_path``'s folder): where an
+    empty plan file is filled from and what every sync reads."""
+    return configured_plan_csv_path(bootstrap).parent
 
 
 def load_active_config() -> Tuple[SettingMap, Dict[str, str]]:
@@ -216,6 +230,21 @@ def set_client_files(files: dict[str, str], db_path: str | Path = DEFAULT_DB) ->
                             [(Path(name).name, content, "local") for name, content in files.items()])
     finally:
         con.close()  # closed now, not at garbage collection: Load Saved Plan replaces this file
+
+def delete_client_files(file_names, db_path: str | Path = DEFAULT_DB) -> int:
+    """Remove files from ``client_files`` (a plan CSV part file deleted or emptied on disk
+    must not be brought back by ``materialize_workspace_files``). Returns the rows removed."""
+    names = [Path(n).name for n in file_names]
+    p = resolve_path(db_path, DEFAULT_DB)
+    if not names or not p.exists():
+        return 0
+    con = sqlite3.connect(p)
+    try:
+        with con:
+            cur = con.executemany("DELETE FROM client_files WHERE file_name=?", [(n,) for n in names])
+            return max(cur.rowcount, 0)
+    finally:
+        con.close()
 
 def get_client_file(file_name: str, workspace_id: str = "local", client_id: str = "local", db_path: str | Path = DEFAULT_DB) -> _Optional[str]:
     p = resolve_path(db_path, DEFAULT_DB)

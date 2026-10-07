@@ -69,12 +69,20 @@ def _engine_rows(rows: list[PlanCsvRow]) -> list[PlanCsvRow]:
     ]
 
 
+class EmptyPlanCsvSet(FileNotFoundError):
+    """The plan CSV set holds no plan rows (folder or files missing, or every file empty).
+
+    Raised instead of syncing: an empty set must never wipe the plan's rows (the old
+    ``import_csv_to_sqlite`` raised ``FileNotFoundError`` and kept its snapshot)."""
+
+
 @dataclass
 class PlanSyncResult:
     data: SectionedData          # the plan's sectioned view after the sync
     texts: dict[str, str]        # file name -> text of each plan CSV read
     counts: dict[str, int]       # csv_exchange.sync_plan_rows counts
     files_read: list[str]
+    rows_by_file: dict[str, int]  # file name -> number of plan rows it contributed
 
 
 def sync_active_plan_from_csv(input_dir: str | Path) -> PlanSyncResult:
@@ -82,13 +90,20 @@ def sync_active_plan_from_csv(input_dir: str | Path) -> PlanSyncResult:
 
     The one place the CSV writers' edits reach ``plan_rows`` until those writers write the
     rows themselves (WP4.3-4.5); then this function and its callers are deleted.
+    Raises :class:`EmptyPlanCsvSet`, leaving the plan as it is, when the set holds no rows.
     """
     parsed = read_plan_csv_set(input_dir)
+    rows = _engine_rows(parsed.rows)
+    if not rows:
+        raise EmptyPlanCsvSet(f"no plan CSV rows found in {input_dir}; the plan was left unchanged")
+    rows_by_file: dict[str, int] = {}
+    for row in parsed.rows:
+        rows_by_file[row.source_file] = rows_by_file.get(row.source_file, 0) + 1
     with active_plan_store() as store:
-        counts = sync_plan_rows(store, _engine_rows(parsed.rows))
+        counts = sync_plan_rows(store, rows)
         data = store.sectioned_data()
     return PlanSyncResult(data=data, texts=dict(parsed.texts), counts=counts,
-                          files_read=list(parsed.report.files_read))
+                          files_read=list(parsed.report.files_read), rows_by_file=rows_by_file)
 
 
 def active_plan_data(bootstrap_input_dir: str | Path | None = None) -> SectionedData:
@@ -102,7 +117,34 @@ def active_plan_data(bootstrap_input_dir: str | Path | None = None) -> Sectioned
             return store.sectioned_data()
     if not Path(bootstrap_input_dir).is_dir():
         return {}
-    return sync_active_plan_from_csv(bootstrap_input_dir).data
+    try:
+        return sync_active_plan_from_csv(bootstrap_input_dir).data
+    except EmptyPlanCsvSet:
+        return {}
+
+
+def peek_plan_data(fallback_input_dir: str | Path | None = None) -> SectionedData:
+    """The engine view without touching disk: never creates or writes the plan file.
+
+    Reads the active plan when it exists and has rows; otherwise (no plan file yet, or
+    one not yet filled) the plan CSV set in ``fallback_input_dir`` is read in memory, so a
+    read before the first bootstrap sees the same values the bootstrap will store.
+    """
+    path = active_plan_path()
+    if path.is_file():
+        try:
+            with PlanStore.open(path, create=False) as store:
+                data = store.sectioned_data()
+            if data:
+                return data
+        except LookupError:  # stores.NotFoundError: not an initialised plan file
+            pass
+    if fallback_input_dir is None or not Path(fallback_input_dir).is_dir():
+        return {}
+    out: SectionedData = {}
+    for row in _engine_rows(read_plan_csv_set(fallback_input_dir).rows):
+        out.setdefault(row.section, {}).setdefault(row.subsection, {})[row.label] = row.value
+    return out
 
 
 def plan_db_env(env: dict[str, Any]) -> dict[str, Any]:
