@@ -79,12 +79,13 @@ def test_convert_rows_renames_once_current_key_wins_and_drops_retired_labels():
 
 
 def test_retired_label_set_has_one_source():
-    # WP4.1 review: the runtime sync and step C3 both use src/plan_label_rules.
+    # WP4.1 review: the runtime importer and step C3 both use src/plan_label_rules.
     import inspect
-    from src import active_plan, plan_label_rules
+    from src import plan_label_rules
+    from src.csv_exchange import plan_csv
     assert not hasattr(c3, "RETIRED_SCENARIO_HOME_LABELS")
-    assert not hasattr(active_plan, "RETIRED_SCENARIO_HOME_LABELS")
-    for module in (c3, active_plan):
+    assert not hasattr(plan_csv, "RETIRED_SCENARIO_HOME_LABELS")
+    for module in (c3, plan_csv):
         assert "plan_label_rules" in inspect.getsource(module)
     assert plan_label_rules.is_retired_scenario_home_row("Scenarios", "Sell Home", "home_value")
     assert not plan_label_rules.is_retired_scenario_home_row("Scenarios", "Base", "home_value")

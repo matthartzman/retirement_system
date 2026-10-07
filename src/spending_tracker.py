@@ -1255,18 +1255,16 @@ def save_budget_by_category(root, budget):
     save_unified_budget(root, rows)
 
 
+def _plan_view(root) -> dict:
+    """The sectioned plan rows of the workspace ``root`` (``None``: the active plan), read
+    without creating anything; ``{}`` when there is no plan file."""
+    from .active_plan import peek_plan_data
+    return peek_plan_data(root)
+
+
 def _existing_life_insurance_module_enabled(root) -> bool:
-    path = _root(root) / "input" / "client_optional_functions.csv"
-    if not path.exists():
-        return False
-    try:
-        with path.open(newline="", encoding="utf-8-sig") as f:
-            for row in csv.reader(f):
-                if len(row) >= 4 and str(row[2]).strip() == "existing_life_insurance":
-                    return str(row[3]).strip().upper() in ("TRUE", "YES", "1")
-    except Exception:
-        return False
-    return False
+    value = _plan_view(root).get("Optional Functions", {}).get("", {}).get("existing_life_insurance")
+    return str(value or "").strip().upper() in ("TRUE", "YES", "1")
 
 
 def _insurance_policy_premium_sum(root, policy_type: str) -> float:
@@ -1276,22 +1274,10 @@ def _insurance_policy_premium_sum(root, policy_type: str) -> float:
     once one exists, instead of the two numbers being able to silently
     drift or double-count. Gated behind the "Existing Life Insurance"
     optional module, the same gate every other Insurance In Force row is
-    already subject to elsewhere in the app."""
+    already subject to elsewhere in the app. Reads the plan's rows."""
     if not _existing_life_insurance_module_enabled(root):
         return 0.0
-    path = _root(root) / "input" / "client_insurance_estate.csv"
-    if not path.exists():
-        return 0.0
-    by_sub: dict[str, dict[str, str]] = {}
-    try:
-        with path.open(newline="", encoding="utf-8-sig") as f:
-            for row in csv.reader(f):
-                if len(row) < 4 or str(row[0]).strip() != "Insurance In Force":
-                    continue
-                sub, label, value = str(row[1]).strip(), str(row[2]).strip().lower(), row[3]
-                by_sub.setdefault(sub, {})[label] = value
-    except Exception:
-        return 0.0
+    by_sub = _plan_view(root).get("Insurance In Force", {})
     target = policy_type.strip().lower()
     total = 0.0
     for fields in by_sub.values():

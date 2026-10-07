@@ -29,16 +29,12 @@ HEADERS = {"X-User-Role": "admin"}
 
 
 def _make_db(path: Path, marker: str) -> None:
+    """A plan file (``PlanStore``) holding one marker row (WP4.5: snapshots are of the plan file)."""
+    from src.stores import PlanStore
+
     path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(path))
-    try:
-        conn.execute("CREATE TABLE IF NOT EXISTS client_files (file_name TEXT PRIMARY KEY, content TEXT, updated_by TEXT)")  # real columns: restore reads them
-        conn.execute("CREATE TABLE IF NOT EXISTS marker (value TEXT)")
-        conn.execute("DELETE FROM marker")
-        conn.execute("INSERT INTO marker(value) VALUES (?)", (marker,))
-        conn.commit()
-    finally:
-        conn.close()
+    with PlanStore.open(path) as store:
+        store.set_value("Marker", "", "value", marker)
 
 
 def test_live_first_run_build_handoff_reaches_progress_and_results_routes(monkeypatch, tmp_path):
@@ -150,14 +146,14 @@ def test_live_holdings_to_allocation_preview_journey_reads_holdings_and_computes
 
 def test_live_snapshot_compare_and_restore_routes_round_trip(monkeypatch, tmp_path):
     output = tmp_path / "output"
-    active_db = tmp_path / "local_state" / "retirement_system_v10.db"
+    active_db = tmp_path / "plan.rpx"
     snapshot_source = tmp_path / "snapshot_source.rpx"
     _make_db(active_db, "active")
     _make_db(snapshot_source, "snapshot")
     write_build_snapshot(output, build_id="journey", sqlite_db_path=snapshot_source, output_files=[])
 
     monkeypatch.setattr(plan_routes, "_workspace_output", lambda: output)
-    monkeypatch.setattr(plan_routes, "_sqlite_db", lambda: active_db)
+    monkeypatch.setattr(plan_routes, "active_plan_path", lambda: active_db)
 
     client = app.test_client()
     compare = client.get("/api/plan/snapshot/compare", headers=HEADERS)

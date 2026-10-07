@@ -123,10 +123,13 @@ def active_plan_data() -> SectionedData:
         return store.sectioned_data()
 
 
-def peek_plan_data() -> SectionedData:
+def peek_plan_data(workspace_root: str | Path | None = None) -> SectionedData:
     """The engine view without touching disk: never creates or writes the plan file
-    (``{}`` when there is no plan file yet or it is not an initialised plan)."""
-    path = active_plan_path()
+    (``{}`` when there is no plan file yet or it is not an initialised plan).
+
+    ``workspace_root`` names another workspace (its ``plan.rpx``); the default is the active plan.
+    """
+    path = Path(workspace_root) / PLAN_FILE_NAME if workspace_root is not None else active_plan_path()
     if not path.is_file():
         return {}
     try:
@@ -134,6 +137,47 @@ def peek_plan_data() -> SectionedData:
             return store.sectioned_data()
     except LookupError:  # stores.NotFoundError: not an initialised plan file
         return {}
+
+
+def peek_plan_data_for_input_dir(input_dir: str | Path) -> SectionedData:
+    """The plan view for code that is handed a workspace's ``input`` folder (the YTD readers):
+    the active plan when ``input_dir`` is the live workspace's ``input``, else the ``plan.rpx`` of
+    the workspace that holds ``input_dir`` (the ``<workspace>/input`` + ``<workspace>/plan.rpx``
+    layout ``tests.plan_fixture.make_plan`` builds)."""
+    live = platform_runtime.workspace_root() / "input"
+    try:
+        same = Path(input_dir).resolve() == live.resolve()
+    except OSError:
+        same = False
+    return peek_plan_data() if same else peek_plan_data(Path(input_dir).parent)
+
+
+def ensure_plan_file(path: str | Path) -> Path:
+    """Create an empty, initialised plan file at ``path`` when there is none (never touches an
+    existing one)."""
+    target = Path(path)
+    if not target.is_file():
+        PlanStore.open(target).close()
+    return target
+
+
+def build_plan_file_from_csv_folder(dest: str | Path, folder: str | Path) -> int:
+    """Build a plan file at ``dest`` from the plan CSV set in ``folder`` through the
+    ``csv_exchange`` importer (the demo seed, a fresh frozen workspace); an existing ``dest`` is
+    replaced. Rows the old loader dropped at load are dropped too. Returns the rows written."""
+    from .csv_exchange import import_plan_csv_set  # noqa: PLC0415 - csv_exchange needs no plan at import
+
+    target = Path(dest)
+    for stale in (target, target.with_name(target.name + "-wal"), target.with_name(target.name + "-shm")):
+        stale.unlink(missing_ok=True)
+    with PlanStore.open(target) as store:
+        return import_plan_csv_set(folder, store, drop_never_kept=True).rows
+
+
+def plan_file_fingerprint(path: str | Path) -> tuple[str, int]:
+    """``(revision, row count)`` of a plan file, read-only (the build's input fingerprint)."""
+    with PlanStore.open(path, create=False, readonly=True) as store:
+        return store.revision(), len(store.all_rows())
 
 
 def plan_db_env(env: dict[str, Any]) -> dict[str, Any]:

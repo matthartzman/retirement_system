@@ -348,7 +348,8 @@ def migrate_plan_data_at_rest(input_dir, db_path=None, dry_run: bool = False, pl
     that only look at ``total_changed`` (e.g. ``main.py``'s startup log) keep working.
 
     The plan file is canonical (WP4.2): the engine reads ``plan_rows`` of the active plan, so
-    its rows are migrated (``plan_path``, default the active plan; :func:`migrate_plan_file`).
+    its rows are migrated (``plan_path``; by default the active plan when ``input_dir`` is the
+    workspace's ``input`` folder, otherwise no plan file; :func:`migrate_plan_file`).
     That sweep is idempotent and not version-gated, so a plan file that arrives from outside
     (Load Saved Plan) is swept the same way. A store error during the sweep is NOT swallowed:
     it aborts the call and leaves the CSV version unstamped, so everything retries next boot.
@@ -366,9 +367,12 @@ def migrate_plan_data_at_rest(input_dir, db_path=None, dry_run: bool = False, pl
 
     try:
         if plan_path is None:
+            # The active plan is the workspace's; a migration of some other folder does not touch it.
+            from . import platform_runtime  # noqa: PLC0415
             from .active_plan import active_plan_path  # noqa: PLC0415
-            plan_path = active_plan_path()
-        plan_rows_changed = _migrate_plan_file_rows(plan_path, dry_run)
+            if Path(input_dir).resolve() == (platform_runtime.workspace_root() / "input").resolve():
+                plan_path = active_plan_path()
+        plan_rows_changed = _migrate_plan_file_rows(plan_path, dry_run) if plan_path is not None else 0
     except Exception as exc:
         # Never stamp the version over a sweep that did not finish, so the next boot retries
         # everything. The caller (run_startup_plan_data_migration / main.py) still must not
@@ -392,12 +396,15 @@ def migrate_plan_data_at_rest(input_dir, db_path=None, dry_run: bool = False, pl
         except (OSError, UnicodeDecodeError):
             # A file we cannot read is left exactly as it is.
             continue
-        # The flat-category transform is attempted on every flat file; it is a no-op on data
-        # it does not recognise (it needs a category-id column header). Running it on every
-        # file beats maintaining a filename list that would silently miss the next flat file
-        # added -- which is exactly how client_spending_aliases.csv was missed on the first
-        # inventory pass.
-        new_content, changed = migrate_flat_category_content(content)
+        # Both transforms are attempted on every file, and each is a no-op on data it does not
+        # recognise: migrate_rows needs a (section, subsection, label) triple,
+        # migrate_flat_category_content needs a category-id column header. Running both beats
+        # maintaining a filename list that would silently miss the next flat file added -- which
+        # is exactly how client_spending_aliases.csv was missed on the first inventory pass.
+        new_content, changed = migrate_csv_content(content)
+        flat_content, flat_changed = migrate_flat_category_content(new_content)
+        if flat_changed:
+            new_content, changed = flat_content, changed + flat_changed
         if not changed:
             continue
         migrated[path.name] = changed

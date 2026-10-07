@@ -88,7 +88,8 @@ def test_build_and_load_no_longer_use_remembered_csv_folder_as_authority():
     assert "Local folder:" not in load_fn
     assert "saveCurrentPlanToSelectedFolderForBuild" not in build_fn
     assert "sqlite_snapshot" in build_fn
-    assert "saved local database snapshot" in build_fn
+    assert "saved database snapshot" in build_fn
+    assert "planFolderHandle" not in build_fn  # WP4.5: no folder IO left in the UI
 
 
 def test_results_explorer_uses_simplified_categories():

@@ -962,7 +962,6 @@ def _csv_rows_payload() -> dict:
     rows include what it added. ``revision`` is ``PlanStore.revision()`` of the rows served.
     """
     _ensure_user_ui_plan_data_rows()
-    warning = _refresh_active_plan()
     schema = _read_schema_map()
     with active_plan_store() as store:
         order = {section: i for i, section in enumerate(store.section_order())}

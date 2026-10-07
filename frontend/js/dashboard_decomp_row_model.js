@@ -4911,29 +4911,6 @@ export function updates() {
   });
 }
 
-export async function syncBackends() {
-  return await api("/api/config/sync", {
-    method: "POST",
-    body: JSON.stringify({}),
-  });
-}
-
-export async function readPlanDataFolderContents(dirHandle, requireRequired = true) {
-  if (!dirHandle) throw new Error("No CSV adapter folder selected.");
-  const contents = {};
-  for (const name of PLAN_DATA_FILES) {
-    try {
-      contents[name] = await readFileFromFolder(dirHandle, name);
-    } catch (e) {
-      if (requireRequired && REQUIRED_PLAN_DATA_FILES.includes(name))
-        throw new Error(
-          "The selected folder does not contain a complete Plan Data CSV set.",
-        );
-    }
-  }
-  return contents;
-}
-
 export function hasUnsavedPlanChanges() {
   return !!(
     dirty.size ||
@@ -5017,7 +4994,6 @@ export async function saveWorkingCopy() {
   await saveHoldings();
   await saveLiabilities();
   await saveHsaSchedule();
-  await syncBackends();
   updateUnsaved();
   return true;
 }
@@ -5206,11 +5182,6 @@ export async function runBuild(queue = false, opts = {}) {
         "build",
       );
     }
-    let folderWarning = "";
-    if (planFolderHandle) {
-      folderWarning =
-        "CSV folder import/export is available in System Configuration, but this build used the saved local database snapshot as the source of truth.";
-    }
     let buildBody = {
       queue,
       ui_saved_working_copy: true,
@@ -5268,8 +5239,6 @@ export async function runBuild(queue = false, opts = {}) {
         renderBuildImpactAfterBuild("Build successful. Build impact is ready.", stepBeforeBuild);
       }
       maybeRunLocalBackup("build");
-      if (folderWarning)
-        setTimeout(() => showMessage(folderWarning, "warn"), 250);
     } else throw new Error(JSON.stringify(out));
   } catch (e) {
     stopBuildProgressTicker();
@@ -5472,7 +5441,6 @@ Object.assign(window, {
   pushBuildHistoryEntry,
   
   rawRowsForStep,
-  readPlanDataFolderContents,
   recAdd,
   refreshBuildStatus,
   refreshPreflightForReview,
@@ -5540,7 +5508,6 @@ Object.assign(window, {
   strategyTabKey,
   suggestedNext,
   SUGGESTED_NEXT,
-  syncBackends,
   syncCategoryTotal,
   syncTaxonomyBudgetToBudgetLines,
   titleWord,

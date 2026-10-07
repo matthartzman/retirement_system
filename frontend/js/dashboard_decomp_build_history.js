@@ -171,9 +171,8 @@ export async function revertToBuildHistoryEntry(id) {
     }));
     await api("/api/config/rows", {
       method: "POST",
-      body: JSON.stringify({ updates, sync: false }),
+      body: JSON.stringify({ updates }),
     });
-    await syncBackends();
     dirty.clear();
     sessionChanges.clear();
     sessionSpecialChanges.clear();

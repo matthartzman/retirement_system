@@ -802,19 +802,18 @@ def classify_transaction(row: dict[str, Any], *, role: str = "Cash / spending") 
     return classify_cash_transaction(row)
 
 
+def _plan_view(root: str | Path) -> dict[str, dict[str, dict[str, str]]]:
+    """The sectioned plan rows behind ``root`` (the workspace ``input`` folder); ``{}`` when
+    there is no plan file. Read-only: creates nothing."""
+    from .active_plan import peek_plan_data_for_input_dir
+    return peek_plan_data_for_input_dir(root)
+
+
 def annual_spending_forecast(root: str | Path) -> float | None:
     """Read the plan's current core-spending base as a benchmark if available."""
-    for name in ["client_spending.csv", "client_income.csv", "client_data.csv"]:
-        p = Path(root) / name
-        if not p.exists():
-            continue
-        try:
-            with p.open(newline="", encoding="utf-8-sig") as f:
-                for row in csv.DictReader(f):
-                    if str(row.get("section", "")).strip() == "Cashflow" and str(row.get("subsection", "")).strip().lower() == "spending" and str(row.get("label", "")).strip() == "annual_spending_base_year":
-                        return parse_money(row.get("value"))
-        except Exception:
-            pass
+    for sub, values in _plan_view(root).get("Cashflow", {}).items():
+        if str(sub).strip().lower() == "spending" and "annual_spending_base_year" in values:
+            return parse_money(values["annual_spending_base_year"])
     return None
 
 
@@ -876,18 +875,10 @@ def _account_current_value(row: dict[str, Any]) -> float:
 
 
 def _iter_cashflow_rows(root: str | Path):
-    """Yield Cashflow rows from split plan data, preferring client_spending.csv."""
-    for name in ["client_spending.csv", "client_income.csv", "client_data.csv"]:
-        p = Path(root) / name
-        if not p.exists():
-            continue
-        try:
-            with p.open(newline="", encoding="utf-8-sig") as f:
-                for row in csv.DictReader(f):
-                    if str(row.get("section", "")).strip() == "Cashflow":
-                        yield row
-        except Exception:
-            continue
+    """Yield the plan's Cashflow rows as ``{subsection, label, value}`` dicts."""
+    for sub, values in _plan_view(root).get("Cashflow", {}).items():
+        for label, value in values.items():
+            yield {"subsection": sub, "label": label, "value": value}
 
 
 def _cashflow_value(root: str | Path, subsection: str, label: str) -> str:
@@ -910,20 +901,16 @@ def _parse_int(value: Any) -> int | None:
 
 
 def _plan_start_year(root: str | Path, default: int) -> int:
-    for name in ["client_household.csv", "client_spending.csv", "client_data.csv"]:
-        p = Path(root) / name
-        if not p.exists():
-            continue
-        try:
-            with p.open(newline="", encoding="utf-8-sig") as f:
-                for row in csv.DictReader(f):
-                    label = _norm_label(row.get("label"))
-                    if label in {"plan_start", "plan_start_year", "start_year"}:
-                        yr = _parse_int(row.get("value"))
-                        if yr:
-                            return yr
-        except Exception:
-            continue
+    view = _plan_view(root)
+    # The household and spending parts of the plan, in that order (where the legacy files read it).
+    for section in ("Household", "Economic Assumptions", "Payroll Tax", "Wellness", "Social Security",
+                    "State Comparison", "Cashflow", "Housing"):
+        for values in view.get(section, {}).values():
+            for label, value in values.items():
+                if _norm_label(label) in {"plan_start", "plan_start_year", "start_year"}:
+                    yr = _parse_int(value)
+                    if yr:
+                        return yr
     return default
 
 
@@ -936,29 +923,19 @@ def _last_earned_income_year_from_retirement_timing(root: str | Path, default: i
     later retirement dates, keep the existing annual YTD forecast behavior and
     include that calendar year.
     """
-    for name in ["client_household.csv", "client_data.csv"]:
-        p = Path(root) / name
-        if not p.exists():
-            continue
-        try:
-            with p.open(newline="", encoding="utf-8-sig") as f:
-                for row in csv.DictReader(f):
-                    if str(row.get("section", "")).strip() != "Household":
-                        continue
-                    if _norm_label(row.get("label")) != "member_1_retirement_date":
-                        continue
-                    raw = row.get("value")
-                    # Same shared plan-date parser (and 2-digit-year century
-                    # rule) as data_io's retirement-date reader (WI-401).
-                    parts = _plan_dates.parse_plan_date(raw)
-                    if parts:
-                        y, m, d = parts
-                        return y - 1 if (m == 1 and d == 1) else y
-                    yr = _parse_int(raw)
-                    if yr:
-                        return yr
-        except Exception:
-            continue
+    for values in _plan_view(root).get("Household", {}).values():
+        for label, raw in values.items():
+            if _norm_label(label) != "member_1_retirement_date":
+                continue
+            # Same shared plan-date parser (and 2-digit-year century
+            # rule) as data_io's retirement-date reader (WI-401).
+            parts = _plan_dates.parse_plan_date(raw)
+            if parts:
+                y, m, d = parts
+                return y - 1 if (m == 1 and d == 1) else y
+            yr = _parse_int(raw)
+            if yr:
+                return yr
     return default
 
 
@@ -972,7 +949,7 @@ def real_estate_tax_adjustment_rate(root: str | Path) -> float:
 
 
 def annual_mortgage_spending(root: str | Path, current_year: int) -> float:
-    """Return this year's planned mortgage payments from client_spending.csv."""
+    """Return this year's planned mortgage payments from the plan's Cashflow / Mortgage rows."""
     monthly = parse_money(_cashflow_value(root, "Mortgage", "monthly_payment"))
     if monthly <= 0:
         return 0.0
@@ -1098,48 +1075,27 @@ _INCOME_STREAM_META = {"joint-and-survivor percentage", "present value horizon",
 
 def annuity_pension_accounts(root: str | Path) -> list[str]:
     """Return Income Stream subsection names (annuities/pensions) for the Mapped Account dropdown."""
-    p = Path(root) / "client_income.csv"
-    seen: set[str] = set()
-    results: list[str] = []
-    if p.exists():
-        try:
-            with p.open(newline="", encoding="utf-8-sig") as f:
-                for row in csv.DictReader(f):
-                    if str(row.get("section", "") or "").strip() != "Income Streams":
-                        continue
-                    sub = str(row.get("subsection", "") or "").strip()
-                    if sub and sub.lower() not in _INCOME_STREAM_META and sub not in seen:
-                        seen.add(sub)
-                        results.append(sub)
-        except Exception:
-            pass
-    return sorted(results, key=lambda x: x.lower())
+    results = [sub.strip() for sub in _plan_view(root).get("Income Streams", {})
+               if sub.strip() and sub.strip().lower() not in _INCOME_STREAM_META]
+    return sorted(dict.fromkeys(results), key=lambda x: x.lower())
 
 
 def annuity_pension_account_values(root: str | Path) -> dict[str, float]:
-    """Return base (account value) for each Income Stream from client_income.csv.
+    """Return base (account value) for each Income Stream from the plan's Income Streams rows.
 
     The 'base' field is the starting account value used by the net worth model.
     Used to auto-populate Current Value when a YTD row is mapped to an income stream.
     """
-    p = Path(root) / "client_income.csv"
     values: dict[str, float] = {}
-    if not p.exists():
-        return values
-    try:
-        with p.open(newline="", encoding="utf-8-sig") as f:
-            for row in csv.DictReader(f):
-                if str(row.get("section", "") or "").strip() != "Income Streams":
-                    continue
-                sub = str(row.get("subsection", "") or "").strip()
-                if not sub or sub.lower() in _INCOME_STREAM_META:
-                    continue
-                if str(row.get("label", "") or "").strip().lower() == "base":
-                    val = parse_money(row.get("value", ""))
-                    if val:
-                        values[sub] = val
-    except Exception:
-        pass
+    for sub, fields in _plan_view(root).get("Income Streams", {}).items():
+        sub = sub.strip()
+        if not sub or sub.lower() in _INCOME_STREAM_META:
+            continue
+        for label, raw in fields.items():
+            if label.strip().lower() == "base":
+                val = parse_money(raw)
+                if val:
+                    values[sub] = val
     return values
 
 

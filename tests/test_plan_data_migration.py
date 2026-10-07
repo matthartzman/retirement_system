@@ -102,7 +102,10 @@ def _tmp_db():
 
 
 def _staged_input(tmp_path):
-    """An input/ dir holding one legacy file and one already-current file."""
+    """An input/ dir holding the legacy sectioned CSVs (the converter's source: the migration must
+    leave them alone) and, beside it, the active plan file holding the same legacy rows."""
+    from src.stores import PlanStore
+
     work = tmp_path / "input"
     work.mkdir(parents=True, exist_ok=True)
     (work / "client_data.csv").write_text(
@@ -115,7 +118,17 @@ def _staged_input(tmp_path):
         "section,subsection,label,value\nHousehold,,member_1_name,Robert\n",
         encoding="utf-8", newline="",
     )
+    with PlanStore.open(tmp_path / "plan.rpx") as store:
+        store.insert_row("Household", label="husband_name", value="Robert")
+        store.insert_row("Household", label="wife_name", value="Susan")
     return work
+
+
+def _plan_rows(tmp_path):
+    from src.stores import PlanStore
+
+    with PlanStore.open(tmp_path / "plan.rpx", create=False, readonly=True) as store:
+        return store.sectioned_data()
 
 
 def test_a_never_migrated_store_reports_version_zero():
@@ -141,18 +154,20 @@ def test_needs_migration_is_false_once_stamped_current():
     assert needs_migration(db_path=db) is False
 
 
-def test_runner_rewrites_legacy_rows_and_stamps_the_version(tmp_path):
+def test_runner_rewrites_legacy_plan_rows_and_stamps_the_version(tmp_path):
     from src.plan_data_migration import (
         PLAN_DATA_SCHEMA_VERSION, migrate_plan_data_at_rest, stored_schema_version,
     )
     work, db = _staged_input(tmp_path), _tmp_db()
-    report = migrate_plan_data_at_rest(work, db_path=db)
+    before = {p.name: p.read_bytes() for p in work.iterdir()}
+    report = migrate_plan_data_at_rest(work, db_path=db, plan_path=tmp_path / "plan.rpx")
 
     assert report["skipped"] is False
-    assert report["total_changed"] == 2
-    assert "client_data.csv" in report["migrated"]
-    text = (work / "client_data.csv").read_text(encoding="utf-8")
-    assert "member_1_name" in text and "husband_name" not in text
+    assert report["total_changed"] == 2 and report["plan_rows"] == 2
+    assert _plan_rows(tmp_path) == {"Household": {"": {"member_1_name": "Robert", "member_2_name": "Susan"}}}
+    # WP4.5: the legacy sectioned CSV set is the converter's source and is never rewritten
+    assert report["migrated"] == {}
+    assert {p.name: p.read_bytes() for p in work.iterdir()} == before
     assert stored_schema_version(db_path=db) == PLAN_DATA_SCHEMA_VERSION
 
 
@@ -169,7 +184,7 @@ def test_runner_leaves_already_current_files_untouched(tmp_path):
     before_text = untouched.read_text(encoding="utf-8")
     before_mtime = untouched.stat().st_mtime_ns
 
-    report = migrate_plan_data_at_rest(work, db_path=db)
+    report = migrate_plan_data_at_rest(work, db_path=db, plan_path=tmp_path / "plan.rpx")
 
     assert "client_policy.csv" not in report["migrated"]
     assert untouched.read_text(encoding="utf-8") == before_text
@@ -179,14 +194,29 @@ def test_runner_leaves_already_current_files_untouched(tmp_path):
 def test_runner_is_idempotent_and_skips_the_second_time(tmp_path):
     from src.plan_data_migration import migrate_plan_data_at_rest
     work, db = _staged_input(tmp_path), _tmp_db()
-    migrate_plan_data_at_rest(work, db_path=db)
-    after_first = (work / "client_data.csv").read_text(encoding="utf-8")
+    migrate_plan_data_at_rest(work, db_path=db, plan_path=tmp_path / "plan.rpx")
+    after_first = _plan_rows(tmp_path)
 
-    second = migrate_plan_data_at_rest(work, db_path=db)
+    second = migrate_plan_data_at_rest(work, db_path=db, plan_path=tmp_path / "plan.rpx")
 
     assert second["skipped"] is True
     assert second["total_changed"] == 0
-    assert (work / "client_data.csv").read_text(encoding="utf-8") == after_first
+    assert _plan_rows(tmp_path) == after_first
+
+
+def test_a_plan_file_arriving_later_is_swept_even_when_the_csv_part_is_stamped(tmp_path):
+    """The plan-row sweep is not version-gated: Load Saved Plan brings an older plan in after the
+    flat-file migration was stamped, and ``migrate_plan_file`` renames its legacy keys."""
+    from src.plan_data_migration import migrate_plan_data_at_rest, migrate_plan_file
+    work, db = _staged_input(tmp_path), _tmp_db()
+    migrate_plan_data_at_rest(work, db_path=db, plan_path=tmp_path / "plan.rpx")
+    from src.stores import PlanStore
+    with PlanStore.open(tmp_path / "plan.rpx") as store:
+        store.insert_row("Household", label="husband_mortality_age", value="92")
+    assert migrate_plan_file(tmp_path / "plan.rpx") == {"plan_rows": 1, "total_changed": 1}
+    assert migrate_plan_file(tmp_path / "plan.rpx")["total_changed"] == 0
+    assert migrate_plan_file(tmp_path / "missing.rpx")["total_changed"] == 0  # no plan file: nothing to do
+    assert "member_1_mortality_age" in _plan_rows(tmp_path)["Household"][""]
 
 
 def test_dry_run_reports_without_writing_or_stamping(tmp_path):
@@ -194,12 +224,12 @@ def test_dry_run_reports_without_writing_or_stamping(tmp_path):
         migrate_plan_data_at_rest, stored_schema_version,
     )
     work, db = _staged_input(tmp_path), _tmp_db()
-    before = (work / "client_data.csv").read_text(encoding="utf-8")
+    before = _plan_rows(tmp_path)
 
-    report = migrate_plan_data_at_rest(work, db_path=db, dry_run=True)
+    report = migrate_plan_data_at_rest(work, db_path=db, dry_run=True, plan_path=tmp_path / "plan.rpx")
 
     assert report["total_changed"] == 2
-    assert (work / "client_data.csv").read_text(encoding="utf-8") == before
+    assert _plan_rows(tmp_path) == before
     assert stored_schema_version(db_path=db) == 0
 
 
@@ -218,35 +248,42 @@ def test_startup_migration_survives_an_undecodable_csv():
     from src.plan_data_migration import migrate_plan_data_at_rest
     work = Path(tempfile.mkdtemp())
     (work / "broken.csv").write_bytes(b"\xff\xfe\x00\x00not utf8")
-    (work / "client_household.csv").write_text(
-        "section,subsection,label,value,units,notes\n"
-        "Household,,husband_name,Matt,text,\n",
+    (work / "client_spending_aliases.csv").write_text(
+        "match_value,match_field,exact,priority,category_id,source\n"
+        "Healthcare Premium,category,0,50,pre65_wellness_premium,user\n",
         encoding="utf-8",
     )
-    report = migrate_plan_data_at_rest(work, db_path=work / "s.sqlite")
+    report = migrate_plan_data_at_rest(work, db_path=work / "s.sqlite", plan_path=work / "no_plan.rpx")
     assert report["total_changed"] == 1  # good file still migrated
 
 
 def test_startup_wrapper_resolves_input_through_the_workspace_root(monkeypatch, tmp_path):
     """It must honour RETIREMENT_SYSTEM_WORKSPACE_ROOT, not a __file__ root.
 
-    This is the 2026-08-12 frozen-gate bug as a migration: a hardcoded root
-    there made runs under a custom workspace resolve plan data against the repo
-    instead. Reading the wrong files is recoverable; REWRITING them is not.
+    This is the 2026-08-12 frozen-gate bug as a migration: a hardcoded root there made runs under
+    a custom workspace resolve plan data against the repo instead. Reading the wrong files is
+    recoverable; REWRITING them is not. The plan file is the workspace's ``plan.rpx``.
     """
     from src.plan_data_migration import run_startup_plan_data_migration
+    from src.stores import PlanStore
     work = tmp_path / "ws"
     (work / "input").mkdir(parents=True)
-    (work / "input" / "client_data.csv").write_text(
-        "section,subsection,label,value\nHousehold,,husband_name,Robert\n",
+    (work / "input" / "client_spending_aliases.csv").write_text(
+        "match_value,match_field,exact,priority,category_id,source\n"
+        "Healthcare Premium,category,0,50,pre65_wellness_premium,user\n",
         encoding="utf-8", newline="",
     )
+    with PlanStore.open(work / "plan.rpx") as store:
+        store.insert_row("Household", label="husband_name", value="Robert")
     monkeypatch.setenv("RETIREMENT_SYSTEM_WORKSPACE_ROOT", str(work))
+    monkeypatch.delenv("RETIREMENT_SYSTEM_PLAN_DB", raising=False)
 
     report = run_startup_plan_data_migration(db_path=tmp_path / "s.sqlite")
 
-    assert report["total_changed"] == 1
-    assert "member_1_name" in (work / "input" / "client_data.csv").read_text(encoding="utf-8")
+    assert report["total_changed"] == 2 and report["plan_rows"] == 1
+    assert "pre65_healthcare_premium" in (work / "input" / "client_spending_aliases.csv").read_text(encoding="utf-8")
+    with PlanStore.open(work / "plan.rpx", create=False, readonly=True) as store:
+        assert store.sectioned_data() == {"Household": {"": {"member_1_name": "Robert"}}}
 
 
 def test_startup_wrapper_never_raises_on_a_broken_store(monkeypatch, tmp_path):

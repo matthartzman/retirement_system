@@ -71,7 +71,7 @@ from ..results_model import RESULTS_MODEL_FILENAME
 from ..server_services import build_job_service, build_service, holdings_service, plan_data_file_service, plan_forms_service, report_service, spending_service
 
 from ..local_store import list_kpi_snapshots, compare_kpi_snapshots
-from ..active_plan import active_plan_path, plan_db_env
+from ..active_plan import active_plan_path, peek_plan_data, plan_db_env
 
 
 # Build-job orchestration is owned by server_services.build_job_service.
@@ -167,6 +167,7 @@ def _spending_budget_feature_service() -> spending_service.SpendingService:
             base_dir=BASE_DIR,
             read_plan_data_file=_read_plan_data_file,
             write_plan_data_file=lambda name, content: _write_plan_data_file(name, content),
+            plan_data=peek_plan_data,
             audit=_audit,
         )
     )

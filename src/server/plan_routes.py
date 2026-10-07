@@ -82,7 +82,7 @@ except ImportError:
         request,
         set_client_file,
     )
-from ..active_plan import active_plan_path
+from ..active_plan import active_plan_path, peek_plan_data
 from ..version import VERSION
 from ..server_services import base_service, config_service, demo_plan_service, pricing_service, ytd_service, plan_file_service, portfolio_service, secret_service, spending_service, strategy_asset_service
 from ..portfolio_analytics import freeze_latest_pricing_snapshot, unfreeze_pricing_snapshot
@@ -682,25 +682,28 @@ def add_life_illustration():
     body = request.get_json(silent=True) or {}
     return _service_json(_strategy_asset_feature_service().add_life_illustration_payload(body))
 
-@app.route("/api/capital-market/assumptions", methods=["POST"])
-def import_capital_market_assumptions():
+def _save_override_rows(kind: str, audit_event: str):
     denied = _require("write_config")
     if denied:
         return denied
     if not _runtime_config().allow_csv_write:
         return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
     body = request.get_json(silent=True) or {}
-    return _service_json(_strategy_asset_feature_service().import_reference_csv_payload(file_name="capital_market_assumptions.csv", body=body, audit_event="capital_market_assumptions_imported"))
+    return _service_json(_strategy_asset_feature_service().save_override_rows_payload(kind=kind, body=body, audit_event=audit_event))
+
+
+# Plan-side override tables over the read-only reference data (plan_overrides; plan_rows sections).
+@app.route("/api/capital-market/assumptions", methods=["POST"])
+def import_capital_market_assumptions():
+    return _save_override_rows("capital_market", "capital_market_assumptions_saved")
 
 @app.route("/api/capital-market/correlations", methods=["POST"])
 def import_asset_correlations():
-    denied = _require("write_config")
-    if denied:
-        return denied
-    if not _runtime_config().allow_csv_write:
-        return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
-    body = request.get_json(silent=True) or {}
-    return _service_json(_strategy_asset_feature_service().import_reference_csv_payload(file_name="asset_correlations.csv", body=body, audit_event="asset_correlations_imported"))
+    return _save_override_rows("correlations", "asset_correlations_saved")
+
+@app.route("/api/capital-market/real-loss-curves", methods=["POST"])
+def save_real_loss_curves():
+    return _save_override_rows("real_loss", "real_loss_curves_saved")
 
 @app.route("/api/housing/seed", methods=["POST"])
 def seed_housing_rows():
@@ -937,6 +940,7 @@ def _spending_feature_service() -> spending_service.SpendingService:
         spending_service.SpendingServiceContext(
             base_dir=BASE_DIR,
             read_plan_data_file=_read_plan_data_file,
+            plan_data=peek_plan_data,
             audit=_audit,
         )
     )

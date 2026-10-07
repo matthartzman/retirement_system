@@ -149,3 +149,17 @@ def make_plan(tmp_path, fixture: str = DEFAULT_FIXTURE, *, input_subdir: str = "
     plan = PlanWorkspace(root=root, input_dir=input_dir, fixture=fixture)
     _build_plan_file(input_dir, plan.plan_db)
     return plan
+
+
+def stage_plan_csv(tmp_path, files: dict[str, str], *, input_subdir: str = "plan_input") -> Path:
+    """A small hand-written plan for readers that take a workspace's ``input`` folder (the YTD
+    and spending readers): the given plan CSV files (``{"client_spending.csv": text, ...}``) are
+    written to ``tmp_path/<input_subdir>`` and imported into ``tmp_path/plan.rpx``. Returns the
+    input folder, which is what those readers are handed. It is not named ``input`` by default,
+    so the taxonomy-scoped blend stays off (unit-test fixtures, like the old flat tmp folder)."""
+    input_dir = Path(tmp_path) / input_subdir
+    input_dir.mkdir(parents=True, exist_ok=True)
+    for name, text in files.items():
+        (input_dir / name).write_text(text, encoding="utf-8")
+    _build_plan_file(input_dir, Path(tmp_path) / PLAN_FILE_NAME)
+    return input_dir

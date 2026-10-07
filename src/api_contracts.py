@@ -209,7 +209,7 @@ CONTRACTS: tuple[EndpointContract, ...] = (
     ),
     EndpointContract(
         "/api/spending-adjustments", "POST", "spending_adjustments_update_v1",
-        request_fields=(_f("adjustments", "list", True)),
+        request_fields=(_f("adjustments", "list", True),),
         response_fields=(_f("success", "bool", True), _f("count", "int", True)),
     ),
     EndpointContract(
@@ -219,7 +219,7 @@ CONTRACTS: tuple[EndpointContract, ...] = (
     ),
     EndpointContract(
         "/api/large-discretionary-expenses", "POST", "large_discretionary_expenses_update_v1",
-        request_fields=(_f("events", "list", True)),
+        request_fields=(_f("events", "list", True),),
         response_fields=(_f("success", "bool", True), _f("count", "int", True)),
     ),
     EndpointContract(
@@ -228,7 +228,7 @@ CONTRACTS: tuple[EndpointContract, ...] = (
     ),
     EndpointContract(
         "/api/forced-roth-conversions", "POST", "forced_roth_conversions_update_v1",
-        request_fields=(_f("conversions", "list", True)),
+        request_fields=(_f("conversions", "list", True),),
         response_fields=(_f("success", "bool", True), _f("count", "int", True)),
     ),
     EndpointContract(
@@ -237,7 +237,7 @@ CONTRACTS: tuple[EndpointContract, ...] = (
     ),
     EndpointContract(
         "/api/liquidity-buffers", "POST", "liquidity_buffers_update_v1",
-        request_fields=(_f("buffers", "list", True)),
+        request_fields=(_f("buffers", "list", True),),
         response_fields=(_f("success", "bool", True), _f("count", "int", True)),
     ),
     EndpointContract(
@@ -246,7 +246,7 @@ CONTRACTS: tuple[EndpointContract, ...] = (
     ),
     EndpointContract(
         "/api/home-sale-splits", "POST", "home_sale_splits_update_v1",
-        request_fields=(_f("splits", "list", True)),
+        request_fields=(_f("splits", "list", True),),
         response_fields=(_f("success", "bool", True), _f("count", "int", True)),
     ),
     EndpointContract(
@@ -255,7 +255,7 @@ CONTRACTS: tuple[EndpointContract, ...] = (
     ),
     EndpointContract(
         "/api/tax-assumptions", "POST", "tax_assumptions_update_v1",
-        request_fields=(_f("overrides", "dict", True)),
+        request_fields=(_f("overrides", "dict", True),),
         response_fields=(_f("success", "bool", True), _f("count", "int", True)),
     ),
     EndpointContract(
@@ -264,7 +264,7 @@ CONTRACTS: tuple[EndpointContract, ...] = (
     ),
     EndpointContract(
         "/api/residency-schedule", "POST", "residency_schedule_update_v1",
-        request_fields=(_f("schedule", "list", True)),
+        request_fields=(_f("schedule", "list", True),),
         response_fields=(_f("success", "bool", True), _f("count", "int", True)),
     ),
     EndpointContract(

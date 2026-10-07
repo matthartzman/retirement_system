@@ -101,11 +101,13 @@ def frozen_workspace_root() -> Path:
 
 
 def seed_frozen_workspace() -> bool:
-    """Seed an empty per-user workspace ``input/`` from the bundled demo plan.
+    """Seed an empty per-user workspace from the bundled demo plan.
 
-    Only acts when frozen and the workspace is not the package root, and only
-    when ``input/client_data.csv`` is absent, so existing user data is never
-    overwritten. Returns True when files were copied.
+    Copies the demo files into ``input/`` (the flat datasets still read from there) and builds
+    the workspace's plan file (``plan.rpx``) from the demo CSV set through the ``csv_exchange``
+    importer (WP9/P9.2 ship a seed ``.rpx`` instead). Only acts when frozen and the workspace is
+    not the package root, and only when ``input/client_data.csv`` is absent, so existing user
+    data is never overwritten. Returns True when files were copied.
     """
     root = workspace_root()
     if not is_frozen() or root == package_root():
@@ -118,6 +120,10 @@ def seed_frozen_workspace() -> bool:
     for src_file in demo.iterdir():
         if src_file.is_file():
             shutil.copy2(src_file, target / src_file.name)
+    plan_file = root / "plan.rpx"
+    if not plan_file.exists():
+        from .active_plan import build_plan_file_from_csv_folder  # noqa: PLC0415 - active_plan imports this module
+        build_plan_file_from_csv_folder(plan_file, target)
     return True
 
 

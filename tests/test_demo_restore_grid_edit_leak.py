@@ -1,209 +1,96 @@
 """#240: a demo-session grid edit must not survive "Open Current Plan".
 
-test_demo_plan_open_restore.py exercises DemoPlanService in full isolation
-with a mocked dict standing in for both the sqlite DB and disk files -- that
-harness is structurally blind to this bug, because the bug is specifically
-about the *real* config_backend.materialize_workspace_files() silently
-no-op'ing when the SQLite client_files table has no row for a file, which a
-plain dict can never reproduce. This test exercises the real sqlite DB (via
-src.config_backend.set_client_file/get_client_file/materialize_workspace_files)
-and real disk files instead, redirecting platform_runtime.workspace_root() to
-tmp_path so it can never touch the repo's real input/ (see
-memory/testing notes: pytest must not mutate live input/ files).
+The plan rows live in the plan file (WP4.5), so Open Demo swaps the plan file and Open Current Plan
+puts the pre-demo file back: an edit made through the grid while "in the demo" (a natural thing for
+an advisor exploring the demo to do) is captured into the demo slot, never into the real plan.
 
-Repro (matches the live-server repro from the ticket): edit a plan-data field
-only through ConfigService.update_config_rows_payload (the Save Changes grid
-endpoint), back up the DB the way Open Demo Plan does, overwrite the field
-with fictional demo content, edit the same field again through the grid
-while "in the demo" (a natural thing for an advisor exploring the demo to
-do), then restore the DB backup and materialize() disk mirrors from it the
-way Open Current Plan does. The real pre-demo value must come back, not the
-demo-session grid edit.
+This test drives the real ``DemoPlanService`` and the real grid save
+(``ConfigService.update_config_rows_payload`` over ``active_plan.edit_active_plan``) against a
+real plan file in ``tmp_path``, redirecting the workspace root so it can never touch the repo's
+real input/ (see memory/testing notes: pytest must not mutate live input/ files).
 """
-import gc
-import shutil
 import sqlite3
 from pathlib import Path
 
 from src import active_plan
-from src.config_backend import get_client_file, materialize_workspace_files, set_client_file
 from src.server_services.config_service import ConfigService, ConfigServiceContext
+from src.server_services.demo_plan_service import DEMO_SLOT_DIR, SLOT_PLAN_FILE, DemoPlanService, DemoPlanServiceContext
+from src.stores import PlanStore
 
-FILE_NAME = "client_household.csv"
-
-
-def _checkpoint(db_path: Path) -> None:
-    """Mirrors DemoPlanService._checkpoint_sqlite / plan_file_service's
-    _checkpoint_sqlite: the DB runs in WAL mode (config_backend.init_sqlite),
-    so a committed write can still live only in the "-wal" sidecar file. A
-    plain file copy of just the ".db" file, without checkpointing first,
-    silently drops those writes -- fold the WAL back into the main file
-    before treating a copy as a real snapshot."""
-    if not db_path.exists():
-        return
-    conn = sqlite3.connect(str(db_path))
-    try:
-        conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
-    finally:
-        conn.close()
+HEADER = "section,subsection,label,value,units,notes\n"
+KEY = ("Household", "", "client_name")
 
 
-def _discard_sidecars(db_path: Path) -> None:
-    """Mirrors plan_file_service._remove_sidecars' intent -- a stale "-wal"
-    left next to a just-restored ".db" file gets replayed on the next
-    connection, silently reapplying whatever was in the old WAL and undoing
-    the restore. Rather than racing an OS-level unlink against the file lock
-    Windows can briefly hold after set_client_file/get_client_file's
-    unclosed connections (config_backend relies on GC there, same as
-    production), checkpoint(TRUNCATE) the WAL down to zero bytes instead:
-    an empty WAL has nothing left to replay, so it's neutralized without
-    needing exclusive delete access to the sidecar file at all.
-    """
-    gc.collect()
-    _checkpoint(db_path)
-
-
-def _backup_db(db_path: Path, backup_path: Path) -> None:
-    _discard_sidecars(db_path)
-    shutil.copy2(str(db_path), str(backup_path))
-
-
-def _restore_db(backup_path: Path, db_path: Path) -> None:
-    _discard_sidecars(db_path)
-    shutil.copy2(str(backup_path), str(db_path))
-    _discard_sidecars(db_path)
-
-
-def _write_plan_data_file(name: str, content: str, *, db_path: Path, disk_dir: Path) -> Path:
-    """Faithful stand-in for app_core._write_plan_data_file's essential
-    invariant under test: the SQLite client_files row is canonical and is
-    written first, disk is the mirror. This is exactly the invariant #240's
-    fix (routing config_service's grid save through write_plan_data_file
-    instead of the disk-only write_client_rows) restores."""
-    set_client_file(name, content, db_path=db_path)
-    path = disk_dir / name
-    path.write_text(content, encoding="utf-8")
-    return path
-
-
-def _make_config_service(db_path: Path, disk_dir: Path) -> ConfigService:
+def _make_config_service() -> ConfigService:
     return ConfigService(ConfigServiceContext(
         version="9",
-        base_dir=disk_dir,
-        csv_path=disk_dir / "client_data.csv",
-        client_data_csv_file_set={FILE_NAME},
-        plan_data_path=lambda n, *a, **k: disk_dir / n,
-        # WP4.3: the grid writes the plan rows and writes the edit back into the CSV set
-        # through write_plan_data_file, which is the path under test here
-        edit_plan=lambda: active_plan.edit_active_plan(
-            disk_dir, lambda n, c: _write_plan_data_file(n, c, db_path=db_path, disk_dir=disk_dir)),
+        base_dir=Path("."),
+        edit_plan=active_plan.edit_active_plan,
+        read_plan=lambda: active_plan.active_plan_store(),
         csv_rows_payload=lambda: {"rows": [], "schema_count": 0},
         read_schema_map=lambda: {},
-        write_plan_data_file=lambda n, c: _write_plan_data_file(n, c, db_path=db_path, disk_dir=disk_dir),
-        load_active_config=lambda: ({}, {"backend": "CSV"}),
-        runtime_config=lambda: type("Cfg", (), {"sqlite_db": str(db_path), "config_backend": "CSV"})(),
+        load_active_config=lambda: ({}, {"backend": "SQLITE"}),
+        runtime_config=lambda: type("Cfg", (), {"sqlite_db": "", "config_backend": "SQLITE"})(),
         normalize_date_for_csv=lambda v: v,
-        sync_config_backends=lambda: {"success": True},
     ))
+
+
+def _grid_edit(service: ConfigService, row_id: int, value: str) -> None:
+    result, status = service.update_config_rows_payload(
+        {"updates": [{"row_index": row_id, "value": value}]}, allow_csv_write=True)
+    assert status == 200 and result["success"] and result["updated"] == 1, result
+
+
+def _value() -> str:
+    return active_plan.peek_plan_data()[KEY[0]][KEY[1]][KEY[2]]
 
 
 def test_demo_grid_edit_does_not_survive_restore_of_real_plan(tmp_path, monkeypatch):
     monkeypatch.setenv("RETIREMENT_SYSTEM_WORKSPACE_ROOT", str(tmp_path))
     monkeypatch.delenv(active_plan.PLAN_DB_ENV, raising=False)
+    plan_db = active_plan.active_plan_path()
+    legacy_db = tmp_path / "local_state" / "retirement_system_v10.db"
+    legacy_db.parent.mkdir(parents=True)
+    with sqlite3.connect(legacy_db) as con:
+        con.execute("CREATE TABLE client_files(file_name TEXT PRIMARY KEY, content TEXT)")
+    demo_dir = tmp_path / "input" / "demo"
+    demo_dir.mkdir(parents=True)
+    (demo_dir / "client_household.csv").write_text(HEADER + "Household,,client_name,Fictional Demo Name,text,\n", encoding="utf-8")
 
-    db_path = tmp_path / "retirement_system_v10.db"
-    disk_dir = tmp_path / "input"
-    disk_dir.mkdir(parents=True)
-    service = _make_config_service(db_path, disk_dir)
-
-    def row(value: str) -> str:
-        return (
-            "section,subsection,label,value,units,notes\n"
-            f"Household,,client_name,{value},,\n"
-        )
-
-    (disk_dir / FILE_NAME).write_text(row("Placeholder"), encoding="utf-8")
-    active_plan.refresh_active_plan(disk_dir)
     with active_plan.active_plan_store() as store:
-        row_id = store.find_rows("Household", "", "client_name")[0]["row_id"]
+        store.set_value(*KEY, "Real Advisor Name")
+        row_id = store.find_rows(*KEY)[0]["row_id"]
+    config = _make_config_service()
+    demo = DemoPlanService(DemoPlanServiceContext(
+        sqlite_db=lambda: legacy_db,
+        plan_db=active_plan.active_plan_path,
+        demo_dir=lambda: demo_dir,
+        plan_data_csv_files=[],
+        read_plan_data_file=lambda name: None,
+        write_plan_data_file=lambda name, content: tmp_path / name,
+        ensure_user_ui_plan_data_rows=lambda: None,
+        materialize=lambda: None,
+    ))
 
-    # The advisor's real edit, made only through the grid-save path.
-    result, status = service.update_config_rows_payload(
-        {"updates": [{"row_index": row_id, "value": "Real Advisor Name"}]}, allow_csv_write=True
-    )
-    assert status == 200 and result["success"]
+    # The advisor's real edit, made through the grid-save path.
+    _grid_edit(config, row_id, "Real Advisor Name 2")
+    assert _value() == "Real Advisor Name 2"
 
-    # The fix under test: the grid save must reach the canonical DB row, not
-    # just the disk mirror -- otherwise materialize() below has nothing
-    # correct to restore from.
-    db_content = get_client_file(FILE_NAME, db_path=db_path)
-    assert db_content is not None and "Real Advisor Name" in db_content
+    # Open Demo Plan: the plan file is the demo household now (a different file, new row ids).
+    assert demo.open_demo_payload()["success"] is True
+    assert _value() == "Fictional Demo Name"
+    with PlanStore.open(plan_db, create=False, readonly=True) as store:
+        demo_row_id = store.find_rows(*KEY)[0]["row_id"]
 
-    # Open Demo Plan: back up the real DB (mirrors DemoPlanService.open_demo_payload),
-    # then overwrite the field with fictional demo content through the same
-    # canonical write path the real demo-open flow uses.
-    backup_path = Path(str(db_path) + ".before_demo")
-    _backup_db(db_path, backup_path)
-    _write_plan_data_file(FILE_NAME, row("Fictional Demo Name"), db_path=db_path, disk_dir=disk_dir)
+    # While "in the demo", the advisor edits the same field via the grid -- the repro step.
+    _grid_edit(config, demo_row_id, "Accidental Demo Edit")
+    assert _value() == "Accidental Demo Edit"
 
-    # While "in the demo", the advisor edits the same field via the grid --
-    # the exact repro step from the ticket.
-    result, status = service.update_config_rows_payload(
-        {"updates": [{"row_index": row_id, "value": "Accidental Demo Edit"}]}, allow_csv_write=True
-    )
-    assert status == 200 and result["success"]
-    assert "Accidental Demo Edit" in (disk_dir / FILE_NAME).read_text(encoding="utf-8")
-
-    # Open Current Plan: restore the real DB backup, then materialize() disk
-    # mirrors from it -- the exact step that silently no-op'd pre-fix when
-    # the DB had no row for a grid-only-edited file.
-    _restore_db(backup_path, db_path)
-    materialize_workspace_files(db_path=db_path, file_names=[FILE_NAME], overwrite_existing=True)
-
-    restored = (disk_dir / FILE_NAME).read_text(encoding="utf-8")
-    assert "Real Advisor Name" in restored, (
+    # Open Current Plan: the real plan file is back, and the demo edit went to the slot only.
+    assert demo.restore_current_payload() == {"success": True, "restored": True}
+    assert _value() == "Real Advisor Name 2", (
         "Open Current Plan must restore the advisor's real pre-demo edit, not "
-        "leave a demo-session grid edit behind on disk (#240)"
-    )
-    assert "Accidental Demo Edit" not in restored
-    assert "Fictional Demo Name" not in restored
-
-
-def test_demo_grid_edit_leak_reproduces_without_the_fix(tmp_path, monkeypatch):
-    """Sanity check that this harness actually catches the bug: with a
-    disk-only write path (the pre-fix behavior -- DB row never created for a
-    grid-only-edited file), materialize() must leave the demo edit in place,
-    proving the assertions above are not vacuously true."""
-    monkeypatch.setenv("RETIREMENT_SYSTEM_WORKSPACE_ROOT", str(tmp_path))
-
-    db_path = tmp_path / "retirement_system_v10.db"
-    disk_dir = tmp_path / "input"
-    disk_dir.mkdir(parents=True)
-
-    def row(value: str) -> str:
-        return (
-            "section,subsection,label,value,units,notes\n"
-            f"Household,,client_name,{value},,\n"
-        )
-
-    # Pre-fix write path: disk only, DB client_files row never created.
-    (disk_dir / FILE_NAME).write_text(row("Real Advisor Name"), encoding="utf-8")
-    assert get_client_file(FILE_NAME, db_path=db_path) is None
-
-    backup_path = Path(str(db_path) + ".before_demo")
-    # DB must exist to be copied; create it via a set_client_file call for an
-    # unrelated file so the schema exists, matching the real DB always having
-    # other tables/rows by the time a demo is opened.
-    set_client_file("unrelated.csv", "x", db_path=db_path)
-    _backup_db(db_path, backup_path)
-
-    (disk_dir / FILE_NAME).write_text(row("Accidental Demo Edit"), encoding="utf-8")
-
-    _restore_db(backup_path, db_path)
-    materialize_workspace_files(db_path=db_path, file_names=[FILE_NAME], overwrite_existing=True)
-
-    leaked = (disk_dir / FILE_NAME).read_text(encoding="utf-8")
-    assert "Accidental Demo Edit" in leaked, (
-        "this harness should reproduce #240 when the DB row is missing -- if "
-        "it doesn't, the test above may be passing for the wrong reason"
-    )
+        "leave a demo-session grid edit behind (#240)")
+    slot_plan = legacy_db.parent / DEMO_SLOT_DIR / SLOT_PLAN_FILE
+    with PlanStore.open(slot_plan, create=False, readonly=True) as store:
+        assert store.sectioned_data()["Household"][""]["client_name"] == "Accidental Demo Edit"

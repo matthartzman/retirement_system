@@ -34,7 +34,6 @@ def own_workspace(tmp_path, monkeypatch):
     monkeypatch.setenv("RETIREMENT_SYSTEM_WORKSPACE_ROOT", str(ws.root))
     monkeypatch.delenv("RETIREMENT_SYSTEM_PLAN_DB", raising=False)
     monkeypatch.delenv("RETIREMENT_SYSTEM_CONFIG_FILE", raising=False)
-    monkeypatch.setattr(app_core, "CSV_PATH", ws.input_dir / "client_data.csv")
     return ws
 
 

@@ -1,4 +1,4 @@
-"""#330 bug fix (A3): a plan whose client_optional_functions.csv predates a
+"""#330 bug fix (A3): a plan whose Optional Functions rows predate a
 catalog module has no toggle row for it, so Plan Features shows no switch --
 ``backfill_optional_function_rows`` appends the missing rows (valued at the
 module's current effective state) so the page can show and edit them."""
@@ -37,63 +37,66 @@ def test_module_already_present_is_not_duplicated():
     assert matches[0]["value"] == "FALSE"  # untouched, not overwritten by `effective`
 
 
-def _no_plan_edit():
-    raise AssertionError("a GET of the config rows never edits the plan rows")
+def _store_rows_payload(store):
+    """Minimal stand-in for app_core._csv_rows_payload: a real row_index (the row id) per
+    plan row, in order -- enough to prove a backfilled row gets one it can actually be saved
+    against, without pulling in the full server module."""
+    return lambda: {"rows": [{"row_index": r["row_id"], "section": r["section"], "subsection": r["subsection"],
+                               "label": r["label"], "value": r["value"]} for r in store.all_rows()],
+                    "schema_count": 0}
 
 
-def _csv_rows_from_file(path):
-    """Minimal stand-in for app_core._csv_rows_payload: real row_index per
-    row, in file order -- enough to prove a backfilled row gets one it can
-    actually be saved against, without pulling in the full server module."""
-    import csv as _csv
-    rows = []
-    with path.open(newline="", encoding="utf-8-sig") as f:
-        for idx, cols in enumerate(_csv.reader(f)):
-            cols = list(cols) + [""] * max(0, 6 - len(cols))
-            rows.append({
-                "row_index": idx, "section": cols[0].strip(), "subsection": cols[1].strip(),
-                "label": cols[2].strip(), "value": cols[3].strip(),
-            })
-    return {"rows": rows, "schema_count": 0}
+def _optional_functions_service(tmp_path, *, load_active_config, edits=None):
+    """A ConfigService over a real plan file whose Optional Functions section predates the
+    catalog modules (it holds only ``roth_conversion_plan``). ``edits`` collects one entry per
+    edit transaction opened. Returns ``(service, store)``."""
+    from contextlib import contextmanager
+    from types import SimpleNamespace
 
-
-def test_config_rows_payload_backfills_the_missing_toggle_onto_disk(tmp_path):
-    """End-to-end: a plan CSV that predates a catalog module has no row for
-    it -- config_rows_payload() must write the missing row to disk (through
-    write_plan_data_file, the existing save path) before the row payload is
-    assembled, so the new row carries a real, persisted row_index rather
-    than being invisible or a synthetic row nothing could save."""
     from src.server_services.config_service import ConfigService, ConfigServiceContext
+    from src.stores import PlanStore
 
-    csv_path = tmp_path / "client_optional_functions.csv"
-    csv_path.write_text(
-        "section,subsection,label,value,units,notes\n"
-        "Optional Functions,,roth_conversion_plan,TRUE,boolean,Roth Conversion\n",
-        encoding="utf-8",
-    )
-    written = {}
+    store = PlanStore.open(tmp_path / "unit.rpx", create=True)
+    store.insert_row("Optional Functions", subsection="", label="roth_conversion_plan", value="TRUE",
+                     units="boolean", notes="Roth Conversion")
 
-    def write_plan_data(name, content):
-        p = tmp_path / name
-        p.write_text(content, encoding="utf-8")
-        written[name] = content
-        return p
+    @contextmanager
+    def read_plan():
+        yield store
+
+    @contextmanager
+    def edit_plan():
+        if edits is not None:
+            edits.append(True)
+        with store.transaction():
+            yield SimpleNamespace(store=store)
 
     service = ConfigService(ConfigServiceContext(
         version="9",
         base_dir=tmp_path,
-        csv_path=csv_path,
-        client_data_csv_file_set={"client_optional_functions.csv"},
-        plan_data_path=lambda name, *a, **k: tmp_path / name,
-        edit_plan=_no_plan_edit,
-        csv_rows_payload=lambda: _csv_rows_from_file(csv_path),
+        edit_plan=edit_plan,
+        read_plan=read_plan,
+        csv_rows_payload=_store_rows_payload(store),
         read_schema_map=lambda: {},
-        write_plan_data_file=write_plan_data,
-        load_active_config=lambda: ({}, {"backend": "CSV"}),
-        runtime_config=lambda: type("Cfg", (), {"sqlite_db": "", "config_backend": "CSV"})(),
+        load_active_config=load_active_config,
+        runtime_config=lambda: type("Cfg", (), {"sqlite_db": "", "config_backend": "SQLITE"})(),
         normalize_date_for_csv=lambda value: value,
-        sync_config_backends=lambda: {"success": True},
     ))
+    return service, store
+
+
+def _toggle_labels(store):
+    return {r["label"] for r in store.rows("Optional Functions")}
+
+
+def test_config_rows_payload_backfills_the_missing_toggle_into_the_plan_rows(tmp_path):
+    """End-to-end: a plan that predates a catalog module has no row for it --
+    config_rows_payload() must insert the missing row into the plan rows (one edit
+    transaction) before the row payload is assembled, so the new row carries a real,
+    persisted row_index rather than being invisible or a synthetic row nothing could save."""
+    edits: list = []
+    service, store = _optional_functions_service(
+        tmp_path, load_active_config=lambda: ({}, {"backend": "SQLITE"}), edits=edits)
 
     payload, status = service.config_rows_payload()
     assert status == 200
@@ -102,10 +105,8 @@ def test_config_rows_payload_backfills_the_missing_toggle_onto_disk(tmp_path):
     toggles = {k for k, m in CATALOG.items() if m.optional and m.gate_kind == GATE_MODULE_TOGGLE and not m.gated_by and not m.gated_by_any_flag and m.csv_row}
     # Every switchable module now has a row -- the missing-row bug is fixed.
     assert toggles <= labels
-    # It was actually written to disk (through write_plan_data_file), not
-    # just synthesized in memory for this one response.
-    assert "client_optional_functions.csv" in written
-    assert "housing_location_search" in csv_path.read_text(encoding="utf-8")
+    # It was actually written to the plan rows, not just synthesized for this one response.
+    assert len(edits) == 1 and "housing_location_search" in _toggle_labels(store)
     # And it has a real row_index -- distinct per row, not a placeholder --
     # so the ordinary editValue(row_index) toggle path can act on it.
     row_indices = [r["row_index"] for r in payload["rows"]]
@@ -113,48 +114,9 @@ def test_config_rows_payload_backfills_the_missing_toggle_onto_disk(tmp_path):
     hls_row = next(r for r in payload["rows"] if r["label"] == "housing_location_search")
     assert isinstance(hls_row["row_index"], int)
 
-    # Idempotent: calling again writes nothing further.
-    written.clear()
+    # Idempotent: calling again opens no further edit.
     service.config_rows_payload()
-    assert not written
-
-
-def _optional_functions_service(tmp_path, *, load_active_config, written):
-    """Shared ConfigService wiring for the two regression tests below --
-    identical to the other tests in this file except for the caller-supplied
-    ``load_active_config`` stub and a shared ``written`` dict to record disk
-    writes into."""
-    from src.server_services.config_service import ConfigService, ConfigServiceContext
-
-    csv_path = tmp_path / "client_optional_functions.csv"
-    csv_path.write_text(
-        "section,subsection,label,value,units,notes\n"
-        "Optional Functions,,roth_conversion_plan,TRUE,boolean,Roth Conversion\n",
-        encoding="utf-8",
-    )
-
-    def write_plan_data(name, content):
-        p = tmp_path / name
-        p.write_text(content, encoding="utf-8")
-        written[name] = content
-        return p
-
-    service = ConfigService(ConfigServiceContext(
-        version="9",
-        base_dir=tmp_path,
-        csv_path=csv_path,
-        client_data_csv_file_set={"client_optional_functions.csv"},
-        plan_data_path=lambda name, *a, **k: tmp_path / name,
-        edit_plan=_no_plan_edit,
-        csv_rows_payload=lambda: _csv_rows_from_file(csv_path),
-        read_schema_map=lambda: {},
-        write_plan_data_file=write_plan_data,
-        load_active_config=load_active_config,
-        runtime_config=lambda: type("Cfg", (), {"sqlite_db": "", "config_backend": "CSV"})(),
-        normalize_date_for_csv=lambda value: value,
-        sync_config_backends=lambda: {"success": True},
-    ))
-    return service, csv_path
+    assert len(edits) == 1
 
 
 # Pinned explicitly (not `next(...)` over the catalog, and deliberately not
@@ -191,22 +153,18 @@ def test_backfilled_row_never_loads_active_config(tmp_path, monkeypatch):
 
     def _record_and_return():
         calls.append(None)
-        return ({}, {"backend": "CSV"})
+        return ({}, {"backend": "SQLITE"})
 
-    written: dict = {}
-    service, csv_path = _optional_functions_service(
-        tmp_path, load_active_config=_record_and_return, written=written,
-    )
+    service, store = _optional_functions_service(tmp_path, load_active_config=_record_and_return)
 
-    service._backfill_optional_function_rows_to_disk()
+    service._backfill_optional_function_rows()
 
     assert calls == [], (
         "load_active_config() must not be called at all when computing "
         "which rows are missing -- that is a pure catalog-vs-existing-"
         "labels comparison with no config load in it"
     )
-    assert "client_optional_functions.csv" in written
-    row = next(r for r in _csv_rows_from_file(csv_path)["rows"] if r["label"] == key)
+    row = next(r for r in store.rows("Optional Functions") if r["label"] == key)
     assert row["value"] == "TRUE"
 
 
@@ -243,13 +201,10 @@ def test_backfilled_row_ignores_disabled_module_status(tmp_path, monkeypatch):
         staticmethod(lambda sectioned_data: {key: {"enabled": False}}),
     )
 
-    written: dict = {}
-    service, csv_path = _optional_functions_service(
-        tmp_path, load_active_config=lambda: ({}, {"backend": "CSV"}), written=written,
-    )
+    service, store = _optional_functions_service(
+        tmp_path, load_active_config=lambda: ({}, {"backend": "SQLITE"}))
 
-    service._backfill_optional_function_rows_to_disk()
+    service._backfill_optional_function_rows()
 
-    assert "client_optional_functions.csv" in written
-    row = next(r for r in _csv_rows_from_file(csv_path)["rows"] if r["label"] == key)
+    row = next(r for r in store.rows("Optional Functions") if r["label"] == key)
     assert row["value"] == "TRUE"

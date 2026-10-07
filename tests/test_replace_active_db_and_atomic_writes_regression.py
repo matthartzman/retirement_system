@@ -16,6 +16,7 @@ from src.build_snapshot import (
 )
 from src.plan_db_replace import replace_active_db
 from src.server_services.plan_file_service import PlanFileService, PlanFileServiceContext
+from src.stores import PlanStore
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -44,13 +45,26 @@ def _marker(path: Path) -> str:
         conn.close()
 
 
+def _make_plan(path: Path, marker: str) -> None:
+    """A plan file (``PlanStore``) with one marker row: the file Load / restore operate on (WP4.5)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with PlanStore.open(path) as store:
+        store.set_value("Marker", "", "value", marker)
+
+
+def _plan_marker(path: Path) -> str:
+    with PlanStore.open(path, create=False, readonly=True) as store:
+        return store.sectioned_data()["Marker"][""]["value"]
+
+
 def _service(active: Path, migrate=None) -> PlanFileService:
-    return PlanFileService(PlanFileServiceContext(sqlite_db=lambda: active, audit=lambda e, p: None, migrate=migrate))
+    return PlanFileService(PlanFileServiceContext(
+        sqlite_db=lambda: active.parent / "legacy.db", plan_db=lambda: active, audit=lambda e, p: None, migrate=migrate))
 
 
 def test_load_non_sqlite_file_errors_and_leaves_active_db_unchanged(tmp_path):
-    active = tmp_path / "state" / "retirement_system_v10.db"
-    _make_db(active, "active")
+    active = tmp_path / "state" / "plan.rpx"
+    _make_plan(active, "active")
     junk = tmp_path / "junk.rpx"
     junk.write_text("definitely not sqlite", encoding="utf-8")
 
@@ -58,38 +72,40 @@ def test_load_non_sqlite_file_errors_and_leaves_active_db_unchanged(tmp_path):
 
     assert result["success"] is False
     assert "not a SQLite" in result["error"]
-    assert _marker(active) == "active"
+    assert _plan_marker(active) == "active"
     assert not list(active.parent.glob("*.incoming"))
     assert not list(active.parent.glob("*before_load*"))
 
 
 def test_load_sqlite_file_without_plan_tables_is_rejected(tmp_path):
-    active = tmp_path / "active.db"
-    _make_db(active, "active")
+    active = tmp_path / "plan.rpx"
+    _make_plan(active, "active")
     other = tmp_path / "other.db"
     conn = sqlite3.connect(str(other))
     conn.execute("CREATE TABLE unrelated(x)")
     conn.commit()
     conn.close()
+    legacy = tmp_path / "legacy_copy.db"  # the legacy local database is not a plan file
+    _make_db(legacy, "legacy")
 
-    result = _service(active).load_file({"path": str(other)})
-
-    assert result["success"] is False and "client_files" in result["error"]
-    assert _marker(active) == "active"
+    for bad in (other, legacy):
+        result = _service(active).load_file({"path": str(bad)})
+        assert result["success"] is False and "plan_rows" in result["error"]
+    assert _plan_marker(active) == "active"
 
 
 def test_load_valid_plan_replaces_backs_up_and_runs_migration(tmp_path):
-    active = tmp_path / "active.db"
-    _make_db(active, "old")
+    active = tmp_path / "plan.rpx"
+    _make_plan(active, "old")
     src = tmp_path / "saved.rpx"
-    _make_db(src, "new")
+    _make_plan(src, "new")
     seen = []
 
     result = _service(active, migrate=lambda p: seen.append(Path(p))).load_file({"path": str(src)})
 
-    assert result["success"] is True and result["backup"]
-    assert _marker(active) == "new"
-    assert _marker(active.parent / result["backup"]) == "old"
+    assert result["success"] is True and result["backup"] and result["backup"].startswith("plan.rpx.before_load_")
+    assert _plan_marker(active) == "new"
+    assert _plan_marker(active.parent / result["backup"]) == "old"
     assert seen == [active]
 
 
@@ -116,11 +132,11 @@ def test_busy_checkpoint_aborts_without_changes(tmp_path):
 
 def test_restore_leaves_no_stale_wal_and_uses_shared_validation(tmp_path):
     output = tmp_path / "output"
-    active = tmp_path / "active.db"
-    src = tmp_path / "src.db"
-    _make_db(src, "snapshot")
+    active = tmp_path / "plan.rpx"
+    src = tmp_path / "src.rpx"
+    _make_plan(src, "snapshot")
     write_build_snapshot(output, build_id="b", sqlite_db_path=src, output_files=[])
-    _make_db(active, "active")
+    _make_plan(active, "active")
     Path(str(active) + "-wal").write_bytes(b"stale-wal-frames")
     Path(str(active) + "-shm").write_bytes(b"stale-shm")
 
@@ -129,14 +145,14 @@ def test_restore_leaves_no_stale_wal_and_uses_shared_validation(tmp_path):
     assert restored["success"] is True
     assert not Path(str(active) + "-wal").exists()
     assert not Path(str(active) + "-shm").exists()
-    assert _marker(active) == "snapshot"
-    assert _marker(Path(restored["backup_database"])) == "active"
+    assert _plan_marker(active) == "snapshot"
+    assert _plan_marker(Path(restored["backup_database"])) == "active"
 
 
 def test_restore_rejects_snapshot_db_that_is_not_a_plan_db(tmp_path):
     output = tmp_path / "output"
-    src = tmp_path / "src.db"
-    _make_db(src, "snapshot")
+    src = tmp_path / "src.rpx"
+    _make_plan(src, "snapshot")
     snapshot = write_build_snapshot(output, build_id="b", sqlite_db_path=src, output_files=[])
     # Corrupt the copy but keep the recorded hash matching so only the shared
     # validation (not the sha256 check) can catch it.
@@ -150,20 +166,13 @@ def test_restore_rejects_snapshot_db_that_is_not_a_plan_db(tmp_path):
     data = json.loads(snap_file.read_text(encoding="utf-8"))
     data["sqlite_database_snapshot"]["sha256"] = sha256_file(copy)
     snap_file.write_text(json.dumps(data), encoding="utf-8")
-    active = tmp_path / "active.db"
-    _make_db(active, "active")
+    active = tmp_path / "plan.rpx"
+    _make_plan(active, "active")
 
     restored = restore_sqlite_database_from_snapshot(snap_file, active)
 
     assert restored["success"] is False
-    assert _marker(active) == "active"
-
-
-def test_plan_routes_no_longer_reports_success_when_materialize_fails():
-    text = (ROOT / "src/server/plan_routes.py").read_text(encoding="utf-8")
-    block = text[text.index("def plan_load_file"):text.index("# DemoPlanService owns")]
-    assert 'result["success"] = False' in block
-    assert "materialize_warning" in block
+    assert _plan_marker(active) == "active"
 
 
 # ----- WI-202 -----------------------------------------------------------------

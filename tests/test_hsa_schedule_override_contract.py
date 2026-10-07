@@ -5,14 +5,15 @@ client_holdings.csv / client_liabilities.csv): no section/subsection/label
 structure, no YAML counterpart, not part of the sectioned client_data.csv
 bundle. This test file proves the three registration sites that let the file
 be read, written, sync'd, and blanked correctly by the existing plan-data
-infrastructure:
+infrastructure (WP4.5: the sectioned plan data is the plan file's rows; the flat tables
+below are what is still files until WP6):
 
   1. src/server/plan_data_files.py PLAN_DATA_CSV_FILES -- the load-bearing
      list that feeds PLAN_DATA_FILE_SET, the gate _normalize_plan_data_file_name
      checks in src/server/app_core.py before _read_plan_data_file /
      _write_plan_data_file will touch a file at all.
-  2. src/local_plan_data_sync.py PLAN_DATA_CSV_FILES -- the separate,
-     independently-hardcoded list used for folder sync / download.
+  2. src/plan_data_registry.py FLAT_PLAN_DATA_CSV_FILES -- the list the build's
+     materialize step restores from the local database.
   3. src/server/app_core.py _blank_hsa_schedule_csv -- the "Start New Plan"
      blank-template function, mirroring _blank_holdings_csv / _blank_liabilities_csv.
 """
@@ -23,7 +24,7 @@ import io
 import unittest
 
 from src.server import app_core, plan_data_files
-from src import local_plan_data_sync
+from src import plan_data_registry
 # The Task 10 schedule-search fixtures, imported rather than re-declared: a
 # second copy could drift, and then the search tests and the round-trip
 # contract tests would silently be describing two different households.
@@ -36,8 +37,8 @@ class HsaScheduleRegistrationTests(unittest.TestCase):
     def test_registered_in_server_plan_data_files(self):
         self.assertIn("client_hsa_schedule.csv", plan_data_files.PLAN_DATA_CSV_FILES)
 
-    def test_registered_in_local_plan_data_sync(self):
-        self.assertIn("client_hsa_schedule.csv", local_plan_data_sync.PLAN_DATA_CSV_FILES)
+    def test_registered_in_the_flat_dataset_registry(self):
+        self.assertIn("client_hsa_schedule.csv", plan_data_registry.FLAT_PLAN_DATA_CSV_FILES)
 
     def test_registered_in_plan_data_file_set_gate(self):
         # Cheap proxy for "the DB-canonical read/write gate accepts it":

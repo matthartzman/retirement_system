@@ -18,7 +18,6 @@ from src.csv_exchange import (
     import_plan_csv_set,
     parse_plan_csv,
     read_plan_csv_set,
-    sync_plan_rows,
     write_plan_rows,
 )
 from src.legacy_conversion.steps import c3_plan_rows as c3
@@ -94,8 +93,6 @@ def test_writers_collapse_too(store):
     assert n == 1 and [(r.label, r.value) for r in collapsed] == [("k", "3"), ("x", "2")]
     assert write_plan_rows(store, rows) == 2
     assert [(r["label"], r["value"]) for r in store.rows("A")] == [("k", "3"), ("x", "2")]
-    sync_plan_rows(store, rows)
-    assert len(store.rows("A")) == 2
 
 
 # --------------------------------------------------------------------------- 2

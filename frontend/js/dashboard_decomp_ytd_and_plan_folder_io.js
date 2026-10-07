@@ -64,14 +64,6 @@ export function csvEscape(v) {
   return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
 }
 
-export function clientDataKey(row) {
-  return [
-    String(row?.[0] || "").trim(),
-    String(row?.[1] || "").trim(),
-    String(row?.[2] || "").trim(),
-  ].join("\x1f");
-}
-
 export function parseCsvTable(text) {
   const lines = String(text || "").split(/\r?\n/);
   const rows = [];
@@ -121,32 +113,6 @@ export function parseCsvTable(text) {
 
 export function serializeCsvTable(rows) {
   return rows.map((r) => r.map(csvEscape).join(",")).join("\n") + "\n";
-}
-
-export function mergeProtectedClientData(primary, fallback) {
-  if (!fallback) return primary;
-  const rows = parseCsvTable(primary);
-  const fallbackRows = parseCsvTable(fallback);
-  const keep = {};
-  fallbackRows.forEach((r) => {
-    const k = clientDataKey(r);
-    if (PROTECTED_CLIENT_DATA_KEYS.has(k) && String(r[3] || "").trim())
-      keep[k] = r[3];
-  });
-  let changed = false;
-  rows.forEach((r) => {
-    const k = clientDataKey(r);
-    if (
-      PROTECTED_CLIENT_DATA_KEYS.has(k) &&
-      keep[k] &&
-      !String(r[3] || "").trim()
-    ) {
-      while (r.length < 4) r.push("");
-      r[3] = keep[k];
-      changed = true;
-    }
-  });
-  return changed ? serializeCsvTable(rows) : primary;
 }
 
 export function serializeLiabilities() {
@@ -892,60 +858,6 @@ export async function fetchText(path) {
   return await res.text();
 }
 
-export async function fetchPlanDataFiles(opts = {}) {
-  const out = {};
-  const mergeProtected = opts.mergeProtectedClientData !== false;
-  for (const name of PLAN_DATA_FILES) {
-    try {
-      out[name] = await fetchText("/api/plan-data/" + encodeURIComponent(name));
-    } catch (e) {
-      if (name.startsWith("ytd_")) {
-        out[name] = "";
-        continue;
-      }
-      throw e;
-    }
-    if (mergeProtected && planFolderHandle && name.startsWith("client_")) {
-      try {
-        const localText = await readFileFromFolder(planFolderHandle, name);
-        out[name] = mergeProtectedClientData(out[name], localText);
-      } catch (_e) {}
-    }
-  }
-  return out;
-}
-
-export function normalizePlanDataTextForCompare(v) {
-  return String(v ?? "")
-    .replace(/\r\n/g, "\n")
-    .replace(/\r/g, "\n")
-    .trimEnd();
-}
-
-export async function selectedFolderDiffersFromLoadedPlan() {
-  if (!planFolderHandle) return false;
-  const local = await readPlanDataFolderContents(planFolderHandle, false);
-  const saved = await fetchPlanDataFiles({ mergeProtectedClientData: false });
-  return PLAN_DATA_FILES.some(
-    (name) =>
-      normalizePlanDataTextForCompare(local[name] || "") !==
-      normalizePlanDataTextForCompare(saved[name] || ""),
-  );
-}
-
-export async function saveCurrentPlanToSelectedFolderForBuild() {
-  if (!planFolderHandle) return false;
-  const planFiles = await fetchPlanDataFiles();
-  await savePlanDataToCurrentFolder(planFiles);
-  return true;
-}
-
-export async function readFileFromFolder(dirHandle, name) {
-  const h = await dirHandle.getFileHandle(name);
-  const f = await h.getFile();
-  return await f.text();
-}
-
 // -- HSA schedule per-year override table --------------------------------
 // client_hsa_schedule.csv (year, optimizer_amount, override_amount, locked,
 // note) round-trips through /api/hsa-schedule (loadHsaScheduleFromCsv on
@@ -1158,10 +1070,8 @@ Object.assign(window, {
   cacheChart,
   openCachedChart,
   csvEscape,
-  clientDataKey,
   parseCsvTable,
   serializeCsvTable,
-  mergeProtectedClientData,
   serializeLiabilities,
   saveLiabilities,
   ytdMoney,
@@ -1209,11 +1119,6 @@ Object.assign(window, {
   ytdCancelDedup,
   renderYtdDuplicateReview,
   fetchText,
-  fetchPlanDataFiles,
-  normalizePlanDataTextForCompare,
-  selectedFolderDiffersFromLoadedPlan,
-  saveCurrentPlanToSelectedFolderForBuild,
-  readFileFromFolder,
   ensureHsaScheduleRows,
   markHsaScheduleDirty,
   addHsaScheduleYear,
