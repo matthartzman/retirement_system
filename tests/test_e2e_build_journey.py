@@ -300,6 +300,49 @@ def test_real_build_keeps_a_grid_edit_after_csv_and_form_edits(monkeypatch, tmp_
 
 
 @pytest.mark.slow
+def test_real_build_keeps_an_added_asset_after_a_grid_edit_and_a_csv_writer(monkeypatch, tmp_path):
+    """WP4.4a: an asset added through the strategy endpoint is plan rows; a later grid edit and a
+    later edit of the same part file by a still-CSV writer keep it, and a real build runs on the
+    result and carries the grid edit. (The asset's value is summed into an aggregate the workbook
+    does not show on its own, so its survival is asserted on the engine input.)"""
+    import src.server.app_core as app_core
+    from src.config_backend import load_active_config
+    from src.data_io import parse_client
+    from tests.plan_fixture import make_plan
+
+    ws = make_plan(tmp_path / "ws")
+    monkeypatch.setenv("RETIREMENT_SYSTEM_WORKSPACE_ROOT", str(ws.root))
+    monkeypatch.delenv("RETIREMENT_SYSTEM_PLAN_DB", raising=False)
+    monkeypatch.delenv("RETIREMENT_SYSTEM_CONFIG_FILE", raising=False)
+    monkeypatch.setattr(app_core, "CSV_PATH", ws.input_dir / "client_data.csv")
+    monkeypatch.setenv("RETIREMENT_SYSTEM_OUTPUT_DIR", str(tmp_path / "out"))
+    client = app.test_client()
+    autos_before = parse_client(load_active_config()[0], "")["autos"]
+
+    added = client.post("/api/other-asset/add", headers=HEADERS, json={"asset_type": "Boat"})
+    assert added.status_code == 200, added.get_data(as_text=True)
+    sub = added.get_json()["section"]
+    rows = client.get("/api/config/rows", headers=HEADERS).get_json()["rows"]
+    by_key = {(r["section"], r["subsection"], r["label"]): r for r in rows}
+    BOAT_VALUE, NEW_HOME_VALUE = 487_213, 1_736_219
+    saved = client.post("/api/config/rows", headers=HEADERS, json={"sync": True, "updates": [
+        {"row_index": by_key[("Other Assets", sub, "value")]["row_index"], "value": f"${BOAT_VALUE:,}"},
+        {"row_index": by_key[("Other Assets", "Home", "value_as_of_plan_start")]["row_index"], "value": f"${NEW_HOME_VALUE:,}"}]})
+    assert saved.status_code == 200 and saved.get_json()["updated"] == 2, saved.get_data(as_text=True)
+    buffers = client.post("/api/liquidity-buffers", headers=HEADERS, json={"sync": True, "buffers": [
+        {"start_year": "2031", "end_year": "2036", "years_of_expenses": "1", "reserve_account": "Cash"}]})
+    assert buffers.status_code == 200 and buffers.get_json()["success"] is True
+    assert parse_client(load_active_config()[0], "")["autos"] == autos_before + BOAT_VALUE
+
+    started = client.post("/api/build/start", headers=HEADERS)
+    assert started.status_code == 200, started.get_data(as_text=True)
+    job = _poll_until_done(client, started.get_json()["job_id"])
+    assert job.get("status") == "done", f"real build failed: {job}"
+    wb = load_workbook(io.BytesIO(client.get("/api/xlsx", headers=HEADERS).get_data()), data_only=True)
+    assert _find_number(wb, NEW_HOME_VALUE), "the grid's home value did not reach the build"
+
+
+@pytest.mark.slow
 def test_detailed_results_read_routes_against_the_canonical_built_workbook(monkeypatch, built_workbook_dir):
     """Read-side coverage against `built_workbook_dir` (root conftest.py) - a
     real workbook other tests in this session already pay to build once, not

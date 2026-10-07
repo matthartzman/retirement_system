@@ -15,7 +15,9 @@ What it changes, and only for the ``touched`` keys:
   row's notes, so it goes with the row);
 * a new key: one record directly after the last record of its section in the set (rows are
   appended at the end of their section), or at the end of the section's primary part file
-  (``part_file_for_section``) for a new section;
+  (``part_file_for_section``) for a new section. A row inserted in the middle of its section
+  (WP4.4: an estate state before the Gifting rows) goes directly after the row before it in
+  display order, else directly before the row after it;
 * a changed value: the value cell of every record of the key.
 
 Then every row of the set must read back as the plan has it (``parse_plan_csv`` rules,
@@ -219,6 +221,7 @@ def write_back_rows(texts: Mapping[str, str], rows: Sequence[Mapping[str, Any]],
     # 2. new keys, in display order: after the last record of their section, else at the end
     #    of the section's primary file
     present = set(plan.occurrences())
+    siblings = _by_section(want)
     for key in [k for k in want if k in touched and k not in present]:
         row = dict(zip(("section", "subsection", "label"), key))
         row.update(zip(("value", "units", "notes"), want[key]))
@@ -227,7 +230,22 @@ def write_back_rows(texts: Mapping[str, str], rows: Sequence[Mapping[str, Any]],
             for i, k in f.data_records():
                 if k[0] == key[0]:
                     last = (f, i)
-        if last is not None:
+        in_section = siblings[key[0]]
+        later = [k for k in in_section[in_section.index(key) + 1:] if k in present]
+        if later:
+            # a row inserted in the middle of its section (display order): directly after the
+            # row before it, else directly before the first row after it (above that row's
+            # comment block, which stays attached to it)
+            occ = plan.occurrences()
+            earlier = [k for k in in_section[:in_section.index(key)] if k in present]
+            if earlier:
+                f, i = occ[earlier[-1]][-1]
+                at = i + 1
+            else:
+                f, i = occ[later[0]][0]
+                at = min([i, *f.comment_block_above(i)])
+            f.records.insert(at, f.new_record(row))
+        elif last is not None:
             f, i = last
             f.records.insert(i + 1, f.new_record(row))
         else:
@@ -237,6 +255,7 @@ def write_back_rows(texts: Mapping[str, str], rows: Sequence[Mapping[str, Any]],
                 f.records.append([])  # a comment block must not attach to the new row
             f.records.append(f.new_record(row))
         f.dirty = True
+        present.add(key)
 
     # 3. values of touched keys; units and notes of any row that no longer reads back
     occurrences = plan.occurrences()

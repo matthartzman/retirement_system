@@ -138,6 +138,7 @@ def _strategy_asset_feature_service() -> strategy_asset_service.StrategyAssetSer
             csv_read_rows=_csv_read_rows,
             csv_write_rows=_csv_write_rows,
             ensure_header=_ensure_header,
+            edit_plan=_edit_active_plan,
             write_client_rows=_write_client_rows,
             read_client_section_rows=_read_client_section_rows,
             large_discretionary_expenses_from_plan_data=_large_discretionary_expenses_from_plan_data,

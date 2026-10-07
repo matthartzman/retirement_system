@@ -9,11 +9,13 @@ plan-data CSV sections used by strategy and other-assets workflow pages.
 
 import csv
 import re
+from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
 from .. import platform_runtime as _platform_runtime
+from ..csv_exchange import PlanCsvError
 from ..plan_file_io import plan_file_lock, write_text_atomic
 
 AuditFn = Callable[[str, dict[str, Any] | None], None]
@@ -401,6 +403,51 @@ def housing_state_estimate_payload(data: dict[str, Any]) -> tuple[dict[str, Any]
     return {"success": True, "schema": "housing_state_estimate_v1", "estimate": estimate}, 200
 
 
+# ``(payload, status, audit)``: what a row edit of this service returns (see ``_edit``).
+_Outcome = tuple[dict[str, Any], int, "tuple[str, dict[str, Any]] | None"]
+
+# Estate rows added by the state / trust-account buttons go before the first row of one of
+# these subsections (as the old CSV insertion did); every other new row goes at the end of
+# its section.
+_ESTATE_STATE_BEFORE = frozenset({"Gifting", "Trust Structure", "Step-Up", "QTIP Trust", "Credit Shelter Trust"})
+
+
+def _stored_key(row: dict[str, Any]) -> tuple[str, str, str]:
+    return (row["section"], row["subsection"], row["label"])
+
+
+def _insert_rows(store: Any, rows: list[list[str]], *, before_subsections: frozenset[str] | set[str] = frozenset()) -> None:
+    """Insert ``[section, subsection, label, value, units, notes]`` rows (one section) into
+    the plan: at the end of the section, or directly before the section's first row whose
+    subsection is in ``before_subsections`` (the rows after it move down; ``sort_order`` is
+    renumbered, which is not a field the CSV write-back keys on)."""
+    section = rows[0][0]
+    at = None
+    if before_subsections:
+        existing = store.rows(section)
+        at = next((i for i, r in enumerate(existing) if r["subsection"] in before_subsections), None)
+        if at is not None:
+            for i, r in enumerate(existing):
+                order = i if i < at else i + len(rows)
+                if r["sort_order"] != order:
+                    store.set_row(r["row_id"], sort_order=order)
+    for j, (_section, subsection, label, value, units, notes) in enumerate(rows):
+        store.insert_row(section, subsection=subsection, label=label, value=value, units=units, notes=notes,
+                         sort_order=None if at is None else at + j)
+
+
+def _delete_rows(store: Any, section: str, match: Callable[[dict[str, Any]], bool]) -> int:
+    """Delete the rows of ``section`` that ``match``; return how many."""
+    doomed = [r["row_id"] for r in store.rows(section) if match(r)]
+    for row_id in doomed:
+        store.delete_row(row_id)
+    return len(doomed)
+
+
+def _no_plan_edit() -> AbstractContextManager[Any]:
+    raise RuntimeError("this StrategyAssetServiceContext has no edit_plan; it cannot edit the plan rows")
+
+
 @dataclass(frozen=True)
 class StrategyAssetServiceContext:
     base_dir: Path
@@ -424,6 +471,10 @@ class StrategyAssetServiceContext:
     sync_config_backends: SyncFn
     audit: AuditFn | None = None
     travel_extra_types: list[str] | None = None
+    # WP4.4: the endpoints moved to the plan rows edit the active plan through this context
+    # (app_core._edit_active_plan: one transaction, touched keys written back to the CSV set).
+    # Defaulted like the fields below, so a context built for a not-yet-moved endpoint needs none.
+    edit_plan: Callable[[], AbstractContextManager[Any]] = _no_plan_edit
     # #276: added after the other fields with a default so existing call
     # sites/tests that construct this context without every optional field
     # keep working unchanged.
@@ -451,25 +502,35 @@ class StrategyAssetService:
         cols = list(row) + [""] * 3
         return (str(cols[0]).strip(), str(cols[1]).strip(), str(cols[2]).strip())
 
-    def _seed_rows(self, *, file_name: str, seed_rows: list[list[str]], audit_event: str) -> tuple[dict[str, Any], int]:
-        path = self.context.plan_data_path(file_name)
-        with plan_file_lock(path):
-            rows = self.context.csv_read_rows(path)
-            existing: set[tuple[str, str, str]] = set()
-            for r in rows[1:] if rows else []:
-                if r and not str(r[0] if r else "").startswith("#"):
-                    existing.add((r[0] if len(r) > 0 else "", r[1] if len(r) > 1 else "", r[2] if len(r) > 2 else ""))
+    def _edit(self, work: Callable[[Any], _Outcome]) -> tuple[dict[str, Any], int]:
+        """Run ``work(store)`` in one rows transaction of the active plan (the edit context
+        writes every touched key back into the plan CSV set; WP4.3).  ``work`` returns
+        ``(payload, status, audit)``; an ``audit`` ``(event, details)`` is recorded after the
+        edit committed.  A plan CSV set that cannot take the edit answers 409 and changes nothing."""
+        try:
+            with self.context.edit_plan() as edit:
+                payload, status, audit = work(edit.store)
+        except PlanCsvError as exc:
+            return {"success": False, "error": f"Plan Data could not be saved: {exc}"}, 409
+        if audit:
+            self._audit(*audit)
+        return payload, status
+
+    def _seed_rows(self, *, seed_rows: list[list[str]], audit_event: str) -> tuple[dict[str, Any], int]:
+        """Add the seed rows whose key (section, subsection, label) the plan does not hold yet."""
+        def work(store: Any) -> _Outcome:
+            existing = {_stored_key(r) for r in store.all_rows()}
             added = 0
             for seed_row in seed_rows:
                 key = (seed_row[0], seed_row[1], seed_row[2])
                 if key not in existing:
-                    rows.append(seed_row)
+                    _insert_rows(store, [seed_row])
                     existing.add(key)
                     added += 1
-            if added > 0:
-                self.context.csv_write_rows(path, rows)
-                self._audit(audit_event, {"added": added})
-        return {"success": True, "seeded": added, "already_present": len(seed_rows) - added}, 200
+            return ({"success": True, "seeded": added, "already_present": len(seed_rows) - added}, 200,
+                    (audit_event, {"added": added}) if added > 0 else None)
+
+        return self._edit(work)
 
     # NOTE: this class used to expose withdrawal_order_payload(), backing a
     # POST /api/withdrawal-order endpoint and an editable "Withdrawal order"
@@ -815,20 +876,22 @@ class StrategyAssetService:
             self._audit("config_backends_synced", sync_result)
         return {"success": True, "count": len(clean), "sync": sync_result}, 200
 
+    # ---- asset / estate / insurance section endpoints (WP4.4a) -------------------------
+    # These read and write the active plan's rows through the edit context (one rows
+    # transaction; ``active_plan.edit_active_plan`` writes every touched key back into the
+    # plan CSV set for the writers that still edit CSV until WP4.5).  A section is the rows
+    # sharing a (section, subsection); new rows are appended at the end of their section, or
+    # (estate rows) placed before the first row of a later subsection, as the old CSV
+    # insertion did.  Response payloads are unchanged.
+
     def add_other_asset_payload(self, body: dict[str, Any]) -> tuple[dict[str, Any], int]:
         typ = str(body.get("asset_type") or "Auto").strip() or "Auto"
-        path = self.context.client_section_path("Other Assets", "client_assets.csv")
-        with plan_file_lock(path):
-            rows = self.context.ensure_header(self.context.csv_read_rows(path))
-            nums: list[int] = []
-            for r in rows[1:]:
-                if len(r) >= 2 and str(r[0]).strip() == "Other Assets":
-                    m = re.match(r"Other Asset\s+(\d+)$", str(r[1]).strip(), re.I)
-                    if m:
-                        nums.append(int(m.group(1)))
-            n = max(nums) + 1 if nums else 1
-            sub = f"Other Asset {n}"
-            additions = [
+
+        def work(store: Any) -> _Outcome:
+            nums = [int(m.group(1)) for r in store.rows("Other Assets")
+                    if (m := re.match(r"Other Asset\s+(\d+)$", r["subsection"].strip(), re.I))]
+            sub = f"Other Asset {max(nums) + 1 if nums else 1}"
+            _insert_rows(store, [
                 ["Other Assets", sub, "type", typ, "choice", "Auto | Boat | Start-up Equity | Art | Collectible | Other; choose the broad asset type."],
                 ["Other Assets", sub, "name", typ, "text", "User-described asset name."],
                 ["Other Assets", sub, "value", "$0", "dollars", "Estimated value as of the as-of date."],
@@ -836,123 +899,75 @@ class StrategyAssetService:
                 ["Other Assets", sub, "annual_appreciation_pct", "0.00%", "percent", "Annual appreciation (+) or depreciation (-)."],
                 ["Other Assets", sub, "basis", "", "dollars", "Purchase price or tax basis for appreciating assets."],
                 ["Other Assets", sub, "sell_date", "", "date", "Optional planned sale date."],
-            ]
-            insert_at = len(rows)
-            for i, r in enumerate(rows[1:], start=1):
-                if len(r) >= 1 and str(r[0]).strip() in {"Liquidity Buffer", "HSA Policy", "Education Funding", "Note Receivable", "DAF", "Hybrid LTC", "Equity Compensation"}:
-                    insert_at = i
-                    break
-            rows[insert_at:insert_at] = additions
-            self.context.csv_write_rows(path, rows)
-            self._audit("other_asset_item_added", {"section": sub, "asset_type": typ})
-        return {"success": True, "section": sub, "message": f"Added {typ} other asset."}, 200
+            ])
+            return ({"success": True, "section": sub, "message": f"Added {typ} other asset."}, 200,
+                    ("other_asset_item_added", {"section": sub, "asset_type": typ}))
+
+        return self._edit(work)
 
     def delete_other_asset_payload(self, body: dict[str, Any]) -> tuple[dict[str, Any], int]:
         sub = str(body.get("subsection") or "").strip()
         if not re.match(r"^Other Asset\s+\d+$", sub, re.I):
             return {"success": False, "error": "subsection must be an Other Asset N section"}, 400
-        path = self.context.client_section_path("Other Assets", "client_assets.csv")
-        with plan_file_lock(path):
-            rows = self.context.ensure_header(self.context.csv_read_rows(path))
-            kept = [rows[0]]
-            removed = 0
-            for r in rows[1:]:
-                cols = list(r) + [""] * 6
-                if str(cols[0]).strip() == "Other Assets" and str(cols[1]).strip() == sub:
-                    removed += 1
-                    continue
-                kept.append(r)
+
+        def work(store: Any) -> _Outcome:
+            removed = _delete_rows(store, "Other Assets", lambda r: r["subsection"] == sub)
             if removed == 0:
-                return {"success": False, "error": f"No other asset section named {sub!r} was found."}, 404
-            self.context.csv_write_rows(path, kept)
-            self._audit("other_asset_item_deleted", {"section": sub, "rows_removed": removed})
-        return {"success": True, "section": sub, "rows_removed": removed, "message": f"Deleted {sub}."}, 200
+                return {"success": False, "error": f"No other asset section named {sub!r} was found."}, 404, None
+            return ({"success": True, "section": sub, "rows_removed": removed, "message": f"Deleted {sub}."}, 200,
+                    ("other_asset_item_deleted", {"section": sub, "rows_removed": removed}))
+
+        return self._edit(work)
 
     def add_note_receivable_payload(self, body: dict[str, Any]) -> tuple[dict[str, Any], int]:
         name = str(body.get("name") or "").strip() or "New Note"
-        path = self.context.client_section_path("Note Receivable", "client_assets.csv")
-        with plan_file_lock(path):
-            rows = self.context.ensure_header(self.context.csv_read_rows(path))
-            nums: list[int] = []
-            for r in rows[1:]:
-                if len(r) >= 2 and str(r[0]).strip() == "Note Receivable":
-                    m = re.match(r"Note\s+(\d+)$", str(r[1]).strip(), re.I)
-                    if m:
-                        nums.append(int(m.group(1)))
-            n = max(nums) + 1 if nums else 1
-            sub = f"Note {n}"
-            additions = [
+
+        def work(store: Any) -> _Outcome:
+            nums = [int(m.group(1)) for r in store.rows("Note Receivable")
+                    if (m := re.match(r"Note\s+(\d+)$", r["subsection"].strip(), re.I))]
+            sub = f"Note {max(nums) + 1 if nums else 1}"
+            _insert_rows(store, [
                 ["Note Receivable", sub, "name", name, "text", "User-described note name."],
                 ["Note Receivable", sub, "face_value", "$0", "USD", "Original face value of the note."],
                 ["Note Receivable", sub, "first_payment", "", "date", "First scheduled payment date."],
                 ["Note Receivable", sub, "last_payment", "", "date", "Final scheduled payment date; balance reaches 0 after this date."],
                 ["Note Receivable", sub, "annual_principal_base_period", "$0", "USD", "Fixed annual principal for the base repayment period."],
                 ["Note Receivable", sub, "final_principal_2033", "$0", "USD", "Final-year principal payment."],
-            ]
-            insert_at = len(rows)
-            for i, r in enumerate(rows[1:], start=1):
-                if len(r) >= 1 and str(r[0]).strip() in {"HSA Policy", "DAF", "Hybrid LTC"}:
-                    insert_at = i
-                    break
-            rows[insert_at:insert_at] = additions
-            self.context.csv_write_rows(path, rows)
-            self._audit("note_receivable_added", {"section": sub, "name": name})
-        return {"success": True, "section": sub, "message": f"Added note {name}."}, 200
+            ])
+            return ({"success": True, "section": sub, "message": f"Added note {name}."}, 200,
+                    ("note_receivable_added", {"section": sub, "name": name}))
+
+        return self._edit(work)
 
     def delete_note_receivable_payload(self, body: dict[str, Any]) -> tuple[dict[str, Any], int]:
         sub = str(body.get("subsection") or "").strip()
         if not re.match(r"^Note\s+\d+$", sub, re.I):
             return {"success": False, "error": "subsection must be a Note N section"}, 400
-        path = self.context.client_section_path("Note Receivable", "client_assets.csv")
-        with plan_file_lock(path):
-            rows = self.context.ensure_header(self.context.csv_read_rows(path))
-            interest_sub = f"{sub} Interest"
-            kept = [rows[0]]
-            removed = 0
-            for r in rows[1:]:
-                cols = list(r) + [""] * 6
-                if str(cols[0]).strip() == "Note Receivable" and str(cols[1]).strip() in {sub, interest_sub}:
-                    removed += 1
-                    continue
-                kept.append(r)
+
+        def work(store: Any) -> _Outcome:
+            removed = _delete_rows(store, "Note Receivable", lambda r: r["subsection"] in {sub, f"{sub} Interest"})
             if removed == 0:
-                return {"success": False, "error": f"No note section named {sub!r} was found."}, 404
-            self.context.csv_write_rows(path, kept)
-            self._audit("note_receivable_deleted", {"section": sub, "rows_removed": removed})
-        return {"success": True, "section": sub, "rows_removed": removed, "message": f"Deleted {sub}."}, 200
+                return {"success": False, "error": f"No note section named {sub!r} was found."}, 404, None
+            return ({"success": True, "section": sub, "rows_removed": removed, "message": f"Deleted {sub}."}, 200,
+                    ("note_receivable_deleted", {"section": sub, "rows_removed": removed}))
+
+        return self._edit(work)
 
     def add_education_529_payload(self) -> tuple[dict[str, Any], int]:
-        path = self.context.client_section_path("Education Funding", "client_assets.csv")
-        with plan_file_lock(path):
-            rows = self.context.ensure_header(self.context.csv_read_rows(path))
-            existing = [str(r[1]).strip() for r in rows[1:] if len(r) >= 2 and str(r[0]).strip() == "Education Funding"]
-            nums: list[int] = []
-            for sub_existing in existing:
-                m = re.search(r"(\d+)", sub_existing)
-                if m:
-                    try:
-                        nums.append(int(m.group(1)))
-                    except Exception:
-                        pass
-            n = (max(nums) + 1) if nums else 1
-            sub = f"529 Plan {n}"
-            additions = [
+        def work(store: Any) -> _Outcome:
+            nums = [int(m.group(1)) for r in store.rows("Education Funding") if (m := re.search(r"(\d+)", r["subsection"]))]
+            sub = f"529 Plan {max(nums) + 1 if nums else 1}"
+            _insert_rows(store, [
                 ["Education Funding", sub, "beneficiary", "", "text", "Beneficiary name for this 529 plan."],
                 ["Education Funding", sub, "current_balance", "$0", "dollars", "Current 529 plan balance."],
                 ["Education Funding", sub, "annual_contribution", "$0", "dollars", "Annual 529 contribution."],
                 ["Education Funding", sub, "contribution_start_year", "", "year", "First contribution year."],
                 ["Education Funding", sub, "contribution_end_year", "", "year", "Last contribution year."],
                 ["Education Funding", sub, "expected_use_year", "", "year", "Expected first use/distribution year."],
-            ]
-            insert_at = len(rows)
-            for i, r in enumerate(rows[1:], start=1):
-                if len(r) >= 1 and str(r[0]).strip() in {"Equity Compensation", "Note Receivable", "Hybrid LTC"}:
-                    insert_at = i
-                    break
-            rows[insert_at:insert_at] = additions
-            self.context.csv_write_rows(path, rows)
-            self._audit("education_529_section_added", {"section": sub})
-        return {"success": True, "section": sub, "message": f"Added {sub}."}, 200
+            ])
+            return {"success": True, "section": sub, "message": f"Added {sub}."}, 200, ("education_529_section_added", {"section": sub})
+
+        return self._edit(work)
 
     def estate_state_options_payload(self) -> tuple[dict[str, Any], int]:
         from ..stores.ref_getters.state_tax import state_tax_rows
@@ -972,10 +987,9 @@ class StrategyAssetService:
                 ref = r
                 state = str(r.get("state") or state).strip()
                 break
-        path = self.context.client_section_path("Estate Planning", "client_insurance_estate.csv")
-        with plan_file_lock(path):
-            rows = self.context.ensure_header(self.context.csv_read_rows(path))
-            seen = {self._row_key(r) for r in rows[1:]}
+
+        def work(store: Any) -> _Outcome:
+            seen = {_stored_key(r) for r in store.all_rows()}
             exempt = str(ref.get("estate_exempt") or "0").strip() or "0"
             estate = str(ref.get("estate") or "FALSE").strip() or "FALSE"
             source = str(ref.get("source") or "State estate-tax reference row; verify annually.").strip()
@@ -986,60 +1000,39 @@ class StrategyAssetService:
             ]
             additions = [a for a in additions if self._row_key(a) not in seen]
             if not additions:
-                return {"success": True, "state": state, "message": f"{state} already exists in Estate Information."}, 200
-            insert_at = len(rows)
-            for i, r in enumerate(rows[1:], start=1):
-                if len(r) >= 2 and str(r[0]).strip() == "Estate Planning" and str(r[1]).strip() in {"Gifting", "Trust Structure", "Step-Up", "QTIP Trust", "Credit Shelter Trust"}:
-                    insert_at = i
-                    break
-            rows[insert_at:insert_at] = additions
-            self.context.csv_write_rows(path, rows)
-            self._audit("estate_state_added", {"state": state})
-        return {"success": True, "state": state, "message": f"Added {state} estate rows."}, 200
+                return {"success": True, "state": state, "message": f"{state} already exists in Estate Information."}, 200, None
+            _insert_rows(store, additions, before_subsections=_ESTATE_STATE_BEFORE)
+            return {"success": True, "state": state, "message": f"Added {state} estate rows."}, 200, ("estate_state_added", {"state": state})
+
+        return self._edit(work)
 
     def add_trust_account_payload(self, body: dict[str, Any]) -> tuple[dict[str, Any], int]:
         name = str(body.get("account_name") or "").strip()
         typ = str(body.get("trust_type") or "Revocable").strip() or "Revocable"
         if not name:
             return {"success": False, "error": "account_name is required"}, 400
-        path = self.context.client_section_path("Estate Planning", "client_insurance_estate.csv")
-        with plan_file_lock(path):
-            rows = self.context.ensure_header(self.context.csv_read_rows(path))
-            nums: list[int] = []
-            for r in rows[1:]:
-                if len(r) >= 2 and str(r[0]).strip() == "Estate Planning" and str(r[1]).strip().startswith("Trust Account"):
-                    m = re.search(r"(\d+)", str(r[1]))
-                    if m:
-                        nums.append(int(m.group(1)))
-            n = max(nums) + 1 if nums else 1
-            sub = f"Trust Account {n}"
-            additions = [
+
+        def work(store: Any) -> _Outcome:
+            nums = [int(m.group(1)) for r in store.rows("Estate Planning")
+                    if r["subsection"].startswith("Trust Account") and (m := re.search(r"(\d+)", r["subsection"]))]
+            sub = f"Trust Account {max(nums) + 1 if nums else 1}"
+            _insert_rows(store, [
                 ["Estate Planning", sub, "account_name", name, "text", "Trust account name shown in Estate Information."],
                 ["Estate Planning", sub, "trust_type", typ, "choice", "Revocable | Irrevocable | Credit Shelter | QTIP | Special Needs | Other; trust classification for estate-planning display."],
                 ["Estate Planning", sub, "notes", "", "text", "Optional trust notes."],
-            ]
-            insert_at = len(rows)
-            for i, r in enumerate(rows[1:], start=1):
-                if len(r) >= 2 and str(r[0]).strip() == "Estate Planning" and str(r[1]).strip() in {"QTIP Trust", "Credit Shelter Trust", "Gifting"}:
-                    insert_at = i
-                    break
-            rows[insert_at:insert_at] = additions
-            self.context.csv_write_rows(path, rows)
-            self._audit("trust_account_added", {"section": sub, "account_name": name, "trust_type": typ})
-        return {"success": True, "section": sub, "message": f"Added {name} trust account."}, 200
+            ], before_subsections={"QTIP Trust", "Credit Shelter Trust", "Gifting"})
+            return ({"success": True, "section": sub, "message": f"Added {name} trust account."}, 200,
+                    ("trust_account_added", {"section": sub, "account_name": name, "trust_type": typ}))
+
+        return self._edit(work)
 
     def add_insurance_policy_payload(self, body: dict[str, Any]) -> tuple[dict[str, Any], int]:
         typ = str(body.get("policy_type") or "Life").strip() or "Life"
         norm_typ = re.sub(r"[^A-Za-z0-9]+", "_", typ).strip("_") or "Policy"
-        path = self.context.client_section_path("Insurance In Force", "client_insurance_estate.csv")
-        with plan_file_lock(path):
-            rows = self.context.ensure_header(self.context.csv_read_rows(path))
-            nums: list[int] = []
-            for r in rows[1:]:
-                if len(r) >= 2 and str(r[0]).strip() == "Insurance In Force" and str(r[1]).strip().lower().startswith(norm_typ.lower()):
-                    m = re.search(r"(\d+)$", str(r[1]).strip())
-                    if m:
-                        nums.append(int(m.group(1)))
+
+        def work(store: Any) -> _Outcome:
+            nums = [int(m.group(1)) for r in store.rows("Insurance In Force")
+                    if r["subsection"].lower().startswith(norm_typ.lower()) and (m := re.search(r"(\d+)$", r["subsection"]))]
             n = max(nums) + 1 if nums else 1
             sub = f"{norm_typ}_{n}"
             common = [
@@ -1056,37 +1049,29 @@ class StrategyAssetService:
                 common[3:3] = [["Insurance In Force", sub, "monthly_benefit", "$0", "USD/mo", "Monthly disability benefit."], ["Insurance In Force", sub, "elimination_days", "", "days", "Elimination period in days."], ["Insurance In Force", sub, "benefit_period_years", "", "years", "Benefit period in years."]]
             else:
                 common[3:3] = [["Insurance In Force", sub, "coverage_limit", "$0", "USD", "Coverage limit."], ["Insurance In Force", sub, "deductible", "$0", "USD", "Deductible amount."]]
-            rows.extend(common)
-            self.context.csv_write_rows(path, rows)
-            self._audit("insurance_policy_added", {"section": sub, "policy_type": typ})
-        return {"success": True, "section": sub, "message": f"Added {typ} policy {n}."}, 200
+            _insert_rows(store, common)
+            return ({"success": True, "section": sub, "message": f"Added {typ} policy {n}."}, 200,
+                    ("insurance_policy_added", {"section": sub, "policy_type": typ}))
+
+        return self._edit(work)
 
     def delete_insurance_policy_payload(self, body: dict[str, Any]) -> tuple[dict[str, Any], int]:
         sub = str(body.get("subsection") or "").strip()
         if not sub:
             return {"success": False, "error": "subsection is required"}, 400
-        path = self.context.client_section_path("Insurance In Force", "client_insurance_estate.csv")
-        with plan_file_lock(path):
-            rows = self.context.ensure_header(self.context.csv_read_rows(path))
-            kept = [rows[0]]
-            removed = 0
-            illustration_sections = set(LIFE_ILLUSTRATION_SECTIONS)
-            for r in rows[1:]:
-                cols = list(r) + [""] * 6
-                if str(cols[0]).strip() == "Insurance In Force" and str(cols[1]).strip() == sub:
-                    removed += 1
-                    continue
-                # Illustration rows use (section, year, policy_key) -- the policy
-                # identifier is the *label* column here, not the subsection.
-                if str(cols[0]).strip() in illustration_sections and str(cols[2]).strip() == sub:
-                    removed += 1
-                    continue
-                kept.append(r)
+
+        def work(store: Any) -> _Outcome:
+            removed = _delete_rows(store, "Insurance In Force", lambda r: r["subsection"] == sub)
+            # Illustration rows use (section, year, policy_key) -- the policy
+            # identifier is the *label* column here, not the subsection.
+            for section in LIFE_ILLUSTRATION_SECTIONS:
+                removed += _delete_rows(store, section, lambda r: r["label"] == sub)
             if removed == 0:
-                return {"success": False, "error": f"No insurance policy section named {sub!r} was found."}, 404
-            self.context.csv_write_rows(path, kept)
-            self._audit("insurance_policy_deleted", {"section": sub, "rows_removed": removed})
-        return {"success": True, "section": sub, "rows_removed": removed, "message": f"Deleted insurance policy {sub}."}, 200
+                return {"success": False, "error": f"No insurance policy section named {sub!r} was found."}, 404, None
+            return ({"success": True, "section": sub, "rows_removed": removed, "message": f"Deleted insurance policy {sub}."}, 200,
+                    ("insurance_policy_deleted", {"section": sub, "rows_removed": removed}))
+
+        return self._edit(work)
 
     def add_life_illustration_payload(self, body: dict[str, Any]) -> tuple[dict[str, Any], int]:
         """#215: seed $0 Cash Value/Death Benefit/Premium illustration rows for
@@ -1105,11 +1090,7 @@ class StrategyAssetService:
             for section in LIFE_ILLUSTRATION_SECTIONS
             for year in clean_years
         ]
-        return self._seed_rows(
-            file_name="client_insurance_estate.csv",
-            seed_rows=seed_rows,
-            audit_event="life_illustration_seeded",
-        )
+        return self._seed_rows(seed_rows=seed_rows, audit_event="life_illustration_seeded")
 
     def import_reference_csv_payload(self, *, file_name: str, body: dict[str, Any], audit_event: str) -> tuple[dict[str, Any], int]:
         # Shipped reference data now lives in the read-only reference.db; custom
@@ -1117,10 +1098,10 @@ class StrategyAssetService:
         return {"success": False, "error": f"{file_name} is part of the read-only reference data and can no longer be replaced by upload; custom assumptions will be stored in the plan."}, 410
 
     def seed_housing_payload(self) -> tuple[dict[str, Any], int]:
-        return self._seed_rows(file_name="client_spending.csv", seed_rows=HOUSING_SEED_ROWS, audit_event="housing_rows_seeded")
+        return self._seed_rows(seed_rows=HOUSING_SEED_ROWS, audit_event="housing_rows_seeded")
 
     def seed_healthcare_oop_payload(self) -> tuple[dict[str, Any], int]:
-        return self._seed_rows(file_name="client_spending.csv", seed_rows=HEALTHCARE_OOP_SEED_ROWS, audit_event="healthcare_oop_rows_seeded")
+        return self._seed_rows(seed_rows=HEALTHCARE_OOP_SEED_ROWS, audit_event="healthcare_oop_rows_seeded")
 
     def config_sync_payload(self) -> tuple[dict[str, Any], int]:
         try:
