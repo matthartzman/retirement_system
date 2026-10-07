@@ -3,10 +3,6 @@
   "src/build_snapshot.py": {
    "path_io": 2
   },
-  "src/config_backend.py": {
-   "path_io": 3,
-   "yaml": 1
-  },
   "src/data_io.py": {
    "csv": 4,
    "open": 4
@@ -73,15 +69,12 @@
   "src/results_model.py": {
    "path_io": 2
   },
-  "src/roth_ui_build_guard.py": {
-   "csv": 2
-  },
   "src/secrets_store.py": {
    "path_io": 1
   },
   "src/server/app_core.py": {
-   "csv": 22,
-   "path_io": 3
+   "csv": 16,
+   "path_io": 2
   },
   "src/server/plan_routes.py": {
    "path_io": 1
@@ -102,14 +95,8 @@
   "src/server_services/build_service.py": {
    "path_io": 4
   },
-  "src/server_services/config_service.py": {
-   "csv": 2
-  },
   "src/server_services/demo_plan_service.py": {
-   "path_io": 8
-  },
-  "src/server_services/plan_data_file_service.py": {
-   "csv": 2
+   "path_io": 6
   },
   "src/server_services/portfolio_service.py": {
    "path_io": 1
@@ -121,7 +108,6 @@
    "path_io": 2
   },
   "src/server_services/spending_service.py": {
-   "csv": 2,
    "path_io": 2
   },
   "src/server_services/ytd_service.py": {
@@ -129,7 +115,7 @@
    "path_io": 6
   },
   "src/spending_tracker.py": {
-   "csv": 8,
+   "csv": 6,
    "open": 6,
    "path_io": 2
   },
@@ -137,9 +123,9 @@
    "csv": 3
   },
   "src/ytd_tracking.py": {
-   "csv": 12,
+   "csv": 6,
    "path_io": 1
   }
  },
- "total": 182
+ "total": 153
 }

@@ -89,7 +89,7 @@ def test_config_rows_save_and_readback_round_trips_through_every_layer(own_works
 
     # A distinctive figure vanishingly unlikely to already be the plan's
     # value -- and distinct from the one
-    # test_sync_config_backends_snapshot_freshness_regression.py uses, so a
+    # test_grid_save_reaches_the_build_config_regression.py uses, so a
     # crash mid-test in either file can't mask the other's restore.
     NEW_HOME_VALUE = 1_923_411
     try:

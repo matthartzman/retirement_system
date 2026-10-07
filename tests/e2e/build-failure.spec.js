@@ -77,7 +77,7 @@ test('a failed build surfaces "Build failed" and the real error message, not a s
 // endpoint used to be a catch wrapping the ENTIRE polling loop, keyed on
 // free-text-matching the error message for "404"/"not found" -- so a real
 // build failure whose own error text happens to contain "not found" (e.g.
-// "Plan Data folder not found: ...", see src/local_plan_data_sync.py) was
+// "Plan Data folder not found: ...") was
 // indistinguishable from the /api/build/start endpoint itself being
 // missing, and triggered a second, fully synchronous build instead of
 // surfacing the real failure. This pins that a job that reports "failed"
