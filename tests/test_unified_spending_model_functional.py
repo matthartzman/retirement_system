@@ -2,6 +2,7 @@ from pathlib import Path
 
 from src import spending_tracker as st
 from src.spending_budget_resolver import resolve_spending_inputs
+from tests.plan_fixture import write_plan_dataset
 
 
 def write(path: Path, text: str):
@@ -11,12 +12,12 @@ def write(path: Path, text: str):
 
 def test_unified_summary_group_mode_disables_category_detail(tmp_path):
     root = tmp_path
-    write(root / "input/client_spending_taxonomy.csv", """tracking_type,group,category_id,label,origin,status,notes
+    write_plan_dataset(root, "client_spending_taxonomy.csv", """tracking_type,group,category_id,label,origin,status,notes
 Core Expenses,Food,groceries,Groceries,template,active,
 Core Expenses,Food,restaurants,Restaurants,template,active,
 Business,Operations,biz_services,Business Services,template,active,
 """)
-    write(root / "input/client_spending_aliases.csv", """match_value,match_field,exact,priority,category_id,source
+    write_plan_dataset(root, "client_spending_aliases.csv", """match_value,match_field,exact,priority,category_id,source
 Groceries,category,1,80,groceries,seed
 Business Services,category,1,80,biz_services,seed
 """)
@@ -41,13 +42,13 @@ category,biz_services,Business Services,7000,,,,business modeled not spend base
 
 def test_resolver_routes_time_bounded_travel_lines_to_extras_and_keeps_core_lines_in_base(tmp_path):
     root = tmp_path
-    write(root / "input/client_spending_taxonomy.csv", """tracking_type,group,category_id,label,origin,status,notes
+    write_plan_dataset(root, "client_spending_taxonomy.csv", """tracking_type,group,category_id,label,origin,status,notes
 Core Expenses,Gifts,charity,Charity,template,active,
 Travel,Trips,domestic_flights,Domestic Flights,template,active,
 Housing,Projects,other_improvement,Other Improvement,template,active,
 Business,Operations,biz_services,Business Services,template,active,
 """)
-    write(root / "input/client_spending_aliases.csv", "match_value,match_field,exact,priority,category_id,source\n")
+    write_plan_dataset(root, "client_spending_aliases.csv", "match_value,match_field,exact,priority,category_id,source\n")
     write(root / "input/client_spending_budget.csv", """kind,key,label,annual_budget,start_year,end_year,one_time_year,notes
 line,charity,Charitable Giving,5000,,,,core recurring line remains in spend_base
 line,domestic_flights,Annual Vacation,25000,2026,2028,,time bounded travel extra
@@ -72,11 +73,11 @@ def test_group_budget_mode_round_trips_through_csv_and_drives_projection(tmp_pat
     exercised through the real save/load/resolve cycle, not a static file.
     """
     root = tmp_path
-    write(root / "input/client_spending_taxonomy.csv", """tracking_type,group,category_id,label,origin,status,notes
+    write_plan_dataset(root, "client_spending_taxonomy.csv", """tracking_type,group,category_id,label,origin,status,notes
 Travel,Travel,travel_vacation,Travel & Vacation,transaction,active,
 Travel,Travel,travel_housing,Travel - Housing,transaction,active,
 """)
-    write(root / "input/client_spending_aliases.csv", "match_value,match_field,exact,priority,category_id,source\n")
+    write_plan_dataset(root, "client_spending_aliases.csv", "match_value,match_field,exact,priority,category_id,source\n")
     # Mirror the real Travel data shape: each category carries both a category
     # budget row and a matching detail line (as travel_vacation/travel_housing do
     # in input/client_spending_budget.csv). In detail mode the lines are the
@@ -120,12 +121,12 @@ line,travel_housing,Travel - Housing,2000,,,,
 
 def test_unused_template_categories_start_hidden_and_restore_by_group(tmp_path):
     root = tmp_path
-    write(root / "input/client_spending_taxonomy.csv", """tracking_type,group,category_id,label,origin,status,notes
+    write_plan_dataset(root, "client_spending_taxonomy.csv", """tracking_type,group,category_id,label,origin,status,notes
 Core Expenses,Food,groceries,Groceries,transaction,active,
 Core Expenses,Food,meal_delivery,Meal Delivery,template,active,
 Core Expenses,Food,restaurants,Restaurants,template,active,
 """)
-    write(root / "input/client_spending_aliases.csv", """match_value,match_field,exact,priority,category_id,source
+    write_plan_dataset(root, "client_spending_aliases.csv", """match_value,match_field,exact,priority,category_id,source
 Groceries,category,1,80,groceries,seed
 """)
     write(root / "input/client_spending_budget.csv", """kind,key,label,annual_budget,start_year,end_year,one_time_year,notes
@@ -146,13 +147,13 @@ category,groceries,Groceries,1000,,,,
 
 def test_spending_analysis_includes_income_expenses_and_taxes(tmp_path):
     root = tmp_path
-    write(root / "input/client_spending_taxonomy.csv", """tracking_type,group,category_id,label,origin,status,notes
+    write_plan_dataset(root, "client_spending_taxonomy.csv", """tracking_type,group,category_id,label,origin,status,notes
 Income,Income,paychecks,Paychecks,transaction,active,
 Core Expenses,Food,groceries,Groceries,transaction,active,
 Business,Operations,biz_services,Business Services,transaction,active,
 Transfer,Tax,income_taxes,Income Taxes,transaction,active,
 """)
-    write(root / "input/client_spending_aliases.csv", """match_value,match_field,exact,priority,category_id,source
+    write_plan_dataset(root, "client_spending_aliases.csv", """match_value,match_field,exact,priority,category_id,source
 Paychecks,category,1,80,paychecks,seed
 Groceries,category,1,80,groceries,seed
 Business Services,category,1,80,biz_services,seed
@@ -183,11 +184,11 @@ def test_a_second_income_taxes_category_id_with_the_same_label_is_also_reclassif
     # sign beyond the shortfall itself (every transaction still shows
     # "Income Taxes" as its category either way).
     root = tmp_path
-    write(root / "input/client_spending_taxonomy.csv", """tracking_type,group,category_id,label,origin,status,notes
+    write_plan_dataset(root, "client_spending_taxonomy.csv", """tracking_type,group,category_id,label,origin,status,notes
 Transfer,Tax,income_taxes,Income Taxes,transaction,active,
 Transfer,Tax,state_income_tax,Income Taxes,transaction,active,
 """)
-    write(root / "input/client_spending_aliases.csv", """match_value,match_field,exact,priority,category_id,source
+    write_plan_dataset(root, "client_spending_aliases.csv", """match_value,match_field,exact,priority,category_id,source
 Income Taxes,category,1,80,income_taxes,seed
 Franchise Tax Board,merchant,1,90,state_income_tax,seed
 """)

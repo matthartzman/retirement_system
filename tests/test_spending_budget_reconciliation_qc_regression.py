@@ -35,6 +35,7 @@ from src.spending_budget_resolver import (
     EXCLUDED_FROM_SPEND_BASE,
     TIME_BOUNDED_LINE_TRACKING_TYPES,
 )
+from tests.plan_fixture import write_plan_dataset
 
 
 def write(path: Path, text: str):
@@ -43,9 +44,9 @@ def write(path: Path, text: str):
 
 
 def _seed(root: Path, taxonomy: str, budget: str, aliases: str = "", txns: str = ""):
-    write(root / "input/client_spending_taxonomy.csv", taxonomy)
+    write_plan_dataset(root, "client_spending_taxonomy.csv", taxonomy)
     write(root / "input/client_spending_budget.csv", budget)
-    write(root / "input/client_spending_aliases.csv",
+    write_plan_dataset(root, "client_spending_aliases.csv",
           aliases or "match_value,match_field,exact,priority,category_id,source\n")
     write(root / "input/ytd_transactions.csv",
           txns or "Date,Merchant,Category,Account,Amount,Owner\n")

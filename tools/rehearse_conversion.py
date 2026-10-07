@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Conversion rehearsal (WP4, WP6): run steps C3, C3b and C4a on a COPY of a plan and prove the result.
+"""Conversion rehearsal (WP4, WP6): run steps C3, C3b, C4a and C4b on a COPY of a plan and prove the result.
 
     python tools/rehearse_conversion.py <plan_copy_dir> [--out <dir>] [--verbose-keys] [--skip-engine]
 
@@ -11,7 +11,8 @@ What it does
 ------------
 1. Read-only on ``<plan_copy_dir>``: the inputs are copied to a temp work folder; the converted
    plan is written to ``<out>/plan.rpx`` (default: a temp folder, removed at exit).
-2. Runs C3, C3b then C4a (holdings, liabilities, HSA schedule, targets) exactly as ``src/legacy_conversion/steps`` does.
+2. Runs C3, C3b, C4a (holdings, liabilities, HSA schedule, targets) then C4b (spending taxonomy and
+   aliases) exactly as ``src/legacy_conversion/steps`` does.
 3. Equivalence checks, old path vs converted plan:
    - flat datasets: per dataset, file row count vs table row count, and the column NAMES of each
    - sectioned data: ``migrate_sectioned_data(load_csv(...))`` vs ``PlanStore.sectioned_data()``
@@ -93,9 +94,13 @@ def _column_summary(paths):
     return cols
 
 
-def _dataset_comparison(work_input: Path, store):
+def _dataset_comparison(work_input: Path, store, c4b=None):
     """Per flat dataset: rows in the legacy file vs rows in the converted table, and whether the
-    file's column names are all kept. Counts and column names only, never values."""
+    file's column names are all kept. Counts and column names only, never values.
+
+    C4b converts a legacy-layout taxonomy (``section/subsection/label/value``) to the current
+    columns, so its column check is against the mapped names; an aliases file C4b ignored (no
+    ``match_value``/``category_id`` columns) is expected to leave the table empty."""
     import csv  # noqa: PLC0415
 
     from src.csv_exchange import FLAT_DATASET_FILES  # noqa: PLC0415
@@ -110,11 +115,18 @@ def _dataset_comparison(work_input: Path, store):
             reader = csv.DictReader(f)
             columns = [c for c in (reader.fieldnames or []) if c]
             file_rows = sum(1 for row in reader if any((v or "").strip() for v in row.values() if v is not None))
-        repo = getattr(store, name)
+        repo = store.dataset(name)
         kept = set(repo.columns) | set(repo.extra_columns())
+        note = ""
+        if name == "spending_taxonomy" and c4b is not None and c4b.legacy_taxonomy_layout:
+            kept |= {"section", "subsection", "value"}  # mapped to tracking_type, group, label
+            note = ", legacy layout converted"
+        if name == "spending_aliases" and c4b is not None and c4b.aliases_ignored:
+            file_rows, note = 0, ", legacy layout not imported (readers seed from rules/category map)"
         missing = [c for c in columns if c not in kept]
         ok = repo.count() == file_rows and not missing
-        detail = f"file rows {file_rows}, table rows {repo.count()}" + (f", columns not kept: {missing}" if missing else "")
+        detail = (f"file rows {file_rows}, table rows {repo.count()}" + note
+                  + (f", columns not kept: {missing}" if missing else ""))
         out.append((f"[{'MATCH' if ok else 'DIFF '}] dataset {name}: {detail}", ok))
     return out
 
@@ -170,7 +182,7 @@ def main(argv=None) -> int:
         sys.path.insert(0, str(ROOT))
 
         from src.data_io import load_csv, parse_client  # noqa: PLC0415
-        from src.legacy_conversion.steps import c3_plan_rows, c3b_plan_overrides, c4a_datasets  # noqa: PLC0415
+        from src.legacy_conversion.steps import c3_plan_rows, c3b_plan_overrides, c4a_datasets, c4b_spending  # noqa: PLC0415
         from src.plan_data_migration import migrate_sectioned_data  # noqa: PLC0415
         from src.stores import PlanStore  # noqa: PLC0415
 
@@ -187,11 +199,13 @@ def main(argv=None) -> int:
                     custom[kind] = _read_text(path)
             c3b = c3b_plan_overrides.run(store, custom)
             c4a = c4a_datasets.run(work_input, store)
-            dataset_report = _dataset_comparison(work_input, store)
+            c4b = c4b_spending.run(work_input, store)
+            dataset_report = _dataset_comparison(work_input, store, c4b)
             converted = store.sectioned_data()
             marker_c3 = store.get_meta(c3_plan_rows.MARKER_KEY) is not None
             marker_c3b = store.get_meta(c3b_plan_overrides.MARKER_KEY) is not None
             marker_c4a = store.get_meta(c4a_datasets.MARKER_KEY) is not None
+            marker_c4b = store.get_meta(c4b_spending.MARKER_KEY) is not None
             rows_by_section = Counter(r["section"] for r in store.all_rows())
             dup_keys = Counter()
             for r in store.all_rows():
@@ -211,7 +225,9 @@ def main(argv=None) -> int:
               f"{'present' if marker_c3b else 'MISSING'}")
         print(f"-- C4a (flat datasets -> plan tables): rows {c4a.rows_written or 'none'}  marker: "
               f"{'present' if marker_c4a else 'MISSING'}")
-        all_ok &= marker_c3 and marker_c3b and marker_c4a
+        print(f"-- C4b (spending taxonomy, aliases -> plan tables): rows {c4b.rows_written or 'none'}  marker: "
+              f"{'present' if marker_c4b else 'MISSING'}")
+        all_ok &= marker_c3 and marker_c3b and marker_c4a and marker_c4b
         for line, ok in dataset_report:
             print(line)
             all_ok &= ok

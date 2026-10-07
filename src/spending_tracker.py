@@ -422,9 +422,13 @@ def _shared_ytd_class(txn: dict) -> str:
 # ==================================================================
 # The functions below keep the old public function names as compatibility shims while moving
 # storage toward:
-#   - client_spending_taxonomy.csv: tracking_type, group, category_id, label, origin, status, notes
-#   - client_spending_aliases.csv: match_value, match_field, exact, priority, category_id, source
+#   - taxonomy (plan file table ``spending_taxonomy``, WP6.3a; was client_spending_taxonomy.csv):
+#     tracking_type, group, category_id, label, origin, status, notes
+#   - aliases (plan file table ``spending_aliases``, WP6.3a; was client_spending_aliases.csv):
+#     match_value, match_field, exact, priority, category_id, source
 #   - client_spending_budget.csv: kind, key, label, annual_budget, start_year, end_year, one_time_year, notes
+# The taxonomy and aliases live in the plan of the workspace ``root`` (the active plan for the
+# live workspace, else ``<root>/plan.rpx``; ``active_plan.plan_path_for_workspace``).
 
 import re as _unified_re
 
@@ -639,29 +643,37 @@ def _normalize_spending_group_assignment(tracking_type: str, group: str, categor
     return tt, grp
 
 
+def _plan_spending_rows(root, name: str) -> list[dict]:
+    """Rows of spending dataset ``name`` (``"taxonomy"`` / ``"aliases"``) in the plan of
+    workspace ``root``."""
+    from .plan_datasets import workspace_dataset_rows  # noqa: PLC0415 - keeps the module import light
+
+    return workspace_dataset_rows(_root(root), f"spending_{name}")
+
+
+def _write_plan_spending_rows(root, name: str, header: list[str], rows: list[dict]) -> None:
+    """Replace spending dataset ``name`` in the plan of workspace ``root`` with ``rows``
+    (only the ``header`` columns, as text)."""
+    from .plan_datasets import write_workspace_dataset_rows  # noqa: PLC0415
+
+    clean = [{k: ("" if row.get(k) is None else str(row.get(k))) for k in header} for row in rows]
+    write_workspace_dataset_rows(_root(root), f"spending_{name}", clean)
+
+
 def _taxonomy_rows(root=None, include_deleted: bool = True) -> list[dict]:
-    """Return normalized taxonomy rows from either old or new schema."""
-    path = _root(root) / "input" / "client_spending_taxonomy.csv"
-    header, rows = _read_csv_dicts(path)
+    """Return normalized taxonomy rows of the plan's ``spending_taxonomy`` table.
+
+    The legacy section/subsection/label/value file layout is converted once by conversion
+    step C4b (``legacy_conversion.steps.c4b_spending``)."""
     out: list[dict] = []
-    new_schema = {"tracking_type", "group", "category_id", "label"}.issubset(set(header))
-    for row in rows:
-        if new_schema:
-            tt = _normalize_tracking_type(row.get("tracking_type"))
-            grp = (row.get("group") or "Other").strip()
-            cid = (row.get("category_id") or "").strip()
-            label = (row.get("label") or cid).strip()
-            origin = (row.get("origin") or "template").strip().lower() or "template"
-            status = (row.get("status") or "active").strip().lower() or "active"
-            notes = (row.get("notes") or "").strip()
-        else:
-            tt = _normalize_tracking_type(row.get("section"))
-            grp = (row.get("subsection") or "Other").strip()
-            cid = (row.get("label") or "").strip()
-            label = (row.get("value") or cid).strip()
-            origin = "template"
-            status = "active"
-            notes = (row.get("notes") or "").strip()
+    for row in _plan_spending_rows(root, "taxonomy"):
+        tt = _normalize_tracking_type(row.get("tracking_type"))
+        grp = (row.get("group") or "Other").strip()
+        cid = (row.get("category_id") or "").strip()
+        label = (row.get("label") or cid).strip()
+        origin = (row.get("origin") or "template").strip().lower() or "template"
+        status = (row.get("status") or "active").strip().lower() or "active"
+        notes = (row.get("notes") or "").strip()
         if not (tt and grp and cid):
             continue
         if status not in {"active", "deleted"}:
@@ -704,7 +716,7 @@ def _write_taxonomy_rows(root, rows: list[dict]) -> None:
         })
     order = {tt: i for i, tt in enumerate(TRACKING_TYPE_ORDER + ["Transfer"])}
     normalized.sort(key=lambda r: (order.get(r["tracking_type"], 999), r["group"].lower(), r["label"].lower(), r["category_id"]))
-    _write_csv_dicts(_root(root) / "input" / "client_spending_taxonomy.csv", _TAXONOMY_HEADER, normalized)
+    _write_plan_spending_rows(root, "taxonomy", _TAXONOMY_HEADER, normalized)
 
 
 def load_taxonomy(root=None, include_deleted: bool = False):
@@ -942,7 +954,7 @@ def save_aliases(root, aliases: list[dict]) -> None:
         seen.add(key)
         rows.append(row)
     rows.sort(key=lambda r: (-_safe_int(r["priority"], 50), r["match_value"].lower(), r["category_id"]))
-    _write_csv_dicts(_root(root) / "input" / "client_spending_aliases.csv", _ALIAS_HEADER, rows)
+    _write_plan_spending_rows(root, "aliases", _ALIAS_HEADER, rows)
 
 
 def add_alias(root, match_value, category_id, match_field="category", exact=True, priority=90, source="user"):
@@ -999,7 +1011,7 @@ def apply_mapping_rules(txns, rules=None, flat=None):
 
 
 def save_mapping_rules(root, rules):
-    """Compatibility: save rules into client_spending_aliases.csv."""
+    """Compatibility: save rules as the plan's spending aliases."""
     save_aliases(root, [{
         "match_value": r.get("match_value") or r.get("keyword") or "",
         "category_id": r.get("category_id") or "",
@@ -1926,14 +1938,13 @@ def spending_dashboard(root: Path | None = None, year: int | None = None, core_s
 # Corrected alias loader placed last so it overrides the initial unified definition
 # and can seed from previous-format files without recursive adapter calls.
 def load_aliases(root=None):
-    """Load unified aliases. Falls back directly to previous-format CSV files before migration."""
+    """Load unified aliases (the plan's ``spending_aliases`` table). When the plan has none, the
+    previous-format rules and category-map CSV files seed them (until WP6.3c moves those)."""
     r = _root(root)
-    path = r / "input" / "client_spending_aliases.csv"
-    header, rows = _read_csv_dicts(path)
+    rows = _plan_spending_rows(r, "aliases")
     aliases: list[dict] = []
-    if rows and {"match_value", "category_id"}.issubset(set(header)):
-        source_rows = rows
-        for row in source_rows:
+    if rows:
+        for row in rows:
             mv = (row.get("match_value") or "").strip()
             cid = (row.get("category_id") or "").strip()
             if not (mv and cid):

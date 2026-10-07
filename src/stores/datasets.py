@@ -1,5 +1,6 @@
-"""Typed flat datasets of ``plan.db`` (schema v2, WP6.1 / P4.1): holdings lots, liabilities,
-HSA schedule and target allocation.
+"""Typed flat datasets of ``plan.db``: holdings lots, liabilities, HSA schedule and target
+allocation (schema v2, WP6.1 / P4.1); spending taxonomy and aliases (schema v3, WP6.3a, reached
+through ``store.spending``, see ``spending_repo.py``).
 
 Each dataset is one table that replaces one legacy CSV file. Columns keep the CSV column
 names and are stored as text exactly as entered, so the build parses the same strings it
@@ -22,18 +23,33 @@ LIABILITIES_COLUMNS = (
 HSA_SCHEDULE_COLUMNS = ("year", "optimizer_amount", "override_amount", "locked", "note")
 TARGET_ALLOCATION_COLUMNS = ("asset_class", "target_pct")
 
-_DATASETS: dict[str, tuple[str, ...]] = {
+# Spending set (WP6.3a). ``group`` is an SQL keyword, so every column name is quoted in SQL.
+SPENDING_TAXONOMY_COLUMNS = ("tracking_type", "group", "category_id", "label", "origin", "status", "notes")
+SPENDING_ALIASES_COLUMNS = ("match_value", "match_field", "exact", "priority", "category_id", "source")
+
+_V2_DATASETS: dict[str, tuple[str, ...]] = {
     "holdings_lots": HOLDINGS_COLUMNS,
     "liabilities": LIABILITIES_COLUMNS,
     "hsa_schedule": HSA_SCHEDULE_COLUMNS,
     "target_allocation": TARGET_ALLOCATION_COLUMNS,
 }
+_V3_DATASETS: dict[str, tuple[str, ...]] = {
+    "spending_taxonomy": SPENDING_TAXONOMY_COLUMNS,
+    "spending_aliases": SPENDING_ALIASES_COLUMNS,
+}
+# Every flat dataset table -> its columns (a later schema version adds its tables here).
+_DATASETS: dict[str, tuple[str, ...]] = {**_V2_DATASETS, **_V3_DATASETS}
 
 
-def _ddl() -> str:
+def _q(name: str) -> str:
+    """A quoted SQL identifier (column names are the CSV's, some are keywords)."""
+    return '"' + name.replace('"', '""') + '"'
+
+
+def _ddl(datasets: Mapping[str, tuple[str, ...]], *, quote: bool = True) -> str:
     parts = []
-    for table, cols in _DATASETS.items():
-        body = ",\n    ".join(f"{c} TEXT NOT NULL DEFAULT ''" for c in cols)
+    for table, cols in datasets.items():
+        body = ",\n    ".join(f"{_q(c) if quote else c} TEXT NOT NULL DEFAULT ''" for c in cols)
         parts.append(
             f"CREATE TABLE {table} (\n    position INTEGER PRIMARY KEY,\n    {body},\n"
             "    extra TEXT NOT NULL DEFAULT '{}'\n);"
@@ -41,7 +57,8 @@ def _ddl() -> str:
     return "\n".join(parts)
 
 
-SCHEMA_V2_DDL = _ddl()
+SCHEMA_V2_DDL = _ddl(_V2_DATASETS, quote=False)  # as shipped in v2 (its names need no quoting)
+SCHEMA_V3_DDL = _ddl(_V3_DATASETS)
 
 
 class FlatDatasetRepository:
@@ -61,7 +78,7 @@ class FlatDatasetRepository:
         """Rows in file order, keyed by the CSV column names (known columns first, then any
         extra columns the file carried)."""
         with self._store._read() as con:
-            cur = con.execute(f"SELECT {', '.join(self.columns)}, extra FROM {self.table} ORDER BY position")
+            cur = con.execute(f"SELECT {', '.join(map(_q, self.columns))}, extra FROM {self.table} ORDER BY position")
             out = []
             for r in cur:
                 row = dict(zip(self.columns, r[:-1]))
@@ -89,7 +106,7 @@ class FlatDatasetRepository:
         with self._store._write() as con:
             con.execute(f"DELETE FROM {self.table}")
             con.executemany(
-                f"INSERT INTO {self.table} (position, {', '.join(self.columns)}, extra) VALUES ({marks})",
+                f"INSERT INTO {self.table} (position, {', '.join(map(_q, self.columns))}, extra) VALUES ({marks})",
                 [(i, *vals, json.dumps(extra, ensure_ascii=False, sort_keys=True)) for i, (vals, extra) in enumerate(clean)],
             )
         return len(clean)

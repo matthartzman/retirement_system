@@ -50,11 +50,18 @@ def _date_range(rows: list[dict[str, Any]], field: str) -> dict[str, str | None]
 
 
 def _load_known_categories(input_root: str | Path) -> set[str]:
+    from .plan_datasets import dataset_rows_for_input_dir  # noqa: PLC0415
+
     root = Path(input_root)
     known: set[str] = set()
+    # The spending taxonomy is a table of the workspace's plan file (WP6.3a).
+    for row in dataset_rows_for_input_dir(root, "spending_taxonomy"):
+        for col in ("label", "category_id"):
+            value = str(row.get(col, "") or "").strip()
+            if value:
+                known.add(value.lower())
     for name, columns in (
         ("spending_category_map.csv", ("category",)),
-        ("client_spending_taxonomy.csv", ("label", "category_id")),
     ):
         path = root / name
         if not path.exists():

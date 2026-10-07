@@ -38,6 +38,12 @@ Schema v2 (WP6.1) adds the flat dataset tables ``holdings_lots``, ``liabilities`
 ``hsa_schedule`` and ``target_allocation`` (see ``datasets.py``); they are reached through
 ``store.holdings``, ``store.liabilities``, ``store.hsa_schedule`` and ``store.target_allocation``.
 They are not part of ``plan_rows`` revisions or the revision hash.
+
+Schema v3 (WP6.3a) adds the spending tables ``spending_taxonomy`` and ``spending_aliases``
+(same conventions); they are reached through the spending repository ``store.spending``
+(``spending_repo.py``: ``store.spending.taxonomy``, ``store.spending.aliases``; the rest of the
+spending set is stubbed there until WP6.3b/c). ``store.dataset(name)`` resolves any flat dataset
+by its ``csv_exchange`` name (``"holdings"``, ``"spending_taxonomy"`` ...).
 """
 from __future__ import annotations
 
@@ -50,7 +56,8 @@ from typing import Any, Iterable, Mapping, Protocol, TypedDict, TypeVar, runtime
 
 from .. import platform_runtime
 from ._base import _SqliteStore
-from .datasets import SCHEMA_V2_DDL, FlatDatasetRepository
+from .datasets import SCHEMA_V2_DDL, SCHEMA_V3_DDL, FlatDatasetRepository
+from .spending_repo import SpendingRepo
 from .errors import IntegrityError, NotFoundError, ValidationError
 
 PLAN_APPLICATION_ID = 0x5250504C  # "RPPL"
@@ -102,8 +109,11 @@ CREATE TABLE plan_meta (
 INSERT INTO plan_meta (key, value) VALUES ('{RETENTION_KEY}', '{DEFAULT_REVISION_RETENTION}');
 """
 
-PLAN_MIGRATIONS: tuple[str, ...] = (_SCHEMA_V1, SCHEMA_V2_DDL)
+PLAN_MIGRATIONS: tuple[str, ...] = (_SCHEMA_V1, SCHEMA_V2_DDL, SCHEMA_V3_DDL)
 PLAN_SCHEMA_VERSION = len(PLAN_MIGRATIONS)
+
+
+_FLAT_DATASET_ATTRS = frozenset({"holdings", "liabilities", "hsa_schedule", "target_allocation"})
 
 
 # ------------------------------------------------------------------ validation helpers
@@ -212,6 +222,25 @@ class PlanStore(_SqliteStore):
     @property
     def target_allocation(self) -> FlatDatasetRepository:
         return FlatDatasetRepository(self, "target_allocation")
+
+    # ----------------------------------------------------------- spending set (WP6.3)
+    @property
+    def spending(self) -> SpendingRepo:
+        """The plan's spending set (taxonomy, aliases; budget, rules ... from WP6.3b/c)."""
+        return SpendingRepo(self)
+
+    def dataset(self, name: str) -> FlatDatasetRepository:
+        """A flat dataset by its ``csv_exchange`` name: ``holdings``, ``liabilities``,
+        ``hsa_schedule``, ``target_allocation``, ``spending_<name>`` (``spending_taxonomy`` ->
+        ``self.spending.taxonomy``)."""
+        if name in _FLAT_DATASET_ATTRS:
+            return getattr(self, name)
+        if name.startswith("spending_"):
+            try:
+                return self.spending.dataset(name[len("spending_"):])
+            except KeyError:
+                pass
+        raise KeyError(f"unknown plan dataset {name!r}")
 
     # ----------------------------------------------------------------------- rows
     def sections(self) -> list[str]:
