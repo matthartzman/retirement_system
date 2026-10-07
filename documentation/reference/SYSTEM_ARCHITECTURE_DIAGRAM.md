@@ -459,7 +459,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/server_services/report_service.py` | `detailed_results`, `report_package`, `system_config` | — |
 | `src/server_services/secret_service.py` | — | — |
 | `src/server_services/spending_service.py` | — | — |
-| `src/server_services/strategy_asset_service.py` | `core`, `data_io`, `plan_file_io`, `stores.ref_getters.state_tax` | — |
+| `src/server_services/strategy_asset_service.py` | `core`, `csv_exchange`, `data_io`, `plan_file_io`, `stores.ref_getters.state_tax` | — |
 | `src/server_services/ytd_service.py` | `import_preview` | — |
 
 ### HTTP Runtime

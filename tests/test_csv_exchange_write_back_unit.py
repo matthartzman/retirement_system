@@ -155,11 +155,32 @@ def test_a_section_split_across_two_part_files_is_edited_in_place_and_new_keys_g
     new = dict(after[0], label="gift", value="7", subsection="Spending")
     out = write_back_rows(texts, [*rows, new], {_key(new)})
     assert out["client_spending.csv"].endswith("Cashflow,Spending,gift,7,,\n") and "client_income.csv" not in out
-    # a new key placed in the middle of the section (row order inside the section) cannot be
-    # written back faithfully: refused with nothing written, never silently reordered
+    # a new key placed in the middle of the section (WP4.4: an estate state before the Gifting
+    # rows) lands directly after the row before it in display order
     inserted = dict(new, subsection="Income")
+    out = write_back_rows(texts, [rows[0], inserted, *rows[1:]], {_key(inserted)})
+    assert out == {"client_income.csv": HEADER + "Cashflow,Income,salary,100,,\nCashflow,Income,gift,7,,\nCashflow,Income,bonus,10,,\n"}
+    # ... or, as the section's first row, directly before the old first row
+    first = dict(inserted, label="first")
+    out = write_back_rows(texts, [first, *rows], {_key(first)})
+    assert out["client_income.csv"].startswith(HEADER + "Cashflow,Income,first,7,,\nCashflow,Income,salary,100")
+    assert _view(_rows_of({**texts, **out})) == _view([first, *rows])
+    # a position the CSV set cannot read back in (an untouched row moved) is still refused
+    # with nothing written, never silently reordered
     with pytest.raises(PlanCsvError, match="reorder"):
-        write_back_rows(texts, [rows[0], inserted, *rows[1:]], {_key(inserted)})
+        write_back_rows(texts, [rows[1], rows[0], *rows[2:]], set())
+
+
+def test_a_row_inserted_before_a_commented_row_stays_above_its_comment_block():
+    text = HEADER + "Estate Planning,Gifting,annual,1,,\n# about step-up\nEstate Planning,Step-Up,basis,2,,\n"
+    texts = {"client_insurance_estate.csv": text}
+    rows = _rows_of(texts)
+    new = {"section": "Estate Planning", "subsection": "Oregon", "label": "exemption", "value": "9", "units": "", "notes": ""}
+    out = write_back_rows(texts, [rows[0], new, rows[1]], {_key(new)})
+    assert out["client_insurance_estate.csv"] == (
+        HEADER + "Estate Planning,Gifting,annual,1,,\nEstate Planning,Oregon,exemption,9,,\n"
+        "# about step-up\nEstate Planning,Step-Up,basis,2,,\n")
+    assert _view(_rows_of(out)) == _view([rows[0], new, rows[1]])
 
 
 def test_a_repeated_header_row_inside_a_part_file_is_not_a_data_record():
