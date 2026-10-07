@@ -209,9 +209,13 @@ def set_client_files(files: dict[str, str], db_path: str | Path = DEFAULT_DB) ->
     if not files:
         return
     p = init_sqlite(db_path)
-    with sqlite3.connect(p) as con:
-        con.executemany("INSERT OR REPLACE INTO client_files(file_name, content, updated_by) VALUES(?,?,?)",
-                        [(Path(name).name, content, "local") for name, content in files.items()])
+    con = sqlite3.connect(p)
+    try:
+        with con:
+            con.executemany("INSERT OR REPLACE INTO client_files(file_name, content, updated_by) VALUES(?,?,?)",
+                            [(Path(name).name, content, "local") for name, content in files.items()])
+    finally:
+        con.close()  # closed now, not at garbage collection: Load Saved Plan replaces this file
 
 def get_client_file(file_name: str, workspace_id: str = "local", client_id: str = "local", db_path: str | Path = DEFAULT_DB) -> _Optional[str]:
     p = resolve_path(db_path, DEFAULT_DB)
