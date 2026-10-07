@@ -19,6 +19,7 @@ every later file-elimination phase must keep green.
 from __future__ import annotations
 
 import argparse
+import datetime
 import json
 import os
 import shutil
@@ -46,6 +47,17 @@ EXCLUDED_NAMES = {
 }
 FLOAT_PLACES = 2
 FROZEN_TODAY = "2026-08-04"  # same pin as tests/conftest.py FROZEN_PLAN_TODAY
+
+
+def _mask_build_date(value):
+    """Replace the real build date (``Built: <today>`` on the executive summary).
+
+    The summary stamps ``datetime.date.today()`` and ignores FROZEN_TODAY, so
+    without masking every capture differs from the baseline once the day changes.
+    """
+    if isinstance(value, str):
+        return value.replace(datetime.date.today().isoformat(), "<build-date>")
+    return value
 
 
 def _round(value):
@@ -153,11 +165,14 @@ def capture(plan: str) -> dict:
             if name not in wb.sheetnames:
                 sheets[name] = None
                 continue
-            grid = [[_round(v) if not hasattr(v, "isoformat") else v.isoformat() for v in row]
+            grid = [[_mask_build_date(_round(v) if not hasattr(v, "isoformat") else v.isoformat()) for v in row]
                     for row in wb[name].iter_rows(values_only=True)]
             while grid and all(v is None for v in grid[-1]):
                 grid.pop()
             sheets[name] = grid
+        # Release the read-only workbook handle: on Windows the open file blocks
+        # TemporaryDirectory cleanup (WinError 32).
+        wb.close()
         summary = json.loads((ws / "output" / "plan_summary.json").read_text(encoding="utf-8"))
     return {
         "engine_rows": _round(captured["rows"]),
