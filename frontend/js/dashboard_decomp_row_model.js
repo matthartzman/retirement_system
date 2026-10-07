@@ -14,7 +14,12 @@
 
 let moduleTaxonomy = { modules: {} };
 
-export function stepGatedByOptionalModule(stepId) {
+// WP5.1: `isOn(featureKey)` optionally replaces the live switch reads, so the
+// tier picker can ask "which pages would this preset show?" through the same
+// rules (tierPageCount in dashboard_decomp_plan_tiers.js). Omitted, every read
+// is the live plan's, exactly as before.
+export function stepGatedByOptionalModule(stepId, isOn) {
+  const on = isOn || optionalFunctionEnabled;
   // §5.3 (W6): steps gated by a plan-data feature flag, not a
   // client_optional_functions.csv toggle. The catalog declares the flag's
   // (section, subsection, label) as gate_ref and flag_gates serves it, exactly
@@ -22,6 +27,7 @@ export function stepGatedByOptionalModule(stepId) {
   // HELOC and Special Strategies branches that used to sit here.
   const flagGate = (moduleGates.flag_gates || {})[stepId];
   if (flagGate) {
+    if (isOn) return !isOn(flagGate.key);
     const r = flagGate.ref || [];
     return !sectionFlagEnabled(r[0], r[1], r[2]);
   }
@@ -35,13 +41,14 @@ export function stepGatedByOptionalModule(stepId) {
     const gates = moduleGates.step_gates || {};
     return ["monte_carlo_options", "survivor_stress", "ltc_stress", "divorce_options"]
       .map((id) => gates[id])
-      .every((m) => m && !optionalFunctionEnabled(m));
+      .every((m) => m && !on(m));
   }
   // Ticket 340: Charitable Giving should be reachable whenever either DAF or
   // QCD is on, independent of the (now-decoupled, see
   // dashboard_decomp_estate_insurance.js) charitable_giving workbook toggle
   // that module_catalog otherwise wires up as this step's step_gate.
   if (stepId === "entity_charitable") {
+    if (isOn) return !isOn("daf_giving") && !isOn("qcd_giving");
     return (
       !sectionFlagEnabled("DAF", "Settings", "enabled") &&
       !sectionFlagEnabled("Cashflow", "Charitable Giving", "qcd_enabled")
@@ -55,13 +62,13 @@ export function stepGatedByOptionalModule(stepId) {
   // both are off (like entity_charitable above, a hand-written any-of rule).
   // WP1.4: Harvesting is one Optimize section over two modules (loss, gain).
   if (stepId === "harvesting") {
-    return !optionalFunctionEnabled("tax_loss_harvesting") && !optionalFunctionEnabled("gain_harvesting");
+    return !on("tax_loss_harvesting") && !on("gain_harvesting");
   }
   if (stepId === "family_business") {
-    return !optionalFunctionEnabled("education_funding_529") && !optionalFunctionEnabled("equity_compensation");
+    return !on("education_funding_529") && !on("equity_compensation");
   }
   const gateModule = (moduleGates.step_gates || {})[stepId];
-  if (gateModule) return !optionalFunctionEnabled(gateModule);
+  if (gateModule) return !on(gateModule);
   return false;
 }
 
@@ -3125,8 +3132,11 @@ export function renderFields(step) {
         .includes(q),
     );
   }
+  const tierView = fieldTierView(step, rs, !!searchText.trim());
+  rs = tierView.rows;
   const missing = rs.filter(isMissing);
-  let html = missing.length
+  let html = tierView.controlHtml;
+  html += missing.length
     ? `<div class="missing-list"><h3>${missing.length} required field${missing.length === 1 ? "" : "s"} missing in this view</h3><ul>${missing
         .slice(0, 8)
         .map((r) => `<li>${esc(humanLabel(r.label, r))}</li>`)
@@ -4831,6 +4841,8 @@ export async function loadAll(opts = {}) {
     // moduleOffImpactWarning() below is the only reader, so unlike
     // moduleStatus/moduleGates this needs no window accessor.
     moduleTaxonomy = cfg.module_taxonomy || { modules: {} };
+    // WP5.1: the plan profile and tier presets for the Plan Features picker.
+    if (typeof setPlanTierPayload === "function") setPlanTierPayload(cfg);
     if (window.RetirementAppStore)
       window.RetirementAppStore.set({
         rows: rows,
