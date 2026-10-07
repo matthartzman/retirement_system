@@ -162,6 +162,13 @@ class DemoPlanService:
             # before touching anything. If a backup is already present, a
             # demo is already active -- re-applying demo files below must
             # not overwrite either backup.
+            # WP4.2: bring client_files up to the current CSV set first, so the
+            # backup carries the whole real plan (the restore rebuilds the CSV set,
+            # and from it the plan rows, out of client_files).
+            try:
+                self.context.sync_config_backends()
+            except Exception as exc:
+                self._audit("demo_plan_sync_warning", {"error": str(exc)})
             if dest.exists():
                 self._checkpoint_sqlite(dest)
                 shutil.copy2(str(dest), str(backup))

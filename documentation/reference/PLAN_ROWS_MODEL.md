@@ -59,7 +59,7 @@ Status: WP4.1 (owner review checkpoint). The summary below is the PR-body text.
 1. reads the CSV set once (`csv_exchange.read_plan_csv_set`) and makes the plan rows equal to it (`csv_exchange.sync_plan_rows`). A row keeps its `row_id` while its key's occurrence survives. If nothing changed, nothing is written. It still applies the old loader's two load-time drops: retired `Scenarios / Sell Home` value labels and `label` header rows;
 2. stores each part file's text in the legacy database's `client_files`. Save As, Load Saved Plan, Open/Close Demo and snapshot restore carry the plan as that database file and rebuild the CSV set from `client_files`. The snapshot copy used to cover this;
 3. writes the JSON/YAML mirrors from the plan's view.
-Load Saved Plan, snapshot restore and the demo swap call it after they rebuild the CSV set. The at-rest migration (`plan_data_migration`) renames legacy keys in the plan file's rows in place (ticket 287's snapshot sweep, moved).
+Save As and Open Demo call it before they copy the database. Load Saved Plan, snapshot restore and Close Demo call it after they rebuild the CSV set. The at-rest migration (`plan_data_migration`) renames legacy keys in the plan file's rows in place (ticket 287's snapshot sweep, moved).
 
 Not switched here, because their reads belong to a read-modify-write pair with a CSV writer. Switching only the read would make the pair disagree:
 - `_client_csv_rows` is the grid. `row_index` is a position in the CSV set, read by `_csv_rows_payload` and written by `update_config_rows_payload`. WP4.3 moves both to `row_id`.
