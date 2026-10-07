@@ -135,3 +135,36 @@ def test_fixture_sets_read_back_after_edits_deletes_and_inserts(fixture):
     extra = {"section": "Household", "subsection": "", "label": "wp43_new", "value": "1", "units": "", "notes": ""}
     out = write_back_rows(parsed.texts, after + [extra], touched | {_key(extra)})
     assert _view(_rows_of({**parsed.texts, **out})) == _view(after + [extra])
+
+
+def test_a_section_split_across_two_part_files_is_edited_in_place_and_new_keys_go_last():
+    income = HEADER + "Cashflow,Income,salary,100,,\nCashflow,Income,bonus,10,,\n"
+    spending = HEADER + "Cashflow,Spending,rent,5,,\nCashflow,Spending,food,3,,\n"
+    texts = {"client_income.csv": income, "client_spending.csv": spending}
+    rows = _rows_of(texts)
+    assert [r["label"] for r in rows] == ["salary", "bonus", "rent", "food"]  # one section, two files
+    # a value in each file, one deletion in the first file
+    after = _edit(_edit(rows, ("Cashflow", "Income", "salary"), value="101"), ("Cashflow", "Spending", "food"), value="4")
+    after = [r for r in after if r["label"] != "bonus"]
+    touched = {("Cashflow", "Income", "salary"), ("Cashflow", "Spending", "food"), ("Cashflow", "Income", "bonus")}
+    out = write_back_rows(texts, after, touched)
+    assert out == {"client_income.csv": HEADER + "Cashflow,Income,salary,101,,\n",
+                   "client_spending.csv": HEADER + "Cashflow,Spending,rent,5,,\nCashflow,Spending,food,4,,\n"}
+    assert _view(_rows_of(out)) == _view(after)
+    # a new key at the end of the section lands after the last record, in the second file
+    new = dict(after[0], label="gift", value="7", subsection="Spending")
+    out = write_back_rows(texts, [*rows, new], {_key(new)})
+    assert out["client_spending.csv"].endswith("Cashflow,Spending,gift,7,,\n") and "client_income.csv" not in out
+    # a new key placed in the middle of the section (row order inside the section) cannot be
+    # written back faithfully: refused with nothing written, never silently reordered
+    inserted = dict(new, subsection="Income")
+    with pytest.raises(PlanCsvError, match="reorder"):
+        write_back_rows(texts, [rows[0], inserted, *rows[1:]], {_key(inserted)})
+
+
+def test_a_repeated_header_row_inside_a_part_file_is_not_a_data_record():
+    from src.csv_exchange.write_back import _File
+
+    text = HEADER + "Household,,a,1,,\nsection,subsection,label,value,units,notes\nHousehold,,b,2,,\n"
+    f = _File.parse("client_household.csv", text)
+    assert [k for _, k in f.data_records()] == [("Household", "", "a"), ("Household", "", "b")]

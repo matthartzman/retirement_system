@@ -453,7 +453,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/server_services/holdings_service.py` | `config_backend`, `plan_file_io`, `workspace_context` | — |
 | `src/server_services/plan_data_file_service.py` | — | — |
 | `src/server_services/plan_file_service.py` | `build_snapshot`, `plan_db_replace` | — |
-| `src/server_services/plan_forms_service.py` | `active_plan`, `csv_exchange`, `plan_label_rules`, `roth_ui_build_guard` | — |
+| `src/server_services/plan_forms_service.py` | `active_plan`, `csv_exchange`, `csv_exchange.plan_csv`, `plan_label_rules`, `roth_ui_build_guard` | — |
 | `src/server_services/portfolio_service.py` | — | — |
 | `src/server_services/pricing_service.py` | `config_backend`, `market_data`, `portfolio_analytics` | — |
 | `src/server_services/report_service.py` | `detailed_results`, `report_package`, `system_config` | — |
@@ -475,7 +475,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | Module | Internal imports | External imports |
 |---|---|---|
 | `src/__init__.py` | `version` | — |
-| `src/active_plan.py` | `csv_exchange`, `plan_label_rules`, `stores` | — |
+| `src/active_plan.py` | `csv_exchange`, `csv_exchange.plan_csv`, `plan_label_rules`, `stores` | — |
 | `src/after_tax.py` | `core` | — |
 | `src/allocation_policy.py` | — | — |
 | `src/api_contracts.py` | — | — |

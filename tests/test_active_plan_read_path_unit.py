@@ -150,6 +150,133 @@ def test_plan_forms_read_and_write_the_plan_rows(workspace):
     payload, status = forms.patch_forms_payload("Economic Assumptions/Rates", {"new_rate": "3%"}, edit_plan=edit)
     assert status == 200 and payload["values"]["new_rate"] == "3%"
     assert workspace.store_data()["Economic Assumptions"]["Rates"]["new_rate"] == "3%"
+    before = workspace.store_data()
     payload, status = forms.save_forms_payload({"Household": {"": {"member_1_name": "Only"}}}, edit_plan=edit)
-    assert status == 200 and workspace.store_data() == {"Household": {"": {"member_1_name": "Only"}}}
+    assert status == 200 and workspace.store_data()["Household"][""]["member_1_name"] == "Only"
+    assert set(workspace.store_data()["Household"][""]) == set(before["Household"][""])  # upsert only: nothing deleted
+    payload, status = forms.save_forms_payload({"Household": {"": {"member_1_name": "Only"}}}, edit_plan=edit, replace=True)
+    only = {"Household": {"": {"member_1_name": "Only"}}}
+    assert status == 200 and workspace.store_data()["Household"] == only["Household"]
+    assert {k: v for k, v in workspace.store_data().items() if k != "Household"} == \
+        {k: v for k, v in before.items() if k != "Household"}  # sections not posted are kept
     assert forms.save_forms_payload([], edit_plan=edit)[1] == 400
+
+
+# ------------------------------------------------- WP4.3 review fixes: edit safety, reads, change check
+def _writer(workspace, log=None, fail_on=None):
+    def write(name, text):
+        if name == fail_on:
+            raise OSError(f"disk full writing {name}")
+        (workspace.input_dir / name).write_text(text, encoding="utf-8")
+        if log is not None:
+            log.append(name)
+        return workspace.input_dir / name
+    return write
+
+
+def _csv_texts(workspace):
+    return {p.name: p.read_text(encoding="utf-8") for p in sorted(workspace.input_dir.glob("*.csv"))}
+
+
+def _two_file_edit(edit):
+    edit.store.set_value("Household", "", "member_1_name", "Changed Name")
+    edit.store.set_value("Other Assets", "Home", "value_as_of_plan_start", "$7,777,777")
+
+
+def test_a_failed_file_write_restores_the_files_already_written_and_the_rows(workspace):
+    texts, rows = _csv_texts(workspace), workspace.store_data()
+    log: list[str] = []
+    with pytest.raises(OSError):
+        with active_plan.edit_active_plan(workspace.input_dir, _writer(workspace, log, fail_on="client_assets.csv"),
+                                      _writer(workspace)) as edit:
+            _two_file_edit(edit)
+    assert log == ["client_household.csv"]  # the first file really was written before the failure
+    assert _csv_texts(workspace) == texts and workspace.store_data() == rows
+
+
+def test_a_failed_second_bridge_run_restores_the_files_and_the_rows(workspace, monkeypatch):
+    texts, rows = _csv_texts(workspace), workspace.store_data()
+    real, calls = active_plan._pull, []
+
+    def pull(store, input_dir):
+        calls.append(1)
+        if len(calls) == 2:
+            raise active_plan.PlanCsvError("second bridge run failed")
+        return real(store, input_dir)
+
+    monkeypatch.setattr(active_plan, "_pull", pull)
+    log: list[str] = []
+    with pytest.raises(active_plan.PlanCsvError):
+        with active_plan.edit_active_plan(workspace.input_dir, _writer(workspace, log), _writer(workspace)) as edit:
+            _two_file_edit(edit)
+    assert sorted(log) == ["client_assets.csv", "client_household.csv"]  # both were written ...
+    assert _csv_texts(workspace) == texts and workspace.store_data() == rows  # ... and put back
+
+
+def test_a_file_the_failed_edit_created_is_removed_again(workspace):
+    (workspace.input_dir / "client_business.csv").unlink()
+    texts = _csv_texts(workspace)
+    plain = _writer(workspace)
+
+    def write(name, text):
+        path = plain(name, text)
+        if name == "client_business.csv":
+            raise OSError("fails right after creating the file")
+        return path
+
+    with pytest.raises(OSError):
+        with active_plan.edit_active_plan(workspace.input_dir, write, plain) as edit:
+            edit.store.set_value("Household", "", "member_1_name", "Changed Name")
+            edit.store.insert_row("Business Succession", subsection="", label="entity_name", value="Acme")
+    assert _csv_texts(workspace) == texts and not (workspace.input_dir / "client_business.csv").exists()
+
+
+def test_a_successful_edit_still_writes_and_keeps_both_sides_equal(workspace):
+    with active_plan.edit_active_plan(workspace.input_dir, _writer(workspace)) as edit:
+        _two_file_edit(edit)
+    assert "Changed Name" in (workspace.input_dir / "client_household.csv").read_text(encoding="utf-8")
+    assert edit.final_values[("Household", "", "member_1_name")] == "Changed Name"
+    assert workspace.store_data()["Other Assets"]["Home"]["value_as_of_plan_start"] == "$7,777,777"
+
+
+def test_a_read_with_an_unparsable_part_file_serves_the_stored_rows_with_a_warning(workspace):
+    rows = workspace.store_data()
+    (workspace.input_dir / "client_policy.csv").write_text("not,a,plan\n1,2,3\n", encoding="utf-8")
+    warning = active_plan.refresh_active_plan(workspace.input_dir)
+    assert "client_policy.csv" in warning and workspace.store_data() == rows
+    # an edit truly needs the CSV set: it refuses and changes nothing
+    with pytest.raises(active_plan.PlanCsvError):
+        with active_plan.edit_active_plan(workspace.input_dir, _writer(workspace)) as edit:
+            edit.store.set_value("Household", "", "member_1_name", "Nope")
+    assert workspace.store_data() == rows
+
+
+def test_an_unchanged_csv_set_is_no_bridge_run_and_no_write_lock(workspace, monkeypatch):
+    runs = []
+    real = active_plan.sync_active_plan_from_csv
+    monkeypatch.setattr(active_plan, "sync_active_plan_from_csv", lambda d: (runs.append(1), real(d))[1])
+    assert active_plan.refresh_active_plan(workspace.input_dir) == "" and len(runs) == 1  # first read syncs
+    for _ in range(3):
+        assert active_plan.refresh_active_plan(workspace.input_dir) == ""
+    assert len(runs) == 1  # nothing changed: no further run
+    # a held write lock on the plan file does not block an unchanged read
+    import sqlite3
+    blocker = sqlite3.connect(workspace.plan_db, timeout=0.1)
+    blocker.execute("BEGIN IMMEDIATE")
+    try:
+        assert active_plan.refresh_active_plan(workspace.input_dir) == "" and len(runs) == 1
+    finally:
+        blocker.execute("ROLLBACK")
+        blocker.close()
+    # a CSV change runs it once, then it is quiet again
+    household = workspace.input_dir / "client_household.csv"
+    household.write_text(household.read_text(encoding="utf-8").replace("member_1_name,", "member_1_name,Z", 1), encoding="utf-8")
+    active_plan.refresh_active_plan(workspace.input_dir)
+    active_plan.refresh_active_plan(workspace.input_dir)
+    assert len(runs) == 2
+    assert workspace.store_data()["Household"][""]["member_1_name"].startswith("Z")
+    # a change of the plan itself (another writer, a swapped plan file) runs it too
+    with workspace.store() as store:
+        store.set_value("Household", "", "member_1_name", "Other Writer")
+    active_plan.refresh_active_plan(workspace.input_dir)
+    assert len(runs) == 3 and workspace.store_data()["Household"][""]["member_1_name"].startswith("Z")

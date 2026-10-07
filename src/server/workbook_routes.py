@@ -903,7 +903,8 @@ def plan_forms_post():
         return denied
     body = request.get_json(silent=True) or {}
     sections = body.get("sections") or body.get("data") or {}
-    payload, status = plan_forms_service.save_forms_payload(sections, edit_plan=_edit_active_plan)
+    payload, status = plan_forms_service.save_forms_payload(
+        sections, edit_plan=_edit_active_plan, replace=body.get("replace") is True)
     if status == 200:
         _audit("plan_forms_saved", {"revision": payload.get("revision"), "section_count": len(sections) if isinstance(sections, dict) else 0})
     return jsonify(payload), status

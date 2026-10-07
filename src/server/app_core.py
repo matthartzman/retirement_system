@@ -1307,7 +1307,7 @@ def _csv_rows_payload() -> dict:
     not synced yet. ``revision`` is ``PlanStore.revision()`` of the rows served.
     """
     _ensure_user_ui_plan_data_rows()
-    refresh_active_plan(configured_plan_input_dir())
+    warning = _refresh_active_plan()
     schema = _read_schema_map()
     with active_plan_store() as store:
         order = {section: i for i, section in enumerate(store.section_order())}
@@ -1329,19 +1329,27 @@ def _csv_rows_payload() -> dict:
             "choice_options": _choice_options_for_config_row(section, subsection, label, r["units"], r["notes"], spec),
             "group": _classify_config_row(section, subsection, label),
         })
-    return {"rows": rows, "schema_count": len(schema), "revision": revision}
+    payload = {"rows": rows, "schema_count": len(schema), "revision": revision}
+    if warning:
+        payload["warning"] = warning
+    return payload
 
 
 def _edit_active_plan():
     """The row-store writers' edit context (grid, ``/api/plan/forms``; WP4.3): one rows
     transaction whose touched keys are written back into the plan CSV set through
     ``_write_plan_data_file`` for the remaining CSV writers (``active_plan.edit_active_plan``)."""
-    return edit_active_plan(configured_plan_input_dir(), _write_plan_data_file)
+    return edit_active_plan(
+        configured_plan_input_dir(), _write_plan_data_file,
+        # a failed edit puts the previous file texts back as they were (no protected-value merge)
+        lambda name, content: _write_plan_data_file(name, content, preserve_protected=False))
 
 
-def _refresh_active_plan() -> None:
-    """Run the CSV-set bridge before a read of the rows (``active_plan.refresh_active_plan``)."""
-    refresh_active_plan(configured_plan_input_dir())
+def _refresh_active_plan() -> str:
+    """Run the CSV-set bridge before a read of the rows (``active_plan.refresh_active_plan``).
+    Returns a warning ("" normally) when the CSV files could not be read and the stored rows
+    are served instead."""
+    return refresh_active_plan(configured_plan_input_dir())
 
 
 
