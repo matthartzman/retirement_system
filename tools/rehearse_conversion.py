@@ -12,7 +12,8 @@ What it does
 1. Read-only on ``<plan_copy_dir>``: the inputs are copied to a temp work folder; the converted
    plan is written to ``<out>/plan.rpx`` (default: a temp folder, removed at exit).
 2. Runs C3, C3b, C4a (holdings, liabilities, HSA schedule, targets) then C4b (spending taxonomy,
-   aliases, budget, budget lines, tier overrides) exactly as ``src/legacy_conversion/steps`` does.
+   aliases, budget, budget lines, tier overrides, rules, category map, group budget, and the
+   budget recovery seed / pre-recovery copy as plan revisions) exactly as ``src/legacy_conversion/steps`` does.
 3. Equivalence checks, old path vs converted plan:
    - flat datasets: per dataset, file row count vs table row count, and the column NAMES of each
    - sectioned data: ``migrate_sectioned_data(load_csv(...))`` vs ``PlanStore.sectioned_data()``
@@ -121,6 +122,9 @@ def _dataset_comparison(work_input: Path, store, c4b=None):
         if name == "spending_taxonomy" and c4b is not None and c4b.legacy_taxonomy_layout:
             kept |= {"section", "subsection", "value"}  # mapped to tracking_type, group, label
             note = ", legacy layout converted"
+        if name == "spending_budget" and c4b is not None and c4b.legacy_budget_layout:
+            kept |= {"category_id"}  # one row per category_id becomes a kind=category row
+            file_rows, note = repo.count(), ", legacy layout converted (rows grouped per category)"
         if name == "spending_aliases" and c4b is not None and c4b.aliases_ignored:
             file_rows, note = 0, ", legacy layout not imported (readers seed from rules/category map)"
         missing = [c for c in columns if c not in kept]
@@ -128,6 +132,23 @@ def _dataset_comparison(work_input: Path, store, c4b=None):
         detail = (f"file rows {file_rows}, table rows {repo.count()}" + note
                   + (f", columns not kept: {missing}" if missing else ""))
         out.append((f"[{'MATCH' if ok else 'DIFF '}] dataset {name}: {detail}", ok))
+    # The recovery copies are plan revisions (rows of the budget retained by a revision).
+    from src.legacy_conversion.steps.c4b_spending import RECOVERY_FILES  # noqa: PLC0415
+
+    for key, file in RECOVERY_FILES.items():
+        path = work_input / file
+        if not path.is_file():
+            out.append((f"[SKIP ] recovery copy {key}: no {file}", True))
+            continue
+        with path.open(newline="", encoding="utf-8-sig") as f:
+            file_rows = sum(1 for row in csv.DictReader(f) if any((v or "").strip() for v in row.values() if v is not None))
+        if key == "recovery_seed":
+            kept_rows = len(store.spending.recovery_seed())
+        else:
+            head = store.latest_revision("pre-recovery")
+            kept_rows = len(store.revision_dataset_rows(head["id"], "spending_budget")) if head else 0
+        ok = kept_rows == file_rows
+        out.append((f"[{'MATCH' if ok else 'DIFF '}] recovery copy {key} (plan revision): file rows {file_rows}, revision rows {kept_rows}", ok))
     return out
 
 
@@ -225,7 +246,7 @@ def main(argv=None) -> int:
               f"{'present' if marker_c3b else 'MISSING'}")
         print(f"-- C4a (flat datasets -> plan tables): rows {c4a.rows_written or 'none'}  marker: "
               f"{'present' if marker_c4a else 'MISSING'}")
-        print(f"-- C4b (spending taxonomy, aliases, budget, budget lines, tier overrides -> plan tables): rows {c4b.rows_written or 'none'}  marker: "
+        print(f"-- C4b (spending set -> plan tables, recovery copies -> plan revisions): rows {c4b.rows_written or 'none'}  marker: "
               f"{'present' if marker_c4b else 'MISSING'}")
         all_ok &= marker_c3 and marker_c3b and marker_c4a and marker_c4b
         for line, ok in dataset_report:

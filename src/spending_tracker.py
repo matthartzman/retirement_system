@@ -142,39 +142,36 @@ def _annualization_period_days(txns, year: int, today: date | None = None) -> in
     return max(1, (end - jan1).days + 1)
 
 
+_GROUP_BUDGET_HEADER = ["group", "budget_pct", "budget_override", "notes"]
+
+
 def load_budget(root: Path | None = None) -> dict[str, dict]:
-    """Load spending_budget.csv → {group: {budget_pct, budget_override, notes}}."""
-    path = _root(root) / "input" / "spending_budget.csv"
-    if not path.exists():
-        return {}
+    """The plan's ``spending_group_budget`` table → {group: {budget_pct, budget_override, notes}}."""
     result: dict[str, dict] = {}
-    with open(path, newline="", encoding="utf-8-sig") as f:
-        for row in csv.DictReader(f):
-            group = (row.get("group") or "").strip()
-            if not group:
-                continue
-            result[group] = {
-                "budget_pct": _safe_float(row.get("budget_pct", "")),
-                "budget_override": _safe_float(row.get("budget_override", "")),
-                "notes": (row.get("notes") or "").strip(),
-            }
+    for row in _plan_spending_rows(root, "group_budget"):
+        group = (row.get("group") or "").strip()
+        if not group:
+            continue
+        result[group] = {
+            "budget_pct": _safe_float(row.get("budget_pct", "")),
+            "budget_override": _safe_float(row.get("budget_override", "")),
+            "notes": (row.get("notes") or "").strip(),
+        }
     return result
 
 
 def save_budget(root: Path | None, budget: dict[str, dict]) -> None:
-    """Write spending_budget.csv."""
-    path = _root(root) / "input" / "spending_budget.csv"
-    with open(path, "w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f)
-        w.writerow(["group", "budget_pct", "budget_override", "notes"])
-        for group in sorted(budget):
-            b = budget[group]
-            w.writerow([
-                group,
-                f"{b.get('budget_pct', 0):.1f}" if b.get("budget_pct") else "",
-                f"{b.get('budget_override', 0):.0f}" if b.get("budget_override") else "",
-                b.get("notes", ""),
-            ])
+    """Replace the plan's ``spending_group_budget`` table."""
+    rows = []
+    for group in sorted(budget):
+        b = budget[group]
+        rows.append({
+            "group": group,
+            "budget_pct": f"{b.get('budget_pct', 0):.1f}" if b.get("budget_pct") else "",
+            "budget_override": f"{b.get('budget_override', 0):.0f}" if b.get("budget_override") else "",
+            "notes": b.get("notes", ""),
+        })
+    _write_plan_spending_rows(root, "group_budget", _GROUP_BUDGET_HEADER, rows)
 
 
 # ------------------------------------------------------------------
@@ -309,7 +306,7 @@ def budget_by_group(root: Path | None = None, core_spending: float = 0) -> dict:
 
 def seed_budget_from_actuals(root: Path | None = None, year: int | None = None,
                              core_spending: float = 0) -> dict[str, dict]:
-    """Initialize spending_budget.csv from transaction history proportions."""
+    """Initialize the plan's group budget table from transaction history proportions."""
     r = _root(root)
     actuals = group_actuals(r, year)
     total = actuals["total_core_annualized"]
@@ -516,24 +513,6 @@ def _safe_int(value: Any, default: int = 0) -> int:
         return default
 
 
-def _read_csv_dicts(path: Path) -> tuple[list[str], list[dict]]:
-    if not path.exists():
-        return [], []
-    with open(path, newline="", encoding="utf-8-sig", errors="replace") as f:
-        reader = csv.DictReader(line.replace("\x00", "") for line in f)
-        header = list(reader.fieldnames or [])
-        return header, [dict(row) for row in reader]
-
-
-def _write_csv_dicts(path: Path, header: list[str], rows: list[dict]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=header, extrasaction="ignore")
-        writer.writeheader()
-        for row in rows:
-            writer.writerow({k: row.get(k, "") for k in header})
-
-
 def _normalize_tracking_type(value: str) -> str:
     raw = str(value or "").strip()
     if not raw:
@@ -659,6 +638,13 @@ def _write_plan_spending_rows(root, name: str, header: list[str], rows: list[dic
 
     clean = [{k: ("" if row.get(k) is None else str(row.get(k))) for k in header} for row in rows]
     write_workspace_dataset_rows(_root(root), f"spending_{name}", clean)
+
+
+def _plan_recovery_seed_rows(root) -> list[dict]:
+    """Rows of the recovery seed of the plan of workspace ``root`` (a plan revision; ``[]`` when none)."""
+    from .plan_datasets import workspace_recovery_seed_rows  # noqa: PLC0415
+
+    return workspace_recovery_seed_rows(_root(root))
 
 
 def _taxonomy_rows(root=None, include_deleted: bool = True) -> list[dict]:
@@ -1050,10 +1036,6 @@ def _legacy_budget_to_unified(root=None) -> list[dict]:
     return out
 
 
-def _budget_recovery_seed_path(root=None) -> Path:
-    return _root(root) / "input" / "client_spending_budget.recovery_seed.csv"
-
-
 def _budget_row_total(rows: list[dict], kinds: set[str] | None = None) -> float:
     if kinds is None:
         kinds = {"category", "group", "line"}
@@ -1100,19 +1082,18 @@ def _merge_budget_seed(current: list[dict], seed: list[dict], *, only_when_zero:
 
 
 def recover_spending_budget_from_seed(root=None, *, persist: bool = True, force: bool = False) -> dict:
-    """Recover nonzero spending budget rows from a packaged recovery seed.
+    """Recover nonzero spending budget rows from the plan's recovery seed (a plan revision).
 
     Returns a small status dict for UI/API callers. Force=False only fills
     missing/zero rows; it never overwrites a current nonzero budget.
     """
     r = _root(root)
-    seed_path = _budget_recovery_seed_path(r)
-    if not seed_path.exists():
-        return {"success": False, "recovered": 0, "error": "No recovery seed file is available."}
+    seed_rows_raw = _plan_recovery_seed_rows(r)
+    if not seed_rows_raw:
+        return {"success": False, "recovered": 0, "error": "No recovery seed is available."}
     current = _legacy_budget_to_unified(r)
-    seed_header, seed_rows_raw = _read_csv_dicts(seed_path)
     seed: list[dict] = []
-    if {"kind", "key"}.issubset(set(seed_header)):
+    if {"kind", "key"}.issubset(set(seed_rows_raw[0])):
         for row in seed_rows_raw:
             kind = (row.get("kind") or "category").strip().lower()
             key = (row.get("key") or "").strip()
@@ -1131,13 +1112,12 @@ def recover_spending_budget_from_seed(root=None, *, persist: bool = True, force:
         return {"success": False, "recovered": 0, "error": "Recovery seed has no nonzero budget values."}
     merged, changed = _merge_budget_seed(current, seed, only_when_zero=not force)
     if changed and persist:
-        # One-time copy of the pre-recovery budget rows (a recovery copy: WP6.3c turns these
-        # into plan revisions; until then it stays the file it always was).
+        # One-time copy of the pre-recovery budget rows: a ``pre-recovery`` plan revision that
+        # retains the budget table (restore_workspace_pre_recovery_copy puts it back).
         try:
-            backup_path = r / "input" / "client_spending_budget.csv.pre_recovery_backup"
-            before = _plan_spending_rows(r, "budget")
-            if before and not backup_path.exists():
-                _write_csv_dicts(backup_path, _BUDGET_HEADER, before)
+            from .plan_datasets import keep_workspace_pre_recovery_copy  # noqa: PLC0415
+
+            keep_workspace_pre_recovery_copy(r, _plan_spending_rows(r, "budget"))
         except Exception:
             pass
         save_unified_budget(r, merged)
@@ -1156,7 +1136,7 @@ def load_unified_budget(root=None) -> list[dict]:
     # zeroed but a packaged seed exists, restore the prior nonzero values. This
     # protects local data after an autosave regression without overwriting any
     # current nonzero user edits.
-    if _budget_row_total(rows, {"category", "group"}) == 0 and _budget_recovery_seed_path(root).exists():
+    if _budget_row_total(rows, {"category", "group"}) == 0 and _plan_recovery_seed_rows(root):
         status = recover_spending_budget_from_seed(root, persist=True, force=False)
         if status.get("success") and status.get("recovered"):
             rows = _legacy_budget_to_unified(root)
@@ -1940,7 +1920,7 @@ def spending_dashboard(root: Path | None = None, year: int | None = None, core_s
 # and can seed from previous-format files without recursive adapter calls.
 def load_aliases(root=None):
     """Load unified aliases (the plan's ``spending_aliases`` table). When the plan has none, the
-    previous-format rules and category-map CSV files seed them (until WP6.3c moves those)."""
+    previous-format rules and category-map tables seed them."""
     r = _root(root)
     rows = _plan_spending_rows(r, "aliases")
     aliases: list[dict] = []
@@ -1960,8 +1940,7 @@ def load_aliases(root=None):
             })
     else:
         # Previous-format rules: keyword/category_id/match_field/exact/priority
-        _, rule_rows = _read_csv_dicts(r / "input" / "client_spending_rules.csv")
-        for row in rule_rows:
+        for row in _plan_spending_rows(r, "rules"):
             mv = (row.get("keyword") or "").strip()
             cid = (row.get("category_id") or "").strip()
             if not (mv and cid):
@@ -1971,8 +1950,7 @@ def load_aliases(root=None):
         flat = taxonomy_flat(r, include_deleted=True)
         label_to_id = {str(v.get("label", "")).strip().lower(): cid for cid, v in flat.items()}
         label_to_id.update({cid.lower(): cid for cid in flat})
-        _, map_rows = _read_csv_dicts(r / "input" / "spending_category_map.csv")
-        for row in map_rows:
+        for row in _plan_spending_rows(r, "category_map"):
             raw = (row.get("category") or "").strip()
             if not raw:
                 continue

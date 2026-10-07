@@ -126,7 +126,7 @@ class PlanWorkspace:
 
 
 def _build_plan_file(input_dir: Path, plan_db: Path) -> None:
-    from src.csv_exchange import import_flat_datasets, import_plan_csv_set
+    from src.csv_exchange import import_flat_datasets, import_plan_csv_set, import_recovery_seed
     from src.stores import PlanStore
     for stale in (plan_db, plan_db.with_name(plan_db.name + "-wal"), plan_db.with_name(plan_db.name + "-shm")):
         stale.unlink(missing_ok=True)

@@ -187,7 +187,7 @@ def build_plan_file_from_csv_folder(dest: str | Path, folder: str | Path) -> int
     """Build a plan file at ``dest`` from the plan CSV set in ``folder`` through the
     ``csv_exchange`` importer (the demo seed, a fresh frozen workspace); an existing ``dest`` is
     replaced. Rows the old loader dropped at load are dropped too. Returns the rows written."""
-    from .csv_exchange import import_flat_datasets, import_plan_csv_set  # noqa: PLC0415 - csv_exchange needs no plan at import
+    from .csv_exchange import import_flat_datasets, import_plan_csv_set, import_recovery_seed  # noqa: PLC0415 - csv_exchange needs no plan at import
 
     target = Path(dest)
     for stale in (target, target.with_name(target.name + "-wal"), target.with_name(target.name + "-shm")):
@@ -195,6 +195,7 @@ def build_plan_file_from_csv_folder(dest: str | Path, folder: str | Path) -> int
     with PlanStore.open(target) as store:
         rows = import_plan_csv_set(folder, store, drop_never_kept=True).rows
         import_flat_datasets(folder, store)
+        import_recovery_seed(folder, store)
         return rows
 
 
@@ -314,3 +315,44 @@ def write_workspace_dataset_rows(root: str | Path, name: str, rows: list[dict[st
     ``rows`` (text values; ``None`` is stored empty). Returns the rows written."""
     with PlanStore.open(plan_path_for_workspace(root)) as store:
         return store.dataset(name).replace_all(rows)
+
+
+# ------------------------------------------------- spending recovery copies (WP6.3c)
+# A zeroed budget is recoverable from two plan revisions of the plan file: ``budget-recovery-seed``
+# (a known-good budget) and ``pre-recovery`` (the budget as it was before a recovery merge); each
+# retains the ``spending_budget`` rows beside its plan-rows copy (``PlanStore.snapshot_revision``).
+def workspace_recovery_seed_rows(root: str | Path) -> list[dict[str, str]]:
+    """The recovery seed budget rows of the plan of workspace ``root`` (``[]`` when there is
+    none or no plan file). Never creates a plan file."""
+    path = plan_path_for_workspace(root)
+    if not path.is_file():
+        return []
+    try:
+        with PlanStore.open(path, create=False) as store:
+            return store.spending.recovery_seed()
+    except LookupError:  # not an initialised plan file
+        return []
+
+
+def write_workspace_recovery_seed(root: str | Path, rows: list[dict[str, Any]]) -> int:
+    """Make ``rows`` the recovery seed of the plan of workspace ``root`` (replacing the previous
+    seed). Returns the rows kept."""
+    with PlanStore.open(plan_path_for_workspace(root)) as store:
+        return store.spending.set_recovery_seed(rows)
+
+
+def keep_workspace_pre_recovery_copy(root: str | Path, rows: list[dict[str, Any]]) -> bool:
+    """Keep ``rows`` (the budget before a recovery merge) as the plan's one-time ``pre-recovery``
+    revision; False when one exists already or ``rows`` is empty."""
+    with PlanStore.open(plan_path_for_workspace(root)) as store:
+        return store.spending.keep_pre_recovery_copy(rows)
+
+
+def restore_workspace_pre_recovery_copy(root: str | Path) -> int:
+    """Put the budget back to its ``pre-recovery`` copy; returns the rows restored (0 when there
+    is no copy)."""
+    path = plan_path_for_workspace(root)
+    if not path.is_file():
+        return 0
+    with PlanStore.open(path, create=False) as store:
+        return store.spending.restore_pre_recovery_copy()

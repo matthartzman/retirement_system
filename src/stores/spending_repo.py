@@ -12,26 +12,32 @@ attribute           replaces                                     table      unit
 ``budget``          ``client_spending_budget.csv``               v4         WP6.3b (done)
 ``budget_lines``    ``client_spending_budget_lines.csv``         v4         WP6.3b (done)
 ``tier_overrides``  ``client_spending_tier_overrides.csv``       v4         WP6.3b (done)
-``rules``           ``client_spending_rules.csv``                planned    WP6.3c
-``category_map``    ``spending_category_map.csv``                planned    WP6.3c
+``rules``           ``client_spending_rules.csv``                v5         WP6.3c (done)
+``category_map``    ``spending_category_map.csv``                v5         WP6.3c (done)
+``group_budget``    ``spending_budget.csv``                      v5         WP6.3c (done)
 ==================  ===========================================  =========  ================
 
-Recovery copies (``client_spending_budget.recovery_seed.csv``) become plan revisions in WP6.3c,
-not a table.
+Recovery copies (``client_spending_budget.recovery_seed.csv`` and the pre-recovery budget copy)
+are plan revisions with revision-scoped dataset copies (``PlanStore.snapshot_revision(...,
+datasets=...)``), not tables and not files.
 
 Every implemented dataset is a ``FlatDatasetRepository`` (``datasets.py``): text columns equal
 to the CSV columns, stored exactly as written, row order = ``position`` (file order), columns the
 file carried beyond the known ones kept per row in ``extra``. ``rows()`` / ``replace_all()`` /
 ``count()`` / ``extra_columns()``; the legacy CSV text form is in ``csv_exchange.flat_csv``.
-The planned datasets raise ``NotImplementedError`` naming the unit that adds them; that unit adds
-its table in a new schema version, registers it in ``datasets._DATASETS`` and in
-``SPENDING_DATASETS`` below, and replaces the stub with a property like ``taxonomy``.
+A planned dataset would raise ``NotImplementedError`` naming the unit that adds it (none are
+left); that unit adds its table in a new schema version, registers it in ``datasets._DATASETS``
+and in ``SPENDING_DATASETS`` below, and replaces the stub with a property like ``taxonomy``.
 """
 from __future__ import annotations
 
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Iterable, Mapping, Protocol, runtime_checkable
 
 from .datasets import FlatDatasetRepository
+
+# Plan revision sources of the spending recovery copies (never pruned: plan_store.PROTECTED_REVISION_SOURCES).
+RECOVERY_SEED_SOURCE = "budget-recovery-seed"
+PRE_RECOVERY_SOURCE = "pre-recovery"
 
 # Implemented spending datasets: short name -> plan.db table.
 SPENDING_DATASETS: dict[str, str] = {
@@ -40,12 +46,12 @@ SPENDING_DATASETS: dict[str, str] = {
     "budget": "spending_budget",
     "budget_lines": "spending_budget_lines",
     "tier_overrides": "spending_tier_overrides",
+    "rules": "spending_rules",
+    "category_map": "spending_category_map",
+    "group_budget": "spending_group_budget",
 }
 # Planned spending datasets: short name -> the unit that implements it.
-PLANNED_SPENDING_DATASETS: dict[str, str] = {
-    "rules": "WP6.3c",
-    "category_map": "WP6.3c",
-}
+PLANNED_SPENDING_DATASETS: dict[str, str] = {}
 
 
 @runtime_checkable
@@ -54,7 +60,7 @@ class SpendingRepository(Protocol):
 
     Each attribute is a dataset repository (``rows()``, ``replace_all()``, ``count()``,
     ``extra_columns()``, ``columns``). ``budget``, ``budget_lines``, ``tier_overrides``,
-    ``rules`` and ``category_map`` are part of the interface now and implemented by WP6.3b/c.
+    ``rules``, ``category_map`` and ``group_budget`` complete the set (WP6.3c).
     """
 
     @property
@@ -77,6 +83,9 @@ class SpendingRepository(Protocol):
 
     @property
     def category_map(self) -> FlatDatasetRepository: ...
+
+    @property
+    def group_budget(self) -> FlatDatasetRepository: ...
 
     def dataset(self, name: str) -> FlatDatasetRepository: ...
 
@@ -126,16 +135,59 @@ class SpendingRepo:
         """``spending_tier_overrides``: category_id, tier, notes."""
         return FlatDatasetRepository(self._store, SPENDING_DATASETS["tier_overrides"])
 
-    # ------------------------------------------------------------ WP6.3c (planned stubs)
+    # ---------------------------------------------------------------- WP6.3c (implemented)
     @property
     def rules(self) -> FlatDatasetRepository:
-        """``spending_rules`` (``client_spending_rules.csv``). Stub until WP6.3c."""
-        raise _planned("rules")
+        """``spending_rules``: keyword, category_id, match_field, exact, priority."""
+        return FlatDatasetRepository(self._store, SPENDING_DATASETS["rules"])
 
     @property
     def category_map(self) -> FlatDatasetRepository:
-        """``spending_category_map`` (``spending_category_map.csv``). Stub until WP6.3c."""
-        raise _planned("category_map")
+        """``spending_category_map``: super_group, group, category, tracking."""
+        return FlatDatasetRepository(self._store, SPENDING_DATASETS["category_map"])
+
+    @property
+    def group_budget(self) -> FlatDatasetRepository:
+        """``spending_group_budget``: group, budget_pct, budget_override, notes."""
+        return FlatDatasetRepository(self._store, SPENDING_DATASETS["group_budget"])
+
+    # ------------------------------------------------------------ recovery copies (WP6.3c)
+    def recovery_seed(self) -> list[dict[str, str]]:
+        """The recovery seed: the ``spending_budget`` rows of the newest ``budget-recovery-seed``
+        revision (``[]`` when there is none)."""
+        head = self._store.latest_revision(RECOVERY_SEED_SOURCE)
+        return [] if head is None else self._store.revision_dataset_rows(head["id"], SPENDING_DATASETS["budget"])
+
+    def set_recovery_seed(self, rows: Iterable[Mapping[str, Any]]) -> int:
+        """Make ``rows`` the recovery seed (a ``budget-recovery-seed`` revision; older seeds are
+        discarded). Returns the rows kept; empty ``rows`` just clears the seed."""
+        rows = list(rows)
+        with self._store.transaction():
+            self._store.discard_revisions(RECOVERY_SEED_SOURCE)
+            if rows:
+                self._store.snapshot_revision(
+                    RECOVERY_SEED_SOURCE, "known-good spending budget", datasets={SPENDING_DATASETS["budget"]: rows}
+                )
+        return len(rows)
+
+    def keep_pre_recovery_copy(self, rows: Iterable[Mapping[str, Any]]) -> bool:
+        """Keep ``rows`` (the budget before a recovery merge) as the one-time ``pre-recovery``
+        revision. False (nothing written) when there is one already or ``rows`` is empty."""
+        rows = list(rows)
+        if not rows or self._store.latest_revision(PRE_RECOVERY_SOURCE) is not None:
+            return False
+        self._store.snapshot_revision(
+            PRE_RECOVERY_SOURCE, "spending budget before recovery", datasets={SPENDING_DATASETS["budget"]: rows}
+        )
+        return True
+
+    def restore_pre_recovery_copy(self) -> int:
+        """Put the live budget back to the ``pre-recovery`` copy; returns the rows restored
+        (0 when there is no copy)."""
+        head = self._store.latest_revision(PRE_RECOVERY_SOURCE)
+        if head is None:
+            return 0
+        return self._store.restore_dataset_from_revision(head["id"], SPENDING_DATASETS["budget"])
 
     # ------------------------------------------------------------------------- by name
     def dataset(self, name: str) -> FlatDatasetRepository:

@@ -27,6 +27,7 @@ from .app_core import (
     PLAN_DATA_FILES,
     SPENDING_BUDGET_SECTIONS,
     WORKSPACE_ROOT,
+    platform_runtime,
     _admin_changes_between,
     _audit,
     _client_id,
@@ -169,7 +170,7 @@ def _plan_data_file_feature_service() -> plan_data_file_service.PlanDataFileServ
 def _spending_budget_feature_service() -> spending_service.SpendingService:
     return spending_service.SpendingService(
         spending_service.SpendingServiceContext(
-            base_dir=BASE_DIR,
+            base_dir=platform_runtime.workspace_root(),  # the workspace (active plan), not the code folder
             read_plan_data_file=_read_plan_data_file,
             write_plan_data_file=lambda name, content: _write_plan_data_file(name, content),
             plan_data=peek_plan_data,

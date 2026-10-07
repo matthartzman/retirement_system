@@ -162,14 +162,13 @@ def test_a_root_without_a_plan_file_reads_empty_and_a_write_creates_it(tmp_path)
     assert list(st.taxonomy_flat(tmp_path)) == ["groceries"]
 
 
-def test_empty_aliases_table_still_seeds_from_the_rules_file(tmp_path):
-    """The rules file stays a file until WP6.3c: with no aliases in the plan, the readers seed
-    aliases from it as before."""
+def test_empty_aliases_table_still_seeds_from_the_rules_and_map_tables(tmp_path):
+    """With no aliases in the plan, the readers seed aliases from the rules and category-map
+    tables (WP6.3c; they were files before)."""
     write_plan_dataset(tmp_path, TAXONOMY, "tracking_type,group,category_id,label,origin,status,notes\n"
                                            "Core Expenses,Food,groceries,Groceries,template,active,\n")
-    (tmp_path / "input").mkdir()
-    (tmp_path / "input" / "client_spending_rules.csv").write_text(
-        "keyword,category_id,match_field,exact,priority\nWHOLE FOODS,groceries,merchant,0,70\n", encoding="utf-8")
+    write_plan_dataset(tmp_path, "client_spending_rules.csv",
+                       "keyword,category_id,match_field,exact,priority\nWHOLE FOODS,groceries,merchant,0,70\n")
     aliases = st.load_aliases(tmp_path)
     assert [(a["match_value"], a["category_id"], a["source"]) for a in aliases] == [("WHOLE FOODS", "groceries", "seed")]
 
@@ -261,7 +260,6 @@ def test_build_reads_the_budget_lines_table_of_the_active_plan(ws, monkeypatch):
 
 def test_budget_save_diff_reads_the_plan_table(ws, monkeypatch):
     import src.server.app_core as app_core
-    monkeypatch.setattr(app_core, "BASE_DIR", ws.root)
     before = app_core._spending_budget_table_rows()
     assert before and before[0][:4] == ["kind", "key", "label", "annual_budget"]
     events = []
@@ -293,3 +291,33 @@ def test_at_rest_category_renames_reach_lines_and_tier_overrides(tmp_path):
     assert migrate_plan_file(tmp_path / "plan.rpx")["plan_datasets"] == 2
     assert plan_dataset_rows(tmp_path, LINES)[0]["category_id"] == "pre65_healthcare_premium"
     assert plan_dataset_rows(tmp_path, TIERS)[0]["category_id"] == "pre65_healthcare_premium"
+
+
+# ------------------------------------------------------------------ WP6.3c
+def test_c4b_converts_rules_map_group_budget_and_recovery_copies(tmp_path):
+    (tmp_path / "client_spending_rules.csv").write_text("keyword,category_id,match_field,exact,priority\nShell,fuel,merchant,1,60\n", encoding="utf-8")
+    (tmp_path / "spending_category_map.csv").write_text("super_group,group,category,tracking\nExpenses,Auto,Fuel,core\n", encoding="utf-8")
+    (tmp_path / "spending_budget.csv").write_text("group,budget_pct,budget_override,notes\nAuto,5.2,,x\n", encoding="utf-8")
+    (tmp_path / "client_spending_budget.recovery_seed.csv").write_text("kind,key,label,annual_budget\ncategory,fuel,Fuel,100\n", encoding="utf-8")
+    (tmp_path / "client_spending_budget.csv.pre_recovery_backup").write_text("kind,key,label,annual_budget\ncategory,fuel,Fuel,0\n", encoding="utf-8")
+    (tmp_path / "client_spending_budget.csv").write_text("category_id,annual_budget,notes\nfuel,40,a\nfuel,60,b\n", encoding="utf-8")
+    with PlanStore.open(tmp_path / "p.rpx") as store:
+        report = c4b_spending.run(tmp_path, store)
+        assert report.legacy_budget_layout
+        assert store.spending.rules.rows()[0]["keyword"] == "Shell"
+        assert store.spending.category_map.rows()[0]["category"] == "Fuel"
+        assert store.spending.group_budget.rows()[0]["budget_pct"] == "5.2"
+        assert [r["annual_budget"] for r in store.spending.budget.rows()] == ["100"]
+        assert store.spending.recovery_seed()[0]["annual_budget"] == "100"
+        assert store.spending.restore_pre_recovery_copy() == 1
+        assert store.spending.budget.rows()[0]["annual_budget"] == "0"
+        assert c4b_spending.run(tmp_path, store).skipped
+
+
+def test_group_budget_rules_and_map_round_trip_through_the_plan(ws):
+    st.save_budget(ws.root, {"Auto": {"budget_pct": 5.2, "budget_override": 0.0, "notes": "n"}})
+    assert st.load_budget(ws.root)["Auto"]["budget_pct"] == 5.2
+    assert plan_dataset_rows(ws.root, "spending_budget.csv")[0]["group"] == "Auto"
+    before = (ws.input_dir / "spending_budget.csv").read_bytes()
+    st.save_budget(ws.root, {})
+    assert (ws.input_dir / "spending_budget.csv").read_bytes() == before  # the file is never written

@@ -60,21 +60,11 @@ def _load_known_categories(input_root: str | Path) -> set[str]:
             value = str(row.get(col, "") or "").strip()
             if value:
                 known.add(value.lower())
-    for name, columns in (
-        ("spending_category_map.csv", ("category",)),
-    ):
-        path = root / name
-        if not path.exists():
-            continue
-        try:
-            with open(path, newline="", encoding="utf-8-sig") as f:
-                for row in csv.DictReader(f):
-                    for col in columns:
-                        value = str(row.get(col, "") or "").strip()
-                        if value:
-                            known.add(value.lower())
-        except OSError:
-            continue
+    # The category map is a table of the same plan file (WP6.3c).
+    for row in dataset_rows_for_input_dir(root, "spending_category_map"):
+        value = str(row.get("category", "") or "").strip()
+        if value:
+            known.add(value.lower())
     return known
 
 
