@@ -78,7 +78,7 @@ try:
         UI_NAMES,
         YTD_PLAN_DATA_FILES,
     )
-    from ..active_plan import sync_active_plan_from_csv
+    from ..active_plan import active_plan_store, sync_active_plan_from_csv
     from ..config_backend import (
         DEFAULT_DB,
         append_audit_event_sqlite,
@@ -121,7 +121,7 @@ except ImportError:  # direct execution fallback
         UI_NAMES,
         YTD_PLAN_DATA_FILES,
     )
-    from src.active_plan import sync_active_plan_from_csv
+    from src.active_plan import active_plan_store, sync_active_plan_from_csv
     from src.config_backend import (
         DEFAULT_DB,
         append_audit_event_sqlite,
@@ -633,22 +633,21 @@ def _merge_protected_client_data_values(incoming: str, fallback: str | None) -> 
 
 
 def _protected_client_data_status(content: str | None = None) -> dict:
-    """Return non-secret preservation status for validation/UI diagnostics."""
-    sources: list[str] = []
-    if content is not None:
-        sources.append(content)
-    else:
-        for name in CLIENT_DATA_CSV_FILES:
-            path = _plan_data_path(name)
-            if path.exists():
-                sources.append(path.read_text(encoding="utf-8-sig"))
+    """Return non-secret preservation status for validation/UI diagnostics.
+
+    ``content`` is one CSV file's text; without it the active plan's rows are read."""
     values: dict[tuple[str, str, str], str] = {}
-    for source in sources:
-        rows = list(csv.reader(io.StringIO(source or "")))
-        for row in rows:
+    if content is not None:
+        for row in csv.reader(io.StringIO(content or "")):
             key = _client_data_key(row)
             if key in PROTECTED_CLIENT_DATA_KEYS:
                 values[key] = row[3] if len(row) > 3 else ""
+    else:
+        with active_plan_store() as store:
+            data = store.sectioned_data()
+        for section, subsection, label in PROTECTED_CLIENT_DATA_KEYS:
+            if label in data.get(section, {}).get(subsection, {}):
+                values[(section, subsection, label)] = data[section][subsection][label]
     return {
         "member_1_retirement_date_present": bool(str(values.get(("Household", "", "member_1_retirement_date"), "")).strip()),
         "member_2_retirement_date_present": bool(str(values.get(("Household", "", "member_2_retirement_date"), "")).strip()),

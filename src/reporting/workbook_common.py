@@ -29,7 +29,7 @@ from openpyxl.chart.shapes import GraphicalProperties
 # ─────────────────────────────────────────────────────────────────────────────
 # 1.  DATA INPUT
 # ─────────────────────────────────────────────────────────────────────────────
-from ..data_io import load_csv, parse_client, build_plan_from_json  # consolidated from data_parser
+from ..data_io import parse_client, build_plan_from_json  # consolidated from data_parser
 from ..config_backend import load_active_config  # Version 7 active CSV/JSON/YAML/SQLite config loader
 from ..workspace_context import workspace_output_dir, workspace_input_dir, sanitize_id
 from ..report_compute import prepare_config_from_sectioned_data, run_projection_artifacts

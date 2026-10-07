@@ -59,8 +59,8 @@ def _seed_workspace(workspace_root: Path) -> None:
     dollar figures against)."""
     for name in platform_runtime.WORKSPACE_SUBDIRS:
         (workspace_root / name).mkdir(parents=True, exist_ok=True)
-    input_dir = make_plan(workspace_root).input_dir
-    export_client_json_yaml(input_dir / "client_data.csv", input_dir)
+    ws = make_plan(workspace_root)
+    export_client_json_yaml(ws.store_data(), ws.input_dir)
 
 
 def _run_build(workspace_root: Path, output_dir: Path, *, frozen_today: str, build_id: str) -> subprocess.CompletedProcess:
