@@ -178,7 +178,7 @@ export function fieldTierControlHtml(step, hiddenCount, expanded) {
   return (
     '<div class="section-note pf-show-advanced"><button class="btn" type="button" aria-pressed="' +
     (expanded ? "true" : "false") +
-    '" onclick="toggleShowAdvanced(\'' +
+    '" onclick="toggleFieldDetail(\'' +
     esc(escJs(step)) +
     "')\">" +
     esc(label) +
@@ -187,11 +187,11 @@ export function fieldTierControlHtml(step, hiddenCount, expanded) {
 }
 
 // Per-page UI state only (not persisted, not sent to the server).
-const showAdvancedSteps = new Set();
+const advancedFieldSteps = new Set();
 
-export function toggleShowAdvanced(step) {
-  if (showAdvancedSteps.has(step)) showAdvancedSteps.delete(step);
-  else showAdvancedSteps.add(step);
+export function toggleFieldDetail(step) {
+  if (advancedFieldSteps.has(step)) advancedFieldSteps.delete(step);
+  else advancedFieldSteps.add(step);
   renderMain();
 }
 
@@ -200,7 +200,7 @@ export function fieldTierView(step, rows, searching) {
   const tier = (planTierPayload.profile || {}).tier;
   if (searching) return { rows, controlHtml: "" };
   const { shown, hidden } = splitFieldsByTier(rows, tier, isMissing);
-  const expanded = showAdvancedSteps.has(step);
+  const expanded = advancedFieldSteps.has(step);
   return {
     rows: expanded ? rows : shown,
     controlHtml: fieldTierControlHtml(step, hidden.length, expanded),
@@ -411,7 +411,7 @@ Object.assign(window, {
   fieldTierControlHtml,
   fieldTierView,
   splitFieldsByTier,
-  toggleShowAdvanced,
+  toggleFieldDetail,
   tierCardsHtml,
   tierDiffBadgeHtml,
   tierPageCount,
