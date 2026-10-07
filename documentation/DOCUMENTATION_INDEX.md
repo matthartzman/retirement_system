@@ -20,6 +20,7 @@ legacy location; do not add new files there.
 | `reference/GOLDEN_MASTER_CHANGELOG.md`, `reference/GOLDEN_MASTER_RECOVERY_RUNBOOK.md` | Golden-master pins and how to recover them |
 | `reference/ANNUAL_MAINTENANCE_RUNBOOK.md` | Yearly tax-table and data refresh |
 | `reference/REFERENCE_DB_SLICES.md` | How to move a reference dataset into the shipped `reference.db` (build tool, getters, golden fixtures) |
+| `reference/PLAN_ROWS_MODEL.md` | The `plan_rows` model in the plan file: keys, order, CSV import rules, switch and tier rows, old CSV file to sections |
 | `reference/release_notes/` | Plain-language record of changes that move results |
 | `reference/BACKLOG.md` | Deferred work tracker |
 | `reference/CI_SETUP.md`, `reference/TESTING_REFACTOR_RECOMMENDATIONS.md`, `reference/HAPPY_PATH_E2E_TEST_PLAN.md` | CI and testing |

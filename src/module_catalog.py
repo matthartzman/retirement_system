@@ -1981,6 +1981,11 @@ def set_feature(c, key: str, on: bool) -> None:
     follows its flags). Writing a row nothing reads would only make the
     stored state lie.
     """
+    _write_switch(c, _own_switch_entry(key), on)
+
+
+def _own_switch_entry(key) -> OutputModule:
+    """The catalog entry of a feature that has a switch of its own (see :func:`set_feature`)."""
     m = _catalog_entry(key)
     if m is None:
         raise KeyError(key)
@@ -1991,7 +1996,37 @@ def set_feature(c, key: str, on: bool) -> None:
                          f"{list(m.gated_by_any_flag)} is on")
     if m.gate_kind == GATE_MODULE_TOGGLE and not m.optional:
         raise ValueError(f"{key} is an always-on core module; it has no switch")
-    _write_switch(c, m, on)
+    return m
+
+
+# ── WP4.1: the switch and the tier as ordinary plan_rows settings ───────────
+#
+# Where each stored switch lives in ``plan_rows`` (documentation/reference/
+# PLAN_ROWS_MODEL.md). They are the rows the plan CSV set already carried, so the
+# importer and conversion step C3 need no backfill. WP4.5 points ``_read_switch`` /
+# ``_write_switch`` at these keys (``PlanStore.sectioned_data`` / ``set_value``); until
+# then nothing in the product reads them through here.
+MODULE_TOGGLE_SECTION = "Optional Functions"   # subsection "", label = feature key
+SWITCH_ON, SWITCH_OFF = "TRUE", "FALSE"        # written values; reads accept TRUE/YES/1
+# The plan's tier (one of TIERS). No row = no tier chosen yet, read as EXPERT: every
+# field shown and every switch as stored, i.e. today's behaviour. WP5.1 writes it;
+# "customized" is derived (stored switches differ from the tier's preset), never stored.
+PLAN_TIER_ROW = ("Plan Settings", "Profile", "plan_tier")
+DEFAULT_PLAN_TIER = EXPERT
+
+
+def feature_row_key(key) -> Tuple[str, str, str]:
+    """The ``(section, subsection, label)`` plan row holding ``key``'s own switch.
+
+    A module toggle lives in ``("Optional Functions", "", key)`` (a missing row reads as
+    ``default_on``, which is how the rowless WP1.3 features get a row only once flipped);
+    a plan flag lives in its ``gate_ref`` row (e.g. ``("HELOC", "Setup", "heloc_enabled")``).
+    Raises like :func:`set_feature` for a feature with no switch of its own.
+    """
+    m = _own_switch_entry(key)
+    if m.gate_kind == GATE_PLAN_FLAG:
+        return tuple(m.gate_ref)
+    return (MODULE_TOGGLE_SECTION, "", m.key)
 
 
 def resolve_selection(selected: List[str]) -> Dict[str, object]:

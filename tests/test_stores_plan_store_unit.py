@@ -180,6 +180,51 @@ def test_insert_validation(store):
     assert store.sections() == []
 
 
+def test_find_rows_and_set_value_write_the_effective_row(store):
+    """WP4.1 keyed access: a repeated key's effective row is the last in display order."""
+    a = store.insert_row("Scenarios", subsection="Base", label="mode", value="x")
+    b = store.insert_row("Scenarios", subsection="Base", label="mode", value="y")
+    assert [r["row_id"] for r in store.find_rows("Scenarios", "Base", "mode")] == [a, b]
+    assert store.find_rows("Scenarios", "Base", "nope") == []
+    assert store.set_value("Scenarios", "Base", "mode", "z") == b
+    assert store.get_row(a)["value"] == "x" and store.get_row(b)["value"] == "z"
+    store.set_row(a, sort_order=5)  # a now displays last, so it becomes the effective row
+    assert store.set_value("Scenarios", "Base", "mode", "w", notes="n") == a
+    assert store.get_row(a)["notes"] == "n" and store.get_row(a)["units"] == ""
+    new = store.set_value("Plan Settings", "Profile", "plan_tier", "simple", units="choice")
+    assert store.get_row(new) == {"row_id": new, "section": "Plan Settings", "subsection": "Profile",
+                                  "label": "plan_tier", "value": "simple", "units": "choice", "notes": "",
+                                  "sort_order": 0}
+    with pytest.raises(ValidationError):
+        store.set_value("Plan Settings", "Profile", "plan_tier", 3)
+    with pytest.raises(ValidationError):
+        store.set_value("", "Profile", "plan_tier", "x")
+
+
+def test_set_value_inside_a_transaction_rolls_back_with_it(store):
+    with pytest.raises(RuntimeError):
+        with store.transaction():
+            store.set_value("S", "", "k", "1")
+            raise RuntimeError("boom")
+    assert store.find_rows("S", "", "k") == []
+
+
+def test_sectioned_data_is_the_load_csv_shape(store):
+    store.insert_row("B", label="b", value=" 2 ")
+    store.insert_row("A", subsection="s", label="x", value="1")
+    store.insert_row("A", subsection="s", label="y", value="2")
+    store.insert_row("A", subsection="s", label="x", value="3")       # repeated key: last wins
+    store.insert_row("A", subsection="t", label="", value="ignored")  # no label: skipped
+    store.insert_row("#C", label="z", value="ignored")               # comment section: skipped
+    first_c = store.insert_row("C", label="c", value="0", sort_order=0)
+    view = store.sectioned_data()
+    assert view == {"B": {"": {"b": "2"}}, "A": {"s": {"x": "3", "y": "2"}}, "C": {"": {"c": "0"}}}
+    assert list(view) == ["B", "A", "C"]  # sections in creation order, not by name or sort_order
+    assert list(view["A"]["s"]) == ["x", "y"]
+    store.delete_row(first_c)
+    assert "C" not in store.sectioned_data()
+
+
 def test_row_ids_are_never_reused(store):
     a = store.insert_row("S")
     b = store.insert_row("S")

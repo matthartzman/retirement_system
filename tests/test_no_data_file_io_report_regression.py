@@ -21,8 +21,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 BASELINE = ROOT / "tests" / "fixtures" / "file_io_audit_baseline.json"
 SCAN_DIRS = ("src",)
-# Files exempt from the count (none yet; add with a reason, never to hide growth).
-ALLOWLIST: dict[str, str] = {}
+# Files (or packages, with a trailing "/") exempt from the count; add with a reason, never to
+# hide growth.
+ALLOWLIST: dict[str, str] = {
+    "src/csv_exchange/": "the one sanctioned CSV import/export package (design F section 6, WP4.1+)",
+}
+
+
+def _allowlisted(rel: str) -> bool:
+    return any(rel == p or (p.endswith("/") and rel.startswith(p)) for p in ALLOWLIST)
 
 _JSON = {"load", "dump"}
 _PATH_IO = {"read_text", "write_text", "read_bytes", "write_bytes"}
@@ -64,7 +71,7 @@ def scan(root: Path = ROOT) -> dict[str, dict[str, int]]:
     for d in SCAN_DIRS:
         for f in sorted((root / d).rglob("*.py")):
             rel = f.relative_to(root).as_posix()
-            if rel in ALLOWLIST:
+            if _allowlisted(rel):
                 continue
             tree = ast.parse(f.read_text(encoding="utf-8"), filename=rel)
             counts: dict[str, int] = {}
@@ -104,6 +111,11 @@ def test_data_file_io_count_has_not_grown():
         "route through the store layer instead:\n  " + "\n  ".join(grew)
     )
     assert _total(live) <= base["total"]
+
+
+def test_allowlist_names_existing_paths():
+    for path in ALLOWLIST:
+        assert (ROOT / path).exists(), f"stale allowlist entry: {path}"
 
 
 def test_baseline_matches_report_shape():
