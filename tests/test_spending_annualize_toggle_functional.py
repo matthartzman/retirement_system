@@ -29,7 +29,7 @@ def write(path: Path, text: str):
 
 def _seed(root: Path, taxonomy: str, budget: str, txns: str, aliases: str = ""):
     write_plan_dataset(root, "client_spending_taxonomy.csv", taxonomy)
-    write(root / "input/client_spending_budget.csv", budget)
+    write_plan_dataset(root, "client_spending_budget.csv", budget)
     write_plan_dataset(root, "client_spending_aliases.csv",
           "match_value,match_field,exact,priority,category_id,source\n" + aliases)
     write(root / "input/ytd_transactions.csv", txns)

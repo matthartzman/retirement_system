@@ -70,9 +70,12 @@ FLAT_DATASET_FILES: dict[str, str] = {
     "liabilities": "client_liabilities.csv",
     "hsa_schedule": "client_hsa_schedule.csv",
     "target_allocation": "target_allocation.csv",
-    # The spending set (``store.spending``); WP6.3b/c add budget, lines, overrides, rules, map.
+    # The spending set (``store.spending``); WP6.3b added budget, lines, overrides; WP6.3c adds rules, map.
     "spending_taxonomy": "client_spending_taxonomy.csv",
     "spending_aliases": "client_spending_aliases.csv",
+    "spending_budget": "client_spending_budget.csv",
+    "spending_budget_lines": "client_spending_budget_lines.csv",
+    "spending_tier_overrides": "client_spending_tier_overrides.csv",
 }
 
 

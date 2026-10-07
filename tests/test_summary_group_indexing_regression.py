@@ -39,7 +39,7 @@ def test_summary_group_budget_resolves_to_full_window_extra(tmp_path):
            "Travel,Travel,travel_vacation,Travel & Vacation,transaction,active,\n")
     write_plan_dataset(tmp_path, "client_spending_aliases.csv",
            "match_value,match_field,exact,priority,category_id,source\n")
-    _write(tmp_path / "input/client_spending_budget.csv",
+    write_plan_dataset(tmp_path, "client_spending_budget.csv",
            "kind,key,label,annual_budget,start_year,end_year,one_time_year,notes,_mode,line_section,line_mode\n"
            "group,Travel::Travel,Travel,25000,,,,,summary,,\n")
     out = resolve_spending_inputs(tmp_path, config={"plan_start": 2026, "plan_end": 2030})

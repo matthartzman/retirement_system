@@ -103,7 +103,7 @@ def test_monthly_trajectory_includes_all_non_transfer_spending_including_taxes(t
         {'match_value': 'Paychecks', 'match_field': 'category', 'exact': '1', 'priority': '90', 'category_id': 'paychecks', 'source': 'test'},
         {'match_value': 'Credit Card Payment', 'match_field': 'category', 'exact': '1', 'priority': '90', 'category_id': 'credit_card_payment', 'source': 'test'},
     ])
-    _write_csv(input_dir / 'client_spending_budget.csv',
+    _write_plan_csv(tmp_path, 'client_spending_budget.csv',
                ['kind', 'key', 'label', 'annual_budget', 'start_year', 'end_year', 'one_time_year', 'notes'], [])
     _write_csv(input_dir / 'ytd_transactions.csv',
                ['Date', 'Merchant', 'Category', 'Account', 'Original Statement', 'Notes', 'Amount', 'Tags', 'Owner'], [

@@ -11,8 +11,8 @@ What it does
 ------------
 1. Read-only on ``<plan_copy_dir>``: the inputs are copied to a temp work folder; the converted
    plan is written to ``<out>/plan.rpx`` (default: a temp folder, removed at exit).
-2. Runs C3, C3b, C4a (holdings, liabilities, HSA schedule, targets) then C4b (spending taxonomy and
-   aliases) exactly as ``src/legacy_conversion/steps`` does.
+2. Runs C3, C3b, C4a (holdings, liabilities, HSA schedule, targets) then C4b (spending taxonomy,
+   aliases, budget, budget lines, tier overrides) exactly as ``src/legacy_conversion/steps`` does.
 3. Equivalence checks, old path vs converted plan:
    - flat datasets: per dataset, file row count vs table row count, and the column NAMES of each
    - sectioned data: ``migrate_sectioned_data(load_csv(...))`` vs ``PlanStore.sectioned_data()``
@@ -225,7 +225,7 @@ def main(argv=None) -> int:
               f"{'present' if marker_c3b else 'MISSING'}")
         print(f"-- C4a (flat datasets -> plan tables): rows {c4a.rows_written or 'none'}  marker: "
               f"{'present' if marker_c4a else 'MISSING'}")
-        print(f"-- C4b (spending taxonomy, aliases -> plan tables): rows {c4b.rows_written or 'none'}  marker: "
+        print(f"-- C4b (spending taxonomy, aliases, budget, budget lines, tier overrides -> plan tables): rows {c4b.rows_written or 'none'}  marker: "
               f"{'present' if marker_c4b else 'MISSING'}")
         all_ok &= marker_c3 and marker_c3b and marker_c4a and marker_c4b
         for line, ok in dataset_report:

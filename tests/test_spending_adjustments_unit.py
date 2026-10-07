@@ -53,12 +53,12 @@ def _seed(root):
         "Wellness,Care,home_aide,Home Aide,template,active,\n")
     write_plan_dataset(root, "client_spending_aliases.csv",
         "match_value,match_field,exact,priority,category_id,source\n")
-    (root / "input/client_spending_budget.csv").write_text(
+    write_plan_dataset(root, "client_spending_budget.csv",
         "kind,key,label,annual_budget,start_year,end_year,one_time_year,notes\n"
         "category,groceries,Groceries,6000,,,,\n"
         "category,dining,Dining,4000,,,,\n"
         "category,hotels,Hotels,5000,,,,\n"
-        "category,home_aide,Home Aide,10000,,,,\n", encoding="utf-8")
+        "category,home_aide,Home Aide,10000,,,,\n")
 
 
 def test_resolver_without_adjustments_emits_no_factors(tmp_path):

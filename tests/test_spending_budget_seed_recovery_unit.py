@@ -8,16 +8,19 @@ UI/autosave regression zeroed out had no direct tests. Its contract:
 * force=False fills only missing/zero rows and never overwrites a current
   nonzero budget; force=True lets seed values win;
 * persist=True writes the merged budget and keeps a one-time
-  ``.pre_recovery_backup`` of the pre-recovery file; persist=False writes nothing.
+  ``.pre_recovery_backup`` copy of the pre-recovery budget rows (the budget itself is the plan
+  file's ``spending_budget`` table since WP6.3b; the seed and the backup stay files until WP6.3c); persist=False writes nothing.
 """
 from __future__ import annotations
 
 import csv
+import io
 from pathlib import Path
 
 import pytest
 
 from src.spending_tracker import _BUDGET_HEADER, recover_spending_budget_from_seed
+from tests.plan_fixture import plan_dataset_rows, write_plan_dataset
 
 BUDGET = "client_spending_budget.csv"
 SEED = "client_spending_budget.recovery_seed.csv"
@@ -32,9 +35,28 @@ def _write(path: Path, rows: list[dict]) -> None:
             w.writerow({k: r.get(k, "") for k in _BUDGET_HEADER})
 
 
-def _read_amounts(path: Path) -> dict[tuple[str, str], str]:
-    with path.open(newline="", encoding="utf-8-sig") as f:
-        return {(r["kind"], r["key"]): r["annual_budget"] for r in csv.DictReader(f)}
+def _csv_text(rows: list[dict]) -> str:
+    buf = io.StringIO(newline="")
+    w = csv.DictWriter(buf, fieldnames=_BUDGET_HEADER, extrasaction="ignore")
+    w.writeheader()
+    for r in rows:
+        w.writerow({k: r.get(k, "") for k in _BUDGET_HEADER})
+    return buf.getvalue()
+
+
+def _put_budget(root: Path, rows: list[dict]) -> str:
+    """The budget goes into the plan's ``spending_budget`` table; returns its CSV text."""
+    text = _csv_text(rows)
+    write_plan_dataset(root, BUDGET, text)
+    return text
+
+
+def _budget_rows(root: Path) -> list[dict]:
+    return plan_dataset_rows(root, BUDGET)
+
+
+def _read_amounts(root: Path) -> dict[tuple[str, str], str]:
+    return {(r["kind"], r["key"]): r["annual_budget"] for r in _budget_rows(root)}
 
 
 def _row(kind, key, amount, label=""):
@@ -44,7 +66,7 @@ def _row(kind, key, amount, label=""):
 @pytest.fixture
 def root(tmp_path):
     # Zeroed-out budget (the autosave-regression shape) plus one nonzero user edit.
-    _write(tmp_path / "input" / BUDGET, [
+    _put_budget(tmp_path, [
         _row("category", "groceries", "0"),
         _row("category", "dining", "4800"),
         _row("group", "grp::Core Expenses::Home", ""),
@@ -60,16 +82,16 @@ def root(tmp_path):
 
 
 def test_missing_seed_reports_failure_and_writes_nothing(tmp_path):
-    _write(tmp_path / "input" / BUDGET, [_row("category", "groceries", "0")])
-    before = (tmp_path / "input" / BUDGET).read_bytes()
+    _put_budget(tmp_path, [_row("category", "groceries", "0")])
+    before = _budget_rows(tmp_path)
     status = recover_spending_budget_from_seed(tmp_path)
     assert status["success"] is False and status["recovered"] == 0
     assert "seed" in status["error"].lower()
-    assert (tmp_path / "input" / BUDGET).read_bytes() == before
+    assert _budget_rows(tmp_path) == before
 
 
 def test_all_zero_seed_reports_failure(tmp_path):
-    _write(tmp_path / "input" / BUDGET, [_row("category", "groceries", "0")])
+    _put_budget(tmp_path, [_row("category", "groceries", "0")])
     _write(tmp_path / "input" / SEED, [_row("category", "groceries", "0")])
     status = recover_spending_budget_from_seed(tmp_path)
     assert status["success"] is False and status["recovered"] == 0
@@ -77,7 +99,7 @@ def test_all_zero_seed_reports_failure(tmp_path):
 
 
 def test_fills_only_zero_or_missing_rows_and_keeps_nonzero_edits(root):
-    original = (root / "input" / BUDGET).read_text(encoding="utf-8")
+    original = _csv_text(_budget_rows(root))
     status = recover_spending_budget_from_seed(root)
 
     assert status["success"] is True
@@ -88,7 +110,7 @@ def test_fills_only_zero_or_missing_rows_and_keeps_nonzero_edits(root):
     assert status["seed_total"] == 12000 + 6000 + 9000 + 3600
     assert status["current_total_after"] == 12000 + 4800 + 9000 + 3600
 
-    amounts = _read_amounts(root / "input" / BUDGET)
+    amounts = _read_amounts(root)
     assert amounts[("category", "groceries")] == "12000"
     assert amounts[("category", "dining")] == "4800"
     assert amounts[("group", "grp::Core Expenses::Home")] == "9000"
@@ -96,31 +118,31 @@ def test_fills_only_zero_or_missing_rows_and_keeps_nonzero_edits(root):
     assert ("category", "zero_in_seed") not in amounts
 
     backup = root / "input" / (BUDGET + ".pre_recovery_backup")
-    assert backup.read_text(encoding="utf-8") == original
+    assert backup.read_text(encoding="utf-8") == original.replace("\r\n", "\n")
 
 
 def test_force_lets_seed_overwrite_nonzero_rows(root):
     status = recover_spending_budget_from_seed(root, force=True)
     assert status["success"] is True
-    assert _read_amounts(root / "input" / BUDGET)[("category", "dining")] == "6000"
+    assert _read_amounts(root)[("category", "dining")] == "6000"
 
 
 def test_persist_false_computes_status_without_writing(root):
-    before = (root / "input" / BUDGET).read_bytes()
+    before = _budget_rows(root)
     status = recover_spending_budget_from_seed(root, persist=False)
     assert status["success"] is True and status["recovered"] == 3
     assert status["current_total_after"] == 12000 + 4800 + 9000 + 3600
-    assert (root / "input" / BUDGET).read_bytes() == before
+    assert _budget_rows(root) == before
     assert not (root / "input" / (BUDGET + ".pre_recovery_backup")).exists()
 
 
 def test_second_run_is_a_no_op_and_keeps_the_first_backup(root):
-    original = (root / "input" / BUDGET).read_text(encoding="utf-8")
+    original = _csv_text(_budget_rows(root))
     recover_spending_budget_from_seed(root)
-    after_first = (root / "input" / BUDGET).read_bytes()
+    after_first = _budget_rows(root)
 
     status = recover_spending_budget_from_seed(root)
     assert status["success"] is True and status["recovered"] == 0
-    assert (root / "input" / BUDGET).read_bytes() == after_first
+    assert _budget_rows(root) == after_first
     # The backup still holds the ORIGINAL pre-recovery file, not the recovered one.
-    assert (root / "input" / (BUDGET + ".pre_recovery_backup")).read_text(encoding="utf-8") == original
+    assert (root / "input" / (BUDGET + ".pre_recovery_backup")).read_text(encoding="utf-8") == original.replace("\r\n", "\n")

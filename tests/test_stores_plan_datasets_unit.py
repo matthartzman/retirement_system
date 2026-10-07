@@ -71,7 +71,7 @@ def test_v1_file_upgrades_to_current_keeping_rows(tmp_path):
     con.commit()
     con.close()
     with PlanStore.open(p) as s:
-        assert s.schema_version == 3
+        assert s.schema_version == 4
         assert [r["section"] for r in s.all_rows()] == ["Household"]
         assert s.holdings.rows() == []
 
@@ -107,9 +107,39 @@ def test_v2_file_upgrades_to_v3_with_empty_spending_tables(tmp_path):
     con.commit()
     con.close()
     with PlanStore.open(p) as s:
-        assert s.schema_version == 3
+        assert s.schema_version == 4
         assert s.holdings.rows()[0]["account"] == "A_IRA"
         assert s.spending.taxonomy.rows() == [] and s.spending.aliases.rows() == []
+
+
+def test_v3_file_upgrades_to_v4_with_empty_budget_tables(tmp_path):
+    from src.stores.datasets import SCHEMA_V2_DDL, SCHEMA_V3_DDL
+    p = tmp_path / "v3.rpx"
+    con = db.connect(str(p))
+    db.migrate(con, (_SCHEMA_V1, SCHEMA_V2_DDL, SCHEMA_V3_DDL))
+    con.execute("INSERT INTO spending_aliases (position, match_value, category_id) VALUES (0, 'X', 'groceries')")
+    con.commit()
+    con.close()
+    with PlanStore.open(p) as s:
+        assert s.schema_version == 4
+        assert s.spending.aliases.rows()[0]["category_id"] == "groceries"
+        assert s.spending.budget.rows() == [] and s.spending.budget_lines.rows() == []
+        assert s.spending.tier_overrides.rows() == []
+
+
+def test_budget_tables_round_trip_lossless_with_extra_columns(store):
+    budget = "kind,key,label,annual_budget,no_annualize,future_col\ncategory,groceries,Groceries,12000,TRUE,x\n"
+    lines = "section,line_id,label,category_id,amount_per_year\ntravel,t1,Trip,travel,5000\n"
+    tiers = "category_id,tier,notes\ngroceries,discretionary,\"a, b\"\n"
+    for repo, text in ((store.spending.budget, budget), (store.spending.budget_lines, lines),
+                       (store.spending.tier_overrides, tiers)):
+        assert replace_dataset_from_csv_text(repo, text) == 1
+        header = text.splitlines()[0].split(",")
+        assert set(header) <= set(repo.columns) | set(repo.extra_columns())
+    assert store.spending.budget.extra_columns() == ["future_col"]
+    assert store.spending.budget.rows()[0]["future_col"] == "x"
+    assert store.spending.tier_overrides.rows()[0]["notes"] == "a, b"
+    assert store.dataset("spending_budget").table == "spending_budget"
 
 
 def test_spending_repo_shape_and_planned_stubs(store):
@@ -123,7 +153,11 @@ def test_spending_repo_shape_and_planned_stubs(store):
         assert store.dataset(f"spending_{name}").table == ds.table
     assert repo.taxonomy.columns == ("tracking_type", "group", "category_id", "label", "origin", "status", "notes")
     assert repo.aliases.columns == ("match_value", "match_field", "exact", "priority", "category_id", "source")
-    assert set(PLANNED_SPENDING_DATASETS) == {"budget", "budget_lines", "tier_overrides", "rules", "category_map"}
+    assert repo.budget.columns[:4] == ("kind", "key", "label", "annual_budget")
+    assert repo.budget_lines.columns[:2] == ("section", "line_id")
+    assert repo.tier_overrides.columns == ("category_id", "tier", "notes")
+    assert set(SPENDING_DATASETS) == {"taxonomy", "aliases", "budget", "budget_lines", "tier_overrides"}
+    assert set(PLANNED_SPENDING_DATASETS) == {"rules", "category_map"}
     for name, unit in PLANNED_SPENDING_DATASETS.items():
         with pytest.raises(NotImplementedError, match=unit):
             repo.dataset(name)

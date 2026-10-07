@@ -21,7 +21,7 @@ Core Expenses,Food,groceries,Groceries,transaction,active,
     write_plan_dataset(root, "client_spending_aliases.csv", """match_value,match_field,exact,priority,category_id,source
 Groceries,category,1,80,groceries,seed
 """)
-    write(root / "input/client_spending_budget.csv", """kind,key,label,annual_budget,start_year,end_year,one_time_year,notes
+    write_plan_dataset(root, "client_spending_budget.csv", """kind,key,label,annual_budget,start_year,end_year,one_time_year,notes
 category,electric,Electric,2400,,,,housing budget-only row must remain visible
 category,medicare_part_b_premium,Medicare Part B Premium,2200,,,,wellness budget-only row must remain visible
 category,groceries,Groceries,6000,,,,core budget row

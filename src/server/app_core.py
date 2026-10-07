@@ -308,24 +308,24 @@ except ImportError:
     )
 
 
-def _spending_budget_csv_path() -> Path:
-    return BASE_DIR / "input" / "client_spending_budget.csv"
-
-
-def _read_csv_rows_safe(path: Path) -> list[list[str]]:
-    if not path.exists():
+def _spending_budget_table_rows() -> list[list[str]]:
+    """The plan's ``spending_budget`` table as header + rows (the shape the Build Impact diff
+    compares); empty when the table has no rows."""
+    rows = _plan_datasets.workspace_dataset_rows(BASE_DIR, "spending_budget")
+    if not rows:
         return []
-    with path.open(newline="", encoding="utf-8-sig") as f:
-        return list(csv.reader(f))
+    header = list(rows[0])
+    return [header, *([str(r.get(c, "")) for c in header] for r in rows)]
 
 
 def _spending_budget_save_result(save_fn):
     """Run a budget-save call and record the before/after diff to Build Impact."""
-    budget_path = _spending_budget_csv_path()
-    before_rows = _read_csv_rows_safe(budget_path)
+    before_rows = _spending_budget_table_rows()
     payload, status = save_fn()
-    after_rows = _read_csv_rows_safe(budget_path)
-    change_event = _record_admin_config_change("spending_budget", budget_path.name, str(budget_path), before_rows, after_rows)
+    after_rows = _spending_budget_table_rows()
+    change_event = _record_admin_config_change(
+        "spending_budget", "client_spending_budget.csv",
+        str(_plan_datasets.plan_path_for_workspace(BASE_DIR)), before_rows, after_rows)
     if isinstance(payload, dict) and change_event:
         payload["change_event"] = change_event
     return jsonify(payload), status
@@ -1060,17 +1060,11 @@ def _normalize_large_discretionary_type(value: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Spending Budget per-line table (#95): flat, addable/deletable budget lines
-# stored like client_holdings.csv (on disk + client_files mirror, no YAML).
-# Columns: section,line_id,label,category_id,start_year,end_year,one_time_year,
-#          amount_per_year,mode,notes
+# Spending Budget per-line table (#95): flat, addable/deletable budget lines, the plan file's
+# ``spending_budget_lines`` table (WP6.3b; was client_spending_budget_lines.csv). Columns:
+# section,line_id,label,category_id,start_year,end_year,one_time_year,amount_per_year,mode,notes
 # ---------------------------------------------------------------------------
 
-SPENDING_BUDGET_LINES_FILE = "client_spending_budget_lines.csv"
-SPENDING_BUDGET_LINE_COLUMNS = [
-    "section", "line_id", "label", "category_id", "start_year", "end_year",
-    "one_time_year", "amount_per_year", "mode", "notes",
-]
 # Canonical section ids surfaced on the Spending Budget page.
 SPENDING_BUDGET_SECTIONS = [
     "large_discretionary", "home_improvement", "travel", "gifts_charity",

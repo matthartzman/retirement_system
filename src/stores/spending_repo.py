@@ -9,9 +9,9 @@ attribute           replaces                                     table      unit
 ==================  ===========================================  =========  ================
 ``taxonomy``        ``client_spending_taxonomy.csv``             v3         WP6.3a (done)
 ``aliases``         ``client_spending_aliases.csv``              v3         WP6.3a (done)
-``budget``          ``client_spending_budget.csv``               planned    WP6.3b
-``budget_lines``    ``client_spending_budget_lines.csv``         planned    WP6.3b
-``tier_overrides``  ``client_spending_tier_overrides.csv``       planned    WP6.3b
+``budget``          ``client_spending_budget.csv``               v4         WP6.3b (done)
+``budget_lines``    ``client_spending_budget_lines.csv``         v4         WP6.3b (done)
+``tier_overrides``  ``client_spending_tier_overrides.csv``       v4         WP6.3b (done)
 ``rules``           ``client_spending_rules.csv``                planned    WP6.3c
 ``category_map``    ``spending_category_map.csv``                planned    WP6.3c
 ==================  ===========================================  =========  ================
@@ -37,12 +37,12 @@ from .datasets import FlatDatasetRepository
 SPENDING_DATASETS: dict[str, str] = {
     "taxonomy": "spending_taxonomy",
     "aliases": "spending_aliases",
+    "budget": "spending_budget",
+    "budget_lines": "spending_budget_lines",
+    "tier_overrides": "spending_tier_overrides",
 }
 # Planned spending datasets: short name -> the unit that implements it.
 PLANNED_SPENDING_DATASETS: dict[str, str] = {
-    "budget": "WP6.3b",
-    "budget_lines": "WP6.3b",
-    "tier_overrides": "WP6.3b",
     "rules": "WP6.3c",
     "category_map": "WP6.3c",
 }
@@ -108,21 +108,23 @@ class SpendingRepo:
         """``spending_aliases``: match_value, match_field, exact, priority, category_id, source."""
         return FlatDatasetRepository(self._store, SPENDING_DATASETS["aliases"])
 
-    # ------------------------------------------------------------ WP6.3b (planned stubs)
+    # ---------------------------------------------------------------- WP6.3b (implemented)
     @property
     def budget(self) -> FlatDatasetRepository:
-        """``spending_budget`` (``client_spending_budget.csv``). Stub until WP6.3b."""
-        raise _planned("budget")
+        """``spending_budget``: kind, key, label, annual_budget, start_year, end_year,
+        one_time_year, notes, _mode, line_section, line_mode, no_annualize."""
+        return FlatDatasetRepository(self._store, SPENDING_DATASETS["budget"])
 
     @property
     def budget_lines(self) -> FlatDatasetRepository:
-        """``spending_budget_lines`` (``client_spending_budget_lines.csv``). Stub until WP6.3b."""
-        raise _planned("budget_lines")
+        """``spending_budget_lines``: section, line_id, label, category_id, start_year, end_year,
+        one_time_year, amount_per_year, mode, notes."""
+        return FlatDatasetRepository(self._store, SPENDING_DATASETS["budget_lines"])
 
     @property
     def tier_overrides(self) -> FlatDatasetRepository:
-        """``spending_tier_overrides`` (``client_spending_tier_overrides.csv``). Stub until WP6.3b."""
-        raise _planned("tier_overrides")
+        """``spending_tier_overrides``: category_id, tier, notes."""
+        return FlatDatasetRepository(self._store, SPENDING_DATASETS["tier_overrides"])
 
     # ------------------------------------------------------------ WP6.3c (planned stubs)
     @property
