@@ -1147,3 +1147,11 @@ details.page-accordion[open]>summary::before,.page-recommendations[open]>summary
 .field-list.roth-compact{grid-template-columns:1fr;gap:0}
 .field-list.roth-compact>.field,.field-list.roth-compact>.field.flow,.field-list.roth-compact>.field.paired{grid-column:1/-1}
 .rg-would{color:var(--muted)}
+.pf-interview{margin-top:12px;padding:12px;border:1px solid var(--border,#d0d7de);border-radius:8px}
+.pf-interview-q{border:0;margin:0 0 12px;padding:0}
+.pf-interview-q legend{font-weight:600;font-size:14px;margin-bottom:6px}
+.pf-interview-opt{display:block;padding:6px 0;font-size:13px}
+.pf-interview-actions{display:flex;flex-wrap:wrap;gap:8px}
+.pf-interview-result{margin-top:12px;padding-top:8px;border-top:1px solid var(--border,#d0d7de)}
+.pf-suggest{margin-top:12px}
+.pf-suggest-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;font-size:13px}

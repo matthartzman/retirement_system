@@ -146,3 +146,22 @@ def test_config_rows_carry_min_tier(ws, client):
     tiers = {r["min_tier"] for r in rows}
     assert tiers <= set(TIERS) | {""}
     assert tiers & set(TIERS)
+
+
+def test_interview_questions_preview_and_apply(ws, client, events):
+    qs = client.get("/api/plan/interview", headers=HEADERS).get_json()["questions"]
+    assert qs[0]["id"] == "detail" and len(qs[0]["options"]) == 4
+    body = {"answers": {"detail": "simple", "heloc": True}}
+    pre = client.post("/api/plan/interview", json=body, headers=HEADERS).get_json()
+    assert pre["applied"] is False and pre["extra_on"] == ["heloc"]
+    assert client.get("/api/config/rows", headers=HEADERS).get_json()["plan_profile"]["tier_stored"] is False
+    out = client.post("/api/plan/interview", json={**body, "apply": True}, headers=HEADERS).get_json()
+    assert out["applied"] is True and out["profile"]["tier"] == "simple"
+    assert out["profile"]["differing"] == ["heloc"]
+    assert client.post("/api/plan/interview", json={"answers": {}}, headers=HEADERS).status_code == 400
+    assert client.post("/api/plan/interview", json=["x"], headers=HEADERS).status_code == 400
+
+
+def test_config_rows_carry_feature_suggestions(ws, client):
+    out = client.get("/api/config/rows", headers=HEADERS).get_json()
+    assert isinstance(out["feature_suggestions"], list)

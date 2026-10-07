@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from .. import module_catalog as mc
+from .. import plan_interview
 
 JsonDict = dict[str, Any]
 AuditFn = Callable[[str, dict[str, Any] | None], None]
@@ -158,3 +159,36 @@ class PlanTierService:
             return {"success": False, "error": f"Plan Data could not be saved: {exc}"}, 500
         self._audit("plan_feature_set", {"key": key, "on": on, "revision": revision})
         return {"success": True, "key": key, "on": on, "profile": profile, "revision": revision}, 200
+
+    def feature_suggestions(self) -> list[JsonDict]:
+        """``plan_interview.feature_suggestions`` of the active plan."""
+        with self.context.read_plan() as store:
+            return plan_interview.feature_suggestions(store, entered_rows)
+
+    def interview_payload(self, body: dict[str, Any]) -> tuple[JsonDict, int]:
+        """``{answers, apply}``: the tier and switches the answers suggest. ``apply: true``
+        writes them (tier preset, then the extras) in one edit; otherwise nothing is written."""
+        apply = body.get("apply", False)
+        if not isinstance(apply, bool):
+            return {"success": False, "error": "apply must be true or false"}, 400
+        try:
+            suggestion = plan_interview.suggest(body.get("answers"))
+        except ValueError as exc:
+            return {"success": False, "error": str(exc)}, 400
+        if not apply:
+            with self.context.read_plan() as store:
+                details = tier_change_details(store, suggestion["tier"])
+            return {"success": True, "applied": False, **suggestion, "change": details}, 200
+        try:
+            with self.context.edit_plan() as edit:
+                details = tier_change_details(edit.store, suggestion["tier"])
+                plan_interview.apply_suggestion(edit.store, suggestion)
+                profile = mc.plan_profile(edit.store)
+            revision = edit.revision
+        except Exception as exc:
+            self._audit("plan_interview_failed", {"error": str(exc)})
+            return {"success": False, "error": f"Plan Data could not be saved: {exc}"}, 500
+        self._audit("plan_interview_applied", {"tier": suggestion["tier"], "extra_on": suggestion["extra_on"],
+                                               "revision": revision})
+        return {"success": True, "applied": True, **suggestion, "change": details,
+                "profile": profile, "revision": revision}, 200

@@ -210,3 +210,35 @@ describe("field tier filter (WP5.2)", () => {
     assert.match(sandbox.fieldTierControlHtml("income", 2, true), /Hide advanced fields/);
   });
 });
+
+describe("interview and self-suggest (WP5.3)", () => {
+  const questions = [
+    { id: "detail", text: "How much detail?", kind: "choice", options: [{ value: "simple", label: "Basics" }, { value: "expert", label: "All" }] },
+    { id: "heloc", text: "Do you have a HELOC?", kind: "yes_no" },
+  ];
+
+  test("renders each question and keeps the suggestion button disabled until the tier question is answered", () => {
+    const html = sandbox.interviewHtml({ questions, answers: {}, result: null });
+    assert.match(html, /How much detail\?/);
+    assert.match(html, /Do you have a HELOC\?/);
+    assert.match(html, /disabled onclick="suggestFromInterview\(\)"/);
+    const ready = sandbox.interviewHtml({ questions, answers: { detail: "simple", heloc: false }, result: null });
+    assert.doesNotMatch(ready, /disabled onclick/);
+    assert.equal((ready.match(/checked/g) || []).length, 2);
+  });
+
+  test("the result names the tier and the extra features", () => {
+    const html = sandbox.interviewResultHtml({ label: "Simple", tier: "simple", reasons: [{ key: "heloc", name: "HELOC" }] });
+    assert.match(html, /Suggested: Simple/);
+    assert.match(html, /plus 1 extra feature/);
+    assert.match(html, /<li>HELOC<\/li>/);
+    assert.equal(sandbox.interviewResultHtml(null), "");
+  });
+
+  test("self-suggest rows name the feature and offer a turn-on button", () => {
+    const html = sandbox.featureSuggestionsHtml([{ key: "heloc", name: "HELOC", entered_rows: 3, text: "Turn on HELOC? You have 3 rows entered for it." }]);
+    assert.match(html, /Turn on HELOC\? You have 3 rows entered for it\./);
+    assert.match(html, /setPlanFeatureSwitch\('heloc', true\)/);
+    assert.equal(sandbox.featureSuggestionsHtml([]), "");
+  });
+});
