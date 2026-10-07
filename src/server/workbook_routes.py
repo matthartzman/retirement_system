@@ -72,6 +72,7 @@ from ..results_model import RESULTS_MODEL_FILENAME
 from ..server_services import build_job_service, build_service, holdings_service, plan_data_file_service, plan_forms_service, report_service, spending_service
 
 from ..local_store import list_kpi_snapshots, compare_kpi_snapshots
+from ..active_plan import plan_db_env
 
 
 # Build-job orchestration is owned by server_services.build_job_service.
@@ -239,6 +240,7 @@ def build_start():
     env["PYTHONIOENCODING"] = env.get("PYTHONIOENCODING", "utf-8:replace")
     env["PYTHONUNBUFFERED"] = "1"
     env["RETIREMENT_SYSTEM_SKIP_PLAN_DATA_ENV_SYNC"] = "1"
+    plan_db_env(env)  # WP4.2: the build reads the plan rows of this server's active plan file
     job_id = uuid.uuid4().hex
     build_start_ts = time.time()
     env["RETIREMENT_SYSTEM_BUILD_ID"] = job_id
@@ -345,6 +347,7 @@ def build():
     env["PYTHONIOENCODING"] = env.get("PYTHONIOENCODING", "utf-8:replace")
     env["PYTHONUNBUFFERED"] = "1"
     env["RETIREMENT_SYSTEM_SKIP_PLAN_DATA_ENV_SYNC"] = "1"
+    plan_db_env(env)  # WP4.2: the build reads the plan rows of this server's active plan file
     start = time.time()
     build_id = uuid.uuid4().hex
     env["RETIREMENT_SYSTEM_BUILD_ID"] = build_id
@@ -881,17 +884,14 @@ def shutdown():
 # ---- Versioned SaaS/readiness APIs ----
 
 
-# First-class database-backed Plan Data form APIs.  Legacy CSV endpoints are
-# import/export adapters only; User/Admin forms should read and write these
-# sectioned SQLite snapshots.
+# Sectioned Plan Data form APIs over the active plan's rows (WP4.2: plan.rpx, not
+# the old sectioned SQLite snapshots). WP4.3 unifies them with the grid's row store.
 @app.route("/api/plan/forms", methods=["GET"])
 def plan_forms_get():
-    # plan_forms_service imports latest_sectioned_data and import_sectioned_plan.
-    # The runtime payload keeps "backend": "sqlite" for database-backed forms.
     denied = _require("view_dashboard")
     if denied:
         return denied
-    return jsonify(plan_forms_service.get_forms_payload(_sqlite_db()))
+    return jsonify(plan_forms_service.get_forms_payload())
 
 
 @app.route("/api/plan/forms", methods=["POST"])
@@ -901,9 +901,9 @@ def plan_forms_post():
         return denied
     body = request.get_json(silent=True) or {}
     sections = body.get("sections") or body.get("data") or {}
-    payload, status = plan_forms_service.save_forms_payload(sections, _sqlite_db())
+    payload, status = plan_forms_service.save_forms_payload(sections)
     if status == 200:
-        _audit("plan_forms_saved", {"snapshot_id": payload.get("snapshot_id"), "section_count": len(sections) if isinstance(sections, dict) else 0})
+        _audit("plan_forms_saved", {"revision": payload.get("revision"), "section_count": len(sections) if isinstance(sections, dict) else 0})
     return jsonify(payload), status
 
 
@@ -914,7 +914,7 @@ def plan_forms_patch(section_path):
         return denied
     body = request.get_json(silent=True) or {}
     values = body.get("values") or body.get("fields") or {}
-    payload, status = plan_forms_service.patch_forms_payload(section_path, values, _sqlite_db())
+    payload, status = plan_forms_service.patch_forms_payload(section_path, values)
     if status == 200:
-        _audit("plan_form_section_saved", {"snapshot_id": payload.get("snapshot_id"), "section": payload.get("section"), "subsection": payload.get("subsection")})
+        _audit("plan_form_section_saved", {"revision": payload.get("revision"), "section": payload.get("section"), "subsection": payload.get("subsection")})
     return jsonify(payload), status

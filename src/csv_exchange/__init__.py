@@ -17,6 +17,7 @@ from .plan_csv import (
     parse_plan_csv,
     part_file_for_section,
     read_plan_csv_set,
+    sync_plan_rows,
     write_plan_rows,
 )
 
@@ -33,5 +34,6 @@ __all__ = [
     "parse_plan_csv",
     "part_file_for_section",
     "read_plan_csv_set",
+    "sync_plan_rows",
     "write_plan_rows",
 ]

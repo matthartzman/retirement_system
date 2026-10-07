@@ -156,6 +156,9 @@ class ImportReport:
 class PlanCsvSet:
     rows: list[PlanCsvRow]
     report: ImportReport
+    # file name -> the text read (``read_plan_csv_set`` only), so a caller that also needs
+    # the raw file (the legacy ``client_files`` copy, WP4.2) does not read it twice.
+    texts: dict[str, str] = field(default_factory=dict)
 
 
 # ----------------------------------------------------------------------------- helpers
@@ -272,7 +275,9 @@ def read_plan_csv_set(folder: str | Path, files: Iterable[str] = PLAN_CSV_FILES)
             out.report.files_missing.append(name)
             continue
         with path.open(newline="", encoding="utf-8-sig") as handle:
-            parsed = parse_plan_csv(handle.read(), name)
+            text = handle.read()
+        parsed = parse_plan_csv(text, name)
+        out.texts[name] = text
         out.rows += parsed.rows
         out.report.merge(parsed.report)
     return out
@@ -296,6 +301,59 @@ def write_plan_rows(store: Any, rows: Iterable[PlanCsvRow]) -> int:
             store.insert_row(row.section, sort_order=order, **row.fields())
             count += 1
     return count
+
+
+def sync_plan_rows(store: Any, rows: Iterable[PlanCsvRow]) -> dict[str, int]:
+    """Make the plan's rows equal ``rows`` (in order) in one transaction; WP4.2.
+
+    Unlike :func:`write_plan_rows` the plan need not be empty. The result is what an
+    import of ``rows`` into an empty plan would give (same sectioned view, same display
+    order), but a row keeps its ``row_id`` when its key's occurrence survives: the n-th
+    row of a ``(section, subsection, label)`` key is matched to the n-th wanted row of
+    that key and updated in place. Unmatched rows are deleted, new ones inserted. If
+    that would change the order of the sections (they are ordered by their lowest
+    ``row_id``), every row is rewritten instead. Nothing is written when nothing
+    changed. Returns ``{"updated", "inserted", "deleted", "rewritten"}`` counts.
+    """
+    wanted: list[tuple[str, dict[str, str], int]] = []
+    next_order: dict[str, int] = {}
+    section_order: list[str] = []
+    for row in rows:
+        if row.section not in next_order:
+            section_order.append(row.section)
+        order = next_order.get(row.section, 0)
+        next_order[row.section] = order + 1
+        wanted.append((row.section, row.fields(), order))
+    counts = {"updated": 0, "inserted": 0, "deleted": 0, "rewritten": 0}
+    with store.transaction():
+        existing: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
+        for old in store.all_rows():
+            existing.setdefault((old["section"], old["subsection"], old["label"]), []).append(old)
+        for queue in existing.values():
+            queue.reverse()  # pop() takes the first occurrence
+        for section, fields, order in wanted:
+            queue = existing.get((section, fields["subsection"], fields["label"]))
+            if queue:
+                old = queue.pop()
+                changed = {k: v for k, v in fields.items() if old[k] != v}
+                if old["sort_order"] != order:
+                    changed["sort_order"] = order
+                if changed:
+                    store.set_row(old["row_id"], **changed)
+                    counts["updated"] += 1
+            else:
+                store.insert_row(section, sort_order=order, **fields)
+                counts["inserted"] += 1
+        for queue in existing.values():
+            for old in queue:
+                store.delete_row(old["row_id"])
+                counts["deleted"] += 1
+        if store.section_order() != section_order:
+            store.clear_rows()
+            for section, fields, order in wanted:
+                store.insert_row(section, sort_order=order, **fields)
+            counts = {"updated": 0, "inserted": len(wanted), "deleted": 0, "rewritten": 1}
+    return counts
 
 
 def import_plan_csv_set(folder: str | Path, store: Any, files: Iterable[str] = PLAN_CSV_FILES) -> ImportReport:

@@ -208,6 +208,13 @@ class PlanStore(_SqliteStore):
             )
             return [dict(r) for r in cur]
 
+    def section_order(self) -> list[str]:
+        """Section names in display order: by each section's lowest ``row_id`` (creation
+        order; after an import, the order of the CSV set). ``sectioned_data`` uses it."""
+        with self._read() as con:
+            return [r[0] for r in con.execute(
+                "SELECT section FROM plan_rows GROUP BY section ORDER BY MIN(row_id)")]
+
     def all_rows(self) -> list[dict[str, Any]]:
         """Every row in canonical order (sections by name, then display order)."""
         with self._read() as con:
@@ -280,6 +287,11 @@ class PlanStore(_SqliteStore):
         with self._write() as con:
             if con.execute("DELETE FROM plan_rows WHERE row_id = ?", (row_id,)).rowcount == 0:
                 raise NotFoundError(f"plan row {row_id} not found")
+
+    def clear_rows(self) -> int:
+        """Delete every row (ids are not reused); return how many were deleted."""
+        with self._write() as con:
+            return con.execute("DELETE FROM plan_rows").rowcount
 
     # ------------------------------------------------------------- keyed access (WP4.1)
     def find_rows(self, section: str, subsection: str, label: str) -> list[dict[str, Any]]:

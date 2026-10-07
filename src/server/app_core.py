@@ -78,6 +78,7 @@ try:
         UI_NAMES,
         YTD_PLAN_DATA_FILES,
     )
+    from ..active_plan import sync_active_plan_from_csv
     from ..config_backend import (
         DEFAULT_DB,
         append_audit_event_sqlite,
@@ -85,12 +86,11 @@ try:
         get_client_file,
         init_sqlite,
         load_active_config,
-        load_csv,
         export_client_json_yaml,
-        import_csv_to_sqlite,
         lookup_api_token,
         materialize_workspace_files,
         set_client_file,
+        set_client_files,
         sync_clients_csv_to_sqlite,
         upsert_client,
     )
@@ -121,6 +121,7 @@ except ImportError:  # direct execution fallback
         UI_NAMES,
         YTD_PLAN_DATA_FILES,
     )
+    from src.active_plan import sync_active_plan_from_csv
     from src.config_backend import (
         DEFAULT_DB,
         append_audit_event_sqlite,
@@ -128,12 +129,11 @@ except ImportError:  # direct execution fallback
         get_client_file,
         init_sqlite,
         load_active_config,
-        load_csv,
         export_client_json_yaml,
-        import_csv_to_sqlite,
         lookup_api_token,
         materialize_workspace_files,
         set_client_file,
+        set_client_files,
         sync_clients_csv_to_sqlite,
         upsert_client,
     )
@@ -1868,70 +1868,28 @@ def _replace_residency_schedule(schedule: list[dict]) -> None:
 
 
 def _sync_config_backends() -> dict:
-    # Wave 4.11 (system review 2026-08-04, `csv-roundtrip-on-every-save`)
-    # tried making this DB->CSV export only, reasoning every real caller
-    # already wrote the DB first via _write_plan_data_file(). Reverted --
-    # root cause isolated: this codebase has TWO separate SQLite stores, not
-    # one.
-    #   - `client_files` (raw CSV blobs): written by _write_plan_data_file()/
-    #     set_client_file(), read by _read_plan_data_file()/get_client_file().
-    #     Backs the Plan Data editor's file-level read/write API.
-    #   - `local_store.plan_snapshots` (typed *sectioned* snapshot): written
-    #     ONLY by import_csv_to_sqlite() -> local_store.import_sectioned_plan(),
-    #     read by load_sqlite() -> local_store.latest_sectioned_data(). This is
-    #     what load_active_config() reads, which is what
-    #     workbook_builder.main() calls to load the config the projection
-    #     engine actually builds from.
-    # _write_plan_data_file() explicitly does NOT write client_data.csv's
-    # content into `client_files` at all ("client_data.csv is the sectioned
-    # anchor and is not stored in the DB") -- so removing the
-    # import_csv_to_sqlite() call here left `local_store` permanently stale
-    # after the one-time bootstrap in load_active_config(), which is exactly
-    # what broke test_real_build_journey_reflects_a_user_edited_input: a
-    # real save updated `client_files` and disk correctly, but the build read
-    # the (now-frozen) old snapshot from `local_store`.
-    # tests/test_wave4_11_config_snapshot_freshness.py regression-guards this
-    # directly (fast tier -- the original break only reproduced in the slow,
-    # full-FILE run of test_e2e_build_journey.py, never standalone).
-    #
-    # Re-scoped 2026-08-06 rather than retried: measured this function's cost
-    # with the real client_data.csv (1,519 lines across 10 sectioned files).
-    # load_csv (the ten-file parse, unavoidable either way -- export_client_
-    # json_yaml needs it too) costs ~190ms; import_csv_to_sqlite, the specific
-    # call the finding wanted removed, costs ~10-40ms on top of that -- under
-    # 20% of this function's own total, and noise against the ~200ms already
-    # spent per save regardless. plan_snapshots' insert is also already
-    # content-hash deduplicated (snapshot_id = sha256(payload)[:16], ON
-    # CONFLICT DO UPDATE) -- an unchanged re-save doesn't grow the table.
-    # Given the original finding's own recommended sequencing was "memoize
-    # now [Wave 1.3, done -- cut this from 20 file reads to 1], DB->CSV
-    # export as follow-up," and the follow-up's remaining win is this small,
-    # it is not worth the correctness risk that already broke a real build
-    # once. Concluded won't-fix as originally scoped. Every real write caller
-    # already calls this function after writing (config_service,
-    # demo_plan_service, plan_data_file_service, strategy_asset_service, this
-    # module's own payload handler) -- the gap was never caller discipline,
-    # it was this function's own body. Do not remove the re-import again
-    # without either (a) making load_active_config() refresh `local_store`
-    # itself before reading (only for the one build call site --
-    # config_service.py's three load_active_config() callers read real
-    # sectioned values too, e.g. allocation_preview_payload's ui_rows
-    # fallback and config_rows_payload's _module_status(), so this can't
-    # default to "only builds need freshness" without re-auditing those), or
-    # (b) unifying the two stores outright -- both are real design changes,
-    # not a quick follow-up, and neither is justified by the ~10-40ms this
-    # measurement found.
+    """Carry the plan CSV set into the active plan file after a CSV write (WP4.2).
+
+    Every plan-data CSV writer (config_service, demo_plan_service, plan_data_file_service,
+    strategy_asset_service, this module's payload handlers, the Load Saved Plan and
+    snapshot-restore routes) calls this after writing. The engine, the build and the
+    server read ``plan_rows`` of the active plan (``src/active_plan.py``), so this is
+    the one place their CSV edits reach the rows until WP4.3-4.5 switch the writers to
+    ``PlanStore`` and delete it (P3.5). ``csv_exchange.sync_plan_rows`` keeps row ids of
+    surviving keys and writes nothing when nothing changed.
+
+    It also stores each part file's text in the legacy database's ``client_files``:
+    Save As / Load Saved Plan / Open Demo carry the plan as that database file and
+    rebuild the CSV set from ``client_files``, which the plan_snapshots copy (the
+    pre-WP4.2 sync target) used to back up; and writes the JSON/YAML mirrors from the
+    plan's sectioned view.
+    """
     try:
-        # Parse the sectioned CSVs ONCE and hand the result to both consumers.
-        # Each of these used to call load_csv itself, and load_csv on the
-        # client_data.csv anchor opens and parses ten files (itself plus the
-        # nine part files), so this ran twenty file reads per saved field --
-        # on a path invoked for every plan-data CSV write.
-        _plan_data = load_csv(CSV_PATH)
-        derived = export_client_json_yaml(CSV_PATH, CSV_PATH.parent, data=_plan_data)
-        db_path = import_csv_to_sqlite(CSV_PATH, _sqlite_db(), workspace_id=_workspace_id(),
-                                       data=_plan_data)
-        return {"success": True, "derived": derived, "json": derived.get("client_data.json"), "yaml": derived.get("client_data.yaml")}
+        synced = sync_active_plan_from_csv(CSV_PATH.parent)
+        set_client_files({n: t for n, t in synced.texts.items() if n != "client_data.csv"}, _sqlite_db())
+        derived = export_client_json_yaml(synced.data, CSV_PATH.parent)
+        return {"success": True, "derived": derived, "json": derived.get("client_data.json"),
+                "yaml": derived.get("client_data.yaml"), "plan_rows": synced.counts}
     except Exception as exc:
         return {"success": False, "error": str(exc), "trace": traceback.format_exc()}
 
