@@ -57,7 +57,6 @@
   "test_progress_and_risk_impact_functional.py",
   "test_pywebview_bridge_load_order_regression.py",
   "test_readme_end_user_feature_currency_regression.py",
-  "test_recommendations_functional.py",
   "test_report_package_contract.py",
   "test_rmd_ss_claim_age_dedup_regression.py",
   "test_roadmap_steps_1_11_static_regression.py",

@@ -74,6 +74,13 @@ def _stage_workspace(plan_dir: Path, scratch: Path) -> Path:
     for f in sorted(plan_dir.iterdir()):
         if f.is_file():
             shutil.copy(f, ws / "input" / f.name)
+    # The build reads the plan file (WP4.5: nothing bootstraps it from the CSVs any more); the
+    # engine capture below still reads the CSV set through data_io.load_csv.
+    subprocess.run(
+        [sys.executable, "-c",
+         "from src.active_plan import build_plan_file_from_csv_folder as b; b('plan.rpx', 'input')"],
+        cwd=ws, check=True, capture_output=True, text=True,
+    )
     # Same tree-relative imports the engine tests use.
     shutil.copytree(ROOT / "tests", ws / "tests", ignore=shutil.ignore_patterns("__pycache__", "e2e", "frontend", "fixtures"))
     return ws

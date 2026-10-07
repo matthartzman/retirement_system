@@ -174,9 +174,9 @@ def test_runner_rewrites_legacy_plan_rows_and_stamps_the_version(tmp_path):
 def test_runner_leaves_already_current_files_untouched(tmp_path):
     """An unchanged file must keep its bytes AND its mtime.
 
-    Rewriting every file unconditionally would churn every hash in
-    plan_data_manifest.json on each upgrade, which is how a migration that
-    changed nothing still looks like it changed everything.
+    Rewriting every file unconditionally would bump every file's mtime on
+    each upgrade, which is how a migration that changed nothing still looks
+    like it changed everything.
     """
     from src.plan_data_migration import migrate_plan_data_at_rest
     work, db = _staged_input(tmp_path), _tmp_db()
