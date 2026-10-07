@@ -177,83 +177,65 @@ class ResidencyScheduleCsvRoundTripTests(unittest.TestCase):
 
 
 class ResidencyScheduleServiceValidationTests(unittest.TestCase):
-    def _service(self, tmp_path, on_write):
-        from src.server_services.strategy_asset_service import StrategyAssetService, StrategyAssetServiceContext
+    """The save endpoint's validation and its rows (WP4.4b: the schedule lives in plan_rows)."""
 
-        ctx = StrategyAssetServiceContext(
-            base_dir=tmp_path,
-            plan_data_path=lambda name: tmp_path / name,
-            client_section_path=lambda section, file_name: tmp_path / file_name,
-            reference_file_path=lambda name: tmp_path / name,
-            csv_read_rows=lambda path: [["section", "subsection", "label", "value", "type", "comment"]],
-            csv_write_rows=lambda path, rows: None,
-            ensure_header=lambda rows: rows or [["section", "subsection", "label", "value", "type", "comment"]],
-            write_client_rows=lambda path, rows: None,
-            read_client_section_rows=lambda section, file_name: [],
-            large_discretionary_expenses_from_plan_data=lambda: [],
-            normalize_large_discretionary_type=lambda value: str(value),
-            replace_large_discretionary_expenses=lambda events: None,
-            pre_tax_account_options_from_holdings=lambda: [],
-            forced_roth_conversions_from_csv_rows=lambda rows: [],
-            replace_forced_roth_conversions=lambda conversions: None,
-            liquidity_buffers_from_csv_rows=lambda rows: [],
-            replace_liquidity_buffers=lambda buffers: None,
-            ensure_user_ui_plan_data_rows=lambda: None,
-            sync_config_backends=lambda: {"success": True},
-            audit=lambda event, details=None: None,
-            residency_schedule_from_csv_rows=lambda rows: [],
-            replace_residency_schedule=on_write,
-        )
-        return StrategyAssetService(ctx)
-
-    def test_rejects_an_end_year_on_the_last_row(self, tmp_path=None):
+    def _run(self, schedule, existing=()):
         import tempfile
         from pathlib import Path
+        from tests.strategy_service_rows import service_over_rows
+
         with tempfile.TemporaryDirectory() as tmp:
-            written = []
-            service = self._service(Path(tmp), lambda s: written.append(s))
-            payload, status = service.save_residency_schedule_payload({
-                "schedule": [
-                    {"state": "Illinois", "start_year": "2026", "end_year": "2031"},
-                    {"state": "Florida", "start_year": "2032", "end_year": "2040"},
-                ]
-            })
-            self.assertEqual(status, 400)
-            self.assertFalse(payload["success"])
-            self.assertFalse(written)
+            service, store, events = service_over_rows(Path(tmp), list(existing))
+            with store:
+                payload, status = service.save_residency_schedule_payload({"schedule": schedule})
+                rows = [(r["subsection"], r["label"], r["value"]) for r in store.rows("State Residency Schedule")]
+                read = service.residency_schedule_payload()
+        return payload, status, rows, events, read
+
+    def test_rejects_an_end_year_on_the_last_row(self):
+        payload, status, rows, events, _ = self._run([
+            {"state": "Illinois", "start_year": "2026", "end_year": "2031"},
+            {"state": "Florida", "start_year": "2032", "end_year": "2040"},
+        ])
+        self.assertEqual(status, 400)
+        self.assertFalse(payload["success"])
+        self.assertFalse(rows)
+        self.assertFalse(events)
 
     def test_rejects_a_missing_end_year_on_a_non_last_row(self):
-        import tempfile
-        from pathlib import Path
-        with tempfile.TemporaryDirectory() as tmp:
-            written = []
-            service = self._service(Path(tmp), lambda s: written.append(s))
-            payload, status = service.save_residency_schedule_payload({
-                "schedule": [
-                    {"state": "Illinois", "start_year": "2026", "end_year": ""},
-                    {"state": "Florida", "start_year": "2032", "end_year": ""},
-                ]
-            })
-            self.assertEqual(status, 400)
-            self.assertFalse(payload["success"])
-            self.assertFalse(written)
+        payload, status, rows, events, _ = self._run([
+            {"state": "Illinois", "start_year": "2026", "end_year": ""},
+            {"state": "Florida", "start_year": "2032", "end_year": ""},
+        ])
+        self.assertEqual(status, 400)
+        self.assertFalse(payload["success"])
+        self.assertFalse(rows)
+        self.assertFalse(events)
 
     def test_accepts_a_valid_open_ended_schedule(self):
-        import tempfile
-        from pathlib import Path
-        with tempfile.TemporaryDirectory() as tmp:
-            written = []
-            service = self._service(Path(tmp), lambda s: written.append(s))
-            payload, status = service.save_residency_schedule_payload({
-                "schedule": [
-                    {"state": "Illinois", "start_year": "2026", "end_year": "2031"},
-                    {"state": "Florida", "start_year": "2032", "end_year": ""},
-                ]
-            })
-            self.assertEqual(status, 200)
-            self.assertTrue(payload["success"])
-            self.assertEqual(payload["count"], 2)
-            self.assertTrue(written)
+        payload, status, rows, events, read = self._run([
+            {"state": "Illinois", "start_year": "2026", "end_year": "2031"},
+            {"state": "Florida", "start_year": "2032", "end_year": ""},
+        ])
+        self.assertEqual(status, 200)
+        self.assertEqual(payload, {"success": True, "count": 2, "sync": None})
+        self.assertEqual(rows, [
+            ("period_1", "state", "Illinois"), ("period_1", "start_year", "2026"), ("period_1", "end_year", "2031"),
+            ("period_2", "state", "Florida"), ("period_2", "start_year", "2032"), ("period_2", "end_year", ""),
+        ])
+        self.assertEqual(events, [("residency_schedule_saved", {"count": 2})])
+        self.assertEqual(read, ({"success": True, "schedule": [
+            {"state": "Illinois", "start_year": "2026", "end_year": "2031"},
+            {"state": "Florida", "start_year": "2032", "end_year": ""},
+        ]}, 200))
+
+    def test_replacing_a_schedule_edits_in_place_and_drops_the_extra_period(self):
+        existing = [("State Residency Schedule", f"period_{i}", label, value)
+                    for i, vals in ((1, ("Illinois", "2026", "2031")), (2, ("Florida", "2032", "")))
+                    for label, value in zip(("state", "start_year", "end_year"), vals)]
+        payload, status, rows, events, _ = self._run([{"state": "Texas", "start_year": "2027", "end_year": ""}], existing)
+        self.assertEqual(status, 200)
+        self.assertEqual(rows, [("period_1", "state", "Texas"), ("period_1", "start_year", "2027"), ("period_1", "end_year", "")])
 
 
 if __name__ == "__main__":

@@ -6,7 +6,7 @@ Inflation continues on the stepped base. Several rows on the same category
 compound in start-year order (-20% then -10% => 0.72), and an
 ``ALL:<tracking type>`` row compounds with a specific category's own rows.
 
-Stored in ``client_spending.csv`` as ``Cashflow / Spending Adjustments`` rows
+Stored in the plan as ``Cashflow / Spending Adjustments`` rows
 ``adj_N_category``, ``adj_N_start_year``, ``adj_N_end_year`` and
 ``adj_N_change_pct`` (a percent: ``-20`` means -20%).
 """
@@ -88,16 +88,15 @@ def load_adjustments(sectioned: Mapping[str, Any]) -> list[Adjustment]:
 # ── Persistence helpers for /api/spending-adjustments (the Adjustments table) ──
 
 _ADJ_FIELDS = ("category", "start_year", "end_year", "change_pct")
-_ADJ_HEADER_NOTE = "# -- Spending Adjustments: category step-downs / step-ups by year (#335) --"
 
 
-def adjustment_dicts_from_rows(rows: Iterable[list[str]]) -> list[dict[str, str]]:
-    """Raw ``{category, start_year, end_year, change_pct}`` dicts from CSV rows."""
+def adjustment_dicts_from_plan_rows(rows: Iterable[Mapping[str, Any]]) -> list[dict[str, str]]:
+    """Raw ``{category, start_year, end_year, change_pct}`` dicts from the ``plan_rows`` of the
+    ``Cashflow`` section (rows with ``subsection``, ``label`` and ``value``), in number order."""
     section: dict[str, str] = {}
     for r in rows or ():
-        cols = list(r) + [""] * 4
-        if str(cols[0]).strip() == "Cashflow" and str(cols[1]).strip().lower() == ADJ_SUBSECTION.lower():
-            section[str(cols[2]).strip()] = str(cols[3] or "").strip()
+        if str(r["subsection"]).strip().lower() == ADJ_SUBSECTION.lower():
+            section[str(r["label"]).strip()] = str(r["value"] or "").strip()
     grouped: dict[int, dict[str, str]] = {}
     for label, value in section.items():
         m = _ADJ_RE.match(label)
@@ -135,36 +134,19 @@ def validate_adjustment_dicts(items: Any) -> tuple[list[dict[str, str]], str | N
     return clean, None
 
 
-def replace_adjustment_rows(rows: list[list[str]], items: list[dict[str, str]]) -> list[list[str]]:
-    """Return ``rows`` with its Spending Adjustments block replaced by ``items``."""
-    rows = [list(r) for r in rows or []]
-    while rows and not any(str(c).strip() for c in rows[-1]):
-        rows.pop()
-    keep: list[list[str]] = []
-    insert_at: int | None = None
-    for r in rows:
-        cols = list(r) + ["", ""]
-        is_block = (str(cols[0]).strip() == "Cashflow" and str(cols[1]).strip().lower() == ADJ_SUBSECTION.lower()) \
-            or str(cols[0]).startswith(_ADJ_HEADER_NOTE[:24])
-        if is_block:
-            if insert_at is None:
-                insert_at = len(keep)
-            continue
-        keep.append(r)
-    block: list[list[str]] = []
-    if items:
-        block.append([_ADJ_HEADER_NOTE, "", "", "", "", ""])
-        for i, item in enumerate(items, 1):
-            block.extend([
-                ["Cashflow", ADJ_SUBSECTION, f"adj_{i}_category", item.get("category", ""), "",
-                 "Category id, or ALL:<tracking type>"],
-                ["Cashflow", ADJ_SUBSECTION, f"adj_{i}_start_year", item.get("start_year", ""), "year",
-                 "First year the change applies"],
-                ["Cashflow", ADJ_SUBSECTION, f"adj_{i}_end_year", item.get("end_year", ""), "year",
-                 "Last year it applies; blank = through plan end"],
-                ["Cashflow", ADJ_SUBSECTION, f"adj_{i}_change_pct", item.get("change_pct", ""), "%",
-                 "Negative = decrease, positive = increase; compounds with earlier rows"],
-            ])
-    at = len(keep) if insert_at is None else insert_at
-    keep[at:at] = block
-    return keep
+def adjustment_plan_rows(items: list[dict[str, str]]) -> list[tuple[str, str, str, str, str]]:
+    """The ``Cashflow / Spending Adjustments`` rows of ``items`` as
+    ``(subsection, label, value, units, notes)``."""
+    out: list[tuple[str, str, str, str, str]] = []
+    for i, item in enumerate(items, 1):
+        out.extend([
+            (ADJ_SUBSECTION, f"adj_{i}_category", item.get("category", ""), "",
+             "Category id, or ALL:<tracking type>"),
+            (ADJ_SUBSECTION, f"adj_{i}_start_year", item.get("start_year", ""), "year",
+             "First year the change applies"),
+            (ADJ_SUBSECTION, f"adj_{i}_end_year", item.get("end_year", ""), "year",
+             "Last year it applies; blank = through plan end"),
+            (ADJ_SUBSECTION, f"adj_{i}_change_pct", item.get("change_pct", ""), "%",
+             "Negative = decrease, positive = increase; compounds with earlier rows"),
+        ])
+    return out

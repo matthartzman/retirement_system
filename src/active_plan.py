@@ -35,6 +35,7 @@ from typing import Any, Callable, Iterator
 
 from . import platform_runtime
 from .plan_label_rules import dropped_at_load
+from .roth_ui_build_guard import canonicalize_roth_rows
 from .csv_exchange import (PlanCsvError, PlanCsvRow, plan_csv_set_fingerprint, read_plan_csv_set,
                            sync_plan_rows, write_back_rows)
 from .csv_exchange.plan_csv import Key
@@ -197,8 +198,8 @@ def edit_active_plan(input_dir: str | Path, write_file: Callable[[str, str], Any
        pure; a result that would not read back as the rows raises ``PlanCsvError`` before
        anything is written), then written through ``write_file(name, text)`` (the server's
        plan-data file writer, which also keeps ``client_files`` current);
-    4. the bridge again, so ``write_file``'s own rules (canonical Roth values, protected
-       retirement dates) reach the rows.
+    4. the bridge again, so ``write_file``'s own rules (protected retirement dates) reach the
+       rows. Roth controls are made canonical in the rows before step 3 (``roth_ui_build_guard``).
 
     Failure is safe: when anything after the first file write fails (a write, the second
     bridge run, the commit), the previous text of every file written is put back through
@@ -238,6 +239,7 @@ def edit_active_plan(input_dir: str | Path, write_file: Callable[[str, str], Any
                 before = _row_fields(store.all_rows())
                 try:
                     yield edit
+                    canonicalize_roth_rows(store)  # a Roth control is stored canonical (the guard)
                     after_rows = store.all_rows()
                     after = _row_fields(after_rows)
                     touched = set(after) if full else {k for k in set(before) | set(after) if before.get(k) != after.get(k)}

@@ -11,32 +11,23 @@ try:
         _audit,
         _edit_active_plan,
         _client_id,
-        _client_section_path,
-        _csv_read_rows,
         _csv_rows_payload,
-        _csv_write_rows,
         _current_user,
-        _ensure_header,
         _ensure_user_ui_plan_data_rows,
-        _forced_roth_conversions_from_csv_rows,
         _home_sale_splits_from_csv_rows,
-        _large_discretionary_expenses_from_plan_data,
         _liquidity_buffers_from_csv_rows,
         _normalize_date_for_csv,
         _normalize_large_discretionary_type,
         _all_account_ids_from_holdings,
         _plan_data_path,
         _pre_tax_account_options_from_holdings,
+        _read_active_plan,
         _read_client_section_rows,
         _read_plan_data_file,
         _read_schema_map,
         _reference_file_path,
-        _replace_forced_roth_conversions,
         _replace_home_sale_splits,
-        _replace_large_discretionary_expenses,
         _replace_liquidity_buffers,
-        _replace_residency_schedule,
-        _residency_schedule_from_csv_rows,
         _request_system_config_csv,
         _require,
         _runtime_config,
@@ -45,7 +36,6 @@ try:
         _sync_config_backends,
         _workspace_id,
         _workspace_output,
-        _write_client_rows,
         _write_plan_data_file,
         app,
         encryption_status,
@@ -71,32 +61,23 @@ except ImportError:
         _audit,
         _edit_active_plan,
         _client_id,
-        _client_section_path,
-        _csv_read_rows,
         _csv_rows_payload,
-        _csv_write_rows,
         _current_user,
-        _ensure_header,
         _ensure_user_ui_plan_data_rows,
-        _forced_roth_conversions_from_csv_rows,
         _home_sale_splits_from_csv_rows,
-        _large_discretionary_expenses_from_plan_data,
         _liquidity_buffers_from_csv_rows,
         _normalize_date_for_csv,
         _normalize_large_discretionary_type,
         _all_account_ids_from_holdings,
         _plan_data_path,
         _pre_tax_account_options_from_holdings,
+        _read_active_plan,
         _read_client_section_rows,
         _read_plan_data_file,
         _read_schema_map,
         _reference_file_path,
-        _replace_forced_roth_conversions,
         _replace_home_sale_splits,
-        _replace_large_discretionary_expenses,
         _replace_liquidity_buffers,
-        _replace_residency_schedule,
-        _residency_schedule_from_csv_rows,
         _request_system_config_csv,
         _require,
         _runtime_config,
@@ -105,7 +86,6 @@ except ImportError:
         _sync_config_backends,
         _workspace_id,
         _workspace_output,
-        _write_client_rows,
         _write_plan_data_file,
         app,
         encryption_status,
@@ -132,28 +112,17 @@ def _strategy_asset_feature_service() -> strategy_asset_service.StrategyAssetSer
     return strategy_asset_service.StrategyAssetService(
         strategy_asset_service.StrategyAssetServiceContext(
             base_dir=BASE_DIR,
-            plan_data_path=_plan_data_path,
-            client_section_path=_client_section_path,
             reference_file_path=_reference_file_path,
-            csv_read_rows=_csv_read_rows,
-            csv_write_rows=_csv_write_rows,
-            ensure_header=_ensure_header,
             edit_plan=_edit_active_plan,
-            write_client_rows=_write_client_rows,
+            read_plan=_read_active_plan,
             read_client_section_rows=_read_client_section_rows,
-            large_discretionary_expenses_from_plan_data=_large_discretionary_expenses_from_plan_data,
             normalize_large_discretionary_type=_normalize_large_discretionary_type,
-            replace_large_discretionary_expenses=_replace_large_discretionary_expenses,
             pre_tax_account_options_from_holdings=_pre_tax_account_options_from_holdings,
             all_account_ids_from_holdings=_all_account_ids_from_holdings,
-            forced_roth_conversions_from_csv_rows=_forced_roth_conversions_from_csv_rows,
-            replace_forced_roth_conversions=_replace_forced_roth_conversions,
             liquidity_buffers_from_csv_rows=_liquidity_buffers_from_csv_rows,
             replace_liquidity_buffers=_replace_liquidity_buffers,
             home_sale_splits_from_csv_rows=_home_sale_splits_from_csv_rows,
             replace_home_sale_splits=_replace_home_sale_splits,
-            residency_schedule_from_csv_rows=_residency_schedule_from_csv_rows,
-            replace_residency_schedule=_replace_residency_schedule,
             ensure_user_ui_plan_data_rows=_ensure_user_ui_plan_data_rows,
             sync_config_backends=_sync_config_backends,
             audit=_audit,
@@ -521,9 +490,7 @@ def get_spending_adjustments():
     denied = _require("read_config")
     if denied:
         return denied
-    from ..spending_adjustments import adjustment_dicts_from_rows
-    rows = _csv_read_rows(_client_section_path("Cashflow", "client_spending.csv"))
-    return jsonify({"success": True, "adjustments": adjustment_dicts_from_rows(rows)})
+    return _service_json(_strategy_asset_feature_service().spending_adjustments_payload())
 
 @app.route("/api/spending-adjustments", methods=["POST"])
 def save_spending_adjustments():
@@ -532,16 +499,8 @@ def save_spending_adjustments():
         return denied
     if not _runtime_config().allow_csv_write:
         return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
-    from ..spending_adjustments import replace_adjustment_rows, validate_adjustment_dicts
     body = request.get_json(silent=True) or {}
-    clean, error = validate_adjustment_dicts(body.get("adjustments"))
-    if error:
-        return jsonify({"success": False, "error": error}), 400
-    path = _client_section_path("Cashflow", "client_spending.csv")
-    _write_client_rows(path, replace_adjustment_rows(_ensure_header(_csv_read_rows(path)), clean))
-    _audit("spending_adjustments_saved", {"count": len(clean)})
-    sync_result = _sync_config_backends() if body.get("sync") else None
-    return jsonify({"success": True, "count": len(clean), "sync": sync_result})
+    return _service_json(_strategy_asset_feature_service().save_spending_adjustments_payload(body))
 
 @app.route("/api/forced-roth-conversions", methods=["GET"])
 def get_forced_roth_conversions():
