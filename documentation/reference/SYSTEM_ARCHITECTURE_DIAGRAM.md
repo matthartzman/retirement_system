@@ -448,7 +448,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/server_services/base_service.py` | — | — |
 | `src/server_services/build_job_service.py` | — | — |
 | `src/server_services/build_service.py` | `report_package`, `schema_registry`, `server_services` | — |
-| `src/server_services/config_service.py` | `csv_exchange`, `daf_optimizer`, `module_catalog`, `optimization`, `qlac_optimizer`, `report_compute`, `roth_ui_build_guard`, `schema_registry`, `stores` | — |
+| `src/server_services/config_service.py` | `csv_exchange`, `daf_optimizer`, `module_catalog`, `optimization`, `qlac_optimizer`, `report_compute`, `roth_ui_build_guard`, `schema_registry` | — |
 | `src/server_services/demo_plan_service.py` | — | — |
 | `src/server_services/holdings_service.py` | `config_backend`, `plan_file_io`, `workspace_context` | — |
 | `src/server_services/plan_data_file_service.py` | — | — |

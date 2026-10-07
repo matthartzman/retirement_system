@@ -37,9 +37,16 @@ def test_derived_files_are_byte_identical(tmp_path):
     assert _hashes(from_csv) == _hashes(from_plan)
 
 
-def test_sync_reads_the_csv_set_only_once(monkeypatch):
+def test_sync_reads_the_csv_set_only_once(monkeypatch, tmp_path):
     """Guards the actual saving: one read of the CSV set per sync."""
     import src.server.app_core as app_core
+
+    # a workspace of its own: the shared session workspace is edited by other xdist workers
+    ws = pf.make_plan(tmp_path / "ws")
+    monkeypatch.setenv("RETIREMENT_SYSTEM_WORKSPACE_ROOT", str(ws.root))
+    monkeypatch.delenv(active_plan.PLAN_DB_ENV, raising=False)
+    monkeypatch.delenv("RETIREMENT_SYSTEM_CONFIG_FILE", raising=False)
+    monkeypatch.setattr(app_core, "CSV_PATH", ws.input_dir / "client_data.csv")
 
     calls = {"n": 0}
     real = active_plan.read_plan_csv_set

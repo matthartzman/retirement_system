@@ -19,15 +19,16 @@ This document captures the stable local API contracts used by the v10 desktop UI
 Purpose: canonical editable Plan Data rows for the guided UI.
 
 Methods:
-- `GET`: returns the current saved working-copy rows.
-- `POST`: writes row-value updates by `row_index`.
+- `GET`: returns the active plan's rows (`plan_rows`, WP4.3).
+- `POST`: writes row-value updates by `row_index` in one transaction.
 
 GET response fields:
 - `success`: boolean.
 - `version`: app version string.
 - `active_backend`: backend label, normally `SQLITE`.
 - `csv_path`: configured CSV adapter path.
-- `rows`: ordered row objects with `row_index`, `section`, `subsection`, `label`, `value`, `units`, `notes`, schema metadata, and source-file metadata.
+- `rows`: row objects in plan display order with `row_index`, `section`, `subsection`, `label`, `value`, `units`, `notes`, `schema`, `choice_options` and `group`. `row_index` is the plan row's id: stable while the row exists, never reused.
+- `revision`: the plan's content revision (`PlanStore.revision()`).
 
 POST request:
 
@@ -43,12 +44,14 @@ POST request:
 POST response:
 - `success`: boolean.
 - `updated`: count of written rows.
-- `skipped`: skipped update records with reasons.
+- `skipped`: skipped update records with reasons (an unknown or stale `row_index`).
 - `sync`: optional backend-sync result when requested.
+- `revision`: the plan's revision after the save.
 
 Validation:
 - Invalid `updates` shape returns `400`.
-- Plan Data validation failures return `422` with `errors`.
+- Plan Data validation failures return `422` with `errors`; no update is written.
+- `409` when the edit could not be written back to the plan CSV set (transition until WP4.5); no update is written.
 
 ## `/api/spending/model`
 
