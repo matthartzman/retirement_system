@@ -37,23 +37,20 @@ _REF_DIR = Path(__file__).resolve().parent.parent / 'reference_data'
 # Replacement-security universe (wash-sale avoidance)
 # ─────────────────────────────────────────────────────────────────────────────
 
-def load_security_master(path: str | os.PathLike | None = None) -> dict[str, dict]:
-    """Return {SYMBOL: {asset_class, sleeve, style, name}} from security_master.csv."""
-    p = Path(path) if path else (_REF_DIR / 'security_master.csv')
+def load_security_master() -> dict[str, dict]:
+    """Return {SYMBOL: {asset_class, sleeve, style, name}} from the shipped security master."""
+    from .stores.ref_getters.security_master import security_master_rows
     out: dict[str, dict] = {}
-    if not p.exists():
-        return out
-    with p.open(newline='', encoding='utf-8-sig') as f:
-        for row in csv.DictReader(f):
-            sym = str(row.get('symbol') or '').strip().upper()
-            if not sym:
-                continue
-            out[sym] = {
-                'asset_class': str(row.get('asset_class') or '').strip().upper(),
-                'sleeve': str(row.get('sleeve') or '').strip(),
-                'style': str(row.get('style') or '').strip(),
-                'name': str(row.get('notes') or '').strip(),
-            }
+    for row in security_master_rows():
+        sym = str(row.get('symbol') or '').strip().upper()
+        if not sym:
+            continue
+        out[sym] = {
+            'asset_class': str(row.get('asset_class') or '').strip().upper(),
+            'sleeve': str(row.get('sleeve') or '').strip(),
+            'style': str(row.get('style') or '').strip(),
+            'name': str(row.get('notes') or '').strip(),
+        }
     return out
 
 

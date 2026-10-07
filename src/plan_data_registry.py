@@ -70,12 +70,7 @@ def client_data_derived_files() -> list[str]:
 # of a package always runs that package's __init__.py first, which registers
 # admin_routes, which reads admin_service.ADMIN_PLAN_DATA_FILES back -- a
 # circular import if admin_service ever depended on src.server.*).
-SYSTEM_REFERENCE_FILES: list[str] = [
-    "security_master.csv",
-    "capital_market_assumptions.csv",
-    "asset_correlations.csv",
-    "schema.csv",
-    "state_tax.csv",
-    "tax_constants.csv",
-    "tax_update_dashboard.csv",
-]
+# Shipped reference data now lives in the read-only reference.db (WP3), so there are no
+# editable reference files left. The admin "reference files" editor (frontend/js/admin.js)
+# is retired with the csv_exchange work package, which adds override screens instead.
+SYSTEM_REFERENCE_FILES: list[str] = []

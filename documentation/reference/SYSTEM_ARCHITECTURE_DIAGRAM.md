@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 199 Python files under `src/`, 47 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 211 Python files under `src/`, 47 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -24,7 +24,7 @@ flowchart TB
     subgraph L_HTTP_Runtime["HTTP Runtime (3 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
-    subgraph L_Core_Engine___Domain["Core Engine & Domain (119 modules)"]
+    subgraph L_Core_Engine___Domain["Core Engine & Domain (131 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
     subgraph L_Projection_Stages["Projection Stages (23 modules)"]
@@ -459,7 +459,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/server_services/report_service.py` | `detailed_results`, `report_package`, `system_config` | — |
 | `src/server_services/secret_service.py` | — | — |
 | `src/server_services/spending_service.py` | — | — |
-| `src/server_services/strategy_asset_service.py` | `core`, `data_io`, `plan_file_io` | — |
+| `src/server_services/strategy_asset_service.py` | `core`, `data_io`, `plan_file_io`, `stores.ref_getters.state_tax` | — |
 | `src/server_services/ytd_service.py` | `import_preview` | — |
 
 ### HTTP Runtime
@@ -484,7 +484,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/config_backend.py` | `local_store`, `plan_data_registry`, `plan_file_io`, `system_config` | `pyyaml` |
 | `src/core.py` | `person_labels` | — |
 | `src/daf_optimizer.py` | — | — |
-| `src/data_io.py` | `config_backend`, `core`, `market_data`, `module_catalog`, `money`, `parsing.advanced_modules`, `parsing.allocation_optimizer_inputs`, `parsing.daf`, `parsing.estate_planning`, `parsing.hsa_policy`, `parsing.insurance`, `parsing.note_receivable`, `parsing.roth_conversion_policy`, `parsing.validation`, `parsing.withdrawal_order`, `parsing.withdrawal_policy`, `plan_config`, `plan_data_migration`, `plan_data_registry`, `portfolio_analytics`, `report_compute`, `roth_ui_build_guard`, `spending_adjustments`, `spending_budget_resolver`, `system_config`, `tax_law`, `workspace_context` | — |
+| `src/data_io.py` | `config_backend`, `core`, `market_data`, `module_catalog`, `money`, `parsing.advanced_modules`, `parsing.allocation_optimizer_inputs`, `parsing.daf`, `parsing.estate_planning`, `parsing.hsa_policy`, `parsing.insurance`, `parsing.note_receivable`, `parsing.roth_conversion_policy`, `parsing.validation`, `parsing.withdrawal_order`, `parsing.withdrawal_policy`, `plan_config`, `plan_data_migration`, `plan_data_registry`, `portfolio_analytics`, `report_compute`, `roth_ui_build_guard`, `spending_adjustments`, `spending_budget_resolver`, `stores.ref_getters.cma`, `stores.ref_getters.security_master`, `system_config`, `tax_law`, `workspace_context` | — |
 | `src/desktop_api.py` | `src`, `bootstrap`, `server`, `server.app_core`, `server.workbook_routes`, `server_services` | `pywebview` |
 | `src/desktop_app.py` | `desktop_api` | `pywebview` |
 | `src/detailed_results.py` | `results_model` | `openpyxl` |
@@ -492,10 +492,10 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/equity_comp.py` | — | — |
 | `src/gain_harvest.py` | `tlh` | — |
 | `src/glossary.py` | `core`, `taxes` | — |
-| `src/governance.py` | `src`, `version` | — |
+| `src/governance.py` | `src`, `stores.ref_getters.tax_update_dashboard`, `version` | — |
 | `src/holding_period.py` | — | — |
 | `src/housing/__init__.py` | — | — |
-| `src/housing/api.py` | `housing.models`, `housing.optimizer`, `housing.zip_screen.resolve`, `housing.zip_screen.schema`, `housing.zip_screen.screen`, `housing.zip_screen.table`, `server_services.strategy_asset_service` | — |
+| `src/housing/api.py` | `housing.models`, `housing.optimizer`, `housing.zip_screen.resolve`, `housing.zip_screen.schema`, `housing.zip_screen.screen`, `housing.zip_screen.table`, `server_services.strategy_asset_service`, `stores.ref_getters.zip_data` | — |
 | `src/housing/candidates.py` | `housing.models` | — |
 | `src/housing/constraints.py` | `housing.models`, `housing.zip_screen.geo` | — |
 | `src/housing/models.py` | — | — |
@@ -510,11 +510,11 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/housing/zip_screen/resolve.py` | `housing.models`, `housing.zip_screen.schema` | — |
 | `src/housing/zip_screen/schema.py` | — | — |
 | `src/housing/zip_screen/screen.py` | `housing.zip_screen.geo`, `housing.zip_screen.quality`, `housing.zip_screen.resolve`, `housing.zip_screen.schema`, `housing.zip_screen.table`, `server_services.strategy_asset_service` | — |
-| `src/housing/zip_screen/table.py` | `housing.zip_screen.schema` | — |
+| `src/housing/zip_screen/table.py` | `housing.zip_screen.schema`, `stores.ref_getters.zip_data` | — |
 | `src/housing_comparison.py` | `after_tax`, `planning_engines`, `server_services.strategy_asset_service` | — |
 | `src/housing_optimizer.py` | `housing` | — |
 | `src/hsa_schedule.py` | `after_tax`, `planning_engines`, `taxes` | — |
-| `src/import_preview.py` | `ytd_tracking` | — |
+| `src/import_preview.py` | `stores.ref_getters.security_master`, `ytd_tracking` | — |
 | `src/large_discretionary.py` | — | — |
 | `src/local_backup_scheduler.py` | — | — |
 | `src/local_plan_data_sync.py` | `plan_data_registry`, `runtime_config`, `workspace_context` | — |
@@ -524,11 +524,11 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/monarch_autoimport_job.py` | — | — |
 | `src/monarch_autoupdate.py` | — | — |
 | `src/monarch_db_sync.py` | — | — |
-| `src/monarch_import.py` | `ytd_tracking` | — |
+| `src/monarch_import.py` | `stores.ref_getters.monarch_field_map`, `ytd_tracking` | — |
 | `src/money.py` | — | — |
 | `src/observability.py` | — | — |
 | `src/onedrive_guard.py` | — | — |
-| `src/optimization.py` | `allocation_policy`, `holding_period`, `real_loss_curves`, `vectorized_fast_core`, `workspace_context` | `numpy`, `scipy` |
+| `src/optimization.py` | `allocation_policy`, `holding_period`, `real_loss_curves`, `stores.ref_getters.cma`, `vectorized_fast_core` | `numpy`, `scipy` |
 | `src/parsing/__init__.py` | — | — |
 | `src/parsing/advanced_modules.py` | `data_io` | — |
 | `src/parsing/allocation_optimizer_inputs.py` | `data_io` | — |
@@ -551,13 +551,13 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/plan_dates.py` | — | — |
 | `src/plan_db_replace.py` | — | — |
 | `src/plan_file_io.py` | — | — |
-| `src/planning_engines.py` | `after_tax`, `core`, `data_io`, `hsa_schedule`, `observability`, `optimization`, `person_labels`, `plan_config`, `projection_stages`, `spending_budget_resolver`, `tax_kernel`, `tax_law`, `vectorized_fast_core` | `numpy` |
+| `src/planning_engines.py` | `after_tax`, `core`, `data_io`, `hsa_schedule`, `observability`, `optimization`, `person_labels`, `plan_config`, `projection_stages`, `spending_budget_resolver`, `stores.ref_getters.mortality_real_loss`, `tax_kernel`, `tax_law`, `vectorized_fast_core` | `numpy` |
 | `src/planning_workbench.py` | — | — |
 | `src/platform_runtime.py` | — | — |
-| `src/portfolio_analytics.py` | `config_backend` | — |
+| `src/portfolio_analytics.py` | `config_backend`, `stores.ref_getters.security_master` | — |
 | `src/projection_pipeline.py` | `observability`, `planning_engines` | — |
 | `src/qlac_optimizer.py` | — | — |
-| `src/real_loss_curves.py` | `allocation_policy`, `workspace_context` | — |
+| `src/real_loss_curves.py` | `allocation_policy`, `stores.ref_getters.mortality_real_loss` | — |
 | `src/report_compute.py` | `data_io`, `governance`, `local_store`, `market_data`, `plan_config`, `planning_engines`, `projection_pipeline`, `report_spec`, `result_contract`, `results_model` | — |
 | `src/report_package.py` | `build_snapshot`, `results_model`, `version` | — |
 | `src/report_spec.py` | — | — |
@@ -565,27 +565,39 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/results_model.py` | `person_labels`, `version` | — |
 | `src/roth_ui_build_guard.py` | — | — |
 | `src/runtime_config.py` | `system_config` | — |
-| `src/schema_registry.py` | `plan_data_registry` | — |
+| `src/schema_registry.py` | `plan_data_registry`, `stores.ref_getters.schema_fields` | — |
 | `src/secrets_store.py` | `plan_file_io`, `platform_runtime` | — |
 | `src/security.py` | `runtime_config` | — |
 | `src/server_forecast.py` | `after_tax`, `core`, `report_compute` | — |
 | `src/spending_adjustments.py` | — | — |
 | `src/spending_budget_resolver.py` | `large_discretionary`, `spending_adjustments`, `spending_tracker` | — |
 | `src/spending_tracker.py` | `platform_runtime`, `ytd_tracking` | — |
-| `src/stores/__init__.py` | `stores.app_store`, `stores.db`, `stores.errors`, `stores.plan_store`, `stores.ref_data` | — |
+| `src/stores/__init__.py` | `stores.app_store`, `stores.db`, `stores.errors`, `stores.plan_store`, `stores.ref_access`, `stores.ref_data` | — |
 | `src/stores/_base.py` | `stores`, `stores.errors` | — |
 | `src/stores/app_store.py` | `stores._base`, `stores.errors`, `stores.plan_store` | — |
 | `src/stores/db.py` | `stores.errors` | — |
 | `src/stores/errors.py` | — | — |
 | `src/stores/plan_store.py` | `stores._base`, `stores.errors` | — |
+| `src/stores/ref_access.py` | `stores.ref_data` | — |
 | `src/stores/ref_data.py` | `stores`, `stores.errors` | — |
+| `src/stores/ref_getters/__init__.py` | `stores.ref_data`, `stores.ref_getters` | — |
+| `src/stores/ref_getters/cma.py` | `stores.ref_access`, `stores.ref_data` | — |
+| `src/stores/ref_getters/monarch_field_map.py` | `stores.ref_access`, `stores.ref_data` | — |
+| `src/stores/ref_getters/mortality_real_loss.py` | `stores.ref_access`, `stores.ref_data` | — |
+| `src/stores/ref_getters/schema_fields.py` | `stores.ref_access`, `stores.ref_data` | — |
+| `src/stores/ref_getters/security_master.py` | `stores.ref_access`, `stores.ref_data` | — |
+| `src/stores/ref_getters/state_tax.py` | `stores.ref_access`, `stores.ref_data`, `taxes` | — |
+| `src/stores/ref_getters/tax_law.py` | `stores.ref_access`, `stores.ref_data`, `tax_law` | — |
+| `src/stores/ref_getters/tax_update_dashboard.py` | `stores.ref_access`, `stores.ref_data` | — |
+| `src/stores/ref_getters/template_layout.py` | `stores.ref_access`, `stores.ref_data` | — |
+| `src/stores/ref_getters/zip_data.py` | `housing.zip_screen.schema`, `stores.ref_access`, `stores.ref_data` | — |
 | `src/strategy_sweep.py` | — | — |
 | `src/system_config.py` | `plan_file_io` | — |
 | `src/tax_assumptions.py` | `tax_law` | — |
 | `src/tax_kernel.py` | `core` | — |
-| `src/tax_law.py` | — | — |
+| `src/tax_law.py` | `stores.ref_getters.tax_law` | — |
 | `src/taxes.py` | `tax_law` | — |
-| `src/tlh.py` | — | — |
+| `src/tlh.py` | `stores.ref_getters.security_master` | — |
 | `src/us_states.py` | — | — |
 | `src/vectorized_fast_core.py` | — | `numpy` |
 | `src/version.py` | — | — |
@@ -646,7 +658,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/reporting/sheets_wealth.py` | `reporting.workbook_common` | — |
 | `src/reporting/summary_figures.py` | `after_tax`, `core` | — |
 | `src/reporting/workbook_builder.py` | `after_tax`, `build_snapshot`, `governance`, `hsa_schedule`, `local_store`, `planning_engines`, `report_package`, `reporting.dashboard`, `reporting.sheets_allocation_helpers`, `reporting.sheets_current_vs_proposed`, `reporting.sheets_projection_facade`, `reporting.sheets_protection`, `reporting.sheets_qc_reference`, `reporting.sheets_strategy`, `reporting.sheets_stress`, `reporting.sheets_summary_builder`, `reporting.sheets_tax_capacity`, `reporting.sheets_tax_reporter`, `reporting.sheets_wealth`, `reporting.summary_figures`, `reporting.workbook_common`, `reporting.workbook_format_config`, `results_model`, `spending_tracker`, `workspace_context`, `ytd_projection_blend` | — |
-| `src/reporting/workbook_common.py` | `config_backend`, `core`, `data_io`, `market_data`, `module_catalog`, `report_compute`, `workspace_context` | `openpyxl` |
+| `src/reporting/workbook_common.py` | `config_backend`, `core`, `data_io`, `market_data`, `module_catalog`, `report_compute`, `stores.ref_getters.template_layout`, `workspace_context` | `openpyxl` |
 | `src/reporting/workbook_format_config.py` | `workspace_context` | `openpyxl` |
 | `src/reporting/workbook_xml_optimizer.py` | — | `lxml`, `openpyxl` |
 

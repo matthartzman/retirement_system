@@ -1,13 +1,11 @@
 """The bundled snapshot must satisfy the schema the runtime assumes."""
 from __future__ import annotations
 
-import os
-
 import pytest
 
 from src.housing.zip_screen.quality import score_zip
 from src.housing.zip_screen.schema import COLUMNS
-from src.housing.zip_screen.table import clear_cache, default_table_path, load_table
+from src.housing.zip_screen.table import clear_cache, load_table
 
 pytestmark = pytest.mark.integration
 
@@ -23,8 +21,7 @@ def _clean_cache():
 
 @pytest.fixture
 def table():
-    if not os.path.exists(default_table_path()):
-        pytest.skip('snapshot not built; run scripts/build_zip_metrics.py')
+    # Snapshot is built into reference.db by tools/build_reference_db.py
     return load_table()
 
 
@@ -80,10 +77,8 @@ def test_most_rows_clear_the_coverage_floor(table):
 
 
 def test_top_cities_file_resolves_anchors(table):
-    import csv
-    path = os.path.join(os.path.dirname(default_table_path()), 'top_cities.csv')
-    with open(path, encoding='utf-8') as fh:
-        rows = list(csv.DictReader(fh))
+    from src.stores.ref_getters.zip_data import top_cities_rows
+    rows = top_cities_rows()
     assert len(rows) >= 200
     pilot = [r for r in rows if r['state'] in PILOT_STATES]
     assert pilot

@@ -9,12 +9,25 @@ from src.housing.api import optimize_housing_from_request
 
 from src.data_io import load_csv, parse_client
 from src.plan_config import ensure_engine_config
+from src.stores.ref_access import set_reference_for_tests
 from tests.golden_pricing import FROZEN_GOLDEN_MASTER_PRICES, frozen_holdings_prices
+from tests.zip_fixture import use_zip_test_db
 from conftest import TEST_INPUT_DIR
 
 pytestmark = pytest.mark.integration
 
 FIXTURE = 'tests/fixtures/zip_metrics_sample.csv'
+
+@pytest.fixture(autouse=True)
+def _sample_zip_table():
+    """Screen against the small fixture snapshot, not the national table."""
+    from src.housing.zip_screen.table import clear_cache
+    use_zip_test_db(FIXTURE)
+    clear_cache()
+    yield
+    set_reference_for_tests(None)
+    clear_cache()
+
 
 DWELLING = {
     'bedrooms': 3, 'bathrooms': 2.0, 'property_type': 'single_family',
@@ -64,7 +77,7 @@ def test_locations_is_rejected_end_to_end():
     """The manual-location mode is gone; the request adapter's own
     validate_request call is what catches it, not just the unit test."""
     payload, status = optimize_housing_from_request(
-        _base_config(), _body(locations=[{'state': 'Texas'}]), table_path=FIXTURE)
+        _base_config(), _body(locations=[{'state': 'Texas'}]))
     assert status == 400
     assert 'locations' in payload['error'].lower()
 
@@ -73,20 +86,20 @@ def test_an_unresolvable_anchor_is_a_400_naming_the_zip():
     body = _body()
     body['move1']['search'] = _search(anchors=[
         {'kind': 'zip', 'anchor_zip': '99999'}, {'kind': 'zip', 'anchor_zip': '60521'}])
-    payload, status = optimize_housing_from_request(_base_config(), body, table_path=FIXTURE)
+    payload, status = optimize_housing_from_request(_base_config(), body)
     assert status == 400
     assert '99999' in payload['error']
 
 
 def test_zip_search_produces_a_zip_screens_block():
-    payload, status = optimize_housing_from_request(_base_config(), _body(), table_path=FIXTURE)
+    payload, status = optimize_housing_from_request(_base_config(), _body())
     assert status == 200
     assert payload['zip_screens']['move1']['schema'] == 'zip_screen_v2'
     assert 'move2' not in payload['zip_screens']
 
 
 def test_promoted_zips_become_the_optimizers_locations():
-    payload, _ = optimize_housing_from_request(_base_config(), _body(), table_path=FIXTURE)
+    payload, _ = optimize_housing_from_request(_base_config(), _body())
     promoted = {z['zip'] for z in payload['zip_screens']['move1']['shortlist']}
     assert payload['recommendation'] is not None
     recommended = payload['recommendation']['moves'][0]['location']
@@ -94,7 +107,7 @@ def test_promoted_zips_become_the_optimizers_locations():
 
 
 def test_recommendation_carries_the_nss_and_city_for_the_chosen_zip():
-    payload, _ = optimize_housing_from_request(_base_config(), _body(), table_path=FIXTURE)
+    payload, _ = optimize_housing_from_request(_base_config(), _body())
     loc = payload['recommendation']['moves'][0]['location']
     assert 0.0 <= loc['nss'] <= 100.0
     assert loc['city']
@@ -103,7 +116,7 @@ def test_recommendation_carries_the_nss_and_city_for_the_chosen_zip():
 def test_an_empty_shortlist_returns_200_without_running_the_engine():
     body = _body()
     body['move1']['search'] = _search(min_quality_score=99.9)
-    payload, status = optimize_housing_from_request(_base_config(), body, table_path=FIXTURE)
+    payload, status = optimize_housing_from_request(_base_config(), body)
     assert status == 200
     assert payload['recommendation'] is None
     assert payload['candidates_evaluated'] == 0
@@ -117,7 +130,7 @@ def test_a_zip_outside_the_screen_is_rejected_end_to_end_naming_it():
     body = _body()
     body['move1']['search'] = _search(selected_zips=['60521', '99999'])
     payload, status = optimize_housing_from_request(
-        _base_config(), body, table_path=FIXTURE)
+        _base_config(), body)
     assert status == 400
     assert payload['success'] is False
     assert '99999' in payload['error']
@@ -130,7 +143,7 @@ def test_an_empty_screen_keeps_its_own_message_rather_than_blaming_the_selection
     body = _body()
     body['move1']['search'] = _search(min_quality_score=99.9)
     payload, status = optimize_housing_from_request(
-        _base_config(), body, table_path=FIXTURE)
+        _base_config(), body)
     assert status == 200
     assert 'radius' in payload['message']
 
@@ -139,7 +152,7 @@ def test_only_the_selected_zips_reach_the_optimizer():
     body = _body()
     body['move1']['search'] = _search(min_quality_score=0, selected_zips=['60521'])
     payload, _ = optimize_housing_from_request(
-        _base_config(), body, table_path=FIXTURE)
+        _base_config(), body)
     searched = {z['zip'] for z in payload['zip_screens']['move1']['shortlist']}
     assert searched == {'60521'}
 
@@ -153,10 +166,10 @@ def test_a_down_payment_pct_of_zero_is_honored_not_rewritten_to_20_pct():
     body = _body()
     body['move1']['action'] = 'buy'
     zero_down_payload, status = optimize_housing_from_request(
-        _base_config(), dict(body, down_payment_pct=0), table_path=FIXTURE)
+        _base_config(), dict(body, down_payment_pct=0))
     assert status == 200
     default_payload, status = optimize_housing_from_request(
-        _base_config(), body, table_path=FIXTURE)
+        _base_config(), body)
     assert status == 200
 
     zero_down_pi = zero_down_payload['recommendation']['moves'][0]['financing']['monthly_pi_payment']
@@ -170,6 +183,6 @@ def test_a_second_move_produces_a_second_zip_screens_block():
         'action': 'auto', 'concurrent': False, 'anchor_count': 2,
         'search': _search(),
     })
-    payload, status = optimize_housing_from_request(_base_config(), body, table_path=FIXTURE)
+    payload, status = optimize_housing_from_request(_base_config(), body)
     assert status == 200
     assert payload['zip_screens']['move2']['schema'] == 'zip_screen_v2'

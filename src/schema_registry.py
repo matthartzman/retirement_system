@@ -1,88 +1,17 @@
 from __future__ import annotations
 """Schema-driven validation/help registry for Plan Data rows."""
-import csv, math, re
-from pathlib import Path
-from typing import Dict, Tuple
+import math, re
 from .plan_data_registry import client_data_csv_files
-from . import platform_runtime
 from . import plan_dates as _plan_dates
-ROOT = Path(__file__).resolve().parent.parent
-SCHEMA_PATH = ROOT / 'reference_data' / 'schema.csv'
-GENERATED_SCHEMA_PATH = ROOT / 'reference_data' / 'generated_schema_coverage.csv'
 PLAN_FILES = [*client_data_csv_files(), 'target_allocation.csv']
 
 def schema_key(row: dict) -> tuple[str,str,str]:
     return ((row.get('section') or '').strip(), (row.get('subsection') or '').strip(), (row.get('label') or '').strip())
 
-def infer_type(units: str, value: str, label: str='', notes: str='') -> str:
-    u=(units or '').lower().strip(); v=str(value or '').strip(); l=(label or '').lower(); n=(notes or '').lower()
-    choice_labels = {
-        'filing_status','survivor_filing_status','roth_conversion_policy',
-        'roth_objective_mode','estate_tax_objective_mode','irmaa_guardrail_mode',
-        'roth_irmaa_target_tier','legacy_objective_mode','allocation_selection_mode',
-        'selection_action','alternate_asset_class'
-    }
-    if u == 'choice' or l in choice_labels or '|' in str(notes or ''):
-        return 'choice'
-    if u in {'yes/no','true/false','boolean'} or v.upper() in {'YES','NO','TRUE','FALSE'}: return 'boolean'
-    if 'date' in l or re.match(r'\d{1,2}/\d{1,2}/\d{4}$', v): return 'date'
-    if '%' in v or 'pct' in u or 'percent' in u: return 'percent'
-    if u in {'year','years'} or l.endswith('_year'): return 'year'
-    if 'usd' in u or '$' in v or any(tok in l for tok in ['amount','balance','income','spending','premium','benefit','salary','value','cost']): return 'currency'
-    try:
-        float(v.replace(',',''))
-        return 'number'
-    except Exception:
-        return 'text'
-
 def load_schema() -> dict[tuple[str,str,str], dict]:
-    out={}
-    for path in [SCHEMA_PATH, GENERATED_SCHEMA_PATH]:
-        if not path.exists(): continue
-        with path.open(newline='', encoding='utf-8-sig') as f:
-            for row in csv.DictReader(f):
-                key=schema_key(row)
-                if not (key[0] and key[2]):
-                    continue
-                # schema.csv is authoritative. Generated coverage is a backfill for
-                # rows missing from the hand-maintained schema, so it must not
-                # downgrade a manual choice/boolean/percent definition.
-                if key in out:
-                    continue
-                clean = {str(k): v for k, v in dict(row).items() if k is not None}
-                extras = row.get(None)
-                if extras:
-                    desc = str(clean.get('description') or '').strip()
-                    extra = ','.join(str(x).strip() for x in extras if str(x).strip())
-                    if extra:
-                        clean['description'] = (desc + ', ' + extra).strip(', ') if desc else extra
-                out[key]=clean
-    return out
-
-def generate_schema_coverage(input_dir: Path | None = None, output_path: Path | None = None) -> dict:
-    input_dir = input_dir or platform_runtime.workspace_root() / 'input'
-    output_path = output_path or GENERATED_SCHEMA_PATH
-    existing=load_schema()
-    generated=[]; seen=set()
-    for name in PLAN_FILES:
-        p=input_dir/name
-        if not p.exists(): continue
-        with p.open(newline='', encoding='utf-8-sig') as f:
-            for row in csv.DictReader(f):
-                sec=(row.get('section') or '').strip(); label=(row.get('label') or '').strip()
-                if not sec or sec.startswith('#') or not label: continue
-                key=(sec,(row.get('subsection') or '').strip(),label)
-                if key in existing or key in seen: continue
-                seen.add(key)
-                units=(row.get('units') or '').strip(); val=(row.get('value') or '').strip(); notes=(row.get('notes') or '').strip()
-                generated.append({'section':key[0],'subsection':key[1],'label':key[2], 'type':infer_type(units,val,label,notes),
-                                  'required':'FALSE','default':'','min':'','max':'',
-                                  'description': notes or f'Generated schema help for {key[0]} / {key[1]} / {key[2]}.'})
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    fields=['section','subsection','label','type','required','default','min','max','description']
-    with output_path.open('w', newline='', encoding='utf-8') as f:
-        w=csv.DictWriter(f, fieldnames=fields, lineterminator='\n'); w.writeheader(); w.writerows(generated)
-    return {'generated':len(generated), 'output':str(output_path), 'total_schema':len(existing)+len(generated)}
+    """The field catalog from the shipped reference.db (fresh dicts on every call)."""
+    from .stores.ref_getters.schema_fields import schema_fields
+    return schema_fields()
 
 def validate_value(value: str, spec: dict) -> list[str]:
     errors=[]; typ=(spec.get('type') or '').lower(); val=str(value or '').strip()

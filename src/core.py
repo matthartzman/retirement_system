@@ -825,7 +825,7 @@ ASSET_CLASS_RETURNS = {
 FEDERAL_BRACKETS_BASE_YEAR = _td.FEDERAL_BRACKETS_BASE_YEAR
 FEDERAL_BRACKETS_MFJ    = FEDERAL_BRACKETS_BASE_YEAR['MFJ']
 FEDERAL_BRACKETS_SINGLE = FEDERAL_BRACKETS_BASE_YEAR['Single']
-STATE_TAX_RULES = _td.load_state_tax([])
+STATE_TAX_RULES = _td.load_state_tax()
 col_factors = _td.col_factors  # geographic cost-of-living factors for State Residency
 IRMAA_TIERS_BASE_YEAR = _td.IRMAA_TIERS_BASE_YEAR
 IRMAA_TIERS_MFJ = IRMAA_TIERS_BASE_YEAR['MFJ']
@@ -992,7 +992,7 @@ def _require_supported_state(state):
     Illinois.
 
     A blank/missing state is intentionally NOT raised here: residence_state
-    is a required Plan Data field (reference_data/schema.csv) already
+    is a required Plan Data field (reference_src/schema.csv) already
     enforced by the separate "missing required field" preflight check, so an
     empty string reaching this function is that upstream validation's
     problem, not a "wrong state name" problem. Raising here too would risk

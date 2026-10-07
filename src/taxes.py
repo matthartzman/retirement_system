@@ -40,7 +40,7 @@ FILING_STATUSES = ['MFJ', 'Single', 'HOH', 'MFS']
 
 
 def _load_federal_tax_law_tables(reference_year=None):
-    """Load all federal tax-law tables from reference_data/tax_law_v10.json.
+    """Load all federal tax-law tables from the shipped reference.db (source reference_src/tax_law_v10.json).
 
     There are intentionally no embedded federal bracket, deduction, NIIT, LTCG,
     IRMAA, SALT, or Social Security wage-base tables in this module.  The local
@@ -331,138 +331,51 @@ def _parse_float(s, default=0.0):
         return default
 
 
-def load_state_tax(search_dirs=None):
-    """Load state tax rules. Overlays state_tax.csv onto STATE_TAX_DEFAULTS.
+def load_state_tax():
+    """State tax rules the engine uses: a copy of ``STATE_TAX_DEFAULTS``.
 
-    CSV columns: state,rate,type,exempt_retirement,exempt_ss,prop_rate,
-                 sales_rate,estate,estate_exempt,retirement_exempt_over_65,source
+    The engine has never overlaid ``state_tax.csv`` (its only caller passed no search
+    dirs). The shipped reference rows now live in reference.db and are available as
+    ``ref_getters.state_tax.state_tax_rules()`` (the overlay) / ``state_tax_rows()``;
+    wiring the overlay into the engine would change numbers (e.g. Colorado sales
+    rate 7.7% vs 7.8%), so that is an owner decision, not part of the storage move.
 
     Returns: dict {state_name: {rule_dict}}
     """
-    rules = {k: dict(v) for k, v in STATE_TAX_DEFAULTS.items()}  # deep copy defaults
-
-    if search_dirs is None:
-        _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        search_dirs = [_project_root, os.getcwd(), '/mnt/user-data/outputs']
-
-    csv_path = None
-    for d in search_dirs:
-        p = os.path.join(d, 'reference_data/state_tax.csv')
-        if os.path.exists(p):
-            csv_path = p
-            break
-
-    if csv_path:
-        with open(csv_path, newline='', encoding='utf-8-sig') as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                state = (row.get('state', '') or '').strip()
-                if not state or state.startswith('#'):
-                    continue
-                rules[state] = {
-                    'rate':                     _parse_float(row.get('rate', '0')),
-                    'type':                     (row.get('type', 'flat') or 'flat').strip(),
-                    'exempt_retirement':         _parse_bool(row.get('exempt_retirement', 'FALSE')),
-                    'exempt_ss':                 _parse_bool(row.get('exempt_ss', 'TRUE')),
-                    'prop_rate':                 _parse_float(row.get('prop_rate', '0')),
-                    'sales_rate':                _parse_float(row.get('sales_rate', '0')),
-                    'estate':                    _parse_bool(row.get('estate', 'FALSE')),
-                    'estate_exempt':             _parse_float(row.get('estate_exempt', '0')),
-                    'estate_calc':               (row.get('estate_calc', '') or '').strip() or 'none',
-                    'retirement_exempt_over_65': _parse_float(row.get('retirement_exempt_over_65', '0')),
-                    'source':                    (row.get('source', '') or '').strip(),
-                }
-                # Optional geographic cost-of-living override columns.  Only
-                # carried when the CSV actually supplies a value so col_factors()
-                # can distinguish "not provided" from an explicit 0/1.0.
-                for _csv_key in ('col_auto', 'col_home_ins', 'col_utilities', 'col_maintenance'):
-                    _raw = (row.get(_csv_key, '') or '').strip()
-                    if _raw != '':
-                        rules[state][_csv_key] = _parse_float(_raw, 1.0)
-
-    return rules
+    return {k: dict(v) for k, v in STATE_TAX_DEFAULTS.items()}
 
 
-def load_tax_constants(search_dirs=None):
-    """Load tax constant overrides from tax_constants.csv.
+def load_tax_constants():
+    """Provenance registry of the federal tax constants, built from the tax-law dataset.
 
-    CSV columns: key, tax_year, value, source
-    Returns: dict {key: {'value': float, 'tax_year': int, 'source': str}}
-
-    Supported keys (overlaid onto module-level defaults):
-        std_ded_mfj, std_ded_single, std_ded_hoh, std_ded_mfs,
-        over65_add_mfj, over65_add_single, over65_add_hoh, over65_add_mfs,
-        niit_threshold_mfj, niit_threshold_single, niit_threshold_hoh, niit_threshold_mfs,
-        ss_wage_base
+    Returns: dict {key: {'value': float, 'tax_year': int, 'source': str}}, plus
+    ``_v11_tax_law_dataset``. The engine tables are overlaid onto the module-level
+    base-year defaults. (``tax_constants.csv`` was a fallback only and is gone.)
     """
     registry = {}
-
-    # v11 primary path: tax-law values are loaded from the dated local dataset.
-    # tax_constants.csv remains a compatibility/import adapter below.
-    try:
-        from .tax_law import load_tax_law_dataset
-        ds = load_tax_law_dataset()
-        engine = ds.as_engine_tables(TAX_REFERENCE_YEAR)
-        for filing, val in engine.get('standard_deduction', {}).items():
-            if filing in STANDARD_DEDUCTION_BASE_YEAR:
-                STANDARD_DEDUCTION_BASE_YEAR[filing] = val
-        for filing, val in engine.get('standard_deduction_over65', {}).items():
-            if filing in STANDARD_DEDUCTION_OVER65_BASE_YEAR:
-                STANDARD_DEDUCTION_OVER65_BASE_YEAR[filing] = val
-        for filing, val in engine.get('niit_threshold', {}).items():
-            if filing in NIIT_THRESHOLD:
-                NIIT_THRESHOLD[filing] = val
-        for filing, table in engine.get('ordinary_brackets', {}).items():
-            FEDERAL_BRACKETS_BASE_YEAR[filing] = table
-        for filing, table in engine.get('ltcg_brackets', {}).items():
-            LTCG_BRACKETS_BASE_YEAR[filing] = table
-        for filing, table in engine.get('irmaa_tiers', {}).items():
-            IRMAA_TIERS_BASE_YEAR[filing] = list(table)
-        _check_irmaa_tiers_monotonic(IRMAA_TIERS_BASE_YEAR)
-        for item in ds.values:
-            key = f"{item.name}_{item.filing_status.lower()}"
-            registry[key] = {'value': item.value, 'tax_year': item.effective_year, 'source': item.source}
-        registry['_v11_tax_law_dataset'] = {'value': len(ds.values), 'tax_year': max(v.effective_year for v in ds.values), 'source': ds.generated_from}
-        return registry
-    except Exception:
-        pass
-
-    if search_dirs is None:
-        _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        search_dirs = [_project_root, os.getcwd(), '/mnt/user-data/outputs']
-
-    csv_path = None
-    for d in search_dirs:
-        p = os.path.join(d, 'reference_data/tax_constants.csv')
-        if os.path.exists(p):
-            csv_path = p
-            break
-
-    if csv_path:
-        with open(csv_path, newline='', encoding='utf-8-sig') as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                key = (row.get('key', '') or '').strip()
-                if not key or key.startswith('#'):
-                    continue
-                registry[key] = {
-                    'value':    _parse_float(row.get('value', '0')),
-                    'tax_year': int(_parse_float(row.get('tax_year', str(TAX_REFERENCE_YEAR)))),
-                    'source':   (row.get('source', '') or '').strip(),
-                }
-
-    # Apply overrides to module-level defaults
-    for filing in FILING_STATUSES:
-        fk = filing.lower()
-        sd_key = f'std_ded_{fk}'
-        if sd_key in registry:
-            STANDARD_DEDUCTION_BASE_YEAR[filing] = registry[sd_key]['value']
-        o65_key = f'over65_add_{fk}'
-        if o65_key in registry:
-            STANDARD_DEDUCTION_OVER65_BASE_YEAR[filing] = registry[o65_key]['value']
-        niit_key = f'niit_threshold_{fk}'
-        if niit_key in registry:
-            NIIT_THRESHOLD[filing] = registry[niit_key]['value']
+    from .tax_law import load_tax_law_dataset
+    ds = load_tax_law_dataset()
+    engine = ds.as_engine_tables(TAX_REFERENCE_YEAR)
+    for filing, val in engine.get('standard_deduction', {}).items():
+        if filing in STANDARD_DEDUCTION_BASE_YEAR:
+            STANDARD_DEDUCTION_BASE_YEAR[filing] = val
+    for filing, val in engine.get('standard_deduction_over65', {}).items():
+        if filing in STANDARD_DEDUCTION_OVER65_BASE_YEAR:
+            STANDARD_DEDUCTION_OVER65_BASE_YEAR[filing] = val
+    for filing, val in engine.get('niit_threshold', {}).items():
+        if filing in NIIT_THRESHOLD:
+            NIIT_THRESHOLD[filing] = val
+    for filing, table in engine.get('ordinary_brackets', {}).items():
+        FEDERAL_BRACKETS_BASE_YEAR[filing] = table
+    for filing, table in engine.get('ltcg_brackets', {}).items():
+        LTCG_BRACKETS_BASE_YEAR[filing] = table
+    for filing, table in engine.get('irmaa_tiers', {}).items():
+        IRMAA_TIERS_BASE_YEAR[filing] = list(table)
+    _check_irmaa_tiers_monotonic(IRMAA_TIERS_BASE_YEAR)
+    for item in ds.values:
+        key = f"{item.name}_{item.filing_status.lower()}"
+        registry[key] = {'value': item.value, 'tax_year': item.effective_year, 'source': item.source}
+    registry['_v11_tax_law_dataset'] = {'value': len(ds.values), 'tax_year': max(v.effective_year for v in ds.values), 'source': ds.generated_from}
 
     return registry
 

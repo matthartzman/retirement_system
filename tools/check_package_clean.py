@@ -102,7 +102,7 @@ def main() -> int:
             ("count", "home", "equity", "toward", "reit", "target"),
         ]
     }
-    for base in [ROOT / "reference_data", ROOT / "frontend"]:
+    for base in [ROOT / "frontend"]:
         if not base.exists():
             continue
         for path in base.rglob("*"):

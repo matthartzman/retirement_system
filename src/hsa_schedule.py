@@ -303,7 +303,7 @@ _SINGLE_BRACKET_COMPRESSION_PREMIUM = 1.10
 
 # Filing statuses whose brackets are compressed relative to MFJ, upper-cased to
 # match `_filing`. HOH belongs here with Single: `survivor_filing_status` is
-# `Single | HOH` (reference_data/schema.csv) and the engine writes that value
+# `Single | HOH` (reference_src/schema.csv) and the engine writes that value
 # straight into `row['filing']`, so leaving HOH out would silently switch the
 # survivor premium off for every plan that configures an HOH survivor -- which
 # is the whole economic rationale of the term.

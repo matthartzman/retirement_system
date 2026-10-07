@@ -388,7 +388,7 @@ def _family_coords_from_table(table: dict[str, Any]) -> dict[str, tuple[float, f
 
 
 def optimize_housing_from_request(
-    c0: dict[str, Any], body: dict[str, Any], table_path: str | None = None
+    c0: dict[str, Any], body: dict[str, Any]
 ) -> tuple[dict[str, Any], int]:
     """Parse an ``/api/housing/optimize`` v2 request body, run the optimizer
     against the current plan config ``c0``, and return a ``(payload, status)``
@@ -417,7 +417,7 @@ def optimize_housing_from_request(
         )
         move1_action = str(move1.get('action', 'auto') or 'auto')
 
-        table = load_table(table_path) if table_path else load_table()
+        table = load_table()
         family_coords = _family_coords_from_table(table)
         current_state = str(c0.get('state', '') or '')
 
@@ -545,7 +545,7 @@ def optimize_housing_from_request(
         return {'success': False, 'error': str(exc)}, 500
 
 
-def zip_lookup(zip_code: str, table_path: str | None = None) -> tuple[dict[str, Any], int]:
+def zip_lookup(zip_code: str) -> tuple[dict[str, Any], int]:
     """ZIP -> city/state/area_type/population, for the Spending -> Housing
     page's ZIP-first location entry. Reuses the same ZCTA table the
     optimizer's ZIP screen uses, so a manually-entered ZIP resolves to the
@@ -554,7 +554,7 @@ def zip_lookup(zip_code: str, table_path: str | None = None) -> tuple[dict[str, 
     zip_code = str(zip_code or '').strip()
     if len(zip_code) != 5 or not zip_code.isdigit():
         return {'success': False, 'error': 'ZIP must be 5 digits.'}, 400
-    table = load_table(table_path) if table_path else load_table()
+    table = load_table()
     rec = table.get(zip_code)
     if not rec:
         return {'success': False, 'error': f'ZIP {zip_code} not recognized.'}, 404
@@ -624,7 +624,7 @@ def screen_payload(
 
 
 def zip_screen_from_request(
-    c0: dict[str, Any], body: dict[str, Any], table_path: str | None = None
+    c0: dict[str, Any], body: dict[str, Any]
 ) -> tuple[dict[str, Any], int]:
     """Run Stage 1 alone -- the "Preview shortlist" endpoint. No engine runs.
 
@@ -646,7 +646,7 @@ def zip_screen_from_request(
         req = replace(parse_move_search(raw), **_budget_basis(c0, earliest, latest))
         result = run_multi_anchor_screen(
             req,
-            table=load_table(table_path) if table_path else load_table(),
+            table=load_table(),
             current_state=str(c0.get('state', '') or ''),
         )
     except AnchorNotFoundError as exc:
@@ -657,29 +657,21 @@ def zip_screen_from_request(
             'zip_screen': screen_payload(result, include_all_passing=True)}, 200
 
 
-import csv as _csv
-import os as _os
-
-
-def _top_cities_path() -> str:
-    return _os.path.join(
-        _os.path.dirname(_os.path.abspath(__file__)),
-        'zip_screen', 'data', 'top_cities.csv',
-    )
+from src.stores.ref_getters.zip_data import top_cities_rows as _top_cities_rows
 
 
 def top_cities_payload() -> tuple[dict[str, Any], int]:
     """The bundled top-cities list, for the ZIP-radius panel's anchor dropdown.
 
-    Static, bundled data (built by scripts/build_zip_metrics.py) -- this is
-    a read of a committed file, not a live query, matching the rest of the
-    zip_screen package's offline-first design.
+    Static, bundled data (built by tools/build_reference_db.py from
+    reference_src/top_cities.csv) -- loaded from reference.db, not a live query,
+    matching the rest of the zip_screen package's offline-first design.
     """
-    path = _top_cities_path()
-    if not _os.path.exists(path):
-        return {'success': False, 'error': 'top_cities.csv not found; run scripts/build_zip_metrics.py'}, 500
-    with open(path, newline='', encoding='utf-8') as fh:
-        rows = list(_csv.DictReader(fh))
+    try:
+        rows = _top_cities_rows()
+    except Exception as exc:
+        return {'success': False, 'error': f'top_cities data unavailable: {exc}'}, 500
+
     cities = [
         {
             'city_id': r['city_id'], 'city': r['city'], 'state': r['state'],

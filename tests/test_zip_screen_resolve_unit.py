@@ -6,6 +6,8 @@ import pytest
 from src.housing.models import Location
 from src.housing.zip_screen.resolve import city_type_for_density, resolve_location
 from src.housing.zip_screen.table import clear_cache, load_table
+from src.stores.ref_access import set_reference_for_tests
+from tests.zip_fixture import use_zip_test_db
 
 pytestmark = pytest.mark.unit
 
@@ -22,10 +24,12 @@ SPEC = {
 
 
 @pytest.fixture(autouse=True)
-def _clean_cache():
+def _setup_test_db():
+    use_zip_test_db(FIXTURE)
     clear_cache()
     yield
     clear_cache()
+    set_reference_for_tests(None)
 
 
 @pytest.mark.parametrize('density,expected', [
@@ -43,12 +47,12 @@ def test_density_thresholds(density, expected):
 
 
 def test_resolves_state_from_the_record():
-    loc = resolve_location(load_table(FIXTURE)['60521'], SPEC)
+    loc = resolve_location(load_table()['60521'], SPEC)
     assert loc.state == 'Illinois'
 
 
 def test_resolves_city_type_from_density():
-    table = load_table(FIXTURE)
+    table = load_table()
     # 60623: 88000 people over 4.6 sq mi -> dense urban.
     assert resolve_location(table['60623'], SPEC).city_type == 'urban'
     # 80424: 6200 over 68.4 sq mi -> ~91/sq mi -> rural.
@@ -56,12 +60,12 @@ def test_resolves_city_type_from_density():
 
 
 def test_population_size_prefers_the_primary_place():
-    loc = resolve_location(load_table(FIXTURE)['60521'], SPEC)
+    loc = resolve_location(load_table()['60521'], SPEC)
     assert loc.population_size == 17395
 
 
 def test_population_size_falls_back_to_zcta_population():
-    table = load_table(FIXTURE)
+    table = load_table()
     rec = table['60521'].__class__(
         zcta='99999', state='Illinois', lat=0.0, lon=0.0,
         place_population=0, zcta_population=8200, land_area_sqmi=10.0,
@@ -70,7 +74,7 @@ def test_population_size_falls_back_to_zcta_population():
 
 
 def test_property_spec_passes_through_untouched():
-    loc = resolve_location(load_table(FIXTURE)['60521'], SPEC)
+    loc = resolve_location(load_table()['60521'], SPEC)
     assert loc.bedrooms == 4
     assert loc.bathrooms == 2.5
     assert loc.property_type == 'single_family'
@@ -80,11 +84,11 @@ def test_property_spec_passes_through_untouched():
 
 
 def test_zip_code_is_carried_for_display():
-    assert resolve_location(load_table(FIXTURE)['60521'], SPEC).zip_code == '60521'
+    assert resolve_location(load_table()['60521'], SPEC).zip_code == '60521'
 
 
 def test_result_is_an_ordinary_location_the_optimizer_accepts():
-    loc = resolve_location(load_table(FIXTURE)['60521'], SPEC)
+    loc = resolve_location(load_table()['60521'], SPEC)
     assert isinstance(loc, Location)
 
 

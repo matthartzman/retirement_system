@@ -7,7 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNBOOK = (ROOT / "documentation/reference/ANNUAL_MAINTENANCE_RUNBOOK.md").read_text(encoding="utf-8")
-DASH = ROOT / "reference_data/tax_update_dashboard.csv"
+DASH = ROOT / "reference_src/tax_update_dashboard.csv"
 
 
 def test_runbook_states_the_dated_row_rule():
@@ -17,7 +17,7 @@ def test_runbook_states_the_dated_row_rule():
 
 
 def test_runbook_names_every_value_family_in_the_dataset():
-    names = {r["name"] for r in json.loads((ROOT / "reference_data/tax_law_v10.json").read_text(encoding="utf-8"))["values"]}
+    names = {r["name"] for r in json.loads((ROOT / "reference_src/tax_law_v10.json").read_text(encoding="utf-8"))["values"]}
     # IRMAA/SALT families are listed in the runbook by prefix or range.
     def covered(n):
         if n.startswith("irmaa_tier"):

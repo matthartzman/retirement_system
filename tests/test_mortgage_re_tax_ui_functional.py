@@ -44,7 +44,7 @@ def test_server_backfills_real_estate_tax_input_row():
 def test_engine_uses_dedicated_real_estate_tax_adjustment_rate():
     engine = (ROOT / 'src/planning_engines.py').read_text(encoding='utf-8')
     data_io = (ROOT / 'src/data_io.py').read_text(encoding='utf-8')
-    schema = (ROOT / 'reference_data/schema.csv').read_text(encoding='utf-8')
+    schema = (ROOT / 'reference_src/schema.csv').read_text(encoding='utf-8')
 
     assert 'real_estate_tax_growth_rate' in data_io
     assert 'real_estate_tax_annual_adjustment_pct' in data_io

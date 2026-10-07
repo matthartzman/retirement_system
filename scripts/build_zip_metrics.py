@@ -1,10 +1,11 @@
-"""Offline ingest: build src/housing/zip_screen/data/zip_metrics.csv.gz.
+"""Offline ingest: build reference_src/zip_metrics.csv.gz and reference_src/top_cities.csv.
 
 NOT imported at runtime -- nothing under src/ may import this module. Run it by
-hand when refreshing the snapshot:
+hand when refreshing the snapshot. After building, run ``python tools/build_reference_db.py``
+to rebuild the reference database:
 
-    python scripts/build_zip_metrics.py --states IL,FL,CO
-    python scripts/build_zip_metrics.py --all-states
+    python scripts/build_zip_metrics.py --states IL,FL,CO && python tools/build_reference_db.py
+    python scripts/build_zip_metrics.py --all-states && python tools/build_reference_db.py
 
 Sources (all keyless, all fetched over plain HTTPS with stdlib urllib):
 
@@ -97,7 +98,7 @@ P_PLACE = '1600000US'
 
 OUT_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    'src', 'housing', 'zip_screen', 'data', 'zip_metrics.csv.gz',
+    'reference_src', 'zip_metrics.csv.gz',
 )
 
 PILOT_STATES = ('IL', 'FL', 'CO')

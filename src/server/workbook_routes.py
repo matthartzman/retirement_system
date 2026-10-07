@@ -27,7 +27,6 @@ from .app_core import (
     CLIENT_DATA_CSV_FILE_SET,
     CSV_PATH,
     PLAN_DATA_FILES,
-    SCHEMA_PATH,
     SPENDING_BUDGET_SECTIONS,
     WORKSPACE_ROOT,
     _admin_changes_between,
@@ -553,9 +552,7 @@ def get_schema():
     denied = _require("read_config")
     if denied:
         return denied
-    if SCHEMA_PATH.exists():
-        return send_file(str(SCHEMA_PATH), mimetype="text/csv")
-    return jsonify({"error": "Schema not found"}), 404
+    return jsonify({"fields": list(_load_schema_registry().values())})
 
 
 @app.route("/api/history", methods=["GET"])

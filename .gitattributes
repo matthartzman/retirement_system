@@ -14,3 +14,7 @@ input/plan_data_manifest.json text eol=lf
 # "script contains control characters" error. Force LF so the checked-out
 # bytes never contain \r, on any platform.
 .claude/workflows/*.js text eol=lf
+
+# SQLite databases (the committed src/reference/reference.db) are binary: no
+# EOL conversion, no textual diff or merge.
+*.db binary

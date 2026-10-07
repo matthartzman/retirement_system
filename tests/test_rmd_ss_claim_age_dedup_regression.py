@@ -26,7 +26,7 @@ from tests._decomp_dashboard import dashboard_js_text
 
 
 def _schema_keys() -> set:
-    text = (ROOT / "reference_data" / "schema.csv").read_text(encoding="utf-8")
+    text = (ROOT / "reference_src" / "schema.csv").read_text(encoding="utf-8")
     keys = set()
     for line in text.splitlines()[1:]:
         parts = line.split(",")

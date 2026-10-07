@@ -2,19 +2,13 @@ from __future__ import annotations
 
 """Versioned tax-law dataset loader for v11.
 
-Tax constants are loaded from reference_data/tax_law_v10.json.  The engine can
+Tax constants are loaded from the shipped reference.db (source: reference_src/tax_law_v10.json).  The engine can
 still call older compatibility helpers, but this module is the single typed data
 source for new code and tests; it has no embedded numeric fallbacks.
 """
 
 from dataclasses import dataclass
-import json
-from pathlib import Path
 from typing import Any
-
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_TAX_LAW_JSON = PROJECT_ROOT / "reference_data" / "tax_law_v10.json"
-
 
 @dataclass(frozen=True)
 class TaxLawValue:
@@ -165,17 +159,10 @@ class TaxLawDataset:
         return tuple(tiers)
 
 
-def load_tax_law_dataset(path: str | Path = DEFAULT_TAX_LAW_JSON) -> TaxLawDataset:
-    p = Path(path)
-    if not p.exists():
-        raise FileNotFoundError(f"Tax law dataset missing: {p}")
-    data = json.loads(p.read_text(encoding="utf-8"))
-    values = tuple(TaxLawValue(**item) for item in data.get("values", []))
-    brackets = tuple(TaxBracket(**item) for item in data.get("brackets", []))
-    ds = TaxLawDataset(schema=str(data.get("schema", "tax_law_v10")), version=str(data.get("version", "v10")), generated_from=str(data.get("generated_from", "unknown")), values=values, brackets=brackets)
-    if ds.schema != "tax_law_v10" or not ds.values or not ds.brackets:
-        raise ValueError("Invalid or incomplete tax_law_v10 dataset")
-    return ds
+def load_tax_law_dataset() -> TaxLawDataset:
+    """The tax-law dataset from the shipped reference.db (built fresh on every call)."""
+    from .stores.ref_getters.tax_law import tax_law_dataset
+    return tax_law_dataset()
 
 
 _DEFAULT_DATASET_CACHE: list[TaxLawDataset] = []
@@ -196,7 +183,6 @@ def aca_enhanced_subsidies_through_year_default() -> int:
     return int(default_tax_law_dataset().latest_value("aca_enhanced_subsidies_through_year").value)
 
 
-def dataset_freshness_summary(path: str | Path = DEFAULT_TAX_LAW_JSON) -> dict[str, Any]:
-    ds = load_tax_law_dataset(path)
-    latest = max(v.effective_year for v in ds.values)
-    return {"schema": ds.schema, "version": ds.version, "value_count": len(ds.values), "bracket_count": len(ds.brackets), "latest_effective_year": latest, "source": ds.generated_from}
+def dataset_freshness_summary() -> dict[str, Any]:
+    from .stores.ref_getters.tax_law import tax_law_freshness
+    return tax_law_freshness()

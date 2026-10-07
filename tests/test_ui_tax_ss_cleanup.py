@@ -52,13 +52,10 @@ def test_social_security_funding_discount_defaults_and_engine_application_are_pr
 
 def test_tax_and_irmaa_tables_updated_to_2025_and_workflow_documents_annual_review():
     taxes = read('src/taxes.py')
-    tax_dashboard = read('reference_data/tax_update_dashboard.csv')
-    constants = read('reference_data/tax_constants.csv')
+    tax_dashboard = read('reference_src/tax_update_dashboard.csv')
     assert 'FEDERAL_BRACKETS_VALUE_YEAR = int(os.environ.get(\'FEDERAL_BRACKETS_VALUE_YEAR\') or 2025)' in taxes
     assert '2025' in tax_dashboard
     assert 'Annual process:' in tax_dashboard
-    assert 'std_ded_mfj,2025,31500' in constants  # OBBBA 2025 amount (was 30,000 pre-OBBBA)
-    assert 'ss_wage_base,2026,184500' in constants
 
 
 def test_other_assets_grouping_and_529_add_route_exist():
@@ -84,7 +81,7 @@ def test_withdrawal_order_is_fixed_and_reserve_ui_controls_are_dropdown_based():
     # exist"), not a live input/client_assets.csv -- a household with no
     # Liquidity Buffer rows configured legitimately has zero reserve_account
     # rows in its own CSV, which isn't a regression.
-    schema = read('reference_data/schema.csv')
+    schema = read('reference_src/schema.csv')
     assert 'FIXED_WITHDRAWAL_CASCADE_DESCRIPTION' in user_js
     assert 'renderWithdrawalOrderTable' in user_js and 'not user-configurable' in user_js
     assert 'reserve_account' in schema
