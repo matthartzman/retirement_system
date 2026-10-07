@@ -175,3 +175,21 @@ def test_forms_post_replaces_by_key_and_keeps_row_ids(ws):
     assert "Liquidity Buffer," not in (ws.input_dir / "client_assets.csv").read_text(encoding="utf-8")
     assert app_core._sync_config_backends()["success"] is True
     assert load_active_config()[0]["Other Assets"]["Home"]["value_as_of_plan_start"] == "$1,111,111"
+
+
+def test_the_csv_writers_own_rules_reach_the_rows(ws):
+    """The write-back goes through _write_plan_data_file, which canonicalizes every Roth
+    value of the file it writes; the bridge run that ends the edit brings that into the rows
+    too, so rows and CSV set agree after the save."""
+    client = app.test_client()
+    policy = ws.input_dir / "client_policy.csv"
+    policy.write_text(policy.read_text(encoding="utf-8").replace(
+        "roth_target_bracket_rate,22.00%,", "roth_target_bracket_rate,22%,"), encoding="utf-8")
+    bracket = ("Withdrawal Policy", "Roth Conversion", "roth_target_bracket_rate")
+    grid = _grid(client)
+    assert _row(grid, bracket)["value"] == "22%"  # an out-of-band CSV edit, picked up by the GET
+    years = _row(grid, ("Withdrawal Policy", "Roth Conversion", "max_conversion_years"))
+    status, _ = _save(client, [{"row_index": years["row_index"], "value": "9"}])
+    assert status == 200
+    assert _plan_value(bracket) == "22.00%" and "roth_target_bracket_rate,22.00%," in policy.read_text(encoding="utf-8")
+    assert _plan_value(("Withdrawal Policy", "Roth Conversion", "max_conversion_years")) == "9"

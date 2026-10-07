@@ -19,7 +19,6 @@ from ..csv_exchange import PlanCsvError
 from ..roth_ui_build_guard import normalize_roth_csv_value
 from .. import allocation_policy as allocation_policy_mod
 from ..schema_registry import validate_rows as _schema_validate_rows_full
-from ..stores import NotFoundError
 
 JsonDict = dict[str, Any]
 AuditFn = Callable[[str, dict[str, Any] | None], None]
@@ -280,13 +279,13 @@ class ConfigService:
 
         Reads the file, computes what ``backfill_optional_function_rows`` is
         missing, and -- only if something is missing -- writes it back
-        through ``write_plan_data_file``, the same plan-data save path
-        ``update_config_rows_payload`` already uses (see its own comment on
-        why: it keeps a SQLite-backed backend in sync with disk). Writing
-        before ``csv_rows_payload()`` runs (called right after this, in
-        ``config_rows_payload``) is what gives each backfilled row a real,
-        persisted ``row_index`` -- the ordinary ``editValue(row_index)``
-        toggle click needs nothing else to work on it.
+        through ``write_plan_data_file`` (the plan-data save path that keeps
+        ``client_files`` in sync with disk). Writing before
+        ``csv_rows_payload()`` runs (called right after this, in
+        ``config_rows_payload``; it runs the CSV-to-rows bridge first) is what
+        gives each backfilled row a real plan row and ``row_index`` -- the
+        ordinary ``editValue(row_index)`` toggle click needs nothing else to
+        work on it. WP4.5 moves this backfill onto the plan rows.
 
         Best-effort: a missing/unreadable file just means nothing gets
         backfilled this call, not a broken payload.
@@ -490,7 +489,7 @@ class ConfigService:
                     try:
                         row_id = int(u.get("row_index"))
                         row = store.get_row(row_id)
-                    except NotFoundError:
+                    except LookupError:  # stores.NotFoundError: no row with this id
                         skipped.append({"row_index": row_id, "reason": "out of range or stale row index"})
                         continue
                     except Exception:
