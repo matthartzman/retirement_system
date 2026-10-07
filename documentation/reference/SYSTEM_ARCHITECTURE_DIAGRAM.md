@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 219 Python files under `src/`, 47 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 220 Python files under `src/`, 47 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -24,7 +24,7 @@ flowchart TB
     subgraph L_HTTP_Runtime["HTTP Runtime (3 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
-    subgraph L_Core_Engine___Domain["Core Engine & Domain (139 modules)"]
+    subgraph L_Core_Engine___Domain["Core Engine & Domain (140 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
     subgraph L_Projection_Stages["Projection Stages (23 modules)"]
@@ -448,12 +448,12 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/server_services/base_service.py` | — | — |
 | `src/server_services/build_job_service.py` | — | — |
 | `src/server_services/build_service.py` | `report_package`, `schema_registry`, `server_services` | — |
-| `src/server_services/config_service.py` | `daf_optimizer`, `module_catalog`, `optimization`, `qlac_optimizer`, `report_compute`, `roth_ui_build_guard`, `schema_registry` | — |
+| `src/server_services/config_service.py` | `csv_exchange`, `daf_optimizer`, `module_catalog`, `optimization`, `qlac_optimizer`, `report_compute`, `roth_ui_build_guard`, `schema_registry`, `stores` | — |
 | `src/server_services/demo_plan_service.py` | — | — |
 | `src/server_services/holdings_service.py` | `config_backend`, `plan_file_io`, `workspace_context` | — |
 | `src/server_services/plan_data_file_service.py` | — | — |
 | `src/server_services/plan_file_service.py` | `build_snapshot`, `plan_db_replace` | — |
-| `src/server_services/plan_forms_service.py` | `active_plan` | — |
+| `src/server_services/plan_forms_service.py` | `active_plan`, `csv_exchange`, `plan_label_rules`, `roth_ui_build_guard` | — |
 | `src/server_services/portfolio_service.py` | — | — |
 | `src/server_services/pricing_service.py` | `config_backend`, `market_data`, `portfolio_analytics` | — |
 | `src/server_services/report_service.py` | `detailed_results`, `report_package`, `system_config` | — |
@@ -484,8 +484,9 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/build_snapshot.py` | `plan_db_replace`, `version` | — |
 | `src/config_backend.py` | `active_plan`, `plan_file_io`, `sqlite_util`, `system_config` | `pyyaml` |
 | `src/core.py` | `person_labels` | — |
-| `src/csv_exchange/__init__.py` | `csv_exchange.plan_csv`, `plan_label_rules` | — |
+| `src/csv_exchange/__init__.py` | `csv_exchange.plan_csv`, `csv_exchange.write_back`, `plan_label_rules` | — |
 | `src/csv_exchange/plan_csv.py` | `plan_label_rules` | — |
+| `src/csv_exchange/write_back.py` | `csv_exchange.plan_csv`, `plan_label_rules` | — |
 | `src/daf_optimizer.py` | — | — |
 | `src/data_io.py` | `config_backend`, `core`, `market_data`, `module_catalog`, `money`, `parsing.advanced_modules`, `parsing.allocation_optimizer_inputs`, `parsing.daf`, `parsing.estate_planning`, `parsing.hsa_policy`, `parsing.insurance`, `parsing.note_receivable`, `parsing.roth_conversion_policy`, `parsing.validation`, `parsing.withdrawal_order`, `parsing.withdrawal_policy`, `plan_config`, `plan_data_migration`, `plan_data_registry`, `plan_label_rules`, `portfolio_analytics`, `report_compute`, `roth_ui_build_guard`, `spending_adjustments`, `spending_budget_resolver`, `stores.ref_getters.cma`, `stores.ref_getters.security_master`, `system_config`, `tax_law`, `workspace_context` | — |
 | `src/desktop_api.py` | `src`, `bootstrap`, `server`, `server.app_core`, `server.workbook_routes`, `server_services` | `pywebview` |

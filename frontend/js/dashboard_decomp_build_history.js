@@ -109,14 +109,10 @@ export function buildHistoryProvenanceHtml(entry) {
   );
 }
 
-// A change's row_index is only a positional offset into the current CSV
-// files -- it is recomputed fresh on every read, not a stable id (see
-// _client_csv_rows in app_core.py). Any row added or removed anywhere in
-// the plan data between when a snapshot was taken and now shifts every
-// row_index downstream of it, so blindly replaying a snapshot's stored
-// row_index values can write a stale value into a completely different
-// field (wrong type/section), which is what made revert fail with
-// "Plan Data validation failed" (#297). Re-resolve each change's current
+// A change's row_index is the plan row's id (WP4.3): stable while the row
+// exists, but a row deleted and added again (or a plan loaded since the
+// snapshot) has a new one, and replaying a stale id is skipped (#297 was the
+// positional-index version of this). Re-resolve each change's current
 // row_index by its stable (section, subsection, label) identity instead.
 export function resolveCurrentRowIndex(rowsList, c) {
   const row = (rowsList || []).find(
