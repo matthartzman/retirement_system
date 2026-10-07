@@ -435,6 +435,31 @@ def plan_feature():
     return _service_json(_plan_tier_feature_service().set_feature_payload(body))
 
 
+@app.route("/api/plan/interview", methods=["GET"])
+def plan_interview_questions():
+    """WP5.3: the interview's questions (the one place their wording lives)."""
+    denied = _require("read_config")
+    if denied:
+        return denied
+    from ..plan_interview import questions
+    return jsonify({"success": True, "questions": questions()})
+
+
+@app.route("/api/plan/interview", methods=["POST"])
+def plan_interview():
+    """WP5.3: ``{answers, apply?}`` -> the tier and switches the answers suggest; ``apply: true``
+    writes them (tier preset plus extras) in one edit."""
+    body = request.get_json(silent=True) or {}
+    if not isinstance(body, dict):
+        return jsonify({"success": False, "error": "JSON object body required"}), 400
+    denied = _require("write_config" if body.get("apply") is True else "read_config")
+    if denied:
+        return denied
+    if body.get("apply") is True and not _runtime_config().allow_csv_write:
+        return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
+    return _service_json(_plan_tier_feature_service().interview_payload(body))
+
+
 @app.route("/api/allocation-preview", methods=["POST"])
 def allocation_preview():
     denied = _require("read_config")

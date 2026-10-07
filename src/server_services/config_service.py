@@ -16,7 +16,7 @@ from typing import Any, Callable
 from ..roth_ui_build_guard import normalize_roth_csv_value
 from .. import allocation_policy as allocation_policy_mod
 from ..schema_registry import validate_rows as _schema_validate_rows_full
-from .plan_tier_service import tier_presets_payload
+from .plan_tier_service import entered_rows, tier_presets_payload
 
 JsonDict = dict[str, Any]
 AuditFn = Callable[[str, dict[str, Any] | None], None]
@@ -112,6 +112,8 @@ class ConfigService:
             # each tier's preset, for the Plan Features tier picker.
             "plan_profile": self._plan_profile(),
             "tier_presets": tier_presets_payload(),
+            # WP5.3: "Turn on X?" for features that are off while the plan holds data for them.
+            "feature_suggestions": self._feature_suggestions(),
             **payload,
         }, 200
 
@@ -124,6 +126,15 @@ class ConfigService:
                 return plan_profile(store)
         except Exception:
             return {}
+
+    def _feature_suggestions(self) -> list[JsonDict]:
+        """``plan_interview.feature_suggestions`` (best effort: ``[]`` when unreadable)."""
+        from ..plan_interview import feature_suggestions
+        try:
+            with self.context.read_plan() as store:
+                return feature_suggestions(store, entered_rows)
+        except Exception:
+            return []
 
     @staticmethod
     def _module_gates() -> JsonDict:

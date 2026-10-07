@@ -94,6 +94,21 @@ CONTRACTS: tuple[EndpointContract, ...] = (
         notes="WP5.1: override one feature switch (module_catalog.set_feature).",
     ),
     EndpointContract(
+        "/api/plan/interview", "GET", "plan_interview_questions_v1",
+        response_fields=(_f("success", "bool", True), _f("questions", "list", True)),
+        notes="WP5.3: the interview questions.",
+    ),
+    EndpointContract(
+        "/api/plan/interview", "POST", "plan_interview_v1",
+        request_fields=(_f("answers", "dict", True), _f("apply", "bool")),
+        response_fields=(
+            _f("success", "bool", True), _f("applied", "bool", True), _f("tier", "str", True),
+            _f("extra_on", "list", True), _f("reasons", "list", True), _f("change", "dict", True),
+            _f("profile", "dict"), _f("revision", "str"),
+        ),
+        notes="WP5.3: suggest a tier and switches from the answers; apply=true writes them in one edit.",
+    ),
+    EndpointContract(
         "/api/spending/model", "GET", "spending_model_v1",
         response_fields=(_f("success", "bool", True), _f("categories", "list"), _f("budget", "list"), _f("summary", "dict")),
     ),

@@ -69,6 +69,14 @@ Purpose: override one feature switch (`module_catalog.set_feature`), e.g. a page
 
 POST request: `{"key": "planning_workbench", "on": false}`. Response: `success`, `key`, `on`, `profile` (after), `revision`. An unknown key, a feature with no switch of its own, or a non-boolean `on` returns `400`. Audit event `plan_feature_set`.
 
+## `/api/plan/interview`
+
+Purpose: the plan interview (WP5.3). `GET` returns `{success, questions: [{id, text, kind, options?}]}` (`kind` is `choice` for the first question, `yes_no` for the rest). Schemas `plan_interview_questions_v1`, `plan_interview_v1`.
+
+POST request: `{"answers": {"detail": "standard", "heloc": true}, "apply": false}`. `detail` (a tier key) is required; the yes/no answers are optional booleans. Response: `success`, `applied`, `tier`, `label`, `extra_on` (switch keys the answers turn on beyond the tier preset, so a non-empty list makes the plan customized), `reasons` (`[{key, name, question}]`), `change` (the same shape as `/api/plan/tier`), and when applied `profile` and `revision`. Applying writes the tier preset and the extras in one edit transaction; entered data is kept. A missing or unknown answer, or a non-boolean `apply`, returns `400`. Audit event `plan_interview_applied`.
+
+`GET /api/config/rows` also carries `feature_suggestions`: `[{key, name, entered_rows, text}]`, the off features that hold entered data (`text` reads "Turn on HELOC? You have 3 rows entered for it."), and each row carries `min_tier` (WP5.2; empty for rows the field catalog does not list).
+
 ## Removed in WP4.5 (the CSV bridge)
 
 - `POST /api/config/sync` and the `sync` request flag / response key of the save endpoints: there is nothing to sync, the plan rows are the only store (the `config_sync_v1` contract is gone).

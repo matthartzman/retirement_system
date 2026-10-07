@@ -3235,6 +3235,42 @@
       "scope": "inside-function"
     },
     {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_plan_tiers.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_plan_tiers.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_plan_tiers.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_plan_tiers.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "dirty",
+      "file": "frontend/js/dashboard_decomp_plan_tiers.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "dirty",
+      "file": "frontend/js/dashboard_decomp_plan_tiers.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "STEPS",
       "file": "frontend/js/dashboard_decomp_plan_tiers.js",
       "kind": "read",

@@ -21,12 +21,13 @@
 
 // The plan profile and tier presets from the last /api/config/rows read
 // (loadAll() hands the payload to setPlanTierPayload). Per-load, never sent back.
-let planTierPayload = { profile: {}, presets: { tiers: [] } };
+let planTierPayload = { profile: {}, presets: { tiers: [] }, suggestions: [] };
 
 export function setPlanTierPayload(cfg) {
   planTierPayload = {
     profile: (cfg && cfg.plan_profile) || {},
     presets: (cfg && cfg.tier_presets) || { tiers: [] },
+    suggestions: (cfg && cfg.feature_suggestions) || [],
   };
 }
 
@@ -206,6 +207,118 @@ export function fieldTierView(step, rows, searching) {
   };
 }
 
+// ── Interview and self-suggest (WP5.3) ────────────────────────────────────────
+// A short question flow (wording served by GET /api/plan/interview) that suggests a
+// tier and the extra switches; and "Turn on X?" for off features that hold entered data.
+
+// "Turn on HELOC? You have 3 rows entered for it." with a button per suggestion.
+export function featureSuggestionsHtml(suggestions) {
+  const list = suggestions || [];
+  if (!list.length) return "";
+  let html = '<div class="pf-suggest" role="region" aria-label="Suggested features">';
+  list.forEach((s) => {
+    html +=
+      '<div class="pf-suggest-row"><span>' + esc(s.text || "Turn on " + s.name + "?") + "</span>" +
+      `<button type="button" class="btn" data-requires-app="1" onclick="setPlanFeatureSwitch('${esc(escJs(s.key))}', true)">Turn on ${esc(s.name)}</button></div>`;
+  });
+  return html + "</div>";
+}
+
+// The interview panel. state: {questions, answers, result}.
+export function interviewHtml(state) {
+  const st = state || {};
+  const qs = st.questions || [];
+  if (!qs.length) return "";
+  const answers = st.answers || {};
+  let html = '<form class="pf-interview" onsubmit="return false"><div class="pf-tier-head">Plan interview</div>';
+  qs.forEach((q) => {
+    html += '<fieldset class="pf-interview-q"><legend>' + esc(q.text) + "</legend>";
+    const opts = q.kind === "choice" ? q.options || [] : [{ value: "true", label: "Yes" }, { value: "false", label: "No" }];
+    opts.forEach((o) => {
+      const checked = String(answers[q.id]) === String(o.value);
+      html +=
+        `<label class="pf-interview-opt"><input type="radio" name="iv_${esc(q.id)}" value="${esc(o.value)}"` +
+        (checked ? " checked" : "") +
+        ` onchange="setInterviewAnswer('${esc(escJs(q.id))}', '${esc(escJs(o.value))}')"> ${esc(o.label)}</label>`;
+    });
+    html += "</fieldset>";
+  });
+  const ready = qs[0] && answers[qs[0].id];
+  html +=
+    '<div class="pf-interview-actions"><button type="button" class="btn" data-requires-app="1"' +
+    (ready ? "" : " disabled") + ' onclick="suggestFromInterview()">See my suggestion</button>' +
+    '<button type="button" class="btn" onclick="closePlanInterview()">Cancel</button></div>';
+  return html + interviewResultHtml(st.result) + "</form>";
+}
+
+export function interviewResultHtml(result) {
+  if (!result) return "";
+  let html = '<div class="pf-interview-result"><p><b>Suggested: ' + esc(result.label || result.tier) + "</b>";
+  const extra = result.reasons || [];
+  if (extra.length) {
+    html += " plus " + extra.length + " extra feature" + (extra.length === 1 ? "" : "s") + ":</p><ul>";
+    extra.forEach((r) => (html += "<li>" + esc(r.name) + "</li>"));
+    html += "</ul>";
+  } else html += ".</p>";
+  html +=
+    '<button type="button" class="btn" data-requires-app="1" onclick="applyInterview()">Apply this suggestion</button></div>';
+  return html;
+}
+
+let planInterview = null;
+
+export async function openPlanInterview() {
+  try {
+    const out = await api("/api/plan/interview");
+    planInterview = { questions: out.questions || [], answers: {}, result: null };
+    renderMain();
+  } catch (e) {
+    showMessage("Could not load the interview: " + e.message, "error");
+  }
+}
+
+export function closePlanInterview() {
+  planInterview = null;
+  renderMain();
+}
+
+export function setInterviewAnswer(id, value) {
+  if (!planInterview) return;
+  const q = planInterview.questions.find((x) => x.id === id);
+  planInterview.answers[id] = q && q.kind === "yes_no" ? value === "true" : value;
+  planInterview.result = null;
+  renderMain();
+}
+
+async function interviewCall(apply) {
+  return api("/api/plan/interview", {
+    method: "POST",
+    body: JSON.stringify({ answers: planInterview.answers, apply }),
+  });
+}
+
+export async function suggestFromInterview() {
+  if (!planInterview) return;
+  try {
+    planInterview.result = await interviewCall(false);
+    renderMain();
+  } catch (e) {
+    showMessage("Could not suggest a tier: " + e.message, "error");
+  }
+}
+
+export async function applyInterview() {
+  if (!planInterview) return;
+  try {
+    if (dirty && dirty.size && !(await saveAll(false))) return;
+    const out = await interviewCall(true);
+    planInterview = null;
+    await planTierReload("Plan tier set to " + out.label + ".");
+  } catch (e) {
+    showMessage("Could not apply the suggestion: " + e.message, "error");
+  }
+}
+
 // ── Page wiring (reads the shared state) ──────────────────────────────────────
 
 export function planTierPickerHtml() {
@@ -220,6 +333,9 @@ export function planTierPickerHtml() {
     '<div class="pf-tier-intro">A tier is a starting set of features. Pick one, then turn any feature on or off below.</div>' +
     tierCardsHtml(presets, profile, counts) +
     tierStatusHtml(profile, presets) +
+    '<div class="pf-tier-status"><button type="button" class="btn" data-requires-app="1" onclick="openPlanInterview()">Not sure? Answer a few questions</button></div>' +
+    interviewHtml(planInterview) +
+    featureSuggestionsHtml(planTierPayload.suggestions) +
     "</section>"
   );
 }
@@ -284,6 +400,14 @@ Object.assign(window, {
   planTierPickerHtml,
   setPlanFeatureSwitch,
   setPlanTierPayload,
+  applyInterview,
+  closePlanInterview,
+  featureSuggestionsHtml,
+  interviewHtml,
+  interviewResultHtml,
+  openPlanInterview,
+  setInterviewAnswer,
+  suggestFromInterview,
   fieldTierControlHtml,
   fieldTierView,
   splitFieldsByTier,
