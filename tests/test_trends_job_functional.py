@@ -46,3 +46,60 @@ def test_missing_workspace_input_dir_is_a_clean_no_crash(tmp_path):
     log_path = tmp_path / "log.jsonl"
     result = trends_job.run(base_dir, log_path=log_path, today=date(2026, 1, 20))
     assert result["success"] is True
+
+
+class _Proc:
+    def __init__(self, stdout="", returncode=0):
+        self.stdout, self.returncode = stdout, returncode
+
+
+def _fake_tool(base_dir):
+    (base_dir / "tools").mkdir(exist_ok=True)
+    (base_dir / "tools" / "refresh_prices.py").write_text("# stub\n")
+
+
+def test_run_refreshes_prices_first_and_logs_fresh_status(tmp_path, monkeypatch):
+    base_dir = _workspace(tmp_path)
+    _fake_tool(base_dir)
+    calls = []
+
+    def fake_run(cmd, **kw):
+        calls.append(cmd)
+        return _Proc('noise\n{"live_prices_resolved": 7, "prices_resolved": 9, "symbols_requested": 9}\n')
+
+    monkeypatch.setattr(trends_job.subprocess, "run", fake_run)
+    result = trends_job.run(base_dir, log_path=tmp_path / "log.jsonl", today=date(2026, 1, 20))
+    assert len(calls) == 1
+    pricing = result["snapshot"]["pricing"]
+    assert pricing["refreshed"] is True and pricing["stale"] is False
+    assert pricing["live_prices_resolved"] == 7
+
+
+def test_failed_price_refresh_still_logs_a_snapshot_flagged_stale(tmp_path, monkeypatch):
+    base_dir = _workspace(tmp_path)
+    _fake_tool(base_dir)
+
+    def boom(cmd, **kw):
+        raise trends_job.subprocess.TimeoutExpired(cmd, 1)
+
+    monkeypatch.setattr(trends_job.subprocess, "run", boom)
+    result = trends_job.run(base_dir, log_path=tmp_path / "log.jsonl", today=date(2026, 1, 20))
+    assert result["success"] is True
+    assert result["snapshot"]["pricing"]["stale"] is True
+    assert "TimeoutExpired" in result["snapshot"]["pricing"]["error"]
+
+
+def test_no_live_prices_is_flagged_stale_with_the_providers_cause(tmp_path, monkeypatch):
+    base_dir = _workspace(tmp_path)
+    _fake_tool(base_dir)
+    monkeypatch.setattr(trends_job.subprocess, "run", lambda c, **k: _Proc(
+        '{"live_prices_resolved": 0, "prices_resolved": 9, "pricing_best_guess_cause": "Stooq returned 404"}', 2))
+    pricing = trends_job.run(base_dir, log_path=tmp_path / "log.jsonl", today=date(2026, 1, 20))["snapshot"]["pricing"]
+    assert pricing["stale"] is True and pricing["error"] == "Stooq returned 404"
+
+
+def test_missing_refresh_tool_is_flagged_stale_not_a_crash(tmp_path):
+    base_dir = _workspace(tmp_path)
+    result = trends_job.run(base_dir, log_path=tmp_path / "log.jsonl", today=date(2026, 1, 20))
+    assert result["success"] is True
+    assert result["snapshot"]["pricing"]["stale"] is True

@@ -31,6 +31,8 @@
   .chart-inner { position: relative; }
   .chart-yaxis { position: sticky; left: 0; z-index: 2; display: block; background: var(--card-bg); margin-bottom: -200px; }
   .chart-inner > svg:not(.chart-yaxis) { display: block; }
+  .price-note { background: #fef3c7; color: #78350f; border: 1px solid #f59e0b; border-radius: 8px; padding: 8px 12px; font-size: 13px; margin-bottom: 16px; }
+  @media (prefers-color-scheme: dark) { .price-note { background: #3b2a08; color: #fcd34d; border-color: #92660a; } }
   .note { font-size: 11px; color: #777; margin-top: 8px; line-height: 1.45; }
   .bar-row { cursor: default; }
   .bar-row:hover rect[fill] { filter: brightness(1.15); }
@@ -71,6 +73,7 @@
   <button data-tf="custom" aria-pressed="false">Custom</button>
   <button id="runNow">Run now</button>
 </div>
+<div id="priceNote" class="price-note" role="status" style="display:none"></div>
 <div class="grid">
   <div class="card"><h2>Net worth</h2><div id="chartNetWorth"></div>
     <div class="note">Net worth = investments (live holdings) + annuities/pension + home, startup equity, cash and autos from the plan inputs, minus the mortgage (amortized from its plan-start balance) and any other liabilities. Home and other plan values are held at their plan-start figures, so day-to-day movement is mostly investments.</div></div>
@@ -102,7 +105,23 @@ function scrollChartsToLatest() {
   }
 }
 
+// The newest snapshot's price refresh status: if live prices couldn't be
+// fetched, Holdings and Net worth are valued at older prices -- say so rather
+// than let a flat line pass for a real "no change".
+function renderPriceNote() {
+  const el = document.getElementById("priceNote");
+  const latest = history[history.length - 1];
+  const pricing = latest && latest.pricing;
+  if (pricing && pricing.stale) {
+    el.textContent = `Prices for the ${latest.as_of_date} snapshot could not be refreshed (${pricing.error || "unknown cause"}), so Holdings and Net worth reflect older prices.`;
+    el.style.display = "block";
+  } else {
+    el.style.display = "none";
+  }
+}
+
 function render() {
+  renderPriceNote();
   const filtered = filterByTimeframe(history, timeframe);
   // Granularity: daily for day/week/month, weekly for quarter, monthly
   // for ytd/12-month/all-time (custom infers from the span it covers).
