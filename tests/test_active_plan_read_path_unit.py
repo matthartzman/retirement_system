@@ -109,15 +109,22 @@ def test_sync_plan_rows_keeps_row_ids_and_writes_nothing_when_unchanged():
         assert store.sectioned_data() == {"Household": {"": {"a": "9", "new": "5"}}, "Income": {"": {"c": "3"}}}
 
 
-def test_sync_plan_rows_matches_repeated_keys_by_occurrence_and_keeps_display_order():
+def test_sync_plan_rows_collapses_repeated_keys_last_wins_at_the_first_position():
     with PlanStore.open() as store:
         sync_plan_rows(store, _rows("S,,k,first,,\nS,,x,1,,\nS,,k,second,,\n"))
-        first, _, second = [r["row_id"] for r in store.rows("S")]
+        rows = store.rows("S")
+        assert [(r["label"], r["value"]) for r in rows] == [("k", "second"), ("x", "1")]
+        k_id = rows[0]["row_id"]
         sync_plan_rows(store, _rows("S,,x,1,,\nS,,k,first,,\nS,,k,last,,\n"))
         rows = store.rows("S")
-        assert [(r["label"], r["value"]) for r in rows] == [("x", "1"), ("k", "first"), ("k", "last")]
-        assert [r["row_id"] for r in rows if r["label"] == "k"] == [first, second]
+        assert [(r["label"], r["value"]) for r in rows] == [("x", "1"), ("k", "last")]
+        assert rows[1]["row_id"] == k_id          # the surviving key keeps its row
         assert store.sectioned_data() == {"S": {"": {"x": "1", "k": "last"}}}
+        # a plan that still holds both copies (older import) loses the stale one at the next sync
+        store.insert_row("S", sort_order=9, subsection="", label="x", value="stale", units="", notes="")
+        assert len(store.rows("S")) == 3
+        sync_plan_rows(store, _rows("S,,x,1,,\nS,,k,last,,\n"))
+        assert [(r["label"], r["value"]) for r in store.rows("S")] == [("x", "1"), ("k", "last")]
 
 
 def test_sync_plan_rows_rewrites_when_the_section_order_would_change():

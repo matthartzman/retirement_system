@@ -9,17 +9,17 @@ Status: WP4.1 (owner review checkpoint). The summary below is the PR-body text.
 - `plan_revisions` + `revision_rows` (snapshots, retention) and `plan_meta` (key/value facts such as conversion markers).
 
 **Keys and order.**
-- A field is addressed by `(section, subsection, label)`. A key may repeat (the old CSV set has two such duplicates); the last row in display order is the effective one, as `load_csv` read it.
+- A field is addressed by `(section, subsection, label)`. A key is unique in a plan: the importer collapses a repeated key (the old CSV set has two such duplicates, the anchor's `Scenarios` copies) to ONE row, which keeps the first occurrence's position and takes the last occurrence's value, units and notes, as `load_csv` read it. A stale copy can therefore never come back after the effective row is edited or deleted. (`PlanStore.sectioned_data()` still reads "last row wins" for plans that hold a repeat from elsewhere.)
 - Rows inside a section are ordered by `(sort_order, row_id)`, and sections by creation (lowest `row_id`). After an import this is the old CSV order.
 - `PlanStore.sectioned_data()` is the engine view `{section: {subsection: {label: value}}}`. It uses the same rules and key order as `load_csv`, proven equal for `sample_frozen` and `demo` (dict, key order and `parse_client` output).
 - Writes: `set_value(section, subsection, label, value)` updates the effective row or appends one. The grid uses `get_row` / `set_row` / `insert_row` / `delete_row` by `row_id`, plus `transaction()` and `revision()`.
 
 **Import (`src/csv_exchange`, the one CSV reader from now on).**
 - Reads the plan CSV set (`client_data.csv` plus 9 parts) in the old order into an empty plan, in one transaction. It returns a report: files read and missing, rows, comments attached and dropped, skipped records.
-- Cells are stripped. Year-stamped labels are stored under their canonical name, as every reader did. Unquoted commas in notes are joined back.
+- Columns are found by header name, as the old `csv.DictReader` readers did: any order, extra columns ignored, `unit`/`type` and `note` accepted for units and notes, a missing `subsection`/`value` column reads as empty; only a file without `section` or `label` columns is refused. Cells are stripped. Year-stamped labels are stored under their canonical name, as every reader did (the table, and the retired Sell Home label set, live once in `src/plan_label_rules.py`). When the notes column is the last one, unquoted commas in notes are joined back.
 - `#` comments (decision 7): a comment directly above a data row is appended to that row's notes after `"; "`. The file's opening comment block, comments followed by a blank line, and `====` lines are dropped and counted.
 - Records with a section but no label (or a label but no section) are skipped and listed in the report. No legacy renames are applied here.
-- **Step C3** (`src/legacy_conversion/steps/c3_plan_rows.py`, not wired into startup) does this import, then the `plan_data_migration` renames once (the current key wins), then drops the retired Sell Home home-value labels, then writes the marker `plan_meta['legacy_conversion.c3']`. The result equals `migrate_sectioned_data(old loader)`. The originals are only read.
+- **Step C3** (`src/legacy_conversion/steps/c3_plan_rows.py`, not wired into startup) does this import, then the `plan_data_migration` renames once (the current key wins; two legacy rows of one key were already collapsed last-wins, as `load_csv` then `migrate_sectioned_data` did), then drops the retired Sell Home home-value labels, then writes the marker `plan_meta['legacy_conversion.c3']`. The result equals `migrate_sectioned_data(old loader)`. The originals are only read.
 
 **Settings, switches and tier are ordinary rows.** There are no new tables and no backfill.
 

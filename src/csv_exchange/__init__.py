@@ -5,6 +5,7 @@ conversion step C3). WP4.2 adds ``sync_plan_rows``, which carries the CSV set th
 writers still edit into an existing plan (``src/active_plan.py``) until WP4.3-4.5. WP9 grows this package into the full import/export surface
 (preview, diff, per-dataset adapters, export); the static file-I/O audit allowlists it.
 """
+from ..plan_label_rules import canonical_label
 from .plan_csv import (
     ANCHOR_FILE,
     PART_FILE_SECTIONS,
@@ -14,7 +15,7 @@ from .plan_csv import (
     PlanCsvRow,
     PlanCsvSet,
     SkippedRecord,
-    canonical_label,
+    collapse_duplicate_keys,
     import_plan_csv_set,
     parse_plan_csv,
     part_file_for_section,
@@ -33,6 +34,7 @@ __all__ = [
     "PlanCsvSet",
     "SkippedRecord",
     "canonical_label",
+    "collapse_duplicate_keys",
     "import_plan_csv_set",
     "parse_plan_csv",
     "part_file_for_section",

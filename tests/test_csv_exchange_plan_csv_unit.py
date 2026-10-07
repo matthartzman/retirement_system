@@ -16,7 +16,7 @@ from src.csv_exchange import (
     read_plan_csv_set,
     write_plan_rows,
 )
-from src.csv_exchange.plan_csv import PlanCsvError, _YEAR_LABEL_PATTERNS
+from src.csv_exchange.plan_csv import PlanCsvError
 from src.stores import PlanStore, ValidationError
 from tests import plan_fixture as pf
 
@@ -38,14 +38,17 @@ def test_file_list_and_year_patterns_match_the_legacy_readers():
     from src import data_io
     from src.plan_data_registry import client_data_csv_files
     assert PLAN_CSV_FILES == tuple(client_data_csv_files())
-    assert [(p.pattern, r) for p, r in _YEAR_LABEL_PATTERNS] == \
-        [(p.pattern, r) for p, r in data_io._YEAR_LABEL_PATTERNS]
+    # one source for the year-label table: data_io and csv_exchange both use plan_label_rules
+    from src import plan_label_rules
+    assert canonical_label is plan_label_rules.canonical_label
+    assert data_io._normalize_label is plan_label_rules.canonical_label
+    assert not hasattr(data_io, "_YEAR_LABEL_PATTERNS")
     assert canonical_label("  annual_spending_2026 ") == "annual_spending_base_year"
     assert canonical_label("balance_4_1_2026") == "balance_as_of_plan_start"
     assert canonical_label("plain") == "plain"
 
 
-def test_cells_are_stripped_and_read_by_position():
+def test_cells_are_stripped_and_read_by_header_name():
     out = _rows("\ufeff" + HEADER + ' Household , Members , member_1_name ," Pat ", text , A note \n')
     assert out.report.rows == 1 and out.report.files_read == ["client_x.csv"]
     r = out.rows[0]
@@ -58,7 +61,7 @@ def test_fifth_column_may_be_called_type_and_other_headers_are_refused():
     ok = _rows("section,subsection,label,value,type,notes\nA,,x,1,number,n\n")
     assert ok.rows[0].units == "number"
     with pytest.raises(PlanCsvError, match="not a plan CSV"):
-        _rows("label,section,subsection,value\nx,A,,1\n")
+        _rows("subsection,label,value\ns,x,1\n")
 
 
 def test_unquoted_commas_in_notes_are_joined_back():
@@ -127,8 +130,8 @@ def test_write_assigns_per_section_order_and_keeps_read_order(store, tmp_path):
     (tmp_path / "client_household.csv").write_text(HEADER + "A,,a1,1,,\nB,,b1,1,,\nA,,a0,9,,\n",
                                                   encoding="utf-8")
     report = import_plan_csv_set(tmp_path, store)
-    assert report.rows == 5
-    assert [(r["label"], r["sort_order"]) for r in store.rows("A")] == [("a0", 0), ("a1", 1), ("a0", 2)]
+    assert report.rows == 4 and report.duplicates_collapsed == 1
+    assert [(r["label"], r["sort_order"], r["value"]) for r in store.rows("A")] == [("a0", 0, "9"), ("a1", 1, "1")]
     assert [(r["label"], r["sort_order"]) for r in store.rows("B")] == [("b0", 0), ("b1", 1)]
     # sections in first-seen order, the later duplicate wins but keeps the first position
     view = store.sectioned_data()

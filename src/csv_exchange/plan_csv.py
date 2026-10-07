@@ -6,8 +6,13 @@ part files (``PLAN_CSV_FILES``), each a header ``section,subsection,label,value,
 importer reads the set in ``PLAN_CSV_FILES`` order and writes one ``plan_rows`` row per data
 row into an empty plan, in one transaction. Rules:
 
-* Cells are read by position and stripped. Cells past the sixth are an unquoted comma inside
-  the notes text and are joined back onto ``notes`` with ``,``.
+* Columns are found by header NAME, as the legacy ``csv.DictReader`` readers did
+  (``data_io.load_csv`` / ``config_backend.load_csv``): any column order, extra columns
+  ignored, names compared stripped and case-insensitively. ``section`` and ``label`` must be
+  present, else the file is not a plan CSV; a missing ``subsection`` / ``value`` column reads
+  as empty. The units column is ``units``, ``unit`` or ``type``; the notes column ``notes`` or
+  ``note``. Cells are stripped. When the notes column is the header's last column, cells past
+  it are an unquoted comma inside the notes text and are joined back onto ``notes`` with ``,``.
 * A year-stamped label (``annual_spending_2026``) is stored under its canonical name
   (``annual_spending_base_year``): the rule every CSV reader applied at load time.
 * A record is *blank* (all cells empty), a *comment* (first non-empty cell starts with
@@ -18,9 +23,13 @@ row into an empty plan, in one transaction. Rules:
   with a space, ``"; "`` before existing notes) unless the data row is the file's first, i.e.
   the comment is the file's opening header block. Every other comment is dropped and
   counted; decoration-only lines (``# =====``) are dropped.
-* ``sort_order`` counts per section in read order and row ids are allocated in read order,
-  so ``PlanStore.sectioned_data()`` reproduces ``load_csv`` over the same files exactly,
-  duplicate keys included (the last one wins).
+* Duplicate keys collapse as ``load_csv`` did (the last row wins): one row per
+  ``(section, subsection, label)`` keeps the position of the first occurrence and the value,
+  units and notes of the last, so a stale copy can never resurface after the effective row is
+  deleted or edited (``collapse_duplicate_keys``; the anchor ``client_data.csv`` repeats some
+  ``client_policy.csv`` Scenarios rows). ``sort_order`` counts per section in read order and
+  row ids are allocated in read order, so ``PlanStore.sectioned_data()`` reproduces
+  ``load_csv`` over the same files exactly.
 * No legacy renames: those are conversion step C3 (``src/legacy_conversion``).
 """
 from __future__ import annotations
@@ -31,6 +40,8 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable
+
+from ..plan_label_rules import canonical_label
 
 # The plan CSV set, in read order (anchor first). Equals
 # plan_data_registry.client_data_csv_files() until WP4.5 retires that registry.
@@ -70,27 +81,11 @@ PART_FILE_SECTIONS: dict[str, tuple[str, ...]] = {
 }
 ANCHOR_FILE = "client_data.csv"
 
-_HEADER = ("section", "subsection", "label", "value")
-_FIFTH_COLUMN = ("units", "type")
+_REQUIRED_COLUMNS = ("section", "label")
+_UNITS_COLUMNS = ("units", "unit", "type")
+_NOTES_COLUMNS = ("notes", "note")
+_REPEATED_HEADER = ("section", "subsection", "label")
 
-# Year-stamped labels -> canonical names; the same table data_io / config_backend apply
-# at load time (a test keeps them equal until WP4.2 deletes those loaders).
-_YEAR_LABEL_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
-    (re.compile(r"^annual_401k_limit_\d{4}$"), "annual_401k_limit_base_year"),
-    (re.compile(r"^annual_spending_\d{4}$"), "annual_spending_base_year"),
-    (re.compile(r"^balance_\d{1,2}_\d{1,2}_\d{4}$"), "balance_as_of_plan_start"),
-    (re.compile(r"^value_\d{1,2}_\d{1,2}_\d{4}$"), "value_as_of_plan_start"),
-    (re.compile(r"^family_annual_limit_\d{4}$"), "family_annual_limit_base_year"),
-    (re.compile(r"^self_only_annual_limit_\d{4}$"), "self_only_annual_limit_base_year"),
-    (re.compile(r"^coverage_\d{4}_family_months$"), "coverage_base_year_family_months"),
-    (re.compile(r"^coverage_\d{4}_self_only_months$"), "coverage_base_year_self_only_months"),
-    (re.compile(r"^ss_wage_base_\d{4}$"), "ss_wage_base_base_year"),
-    (re.compile(r"^ltcg_0pct_top_mfj_\d{4}$"), "ltcg_0pct_top_mfj_base_year"),
-    (re.compile(r"^ltcg_15pct_top_mfj_\d{4}$"), "ltcg_15pct_top_mfj_base_year"),
-    (re.compile(r"^part_b_premium_\d{4}$"), "part_b_base_premium_monthly"),
-    (re.compile(r"^part_d_premium_\d{4}$"), "part_d_base_premium_monthly"),
-    (re.compile(r"^annual_premium_\d{4}$"), "annual_premium_base_year"),
-)
 _ALNUM = re.compile(r"[A-Za-z0-9]")
 _RULE_ENDS = re.compile(r"^[-=]{2,}\s*|\s*[-=]{2,}$")
 
@@ -131,6 +126,7 @@ class ImportReport:
     rows: int = 0
     comments_attached: int = 0
     comments_dropped: int = 0
+    duplicates_collapsed: int = 0
     skipped: list[SkippedRecord] = field(default_factory=list)
 
     def merge(self, other: "ImportReport") -> None:
@@ -139,6 +135,7 @@ class ImportReport:
         self.rows += other.rows
         self.comments_attached += other.comments_attached
         self.comments_dropped += other.comments_dropped
+        self.duplicates_collapsed += other.duplicates_collapsed
         self.skipped += other.skipped
 
     def as_dict(self) -> dict[str, Any]:
@@ -148,6 +145,7 @@ class ImportReport:
             "rows": self.rows,
             "comments_attached": self.comments_attached,
             "comments_dropped": self.comments_dropped,
+            "duplicates_collapsed": self.duplicates_collapsed,
             "skipped": [{"file": s.source_file, "line": s.line, "reason": s.reason} for s in self.skipped],
         }
 
@@ -159,18 +157,11 @@ class PlanCsvSet:
     # file name -> the text read (``read_plan_csv_set`` only), so a caller that also needs
     # the raw file (the legacy ``client_files`` copy, WP4.2) does not read it twice.
     texts: dict[str, str] = field(default_factory=dict)
+    # file name -> data rows the file held before duplicate keys were collapsed
+    rows_by_file: dict[str, int] = field(default_factory=dict)
 
 
 # ----------------------------------------------------------------------------- helpers
-def canonical_label(label: str) -> str:
-    """Strip a label and map a year-stamped one to its canonical name."""
-    text = (label or "").strip()
-    for pattern, replacement in _YEAR_LABEL_PATTERNS:
-        if pattern.match(text):
-            return replacement
-    return text
-
-
 def part_file_for_section(section: str) -> str:
     """The part file a section's rows belong in (its primary file; the anchor if unknown)."""
     for name, sections in PART_FILE_SECTIONS.items():
@@ -196,20 +187,75 @@ def _comment_text(cells: list[str]) -> str:
     return text if _ALNUM.search(text) else ""
 
 
-def _check_header(cells: list[str], source_file: str) -> None:
-    head = [c.strip().lower() for c in cells[:6]]
-    if tuple(head[:4]) != _HEADER or (len(head) > 4 and head[4] and head[4] not in _FIFTH_COLUMN) \
-            or (len(head) > 5 and head[5] and head[5] != "notes"):
+@dataclass(frozen=True)
+class _Columns:
+    """Where each field sits in a file's header (by NAME, as ``csv.DictReader`` found them)."""
+    section: int
+    subsection: int | None
+    label: int
+    value: int | None
+    units: int | None
+    notes: int | None
+    notes_last: bool          # the notes column is the header's last named column
+
+    def cell(self, raw: list[str], index: int | None) -> str:
+        return raw[index].strip() if index is not None and index < len(raw) else ""
+
+    def notes_text(self, raw: list[str]) -> str:
+        if self.notes is None or self.notes >= len(raw):
+            return ""
+        if self.notes_last:   # unquoted commas in the notes text spill into extra cells
+            return ",".join(_trim(list(raw[self.notes:]))).strip()
+        return raw[self.notes].strip()
+
+
+def _read_header(cells: list[str], source_file: str) -> _Columns:
+    """Map a header row to column positions; a file without ``section`` and ``label`` columns
+    is not a plan CSV. A repeated name resolves to its last column, as ``DictReader`` did."""
+    index: dict[str, int] = {}
+    for i, cell in enumerate(cells):
+        name = cell.strip().lower()
+        if name:
+            index[name] = i
+    if any(name not in index for name in _REQUIRED_COLUMNS):
         raise PlanCsvError(f"{source_file}: not a plan CSV (header {cells[:6]!r})")
+    notes = next((index[n] for n in _NOTES_COLUMNS if n in index), None)
+    last_named = max(index.values())
+    return _Columns(
+        section=index["section"], subsection=index.get("subsection"), label=index["label"],
+        value=index.get("value"), units=next((index[n] for n in _UNITS_COLUMNS if n in index), None),
+        notes=notes, notes_last=notes is not None and notes == last_named,
+    )
+
+
+def collapse_duplicate_keys(rows: Iterable[PlanCsvRow]) -> tuple[list[PlanCsvRow], int]:
+    """One row per ``(section, subsection, label)``, as the legacy loader's last-wins dict gave.
+
+    The surviving row sits where the key first occurred and carries the value, units, notes
+    and source of the key's last occurrence. Returns ``(rows, number of rows collapsed)``.
+    """
+    last: dict[tuple[str, str, str], PlanCsvRow] = {}
+    order: list[tuple[str, str, str]] = []
+    total = 0
+    for row in rows:
+        key = (row.section, row.subsection, row.label)
+        if key not in last:
+            order.append(key)
+        last[key] = row
+        total += 1
+    return [last[key] for key in order], total - len(order)
 
 
 # ------------------------------------------------------------------------------- parse
 def parse_plan_csv(text: str, source_file: str) -> PlanCsvSet:
-    """Parse one plan CSV file's text (BOM tolerated) into data rows plus a report."""
+    """Parse one plan CSV file's text (BOM tolerated) into data rows plus a report.
+
+    Rows are returned as read, duplicate keys included; :func:`read_plan_csv_set` and the
+    writers collapse them."""
     report = ImportReport(files_read=[source_file])
     rows: list[PlanCsvRow] = []
     reader = csv.reader(io.StringIO(text.removeprefix("\ufeff"), newline=""))
-    header_seen = False
+    columns: _Columns | None = None
     pending: list[str] = []
     seen_data = False
 
@@ -219,14 +265,12 @@ def parse_plan_csv(text: str, source_file: str) -> PlanCsvSet:
 
     for raw in reader:
         line = reader.line_num
-        if not header_seen:
+        if columns is None:
             if not any(c.strip() for c in raw):
                 continue
-            _check_header(raw, source_file)
-            header_seen = True
+            columns = _read_header(raw, source_file)
             continue
-        cells = [c.strip() for c in raw] + [""] * (6 - len(raw))
-        first = next((c for c in cells if c), "")
+        first = next((c.strip() for c in raw if c.strip()), "")
         if not first:
             drop_pending()
             continue
@@ -237,8 +281,10 @@ def parse_plan_csv(text: str, source_file: str) -> PlanCsvSet:
             else:
                 report.comments_dropped += 1
             continue
-        section, subsection, label = cells[0], cells[1], canonical_label(cells[2])
-        if [c.lower() for c in cells[:3]] == list(_HEADER[:3]):
+        section = columns.cell(raw, columns.section)
+        subsection = columns.cell(raw, columns.subsection)
+        label = canonical_label(columns.cell(raw, columns.label))
+        if [section.lower(), subsection.lower(), label.lower()] == list(_REPEATED_HEADER):
             reason = "repeated header"
         elif not section:
             reason = "no section"
@@ -250,7 +296,7 @@ def parse_plan_csv(text: str, source_file: str) -> PlanCsvSet:
             report.skipped.append(SkippedRecord(source_file, line, reason, tuple(raw)))
             drop_pending()
             continue
-        notes = ",".join(_trim(list(raw[5:]))).strip() if len(raw) > 5 else ""
+        notes = columns.notes_text(raw)
         if pending and seen_data:
             joined = " ".join(pending)
             notes = f"{notes}; {joined}" if notes else joined
@@ -259,7 +305,8 @@ def parse_plan_csv(text: str, source_file: str) -> PlanCsvSet:
         else:
             drop_pending()
         seen_data = True
-        rows.append(PlanCsvRow(section, subsection, label, cells[3], cells[4], notes, source_file, line))
+        rows.append(PlanCsvRow(section, subsection, label, columns.cell(raw, columns.value),
+                               columns.cell(raw, columns.units), notes, source_file, line))
     drop_pending()
     report.rows = len(rows)
     return PlanCsvSet(rows, report)
@@ -278,8 +325,11 @@ def read_plan_csv_set(folder: str | Path, files: Iterable[str] = PLAN_CSV_FILES)
             text = handle.read()
         parsed = parse_plan_csv(text, name)
         out.texts[name] = text
+        out.rows_by_file[name] = len(parsed.rows)
         out.rows += parsed.rows
         out.report.merge(parsed.report)
+    out.rows, out.report.duplicates_collapsed = collapse_duplicate_keys(out.rows)
+    out.report.rows = len(out.rows)
     return out
 
 
@@ -288,8 +338,10 @@ def write_plan_rows(store: Any, rows: Iterable[PlanCsvRow]) -> int:
     """Write rows, in order, into an empty plan (an open, writable ``PlanStore``).
 
     One transaction: on any error nothing is written. ``sort_order`` counts per section.
-    Returns the number of rows written.
+    A repeated key is written once (:func:`collapse_duplicate_keys`: first position, last
+    value). Returns the number of rows written.
     """
+    rows, _ = collapse_duplicate_keys(rows)
     count = 0
     with store.transaction():
         if store.sections():
@@ -315,6 +367,7 @@ def sync_plan_rows(store: Any, rows: Iterable[PlanCsvRow]) -> dict[str, int]:
     ``row_id``), every row is rewritten instead. Nothing is written when nothing
     changed. Returns ``{"updated", "inserted", "deleted", "rewritten"}`` counts.
     """
+    rows, _ = collapse_duplicate_keys(rows)
     wanted: list[tuple[str, dict[str, str], int]] = []
     next_order: dict[str, int] = {}
     section_order: list[str] = []
