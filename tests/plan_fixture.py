@@ -164,3 +164,27 @@ def stage_plan_csv(tmp_path, files: dict[str, str], *, input_subdir: str = "plan
         (input_dir / name).write_text(text, encoding="utf-8")
     _build_plan_file(input_dir, Path(tmp_path) / PLAN_FILE_NAME)
     return input_dir
+
+
+def reload_flat_datasets(root, input_subdir: str = "input") -> None:
+    """Re-import the flat dataset CSVs of ``<root>/<input_subdir>`` into ``<root>/plan.rpx`` (for a
+    test that edits a holdings/liabilities/HSA/targets file after ``make_plan``)."""
+    from src.csv_exchange import import_flat_datasets
+    from src.stores import PlanStore
+    with PlanStore.open(Path(root) / PLAN_FILE_NAME) as store:
+        import_flat_datasets(Path(root) / input_subdir, store)
+
+
+def stage_flat_datasets(tmp_path, files: dict[str, str], *, input_subdir: str = "plan_input") -> Path:
+    """A plan file at ``tmp_path/plan.rpx`` whose flat dataset tables hold the given CSV texts
+    (``{"client_holdings.csv": text, ...}``), for readers that take a workspace's ``input``
+    folder; returns that folder (the YTD readers are handed it)."""
+    from src.csv_exchange import import_flat_datasets
+    from src.stores import PlanStore
+    input_dir = Path(tmp_path) / input_subdir
+    input_dir.mkdir(parents=True, exist_ok=True)
+    for name, text in files.items():
+        (input_dir / name).write_text(text, encoding="utf-8")
+    with PlanStore.open(Path(tmp_path) / PLAN_FILE_NAME) as store:
+        import_flat_datasets(input_dir, store)
+    return input_dir

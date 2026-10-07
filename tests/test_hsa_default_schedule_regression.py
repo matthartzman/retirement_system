@@ -129,16 +129,22 @@ def _import_ensure():
     return _ensure_hsa_default_schedule
 
 
-def test_writes_a_file_when_optimize_mode_has_no_schedule(tmp_path, monkeypatch):
+def _use_plan(tmp_path, monkeypatch):
+    """Point the active plan at ``tmp_path/plan.rpx`` (the schedule is a table of the plan file)."""
     monkeypatch.setenv("RETIREMENT_SYSTEM_WORKSPACE_ROOT", str(tmp_path))
+    monkeypatch.setenv("RETIREMENT_SYSTEM_PLAN_DB", str(tmp_path / "plan.rpx"))
+
+
+def test_writes_a_schedule_when_optimize_mode_has_no_schedule(tmp_path, monkeypatch):
+    from src.plan_datasets import active_dataset_text
+    _use_plan(tmp_path, monkeypatch)
     ensure = _import_ensure()
     c = _c(plan_start=2026, plan_end=2056, balances={"hsa1": 60_000.0}, consume_by="2028")
     c["hsa_withdrawal_mode"] = "optimize"
     c["hsa_schedule_rows"] = []
     ensure(c, "local")
-    path = tmp_path / "input" / "client_hsa_schedule.csv"
-    assert path.exists(), "expected a default schedule file to be written"
-    content = path.read_text(encoding="utf-8")
+    content = active_dataset_text("hsa_schedule")
+    assert content, "expected a default schedule to be written to the plan"
     assert content.startswith("year,optimizer_amount,override_amount,locked,note\n")
     assert "20000.0" in content  # 60k / 3 years (2026-2028)
     # Populated in-memory too, for THIS build to consume immediately.
@@ -146,12 +152,11 @@ def test_writes_a_file_when_optimize_mode_has_no_schedule(tmp_path, monkeypatch)
     assert c["hsa_schedule_by_year"][2026]["optimizer_amount"] == 20_000.0
 
 
-def test_never_overwrites_an_existing_schedule_file(tmp_path, monkeypatch):
-    monkeypatch.setenv("RETIREMENT_SYSTEM_WORKSPACE_ROOT", str(tmp_path))
-    (tmp_path / "input").mkdir(parents=True)
+def test_never_overwrites_an_existing_schedule(tmp_path, monkeypatch):
+    from src.plan_datasets import active_dataset_text, write_active_dataset
+    _use_plan(tmp_path, monkeypatch)
     existing = "year,optimizer_amount,override_amount,locked,note\n2026,,9999,FALSE,user's own entry\n"
-    path = tmp_path / "input" / "client_hsa_schedule.csv"
-    path.write_text(existing, encoding="utf-8")
+    write_active_dataset("hsa_schedule", existing)
 
     ensure = _import_ensure()
     c = _c(plan_start=2026, plan_end=2056, balances={"hsa1": 60_000.0}, consume_by="2028")
@@ -160,7 +165,7 @@ def test_never_overwrites_an_existing_schedule_file(tmp_path, monkeypatch):
     # deliberately left empty here to prove the file-existence check (not the
     # in-memory rows check) is what prevents the overwrite.
     ensure(c, "local")
-    assert path.read_text(encoding="utf-8") == existing, "an existing schedule file must never be overwritten"
+    assert active_dataset_text("hsa_schedule") == existing, "an existing schedule must never be overwritten"
 
 
 def test_skips_entirely_when_mode_is_not_optimize(tmp_path, monkeypatch):
@@ -195,8 +200,8 @@ def test_write_failure_degrades_without_raising(tmp_path, monkeypatch):
     def _boom(*a, **k):
         raise OSError("disk full")
     monkeypatch.setattr(wb, "_ensure_hsa_default_schedule", wb._ensure_hsa_default_schedule)  # sanity import
-    from src.workspace_context import workspace_file as real_workspace_file
-    monkeypatch.setattr("src.workspace_context.workspace_file", _boom)
+    _use_plan(tmp_path, monkeypatch)
+    monkeypatch.setattr("src.plan_datasets.write_active_dataset", _boom)
 
     ensure = _import_ensure()
     c = _c(plan_start=2026, plan_end=2056, balances={"hsa1": 60_000.0}, consume_by="2028")

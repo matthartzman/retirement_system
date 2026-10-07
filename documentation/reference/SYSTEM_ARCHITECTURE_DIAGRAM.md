@@ -560,7 +560,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/plan_data_migration.py` | `active_plan`, `csv_exchange`, `local_store`, `plan_file_io`, `stores` | — |
 | `src/plan_data_read.py` | — | — |
 | `src/plan_data_registry.py` | — | — |
-| `src/plan_datasets.py` | `active_plan`, `csv_exchange`, `stores` | — |
+| `src/plan_datasets.py` | `active_plan`, `csv_exchange` | — |
 | `src/plan_dates.py` | — | — |
 | `src/plan_db_replace.py` | `stores` | — |
 | `src/plan_file_io.py` | — | — |

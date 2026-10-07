@@ -251,14 +251,12 @@ class DataIoAndBackfillWiringTests(unittest.TestCase):
         import src.server.app_core as app_core
         import tempfile
         from pathlib import Path
+        from tests.plan_fixture import stage_flat_datasets
         with tempfile.TemporaryDirectory() as d:
-            target_dir = Path(d)
-            (target_dir / "client_holdings.csv").write_text(
+            target_dir = stage_flat_datasets(Path(d), {"client_holdings.csv": (
                 "account,symbol,purchase_date,shares,purchase_price,lot_type\n"
                 "Member_1_IRA,VTI,2020-01-01,10,100,long\n"
-                "Family_Checking,CASH,2020-01-01,1000,1,\n",
-                encoding="utf-8",
-            )
+                "Family_Checking,CASH,2020-01-01,1000,1,\n")})
             generated = app_core._account_titling_ui_plan_data_rows(target_dir)
         by_account = {}
         for section, sub, label, value, units, notes in generated:

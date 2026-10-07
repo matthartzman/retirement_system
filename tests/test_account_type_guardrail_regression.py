@@ -24,7 +24,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.plan_fixture import make_plan
+from tests.plan_fixture import make_plan, reload_flat_datasets
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -47,6 +47,7 @@ def _staged_workspace(*, rename_account=None, rename_to=None):
             else:
                 out.append(line)
         holdings.write_text("".join(out), encoding="utf-8")
+        reload_flat_datasets(workspace)
 
     return workspace
 
