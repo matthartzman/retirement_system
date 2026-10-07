@@ -11,6 +11,7 @@ presentation code belongs here.
 """
 
 import csv
+import io
 import datetime
 import os
 import re
@@ -1723,41 +1724,30 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     from .core import TaxLot, LotEngine  # consolidated from events
     lots_by_account = {}   # {acct: {sym: [TaxLot, ...]}}
     lots_reconcile = {}    # {(acct, sym): total_lot_shares} for QC reconciliation
-    lots_file = None
-    _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    # Workspace-aware search order: explicit env path/input dir, workspace input, shared input, hosted fallbacks.
-    # No explicit root= -- see the note at the budget-lines lookup above. This
-    # call site previously hardcoded the project root, which is why redirecting
-    # RETIREMENT_SYSTEM_WORKSPACE_ROOT at a frozen fixture silently kept reading
-    # holdings from the real input/ (documented in test_199's docstring).
-    for _lp_path in candidate_input_files('client_holdings.csv', active_workspace_id()):
-        _lp = str(_lp_path)
-        if os.path.exists(_lp):
-            lots_file = _lp
-            break
-    if lots_file:
-        with open(lots_file, newline='', encoding='utf-8-sig') as lf:
-            reader = _csv.DictReader(lf)
-            for row in reader:
-                acct = (row.get('account','') or '').strip()
-                sym  = (row.get('symbol','') or '').strip()
-                if not acct or not sym:
-                    continue
-                shares = float((row.get('shares','0') or '0').replace(',',''))
-                price  = float((row.get('purchase_price','0') or '0').replace('$','').replace(',',''))
-                pdate  = (row.get('purchase_date','') or '').strip()
-                ltype  = (row.get('lot_type','buy') or 'buy').strip().lower()
-                if shares <= 0:
-                    continue
-                cost_basis = shares * price
-                lot = TaxLot(sym, shares, cost_basis, pdate)
-                if acct not in lots_by_account:
-                    lots_by_account[acct] = {}
-                if sym not in lots_by_account[acct]:
-                    lots_by_account[acct][sym] = []
-                lots_by_account[acct][sym].append(lot)
-                key = (acct, sym)
-                lots_reconcile[key] = lots_reconcile.get(key, 0) + shares
+    from .plan_datasets import active_dataset_text
+    holdings_text = active_dataset_text('holdings')
+    if holdings_text:
+        reader = _csv.DictReader(io.StringIO(holdings_text))
+        for row in reader:
+            acct = (row.get('account','') or '').strip()
+            sym  = (row.get('symbol','') or '').strip()
+            if not acct or not sym:
+                continue
+            shares = float((row.get('shares','0') or '0').replace(',',''))
+            price  = float((row.get('purchase_price','0') or '0').replace('$','').replace(',',''))
+            pdate  = (row.get('purchase_date','') or '').strip()
+            ltype  = (row.get('lot_type','buy') or 'buy').strip().lower()
+            if shares <= 0:
+                continue
+            cost_basis = shares * price
+            lot = TaxLot(sym, shares, cost_basis, pdate)
+            if acct not in lots_by_account:
+                lots_by_account[acct] = {}
+            if sym not in lots_by_account[acct]:
+                lots_by_account[acct][sym] = []
+            lots_by_account[acct][sym].append(lot)
+            key = (acct, sym)
+            lots_reconcile[key] = lots_reconcile.get(key, 0) + shares
     c['lots_by_account'] = lots_by_account
 
     # ── Load additional liabilities from client_liabilities.csv ───────────────
@@ -1767,42 +1757,36 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     # type in (auto | heloc | student_loan | other). A zero/absent file yields
     # an empty list so a liability-free plan behaves exactly as before.
     liabilities = []
-    liab_file = None
-    for _li_path in candidate_input_files('client_liabilities.csv', active_workspace_id()):
-        _li = str(_li_path)
-        if os.path.exists(_li):
-            liab_file = _li
-            break
-    if liab_file:
+    liab_text = active_dataset_text('liabilities')
+    if liab_text:
         try:
-            with open(liab_file, newline='', encoding='utf-8-sig') as lf:
-                for row in _csv.DictReader(lf):
-                    def _clean_num(raw):
-                        return float((str(raw or '0')).replace('$', '').replace(',', '').replace('%', '').strip() or 0.0)
-                    ltype = (row.get('type', '') or 'other').strip().lower()
-                    balance = _clean_num(row.get('balance', '0'))
-                    if balance <= 0:
-                        continue
-                    rate = _clean_num(row.get('interest_rate', '0'))
-                    # Accept either a fraction (0.06) or a percent (6) for the rate.
-                    if rate > 1.0:
-                        rate = rate / 100.0
-                    def _clean_year(raw):
-                        try:
-                            return int(float(str(raw or '0').replace(',', '').strip() or 0))
-                        except Exception:
-                            return 0
-                    liabilities.append({
-                        'liability_id': (row.get('liability_id', '') or '').strip(),
-                        'type': ltype,
-                        'label': (row.get('label', '') or '').strip(),
-                        'balance': balance,
-                        'interest_rate': rate,
-                        'monthly_payment': _clean_num(row.get('monthly_payment', '0')),
-                        'start_year': _clean_year(row.get('start_year', '0')),
-                        'payoff_year': _clean_year(row.get('payoff_year', '0')),
-                        'notes': (row.get('notes', '') or '').strip(),
-                    })
+            for row in _csv.DictReader(io.StringIO(liab_text)):
+                def _clean_num(raw):
+                    return float((str(raw or '0')).replace('$', '').replace(',', '').replace('%', '').strip() or 0.0)
+                ltype = (row.get('type', '') or 'other').strip().lower()
+                balance = _clean_num(row.get('balance', '0'))
+                if balance <= 0:
+                    continue
+                rate = _clean_num(row.get('interest_rate', '0'))
+                # Accept either a fraction (0.06) or a percent (6) for the rate.
+                if rate > 1.0:
+                    rate = rate / 100.0
+                def _clean_year(raw):
+                    try:
+                        return int(float(str(raw or '0').replace(',', '').strip() or 0))
+                    except Exception:
+                        return 0
+                liabilities.append({
+                    'liability_id': (row.get('liability_id', '') or '').strip(),
+                    'type': ltype,
+                    'label': (row.get('label', '') or '').strip(),
+                    'balance': balance,
+                    'interest_rate': rate,
+                    'monthly_payment': _clean_num(row.get('monthly_payment', '0')),
+                    'start_year': _clean_year(row.get('start_year', '0')),
+                    'payoff_year': _clean_year(row.get('payoff_year', '0')),
+                    'notes': (row.get('notes', '') or '').strip(),
+                })
         except Exception:
             liabilities = []
     c['liabilities'] = liabilities

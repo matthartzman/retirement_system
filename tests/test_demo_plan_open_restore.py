@@ -280,7 +280,7 @@ def test_demo_open_swaps_ytd_actual_spending_too():
     routes = Path("src/server/plan_routes.py").read_text(encoding="utf-8")
     demo_block_start = routes.index("def _demo_plan_feature_service()")
     demo_block = routes[demo_block_start:demo_block_start + 2000]
-    assert "plan_data_csv_files=PLAN_DATA_CSV_FILES + YTD_PLAN_DATA_FILES" in demo_block, (
+    assert "PLAN_DATA_CSV_FILES + YTD_PLAN_DATA_FILES" in demo_block and "plan_data_csv_files=_FILE_BACKED_PLAN_DATA_FILES" in demo_block, (
         "Open Demo Plan's file list must include YTD_PLAN_DATA_FILES so "
         "ytd_transactions.csv is swapped along with the rest of the demo "
         "household, not left showing the real advisor's transactions."

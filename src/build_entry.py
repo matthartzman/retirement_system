@@ -21,7 +21,7 @@ from pathlib import Path
 
 from . import platform_runtime
 from .config_backend import materialize_workspace_files
-from .plan_data_registry import FLAT_PLAN_DATA_CSV_FILES, YTD_PLAN_DATA_FILES
+from .plan_data_registry import FLAT_PLAN_DATA_CSV_FILES, PLAN_TABLE_DATASET_FILES, YTD_PLAN_DATA_FILES
 
 
 @dataclass(frozen=True)
@@ -43,7 +43,7 @@ def _materialize_server_working_copy() -> None:
     projection engine.
     """
     try:
-        materialize_workspace_files(file_names=[*FLAT_PLAN_DATA_CSV_FILES, *YTD_PLAN_DATA_FILES], overwrite_existing=False)
+        materialize_workspace_files(file_names=[*(f for f in FLAT_PLAN_DATA_CSV_FILES if f not in PLAN_TABLE_DATASET_FILES), *YTD_PLAN_DATA_FILES], overwrite_existing=False)
     except Exception as exc:
         message = f"Could not materialize saved Plan Data files from local store: {exc}"
         logging.getLogger("retirement_system.build").warning(message)

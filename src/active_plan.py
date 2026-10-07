@@ -187,13 +187,15 @@ def build_plan_file_from_csv_folder(dest: str | Path, folder: str | Path) -> int
     """Build a plan file at ``dest`` from the plan CSV set in ``folder`` through the
     ``csv_exchange`` importer (the demo seed, a fresh frozen workspace); an existing ``dest`` is
     replaced. Rows the old loader dropped at load are dropped too. Returns the rows written."""
-    from .csv_exchange import import_plan_csv_set  # noqa: PLC0415 - csv_exchange needs no plan at import
+    from .csv_exchange import import_flat_datasets, import_plan_csv_set  # noqa: PLC0415 - csv_exchange needs no plan at import
 
     target = Path(dest)
     for stale in (target, target.with_name(target.name + "-wal"), target.with_name(target.name + "-shm")):
         stale.unlink(missing_ok=True)
     with PlanStore.open(target) as store:
-        return import_plan_csv_set(folder, store, drop_never_kept=True).rows
+        rows = import_plan_csv_set(folder, store, drop_never_kept=True).rows
+        import_flat_datasets(folder, store)
+        return rows
 
 
 def plan_file_fingerprint(path: str | Path) -> tuple[str, int]:
