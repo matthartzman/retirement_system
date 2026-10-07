@@ -1,6 +1,6 @@
 # Plan rows model (`plan.db` / `.rpx`)
 
-Status: WP4.1 (owner review checkpoint; the row-model summary below is the PR-body text), WP4.2 read path, WP4.3 grid and forms write path, WP4.4a asset/estate/insurance/seed endpoints.
+Status: WP4.1 (owner review checkpoint; the row-model summary below is the PR-body text), WP4.2 read path, WP4.3 grid and forms write path, WP4.4a asset/estate/insurance/seed endpoints, WP4.4b Roth, strategy and policy endpoints.
 
 ## Row-model summary
 
@@ -100,6 +100,20 @@ Moved to `plan_rows`: other asset add/delete, note receivable add/delete, educat
 - **Differences from the CSV code, none in engine data:** a comment line directly above the next section no longer becomes a new row's `notes` (the old insertion put the new rows between the comment and its row); the 529 and note numbering look at the whole section, not at the part file that held it. Kept: 529 numbering uses the first digit run of each subsection, so after `529 Plan 1` the next one is `529 Plan 530`.
 
 Tests: `tests/test_plan_rows_strategy_assets_functional.py` (each endpoint's response and rows, validation and 404s, estate placement and idempotence, seeds, edit via these endpoints then via a CSV writer, a CSV write not synced yet, the 409, audit events), `tests/test_strategy_asset_concurrent_adds.py` (real plan, threaded adds), `tests/test_csv_exchange_write_back_unit.py` (mid-section insert), and the slow `tests/test_e2e_build_journey.py::test_real_build_keeps_an_added_asset_after_a_grid_edit_and_a_csv_writer`.
+
+## Roth, strategy and policy endpoints (WP4.4b)
+
+Moved to `plan_rows`: `/api/withdrawal-account-order`, `/api/large-discretionary-expenses`, `/api/forced-roth-conversions`, `/api/tax-assumptions` (GET and POST), `/api/residency-schedule`, `/api/spending-adjustments` (now a service method too). `StrategyAssetServiceContext` gains `read_plan` (`app_core._read_active_plan`: `refresh_active_plan`, then the open active-plan store; a CSV set that cannot be read serves the stored rows) beside `edit_plan`; its CSV path and helper fields for these endpoints are gone.
+
+- **Rows.** `Withdrawal Policy / Account Order / <account id>` (units `int`), `Cashflow / Large Discretionary Expenses / extra_N_{type,amount,year,start_year,end_year,comment}`, `Forced Actions / Roth Conversion N / {source_account,year,amount}`, `State Residency Schedule / period_N / {state,start_year,end_year}`, `Cashflow / Spending Adjustments / adj_N_{category,start_year,end_year,change_pct}`, and the override and `tax_model_baseline` rows of `Economic Assumptions` (found by label; the state comes from `Household / residence_state`). Readers group by number and skip empty items exactly as before; amounts are stored as `$1,234`.
+- **Replace by key, not by block rewrite.** `_replace_block(store, section, in_block, wanted, default_at)`: a wanted key the plan holds keeps its row and `row_id` and only its value changes (units and notes stay, which is also all `write_back_rows` can carry for an existing row), a block row not wanted is deleted, new keys go after the block's last row (an empty block: `default_at`, else the end of the section; large discretionary goes after `Post-House-Sale Rent`). Forced Actions and the residency schedule replace their whole section, as the old code did (legacy date-subsection rows of Forced Actions go with it).
+- **Tax assumptions.** An override is an upsert of the lever's row (value only, a new row gets units `pct` and the lever's help text), the baseline row records the model value at override time; everything runs in one edit, so a failed validation or an unknown state (400) changes nothing.
+- **Responses** are unchanged (`count`, `saved`, `sync` when the request asked for the mirror sync; 409 `Plan Data could not be saved: ...` when the CSV set cannot take the edit; audit events recorded after the edit).
+- **Roth guard.** `roth_ui_build_guard.canonicalize_roth_rows(store)` rewrites non-canonical Roth/IRMAA controls in the rows; `edit_active_plan` runs it after every row edit, before the write-back, so the rows hold canonical values whichever endpoint wrote them. `canonicalize_roth_csv_content` remains only for `_write_plan_data_file` (the CSV set writer) until WP4.5.
+- **Differences from the CSV code, none in engine data:** an existing forced Roth conversion keeps its notes (new rows list the current pre-tax accounts); large discretionary read and write the same place (the old code wrote the part file holding the first `Cashflow` rows and read `client_spending.csv`).
+- **Not moved (4.4c):** liquidity buffers, home sale splits, allocation and housing endpoints, `_ensure_user_ui_plan_data_rows` and the `_replace_*` helpers they still use. The `_replace_*` of large discretionary, forced Roth and residency, and the readers and row builders beside them in `app_core`, are no longer called.
+
+Tests: `tests/test_plan_rows_strategy_policy_functional.py` (each endpoint's response, validation, rows, in-place edits, order, CSV write-back, edit then a CSV writer then an edit, a CSV write not synced yet, the 409, audit events, the Roth guard), `tests/test_spending_adjustments_api_functional.py`, `tests/test_state_residency_schedule.py`, `tests/test_tax_assumptions_unit.py` (service over a real plan via `tests/strategy_service_rows.py`), and the slow `tests/test_e2e_build_journey.py::test_real_build_keeps_policy_edits_after_a_grid_edit_and_a_csv_writer`.
 
 ## Where it is used next
 

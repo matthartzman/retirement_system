@@ -18,6 +18,7 @@ import time
 import traceback
 import urllib.error
 import urllib.request
+from contextlib import contextmanager
 from pathlib import Path
 
 try:
@@ -1351,6 +1352,15 @@ def _refresh_active_plan() -> str:
     are served instead."""
     return refresh_active_plan(configured_plan_input_dir())
 
+
+@contextmanager
+def _read_active_plan():
+    """The strategy endpoints' read context (WP4.4): the open active-plan store after the
+    CSV-set bridge ran, so a CSV write not yet synced is in the rows. A CSV set that cannot be
+    read serves the stored rows (``_refresh_active_plan`` reports why; a read does not fail)."""
+    _refresh_active_plan()
+    with active_plan_store() as store:
+        yield store
 
 
 TRAVEL_EXTRA_TYPES = [

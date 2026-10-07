@@ -433,7 +433,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/server/app_core.py` | `src`, `active_plan`, `config_backend`, `csv_exchange`, `http_runtime.wsgi_facade`, `permissions`, `plan_dates`, `plan_file_io`, `roth_ui_build_guard`, `runtime_config`, `schema_registry`, `secrets_store`, `security`, `server.plan_data_files`, `server.security_audit`, `system_config`, `us_states`, `workspace_context` | — |
 | `src/server/base_routes.py` | `api_contracts`, `glossary`, `server.app_core`, `server.route_manifest`, `server_services`, `version` | — |
 | `src/server/plan_data_files.py` | `plan_data_registry` | — |
-| `src/server/plan_routes.py` | `housing`, `module_catalog`, `monarch_autoimport_job`, `plan_data_migration`, `portfolio_analytics`, `report_compute`, `secrets_store`, `server.app_core`, `server_services`, `spending_adjustments`, `version` | — |
+| `src/server/plan_routes.py` | `housing`, `module_catalog`, `monarch_autoimport_job`, `plan_data_migration`, `portfolio_analytics`, `report_compute`, `secrets_store`, `server.app_core`, `server_services`, `version` | — |
 | `src/server/route_manifest.py` | — | — |
 | `src/server/security_audit.py` | `config_backend`, `http_runtime.wsgi_facade`, `permissions`, `security`, `server`, `workspace_context` | — |
 | `src/server/workbook_routes.py` | `active_plan`, `build_snapshot`, `http_runtime.wsgi_facade`, `import_preview`, `local_store`, `reporting`, `results_model`, `schema_registry`, `server.app_core`, `server_forecast`, `server_services` | — |
@@ -459,7 +459,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/server_services/report_service.py` | `detailed_results`, `report_package`, `system_config` | — |
 | `src/server_services/secret_service.py` | — | — |
 | `src/server_services/spending_service.py` | — | — |
-| `src/server_services/strategy_asset_service.py` | `core`, `csv_exchange`, `data_io`, `plan_file_io`, `stores.ref_getters.state_tax` | — |
+| `src/server_services/strategy_asset_service.py` | `core`, `csv_exchange`, `data_io`, `spending_adjustments`, `stores.ref_getters.state_tax` | — |
 | `src/server_services/ytd_service.py` | `import_preview` | — |
 
 ### HTTP Runtime
@@ -475,7 +475,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | Module | Internal imports | External imports |
 |---|---|---|
 | `src/__init__.py` | `version` | — |
-| `src/active_plan.py` | `csv_exchange`, `csv_exchange.plan_csv`, `plan_label_rules`, `stores` | — |
+| `src/active_plan.py` | `csv_exchange`, `csv_exchange.plan_csv`, `plan_label_rules`, `roth_ui_build_guard`, `stores` | — |
 | `src/after_tax.py` | `core` | — |
 | `src/allocation_policy.py` | — | — |
 | `src/api_contracts.py` | — | — |

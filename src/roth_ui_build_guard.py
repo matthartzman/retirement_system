@@ -1,8 +1,9 @@
 """Roth UI/build handoff guards for Retirement System v12.
 
 These helpers keep user-selected Roth conversion settings canonical as they move
-from the browser UI to Plan Data CSVs, JSON/YAML mirrors, and the projection
-engine. The core safety rule is that an explicit user-selected Roth policy
+from the browser UI to the plan rows (``canonicalize_roth_rows``), the plan CSV set
+(``canonicalize_roth_csv_content``, the CSV bridge until WP4.5 deletes it), JSON/YAML
+mirrors, and the projection engine. The core safety rule is that an explicit user-selected Roth policy
 (fill_to_bracket, fill_to_irmaa, fixed_dollar, or none) must not be treated as
 OPTIMIZER_CHOOSES during workbook build.
 """
@@ -139,8 +140,22 @@ def normalize_roth_csv_value(section: Any, subsection: Any, label: Any, value: A
     return val
 
 
+def canonicalize_roth_rows(store: Any) -> int:
+    """Canonicalize the Roth controls of the open plan's rows (``PlanStore``) in place and
+    return how many rows changed. ``active_plan.edit_active_plan`` runs it after every row
+    edit, so a Roth value reaches ``plan_rows`` canonical whichever endpoint wrote it."""
+    changed = 0
+    for row in store.all_rows():
+        new_value = normalize_roth_csv_value(row["section"], row["subsection"], row["label"], row["value"])
+        if new_value != row["value"]:
+            store.set_row(row["row_id"], value=new_value)
+            changed += 1
+    return changed
+
+
 def canonicalize_roth_csv_content(content: str) -> str:
-    """Canonicalize Roth controls in a CSV string without changing other rows."""
+    """Canonicalize Roth controls in a CSV string without changing other rows (the plan CSV
+    set's file writer, ``app_core._write_plan_data_file``; goes with the CSV set in WP4.5)."""
     rows = list(csv.reader(io.StringIO(content or "")))
     changed = False
     for row in rows:
