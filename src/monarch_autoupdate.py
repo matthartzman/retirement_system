@@ -28,7 +28,7 @@ DEFAULT_SOURCE_DIR = "Monarch Extractor/output"
 class AutoUpdatePolicy:
     enabled: bool = False
     source_dir: str = DEFAULT_SOURCE_DIR
-    field_map_path: str = ""  # "" = use the shipped default (src/monarch_field_map.json)
+    field_map_path: str = ""  # "" = use the shipped default (from reference database)
 
     def as_dict(self) -> dict[str, Any]:
         return {

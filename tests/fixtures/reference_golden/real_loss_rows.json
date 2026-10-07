@@ -1,0 +1,266 @@
+[
+ {
+  "curve_name": "Cash",
+  "holding_years": "0",
+  "real_loss_prob": "8.00%",
+  "notes": "Discipline Funds \"Probability of a Real Loss by Holding Period\" chart; T-bills/cash curve; editable planning assumption, not a forecast."
+ },
+ {
+  "curve_name": "Cash",
+  "holding_years": "3",
+  "real_loss_prob": "14.00%",
+  "notes": "Discipline Funds chart; T-bills/cash curve."
+ },
+ {
+  "curve_name": "Cash",
+  "holding_years": "5",
+  "real_loss_prob": "20.00%",
+  "notes": "Discipline Funds chart; T-bills/cash curve."
+ },
+ {
+  "curve_name": "Cash",
+  "holding_years": "7",
+  "real_loss_prob": "26.00%",
+  "notes": "Discipline Funds chart; T-bills/cash curve."
+ },
+ {
+  "curve_name": "Cash",
+  "holding_years": "9",
+  "real_loss_prob": "31.00%",
+  "notes": "Discipline Funds chart; T-bills/cash curve."
+ },
+ {
+  "curve_name": "Cash",
+  "holding_years": "11",
+  "real_loss_prob": "36.00%",
+  "notes": "Discipline Funds chart; T-bills/cash curve."
+ },
+ {
+  "curve_name": "Cash",
+  "holding_years": "13",
+  "real_loss_prob": "40.00%",
+  "notes": "Discipline Funds chart; T-bills/cash curve."
+ },
+ {
+  "curve_name": "Cash",
+  "holding_years": "15",
+  "real_loss_prob": "44.00%",
+  "notes": "Discipline Funds chart; T-bills/cash curve."
+ },
+ {
+  "curve_name": "Cash",
+  "holding_years": "17",
+  "real_loss_prob": "47.00%",
+  "notes": "Discipline Funds chart; T-bills/cash curve."
+ },
+ {
+  "curve_name": "Cash",
+  "holding_years": "19",
+  "real_loss_prob": "50.00%",
+  "notes": "Discipline Funds chart; T-bills/cash curve."
+ },
+ {
+  "curve_name": "Cash",
+  "holding_years": "21",
+  "real_loss_prob": "52.00%",
+  "notes": "Discipline Funds chart; T-bills/cash curve."
+ },
+ {
+  "curve_name": "Bonds_Short_Intermediate",
+  "holding_years": "0",
+  "real_loss_prob": "22.00%",
+  "notes": "Discipline Funds chart; real (short-intermediate) bonds curve."
+ },
+ {
+  "curve_name": "Bonds_Short_Intermediate",
+  "holding_years": "3",
+  "real_loss_prob": "20.00%",
+  "notes": "Discipline Funds chart; real (short-intermediate) bonds curve."
+ },
+ {
+  "curve_name": "Bonds_Short_Intermediate",
+  "holding_years": "5",
+  "real_loss_prob": "19.00%",
+  "notes": "Discipline Funds chart; real (short-intermediate) bonds curve."
+ },
+ {
+  "curve_name": "Bonds_Short_Intermediate",
+  "holding_years": "7",
+  "real_loss_prob": "18.00%",
+  "notes": "Discipline Funds chart; real (short-intermediate) bonds curve."
+ },
+ {
+  "curve_name": "Bonds_Short_Intermediate",
+  "holding_years": "9",
+  "real_loss_prob": "17.00%",
+  "notes": "Discipline Funds chart; real (short-intermediate) bonds curve."
+ },
+ {
+  "curve_name": "Bonds_Short_Intermediate",
+  "holding_years": "11",
+  "real_loss_prob": "16.00%",
+  "notes": "Discipline Funds chart; real (short-intermediate) bonds curve."
+ },
+ {
+  "curve_name": "Bonds_Short_Intermediate",
+  "holding_years": "13",
+  "real_loss_prob": "16.00%",
+  "notes": "Discipline Funds chart; real (short-intermediate) bonds curve."
+ },
+ {
+  "curve_name": "Bonds_Short_Intermediate",
+  "holding_years": "15",
+  "real_loss_prob": "15.00%",
+  "notes": "Discipline Funds chart; real (short-intermediate) bonds curve."
+ },
+ {
+  "curve_name": "Bonds_Short_Intermediate",
+  "holding_years": "17",
+  "real_loss_prob": "15.00%",
+  "notes": "Discipline Funds chart; real (short-intermediate) bonds curve."
+ },
+ {
+  "curve_name": "Bonds_Short_Intermediate",
+  "holding_years": "19",
+  "real_loss_prob": "14.00%",
+  "notes": "Discipline Funds chart; real (short-intermediate) bonds curve."
+ },
+ {
+  "curve_name": "Bonds_Short_Intermediate",
+  "holding_years": "21",
+  "real_loss_prob": "14.00%",
+  "notes": "Discipline Funds chart; real (short-intermediate) bonds curve."
+ },
+ {
+  "curve_name": "Blend_60_40",
+  "holding_years": "0",
+  "real_loss_prob": "28.00%",
+  "notes": "Discipline Funds chart; blended/intermediate (60-40) curve."
+ },
+ {
+  "curve_name": "Blend_60_40",
+  "holding_years": "3",
+  "real_loss_prob": "20.00%",
+  "notes": "Discipline Funds chart; blended/intermediate (60-40) curve."
+ },
+ {
+  "curve_name": "Blend_60_40",
+  "holding_years": "5",
+  "real_loss_prob": "14.00%",
+  "notes": "Discipline Funds chart; blended/intermediate (60-40) curve."
+ },
+ {
+  "curve_name": "Blend_60_40",
+  "holding_years": "7",
+  "real_loss_prob": "9.00%",
+  "notes": "Discipline Funds chart; blended/intermediate (60-40) curve."
+ },
+ {
+  "curve_name": "Blend_60_40",
+  "holding_years": "9",
+  "real_loss_prob": "6.00%",
+  "notes": "Discipline Funds chart; blended/intermediate (60-40) curve."
+ },
+ {
+  "curve_name": "Blend_60_40",
+  "holding_years": "11",
+  "real_loss_prob": "3.00%",
+  "notes": "Discipline Funds chart; blended/intermediate (60-40) curve."
+ },
+ {
+  "curve_name": "Blend_60_40",
+  "holding_years": "13",
+  "real_loss_prob": "2.00%",
+  "notes": "Discipline Funds chart; blended/intermediate (60-40) curve."
+ },
+ {
+  "curve_name": "Blend_60_40",
+  "holding_years": "15",
+  "real_loss_prob": "1.00%",
+  "notes": "Discipline Funds chart; blended/intermediate (60-40) curve."
+ },
+ {
+  "curve_name": "Blend_60_40",
+  "holding_years": "17",
+  "real_loss_prob": "1.00%",
+  "notes": "Discipline Funds chart; blended/intermediate (60-40) curve."
+ },
+ {
+  "curve_name": "Blend_60_40",
+  "holding_years": "19",
+  "real_loss_prob": "0.00%",
+  "notes": "Discipline Funds chart; blended/intermediate (60-40) curve."
+ },
+ {
+  "curve_name": "Blend_60_40",
+  "holding_years": "21",
+  "real_loss_prob": "0.00%",
+  "notes": "Discipline Funds chart; blended/intermediate (60-40) curve."
+ },
+ {
+  "curve_name": "Equities_100",
+  "holding_years": "0",
+  "real_loss_prob": "38.00%",
+  "notes": "Discipline Funds chart; 100% equities curve."
+ },
+ {
+  "curve_name": "Equities_100",
+  "holding_years": "3",
+  "real_loss_prob": "30.00%",
+  "notes": "Discipline Funds chart; 100% equities curve."
+ },
+ {
+  "curve_name": "Equities_100",
+  "holding_years": "5",
+  "real_loss_prob": "24.00%",
+  "notes": "Discipline Funds chart; 100% equities curve."
+ },
+ {
+  "curve_name": "Equities_100",
+  "holding_years": "7",
+  "real_loss_prob": "19.00%",
+  "notes": "Discipline Funds chart; 100% equities curve."
+ },
+ {
+  "curve_name": "Equities_100",
+  "holding_years": "9",
+  "real_loss_prob": "14.00%",
+  "notes": "Discipline Funds chart; 100% equities curve."
+ },
+ {
+  "curve_name": "Equities_100",
+  "holding_years": "11",
+  "real_loss_prob": "10.00%",
+  "notes": "Discipline Funds chart; 100% equities curve."
+ },
+ {
+  "curve_name": "Equities_100",
+  "holding_years": "13",
+  "real_loss_prob": "7.00%",
+  "notes": "Discipline Funds chart; 100% equities curve."
+ },
+ {
+  "curve_name": "Equities_100",
+  "holding_years": "15",
+  "real_loss_prob": "5.00%",
+  "notes": "Discipline Funds chart; 100% equities curve."
+ },
+ {
+  "curve_name": "Equities_100",
+  "holding_years": "17",
+  "real_loss_prob": "3.00%",
+  "notes": "Discipline Funds chart; 100% equities curve."
+ },
+ {
+  "curve_name": "Equities_100",
+  "holding_years": "19",
+  "real_loss_prob": "2.00%",
+  "notes": "Discipline Funds chart; 100% equities curve."
+ },
+ {
+  "curve_name": "Equities_100",
+  "holding_years": "21",
+  "real_loss_prob": "1.00%",
+  "notes": "Discipline Funds chart; 100% equities curve."
+ }
+]

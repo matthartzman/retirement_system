@@ -162,7 +162,6 @@ except ImportError:  # direct execution fallback
 BASE_DIR = Path(__file__).resolve().parents[2]
 WORKSPACE_ROOT = platform_runtime.workspace_root()
 DEFAULT_CSV_PATH = WORKSPACE_ROOT / "input" / "client_data.csv"
-SCHEMA_PATH = BASE_DIR / "reference_data" / "schema.csv"
 BUILD_SCRIPT = BASE_DIR / "tools" / "build_workbook.py"
 app = Flask(__name__, static_folder=str(BASE_DIR))
 RUNTIME_CONFIG = load_runtime_config()

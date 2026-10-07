@@ -67,7 +67,7 @@ def test_illinois_happy_path_unaffected():
 
 
 def test_blank_state_still_falls_back_silently_not_bricked():
-    # residence_state is a required Plan Data field (reference_data/schema.csv)
+    # residence_state is a required Plan Data field (reference_src/schema.csv)
     # already gated by the separate "missing required field" preflight check.
     # A blank string reaching state_income_tax (e.g. an in-progress autosave
     # backup) must not newly hard-fail here — that would brick loading of

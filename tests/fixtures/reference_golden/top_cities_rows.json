@@ -1,0 +1,1602 @@
+[
+ {
+  "city_id": "3651000",
+  "city": "New York",
+  "state": "New York",
+  "state_abbrev": "NY",
+  "population": "8483844",
+  "anchor_zip": "10314"
+ },
+ {
+  "city_id": "0644000",
+  "city": "Los Angeles",
+  "state": "California",
+  "state_abbrev": "CA",
+  "population": "3857263",
+  "anchor_zip": "90272"
+ },
+ {
+  "city_id": "1714000",
+  "city": "Chicago",
+  "state": "Illinois",
+  "state_abbrev": "IL",
+  "population": "2711226",
+  "anchor_zip": "60617"
+ },
+ {
+  "city_id": "4835000",
+  "city": "Houston",
+  "state": "Texas",
+  "state_abbrev": "TX",
+  "population": "2328253",
+  "anchor_zip": "77032"
+ },
+ {
+  "city_id": "0455000",
+  "city": "Phoenix",
+  "state": "Arizona",
+  "state_abbrev": "AZ",
+  "population": "1642323",
+  "anchor_zip": "85085"
+ },
+ {
+  "city_id": "4260000",
+  "city": "Philadelphia",
+  "state": "Pennsylvania",
+  "state_abbrev": "PA",
+  "population": "1579706",
+  "anchor_zip": "19153"
+ },
+ {
+  "city_id": "4865000",
+  "city": "San Antonio",
+  "state": "Texas",
+  "state_abbrev": "TX",
+  "population": "1479835",
+  "anchor_zip": "78023"
+ },
+ {
+  "city_id": "0666000",
+  "city": "San Diego",
+  "state": "California",
+  "state_abbrev": "CA",
+  "population": "1389526",
+  "anchor_zip": "92131"
+ },
+ {
+  "city_id": "4819000",
+  "city": "Dallas",
+  "state": "Texas",
+  "state_abbrev": "TX",
+  "population": "1307930",
+  "anchor_zip": "75217"
+ },
+ {
+  "city_id": "0668000",
+  "city": "San Jose",
+  "state": "California",
+  "state_abbrev": "CA",
+  "population": "990138",
+  "anchor_zip": "95037"
+ },
+ {
+  "city_id": "4805000",
+  "city": "Austin",
+  "state": "Texas",
+  "state_abbrev": "TX",
+  "population": "979539",
+  "anchor_zip": "78744"
+ },
+ {
+  "city_id": "1235000",
+  "city": "Jacksonville",
+  "state": "Florida",
+  "state_abbrev": "FL",
+  "population": "977670",
+  "anchor_zip": "32218"
+ },
+ {
+  "city_id": "4827000",
+  "city": "Fort Worth",
+  "state": "Texas",
+  "state_abbrev": "TX",
+  "population": "963194",
+  "anchor_zip": "76179"
+ },
+ {
+  "city_id": "3918000",
+  "city": "Columbus",
+  "state": "Ohio",
+  "state_abbrev": "OH",
+  "population": "914802",
+  "anchor_zip": "43207"
+ },
+ {
+  "city_id": "3712000",
+  "city": "Charlotte",
+  "state": "North Carolina",
+  "state_abbrev": "NC",
+  "population": "903844",
+  "anchor_zip": "28269"
+ },
+ {
+  "city_id": "1836003",
+  "city": "Indianapolis",
+  "state": "Indiana",
+  "state_abbrev": "IN",
+  "population": "885860",
+  "anchor_zip": "46239"
+ },
+ {
+  "city_id": "0667000",
+  "city": "San Francisco",
+  "state": "California",
+  "state_abbrev": "CA",
+  "population": "830235",
+  "anchor_zip": "94124"
+ },
+ {
+  "city_id": "5363000",
+  "city": "Seattle",
+  "state": "Washington",
+  "state_abbrev": "WA",
+  "population": "754195",
+  "anchor_zip": "98115"
+ },
+ {
+  "city_id": "0820000",
+  "city": "Denver",
+  "state": "Colorado",
+  "state_abbrev": "CO",
+  "population": "718877",
+  "anchor_zip": "80249"
+ },
+ {
+  "city_id": "4055000",
+  "city": "Oklahoma City",
+  "state": "Oklahoma",
+  "state_abbrev": "OK",
+  "population": "697125",
+  "anchor_zip": "73099"
+ },
+ {
+  "city_id": "4752006",
+  "city": "Nashville-Davidson metropolitan government",
+  "state": "Tennessee",
+  "state_abbrev": "TN",
+  "population": "690130",
+  "anchor_zip": "37221"
+ },
+ {
+  "city_id": "1150000",
+  "city": "Washington",
+  "state": "District of Columbia",
+  "state_abbrev": "DC",
+  "population": "681294",
+  "anchor_zip": "20019"
+ },
+ {
+  "city_id": "4824000",
+  "city": "El Paso",
+  "state": "Texas",
+  "state_abbrev": "TX",
+  "population": "680130",
+  "anchor_zip": "79934"
+ },
+ {
+  "city_id": "2507000",
+  "city": "Boston",
+  "state": "Massachusetts",
+  "state_abbrev": "MA",
+  "population": "666442",
+  "anchor_zip": "02132"
+ },
+ {
+  "city_id": "3240000",
+  "city": "Las Vegas",
+  "state": "Nevada",
+  "state_abbrev": "NV",
+  "population": "660400",
+  "anchor_zip": "89138"
+ },
+ {
+  "city_id": "4159000",
+  "city": "Portland",
+  "state": "Oregon",
+  "state_abbrev": "OR",
+  "population": "641165",
+  "anchor_zip": "97203"
+ },
+ {
+  "city_id": "2622000",
+  "city": "Detroit",
+  "state": "Michigan",
+  "state_abbrev": "MI",
+  "population": "638530",
+  "anchor_zip": "48228"
+ },
+ {
+  "city_id": "2148006",
+  "city": "Louisville/Jefferson County metro government",
+  "state": "Kentucky",
+  "state_abbrev": "KY",
+  "population": "631818",
+  "anchor_zip": "40299"
+ },
+ {
+  "city_id": "4748000",
+  "city": "Memphis",
+  "state": "Tennessee",
+  "state_abbrev": "TN",
+  "population": "618980",
+  "anchor_zip": "38109"
+ },
+ {
+  "city_id": "2404000",
+  "city": "Baltimore",
+  "state": "Maryland",
+  "state_abbrev": "MD",
+  "population": "573243",
+  "anchor_zip": "21224"
+ },
+ {
+  "city_id": "5553000",
+  "city": "Milwaukee",
+  "state": "Wisconsin",
+  "state_abbrev": "WI",
+  "population": "566973",
+  "anchor_zip": "53224"
+ },
+ {
+  "city_id": "3502000",
+  "city": "Albuquerque",
+  "state": "New Mexico",
+  "state_abbrev": "NM",
+  "population": "562218",
+  "anchor_zip": "87120"
+ },
+ {
+  "city_id": "0477000",
+  "city": "Tucson",
+  "state": "Arizona",
+  "state_abbrev": "AZ",
+  "population": "547073",
+  "anchor_zip": "85756"
+ },
+ {
+  "city_id": "0627000",
+  "city": "Fresno",
+  "state": "California",
+  "state_abbrev": "CA",
+  "population": "545970",
+  "anchor_zip": "93706"
+ },
+ {
+  "city_id": "0664000",
+  "city": "Sacramento",
+  "state": "California",
+  "state_abbrev": "CA",
+  "population": "528706",
+  "anchor_zip": "95838"
+ },
+ {
+  "city_id": "0446000",
+  "city": "Mesa",
+  "state": "Arizona",
+  "state_abbrev": "AZ",
+  "population": "511764",
+  "anchor_zip": "85212"
+ },
+ {
+  "city_id": "2938000",
+  "city": "Kansas City",
+  "state": "Missouri",
+  "state_abbrev": "MO",
+  "population": "510612",
+  "anchor_zip": "64153"
+ },
+ {
+  "city_id": "1304000",
+  "city": "Atlanta",
+  "state": "Georgia",
+  "state_abbrev": "GA",
+  "population": "505268",
+  "anchor_zip": "30318"
+ },
+ {
+  "city_id": "3137000",
+  "city": "Omaha",
+  "state": "Nebraska",
+  "state_abbrev": "NE",
+  "population": "488837",
+  "anchor_zip": "68110"
+ },
+ {
+  "city_id": "0816000",
+  "city": "Colorado Springs",
+  "state": "Colorado",
+  "state_abbrev": "CO",
+  "population": "487887",
+  "anchor_zip": "80916"
+ },
+ {
+  "city_id": "3755000",
+  "city": "Raleigh",
+  "state": "North Carolina",
+  "state_abbrev": "NC",
+  "population": "481031",
+  "anchor_zip": "27610"
+ },
+ {
+  "city_id": "1245000",
+  "city": "Miami",
+  "state": "Florida",
+  "state_abbrev": "FL",
+  "population": "459745",
+  "anchor_zip": "33125"
+ },
+ {
+  "city_id": "5182000",
+  "city": "Virginia Beach",
+  "state": "Virginia",
+  "state_abbrev": "VA",
+  "population": "456349",
+  "anchor_zip": "23457"
+ },
+ {
+  "city_id": "0643000",
+  "city": "Long Beach",
+  "state": "California",
+  "state_abbrev": "CA",
+  "population": "455548",
+  "anchor_zip": "90805"
+ },
+ {
+  "city_id": "0653000",
+  "city": "Oakland",
+  "state": "California",
+  "state_abbrev": "CA",
+  "population": "439418",
+  "anchor_zip": "94605"
+ },
+ {
+  "city_id": "2743000",
+  "city": "Minneapolis",
+  "state": "Minnesota",
+  "state_abbrev": "MN",
+  "population": "427246",
+  "anchor_zip": "55418"
+ },
+ {
+  "city_id": "4075000",
+  "city": "Tulsa",
+  "state": "Oklahoma",
+  "state_abbrev": "OK",
+  "population": "413794",
+  "anchor_zip": "74115"
+ },
+ {
+  "city_id": "0603526",
+  "city": "Bakersfield",
+  "state": "California",
+  "state_abbrev": "CA",
+  "population": "411986",
+  "anchor_zip": "93306"
+ },
+ {
+  "city_id": "1271000",
+  "city": "Tampa",
+  "state": "Florida",
+  "state_abbrev": "FL",
+  "population": "401618",
+  "anchor_zip": "33647"
+ },
+ {
+  "city_id": "2079000",
+  "city": "Wichita",
+  "state": "Kansas",
+  "state_abbrev": "KS",
+  "population": "397945",
+  "anchor_zip": "67209"
+ },
+ {
+  "city_id": "4804000",
+  "city": "Arlington",
+  "state": "Texas",
+  "state_abbrev": "TX",
+  "population": "397742",
+  "anchor_zip": "76001"
+ },
+ {
+  "city_id": "0804000",
+  "city": "Aurora",
+  "state": "Colorado",
+  "state_abbrev": "CO",
+  "population": "394432",
+  "anchor_zip": "80137"
+ },
+ {
+  "city_id": "2255000",
+  "city": "New Orleans",
+  "state": "Louisiana",
+  "state_abbrev": "LA",
+  "population": "371853",
+  "anchor_zip": "70129"
+ },
+ {
+  "city_id": "3916000",
+  "city": "Cleveland",
+  "state": "Ohio",
+  "state_abbrev": "OH",
+  "population": "366097",
+  "anchor_zip": "44135"
+ },
+ {
+  "city_id": "1571550",
+  "city": "Urban Honolulu",
+  "state": "Hawaii",
+  "state_abbrev": "HI",
+  "population": "345482",
+  "anchor_zip": "96819"
+ },
+ {
+  "city_id": "0602000",
+  "city": "Anaheim",
+  "state": "California",
+  "state_abbrev": "CA",
+  "population": "344521",
+  "anchor_zip": "92807"
+ },
+ {
+  "city_id": "3231900",
+  "city": "Henderson",
+  "state": "Nevada",
+  "state_abbrev": "NV",
+  "population": "332141",
+  "anchor_zip": "89015"
+ },
+ {
+  "city_id": "2146027",
+  "city": "Lexington-Fayette urban county",
+  "state": "Kentucky",
+  "state_abbrev": "KY",
+  "population": "323725",
+  "anchor_zip": "40511"
+ },
+ {
+  "city_id": "0675000",
+  "city": "Stockton",
+  "state": "California",
+  "state_abbrev": "CA",
+  "population": "322326",
+  "anchor_zip": "95206"
+ },
+ {
+  "city_id": "1253000",
+  "city": "Orlando",
+  "state": "Florida",
+  "state_abbrev": "FL",
+  "population": "319758",
+  "anchor_zip": "32827"
+ },
+ {
+  "city_id": "0662000",
+  "city": "Riverside",
+  "state": "California",
+  "state_abbrev": "CA",
+  "population": "319069",
+  "anchor_zip": "92507"
+ },
+ {
+  "city_id": "4817000",
+  "city": "Corpus Christi",
+  "state": "Texas",
+  "state_abbrev": "TX",
+  "population": "317419",
+  "anchor_zip": "78418"
+ },
+ {
+  "city_id": "0669000",
+  "city": "Santa Ana",
+  "state": "California",
+  "state_abbrev": "CA",
+  "population": "312534",
+  "anchor_zip": "92704"
+ },
+ {
+  "city_id": "0636770",
+  "city": "Irvine",
+  "state": "California",
+  "state_abbrev": "CA",
+  "population": "311690",
+  "anchor_zip": "92618"
+ },
+ {
+  "city_id": "3915000",
+  "city": "Cincinnati",
+  "state": "Ohio",
+  "state_abbrev": "OH",
+  "population": "311224",
+  "anchor_zip": "45230"
+ },
+ {
+  "city_id": "3451000",
+  "city": "Newark",
+  "state": "New Jersey",
+  "state_abbrev": "NJ",
+  "population": "310178",
+  "anchor_zip": "07114"
+ },
+ {
+  "city_id": "2758000",
+  "city": "St. Paul",
+  "state": "Minnesota",
+  "state_abbrev": "MN",
+  "population": "307284",
+  "anchor_zip": "55106"
+ },
+ {
+  "city_id": "4261000",
+  "city": "Pittsburgh",
+  "state": "Pennsylvania",
+  "state_abbrev": "PA",
+  "population": "304759",
+  "anchor_zip": "15206"
+ },
+ {
+  "city_id": "3728000",
+  "city": "Greensboro",
+  "state": "North Carolina",
+  "state_abbrev": "NC",
+  "population": "301198",
+  "anchor_zip": "27410"
+ },
+ {
+  "city_id": "3128000",
+  "city": "Lincoln",
+  "state": "Nebraska",
+  "state_abbrev": "NE",
+  "population": "294856",
+  "anchor_zip": "68516"
+ },
+ {
+  "city_id": "3436000",
+  "city": "Jersey City",
+  "state": "New Jersey",
+  "state_abbrev": "NJ",
+  "population": "294078",
+  "anchor_zip": "07305"
+ },
+ {
+  "city_id": "3719000",
+  "city": "Durham",
+  "state": "North Carolina",
+  "state_abbrev": "NC",
+  "population": "291467",
+  "anchor_zip": "27703"
+ },
+ {
+  "city_id": "4858016",
+  "city": "Plano",
+  "state": "Texas",
+  "state_abbrev": "TX",
+  "population": "290594",
+  "anchor_zip": "75074"
+ },
+ {
+  "city_id": "0203000",
+  "city": "Anchorage",
+  "state": "Alaska",
+  "state_abbrev": "AK",
+  "population": "288976",
+  "anchor_zip": "99567"
+ },
+ {
+  "city_id": "2965000",
+  "city": "St. Louis",
+  "state": "Missouri",
+  "state_abbrev": "MO",
+  "population": "288512",
+  "anchor_zip": "63110"
+ },
+ {
+  "city_id": "0427400",
+  "city": "Gilbert",
+  "state": "Arizona",
+  "state_abbrev": "AZ",
+  "population": "280262",
+  "anchor_zip": "85298"
+ },
+ {
+  "city_id": "0412000",
+  "city": "Chandler",
+  "state": "Arizona",
+  "state_abbrev": "AZ",
+  "population": "280136",
+  "anchor_zip": "85286"
+ },
+ {
+  "city_id": "3251800",
+  "city": "North Las Vegas",
+  "state": "Nevada",
+  "state_abbrev": "NV",
+  "population": "278595",
+  "anchor_zip": "89084"
+ },
+ {
+  "city_id": "5548000",
+  "city": "Madison",
+  "state": "Wisconsin",
+  "state_abbrev": "WI",
+  "population": "278001",
+  "anchor_zip": "53704"
+ },
+ {
+  "city_id": "3611000",
+  "city": "Buffalo",
+  "state": "New York",
+  "state_abbrev": "NY",
+  "population": "276854",
+  "anchor_zip": "14215"
+ },
+ {
+  "city_id": "0613392",
+  "city": "Chula Vista",
+  "state": "California",
+  "state_abbrev": "CA",
+  "population": "276375",
+  "anchor_zip": "91910"
+ },
+ {
+  "city_id": "3260600",
+  "city": "Reno",
+  "state": "Nevada",
+  "state_abbrev": "NV",
+  "population": "273212",
+  "anchor_zip": "89506"
+ },
+ {
+  "city_id": "1825000",
+  "city": "Fort Wayne",
+  "state": "Indiana",
+  "state_abbrev": "IN",
+  "population": "268589",
+  "anchor_zip": "46804"
+ },
+ {
+  "city_id": "3977000",
+  "city": "Toledo",
+  "state": "Ohio",
+  "state_abbrev": "OH",
+  "population": "267463",
+  "anchor_zip": "43612"
+ },
+ {
+  "city_id": "4845000",
+  "city": "Lubbock",
+  "state": "Texas",
+  "state_abbrev": "TX",
+  "population": "264814",
+  "anchor_zip": "79403"
+ },
+ {
+  "city_id": "1263000",
+  "city": "St. Petersburg",
+  "state": "Florida",
+  "state_abbrev": "FL",
+  "population": "262732",
+  "anchor_zip": "33702"
+ },
+ {
+  "city_id": "4841464",
+  "city": "Laredo",
+  "state": "Texas",
+  "state_abbrev": "TX",
+  "population": "257619",
+  "anchor_zip": "78045"
+ },
+ {
+  "city_id": "4837000",
+  "city": "Irving",
+  "state": "Texas",
+  "state_abbrev": "TX",
+  "population": "256492",
+  "anchor_zip": "75063"
+ },
+ {
+  "city_id": "0427820",
+  "city": "Glendale",
+  "state": "Arizona",
+  "state_abbrev": "AZ",
+  "population": "252833",
+  "anchor_zip": "85308"
+ },
+ {
+  "city_id": "5116000",
+  "city": "Chesapeake",
+  "state": "Virginia",
+  "state_abbrev": "VA",
+  "population": "252583",
+  "anchor_zip": "23322"
+ },
+ {
+  "city_id": "3775000",
+  "city": "Winston-Salem",
+  "state": "North Carolina",
+  "state_abbrev": "NC",
+  "population": "252037",
+  "anchor_zip": "27105"
+ },
+ {
+  "city_id": "4829000",
+  "city": "Garland",
+  "state": "Texas",
+  "state_abbrev": "TX",
+  "population": "246844",
+  "anchor_zip": "75040"
+ },
+ {
+  "city_id": "0465000",
+  "city": "Scottsdale",
+  "state": "Arizona",
+  "state_abbrev": "AZ",
+  "population": "243821",
+  "anchor_zip": "85262"
+ },
+ {
+  "city_id": "3223770",
+  "city": "Enterprise",
+  "state": "Nevada",
+  "state_abbrev": "NV",
+  "population": "240464",
+  "anchor_zip": "89178"
+ },
+ {
+  "city_id": "1608830",
+  "city": "Boise City",
+  "state": "Idaho",
+  "state_abbrev": "ID",
+  "population": "237242",
+  "anchor_zip": "83716"
+ },
+ {
+  "city_id": "5103000",
+  "city": "Arlington",
+  "state": "Virginia",
+  "state_abbrev": "VA",
+  "population": "236254",
+  "anchor_zip": "22207"
+ },
+ {
+  "city_id": "5157000",
+  "city": "Norfolk",
+  "state": "Virginia",
+  "state_abbrev": "VA",
+  "population": "233596",
+  "anchor_zip": "23502"
+ },
+ {
+  "city_id": "1258715",
+  "city": "Port St. Lucie",
+  "state": "Florida",
+  "state_abbrev": "FL",
+  "population": "232491",
+  "anchor_zip": "34987"
+ },
+ {
+  "city_id": "5367000",
+  "city": "Spokane",
+  "state": "Washington",
+  "state_abbrev": "WA",
+  "population": "230293",
+  "anchor_zip": "99224"
+ },
+ {
+  "city_id": "0669088",
+  "city": "Santa Clarita",
+  "state": "California",
+  "state_abbrev": "CA",
+  "population": "230221",
+  "anchor_zip": "91350"
+ },
+ {
+  "city_id": "5167000",
+  "city": "Richmond",
+  "state": "Virginia",
+  "state_abbrev": "VA",
+  "population": "229359",
+  "anchor_zip": "23225"
+ },
+ {
+  "city_id": "0626000",
+  "city": "Fremont",
+  "state": "California",
+  "state_abbrev": "CA",
+  "population": "228295",
+  "anchor_zip": "94539"
+ },
+ {
+  "city_id": "1230000",
+  "city": "Hialeah",
+  "state": "Florida",
+  "state_abbrev": "FL",
+  "population": "226165",
+  "anchor_zip": "33012"
+ },
+ {
+  "city_id": "0137000",
+  "city": "Huntsville",
+  "state": "Alabama",
+  "state_abbrev": "AL",
+  "population": "222791",
+  "anchor_zip": "35756"
+ },
+ {
+  "city_id": "2205000",
+  "city": "Baton Rouge",
+  "state": "Louisiana",
+  "state_abbrev": "LA",
+  "population": "222771",
+  "anchor_zip": "70820"
+ },
+ {
+  "city_id": "5370000",
+  "city": "Tacoma",
+  "state": "Washington",
+  "state_abbrev": "WA",
+  "population": "222758",
+  "anchor_zip": "98409"
+ },
+ {
+  "city_id": "0665000",
+  "city": "San Bernardino",
+  "state": "California",
+  "state_abbrev": "CA",
+  "population": "222724",
+  "anchor_zip": "92407"
+ },
+ {
+  "city_id": "4827684",
+  "city": "Frisco",
+  "state": "Texas",
+  "state_abbrev": "TX",
+  "population": "219304",
+  "anchor_zip": "75035"
+ },
+ {
+  "city_id": "0648354",
+  "city": "Modesto",
+  "state": "California",
+  "state_abbrev": "CA",
+  "population": "219215",
+  "anchor_zip": "95355"
+ },
+ {
+  "city_id": "3268585",
+  "city": "Spring Valley",
+  "state": "Nevada",
+  "state_abbrev": "NV",
+  "population": "219187",
+  "anchor_zip": "89148"
+ },
+ {
+  "city_id": "1210275",
+  "city": "Cape Coral",
+  "state": "Florida",
+  "state_abbrev": "FL",
+  "population": "215536",
+  "anchor_zip": "33993"
+ },
+ {
+  "city_id": "0624680",
+  "city": "Fontana",
+  "state": "California",
+  "state_abbrev": "CA",
+  "population": "214169",
+  "anchor_zip": "92336"
+ },
+ {
+  "city_id": "1921000",
+  "city": "Des Moines",
+  "state": "Iowa",
+  "state_abbrev": "IA",
+  "population": "212421",
+  "anchor_zip": "50317"
+ },
+ {
+  "city_id": "0649270",
+  "city": "Moreno Valley",
+  "state": "California",
+  "state_abbrev": "CA",
+  "population": "211666",
+  "anchor_zip": "92555"
+ },
+ {
+  "city_id": "3722920",
+  "city": "Fayetteville",
+  "state": "North Carolina",
+  "state_abbrev": "NC",
+  "population": "210815",
+  "anchor_zip": "28310"
+ },
+ {
+  "city_id": "4845744",
+  "city": "McKinney",
+  "state": "Texas",
+  "state_abbrev": "TX",
+  "population": "210600",
+  "anchor_zip": "75071"
+ },
+ {
+  "city_id": "3684000",
+  "city": "Yonkers",
+  "state": "New York",
+  "state_abbrev": "NY",
+  "population": "209978",
+  "anchor_zip": "10710"
+ },
+ {
+  "city_id": "3663000",
+  "city": "Rochester",
+  "state": "New York",
+  "state_abbrev": "NY",
+  "population": "208772",
+  "anchor_zip": "14621"
+ },
+ {
+  "city_id": "4967000",
+  "city": "Salt Lake City",
+  "state": "Utah",
+  "state_abbrev": "UT",
+  "population": "208007",
+  "anchor_zip": "84116"
+ },
+ {
+  "city_id": "2582000",
+  "city": "Worcester",
+  "state": "Massachusetts",
+  "state_abbrev": "MA",
+  "population": "207055",
+  "anchor_zip": "01604"
+ },
+ {
+  "city_id": "1319000",
+  "city": "Columbus",
+  "state": "Georgia",
+  "state_abbrev": "GA",
+  "population": "203711",
+  "anchor_zip": "31904"
+ },
+ {
+  "city_id": "0541000",
+  "city": "Little Rock",
+  "state": "Arkansas",
+  "state_abbrev": "AR",
+  "population": "203436",
+  "anchor_zip": "72209"
+ },
+ {
+  "city_id": "0150000",
+  "city": "Mobile",
+  "state": "Alabama",
+  "state_abbrev": "AL",
+  "population": "203416",
+  "anchor_zip": "36608"
+ },
+ {
+  "city_id": "4803000",
+  "city": "Amarillo",
+  "state": "Texas",
+  "state_abbrev": "TX",
+  "population": "201885",
+  "anchor_zip": "79107"
+ },
+ {
+  "city_id": "4830464",
+  "city": "Grand Prairie",
+  "state": "Texas",
+  "state_abbrev": "TX",
+  "population": "201883",
+  "anchor_zip": "75050"
+ },
+ {
+  "city_id": "1270600",
+  "city": "Tallahassee",
+  "state": "Florida",
+  "state_abbrev": "FL",
+  "population": "201875",
+  "anchor_zip": "32309"
+ },
+ {
+  "city_id": "1304204",
+  "city": "Augusta-Richmond County consolidated government",
+  "state": "Georgia",
+  "state_abbrev": "GA",
+  "population": "201528",
+  "anchor_zip": "30906"
+ },
+ {
+  "city_id": "4659020",
+  "city": "Sioux Falls",
+  "state": "South Dakota",
+  "state_abbrev": "SD",
+  "population": "201469",
+  "anchor_zip": "57104"
+ },
+ {
+  "city_id": "0654652",
+  "city": "Oxnard",
+  "state": "California",
+  "state_abbrev": "CA",
+  "population": "200928",
+  "anchor_zip": "93030"
+ },
+ {
+  "city_id": "2053775",
+  "city": "Overland Park",
+  "state": "Kansas",
+  "state_abbrev": "KS",
+  "population": "200306",
+  "anchor_zip": "66221"
+ },
+ {
+  "city_id": "3271400",
+  "city": "Sunrise Manor",
+  "state": "Nevada",
+  "state_abbrev": "NV",
+  "population": "200218",
+  "anchor_zip": "89156"
+ },
+ {
+  "city_id": "2634000",
+  "city": "Grand Rapids",
+  "state": "Michigan",
+  "state_abbrev": "MI",
+  "population": "198535",
+  "anchor_zip": "49504"
+ },
+ {
+  "city_id": "0107000",
+  "city": "Birmingham",
+  "state": "Alabama",
+  "state_abbrev": "AL",
+  "population": "198173",
+  "anchor_zip": "35211"
+ },
+ {
+  "city_id": "0151000",
+  "city": "Montgomery",
+  "state": "Alabama",
+  "state_abbrev": "AL",
+  "population": "197494",
+  "anchor_zip": "36108"
+ },
+ {
+  "city_id": "0454050",
+  "city": "Peoria",
+  "state": "Arizona",
+  "state_abbrev": "AZ",
+  "population": "196906",
+  "anchor_zip": "85383"
+ },
+ {
+  "city_id": "5374060",
+  "city": "Vancouver",
+  "state": "Washington",
+  "state_abbrev": "WA",
+  "population": "195300",
+  "anchor_zip": "98660"
+ },
+ {
+  "city_id": "0636000",
+  "city": "Huntington Beach",
+  "state": "California",
+  "state_abbrev": "CA",
+  "population": "195240",
+  "anchor_zip": "92646"
+ },
+ {
+  "city_id": "4740000",
+  "city": "Knoxville",
+  "state": "Tennessee",
+  "state_abbrev": "TN",
+  "population": "195185",
+  "anchor_zip": "37920"
+ },
+ {
+  "city_id": "4459000",
+  "city": "Providence",
+  "state": "Rhode Island",
+  "state_abbrev": "RI",
+  "population": "191767",
+  "anchor_zip": "02908"
+ },
+ {
+  "city_id": "0630000",
+  "city": "Glendale",
+  "state": "California",
+  "state_abbrev": "CA",
+  "population": "190748",
+  "anchor_zip": "91208"
+ },
+ {
+  "city_id": "3901000",
+  "city": "Akron",
+  "state": "Ohio",
+  "state_abbrev": "OH",
+  "population": "189247",
+  "anchor_zip": "44313"
+ },
+ {
+  "city_id": "4810768",
+  "city": "Brownsville",
+  "state": "Texas",
+  "state_abbrev": "TX",
+  "population": "189177",
+  "anchor_zip": "78526"
+ },
+ {
+  "city_id": "0473000",
+  "city": "Tempe",
+  "state": "Arizona",
+  "state_abbrev": "AZ",
+  "population": "188065",
+  "anchor_zip": "85281"
+ },
+ {
+  "city_id": "3254600",
+  "city": "Paradise",
+  "state": "Nevada",
+  "state_abbrev": "NV",
+  "population": "185913",
+  "anchor_zip": "89119"
+ },
+ {
+  "city_id": "4714000",
+  "city": "Chattanooga",
+  "state": "Tennessee",
+  "state_abbrev": "TN",
+  "population": "185783",
+  "anchor_zip": "37421"
+ },
+ {
+  "city_id": "1224000",
+  "city": "Fort Lauderdale",
+  "state": "Florida",
+  "state_abbrev": "FL",
+  "population": "185604",
+  "anchor_zip": "33312"
+ },
+ {
+  "city_id": "5156000",
+  "city": "Newport News",
+  "state": "Virginia",
+  "state_abbrev": "VA",
+  "population": "184216",
+  "anchor_zip": "23602"
+ },
+ {
+  "city_id": "2270000",
+  "city": "Shreveport",
+  "state": "Louisiana",
+  "state_abbrev": "LA",
+  "population": "180982",
+  "anchor_zip": "71107"
+ },
+ {
+  "city_id": "0653896",
+  "city": "Ontario",
+  "state": "California",
+  "state_abbrev": "CA",
+  "population": "180547",
+  "anchor_zip": "91761"
+ },
+ {
+  "city_id": "1703012",
+  "city": "Aurora",
+  "state": "Illinois",
+  "state_abbrev": "IL",
+  "population": "179898",
+  "anchor_zip": "60506"
+ },
+ {
+  "city_id": "4123850",
+  "city": "Eugene",
+  "state": "Oregon",
+  "state_abbrev": "OR",
+  "population": "179591",
+  "anchor_zip": "97402"
+ },
+ {
+  "city_id": "3710740",
+  "city": "Cary",
+  "state": "North Carolina",
+  "state_abbrev": "NC",
+  "population": "179306",
+  "anchor_zip": "27519"
+ },
+ {
+  "city_id": "0622020",
+  "city": "Elk Grove",
+  "state": "California",
+  "state_abbrev": "CA",
+  "population": "179155",
+  "anchor_zip": "95624"
+ },
+ {
+  "city_id": "4164900",
+  "city": "Salem",
+  "state": "Oregon",
+  "state_abbrev": "OR",
+  "population": "178865",
+  "anchor_zip": "97302"
+ },
+ {
+  "city_id": "0670098",
+  "city": "Santa Rosa",
+  "state": "California",
+  "state_abbrev": "CA",
+  "population": "177090",
+  "anchor_zip": "95409"
+ },
+ {
+  "city_id": "4715160",
+  "city": "Clarksville",
+  "state": "Tennessee",
+  "state_abbrev": "TN",
+  "population": "176456",
+  "anchor_zip": "37042"
+ },
+ {
+  "city_id": "0659451",
+  "city": "Rancho Cucamonga",
+  "state": "California",
+  "state_abbrev": "CA",
+  "population": "175411",
+  "anchor_zip": "91730"
+ },
+ {
+  "city_id": "1255775",
+  "city": "Pembroke Pines",
+  "state": "Florida",
+  "state_abbrev": "FL",
+  "population": "173194",
+  "anchor_zip": "33029"
+ },
+ {
+  "city_id": "0653322",
+  "city": "Oceanside",
+  "state": "California",
+  "state_abbrev": "CA",
+  "population": "172242",
+  "anchor_zip": "92057"
+ },
+ {
+  "city_id": "0629000",
+  "city": "Garden Grove",
+  "state": "California",
+  "state_abbrev": "CA",
+  "population": "170964",
+  "anchor_zip": "92840"
+ },
+ {
+  "city_id": "0827425",
+  "city": "Fort Collins",
+  "state": "Colorado",
+  "state_abbrev": "CO",
+  "population": "170229",
+  "anchor_zip": "80525"
+ },
+ {
+  "city_id": "2970000",
+  "city": "Springfield",
+  "state": "Missouri",
+  "state_abbrev": "MO",
+  "population": "169954",
+  "anchor_zip": "65803"
+ },
+ {
+  "city_id": "0640130",
+  "city": "Lancaster",
+  "state": "California",
+  "state_abbrev": "CA",
+  "population": "169169",
+  "anchor_zip": "93536"
+ },
+ {
+  "city_id": "0655156",
+  "city": "Palmdale",
+  "state": "California",
+  "state_abbrev": "CA",
+  "population": "164634",
+  "anchor_zip": "93551"
+ },
+ {
+  "city_id": "0664224",
+  "city": "Salinas",
+  "state": "California",
+  "state_abbrev": "CA",
+  "population": "161761",
+  "anchor_zip": "93906"
+ },
+ {
+  "city_id": "4751560",
+  "city": "Murfreesboro",
+  "state": "Tennessee",
+  "state_abbrev": "TN",
+  "population": "161445",
+  "anchor_zip": "37129"
+ },
+ {
+  "city_id": "0616350",
+  "city": "Corona",
+  "state": "California",
+  "state_abbrev": "CA",
+  "population": "159670",
+  "anchor_zip": "92882"
+ },
+ {
+  "city_id": "0633000",
+  "city": "Hayward",
+  "state": "California",
+  "state_abbrev": "CA",
+  "population": "158801",
+  "anchor_zip": "94545"
+ },
+ {
+  "city_id": "3457000",
+  "city": "Paterson",
+  "state": "New Jersey",
+  "state_abbrev": "NJ",
+  "population": "158735",
+  "anchor_zip": "07501"
+ },
+ {
+  "city_id": "4839148",
+  "city": "Killeen",
+  "state": "Texas",
+  "state_abbrev": "TX",
+  "population": "158159",
+  "anchor_zip": "76542"
+ },
+ {
+  "city_id": "5101000",
+  "city": "Alexandria",
+  "state": "Virginia",
+  "state_abbrev": "VA",
+  "population": "156976",
+  "anchor_zip": "22304"
+ },
+ {
+  "city_id": "0843000",
+  "city": "Lakewood",
+  "state": "Colorado",
+  "state_abbrev": "CO",
+  "population": "156583",
+  "anchor_zip": "80228"
+ },
+ {
+  "city_id": "1349008",
+  "city": "Macon-Bibb County",
+  "state": "Georgia",
+  "state_abbrev": "GA",
+  "population": "156578",
+  "anchor_zip": "31216"
+ },
+ {
+  "city_id": "0662938",
+  "city": "Roseville",
+  "state": "California",
+  "state_abbrev": "CA",
+  "population": "155955",
+  "anchor_zip": "95747"
+ },
+ {
+  "city_id": "2036000",
+  "city": "Kansas City",
+  "state": "Kansas",
+  "state_abbrev": "KS",
+  "population": "155135",
+  "anchor_zip": "66109"
+ },
+ {
+  "city_id": "1232000",
+  "city": "Hollywood",
+  "state": "Florida",
+  "state_abbrev": "FL",
+  "population": "155082",
+  "anchor_zip": "33021"
+ },
+ {
+  "city_id": "0471510",
+  "city": "Surprise",
+  "state": "Arizona",
+  "state_abbrev": "AZ",
+  "population": "154948",
+  "anchor_zip": "85387"
+ },
+ {
+  "city_id": "2567000",
+  "city": "Springfield",
+  "state": "Massachusetts",
+  "state_abbrev": "MA",
+  "population": "154749",
+  "anchor_zip": "01109"
+ },
+ {
+  "city_id": "4513330",
+  "city": "Charleston",
+  "state": "South Carolina",
+  "state_abbrev": "SC",
+  "population": "154338",
+  "anchor_zip": "29492"
+ },
+ {
+  "city_id": "0677000",
+  "city": "Sunnyvale",
+  "state": "California",
+  "state_abbrev": "CA",
+  "population": "154236",
+  "anchor_zip": "94087"
+ },
+ {
+  "city_id": "4819972",
+  "city": "Denton",
+  "state": "Texas",
+  "state_abbrev": "TX",
+  "population": "152866",
+  "anchor_zip": "76207"
+ },
+ {
+  "city_id": "5305210",
+  "city": "Bellevue",
+  "state": "Washington",
+  "state_abbrev": "WA",
+  "population": "151847",
+  "anchor_zip": "98006"
+ },
+ {
+  "city_id": "1751622",
+  "city": "Naperville",
+  "state": "Illinois",
+  "state_abbrev": "IL",
+  "population": "150692",
+  "anchor_zip": "60540"
+ },
+ {
+  "city_id": "1738570",
+  "city": "Joliet",
+  "state": "Illinois",
+  "state_abbrev": "IL",
+  "population": "150445",
+  "anchor_zip": "60436"
+ },
+ {
+  "city_id": "0622804",
+  "city": "Escondido",
+  "state": "California",
+  "state_abbrev": "CA",
+  "population": "149668",
+  "anchor_zip": "92027"
+ },
+ {
+  "city_id": "4856000",
+  "city": "Pasadena",
+  "state": "Texas",
+  "state_abbrev": "TX",
+  "population": "149433",
+  "anchor_zip": "77505"
+ },
+ {
+  "city_id": "4847892",
+  "city": "Mesquite",
+  "state": "Texas",
+  "state_abbrev": "TX",
+  "population": "149299",
+  "anchor_zip": "75149"
+ },
+ {
+  "city_id": "0908000",
+  "city": "Bridgeport",
+  "state": "Connecticut",
+  "state_abbrev": "CT",
+  "population": "149153",
+  "anchor_zip": "06606"
+ },
+ {
+  "city_id": "0658072",
+  "city": "Pomona",
+  "state": "California",
+  "state_abbrev": "CA",
+  "population": "147943",
+  "anchor_zip": "91766"
+ },
+ {
+  "city_id": "1369000",
+  "city": "Savannah",
+  "state": "Georgia",
+  "state_abbrev": "GA",
+  "population": "147898",
+  "anchor_zip": "31419"
+ },
+ {
+  "city_id": "1765000",
+  "city": "Rockford",
+  "state": "Illinois",
+  "state_abbrev": "IL",
+  "population": "147521",
+  "anchor_zip": "61109"
+ },
+ {
+  "city_id": "2836000",
+  "city": "Jackson",
+  "state": "Mississippi",
+  "state_abbrev": "MS",
+  "population": "146631",
+  "anchor_zip": "39212"
+ },
+ {
+  "city_id": "3673000",
+  "city": "Syracuse",
+  "state": "New York",
+  "state_abbrev": "NY",
+  "population": "146384",
+  "anchor_zip": "13204"
+ },
+ {
+  "city_id": "1225175",
+  "city": "Gainesville",
+  "state": "Florida",
+  "state_abbrev": "FL",
+  "population": "145702",
+  "anchor_zip": "32609"
+ },
+ {
+  "city_id": "4845384",
+  "city": "McAllen",
+  "state": "Texas",
+  "state_abbrev": "TX",
+  "population": "145385",
+  "anchor_zip": "78503"
+ },
+ {
+  "city_id": "2052575",
+  "city": "Olathe",
+  "state": "Kansas",
+  "state_abbrev": "KS",
+  "population": "145057",
+  "anchor_zip": "66061"
+ },
+ {
+  "city_id": "0877290",
+  "city": "Thornton",
+  "state": "Colorado",
+  "state_abbrev": "CO",
+  "population": "144187",
+  "anchor_zip": "80602"
+ },
+ {
+  "city_id": "0682954",
+  "city": "Visalia",
+  "state": "California",
+  "state_abbrev": "CA",
+  "population": "143939",
+  "anchor_zip": "93291"
+ },
+ {
+  "city_id": "4876000",
+  "city": "Waco",
+  "state": "Texas",
+  "state_abbrev": "TX",
+  "population": "143570",
+  "anchor_zip": "76708"
+ },
+ {
+  "city_id": "0680000",
+  "city": "Torrance",
+  "state": "California",
+  "state_abbrev": "CA",
+  "population": "142130",
+  "anchor_zip": "90505"
+ }
+]

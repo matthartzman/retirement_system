@@ -14,7 +14,7 @@ import csv
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SCHEMA = ROOT / "reference_data" / "schema.csv"
+SCHEMA = ROOT / "reference_src" / "schema.csv"
 
 
 def _schema_row(label):

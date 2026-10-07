@@ -785,19 +785,16 @@ def apply_numeric_centering(wb):
 # Exact column widths / row heights from the reference formatting workbook
 # ─────────────────────────────────────────────────────────────────────────────
 # Captured once from "template for column widths and height.xlsx" (hand-tuned
-# by the user) into a JSON sidecar keyed by final user-facing sheet title, so
-# the build doesn't depend on that external file's path at run time.
-import json as _json
-from pathlib import Path as _Path
-
-_TEMPLATE_LAYOUT_PATH = _Path(__file__).with_name('_template_layout_data.json')
+# by the user) into the reference database, keyed by sheet's STABLE (build-time) name,
+# so the build doesn't depend on any external file's path at run time.
+from src.stores.ref_getters.template_layout import template_layout_data as _template_layout_data
 
 
 def _load_template_layout():
+    """Load template layout from the reference database."""
     try:
-        with open(_TEMPLATE_LAYOUT_PATH, 'r', encoding='utf-8') as f:
-            return _json.load(f)
-    except FileNotFoundError:
+        return _template_layout_data()
+    except Exception:
         return {}
 
 

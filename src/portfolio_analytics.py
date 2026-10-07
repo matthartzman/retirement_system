@@ -18,7 +18,6 @@ from . import platform_runtime
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_HOLDINGS = platform_runtime.workspace_root() / "input" / "client_holdings.csv"
 DEFAULT_TARGETS = platform_runtime.workspace_root() / "input" / "target_allocation.csv"
-DEFAULT_SECURITY_MASTER = platform_runtime.package_root() / "reference_data" / "security_master.csv"
 PRICING_FREEZE_SCHEMA = "pricing_snapshot_freeze_v1"
 
 
@@ -224,23 +223,21 @@ def load_latest_snapshots(workspace_id: str = "local", db_path: str | Path = DEF
     return out
 
 
-def read_security_master(path: str | Path = DEFAULT_SECURITY_MASTER) -> Dict[str, dict]:
-    p = Path(path)
+def read_security_master() -> Dict[str, dict]:
+    """{SYMBOL: {asset_class, sleeve, region, style, notes}} from the shipped reference.db."""
+    from .stores.ref_getters.security_master import security_master_rows
     result: Dict[str, dict] = {}
-    if not p.exists():
-        return result
-    with p.open(newline="", encoding="utf-8-sig") as f:
-        for row in csv.DictReader(f):
-            symbol = (row.get("symbol") or row.get("ticker") or "").strip().upper()
-            if not symbol:
-                continue
-            result[symbol] = {
-                "asset_class": (row.get("asset_class") or "UNKNOWN").strip().upper(),
-                "sleeve": (row.get("sleeve") or "").strip(),
-                "region": (row.get("region") or "").strip(),
-                "style": (row.get("style") or "").strip(),
-                "notes": (row.get("notes") or "").strip(),
-            }
+    for row in security_master_rows():
+        symbol = (row.get("symbol") or row.get("ticker") or "").strip().upper()
+        if not symbol:
+            continue
+        result[symbol] = {
+            "asset_class": (row.get("asset_class") or "UNKNOWN").strip().upper(),
+            "sleeve": (row.get("sleeve") or "").strip(),
+            "region": (row.get("region") or "").strip(),
+            "style": (row.get("style") or "").strip(),
+            "notes": (row.get("notes") or "").strip(),
+        }
     return result
 
 
@@ -265,7 +262,6 @@ def _latest_price_lookup(workspace_id: str = "local", db_path: str | Path = DEFA
 
 def holdings_market_values(
     holdings_csv: str | Path = DEFAULT_HOLDINGS,
-    security_master_csv: str | Path = DEFAULT_SECURITY_MASTER,
     workspace_id: str = "local",
     db_path: str | Path = DEFAULT_DB,
 ) -> Tuple[Dict[str, float], Dict[str, dict]]:
@@ -278,7 +274,7 @@ def holdings_market_values(
     p = Path(holdings_csv)
     if not p.exists():
         return {}, {}
-    master = read_security_master(security_master_csv)
+    master = read_security_master()
     latest = _latest_price_lookup(workspace_id=workspace_id, db_path=db_path)
     totals: Dict[str, float] = {}
     details: Dict[str, dict] = {}
@@ -311,11 +307,10 @@ def holdings_market_values(
 
 def holdings_allocation(
     holdings_csv: str | Path = DEFAULT_HOLDINGS,
-    security_master_csv: str | Path = DEFAULT_SECURITY_MASTER,
     workspace_id: str = "local",
     db_path: str | Path = DEFAULT_DB,
 ) -> Dict[str, float]:
-    totals, _ = holdings_market_values(holdings_csv, security_master_csv, workspace_id, db_path)
+    totals, _ = holdings_market_values(holdings_csv, workspace_id, db_path)
     grand = sum(totals.values())
     return {k: (v / grand if grand else 0.0) for k, v in totals.items()}
 
@@ -323,13 +318,12 @@ def holdings_allocation(
 def analyze_drift(
     target_file: str | Path = DEFAULT_TARGETS,
     holdings_csv: str | Path = DEFAULT_HOLDINGS,
-    security_master_csv: str | Path = DEFAULT_SECURITY_MASTER,
     threshold_pct: float = 0.05,
     workspace_id: str = "local",
     db_path: str | Path = DEFAULT_DB,
 ) -> List[dict]:
     targets = read_targets(target_file)
-    totals, details = holdings_market_values(holdings_csv, security_master_csv, workspace_id, db_path)
+    totals, details = holdings_market_values(holdings_csv, workspace_id, db_path)
     grand = sum(totals.values())
     actual = {k: (v / grand if grand else 0.0) for k, v in totals.items()}
     rows: List[dict] = []
@@ -353,6 +347,6 @@ def analyze_drift(
             "drift_pct": 0,
             "market_value": 0,
             "outside_threshold": False,
-            "message": "Some holdings are not mapped in security_master.csv.",
+            "message": "Some holdings are not mapped in the security master.",
         })
     return rows

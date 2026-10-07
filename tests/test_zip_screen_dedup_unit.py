@@ -5,6 +5,8 @@ import pytest
 
 from src.housing.zip_screen.screen import ScreenRequest, run_screen
 from src.housing.zip_screen.table import clear_cache, load_table
+from src.stores.ref_access import set_reference_for_tests
+from tests.zip_fixture import use_zip_test_db
 
 pytestmark = pytest.mark.unit
 
@@ -18,15 +20,17 @@ SPEC = {
 
 
 @pytest.fixture(autouse=True)
-def _clean_cache():
+def _setup_test_db():
+    use_zip_test_db(FIXTURE)
     clear_cache()
     yield
     clear_cache()
+    set_reference_for_tests(None)
 
 
 @pytest.fixture
 def table():
-    return load_table(FIXTURE)
+    return load_table()
 
 
 def _req(**overrides) -> ScreenRequest:

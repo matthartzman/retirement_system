@@ -735,7 +735,6 @@ horizon-only Monte Carlo with stochastic death years while retaining the plan's
 configured mortality ages as the median expectation.
 """
 
-import csv as _mortality_csv
 import math
 import random
 from typing import Mapping
@@ -744,9 +743,9 @@ _MORTALITY_TABLE_CACHE = None
 
 
 def _mortality_qx_table():
-    """Load reference_data/mortality_table.csv, cached for the process.
+    """Load the reference mortality table (reference.db), cached for the process.
 
-    {age: (male_qx, female_qx)}, ages 18-119. See the CSV's own notes column
+    {age: (male_qx, female_qx)}, ages 18-119. See the table's notes column
     for provenance: SSA Actuarial Study No. 124 anchors at 5-year ages,
     log-linearly interpolated/extrapolated to single-year granularity.
     System review C4 (mortality-gaussian-not-life-table).
@@ -754,24 +753,15 @@ def _mortality_qx_table():
     global _MORTALITY_TABLE_CACHE
     if _MORTALITY_TABLE_CACHE is not None:
         return _MORTALITY_TABLE_CACHE
-    from . import platform_runtime as _pr
-    table = {}
-    path = _pr.package_root() / 'reference_data' / 'mortality_table.csv'
-    try:
-        with path.open(newline='', encoding='utf-8-sig') as f:
-            for row in _mortality_csv.DictReader(f):
-                age = int(row['age'])
-                table[age] = (float(row['male_qx']), float(row['female_qx']))
-    except Exception:
-        table = {}
-    _MORTALITY_TABLE_CACHE = table
-    return table
+    from .stores.ref_getters.mortality_real_loss import mortality_qx_table
+    _MORTALITY_TABLE_CACHE = mortality_qx_table()
+    return _MORTALITY_TABLE_CACHE
 
 
 def _mortality_qx(age: int, sex_idx: int) -> float:
     table = _mortality_qx_table()
     if not table:
-        return 1.0 if age >= 110 else 0.01  # degrades to "eventually dies" if the CSV is missing
+        return 1.0 if age >= 110 else 0.01  # degrades to "eventually dies" if the table is empty
     ages = sorted(table.keys())
     clamped = max(ages[0], min(ages[-1], int(age)))
     return table[clamped][sex_idx]
@@ -1485,7 +1475,7 @@ def withdraw_pretax_elective(
 
 # A Liquidity Buffer row's reserve_account names the bucket whose balance the
 # reserve is meant to preserve. These are the choices offered by the UI and
-# reference_data/schema.csv; anything unrecognized falls back to taxable, which
+# reference_src/schema.csv; anything unrecognized falls back to taxable, which
 # is both the schema default and the behavior every plan had before the field
 # was honored (P8).
 LIQUIDITY_RESERVE_BUCKETS = {

@@ -123,3 +123,11 @@ def test_frozen_seed_copies_demo_once_and_never_overwrites(monkeypatch, tmp_path
     (ws / "input" / "client_data.csv").write_text("user edit", encoding="utf-8")
     assert platform_runtime.seed_frozen_workspace() is False
     assert (ws / "input" / "client_data.csv").read_text(encoding="utf-8") == "user edit"
+
+
+def test_spec_ships_reference_db_through_src_and_no_reference_data_folder():
+    from pathlib import Path
+    spec = (Path(__file__).resolve().parents[1] / "retirement_planner.spec").read_text(encoding="utf-8")
+    assert '("src",             "src")' in spec  # carries src/reference/reference.db
+    assert '("reference_data"' not in spec  # folder is gone; PyInstaller errors on a missing datas path
+    assert (Path(__file__).resolve().parents[1] / "src" / "reference" / "reference.db").is_file()

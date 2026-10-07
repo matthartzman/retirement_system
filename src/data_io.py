@@ -26,7 +26,7 @@ from . import plan_dates as _plan_dates
 
 # Fallback Social Security wage base used only when a plan's own
 # ss_wage_base_base_year field is blank. The household field is expected to be
-# populated per-plan (see reference_data/tax_update_dashboard.csv's
+# populated per-plan (see reference_src/tax_update_dashboard.csv's
 # ss_wage_base row for the current authoritative annual figure); this constant
 # exists once so it can't drift across the CSV- and JSON-parsing code paths.
 DEFAULT_SS_WAGE_BASE = 184500
@@ -89,60 +89,48 @@ __all__ = [
 def _load_capital_market_income_assumptions() -> dict:
     """Read yield/qualified-dividend/tax-exempt assumptions from reference data.
 
-    The projection falls back to conservative defaults, but the editable
-    capital_market_assumptions.csv is the authoritative source when it contains
+    The projection falls back to conservative defaults, but the shipped
+    capital-market reference table is the authoritative source when it contains
     distribution_yield, qualified_dividend_fraction, and tax_exempt_yield.
     """
-    path = Path(__file__).resolve().parent.parent / 'reference_data' / 'capital_market_assumptions.csv'
+    from .stores.ref_getters.cma import capital_market_rows
     out = {}
-    if not path.exists():
-        return out
-    try:
-        with path.open(newline='', encoding='utf-8-sig') as f:
-            for row in csv.DictReader(f):
-                preset = str(row.get('preset') or 'BASELINE').strip().upper()
-                cls = _ap.canonical_asset_class(row.get('asset_class') or '')
-                if not cls:
-                    continue
-                y = _n(row.get('distribution_yield',''), None)
-                q = _n(row.get('qualified_dividend_fraction',''), None)
-                te = _n(row.get('tax_exempt_yield',''), None)
-                if y is None and q is None and te is None:
-                    continue
-                out[(preset, cls)] = (
-                    max(0.0, float(y if y is not None else 0.0)),
-                    max(0.0, min(1.0, float(q if q is not None else 0.0))),
-                    max(0.0, float(te if te is not None else 0.0)),
-                )
-    except Exception:
-        return {}
+    for row in capital_market_rows():
+        preset = str(row.get('preset') or 'BASELINE').strip().upper()
+        cls = _ap.canonical_asset_class(row.get('asset_class') or '')
+        if not cls:
+            continue
+        y = _n(row.get('distribution_yield',''), None)
+        q = _n(row.get('qualified_dividend_fraction',''), None)
+        te = _n(row.get('tax_exempt_yield',''), None)
+        if y is None and q is None and te is None:
+            continue
+        out[(preset, cls)] = (
+            max(0.0, float(y if y is not None else 0.0)),
+            max(0.0, min(1.0, float(q if q is not None else 0.0))),
+            max(0.0, float(te if te is not None else 0.0)),
+        )
     return out
 
 def _load_capital_market_return_assumptions() -> dict:
     """Read expected_return by (preset, asset_class) from reference data.
 
-    Same file/shape as _load_capital_market_income_assumptions, just the
+    Same table/shape as _load_capital_market_income_assumptions, just the
     return column instead of the income columns. Used to derive per-account
     (sleeve-level) growth rates from each account's actual holdings mix --
     see the account_returns block below.
     """
-    path = Path(__file__).resolve().parent.parent / 'reference_data' / 'capital_market_assumptions.csv'
+    from .stores.ref_getters.cma import capital_market_rows
     out = {}
-    if not path.exists():
-        return out
-    try:
-        with path.open(newline='', encoding='utf-8-sig') as f:
-            for row in csv.DictReader(f):
-                preset = str(row.get('preset') or 'BASELINE').strip().upper()
-                cls = _ap.canonical_asset_class(row.get('asset_class') or '')
-                if not cls:
-                    continue
-                ret = _n(row.get('expected_return', ''), None)
-                if ret is None:
-                    continue
-                out[(preset, cls)] = float(ret)
-    except Exception:
-        return {}
+    for row in capital_market_rows():
+        preset = str(row.get('preset') or 'BASELINE').strip().upper()
+        cls = _ap.canonical_asset_class(row.get('asset_class') or '')
+        if not cls:
+            continue
+        ret = _n(row.get('expected_return', ''), None)
+        if ret is None:
+            continue
+        out[(preset, cls)] = float(ret)
     return out
 
 
@@ -1701,10 +1689,8 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     c.update(parse_allocation_optimizer_inputs(data))
 
     # ── Tax Provenance Registry (9.6) ─────────────────────────────────────────
-    # Load scalar overrides from tax_constants.csv; record provenance.
-    _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    _search_dirs = [_project_root, os.getcwd(), '/mnt/user-data/outputs']
-    c['tax_constants_registry'] = _td.load_tax_constants(_search_dirs)
+    # Provenance of the dated tax-law constants.
+    c['tax_constants_registry'] = _td.load_tax_constants()
     c['tax_provenance'] = dict(_td.TAX_YEAR_PROVENANCE)  # copy for the methodology sheet
     c['tax_table_currency_warnings'] = _td.tax_table_currency_warnings(max_lag_years=int(c.get('tax_table_currency_max_lag_years', 1) or 1))
 
@@ -1937,37 +1923,17 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
 
     # Taxable portfolio income assumptions.  Taxable-account ETFs/funds distribute
     # dividends/interest that must enter AGI, SS provisional income, IRMAA MAGI,
-    # NIIT, and cash-flow funding.  Use security_master.csv to identify asset
+    # NIIT, and cash-flow funding.  Use the security master to identify asset
     # class, with conservative defaults when a symbol is unmapped.
     def _load_security_classes():
+        # Shipped reference data (reference.db), not per-workspace plan data: a
+        # workspace redirect must not make symbol classification vanish.
+        from .stores.ref_getters.security_master import security_master_rows
         out = {}
-        # Deliberately package-root scoped, unlike the plan-data lookups above:
-        # security_master.csv is read-only REFERENCE data that ships with the
-        # code (platform_runtime.package_root), not per-workspace writable plan
-        # data. A workspace redirect must not make symbol classification vanish.
-        _root = __import__('pathlib').Path(_project_root)
-        for _sm in candidate_input_files('security_master.csv', active_workspace_id(), root=_root):
-            if os.path.exists(_sm):
-                try:
-                    with open(_sm, newline='', encoding='utf-8-sig') as _sf:
-                        for _r in _csv.DictReader(_sf):
-                            _sym = (_r.get('symbol') or '').strip().upper()
-                            if _sym:
-                                out[_sym] = (_r.get('asset_class') or '').strip().upper()
-                    break
-                except Exception:
-                    pass
-        if not out:
-            _fallback = _root / 'reference_data' / 'security_master.csv'
-            if _fallback.exists():
-                try:
-                    with open(_fallback, newline='', encoding='utf-8-sig') as _sf:
-                        for _r in _csv.DictReader(_sf):
-                            _sym = (_r.get('symbol') or '').strip().upper()
-                            if _sym:
-                                out[_sym] = (_r.get('asset_class') or '').strip().upper()
-                except Exception:
-                    pass
+        for _r in security_master_rows():
+            _sym = (_r.get('symbol') or '').strip().upper()
+            if _sym:
+                out[_sym] = (_r.get('asset_class') or '').strip().upper()
         return out
 
     _security_classes = _load_security_classes()

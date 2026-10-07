@@ -43,8 +43,6 @@ def test_ytd_transactions_preview_is_side_effect_free_and_reports_import_risks(t
 
 
 def test_holdings_preview_reports_counts_duplicates_dates_and_quality_flags(tmp_path: Path):
-    (tmp_path / "reference_data").mkdir()
-    (tmp_path / "reference_data" / "security_master.csv").write_text("symbol\nVTI\n", encoding="utf-8")
     current = "account,symbol,purchase_date,shares,purchase_price,lot_type,note\nIRA,VTI,2026-01-01,10,100,buy,\n"
     incoming = (
         "account,symbol,purchase_date,shares,purchase_price,lot_type,note\n"

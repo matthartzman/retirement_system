@@ -55,7 +55,7 @@ class GovernanceHardeningTests(unittest.TestCase):
     # against the real workspace.
     @pytest.mark.requires_live_input('plan_data_manifest.json', 'client_data.csv')
     def test_schema_coverage_and_plan_manifest_exist(self):
-        self.assertTrue((ROOT/'reference_data/generated_schema_coverage.csv').exists())
+        self.assertTrue((ROOT/'reference_src/generated_schema_coverage.csv').exists())
         self.assertTrue((ROOT/'input/plan_data_manifest.json').exists())
         out=subprocess.run([sys.executable,'tools/check_plan_data_sync.py'], cwd=ROOT, text=True, capture_output=True)
         self.assertEqual(out.returncode,0,out.stdout+out.stderr)

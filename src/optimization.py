@@ -238,64 +238,40 @@ def reset_capital_market_assumptions():
     _CORR.update(_BASE_CORR)
 
 
-def _resolve_project_path(path_value):
-    p = Path(str(path_value or '').strip())
-    if not str(p):
-        return None
-    if p.is_absolute():
-        return p
-    # optimization.py is in src/, so project root is one directory up.
-    root = Path(__file__).resolve().parent.parent
-    candidates = [root / p, root / "reference_data" / p.name]
-    try:
-        from .workspace_context import active_workspace_id, candidate_input_files, first_existing
-        found = first_existing(candidate_input_files(p.name, active_workspace_id(), root))
-        if found:
-            return found
-    except Exception:
-        pass
-    for candidate in candidates:
-        if candidate.exists():
-            return candidate
-    return root / p
+SHIPPED_CMA_SOURCE = 'capital_market_assumptions.csv'
 
 
-def _load_capital_market_assumption_rows(path_value, horizon, preset):
-    """Load expert custom return/volatility rows.
+def _load_capital_market_assumption_rows(rows, horizon, preset, source_name=SHIPPED_CMA_SOURCE):
+    """Pick return/volatility rows for a horizon and preset.
 
-    Expected columns: horizon_years,preset,asset_class,expected_return,volatility,
-    stock_index_correlation,notes. Rows without matching horizon/preset are
-    ignored unless those columns are blank.
+    ``rows``: dicts with columns horizon_years,preset,asset_class,expected_return,
+    volatility,stock_index_correlation,notes (the shipped reference rows, or custom
+    override rows). Rows without matching horizon/preset are ignored unless those
+    columns are blank. ``source_name`` labels ``assumption_source``.
     """
-    p = _resolve_project_path(path_value)
-    if not p or not p.exists():
-        return {}
     out = {}
-    import csv
-    with p.open(newline='', encoding='utf-8-sig') as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            cls = _ap.canonical_asset_class((row.get('asset_class') or row.get('class') or '').strip())
-            if cls not in _BASE_ASSET_CLASSES:
-                continue
-            row_h = row.get('horizon_years') or row.get('horizon') or ''
-            row_p = (row.get('preset') or row.get('scenario') or '').strip().upper()
-            if row_h and _normalize_horizon(row_h) != horizon:
-                continue
-            if row_p and row_p != str(preset or 'BASELINE').upper():
-                continue
-            ret = _parse_number(row.get('expected_return') or row.get('return'), None)
-            vol = _parse_number(row.get('volatility') or row.get('vol'), None)
-            stock_corr = _parse_number(row.get('stock_index_correlation') or row.get('stock_corr'), None)
-            out.setdefault(cls, {})
-            if ret is not None:
-                out[cls]['ret'] = ret
-            if vol is not None:
-                out[cls]['vol'] = vol
-            if stock_corr is not None:
-                out[cls]['stock_corr'] = stock_corr
-            out[cls]['assumption_source'] = f'custom_file:{p.name}'
-            out[cls]['assumption_horizon_years'] = horizon
+    for row in rows:
+        cls = _ap.canonical_asset_class((row.get('asset_class') or row.get('class') or '').strip())
+        if cls not in _BASE_ASSET_CLASSES:
+            continue
+        row_h = row.get('horizon_years') or row.get('horizon') or ''
+        row_p = (row.get('preset') or row.get('scenario') or '').strip().upper()
+        if row_h and _normalize_horizon(row_h) != horizon:
+            continue
+        if row_p and row_p != str(preset or 'BASELINE').upper():
+            continue
+        ret = _parse_number(row.get('expected_return') or row.get('return'), None)
+        vol = _parse_number(row.get('volatility') or row.get('vol'), None)
+        stock_corr = _parse_number(row.get('stock_index_correlation') or row.get('stock_corr'), None)
+        out.setdefault(cls, {})
+        if ret is not None:
+            out[cls]['ret'] = ret
+        if vol is not None:
+            out[cls]['vol'] = vol
+        if stock_corr is not None:
+            out[cls]['stock_corr'] = stock_corr
+        out[cls]['assumption_source'] = f'custom_file:{source_name}'
+        out[cls]['assumption_horizon_years'] = horizon
     return out
 
 
@@ -324,33 +300,25 @@ def _apply_correlation_preset(preset):
         _CORR[pair] = max(-0.95, min(0.95, new))
 
 
-def _load_correlation_file(path_value, horizon, preset):
-    """Load pairwise correlations from CSV.
-
-    Expected columns: horizon_years,preset,asset_class_a,asset_class_b,correlation.
-    Blank horizon/preset rows apply to all selected horizons/presets.
-    """
-    p = _resolve_project_path(path_value)
-    if not p or not p.exists():
-        return {}
-    import csv
+def _load_correlation_rows(rows, horizon, preset):
+    """Pick pairwise correlations from rows (columns horizon_years,preset,
+    asset_class_a,asset_class_b,correlation). Blank horizon/preset rows apply to
+    all selected horizons/presets."""
     out = {}
-    with p.open(newline='', encoding='utf-8-sig') as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            a = _ap.canonical_asset_class((row.get('asset_class_a') or row.get('asset_a') or row.get('a') or '').strip())
-            b = _ap.canonical_asset_class((row.get('asset_class_b') or row.get('asset_b') or row.get('b') or '').strip())
-            if a not in _BASE_ASSET_CLASSES or b not in _BASE_ASSET_CLASSES or a == b:
-                continue
-            row_h = row.get('horizon_years') or row.get('horizon') or ''
-            row_p = (row.get('preset') or row.get('scenario') or '').strip().upper()
-            if row_h and _normalize_horizon(row_h) != horizon:
-                continue
-            if row_p and row_p != str(preset or 'BASELINE').upper():
-                continue
-            corr = _parse_number(row.get('correlation'), None)
-            if corr is not None:
-                out[(a, b)] = max(-0.95, min(0.95, corr))
+    for row in rows:
+        a = _ap.canonical_asset_class((row.get('asset_class_a') or row.get('asset_a') or row.get('a') or '').strip())
+        b = _ap.canonical_asset_class((row.get('asset_class_b') or row.get('asset_b') or row.get('b') or '').strip())
+        if a not in _BASE_ASSET_CLASSES or b not in _BASE_ASSET_CLASSES or a == b:
+            continue
+        row_h = row.get('horizon_years') or row.get('horizon') or ''
+        row_p = (row.get('preset') or row.get('scenario') or '').strip().upper()
+        if row_h and _normalize_horizon(row_h) != horizon:
+            continue
+        if row_p and row_p != str(preset or 'BASELINE').upper():
+            continue
+        corr = _parse_number(row.get('correlation'), None)
+        if corr is not None:
+            out[(a, b)] = max(-0.95, min(0.95, corr))
     return out
 
 
@@ -360,10 +328,10 @@ def apply_capital_market_config(c):
     Order of precedence:
       1. shipped defaults reset
       2. selected horizon/preset generated assumptions
-      3. optional expert capital_market_assumptions.csv
+      3. optional expert override rows (cfg custom_capital_market_rows)
       4. per-asset overrides from client_data.csv/UI
       5. correlation preset
-      6. optional expert asset_correlations.csv
+      6. optional expert override rows (cfg custom_correlation_rows)
       7. advanced pairwise correlation rows from client_data.csv/UI
     """
     reset_capital_market_assumptions()
@@ -374,14 +342,11 @@ def apply_capital_market_config(c):
     if preset not in CAPITAL_MARKET_PRESETS:
         preset = 'BASELINE'
 
-    # Shipped reference-data CSV is authoritative for normal operation.  The
-    # hardcoded table above is now only a last-resort fallback for damaged or
-    # missing reference data.
-    shipped = _load_capital_market_assumption_rows(
-        'reference_data/capital_market_assumptions.csv',
-        horizon,
-        preset,
-    )
+    # The shipped reference data (reference.db) is authoritative for normal
+    # operation.  The hardcoded table above is only a last-resort fallback.
+    from .stores.ref_getters.cma import capital_market_rows, correlation_rows
+    shipped_rows = capital_market_rows()
+    shipped = _load_capital_market_assumption_rows(shipped_rows, horizon, preset)
     if shipped:
         for cls, vals in shipped.items():
             ASSET_CLASSES[cls].update(vals)
@@ -391,10 +356,13 @@ def apply_capital_market_config(c):
             ASSET_CLASSES[cls].update(_generated_assumption(cls, horizon, preset))
 
     if mode == 'CUSTOM_FILE' or bool(cfg.get('use_custom_capital_market_file')):
+        # Custom rows are plan-side overrides over the shipped table; with none
+        # supplied the shipped rows apply again (the old default-file behavior).
+        custom_rows = cfg.get('custom_capital_market_rows')
         custom = _load_capital_market_assumption_rows(
-            cfg.get('custom_capital_market_file') or 'capital_market_assumptions.csv',
-            horizon,
-            preset,
+            shipped_rows if custom_rows is None else custom_rows,
+            horizon, preset,
+            SHIPPED_CMA_SOURCE if custom_rows is None else 'custom_rows',
         )
         for cls, vals in custom.items():
             ASSET_CLASSES[cls].update(vals)
@@ -405,11 +373,8 @@ def apply_capital_market_config(c):
     _apply_correlation_preset(corr_preset)
 
     if corr_mode == 'CUSTOM_FILE' or bool(cfg.get('use_custom_correlations_file')):
-        _CORR.update(_load_correlation_file(
-            cfg.get('custom_correlations_file') or 'asset_correlations.csv',
-            horizon,
-            preset,
-        ))
+        custom_corr = cfg.get('custom_correlation_rows')
+        _CORR.update(_load_correlation_rows(correlation_rows() if custom_corr is None else custom_corr, horizon, preset))
     if corr_mode in {'ADVANCED', 'CUSTOM_FILE'}:
         for pair, corr in (c.get('asset_correlation_overrides') or {}).items():
             if isinstance(pair, str) and '|' in pair:

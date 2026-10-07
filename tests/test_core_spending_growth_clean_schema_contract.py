@@ -16,7 +16,7 @@ def test_core_spending_step_has_growth_mode_and_relevant_rates():
 
 
 def test_clean_forward_schema_removed_old_roth_and_planned_spending_aliases():
-    schema = (ROOT / 'reference_data/schema.csv').read_text(encoding="utf-8")
+    schema = (ROOT / 'reference_src/schema.csv').read_text(encoding="utf-8")
     data_io = (ROOT / 'src/data_io.py').read_text(encoding="utf-8")
     app_core = (ROOT / 'src/server/app_core.py').read_text(encoding="utf-8")
     assert 'roth_conversion_target_bracket_base_year' not in schema

@@ -29,7 +29,7 @@ This document is the actual step list for that person.
 
 ## Tax-year checklist (maintainer-level, ~30-60 minutes, do in mid-to-late January after the IRS Revenue Procedure for the new year is published)
 
-**The one rule.** `reference_data/tax_law_v10.json` is the only source of federal
+**The one rule.** `reference_src/tax_law_v10.json` (built into the shipped `src/reference/reference.db`) is the only source of federal
 statutory values the engine reads (`src/taxes.py` builds every federal table from
 it; `src/tax_law.py` picks, for a given year, the row with the latest
 `effective_year` that is on or before that year and not past its `expires_year`).
@@ -42,8 +42,10 @@ place mislabels its value year and silently mis-indexes every later year.
 
 1. Read the relevant IRS Revenue Procedure, CMS Medicare fact sheet and SSA
    announcement for the new tax year, and note the document and date you used
-   for each value.
-2. In `reference_data/tax_law_v10.json`, append a row (or, for brackets, a full
+   for each value. After editing `reference_src/`, rebuild the shipped database with
+   `python tools/build_reference_db.py` (bump `REFERENCE_RELEASE` in that tool) and run the
+   golden tests; the engine reads only `reference.db`.
+2. In `reference_src/tax_law_v10.json`, append a row (or, for brackets, a full
    table) with the new `effective_year`, a `source` naming the document, and
    `status` set to reflect whether the value is verified or an assumption, for
    **every value family the file holds**, for every filing status the family
@@ -71,28 +73,27 @@ place mislabels its value year and silently mis-indexes every later year.
      unverified assumptions -- verify them against Rev. Proc. 2025-25 and the
      current enhanced-credit status.
    Leave the previous rows in place: the lookup uses them for earlier years.
-3. Update `reference_data/tax_update_dashboard.csv`: for each family you just
+3. Update `reference_src/tax_update_dashboard.csv`: for each family you just
    refreshed, set `year` to the new value year and `last_reviewed` to today.
    The staleness banner compares `year` with the reference year, so do this
    **only after every row of that family is added** -- a bumped date over stale
    values is worse than a visible banner.
-4. `reference_data/tax_constants.csv` is a compatibility/import fallback only;
-   the engine reads it only if the JSON dataset cannot be loaded. Keep it in
-   step with the JSON if you touch it, but updating it alone changes nothing.
+4. `tax_constants.csv` (a fallback only, read just when the JSON dataset could
+   not be loaded) has been removed; the dated dataset is the single source.
 5. **Contribution limits are not reference data.** 401(k), HSA (self-only and
    family) and similar limits are per-household Plan Data fields -- for example
    `annual_401k_limit_base_year` (Cashflow > Retirement Contributions) and
    `self_only_annual_limit_base_year` / `family_annual_limit_base_year` (HSA
    Policy > Contributions), each with an `index_*_limit` toggle. Update them in
-   the plan (see the Contributions rows of `reference_data/schema.csv`), not in
-   `tax_constants.csv`.
+   the plan (see the Contributions rows of `reference_src/schema.csv`), not in
+   the tax-law dataset.
 6. If your own household's per-plan Social Security wage base or Medicare
    premium fields (`input/client_household.csv`, "Payroll Tax" / "Wellness >
    Medicare" sections) are meant to track the new official figures rather
    than a custom override, update them there too -- these are separate,
    per-household fields and are **not** auto-populated from the JSON dataset
    (see "Known gaps" below).
-7. Confirm `reference_data/state_tax.csv` for your household's state (and any
+7. Confirm `reference_src/state_tax.csv` (rebuild `reference.db` after editing) for your household's state (and any
    comparison state under consideration) -- state legislative sessions run on
    their own schedule, not a fixed month, so re-check this row whenever state
    tax law changes, not just annually.
@@ -112,8 +113,8 @@ place mislabels its value year and silently mis-indexes every later year.
 
 ## As-needed, not calendar-bound
 
-- **Capital market assumptions** (`reference_data/capital_market_assumptions.csv`,
-  `reference_data/asset_correlations.csv`): review whenever your long-term
+- **Capital market assumptions** (`reference_src/capital_market_assumptions.csv`,
+  `reference_src/asset_correlations.csv`; rebuild `reference.db` after editing): review whenever your long-term
   market outlook actually changes, at minimum annually. Update the
   `capital_market_assumptions` row in `tax_update_dashboard.csv`'s
   `last_reviewed` date after any refresh so the staleness banner reflects it.
@@ -132,7 +133,7 @@ place mislabels its value year and silently mis-indexes every later year.
 ## How the system tells you something is due
 
 - **Plan Status page banner**: surfaces any row from
-  `reference_data/tax_update_dashboard.csv` whose computed status is stale or
+  `reference_src/tax_update_dashboard.csv` whose computed status is stale or
   blocking (via `src/governance.py:tax_law_dashboard()`), fetched from
   `GET /api/admin/tax-law-dashboard`. Rows marked `CURRENT_UNTIL_LAW_CHANGE`
   (e.g., the RMD divisor table) are excluded even if their `year` is old,
@@ -147,10 +148,10 @@ place mislabels its value year and silently mis-indexes every later year.
 ## Known gaps (things a person still has to catch)
 
 - **Per-household Social Security wage base is not auto-populated from
-  `tax_constants.csv`.** `input/client_household.csv`'s
+  the tax-law dataset.** `input/client_household.csv`'s
   `ss_wage_base_base_year` field is the one actually used by payroll tax
   calculations (`src/data_io.py`) — it does not read from
-  `reference_data/tax_constants.csv`'s `ss_wage_base` row at all. These two
+  the dataset's `ss_wage_base` row at all. These two
   numbers can drift (they already have, in this plan, as of this writing —
   confirm both against a current SSA source before relying on either). A
   single hardcoded fallback constant (`DEFAULT_SS_WAGE_BASE` in

@@ -30,7 +30,7 @@ def _irmaa_by_year(rows):
 
 class Ssa44IrmaaReliefTests(unittest.TestCase):
     def test_schema_declares_both_optional_relief_year_inputs(self):
-        schema = (ROOT / "reference_data" / "schema.csv").read_text(encoding="utf-8")
+        schema = (ROOT / "reference_src" / "schema.csv").read_text(encoding="utf-8")
         self.assertIn("h_ssa44_relief_year", schema)
         self.assertIn("w_ssa44_relief_year", schema)
 

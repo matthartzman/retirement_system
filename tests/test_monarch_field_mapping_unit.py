@@ -1,6 +1,7 @@
 """Ticket 305: Monarch Extractor output columns are mapped to this app's
 internal transaction schema through a configurable field map (column names
-are not controlled by this app -- see src/monarch_field_map.json).
+are not controlled by this app -- the default is in the reference database,
+shipped via reference_src/monarch_field_map.json).
 """
 from __future__ import annotations
 

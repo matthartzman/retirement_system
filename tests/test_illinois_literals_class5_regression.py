@@ -15,7 +15,7 @@ doesn't re-flag it without re-deriving the same investigation.
    c['state'] never actually holds (it stores the full name). `state` was
    therefore silently 0.0 for every household including an Illinois one --
    not just an Illinois-specific bug, a state-tax-blind one. Fixed by calling
-   _td.load_state_tax([]) directly (the exact mechanism core.py itself uses)
+   _td.load_state_tax() directly (the exact mechanism core.py itself uses)
    and comparing against c['state']'s real full-name format. Confirmed safe
    for the golden master: this function only feeds the Asset Allocation
    sheet's taxable-sale recommendation helper, not the projection engine.

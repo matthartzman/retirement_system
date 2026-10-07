@@ -218,21 +218,10 @@ def _symbol_set(rows: list[dict[str, str]]) -> set[str]:
     return {str(r.get("symbol", "") or "").strip().upper() for r in rows if str(r.get("symbol", "") or "").strip()}
 
 
-def _load_security_master_symbols(project_root: str | Path) -> set[str]:
-    root = Path(project_root)
-    path = root / "reference_data" / "security_master.csv"
-    if not path.exists():
-        return set()
-    symbols: set[str] = set()
-    try:
-        with open(path, newline="", encoding="utf-8-sig") as f:
-            for row in csv.DictReader(f):
-                sym = str(row.get("symbol", "") or row.get("Symbol", "") or "").strip().upper()
-                if sym:
-                    symbols.add(sym)
-    except OSError:
-        pass
-    return symbols
+def _load_security_master_symbols() -> set[str]:
+    from .stores.ref_getters.security_master import security_master_rows
+    return {sym for sym in (str(r.get("symbol", "") or r.get("Symbol", "") or "").strip().upper()
+                            for r in security_master_rows()) if sym}
 
 
 def preview_holdings_import(current_text: str, incoming_text: str, *, project_root: str | Path | None = None, mode: str = "replace") -> dict[str, Any]:
@@ -292,7 +281,7 @@ def preview_holdings_import(current_text: str, incoming_text: str, *, project_ro
 
     current_accounts = {str(r.get("account", "") or "").strip() for r in current_rows if str(r.get("account", "") or "").strip()}
     incoming_symbols = _symbol_set(incoming_rows)
-    known_symbols = _load_security_master_symbols(project_root or Path.cwd())
+    known_symbols = _load_security_master_symbols()
     symbols_not_in_master = sorted(s for s in incoming_symbols if s not in known_symbols and s != "CASH") if known_symbols else []
     warnings: list[str] = []
     if duplicate_existing or duplicate_within_upload:
@@ -304,7 +293,7 @@ def preview_holdings_import(current_text: str, incoming_text: str, *, project_ro
     if date_warnings:
         warnings.append(f"{date_warnings} row(s) have purchase dates that could not be normalized.")
     if symbols_not_in_master:
-        warnings.append(f"{len(symbols_not_in_master)} symbol(s) are not in security_master.csv; pricing may fall back to cache/provider behavior.")
+        warnings.append(f"{len(symbols_not_in_master)} symbol(s) are not in the security master; pricing may fall back to cache/provider behavior.")
 
     rows_added = len(incoming_rows) if mode in {"replace", "reload", "delete_all_and_reload"} else max(0, len(incoming_rows) - duplicate_existing - duplicate_within_upload)
     total_after = len(incoming_rows) if mode in {"replace", "reload", "delete_all_and_reload"} else len(current_rows) + rows_added
