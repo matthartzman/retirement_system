@@ -64,8 +64,10 @@ class PlanDataFileService:
         snap = Path(str(dest) + f".{tag}_{stamp}")
         try:
             conn = sqlite3.connect(str(dest))
-            conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
-            conn.close()
+            try:
+                conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            finally:
+                conn.close()
         except Exception:
             pass
         shutil.copy2(str(dest), str(snap))

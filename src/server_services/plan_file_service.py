@@ -50,8 +50,10 @@ def _checkpoint_sqlite(db_path: Path, *, truncate: bool = False) -> None:
         return
     try:
         conn = sqlite3.connect(str(db_path))
-        conn.execute("PRAGMA wal_checkpoint(TRUNCATE)" if truncate else "PRAGMA wal_checkpoint(FULL)")
-        conn.close()
+        try:
+            conn.execute("PRAGMA wal_checkpoint(TRUNCATE)" if truncate else "PRAGMA wal_checkpoint(FULL)")
+        finally:
+            conn.close()
     except Exception:
         pass
 

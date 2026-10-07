@@ -116,9 +116,11 @@ class _SqliteStore:
         """Close the connection (idempotent). Rolls back an unfinished transaction."""
         con, self._con_ = self._con_, None
         if con is not None:
-            if con.in_transaction:
-                con.execute("ROLLBACK")
-            con.close()
+            try:
+                if con.in_transaction:
+                    con.execute("ROLLBACK")
+            finally:  # the handle must go even when the rollback fails (WinError 5 on a later swap)
+                con.close()
 
     @property
     def closed(self) -> bool:

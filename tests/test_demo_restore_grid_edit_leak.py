@@ -9,12 +9,12 @@ This test drives the real ``DemoPlanService`` and the real grid save
 real plan file in ``tmp_path``, redirecting the workspace root so it can never touch the repo's
 real input/ (see memory/testing notes: pytest must not mutate live input/ files).
 """
-import sqlite3
 from pathlib import Path
 
 from src import active_plan
 from src.server_services.config_service import ConfigService, ConfigServiceContext
 from src.server_services.demo_plan_service import DEMO_SLOT_DIR, SLOT_PLAN_FILE, DemoPlanService, DemoPlanServiceContext
+from src.sqlite_util import connect as closing_connect
 from src.stores import PlanStore
 
 HEADER = "section,subsection,label,value,units,notes\n"
@@ -51,7 +51,7 @@ def test_demo_grid_edit_does_not_survive_restore_of_real_plan(tmp_path, monkeypa
     plan_db = active_plan.active_plan_path()
     legacy_db = tmp_path / "local_state" / "retirement_system_v10.db"
     legacy_db.parent.mkdir(parents=True)
-    with sqlite3.connect(legacy_db) as con:
+    with closing_connect(legacy_db) as con:  # closed on exit: an open handle blocks the swap on Windows
         con.execute("CREATE TABLE client_files(file_name TEXT PRIMARY KEY, content TEXT)")
     demo_dir = tmp_path / "input" / "demo"
     demo_dir.mkdir(parents=True)
