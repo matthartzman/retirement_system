@@ -6,8 +6,7 @@ defaults were maintained in three separately-drifting copies --
 ``main.py``'s own ``_set_local_mode_defaults``, ``tools/launchers/
 START_DESKTOP.py``'s inline ``os.environ.setdefault`` calls, and
 ``src/desktop_api.py``'s own ``_set_local_mode_defaults`` (which already
-omitted ``CONFIG_FILE``/``OUTPUT_DIR``/``JSON_CONFIG_FILE``/
-``YAML_CONFIG_FILE`` relative to the other two) -- and the at-rest Plan Data
+omitted ``OUTPUT_DIR`` relative to the other two) -- and the at-rest Plan Data
 migration (``run_startup_plan_data_migration``) ran only from ``main.py``,
 so launching via the desktop shortcut or ``START_APP.bat`` (which both run
 ``START_DESKTOP.py``, not ``main.py`` -- see ``launchers/START_APP.bat`` and
@@ -46,9 +45,6 @@ _LOCAL_MODE_ENV_DEFAULTS = {
     "RETIREMENT_SYSTEM_FORCE_HTTPS": "NO",
     "RETIREMENT_SYSTEM_REVERSE_PROXY_ENABLED": "NO",
     "RETIREMENT_SYSTEM_PUBLIC_BASE_URL": "",
-    "RETIREMENT_SYSTEM_CONFIG_FILE": "input/client_data.csv",
-    "RETIREMENT_SYSTEM_JSON_CONFIG_FILE": "input/client_data.json",
-    "RETIREMENT_SYSTEM_YAML_CONFIG_FILE": "input/client_data.yaml",
     "RETIREMENT_SYSTEM_OUTPUT_DIR": "output",
 }
 

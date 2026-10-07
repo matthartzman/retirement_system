@@ -17,10 +17,24 @@ conftest.py-staged test workspace.
 """
 from __future__ import annotations
 
+import pytest
+
 import src.server.app_core as app_core
 from src.server import app
 
 HEADERS = {"X-User-Role": "admin"}
+
+
+@pytest.fixture
+def own_workspace(tmp_path, monkeypatch):
+    """WP4.3: a workspace of this test's own. The shared session workspace is shared by
+    every xdist worker, and other tests save the same Home value concurrently."""
+    from tests.plan_fixture import make_plan
+    ws = make_plan(tmp_path / "ws")
+    monkeypatch.setenv("RETIREMENT_SYSTEM_WORKSPACE_ROOT", str(ws.root))
+    monkeypatch.delenv("RETIREMENT_SYSTEM_PLAN_DB", raising=False)
+    monkeypatch.delenv("RETIREMENT_SYSTEM_CONFIG_FILE", raising=False)
+    return ws
 
 
 def _client():
@@ -63,7 +77,7 @@ def test_config_backends_route_reports_sqlite_as_the_active_runtime_backend():
 # GET /api/config/rows: a real save must round-trip through every layer.
 # ─────────────────────────────────────────────────────────────────────────────
 
-def test_config_rows_save_and_readback_round_trips_through_every_layer():
+def test_config_rows_save_and_readback_round_trips_through_every_layer(own_workspace):
     client = _client()
     rows = client.get("/api/config/rows", headers=HEADERS).get_json()["rows"]
     row_index = next(
@@ -75,7 +89,7 @@ def test_config_rows_save_and_readback_round_trips_through_every_layer():
 
     # A distinctive figure vanishingly unlikely to already be the plan's
     # value -- and distinct from the one
-    # test_sync_config_backends_snapshot_freshness_regression.py uses, so a
+    # test_grid_save_reaches_the_build_config_regression.py uses, so a
     # crash mid-test in either file can't mask the other's restore.
     NEW_HOME_VALUE = 1_923_411
     try:

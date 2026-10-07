@@ -1742,15 +1742,26 @@ def _base_enabled(c, key):
     return m.default_on if m is not None else True
 
 
-# ── WP1.2: the switch's storage, read and written in exactly one place each ──
+# ── WP1.2 / WP4.5: the switch's storage, read and written in exactly one place each ──
 #
-# Today a switch lives in one of two places on the in-memory config ``c``:
-#   * a module toggle in ``c['opt'][key]`` (loaded from
-#     client_optional_functions.csv), and
-#   * a plan flag in ``c[gate_config_key]`` (parsed off the plan's own rows).
-# WP4 moves both onto ``plan_rows`` settings; only these two functions should
-# have to change when it does. Everything above them -- env overrides,
-# bundles, prerequisite auto-selection, defaults -- is resolution, not storage.
+# A switch lives in a plan row (``feature_row_key``): a module toggle in ``Optional Functions``,
+# a plan flag in its ``gate_ref`` row. The engine reads them off the in-memory config ``c`` that
+# ``parse_client`` builds from those rows (``c['opt'][key]`` for a toggle, ``c[gate_config_key]``
+# for a flag). ``c`` may also BE an open ``PlanStore`` (anything with ``find_rows`` / ``rows``
+# and ``set_value``): then the switch is read from and written to the plan rows themselves
+# (WP4.5). Only ``_read_switch`` and ``_write_switch`` know either shape. Everything above
+# them -- env overrides, bundles, prerequisite auto-selection, defaults -- is resolution,
+# not storage.
+
+def _is_plan_store(c) -> bool:
+    """True for an open ``PlanStore``-like object (the rows themselves, not a parsed config)."""
+    return not isinstance(c, dict) and hasattr(c, "find_rows") and hasattr(c, "set_value")
+
+
+def _truthy(text) -> bool:
+    """The plan's boolean cell rule (``data_io._b``): TRUE, YES and 1 read as on."""
+    return str(text).strip().upper() in ("TRUE", "YES", "1")
+
 
 def _catalog_entry(key) -> Optional[OutputModule]:
     """``CATALOG[key]``, tolerating case/whitespace; None for unknown keys."""
@@ -1762,10 +1773,22 @@ def _read_switch(c, key) -> Optional[bool]:
 
     No defaults, no env tier, no bundles: a raw read of the storage only.
     A key the catalog does not know is read as a module toggle, which is how
-    :func:`module_enabled` has always treated one.
+    :func:`module_enabled` has always treated one. ``c`` is the parsed config or an open
+    ``PlanStore`` (the row named by :func:`feature_row_key`; the last row of a repeated key
+    wins, as in ``PlanStore.sectioned_data``).
     """
-    cfg = c or {}
     m = _catalog_entry(key)
+    if _is_plan_store(c):
+        if m is not None and m.gate_kind == GATE_PLAN_FLAG:
+            rows = c.find_rows(*m.gate_ref)
+            return _truthy(rows[-1]["value"]) if rows else None
+        k = str(key).strip().lower()
+        stored: Optional[bool] = None
+        for row in c.rows(MODULE_TOGGLE_SECTION):
+            if not row["subsection"].strip() and row["label"].strip().lower() == k:
+                stored = _truthy(row["value"])
+        return stored
+    cfg = c or {}
     if m is not None and m.gate_kind == GATE_PLAN_FLAG:
         name = m.gate_config_key
         return bool(cfg[name]) if name in cfg else None
@@ -1780,12 +1803,17 @@ def _read_switch(c, key) -> Optional[bool]:
 
 
 def _write_switch(c, m: OutputModule, on: bool) -> None:
-    """Store ``on`` as ``m``'s own switch on the in-memory config ``c``.
+    """Store ``on`` as ``m``'s own switch.
 
-    The single write path behind :func:`set_feature`. In-memory only: it never
-    touches a file -- persisting the plan is the caller's business, through
-    whatever save path already owns that.
+    The single write path behind :func:`set_feature`. For an open ``PlanStore`` it sets the
+    row named by :func:`feature_row_key` (``TRUE`` / ``FALSE``) in one transaction of its own
+    (a savepoint inside the caller's); for a parsed config it sets the in-memory value and
+    touches no file -- persisting the plan is then the caller's business.
     """
+    if _is_plan_store(c):
+        with c.transaction():
+            c.set_value(*feature_row_key(m.key), SWITCH_ON if on else SWITCH_OFF)
+        return
     if m.gate_kind == GATE_PLAN_FLAG:
         c[m.gate_config_key] = bool(on)
         return
@@ -1963,12 +1991,17 @@ def feature_enabled(c, key) -> bool:
 
 
 def set_feature(c, key: str, on: bool) -> None:
-    """Switch feature ``key`` on or off in the in-memory config ``c``.
+    """Switch feature ``key`` on or off.
 
-    The write-side twin of :func:`feature_enabled`: it stores the switch in
-    the same place that accessor reads it from (``c['opt']`` for a module
-    toggle, ``c[gate_config_key]`` for a plan flag), through the one private
-    writer, ``_write_switch``. It writes nothing to disk.
+    The write-side twin of :func:`feature_enabled`: it stores the switch in the same place
+    that accessor reads it from, through the one private writer, ``_write_switch``:
+
+    * ``c`` an open ``PlanStore`` (WP4.5, the product path: the plan tier / Plan Features
+      endpoints pass the store of their edit transaction): the plan row
+      ``feature_row_key(key)`` is set to ``TRUE`` / ``FALSE`` (a plan flag writes its own
+      ``gate_ref`` row), in one transaction;
+    * ``c`` the parsed config dict: ``c['opt']`` for a module toggle, ``c[gate_config_key]``
+      for a plan flag, in memory only (what the engine and the tests use).
 
     It sets the *stored* switch only. Reading back can still differ when a
     higher tier decides: a ``RETIREMENT_SYSTEM_FORCE_*`` override, or
@@ -1981,6 +2014,11 @@ def set_feature(c, key: str, on: bool) -> None:
     follows its flags). Writing a row nothing reads would only make the
     stored state lie.
     """
+    _write_switch(c, _own_switch_entry(key), on)
+
+
+def _own_switch_entry(key) -> OutputModule:
+    """The catalog entry of a feature that has a switch of its own (see :func:`set_feature`)."""
     m = _catalog_entry(key)
     if m is None:
         raise KeyError(key)
@@ -1991,7 +2029,36 @@ def set_feature(c, key: str, on: bool) -> None:
                          f"{list(m.gated_by_any_flag)} is on")
     if m.gate_kind == GATE_MODULE_TOGGLE and not m.optional:
         raise ValueError(f"{key} is an always-on core module; it has no switch")
-    _write_switch(c, m, on)
+    return m
+
+
+# ── WP4.1: the switch and the tier as ordinary plan_rows settings ───────────
+#
+# Where each stored switch lives in ``plan_rows`` (documentation/reference/
+# PLAN_ROWS_MODEL.md). They are the rows the plan CSV set already carried, so the
+# importer and conversion step C3 need no backfill. ``_read_switch`` / ``_write_switch``
+# read and write these keys when handed a ``PlanStore`` (WP4.5).
+MODULE_TOGGLE_SECTION = "Optional Functions"   # subsection "", label = feature key
+SWITCH_ON, SWITCH_OFF = "TRUE", "FALSE"        # written values; reads accept TRUE/YES/1
+# The plan's tier (one of TIERS). No row = no tier chosen yet, read as EXPERT: every
+# field shown and every switch as stored, i.e. today's behaviour. WP5.1 writes it;
+# "customized" is derived (stored switches differ from the tier's preset), never stored.
+PLAN_TIER_ROW = ("Plan Settings", "Profile", "plan_tier")
+DEFAULT_PLAN_TIER = EXPERT
+
+
+def feature_row_key(key) -> Tuple[str, str, str]:
+    """The ``(section, subsection, label)`` plan row holding ``key``'s own switch.
+
+    A module toggle lives in ``("Optional Functions", "", key)`` (a missing row reads as
+    ``default_on``, which is how the rowless WP1.3 features get a row only once flipped);
+    a plan flag lives in its ``gate_ref`` row (e.g. ``("HELOC", "Setup", "heloc_enabled")``).
+    Raises like :func:`set_feature` for a feature with no switch of its own.
+    """
+    m = _own_switch_entry(key)
+    if m.gate_kind == GATE_PLAN_FLAG:
+        return tuple(m.gate_ref)
+    return (MODULE_TOGGLE_SECTION, "", m.key)
 
 
 def resolve_selection(selected: List[str]) -> Dict[str, object]:

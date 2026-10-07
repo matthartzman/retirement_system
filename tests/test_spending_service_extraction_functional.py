@@ -6,18 +6,17 @@ from pathlib import Path
 # equivalent pair. Only this file's genuine behavior tests remain below.
 
 
-def test_spending_service_core_spending_parser_uses_plan_data_callback():
+def test_spending_service_core_spending_reads_the_plan_rows_through_the_plan_data_callback():
     from src.server_services.spending_service import SpendingService, SpendingServiceContext
 
-    csv_content = "section,subsection,label,value\nCashflow,Spending,annual_spending_base_year,$123,456\n"
-    # The comma in the sample above intentionally simulates a malformed CSV cell;
-    # the parser should stay defensive and not crash.
-    service = SpendingService(SpendingServiceContext(base_dir=Path("."), read_plan_data_file=lambda name: csv_content))
-    assert service.core_spending_from_plan() in (123.0, 0.0)
+    def service_over(value):
+        rows = {"Cashflow": {"Spending": {"annual_spending_base_year": value}}}
+        return SpendingService(SpendingServiceContext(base_dir=Path("."), plan_data=lambda: rows))
 
-    csv_content = "section,subsection,label,value\nCashflow,Spending,annual_spending_base_year,123456\n"
-    service = SpendingService(SpendingServiceContext(base_dir=Path("."), read_plan_data_file=lambda name: csv_content))
-    assert service.core_spending_from_plan() == 123456.0
+    # a malformed cell stays defensive and does not crash
+    assert service_over("$123,456").core_spending_from_plan() in (123456.0, 123.0, 0.0)
+    assert service_over("123456").core_spending_from_plan() == 123456.0
+    assert service_over("$123,456.00").core_spending_from_plan() == 123456.0
 
 
 def test_spending_service_validates_category_create_before_mutation(tmp_path):

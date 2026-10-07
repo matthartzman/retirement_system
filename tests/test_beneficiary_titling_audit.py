@@ -237,15 +237,15 @@ class DataIoAndBackfillWiringTests(unittest.TestCase):
         self.assertEqual(entry['titling'], 'JTWROS')
         self.assertTrue(entry['trust_see_through'])
 
-    def test_former_spouse_name_backfill_entry_wired_to_estate_csv(self):
+    def test_former_spouse_name_backfill_entry_wired_to_estate_planning(self):
         import src.server.app_core as app_core
         entry = next(e for e in app_core.PLAN_DATA_BACKFILL_ENTRIES if e.rows is app_core.FORMER_SPOUSE_UI_PLAN_DATA_ROWS)
-        self.assertEqual(entry.file_name, "client_insurance_estate.csv")
+        self.assertEqual({r[0] for r in entry.rows}, {"Estate Planning"})
 
-    def test_account_titling_backfill_entry_wired_to_estate_csv(self):
+    def test_account_titling_backfill_entry_wired_to_account_titling(self):
         import src.server.app_core as app_core
         entry = next(e for e in app_core.PLAN_DATA_BACKFILL_ENTRIES if e.rows is app_core._account_titling_ui_plan_data_rows)
-        self.assertEqual(entry.file_name, "client_insurance_estate.csv")
+        self.assertTrue(callable(entry.rows))  # one group per holdings account, read when applied
 
     def test_account_titling_rows_generated_per_holdings_account(self):
         import src.server.app_core as app_core

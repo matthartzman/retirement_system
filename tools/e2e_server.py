@@ -68,6 +68,10 @@ def _stage_workspace() -> Path:
     for f in sorted(FROZEN_DIR.iterdir()):
         if f.is_file():
             shutil.copy(f, workspace / "input" / f.name)
+    # The plan itself is plan rows in the plan file (WP4), seeded from the CSV fixture.
+    sys.path.insert(0, str(ROOT))
+    from src.active_plan import PLAN_FILE_NAME, build_plan_file_from_csv_folder  # noqa: PLC0415
+    build_plan_file_from_csv_folder(workspace / PLAN_FILE_NAME, FROZEN_DIR)
     return workspace
 
 

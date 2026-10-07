@@ -7,9 +7,9 @@ second interpreter. This module extracts the build steps into an importable
 ``run_build`` function so the same logic can run either as a subprocess (desktop
 default) or in-process on a worker thread (mobile).
 
-The steps mirror the historical ``tools/build_workbook.py`` ``__main__`` block
-exactly: sync any configured Plan Data folder, materialize saved Plan Data files
-from the local SQLite mirror, then run the workbook builder. Output is still
+The steps mirror the historical ``tools/build_workbook.py`` ``__main__`` block:
+materialize the saved flat dataset files from the local SQLite mirror, then run the
+workbook builder (which reads the plan rows of the active plan file). Output is still
 communicated the same way — ``output/plan_summary.json`` plus the ``QC: n/n
 PASS`` stdout line — so existing progress-parsing and summary-reading callers
 are unchanged.
@@ -20,8 +20,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from . import platform_runtime
-from .local_plan_data_sync import PLAN_DATA_FILES, sync_plan_data_from_env
 from .config_backend import materialize_workspace_files
+from .plan_data_registry import FLAT_PLAN_DATA_CSV_FILES, YTD_PLAN_DATA_FILES
 
 
 @dataclass(frozen=True)
@@ -33,16 +33,17 @@ class BuildResult:
 
 
 def _materialize_server_working_copy() -> None:
-    """Restore saved Plan Data files from the local SQLite mirror when needed.
+    """Restore the saved flat dataset files (holdings, spending, YTD ...) from the local
+    SQLite mirror when needed.
 
     UI builds save the current server working copy before launching a build. In
     database-backed mode some files may live only in SQLite ``client_files``
     after a package update or process restart. Materializing without overwriting
-    preserves freshly saved CSVs while making split-file/holdings data available
-    to the projection engine.
+    preserves freshly saved CSVs while making holdings data available to the
+    projection engine.
     """
     try:
-        materialize_workspace_files(file_names=PLAN_DATA_FILES, overwrite_existing=False)
+        materialize_workspace_files(file_names=[*FLAT_PLAN_DATA_CSV_FILES, *YTD_PLAN_DATA_FILES], overwrite_existing=False)
     except Exception as exc:
         message = f"Could not materialize saved Plan Data files from local store: {exc}"
         logging.getLogger("retirement_system.build").warning(message)
@@ -59,9 +60,6 @@ def run_build(root: str | Path | None = None) -> BuildResult:
     """
     workspace = Path(root) if root is not None else platform_runtime.workspace_root()
 
-    synced = sync_plan_data_from_env(workspace)
-    if synced:
-        print(f"Loaded local Plan Data from {synced['source_dir']} before build")
     _materialize_server_working_copy()
 
     # Imported lazily: workbook_builder pulls in the full reporting/projection

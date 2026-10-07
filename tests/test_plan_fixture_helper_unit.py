@@ -35,6 +35,17 @@ def test_make_plan_data_and_config_roundtrip(tmp_path):
     assert plan.config()["plan_start"] == pf.plan_config("sample_frozen")["plan_start"]
 
 
+def test_make_plan_builds_the_plan_file(tmp_path):
+    """WP4.1: the workspace also carries a plan file imported from the copied CSVs."""
+    plan = pf.make_plan(tmp_path, "demo")
+    assert plan.plan_db == tmp_path / "plan.rpx" and plan.plan_db.is_file()
+    with plan.store(readonly=True) as store:
+        assert store.find_rows("Household", "", "member_1_name")[0]["value"] == "Alexander"
+    assert plan.store_data() == plan.data()
+    again = pf.make_plan(tmp_path, "sample_frozen")  # rebuilt, not appended to
+    assert again.store_data() == pf.plan_data("sample_frozen")
+
+
 def test_unknown_fixture_is_a_clear_error(tmp_path):
     with pytest.raises(KeyError, match="unknown plan fixture"):
         pf.make_plan(tmp_path, "nope")

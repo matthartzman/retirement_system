@@ -6,7 +6,7 @@
 // actual admin UI, verifies it round-trips through a real save + reload
 // from disk, then restores the original value in a finally block --
 // following the same real-save-then-restore pattern
-// test_sync_config_backends_snapshot_freshness_regression.py already
+// test_grid_save_reaches_the_build_config_regression.py already
 // established for the client-side config editor. max_build_seconds is a
 // safe field to mutate: it only bounds how long a future build subprocess
 // is allowed to run (src/server/workbook_routes.py's build_start route),

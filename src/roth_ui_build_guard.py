@@ -1,15 +1,13 @@
 """Roth UI/build handoff guards for Retirement System v12.
 
 These helpers keep user-selected Roth conversion settings canonical as they move
-from the browser UI to Plan Data CSVs, JSON/YAML mirrors, and the projection
+from the browser UI to the plan rows (``canonicalize_roth_rows``) and the projection
 engine. The core safety rule is that an explicit user-selected Roth policy
 (fill_to_bracket, fill_to_irmaa, fixed_dollar, or none) must not be treated as
 OPTIMIZER_CHOOSES during workbook build.
 """
 from __future__ import annotations
 
-import csv
-import io
 import re
 from typing import Any
 
@@ -139,21 +137,14 @@ def normalize_roth_csv_value(section: Any, subsection: Any, label: Any, value: A
     return val
 
 
-def canonicalize_roth_csv_content(content: str) -> str:
-    """Canonicalize Roth controls in a CSV string without changing other rows."""
-    rows = list(csv.reader(io.StringIO(content or "")))
-    changed = False
-    for row in rows:
-        if len(row) < 4:
-            continue
-        while len(row) < 6:
-            row.append("")
-        new_value = normalize_roth_csv_value(row[0], row[1], row[2], row[3])
-        if new_value != row[3]:
-            row[3] = new_value
-            changed = True
-    if not changed:
-        return content
-    out = io.StringIO()
-    csv.writer(out, lineterminator="\n").writerows(rows)
-    return out.getvalue()
+def canonicalize_roth_rows(store: Any) -> int:
+    """Canonicalize the Roth controls of the open plan's rows (``PlanStore``) in place and
+    return how many rows changed. ``active_plan.edit_active_plan`` runs it after every row
+    edit, so a Roth value reaches ``plan_rows`` canonical whichever endpoint wrote it."""
+    changed = 0
+    for row in store.all_rows():
+        new_value = normalize_roth_csv_value(row["section"], row["subsection"], row["label"], row["value"])
+        if new_value != row["value"]:
+            store.set_row(row["row_id"], value=new_value)
+            changed += 1
+    return changed

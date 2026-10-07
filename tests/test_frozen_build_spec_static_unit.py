@@ -112,14 +112,19 @@ def test_workspace_root_from_source_is_unchanged(monkeypatch):
 def test_frozen_seed_copies_demo_once_and_never_overwrites(monkeypatch, tmp_path):
     pkg = tmp_path / "bundle"
     (pkg / "input" / "demo").mkdir(parents=True)
-    (pkg / "input" / "demo" / "client_data.csv").write_text("demo", encoding="utf-8")
+    demo_csv = "section,subsection,label,value,units,notes\nHousehold,,member_1_name,Demo,text,\n"
+    (pkg / "input" / "demo" / "client_data.csv").write_text(demo_csv, encoding="utf-8")
     monkeypatch.setattr(platform_runtime, "package_root", lambda: pkg)
     monkeypatch.delenv(platform_runtime.WORKSPACE_ROOT_ENV, raising=False)
     monkeypatch.setattr(platform_runtime.sys, "frozen", True, raising=False)
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "appdata"))
     ws = tmp_path / "appdata" / "RetirementPlanner"
     assert platform_runtime.seed_frozen_workspace() is True
-    assert (ws / "input" / "client_data.csv").read_text(encoding="utf-8") == "demo"
+    assert (ws / "input" / "client_data.csv").read_text(encoding="utf-8") == demo_csv
+    # the plan file is seeded from the demo CSV set through the importer (WP4.5)
+    from src.stores import PlanStore
+    with PlanStore.open(ws / "plan.rpx", create=False, readonly=True) as store:
+        assert store.sectioned_data() == {"Household": {"": {"member_1_name": "Demo"}}}
     (ws / "input" / "client_data.csv").write_text("user edit", encoding="utf-8")
     assert platform_runtime.seed_frozen_workspace() is False
     assert (ws / "input" / "client_data.csv").read_text(encoding="utf-8") == "user edit"

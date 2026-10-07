@@ -48,19 +48,25 @@ def _load_app_core_without_flask():
     return mod
 
 
-def test_canonical_large_discretionary_rows_are_visible_as_planned_spending():
+def test_canonical_large_discretionary_rows_are_visible_as_planned_spending(tmp_path):
+    from tests.strategy_service_rows import service_over_rows
     mod = _load_app_core_without_flask()
+    section = 'Cashflow'
     rows = [
-        ['section','subsection','label','value','units','notes'],
-        ['Cashflow','Large Discretionary Expenses','extra_1_type','Weddings','',''],
-        ['Cashflow','Large Discretionary Expenses','extra_1_amount','$100,000','USD',''],
-        ['Cashflow','Large Discretionary Expenses','extra_1_year','2027','year',''],
-        ['Cashflow','Large Discretionary Expenses','extra_2_type','Home Projects','',''],
-        ['Cashflow','Large Discretionary Expenses','extra_2_amount','$25,000','USD',''],
-        ['Cashflow','Large Discretionary Expenses','extra_2_start_year','2026','year',''],
-        ['Cashflow','Large Discretionary Expenses','extra_2_end_year','2030','year',''],
+        (section, 'Large Discretionary Expenses', 'extra_1_type', 'Weddings'),
+        (section, 'Large Discretionary Expenses', 'extra_1_amount', '$100,000'),
+        (section, 'Large Discretionary Expenses', 'extra_1_year', '2027'),
+        (section, 'Large Discretionary Expenses', 'extra_2_type', 'Home Projects'),
+        (section, 'Large Discretionary Expenses', 'extra_2_amount', '$25,000'),
+        (section, 'Large Discretionary Expenses', 'extra_2_start_year', '2026'),
+        (section, 'Large Discretionary Expenses', 'extra_2_end_year', '2030'),
     ]
-    events = mod._large_discretionary_expenses_from_csv_rows(rows)
+    service, store, _events = service_over_rows(
+        tmp_path, rows, normalize_large_discretionary_type=mod._normalize_large_discretionary_type)
+    with store:
+        payload, status = service.large_discretionary_payload()
+    assert status == 200
+    events = payload['events']
     assert [e['type'] for e in events] == ['Wedding', 'Other']
     assert events[0]['amount'] == '$100,000'
     assert events[1]['start_year'] == '2026'

@@ -209,8 +209,8 @@ CONTRACTS: tuple[EndpointContract, ...] = (
     ),
     EndpointContract(
         "/api/spending-adjustments", "POST", "spending_adjustments_update_v1",
-        request_fields=(_f("adjustments", "list", True), _f("sync", "bool")),
-        response_fields=(_f("success", "bool", True), _f("count", "int", True), _f("sync", "dict")),
+        request_fields=(_f("adjustments", "list", True),),
+        response_fields=(_f("success", "bool", True), _f("count", "int", True)),
     ),
     EndpointContract(
         "/api/large-discretionary-expenses", "GET", "large_discretionary_expenses_v1",
@@ -219,8 +219,8 @@ CONTRACTS: tuple[EndpointContract, ...] = (
     ),
     EndpointContract(
         "/api/large-discretionary-expenses", "POST", "large_discretionary_expenses_update_v1",
-        request_fields=(_f("events", "list", True), _f("sync", "bool")),
-        response_fields=(_f("success", "bool", True), _f("count", "int", True), _f("sync", "dict")),
+        request_fields=(_f("events", "list", True),),
+        response_fields=(_f("success", "bool", True), _f("count", "int", True)),
     ),
     EndpointContract(
         "/api/forced-roth-conversions", "GET", "forced_roth_conversions_v1",
@@ -228,8 +228,8 @@ CONTRACTS: tuple[EndpointContract, ...] = (
     ),
     EndpointContract(
         "/api/forced-roth-conversions", "POST", "forced_roth_conversions_update_v1",
-        request_fields=(_f("conversions", "list", True), _f("sync", "bool")),
-        response_fields=(_f("success", "bool", True), _f("count", "int", True), _f("sync", "dict")),
+        request_fields=(_f("conversions", "list", True),),
+        response_fields=(_f("success", "bool", True), _f("count", "int", True)),
     ),
     EndpointContract(
         "/api/liquidity-buffers", "GET", "liquidity_buffers_v1",
@@ -237,8 +237,8 @@ CONTRACTS: tuple[EndpointContract, ...] = (
     ),
     EndpointContract(
         "/api/liquidity-buffers", "POST", "liquidity_buffers_update_v1",
-        request_fields=(_f("buffers", "list", True), _f("sync", "bool")),
-        response_fields=(_f("success", "bool", True), _f("count", "int", True), _f("sync", "dict")),
+        request_fields=(_f("buffers", "list", True),),
+        response_fields=(_f("success", "bool", True), _f("count", "int", True)),
     ),
     EndpointContract(
         "/api/home-sale-splits", "GET", "home_sale_splits_v1",
@@ -246,8 +246,8 @@ CONTRACTS: tuple[EndpointContract, ...] = (
     ),
     EndpointContract(
         "/api/home-sale-splits", "POST", "home_sale_splits_update_v1",
-        request_fields=(_f("splits", "list", True), _f("sync", "bool")),
-        response_fields=(_f("success", "bool", True), _f("count", "int", True), _f("sync", "dict")),
+        request_fields=(_f("splits", "list", True),),
+        response_fields=(_f("success", "bool", True), _f("count", "int", True)),
     ),
     EndpointContract(
         "/api/tax-assumptions", "GET", "tax_assumptions_v1",
@@ -255,8 +255,8 @@ CONTRACTS: tuple[EndpointContract, ...] = (
     ),
     EndpointContract(
         "/api/tax-assumptions", "POST", "tax_assumptions_update_v1",
-        request_fields=(_f("overrides", "dict", True), _f("sync", "bool")),
-        response_fields=(_f("success", "bool", True), _f("count", "int", True), _f("sync", "dict")),
+        request_fields=(_f("overrides", "dict", True),),
+        response_fields=(_f("success", "bool", True), _f("count", "int", True)),
     ),
     EndpointContract(
         "/api/residency-schedule", "GET", "residency_schedule_v1",
@@ -264,8 +264,8 @@ CONTRACTS: tuple[EndpointContract, ...] = (
     ),
     EndpointContract(
         "/api/residency-schedule", "POST", "residency_schedule_update_v1",
-        request_fields=(_f("schedule", "list", True), _f("sync", "bool")),
-        response_fields=(_f("success", "bool", True), _f("count", "int", True), _f("sync", "dict")),
+        request_fields=(_f("schedule", "list", True),),
+        response_fields=(_f("success", "bool", True), _f("count", "int", True)),
     ),
     EndpointContract(
         "/api/insurance-policy/add", "POST", "insurance_policy_add_v1",
@@ -283,12 +283,6 @@ CONTRACTS: tuple[EndpointContract, ...] = (
         response_fields=(_f("success", "bool", True), _f("seeded", "int"), _f("already_present", "int")),
         notes="#215: seeds $0 Cash Value/Death Benefit/Premium illustration rows for one Life policy.",
     ),
-    EndpointContract(
-        "/api/config/sync", "POST", "config_sync_v1",
-        response_fields=(_f("success", "bool", True),),
-        notes="Plan Data adapter synchronization; row bootstrap behavior now lives in StrategyAssetService.",
-    ),
-
     EndpointContract(
         "/api/contracts", "GET", "api_contract_registry_v1",
         response_fields=(_f("success", "bool", True), _f("schema", "str", True), _f("contracts", "list", True), _f("route_manifest", "dict")),

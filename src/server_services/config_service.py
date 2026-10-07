@@ -8,8 +8,7 @@ bulk row-save semantics so route modules remain thin under the
 Flask-free runtime.
 """
 
-import csv
-import io
+from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
@@ -21,12 +20,12 @@ from ..schema_registry import validate_rows as _schema_validate_rows_full
 JsonDict = dict[str, Any]
 AuditFn = Callable[[str, dict[str, Any] | None], None]
 
-OPTIONAL_FUNCTIONS_CSV = "client_optional_functions.csv"
+OPTIONAL_FUNCTIONS_SECTION = "Optional Functions"
 
 
 def backfill_optional_function_rows(rows: list[JsonDict], effective: dict[str, bool]) -> list[JsonDict]:
     """Append a row for every switchable catalog module the plan's
-    client_optional_functions.csv lacks, valued at its current effective
+    Optional Functions rows lack, valued at its current effective
     state, so Plan Features can show and edit it (the missing-row bug).
 
     ``rows`` are the plan's existing Optional Functions rows (untouched --
@@ -35,7 +34,7 @@ def backfill_optional_function_rows(rows: list[JsonDict], effective: dict[str, b
     with ``.get(key, m.default_on)`` (True for every module toggle) so a
     module this map has no opinion on defaults to on rather than silently
     switching itself off the moment a backfill runs. Only ``GATE_MODULE_TOGGLE`` modules with no ``gated_by`` parent are
-    candidates -- a plan flag has no CSV row by design (§5.3/W9), and a
+    candidates -- a plan flag has no toggle row by design (§5.3/W9), and a
     bundled module's state is decided by its parent's toggle, not its own row.
     """
     from ..module_catalog import CATALOG, GATE_MODULE_TOGGLE
@@ -49,22 +48,27 @@ def backfill_optional_function_rows(rows: list[JsonDict], effective: dict[str, b
     return out
 
 
+class _Rejected(Exception):
+    """Rolls the grid's edit transaction back (a schema validation failure)."""
+
+    def __init__(self, errors: list[str]):
+        super().__init__("Plan Data validation failed")
+        self.errors = errors
+
+
 @dataclass(frozen=True)
 class ConfigServiceContext:
     version: str
     base_dir: Path
-    csv_path: Path
-    plan_data_csv_files: list[str]
-    client_data_csv_file_set: set[str]
-    plan_data_path: Callable[..., Path]
-    client_csv_rows: Callable[[], list[dict[str, Any]]]
+    # The grid writes the active plan's rows by row_id through this edit context
+    # (app_core._edit_active_plan: one transaction on the plan file's rows).
+    edit_plan: Callable[[], AbstractContextManager[Any]]
     csv_rows_payload: Callable[[], dict[str, Any]]
     read_schema_map: Callable[[], dict[Any, dict[str, Any]]]
-    write_plan_data_file: Callable[[str, str], Path]
+    read_plan: Callable[[], AbstractContextManager[Any]]
     load_active_config: Callable[[], tuple[dict[str, Any], dict[str, Any]]]
     runtime_config: Callable[[], Any]
     normalize_date_for_csv: Callable[[str], str]
-    sync_config_backends: Callable[[], Any]
     audit: AuditFn | None = None
 
 
@@ -84,10 +88,8 @@ class ConfigService:
         _data, meta = self.context.load_active_config()
         return {
             "success": True,
-            "active_backend": meta.get("backend", "CSV"),
-            "csv_path": str(self.context.csv_path),
-            "json_path": str(self.context.csv_path.parent / "client_data.json"),
-            "yaml_path": str(self.context.csv_path.parent / "client_data.yaml"),
+            "active_backend": meta.get("backend", "SQLITE"),
+            "plan_path": str(meta.get("plan_db", "")),
             "sqlite_db": str(getattr(cfg, "sqlite_db", "")),
             "row_count": len(payload["rows"]),
             "schema_count": payload["schema_count"],
@@ -95,14 +97,13 @@ class ConfigService:
         }, 200
 
     def config_rows_payload(self) -> tuple[JsonDict, int]:
-        self._backfill_optional_function_rows_to_disk()
+        self._backfill_optional_function_rows()
         payload = self.context.csv_rows_payload()
         _data, meta = self.context.load_active_config()
         return {
             "success": True,
             "version": self.context.version,
-            "active_backend": meta.get("backend", "CSV"),
-            "csv_path": str(self.context.csv_path),
+            "active_backend": meta.get("backend", "SQLITE"),
             "module_status": self._module_status(_data),
             "module_gates": self._module_gates(),
             "module_taxonomy": self._module_taxonomy(),
@@ -259,82 +260,47 @@ class ConfigService:
         except Exception:
             return {}
 
-    def _backfill_optional_function_rows_to_disk(self) -> None:
-        """#330 bug fix: client_optional_functions.csv can predate a catalog
-        module (an older plan folder, or one saved before the module
-        existed), leaving that module with no toggle row -- Plan Features
-        then has no CSV row to render a switch for, so the module is
-        invisible on the one page meant to be its complete list.
+    def _backfill_optional_function_rows(self) -> None:
+        """#330 bug fix: a plan can predate a catalog module (an older plan, or one saved
+        before the module existed), leaving that module with no toggle row -- Plan Features
+        then has no row to render a switch for, so the module is invisible on the one page
+        meant to be its complete list.
 
-        Reads the file, computes what ``backfill_optional_function_rows`` is
-        missing, and -- only if something is missing -- writes it back
-        through ``write_plan_data_file``, the same plan-data save path
-        ``update_config_rows_payload`` already uses (see its own comment on
-        why: it keeps a SQLite-backed backend in sync with disk). Writing
-        before ``csv_rows_payload()`` runs (called right after this, in
-        ``config_rows_payload``) is what gives each backfilled row a real,
-        persisted ``row_index`` -- the ordinary ``editValue(row_index)``
-        toggle click needs nothing else to work on it.
+        Reads the plan's Optional Functions rows, computes what
+        ``backfill_optional_function_rows`` is missing, and -- only if something is missing --
+        inserts it in one edit transaction. Writing before ``csv_rows_payload()`` runs
+        (called right after this, in ``config_rows_payload``) is what gives each backfilled
+        row a real ``row_index`` -- the ordinary ``editValue(row_index)`` toggle click needs
+        nothing else to work on it. A plan with no rows at all is left alone.
 
-        Best-effort: a missing/unreadable file just means nothing gets
-        backfilled this call, not a broken payload.
+        Best-effort: a plan that cannot be read just means nothing gets backfilled this
+        call, not a broken payload.
 
-        Deliberately does NOT call ``load_active_config``/``module_status``
-        to decide a missing row's value. Two reasons (final review on A3):
-        (1) which rows are even missing is a pure catalog-vs-existing-labels
-        comparison, so doing a full config prepare unconditionally on every
-        ``/api/config/rows`` GET -- before even checking whether anything is
-        missing -- was wasted work, done twice over (``config_rows_payload``
-        calls ``_module_status`` again right after this for the real
-        payload). (2) ``module_status()[k]["enabled"]`` folds in the
-        build-time ``RETIREMENT_SYSTEM_FORCE_*`` env-var override tier
-        (#330 Q7), which was deliberately never made a writable path -- a
-        missing row already defaults to enabled per ``module_enabled``'s own
-        "absent keys default to enabled" rule, so using ``module_status()``
-        here could only ever differ from that default by silently baking a
-        FORCE_DISABLE override into the plan's permanent store on a mere
-        GET. So a missing row is always written ``"TRUE"``, matching the
-        ordinary missing-row default, regardless of any env override.
+        Deliberately does NOT call ``load_active_config``/``module_status`` to decide a
+        missing row's value. Which rows are missing is a pure catalog-vs-existing-labels
+        comparison, and ``module_status()[k]["enabled"]`` folds in the build-time
+        ``RETIREMENT_SYSTEM_FORCE_*`` env-var override tier (#330 Q7), which was deliberately
+        never made a writable path -- using it here could silently bake a FORCE_DISABLE
+        override into the plan's permanent store on a mere GET. So a missing row is written
+        with the module's ``default_on`` value (the ordinary missing-row default).
         """
-        path = self.context.plan_data_path(OPTIONAL_FUNCTIONS_CSV)
         try:
-            if not path.exists():
+            with self.context.read_plan() as store:
+                if not store.section_order():
+                    return
+                existing = [{"label": r["label"]} for r in store.rows(OPTIONAL_FUNCTIONS_SECTION)]
+            new_rows = [r for r in backfill_optional_function_rows(existing, effective={})
+                        if r not in existing]
+            if not new_rows:
                 return
-            with path.open(newline="", encoding="utf-8-sig") as f:
-                raw_rows = [list(r) for r in csv.reader(f)]
+            with self.context.edit_plan() as edit:
+                have = {r["label"] for r in edit.store.rows(OPTIONAL_FUNCTIONS_SECTION)}
+                for r in new_rows:
+                    if r["label"] not in have:
+                        edit.store.insert_row(OPTIONAL_FUNCTIONS_SECTION, subsection=r["subsection"], label=r["label"],
+                                              value=r["value"], units=r["units"], notes=r["notes"])
         except Exception:
             return
-        if not raw_rows:
-            return
-
-        existing: list[JsonDict] = []
-        for raw in raw_rows[1:]:  # skip header
-            section = str(raw[0] if raw else "").strip()
-            if not section or section.startswith("#"):
-                continue  # comment/blank rows carry no label to key on
-            padded = list(raw) + [""] * max(0, 6 - len(raw))
-            existing.append({
-                "section": padded[0], "subsection": padded[1], "label": padded[2],
-                "value": padded[3], "units": padded[4], "notes": padded[5],
-            })
-
-        # effective={} -- backfill_optional_function_rows() reads it with
-        # .get(key, m.default_on) -- True for every toggle -- so an empty map
-        # always falls through to the standard "TRUE" missing-row default
-        # described above, with no config load at all.
-        out = backfill_optional_function_rows(existing, effective={})
-        have = {r.get("label") for r in existing}
-        new_rows = [r for r in out if r.get("label") not in have]
-        if not new_rows:
-            return
-
-        all_rows = list(raw_rows)
-        for r in new_rows:
-            all_rows.append([r.get("section", ""), r.get("subsection", ""), r.get("label", ""),
-                              r.get("value", ""), r.get("units", ""), r.get("notes", "")])
-        buf = io.StringIO(newline="")
-        csv.writer(buf, lineterminator="\n").writerows(all_rows)
-        self.context.write_plan_data_file(OPTIONAL_FUNCTIONS_CSV, buf.getvalue())
 
     @staticmethod
     def _sectioned_data_from_ui_rows(ui_rows: list[Any]) -> dict[str, dict[str, dict[str, str]]]:
@@ -450,99 +416,69 @@ class ConfigService:
             self._audit("qlac_recommendation_failed", {"error": str(exc)})
             return {"success": False, "error": str(exc)}, 500
 
-    def _validate_all_workspace_plan_rows(self, file_rows: dict[str, list[list[str]]]) -> list[str]:
-        combined: list[dict[str, str]] = []
-        names = [n for n in self.context.plan_data_csv_files if n != "client_holdings.csv"]
-        for name in names:
-            rows = file_rows.get(name)
-            if rows is None:
-                p = self.context.plan_data_path(name)
-                if not p.exists():
-                    continue
-                with p.open(newline="", encoding="utf-8-sig") as f:
-                    rows = list(csv.reader(f))
-            if not rows:
-                continue
-            header = list(rows[0])
-            if not {"section", "subsection", "label", "value"}.issubset(set(header)):
-                continue
-            for raw in rows[1:]:
-                padded = list(raw) + [""] * max(0, len(header) - len(raw))
-                combined.append({header[i]: padded[i] if i < len(padded) else "" for i in range(len(header))})
-        return _schema_validate_rows_full(combined)
-
     def update_config_rows_payload(self, body: dict[str, Any], *, allow_csv_write: bool) -> tuple[JsonDict, int]:
+        """Save grid edits: ``updates`` = ``[{row_index, value}]``, ``row_index`` = ``row_id`` (WP4.3).
+
+        One transaction on the active plan's rows (``context.edit_plan``): each value is
+        normalized as before (dates for date fields, canonical Roth values; stripped, as
+        every reader strips it), the whole plan is validated against the field schema, and
+        a validation failure rolls every update back (422). An unknown ``row_index`` (the
+        row was deleted, or the plan was reloaded since the grid read it) is skipped and
+        reported. A value the plan's own rules do not keep (a protected retirement date, a
+        canonical Roth value) is reported as skipped.
+        """
         if not allow_csv_write:
             return {"success": False, "error": "CSV writes are disabled"}, 403
         updates = body.get("updates") or []
         if not isinstance(updates, list):
             return {"success": False, "error": "updates must be a list"}, 400
 
-        row_map = {int(e["row_index"]): e for e in self.context.client_csv_rows()}
-        file_rows: dict[str, list[list[str]]] = {}
+        schema = self.context.read_schema_map()
         updated = 0
         skipped: list[dict[str, Any]] = []
+        applied: dict[int, tuple[tuple[str, str, str], str]] = {}  # row_id -> (key, value set)
+        try:
+            with self.context.edit_plan() as edit:
+                store = edit.store
+                for u in updates:
+                    try:
+                        row_id = int(u.get("row_index"))
+                    except (AttributeError, TypeError, ValueError):
+                        skipped.append({"update": u, "reason": "invalid row_index"})
+                        continue
+                    try:
+                        row = store.get_row(row_id)
+                    except LookupError:  # stores.NotFoundError: no row with this id (any other store error fails the save)
+                        skipped.append({"row_index": row_id, "reason": "out of range or stale row index"})
+                        continue
+                    section, subsection, label = row["section"], row["subsection"], row["label"]
+                    value = str(u.get("value", ""))
+                    spec = schema.get((section, subsection, label), {})
+                    if (spec.get("type") or "").lower() == "date" or row["units"].strip().lower() == "date":
+                        value = self.context.normalize_date_for_csv(value)
+                    value = normalize_roth_csv_value(section, subsection, label, value).strip()
+                    store.set_row(row_id, value=value)
+                    applied[row_id] = ((section, subsection, label), value)
+                errors = _schema_validate_rows_full(store.all_rows())
+                if errors:
+                    raise _Rejected(errors)
+            revision = edit.revision
+        except _Rejected as exc:
+            self._audit("config_rows_validation_failed", {"updated_attempted": len(applied), "error_count": len(exc.errors)})
+            return {"success": False, "error": "Plan Data validation failed", "errors": exc.errors[:50]}, 422
+        except Exception as exc:
+            self._audit("config_rows_save_failed", {"error": str(exc)})
+            return {"success": False, "error": f"Plan Data could not be saved: {exc}"}, 500
 
-        def rows_for_file(name: str) -> list[list[str]]:
-            if name not in file_rows:
-                path = self.context.plan_data_path(name)
-                with path.open(newline="", encoding="utf-8-sig") as f:
-                    file_rows[name] = list(csv.reader(f))
-            return file_rows[name]
-
-        for u in updates:
-            try:
-                idx = int(u.get("row_index"))
-            except Exception:
-                skipped.append({"update": u, "reason": "invalid row_index"})
-                continue
-            entry = row_map.get(idx)
-            if not entry:
-                skipped.append({"row_index": idx, "reason": "out of range or stale row index"})
-                continue
-            source_file = str(entry["source_file"])
-            source_idx = int(entry["source_row_index"])
-            rows = rows_for_file(source_file)
-            if source_idx <= 0 or source_idx >= len(rows):
-                skipped.append({"row_index": idx, "reason": "out of range or header row"})
-                continue
-            row = rows[source_idx]
-            while len(row) < 6:
-                row.append("")
-            section = str(row[0] or "").strip()
-            label = str(row[2] or "").strip()
-            if section.startswith("#") or not label:
-                skipped.append({"row_index": idx, "reason": "comment/blank row is not editable"})
-                continue
-            value = str(u.get("value", ""))
-            spec = self.context.read_schema_map().get((str(row[0]).strip(), str(row[1]).strip(), str(row[2]).strip()), {})
-            if (spec.get("type") or "").lower() == "date" or str(row[4] if len(row) > 4 else "").strip().lower() == "date":
-                value = self.context.normalize_date_for_csv(value)
-            value = normalize_roth_csv_value(row[0], row[1], row[2], value)
-            row[3] = value
-            updated += 1
-
-        validation_errors = self._validate_all_workspace_plan_rows(file_rows)
-        if validation_errors:
-            self._audit("config_rows_validation_failed", {"updated_attempted": updated, "error_count": len(validation_errors)})
-            return {"success": False, "error": "Plan Data validation failed", "errors": validation_errors[:50]}, 422
-
-        # Route through write_plan_data_file (not the raw write_client_rows) so the
-        # SQLite client_files row stays in sync with disk -- callers that read this
-        # file DB-first (e.g. demo-mode restore, _read_plan_data_file) would
-        # otherwise keep serving the pre-edit value after a grid save (#240).
-        for source_file, rows in file_rows.items():
-            buf = io.StringIO(newline="")
-            # write_plan_data_file's disk write goes through Path.write_text(),
-            # which translates "\n" to os.linesep -- an embedded "\r\n" from the
-            # csv module's default dialect would double up into "\r\r\n" on
-            # Windows, so force "\n" line endings (matches _csv_write_rows).
-            csv.writer(buf, lineterminator="\n").writerows(rows)
-            self.context.write_plan_data_file(source_file, buf.getvalue())
-
-        self._audit("config_rows_saved", {"updated": updated, "skipped": len(skipped), "files": sorted(file_rows)})
-        sync_result = None
-        if body.get("sync"):
-            sync_result = self.context.sync_config_backends()
-            self._audit("config_backends_synced", sync_result)
-        return {"success": True, "updated": updated, "skipped": skipped, "sync": sync_result}, 200
+        # The edit applies the plan's own rules (protected retirement dates, canonical
+        # Roth values): a value the plan did not keep is not an update.
+        for row_id, (key, value) in applied.items():
+            kept = edit.final_values.get(key)
+            if kept == value:
+                updated += 1
+            else:
+                skipped.append({"row_index": row_id, "section": key[0], "subsection": key[1], "label": key[2],
+                                "reason": f"value not kept: the plan rules keep {kept!r} for this field"
+                                          if kept is not None else "row no longer in the plan"})
+        self._audit("config_rows_saved", {"updated": updated, "skipped": len(skipped), "revision": revision})
+        return {"success": True, "updated": updated, "skipped": skipped, "revision": revision}, 200

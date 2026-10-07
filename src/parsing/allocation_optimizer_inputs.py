@@ -47,6 +47,7 @@ from __future__ import annotations
 
 from .. import allocation_policy as _ap
 from .. import optimization as _ao
+from .. import plan_overrides as _po
 from ..data_io import _b, _n, _v
 
 
@@ -129,6 +130,18 @@ def parse_allocation_optimizer_inputs(data):
             'use_custom_correlations_file': _b(_global.get('use_custom_correlations_file', 'NO')),
             'custom_correlations_file': (_global.get('custom_correlations_file') or 'asset_correlations.csv'),
         }
+    # Plan-side override tables over the shipped reference data (plan_overrides): present in the
+    # config only when the plan stores rows, which the engine reads as "no override".
+    if c['capital_market_config']:
+        _cma_rows = _po.override_rows(data, _po.CMA)
+        if _cma_rows:
+            c['capital_market_config']['custom_capital_market_rows'] = _cma_rows
+        _corr_rows = _po.override_rows(data, _po.CORRELATIONS)
+        if _corr_rows:
+            c['capital_market_config']['custom_correlation_rows'] = _corr_rows
+    _real_loss_rows = _po.override_rows(data, _po.REAL_LOSS)
+    if _real_loss_rows:
+        c['real_loss_curve_rows'] = _real_loss_rows
     raw_class_names = set(getattr(_ap, 'DEFAULT_ALLOCATION_TARGETS', {}).keys())
     if isinstance(_aco, dict):
         raw_class_names.update(k for k in _aco.keys() if k != 'Global')

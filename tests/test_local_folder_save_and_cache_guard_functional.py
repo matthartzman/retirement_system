@@ -31,7 +31,7 @@ def test_build_never_silently_reloads_selected_folder_over_loaded_plan():
     run_build = _run_build_function(row_model_js)
     assert 'const hadUnsaved = hasUnsavedPlanChanges()' in run_build
     assert "loadLocalPlanDataFirst" not in run_build
-    assert "selectedFolderDiffersFromLoadedPlan" in js
+    assert "selectedFolderDiffersFromLoadedPlan" not in js  # WP4.5: the folder IO had no caller and is gone
 
 
 def test_frontend_assets_are_cache_busted_and_no_cache_headers_are_set():

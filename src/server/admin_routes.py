@@ -51,9 +51,6 @@ def admin_index():
     return "<h3>System Configuration UI not found.</h3>", 404
 
 
-ADMIN_PLAN_DATA_FILES = admin_service.ADMIN_PLAN_DATA_FILES
-
-
 def _admin_csv_path(kind: str, file_name: str) -> Path:
     return admin_service.admin_csv_path(kind, file_name, base_dir=BASE_DIR, system_config_path=_system_config_path())
 

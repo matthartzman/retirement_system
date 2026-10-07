@@ -1,153 +1,126 @@
-"""Generic engine for backfilling canonical Plan Data CSV rows (system review
-item A7, Wave 3 item 3.12).
+"""Generic engine for backfilling canonical Plan Data rows (system review item A7, Wave 3
+item 3.12; on ``plan_rows`` since WP4.4c).
 
-src/server/app_core.py had ~12 near-identical ``_ensure_*_ui_plan_data_rows``
-functions, each repeating the same five-step body with a different row table
-and anchor: read a CSV, compute which canonical rows are missing, find an
-insertion point, splice the missing rows in, write back. One row-key
-collision across targets meant the same file could be read and rewritten up
-to five times per orchestrator call.
+``src/server/app_core.py`` holds a declarative table of ``BackfillEntry(rows, anchor)``: the
+canonical rows the guided UI depends on (newer controls an older plan predates) and where each
+group goes inside its section. :func:`apply_backfill` makes the active plan's rows hold every
+one of them: a row whose key ``(section, subsection, label)`` the plan already holds is never
+touched (a user's value is never overwritten), a missing one is inserted into its section at
+the entry's anchor.
 
-This module is the batched engine those functions now call into: a
-declarative ``BackfillEntry(file_name, rows, anchor)`` table, applied with one
-read and one write per distinct file no matter how many entries target it.
+It works on an open ``PlanStore`` inside the caller's transaction (``app_core`` runs it in the
+active-plan edit context, which writes the new keys back into the CSV working copy while that
+exists) and takes no file paths, except ``source_dir``: a row source may be a callable
+``f(source_dir) -> rows`` for rows that depend on the holdings file (one per account), which
+stays a file until its own dataset moves.
 
-It takes an explicit target directory rather than resolving workspace/session
-state itself (the caller's job), which is what makes it testable against a
-plain ``tmp_path`` with no pytest guard — the guard on the orchestrator
-existed solely because the original always resolved to the live input/
-directory, and every test mocked around it rather than exercising it.
+Anchors act on the rows of the section being inserted into, in display order, so an entry's
+rows land at the same place relative to their neighbours as the CSV splice put them, minus the
+position across other sections (``plan_rows`` sections have no file order).
 """
 from __future__ import annotations
 
-import csv
 from pathlib import Path
-from typing import Callable, NamedTuple, Optional, Sequence, Union
+from typing import Any, Callable, NamedTuple, Optional, Sequence, Union
 
-from .plan_file_io import atomic_write, plan_file_lock
-
-Row = list
-# A callable row source takes the same target_dir apply_backfill was given,
-# so a dynamic entry (e.g. "one row per holdings account") reads from the
-# same injected directory everything else in the batch writes to, rather
-# than reaching into module-level workspace state of its own.
+Row = list  # [section, subsection, label, value, units, notes]
+PlanRow = dict[str, Any]
+# A callable row source takes ``source_dir`` (what :func:`apply_backfill` was given), so a
+# dynamic entry (e.g. "one row per holdings account") reads from the same place the whole batch
+# resolves its inputs from.
 RowSource = Union[Sequence[Row], Callable[[Path], Sequence[Row]]]
-Anchor = Callable[[Sequence[Row]], int]
+# Anchor: the rows of the target section (display order) -> insert index, or None for the end.
+Anchor = Callable[[Sequence[PlanRow]], Optional[int]]
 
 
-def insert_before(predicate: Callable[[Row], bool]) -> Anchor:
-    """Insert immediately before the first existing row matching ``predicate``
-    (scanning rows after the header), or at the end if nothing matches."""
-    def anchor(rows: Sequence[Row]) -> int:
-        for i, row in enumerate(rows[1:], start=1):
-            if predicate(row):
-                return i
-        return len(rows)
+def before_first(predicate: Callable[[PlanRow], bool]) -> Anchor:
+    """Insert immediately before the first section row matching ``predicate``, else at the end."""
+    def anchor(rows: Sequence[PlanRow]) -> Optional[int]:
+        return next((i for i, r in enumerate(rows) if predicate(r)), None)
     return anchor
 
 
-def insert_after_last(predicate: Callable[[Row], bool]) -> Anchor:
-    """Insert immediately after the LAST existing row matching ``predicate``
-    — scans every row (does not stop at the first match) — or at the end if
-    nothing matches. Matches the original ``_ensure_row_in_csv`` behavior of
-    landing after a whole same-(section, subsection) block rather than
-    before its first row."""
-    def anchor(rows: Sequence[Row]) -> int:
-        insert_at = len(rows)
-        for i, row in enumerate(rows[1:], start=1):
-            if predicate(row):
-                insert_at = i + 1
-        return insert_at
+def after_last(predicate: Callable[[PlanRow], bool]) -> Anchor:
+    """Insert immediately after the LAST section row matching ``predicate`` (scans every row,
+    so a whole same-subsection block is passed, not just its first row), else at the end."""
+    def anchor(rows: Sequence[PlanRow]) -> Optional[int]:
+        last = None
+        for i, r in enumerate(rows):
+            if predicate(r):
+                last = i + 1
+        return last
     return anchor
 
 
-def section_is(*sections: str) -> Callable[[Row], bool]:
-    """Row predicate: column 0 (section) is one of ``sections``."""
-    wanted = set(sections)
-    return lambda row: str(row[0] if row else "").strip() in wanted
+def subsection_is(*subsections: str) -> Callable[[PlanRow], bool]:
+    """Row predicate: the subsection is one of ``subsections``."""
+    wanted = set(subsections)
+    return lambda row: row["subsection"] in wanted
 
 
-def section_subsection_is(section: str, subsection: str) -> Callable[[Row], bool]:
-    """Row predicate: columns 0/1 (section, subsection) match exactly."""
-    def predicate(row: Row) -> bool:
-        sec = str(row[0] if row else "").strip()
-        sub = str(row[1] if len(row) > 1 else "").strip()
-        return sec == section and sub == subsection
-    return predicate
+def label_is(label: str) -> Callable[[PlanRow], bool]:
+    """Row predicate: the label equals ``label``."""
+    return lambda row: row["label"] == label
 
 
 class BackfillEntry(NamedTuple):
-    file_name: str
     rows: RowSource
-    anchor: Optional[Anchor] = None  # None = always append at end
+    anchor: Optional[Anchor] = None  # None = always the end of the section
 
 
-def ensure_header(rows: list[Row]) -> list[Row]:
-    header = ["section", "subsection", "label", "value", "units", "notes"]
-    if not rows:
-        return [header]
-    first = [str(x or "").strip().lower() for x in rows[0][:3]]
-    if first[:3] != ["section", "subsection", "label"]:
-        return [header, *rows]
-    while len(rows[0]) < 6:
-        rows[0].append("")
-    rows[0][:6] = header
-    return rows
+def insert_rows_at(store: Any, section: str, rows: Sequence[Row], at: Optional[int]) -> None:
+    """Insert ``[section, subsection, label, value, units, notes]`` rows (all of ``section``) at
+    index ``at`` of the section's display order (``None``: at the end). With ``at`` the section's
+    ``sort_order`` is renumbered so the new rows sit exactly there (not a field the CSV
+    write-back keys on)."""
+    if at is not None:
+        for i, r in enumerate(store.rows(section)):
+            order = i if i < at else i + len(rows)
+            if r["sort_order"] != order:
+                store.set_row(r["row_id"], sort_order=order)
+    for j, (_section, subsection, label, value, units, notes) in enumerate(rows):
+        store.insert_row(section, subsection=subsection, label=label, value=value, units=units, notes=notes,
+                         sort_order=None if at is None else at + j)
 
 
-def row_key(row: Row) -> tuple[str, str, str]:
-    cols = list(row) + [""] * 6
-    return (str(cols[0]).strip(), str(cols[1]).strip(), str(cols[2]).strip())
+def _cells(row: Row) -> tuple[str, str, str, str, str, str]:
+    cols = [str(c or "").strip() for c in row] + [""] * 6
+    return cols[0], cols[1], cols[2], cols[3], cols[4], cols[5]
 
 
-def _read_rows(path: Path) -> list[Row]:
-    if not path.exists():
-        return []
-    with path.open(newline="", encoding="utf-8-sig") as f:
-        return list(csv.reader(f))
-
-
-def _write_rows(path: Path, rows: list[Row]) -> None:
-    with atomic_write(path) as f:
-        csv.writer(f, lineterminator="\n").writerows(rows)
-
-
-def apply_backfill(target_dir: Path, entries: Sequence[BackfillEntry]) -> dict[str, int]:
-    """Apply every entry against files in ``target_dir``.
-
-    Batches to one read + one write per distinct file, however many entries
-    target it, applying that file's entries in the order given against the
-    growing in-memory row list — so a later entry's anchor sees an earlier
-    entry's insertions, and a row already present (from an earlier entry or
-    the file itself) is never duplicated. This is the same sequencing the
-    original per-function read-modify-write calls produced, without the
-    redundant disk round-trips (nothing changes for a file whose entries add
-    no rows: it is read but never rewritten).
-
-    Returns ``{file_name: rows_added}`` for files that actually changed.
-    """
-    by_file: dict[str, list[BackfillEntry]] = {}
+def pending_rows(store: Any, entries: Sequence[BackfillEntry], source_dir: Path | None = None
+                 ) -> list[tuple[BackfillEntry, list[Row]]]:
+    """The rows each entry would add (``[(entry, missing rows)]``, entries with none left out),
+    without changing the plan. A key an earlier entry adds is not added again by a later one."""
+    seen = {(r["section"], r["subsection"], r["label"]) for r in store.all_rows()}
+    out: list[tuple[BackfillEntry, list[Row]]] = []
     for entry in entries:
-        by_file.setdefault(entry.file_name, []).append(entry)
+        candidates = entry.rows(source_dir) if callable(entry.rows) else entry.rows
+        missing: list[Row] = []
+        for row in candidates:
+            cells = _cells(row)
+            if cells[:3] not in seen:
+                seen.add(cells[:3])
+                missing.append(list(cells))
+        if missing:
+            out.append((entry, missing))
+    return out
 
-    added_counts: dict[str, int] = {}
-    for file_name, file_entries in by_file.items():
-        path = target_dir / file_name
-        with plan_file_lock(path):
-            rows = ensure_header(_read_rows(path))
-            seen = {row_key(r) for r in rows[1:]}
-            added = 0
-            for entry in file_entries:
-                candidates = entry.rows(target_dir) if callable(entry.rows) else entry.rows
-                missing = [list(r) for r in candidates if row_key(r) not in seen]
-                if not missing:
-                    continue
-                insert_at = entry.anchor(rows) if entry.anchor is not None else len(rows)
-                rows[insert_at:insert_at] = missing
-                for r in missing:
-                    seen.add(row_key(r))
-                added += len(missing)
-            if added:
-                _write_rows(path, rows)
-                added_counts[file_name] = added
-    return added_counts
+
+def apply_backfill(store: Any, entries: Sequence[BackfillEntry], source_dir: Path | None = None) -> int:
+    """Insert every missing canonical row into ``store`` (call inside its transaction); return
+    how many were added.
+
+    Entries apply in the order given against the growing rows, so a later entry's anchor sees an
+    earlier entry's insertions, and an entry whose rows span sections (Model Constants and
+    Withdrawal Policy) inserts each section's rows as one group at the anchor."""
+    added = 0
+    for entry, missing in pending_rows(store, entries, source_dir):
+        by_section: dict[str, list[Row]] = {}
+        for row in missing:
+            by_section.setdefault(row[0], []).append(row)
+        for section, rows in by_section.items():
+            at = entry.anchor(store.rows(section)) if entry.anchor is not None else None
+            insert_rows_at(store, section, rows, at)
+            added += len(rows)
+    return added

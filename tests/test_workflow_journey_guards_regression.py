@@ -103,4 +103,5 @@ def test_snapshot_restore_journey_uses_local_database_copy_routes():
     assert '@app.route("/api/plan/save-as", methods=["POST"])' in routes
     assert '@app.route("/api/plan/load-file", methods=["POST"])' in routes
     assert '@app.route("/api/plan/exit-snapshot", methods=["POST"])' in routes
-    assert "wal_checkpoint(FULL)" in routes
+    service = (ROOT / "src" / "server_services" / "plan_file_service.py").read_text(encoding="utf-8")
+    assert "wal_checkpoint(FULL)" in service  # the copy semantics live in PlanFileService

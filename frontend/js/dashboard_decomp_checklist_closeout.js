@@ -1279,8 +1279,6 @@ export async function startNewPlan() {
     /* YTD status unavailable — proceed with default blend-on behavior */
   }
   try {
-    planFolderHandle = null;
-    planFolderName = "";
     await api("/api/plan-data/blank", {
       method: "POST",
       body: JSON.stringify(

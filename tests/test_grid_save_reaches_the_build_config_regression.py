@@ -1,41 +1,36 @@
-"""Wave 4.11 regression guard (system review 2026-08-04, `csv-roundtrip-on-every-save`).
+"""Wave 4.11 regression guard (system review 2026-08-04, `csv-roundtrip-on-every-save`), kept
+for the plan file (WP4.5 deleted the CSV bridge it originally guarded).
 
-`_sync_config_backends()` must re-import the on-disk CSV into local_store's
-typed sectioned snapshot (`plan_snapshots`), or `load_active_config()` --
-what a real build reads via `workbook_builder.main()` -- silently serves a
-stale plan after any edit.
+A grid save must reach the plan file's rows, and so `load_active_config()` -- what a real build
+reads via `workbook_builder.main()` -- or a build silently serves a stale plan after an edit.
 
-This is the exact bug the original Wave 4.11 attempt introduced (commit
-f454117, reverted at 7d1ca0f): the trace "every real write caller already
-writes the DB first" checked `client_files` (written by
-`_write_plan_data_file()`), not the SEPARATE `local_store.plan_snapshots`
-table, which only `import_csv_to_sqlite()` refreshes -- see the long comment
-on `_sync_config_backends()` in src/server/app_core.py for the full root
-cause (two independent SQLite stores).
-
-Checks both `local_store.plan_snapshots` directly (the exact table that went
-stale) and `load_active_config()` itself (what a real build actually calls) --
-the latter only became a reliable check for this test workspace after fixing
-conftest.py's own import-ordering bug (it imported src.config_backend, which
-caches platform_runtime.workspace_root() into module-level constants at
-import time, before setting RETIREMENT_SYSTEM_WORKSPACE_ROOT).
-
-Deliberately fast (no subprocess build, no `@pytest.mark.slow`): the
-original regression was ONLY caught by the slow, full-FILE run of
-tests/test_e2e_build_journey.py (it doesn't reproduce standalone, per the
-revert commit), so the "not slow" tier had no guard against it recurring.
+Checks both the plan file's rows directly (the store the build reads) and
+`load_active_config()` itself (what a real build actually calls). Deliberately fast (no
+subprocess build, no `@pytest.mark.slow`).
 """
 from __future__ import annotations
 
-import src.server.app_core as app_core
+import pytest
+
+from src.active_plan import active_plan_store
 from src.config_backend import load_active_config
-from src.local_store import latest_sectioned_data
 from src.server import app
 
 HEADERS = {"X-User-Role": "admin"}
 
 
-def test_sync_config_backends_keeps_plan_snapshots_fresh():
+@pytest.fixture
+def own_workspace(tmp_path, monkeypatch):
+    """WP4.3: a workspace of this test's own. The shared session workspace is shared by
+    every xdist worker, and other tests save the same Home value concurrently."""
+    from tests.plan_fixture import make_plan
+    ws = make_plan(tmp_path / "ws")
+    monkeypatch.setenv("RETIREMENT_SYSTEM_WORKSPACE_ROOT", str(ws.root))
+    monkeypatch.delenv("RETIREMENT_SYSTEM_PLAN_DB", raising=False)
+    return ws
+
+
+def test_a_grid_save_keeps_the_plan_file_and_the_build_config_fresh(own_workspace):
     client = app.test_client()
 
     rows_resp = client.get("/api/config/rows", headers=HEADERS)
@@ -64,10 +59,7 @@ def test_sync_config_backends_keeps_plan_snapshots_fresh():
     try:
         saved = client.post(
             "/api/config/rows",
-            json={
-                "updates": [{"row_index": row_index, "value": f"${NEW_HOME_VALUE:,}"}],
-                "sync": True,
-            },
+            json={"updates": [{"row_index": row_index, "value": f"${NEW_HOME_VALUE:,}"}]},
             headers=HEADERS,
         )
         assert saved.status_code == 200, saved.get_data(as_text=True)
@@ -76,20 +68,19 @@ def test_sync_config_backends_keeps_plan_snapshots_fresh():
         def _stripped(v):
             return str(v).replace(",", "").replace("$", "")
 
-        # plan_snapshots is what load_sqlite() -> local_store.latest_sectioned_data()
-        # reads; it must reflect the value just saved, not whatever the last
-        # import_csv_to_sqlite() call happened to hold.
-        snapshot_data = latest_sectioned_data(app_core._sqlite_db())
+        # The plan file's rows are what load_active_config() reads; they must
+        # reflect the value just saved.
+        with active_plan_store(readonly=True) as store:
+            snapshot_data = store.sectioned_data()
         snapshot_value = snapshot_data.get("Other Assets", {}).get("Home", {}).get("value_as_of_plan_start")
         assert snapshot_value is not None, (
-            "plan_snapshots has no value_as_of_plan_start at all -- "
+            "the plan file has no value_as_of_plan_start at all -- "
             f"Other Assets/Home section was: {snapshot_data.get('Other Assets', {}).get('Home', {})}"
         )
         assert str(NEW_HOME_VALUE) in _stripped(snapshot_value), (
-            f"plan_snapshots returned a STALE value ({snapshot_value!r}) after a real save "
-            f"wrote {NEW_HOME_VALUE} -- local_store.plan_snapshots was not refreshed. "
-            "This is the Wave 4.11 regression: _sync_config_backends() must still call "
-            "import_csv_to_sqlite()."
+            f"the plan file returned a STALE value ({snapshot_value!r}) after a real save "
+            f"wrote {NEW_HOME_VALUE} -- its rows were not refreshed. This is the Wave 4.11 "
+            "regression: a save must reach the rows the build reads."
         )
 
         # load_active_config() is the actual call site a real build uses
@@ -108,7 +99,7 @@ def test_sync_config_backends_keeps_plan_snapshots_fresh():
     finally:
         restored = client.post(
             "/api/config/rows",
-            json={"updates": [{"row_index": row_index, "value": original_value}], "sync": True},
+            json={"updates": [{"row_index": row_index, "value": original_value}]},
             headers=HEADERS,
         )
         assert restored.status_code == 200, restored.get_data(as_text=True)

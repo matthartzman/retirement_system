@@ -1,5 +1,4 @@
 from tests.plan_fixture import plan_data
-import json
 import unittest
 from pathlib import Path
 
@@ -11,7 +10,6 @@ from tests.golden_pricing import FROZEN_GOLDEN_MASTER_PRICES, frozen_holdings_pr
 
 ROOT = Path(__file__).resolve().parents[1]
 
-from conftest import TEST_INPUT_DIR
 
 
 def sample_config():
@@ -171,7 +169,7 @@ class RecommendationCompletionTests(unittest.TestCase):
         self.assertEqual(warnings, [])
 
     def test_forecast_api_service_uses_same_config_contract(self):
-        plan = json.loads((TEST_INPUT_DIR / 'client_data.json').read_text())
+        plan = plan_data()  # the sectioned plan rows (what the forecast API takes)
         result = forecast_from_plan_json(plan, run_mc=False)
         self.assertEqual(result['status'], 'ok')
         self.assertGreater(result['terminal_nw'], 0)

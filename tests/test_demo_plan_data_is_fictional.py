@@ -120,11 +120,14 @@ BANNED_REAL_NAMES = ["redmane", "hensley", "cubs tickets", "gifts - family 12"]
 
 
 def _demo_applied_files() -> list[str]:
-    """Exactly the files Open Demo Plan writes -- see plan_routes._demo_plan_feature_service."""
-    from src.local_plan_data_sync import PLAN_DATA_CSV_FILES, YTD_PLAN_DATA_FILES
+    """Exactly the files Open Demo Plan applies -- see plan_routes._demo_plan_feature_service:
+    the plan CSV set (read once by the importer into the demo plan file, WP4.5) and the flat
+    files written through the plan-data write path."""
+    from src.csv_exchange import PLAN_CSV_FILES
+    from src.server.plan_data_files import PLAN_DATA_CSV_FILES, YTD_PLAN_DATA_FILES
     from src.server_services.demo_plan_service import TEXT_BACKUP_FILES
 
-    return [*PLAN_DATA_CSV_FILES, *YTD_PLAN_DATA_FILES, *TEXT_BACKUP_FILES]
+    return [*PLAN_CSV_FILES, *PLAN_DATA_CSV_FILES, *YTD_PLAN_DATA_FILES, *TEXT_BACKUP_FILES]
 
 
 def test_demo_carries_no_real_vendor_or_personal_category_names():
@@ -174,14 +177,7 @@ def test_demo_covers_every_file_open_demo_plan_applies():
     place for the whole demo -- how target_allocation.csv (real target weights)
     and asset_class_optimizer_controls.csv (real optimizer choices) stayed
     visible while every other screen showed the fictional household."""
-    from src.local_plan_data_sync import PLAN_DATA_CSV_FILES, YTD_PLAN_DATA_FILES
-    from src.server_services.demo_plan_service import TEXT_BACKUP_FILES
-
-    missing = [
-        name
-        for name in [*PLAN_DATA_CSV_FILES, *YTD_PLAN_DATA_FILES, *TEXT_BACKUP_FILES]
-        if not (DEMO / name).exists()
-    ]
+    missing = [name for name in _demo_applied_files() if not (DEMO / name).exists()]
     assert not missing, (
         f"input/demo/ has no fixture for {missing}; Open Demo Plan skips those files, "
         "so the advisor's real data stays live for the duration of the demo."

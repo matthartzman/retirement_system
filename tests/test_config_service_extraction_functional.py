@@ -12,50 +12,47 @@ if str(ROOT) not in sys.path:
 # equivalent pair. Only this file's genuine behavior + manifest tests remain.
 
 
-def test_config_service_updates_plan_data_rows(tmp_path):
+def test_config_service_updates_plan_data_rows(tmp_path, monkeypatch):
+    """WP4.3 / WP4.5: the grid save writes the active plan's row by row_id in one transaction."""
+    from src import active_plan
     from src.server_services.config_service import ConfigService, ConfigServiceContext
 
-    plan_file = tmp_path / "client_data.csv"
-    plan_file.write_text(
-        "section,subsection,label,value,units,notes\n"
-        "Client,Household,client_name,Old,,\n",
-        encoding="utf-8",
-    )
-    written = {}
-
-    def write_plan_data(name, content):
-        path = tmp_path / name
-        path.write_text(content, encoding="utf-8")
-        written[str(path)] = content
-        return path
+    monkeypatch.setenv("RETIREMENT_SYSTEM_WORKSPACE_ROOT", str(tmp_path))
+    monkeypatch.delenv(active_plan.PLAN_DB_ENV, raising=False)
+    with active_plan.active_plan_store() as store:
+        store.insert_row("Client", subsection="Household", label="client_name", value="Old")
 
     service = ConfigService(ConfigServiceContext(
         version="9",
         base_dir=tmp_path,
-        csv_path=plan_file,
-        plan_data_csv_files=["client_data.csv"],
-        client_data_csv_file_set={"client_data.csv"},
-        plan_data_path=lambda name, *args, **kwargs: tmp_path / name,
-        client_csv_rows=lambda: [
-            {"row_index": 0, "source_file": "client_data.csv", "source_row_index": 0, "columns": []},
-            {"row_index": 1, "source_file": "client_data.csv", "source_row_index": 1, "columns": []},
-        ],
+        edit_plan=active_plan.edit_active_plan,
+        read_plan=active_plan.active_plan_store,
         csv_rows_payload=lambda: {"rows": [], "schema_count": 0},
         read_schema_map=lambda: {},
-        write_plan_data_file=write_plan_data,
-        load_active_config=lambda: ({}, {"backend": "CSV"}),
-        runtime_config=lambda: type("Cfg", (), {"sqlite_db": str(tmp_path / "retirement_system_v10.db"), "config_backend": "CSV"})(),
+        load_active_config=lambda: ({}, {"backend": "SQLITE", "plan_db": str(active_plan.active_plan_path())}),
+        runtime_config=lambda: type("Cfg", (), {"sqlite_db": str(tmp_path / "retirement_system_v10.db"), "config_backend": "SQLITE"})(),
         normalize_date_for_csv=lambda value: value,
-        sync_config_backends=lambda: {"success": True},
     ))
+    with active_plan.active_plan_store() as store:
+        (row,) = store.find_rows("Client", "Household", "client_name")
+        before = store.revision()
 
-    payload, status = service.update_config_rows_payload({"updates": [{"row_index": 1, "value": "New"}], "sync": True}, allow_csv_write=True)
+    payload, status = service.update_config_rows_payload(
+        {"updates": [{"row_index": row["row_id"], "value": " New "}, {"row_index": 999, "value": "x"}]},
+        allow_csv_write=True)
     assert status == 200
     assert payload["success"] is True
     assert payload["updated"] == 1
-    assert payload["sync"] == {"success": True}
-    assert written
-    assert "New" in plan_file.read_text(encoding="utf-8")
+    assert payload["skipped"] == [{"row_index": 999, "reason": "out of range or stale row index"}]
+    assert "sync" not in payload
+    assert payload["revision"] != before
+    with active_plan.active_plan_store() as store:
+        assert store.get_row(row["row_id"])["value"] == "New"
+        assert payload["revision"] == store.revision()
+    assert not list(tmp_path.glob("**/*.csv"))  # no file is written
+    backends, status = service.config_backends_payload()
+    assert status == 200 and backends["plan_path"] == str(active_plan.active_plan_path())
+    assert {"csv_path", "json_path", "yaml_path"}.isdisjoint(backends)
 
 
 def test_route_manifest_has_config_owner():

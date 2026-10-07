@@ -39,11 +39,15 @@ def connect(path: str | Path = MEMORY, *, readonly: bool = False,
                               check_same_thread=check_same_thread)
     else:
         con = sqlite3.connect(target, isolation_level=None, check_same_thread=check_same_thread)
-    con.row_factory = sqlite3.Row
-    con.execute("PRAGMA foreign_keys=ON")
-    if not readonly and target != MEMORY:
-        con.execute("PRAGMA journal_mode=WAL")
-        con.execute("PRAGMA synchronous=NORMAL")
+    try:
+        con.row_factory = sqlite3.Row
+        con.execute("PRAGMA foreign_keys=ON")
+        if not readonly and target != MEMORY:
+            con.execute("PRAGMA journal_mode=WAL")
+            con.execute("PRAGMA synchronous=NORMAL")
+    except BaseException:
+        con.close()  # never leave a handle on the file behind a failed open
+        raise
     return con
 
 

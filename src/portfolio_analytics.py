@@ -14,6 +14,7 @@ from typing import Dict, List, Tuple, Any
 
 from .config_backend import init_sqlite, DEFAULT_DB
 from . import platform_runtime
+from .sqlite_util import connect as closing_connect
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_HOLDINGS = platform_runtime.workspace_root() / "input" / "client_holdings.csv"
@@ -76,7 +77,7 @@ def freeze_latest_pricing_snapshot(workspace_id: str = "local", db_path: str | P
             "error": "No saved price snapshots are available to freeze. Refresh prices first.",
             "latest_count": 0,
         }
-    with sqlite3.connect(p) as con:
+    with closing_connect(p) as con:
         _ensure_pricing_freeze_table(con)
         con.execute(
             """INSERT INTO pricing_snapshot_freezes(workspace_id, active, frozen_at, source, snapshot_json)
@@ -90,7 +91,7 @@ def freeze_latest_pricing_snapshot(workspace_id: str = "local", db_path: str | P
 def unfreeze_pricing_snapshot(workspace_id: str = "local", db_path: str | Path = DEFAULT_DB) -> dict[str, Any]:
     p = init_sqlite(db_path)
     now = _utc_now_iso()
-    with sqlite3.connect(p) as con:
+    with closing_connect(p) as con:
         _ensure_pricing_freeze_table(con)
         con.execute(
             "UPDATE pricing_snapshot_freezes SET active=0, frozen_at=?, source=COALESCE(source, 'latest_price_snapshots') WHERE workspace_id=?",
@@ -114,7 +115,7 @@ def pricing_freeze_status(workspace_id: str = "local", db_path: str | Path = DEF
         }
     latest_count = len(load_latest_snapshots(workspace_id=workspace_id, db_path=p))
     try:
-        with sqlite3.connect(p) as con:
+        with closing_connect(p) as con:
             table = con.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='pricing_snapshot_freezes'").fetchone()
             if table:
                 row = con.execute(
@@ -183,7 +184,7 @@ def snapshot_prices(prices: Dict[str, float], sources: Dict[str, str] | None = N
     p = init_sqlite(db_path)
     sources = sources or {}
     n = 0
-    with sqlite3.connect(p) as con:
+    with closing_connect(p) as con:
         for sym, px in prices.items():
             try:
                 f = float(px)
@@ -206,7 +207,7 @@ def load_latest_snapshots(workspace_id: str = "local", db_path: str | Path = DEF
     out: Dict[str, dict] = {}
     if not p.exists():
         return out
-    with sqlite3.connect(p) as con:
+    with closing_connect(p) as con:
         con.row_factory = sqlite3.Row
         for row in con.execute(
             """SELECT ps.* FROM price_snapshots ps

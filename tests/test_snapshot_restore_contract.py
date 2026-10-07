@@ -1,4 +1,3 @@
-import sqlite3
 from pathlib import Path
 
 from src.build_snapshot import (
@@ -12,25 +11,20 @@ from src.build_snapshot import (
 
 import pytest
 
+from src.stores import PlanStore
+
 pytestmark = pytest.mark.contract
 
 
 def _make_db(path: Path, value: str):
-    conn = sqlite3.connect(path)
-    conn.execute("CREATE TABLE IF NOT EXISTS client_files(file_name TEXT PRIMARY KEY, content TEXT)")
-    conn.execute("CREATE TABLE IF NOT EXISTS marker(value TEXT)")
-    conn.execute("DELETE FROM marker")
-    conn.execute("INSERT INTO marker(value) VALUES (?)", (value,))
-    conn.commit()
-    conn.close()
+    """A plan file (``PlanStore``) holding one marker row; the snapshot is of the plan file (WP4.5)."""
+    with PlanStore.open(path) as store:
+        store.set_value("Marker", "", "value", value)
 
 
 def _read_value(path: Path) -> str:
-    conn = sqlite3.connect(path)
-    try:
-        return conn.execute("SELECT value FROM marker").fetchone()[0]
-    finally:
-        conn.close()
+    with PlanStore.open(path, create=False, readonly=True) as store:
+        return store.sectioned_data()["Marker"][""]["value"]
 
 
 def test_build_snapshot_captures_sqlite_database_copy_and_hash(tmp_path):

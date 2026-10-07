@@ -299,59 +299,108 @@ def needs_migration(db_path=None) -> bool:
     return stored_schema_version(db_path=db_path) < PLAN_DATA_SCHEMA_VERSION
 
 
-def migrate_plan_data_at_rest(input_dir, db_path=None, dry_run: bool = False) -> dict:
-    """Migrate every sectioned Plan Data CSV, AND every DB snapshot, once, in place.
+def _migrate_plan_file_rows(plan_path, dry_run: bool) -> int:
+    """Apply :func:`migrate_rows` to the rows of a plan file in place (one transaction).
 
-    Returns ``{"migrated": {name: changed}, "total_changed": int, "skipped": bool,
-    "snapshots": int}``, plus an ``"error"`` key (str) ONLY when the DB
-    snapshot sweep raised -- absent on every successful call, so
-    ``report.get("error")`` is the check. ``total_changed`` is the sum of CSV
-    field changes and migrated snapshot rows, so existing callers that only
-    look at ``total_changed`` (e.g. ``main.py``'s startup log) keep working
-    unmodified.
-
-    Only files that actually change are rewritten, so untouched files keep their
-    mtime and their plan_data_manifest.json hash -- otherwise a migration that
-    changed one file would look like it changed all of them. When the store is
-    already stamped at the current version this is a no-op (``skipped=True``).
-    ``dry_run=True`` reports what would change without writing or stamping,
-    including for the DB snapshot sweep.
-
-    The DB is canonical: ``local_store.latest_sectioned_data()`` reads
-    ``plan_snapshots.sectioned_json`` directly, so migrating only the CSVs left
-    every snapshot -- including the newest one actually read at runtime -- in its
-    legacy shape. ALL snapshot rows are migrated here, not just the latest, because
-    an older snapshot can be restored and a restore after the version is stamped
-    must not resurrect legacy shapes the gate believes are gone.
-
-    The snapshot sweep runs after the CSV loop and before the version is
-    stamped. A DB error during the sweep is NOT swallowed the way a per-file CSV
-    read error is: it aborts the whole call and leaves the version unstamped, so
-    the migration retries in full next boot rather than reporting "migrated"
-    over a store that only partially moved.
+    A renamed row keeps its ``row_id``; a legacy row whose current key already exists is
+    deleted (the current key wins). Returns the number of rows changed or dropped; a
+    missing plan file is the first-run case and changes nothing.
     """
     from pathlib import Path
-    from .local_store import rewrite_sectioned_snapshots
+    from .stores import PlanStore
+
+    if not Path(plan_path).is_file():
+        return 0
+    with PlanStore.open(plan_path, create=False) as store:
+        rows = store.all_rows()
+        migrated, changed = migrate_rows([[r["section"], r["subsection"], r["label"], r["row_id"]] for r in rows])
+        if dry_run or not changed:
+            return changed
+        target = {m[3]: m for m in migrated}
+        with store.transaction():
+            for r in rows:
+                m = target.get(r["row_id"])
+                if m is None:
+                    store.delete_row(r["row_id"])
+                elif (m[1], m[2]) != (r["subsection"], r["label"]):
+                    store.set_row(r["row_id"], subsection=m[1], label=m[2])
+    return changed
+
+
+def migrate_plan_file(plan_path, dry_run: bool = False) -> dict:
+    """Rename the legacy keys in a plan file's rows, in place (idempotent, no version stamp).
+
+    Runs at startup and after every plan file swap (Load Saved Plan, snapshot restore, demo),
+    so a plan saved by an older version is brought to the current key names whenever it
+    becomes the active plan. Returns ``{"plan_rows": n, "total_changed": n}``.
+    """
+    changed = _migrate_plan_file_rows(plan_path, dry_run)
+    return {"plan_rows": changed, "total_changed": changed}
+
+
+def migrate_plan_data_at_rest(input_dir, db_path=None, dry_run: bool = False, plan_path=None) -> dict:
+    """Migrate the plan file's rows, AND the flat Plan Data CSVs in ``input_dir``, once, in place.
+
+    Returns ``{"migrated": {name: changed}, "total_changed": int, "skipped": bool,
+    "plan_rows": int}``, plus an ``"error"`` key (str) ONLY when the plan-row sweep
+    raised -- absent on every successful call, so ``report.get("error")`` is the check.
+    ``total_changed`` is the sum of CSV field changes and migrated plan rows, so callers
+    that only look at ``total_changed`` (e.g. ``main.py``'s startup log) keep working.
+
+    The plan file is canonical (WP4.2): the engine reads ``plan_rows`` of the active plan, so
+    its rows are migrated (``plan_path``; by default the active plan when ``input_dir`` is the
+    workspace's ``input`` folder, otherwise no plan file; :func:`migrate_plan_file`).
+    That sweep is idempotent and not version-gated, so a plan file that arrives from outside
+    (Load Saved Plan) is swept the same way. A store error during the sweep is NOT swallowed:
+    it aborts the call and leaves the CSV version unstamped, so everything retries next boot.
+
+    WP4.5: the sectioned plan CSV set (the ``client_data.csv`` anchor and its part files) is the
+    legacy source of the converter now and is never rewritten here. The flat dataset CSVs
+    (spending taxonomy, aliases, budget, rules, category map, YTD ...) are still migrated
+    (their category renames), only files that actually change are rewritten, and that part is a
+    no-op once the store is stamped at the current version. ``dry_run=True`` reports what would
+    change without writing or stamping, including for the plan-row sweep.
+    """
+    from pathlib import Path
+
+    from .csv_exchange import PLAN_CSV_FILES
+
+    try:
+        if plan_path is None:
+            # The active plan is the workspace's; a migration of some other folder does not touch it.
+            from . import platform_runtime  # noqa: PLC0415
+            from .active_plan import active_plan_path  # noqa: PLC0415
+            if Path(input_dir).resolve() == (platform_runtime.workspace_root() / "input").resolve():
+                plan_path = active_plan_path()
+        plan_rows_changed = _migrate_plan_file_rows(plan_path, dry_run) if plan_path is not None else 0
+    except Exception as exc:
+        # Never stamp the version over a sweep that did not finish, so the next boot retries
+        # everything. The caller (run_startup_plan_data_migration / main.py) still must not
+        # raise -- a bad store must not stop the server booting -- but the failure is reported.
+        return {
+            "migrated": {}, "total_changed": 0, "skipped": False,
+            "plan_rows": 0, "error": f"{type(exc).__name__}: {exc}",
+        }
 
     if not dry_run and not needs_migration(db_path=db_path):
-        return {"migrated": {}, "total_changed": 0, "skipped": True, "snapshots": 0}
+        return {"migrated": {}, "total_changed": plan_rows_changed, "skipped": True, "plan_rows": plan_rows_changed}
 
     root = Path(input_dir)
     migrated: dict = {}
     total = 0
     for path in sorted(root.glob("*.csv")):
+        if path.name in PLAN_CSV_FILES:
+            continue  # the legacy sectioned set is the converter's source: left exactly as it is
         try:
             content = path.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
-            # A file we cannot read is left exactly as it is. The per-load
-            # migrate_sectioned_data normalization still covers it in memory.
+            # A file we cannot read is left exactly as it is.
             continue
-        # Both transforms are attempted on every file, and each is a no-op on
-        # data it does not recognise: migrate_rows needs a (section, subsection,
-        # label) triple, migrate_flat_category_content needs a category-id
-        # column header. Running both beats maintaining a filename list that
-        # would silently miss the next flat file added -- which is exactly how
-        # client_spending_aliases.csv was missed on the first inventory pass.
+        # Both transforms are attempted on every file, and each is a no-op on data it does not
+        # recognise: migrate_rows needs a (section, subsection, label) triple,
+        # migrate_flat_category_content needs a category-id column header. Running both beats
+        # maintaining a filename list that would silently miss the next flat file added -- which
+        # is exactly how client_spending_aliases.csv was missed on the first inventory pass.
         new_content, changed = migrate_csv_content(content)
         flat_content, flat_changed = migrate_flat_category_content(new_content)
         if flat_changed:
@@ -366,54 +415,30 @@ def migrate_plan_data_at_rest(input_dir, db_path=None, dry_run: bool = False) ->
             with atomic_write(path) as handle:
                 handle.write(new_content)
 
-    try:
-        snapshot_changed = rewrite_sectioned_snapshots(
-            migrate_sectioned_data, db_path=db_path, dry_run=dry_run,
-        )
-    except Exception as exc:
-        # Degrade exactly like an at-boot failure must: never stamp the version
-        # over a sweep that did not finish, so the next boot retries everything
-        # (CSVs already migrated are idempotent no-ops; the DB is untouched
-        # because rewrite_sectioned_snapshots rolled back its own transaction).
-        #
-        # Final-review finding (2026-08-19): this used to swallow the failure
-        # entirely -- no log, no error field -- so a persistently-failing
-        # sweep (e.g. one malformed sectioned_json row) would retry and fail
-        # silently on every boot forever, with CSVs at the new schema version
-        # and DB snapshots stuck at the old one, and nothing visible saying
-        # so. The caller (run_startup_plan_data_migration / main.py) still
-        # must not raise -- a bad DB row must not stop the server booting --
-        # but "don't raise" is not the same as "don't report."
-        return {
-            "migrated": migrated, "total_changed": total, "skipped": False,
-            "snapshots": 0, "error": f"{type(exc).__name__}: {exc}",
-        }
-
-    total += snapshot_changed
+    total += plan_rows_changed
     if not dry_run:
         set_stored_schema_version(PLAN_DATA_SCHEMA_VERSION, db_path=db_path)
-    return {"migrated": migrated, "total_changed": total, "skipped": False, "snapshots": snapshot_changed}
+    return {"migrated": migrated, "total_changed": total, "skipped": False, "plan_rows": plan_rows_changed}
 
 
 def run_startup_plan_data_migration(input_dir=None, db_path=None) -> dict:
     """Startup entry point: migrate stored Plan Data once, never fatally.
 
     Any failure degrades to the existing per-load ``migrate_sectioned_data``
-    normalization, which still yields correct reads -- a bad CSV must not stop
+    normalization, which still yields correct reads -- a bad store must not stop
     the server from booting.
 
-    The input directory is resolved through ``platform_runtime.workspace_root()``
-    and NOT from a ``__file__``-derived repo root. That distinction is the whole
-    of the 2026-08-12 frozen-gate bug: a hardcoded root in data_io silently
-    ignored RETIREMENT_SYSTEM_WORKSPACE_ROOT, so every run under a custom
-    workspace resolved plan data against the wrong directory. A migration that
-    got this wrong would not merely read the wrong files -- it would REWRITE
-    them, which is not recoverable the way a bad read is.
+    The input directory is the workspace's ``input`` folder (``platform_runtime.workspace_root()``)
+    and NOT a ``__file__``-derived repo root. That distinction is the whole of the 2026-08-12
+    frozen-gate bug: a hardcoded root in data_io silently ignored RETIREMENT_SYSTEM_WORKSPACE_ROOT,
+    so every run under a custom workspace resolved plan data against the wrong directory. A
+    migration that got this wrong would not merely read the wrong files -- it would REWRITE them,
+    which is not recoverable the way a bad read is.
     """
     try:
         if input_dir is None:
-            from .platform_runtime import workspace_root
-            input_dir = workspace_root() / "input"
+            from . import platform_runtime
+            input_dir = platform_runtime.workspace_root() / "input"
         return migrate_plan_data_at_rest(input_dir, db_path=db_path)
     except Exception:
         return {"migrated": {}, "total_changed": 0, "skipped": True}
