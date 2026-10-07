@@ -171,6 +171,18 @@ def ensure_plan_file(path: str | Path) -> Path:
     return target
 
 
+def plan_file_has_rows(path: str | Path) -> bool:
+    """True when ``path`` is an initialised plan file holding at least one row."""
+    target = Path(path)
+    if not target.is_file():
+        return False
+    try:
+        with PlanStore.open(target, create=False, readonly=True) as store:
+            return bool(store.all_rows())
+    except LookupError:  # not an initialised plan file
+        return False
+
+
 def build_plan_file_from_csv_folder(dest: str | Path, folder: str | Path) -> int:
     """Build a plan file at ``dest`` from the plan CSV set in ``folder`` through the
     ``csv_exchange`` importer (the demo seed, a fresh frozen workspace); an existing ``dest`` is
