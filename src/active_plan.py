@@ -84,23 +84,35 @@ class PlanSyncResult:
     rows_by_file: dict[str, int]  # file name -> data rows the file holds
 
 
+# Serializes the bridge and the row-store edits in this process (the server is threaded);
+# across processes the plan file's write lock does (each holds a transaction while it reads
+# the CSV set and writes the rows, so no run can store a CSV set read before another's write).
+_PLAN_LOCK = threading.RLock()
+
+Key = tuple[str, str, str]
+
+
+def _pull(store: PlanStore, input_dir: str | Path) -> PlanSyncResult:
+    """The bridge on an open store; call inside ``store.transaction()``."""
+    parsed = read_plan_csv_set(input_dir)
+    rows = _engine_rows(parsed.rows)
+    if not rows:
+        raise EmptyPlanCsvSet(f"no plan CSV rows found in {input_dir}; the plan was left unchanged")
+    counts = sync_plan_rows(store, rows)
+    return PlanSyncResult(data=store.sectioned_data(), texts=dict(parsed.texts), counts=counts,
+                          files_read=list(parsed.report.files_read), rows_by_file=dict(parsed.rows_by_file))
+
+
 def sync_active_plan_from_csv(input_dir: str | Path) -> PlanSyncResult:
     """Make the active plan's rows equal the plan CSV set in ``input_dir`` (WP4.2 bridge).
 
     The one place the CSV writers' edits reach ``plan_rows`` until those writers write the
     rows themselves (WP4.4-4.5); then this function, :func:`edit_active_plan`'s write-back
-    and their callers are deleted (P3.5).
+    and their callers are deleted (P3.5). The CSV set is read inside the rows transaction.
     Raises :class:`EmptyPlanCsvSet`, leaving the plan as it is, when the set holds no rows.
     """
-    parsed = read_plan_csv_set(input_dir)
-    rows = _engine_rows(parsed.rows)
-    if not rows:
-        raise EmptyPlanCsvSet(f"no plan CSV rows found in {input_dir}; the plan was left unchanged")
-    with active_plan_store() as store:
-        counts = sync_plan_rows(store, rows)
-        data = store.sectioned_data()
-    return PlanSyncResult(data=data, texts=dict(parsed.texts), counts=counts,
-                          files_read=list(parsed.report.files_read), rows_by_file=dict(parsed.rows_by_file))
+    with _PLAN_LOCK, active_plan_store() as store, store.transaction():
+        return _pull(store, input_dir)
 
 
 def refresh_active_plan(input_dir: str | Path) -> PlanSyncResult | None:
@@ -113,9 +125,13 @@ def refresh_active_plan(input_dir: str | Path) -> PlanSyncResult | None:
         return None
 
 
-_EDIT_LOCK = threading.RLock()
-
-Key = tuple[str, str, str]
+@dataclass
+class PlanEdit:
+    """What :func:`edit_active_plan` yields: the open store to edit; after the block,
+    ``revision`` is the plan's revision and ``touched`` the keys written back."""
+    store: PlanStore
+    revision: str = ""
+    touched: frozenset[Key] = frozenset()
 
 
 def _row_fields(rows: list[dict[str, Any]]) -> dict[Key, tuple[str, str, str]]:
@@ -123,42 +139,49 @@ def _row_fields(rows: list[dict[str, Any]]) -> dict[Key, tuple[str, str, str]]:
 
 
 @contextmanager
-def edit_active_plan(input_dir: str | Path, write_file: Callable[[str, str], Any]) -> Iterator[PlanStore]:
+def edit_active_plan(input_dir: str | Path, write_file: Callable[[str, str], Any]) -> Iterator[PlanEdit]:
     """Edit the active plan's rows in one transaction; the row-store writers' one entry (WP4.3).
 
-    1. :func:`refresh_active_plan`: the rows equal the CSV set before the edit;
-    2. yields the open store inside ``transaction()``; the caller edits by ``row_id`` or key
-       (an exception rolls everything back and propagates);
-    3. before the commit, every key whose row was set, inserted or deleted is written back
-       into the CSV set (``csv_exchange.write_back_rows``) through ``write_file(name, text)``
-       (the server's plan-data file writer, which also keeps ``client_files`` current); a
-       write-back that would not read back as the rows raises ``PlanCsvError`` and rolls the
-       edit back instead of letting the next bridge run lose it;
-    4. after the commit, the bridge runs again, so ``write_file``'s own rules (canonical Roth
-       values, protected retirement dates) reach the rows.
+    All in one ``transaction()`` on the plan file:
 
-    With no CSV set (nothing to refresh from) the whole plan is written out. Serialized in
-    this process by a lock. Read the result through :func:`active_plan_store` afterwards.
+    1. the bridge: the rows equal the CSV set before the edit (a CSV writer may not have
+       synced yet);
+    2. yields a :class:`PlanEdit`; the caller edits ``edit.store`` by ``row_id`` or key (an
+       exception rolls everything back and propagates);
+    3. every key whose row was set, inserted or deleted is written back into the CSV set
+       (``csv_exchange.write_back_rows``) through ``write_file(name, text)`` (the server's
+       plan-data file writer, which also keeps ``client_files`` current). A write-back that
+       would not read back as the rows raises ``PlanCsvError`` and rolls the edit back
+       instead of letting the next bridge run lose it;
+    4. the bridge again, so ``write_file``'s own rules (canonical Roth values, protected
+       retirement dates) reach the rows.
+
+    With no CSV set (nothing to refresh from) the whole plan is written out. After the
+    block, ``PlanEdit.revision`` is the plan's revision.
     """
-    with _EDIT_LOCK:
-        synced = refresh_active_plan(input_dir)
-        if synced is not None:
-            texts = synced.texts
-        else:
-            texts = read_plan_csv_set(input_dir).texts if Path(input_dir).is_dir() else {}
-        with active_plan_store() as store:
+    with _PLAN_LOCK, active_plan_store() as store:
+        edit = PlanEdit(store)
+        with store.transaction():
+            try:
+                texts = _pull(store, input_dir).texts
+                full = False
+            except EmptyPlanCsvSet:
+                texts = read_plan_csv_set(input_dir).texts if Path(input_dir).is_dir() else {}
+                full = True
             before = _row_fields(store.all_rows())
-            with store.transaction():
-                yield store
-                after_rows = store.all_rows()
-                after = _row_fields(after_rows)
-                touched = set(after) if synced is None else {
-                    k for k in set(before) | set(after) if before.get(k) != after.get(k)}
-                if touched:
-                    for name, text in write_back_rows(texts, after_rows, touched).items():
-                        write_file(name, text)
-        if touched:
-            refresh_active_plan(input_dir)
+            yield edit
+            after_rows = store.all_rows()
+            after = _row_fields(after_rows)
+            touched = set(after) if full else {k for k in set(before) | set(after) if before.get(k) != after.get(k)}
+            if touched:
+                for name, text in write_back_rows(texts, after_rows, touched).items():
+                    write_file(name, text)
+                try:
+                    _pull(store, input_dir)
+                except EmptyPlanCsvSet:
+                    pass  # the edit removed every row; the rows are empty too
+        edit.touched = frozenset(touched)
+        edit.revision = store.revision()
 
 
 def active_plan_data(bootstrap_input_dir: str | Path | None = None) -> SectionedData:

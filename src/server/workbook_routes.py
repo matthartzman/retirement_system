@@ -34,6 +34,7 @@ from .app_core import (
     _client_id,
     _csv_rows_payload,
     _current_user,
+    _edit_active_plan,
     _ensure_user_ui_plan_data_rows,
     _make_blank_plan_files,
     _make_request_system_config_csv_for,
@@ -41,6 +42,7 @@ from .app_core import (
     _protected_client_data_status,
     _read_last_build_timestamp,
     _read_plan_data_file,
+    _refresh_active_plan,
     _request_system_config_csv,
     _require,
     _runtime_config,
@@ -884,14 +886,14 @@ def shutdown():
 # ---- Versioned SaaS/readiness APIs ----
 
 
-# Sectioned Plan Data form APIs over the active plan's rows (WP4.2: plan.rpx, not
-# the old sectioned SQLite snapshots). WP4.3 unifies them with the grid's row store.
+# Sectioned Plan Data form APIs over the active plan's rows: the same rows, edit context and
+# CSV write-back as the grid (/api/config/rows; WP4.3).
 @app.route("/api/plan/forms", methods=["GET"])
 def plan_forms_get():
     denied = _require("view_dashboard")
     if denied:
         return denied
-    return jsonify(plan_forms_service.get_forms_payload())
+    return jsonify(plan_forms_service.get_forms_payload(refresh=_refresh_active_plan))
 
 
 @app.route("/api/plan/forms", methods=["POST"])
@@ -901,7 +903,7 @@ def plan_forms_post():
         return denied
     body = request.get_json(silent=True) or {}
     sections = body.get("sections") or body.get("data") or {}
-    payload, status = plan_forms_service.save_forms_payload(sections)
+    payload, status = plan_forms_service.save_forms_payload(sections, edit_plan=_edit_active_plan)
     if status == 200:
         _audit("plan_forms_saved", {"revision": payload.get("revision"), "section_count": len(sections) if isinstance(sections, dict) else 0})
     return jsonify(payload), status
@@ -914,7 +916,7 @@ def plan_forms_patch(section_path):
         return denied
     body = request.get_json(silent=True) or {}
     values = body.get("values") or body.get("fields") or {}
-    payload, status = plan_forms_service.patch_forms_payload(section_path, values)
+    payload, status = plan_forms_service.patch_forms_payload(section_path, values, edit_plan=_edit_active_plan)
     if status == 200:
         _audit("plan_form_section_saved", {"revision": payload.get("revision"), "section": payload.get("section"), "subsection": payload.get("subsection")})
     return jsonify(payload), status

@@ -78,7 +78,7 @@ try:
         UI_NAMES,
         YTD_PLAN_DATA_FILES,
     )
-    from ..active_plan import peek_plan_data, sync_active_plan_from_csv
+    from ..active_plan import active_plan_store, edit_active_plan, peek_plan_data, refresh_active_plan, sync_active_plan_from_csv
     from ..csv_exchange import ANCHOR_FILE, PLAN_CSV_FILES
     from ..config_backend import (
         DEFAULT_DB,
@@ -125,7 +125,7 @@ except ImportError:  # direct execution fallback
         UI_NAMES,
         YTD_PLAN_DATA_FILES,
     )
-    from src.active_plan import peek_plan_data, sync_active_plan_from_csv
+    from src.active_plan import active_plan_store, edit_active_plan, peek_plan_data, refresh_active_plan, sync_active_plan_from_csv
     from src.csv_exchange import ANCHOR_FILE, PLAN_CSV_FILES
     from src.config_backend import (
         DEFAULT_DB,
@@ -1102,26 +1102,6 @@ def _ensure_user_ui_plan_data_rows() -> None:
 
 
 
-def _client_csv_rows() -> list[dict]:
-    """Return combined UI rows from the client-data manifest plus split files."""
-    entries: list[dict] = []
-    global_idx = 0
-    for name in CLIENT_DATA_CSV_FILES:
-        path = _plan_data_path(name)
-        if not path.exists():
-            continue
-        with path.open(newline="", encoding="utf-8-sig") as f:
-            for source_idx, cols in enumerate(csv.reader(f)):
-                entries.append({
-                    "row_index": global_idx,
-                    "source_file": name,
-                    "source_row_index": source_idx,
-                    "columns": cols,
-                })
-                global_idx += 1
-    return entries
-
-
 def _client_section_path(section: str, fallback_file: str = "client_data.csv") -> Path:
     """Find the split client CSV that already contains a section."""
     target = str(section or "").strip()
@@ -1318,41 +1298,50 @@ def _choice_options_for_config_row(section: str, subsection: str, label: str, un
     return []
 
 def _csv_rows_payload() -> dict:
+    """The grid's rows (``GET /api/config/rows``, build preflight): the active plan's rows.
+
+    WP4.3: one row per ``plan_rows`` row in display order (sections by creation, rows by
+    ``sort_order``); ``row_index`` is the row's ``row_id``, stable while the row exists, and
+    what ``update_config_rows_payload`` writes by. The GET-time backfill still writes CSV
+    (WP4.4), so the bridge runs first and the rows include what it added, and any CSV write
+    not synced yet. ``revision`` is ``PlanStore.revision()`` of the rows served.
+    """
     _ensure_user_ui_plan_data_rows()
+    refresh_active_plan(configured_plan_input_dir())
     schema = _read_schema_map()
+    with active_plan_store() as store:
+        order = {section: i for i, section in enumerate(store.section_order())}
+        plan_rows = sorted(store.all_rows(), key=lambda r: (order[r["section"]], r["sort_order"], r["row_id"]))
+        revision = store.revision()
     rows = []
-    for entry in _client_csv_rows():
-        idx = int(entry["row_index"])
-        source_idx = int(entry["source_row_index"])
-        source_file = str(entry["source_file"])
-        cols = list(entry["columns"])
-        raw = ",".join(cols)
-        while len(cols) < 6:
-            cols.append("")
-        section, subsection, label, value, units, notes = [str(x or "") for x in cols[:6]]
-        is_header = source_idx == 0 and section.lower() == "section"
-        is_comment = section.strip().startswith("#") or (not section.strip() and not label.strip())
-        spec = schema.get((section.strip(), subsection.strip(), label.strip()), {})
-        choice_options = _choice_options_for_config_row(section, subsection, label, units, notes, spec)
+    for r in plan_rows:
+        section, subsection, label = r["section"], r["subsection"], r["label"]
+        spec = schema.get((section, subsection, label), {})
         rows.append({
-            "row_index": idx,
-            "source_file": source_file,
-            "source_row_index": source_idx,
-            "columns": cols,
-            "raw": raw,
-            "section": section.strip(),
-            "subsection": subsection.strip(),
-            "label": label.strip(),
-            "value": value.strip(),
-            "units": units.strip(),
-            "notes": notes.strip(),
-            "is_header": is_header,
-            "is_comment": is_comment,
+            "row_index": r["row_id"],
+            "section": section,
+            "subsection": subsection,
+            "label": label,
+            "value": r["value"],
+            "units": r["units"],
+            "notes": r["notes"],
             "schema": spec,
-            "choice_options": choice_options,
+            "choice_options": _choice_options_for_config_row(section, subsection, label, r["units"], r["notes"], spec),
             "group": _classify_config_row(section, subsection, label),
         })
-    return {"rows": rows, "schema_count": len(schema)}
+    return {"rows": rows, "schema_count": len(schema), "revision": revision}
+
+
+def _edit_active_plan():
+    """The row-store writers' edit context (grid, ``/api/plan/forms``; WP4.3): one rows
+    transaction whose touched keys are written back into the plan CSV set through
+    ``_write_plan_data_file`` for the remaining CSV writers (``active_plan.edit_active_plan``)."""
+    return edit_active_plan(configured_plan_input_dir(), _write_plan_data_file)
+
+
+def _refresh_active_plan() -> None:
+    """Run the CSV-set bridge before a read of the rows (``active_plan.refresh_active_plan``)."""
+    refresh_active_plan(configured_plan_input_dir())
 
 
 

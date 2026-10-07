@@ -139,13 +139,17 @@ def test_sync_plan_rows_rewrites_when_the_section_order_would_change():
 def test_plan_forms_read_and_write_the_plan_rows(workspace):
     from src.server_services import plan_forms_service as forms
 
+    def edit():
+        return active_plan.edit_active_plan(
+            workspace.input_dir, lambda n, c: (workspace.input_dir / n).write_text(c, encoding="utf-8"))
+
     got = forms.get_forms_payload()
     assert got["sections"] == workspace.store_data()
-    payload, status = forms.patch_forms_payload("Household/", {"member_1_name": "Form Name"})
+    payload, status = forms.patch_forms_payload("Household/", {"member_1_name": "Form Name"}, edit_plan=edit)
     assert status == 400  # needs section/subsection
-    payload, status = forms.patch_forms_payload("Economic Assumptions/Rates", {"new_rate": "3%"})
+    payload, status = forms.patch_forms_payload("Economic Assumptions/Rates", {"new_rate": "3%"}, edit_plan=edit)
     assert status == 200 and payload["values"]["new_rate"] == "3%"
     assert workspace.store_data()["Economic Assumptions"]["Rates"]["new_rate"] == "3%"
-    payload, status = forms.save_forms_payload({"Household": {"": {"member_1_name": "Only"}}})
+    payload, status = forms.save_forms_payload({"Household": {"": {"member_1_name": "Only"}}}, edit_plan=edit)
     assert status == 200 and workspace.store_data() == {"Household": {"": {"member_1_name": "Only"}}}
-    assert forms.save_forms_payload([])[1] == 400
+    assert forms.save_forms_payload([], edit_plan=edit)[1] == 400
