@@ -34,8 +34,10 @@ per line after the header line ``plan_rows/v1``; the digest is SHA-256 hex. So r
 (new ids), leaves the hash unchanged, while editing a field, adding/removing a row or moving
 a row changes it.
 
-Typed dataset repositories (holdings lots, liabilities, HSA schedule, target allocation) are
-interface-only ``Protocol`` stubs here; their tables arrive with P4.
+Schema v2 (WP6.1) adds the flat dataset tables ``holdings_lots``, ``liabilities``,
+``hsa_schedule`` and ``target_allocation`` (see ``datasets.py``); they are reached through
+``store.holdings``, ``store.liabilities``, ``store.hsa_schedule`` and ``store.target_allocation``.
+They are not part of ``plan_rows`` revisions or the revision hash.
 """
 from __future__ import annotations
 
@@ -48,6 +50,7 @@ from typing import Any, Iterable, Mapping, Protocol, TypedDict, TypeVar, runtime
 
 from .. import platform_runtime
 from ._base import _SqliteStore
+from .datasets import SCHEMA_V2_DDL, FlatDatasetRepository
 from .errors import IntegrityError, NotFoundError, ValidationError
 
 PLAN_APPLICATION_ID = 0x5250504C  # "RPPL"
@@ -99,7 +102,7 @@ CREATE TABLE plan_meta (
 INSERT INTO plan_meta (key, value) VALUES ('{RETENTION_KEY}', '{DEFAULT_REVISION_RETENTION}');
 """
 
-PLAN_MIGRATIONS: tuple[str, ...] = (_SCHEMA_V1,)
+PLAN_MIGRATIONS: tuple[str, ...] = (_SCHEMA_V1, SCHEMA_V2_DDL)
 PLAN_SCHEMA_VERSION = len(PLAN_MIGRATIONS)
 
 
@@ -192,6 +195,23 @@ class PlanStore(_SqliteStore):
     KIND = "plan"
     APPLICATION_ID = PLAN_APPLICATION_ID
     MIGRATIONS = PLAN_MIGRATIONS
+
+    # ------------------------------------------------------------- flat datasets (WP6.1)
+    @property
+    def holdings(self) -> FlatDatasetRepository:
+        return FlatDatasetRepository(self, "holdings_lots")
+
+    @property
+    def liabilities(self) -> FlatDatasetRepository:
+        return FlatDatasetRepository(self, "liabilities")
+
+    @property
+    def hsa_schedule(self) -> FlatDatasetRepository:
+        return FlatDatasetRepository(self, "hsa_schedule")
+
+    @property
+    def target_allocation(self) -> FlatDatasetRepository:
+        return FlatDatasetRepository(self, "target_allocation")
 
     # ----------------------------------------------------------------------- rows
     def sections(self) -> list[str]:
@@ -528,18 +548,18 @@ class DatasetRepository(Protocol[RowT]):
 
 
 class HoldingLot(TypedDict):
-    """One ``holdings_lots`` row (columns from design section 4)."""
+    """One ``holdings_lots`` row: the legacy CSV columns, as entered (text)."""
 
     account: str
     symbol: str
-    shares: float
-    price: float
-    date: str
-    basis: float
+    purchase_date: str
+    shares: str
+    purchase_price: str
+    lot_type: str
+    note: str
 
 
-# Column sets for the remaining datasets are fixed in their P4 PRs; until then a row is a
-# plain mapping of column name to value.
+# Rows of the other datasets are plain mappings of CSV column name to text value.
 LiabilityRow = dict[str, Any]
 HsaScheduleRow = dict[str, Any]
 TargetAllocationRow = dict[str, Any]
