@@ -4,13 +4,11 @@ HSA schedule and target allocation.
 Each dataset is one table that replaces one legacy CSV file. Columns keep the CSV column
 names and are stored as text exactly as entered, so the build parses the same strings it
 parsed from the file (no number formatting can move a result). Row order is the
-``position`` column (0, 1, 2 ... in file order). ``csv_text()`` renders the legacy CSV for
-callers that still parse text; ``replace_from_csv_text()`` is the matching importer.
+``position`` column (0, 1, 2 ... in file order). The legacy CSV text form lives in
+``csv_exchange.flat_csv`` (``dataset_csv_text`` / ``replace_dataset_from_csv_text``).
 """
 from __future__ import annotations
 
-import csv
-import io
 from typing import Any, Iterable, Mapping
 
 from .errors import ValidationError
@@ -75,26 +73,6 @@ class FlatDatasetRepository:
     def count(self) -> int:
         with self._store._read() as con:
             return int(con.execute(f"SELECT COUNT(*) FROM {self.table}").fetchone()[0])
-
-    def csv_text(self) -> str:
-        """The dataset as the legacy CSV (header line, then one line per row)."""
-        buf = io.StringIO()
-        w = csv.writer(buf, lineterminator="\n")
-        w.writerow(self.columns)
-        for r in self.rows():
-            w.writerow([r[c] for c in self.columns])
-        return buf.getvalue()
-
-    def replace_from_csv_text(self, text: str) -> int:
-        """Replace the dataset from CSV text (a UTF-8 BOM is ignored; missing columns become
-        empty; extra columns are dropped; fully blank lines are skipped)."""
-        reader = csv.DictReader(io.StringIO((text or "").lstrip("﻿")))
-        rows = []
-        for raw in reader:
-            row = {c: (raw.get(c) or "") for c in self.columns}
-            if any(v.strip() for v in row.values()):
-                rows.append(row)
-        return self.replace_all(rows)
 
     def _clean(self, row: Mapping[str, Any]) -> tuple[str, ...]:
         if not isinstance(row, Mapping):

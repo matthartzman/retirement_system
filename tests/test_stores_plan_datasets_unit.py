@@ -1,6 +1,7 @@
 """WP6.1: flat dataset tables of plan.db (holdings, liabilities, HSA schedule, targets)."""
 import pytest
 
+from src.csv_exchange import dataset_csv_text, replace_dataset_from_csv_text
 from src.stores import DatasetRepository, PlanStore, ValidationError
 from src.stores import db
 from src.stores.plan_store import _SCHEMA_V1
@@ -28,11 +29,11 @@ def test_repositories_satisfy_dataset_protocol(store, name):
 
 
 def test_csv_round_trip_is_lossless_text(store):
-    assert store.holdings.replace_from_csv_text("﻿" + HOLDINGS_CSV) == 2
+    assert replace_dataset_from_csv_text(store.holdings, "\ufeff" + HOLDINGS_CSV) == 2
     rows = store.holdings.rows()
     assert rows[0]["shares"] == "1,000.5" and rows[0]["purchase_price"] == "$100.25"
     assert [r["symbol"] for r in rows] == ["VTI", "VXUS"]
-    assert store.holdings.csv_text() == HOLDINGS_CSV
+    assert dataset_csv_text(store.holdings) == HOLDINGS_CSV
 
 
 def test_replace_all_is_atomic_and_ordered(store):
@@ -50,7 +51,7 @@ def test_replace_all_is_atomic_and_ordered(store):
 
 
 def test_missing_values_become_empty_and_blank_lines_skipped(store):
-    store.hsa_schedule.replace_from_csv_text("year,optimizer_amount\n2030,1000\n,\n")
+    replace_dataset_from_csv_text(store.hsa_schedule, "year,optimizer_amount\n2030,1000\n,\n")
     assert store.hsa_schedule.rows() == [
         {"year": "2030", "optimizer_amount": "1000", "override_amount": "", "locked": "", "note": ""}
     ]
