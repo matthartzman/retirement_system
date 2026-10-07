@@ -266,3 +266,49 @@ def test_the_plan_memo_is_gone_after_the_request_so_a_write_is_never_served_stal
     with active_plan.edit_active_plan() as edit:
         edit.store.set_value("Cashflow", "Spending", "annual_spending_base_year", "12345")
     assert ytd_tracking.planned_spending_components(ws.input_dir, 2026)["core_spending"] == 12345.0 != before
+
+
+# 9. no plan-file connection survives a swap (Windows: an open handle makes the replace fail, WinError 5) ----
+
+def _open_connections() -> set[int]:
+    import gc
+    import sqlite3
+    out = set()
+    for obj in gc.get_objects():
+        if isinstance(obj, sqlite3.Connection):
+            try:
+                obj.execute("SELECT 1")
+            except sqlite3.ProgrammingError:
+                continue
+            out.add(id(obj))
+    return out
+
+
+def test_no_connection_stays_open_after_edits_and_a_demo_swap_and_restore(tmp_path, monkeypatch):
+    import dataclasses
+    from tests.test_demo_plan_open_restore import _make_service
+    monkeypatch.setenv("RETIREMENT_SYSTEM_WORKSPACE_ROOT", str(tmp_path))
+    monkeypatch.delenv("RETIREMENT_SYSTEM_PLAN_DB", raising=False)
+    service, _active_db, plan_db, *_ = _make_service(tmp_path)
+    monkeypatch.setenv("RETIREMENT_SYSTEM_PLAN_DB", str(plan_db))
+    before = _open_connections()
+    with active_plan.edit_active_plan(protect_values=True) as edit:
+        edit.store.set_value("Household", "", "member_1_name", "Edited")
+    active_plan.active_plan_data()
+    active_plan.peek_plan_data()
+    active_plan.plan_file_fingerprint(plan_db)
+    assert service.open_demo_payload()["success"] is True
+    with active_plan.edit_active_plan() as edit:
+        edit.store.set_value("Household", "", "member_1_name", "Demo edit")
+    assert service.restore_current_payload()["restored"] is True
+    service.reset_demo_payload()
+    assert _open_connections() - before == set()
+
+
+def test_no_src_module_opens_sqlite_in_a_bare_with_block():
+    """``with sqlite3.connect(p) as con`` commits but leaves the connection open until it is garbage
+    collected; use ``sqlite_util.connect``."""
+    import re
+    offenders = [str(p) for p in (Path(__file__).resolve().parents[1] / "src").rglob("*.py")
+                 if p.name != "sqlite_util.py" and re.search(r"with\s+sqlite3\.connect\(", p.read_text(encoding="utf-8"))]
+    assert offenders == []

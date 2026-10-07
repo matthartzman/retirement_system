@@ -6,12 +6,13 @@ straight away: there is no CSV rebuild or sync step between the swap and the nex
 """
 from __future__ import annotations
 
-import sqlite3
+
 
 import pytest
 
 from src.config_backend import load_active_config
 from src.server import app
+from src.sqlite_util import connect as closing_connect
 from tests.plan_fixture import make_plan
 
 HEADERS = {"X-User-Role": "admin"}
@@ -64,7 +65,7 @@ def test_load_saved_plan_brings_the_plan_rows_back_to_the_saved_plan(own_workspa
     assert _row(client)["value"] == original
     # no sidecar of the replaced file is left behind, and the file is an ordinary plan file
     assert not (own_workspace.root / "plan.rpx-wal").exists() or (own_workspace.root / "plan.rpx-wal").stat().st_size == 0
-    with sqlite3.connect(own_workspace.plan_db) as con:
+    with closing_connect(own_workspace.plan_db) as con:
         assert con.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
 
 
@@ -72,7 +73,7 @@ def test_load_saved_plan_refuses_a_file_that_is_not_a_plan_file(own_workspace, t
     client = app.test_client()
     before = own_workspace.store_data()
     legacy = tmp_path / "legacy.db"
-    with sqlite3.connect(legacy) as con:  # a legacy database: client_files only
+    with closing_connect(legacy) as con:  # a legacy database: client_files only
         con.execute("CREATE TABLE client_files(file_name TEXT PRIMARY KEY, content TEXT)")
     for bad in (legacy, tmp_path / "missing.rpx"):
         out = client.post("/api/plan/load-file", headers=HEADERS, json={"path": str(bad)}).get_json()

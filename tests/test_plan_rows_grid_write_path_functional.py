@@ -215,7 +215,7 @@ def test_the_edit_context_reports_a_value_the_plan_rules_gave_back():
     value that differs from what it set as skipped."""
     from src import active_plan
 
-    with active_plan.edit_active_plan() as edit:
+    with active_plan.edit_active_plan(protect_values=True) as edit:  # the grid's and the forms' rule
         (row,) = edit.store.find_rows(*RETIRE) or [None]
         if row is None:
             pytest.skip("the session plan has no retirement date row")

@@ -150,8 +150,10 @@ class DemoPlanService:
             return
         try:
             conn = sqlite3.connect(str(db_path))
-            conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
-            conn.close()
+            try:
+                conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            finally:
+                conn.close()
         except Exception:
             pass
 
