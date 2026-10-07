@@ -237,6 +237,68 @@ def test_real_build_journey_reflects_a_user_edited_input(monkeypatch, tmp_path):
         assert restored.status_code == 200, restored.get_data(as_text=True)
 
 
+def _find_number(wb, number: int):
+    for ws in wb.worksheets:
+        for row in ws.iter_rows():
+            for cell in row:
+                v = cell.value
+                if isinstance(v, (int, float)) and not isinstance(v, bool) and abs(v - number) < 1.0:
+                    return (ws.title, cell.coordinate, v)
+                if isinstance(v, str) and str(number) in v.replace(",", ""):
+                    return (ws.title, cell.coordinate, v)
+    return None
+
+
+@pytest.mark.slow
+def test_real_build_keeps_a_grid_edit_after_csv_and_form_edits(monkeypatch, tmp_path):
+    """WP4.3: the grid writes plan_rows directly, and the edit must survive a later edit of
+    the same CSV part file by a still-CSV strategy endpoint (``/api/liquidity-buffers``:
+    read-modify-write of client_assets.csv, then the CSV-to-rows bridge) and a
+    ``/api/plan/forms`` edit, all the way into a real build. Runs on its own workspace."""
+    import src.server.app_core as app_core
+    from src.config_backend import load_active_config
+    from tests.plan_fixture import make_plan
+
+    ws = make_plan(tmp_path / "ws")
+    monkeypatch.setenv("RETIREMENT_SYSTEM_WORKSPACE_ROOT", str(ws.root))
+    monkeypatch.delenv("RETIREMENT_SYSTEM_PLAN_DB", raising=False)
+    monkeypatch.delenv("RETIREMENT_SYSTEM_CONFIG_FILE", raising=False)
+    monkeypatch.setattr(app_core, "CSV_PATH", ws.input_dir / "client_data.csv")
+    monkeypatch.setenv("RETIREMENT_SYSTEM_OUTPUT_DIR", str(tmp_path / "out"))
+    client = app.test_client()
+
+    rows = client.get("/api/config/rows", headers=HEADERS).get_json()["rows"]
+    home = next(r for r in rows if (r["section"], r["subsection"], r["label"])
+                == ("Other Assets", "Home", "value_as_of_plan_start"))
+    NEW_HOME_VALUE = 1_736_219
+    saved = client.post("/api/config/rows", headers=HEADERS, json={
+        "updates": [{"row_index": home["row_index"], "value": f"${NEW_HOME_VALUE:,}"}], "sync": True})
+    assert saved.status_code == 200 and saved.get_json()["updated"] == 1, saved.get_data(as_text=True)
+
+    buffers = client.post("/api/liquidity-buffers", headers=HEADERS, json={"sync": True, "buffers": [
+        {"start_year": "2031", "end_year": "2036", "years_of_expenses": "1", "reserve_account": "Cash"}]})
+    assert buffers.status_code == 200 and buffers.get_json()["success"] is True
+    form = client.patch("/api/plan/forms/Other Assets/Home", headers=HEADERS,
+                        json={"values": {"appreciation_rate": "0.00%"}})
+    assert form.status_code == 200, form.get_data(as_text=True)
+
+    data = load_active_config()[0]
+    assert data["Other Assets"]["Home"]["value_as_of_plan_start"] == f"${NEW_HOME_VALUE:,}"
+    assert data["Other Assets"]["Home"]["appreciation_rate"] == "0.00%"
+    assert data["Liquidity Buffer"]["buffer_1"]["reserve_account"] == "Cash"
+
+    started = client.post("/api/build/start", headers=HEADERS)
+    assert started.status_code == 200, started.get_data(as_text=True)
+    job = _poll_until_done(client, started.get_json()["job_id"])
+    assert job.get("status") == "done", f"real build failed: {job}"
+    xlsx = client.get("/api/xlsx", headers=HEADERS)
+    assert xlsx.status_code == 200
+    wb = load_workbook(io.BytesIO(xlsx.get_data()), data_only=True)
+    assert _find_number(wb, NEW_HOME_VALUE), (
+        f"the grid's home value {NEW_HOME_VALUE} was lost before the build "
+        "(a later CSV or form edit overwrote it)")
+
+
 @pytest.mark.slow
 def test_detailed_results_read_routes_against_the_canonical_built_workbook(monkeypatch, built_workbook_dir):
     """Read-side coverage against `built_workbook_dir` (root conftest.py) - a
