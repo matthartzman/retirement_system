@@ -146,13 +146,18 @@ the exe path, not `BASE_DIR`, in frozen mode.
 
 ### 4.1 Canonical source hierarchy
 
-1. **`local_state/retirement_system_v10.db`** (SQLite) — the canonical
-   source of truth. Two SQLite layers coexist in this one file:
-   - `src/local_store.py` owns `plan_snapshots` (full sectioned+typed plan
-     JSON, content-addressed by a SHA256-derived `snapshot_id`),
-     `result_snapshots` (pruned to the last 10), `build_events`,
-     `local_settings`, and relational mirrors `plan_members` /
-     `plan_accounts` / `plan_income_streams` / `plan_spending_policy`.
+0. **`<workspace>/plan.rpx`** (the plan file, `PlanStore`, WP4.2) — the
+   sectioned plan rows (`plan_rows`) the engine, the build and the server
+   read (`src/active_plan.py`, `config_backend.load_active_config()`). Until
+   WP4.3-4.5 move the writers onto it, `_sync_config_backends()` carries the
+   CSV set into it after every write. See
+   `documentation/reference/PLAN_ROWS_MODEL.md`.
+1. **`local_state/retirement_system_v10.db`** (SQLite) — two SQLite layers
+   coexist in this one file:
+   - `src/local_store.py` owns `result_snapshots` (pruned to the last 10),
+     `build_events`, `local_settings`, KPI snapshots, and the retired
+     `plan_snapshots` tables (no longer read or written since WP4.2; kept
+     for the one-time conversion).
    - `src/config_backend.py` owns `client_files` (raw CSV text per file —
      what `get_client_file()`/`set_client_file()` read and write),
      `audit_events`, `build_jobs`, and `price_snapshots`.
@@ -209,9 +214,8 @@ endpoints in §3.4.
   metadata.
 - `src/plan_data_migration.py` — a versioned (`PLAN_DATA_SCHEMA_VERSION = 5`)
   idempotent at-rest **label-rename** migration (e.g. `husband_*` →
-  `member_1_*`), applied to both CSV rows and every stored
-  `plan_snapshots.sectioned_json` row in one transaction with rollback on
-  error, run once at startup by `main.py`.
+  `member_1_*`), applied to both CSV rows and the plan file's rows (in place,
+  one transaction with rollback on error), run once at startup by `main.py`.
 - `src/plan_data_backfill.py` — a separate, declarative mechanism
   (`PLAN_DATA_BACKFILL_ENTRIES` in `app_core.py`) that inserts *new*
   canonical rows (e.g. Roth conversion params, HELOC, QCD, TLH) into
