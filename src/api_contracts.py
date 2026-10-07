@@ -78,6 +78,22 @@ CONTRACTS: tuple[EndpointContract, ...] = (
         response_fields=(_f("success", "bool", True), _f("saved", "int"), _f("errors", "list")),
     ),
     EndpointContract(
+        "/api/plan/tier", "POST", "plan_tier_v1",
+        request_fields=(_f("tier", "str", True), _f("preview", "bool")),
+        response_fields=(
+            _f("success", "bool", True), _f("preview", "bool", True), _f("tier", "str", True),
+            _f("turn_on", "list", True), _f("turn_off", "list", True), _f("engine_ignored", "list", True),
+            _f("unchanged", "bool", True), _f("current", "dict"), _f("profile", "dict"), _f("revision", "str"),
+        ),
+        notes="WP5.1: pick the plan tier (writes the tier row and the switches in one edit); preview=true is a dry run.",
+    ),
+    EndpointContract(
+        "/api/plan/feature", "POST", "plan_feature_v1",
+        request_fields=(_f("key", "str", True), _f("on", "bool", True)),
+        response_fields=(_f("success", "bool", True), _f("key", "str"), _f("on", "bool"), _f("profile", "dict"), _f("revision", "str")),
+        notes="WP5.1: override one feature switch (module_catalog.set_feature).",
+    ),
+    EndpointContract(
         "/api/spending/model", "GET", "spending_model_v1",
         response_fields=(_f("success", "bool", True), _f("categories", "list"), _f("budget", "list"), _f("summary", "dict")),
     ),

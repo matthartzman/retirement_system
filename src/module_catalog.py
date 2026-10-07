@@ -36,7 +36,7 @@ from __future__ import annotations
 import os
 from collections import namedtuple
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, FrozenSet, List, Optional, Tuple
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Output kinds and demand bands
@@ -142,9 +142,9 @@ DEMAND_RANK = {band: i for i, band in enumerate(DEMAND_BANDS)}
 # ── Feature tiers (design 2026-10-04 §4, WP1.2) ─────────────────────────────
 # A tier is a starting set of switches, cumulative: Standard holds everything
 # Simple does, and so on. `OutputModule.tier` is the SMALLEST tier whose preset
-# turns the feature on. Metadata only in WP1.2 -- nothing reads it to decide a
-# switch yet (WP5's presets will). Always-on core modules and the reference
-# sheets carry SIMPLE because every tier builds them.
+# turns the feature on; :func:`tier_preset` (WP5.1) reads it to build each tier's
+# starting set of switches. Always-on core modules and the reference sheets carry
+# SIMPLE because every tier builds them.
 SIMPLE = "simple"
 STANDARD = "standard"
 ADVANCED = "advanced"
@@ -2059,6 +2059,147 @@ def feature_row_key(key) -> Tuple[str, str, str]:
     if m.gate_kind == GATE_PLAN_FLAG:
         return tuple(m.gate_ref)
     return (MODULE_TOGGLE_SECTION, "", m.key)
+
+
+# ── WP5.1: tier presets and the plan profile (design 2026-10-04 §2-§4, P4) ──
+#
+# A tier is a starting set of switches: the switchable features whose catalog ``tier`` is
+# at or below it (cumulative, so each preset holds the previous one). The plan stores the
+# chosen tier in ``PLAN_TIER_ROW`` and each switch in its own row, exactly as before; picking
+# a tier (:func:`apply_tier`) writes both, and every switch stays individually overridable
+# through :func:`set_feature`. "Customized" is derived -- the stored switches differ from
+# the tier's preset -- and never stored. A plan with no tier row reads as EXPERT and nothing
+# is written until the user picks a tier, so an existing plan's switches (and numbers) do not
+# move.
+TIER_LABELS = {SIMPLE: "Simple", STANDARD: "Standard", ADVANCED: "Advanced", EXPERT: "Expert"}
+# One plain-language line per tier for the picker (the §4 table, in a reader's words).
+TIER_DESCRIPTIONS = {
+    SIMPLE: "The essentials: income, spending, savings, Roth conversions, Monte Carlo odds and lifetime taxes.",
+    STANDARD: "Adds estate, insurance, cash reserves, Social Security timing, survivor stress, 529s and hybrid LTC.",
+    ADVANCED: "Adds giving, withdrawal order, harvesting, housing moves, scenarios, actual spending and HELOC.",
+    EXPERT: "Everything, including equity compensation, business succession, special needs, divorce and the workbench.",
+}
+PLAN_TIER_UNITS = "choice"
+
+
+def switchable_keys() -> List[str]:
+    """Keys of every feature with a switch of its own, in catalog order.
+
+    An optional module toggle or a plan flag; never an always-on core module, a ``gated_by``
+    bundle member (its switch is the parent's) or a ``gated_by_any_flag`` module (it follows
+    its flags) -- the same rule :func:`set_feature` enforces.
+    """
+    return [m.key for m in _OUTPUTS
+            if not m.gated_by and not m.gated_by_any_flag
+            and (m.optional or m.gate_kind == GATE_PLAN_FLAG)]
+
+
+def _check_tier(tier) -> str:
+    t = str(tier or "").strip().lower()
+    if t not in TIER_RANK:
+        raise ValueError(f"unknown tier {tier!r}; expected one of {list(TIERS)}")
+    return t
+
+
+def tier_preset(tier) -> FrozenSet[str]:
+    """The switchable features ``tier`` turns on: every own-switch key whose catalog tier
+    ranks at or below it. Cumulative by construction (each preset contains the previous one).
+    Raises ``ValueError`` for an unknown tier."""
+    rank = TIER_RANK[_check_tier(tier)]
+    return frozenset(k for k in switchable_keys() if TIER_RANK[CATALOG[k].tier] <= rank)
+
+
+def _stored_tier(c) -> Optional[str]:
+    """The tier the plan stores, or None (no row, or a value that is not a tier).
+
+    ``c`` is an open ``PlanStore`` (the row itself) or a dict: the sectioned plan data
+    (``{section: {subsection: {label: value}}}``) or a config carrying ``plan_tier``.
+    """
+    section, subsection, label = PLAN_TIER_ROW
+    if _is_plan_store(c):
+        rows = c.find_rows(section, subsection, label)
+        raw = rows[-1]["value"] if rows else None
+    else:
+        cfg = c or {}
+        raw = cfg.get("plan_tier")
+        if raw is None:
+            sub = (cfg.get(section) or {}).get(subsection) if isinstance(cfg.get(section), dict) else None
+            raw = sub.get(label) if isinstance(sub, dict) else None
+    t = str(raw or "").strip().lower()
+    return t if t in TIER_RANK else None
+
+
+def plan_tier(c) -> str:
+    """The plan's tier: its ``PLAN_TIER_ROW`` value, or ``DEFAULT_PLAN_TIER`` (EXPERT, today's
+    behaviour) when it holds none or a value that is not a tier."""
+    return _stored_tier(c) or DEFAULT_PLAN_TIER
+
+
+def stored_switch(c, key) -> bool:
+    """Feature ``key``'s own switch as the plan stores it, or its ``default_on`` when nothing is
+    stored: what the user (or a preset) set, before the env tier and prerequisite
+    auto-selection. This is what a tier preset is compared with."""
+    stored = _read_switch(c, key)
+    return _own_switch_entry(key).default_on if stored is None else stored
+
+
+def tier_changes(c, tier) -> Dict[str, List[str]]:
+    """What picking ``tier`` would change in the stored switches of ``c``:
+    ``{"turn_on": [...], "turn_off": [...]}``, each in catalog order."""
+    preset = tier_preset(tier)
+    on: List[str] = []
+    off: List[str] = []
+    for key in switchable_keys():
+        want, have = key in preset, stored_switch(c, key)
+        if want and not have:
+            on.append(key)
+        elif have and not want:
+            off.append(key)
+    return {"turn_on": on, "turn_off": off}
+
+
+def plan_profile(c) -> Dict[str, object]:
+    """The plan's profile for Plan Features: its tier and whether the switches still match it.
+
+    ``{"tier", "tier_stored", "customized", "label", "differing"}`` -- ``tier_stored`` is False
+    when no tier was picked yet (read as EXPERT); ``differing`` lists the own-switch keys whose
+    stored state differs from the tier's preset (catalog order); ``label`` is
+    ``"Advanced"`` or ``"Advanced (customized)"``. The product reads it from an open
+    ``PlanStore``; a parsed config works too (switches from ``c``), but ``parse_client`` does
+    not carry the tier row (the engine ignores it), so there the tier reads as
+    :func:`plan_tier` finds it -- EXPERT unless ``c`` holds ``plan_tier``.
+    """
+    tier = plan_tier(c)
+    preset = tier_preset(tier)
+    differing = [k for k in switchable_keys() if stored_switch(c, k) != (k in preset)]
+    customized = bool(differing)
+    return {
+        "tier": tier,
+        "tier_stored": _stored_tier(c) is not None,
+        "customized": customized,
+        "label": TIER_LABELS[tier] + (" (customized)" if customized else ""),
+        "differing": differing,
+    }
+
+
+def apply_tier(store, tier) -> Dict[str, List[str]]:
+    """Pick ``tier`` for the open plan ``store``: write ``PLAN_TIER_ROW`` and set every switch
+    that differs from the preset through :func:`set_feature`, in one transaction (a savepoint
+    inside the caller's edit). A switch already at its preset state is left as stored, so the
+    result reads exactly as the preset either way. Returns :func:`tier_changes` as applied.
+    Raises ``ValueError`` for an unknown tier, ``TypeError`` when ``store`` is not a plan store.
+    """
+    tier = _check_tier(tier)
+    if not _is_plan_store(store):
+        raise TypeError("apply_tier() writes plan rows; pass an open PlanStore")
+    changes = tier_changes(store, tier)
+    with store.transaction():
+        store.set_value(*PLAN_TIER_ROW, tier, units=PLAN_TIER_UNITS)
+        for key in changes["turn_on"]:
+            set_feature(store, key, True)
+        for key in changes["turn_off"]:
+            set_feature(store, key, False)
+    return changes
 
 
 def resolve_selection(selected: List[str]) -> Dict[str, object]:

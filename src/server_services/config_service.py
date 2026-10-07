@@ -16,6 +16,7 @@ from typing import Any, Callable
 from ..roth_ui_build_guard import normalize_roth_csv_value
 from .. import allocation_policy as allocation_policy_mod
 from ..schema_registry import validate_rows as _schema_validate_rows_full
+from .plan_tier_service import tier_presets_payload
 
 JsonDict = dict[str, Any]
 AuditFn = Callable[[str, dict[str, Any] | None], None]
@@ -107,8 +108,22 @@ class ConfigService:
             "module_status": self._module_status(_data),
             "module_gates": self._module_gates(),
             "module_taxonomy": self._module_taxonomy(),
+            # WP5.1: the plan's tier and whether its switches still match it, and
+            # each tier's preset, for the Plan Features tier picker.
+            "plan_profile": self._plan_profile(),
+            "tier_presets": tier_presets_payload(),
             **payload,
         }, 200
+
+    def _plan_profile(self) -> JsonDict:
+        """``module_catalog.plan_profile`` of the active plan's rows (best effort: ``{}``
+        when the plan cannot be read, like ``_module_status``)."""
+        from ..module_catalog import plan_profile
+        try:
+            with self.context.read_plan() as store:
+                return plan_profile(store)
+        except Exception:
+            return {}
 
     @staticmethod
     def _module_gates() -> JsonDict:
@@ -222,8 +237,9 @@ class ConfigService:
                     # Lets a nav page list the optional features that would
                     # appear on it if enabled (one link to Plan Features).
                     "dashboard_step": m.dashboard_step,
-                    # WP1.2 profile metadata, additive. Not read by the
-                    # frontend yet; WP5's tier picker will.
+                    # WP1.2 profile metadata. `tier` is the smallest tier whose
+                    # preset turns the feature on (tier_presets carries the
+                    # resolved lists the WP5.1 picker uses).
                     "tier": m.tier,
                     "nav_group": m.nav_group,
                     "default_on": m.default_on,
