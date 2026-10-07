@@ -459,7 +459,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/server_services/report_service.py` | `detailed_results`, `report_package`, `system_config` | — |
 | `src/server_services/secret_service.py` | — | — |
 | `src/server_services/spending_service.py` | — | — |
-| `src/server_services/strategy_asset_service.py` | `core`, `csv_exchange`, `data_io`, `spending_adjustments`, `stores.ref_getters.state_tax` | — |
+| `src/server_services/strategy_asset_service.py` | `core`, `csv_exchange`, `data_io`, `plan_data_backfill`, `spending_adjustments`, `stores.ref_getters.state_tax` | — |
 | `src/server_services/ytd_service.py` | `import_preview` | — |
 
 ### HTTP Runtime
@@ -551,7 +551,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/permissions.py` | — | — |
 | `src/person_labels.py` | — | — |
 | `src/plan_config.py` | — | — |
-| `src/plan_data_backfill.py` | `plan_file_io` | — |
+| `src/plan_data_backfill.py` | — | — |
 | `src/plan_data_migration.py` | `active_plan`, `config_backend`, `local_store`, `plan_file_io`, `stores` | — |
 | `src/plan_data_read.py` | — | — |
 | `src/plan_data_registry.py` | — | — |

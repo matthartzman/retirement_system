@@ -17,7 +17,6 @@ from tests.plan_fixture import make_plan
 HEADERS = {"X-User-Role": "admin"}
 HOME = ("Other Assets", "Home", "value_as_of_plan_start")
 APPRECIATION = ("Other Assets", "Home", "appreciation_rate")
-BUFFERS = [{"start_year": "2031", "end_year": "2036", "years_of_expenses": "2", "reserve_account": "Cash"}]
 
 
 @pytest.fixture
@@ -45,9 +44,17 @@ def _save(client, updates, sync=True):
     return resp.status_code, resp.get_json()
 
 
-def _save_buffers(client, buffers, sync=True):
-    resp = client.post("/api/liquidity-buffers", headers=HEADERS, json={"buffers": buffers, "sync": sync})
-    assert resp.status_code == 200 and resp.get_json()["success"] is True
+def _save_buffers(ws, sync=True):
+    """A CSV writer (as the Plan Data file editor): buffer_1 edited in the part file by hand,
+    then (``sync``) the bridge. Liquidity buffers themselves are plan rows since WP4.4c."""
+    path = ws.input_dir / "client_assets.csv"
+    text = path.read_text(encoding="utf-8")
+    for label, old, new in (("start_year", "2027", "2031"), ("end_year", "2029", "2036"),
+                            ("reserve_account", "Taxable/Trust", "Cash")):
+        text = text.replace(f"Liquidity Buffer,buffer_1,{label},{old},", f"Liquidity Buffer,buffer_1,{label},{new},")
+    path.write_text(text, encoding="utf-8")
+    if sync:
+        assert app_core._sync_config_backends()["success"] is True
 
 
 def _plan_value(key):
@@ -84,7 +91,7 @@ def test_grid_edit_then_csv_strategy_edit_then_build_input_keeps_both(ws):
     # the edit is in the CSV set the remaining writers read ...
     assert "$1,777,777" in (ws.input_dir / "client_assets.csv").read_text(encoding="utf-8")
     # ... so a still-CSV writer of the same file (read-modify-write + bridge) keeps it
-    _save_buffers(client, BUFFERS)
+    _save_buffers(ws)
     assert _plan_value(HOME) == "$1,777,777"
     assert _buffer_1()["reserve_account"] == "Cash"
     after = _grid(client)
@@ -98,7 +105,7 @@ def test_grid_edit_then_csv_strategy_edit_then_build_input_keeps_both(ws):
 def test_a_csv_write_not_yet_synced_is_kept_by_the_next_grid_edit(ws):
     client = app.test_client()
     home = _row(_grid(client), HOME)
-    _save_buffers(client, BUFFERS, sync=False)  # CSV written, bridge not run
+    _save_buffers(ws, sync=False)  # CSV written, bridge not run
     status, _ = _save(client, [{"row_index": home["row_index"], "value": "$1,666,666"}], sync=False)
     assert status == 200
     assert _plan_value(HOME) == "$1,666,666" and _buffer_1()["start_year"] == "2031"
@@ -138,7 +145,7 @@ def test_forms_and_grid_share_one_row_store(ws):
     # the grid sees the form edit on the same row id
     assert _row(_grid(client), HOME) == dict(home, value="$1,345,000")
     # a still-CSV writer and the bridge keep it (the old split brain overwrote it)
-    _save_buffers(client, BUFFERS)
+    _save_buffers(ws)
     assert app_core._sync_config_backends()["success"] is True
     assert _plan_value(HOME) == "$1,345,000"
 
@@ -206,6 +213,7 @@ def test_the_csv_writers_own_rules_reach_the_rows(ws):
     value of the file it writes; the bridge run that ends the edit brings that into the rows
     too, so rows and CSV set agree after the save."""
     client = app.test_client()
+    _grid(client)  # the first GET backfills the canonical rows (and the file writer canonicalizes the file)
     policy = ws.input_dir / "client_policy.csv"
     policy.write_text(policy.read_text(encoding="utf-8").replace(
         "roth_target_bracket_rate,22.00%,", "roth_target_bracket_rate,22%,"), encoding="utf-8")
@@ -309,7 +317,7 @@ def test_unchanged_grid_and_forms_reads_do_not_run_the_bridge(ws, monkeypatch):
         assert client.get("/api/config/rows", headers=HEADERS).status_code == 200
         assert client.get("/api/plan/forms", headers=HEADERS).status_code == 200
     assert runs == []
-    _save_buffers(client, BUFFERS, sync=False)  # a CSV write changes the set: the next read syncs it
+    _save_buffers(ws, sync=False)  # a CSV write changes the set: the next read syncs it
     assert client.get("/api/plan/forms", headers=HEADERS).status_code == 200 and len(runs) == 1
     assert _buffer_1()["start_year"] == "2031"
 

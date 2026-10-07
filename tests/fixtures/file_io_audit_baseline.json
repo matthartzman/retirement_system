@@ -45,9 +45,6 @@
    "csv": 1,
    "open": 1
   },
-  "src/plan_data_backfill.py": {
-   "csv": 2
-  },
   "src/plan_data_migration.py": {
    "csv": 4,
    "path_io": 1
@@ -83,7 +80,7 @@
    "path_io": 1
   },
   "src/server/app_core.py": {
-   "csv": 32,
+   "csv": 22,
    "path_io": 3
   },
   "src/server/plan_routes.py": {
@@ -144,5 +141,5 @@
    "path_io": 1
   }
  },
- "total": 194
+ "total": 182
 }

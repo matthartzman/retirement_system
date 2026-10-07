@@ -180,50 +180,47 @@ class QlacRecommendationTests(unittest.TestCase):
 
 
 class QlacBackfillTests(unittest.TestCase):
-    def test_qlac_rows_backfill_into_a_plan_missing_them(self):
-        import shutil
-        import tempfile
+    def _backfilled_demo(self, tmp):
         from pathlib import Path
         from src import plan_data_backfill
         from src.server.app_core import PLAN_DATA_BACKFILL_ENTRIES
+        from tests.plan_fixture import make_plan
 
+        ws = make_plan(Path(tmp), "demo")
+        store = ws.store()
+        with store, store.transaction():
+            for r in store.all_rows():
+                if r["section"] == "Income Streams" and "QLAC" in r["subsection"]:
+                    store.delete_row(r["row_id"])
+            before = store.sectioned_data()
+            plan_data_backfill.apply_backfill(store, PLAN_DATA_BACKFILL_ENTRIES, ws.input_dir)
+            after = store.sectioned_data()
+        return before, after
+
+    def test_qlac_rows_backfill_into_a_plan_missing_them(self):
+        import tempfile
         with tempfile.TemporaryDirectory() as tmp:
-            tmp = Path(tmp)
-            for f in Path("input/demo").glob("*.csv"):
-                shutil.copy(f, tmp / f.name)
-            plan_data_backfill.apply_backfill(tmp, PLAN_DATA_BACKFILL_ENTRIES)
-            text = (tmp / "client_income.csv").read_text(encoding="utf-8")
-            self.assertIn("Member 1 QLAC", text)
-            self.assertIn("Member 2 QLAC", text)
-            self.assertIn("Income Streams,Member 1 QLAC,qlac_enabled,FALSE", text)
+            before, after = self._backfilled_demo(tmp)
+        self.assertNotIn("Member 1 QLAC", before["Income Streams"])
+        self.assertEqual(after["Income Streams"]["Member 1 QLAC"]["qlac_enabled"], "FALSE")
+        self.assertIn("Member 2 QLAC", after["Income Streams"])
 
     def test_backfilled_qlac_is_disabled_and_changes_nothing_by_default(self):
-        import shutil
         import tempfile
-        from pathlib import Path
-        from src import plan_data_backfill
-        from src.server.app_core import PLAN_DATA_BACKFILL_ENTRIES
-        from src.data_io import load_csv, parse_client
+        from src.data_io import parse_client
 
         with tempfile.TemporaryDirectory() as tmp:
-            tmp = Path(tmp)
-            for f in Path("input/demo").glob("*.csv"):
-                shutil.copy(f, tmp / f.name)
-            data_before = load_csv(tmp / "client_data.csv")
-            c_before = parse_client(data_before, "")
-
-            plan_data_backfill.apply_backfill(tmp, PLAN_DATA_BACKFILL_ENTRIES)
-            data_after = load_csv(tmp / "client_data.csv")
-            c_after = parse_client(data_after, "")
-
-            self.assertFalse(c_after["h_qlac"]["enabled"])
-            self.assertFalse(c_after["wife_qlac"]["enabled"])
-            # Terminal figures must be identical before/after backfill.
-            rows_before = project(c_before)
-            rows_after = project(c_after)
-            self.assertAlmostEqual(
-                rows_before[-1]["total_nw"], rows_after[-1]["total_nw"], delta=1.0,
-            )
+            data_before, data_after = self._backfilled_demo(tmp)
+        c_before = parse_client(data_before, "")
+        c_after = parse_client(data_after, "")
+        self.assertFalse(c_after["h_qlac"]["enabled"])
+        self.assertFalse(c_after["wife_qlac"]["enabled"])
+        # Terminal figures must be identical before/after backfill.
+        rows_before = project(c_before)
+        rows_after = project(c_after)
+        self.assertAlmostEqual(
+            rows_before[-1]["total_nw"], rows_after[-1]["total_nw"], delta=1.0,
+        )
 
 
 if __name__ == "__main__":

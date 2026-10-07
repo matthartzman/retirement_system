@@ -219,7 +219,8 @@ endpoints in §3.4.
 - `src/plan_data_backfill.py` — a separate, declarative mechanism
   (`PLAN_DATA_BACKFILL_ENTRIES` in `app_core.py`) that inserts *new*
   canonical rows (e.g. Roth conversion params, HELOC, QCD, TLH) into
-  existing CSVs/DB content at defined anchor points — additive schema
+  the active plan's `plan_rows` at defined anchor points inside their section
+  (WP4.4c; formerly into the CSV files) — additive schema
   evolution, distinct from the rename migration above.
 - `src/plan_data_registry.py` — the single-source list of sectioned CSV file
   names (`CLIENT_DATA_PART_FILES`), consumed by ~8 other modules to avoid
