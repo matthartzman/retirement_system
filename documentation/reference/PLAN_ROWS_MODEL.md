@@ -49,9 +49,29 @@ Status: WP4.1 (owner review checkpoint). The summary below is the PR-body text.
 
 **Decision: no part-file column.** Rows do not record their old file. Nothing reads it: the frontend never used `source_file`, and the engine reads one merged view. Splits happen even inside one subsection, so only a per-row column could rebuild the old files exactly. For export, `csv_exchange.part_file_for_section()` gives a section's primary (first) file, which is also where the old writers put new rows. Re-importing such an export gives the same view.
 
+## Read path (WP4.2)
+
+**Where the plan file is.** `src/active_plan.py` is the one accessor until the plan registry (WP8.4): `active_plan_path()` is `<workspace>/plan.rpx` (where `make_plan` builds it too), or `RETIREMENT_SYSTEM_PLAN_DB` when set. The server sets that variable for the build subprocess, so the build reads the server's plan. `active_plan_store()` opens it.
+
+**Readers.** `config_backend.load_active_config()` returns `active_plan_data()` (the plan's `sectioned_data()`) merged with the system configuration, as before. Its callers are the build (`workbook_builder.main`), `config_service` (backends payload, `module_status` for the config rows payload, allocation preview, DAF and QLAC recommendations), the housing search gate, the pricing provider and two tools. `/api/plan/forms` reads and writes the plan rows. The Plan Data file list reads the protected-field status from them. The old sectioned SQLite snapshot (`load_sqlite`, `import_csv_to_sqlite`, `local_store.latest_sectioned_data` and its writers) is deleted. A plan file with no rows is filled from the configured plan CSV set on first read, as the snapshot was.
+
+**Writers until WP4.3-4.5.** The CSV set is still what the writers edit. Every CSV writer ends with `app_core._sync_config_backends()`, which now:
+1. reads the CSV set once (`csv_exchange.read_plan_csv_set`) and makes the plan rows equal to it (`csv_exchange.sync_plan_rows`). A row keeps its `row_id` while its key's occurrence survives. If nothing changed, nothing is written. It still applies the old loader's two load-time drops: retired `Scenarios / Sell Home` value labels and `label` header rows;
+2. stores each part file's text in the legacy database's `client_files`. Save As, Load Saved Plan, Open/Close Demo and snapshot restore carry the plan as that database file and rebuild the CSV set from `client_files`. The snapshot copy used to cover this;
+3. writes the JSON/YAML mirrors from the plan's view.
+Load Saved Plan, snapshot restore and the demo swap call it after they rebuild the CSV set. The at-rest migration (`plan_data_migration`) renames legacy keys in the plan file's rows in place (ticket 287's snapshot sweep, moved).
+
+Not switched here, because their reads belong to a read-modify-write pair with a CSV writer. Switching only the read would make the pair disagree:
+- `_client_csv_rows` is the grid. `row_index` is a position in the CSV set, read by `_csv_rows_payload` and written by `update_config_rows_payload`. WP4.3 moves both to `row_id`.
+- `_client_section_path` / `_read_client_section_rows` / `_write_client_rows`, and the endpoint GETs that read sections from CSV, are the strategy endpoints and `_replace_*`. That is WP4.4.
+- `_backfill_optional_function_rows_to_disk` and `set_feature` persistence are WP4.5.
+
+**Behaviour notes.** The snapshot round trip (`plan_input_from_sectioned_data(...).to_sectioned_data()`, JSON with sorted keys) is gone. Engine input now keeps the plan's row order instead of sorted keys, and the round trip's filled-in defaults are no longer added. The golden comparison (`sample_frozen`, `demo`) is unchanged. A plan saved before WP4.2 whose `client_files` lack a part file loads that file from the current CSV set. WP8.4 replaces Save As and Load with plan-file operations.
+
+**Conversion.** Nothing new beyond C3. The runtime no longer reads `plan_snapshots`, but its tables stay. WP10's source precedence ("`input/` first, then `client_files` and the latest `plan_snapshots` for anything missing", F section 8) reads them directly. `local_store` keeps only the table definitions.
+
 ## Where it is used next
 
-- WP4.2: the read path (`load_active_config`, `_client_csv_rows`, `module_catalog` / `config_service` reads) uses `sectioned_data()` and `all_rows()`.
 - WP4.3 / 4.4: the grid and the strategy endpoints write by `row_id` and by key. A row is inserted after row X with `insert_row(section, sort_order=X.sort_order)`; the tie goes to the newer id.
 - WP4.5: `set_feature()` writes `feature_row_key(key)` with `set_value`, and the CSV mirrors are deleted.
 - WP9 grows `csv_exchange` (preview, diff, export); WP10 assembles C3 with source precedence (files first, then the old database snapshot).

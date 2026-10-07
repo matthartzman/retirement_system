@@ -4,7 +4,6 @@
    "path_io": 2
   },
   "src/config_backend.py": {
-   "csv": 1,
    "path_io": 3,
    "yaml": 1
   },
@@ -27,11 +26,6 @@
   },
   "src/local_backup_scheduler.py": {
    "path_io": 4
-  },
-  "src/local_store.py": {
-   "csv": 1,
-   "path_io": 5,
-   "yaml": 1
   },
   "src/market_data.py": {
    "csv": 1,
@@ -90,7 +84,7 @@
   },
   "src/server/app_core.py": {
    "csv": 33,
-   "path_io": 4
+   "path_io": 3
   },
   "src/server/plan_routes.py": {
    "path_io": 1
@@ -150,5 +144,5 @@
    "path_io": 1
   }
  },
- "total": 207
+ "total": 198
 }
