@@ -7,8 +7,9 @@ startup.
 ``run(input_dir, store)``:
 
 1. reads the plan CSV set from ``input_dir`` through ``csv_exchange`` (same parse rules as
-   every plan import: cells stripped, year-stamped labels canonical, ``#`` comments attached
-   to the row below them become its notes, free-floating comments dropped);
+   every plan import: columns by header name, cells stripped, year-stamped labels canonical,
+   ``#`` comments attached to the row below them become its notes, free-floating comments
+   dropped, duplicate keys collapsed last-wins at the first position);
 2. applies the legacy row renames once (``plan_data_migration.migrate_rows`` over the whole
    set: member_1/member_2, wellness -> healthcare, the state-generic estate subsection and
    auto-insurance label; when the current key already exists the legacy row is dropped) and
@@ -28,19 +29,12 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
-from ...csv_exchange import ImportReport, PlanCsvRow, read_plan_csv_set, write_plan_rows
+from ...csv_exchange import ImportReport, PlanCsvRow, collapse_duplicate_keys, read_plan_csv_set, write_plan_rows
 from ...plan_data_migration import migrate_rows
+from ...plan_label_rules import is_retired_scenario_home_row
 
 STEP_ID = "C3"
 MARKER_KEY = "legacy_conversion.c3"
-
-# active_plan.RETIRED_SCENARIO_HOME_LABELS (the old loader's load-time rule): the Sell Home scenario once carried its own
-# copy of the home's value and basis; the current model reads them from Other Assets.
-RETIRED_SCENARIO_HOME_LABELS = frozenset({
-    "home_sale_price", "home_basis", "home_value", "house_value", "value_as_of_plan_start",
-    "current_home_value", "current_value", "market_value",
-})
-
 
 class ConversionError(ValueError):
     """The step cannot run against this source or target; nothing was written."""
@@ -67,11 +61,17 @@ class C3Report:
 
 
 def _is_retired(row: PlanCsvRow) -> bool:
-    return row.section == "Scenarios" and row.subsection == "Sell Home" and row.label in RETIRED_SCENARIO_HOME_LABELS
+    return is_retired_scenario_home_row(row.section, row.subsection, row.label)
 
 
 def convert_rows(rows: list[PlanCsvRow]) -> tuple[list[PlanCsvRow], int, int]:
-    """Pure: ``(converted rows, legacy rows renamed or dropped, retired rows dropped)``."""
+    """Pure: ``(converted rows, legacy rows renamed or dropped, retired rows dropped)``.
+
+    Duplicate keys collapse first, last row wins (the old loader's order: ``load_csv`` then
+    ``migrate_sectioned_data``), so two legacy rows of one key yield the LAST one's value
+    under the renamed key; ``migrate_rows`` alone keeps the first. A legacy row whose
+    current key exists is still dropped (the current key wins)."""
+    rows, _ = collapse_duplicate_keys(rows)
     migrated, renamed = migrate_rows([[r.section, r.subsection, r.label, r] for r in rows])
     out: list[PlanCsvRow] = []
     retired = 0

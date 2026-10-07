@@ -26,12 +26,11 @@ def test_plan_file_view_is_identical_to_load_csv(tmp_path, fixture):
     assert json.dumps(view) == json.dumps(legacy)
     with ws.store(readonly=True) as store:
         rows = store.all_rows()
-    # every load_csv value is backed by a stored row; extra stored rows are only the
-    # earlier copies of a repeated key (the legacy anchor's Scenarios duplicates)
+    # every load_csv value is backed by exactly one stored row: repeated keys (the legacy
+    # anchor's Scenarios duplicates) are collapsed at import, so no stale copy can resurface
     n_values = sum(len(labels) for subs in legacy.values() for labels in subs.values())
     keys = [(r["section"], r["subsection"], r["label"]) for r in rows]
-    assert len(set(keys)) == n_values
-    assert len(rows) - n_values == len(keys) - len(set(keys)) == 2
+    assert len(keys) == len(set(keys)) == n_values
 
 
 @pytest.mark.parametrize("fixture", sorted(pf.FIXTURES))

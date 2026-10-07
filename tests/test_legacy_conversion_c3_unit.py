@@ -78,7 +78,13 @@ def test_convert_rows_renames_once_current_key_wins_and_drops_retired_labels():
     assert rows[1].source_file == "client_household.csv" and rows[1].line == 4
 
 
-def test_retired_label_list_matches_the_runtime_sync_rule():
-    # WP4.2: the old loader's load-time drop now lives in the CSV -> plan rows sync.
-    from src import active_plan
-    assert c3.RETIRED_SCENARIO_HOME_LABELS == active_plan.RETIRED_SCENARIO_HOME_LABELS
+def test_retired_label_set_has_one_source():
+    # WP4.1 review: the runtime sync and step C3 both use src/plan_label_rules.
+    import inspect
+    from src import active_plan, plan_label_rules
+    assert not hasattr(c3, "RETIRED_SCENARIO_HOME_LABELS")
+    assert not hasattr(active_plan, "RETIRED_SCENARIO_HOME_LABELS")
+    for module in (c3, active_plan):
+        assert "is_retired_scenario_home_row" in inspect.getsource(module)
+    assert plan_label_rules.is_retired_scenario_home_row("Scenarios", "Sell Home", "home_value")
+    assert not plan_label_rules.is_retired_scenario_home_row("Scenarios", "Base", "home_value")

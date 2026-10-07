@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from . import platform_runtime
+from .plan_label_rules import is_retired_scenario_home_row
 from .csv_exchange import PlanCsvRow, read_plan_csv_set, sync_plan_rows
 from .stores import PlanStore
 
@@ -30,15 +31,6 @@ PLAN_DB_ENV = "RETIREMENT_SYSTEM_PLAN_DB"
 PLAN_FILE_NAME = "plan.rpx"
 
 SectionedData = dict[str, dict[str, dict[str, str]]]
-
-# The legacy loader (config_backend.load_csv) dropped these at every load: the Sell Home
-# scenario once carried its own copy of the home's value and basis; the current model
-# reads them from Other Assets. The CSV set can still hold them, so the sync drops them
-# (conversion step C3 drops them once for good).
-RETIRED_SCENARIO_HOME_LABELS = frozenset({
-    "home_sale_price", "home_basis", "home_value", "house_value", "value_as_of_plan_start",
-    "current_home_value", "current_value", "market_value",
-})
 
 
 def active_plan_path() -> Path:
@@ -64,8 +56,7 @@ def _engine_rows(rows: list[PlanCsvRow]) -> list[PlanCsvRow]:
     """The CSV rows the plan keeps: the old loader's two load-time drops still apply."""
     return [
         r for r in rows
-        if r.label.lower() != "label"
-        and not (r.section == "Scenarios" and r.subsection == "Sell Home" and r.label in RETIRED_SCENARIO_HOME_LABELS)
+        if r.label.lower() != "label" and not is_retired_scenario_home_row(r.section, r.subsection, r.label)
     ]
 
 
@@ -82,7 +73,7 @@ class PlanSyncResult:
     texts: dict[str, str]        # file name -> text of each plan CSV read
     counts: dict[str, int]       # csv_exchange.sync_plan_rows counts
     files_read: list[str]
-    rows_by_file: dict[str, int]  # file name -> number of plan rows it contributed
+    rows_by_file: dict[str, int]  # file name -> data rows the file holds
 
 
 def sync_active_plan_from_csv(input_dir: str | Path) -> PlanSyncResult:
@@ -96,14 +87,11 @@ def sync_active_plan_from_csv(input_dir: str | Path) -> PlanSyncResult:
     rows = _engine_rows(parsed.rows)
     if not rows:
         raise EmptyPlanCsvSet(f"no plan CSV rows found in {input_dir}; the plan was left unchanged")
-    rows_by_file: dict[str, int] = {}
-    for row in parsed.rows:
-        rows_by_file[row.source_file] = rows_by_file.get(row.source_file, 0) + 1
     with active_plan_store() as store:
         counts = sync_plan_rows(store, rows)
         data = store.sectioned_data()
     return PlanSyncResult(data=data, texts=dict(parsed.texts), counts=counts,
-                          files_read=list(parsed.report.files_read), rows_by_file=rows_by_file)
+                          files_read=list(parsed.report.files_read), rows_by_file=dict(parsed.rows_by_file))
 
 
 def active_plan_data(bootstrap_input_dir: str | Path | None = None) -> SectionedData:

@@ -72,6 +72,7 @@ from .market_data import PRICE_CACHE, fetch_price, prewarm_prices, set_fallback_
 from .workspace_context import candidate_input_files, active_workspace_id
 from .roth_ui_build_guard import normalize_roth_policy, normalize_irmaa_guardrail_mode, percent_to_float, is_explicit_user_roth_policy, strategy_for_roth_policy
 from .plan_data_migration import migrate_sectioned_data
+from .plan_label_rules import canonical_label
 try:
     from .system_config import load_system_config
 except ImportError:  # direct execution fallback
@@ -232,29 +233,8 @@ def _resolve_holding_period_floors_and_reapply(c):
     return resolve_holding_period_floors_and_reapply(c)
 
 
-_YEAR_LABEL_PATTERNS = [
-    (re.compile(r'^annual_401k_limit_\d{4}$'), 'annual_401k_limit_base_year'),
-    (re.compile(r'^annual_spending_\d{4}$'), 'annual_spending_base_year'),
-    (re.compile(r'^balance_\d{1,2}_\d{1,2}_\d{4}$'), 'balance_as_of_plan_start'),
-    (re.compile(r'^value_\d{1,2}_\d{1,2}_\d{4}$'), 'value_as_of_plan_start'),
-    (re.compile(r'^family_annual_limit_\d{4}$'), 'family_annual_limit_base_year'),
-    (re.compile(r'^self_only_annual_limit_\d{4}$'), 'self_only_annual_limit_base_year'),
-    (re.compile(r'^coverage_\d{4}_family_months$'), 'coverage_base_year_family_months'),
-    (re.compile(r'^coverage_\d{4}_self_only_months$'), 'coverage_base_year_self_only_months'),
-    (re.compile(r'^ss_wage_base_\d{4}$'), 'ss_wage_base_base_year'),
-    (re.compile(r'^ltcg_0pct_top_mfj_\d{4}$'), 'ltcg_0pct_top_mfj_base_year'),
-    (re.compile(r'^ltcg_15pct_top_mfj_\d{4}$'), 'ltcg_15pct_top_mfj_base_year'),
-    (re.compile(r'^part_b_premium_\d{4}$'), 'part_b_base_premium_monthly'),
-    (re.compile(r'^part_d_premium_\d{4}$'), 'part_d_base_premium_monthly'),
-    (re.compile(r'^annual_premium_\d{4}$'), 'annual_premium_base_year'),
-]
-
-def _normalize_label(label):
-    label = (label or '').strip()
-    for pat, replacement in _YEAR_LABEL_PATTERNS:
-        if pat.match(label):
-            return replacement
-    return label
+# Year-stamped label canonicalisation: src/plan_label_rules.py (single source, shared with csv_exchange).
+_normalize_label = canonical_label
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 1.  CSV LOADER
