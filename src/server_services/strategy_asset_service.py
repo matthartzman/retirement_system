@@ -16,6 +16,7 @@ from typing import Any, Callable
 
 from .. import platform_runtime as _platform_runtime
 from ..csv_exchange import PlanCsvError
+from ..plan_data_backfill import insert_rows_at
 from ..spending_adjustments import ADJ_SUBSECTION, adjustment_dicts_from_plan_rows, adjustment_plan_rows, validate_adjustment_dicts
 
 AuditFn = Callable[[str, dict[str, Any] | None], None]
@@ -427,15 +428,7 @@ def _insert_rows(store: Any, rows: list[list[str]], *, before_subsections: froze
 def _insert_rows_at(store: Any, rows: list[list[str]], at: int | None) -> None:
     """Insert the rows (one section) at index ``at`` of the section's display order (``None``:
     at the end); the section's ``sort_order`` is renumbered when ``at`` is given."""
-    section = rows[0][0]
-    if at is not None:
-        for i, r in enumerate(store.rows(section)):
-            order = i if i < at else i + len(rows)
-            if r["sort_order"] != order:
-                store.set_row(r["row_id"], sort_order=order)
-    for j, (_section, subsection, label, value, units, notes) in enumerate(rows):
-        store.insert_row(section, subsection=subsection, label=label, value=value, units=units, notes=notes,
-                         sort_order=None if at is None else at + j)
+    insert_rows_at(store, rows[0][0], rows, at)
 
 
 def _replace_block(store: Any, section: str, in_block: Callable[[dict[str, Any]], bool],
@@ -516,11 +509,8 @@ def _no_plan_read() -> AbstractContextManager[Any]:
 class StrategyAssetServiceContext:
     base_dir: Path
     reference_file_path: PathFn
-    read_client_section_rows: Callable[[str, str], list[list[str]]]
     normalize_large_discretionary_type: Callable[[str], str]
     pre_tax_account_options_from_holdings: Callable[[], list[str]]
-    liquidity_buffers_from_csv_rows: Callable[[list[list[str]]], list[dict[str, Any]]]
-    replace_liquidity_buffers: Callable[[list[dict[str, Any]]], None]
     ensure_user_ui_plan_data_rows: Callable[[], None]
     sync_config_backends: SyncFn
     audit: AuditFn | None = None
@@ -536,9 +526,6 @@ class StrategyAssetServiceContext:
     # sites/tests that construct this context without every optional field
     # keep working unchanged.
     all_account_ids_from_holdings: Callable[[], list[str]] = lambda: []
-    # #299: same reasoning -- defaulted so existing call sites/tests keep working.
-    home_sale_splits_from_csv_rows: Callable[[list[list[str]]], list[dict[str, Any]]] = lambda rows: []
-    replace_home_sale_splits: Callable[[list[dict[str, Any]]], None] = lambda splits: None
 
 
 class StrategyAssetService:
@@ -774,9 +761,32 @@ class StrategyAssetService:
 
         return self._with_sync(*self._edit(work), body)
 
+    # Liquidity Buffer: one ``buffer_N`` group of four rows per year-ranged reserve rule.
+    _LIQUIDITY_BUFFER_FIELDS = (
+        ("start_year", "year", "First year this reserve rule applies; blank means plan start"),
+        ("end_year", "year", "Last year this reserve rule applies; blank means open-ended"),
+        ("years_of_expenses", "years", "Years of expenses to retain as a reserve; default is 0"),
+        ("reserve_account", "choice", "Taxable/Trust | Roth | IRA | HSA | Cash; bucket the withdrawal cascade holds above this reserve (Cash is never drawn, so it is preserved by construction)"),
+    )
+
     def liquidity_buffers_payload(self) -> tuple[dict[str, Any], int]:
-        rows = self.context.read_client_section_rows("Liquidity Buffer", "client_assets.csv")
-        return {"success": True, "buffers": self.context.liquidity_buffers_from_csv_rows(rows)}, 200
+        with self.context.read_plan() as store:
+            rows = store.rows("Liquidity Buffer")
+        grouped: dict[str, dict[str, str]] = {}
+        for r in rows:
+            if re.match(r"buffer_\d+", r["subsection"]):
+                grouped.setdefault(r["subsection"], {})[r["label"]] = r["value"].strip()
+        buffers: list[dict[str, str]] = []
+        for sub in sorted(grouped, key=_numbered):
+            rec = grouped[sub]
+            if any(str(rec.get(k, "")).strip() for k in ("start_year", "end_year", "years_of_expenses", "years_of_expenses_in_trust")):
+                buffers.append({
+                    "start_year": rec.get("start_year", ""),
+                    "end_year": rec.get("end_year", ""),
+                    "years_of_expenses": rec.get("years_of_expenses", rec.get("years_of_expenses_in_trust", "")),
+                    "reserve_account": rec.get("reserve_account", rec.get("preserve_account", "Taxable/Trust")) or "Taxable/Trust",
+                })
+        return {"success": True, "buffers": buffers}, 200
 
     def save_liquidity_buffers_payload(self, body: dict[str, Any]) -> tuple[dict[str, Any], int]:
         buffers = body.get("buffers") or []
@@ -793,21 +803,31 @@ class StrategyAssetService:
             if not any([start, end, yrs, reserve_account]):
                 continue
             clean.append({"start_year": start, "end_year": end, "years_of_expenses": yrs, "reserve_account": reserve_account})
-        self.context.replace_liquidity_buffers(clean)
-        self._audit("liquidity_buffers_saved", {"count": len(clean)})
-        sync_result = None
-        if body.get("sync"):
-            sync_result = self.context.sync_config_backends()
-            self._audit("config_backends_synced", sync_result)
-        return {"success": True, "count": len(clean), "sync": sync_result}, 200
+        wanted = [(f"buffer_{i}", field, buf[field], units, note)
+                  for i, buf in enumerate(clean, 1) for field, units, note in self._LIQUIDITY_BUFFER_FIELDS]
+
+        def work(store: Any) -> _Outcome:
+            _replace_block(store, "Liquidity Buffer", lambda r: True, wanted)
+            return {"success": True, "count": len(clean)}, 200, ("liquidity_buffers_saved", {"count": len(clean)})
+
+        return self._with_sync(*self._edit(work), body)
+
+    # Home Sale Split (#299): one ``split_N`` pair of rows per receiving account.
+    _HOME_SALE_SPLIT_FIELDS = (
+        ("account", "choice", "Account to receive this share of house sale proceeds"),
+        ("percentage", "percent", "Share of net house sale proceeds deposited to this account; all rows must sum to 100%"),
+    )
 
     def home_sale_splits_payload(self) -> tuple[dict[str, Any], int]:
-        rows = self.context.read_client_section_rows("Home Sale Split", "client_assets.csv")
-        return {
-            "success": True,
-            "splits": self.context.home_sale_splits_from_csv_rows(rows),
-            "accounts": self.context.all_account_ids_from_holdings(),
-        }, 200
+        with self.context.read_plan() as store:
+            rows = store.rows("Home Sale Split")
+        grouped: dict[str, dict[str, str]] = {}
+        for r in rows:
+            if re.match(r"split_\d+", r["subsection"]):
+                grouped.setdefault(r["subsection"], {})[r["label"]] = r["value"].strip()
+        splits = [{"account": grouped[sub].get("account", ""), "percentage": grouped[sub].get("percentage", "")}
+                  for sub in sorted(grouped, key=_numbered) if grouped[sub].get("account", "").strip()]
+        return {"success": True, "splits": splits, "accounts": self.context.all_account_ids_from_holdings()}, 200
 
     def save_home_sale_splits_payload(self, body: dict[str, Any]) -> tuple[dict[str, Any], int]:
         splits = body.get("splits") or []
@@ -833,13 +853,15 @@ class StrategyAssetService:
                 "success": False,
                 "error": f"Percentages must sum to 100% (currently {total_pct:g}%).",
             }, 400
-        self.context.replace_home_sale_splits(clean)
-        self._audit("home_sale_splits_saved", {"count": len(clean)})
-        sync_result = None
-        if body.get("sync"):
-            sync_result = self.context.sync_config_backends()
-            self._audit("config_backends_synced", sync_result)
-        return {"success": True, "count": len(clean), "sync": sync_result}, 200
+        wanted = [(f"split_{i}", field, (split["account"] if field == "account" else split["percentage"].strip() or "0"),
+                   units, note)
+                  for i, split in enumerate(clean, 1) for field, units, note in self._HOME_SALE_SPLIT_FIELDS]
+
+        def work(store: Any) -> _Outcome:
+            _replace_block(store, "Home Sale Split", lambda r: True, wanted)
+            return {"success": True, "count": len(clean)}, 200, ("home_sale_splits_saved", {"count": len(clean)})
+
+        return self._with_sync(*self._edit(work), body)
 
     def tax_assumptions_payload(self) -> tuple[dict[str, Any], int]:
         """Resolved tax levers (model value, override, effective, basis) for

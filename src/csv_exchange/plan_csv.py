@@ -61,8 +61,8 @@ PLAN_CSV_FILES: tuple[str, ...] = (
 
 # Old part file -> the sections it held (the shipped templates and fixtures). A section in
 # more than one file was split by subsection or row; its first file is its *primary* file,
-# which is where the legacy writers put new rows of that section (app_core
-# _client_section_path searched the parts in this order). The anchor held only duplicates
+# which is where the legacy writers put new rows of that section (the old
+# app_core _client_section_path searched the parts in this order). The anchor held only duplicates
 # of Scenarios rows that client_policy.csv also carries.
 PART_FILE_SECTIONS: dict[str, tuple[str, ...]] = {
     "client_household.csv": ("Household", "Economic Assumptions", "Payroll Tax", "Wellness",

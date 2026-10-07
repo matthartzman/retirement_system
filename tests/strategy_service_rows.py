@@ -36,11 +36,8 @@ def service_over_rows(tmp_path: Path, rows: list[tuple[str, str, str, str]], **c
     fields: dict[str, Any] = dict(
         base_dir=tmp_path,
         reference_file_path=lambda name: tmp_path / name,
-        read_client_section_rows=lambda section, file_name: [],
         normalize_large_discretionary_type=lambda value: str(value),
         pre_tax_account_options_from_holdings=lambda: [],
-        liquidity_buffers_from_csv_rows=lambda rows: [],
-        replace_liquidity_buffers=lambda buffers: None,
         ensure_user_ui_plan_data_rows=lambda: None,
         sync_config_backends=lambda: {"success": True},
         audit=lambda event, details=None: events.append((event, details or {})),

@@ -139,41 +139,26 @@ class ResidencyScheduleDataIoTests(unittest.TestCase):
         self.assertEqual(c["residency_schedule"], [])
 
 
-class ResidencyScheduleCsvRoundTripTests(unittest.TestCase):
-    def test_write_then_read_round_trips_through_the_csv_file(self):
-        import csv
+class ResidencyScheduleRoundTripTests(unittest.TestCase):
+    def test_save_then_read_round_trips_through_the_plan_rows(self):
         import tempfile
         from pathlib import Path
-        from src.server.app_core import (
-            _residency_schedule_rows,
-            _residency_schedule_from_csv_rows,
-            _replace_residency_schedule,
-        )
+        from tests.strategy_service_rows import service_over_rows
 
+        schedule = [
+            {"state": "Illinois", "start_year": "2026", "end_year": "2031"},
+            {"state": "Florida", "start_year": "2032", "end_year": ""},
+        ]
         with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "client_data.csv"
-            path.write_text("section,subsection,label,value,units,notes\n", encoding="utf-8")
-            import src.server.app_core as app_core
-            orig = app_core._client_section_path
-            app_core._client_section_path = lambda section, fallback="client_data.csv": path
-            try:
-                _replace_residency_schedule([
-                    {"state": "Illinois", "start_year": "2026", "end_year": "2031"},
-                    {"state": "Florida", "start_year": "2032", "end_year": ""},
-                ])
-            finally:
-                app_core._client_section_path = orig
-
-            with path.open(newline="", encoding="utf-8-sig") as f:
-                rows = list(csv.reader(f))
-            schedule = _residency_schedule_from_csv_rows(rows)
-            self.assertEqual(schedule, [
-                {"state": "Illinois", "start_year": "2026", "end_year": "2031"},
-                {"state": "Florida", "start_year": "2032", "end_year": ""},
-            ])
-            generated = _residency_schedule_rows([{"state": "Illinois", "start_year": "2026", "end_year": "2031"}])
-            self.assertIn(["State Residency Schedule", "period_1", "state", "Illinois", "choice",
-                            "Residence state during this period", "", ""], generated)
+            service, store, _events = service_over_rows(Path(tmp), [])
+            with store:
+                payload, status = service.save_residency_schedule_payload({"schedule": schedule})
+                self.assertEqual(status, 200, payload)
+                self.assertEqual(service.residency_schedule_payload()[0]["schedule"], schedule)
+                first = [r for r in store.rows("State Residency Schedule") if r["subsection"] == "period_1"]
+        # the rows carry the field units and notes the CSV block used to
+        self.assertIn(("state", "Illinois", "choice", "Residence state during this period"),
+                      [(r["label"], r["value"], r["units"], r["notes"]) for r in first])
 
 
 class ResidencyScheduleServiceValidationTests(unittest.TestCase):

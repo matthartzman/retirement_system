@@ -69,7 +69,6 @@ try:
         CLIENT_DATA_CSV_FILE_SET,
         CLIENT_DATA_DERIVED_FILES,
         CLIENT_DATA_DERIVED_FILE_SET,
-        CLIENT_DATA_PART_FILES,
         PLAN_DATA_CSV_FILES,
         PLAN_DATA_CSV_FILE_SET,
         PLAN_DATA_DERIVED_FILES,
@@ -80,7 +79,7 @@ try:
         YTD_PLAN_DATA_FILES,
     )
     from ..active_plan import active_plan_store, edit_active_plan, peek_plan_data, refresh_active_plan, sync_active_plan_from_csv
-    from ..csv_exchange import ANCHOR_FILE, PLAN_CSV_FILES
+    from ..csv_exchange import ANCHOR_FILE, PLAN_CSV_FILES, PlanCsvError
     from ..config_backend import (
         DEFAULT_DB,
         configured_plan_csv_path,
@@ -116,7 +115,6 @@ except ImportError:  # direct execution fallback
         CLIENT_DATA_CSV_FILE_SET,
         CLIENT_DATA_DERIVED_FILES,
         CLIENT_DATA_DERIVED_FILE_SET,
-        CLIENT_DATA_PART_FILES,
         PLAN_DATA_CSV_FILES,
         PLAN_DATA_CSV_FILE_SET,
         PLAN_DATA_DERIVED_FILES,
@@ -127,7 +125,7 @@ except ImportError:  # direct execution fallback
         YTD_PLAN_DATA_FILES,
     )
     from src.active_plan import active_plan_store, edit_active_plan, peek_plan_data, refresh_active_plan, sync_active_plan_from_csv
-    from src.csv_exchange import ANCHOR_FILE, PLAN_CSV_FILES
+    from src.csv_exchange import ANCHOR_FILE, PLAN_CSV_FILES, PlanCsvError
     from src.config_backend import (
         DEFAULT_DB,
         configured_plan_csv_path,
@@ -722,36 +720,6 @@ def _write_plan_data_file(file_name: str, content: str, *, preserve_protected: b
 
 
 
-def _csv_read_rows(path: Path) -> list[list[str]]:
-    if not path.exists():
-        return []
-    with path.open(newline="", encoding="utf-8-sig") as f:
-        return list(csv.reader(f))
-
-
-def _csv_write_rows(path: Path, rows: list[list[str]]) -> None:
-    with atomic_write(path) as f:
-        csv.writer(f, lineterminator="\n").writerows(rows)
-
-
-def _ensure_header(rows: list[list[str]]) -> list[list[str]]:
-    header = ["section", "subsection", "label", "value", "units", "notes"]
-    if not rows:
-        return [header]
-    first = [str(x or "").strip().lower() for x in rows[0][:3]]
-    if first[:3] != ["section", "subsection", "label"]:
-        return [header, *rows]
-    while len(rows[0]) < 6:
-        rows[0].append("")
-    rows[0][:6] = header
-    return rows
-
-
-def _row_key(row: list[str]) -> tuple[str, str, str]:
-    cols = list(row) + [""] * 6
-    return (str(cols[0]).strip(), str(cols[1]).strip(), str(cols[2]).strip())
-
-
 SSA44_UI_PLAN_DATA_ROWS: list[list[str]] = [
     ["Model Constants", "IRMAA", "h_ssa44_relief_year", "", "year", "First year Member 1's IRMAA surcharge is suppressed following an approved Form SSA-44 life-changing-event appeal. Blank = none filed. Base Part B/D/G premiums are still owed; only the surcharge is relieved. An appeal outcome is granted case-by-case and is never guaranteed — enter this only for an appeal already approved."],
     ["Model Constants", "IRMAA", "w_ssa44_relief_year", "", "year", "First year Member 2's IRMAA surcharge is suppressed following an approved Form SSA-44 life-changing-event appeal. Blank = none filed. Base Part B/D/G premiums are still owed; only the surcharge is relieved. An appeal outcome is granted case-by-case and is never guaranteed — enter this only for an appeal already approved."],
@@ -940,144 +908,70 @@ def _qlac_ui_plan_data_rows(member: str) -> list[list[str]]:
 QLAC_UI_PLAN_DATA_ROWS: list[list[str]] = _qlac_ui_plan_data_rows("1") + _qlac_ui_plan_data_rows("2")
 
 # A7: PLAN_DATA_BACKFILL_ENTRIES replaces twelve near-identical
-# _ensure_*_ui_plan_data_rows functions (each: read a CSV, compute missing
-# canonical rows, find an insertion point, splice, write back) with one
-# declarative table over plan_data_backfill.apply_backfill's batched engine.
-# Order matches the original _ensure_user_ui_plan_data_rows call sequence,
-# since entries sharing a file are applied in list order against the same
-# growing in-memory rows (see apply_backfill's docstring) - reordering this
-# list can change which anchor a later same-file entry sees.
+# _ensure_*_ui_plan_data_rows functions with one declarative table over
+# plan_data_backfill.apply_backfill (WP4.4c: on the plan rows, no CSV files). An entry is
+# (rows, anchor): where its rows go inside their section; no anchor = the end of the section.
+# Order matches the original call sequence, since entries are applied in list order against the
+# same growing rows (see apply_backfill's docstring) - reordering this list can change which
+# anchor a later entry in the same section sees.
+_BF = plan_data_backfill
+_AFTER_ECONOMIC_ASSUMPTIONS = _BF.after_last(_BF.subsection_is(""))
 PLAN_DATA_BACKFILL_ENTRIES: list[plan_data_backfill.BackfillEntry] = [
-    plan_data_backfill.BackfillEntry(
-        "client_policy.csv", ALLOCATION_UI_PLAN_DATA_ROWS,
-        plan_data_backfill.insert_before(plan_data_backfill.section_is(
-            "Asset Class Optimizer Controls", "Withdrawal Policy", "Model Constants", "Forced Actions", "Scenarios")),
-    ),
-    plan_data_backfill.BackfillEntry(
-        "client_policy.csv", MONTE_CARLO_UI_PLAN_DATA_ROWS,
-        plan_data_backfill.insert_before(lambda row: (
-            (str(row[0] if row else "").strip() == "Model Constants"
-             and str(row[1] if len(row) > 1 else "").strip() in {"Roth Conversion", "IRMAA"})
-            or str(row[0] if row else "").strip() in {"Withdrawal Policy", "Forced Actions", "Scenarios"}
-        )),
-    ),
-    plan_data_backfill.BackfillEntry(
-        "client_policy.csv", ROTH_UI_PLAN_DATA_ROWS,
-        plan_data_backfill.insert_before(plan_data_backfill.section_is("Forced Actions", "Scenarios")),
-    ),
-    plan_data_backfill.BackfillEntry(
-        "client_policy.csv", SSA44_UI_PLAN_DATA_ROWS,
-        plan_data_backfill.insert_before(plan_data_backfill.section_is("Forced Actions", "Scenarios")),
-    ),
-    plan_data_backfill.BackfillEntry(
-        "client_assets.csv", HSA_WITHDRAWAL_UI_PLAN_DATA_ROWS,
-        plan_data_backfill.insert_before(plan_data_backfill.section_is(
-            "Education Funding", "Equity Compensation", "Note Receivable", "Hybrid LTC")),
-    ),
-    plan_data_backfill.BackfillEntry(
-        "client_income.csv", SOCIAL_SECURITY_FUNDING_UI_PLAN_DATA_ROWS,
-        plan_data_backfill.insert_before(plan_data_backfill.section_is("Income Streams")),
-    ),
-    plan_data_backfill.BackfillEntry(
-        "client_income.csv", QLAC_UI_PLAN_DATA_ROWS,
-        plan_data_backfill.insert_before(plan_data_backfill.section_subsection_is(
-            "Income Streams", "Joint-and-Survivor Percentage")),
-    ),
-    plan_data_backfill.BackfillEntry(
-        "client_household.csv", SS_CLAIM_DATE_UI_PLAN_DATA_ROWS,
-        plan_data_backfill.insert_before(lambda row: (
-            str(row[0] if row else "").strip() == "Social Security"
-            and str(row[2] if len(row) > 2 else "").strip() == "claim_age"
-        )),
-    ),
-    plan_data_backfill.BackfillEntry(
-        "client_household.csv", SS_FRA_AGE_UI_PLAN_DATA_ROWS,
-        plan_data_backfill.insert_before(lambda row: (
-            str(row[0] if row else "").strip() == "Social Security"
-            and str(row[2] if len(row) > 2 else "").strip() == "spousal_benefits_enabled"
-        )),
-    ),
-    plan_data_backfill.BackfillEntry(
-        "client_household.csv", HEALTHCARE_UI_PLAN_DATA_ROWS,
-        plan_data_backfill.insert_before(plan_data_backfill.section_subsection_is("Wellness", "Out-of-Pocket")),
-    ),
-    plan_data_backfill.BackfillEntry(
-        "client_policy.csv", HELOC_UI_PLAN_DATA_ROWS,
-        plan_data_backfill.insert_before(plan_data_backfill.section_is("Withdrawal Policy", "Model Constants", "Scenarios")),
-    ),
-    plan_data_backfill.BackfillEntry(
-        "client_spending.csv", CORE_SPENDING_UI_PLAN_DATA_ROWS,
-        plan_data_backfill.insert_after_last(plan_data_backfill.section_subsection_is("Cashflow", "Spending")),
-    ),
-    plan_data_backfill.BackfillEntry(
-        "client_spending.csv", MORTGAGE_RE_TAX_UI_PLAN_DATA_ROWS,
-        plan_data_backfill.insert_after_last(plan_data_backfill.section_subsection_is("Cashflow", "Mortgage")),
-    ),
-    plan_data_backfill.BackfillEntry(
-        "client_spending.csv", QCD_UI_PLAN_DATA_ROWS,
-        plan_data_backfill.insert_after_last(plan_data_backfill.section_subsection_is("Cashflow", "Spending")),
-    ),
-    plan_data_backfill.BackfillEntry(
-        "client_assets.csv", DAF_APPRECIATED_UI_PLAN_DATA_ROWS,
-        plan_data_backfill.insert_after_last(plan_data_backfill.section_subsection_is("DAF", "Settings")),
-    ),
-    plan_data_backfill.BackfillEntry(
-        "client_insurance_estate.csv", FORMER_SPOUSE_UI_PLAN_DATA_ROWS,
-        plan_data_backfill.insert_after_last(plan_data_backfill.section_subsection_is("Estate Planning", "Step-Up")),
-    ),
-    plan_data_backfill.BackfillEntry(
-        "client_insurance_estate.csv", _account_titling_ui_plan_data_rows,
-        plan_data_backfill.insert_after_last(plan_data_backfill.section_is("Estate Planning")),
-    ),
-    plan_data_backfill.BackfillEntry(
-        "client_household.csv",
+    _BF.BackfillEntry(ALLOCATION_UI_PLAN_DATA_ROWS),
+    _BF.BackfillEntry(MONTE_CARLO_UI_PLAN_DATA_ROWS, _BF.before_first(_BF.subsection_is("Roth Conversion", "IRMAA"))),
+    _BF.BackfillEntry(ROTH_UI_PLAN_DATA_ROWS),
+    _BF.BackfillEntry(SSA44_UI_PLAN_DATA_ROWS),
+    _BF.BackfillEntry(HSA_WITHDRAWAL_UI_PLAN_DATA_ROWS),
+    _BF.BackfillEntry(SOCIAL_SECURITY_FUNDING_UI_PLAN_DATA_ROWS),
+    _BF.BackfillEntry(QLAC_UI_PLAN_DATA_ROWS, _BF.before_first(_BF.subsection_is("Joint-and-Survivor Percentage"))),
+    _BF.BackfillEntry(SS_CLAIM_DATE_UI_PLAN_DATA_ROWS, _BF.before_first(_BF.label_is("claim_age"))),
+    _BF.BackfillEntry(SS_FRA_AGE_UI_PLAN_DATA_ROWS, _BF.before_first(_BF.label_is("spousal_benefits_enabled"))),
+    _BF.BackfillEntry(HEALTHCARE_UI_PLAN_DATA_ROWS, _BF.before_first(_BF.subsection_is("Out-of-Pocket"))),
+    _BF.BackfillEntry(HELOC_UI_PLAN_DATA_ROWS),
+    _BF.BackfillEntry(CORE_SPENDING_UI_PLAN_DATA_ROWS, _BF.after_last(_BF.subsection_is("Spending"))),
+    _BF.BackfillEntry(MORTGAGE_RE_TAX_UI_PLAN_DATA_ROWS, _BF.after_last(_BF.subsection_is("Mortgage"))),
+    _BF.BackfillEntry(QCD_UI_PLAN_DATA_ROWS, _BF.after_last(_BF.subsection_is("Spending"))),
+    _BF.BackfillEntry(DAF_APPRECIATED_UI_PLAN_DATA_ROWS, _BF.after_last(_BF.subsection_is("Settings"))),
+    _BF.BackfillEntry(FORMER_SPOUSE_UI_PLAN_DATA_ROWS, _BF.after_last(_BF.subsection_is("Step-Up"))),
+    _BF.BackfillEntry(_account_titling_ui_plan_data_rows),
+    _BF.BackfillEntry(
         [["Economic Assumptions", "", "inflation_general", "2.50%", "pct", "General CPI inflation used when core_spending_growth_mode is cpi."]],
-        plan_data_backfill.insert_after_last(plan_data_backfill.section_subsection_is("Economic Assumptions", "")),
+        _AFTER_ECONOMIC_ASSUMPTIONS,
     ),
-    plan_data_backfill.BackfillEntry(
-        "client_policy.csv",
+    _BF.BackfillEntry(
         [["Model Constants", "Retirement", "spending_freeze_year", "2040", "year", "Year after which core spending stops increasing; grouped with Spending / Core spending in the User UI."]],
-        plan_data_backfill.insert_after_last(plan_data_backfill.section_subsection_is("Model Constants", "Retirement")),
+        _BF.after_last(_BF.subsection_is("Retirement")),
     ),
-    plan_data_backfill.BackfillEntry(
-        "client_household.csv",
+    _BF.BackfillEntry(
         [["Economic Assumptions", "", "reinvest_dividends_default", "NO", "yes/no",
           "Global switch: reinvest every investment account's dividends/interest into the same holding instead of letting them convert to cash inside the account. When YES, this applies to every investment account and the per-account overrides below are ignored."]],
-        plan_data_backfill.insert_after_last(plan_data_backfill.section_subsection_is("Economic Assumptions", "")),
+        _AFTER_ECONOMIC_ASSUMPTIONS,
     ),
-    plan_data_backfill.BackfillEntry(
-        "client_household.csv",
+    _BF.BackfillEntry(
         [["Economic Assumptions", "", "tax_law_scenario", "current_law", "choice",
           "current_law | higher_rates. higher_rates taxes federal ordinary income at pre-2018 rates from the start year (a stress; thresholds unchanged)."],
          ["Economic Assumptions", "", "higher_rates_start_year", "", "year",
           "First year the higher_rates stress applies. Blank = the first plan year."]],
-        plan_data_backfill.insert_after_last(plan_data_backfill.section_subsection_is("Economic Assumptions", "")),
+        _AFTER_ECONOMIC_ASSUMPTIONS,
     ),
-    plan_data_backfill.BackfillEntry(
-        "client_household.csv",
+    _BF.BackfillEntry(
         [["Economic Assumptions", "", "state_income_tax_rate", "", "pct",
           "Override for state income-tax rate. Blank = Auto: the residence state's own rules. A value taxes state income at this flat rate (state retirement and Social Security exemptions still apply)."]],
-        plan_data_backfill.insert_after_last(plan_data_backfill.section_subsection_is("Economic Assumptions", "")),
+        _AFTER_ECONOMIC_ASSUMPTIONS,
     ),
-    plan_data_backfill.BackfillEntry(
-        "client_household.csv",
+    _BF.BackfillEntry(
         [["Economic Assumptions", "", "cash_yield_rate", "2.00%", "pct",
           "Growth rate applied to dividends/interest that convert to cash inside an account (Reinvest Dividends = NO) instead of compounding with the rest of the holding."]],
-        plan_data_backfill.insert_after_last(plan_data_backfill.section_subsection_is("Economic Assumptions", "")),
+        _AFTER_ECONOMIC_ASSUMPTIONS,
     ),
-    plan_data_backfill.BackfillEntry(
-        "client_policy.csv",
+    _BF.BackfillEntry(
         lambda target_dir: [
             ["Account Policy", acct, "reinvest_dividends", "", "yes/no",
              "Per-account override of Economic Assumptions/reinvest_dividends_default. Leave blank to inherit the global switch. Ignored while the global switch is YES."]
             for acct in _investment_account_ids_from_holdings(target_dir)
         ],
-        plan_data_backfill.insert_before(plan_data_backfill.section_is("HELOC")),
     ),
-    plan_data_backfill.BackfillEntry(
-        "client_policy.csv", TLH_UI_PLAN_DATA_ROWS,
-        plan_data_backfill.insert_after_last(plan_data_backfill.section_subsection_is("Withdrawal Policy", "Identity")),
-    ),
+    _BF.BackfillEntry(TLH_UI_PLAN_DATA_ROWS, _BF.after_last(_BF.subsection_is("Identity"))),
 ]
 
 
@@ -1086,53 +980,25 @@ def _ensure_user_ui_plan_data_rows() -> None:
 
     Folder imports and browser saves can bring in valid model inputs that lack
     newer UI control rows. The UI should never hide a new control merely because
-    the imported folder predates that control. This function writes canonical
-    current-schema rows only; it does not read previous-name aliases.
+    the imported folder predates that control. This function adds canonical
+    current-schema rows only; it does not read previous-name aliases, and never
+    changes a row the plan already holds.
 
-    A7: delegates to plan_data_backfill.apply_backfill against this process's
-    real Plan Data directory (CSV_PATH.parent - the same directory every
-    _plan_data_path(name, prefer_existing=False) call below used to resolve
-    to for these files). No pytest guard: the engine only ever touches
-    target_dir/file_name, so a test passing a tmp_path never reaches the live
-    input/ directory - the guard existed only because the old per-function
-    implementation resolved that path itself.
+    WP4.4c: works on the active plan's rows (``plan_data_backfill.apply_backfill`` in one
+    ``_edit_active_plan`` transaction, which writes the added keys back into the CSV working
+    copy). A plan with every row already there is only read. A plan with no rows is left
+    alone (nothing to backfill into), and so is one whose CSV working copy cannot be read
+    (the refresh warning reports it); neither is an error.
     """
-    plan_data_backfill.apply_backfill(CSV_PATH.parent, PLAN_DATA_BACKFILL_ENTRIES)
+    with _read_active_plan() as store:
+        if not store.section_order() or not plan_data_backfill.pending_rows(store, PLAN_DATA_BACKFILL_ENTRIES, CSV_PATH.parent):
+            return
+    try:
+        with _edit_active_plan() as edit:
+            plan_data_backfill.apply_backfill(edit.store, PLAN_DATA_BACKFILL_ENTRIES, CSV_PATH.parent)
+    except PlanCsvError:
+        return
 
-
-
-
-
-def _client_section_path(section: str, fallback_file: str = "client_data.csv") -> Path:
-    """Find the split client CSV that already contains a section."""
-    target = str(section or "").strip()
-    for name in CLIENT_DATA_PART_FILES:
-        path = _plan_data_path(name)
-        if not path.exists():
-            continue
-        try:
-            with path.open(newline="", encoding="utf-8-sig") as f:
-                for row in csv.reader(f):
-                    if row and str(row[0] or "").strip() == target:
-                        return path
-        except Exception:
-            continue
-    return _plan_data_path(fallback_file)
-
-
-def _read_client_section_rows(section: str, fallback_file: str = "client_data.csv") -> list[list[str]]:
-    path = _client_section_path(section, fallback_file)
-    if not path.exists():
-        return []
-    with path.open(newline="", encoding="utf-8-sig") as f:
-        return list(csv.reader(f))
-
-
-def _write_client_rows(path: Path, rows: list[list[str]]) -> None:
-    # Deliberately not lineterminator="\n" -- keeps this helper's existing
-    # "\r\n" output (csv.writer's default) rather than matching _csv_write_rows.
-    with atomic_write(path) as f:
-        csv.writer(f).writerows(rows)
 
 def _read_schema_map() -> dict:
     return _load_schema_registry()
@@ -1370,17 +1236,6 @@ TRAVEL_EXTRA_TYPES = [
 ]
 
 
-def _fmt_money_for_csv(value) -> str:
-    text = str(value or "").strip()
-    if not text:
-        return ""
-    try:
-        num = float(text.replace("$", "").replace(",", ""))
-        return f"${num:,.0f}"
-    except Exception:
-        return text
-
-
 def _normalize_date_for_csv(value: str) -> str:
     """Normalize common user-entered dates to YYYY-MM-DD for browser date fields."""
     text = str(value or "").strip()
@@ -1404,13 +1259,6 @@ def _normalize_date_for_csv(value: str) -> str:
     return text
 
 
-LARGE_DISCRETIONARY_SUBSECTION = "Large Discretionary Expenses"
-
-
-def _is_large_discretionary_subsection(subsection: str) -> bool:
-    return str(subsection or "").strip() == LARGE_DISCRETIONARY_SUBSECTION
-
-
 def _normalize_large_discretionary_type(value: str) -> str:
     text = str(value or "").strip()
     low = text.lower().replace("_", " ").replace("-", " ")
@@ -1422,106 +1270,6 @@ def _normalize_large_discretionary_type(value: str) -> str:
     if low in {"vacation", "vacations", "travel", "travel and vacations", "home projects", "home project", "home improvement", "home improvements", "capital improvements"}:
         return "Other"
     return text or "Other"
-
-
-def _large_discretionary_expenses_from_csv_rows(rows: list[list[str]]) -> list[dict]:
-    """Read canonical Cashflow / Large Discretionary Expenses rows for the User UI."""
-    def col(row, idx, default=""):
-        return (row[idx] if len(row) > idx else default) or ""
-
-    grouped: dict[str, dict] = {}
-    for row in rows[1:]:
-        sec, sub, label, value, units, notes = [col(row, i) for i in range(6)]
-        if sec.strip() != "Cashflow" or not _is_large_discretionary_subsection(sub):
-            continue
-        m = re.match(r"extra_(\d+)_(type|amount|year|start_year|end_year|comment)$", label.strip())
-        if not m:
-            continue
-        grouped.setdefault(m.group(1), {})[m.group(2)] = value.strip()
-    out = []
-    for idx in sorted(grouped, key=lambda x: int(x)):
-        item = grouped[idx]
-        if not any(str(item.get(k, "")).strip() for k in ("type", "amount", "year", "start_year", "end_year", "comment")):
-            continue
-        out.append({
-            "type": _normalize_large_discretionary_type(item.get("type", "Other")),
-            "amount": item.get("amount", ""),
-            "year": item.get("year", ""),
-            "start_year": item.get("start_year", ""),
-            "end_year": item.get("end_year", ""),
-            "comment": item.get("comment", ""),
-        })
-    return out
-
-
-def _large_discretionary_rows_from_plan_spending_csv() -> list[list[str]]:
-    """Return canonical planned-spending rows from client_spending.csv."""
-    out = [["section", "subsection", "label", "value", "units", "notes"]]
-    path = _plan_data_path("client_spending.csv")
-    if not path.exists():
-        return out
-    with path.open(newline="", encoding="utf-8-sig") as f:
-        for row in csv.reader(f):
-            cols = list(row) + [""] * 6
-            if str(cols[0]).strip() == "Cashflow" and _is_large_discretionary_subsection(str(cols[1])):
-                out.append(cols[:6])
-    return out
-
-
-def _large_discretionary_expenses_from_plan_data() -> list[dict]:
-    return _large_discretionary_expenses_from_csv_rows(_large_discretionary_rows_from_plan_spending_csv())
-
-
-def _travel_extra_rows(events: list[dict]) -> list[list[str]]:
-    rows = [
-        ["", "", "", "", "", "", "", ""],
-        ["# -- Large Discretionary Expenses: one-time and repeatable lifestyle/large-event spending --", "", "", "", "", "", "", ""],
-    ]
-    for i, event in enumerate(events, 1):
-        typ = _normalize_large_discretionary_type(event.get("type") or "Other")
-        amount = _fmt_money_for_csv(event.get("amount"))
-        year = str(event.get("year") or "").strip()
-        start = str(event.get("start_year") or "").strip()
-        end = str(event.get("end_year") or "").strip()
-        comment = str(event.get("comment") or "").strip()
-        rows.extend([
-            ["Cashflow", "Large Discretionary Expenses", f"extra_{i}_type", typ, "", "Category selected in the UI", "", ""],
-            ["Cashflow", "Large Discretionary Expenses", f"extra_{i}_amount", amount, "USD", "Annual amount if repeatable; one-time amount if year is used", "", ""],
-            ["Cashflow", "Large Discretionary Expenses", f"extra_{i}_year", year, "year", "Use for a one-time extra; leave blank for repeatable extras", "", ""],
-            ["Cashflow", "Large Discretionary Expenses", f"extra_{i}_start_year", start, "year", "First year for repeatable extras", "", ""],
-            ["Cashflow", "Large Discretionary Expenses", f"extra_{i}_end_year", end, "year", "Last year for repeatable extras", "", ""],
-            ["Cashflow", "Large Discretionary Expenses", f"extra_{i}_comment", comment, "", "User note for this item", "", ""],
-        ])
-    rows.append(["", "", "", "", "", "", "", ""])
-    return rows
-
-
-def _replace_large_discretionary_expenses(events: list[dict]) -> None:
-    path = _client_section_path("Cashflow", "client_spending.csv")
-    if path.exists():
-        with path.open(newline="", encoding="utf-8-sig") as f:
-            rows = list(csv.reader(f))
-    else:
-        rows = [["section", "subsection", "label", "value", "units", "notes"]]
-    while rows and not any(str(c).strip() for c in rows[-1]):
-        rows.pop()
-    indices = [i for i, r in enumerate(rows) if len(r) >= 2 and str(r[0]).strip() == "Cashflow" and _is_large_discretionary_subsection(str(r[1]))]
-    insert_at = min(indices) if indices else None
-    new_rows = []
-    for i, r in enumerate(rows):
-        if i in indices:
-            continue
-        if len(r) >= 1 and str(r[0]).startswith("# -- Large Discretionary Expenses"):
-            continue
-        new_rows.append(r)
-    if insert_at is None:
-        insert_at = len(new_rows)
-        for i, r in enumerate(new_rows):
-            if len(r) >= 2 and str(r[0]).strip() == "Cashflow" and str(r[1]).strip() == "Post-House-Sale Rent":
-                insert_at = i + 1
-    normalized = _travel_extra_rows(events)
-    new_rows[insert_at:insert_at] = normalized
-    _write_client_rows(path, new_rows)
 
 
 # ---------------------------------------------------------------------------
@@ -1605,276 +1353,6 @@ def _investment_account_ids_from_holdings(holdings_dir: Path | None = None) -> l
                 accounts.add(acct)
     return sorted(accounts)
 
-
-
-def _forced_roth_conversions_from_csv_rows(rows: list[list[str]]) -> list[dict]:
-    """Read forced Roth conversions from the normalized source-account/year/amount table."""
-    def col(row, idx, default=""):
-        return (row[idx] if len(row) > idx else default) or ""
-    grouped: dict[str, dict] = {}
-    for row in rows[1:]:
-        sec, sub, label, value = [col(row, i).strip() for i in range(4)]
-        if sec != "Forced Actions":
-            continue
-        if re.match(r"^Roth Conversion \d+$", sub, re.I):
-            grouped.setdefault(sub, {})[label] = value
-    out=[]
-    for sub in sorted(grouped, key=lambda x: int(re.search(r"\d+", x).group(0)) if re.search(r"\d+", x) else 0):
-        rec=grouped[sub]
-        out.append({
-            "source_account": str(rec.get("source_account", "")).strip(),
-            "year": str(rec.get("year", "")).strip(),
-            "amount": str(rec.get("amount", "")).strip(),
-        })
-    return out
-
-
-def _forced_roth_conversion_rows(conversions: list[dict]) -> list[list[str]]:
-    rows = [["", "", "", "", "", "", "", ""], ["# -- Forced Roth Conversions: source account, year, and amount --", "", "", "", "", "", "", ""]]
-    account_choices = " | ".join(_pre_tax_account_options_from_holdings()) or "Member_1_IRA | Member_2_IRA | Member_1_401k"
-    for i, conv in enumerate(conversions, 1):
-        acct = str(conv.get("source_account") or "").strip()
-        year = str(conv.get("year") or "").strip()
-        amount = _fmt_money_for_csv(conv.get("amount"))
-        if not any([acct, year, amount]):
-            continue
-        rows.extend([
-            ["Forced Actions", f"Roth Conversion {i}", "source_account", acct, "choice", f"{account_choices}; pre-tax account to convert from", "", ""],
-            ["Forced Actions", f"Roth Conversion {i}", "year", year, "year", "Calendar year the forced conversion is applied", "", ""],
-            ["Forced Actions", f"Roth Conversion {i}", "amount", amount, "USD", "Dollar amount to convert from the selected account to that owner’s Roth account", "", ""],
-        ])
-    rows.append(["", "", "", "", "", "", "", ""])
-    return rows
-
-
-def _replace_forced_roth_conversions(conversions: list[dict]) -> None:
-    path = _client_section_path("Forced Actions", "client_policy.csv")
-    rows = _ensure_header(_csv_read_rows(path))
-    while rows and not any(str(c).strip() for c in rows[-1]):
-        rows.pop()
-    remove=set()
-    for i, r in enumerate(rows):
-        if not r:
-            continue
-        if str(r[0]).startswith("# -- Forced Roth Conversions"):
-            remove.add(i)
-        elif len(r) >= 1 and str(r[0]).strip() == "Forced Actions":
-            remove.add(i)
-    insert_at = min(remove) if remove else None
-    new_rows = [r for i, r in enumerate(rows) if i not in remove]
-    if insert_at is None:
-        insert_at = len(new_rows)
-        for i, r in enumerate(new_rows):
-            if len(r) >= 1 and str(r[0]).strip() == "Scenarios":
-                insert_at = i
-                break
-    normalized = _forced_roth_conversion_rows(conversions)
-    new_rows[insert_at:insert_at] = normalized
-    _write_client_rows(path, new_rows)
-
-def _liquidity_buffers_from_csv_rows(rows: list[list[str]]) -> list[dict]:
-    """Read normalized Liquidity Buffer rows."""
-    def col(row, idx, default=""):
-        return (row[idx] if len(row) > idx else default) or ""
-
-    normalized: dict[str, dict] = {}
-    for row in rows[1:]:
-        sec, sub, label, value = [col(row, i).strip() for i in range(4)]
-        if sec == "Liquidity Buffer" and re.match(r"buffer_\d+", sub):
-            normalized.setdefault(sub, {})[label] = value
-    if normalized:
-        out = []
-        for key in sorted(normalized, key=lambda x: int(re.search(r"\d+", x).group(0)) if re.search(r"\d+", x) else 0):
-            rec = normalized[key]
-            if any(str(rec.get(k, "")).strip() for k in ("start_year", "end_year", "years_of_expenses", "years_of_expenses_in_trust")):
-                out.append({
-                    "start_year": rec.get("start_year", ""),
-                    "end_year": rec.get("end_year", ""),
-                    "years_of_expenses": rec.get("years_of_expenses", rec.get("years_of_expenses_in_trust", "")),
-                    "reserve_account": rec.get("reserve_account", rec.get("preserve_account", "Taxable/Trust")) or "Taxable/Trust",
-                })
-        return out
-
-    return []
-
-
-def _liquidity_buffer_rows(buffers: list[dict]) -> list[list[str]]:
-    rows = [
-        ["", "", "", "", "", "", "", ""],
-        ["# -- Liquidity Buffer: year-ranged reserve rules --", "", "", "", "", "", "", ""],
-    ]
-    for i, b in enumerate(buffers, 1):
-        start = str(b.get("start_year") or "").strip()
-        end = str(b.get("end_year") or "").strip()
-        yrs = str(b.get("years_of_expenses") or "0").strip() or "0"
-        acct = str(b.get("reserve_account") or b.get("preserve_account") or "Taxable/Trust").strip() or "Taxable/Trust"
-        rows.extend([
-            ["Liquidity Buffer", f"buffer_{i}", "start_year", start, "year", "First year this reserve rule applies; blank means plan start", "", ""],
-            ["Liquidity Buffer", f"buffer_{i}", "end_year", end, "year", "Last year this reserve rule applies; blank means open-ended", "", ""],
-            ["Liquidity Buffer", f"buffer_{i}", "years_of_expenses", yrs, "years", "Years of expenses to retain as a reserve; default is 0", "", ""],
-            ["Liquidity Buffer", f"buffer_{i}", "reserve_account", acct, "choice", "Taxable/Trust | Roth | IRA | HSA | Cash; bucket the withdrawal cascade holds above this reserve (Cash is never drawn, so it is preserved by construction)", "", ""],
-        ])
-    rows.append(["", "", "", "", "", "", "", ""])
-    return rows
-
-
-def _replace_liquidity_buffers(buffers: list[dict]) -> None:
-    path = _client_section_path("Liquidity Buffer", "client_assets.csv")
-    with path.open(newline="", encoding="utf-8-sig") as f:
-        rows = list(csv.reader(f))
-    while rows and not any(str(c).strip() for c in rows[-1]):
-        rows.pop()
-    indices = []
-    for i, r in enumerate(rows):
-        if not r:
-            continue
-        if str(r[0]).startswith("# -- Liquidity Buffer"):
-            indices.append(i)
-        elif len(r) >= 1 and str(r[0]).strip() == "Liquidity Buffer":
-            indices.append(i)
-    insert_at = min(indices) if indices else None
-    new_rows = [r for i, r in enumerate(rows) if i not in set(indices)]
-    if insert_at is None:
-        insert_at = len(new_rows)
-        for i, r in enumerate(new_rows):
-            if len(r) >= 1 and str(r[0]).strip() == "Other Assets":
-                insert_at = i + 1
-    normalized = _liquidity_buffer_rows(buffers)
-    new_rows[insert_at:insert_at] = normalized
-    _write_client_rows(path, new_rows)
-
-
-def _home_sale_splits_from_csv_rows(rows: list[list[str]]) -> list[dict]:
-    """Read normalized Home Sale Split rows (#299)."""
-    def col(row, idx, default=""):
-        return (row[idx] if len(row) > idx else default) or ""
-
-    normalized: dict[str, dict] = {}
-    for row in rows[1:]:
-        sec, sub, label, value = [col(row, i).strip() for i in range(4)]
-        if sec == "Home Sale Split" and re.match(r"split_\d+", sub):
-            normalized.setdefault(sub, {})[label] = value
-    if not normalized:
-        return []
-    out = []
-    for key in sorted(normalized, key=lambda x: int(re.search(r"\d+", x).group(0)) if re.search(r"\d+", x) else 0):
-        rec = normalized[key]
-        if str(rec.get("account", "")).strip():
-            out.append({
-                "account": rec.get("account", ""),
-                "percentage": rec.get("percentage", ""),
-            })
-    return out
-
-
-def _home_sale_split_rows(splits: list[dict]) -> list[list[str]]:
-    rows = [
-        ["", "", "", "", "", "", "", ""],
-        ["# -- Home Sale Split: split house sale proceeds across accounts by percentage --", "", "", "", "", "", "", ""],
-    ]
-    for i, s in enumerate(splits, 1):
-        acct = str(s.get("account") or "").strip()
-        pct = str(s.get("percentage") or "0").strip() or "0"
-        rows.extend([
-            ["Home Sale Split", f"split_{i}", "account", acct, "choice", "Account to receive this share of house sale proceeds", "", ""],
-            ["Home Sale Split", f"split_{i}", "percentage", pct, "percent", "Share of net house sale proceeds deposited to this account; all rows must sum to 100%", "", ""],
-        ])
-    rows.append(["", "", "", "", "", "", "", ""])
-    return rows
-
-
-def _replace_home_sale_splits(splits: list[dict]) -> None:
-    path = _client_section_path("Home Sale Split", "client_assets.csv")
-    with path.open(newline="", encoding="utf-8-sig") as f:
-        rows = list(csv.reader(f))
-    while rows and not any(str(c).strip() for c in rows[-1]):
-        rows.pop()
-    indices = []
-    for i, r in enumerate(rows):
-        if not r:
-            continue
-        if str(r[0]).startswith("# -- Home Sale Split"):
-            indices.append(i)
-        elif len(r) >= 1 and str(r[0]).strip() == "Home Sale Split":
-            indices.append(i)
-    insert_at = min(indices) if indices else None
-    new_rows = [r for i, r in enumerate(rows) if i not in set(indices)]
-    if insert_at is None:
-        insert_at = len(new_rows)
-        for i, r in enumerate(new_rows):
-            if len(r) >= 1 and str(r[0]).strip() == "Other Assets":
-                insert_at = i + 1
-    normalized = _home_sale_split_rows(splits)
-    new_rows[insert_at:insert_at] = normalized
-    _write_client_rows(path, new_rows)
-
-
-def _residency_schedule_from_csv_rows(rows: list[list[str]]) -> list[dict]:
-    """Read normalized State Residency Schedule rows (#302)."""
-    def col(row, idx, default=""):
-        return (row[idx] if len(row) > idx else default) or ""
-
-    normalized: dict[str, dict] = {}
-    for row in rows[1:]:
-        sec, sub, label, value = [col(row, i).strip() for i in range(4)]
-        if sec == "State Residency Schedule" and re.match(r"period_\d+", sub):
-            normalized.setdefault(sub, {})[label] = value
-    if not normalized:
-        return []
-    out = []
-    for key in sorted(normalized, key=lambda x: int(re.search(r"\d+", x).group(0)) if re.search(r"\d+", x) else 0):
-        rec = normalized[key]
-        if str(rec.get("state", "")).strip():
-            out.append({
-                "state": rec.get("state", ""),
-                "start_year": rec.get("start_year", ""),
-                "end_year": rec.get("end_year", ""),
-            })
-    return out
-
-
-def _residency_schedule_rows(schedule: list[dict]) -> list[list[str]]:
-    rows = [
-        ["", "", "", "", "", "", "", ""],
-        ["# -- State Residency Schedule: state residency over time -- last row is open-ended --", "", "", "", "", "", "", ""],
-    ]
-    for i, p in enumerate(schedule, 1):
-        state = str(p.get("state") or "").strip()
-        start = str(p.get("start_year") or "").strip()
-        end = str(p.get("end_year") or "").strip()
-        rows.extend([
-            ["State Residency Schedule", f"period_{i}", "state", state, "choice", "Residence state during this period", "", ""],
-            ["State Residency Schedule", f"period_{i}", "start_year", start, "year", "First year this residency period applies", "", ""],
-            ["State Residency Schedule", f"period_{i}", "end_year", end, "year", "Last year this residency period applies; blank on the last row means open-ended", "", ""],
-        ])
-    rows.append(["", "", "", "", "", "", "", ""])
-    return rows
-
-
-def _replace_residency_schedule(schedule: list[dict]) -> None:
-    path = _client_section_path("State Residency Schedule", "client_data.csv")
-    with path.open(newline="", encoding="utf-8-sig") as f:
-        rows = list(csv.reader(f))
-    while rows and not any(str(c).strip() for c in rows[-1]):
-        rows.pop()
-    indices = []
-    for i, r in enumerate(rows):
-        if not r:
-            continue
-        if str(r[0]).startswith("# -- State Residency Schedule"):
-            indices.append(i)
-        elif len(r) >= 1 and str(r[0]).strip() == "State Residency Schedule":
-            indices.append(i)
-    insert_at = min(indices) if indices else None
-    new_rows = [r for i, r in enumerate(rows) if i not in set(indices)]
-    if insert_at is None:
-        insert_at = len(new_rows)
-        for i, r in enumerate(new_rows):
-            if len(r) >= 1 and str(r[0]).strip() == "Household":
-                insert_at = i + 1
-    normalized = _residency_schedule_rows(schedule)
-    new_rows[insert_at:insert_at] = normalized
-    _write_client_rows(path, new_rows)
 
 
 def _sync_config_backends() -> dict:
