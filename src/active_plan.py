@@ -4,8 +4,14 @@ Design F sections 5A and 7. Until the plan registry is wired (WP8.4: ``app.db``
 ``plan_registry`` / ``active_plan``), a workspace has exactly one plan and its file is
 ``<workspace>/plan.rpx`` (``PLAN_FILE_NAME``; the same place ``tests/plan_fixture.make_plan``
 builds it). ``RETIREMENT_SYSTEM_PLAN_DB`` (``PLAN_DB_ENV``) overrides the path; the server
-sets it for the build subprocess so the build reads the same file the server does.
-WP8.4 replaces the body of :func:`active_plan_path` with the registry lookup.
+sets it for the build subprocess so the build reads the same file the server does, together
+with ``RETIREMENT_SYSTEM_PLAN_REVISION`` (``PLAN_REVISION_ENV``: the plan's revision when the
+build was requested). WP8.4 replaces the body of :func:`active_plan_path` with the registry lookup.
+
+The build reads through :func:`build_read`: one read transaction on the plan file for the whole
+computation (WP7.1). While it is open, every reader below that targets that file (the rows, the
+flat datasets, the fingerprint) uses it on that thread, so the build sees one consistent state of
+the plan; a write the build itself makes (the default HSA schedule) moves the view forward.
 
 ``plan_rows`` is the only store of the sectioned plan data (WP4.5 deleted the CSV working
 copy, its bridge and the JSON/YAML mirrors). Two entries:
@@ -27,9 +33,10 @@ from typing import Any, Callable, Iterator
 
 from . import platform_runtime
 from .roth_ui_build_guard import canonicalize_roth_rows
-from .stores import PlanStore
+from .stores import PlanStore, StoreError
 
 PLAN_DB_ENV = "RETIREMENT_SYSTEM_PLAN_DB"
+PLAN_REVISION_ENV = "RETIREMENT_SYSTEM_PLAN_REVISION"
 PLAN_FILE_NAME = "plan.rpx"
 
 SectionedData = dict[str, dict[str, dict[str, str]]]
@@ -68,6 +75,111 @@ def active_plan_path() -> Path:
 def active_plan_store(*, readonly: bool = False) -> PlanStore:
     """Open the active plan (created when missing unless ``readonly``). Close it after use."""
     return PlanStore.open(active_plan_path(), create=not readonly, readonly=readonly)
+
+
+# ------------------------------------------------------------ the build's read (WP7.1)
+_PIN = threading.local()  # per thread: an in-process build must not pin the server's readers
+
+
+def _same_file(a: str | Path, b: str | Path) -> bool:
+    try:
+        return Path(a).resolve() == Path(b).resolve()
+    except OSError:
+        return str(a) == str(b)
+
+
+@dataclass
+class BuildRead:
+    """The build's view of the plan (see :func:`build_read`): the plan file, its open store,
+    the revision read and the revision the build was requested for (``""`` when not given)."""
+    path: Path
+    store: PlanStore
+    revision: str = ""
+    requested_revision: str = ""
+    _txn: Any = None
+
+    @property
+    def stale(self) -> bool:
+        """True when the plan changed between the build request and the build's read."""
+        return bool(self.requested_revision) and self.requested_revision != self.revision
+
+    def _begin(self) -> None:
+        self._txn = self.store.read_transaction()
+        self._txn.__enter__()
+
+    def _end(self) -> None:
+        txn, self._txn = self._txn, None
+        if txn is not None:
+            txn.__exit__(None, None, None)
+
+    def refresh(self) -> None:
+        """Move the view to the plan's latest committed state (after the build's own write)."""
+        if self._txn is not None:
+            self._end()
+            self._begin()
+
+    def release(self) -> None:
+        """End the read and unpin it (idempotent): later reads open the plan file again."""
+        if getattr(_PIN, "read", None) is self:
+            _PIN.read = None
+        self._end()
+        self.store.close()
+
+
+def _pinned(path: str | Path) -> PlanStore | None:
+    read = getattr(_PIN, "read", None)
+    if read is not None and not read.store.closed and _same_file(read.path, path):
+        return read.store
+    return None
+
+
+def _refresh_pin(path: str | Path) -> None:
+    read = getattr(_PIN, "read", None)
+    if read is not None and not read.store.closed and _same_file(read.path, path):
+        read.refresh()
+
+
+@contextmanager
+def _reading(path: str | Path, *, create: bool = False, readonly: bool = False) -> Iterator[PlanStore]:
+    """The build's pinned store when ``path`` is the plan it reads, else a store opened for the call."""
+    store = _pinned(path)
+    if store is not None:
+        yield store
+        return
+    with PlanStore.open(path, create=create, readonly=readonly) as opened:
+        yield opened
+
+
+@contextmanager
+def _writing(path: str | Path, *, create: bool = True) -> Iterator[PlanStore]:
+    """A writable store on ``path``; afterwards a build reading that plan sees the write."""
+    try:
+        with PlanStore.open(path, create=create) as store:
+            yield store
+    finally:
+        _refresh_pin(path)
+
+
+@contextmanager
+def build_read(path: str | Path | None = None) -> Iterator[BuildRead]:
+    """Open the build's one read transaction on the plan file (default: the active plan,
+    ``$RETIREMENT_SYSTEM_PLAN_DB``) and pin it for this thread until the block ends or
+    :meth:`BuildRead.release`. The plan file is created (empty) and brought to the current
+    schema first, as the build's first read always did. ``requested_revision`` is
+    ``$RETIREMENT_SYSTEM_PLAN_REVISION``."""
+    target = Path(path) if path is not None else active_plan_path()
+    PlanStore.open(target).close()  # create when missing, migrate an older schema
+    read = BuildRead(target, PlanStore.open(target, create=False, readonly=True),
+                     requested_revision=str(os.environ.get(PLAN_REVISION_ENV, "") or "").strip())
+    previous = getattr(_PIN, "read", None)
+    try:
+        read._begin()
+        read.revision = read.store.revision()
+        _PIN.read = read
+        yield read
+    finally:
+        read.release()
+        _PIN.read = previous
 
 
 # Serializes the row edits in this process (the server is threaded); across processes the
@@ -124,12 +236,13 @@ def edit_active_plan(*, protect_values: bool = False) -> Iterator[PlanEdit]:
                 _keep_protected_values(store, before)
             edit.final_values = {(r["section"], r["subsection"], r["label"]): r["value"] for r in store.all_rows()}
         edit.revision = store.revision()
+    _refresh_pin(active_plan_path())
 
 
 def active_plan_data() -> SectionedData:
     """The engine view of the active plan (``PlanStore.sectioned_data()``); ``{}`` for a plan
     with no rows."""
-    with active_plan_store() as store:
+    with _reading(active_plan_path(), create=True) as store:
         return store.sectioned_data()
 
 
@@ -143,7 +256,7 @@ def peek_plan_data(workspace_root: str | Path | None = None) -> SectionedData:
     if not path.is_file():
         return {}
     try:
-        with PlanStore.open(path, create=False) as store:
+        with _reading(path) as store:
             return store.sectioned_data()
     except LookupError:  # stores.NotFoundError: not an initialised plan file
         return {}
@@ -177,7 +290,7 @@ def plan_file_has_rows(path: str | Path) -> bool:
     if not target.is_file():
         return False
     try:
-        with PlanStore.open(target, create=False, readonly=True) as store:
+        with _reading(target, readonly=True) as store:
             return bool(store.all_rows())
     except LookupError:  # not an initialised plan file
         return False
@@ -201,13 +314,26 @@ def build_plan_file_from_csv_folder(dest: str | Path, folder: str | Path) -> int
 
 def plan_file_fingerprint(path: str | Path) -> tuple[str, int]:
     """``(revision, row count)`` of a plan file, read-only (the build's input fingerprint)."""
-    with PlanStore.open(path, create=False, readonly=True) as store:
+    with _reading(path, readonly=True) as store:
         return store.revision(), len(store.all_rows())
 
 
 def plan_db_env(env: dict[str, Any]) -> dict[str, Any]:
-    """Set ``PLAN_DB_ENV`` in a subprocess environment to the active plan file."""
-    env[PLAN_DB_ENV] = str(active_plan_path())
+    """Set ``PLAN_DB_ENV`` in a subprocess environment to the active plan file and
+    ``PLAN_REVISION_ENV`` to its current revision (dropped when the file cannot be read yet)."""
+    path = active_plan_path()
+    env[PLAN_DB_ENV] = str(path)
+    revision = ""
+    if path.is_file():
+        try:
+            with PlanStore.open(path, create=False, readonly=True) as store:
+                revision = store.revision()
+        except StoreError:  # not initialised, or an older schema the build migrates first
+            revision = ""
+    if revision:
+        env[PLAN_REVISION_ENV] = revision
+    else:
+        env.pop(PLAN_REVISION_ENV, None)
     return env
 
 
@@ -220,7 +346,7 @@ def _dataset_text(path: Path, name: str) -> str | None:
     if not path.is_file():
         return None
     try:
-        with PlanStore.open(path, create=False) as store:
+        with _reading(path) as store:
             repo = store.dataset(name)
             return dataset_csv_text(repo) if repo.count() else None
     except LookupError:  # stores.NotFoundError: not an initialised plan file
@@ -257,7 +383,7 @@ def write_active_dataset(name: str, text: str) -> int:
 
     from .csv_exchange.flat_csv import HSA_SCHEDULE_SAVED_KEY  # noqa: PLC0415
 
-    with active_plan_store() as store:
+    with _writing(active_plan_path()) as store:
         with store.transaction():
             written = replace_dataset_from_csv_text(store.dataset(name), text)
             if name == "hsa_schedule":
@@ -274,7 +400,7 @@ def active_hsa_schedule_saved() -> bool:
     if not path.is_file():
         return False
     try:
-        with PlanStore.open(path, create=False, readonly=True) as store:
+        with _reading(path, readonly=True) as store:
             return store.get_meta(HSA_SCHEDULE_SAVED_KEY) is not None
     except LookupError:  # not an initialised plan file
         return False
@@ -288,7 +414,7 @@ def dataset_fingerprint(path: str | Path) -> dict[str, str]:
     from .csv_exchange import FLAT_DATASET_FILES, dataset_csv_text  # noqa: PLC0415
 
     out: dict[str, str] = {}
-    with PlanStore.open(path, create=False) as store:
+    with _reading(path) as store:
         for name, file in FLAT_DATASET_FILES.items():
             repo = store.dataset(name)
             if repo.count():
@@ -314,7 +440,7 @@ def _dataset_rows(path: Path, name: str) -> list[dict[str, str]]:
     if not path.is_file():
         return []
     try:
-        with PlanStore.open(path, create=False) as store:
+        with _reading(path) as store:
             return store.dataset(name).rows()
     except LookupError:  # stores.NotFoundError: not an initialised plan file
         return []
@@ -334,7 +460,7 @@ def dataset_rows_for_input_dir(input_dir: str | Path, name: str) -> list[dict[st
 def write_workspace_dataset_rows(root: str | Path, name: str, rows: list[dict[str, Any]]) -> int:
     """Replace dataset ``name`` in the plan of workspace ``root`` (created when missing) with
     ``rows`` (text values; ``None`` is stored empty). Returns the rows written."""
-    with PlanStore.open(plan_path_for_workspace(root)) as store:
+    with _writing(plan_path_for_workspace(root)) as store:
         return store.dataset(name).replace_all(rows)
 
 
@@ -346,7 +472,7 @@ def write_dataset_rows_for_input_dir(input_dir: str | Path, name: str, rows: lis
 def append_dataset_row_for_input_dir(input_dir: str | Path, name: str, row: dict[str, Any]) -> int:
     """Append one row to dataset ``name`` of the plan behind a workspace's ``input`` folder (the
     plan is created when missing); read and write are one transaction. Returns the row count."""
-    with PlanStore.open(plan_path_for_workspace(Path(input_dir).parent)) as store:
+    with _writing(plan_path_for_workspace(Path(input_dir).parent)) as store:
         repo = store.dataset(name)
         with store.transaction():
             rows = repo.rows()
@@ -361,7 +487,7 @@ def transform_dataset_rows_for_input_dir(
     ``fn(current rows)`` (the plan is created when missing). The read and the write are one
     transaction, so a concurrent writer (another process on the same plan file) cannot be lost.
     Returns the row count written."""
-    with PlanStore.open(plan_path_for_workspace(Path(input_dir).parent)) as store:
+    with _writing(plan_path_for_workspace(Path(input_dir).parent)) as store:
         repo = store.dataset(name)
         with store.transaction():
             return repo.replace_all(fn(repo.rows()))
@@ -378,7 +504,7 @@ def workspace_recovery_seed_rows(root: str | Path) -> list[dict[str, str]]:
     if not path.is_file():
         return []
     try:
-        with PlanStore.open(path, create=False) as store:
+        with _reading(path) as store:
             return store.spending.recovery_seed()
     except LookupError:  # not an initialised plan file
         return []
@@ -387,14 +513,14 @@ def workspace_recovery_seed_rows(root: str | Path) -> list[dict[str, str]]:
 def write_workspace_recovery_seed(root: str | Path, rows: list[dict[str, Any]]) -> int:
     """Make ``rows`` the recovery seed of the plan of workspace ``root`` (replacing the previous
     seed). Returns the rows kept."""
-    with PlanStore.open(plan_path_for_workspace(root)) as store:
+    with _writing(plan_path_for_workspace(root)) as store:
         return store.spending.set_recovery_seed(rows)
 
 
 def keep_workspace_pre_recovery_copy(root: str | Path, rows: list[dict[str, Any]]) -> bool:
     """Keep ``rows`` (the budget before a recovery merge) as the plan's one-time ``pre-recovery``
     revision; False when one exists already or ``rows`` is empty."""
-    with PlanStore.open(plan_path_for_workspace(root)) as store:
+    with _writing(plan_path_for_workspace(root)) as store:
         return store.spending.keep_pre_recovery_copy(rows)
 
 
@@ -404,5 +530,5 @@ def restore_workspace_pre_recovery_copy(root: str | Path) -> int:
     path = plan_path_for_workspace(root)
     if not path.is_file():
         return 0
-    with PlanStore.open(path, create=False) as store:
+    with _writing(path, create=False) as store:
         return store.spending.restore_pre_recovery_copy()
