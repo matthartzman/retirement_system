@@ -90,7 +90,8 @@ def test_plan_data_routes_refuse_the_retired_part_files(ws):
     assert {f["name"] for f in listing["files"]} == {
         "client_holdings.csv", "client_liabilities.csv", "client_hsa_schedule.csv", "target_allocation.csv",
         "client_spending_taxonomy.csv", "client_spending_aliases.csv", "client_spending_budget.csv",
-        "client_spending_budget_lines.csv", "ytd_transactions.csv", "ytd_account_setup.csv", "ytd_import_history.csv"}
+        "client_spending_budget_lines.csv", "client_spending_rules.csv", "spending_category_map.csv",
+        "spending_budget.csv", "ytd_transactions.csv", "ytd_account_setup.csv", "ytd_import_history.csv"}
     assert listing["protected_client_data"]["member_1_retirement_date_present"] is True
 
 

@@ -7,17 +7,17 @@ from src.import_preview import preview_holdings_import, preview_ytd_transactions
 
 
 YTD_HEADER = "Date,Merchant,Category,Account,Original Statement,Notes,Amount,Tags,Owner\n"
+from tests.plan_fixture import plan_dataset_rows, write_plan_dataset
 
 
 def test_ytd_transactions_preview_is_side_effect_free_and_reports_import_risks(tmp_path: Path):
-    (tmp_path / "ytd_transactions.csv").write_text(
+    root = tmp_path / "input"  # the plan file (plan.rpx) sits beside the input folder
+    root.mkdir()
+    write_plan_dataset(
+        tmp_path, "ytd_transactions.csv",
         YTD_HEADER + "2026-01-10,Store,Groceries,Checking,,, -12.00,,Household\n",
-        encoding="utf-8",
     )
-    (tmp_path / "spending_category_map.csv").write_text(
-        "super_group,group,category,tracking\nExpenses,Food,Groceries,core\n",
-        encoding="utf-8",
-    )
+    write_plan_dataset(tmp_path, "spending_category_map.csv", "super_group,group,category,tracking\nExpenses,Food,Groceries,core\n")
     incoming = (
         YTD_HEADER
         + "2026-01-10,Store,Groceries,Checking,,, -12.00,,Household\n"
@@ -25,7 +25,7 @@ def test_ytd_transactions_preview_is_side_effect_free_and_reports_import_risks(t
         + "2025-12-31,Old Store,Groceries,Checking,,, -10.00,,Household\n"
     )
 
-    preview = preview_ytd_transactions_import(tmp_path, incoming, mode="replace", today=date(2026, 6, 26))
+    preview = preview_ytd_transactions_import(root, incoming, mode="replace", today=date(2026, 6, 26))
 
     assert preview["success"] is True
     assert preview["schema"] == "import_preview_v1"
@@ -39,7 +39,8 @@ def test_ytd_transactions_preview_is_side_effect_free_and_reports_import_risks(t
     assert preview["duplicate_candidates"]["matching_existing_rows"] == 1
     assert preview["unmapped_categories"] == ["New Category"]
     assert preview["account_summary"]["new_accounts"] == ["New Card"]
-    assert (tmp_path / "ytd_import_history.csv").exists() is False
+    assert plan_dataset_rows(tmp_path, "ytd_import_history.csv") == []  # nothing was written
+    assert len(plan_dataset_rows(tmp_path, "ytd_transactions.csv")) == 1
 
 
 def test_holdings_preview_reports_counts_duplicates_dates_and_quality_flags(tmp_path: Path):

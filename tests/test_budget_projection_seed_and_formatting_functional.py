@@ -3,6 +3,7 @@ from pathlib import Path
 from _decomp_dashboard import dashboard_js_text
 
 from src.spending_budget_resolver import apply_budget_to_engine_config
+from tests.plan_fixture import write_plan_dataset
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -14,13 +15,13 @@ def write(path: Path, text: str):
 
 def test_budget_rollup_applies_even_when_only_housing_domain_rows_exist(tmp_path):
     root = tmp_path
-    write(root / 'input/client_spending_taxonomy.csv', '''tracking_type,group,category_id,label,origin,status,notes
+    write_plan_dataset(root, "client_spending_taxonomy.csv", '''tracking_type,group,category_id,label,origin,status,notes
 Housing,Utilities,housing_utilities,Utilities,custom,active,
 Housing,Maintenance,home_maintenance,Home Maintenance,custom,active,
 Housing,Other,ho_insurance,Homeowners Insurance,template,active,
 ''')
-    write(root / 'input/client_spending_aliases.csv', 'match_value,match_field,exact,priority,category_id,source\n')
-    write(root / 'input/client_spending_budget.csv', '''kind,key,label,annual_budget,start_year,end_year,one_time_year,notes
+    write_plan_dataset(root, "client_spending_aliases.csv", 'match_value,match_field,exact,priority,category_id,source\n')
+    write_plan_dataset(root, 'client_spending_budget.csv', '''kind,key,label,annual_budget,start_year,end_year,one_time_year,notes
 category,housing_utilities,Utilities,2100,,,,
 category,home_maintenance,Home Maintenance,1200,,,,
 category,ho_insurance,Homeowners Insurance,2000,,,,
@@ -40,11 +41,11 @@ def test_heloc_repayment_years_is_integer_not_currency_in_ui_source():
 
 def test_home_improvement_line_controls_projection_window_over_category_actual(tmp_path):
     root = tmp_path
-    write(root / 'input/client_spending_taxonomy.csv', '''tracking_type,group,category_id,label,origin,status,notes
+    write_plan_dataset(root, "client_spending_taxonomy.csv", '''tracking_type,group,category_id,label,origin,status,notes
 Housing,Home Improvement,home_improvement,Home Improvement,custom,active,
 ''')
-    write(root / 'input/client_spending_aliases.csv', 'match_value,match_field,exact,priority,category_id,source\n')
-    write(root / 'input/client_spending_budget.csv', '''kind,key,label,annual_budget,start_year,end_year,one_time_year,notes
+    write_plan_dataset(root, "client_spending_aliases.csv", 'match_value,match_field,exact,priority,category_id,source\n')
+    write_plan_dataset(root, 'client_spending_budget.csv', '''kind,key,label,annual_budget,start_year,end_year,one_time_year,notes
 category,home_improvement,Home Improvement,15082,,,,annualized actual should not run forever when detail line exists
 line,home_improvement,Home Improvement,25000,2026,2030,,projection window
 ''')

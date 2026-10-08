@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import csv
 import io
+from pathlib import Path
+from typing import Any, Iterable, Mapping
 
 
 def parse_csv_dicts(text: str) -> list[dict[str, str]]:
@@ -18,3 +20,113 @@ def parse_csv_dicts(text: str) -> list[dict[str, str]]:
         if any(clean.values()):
             out.append(clean)
     return out
+
+
+def dataset_csv_text(repo) -> str:
+    """A flat plan dataset (``store.holdings`` ...) as the legacy CSV: header line, then one
+    line per row, cells exactly as stored."""
+    buf = io.StringIO()
+    w = csv.writer(buf, lineterminator="\n")
+    header = [*repo.columns, *repo.extra_columns()]
+    w.writerow(header)
+    for r in repo.rows():
+        w.writerow([r.get(c, "") for c in header])
+    return buf.getvalue()
+
+
+def dataset_rows_from_csv_text(text: str) -> tuple[list[str], list[dict[str, str]]]:
+    """``(header, rows)`` of a flat dataset CSV text as the dataset tables take it: UTF-8 BOM
+    ignored, cells kept unstripped, fully blank lines skipped."""
+    reader = csv.DictReader(io.StringIO((text or "").lstrip("\ufeff")))
+    header = [str(c) for c in (reader.fieldnames or []) if c is not None and str(c)]
+    rows = []
+    for raw in reader:
+        row = {str(k): (v or "") for k, v in raw.items() if k is not None and str(k)}
+        if any(v.strip() for v in row.values()):
+            rows.append(row)
+    return header, rows
+
+
+def read_dataset_csv_file(path: str | Path) -> tuple[list[str], list[dict[str, str]]]:
+    """:func:`dataset_rows_from_csv_text` of a legacy file, decoded the way the old spending
+    readers decoded it (UTF-8, undecodable bytes replaced, NUL bytes dropped)."""
+    text = Path(path).read_bytes().decode("utf-8-sig", errors="replace").replace("\x00", "")
+    return dataset_rows_from_csv_text(text)
+
+
+def replace_dataset_from_csv_text(repo, text: str) -> int:
+    """Replace a flat plan dataset from CSV text (UTF-8 BOM ignored, missing columns empty,
+    other columns kept as extra columns, fully blank lines skipped, cells kept unstripped)."""
+    _, rows = dataset_rows_from_csv_text(text)
+    return _replace_dataset_rows(repo, rows)
+
+
+# plan_meta key set when a household's HSA schedule was saved, seeded or imported (even empty).
+HSA_SCHEDULE_SAVED_KEY = "dataset.hsa_schedule.saved"
+
+
+def _replace_dataset_rows(repo, rows: list[dict[str, str]]) -> int:
+    for row in rows:
+        for c in repo.columns:
+            row.setdefault(c, "")
+    return repo.replace_all(rows)
+
+
+# Plan dataset name (``PlanStore.dataset(name)``) -> its legacy CSV file name.
+FLAT_DATASET_FILES: dict[str, str] = {
+    "holdings": "client_holdings.csv",
+    "liabilities": "client_liabilities.csv",
+    "hsa_schedule": "client_hsa_schedule.csv",
+    "target_allocation": "target_allocation.csv",
+    # The spending set (``store.spending``); WP6.3b added budget, lines, overrides; WP6.3c adds rules, map.
+    "spending_taxonomy": "client_spending_taxonomy.csv",
+    "spending_aliases": "client_spending_aliases.csv",
+    "spending_budget": "client_spending_budget.csv",
+    "spending_budget_lines": "client_spending_budget_lines.csv",
+    "spending_tier_overrides": "client_spending_tier_overrides.csv",
+    "spending_rules": "client_spending_rules.csv",
+    "spending_category_map": "spending_category_map.csv",
+    "spending_group_budget": "spending_budget.csv",
+    # The YTD actuals (WP6.4).
+    "ytd_transactions": "ytd_transactions.csv",
+    "ytd_account_setup": "ytd_account_setup.csv",
+    "ytd_import_history": "ytd_import_history.csv",
+}
+
+
+# The spending budget's recovery seed (a known-good budget): a plan revision, not a table.
+RECOVERY_SEED_FILE = "client_spending_budget.recovery_seed.csv"
+
+
+def import_recovery_seed(folder: str | Path, store: Any) -> int:
+    """Keep the recovery seed file found in ``folder`` as the plan's recovery seed revision
+    (``store.spending.set_recovery_seed``); a missing file leaves the plan as it is. Returns
+    the rows kept (0 when there is no file)."""
+    path = Path(folder) / RECOVERY_SEED_FILE
+    if not path.is_file():
+        return 0
+    _, rows = read_dataset_csv_file(path)
+    return store.spending.set_recovery_seed(rows)
+
+
+def import_flat_datasets(folder: str | Path, store: Any, names: Iterable[str] | None = None) -> dict[str, int]:
+    """Load the flat dataset CSVs found in ``folder`` into the plan's dataset tables
+    (``{dataset: rows written}``; a missing file leaves its table as it is). One transaction."""
+    wanted = list(FLAT_DATASET_FILES if names is None else names)
+    out: dict[str, int] = {}
+    with store.transaction():
+        for name in wanted:
+            path = Path(folder) / FLAT_DATASET_FILES[name]
+            if path.is_file():
+                _, rows = read_dataset_csv_file(path)
+                out[name] = _replace_dataset_rows(store.dataset(name), rows)
+                if name == "hsa_schedule":
+                    # The file existed (even header-only): the household's schedule is "saved".
+                    store.set_meta(HSA_SCHEDULE_SAVED_KEY, "1")
+    return out
+
+
+def import_flat_dataset_texts(store: Any, texts: Mapping[str, str]) -> dict[str, int]:
+    """Same as :func:`import_flat_datasets` for CSV text already read (``{dataset: text}``)."""
+    with store.transaction():
+        return {n: replace_dataset_from_csv_text(store.dataset(n), t) for n, t in texts.items() if n in FLAT_DATASET_FILES}

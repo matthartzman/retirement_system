@@ -20,6 +20,7 @@ from src.spending_budget_resolver import resolve_spending_inputs
 ROOT = Path(__file__).resolve().parents[1]
 
 from conftest import TEST_INPUT_DIR
+from tests.plan_fixture import write_plan_dataset
 
 TRAVEL_SUMMARY = 25000.0
 
@@ -33,12 +34,12 @@ def test_summary_group_budget_resolves_to_full_window_extra(tmp_path):
     """A Summary-mode group budget must resolve to a single recurring extra that
     spans the entire plan window, so the engine has an amount to index every
     future year (rather than a one-off that vanishes after the current year)."""
-    _write(tmp_path / "input/client_spending_taxonomy.csv",
+    write_plan_dataset(tmp_path, "client_spending_taxonomy.csv",
            "tracking_type,group,category_id,label,origin,status,notes\n"
            "Travel,Travel,travel_vacation,Travel & Vacation,transaction,active,\n")
-    _write(tmp_path / "input/client_spending_aliases.csv",
+    write_plan_dataset(tmp_path, "client_spending_aliases.csv",
            "match_value,match_field,exact,priority,category_id,source\n")
-    _write(tmp_path / "input/client_spending_budget.csv",
+    write_plan_dataset(tmp_path, "client_spending_budget.csv",
            "kind,key,label,annual_budget,start_year,end_year,one_time_year,notes,_mode,line_section,line_mode\n"
            "group,Travel::Travel,Travel,25000,,,,,summary,,\n")
     out = resolve_spending_inputs(tmp_path, config={"plan_start": 2026, "plan_end": 2030})

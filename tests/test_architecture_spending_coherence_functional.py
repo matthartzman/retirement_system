@@ -1,4 +1,5 @@
 import csv
+import io
 from pathlib import Path
 
 from src.spending_tracker import monthly_series, taxonomy_flat
@@ -6,6 +7,7 @@ from src.spending_tracker import monthly_series, taxonomy_flat
 ROOT = Path(__file__).resolve().parents[1]
 
 from conftest import TEST_INPUT_DIR
+from tests.plan_fixture import write_plan_dataset
 
 
 def _read_csv(path: Path):
@@ -20,6 +22,15 @@ def _write_csv(path: Path, fieldnames: list[str], rows: list[dict]) -> None:
         w.writeheader()
         for row in rows:
             w.writerow(row)
+
+
+def _write_plan_csv(root: Path, file_name: str, fieldnames: list[str], rows: list[dict]) -> None:
+    """A spending dataset of ``<root>/plan.rpx`` (a plan file table since WP6.3a)."""
+    buf = io.StringIO()
+    w = csv.DictWriter(buf, fieldnames=fieldnames, lineterminator='\n')
+    w.writeheader()
+    w.writerows(rows)
+    write_plan_dataset(root, file_name, buf.getvalue())
 
 
 def test_flask_removal_and_workbench_proposals_are_documented():
@@ -68,7 +79,7 @@ def test_travel_detail_is_not_an_active_group():
 
 def test_monthly_trajectory_includes_all_non_transfer_spending_including_taxes(tmp_path):
     input_dir = tmp_path / 'input'
-    _write_csv(input_dir / 'client_spending_taxonomy.csv',
+    _write_plan_csv(tmp_path, 'client_spending_taxonomy.csv',
                ['tracking_type', 'group', 'category_id', 'label', 'origin', 'status', 'notes'], [
         {'tracking_type': 'Core Expenses', 'group': 'Food & Dining', 'category_id': 'groceries', 'label': 'Groceries', 'origin': 'custom', 'status': 'active', 'notes': ''},
         {'tracking_type': 'Housing', 'group': 'Mortgage', 'category_id': 'mortgage', 'label': 'Mortgage', 'origin': 'custom', 'status': 'active', 'notes': ''},
@@ -80,7 +91,7 @@ def test_monthly_trajectory_includes_all_non_transfer_spending_including_taxes(t
         {'tracking_type': 'Income', 'group': 'Income', 'category_id': 'paychecks', 'label': 'Paychecks', 'origin': 'custom', 'status': 'active', 'notes': ''},
         {'tracking_type': 'Transfer', 'group': 'Transfers', 'category_id': 'credit_card_payment', 'label': 'Credit Card Payment', 'origin': 'custom', 'status': 'active', 'notes': ''},
     ])
-    _write_csv(input_dir / 'client_spending_aliases.csv',
+    _write_plan_csv(tmp_path, 'client_spending_aliases.csv',
                ['match_value', 'match_field', 'exact', 'priority', 'category_id', 'source'], [
         {'match_value': 'Groceries', 'match_field': 'category', 'exact': '1', 'priority': '90', 'category_id': 'groceries', 'source': 'test'},
         {'match_value': 'Mortgage', 'match_field': 'category', 'exact': '1', 'priority': '90', 'category_id': 'mortgage', 'source': 'test'},
@@ -92,9 +103,9 @@ def test_monthly_trajectory_includes_all_non_transfer_spending_including_taxes(t
         {'match_value': 'Paychecks', 'match_field': 'category', 'exact': '1', 'priority': '90', 'category_id': 'paychecks', 'source': 'test'},
         {'match_value': 'Credit Card Payment', 'match_field': 'category', 'exact': '1', 'priority': '90', 'category_id': 'credit_card_payment', 'source': 'test'},
     ])
-    _write_csv(input_dir / 'client_spending_budget.csv',
+    _write_plan_csv(tmp_path, 'client_spending_budget.csv',
                ['kind', 'key', 'label', 'annual_budget', 'start_year', 'end_year', 'one_time_year', 'notes'], [])
-    _write_csv(input_dir / 'ytd_transactions.csv',
+    _write_plan_csv(tmp_path, 'ytd_transactions.csv',
                ['Date', 'Merchant', 'Category', 'Account', 'Original Statement', 'Notes', 'Amount', 'Tags', 'Owner'], [
         {'Date': '2026-01-03', 'Merchant': 'Market', 'Category': 'Groceries', 'Account': 'Checking', 'Original Statement': '', 'Notes': '', 'Amount': '-10', 'Tags': '', 'Owner': ''},
         {'Date': '2026-01-04', 'Merchant': 'Bank', 'Category': 'Mortgage', 'Account': 'Checking', 'Original Statement': '', 'Notes': '', 'Amount': '-20', 'Tags': '', 'Owner': ''},

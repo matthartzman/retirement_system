@@ -327,24 +327,66 @@ def _migrate_plan_file_rows(plan_path, dry_run: bool) -> int:
     return changed
 
 
+# The plan file's flat dataset tables that carry a category id (WP6.3a/b/c): the spending taxonomy,
+# aliases, budget lines, tier overrides, rules and category map. They get the same whole-cell
+# renames as their legacy files did.
+_CATEGORY_KEYED_PLAN_DATASETS = (
+    "spending_taxonomy", "spending_aliases", "spending_budget_lines", "spending_tier_overrides",
+    "spending_rules", "spending_category_map",
+)
+
+
+def _migrate_plan_file_datasets(plan_path, dry_run: bool) -> int:
+    """Apply the flat category-id renames (``migrate_flat_category_content``'s rule: only the
+    ``_FLAT_CATEGORY_COLUMNS``, whole cells) to the category-keyed dataset tables of a plan
+    file, in one transaction. Returns the number of cells changed (0 for a missing file)."""
+    from pathlib import Path
+    from .stores import PlanStore
+
+    if not Path(plan_path).is_file():
+        return 0
+    changed = 0
+    with PlanStore.open(plan_path, create=False) as store:
+        with store.transaction():
+            for name in _CATEGORY_KEYED_PLAN_DATASETS:
+                repo = store.dataset(name)
+                rows = repo.rows()
+                here = 0
+                for row in rows:
+                    for col in _FLAT_CATEGORY_COLUMNS:
+                        new = _FLAT_CATEGORY_RENAMES.get(str(row.get(col, "")).strip())
+                        if col in row and new and new != row[col]:
+                            row[col] = new
+                            here += 1
+                if here and not dry_run:
+                    repo.replace_all(rows)
+                changed += here
+    return changed
+
+
 def migrate_plan_file(plan_path, dry_run: bool = False) -> dict:
     """Rename the legacy keys in a plan file's rows, in place (idempotent, no version stamp).
 
     Runs at startup and after every plan file swap (Load Saved Plan, snapshot restore, demo),
     so a plan saved by an older version is brought to the current key names whenever it
-    becomes the active plan. Returns ``{"plan_rows": n, "total_changed": n}``.
+    becomes the active plan. The category-keyed dataset tables (spending taxonomy and aliases)
+    get the flat category renames. Returns ``{"plan_rows": n, "plan_datasets": n,
+    "total_changed": n}``.
     """
     changed = _migrate_plan_file_rows(plan_path, dry_run)
-    return {"plan_rows": changed, "total_changed": changed}
+    datasets = _migrate_plan_file_datasets(plan_path, dry_run)
+    return {"plan_rows": changed, "plan_datasets": datasets, "total_changed": changed + datasets}
 
 
 def migrate_plan_data_at_rest(input_dir, db_path=None, dry_run: bool = False, plan_path=None) -> dict:
     """Migrate the plan file's rows, AND the flat Plan Data CSVs in ``input_dir``, once, in place.
 
     Returns ``{"migrated": {name: changed}, "total_changed": int, "skipped": bool,
-    "plan_rows": int}``, plus an ``"error"`` key (str) ONLY when the plan-row sweep
-    raised -- absent on every successful call, so ``report.get("error")`` is the check.
-    ``total_changed`` is the sum of CSV field changes and migrated plan rows, so callers
+    "plan_rows": int, "plan_datasets": int}``, plus an ``"error"`` key (str) ONLY when the
+    plan-file sweep raised -- absent on every successful call, so ``report.get("error")`` is the
+    check. ``plan_datasets`` counts the category-id cells renamed in the plan file's spending
+    taxonomy/aliases tables (WP6.3a). ``total_changed`` is the sum of CSV field changes, migrated
+    plan rows and renamed dataset cells, so callers
     that only look at ``total_changed`` (e.g. ``main.py``'s startup log) keep working.
 
     The plan file is canonical (WP4.2): the engine reads ``plan_rows`` of the active plan, so
@@ -373,6 +415,8 @@ def migrate_plan_data_at_rest(input_dir, db_path=None, dry_run: bool = False, pl
             if Path(input_dir).resolve() == (platform_runtime.workspace_root() / "input").resolve():
                 plan_path = active_plan_path()
         plan_rows_changed = _migrate_plan_file_rows(plan_path, dry_run) if plan_path is not None else 0
+        # The spending taxonomy/aliases tables carry category ids too (WP6.3a).
+        plan_datasets_changed = _migrate_plan_file_datasets(plan_path, dry_run) if plan_path is not None else 0
     except Exception as exc:
         # Never stamp the version over a sweep that did not finish, so the next boot retries
         # everything. The caller (run_startup_plan_data_migration / main.py) still must not
@@ -383,7 +427,8 @@ def migrate_plan_data_at_rest(input_dir, db_path=None, dry_run: bool = False, pl
         }
 
     if not dry_run and not needs_migration(db_path=db_path):
-        return {"migrated": {}, "total_changed": plan_rows_changed, "skipped": True, "plan_rows": plan_rows_changed}
+        return {"migrated": {}, "total_changed": plan_rows_changed + plan_datasets_changed, "skipped": True,
+                "plan_rows": plan_rows_changed, "plan_datasets": plan_datasets_changed}
 
     root = Path(input_dir)
     migrated: dict = {}
@@ -415,10 +460,11 @@ def migrate_plan_data_at_rest(input_dir, db_path=None, dry_run: bool = False, pl
             with atomic_write(path) as handle:
                 handle.write(new_content)
 
-    total += plan_rows_changed
+    total += plan_rows_changed + plan_datasets_changed
     if not dry_run:
         set_stored_schema_version(PLAN_DATA_SCHEMA_VERSION, db_path=db_path)
-    return {"migrated": migrated, "total_changed": total, "skipped": False, "plan_rows": plan_rows_changed}
+    return {"migrated": migrated, "total_changed": total, "skipped": False, "plan_rows": plan_rows_changed,
+            "plan_datasets": plan_datasets_changed}
 
 
 def run_startup_plan_data_migration(input_dir=None, db_path=None) -> dict:

@@ -3,6 +3,7 @@ from pathlib import Path
 from _decomp_dashboard import dashboard_js_text
 
 from src import spending_tracker as st
+from tests.plan_fixture import write_plan_dataset
 
 
 def write(path: Path, text: str):
@@ -12,20 +13,20 @@ def write(path: Path, text: str):
 
 def test_spending_model_exposes_explicit_reconciliation_fields_and_keeps_budget_only_rows(tmp_path):
     root = tmp_path
-    write(root / "input/client_spending_taxonomy.csv", """tracking_type,group,category_id,label,origin,status,notes
+    write_plan_dataset(root, "client_spending_taxonomy.csv", """tracking_type,group,category_id,label,origin,status,notes
 Housing,Utilities,electric,Electric,template,active,
 Wellness,Premiums,medicare_part_b_premium,Medicare Part B Premium,template,active,
 Core Expenses,Food,groceries,Groceries,transaction,active,
 """)
-    write(root / "input/client_spending_aliases.csv", """match_value,match_field,exact,priority,category_id,source
+    write_plan_dataset(root, "client_spending_aliases.csv", """match_value,match_field,exact,priority,category_id,source
 Groceries,category,1,80,groceries,seed
 """)
-    write(root / "input/client_spending_budget.csv", """kind,key,label,annual_budget,start_year,end_year,one_time_year,notes
+    write_plan_dataset(root, "client_spending_budget.csv", """kind,key,label,annual_budget,start_year,end_year,one_time_year,notes
 category,electric,Electric,2400,,,,housing budget-only row must remain visible
 category,medicare_part_b_premium,Medicare Part B Premium,2200,,,,wellness budget-only row must remain visible
 category,groceries,Groceries,6000,,,,core budget row
 """)
-    write(root / "input/ytd_transactions.csv", """Date,Merchant,Category,Account,Amount,Owner
+    write_plan_dataset(root, "ytd_transactions.csv", """Date,Merchant,Category,Account,Amount,Owner
 2026-01-10,Market,Groceries,Card,-100,Shared
 """)
     model = st.spending_model(root, year=2026)

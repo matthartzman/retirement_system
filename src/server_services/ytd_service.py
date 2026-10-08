@@ -3,9 +3,10 @@ from __future__ import annotations
 """Feature-owned service logic for YTD transactions/account setup.
 
 This module intentionally has no dependency on the HTTP runtime or route
-decorators.  The route layer injects path, SQLite, and audit callbacks so YTD
+decorators.  The route layer injects path and audit callbacks so YTD
 behavior can be tested and maintained independently from HTTP
-route modules.
+route modules. The YTD data is three tables of the plan file (WP6.4), read and
+written through ``ytd_tracking``.
 """
 
 import csv
@@ -14,10 +15,7 @@ import io
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Iterable
-
-
-YTD_PERSISTED_FILES = ("ytd_transactions.csv", "ytd_account_setup.csv", "ytd_import_history.csv")
+from typing import Any, Callable
 
 
 def _load_ytd_module():
@@ -31,12 +29,6 @@ class YtdServiceContext:
     plan_data_path: Callable[..., Path]
     path_roots_from_config: Callable[[], list[Path]]
     server_path_allowed: Callable[[Path], tuple[bool, str]]
-    workspace_id: Callable[[], str]
-    client_id: Callable[[], str]
-    sqlite_db: Callable[[], Path]
-    current_user_id: Callable[[], str]
-    get_client_file: Callable[..., str | None]
-    set_client_file: Callable[..., None]
     audit: Callable[[str, dict[str, Any]], None]
 
 
@@ -47,9 +39,6 @@ class YtdService:
 
     def input_root(self) -> Path:
         return self.ctx.plan_data_path("ytd_transactions.csv", prefer_existing=False).parent
-
-    def _plan_path(self, name: str, *, prefer_existing: bool = True) -> Path:
-        return self.ctx.plan_data_path(name, prefer_existing=prefer_existing)
 
     def _csv_rows_from_text(self, text: str, columns: list[str]) -> list[dict[str, str]]:
         reader = csv.DictReader(io.StringIO(text or ""))
@@ -109,50 +98,11 @@ class YtdService:
             ),
         }
 
-    def mirror_file_to_sqlite(self, name: str) -> None:
-        if name not in YTD_PERSISTED_FILES:
-            return
-        path = self._plan_path(name, prefer_existing=True)
-        if not path.exists():
-            return
-        try:
-            self.ctx.set_client_file(
-                name,
-                path.read_text(encoding="utf-8-sig"),
-                self.ctx.workspace_id(),
-                self.ctx.client_id(),
-                self.ctx.current_user_id(),
-                self.ctx.sqlite_db(),
-            )
-        except Exception as exc:
-            self.ctx.audit("ytd_sqlite_mirror_warning", {"file": name, "error": str(exc)})
+    def account_setup_text(self) -> str:
+        """The account setup table as CSV text (empty when it has no rows)."""
+        from ..plan_datasets import dataset_text_for_input_dir  # noqa: PLC0415
 
-    def mirror_files_to_sqlite(self, names: Iterable[str] = YTD_PERSISTED_FILES) -> None:
-        for name in names:
-            self.mirror_file_to_sqlite(str(name))
-
-    def rehydrate_files_from_sqlite(self) -> dict[str, list[str]]:
-        recovered: list[str] = []
-        for name in YTD_PERSISTED_FILES:
-            path = self._plan_path(name, prefer_existing=False)
-            text = ""
-            if path.exists():
-                try:
-                    text = path.read_text(encoding="utf-8-sig")
-                except Exception:
-                    text = ""
-            if text.strip():
-                continue
-            try:
-                db_text = self.ctx.get_client_file(name, self.ctx.workspace_id(), self.ctx.client_id(), self.ctx.sqlite_db())
-            except Exception:
-                db_text = None
-            if not db_text or not str(db_text).strip():
-                continue
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(str(db_text), encoding="utf-8")
-            recovered.append(name)
-        return {"files_rehydrated_from_sqlite": recovered}
+        return dataset_text_for_input_dir(self.input_root(), "ytd_account_setup") or ""
 
     def account_setup_recovery_candidates(self, extra_path: str | None = None) -> list[dict[str, Any]]:
         candidates: list[dict[str, Any]] = []
@@ -182,14 +132,7 @@ class YtdService:
             except Exception:
                 return
 
-        add_path(self._plan_path("ytd_account_setup.csv", prefer_existing=True))
-        try:
-            add_text(
-                "sqlite://client_files/ytd_account_setup.csv",
-                self.ctx.get_client_file("ytd_account_setup.csv", self.ctx.workspace_id(), self.ctx.client_id(), self.ctx.sqlite_db()),
-            )
-        except Exception:
-            pass
+        add_text("plan://ytd_account_setup", self.account_setup_text())
 
         if extra_path:
             p = Path(str(extra_path)).expanduser()
@@ -234,8 +177,7 @@ class YtdService:
         return [best_by_account[k] for k in sorted(best_by_account)]
 
     def recover_account_setup(self, *, force: bool = False, extra_path: str | None = None) -> dict[str, Any]:
-        current_path = self._plan_path("ytd_account_setup.csv", prefer_existing=True)
-        current_text = current_path.read_text(encoding="utf-8-sig") if current_path.exists() else ""
+        current_text = self.account_setup_text()
         current_metrics = self.account_setup_text_score(current_text)
         candidates = self.account_setup_recovery_candidates(extra_path=extra_path)
         best = candidates[0] if candidates else None
@@ -243,7 +185,7 @@ class YtdService:
             return {
                 "success": False,
                 "recovered": False,
-                "reason": "No ytd_account_setup.csv recovery candidates found.",
+                "reason": "No account setup recovery candidates found.",
                 "current": current_metrics,
                 "candidates": [],
             }
@@ -259,8 +201,7 @@ class YtdService:
             }
         merged = self.merge_account_setup_candidates([current_text, best.get("text", "")])
         self.ytd.write_account_setup(self.input_root(), merged)
-        self.mirror_file_to_sqlite("ytd_account_setup.csv")
-        new_text = current_path.read_text(encoding="utf-8-sig") if current_path.exists() else ""
+        new_text = self.account_setup_text()
         new_metrics = self.account_setup_text_score(new_text)
         result = {
             "success": True,
@@ -275,11 +216,10 @@ class YtdService:
         return result
 
     def status_payload(self, *, period: str | None = None) -> dict[str, Any]:
-        recovery = self.rehydrate_files_from_sqlite()
         auto = self.recover_account_setup(force=False)
         payload = self.ytd.status_payload(self.input_root(), period=period)
-        if recovery.get("files_rehydrated_from_sqlite") or auto.get("recovered"):
-            payload["recovery"] = {"sqlite": recovery, "account_setup": auto}
+        if auto.get("recovered"):
+            payload["recovery"] = {"account_setup": auto}
         return payload
 
     def account_setup_recover_payload(self, body: dict[str, Any]) -> tuple[dict[str, Any], int]:
@@ -309,8 +249,6 @@ class YtdService:
         text = body.get("csv_text") or body.get("text") or ""
         mode = body.get("mode") or "replace"
         result = self.ytd.import_transactions(self.input_root(), str(text), str(mode))
-        if result.get("success"):
-            self.mirror_files_to_sqlite()
         self.ctx.audit(
             "ytd_transactions_uploaded",
             {"mode": mode, "success": bool(result.get("success")), "added": result.get("added"), "total": result.get("total")},
@@ -322,7 +260,6 @@ class YtdService:
         rows.append(self.ytd.normalize_transaction(body.get("row") or body))
         self.ytd.write_transactions(self.input_root(), rows)
         self.ytd.ensure_account_setup_for_transactions(self.input_root())
-        self.mirror_files_to_sqlite(("ytd_transactions.csv", "ytd_account_setup.csv"))
         self.ctx.audit("ytd_transaction_added", {"total": len(rows)})
         return {"success": True, "total": len(rows), "summary": self.ytd.ytd_summary(self.input_root())}
 
@@ -333,7 +270,6 @@ class YtdService:
         rows[index] = self.ytd.normalize_transaction(body.get("row") or body)
         self.ytd.write_transactions(self.input_root(), rows)
         self.ytd.ensure_account_setup_for_transactions(self.input_root())
-        self.mirror_files_to_sqlite(("ytd_transactions.csv", "ytd_account_setup.csv"))
         self.ctx.audit("ytd_transaction_updated", {"index": index})
         return {"success": True, "index": index, "summary": self.ytd.ytd_summary(self.input_root())}, 200
 
@@ -344,20 +280,17 @@ class YtdService:
         rows.pop(index)
         self.ytd.write_transactions(self.input_root(), rows)
         self.ytd.ensure_account_setup_for_transactions(self.input_root())
-        self.mirror_files_to_sqlite(("ytd_transactions.csv", "ytd_account_setup.csv"))
         self.ctx.audit("ytd_transaction_deleted", {"index": index, "total": len(rows)})
         return {"success": True, "total": len(rows), "summary": self.ytd.ytd_summary(self.input_root())}, 200
 
     def delete_all_transactions(self) -> dict[str, Any]:
         self.ytd.write_transactions(self.input_root(), [])
-        self.mirror_file_to_sqlite("ytd_transactions.csv")
         self.ctx.audit("ytd_transactions_deleted_all", {})
         return {"success": True, "total": 0, "summary": self.ytd.ytd_summary(self.input_root())}
 
     def save_account_setup(self, body: dict[str, Any]) -> dict[str, Any]:
         accounts = body.get("accounts") if isinstance(body.get("accounts"), list) else []
         self.ytd.write_account_setup(self.input_root(), accounts)
-        self.mirror_file_to_sqlite("ytd_account_setup.csv")
         self.ctx.audit("ytd_account_setup_saved", {"accounts": len(accounts)})
         return {"success": True, "accounts": self.ytd.read_account_setup(self.input_root()), "summary": self.ytd.ytd_summary(self.input_root())}
 
@@ -386,7 +319,6 @@ class YtdService:
             row["Prior Year End Date"] = prior_year_end.isoformat()
             updated += 1
         self.ytd.write_account_setup(self.input_root(), rows)
-        self.mirror_file_to_sqlite("ytd_account_setup.csv")
         self.ctx.audit("ytd_account_setup_rolled_forward", {"accounts_updated": updated, "prior_year_end": prior_year_end.isoformat()})
         return {
             "success": True,
@@ -400,6 +332,5 @@ class YtdService:
         cleaned = [self.ytd.normalize_transaction(r) for r in rows]
         self.ytd.write_transactions(self.input_root(), cleaned)
         self.ytd.ensure_account_setup_for_transactions(self.input_root())
-        self.mirror_files_to_sqlite(("ytd_transactions.csv", "ytd_account_setup.csv"))
         self.ctx.audit("ytd_transactions_bulk_saved", {"total": len(cleaned)})
         return {"success": True, "total": len(cleaned), "summary": self.ytd.ytd_summary(self.input_root())}

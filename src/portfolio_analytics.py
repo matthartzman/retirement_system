@@ -6,6 +6,7 @@ so ticker-level holdings can be mapped to asset-class targets.
 """
 
 import csv
+import io
 from datetime import datetime, timezone
 import json
 import sqlite3
@@ -17,8 +18,6 @@ from . import platform_runtime
 from .sqlite_util import connect as closing_connect
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_HOLDINGS = platform_runtime.workspace_root() / "input" / "client_holdings.csv"
-DEFAULT_TARGETS = platform_runtime.workspace_root() / "input" / "target_allocation.csv"
 PRICING_FREEZE_SCHEMA = "pricing_snapshot_freeze_v1"
 
 
@@ -242,17 +241,18 @@ def read_security_master() -> Dict[str, dict]:
     return result
 
 
-def read_targets(path: str | Path = DEFAULT_TARGETS) -> Dict[str, float]:
-    p = Path(path)
+def read_targets() -> Dict[str, float]:
+    """Target allocation of the active plan: ``{ASSET CLASS: fraction}``."""
+    from .plan_datasets import active_dataset_text
     targets: Dict[str, float] = {}
-    if not p.exists():
+    text = active_dataset_text("target_allocation")
+    if not text:
         return targets
-    with p.open(newline="", encoding="utf-8-sig") as f:
-        for row in csv.DictReader(f):
-            key = (row.get("asset_class") or row.get("ticker") or row.get("symbol") or "").strip().upper()
-            value = row.get("target_pct") or row.get("target") or ""
-            if key:
-                targets[key] = _pct(value)
+    for row in csv.DictReader(io.StringIO(text)):
+        key = (row.get("asset_class") or row.get("ticker") or row.get("symbol") or "").strip().upper()
+        value = row.get("target_pct") or row.get("target") or ""
+        if key:
+            targets[key] = _pct(value)
     return targets
 
 
@@ -262,7 +262,6 @@ def _latest_price_lookup(workspace_id: str = "local", db_path: str | Path = DEFA
 
 
 def holdings_market_values(
-    holdings_csv: str | Path = DEFAULT_HOLDINGS,
     workspace_id: str = "local",
     db_path: str | Path = DEFAULT_DB,
 ) -> Tuple[Dict[str, float], Dict[str, dict]]:
@@ -272,59 +271,56 @@ def holdings_market_values(
     price column -> purchase_price/cost_basis_per_share. This avoids live network
     calls in drift analysis while still using nightly snapshots when available.
     """
-    p = Path(holdings_csv)
-    if not p.exists():
+    from .plan_datasets import active_dataset_text
+    holdings_text = active_dataset_text("holdings")
+    if not holdings_text:
         return {}, {}
     master = read_security_master()
     latest = _latest_price_lookup(workspace_id=workspace_id, db_path=db_path)
     totals: Dict[str, float] = {}
     details: Dict[str, dict] = {}
-    with p.open(newline="", encoding="utf-8-sig") as f:
-        for row in csv.DictReader(f):
-            symbol = (row.get("ticker") or row.get("symbol") or "").strip().upper()
-            if not symbol:
-                continue
-            shares = _num(row.get("shares"), 0.0)
-            explicit_mv = _num(row.get("market_value") or row.get("value"), 0.0)
-            if explicit_mv > 0:
-                mv = explicit_mv
-                price_source = "holdings_market_value"
-                price = mv / shares if shares else mv
-            else:
-                price = latest.get(symbol) or _num(row.get("price"), 0.0) or _num(row.get("cost_basis_per_share"), 0.0) or _num(row.get("purchase_price"), 0.0)
-                price_source = "latest_snapshot" if symbol in latest else "holdings_price_or_purchase_price"
-                mv = shares * price
-            if mv <= 0:
-                continue
-            asset_class = (row.get("asset_class") or master.get(symbol, {}).get("asset_class") or ("CASH" if symbol == "CASH" else "UNKNOWN")).strip().upper()
-            totals[asset_class] = totals.get(asset_class, 0.0) + mv
-            d = details.setdefault(symbol, {"symbol": symbol, "asset_class": asset_class, "market_value": 0.0, "shares": 0.0, "price_source": price_source})
-            d["market_value"] += mv
-            d["shares"] += shares
-            d["price"] = price
-            d["price_source"] = price_source if d.get("price_source") == price_source else "mixed"
+    for row in csv.DictReader(io.StringIO(holdings_text)):
+        symbol = (row.get("ticker") or row.get("symbol") or "").strip().upper()
+        if not symbol:
+            continue
+        shares = _num(row.get("shares"), 0.0)
+        explicit_mv = _num(row.get("market_value") or row.get("value"), 0.0)
+        if explicit_mv > 0:
+            mv = explicit_mv
+            price_source = "holdings_market_value"
+            price = mv / shares if shares else mv
+        else:
+            price = latest.get(symbol) or _num(row.get("price"), 0.0) or _num(row.get("cost_basis_per_share"), 0.0) or _num(row.get("purchase_price"), 0.0)
+            price_source = "latest_snapshot" if symbol in latest else "holdings_price_or_purchase_price"
+            mv = shares * price
+        if mv <= 0:
+            continue
+        asset_class = (row.get("asset_class") or master.get(symbol, {}).get("asset_class") or ("CASH" if symbol == "CASH" else "UNKNOWN")).strip().upper()
+        totals[asset_class] = totals.get(asset_class, 0.0) + mv
+        d = details.setdefault(symbol, {"symbol": symbol, "asset_class": asset_class, "market_value": 0.0, "shares": 0.0, "price_source": price_source})
+        d["market_value"] += mv
+        d["shares"] += shares
+        d["price"] = price
+        d["price_source"] = price_source if d.get("price_source") == price_source else "mixed"
     return totals, details
 
 
 def holdings_allocation(
-    holdings_csv: str | Path = DEFAULT_HOLDINGS,
     workspace_id: str = "local",
     db_path: str | Path = DEFAULT_DB,
 ) -> Dict[str, float]:
-    totals, _ = holdings_market_values(holdings_csv, workspace_id, db_path)
+    totals, _ = holdings_market_values(workspace_id, db_path)
     grand = sum(totals.values())
     return {k: (v / grand if grand else 0.0) for k, v in totals.items()}
 
 
 def analyze_drift(
-    target_file: str | Path = DEFAULT_TARGETS,
-    holdings_csv: str | Path = DEFAULT_HOLDINGS,
     threshold_pct: float = 0.05,
     workspace_id: str = "local",
     db_path: str | Path = DEFAULT_DB,
 ) -> List[dict]:
-    targets = read_targets(target_file)
-    totals, details = holdings_market_values(holdings_csv, workspace_id, db_path)
+    targets = read_targets()
+    totals, details = holdings_market_values(workspace_id, db_path)
     grand = sum(totals.values())
     actual = {k: (v / grand if grand else 0.0) for k, v in totals.items()}
     rows: List[dict] = []

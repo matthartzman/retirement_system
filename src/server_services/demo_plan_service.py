@@ -22,24 +22,11 @@ database's ``client_files`` until WP6, so they ride along as before: the legacy 
 backed up and restored beside the plan file, and every flat demo file is applied through the
 real plan-data write path.
 
-TEXT_BACKUP_FILES are read by the app but are not in PLAN_DATA_CSV_FILES, so neither the
-caller's file list nor the restore-side materialize() covers them, yet leaving the real file
-in place during a demo leaks real plan data. Each one is applied from input/demo/ on open and
-restored from its own text backup:
-
-  * client_spending_budget.recovery_seed.csv --
-    spending_tracker.load_unified_budget() silently merges this into the
-    budget whenever the category rows total zero, which would pull the
-    advisor's own annualized actuals into the demo household's budget.
-  * spending_category_map.csv -- the transaction category vocabulary
-    (spending_tracker/import_preview read it). The real one names the
-    advisor's own categories and note counterparty, so a demo left the real
-    "Gifts - Family 12", "Cubs Tickets" and "RedMane Annual Note P&I" on the
-    spending screens while every other screen showed the demo household.
-  * spending_budget.csv -- group-level budget percentages seeded from the
-    advisor's actual transaction history.
-  * client_spending_rules.csv -- merchant/category mapping rules. input/demo/
-    already shipped a fictionalized copy of this one, but nothing applied it.
+The spending set (taxonomy, aliases, budget, lines, tier overrides, rules, category map, group
+budget) and the budget recovery seed are tables and revisions of the plan file (WP6.3), so the
+plan-file swap carries them: the demo plan file is built from input/demo (or the slot's plan
+file) with its own copies, and Open Current Plan puts the real ones back with the real plan file.
+Nothing spending-related is backed up or restored as a separate file.
 
 The demo slot (local_state/demo_plan/, see DEMO_SLOT_DIR): Open Current Plan
 used to simply discard whatever was in the demo when it swapped the real files
@@ -65,12 +52,6 @@ from ..active_plan import build_plan_file_from_csv_folder, ensure_plan_file
 from ..plan_db_replace import PLAN_FILE_TABLES, copy_sqlite_file, replace_active_db, validate_plan_file
 
 JsonDict = dict[str, Any]
-TEXT_BACKUP_FILES = (
-    "client_spending_budget.recovery_seed.csv",
-    "client_spending_rules.csv",
-    "spending_category_map.csv",
-    "spending_budget.csv",
-)
 # Persistent home for demo edits, under the DB's parent (local_state/). Kept
 # separate from input/demo/ (which ships in the repo and must stay pristine
 # for the anti-leak tests) and from the live plan slot.
@@ -92,7 +73,7 @@ class DemoPlanServiceContext:
     audit: Callable[[str, dict[str, Any]], None] | None = None
     demo_slot_dir: Callable[[], Path] | None = None
     # read_plan_data_file is DB-first (see app_core._read_plan_data_file) -- correct for the
-    # TEXT_BACKUP_FILES restore path above. Capture reads the on-disk copy, the same thing the
+    # restore path. Capture reads the on-disk copy, the same thing the
     # flat-file editors write, or an edit made during a demo could be dropped from the slot.
     # Defaulted so existing constructions/tests are unaffected; falls back to
     # read_plan_data_file when not supplied.
@@ -120,9 +101,6 @@ class DemoPlanService:
         """The pre-demo copy of the legacy local database (the flat datasets' ``client_files``)."""
         return Path(str(self.context.sqlite_db()) + ".before_demo")
 
-    def _file_backup_path(self, name: str) -> Path:
-        return self.context.sqlite_db().parent / f"{name}.before_demo"
-
     def _slot_dir(self) -> Path:
         if self.context.demo_slot_dir is not None:
             return self.context.demo_slot_dir()
@@ -131,7 +109,7 @@ class DemoPlanService:
     def _demo_file_names(self) -> list[str]:
         """Every file Open Demo Plan applies, in order, without duplicates."""
         names: list[str] = []
-        for name in [*self.context.plan_data_csv_files, *TEXT_BACKUP_FILES]:
+        for name in self.context.plan_data_csv_files:
             if name not in names:
                 names.append(name)
         return names
@@ -190,13 +168,6 @@ class DemoPlanService:
             if dest.exists():
                 self._checkpoint_sqlite(dest)
                 shutil.copy2(str(dest), str(self._legacy_backup_path()))
-            for name in TEXT_BACKUP_FILES:
-                try:
-                    real_content = self.context.read_plan_data_file(name)
-                    if real_content is not None:
-                        self._file_backup_path(name).write_text(real_content, encoding="utf-8")
-                except Exception as exc:
-                    self._audit("demo_plan_text_backup_warning", {"file": name, "error": str(exc)})
             try:
                 self._marker_path().write_text(
                     json.dumps({"opened_at": time.strftime("%Y-%m-%dT%H:%M:%S")}),
@@ -323,22 +294,6 @@ class DemoPlanService:
             self.context.materialize()
         except Exception as exc:
             self._audit("demo_plan_materialize_warning", {"error": str(exc)})
-
-        # Files outside PLAN_DATA_CSV_FILES that materialize() cannot bring
-        # back -- restore them from the text backup taken on open, or the
-        # demo's fixture would stay behind as the advisor's live data.
-        for name in TEXT_BACKUP_FILES:
-            text_backup = self._file_backup_path(name)
-            if not text_backup.exists():
-                continue
-            try:
-                self.context.write_plan_data_file(name, text_backup.read_text(encoding="utf-8"))
-            except Exception as exc:
-                self._audit("demo_plan_text_restore_warning", {"file": name, "error": str(exc)})
-            try:
-                text_backup.unlink()
-            except Exception:
-                pass
 
         try:
             backup.unlink()

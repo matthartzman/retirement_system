@@ -346,37 +346,39 @@ class FrozenSamplePlanGoldenMasterTests(unittest.TestCase):
         redirected workspace; if parse_client fell back to the real
         input/client_holdings.csv, this would silently produce the SAME
         balances as the full frozen build instead of different ones."""
-        import src.data_io as _data_io
         from src.data_io import load_csv, parse_client
-        from src.workspace_context import candidate_input_files as _real_candidate_input_files
 
         full = _frozen_config()
         full_balance = sum(full["balances"].values())
 
+        # WP6: holdings are a table of the plan file, so "withhold the holdings" means an
+        # active plan whose holdings table is empty. If parse_client fell back to anything
+        # outside the active plan (the repo's own input/), the balances would not change.
         workspace = Path(tempfile.mkdtemp(prefix="frozen_sample_plan_noholdings_"))
         (workspace / "input").mkdir(parents=True)
         for f in FROZEN_DIR.glob("client_*.csv"):
-            if f.name == "client_holdings.csv":
-                continue
-            shutil.copy(f, workspace / "input" / f.name)
-
-        def _redirected(filename, workspace_id=None, root=None):
-            return _real_candidate_input_files(filename, workspace_id, root=workspace)
-
-        _data_io.candidate_input_files = _redirected
+            if f.name != "client_holdings.csv":
+                shutil.copy(f, workspace / "input" / f.name)
+        prev = os.environ.get("RETIREMENT_SYSTEM_PLAN_DB")
+        os.environ["RETIREMENT_SYSTEM_PLAN_DB"] = str(workspace / "plan.rpx")
         try:
+            from tests.plan_fixture import stage_flat_datasets
+            stage_flat_datasets(workspace, {"target_allocation.csv": (FROZEN_DIR / "target_allocation.csv").read_text(encoding="utf-8")}, input_subdir="input")
             data = load_csv(workspace / "input" / "client_data.csv")
             c = parse_client(data, "")
         finally:
-            _data_io.candidate_input_files = _real_candidate_input_files
+            if prev is None:
+                os.environ.pop("RETIREMENT_SYSTEM_PLAN_DB", None)
+            else:
+                os.environ["RETIREMENT_SYSTEM_PLAN_DB"] = prev
             shutil.rmtree(workspace, ignore_errors=True)
 
         no_holdings_balance = sum(c["balances"].values())
         self.assertNotEqual(
             full_balance, no_holdings_balance,
-            "Removing client_holdings.csv from the redirected workspace had no effect on "
+            "Emptying the active plan's holdings table had no effect on "
             "total balances. This means the frozen build silently fell back to the real "
-            "repo input/client_holdings.csv instead of the frozen copy -- the mandatory "
+            "repo input/client_holdings.csv instead of the active plan's holdings -- the mandatory "
             "gate above would be pinned against live, not frozen, data.",
         )
 

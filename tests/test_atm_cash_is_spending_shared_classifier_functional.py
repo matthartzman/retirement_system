@@ -6,6 +6,7 @@ from pathlib import Path
 
 from src import spending_tracker as T
 from src import ytd_tracking as Y
+from tests.plan_fixture import reload_flat_datasets
 
 DEMO = Path(__file__).resolve().parents[1] / "input" / "demo"
 
@@ -36,7 +37,8 @@ def test_tracker_and_ytd_panel_agree_on_demo(tmp_path):
     for f in DEMO.glob("*.csv"):
         shutil.copy(f, root / f.name)
         shutil.copy(f, root / "input" / f.name)
-    ytd = Y.ytd_summary(root, today=date(2026, 9, 29))
+    reload_flat_datasets(root)  # the spending taxonomy and aliases are plan file tables (WP6.3a)
+    ytd = Y.ytd_summary(root / "input", today=date(2026, 9, 29))
     tracker = T.spending_summary_taxonomy(root, 2026)
     assert round(tracker["expense_actual"], 2) == round(ytd["actual"]["spending"], 2)
     assert round(tracker["income_actual"], 2) == round(ytd["actual"]["income"], 2)

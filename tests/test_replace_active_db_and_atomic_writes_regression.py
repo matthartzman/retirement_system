@@ -181,21 +181,28 @@ def _boom(*_a, **_k):
     raise OSError("simulated crash mid-write")
 
 
-def test_atomic_write_failure_keeps_original_holdings(tmp_path, monkeypatch):
+def test_failed_dataset_save_keeps_original_holdings(tmp_path, monkeypatch):
+    """The flat datasets are plan file tables (WP6): a save that fails part way rolls back."""
+    from src.active_plan import PLAN_DB_ENV
     from src.server_services import holdings_service
+    from src.stores import datasets
 
-    target = tmp_path / "input" / "client_holdings.csv"
-    target.parent.mkdir(parents=True)
-    target.write_text("original\n", encoding="utf-8")
-    monkeypatch.setattr(plan_file_io.os, "replace", _boom)
-    monkeypatch.setattr("src.workspace_context.workspace_file", lambda *a, **k: target)
-    monkeypatch.setattr("src.config_backend.set_client_file", lambda *a, **k: None)
+    plan = tmp_path / "plan.rpx"
+    monkeypatch.setenv(PLAN_DB_ENV, str(plan))
+    kw = dict(base_dir=tmp_path, workspace_id="local", client_id="local", user_id="u", db_path=tmp_path / "x.db")
+    holdings_service.save_holdings(content="account,symbol,shares\nA,VTI,1\n", **kw)
+    original = holdings_service.read_holdings(base_dir=tmp_path, workspace_id="local", client_id="local", db_path=tmp_path / "x.db")["content"]
 
+    def boom(self, rows):
+        raise OSError("simulated crash mid-write")
+
+    monkeypatch.setattr(datasets.FlatDatasetRepository, "_clean", boom)
     for fn in (holdings_service.save_holdings, holdings_service.save_liabilities, holdings_service.save_hsa_schedule):
         with pytest.raises(OSError):
-            fn(content="new,content\n", base_dir=tmp_path, workspace_id="local", client_id="local", user_id="u", db_path=tmp_path / "x.db")
-        assert target.read_text(encoding="utf-8") == "original\n"
-    assert not list(target.parent.glob("*.tmp"))
+            fn(content="account,symbol,year\nB,X,2030\n", **kw)
+    monkeypatch.undo()
+    monkeypatch.setenv(PLAN_DB_ENV, str(plan))
+    assert holdings_service.read_holdings(base_dir=tmp_path, workspace_id="local", client_id="local", db_path=tmp_path / "x.db")["content"] == original
 
 
 def test_secrets_store_failed_save_keeps_existing_keys(tmp_path, monkeypatch):

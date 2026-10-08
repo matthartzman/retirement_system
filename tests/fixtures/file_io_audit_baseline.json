@@ -4,8 +4,8 @@
    "path_io": 2
   },
   "src/data_io.py": {
-   "csv": 4,
-   "open": 4
+   "csv": 3,
+   "open": 1
   },
   "src/desktop_api.py": {
    "path_io": 4
@@ -17,8 +17,7 @@
    "path_io": 1
   },
   "src/import_preview.py": {
-   "csv": 2,
-   "open": 1
+   "csv": 1
   },
   "src/local_backup_scheduler.py": {
    "path_io": 4
@@ -30,16 +29,12 @@
   "src/monarch_autoupdate.py": {
    "path_io": 4
   },
-  "src/monarch_db_sync.py": {
-   "path_io": 1
-  },
   "src/monarch_import.py": {
    "csv": 1,
    "path_io": 2
   },
   "src/parsing/hsa_policy.py": {
-   "csv": 1,
-   "open": 1
+   "csv": 1
   },
   "src/plan_data_migration.py": {
    "csv": 4,
@@ -60,7 +55,7 @@
   "src/reporting/workbook_builder.py": {
    "json": 1,
    "open": 1,
-   "path_io": 3
+   "path_io": 2
   },
   "src/reporting/workbook_format_config.py": {
    "json": 6,
@@ -73,8 +68,8 @@
    "path_io": 1
   },
   "src/server/app_core.py": {
-   "csv": 16,
-   "path_io": 2
+   "csv": 13,
+   "path_io": 1
   },
   "src/server/plan_routes.py": {
    "path_io": 1
@@ -96,7 +91,7 @@
    "path_io": 4
   },
   "src/server_services/demo_plan_service.py": {
-   "path_io": 6
+   "path_io": 4
   },
   "src/server_services/portfolio_service.py": {
    "path_io": 1
@@ -112,20 +107,15 @@
   },
   "src/server_services/ytd_service.py": {
    "csv": 1,
-   "path_io": 6
-  },
-  "src/spending_tracker.py": {
-   "csv": 6,
-   "open": 6,
-   "path_io": 2
+   "path_io": 1
   },
   "src/system_config.py": {
    "csv": 3
   },
   "src/ytd_tracking.py": {
-   "csv": 6,
+   "csv": 4,
    "path_io": 1
   }
  },
- "total": 153
+ "total": 117
 }

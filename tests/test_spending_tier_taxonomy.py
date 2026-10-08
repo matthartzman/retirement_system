@@ -17,6 +17,7 @@ from pathlib import Path
 
 from src import spending_budget_resolver as sbr
 from src import spending_tracker as st
+from tests.plan_fixture import plan_dataset_rows, write_plan_dataset
 
 
 class ResolveSpendingTierDefaultsTests(unittest.TestCase):
@@ -139,9 +140,10 @@ class SpendingTierOverrideRoundTripTests(unittest.TestCase):
         overrides = sbr.load_spending_tier_overrides(self.root)
         self.assertNotIn("groceries", overrides)
 
-    def test_invalid_tier_value_in_csv_is_ignored(self):
-        path = self.root / "input" / "client_spending_tier_overrides.csv"
-        path.write_text("category_id,tier,notes\ngroceries,not_a_real_tier,bad row\n", encoding="utf-8")
+    def test_invalid_tier_value_in_the_table_is_ignored(self):
+        write_plan_dataset(self.root, "client_spending_tier_overrides.csv",
+                           "category_id,tier,notes\ngroceries,not_a_real_tier,bad row\n")
+        self.assertEqual(len(plan_dataset_rows(self.root, "client_spending_tier_overrides.csv")), 1)
         overrides = sbr.load_spending_tier_overrides(self.root)
         self.assertEqual(overrides, {})
 
@@ -158,8 +160,8 @@ class SpendBaseTierSharesTests(unittest.TestCase):
         st.save_taxonomy_category(self.root, "Core Expenses", "Food & Dining", "restaurants_bars", "Restaurants & Bars")
         st.save_taxonomy_category(self.root, "Core Expenses", "Shopping", "clothing_jewelry", "Clothing & Jewelry")
         st.save_taxonomy_category(self.root, "Housing", "Mortgage", "mortgage", "Mortgage")
-        # resolve_spending_inputs reads the unified budget (client_spending_budget.csv
-        # via _budget_indexes/load_unified_budget), not the legacy group-level
+        # resolve_spending_inputs reads the unified budget (the plan's spending_budget
+        # table via _budget_indexes/load_unified_budget), not the legacy group-level
         # spending_budget.csv that save_budget() writes.
         st.save_unified_budget(self.root, [
             {"kind": "category", "key": "groceries", "annual_budget": "12000"},

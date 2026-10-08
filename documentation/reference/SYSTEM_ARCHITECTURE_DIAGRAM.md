@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 224 Python files under `src/`, 48 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 229 Python files under `src/`, 48 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -24,7 +24,7 @@ flowchart TB
     subgraph L_HTTP_Runtime["HTTP Runtime (3 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
-    subgraph L_Core_Engine___Domain["Core Engine & Domain (143 modules)"]
+    subgraph L_Core_Engine___Domain["Core Engine & Domain (148 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
     subgraph L_Projection_Stages["Projection Stages (23 modules)"]
@@ -435,7 +435,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/server/app_core.py` | `src`, `active_plan`, `blank_plan`, `config_backend`, `http_runtime.wsgi_facade`, `permissions`, `plan_data_registry`, `plan_dates`, `plan_file_io`, `roth_ui_build_guard`, `runtime_config`, `schema_registry`, `secrets_store`, `security`, `server.plan_data_files`, `server.security_audit`, `stores.ref_getters.schema_fields`, `system_config`, `us_states`, `workspace_context` | — |
 | `src/server/base_routes.py` | `api_contracts`, `glossary`, `server.app_core`, `server.route_manifest`, `server_services`, `version` | — |
 | `src/server/plan_data_files.py` | `plan_data_registry` | — |
-| `src/server/plan_routes.py` | `active_plan`, `housing`, `module_catalog`, `monarch_autoimport_job`, `plan_data_migration`, `plan_interview`, `portfolio_analytics`, `report_compute`, `secrets_store`, `server.app_core`, `server_services`, `version` | — |
+| `src/server/plan_routes.py` | `active_plan`, `housing`, `module_catalog`, `monarch_autoimport_job`, `plan_data_migration`, `plan_data_registry`, `plan_interview`, `portfolio_analytics`, `report_compute`, `secrets_store`, `server.app_core`, `server_services`, `version` | — |
 | `src/server/route_manifest.py` | — | — |
 | `src/server/security_audit.py` | `config_backend`, `http_runtime.wsgi_facade`, `permissions`, `security`, `server`, `workspace_context` | — |
 | `src/server/workbook_routes.py` | `active_plan`, `build_snapshot`, `http_runtime.wsgi_facade`, `import_preview`, `local_store`, `reporting`, `results_model`, `schema_registry`, `server.app_core`, `server_forecast`, `server_services` | — |
@@ -446,13 +446,13 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | Module | Internal imports | External imports |
 |---|---|---|
 | `src/server_services/__init__.py` | — | — |
-| `src/server_services/admin_service.py` | `plan_data_registry`, `plan_file_io`, `secrets_store` | — |
+| `src/server_services/admin_service.py` | `plan_data_registry`, `plan_datasets`, `plan_file_io`, `secrets_store` | — |
 | `src/server_services/base_service.py` | — | — |
 | `src/server_services/build_job_service.py` | — | — |
 | `src/server_services/build_service.py` | `report_package`, `schema_registry`, `server_services` | — |
 | `src/server_services/config_service.py` | `daf_optimizer`, `module_catalog`, `optimization`, `plan_interview`, `qlac_optimizer`, `report_compute`, `roth_ui_build_guard`, `schema_registry`, `server_services.plan_tier_service` | — |
 | `src/server_services/demo_plan_service.py` | `active_plan`, `plan_db_replace` | — |
-| `src/server_services/holdings_service.py` | `config_backend`, `plan_file_io`, `workspace_context` | — |
+| `src/server_services/holdings_service.py` | `plan_datasets` | — |
 | `src/server_services/plan_data_file_service.py` | `plan_data_registry` | — |
 | `src/server_services/plan_file_service.py` | `build_snapshot`, `plan_db_replace` | — |
 | `src/server_services/plan_forms_service.py` | `active_plan`, `csv_exchange.plan_csv`, `plan_label_rules`, `roth_ui_build_guard` | — |
@@ -463,7 +463,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/server_services/secret_service.py` | — | — |
 | `src/server_services/spending_service.py` | `active_plan` | — |
 | `src/server_services/strategy_asset_service.py` | `core`, `data_io`, `plan_data_backfill`, `spending_adjustments`, `stores.ref_getters.state_tax` | — |
-| `src/server_services/ytd_service.py` | `import_preview` | — |
+| `src/server_services/ytd_service.py` | `import_preview`, `plan_datasets` | — |
 
 ### HTTP Runtime
 
@@ -478,13 +478,13 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | Module | Internal imports | External imports |
 |---|---|---|
 | `src/__init__.py` | `version` | — |
-| `src/active_plan.py` | `csv_exchange`, `roth_ui_build_guard`, `stores` | — |
+| `src/active_plan.py` | `csv_exchange`, `csv_exchange.flat_csv`, `roth_ui_build_guard`, `stores` | — |
 | `src/after_tax.py` | `core` | — |
 | `src/allocation_policy.py` | — | — |
 | `src/api_contracts.py` | — | — |
 | `src/blank_plan.py` | `csv_exchange` | — |
 | `src/bootstrap.py` | `src`, `plan_data_migration`, `platform_runtime`, `security` | — |
-| `src/build_entry.py` | `config_backend`, `plan_data_registry`, `reporting.workbook_builder` | — |
+| `src/build_entry.py` | `reporting.workbook_builder` | — |
 | `src/build_snapshot.py` | `plan_db_replace`, `version` | — |
 | `src/config_backend.py` | `active_plan`, `plan_file_io`, `sqlite_util`, `system_config` | — |
 | `src/core.py` | `person_labels` | — |
@@ -492,7 +492,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/csv_exchange/flat_csv.py` | — | — |
 | `src/csv_exchange/plan_csv.py` | `plan_label_rules` | — |
 | `src/daf_optimizer.py` | — | — |
-| `src/data_io.py` | `config_backend`, `core`, `market_data`, `module_catalog`, `money`, `parsing.advanced_modules`, `parsing.allocation_optimizer_inputs`, `parsing.daf`, `parsing.estate_planning`, `parsing.hsa_policy`, `parsing.insurance`, `parsing.note_receivable`, `parsing.roth_conversion_policy`, `parsing.validation`, `parsing.withdrawal_order`, `parsing.withdrawal_policy`, `plan_config`, `plan_data_migration`, `plan_data_registry`, `plan_label_rules`, `portfolio_analytics`, `report_compute`, `roth_ui_build_guard`, `spending_adjustments`, `spending_budget_resolver`, `stores.ref_getters.cma`, `stores.ref_getters.security_master`, `system_config`, `tax_law`, `workspace_context` | — |
+| `src/data_io.py` | `config_backend`, `core`, `market_data`, `module_catalog`, `money`, `parsing.advanced_modules`, `parsing.allocation_optimizer_inputs`, `parsing.daf`, `parsing.estate_planning`, `parsing.hsa_policy`, `parsing.insurance`, `parsing.note_receivable`, `parsing.roth_conversion_policy`, `parsing.validation`, `parsing.withdrawal_order`, `parsing.withdrawal_policy`, `plan_config`, `plan_data_migration`, `plan_data_registry`, `plan_datasets`, `plan_label_rules`, `portfolio_analytics`, `report_compute`, `roth_ui_build_guard`, `spending_adjustments`, `spending_budget_resolver`, `stores.ref_getters.cma`, `stores.ref_getters.security_master`, `system_config`, `tax_law`, `workspace_context` | — |
 | `src/desktop_api.py` | `src`, `bootstrap`, `server`, `server.app_core`, `server.workbook_routes`, `server_services` | `pywebview` |
 | `src/desktop_app.py` | `desktop_api` | `pywebview` |
 | `src/detailed_results.py` | `results_model` | `openpyxl` |
@@ -522,19 +522,21 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/housing_comparison.py` | `after_tax`, `planning_engines`, `server_services.strategy_asset_service` | — |
 | `src/housing_optimizer.py` | `housing` | — |
 | `src/hsa_schedule.py` | `after_tax`, `planning_engines`, `taxes` | — |
-| `src/import_preview.py` | `stores.ref_getters.security_master`, `ytd_tracking` | — |
+| `src/import_preview.py` | `plan_datasets`, `stores.ref_getters.security_master`, `ytd_tracking` | — |
 | `src/large_discretionary.py` | — | — |
 | `src/legacy_conversion/__init__.py` | — | — |
 | `src/legacy_conversion/steps/__init__.py` | — | — |
 | `src/legacy_conversion/steps/c3_plan_rows.py` | `csv_exchange`, `plan_data_migration`, `plan_label_rules` | — |
 | `src/legacy_conversion/steps/c3b_plan_overrides.py` | `csv_exchange`, `plan_overrides` | — |
+| `src/legacy_conversion/steps/c4a_datasets.py` | `csv_exchange` | — |
+| `src/legacy_conversion/steps/c4b_spending.py` | `csv_exchange` | — |
+| `src/legacy_conversion/steps/c4c_ytd.py` | `csv_exchange` | — |
 | `src/local_backup_scheduler.py` | — | — |
 | `src/local_store.py` | `sqlite_util` | — |
 | `src/market_data.py` | `platform_runtime`, `secrets_store`, `version` | `requests` |
 | `src/module_catalog.py` | — | — |
 | `src/monarch_autoimport_job.py` | — | — |
 | `src/monarch_autoupdate.py` | — | — |
-| `src/monarch_db_sync.py` | — | — |
 | `src/monarch_import.py` | `stores.ref_getters.monarch_field_map`, `ytd_tracking` | — |
 | `src/money.py` | — | — |
 | `src/observability.py` | — | — |
@@ -545,7 +547,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/parsing/allocation_optimizer_inputs.py` | `data_io` | — |
 | `src/parsing/daf.py` | `data_io` | — |
 | `src/parsing/estate_planning.py` | `data_io` | — |
-| `src/parsing/hsa_policy.py` | `data_io`, `workspace_context` | — |
+| `src/parsing/hsa_policy.py` | `data_io`, `plan_datasets`, `workspace_context` | — |
 | `src/parsing/insurance.py` | `data_io` | — |
 | `src/parsing/note_receivable.py` | `core`, `data_io` | — |
 | `src/parsing/roth_conversion_policy.py` | `data_io` | — |
@@ -559,6 +561,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/plan_data_migration.py` | `active_plan`, `csv_exchange`, `local_store`, `plan_file_io`, `stores` | — |
 | `src/plan_data_read.py` | — | — |
 | `src/plan_data_registry.py` | — | — |
+| `src/plan_datasets.py` | `active_plan`, `csv_exchange` | — |
 | `src/plan_dates.py` | — | — |
 | `src/plan_db_replace.py` | `stores` | — |
 | `src/plan_file_io.py` | — | — |
@@ -568,7 +571,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/planning_engines.py` | `after_tax`, `core`, `data_io`, `hsa_schedule`, `observability`, `optimization`, `person_labels`, `plan_config`, `projection_stages`, `spending_budget_resolver`, `stores.ref_getters.mortality_real_loss`, `tax_kernel`, `tax_law`, `vectorized_fast_core` | `numpy` |
 | `src/planning_workbench.py` | — | — |
 | `src/platform_runtime.py` | `active_plan` | — |
-| `src/portfolio_analytics.py` | `config_backend`, `sqlite_util`, `stores.ref_getters.security_master` | — |
+| `src/portfolio_analytics.py` | `config_backend`, `plan_datasets`, `sqlite_util`, `stores.ref_getters.security_master` | — |
 | `src/projection_pipeline.py` | `observability`, `planning_engines` | — |
 | `src/qlac_optimizer.py` | — | — |
 | `src/real_loss_curves.py` | `allocation_policy`, `stores.ref_getters.mortality_real_loss` | — |
@@ -585,14 +588,15 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/server_forecast.py` | `after_tax`, `core`, `report_compute` | — |
 | `src/spending_adjustments.py` | — | — |
 | `src/spending_budget_resolver.py` | `large_discretionary`, `spending_adjustments`, `spending_tracker` | — |
-| `src/spending_tracker.py` | `active_plan`, `platform_runtime`, `ytd_tracking` | — |
+| `src/spending_tracker.py` | `active_plan`, `plan_datasets`, `platform_runtime`, `ytd_tracking` | — |
 | `src/sqlite_util.py` | — | — |
-| `src/stores/__init__.py` | `stores.app_store`, `stores.db`, `stores.errors`, `stores.plan_store`, `stores.ref_access`, `stores.ref_data` | — |
+| `src/stores/__init__.py` | `stores.app_store`, `stores.db`, `stores.errors`, `stores.plan_store`, `stores.ref_access`, `stores.ref_data`, `stores.spending_repo` | — |
 | `src/stores/_base.py` | `stores`, `stores.errors` | — |
 | `src/stores/app_store.py` | `stores._base`, `stores.errors`, `stores.plan_store` | — |
+| `src/stores/datasets.py` | `stores.errors` | — |
 | `src/stores/db.py` | `stores.errors` | — |
 | `src/stores/errors.py` | — | — |
-| `src/stores/plan_store.py` | `stores._base`, `stores.errors` | — |
+| `src/stores/plan_store.py` | `stores._base`, `stores.datasets`, `stores.errors`, `stores.spending_repo` | — |
 | `src/stores/ref_access.py` | `stores.ref_data` | — |
 | `src/stores/ref_data.py` | `stores`, `stores.errors` | — |
 | `src/stores/ref_getters/__init__.py` | `stores.ref_data`, `stores.ref_getters` | — |
@@ -606,6 +610,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/stores/ref_getters/tax_update_dashboard.py` | `stores.ref_access`, `stores.ref_data` | — |
 | `src/stores/ref_getters/template_layout.py` | `stores.ref_access`, `stores.ref_data` | — |
 | `src/stores/ref_getters/zip_data.py` | `housing.zip_screen.schema`, `stores.ref_access`, `stores.ref_data` | — |
+| `src/stores/spending_repo.py` | `stores.datasets` | — |
 | `src/strategy_sweep.py` | — | — |
 | `src/system_config.py` | `plan_file_io` | — |
 | `src/tax_assumptions.py` | `tax_law` | — |
@@ -619,7 +624,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/withdrawal_strategy_comparison.py` | `core` | — |
 | `src/workspace_context.py` | `runtime_config` | — |
 | `src/ytd_projection_blend.py` | `module_catalog`, `spending_tracker`, `ytd_tracking` | — |
-| `src/ytd_tracking.py` | `active_plan`, `large_discretionary`, `plan_file_io` | — |
+| `src/ytd_tracking.py` | `active_plan`, `large_discretionary`, `plan_datasets` | — |
 
 ### Projection Stages
 
@@ -672,7 +677,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/reporting/sheets_tax_reporter.py` | `reporting.workbook_common` | — |
 | `src/reporting/sheets_wealth.py` | `reporting.workbook_common` | — |
 | `src/reporting/summary_figures.py` | `after_tax`, `core` | — |
-| `src/reporting/workbook_builder.py` | `active_plan`, `after_tax`, `build_snapshot`, `governance`, `hsa_schedule`, `local_store`, `planning_engines`, `report_package`, `reporting.dashboard`, `reporting.sheets_allocation_helpers`, `reporting.sheets_current_vs_proposed`, `reporting.sheets_projection_facade`, `reporting.sheets_protection`, `reporting.sheets_qc_reference`, `reporting.sheets_strategy`, `reporting.sheets_stress`, `reporting.sheets_summary_builder`, `reporting.sheets_tax_capacity`, `reporting.sheets_tax_reporter`, `reporting.sheets_wealth`, `reporting.summary_figures`, `reporting.workbook_common`, `reporting.workbook_format_config`, `results_model`, `spending_tracker`, `workspace_context`, `ytd_projection_blend` | — |
+| `src/reporting/workbook_builder.py` | `active_plan`, `after_tax`, `build_snapshot`, `governance`, `hsa_schedule`, `local_store`, `plan_datasets`, `planning_engines`, `report_package`, `reporting.dashboard`, `reporting.sheets_allocation_helpers`, `reporting.sheets_current_vs_proposed`, `reporting.sheets_projection_facade`, `reporting.sheets_protection`, `reporting.sheets_qc_reference`, `reporting.sheets_strategy`, `reporting.sheets_stress`, `reporting.sheets_summary_builder`, `reporting.sheets_tax_capacity`, `reporting.sheets_tax_reporter`, `reporting.sheets_wealth`, `reporting.summary_figures`, `reporting.workbook_common`, `reporting.workbook_format_config`, `results_model`, `spending_tracker`, `ytd_projection_blend` | — |
 | `src/reporting/workbook_common.py` | `config_backend`, `core`, `data_io`, `market_data`, `module_catalog`, `report_compute`, `stores.ref_getters.template_layout`, `workspace_context` | `openpyxl` |
 | `src/reporting/workbook_format_config.py` | `workspace_context` | `openpyxl` |
 | `src/reporting/workbook_xml_optimizer.py` | — | `lxml`, `openpyxl` |

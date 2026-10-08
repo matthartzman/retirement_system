@@ -15,13 +15,13 @@ import pytest
 from src.server_services.demo_plan_service import (
     DEMO_SLOT_DIR,
     SLOT_PLAN_FILE,
-    TEXT_BACKUP_FILES,
     DemoPlanService,
     DemoPlanServiceContext,
 )
 from src.stores import PlanStore
 
 SEED = "client_spending_budget.recovery_seed.csv"
+REAL_SEED_ROWS = [{"kind": "category", "key": "real_cat", "label": "Real", "annual_budget": "999"}]
 HEADER = "section,subsection,label,value,units,notes\n"
 FLAT = ["client_holdings.csv", "client_liabilities.csv", "ytd_transactions.csv"]
 
@@ -30,6 +30,13 @@ def _make_plan(path: Path, marker: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with PlanStore.open(path) as store:
         store.set_value("Marker", "", "value", marker)
+        if marker == "real-plan":  # the advisor's own budget recovery seed (a plan revision)
+            store.spending.set_recovery_seed(REAL_SEED_ROWS)
+
+
+def _seed_keys(path: Path) -> list[str]:
+    with PlanStore.open(path, create=False, readonly=True) as store:
+        return [r["key"] for r in store.spending.recovery_seed()]
 
 
 def _plan_marker(path: Path):
@@ -73,13 +80,12 @@ def _make_service(tmp_path: Path):
     (demo_dir / "client_household.csv").write_text(
         HEADER + "Household,,member_1_name,Demo Person,text,\nHousehold,,state,TX,text,\n", encoding="utf-8")
     (demo_dir / "client_data.csv").write_text(HEADER + "Scenarios,Base,growth,1,pct,\n", encoding="utf-8")
-    # The flat datasets and every TEXT_BACKUP_FILES entry get a fixture, matching the real
-    # input/demo/ -- the service adds them to the applied list itself, so a missing one here
-    # would show up as an unexpected "skipped" entry.
+    # The flat datasets get a fixture, matching the real input/demo/ (a missing one would show up
+    # as a "skipped" entry). The demo's budget recovery seed is read once, with the plan CSV set,
+    # into the demo plan file as a plan revision.
     (demo_dir / "client_holdings.csv").write_text("demo holdings content\n", encoding="utf-8")
     (demo_dir / "ytd_transactions.csv").write_text("demo ytd content\n", encoding="utf-8")
-    for name in TEXT_BACKUP_FILES:
-        (demo_dir / name).write_text(f"demo {name}\n", encoding="utf-8")
+    (demo_dir / SEED).write_text("kind,key,label,annual_budget\ncategory,demo_cat,Demo,10\n", encoding="utf-8")
     # client_liabilities.csv intentionally has no demo counterpart -- exercises "skipped".
     _make_db(active_db, "real-legacy")
     _make_plan(plan_db, "real-plan")
@@ -89,7 +95,6 @@ def _make_service(tmp_path: Path):
     disk_files = {
         "client_holdings.csv": "real holdings\n",
         "ytd_transactions.csv": "real ytd\n",
-        **{name: f"real {name}\n" for name in TEXT_BACKUP_FILES},
     }
 
     def read_plan_data_file(name: str):
@@ -134,8 +139,8 @@ def test_open_demo_swaps_the_plan_file_writes_flat_files_reports_skipped_and_bac
     assert "client_household.csv" not in written and "client_data.csv" not in written
     assert written["client_holdings.csv"] == "demo holdings content\n"
     assert result["skipped"] == ["client_liabilities.csv"]
-    # The recovery seed is outside plan_data_csv_files; the service adds it.
-    assert disk_files[SEED] == f"demo {SEED}\n"
+    # The recovery seed rides in the demo plan file as a plan revision; no file is written for it.
+    assert SEED not in written and _seed_keys(plan_db) == ["demo_cat"]
 
     plan_backup = Path(str(plan_db) + ".before_demo")
     assert plan_backup.exists() and _plan_marker(plan_backup) == "real-plan"
@@ -193,7 +198,6 @@ def test_restore_current_swaps_the_plan_file_and_database_back_and_clears_backup
     assert materialized["count"] == 1
     assert not Path(str(plan_db) + ".before_demo").exists()
     assert not Path(str(active_db) + ".before_demo").exists()
-    assert not (active_db.parent / f"{SEED}.before_demo").exists()
     assert not (active_db.parent / "demo_mode_marker.json").exists()
     assert any(event == "demo_plan_restored" for event, _ in audits)
 
@@ -214,28 +218,25 @@ def test_a_restore_that_cannot_validate_the_backup_changes_nothing(tmp_path):
 
 
 def test_demo_swaps_and_restores_the_budget_recovery_seed(tmp_path):
-    """client_spending_budget.recovery_seed.csv is not in PLAN_DATA_CSV_FILES,
-    so neither the caller's file list nor materialize() covers it -- yet
-    spending_tracker.load_unified_budget() merges it into the budget whenever
-    the category rows total zero. Left alone it would pull the advisor's real
-    annualized actuals (down to named categories) into the demo household's
-    budget, so the service applies the demo copy and restores the real one."""
-    assert SEED in TEXT_BACKUP_FILES
-    service, active_db, _plan_db, _demo_dir, _audits, _written, _mat, disk_files = _make_service(tmp_path)
+    """The budget recovery seed is a plan revision of the plan file (WP6.3c), so the plan-file swap
+    carries it: spending_tracker.load_unified_budget() merges it into the budget whenever the
+    category rows total zero, which would pull the advisor's real annualized actuals into the demo
+    household's budget -- so the demo plan has its own seed and the real one comes back with the
+    real plan file. No file is backed up, applied or restored for it."""
+    service, active_db, plan_db, _demo_dir, _audits, written, _mat, _disk = _make_service(tmp_path)
+    assert _seed_keys(plan_db) == ["real_cat"]
 
     service.open_demo_payload()
-    assert disk_files[SEED] == f"demo {SEED}\n"
-    seed_backup = active_db.parent / f"{SEED}.before_demo"
-    assert seed_backup.read_text(encoding="utf-8") == f"real {SEED}\n"
-
-    # A second open must not overwrite the real seed's backup with demo content.
+    assert _seed_keys(plan_db) == ["demo_cat"]
+    # A second open must not replace the real seed held by the plan backup.
     service.open_demo_payload()
-    assert seed_backup.read_text(encoding="utf-8") == f"real {SEED}\n"
+    assert _seed_keys(Path(str(plan_db) + ".before_demo")) == ["real_cat"]
 
     _make_db(active_db, "demo-state")
     service.restore_current_payload()
-    assert disk_files[SEED] == f"real {SEED}\n"
-    assert not seed_backup.exists()
+    assert _seed_keys(plan_db) == ["real_cat"]
+    assert SEED not in written
+    assert not (active_db.parent / f"{SEED}.before_demo").exists()
 
 
 def test_the_real_demo_folder_builds_the_demo_plan_equal_to_the_loader(tmp_path):
@@ -280,7 +281,7 @@ def test_demo_open_swaps_ytd_actual_spending_too():
     routes = Path("src/server/plan_routes.py").read_text(encoding="utf-8")
     demo_block_start = routes.index("def _demo_plan_feature_service()")
     demo_block = routes[demo_block_start:demo_block_start + 2000]
-    assert "plan_data_csv_files=PLAN_DATA_CSV_FILES + YTD_PLAN_DATA_FILES" in demo_block, (
+    assert "PLAN_DATA_CSV_FILES + YTD_PLAN_DATA_FILES" in demo_block and "plan_data_csv_files=_FILE_BACKED_PLAN_DATA_FILES" in demo_block, (
         "Open Demo Plan's file list must include YTD_PLAN_DATA_FILES so "
         "ytd_transactions.csv is swapped along with the rest of the demo "
         "household, not left showing the real advisor's transactions."
@@ -489,19 +490,15 @@ def test_plan_routes_wire_the_disk_accurate_capture_reader():
     assert "read_plan_data_disk_file=_read_plan_data_disk_file" in routes
 
 
-def test_every_text_backup_file_passes_the_write_allowlist():
-    """Every TEXT_BACKUP_FILES entry must be in app_core's PLAN_DATA_FILE_SET
-    (see src/server/plan_data_files.py's DEMO_TEXT_BACKUP_FILES) or
-    _normalize_plan_data_file_name rejects it with "Unsupported Plan Data
-    file" the moment open_demo_payload's per-file loop calls
-    context.write_plan_data_file -- and since that call has no try/except,
-    Open Demo Plan fails outright (after already backing up the real plan
-    and swapping every earlier file in the list) instead of just skipping
-    the missing fixture like a genuinely absent file would."""
+def test_every_spending_table_file_passes_the_write_allowlist():
+    """The spending set's files (now plan tables) must stay in app_core's PLAN_DATA_FILE_SET, or
+    _normalize_plan_data_file_name rejects them with "Unsupported Plan Data file" the moment
+    open_demo_payload's per-file loop calls context.write_plan_data_file for them."""
+    from src.plan_data_registry import PLAN_TABLE_DATASET_FILES
     from src.server.plan_data_files import PLAN_DATA_FILE_SET
 
-    missing = [name for name in TEXT_BACKUP_FILES if name not in PLAN_DATA_FILE_SET]
-    assert not missing, f"TEXT_BACKUP_FILES entries missing from PLAN_DATA_FILE_SET: {missing}"
+    missing = [n for n in PLAN_TABLE_DATASET_FILES if n not in PLAN_DATA_FILE_SET]
+    assert not missing, f"plan table dataset files missing from PLAN_DATA_FILE_SET: {missing}"
 
 
 def test_demo_open_and_exit_run_the_migrate_hook_after_each_swap(tmp_path):
