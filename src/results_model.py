@@ -5,19 +5,16 @@ from __future__ import annotations
 The Results Explorer should not reverse-engineer Excel formatting to decide
 what users see.  This module emits UI-native result pages from the same
 projection artifacts that feed the workbook.  The workbook remains downloadable
-and older workbooks still have an Excel-parser fallback, but new builds write a
-`results_explorer_model.json` sidecar that the browser can consume directly.
+and older workbooks still have an Excel-parser fallback, but new builds store the
+model in the plan file's ``build_results`` table for the browser to consume directly.
 """
 
 from datetime import datetime, UTC
-import json
-from pathlib import Path
 from typing import Any, Iterable
 
 from .version import VERSION
 from .person_labels import member_nick
 
-RESULTS_MODEL_FILENAME = "results_explorer_model.json"
 RESULTS_MODEL_SCHEMA = "results_model_v10"
 
 
@@ -729,27 +726,6 @@ def build_result_explorer_model(c: dict[str, Any], rows: list[dict[str, Any]], m
         "sheets": pages,
         "categories": _categories_from_pages(pages),
     }
-
-
-def write_result_explorer_model(path: str | Path, c: dict[str, Any], rows: list[dict[str, Any]], mc_data: dict[str, Any] | None = None) -> dict[str, Any]:
-    model = build_result_explorer_model(c, rows, mc_data)
-    p = Path(path)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(model, indent=2, ensure_ascii=False), encoding="utf-8")
-    return model
-
-
-def read_result_explorer_model(path: str | Path) -> dict[str, Any] | None:
-    p = Path(path)
-    if not p.exists():
-        return None
-    try:
-        data = json.loads(p.read_text(encoding="utf-8"))
-    except Exception:
-        return None
-    if not isinstance(data, dict) or data.get("schema") != RESULTS_MODEL_SCHEMA:
-        return None
-    return data
 
 
 def model_index(model: dict[str, Any]) -> dict[str, Any]:

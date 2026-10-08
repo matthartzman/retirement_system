@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 229 Python files under `src/`, 48 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 230 Python files under `src/`, 48 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -24,7 +24,7 @@ flowchart TB
     subgraph L_HTTP_Runtime["HTTP Runtime (3 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
-    subgraph L_Core_Engine___Domain["Core Engine & Domain (148 modules)"]
+    subgraph L_Core_Engine___Domain["Core Engine & Domain (149 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
     subgraph L_Projection_Stages["Projection Stages (23 modules)"]
@@ -438,7 +438,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/server/plan_routes.py` | `active_plan`, `housing`, `module_catalog`, `monarch_autoimport_job`, `plan_data_migration`, `plan_data_registry`, `plan_interview`, `portfolio_analytics`, `report_compute`, `secrets_store`, `server.app_core`, `server_services`, `version` | — |
 | `src/server/route_manifest.py` | — | — |
 | `src/server/security_audit.py` | `config_backend`, `http_runtime.wsgi_facade`, `permissions`, `security`, `server`, `workspace_context` | — |
-| `src/server/workbook_routes.py` | `active_plan`, `build_snapshot`, `http_runtime.wsgi_facade`, `import_preview`, `local_store`, `reporting`, `results_model`, `schema_registry`, `server.app_core`, `server_forecast`, `server_services` | — |
+| `src/server/workbook_routes.py` | `active_plan`, `http_runtime.wsgi_facade`, `import_preview`, `local_store`, `reporting`, `schema_registry`, `server.app_core`, `server_forecast`, `server_services` | — |
 | `src/server/wsgi.py` | `server` | — |
 
 ### Server Services
@@ -449,12 +449,12 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/server_services/admin_service.py` | `plan_data_registry`, `plan_datasets`, `plan_file_io`, `secrets_store` | — |
 | `src/server_services/base_service.py` | — | — |
 | `src/server_services/build_job_service.py` | — | — |
-| `src/server_services/build_service.py` | `report_package`, `schema_registry`, `server_services` | — |
+| `src/server_services/build_service.py` | `schema_registry`, `server_services` | — |
 | `src/server_services/config_service.py` | `daf_optimizer`, `module_catalog`, `optimization`, `plan_interview`, `qlac_optimizer`, `report_compute`, `roth_ui_build_guard`, `schema_registry`, `server_services.plan_tier_service` | — |
 | `src/server_services/demo_plan_service.py` | `active_plan`, `plan_db_replace` | — |
 | `src/server_services/holdings_service.py` | `plan_datasets` | — |
 | `src/server_services/plan_data_file_service.py` | `plan_data_registry` | — |
-| `src/server_services/plan_file_service.py` | `build_snapshot`, `plan_db_replace` | — |
+| `src/server_services/plan_file_service.py` | `active_plan`, `build_snapshot`, `plan_db_replace` | — |
 | `src/server_services/plan_forms_service.py` | `active_plan`, `csv_exchange.plan_csv`, `plan_label_rules`, `roth_ui_build_guard` | — |
 | `src/server_services/plan_tier_service.py` | — | — |
 | `src/server_services/portfolio_service.py` | — | — |
@@ -485,7 +485,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/blank_plan.py` | `csv_exchange` | — |
 | `src/bootstrap.py` | `src`, `plan_data_migration`, `platform_runtime`, `security` | — |
 | `src/build_entry.py` | `reporting.workbook_builder` | — |
-| `src/build_snapshot.py` | `plan_db_replace`, `version` | — |
+| `src/build_snapshot.py` | `active_plan`, `plan_db_replace`, `version` | — |
 | `src/config_backend.py` | `active_plan`, `sqlite_util`, `system_config` | — |
 | `src/core.py` | `person_labels` | — |
 | `src/csv_exchange/__init__.py` | `csv_exchange.flat_csv`, `csv_exchange.plan_csv`, `plan_label_rules` | — |
@@ -576,7 +576,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/qlac_optimizer.py` | — | — |
 | `src/real_loss_curves.py` | `allocation_policy`, `stores.ref_getters.mortality_real_loss` | — |
 | `src/report_compute.py` | `data_io`, `governance`, `local_store`, `market_data`, `plan_config`, `planning_engines`, `projection_pipeline`, `report_spec`, `result_contract`, `results_model` | — |
-| `src/report_package.py` | `build_snapshot`, `results_model`, `version` | — |
+| `src/report_package.py` | `active_plan`, `build_snapshot`, `results_model`, `version` | — |
 | `src/report_spec.py` | — | — |
 | `src/result_contract.py` | `report_spec`, `results_model`, `tax_law`, `version` | — |
 | `src/results_model.py` | `person_labels`, `version` | — |
@@ -593,10 +593,11 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/stores/__init__.py` | `stores.app_store`, `stores.db`, `stores.errors`, `stores.plan_store`, `stores.ref_access`, `stores.ref_data`, `stores.spending_repo` | — |
 | `src/stores/_base.py` | `stores`, `stores.errors` | — |
 | `src/stores/app_store.py` | `stores._base`, `stores.errors`, `stores.plan_store` | — |
+| `src/stores/build_results.py` | `stores.errors` | — |
 | `src/stores/datasets.py` | `stores.errors` | — |
 | `src/stores/db.py` | `stores.errors` | — |
 | `src/stores/errors.py` | — | — |
-| `src/stores/plan_store.py` | `stores._base`, `stores.datasets`, `stores.errors`, `stores.spending_repo` | — |
+| `src/stores/plan_store.py` | `stores._base`, `stores.build_results`, `stores.datasets`, `stores.errors`, `stores.spending_repo` | — |
 | `src/stores/ref_access.py` | `stores.ref_data` | — |
 | `src/stores/ref_data.py` | `stores`, `stores.errors` | — |
 | `src/stores/ref_getters/__init__.py` | `stores.ref_data`, `stores.ref_getters` | — |

@@ -84,6 +84,12 @@ def _run_build(workspace_root: Path, output_dir: Path, *, frozen_today: str, bui
     return result
 
 
+def _stored_summary(builds, build_id):
+    from src.active_plan import read_build_results
+
+    return read_build_results(build_id, path=builds["plan"])["summary"]
+
+
 @pytest.fixture(scope="module")
 def two_kpi_builds(tmp_path_factory):
     workspace_root = tmp_path_factory.mktemp("kpi_archive_ws")
@@ -94,17 +100,18 @@ def two_kpi_builds(tmp_path_factory):
     _run_build(workspace_root, out_b, frozen_today=BUILD_DATE_B, build_id=BUILD_ID_B)
     return {
         "db_path": workspace_root / "local_state" / "retirement_system_v10.db",
+        "plan": workspace_root / "plan.rpx",
         "out_a": out_a,
         "out_b": out_b,
     }
 
 
 @pytest.mark.slow
-def test_each_build_writes_its_own_plan_summary(two_kpi_builds):
+def test_each_build_stores_its_own_plan_summary(two_kpi_builds):
     """Sanity check the fixture itself before trusting the snapshot
     assertions built on top of it."""
-    summary_a = json.loads((two_kpi_builds["out_a"] / "plan_summary.json").read_text(encoding="utf-8"))
-    summary_b = json.loads((two_kpi_builds["out_b"] / "plan_summary.json").read_text(encoding="utf-8"))
+    summary_a = _stored_summary(two_kpi_builds, BUILD_ID_A)
+    summary_b = _stored_summary(two_kpi_builds, BUILD_ID_B)
     assert summary_a["build_id"] == BUILD_ID_A
     assert summary_b["build_id"] == BUILD_ID_B
 
@@ -125,8 +132,8 @@ def test_two_builds_a_week_apart_produce_two_retrievable_kpi_snapshots(two_kpi_b
 @pytest.mark.slow
 def test_archived_kpi_values_match_each_builds_own_plan_summary(two_kpi_builds):
     db_path = two_kpi_builds["db_path"]
-    summary_a = json.loads((two_kpi_builds["out_a"] / "plan_summary.json").read_text(encoding="utf-8"))
-    summary_b = json.loads((two_kpi_builds["out_b"] / "plan_summary.json").read_text(encoding="utf-8"))
+    summary_a = _stored_summary(two_kpi_builds, BUILD_ID_A)
+    summary_b = _stored_summary(two_kpi_builds, BUILD_ID_B)
 
     snap_a = local_store.get_kpi_snapshot_by_build_id(BUILD_ID_A, db_path=db_path)
     snap_b = local_store.get_kpi_snapshot_by_build_id(BUILD_ID_B, db_path=db_path)

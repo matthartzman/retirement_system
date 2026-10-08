@@ -34,7 +34,7 @@ def roth_strategy_candidates(c):
 # Sheet 11 (Roth Conversion Plan) prints at most this many candidates, and its
 # "Score (0-100)" column is normalized across exactly that shown set. The UI's
 # Roth result panel (#329 §4.5 path 1) reads the same figures out of
-# plan_summary.json, so the cap and the normalization both live here rather
+# the KPI summary (build_results), so the cap and the normalization both live here rather
 # than being re-typed on the screen side -- two copies of this scale would put
 # a different "Score" next to the same candidate on the two surfaces, which is
 # the drift this module's docstring exists to prevent.
@@ -68,10 +68,10 @@ def roth_candidate_relative_scores(objective_values):
 
 
 def roth_strategy_result_payload(c, limit=ROTH_CANDIDATE_DISPLAY_LIMIT):
-    """The Roth optimizer result, trimmed for ``plan_summary.json``, or None.
+    """The Roth optimizer result, trimmed for ``the KPI summary (build_results)``, or None.
 
     #329 §4.5 path 1: the UI's Roth panel shows the last build's result rather
-    than re-running the optimizer, and ``plan_summary.json`` is the artifact
+    than re-running the optimizer, and ``the KPI summary (build_results)`` is the artifact
     ``/api/summary`` already serves for exactly that "what did the last build
     conclude" question. This is a projection of the existing
     ``RothStrategyResult`` contract, not a second computation of it.
@@ -132,7 +132,7 @@ def roth_strategy_result_payload(c, limit=ROTH_CANDIDATE_DISPLAY_LIMIT):
 
 
 def social_security_timing_payload(ss_sweep, c=None):
-    """The SS claim-age sweep's result, trimmed for ``plan_summary.json``, or None.
+    """The SS claim-age sweep's result, trimmed for ``the KPI summary (build_results)``, or None.
 
     #329 P6 / §4.5 path 1 (W10c): Social Security is the design's *scalar
     adoption* case -- the whole recommendation is one claim age per person,

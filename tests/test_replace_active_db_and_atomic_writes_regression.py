@@ -10,9 +10,8 @@ import pytest
 from src import plan_file_io
 from src.build_snapshot import (
     SNAPSHOT_DB_FILENAME,
-    SNAPSHOT_FILENAME,
     restore_sqlite_database_from_snapshot,
-    write_build_snapshot,
+    make_build_snapshot,
 )
 from src.plan_db_replace import replace_active_db
 from src.server_services.plan_file_service import PlanFileService, PlanFileServiceContext
@@ -135,12 +134,12 @@ def test_restore_leaves_no_stale_wal_and_uses_shared_validation(tmp_path):
     active = tmp_path / "plan.rpx"
     src = tmp_path / "src.rpx"
     _make_plan(src, "snapshot")
-    write_build_snapshot(output, build_id="b", sqlite_db_path=src, output_files=[])
+    snapshot = make_build_snapshot(output, build_id="b", sqlite_db_path=src, output_files=[])
     _make_plan(active, "active")
     Path(str(active) + "-wal").write_bytes(b"stale-wal-frames")
     Path(str(active) + "-shm").write_bytes(b"stale-shm")
 
-    restored = restore_sqlite_database_from_snapshot(output / SNAPSHOT_FILENAME, active, backup_suffix="t")
+    restored = restore_sqlite_database_from_snapshot(snapshot, active, output_dir=output, backup_suffix="t")
 
     assert restored["success"] is True
     assert not Path(str(active) + "-wal").exists()
@@ -153,23 +152,19 @@ def test_restore_rejects_snapshot_db_that_is_not_a_plan_db(tmp_path):
     output = tmp_path / "output"
     src = tmp_path / "src.rpx"
     _make_plan(src, "snapshot")
-    snapshot = write_build_snapshot(output, build_id="b", sqlite_db_path=src, output_files=[])
+    snapshot = make_build_snapshot(output, build_id="b", sqlite_db_path=src, output_files=[])
     # Corrupt the copy but keep the recorded hash matching so only the shared
     # validation (not the sha256 check) can catch it.
     copy = Path(snapshot["sqlite_database_snapshot"]["path"])
     assert copy.name == SNAPSHOT_DB_FILENAME
     copy.write_bytes(b"garbage")
-    import json
     from src.build_snapshot import sha256_file
 
-    snap_file = output / SNAPSHOT_FILENAME
-    data = json.loads(snap_file.read_text(encoding="utf-8"))
-    data["sqlite_database_snapshot"]["sha256"] = sha256_file(copy)
-    snap_file.write_text(json.dumps(data), encoding="utf-8")
+    snapshot["sqlite_database_snapshot"]["sha256"] = sha256_file(copy)
     active = tmp_path / "plan.rpx"
     _make_plan(active, "active")
 
-    restored = restore_sqlite_database_from_snapshot(snap_file, active)
+    restored = restore_sqlite_database_from_snapshot(snapshot, active, output_dir=output)
 
     assert restored["success"] is False
     assert _plan_marker(active) == "active"

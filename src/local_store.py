@@ -39,7 +39,7 @@ DEFAULT_RESULT_SNAPSHOT_RETENTION = 10
 DEFAULT_KPI_SNAPSHOT_RETENTION = 10
 
 # Headline KPI fields tracked per snapshot -- deliberately just the numbers
-# already computed into plan_summary.json / the Monte Carlo result, not a new
+# already computed into the KPI summary (build_results) / the Monte Carlo result, not a new
 # derivation. See src/reporting/workbook_builder.py's plan-summary block for
 # where each of these comes from.
 KPI_SNAPSHOT_METRICS = (

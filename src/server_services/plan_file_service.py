@@ -22,10 +22,9 @@ from pathlib import Path
 from typing import Any, Callable
 
 from ..plan_db_replace import PLAN_FILE_TABLES, copy_sqlite_file, replace_active_db, validate_plan_file
+from ..active_plan import read_build_results
 from ..build_snapshot import (
-    SNAPSHOT_FILENAME,
     compare_snapshot_to_current,
-    read_build_snapshot,
     restore_sqlite_database_from_snapshot,
 )
 
@@ -74,14 +73,11 @@ class PlanFileService:
     def __init__(self, ctx: PlanFileServiceContext):
         self.ctx = ctx
 
-    def _requested_build_snapshot_path(self, body: dict[str, Any] | None = None) -> Path:
-        body = body or {}
-        raw = str(body.get("snapshot_path") or "").strip()
-        if raw:
-            return Path(raw).expanduser()
-        if self.ctx.output_dir is None:
-            return Path(SNAPSHOT_FILENAME)
-        return self.ctx.output_dir() / SNAPSHOT_FILENAME
+    def _build_snapshot(self, body: dict[str, Any] | None = None) -> dict[str, Any]:
+        """The stored build snapshot of ``body['build_id']`` (the latest build when not given)."""
+        build_id = str((body or {}).get("build_id") or "").strip() or None
+        row = read_build_results(build_id, path=self.ctx.plan_db())
+        return dict((row or {}).get("snapshot") or {})
 
     def exit_snapshot(self) -> dict[str, Any]:
         """A versioned copy of the legacy database and of the plan file; each keeps the last
@@ -162,24 +158,22 @@ class PlanFileService:
         return pruned
 
     def snapshot_compare_payload(self, body: dict[str, Any] | None = None) -> tuple[dict[str, Any], int]:
-        snapshot_path = self._requested_build_snapshot_path(body)
-        snapshot = read_build_snapshot(snapshot_path)
+        snapshot = self._build_snapshot(body)
         if not snapshot:
-            return {"success": False, "error": "Build snapshot not found or invalid.", "snapshot_path": str(snapshot_path)}, 404
+            return {"success": False, "error": "Build snapshot not found or invalid."}, 404
         payload = compare_snapshot_to_current(snapshot, sqlite_db_path=self.ctx.plan_db())
-        payload["snapshot_path"] = str(snapshot_path)
         return payload, 200
 
     def snapshot_restore_payload(self, body: dict[str, Any] | None = None) -> tuple[dict[str, Any], int]:
         body = body or {}
-        snapshot_path = self._requested_build_snapshot_path(body)
         payload = restore_sqlite_database_from_snapshot(
-            snapshot_path,
+            self._build_snapshot(body),
             self.ctx.plan_db(),
+            output_dir=self.ctx.output_dir() if self.ctx.output_dir is not None else None,
             backup_suffix=str(body.get("backup_suffix") or "").strip() or None,
             migrate=self.ctx.migrate,
         )
         if payload.get("success"):
-            self.ctx.audit("plan_snapshot_restored", {"snapshot_path": str(snapshot_path), "backup_database": payload.get("backup_database")})
+            self.ctx.audit("plan_snapshot_restored", {"build_id": payload.get("restored_from"), "backup_database": payload.get("backup_database")})
             return payload, 200
         return payload, 400

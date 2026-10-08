@@ -9,11 +9,8 @@ from pathlib import Path
 from typing import Any, Callable
 
 CURRENT_BUILD_OUTPUT_FILES = [
-    "plan_summary.json",
     "retirement_plan.xlsx",
     "retirement_dashboard.html",
-    "results_explorer_model.json",
-    "build_snapshot.json",
     "forecast_package.json",
 ]
 
@@ -257,11 +254,11 @@ def extract_build_failure_message(returncode: int, stdout: str = "", stderr: str
 def build_error_message(returncode: int, summary: dict[str, Any], stale_summary: bool, stdout: str = "", stderr: str = "") -> str:
     if returncode != 0:
         detail = extract_build_failure_message(returncode, stdout, stderr)
-        return f"Build failed before producing a current plan_summary.json: {detail}"
+        return f"Build failed before producing a current KPI summary: {detail}"
     if stale_summary:
         return "Build completed, but the KPI summary belonged to an older build. Re-run after confirming Plan Data is saved."
     if not summary:
-        return "Build completed, but no current plan_summary.json was produced. This usually means the build wrote outputs somewhere unexpected or stopped before the summary-writing step."
+        return "Build completed, but no current KPI summary was stored. This usually means the build wrote outputs somewhere unexpected or stopped before the results-writing step."
     return ""
 
 
@@ -331,7 +328,6 @@ def run_build_progress_job(
         outcome = interpret_build_result(
             returncode=returncode,
             stdout=stdout,
-            output_dir=output_dir,
             build_id=build_id,
             stderr=stderr_text,
         )

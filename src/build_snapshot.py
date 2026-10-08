@@ -2,22 +2,21 @@ from __future__ import annotations
 
 """Build snapshot and output fingerprint contract.
 
-This sidecar is intentionally additive: it records reproducibility metadata
-beside existing workbook/report outputs without changing any report format.
+The snapshot is stored with the build's results (``build_results.snapshot_json`` in the plan
+file): reproducibility metadata for the workbook/report outputs, without changing any report format.
 """
 
 from datetime import datetime, UTC
 import hashlib
-import json
 import os
 import shutil
 import sqlite3
 from pathlib import Path
 from typing import Any, Iterable
 
+from .active_plan import build_part_record
 from .version import VERSION
 
-SNAPSHOT_FILENAME = "build_snapshot.json"
 SNAPSHOT_SCHEMA = "build_snapshot_v1"
 SNAPSHOT_DB_FILENAME = "plan_database_snapshot.rpx"
 
@@ -111,13 +110,26 @@ def capture_sqlite_database_snapshot(sqlite_db_path: str | Path | None, output_d
 
 
 def compare_snapshot_to_current(snapshot: dict[str, Any], *, sqlite_db_path: str | Path | None = None) -> dict[str, Any]:
-    """Compare a parsed build snapshot to the current local SQLite database."""
+    """Compare a parsed build snapshot to the current plan file: by the plan-state digest (plan
+    rows and datasets, so the build results stored in the same file do not count), else by file hash."""
     current_record: dict[str, Any] = {}
     if sqlite_db_path:
         current_record = _file_record(Path(sqlite_db_path))
     snap_record = (snapshot or {}).get("sqlite_database_snapshot") or (snapshot or {}).get("sqlite_database") or {}
-    snap_hash = str(snap_record.get("sha256") or "")
-    current_hash = str(current_record.get("sha256") or "")
+    snap_state = str((snapshot or {}).get("plan_state") or "")
+    current_state = ""
+    if snap_state and current_record.get("exists"):
+        from .active_plan import plan_state  # noqa: PLC0415
+
+        try:
+            current_state = plan_state(sqlite_db_path)
+        except Exception:
+            current_state = ""
+    if snap_state and current_state:
+        snap_hash, current_hash = snap_state, current_state
+    else:
+        snap_hash = str(snap_record.get("sha256") or "")
+        current_hash = str(current_record.get("sha256") or "")
     return {
         "success": True,
         "schema": "plan_snapshot_compare_v1",
@@ -131,7 +143,7 @@ def compare_snapshot_to_current(snapshot: dict[str, Any], *, sqlite_db_path: str
     }
 
 
-def restore_sqlite_database_from_snapshot(snapshot_path: str | Path, active_sqlite_db_path: str | Path, *, backup_suffix: str | None = None, migrate: Any = None) -> dict[str, Any]:
+def restore_sqlite_database_from_snapshot(snapshot: dict[str, Any] | None, active_sqlite_db_path: str | Path, *, output_dir: str | Path | None = None, backup_suffix: str | None = None, migrate: Any = None) -> dict[str, Any]:
     """Restore the plan file copy referenced by a build snapshot (WP4.5: the snapshot's
     database copy is the plan file the build read).
 
@@ -139,14 +151,13 @@ def restore_sqlite_database_from_snapshot(snapshot_path: str | Path, active_sqli
     replacement.  The caller is responsible for exposing this only in local,
     trusted desktop contexts.
     """
-    snapshot_file = Path(snapshot_path)
-    snapshot = read_build_snapshot(snapshot_file)
-    if not snapshot:
-        return {"success": False, "error": "Snapshot file is missing or not build_snapshot_v1."}
+    if not snapshot or snapshot.get("schema") != SNAPSHOT_SCHEMA:
+        return {"success": False, "error": "Build snapshot is missing or not build_snapshot_v1."}
     snap_record = snapshot.get("sqlite_database_snapshot") or {}
-    db_copy = Path(str(snap_record.get("path") or snapshot_file.parent / SNAPSHOT_DB_FILENAME))
+    out_dir = Path(output_dir) if output_dir is not None else Path(".")
+    db_copy = Path(str(snap_record.get("path") or out_dir / SNAPSHOT_DB_FILENAME))
     if not db_copy.is_absolute():
-        db_copy = snapshot_file.parent / db_copy
+        db_copy = out_dir / db_copy
     if not db_copy.exists() or not db_copy.is_file():
         return {"success": False, "error": "Snapshot database copy is missing.", "snapshot_database_path": str(db_copy)}
     expected_hash = str(snap_record.get("sha256") or "")
@@ -158,6 +169,10 @@ def restore_sqlite_database_from_snapshot(snapshot_path: str | Path, active_sqli
     if active.exists():
         stamp = backup_suffix or datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
         backup_path = active.with_name(active.name + f".before_snapshot_restore_{stamp}")
+    # The build results live in the plan file the copy predates: carry the current ones over.
+    from .active_plan import read_build_results, write_build_results  # noqa: PLC0415
+
+    carried = read_build_results(path=active)
     # Shared validated replacement (WI-201): integrity/table check, verified
     # checkpoint, SQLite-API backup, atomic replace, sidecar cleanup.
     from .plan_db_replace import PLAN_FILE_TABLES, replace_active_db, validate_plan_file  # noqa: PLC0415
@@ -166,41 +181,48 @@ def restore_sqlite_database_from_snapshot(snapshot_path: str | Path, active_sqli
                                  validate=validate_plan_file, migrate=migrate)
     if not replaced.get("success"):
         return {"success": False, "error": replaced.get("error", "Snapshot restore failed.")}
+    if carried:
+        write_build_results(carried["build_id"], path=active, plan_state=carried["plan_state"],
+                            **{k: carried[k] for k in ("summary", "explorer", "package", "snapshot") if carried[k]})
     return {
         "success": True,
         "schema": "plan_snapshot_restore_v1",
-        "restored_from": str(snapshot_file),
+        "restored_from": str(snapshot.get("build_id") or ""),
         "restored_database": str(db_copy),
         "active_database": str(active),
         "backup_database": str(backup_path) if backup_path else "",
         "sha256": actual_hash,
     }
 
-def write_build_snapshot(
+def make_build_snapshot(
     output_dir: str | Path,
     *,
     build_id: str = "",
     plan_input_fingerprint: dict[str, Any] | None = None,
+    plan_state: str = "",
     summary: dict[str, Any] | None = None,
+    explorer: dict[str, Any] | None = None,
     output_files: Iterable[str] | None = None,
     system_config_path: str | Path | None = None,
     pricing_diagnostics_path: str | Path | None = None,
     sqlite_db_path: str | Path | None = None,
 ) -> dict[str, Any]:
+    """The build snapshot document (the caller stores it in ``build_results``); copies the plan
+    file beside the outputs as ``plan_database_snapshot.rpx``."""
     out = Path(output_dir)
     files = list(output_files or [
         "retirement_plan.xlsx",
         "retirement_dashboard.html",
-        "results_explorer_model.json",
-        "plan_summary.json",
-        "pricing_diagnostics.json",
     ])
     artifacts = [_file_record(out / name) for name in files]
+    artifacts.append(build_part_record("explorer", explorer or {}))
+    artifacts.append(build_part_record("summary", summary or {}))
+    artifacts.append(_file_record(out / "pricing_diagnostics.json"))
     system_config = _file_record(Path(system_config_path)) if system_config_path else {}
     pricing_diagnostics = _file_record(Path(pricing_diagnostics_path)) if pricing_diagnostics_path else _file_record(out / "pricing_diagnostics.json")
     sqlite_database = _file_record(Path(sqlite_db_path)) if sqlite_db_path else {}
     sqlite_database_snapshot = capture_sqlite_database_snapshot(sqlite_db_path, out) if sqlite_db_path else {"exists": False, "reason": "sqlite_db_path_not_provided", "file": SNAPSHOT_DB_FILENAME}
-    snapshot = {
+    return {
         "success": True,
         "schema": SNAPSHOT_SCHEMA,
         "version": VERSION,
@@ -208,6 +230,7 @@ def write_build_snapshot(
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z"),
         "source": "sqlite_snapshot",
         "input_fingerprint": plan_input_fingerprint or {},
+        "plan_state": plan_state,
         "system_config": system_config,
         "pricing_diagnostics": pricing_diagnostics,
         "sqlite_database": sqlite_database,
@@ -220,19 +243,3 @@ def write_build_snapshot(
             "build_started_at_ts": os.environ.get("RETIREMENT_SYSTEM_BUILD_STARTED_AT_TS", ""),
         },
     }
-    out.mkdir(parents=True, exist_ok=True)
-    (out / SNAPSHOT_FILENAME).write_text(json.dumps(snapshot, indent=2, sort_keys=True), encoding="utf-8")
-    return snapshot
-
-
-def read_build_snapshot(path: str | Path) -> dict[str, Any] | None:
-    p = Path(path)
-    if not p.exists():
-        return None
-    try:
-        data = json.loads(p.read_text(encoding="utf-8"))
-    except Exception:
-        return None
-    if not isinstance(data, dict) or data.get("schema") != SNAPSHOT_SCHEMA:
-        return None
-    return data
