@@ -952,7 +952,9 @@ def _main(plan_read):
     # Checkpoint the WAL now, before any output artifact is written -- see
     # checkpoint_sqlite_database()'s docstring for why this must happen here
     # and not only inside write_build_snapshot() at the end of this function.
-    checkpoint_sqlite_database(config_meta.get('plan_db') or config_meta.get('sqlite_db') or config_meta.get('path'))
+    _checkpoint_path = config_meta.get('plan_db') or config_meta.get('sqlite_db') or config_meta.get('path')
+    plan_read.refresh(while_released=lambda: checkpoint_sqlite_database(_checkpoint_path))
+    config_meta['plan_revision'] = plan_read.revision
     workspace_id = sanitize_id(config_meta.get('workspace_id', 'local'))
     client_id = sanitize_id(config_meta.get('client_id', workspace_id))
     output_path_dir = workspace_output_dir(workspace_id)

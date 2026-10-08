@@ -96,12 +96,14 @@ class BuildRead:
     store: PlanStore
     revision: str = ""
     requested_revision: str = ""
+    initial_revision: str = ""
     _txn: Any = None
 
     @property
     def stale(self) -> bool:
         """True when the plan changed between the build request and the build's read."""
-        return bool(self.requested_revision) and self.requested_revision != self.revision
+        seen = self.initial_revision or self.revision
+        return bool(self.requested_revision) and self.requested_revision != seen
 
     def _begin(self) -> None:
         self._txn = self.store.read_transaction()
@@ -112,11 +114,17 @@ class BuildRead:
         if txn is not None:
             txn.__exit__(None, None, None)
 
-    def refresh(self) -> None:
-        """Move the view to the plan's latest committed state (after the build's own write)."""
+    def refresh(self, while_released: Any = None) -> None:
+        """Move the view to the plan's latest committed state (after the build's own write).
+        ``while_released`` runs between the old view ending and the new one starting (a WAL
+        checkpoint cannot flush past an open reader)."""
         if self._txn is not None:
+            self.initial_revision = self.initial_revision or self.revision
             self._end()
+            if while_released is not None:
+                while_released()
             self._begin()
+            self.revision = self.store.revision()
 
     def release(self) -> None:
         """End the read and unpin it (idempotent): later reads open the plan file again."""
@@ -226,17 +234,19 @@ def edit_active_plan(*, protect_values: bool = False) -> Iterator[PlanEdit]:
     put back. Every other caller (blank plan, strategy endpoints, backfill) leaves it off.
     After the block ``PlanEdit.revision`` is the plan's revision.
     """
-    with _PLAN_LOCK, active_plan_store() as store:
-        edit = PlanEdit(store)
-        with store.transaction():
-            before = _protected_values(store) if protect_values else {}
-            yield edit
-            canonicalize_roth_rows(store)  # a Roth control is stored canonical (the guard)
-            if before:
-                _keep_protected_values(store, before)
-            edit.final_values = {(r["section"], r["subsection"], r["label"]): r["value"] for r in store.all_rows()}
-        edit.revision = store.revision()
-    _refresh_pin(active_plan_path())
+    try:
+        with _PLAN_LOCK, active_plan_store() as store:
+            edit = PlanEdit(store)
+            with store.transaction():
+                before = _protected_values(store) if protect_values else {}
+                yield edit
+                canonicalize_roth_rows(store)  # a Roth control is stored canonical (the guard)
+                if before:
+                    _keep_protected_values(store, before)
+                edit.final_values = {(r["section"], r["subsection"], r["label"]): r["value"] for r in store.all_rows()}
+            edit.revision = store.revision()
+    finally:
+        _refresh_pin(active_plan_path())
 
 
 def active_plan_data() -> SectionedData:
