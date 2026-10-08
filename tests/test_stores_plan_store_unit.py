@@ -479,7 +479,7 @@ def test_product_code_reaches_the_plan_store_only_through_the_active_plan_module
             line = m.group(0)
             if any(a in line for a in allowed):
                 continue
-            if rel in plan_store_users and re.search(r"import\s+PlanStore\s*$", line.strip()):
+            if rel in plan_store_users and re.search(r"import\s+PlanStore(,\s*StoreError)?\s*$", line.strip()):
                 continue
             offenders.append(f"{rel}: {line.strip()}")
     assert offenders == []

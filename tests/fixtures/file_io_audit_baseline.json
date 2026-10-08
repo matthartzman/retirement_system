@@ -55,7 +55,7 @@
   "src/reporting/workbook_builder.py": {
    "json": 1,
    "open": 1,
-   "path_io": 2
+   "path_io": 1
   },
   "src/reporting/workbook_format_config.py": {
    "json": 6,
@@ -117,5 +117,5 @@
    "path_io": 1
   }
  },
- "total": 117
+ "total": 116
 }

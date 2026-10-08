@@ -72,12 +72,12 @@ from ..local_store import save_kpi_snapshot
 
 def _build_plan_input_fingerprint(base_dir, config_meta):
     """Return a stable fingerprint of the exact plan data seen by this build: the plan rows'
-    revision hash (``PlanStore.revision()``), the flat dataset files still read from the
-    workspace, and the system configuration."""
+    revision hash (``PlanStore.revision()``), the plan file's flat dataset tables, and the
+    system configuration. Read inside the build's read transaction (``active_plan.build_read``),
+    so it describes the state the build computed from."""
     import hashlib as _hashlib
     from pathlib import Path as _Path
 
-    flat_names: list[str] = []  # the flat datasets are plan file tables (hashed below)
     root = _Path(base_dir)
     plan_dir = root / "input"
     files = []
@@ -92,15 +92,6 @@ def _build_plan_input_fingerprint(base_dir, config_meta):
         for dname, digest in _dataset_fingerprint(plan_db).items():
             files.append({"file": f"plan_datasets/{dname}", "sha256": digest})
             h.update(dname.encode("utf-8")); h.update(b"\0"); h.update(digest.encode("ascii")); h.update(b"\0")
-    for name in flat_names:
-        path = plan_dir / name
-        if not path.exists() or not path.is_file():
-            continue
-        data = path.read_bytes()
-        rel = f"{plan_dir.name}/{name}"
-        digest = _hashlib.sha256(data).hexdigest()
-        files.append({"file": rel, "sha256": digest, "bytes": len(data)})
-        h.update(rel.encode("utf-8")); h.update(b"\0"); h.update(digest.encode("ascii")); h.update(b"\0")
     bootstrap = (config_meta or {}).get("bootstrap_csv")
     if bootstrap:
         bp = _Path(str(bootstrap))
@@ -937,6 +928,15 @@ def _ensure_hsa_default_schedule(c, workspace_id):
 
 
 def main():
+    """Run the build on one read transaction of the plan file (``active_plan.build_read``):
+    the plan rows and every flat dataset the build reads come from the same state of the plan."""
+    from ..active_plan import build_read
+
+    with build_read() as plan_read:
+        return _main(plan_read)
+
+
+def _main(plan_read):
     import os as _os
     base_dir = _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
 
@@ -945,6 +945,10 @@ def main():
     print('Loading active configuration...')
     data, config_meta = load_active_config()
     _ensure_active_plan_data_loaded(data, config_meta)
+    config_meta['plan_revision'] = plan_read.revision
+    if plan_read.stale:
+        print(f'Note: the plan changed after this build was requested; building its current revision '
+              f'{plan_read.revision[:12]} (requested {plan_read.requested_revision[:12]}).')
     # Checkpoint the WAL now, before any output artifact is written -- see
     # checkpoint_sqlite_database()'s docstring for why this must happen here
     # and not only inside write_build_snapshot() at the end of this function.
@@ -1484,10 +1488,14 @@ def main():
         _json.dump(summary_data, _sf, indent=2)
     print(f'Plan summary written: {summary_out}')
 
+    plan_input_fingerprint = _build_plan_input_fingerprint(base_dir, config_meta)
+    # The fingerprint above is the last read of the plan: end the read transaction so the
+    # snapshot copy below checkpoints and copies a plan file no reader of this build holds.
+    plan_read.release()
     snapshot = write_build_snapshot(
         output_path_dir,
         build_id=build_id,
-        plan_input_fingerprint=_build_plan_input_fingerprint(base_dir, config_meta),
+        plan_input_fingerprint=plan_input_fingerprint,
         summary=summary_data,
         system_config_path=_os.path.join(base_dir, 'system_config.csv'),
         pricing_diagnostics_path=_os.path.join(str(output_path_dir), 'pricing_diagnostics.json'),
