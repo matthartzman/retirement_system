@@ -9,7 +9,6 @@ sys.path.insert(0, str(ROOT))
 from src.config_backend import load_active_config, setting
 from src.system_config import load_system_config
 from src.portfolio_analytics import analyze_drift
-from src.workspace_context import workspace_output_dir
 
 
 def _pct_threshold(value: str, default: float = 0.05) -> float:
@@ -30,11 +29,7 @@ def main() -> int:
         threshold_pct=threshold,
         workspace_id=workspace_id,
     )
-    out = workspace_output_dir(workspace_id, ROOT) / "portfolio_drift.json"
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(rows, indent=2), encoding="utf-8")
-    print(json.dumps(rows, indent=2))
-    print(f"Wrote {out}")
+    print(json.dumps(rows, indent=2))  # the caller (portfolio_service) reads the rows from stdout
     return 0
 
 

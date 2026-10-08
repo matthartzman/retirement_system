@@ -94,13 +94,7 @@ def test_build_and_load_no_longer_use_remembered_csv_folder_as_authority():
 
 def test_results_explorer_uses_simplified_categories():
     model_src = (ROOT / "src/results_model.py").read_text(encoding="utf-8")
-    generated = ROOT / "output/results_explorer_model.json"
     assert 'order = ["Reports", "Strategy", "Stress Tests", "System Configuration", "Other workbook detail"]' in model_src
-    if generated.exists():
-        text = generated.read_text(encoding="utf-8")
-        assert '"Reports"' in text
-        assert "Overview & quality checks" not in text
-        assert "Year-by-year projections" not in text
 
 
 def test_build_endpoints_reject_direct_csv_payloads():

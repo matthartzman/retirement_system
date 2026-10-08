@@ -1267,12 +1267,6 @@ def _demo_plan_feature_service() -> demo_plan_service.DemoPlanService:
     # The datasets in the plan file's tables travel with the plan file swap, not as files.
     _FILE_BACKED_PLAN_DATA_FILES = [f for f in PLAN_DATA_CSV_FILES + YTD_PLAN_DATA_FILES if f not in PLAN_TABLE_DATASET_FILES]  # none left
 
-    def _read_plan_data_disk_file(name: str) -> str | None:
-        # Capturing the demo slot must read the on-disk copy the flat-file editors write, not
-        # the DB-first reader's copy.
-        path = _plan_data_path(name, prefer_existing=True)
-        return path.read_text(encoding="utf-8-sig") if path.exists() else None
-
     return demo_plan_service.DemoPlanService(
         demo_plan_service.DemoPlanServiceContext(
             sqlite_db=_sqlite_db,
@@ -1284,7 +1278,6 @@ def _demo_plan_feature_service() -> demo_plan_service.DemoPlanService:
             ensure_user_ui_plan_data_rows=_ensure_user_ui_plan_data_rows,
             materialize=lambda: None,  # every flat dataset is a table of the plan file: nothing to restore as a file
             audit=_audit,
-            read_plan_data_disk_file=_read_plan_data_disk_file,
             migrate=_migrate_after_db_replace,
         )
     )

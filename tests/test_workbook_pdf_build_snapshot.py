@@ -129,7 +129,7 @@ class Phase5WorkbookSnapshotTests(unittest.TestCase):
         cls.build_stdout = result.stdout + result.stderr
         if result.returncode != 0:
             raise AssertionError(cls.build_stdout)
-        cls.workbook_path = tmp_root / "output" / "retirement_plan.xlsx"
+        cls.workbook_path = next((tmp_root / "output" / "plans").glob("*/retirement_plan.xlsx"))
 
     @classmethod
     def tearDownClass(cls):

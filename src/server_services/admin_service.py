@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from typing import Any, Iterable
 
+from .. import active_plan
 from ..plan_data_registry import SYSTEM_REFERENCE_FILES
 from src.plan_file_io import atomic_write, plan_file_lock, write_text_atomic
 
@@ -252,15 +253,11 @@ def build_csv_backup_zip(base_dir: Path) -> tuple[bytes, str]:
 
 def diagnostics_payload(output_dir: Path) -> dict[str, Any]:
     files: list[dict[str, Any]] = []
-    for name in ["pricing_diagnostics.json", "plan_summary.json", "forecast_package.json"]:
-        p = output_dir / name
-        payload: Any = None
-        if p.exists():
-            try:
-                payload = json.loads(p.read_text(encoding="utf-8-sig"))
-            except Exception:
-                payload = {"raw": p.read_text(encoding="utf-8-sig", errors="ignore")[:4000]}
-        files.append({"name": name, "path": str(p), "available": p.exists(), "bytes": p.stat().st_size if p.exists() else 0, "json": payload})
+    row = active_plan.read_build_results() or {}
+    for name, part in (("pricing_diagnostics", "pricing"), ("plan_summary", "summary")):
+        doc = row.get(part) or None
+        files.append({"name": name, "path": "build_results (plan file)", "available": bool(doc),
+                      "bytes": len(json.dumps(doc)) if doc else 0, "json": doc})
     return {"success": True, "output_dir": str(output_dir), "files": files}
 
 

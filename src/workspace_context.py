@@ -1,12 +1,14 @@
 from __future__ import annotations
 """Local path helpers for the single-user desktop package.
 
-Plan Data lives in the local SQLite store. Generated files are written to output/.
+Plan data lives in the plan file (``active_plan``); the build reads it through one read
+transaction (WP7.1), so there is no input-file lookup here. Generated files are written to
+output/.
 """
 
 import re
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Optional
 
 from . import platform_runtime
 
@@ -55,40 +57,49 @@ def workspace_input_dir(workspace_id: Optional[str] = None, root: Optional[Path]
     return workspace_plan_data_dir(workspace_id, root)
 
 
+PLAN_ID_META_KEY = "plan_id"
+
+
+def active_plan_id(workspace_id: Optional[str] = None, root: Optional[Path] = None) -> str:
+    """The id naming a plan's output folder.
+
+    The one place the id is derived until the plan registry (WP8.4) supplies it: the
+    ``plan_id`` stored in the plan file's meta when present, else the plan file's name
+    (``plan.rpx`` -> ``plan``), made safe for use as a directory name.
+    """
+    from . import active_plan
+    path = active_plan.plan_path_for_workspace(_default_root(root))
+    stored = None
+    if path.exists():
+        try:
+            store = active_plan.PlanStore.open(path, create=False, readonly=True)
+            try:
+                stored = store.get_meta(PLAN_ID_META_KEY)
+            finally:
+                store.close()
+        except Exception:
+            stored = None
+    for candidate in (stored, path.stem):
+        text = re.sub(r"[^A-Za-z0-9_-]+", "-", str(candidate or "")).strip("-_")[:64]
+        try:
+            return active_plan.validate_plan_id(text)
+        except Exception:
+            continue
+    return "plan"
+
+
+def legacy_output_dir(root: Optional[Path] = None) -> Path:
+    """The pre-WP7.3 shared output folder; older artifacts there stay downloadable."""
+    return _default_root(root) / "output"
+
+
 def workspace_output_dir(workspace_id: Optional[str] = None, root: Optional[Path] = None) -> Path:
+    """Per-plan output folder: ``<output>/plans/<plan_id>/`` (xlsx, html, pdf)."""
     root = _default_root(root)
     cfg = _runtime_cfg()
     override = getattr(cfg, "output_dir", "")
+    base = root / "output"
     if override:
         p = Path(override)
-        return p if p.is_absolute() else root / p
-    return root / "output"
-
-
-def workspace_file(filename: str, workspace_id: Optional[str] = None, root: Optional[Path] = None, prefer_existing: bool = True) -> Path:
-    return _default_root(root) / "input" / Path(filename).name
-
-
-def candidate_input_files(filename: str, workspace_id: Optional[str] = None, root: Optional[Path] = None) -> list[Path]:
-    root = _default_root(root)
-    name = Path(filename).name
-    candidates = [
-        workspace_plan_data_dir(workspace_id, root) / name,
-        root / "input" / name,
-        root / "reference_data" / name,
-    ]
-    out: list[Path] = []
-    seen = set()
-    for p in candidates:
-        key = str(p)
-        if key not in seen:
-            seen.add(key)
-            out.append(p)
-    return out
-
-
-def first_existing(paths: Iterable[Path]) -> Optional[Path]:
-    for p in paths:
-        if p.exists():
-            return p
-    return None
+        base = p if p.is_absolute() else root / p
+    return base / "plans" / active_plan_id(workspace_id, root)

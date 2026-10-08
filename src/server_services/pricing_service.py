@@ -9,6 +9,7 @@ being decomposed.
 """
 
 import json
+import re
 import os
 import subprocess
 import sys
@@ -31,12 +32,6 @@ def refresh_prices(
     env = os.environ.copy()
     env["RETIREMENT_SYSTEM_SYSTEM_CONFIG_CSV"] = str(system_config_csv)
     env["PYTHONIOENCODING"] = env.get("PYTHONIOENCODING", "utf-8:replace")
-    out_path = output_dir / "price_refresh_result.json"
-    try:
-        if out_path.exists():
-            out_path.unlink()
-    except Exception:
-        pass
     result = subprocess.run(
         [sys.executable, str(base_dir / "tools" / "refresh_prices.py")],
         cwd=str(base_dir),
@@ -46,18 +41,12 @@ def refresh_prices(
         env=env,
     )
     payload: dict[str, Any] = {}
-    if out_path.exists():
-        try:
-            payload = json.loads(out_path.read_text(encoding="utf-8"))
-        except Exception as exc:
-            payload = {"error": f"Price refresh result was not valid JSON: {exc}"}
-    else:
-        text = (result.stdout or "").strip()
-        try:
-            start = text.rfind("{\n")
-            payload = json.loads(text[start:] if start >= 0 else text) if text else {}
-        except Exception:
-            payload = {"error": "Price refresh did not produce price_refresh_result.json", "returncode": result.returncode}
+    text = (result.stdout or "").strip()
+    try:
+        tops = [m.start() for m in re.finditer(r"^\{$", text, re.M)]  # the result is the last top-level object
+        payload = json.loads(text[tops[-1]:] if tops else text) if text else {}
+    except Exception:
+        payload = {"error": "Price refresh did not report a result", "returncode": result.returncode}
     success = (result.returncode == 0) and not payload.get("error")
     return {"success": success, "result": payload, "stdout": result.stdout[-4000:], "stderr": result.stderr[-2000:], "returncode": result.returncode}
 

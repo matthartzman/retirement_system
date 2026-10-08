@@ -1,6 +1,7 @@
 from pathlib import Path
 
-from src.build_snapshot import sha256_file, write_build_snapshot
+from src.active_plan import read_build_results, write_build_results
+from src.build_snapshot import make_build_snapshot
 
 
 def test_ytd_and_plan_file_services_exist_and_are_runtime_independent():
@@ -63,7 +64,8 @@ def test_plan_file_service_owns_snapshot_compare_and_restore(tmp_path):
     audits = []
     _make_db(active_db, "active")
     _make_db(source_db, "snapshot")
-    write_build_snapshot(output, build_id="phase3", sqlite_db_path=source_db, output_files=[])
+    snapshot = make_build_snapshot(output, build_id="phase3", sqlite_db_path=source_db, output_files=[])
+    write_build_results("phase3", path=active_db, snapshot=snapshot)
 
     service = PlanFileService(PlanFileServiceContext(
         sqlite_db=lambda: tmp_path / "local_state" / "retirement_system_v10.db",
@@ -81,7 +83,11 @@ def test_plan_file_service_owns_snapshot_compare_and_restore(tmp_path):
     assert restore_status == 200
     assert restored["schema"] == "plan_snapshot_restore_v1"
     assert Path(restored["backup_database"]).exists()
-    assert sha256_file(active_db) == sha256_file(source_db)
+    from src.stores import PlanStore
+
+    with PlanStore.open(active_db, create=False, readonly=True) as store:
+        assert store.sectioned_data()["Marker"][""]["value"] == "snapshot"
+    assert read_build_results(path=active_db)["build_id"] == "phase3"  # the build results are carried over
     assert audits and audits[-1][0] == "plan_snapshot_restored"
 
 

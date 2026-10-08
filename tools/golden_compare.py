@@ -3,7 +3,7 @@
 
 Builds the frozen sample plan and the demo plan in a throwaway workspace and
 records three things per plan: full-row engine output, the cell values of the
-required workbook sheets, and the headline KPIs from ``plan_summary.json``.
+required workbook sheets, and the headline KPIs from the build's stored summary (``build_results``).
 The committed baseline lives in ``tests/fixtures/golden_phase_baseline/``;
 ``tests/test_phase_golden_equality_regression.py`` compares live output to it.
 
@@ -158,7 +158,7 @@ def capture(plan: str) -> dict:
         if r.returncode != 0:
             raise SystemExit(f"[{plan}] workbook build failed:\n{r.stdout}{r.stderr}")
         import openpyxl
-        wb = openpyxl.load_workbook(ws / "output" / "retirement_plan.xlsx", data_only=True, read_only=True)
+        wb = openpyxl.load_workbook(next((ws / "output" / "plans").glob("*/retirement_plan.xlsx")), data_only=True, read_only=True)
         required = json.loads(SNAPSHOT_FIXTURE.read_text(encoding="utf-8"))["required_sheets"]
         sheets = {}
         for name in required:
@@ -173,16 +173,25 @@ def capture(plan: str) -> dict:
         # Release the read-only workbook handle: on Windows the open file blocks
         # TemporaryDirectory cleanup (WinError 32).
         wb.close()
-        summary = json.loads((ws / "output" / "plan_summary.json").read_text(encoding="utf-8"))
+        summary = _stored_summary(ws)
     return {
         "engine_rows": _round(captured["rows"]),
         "spending_ytd": _round(captured["spending_ytd"]),
         "workbook_sheets": sheets,
-        # Every scalar in plan_summary.json (build_id is per-run noise).
+        # Every scalar in the build's stored KPI summary (build_id is per-run noise).
         "headline_kpis": {k: _round(v) for k, v in sorted(summary.items())
                           if k != "build_id" and isinstance(v, (int, float, str, bool, type(None)))},
         "plan_summary_keys": sorted(summary),
     }
+
+
+def _stored_summary(ws: Path) -> dict:
+    """The KPI summary the build stored in the workspace's plan file (``build_results``)."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from src.stores import PlanStore
+
+    with PlanStore.open(ws / "plan.rpx", create=False, readonly=True) as store:
+        return store.build_results.get()["summary"]
 
 
 def _baseline_path(plan: str) -> Path:

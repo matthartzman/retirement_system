@@ -1596,14 +1596,9 @@ class MarketDataProvider:
             "advisor_ready_pricing_message": "Advisor-ready status is blocked when fallback/stale pricing exceeds configured tolerance." if advisor_ready_pricing_blocked else "Pricing fallback share is within configured tolerance.",
         }
 
-    def write_diagnostics(self, path: str | Path | None = None, print_report: bool = True) -> Dict[str, object]:
+    def report_diagnostics(self, print_report: bool = True) -> Dict[str, object]:
+        """The pricing diagnostics; a build stores them with its results (``build_results``)."""
         diag = self.diagnostics()
-        out = Path(path) if path else self.diagnostics_path
-        try:
-            out.parent.mkdir(parents=True, exist_ok=True)
-            out.write_text(json.dumps(diag, indent=2, sort_keys=True), encoding="utf-8")
-        except Exception:
-            pass
         if print_report:
             print("Market pricing summary:")
             print("  Provider order: " + " -> ".join(str(x) for x in diag.get("provider_order", [])))
@@ -1618,7 +1613,7 @@ class MarketDataProvider:
             if diag.get("failure_symbols"):
                 print(f"WARN: One or more pricing providers failed for: {', '.join(diag.get('failure_symbols', []))}")
                 print(f"WARN: Best guess: {diag.get('best_guess_cause')}")
-                print(f"WARN: Fallback pricing was used where available. See {out} for ticker-level detail.")
+                print("WARN: Fallback pricing was used where available. The build's stored pricing diagnostics have ticker-level detail.")
         return diag
 
 
@@ -1702,8 +1697,8 @@ def pricing_source_summary() -> Dict[str, object]:
     return _DEFAULT_PROVIDER.pricing_source_summary()
 
 
-def write_pricing_diagnostics(path: str | Path | None = None, print_report: bool = True) -> Dict[str, object]:
-    return _DEFAULT_PROVIDER.write_diagnostics(path=path, print_report=print_report)
+def report_pricing_diagnostics(print_report: bool = True) -> Dict[str, object]:
+    return _DEFAULT_PROVIDER.report_diagnostics(print_report=print_report)
 
 # ===== END market_data_providers.py =====
 
@@ -1841,12 +1836,5 @@ def build_plan_forecasts(rows: Sequence[dict], c: dict, horizon: int = 10, seed:
         },
     )
 
-
-def write_forecast_package(path: str | Path, rows: Sequence[dict], c: dict, horizon: int = 10, seed: int = 42) -> ForecastPackage:
-    pkg = build_plan_forecasts(rows, c, horizon=horizon, seed=seed)
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(pkg.to_json(), encoding="utf-8")
-    return pkg
 
 # ===== END ml_forecast_models.py =====

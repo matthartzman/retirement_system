@@ -238,8 +238,9 @@ def test_outputs_are_stale_against_the_plan_file_only(ws, monkeypatch):
     assert workbook_routes._plan_staleness_path() == ws.plan_db
     wal = ws.plan_db.with_name(ws.plan_db.name + "-wal")
     wal.write_bytes(b"x")
-    os.utime(wal, (3_000_000, 3_000_000))  # a commit still in the write-ahead log is a plan edit
-    assert workbook_routes._plan_staleness_path() == wal
+    os.utime(wal, (3_000_000, 3_000_000))
+    # WP7.2: staleness is the plan-state digest the build recorded, so write times (and the WAL) no longer matter
+    assert workbook_routes._plan_staleness_path() == ws.plan_db
 
 
 # 8. YTD plan reads --------------------------------------------------------------------------------

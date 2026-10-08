@@ -91,8 +91,26 @@ def test_workspace_context_helpers_follow_override(monkeypatch, tmp_path):
     import src.workspace_context as workspace_context
 
     # These helpers resolve lazily, so no reload is needed.
-    assert workspace_context.workspace_output_dir() == tmp_path / "output"
-    assert workspace_context.workspace_file("client_data.csv") == tmp_path / "input" / "client_data.csv"
+    assert workspace_context.workspace_output_dir() == tmp_path / "output" / "plans" / "plan"
+    assert workspace_context.workspace_input_dir() == tmp_path / "input"
     # An explicit root still wins (server routes pass their package BASE_DIR).
     explicit = Path("/opt/pkg")
-    assert workspace_context.workspace_file("x.csv", root=explicit) == explicit / "input" / "x.csv"
+    assert workspace_context.workspace_input_dir(root=explicit) == explicit / "input"
+
+
+def test_output_dir_is_per_plan(tmp_path, monkeypatch):
+    """WP7.3: two plan files never share an output folder; a stored plan_id names it."""
+    from src import workspace_context
+    from src.stores import PlanStore
+    monkeypatch.delenv("RETIREMENT_SYSTEM_PLAN_DB", raising=False)
+    monkeypatch.setenv("RETIREMENT_SYSTEM_WORKSPACE_ROOT", str(tmp_path))
+    a = workspace_context.workspace_output_dir(root=tmp_path)
+    assert a == tmp_path / "output" / "plans" / "plan"
+    monkeypatch.setenv("RETIREMENT_SYSTEM_PLAN_DB", str(tmp_path / "other.rpx"))
+    assert workspace_context.workspace_output_dir(root=tmp_path) != a
+    store = PlanStore.open(tmp_path / "other.rpx")
+    try:
+        store.set_meta("plan_id", "p-123")
+    finally:
+        store.close()
+    assert workspace_context.active_plan_id(root=tmp_path) == "p-123"

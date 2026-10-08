@@ -1,19 +1,17 @@
-import json
 from pathlib import Path
 
-from src.report_package import REPORT_PACKAGE_FILENAME, REPORT_PACKAGE_SCHEMA, build_report_package, read_report_package, write_report_package
-from src.results_model import RESULTS_MODEL_FILENAME, RESULTS_MODEL_SCHEMA
+from src.active_plan import PLAN_DB_ENV, ensure_plan_file, plan_state, read_build_results, write_build_results
+from src.report_package import REPORT_PACKAGE_SCHEMA, build_report_package
+from src.results_model import RESULTS_MODEL_SCHEMA
 from src.server import app
-import src.server.workbook_routes as workbook_routes
 from src.server_services import build_service, report_service
 
 
 HEADERS = {"X-User-Role": "admin"}
 
-
-def _write_json(path: Path, payload: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload), encoding="utf-8")
+SUMMARY = {"build_id": "phase4", "terminal_nw": 123}
+EXPLORER = {"schema": RESULTS_MODEL_SCHEMA, "source": "test", "sheets": [{"name": "Summary"}], "categories": [{"label": "Summary"}]}
+SNAPSHOT = {"schema": "build_snapshot_v1", "build_id": "phase4", "artifact_count": 3, "sqlite_database_snapshot": {"exists": True}}
 
 
 def _write_bytes(path: Path, payload: bytes = b"artifact") -> None:
@@ -24,20 +22,28 @@ def _write_bytes(path: Path, payload: bytes = b"artifact") -> None:
 def _seed_report_output(output: Path) -> None:
     _write_bytes(output / "retirement_plan.xlsx")
     _write_bytes(output / "retirement_dashboard.html")
-    _write_json(output / RESULTS_MODEL_FILENAME, {"schema": RESULTS_MODEL_SCHEMA, "source": "test", "sheets": [{"name": "Summary"}], "categories": [{"label": "Summary"}]})
-    _write_json(output / "plan_summary.json", {"build_id": "phase4", "terminal_nw": 123})
-    _write_json(output / "build_snapshot.json", {"schema": "build_snapshot_v1", "build_id": "phase4", "artifact_count": 3, "sqlite_database_snapshot": {"exists": True}})
+
+
+def _package(output: Path) -> dict:
+    return build_report_package(output, build_id="phase4", summary=SUMMARY, results_model=EXPLORER, build_snapshot=SNAPSHOT)
+
+
+def _store(tmp_path, monkeypatch, package) -> Path:
+    plan = tmp_path / "plan.rpx"
+    monkeypatch.setenv(PLAN_DB_ENV, str(plan))
+    ensure_plan_file(plan)
+    write_build_results("phase4", path=plan, plan_state=plan_state(plan), summary=SUMMARY, explorer=EXPLORER,
+                        snapshot=SNAPSHOT, package=package)
+    return plan
 
 
 def test_report_package_builds_versioned_advisor_contract(tmp_path):
     output = tmp_path / "output"
     _seed_report_output(output)
 
-    package = write_report_package(output)
-    saved = read_report_package(output)
+    package = _package(output)
 
     assert package["schema"] == REPORT_PACKAGE_SCHEMA
-    assert saved and saved["schema"] == REPORT_PACKAGE_SCHEMA
     assert package["success"] is True
     assert package["build_id"] == "phase4"
     assert package["contracts"]["results_model"] == RESULTS_MODEL_SCHEMA
@@ -48,7 +54,7 @@ def test_report_package_builds_versioned_advisor_contract(tmp_path):
 
 
 def test_report_package_surfaces_missing_required_artifacts(tmp_path):
-    package = build_report_package(tmp_path / "output")
+    package = build_report_package(tmp_path / "output", summary={}, results_model={}, build_snapshot={})
 
     assert package["schema"] == REPORT_PACKAGE_SCHEMA
     assert package["success"] is False
@@ -59,43 +65,48 @@ def test_report_package_surfaces_missing_required_artifacts(tmp_path):
 def test_report_package_service_and_route_return_current_package(monkeypatch, tmp_path):
     output = tmp_path / "output"
     _seed_report_output(output)
-    write_report_package(output)
+    _store(tmp_path, monkeypatch, _package(output))
 
-    payload, status = report_service.report_package_payload(output)
+    payload, status = report_service.report_package_payload()
     assert status == 200
     assert payload["schema"] == REPORT_PACKAGE_SCHEMA
 
-    monkeypatch.setattr(workbook_routes, "_workspace_output", lambda: output)
-    client = app.test_client()
-    response = client.get("/api/report-package", headers=HEADERS)
+    response = app.test_client().get("/api/report-package", headers=HEADERS)
 
     assert response.status_code == 200
     assert response.get_json()["schema"] == REPORT_PACKAGE_SCHEMA
 
 
-def test_build_preflight_exposes_report_package_artifact(tmp_path):
+def test_report_package_service_404s_before_any_build(monkeypatch, tmp_path):
+    monkeypatch.setenv(PLAN_DB_ENV, str(tmp_path / "plan.rpx"))
+
+    payload, status = report_service.report_package_payload()
+
+    assert status == 404
+    assert payload["schema"] == REPORT_PACKAGE_SCHEMA
+
+
+def test_build_preflight_exposes_report_package_artifact(monkeypatch, tmp_path):
     output = tmp_path / "output"
     output.mkdir()
-    db = tmp_path / "local_state" / "plan.db"
-    _write_bytes(db)
     _seed_report_output(output)
-    write_report_package(output)
+    plan = _store(tmp_path, monkeypatch, _package(output))
 
     payload = build_service.build_preflight_payload(
         output_dir=output,
-        db_path=db,
-        snapshot_filename="build_snapshot.json",
-        read_build_snapshot=lambda path: json.loads(Path(path).read_text(encoding="utf-8")),
+        db_path=plan,
         csv_rows_payload=lambda: {"rows": []},
     )
 
     assert payload["schema"] == "build_preflight_v1"
     assert payload["artifacts"]["report_package"]["exists"] is True
+    assert read_build_results(path=plan)["package"]["build_id"] == "phase4"
 
 
-def test_workbook_builder_writes_report_package_after_build_snapshot():
+def test_workbook_builder_stores_report_package_after_build_snapshot():
     text = Path("src/reporting/workbook_builder.py").read_text(encoding="utf-8")
 
-    assert "write_build_snapshot(" in text
-    assert "write_report_package(" in text
-    assert text.index("write_build_snapshot(") < text.index("write_report_package(")
+    assert "make_build_snapshot(" in text
+    assert "build_report_package(" in text
+    assert "write_build_results(" in text
+    assert text.index("make_build_snapshot(") < text.index("build_report_package(") < text.index("write_build_results(")

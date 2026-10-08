@@ -1130,23 +1130,18 @@ def planned_spending_components(root: str | Path, current_year: int) -> dict[str
 
 
 def _local_price_snapshot(root: str | Path) -> dict[str, float]:
-    """Return last known prices from local output sidecars without live calls."""
-    root_p = Path(root)
-    candidates = [root_p / "price_refresh_result.json", root_p.parent / "output" / "price_refresh_result.json", root_p / "pricing_diagnostics.json", root_p.parent / "output" / "pricing_diagnostics.json"]
+    """Return the last known prices (the stored price snapshots) without live calls."""
+    from .portfolio_analytics import load_latest_snapshots
+
     out: dict[str, float] = {}
-    for p in candidates:
-        if not p.exists():
-            continue
-        try:
-            payload = json.loads(p.read_text(encoding="utf-8"))
-        except Exception:
-            continue
-        prices = payload.get("prices") if isinstance(payload, dict) else {}
-        if isinstance(prices, dict):
-            for k, v in prices.items():
-                price = parse_money(v)
-                if price > 0:
-                    out[str(k).strip().upper()] = price
+    try:
+        snapshots = load_latest_snapshots()
+    except Exception:
+        return out
+    for symbol, row in snapshots.items():
+        price = parse_money(row.get("price"))
+        if price > 0:
+            out[str(symbol).strip().upper()] = price
     return out
 
 

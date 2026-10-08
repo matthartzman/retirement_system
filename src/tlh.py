@@ -25,12 +25,10 @@ from __future__ import annotations
 
 import csv
 import os
-from pathlib import Path
 from typing import Any, Mapping
 
 from . import tax_kernel as _tk
 
-_REF_DIR = Path(__file__).resolve().parent.parent / 'reference_data'
 
 
 # ─────────────────────────────────────────────────────────────────────────────
