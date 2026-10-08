@@ -39,7 +39,6 @@ import io
 import os
 
 from ..data_io import _b, _n, _v, _y
-from ..workspace_context import active_workspace_id, candidate_input_files
 
 
 def parse_hsa_policy(data, plan_start):

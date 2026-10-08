@@ -216,22 +216,6 @@ def test_secrets_store_failed_save_keeps_existing_keys(tmp_path, monkeypatch):
     assert secrets_store._load(path) == {"k": "v"}
 
 
-def test_materialize_workspace_files_failure_keeps_existing_file(tmp_path, monkeypatch):
-    from src import config_backend, platform_runtime
-
-    monkeypatch.setattr(platform_runtime, "workspace_root", lambda: tmp_path)
-    db = tmp_path / "plan.db"
-    config_backend.init_sqlite(db)
-    config_backend.set_client_file("client_holdings.csv", "from-db\n", "local", "local", "u", db)
-    dest = tmp_path / "input" / "client_holdings.csv"
-    dest.parent.mkdir(parents=True)
-    dest.write_text("on-disk\n", encoding="utf-8")
-    monkeypatch.setattr(plan_file_io.os, "replace", _boom)
-    with pytest.raises(OSError):
-        config_backend.materialize_workspace_files(db_path=db, file_names=["client_holdings.csv"], overwrite_existing=True)
-    assert dest.read_text(encoding="utf-8") == "on-disk\n"
-
-
 def _bare_write_calls(path: Path, function: str | None = None) -> list[int]:
     tree = ast.parse(path.read_text(encoding="utf-8"))
     nodes = [tree]
@@ -250,7 +234,6 @@ def _bare_write_calls(path: Path, function: str | None = None) -> list[int]:
     ("src/server_services/holdings_service.py", None),
     ("src/secrets_store.py", None),
     ("src/plan_data_migration.py", None),
-    ("src/config_backend.py", "materialize_workspace_files"),
 ])
 def test_primary_user_data_writers_have_no_bare_write_text(rel, func):
     assert _bare_write_calls(ROOT / rel, func) == [], f"{rel} still uses a bare write_text/write_bytes"

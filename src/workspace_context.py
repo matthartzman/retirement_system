@@ -1,12 +1,14 @@
 from __future__ import annotations
 """Local path helpers for the single-user desktop package.
 
-Plan Data lives in the local SQLite store. Generated files are written to output/.
+Plan data lives in the plan file (``active_plan``); the build reads it through one read
+transaction (WP7.1), so there is no input-file lookup here. Generated files are written to
+output/.
 """
 
 import re
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Optional
 
 from . import platform_runtime
 
@@ -63,32 +65,3 @@ def workspace_output_dir(workspace_id: Optional[str] = None, root: Optional[Path
         p = Path(override)
         return p if p.is_absolute() else root / p
     return root / "output"
-
-
-def workspace_file(filename: str, workspace_id: Optional[str] = None, root: Optional[Path] = None, prefer_existing: bool = True) -> Path:
-    return _default_root(root) / "input" / Path(filename).name
-
-
-def candidate_input_files(filename: str, workspace_id: Optional[str] = None, root: Optional[Path] = None) -> list[Path]:
-    root = _default_root(root)
-    name = Path(filename).name
-    candidates = [
-        workspace_plan_data_dir(workspace_id, root) / name,
-        root / "input" / name,
-        root / "reference_data" / name,
-    ]
-    out: list[Path] = []
-    seen = set()
-    for p in candidates:
-        key = str(p)
-        if key not in seen:
-            seen.add(key)
-            out.append(p)
-    return out
-
-
-def first_existing(paths: Iterable[Path]) -> Optional[Path]:
-    for p in paths:
-        if p.exists():
-            return p
-    return None

@@ -60,11 +60,11 @@ try:
     from ..security import append_audit_event, constant_time_token_ok, extract_bearer_or_header, get_server_token, redact_text, sha256_fingerprint
     from ..permissions import UserContext, require as require_permission, user_from_headers
     from ..secrets_store import encryption_status, set_secret  # require_secure_master_key: system review 4.5, its one call site (SaaS-only) removed
-    from ..workspace_context import sanitize_id, workspace_file, workspace_output_dir
+    from ..workspace_context import sanitize_id, workspace_input_dir, workspace_output_dir
     from ..blank_plan import blank_plan_rows
     from ..roth_ui_build_guard import normalize_roth_csv_value
     from ..us_states import state_abbr_choice_options, state_name_choice_options
-    from ..plan_file_io import atomic_write, plan_file_lock, write_text_atomic
+    from ..plan_file_io import atomic_write
     from .plan_data_files import (
         PLAN_DATA_CSV_FILES,
         PLAN_DATA_FILES,
@@ -80,12 +80,9 @@ try:
         DEFAULT_DB,
         append_audit_event_sqlite,
         get_client,
-        get_client_file,
         init_sqlite,
         load_active_config,
         lookup_api_token,
-        materialize_workspace_files,
-        set_client_file,
         sync_clients_csv_to_sqlite,
         upsert_client,
     )
@@ -97,10 +94,10 @@ except ImportError:  # direct execution fallback
     from src.security import append_audit_event, constant_time_token_ok, extract_bearer_or_header, get_server_token, redact_text, sha256_fingerprint
     from src.permissions import UserContext, require as require_permission, user_from_headers
     from src.secrets_store import encryption_status, set_secret
-    from src.workspace_context import sanitize_id, workspace_file, workspace_output_dir
+    from src.workspace_context import sanitize_id, workspace_input_dir, workspace_output_dir
     from src.blank_plan import blank_plan_rows
     from src.roth_ui_build_guard import normalize_roth_csv_value
-    from src.plan_file_io import atomic_write, plan_file_lock, write_text_atomic
+    from src.plan_file_io import atomic_write
     from src.us_states import state_abbr_choice_options, state_name_choice_options
     from src.server.plan_data_files import (
         PLAN_DATA_CSV_FILES,
@@ -117,12 +114,9 @@ except ImportError:  # direct execution fallback
         DEFAULT_DB,
         append_audit_event_sqlite,
         get_client,
-        get_client_file,
         init_sqlite,
         load_active_config,
         lookup_api_token,
-        materialize_workspace_files,
-        set_client_file,
         sync_clients_csv_to_sqlite,
         upsert_client,
     )
@@ -472,46 +466,22 @@ def _protected_client_data_status() -> dict:
 
 
 def _plan_data_path(file_name: str, prefer_existing: bool = True) -> Path:
-    name = _normalize_plan_data_file_name(file_name)
-    return workspace_file(name, _workspace_id(), WORKSPACE_ROOT, prefer_existing=prefer_existing)
+    """Where a flat dataset's CSV sat in the workspace (``input/<name>``). Every dataset is a
+    table of the plan file now; the YTD service still derives its folder from this path."""
+    return workspace_input_dir(_workspace_id(), WORKSPACE_ROOT) / _normalize_plan_data_file_name(file_name)
 
 
 def _read_plan_data_file(file_name: str) -> str | None:
+    """A flat dataset as its legacy CSV text, read from the plan file's table (``None`` when empty)."""
     name = _normalize_plan_data_file_name(file_name)
-    if name in _plan_datasets.DATASET_BY_FILE:  # holdings, liabilities, HSA schedule, targets: plan file tables
-        return _plan_datasets.active_dataset_text(_plan_datasets.DATASET_BY_FILE[name])
-    # The legacy local database's client_files holds the flat datasets' text (holdings,
-    # spending, YTD ...) until WP6 moves them into the plan file. Read it first; the on-disk
-    # input/*.csv is used only to bootstrap it on a fresh checkout / first run, and when we
-    # read a CSV for that reason we lazily seed the DB so subsequent reads are DB-canonical.
-    content = get_client_file(name, _workspace_id(), _client_id(), _sqlite_db())
-    if content is not None:
-        return content
-    path = _plan_data_path(name, prefer_existing=True)
-    if path.exists():
-        csv_content = path.read_text(encoding="utf-8-sig")
-        try:
-            set_client_file(name, csv_content, _workspace_id(), _client_id(), _current_user().user_id, _sqlite_db())
-        except Exception as exc:
-            _audit("plan_data_db_bootstrap_warning", {"file": name, "error": str(exc)})
-        return csv_content
-    return None
+    return _plan_datasets.active_dataset_text(_plan_datasets.DATASET_BY_FILE[name])
 
 
 def _write_plan_data_file(file_name: str, content: str) -> Path:
-    """Write one flat dataset file (client_files first, then the on-disk copy)."""
+    """Replace a flat dataset's table in the plan file from CSV text; returns the plan file."""
     name = _normalize_plan_data_file_name(file_name)
-    if name in _plan_datasets.DATASET_BY_FILE:
-        _plan_datasets.write_active_dataset(_plan_datasets.DATASET_BY_FILE[name], content)
-        return active_plan_path()
-    path = _plan_data_path(name, prefer_existing=False)
-    with plan_file_lock(path):
-        try:
-            set_client_file(name, content, _workspace_id(), _client_id(), _current_user().user_id, _sqlite_db())
-        except Exception as exc:
-            _audit("plan_data_db_write_warning", {"file": name, "error": str(exc)})
-        write_text_atomic(path, content)
-    return path
+    _plan_datasets.write_active_dataset(_plan_datasets.DATASET_BY_FILE[name], content)
+    return active_plan_path()
 
 
 SSA44_UI_PLAN_DATA_ROWS: list[list[str]] = [

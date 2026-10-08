@@ -68,11 +68,7 @@
    "path_io": 1
   },
   "src/server/app_core.py": {
-   "csv": 13,
-   "path_io": 1
-  },
-  "src/server/plan_routes.py": {
-   "path_io": 1
+   "csv": 13
   },
   "src/server/security_audit.py": {
    "path_io": 5
@@ -117,5 +113,5 @@
    "path_io": 1
   }
  },
- "total": 116
+ "total": 114
 }
