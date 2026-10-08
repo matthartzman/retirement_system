@@ -131,11 +131,11 @@ DECLARED_SITES: dict[tuple[str, str, str], tuple[str, str | None, tuple[str, ...
     ),
 
     # ── Gates: the site decides whether its own module runs ──────────────────
-    ("src/reporting/workbook_builder.py", "main", "market_luck_stress_test"): (
+    ("src/reporting/workbook_builder.py", "_main", "market_luck_stress_test"): (
         OWN_GATE, None, (),
         "run_mc -- the 'no logic executed' half of gating Monte Carlo itself.",
     ),
-    ("src/reporting/workbook_builder.py", "main", DYNAMIC): (
+    ("src/reporting/workbook_builder.py", "_main", DYNAMIC): (
         OWN_GATE, None, (),
         "The generic loop over OPTIONAL_MODULE_SHEETS: each module's own gate, "
         "which is why the key is a loop variable and not a literal.",
