@@ -47,14 +47,14 @@ def _part_artifact(part: str, doc: dict[str, Any], *, role: str, schema: str) ->
     return {"role": role, "schema": schema, "required": True, **build_part_record(part, doc)}
 
 
-def _artifact_map(output_dir: Path, summary: dict[str, Any], results: dict[str, Any], snapshot: dict[str, Any]) -> list[dict[str, Any]]:
+def _artifact_map(output_dir: Path, summary: dict[str, Any], results: dict[str, Any], snapshot: dict[str, Any], pricing: dict[str, Any]) -> list[dict[str, Any]]:
     return [
         _artifact_record(output_dir / "retirement_plan.xlsx", role="workbook", schema="xlsx_workbook"),
         _artifact_record(output_dir / "retirement_dashboard.html", role="html_dashboard", schema="offline_dashboard"),
         _part_artifact("explorer", results, role="results_model", schema=RESULTS_MODEL_SCHEMA),
         _part_artifact("summary", summary, role="summary", schema="plan_summary_v1"),
         _part_artifact("snapshot", snapshot, role="build_snapshot", schema=SNAPSHOT_SCHEMA),
-        _artifact_record(output_dir / "pricing_diagnostics.json", role="pricing_diagnostics", schema="pricing_diagnostics_v1", required=False),
+        {**_part_artifact("pricing", pricing, role="pricing_diagnostics", schema="pricing_diagnostics_v1"), "required": False},
     ]
 
 
@@ -65,10 +65,11 @@ def build_report_package(
     summary: dict[str, Any],
     results_model: dict[str, Any],
     build_snapshot: dict[str, Any],
+    pricing: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     out = Path(output_dir)
     summary_payload, results_payload, snapshot_payload = summary, results_model, build_snapshot
-    artifacts = _artifact_map(out, summary_payload, results_payload, snapshot_payload)
+    artifacts = _artifact_map(out, summary_payload, results_payload, snapshot_payload, pricing or {})
 
     required_missing = [a["role"] for a in artifacts if a.get("required") and not a.get("exists")]
     result_sheets = results_payload.get("sheets") if isinstance(results_payload.get("sheets"), list) else []

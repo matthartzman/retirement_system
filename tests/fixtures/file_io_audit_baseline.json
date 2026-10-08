@@ -21,7 +21,7 @@
   },
   "src/market_data.py": {
    "csv": 1,
-   "path_io": 4
+   "path_io": 2
   },
   "src/monarch_autoupdate.py": {
    "path_io": 4
@@ -67,22 +67,13 @@
   },
   "src/server_services/admin_service.py": {
    "csv": 4,
-   "path_io": 5
+   "path_io": 3
   },
   "src/server_services/base_service.py": {
    "path_io": 3
   },
-  "src/server_services/build_service.py": {
-   "path_io": 1
-  },
   "src/server_services/demo_plan_service.py": {
    "path_io": 4
-  },
-  "src/server_services/portfolio_service.py": {
-   "path_io": 1
-  },
-  "src/server_services/pricing_service.py": {
-   "path_io": 1
   },
   "src/server_services/report_service.py": {
    "path_io": 2
@@ -98,9 +89,8 @@
    "csv": 3
   },
   "src/ytd_tracking.py": {
-   "csv": 4,
-   "path_io": 1
+   "csv": 4
   }
  },
- "total": 103
+ "total": 95
 }

@@ -103,7 +103,7 @@ def build_preflight_payload(
         "summary": _part_meta(row, "summary"),
         "build_snapshot": _part_meta(row, "snapshot"),
         "report_package": _part_meta(row, "package"),
-        "pricing_diagnostics": meta(output_dir / "pricing_diagnostics.json"),
+        "pricing_diagnostics": _part_meta(row, "pricing"),
     }
     db_meta = meta(db_path)
     summary: dict[str, Any] = dict((row or {}).get("summary") or {})
@@ -196,10 +196,9 @@ def build_preflight_payload(
 
     pricing_status = "unknown"
     pricing_mode = "unknown"
-    pricing_diag_path = output_dir / "pricing_diagnostics.json"
-    if pricing_diag_path.exists():
+    diag = (row or {}).get("pricing") or {}
+    if diag:
         try:
-            diag = json.loads(pricing_diag_path.read_text(encoding="utf-8"))
             pricing_mode = str(diag.get("pricing_mode") or "unknown")
             # failure_symbols/failures count individual provider ATTEMPTS, which
             # is noisy: a symbol commonly fails on one provider (e.g. a
@@ -238,7 +237,7 @@ def build_preflight_payload(
         except Exception:
             warnings.append("Pricing diagnostics could not be parsed.")
     else:
-        recommendations.append("Refresh or build once to create pricing diagnostics.")
+        recommendations.append("Build once to create pricing diagnostics.")
 
     current = bool(not missing_outputs and not stale_outputs)
     if blockers:

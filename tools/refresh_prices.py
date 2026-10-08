@@ -19,7 +19,6 @@ sys.path.insert(0, str(ROOT))
 from src import market_data
 from src.config_backend import load_active_config, setting
 from src.portfolio_analytics import snapshot_prices
-from src.workspace_context import workspace_output_dir
 
 
 def _num(value: object, default: float = 0.0) -> float:
@@ -90,8 +89,6 @@ def main() -> int:
         else:
             warnings.append(f"{symbol}: no usable price; skipped snapshot")
 
-    out_dir = workspace_output_dir(workspace_id, ROOT)
-    out_dir.mkdir(parents=True, exist_ok=True)
     snapshot_error = ""
     count = 0
     try:
@@ -103,7 +100,7 @@ def main() -> int:
         # this keeps the refresh result truthful if persistence fails.
         snapshot_error = repr(exc)
 
-    diag = market_data.write_pricing_diagnostics(out_dir / "pricing_diagnostics.json", print_report=False)
+    diag = market_data.report_pricing_diagnostics(print_report=False)
     sources = {str(k): str(v) for k, v in market_data.PRICE_SOURCE_CACHE.items()}
     live_prices = {sym: px for sym, px in prices.items() if "_live" in sources.get(sym, "") or sources.get(sym, "") in {"financial_modeling_prep_live", "yahoo_live", "alpha_vantage_live", "stooq_live"}}
     cache_prices = {sym: px for sym, px in prices.items() if "cache" in sources.get(sym, "").lower()}
@@ -139,10 +136,8 @@ def main() -> int:
         "proxy_environment_present": diag.get("proxy_environment_present"),
         "proxy_environment_keys": diag.get("proxy_environment_keys"),
     }
-    out = out_dir / "price_refresh_result.json"
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(result, indent=2), encoding="utf-8")
-    print(json.dumps(result, indent=2))
+    result["pricing_diagnostics"] = diag
+    print(json.dumps(result, indent=2))  # the caller (pricing_service) reads the result from stdout
     # If the user requested a real-time refresh, no live quotes means the
     # real-time part did not work even if cache/cost-basis fallback produced
     # portfolio values.  Return 2 so the UI can show the diagnostic payload as a

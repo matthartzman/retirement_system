@@ -80,7 +80,6 @@ _BUILD_JOBS = build_job_service.BuildJobRegistry()
 _CURRENT_BUILD_OUTPUT_FILES = [
     "retirement_plan.xlsx",
     "retirement_dashboard.html",
-    "forecast_package.json",
 ]
 
 

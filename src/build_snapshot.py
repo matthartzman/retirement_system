@@ -204,7 +204,7 @@ def make_build_snapshot(
     explorer: dict[str, Any] | None = None,
     output_files: Iterable[str] | None = None,
     system_config_path: str | Path | None = None,
-    pricing_diagnostics_path: str | Path | None = None,
+    pricing: dict[str, Any] | None = None,
     sqlite_db_path: str | Path | None = None,
 ) -> dict[str, Any]:
     """The build snapshot document (the caller stores it in ``build_results``); copies the plan
@@ -217,9 +217,9 @@ def make_build_snapshot(
     artifacts = [_file_record(out / name) for name in files]
     artifacts.append(build_part_record("explorer", explorer or {}))
     artifacts.append(build_part_record("summary", summary or {}))
-    artifacts.append(_file_record(out / "pricing_diagnostics.json"))
+    artifacts.append(build_part_record("pricing", pricing or {}))
     system_config = _file_record(Path(system_config_path)) if system_config_path else {}
-    pricing_diagnostics = _file_record(Path(pricing_diagnostics_path)) if pricing_diagnostics_path else _file_record(out / "pricing_diagnostics.json")
+    pricing_diagnostics = build_part_record("pricing", pricing or {})
     sqlite_database = _file_record(Path(sqlite_db_path)) if sqlite_db_path else {}
     sqlite_database_snapshot = capture_sqlite_database_snapshot(sqlite_db_path, out) if sqlite_db_path else {"exists": False, "reason": "sqlite_db_path_not_provided", "file": SNAPSHOT_DB_FILENAME}
     return {
