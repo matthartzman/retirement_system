@@ -486,7 +486,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/bootstrap.py` | `src`, `plan_data_migration`, `platform_runtime`, `security` | — |
 | `src/build_entry.py` | `reporting.workbook_builder` | — |
 | `src/build_snapshot.py` | `plan_db_replace`, `version` | — |
-| `src/config_backend.py` | `active_plan`, `plan_file_io`, `sqlite_util`, `system_config` | — |
+| `src/config_backend.py` | `active_plan`, `sqlite_util`, `system_config` | — |
 | `src/core.py` | `person_labels` | — |
 | `src/csv_exchange/__init__.py` | `csv_exchange.flat_csv`, `csv_exchange.plan_csv`, `plan_label_rules` | — |
 | `src/csv_exchange/flat_csv.py` | — | — |
@@ -547,7 +547,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/parsing/allocation_optimizer_inputs.py` | `data_io` | — |
 | `src/parsing/daf.py` | `data_io` | — |
 | `src/parsing/estate_planning.py` | `data_io` | — |
-| `src/parsing/hsa_policy.py` | `data_io`, `plan_datasets`, `workspace_context` | — |
+| `src/parsing/hsa_policy.py` | `data_io`, `plan_datasets` | — |
 | `src/parsing/insurance.py` | `data_io` | — |
 | `src/parsing/note_receivable.py` | `core`, `data_io` | — |
 | `src/parsing/roth_conversion_policy.py` | `data_io` | — |
