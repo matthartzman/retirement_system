@@ -170,7 +170,7 @@ def test_account_setup_recovery_reads_the_table_and_a_user_named_file(tmp_path):
         "Account,Role,Mapped Investment Account,Prior Year End Date,Prior Year End Balance,Current Value,Current Balance,Notes\n"
         "Checking,Cash / spending,,2025-12-31,5000,6000,6000,\nBrokerage,Investment,Acct,2025-12-31,9000,9500,9500,\n", encoding="utf-8")
     svc = YtdService(YtdServiceContext(
-        base_dir=tmp_path, plan_data_path=lambda name, prefer_existing=True: root / name,
+        base_dir=tmp_path / "ws" / "code", plan_data_path=lambda name, prefer_existing=True: root / name,
         path_roots_from_config=lambda: [], server_path_allowed=lambda p: (True, ""), audit=lambda *a, **k: None))
     result = svc.recover_account_setup(force=False, extra_path=str(other))
     assert result["recovered"] and result["source"] == str(other / "ytd_account_setup.csv")
