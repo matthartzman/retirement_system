@@ -161,10 +161,10 @@ class _SqliteStore:
         con = self._con
         if con.in_transaction:
             raise StoreError(f"{self.KIND} read transaction cannot start inside another transaction")
-        with map_sqlite_errors():
-            con.execute("BEGIN")
-            con.execute("SELECT count(*) FROM sqlite_master").fetchone()  # takes the snapshot now
         try:
+            with map_sqlite_errors():
+                con.execute("BEGIN")
+                con.execute("SELECT count(*) FROM sqlite_master").fetchone()  # takes the snapshot now
             yield self
         finally:
             if self._con_ is not None and self._con_.in_transaction:
