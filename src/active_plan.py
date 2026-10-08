@@ -34,6 +34,8 @@ from typing import Any, Callable, Iterator
 from . import platform_runtime
 from .roth_ui_build_guard import canonicalize_roth_rows
 from .stores import PlanStore, StoreError
+# validate_plan_id is re-exported: product code reaches the plan store through this module
+from .stores.plan_store import validate_plan_id  # noqa: F401
 
 PLAN_DB_ENV = "RETIREMENT_SYSTEM_PLAN_DB"
 PLAN_REVISION_ENV = "RETIREMENT_SYSTEM_PLAN_REVISION"
