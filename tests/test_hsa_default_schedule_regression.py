@@ -220,3 +220,46 @@ def test_default_schedule_note_field_is_quoted_csv_safe():
     src = open("src/reporting/workbook_builder.py", encoding="utf-8").read()
     m = re.search(r'lines\.append\(f"\{r\[.year.\]\},\{r\[.optimizer_amount.\]\},,FALSE,\\"\{note\}\\""\)', src)
     assert m is not None, "expected the CSV writer line to double-quote the note field"
+
+
+# --- a saved-but-empty schedule is never regenerated ----------------------------
+
+
+def _optimize_context():
+    c = _c(plan_start=2026, plan_end=2056, balances={"hsa1": 60_000.0}, consume_by="2028")
+    c["hsa_withdrawal_mode"] = "optimize"
+    c["hsa_schedule_rows"] = []
+    return c
+
+
+def test_header_only_save_is_not_regenerated_by_the_next_build(tmp_path, monkeypatch):
+    from src.plan_datasets import active_dataset_text, write_active_dataset
+    _use_plan(tmp_path, monkeypatch)
+    write_active_dataset("hsa_schedule", "year,optimizer_amount,override_amount,locked,note\n")
+    c = _optimize_context()
+    _import_ensure()(c, "local")
+    assert active_dataset_text("hsa_schedule") is None, "a cleared/blank schedule must stay empty"
+    assert c["hsa_schedule_rows"] == []
+
+
+def test_default_seed_then_cleared_stays_cleared(tmp_path, monkeypatch):
+    from src.plan_datasets import active_dataset_text, write_active_dataset
+    _use_plan(tmp_path, monkeypatch)
+    ensure = _import_ensure()
+    ensure(_optimize_context(), "local")
+    assert active_dataset_text("hsa_schedule")
+    write_active_dataset("hsa_schedule", "year,optimizer_amount,override_amount,locked,note\n")
+    ensure(_optimize_context(), "local")
+    assert active_dataset_text("hsa_schedule") is None
+
+
+def test_flat_import_of_a_header_only_file_marks_the_schedule_saved(tmp_path, monkeypatch):
+    from src.active_plan import build_plan_file_from_csv_folder
+    from src.plan_datasets import active_dataset_text
+    _use_plan(tmp_path, monkeypatch)
+    folder = tmp_path / "legacy"
+    folder.mkdir()
+    (folder / "client_hsa_schedule.csv").write_text("year,optimizer_amount,override_amount,locked,note\n", encoding="utf-8")
+    build_plan_file_from_csv_folder(tmp_path / "plan.rpx", folder)
+    _import_ensure()(_optimize_context(), "local")
+    assert active_dataset_text("hsa_schedule") is None

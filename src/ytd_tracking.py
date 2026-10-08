@@ -27,6 +27,7 @@ from .plan_datasets import (
     append_dataset_row_for_input_dir,
     dataset_rows_for_input_dir,
     dataset_text_for_input_dir,
+    transform_dataset_rows_for_input_dir,
     write_dataset_rows_for_input_dir,
 )
 from typing import Any
@@ -167,6 +168,10 @@ def _read_dataset(root: str | Path, name: str, columns: list[str]) -> list[dict[
     order, only the YTD file's own columns (as text); ``[]`` when the plan has no rows."""
     return [{col: str(raw.get(col, "") or "") for col in columns}
             for raw in dataset_rows_for_input_dir(root, name)]
+
+
+def _read_rows(raw_rows: list[dict[str, Any]], columns: list[str]) -> list[dict[str, str]]:
+    return [{col: str(raw.get(col, "") or "") for col in columns} for raw in raw_rows]
 
 
 def _write_dataset(root: str | Path, name: str, columns: list[str], rows: list[dict[str, Any]]) -> None:
@@ -615,93 +620,107 @@ def upsert_transactions_by_monarch_id(
     not know about Monarch's own column names.
     """
     normalized_incoming = [normalize_transaction(r) for r in incoming_rows]
-    existing = [normalize_transaction(r) for r in read_transactions(root, today=today)]
-    by_monarch_id = {r["Monarch Id"]: i for i, r in enumerate(existing) if r.get("Monarch Id")}
-    existing_hashes = {transaction_hash(r) for r in existing}
-    latest_existing = max([parse_date(r.get("Date")) for r in existing if parse_date(r.get("Date"))] or [None])
+    merged: dict[str, Any] = {}
 
-    # Hash -> index, but only for a hash that identifies exactly one id-less
-    # existing row -- an ambiguous hash (two id-less rows with identical
-    # content, e.g. two genuinely separate same-day/same-amount purchases)
-    # is deliberately excluded rather than guessed at.
-    idless_hash_counts: dict[str, int] = {}
-    idless_hash_to_index: dict[str, int] = {}
-    for i, r in enumerate(existing):
-        if r.get("Monarch Id"):
-            continue
-        h = transaction_hash(r)
-        idless_hash_counts[h] = idless_hash_counts.get(h, 0) + 1
-        idless_hash_to_index[h] = i
-    adoptable_hashes = {h for h, count in idless_hash_counts.items() if count == 1}
+    def _merge(stored: list[dict[str, str]]) -> list[dict[str, Any]]:
+        existing = [normalize_transaction(r) for r in stored]
+        by_monarch_id = {r["Monarch Id"]: i for i, r in enumerate(existing) if r.get("Monarch Id")}
+        existing_hashes = {transaction_hash(r) for r in existing}
+        latest_existing = max([parse_date(r.get("Date")) for r in existing if parse_date(r.get("Date"))] or [None])
 
-    # Identity-key adoption (see docstring): unique among id-less stored rows
-    # and among incoming id-bearing rows.
-    idless_key_to_index: dict[tuple[str, str, str, str], list[int]] = {}
-    for i, r in enumerate(existing):
-        if not r.get("Monarch Id"):
-            idless_key_to_index.setdefault(_identity_key(r), []).append(i)
-    incoming_key_counts: dict[tuple[str, str, str, str], int] = {}
-    idless_key_totals = {k: len(v) for k, v in idless_key_to_index.items()}
-    for r in normalized_incoming:
-        if r.get("Monarch Id", "").strip():
-            k = _identity_key(r)
-            incoming_key_counts[k] = incoming_key_counts.get(k, 0) + 1
+        # Hash -> index, but only for a hash that identifies exactly one id-less
+        # existing row -- an ambiguous hash (two id-less rows with identical
+        # content, e.g. two genuinely separate same-day/same-amount purchases)
+        # is deliberately excluded rather than guessed at.
+        idless_hash_counts: dict[str, int] = {}
+        idless_hash_to_index: dict[str, int] = {}
+        for i, r in enumerate(existing):
+            if r.get("Monarch Id"):
+                continue
+            h = transaction_hash(r)
+            idless_hash_counts[h] = idless_hash_counts.get(h, 0) + 1
+            idless_hash_to_index[h] = i
+        adoptable_hashes = {h for h, count in idless_hash_counts.items() if count == 1}
 
-    added: list[dict[str, str]] = []
-    updated: list[dict[str, str]] = []
-    adopted: list[dict[str, str]] = []
-    skipped = 0
-    invalid_date_rows = 0
+        # Identity-key adoption (see docstring): unique among id-less stored rows
+        # and among incoming id-bearing rows.
+        idless_key_to_index: dict[tuple[str, str, str, str], list[int]] = {}
+        for i, r in enumerate(existing):
+            if not r.get("Monarch Id"):
+                idless_key_to_index.setdefault(_identity_key(r), []).append(i)
+        incoming_key_counts: dict[tuple[str, str, str, str], int] = {}
+        idless_key_totals = {k: len(v) for k, v in idless_key_to_index.items()}
+        for r in normalized_incoming:
+            if r.get("Monarch Id", "").strip():
+                k = _identity_key(r)
+                incoming_key_counts[k] = incoming_key_counts.get(k, 0) + 1
 
-    for row in normalized_incoming:
-        d = parse_date(row.get("Date"))
-        if not d:
-            invalid_date_rows += 1
-            continue
-        monarch_id = row.get("Monarch Id", "").strip()
-        if monarch_id:
-            idx = by_monarch_id.get(monarch_id)
-            if idx is None:
-                h = transaction_hash(row)
-                adopt_idx = idless_hash_to_index.get(h) if h in adoptable_hashes else None
-                if adopt_idx is not None:
-                    existing_hashes.discard(transaction_hash(existing[adopt_idx]))
-                    existing[adopt_idx] = row
-                    by_monarch_id[monarch_id] = adopt_idx
-                    existing_hashes.add(h)
-                    adoptable_hashes.discard(h)  # this id-less row is now claimed
-                    adopted.append(row)
-                else:
-                    key = _identity_key(row)
-                    key_matches = idless_key_to_index.get(key, [])
-                    if key_matches and idless_key_totals.get(key) == incoming_key_counts.get(key):
-                        key_idx = key_matches.pop(0)
-                        existing_hashes.discard(transaction_hash(existing[key_idx]))
-                        existing[key_idx] = row
-                        by_monarch_id[monarch_id] = key_idx
+        added: list[dict[str, str]] = []
+        updated: list[dict[str, str]] = []
+        adopted: list[dict[str, str]] = []
+        skipped = 0
+        invalid_date_rows = 0
+
+        for row in normalized_incoming:
+            d = parse_date(row.get("Date"))
+            if not d:
+                invalid_date_rows += 1
+                continue
+            monarch_id = row.get("Monarch Id", "").strip()
+            if monarch_id:
+                idx = by_monarch_id.get(monarch_id)
+                if idx is None:
+                    h = transaction_hash(row)
+                    adopt_idx = idless_hash_to_index.get(h) if h in adoptable_hashes else None
+                    if adopt_idx is not None:
+                        existing_hashes.discard(transaction_hash(existing[adopt_idx]))
+                        existing[adopt_idx] = row
+                        by_monarch_id[monarch_id] = adopt_idx
                         existing_hashes.add(h)
+                        adoptable_hashes.discard(h)  # this id-less row is now claimed
                         adopted.append(row)
                     else:
-                        existing.append(row)
-                        by_monarch_id[monarch_id] = len(existing) - 1
-                        existing_hashes.add(transaction_hash(row))
-                        added.append(row)
-            elif _transaction_content_differs(existing[idx], row):
-                existing[idx] = row
-                updated.append(row)
-            # else: identical content under the same Monarch id -- no-op.
-        else:
-            h = transaction_hash(row)
-            if (latest_existing and d <= latest_existing) or h in existing_hashes:
-                skipped += 1
-                continue
-            existing.append(row)
-            existing_hashes.add(h)
-            added.append(row)
+                        key = _identity_key(row)
+                        key_matches = idless_key_to_index.get(key, [])
+                        if key_matches and idless_key_totals.get(key) == incoming_key_counts.get(key):
+                            key_idx = key_matches.pop(0)
+                            existing_hashes.discard(transaction_hash(existing[key_idx]))
+                            existing[key_idx] = row
+                            by_monarch_id[monarch_id] = key_idx
+                            existing_hashes.add(h)
+                            adopted.append(row)
+                        else:
+                            existing.append(row)
+                            by_monarch_id[monarch_id] = len(existing) - 1
+                            existing_hashes.add(transaction_hash(row))
+                            added.append(row)
+                elif _transaction_content_differs(existing[idx], row):
+                    existing[idx] = row
+                    updated.append(row)
+                # else: identical content under the same Monarch id -- no-op.
+            else:
+                h = transaction_hash(row)
+                if (latest_existing and d <= latest_existing) or h in existing_hashes:
+                    skipped += 1
+                    continue
+                existing.append(row)
+                existing_hashes.add(h)
+                added.append(row)
 
-    existing, collapsed = _collapse_id_twins(existing)
-    existing.sort(key=lambda r: (format_date(parse_date(r.get("Date"))) or "9999-12-31", r.get("Account", ""), r.get("Merchant", "")))
-    write_transactions(root, existing, today=today)
+        existing, collapsed = _collapse_id_twins(existing)
+        existing.sort(key=lambda r: (format_date(parse_date(r.get("Date"))) or "9999-12-31", r.get("Account", ""), r.get("Merchant", "")))
+        merged.update(added=added, updated=updated, adopted=adopted, skipped=skipped,
+                      invalid_date_rows=invalid_date_rows, collapsed=collapsed, existing=existing)
+        return existing
+
+    # Read, merge and replace in ONE plan-file transaction: the headless Monarch import is a
+    # separate process on the same plan file, so a UI edit in between must not be lost.
+    transform_dataset_rows_for_input_dir(
+        root, "ytd_transactions", lambda rows: _merge(_read_rows(rows, TRANSACTION_COLUMNS))
+    )
+    added, updated, adopted = merged["added"], merged["updated"], merged["adopted"]
+    skipped, invalid_date_rows, collapsed = merged["skipped"], merged["invalid_date_rows"], merged["collapsed"]
+    existing = merged["existing"]
     ensure_account_setup_for_transactions(root, today=today)
     all_dates = [parse_date(r.get("Date")) for r in existing if parse_date(r.get("Date"))]
     total_skipped = skipped + invalid_date_rows
