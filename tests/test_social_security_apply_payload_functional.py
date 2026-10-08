@@ -22,6 +22,7 @@ Nothing here re-runs a sweep. Two claims:
 """
 from __future__ import annotations
 
+from src.active_plan import read_build_results
 import json
 import os
 import re
@@ -205,9 +206,9 @@ def test_a_real_build_writes_the_apply_payload_into_plan_summary(tmp_path_factor
     tail = (result.stdout + result.stderr)[-4000:]
     assert result.returncode == 0, f"build failed:\n{tail}"
 
-    summary = json.loads((out_dir / "plan_summary.json").read_text(encoding="utf-8"))
+    summary = read_build_results()["summary"]  # stored in the active plan file
     payload = summary.get("social_security_timing_result")
-    assert payload, "plan_summary.json carries no social_security_timing_result"
+    assert payload, "the stored KPI summary carries no social_security_timing_result"
     assert 62 <= payload["recommended_member_1_claim_age"] <= 70
     assert payload["pairs_scored"] > 0
 

@@ -41,7 +41,7 @@ def test_v5_file_upgrades_to_v6_with_empty_ytd_tables(tmp_path):
     con.commit()
     con.close()
     with PlanStore.open(p) as s:
-        assert s.schema_version == 6
+        assert s.schema_version == 8
         assert s.holdings.rows()[0]["account"] == "A_IRA"
         assert all(s.dataset(n).count() == 0 for n in FILES)
 

@@ -154,6 +154,23 @@ class _SqliteStore:
             yield self
 
     @contextmanager
+    def read_transaction(self: S) -> Iterator[S]:
+        """One consistent read view for the block: a deferred transaction whose snapshot is
+        taken on entry, so every read inside sees the same committed state while other
+        connections keep writing. Writes nothing; ended with a rollback. Does not nest."""
+        con = self._con
+        if con.in_transaction:
+            raise StoreError(f"{self.KIND} read transaction cannot start inside another transaction")
+        try:
+            with map_sqlite_errors():
+                con.execute("BEGIN")
+                con.execute("SELECT count(*) FROM sqlite_master").fetchone()  # takes the snapshot now
+            yield self
+        finally:
+            if self._con_ is not None and self._con_.in_transaction:
+                db._end(self._con_, "ROLLBACK")
+
+    @contextmanager
     def _write(self) -> Iterator[sqlite3.Connection]:
         self._require_writable()
         with map_sqlite_errors(), db.transaction(self._con) as con:

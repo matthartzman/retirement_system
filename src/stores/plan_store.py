@@ -74,6 +74,7 @@ from typing import Any, Iterable, Mapping, Protocol, TypedDict, TypeVar, runtime
 from .. import platform_runtime
 from ._base import _SqliteStore
 from .datasets import SCHEMA_V2_DDL, SCHEMA_V3_DDL, SCHEMA_V4_DDL, SCHEMA_V5_DDL, SCHEMA_V6_DDL, YTD_DATASETS, FlatDatasetRepository
+from .build_results import SCHEMA_V7_DDL, SCHEMA_V8_DDL, BuildResultsRepo
 from .spending_repo import SpendingRepo
 from .errors import IntegrityError, NotFoundError, ValidationError
 
@@ -128,7 +129,7 @@ CREATE TABLE plan_meta (
 INSERT INTO plan_meta (key, value) VALUES ('{RETENTION_KEY}', '{DEFAULT_REVISION_RETENTION}');
 """
 
-PLAN_MIGRATIONS: tuple[str, ...] = (_SCHEMA_V1, SCHEMA_V2_DDL, SCHEMA_V3_DDL, SCHEMA_V4_DDL, SCHEMA_V5_DDL, SCHEMA_V6_DDL)
+PLAN_MIGRATIONS: tuple[str, ...] = (_SCHEMA_V1, SCHEMA_V2_DDL, SCHEMA_V3_DDL, SCHEMA_V4_DDL, SCHEMA_V5_DDL, SCHEMA_V6_DDL, SCHEMA_V7_DDL, SCHEMA_V8_DDL)
 PLAN_SCHEMA_VERSION = len(PLAN_MIGRATIONS)
 
 
@@ -241,6 +242,16 @@ class PlanStore(_SqliteStore):
     @property
     def target_allocation(self) -> FlatDatasetRepository:
         return FlatDatasetRepository(self, "target_allocation")
+
+    # --------------------------------------------------------- build results (WP7.2)
+    @property
+    def build_results(self) -> BuildResultsRepo:
+        """What builds computed (summary, explorer model, report package, snapshot)."""
+        return BuildResultsRepo(self)
+
+    @staticmethod
+    def build_part_record(part: str, doc: Any) -> dict[str, Any]:
+        return BuildResultsRepo.part_record(part, doc)
 
     # ----------------------------------------------------------- spending set (WP6.3)
     @property

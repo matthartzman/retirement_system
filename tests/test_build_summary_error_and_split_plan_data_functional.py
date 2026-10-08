@@ -32,7 +32,7 @@ def test_build_failure_error_does_not_mask_traceback_as_missing_summary():
     src = (ROOT / "src/server_services/build_job_service.py").read_text(encoding="utf-8")
     assert "def build_error_message" in src
     assert "returncode != 0" in src
-    assert "Build failed before producing a current plan_summary.json" in src
+    assert "Build failed before producing a current KPI summary" in src
     # The no-summary message should only be used after a zero-return build.
     assert "if returncode != 0" in src
     assert re.search(r"if returncode != 0:.*?if stale_summary:.*?if not summary:", src, re.S)

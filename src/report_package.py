@@ -2,33 +2,22 @@ from __future__ import annotations
 
 """Canonical advisor report package contract.
 
-The workbook, HTML dashboard, Results Explorer model, and build snapshot
-remain independent files.  This sidecar gives the UI and future renderers one
-versioned package manifest that identifies the current report bundle and the
-contracts each artifact satisfies.
+The workbook and HTML dashboard remain files; the Results Explorer model, KPI summary and build
+snapshot are stored with the build's results (``build_results`` in the plan file). The package
+manifest, stored there too, gives the UI and future renderers one versioned description of the
+current report bundle and the contracts each artifact satisfies.
 """
 
 from datetime import datetime, UTC
-import json
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
-from .build_snapshot import SNAPSHOT_FILENAME, SNAPSHOT_SCHEMA, sha256_file
-from .results_model import RESULTS_MODEL_FILENAME, RESULTS_MODEL_SCHEMA
+from .active_plan import build_part_record
+from .build_snapshot import SNAPSHOT_SCHEMA, sha256_file
+from .results_model import RESULTS_MODEL_SCHEMA
 from .version import VERSION
 
-REPORT_PACKAGE_FILENAME = "report_package.json"
 REPORT_PACKAGE_SCHEMA = "report_package_v1"
-
-
-def _read_json(path: Path) -> dict[str, Any]:
-    if not path.exists() or not path.is_file():
-        return {}
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
-    return payload if isinstance(payload, dict) else {}
 
 
 def _artifact_record(path: Path, *, role: str, schema: str = "", required: bool = True) -> dict[str, Any]:
@@ -54,35 +43,34 @@ def _artifact_record(path: Path, *, role: str, schema: str = "", required: bool 
     return record
 
 
-def _artifact_map(output_dir: Path, output_files: Iterable[tuple[str, str, str, bool]] | None = None) -> list[dict[str, Any]]:
-    files = list(
-        output_files
-        or [
-            ("workbook", "retirement_plan.xlsx", "xlsx_workbook", True),
-            ("html_dashboard", "retirement_dashboard.html", "offline_dashboard", True),
-            ("results_model", RESULTS_MODEL_FILENAME, RESULTS_MODEL_SCHEMA, True),
-            ("summary", "plan_summary.json", "plan_summary_v1", True),
-            ("build_snapshot", SNAPSHOT_FILENAME, SNAPSHOT_SCHEMA, True),
-            ("pricing_diagnostics", "pricing_diagnostics.json", "pricing_diagnostics_v1", False),
-        ]
-    )
-    return [_artifact_record(output_dir / name, role=role, schema=schema, required=required) for role, name, schema, required in files]
+def _part_artifact(part: str, doc: dict[str, Any], *, role: str, schema: str) -> dict[str, Any]:
+    return {"role": role, "schema": schema, "required": True, **build_part_record(part, doc)}
+
+
+def _artifact_map(output_dir: Path, summary: dict[str, Any], results: dict[str, Any], snapshot: dict[str, Any], pricing: dict[str, Any]) -> list[dict[str, Any]]:
+    return [
+        _artifact_record(output_dir / "retirement_plan.xlsx", role="workbook", schema="xlsx_workbook"),
+        _artifact_record(output_dir / "retirement_dashboard.html", role="html_dashboard", schema="offline_dashboard"),
+        _part_artifact("explorer", results, role="results_model", schema=RESULTS_MODEL_SCHEMA),
+        _part_artifact("summary", summary, role="summary", schema="plan_summary_v1"),
+        _part_artifact("snapshot", snapshot, role="build_snapshot", schema=SNAPSHOT_SCHEMA),
+        {**_part_artifact("pricing", pricing, role="pricing_diagnostics", schema="pricing_diagnostics_v1"), "required": False},
+    ]
 
 
 def build_report_package(
     output_dir: str | Path,
     *,
     build_id: str = "",
-    summary: dict[str, Any] | None = None,
-    results_model: dict[str, Any] | None = None,
-    build_snapshot: dict[str, Any] | None = None,
-    output_files: Iterable[tuple[str, str, str, bool]] | None = None,
+    summary: dict[str, Any],
+    results_model: dict[str, Any],
+    build_snapshot: dict[str, Any],
+    pricing: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     out = Path(output_dir)
-    summary_payload = summary if summary is not None else _read_json(out / "plan_summary.json")
-    results_payload = results_model if results_model is not None else _read_json(out / RESULTS_MODEL_FILENAME)
-    snapshot_payload = build_snapshot if build_snapshot is not None else _read_json(out / SNAPSHOT_FILENAME)
-    artifacts = _artifact_map(out, output_files)
+    summary_payload, results_payload, snapshot_payload = summary, results_model, build_snapshot
+    artifacts = _artifact_map(out, summary_payload, results_payload, snapshot_payload, pricing or {})
+
     required_missing = [a["role"] for a in artifacts if a.get("required") and not a.get("exists")]
     result_sheets = results_payload.get("sheets") if isinstance(results_payload.get("sheets"), list) else []
     result_categories = results_payload.get("categories") if isinstance(results_payload.get("categories"), list) else []
@@ -123,21 +111,3 @@ def build_report_package(
             },
         },
     }
-
-
-def write_report_package(output_dir: str | Path, **kwargs: Any) -> dict[str, Any]:
-    out = Path(output_dir)
-    out.mkdir(parents=True, exist_ok=True)
-    package = build_report_package(out, **kwargs)
-    (out / REPORT_PACKAGE_FILENAME).write_text(json.dumps(package, indent=2, sort_keys=True), encoding="utf-8")
-    return package
-
-
-def read_report_package(path: str | Path) -> dict[str, Any] | None:
-    p = Path(path)
-    if p.is_dir():
-        p = p / REPORT_PACKAGE_FILENAME
-    payload = _read_json(p)
-    if not payload or payload.get("schema") != REPORT_PACKAGE_SCHEMA:
-        return None
-    return payload

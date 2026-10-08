@@ -14,7 +14,7 @@ from .. import core as _ar  # consolidated from account_registry
 from .. import core as _aa  # consolidated from account_access
 from .. import optimization as _ao  # consolidated from allocation_optimizer
 from ..core import *  # shared projection/tax/annuity primitives  # consolidated from engine_core
-from ..market_data import PRICE_CACHE, fetch_price, price_source, pricing_diagnostics, pricing_source_summary, write_pricing_diagnostics  # consolidated from market_data_providers
+from ..market_data import PRICE_CACHE, fetch_price, price_source, pricing_diagnostics, pricing_source_summary, report_pricing_diagnostics  # consolidated from market_data_providers
 
 import openpyxl
 from openpyxl import Workbook
@@ -1226,5 +1226,5 @@ __all__ = [
     "workspace_output_dir",
     "write_cell",
     "write_hdr",
-    "write_pricing_diagnostics",
+    "report_pricing_diagnostics",
 ]

@@ -383,9 +383,9 @@ Side effects:
 
 Purpose: compare the active plan file to the plan-file copy captured in a build snapshot (`plan_database_snapshot.rpx`).
 
-Methods:
+- `GET`: compares against the latest build snapshot stored in the plan file.
 - `GET`: compares against `output/build_snapshot.json`.
-- `POST`: accepts optional `snapshot_path` to compare a specific build snapshot.
+- `POST`: accepts optional `build_id` to compare a specific build snapshot (default: the latest build in the plan file).
 
 Response:
 - `success`: boolean.
@@ -396,7 +396,7 @@ Response:
 - `current_database`.
 - `database_matches`: whether the current database hash equals the snapshot database hash.
 - `hashes_available`: whether both hashes were available.
-- `snapshot_path`.
+- `build_id`.
 
 Failure:
 - Returns `404` when the build snapshot is missing or invalid.
@@ -409,7 +409,7 @@ Method:
 - `POST`.
 
 Request:
-- `snapshot_path`: optional path to a specific `build_snapshot.json`; defaults to `output/build_snapshot.json`.
+- `build_id`: optional; the build whose snapshot to restore (default: the latest build in the plan file).
 - `backup_suffix`: optional deterministic suffix for the pre-restore backup name.
 
 Response:

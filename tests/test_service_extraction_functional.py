@@ -96,7 +96,7 @@ SERVICE_ROUTE_PAIRS = [
     {
         "service": "src/server_services/portfolio_service.py",
         "route": "src/server/plan_routes.py",
-        "service_defines": ["def drift_payload", 'tools" / "analyze_drift.py', "portfolio_drift.json", "subprocess.run"],
+        "service_defines": ["def drift_payload", 'tools" / "analyze_drift.py', "subprocess.run"],
         "route_calls": ["def portfolio_drift", "portfolio_service.drift_payload("],
         "route_forbids": ['tools" / "analyze_drift.py', "portfolio_drift.json"],
     },

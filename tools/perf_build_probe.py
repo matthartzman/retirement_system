@@ -31,9 +31,8 @@ PHASE_MARKERS = [
 ]
 
 
-def _stable_model_hash(path: Path) -> str:
-    data = json.loads(path.read_text(encoding="utf-8"))
-    data.pop("generated_at", None)
+def _stable_model_hash(data: dict) -> str:
+    data = {k: v for k, v in data.items() if k != "generated_at"}
     canonical = json.dumps(data, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
@@ -70,13 +69,15 @@ def main() -> int:
         end = marks[i + 1][0] if i + 1 < len(marks) else total
         phases[name] = round(end - ts, 3)
 
-    out_dir = ROOT / "output"
+    from src.active_plan import read_build_results
+
+    stored = read_build_results() or {}
     result = {
         "total_s": round(total, 3),
         "phases": phases,
-        "model_sha256": _stable_model_hash(out_dir / "results_explorer_model.json"),
+        "model_sha256": _stable_model_hash(stored["explorer"]),
         "summary_sha256": hashlib.sha256(
-            (out_dir / "plan_summary.json").read_bytes()
+            json.dumps(stored["summary"], sort_keys=True, separators=(",", ":")).encode("utf-8")
         ).hexdigest(),
     }
     Path(args.out).write_text(json.dumps(result, indent=2), encoding="utf-8")

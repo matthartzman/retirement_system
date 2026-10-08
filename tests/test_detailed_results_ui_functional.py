@@ -366,8 +366,18 @@ def test_chart_dashboard_derives_browser_charts_from_projection_sheets_when_sour
     assert sheet['charts'][0]['title'] == 'Net Worth by Component'
 
 
-def test_results_model_sidecar_populates_index_sheets_with_source(tmp_path):
-    from src.results_model import write_result_explorer_model, RESULTS_MODEL_FILENAME
+def _store_model(tmp_path, monkeypatch, model):
+    """Put ``model`` in the build_results of a plan file the server would read."""
+    from src.active_plan import PLAN_DB_ENV, ensure_plan_file, write_build_results
+
+    plan = tmp_path / 'plan.rpx'
+    monkeypatch.setenv(PLAN_DB_ENV, str(plan))
+    ensure_plan_file(plan)
+    write_build_results('b1', path=plan, explorer=model)
+
+
+def test_stored_results_model_populates_index_sheets_with_source(tmp_path, monkeypatch):
+    from src.results_model import build_result_explorer_model
 
     workbook = tmp_path / 'retirement_plan.xlsx'
     wb = Workbook()
@@ -381,7 +391,7 @@ def test_results_model_sidecar_populates_index_sheets_with_source(tmp_path):
         {'year': 2026, 'h_age': 50, 'w_age': 49, 'earned': 100000, 'h_ss': 0, 'w_ss': 0, 'pension': 0, 'wife_single_ann': 0, 'wife_joint_ann': 0, 'h_single_ann': 0, 'h_joint_ann': 0, 'note_princ': 0, 'note_int': 0, 'rmd_total': 0, 'spend_base_yr': 80000, 'rec_extra': 0, 'lump': 0, 'mortgage': 36000, 'rent_yr': 0, 'fed_tax': 10000, 'state_tax': 3000, 'niit': 0, 'total_nw': 1000000, 'ann_nw': 0, 'pretax_nw': 100000, 'roth_nw': 50000, 'trust_nw': 25000, 'hsa_nw': 10000, 'home_equity': 500000, 'other_nw': 0, 'total_tax': 13000, 'agi': 100000, 'taxable_inc': 90000, 'roth_conv': 0, 'surplus': -29000},
         {'year': 2027, 'h_age': 51, 'w_age': 50, 'earned': 100000, 'h_ss': 0, 'w_ss': 0, 'pension': 0, 'wife_single_ann': 0, 'wife_joint_ann': 0, 'h_single_ann': 0, 'h_joint_ann': 0, 'note_princ': 0, 'note_int': 0, 'rmd_total': 0, 'spend_base_yr': 83000, 'rec_extra': 0, 'lump': 0, 'mortgage': 36000, 'rent_yr': 0, 'fed_tax': 9500, 'state_tax': 3000, 'niit': 0, 'total_nw': 1050000, 'ann_nw': 0, 'pretax_nw': 110000, 'roth_nw': 60000, 'trust_nw': 30000, 'hsa_nw': 11000, 'home_equity': 510000, 'other_nw': 0, 'total_tax': 12500, 'agi': 100000, 'taxable_inc': 90000, 'roth_conv': 0, 'surplus': -31500},
     ]
-    write_result_explorer_model(tmp_path / RESULTS_MODEL_FILENAME, c, rows, {'success_rate': 0.98})
+    _store_model(tmp_path, monkeypatch, build_result_explorer_model(c, rows, {'success_rate': 0.98}))
 
     index = workbook_detailed_index(workbook)
     assert index['version'] == VERSION
@@ -389,7 +399,7 @@ def test_results_model_sidecar_populates_index_sheets_with_source(tmp_path):
 
 
 def test_results_model_chart_dashboard_renders_from_model(tmp_path):
-    from src.results_model import write_result_explorer_model, RESULTS_MODEL_FILENAME, model_sheet, read_result_explorer_model
+    from src.results_model import build_result_explorer_model, model_sheet
 
     workbook = tmp_path / 'retirement_plan.xlsx'
     wb = Workbook()
@@ -403,9 +413,7 @@ def test_results_model_chart_dashboard_renders_from_model(tmp_path):
         {'year': 2026, 'h_age': 50, 'w_age': 49, 'earned': 100000, 'spend_base_yr': 80000, 'mortgage': 36000, 'fed_tax': 10000, 'state_tax': 3000, 'total_nw': 1000000, 'pretax_nw': 100000, 'roth_nw': 50000, 'trust_nw': 25000, 'hsa_nw': 10000, 'home_equity': 500000, 'other_nw': 50000},
         {'year': 2027, 'h_age': 51, 'w_age': 50, 'earned': 100000, 'spend_base_yr': 83000, 'mortgage': 36000, 'fed_tax': 9500, 'state_tax': 3000, 'total_nw': 1050000, 'pretax_nw': 110000, 'roth_nw': 60000, 'trust_nw': 30000, 'hsa_nw': 11000, 'home_equity': 510000, 'other_nw': 52000},
     ]
-    write_result_explorer_model(tmp_path / RESULTS_MODEL_FILENAME, c, rows, {'success_rate': 0.98})
-
-    model_payload = read_result_explorer_model(tmp_path / RESULTS_MODEL_FILENAME)
+    model_payload = build_result_explorer_model(c, rows, {'success_rate': 0.98})
     sheet = model_sheet(model_payload, '1E. Charts')
     assert sheet is not None
     assert sheet['source'] == 'semantic_results_model'

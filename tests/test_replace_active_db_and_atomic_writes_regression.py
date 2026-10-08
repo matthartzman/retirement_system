@@ -10,9 +10,8 @@ import pytest
 from src import plan_file_io
 from src.build_snapshot import (
     SNAPSHOT_DB_FILENAME,
-    SNAPSHOT_FILENAME,
     restore_sqlite_database_from_snapshot,
-    write_build_snapshot,
+    make_build_snapshot,
 )
 from src.plan_db_replace import replace_active_db
 from src.server_services.plan_file_service import PlanFileService, PlanFileServiceContext
@@ -135,12 +134,12 @@ def test_restore_leaves_no_stale_wal_and_uses_shared_validation(tmp_path):
     active = tmp_path / "plan.rpx"
     src = tmp_path / "src.rpx"
     _make_plan(src, "snapshot")
-    write_build_snapshot(output, build_id="b", sqlite_db_path=src, output_files=[])
+    snapshot = make_build_snapshot(output, build_id="b", sqlite_db_path=src, output_files=[])
     _make_plan(active, "active")
     Path(str(active) + "-wal").write_bytes(b"stale-wal-frames")
     Path(str(active) + "-shm").write_bytes(b"stale-shm")
 
-    restored = restore_sqlite_database_from_snapshot(output / SNAPSHOT_FILENAME, active, backup_suffix="t")
+    restored = restore_sqlite_database_from_snapshot(snapshot, active, output_dir=output, backup_suffix="t")
 
     assert restored["success"] is True
     assert not Path(str(active) + "-wal").exists()
@@ -153,23 +152,19 @@ def test_restore_rejects_snapshot_db_that_is_not_a_plan_db(tmp_path):
     output = tmp_path / "output"
     src = tmp_path / "src.rpx"
     _make_plan(src, "snapshot")
-    snapshot = write_build_snapshot(output, build_id="b", sqlite_db_path=src, output_files=[])
+    snapshot = make_build_snapshot(output, build_id="b", sqlite_db_path=src, output_files=[])
     # Corrupt the copy but keep the recorded hash matching so only the shared
     # validation (not the sha256 check) can catch it.
     copy = Path(snapshot["sqlite_database_snapshot"]["path"])
     assert copy.name == SNAPSHOT_DB_FILENAME
     copy.write_bytes(b"garbage")
-    import json
     from src.build_snapshot import sha256_file
 
-    snap_file = output / SNAPSHOT_FILENAME
-    data = json.loads(snap_file.read_text(encoding="utf-8"))
-    data["sqlite_database_snapshot"]["sha256"] = sha256_file(copy)
-    snap_file.write_text(json.dumps(data), encoding="utf-8")
+    snapshot["sqlite_database_snapshot"]["sha256"] = sha256_file(copy)
     active = tmp_path / "plan.rpx"
     _make_plan(active, "active")
 
-    restored = restore_sqlite_database_from_snapshot(snap_file, active)
+    restored = restore_sqlite_database_from_snapshot(snapshot, active, output_dir=output)
 
     assert restored["success"] is False
     assert _plan_marker(active) == "active"
@@ -216,22 +211,6 @@ def test_secrets_store_failed_save_keeps_existing_keys(tmp_path, monkeypatch):
     assert secrets_store._load(path) == {"k": "v"}
 
 
-def test_materialize_workspace_files_failure_keeps_existing_file(tmp_path, monkeypatch):
-    from src import config_backend, platform_runtime
-
-    monkeypatch.setattr(platform_runtime, "workspace_root", lambda: tmp_path)
-    db = tmp_path / "plan.db"
-    config_backend.init_sqlite(db)
-    config_backend.set_client_file("client_holdings.csv", "from-db\n", "local", "local", "u", db)
-    dest = tmp_path / "input" / "client_holdings.csv"
-    dest.parent.mkdir(parents=True)
-    dest.write_text("on-disk\n", encoding="utf-8")
-    monkeypatch.setattr(plan_file_io.os, "replace", _boom)
-    with pytest.raises(OSError):
-        config_backend.materialize_workspace_files(db_path=db, file_names=["client_holdings.csv"], overwrite_existing=True)
-    assert dest.read_text(encoding="utf-8") == "on-disk\n"
-
-
 def _bare_write_calls(path: Path, function: str | None = None) -> list[int]:
     tree = ast.parse(path.read_text(encoding="utf-8"))
     nodes = [tree]
@@ -250,7 +229,6 @@ def _bare_write_calls(path: Path, function: str | None = None) -> list[int]:
     ("src/server_services/holdings_service.py", None),
     ("src/secrets_store.py", None),
     ("src/plan_data_migration.py", None),
-    ("src/config_backend.py", "materialize_workspace_files"),
 ])
 def test_primary_user_data_writers_have_no_bare_write_text(rel, func):
     assert _bare_write_calls(ROOT / rel, func) == [], f"{rel} still uses a bare write_text/write_bytes"

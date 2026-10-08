@@ -194,7 +194,7 @@ CONTRACTS: tuple[EndpointContract, ...] = (
     ),
     EndpointContract(
         "/api/plan/snapshot/restore", "POST", "plan_snapshot_restore_v1",
-        request_fields=(_f("confirm", "any", True), _f("snapshot_path", "str")),
+        request_fields=(_f("confirm", "any", True), _f("build_id", "str")),
         response_fields=(_f("success", "bool", True), _f("schema", "str"), _f("active_database", "str"), _f("backup_database", "str")),
     ),
 

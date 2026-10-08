@@ -46,7 +46,7 @@ from .workbook_common import (
     workspace_output_dir,
     write_cell,
     write_hdr,
-    write_pricing_diagnostics,
+    report_pricing_diagnostics,
 )
 from .sheets_summary_builder import build_sheet1, build_sheet2
 from .sheets_tax_reporter import build_sheet3
@@ -64,20 +64,21 @@ from .dashboard import post_save_patch, build_html_dashboard
 from ..governance import advisor_readiness, source_citations, tax_law_dashboard, stress_narratives, workbook_consistency_warnings
 from ..after_tax import estimate_after_tax_terminal_net_worth
 from ..planning_engines import compute_baseline_lcv_and_eltr, compute_future_lcv_and_eftr
-from ..build_snapshot import SNAPSHOT_FILENAME, write_build_snapshot, checkpoint_sqlite_database
-from ..report_package import REPORT_PACKAGE_FILENAME, write_report_package
-from ..results_model import RESULTS_MODEL_FILENAME, write_result_explorer_model
+from ..build_snapshot import make_build_snapshot, checkpoint_sqlite_database
+from ..report_package import build_report_package
+from ..results_model import build_result_explorer_model
 from ..local_store import save_kpi_snapshot
+from ..active_plan import write_build_results
 
 
 def _build_plan_input_fingerprint(base_dir, config_meta):
     """Return a stable fingerprint of the exact plan data seen by this build: the plan rows'
-    revision hash (``PlanStore.revision()``), the flat dataset files still read from the
-    workspace, and the system configuration."""
+    revision hash (``PlanStore.revision()``), the plan file's flat dataset tables, and the
+    system configuration. Read inside the build's read transaction (``active_plan.build_read``),
+    so it describes the state the build computed from."""
     import hashlib as _hashlib
     from pathlib import Path as _Path
 
-    flat_names: list[str] = []  # the flat datasets are plan file tables (hashed below)
     root = _Path(base_dir)
     plan_dir = root / "input"
     files = []
@@ -92,15 +93,6 @@ def _build_plan_input_fingerprint(base_dir, config_meta):
         for dname, digest in _dataset_fingerprint(plan_db).items():
             files.append({"file": f"plan_datasets/{dname}", "sha256": digest})
             h.update(dname.encode("utf-8")); h.update(b"\0"); h.update(digest.encode("ascii")); h.update(b"\0")
-    for name in flat_names:
-        path = plan_dir / name
-        if not path.exists() or not path.is_file():
-            continue
-        data = path.read_bytes()
-        rel = f"{plan_dir.name}/{name}"
-        digest = _hashlib.sha256(data).hexdigest()
-        files.append({"file": rel, "sha256": digest, "bytes": len(data)})
-        h.update(rel.encode("utf-8")); h.update(b"\0"); h.update(digest.encode("ascii")); h.update(b"\0")
     bootstrap = (config_meta or {}).get("bootstrap_csv")
     if bootstrap:
         bp = _Path(str(bootstrap))
@@ -112,7 +104,11 @@ def _build_plan_input_fingerprint(base_dir, config_meta):
             digest = _hashlib.sha256(data).hexdigest()
             files.append({"file": rel, "sha256": digest, "bytes": len(data)})
             h.update(rel.encode("utf-8")); h.update(b"\0"); h.update(digest.encode("ascii")); h.update(b"\0")
-    return {"sha256": h.hexdigest(), "plan_dir": str(plan_dir), "files": files}
+    state = ""
+    if plan_db and _Path(str(plan_db)).is_file():
+        from ..active_plan import plan_state as _plan_state
+        state = _plan_state(plan_db)
+    return {"sha256": h.hexdigest(), "plan_dir": str(plan_dir), "files": files, "plan_state": state}
 
 
 def _build_spending_heard(c):
@@ -937,18 +933,31 @@ def _ensure_hsa_default_schedule(c, workspace_id):
 
 
 def main():
+    """Run the build on one read transaction of the plan file (``active_plan.build_read``):
+    the plan rows and every flat dataset the build reads come from the same state of the plan."""
+    from ..active_plan import build_read
+
+    with build_read() as plan_read:
+        return _main(plan_read)
+
+
+def _main(plan_read):
     import os as _os
     base_dir = _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
-
-    _os.makedirs(_os.path.join(base_dir, 'output'), exist_ok=True)
 
     print('Loading active configuration...')
     data, config_meta = load_active_config()
     _ensure_active_plan_data_loaded(data, config_meta)
+    config_meta['plan_revision'] = plan_read.revision
+    if plan_read.stale:
+        print(f'Note: the plan changed after this build was requested; building its current revision '
+              f'{plan_read.revision[:12]} (requested {plan_read.requested_revision[:12]}).')
     # Checkpoint the WAL now, before any output artifact is written -- see
     # checkpoint_sqlite_database()'s docstring for why this must happen here
-    # and not only inside write_build_snapshot() at the end of this function.
-    checkpoint_sqlite_database(config_meta.get('plan_db') or config_meta.get('sqlite_db') or config_meta.get('path'))
+    # and not only inside make_build_snapshot() at the end of this function.
+    _checkpoint_path = config_meta.get('plan_db') or config_meta.get('sqlite_db') or config_meta.get('path')
+    plan_read.refresh(while_released=lambda: checkpoint_sqlite_database(_checkpoint_path))
+    config_meta['plan_revision'] = plan_read.revision
     workspace_id = sanitize_id(config_meta.get('workspace_id', 'local'))
     client_id = sanitize_id(config_meta.get('client_id', workspace_id))
     output_path_dir = workspace_output_dir(workspace_id)
@@ -1000,7 +1009,7 @@ def main():
     print(f'  Config contract: {c.get("config_contract_version")} from {c.get("config_contract_source")}')
     print(f'  Plan horizon: {c["plan_start"]} – {c["plan_end"]}')
     print(f'  ETF prices: {PRICE_CACHE}')
-    write_pricing_diagnostics(_os.path.join(str(output_path_dir), 'pricing_diagnostics.json'), print_report=True)
+    pricing_diag = report_pricing_diagnostics(print_report=True)
 
     # Monte Carlo only runs when its optional module is enabled — this is the
     # "no logic executed" half of module gating.  With it off, mc_data is {} and
@@ -1013,7 +1022,7 @@ def main():
         print('Running projection and validation (Monte Carlo disabled — market_luck_stress_test off)...')
     # User-facing builds must always produce artifacts, even when the plan has
     # unfunded cash gaps.  The validation summary is preserved in the workbook
-    # and plan_summary.json so the user can review/fix the issue instead of
+    # and the KPI summary (build_results) so the user can review/fix the issue instead of
     # being blocked by a hard release gate.  Keep hard-gate behavior available
     # through run_projection_artifacts(..., enforce_release_gate=True) for tests
     # or CI-style release checks.
@@ -1252,7 +1261,7 @@ def main():
         _apply_format_alignments(wb, sheet_renames=FINAL_SHEET_RENAMES)
         protected_width_columns = _overridden_width_columns(wb, sheet_renames=FINAL_SHEET_RENAMES)
     except Exception as _fmt_exc:  # never let optional formatting block a build
-        # Surfaced in plan_summary.json below (not just printed) so a build
+        # Surfaced in the KPI summary (build_results) below (not just printed) so a build
         # that silently drops every saved column-width/alignment override
         # shows up in the UI's Build Preflight panel instead of only a
         # console line nobody watching the app ever sees.
@@ -1261,7 +1270,7 @@ def main():
 
     # KPI computation (summary_data) and the KPI-history DB archive happen
     # here -- before any essential output artifact (workbook, HTML dashboard,
-    # results model, plan_summary.json, build_snapshot) is written to disk --
+    # results model, the KPI summary (build_results), build_snapshot) is written to disk --
     # for the same reason checkpoint_sqlite_database() above runs before any
     # artifact write: src/server_services/build_service.py flags an artifact
     # "stale" whenever its mtime is older than the SQLite DB's mtime.
@@ -1323,7 +1332,7 @@ def main():
         # #329 §4.5 path 1 (W10a): the Roth optimizer's own result, so the
         # Strategy > Optimize > Roth Conversion panel can show what the last
         # build concluded instead of being an input form with nothing on
-        # screen to read. plan_summary.json is the artifact /api/summary
+        # screen to read. the KPI summary (build_results) is the artifact /api/summary
         # already serves, so this needs no new endpoint and survives a page
         # reload; nothing is recomputed here -- the value is a projection of
         # the RothStrategyResult contract attach_plan_result() already built.
@@ -1432,7 +1441,7 @@ def main():
     # local_store.py), so the INSERT above only lands in the .db-wal file --
     # the main .db file's mtime does not move until something checkpoints
     # the WAL. Without this second checkpoint, that would happen later, at
-    # write_build_snapshot() -> capture_sqlite_database_snapshot()'s own
+    # make_build_snapshot() -> capture_sqlite_database_snapshot()'s own
     # checkpoint, which runs after every essential artifact below is already
     # on disk -- reintroducing the exact staleness bug the early
     # checkpoint_sqlite_database() call above and this whole reordering
@@ -1469,39 +1478,40 @@ def main():
     build_html_dashboard(out_path, html_path, rows, c)
     print(f'HTML dashboard saved: {html_path}')
 
-    # Write Results Explorer model
-    results_model_path = _os.path.join(str(output_path_dir), RESULTS_MODEL_FILENAME)
-    write_result_explorer_model(results_model_path, c, rows, mc_data)
-    print(f'Results explorer model written: {results_model_path}')
-
-    # Write plan_summary.json so the build server can verify success and
-    # display KPIs. summary_data (including its KPI math) and the
-    # KPI-history DB archive were already computed above, before the
-    # workbook/HTML dashboard/results model were saved -- see the comment
-    # there for why.
-    summary_out = _os.path.join(str(output_path_dir), 'plan_summary.json')
-    with open(summary_out, 'w', encoding='utf-8') as _sf:
-        _json.dump(summary_data, _sf, indent=2)
-    print(f'Plan summary written: {summary_out}')
-
-    snapshot = write_build_snapshot(
+    # The Results Explorer model, KPI summary, build snapshot and report package are the build's
+    # results: rows of the plan file's build_results table (summary_data and its KPI math were
+    # computed above, before the workbook/HTML dashboard were saved -- see the comment there
+    # for why).
+    explorer_model = build_result_explorer_model(c, rows, mc_data)
+    plan_input_fingerprint = _build_plan_input_fingerprint(base_dir, config_meta)
+    plan_state = plan_input_fingerprint.get('plan_state', '')
+    # The fingerprint above is the last read of the plan: end the read transaction so the
+    # snapshot copy below checkpoints and copies a plan file no reader of this build holds.
+    plan_read.release()
+    snapshot = make_build_snapshot(
         output_path_dir,
         build_id=build_id,
-        plan_input_fingerprint=_build_plan_input_fingerprint(base_dir, config_meta),
+        plan_input_fingerprint=plan_input_fingerprint,
+        plan_state=plan_state,
         summary=summary_data,
+        explorer=explorer_model,
         system_config_path=_os.path.join(base_dir, 'system_config.csv'),
-        pricing_diagnostics_path=_os.path.join(str(output_path_dir), 'pricing_diagnostics.json'),
+        pricing=pricing_diag,
         sqlite_db_path=(config_meta or {}).get('plan_db') or (config_meta or {}).get('sqlite_db') or (config_meta or {}).get('path'),
     )
-    print(f'Build snapshot written: {_os.path.join(str(output_path_dir), SNAPSHOT_FILENAME)} ({snapshot.get("artifact_count", 0)} artifacts)')
-
-    package = write_report_package(
+    package = build_report_package(
         output_path_dir,
         build_id=build_id,
         summary=summary_data,
+        results_model=explorer_model,
         build_snapshot=snapshot,
+        pricing=pricing_diag,
     )
-    print(f'Report package written: {_os.path.join(str(output_path_dir), REPORT_PACKAGE_FILENAME)} ({package.get("artifact_count", 0)} artifacts)')
+    write_build_results(
+        build_id or 'local', path=plan_read.path, plan_state=plan_state,
+        summary=summary_data, explorer=explorer_model, package=package, snapshot=snapshot, pricing=pricing_diag,
+    )
+    print(f'Build results written to the plan file ({snapshot.get("artifact_count", 0)} artifacts)')
 
     print('Build complete.')
     return out_path

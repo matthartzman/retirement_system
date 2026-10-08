@@ -1,8 +1,5 @@
 {
  "files": {
-  "src/build_snapshot.py": {
-   "path_io": 2
-  },
   "src/data_io.py": {
    "csv": 3,
    "open": 1
@@ -24,7 +21,7 @@
   },
   "src/market_data.py": {
    "csv": 1,
-   "path_io": 4
+   "path_io": 2
   },
   "src/monarch_autoupdate.py": {
    "path_io": 4
@@ -46,33 +43,21 @@
   "src/portfolio_analytics.py": {
    "csv": 2
   },
-  "src/report_package.py": {
-   "path_io": 2
-  },
   "src/reporting/dashboard.py": {
    "open": 1
   },
   "src/reporting/workbook_builder.py": {
-   "json": 1,
-   "open": 1,
-   "path_io": 2
+   "path_io": 1
   },
   "src/reporting/workbook_format_config.py": {
    "json": 6,
    "open": 6
   },
-  "src/results_model.py": {
-   "path_io": 2
-  },
   "src/secrets_store.py": {
    "path_io": 1
   },
   "src/server/app_core.py": {
-   "csv": 13,
-   "path_io": 1
-  },
-  "src/server/plan_routes.py": {
-   "path_io": 1
+   "csv": 13
   },
   "src/server/security_audit.py": {
    "path_io": 5
@@ -82,22 +67,13 @@
   },
   "src/server_services/admin_service.py": {
    "csv": 4,
-   "path_io": 5
+   "path_io": 3
   },
   "src/server_services/base_service.py": {
    "path_io": 3
   },
-  "src/server_services/build_service.py": {
-   "path_io": 4
-  },
   "src/server_services/demo_plan_service.py": {
    "path_io": 4
-  },
-  "src/server_services/portfolio_service.py": {
-   "path_io": 1
-  },
-  "src/server_services/pricing_service.py": {
-   "path_io": 1
   },
   "src/server_services/report_service.py": {
    "path_io": 2
@@ -113,9 +89,8 @@
    "csv": 3
   },
   "src/ytd_tracking.py": {
-   "csv": 4,
-   "path_io": 1
+   "csv": 4
   }
  },
- "total": 117
+ "total": 95
 }

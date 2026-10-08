@@ -24,6 +24,7 @@ Two independent claims:
 """
 from __future__ import annotations
 
+from src.active_plan import read_build_results
 import json
 import os
 import subprocess
@@ -188,9 +189,9 @@ def test_a_real_build_writes_the_panels_payload_into_plan_summary(tmp_path_facto
     tail = (result.stdout + result.stderr)[-4000:]
     assert result.returncode == 0, f"build failed:\n{tail}"
 
-    summary = json.loads((out_dir / "plan_summary.json").read_text(encoding="utf-8"))
+    summary = read_build_results()["summary"]  # stored in the active plan file
     payload = summary.get("roth_strategy_result")
-    assert payload, "plan_summary.json carries no roth_strategy_result for the UI to read"
+    assert payload, "the stored KPI summary carries no roth_strategy_result for the UI to read"
     assert payload["selected_strategy_name"], "a selected strategy is the panel's headline"
     assert payload["candidates"], "the candidate comparison is the panel's whole point"
     assert payload["candidate_count"] >= len(payload["candidates"])
