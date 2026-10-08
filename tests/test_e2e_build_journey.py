@@ -86,7 +86,7 @@ def test_real_build_journey_start_to_real_detailed_results_and_download(monkeypa
 
     # Real per-sheet content: the Executive Summary should have actual
     # sections with actual rows, sourced from the just-built xlsx file. A
-    # modern build writes a results_explorer_model.json sidecar, so this
+    # modern build stores a results model in build_results, so this
     # goes through workbook_detailed_sheet() -> model_sheet(), whose success
     # shape is the page dict itself (name/sections/... at the top level, via
     # `dict(page, success=True, ...)`) - NOT wrapped in a "sheet" key like the

@@ -10,7 +10,7 @@ default) or in-process on a worker thread (mobile).
 The steps mirror the historical ``tools/build_workbook.py`` ``__main__`` block:
 run the workbook builder (which reads the plan rows and the flat dataset tables of the active
 plan file). Output is still
-communicated the same way — ``output/plan_summary.json`` plus the ``QC: n/n
+communicated the same way — ``the KPI summary stored in the plan file's build_results`` plus the ``QC: n/n
 PASS`` stdout line — so existing progress-parsing and summary-reading callers
 are unchanged.
 """

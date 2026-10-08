@@ -970,7 +970,7 @@ def build_sheet11(ws, c, rows):
     # Candidate table with transparent score components.
     # The cap and the 0-100 normalization live in summary_figures because the
     # UI's Roth result panel (#329 §4.5 path 1) prints the same two columns off
-    # plan_summary.json -- a second copy of this scale here would let the same
+    # the KPI summary (build_results) -- a second copy of this scale here would let the same
     # candidate carry a different "Score" on the screen than in the workbook.
     candidates = summary_figures.roth_strategy_candidates(c)
     top_candidates = candidates[:summary_figures.ROTH_CANDIDATE_DISPLAY_LIMIT]

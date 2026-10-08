@@ -9,7 +9,7 @@ from typing import Any, Callable
 
 from ..schema_registry import validate_rows as _schema_validate_rows
 
-from ..report_package import REPORT_PACKAGE_FILENAME
+from .. import active_plan
 
 from . import build_job_service
 
@@ -34,22 +34,21 @@ def interpret_build_result(
     *,
     returncode: int,
     stdout: str,
-    output_dir: Path,
     build_id: str,
     stderr: str = "",
 ) -> BuildResultSummary:
-    """Read plan_summary.json and decide success/staleness/error for a just-
-    finished build. The one place both the sync route and the async job call
-    instead of each re-implementing an identical inline sequence (A2, system
-    review 2026-07-21)."""
-    summary_path = output_dir / "plan_summary.json"
-    summary: dict[str, Any] = {}
-    if summary_path.exists():
-        try:
-            summary = json.loads(summary_path.read_text(encoding="utf-8"))
-        except Exception:
-            summary = {}
+    """Read the finished build's KPI summary from ``build_results`` and decide
+    success/staleness/error. The one place both the sync route and the async job
+    call instead of each re-implementing an identical inline sequence (A2, system
+    review 2026-07-21). The row is looked up by ``build_id``, so an older build's
+    summary is never taken for this one; ``stale_summary`` says the plan file holds
+    results only from a different build."""
+    row = active_plan.read_build_results(build_id or None)
+    summary: dict[str, Any] = dict((row or {}).get("summary") or {})
     stale_summary = bool(summary) and not build_job_service.summary_matches_build(summary, build_id)
+    if build_id and row is None:
+        latest = active_plan.read_build_results()
+        stale_summary = bool(latest and latest.get("summary"))
     qc_match = _QC_RE.search(stdout or "")
     success = returncode == 0 and (bool(qc_match) or summary.get("qc_result")) and bool(summary) and not stale_summary
     qc_result = summary.get("qc_result") or (qc_match.group(0) if qc_match else "Unknown")
@@ -75,43 +74,39 @@ def file_meta(path: Path) -> dict[str, Any]:
     return meta
 
 
-def read_summary_payload(output_dir: Path, fallback_output_dir: Path | None = None) -> tuple[dict[str, Any], int]:
-    p = output_dir / "plan_summary.json"
-    if not p.exists() and fallback_output_dir is not None:
-        fallback = fallback_output_dir / "plan_summary.json"
-        if fallback.exists():
-            p = fallback
-    if not p.exists():
+def read_summary_payload() -> tuple[dict[str, Any], int]:
+    row = active_plan.read_build_results()
+    summary = (row or {}).get("summary")
+    if not summary:
         return {"success": False, "error": "No prior build summary found", "kpi": {}}, 404
-    try:
-        summary = json.loads(p.read_text(encoding="utf-8"))
-    except Exception as exc:
-        return {"success": False, "error": str(exc), "kpi": {}}, 500
     return {"success": True, "kpi": summary, "summary": summary}, 200
+
+
+def _part_meta(row: dict[str, Any] | None, part: str) -> dict[str, Any]:
+    return {"exists": bool(row and row.get(part)), "stored_in": "plan_file"}
 
 
 def build_preflight_payload(
     *,
     output_dir: Path,
     db_path: Path,
-    snapshot_filename: str,
-    read_build_snapshot: Callable[[Path], dict[str, Any] | None],
     csv_rows_payload: Callable[[], dict[str, Any]],
     file_meta_func: Callable[[Path], dict[str, Any]] | None = None,
     validate_rows_func: Callable[[list[dict[str, Any]]], list[str]] | None = None,
 ) -> dict[str, Any]:
     meta = file_meta_func or file_meta
+    row = active_plan.read_build_results(path=db_path)
     artifacts = {
         "workbook": meta(output_dir / "retirement_plan.xlsx"),
         "html_dashboard": meta(output_dir / "retirement_dashboard.html"),
-        "results_model": meta(output_dir / "results_explorer_model.json"),
-        "summary": meta(output_dir / "plan_summary.json"),
-        "build_snapshot": meta(output_dir / snapshot_filename),
-        "report_package": meta(output_dir / REPORT_PACKAGE_FILENAME),
+        "results_model": _part_meta(row, "explorer"),
+        "summary": _part_meta(row, "summary"),
+        "build_snapshot": _part_meta(row, "snapshot"),
+        "report_package": _part_meta(row, "package"),
         "pricing_diagnostics": meta(output_dir / "pricing_diagnostics.json"),
     }
     db_meta = meta(db_path)
-    summary: dict[str, Any] = {}
+    summary: dict[str, Any] = dict((row or {}).get("summary") or {})
     warnings: list[str] = []
     blockers: list[str] = []
     recommendations: list[str] = []
@@ -122,40 +117,34 @@ def build_preflight_payload(
         warnings.append("No complete current output package exists yet.")
         recommendations.append("Build outputs before relying on Reports or Retirement Plan Workbook.")
 
+    # The outputs are stale when the plan (rows and datasets) is not the one the last build read.
     stale_outputs: list[str] = []
-    db_mtime = float(db_meta.get("mtime") or 0)
-    if db_mtime:
-        for name in essential:
-            meta = artifacts[name]
-            if meta.get("exists") and float(meta.get("mtime") or 0) < db_mtime:
-                stale_outputs.append(name)
-        if stale_outputs:
-            # Not a real anomaly: the DB is touched by nearly every user edit,
-            # so it is almost always newer than the last build's outputs until
-            # the next manual rebuild. Surface this as a recommendation (the
-            # "Next" informational channel), not a scary warning.
+    built_state = str((row or {}).get("plan_state") or "")
+    if built_state:
+        try:
+            current_state = active_plan.plan_state(db_path)
+        except Exception:
+            current_state = ""
+        if current_state and current_state != built_state:
+            stale_outputs = [name for name in essential if artifacts[name].get("exists")]
+            # Not a real anomaly: the plan is edited far more often than it is built, so it is
+            # usually newer than the last build's outputs until the next manual rebuild. Surface
+            # this as a recommendation (the "Next" informational channel), not a scary warning.
             recommendations.append("Saved plan data is newer than one or more report outputs. Rebuild reports from the saved local database snapshot.")
 
-    if artifacts["summary"].get("exists"):
-        try:
-            summary = json.loads((output_dir / "plan_summary.json").read_text(encoding="utf-8"))
-        except Exception as exc:
-            warnings.append(f"Prior build summary could not be read: {exc}")
-        else:
-            format_warning = summary.get("format_override_warning")
-            if format_warning:
-                warnings.append(str(format_warning))
+    if summary:
+        format_warning = summary.get("format_override_warning")
+        if format_warning:
+            warnings.append(str(format_warning))
     else:
-        recommendations.append("A successful build will create plan_summary.json for KPI status.")
+        recommendations.append("A successful build will store its KPI summary for KPI status.")
 
-    snapshot = read_build_snapshot(output_dir / snapshot_filename)
-    if artifacts["build_snapshot"].get("exists") and not snapshot:
-        warnings.append("Build snapshot could not be parsed.")
-    elif not artifacts["build_snapshot"].get("exists"):
-        recommendations.append("A successful build will create build_snapshot.json for output fingerprints.")
+    snapshot = (row or {}).get("snapshot") or {}
+    if not artifacts["build_snapshot"].get("exists"):
+        recommendations.append("A successful build will store a build snapshot for output fingerprints.")
 
     if not artifacts["report_package"].get("exists"):
-        recommendations.append("A successful build will create report_package.json as the canonical advisor package manifest.")
+        recommendations.append("A successful build will store the report package as the canonical advisor package manifest.")
 
     rows: list[dict[str, Any]] = []
     schema_errors: list[str] = []

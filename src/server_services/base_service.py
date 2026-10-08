@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+from .. import active_plan
+
 
 def safe_next_path(raw: object) -> str:
     """Return a same-origin, root-relative navigation target."""
@@ -116,7 +118,7 @@ def status_payload(*, version: str, cfg: Any, base_dir: Path, output_dir: Path, 
         "input_dir": str((base_dir / "input").resolve()),
         "input_dir_exists": (base_dir / "input").exists(),
         "output_dir": str(output_dir),
-        "plan_summary_exists": (output_dir / "plan_summary.json").exists(),
+        "plan_summary_exists": bool((active_plan.read_build_results() or {}).get("summary")),
         "features": {
             "json_yaml_config": True,
             "sqlite_backend": False,

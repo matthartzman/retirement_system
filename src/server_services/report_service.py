@@ -13,7 +13,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from ..report_package import REPORT_PACKAGE_FILENAME, REPORT_PACKAGE_SCHEMA, read_report_package
+from .. import active_plan
+from ..report_package import REPORT_PACKAGE_SCHEMA
 from ..system_config import (
     discover_system_config_csv,
     load_system_config,
@@ -101,16 +102,15 @@ def detailed_results_payload(
     return payload, 200 if payload.get("success") else 404
 
 
-def report_package_payload(output_dir: Path, fallback_output_dir: Path | None = None) -> tuple[dict[str, Any], int]:
-    path = resolve_output_file(output_dir, REPORT_PACKAGE_FILENAME, fallback_output_dir)
-    package = read_report_package(path)
-    if package:
+def report_package_payload() -> tuple[dict[str, Any], int]:
+    row = active_plan.read_build_results()
+    package = (row or {}).get("package")
+    if package and package.get("schema") == REPORT_PACKAGE_SCHEMA:
         return package, 200
     return {
         "success": False,
         "schema": REPORT_PACKAGE_SCHEMA,
-        "error": f"{REPORT_PACKAGE_FILENAME} not found; run build first",
-        "path": str(path),
+        "error": "No report package stored; run build first",
     }, 404
 
 

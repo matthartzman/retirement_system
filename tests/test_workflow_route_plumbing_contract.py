@@ -18,7 +18,8 @@ import sqlite3
 import time
 from pathlib import Path
 
-from src.build_snapshot import sha256_file, write_build_snapshot
+from src.active_plan import read_build_results, write_build_results
+from src.build_snapshot import make_build_snapshot
 from src.server import app
 import src.server.plan_routes as plan_routes
 import src.server.workbook_routes as workbook_routes
@@ -144,13 +145,21 @@ def test_live_holdings_to_allocation_preview_journey_reads_holdings_and_computes
     assert payload["optimizer_total_targets"]
 
 
+def _plan_value(path: Path) -> str:
+    from src.stores import PlanStore
+
+    with PlanStore.open(path, create=False, readonly=True) as store:
+        return store.sectioned_data()["Marker"][""]["value"]
+
+
 def test_live_snapshot_compare_and_restore_routes_round_trip(monkeypatch, tmp_path):
     output = tmp_path / "output"
     active_db = tmp_path / "plan.rpx"
     snapshot_source = tmp_path / "snapshot_source.rpx"
     _make_db(active_db, "active")
     _make_db(snapshot_source, "snapshot")
-    write_build_snapshot(output, build_id="journey", sqlite_db_path=snapshot_source, output_files=[])
+    snapshot = make_build_snapshot(output, build_id="journey", sqlite_db_path=snapshot_source, output_files=[])
+    write_build_results("journey", path=active_db, snapshot=snapshot)
 
     monkeypatch.setattr(plan_routes, "_workspace_output", lambda: output)
     monkeypatch.setattr(plan_routes, "active_plan_path", lambda: active_db)
@@ -167,4 +176,5 @@ def test_live_snapshot_compare_and_restore_routes_round_trip(monkeypatch, tmp_pa
     restore_payload = restored.get_json()
     assert restore_payload["schema"] == "plan_snapshot_restore_v1"
     assert Path(restore_payload["backup_database"]).exists()
-    assert sha256_file(active_db) == sha256_file(snapshot_source)
+    assert _plan_value(active_db) == "snapshot"
+    assert read_build_results(path=active_db)["build_id"] == "journey"

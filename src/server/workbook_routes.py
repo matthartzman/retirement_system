@@ -65,14 +65,10 @@ from .app_core import (
 from ..http_runtime.wsgi_facade import Response
 from ..schema_registry import load_schema as _load_schema_registry, validate_value as _schema_validate_value, validate_rows as _schema_validate_rows
 
-from ..build_snapshot import SNAPSHOT_FILENAME, read_build_snapshot
-
-from ..results_model import RESULTS_MODEL_FILENAME
-
 from ..server_services import build_job_service, build_service, holdings_service, plan_data_file_service, plan_forms_service, report_service, spending_service
 
 from ..local_store import list_kpi_snapshots, compare_kpi_snapshots
-from ..active_plan import active_plan_path, peek_plan_data, plan_db_env
+from ..active_plan import active_plan_path, clear_build_results, peek_plan_data, plan_db_env
 
 
 # Build-job orchestration is owned by server_services.build_job_service.
@@ -82,12 +78,8 @@ from ..active_plan import active_plan_path, peek_plan_data, plan_db_env
 _BUILD_JOBS = build_job_service.BuildJobRegistry()
 
 _CURRENT_BUILD_OUTPUT_FILES = [
-    "plan_summary.json",
     "retirement_plan.xlsx",
     "retirement_dashboard.html",
-    RESULTS_MODEL_FILENAME,
-    SNAPSHOT_FILENAME,
-    "report_package.json",
     "forecast_package.json",
 ]
 
@@ -99,6 +91,7 @@ def register_progress_push(callback: Any) -> None:
 
 def _clear_current_build_outputs(output_dir: Path) -> None:
     build_job_service.clear_current_build_outputs(output_dir, _CURRENT_BUILD_OUTPUT_FILES)
+    clear_build_results()  # the previous build's KPI summary, explorer model, package and snapshot
 
 
 def _file_meta(path: Path) -> dict[str, Any]:
@@ -106,23 +99,15 @@ def _file_meta(path: Path) -> dict[str, Any]:
 
 
 def _plan_staleness_path() -> Path:
-    """The file whose write time says the plan changed since the outputs were built: the plan
-    file, or its write-ahead log while that holds newer commits (the plan file is in WAL mode, so
-    a commit is in ``plan.rpx-wal`` until the next checkpoint). The legacy local database is not
-    consulted: audit-log and KPI-snapshot writes land there and are not plan edits."""
-    plan = active_plan_path()
-    wal = plan.with_name(plan.name + "-wal")
-    if plan.exists() and wal.exists() and wal.stat().st_mtime > plan.stat().st_mtime:
-        return wal
-    return plan
+    """The plan file the last build's results are compared against (their plan state is
+    digested from its rows and datasets, so write times and the WAL do not matter)."""
+    return active_plan_path()
 
 
 def _build_preflight_payload() -> dict[str, Any]:
     return build_service.build_preflight_payload(
         output_dir=_workspace_output(),
         db_path=_plan_staleness_path(),
-        snapshot_filename=SNAPSHOT_FILENAME,
-        read_build_snapshot=read_build_snapshot,
         csv_rows_payload=_csv_rows_payload,
         file_meta_func=_file_meta,
         validate_rows_func=_schema_validate_rows,
@@ -209,8 +194,7 @@ def get_summary():
     denied = _require("view_dashboard")
     if denied:
         return denied
-    fallback = BASE_DIR / "output" if _workspace_id() != "local" else None
-    payload, status = build_service.read_summary_payload(_workspace_output(), fallback)
+    payload, status = build_service.read_summary_payload()
     return jsonify(payload), status
 
 
@@ -238,9 +222,9 @@ def build_start():
     # redirected by RETIREMENT_SYSTEM_WORKSPACE_ROOT. The build SUBPROCESS
     # below correctly inherits the redirected root via env=os.environ.copy()
     # and writes its outputs there, but this route was then checking for
-    # plan_summary.json etc. in the wrong (real, unredirected) directory --
+    # the build results in the wrong (real, unredirected) directory --
     # so every build under a redirected workspace reported "Build completed,
-    # but no current plan_summary.json was produced" and showed "Build
+    # but no current KPI summary was stored" and showed "Build
     # failed" to the user, even though the build had genuinely succeeded.
     # Found via the Playwright E2E build journey (system review 2026-08-04,
     # Wave 2.1 J2), which runs against an isolated, redirected workspace --
@@ -373,7 +357,6 @@ def build():
     outcome = build_service.interpret_build_result(
         returncode=result.returncode,
         stdout=stdout,
-        output_dir=_workspace_output(),
         build_id=build_id,
         stderr=result.stderr or "",
     )
@@ -437,8 +420,7 @@ def get_report_package():
     denied = _require("view_dashboard")
     if denied:
         return denied
-    fallback = BASE_DIR / "output" if _workspace_id() != "local" else None
-    payload, status = report_service.report_package_payload(_workspace_output(), fallback)
+    payload, status = report_service.report_package_payload()
     return jsonify(payload), status
 
 

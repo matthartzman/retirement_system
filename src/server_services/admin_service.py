@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from typing import Any, Iterable
 
+from .. import active_plan
 from ..plan_data_registry import SYSTEM_REFERENCE_FILES
 from src.plan_file_io import atomic_write, plan_file_lock, write_text_atomic
 
@@ -252,7 +253,7 @@ def build_csv_backup_zip(base_dir: Path) -> tuple[bytes, str]:
 
 def diagnostics_payload(output_dir: Path) -> dict[str, Any]:
     files: list[dict[str, Any]] = []
-    for name in ["pricing_diagnostics.json", "plan_summary.json", "forecast_package.json"]:
+    for name in ["pricing_diagnostics.json", "forecast_package.json"]:
         p = output_dir / name
         payload: Any = None
         if p.exists():
@@ -261,6 +262,9 @@ def diagnostics_payload(output_dir: Path) -> dict[str, Any]:
             except Exception:
                 payload = {"raw": p.read_text(encoding="utf-8-sig", errors="ignore")[:4000]}
         files.append({"name": name, "path": str(p), "available": p.exists(), "bytes": p.stat().st_size if p.exists() else 0, "json": payload})
+    summary = (active_plan.read_build_results() or {}).get("summary")
+    files.insert(1, {"name": "plan_summary", "path": "build_results (plan file)", "available": bool(summary),
+                     "bytes": len(json.dumps(summary)) if summary else 0, "json": summary or None})
     return {"success": True, "output_dir": str(output_dir), "files": files}
 
 

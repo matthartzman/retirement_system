@@ -16,6 +16,8 @@ real without paying the real build's cost or needing
 """
 from __future__ import annotations
 
+import os
+from pathlib import Path
 import time
 
 from src.server import app
@@ -45,12 +47,27 @@ def _run_job(tmp_path, script_body, *, timeout_seconds=30):
     registry = BuildJobRegistry()
     job_id = "test-job"
     registry.create(job_id, created_at=time.time())
+    # The server reads the build's results from the plan file of its environment (WP7.2).
+    plan_env = {"RETIREMENT_SYSTEM_PLAN_DB": str(tmp_path / "plan.rpx"), "PYTHONPATH": str(Path(__file__).resolve().parent.parent)}
+    previous = os.environ.get("RETIREMENT_SYSTEM_PLAN_DB")
+    os.environ["RETIREMENT_SYSTEM_PLAN_DB"] = plan_env["RETIREMENT_SYSTEM_PLAN_DB"]
+    try:
+        _run(registry, job_id, script, output_dir, tmp_path, timeout_seconds, plan_env)
+    finally:
+        if previous is None:
+            os.environ.pop("RETIREMENT_SYSTEM_PLAN_DB", None)
+        else:
+            os.environ["RETIREMENT_SYSTEM_PLAN_DB"] = previous
+    return registry.snapshot(job_id)
+
+
+def _run(registry, job_id, script, output_dir, tmp_path, timeout_seconds, plan_env):
     run_build_progress_job(
         registry=registry,
         job_id=job_id,
         workspace_id="local",
         client_id="local",
-        env={"RETIREMENT_SYSTEM_BUILD_ID": job_id},
+        env={"RETIREMENT_SYSTEM_BUILD_ID": job_id, **plan_env},
         output_dir=output_dir,
         build_script=script,
         base_dir=tmp_path,
@@ -63,7 +80,6 @@ def _run_job(tmp_path, script_body, *, timeout_seconds=30):
         redact_text=_identity_redact,
         interpret_build_result=build_service.interpret_build_result,
     )
-    return registry.snapshot(job_id)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -116,7 +132,7 @@ def test_crashed_build_subprocess_error_message_names_the_real_exception(tmp_pat
 
 
 def test_build_subprocess_success_without_summary_is_not_reported_as_success(tmp_path):
-    """A subprocess that exits 0 but writes no plan_summary.json (e.g. it
+    """A subprocess that exits 0 but stores no build results (e.g. it
     crashed before the summary-writing step but still exited cleanly, or
     wrote outputs to the wrong directory) must NOT be reported as a
     successful build -- see build_service.interpret_build_result's own
@@ -124,7 +140,7 @@ def test_build_subprocess_success_without_summary_is_not_reported_as_success(tmp
     job = _run_job(tmp_path, "print('did nothing useful')\n")
     assert job["status"] == "failed"
     assert job["result"]["success"] is False
-    assert "no current plan_summary.json" in job["result"]["error"]
+    assert "no current KPI summary" in job["result"]["error"]
 
 
 def test_build_subprocess_timeout_surfaces_a_failed_job_not_a_hang(tmp_path):
@@ -155,13 +171,14 @@ def test_build_subprocess_timeout_surfaces_a_failed_job_not_a_hang(tmp_path):
 
 
 def test_successful_build_writes_a_matching_summary_and_is_reported_as_success(tmp_path):
-    """Control case: a script that exits 0 and writes a plan_summary.json
+    """Control case: a script that exits 0 and stores a KPI summary in build_results
     naming this exact build ID is reported as a real success, not swept up
     by the same failure path the tests above exercise."""
-    output_marker = str(tmp_path / "output" / "plan_summary.json").replace("\\", "\\\\")
     job = _run_job(tmp_path, (
-        "import json, os\n"
-        f"json.dump({{'qc_result': 'PASS', 'build_id': os.environ['RETIREMENT_SYSTEM_BUILD_ID']}}, open(r'{output_marker}', 'w'))\n"
+        "import os\n"
+        "from src.active_plan import write_build_results\n"
+        "bid = os.environ['RETIREMENT_SYSTEM_BUILD_ID']\n"
+        "write_build_results(bid, summary={'qc_result': 'PASS', 'build_id': bid})\n"
         "print('QC: PASS')\n"
     ))
     assert job["status"] == "done"

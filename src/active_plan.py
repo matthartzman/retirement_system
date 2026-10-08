@@ -328,6 +328,71 @@ def plan_file_fingerprint(path: str | Path) -> tuple[str, int]:
         return store.revision(), len(store.all_rows())
 
 
+def plan_state(path: str | Path | None = None) -> str:
+    """Digest of everything a build reads from the plan file: the plan rows' revision and the
+    flat datasets. A build records it with its results; a later difference means the plan changed."""
+    import hashlib  # noqa: PLC0415
+
+    target = Path(path) if path is not None else active_plan_path()
+    h = hashlib.sha256()
+    with _reading(target, readonly=True) as store:
+        h.update(store.revision().encode("ascii"))
+    for name, digest in sorted(dataset_fingerprint(target).items()):
+        h.update(b"\0" + name.encode("utf-8") + b"\0" + digest.encode("ascii"))
+    return h.hexdigest()
+
+
+# ------------------------------------------------------------ build results (WP7.2)
+def write_build_results(build_id: str, *, path: str | Path | None = None, plan_state: str | None = None,
+                        **parts: dict[str, Any]) -> None:
+    """Put parts (``summary=``, ``explorer=``, ``package=``, ``snapshot=``) into the
+    ``build_results`` row of ``build_id`` in the plan file; parts not given are kept."""
+    with _writing(Path(path) if path is not None else active_plan_path()) as store:
+        store.build_results.put(build_id, plan_state=plan_state, **parts)
+
+
+def read_build_results(build_id: str | None = None, *, path: str | Path | None = None) -> dict[str, Any] | None:
+    """The ``build_results`` row of ``build_id`` (the latest build when None) with its parts
+    parsed, or None when the plan file has none."""
+    target = Path(path) if path is not None else active_plan_path()
+    if not target.is_file():
+        return None
+    try:
+        with _reading(target, readonly=True) as store:
+            return store.build_results.get(build_id)
+    except StoreError:  # no such build, or a file that is not an initialised plan
+        return None
+
+
+def build_part_record(part: str, doc: Any) -> dict[str, Any]:
+    """The artifact record of a build-results part (what a file record is for a file)."""
+    return PlanStore.build_part_record(part, doc)
+
+
+def latest_build_stamp(path: str | Path | None = None) -> tuple[str, str] | None:
+    """``(build_id, written_at)`` of the latest build's results, or None; changes with every write."""
+    target = Path(path) if path is not None else active_plan_path()
+    if not target.is_file():
+        return None
+    try:
+        with _reading(target, readonly=True) as store:
+            return store.build_results.latest_stamp()
+    except StoreError:
+        return None
+
+
+def clear_build_results(path: str | Path | None = None) -> int:
+    """Drop every build's results (a new build starts from none)."""
+    target = Path(path) if path is not None else active_plan_path()
+    if not target.is_file():
+        return 0
+    try:
+        with _writing(target, create=False) as store:
+            return store.build_results.clear()
+    except StoreError:
+        return 0
+
+
 def plan_db_env(env: dict[str, Any]) -> dict[str, Any]:
     """Set ``PLAN_DB_ENV`` in a subprocess environment to the active plan file and
     ``PLAN_REVISION_ENV`` to its current revision (dropped when the file cannot be read yet)."""
