@@ -945,8 +945,6 @@ def _main(plan_read):
     import os as _os
     base_dir = _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
 
-    _os.makedirs(_os.path.join(base_dir, 'output'), exist_ok=True)
-
     print('Loading active configuration...')
     data, config_meta = load_active_config()
     _ensure_active_plan_data_loaded(data, config_meta)

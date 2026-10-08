@@ -158,7 +158,7 @@ def capture(plan: str) -> dict:
         if r.returncode != 0:
             raise SystemExit(f"[{plan}] workbook build failed:\n{r.stdout}{r.stderr}")
         import openpyxl
-        wb = openpyxl.load_workbook(ws / "output" / "retirement_plan.xlsx", data_only=True, read_only=True)
+        wb = openpyxl.load_workbook(next((ws / "output" / "plans").glob("*/retirement_plan.xlsx")), data_only=True, read_only=True)
         required = json.loads(SNAPSHOT_FIXTURE.read_text(encoding="utf-8"))["required_sheets"]
         sheets = {}
         for name in required:
