@@ -105,8 +105,8 @@ def _hash_input_dir() -> dict[str, str]:
 def _warn_if_input_dir_mutated_during_session():
     """Session-wide guardrail, not a per-test fixture: most tests should be
     fully isolated from input/ via tests/conftest.py's workspace redirect,
-    but that redirect only takes effect for code paths that resolve files
-    through workspace_context.candidate_input_files(). Code that reads
+    but that redirect only takes effect for code paths that resolve the
+    workspace root (workspace_context / active_plan). Code that reads
     input/ via a hardcoded ROOT-relative path (as at least one path in
     src/data_io.py's parse_client does for client_holdings.csv -- see
     tests/test_frozen_sample_plan_golden_master_regression.py's docstring) bypasses

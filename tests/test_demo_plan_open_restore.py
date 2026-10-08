@@ -485,9 +485,11 @@ def test_plan_routes_wire_reset_demo_endpoint():
     assert ".reset_demo_payload()" in routes
 
 
-def test_plan_routes_wire_the_disk_accurate_capture_reader():
+def test_plan_routes_capture_no_disk_copy():
+    """WP7.1: every flat dataset travels with the plan file swap, so the routes wire no on-disk
+    capture reader (the service falls back to the plan-table reader)."""
     routes = Path("src/server/plan_routes.py").read_text(encoding="utf-8")
-    assert "read_plan_data_disk_file=_read_plan_data_disk_file" in routes
+    assert "_read_plan_data_disk_file" not in routes
 
 
 def test_every_spending_table_file_passes_the_write_allowlist():

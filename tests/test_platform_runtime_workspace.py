@@ -92,7 +92,7 @@ def test_workspace_context_helpers_follow_override(monkeypatch, tmp_path):
 
     # These helpers resolve lazily, so no reload is needed.
     assert workspace_context.workspace_output_dir() == tmp_path / "output"
-    assert workspace_context.workspace_file("client_data.csv") == tmp_path / "input" / "client_data.csv"
+    assert workspace_context.workspace_input_dir() == tmp_path / "input"
     # An explicit root still wins (server routes pass their package BASE_DIR).
     explicit = Path("/opt/pkg")
-    assert workspace_context.workspace_file("x.csv", root=explicit) == explicit / "input" / "x.csv"
+    assert workspace_context.workspace_input_dir(root=explicit) == explicit / "input"

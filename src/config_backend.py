@@ -14,12 +14,11 @@ import hashlib
 import json
 import os
 from pathlib import Path
-from typing import Dict, Tuple, Optional as _Optional, List as _List
+from typing import Dict, Tuple, Optional as _Optional
 
 from .system_config import discover_system_config_csv, load_system_config, system_setting
 from . import platform_runtime
 from .sqlite_util import connect as closing_connect
-from .plan_file_io import write_text_atomic
 
 # PROJECT_ROOT stays the code/package root (read-only assets). Writable data
 # (input/, local_state/) hangs off the workspace root, which equals the package
@@ -172,14 +171,3 @@ def get_client_file(file_name: str, workspace_id: str = "local", client_id: str 
         row = con.execute("SELECT content FROM client_files WHERE file_name=?", (Path(file_name).name,)).fetchone()
     return row[0] if row else None
 
-def materialize_workspace_files(workspace_id: str = "local", client_id: str = "local", db_path: str | Path = DEFAULT_DB, file_names: _Optional[_List[str]] = None, overwrite_existing: bool = False) -> Path:
-    out_dir = platform_runtime.workspace_root() / "input"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    for name in file_names or ["client_holdings.csv", "target_allocation.csv", "manual_pricing_validation.csv"]:
-        dest = out_dir / Path(name).name
-        if dest.exists() and not overwrite_existing:
-            continue
-        content = get_client_file(name, db_path=db_path)
-        if content is not None:
-            write_text_atomic(dest, content)
-    return out_dir
