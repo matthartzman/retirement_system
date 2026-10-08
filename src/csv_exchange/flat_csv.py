@@ -79,6 +79,10 @@ FLAT_DATASET_FILES: dict[str, str] = {
     "spending_rules": "client_spending_rules.csv",
     "spending_category_map": "spending_category_map.csv",
     "spending_group_budget": "spending_budget.csv",
+    # The YTD actuals (WP6.4).
+    "ytd_transactions": "ytd_transactions.csv",
+    "ytd_account_setup": "ytd_account_setup.csv",
+    "ytd_import_history": "ytd_import_history.csv",
 }
 
 

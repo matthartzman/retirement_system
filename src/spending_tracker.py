@@ -13,7 +13,6 @@ Tracking types:
 """
 from __future__ import annotations
 
-import csv
 import os
 from datetime import date, datetime
 from pathlib import Path
@@ -81,29 +80,33 @@ def _safe_float(s: str) -> float:
 # Data loading
 # ------------------------------------------------------------------
 
+def _ytd_transaction_rows(root: Path | None) -> list[dict]:
+    """The rows of the plan's ``ytd_transactions`` table (workspace ``root``; file order, text
+    cells; ``[]`` when the plan has none)."""
+    from .plan_datasets import workspace_dataset_rows  # noqa: PLC0415 - keeps the module import light
+
+    return workspace_dataset_rows(_root(root), "ytd_transactions")
+
+
 def load_transactions(root: Path | None = None, year: int | None = None) -> list[dict]:
-    """Load ytd_transactions.csv, optionally filtered to a calendar year."""
-    path = _root(root) / "input" / "ytd_transactions.csv"
-    if not path.exists():
-        return []
+    """Load the plan's YTD transactions, optionally filtered to a calendar year."""
     rows: list[dict] = []
-    with open(path, newline="", encoding="utf-8-sig") as f:
-        for row in csv.DictReader(f):
-            try:
-                dt = _parse_date((row.get("Date") or "").strip())
-                if year is not None and dt.year != year:
-                    continue
-                amount = _safe_float(row.get("Amount", "0"))
-            except (ValueError, TypeError):
+    for row in _ytd_transaction_rows(root):
+        try:
+            dt = _parse_date((row.get("Date") or "").strip())
+            if year is not None and dt.year != year:
                 continue
-            rows.append({
-                "date": dt,
-                "merchant": (row.get("Merchant") or "").strip(),
-                "category": (row.get("Category") or "").strip(),
-                "account": (row.get("Account") or "").strip(),
-                "amount": amount,
-                "owner": (row.get("Owner") or "").strip(),
-            })
+            amount = _safe_float(row.get("Amount", "0"))
+        except (ValueError, TypeError):
+            continue
+        rows.append({
+            "date": dt,
+            "merchant": (row.get("Merchant") or "").strip(),
+            "category": (row.get("Category") or "").strip(),
+            "account": (row.get("Account") or "").strip(),
+            "amount": amount,
+            "owner": (row.get("Owner") or "").strip(),
+        })
     return rows
 
 
@@ -360,34 +363,30 @@ _LEGACY_TRACKING_MAP = {
 # ------------------------------------------------------------------
 
 def load_transactions_extended(root=None, year=None):
-    """Load ytd_transactions.csv including taxonomy columns if present."""
-    import csv as _csv
-    path = _root(root) / "input" / "ytd_transactions.csv"
-    if not path.exists():
-        return []
+    """Load the plan's YTD transactions including taxonomy columns if present (columns beyond
+    the YTD set are kept per row by the table)."""
     rows = []
-    with open(path, newline="", encoding="utf-8-sig") as f:
-        for row in _csv.DictReader(f):
-            try:
-                dt     = _parse_date((row.get("Date") or "").strip())
-                if year is not None and dt.year != year:
-                    continue
-                amount = _safe_float(row.get("Amount","0"))
-            except (ValueError, TypeError):
+    for row in _ytd_transaction_rows(root):
+        try:
+            dt     = _parse_date((row.get("Date") or "").strip())
+            if year is not None and dt.year != year:
                 continue
-            rows.append({
-                "date":               dt,
-                "merchant":           (row.get("Merchant")        or "").strip(),
-                "category":           (row.get("Category")        or "").strip(),
-                "account":            (row.get("Account")         or "").strip(),
-                "amount":             amount,
-                "owner":              (row.get("Owner")           or "").strip(),
-                "mapped_category_id": (row.get("MappedCategoryId") or "").strip(),
-                "confirmed":          (row.get("Confirmed") or "").strip().lower() in ("1","true","yes"),
-                "notes":              (row.get("Notes") or "").strip(),
-                "statement":          (row.get("Original Statement") or "").strip(),
-                "tags":               (row.get("Tags") or "").strip(),
-            })
+            amount = _safe_float(row.get("Amount","0"))
+        except (ValueError, TypeError):
+            continue
+        rows.append({
+            "date":               dt,
+            "merchant":           (row.get("Merchant")        or "").strip(),
+            "category":           (row.get("Category")        or "").strip(),
+            "account":            (row.get("Account")         or "").strip(),
+            "amount":             amount,
+            "owner":              (row.get("Owner")           or "").strip(),
+            "mapped_category_id": (row.get("MappedCategoryId") or "").strip(),
+            "confirmed":          (row.get("Confirmed") or "").strip().lower() in ("1","true","yes"),
+            "notes":              (row.get("Notes") or "").strip(),
+            "statement":          (row.get("Original Statement") or "").strip(),
+            "tags":               (row.get("Tags") or "").strip(),
+        })
     return rows
 
 
@@ -1502,7 +1501,7 @@ def ytd_core_spending_actual(root=None, year=None):
 def ytd_actual_by_tracking_type(root=None, year=None):
     """Raw year-to-date actual spending grouped by tracking type.
 
-    Sums taxonomy-mapped transactions (ytd_transactions.csv) per tracking type
+    Sums taxonomy-mapped transactions (the ytd_transactions table) per tracking type
     as actually spent so far this year — NOT annualized. The current-year floor
     blends this with the budgeted remainder of the year (spent-so-far + budget x
     fraction of year left), which reflects lumpy categories like Travel far

@@ -105,7 +105,7 @@ def test_monthly_trajectory_includes_all_non_transfer_spending_including_taxes(t
     ])
     _write_plan_csv(tmp_path, 'client_spending_budget.csv',
                ['kind', 'key', 'label', 'annual_budget', 'start_year', 'end_year', 'one_time_year', 'notes'], [])
-    _write_csv(input_dir / 'ytd_transactions.csv',
+    _write_plan_csv(tmp_path, 'ytd_transactions.csv',
                ['Date', 'Merchant', 'Category', 'Account', 'Original Statement', 'Notes', 'Amount', 'Tags', 'Owner'], [
         {'Date': '2026-01-03', 'Merchant': 'Market', 'Category': 'Groceries', 'Account': 'Checking', 'Original Statement': '', 'Notes': '', 'Amount': '-10', 'Tags': '', 'Owner': ''},
         {'Date': '2026-01-04', 'Merchant': 'Bank', 'Category': 'Mortgage', 'Account': 'Checking', 'Original Statement': '', 'Notes': '', 'Amount': '-20', 'Tags': '', 'Owner': ''},

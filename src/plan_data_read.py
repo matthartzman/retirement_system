@@ -7,8 +7,7 @@ A headless script (no Flask request context) that reads Plan Data directly
 off disk only sees the import/export mirror -- if the SQLite DB already has
 a newer row (the normal case once the app has run once), a disk-only read
 returns stale data. See src/server/app_core.py: `_read_plan_data_file` for
-the equivalent logic inside the running app, and src/monarch_db_sync.py for
-the write-direction counterpart.
+the equivalent logic inside the running app.
 """
 
 from pathlib import Path

@@ -1,7 +1,7 @@
 """Ticket 305: end-to-end Monarch auto-import job (src/monarch_autoimport_job.py,
 run headlessly by tools/monarch_autoimport.py) against a temp workspace --
 new file, then a second run with one changed row and one new row, confirming
-ytd_transactions.csv, ytd_import_history.csv, the SQLite mirror, and the
+the plan file's ytd_transactions and ytd_import_history tables, and the
 run-status file all reflect the merge correctly.
 
 Uses the real Monarch Extractor output filenames/schema confirmed 2026-09-02
@@ -15,7 +15,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from src import config_backend, monarch_autoupdate as mau, ytd_tracking as ytd
+from src import monarch_autoupdate as mau, ytd_tracking as ytd
+from tests.plan_fixture import plan_dataset_rows
 from src import monarch_autoimport_job as monarch_autoimport
 
 
@@ -33,7 +34,7 @@ def test_disabled_toggle_skips_the_run(tmp_path):
     assert result["skip_reason"] == "disabled"
 
 
-def test_first_run_imports_new_rows_and_syncs_to_db(tmp_path):
+def test_first_run_imports_new_rows_into_the_plan_tables(tmp_path):
     base_dir = _workspace(tmp_path)
     source_dir = base_dir / "Monarch Extractor" / "output"
     source_dir.mkdir(parents=True)
@@ -59,9 +60,10 @@ def test_first_run_imports_new_rows_and_syncs_to_db(tmp_path):
     stored = ytd.read_transactions(base_dir / "input")
     assert len(stored) == 2
 
-    db_path = base_dir / "local_state" / "retirement_system_v10.db"
-    db_content = config_backend.get_client_file("ytd_transactions.csv", db_path=db_path)
-    assert "mid-1" in db_content
+    # The YTD tables are in the workspace's plan file: the upsert is the save.
+    table = plan_dataset_rows(base_dir, "ytd_transactions.csv")
+    assert {r["Monarch Id"] for r in table} == {"mid-1", "mid-2"}
+    assert len(plan_dataset_rows(base_dir, "ytd_import_history.csv")) == 1
 
     status = mau.load_status(base_dir)
     assert status["success"] is True

@@ -11,9 +11,7 @@ try:
         _audit,
         _edit_active_plan,
         _edit_active_plan_protected,
-        _client_id,
         _csv_rows_payload,
-        _current_user,
         _ensure_user_ui_plan_data_rows,
         _normalize_date_for_csv,
         _normalize_large_discretionary_type,
@@ -34,14 +32,11 @@ try:
         _write_plan_data_file,
         app,
         encryption_status,
-        get_client_file,
         jsonify,
         load_active_config,
         make_response,
-        materialize_workspace_files,
         re,
         request,
-        set_client_file,
     )
 except ImportError:
     from src.plan_data_registry import PLAN_TABLE_DATASET_FILES
@@ -56,9 +51,7 @@ except ImportError:
         _audit,
         _edit_active_plan,
         _edit_active_plan_protected,
-        _client_id,
         _csv_rows_payload,
-        _current_user,
         _ensure_user_ui_plan_data_rows,
         _normalize_date_for_csv,
         _normalize_large_discretionary_type,
@@ -79,14 +72,11 @@ except ImportError:
         _write_plan_data_file,
         app,
         encryption_status,
-        get_client_file,
         jsonify,
         load_active_config,
         make_response,
-        materialize_workspace_files,
         re,
         request,
-        set_client_file,
     )
 from ..active_plan import active_plan_path, peek_plan_data
 from ..version import VERSION
@@ -876,12 +866,6 @@ def _ytd_feature_service() -> ytd_service.YtdService:
             plan_data_path=_plan_data_path,
             path_roots_from_config=_path_roots_from_config,
             server_path_allowed=_server_path_allowed,
-            workspace_id=_workspace_id,
-            client_id=_client_id,
-            sqlite_db=_sqlite_db,
-            current_user_id=lambda: _current_user().user_id,
-            get_client_file=get_client_file,
-            set_client_file=set_client_file,
             audit=_audit,
         )
     )
@@ -1276,27 +1260,18 @@ def plan_load_file():
 
 # DemoPlanService owns Open Demo Plan / Open Current Plan swap semantics (#240): it swaps the
 # plan file (the demo household is built from input/demo through the csv_exchange importer, or
-# taken from the demo slot) and carries the flat datasets (client_files) as before. #248: its
-# file list covers YTD_PLAN_DATA_FILES, so ytd_transactions.csv is swapped to the demo fixture
-# on open and swapped back to the real backup on restore, as every other flat plan-data file.
+# taken from the demo slot). Every flat dataset, the YTD tables included (WP6.4), is a table of the
+# plan file, so it is swapped to the demo fixture on open and back to the real plan on restore with
+# the plan file itself (#248).
 def _demo_plan_feature_service() -> demo_plan_service.DemoPlanService:
     # The datasets in the plan file's tables travel with the plan file swap, not as files.
-    _FILE_BACKED_PLAN_DATA_FILES = [f for f in PLAN_DATA_CSV_FILES + YTD_PLAN_DATA_FILES if f not in PLAN_TABLE_DATASET_FILES]
+    _FILE_BACKED_PLAN_DATA_FILES = [f for f in PLAN_DATA_CSV_FILES + YTD_PLAN_DATA_FILES if f not in PLAN_TABLE_DATASET_FILES]  # none left
 
     def _read_plan_data_disk_file(name: str) -> str | None:
         # Capturing the demo slot must read the on-disk copy the flat-file editors write, not
         # the DB-first reader's copy.
         path = _plan_data_path(name, prefer_existing=True)
         return path.read_text(encoding="utf-8-sig") if path.exists() else None
-
-    def _materialize() -> None:
-        materialize_workspace_files(
-            workspace_id=_workspace_id(),
-            client_id=_client_id(),
-            db_path=_sqlite_db(),
-            file_names=_FILE_BACKED_PLAN_DATA_FILES,
-            overwrite_existing=True,
-        )
 
     return demo_plan_service.DemoPlanService(
         demo_plan_service.DemoPlanServiceContext(
@@ -1307,7 +1282,7 @@ def _demo_plan_feature_service() -> demo_plan_service.DemoPlanService:
             read_plan_data_file=_read_plan_data_file,
             write_plan_data_file=_write_plan_data_file,
             ensure_user_ui_plan_data_rows=_ensure_user_ui_plan_data_rows,
-            materialize=_materialize,
+            materialize=lambda: None,  # every flat dataset is a table of the plan file: nothing to restore as a file
             audit=_audit,
             read_plan_data_disk_file=_read_plan_data_disk_file,
             migrate=_migrate_after_db_replace,

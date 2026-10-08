@@ -26,7 +26,7 @@ category,electric,Electric,2400,,,,housing budget-only row must remain visible
 category,medicare_part_b_premium,Medicare Part B Premium,2200,,,,wellness budget-only row must remain visible
 category,groceries,Groceries,6000,,,,core budget row
 """)
-    write(root / "input/ytd_transactions.csv", """Date,Merchant,Category,Account,Amount,Owner
+    write_plan_dataset(root, "ytd_transactions.csv", """Date,Merchant,Category,Account,Amount,Owner
 2026-01-10,Market,Groceries,Card,-100,Shared
 """)
     model = st.spending_model(root, year=2026)

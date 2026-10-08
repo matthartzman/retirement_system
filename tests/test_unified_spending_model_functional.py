@@ -27,7 +27,7 @@ category,groceries,Groceries,5000,,,,ignored in group mode
 category,restaurants,Restaurants,3000,,,,ignored in group mode
 category,biz_services,Business Services,7000,,,,business modeled not spend base
 """)
-    write(root / "input/ytd_transactions.csv", """Date,Merchant,Category,Account,Amount,Owner
+    write_plan_dataset(root, "ytd_transactions.csv", """Date,Merchant,Category,Account,Amount,Owner
 2026-01-10,Store,Groceries,Card,-100,Shared
 2026-01-11,Vendor,Business Services,Card,-50,Shared
 """)
@@ -132,7 +132,7 @@ Groceries,category,1,80,groceries,seed
     write_plan_dataset(root, "client_spending_budget.csv", """kind,key,label,annual_budget,start_year,end_year,one_time_year,notes
 category,groceries,Groceries,1000,,,,
 """)
-    write(root / "input/ytd_transactions.csv", """Date,Merchant,Category,Account,Amount,Owner
+    write_plan_dataset(root, "ytd_transactions.csv", """Date,Merchant,Category,Account,Amount,Owner
 2026-01-10,Store,Groceries,Card,-100,Shared
 """)
     hidden = st.hide_unused_template_categories(root)
@@ -160,7 +160,7 @@ Business Services,category,1,80,biz_services,seed
 Income Taxes,category,1,80,income_taxes,seed
 """)
     write_plan_dataset(root, "client_spending_budget.csv", "kind,key,label,annual_budget,start_year,end_year,one_time_year,notes\n")
-    write(root / "input/ytd_transactions.csv", """Date,Merchant,Category,Account,Amount,Owner
+    write_plan_dataset(root, "ytd_transactions.csv", """Date,Merchant,Category,Account,Amount,Owner
 2026-01-10,Employer,Paychecks,Bank,10000,Shared
 2026-01-11,Store,Groceries,Card,-100,Shared
 2026-01-12,Vendor,Business Services,Card,-50,Shared
@@ -193,7 +193,7 @@ Income Taxes,category,1,80,income_taxes,seed
 Franchise Tax Board,merchant,1,90,state_income_tax,seed
 """)
     write_plan_dataset(root, "client_spending_budget.csv", "kind,key,label,annual_budget,start_year,end_year,one_time_year,notes\n")
-    write(root / "input/ytd_transactions.csv", """Date,Merchant,Category,Account,Amount,Owner
+    write_plan_dataset(root, "ytd_transactions.csv", """Date,Merchant,Category,Account,Amount,Owner
 2026-01-13,IRS,Income Taxes,Bank,-500,Shared
 2026-01-14,Franchise Tax Board,Income Taxes,Bank,-200,Shared
 """)

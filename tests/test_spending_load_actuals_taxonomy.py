@@ -8,16 +8,17 @@ def test_load_actuals_creates_taxonomy_category_and_alias_for_unmapped_category(
     (previously it iterated summary["tracking_types"], which is built entirely
     from already-mapped categories, so merged_count was always 0)."""
     from src.server_services.spending_service import SpendingService, SpendingServiceContext
+    from tests.plan_fixture import write_plan_dataset
 
     input_dir = tmp_path / "input"
     input_dir.mkdir(parents=True)
 
     year = date.today().year
     txn_date = date(year, 1, 15).isoformat()
-    (input_dir / "ytd_transactions.csv").write_text(
+    write_plan_dataset(
+        tmp_path, "ytd_transactions.csv",
         "Date,Merchant,Category,Account,Amount,Owner,MappedCategoryId,Confirmed,Notes\n"
         f"{txn_date},Mystery Merchant,Mystery Category,Checking,-42.50,,,,\n",
-        encoding="utf-8",
     )
 
     service = SpendingService(SpendingServiceContext(base_dir=tmp_path))

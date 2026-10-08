@@ -317,6 +317,22 @@ def write_workspace_dataset_rows(root: str | Path, name: str, rows: list[dict[st
         return store.dataset(name).replace_all(rows)
 
 
+def write_dataset_rows_for_input_dir(input_dir: str | Path, name: str, rows: list[dict[str, Any]]) -> int:
+    """:func:`write_workspace_dataset_rows` for code handed a workspace's ``input`` folder."""
+    return write_workspace_dataset_rows(Path(input_dir).parent, name, rows)
+
+
+def append_dataset_row_for_input_dir(input_dir: str | Path, name: str, row: dict[str, Any]) -> int:
+    """Append one row to dataset ``name`` of the plan behind a workspace's ``input`` folder (the
+    plan is created when missing); read and write are one transaction. Returns the row count."""
+    with PlanStore.open(plan_path_for_workspace(Path(input_dir).parent)) as store:
+        repo = store.dataset(name)
+        with store.transaction():
+            rows = repo.rows()
+            rows.append(row)
+            return repo.replace_all(rows)
+
+
 # ------------------------------------------------- spending recovery copies (WP6.3c)
 # A zeroed budget is recoverable from two plan revisions of the plan file: ``budget-recovery-seed``
 # (a known-good budget) and ``pre-recovery`` (the budget as it was before a recovery merge); each

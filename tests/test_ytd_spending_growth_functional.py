@@ -4,7 +4,7 @@ from pathlib import Path
 from datetime import date
 
 from src import ytd_tracking as ytd
-from tests.plan_fixture import stage_flat_datasets, stage_plan_csv
+from tests.plan_fixture import plan_dataset_rows, stage_flat_datasets, stage_plan_csv
 from tests._decomp_dashboard import dashboard_function_source, dashboard_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -39,23 +39,24 @@ def test_ytd_transaction_csv_header_still_rejects_a_missing_required_column(tmp_
 
 def test_ytd_import_replace_and_incremental(tmp_path):
     csv_text = ytd.csv_template()
-    out = ytd.import_transactions(tmp_path, csv_text, mode='replace')
+    out = ytd.import_transactions(tmp_path / "input", csv_text, mode='replace')
     assert out['success'] is True
     assert out['added'] == 2
-    assert (tmp_path / 'ytd_transactions.csv').exists()
-    assert (tmp_path / 'ytd_account_setup.csv').exists()
+    assert plan_dataset_rows(tmp_path, 'ytd_transactions.csv')
+    assert plan_dataset_rows(tmp_path, 'ytd_account_setup.csv')
+    assert plan_dataset_rows(tmp_path, 'ytd_import_history.csv')
     # Incremental reload of same rows should add nothing because latest date already exists.
-    out2 = ytd.import_transactions(tmp_path, csv_text, mode='incremental')
+    out2 = ytd.import_transactions(tmp_path / "input", csv_text, mode='incremental')
     assert out2['success'] is True
     assert out2['added'] == 0
     assert out2['skipped'] == 2
 
 
 def test_ytd_summary_gates_until_transactions_uploaded(tmp_path):
-    s0 = ytd.ytd_summary(tmp_path, today=date(2026, 6, 12))
+    s0 = ytd.ytd_summary(tmp_path / "input", today=date(2026, 6, 12))
     assert s0['enabled'] is False
-    ytd.import_transactions(tmp_path, ytd.csv_template(), mode='replace')
-    s = ytd.ytd_summary(tmp_path, today=date(2026, 6, 12))
+    ytd.import_transactions(tmp_path / "input", ytd.csv_template(), mode='replace')
+    s = ytd.ytd_summary(tmp_path / "input", today=date(2026, 6, 12))
     assert s['enabled'] is True
     assert s['ytd_start'] == '2026-01-01'
     assert s['latest_transaction_date'] == '2026-01-31'
@@ -113,11 +114,11 @@ def test_ytd_import_keeps_all_historical_rows(tmp_path):
     # a valid date are imported and retained so the Last Year/YTD actuals
     # toggle has real prior-year data to show.
     csv_text = 'Date,Merchant,Category,Account,Original Statement,Notes,Amount,Tags,Owner\n2025-12-31,Old,Groceries,Checking,Bank,,-10,,Household\n2026-01-02,New,Groceries,Checking,Bank,,-20,,Household\n'
-    out = ytd.import_transactions(tmp_path, csv_text, mode='replace', today=date(2026, 6, 12))
+    out = ytd.import_transactions(tmp_path / "input", csv_text, mode='replace', today=date(2026, 6, 12))
     assert out['success'] is True
     assert out['added'] == 2
     assert out['skipped_not_current_year'] == 0
-    rows = ytd.read_transactions(tmp_path, today=date(2026, 6, 12))
+    rows = ytd.read_transactions(tmp_path / "input", today=date(2026, 6, 12))
     assert len(rows) == 2
     assert {r['Merchant'] for r in rows} == {'Old', 'New'}
 
@@ -126,7 +127,7 @@ def test_ytd_import_rejects_rows_with_invalid_dates(tmp_path):
     # Row-level date validation happens during CSV parsing (load_transactions_from_csv_text),
     # so an unparseable date surfaces as an import error rather than a silent skip.
     csv_text = 'Date,Merchant,Category,Account,Original Statement,Notes,Amount,Tags,Owner\nnot-a-date,Bad,Groceries,Checking,Bank,,-10,,Household\n2026-01-02,Good,Groceries,Checking,Bank,,-20,,Household\n'
-    out = ytd.import_transactions(tmp_path, csv_text, mode='replace', today=date(2026, 6, 12))
+    out = ytd.import_transactions(tmp_path / "input", csv_text, mode='replace', today=date(2026, 6, 12))
     assert out['success'] is False
     assert any('Date is invalid or missing' in e for e in out['errors'])
 
@@ -137,14 +138,14 @@ def test_ytd_summary_last_year_period_reports_prior_calendar_year(tmp_path):
         '2025-03-15,Old Store,Groceries,Checking,Bank,,-50,,Household\n'
         '2026-01-31,New Store,Groceries,Checking,Bank,,-100.43,,Household\n'
     )
-    ytd.import_transactions(tmp_path, csv_text, mode='replace', today=date(2026, 6, 12))
-    s_ytd = ytd.ytd_summary(tmp_path, today=date(2026, 6, 12), period='ytd')
+    ytd.import_transactions(tmp_path / "input", csv_text, mode='replace', today=date(2026, 6, 12))
+    s_ytd = ytd.ytd_summary(tmp_path / "input", today=date(2026, 6, 12), period='ytd')
     assert s_ytd['period'] == 'ytd'
     assert s_ytd['is_last_year'] is False
     assert s_ytd['current_year'] == 2026
     assert s_ytd['actual']['spending'] == 100.43
 
-    s_last = ytd.ytd_summary(tmp_path, today=date(2026, 6, 12), period='last_year')
+    s_last = ytd.ytd_summary(tmp_path / "input", today=date(2026, 6, 12), period='last_year')
     assert s_last['period'] == 'last_year'
     assert s_last['is_last_year'] is True
     assert s_last['current_year'] == 2025
@@ -177,8 +178,8 @@ def test_ytd_growth_is_point_to_point_and_reports_external_flows_diagnostics(tmp
 
 def test_ytd_positive_cash_account_flows_net_as_refunds_not_income(tmp_path):
     tx = 'Date,Merchant,Category,Account,Original Statement,Notes,Amount,Tags,Owner\n2026-01-31,Store Refund,Groceries,Checking,Bank,,25,,Household\n2026-02-01,Grocery,Groceries,Checking,Bank,,-100,,Household\n2026-04-15,IRS,Income Tax,Checking,Bank,,-3000,,Household\n'
-    ytd.import_transactions(tmp_path, tx, mode='replace', today=date(2026, 6, 12))
-    s = ytd.ytd_summary(tmp_path, today=date(2026, 6, 12))
+    ytd.import_transactions(tmp_path / "input", tx, mode='replace', today=date(2026, 6, 12))
+    s = ytd.ytd_summary(tmp_path / "input", today=date(2026, 6, 12))
     assert s['actual']['earned_income'] == 0.0
     assert s['actual']['other_income'] == 0.0
     assert s['actual']['taxes'] == 3000.0
@@ -192,9 +193,9 @@ def test_ytd_positive_cash_account_flows_net_as_refunds_not_income(tmp_path):
 
 def test_ytd_real_estate_taxes_are_housing_spending_not_income_tax(tmp_path):
     tx = 'Date,Merchant,Category,Account,Original Statement,Notes,Amount,Tags,Owner\n2026-04-01,County Treasurer,Real Estate Taxes,Checking,Bank,,-9000,,Household\n2026-04-15,IRS,Income Tax,Checking,Bank,,-3000,,Household\n'
-    ytd.import_transactions(tmp_path, tx, mode='replace', today=date(2026, 6, 30))
+    ytd.import_transactions(tmp_path / "input", tx, mode='replace', today=date(2026, 6, 30))
 
-    s = ytd.ytd_summary(tmp_path, today=date(2026, 6, 30))
+    s = ytd.ytd_summary(tmp_path / "input", today=date(2026, 6, 30))
 
     # Real estate taxes are still not income tax (that distinction this test
     # was originally written for), but they are also no longer folded into
@@ -282,9 +283,9 @@ def test_ytd_category_totals_are_top_spending_only_and_descending(tmp_path):
 2026-02-04,D,Transfer,Checking,Bank,,-999,,Household
 2026-02-05,E,Income Tax,Checking,Bank,,-300,,Household
 """
-    ytd.import_transactions(tmp_path, tx, mode='replace', today=date(2026, 6, 30))
+    ytd.import_transactions(tmp_path / "input", tx, mode='replace', today=date(2026, 6, 30))
 
-    s = ytd.ytd_summary(tmp_path, today=date(2026, 6, 30))
+    s = ytd.ytd_summary(tmp_path / "input", today=date(2026, 6, 30))
 
     assert s['category_totals'] == [
         {'category': 'Travel', 'amount': 250.0},
@@ -307,13 +308,13 @@ def test_ytd_income_category_totals_use_only_allowed_income_categories(tmp_path)
 2026-02-10,Internal Transfer,Transfer,Checking,Bank,,999,,Household
 2026-02-11,Broker Buy,Buy,Checking,Bank,,300,,Household
 """
-    ytd.import_transactions(tmp_path, tx, mode='replace', today=date(2026, 6, 30))
-    ytd.write_account_setup(tmp_path, [
+    ytd.import_transactions(tmp_path / "input", tx, mode='replace', today=date(2026, 6, 30))
+    ytd.write_account_setup(tmp_path / "input", [
         {'Account': 'Checking', 'Role': 'Cash / spending', 'Mapped Investment Account': '', 'Prior Year End Date': '2025-12-31', 'Prior Year End Balance': '0', 'Notes': ''},
         {'Account': 'Joint Brokerage', 'Role': 'Investment', 'Mapped Investment Account': 'Joint Brokerage', 'Prior Year End Date': '2025-12-31', 'Prior Year End Balance': '0', 'Notes': ''},
     ])
 
-    s = ytd.ytd_summary(tmp_path, today=date(2026, 6, 30))
+    s = ytd.ytd_summary(tmp_path / "input", today=date(2026, 6, 30))
 
     assert s['allowed_income_categories'] == [
         'Paychecks',
@@ -394,13 +395,13 @@ def test_ytd_transactions_table_formats_amounts_compactly():
 
 
 def test_ytd_account_mapping_allows_manual_non_transaction_sources_and_broader_types(tmp_path):
-    ytd.write_account_setup(tmp_path, [
+    ytd.write_account_setup(tmp_path / "input", [
         {'Account': 'Pension Plan A', 'Role': 'Pension', 'Mapped Investment Account': '', 'Prior Year End Date': '2025-12-31', 'Prior Year End Balance': '0', 'Notes': 'manual source'},
         {'Account': 'Offline Rental', 'Role': 'Real estate', 'Mapped Investment Account': '', 'Prior Year End Date': '2025-12-31', 'Prior Year End Balance': '500000', 'Notes': 'manual asset'},
         {'Account': 'SPIA', 'Role': 'Annuity', 'Mapped Investment Account': '', 'Prior Year End Date': '2025-12-31', 'Prior Year End Balance': '100000', 'Notes': ''},
     ])
 
-    rows = ytd.read_account_setup(tmp_path)
+    rows = ytd.read_account_setup(tmp_path / "input")
 
     assert [r['Role'] for r in rows] == ['Pension', 'Real estate', 'Annuity']
 
@@ -420,12 +421,12 @@ def test_ytd_account_mapping_ui_has_manual_add_and_grouped_broader_account_types
 
 
 def test_ytd_account_mapping_preserves_non_investment_current_values(tmp_path):
-    ytd.write_account_setup(tmp_path, [
+    ytd.write_account_setup(tmp_path / "input", [
         {'Account': 'Rental House', 'Role': 'Real estate', 'Mapped Investment Account': '', 'Prior Year End Date': '2025-12-31', 'Prior Year End Balance': '500000', 'Current Value': '550000', 'Notes': 'legacy note'},
         {'Account': 'Brokerage', 'Role': 'Investment', 'Mapped Investment Account': 'Brokerage', 'Prior Year End Date': '2025-12-31', 'Prior Year End Balance': '100000', 'Current Value': '999999', 'Notes': ''},
     ])
 
-    rows = ytd.read_account_setup(tmp_path)
+    rows = ytd.read_account_setup(tmp_path / "input")
 
     assert rows[0]['Current Value'] == '550000'
     assert rows[1]['Role'] == 'Investment'

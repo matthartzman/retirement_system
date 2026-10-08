@@ -71,7 +71,7 @@ def test_v1_file_upgrades_to_current_keeping_rows(tmp_path):
     con.commit()
     con.close()
     with PlanStore.open(p) as s:
-        assert s.schema_version == 5
+        assert s.schema_version == 6
         assert [r["section"] for r in s.all_rows()] == ["Household"]
         assert s.holdings.rows() == []
 
@@ -107,7 +107,7 @@ def test_v2_file_upgrades_to_v3_with_empty_spending_tables(tmp_path):
     con.commit()
     con.close()
     with PlanStore.open(p) as s:
-        assert s.schema_version == 5
+        assert s.schema_version == 6
         assert s.holdings.rows()[0]["account"] == "A_IRA"
         assert s.spending.taxonomy.rows() == [] and s.spending.aliases.rows() == []
 
@@ -121,7 +121,7 @@ def test_v3_file_upgrades_to_v4_with_empty_budget_tables(tmp_path):
     con.commit()
     con.close()
     with PlanStore.open(p) as s:
-        assert s.schema_version == 5
+        assert s.schema_version == 6
         assert s.spending.aliases.rows()[0]["category_id"] == "groceries"
         assert s.spending.budget.rows() == [] and s.spending.budget_lines.rows() == []
         assert s.spending.tier_overrides.rows() == []
