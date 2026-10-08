@@ -106,67 +106,34 @@ def test_workspace_root_is_imported_in_workbook_routes():
 
 
 # ---------------------------------------------------------------------------
-# Functional layer: holdings_service's own read/save functions, called
-# directly, must write to and read from exactly the base_dir given -- not
-# some other fixed location. This is the contract the route-wiring fix above
-# depends on; if it broke, the source-text guard above would still pass
-# (it only checks which constant is referenced) while behavior stayed wrong.
+# Functional layer (WP6): the three datasets are tables of the ACTIVE PLAN FILE, so
+# isolation is by plan file. A save lands in the active plan only, a read sees only the
+# active plan, and switching the active plan (Load / demo swap) switches the data.
 # ---------------------------------------------------------------------------
 
-def _isolated_db(tmp_path: Path) -> Path:
-    return tmp_path / "isolated.sqlite"
+_CONTENT = {
+    "holdings": "account,symbol,shares\nA_IRA,VTI,1\n",
+    "liabilities": "liability_id,type,balance\nL1,auto,5000\n",
+    "hsa_schedule": "year,optimizer_amount,override_amount,locked,note\n2026,,999,FALSE,\n",
+}
 
 
-@pytest.mark.parametrize("service_fn_name,csv_name", [
-    ("holdings", "client_holdings.csv"),
-    ("liabilities", "client_liabilities.csv"),
-    ("hsa_schedule", "client_hsa_schedule.csv"),
-])
-def test_save_writes_to_the_given_base_dir_not_elsewhere(tmp_path, service_fn_name, csv_name):
+@pytest.mark.parametrize("name", ["holdings", "liabilities", "hsa_schedule"])
+def test_save_and_read_follow_the_active_plan_file(tmp_path, monkeypatch, name):
     import src.server_services.holdings_service as holdings_service
+    from src.active_plan import PLAN_DB_ENV
 
-    workspace_a = tmp_path / "workspace_a"
-    workspace_b = tmp_path / "workspace_b"
-    workspace_a.mkdir()
-    workspace_b.mkdir()
+    plan_a, plan_b = tmp_path / "a.rpx", tmp_path / "b.rpx"
+    kw = dict(base_dir=tmp_path, workspace_id="ws1", client_id="c1", db_path=tmp_path / "x.sqlite")
+    save_fn, read_fn = getattr(holdings_service, f"save_{name}"), getattr(holdings_service, f"read_{name}")
 
-    save_fn = getattr(holdings_service, f"save_{service_fn_name}")
-    content = "year,optimizer_amount,override_amount,locked,note\n2026,,999,FALSE,\n" if service_fn_name == "hsa_schedule" else "a,b\n1,2\n"
+    monkeypatch.setenv(PLAN_DB_ENV, str(plan_a))
+    assert save_fn(content=_CONTENT[name], user_id="u1", **kw)["success"] is True
+    assert _CONTENT[name].splitlines()[1].split(",")[0] in read_fn(**kw)["content"]  # key cell of the saved row
 
-    result = save_fn(
-        content=content, base_dir=workspace_a, workspace_id="ws1",
-        client_id="c1", user_id="u1", db_path=_isolated_db(tmp_path),
-    )
+    monkeypatch.setenv(PLAN_DB_ENV, str(plan_b))  # another plan: nothing of plan A's leaks in
+    assert read_fn(**kw)["source"] == "empty_template"
+    assert not (tmp_path / "input").exists()  # and no workspace file was written
 
-    assert (workspace_a / "input" / csv_name).exists(), (
-        f"save_{service_fn_name} did not write into the given base_dir "
-        f"({workspace_a}) -- workspace isolation is broken."
-    )
-    assert not (workspace_b / "input" / csv_name).exists(), (
-        f"save_{service_fn_name} wrote into a DIFFERENT base_dir than the one "
-        "given -- cross-workspace leak."
-    )
-    assert Path(result["path"]) == workspace_a / "input" / csv_name
-
-
-@pytest.mark.parametrize("service_fn_name,csv_name", [
-    ("holdings", "client_holdings.csv"),
-    ("liabilities", "client_liabilities.csv"),
-    ("hsa_schedule", "client_hsa_schedule.csv"),
-])
-def test_read_prefers_the_given_base_dir_over_any_other(tmp_path, service_fn_name, csv_name):
-    import src.server_services.holdings_service as holdings_service
-
-    workspace_a = tmp_path / "workspace_a"
-    (workspace_a / "input").mkdir(parents=True)
-    marker_content = "MARKER_CONTENT_FOR_WORKSPACE_A\n"
-    (workspace_a / "input" / csv_name).write_text(marker_content, encoding="utf-8")
-
-    workspace_b = tmp_path / "workspace_b"
-    (workspace_b / "input").mkdir(parents=True)
-    (workspace_b / "input" / csv_name).write_text("WRONG_WORKSPACE_CONTENT\n", encoding="utf-8")
-
-    read_fn = getattr(holdings_service, f"read_{service_fn_name}")
-    result = read_fn(base_dir=workspace_a, workspace_id="ws1", client_id="c1", db_path=_isolated_db(tmp_path))
-
-    assert result["path"] == str(workspace_a / "input" / csv_name)
+    monkeypatch.setenv(PLAN_DB_ENV, str(plan_a))
+    assert read_fn(**kw)["source"] == "plan_file"

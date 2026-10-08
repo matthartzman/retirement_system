@@ -175,7 +175,7 @@ def get_client_file(file_name: str, workspace_id: str = "local", client_id: str 
 def materialize_workspace_files(workspace_id: str = "local", client_id: str = "local", db_path: str | Path = DEFAULT_DB, file_names: _Optional[_List[str]] = None, overwrite_existing: bool = False) -> Path:
     out_dir = platform_runtime.workspace_root() / "input"
     out_dir.mkdir(parents=True, exist_ok=True)
-    for name in file_names or ["client_holdings.csv", "target_allocation.csv", "manual_pricing_validation.csv", "client_spending_taxonomy.csv", "client_spending_aliases.csv", "client_spending_budget.csv", "client_spending_budget_lines.csv"]:
+    for name in file_names or ["client_holdings.csv", "target_allocation.csv", "manual_pricing_validation.csv"]:
         dest = out_dir / Path(name).name
         if dest.exists() and not overwrite_existing:
             continue

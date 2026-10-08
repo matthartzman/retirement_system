@@ -12,11 +12,9 @@ take the same code path.
 
 Steps: load the auto-update policy -> OneDrive-truncation guard on every
 source CSV -> read + map every *.csv in the Monarch Extractor's output
-folder -> upsert into ytd_transactions.csv keyed on the stored Monarch id ->
-push the updated YTD CSVs into the SQLite plan-data store (the app's
-canonical storage; a headless script has no Flask request context to go
-through the normal save path) -> archive consumed source files -> write the
-"mark the update as complete" status file + an ytd_import_history.csv row.
+folder -> upsert into the plan file's ytd_transactions table keyed on the stored Monarch
+id (the app's canonical storage) -> write the "mark the update as complete"
+status file + a ytd_import_history row.
 
 Usage: python tools/monarch_autoimport.py [--base-dir PATH] [--force]
 """

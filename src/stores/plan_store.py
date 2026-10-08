@@ -34,8 +34,33 @@ per line after the header line ``plan_rows/v1``; the digest is SHA-256 hex. So r
 (new ids), leaves the hash unchanged, while editing a field, adding/removing a row or moving
 a row changes it.
 
-Typed dataset repositories (holdings lots, liabilities, HSA schedule, target allocation) are
-interface-only ``Protocol`` stubs here; their tables arrive with P4.
+Schema v2 (WP6.1) adds the flat dataset tables ``holdings_lots``, ``liabilities``,
+``hsa_schedule`` and ``target_allocation`` (see ``datasets.py``); they are reached through
+``store.holdings``, ``store.liabilities``, ``store.hsa_schedule`` and ``store.target_allocation``.
+They are not part of ``plan_rows`` revisions or the revision hash.
+
+Schema v3 (WP6.3a) adds the spending tables ``spending_taxonomy`` and ``spending_aliases``
+(same conventions); they are reached through the spending repository ``store.spending``
+(``spending_repo.py``: ``store.spending.taxonomy``, ``store.spending.aliases``; the rest of the
+spending set is stubbed there until WP6.3b/c). ``store.dataset(name)`` resolves any flat dataset
+by its ``csv_exchange`` name (``"holdings"``, ``"spending_taxonomy"`` ...).
+
+Schema v4 (WP6.3b) adds ``spending_budget``, ``spending_budget_lines`` and
+``spending_tier_overrides`` (same conventions), reached as ``store.spending.budget``,
+``store.spending.budget_lines`` and ``store.spending.tier_overrides``.
+
+Schema v5 (WP6.3c) adds ``spending_rules``, ``spending_category_map`` and
+``spending_group_budget`` (same conventions; ``store.spending.rules`` / ``.category_map`` /
+``.group_budget``) and ``revision_datasets``, the revision-scoped copy of flat datasets: a
+revision taken with ``snapshot_revision(..., datasets={name: rows})`` retains those datasets'
+rows beside its ``plan_rows`` copy (``revision_dataset_rows``, ``restore_dataset_from_revision``).
+These are the spending recovery copies: sources ``pre-recovery`` (the budget as it was before a
+recovery merge) and ``budget-recovery-seed`` (a known-good budget to recover from) are never
+pruned by retention (``PROTECTED_REVISION_SOURCES``).
+
+Schema v6 (WP6.4) adds the YTD tables ``ytd_transactions``, ``ytd_account_setup`` and
+``ytd_import_history`` (same conventions; the columns are the YTD files' own, spaces included,
+e.g. ``"Original Statement"``), reached as ``store.dataset("ytd_transactions")`` and so on.
 """
 from __future__ import annotations
 
@@ -48,12 +73,16 @@ from typing import Any, Iterable, Mapping, Protocol, TypedDict, TypeVar, runtime
 
 from .. import platform_runtime
 from ._base import _SqliteStore
+from .datasets import SCHEMA_V2_DDL, SCHEMA_V3_DDL, SCHEMA_V4_DDL, SCHEMA_V5_DDL, SCHEMA_V6_DDL, YTD_DATASETS, FlatDatasetRepository
+from .spending_repo import SpendingRepo
 from .errors import IntegrityError, NotFoundError, ValidationError
 
 PLAN_APPLICATION_ID = 0x5250504C  # "RPPL"
 DEFAULT_REVISION_RETENTION = 20
 RETENTION_KEY = "revision_retention"
 HASH_HEADER = "plan_rows/v1"
+# Revision sources retention never prunes: the spending recovery copies (WP6.3c).
+PROTECTED_REVISION_SOURCES = ("pre-recovery", "budget-recovery-seed")
 
 TEXT_FIELDS = ("section", "subsection", "label", "value", "units", "notes")
 ROW_FIELDS = (*TEXT_FIELDS, "sort_order")
@@ -99,8 +128,11 @@ CREATE TABLE plan_meta (
 INSERT INTO plan_meta (key, value) VALUES ('{RETENTION_KEY}', '{DEFAULT_REVISION_RETENTION}');
 """
 
-PLAN_MIGRATIONS: tuple[str, ...] = (_SCHEMA_V1,)
+PLAN_MIGRATIONS: tuple[str, ...] = (_SCHEMA_V1, SCHEMA_V2_DDL, SCHEMA_V3_DDL, SCHEMA_V4_DDL, SCHEMA_V5_DDL, SCHEMA_V6_DDL)
 PLAN_SCHEMA_VERSION = len(PLAN_MIGRATIONS)
+
+
+_FLAT_DATASET_ATTRS = frozenset({"holdings", "liabilities", "hsa_schedule", "target_allocation"})
 
 
 # ------------------------------------------------------------------ validation helpers
@@ -192,6 +224,44 @@ class PlanStore(_SqliteStore):
     KIND = "plan"
     APPLICATION_ID = PLAN_APPLICATION_ID
     MIGRATIONS = PLAN_MIGRATIONS
+
+    # ------------------------------------------------------------- flat datasets (WP6.1)
+    @property
+    def holdings(self) -> FlatDatasetRepository:
+        return FlatDatasetRepository(self, "holdings_lots")
+
+    @property
+    def liabilities(self) -> FlatDatasetRepository:
+        return FlatDatasetRepository(self, "liabilities")
+
+    @property
+    def hsa_schedule(self) -> FlatDatasetRepository:
+        return FlatDatasetRepository(self, "hsa_schedule")
+
+    @property
+    def target_allocation(self) -> FlatDatasetRepository:
+        return FlatDatasetRepository(self, "target_allocation")
+
+    # ----------------------------------------------------------- spending set (WP6.3)
+    @property
+    def spending(self) -> SpendingRepo:
+        """The plan's spending set (taxonomy, aliases; budget, rules ... from WP6.3b/c)."""
+        return SpendingRepo(self)
+
+    def dataset(self, name: str) -> FlatDatasetRepository:
+        """A flat dataset by its ``csv_exchange`` name: ``holdings``, ``liabilities``,
+        ``hsa_schedule``, ``target_allocation``, ``ytd_<name>``, ``spending_<name>`` (``spending_taxonomy`` ->
+        ``self.spending.taxonomy``)."""
+        if name in _FLAT_DATASET_ATTRS:
+            return getattr(self, name)
+        if name in YTD_DATASETS:
+            return FlatDatasetRepository(self, name)
+        if name.startswith("spending_"):
+            try:
+                return self.spending.dataset(name[len("spending_"):])
+            except KeyError:
+                pass
+        raise KeyError(f"unknown plan dataset {name!r}")
 
     # ----------------------------------------------------------------------- rows
     def sections(self) -> list[str]:
@@ -390,12 +460,70 @@ class PlanStore(_SqliteStore):
             )
             self._prune(con, keep)
 
-    def snapshot_revision(self, source: str, note: str = "") -> int:
-        """Copy the current rows into a new revision and return its id; prunes to retention."""
+    def snapshot_revision(
+        self, source: str, note: str = "", *, datasets: Mapping[str, Iterable[Mapping[str, Any]]] | None = None
+    ) -> int:
+        """Copy the current rows into a new revision and return its id; prunes to retention.
+
+        ``datasets`` (``{flat dataset name: rows}``) is retained with the revision as its
+        revision-scoped dataset copies (recovery copies); see ``revision_dataset_rows``."""
         _check_text("source", source, allow_empty=False)
         _check_text("note", note)
         with self._write() as con:
-            return self._snapshot(con, source, note)
+            rev_id = self._snapshot(con, source, note, prune=False)
+            for name, rows in (datasets or {}).items():
+                self._store_revision_dataset(con, rev_id, name, rows)
+            self._prune(con, self.revision_retention)
+            return rev_id
+
+    def revision_dataset_rows(self, revision_id: int, dataset: str) -> list[dict[str, str]]:
+        """The rows of flat dataset ``dataset`` retained with a revision (``[]`` when it kept none)."""
+        _check_int("revision_id", revision_id)
+        with self._read() as con:
+            self._revision_header(con, revision_id)
+            return [
+                json.loads(r[0])
+                for r in con.execute(
+                    "SELECT row FROM revision_datasets WHERE revision_id = ? AND dataset = ? ORDER BY position",
+                    (revision_id, dataset),
+                )
+            ]
+
+    def latest_revision(self, source: str) -> dict[str, Any] | None:
+        """The newest revision header of ``source`` (``None`` when there is none)."""
+        _check_text("source", source, allow_empty=False)
+        with self._read() as con:
+            r = con.execute(
+                "SELECT id, created_at, source, note, rows_sha256, row_count FROM plan_revisions "
+                "WHERE source = ? ORDER BY id DESC LIMIT 1",
+                (source,),
+            ).fetchone()
+        return None if r is None else dict(r)
+
+    def restore_dataset_from_revision(self, revision_id: int, dataset: str) -> int:
+        """Replace the live flat dataset ``dataset`` with the rows retained by a revision;
+        returns the rows written (``NotFoundError`` when the revision kept no such dataset)."""
+        rows = self.revision_dataset_rows(revision_id, dataset)
+        if not rows:
+            raise NotFoundError(f"plan revision {revision_id} holds no {dataset!r} copy")
+        return self.dataset(dataset).replace_all(rows)
+
+    def discard_revisions(self, source: str) -> int:
+        """Delete every revision of ``source`` (and its copies); returns how many."""
+        _check_text("source", source, allow_empty=False)
+        with self._write() as con:
+            return con.execute("DELETE FROM plan_revisions WHERE source = ?", (source,)).rowcount
+
+    @staticmethod
+    def _store_revision_dataset(con: Any, revision_id: int, name: str, rows: Iterable[Mapping[str, Any]]) -> None:
+        _check_text("dataset", name, allow_empty=False)
+        con.executemany(
+            "INSERT INTO revision_datasets (revision_id, dataset, position, row) VALUES (?, ?, ?, ?)",
+            [
+                (revision_id, name, i, json.dumps({str(k): ("" if v is None else str(v)) for k, v in r.items()}, ensure_ascii=False))
+                for i, r in enumerate(rows)
+            ],
+        )
 
     def list_revisions(self) -> list[dict[str, Any]]:
         """Revision headers, newest first."""
@@ -505,8 +633,8 @@ class PlanStore(_SqliteStore):
         """Keep the newest ``keep`` revisions (and ``protect``, e.g. the one just restored)."""
         con.execute(
             "DELETE FROM plan_revisions WHERE id NOT IN (SELECT id FROM plan_revisions ORDER BY id DESC LIMIT ?) "
-            "AND id IS NOT ?",
-            (keep, protect),
+            "AND id IS NOT ? AND source NOT IN (?, ?)",
+            (keep, protect, *PROTECTED_REVISION_SOURCES),
         )
 
 
@@ -528,18 +656,18 @@ class DatasetRepository(Protocol[RowT]):
 
 
 class HoldingLot(TypedDict):
-    """One ``holdings_lots`` row (columns from design section 4)."""
+    """One ``holdings_lots`` row: the legacy CSV columns, as entered (text)."""
 
     account: str
     symbol: str
-    shares: float
-    price: float
-    date: str
-    basis: float
+    purchase_date: str
+    shares: str
+    purchase_price: str
+    lot_type: str
+    note: str
 
 
-# Column sets for the remaining datasets are fixed in their P4 PRs; until then a row is a
-# plain mapping of column name to value.
+# Rows of the other datasets are plain mappings of CSV column name to text value.
 LiabilityRow = dict[str, Any]
 HsaScheduleRow = dict[str, Any]
 TargetAllocationRow = dict[str, Any]

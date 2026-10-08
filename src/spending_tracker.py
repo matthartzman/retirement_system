@@ -13,7 +13,6 @@ Tracking types:
 """
 from __future__ import annotations
 
-import csv
 import os
 from datetime import date, datetime
 from pathlib import Path
@@ -81,29 +80,33 @@ def _safe_float(s: str) -> float:
 # Data loading
 # ------------------------------------------------------------------
 
+def _ytd_transaction_rows(root: Path | None) -> list[dict]:
+    """The rows of the plan's ``ytd_transactions`` table (workspace ``root``; file order, text
+    cells; ``[]`` when the plan has none)."""
+    from .plan_datasets import workspace_dataset_rows  # noqa: PLC0415 - keeps the module import light
+
+    return workspace_dataset_rows(_root(root), "ytd_transactions")
+
+
 def load_transactions(root: Path | None = None, year: int | None = None) -> list[dict]:
-    """Load ytd_transactions.csv, optionally filtered to a calendar year."""
-    path = _root(root) / "input" / "ytd_transactions.csv"
-    if not path.exists():
-        return []
+    """Load the plan's YTD transactions, optionally filtered to a calendar year."""
     rows: list[dict] = []
-    with open(path, newline="", encoding="utf-8-sig") as f:
-        for row in csv.DictReader(f):
-            try:
-                dt = _parse_date((row.get("Date") or "").strip())
-                if year is not None and dt.year != year:
-                    continue
-                amount = _safe_float(row.get("Amount", "0"))
-            except (ValueError, TypeError):
+    for row in _ytd_transaction_rows(root):
+        try:
+            dt = _parse_date((row.get("Date") or "").strip())
+            if year is not None and dt.year != year:
                 continue
-            rows.append({
-                "date": dt,
-                "merchant": (row.get("Merchant") or "").strip(),
-                "category": (row.get("Category") or "").strip(),
-                "account": (row.get("Account") or "").strip(),
-                "amount": amount,
-                "owner": (row.get("Owner") or "").strip(),
-            })
+            amount = _safe_float(row.get("Amount", "0"))
+        except (ValueError, TypeError):
+            continue
+        rows.append({
+            "date": dt,
+            "merchant": (row.get("Merchant") or "").strip(),
+            "category": (row.get("Category") or "").strip(),
+            "account": (row.get("Account") or "").strip(),
+            "amount": amount,
+            "owner": (row.get("Owner") or "").strip(),
+        })
     return rows
 
 
@@ -142,39 +145,36 @@ def _annualization_period_days(txns, year: int, today: date | None = None) -> in
     return max(1, (end - jan1).days + 1)
 
 
+_GROUP_BUDGET_HEADER = ["group", "budget_pct", "budget_override", "notes"]
+
+
 def load_budget(root: Path | None = None) -> dict[str, dict]:
-    """Load spending_budget.csv → {group: {budget_pct, budget_override, notes}}."""
-    path = _root(root) / "input" / "spending_budget.csv"
-    if not path.exists():
-        return {}
+    """The plan's ``spending_group_budget`` table → {group: {budget_pct, budget_override, notes}}."""
     result: dict[str, dict] = {}
-    with open(path, newline="", encoding="utf-8-sig") as f:
-        for row in csv.DictReader(f):
-            group = (row.get("group") or "").strip()
-            if not group:
-                continue
-            result[group] = {
-                "budget_pct": _safe_float(row.get("budget_pct", "")),
-                "budget_override": _safe_float(row.get("budget_override", "")),
-                "notes": (row.get("notes") or "").strip(),
-            }
+    for row in _plan_spending_rows(root, "group_budget"):
+        group = (row.get("group") or "").strip()
+        if not group:
+            continue
+        result[group] = {
+            "budget_pct": _safe_float(row.get("budget_pct", "")),
+            "budget_override": _safe_float(row.get("budget_override", "")),
+            "notes": (row.get("notes") or "").strip(),
+        }
     return result
 
 
 def save_budget(root: Path | None, budget: dict[str, dict]) -> None:
-    """Write spending_budget.csv."""
-    path = _root(root) / "input" / "spending_budget.csv"
-    with open(path, "w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f)
-        w.writerow(["group", "budget_pct", "budget_override", "notes"])
-        for group in sorted(budget):
-            b = budget[group]
-            w.writerow([
-                group,
-                f"{b.get('budget_pct', 0):.1f}" if b.get("budget_pct") else "",
-                f"{b.get('budget_override', 0):.0f}" if b.get("budget_override") else "",
-                b.get("notes", ""),
-            ])
+    """Replace the plan's ``spending_group_budget`` table."""
+    rows = []
+    for group in sorted(budget):
+        b = budget[group]
+        rows.append({
+            "group": group,
+            "budget_pct": f"{b.get('budget_pct', 0):.1f}" if b.get("budget_pct") else "",
+            "budget_override": f"{b.get('budget_override', 0):.0f}" if b.get("budget_override") else "",
+            "notes": b.get("notes", ""),
+        })
+    _write_plan_spending_rows(root, "group_budget", _GROUP_BUDGET_HEADER, rows)
 
 
 # ------------------------------------------------------------------
@@ -309,7 +309,7 @@ def budget_by_group(root: Path | None = None, core_spending: float = 0) -> dict:
 
 def seed_budget_from_actuals(root: Path | None = None, year: int | None = None,
                              core_spending: float = 0) -> dict[str, dict]:
-    """Initialize spending_budget.csv from transaction history proportions."""
+    """Initialize the plan's group budget table from transaction history proportions."""
     r = _root(root)
     actuals = group_actuals(r, year)
     total = actuals["total_core_annualized"]
@@ -363,34 +363,30 @@ _LEGACY_TRACKING_MAP = {
 # ------------------------------------------------------------------
 
 def load_transactions_extended(root=None, year=None):
-    """Load ytd_transactions.csv including taxonomy columns if present."""
-    import csv as _csv
-    path = _root(root) / "input" / "ytd_transactions.csv"
-    if not path.exists():
-        return []
+    """Load the plan's YTD transactions including taxonomy columns if present (columns beyond
+    the YTD set are kept per row by the table)."""
     rows = []
-    with open(path, newline="", encoding="utf-8-sig") as f:
-        for row in _csv.DictReader(f):
-            try:
-                dt     = _parse_date((row.get("Date") or "").strip())
-                if year is not None and dt.year != year:
-                    continue
-                amount = _safe_float(row.get("Amount","0"))
-            except (ValueError, TypeError):
+    for row in _ytd_transaction_rows(root):
+        try:
+            dt     = _parse_date((row.get("Date") or "").strip())
+            if year is not None and dt.year != year:
                 continue
-            rows.append({
-                "date":               dt,
-                "merchant":           (row.get("Merchant")        or "").strip(),
-                "category":           (row.get("Category")        or "").strip(),
-                "account":            (row.get("Account")         or "").strip(),
-                "amount":             amount,
-                "owner":              (row.get("Owner")           or "").strip(),
-                "mapped_category_id": (row.get("MappedCategoryId") or "").strip(),
-                "confirmed":          (row.get("Confirmed") or "").strip().lower() in ("1","true","yes"),
-                "notes":              (row.get("Notes") or "").strip(),
-                "statement":          (row.get("Original Statement") or "").strip(),
-                "tags":               (row.get("Tags") or "").strip(),
-            })
+            amount = _safe_float(row.get("Amount","0"))
+        except (ValueError, TypeError):
+            continue
+        rows.append({
+            "date":               dt,
+            "merchant":           (row.get("Merchant")        or "").strip(),
+            "category":           (row.get("Category")        or "").strip(),
+            "account":            (row.get("Account")         or "").strip(),
+            "amount":             amount,
+            "owner":              (row.get("Owner")           or "").strip(),
+            "mapped_category_id": (row.get("MappedCategoryId") or "").strip(),
+            "confirmed":          (row.get("Confirmed") or "").strip().lower() in ("1","true","yes"),
+            "notes":              (row.get("Notes") or "").strip(),
+            "statement":          (row.get("Original Statement") or "").strip(),
+            "tags":               (row.get("Tags") or "").strip(),
+        })
     return rows
 
 
@@ -422,9 +418,14 @@ def _shared_ytd_class(txn: dict) -> str:
 # ==================================================================
 # The functions below keep the old public function names as compatibility shims while moving
 # storage toward:
-#   - client_spending_taxonomy.csv: tracking_type, group, category_id, label, origin, status, notes
-#   - client_spending_aliases.csv: match_value, match_field, exact, priority, category_id, source
-#   - client_spending_budget.csv: kind, key, label, annual_budget, start_year, end_year, one_time_year, notes
+#   - taxonomy (plan file table ``spending_taxonomy``, WP6.3a; was client_spending_taxonomy.csv):
+#     tracking_type, group, category_id, label, origin, status, notes
+#   - aliases (plan file table ``spending_aliases``, WP6.3a; was client_spending_aliases.csv):
+#     match_value, match_field, exact, priority, category_id, source
+#   - budget (plan file table ``spending_budget``, WP6.3b; was client_spending_budget.csv):
+#     kind, key, label, annual_budget, start_year, end_year, one_time_year, notes, ...
+# The taxonomy and aliases live in the plan of the workspace ``root`` (the active plan for the
+# live workspace, else ``<root>/plan.rpx``; ``active_plan.plan_path_for_workspace``).
 
 import re as _unified_re
 
@@ -442,7 +443,7 @@ _TIME_BOUNDED_TRACKING_TYPES = {"Travel", "Large Discretionary", "Taxes"}
 # household's annual budget, with no undo.
 #
 # This is the DEFAULT only. A category or group's own budget row
-# ("no_annualize" in client_spending_budget.csv, toggled from the Budgeting
+# ("no_annualize" in the plan's spending_budget table, toggled from the Budgeting
 # UI -- see _row_no_annualize/_resolve_no_annualize below) always overrides
 # it, so a household can flag any other lumpy line item (or un-flag one of
 # these defaults) without a code change. Category id is used here rather
@@ -509,24 +510,6 @@ def _safe_int(value: Any, default: int = 0) -> int:
         return int(float(str(value or "").replace(",", "").strip()))
     except Exception:
         return default
-
-
-def _read_csv_dicts(path: Path) -> tuple[list[str], list[dict]]:
-    if not path.exists():
-        return [], []
-    with open(path, newline="", encoding="utf-8-sig", errors="replace") as f:
-        reader = csv.DictReader(line.replace("\x00", "") for line in f)
-        header = list(reader.fieldnames or [])
-        return header, [dict(row) for row in reader]
-
-
-def _write_csv_dicts(path: Path, header: list[str], rows: list[dict]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=header, extrasaction="ignore")
-        writer.writeheader()
-        for row in rows:
-            writer.writerow({k: row.get(k, "") for k in header})
 
 
 def _normalize_tracking_type(value: str) -> str:
@@ -639,29 +622,44 @@ def _normalize_spending_group_assignment(tracking_type: str, group: str, categor
     return tt, grp
 
 
+def _plan_spending_rows(root, name: str) -> list[dict]:
+    """Rows of spending dataset ``name`` (``"taxonomy"``, ``"aliases"``, ``"budget"`` ...) in the plan of
+    workspace ``root``."""
+    from .plan_datasets import workspace_dataset_rows  # noqa: PLC0415 - keeps the module import light
+
+    return workspace_dataset_rows(_root(root), f"spending_{name}")
+
+
+def _write_plan_spending_rows(root, name: str, header: list[str], rows: list[dict]) -> None:
+    """Replace spending dataset ``name`` in the plan of workspace ``root`` with ``rows``
+    (only the ``header`` columns, as text)."""
+    from .plan_datasets import write_workspace_dataset_rows  # noqa: PLC0415
+
+    clean = [{k: ("" if row.get(k) is None else str(row.get(k))) for k in header} for row in rows]
+    write_workspace_dataset_rows(_root(root), f"spending_{name}", clean)
+
+
+def _plan_recovery_seed_rows(root) -> list[dict]:
+    """Rows of the recovery seed of the plan of workspace ``root`` (a plan revision; ``[]`` when none)."""
+    from .plan_datasets import workspace_recovery_seed_rows  # noqa: PLC0415
+
+    return workspace_recovery_seed_rows(_root(root))
+
+
 def _taxonomy_rows(root=None, include_deleted: bool = True) -> list[dict]:
-    """Return normalized taxonomy rows from either old or new schema."""
-    path = _root(root) / "input" / "client_spending_taxonomy.csv"
-    header, rows = _read_csv_dicts(path)
+    """Return normalized taxonomy rows of the plan's ``spending_taxonomy`` table.
+
+    The legacy section/subsection/label/value file layout is converted once by conversion
+    step C4b (``legacy_conversion.steps.c4b_spending``)."""
     out: list[dict] = []
-    new_schema = {"tracking_type", "group", "category_id", "label"}.issubset(set(header))
-    for row in rows:
-        if new_schema:
-            tt = _normalize_tracking_type(row.get("tracking_type"))
-            grp = (row.get("group") or "Other").strip()
-            cid = (row.get("category_id") or "").strip()
-            label = (row.get("label") or cid).strip()
-            origin = (row.get("origin") or "template").strip().lower() or "template"
-            status = (row.get("status") or "active").strip().lower() or "active"
-            notes = (row.get("notes") or "").strip()
-        else:
-            tt = _normalize_tracking_type(row.get("section"))
-            grp = (row.get("subsection") or "Other").strip()
-            cid = (row.get("label") or "").strip()
-            label = (row.get("value") or cid).strip()
-            origin = "template"
-            status = "active"
-            notes = (row.get("notes") or "").strip()
+    for row in _plan_spending_rows(root, "taxonomy"):
+        tt = _normalize_tracking_type(row.get("tracking_type"))
+        grp = (row.get("group") or "Other").strip()
+        cid = (row.get("category_id") or "").strip()
+        label = (row.get("label") or cid).strip()
+        origin = (row.get("origin") or "template").strip().lower() or "template"
+        status = (row.get("status") or "active").strip().lower() or "active"
+        notes = (row.get("notes") or "").strip()
         if not (tt and grp and cid):
             continue
         if status not in {"active", "deleted"}:
@@ -704,7 +702,7 @@ def _write_taxonomy_rows(root, rows: list[dict]) -> None:
         })
     order = {tt: i for i, tt in enumerate(TRACKING_TYPE_ORDER + ["Transfer"])}
     normalized.sort(key=lambda r: (order.get(r["tracking_type"], 999), r["group"].lower(), r["label"].lower(), r["category_id"]))
-    _write_csv_dicts(_root(root) / "input" / "client_spending_taxonomy.csv", _TAXONOMY_HEADER, normalized)
+    _write_plan_spending_rows(root, "taxonomy", _TAXONOMY_HEADER, normalized)
 
 
 def load_taxonomy(root=None, include_deleted: bool = False):
@@ -942,7 +940,7 @@ def save_aliases(root, aliases: list[dict]) -> None:
         seen.add(key)
         rows.append(row)
     rows.sort(key=lambda r: (-_safe_int(r["priority"], 50), r["match_value"].lower(), r["category_id"]))
-    _write_csv_dicts(_root(root) / "input" / "client_spending_aliases.csv", _ALIAS_HEADER, rows)
+    _write_plan_spending_rows(root, "aliases", _ALIAS_HEADER, rows)
 
 
 def add_alias(root, match_value, category_id, match_field="category", exact=True, priority=90, source="user"):
@@ -999,7 +997,7 @@ def apply_mapping_rules(txns, rules=None, flat=None):
 
 
 def save_mapping_rules(root, rules):
-    """Compatibility: save rules into client_spending_aliases.csv."""
+    """Compatibility: save rules as the plan's spending aliases."""
     save_aliases(root, [{
         "match_value": r.get("match_value") or r.get("keyword") or "",
         "category_id": r.get("category_id") or "",
@@ -1011,8 +1009,7 @@ def save_mapping_rules(root, rules):
 
 
 def _legacy_budget_to_unified(root=None) -> list[dict]:
-    path = _root(root) / "input" / "client_spending_budget.csv"
-    header, rows = _read_csv_dicts(path)
+    rows = _plan_spending_rows(root, "budget")
     out: list[dict] = []
     if not rows:
         return out
@@ -1036,10 +1033,6 @@ def _legacy_budget_to_unified(root=None) -> list[dict]:
             "no_annualize": (row.get("no_annualize") or "").strip(),
         })
     return out
-
-
-def _budget_recovery_seed_path(root=None) -> Path:
-    return _root(root) / "input" / "client_spending_budget.recovery_seed.csv"
 
 
 def _budget_row_total(rows: list[dict], kinds: set[str] | None = None) -> float:
@@ -1088,19 +1081,18 @@ def _merge_budget_seed(current: list[dict], seed: list[dict], *, only_when_zero:
 
 
 def recover_spending_budget_from_seed(root=None, *, persist: bool = True, force: bool = False) -> dict:
-    """Recover nonzero spending budget rows from a packaged recovery seed.
+    """Recover nonzero spending budget rows from the plan's recovery seed (a plan revision).
 
     Returns a small status dict for UI/API callers. Force=False only fills
     missing/zero rows; it never overwrites a current nonzero budget.
     """
     r = _root(root)
-    seed_path = _budget_recovery_seed_path(r)
-    if not seed_path.exists():
-        return {"success": False, "recovered": 0, "error": "No recovery seed file is available."}
+    seed_rows_raw = _plan_recovery_seed_rows(r)
+    if not seed_rows_raw:
+        return {"success": False, "recovered": 0, "error": "No recovery seed is available."}
     current = _legacy_budget_to_unified(r)
-    seed_header, seed_rows_raw = _read_csv_dicts(seed_path)
     seed: list[dict] = []
-    if {"kind", "key"}.issubset(set(seed_header)):
+    if {"kind", "key"}.issubset(set(seed_rows_raw[0])):
         for row in seed_rows_raw:
             kind = (row.get("kind") or "category").strip().lower()
             key = (row.get("key") or "").strip()
@@ -1119,12 +1111,12 @@ def recover_spending_budget_from_seed(root=None, *, persist: bool = True, force:
         return {"success": False, "recovered": 0, "error": "Recovery seed has no nonzero budget values."}
     merged, changed = _merge_budget_seed(current, seed, only_when_zero=not force)
     if changed and persist:
+        # One-time copy of the pre-recovery budget rows: a ``pre-recovery`` plan revision that
+        # retains the budget table (restore_workspace_pre_recovery_copy puts it back).
         try:
-            budget_path = r / "input" / "client_spending_budget.csv"
-            if budget_path.exists():
-                backup_path = budget_path.with_suffix(budget_path.suffix + ".pre_recovery_backup")
-                if not backup_path.exists():
-                    backup_path.write_text(budget_path.read_text(encoding="utf-8-sig", errors="replace"), encoding="utf-8")
+            from .plan_datasets import keep_workspace_pre_recovery_copy  # noqa: PLC0415
+
+            keep_workspace_pre_recovery_copy(r, _plan_spending_rows(r, "budget"))
         except Exception:
             pass
         save_unified_budget(r, merged)
@@ -1143,7 +1135,7 @@ def load_unified_budget(root=None) -> list[dict]:
     # zeroed but a packaged seed exists, restore the prior nonzero values. This
     # protects local data after an autosave regression without overwriting any
     # current nonzero user edits.
-    if _budget_row_total(rows, {"category", "group"}) == 0 and _budget_recovery_seed_path(root).exists():
+    if _budget_row_total(rows, {"category", "group"}) == 0 and _plan_recovery_seed_rows(root):
         status = recover_spending_budget_from_seed(root, persist=True, force=False)
         if status.get("success") and status.get("recovered"):
             rows = _legacy_budget_to_unified(root)
@@ -1182,7 +1174,7 @@ def save_unified_budget(root, rows: list[dict]) -> None:
             ) if kind in {"category", "group"} else "",
         }
         out.append(out_row)
-    _write_csv_dicts(_root(root) / "input" / "client_spending_budget.csv", _BUDGET_HEADER, out)
+    _write_plan_spending_rows(root, "budget", _BUDGET_HEADER, out)
 
 
 def load_budget_by_category(root=None):
@@ -1509,7 +1501,7 @@ def ytd_core_spending_actual(root=None, year=None):
 def ytd_actual_by_tracking_type(root=None, year=None):
     """Raw year-to-date actual spending grouped by tracking type.
 
-    Sums taxonomy-mapped transactions (ytd_transactions.csv) per tracking type
+    Sums taxonomy-mapped transactions (the ytd_transactions table) per tracking type
     as actually spent so far this year — NOT annualized. The current-year floor
     blends this with the budgeted remainder of the year (spent-so-far + budget x
     fraction of year left), which reflects lumpy categories like Travel far
@@ -1926,14 +1918,13 @@ def spending_dashboard(root: Path | None = None, year: int | None = None, core_s
 # Corrected alias loader placed last so it overrides the initial unified definition
 # and can seed from previous-format files without recursive adapter calls.
 def load_aliases(root=None):
-    """Load unified aliases. Falls back directly to previous-format CSV files before migration."""
+    """Load unified aliases (the plan's ``spending_aliases`` table). When the plan has none, the
+    previous-format rules and category-map tables seed them."""
     r = _root(root)
-    path = r / "input" / "client_spending_aliases.csv"
-    header, rows = _read_csv_dicts(path)
+    rows = _plan_spending_rows(r, "aliases")
     aliases: list[dict] = []
-    if rows and {"match_value", "category_id"}.issubset(set(header)):
-        source_rows = rows
-        for row in source_rows:
+    if rows:
+        for row in rows:
             mv = (row.get("match_value") or "").strip()
             cid = (row.get("category_id") or "").strip()
             if not (mv and cid):
@@ -1948,8 +1939,7 @@ def load_aliases(root=None):
             })
     else:
         # Previous-format rules: keyword/category_id/match_field/exact/priority
-        _, rule_rows = _read_csv_dicts(r / "input" / "client_spending_rules.csv")
-        for row in rule_rows:
+        for row in _plan_spending_rows(r, "rules"):
             mv = (row.get("keyword") or "").strip()
             cid = (row.get("category_id") or "").strip()
             if not (mv and cid):
@@ -1959,8 +1949,7 @@ def load_aliases(root=None):
         flat = taxonomy_flat(r, include_deleted=True)
         label_to_id = {str(v.get("label", "")).strip().lower(): cid for cid, v in flat.items()}
         label_to_id.update({cid.lower(): cid for cid in flat})
-        _, map_rows = _read_csv_dicts(r / "input" / "spending_category_map.csv")
-        for row in map_rows:
+        for row in _plan_spending_rows(r, "category_map"):
             raw = (row.get("category") or "").strip()
             if not raw:
                 continue

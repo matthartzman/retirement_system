@@ -19,7 +19,7 @@ sys.path.insert(0, str(ROOT))
 from src import market_data
 from src.config_backend import load_active_config, setting
 from src.portfolio_analytics import snapshot_prices
-from src.workspace_context import candidate_input_files, first_existing, workspace_output_dir
+from src.workspace_context import workspace_output_dir
 
 
 def _num(value: object, default: float = 0.0) -> float:
@@ -29,24 +29,27 @@ def _num(value: object, default: float = 0.0) -> float:
         return default
 
 
-def load_holdings_symbols_and_fallbacks(path: Path):
+def load_holdings_symbols_and_fallbacks():
+    """Symbols and cost-basis fallback prices from the active plan's holdings table."""
+    import io
+    from src.plan_datasets import active_dataset_text
     symbols = []
     basis = {}
     qty = {}
-    if not path.exists():
+    text = active_dataset_text("holdings")
+    if not text:
         return symbols, {}
-    with path.open(newline="", encoding="utf-8-sig") as f:
-        for row in csv.DictReader(f):
-            sym = (row.get("ticker") or row.get("symbol") or "").strip().upper()
-            if not sym:
-                continue
-            if sym not in symbols:
-                symbols.append(sym)
-            shares = _num(row.get("shares"), 0.0)
-            purchase_price = _num(row.get("purchase_price") or row.get("price") or row.get("cost_basis_per_share"), 0.0)
-            if shares > 0 and purchase_price > 0 and sym != "CASH":
-                basis[sym] = basis.get(sym, 0.0) + shares * purchase_price
-                qty[sym] = qty.get(sym, 0.0) + shares
+    for row in csv.DictReader(io.StringIO(text)):
+        sym = (row.get("ticker") or row.get("symbol") or "").strip().upper()
+        if not sym:
+            continue
+        if sym not in symbols:
+            symbols.append(sym)
+        shares = _num(row.get("shares"), 0.0)
+        purchase_price = _num(row.get("purchase_price") or row.get("price") or row.get("cost_basis_per_share"), 0.0)
+        if shares > 0 and purchase_price > 0 and sym != "CASH":
+            basis[sym] = basis.get(sym, 0.0) + shares * purchase_price
+            qty[sym] = qty.get(sym, 0.0) + shares
     fallbacks = {sym: basis[sym] / qty[sym] for sym in basis if qty.get(sym, 0) > 0}
     return symbols, fallbacks
 
@@ -75,8 +78,7 @@ def main() -> int:
     market_data.reset_pricing_runtime_state(clear_failures=True, clear_provider_failures=True)
 
     workspace_id = meta.get("workspace_id", "local")
-    holdings = first_existing(candidate_input_files("client_holdings.csv", workspace_id, ROOT)) or (ROOT / "input" / "client_holdings.csv")
-    symbols, fallbacks = load_holdings_symbols_and_fallbacks(holdings)
+    symbols, fallbacks = load_holdings_symbols_and_fallbacks()
     market_data.set_fallback_prices(fallbacks)
 
     prices = {}

@@ -11,6 +11,7 @@ presentation code belongs here.
 """
 
 import csv
+import io
 import datetime
 import os
 import re
@@ -69,7 +70,7 @@ from . import optimization as _ao  # consolidated from allocation_optimizer
 from . import allocation_policy as _ap
 from .core import ASSET_CLASS_RETURNS, TAX_BASE_YEAR, statutory_rmd_start_age, require_residence_state_for_build  # consolidated from engine_core
 from .market_data import PRICE_CACHE, fetch_price, prewarm_prices, set_fallback_prices, set_frozen_prices, configure_holdings_pricing, configure_api_keys  # consolidated from market_data_providers
-from .workspace_context import candidate_input_files, active_workspace_id
+from .workspace_context import active_workspace_id
 from .roth_ui_build_guard import normalize_roth_policy, normalize_irmaa_guardrail_mode, percent_to_float, is_explicit_user_roth_policy, strategy_for_roth_policy
 from .plan_data_migration import migrate_sectioned_data
 from .plan_label_rules import canonical_label
@@ -991,66 +992,55 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     c.setdefault('vac_end', c['plan_start'] - 1)
 
     # ── Spending Budget per-line table (#95) ──────────────────────────────────
-    # Additive, flat file (like client_holdings.csv): each row is its own budget
+    # Additive plan-file table ``spending_budget_lines`` (WP6.3b; was client_spending_budget_lines.csv): each row is its own budget
     # line with per-line start/end/one-time/amount. Lines in the
     # ``home_improvement`` section route to housing costs; ``gifts_charity`` and
-    # all others route to rec_extra. Guarded so plans without the file behave
+    # all others route to rec_extra. Guarded so plans without the table behave
     # exactly as before.
     try:
-        _bl_file = None
-        # No explicit root=: passing one overrides workspace_context._default_root
-        # and therefore defeats RETIREMENT_SYSTEM_WORKSPACE_ROOT. Omitting it
-        # resolves to platform_runtime.workspace_root(), which is the same
-        # project root when the env var is unset.
-        for _bl_path in candidate_input_files(
-            'client_spending_budget_lines.csv', active_workspace_id()):
-            if os.path.exists(str(_bl_path)):
-                _bl_file = str(_bl_path)
-                break
-        if _bl_file:
-            with open(_bl_file, newline='', encoding='utf-8-sig') as _blf:
-                for _bl in csv.DictReader(_blf):
-                    _section = (_bl.get('section', '') or '').strip().lower()
-                    # gifts_charity is a budget-tracking target only (like the
-                    # taxonomy budget); the legacy annual_charitable_giving_* fields
-                    # were never consumed by the projection, so keep it out of
-                    # spending to preserve identical engine results.
-                    if _section in ('gifts_charity', 'category_budget'):
-                        continue
-                    _amt = _n((_bl.get('amount_per_year', '0') or '0'), 0)
-                    if _amt <= 0:
-                        continue
-                    _one_time = _y((_bl.get('one_time_year', '0') or '0'), 0)
-                    _bstart = _y((_bl.get('start_year', '0') or '0'), 0)
-                    _bend = _y((_bl.get('end_year', '0') or '0'), 0)
-                    _label = (_bl.get('label', '') or '').strip()
-                    _is_home = (_section == 'home_improvement')
-                    if _one_time and not (_bstart or _bend):
-                        # One-time spend in a single year.
-                        if _is_home:
-                            c['home_improvement_lump'][_one_time] = c['home_improvement_lump'].get(_one_time, 0) + _amt
-                        else:
-                            c['lump'][_one_time] = c['lump'].get(_one_time, 0) + _amt
-                    else:
-                        # Recurring (or open-ended) line. Blank end = run to plan end.
-                        _rs = _bstart or c['plan_start']
-                        _re_end = _bend or c['plan_end']
-                        if _re_end < _rs:
-                            _re_end = _rs
-                        c['recurring_extras'].append({
-                            'type': _label or _section,
-                            'amount': _amt,
-                            'start_year': _rs,
-                            'end_year': _re_end,
-                            'comment': (_bl.get('notes', '') or '').strip(),
-                            'is_home_improvement': _is_home,
-                        })
+        from .plan_datasets import active_dataset_rows as _active_dataset_rows
+        for _bl in _active_dataset_rows('spending_budget_lines'):
+            _section = (_bl.get('section', '') or '').strip().lower()
+            # gifts_charity is a budget-tracking target only (like the
+            # taxonomy budget); the legacy annual_charitable_giving_* fields
+            # were never consumed by the projection, so keep it out of
+            # spending to preserve identical engine results.
+            if _section in ('gifts_charity', 'category_budget'):
+                continue
+            _amt = _n((_bl.get('amount_per_year', '0') or '0'), 0)
+            if _amt <= 0:
+                continue
+            _one_time = _y((_bl.get('one_time_year', '0') or '0'), 0)
+            _bstart = _y((_bl.get('start_year', '0') or '0'), 0)
+            _bend = _y((_bl.get('end_year', '0') or '0'), 0)
+            _label = (_bl.get('label', '') or '').strip()
+            _is_home = (_section == 'home_improvement')
+            if _one_time and not (_bstart or _bend):
+                # One-time spend in a single year.
+                if _is_home:
+                    c['home_improvement_lump'][_one_time] = c['home_improvement_lump'].get(_one_time, 0) + _amt
+                else:
+                    c['lump'][_one_time] = c['lump'].get(_one_time, 0) + _amt
+            else:
+                # Recurring (or open-ended) line. Blank end = run to plan end.
+                _rs = _bstart or c['plan_start']
+                _re_end = _bend or c['plan_end']
+                if _re_end < _rs:
+                    _re_end = _rs
+                c['recurring_extras'].append({
+                    'type': _label or _section,
+                    'amount': _amt,
+                    'start_year': _rs,
+                    'end_year': _re_end,
+                    'comment': (_bl.get('notes', '') or '').strip(),
+                    'is_home_improvement': _is_home,
+                })
     except Exception:
-        # Never fail a build because of the optional budget-lines file.
+        # Never fail a build because of the optional budget-lines table.
         pass
 
-    # Unified Spending Budget: the consolidated budget file supersedes both
-    # the legacy Core Spending base input and client_spending_budget_lines.csv.
+    # Unified Spending Budget: the consolidated budget supersedes both
+    # the legacy Core Spending base input and the budget-lines table.
     # Apply after legacy parsing so the budget can replace those compatibility
     # values rather than double-counting them.
     try:
@@ -1723,41 +1713,30 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     from .core import TaxLot, LotEngine  # consolidated from events
     lots_by_account = {}   # {acct: {sym: [TaxLot, ...]}}
     lots_reconcile = {}    # {(acct, sym): total_lot_shares} for QC reconciliation
-    lots_file = None
-    _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    # Workspace-aware search order: explicit env path/input dir, workspace input, shared input, hosted fallbacks.
-    # No explicit root= -- see the note at the budget-lines lookup above. This
-    # call site previously hardcoded the project root, which is why redirecting
-    # RETIREMENT_SYSTEM_WORKSPACE_ROOT at a frozen fixture silently kept reading
-    # holdings from the real input/ (documented in test_199's docstring).
-    for _lp_path in candidate_input_files('client_holdings.csv', active_workspace_id()):
-        _lp = str(_lp_path)
-        if os.path.exists(_lp):
-            lots_file = _lp
-            break
-    if lots_file:
-        with open(lots_file, newline='', encoding='utf-8-sig') as lf:
-            reader = _csv.DictReader(lf)
-            for row in reader:
-                acct = (row.get('account','') or '').strip()
-                sym  = (row.get('symbol','') or '').strip()
-                if not acct or not sym:
-                    continue
-                shares = float((row.get('shares','0') or '0').replace(',',''))
-                price  = float((row.get('purchase_price','0') or '0').replace('$','').replace(',',''))
-                pdate  = (row.get('purchase_date','') or '').strip()
-                ltype  = (row.get('lot_type','buy') or 'buy').strip().lower()
-                if shares <= 0:
-                    continue
-                cost_basis = shares * price
-                lot = TaxLot(sym, shares, cost_basis, pdate)
-                if acct not in lots_by_account:
-                    lots_by_account[acct] = {}
-                if sym not in lots_by_account[acct]:
-                    lots_by_account[acct][sym] = []
-                lots_by_account[acct][sym].append(lot)
-                key = (acct, sym)
-                lots_reconcile[key] = lots_reconcile.get(key, 0) + shares
+    from .plan_datasets import active_dataset_text
+    holdings_text = active_dataset_text('holdings')
+    if holdings_text:
+        reader = _csv.DictReader(io.StringIO(holdings_text))
+        for row in reader:
+            acct = (row.get('account','') or '').strip()
+            sym  = (row.get('symbol','') or '').strip()
+            if not acct or not sym:
+                continue
+            shares = float((row.get('shares','0') or '0').replace(',',''))
+            price  = float((row.get('purchase_price','0') or '0').replace('$','').replace(',',''))
+            pdate  = (row.get('purchase_date','') or '').strip()
+            ltype  = (row.get('lot_type','buy') or 'buy').strip().lower()
+            if shares <= 0:
+                continue
+            cost_basis = shares * price
+            lot = TaxLot(sym, shares, cost_basis, pdate)
+            if acct not in lots_by_account:
+                lots_by_account[acct] = {}
+            if sym not in lots_by_account[acct]:
+                lots_by_account[acct][sym] = []
+            lots_by_account[acct][sym].append(lot)
+            key = (acct, sym)
+            lots_reconcile[key] = lots_reconcile.get(key, 0) + shares
     c['lots_by_account'] = lots_by_account
 
     # ── Load additional liabilities from client_liabilities.csv ───────────────
@@ -1767,42 +1746,36 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     # type in (auto | heloc | student_loan | other). A zero/absent file yields
     # an empty list so a liability-free plan behaves exactly as before.
     liabilities = []
-    liab_file = None
-    for _li_path in candidate_input_files('client_liabilities.csv', active_workspace_id()):
-        _li = str(_li_path)
-        if os.path.exists(_li):
-            liab_file = _li
-            break
-    if liab_file:
+    liab_text = active_dataset_text('liabilities')
+    if liab_text:
         try:
-            with open(liab_file, newline='', encoding='utf-8-sig') as lf:
-                for row in _csv.DictReader(lf):
-                    def _clean_num(raw):
-                        return float((str(raw or '0')).replace('$', '').replace(',', '').replace('%', '').strip() or 0.0)
-                    ltype = (row.get('type', '') or 'other').strip().lower()
-                    balance = _clean_num(row.get('balance', '0'))
-                    if balance <= 0:
-                        continue
-                    rate = _clean_num(row.get('interest_rate', '0'))
-                    # Accept either a fraction (0.06) or a percent (6) for the rate.
-                    if rate > 1.0:
-                        rate = rate / 100.0
-                    def _clean_year(raw):
-                        try:
-                            return int(float(str(raw or '0').replace(',', '').strip() or 0))
-                        except Exception:
-                            return 0
-                    liabilities.append({
-                        'liability_id': (row.get('liability_id', '') or '').strip(),
-                        'type': ltype,
-                        'label': (row.get('label', '') or '').strip(),
-                        'balance': balance,
-                        'interest_rate': rate,
-                        'monthly_payment': _clean_num(row.get('monthly_payment', '0')),
-                        'start_year': _clean_year(row.get('start_year', '0')),
-                        'payoff_year': _clean_year(row.get('payoff_year', '0')),
-                        'notes': (row.get('notes', '') or '').strip(),
-                    })
+            for row in _csv.DictReader(io.StringIO(liab_text)):
+                def _clean_num(raw):
+                    return float((str(raw or '0')).replace('$', '').replace(',', '').replace('%', '').strip() or 0.0)
+                ltype = (row.get('type', '') or 'other').strip().lower()
+                balance = _clean_num(row.get('balance', '0'))
+                if balance <= 0:
+                    continue
+                rate = _clean_num(row.get('interest_rate', '0'))
+                # Accept either a fraction (0.06) or a percent (6) for the rate.
+                if rate > 1.0:
+                    rate = rate / 100.0
+                def _clean_year(raw):
+                    try:
+                        return int(float(str(raw or '0').replace(',', '').strip() or 0))
+                    except Exception:
+                        return 0
+                liabilities.append({
+                    'liability_id': (row.get('liability_id', '') or '').strip(),
+                    'type': ltype,
+                    'label': (row.get('label', '') or '').strip(),
+                    'balance': balance,
+                    'interest_rate': rate,
+                    'monthly_payment': _clean_num(row.get('monthly_payment', '0')),
+                    'start_year': _clean_year(row.get('start_year', '0')),
+                    'payoff_year': _clean_year(row.get('payoff_year', '0')),
+                    'notes': (row.get('notes', '') or '').strip(),
+                })
         except Exception:
             liabilities = []
     c['liabilities'] = liabilities

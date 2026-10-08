@@ -5,6 +5,7 @@ from src.large_discretionary import (
     LD_CATEGORIES, LdItem, ld_budget_for_year, ld_cashflow_by_year, load_ld_items, migrate_repeatable,
 )
 from src.spending_budget_resolver import resolve_spending_inputs
+from tests.plan_fixture import write_plan_dataset
 
 ITEMS = [LdItem("Weddings", 60000, 2031, ""), LdItem("Auto", 45000, 2026, ""), LdItem("Large Gifts", 25000, 2029, "")]
 
@@ -52,15 +53,15 @@ def test_legacy_type_mapping_and_one_time_rows():
 
 def _seed(root: Path, budget: str) -> None:
     (root / "input").mkdir(parents=True, exist_ok=True)
-    (root / "input/client_spending_taxonomy.csv").write_text(
+    write_plan_dataset(root, "client_spending_taxonomy.csv",
         "tracking_type,group,category_id,label,origin,status,notes\n"
         "Core Expenses,Food,groceries,Groceries,template,active,\n"
         "Large Discretionary,Weddings,weddings,Weddings,template,active,\n"
-        "Large Discretionary,Auto,ld_auto,Auto,template,active,\n", encoding="utf-8")
-    (root / "input/client_spending_aliases.csv").write_text(
-        "match_value,match_field,exact,priority,category_id,source\n", encoding="utf-8")
-    (root / "input/client_spending_budget.csv").write_text(
-        "kind,key,label,annual_budget,start_year,end_year,one_time_year,notes\n" + budget, encoding="utf-8")
+        "Large Discretionary,Auto,ld_auto,Auto,template,active,\n")
+    write_plan_dataset(root, "client_spending_aliases.csv",
+        "match_value,match_field,exact,priority,category_id,source\n")
+    write_plan_dataset(root, "client_spending_budget.csv",
+        "kind,key,label,annual_budget,start_year,end_year,one_time_year,notes\n" + budget)
 
 
 def test_resolver_projects_ld_only_in_each_rows_year(tmp_path):

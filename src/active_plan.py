@@ -23,7 +23,7 @@ import threading
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, Callable, Iterator
 
 from . import platform_runtime
 from .roth_ui_build_guard import canonicalize_roth_rows
@@ -187,13 +187,16 @@ def build_plan_file_from_csv_folder(dest: str | Path, folder: str | Path) -> int
     """Build a plan file at ``dest`` from the plan CSV set in ``folder`` through the
     ``csv_exchange`` importer (the demo seed, a fresh frozen workspace); an existing ``dest`` is
     replaced. Rows the old loader dropped at load are dropped too. Returns the rows written."""
-    from .csv_exchange import import_plan_csv_set  # noqa: PLC0415 - csv_exchange needs no plan at import
+    from .csv_exchange import import_flat_datasets, import_plan_csv_set, import_recovery_seed  # noqa: PLC0415 - csv_exchange needs no plan at import
 
     target = Path(dest)
     for stale in (target, target.with_name(target.name + "-wal"), target.with_name(target.name + "-shm")):
         stale.unlink(missing_ok=True)
     with PlanStore.open(target) as store:
-        return import_plan_csv_set(folder, store, drop_never_kept=True).rows
+        rows = import_plan_csv_set(folder, store, drop_never_kept=True).rows
+        import_flat_datasets(folder, store)
+        import_recovery_seed(folder, store)
+        return rows
 
 
 def plan_file_fingerprint(path: str | Path) -> tuple[str, int]:
@@ -206,3 +209,200 @@ def plan_db_env(env: dict[str, Any]) -> dict[str, Any]:
     """Set ``PLAN_DB_ENV`` in a subprocess environment to the active plan file."""
     env[PLAN_DB_ENV] = str(active_plan_path())
     return env
+
+
+# ----------------------------------------------------------------- flat datasets (WP6)
+# Holdings, liabilities, HSA schedule and target allocation are tables of the plan file.
+# Readers get CSV text (the shape their parsers take) or ``None`` for "no rows".
+def _dataset_text(path: Path, name: str) -> str | None:
+    from .csv_exchange import dataset_csv_text  # noqa: PLC0415
+
+    if not path.is_file():
+        return None
+    try:
+        with PlanStore.open(path, create=False) as store:
+            repo = store.dataset(name)
+            return dataset_csv_text(repo) if repo.count() else None
+    except LookupError:  # stores.NotFoundError: not an initialised plan file
+        return None
+
+
+def active_dataset_text(name: str) -> str | None:
+    """CSV text of dataset ``name`` in the active plan; ``None`` when there is no plan file or
+    the table is empty. Never creates a plan file."""
+    return _dataset_text(active_plan_path(), name)
+
+
+def active_dataset_rows(name: str) -> list[dict[str, str]]:
+    """Rows of dataset ``name`` (``"spending_budget_lines"`` ...) in the active plan (``[]`` when
+    there is no plan file). Never creates a plan file."""
+    return _dataset_rows(active_plan_path(), name)
+
+
+def dataset_text_for_input_dir(input_dir: str | Path, name: str) -> str | None:
+    """For code handed a workspace's ``input`` folder: the active plan when it is the live
+    workspace's ``input``, else the ``plan.rpx`` of the workspace that holds it."""
+    live = platform_runtime.workspace_root() / "input"
+    try:
+        same = Path(input_dir).resolve() == live.resolve()
+    except OSError:
+        same = False
+    return active_dataset_text(name) if same else _dataset_text(Path(input_dir).parent / PLAN_FILE_NAME, name)
+
+
+def write_active_dataset(name: str, text: str) -> int:
+    """Replace dataset ``name`` of the active plan from CSV text (creating the plan file when
+    there is none); returns the rows written."""
+    from .csv_exchange import replace_dataset_from_csv_text  # noqa: PLC0415
+
+    from .csv_exchange.flat_csv import HSA_SCHEDULE_SAVED_KEY  # noqa: PLC0415
+
+    with active_plan_store() as store:
+        with store.transaction():
+            written = replace_dataset_from_csv_text(store.dataset(name), text)
+            if name == "hsa_schedule":
+                store.set_meta(HSA_SCHEDULE_SAVED_KEY, "1")
+        return written
+
+
+def active_hsa_schedule_saved() -> bool:
+    """True once the household's HSA schedule has been saved or seeded (even with zero rows), so
+    an empty table means "cleared on purpose", not "never set". False when there is no plan file."""
+    from .csv_exchange.flat_csv import HSA_SCHEDULE_SAVED_KEY  # noqa: PLC0415
+
+    path = active_plan_path()
+    if not path.is_file():
+        return False
+    try:
+        with PlanStore.open(path, create=False, readonly=True) as store:
+            return store.get_meta(HSA_SCHEDULE_SAVED_KEY) is not None
+    except LookupError:  # not an initialised plan file
+        return False
+
+
+def dataset_fingerprint(path: str | Path) -> dict[str, str]:
+    """``{file name: sha256 of the dataset's CSV text}`` for the non-empty datasets of a plan
+    file (the build's input fingerprint)."""
+    import hashlib  # noqa: PLC0415
+
+    from .csv_exchange import FLAT_DATASET_FILES, dataset_csv_text  # noqa: PLC0415
+
+    out: dict[str, str] = {}
+    with PlanStore.open(path, create=False) as store:
+        for name, file in FLAT_DATASET_FILES.items():
+            repo = store.dataset(name)
+            if repo.count():
+                out[file] = hashlib.sha256(dataset_csv_text(repo).encode("utf-8")).hexdigest()
+    return out
+
+
+# ------------------------------------------------------------- spending set (WP6.3)
+# The spending taxonomy and aliases are tables of the plan file (``store.spending``). The
+# spending readers are handed a workspace root (``<root>/input`` was their folder): the live
+# workspace means the active plan, any other root means the ``plan.rpx`` in it.
+def plan_path_for_workspace(root: str | Path) -> Path:
+    """The plan file of workspace ``root``: the active plan for the live workspace, else
+    ``<root>/plan.rpx``."""
+    try:
+        same = Path(root).resolve() == platform_runtime.workspace_root().resolve()
+    except OSError:
+        same = False
+    return active_plan_path() if same else Path(root) / PLAN_FILE_NAME
+
+
+def _dataset_rows(path: Path, name: str) -> list[dict[str, str]]:
+    if not path.is_file():
+        return []
+    try:
+        with PlanStore.open(path, create=False) as store:
+            return store.dataset(name).rows()
+    except LookupError:  # stores.NotFoundError: not an initialised plan file
+        return []
+
+
+def workspace_dataset_rows(root: str | Path, name: str) -> list[dict[str, str]]:
+    """Rows of dataset ``name`` (``"spending_taxonomy"`` ...) in the plan of workspace ``root``
+    (``[]`` when there is no plan file). Never creates a plan file."""
+    return _dataset_rows(plan_path_for_workspace(root), name)
+
+
+def dataset_rows_for_input_dir(input_dir: str | Path, name: str) -> list[dict[str, str]]:
+    """:func:`workspace_dataset_rows` for code handed a workspace's ``input`` folder."""
+    return workspace_dataset_rows(Path(input_dir).parent, name)
+
+
+def write_workspace_dataset_rows(root: str | Path, name: str, rows: list[dict[str, Any]]) -> int:
+    """Replace dataset ``name`` in the plan of workspace ``root`` (created when missing) with
+    ``rows`` (text values; ``None`` is stored empty). Returns the rows written."""
+    with PlanStore.open(plan_path_for_workspace(root)) as store:
+        return store.dataset(name).replace_all(rows)
+
+
+def write_dataset_rows_for_input_dir(input_dir: str | Path, name: str, rows: list[dict[str, Any]]) -> int:
+    """:func:`write_workspace_dataset_rows` for code handed a workspace's ``input`` folder."""
+    return write_workspace_dataset_rows(Path(input_dir).parent, name, rows)
+
+
+def append_dataset_row_for_input_dir(input_dir: str | Path, name: str, row: dict[str, Any]) -> int:
+    """Append one row to dataset ``name`` of the plan behind a workspace's ``input`` folder (the
+    plan is created when missing); read and write are one transaction. Returns the row count."""
+    with PlanStore.open(plan_path_for_workspace(Path(input_dir).parent)) as store:
+        repo = store.dataset(name)
+        with store.transaction():
+            rows = repo.rows()
+            rows.append(row)
+            return repo.replace_all(rows)
+
+
+def transform_dataset_rows_for_input_dir(
+    input_dir: str | Path, name: str, fn: Callable[[list[dict[str, str]]], list[dict[str, Any]]]
+) -> int:
+    """Replace dataset ``name`` of the plan behind a workspace's ``input`` folder with
+    ``fn(current rows)`` (the plan is created when missing). The read and the write are one
+    transaction, so a concurrent writer (another process on the same plan file) cannot be lost.
+    Returns the row count written."""
+    with PlanStore.open(plan_path_for_workspace(Path(input_dir).parent)) as store:
+        repo = store.dataset(name)
+        with store.transaction():
+            return repo.replace_all(fn(repo.rows()))
+
+
+# ------------------------------------------------- spending recovery copies (WP6.3c)
+# A zeroed budget is recoverable from two plan revisions of the plan file: ``budget-recovery-seed``
+# (a known-good budget) and ``pre-recovery`` (the budget as it was before a recovery merge); each
+# retains the ``spending_budget`` rows beside its plan-rows copy (``PlanStore.snapshot_revision``).
+def workspace_recovery_seed_rows(root: str | Path) -> list[dict[str, str]]:
+    """The recovery seed budget rows of the plan of workspace ``root`` (``[]`` when there is
+    none or no plan file). Never creates a plan file."""
+    path = plan_path_for_workspace(root)
+    if not path.is_file():
+        return []
+    try:
+        with PlanStore.open(path, create=False) as store:
+            return store.spending.recovery_seed()
+    except LookupError:  # not an initialised plan file
+        return []
+
+
+def write_workspace_recovery_seed(root: str | Path, rows: list[dict[str, Any]]) -> int:
+    """Make ``rows`` the recovery seed of the plan of workspace ``root`` (replacing the previous
+    seed). Returns the rows kept."""
+    with PlanStore.open(plan_path_for_workspace(root)) as store:
+        return store.spending.set_recovery_seed(rows)
+
+
+def keep_workspace_pre_recovery_copy(root: str | Path, rows: list[dict[str, Any]]) -> bool:
+    """Keep ``rows`` (the budget before a recovery merge) as the plan's one-time ``pre-recovery``
+    revision; False when one exists already or ``rows`` is empty."""
+    with PlanStore.open(plan_path_for_workspace(root)) as store:
+        return store.spending.keep_pre_recovery_copy(rows)
+
+
+def restore_workspace_pre_recovery_copy(root: str | Path) -> int:
+    """Put the budget back to its ``pre-recovery`` copy; returns the rows restored (0 when there
+    is no copy)."""
+    path = plan_path_for_workspace(root)
+    if not path.is_file():
+        return 0
+    with PlanStore.open(path, create=False) as store:
+        return store.spending.restore_pre_recovery_copy()

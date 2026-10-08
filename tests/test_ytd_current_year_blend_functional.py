@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 
 from src import ytd_tracking as ytd
-from tests.plan_fixture import stage_plan_csv
+from tests.plan_fixture import stage_plan_csv, write_plan_dataset
 from src.ytd_projection_blend import compute_current_year_overrides
 from src.planning_engines import apply_end_of_year_growth
 
@@ -16,7 +16,7 @@ def _minimal_config(**overrides):
 
 def test_no_ytd_data_still_prorates_growth_but_skips_flow_overrides(tmp_path):
     c = _minimal_config()
-    overrides = compute_current_year_overrides(c, tmp_path, today=date(2026, 7, 2))
+    overrides = compute_current_year_overrides(c, tmp_path / "input", today=date(2026, 7, 2))
 
     # Growth/contribution proration is pure date math - always computed, no
     # YTD tracking setup required.
@@ -33,19 +33,19 @@ def test_no_ytd_data_still_prorates_growth_but_skips_flow_overrides(tmp_path):
 
 def test_outside_plan_window_is_a_full_noop(tmp_path):
     c = _minimal_config(plan_start=2030, plan_end=2060)
-    assert compute_current_year_overrides(c, tmp_path, today=date(2026, 7, 2)) == {}
+    assert compute_current_year_overrides(c, tmp_path / "input", today=date(2026, 7, 2)) == {}
 
 
 def test_remaining_fraction_matches_elapsed_days(tmp_path):
     c = _minimal_config()
     # Jan 1: (almost) the entire year remains.
-    overrides = compute_current_year_overrides(c, tmp_path, today=date(2026, 1, 1))
+    overrides = compute_current_year_overrides(c, tmp_path / "input", today=date(2026, 1, 1))
     assert overrides['ytd_blend_applied']['remaining_fraction'] > 0.99
     # Dec 31: almost none of the year remains.
-    overrides = compute_current_year_overrides(c, tmp_path, today=date(2026, 12, 31))
+    overrides = compute_current_year_overrides(c, tmp_path / "input", today=date(2026, 12, 31))
     assert overrides['ytd_blend_applied']['remaining_fraction'] < 0.01
     # July 2 of a non-leap year: roughly half the year remains.
-    overrides = compute_current_year_overrides(c, tmp_path, today=date(2026, 7, 2))
+    overrides = compute_current_year_overrides(c, tmp_path / "input", today=date(2026, 7, 2))
     assert 0.45 < overrides['ytd_blend_applied']['remaining_fraction'] < 0.55
 
 
@@ -155,11 +155,11 @@ def test_ytd_blend_enabled_defaults_to_true_when_absent(tmp_path):
     """Absent (a plan that predates this field) must behave exactly like
     ytd_blend_enabled=True, not silently disable blending."""
     tx = 'Date,Merchant,Category,Account,Original Statement,Notes,Amount,Tags,Owner\n2026-02-01,Employer,Paychecks,Checking,Bank,,50000,,Household\n'
-    ytd.import_transactions(tmp_path, tx, mode='replace', today=date(2026, 7, 2))
+    ytd.import_transactions(tmp_path / "input", tx, mode='replace', today=date(2026, 7, 2))
 
     c = _minimal_config()
     assert 'ytd_blend_enabled' not in c
-    overrides = compute_current_year_overrides(c, tmp_path, today=date(2026, 7, 2))
+    overrides = compute_current_year_overrides(c, tmp_path / "input", today=date(2026, 7, 2))
     assert overrides['ytd_blend_applied']['flow_blend_enabled'] is True
     assert 'ytd_blend_earned_override' in overrides
 
@@ -173,19 +173,17 @@ def test_spend_blend_is_core_scoped_when_taxonomy_exists(tmp_path):
 
     input_dir = tmp_path / 'input'
     input_dir.mkdir()
-    (input_dir / 'client_spending_taxonomy.csv').write_text(
+    write_plan_dataset(input_dir.parent, 'client_spending_taxonomy.csv',
         'tracking_type,group,category_id,label,origin,status,notes\n'
         'Core Expenses,Food,groceries,Groceries,template,active,\n'
         'Housing,Home,mortgage_cat,Mortgage,template,active,\n'
         'Travel,Trips,vacation,Vacation,template,active,\n',
-        encoding='utf-8',
     )
-    (input_dir / 'client_spending_aliases.csv').write_text(
+    write_plan_dataset(input_dir.parent, 'client_spending_aliases.csv',
         'match_value,match_field,exact,priority,category_id,source\n'
         'Groceries,category,1,80,groceries,seed\n'
         'Mortgage,category,1,80,mortgage_cat,seed\n'
         'Vacation,category,1,80,vacation,seed\n',
-        encoding='utf-8',
     )
     tx = (
         'Date,Merchant,Category,Account,Original Statement,Notes,Amount,Tags,Owner\n'
@@ -238,17 +236,15 @@ def _travel_plan(tmp_path, travel_actual: int):
     """Build an input dir with a Travel taxonomy and a YTD travel transaction."""
     input_dir = tmp_path / 'input'
     input_dir.mkdir()
-    (input_dir / 'client_spending_taxonomy.csv').write_text(
+    write_plan_dataset(input_dir.parent, 'client_spending_taxonomy.csv',
         'tracking_type,group,category_id,label,origin,status,notes\n'
         'Core Expenses,Food,groceries,Groceries,template,active,\n'
         'Travel,Travel,vacation,Vacation,template,active,\n',
-        encoding='utf-8',
     )
-    (input_dir / 'client_spending_aliases.csv').write_text(
+    write_plan_dataset(input_dir.parent, 'client_spending_aliases.csv',
         'match_value,match_field,exact,priority,category_id,source\n'
         'Groceries,category,1,80,groceries,seed\n'
         'Vacation,category,1,80,vacation,seed\n',
-        encoding='utf-8',
     )
     tx = (
         'Date,Merchant,Category,Account,Original Statement,Notes,Amount,Tags,Owner\n'

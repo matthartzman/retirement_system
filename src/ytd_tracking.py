@@ -2,15 +2,11 @@ from __future__ import annotations
 
 """YTD spending, income, and growth tracking helpers.
 
-YTD tracking still uses canonical CSV adapter files inside the workspace so the
-projection/reporting code can stay simple, but the server mirrors those files
-into the local SQLite client_files table. Normal UI saves therefore persist in
-the local database first, while CSV remains a compatibility/import-export
-working copy.
-
-- ytd_transactions.csv
-- ytd_account_setup.csv
-- ytd_import_history.csv
+YTD actuals are three tables of the plan file (WP6.4): ``ytd_transactions``,
+``ytd_account_setup`` and ``ytd_import_history`` (the former ytd_*.csv files; columns are the
+files' own, stored as text, in file order). Every function takes ``root``, a workspace ``input``
+folder: the live workspace's input folder means the active plan, any other means the
+``plan.rpx`` beside it.
 """
 
 import csv
@@ -27,7 +23,13 @@ from pathlib import Path
 
 from . import platform_runtime as _platform_runtime
 from . import plan_dates as _plan_dates
-from .plan_file_io import atomic_write
+from .plan_datasets import (
+    append_dataset_row_for_input_dir,
+    dataset_rows_for_input_dir,
+    dataset_text_for_input_dir,
+    transform_dataset_rows_for_input_dir,
+    write_dataset_rows_for_input_dir,
+)
 from typing import Any
 
 TRANSACTION_COLUMNS = [
@@ -161,43 +163,22 @@ ALLOWED_INCOME_CATEGORIES = [
 ]
 
 
-def _input_dir(root: str | Path) -> Path:
-    p = Path(root)
-    p.mkdir(parents=True, exist_ok=True)
-    return p
+def _read_dataset(root: str | Path, name: str, columns: list[str]) -> list[dict[str, str]]:
+    """Rows of the plan table ``name`` behind the workspace ``input`` folder ``root``, in file
+    order, only the YTD file's own columns (as text); ``[]`` when the plan has no rows."""
+    return [{col: str(raw.get(col, "") or "") for col in columns}
+            for raw in dataset_rows_for_input_dir(root, name)]
 
 
-def transactions_path(root: str | Path) -> Path:
-    return _input_dir(root) / "ytd_transactions.csv"
+def _read_rows(raw_rows: list[dict[str, Any]], columns: list[str]) -> list[dict[str, str]]:
+    return [{col: str(raw.get(col, "") or "") for col in columns} for raw in raw_rows]
 
 
-def account_setup_path(root: str | Path) -> Path:
-    return _input_dir(root) / "ytd_account_setup.csv"
-
-
-def import_history_path(root: str | Path) -> Path:
-    return _input_dir(root) / "ytd_import_history.csv"
-
-
-def _read_csv_dicts(path: Path, columns: list[str]) -> list[dict[str, str]]:
-    if not path.exists():
-        return []
-    with path.open(newline="", encoding="utf-8-sig") as f:
-        reader = csv.DictReader(f)
-        if not reader.fieldnames:
-            return []
-        rows = []
-        for raw in reader:
-            rows.append({col: str(raw.get(col, "") or "") for col in columns})
-        return rows
-
-
-def _write_csv_dicts(path: Path, columns: list[str], rows: list[dict[str, Any]]) -> None:
-    with atomic_write(path) as f:
-        writer = csv.DictWriter(f, fieldnames=columns, lineterminator="\n", extrasaction="ignore")
-        writer.writeheader()
-        for row in rows:
-            writer.writerow({col: str(row.get(col, "") if row.get(col, "") is not None else "") for col in columns})
+def _write_dataset(root: str | Path, name: str, columns: list[str], rows: list[dict[str, Any]]) -> None:
+    """Replace the plan table ``name`` behind ``root`` (created when missing) with ``rows``."""
+    write_dataset_rows_for_input_dir(root, name, [
+        {col: str(row.get(col, "") if row.get(col, "") is not None else "") for col in columns} for row in rows
+    ])
 
 
 def _current_year(today: date | None = None) -> int:
@@ -219,7 +200,7 @@ def read_transactions(root: str | Path, *, current_year_only: bool = False, toda
     Pass ``current_year_only=True`` explicitly for call sites that still need
     the old current-year-only view.
     """
-    rows = _read_csv_dicts(transactions_path(root), TRANSACTION_COLUMNS)
+    rows = _read_dataset(root, "ytd_transactions", TRANSACTION_COLUMNS)
     if current_year_only:
         rows = [r for r in rows if _is_current_year_transaction(r, today=today)]
     return rows
@@ -229,11 +210,11 @@ def write_transactions(root: str | Path, rows: list[dict[str, Any]], *, current_
     cleaned = [normalize_transaction(r) for r in rows]
     if current_year_only:
         cleaned = [r for r in cleaned if _is_current_year_transaction(r, today=today)]
-    _write_csv_dicts(transactions_path(root), TRANSACTION_COLUMNS, cleaned)
+    _write_dataset(root, "ytd_transactions", TRANSACTION_COLUMNS, cleaned)
 
 
 def read_account_setup(root: str | Path) -> list[dict[str, str]]:
-    return _read_csv_dicts(account_setup_path(root), ACCOUNT_SETUP_COLUMNS)
+    return _read_dataset(root, "ytd_account_setup", ACCOUNT_SETUP_COLUMNS)
 
 
 def write_account_setup(root: str | Path, rows: list[dict[str, Any]]) -> None:
@@ -249,17 +230,17 @@ def write_account_setup(root: str | Path, rows: list[dict[str, Any]]) -> None:
             continue
         seen.add(key)
         cleaned.append(row)
-    _write_csv_dicts(account_setup_path(root), ACCOUNT_SETUP_COLUMNS, cleaned)
+    _write_dataset(root, "ytd_account_setup", ACCOUNT_SETUP_COLUMNS, cleaned)
 
 
 def read_import_history(root: str | Path) -> list[dict[str, str]]:
-    return _read_csv_dicts(import_history_path(root), IMPORT_HISTORY_COLUMNS)
+    return _read_dataset(root, "ytd_import_history", IMPORT_HISTORY_COLUMNS)
 
 
 def append_import_history(root: str | Path, row: dict[str, Any]) -> None:
-    rows = read_import_history(root)
-    rows.append({col: str(row.get(col, "") if row.get(col, "") is not None else "") for col in IMPORT_HISTORY_COLUMNS})
-    _write_csv_dicts(import_history_path(root), IMPORT_HISTORY_COLUMNS, rows)
+    append_dataset_row_for_input_dir(root, "ytd_import_history", {
+        col: str(row.get(col, "") if row.get(col, "") is not None else "") for col in IMPORT_HISTORY_COLUMNS
+    })
 
 
 def parse_date(value: Any) -> date | None:
@@ -569,7 +550,7 @@ def ensure_account_setup_for_transactions(root: str | Path, *, today: date | Non
                 "Notes": "Created from transaction upload.",
             })
             changed = True
-    if changed or not account_setup_path(root).exists():
+    if changed:
         write_account_setup(root, list(by_acct.values()))
     return read_account_setup(root)
 
@@ -639,93 +620,107 @@ def upsert_transactions_by_monarch_id(
     not know about Monarch's own column names.
     """
     normalized_incoming = [normalize_transaction(r) for r in incoming_rows]
-    existing = [normalize_transaction(r) for r in read_transactions(root, today=today)]
-    by_monarch_id = {r["Monarch Id"]: i for i, r in enumerate(existing) if r.get("Monarch Id")}
-    existing_hashes = {transaction_hash(r) for r in existing}
-    latest_existing = max([parse_date(r.get("Date")) for r in existing if parse_date(r.get("Date"))] or [None])
+    merged: dict[str, Any] = {}
 
-    # Hash -> index, but only for a hash that identifies exactly one id-less
-    # existing row -- an ambiguous hash (two id-less rows with identical
-    # content, e.g. two genuinely separate same-day/same-amount purchases)
-    # is deliberately excluded rather than guessed at.
-    idless_hash_counts: dict[str, int] = {}
-    idless_hash_to_index: dict[str, int] = {}
-    for i, r in enumerate(existing):
-        if r.get("Monarch Id"):
-            continue
-        h = transaction_hash(r)
-        idless_hash_counts[h] = idless_hash_counts.get(h, 0) + 1
-        idless_hash_to_index[h] = i
-    adoptable_hashes = {h for h, count in idless_hash_counts.items() if count == 1}
+    def _merge(stored: list[dict[str, str]]) -> list[dict[str, Any]]:
+        existing = [normalize_transaction(r) for r in stored]
+        by_monarch_id = {r["Monarch Id"]: i for i, r in enumerate(existing) if r.get("Monarch Id")}
+        existing_hashes = {transaction_hash(r) for r in existing}
+        latest_existing = max([parse_date(r.get("Date")) for r in existing if parse_date(r.get("Date"))] or [None])
 
-    # Identity-key adoption (see docstring): unique among id-less stored rows
-    # and among incoming id-bearing rows.
-    idless_key_to_index: dict[tuple[str, str, str, str], list[int]] = {}
-    for i, r in enumerate(existing):
-        if not r.get("Monarch Id"):
-            idless_key_to_index.setdefault(_identity_key(r), []).append(i)
-    incoming_key_counts: dict[tuple[str, str, str, str], int] = {}
-    idless_key_totals = {k: len(v) for k, v in idless_key_to_index.items()}
-    for r in normalized_incoming:
-        if r.get("Monarch Id", "").strip():
-            k = _identity_key(r)
-            incoming_key_counts[k] = incoming_key_counts.get(k, 0) + 1
+        # Hash -> index, but only for a hash that identifies exactly one id-less
+        # existing row -- an ambiguous hash (two id-less rows with identical
+        # content, e.g. two genuinely separate same-day/same-amount purchases)
+        # is deliberately excluded rather than guessed at.
+        idless_hash_counts: dict[str, int] = {}
+        idless_hash_to_index: dict[str, int] = {}
+        for i, r in enumerate(existing):
+            if r.get("Monarch Id"):
+                continue
+            h = transaction_hash(r)
+            idless_hash_counts[h] = idless_hash_counts.get(h, 0) + 1
+            idless_hash_to_index[h] = i
+        adoptable_hashes = {h for h, count in idless_hash_counts.items() if count == 1}
 
-    added: list[dict[str, str]] = []
-    updated: list[dict[str, str]] = []
-    adopted: list[dict[str, str]] = []
-    skipped = 0
-    invalid_date_rows = 0
+        # Identity-key adoption (see docstring): unique among id-less stored rows
+        # and among incoming id-bearing rows.
+        idless_key_to_index: dict[tuple[str, str, str, str], list[int]] = {}
+        for i, r in enumerate(existing):
+            if not r.get("Monarch Id"):
+                idless_key_to_index.setdefault(_identity_key(r), []).append(i)
+        incoming_key_counts: dict[tuple[str, str, str, str], int] = {}
+        idless_key_totals = {k: len(v) for k, v in idless_key_to_index.items()}
+        for r in normalized_incoming:
+            if r.get("Monarch Id", "").strip():
+                k = _identity_key(r)
+                incoming_key_counts[k] = incoming_key_counts.get(k, 0) + 1
 
-    for row in normalized_incoming:
-        d = parse_date(row.get("Date"))
-        if not d:
-            invalid_date_rows += 1
-            continue
-        monarch_id = row.get("Monarch Id", "").strip()
-        if monarch_id:
-            idx = by_monarch_id.get(monarch_id)
-            if idx is None:
-                h = transaction_hash(row)
-                adopt_idx = idless_hash_to_index.get(h) if h in adoptable_hashes else None
-                if adopt_idx is not None:
-                    existing_hashes.discard(transaction_hash(existing[adopt_idx]))
-                    existing[adopt_idx] = row
-                    by_monarch_id[monarch_id] = adopt_idx
-                    existing_hashes.add(h)
-                    adoptable_hashes.discard(h)  # this id-less row is now claimed
-                    adopted.append(row)
-                else:
-                    key = _identity_key(row)
-                    key_matches = idless_key_to_index.get(key, [])
-                    if key_matches and idless_key_totals.get(key) == incoming_key_counts.get(key):
-                        key_idx = key_matches.pop(0)
-                        existing_hashes.discard(transaction_hash(existing[key_idx]))
-                        existing[key_idx] = row
-                        by_monarch_id[monarch_id] = key_idx
+        added: list[dict[str, str]] = []
+        updated: list[dict[str, str]] = []
+        adopted: list[dict[str, str]] = []
+        skipped = 0
+        invalid_date_rows = 0
+
+        for row in normalized_incoming:
+            d = parse_date(row.get("Date"))
+            if not d:
+                invalid_date_rows += 1
+                continue
+            monarch_id = row.get("Monarch Id", "").strip()
+            if monarch_id:
+                idx = by_monarch_id.get(monarch_id)
+                if idx is None:
+                    h = transaction_hash(row)
+                    adopt_idx = idless_hash_to_index.get(h) if h in adoptable_hashes else None
+                    if adopt_idx is not None:
+                        existing_hashes.discard(transaction_hash(existing[adopt_idx]))
+                        existing[adopt_idx] = row
+                        by_monarch_id[monarch_id] = adopt_idx
                         existing_hashes.add(h)
+                        adoptable_hashes.discard(h)  # this id-less row is now claimed
                         adopted.append(row)
                     else:
-                        existing.append(row)
-                        by_monarch_id[monarch_id] = len(existing) - 1
-                        existing_hashes.add(transaction_hash(row))
-                        added.append(row)
-            elif _transaction_content_differs(existing[idx], row):
-                existing[idx] = row
-                updated.append(row)
-            # else: identical content under the same Monarch id -- no-op.
-        else:
-            h = transaction_hash(row)
-            if (latest_existing and d <= latest_existing) or h in existing_hashes:
-                skipped += 1
-                continue
-            existing.append(row)
-            existing_hashes.add(h)
-            added.append(row)
+                        key = _identity_key(row)
+                        key_matches = idless_key_to_index.get(key, [])
+                        if key_matches and idless_key_totals.get(key) == incoming_key_counts.get(key):
+                            key_idx = key_matches.pop(0)
+                            existing_hashes.discard(transaction_hash(existing[key_idx]))
+                            existing[key_idx] = row
+                            by_monarch_id[monarch_id] = key_idx
+                            existing_hashes.add(h)
+                            adopted.append(row)
+                        else:
+                            existing.append(row)
+                            by_monarch_id[monarch_id] = len(existing) - 1
+                            existing_hashes.add(transaction_hash(row))
+                            added.append(row)
+                elif _transaction_content_differs(existing[idx], row):
+                    existing[idx] = row
+                    updated.append(row)
+                # else: identical content under the same Monarch id -- no-op.
+            else:
+                h = transaction_hash(row)
+                if (latest_existing and d <= latest_existing) or h in existing_hashes:
+                    skipped += 1
+                    continue
+                existing.append(row)
+                existing_hashes.add(h)
+                added.append(row)
 
-    existing, collapsed = _collapse_id_twins(existing)
-    existing.sort(key=lambda r: (format_date(parse_date(r.get("Date"))) or "9999-12-31", r.get("Account", ""), r.get("Merchant", "")))
-    write_transactions(root, existing, today=today)
+        existing, collapsed = _collapse_id_twins(existing)
+        existing.sort(key=lambda r: (format_date(parse_date(r.get("Date"))) or "9999-12-31", r.get("Account", ""), r.get("Merchant", "")))
+        merged.update(added=added, updated=updated, adopted=adopted, skipped=skipped,
+                      invalid_date_rows=invalid_date_rows, collapsed=collapsed, existing=existing)
+        return existing
+
+    # Read, merge and replace in ONE plan-file transaction: the headless Monarch import is a
+    # separate process on the same plan file, so a UI edit in between must not be lost.
+    transform_dataset_rows_for_input_dir(
+        root, "ytd_transactions", lambda rows: _merge(_read_rows(rows, TRANSACTION_COLUMNS))
+    )
+    added, updated, adopted = merged["added"], merged["updated"], merged["adopted"]
+    skipped, invalid_date_rows, collapsed = merged["skipped"], merged["invalid_date_rows"], merged["collapsed"]
+    existing = merged["existing"]
     ensure_account_setup_for_transactions(root, today=today)
     all_dates = [parse_date(r.get("Date")) for r in existing if parse_date(r.get("Date"))]
     total_skipped = skipped + invalid_date_rows
@@ -1157,16 +1152,14 @@ def _local_price_snapshot(root: str | Path) -> dict[str, float]:
 
 def investment_holding_accounts(root: str | Path) -> list[str]:
     """Return investment account names available in client_holdings.csv for UI dropdowns."""
-    p = Path(root) / "client_holdings.csv"
+    text = dataset_text_for_input_dir(root, "holdings")
     accounts: set[str] = set()
-    if p.exists():
+    if text:
         try:
-            with p.open(newline="", encoding="utf-8-sig") as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    acct = str(row.get("account") or row.get("Account") or "").strip()
-                    if acct:
-                        accounts.add(acct)
+            for row in csv.DictReader(io.StringIO(text)):
+                acct = str(row.get("account") or row.get("Account") or "").strip()
+                if acct:
+                    accounts.add(acct)
         except Exception:
             pass
     return sorted(accounts, key=lambda x: x.lower())
@@ -1209,36 +1202,35 @@ def investment_holding_account_values(root: str | Path) -> dict[str, float]:
     otherwise approximate lot value from shares × purchase_price, with CASH lots
     treated as dollar balances when no price is supplied.
     """
-    p = Path(root) / "client_holdings.csv"
+    text = dataset_text_for_input_dir(root, "holdings")
     values: dict[str, float] = {}
-    if not p.exists():
+    if not text:
         return values
     local_prices = _local_price_snapshot(root)
     try:
-        with p.open(newline="", encoding="utf-8-sig") as f:
-            for row in csv.DictReader(f):
-                acct = str(row.get("account") or row.get("Account") or "").strip()
-                if not acct:
-                    continue
-                explicit = None
-                for col in ("market_value", "current_value", "value", "Current Value", "Market Value"):
-                    if str(row.get(col, "") or "").strip():
-                        explicit = parse_money(row.get(col))
-                        break
-                if explicit is not None:
-                    lot_value = explicit
-                else:
-                    shares = parse_money(row.get("shares") or row.get("Shares"))
-                    symbol = str(row.get("symbol") or row.get("Symbol") or "").strip().upper()
-                    price = parse_money(row.get("current_price") or row.get("Current Price") or row.get("price") or row.get("Price"))
-                    if price == 0 and symbol in {"CASH", "USD", "MMF", "MONEY MARKET"}:
-                        price = 1.0
-                    if price == 0 and symbol in local_prices:
-                        price = local_prices[symbol]
-                    if price == 0:
-                        price = parse_money(row.get("purchase_price") or row.get("Purchase Price"))
-                    lot_value = shares * price
-                values[acct] = values.get(acct, 0.0) + lot_value
+        for row in csv.DictReader(io.StringIO(text)):
+            acct = str(row.get("account") or row.get("Account") or "").strip()
+            if not acct:
+                continue
+            explicit = None
+            for col in ("market_value", "current_value", "value", "Current Value", "Market Value"):
+                if str(row.get(col, "") or "").strip():
+                    explicit = parse_money(row.get(col))
+                    break
+            if explicit is not None:
+                lot_value = explicit
+            else:
+                shares = parse_money(row.get("shares") or row.get("Shares"))
+                symbol = str(row.get("symbol") or row.get("Symbol") or "").strip().upper()
+                price = parse_money(row.get("current_price") or row.get("Current Price") or row.get("price") or row.get("Price"))
+                if price == 0 and symbol in {"CASH", "USD", "MMF", "MONEY MARKET"}:
+                    price = 1.0
+                if price == 0 and symbol in local_prices:
+                    price = local_prices[symbol]
+                if price == 0:
+                    price = parse_money(row.get("purchase_price") or row.get("Purchase Price"))
+                lot_value = shares * price
+            values[acct] = values.get(acct, 0.0) + lot_value
     except Exception:
         return values
     return values

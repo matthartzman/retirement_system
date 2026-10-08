@@ -151,8 +151,7 @@ def test_shared_write_helpers_delegate_to_plan_file_io():
     for rel in [
         "src/server/app_core.py",
         "src/server_services/admin_service.py",
-        "src/ytd_tracking.py",
-    ]:
+    ]:  # src/ytd_tracking.py wrote files until WP6.4 moved the YTD data into plan tables
         text = (root / rel).read_text(encoding="utf-8")
         if 'with_name(path.name + ".tmp")' in text:
             offenders.append(f"{rel} still derives a fixed temp name")

@@ -9,7 +9,7 @@ sys.path.insert(0, str(ROOT))
 from src.config_backend import load_active_config, setting
 from src.system_config import load_system_config
 from src.portfolio_analytics import analyze_drift
-from src.workspace_context import candidate_input_files, first_existing, workspace_output_dir
+from src.workspace_context import workspace_output_dir
 
 
 def _pct_threshold(value: str, default: float = 0.05) -> float:
@@ -25,12 +25,8 @@ def main() -> int:
     data, meta = load_active_config()
     system_data = load_system_config()
     workspace_id = meta.get("workspace_id", "local")
-    target_setting = setting(system_data, "System Configuration", "Portfolio Drift", "target_allocation_file", "target_allocation.csv") or "target_allocation.csv"
-    target_file = first_existing(candidate_input_files(Path(target_setting).name, workspace_id, ROOT)) or (ROOT / target_setting)
     threshold = _pct_threshold(setting(system_data, "System Configuration", "Portfolio Drift", "rebalance_threshold_pct", "5.00%"), 0.05)
     rows = analyze_drift(
-        target_file=target_file,
-        holdings_csv=first_existing(candidate_input_files("client_holdings.csv", workspace_id, ROOT)) or (ROOT / "input/client_holdings.csv"),
         threshold_pct=threshold,
         workspace_id=workspace_id,
     )
