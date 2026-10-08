@@ -478,7 +478,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | Module | Internal imports | External imports |
 |---|---|---|
 | `src/__init__.py` | `version` | — |
-| `src/active_plan.py` | `csv_exchange`, `csv_exchange.flat_csv`, `roth_ui_build_guard`, `stores` | — |
+| `src/active_plan.py` | `csv_exchange`, `csv_exchange.flat_csv`, `roth_ui_build_guard`, `stores`, `stores.plan_store` | — |
 | `src/after_tax.py` | `core` | — |
 | `src/allocation_policy.py` | — | — |
 | `src/api_contracts.py` | — | — |
@@ -623,7 +623,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/vectorized_fast_core.py` | — | `numpy` |
 | `src/version.py` | — | — |
 | `src/withdrawal_strategy_comparison.py` | `core` | — |
-| `src/workspace_context.py` | `runtime_config`, `stores.plan_store` | — |
+| `src/workspace_context.py` | `runtime_config` | — |
 | `src/ytd_projection_blend.py` | `module_catalog`, `spending_tracker`, `ytd_tracking` | — |
 | `src/ytd_tracking.py` | `active_plan`, `large_discretionary`, `plan_datasets`, `portfolio_analytics` | — |
 

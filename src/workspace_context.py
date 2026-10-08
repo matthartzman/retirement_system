@@ -68,7 +68,6 @@ def active_plan_id(workspace_id: Optional[str] = None, root: Optional[Path] = No
     (``plan.rpx`` -> ``plan``), made safe for use as a directory name.
     """
     from . import active_plan
-    from .stores.plan_store import validate_plan_id
     path = active_plan.plan_path_for_workspace(_default_root(root))
     stored = None
     if path.exists():
@@ -83,7 +82,7 @@ def active_plan_id(workspace_id: Optional[str] = None, root: Optional[Path] = No
     for candidate in (stored, path.stem):
         text = re.sub(r"[^A-Za-z0-9_-]+", "-", str(candidate or "")).strip("-_")[:64]
         try:
-            return validate_plan_id(text)
+            return active_plan.validate_plan_id(text)
         except Exception:
             continue
     return "plan"
