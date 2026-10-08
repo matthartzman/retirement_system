@@ -905,7 +905,7 @@ def _ensure_hsa_default_schedule(c, workspace_id):
     Runs once per build, here (not inside the per-year engine call, which
     would mean writing a file thousands of times per Monte Carlo trial) and
     only when `hsa_withdrawal_mode == 'optimize'`. Only writes when the table
-    is genuinely empty -- a build never overwrites an existing schedule, so
+    is empty AND was never saved (a cleared or header-only schedule counts as saved) -- a build never overwrites an existing schedule, so
     a household's own manual entries (or, eventually, a real optimizer run)
     are always safe once they exist. Failure here degrades to the prior
     per-year fallback rather than failing the build -- a schedule a household
@@ -916,9 +916,9 @@ def _ensure_hsa_default_schedule(c, workspace_id):
     if c.get('hsa_schedule_rows'):
         return
     try:
-        from ..plan_datasets import active_dataset_text, write_active_dataset
+        from ..plan_datasets import active_dataset_text, active_hsa_schedule_saved, write_active_dataset
         from ..hsa_schedule import generate_default_schedule
-        if active_dataset_text('hsa_schedule') is not None:
+        if active_hsa_schedule_saved() or active_dataset_text('hsa_schedule') is not None:
             return
         rows = generate_default_schedule(c)
         if not rows:

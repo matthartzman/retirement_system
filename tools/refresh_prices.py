@@ -19,7 +19,7 @@ sys.path.insert(0, str(ROOT))
 from src import market_data
 from src.config_backend import load_active_config, setting
 from src.portfolio_analytics import snapshot_prices
-from src.workspace_context import candidate_input_files, first_existing, workspace_output_dir
+from src.workspace_context import workspace_output_dir
 
 
 def _num(value: object, default: float = 0.0) -> float:

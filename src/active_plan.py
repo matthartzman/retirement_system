@@ -23,7 +23,7 @@ import threading
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, Callable, Iterator
 
 from . import platform_runtime
 from .roth_ui_build_guard import canonicalize_roth_rows
@@ -255,8 +255,29 @@ def write_active_dataset(name: str, text: str) -> int:
     there is none); returns the rows written."""
     from .csv_exchange import replace_dataset_from_csv_text  # noqa: PLC0415
 
+    from .csv_exchange.flat_csv import HSA_SCHEDULE_SAVED_KEY  # noqa: PLC0415
+
     with active_plan_store() as store:
-        return replace_dataset_from_csv_text(store.dataset(name), text)
+        with store.transaction():
+            written = replace_dataset_from_csv_text(store.dataset(name), text)
+            if name == "hsa_schedule":
+                store.set_meta(HSA_SCHEDULE_SAVED_KEY, "1")
+        return written
+
+
+def active_hsa_schedule_saved() -> bool:
+    """True once the household's HSA schedule has been saved or seeded (even with zero rows), so
+    an empty table means "cleared on purpose", not "never set". False when there is no plan file."""
+    from .csv_exchange.flat_csv import HSA_SCHEDULE_SAVED_KEY  # noqa: PLC0415
+
+    path = active_plan_path()
+    if not path.is_file():
+        return False
+    try:
+        with PlanStore.open(path, create=False, readonly=True) as store:
+            return store.get_meta(HSA_SCHEDULE_SAVED_KEY) is not None
+    except LookupError:  # not an initialised plan file
+        return False
 
 
 def dataset_fingerprint(path: str | Path) -> dict[str, str]:
@@ -331,6 +352,19 @@ def append_dataset_row_for_input_dir(input_dir: str | Path, name: str, row: dict
             rows = repo.rows()
             rows.append(row)
             return repo.replace_all(rows)
+
+
+def transform_dataset_rows_for_input_dir(
+    input_dir: str | Path, name: str, fn: Callable[[list[dict[str, str]]], list[dict[str, Any]]]
+) -> int:
+    """Replace dataset ``name`` of the plan behind a workspace's ``input`` folder with
+    ``fn(current rows)`` (the plan is created when missing). The read and the write are one
+    transaction, so a concurrent writer (another process on the same plan file) cannot be lost.
+    Returns the row count written."""
+    with PlanStore.open(plan_path_for_workspace(Path(input_dir).parent)) as store:
+        repo = store.dataset(name)
+        with store.transaction():
+            return repo.replace_all(fn(repo.rows()))
 
 
 # ------------------------------------------------- spending recovery copies (WP6.3c)

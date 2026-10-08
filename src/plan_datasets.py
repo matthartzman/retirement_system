@@ -5,6 +5,8 @@ file); this module is their import point for readers."""
 from __future__ import annotations
 
 from .active_plan import (
+    active_hsa_schedule_saved,
+    transform_dataset_rows_for_input_dir,
     append_dataset_row_for_input_dir,
     active_dataset_rows,
     active_dataset_text,
@@ -27,6 +29,8 @@ from .csv_exchange import FLAT_DATASET_FILES
 DATASET_BY_FILE: dict[str, str] = {file: name for name, file in FLAT_DATASET_FILES.items()}
 
 __all__ = [
+    "active_hsa_schedule_saved",
+    "transform_dataset_rows_for_input_dir",
     "append_dataset_row_for_input_dir",
     "DATASET_BY_FILE",
     "active_dataset_rows",
