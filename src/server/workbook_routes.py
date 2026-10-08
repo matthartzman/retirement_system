@@ -62,6 +62,7 @@ from .app_core import (
     traceback,
     workspace_output_dir,
 )
+from ..workspace_context import legacy_output_dir
 from ..http_runtime.wsgi_facade import Response
 from ..schema_registry import load_schema as _load_schema_registry, validate_value as _schema_validate_value, validate_rows as _schema_validate_rows
 
@@ -387,7 +388,7 @@ def _download_file(name: str, download_name: str | None = None):
         return denied
     if not _runtime_config().allow_downloads:
         return jsonify({"success": False, "error": "Downloads are disabled"}), 403
-    fallback = BASE_DIR / "output" if _workspace_id() != "local" else None
+    fallback = legacy_output_dir(BASE_DIR)
     payload, status = report_service.downloadable_artifact(name, _workspace_output(), fallback)
     if status == 200:
         _audit("file_downloaded", {"file": name})
@@ -403,7 +404,7 @@ def get_detailed_results():
     denied = _require("view_dashboard")
     if denied:
         return denied
-    fallback = BASE_DIR / "output" if _workspace_id() != "local" else None
+    fallback = legacy_output_dir(BASE_DIR)
     mode = "index" if request.args.get("index") in {"1", "true", "yes"} else ("sheet" if request.args.get("sheet") is not None else "full")
     payload, status = report_service.detailed_results_payload(
         output_dir=_workspace_output(),

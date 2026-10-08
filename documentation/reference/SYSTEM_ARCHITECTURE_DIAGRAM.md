@@ -438,7 +438,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/server/plan_routes.py` | `active_plan`, `housing`, `module_catalog`, `monarch_autoimport_job`, `plan_data_migration`, `plan_data_registry`, `plan_interview`, `portfolio_analytics`, `report_compute`, `secrets_store`, `server.app_core`, `server_services`, `version` | — |
 | `src/server/route_manifest.py` | — | — |
 | `src/server/security_audit.py` | `config_backend`, `http_runtime.wsgi_facade`, `permissions`, `security`, `server`, `workspace_context` | — |
-| `src/server/workbook_routes.py` | `active_plan`, `http_runtime.wsgi_facade`, `import_preview`, `local_store`, `reporting`, `schema_registry`, `server.app_core`, `server_forecast`, `server_services` | — |
+| `src/server/workbook_routes.py` | `active_plan`, `http_runtime.wsgi_facade`, `import_preview`, `local_store`, `reporting`, `schema_registry`, `server.app_core`, `server_forecast`, `server_services`, `workspace_context` | — |
 | `src/server/wsgi.py` | `server` | — |
 
 ### Server Services
@@ -623,7 +623,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/vectorized_fast_core.py` | — | `numpy` |
 | `src/version.py` | — | — |
 | `src/withdrawal_strategy_comparison.py` | `core` | — |
-| `src/workspace_context.py` | `runtime_config` | — |
+| `src/workspace_context.py` | `runtime_config`, `stores.plan_store` | — |
 | `src/ytd_projection_blend.py` | `module_catalog`, `spending_tracker`, `ytd_tracking` | — |
 | `src/ytd_tracking.py` | `active_plan`, `large_discretionary`, `plan_datasets`, `portfolio_analytics` | — |
 

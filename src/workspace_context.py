@@ -57,11 +57,50 @@ def workspace_input_dir(workspace_id: Optional[str] = None, root: Optional[Path]
     return workspace_plan_data_dir(workspace_id, root)
 
 
+PLAN_ID_META_KEY = "plan_id"
+
+
+def active_plan_id(workspace_id: Optional[str] = None, root: Optional[Path] = None) -> str:
+    """The id naming a plan's output folder.
+
+    The one place the id is derived until the plan registry (WP8.4) supplies it: the
+    ``plan_id`` stored in the plan file's meta when present, else the plan file's name
+    (``plan.rpx`` -> ``plan``), made safe for use as a directory name.
+    """
+    from . import active_plan
+    from .stores.plan_store import validate_plan_id
+    path = active_plan.plan_path_for_workspace(_default_root(root))
+    stored = None
+    if path.exists():
+        try:
+            store = active_plan.PlanStore.open(path, create=False, readonly=True)
+            try:
+                stored = store.get_meta(PLAN_ID_META_KEY)
+            finally:
+                store.close()
+        except Exception:
+            stored = None
+    for candidate in (stored, path.stem):
+        text = re.sub(r"[^A-Za-z0-9_-]+", "-", str(candidate or "")).strip("-_")[:64]
+        try:
+            return validate_plan_id(text)
+        except Exception:
+            continue
+    return "plan"
+
+
+def legacy_output_dir(root: Optional[Path] = None) -> Path:
+    """The pre-WP7.3 shared output folder; older artifacts there stay downloadable."""
+    return _default_root(root) / "output"
+
+
 def workspace_output_dir(workspace_id: Optional[str] = None, root: Optional[Path] = None) -> Path:
+    """Per-plan output folder: ``<output>/plans/<plan_id>/`` (xlsx, html, pdf)."""
     root = _default_root(root)
     cfg = _runtime_cfg()
     override = getattr(cfg, "output_dir", "")
+    base = root / "output"
     if override:
         p = Path(override)
-        return p if p.is_absolute() else root / p
-    return root / "output"
+        base = p if p.is_absolute() else root / p
+    return base / "plans" / active_plan_id(workspace_id, root)
