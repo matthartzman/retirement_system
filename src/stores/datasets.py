@@ -1,7 +1,8 @@
 """Typed flat datasets of ``plan.db``: holdings lots, liabilities, HSA schedule and target
 allocation (schema v2, WP6.1 / P4.1); spending taxonomy and aliases (schema v3, WP6.3a, reached
 through ``store.spending``, see ``spending_repo.py``); spending budget, budget lines and tier
-overrides (schema v4, WP6.3b); spending rules, category map and group budget (schema v5, WP6.3c).
+overrides (schema v4, WP6.3b); spending rules, category map and group budget (schema v5, WP6.3c);
+YTD transactions, account setup and import history (schema v6, WP6.4).
 
 Each dataset is one table that replaces one legacy CSV file. Columns keep the CSV column
 names and are stored as text exactly as entered, so the build parses the same strings it
@@ -44,6 +45,20 @@ SPENDING_RULES_COLUMNS = ("keyword", "category_id", "match_field", "exact", "pri
 SPENDING_CATEGORY_MAP_COLUMNS = ("super_group", "group", "category", "tracking")
 SPENDING_GROUP_BUDGET_COLUMNS = ("group", "budget_pct", "budget_override", "notes")
 
+# YTD actuals (WP6.4): the three YTD files' columns, spelled as in the files (they contain spaces).
+YTD_TRANSACTIONS_COLUMNS = (
+    "Date", "Merchant", "Category", "Account", "Original Statement", "Notes",
+    "Amount", "Tags", "Owner", "Monarch Id",
+)
+YTD_ACCOUNT_SETUP_COLUMNS = (
+    "Account", "Role", "Mapped Investment Account", "Prior Year End Date",
+    "Prior Year End Balance", "Current Value", "Current Balance", "Notes",
+)
+YTD_IMPORT_HISTORY_COLUMNS = (
+    "Loaded At", "Mode", "Rows Received", "Rows Added", "Rows Skipped",
+    "Earliest Transaction Date", "Latest Transaction Date", "Notes", "Rows Updated",
+)
+
 _V2_DATASETS: dict[str, tuple[str, ...]] = {
     "holdings_lots": HOLDINGS_COLUMNS,
     "liabilities": LIABILITIES_COLUMNS,
@@ -64,8 +79,16 @@ _V5_DATASETS: dict[str, tuple[str, ...]] = {
     "spending_category_map": SPENDING_CATEGORY_MAP_COLUMNS,
     "spending_group_budget": SPENDING_GROUP_BUDGET_COLUMNS,
 }
+_V6_DATASETS: dict[str, tuple[str, ...]] = {
+    "ytd_transactions": YTD_TRANSACTIONS_COLUMNS,
+    "ytd_account_setup": YTD_ACCOUNT_SETUP_COLUMNS,
+    "ytd_import_history": YTD_IMPORT_HISTORY_COLUMNS,
+}
 # Every flat dataset table -> its columns (a later schema version adds its tables here).
-_DATASETS: dict[str, tuple[str, ...]] = {**_V2_DATASETS, **_V3_DATASETS, **_V4_DATASETS, **_V5_DATASETS}
+_DATASETS: dict[str, tuple[str, ...]] = {
+    **_V2_DATASETS, **_V3_DATASETS, **_V4_DATASETS, **_V5_DATASETS, **_V6_DATASETS,
+}
+YTD_DATASETS: tuple[str, ...] = tuple(_V6_DATASETS)
 
 
 def _q(name: str) -> str:
@@ -98,6 +121,7 @@ CREATE TABLE revision_datasets (
     PRIMARY KEY (revision_id, dataset, position)
 ) WITHOUT ROWID;
 """
+SCHEMA_V6_DDL = _ddl(_V6_DATASETS)
 
 
 class FlatDatasetRepository:

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Conversion rehearsal (WP4, WP6): run steps C3, C3b, C4a and C4b on a COPY of a plan and prove the result.
+"""Conversion rehearsal (WP4, WP6): run steps C3, C3b, C4a, C4b and C4c on a COPY of a plan and prove the result.
 
     python tools/rehearse_conversion.py <plan_copy_dir> [--out <dir>] [--verbose-keys] [--skip-engine]
 
@@ -13,7 +13,8 @@ What it does
    plan is written to ``<out>/plan.rpx`` (default: a temp folder, removed at exit).
 2. Runs C3, C3b, C4a (holdings, liabilities, HSA schedule, targets) then C4b (spending taxonomy,
    aliases, budget, budget lines, tier overrides, rules, category map, group budget, and the
-   budget recovery seed / pre-recovery copy as plan revisions) exactly as ``src/legacy_conversion/steps`` does.
+   budget recovery seed / pre-recovery copy as plan revisions) then C4c (YTD transactions, account
+   setup and import history) exactly as ``src/legacy_conversion/steps`` does.
 3. Equivalence checks, old path vs converted plan:
    - flat datasets: per dataset, file row count vs table row count, and the column NAMES of each
    - sectioned data: ``migrate_sectioned_data(load_csv(...))`` vs ``PlanStore.sectioned_data()``
@@ -203,7 +204,7 @@ def main(argv=None) -> int:
         sys.path.insert(0, str(ROOT))
 
         from src.data_io import load_csv, parse_client  # noqa: PLC0415
-        from src.legacy_conversion.steps import c3_plan_rows, c3b_plan_overrides, c4a_datasets, c4b_spending  # noqa: PLC0415
+        from src.legacy_conversion.steps import c3_plan_rows, c3b_plan_overrides, c4a_datasets, c4b_spending, c4c_ytd  # noqa: PLC0415
         from src.plan_data_migration import migrate_sectioned_data  # noqa: PLC0415
         from src.stores import PlanStore  # noqa: PLC0415
 
@@ -221,12 +222,14 @@ def main(argv=None) -> int:
             c3b = c3b_plan_overrides.run(store, custom)
             c4a = c4a_datasets.run(work_input, store)
             c4b = c4b_spending.run(work_input, store)
+            c4c = c4c_ytd.run(work_input, store)
             dataset_report = _dataset_comparison(work_input, store, c4b)
             converted = store.sectioned_data()
             marker_c3 = store.get_meta(c3_plan_rows.MARKER_KEY) is not None
             marker_c3b = store.get_meta(c3b_plan_overrides.MARKER_KEY) is not None
             marker_c4a = store.get_meta(c4a_datasets.MARKER_KEY) is not None
             marker_c4b = store.get_meta(c4b_spending.MARKER_KEY) is not None
+            marker_c4c = store.get_meta(c4c_ytd.MARKER_KEY) is not None
             rows_by_section = Counter(r["section"] for r in store.all_rows())
             dup_keys = Counter()
             for r in store.all_rows():
@@ -248,7 +251,9 @@ def main(argv=None) -> int:
               f"{'present' if marker_c4a else 'MISSING'}")
         print(f"-- C4b (spending set -> plan tables, recovery copies -> plan revisions): rows {c4b.rows_written or 'none'}  marker: "
               f"{'present' if marker_c4b else 'MISSING'}")
-        all_ok &= marker_c3 and marker_c3b and marker_c4a and marker_c4b
+        print(f"-- C4c (YTD files -> plan tables): rows {c4c.rows_written or 'none'}  marker: "
+              f"{'present' if marker_c4c else 'MISSING'}")
+        all_ok &= marker_c3 and marker_c3b and marker_c4a and marker_c4b and marker_c4c
         for line, ok in dataset_report:
             print(line)
             all_ok &= ok

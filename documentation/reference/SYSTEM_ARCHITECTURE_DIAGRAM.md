@@ -463,7 +463,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/server_services/secret_service.py` | — | — |
 | `src/server_services/spending_service.py` | `active_plan` | — |
 | `src/server_services/strategy_asset_service.py` | `core`, `data_io`, `plan_data_backfill`, `spending_adjustments`, `stores.ref_getters.state_tax` | — |
-| `src/server_services/ytd_service.py` | `import_preview` | — |
+| `src/server_services/ytd_service.py` | `import_preview`, `plan_datasets` | — |
 
 ### HTTP Runtime
 
@@ -484,7 +484,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/api_contracts.py` | — | — |
 | `src/blank_plan.py` | `csv_exchange` | — |
 | `src/bootstrap.py` | `src`, `plan_data_migration`, `platform_runtime`, `security` | — |
-| `src/build_entry.py` | `config_backend`, `plan_data_registry`, `reporting.workbook_builder` | — |
+| `src/build_entry.py` | `reporting.workbook_builder` | — |
 | `src/build_snapshot.py` | `plan_db_replace`, `version` | — |
 | `src/config_backend.py` | `active_plan`, `plan_file_io`, `sqlite_util`, `system_config` | — |
 | `src/core.py` | `person_labels` | — |
@@ -530,13 +530,13 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/legacy_conversion/steps/c3b_plan_overrides.py` | `csv_exchange`, `plan_overrides` | — |
 | `src/legacy_conversion/steps/c4a_datasets.py` | `csv_exchange` | — |
 | `src/legacy_conversion/steps/c4b_spending.py` | `csv_exchange` | — |
+| `src/legacy_conversion/steps/c4c_ytd.py` | `csv_exchange` | — |
 | `src/local_backup_scheduler.py` | — | — |
 | `src/local_store.py` | `sqlite_util` | — |
 | `src/market_data.py` | `platform_runtime`, `secrets_store`, `version` | `requests` |
 | `src/module_catalog.py` | — | — |
 | `src/monarch_autoimport_job.py` | — | — |
 | `src/monarch_autoupdate.py` | — | — |
-| `src/monarch_db_sync.py` | — | — |
 | `src/monarch_import.py` | `stores.ref_getters.monarch_field_map`, `ytd_tracking` | — |
 | `src/money.py` | — | — |
 | `src/observability.py` | — | — |
@@ -624,7 +624,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/withdrawal_strategy_comparison.py` | `core` | — |
 | `src/workspace_context.py` | `runtime_config` | — |
 | `src/ytd_projection_blend.py` | `module_catalog`, `spending_tracker`, `ytd_tracking` | — |
-| `src/ytd_tracking.py` | `active_plan`, `large_discretionary`, `plan_datasets`, `plan_file_io` | — |
+| `src/ytd_tracking.py` | `active_plan`, `large_discretionary`, `plan_datasets` | — |
 
 ### Projection Stages
 

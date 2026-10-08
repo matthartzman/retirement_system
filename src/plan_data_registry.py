@@ -48,8 +48,8 @@ def client_data_csv_files(*, include_client_data: bool = True) -> list[str]:
 SYSTEM_REFERENCE_FILES: list[str] = []
 
 
-# The flat datasets (not sectioned plan rows): still files / ``client_files`` text until WP6 moves
-# them into the plan file. ``materialize_workspace_files`` restores them for the build.
+# The flat datasets (not sectioned plan rows): every one is a table of the plan file since WP6
+# (``PLAN_TABLE_DATASET_FILES``); the names remain the keys of the plan-data file routes.
 FLAT_PLAN_DATA_CSV_FILES: list[str] = [
     "client_holdings.csv",
     "client_liabilities.csv",
@@ -77,7 +77,11 @@ PLAN_TABLE_DATASET_FILES: frozenset[str] = frozenset({
     "client_spending_rules.csv",
     "spending_category_map.csv",
     "spending_budget.csv",
+    "ytd_transactions.csv",
+    "ytd_account_setup.csv",
+    "ytd_import_history.csv",
 })
+# The YTD actuals files (WP6.4: tables ``ytd_*`` of the plan file, also in ``PLAN_TABLE_DATASET_FILES``).
 YTD_PLAN_DATA_FILES: list[str] = [
     "ytd_transactions.csv",
     "ytd_account_setup.csv",

@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import Any
 
 from . import monarch_autoupdate as mau
-from . import monarch_db_sync
 from . import monarch_import as mi
 from . import onedrive_guard
 from . import ytd_tracking as ytd
@@ -95,10 +94,8 @@ def run(base_dir: str | Path, *, force: bool = False) -> dict[str, Any]:
         return {"success": not file_errors, "skipped": True, "skip_reason": "no_rows", "status": status}
 
     input_dir = base_dir / "input"
+    # The YTD tables are in the plan file (WP6.4): the upsert is the save the running app reads.
     upsert_result = ytd.upsert_transactions_by_monarch_id(input_dir, result["rows"])
-
-    db_path = base_dir / "local_state" / "retirement_system_v10.db"
-    monarch_db_sync.sync_ytd_files_to_db(input_dir, db_path)
 
     # Acknowledge every imported run to the extractor's own outbox now that
     # the upsert has succeeded, so new_transactions.csv/changed_transactions.csv

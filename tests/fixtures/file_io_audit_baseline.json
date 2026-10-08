@@ -29,9 +29,6 @@
   "src/monarch_autoupdate.py": {
    "path_io": 4
   },
-  "src/monarch_db_sync.py": {
-   "path_io": 1
-  },
   "src/monarch_import.py": {
    "csv": 1,
    "path_io": 2
@@ -110,19 +107,15 @@
   },
   "src/server_services/ytd_service.py": {
    "csv": 1,
-   "path_io": 6
-  },
-  "src/spending_tracker.py": {
-   "csv": 2,
-   "open": 2
+   "path_io": 1
   },
   "src/system_config.py": {
    "csv": 3
   },
   "src/ytd_tracking.py": {
-   "csv": 6,
+   "csv": 4,
    "path_io": 1
   }
  },
- "total": 129
+ "total": 117
 }

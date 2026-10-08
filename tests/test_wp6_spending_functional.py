@@ -193,8 +193,8 @@ def test_plan_data_file_routes_read_and_write_the_tables(ws):
 
 
 def test_the_spending_files_travel_with_the_plan_file_not_as_files():
-    from src.plan_data_registry import FLAT_PLAN_DATA_CSV_FILES, PLAN_TABLE_DATASET_FILES
-    assert {TAXONOMY, ALIASES, BUDGET, LINES} <= PLAN_TABLE_DATASET_FILES <= set(FLAT_PLAN_DATA_CSV_FILES)
+    from src.plan_data_registry import FLAT_PLAN_DATA_CSV_FILES, PLAN_TABLE_DATASET_FILES, YTD_PLAN_DATA_FILES
+    assert {TAXONOMY, ALIASES, BUDGET, LINES} <= PLAN_TABLE_DATASET_FILES <= {*FLAT_PLAN_DATA_CSV_FILES, *YTD_PLAN_DATA_FILES}
 
 
 def test_at_rest_category_renames_reach_the_plan_tables(tmp_path):

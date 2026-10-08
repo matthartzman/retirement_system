@@ -57,6 +57,10 @@ rows beside its ``plan_rows`` copy (``revision_dataset_rows``, ``restore_dataset
 These are the spending recovery copies: sources ``pre-recovery`` (the budget as it was before a
 recovery merge) and ``budget-recovery-seed`` (a known-good budget to recover from) are never
 pruned by retention (``PROTECTED_REVISION_SOURCES``).
+
+Schema v6 (WP6.4) adds the YTD tables ``ytd_transactions``, ``ytd_account_setup`` and
+``ytd_import_history`` (same conventions; the columns are the YTD files' own, spaces included,
+e.g. ``"Original Statement"``), reached as ``store.dataset("ytd_transactions")`` and so on.
 """
 from __future__ import annotations
 
@@ -69,7 +73,7 @@ from typing import Any, Iterable, Mapping, Protocol, TypedDict, TypeVar, runtime
 
 from .. import platform_runtime
 from ._base import _SqliteStore
-from .datasets import SCHEMA_V2_DDL, SCHEMA_V3_DDL, SCHEMA_V4_DDL, SCHEMA_V5_DDL, FlatDatasetRepository
+from .datasets import SCHEMA_V2_DDL, SCHEMA_V3_DDL, SCHEMA_V4_DDL, SCHEMA_V5_DDL, SCHEMA_V6_DDL, YTD_DATASETS, FlatDatasetRepository
 from .spending_repo import SpendingRepo
 from .errors import IntegrityError, NotFoundError, ValidationError
 
@@ -124,7 +128,7 @@ CREATE TABLE plan_meta (
 INSERT INTO plan_meta (key, value) VALUES ('{RETENTION_KEY}', '{DEFAULT_REVISION_RETENTION}');
 """
 
-PLAN_MIGRATIONS: tuple[str, ...] = (_SCHEMA_V1, SCHEMA_V2_DDL, SCHEMA_V3_DDL, SCHEMA_V4_DDL, SCHEMA_V5_DDL)
+PLAN_MIGRATIONS: tuple[str, ...] = (_SCHEMA_V1, SCHEMA_V2_DDL, SCHEMA_V3_DDL, SCHEMA_V4_DDL, SCHEMA_V5_DDL, SCHEMA_V6_DDL)
 PLAN_SCHEMA_VERSION = len(PLAN_MIGRATIONS)
 
 
@@ -246,10 +250,12 @@ class PlanStore(_SqliteStore):
 
     def dataset(self, name: str) -> FlatDatasetRepository:
         """A flat dataset by its ``csv_exchange`` name: ``holdings``, ``liabilities``,
-        ``hsa_schedule``, ``target_allocation``, ``spending_<name>`` (``spending_taxonomy`` ->
+        ``hsa_schedule``, ``target_allocation``, ``ytd_<name>``, ``spending_<name>`` (``spending_taxonomy`` ->
         ``self.spending.taxonomy``)."""
         if name in _FLAT_DATASET_ATTRS:
             return getattr(self, name)
+        if name in YTD_DATASETS:
+            return FlatDatasetRepository(self, name)
         if name.startswith("spending_"):
             try:
                 return self.spending.dataset(name[len("spending_"):])

@@ -7,15 +7,15 @@ from src.import_preview import preview_holdings_import, preview_ytd_transactions
 
 
 YTD_HEADER = "Date,Merchant,Category,Account,Original Statement,Notes,Amount,Tags,Owner\n"
-from tests.plan_fixture import write_plan_dataset
+from tests.plan_fixture import plan_dataset_rows, write_plan_dataset
 
 
 def test_ytd_transactions_preview_is_side_effect_free_and_reports_import_risks(tmp_path: Path):
     root = tmp_path / "input"  # the plan file (plan.rpx) sits beside the input folder
     root.mkdir()
-    (root / "ytd_transactions.csv").write_text(
+    write_plan_dataset(
+        tmp_path, "ytd_transactions.csv",
         YTD_HEADER + "2026-01-10,Store,Groceries,Checking,,, -12.00,,Household\n",
-        encoding="utf-8",
     )
     write_plan_dataset(tmp_path, "spending_category_map.csv", "super_group,group,category,tracking\nExpenses,Food,Groceries,core\n")
     incoming = (
@@ -39,7 +39,8 @@ def test_ytd_transactions_preview_is_side_effect_free_and_reports_import_risks(t
     assert preview["duplicate_candidates"]["matching_existing_rows"] == 1
     assert preview["unmapped_categories"] == ["New Category"]
     assert preview["account_summary"]["new_accounts"] == ["New Card"]
-    assert (root / "ytd_import_history.csv").exists() is False
+    assert plan_dataset_rows(tmp_path, "ytd_import_history.csv") == []  # nothing was written
+    assert len(plan_dataset_rows(tmp_path, "ytd_transactions.csv")) == 1
 
 
 def test_holdings_preview_reports_counts_duplicates_dates_and_quality_flags(tmp_path: Path):

@@ -29,39 +29,39 @@ def _row(monarch_id: str, **overrides) -> dict:
 
 
 def test_new_monarch_id_is_added(tmp_path):
-    result = ytd.upsert_transactions_by_monarch_id(tmp_path, [_row("mid-1")])
+    result = ytd.upsert_transactions_by_monarch_id(tmp_path / "input", [_row("mid-1")])
     assert result["added"] == 1
     assert result["updated"] == 0
-    stored = ytd.read_transactions(tmp_path)
+    stored = ytd.read_transactions(tmp_path / "input")
     assert len(stored) == 1
     assert stored[0]["Monarch Id"] == "mid-1"
 
 
 def test_same_id_same_content_is_a_noop(tmp_path):
-    ytd.upsert_transactions_by_monarch_id(tmp_path, [_row("mid-1")])
-    result = ytd.upsert_transactions_by_monarch_id(tmp_path, [_row("mid-1")])
+    ytd.upsert_transactions_by_monarch_id(tmp_path / "input", [_row("mid-1")])
+    result = ytd.upsert_transactions_by_monarch_id(tmp_path / "input", [_row("mid-1")])
     assert result["added"] == 0
     assert result["updated"] == 0
-    assert len(ytd.read_transactions(tmp_path)) == 1
+    assert len(ytd.read_transactions(tmp_path / "input")) == 1
 
 
 def test_same_id_changed_content_replaces_in_place(tmp_path):
-    ytd.upsert_transactions_by_monarch_id(tmp_path, [_row("mid-1", Category="Groceries")])
+    ytd.upsert_transactions_by_monarch_id(tmp_path / "input", [_row("mid-1", Category="Groceries")])
     result = ytd.upsert_transactions_by_monarch_id(
-        tmp_path, [_row("mid-1", Category="Dining", Amount="-61.40")]
+        tmp_path / "input", [_row("mid-1", Category="Dining", Amount="-61.40")]
     )
     assert result["added"] == 0
     assert result["updated"] == 1
-    stored = ytd.read_transactions(tmp_path)
+    stored = ytd.read_transactions(tmp_path / "input")
     assert len(stored) == 1
     assert stored[0]["Category"] == "Dining"
     assert float(stored[0]["Amount"]) == -61.40
 
 
 def test_new_and_changed_in_the_same_batch(tmp_path):
-    ytd.upsert_transactions_by_monarch_id(tmp_path, [_row("mid-1"), _row("mid-2", Merchant="Costco")])
+    ytd.upsert_transactions_by_monarch_id(tmp_path / "input", [_row("mid-1"), _row("mid-2", Merchant="Costco")])
     result = ytd.upsert_transactions_by_monarch_id(
-        tmp_path,
+        tmp_path / "input",
         [
             _row("mid-1", Category="Dining"),  # changed
             _row("mid-2", Merchant="Costco"),  # unchanged
@@ -70,7 +70,7 @@ def test_new_and_changed_in_the_same_batch(tmp_path):
     )
     assert result["added"] == 1
     assert result["updated"] == 1
-    stored = {r["Monarch Id"]: r for r in ytd.read_transactions(tmp_path)}
+    stored = {r["Monarch Id"]: r for r in ytd.read_transactions(tmp_path / "input")}
     assert len(stored) == 3
     assert stored["mid-1"]["Category"] == "Dining"
     assert stored["mid-3"]["Merchant"] == "Target"
@@ -78,15 +78,15 @@ def test_new_and_changed_in_the_same_batch(tmp_path):
 
 def test_row_without_monarch_id_falls_back_to_hash_dedup(tmp_path):
     no_id_row = _row("", Date="2026-01-05")
-    result = ytd.upsert_transactions_by_monarch_id(tmp_path, [no_id_row])
+    result = ytd.upsert_transactions_by_monarch_id(tmp_path / "input", [no_id_row])
     assert result["added"] == 1
 
     # Re-importing the identical id-less row is skipped (existing hash-based
     # dedup), same as manual-upload import_transactions() behavior.
-    result = ytd.upsert_transactions_by_monarch_id(tmp_path, [no_id_row])
+    result = ytd.upsert_transactions_by_monarch_id(tmp_path / "input", [no_id_row])
     assert result["added"] == 0
     assert result["skipped"] == 1
-    assert len(ytd.read_transactions(tmp_path)) == 1
+    assert len(ytd.read_transactions(tmp_path / "input")) == 1
 
 
 def test_manual_hash_dedup_is_unaffected_by_the_monarch_id_column(tmp_path):
@@ -95,21 +95,21 @@ def test_manual_hash_dedup_is_unaffected_by_the_monarch_id_column(tmp_path):
     # TRANSACTION_COLUMNS must not perturb transaction_hash() for such rows.
     row = _row("", Date="2026-02-01")
     del row["Monarch Id"]
-    ytd.write_transactions(tmp_path, [row])
-    existing = ytd.read_transactions(tmp_path)
+    ytd.write_transactions(tmp_path / "input", [row])
+    existing = ytd.read_transactions(tmp_path / "input")
     assert ytd.transaction_hash(existing[0]) == ytd.transaction_hash(_row("", Date="2026-02-01"))
 
 
 def test_invalid_date_rows_are_skipped_not_crashed(tmp_path):
-    result = ytd.upsert_transactions_by_monarch_id(tmp_path, [_row("mid-1", Date="")])
+    result = ytd.upsert_transactions_by_monarch_id(tmp_path / "input", [_row("mid-1", Date="")])
     assert result["added"] == 0
     assert result["invalid_date_rows"] == 1
 
 
 def test_import_history_records_monarch_auto_mode_and_updated_count(tmp_path):
-    ytd.upsert_transactions_by_monarch_id(tmp_path, [_row("mid-1")])
-    ytd.upsert_transactions_by_monarch_id(tmp_path, [_row("mid-1", Category="Dining")])
-    history = ytd.read_import_history(tmp_path)
+    ytd.upsert_transactions_by_monarch_id(tmp_path / "input", [_row("mid-1")])
+    ytd.upsert_transactions_by_monarch_id(tmp_path / "input", [_row("mid-1", Category="Dining")])
+    history = ytd.read_import_history(tmp_path / "input")
     assert history[-1]["Mode"] == "monarch_auto"
     assert history[-1]["Rows Updated"] == "1"
 
@@ -120,16 +120,16 @@ def test_import_history_records_monarch_auto_mode_and_updated_count(tmp_path):
 def test_first_run_adopts_a_matching_manual_row_instead_of_duplicating(tmp_path):
     manual_row = _row("")
     del manual_row["Monarch Id"]
-    ytd.write_transactions(tmp_path, [manual_row])
-    assert len(ytd.read_transactions(tmp_path)) == 1
+    ytd.write_transactions(tmp_path / "input", [manual_row])
+    assert len(ytd.read_transactions(tmp_path / "input")) == 1
 
     # Monarch's own first pull delivers the same transaction, now carrying
     # a real id, with byte-identical content.
-    result = ytd.upsert_transactions_by_monarch_id(tmp_path, [_row("mid-1")])
+    result = ytd.upsert_transactions_by_monarch_id(tmp_path / "input", [_row("mid-1")])
 
     assert result["added"] == 0
     assert result["adopted"] == 1
-    stored = ytd.read_transactions(tmp_path)
+    stored = ytd.read_transactions(tmp_path / "input")
     assert len(stored) == 1  # not 2
     assert stored[0]["Monarch Id"] == "mid-1"
 
@@ -137,17 +137,17 @@ def test_first_run_adopts_a_matching_manual_row_instead_of_duplicating(tmp_path)
 def test_adoption_is_idempotent_on_a_later_run(tmp_path):
     manual_row = _row("")
     del manual_row["Monarch Id"]
-    ytd.write_transactions(tmp_path, [manual_row])
-    ytd.upsert_transactions_by_monarch_id(tmp_path, [_row("mid-1")])
+    ytd.write_transactions(tmp_path / "input", [manual_row])
+    ytd.upsert_transactions_by_monarch_id(tmp_path / "input", [_row("mid-1")])
 
     # Monarch reappears with the same id on a later cycle (e.g. the extractor
     # never got --mark-delivered) -- must be a plain no-op, not a second
     # adoption or a duplicate.
-    result = ytd.upsert_transactions_by_monarch_id(tmp_path, [_row("mid-1")])
+    result = ytd.upsert_transactions_by_monarch_id(tmp_path / "input", [_row("mid-1")])
     assert result["added"] == 0
     assert result["adopted"] == 0
     assert result["updated"] == 0
-    assert len(ytd.read_transactions(tmp_path)) == 1
+    assert len(ytd.read_transactions(tmp_path / "input")) == 1
 
 
 def test_ambiguous_manual_duplicates_are_not_adopted(tmp_path):
@@ -157,13 +157,13 @@ def test_ambiguous_manual_duplicates_are_not_adopted(tmp_path):
     # one id-less row matches.
     manual_row = _row("")
     del manual_row["Monarch Id"]
-    ytd.write_transactions(tmp_path, [dict(manual_row), dict(manual_row)])
-    assert len(ytd.read_transactions(tmp_path)) == 2
+    ytd.write_transactions(tmp_path / "input", [dict(manual_row), dict(manual_row)])
+    assert len(ytd.read_transactions(tmp_path / "input")) == 2
 
-    result = ytd.upsert_transactions_by_monarch_id(tmp_path, [_row("mid-1")])
+    result = ytd.upsert_transactions_by_monarch_id(tmp_path / "input", [_row("mid-1")])
     assert result["adopted"] == 0
     assert result["added"] == 1
-    assert len(ytd.read_transactions(tmp_path)) == 3
+    assert len(ytd.read_transactions(tmp_path / "input")) == 3
 
 
 def test_recategorized_row_is_adopted_by_identity_so_the_edit_lands(tmp_path):
@@ -172,12 +172,12 @@ def test_recategorized_row_is_adopted_by_identity_so_the_edit_lands(tmp_path):
     # duplicated alongside its stale copy (which double counts the spend).
     manual_row = _row("", Category="Groceries")
     del manual_row["Monarch Id"]
-    ytd.write_transactions(tmp_path, [manual_row])
+    ytd.write_transactions(tmp_path / "input", [manual_row])
 
-    result = ytd.upsert_transactions_by_monarch_id(tmp_path, [_row("mid-1", Category="Dining")])
+    result = ytd.upsert_transactions_by_monarch_id(tmp_path / "input", [_row("mid-1", Category="Dining")])
     assert result["adopted"] == 1
     assert result["added"] == 0
-    stored = ytd.read_transactions(tmp_path)
+    stored = ytd.read_transactions(tmp_path / "input")
     assert len(stored) == 1
     assert stored[0]["Category"] == "Dining" and stored[0]["Monarch Id"] == "mid-1"
 
@@ -187,11 +187,11 @@ def test_identity_adoption_pairs_equal_counts_of_same_day_purchases(tmp_path):
     del a["Monarch Id"]
     b = _row("", Category="Groceries")
     del b["Monarch Id"]
-    ytd.write_transactions(tmp_path, [a, b])
+    ytd.write_transactions(tmp_path / "input", [a, b])
     result = ytd.upsert_transactions_by_monarch_id(
-        tmp_path, [_row("mid-1", Category="Dining"), _row("mid-2", Category="Dining")])
+        tmp_path / "input", [_row("mid-1", Category="Dining"), _row("mid-2", Category="Dining")])
     assert result["adopted"] == 2 and result["added"] == 0
-    stored = ytd.read_transactions(tmp_path)
+    stored = ytd.read_transactions(tmp_path / "input")
     assert len(stored) == 2 and {r["Monarch Id"] for r in stored} == {"mid-1", "mid-2"}
 
 
@@ -200,20 +200,20 @@ def test_identity_adoption_does_not_guess_when_counts_differ(tmp_path):
     del a["Monarch Id"]
     b = _row("", Category="Groceries")
     del b["Monarch Id"]
-    ytd.write_transactions(tmp_path, [a, b])
-    result = ytd.upsert_transactions_by_monarch_id(tmp_path, [_row("mid-1", Category="Dining")])
+    ytd.write_transactions(tmp_path / "input", [a, b])
+    result = ytd.upsert_transactions_by_monarch_id(tmp_path / "input", [_row("mid-1", Category="Dining")])
     assert result["adopted"] == 0 and result["added"] == 1
-    assert len(ytd.read_transactions(tmp_path)) == 3
+    assert len(ytd.read_transactions(tmp_path / "input")) == 3
 
 
 def test_stale_id_less_twin_of_an_id_bearing_row_is_removed(tmp_path):
     stale = _row("", Category="Shopping")
     del stale["Monarch Id"]
     current = _row("mid-1", Category="Gifts")
-    ytd.write_transactions(tmp_path, [stale, current])
-    result = ytd.upsert_transactions_by_monarch_id(tmp_path, [])
+    ytd.write_transactions(tmp_path / "input", [stale, current])
+    result = ytd.upsert_transactions_by_monarch_id(tmp_path / "input", [])
     assert result["duplicates_removed"] == 1
-    stored = ytd.read_transactions(tmp_path)
+    stored = ytd.read_transactions(tmp_path / "input")
     assert [r["Category"] for r in stored] == ["Gifts"]
 
 
@@ -222,10 +222,10 @@ def test_unbalanced_same_key_rows_are_left_alone(tmp_path):
     del a["Monarch Id"]
     b = _row("", Category="Groceries")
     del b["Monarch Id"]
-    ytd.write_transactions(tmp_path, [a, b, _row("mid-1")])
-    result = ytd.upsert_transactions_by_monarch_id(tmp_path, [])
+    ytd.write_transactions(tmp_path / "input", [a, b, _row("mid-1")])
+    result = ytd.upsert_transactions_by_monarch_id(tmp_path / "input", [])
     assert result["duplicates_removed"] == 0
-    assert len(ytd.read_transactions(tmp_path)) == 3
+    assert len(ytd.read_transactions(tmp_path / "input")) == 3
 
 
 def test_adopting_one_row_does_not_consume_a_second_distinct_manual_row(tmp_path):
@@ -233,14 +233,14 @@ def test_adopting_one_row_does_not_consume_a_second_distinct_manual_row(tmp_path
     del manual_a["Monarch Id"]
     manual_b = _row("", Merchant="Costco", Amount="-15.00")
     del manual_b["Monarch Id"]
-    ytd.write_transactions(tmp_path, [manual_a, manual_b])
+    ytd.write_transactions(tmp_path / "input", [manual_a, manual_b])
 
     result = ytd.upsert_transactions_by_monarch_id(
-        tmp_path, [_row("mid-1", Merchant="Kroger"), _row("mid-2", Merchant="Costco", Amount="-15.00")]
+        tmp_path / "input", [_row("mid-1", Merchant="Kroger"), _row("mid-2", Merchant="Costco", Amount="-15.00")]
     )
     assert result["adopted"] == 2
     assert result["added"] == 0
-    stored = ytd.read_transactions(tmp_path)
+    stored = ytd.read_transactions(tmp_path / "input")
     assert len(stored) == 2
     assert {r["Merchant"] for r in stored} == {"Kroger", "Costco"}
     assert all(r["Monarch Id"] for r in stored)

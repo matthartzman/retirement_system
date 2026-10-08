@@ -2,15 +2,11 @@ from __future__ import annotations
 
 """YTD spending, income, and growth tracking helpers.
 
-YTD tracking still uses canonical CSV adapter files inside the workspace so the
-projection/reporting code can stay simple, but the server mirrors those files
-into the local SQLite client_files table. Normal UI saves therefore persist in
-the local database first, while CSV remains a compatibility/import-export
-working copy.
-
-- ytd_transactions.csv
-- ytd_account_setup.csv
-- ytd_import_history.csv
+YTD actuals are three tables of the plan file (WP6.4): ``ytd_transactions``,
+``ytd_account_setup`` and ``ytd_import_history`` (the former ytd_*.csv files; columns are the
+files' own, stored as text, in file order). Every function takes ``root``, a workspace ``input``
+folder: the live workspace's input folder means the active plan, any other means the
+``plan.rpx`` beside it.
 """
 
 import csv
@@ -27,8 +23,12 @@ from pathlib import Path
 
 from . import platform_runtime as _platform_runtime
 from . import plan_dates as _plan_dates
-from .plan_datasets import dataset_text_for_input_dir
-from .plan_file_io import atomic_write
+from .plan_datasets import (
+    append_dataset_row_for_input_dir,
+    dataset_rows_for_input_dir,
+    dataset_text_for_input_dir,
+    write_dataset_rows_for_input_dir,
+)
 from typing import Any
 
 TRANSACTION_COLUMNS = [
@@ -162,43 +162,18 @@ ALLOWED_INCOME_CATEGORIES = [
 ]
 
 
-def _input_dir(root: str | Path) -> Path:
-    p = Path(root)
-    p.mkdir(parents=True, exist_ok=True)
-    return p
+def _read_dataset(root: str | Path, name: str, columns: list[str]) -> list[dict[str, str]]:
+    """Rows of the plan table ``name`` behind the workspace ``input`` folder ``root``, in file
+    order, only the YTD file's own columns (as text); ``[]`` when the plan has no rows."""
+    return [{col: str(raw.get(col, "") or "") for col in columns}
+            for raw in dataset_rows_for_input_dir(root, name)]
 
 
-def transactions_path(root: str | Path) -> Path:
-    return _input_dir(root) / "ytd_transactions.csv"
-
-
-def account_setup_path(root: str | Path) -> Path:
-    return _input_dir(root) / "ytd_account_setup.csv"
-
-
-def import_history_path(root: str | Path) -> Path:
-    return _input_dir(root) / "ytd_import_history.csv"
-
-
-def _read_csv_dicts(path: Path, columns: list[str]) -> list[dict[str, str]]:
-    if not path.exists():
-        return []
-    with path.open(newline="", encoding="utf-8-sig") as f:
-        reader = csv.DictReader(f)
-        if not reader.fieldnames:
-            return []
-        rows = []
-        for raw in reader:
-            rows.append({col: str(raw.get(col, "") or "") for col in columns})
-        return rows
-
-
-def _write_csv_dicts(path: Path, columns: list[str], rows: list[dict[str, Any]]) -> None:
-    with atomic_write(path) as f:
-        writer = csv.DictWriter(f, fieldnames=columns, lineterminator="\n", extrasaction="ignore")
-        writer.writeheader()
-        for row in rows:
-            writer.writerow({col: str(row.get(col, "") if row.get(col, "") is not None else "") for col in columns})
+def _write_dataset(root: str | Path, name: str, columns: list[str], rows: list[dict[str, Any]]) -> None:
+    """Replace the plan table ``name`` behind ``root`` (created when missing) with ``rows``."""
+    write_dataset_rows_for_input_dir(root, name, [
+        {col: str(row.get(col, "") if row.get(col, "") is not None else "") for col in columns} for row in rows
+    ])
 
 
 def _current_year(today: date | None = None) -> int:
@@ -220,7 +195,7 @@ def read_transactions(root: str | Path, *, current_year_only: bool = False, toda
     Pass ``current_year_only=True`` explicitly for call sites that still need
     the old current-year-only view.
     """
-    rows = _read_csv_dicts(transactions_path(root), TRANSACTION_COLUMNS)
+    rows = _read_dataset(root, "ytd_transactions", TRANSACTION_COLUMNS)
     if current_year_only:
         rows = [r for r in rows if _is_current_year_transaction(r, today=today)]
     return rows
@@ -230,11 +205,11 @@ def write_transactions(root: str | Path, rows: list[dict[str, Any]], *, current_
     cleaned = [normalize_transaction(r) for r in rows]
     if current_year_only:
         cleaned = [r for r in cleaned if _is_current_year_transaction(r, today=today)]
-    _write_csv_dicts(transactions_path(root), TRANSACTION_COLUMNS, cleaned)
+    _write_dataset(root, "ytd_transactions", TRANSACTION_COLUMNS, cleaned)
 
 
 def read_account_setup(root: str | Path) -> list[dict[str, str]]:
-    return _read_csv_dicts(account_setup_path(root), ACCOUNT_SETUP_COLUMNS)
+    return _read_dataset(root, "ytd_account_setup", ACCOUNT_SETUP_COLUMNS)
 
 
 def write_account_setup(root: str | Path, rows: list[dict[str, Any]]) -> None:
@@ -250,17 +225,17 @@ def write_account_setup(root: str | Path, rows: list[dict[str, Any]]) -> None:
             continue
         seen.add(key)
         cleaned.append(row)
-    _write_csv_dicts(account_setup_path(root), ACCOUNT_SETUP_COLUMNS, cleaned)
+    _write_dataset(root, "ytd_account_setup", ACCOUNT_SETUP_COLUMNS, cleaned)
 
 
 def read_import_history(root: str | Path) -> list[dict[str, str]]:
-    return _read_csv_dicts(import_history_path(root), IMPORT_HISTORY_COLUMNS)
+    return _read_dataset(root, "ytd_import_history", IMPORT_HISTORY_COLUMNS)
 
 
 def append_import_history(root: str | Path, row: dict[str, Any]) -> None:
-    rows = read_import_history(root)
-    rows.append({col: str(row.get(col, "") if row.get(col, "") is not None else "") for col in IMPORT_HISTORY_COLUMNS})
-    _write_csv_dicts(import_history_path(root), IMPORT_HISTORY_COLUMNS, rows)
+    append_dataset_row_for_input_dir(root, "ytd_import_history", {
+        col: str(row.get(col, "") if row.get(col, "") is not None else "") for col in IMPORT_HISTORY_COLUMNS
+    })
 
 
 def parse_date(value: Any) -> date | None:
@@ -570,7 +545,7 @@ def ensure_account_setup_for_transactions(root: str | Path, *, today: date | Non
                 "Notes": "Created from transaction upload.",
             })
             changed = True
-    if changed or not account_setup_path(root).exists():
+    if changed:
         write_account_setup(root, list(by_acct.values()))
     return read_account_setup(root)
 
