@@ -112,10 +112,10 @@ def test_refresh_prices_reports_live_quote_counts_and_no_live_exit_code_contract
     assert '"provider_failure_summary"' in source
 
 
-def test_server_price_refresh_removes_stale_result_before_subprocess():
+def test_server_price_refresh_reads_the_result_from_the_tool_stdout():
     source = (ROOT / "src" / "server_services" / "pricing_service.py").read_text(encoding="utf-8")
-    assert "out_path.unlink()" in source
-    assert "Price refresh did not produce price_refresh_result.json" in source
+    assert "price_refresh_result.json" not in source
+    assert "Price refresh did not report a result" in source
     assert "result.returncode == 0" in source
 
 

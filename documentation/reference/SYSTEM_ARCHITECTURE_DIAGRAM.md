@@ -625,7 +625,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/withdrawal_strategy_comparison.py` | `core` | — |
 | `src/workspace_context.py` | `runtime_config` | — |
 | `src/ytd_projection_blend.py` | `module_catalog`, `spending_tracker`, `ytd_tracking` | — |
-| `src/ytd_tracking.py` | `active_plan`, `large_discretionary`, `plan_datasets` | — |
+| `src/ytd_tracking.py` | `active_plan`, `large_discretionary`, `plan_datasets`, `portfolio_analytics` | — |
 
 ### Projection Stages
 

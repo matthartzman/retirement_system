@@ -8,6 +8,7 @@ result artifacts so route modules remain thin adapters.
 """
 
 import json
+import re
 import os
 import subprocess
 import sys
@@ -34,17 +35,17 @@ def drift_payload(
         timeout=max_build_seconds,
         env=env,
     )
-    out = output_dir / "portfolio_drift.json"
     rows: list[Any] = []
-    if out.exists():
-        try:
-            loaded = json.loads(out.read_text(encoding="utf-8"))
-            rows = loaded if isinstance(loaded, list) else []
-        except Exception as exc:  # noqa: BLE001 - preserve route-era resilience
-            return {
-                "success": False,
-                "rows": [],
-                "stderr": f"portfolio_drift.json was not valid JSON: {exc}",
-                "returncode": result.returncode,
-            }
+    text = (result.stdout or "").strip()
+    tops = [m.start() for m in re.finditer(r"^\[$", text, re.M)]  # the rows are the last top-level array
+    try:
+        loaded = json.loads(text[tops[-1]:] if tops else text) if text else []
+        rows = loaded if isinstance(loaded, list) else []
+    except Exception as exc:  # noqa: BLE001 - preserve route-era resilience
+        return {
+            "success": False,
+            "rows": [],
+            "stderr": f"portfolio drift output was not valid JSON: {exc}",
+            "returncode": result.returncode,
+        }
     return {"success": result.returncode == 0, "rows": rows, "stderr": result.stderr[-1000:], "returncode": result.returncode}

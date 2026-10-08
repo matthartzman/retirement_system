@@ -1,9 +1,9 @@
 """``build_results``: what a build computed, as rows of the plan file (WP7.2).
 
-One row per build: the KPI summary, the Results Explorer model, the report package manifest and
-the build snapshot, each a JSON document in its own column. They replace the JSON sidecars
+One row per build: the KPI summary, the Results Explorer model, the report package manifest, the
+build snapshot and the pricing diagnostics, each a JSON document in its own column. They replace the JSON sidecars
 (``plan_summary.json``, ``results_explorer_model.json``, ``report_package.json``,
-``build_snapshot.json``) the server used to re-read from the output folder. The workbook, HTML and
+``build_snapshot.json``, ``pricing_diagnostics.json``) the server used to re-read from the output folder. The workbook, HTML and
 PDF stay files. A build writes its parts as it goes (``put`` merges into the build's row); the
 latest rows are kept (``RETENTION``).
 """
@@ -27,12 +27,15 @@ CREATE TABLE build_results (
 );
 """
 
+SCHEMA_V8_DDL = "ALTER TABLE build_results ADD COLUMN pricing_json TEXT NOT NULL DEFAULT '';"
+
 #: part name -> column
 PARTS: dict[str, str] = {
     "summary": "summary_json",
     "explorer": "explorer_json",
     "package": "package_json",
     "snapshot": "snapshot_json",
+    "pricing": "pricing_json",
 }
 RETENTION = 5
 
@@ -63,7 +66,7 @@ class BuildResultsRepo:
 
     def put(self, build_id: str, *, plan_state: str | None = None, **parts: Mapping[str, Any]) -> None:
         """Create or update the row of ``build_id``; ``summary=``/``explorer=``/``package=``/
-        ``snapshot=`` replace that part, parts not given are kept. Older rows beyond
+        ``snapshot=``/``pricing=`` replace that part, parts not given are kept. Older rows beyond
         ``RETENTION`` are dropped."""
         if not isinstance(build_id, str) or not build_id:
             raise ValidationError("build_id must be non-empty text")

@@ -46,7 +46,7 @@ from .workbook_common import (
     workspace_output_dir,
     write_cell,
     write_hdr,
-    write_pricing_diagnostics,
+    report_pricing_diagnostics,
 )
 from .sheets_summary_builder import build_sheet1, build_sheet2
 from .sheets_tax_reporter import build_sheet3
@@ -1011,7 +1011,7 @@ def _main(plan_read):
     print(f'  Config contract: {c.get("config_contract_version")} from {c.get("config_contract_source")}')
     print(f'  Plan horizon: {c["plan_start"]} – {c["plan_end"]}')
     print(f'  ETF prices: {PRICE_CACHE}')
-    write_pricing_diagnostics(_os.path.join(str(output_path_dir), 'pricing_diagnostics.json'), print_report=True)
+    pricing_diag = report_pricing_diagnostics(print_report=True)
 
     # Monte Carlo only runs when its optional module is enabled — this is the
     # "no logic executed" half of module gating.  With it off, mc_data is {} and
@@ -1498,7 +1498,7 @@ def _main(plan_read):
         summary=summary_data,
         explorer=explorer_model,
         system_config_path=_os.path.join(base_dir, 'system_config.csv'),
-        pricing_diagnostics_path=_os.path.join(str(output_path_dir), 'pricing_diagnostics.json'),
+        pricing=pricing_diag,
         sqlite_db_path=(config_meta or {}).get('plan_db') or (config_meta or {}).get('sqlite_db') or (config_meta or {}).get('path'),
     )
     package = build_report_package(
@@ -1507,10 +1507,11 @@ def _main(plan_read):
         summary=summary_data,
         results_model=explorer_model,
         build_snapshot=snapshot,
+        pricing=pricing_diag,
     )
     write_build_results(
         build_id or 'local', path=plan_read.path, plan_state=plan_state,
-        summary=summary_data, explorer=explorer_model, package=package, snapshot=snapshot,
+        summary=summary_data, explorer=explorer_model, package=package, snapshot=snapshot, pricing=pricing_diag,
     )
     print(f'Build results written to the plan file ({snapshot.get("artifact_count", 0)} artifacts)')
 

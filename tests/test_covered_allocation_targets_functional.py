@@ -154,7 +154,7 @@ class CoveredAllocationTargetsTests(unittest.TestCase):
         self.assertIn('LIVE — provider quote(s) used during workbook build', source)
         self.assertIn('OFFLINE — cost-basis/cash fallback pricing', source)
         builder = (ROOT / 'src' / 'reporting' / 'workbook_builder.py').read_text(encoding='utf-8')
-        self.assertIn('write_pricing_diagnostics', builder)
+        self.assertIn('report_pricing_diagnostics', builder)
 
 
 if __name__ == '__main__':

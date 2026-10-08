@@ -28,9 +28,8 @@ def test_build_preflight_reports_current_artifacts(monkeypatch, tmp_path):
     output = tmp_path / "output"
     db = tmp_path / "local_state" / "retirement_system_v10.db"
     output.mkdir(parents=True)
-    (output / "pricing_diagnostics.json").write_text('{"pricing_mode": "LIVE"}', encoding="utf-8")
     _plan_with_build(
-        tmp_path, monkeypatch,
+        tmp_path, monkeypatch, pricing={"pricing_mode": "LIVE"},
         summary={"qc_result": "QC: pass"}, explorer={"schema": "m"}, package={"schema": "p"},
         snapshot={"schema": SNAPSHOT_SCHEMA, "artifacts": [{"file": "retirement_plan.xlsx", "sha256": "abc"}]},
     )

@@ -11,7 +11,6 @@ from typing import Any, Callable
 CURRENT_BUILD_OUTPUT_FILES = [
     "retirement_plan.xlsx",
     "retirement_dashboard.html",
-    "forecast_package.json",
 ]
 
 

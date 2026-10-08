@@ -253,18 +253,11 @@ def build_csv_backup_zip(base_dir: Path) -> tuple[bytes, str]:
 
 def diagnostics_payload(output_dir: Path) -> dict[str, Any]:
     files: list[dict[str, Any]] = []
-    for name in ["pricing_diagnostics.json", "forecast_package.json"]:
-        p = output_dir / name
-        payload: Any = None
-        if p.exists():
-            try:
-                payload = json.loads(p.read_text(encoding="utf-8-sig"))
-            except Exception:
-                payload = {"raw": p.read_text(encoding="utf-8-sig", errors="ignore")[:4000]}
-        files.append({"name": name, "path": str(p), "available": p.exists(), "bytes": p.stat().st_size if p.exists() else 0, "json": payload})
-    summary = (active_plan.read_build_results() or {}).get("summary")
-    files.insert(1, {"name": "plan_summary", "path": "build_results (plan file)", "available": bool(summary),
-                     "bytes": len(json.dumps(summary)) if summary else 0, "json": summary or None})
+    row = active_plan.read_build_results() or {}
+    for name, part in (("pricing_diagnostics", "pricing"), ("plan_summary", "summary")):
+        doc = row.get(part) or None
+        files.append({"name": name, "path": "build_results (plan file)", "available": bool(doc),
+                      "bytes": len(json.dumps(doc)) if doc else 0, "json": doc})
     return {"success": True, "output_dir": str(output_dir), "files": files}
 
 

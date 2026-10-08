@@ -12,12 +12,10 @@ def test_build_snapshot_records_artifact_fingerprints_and_summary(tmp_path):
     output.mkdir()
     workbook = output / "retirement_plan.xlsx"
     dashboard = output / "retirement_dashboard.html"
-    pricing = output / "pricing_diagnostics.json"
     system_config = tmp_path / "system_config.csv"
 
     workbook.write_bytes(b"workbook-bytes")
     dashboard.write_text("<html>dashboard</html>", encoding="utf-8")
-    pricing.write_text('{"failed_symbols": []}', encoding="utf-8")
     system_config.write_text("Section,Subsection,Label,Value\n", encoding="utf-8")
 
     snapshot = make_build_snapshot(
@@ -27,7 +25,7 @@ def test_build_snapshot_records_artifact_fingerprints_and_summary(tmp_path):
         summary={"qc_result": "QC: pass", "terminal_nw": 42},
         explorer={"schema": "m"},
         system_config_path=system_config,
-        pricing_diagnostics_path=pricing,
+        pricing={'failed_symbols': []},
     )
 
     assert snapshot["schema"] == SNAPSHOT_SCHEMA
