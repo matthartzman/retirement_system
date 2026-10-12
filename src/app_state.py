@@ -37,6 +37,23 @@ def open_app_store(path: str | Path | None = None, *, readonly: bool = False) ->
     return AppStore.open(p, create=not readonly, readonly=readonly)
 
 
+def app_store_path_for(base_dir: str | Path | None) -> Path:
+    """The ``app.db`` for a caller that is handed a workspace folder.
+
+    The install's own workspace (or no folder) gets ``app_store_path()``, so the env override
+    applies; any other folder (a test's temp dir) gets its own ``<folder>/local_state/app.db``.
+    """
+    if base_dir is None:
+        return app_store_path()
+    base = Path(base_dir)
+    try:
+        if base.resolve() == platform_runtime.workspace_root().resolve():
+            return app_store_path()
+    except OSError:
+        pass
+    return base / "local_state" / APP_DB_FILE_NAME
+
+
 def app_db_env(env: dict[str, Any]) -> dict[str, Any]:
     """Point a subprocess environment at this process's ``app.db``; returns ``env``."""
     env[APP_DB_ENV] = str(app_store_path())

@@ -202,7 +202,7 @@ def _parse_money_text(value: object) -> Optional[float]:
 
 @dataclass
 class MarketDataProvider:
-    cache_path: str | Path = "output/market_price_cache.json"
+    cache_path: str | Path = "output/market_price_cache.json"  # app.db price_cache scope; the file is only a one-time legacy import
     diagnostics_path: str | Path = "output/pricing_diagnostics.json"
     ttl_seconds: int = 24 * 60 * 60
     timeout_seconds: int = 8
@@ -387,24 +387,36 @@ class MarketDataProvider:
         # provider-wide failures from leaking across user actions.
         self.reset_runtime_state(clear_failures=True, clear_provider_failures=True)
 
+    def _cache_scope(self) -> str:
+        """Identity of this cache in ``app.db.price_cache`` (the old cache file's resolved path)."""
+        return str(self.cache_path)
+
     def _load_cache(self) -> Dict[str, Dict[str, object]]:
         try:
-            if self.cache_path.exists():
-                raw = json.loads(self.cache_path.read_text(encoding="utf-8"))
-                return raw if isinstance(raw, dict) else {}
+            from .app_state import open_app_store
+
+            with open_app_store() as store:
+                cache = store.price_cache(self._cache_scope())
+                if not cache and self.cache_path.exists():
+                    # One-time import of an older install's market_price_cache.json.
+                    raw = json.loads(self.cache_path.read_text(encoding="utf-8"))
+                    cache = raw if isinstance(raw, dict) else {}
+                    if cache:
+                        store.replace_price_cache(self._cache_scope(), cache)
+                return cache
         except Exception:
             pass
         return {}
 
     def _save_cache(self) -> None:
         # Concurrent quote() calls (see quotes()) can each trigger a save;
-        # serialize the actual file write so parallel fetches can't race on
-        # the same cache file (Windows in particular errors on concurrent
-        # writes to one path).
+        # serialize the write so parallel fetches can't race on the same rows.
         with self._cache_write_lock:
             try:
-                self.cache_path.parent.mkdir(parents=True, exist_ok=True)
-                self.cache_path.write_text(json.dumps(self.cache, indent=2, sort_keys=True), encoding="utf-8")
+                from .app_state import open_app_store
+
+                with open_app_store() as store:
+                    store.replace_price_cache(self._cache_scope(), self.cache)
             except Exception:
                 pass
 

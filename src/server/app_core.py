@@ -211,7 +211,7 @@ def _sqlite_db() -> Path:
 # combined into one file due to bidirectional call coupling between the two
 # clusters (see that file's own top-of-file comment). Several more names are
 # defined there too (_bootstrap_workspace, _bootstrap_client,
-# _candidate_token, _admin_change_log_path_for, _last_build_metadata_path_for,
+# _candidate_token, _log_scope,
 # _row_key_for_change, _summarize_csv_row_changes) but are used only internally within
 # security_audit.py's own functions -- never re-exported here, since nothing
 # outside that file needs them (system review 4.9, verified via AST analysis

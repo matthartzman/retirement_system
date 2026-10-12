@@ -471,10 +471,8 @@ def get_workbook_format():
     overrides_stale = False
     try:
         workbook_mtime = workbook_path.stat().st_mtime if workbook_path.exists() else 0
-        for p in (_wf.overrides_path(), _wf.alignments_path()):
-            if p.exists() and p.stat().st_mtime > workbook_mtime:
-                overrides_stale = True
-                break
+        if _wf.saved_at() > workbook_mtime:
+            overrides_stale = True
     except OSError:
         pass
     return jsonify({

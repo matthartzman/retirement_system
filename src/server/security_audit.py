@@ -39,7 +39,6 @@ from src.security import (
 )
 from src.permissions import UserContext
 from src.workspace_context import sanitize_id, workspace_output_dir
-from src.config_backend import append_audit_event_sqlite
 
 from . import app_core as _app_core
 
@@ -102,41 +101,32 @@ def _workspace_output() -> Path:
     return out
 
 
+def _app_store():
+    from src.app_state import open_app_store
+
+    return open_app_store()
+
+
 def _audit(event: str, details: dict | None = None) -> None:
     cfg = _app_core._runtime_config()
     details = details or {}
     user = _current_user() if request else UserContext()
     if cfg.audit_log_enabled:
         try:
-            audit_path = _workspace_output() / "audit_log.jsonl"
-            payload = {"event": event, "details": details, "workspace_id": user.workspace_id, "user_id": user.user_id, "timestamp": time.time()}
+            ts = time.time()
+            payload = {"event": event, "details": details, "workspace_id": user.workspace_id, "user_id": user.user_id, "timestamp": ts}
             line = json.dumps(payload, sort_keys=True, default=str)
             if cfg.redact_secrets_in_logs:
                 line = redact_text(line)
-            audit_path.parent.mkdir(parents=True, exist_ok=True)
-            with audit_path.open("a", encoding="utf-8") as f:
-                f.write(line + "\n")
-        except Exception:
-            pass
-        try:
-            append_audit_event_sqlite(event, details, workspace_id=user.workspace_id, user_id=user.user_id, db_path=_app_core._sqlite_db())
+            with _app_store() as store:
+                store.append_audit_event(event, line, ts=ts, workspace_id=user.workspace_id, user_id=user.user_id)
         except Exception:
             pass
 
 
-def _admin_change_log_path_for(workspace_id: str | None = None) -> Path:
-    """Local admin/config change log used by Build Impact."""
-    tid = sanitize_id(workspace_id or _workspace_id())
-    out = workspace_output_dir(tid, _app_core.WORKSPACE_ROOT)
-    out.mkdir(parents=True, exist_ok=True)
-    return out / "admin_config_change_log.json"
-
-
-def _last_build_metadata_path_for(workspace_id: str | None = None) -> Path:
-    tid = sanitize_id(workspace_id or _workspace_id())
-    out = workspace_output_dir(tid, _app_core.WORKSPACE_ROOT)
-    out.mkdir(parents=True, exist_ok=True)
-    return out / "last_build_metadata.json"
+def _log_scope(workspace_id: str | None = None) -> str:
+    """Key of the admin change log / last-build record in app.db (the old per-workspace folder)."""
+    return sanitize_id(workspace_id or _workspace_id())
 
 
 def _row_key_for_change(row: list[str], index: int) -> str:
@@ -285,22 +275,16 @@ def _record_admin_config_change(kind: str, file_name: str, path: str, before_row
         "change_count": count,
         "changes": changes,
     }
-    p = _admin_change_log_path_for(workspace_id or getattr(user, "workspace_id", None))
-    try:
-        data = json.loads(p.read_text(encoding="utf-8")) if p.exists() else []
-    except Exception:
-        data = []
-    data.append(event)
-    data = data[-250:]
-    p.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
+    with _app_store() as store:
+        store.append_admin_change(_log_scope(workspace_id or getattr(user, "workspace_id", None)), event, ts=event["timestamp"])
     return event
 
 
 def _admin_changes_between(workspace_id: str | None = None, after_ts: float | None = None, before_ts: float | None = None) -> list[dict]:
     """Admin/config changes after `after_ts` and up to `before_ts` for Build Impact."""
-    p = _admin_change_log_path_for(workspace_id)
     try:
-        data = json.loads(p.read_text(encoding="utf-8")) if p.exists() else []
+        with _app_store() as store:
+            data = store.admin_changes(_log_scope(workspace_id))
     except Exception:
         return []
     out = []
@@ -318,16 +302,16 @@ def _admin_changes_between(workspace_id: str | None = None, after_ts: float | No
 
 
 def _read_last_build_timestamp(workspace_id: str | None = None) -> float:
-    p = _last_build_metadata_path_for(workspace_id)
     try:
-        return float((json.loads(p.read_text(encoding="utf-8")) or {}).get("finished_at_ts") or 0)
+        with _app_store() as store:
+            return float((store.last_build(_log_scope(workspace_id)) or {}).get("finished_at_ts") or 0)
     except Exception:
         return 0.0
 
 
 def _write_last_build_metadata(workspace_id: str | None, payload: dict) -> None:
-    p = _last_build_metadata_path_for(workspace_id)
-    p.write_text(json.dumps(payload, indent=2, sort_keys=True, default=str), encoding="utf-8")
+    with _app_store() as store:
+        store.set_last_build(_log_scope(workspace_id), payload)
 
 
 # Per-process CSRF secret + token derivation. Ported from main's app_core.py

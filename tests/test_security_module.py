@@ -212,8 +212,11 @@ def test_constant_time_token_ok_candidate_none_expected_none():
 # ---------------------------------------------------------------------------
 
 def _read_audit_lines(base_dir):
-    log_path = base_dir / "output" / "audit_log.jsonl"
-    return log_path.read_text(encoding="utf-8").splitlines()
+    """The stored audit payload lines (WP8.3: app.db ``audit_events``, no audit_log.jsonl)."""
+    from src.app_state import app_store_path_for, open_app_store
+
+    with open_app_store(app_store_path_for(base_dir), readonly=True) as store:
+        return [r["payload"] for r in store.audit_events()]
 
 
 def test_append_audit_event_creates_file_and_valid_json(tmp_path):
@@ -226,11 +229,10 @@ def test_append_audit_event_creates_file_and_valid_json(tmp_path):
     assert record["details"] == {"user": "alice"}
 
 
-def test_append_audit_event_creates_output_directory(tmp_path):
-    # tmp_path/output does not exist yet; the function must create it.
-    assert not (tmp_path / "output").exists()
+def test_append_audit_event_writes_app_db_not_a_jsonl_file(tmp_path):
     security.append_audit_event(tmp_path, "evt")
-    assert (tmp_path / "output" / "audit_log.jsonl").exists()
+    assert (tmp_path / "local_state" / "app.db").exists()
+    assert not (tmp_path / "output" / "audit_log.jsonl").exists()
 
 
 def test_append_audit_event_default_none_details(tmp_path):
@@ -261,14 +263,12 @@ def test_append_audit_event_redact_false_leaves_secret(tmp_path):
     assert "sk-abc123" in line
 
 
-def test_append_audit_event_swallows_directory_creation_failure(tmp_path):
-    # base_dir is an existing regular file, so base_dir/"output" cannot be
-    # created (mkdir raises). The function must swallow the exception.
+def test_append_audit_event_swallows_store_failure(tmp_path):
+    # base_dir is an existing regular file, so base_dir/"local_state" cannot be
+    # created. The function must swallow the exception.
     file_as_base = tmp_path / "not_a_dir"
     file_as_base.write_text("i am a file", encoding="utf-8")
-    # Should not raise.
     security.append_audit_event(file_as_base, "evt", {"api_key": "sk-abc123"})
-    # The pre-existing file is left intact.
     assert file_as_base.read_text(encoding="utf-8") == "i am a file"
 
 

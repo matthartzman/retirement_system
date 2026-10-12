@@ -15,7 +15,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from src import local_store
-from src.local_backup_scheduler import orphaned_backups, prune_backups, run_backup, save_policy
+from src.local_backup_scheduler import list_backups, orphaned_backups, prune_backups, run_backup, save_policy
 
 
 def _count_results(db: Path) -> int:
@@ -73,6 +73,16 @@ def _make_db(path: Path) -> None:
     con.close()
 
 
+def _drop_first_manifest(base: Path, bdir: Path) -> str:
+    """Delete the oldest backup's manifest row from app.db (WP8.3: manifests are not files); return its copy name."""
+    from src.app_state import app_store_path_for, open_app_store
+
+    with open_app_store(app_store_path_for(base)) as store:
+        name = store.backup_manifests(str(bdir))[0]["filename"]
+        store.delete_backup_manifest(str(bdir), name)
+    return name
+
+
 def test_backup_without_manifest_is_detected_as_orphan(tmp_path: Path) -> None:
     db = tmp_path / "local_state" / "retirement_system_v10.db"
     _make_db(db)
@@ -80,11 +90,10 @@ def test_backup_without_manifest_is_detected_as_orphan(tmp_path: Path) -> None:
     run_backup(tmp_path, db, trigger="build", force=True)
 
     bdir = tmp_path / "saved_plans" / "auto_backups"
-    manifest = next(bdir.glob("*.manifest.json"))
-    manifest.unlink()
+    name = _drop_first_manifest(tmp_path, bdir)
 
     orphans = orphaned_backups(tmp_path)
-    assert [p.name for p in orphans] == [manifest.name.replace(".manifest.json", "")]
+    assert [p.name for p in orphans] == [name]
 
 
 def test_prune_removes_orphaned_backup_copies(tmp_path: Path) -> None:
@@ -94,7 +103,7 @@ def test_prune_removes_orphaned_backup_copies(tmp_path: Path) -> None:
     run_backup(tmp_path, db, trigger="build", force=True)
 
     bdir = tmp_path / "saved_plans" / "auto_backups"
-    next(bdir.glob("*.manifest.json")).unlink()
+    _drop_first_manifest(tmp_path, bdir)
     assert list(bdir.glob("*.rpx"))
 
     prune_backups(tmp_path, policy)
@@ -112,4 +121,5 @@ def test_retention_still_holds_across_repeated_backups(tmp_path: Path) -> None:
 
     bdir = tmp_path / "saved_plans" / "auto_backups"
     assert len(list(bdir.glob("*.rpx"))) == 3
-    assert len(list(bdir.glob("*.manifest.json"))) == 3
+    assert not list(bdir.glob("*.manifest.json"))
+    assert len(list_backups(tmp_path)) == 3

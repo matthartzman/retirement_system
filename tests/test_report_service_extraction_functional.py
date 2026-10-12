@@ -22,7 +22,7 @@ def test_report_service_history_contract_round_trips(tmp_path):
     payload, status = report_service.read_history_payload(tmp_path)
     assert status == 200
     assert payload == [{"run": 1}]
-    assert json.loads((tmp_path / "run_history.json").read_text(encoding="utf-8")) == [{"run": 1}]
+    assert not (tmp_path / "run_history.json").exists()  # WP8.3: the history lives in app.db
 
 
 def test_report_service_local_output_file_security(tmp_path):
