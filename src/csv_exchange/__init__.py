@@ -38,6 +38,14 @@ from .flat_csv import (
     read_dataset_csv_file,
     replace_dataset_from_csv_text,
 )
+from .text_csv import (
+    dict_reader,
+    dict_reader_stream,
+    list_rows,
+    list_rows_stream,
+    rows_to_text,
+    write_rows_stream,
+)
 from .plan_set import export_plan_set, import_plan_set, split_plan_rows
 from .plan_csv import (
     ANCHOR_FILE,
@@ -57,6 +65,12 @@ from .plan_csv import (
 )
 
 __all__ = [
+    "dict_reader",
+    "dict_reader_stream",
+    "list_rows",
+    "list_rows_stream",
+    "rows_to_text",
+    "write_rows_stream",
     "DATASETS",
     "DatasetSpec",
     "Diff",

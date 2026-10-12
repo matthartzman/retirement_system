@@ -4,7 +4,6 @@ from __future__ import annotations
 The packaged server is for single-machine desktop use: it uses the local SQLite plan store as source of truth, materializes import/export adapters as needed, and writes generated files to output/, and does not expose public-hosting, client-registry, or browser-login modes.
 """
 
-import csv
 import html as html_lib
 import hashlib
 import hmac
@@ -20,6 +19,11 @@ import urllib.error
 import urllib.request
 from contextlib import contextmanager
 from pathlib import Path
+
+try:
+    from ..csv_exchange import text_csv as _tcsv
+except ImportError:  # direct file loading fallback
+    from src.csv_exchange import text_csv as _tcsv  # type: ignore
 
 try:
     from ..http_runtime.wsgi_facade import (
@@ -236,13 +240,13 @@ def _request_system_config_csv() -> Path:
     rows = []
     if source.exists():
         with source.open(newline="", encoding="utf-8-sig") as f:
-            rows = list(csv.reader(f))
+            rows = _tcsv.list_rows_stream(f)
     if not rows:
         rows = [["section", "subsection", "label", "value", "units", "notes"]]
 
     target.parent.mkdir(parents=True, exist_ok=True)
     with target.open("w", newline="", encoding="utf-8") as f:
-        csv.writer(f, lineterminator="\n").writerows(rows)
+        _tcsv.write_rows_stream(f, rows)
     if source_fingerprint is not None:
         _REQUEST_SYSTEM_CONFIG_CSV_CACHE[str(target)] = source_fingerprint
     else:
@@ -334,7 +338,7 @@ def _make_request_system_config_csv_for(workspace: str, client: str, out_dir: Pa
     rows: list[list[str]] = []
     if source.exists():
         with source.open(newline="", encoding="utf-8-sig") as f:
-            rows = list(csv.reader(f))
+            rows = _tcsv.list_rows_stream(f)
     if not rows:
         rows = [["section", "subsection", "label", "value", "units", "notes"]]
 
@@ -342,7 +346,7 @@ def _make_request_system_config_csv_for(workspace: str, client: str, out_dir: Pa
     client = "local"
     target.parent.mkdir(parents=True, exist_ok=True)
     with target.open("w", newline="", encoding="utf-8") as f:
-        csv.writer(f, lineterminator="\n").writerows(rows)
+        _tcsv.write_rows_stream(f, rows)
     return target
 
 def _normalize_plan_data_file_name(file_name: str) -> str:
@@ -371,12 +375,12 @@ def _read_csv_rows_file(path: Path) -> list[list[str]]:
     if not path.exists():
         return []
     with path.open(newline="", encoding="utf-8-sig") as f:
-        return list(csv.reader(f))
+        return _tcsv.list_rows_stream(f)
 
 
 def _write_csv_rows_file(path: Path, rows: list[list[str]]) -> None:
     with atomic_write(path) as f:
-        csv.writer(f, lineterminator="\n").writerows(rows)
+        _tcsv.write_rows_stream(f, rows)
 
 def _system_config_path() -> Path:
     return BASE_DIR / "system_config.csv"
@@ -405,27 +409,21 @@ def _set_system_config_values(updates: dict[tuple[str, str, str], str]) -> None:
 
 
 def _blank_holdings_csv(content: str) -> str:
-    rows = list(csv.reader(io.StringIO(content or "")))
+    rows = _tcsv.list_rows(content)
     header = rows[0] if rows else ["account", "symbol", "purchase_date", "shares", "purchase_price", "lot_type", "note"]
-    out = io.StringIO()
-    csv.writer(out, lineterminator="\n").writerow(header)
-    return out.getvalue()
+    return _tcsv.rows_to_text([header])
 
 
 def _blank_liabilities_csv(content: str) -> str:
-    rows = list(csv.reader(io.StringIO(content or "")))
+    rows = _tcsv.list_rows(content)
     header = rows[0] if rows else ["liability_id", "type", "label", "balance", "interest_rate", "monthly_payment", "start_year", "payoff_year", "notes"]
-    out = io.StringIO()
-    csv.writer(out, lineterminator="\n").writerow(header)
-    return out.getvalue()
+    return _tcsv.rows_to_text([header])
 
 
 def _blank_hsa_schedule_csv(content: str) -> str:
-    rows = list(csv.reader(io.StringIO(content or "")))
+    rows = _tcsv.list_rows(content)
     header = rows[0] if rows else ["year", "optimizer_amount", "override_amount", "locked", "note"]
-    out = io.StringIO()
-    csv.writer(out, lineterminator="\n").writerow(header)
-    return out.getvalue()
+    return _tcsv.rows_to_text([header])
 
 
 def _make_blank_plan_files() -> dict[str, str]:
@@ -1049,7 +1047,7 @@ def _holdings_dataset_rows(holdings_dir: Path | None = None) -> list[dict[str, s
     ``input`` folder ``holdings_dir``)."""
     text = (_plan_datasets.active_dataset_text("holdings") if holdings_dir is None
             else _plan_datasets.dataset_text_for_input_dir(holdings_dir, "holdings"))
-    return list(csv.DictReader(io.StringIO(text))) if text else []
+    return list(_tcsv.dict_reader(text)) if text else []
 
 
 def _pre_tax_account_options_from_holdings() -> list[str]:

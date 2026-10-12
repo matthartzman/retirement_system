@@ -13,6 +13,7 @@ ROUTE_MODULES = {
         "/api/plan", "/api/plan/forms/<path:section_path>", "/api/plan/backups", "/api/plan/backups/config", "/api/plan/backups/run",
         "/api/plan/monarch-autoupdate", "/api/plan/monarch-autoupdate/config", "/api/plan/monarch-autoupdate/run",
         "/api/plan/demo-status", "/api/plan/open-demo", "/api/plan/reset-demo", "/api/plan/restore-current", "/api/plan/exit-snapshot",
+        "/api/import/preview", "/api/import/commit", "/api/export/plan-set", "/api/export/<dataset>",
         "/api/plan-data/blank", "/api/plan-data/files", "/api/plan-data/<path:file_name>",
     ],
     "plan_config": ["/api/config/backends", "/api/config/rows", "/api/allocation-preview", "/api/plan/tier", "/api/plan/feature", "/api/plan/interview"],
