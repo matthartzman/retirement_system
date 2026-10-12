@@ -135,7 +135,7 @@ monotonicity, both engines, plus a CSV-schema wiring test).
 Closes the "Not done" item below: added `Estate Planning / Legacy /
 legacy_floor` (dollars, default 0) to `reference_data/schema.csv`, a
 matching data row (`$0`, inert) to `input/demo/client_insurance_estate.csv`
-and `tests/fixtures/sample_plan_frozen/client_insurance_estate.csv`, and
+and `tests/fixtures/csv_exchange/sample_plan_frozen/client_insurance_estate.csv`, and
 one line in `parse_client()` (`src/data_io.py`) reading it into
 `c['legacy_floor']`. No `frontend/js/dashboard.js` changes: the file was
 one line under its size-ratchet ceiling (`tests/test_frontend_size_ratchet.py`),

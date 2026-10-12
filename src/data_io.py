@@ -292,7 +292,7 @@ def _mc_engine_mode_from_plan_data(data):
     The DEFAULT when the plan does not state one (row absent, or the value is
     blank/whitespace) is the vectorized batched engine. That matches what every
     shipped plan already sets explicitly (``input/demo/client_policy.csv`` and
-    ``tests/fixtures/sample_plan_frozen/client_policy.csv`` both say
+    ``tests/fixtures/csv_exchange/sample_plan_frozen/client_policy.csv`` both say
     ``quick_vectorized``), what ``planning_engines.monte_carlo()``'s own in-code
     fallback assumes (``vectorized_batched``), and what the test suite
     exercises. The exact-scalar path stays fully supported as an explicit

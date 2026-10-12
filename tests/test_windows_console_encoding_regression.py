@@ -91,7 +91,7 @@ def test_client_policy_note_that_originally_triggered_this_is_still_present():
     csv_path = fixture_dir() / "client_policy.csv"
     text = csv_path.read_text(encoding="utf-8-sig")
     assert MU in text, (
-        "tests/fixtures/sample_plan_frozen/client_policy.csv no longer contains "
+        "tests/fixtures/csv_exchange/sample_plan_frozen/client_policy.csv no longer contains "
         "a μ character -- this suite's premise (a real shipped file crashes the "
         "default Windows console encoding) needs a new concrete example, not "
         "just removal."

@@ -52,7 +52,7 @@ possible explanations, and picking the wrong one first is what produced the
                     measure shows a nonzero delta
                                 |
         was the frozen fixture itself deliberately changed?
-           (tests/fixtures/sample_plan_frozen/*.csv, or
+           (tests/fixtures/csv_exchange/sample_plan_frozen/*.csv, or
             FROZEN_TODAY, or the frozen holdings prices)
                      /                              \
                    yes                                no
@@ -80,7 +80,7 @@ possible explanations, and picking the wrong one first is what produced the
                                                                     an engine change.
 ```
 
-**Leaf A — intentional evolution.** You changed `tests/fixtures/sample_plan_frozen/`
+**Leaf A — intentional evolution.** You changed `tests/fixtures/csv_exchange/sample_plan_frozen/`
 on purpose (new scenario, corrected input), or a deliberate engine/tax-law
 constant changed and you can name it. Go straight to Section 3.
 

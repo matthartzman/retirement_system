@@ -1,6 +1,6 @@
 """Single entry point for tests that need a plan (WP0.2; plan file since WP4.1).
 
-A plan is laid down as the fixture's CSV folder (``tests/fixtures/sample_plan_frozen/`` or
+A plan is laid down as the fixture's CSV folder (``tests/fixtures/csv_exchange/sample_plan_frozen/`` or
 ``input/demo/``) copied into a workspace **and** a plan file (``plan.db``, the ``.rpx``)
 built from those CSVs by the ``csv_exchange`` importer. Later file-elimination phases
 change how a plan is laid down and read; they should change only the internals of this
@@ -38,7 +38,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = {
-    "sample_frozen": ROOT / "tests" / "fixtures" / "sample_plan_frozen",
+    "sample_frozen": ROOT / "tests" / "fixtures" / "csv_exchange" / "sample_plan_frozen",
     "demo": ROOT / "input" / "demo",
 }
 DEFAULT_FIXTURE = "sample_frozen"
