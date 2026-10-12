@@ -9,7 +9,6 @@ folder: the live workspace's input folder means the active plan, any other means
 ``plan.rpx`` beside it.
 """
 
-import csv
 import hashlib
 import io
 import json
@@ -23,6 +22,7 @@ from pathlib import Path
 
 from . import platform_runtime as _platform_runtime
 from . import plan_dates as _plan_dates
+from .csv_exchange import text_csv as _tcsv
 from .plan_datasets import (
     append_dataset_row_for_input_dir,
     dataset_rows_for_input_dir,
@@ -377,12 +377,11 @@ def normalize_account_setup(raw: dict[str, Any]) -> dict[str, str]:
 
 
 def csv_template() -> str:
-    out = io.StringIO()
-    writer = csv.writer(out, lineterminator="\n")
-    writer.writerow(TRANSACTION_COLUMNS)
-    writer.writerow(["2026-01-15", "Sample Grocery", "Groceries", "Checking", "Bank CSV", "", "-125.43", "", "Household"])
-    writer.writerow(["2026-01-31", "Sample Refund", "Groceries", "Checking", "Bank CSV", "", "25.00", "", "Household"])
-    return out.getvalue()
+    return _tcsv.rows_to_text([
+        TRANSACTION_COLUMNS,
+        ["2026-01-15", "Sample Grocery", "Groceries", "Checking", "Bank CSV", "", "-125.43", "", "Household"],
+        ["2026-01-31", "Sample Refund", "Groceries", "Checking", "Bank CSV", "", "25.00", "", "Household"],
+    ])
 
 
 def load_transactions_from_csv_text(text: str) -> tuple[list[dict[str, str]], list[str]]:
@@ -395,8 +394,7 @@ def load_transactions_from_csv_text(text: str) -> tuple[list[dict[str, str]], li
     # this path receives raw text (not a file we control the open() call for).
     if text.startswith("﻿"):
         text = text[1:]
-    f = io.StringIO(text)
-    reader = csv.DictReader(f)
+    reader = _tcsv.dict_reader(text)
     if not reader.fieldnames:
         return [], ["CSV is empty or missing a header row."]
     actual = [str(x or "").strip() for x in reader.fieldnames]
@@ -1151,7 +1149,7 @@ def investment_holding_accounts(root: str | Path) -> list[str]:
     accounts: set[str] = set()
     if text:
         try:
-            for row in csv.DictReader(io.StringIO(text)):
+            for row in _tcsv.dict_reader(text):
                 acct = str(row.get("account") or row.get("Account") or "").strip()
                 if acct:
                     accounts.add(acct)
@@ -1203,7 +1201,7 @@ def investment_holding_account_values(root: str | Path) -> dict[str, float]:
         return values
     local_prices = _local_price_snapshot(root)
     try:
-        for row in csv.DictReader(io.StringIO(text)):
+        for row in _tcsv.dict_reader(text):
             acct = str(row.get("account") or row.get("Account") or "").strip()
             if not acct:
                 continue

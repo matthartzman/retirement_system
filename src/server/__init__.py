@@ -7,6 +7,7 @@ from .app_core import app, BASE_DIR, _bootstrap_workspace, _runtime_config
 from . import base_routes as _base_routes
 from . import workbook_routes as _workbook_routes
 from . import plan_routes as _plan_routes
+from . import import_export_routes as _import_export_routes
 from . import admin_routes as _admin_routes
 
 def create_app():

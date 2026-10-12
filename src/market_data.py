@@ -19,6 +19,7 @@ Uses FMP, Yahoo, Alpha Vantage, and Stooq; no deprecated pricing vendor endpoint
 
 import csv
 import json
+import logging
 import math
 import os
 import socket
@@ -202,7 +203,7 @@ def _parse_money_text(value: object) -> Optional[float]:
 
 @dataclass
 class MarketDataProvider:
-    cache_path: str | Path = "output/market_price_cache.json"
+    cache_path: str | Path = "output/market_price_cache.json"  # app.db price_cache scope; the file is only a one-time legacy import
     diagnostics_path: str | Path = "output/pricing_diagnostics.json"
     ttl_seconds: int = 24 * 60 * 60
     timeout_seconds: int = 8
@@ -210,7 +211,7 @@ class MarketDataProvider:
     fallback_prices: Dict[str, float] = field(default_factory=dict)
     frozen_prices: Dict[str, float] = field(default_factory=dict)
     frozen_metadata: Dict[str, object] = field(default_factory=dict)
-    # Holdings pricing behavior is configured from multi_user/system_config.csv, not environment variables.
+    # Holdings pricing behavior is configured from the runtime settings (app.db), not environment variables.
     # Valid modes:
     #   CACHE   = use a fresh cache first; fetch live only when cache is missing/stale
     #   LIVE    = fetch live first; fall back to cache/cost basis
@@ -248,6 +249,7 @@ class MarketDataProvider:
             self.max_retries = max(1, int(float(os.getenv("RETIREMENT_SYSTEM_PRICE_MAX_RETRIES", str(self.max_retries)))))
         except Exception:
             pass
+        self.secret_store_warning = ""
         self.refresh_api_keys()
         self.cache: Dict[str, Dict[str, object]] = self._load_cache()
         self.failures: List[Dict[str, object]] = []
@@ -285,10 +287,14 @@ class MarketDataProvider:
             except ImportError:
                 get_secret = None  # type: ignore
             if get_secret is not None:
-                if not self.fmp_api_key:
-                    self.fmp_api_key = _clean_secret(get_secret("fmp_api_key"))
-                if not self.alpha_vantage_api_key:
-                    self.alpha_vantage_api_key = _clean_secret(get_secret("alpha_vantage_api_key"))
+                try:
+                    if not self.fmp_api_key:
+                        self.fmp_api_key = _clean_secret(get_secret("fmp_api_key"))
+                    if not self.alpha_vantage_api_key:
+                        self.alpha_vantage_api_key = _clean_secret(get_secret("alpha_vantage_api_key"))
+                except Exception as exc:  # SecretStoreUnavailable: treat as "no key", but say so
+                    self.secret_store_warning = f"Stored API keys unavailable: {exc}"
+                    logging.getLogger(__name__).warning(self.secret_store_warning)
 
     def api_key_sources(self) -> Dict[str, object]:
         def _source(kind: str) -> str:
@@ -305,12 +311,15 @@ class MarketDataProvider:
             if _clean_secret(os.environ.get("ALPHA_VANTAGE_API_KEY")):
                 return "ALPHA_VANTAGE_API_KEY"
             return "configured/secret-store" if self.alpha_vantage_api_key else "not configured"
-        return {
+        out: Dict[str, object] = {
             "fmp": _source("fmp"),
             "alpha_vantage": _source("alpha"),
             "fmp_fingerprint": _secret_fingerprint(self.fmp_api_key),
             "alpha_vantage_fingerprint": _secret_fingerprint(self.alpha_vantage_api_key),
         }
+        if self.secret_store_warning:
+            out["secret_store_warning"] = self.secret_store_warning
+        return out
 
     def configure_transport(self, timeout_seconds: object | None = None, max_retries: object | None = None) -> None:
         if timeout_seconds is not None:
@@ -325,9 +334,9 @@ class MarketDataProvider:
                 pass
 
     def configure_api_keys(self, fmp_api_key: object = "", alpha_vantage_api_key: object = "") -> None:
-        """Apply API keys from multi_user/system_config.csv.
+        """Apply API keys from the runtime settings (``Market Pricing|API|...``).
 
-        CSV location:
+        Setting keys:
           Market Pricing,API,fmp_api_key,<key>
           Market Pricing,API,alpha_vantage_api_key,<key>
         """
@@ -343,7 +352,7 @@ class MarketDataProvider:
             self.reset_runtime_state(clear_failures=True, clear_provider_failures=True)
 
     def configure_holdings_pricing(self, mode: str = "CACHE", cache_hours: object = 24) -> None:
-        """Apply holdings-pricing settings from multi_user/system_config.csv.
+        """Apply holdings-pricing settings from the runtime settings (app.db).
 
         mode values:
           CACHE   - use cached price first even when stale; call live providers only when no cache exists
@@ -387,24 +396,36 @@ class MarketDataProvider:
         # provider-wide failures from leaking across user actions.
         self.reset_runtime_state(clear_failures=True, clear_provider_failures=True)
 
+    def _cache_scope(self) -> str:
+        """Identity of this cache in ``app.db.price_cache`` (the old cache file's resolved path)."""
+        return str(self.cache_path)
+
     def _load_cache(self) -> Dict[str, Dict[str, object]]:
         try:
-            if self.cache_path.exists():
-                raw = json.loads(self.cache_path.read_text(encoding="utf-8"))
-                return raw if isinstance(raw, dict) else {}
+            from .app_state import open_app_store
+
+            with open_app_store() as store:
+                cache = store.price_cache(self._cache_scope())
+                if not cache and self.cache_path.exists():
+                    # One-time import of an older install's market_price_cache.json.
+                    raw = json.loads(self.cache_path.read_text(encoding="utf-8"))
+                    cache = raw if isinstance(raw, dict) else {}
+                    if cache:
+                        store.replace_price_cache(self._cache_scope(), cache)
+                return cache
         except Exception:
             pass
         return {}
 
     def _save_cache(self) -> None:
         # Concurrent quote() calls (see quotes()) can each trigger a save;
-        # serialize the actual file write so parallel fetches can't race on
-        # the same cache file (Windows in particular errors on concurrent
-        # writes to one path).
+        # serialize the write so parallel fetches can't race on the same rows.
         with self._cache_write_lock:
             try:
-                self.cache_path.parent.mkdir(parents=True, exist_ok=True)
-                self.cache_path.write_text(json.dumps(self.cache, indent=2, sort_keys=True), encoding="utf-8")
+                from .app_state import open_app_store
+
+                with open_app_store() as store:
+                    store.replace_price_cache(self._cache_scope(), self.cache)
             except Exception:
                 pass
 
@@ -1534,7 +1555,7 @@ class MarketDataProvider:
             "cache_first_enabled": self.cache_first,
             "cache_ttl_hours": round(self.ttl_seconds / 3600, 2),
             "csv_settings": {
-                "file": "multi_user/system_config.csv",
+                "file": "app.db settings (System Configuration)",
                 "section": "Market Pricing",
                 "subsection": "Holdings",
                 "pricing_mode": "CACHE | LIVE | OFFLINE",
@@ -1550,7 +1571,7 @@ class MarketDataProvider:
             "stooq_configured": True,
             "fmp_api_key_fingerprint": _secret_fingerprint(self.fmp_api_key),
             "alpha_vantage_api_key_fingerprint": _secret_fingerprint(self.alpha_vantage_api_key),
-            "api_key_source": "UI/system_config.csv, environment variables, or encrypted secret store",
+            "api_key_source": "System Configuration UI, environment variables, or encrypted secret store",
             "effective_api_key_sources": self.api_key_sources(),
             "proxy_environment_present": any(os.environ.get(k) for k in ("HTTPS_PROXY", "HTTP_PROXY", "ALL_PROXY", "REQUESTS_CA_BUNDLE", "SSL_CERT_FILE")),
             "proxy_environment_keys": [k for k in ("HTTPS_PROXY", "HTTP_PROXY", "ALL_PROXY", "NO_PROXY", "REQUESTS_CA_BUNDLE", "SSL_CERT_FILE") if os.environ.get(k)],
@@ -1558,11 +1579,11 @@ class MarketDataProvider:
             "nasdaq_asset_classes": ["etf", "stocks"],
             "stooq_symbol_rule": "append .us only for Stooq calls; other providers receive original symbols",
             "api_key_csv_settings": {
-                "file": "multi_user/system_config.csv",
+                "file": "app.db settings (System Configuration)",
                 "section": "Market Pricing",
                 "subsection": "API",
-                "fmp_api_key": "Financial Modeling Prep key from UI/system_config.csv, RETIREMENT_SYSTEM_FMP_API_KEY, FMP_API_KEY, FINANCIAL_MODELING_PREP_API_KEY, or encrypted secret store",
-                "alpha_vantage_api_key": "Alpha Vantage key from UI/system_config.csv, RETIREMENT_SYSTEM_ALPHA_VANTAGE_API_KEY, ALPHA_VANTAGE_API_KEY, or encrypted secret store",
+                "fmp_api_key": "Financial Modeling Prep key from the System Configuration UI, RETIREMENT_SYSTEM_FMP_API_KEY, FMP_API_KEY, FINANCIAL_MODELING_PREP_API_KEY, or encrypted secret store",
+                "alpha_vantage_api_key": "Alpha Vantage key from the System Configuration UI, RETIREMENT_SYSTEM_ALPHA_VANTAGE_API_KEY, ALPHA_VANTAGE_API_KEY, or encrypted secret store",
             },
             "cache_schema_version": CACHE_SCHEMA_VERSION,
             "cache_path": str(self.cache_path),

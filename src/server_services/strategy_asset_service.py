@@ -507,7 +507,6 @@ def _no_plan_read() -> AbstractContextManager[Any]:
 @dataclass(frozen=True)
 class StrategyAssetServiceContext:
     base_dir: Path
-    reference_file_path: PathFn
     normalize_large_discretionary_type: Callable[[str], str]
     pre_tax_account_options_from_holdings: Callable[[], list[str]]
     audit: AuditFn | None = None

@@ -81,14 +81,14 @@ def test_overrides_round_trip_and_sanitize(tmp_path):
             "Multi": {"a": 20, "B": 15.5, "zz": -3, "bad!": 9, "C": "not a number"},
             "": {"A": 5},  # empty sheet name dropped
         },
-        input_dir=tmp_path,
+        db_path=tmp_path / "app.db",
     )
     assert saved == {"Multi": {"A": 20.0, "B": 15.5}}
-    assert wf.load_overrides(input_dir=tmp_path) == {"Multi": {"A": 20.0, "B": 15.5}}
+    assert wf.load_overrides(db_path=tmp_path / "app.db") == {"Multi": {"A": 20.0, "B": 15.5}}
 
 
 def test_overrides_clamped(tmp_path):
-    saved = wf.save_overrides({"S": {"A": 9999, "B": 0.01}}, input_dir=tmp_path)
+    saved = wf.save_overrides({"S": {"A": 9999, "B": 0.01}}, db_path=tmp_path / "app.db")
     assert saved["S"]["A"] == wf.MAX_WIDTH
     assert saved["S"]["B"] == wf.MIN_WIDTH
 
@@ -99,31 +99,31 @@ def test_merge_overrides_does_not_wipe_other_sheets(tmp_path):
     given, so patching one sheet through it would silently delete every other
     sheet's saved widths -- the "changes keep reverting" bug. merge_overrides()
     must instead layer the patch on top of whatever was already persisted."""
-    wf.save_overrides({"Sheet A": {"A": 20.0}, "Sheet B": {"C": 30.0}}, input_dir=tmp_path)
-    merged = wf.merge_overrides({"Sheet A": {"B": 15.0}}, input_dir=tmp_path)
+    wf.save_overrides({"Sheet A": {"A": 20.0}, "Sheet B": {"C": 30.0}}, db_path=tmp_path / "app.db")
+    merged = wf.merge_overrides({"Sheet A": {"B": 15.0}}, db_path=tmp_path / "app.db")
     assert merged == {"Sheet A": {"A": 20.0, "B": 15.0}, "Sheet B": {"C": 30.0}}
-    assert wf.load_overrides(input_dir=tmp_path) == merged
+    assert wf.load_overrides(db_path=tmp_path / "app.db") == merged
 
 
 def test_merge_overrides_deletes_only_the_named_column(tmp_path):
-    wf.save_overrides({"Sheet A": {"A": 20.0, "B": 15.0}}, input_dir=tmp_path)
-    merged = wf.merge_overrides({"Sheet A": {"B": 0}}, input_dir=tmp_path)
+    wf.save_overrides({"Sheet A": {"A": 20.0, "B": 15.0}}, db_path=tmp_path / "app.db")
+    merged = wf.merge_overrides({"Sheet A": {"B": 0}}, db_path=tmp_path / "app.db")
     assert merged == {"Sheet A": {"A": 20.0}}
     # Deleting the sheet's last remaining column drops the empty sheet entry.
-    merged = wf.merge_overrides({"Sheet A": {"A": -1}}, input_dir=tmp_path)
+    merged = wf.merge_overrides({"Sheet A": {"A": -1}}, db_path=tmp_path / "app.db")
     assert merged == {}
 
 
 def test_merge_alignments_does_not_wipe_other_sheets(tmp_path):
-    wf.save_alignments({"Sheet A": {"A": "left"}, "Sheet B": {"C": "right"}}, input_dir=tmp_path)
-    merged = wf.merge_alignments({"Sheet A": {"B": "center"}}, input_dir=tmp_path)
+    wf.save_alignments({"Sheet A": {"A": "left"}, "Sheet B": {"C": "right"}}, db_path=tmp_path / "app.db")
+    merged = wf.merge_alignments({"Sheet A": {"B": "center"}}, db_path=tmp_path / "app.db")
     assert merged == {"Sheet A": {"A": "left", "B": "center"}, "Sheet B": {"C": "right"}}
-    assert wf.load_alignments(input_dir=tmp_path) == merged
+    assert wf.load_alignments(db_path=tmp_path / "app.db") == merged
 
 
 def test_merge_alignments_deletes_only_the_named_column(tmp_path):
-    wf.save_alignments({"Sheet A": {"A": "left", "B": "center"}}, input_dir=tmp_path)
-    merged = wf.merge_alignments({"Sheet A": {"B": ""}}, input_dir=tmp_path)
+    wf.save_alignments({"Sheet A": {"A": "left", "B": "center"}}, db_path=tmp_path / "app.db")
+    merged = wf.merge_alignments({"Sheet A": {"B": ""}}, db_path=tmp_path / "app.db")
     assert merged == {"Sheet A": {"A": "left"}}
 
 
@@ -142,10 +142,10 @@ def test_route_uses_merge_not_replace():
 
 def test_apply_overrides_sets_widths(tmp_path):
     path = _make_workbook(tmp_path)
-    wf.save_overrides({"Multi": {"A": 42.0}}, input_dir=tmp_path)
+    wf.save_overrides({"Multi": {"A": 42.0}}, db_path=tmp_path / "app.db")
     wb = openpyxl.load_workbook(path)
     assert wb["Multi"].column_dimensions["A"].width == 10
-    wf.apply_overrides(wb, input_dir=tmp_path)
+    wf.apply_overrides(wb, db_path=tmp_path / "app.db")
     assert wb["Multi"].column_dimensions["A"].width == 42.0
 
 
@@ -194,20 +194,20 @@ def test_alignments_round_trip_and_sanitize(tmp_path):
             "Multi": {"a": "L", "B": "Center", "C": "right", "bad!": "left", "D": "diagonal"},
             "": {"A": "left"},  # empty sheet name dropped
         },
-        input_dir=tmp_path,
+        db_path=tmp_path / "app.db",
     )
     assert saved == {"Multi": {"A": "left", "B": "center", "C": "right"}}
-    assert wf.load_alignments(input_dir=tmp_path) == {"Multi": {"A": "left", "B": "center", "C": "right"}}
+    assert wf.load_alignments(db_path=tmp_path / "app.db") == {"Multi": {"A": "left", "B": "center", "C": "right"}}
 
 
 def test_apply_alignments_sets_horizontal_on_data_rows_only(tmp_path):
     path = _make_workbook(tmp_path)
-    wf.save_alignments({"Multi": {"A": "right"}}, input_dir=tmp_path)
+    wf.save_alignments({"Multi": {"A": "right"}}, db_path=tmp_path / "app.db")
     wb = openpyxl.load_workbook(path)
     ws = wb["Multi"]
     ws["A3"] = 5  # a data row below the header band
     header_align_before = ws["A2"].alignment.horizontal
-    wf.apply_alignments(wb, input_dir=tmp_path)
+    wf.apply_alignments(wb, db_path=tmp_path / "app.db")
     assert ws["A3"].alignment.horizontal == "right"
     # Header band is left untouched.
     assert ws["A2"].alignment.horizontal == header_align_before
@@ -262,7 +262,7 @@ def test_get_workbook_format_route_flags_overrides_saved_after_last_build(monkey
     intervening rebuild, so the "Automatic"/"Last built" width shown on the
     page is really just whatever happened to be baked into the last .xlsx --
     stale relative to the override the user just saved, with nothing on the
-    page saying so. overrides_stale compares the overrides file's mtime
+    page saying so. overrides_stale compares the overrides' saved time
     against the built workbook's mtime and must flip true the moment an
     override is saved after that build, and back to false once a fresh build
     (a newer workbook file) supersedes it."""
@@ -274,8 +274,7 @@ def test_get_workbook_format_route_flags_overrides_saved_after_last_build(monkey
     output = tmp_path / "output"
     wb_path = _seed_built_workbook(output)
     monkeypatch.setattr(workbook_routes, "_workspace_output", lambda: output)
-    monkeypatch.setattr(wf, "overrides_path", lambda input_dir=None: tmp_path / "workbook_format_overrides.json")
-    monkeypatch.setattr(wf, "alignments_path", lambda input_dir=None: tmp_path / "workbook_format_alignments.json")
+    monkeypatch.setenv("RETIREMENT_SYSTEM_APP_DB", str(tmp_path / "app.db"))  # WP8.3: overrides live in app.db
 
     client = app.test_client()
     headers = {"X-User-Role": "admin"}

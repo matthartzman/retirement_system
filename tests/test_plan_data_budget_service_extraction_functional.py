@@ -1,26 +1,20 @@
 from pathlib import Path
 
 
-def test_plan_data_file_service_exists_and_is_runtime_independent():
-    service = Path("src/server_services/plan_data_file_service.py").read_text(encoding="utf-8")
-    assert "class PlanDataFileService" in service
-    assert "PlanDataFileServiceContext" in service
-    assert "def files_payload" in service
+def test_blank_plan_service_exists_and_is_runtime_independent():
+    service = Path("src/server_services/blank_plan_service.py").read_text(encoding="utf-8")
+    assert "class BlankPlanService" in service
+    assert "BlankPlanServiceContext" in service
     assert "def start_blank_payload" in service
-    assert "def get_file_payload" in service
-    assert "def save_file_payload" in service
     # HTTP-runtime-independence itself is asserted once, for every service
     # module, by the AST-based check in test_service_extraction_functional.py.
 
 
-def test_workbook_routes_delegate_plan_data_files_budget_lines_and_liabilities():
+def test_workbook_routes_delegate_blank_plan_budget_lines_and_liabilities():
     routes = Path("src/server/workbook_routes.py").read_text(encoding="utf-8")
-    assert "def _plan_data_file_feature_service()" in routes
-    assert "PlanDataFileServiceContext" in routes
-    assert ".files_payload()" in routes
+    assert "def _blank_plan_feature_service()" in routes
+    assert "BlankPlanServiceContext" in routes
     assert ".start_blank_payload(ytd_blend_enabled=ytd_blend_enabled)" in routes
-    assert ".get_file_payload(file_name)" in routes
-    assert ".save_file_payload(file_name" in routes
     assert "holdings_service.read_liabilities(" in routes
     assert "holdings_service.save_liabilities(" in routes
     assert ".budget_lines_payload()" in routes
@@ -69,7 +63,7 @@ def test_spending_service_owns_budget_line_contracts(tmp_path):
 
 
 def _blank_service(tmp_path, events, written, blank_calls, blank_rows=lambda **kw: 3):
-    from src.server_services.plan_data_file_service import PlanDataFileService, PlanDataFileServiceContext
+    from src.server_services.blank_plan_service import BlankPlanService, BlankPlanServiceContext
 
     db = tmp_path / "retirement_system_v10.db"
     db.write_bytes(b"sqlite placeholder")
@@ -86,22 +80,19 @@ def _blank_service(tmp_path, events, written, blank_calls, blank_rows=lambda **k
         blank_calls.append(kwargs)
         return blank_rows(**kwargs)
 
-    return PlanDataFileService(PlanDataFileServiceContext(
-        plan_data_files=["client_holdings.csv"],
+    return BlankPlanService(BlankPlanServiceContext(
         sqlite_db=lambda: db,
         plan_db=lambda: plan,
-        normalize_plan_data_file_name=lambda name: name,
         read_plan_data_file=lambda name: "account,symbol\n" if name == "client_holdings.csv" else None,
         write_plan_data_file=write,
         make_blank_plan_files=lambda: {"client_holdings.csv": "account,symbol\n"},
         blank_plan_rows=blank_plan_rows,
-        protected_client_data_status=lambda: {"member_1_retirement_date_present": False},
         ensure_user_ui_plan_data_rows=lambda: None,
         audit=lambda event, details=None: events.append((event, details or {})),
     ))
 
 
-def test_plan_data_file_service_blank_backup_and_write_callbacks(tmp_path):
+def test_blank_plan_service_blank_backup_and_write_callbacks(tmp_path):
     events, written, blank_calls = [], {}, []
     service = _blank_service(tmp_path, events, written, blank_calls)
 
@@ -114,26 +105,6 @@ def test_plan_data_file_service_blank_backup_and_write_callbacks(tmp_path):
     assert any(event == "blank_plan_backup" for event, _ in events)
     assert any(event == "blank_plan_plan_file_backup" for event, _ in events)
     assert list(tmp_path.glob("plan.rpx.before_blank_*")) and list(tmp_path.glob("retirement_system_v10.db.before_blank_*"))
-
-    payload, status = service.save_file_payload("client_holdings.csv", "new")
-    assert status == 200
-    assert written["client_holdings.csv"] == "new"
-
-
-def test_a_retired_plan_part_file_answers_410_from_both_routes_of_the_service(tmp_path):
-    from src.plan_data_registry import RetiredPlanDataFile
-    from src.server_services.plan_data_file_service import PlanDataFileService, PlanDataFileServiceContext
-
-    def normalize(name):
-        raise RetiredPlanDataFile("The plan data is stored in the plan file")
-
-    service = PlanDataFileService(PlanDataFileServiceContext(
-        plan_data_files=[], sqlite_db=lambda: tmp_path / "x.db", plan_db=lambda: tmp_path / "p.rpx",
-        normalize_plan_data_file_name=normalize, read_plan_data_file=lambda n: None, write_plan_data_file=lambda n, c: tmp_path,
-        make_blank_plan_files=lambda: {}, blank_plan_rows=lambda **kw: 0, protected_client_data_status=lambda: {},
-        ensure_user_ui_plan_data_rows=lambda: None))
-    assert service.get_file_payload("client_household.csv")[1] == 410
-    assert service.save_file_payload("client_household.csv", "x")[1] == 410
 
 
 def test_start_blank_payload_passes_the_ytd_blend_choice_to_the_plan_rows(tmp_path):

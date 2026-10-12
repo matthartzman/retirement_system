@@ -77,27 +77,10 @@ def test_a_blank_plan_then_a_form_edit_round_trip(ws):
     assert resp.status_code == 200 and ws.store_data()["Household"][""]["member_1_name"] == "New Person"
 
 
-def test_plan_data_routes_refuse_the_retired_part_files(ws):
-    client = app.test_client()
-    for name in ("client_data.csv", "client_household.csv", "client_data.json", "client_policy.yaml", "asset_class_optimizer_controls.csv"):
-        resp = client.get(f"/api/plan-data/{name}", headers=HEADERS)
-        assert resp.status_code == 410 and "plan file" in resp.get_json()["error"], name
-        resp = client.post(f"/api/plan-data/{name}", headers=HEADERS, json={"csv_content": "x"})
-        assert resp.status_code == 410, name
-    assert client.get("/api/plan-data/not_a_file.csv", headers=HEADERS).status_code == 400
-    listing = client.get("/api/plan-data/files", headers=HEADERS).get_json()
-    assert listing["success"] is True
-    assert {f["name"] for f in listing["files"]} == {
-        "client_holdings.csv", "client_liabilities.csv", "client_hsa_schedule.csv", "target_allocation.csv",
-        "client_spending_taxonomy.csv", "client_spending_aliases.csv", "client_spending_budget.csv",
-        "client_spending_budget_lines.csv", "client_spending_rules.csv", "spending_category_map.csv",
-        "spending_budget.csv", "ytd_transactions.csv", "ytd_account_setup.csv", "ytd_import_history.csv"}
-    assert listing["protected_client_data"]["member_1_retirement_date_present"] is True
-
 
 def test_the_removed_routes_are_gone(ws):
     client = app.test_client()
     assert client.get("/api/csv", headers=HEADERS).status_code == 404
     assert client.post("/api/csv", headers=HEADERS, json={"csv_content": "x"}).status_code == 404
     assert client.post("/api/config/sync", headers=HEADERS, json={}).status_code == 404
-    assert client.get("/api/admin/csv-file/plan/client_household.csv", headers=HEADERS).status_code == 400
+    assert client.get("/api/admin/csv-file/plan/client_household.csv", headers=HEADERS).status_code == 404

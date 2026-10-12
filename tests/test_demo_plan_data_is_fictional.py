@@ -120,15 +120,14 @@ BANNED_REAL_NAMES = ["redmane", "hensley", "cubs tickets", "gifts - family 12"]
 
 
 def _demo_applied_files() -> list[str]:
-    """Exactly the files Open Demo Plan applies -- see plan_routes._demo_plan_feature_service:
-    the plan CSV set (read once by the importer into the demo plan file, WP4.5) and the flat
-    files written through the plan-data write path."""
+    """Exactly the files the demo plan is seeded from (``build_plan_file_from_csv_folder``, read
+    once into ``demo.rpx``): the plan CSV set, the flat datasets and the recovery seed."""
     from src.csv_exchange import PLAN_CSV_FILES
-    from src.server.plan_data_files import PLAN_DATA_CSV_FILES, YTD_PLAN_DATA_FILES
+    from src.plan_data_registry import FLAT_PLAN_DATA_CSV_FILES, YTD_PLAN_DATA_FILES
     from src.csv_exchange import RECOVERY_SEED_FILE
 
     # The recovery seed is read once with the plan CSV set into the demo plan file (a plan revision).
-    return [*PLAN_CSV_FILES, *PLAN_DATA_CSV_FILES, *YTD_PLAN_DATA_FILES, RECOVERY_SEED_FILE]
+    return [*PLAN_CSV_FILES, *FLAT_PLAN_DATA_CSV_FILES, *YTD_PLAN_DATA_FILES, RECOVERY_SEED_FILE]
 
 
 def test_demo_carries_no_real_vendor_or_personal_category_names():
@@ -149,7 +148,7 @@ def test_every_demo_fixture_is_actually_applied_by_open_demo_plan():
     dead = sorted(p.name for p in DEMO.glob("*.csv") if p.name not in applied)
     assert not dead, (
         f"input/demo/ ships fixture(s) Open Demo Plan never applies: {dead}. Add them to "
-        "PLAN_DATA_CSV_FILES (or import it with the demo plan file), or delete them -- a "
+        "FLAT_PLAN_DATA_CSV_FILES (or import it with the demo plan file), or delete them -- a "
         "fixture nobody applies gives false confidence that the demo covers that file."
     )
 
@@ -323,14 +322,11 @@ def test_demo_disables_ytd_blend():
     )
 
 
-def test_demo_slot_is_not_the_fixture_directory():
-    """The persistent demo slot (local_state/demo_plan/, see
-    demo_plan_service.DEMO_SLOT_DIR) must never resolve to input/demo/. Every
-    test above reads DEMO directly and assumes it is the pristine, checked-in
-    seed -- if the slot and the fixture directory ever collapsed into one, a
-    captured demo edit could silently start satisfying (or breaking) these
-    checks instead of the shipped fixtures they exist to guard."""
-    from src.server_services.demo_plan_service import DEMO_SLOT_DIR
+def test_demo_plan_file_is_not_in_the_fixture_directory():
+    """The demo plan file (``demo.rpx``, WP8.4) must never live in input/demo/. Every test above
+    reads DEMO directly and assumes it is the pristine, checked-in seed: the demo's edits go to
+    its plan file, never into the fixtures these checks guard."""
+    from src import plan_registry
 
-    assert DEMO_SLOT_DIR != "demo"
-    assert (ROOT / "local_state" / DEMO_SLOT_DIR).resolve() != DEMO.resolve()
+    assert plan_registry.demo_plan_file().parent.resolve() != DEMO.resolve()
+    assert plan_registry.DEMO_FILE_NAME.endswith(".rpx")

@@ -841,7 +841,7 @@ const SYSTEM_CONFIG_FIELD_HELP = {
   system_config_console: pageHelp(
     "System configuration console",
     "Opens the separate administrator console for pricing providers, build timeout, tax constants, reference files, and diagnostics — settings that apply across every plan, not just the current household.",
-    "This console edits application-level configuration (system_config.csv), which is distinct from household plan fields edited on guided pages.",
+    "This console edits application-level settings (stored per install), which is distinct from household plan fields edited on guided pages.",
     "Open this only for diagnostics, reference-table maintenance, or recovery. Use guided pages for ordinary plan edits.",
     "Changes made in the console can affect pricing, tax calculations, IRMAA thresholds, and build behavior for every plan — change one setting at a time and rebuild to confirm the effect.",
   ),
