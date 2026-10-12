@@ -20,8 +20,10 @@ Numbers must not move by accident (10.3 verifies), so on top of the design's saf
 
 * an engine-participating feature whose data cannot be counted (no declared data location) is
   treated as holding data: if on, it stays on;
-* an engine-participating feature that is off is never switched on by the preset (turning it on
-  would change the projection); it stays off (customized).
+* an engine-participating feature or a plan flag (HELOC, hybrid LTC, DAF, QCD: each flag gates
+  engine behaviour, though the catalog does not mark it ``engine_participation``) that is off is
+  never switched on by the preset (turning it on could change the projection); it stays off
+  (customized).
 
 ``map_tier(features)`` is pure (inputs are :class:`FeatureState` values); ``run(store)`` reads
 the states from the plan, applies the result through ``module_catalog`` (``PLAN_TIER_ROW`` and
@@ -98,8 +100,9 @@ def map_tier(features: Mapping[str, FeatureState]) -> TierMapping:
             elif s.entered_rows > 0:
                 out.kept_on[key] = f"engine feature with {s.entered_rows} entered rows"
                 final = True
-        if not s.on and want and s.engine:
-            out.kept_off[key] = "engine feature is off; turning it on would change the projection"
+        if not s.on and want and (s.engine or s.plan_flag):
+            kind = "plan flag" if s.plan_flag else "engine feature"
+            out.kept_off[key] = f"{kind} is off; turning it on would change the projection"
             final = False
         out.switches[key] = final
         if final and not s.on:

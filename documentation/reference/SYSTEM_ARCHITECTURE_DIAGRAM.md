@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 238 Python files under `src/`, 50 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 244 Python files under `src/`, 50 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -24,7 +24,7 @@ flowchart TB
     subgraph L_HTTP_Runtime["HTTP Runtime (3 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
-    subgraph L_Core_Engine___Domain["Core Engine & Domain (156 modules)"]
+    subgraph L_Core_Engine___Domain["Core Engine & Domain (162 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
     subgraph L_Projection_Stages["Projection Stages (23 modules)"]
@@ -535,14 +535,20 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/hsa_schedule.py` | `after_tax`, `planning_engines`, `taxes` | — |
 | `src/import_preview.py` | `csv_exchange`, `plan_datasets`, `stores.ref_getters.security_master`, `ytd_tracking` | — |
 | `src/large_discretionary.py` | — | — |
-| `src/legacy_conversion/__init__.py` | — | — |
-| `src/legacy_conversion/runner.py` | `legacy_conversion.steps`, `stores` | — |
+| `src/legacy_conversion/__init__.py` | `legacy_conversion.workspace` | — |
+| `src/legacy_conversion/runner.py` | `app_state`, `csv_exchange`, `legacy_conversion`, `legacy_conversion.steps`, `plan_db_replace`, `stores` | — |
+| `src/legacy_conversion/sources.py` | `csv_exchange`, `legacy_conversion.steps.c3b_plan_overrides`, `legacy_conversion.steps.c4b_spending`, `platform_runtime` | — |
 | `src/legacy_conversion/steps/__init__.py` | — | — |
 | `src/legacy_conversion/steps/c3_plan_rows.py` | `csv_exchange`, `plan_data_migration`, `plan_label_rules` | — |
 | `src/legacy_conversion/steps/c3b_plan_overrides.py` | `csv_exchange`, `plan_overrides` | — |
 | `src/legacy_conversion/steps/c4a_datasets.py` | `csv_exchange` | — |
 | `src/legacy_conversion/steps/c4b_spending.py` | `csv_exchange` | — |
 | `src/legacy_conversion/steps/c4c_ytd.py` | `csv_exchange` | — |
+| `src/legacy_conversion/steps/c6a_settings.py` | `app_state`, `csv_exchange`, `engine_defaults`, `legacy_conversion.steps.c3_plan_rows`, `system_config` | — |
+| `src/legacy_conversion/steps/c6b_secrets.py` | `app_state` | — |
+| `src/legacy_conversion/steps/c6c_register.py` | `active_plan`, `app_state`, `legacy_conversion.sources`, `plan_db_replace`, `platform_runtime` | — |
+| `src/legacy_conversion/steps/t8_tier_mapping.py` | `server_services.plan_tier_service` | — |
+| `src/legacy_conversion/workspace.py` | `app_state`, `legacy_conversion`, `legacy_conversion.steps`, `stores` | — |
 | `src/local_backup_scheduler.py` | `app_state` | — |
 | `src/local_store.py` | `sqlite_util` | — |
 | `src/market_data.py` | `app_state`, `platform_runtime`, `secrets_store`, `version` | `requests` |
