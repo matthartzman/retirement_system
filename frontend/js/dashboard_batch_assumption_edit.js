@@ -386,7 +386,7 @@
         systemPreview.length +
           " System Configuration edit" +
           (systemPreview.length === 1 ? "" : "s") +
-          " will be written to system_config.csv immediately.",
+          " will be saved to the system configuration immediately.",
         {
           title: "Apply System Config",
           confirmLabel: "Apply Now",

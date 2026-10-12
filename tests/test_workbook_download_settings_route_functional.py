@@ -16,7 +16,7 @@ def test_xlsx_download_sends_a_real_filename_via_content_disposition(monkeypatch
     output = tmp_path / "output"
     _write_bytes(output / "retirement_plan.xlsx")
     monkeypatch.setattr(workbook_routes, "_workspace_output", lambda: output)
-    monkeypatch.setenv("RETIREMENT_SYSTEM_SYSTEM_CONFIG_CSV", str(tmp_path / "system_config.csv"))
+    monkeypatch.setenv("RETIREMENT_SYSTEM_APP_DB", str(tmp_path / "app.db"))
 
     client = app.test_client()
     response = client.get("/api/xlsx", headers=HEADERS)
@@ -29,7 +29,7 @@ def test_xlsx_download_sends_a_real_filename_via_content_disposition(monkeypatch
 
 
 def test_workbook_download_settings_get_returns_defaults(monkeypatch, tmp_path):
-    monkeypatch.setenv("RETIREMENT_SYSTEM_SYSTEM_CONFIG_CSV", str(tmp_path / "system_config.csv"))
+    monkeypatch.setenv("RETIREMENT_SYSTEM_APP_DB", str(tmp_path / "app.db"))
     client = app.test_client()
     response = client.get("/api/settings/workbook-download", headers=HEADERS)
     assert response.status_code == 200
@@ -39,7 +39,7 @@ def test_workbook_download_settings_get_returns_defaults(monkeypatch, tmp_path):
 
 
 def test_workbook_download_settings_post_persists_and_affects_the_download_name(monkeypatch, tmp_path):
-    monkeypatch.setenv("RETIREMENT_SYSTEM_SYSTEM_CONFIG_CSV", str(tmp_path / "system_config.csv"))
+    monkeypatch.setenv("RETIREMENT_SYSTEM_APP_DB", str(tmp_path / "app.db"))
     output = tmp_path / "output"
     _write_bytes(output / "retirement_plan.xlsx")
     monkeypatch.setattr(workbook_routes, "_workspace_output", lambda: output)
@@ -65,7 +65,7 @@ def test_workbook_download_settings_post_persists_and_affects_the_download_name(
 
 
 def test_workbook_download_settings_post_rejects_blank_filename_root(monkeypatch, tmp_path):
-    monkeypatch.setenv("RETIREMENT_SYSTEM_SYSTEM_CONFIG_CSV", str(tmp_path / "system_config.csv"))
+    monkeypatch.setenv("RETIREMENT_SYSTEM_APP_DB", str(tmp_path / "app.db"))
     client = app.test_client()
     response = client.post("/api/settings/workbook-download", json={"filename_root": "   "}, headers=HEADERS)
     assert response.status_code == 400

@@ -25,7 +25,9 @@ def test_active_plan_path_is_the_workspace_plan_file_or_the_env_override(workspa
     monkeypatch.setenv(active_plan.PLAN_DB_ENV, "rel/plan.rpx")
     assert active_plan.active_plan_path() == tmp_path / "rel" / "plan.rpx"
     env = active_plan.plan_db_env({})
-    assert env == {active_plan.PLAN_DB_ENV: str(tmp_path / "rel" / "plan.rpx")}
+    # WP8.4: the build is also told the registry id naming its output folder (an unregistered
+    # override falls back to the file's own id: here its stem)
+    assert env == {active_plan.PLAN_DB_ENV: str(tmp_path / "rel" / "plan.rpx"), active_plan.PLAN_ID_ENV: "plan"}
 
 
 # ---------------------------------------------------------------------- the read path
@@ -43,10 +45,11 @@ def test_load_active_config_reads_the_plan_file_not_the_csvs(workspace):
 
 def test_load_active_config_view_equals_the_csv_loader_for_the_fixture(workspace):
     from src.config_backend import _merge_system_config_sections, load_active_config
-    from src.system_config import discover_system_config_csv, load_system_config
+    from src.engine_defaults import with_engine_defaults
+    from src.system_config import load_system_config
 
     data, _ = load_active_config()
-    expected = _merge_system_config_sections(workspace.data(), load_system_config(discover_system_config_csv()))
+    expected = with_engine_defaults(_merge_system_config_sections(workspace.data(), load_system_config()))
     assert data == expected and list(data) == list(expected)
 
 

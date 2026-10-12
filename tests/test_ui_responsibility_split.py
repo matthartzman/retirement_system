@@ -50,7 +50,7 @@ def test_user_ui_has_client_specific_advanced_pages_and_output_focused_help():
 
 
 def test_release_surfaces_are_v11():
-    paths = ['frontend/index.html','frontend/admin.html','system_config.csv','src/version.py']
+    paths = ['frontend/index.html','frontend/admin.html','src/version.py']
     for rel in paths:
         text = (ROOT/rel).read_text(encoding='utf-8', errors='ignore')
         assert ('v8.'+'2') not in text

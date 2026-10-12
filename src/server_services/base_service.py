@@ -58,34 +58,44 @@ def logout_payload() -> dict[str, bool]:
     return {"success": True, "logged_out": True}
 
 
-def read_prefs(base_dir: Path) -> dict[str, Any]:
-    prefs_file = base_dir / "data" / "prefs.json"
+PREFS_SETTING = "preferences"
+
+
+def _legacy_prefs(base_dir: Path) -> dict[str, Any]:
+    """``data/prefs.json`` of an older install, read once when app.db holds no preferences yet."""
     try:
-        if prefs_file.exists():
-            payload = json.loads(prefs_file.read_text("utf-8"))
-            if isinstance(payload, dict):
-                return {"success": True, "prefs": payload}
+        payload = json.loads((base_dir / "data" / "prefs.json").read_text("utf-8"))
+        return payload if isinstance(payload, dict) else {}
     except Exception:
-        pass
-    return {"success": True, "prefs": {}}
+        return {}
+
+
+def _stored_prefs(store: Any, base_dir: Path) -> dict[str, Any]:
+    stored = store.get_setting(PREFS_SETTING)
+    return stored if isinstance(stored, dict) else _legacy_prefs(base_dir)
+
+
+def read_prefs(base_dir: Path) -> dict[str, Any]:
+    try:
+        from ..app_state import app_store_path_for, open_app_store
+
+        path = app_store_path_for(base_dir)
+        if not path.exists():
+            return {"success": True, "prefs": _legacy_prefs(base_dir)}
+        with open_app_store(path, readonly=True) as store:
+            return {"success": True, "prefs": _stored_prefs(store, base_dir)}
+    except Exception:
+        return {"success": True, "prefs": {}}
 
 
 def save_prefs(base_dir: Path, updates: Any) -> tuple[dict[str, Any], int]:
     if not isinstance(updates, dict):
         return {"success": False, "error": "JSON object required"}, 400
-    prefs_file = base_dir / "data" / "prefs.json"
     try:
-        prefs_file.parent.mkdir(parents=True, exist_ok=True)
-        existing: dict[str, Any] = {}
-        if prefs_file.exists():
-            try:
-                loaded = json.loads(prefs_file.read_text("utf-8"))
-                if isinstance(loaded, dict):
-                    existing = loaded
-            except Exception:
-                existing = {}
-        existing.update(updates)
-        prefs_file.write_text(json.dumps(existing, indent=2), "utf-8")
+        from ..app_state import app_store_path_for, open_app_store
+
+        with open_app_store(app_store_path_for(base_dir)) as store, store.transaction():
+            store.set_setting(PREFS_SETTING, {**_stored_prefs(store, base_dir), **updates})
         return {"success": True}, 200
     except Exception as exc:
         return {"success": False, "error": str(exc)}, 500
@@ -127,7 +137,7 @@ def status_payload(*, version: str, cfg: Any, base_dir: Path, output_dir: Path, 
             # this same payload (secrets_store.encryption_status()'s
             # "encrypted": False) -- the store is plaintext JSON, not
             # encrypted at rest.
-            "encrypted_api_keys": False,
+            "encrypted_api_keys": bool((encryption or {}).get("encrypted", False)),
             "user_permissions": False,
             "build_queue": False,
             "web_dashboard": True,

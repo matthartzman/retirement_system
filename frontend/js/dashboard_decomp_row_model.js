@@ -4914,6 +4914,8 @@ export async function loadAll(opts = {}) {
   } finally {
     hideBuildOverlay();
   }
+  // WP8.4: header plan switcher shows the active plan.
+  if (typeof window.refreshPlanSwitcher === "function") window.refreshPlanSwitcher();
 }
 
 export function updates() {

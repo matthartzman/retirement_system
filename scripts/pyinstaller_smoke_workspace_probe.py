@@ -13,17 +13,18 @@ import json
 import sys
 
 from src.platform_runtime import is_frozen, package_root, seed_frozen_workspace, workspace_root
-from src.secrets_store import get_secret, secrets_path, set_secret
+from src.secrets_store import encryption_status, legacy_secrets_path
 
 seeded = seed_frozen_workspace()
-set_secret("smoke_probe_key", "smoke-value")
-if get_secret("smoke_probe_key") != "smoke-value":
-    raise SystemExit("secret did not round-trip")
+# Secrets live in the OS credential store now (never a file). CI runners may have no credential
+# service, so only the status call is exercised (it must not raise and must not create a file).
+status = encryption_status()
 
 print("SMOKE_WORKSPACE_OK " + json.dumps({
     "frozen": is_frozen() and bool(getattr(sys, "frozen", False)),
     "workspace_root": str(workspace_root()),
     "package_root": str(package_root()),
-    "secrets_path": str(secrets_path()),
+    "legacy_secrets_path": str(legacy_secrets_path()),
+    "secret_store_active": bool(status.get("store_active")),
     "seeded": bool(seeded),
 }))

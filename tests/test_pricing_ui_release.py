@@ -42,11 +42,9 @@ class PricingUiReleaseTests(unittest.TestCase):
         self.assertIn('Cost basis is now a last-resort estimate only when there is no cached quote', user)
 
     def test_visible_release_surfaces_are_current(self):
-        for rel in ['frontend/index.html','frontend/admin.html','system_config.csv','src/version.py']:
+        for rel in ['frontend/index.html','frontend/admin.html','src/version.py']:
             text = (ROOT/rel).read_text(encoding='utf-8', errors='ignore')
             self.assertNotIn('Retirement System v8.1', text)
-            if rel.endswith('system_config.csv'):
-                self.assertIn(f'system_version,{VERSION}', text)
         out = __import__('subprocess').run([__import__('sys').executable, 'tools/check_version_surfaces.py'], cwd=ROOT, text=True, capture_output=True)
         self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
 

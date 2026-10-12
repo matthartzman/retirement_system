@@ -22,7 +22,7 @@ def test_report_service_history_contract_round_trips(tmp_path):
     payload, status = report_service.read_history_payload(tmp_path)
     assert status == 200
     assert payload == [{"run": 1}]
-    assert json.loads((tmp_path / "run_history.json").read_text(encoding="utf-8")) == [{"run": 1}]
+    assert not (tmp_path / "run_history.json").exists()  # WP8.3: the history lives in app.db
 
 
 def test_report_service_local_output_file_security(tmp_path):
@@ -43,7 +43,7 @@ def test_workbook_download_filename_uses_default_root_and_timestamp(tmp_path):
     import datetime
     from src.server_services import report_service
 
-    config_path = tmp_path / "system_config.csv"  # does not exist -> defaults
+    config_path = tmp_path / "app.db"  # does not exist -> defaults
     name = report_service.workbook_download_filename(
         now=datetime.datetime(2026, 9, 10, 14, 32), config_path=config_path
     )
@@ -55,7 +55,7 @@ def test_workbook_download_filename_uses_configured_root(tmp_path):
     from src.system_config import upsert_system_setting
     from src.server_services import report_service
 
-    config_path = tmp_path / "system_config.csv"
+    config_path = tmp_path / "app.db"
     upsert_system_setting(config_path, "Downloads", "filename_root", "Smith Family Plan")
     name = report_service.workbook_download_filename(
         now=datetime.datetime(2026, 1, 2, 9, 5), config_path=config_path
@@ -66,7 +66,7 @@ def test_workbook_download_filename_uses_configured_root(tmp_path):
 def test_workbook_download_settings_round_trip(tmp_path):
     from src.server_services import report_service
 
-    config_path = tmp_path / "system_config.csv"
+    config_path = tmp_path / "app.db"
     payload = report_service.workbook_download_settings_payload(config_path)
     assert payload == {
         "success": True,
@@ -88,7 +88,7 @@ def test_workbook_download_settings_round_trip(tmp_path):
 def test_save_workbook_download_settings_rejects_blank_filename_root(tmp_path):
     from src.server_services import report_service
 
-    config_path = tmp_path / "system_config.csv"
+    config_path = tmp_path / "app.db"
     payload, status = report_service.save_workbook_download_settings({"filename_root": "   "}, config_path)
     assert status == 400
     assert payload["success"] is False

@@ -81,7 +81,7 @@ class Phase5WorkbookSnapshotTests(unittest.TestCase):
         tmp_root = Path(cls.tmp)
         # The reporting stack resolves its project root from source-file
         # location, not from the process cwd, so building "in-place" against
-        # ROOT would read/write the real input/, system_config.csv, and
+        # ROOT would read/write the real input/, app settings, and
         # output/ files. Copy the tree into a scratch dir and build there
         # instead; local_state/ and output/ are deliberately excluded so the
         # build bootstraps a fresh SQLite mirror rather than touching the

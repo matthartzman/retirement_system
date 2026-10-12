@@ -1,9 +1,6 @@
 try:
-    from ..plan_data_registry import PLAN_TABLE_DATASET_FILES
     from .app_core import (
         BASE_DIR,
-        PLAN_DATA_CSV_FILES,
-        YTD_PLAN_DATA_FILES,
         Path,
         TRAVEL_EXTRA_TYPES,
         WORKSPACE_ROOT,
@@ -21,14 +18,13 @@ try:
         _read_active_plan,
         _read_plan_data_file,
         _read_schema_map,
-        _request_system_config_csv,
+        _system_config_path,
         _require,
         _runtime_config,
         _spending_budget_save_result,
         _sqlite_db,
         _workspace_id,
         _workspace_output,
-        _write_plan_data_file,
         app,
         encryption_status,
         jsonify,
@@ -38,11 +34,8 @@ try:
         request,
     )
 except ImportError:
-    from src.plan_data_registry import PLAN_TABLE_DATASET_FILES
     from src.server.app_core import (
         BASE_DIR,
-        PLAN_DATA_CSV_FILES,
-        YTD_PLAN_DATA_FILES,
         Path,
         TRAVEL_EXTRA_TYPES,
         WORKSPACE_ROOT,
@@ -60,14 +53,13 @@ except ImportError:
         _read_active_plan,
         _read_plan_data_file,
         _read_schema_map,
-        _request_system_config_csv,
+        _system_config_path,
         _require,
         _runtime_config,
         _spending_budget_save_result,
         _sqlite_db,
         _workspace_id,
         _workspace_output,
-        _write_plan_data_file,
         app,
         encryption_status,
         jsonify,
@@ -77,6 +69,7 @@ except ImportError:
         request,
     )
 from ..active_plan import active_plan_path, peek_plan_data
+from .. import plan_registry
 from ..version import VERSION
 from ..server_services import base_service, config_service, demo_plan_service, plan_tier_service, pricing_service, ytd_service, plan_file_service, portfolio_service, secret_service, spending_service, strategy_asset_service
 from ..portfolio_analytics import freeze_latest_pricing_snapshot, unfreeze_pricing_snapshot
@@ -196,7 +189,7 @@ def refresh_prices():
     payload = pricing_service.refresh_prices(
         base_dir=BASE_DIR,
         output_dir=_workspace_output(),
-        system_config_csv=_request_system_config_csv(),
+        app_db=_system_config_path(),
         max_build_seconds=_runtime_config().max_build_seconds,
     )
     _audit("prices_refreshed", {"returncode": payload.get("returncode"), "payload": payload.get("result")})
@@ -352,7 +345,7 @@ def portfolio_drift():
     payload = portfolio_service.drift_payload(
         base_dir=BASE_DIR,
         output_dir=_workspace_output(),
-        system_config_csv=_request_system_config_csv(),
+        app_db=_system_config_path(),
         max_build_seconds=_runtime_config().max_build_seconds,
     )
     return jsonify({k: v for k, v in payload.items() if k != "returncode"})
@@ -1207,12 +1200,24 @@ def spending_budget_unified():
     return _spending_budget_save_result(lambda: _spending_feature_service().save_unified_budget_payload(body))
 
 # PlanFileService owns the plan file's copy/replace/backup semantics (wal_checkpoint, validated
-# atomic replace, before_load backups); WP4.5: Save As / Load / snapshot restore / the demo swap
-# operate on the plan file itself, with no CSV step.
+# atomic replace, before_load backups). WP8.4: Save As and Load Saved Plan are plan registry
+# operations over plan files (register, then activate); restoring a file INTO the active plan
+# and snapshot restore keep the validated replace.
 def _migrate_after_db_replace(plan_path):
     from ..plan_data_migration import migrate_plan_file
 
     return migrate_plan_file(plan_path)
+
+
+def _after_plan_switch(plan_path):
+    """Runs on the plan file that just became active: the at-rest row migration, then the UI-row
+    backfill (both on the active plan)."""
+    migration = _migrate_after_db_replace(plan_path)
+    try:
+        _ensure_user_ui_plan_data_rows()
+    except Exception as exc:  # noqa: BLE001 - a backfill problem never undoes the switch
+        _audit("plan_ui_row_warning", {"error": str(exc)})
+    return migration
 
 
 def _plan_file_feature_service() -> plan_file_service.PlanFileService:
@@ -1224,6 +1229,7 @@ def _plan_file_feature_service() -> plan_file_service.PlanFileService:
             retention_count=10,
             output_dir=_workspace_output,
             migrate=_migrate_after_db_replace,
+            after_switch=_after_plan_switch,
         )
     )
 
@@ -1239,7 +1245,7 @@ def plan_exit_snapshot():
 
 @app.route("/api/plan/save-as", methods=["POST"])
 def plan_save_as():
-    """Copy the current plan file to a user-chosen path (.rpx file)."""
+    """Copy the active plan file to a user-chosen path (.rpx), register it and make it active."""
     try:
         return jsonify(_plan_file_feature_service().save_as(request.get_json(silent=True) or {}))
     except Exception as exc:  # noqa: BLE001
@@ -1248,41 +1254,105 @@ def plan_save_as():
 
 @app.route("/api/plan/load-file", methods=["POST"])
 def plan_load_file():
-    """Replace the current plan file with a user-chosen .rpx plan file."""
+    """Open a user-chosen .rpx plan file as the active plan (``mode: "restore"`` replaces the
+    active plan file's contents with it instead, validated and backed up)."""
     try:
         return jsonify(_plan_file_feature_service().load_file(request.get_json(silent=True) or {}))
     except Exception as exc:  # noqa: BLE001
         return jsonify({"success": False, "error": str(exc)})
 
 
-# DemoPlanService owns Open Demo Plan / Open Current Plan swap semantics (#240): it swaps the
-# plan file (the demo household is built from input/demo through the csv_exchange importer, or
-# taken from the demo slot). Every flat dataset, the YTD tables included (WP6.4), is a table of the
-# plan file, so it is swapped to the demo fixture on open and back to the real plan on restore with
-# the plan file itself (#248).
-def _demo_plan_feature_service() -> demo_plan_service.DemoPlanService:
-    # The datasets in the plan file's tables travel with the plan file swap, not as files.
-    _FILE_BACKED_PLAN_DATA_FILES = [f for f in PLAN_DATA_CSV_FILES + YTD_PLAN_DATA_FILES if f not in PLAN_TABLE_DATASET_FILES]  # none left
+# ---------------------------------------------------------------- plan registry (WP8.4)
+def _plan_registry_result(fn):
+    try:
+        return jsonify({"success": True, **(fn() or {})})
+    except plan_registry.PlanRegistryError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"success": False, "error": str(exc)}), 500
 
+
+def _plans_payload():
+    plans = plan_registry.list_plans()
+    active = next((p for p in plans if p["active"]), None)
+    return {"plans": plans, "active": active, "demo_active": bool(active and active["kind"] == "demo")}
+
+
+@app.route("/api/plans", methods=["GET"])
+def plans_list():
+    """The registered plan files, the active one first-class (plan switcher)."""
+    denied = _require("read_config")
+    if denied:
+        return denied
+    return _plan_registry_result(_plans_payload)
+
+
+def _plan_id_from_body():
+    plan_id = str((request.get_json(silent=True) or {}).get("plan_id") or "").strip()
+    if not plan_id:
+        raise plan_registry.PlanRegistryError("plan_id is required")
+    return plan_id
+
+
+@app.route("/api/plans/switch", methods=["POST"])
+def plans_switch():
+    """Make a registered plan the active plan (no file is copied or replaced)."""
+    denied = _require("write_config")
+    if denied:
+        return denied
+
+    def run():
+        rec = plan_registry.activate(_plan_id_from_body())
+        _after_plan_switch(Path(rec["path"]))
+        _audit("plan_switched", {"plan_id": rec["plan_id"]})
+        return _plans_payload()
+
+    return _plan_registry_result(run)
+
+
+@app.route("/api/plans/rename", methods=["POST"])
+def plans_rename():
+    denied = _require("write_config")
+    if denied:
+        return denied
+
+    def run():
+        plan_registry.rename(_plan_id_from_body(), str((request.get_json(silent=True) or {}).get("name") or ""))
+        return _plans_payload()
+
+    return _plan_registry_result(run)
+
+
+@app.route("/api/plans/forget", methods=["POST"])
+def plans_forget():
+    """Remove a plan from the list (its file is left where it is)."""
+    denied = _require("write_config")
+    if denied:
+        return denied
+
+    def run():
+        plan_registry.forget(_plan_id_from_body())
+        return _plans_payload()
+
+    return _plan_registry_result(run)
+
+
+# DemoPlanService owns Open demo / Exit demo / Reset demo (#240, WP8.4): the demo is its own plan
+# file (demo.rpx, built from the input/demo seed once) beside the user's plan, one active at a
+# time through the plan registry. No plan file is swapped, copied over or restored.
+def _demo_plan_feature_service() -> demo_plan_service.DemoPlanService:
     return demo_plan_service.DemoPlanService(
         demo_plan_service.DemoPlanServiceContext(
-            sqlite_db=_sqlite_db,
-            plan_db=active_plan_path,
-            demo_dir=lambda: WORKSPACE_ROOT / "input" / "demo",
-            plan_data_csv_files=_FILE_BACKED_PLAN_DATA_FILES,
-            read_plan_data_file=_read_plan_data_file,
-            write_plan_data_file=_write_plan_data_file,
-            ensure_user_ui_plan_data_rows=_ensure_user_ui_plan_data_rows,
-            materialize=lambda: None,  # every flat dataset is a table of the plan file: nothing to restore as a file
+            demo_dir=lambda: platform_runtime.package_root() / "input" / "demo",  # the bundled seed
             audit=_audit,
-            migrate=_migrate_after_db_replace,
+            after_switch=_after_plan_switch,
         )
     )
 
 
 @app.route("/api/plan/demo-status", methods=["GET"])
 def plan_demo_status():
-    """Whether Open Demo Plan is currently active (a real-plan backup exists)."""
+    """Whether the demo plan is the active plan."""
     denied = _require("read_config")
     if denied:
         return denied
@@ -1294,7 +1364,7 @@ def plan_demo_status():
 
 @app.route("/api/plan/open-demo", methods=["POST"])
 def plan_open_demo():
-    """Swap in the fictional input/demo/*.csv household, backing up the real plan first."""
+    """Switch to the demo plan (demo.rpx, created from input/demo when missing)."""
     denied = _require("write_config")
     if denied:
         return denied
@@ -1306,24 +1376,21 @@ def plan_open_demo():
         return jsonify({"success": False, "error": str(exc)})
 
 
-@app.route("/api/plan/restore-current", methods=["POST"])
-def plan_restore_current():
-    """Restore the real plan backed up by Open Demo Plan, if one is active."""
+@app.route("/api/plan/exit-demo", methods=["POST"])
+def plan_exit_demo():
+    """Switch back from the demo to the plan that was active before it."""
     denied = _require("write_config")
     if denied:
         return denied
-    if not _runtime_config().allow_csv_write:
-        return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
     try:
-        return jsonify(_demo_plan_feature_service().restore_current_payload())
+        return jsonify(_demo_plan_feature_service().exit_demo_payload())
     except Exception as exc:  # noqa: BLE001
         return jsonify({"success": False, "error": str(exc)})
 
 
 @app.route("/api/plan/reset-demo", methods=["POST"])
 def plan_reset_demo():
-    """Delete the persistent demo slot so the next Open Demo Plan re-seeds
-    from the shipped input/demo/ fixtures. Refused while a demo is open."""
+    """Rebuild the demo plan file from the shipped input/demo seed."""
     denied = _require("write_config")
     if denied:
         return denied
