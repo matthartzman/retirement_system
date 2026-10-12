@@ -36,16 +36,8 @@ def client_data_csv_files(*, include_client_data: bool = True) -> list[str]:
     return [*head, *CLIENT_DATA_PART_FILES]
 
 
-# System/reference CSVs (not per-client plan data). Defined here -- rather than
-# in server/plan_data_files.py -- so that server_services/admin_service can
-# import it without pulling in the src.server package (importing a submodule
-# of a package always runs that package's __init__.py first, which registers
-# admin_routes, which reads admin_service back -- a
-# circular import if admin_service ever depended on src.server.*).
-
-
 # The flat datasets (not sectioned plan rows): every one is a table of the plan file since WP6
-# (``PLAN_TABLE_DATASET_FILES``); the names remain the keys of the plan-data file routes.
+# (``PLAN_TABLE_DATASET_FILES``).
 FLAT_PLAN_DATA_CSV_FILES: list[str] = [
     "client_holdings.csv",
     "client_liabilities.csv",
@@ -83,8 +75,3 @@ YTD_PLAN_DATA_FILES: list[str] = [
     "ytd_account_setup.csv",
     "ytd_import_history.csv",
 ]
-
-
-class RetiredPlanDataFile(ValueError):
-    """A request for one of the sectioned plan CSV files (or its JSON/YAML mirror): that data
-    is the plan file's rows now (WP4.5); CSV import and export return with WP9."""
