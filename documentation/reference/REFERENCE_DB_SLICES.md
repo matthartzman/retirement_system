@@ -24,9 +24,9 @@ Runtime access: `from src.stores.ref_access import reference` (shared handle, ha
 4. **Write the getter** and register it in `GOLDEN_GETTERS`.
 5. **Rebuild:** `python tools/build_reference_db.py`. Commit `src/reference/reference.db`.
 6. **Switch every consumer** listed for the slice in the design spec (P2 table) to the getter, in the same PR.
-7. **Delete the old path:** the loader, its file constants, fallbacks and the `CAPTURES` entry. Also update tools and docs that cite the old file (`grep -rn "<file>"`). Lower the audit ratchet: `python tests/test_no_data_file_io_report_regression.py --record`.
+7. **Delete the old path:** the loader, its file constants, fallbacks and the `CAPTURES` entry. Also update tools and docs that cite the old file (`grep -rn "<file>"`). The file-I/O audit is enforcing: no new allowlist entries for plan data.
 8. **Prove nothing moved:**
-   `python -m pytest tests/test_reference_golden_regression.py tests/test_reference_db_unit.py tests/test_no_data_file_io_report_regression.py -q`,
+   `python -m pytest tests/test_reference_golden_regression.py tests/test_reference_db_unit.py tests/test_no_data_file_io_enforcing_regression.py -q`,
    `python tools/build_reference_db.py --check`, `python tools/golden_compare.py compare`, the consumer's own tests, and `python tools/generate_system_diagram.py` (commit if it changed).
 
 ## Rules
