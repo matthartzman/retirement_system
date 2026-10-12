@@ -164,6 +164,8 @@
 .detail-group-toggle{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ytd-tx-pager{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin:8px 0 10px;padding:8px 10px;background:#fbfaf7;border:1px solid var(--line);border-radius:10px;font-size:12px;color:var(--muted)}
 .ytd-tx-pager span{font-weight:850;color:var(--ink)}
+.ytd-tx-totals{white-space:nowrap;font-weight:850;color:var(--ink)}
+@media(max-width:700px){.ytd-tx-totals{white-space:normal}}
 .ytd-tx-pager-buttons{display:flex;gap:6px;flex-wrap:wrap}
 .ytd-tx-pager .btn{padding:6px 9px}
 /* Results Explorer UX refinements: workbook-derived heading bands and no Excel chrome. */
