@@ -25,6 +25,8 @@ SCAN_DIRS = ("src",)
 # hide growth.
 ALLOWLIST: dict[str, str] = {
     "src/csv_exchange/": "the one sanctioned CSV import/export package (design F section 6, WP4.1+)",
+    "src/legacy_conversion/": "one-time legacy source reader (WP10); removable once conversion "
+    "retires, reads originals read-only and hashes them for the originals guard",
 }
 
 
