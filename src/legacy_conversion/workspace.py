@@ -169,6 +169,17 @@ def _unique(path: Path) -> Path:
     return out
 
 
+def _keep_staging(dest: Any, staging: Path, res: ConversionResult) -> None:
+    """The rehearsal's ``--out``: keep the converted (staging) plan, also when blocked."""
+    from ..plan_db_replace import copy_sqlite_file  # noqa: PLC0415
+    if not dest or not staging.is_file():
+        return
+    try:
+        copy_sqlite_file(staging, Path(dest))
+    except Exception:  # noqa: BLE001 - a rehearsal convenience; never masks the result
+        res.warnings.append("staging_copy_failed")
+
+
 def _persist(app_db: Path, res: ConversionResult) -> None:
     from ..app_state import open_app_store  # noqa: PLC0415
     try:
@@ -198,6 +209,7 @@ def _convert(ws: Path, dry_run: bool, extra: dict[str, Any]) -> ConversionResult
         if res.status not in ("done", "failed"):
             _block(res, "internal_error")
     finally:
+        _keep_staging(extra.get("_keep_staging"), workdir / Path(d["plan_file"]).name, res)
         shutil.rmtree(workdir, ignore_errors=True)
         if runner.snapshot_sources(guard) != before:
             res.sources_unchanged = False

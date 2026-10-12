@@ -123,6 +123,9 @@ class Check:
     summary: dict[str, int] = field(default_factory=dict)  # collapsed names -> count
     note: str = ""
     error_type: str = ""
+    # The exception message, for the rehearsal's --show-errors only: it can quote plan values, so
+    # it is never serialized (as_dict, summary) nor shown in repr.
+    message: str = field(default="", repr=False, compare=False)
 
     @property
     def failed(self) -> bool:
@@ -151,7 +154,8 @@ def compare(name: str, a: Any, b: Any, *, blocking: bool = True, note: str = "")
 
 
 def error_check(name: str, exc: BaseException, *, blocking: bool = True) -> Check:
-    return Check(name, ERROR, blocking, error_type=type(exc).__name__, note="the engine raised; message withheld")
+    return Check(name, ERROR, blocking, error_type=type(exc).__name__, note="the engine raised; message withheld",
+                 message=str(exc))
 
 
 # ----------------------------------------------------------------------------- the engine
@@ -499,7 +503,7 @@ class VerifyInput:
     mode: str = "normal"
     legacy_db: Path | None = None
     disagreeing_files: list[str] = field(default_factory=list)
-    skip_engine: bool = False     # rehearsal --skip-engine only; never set by the converter
+    skip_engine: bool = False     # rehearsal --skip-engine only (no projection runs); never set by the converter
 
 
 def _status(steps: Mapping[str, Mapping[str, Any]], sid: str) -> str:
@@ -539,16 +543,14 @@ def verify_conversion(inp: VerifyInput) -> list[Check]:
 
     t8 = steps.get("T8") or {}
     mapping = ((t8.get("detail") or {}).get("mapping")) if t8.get("status") == "converted" else None
-    if inp.skip_engine:
-        skipped = "engine runs skipped (rehearsal --skip-engine)"
-        checks += [Check(n, SKIPPED, note=skipped) for n in ("engine_config", "engine_output")]
+    with Engine(Path(inp.workdir) / "engine", inp.app_db) as engine:
+        checks += _engine_fidelity(engine, inp, reference, converted, converted_file)
         checks.append(dataset_check(inp.staged_dir, inp.staging_file, steps))
-        checks.append(Check("tier_mapping", SKIPPED if mapping else NOT_APPLICABLE, note=skipped))
-        checks.append(Check("old_build_kpis", SKIPPED, blocking=False, note=skipped))
-    else:
-        with Engine(Path(inp.workdir) / "engine", inp.app_db) as engine:
-            checks += _engine_fidelity(engine, inp, reference, converted, converted_file)
-            checks.append(dataset_check(inp.staged_dir, inp.staging_file, steps))
+        if inp.skip_engine:
+            skipped = "projection runs skipped (rehearsal --skip-engine)"
+            checks.append(Check("tier_mapping", SKIPPED if mapping else NOT_APPLICABLE, note=skipped))
+            checks.append(Check("old_build_kpis", SKIPPED, blocking=False, note=skipped))
+        else:
             checks.append(_tier_check(engine, inp, mapping, t8_tier_mapping.MARKER_KEY in markers))
             checks.append(_kpi(engine, inp))
     checks.append(from_paths("source_agreement", list(inp.disagreeing_files), len(inp.disagreeing_files),
@@ -570,6 +572,9 @@ def _engine_fidelity(engine: Engine, inp: VerifyInput, reference: dict[str, Any]
         out.append(compare("engine_config", cfg_ref, cfg_new, note=note))
     except Exception as exc:  # noqa: BLE001 - type only
         out.append(error_check("engine_config", exc))
+    if inp.skip_engine:
+        out.append(Check("engine_output", SKIPPED, note="projection runs skipped (rehearsal --skip-engine)"))
+        return out
     try:
         rows_new = engine.rows(converted_file, converted)
         rows_ref = rows_new if same else engine.rows(ref_file, reference)
