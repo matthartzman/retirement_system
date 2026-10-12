@@ -292,13 +292,19 @@ def _run(res: ConversionResult, ws: Path, d: dict[str, Any], extra: dict[str, An
         if _live_state(plan_file) != live_before:
             _block(res, "plan_changed_during_conversion")
             return
-        keep = _unique(plan_file.with_name(f"{plan_file.name}.pre_conversion_{stamp}")) if plan_file.is_file() else None
-        out = replace_active_db(swap_src, plan_file, backup_path=keep, required_tables=PLAN_FILE_TABLES,
-                                validate=validate_plan_file)
+        keep = None
+        if plan_file.is_file():
+            # The live plan's rollback copy, checked before the swap (same rows and datasets).
+            keep = _unique(plan_file.with_name(f"{plan_file.name}.pre_conversion_{stamp}"))
+            runner.backup_db(plan_file, keep)
+            if _live_state(keep) != live_before:
+                _block(res, "plan_backup_failed")
+                return
+            res.plan_backup = keep.name
+        out = replace_active_db(swap_src, plan_file, required_tables=PLAN_FILE_TABLES, validate=validate_plan_file)
         if not out.get("success"):
             _block(res, "swap_failed")
             return
-        res.plan_backup = keep.name if keep is not None and keep.is_file() else None
         res.plan_replaced = True
 
     # 6. install steps on the live plan, then 7. the done markers
