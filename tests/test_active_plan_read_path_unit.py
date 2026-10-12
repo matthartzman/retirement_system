@@ -25,7 +25,9 @@ def test_active_plan_path_is_the_workspace_plan_file_or_the_env_override(workspa
     monkeypatch.setenv(active_plan.PLAN_DB_ENV, "rel/plan.rpx")
     assert active_plan.active_plan_path() == tmp_path / "rel" / "plan.rpx"
     env = active_plan.plan_db_env({})
-    assert env == {active_plan.PLAN_DB_ENV: str(tmp_path / "rel" / "plan.rpx")}
+    # WP8.4: the build is also told the registry id naming its output folder (an unregistered
+    # override falls back to the file's own id: here its stem)
+    assert env == {active_plan.PLAN_DB_ENV: str(tmp_path / "rel" / "plan.rpx"), active_plan.PLAN_ID_ENV: "plan"}
 
 
 # ---------------------------------------------------------------------- the read path

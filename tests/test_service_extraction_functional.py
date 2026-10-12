@@ -117,8 +117,8 @@ SERVICE_ROUTE_PAIRS = [
     {
         "service": "src/server_services/demo_plan_service.py",
         "route": "src/server/plan_routes.py",
-        "service_defines": ["class DemoPlanService", "DemoPlanServiceContext", "def status_payload", "def open_demo_payload", "def restore_current_payload"],
-        "route_calls": ["def _demo_plan_feature_service()", "DemoPlanServiceContext", ".status_payload()", ".open_demo_payload()", ".restore_current_payload()"],
+        "service_defines": ["class DemoPlanService", "DemoPlanServiceContext", "def status_payload", "def open_demo_payload", "def exit_demo_payload"],
+        "route_calls": ["def _demo_plan_feature_service()", "DemoPlanServiceContext", ".status_payload()", ".open_demo_payload()", ".exit_demo_payload()"],
         "route_forbids": [],
     },
 ]

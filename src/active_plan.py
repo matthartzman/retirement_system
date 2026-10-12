@@ -1,12 +1,13 @@
 """The active plan file: where the engine, the build and the server read and edit plan rows.
 
-Design F sections 5A and 7. Until the plan registry is wired (WP8.4: ``app.db``
-``plan_registry`` / ``active_plan``), a workspace has exactly one plan and its file is
+Design F sections 5A and 7. The active plan is the one ``app.db`` names (WP8.4,
+``src/plan_registry.py``: ``plan_registry`` / ``active_plan``); on first use the workspace's
 ``<workspace>/plan.rpx`` (``PLAN_FILE_NAME``; the same place ``tests/plan_fixture.make_plan``
-builds it). ``RETIREMENT_SYSTEM_PLAN_DB`` (``PLAN_DB_ENV``) overrides the path; the server
-sets it for the build subprocess so the build reads the same file the server does, together
-with ``RETIREMENT_SYSTEM_PLAN_REVISION`` (``PLAN_REVISION_ENV``: the plan's revision when the
-build was requested). WP8.4 replaces the body of :func:`active_plan_path` with the registry lookup.
+builds it) is registered and activated. ``RETIREMENT_SYSTEM_PLAN_DB`` (``PLAN_DB_ENV``) overrides
+the path; the server sets it for the build subprocess so the build reads the same file the
+server does, together with ``RETIREMENT_SYSTEM_PLAN_REVISION`` (``PLAN_REVISION_ENV``: the plan's
+revision when the build was requested) and ``RETIREMENT_SYSTEM_PLAN_ID`` (``PLAN_ID_ENV``: the
+registry id that names the build's output folder).
 
 The build reads through :func:`build_read`: one read transaction on the plan file for the whole
 computation (WP7.1). While it is open, every reader below that targets that file (the rows, the
@@ -39,6 +40,7 @@ from .stores.plan_store import validate_plan_id  # noqa: F401
 
 PLAN_DB_ENV = "RETIREMENT_SYSTEM_PLAN_DB"
 PLAN_REVISION_ENV = "RETIREMENT_SYSTEM_PLAN_REVISION"
+PLAN_ID_ENV = "RETIREMENT_SYSTEM_PLAN_ID"
 PLAN_FILE_NAME = "plan.rpx"
 
 SectionedData = dict[str, dict[str, dict[str, str]]]
@@ -61,17 +63,27 @@ PROTECTED_PLAN_KEYS: frozenset[Key] = frozenset({
 
 
 def active_plan_path() -> Path:
-    """The active plan file: ``$RETIREMENT_SYSTEM_PLAN_DB`` or ``<workspace>/plan.rpx``.
+    """The active plan file: ``$RETIREMENT_SYSTEM_PLAN_DB``, else the registry's active plan
+    (``plan_registry.active_plan_file``; the workspace ``plan.rpx`` on first use).
 
     A relative override is taken against the workspace root. Resolved on every call
     (the workspace root can be redirected after import, e.g. by the test harness).
     """
+    override = plan_db_override()
+    if override is not None:
+        return override
+    from . import plan_registry  # noqa: PLC0415 - the registry reaches this module lazily too
+
+    return plan_registry.active_plan_file()
+
+
+def plan_db_override() -> Path | None:
+    """``$RETIREMENT_SYSTEM_PLAN_DB`` as a path (relative to the workspace root), or None."""
     raw = str(os.environ.get(PLAN_DB_ENV, "") or "").strip()
-    root = platform_runtime.workspace_root()
-    if raw:
-        p = Path(raw).expanduser()
-        return p if p.is_absolute() else root / p
-    return root / PLAN_FILE_NAME
+    if not raw:
+        return None
+    p = Path(raw).expanduser()
+    return p if p.is_absolute() else platform_runtime.workspace_root() / p
 
 
 def active_plan_store(*, readonly: bool = False) -> PlanStore:
@@ -400,6 +412,9 @@ def plan_db_env(env: dict[str, Any]) -> dict[str, Any]:
     ``PLAN_REVISION_ENV`` to its current revision (dropped when the file cannot be read yet)."""
     path = active_plan_path()
     env[PLAN_DB_ENV] = str(path)
+    from .workspace_context import active_plan_id  # noqa: PLC0415
+
+    env[PLAN_ID_ENV] = active_plan_id()  # the build writes to this plan's output folder
     revision = ""
     if path.is_file():
         try:
