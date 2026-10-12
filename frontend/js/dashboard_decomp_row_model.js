@@ -4832,8 +4832,6 @@ export async function loadAll(opts = {}) {
     } catch (_e) {
       demoModeActive = false;
     }
-    // WP8.4: the header plan switcher (dashboard_decomp_plan_switcher.js) shows the active plan.
-    if (typeof window.refreshPlanSwitcher === "function") window.refreshPlanSwitcher();
     const cfg = await api("/api/config/rows");
     rows = cfg.rows || [];
     moduleStatus = cfg.module_status || {};
@@ -4916,6 +4914,8 @@ export async function loadAll(opts = {}) {
   } finally {
     hideBuildOverlay();
   }
+  // WP8.4: header plan switcher shows the active plan.
+  if (typeof window.refreshPlanSwitcher === "function") window.refreshPlanSwitcher();
 }
 
 export function updates() {

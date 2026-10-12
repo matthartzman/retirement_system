@@ -177,10 +177,10 @@ def test_overridden_width_columns_resolves_via_sheet_renames(tmp_path):
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "3A. Executive Summary"
-    merge_overrides({"3. Executive Summary": {"C": 20.0}}, input_dir=tmp_path)
+    merge_overrides({"3. Executive Summary": {"C": 20.0}}, db_path=tmp_path / "app.db")
 
     protected = overridden_width_columns(
-        wb, input_dir=tmp_path, sheet_renames={"3. Executive Summary": "3A. Executive Summary"}
+        wb, db_path=tmp_path / "app.db", sheet_renames={"3. Executive Summary": "3A. Executive Summary"}
     )
 
     assert protected == {"3A. Executive Summary": {"C"}}
@@ -190,4 +190,4 @@ def test_overridden_width_columns_empty_when_no_overrides_saved(tmp_path):
     from src.reporting.workbook_format_config import overridden_width_columns
 
     wb = openpyxl.Workbook()
-    assert overridden_width_columns(wb, input_dir=tmp_path) == {}
+    assert overridden_width_columns(wb, db_path=tmp_path / "app.db") == {}
