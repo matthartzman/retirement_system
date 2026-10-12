@@ -23,7 +23,7 @@ Originally exercised via the live input/client_spending.csv Housing
 next_step_1 row, which at the time configured a real purchase scenario
 (Florida, $1,000,000 @ 80% down = an $800,000 down payment in 2038). That
 made this suite depend on whatever the advisor's real household happened to
-have configured -- the frozen fixture (tests/fixtures/sample_plan_frozen/)
+have configured -- the frozen fixture (tests/fixtures/csv_exchange/sample_plan_frozen/)
 never had an equivalent scenario, so these tests failed outright once the
 suite was migrated onto it. Added a fictional purchase scenario directly to
 the frozen fixture's Housing next_step_1 row (Texas, $400,000 @ 27% down =

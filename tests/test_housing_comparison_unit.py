@@ -9,7 +9,7 @@ coverage that still matters -- that a synthesized candidate is priced through
 ``estimate_housing_cost`` (H8's pure extraction) rather than reusing the
 household's parsed dollars, and that nothing mutates the caller's config.
 
-Uses the frozen sample plan fixture (tests/fixtures/sample_plan_frozen/,
+Uses the frozen sample plan fixture (tests/fixtures/csv_exchange/sample_plan_frozen/,
 TEST_INPUT_DIR), which -- per test_cashflow_chart_home_purchase_down_payment.py's
 own docstring -- has a real Housing Step 1 purchase configured (Texas,
 $400,000 @ 27% down, 2036) and no configured home sale year, so it exercises

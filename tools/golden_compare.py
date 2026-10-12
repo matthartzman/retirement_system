@@ -31,7 +31,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 BASELINE_DIR = ROOT / "tests" / "fixtures" / "golden_phase_baseline"
 PLAN_SOURCES = {
-    "sample_frozen": ROOT / "tests" / "fixtures" / "sample_plan_frozen",
+    "sample_frozen": ROOT / "tests" / "fixtures" / "csv_exchange" / "sample_plan_frozen",
     "demo": ROOT / "input" / "demo",
 }
 SNAPSHOT_FIXTURE = ROOT / "tests" / "fixtures" / "workbook_snapshot_expectations.json"
