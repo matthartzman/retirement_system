@@ -1282,7 +1282,7 @@ export async function startNewPlan() {
     /* YTD status unavailable — proceed with default blend-on behavior */
   }
   try {
-    await api("/api/plan-data/blank", {
+    await api("/api/plan/blank", {
       method: "POST",
       body: JSON.stringify(
         ytdBlendChoice === null ? {} : { ytd_blend_enabled: ytdBlendChoice },

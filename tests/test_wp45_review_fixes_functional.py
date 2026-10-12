@@ -75,7 +75,7 @@ def test_a_failed_or_empty_import_raises_and_the_next_launch_retries(monkeypatch
 # 3. Start New Plan is all or nothing -----------------------------------------------------------
 
 def _blank_service(tmp_path, blank_rows, files=None, write=None):
-    from src.server_services.plan_data_file_service import PlanDataFileService, PlanDataFileServiceContext
+    from src.server_services.blank_plan_service import BlankPlanService, BlankPlanServiceContext
     db = tmp_path / "legacy.db"
     db.write_bytes(b"x")
     plan = tmp_path / "plan.rpx"
@@ -87,12 +87,12 @@ def _blank_service(tmp_path, blank_rows, files=None, write=None):
         disk[name] = content
         return tmp_path / name
 
-    service = PlanDataFileService(PlanDataFileServiceContext(
-        plan_data_files=["client_holdings.csv"], sqlite_db=lambda: db, plan_db=lambda: plan,
-        normalize_plan_data_file_name=lambda n: n, read_plan_data_file=lambda n: disk.get(n),
+    service = BlankPlanService(BlankPlanServiceContext(
+        sqlite_db=lambda: db, plan_db=lambda: plan,
+        read_plan_data_file=lambda n: disk.get(n),
         write_plan_data_file=write or write_file,
         make_blank_plan_files=files or (lambda: {"client_holdings.csv": "blank\n"}),
-        blank_plan_rows=blank_rows, protected_client_data_status=lambda: {},
+        blank_plan_rows=blank_rows,
         ensure_user_ui_plan_data_rows=lambda: None,
         audit=lambda e, d=None: events.append(e)))
     return service, disk, events

@@ -26,7 +26,7 @@ def _client():
 
 def test_foreign_origin_post_is_rejected_even_without_a_token():
     resp = _client().post(
-        "/api/plan-data/client_data.csv",
+        "/api/plan/blank",
         data="a,b,c",
         content_type="text/plain",
         headers={"Host": "127.0.0.1:5050", "Origin": "http://evil.example"},
@@ -36,7 +36,7 @@ def test_foreign_origin_post_is_rejected_even_without_a_token():
 
 def test_same_origin_post_with_no_content_type_and_no_token_is_rejected():
     resp = _client().post(
-        "/api/plan-data/client_data.csv",
+        "/api/plan/blank",
         data="a,b,c",
         headers={"Host": "127.0.0.1:5050", "Origin": "http://127.0.0.1:5050"},
     )
@@ -47,7 +47,7 @@ def test_same_origin_post_with_a_valid_token_is_not_csrf_rejected():
     client = _client()
     token = _csrf_token_for_current_request()
     resp = client.post(
-        "/api/plan-data/does-not-exist.csv",
+        "/api/plan/blank",
         json={"csv_content": "x"},
         headers={
             "Host": "127.0.0.1:5050",
@@ -70,7 +70,7 @@ def test_request_with_no_origin_or_referer_still_succeeds_without_a_token():
 
 def test_bearer_credentialed_post_is_exempt_from_the_token_check():
     resp = _client().post(
-        "/api/plan-data/does-not-exist.csv",
+        "/api/plan/blank",
         json={"csv_content": "x"},
         headers={
             "Host": "127.0.0.1:5050",
@@ -88,7 +88,7 @@ def test_desktop_bridge_marked_app_is_exempt_from_the_whole_gate():
     app._no_http_transport = True
     try:
         resp = app.test_client().post(
-            "/api/plan-data/does-not-exist.csv",
+            "/api/plan/blank",
             json={"csv_content": "x"},
             headers={"Origin": "http://evil.example"},
         )
