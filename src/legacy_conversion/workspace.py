@@ -107,6 +107,10 @@ def convert_workspace(workspace: str | Path, *, dry_run: bool = False,
                                 seed_plan=plan.plan_seed)
     result["report"] = rep.as_dict()
     if rep.ok and not dry_run:
+        if d["plan_file"].is_file():  # also when every step was already done (nothing "converted")
+            with PlanStore.open(d["plan_file"], create=False) as store:
+                if store.get_meta(runner.DONE_MARKER) is None:
+                    store.set_meta(runner.DONE_MARKER, time.strftime("%Y-%m-%dT%H:%M:%S"))
         app_db = Path(extra.get("app_db") or app_store_path_for(ws))
         with open_app_store(app_db) as app:
             app.set_setting(APP_DONE_KEY, f"{time.strftime('%Y-%m-%dT%H:%M:%S')} {d['plan_file'].name}")
