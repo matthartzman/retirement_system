@@ -232,6 +232,7 @@ def run_plan_phase(workspace: Path, staging: Path, steps: Sequence[Step], *, ext
     verification; the caller removes ``ctx.cleanup`` (or ``workdir``) afterwards. ``ctx.store``
     is closed on return."""
     report = ConversionReport(dry_run=dry_run)
+    Path(staging).parent.mkdir(parents=True, exist_ok=True)
     with PlanStore.open(staging) as store:
         ctx = ConversionContext(Path(workspace), store, dry_run, dict(extra or {}), plan_file=plan_file, workdir=workdir)
         ctx.checkpoints["staging_file"] = staging

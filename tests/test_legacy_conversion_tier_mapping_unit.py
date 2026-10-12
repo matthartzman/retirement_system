@@ -87,3 +87,16 @@ def test_plan_with_a_chosen_tier_is_left_alone(tmp_path):
         rep = t8.run(store)
         assert rep.skipped and rep.reason == "tier already chosen"
         assert mc.plan_tier(store) == "expert"
+
+
+def test_keep_switches_writes_only_the_marker(tmp_path):
+    """WP10.3: the user's answer when the safeguard blocked a mapping: nothing moves."""
+    plan = tmp_path / "p.rpx"
+    build_plan_file_from_csv_folder(plan, pf.fixture_dir("sample_frozen"))
+    with PlanStore.open(plan) as store:
+        rows, switches = store.sectioned_data(), {k: mc.stored_switch(store, k) for k in mc.switchable_keys()}
+        rep = t8.run(store, keep_switches=True)
+        assert not rep.skipped and rep.reason == "switches kept" and rep.mapping is None
+        assert store.sectioned_data() == rows and not mc.plan_profile(store)["tier_stored"]
+        assert {k: mc.stored_switch(store, k) for k in mc.switchable_keys()} == switches
+        assert t8.run(store).skipped  # marker set: never mapped later by the converter
