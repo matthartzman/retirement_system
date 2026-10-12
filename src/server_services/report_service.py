@@ -8,7 +8,6 @@ and manage the small local build-history file.  Route modules remain responsible
 for permissions, request parsing, JSON/file response serialization, and audits.
 """
 
-import json
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -113,30 +112,29 @@ def report_package_payload() -> tuple[dict[str, Any], int]:
     }, 404
 
 
-def history_path(output_dir: Path) -> Path:
-    return output_dir / "run_history.json"
+def _history_scope(output_dir: Path) -> str:
+    return str(output_dir)
 
 
 def read_history_payload(output_dir: Path) -> tuple[list[Any], int]:
-    p = history_path(output_dir)
-    if not p.exists():
-        return [], 200
     try:
-        payload = json.loads(p.read_text(encoding="utf-8"))
-        return payload if isinstance(payload, list) else [], 200
+        from ..app_state import open_app_store
+
+        with open_app_store() as store:
+            return store.run_history(_history_scope(output_dir)), 200
     except Exception:
         return [], 200
 
 
 def append_history_payload(output_dir: Path, entry: Any, *, limit: int = 50) -> tuple[dict[str, Any], int]:
     try:
-        p = history_path(output_dir)
-        current, _ = read_history_payload(output_dir)
-        current.append(entry if isinstance(entry, dict) else {"value": entry})
-        current = current[-max(1, int(limit)):]
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(json.dumps(current, indent=2), encoding="utf-8")
-        return {"success": True, "count": len(current), "path": str(p)}, 200
+        from ..app_state import open_app_store
+
+        with open_app_store() as store:
+            count = store.append_run_history(
+                _history_scope(output_dir), entry if isinstance(entry, dict) else {"value": entry}, limit=limit
+            )
+        return {"success": True, "count": count}, 200
     except Exception as exc:
         return {"success": False, "error": str(exc)}, 500
 

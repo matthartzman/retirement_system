@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from pathlib import Path
 from typing import Any, Optional
 
@@ -97,11 +98,14 @@ def stable_name_for_sheet_title(title: str) -> str:
     display = _FINAL_TITLE_PREFIX_RE.sub('', title or '', count=1)
     return _DISPLAY_TITLE_TO_STABLE.get(display, title)
 
-OVERRIDES_FILENAME = "workbook_format_overrides.json"
+# WP8.3: the overrides live in app.db settings (they were input/workbook_format_*.json).
 # Horizontal-alignment overrides are stored separately from width overrides so
-# the existing width file's flat {sheet: {col: width}} shape never needs a
-# migration.
-ALIGNMENTS_FILENAME = "workbook_format_alignments.json"
+# the flat {sheet: {col: width}} shape never needs a migration.
+OVERRIDES_SETTING = "workbook_format.overrides"
+ALIGNMENTS_SETTING = "workbook_format.alignments"
+SAVED_AT_SETTING = "workbook_format.saved_at"
+_LEGACY_OVERRIDES_FILENAME = "workbook_format_overrides.json"
+_LEGACY_ALIGNMENTS_FILENAME = "workbook_format_alignments.json"
 ALIGN_VALUES = ("left", "center", "right")
 
 # Excel's built-in default column width (characters) when a column has no
@@ -117,23 +121,66 @@ MAX_WIDTH = 255.0
 _HEADER_BAND_ROWS = 4
 
 
-def overrides_path(input_dir: Optional[Path] = None) -> Path:
-    base = Path(input_dir) if input_dir is not None else workspace_input_dir()
-    return base / OVERRIDES_FILENAME
+def _store_path(db_path: Optional[Path]) -> Path:
+    if db_path is not None:
+        return Path(db_path)
+    from ..app_state import app_store_path
+
+    return app_store_path()
 
 
-def load_overrides(input_dir: Optional[Path] = None) -> dict[str, dict[str, float]]:
-    """Return {sheet_title: {column_letter: width}}; empty when none saved."""
-    path = overrides_path(input_dir)
+def _read(key: str, legacy_name: str, db_path: Optional[Path]) -> Any:
+    """The stored mapping, else a one-time read of an older install's ``input/<legacy_name>``."""
+    from ..app_state import open_app_store
+
+    path = _store_path(db_path)
     try:
-        with open(path, "r", encoding="utf-8") as f:
-            raw = json.load(f)
+        if path.exists():
+            with open_app_store(path, readonly=True) as store:
+                value = store.get_setting(key)
+            if value is not None:
+                return value
+        elif db_path is not None:
+            return None
+    except Exception:
+        return None
+    if db_path is not None:
+        return None
+    try:
+        with open(workspace_input_dir() / legacy_name, "r", encoding="utf-8") as f:
+            return json.load(f)
     except (FileNotFoundError, ValueError, OSError):
-        return {}
-    return _sanitize_overrides(raw)
+        return None
 
 
-def save_overrides(data: dict, input_dir: Optional[Path] = None) -> dict[str, dict[str, float]]:
+def _write(key: str, value: dict, db_path: Optional[Path]) -> None:
+    from ..app_state import open_app_store
+
+    with open_app_store(_store_path(db_path)) as store, store.transaction():
+        store.set_setting(key, value)
+        store.set_setting(SAVED_AT_SETTING, time.time())
+
+
+def saved_at(db_path: Optional[Path] = None) -> float:
+    """Epoch seconds of the last width/alignment save (0.0 if never); drives the "stale vs workbook" hint."""
+    from ..app_state import open_app_store
+
+    try:
+        path = _store_path(db_path)
+        if not path.exists():
+            return 0.0
+        with open_app_store(path, readonly=True) as store:
+            return float(store.get_setting(SAVED_AT_SETTING, 0.0) or 0.0)
+    except Exception:
+        return 0.0
+
+
+def load_overrides(db_path: Optional[Path] = None) -> dict[str, dict[str, float]]:
+    """Return {sheet_title: {column_letter: width}}; empty when none saved."""
+    return _sanitize_overrides(_read(OVERRIDES_SETTING, _LEGACY_OVERRIDES_FILENAME, db_path))
+
+
+def save_overrides(data: dict, db_path: Optional[Path] = None) -> dict[str, dict[str, float]]:
     """Validate, clamp, and persist overrides, REPLACING the whole file.
 
     Only safe when `data` is known to be the complete, current set of every
@@ -143,14 +190,11 @@ def save_overrides(data: dict, input_dir: Optional[Path] = None) -> dict[str, di
     other sheet's previously-saved widths. See merge_overrides docstring.
     """
     clean = _sanitize_overrides(data)
-    path = overrides_path(input_dir)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(clean, f, indent=1, sort_keys=True)
+    _write(OVERRIDES_SETTING, clean, db_path)
     return clean
 
 
-def merge_overrides(patch: dict, input_dir: Optional[Path] = None) -> dict[str, dict[str, float]]:
+def merge_overrides(patch: dict, db_path: Optional[Path] = None) -> dict[str, dict[str, float]]:
     """Merge a partial {sheet: {column_letter: width}} patch into the
     persisted overrides file, returning the complete resulting mapping.
 
@@ -168,7 +212,7 @@ def merge_overrides(patch: dict, input_dir: Optional[Path] = None) -> dict[str, 
     deletes just that column's override (this is how the UI's per-column
     "Reset" control signals "go back to automatic width").
     """
-    current = load_overrides(input_dir)
+    current = load_overrides(db_path)
     if isinstance(patch, dict):
         for sheet, cols in patch.items():
             if not isinstance(sheet, str) or not sheet.strip() or not isinstance(cols, dict):
@@ -187,10 +231,7 @@ def merge_overrides(patch: dict, input_dir: Optional[Path] = None) -> dict[str, 
                         current.pop(sheet, None)
                 else:
                     current.setdefault(sheet, {})[norm] = round(max(MIN_WIDTH, min(MAX_WIDTH, w)), 2)
-    path = overrides_path(input_dir)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(current, f, indent=1, sort_keys=True)
+    _write(OVERRIDES_SETTING, current, db_path)
     return current
 
 
@@ -231,37 +272,23 @@ def _normalize_letter(letter: Any) -> Optional[str]:
     return letter
 
 
-def alignments_path(input_dir: Optional[Path] = None) -> Path:
-    base = Path(input_dir) if input_dir is not None else workspace_input_dir()
-    return base / ALIGNMENTS_FILENAME
-
-
-def load_alignments(input_dir: Optional[Path] = None) -> dict[str, dict[str, str]]:
+def load_alignments(db_path: Optional[Path] = None) -> dict[str, dict[str, str]]:
     """Return {sheet_title: {column_letter: 'left'|'center'|'right'}}; empty when none saved."""
-    path = alignments_path(input_dir)
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            raw = json.load(f)
-    except (FileNotFoundError, ValueError, OSError):
-        return {}
-    return _sanitize_alignments(raw)
+    return _sanitize_alignments(_read(ALIGNMENTS_SETTING, _LEGACY_ALIGNMENTS_FILENAME, db_path))
 
 
-def save_alignments(data: dict, input_dir: Optional[Path] = None) -> dict[str, dict[str, str]]:
+def save_alignments(data: dict, db_path: Optional[Path] = None) -> dict[str, dict[str, str]]:
     """Validate and persist horizontal-alignment overrides, REPLACING the
     whole file. See save_overrides's docstring -- the same "must be the
     complete current state or it silently deletes other sheets" caveat
     applies here. The live UI must use `merge_alignments` instead.
     """
     clean = _sanitize_alignments(data)
-    path = alignments_path(input_dir)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(clean, f, indent=1, sort_keys=True)
+    _write(ALIGNMENTS_SETTING, clean, db_path)
     return clean
 
 
-def merge_alignments(patch: dict, input_dir: Optional[Path] = None) -> dict[str, dict[str, str]]:
+def merge_alignments(patch: dict, db_path: Optional[Path] = None) -> dict[str, dict[str, str]]:
     """Merge a partial {sheet: {column_letter: 'left'|'center'|'right'}} patch
     into the persisted alignments file, returning the complete resulting
     mapping. See merge_overrides's docstring for why this (not
@@ -271,7 +298,7 @@ def merge_alignments(patch: dict, input_dir: Optional[Path] = None) -> dict[str,
     column present in `patch` with an unrecognized/empty value deletes just
     that column's alignment override (reset to automatic).
     """
-    current = load_alignments(input_dir)
+    current = load_alignments(db_path)
     if isinstance(patch, dict):
         for sheet, cols in patch.items():
             if not isinstance(sheet, str) or not sheet.strip() or not isinstance(cols, dict):
@@ -287,10 +314,7 @@ def merge_alignments(patch: dict, input_dir: Optional[Path] = None) -> dict[str,
                         current.pop(sheet, None)
                 else:
                     current.setdefault(sheet, {})[norm_letter] = norm_align
-    path = alignments_path(input_dir)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(current, f, indent=1, sort_keys=True)
+    _write(ALIGNMENTS_SETTING, current, db_path)
     return current
 
 
@@ -534,7 +558,7 @@ def build_format_tree(workbook_path: str | Path, overrides: Optional[dict] = Non
     return {"available": True, "sheets": sheets}
 
 
-def apply_overrides(wb, input_dir: Optional[Path] = None, sheet_renames: Optional[dict] = None) -> None:
+def apply_overrides(wb, db_path: Optional[Path] = None, sheet_renames: Optional[dict] = None) -> None:
     """Apply saved column-width overrides to a workbook in place.
 
     #209/#210/#212/#228: overrides are keyed by each sheet's STABLE (build-
@@ -544,7 +568,7 @@ def apply_overrides(wb, input_dir: Optional[Path] = None, sheet_renames: Optiona
     omitting it falls back to treating the JSON key as the sheet's current
     title, for any caller still on the old final-name keying.
     """
-    overrides = load_overrides(input_dir)
+    overrides = load_overrides(db_path)
     if not overrides:
         return
     sheet_renames = sheet_renames or {}
@@ -557,7 +581,7 @@ def apply_overrides(wb, input_dir: Optional[Path] = None, sheet_renames: Optiona
             ws.column_dimensions[letter].width = width
 
 
-def overridden_width_columns(wb, input_dir: Optional[Path] = None, sheet_renames: Optional[dict] = None) -> dict[str, set[str]]:
+def overridden_width_columns(wb, db_path: Optional[Path] = None, sheet_renames: Optional[dict] = None) -> dict[str, set[str]]:
     """{current sheet title: {overridden column letters}} for every sheet with
     a saved user width override, resolved the same way apply_overrides()
     resolves sheet keys.
@@ -568,7 +592,7 @@ def overridden_width_columns(wb, input_dir: Optional[Path] = None, sheet_renames
     is documented to run "last so user edits always win", which only holds
     if every later pass actually honors it.
     """
-    overrides = load_overrides(input_dir)
+    overrides = load_overrides(db_path)
     if not overrides:
         return {}
     sheet_renames = sheet_renames or {}
@@ -581,7 +605,7 @@ def overridden_width_columns(wb, input_dir: Optional[Path] = None, sheet_renames
     return result
 
 
-def apply_alignments(wb, input_dir: Optional[Path] = None, sheet_renames: Optional[dict] = None) -> None:
+def apply_alignments(wb, db_path: Optional[Path] = None, sheet_renames: Optional[dict] = None) -> None:
     """Apply saved horizontal-alignment overrides to a workbook's data rows in place.
 
     Header-band rows are left untouched -- their alignment is deliberate
@@ -595,7 +619,7 @@ def apply_alignments(wb, input_dir: Optional[Path] = None, sheet_renames: Option
 
     Keyed by stable sheet name; see apply_overrides for what `sheet_renames` is.
     """
-    alignments = load_alignments(input_dir)
+    alignments = load_alignments(db_path)
     if not alignments:
         return
     sheet_renames = sheet_renames or {}

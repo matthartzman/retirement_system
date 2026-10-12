@@ -148,7 +148,8 @@ def test_service_unit_payloads_are_plain_data(tmp_path):
     assert prefs == {"success": True, "prefs": {}}
     payload, status = base_service.save_prefs(tmp_path, {"theme": "dark"})
     assert status == 200 and payload["success"] is True
-    assert json.loads((tmp_path / "data" / "prefs.json").read_text())["theme"] == "dark"
+    assert base_service.read_prefs(tmp_path)["prefs"] == {"theme": "dark"}  # WP8.3: stored in app.db
+    assert not (tmp_path / "data" / "prefs.json").exists()
 
     from src.system_config import set_system_settings
     app_db = tmp_path / "app.db"

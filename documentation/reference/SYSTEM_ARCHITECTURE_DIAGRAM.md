@@ -437,7 +437,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/server/plan_data_files.py` | `plan_data_registry` | — |
 | `src/server/plan_routes.py` | `active_plan`, `housing`, `module_catalog`, `monarch_autoimport_job`, `plan_data_migration`, `plan_data_registry`, `plan_interview`, `portfolio_analytics`, `report_compute`, `secrets_store`, `server.app_core`, `server_services`, `version` | — |
 | `src/server/route_manifest.py` | — | — |
-| `src/server/security_audit.py` | `config_backend`, `http_runtime.wsgi_facade`, `permissions`, `security`, `server`, `workspace_context` | — |
+| `src/server/security_audit.py` | `app_state`, `http_runtime.wsgi_facade`, `permissions`, `security`, `server`, `workspace_context` | — |
 | `src/server/workbook_routes.py` | `active_plan`, `http_runtime.wsgi_facade`, `import_preview`, `local_store`, `reporting`, `schema_registry`, `server.app_core`, `server_forecast`, `server_services`, `workspace_context` | — |
 | `src/server/wsgi.py` | `server` | — |
 
@@ -447,7 +447,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 |---|---|---|
 | `src/server_services/__init__.py` | — | — |
 | `src/server_services/admin_service.py` | `engine_defaults`, `plan_data_registry`, `plan_datasets`, `plan_file_io`, `secrets_store`, `system_config` | — |
-| `src/server_services/base_service.py` | — | — |
+| `src/server_services/base_service.py` | `app_state` | — |
 | `src/server_services/build_job_service.py` | — | — |
 | `src/server_services/build_service.py` | `schema_registry`, `server_services` | — |
 | `src/server_services/config_service.py` | `daf_optimizer`, `module_catalog`, `optimization`, `plan_interview`, `qlac_optimizer`, `report_compute`, `roth_ui_build_guard`, `schema_registry`, `server_services.plan_tier_service` | — |
@@ -459,7 +459,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/server_services/plan_tier_service.py` | — | — |
 | `src/server_services/portfolio_service.py` | — | — |
 | `src/server_services/pricing_service.py` | `config_backend`, `market_data`, `portfolio_analytics` | — |
-| `src/server_services/report_service.py` | `detailed_results`, `report_package`, `system_config` | — |
+| `src/server_services/report_service.py` | `app_state`, `detailed_results`, `report_package`, `system_config` | — |
 | `src/server_services/secret_service.py` | — | — |
 | `src/server_services/spending_service.py` | `active_plan` | — |
 | `src/server_services/strategy_asset_service.py` | `core`, `data_io`, `plan_data_backfill`, `spending_adjustments`, `stores.ref_getters.state_tax` | — |
@@ -533,12 +533,12 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/legacy_conversion/steps/c4a_datasets.py` | `csv_exchange` | — |
 | `src/legacy_conversion/steps/c4b_spending.py` | `csv_exchange` | — |
 | `src/legacy_conversion/steps/c4c_ytd.py` | `csv_exchange` | — |
-| `src/local_backup_scheduler.py` | — | — |
+| `src/local_backup_scheduler.py` | `app_state` | — |
 | `src/local_store.py` | `sqlite_util` | — |
-| `src/market_data.py` | `platform_runtime`, `secrets_store`, `version` | `requests` |
+| `src/market_data.py` | `app_state`, `platform_runtime`, `secrets_store`, `version` | `requests` |
 | `src/module_catalog.py` | — | — |
 | `src/monarch_autoimport_job.py` | — | — |
-| `src/monarch_autoupdate.py` | — | — |
+| `src/monarch_autoupdate.py` | `app_state` | — |
 | `src/monarch_import.py` | `stores.ref_getters.monarch_field_map`, `ytd_tracking` | — |
 | `src/money.py` | — | — |
 | `src/observability.py` | — | — |
@@ -586,7 +586,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/runtime_config.py` | `system_config` | — |
 | `src/schema_registry.py` | `plan_data_registry`, `stores.ref_getters.schema_fields` | — |
 | `src/secrets_store.py` | `plan_file_io`, `platform_runtime` | — |
-| `src/security.py` | `runtime_config` | — |
+| `src/security.py` | `app_state`, `runtime_config` | — |
 | `src/server_forecast.py` | `after_tax`, `core`, `report_compute` | — |
 | `src/spending_adjustments.py` | — | — |
 | `src/spending_budget_resolver.py` | `large_discretionary`, `spending_adjustments`, `spending_tracker` | — |
@@ -682,7 +682,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/reporting/summary_figures.py` | `after_tax`, `core` | — |
 | `src/reporting/workbook_builder.py` | `active_plan`, `after_tax`, `build_snapshot`, `governance`, `hsa_schedule`, `local_store`, `plan_datasets`, `planning_engines`, `report_package`, `reporting.dashboard`, `reporting.sheets_allocation_helpers`, `reporting.sheets_current_vs_proposed`, `reporting.sheets_projection_facade`, `reporting.sheets_protection`, `reporting.sheets_qc_reference`, `reporting.sheets_strategy`, `reporting.sheets_stress`, `reporting.sheets_summary_builder`, `reporting.sheets_tax_capacity`, `reporting.sheets_tax_reporter`, `reporting.sheets_wealth`, `reporting.summary_figures`, `reporting.workbook_common`, `reporting.workbook_format_config`, `results_model`, `spending_tracker`, `system_config`, `ytd_projection_blend` | — |
 | `src/reporting/workbook_common.py` | `config_backend`, `core`, `data_io`, `market_data`, `module_catalog`, `report_compute`, `stores.ref_getters.template_layout`, `workspace_context` | `openpyxl` |
-| `src/reporting/workbook_format_config.py` | `workspace_context` | `openpyxl` |
+| `src/reporting/workbook_format_config.py` | `app_state`, `workspace_context` | `openpyxl` |
 | `src/reporting/workbook_xml_optimizer.py` | — | `lxml`, `openpyxl` |
 
 ### Dashboard UI Builder

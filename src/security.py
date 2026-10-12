@@ -84,19 +84,17 @@ def constant_time_token_ok(candidate: object, expected: Optional[str]) -> bool:
 
 
 def append_audit_event(base_dir: str | Path, event: str, details: Optional[Dict[str, Any]] = None, redact: bool = True) -> None:
+    """Record an audit event in the install's ``app.db`` (WP8.3; the ``audit_log.jsonl`` file is gone)."""
     try:
-        path = Path(base_dir) / "output" / "audit_log.jsonl"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        payload: Dict[str, Any] = {
-            "timestamp": time.time(),
-            "event": event,
-            "details": details or {},
-        }
+        from .app_state import app_store_path_for, open_app_store
+
+        ts = time.time()
+        payload: Dict[str, Any] = {"timestamp": ts, "event": event, "details": details or {}}
         line = json.dumps(payload, sort_keys=True, default=str)
         if redact:
             line = redact_text(line)
-        with path.open("a", encoding="utf-8") as f:
-            f.write(line + "\n")
+        with open_app_store(app_store_path_for(base_dir)) as store:
+            store.append_audit_event(event, line, ts=ts)
     except Exception:
         # Audit logging must not break local or SaaS builds.
         pass
