@@ -30,7 +30,7 @@ for pkg in ("numpy", "scipy", "lxml", "openpyxl"):
 
 # copy_metadata ensures importlib.metadata.version() works inside the frozen
 # exe for packages that query their own version at startup.
-for _meta_pkg in ("numpy", "scipy", "lxml", "openpyxl", "pywebview"):
+for _meta_pkg in ("numpy", "scipy", "lxml", "openpyxl", "pywebview", "keyring", "jaraco.classes", "jaraco.context", "jaraco.functools"):
     try:
         datas_collected += copy_metadata(_meta_pkg)
     except Exception:
@@ -72,6 +72,17 @@ hidden_imports = hiddenimports_collected + [
     "openpyxl.drawing",
     "openpyxl.styles",
     "openpyxl.utils",
+    # keyring (WP8.2): backends are discovered through entry points / importlib at runtime, so
+    # static analysis misses them. Windows Credential Manager is the primary target.
+    "keyring",
+    "keyring.backends",
+    "keyring.backends.Windows",
+    "keyring.backends.macOS",
+    "keyring.backends.SecretService",
+    "keyring.backends.fail",
+    "jaraco.classes",
+    "jaraco.context",
+    "jaraco.functools",
     # stdlib modules sometimes missed on Windows
     "sqlite3",
     "csv",

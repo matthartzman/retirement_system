@@ -200,17 +200,6 @@ def test_failed_dataset_save_keeps_original_holdings(tmp_path, monkeypatch):
     assert holdings_service.read_holdings(base_dir=tmp_path, workspace_id="local", client_id="local", db_path=tmp_path / "x.db")["content"] == original
 
 
-def test_secrets_store_failed_save_keeps_existing_keys(tmp_path, monkeypatch):
-    from src import secrets_store
-
-    path = tmp_path / "secrets.local.json"
-    secrets_store._save({"k": "v"}, path)
-    monkeypatch.setattr(plan_file_io.os, "replace", _boom)
-    with pytest.raises(OSError):
-        secrets_store._save({"k": "changed", "j": "w"}, path)
-    assert secrets_store._load(path) == {"k": "v"}
-
-
 def _bare_write_calls(path: Path, function: str | None = None) -> list[int]:
     tree = ast.parse(path.read_text(encoding="utf-8"))
     nodes = [tree]

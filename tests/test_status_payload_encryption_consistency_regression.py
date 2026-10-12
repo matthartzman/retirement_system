@@ -6,12 +6,24 @@ in one API payload, not just an ambiguously-named field.
 """
 from pathlib import Path
 
+import pytest
+
 from src.secrets_store import encryption_status
 from src.server_services.base_service import status_payload
 
 
 class _Cfg:
     app_mode = "LOCAL"
+
+
+@pytest.fixture(autouse=True)
+def _no_backend():
+    import keyring
+    from keyring.backends import fail
+    prev = keyring.get_keyring()
+    keyring.set_keyring(fail.Keyring())
+    yield
+    keyring.set_keyring(prev)
 
 
 def test_status_payload_never_claims_encrypted_api_keys_while_reporting_unencrypted(tmp_path):

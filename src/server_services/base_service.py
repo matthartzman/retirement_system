@@ -137,7 +137,7 @@ def status_payload(*, version: str, cfg: Any, base_dir: Path, output_dir: Path, 
             # this same payload (secrets_store.encryption_status()'s
             # "encrypted": False) -- the store is plaintext JSON, not
             # encrypted at rest.
-            "encrypted_api_keys": False,
+            "encrypted_api_keys": bool((encryption or {}).get("encrypted", False)),
             "user_permissions": False,
             "build_queue": False,
             "web_dashboard": True,

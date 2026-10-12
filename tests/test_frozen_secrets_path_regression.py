@@ -28,11 +28,12 @@ def test_default_frozen_workspace_holds_secrets_and_seed(tmp_path):
     line = next((ln for ln in r.stdout.splitlines() if ln.startswith("SMOKE_WORKSPACE_OK ")), None)
     assert r.returncode == 0 and line, f"probe failed\n{r.stdout[-1500:]}\n{r.stderr[-1500:]}"
     info = json.loads(line.split(" ", 1)[1])
-    ws, pkg, sec = Path(info["workspace_root"]), Path(info["package_root"]), Path(info["secrets_path"])
+    ws, pkg, sec = Path(info["workspace_root"]), Path(info["package_root"]), Path(info["legacy_secrets_path"])
     assert tmp_path in ws.parents and ws != pkg
-    assert sec == ws / "local_state" / "secrets.local.json" and sec.is_file()
+    assert sec == ws / "local_state" / "secrets.local.json" and not sec.exists()  # WP8.2: never a plain file
     assert pkg not in sec.parents
     assert (ws / "input" / "client_data.csv").is_file()
     # Nothing was written into the project (stand-in for the bundle) by the probe.
     assert not (ROOT / "local_state" / "secrets.local.json").exists() or \
         "smoke_probe_key" not in (ROOT / "local_state" / "secrets.local.json").read_text(encoding="utf-8")
+    assert "keyring" in (ROOT / "scripts" / "pyinstaller_smoke_probe.py").read_text(encoding="utf-8")

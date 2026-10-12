@@ -6,7 +6,7 @@ import hashlib
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from src.secrets_store import set_secret, get_secret, encryption_status
+from src.secrets_store import SecretStoreUnavailable, set_secret, get_secret, encryption_status
 
 
 def fingerprint(value: str | None) -> str:
@@ -16,11 +16,18 @@ def fingerprint(value: str | None) -> str:
 
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser(description="Store or inspect encrypted/obfuscated API keys")
+    ap = argparse.ArgumentParser(description="Store or inspect API keys in the OS credential store")
     ap.add_argument("name", help="secret name, e.g. fmp_api_key")
     ap.add_argument("--workspace", default="local")
     ap.add_argument("--show", action="store_true")
     args = ap.parse_args()
+    try:
+        _run(args)
+    except SecretStoreUnavailable as exc:
+        raise SystemExit(f"error: {exc}")
+
+
+def _run(args) -> None:
     if args.show:
         val = get_secret(args.name, args.workspace)
         print({"configured": bool(val), "fingerprint": fingerprint(val), **encryption_status()})
