@@ -1,5 +1,9 @@
 """WP4: tools/rehearse_conversion.py runs C3/C3b on a copy of a plan, read-only, and reports
-counts and names only (never values), exiting 0 only on a full match."""
+counts and names only (never values), exiting 0 only on a full match.
+
+WP10.3: the rehearsal runs the converter itself (``convert_workspace`` on a temporary copy) and
+prints the converter's own verification (``src/legacy_conversion/verify.py``): old loader path,
+engine, datasets cell by cell, the tier safeguard."""
 from __future__ import annotations
 
 import hashlib
@@ -31,8 +35,23 @@ def test_fixture_plans_convert_and_match(fixture, tmp_path, capsys):
     text = capsys.readouterr().out
     assert rc == 0, text
     assert "[MATCH] sectioned data" in text and "[MATCH] engine config" in text
+    assert "[MATCH] flat datasets" in text
     assert "marker c3: present" in text and "RESULT: ALL MATCH" in text
     assert (out / "plan.rpx").is_file()
+
+
+@pytest.mark.parametrize("fixture", ["sample_frozen", "demo"])
+def test_fixture_plans_full_rehearsal_with_engine_and_tier_safeguard(fixture, tmp_path, capsys, monkeypatch):
+    """Golden rehearsal: the whole conversion of each fixture verifies against the old loader
+    path through the engine, and the tier mapping leaves the projection unchanged."""
+    from src.legacy_conversion import verify
+    monkeypatch.setattr(verify, "ROTH_OPTIMIZED", False)  # same comparisons, faster projection
+    rc = rehearse.main([str(fixture_dir(fixture))])
+    text = capsys.readouterr().out
+    assert rc == 0, text
+    for line in ("[MATCH] sectioned data", "[MATCH] engine config", "[MATCH] full engine output",
+                 "[MATCH] flat datasets", "[MATCH] tier mapping", "-- conversion: done"):
+        assert line in text, line
 
 
 def test_originals_are_never_modified(tmp_path, capsys):
