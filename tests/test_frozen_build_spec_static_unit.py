@@ -21,7 +21,7 @@ def _string_literals(tree: ast.AST) -> list[str]:
     return [n.value for n in ast.walk(tree) if isinstance(n, ast.Constant) and isinstance(n.value, str)]
 
 
-def test_spec_bundles_only_demo_input_folder():
+def test_spec_bundles_no_input_folder():
     tree = _spec_ast()
     pairs = [
         (n.elts[0].value, n.elts[1].value)
@@ -30,7 +30,7 @@ def test_spec_bundles_only_demo_input_folder():
         and all(isinstance(e, ast.Constant) and isinstance(e.value, str) for e in n.elts)
     ]
     input_pairs = [p for p in pairs if p[0] == "input" or p[0].startswith("input/")]
-    assert input_pairs == [("input/demo", "input/demo")]
+    assert input_pairs == []  # the seed demo plan ships as src/reference/demo_seed.rpx (WP11.2)
 
 
 def test_spec_no_longer_collects_or_hides_unused_packages():
@@ -109,25 +109,52 @@ def test_workspace_root_from_source_is_unchanged(monkeypatch):
     assert platform_runtime.seed_frozen_workspace() is False
 
 
-def test_frozen_seed_copies_demo_once_and_never_overwrites(monkeypatch, tmp_path):
+def test_frozen_seed_copies_seed_plan_once_and_never_overwrites(monkeypatch, tmp_path):
+    from src.stores import PlanStore
     pkg = tmp_path / "bundle"
-    (pkg / "input" / "demo").mkdir(parents=True)
-    demo_csv = "section,subsection,label,value,units,notes\nHousehold,,member_1_name,Demo,text,\n"
-    (pkg / "input" / "demo" / "client_data.csv").write_text(demo_csv, encoding="utf-8")
+    (pkg / "src" / "reference").mkdir(parents=True)
+    seed = pkg / "src" / "reference" / "demo_seed.rpx"
+    with PlanStore.open(seed) as store:
+        store.set_value("Household", "", "member_1_name", "Demo")
     monkeypatch.setattr(platform_runtime, "package_root", lambda: pkg)
     monkeypatch.delenv(platform_runtime.WORKSPACE_ROOT_ENV, raising=False)
+    monkeypatch.delenv("RETIREMENT_SYSTEM_APP_DB", raising=False)
     monkeypatch.setattr(platform_runtime.sys, "frozen", True, raising=False)
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "appdata"))
     ws = tmp_path / "appdata" / "RetirementPlanner"
     assert platform_runtime.seed_frozen_workspace() is True
-    assert (ws / "input" / "client_data.csv").read_text(encoding="utf-8") == demo_csv
-    # the plan file is seeded from the demo CSV set through the importer (WP4.5)
-    from src.stores import PlanStore
+    assert (ws / "local_state" / "app.db").is_file()
     with PlanStore.open(ws / "plan.rpx", create=False, readonly=True) as store:
         assert store.sectioned_data() == {"Household": {"": {"member_1_name": "Demo"}}}
-    (ws / "input" / "client_data.csv").write_text("user edit", encoding="utf-8")
+    with PlanStore.open(ws / "plan.rpx") as store:
+        store.set_value("Household", "", "member_1_name", "User edit")
     assert platform_runtime.seed_frozen_workspace() is False
-    assert (ws / "input" / "client_data.csv").read_text(encoding="utf-8") == "user edit"
+    with PlanStore.open(ws / "plan.rpx", create=False, readonly=True) as store:
+        assert store.sectioned_data()["Household"][""]["member_1_name"] == "User edit"
+
+
+def test_frozen_seed_missing_seed_raises(monkeypatch, tmp_path):
+    pkg = tmp_path / "bundle"
+    pkg.mkdir()
+    monkeypatch.setattr(platform_runtime, "package_root", lambda: pkg)
+    monkeypatch.delenv(platform_runtime.WORKSPACE_ROOT_ENV, raising=False)
+    monkeypatch.delenv("RETIREMENT_SYSTEM_APP_DB", raising=False)
+    monkeypatch.setattr(platform_runtime.sys, "frozen", True, raising=False)
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "appdata"))
+    import pytest
+    with pytest.raises(RuntimeError):
+        platform_runtime.seed_frozen_workspace()
+
+
+def test_shipped_seed_demo_plan_is_current_and_spec_does_not_bundle_csv_demo():
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1]
+    spec = (root / "retirement_planner.spec").read_text(encoding="utf-8")
+    assert '"input/demo"' not in spec
+    assert (root / "src" / "reference" / "demo_seed.rpx").is_file()
+    import subprocess, sys
+    r = subprocess.run([sys.executable, str(root / "tools" / "build_demo_seed.py"), "--check"], capture_output=True, text=True)
+    assert r.returncode == 0, r.stdout + r.stderr
 
 
 def test_spec_ships_reference_db_through_src_and_no_reference_data_folder():
