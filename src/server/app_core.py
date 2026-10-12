@@ -4,7 +4,6 @@ from __future__ import annotations
 The packaged server is for single-machine desktop use: it uses the local SQLite plan store as source of truth, materializes import/export adapters as needed, and writes generated files to output/, and does not expose public-hosting, client-registry, or browser-login modes.
 """
 
-import csv
 import html as html_lib
 import hashlib
 import hmac
@@ -20,6 +19,11 @@ import urllib.error
 import urllib.request
 from contextlib import contextmanager
 from pathlib import Path
+
+try:
+    from ..csv_exchange import text_csv as _tcsv
+except ImportError:  # direct file loading fallback
+    from src.csv_exchange import text_csv as _tcsv  # type: ignore
 
 try:
     from ..http_runtime.wsgi_facade import (
@@ -71,7 +75,6 @@ try:
         PLAN_DATA_FILES,
         PLAN_DATA_FILE_SET,
         RETIRED_PLAN_PART_FILES,
-        SYSTEM_REFERENCE_FILES,
         UI_NAMES,
         YTD_PLAN_DATA_FILES,
     )
@@ -106,7 +109,6 @@ except ImportError:  # direct execution fallback
         PLAN_DATA_FILES,
         PLAN_DATA_FILE_SET,
         RETIRED_PLAN_PART_FILES,
-        SYSTEM_REFERENCE_FILES,
         UI_NAMES,
         YTD_PLAN_DATA_FILES,
     )
@@ -295,16 +297,6 @@ def _normalize_plan_data_file_name(file_name: str) -> str:
     return name
 
 
-def _normalize_reference_file_name(file_name: str) -> str:
-    name = Path(str(file_name or "")).name
-    if name not in set(SYSTEM_REFERENCE_FILES):
-        raise ValueError("Unsupported system/reference file")
-    return name
-
-
-def _reference_file_path(file_name: str) -> Path:
-    return BASE_DIR / "reference_data" / _normalize_reference_file_name(file_name)
-
 
 def _system_config_path() -> Path:
     """The app.db holding the runtime settings (WP8.1: no system_config.csv)."""
@@ -317,27 +309,21 @@ def _set_system_config_values(updates: dict[tuple[str, str, str], str]) -> None:
 
 
 def _blank_holdings_csv(content: str) -> str:
-    rows = list(csv.reader(io.StringIO(content or "")))
+    rows = _tcsv.list_rows(content)
     header = rows[0] if rows else ["account", "symbol", "purchase_date", "shares", "purchase_price", "lot_type", "note"]
-    out = io.StringIO()
-    csv.writer(out, lineterminator="\n").writerow(header)
-    return out.getvalue()
+    return _tcsv.rows_to_text([header])
 
 
 def _blank_liabilities_csv(content: str) -> str:
-    rows = list(csv.reader(io.StringIO(content or "")))
+    rows = _tcsv.list_rows(content)
     header = rows[0] if rows else ["liability_id", "type", "label", "balance", "interest_rate", "monthly_payment", "start_year", "payoff_year", "notes"]
-    out = io.StringIO()
-    csv.writer(out, lineterminator="\n").writerow(header)
-    return out.getvalue()
+    return _tcsv.rows_to_text([header])
 
 
 def _blank_hsa_schedule_csv(content: str) -> str:
-    rows = list(csv.reader(io.StringIO(content or "")))
+    rows = _tcsv.list_rows(content)
     header = rows[0] if rows else ["year", "optimizer_amount", "override_amount", "locked", "note"]
-    out = io.StringIO()
-    csv.writer(out, lineterminator="\n").writerow(header)
-    return out.getvalue()
+    return _tcsv.rows_to_text([header])
 
 
 def _make_blank_plan_files() -> dict[str, str]:
@@ -961,7 +947,7 @@ def _holdings_dataset_rows(holdings_dir: Path | None = None) -> list[dict[str, s
     ``input`` folder ``holdings_dir``)."""
     text = (_plan_datasets.active_dataset_text("holdings") if holdings_dir is None
             else _plan_datasets.dataset_text_for_input_dir(holdings_dir, "holdings"))
-    return list(csv.DictReader(io.StringIO(text))) if text else []
+    return list(_tcsv.dict_reader(text)) if text else []
 
 
 def _pre_tax_account_options_from_holdings() -> list[str]:

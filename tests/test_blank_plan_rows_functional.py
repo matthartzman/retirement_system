@@ -100,4 +100,4 @@ def test_the_removed_routes_are_gone(ws):
     assert client.get("/api/csv", headers=HEADERS).status_code == 404
     assert client.post("/api/csv", headers=HEADERS, json={"csv_content": "x"}).status_code == 404
     assert client.post("/api/config/sync", headers=HEADERS, json={}).status_code == 404
-    assert client.get("/api/admin/csv-file/plan/client_household.csv", headers=HEADERS).status_code == 400
+    assert client.get("/api/admin/csv-file/plan/client_household.csv", headers=HEADERS).status_code == 404

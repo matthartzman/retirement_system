@@ -13,7 +13,6 @@ the spending set and the YTD files.
 from ..plan_data_registry import (
     CLIENT_DATA_PART_FILES,
     FLAT_PLAN_DATA_CSV_FILES,
-    SYSTEM_REFERENCE_FILES,
     YTD_PLAN_DATA_FILES as _YTD_PLAN_DATA_FILES,
 )
 

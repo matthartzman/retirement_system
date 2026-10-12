@@ -34,11 +34,11 @@ estate_planning.py.
 """
 from __future__ import annotations
 
-import csv
 import io
 import os
 
 from ..data_io import _b, _n, _v, _y
+from ..csv_exchange import text_csv as _tcsv
 
 
 def parse_hsa_policy(data, plan_start):
@@ -136,7 +136,7 @@ def parse_hsa_withdrawal_schedule():
     hsa_text = active_dataset_text('hsa_schedule')
     if hsa_text:
         try:
-            for row in csv.DictReader(io.StringIO(hsa_text)):
+            for row in _tcsv.dict_reader(hsa_text):
                 year_raw = (row.get('year', '') or '').strip()
                 if not year_raw:
                     continue

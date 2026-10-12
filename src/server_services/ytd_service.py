@@ -9,13 +9,13 @@ route modules. The YTD data is three tables of the plan file (WP6.4), read and
 written through ``ytd_tracking``.
 """
 
-import csv
 import hashlib
 import io
 import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
+from ..csv_exchange import text_csv as _tcsv
 
 
 def _load_ytd_module():
@@ -41,7 +41,7 @@ class YtdService:
         return self.ctx.plan_data_path("ytd_transactions.csv", prefer_existing=False).parent
 
     def _csv_rows_from_text(self, text: str, columns: list[str]) -> list[dict[str, str]]:
-        reader = csv.DictReader(io.StringIO(text or ""))
+        reader = _tcsv.dict_reader(text)
         if not reader.fieldnames:
             return []
         rows: list[dict[str, str]] = []

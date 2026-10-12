@@ -34,7 +34,6 @@ def service_over_rows(tmp_path: Path, rows: list[tuple[str, str, str, str]], **c
 
     fields: dict[str, Any] = dict(
         base_dir=tmp_path,
-        reference_file_path=lambda name: tmp_path / name,
         normalize_large_discretionary_type=lambda value: str(value),
         pre_tax_account_options_from_holdings=lambda: [],
         audit=lambda event, details=None: events.append((event, details or {})),
