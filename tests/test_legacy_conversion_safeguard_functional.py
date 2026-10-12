@@ -365,3 +365,26 @@ def test_production_engine_mode_verifies_the_frozen_sample(ws, monkeypatch):
     assert res.status == "done" and res.verified, res.as_dict()
     for name in ("plan_rows", "engine_config", "engine_output", "datasets", "tier_mapping"):
         assert res.check(name).status == "match", name
+
+
+def _open_files_under(root: Path) -> list[str]:
+    import gc
+    gc.collect()
+    out = []
+    for obj in gc.get_objects():
+        if isinstance(obj, sqlite3.Connection):
+            try:
+                files = [r[2] for r in obj.execute("PRAGMA database_list").fetchall()]
+            except sqlite3.ProgrammingError:
+                continue  # closed
+            out += [f for f in files if f and str(root) in f]
+    return out
+
+
+def test_no_database_connection_stays_open_after_a_conversion(ws):
+    """Windows: an open handle on a workspace file blocks replacing or deleting it (WinError 5).
+    (The shipped reference.db stays open by design: read-only, outside the workspace.)"""
+    res = convert_workspace(ws)
+    assert res.status == "done"
+    assert _open_files_under(ws) == []
+    assert not (ws / "local_state" / "conversion_staging").exists()

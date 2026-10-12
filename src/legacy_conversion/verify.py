@@ -38,6 +38,7 @@ Advisory (reported, never blocking):
 from __future__ import annotations
 
 import csv
+import dataclasses
 import io
 import json
 import os
@@ -519,8 +520,15 @@ def verify_conversion(inp: VerifyInput) -> list[Check]:
         note = "nothing converted in this run"
         return [Check(n, NOT_APPLICABLE, note=note) for n in ("plan_rows", "engine_config", "engine_output", "datasets", "tier_mapping")] + \
                [Check("old_build_kpis", NOT_APPLICABLE, blocking=False, note=note)]
+    from ..plan_db_replace import copy_sqlite_file  # noqa: PLC0415
+
     checks: list[Check] = []
     markers = inp.initial.get("markers") or {}
+    # The engine never runs on the staging plan itself (the file that becomes live): it reads a
+    # copy, so nothing a computation might write can reach the live plan.
+    final_copy = Path(inp.workdir) / "final_for_engine.rpx"
+    copy_sqlite_file(inp.staging_file, final_copy)
+    inp = dataclasses.replace(inp, staging_file=final_copy)
     converted_file = inp.pre_tier_file or inp.staging_file
     converted = _plan_rows_of(converted_file)
 
