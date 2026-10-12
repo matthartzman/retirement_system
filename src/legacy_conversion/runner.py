@@ -235,6 +235,13 @@ def plan_has_household(store: PlanStore) -> bool:
     return any(str(r["value"] or "").strip() for r in store.rows(HOUSEHOLD_SECTION))
 
 
+def plan_is_placeholder(ctx: ConversionContext) -> bool:
+    """The target's rows are not the user's plan: no household yet, or (``_replace_plan_rows``)
+    the plan file holds the demo household of an old mid-demo install whose real plan rows exist
+    only as legacy files."""
+    return bool(ctx.extra.get("_replace_plan_rows")) or not plan_has_household(ctx.store)
+
+
 def _src(ctx: ConversionContext) -> dict[str, Any]:
     """SRC: choose every legacy file's source (``sources.discover``) and stage what the plan
     still needs into a temp folder the later steps read (``ctx.source_dir``). The plan CSV set
@@ -245,7 +252,7 @@ def _src(ctx: ConversionContext) -> dict[str, Any]:
 
     plan = ctx.extra.get("_sources") or sources.discover(ctx.workspace, ctx.extra)
     names: list[str] = []
-    if ctx.store.get_meta(c3_plan_rows.MARKER_KEY) is None and not plan_has_household(ctx.store):
+    if ctx.store.get_meta(c3_plan_rows.MARKER_KEY) is None and plan_is_placeholder(ctx):
         names += [*sources.PLAN_CSV_FILES, *sources.OVERRIDE_FILES]
     names += [f for n, f in sources.DATASET_FILES.items() if ctx.store.dataset(n).count() == 0]
     names += list(sources.EXTRA_FILES)
@@ -254,7 +261,9 @@ def _src(ctx: ConversionContext) -> dict[str, Any]:
     staged = sources.stage(plan, staging, names)
     ctx.source_dir = staging
     origins = plan.origins()
-    return {"skipped": not staged, "mode": plan.mode, "plan_seed": bool(plan.plan_seed),
+    done = all(ctx.store.get_meta(f"legacy_conversion.{k}") is not None for k in ("c3b", "c4a", "c4b", "c4c")) and (
+        ctx.store.get_meta(c3_plan_rows.MARKER_KEY) is not None or not _plan_csv_staged(ctx))
+    return {"skipped": not staged or done, "mode": plan.mode, "plan_seed": bool(plan.plan_seed),
             "legacy_db": bool(plan.legacy_db), "staged": {n: origins[n] for n in staged}}
 
 
@@ -266,9 +275,9 @@ def _plan_csv_staged(ctx: ConversionContext) -> bool:
 def _c3(ctx: ConversionContext) -> dict[str, Any]:
     from .steps import c3_plan_rows  # noqa: PLC0415
     cleared = 0
-    if ctx.store.get_meta(c3_plan_rows.MARKER_KEY) is None and ctx.store.sections() and not plan_has_household(ctx.store):
-        # Only backfilled / switch rows (an empty plan the new version opened): keep them as a
-        # revision and convert into an empty plan.
+    if ctx.store.get_meta(c3_plan_rows.MARKER_KEY) is None and ctx.store.sections() and plan_is_placeholder(ctx):
+        # Only backfilled / switch rows (an empty plan the new version opened), or an old demo's
+        # rows: keep them as a revision and convert into an empty plan.
         with ctx.store.transaction():
             ctx.store.snapshot_revision(PRE_CONVERSION_REVISION, "rows before legacy conversion")
             cleared = ctx.store.clear_rows()
