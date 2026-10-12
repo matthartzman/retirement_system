@@ -19,6 +19,7 @@ Uses FMP, Yahoo, Alpha Vantage, and Stooq; no deprecated pricing vendor endpoint
 
 import csv
 import json
+import logging
 import math
 import os
 import socket
@@ -248,6 +249,7 @@ class MarketDataProvider:
             self.max_retries = max(1, int(float(os.getenv("RETIREMENT_SYSTEM_PRICE_MAX_RETRIES", str(self.max_retries)))))
         except Exception:
             pass
+        self.secret_store_warning = ""
         self.refresh_api_keys()
         self.cache: Dict[str, Dict[str, object]] = self._load_cache()
         self.failures: List[Dict[str, object]] = []
@@ -285,10 +287,14 @@ class MarketDataProvider:
             except ImportError:
                 get_secret = None  # type: ignore
             if get_secret is not None:
-                if not self.fmp_api_key:
-                    self.fmp_api_key = _clean_secret(get_secret("fmp_api_key"))
-                if not self.alpha_vantage_api_key:
-                    self.alpha_vantage_api_key = _clean_secret(get_secret("alpha_vantage_api_key"))
+                try:
+                    if not self.fmp_api_key:
+                        self.fmp_api_key = _clean_secret(get_secret("fmp_api_key"))
+                    if not self.alpha_vantage_api_key:
+                        self.alpha_vantage_api_key = _clean_secret(get_secret("alpha_vantage_api_key"))
+                except Exception as exc:  # SecretStoreUnavailable: treat as "no key", but say so
+                    self.secret_store_warning = f"Stored API keys unavailable: {exc}"
+                    logging.getLogger(__name__).warning(self.secret_store_warning)
 
     def api_key_sources(self) -> Dict[str, object]:
         def _source(kind: str) -> str:
@@ -305,12 +311,15 @@ class MarketDataProvider:
             if _clean_secret(os.environ.get("ALPHA_VANTAGE_API_KEY")):
                 return "ALPHA_VANTAGE_API_KEY"
             return "configured/secret-store" if self.alpha_vantage_api_key else "not configured"
-        return {
+        out: Dict[str, object] = {
             "fmp": _source("fmp"),
             "alpha_vantage": _source("alpha"),
             "fmp_fingerprint": _secret_fingerprint(self.fmp_api_key),
             "alpha_vantage_fingerprint": _secret_fingerprint(self.alpha_vantage_api_key),
         }
+        if self.secret_store_warning:
+            out["secret_store_warning"] = self.secret_store_warning
+        return out
 
     def configure_transport(self, timeout_seconds: object | None = None, max_retries: object | None = None) -> None:
         if timeout_seconds is not None:

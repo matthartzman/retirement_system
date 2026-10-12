@@ -19,6 +19,14 @@ import numpy  # noqa: E402
 import openpyxl  # noqa: F401,E402
 import scipy.optimize  # noqa: F401,E402
 
+# WP8.2: the credential-store dependency and its platform backends must be bundled.
+import keyring  # noqa: F401,E402
+import keyring.backends.fail  # noqa: F401,E402
+import keyring.backends.Windows  # noqa: F401,E402
+import keyring.backends.macOS  # noqa: F401,E402
+import keyring.backends.SecretService  # noqa: F401,E402
+from importlib.metadata import version as _dist_version  # noqa: E402
+
 from src.data_io import load_csv  # noqa: E402
 from src.planning_engines import monte_carlo  # noqa: E402
 from src.platform_runtime import package_root  # noqa: E402
@@ -38,6 +46,7 @@ if not 0.0 <= rate <= 1.0:
 print("SMOKE_PROBE_OK " + json.dumps({
     "frozen": bool(getattr(sys, "frozen", False)),
     "numpy": numpy.__version__,
+    "keyring": _dist_version("keyring"),
     "success_rate": rate,
     "mc_status": mc.get("mc_approximation_status"),
 }))

@@ -14,3 +14,8 @@ openpyxl>=3.1,<4
 # pywebview powers the desktop native window (src/desktop_app.py). It is imported
 # lazily and only in desktop mode, so server mode runs without it.
 pywebview>=4.0,<7
+
+# --- OS credential store for API keys (WP8.2) ---
+# Windows Credential Manager is the primary backend; macOS Keychain and Secret Service also work.
+# No plain-text fallback exists: with no usable backend, setting a key raises SecretStoreUnavailable.
+keyring>=24,<26

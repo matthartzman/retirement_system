@@ -26,18 +26,18 @@ def fast_config():
 class RoadmapCompletionTests(unittest.TestCase):
     def test_requirements_manifest_lists_runtime_dependencies(self):
         text = (ROOT / "requirements.txt").read_text(encoding="utf-8")
-        for package in ["numpy", "openpyxl", "pywebview"]:
+        for package in ["numpy", "openpyxl", "pywebview", "keyring"]:
             self.assertIn(package, text)
         for removed in ("matplotlib", "pillow", "cryptography"):  # WI-205: import scan proved unused
             self.assertNotIn(removed, text)
         self.assertNotIn("Flask", text)
         self.assertNotIn("Werkzeug", text)
 
-    def test_local_secret_store_is_local_only_compatibility_layer(self):
+    def test_secret_store_is_the_os_credential_store(self):
         from src.secrets_store import encryption_status
         status = encryption_status()
-        self.assertEqual(status["mode"], "local-only")
-        self.assertTrue(status["store_active"])
+        self.assertEqual(status["mode"], "os-credential-store")
+        self.assertIn("store_active", status)
         self.assertTrue(require_secure_master_key("LOCAL"))
 
     def test_cma_reference_csv_is_authoritative(self):

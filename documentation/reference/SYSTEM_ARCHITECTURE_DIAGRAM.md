@@ -58,6 +58,7 @@ From `requirements.txt` (the authoritative declared list):
 - `lxml>=4.9,<7`
 - `openpyxl>=3.1,<4`
 - `pywebview>=4.0,<7`
+- `keyring>=24,<26`
 
 Actual usage detected per layer (which layer imports which third-party package):
 
@@ -66,7 +67,7 @@ Actual usage detected per layer (which layer imports which third-party package):
 | HTTP Routes | _none (stdlib only)_ |
 | Server Services | _none (stdlib only)_ |
 | HTTP Runtime | _none (stdlib only)_ |
-| Core Engine & Domain | `numpy`, `openpyxl`, `pywebview`, `requests`, `scipy` |
+| Core Engine & Domain | `keyring`, `numpy`, `openpyxl`, `pywebview`, `requests`, `scipy` |
 | Projection Stages | _none (stdlib only)_ |
 | Reporting / Workbook | `lxml`, `numpy`, `openpyxl`, `scipy` |
 | Dashboard UI Builder | _none (stdlib only)_ |
@@ -460,7 +461,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/server_services/portfolio_service.py` | — | — |
 | `src/server_services/pricing_service.py` | `config_backend`, `market_data`, `portfolio_analytics` | — |
 | `src/server_services/report_service.py` | `app_state`, `detailed_results`, `report_package`, `system_config` | — |
-| `src/server_services/secret_service.py` | — | — |
+| `src/server_services/secret_service.py` | `secrets_store` | — |
 | `src/server_services/spending_service.py` | `active_plan` | — |
 | `src/server_services/strategy_asset_service.py` | `core`, `data_io`, `plan_data_backfill`, `spending_adjustments`, `stores.ref_getters.state_tax` | — |
 | `src/server_services/ytd_service.py` | `import_preview`, `plan_datasets` | — |
@@ -585,7 +586,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/roth_ui_build_guard.py` | — | — |
 | `src/runtime_config.py` | `system_config` | — |
 | `src/schema_registry.py` | `plan_data_registry`, `stores.ref_getters.schema_fields` | — |
-| `src/secrets_store.py` | `plan_file_io`, `platform_runtime` | — |
+| `src/secrets_store.py` | `app_state`, `platform_runtime` | `keyring` |
 | `src/security.py` | `app_state`, `runtime_config` | — |
 | `src/server_forecast.py` | `after_tax`, `core`, `report_compute` | — |
 | `src/spending_adjustments.py` | — | — |
