@@ -35,7 +35,7 @@ def plans_dir(tmp_path):
 
 
 def test_fresh_schema(app):
-    assert app.schema_version == APP_SCHEMA_VERSION == 1
+    assert app.schema_version == APP_SCHEMA_VERSION == 2
     assert app._con.execute("PRAGMA application_id").fetchone()[0] == APP_APPLICATION_ID
     assert app.list_plans() == [] and app.active_plan() is None and app.settings() == {}
     assert PLAN_KINDS == ("user", "demo", "case")

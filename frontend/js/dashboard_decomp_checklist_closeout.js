@@ -277,7 +277,7 @@ export function renderWelcome() {
     if (_autoLoadPref === null)
       _autoLoad = localStorage.getItem("rpAutoLoad") === "1";
   } catch (_e) {}
-  return `<div class="pane-head"><div class="eyebrow">Welcome</div><h2>Retirement planning workspace</h2><p>Enter source facts first, then model strategy and stress tests, run preflight, build reports, and review the workbook results.</p>${demoModeActive ? '<div class="section-note" style="margin:6px 0">Viewing the demo plan (Alex &amp; Morgan). Your real plan is backed up — click <b>Open Current Plan</b> to switch back. Edits you make here are kept for next time you open the demo; on desktop, <b>Save Plan As</b> also lets you keep a named copy.</div>' : ""}<div class="pane-actions"><button class="btn primary" data-requires-app="1" onclick="startNewPlan()">Start New Plan</button><button class="btn" data-requires-app="1" onclick="openCurrentPlan()">Open Current Plan</button><button class="btn" data-requires-app="1" onclick="openDemoPlan()">Open Demo Plan</button>${demoModeActive ? "" : '<button class="btn" onclick="resetDemoToDefaults()">Reset Demo to Defaults</button>'}<button class="btn" onclick="savePlanAs()">Save Plan As</button><button class="btn" onclick="loadSavedPlan()">Load Saved Plan</button></div><div style="margin:8px 0 4px;font-size:13px"><label style="cursor:pointer;user-select:none"><input type="checkbox" id="autoLoadCheck"${_autoLoad ? " checked" : ""} onchange="setAutoLoad(this.checked)"> Auto-load plan on next start</label></div></div>${nbaPanelHtml()}${taxFreshnessBannerHtml()}${planKpiMetricsHtml()}${firstRunChecklistHtml(false)}<div class="feature-grid"><div class="feature-card"><h3>Your plan</h3><ul><li><b>The saved plan</b> is the active source for all projections.</li><li><b>Plan Data files</b> can be exported for backup, sharing, or recovery.</li><li><b>Reports</b> are generated snapshots — edit the plan, then rebuild to update them.</li></ul></div><div class="feature-card"><h3>Save and build</h3><ul><li><b>Save Changes</b> stores ordinary fields, tables, category budgets, transaction edits, holdings, liabilities, and strategy-table edits.</li><li><b>Build Reports</b> and <b>Download Workbook</b> save first, run preflight, then rebuild reports.</li><li>Use page-level reload buttons only when discarding unsaved page edits.</li></ul></div><div class="feature-card"><h3>Spending flow</h3><ul><li>Spending Categories defines the Tracking Type, Group, and Category model.</li><li>Housing, Wellness, and Travel are authoritative detail pages.</li><li>Income &amp; Expense Transactions feeds Spending Analysis and actual-vs-model review.</li></ul></div><div class="feature-card"><h3>Final review</h3><ol class="small"><li>Open Reports &amp; Review.</li><li>Check the Preflight tab for missing fields.</li><li>Resolve blockers, then build.</li><li>Review Impact and Results, then download the workbook.</li></ol></div></div>${closeoutChecklistHtml()}`;
+  return `<div class="pane-head"><div class="eyebrow">Welcome</div><h2>Retirement planning workspace</h2><p>Enter source facts first, then model strategy and stress tests, run preflight, build reports, and review the workbook results.</p>${demoModeActive ? '<div class="section-note" style="margin:6px 0">Viewing the demo plan (Alex &amp; Morgan), a plan file of its own. Your plan is not changed — click <b>Exit demo</b> in the header or <b>Open Current Plan</b> to switch back. Edits you make here stay in the demo for next time; <b>Reset Demo to Defaults</b> rebuilds it.</div>' : ""}<div class="pane-actions"><button class="btn primary" data-requires-app="1" onclick="startNewPlan()">Start New Plan</button><button class="btn" data-requires-app="1" onclick="openCurrentPlan()">Open Current Plan</button><button class="btn" data-requires-app="1" onclick="openDemoPlan()">Open Demo Plan</button><button class="btn" onclick="resetDemoToDefaults()">Reset Demo to Defaults</button><button class="btn" onclick="savePlanAs()">Save Plan As</button><button class="btn" onclick="loadSavedPlan()">Load Saved Plan</button></div><div style="margin:8px 0 4px;font-size:13px"><label style="cursor:pointer;user-select:none"><input type="checkbox" id="autoLoadCheck"${_autoLoad ? " checked" : ""} onchange="setAutoLoad(this.checked)"> Auto-load plan on next start</label></div></div>${nbaPanelHtml()}${taxFreshnessBannerHtml()}${planKpiMetricsHtml()}${firstRunChecklistHtml(false)}<div class="feature-grid"><div class="feature-card"><h3>Your plan</h3><ul><li><b>The saved plan</b> is the active source for all projections.</li><li><b>Plan Data files</b> can be exported for backup, sharing, or recovery.</li><li><b>Reports</b> are generated snapshots — edit the plan, then rebuild to update them.</li></ul></div><div class="feature-card"><h3>Save and build</h3><ul><li><b>Save Changes</b> stores ordinary fields, tables, category budgets, transaction edits, holdings, liabilities, and strategy-table edits.</li><li><b>Build Reports</b> and <b>Download Workbook</b> save first, run preflight, then rebuild reports.</li><li>Use page-level reload buttons only when discarding unsaved page edits.</li></ul></div><div class="feature-card"><h3>Spending flow</h3><ul><li>Spending Categories defines the Tracking Type, Group, and Category model.</li><li>Housing, Wellness, and Travel are authoritative detail pages.</li><li>Income &amp; Expense Transactions feeds Spending Analysis and actual-vs-model review.</li></ul></div><div class="feature-card"><h3>Final review</h3><ol class="small"><li>Open Reports &amp; Review.</li><li>Check the Preflight tab for missing fields.</li><li>Resolve blockers, then build.</li><li>Review Impact and Results, then download the workbook.</li></ol></div></div>${closeoutChecklistHtml()}`;
 }
 
 export function renderSystemConfiguration() {
@@ -545,8 +545,10 @@ export async function savePlanAs() {
       method: "POST",
       body: JSON.stringify({ path: result.path }),
     });
-    if (resp && resp.success) showMessage("Plan saved to: " + result.path);
-    else
+    if (resp && resp.success) {
+      showMessage("Plan saved to: " + result.path + (resp.activated ? " (now the active plan)" : ""));
+      if (typeof refreshPlanSwitcher === "function") refreshPlanSwitcher();
+    } else
       showMessage(
         "Save failed: " + ((resp && resp.error) || "unknown error"),
         "error",
@@ -570,7 +572,7 @@ export async function openDemoPlan() {
   }
   if (
     !(await showInAppConfirm(
-      'This swaps in a fictional demo household (Alex & Morgan) so you can explore the app. Your real plan is backed up automatically — use "Open Current Plan" to switch back anytime.',
+      'This switches to the demo plan, a fictional household (Alex & Morgan) kept in its own plan file, so you can explore the app. Your own plan file is not changed — use "Exit demo" to switch back anytime.',
       { title: "Open Demo Plan", confirmLabel: "Open Demo Plan", variant: "warn" },
     ))
   )
@@ -597,13 +599,13 @@ export async function openDemoPlan() {
 export async function openCurrentPlan() {
   try {
     if (demoModeActive) {
-      const resp = await api("/api/plan/restore-current", {
+      const resp = await api("/api/plan/exit-demo", {
         method: "POST",
         body: JSON.stringify({}),
       });
       if (!resp || !resp.success) {
         showMessage(
-          "Could not restore your plan: " + ((resp && resp.error) || "unknown error"),
+          "Could not switch back to your plan: " + ((resp && resp.error) || "unknown error"),
           "error",
         );
         return;
@@ -618,13 +620,9 @@ export async function openCurrentPlan() {
 }
 
 export async function resetDemoToDefaults() {
-  if (demoModeActive) {
-    showMessage("Close the demo (Open Current Plan) before resetting it.", "error");
-    return;
-  }
   if (
     !(await showInAppConfirm(
-      "This deletes any edits saved in the demo and resets it to the shipped Alex & Morgan fixtures. This cannot be undone.",
+      "This discards any edits made in the demo plan and rebuilds it from the shipped Alex & Morgan fixtures. Your own plan is not affected. This cannot be undone.",
       { title: "Reset Demo to Defaults", confirmLabel: "Reset Demo", variant: "warn" },
     ))
   )
@@ -634,8 +632,13 @@ export async function resetDemoToDefaults() {
       method: "POST",
       body: JSON.stringify({}),
     });
-    if (resp && resp.success) showMessage("Demo reset to defaults.", "success");
-    else
+    if (resp && resp.success) {
+      showMessage("Demo reset to defaults.", "success");
+      if (demoModeActive) {
+        await loadAll({ source: "Demo plan", preferLocal: false });
+        renderMain();
+      }
+    } else
       showMessage(
         "Could not reset demo: " + ((resp && resp.error) || "unknown error"),
         "error",
@@ -663,7 +666,7 @@ export async function loadSavedPlan() {
   }
   if (
     !(await showInAppConfirm(
-      "This replaces the current plan in the local database.",
+      "This opens the chosen plan file and makes it the active plan. Your current plan file is not changed; switch back to it from the Plan list in the header.",
       { title: "Load Saved Plan", confirmLabel: "Load Plan", variant: "warn" },
     ))
   )

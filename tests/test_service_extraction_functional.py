@@ -117,8 +117,8 @@ SERVICE_ROUTE_PAIRS = [
     {
         "service": "src/server_services/demo_plan_service.py",
         "route": "src/server/plan_routes.py",
-        "service_defines": ["class DemoPlanService", "DemoPlanServiceContext", "def status_payload", "def open_demo_payload", "def restore_current_payload"],
-        "route_calls": ["def _demo_plan_feature_service()", "DemoPlanServiceContext", ".status_payload()", ".open_demo_payload()", ".restore_current_payload()"],
+        "service_defines": ["class DemoPlanService", "DemoPlanServiceContext", "def status_payload", "def open_demo_payload", "def exit_demo_payload"],
+        "route_calls": ["def _demo_plan_feature_service()", "DemoPlanServiceContext", ".status_payload()", ".open_demo_payload()", ".exit_demo_payload()"],
         "route_forbids": [],
     },
 ]
@@ -148,13 +148,17 @@ def test_service_unit_payloads_are_plain_data(tmp_path):
     assert prefs == {"success": True, "prefs": {}}
     payload, status = base_service.save_prefs(tmp_path, {"theme": "dark"})
     assert status == 200 and payload["success"] is True
-    assert json.loads((tmp_path / "data" / "prefs.json").read_text())["theme"] == "dark"
+    assert base_service.read_prefs(tmp_path)["prefs"] == {"theme": "dark"}  # WP8.3: stored in app.db
+    assert not (tmp_path / "data" / "prefs.json").exists()
 
-    cfg = tmp_path / "system_config.csv"
-    cfg.write_text("section,subsection,label,value\nA,B,C,D\n", encoding="utf-8")
-    assert admin_service.system_config_payload(cfg)["rows"][1] == ["A", "B", "C", "D"]
+    from src.system_config import set_system_settings
+    app_db = tmp_path / "app.db"
+    set_system_settings({("A", "B", "C"): "D"}, app_db)
+    rows = admin_service.system_config_payload(app_db)["rows"]
+    assert ["A", "B", "C", "D", "", ""] in rows
+    assert rows[0][:4] == ["section", "subsection", "label", "value"]
 
-    meta = build_service.file_meta(cfg)
+    meta = build_service.file_meta(app_db)
     assert meta["exists"] is True and meta["bytes"] > 0
 
 

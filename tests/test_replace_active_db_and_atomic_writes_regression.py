@@ -100,7 +100,7 @@ def test_load_valid_plan_replaces_backs_up_and_runs_migration(tmp_path):
     _make_plan(src, "new")
     seen = []
 
-    result = _service(active, migrate=lambda p: seen.append(Path(p))).load_file({"path": str(src)})
+    result = _service(active, migrate=lambda p: seen.append(Path(p))).load_file({"path": str(src), "mode": "restore"})
 
     assert result["success"] is True and result["backup"] and result["backup"].startswith("plan.rpx.before_load_")
     assert _plan_marker(active) == "new"
@@ -198,17 +198,6 @@ def test_failed_dataset_save_keeps_original_holdings(tmp_path, monkeypatch):
     monkeypatch.undo()
     monkeypatch.setenv(PLAN_DB_ENV, str(plan))
     assert holdings_service.read_holdings(base_dir=tmp_path, workspace_id="local", client_id="local", db_path=tmp_path / "x.db")["content"] == original
-
-
-def test_secrets_store_failed_save_keeps_existing_keys(tmp_path, monkeypatch):
-    from src import secrets_store
-
-    path = tmp_path / "secrets.local.json"
-    secrets_store._save({"k": "v"}, path)
-    monkeypatch.setattr(plan_file_io.os, "replace", _boom)
-    with pytest.raises(OSError):
-        secrets_store._save({"k": "changed", "j": "w"}, path)
-    assert secrets_store._load(path) == {"k": "v"}
 
 
 def _bare_write_calls(path: Path, function: str | None = None) -> list[int]:

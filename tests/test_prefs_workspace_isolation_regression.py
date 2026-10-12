@@ -28,12 +28,16 @@ HEADERS = {"X-User-Role": "admin"}
 
 
 def test_prefs_round_trip_stays_under_workspace_root_not_base_dir():
+    """Prefs live in the workspace's app.db (WP8.3), never in BASE_DIR."""
+    from src.app_state import app_store_path_for, open_app_store
+    from src.server_services.base_service import PREFS_SETTING
+
     client = app.test_client()
     workspace_root = app_core.WORKSPACE_ROOT
     base_dir = app_core.BASE_DIR
-
-    prefs_path = workspace_root / "data" / "prefs.json"
-    original = prefs_path.read_text("utf-8") if prefs_path.exists() else None
+    db_path = app_store_path_for(workspace_root)
+    with open_app_store(db_path) as store:
+        original = store.get_setting(PREFS_SETTING)
     try:
         resp = client.post(
             "/api/prefs",
@@ -43,27 +47,21 @@ def test_prefs_round_trip_stays_under_workspace_root_not_base_dir():
         assert resp.status_code == 200
         assert resp.get_json()["success"] is True
 
-        assert prefs_path.exists(), (
-            f"expected prefs to be written under WORKSPACE_ROOT ({workspace_root}), "
-            "but no data/prefs.json appeared there"
-        )
-        written = json.loads(prefs_path.read_text("utf-8"))
-        assert written.get("_probe") == "workspace-isolation-regression"
+        with open_app_store(db_path, readonly=True) as store:
+            assert store.get_setting(PREFS_SETTING).get("_probe") == "workspace-isolation-regression"
 
         if base_dir != workspace_root:
-            base_dir_prefs = base_dir / "data" / "prefs.json"
-            if base_dir_prefs.exists():
-                base_contents = json.loads(base_dir_prefs.read_text("utf-8"))
-                assert base_contents.get("_probe") != "workspace-isolation-regression", (
-                    "prefs write leaked into BASE_DIR's data/prefs.json instead of "
-                    "staying under WORKSPACE_ROOT"
-                )
+            base_db = app_store_path_for(base_dir)
+            if base_db.exists():
+                with open_app_store(base_db, readonly=True) as store:
+                    assert (store.get_setting(PREFS_SETTING) or {}).get("_probe") != "workspace-isolation-regression"
 
         get_resp = client.get("/api/prefs", headers=HEADERS)
         assert get_resp.status_code == 200
         assert get_resp.get_json()["prefs"].get("_probe") == "workspace-isolation-regression"
     finally:
-        if original is not None:
-            prefs_path.write_text(original, "utf-8")
-        elif prefs_path.exists():
-            os.remove(prefs_path)
+        with open_app_store(db_path) as store:
+            if original is None:
+                store.delete_setting(PREFS_SETTING)
+            else:
+                store.set_setting(PREFS_SETTING, original)

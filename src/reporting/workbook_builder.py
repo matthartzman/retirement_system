@@ -71,6 +71,12 @@ from ..local_store import save_kpi_snapshot
 from ..active_plan import write_build_results
 
 
+def _system_settings_record(app_db):
+    """The build snapshot's record of the runtime settings it ran with (app.db, WP8.1)."""
+    from ..system_config import load_system_config as _load_system_config
+    return _load_system_config(app_db)
+
+
 def _build_plan_input_fingerprint(base_dir, config_meta):
     """Return a stable fingerprint of the exact plan data seen by this build: the plan rows'
     revision hash (``PlanStore.revision()``), the plan file's flat dataset tables, and the
@@ -93,17 +99,12 @@ def _build_plan_input_fingerprint(base_dir, config_meta):
         for dname, digest in _dataset_fingerprint(plan_db).items():
             files.append({"file": f"plan_datasets/{dname}", "sha256": digest})
             h.update(dname.encode("utf-8")); h.update(b"\0"); h.update(digest.encode("ascii")); h.update(b"\0")
-    bootstrap = (config_meta or {}).get("bootstrap_csv")
-    if bootstrap:
-        bp = _Path(str(bootstrap))
-        if not bp.is_absolute():
-            bp = root / bp
-        if bp.exists() and bp.is_file():
-            data = bp.read_bytes()
-            rel = bp.name
-            digest = _hashlib.sha256(data).hexdigest()
-            files.append({"file": rel, "sha256": digest, "bytes": len(data)})
-            h.update(rel.encode("utf-8")); h.update(b"\0"); h.update(digest.encode("ascii")); h.update(b"\0")
+    app_db = (config_meta or {}).get("app_db")
+    if app_db:
+        from ..system_config import settings_fingerprint as _settings_fingerprint
+        digest = _settings_fingerprint(app_db)
+        files.append({"file": "app_settings", "sha256": digest})
+        h.update(b"app_settings\0"); h.update(digest.encode("ascii")); h.update(b"\0")
     state = ""
     if plan_db and _Path(str(plan_db)).is_file():
         from ..active_plan import plan_state as _plan_state
@@ -866,6 +867,7 @@ def _active_plan_data_section_count(data):
         "Asset Correlations",
         "System",
         "Rebalancing",
+        "Annuity Calibration",
     }
     return sum(1 for sec, subs in (data or {}).items() if sec not in system_sections and bool(subs))
 
@@ -1495,7 +1497,7 @@ def _main(plan_read):
         plan_state=plan_state,
         summary=summary_data,
         explorer=explorer_model,
-        system_config_path=_os.path.join(base_dir, 'system_config.csv'),
+        system_settings=_system_settings_record((config_meta or {}).get('app_db')),
         pricing=pricing_diag,
         sqlite_db_path=(config_meta or {}).get('plan_db') or (config_meta or {}).get('sqlite_db') or (config_meta or {}).get('path'),
     )

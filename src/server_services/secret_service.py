@@ -10,6 +10,8 @@ not own business rules.
 from pathlib import Path
 from typing import Any, Callable
 
+from ..secrets_store import SecretStoreUnavailable
+
 
 def set_secret_payload(
     body: dict[str, Any],
@@ -22,5 +24,8 @@ def set_secret_payload(
     value = str((body or {}).get("value") or "")
     if not name or not value:
         return {"success": False, "error": "name and value are required"}, 400
-    set_secret_fn(name, value, workspace_id=workspace_id, db_path=db_path)
+    try:
+        set_secret_fn(name, value, workspace_id=workspace_id, db_path=db_path)
+    except SecretStoreUnavailable as exc:
+        return {"success": False, "error": str(exc), "secret_store_unavailable": True}, 503
     return {"success": True, "name": name}, 200

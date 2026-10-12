@@ -1,295 +1,208 @@
-"""Unit tests for src/secrets_store.py.
+"""Unit tests for src/secrets_store.py (WP8.2: OS credential store via keyring).
 
-Covers every function in the module: `_load`, `_save`, `encryption_status`,
-`require_secure_master_key`, `set_secret`, `get_secret`, `delete_secret`,
-and `list_secrets`.
-
-Important behavioral note (documented, not "fixed"): `set_secret`,
-`get_secret`, `delete_secret`, and `list_secrets` all accept a `db_path`
-keyword argument, but none of them actually use it -- internally they call
-`_load()` / `_save(data)` with NO arguments, so those calls always fall
-back to the default location from `secrets_path()`,
-completely ignoring whatever `db_path` the caller supplied. `db_path` is
-effectively a no-op placeholder today (likely there for a future/SaaS
-signature match). Tests below cover this explicitly.
-
-To keep tests from ever touching the real `local_state/secrets.local.json`
-file, an autouse fixture redirects `secrets_path()` -- the single place the
-default location is resolved, per call, from `workspace_root()` -- to a file
-under `tmp_path`.
+Every test runs against an in-memory fake keyring backend; the real credential store is never
+touched. The names index lives in an ``app.db`` redirected into ``tmp_path``.
 """
-
 from __future__ import annotations
 
 import json
 
+import keyring
 import pytest
+from keyring.backend import KeyringBackend
+from keyring.backends import fail
+from keyring.errors import PasswordDeleteError
 
 import src.secrets_store as secrets_store
+from src.app_state import APP_DB_ENV, open_app_store
+from src.secrets_store import SecretStoreUnavailable
 
+
+class MemoryKeyring(KeyringBackend):
+    priority = 1
+
+    def __init__(self):
+        super().__init__()
+        self.data: dict[tuple[str, str], str] = {}
+
+    def set_password(self, service, username, password):
+        self.data[(service, username)] = password
+
+    def get_password(self, service, username):
+        return self.data.get((service, username))
+
+    def delete_password(self, service, username):
+        if (service, username) not in self.data:
+            raise PasswordDeleteError("not found")
+        del self.data[(service, username)]
 
 
 @pytest.fixture(autouse=True)
-def _redirect_default_secrets_path(tmp_path, monkeypatch):
-    """Redirect the module's default secrets file into tmp_path."""
-    fake_path = tmp_path / "secrets.local.json"
-    monkeypatch.setattr(secrets_store, "secrets_path", lambda: fake_path)
-    return fake_path
-
-
-# ---------------------------------------------------------------------------
-# secrets_path() resolution (sanity check only, no I/O)
-# ---------------------------------------------------------------------------
-
-def test_secrets_path_follows_the_workspace_root(tmp_path, monkeypatch):
-    """Frozen-build regression: the path must come from workspace_root(), not
-    from the package location (the read-only, rebuild-wiped bundle folder)."""
-    monkeypatch.undo()  # drop the autouse redirect so the real resolver runs
+def fake(tmp_path, monkeypatch):
+    monkeypatch.setenv(APP_DB_ENV, str(tmp_path / "app.db"))
     monkeypatch.setenv("RETIREMENT_SYSTEM_WORKSPACE_ROOT", str(tmp_path / "ws"))
-    assert secrets_store.secrets_path() == tmp_path / "ws" / "local_state" / "secrets.local.json"
+    prev = keyring.get_keyring()
+    backend = MemoryKeyring()
+    keyring.set_keyring(backend)
+    yield backend
+    keyring.set_keyring(prev)
 
 
-def test_secrets_path_defaults_to_local_state_under_the_project_root(monkeypatch):
-    monkeypatch.undo()
-    monkeypatch.delenv("RETIREMENT_SYSTEM_WORKSPACE_ROOT", raising=False)
-    p = secrets_store.secrets_path()
-    assert p.parent.name == "local_state" and p.name == "secrets.local.json"
+def _no_backend():
+    keyring.set_keyring(fail.Keyring())
 
 
-def test_set_secret_writes_into_the_workspace(tmp_path, monkeypatch):
-    monkeypatch.undo()
-    monkeypatch.setenv("RETIREMENT_SYSTEM_WORKSPACE_ROOT", str(tmp_path / "ws"))
-    secrets_store.set_secret("api_key", "abc")
-    assert (tmp_path / "ws" / "local_state" / "secrets.local.json").is_file()
-    assert secrets_store.get_secret("api_key") == "abc"
+def test_set_get_round_trip_uses_service_and_name(fake):
+    secrets_store.set_secret("api_key", "sk-1")
+    assert secrets_store.get_secret("api_key") == "sk-1"
+    assert fake.data == {(secrets_store.SERVICE_NAME, "api_key"): "sk-1"}
 
 
-# ---------------------------------------------------------------------------
-# _load
-# ---------------------------------------------------------------------------
-
-def test_load_missing_file_returns_empty_dict(tmp_path):
-    missing = tmp_path / "does_not_exist.json"
-    assert secrets_store._load(missing) == {}
+def test_values_coerced_to_str_and_missing_is_empty():
+    secrets_store.set_secret(123, 456)
+    assert secrets_store.get_secret("123") == "456"
+    assert secrets_store.get_secret("never") == ""
 
 
-def test_load_missing_file_uses_default_path(_redirect_default_secrets_path):
-    # No explicit path -- the (patched) default file doesn't exist yet.
-    assert not _redirect_default_secrets_path.exists()
-    assert secrets_store._load() == {}
+def test_delete_and_missing_delete_are_quiet():
+    secrets_store.set_secret("a", "1")
+    secrets_store.delete_secret("a")
+    assert secrets_store.get_secret("a") == ""
+    secrets_store.delete_secret("a")
+    assert secrets_store.list_secrets() == []
 
 
-def test_load_valid_json_returns_dict(tmp_path):
-    p = tmp_path / "secrets.json"
-    p.write_text(json.dumps({"a": "1", "b": "2"}), encoding="utf-8")
-    assert secrets_store._load(p) == {"a": "1", "b": "2"}
+def test_names_index_lives_in_app_db_and_holds_no_values(tmp_path):
+    secrets_store.set_secret("zeta", "v-zeta")
+    secrets_store.set_secret("alpha", "v-alpha")
+    assert secrets_store.list_secrets() == ["alpha", "zeta"]
+    store = open_app_store()
+    try:
+        assert store.get_setting("secrets.names") == ["alpha", "zeta"]
+    finally:
+        store.close()
+    assert b"v-zeta" not in (tmp_path / "app.db").read_bytes()
+    secrets_store.delete_secret("alpha")
+    assert secrets_store.list_secrets() == ["zeta"]
 
 
-def test_load_corrupt_json_returns_empty_dict_not_raise(tmp_path):
-    p = tmp_path / "corrupt.json"
-    p.write_text("{not valid json::", encoding="utf-8")
-    assert secrets_store._load(p) == {}
+def test_no_plaintext_file_is_written(tmp_path):
+    secrets_store.set_secret("k", "super-secret-value")
+    assert not secrets_store.legacy_secrets_path().exists()
+    for f in tmp_path.rglob("*"):
+        if f.is_file():
+            assert b"super-secret-value" not in f.read_bytes(), f
 
 
-def test_load_accepts_string_path(tmp_path):
-    p = tmp_path / "secrets.json"
-    p.write_text(json.dumps({"x": "y"}), encoding="utf-8")
-    assert secrets_store._load(str(p)) == {"x": "y"}
+@pytest.mark.parametrize("call", [
+    lambda: secrets_store.set_secret("k", "v"),
+    lambda: secrets_store.get_secret("k"),
+    lambda: secrets_store.delete_secret("k"),
+])
+def test_unavailable_backend_raises_clearly_and_writes_nothing(tmp_path, call):
+    _no_backend()
+    with pytest.raises(SecretStoreUnavailable, match="never saved to a plain file"):
+        call()
+    assert not secrets_store.legacy_secrets_path().exists()
 
 
-# ---------------------------------------------------------------------------
-# _save
-# ---------------------------------------------------------------------------
+def test_no_keyring_error_from_backend_is_unavailable(fake, monkeypatch):
+    from keyring.errors import NoKeyringError
 
-def test_save_writes_readable_json(tmp_path):
-    p = tmp_path / "out.json"
-    secrets_store._save({"k": "v"}, p)
-    assert json.loads(p.read_text(encoding="utf-8")) == {"k": "v"}
-
-
-def test_save_creates_parent_directories(tmp_path):
-    p = tmp_path / "nested" / "dir" / "secrets.json"
-    assert not p.parent.exists()
-    secrets_store._save({"k": "v"}, p)
-    assert p.exists()
+    def boom(*a):
+        raise NoKeyringError("none")
+    monkeypatch.setattr(fake, "get_password", boom)
+    with pytest.raises(SecretStoreUnavailable):
+        secrets_store.get_secret("k")
 
 
-def test_save_then_load_round_trip(tmp_path):
-    p = tmp_path / "secrets.json"
-    secrets_store._save({"alpha": "1", "beta": "2"}, p)
-    assert secrets_store._load(p) == {"alpha": "1", "beta": "2"}
+def test_failed_set_does_not_touch_the_index():
+    _no_backend()
+    with pytest.raises(SecretStoreUnavailable):
+        secrets_store.set_secret("k", "v")
+    keyring.set_keyring(MemoryKeyring())
+    assert secrets_store.list_secrets() == []
 
 
-def test_save_overwrites_existing_file(tmp_path):
-    p = tmp_path / "secrets.json"
-    secrets_store._save({"old": "1"}, p)
-    secrets_store._save({"new": "2"}, p)
-    assert secrets_store._load(p) == {"new": "2"}
+def test_encryption_status_never_raises_and_has_no_configured_key():
+    assert secrets_store.encryption_status("ws", db_path="x") == {
+        "mode": "os-credential-store", "encrypted": True, "store_active": True, "backend": "MemoryKeyring"}
+    _no_backend()
+    st = secrets_store.encryption_status()
+    assert st["encrypted"] is False and st["store_active"] is False and "plain file" in st["error"]
+    assert "configured" not in st  # SEC-5: must not shadow a caller's own "configured" key
 
-
-def test_save_uses_default_path_when_omitted(_redirect_default_secrets_path):
-    secrets_store._save({"k": "v"})
-    assert _redirect_default_secrets_path.exists()
-    assert secrets_store._load() == {"k": "v"}
-
-
-# ---------------------------------------------------------------------------
-# encryption_status
-# ---------------------------------------------------------------------------
-
-def test_encryption_status_returns_local_only_stub():
-    # Not real encryption -- this is a stub for a SaaS-mode signature that
-    # is unused in the local-only deployment (per module docstring).
-    assert secrets_store.encryption_status() == {
-        "mode": "local-only",
-        "encrypted": False,
-        "store_active": True,
-    }
-
-
-def test_encryption_status_ignores_any_arguments():
-    # Signature is *args, **kwargs -- extra arguments are accepted but
-    # have no effect on the returned value.
-    assert secrets_store.encryption_status("workspace-1", db_path="/whatever") == {
-        "mode": "local-only",
-        "encrypted": False,
-        "store_active": True,
-    }
-
-
-def test_encryption_status_has_no_configured_key_to_collide_with_a_callers_own():
-    # Finding SEC-5 (Wave 6 W6-1): tools/manage_secret.py builds
-    # `{"configured": bool(val), **encryption_status()}` -- when this
-    # function's own return dict carried a "configured" key, the spread
-    # silently overwrote the caller's real "was a secret actually set" flag
-    # with this stub's unconditional True. Reproduce that exact merge here
-    # and confirm the caller's own "configured" key survives untouched now
-    # that this function no longer uses that name.
-    assert "configured" not in secrets_store.encryption_status()
-
-    for real_configured in (True, False):
-        merged = {"configured": real_configured, "fingerprint": "abc123", **secrets_store.encryption_status()}
-        assert merged["configured"] == real_configured, (
-            "encryption_status()'s own keys must never shadow a caller's unrelated "
-            "'configured' key in a dict-spread merge (the exact pattern "
-            "tools/manage_secret.py uses)"
-        )
-
-
-# ---------------------------------------------------------------------------
-# require_secure_master_key
-# ---------------------------------------------------------------------------
 
 def test_require_secure_master_key_always_true():
-    assert secrets_store.require_secure_master_key() is True
-
-
-def test_require_secure_master_key_ignores_any_arguments():
     assert secrets_store.require_secure_master_key("anything", flag=False) is True
 
 
-# ---------------------------------------------------------------------------
-# set_secret / get_secret / delete_secret / list_secrets
-# ---------------------------------------------------------------------------
-
-def test_set_then_get_round_trip():
-    secrets_store.set_secret("api_key", "sk-12345")
-    assert secrets_store.get_secret("api_key") == "sk-12345"
-
-
-def test_set_secret_coerces_name_and_value_to_str():
-    secrets_store.set_secret(123, 456)
-    assert secrets_store.get_secret("123") == "456"
+def test_db_path_and_workspace_id_are_accepted_but_unused(tmp_path):
+    other = tmp_path / "elsewhere.db"
+    secrets_store.set_secret("k", "v", workspace_id="a", db_path=other)
+    assert secrets_store.get_secret("k", workspace_id="b") == "v"
+    assert secrets_store.list_secrets(db_path=other) == ["k"]
+    assert not other.exists()
 
 
-def test_get_secret_never_set_returns_empty_string():
-    assert secrets_store.get_secret("never_set_this_name") == ""
+def _write_legacy(data):
+    p = secrets_store.legacy_secrets_path()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(data), encoding="utf-8")
+    return p
 
 
-def test_get_secret_on_first_call_with_no_file_does_not_crash(_redirect_default_secrets_path):
-    assert not _redirect_default_secrets_path.exists()
-    assert secrets_store.get_secret("anything") == ""
+def test_legacy_migration_moves_verifies_and_keeps_file_by_default(fake):
+    p = _write_legacy({"fmp_api_key": "F", "alpha_vantage_api_key": "A"})
+    r = secrets_store.migrate_legacy_secrets_file()
+    assert r["verified"] and not r["deleted"] and sorted(r["migrated"]) == ["alpha_vantage_api_key", "fmp_api_key"]
+    assert p.exists()  # never auto-deleted
+    assert secrets_store.get_secret("fmp_api_key") == "F"
+    assert secrets_store.list_secrets() == ["alpha_vantage_api_key", "fmp_api_key"]
+    assert "F" not in json.dumps({k: v for k, v in r.items()})
 
 
-def test_delete_secret_removes_value():
-    secrets_store.set_secret("temp_key", "temp_value")
-    assert secrets_store.get_secret("temp_key") == "temp_value"
-    secrets_store.delete_secret("temp_key")
-    assert secrets_store.get_secret("temp_key") == ""
+def test_legacy_migration_deletes_only_when_asked_and_verified(fake):
+    p = _write_legacy({"k": "v"})
+    r = secrets_store.migrate_legacy_secrets_file(delete_file=True)
+    assert r["verified"] and r["deleted"] and not p.exists()
 
 
-def test_delete_secret_missing_name_does_not_raise():
-    # Deleting a name that was never set should be a harmless no-op.
-    secrets_store.delete_secret("was_never_there")
-    assert secrets_store.get_secret("was_never_there") == ""
+def test_legacy_migration_keeps_file_when_readback_fails(fake, monkeypatch):
+    p = _write_legacy({"good": "1", "bad": "2"})
+    orig = fake.get_password
+    monkeypatch.setattr(fake, "get_password", lambda s, u: "WRONG" if u == "bad" else orig(s, u))
+    r = secrets_store.migrate_legacy_secrets_file(delete_file=True)
+    assert r["failed"] == ["bad"] and not r["verified"] and not r["deleted"] and p.exists()
 
 
-def test_delete_secret_on_first_call_with_no_file_does_not_crash(_redirect_default_secrets_path):
-    assert not _redirect_default_secrets_path.exists()
-    secrets_store.delete_secret("anything")  # should not raise
+def test_legacy_migration_without_backend_raises_and_keeps_file():
+    p = _write_legacy({"k": "v"})
+    _no_backend()
+    with pytest.raises(SecretStoreUnavailable):
+        secrets_store.migrate_legacy_secrets_file(delete_file=True)
+    assert p.exists()
 
 
-def test_list_secrets_reflects_current_state():
-    assert secrets_store.list_secrets() == []
-    secrets_store.set_secret("zeta", "1")
-    secrets_store.set_secret("alpha", "2")
-    assert secrets_store.list_secrets() == ["alpha", "zeta"]
+def test_legacy_migration_missing_or_corrupt_file(tmp_path):
+    assert secrets_store.migrate_legacy_secrets_file()["found"] is False
+    p = secrets_store.legacy_secrets_path()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text("{not json", encoding="utf-8")
+    r = secrets_store.migrate_legacy_secrets_file(delete_file=True)
+    assert not r["verified"] and not r["deleted"] and p.exists() and "unreadable" in r["error"]
 
 
-def test_list_secrets_after_delete():
-    secrets_store.set_secret("a", "1")
-    secrets_store.set_secret("b", "2")
-    secrets_store.delete_secret("a")
-    assert secrets_store.list_secrets() == ["b"]
-
-
-def test_list_secrets_on_first_call_with_no_file_returns_empty_list(_redirect_default_secrets_path):
-    assert not _redirect_default_secrets_path.exists()
-    assert secrets_store.list_secrets() == []
-
-
-def test_multiple_secrets_independent_round_trip():
-    secrets_store.set_secret("one", "1")
-    secrets_store.set_secret("two", "2")
-    secrets_store.set_secret("three", "3")
-    assert secrets_store.get_secret("one") == "1"
-    assert secrets_store.get_secret("two") == "2"
-    assert secrets_store.get_secret("three") == "3"
-    assert secrets_store.list_secrets() == ["one", "three", "two"]
-
-
-# ---------------------------------------------------------------------------
-# db_path / workspace_id are accepted but currently have no effect (no-op)
-# ---------------------------------------------------------------------------
-
-def test_set_secret_db_path_argument_is_ignored(tmp_path, _redirect_default_secrets_path):
-    """Surprising but real behavior: `db_path` is accepted in the public
-    functions' signatures but never passed through to `_load`/`_save`
-    internally, so it has NO effect on where data is written. The value
-    always lands in whatever `_load`/`_save` currently default to.
-    """
-    other_file = tmp_path / "somewhere_else.json"
-    secrets_store.set_secret("k", "v", db_path=other_file)
-
-    # Nothing was written to the path we asked for...
-    assert not other_file.exists()
-
-    # ...instead it went to the (patched) default secrets path.
-    assert _redirect_default_secrets_path.exists()
-    assert secrets_store.get_secret("k", db_path=other_file) == "v"
-
-
-def test_get_secret_workspace_id_argument_is_ignored():
-    """`workspace_id` is likewise accepted but unused: secrets set under
-    one "workspace" are visible when queried under a different one,
-    because there is no per-workspace partitioning implemented.
-    """
-    secrets_store.set_secret("shared_key", "shared_value", workspace_id="workspace-a")
-    assert secrets_store.get_secret("shared_key", workspace_id="workspace-b") == "shared_value"
-
-
-def test_list_secrets_db_path_argument_is_ignored(tmp_path):
-    other_file = tmp_path / "another.json"
-    secrets_store.set_secret("k", "v")
-    assert secrets_store.list_secrets(db_path=other_file) == ["k"]
-    assert not other_file.exists()
+def test_pricing_reader_treats_unavailable_as_no_key_with_warning(monkeypatch):
+    from src.market_data import MarketDataProvider
+    for n in ("RETIREMENT_SYSTEM_FMP_API_KEY", "FMP_API_KEY", "FINANCIAL_MODELING_PREP_API_KEY",
+              "RETIREMENT_SYSTEM_ALPHA_VANTAGE_API_KEY", "ALPHA_VANTAGE_API_KEY"):
+        monkeypatch.delenv(n, raising=False)
+    _no_backend()
+    md = MarketDataProvider()
+    assert not md.fmp_api_key and "unavailable" in md.secret_store_warning
+    assert "secret_store_warning" in md.api_key_sources()
+    monkeypatch.setenv("FMP_API_KEY", "env-key")  # env override still works with no store
+    md.fmp_api_key = ""
+    md.refresh_api_keys()
+    assert md.fmp_api_key == "env-key"
