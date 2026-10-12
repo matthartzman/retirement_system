@@ -400,6 +400,8 @@ def _c6a(ctx: ConversionContext) -> dict[str, Any]:
     """C6a, plan part: the engine knobs go into the plan (staging); the runtime flags are only
     listed here (``flags_written`` = what step C6a.flags writes into app.db once the plan is live)."""
     from .steps import c6a_settings  # noqa: PLC0415
+    if ctx.store.get_meta(c6a_settings.MARKER_KEY) is not None:
+        return {"step": "C6a", "skipped": True}  # knobs done; C6a.flags handles app.db
     return c6a_settings.run(ctx.store, _c6a_text(ctx), _app_db(ctx), dry_run=True).as_dict()
 
 
