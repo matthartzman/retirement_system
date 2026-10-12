@@ -269,8 +269,8 @@ def _run(res: ConversionResult, ws: Path, d: dict[str, Any], extra: dict[str, An
     failing = verify.failed(res.checks)
     res.verified = not failing
     res.warnings += [f"{c.name}:{c.status}" for c in res.checks if not c.blocking and c.status in ("diff", "error")]
-    c6a = report.step("C6a")
-    if c6a is not None and c6a.detail.get("knobs_written") and (report.step("C3") or c6a).status != "converted":
+    c3, c6a = report.step("C3"), report.step("C6a")
+    if c6a is not None and c6a.detail.get("knobs_written") and not (c3 is not None and c3.status == "converted"):
         # system_config.csv engine settings added to a plan that already lived in a plan file (C6a's
         # rule): its numbers now follow the old file's settings; names are in the C6a step detail.
         res.warnings.append(f"system_config_knobs_added:{len(c6a.detail['knobs_written'])}")
