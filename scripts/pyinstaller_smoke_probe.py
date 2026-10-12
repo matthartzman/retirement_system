@@ -27,16 +27,20 @@ import keyring.backends.macOS  # noqa: F401,E402
 import keyring.backends.SecretService  # noqa: F401,E402
 from importlib.metadata import version as _dist_version  # noqa: E402
 
-from src.data_io import load_csv  # noqa: E402
 from src.planning_engines import monte_carlo  # noqa: E402
-from src.platform_runtime import package_root  # noqa: E402
+from src.platform_runtime import demo_seed_path  # noqa: E402
+from src.stores import PlanStore  # noqa: E402
 from src.report_compute import prepare_config_from_sectioned_data  # noqa: E402
 
-demo = package_root() / "input" / "demo" / "client_data.csv"
+demo = demo_seed_path()
 if not demo.is_file():
-    raise SystemExit(f"bundled demo plan missing: {demo}")
+    raise SystemExit(f"bundled seed demo plan missing: {demo}")
 
-cfg = prepare_config_from_sectioned_data(load_csv(demo), "")
+with PlanStore.open(demo, create=False, readonly=True) as _store:
+    _data = _store.sectioned_data()
+if not _data:
+    raise SystemExit(f"bundled seed demo plan holds no rows: {demo}")
+cfg = prepare_config_from_sectioned_data(_data, "")
 cfg.update(mc_sims=20, mc_sensitivity_sims=1, mc_engine_mode="vectorized")
 mc = monte_carlo(cfg, seed=1)
 rate = float(mc["success_rate"])

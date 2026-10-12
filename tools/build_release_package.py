@@ -35,6 +35,7 @@ EXCLUDED_DIR_NAMES = {
 EXCLUDED_SUFFIXES = {".pyc", ".pyo"}
 ADVISOR_SAFE_FORBIDDEN_SUFFIXES = {".db", ".sqlite", ".sqlite3", ".log"}
 SHIPPED_DB_PATHS = {Path("src") / "reference" / "reference.db"}  # read-only reference data, required at runtime
+# src/reference/demo_seed.rpx (seed demo plan) is not a forbidden suffix, so it ships with src/ as is.
 EXCLUDED_RELATIVE_PATHS = {
     Path("wsgi.py"),
     Path("output") / "market_price_cache.json",

@@ -19,6 +19,7 @@ never written.
 """
 
 import os
+import shutil
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -37,6 +38,8 @@ class DemoPlanServiceContext:
     demo_dir: Callable[[], Path]
     # Where the demo plan file lives (default ``<workspace>/demo.rpx``).
     demo_plan_file: Callable[[], Path] = plan_registry.demo_plan_file
+    # The shipped seed plan file (``demo_seed.rpx``); copied when present, else ``demo_dir`` is imported.
+    demo_seed: Callable[[], Path] | None = None
     audit: Callable[[str, dict[str, Any]], None] | None = None
     # Runs on the plan file that just became active (open, exit, and a reset of the active demo):
     # the at-rest row migration and the UI-row backfill.
@@ -69,6 +72,10 @@ class DemoPlanService:
 
     def _build_seed(self, dest: Path) -> None:
         """Build the demo plan from the seed at ``dest`` (a temp file; the caller moves it into place)."""
+        seed = self.context.demo_seed() if self.context.demo_seed else None
+        if seed is not None and Path(seed).is_file():
+            shutil.copyfile(seed, dest)
+            return
         if not build_plan_file_from_csv_folder(dest, self.context.demo_dir()):
             raise FileNotFoundError(f"no demo plan rows found in {self.context.demo_dir()}")
 

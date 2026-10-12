@@ -43,16 +43,13 @@ for _meta_pkg in ("numpy", "scipy", "lxml", "openpyxl", "pywebview", "keyring", 
 app_datas = [
     # Frontend (HTML, JS, CSS served by the stdlib local HTTP runtime)
     ("frontend",        "frontend"),
-    # Fictional demo plan only (the tracked, versioned sample). The developer's
-    # live input/ folder must never be bundled; a frozen run seeds a per-user
-    # workspace (src/platform_runtime.py) from this folder on first launch.
-    ("input/demo",      "input/demo"),
     # Tool scripts called via subprocess.Popen([sys.executable, script, ...])
     # main.py's script-runner mode executes these inside the frozen interpreter
     ("tools",           "tools"),
     # src package source — ensures all modules are present even if PyInstaller's
     # static analysis misses them (e.g. modules not reachable from main.py)
-    # (includes src/reference/reference.db, the read-only shipped reference data)
+    # (includes src/reference/reference.db, the read-only shipped reference data, and
+    # src/reference/demo_seed.rpx, the seed demo plan; the input/demo CSV folder is not bundled)
     ("src",             "src"),
 ]
 # fmt: on

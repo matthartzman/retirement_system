@@ -100,39 +100,40 @@ def frozen_workspace_root() -> Path:
     return base / FROZEN_WORKSPACE_DIRNAME
 
 
-def seed_frozen_workspace() -> bool:
-    """Seed an empty per-user workspace from the bundled demo plan.
+def demo_seed_path() -> Path:
+    """The shipped seed demo plan (``src/reference/demo_seed.rpx``, built by ``tools/build_demo_seed.py``)."""
+    return package_root() / "src" / "reference" / "demo_seed.rpx"
 
-    Builds the workspace's plan file (``plan.rpx``) from the demo CSV set through the ``csv_exchange``
-    importer (WP9/P9.2 ship a seed ``.rpx`` instead) when it is missing or holds no rows, then copies
-    the demo files into ``input/`` (the flat datasets still read from there). A failed or empty import
-    raises ``RuntimeError`` before anything is marked as seeded, so the next launch retries.
-    Only acts when frozen and the workspace is not the package root, and only when ``input/client_data.csv`` is absent, so existing user
-    data is never overwritten. Returns True when files were copied.
+
+def seed_frozen_workspace() -> bool:
+    """Seed an empty per-user workspace from the shipped seed demo plan.
+
+    Copies ``demo_seed.rpx`` to the workspace's ``plan.rpx`` when that file is missing or holds no
+    rows, and creates the app database (``app.db``). A missing or empty seed raises ``RuntimeError``
+    so the next launch retries. Only acts when frozen and the workspace is not the package root; an
+    existing plan with rows is never overwritten. Returns True when the plan file was seeded.
     """
     root = workspace_root()
     if not is_frozen() or root == package_root():
         return False
-    demo = package_root() / "input" / "demo"
-    target = root / "input"
-    if (target / "client_data.csv").exists() or not demo.is_dir():
-        return False
     ensure_workspace_dirs()
-    # The plan file is built first and ``client_data.csv`` (the "already seeded" marker above) is
-    # copied last: a failed or empty import raises here, leaves no marker, and the next launch
-    # retries instead of keeping a permanently empty plan.
+    from .app_state import open_app_store  # noqa: PLC0415 - keep this module import-free at load time
+    with open_app_store():
+        pass  # creates and migrates app.db
     plan_file = root / "plan.rpx"
+    if _plan_file_has_rows(plan_file):
+        return False
+    seed = demo_seed_path()
+    if not seed.is_file():
+        raise RuntimeError(f"seeding the workspace plan failed: {seed} is missing")
+    tmp = plan_file.with_name(plan_file.name + ".seed")
+    shutil.copy2(seed, tmp)
+    for suffix in ("", "-wal", "-shm"):
+        plan_file.with_name(plan_file.name + suffix).unlink(missing_ok=True)
+    tmp.replace(plan_file)
     if not _plan_file_has_rows(plan_file):
-        from .active_plan import build_plan_file_from_csv_folder  # noqa: PLC0415 - active_plan imports this module
-        try:
-            rows = build_plan_file_from_csv_folder(plan_file, demo)
-        except Exception as exc:
-            raise RuntimeError(f"seeding the workspace plan from {demo} failed: {exc}") from exc
-        if not rows or not _plan_file_has_rows(plan_file):
-            raise RuntimeError(f"seeding the workspace plan from {demo} imported no rows")
-    for src_file in sorted(demo.iterdir(), key=lambda p: p.name == "client_data.csv"):
-        if src_file.is_file():
-            shutil.copy2(src_file, target / src_file.name)
+        plan_file.unlink(missing_ok=True)
+        raise RuntimeError(f"seeding the workspace plan from {seed} imported no rows")
     return True
 
 
