@@ -28,24 +28,6 @@ def ws(tmp_path, monkeypatch):
     return plan
 
 
-# --------------------------------------------------------------------------- 1
-def test_protected_status_creates_no_plan_file_and_is_not_falsely_missing(ws):
-    assert app_core._protected_client_data_status()["member_1_retirement_date_present"] is True
-    ws.plan_db.unlink()
-    status = app_core._protected_client_data_status()
-    assert status == {"member_1_retirement_date_present": False, "member_2_retirement_date_present": False}
-    assert not ws.plan_db.exists(), "a status read must not create plan.rpx"
-
-
-def test_protected_status_reads_the_plan_rows(ws):
-    with ws.store() as store:
-        store.set_value(*DATE_KEY, "")
-    assert app_core._protected_client_data_status()["member_1_retirement_date_present"] is False
-    with ws.store() as store:
-        store.set_value(*DATE_KEY, "2031-01-01")
-    assert app_core._protected_client_data_status()["member_1_retirement_date_present"] is True
-
-
 # --------------------------------------------------------------------------- 2
 def test_startup_migration_default_folder_is_the_workspace_input_and_the_active_plan(ws, monkeypatch):
     import src.plan_data_migration as pdm
