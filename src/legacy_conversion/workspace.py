@@ -31,7 +31,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from ..stores import PlanStore
+from ..active_plan import PlanStore  # product code reaches PlanStore through active_plan
 from . import runner, sources
 from .steps import c6a_settings, c6b_secrets
 
