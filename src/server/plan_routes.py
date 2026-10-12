@@ -71,7 +71,7 @@ except ImportError:
 from ..active_plan import active_plan_path, peek_plan_data
 from .. import plan_registry
 from ..version import VERSION
-from ..server_services import base_service, config_service, demo_plan_service, plan_tier_service, pricing_service, ytd_service, plan_file_service, portfolio_service, secret_service, spending_service, strategy_asset_service
+from ..server_services import base_service, config_service, conversion_service, demo_plan_service, plan_tier_service, pricing_service, ytd_service, plan_file_service, portfolio_service, secret_service, spending_service, strategy_asset_service
 from ..portfolio_analytics import freeze_latest_pricing_snapshot, unfreeze_pricing_snapshot
 from .. import local_backup_scheduler
 from .. import monarch_autoupdate
@@ -1276,6 +1276,44 @@ def _plans_payload():
     plans = plan_registry.list_plans()
     active = next((p for p in plans if p["active"]), None)
     return {"plans": plans, "active": active, "demo_active": bool(active and active["kind"] == "demo")}
+
+
+_CONVERSION_SERVICE = None
+
+
+def _conversion_feature_service() -> conversion_service.ConversionService:
+    global _CONVERSION_SERVICE
+    if _CONVERSION_SERVICE is None:
+        _CONVERSION_SERVICE = conversion_service.ConversionService(
+            platform_runtime.workspace_root, after_run=lambda: _after_plan_switch(active_plan_path()), audit=_audit)
+    return _CONVERSION_SERVICE
+
+
+@app.route("/api/conversion/status", methods=["GET"])
+def conversion_status():
+    """First-launch conversion: is one needed, what was found, the last result (names and counts only)."""
+    denied = _require("read_config")
+    if denied:
+        return denied
+    return jsonify({"success": True, **_conversion_feature_service().status()})
+
+
+@app.route("/api/conversion/check", methods=["POST"])
+def conversion_check():
+    """Dry run: what a conversion would do. Writes nothing."""
+    denied = _require("write_config")
+    if denied:
+        return denied
+    return _service_json(_conversion_feature_service().start(request.get_json(silent=True) or {}, dry_run=True))
+
+
+@app.route("/api/conversion/run", methods=["POST"])
+def conversion_run():
+    """Start the one-time conversion (backup, staging, verification, swap); poll the status route."""
+    denied = _require("write_config")
+    if denied:
+        return denied
+    return _service_json(_conversion_feature_service().start(request.get_json(silent=True) or {}, dry_run=False))
 
 
 @app.route("/api/plans", methods=["GET"])
