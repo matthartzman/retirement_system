@@ -28,7 +28,6 @@ from .sqlite_util import connect as closing_connect
 PROJECT_ROOT = platform_runtime.package_root()
 _WORKSPACE_ROOT = platform_runtime.workspace_root()
 DEFAULT_DB = _WORKSPACE_ROOT / "local_state" / "retirement_system_v10.db"
-DEFAULT_CLIENTS_CSV = _WORKSPACE_ROOT / "local_state" / "local_plan_registry.csv"
 SettingMap = Dict[str, Dict[str, Dict[str, str]]]
 
 # Runtime settings (app.db) the engine reads from the plan view; they win over plan rows.
@@ -76,16 +75,6 @@ def init_sqlite(db_path: str | Path = DEFAULT_DB) -> Path:
             event TEXT,
             details_json TEXT,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
-        )""")
-        con.execute("""CREATE TABLE IF NOT EXISTS build_jobs(
-            job_id TEXT PRIMARY KEY,
-            status TEXT,
-            request_json TEXT,
-            result_json TEXT,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            started_at TEXT,
-            finished_at TEXT,
-            error TEXT
         )""")
         con.execute("""CREATE TABLE IF NOT EXISTS price_snapshots(
             snapshot_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -142,21 +131,6 @@ def append_audit_event_sqlite(event: str, details: dict | None = None, workspace
     p = init_sqlite(db_path)
     with closing_connect(p) as con:
         con.execute("INSERT INTO audit_events(user_id,event,details_json) VALUES(?,?,?)", ("local", event, json.dumps(details or {}, sort_keys=True, default=str)))
-
-def load_clients_csv(*args, **kwargs) -> list[dict]:
-    return [{"client_id": "local", "display_name": "Local Plan", "active": 1, "config_backend": "SQLITE", "config_ref": str(DEFAULT_DB)}]
-
-def upsert_client(row: dict, db_path: str | Path = DEFAULT_DB) -> dict:
-    return {"client_id": "local", "display_name": row.get("display_name", "Local Plan"), "active": 1, "config_backend": "SQLITE", "config_ref": str(DEFAULT_DB)}
-
-def sync_clients_csv_to_sqlite(*args, **kwargs) -> int:
-    return 1
-
-def list_clients(*args, **kwargs) -> list[dict]:
-    return load_clients_csv()
-
-def get_client(client_id: str = "local", db_path: str | Path = DEFAULT_DB) -> _Optional[dict]:
-    return load_clients_csv()[0]
 
 def set_client_file(file_name: str, content: str, workspace_id: str = "local", client_id: str = "local", updated_by: str = "local", db_path: str | Path = DEFAULT_DB) -> None:
     p = init_sqlite(db_path)

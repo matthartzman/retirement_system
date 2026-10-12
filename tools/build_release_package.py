@@ -38,7 +38,6 @@ SHIPPED_DB_PATHS = {Path("src") / "reference" / "reference.db"}  # read-only ref
 EXCLUDED_RELATIVE_PATHS = {
     Path("wsgi.py"),
     Path("output") / "market_price_cache.json",
-    Path("output") / "live_pricing_test_results.json",
     Path("output") / ("retirement_dashboard_" + "ui.html"),
 }
 
