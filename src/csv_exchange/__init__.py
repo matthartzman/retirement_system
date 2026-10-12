@@ -5,8 +5,27 @@ and conversion step C3). WP4.5 deleted the transition bridge (``sync_plan_rows``
 ``write_back_rows``, the set fingerprint): the plan rows are the only store, and nothing
 writes a plan CSV any more. WP9 grows this package into the full import/export surface
 (preview, diff, per-dataset adapters, export); the static file-I/O audit allowlists it.
+WP9.1 adds the schema-driven core (``core``): the dataset registry ``DATASETS`` and
+``parse`` / ``validate`` / ``preview`` / ``commit`` / ``export_dataset``.
 """
 from ..plan_label_rules import canonical_label
+from .core import (
+    DATASETS,
+    DatasetSpec,
+    Diff,
+    ImportRejected,
+    Issue,
+    ParsedDataset,
+    commit,
+    current_rows,
+    dataset_for_file,
+    dataset_spec,
+    diff_rows,
+    export_dataset,
+    parse,
+    preview,
+    validate,
+)
 from .flat_csv import (
     FLAT_DATASET_FILES,
     RECOVERY_SEED_FILE,
@@ -19,6 +38,15 @@ from .flat_csv import (
     read_dataset_csv_file,
     replace_dataset_from_csv_text,
 )
+from .text_csv import (
+    dict_reader,
+    dict_reader_stream,
+    list_rows,
+    list_rows_stream,
+    rows_to_text,
+    write_rows_stream,
+)
+from .plan_set import export_plan_set, export_plan_set_files, import_plan_set, split_plan_rows
 from .plan_csv import (
     ANCHOR_FILE,
     PART_FILE_SECTIONS,
@@ -37,6 +65,31 @@ from .plan_csv import (
 )
 
 __all__ = [
+    "dict_reader",
+    "dict_reader_stream",
+    "list_rows",
+    "list_rows_stream",
+    "rows_to_text",
+    "write_rows_stream",
+    "DATASETS",
+    "DatasetSpec",
+    "Diff",
+    "ImportRejected",
+    "Issue",
+    "ParsedDataset",
+    "commit",
+    "export_plan_set",
+    "export_plan_set_files",
+    "import_plan_set",
+    "split_plan_rows",
+    "current_rows",
+    "dataset_for_file",
+    "dataset_spec",
+    "diff_rows",
+    "export_dataset",
+    "parse",
+    "preview",
+    "validate",
     "FLAT_DATASET_FILES",
     "RECOVERY_SEED_FILE",
     "ANCHOR_FILE",

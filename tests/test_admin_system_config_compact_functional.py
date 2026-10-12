@@ -3,7 +3,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 ADMIN_HTML = ROOT / "frontend" / "admin.html"
 ADMIN_JS = ROOT / "frontend" / "js" / "admin.js"
-SYSTEM_CONFIG = ROOT / "system_config.csv"
 
 
 def test_admin_system_config_uses_compact_table_editor():
@@ -25,8 +24,14 @@ def test_admin_system_config_has_pricing_and_optimizer_helper_notes():
     assert "Startup-only settings" in html
 
 
-def test_system_config_contains_notes_for_compact_editor():
-    csv_text = SYSTEM_CONFIG.read_text(encoding="utf-8-sig")
-    assert "section,subsection,label,value,units,notes" in csv_text.splitlines()[0]
-    assert "Market Pricing,Holdings,pricing_mode" in csv_text
-    assert "Rebalancing,Optimization,trade_optimizer_mode" in csv_text
+def test_system_config_contains_notes_for_compact_editor(tmp_path):
+    # WP8.1: the editor rows are the app.db runtime settings plus the engine knobs of the plan.
+    from src.server_services.admin_service import system_config_payload
+    payload = system_config_payload(tmp_path / "app.db")
+    rows = payload["rows"]
+    assert rows[0] == ["section", "subsection", "label", "value", "units", "notes"]
+    keys = {tuple(r[:3]) for r in rows[1:]}
+    assert ("Market Pricing", "Holdings", "pricing_mode") in keys
+    assert ("Rebalancing", "Optimization", "trade_optimizer_mode") in keys
+    assert all(r[5] for r in rows[1:]), "every default row carries a note for the editor"
+    assert "section,subsection,label,value,units,notes" in payload["csv_content"].splitlines()[0]

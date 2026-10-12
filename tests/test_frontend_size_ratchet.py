@@ -549,7 +549,10 @@ DASHBOARD_JS_MAX_LINES = 7_134
 # 2026-10-03 (Roth guardrail panel: generic bracket title and the rate the build used, +14): raised to 37,824.
 # 2026-10-07 (WP5: tier picker, field-tier filter, plan interview and self-suggest in
 # dashboard_decomp_plan_tiers.js, +~190 with the plan-features changes): raised to 37,900.
-TOTAL_JS_MAX_LINES = 37_900
+# 2026-10-12 (WP8.4: header plan switcher in dashboard_decomp_plan_switcher.js, Exit demo /
+# Reset demo / Save As / Load wording for the plan registry, +83): raised to 37,983.
+# 2026-10-12 (WP10.4: first-launch conversion notice in dashboard_decomp_conversion.js, +37): raised to 38,020.
+TOTAL_JS_MAX_LINES = 38_020
 
 
 def _line_count(path: Path) -> int:

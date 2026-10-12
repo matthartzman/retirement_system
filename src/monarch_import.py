@@ -35,11 +35,11 @@ anything and does not invoke monarch_extract.py itself; see
 src/monarch_autoimport_job.py for the end-to-end scheduled job.
 """
 
-import csv
 import io
 import json
 from pathlib import Path
 from typing import Any
+from .csv_exchange import text_csv as _tcsv
 
 try:  # package import
     from . import ytd_tracking as ytd
@@ -130,7 +130,7 @@ def map_monarch_csv_text(text: str, field_map: dict[str, str]) -> tuple[list[dic
     text = text or ""
     if text.startswith("﻿"):
         text = text[1:]
-    reader = csv.DictReader(io.StringIO(text))
+    reader = _tcsv.dict_reader(text)
     if not reader.fieldnames:
         return [], ["CSV is empty or missing a header row."]
     header_by_lower = {str(h or "").strip().lower(): str(h or "") for h in reader.fieldnames}

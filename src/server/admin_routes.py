@@ -5,7 +5,6 @@
 # otherwise imported.
 from .app_core import (
     BASE_DIR,
-    Path,
     Response,
     _audit,
     _record_admin_config_change,
@@ -51,38 +50,6 @@ def admin_index():
     return "<h3>System Configuration UI not found.</h3>", 404
 
 
-def _admin_csv_path(kind: str, file_name: str) -> Path:
-    return admin_service.admin_csv_path(kind, file_name, base_dir=BASE_DIR, system_config_path=_system_config_path())
-
-
-@app.route("/api/admin/csv-file/<kind>/<path:file_name>", methods=["GET"])
-def admin_get_csv_file(kind, file_name):
-    denied = _require("manage_clients")
-    if denied:
-        return denied
-    try:
-        return jsonify(admin_service.csv_file_payload(kind, file_name, base_dir=BASE_DIR, system_config_path=_system_config_path()))
-    except ValueError as exc:
-        return jsonify({"success": False, "error": str(exc)}), 400
-
-
-@app.route("/api/admin/csv-file/<kind>/<path:file_name>", methods=["POST"])
-def admin_save_csv_file(kind, file_name):
-    denied = _require("manage_clients")
-    if denied:
-        return denied
-    try:
-        payload, status, before_rows, after_rows = admin_service.save_csv_file(kind, file_name, request.get_json(silent=True) or {}, base_dir=BASE_DIR, system_config_path=_system_config_path())
-    except ValueError as exc:
-        return jsonify({"success": False, "error": str(exc)}), 400
-    if status != 200:
-        return jsonify(payload), status
-    change_event = _record_admin_config_change(str(kind).lower(), payload["file"], payload["path"], before_rows, after_rows)
-    payload["change_event"] = change_event
-    _audit("admin_csv_file_saved", {"kind": str(kind).lower(), "file": payload["file"], "path": payload["path"], "change_count": (change_event or {}).get("change_count", 0)})
-    return jsonify(payload)
-
-
 @app.route("/api/admin/tax-law-dashboard", methods=["GET"])
 def admin_tax_law_dashboard():
     denied = _require("manage_clients")
@@ -92,7 +59,7 @@ def admin_tax_law_dashboard():
         from ..governance import tax_law_dashboard
     except Exception:
         from src.governance import tax_law_dashboard
-    data = load_system_config(_system_config_path()) if _system_config_path().exists() else {}
+    data = load_system_config(_system_config_path())
     try:
         max_lag = int(float(system_config_setting(data, "Tax Governance", "max_tax_table_lag_years", "1") or 1))
     except Exception:
@@ -173,47 +140,6 @@ def admin_save_system_config():
     return jsonify(payload)
 
 
-@app.route("/api/admin/reference-files", methods=["GET"])
-def admin_reference_files():
-    denied = _require("manage_clients")
-    if denied:
-        return denied
-    return jsonify(admin_service.reference_files_payload(BASE_DIR))
-
-
-@app.route("/api/admin/reference-files/<path:file_name>", methods=["GET"])
-def admin_get_reference_file(file_name):
-    denied = _require("manage_clients")
-    if denied:
-        return denied
-    try:
-        payload, status, headers = admin_service.read_reference_file(BASE_DIR, file_name)
-    except ValueError as exc:
-        return jsonify({"success": False, "error": str(exc)}), 400
-    if isinstance(payload, dict):
-        return jsonify(payload), status
-    return payload, status, headers
-
-
-@app.route("/api/admin/reference-files/<path:file_name>", methods=["POST"])
-def admin_save_reference_file(file_name):
-    denied = _require("manage_clients")
-    if denied:
-        return denied
-    body = request.get_json(silent=True) or {}
-    content = body.get("csv_content")
-    if content is None:
-        content = request.get_data(as_text=True)
-    try:
-        payload, before_rows, after_rows = admin_service.save_reference_file(BASE_DIR, file_name, str(content or ""))
-    except ValueError as exc:
-        return jsonify({"success": False, "error": str(exc)}), 400
-    change_event = _record_admin_config_change("reference", payload["file"], payload["path"], before_rows, after_rows)
-    payload["change_event"] = change_event
-    _audit("admin_reference_file_saved", {"file": payload["file"], "bytes": payload["bytes"], "change_count": (change_event or {}).get("change_count", 0)})
-    return jsonify(payload)
-
-
 @app.route("/api/admin/csv-backup", methods=["GET"])
 def admin_csv_backup():
     denied = _require("manage_clients")
@@ -221,13 +147,11 @@ def admin_csv_backup():
         return denied
     if not _runtime_config().allow_downloads:
         return jsonify({"success": False, "error": "Downloads are disabled"}), 403
-    payload, status = admin_service.csv_backup_zip(BASE_DIR, _system_config_path())
-    if status != 200:
-        return jsonify(payload), status
-    _audit("admin_csv_backup_exported", {"file_count": len(payload["included"])})
+    data, filename = admin_service.build_csv_backup_zip(BASE_DIR)
+    _audit("admin_csv_backup_exported", {"bytes": len(data)})
     return Response(
-        payload["data"],
+        data,
         status=200,
-        headers={"Content-Disposition": f'attachment; filename="{payload["filename"]}"'},
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         content_type="application/zip",
     )

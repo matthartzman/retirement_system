@@ -4,7 +4,6 @@ from __future__ import annotations
 The packaged server is for single-machine desktop use: it uses the local SQLite plan store as source of truth, materializes import/export adapters as needed, and writes generated files to output/, and does not expose public-hosting, client-registry, or browser-login modes.
 """
 
-import csv
 import html as html_lib
 import hashlib
 import hmac
@@ -20,6 +19,11 @@ import urllib.error
 import urllib.request
 from contextlib import contextmanager
 from pathlib import Path
+
+try:
+    from ..csv_exchange import text_csv as _tcsv
+except ImportError:  # direct file loading fallback
+    from src.csv_exchange import text_csv as _tcsv  # type: ignore
 
 try:
     from ..http_runtime.wsgi_facade import (
@@ -56,7 +60,8 @@ except ImportError:  # direct file loading fallback
 try:
     from ..schema_registry import load_schema as _load_schema_registry, validate_value as _schema_validate_value
     from ..runtime_config import load_runtime_config
-    from ..system_config import load_system_config, setting as system_config_setting
+    from ..system_config import load_system_config, set_system_settings, setting as system_config_setting
+    from ..app_state import app_db_env, app_store_path
     from ..security import append_audit_event, constant_time_token_ok, extract_bearer_or_header, get_server_token, redact_text, sha256_fingerprint
     from ..permissions import UserContext, require as require_permission, user_from_headers
     from ..secrets_store import encryption_status, set_secret  # require_secure_master_key: system review 4.5, its one call site (SaaS-only) removed
@@ -65,16 +70,7 @@ try:
     from ..roth_ui_build_guard import normalize_roth_csv_value
     from ..us_states import state_abbr_choice_options, state_name_choice_options
     from ..plan_file_io import atomic_write
-    from .plan_data_files import (
-        PLAN_DATA_CSV_FILES,
-        PLAN_DATA_FILES,
-        PLAN_DATA_FILE_SET,
-        RETIRED_PLAN_PART_FILES,
-        SYSTEM_REFERENCE_FILES,
-        UI_NAMES,
-        YTD_PLAN_DATA_FILES,
-    )
-    from ..active_plan import PROTECTED_PLAN_KEYS, active_plan_path, active_plan_store, edit_active_plan, peek_plan_data
+    from ..active_plan import active_plan_path, active_plan_store, edit_active_plan, peek_plan_data
     from .. import plan_datasets as _plan_datasets
     from ..config_backend import (
         DEFAULT_DB,
@@ -90,7 +86,8 @@ except ImportError:  # direct execution fallback
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     from src.schema_registry import load_schema as _load_schema_registry, validate_value as _schema_validate_value
     from src.runtime_config import load_runtime_config
-    from src.system_config import load_system_config, setting as system_config_setting
+    from src.system_config import load_system_config, set_system_settings, setting as system_config_setting
+    from src.app_state import app_db_env, app_store_path
     from src.security import append_audit_event, constant_time_token_ok, extract_bearer_or_header, get_server_token, redact_text, sha256_fingerprint
     from src.permissions import UserContext, require as require_permission, user_from_headers
     from src.secrets_store import encryption_status, set_secret
@@ -99,16 +96,7 @@ except ImportError:  # direct execution fallback
     from src.roth_ui_build_guard import normalize_roth_csv_value
     from src.plan_file_io import atomic_write
     from src.us_states import state_abbr_choice_options, state_name_choice_options
-    from src.server.plan_data_files import (
-        PLAN_DATA_CSV_FILES,
-        PLAN_DATA_FILES,
-        PLAN_DATA_FILE_SET,
-        RETIRED_PLAN_PART_FILES,
-        SYSTEM_REFERENCE_FILES,
-        UI_NAMES,
-        YTD_PLAN_DATA_FILES,
-    )
-    from src.active_plan import PROTECTED_PLAN_KEYS, active_plan_path, active_plan_store, edit_active_plan, peek_plan_data
+    from src.active_plan import active_plan_path, active_plan_store, edit_active_plan, peek_plan_data
     from src import plan_datasets as _plan_datasets
     from src.config_backend import (
         DEFAULT_DB,
@@ -130,10 +118,8 @@ except ImportError:
 
 try:
     from .. import plan_data_backfill
-    from ..plan_data_registry import RetiredPlanDataFile
 except ImportError:
     from src import plan_data_backfill
-    from src.plan_data_registry import RetiredPlanDataFile
 
 try:
     from .. import platform_runtime
@@ -141,12 +127,13 @@ except ImportError:  # direct execution fallback
     from src import platform_runtime
 
 # BASE_DIR is the code/package root: reference_data/, frontend static assets,
-# system_config.csv, and tools/build_workbook.py live here. WORKSPACE_ROOT is
+# and tools/build_workbook.py live here. WORKSPACE_ROOT is
 # where writable data (input/, output/, local_state/, saved_plans/) lives — the
 # same directory on desktop, app-private storage on mobile.
 BASE_DIR = Path(__file__).resolve().parents[2]
 WORKSPACE_ROOT = platform_runtime.workspace_root()
 BUILD_SCRIPT = BASE_DIR / "tools" / "build_workbook.py"
+UI_NAMES = ["index.html", "retirement_dashboard.html"]
 app = Flask(__name__, static_folder=str(BASE_DIR))
 RUNTIME_CONFIG = load_runtime_config()
 if getattr(RUNTIME_CONFIG, "reverse_proxy_enabled", False):
@@ -205,56 +192,11 @@ def _sqlite_db() -> Path:
 
 
 
-# Cache key -> (source mtime_ns, source size) for the last-written target,
-# so a request doesn't re-parse/rewrite system_config.active.csv when the
-# source system_config.csv hasn't changed since the previous request.
-_REQUEST_SYSTEM_CONFIG_CSV_CACHE: dict[str, tuple[int, int]] = {}
-
-
-def _request_system_config_csv() -> Path:
-    """Create a per-request system_config.csv copy for subprocess builds/tools.
-
-    The copy is deterministic given the source file's content, so a request can safely
-    reuse the target written by a previous request as long as the source hasn't changed
-    and the target still exists.
-    """
-    source = _system_config_path()
-    target = _workspace_output() / "system_config.active.csv"
-
-    source_fingerprint = None
-    if source.exists():
-        stat = source.stat()
-        source_fingerprint = (stat.st_mtime_ns, stat.st_size)
-        cache_key = str(target)
-        if (
-            source_fingerprint is not None
-            and _REQUEST_SYSTEM_CONFIG_CSV_CACHE.get(cache_key) == source_fingerprint
-            and target.exists()
-        ):
-            return target
-
-    rows = []
-    if source.exists():
-        with source.open(newline="", encoding="utf-8-sig") as f:
-            rows = list(csv.reader(f))
-    if not rows:
-        rows = [["section", "subsection", "label", "value", "units", "notes"]]
-
-    target.parent.mkdir(parents=True, exist_ok=True)
-    with target.open("w", newline="", encoding="utf-8") as f:
-        csv.writer(f, lineterminator="\n").writerows(rows)
-    if source_fingerprint is not None:
-        _REQUEST_SYSTEM_CONFIG_CSV_CACHE[str(target)] = source_fingerprint
-    else:
-        _REQUEST_SYSTEM_CONFIG_CSV_CACHE.pop(str(target), None)
-    return target
-
-
 # Local auth-identity helpers and audit-log helpers live in security_audit.py,
 # combined into one file due to bidirectional call coupling between the two
 # clusters (see that file's own top-of-file comment). Several more names are
 # defined there too (_bootstrap_workspace, _bootstrap_client,
-# _candidate_token, _admin_change_log_path_for, _last_build_metadata_path_for,
+# _candidate_token, _log_scope,
 # _row_key_for_change, _summarize_csv_row_changes) but are used only internally within
 # security_audit.py's own functions -- never re-exported here, since nothing
 # outside that file needs them (system review 4.9, verified via AST analysis
@@ -327,105 +269,39 @@ def _spending_budget_save_result(save_fn):
 
 
 
-def _make_request_system_config_csv_for(workspace: str, client: str, out_dir: Path) -> Path:
-    """Thread-safe version of _request_system_config_csv for async build jobs."""
-    source = _system_config_path()
-    target = out_dir / "system_config.active.csv"
-    rows: list[list[str]] = []
-    if source.exists():
-        with source.open(newline="", encoding="utf-8-sig") as f:
-            rows = list(csv.reader(f))
-    if not rows:
-        rows = [["section", "subsection", "label", "value", "units", "notes"]]
-
-    workspace = "local"
-    client = "local"
-    target.parent.mkdir(parents=True, exist_ok=True)
-    with target.open("w", newline="", encoding="utf-8") as f:
-        csv.writer(f, lineterminator="\n").writerows(rows)
-    return target
-
 def _normalize_plan_data_file_name(file_name: str) -> str:
     name = Path(str(file_name or "")).name
-    if name in RETIRED_PLAN_PART_FILES:
-        raise RetiredPlanDataFile(
-            "The plan data is stored in the plan file, not in CSV, JSON or YAML files. "
-            "Import and export of plan CSV files returns with the CSV import/export feature.")
-    if name not in PLAN_DATA_FILE_SET:
+    if name not in _plan_datasets.DATASET_BY_FILE:
         raise ValueError("Unsupported Plan Data file")
     return name
 
 
-def _normalize_reference_file_name(file_name: str) -> str:
-    name = Path(str(file_name or "")).name
-    if name not in set(SYSTEM_REFERENCE_FILES):
-        raise ValueError("Unsupported system/reference file")
-    return name
-
-
-def _reference_file_path(file_name: str) -> Path:
-    return BASE_DIR / "reference_data" / _normalize_reference_file_name(file_name)
-
-
-def _read_csv_rows_file(path: Path) -> list[list[str]]:
-    if not path.exists():
-        return []
-    with path.open(newline="", encoding="utf-8-sig") as f:
-        return list(csv.reader(f))
-
-
-def _write_csv_rows_file(path: Path, rows: list[list[str]]) -> None:
-    with atomic_write(path) as f:
-        csv.writer(f, lineterminator="\n").writerows(rows)
-
 def _system_config_path() -> Path:
-    return BASE_DIR / "system_config.csv"
+    """The app.db holding the runtime settings (WP8.1: no system_config.csv)."""
+    return app_store_path()
 
 
 def _set_system_config_values(updates: dict[tuple[str, str, str], str]) -> None:
-    """Update value cells in system_config.csv, adding rows when needed."""
-    p = _system_config_path()
-    rows = _read_csv_rows_file(p)
-    if not rows:
-        rows = [["section", "subsection", "label", "value", "units", "notes"]]
-    while len(rows[0]) < 6:
-        rows[0].append("")
-    for (section, subsection, label), value in updates.items():
-        found = False
-        for row in rows[1:]:
-            while len(row) < 6:
-                row.append("")
-            if row[0] == section and row[1] == subsection and row[2] == label:
-                row[3] = str(value)
-                found = True
-                break
-        if not found:
-            rows.append([section, subsection, label, str(value), "", "Set by Admin operating mode."])
-    _write_csv_rows_file(p, rows)
+    """Set runtime settings in app.db."""
+    set_system_settings(updates, _system_config_path())
 
 
 def _blank_holdings_csv(content: str) -> str:
-    rows = list(csv.reader(io.StringIO(content or "")))
+    rows = _tcsv.list_rows(content)
     header = rows[0] if rows else ["account", "symbol", "purchase_date", "shares", "purchase_price", "lot_type", "note"]
-    out = io.StringIO()
-    csv.writer(out, lineterminator="\n").writerow(header)
-    return out.getvalue()
+    return _tcsv.rows_to_text([header])
 
 
 def _blank_liabilities_csv(content: str) -> str:
-    rows = list(csv.reader(io.StringIO(content or "")))
+    rows = _tcsv.list_rows(content)
     header = rows[0] if rows else ["liability_id", "type", "label", "balance", "interest_rate", "monthly_payment", "start_year", "payoff_year", "notes"]
-    out = io.StringIO()
-    csv.writer(out, lineterminator="\n").writerow(header)
-    return out.getvalue()
+    return _tcsv.rows_to_text([header])
 
 
 def _blank_hsa_schedule_csv(content: str) -> str:
-    rows = list(csv.reader(io.StringIO(content or "")))
+    rows = _tcsv.list_rows(content)
     header = rows[0] if rows else ["year", "optimizer_amount", "override_amount", "locked", "note"]
-    out = io.StringIO()
-    csv.writer(out, lineterminator="\n").writerow(header)
-    return out.getvalue()
+    return _tcsv.rows_to_text([header])
 
 
 def _make_blank_plan_files() -> dict[str, str]:
@@ -449,20 +325,6 @@ def _blank_plan_rows(*, ytd_blend_enabled: bool | None = None) -> int:
     the protected-value rule is off. Returns the number of values cleared."""
     with edit_active_plan(protect_values=False) as edit:
         return blank_plan_rows(edit.store, ytd_blend_enabled=ytd_blend_enabled)
-
-
-def _protected_client_data_status() -> dict:
-    """Non-secret preservation status for validation/UI diagnostics: whether each retirement
-    date is on file. Reads the active plan's rows without creating or writing the plan file."""
-    data = peek_plan_data()
-    present = {
-        label: bool(str(data.get(section, {}).get(subsection, {}).get(label, "")).strip())
-        for section, subsection, label in PROTECTED_PLAN_KEYS
-    }
-    return {
-        "member_1_retirement_date_present": present.get("member_1_retirement_date", False),
-        "member_2_retirement_date_present": present.get("member_2_retirement_date", False),
-    }
 
 
 def _plan_data_path(file_name: str, prefer_existing: bool = True) -> Path:
@@ -1049,7 +911,7 @@ def _holdings_dataset_rows(holdings_dir: Path | None = None) -> list[dict[str, s
     ``input`` folder ``holdings_dir``)."""
     text = (_plan_datasets.active_dataset_text("holdings") if holdings_dir is None
             else _plan_datasets.dataset_text_for_input_dir(holdings_dir, "holdings"))
-    return list(csv.DictReader(io.StringIO(text))) if text else []
+    return list(_tcsv.dict_reader(text)) if text else []
 
 
 def _pre_tax_account_options_from_holdings() -> list[str]:

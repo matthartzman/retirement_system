@@ -1723,12 +1723,6 @@
       "scope": "inside-function"
     },
     {
-      "name": "demoModeActive",
-      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
       "name": "buildPreflight",
       "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
       "kind": "assign",
@@ -1774,6 +1768,12 @@
       "name": "demoModeActive",
       "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
       "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "call",
       "scope": "inside-function"
     },
     {
@@ -2109,6 +2109,12 @@
     {
       "name": "renderMain",
       "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_conversion.js",
       "kind": "call",
       "scope": "inside-function"
     },
@@ -3202,6 +3208,12 @@
       "name": "moduleStatus",
       "file": "frontend/js/dashboard_decomp_plan_features.js",
       "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_plan_switcher.js",
+      "kind": "call",
       "scope": "inside-function"
     },
     {

@@ -5,7 +5,6 @@ Supports historical price snapshots and drift analysis using a security master
 so ticker-level holdings can be mapped to asset-class targets.
 """
 
-import csv
 import io
 from datetime import datetime, timezone
 import json
@@ -15,6 +14,7 @@ from typing import Dict, List, Tuple, Any
 
 from .config_backend import init_sqlite, DEFAULT_DB
 from . import platform_runtime
+from .csv_exchange import text_csv as _tcsv
 from .sqlite_util import connect as closing_connect
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -248,7 +248,7 @@ def read_targets() -> Dict[str, float]:
     text = active_dataset_text("target_allocation")
     if not text:
         return targets
-    for row in csv.DictReader(io.StringIO(text)):
+    for row in _tcsv.dict_reader(text):
         key = (row.get("asset_class") or row.get("ticker") or row.get("symbol") or "").strip().upper()
         value = row.get("target_pct") or row.get("target") or ""
         if key:
@@ -279,7 +279,7 @@ def holdings_market_values(
     latest = _latest_price_lookup(workspace_id=workspace_id, db_path=db_path)
     totals: Dict[str, float] = {}
     details: Dict[str, dict] = {}
-    for row in csv.DictReader(io.StringIO(holdings_text)):
+    for row in _tcsv.dict_reader(holdings_text):
         symbol = (row.get("ticker") or row.get("symbol") or "").strip().upper()
         if not symbol:
             continue

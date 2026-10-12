@@ -83,8 +83,8 @@ def parse_allocation_optimizer_inputs(data):
     _aco = data.get('Asset Class Assumptions', {})
     # Client-owned asset allocation policy lives separately from system-owned
     # capital-market assumptions. Expected return/volatility and correlations
-    # come from Asset Class Assumptions / Asset Correlations in system_config.csv
-    # or reference files; include/min/max allocation controls come from
+    # come from Asset Class Assumptions / Asset Correlations plan rows (code defaults in
+    # src/engine_defaults.py) or reference files; include/min/max allocation controls come from
     # client_policy.csv under Asset Allocation Policy.
     _aap = data.get('Asset Allocation Policy', {})
     _opt_controls = data.get('Asset Class Optimizer Controls', {})

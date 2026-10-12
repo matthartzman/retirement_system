@@ -66,9 +66,8 @@ def test_system_configuration_route_replaces_separate_admin_workflow():
 
 
 def test_sqlite_remains_configured_source_of_truth():
-    cfg = (ROOT / "system_config.csv").read_text(encoding="utf-8")
-    assert "System Configuration,Runtime,config_backend,SQLITE" in cfg
-    assert "SQLite" in cfg or "SQLITE" in cfg
+    from src.system_config import load_system_config, system_setting
+    assert system_setting(load_system_config(ROOT / "no_such_app.db"), "Runtime", "config_backend") == "SQLITE"
 
 
 def test_build_and_load_no_longer_use_remembered_csv_folder_as_authority():

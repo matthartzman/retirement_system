@@ -4914,6 +4914,10 @@ export async function loadAll(opts = {}) {
   } finally {
     hideBuildOverlay();
   }
+  // WP8.4: header plan switcher shows the active plan.
+  if (typeof window.refreshPlanSwitcher === "function") window.refreshPlanSwitcher();
+  // WP10.4: first-launch conversion notice.
+  if (typeof window.refreshConversionNotice === "function") window.refreshConversionNotice();
 }
 
 export function updates() {

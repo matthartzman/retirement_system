@@ -15,9 +15,9 @@ husband/wife) rename; wellness->healthcare terminology and deprecated-row purges
 are follow-ups that plug into the same ``migrate_rows`` pipeline.
 """
 
-import csv
 import io
 from typing import List, Sequence
+from .csv_exchange import text_csv as _tcsv
 
 # Bump when a new transform is added so the version-gated startup migration
 # re-runs against already-stored plans.
@@ -176,13 +176,11 @@ def migrate_rows(rows: Sequence[Sequence[str]]) -> tuple[List[list], int]:
 
 def migrate_csv_content(content: str) -> tuple[str, int]:
     """Apply migrate_rows to a raw sectioned-CSV string. Returns (content, changed)."""
-    rows = list(csv.reader(io.StringIO(content or "")))
+    rows = _tcsv.list_rows(content)
     migrated, changed = migrate_rows(rows)
     if not changed:
         return content, 0
-    out = io.StringIO()
-    csv.writer(out, lineterminator="\n").writerows(migrated)
-    return out.getvalue(), changed
+    return _tcsv.rows_to_text(migrated), changed
 
 
 def migrate_flat_category_content(content: str) -> tuple[str, int]:
@@ -205,7 +203,7 @@ def migrate_flat_category_content(content: str) -> tuple[str, int]:
       sweep would rewrite the "Optimal Wellness" inside imported Amazon product
       titles in ytd_transactions.csv, i.e. falsify the client's purchase log.
     """
-    rows = list(csv.reader(io.StringIO(content or "")))
+    rows = _tcsv.list_rows(content)
     if not rows:
         return content, 0
 
@@ -226,9 +224,7 @@ def migrate_flat_category_content(content: str) -> tuple[str, int]:
     if not changed:
         return content, 0
 
-    out = io.StringIO()
-    csv.writer(out, lineterminator="\n").writerows(rows)
-    return out.getvalue(), changed
+    return _tcsv.rows_to_text(rows), changed
 
 
 def migrate_sectioned_data(data: dict) -> tuple[dict, int]:

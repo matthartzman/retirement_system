@@ -75,7 +75,7 @@ def test_a_failed_or_empty_import_raises_and_the_next_launch_retries(monkeypatch
 # 3. Start New Plan is all or nothing -----------------------------------------------------------
 
 def _blank_service(tmp_path, blank_rows, files=None, write=None):
-    from src.server_services.plan_data_file_service import PlanDataFileService, PlanDataFileServiceContext
+    from src.server_services.blank_plan_service import BlankPlanService, BlankPlanServiceContext
     db = tmp_path / "legacy.db"
     db.write_bytes(b"x")
     plan = tmp_path / "plan.rpx"
@@ -87,12 +87,12 @@ def _blank_service(tmp_path, blank_rows, files=None, write=None):
         disk[name] = content
         return tmp_path / name
 
-    service = PlanDataFileService(PlanDataFileServiceContext(
-        plan_data_files=["client_holdings.csv"], sqlite_db=lambda: db, plan_db=lambda: plan,
-        normalize_plan_data_file_name=lambda n: n, read_plan_data_file=lambda n: disk.get(n),
+    service = BlankPlanService(BlankPlanServiceContext(
+        sqlite_db=lambda: db, plan_db=lambda: plan,
+        read_plan_data_file=lambda n: disk.get(n),
         write_plan_data_file=write or write_file,
         make_blank_plan_files=files or (lambda: {"client_holdings.csv": "blank\n"}),
-        blank_plan_rows=blank_rows, protected_client_data_status=lambda: {},
+        blank_plan_rows=blank_rows,
         ensure_user_ui_plan_data_rows=lambda: None,
         audit=lambda e, d=None: events.append(e)))
     return service, disk, events
@@ -285,13 +285,19 @@ def _open_connections() -> set[int]:
     return out
 
 
-def test_no_connection_stays_open_after_edits_and_a_demo_swap_and_restore(tmp_path, monkeypatch):
-    import dataclasses
-    from tests.test_demo_plan_open_restore import _make_service
+def test_no_connection_stays_open_after_edits_and_a_demo_open_exit_and_reset(tmp_path, monkeypatch):
+    from src import plan_registry
+    from src.server_services.demo_plan_service import DemoPlanService, DemoPlanServiceContext
     monkeypatch.setenv("RETIREMENT_SYSTEM_WORKSPACE_ROOT", str(tmp_path))
     monkeypatch.delenv("RETIREMENT_SYSTEM_PLAN_DB", raising=False)
-    service, _active_db, plan_db, *_ = _make_service(tmp_path)
-    monkeypatch.setenv("RETIREMENT_SYSTEM_PLAN_DB", str(plan_db))
+    monkeypatch.delenv("RETIREMENT_SYSTEM_APP_DB", raising=False)
+    plan_registry.invalidate()
+    demo_dir = tmp_path / "seed"
+    demo_dir.mkdir()
+    (demo_dir / "client_household.csv").write_text(
+        "section,subsection,label,value,units,notes\nHousehold,,member_1_name,Demo,text,\n", encoding="utf-8")
+    service = DemoPlanService(DemoPlanServiceContext(demo_dir=lambda: demo_dir))
+    plan_db = active_plan.active_plan_path()
     before = _open_connections()
     with active_plan.edit_active_plan(protect_values=True) as edit:
         edit.store.set_value("Household", "", "member_1_name", "Edited")
@@ -301,7 +307,7 @@ def test_no_connection_stays_open_after_edits_and_a_demo_swap_and_restore(tmp_pa
     assert service.open_demo_payload()["success"] is True
     with active_plan.edit_active_plan() as edit:
         edit.store.set_value("Household", "", "member_1_name", "Demo edit")
-    assert service.restore_current_payload()["restored"] is True
+    assert service.exit_demo_payload()["restored"] is True
     service.reset_demo_payload()
     assert _open_connections() - before == set()
 

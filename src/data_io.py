@@ -10,7 +10,6 @@ Owns load_csv(), parse_client(), and build_plan_from_json(). No workbook
 presentation code belongs here.
 """
 
-import csv
 import io
 import datetime
 import os
@@ -22,6 +21,7 @@ from pathlib import Path
 # can pin the date; see that function's docstring for why data alone is not
 # enough to make a projection reproducible.
 from . import platform_runtime as _platform_runtime
+from .csv_exchange import text_csv as _tcsv
 from . import plan_dates as _plan_dates
 
 
@@ -74,6 +74,7 @@ from .workspace_context import active_workspace_id
 from .roth_ui_build_guard import normalize_roth_policy, normalize_irmaa_guardrail_mode, percent_to_float, is_explicit_user_roth_policy, strategy_for_roth_policy
 from .plan_data_migration import migrate_sectioned_data
 from .plan_label_rules import canonical_label
+from .engine_defaults import engine_defaults
 try:
     from .system_config import load_system_config
 except ImportError:  # direct execution fallback
@@ -249,7 +250,7 @@ def load_csv(path):
         if not Path(csv_path).exists():
             continue
         with open(csv_path, newline='', encoding='utf-8-sig') as f:
-            reader = csv.DictReader(f)
+            reader = _tcsv.dict_reader_stream(f)
             for row in reader:
                 sec  = (row.get('section')    or '').strip()
                 sub  = (row.get('subsection') or '').strip()
@@ -587,8 +588,12 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
         except Exception:
             system_data = {}
 
+    _engine = engine_defaults()
+
+    # Runtime settings (app.db) win; then the plan's own row; then the engine-knob code default.
     def _sv(section, subsection, label, default=''):
-        return _v(system_data, section, subsection, label, _v(data, section, subsection, label, default))
+        return _v(system_data, section, subsection, label,
+                  _v(data, section, subsection, label, _v(_engine, section, subsection, label, default)))
 
     # Upgrade any legacy husband/wife plan shapes to the member_1/member_2
     # schema before reading. The centralized, tested at-rest migration (see
@@ -669,7 +674,7 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
         })
     c['residency_schedule'].sort(key=lambda p: p['start_year'])
 
-    # Market pricing settings live in multi_user/system_config.csv and are merged by the active config loader.
+    # Market pricing settings are runtime settings (app.db, src/system_config.py).
     configure_api_keys(
         fmp_api_key=_sv('Market Pricing', 'API', 'fmp_api_key', ''),
         alpha_vantage_api_key=_sv('Market Pricing', 'API', 'alpha_vantage_api_key', ''),
@@ -1416,12 +1421,11 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     if '%' not in str(_js_raw):
         c['js_pct'] /= 100.0
 
-    # Plan settings are system/model controls, sourced from system_config.csv.
+    # Plan settings: plan rows over the engine defaults (src/engine_defaults.py).
     c['model_niit']       = _b(_sv('Plan Settings','Tax Detail','model_niit','TRUE'))
     c['model_state_est']  = _b(_sv('Plan Settings','Estate','model_state_estate_tax','TRUE'))
 
-    # Global/tax-aware rebalancing controls. These live in system_config.csv so
-    # a UI build and a command-line build use the same trade recommendation mode.
+    # Global/tax-aware rebalancing controls: plan rows over the engine defaults.
     c['trade_optimizer_mode'] = (_sv('Rebalancing','Optimization','trade_optimizer_mode','GLOBAL_TAX_AWARE') or 'GLOBAL_TAX_AWARE').strip().upper()
     c['rebalance_max_tax_cost_bps'] = _n(_sv('Rebalancing','Optimization','max_tax_cost_bps','25'), 25)
     c['rebalance_min_trade_amount'] = _n(_sv('Rebalancing','Optimization','min_trade_amount','500'), 500)
@@ -1709,14 +1713,13 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     # ── Load lot-level holdings from client_holdings.csv ───────────────────────
     # Separate file: account, symbol, purchase_date, shares, purchase_price, lot_type, note
     # Builds {account: {symbol: [TaxLot, ...]}} for the LotEngine.
-    import csv as _csv
     from .core import TaxLot, LotEngine  # consolidated from events
     lots_by_account = {}   # {acct: {sym: [TaxLot, ...]}}
     lots_reconcile = {}    # {(acct, sym): total_lot_shares} for QC reconciliation
     from .plan_datasets import active_dataset_text
     holdings_text = active_dataset_text('holdings')
     if holdings_text:
-        reader = _csv.DictReader(io.StringIO(holdings_text))
+        reader = _tcsv.dict_reader(holdings_text)
         for row in reader:
             acct = (row.get('account','') or '').strip()
             sym  = (row.get('symbol','') or '').strip()
@@ -1749,7 +1752,7 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     liab_text = active_dataset_text('liabilities')
     if liab_text:
         try:
-            for row in _csv.DictReader(io.StringIO(liab_text)):
+            for row in _tcsv.dict_reader(liab_text):
                 def _clean_num(raw):
                     return float((str(raw or '0')).replace('$', '').replace(',', '').replace('%', '').strip() or 0.0)
                 ltype = (row.get('type', '') or 'other').strip().lower()
