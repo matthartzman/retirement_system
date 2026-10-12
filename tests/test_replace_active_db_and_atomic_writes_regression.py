@@ -100,7 +100,7 @@ def test_load_valid_plan_replaces_backs_up_and_runs_migration(tmp_path):
     _make_plan(src, "new")
     seen = []
 
-    result = _service(active, migrate=lambda p: seen.append(Path(p))).load_file({"path": str(src)})
+    result = _service(active, migrate=lambda p: seen.append(Path(p))).load_file({"path": str(src), "mode": "restore"})
 
     assert result["success"] is True and result["backup"] and result["backup"].startswith("plan.rpx.before_load_")
     assert _plan_marker(active) == "new"
