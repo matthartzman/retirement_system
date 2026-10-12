@@ -38,6 +38,7 @@ from .flat_csv import (
     read_dataset_csv_file,
     replace_dataset_from_csv_text,
 )
+from .plan_set import export_plan_set, import_plan_set, split_plan_rows
 from .plan_csv import (
     ANCHOR_FILE,
     PART_FILE_SECTIONS,
@@ -63,6 +64,9 @@ __all__ = [
     "Issue",
     "ParsedDataset",
     "commit",
+    "export_plan_set",
+    "import_plan_set",
+    "split_plan_rows",
     "current_rows",
     "dataset_for_file",
     "dataset_spec",
