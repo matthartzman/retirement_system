@@ -123,11 +123,11 @@ def _demo_applied_files() -> list[str]:
     """Exactly the files the demo plan is seeded from (``build_plan_file_from_csv_folder``, read
     once into ``demo.rpx``): the plan CSV set, the flat datasets and the recovery seed."""
     from src.csv_exchange import PLAN_CSV_FILES
-    from src.server.plan_data_files import PLAN_DATA_CSV_FILES, YTD_PLAN_DATA_FILES
+    from src.plan_data_registry import FLAT_PLAN_DATA_CSV_FILES, YTD_PLAN_DATA_FILES
     from src.csv_exchange import RECOVERY_SEED_FILE
 
     # The recovery seed is read once with the plan CSV set into the demo plan file (a plan revision).
-    return [*PLAN_CSV_FILES, *PLAN_DATA_CSV_FILES, *YTD_PLAN_DATA_FILES, RECOVERY_SEED_FILE]
+    return [*PLAN_CSV_FILES, *FLAT_PLAN_DATA_CSV_FILES, *YTD_PLAN_DATA_FILES, RECOVERY_SEED_FILE]
 
 
 def test_demo_carries_no_real_vendor_or_personal_category_names():
@@ -148,7 +148,7 @@ def test_every_demo_fixture_is_actually_applied_by_open_demo_plan():
     dead = sorted(p.name for p in DEMO.glob("*.csv") if p.name not in applied)
     assert not dead, (
         f"input/demo/ ships fixture(s) Open Demo Plan never applies: {dead}. Add them to "
-        "PLAN_DATA_CSV_FILES (or import it with the demo plan file), or delete them -- a "
+        "FLAT_PLAN_DATA_CSV_FILES (or import it with the demo plan file), or delete them -- a "
         "fixture nobody applies gives false confidence that the demo covers that file."
     )
 

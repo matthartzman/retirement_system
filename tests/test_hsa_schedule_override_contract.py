@@ -8,8 +8,7 @@ be read, written, sync'd, and blanked correctly by the existing plan-data
 infrastructure (WP4.5: the sectioned plan data is the plan file's rows; the flat tables
 below are what is still files until WP6):
 
-  1. src/server/plan_data_files.py PLAN_DATA_CSV_FILES -- the load-bearing
-     list that feeds PLAN_DATA_FILE_SET, the gate _normalize_plan_data_file_name
+  1. src/plan_datasets.py DATASET_BY_FILE -- the gate _normalize_plan_data_file_name
      checks in src/server/app_core.py before _read_plan_data_file /
      _write_plan_data_file will touch a file at all.
   2. src/plan_data_registry.py FLAT_PLAN_DATA_CSV_FILES -- the list the build's
@@ -23,7 +22,7 @@ import csv
 import io
 import unittest
 
-from src.server import app_core, plan_data_files
+from src.server import app_core
 from src import plan_data_registry
 # The Task 10 schedule-search fixtures, imported rather than re-declared: a
 # second copy could drift, and then the search tests and the round-trip
@@ -34,17 +33,13 @@ HSA_SCHEDULE_HEADER = ["year", "optimizer_amount", "override_amount", "locked", 
 
 
 class HsaScheduleRegistrationTests(unittest.TestCase):
-    def test_registered_in_server_plan_data_files(self):
-        self.assertIn("client_hsa_schedule.csv", plan_data_files.PLAN_DATA_CSV_FILES)
-
     def test_registered_in_the_flat_dataset_registry(self):
         self.assertIn("client_hsa_schedule.csv", plan_data_registry.FLAT_PLAN_DATA_CSV_FILES)
 
-    def test_registered_in_plan_data_file_set_gate(self):
-        # Cheap proxy for "the DB-canonical read/write gate accepts it":
+    def test_registered_in_plan_data_file_gate(self):
         # _normalize_plan_data_file_name (used by both _read_plan_data_file and
-        # _write_plan_data_file) checks membership in this exact set.
-        self.assertIn("client_hsa_schedule.csv", app_core.PLAN_DATA_FILE_SET)
+        # _write_plan_data_file) accepts it.
+        self.assertEqual(app_core._normalize_plan_data_file_name("client_hsa_schedule.csv"), "client_hsa_schedule.csv")
 
 
 class BlankHsaScheduleCsvTests(unittest.TestCase):

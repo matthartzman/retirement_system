@@ -61,7 +61,7 @@ auto-kept slot.
 ## What is here, and why
 
 - **Every file the demo swaps has a counterpart in this folder.** That is
-  `server.plan_data_files.PLAN_DATA_CSV_FILES` + `YTD_PLAN_DATA_FILES` +
+  `plan_data_registry.FLAT_PLAN_DATA_CSV_FILES` + `YTD_PLAN_DATA_FILES` +
   `demo_plan_service.TEXT_BACKUP_FILES`. A file missing from here is *not*
   replaced, so your real one stays live for the whole demo —
   `test_demo_covers_every_file_open_demo_plan_applies` fails the build if the

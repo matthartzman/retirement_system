@@ -70,15 +70,7 @@ try:
     from ..roth_ui_build_guard import normalize_roth_csv_value
     from ..us_states import state_abbr_choice_options, state_name_choice_options
     from ..plan_file_io import atomic_write
-    from .plan_data_files import (
-        PLAN_DATA_CSV_FILES,
-        PLAN_DATA_FILES,
-        PLAN_DATA_FILE_SET,
-        RETIRED_PLAN_PART_FILES,
-        UI_NAMES,
-        YTD_PLAN_DATA_FILES,
-    )
-    from ..active_plan import PROTECTED_PLAN_KEYS, active_plan_path, active_plan_store, edit_active_plan, peek_plan_data
+    from ..active_plan import active_plan_path, active_plan_store, edit_active_plan, peek_plan_data
     from .. import plan_datasets as _plan_datasets
     from ..config_backend import (
         DEFAULT_DB,
@@ -104,15 +96,7 @@ except ImportError:  # direct execution fallback
     from src.roth_ui_build_guard import normalize_roth_csv_value
     from src.plan_file_io import atomic_write
     from src.us_states import state_abbr_choice_options, state_name_choice_options
-    from src.server.plan_data_files import (
-        PLAN_DATA_CSV_FILES,
-        PLAN_DATA_FILES,
-        PLAN_DATA_FILE_SET,
-        RETIRED_PLAN_PART_FILES,
-        UI_NAMES,
-        YTD_PLAN_DATA_FILES,
-    )
-    from src.active_plan import PROTECTED_PLAN_KEYS, active_plan_path, active_plan_store, edit_active_plan, peek_plan_data
+    from src.active_plan import active_plan_path, active_plan_store, edit_active_plan, peek_plan_data
     from src import plan_datasets as _plan_datasets
     from src.config_backend import (
         DEFAULT_DB,
@@ -134,10 +118,8 @@ except ImportError:
 
 try:
     from .. import plan_data_backfill
-    from ..plan_data_registry import RetiredPlanDataFile
 except ImportError:
     from src import plan_data_backfill
-    from src.plan_data_registry import RetiredPlanDataFile
 
 try:
     from .. import platform_runtime
@@ -151,6 +133,7 @@ except ImportError:  # direct execution fallback
 BASE_DIR = Path(__file__).resolve().parents[2]
 WORKSPACE_ROOT = platform_runtime.workspace_root()
 BUILD_SCRIPT = BASE_DIR / "tools" / "build_workbook.py"
+UI_NAMES = ["index.html", "retirement_dashboard.html"]
 app = Flask(__name__, static_folder=str(BASE_DIR))
 RUNTIME_CONFIG = load_runtime_config()
 if getattr(RUNTIME_CONFIG, "reverse_proxy_enabled", False):
@@ -288,14 +271,9 @@ def _spending_budget_save_result(save_fn):
 
 def _normalize_plan_data_file_name(file_name: str) -> str:
     name = Path(str(file_name or "")).name
-    if name in RETIRED_PLAN_PART_FILES:
-        raise RetiredPlanDataFile(
-            "The plan data is stored in the plan file, not in CSV, JSON or YAML files. "
-            "Import and export of plan CSV files returns with the CSV import/export feature.")
-    if name not in PLAN_DATA_FILE_SET:
+    if name not in _plan_datasets.DATASET_BY_FILE:
         raise ValueError("Unsupported Plan Data file")
     return name
-
 
 
 def _system_config_path() -> Path:
@@ -347,20 +325,6 @@ def _blank_plan_rows(*, ytd_blend_enabled: bool | None = None) -> int:
     the protected-value rule is off. Returns the number of values cleared."""
     with edit_active_plan(protect_values=False) as edit:
         return blank_plan_rows(edit.store, ytd_blend_enabled=ytd_blend_enabled)
-
-
-def _protected_client_data_status() -> dict:
-    """Non-secret preservation status for validation/UI diagnostics: whether each retirement
-    date is on file. Reads the active plan's rows without creating or writing the plan file."""
-    data = peek_plan_data()
-    present = {
-        label: bool(str(data.get(section, {}).get(subsection, {}).get(label, "")).strip())
-        for section, subsection, label in PROTECTED_PLAN_KEYS
-    }
-    return {
-        "member_1_retirement_date_present": present.get("member_1_retirement_date", False),
-        "member_2_retirement_date_present": present.get("member_2_retirement_date", False),
-    }
 
 
 def _plan_data_path(file_name: str, prefer_existing: bool = True) -> Path:
