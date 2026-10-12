@@ -60,32 +60,40 @@ def workspace_input_dir(workspace_id: Optional[str] = None, root: Optional[Path]
 PLAN_ID_META_KEY = "plan_id"
 
 
-def active_plan_id(workspace_id: Optional[str] = None, root: Optional[Path] = None) -> str:
-    """The id naming a plan's output folder.
+def _is_live_workspace(root: Optional[Path]) -> bool:
+    if root is None:
+        return True
+    try:
+        return Path(root).resolve() == platform_runtime.workspace_root().resolve()
+    except OSError:
+        return False
 
-    The one place the id is derived until the plan registry (WP8.4) supplies it: the
-    ``plan_id`` stored in the plan file's meta when present, else the plan file's name
-    (``plan.rpx`` -> ``plan``), made safe for use as a directory name.
+
+def active_plan_id(workspace_id: Optional[str] = None, root: Optional[Path] = None) -> str:
+    """The id naming a plan's output folder (``output/plans/<plan_id>/``, ``plan_store.plan_paths``).
+
+    The live workspace: the plan registry's id of the active plan (WP8.4). Under
+    ``RETIREMENT_SYSTEM_PLAN_DB`` (the build subprocess) the id the server passed
+    (``RETIREMENT_SYSTEM_PLAN_ID``), else the registry id of that file. A plan file the registry
+    does not know (another workspace ``root``, an unregistered override) falls back to
+    ``plan_registry.file_plan_id``: the ``plan_id`` in its meta, else its stem.
     """
-    from . import active_plan
-    path = active_plan.plan_path_for_workspace(_default_root(root))
-    stored = None
-    if path.exists():
+    import os
+
+    from . import active_plan, plan_registry
+
+    if not _is_live_workspace(root):
+        return plan_registry.file_plan_id(Path(root) / active_plan.PLAN_FILE_NAME)
+    override = active_plan.plan_db_override()
+    if override is None:
+        return plan_registry.active_plan_id()
+    passed = str(os.environ.get(active_plan.PLAN_ID_ENV, "") or "").strip()
+    if passed:
         try:
-            store = active_plan.PlanStore.open(path, create=False, readonly=True)
-            try:
-                stored = store.get_meta(PLAN_ID_META_KEY)
-            finally:
-                store.close()
+            return active_plan.validate_plan_id(passed)
         except Exception:
-            stored = None
-    for candidate in (stored, path.stem):
-        text = re.sub(r"[^A-Za-z0-9_-]+", "-", str(candidate or "")).strip("-_")[:64]
-        try:
-            return active_plan.validate_plan_id(text)
-        except Exception:
-            continue
-    return "plan"
+            pass
+    return plan_registry.plan_id_for_path(override) or plan_registry.file_plan_id(override)
 
 
 def legacy_output_dir(root: Optional[Path] = None) -> Path:
