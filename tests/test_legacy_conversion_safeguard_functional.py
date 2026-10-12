@@ -388,3 +388,36 @@ def test_no_database_connection_stays_open_after_a_conversion(ws):
     assert res.status == "done"
     assert _open_files_under(ws) == []
     assert not (ws / "local_state" / "conversion_staging").exists()
+
+
+def test_existing_plan_gets_old_engine_settings_with_a_warning(ws):
+    """A plan that already lived in a plan file keeps its rows; system_config.csv knobs it lacks
+    are added (C6a's rule), verified as such, and reported so the owner knows the numbers follow
+    the old file's settings."""
+    from src.active_plan import build_plan_file_from_csv_folder
+    build_plan_file_from_csv_folder(ws / "plan.rpx", pf.fixture_dir("demo"))
+    (ws / "system_config.csv").write_text(
+        "section,subsection,label,value,units,notes\nRebalancing,Optimization,min_trade_amount,750,USD,\n", encoding="utf-8")
+    res = convert_workspace(ws)
+    assert res.status == "done" and res.verified, res.as_dict()
+    assert res.check("plan_rows").status == "match" and "system_config_knobs_added:1" in res.warnings
+    assert res.step("C6a")["detail"]["knobs_written"] == ["Rebalancing|Optimization|min_trade_amount"]
+    with PlanStore.open(ws / "plan.rpx", create=False, readonly=True) as store:
+        assert store.find_rows("Rebalancing", "Optimization", "min_trade_amount")[-1]["value"] == "750"
+        assert store.find_rows("Household", "", "member_1_name")[-1]["value"] == "Alexander"  # rows kept
+
+
+def test_dataset_conversion_fault_blocks(ws, monkeypatch):
+    from src.legacy_conversion.steps import c4a_datasets
+    real = c4a_datasets.import_flat_datasets
+
+    def lossy(folder, store, names=None):
+        out = real(folder, store, names)
+        rows = store.dataset("holdings").rows()
+        store.dataset("holdings").replace_all(rows[:-1])  # one lot lost
+        return out
+
+    monkeypatch.setattr(c4a_datasets, "import_flat_datasets", lossy)
+    res = convert_workspace(ws)
+    assert res.status == "blocked" and res.blocked_reason == "verification_differences"
+    assert "holdings[rows]" in res.differing_keys["datasets"] and not (ws / "plan.rpx").exists()
