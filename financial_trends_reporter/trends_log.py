@@ -11,6 +11,7 @@ or a retried scheduled fire is safe.
 """
 
 import json
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -76,3 +77,23 @@ def append_or_replace_entry(log_path: str | Path, entry: dict[str, Any]) -> list
     history.sort(key=lambda e: str(e.get("as_of_date") or ""))
     write_text_atomic(path, "\n".join(json.dumps(e, sort_keys=True) for e in history) + "\n")
     return history
+
+
+def prune_entries(log_path: str | Path, start: str, end: str | None = None, *, dry_run: bool = True) -> list[str]:
+    """Drop entries whose ``as_of_date`` is in ``[start, end]`` (ISO dates, ``end`` defaults to
+    ``start``). Returns the dates that match. With ``dry_run=False`` the original is first copied
+    to ``<log>.bak`` and the log is rewritten atomically; unparseable lines go to the
+    ``.rejected`` sidecar as in :func:`append_or_replace_entry`."""
+    end = end or start
+    path = Path(log_path)
+    existing, bad = _parse_lines(path)
+    hit = [str(e.get("as_of_date") or "") for e in existing if start <= str(e.get("as_of_date") or "") <= end]
+    if dry_run or not hit:
+        return hit
+    shutil.copy2(path, path.with_name(path.name + ".bak"))
+    if bad:
+        with rejected_path(path).open("a", encoding="utf-8") as fh:
+            fh.write("\n".join(bad) + "\n")
+    keep = [e for e in existing if not start <= str(e.get("as_of_date") or "") <= end]
+    write_text_atomic(path, "\n".join(json.dumps(e, sort_keys=True) for e in keep) + ("\n" if keep else ""))
+    return hit
