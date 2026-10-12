@@ -1,12 +1,12 @@
 from __future__ import annotations
-"""Local runtime configuration from system_config.csv."""
+"""Local runtime configuration from the app.db runtime settings (``system_config``)."""
 
 from dataclasses import dataclass
 import os
 from pathlib import Path
 from typing import Dict
 
-from .system_config import DEFAULT_SYSTEM_CONFIG_CSV, load_system_config, system_setting
+from .system_config import load_system_config, system_setting
 
 LOCAL = "LOCAL"
 VALID_APP_MODES = {LOCAL}
@@ -80,7 +80,7 @@ class RuntimeConfig:
     session_cookie_secure: bool = False
     session_cookie_samesite: str = "Lax"
     session_max_age_hours: int = 12
-    system_config_csv: str = str(DEFAULT_SYSTEM_CONFIG_CSV)
+    app_db: str = ""
     # System review 4.5: is_saas/is_lan properties (and the LAN/SAAS
     # constants they compared app_mode against) removed -- VALID_APP_MODES =
     # {LOCAL} and load_runtime_config() below hardcodes app_mode = LOCAL
@@ -91,6 +91,7 @@ class RuntimeConfig:
 
 
 def load_runtime_config(path: str | Path | None = None) -> RuntimeConfig:
+    """``path`` is an ``app.db`` (default: ``app_state.app_store_path()``)."""
     data = load_system_config(path)
     app_mode = _clean_text(system_setting(data, "Runtime", "app_mode", LOCAL), LOCAL).upper()
     if app_mode not in VALID_APP_MODES:
@@ -173,5 +174,5 @@ def load_runtime_config(path: str | Path | None = None) -> RuntimeConfig:
         session_cookie_secure=session_cookie_secure,
         session_cookie_samesite=samesite,
         session_max_age_hours=session_max_age_hours,
-        system_config_csv=str(DEFAULT_SYSTEM_CONFIG_CSV),
+        app_db=str(path) if path is not None else "",
     )

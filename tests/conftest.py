@@ -64,10 +64,9 @@ if not os.environ.get("RETIREMENT_SYSTEM_WORKSPACE_ROOT"):
     # config_backend.DEFAULT_CSV/DEFAULT_DB to the REAL repo paths, which
     # nothing after this block could undo -- a later os.getenv() call reads
     # the right value, but the already-cached module constant does not
-    # change. This bit load_active_config() specifically: its bootstrap-CSV
-    # discovery (src/system_config.py) is unaffected (it never reads
-    # workspace_root() at all -- system_config.csv is a package-root
-    # reference file by design), but load_active_config()'s SQLITE-backend
+    # change. This bit load_active_config() specifically (its runtime settings,
+    # app.db under the workspace's local_state/, are resolved per call and so
+    # also land in the test workspace), but load_active_config()'s SQLITE-backend
     # fallback path used config_backend.DEFAULT_DB, so a test calling it
     # directly (not through the HTTP layer's own _sqlite_db(), which
     # re-resolves workspace_root() fresh on every call and was never

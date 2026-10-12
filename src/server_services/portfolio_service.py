@@ -20,12 +20,12 @@ def drift_payload(
     *,
     base_dir: Path,
     output_dir: Path,
-    system_config_csv: Path,
+    app_db: Path,
     max_build_seconds: int | float,
 ) -> dict[str, Any]:
     """Run the local portfolio drift analyzer and return its JSON rows."""
     env = os.environ.copy()
-    env["RETIREMENT_SYSTEM_SYSTEM_CONFIG_CSV"] = str(system_config_csv)
+    env["RETIREMENT_SYSTEM_APP_DB"] = str(app_db)  # app_state.APP_DB_ENV: the runtime settings
     env["PYTHONIOENCODING"] = env.get("PYTHONIOENCODING", "utf-8:replace")
     result = subprocess.run(
         [sys.executable, str(base_dir / "tools" / "analyze_drift.py")],

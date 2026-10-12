@@ -1865,7 +1865,7 @@ async function showSystemConfig(pageId = "runtime") {
     filterKeys: page.filterKeys || [],
     defaultOpen: false,
     collapseBySubsection: true,
-    note: page.desc + " Changes save back to system_config.csv.",
+    note: page.desc + " Changes save to this install's settings (engine knobs to the active plan).",
     navStep: "syscfg_" + page.id,
   };
   await loadCsvEditor(def, `showSystemConfig('${page.id}')`);

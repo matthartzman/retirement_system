@@ -16,7 +16,6 @@ from typing import Any
 from .. import active_plan
 from ..report_package import REPORT_PACKAGE_SCHEMA
 from ..system_config import (
-    discover_system_config_csv,
     load_system_config,
     upsert_system_setting,
     workbook_desktop_download_folder,
@@ -68,7 +67,7 @@ def workbook_download_settings_payload(config_path: Path | str | None = None) ->
 
 
 def save_workbook_download_settings(body: dict[str, Any], config_path: Path | str | None = None) -> tuple[dict[str, Any], int]:
-    path = Path(config_path) if config_path is not None else discover_system_config_csv()
+    path = Path(config_path) if config_path is not None else None  # an app.db; None = this install's
     if "filename_root" in body:
         root = str(body.get("filename_root") or "").strip()
         if not root:

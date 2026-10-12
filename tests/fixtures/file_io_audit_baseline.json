@@ -46,9 +46,6 @@
   "src/reporting/dashboard.py": {
    "open": 1
   },
-  "src/reporting/workbook_builder.py": {
-   "path_io": 1
-  },
   "src/reporting/workbook_format_config.py": {
    "json": 6,
    "open": 6
@@ -57,7 +54,7 @@
    "path_io": 1
   },
   "src/server/app_core.py": {
-   "csv": 13
+   "csv": 7
   },
   "src/server/security_audit.py": {
    "path_io": 5
@@ -67,7 +64,7 @@
   },
   "src/server_services/admin_service.py": {
    "csv": 4,
-   "path_io": 3
+   "path_io": 2
   },
   "src/server_services/base_service.py": {
    "path_io": 3
@@ -85,12 +82,9 @@
    "csv": 1,
    "path_io": 1
   },
-  "src/system_config.py": {
-   "csv": 3
-  },
   "src/ytd_tracking.py": {
    "csv": 4
   }
  },
- "total": 95
+ "total": 84
 }

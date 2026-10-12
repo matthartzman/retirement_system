@@ -22,7 +22,7 @@ try:
         _read_plan_data_file,
         _read_schema_map,
         _reference_file_path,
-        _request_system_config_csv,
+        _system_config_path,
         _require,
         _runtime_config,
         _spending_budget_save_result,
@@ -62,7 +62,7 @@ except ImportError:
         _read_plan_data_file,
         _read_schema_map,
         _reference_file_path,
-        _request_system_config_csv,
+        _system_config_path,
         _require,
         _runtime_config,
         _spending_budget_save_result,
@@ -199,7 +199,7 @@ def refresh_prices():
     payload = pricing_service.refresh_prices(
         base_dir=BASE_DIR,
         output_dir=_workspace_output(),
-        system_config_csv=_request_system_config_csv(),
+        app_db=_system_config_path(),
         max_build_seconds=_runtime_config().max_build_seconds,
     )
     _audit("prices_refreshed", {"returncode": payload.get("returncode"), "payload": payload.get("result")})
@@ -355,7 +355,7 @@ def portfolio_drift():
     payload = portfolio_service.drift_payload(
         base_dir=BASE_DIR,
         output_dir=_workspace_output(),
-        system_config_csv=_request_system_config_csv(),
+        app_db=_system_config_path(),
         max_build_seconds=_runtime_config().max_build_seconds,
     )
     return jsonify({k: v for k, v in payload.items() if k != "returncode"})
