@@ -3,7 +3,7 @@
 // every other spec in this suite via helpers.js's openCurrentPlan), and had
 // zero browser coverage.
 //
-// Intercepts POST /api/plan-data/blank (frontend/js/dashboard_decomp_checklist_closeout.js's
+// Intercepts POST /api/plan/blank (frontend/js/dashboard_decomp_checklist_closeout.js's
 // startNewPlan()) rather than letting it run for real: the real endpoint
 // overwrites every input/client_*.csv file on the shared E2E server this
 // whole suite runs against (documentation/reference/CLAUDE.md's "Start New Plan"
@@ -19,7 +19,7 @@ import { waitForPlanSettled } from './helpers.js';
 
 test('Start New Plan calls the blank-plan endpoint and lands on the first step of a fresh plan', async ({ page }) => {
   let blankRequestBody = null;
-  await page.route('**/api/plan-data/blank', async (route) => {
+  await page.route('**/api/plan/blank', async (route) => {
     blankRequestBody = route.request().postDataJSON();
     await route.fulfill({
       status: 200,
@@ -61,7 +61,7 @@ test('Start New Plan calls the blank-plan endpoint and lands on the first step o
   }
 
   await expect
-    .poll(() => blankRequestBody, { timeout: 10_000, message: 'POST /api/plan-data/blank was never called' })
+    .poll(() => blankRequestBody, { timeout: 10_000, message: 'POST /api/plan/blank was never called' })
     .not.toBeNull();
 
   await waitForPlanSettled(page);
