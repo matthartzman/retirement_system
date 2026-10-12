@@ -1,17 +1,6 @@
-// ── Plan switcher (header) ─────────────────────────────────────────────────
-// WP8.4 (design F section 5A): every plan is its own .rpx file and app.db's
-// plan registry names the active one. This compact control in the header
-// shows the active plan's name, lists the registered plans to switch to, and
-// while the demo plan is active shows a Demo badge with "Exit demo".
-// Switching never copies or replaces a plan file: the server only changes
-// the active plan (POST /api/plans/switch), then the page reloads the plan.
-//
-// Same conventions as the other leaf modules: helpers (api, esc,
-// showMessage, loadAll, renderMain, hasUnsavedPlanChanges,
-// showSaveDiscardStayModal, saveAll, openCurrentPlan) are bare globals, and
-// this file's functions reach inline onclick/onchange handlers through the
-// window bridge at the bottom. dashboard_decomp_row_model.js's loadAll()
-// calls refreshPlanSwitcher() after every (re)load.
+// Header plan switcher (WP8.4, design F 5A): the active plan's name, the registered plans to
+// switch to (POST /api/plans/switch; no plan file is copied) and, while the demo plan is active,
+// a Demo badge with "Exit demo". Helpers are bare globals; loadAll() calls refreshPlanSwitcher().
 let planSwitcherState = null;
 
 export function planSwitcherHtml(state) {
