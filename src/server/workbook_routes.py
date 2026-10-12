@@ -24,7 +24,6 @@ from typing import Any
 from .app_core import (
     BASE_DIR,
     BUILD_SCRIPT,
-    PLAN_DATA_FILES,
     SPENDING_BUDGET_SECTIONS,
     WORKSPACE_ROOT,
     platform_runtime,
@@ -37,8 +36,6 @@ from .app_core import (
     _ensure_user_ui_plan_data_rows,
     _blank_plan_rows,
     _make_blank_plan_files,
-    _normalize_plan_data_file_name,
-    _protected_client_data_status,
     _read_last_build_timestamp,
     _read_plan_data_file,
     app_db_env,
@@ -65,7 +62,7 @@ from ..workspace_context import legacy_output_dir
 from ..http_runtime.wsgi_facade import Response
 from ..schema_registry import load_schema as _load_schema_registry, validate_value as _schema_validate_value, validate_rows as _schema_validate_rows
 
-from ..server_services import build_job_service, build_service, holdings_service, plan_data_file_service, plan_forms_service, report_service, spending_service
+from ..server_services import build_job_service, build_service, holdings_service, blank_plan_service, plan_forms_service, report_service, spending_service
 
 from ..local_store import list_kpi_snapshots, compare_kpi_snapshots
 from ..active_plan import active_plan_path, clear_build_results, peek_plan_data, plan_db_env
@@ -133,18 +130,15 @@ def _extract_build_failure_message(returncode: int, stdout: str = "", stderr: st
     return build_job_service.extract_build_failure_message(returncode, stdout, stderr)
 
 
-def _plan_data_file_feature_service() -> plan_data_file_service.PlanDataFileService:
-    return plan_data_file_service.PlanDataFileService(
-        plan_data_file_service.PlanDataFileServiceContext(
-            plan_data_files=PLAN_DATA_FILES,
+def _blank_plan_feature_service() -> blank_plan_service.BlankPlanService:
+    return blank_plan_service.BlankPlanService(
+        blank_plan_service.BlankPlanServiceContext(
             sqlite_db=_sqlite_db,
             plan_db=active_plan_path,
-            normalize_plan_data_file_name=_normalize_plan_data_file_name,
             read_plan_data_file=_read_plan_data_file,
             write_plan_data_file=_write_plan_data_file,
             make_blank_plan_files=_make_blank_plan_files,
             blank_plan_rows=_blank_plan_rows,
-            protected_client_data_status=_protected_client_data_status,
             ensure_user_ui_plan_data_rows=_ensure_user_ui_plan_data_rows,
             audit=_audit,
         )
@@ -583,16 +577,8 @@ def get_kpi_snapshot_compare():
     return jsonify(result)
 
 
-@app.route("/api/plan-data/files", methods=["GET"])
-def plan_data_files():
-    denied = _require("read_config")
-    if denied:
-        return denied
-    payload, status = _plan_data_file_feature_service().files_payload()
-    return jsonify(payload), status
-
-@app.route("/api/plan-data/blank", methods=["POST"])
-def start_blank_plan_data():
+@app.route("/api/plan/blank", methods=["POST"])
+def start_blank_plan():
     denied = _require("write_config")
     if denied:
         return denied
@@ -602,35 +588,7 @@ def start_blank_plan_data():
     ytd_blend_enabled = body.get("ytd_blend_enabled")
     if ytd_blend_enabled is not None:
         ytd_blend_enabled = bool(ytd_blend_enabled)
-    payload, status = _plan_data_file_feature_service().start_blank_payload(ytd_blend_enabled=ytd_blend_enabled)
-    return jsonify(payload), status
-
-
-@app.route("/api/plan-data/<path:file_name>", methods=["GET"])
-def get_plan_data_file(file_name):
-    denied = _require("read_config")
-    if denied:
-        return denied
-    payload, status = _plan_data_file_feature_service().get_file_payload(file_name)
-    if status == 200:
-        return payload["content"], 200, {"Content-Type": payload["content_type"]}
-    return jsonify(payload), status
-
-
-@app.route("/api/plan-data/<path:file_name>", methods=["POST"])
-def save_plan_data_file(file_name):
-    denied = _require("write_config")
-    if denied:
-        return denied
-    if not _runtime_config().allow_csv_write:
-        return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
-    body = request.get_json(silent=True) or {}
-    content = body.get("csv_content")
-    if content is None:
-        content = request.get_data(as_text=True)
-    if content is None:
-        return jsonify({"success": False, "error": "No csv_content in request"}), 400
-    payload, status = _plan_data_file_feature_service().save_file_payload(file_name, str(content))
+    payload, status = _blank_plan_feature_service().start_blank_payload(ytd_blend_enabled=ytd_blend_enabled)
     return jsonify(payload), status
 
 
