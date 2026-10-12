@@ -68,8 +68,7 @@ class DemoPlanService:
             self._audit("plan_after_switch_warning", {"path": str(path), "error": str(exc)})
 
     def _build_seed(self, dest: Path) -> None:
-        """Build the demo plan from the seed into a temp file beside ``dest`` and return nothing;
-        the caller moves it into place."""
+        """Build the demo plan from the seed at ``dest`` (a temp file; the caller moves it into place)."""
         if not build_plan_file_from_csv_folder(dest, self.context.demo_dir()):
             raise FileNotFoundError(f"no demo plan rows found in {self.context.demo_dir()}")
 
