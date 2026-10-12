@@ -5,3 +5,5 @@ Each work package that moves a dataset writes its conversion step under ``steps/
 documented, tested unit; nothing here is wired into startup until WP10. Steps read the
 old files only through ``src/csv_exchange`` and never modify or delete an original.
 """
+
+from .workspace import convert_workspace, decide  # noqa: E402,F401
