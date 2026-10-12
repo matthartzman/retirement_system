@@ -10,8 +10,8 @@ plan value or an exception message.
 * ``blocked_reason`` codes: ``verification_differences`` (plan rows, engine, datasets),
   ``tier_mapping_changes_results`` (the tier safeguard), ``verification_error`` (the engine
   raised, so the numbers could not be compared), ``step_failed``, ``backup_failed``,
-  ``sources_modified``, ``plan_changed_during_conversion``, ``plan_backup_failed``,
-  ``swap_failed``, ``busy``, ``internal_error``. The first three can be accepted by the user
+  ``sources_modified``, ``sources_unreadable``, ``plan_changed_during_conversion``,
+  ``plan_backup_failed``, ``swap_failed``, ``busy``, ``internal_error``. The first three can be accepted by the user
   (``extra["accept_differences"]``, ``can_accept``); for the tier safeguard the user can also keep
   the plan's switches (``extra["tier_mapping"] = "keep"``).
 * ``differing_keys``: per check, the differing key names (capped).

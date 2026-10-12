@@ -193,14 +193,18 @@ def _convert(ws: Path, dry_run: bool, extra: dict[str, Any]) -> ConversionResult
     from ..app_state import app_store_path_for  # noqa: PLC0415
 
     res = ConversionResult(needed=False, dry_run=dry_run, started_at=_now())
-    d = decide(ws, extra)
-    res.needed, res.reason, res.mode = d["needed"], d["reason"], d["mode"]
-    if not d["needed"]:
-        res.status, res.verified, res.finished_at = "not_needed", True, _now()
-        return res
-    app_db = Path(extra.get("app_db") or app_store_path_for(ws))
-    guard = sources.source_paths(ws, extra)
-    before = runner.snapshot_sources(guard)
+    try:
+        d = decide(ws, extra)
+        res.needed, res.reason, res.mode = d["needed"], d["reason"], d["mode"]
+        if not d["needed"]:
+            res.status, res.verified, res.finished_at = "not_needed", True, _now()
+            return res
+        app_db = Path(extra.get("app_db") or app_store_path_for(ws))
+        guard = sources.source_paths(ws, extra)
+        before = runner.snapshot_sources(guard)
+    except Exception as exc:  # noqa: BLE001 - e.g. an original that cannot be read: nothing was written
+        res.needed, res.error_type, res.finished_at = True, type(exc).__name__, _now()
+        return _block(res, "sources_unreadable")
     workdir = Path(tempfile.mkdtemp(prefix="conversion_dry_")) if dry_run else _fresh_dir(ws / STAGING_DIR)
     try:
         _run(res, ws, d, extra, app_db, guard, before, workdir)
@@ -211,7 +215,11 @@ def _convert(ws: Path, dry_run: bool, extra: dict[str, Any]) -> ConversionResult
     finally:
         _keep_staging(extra.get("_keep_staging"), workdir / Path(d["plan_file"]).name, res)
         shutil.rmtree(workdir, ignore_errors=True)
-        if runner.snapshot_sources(guard) != before:
+        try:
+            unchanged = runner.snapshot_sources(guard) == before
+        except OSError:
+            unchanged = False
+        if not unchanged:
             res.sources_unchanged = False
             if "sources_modified" not in res.warnings:
                 res.warnings.append("sources_modified")
