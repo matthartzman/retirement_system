@@ -46,7 +46,7 @@ from .text_csv import (
     rows_to_text,
     write_rows_stream,
 )
-from .plan_set import export_plan_set, import_plan_set, split_plan_rows
+from .plan_set import export_plan_set, export_plan_set_files, import_plan_set, split_plan_rows
 from .plan_csv import (
     ANCHOR_FILE,
     PART_FILE_SECTIONS,
@@ -79,6 +79,7 @@ __all__ = [
     "ParsedDataset",
     "commit",
     "export_plan_set",
+    "export_plan_set_files",
     "import_plan_set",
     "split_plan_rows",
     "current_rows",

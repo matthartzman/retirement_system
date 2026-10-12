@@ -52,14 +52,6 @@ def test_save_system_config_csv_content_diverts_keys(tmp_path, stored):
     assert "FMPKEY123" not in p.read_text(encoding="utf-8")
 
 
-def test_generic_csv_endpoint_for_system_kind_also_diverts(tmp_path, stored):
-    p = tmp_path / "system_config.csv"
-    payload, status, *_ = admin_service.save_csv_file(
-        "system", "system_config.csv", {"rows": _cfg_rows()}, base_dir=tmp_path, system_config_path=p)
-    assert status == 200 and payload["secrets_stored"]
-    assert "FMPKEY123" not in p.read_text(encoding="utf-8")
-
-
 def test_blank_key_cells_do_not_touch_secret_store(tmp_path, stored):
     p = tmp_path / "system_config.csv"
     admin_service.save_system_config({"rows": _cfg_rows("", "")}, p)

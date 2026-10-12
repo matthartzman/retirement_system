@@ -52,7 +52,7 @@
   },
   "src/server_services/admin_service.py": {
    "csv": 4,
-   "path_io": 3
+   "path_io": 1
   },
   "src/server_services/base_service.py": {
    "path_io": 3
@@ -73,5 +73,5 @@
    "csv": 3
   }
  },
- "total": 65
+ "total": 63
 }

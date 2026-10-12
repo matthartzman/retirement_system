@@ -172,13 +172,6 @@ const ADMIN_HELP = {
     consider:
       "Disable only when a section is irrelevant or intentionally out of scope.",
   },
-  reference: {
-    title: "Reference files",
-    purpose:
-      "Maintain shared tax, schema, security, and market-reference tables.",
-    impact: "Reference data can affect every client because it is system-wide.",
-    consider: "Use source dates and review status for tax-sensitive constants.",
-  },
 };
 function navHelpKey(id) {
   const item =
@@ -224,62 +217,6 @@ function setAdminStep(id) {
 function adminPane(title, desc, body, eyebrow = "System") {
   return `<div class="pane-head"><div class="eyebrow">${esc(eyebrow)}</div><h2>${esc(title)}</h2>${desc ? `<p>${esc(desc)}</p>` : ""}</div>${body}`;
 }
-
-// #combine-market-data: 'optimizer' area used to duplicate SYSTEM_CONFIG_PAGES'
-// 'rebalancing' page byte-for-byte (same file, same profile, same
-// filterSections -- both rendered system_config.csv's Rebalancing section
-// through loadCsvEditor with no other distinction), just reached through a
-// second nav entry ("Investment policy" group) with a different title.
-// Removed rather than kept as an intentional alternate view.
-const AREA_DEFS = {
-  etf: {
-    title: "ETF universe / replacement securities",
-    desc: "Reference tables that drive ETF ideas, one-ETF-per-account recommendations, asset-class mapping, and optimizer capital-market inputs.",
-    // #combine-market-data: security_master.csv used to be listed here too
-    // ("Security master / ETF universe") in addition to its own "Market data"
-    // nav entry (pricing_security / openSecurityMaster()) -- same file, same
-    // profile, same loadCsvEditor renderer, reached two different ways. The
-    // adminNavItems() Market data group now covers it once; see there.
-    files: [
-      {
-        kind: "reference",
-        file: "capital_market_assumptions.csv",
-        title: "Custom capital market assumptions file",
-        profile: "capital_market",
-        navStep: "syscfg_assumptions",
-        note: "Expected return, volatility, and correlation inputs used by optimizer and Monte Carlo outputs. These are governance assumptions, not client facts.",
-      },
-      {
-        kind: "reference",
-        file: "asset_correlations.csv",
-        title: "Custom asset correlations file",
-        profile: "asset_correlations",
-        navStep: "syscfg_correlations",
-        note: "Correlation matrix inputs used in portfolio diversification and covariance calculations.",
-      },
-    ],
-  },
-  accountsTax: {
-    title: "Tax constants and source governance",
-    desc: "Federal/state tax reference data, source dates, and tax-update governance used by projections and report warnings.",
-    files: [
-      {
-        kind: "reference",
-        file: "tax_constants.csv",
-        title: "Federal tax constants",
-        profile: "tax_constants",
-        note: "Reference tax inputs used for projections; stale or missing source reviews should surface in workbook warnings.",
-      },
-      {
-        kind: "reference",
-        file: "state_tax.csv",
-        title: "State tax reference",
-        profile: "state_tax",
-        note: "State tax assumptions used for residency, tax projections, and tax-law freshness output.",
-      },
-    ],
-  },
-};
 
 const COLUMN_HELPERS = {
   target_allocation: {
@@ -1519,15 +1456,13 @@ function toggleRawEditor() {
     document.getElementById("rawCsv").value = rowsToCsv(activeEditor.rows);
 }
 async function loadCsvEditor(def, backAction = "showAppSettings()") {
-  const out = await api(
-    `/api/admin/csv-file/${encodeURIComponent(def.kind)}/${encodeURIComponent(def.file)}`,
-  );
+  const out = await api("/api/admin/system-config");
   const rows =
     out.rows && out.rows.length ? out.rows : parseCsv(out.csv_content || "");
   activeEditor = {
     ...def,
     rows,
-    route: `/api/admin/csv-file/${def.kind}/${def.file}`,
+    route: "/api/admin/system-config",
     title: def.title || def.file,
     changed: false,
     backAction,
@@ -1636,11 +1571,6 @@ const SYSTEM_CONFIG_PAGES = [
     title: "Capital market assumptions",
     desc: "Expected returns, volatility, custom assumption files, and long-term optimizer inputs.",
     filterSections: ["Asset Class Assumptions"],
-    companion: {
-      label: "Edit the custom assumptions file (capital_market_assumptions.csv)",
-      action: "openAreaFile('etf',0)",
-      hint: "Expert file, read only when 'use_custom_capital_market_file' is YES.",
-    },
   },
   {
     id: "correlations",
@@ -1648,11 +1578,6 @@ const SYSTEM_CONFIG_PAGES = [
     title: "Asset correlations",
     desc: "Pairwise correlation settings used by optimizer diversification calculations.",
     filterSections: ["Asset Correlations"],
-    companion: {
-      label: "Edit the custom correlations file (asset_correlations.csv)",
-      action: "openAreaFile('etf',1)",
-      hint: "Expert file, read only when 'use_custom_correlations_file' is YES.",
-    },
   },
   {
     id: "jobs",
@@ -1691,7 +1616,7 @@ const SYSTEM_CONFIG_PAGES = [
 function systemConfigPage(id) {
   return SYSTEM_CONFIG_PAGES.find((p) => p.id === id) || SYSTEM_CONFIG_PAGES[0];
 }
-const NAV_GROUP_ORDER = ["System configuration", "Market data", "Tax & accounts", "Reference data"];
+const NAV_GROUP_ORDER = ["System configuration", "Market data", "Tax & accounts"];
 function adminNavItems() {
   const byGroup = {};
   const add = (item) => (byGroup[item.group] = byGroup[item.group] || []).push(item);
@@ -1703,15 +1628,6 @@ function adminNavItems() {
     action: `showSystemConfig('${p.id}')`,
     helpKey: p.helpKey || "system_config",
   });
-  const areaItems = (areaId, group) =>
-    (AREA_DEFS[areaId]?.files || []).map((f, idx) => ({
-      id: `area_${areaId}_${idx}`,
-      group,
-      title: f.title,
-      desc: f.note || AREA_DEFS[areaId].title,
-      action: `openAreaFile('${areaId}',${idx})`,
-      helpKey: areaId,
-    }));
   const pages = (group) =>
     SYSTEM_CONFIG_PAGES.filter((p) => p.group === group).map(pageItem);
 
@@ -1741,14 +1657,6 @@ function adminNavItems() {
     action: "openPricingControls()",
     helpKey: "pricing",
   });
-  add({
-    id: "pricing_security",
-    group: "Market data",
-    title: "Security master",
-    desc: "Ticker mapping, ETF universe, and asset-class mapping",
-    action: "openSecurityMaster()",
-    helpKey: "pricing",
-  });
   pages("Market data").forEach(add);
 
   add({
@@ -1759,17 +1667,8 @@ function adminNavItems() {
     action: "showTaxLawDashboard()",
     helpKey: "tax",
   });
-  areaItems("accountsTax", "Tax & accounts").forEach(add);
   pages("Tax & accounts").forEach(add);
 
-  add({
-    id: "reference",
-    group: "Reference data",
-    title: "Reference files",
-    desc: "System-wide tax, market, schema, and security tables",
-    action: "showReferenceFiles()",
-    helpKey: "reference",
-  });
   return NAV_GROUP_ORDER.flatMap((g) => byGroup[g] || []);
 }
 function renderAdminNav() {
@@ -1878,23 +1777,6 @@ async function showSystemConfig(pageId = "runtime") {
       "afterend",
       summarizeRows(filteredSettingRows(sysCfgRows, def).map((x) => x.r)),
     );
-  if (h && page.companion)
-    h.insertAdjacentHTML(
-      "afterend",
-      `<div class="note-box"><button type="button" onclick="${page.companion.action}">${esc(page.companion.label)}</button> <span class="muted">${esc(page.companion.hint)}</span></div>`,
-    );
-}
-async function openAreaFile(id, idx) {
-  const area = AREA_DEFS[id];
-  const def = {
-    ...area.files[idx],
-    navStep: area.files[idx].navStep || `area_${id}_${idx}`,
-  };
-  setAdminStep(def.navStep);
-  await loadCsvEditor(def, `openAreaFile('${id}',${idx})`);
-}
-async function showArea(id) {
-  await openAreaFile(id, 0);
 }
 async function openPricingControls() {
   setAdminStep("pricing_controls");
@@ -2021,20 +1903,6 @@ async function runLivePriceSymbolTest() {
     msg("Pricing tester error: " + detail);
   }
 }
-async function openSecurityMaster() {
-  setAdminStep("pricing_security");
-  await loadCsvEditor(
-    {
-      kind: "reference",
-      file: "security_master.csv",
-      title: "Security master / ETF universe",
-      profile: "security_master",
-      note: "Ensure symbols and asset classes are correct before relying on recommendations.",
-      navStep: "pricing_security",
-    },
-    "openSecurityMaster()",
-  );
-}
 async function showPricingAdmin() {
   await openPricingControls();
 }
@@ -2081,45 +1949,6 @@ function summarizeDiagnostic(j) {
     if (j[k] !== undefined) o[k] = j[k];
   });
   return Object.keys(o).length ? o : j;
-}
-async function showReferenceFiles() {
-  setAdminStep("reference");
-  const out = await api("/api/admin/reference-files");
-  document.getElementById("main").innerHTML =
-    `<h2>All reference files</h2><p class="muted">System-side reference inputs. Use compact editors for tabular files and raw fallback for bulk changes.</p><table><tr><th>File</th><th>Bytes</th><th>Impact</th><th>Actions</th></tr>${out.files.map((f) => `<tr><td>${esc(f.name)}</td><td>${f.bytes}</td><td class="impact">${esc(referenceImpact(f.name))}</td><td><button onclick="loadCsvEditor({kind:'reference',file:'${esc(f.name)}',title:'${esc(f.name)}',profile:profileForFile('${esc(f.name)}'),note:referenceImpact('${esc(f.name)}')},'showReferenceFiles()')">Compact edit</button></td></tr>`).join("")}</table>`;
-  msg("Reference files loaded");
-}
-function referenceImpact(name) {
-  // Bug fix: callers pass the full filename ("security_master.csv"), but
-  // this map's keys never carried the extension, so every lookup missed and
-  // fell to the generic fallback for every single reference file. Strip it
-  // before matching.
-  const key = String(name || "").replace(/\.csv$/i, "");
-  return (
-    {
-      security_master:
-        "Ticker-to-asset-class mapping for holdings, ETF ideas, and recommended trades.",
-      capital_market_assumptions:
-        "Expected return and risk inputs for optimizer recommendations.",
-      asset_correlations:
-        "Diversification/covariance assumptions used by optimizer calculations.",
-      schema: "Validation metadata and helper notes for client Plan Data.",
-      state_tax: "State tax assumptions used in residency and tax projections.",
-      tax_constants: "Federal tax thresholds, deductions, and constants.",
-      tax_update_dashboard:
-        "Review status and source dates behind the Tax-law update dashboard.",
-    }[key] || "Reference input used by workbook generation."
-  );
-}
-function profileForFile(name) {
-  if (name === "security_master.csv") return "security_master";
-  if (name === "capital_market_assumptions.csv") return "capital_market";
-  if (name === "tax_constants.csv") return "tax_constants";
-  if (name === "asset_correlations.csv") return "asset_correlations";
-  if (name === "schema.csv") return "schema";
-  if (name === "state_tax.csv") return "state_tax";
-  if (name === "tax_update_dashboard.csv") return "tax_update_dashboard";
-  return "generic";
 }
 async function showWorkspaces() {
   setAdminStep("app_settings");

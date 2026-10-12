@@ -42,10 +42,6 @@ def client_data_csv_files(*, include_client_data: bool = True) -> list[str]:
 # of a package always runs that package's __init__.py first, which registers
 # admin_routes, which reads admin_service back -- a
 # circular import if admin_service ever depended on src.server.*).
-# Shipped reference data now lives in the read-only reference.db (WP3), so there are no
-# editable reference files left. The admin "reference files" editor (frontend/js/admin.js)
-# is retired with the csv_exchange work package, which adds override screens instead.
-SYSTEM_REFERENCE_FILES: list[str] = []
 
 
 # The flat datasets (not sectioned plan rows): every one is a table of the plan file since WP6

@@ -26,7 +26,6 @@ def test_admin_left_nav_has_non_clickable_intuitive_groups():
         'System configuration',
         'Market data',
         'Tax & accounts',
-        'Reference data',
     ]:
         assert group in html
     assert re.search(r'group: "System configuration"', html)
@@ -102,9 +101,8 @@ def test_focused_pages_use_left_step_navigation_not_nested_card_nav():
     html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_CSS.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8")
     assert 'id="adminSteps"' in html
     assert "function adminNavItems" in html
-    assert "openAreaFile" in html
     assert "openPricingControls" in html
-    assert "openSecurityMaster" in html
+    assert "openAreaFile" not in html and "openSecurityMaster" not in html  # WP9.4
     assert "Admin console" not in html
 
 
@@ -132,11 +130,9 @@ def _nav_groups():
     node = shutil.which("node")
     assert node, "node is required"
     src = ADMIN_JS.read_text(encoding="utf-8")
-    start = src.index("const AREA_DEFS = {")
-    end = src.index("const COLUMN_HELPERS")
     pages_start = src.index("const SYSTEM_CONFIG_PAGES = [")
     nav_end = src.index("function renderAdminNav()")
-    code = src[start:end] + "\n" + src[pages_start:nav_end] + "\nconsole.log(JSON.stringify(adminNavItems().map(i=>[i.group,i.title,i.id])));"
+    code = src[pages_start:nav_end] + "\nconsole.log(JSON.stringify(adminNavItems().map(i=>[i.group,i.title,i.id])));"
     out = subprocess.run([node, "-e", code], capture_output=True, text=True, check=True).stdout
     groups = {}
     for g, t, _id in json.loads(out):
@@ -146,7 +142,7 @@ def _nav_groups():
 
 def test_admin_nav_rationalized_groups_and_placement():
     groups, ids = _nav_groups()
-    assert list(groups) == ["System configuration", "Market data", "Tax & accounts", "Reference data"]
+    assert list(groups) == ["System configuration", "Market data", "Tax & accounts"]
     assert len(ids) == len(set(ids)), "duplicate nav ids"
     titles = [t for ts in groups.values() for t in ts]
     assert len(titles) == len(set(titles)), f"duplicate nav titles: {titles}"
