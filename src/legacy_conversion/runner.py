@@ -1,12 +1,20 @@
-"""legacy_conversion runner (WP10.1): runs the ordered conversion steps against one plan file.
+"""legacy_conversion runner (WP10.1, WP10.3): runs the ordered conversion steps against one plan file.
 
 * ``ConversionContext`` carries the workspace, the folders the old files live in, the open plan
-  store and the dry-run flag.
+  store, the dry-run flag, the run's private scratch folder (``workdir``) and the
+  ``checkpoints`` verification reads (the plan as it was before any step, the plan just before
+  the tier mapping).
 * Every step is a ``Step(id, run)``; ``run(ctx)`` returns a small privacy-safe dict (counts and
   names only, never plan values). Steps carry their own idempotency markers in ``plan_meta``
   (``legacy_conversion.<step>``), so a re-run converts only what is missing.
-* ``run_conversion`` snapshots every source file before and after (size + SHA-256) and raises
-  ``SourceModifiedError`` if any original changed: the originals are never modified.
+* The steps come in two phases (WP10.3). ``PLAN_STEPS`` write only the plan file they are given:
+  ``convert_workspace`` runs them into a STAGING copy and verifies the copy before anything
+  becomes live. ``INSTALL_STEPS`` write install state (app.db settings, the credential store,
+  the plan registry) and run only after the verified copy replaced the live plan.
+* ``run_conversion`` (low level: tests and tools) snapshots every source file before and after
+  (size + SHA-256) and raises ``SourceModifiedError`` if any original changed: the originals are
+  never modified. It never sets the done marker; only ``convert_workspace`` does, after
+  verification.
 * Dry run converts into a throwaway copy of the target plan and leaves the real one untouched.
 * A failing step stops the run (later steps may depend on it); the report says which step and
   the exception type (the message is withheld, it can quote plan values).
@@ -14,7 +22,6 @@
 from __future__ import annotations
 
 import hashlib
-import os
 import shutil
 import tempfile
 import time
@@ -25,6 +32,9 @@ from typing import Any, Callable, Iterable, Sequence
 from ..active_plan import PlanStore  # product code reaches PlanStore through active_plan
 
 DONE_MARKER = "legacy_conversion.done"
+VERIFIED_MARKER = "legacy_conversion.verified"
+SEEDED_MARKER = "legacy_conversion.seeded_from"
+PRE_TIER_FILE = "pre_tier.rpx"  # checkpoint copy of the staging plan just before T8 (in workdir)
 
 
 class SourceModifiedError(RuntimeError):
@@ -38,10 +48,12 @@ class ConversionContext:
     dry_run: bool = False
     extra: dict[str, Any] = field(default_factory=dict)
     # The folder the file-reading steps read: ``input/`` unless step SRC staged the sources
-    # chosen by precedence (``sources.discover``) into a temp folder.
+    # chosen by precedence (``sources.discover``) into a scratch folder.
     source_dir: Path | None = None
-    plan_file: Path | None = None  # the real target (not the dry-run copy)
-    cleanup: list[Path] = field(default_factory=list)  # temp folders removed after the run
+    plan_file: Path | None = None  # the real target (the live plan), never the staging copy
+    cleanup: list[Path] = field(default_factory=list)  # scratch folders removed after the run
+    workdir: Path | None = None  # this run's private scratch folder (None: system temp)
+    checkpoints: dict[str, Any] = field(default_factory=dict)
 
     @property
     def input_dir(self) -> Path:
@@ -86,9 +98,20 @@ class ConversionReport:
     def converted(self) -> bool:
         return any(s.status == "converted" for s in self.steps)
 
+    def step(self, step_id: str) -> StepResult | None:
+        return next((s for s in self.steps if s.step == step_id), None)
+
     def as_dict(self) -> dict[str, Any]:
         return {"dry_run": self.dry_run, "ok": self.ok, "sources_unchanged": self.sources_unchanged,
                 "source_files": self.source_files, "steps": [s.as_dict() for s in self.steps]}
+
+
+def file_sha256(path: str | Path) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
 
 
 def snapshot_sources(paths: Iterable[str | Path]) -> dict[str, tuple[int, str]]:
@@ -98,11 +121,7 @@ def snapshot_sources(paths: Iterable[str | Path]) -> dict[str, tuple[int, str]]:
         root = Path(root)
         files = [root] if root.is_file() else sorted(p for p in root.rglob("*") if p.is_file()) if root.is_dir() else []
         for f in files:
-            h = hashlib.sha256()
-            with open(f, "rb") as fh:
-                for chunk in iter(lambda: fh.read(1 << 20), b""):
-                    h.update(chunk)
-            out[str(f)] = (f.stat().st_size, h.hexdigest())
+            out[str(f)] = (f.stat().st_size, file_sha256(f))
     return out
 
 
@@ -112,7 +131,8 @@ def default_source_paths(workspace: Path) -> list[Path]:
            [workspace / "system_config.csv", workspace / "local_state" / "secrets.local.json"]
 
 
-def _execute(steps: Sequence[Step], ctx: ConversionContext, report: ConversionReport) -> None:
+def execute(steps: Sequence[Step], ctx: ConversionContext, report: ConversionReport) -> None:
+    """Run ``steps`` in order, appending a ``StepResult`` each; stop at the first failure."""
     for step in steps:
         t0 = time.monotonic()
         try:
@@ -129,10 +149,31 @@ def _execute(steps: Sequence[Step], ctx: ConversionContext, report: ConversionRe
             return
 
 
-SEEDED_MARKER = "legacy_conversion.seeded_from"
+_execute = execute  # WP10.1 name
 
 
-def _copy_db(src: Path, dest: Path) -> None:
+def marker_keys() -> tuple[str, ...]:
+    """Every ``plan_meta`` key a conversion writes."""
+    from .steps import c3_plan_rows, c3b_plan_overrides, c4a_datasets, c4b_spending, c4c_ytd, c6a_settings, c6c_register, t8_tier_mapping  # noqa: PLC0415
+
+    c4b_units = [c4b_spending.DATASET_MARKER_PREFIX + n for n in (*c4b_spending.FILES, *c4b_spending.RECOVERY_FILES)]
+    return (c3_plan_rows.MARKER_KEY, c3b_plan_overrides.MARKER_KEY, c4a_datasets.MARKER_KEY, c4b_spending.MARKER_KEY,
+            *c4b_units, c4c_ytd.MARKER_KEY, c6a_settings.MARKER_KEY, t8_tier_mapping.MARKER_KEY,
+            c6c_register.MARKER_KEY, SEEDED_MARKER, VERIFIED_MARKER, DONE_MARKER)
+
+
+def capture_initial(store: PlanStore) -> dict[str, Any]:
+    """What verification needs from the plan before any step ran: its rows (engine view), the
+    conversion markers present and each flat dataset's row count."""
+    from ..csv_exchange import FLAT_DATASET_FILES  # noqa: PLC0415
+
+    markers = {k: v for k in marker_keys() if (v := store.get_meta(k)) is not None}
+    return {"rows": store.sectioned_data(), "markers": markers,
+            "counts": {n: store.dataset(n).count() for n in FLAT_DATASET_FILES}}
+
+
+# ------------------------------------------------------------------ plan files
+def copy_db(src: Path, dest: Path) -> None:
     """Raw copy of a database and its ``-wal`` (the source is never opened)."""
     shutil.copyfile(src, dest)
     wal = src.with_name(src.name + "-wal")
@@ -140,36 +181,17 @@ def _copy_db(src: Path, dest: Path) -> None:
         shutil.copyfile(wal, dest.with_name(dest.name + "-wal"))
 
 
-def _backup_db(src: Path, dest: Path) -> None:
+def backup_db(src: Path, dest: Path) -> None:
     """Consistent copy of an open-able database (``sqlite3`` backup API, WAL included)."""
-    import sqlite3  # noqa: PLC0415
-    from contextlib import closing  # noqa: PLC0415
+    from ..plan_db_replace import copy_sqlite_file  # noqa: PLC0415
 
-    with closing(sqlite3.connect(src)) as a, closing(sqlite3.connect(dest)) as b:
-        a.backup(b)
+    copy_sqlite_file(src, dest)
 
 
-def _seed_target(seed: Path, target: Path) -> None:
-    """Make ``target`` a plan file holding a copy of ``seed`` (schema brought up to date on the
-    copy; ``seed`` itself is only copied). An existing ``target`` is kept beside it as
-    ``<name>.pre_conversion_<ts>`` first."""
-    from ..plan_db_replace import remove_sidecars  # noqa: PLC0415
-
-    target.parent.mkdir(parents=True, exist_ok=True)
-    work = target.with_name(target.name + ".seeding")
-    for stale in (work, work.with_name(work.name + "-wal"), work.with_name(work.name + "-shm")):
-        stale.unlink(missing_ok=True)
-    _copy_db(seed, work)
-    with PlanStore.open(work, create=False) as store:
-        store.set_meta(SEEDED_MARKER, seed.name)
-    remove_sidecars(work)
-    if target.is_file():
-        _backup_db(target, target.with_name(f"{target.name}.pre_conversion_{time.strftime('%Y%m%d_%H%M%S')}"))
-    remove_sidecars(target)
-    os.replace(str(work), str(target))
+_copy_db, _backup_db = copy_db, backup_db  # WP10.2 names
 
 
-def _already_seeded(target: Path) -> bool:
+def already_seeded(target: Path) -> bool:
     if not target.is_file():
         return False
     try:
@@ -179,45 +201,72 @@ def _already_seeded(target: Path) -> bool:
         return False
 
 
+_already_seeded = already_seeded  # WP10.2 name
+
+
+def prepare_staging(target: Path, staging: Path, seed: Path | None = None) -> str:
+    """Lay down the plan file a conversion works on: a copy of ``seed`` (mid-demo upgrade:
+    ``plan.rpx.before_demo``, raw-copied because it is an original, then stamped
+    ``SEEDED_MARKER``) unless ``target`` was seeded by an earlier run, else a consistent copy of
+    the live ``target``, else nothing (the steps create an empty plan). ``target`` and ``seed``
+    are only read. Returns how the staging plan started: ``seed`` | ``copy`` | ``new``."""
+    staging.parent.mkdir(parents=True, exist_ok=True)
+    for stale in (staging, staging.with_name(staging.name + "-wal"), staging.with_name(staging.name + "-shm")):
+        stale.unlink(missing_ok=True)
+    if seed is not None and not already_seeded(target):
+        copy_db(seed, staging)
+        with PlanStore.open(staging, create=False) as store:
+            store.set_meta(SEEDED_MARKER, seed.name)
+        return "seed"
+    if target.is_file():
+        backup_db(target, staging)
+        return "copy"
+    return "new"
+
+
+def run_plan_phase(workspace: Path, staging: Path, steps: Sequence[Step], *, extra: dict[str, Any] | None = None,
+                   plan_file: Path | None = None, workdir: Path | None = None,
+                   dry_run: bool = False) -> tuple[ConversionContext, ConversionReport]:
+    """Run ``steps`` into the plan file ``staging`` (created when missing) and close it. The
+    returned context keeps the staged sources (``ctx.source_dir``) and the checkpoints for
+    verification; the caller removes ``ctx.cleanup`` (or ``workdir``) afterwards. ``ctx.store``
+    is closed on return."""
+    report = ConversionReport(dry_run=dry_run)
+    with PlanStore.open(staging) as store:
+        ctx = ConversionContext(Path(workspace), store, dry_run, dict(extra or {}), plan_file=plan_file, workdir=workdir)
+        ctx.checkpoints["staging_file"] = staging
+        ctx.checkpoints["initial"] = capture_initial(store)
+        execute(steps, ctx, report)
+    return ctx, report
+
+
 def run_conversion(workspace: str | Path, plan_file: str | Path, steps: Sequence[Step], *,
                    dry_run: bool = False, source_paths: Iterable[str | Path] | None = None,
-                   extra: dict[str, Any] | None = None, seed_plan: str | Path | None = None) -> ConversionReport:
-    """Run ``steps`` in order into ``plan_file`` (created when missing).
-
-    ``seed_plan`` (mid-demo upgrade: ``plan.rpx.before_demo``) is a plan file the target starts
-    from: its copy replaces ``plan_file`` (whose old content is kept as
-    ``<name>.pre_conversion_<ts>``) unless ``plan_file`` was already seeded by an earlier run.
-    ``dry_run`` works on a temporary copy of ``plan_file`` (or of the seed) and discards it. The
-    done marker (``DONE_MARKER``) is set only on a real run where every step succeeded."""
+                   extra: dict[str, Any] | None = None) -> ConversionReport:
+    """Low level: run ``steps`` in order into ``plan_file`` (created when missing), no
+    verification and no done marker (``convert_workspace`` owns both). ``dry_run`` works on a
+    temporary copy of ``plan_file`` and discards it. Raises ``SourceModifiedError`` when an
+    original changed."""
     workspace, plan_file = Path(workspace), Path(plan_file)
-    seed = Path(seed_plan) if seed_plan else None
     sources = list(source_paths) if source_paths is not None else default_source_paths(workspace)
     before = snapshot_sources(sources)
-    report = ConversionReport(dry_run=dry_run, source_files=len(before))
-    tmp = tempfile.mkdtemp(prefix="conversion_dry_") if dry_run else None
+    tmp = Path(tempfile.mkdtemp(prefix="conversion_dry_")) if dry_run else None
     ctx: ConversionContext | None = None
     try:
         target = plan_file
-        if dry_run:
-            target = Path(tmp) / plan_file.name
-            if seed is not None and not _already_seeded(plan_file):
-                _copy_db(seed, target)
-            elif plan_file.is_file():
-                _backup_db(plan_file, target)
-        elif seed is not None and not _already_seeded(plan_file):
-            _seed_target(seed, plan_file)
-        with PlanStore.open(target) as store:
-            ctx = ConversionContext(workspace, store, dry_run, dict(extra or {}), plan_file=plan_file)
-            _execute(steps, ctx, report)
-            if report.ok and not dry_run and report.converted:
-                store.set_meta(DONE_MARKER, time.strftime("%Y-%m-%dT%H:%M:%S"))
+        if tmp is not None:
+            target = tmp / plan_file.name
+            if plan_file.is_file():
+                backup_db(plan_file, target)
+        ctx, report = run_plan_phase(workspace, target, steps, extra=extra, plan_file=plan_file, workdir=tmp,
+                                     dry_run=dry_run)
+        report.source_files = len(before)
     finally:
-        if tmp:
+        if tmp is not None:
             shutil.rmtree(tmp, ignore_errors=True)
         for path in (ctx.cleanup if ctx else []):
             shutil.rmtree(path, ignore_errors=True)
-    after = snapshot_sources(sources)
-    if after != before:
+    if snapshot_sources(sources) != before:
         report.sources_unchanged = False
         raise SourceModifiedError("legacy source files changed during conversion")
     return report
@@ -242,9 +291,17 @@ def plan_is_placeholder(ctx: ConversionContext) -> bool:
     return bool(ctx.extra.get("_replace_plan_rows")) or not plan_has_household(ctx.store)
 
 
+def _scratch(ctx: ConversionContext, prefix: str) -> Path:
+    if ctx.workdir is not None:
+        Path(ctx.workdir).mkdir(parents=True, exist_ok=True)
+    path = Path(tempfile.mkdtemp(prefix=prefix, dir=str(ctx.workdir) if ctx.workdir is not None else None))
+    ctx.cleanup.append(path)
+    return path
+
+
 def _src(ctx: ConversionContext) -> dict[str, Any]:
     """SRC: choose every legacy file's source (``sources.discover``) and stage what the plan
-    still needs into a temp folder the later steps read (``ctx.source_dir``). The plan CSV set
+    still needs into a scratch folder the later steps read (``ctx.source_dir``). The plan CSV set
     (and the override files) only when the plan has no household and C3 has not run; a flat
     dataset's file only when its table is empty."""
     from . import sources  # noqa: PLC0415
@@ -256,8 +313,7 @@ def _src(ctx: ConversionContext) -> dict[str, Any]:
         names += [*sources.PLAN_CSV_FILES, *sources.OVERRIDE_FILES]
     names += [f for n, f in sources.DATASET_FILES.items() if ctx.store.dataset(n).count() == 0]
     names += list(sources.EXTRA_FILES)
-    staging = Path(tempfile.mkdtemp(prefix="conversion_sources_"))
-    ctx.cleanup.append(staging)
+    staging = _scratch(ctx, "sources_")
     staged = sources.stage(plan, staging, names)
     ctx.source_dir = staging
     origins = plan.origins()
@@ -315,7 +371,13 @@ def _c4c(ctx: ConversionContext) -> dict[str, Any]:
 
 def _t8(ctx: ConversionContext) -> dict[str, Any]:
     from .steps import t8_tier_mapping  # noqa: PLC0415
-    return t8_tier_mapping.run(ctx.store).as_dict()
+    if ctx.workdir is not None and ctx.store.get_meta(t8_tier_mapping.MARKER_KEY) is None:
+        # The tier safeguard (verification) compares the projection just before and just after
+        # the mapping: keep the plan as it is now.
+        pre = Path(ctx.workdir) / PRE_TIER_FILE
+        backup_db(Path(ctx.checkpoints["staging_file"]), pre)
+        ctx.checkpoints["pre_tier_file"] = pre
+    return t8_tier_mapping.run(ctx.store, keep_switches=ctx.extra.get("tier_mapping") == "keep").as_dict()
 
 
 def _t8_applies(ctx: ConversionContext) -> bool:
@@ -328,11 +390,23 @@ def _app_db(ctx: ConversionContext) -> Path:
     return Path(ctx.extra.get("app_db") or app_store_path_for(ctx.workspace))
 
 
-def _c6a(ctx: ConversionContext) -> dict[str, Any]:
+def _c6a_text(ctx: ConversionContext) -> str | None:
     from .steps import c6a_settings  # noqa: PLC0415
     path = ctx.workspace / c6a_settings.LEGACY_FILE
-    text = path.read_text(encoding="utf-8-sig") if path.is_file() else None
-    return c6a_settings.run(ctx.store, text, _app_db(ctx), dry_run=ctx.dry_run).as_dict()
+    return path.read_text(encoding="utf-8-sig") if path.is_file() else None
+
+
+def _c6a(ctx: ConversionContext) -> dict[str, Any]:
+    """C6a, plan part: the engine knobs go into the plan (staging); the runtime flags are only
+    listed here (``flags_written`` = what step C6a.flags writes into app.db once the plan is live)."""
+    from .steps import c6a_settings  # noqa: PLC0415
+    return c6a_settings.run(ctx.store, _c6a_text(ctx), _app_db(ctx), dry_run=True).as_dict()
+
+
+def _c6a_flags(ctx: ConversionContext) -> dict[str, Any]:
+    """C6a, install part: the changed runtime flags into app.db (the knobs are in the plan)."""
+    from .steps import c6a_settings  # noqa: PLC0415
+    return c6a_settings.run(ctx.store, _c6a_text(ctx), _app_db(ctx), dry_run=ctx.dry_run).as_dict()
 
 
 def _c6b(ctx: ConversionContext) -> dict[str, Any]:
@@ -355,10 +429,11 @@ def _c6c_applies(ctx: ConversionContext) -> bool:
 DATASET_STEPS: tuple[Step, ...] = (
     Step("C3", _c3, _c3_applies), Step("C3b", _c3b), Step("C4a", _c4a), Step("C4b", _c4b), Step("C4c", _c4c),
 )
-# The full conversion, in order (WP10.2): sources, plan rows and overrides, flat datasets, tier
-# mapping (needs the converted switches and data), app.db settings, secrets, registration last
-# (the plan is complete before it becomes the active plan).
-CONVERSION_STEPS: tuple[Step, ...] = (
-    Step("SRC", _src), *DATASET_STEPS, Step("T8", _t8, _t8_applies),
-    Step("C6a", _c6a), Step("C6b", _c6b), Step("C6c", _c6c, _c6c_applies),
-)
+# Plan phase (WP10.3): writes only the plan file it is given (the staging copy). Order: sources,
+# plan rows and overrides, flat datasets, engine knobs, then the tier mapping (needs the converted
+# switches and data; the knobs never count as feature data).
+PLAN_STEPS: tuple[Step, ...] = (Step("SRC", _src), *DATASET_STEPS, Step("C6a", _c6a), Step("T8", _t8, _t8_applies))
+# Install phase: app.db settings, secrets, registration last (the plan is live and complete before
+# it becomes the active plan). Runs only after the verified staging plan replaced the live one.
+INSTALL_STEPS: tuple[Step, ...] = (Step("C6a.flags", _c6a_flags), Step("C6b", _c6b), Step("C6c", _c6c, _c6c_applies))
+CONVERSION_STEPS: tuple[Step, ...] = (*PLAN_STEPS, *INSTALL_STEPS)

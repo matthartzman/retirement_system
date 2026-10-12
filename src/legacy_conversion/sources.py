@@ -104,6 +104,28 @@ def read_legacy_db(db: Path) -> tuple[dict[str, str], dict[str, Any] | None]:
     return files, snapshot
 
 
+def read_latest_kpis(db: Path | None) -> dict[str, Any] | None:
+    """The newest ``kpi_snapshots`` row of a legacy database (its ``kpi_json``), or None. Read
+    from a private copy, like :func:`read_legacy_db`."""
+    if db is None or not Path(db).is_file():
+        return None
+    with tempfile.TemporaryDirectory(prefix="legacy_db_") as tmp:
+        copy = _private_copy(Path(db), Path(tmp))
+        try:
+            with closing(sqlite3.connect(copy)) as con:
+                if "kpi_snapshots" not in _tables(con):
+                    return None
+                row = con.execute("SELECT kpi_json FROM kpi_snapshots "
+                                  "ORDER BY created_at DESC, snapshot_id DESC LIMIT 1").fetchone()
+        except sqlite3.DatabaseError:
+            return None
+    try:
+        data = json.loads(row[0]) if row and row[0] else None
+    except ValueError:
+        return None
+    return data if isinstance(data, dict) else None
+
+
 def snapshot_csv_text(sectioned: dict[str, Any]) -> str:
     """A sectioned snapshot (``{section: {subsection: {label: value}}}``) as plan CSV text."""
     rows: list[list[str]] = [["section", "subsection", "label", "value", "units", "notes"]]
@@ -118,6 +140,10 @@ def snapshot_csv_text(sectioned: dict[str, Any]) -> str:
     return rows_to_text(rows)
 
 
+def _norm_text(text: str) -> str:
+    return (text or "").lstrip("﻿").replace("\r\n", "\n").replace("\r", "\n").rstrip("\n")
+
+
 # --------------------------------------------------------------------------- the plan
 @dataclass
 class SourcePlan:
@@ -129,6 +155,21 @@ class SourcePlan:
     legacy_db: Path | None = None
     # file name -> (origin, path or None, text or None); path for files, text for db/snapshot
     chosen: dict[str, tuple[str, Path | None, str | None]] = field(default_factory=dict)
+    # Every ``client_files`` text of the legacy database read (also the ones a higher layer
+    # won), for the source-agreement check (WP10.3).
+    db_texts: dict[str, str] = field(default_factory=dict)
+
+    def disagreeing_files(self) -> list[str]:
+        """Names taken from ``input/`` whose legacy-database copy holds other text (line endings
+        and a BOM ignored). The old app read the database copy of a flat dataset first, so such
+        a file may differ from what the old app showed."""
+        out = []
+        for name, (origin, path, _text) in sorted(self.chosen.items()):
+            if origin != "input" or path is None or name not in self.db_texts:
+                continue
+            if _norm_text(path.read_bytes().decode("utf-8-sig", errors="replace")) != _norm_text(self.db_texts[name]):
+                out.append(name)
+        return out
 
     @property
     def has_plan_csv(self) -> bool:
@@ -197,6 +238,7 @@ def discover(workspace: str | Path, extra: dict[str, Any] | None = None) -> Sour
     db = Path(extra["legacy_db"]) if extra.get("legacy_db") else legacy_db_path(ws)
     files, snapshot = read_legacy_db(db)
     plan.legacy_db = db if (files or snapshot) else None
+    plan.db_texts = {name: files[name] for name in ALL_FILES if name in files}
     for name in ALL_FILES:
         if name in files:
             take(name, "client_files", text=files[name])

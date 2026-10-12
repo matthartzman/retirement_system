@@ -148,13 +148,20 @@ class T8Report:
         return out
 
 
-def run(store: Any) -> T8Report:
+def run(store: Any, *, keep_switches: bool = False) -> T8Report:
+    """Map the plan to a tier (see the module docstring). ``keep_switches`` (the user's answer
+    when the safeguard blocked a mapping, WP10.3): no tier row, no switch change, only the marker,
+    so the plan computes exactly as before and reads as it did (no stored tier)."""
     if store.get_meta(MARKER_KEY) is not None:
         return T8Report(STEP_ID, skipped=True)
     if mc.plan_profile(store)["tier_stored"]:
         with store.transaction():
             store.set_meta(MARKER_KEY, "tier already chosen")
         return T8Report(STEP_ID, skipped=True, reason="tier already chosen")
+    if keep_switches:
+        with store.transaction():
+            store.set_meta(MARKER_KEY, "switches kept")
+        return T8Report(STEP_ID, skipped=False, reason="switches kept")
     mapping = map_tier(feature_states(store))
     with store.transaction():
         store.set_value(*mc.PLAN_TIER_ROW, mapping.tier, units=mc.PLAN_TIER_UNITS)
