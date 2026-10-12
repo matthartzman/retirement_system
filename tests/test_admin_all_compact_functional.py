@@ -6,13 +6,11 @@ ADMIN_JS = ROOT / "frontend" / "js" / "admin.js"
 ADMIN_ROUTES = ROOT / "src" / "server" / "admin_routes.py"
 
 
-def test_admin_console_exposes_governance_reference_and_diagnostic_areas_only():
+def test_admin_console_exposes_governance_and_diagnostic_areas_only():
     html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8")
     for label in [
         "Global rebalancing controls",
         "Pricing / market data",
-        "ETF universe / replacements",
-        "Tax constants and source governance",
         "Workbook build diagnostics",
         "Tax-law update dashboard",
         "Local reports",
@@ -25,15 +23,15 @@ def test_admin_console_exposes_governance_reference_and_diagnostic_areas_only():
 
 def test_admin_compact_editors_exclude_client_plan_data_files():
     html = ADMIN_HTML.read_text(encoding="utf-8") + "\n" + ADMIN_JS.read_text(encoding="utf-8")
-    for file_name in [
-        "system_config.csv",
+    assert "system_config.csv" in html
+    for file_name in [  # WP9.4: the reference-file editors retired (reference data is reference.db)
         "security_master.csv",
         "capital_market_assumptions.csv",
         "asset_correlations.csv",
         "tax_constants.csv",
         "state_tax.csv",
     ]:
-        assert file_name in html
+        assert f"file: \"{file_name}\"" not in html and f"file:'{file_name}'" not in html
     for file_name in [
         "target_allocation.csv",
         "asset_class_optimizer_controls.csv",
@@ -50,9 +48,9 @@ def test_admin_compact_editors_exclude_client_plan_data_files():
     assert "Client-specific Plan Data is read-only here" in html
 
 
-def test_admin_routes_still_support_reference_csv_and_read_only_local_diagnostics():
+def test_admin_routes_have_no_raw_file_editor_but_keep_read_only_local_diagnostics():
     routes = ADMIN_ROUTES.read_text(encoding="utf-8")
-    assert "/api/admin/csv-file/<kind>/<path:file_name>" in routes
+    assert "/api/admin/csv-file" not in routes and "/api/admin/reference-files" not in routes  # WP9.4
     assert "admin_diagnostics" in routes
     assert "removed-client-registry" not in routes
     assert "ADMIN_PLAN_DATA_FILES" not in routes  # WP4.5: no plan-data kind in the raw file editor

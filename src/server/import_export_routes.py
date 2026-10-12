@@ -5,7 +5,8 @@ POST /api/import/commit    the same import, written in one transaction
 GET  /api/export/<dataset> one dataset as CSV text
 GET  /api/export/plan-set  the whole plan set as a zip
 
-Import body (JSON): ``{"dataset": "<name>", "csv_text": "..."}`` for one dataset, or
+Import body (JSON): ``{"dataset": "<name>", "csv_text": "..."}`` for one dataset, ``{"files": {name: text}}``
+for a browser folder, or
 ``{"dataset": "plan-set", "zip_base64": "..."}`` (or a raw ``application/zip`` body) for a plan-set zip.
 """
 from __future__ import annotations
@@ -38,6 +39,11 @@ def _read_request():
     if not isinstance(body, dict):
         return None, None, _err("JSON object body required")
     dataset = str(body.get("dataset") or "").strip()
+    files = body.get("files")
+    if isinstance(files, dict):  # a browser folder: {file name: csv text}
+        if not all(isinstance(k, str) and isinstance(v, str) for k, v in files.items()):
+            return None, None, _err("files must map file names to CSV text")
+        return PLAN_SET, dict(files), None
     if body.get("zip_base64") is not None:
         try:
             return dataset or PLAN_SET, base64.b64decode(str(body["zip_base64"]), validate=True), None
@@ -54,7 +60,7 @@ def _run(dry_run: bool):
     if bad:
         return bad
     try:
-        if dataset == PLAN_SET or isinstance(payload, bytes):
+        if dataset == PLAN_SET or isinstance(payload, (bytes, dict)):
             with _PLAN_LOCK, active_plan_store() as store:
                 result = _cx.import_plan_set(store, payload, dry_run=dry_run)
             return jsonify({"success": True, "committed": not dry_run and result["committed"] is not None, **result})
@@ -93,6 +99,8 @@ def export_plan_set_route():
     if denied:
         return denied
     with active_plan_store(readonly=True) as store:
+        if request.args.get("format") == "files":  # for browser folder export: {file name: csv text}
+            return jsonify({"success": True, "files": _cx.export_plan_set_files(store)})
         data = _cx.export_plan_set(store)
     resp = make_response(data)
     resp.headers["Content-Type"] = "application/zip"

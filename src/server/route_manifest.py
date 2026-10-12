@@ -46,8 +46,8 @@ ROUTE_MODULES = {
         "/api/hsa-schedule", "/api/liabilities", "/api/withdrawal-account-order",
     ],
     "admin": ["/api/admin/diagnostics", "/api/admin/system-config", "/api/contracts", "/api/glossary",
-        "/api/admin/clear-webview-cache", "/api/admin/csv-backup", "/api/admin/csv-file/<kind>/<path:file_name>", "/api/admin/mode",
-        "/api/admin/reference-files", "/api/admin/reference-files/<path:file_name>", "/api/admin/server", "/api/admin/server/shutdown",
+        "/api/admin/clear-webview-cache", "/api/admin/csv-backup", "/api/admin/mode",
+        "/api/admin/server", "/api/admin/server/shutdown",
         "/api/admin/tax-law-dashboard",
     ],
 }

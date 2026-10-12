@@ -74,7 +74,6 @@ try:
         PLAN_DATA_FILES,
         PLAN_DATA_FILE_SET,
         RETIRED_PLAN_PART_FILES,
-        SYSTEM_REFERENCE_FILES,
         UI_NAMES,
         YTD_PLAN_DATA_FILES,
     )
@@ -108,7 +107,6 @@ except ImportError:  # direct execution fallback
         PLAN_DATA_FILES,
         PLAN_DATA_FILE_SET,
         RETIRED_PLAN_PART_FILES,
-        SYSTEM_REFERENCE_FILES,
         UI_NAMES,
         YTD_PLAN_DATA_FILES,
     )
@@ -358,17 +356,6 @@ def _normalize_plan_data_file_name(file_name: str) -> str:
     if name not in PLAN_DATA_FILE_SET:
         raise ValueError("Unsupported Plan Data file")
     return name
-
-
-def _normalize_reference_file_name(file_name: str) -> str:
-    name = Path(str(file_name or "")).name
-    if name not in set(SYSTEM_REFERENCE_FILES):
-        raise ValueError("Unsupported system/reference file")
-    return name
-
-
-def _reference_file_path(file_name: str) -> Path:
-    return BASE_DIR / "reference_data" / _normalize_reference_file_name(file_name)
 
 
 def _read_csv_rows_file(path: Path) -> list[list[str]]:
