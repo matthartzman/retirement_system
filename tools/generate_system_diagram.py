@@ -314,7 +314,7 @@ def write_doc(
             continue
         seen_edges.add(key)
         lines.append(f"    {key[0]} --> {key[1]}")
-    lines.append('    L_Core_Engine___Domain --> DB[("SQLite local_state/ + CSV input/")]')
+    lines.append('    L_Core_Engine___Domain --> DB[("SQLite plan file (plan.rpx) + app.db; CSV only via csv_exchange")]')
     lines.append('    L_Reporting___Workbook --> Outputs[("output/: XLSX, PDF, HTML, JSON")]')
     lines.append("    Outputs --> FE")
     lines.append("```")

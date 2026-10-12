@@ -44,7 +44,7 @@ flowchart TB
     L_Projection_Stages --> L_Core_Engine___Domain
     L_Reporting___Workbook --> L_Core_Engine___Domain
     L_Server_Services --> L_Core_Engine___Domain
-    L_Core_Engine___Domain --> DB[("SQLite local_state/ + CSV input/")]
+    L_Core_Engine___Domain --> DB[("SQLite plan file (plan.rpx) + app.db; CSV only via csv_exchange")]
     L_Reporting___Workbook --> Outputs[("output/: XLSX, PDF, HTML, JSON")]
     Outputs --> FE
 ```
