@@ -481,6 +481,8 @@ def test_product_code_reaches_the_plan_store_only_through_the_active_plan_module
                 continue
             if rel in plan_store_users and re.search(r"import\s+(PlanStore(,\s*StoreError)?|validate_plan_id(\s*#.*)?)\s*$", line.strip()):
                 continue
+            if rel == "src/csv_exchange/core.py" and "stores.datasets import _DATASETS" in line:
+                continue  # WP9.1: the dataset table catalog is the importer's column source
             if rel == "src/app_state.py" and line.strip() == "from .stores import AppStore":
                 continue  # WP8: the one door to app.db
             offenders.append(f"{rel}: {line.strip()}")
