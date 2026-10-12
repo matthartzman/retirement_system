@@ -8,10 +8,10 @@ row counts, date ranges, duplicate candidates, and mapping warnings before the
 current working copy changes.
 """
 
-import csv
 import io
 from datetime import date
 from pathlib import Path
+from .csv_exchange import text_csv as _tcsv
 from typing import Any
 
 try:  # package import
@@ -23,7 +23,7 @@ HOLDINGS_COLUMNS = ["account", "symbol", "purchase_date", "shares", "purchase_pr
 
 
 def _csv_dict_rows(text: str, *, required_columns: list[str] | None = None) -> tuple[list[dict[str, str]], list[str], list[str]]:
-    reader = csv.DictReader(io.StringIO(text or ""))
+    reader = _tcsv.dict_reader(text)
     if not reader.fieldnames:
         return [], [], ["CSV is empty or missing a header row."]
     header = [str(x or "").strip() for x in reader.fieldnames]

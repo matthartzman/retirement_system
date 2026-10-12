@@ -51,8 +51,8 @@ from .app_core import (
     _workspace_output,
     _write_last_build_metadata,
     _write_plan_data_file,
+    _tcsv,
     app,
-    csv,
     io,
     jsonify,
     redact_text,
@@ -811,7 +811,7 @@ def validate():
     schema = {}
     try:
         schema = _load_schema_registry()
-        reader_rows = list(csv.DictReader(io.StringIO(csv_content)))
+        reader_rows = list(_tcsv.dict_reader(csv_content))
         errors.extend(_schema_validate_rows(reader_rows))
     except Exception as exc:
         errors.append(f"Parse error: {exc}")
