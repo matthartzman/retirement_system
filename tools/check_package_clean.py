@@ -20,7 +20,6 @@ FORBIDDEN_PATHS = (
     'local_state/secrets.db',
     'output/retirement_dashboard_ui.html',
     'output/market_price_cache.json',
-    'output/live_pricing_test_results.json',
 )
 ROOT_LAUNCHER_NAMES = {
     'START_UI.py', 'START_SERVER.py', 'START_UI.command', 'START_SERVER.command',

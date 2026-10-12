@@ -75,12 +75,9 @@ try:
     from ..config_backend import (
         DEFAULT_DB,
         append_audit_event_sqlite,
-        get_client,
         init_sqlite,
         load_active_config,
         lookup_api_token,
-        sync_clients_csv_to_sqlite,
-        upsert_client,
     )
 except ImportError:  # direct execution fallback
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
@@ -101,12 +98,9 @@ except ImportError:  # direct execution fallback
     from src.config_backend import (
         DEFAULT_DB,
         append_audit_event_sqlite,
-        get_client,
         init_sqlite,
         load_active_config,
         lookup_api_token,
-        sync_clients_csv_to_sqlite,
-        upsert_client,
     )
 
 # Persistent multi-user build queue removed from local-only package; /api/build/start uses in-memory progress only.
