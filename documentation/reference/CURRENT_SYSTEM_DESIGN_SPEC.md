@@ -1,7 +1,9 @@
 # Retirement Planning System — Current System Design Spec
 
 Generated: 2026-08-29, updated 2026-09-30 (§7.3 nav model, housing optimizer,
-Spending Adjustments; WI-703). This describes the system as implemented in the
+Spending Adjustments; WI-703), and 2026-10-12 for WP11 (file-free storage: plan
+data in the plan file, per-install state in `app.db`, CSV only through
+`csv_exchange`). This describes the system as implemented in the
 current codebase, verified against source (not against prior design docs).
 Where an earlier design intent has been superseded, this document describes
 only what the code does now. See `documentation/reference/FUNCTIONAL_SPEC.md` for the
@@ -21,13 +23,14 @@ at a time.
 flowchart LR
     User["Desktop user"] --> UI["Frontend SPA (frontend/)"]
     UI --> Runtime["Local route registry\n(src/server + src/http_runtime)"]
-    Runtime --> DB["SQLite: local_state/retirement_system_v10.db"]
-    Runtime --> Files["Plan Data CSV/JSON/YAML adapters (input/)"]
+    Runtime --> PlanDB["SQLite plan file: workspace plan.rpx\n(plan rows, flat datasets, build results)"]
+    Runtime --> AppDB["SQLite app.db: local_state/app.db\n(settings, plan registry, audit, price cache)"]
+    Runtime --> Files["CSV import/export only (csv_exchange)"]
     Runtime --> Pricing["Market pricing providers + cache"]
     Runtime --> BuildProc["Build subprocess\n(tools/build_workbook.py)"]
     BuildProc --> Engine["Projection engine\n(src/projection_pipeline.py → src/projection_stages)"]
     Engine --> Reporting["Reporting layer (src/reporting/)"]
-    Reporting --> Outputs["output/: xlsx, pdf, html dashboard,\nresults_explorer_model.json, plan_summary.json"]
+    Reporting --> Outputs["output/plans/PLAN_ID/: xlsx, pdf, html dashboard\n(build results are rows of the plan file)"]
     Outputs --> UI
 ```
 
@@ -72,7 +75,7 @@ arrive over a real socket or an in-process test client.
   `after_request` including local CORS) → a route function in
   `plan_routes.py` / `workbook_routes.py` / `admin_routes.py` /
   `base_routes.py` → typically delegates to a `src/server_services/*.py`
-  module → reads/writes SQLite and/or `input/*.csv` mirrors → `jsonify(...)`.
+  module → reads/writes the active plan file (`plan.rpx`) and/or `app.db` → `jsonify(...)`.
 - **Desktop mode:** identical, minus the socket — see §3.1.
 
 ### 3.3 Route registration and module structure
@@ -96,19 +99,19 @@ deliberately HTTP-framework-agnostic: they take plain dicts/paths/callables
 and return `(payload, status)` tuples. The route layer owns permission
 checks, request parsing, and JSON serialization; services own everything
 else. Current service modules: `base_service`, `admin_service`,
-`build_service`, `build_job_service`, `config_service`, `demo_plan_service`,
-`holdings_service`, `plan_data_file_service`, `plan_file_service`,
-`plan_forms_service`, `portfolio_service`, `pricing_service`,
-`report_service`, `secret_service`, `spending_service`,
-`strategy_asset_service`, `ytd_service`.
+`build_service`, `build_job_service`, `blank_plan_service`, `config_service`,
+`conversion_service`, `demo_plan_service`, `holdings_service`,
+`plan_file_service`, `plan_forms_service`, `plan_tier_service`,
+`portfolio_service`, `pricing_service`, `report_service`, `secret_service`,
+`spending_service`, `strategy_asset_service`, `ytd_service`.
 
 ### 3.4 Route → service map
 
 | Route group | Representative routes | Backing module |
 |---|---|---|
 | Build/results | `/api/build/start`, `/api/build/preflight`, `/api/build/status`, `/api/detailed-results`, `/api/report-package`, `/api/history`, `/api/xlsx`, `/files/<path>` | `workbook_routes.py` → `build_service.py`, `build_job_service.py`, `report_service.py` |
-| Plan data files | `/api/plan-data/files`, `/api/plan-data/blank`, `/api/plan-data/<file_name>` | `workbook_routes.py` → `plan_data_file_service.py` |
-| Plan forms (SQLite-native) | `/api/plan/forms`, `/api/plan/forms/<path>` | `base_routes.py`/`workbook_routes.py` → `plan_forms_service.py` → `local_store.py` |
+| Blank plan and CSV import/export | `/api/plan/blank`, `/api/import/preview`, `/api/import/commit`, `/api/export/plan-set`, `/api/export/<dataset>` | `workbook_routes.py` → `blank_plan_service.py`; `import_export_routes.py` → `csv_exchange` |
+| Plan forms (plan file) | `/api/plan/forms`, `/api/plan/forms/<path>` | `base_routes.py`/`workbook_routes.py` → `plan_forms_service.py` → `active_plan.py` |
 | Plan file lifecycle | `/api/plan/save-as`, `/api/plan/load-file`, `/api/plan/exit-snapshot`, `/api/plan/snapshot/compare`, `/api/plan/snapshot/restore` | `plan_routes.py` → `plan_file_service.py` |
 | Config/rows | `/api/config/backends`, `/api/config/rows`, `/api/allocation-preview`, `/api/daf/recommendation` | `plan_routes.py` → `config_service.py` |
 | Pricing | `/api/prices/refresh`, `/api/prices/snapshots`, `/api/prices/freeze`, `/api/prices/test-symbol[/start\|/status]` | `plan_routes.py` → `pricing_service.py` + `portfolio_analytics.py` |
@@ -117,7 +120,7 @@ else. Current service modules: `base_service`, `admin_service`,
 | Strategy/assets/estate | `/api/holdings*`, `/api/liabilities`, `/api/large-discretionary-expenses`, `/api/forced-roth-conversions`, `/api/insurance-policy*`, `/api/trust-account/add`, `/api/housing/*`, `/api/capital-market/*` | `plan_routes.py`/`workbook_routes.py` → `strategy_asset_service.py`, `holdings_service.py` |
 | Portfolio | `/api/portfolio/drift` | `plan_routes.py` → `portfolio_service.py` → `portfolio_analytics.py` |
 | Secrets | `/api/secrets` (POST only) | `plan_routes.py` → `secret_service.py` → `secrets_store.py` |
-| Admin | `/admin`, `/api/admin/csv-file/*`, `/api/admin/diagnostics`, `/api/admin/system-config`, `/api/admin/reference-files*`, `/api/admin/csv-backup`, `/api/admin/server*` | `admin_routes.py` → `admin_service.py` |
+| Admin | `/admin`, `/api/admin/diagnostics`, `/api/admin/system-config`, `/api/admin/csv-backup` (plan-set CSV export zip), `/api/admin/server*` | `admin_routes.py` → `admin_service.py` |
 | Base/runtime | `/`, `/api/ping`, `/api/runtime`, `/api/prefs`, `/api/contracts`, `/api/glossary`, `/api/auth/*`, `/login` | `base_routes.py` |
 | Demo plan / plan registry | `/api/plan/demo-status`, `/api/plan/open-demo`, `/api/plan/exit-demo`, `/api/plan/reset-demo`, `/api/plans`, `/api/plans/switch`, `/api/plans/rename`, `/api/plans/forget` | `plan_routes.py` → `demo_plan_service.py`, `plan_registry.py` |
 
@@ -128,8 +131,9 @@ files as the source of truth for completeness.
 ### 3.5 Workspace and paths
 
 `src/platform_runtime.py` distinguishes `package_root()` (code, read-only
-assets) from `workspace_root()` (writable `input/`, `output/`,
-`local_state/`, `saved_plans/`; redirectable via
+assets) from `workspace_root()` (writable `output/`, `local_state/`,
+`saved_plans/`, and `input/`, which the app creates but does not keep plan
+data in; redirectable via
 `RETIREMENT_SYSTEM_WORKSPACE_ROOT` for tests). `src/workspace_context.py`
 layers desktop-only path helpers over it. `active_workspace_id()` /
 `active_client_id()` are hardcoded to the literal string `"local"` —
@@ -140,47 +144,54 @@ multi-tenant capability in the current package.
 **Path resolution in the frozen exe:** `BASE_DIR` in `app_core.py` resolves
 to `_internal/` (the PyInstaller bundle root), not the exe's parent
 directory. Writable user data must be resolved relative to `sys._MEIPASS` or
-the exe path, not `BASE_DIR`, in frozen mode.
+the exe path, not `BASE_DIR`, in frozen mode. A frozen build ships the seed demo
+plan (`src/reference/demo_seed.rpx`) and the read-only reference database
+(`src/reference/reference.db`), not the `input/demo` CSV folder.
 
 ## 4. Data architecture
 
 ### 4.1 Canonical source hierarchy
 
-0. **`<workspace>/plan.rpx`** (the plan file, `PlanStore`) — the only store of
-   the sectioned plan data (`plan_rows`): the engine, the build and the server
-   read it (`src/active_plan.py`, `config_backend.load_active_config()`) and
-   every writer edits it through one transaction
-   (`active_plan.edit_active_plan`). No CSV, JSON or YAML file mirrors it
-   (WP4.5 deleted the bridge and the 20 mirrors). See
-   `documentation/reference/PLAN_ROWS_MODEL.md`.
-1. **`local_state/retirement_system_v10.db`** (SQLite) — two SQLite layers
-   coexist in this one file:
-   - `src/local_store.py` owns `result_snapshots` (pruned to the last 10),
-     `build_events`, `local_settings`, KPI snapshots, and the retired
-     `plan_snapshots` tables (no longer read or written since WP4.2; kept
-     for the one-time conversion).
-   - `src/config_backend.py` owns `client_files` (raw CSV text of the **flat
-     datasets** only: holdings, liabilities, spending set, YTD; the sectioned
-     plan parts are no longer stored there), `audit_events`, `build_jobs`,
-     and `price_snapshots`. WP6 moves the flat datasets into the plan file.
-2. **`input/client_*.csv`** — the flat datasets' on-disk files (holdings,
-   liabilities, HSA schedule, target allocation, spending set, YTD). The
-   sectioned `client_data.csv` and its nine part files are no longer read or
-   written at runtime: they are test fixtures, the demo seed (`input/demo`)
-   and the converter's source (WP10).
+0. **`<workspace>/plan.rpx`** (the plan file, `PlanStore`; one file per plan) —
+   the only store of plan data. It holds the sectioned plan data (`plan_rows`:
+   household, income, spending, assets, policy, switches and tier); the flat
+   datasets as tables (`holdings_lots`, `liabilities`, `hsa_schedule`,
+   `target_allocation`, the `spending_*` tables and the `ytd_*` tables);
+   `build_results` (the KPI summary, Results Explorer model, report package,
+   build snapshot and pricing diagnostics of the last 5 builds); and
+   `plan_revisions`, `revision_rows` and `plan_meta`. The active plan is found
+   by `src/active_plan.py` (`RETIREMENT_SYSTEM_PLAN_DB` or the plan registry).
+   Readers use `active_plan_data()` / `load_active_config()`; every writer
+   edits through `active_plan.edit_active_plan()` in one transaction. No CSV,
+   JSON or YAML file mirrors it. See `documentation/reference/PLAN_ROWS_MODEL.md`.
+1. **`<workspace>/local_state/app.db`** (`AppStore`, `src/app_state.py`;
+   `RETIREMENT_SYSTEM_APP_DB` overrides the path) — per-install state that
+   survives plan switches: `settings` (runtime settings, preferences, backup
+   and Monarch policies, workbook format overrides, and the names of stored
+   secrets), `plan_registry` and `active_plan` (the plan files known to the
+   install and the one that is active), `audit_events`, `admin_change_log`,
+   `run_history`, `last_build`, `backup_manifest` and `price_cache`. Secret
+   values are not stored here (§9).
+2. **`local_state/retirement_system_v10.db`** — the legacy local database. It
+   holds no plan data. Its live writers are `src/local_store.py` (KPI
+   snapshots written by each build, result snapshots, `local_settings`) and
+   `src/portfolio_analytics.py` (`price_snapshots` and
+   `pricing_snapshot_freezes`). Its `client_files` table (the old flat-dataset
+   text) is read only by the one-time converter (`src/legacy_conversion`, WP10).
+3. **`input/`** — not a data store. The sectioned CSV set (`client_data.csv`
+   and its part files), the flat-dataset CSV files and `system_config.csv` are
+   no longer read or written at runtime. CSV enters and leaves only through
+   `src/csv_exchange` (plan-set and per-dataset import and export). `input/demo`
+   is the source of the shipped seed plan (`tools/build_demo_seed.py`); the
+   converter reads old `input/` files once.
 
-**Read path** for a flat dataset (`_read_plan_data_file()` in `app_core.py`):
-reads the DB via `get_client_file()` first; falls back to the on-disk CSV
-only to bootstrap, lazily seeding the DB from it. **Write path**
-(`_write_plan_data_file()`): writes the DB first (authoritative) via
-`set_client_file()`, then the on-disk CSV. A request for a sectioned plan
-file through these helpers raises `RetiredPlanDataFile` (HTTP 410).
-
-**Flat tables** (not section/subsection/label rows), stored only in
-`client_files` and on disk: `client_holdings.csv` (per-lot
-account/symbol/date/shares/price/type), `client_liabilities.csv`
-(auto/HELOC/student-loan debts amortized into cash flow),
-`client_spending_budget_lines.csv` (per-line budget rows).
+**Flat datasets** (holdings, liabilities, HSA schedule, target allocation,
+spending, YTD) are tables of the plan file, not section/subsection/label rows.
+The feature routes read and write them through `src/plan_datasets.py`
+(`active_dataset_text()` / `write_active_dataset()`), which render and parse the
+CSV text the routes speak. `_read_plan_data_file()` and `_write_plan_data_file()`
+in `app_core.py` are thin helpers over the same tables. No CSV file and no
+`client_files` row is written. The `/api/plan-data/*` routes are removed (WP9 follow-up).
 
 ### 4.2 Concurrency
 
@@ -190,36 +201,41 @@ wraps `atomic_write()` (unique temp file + `os.replace`).
 
 ### 4.3 Plan snapshot lifecycle
 
-"Save As" / "Load Saved Plan" / "Save & Exit" (`plan_file_service.py`)
-operate on the **whole plan file** (`plan.rpx`), not row-level. Save As
-copies it through the SQLite backup API (`plan_db_replace.copy_sqlite_file`,
-WAL folded in). Load and snapshot restore go through
-`plan_db_replace.replace_active_db` with `validate_plan_file`: the selected
-file must open as a plan file, the active file is backed up, the WAL is
-checkpointed (`PRAGMA wal_checkpoint(TRUNCATE)`, preventing stale WAL data
-from silently rolling back a loaded plan), the replace is atomic and the
-`-wal`/`-shm` sidecars are removed; then `plan_data_migration.migrate_plan_file`
-re-applies the label renames to the loaded rows. Old backups are pruned to
-the last N:
+Save As, Load Saved Plan and Save & Exit (`plan_file_service.py`) operate on
+the **whole plan file**, not row-level. Save As copies the active plan file to
+a user-chosen path through the SQLite backup API (`plan_db_replace.copy_sqlite_file`,
+WAL folded in), registers the copy and activates it (`activate: false` only
+records it). Load Saved Plan (default `mode: open`) registers the chosen file
+and activates it without copying. `mode: restore` replaces the active plan
+file's contents through `plan_db_replace.replace_active_db` with
+`validate_plan_file`: the selected file must open as a plan file, the active
+file is backed up, the WAL is checkpointed (`PRAGMA wal_checkpoint(TRUNCATE)`,
+preventing stale WAL data from silently rolling back a loaded plan), the
+replace is atomic and the `-wal`/`-shm` sidecars are removed; then
+`plan_data_migration.migrate_plan_file` re-applies the label renames to the
+loaded rows. Plans are listed and switched through the plan registry in
+`app.db` (`src/plan_registry.py`, `/api/plans*`). Demo: the demo plan is
+`<workspace>/demo.rpx`, copied from the shipped seed (`demo_seed.rpx`); the
+`input/demo` CSV is used only when that seed is absent (source runs).
 
-- `plan.rpx.version_<timestamp>` (and `retirement_system_v10.db.version_<timestamp>` for the legacy database) — on Save & Exit, last 10 kept.
-- `plan.rpx.before_load_<timestamp>` — before each Load Saved Plan.
+Backups written by these paths (old copies are pruned to the last N):
+
+- `plan.rpx.version_<timestamp>` (beside the plan file) and `retirement_system_v10.db.version_<timestamp>` (in `local_state/`) — on Save & Exit, last 10 kept.
+- `plan.rpx.before_load_<timestamp>` — before a `mode: restore` load.
 - `plan.rpx.before_snapshot_restore_<timestamp>` — before a build-snapshot restore.
-- `plan.rpx.before_demo` — while the demo plan is open (the real plan, put back by Open Current Plan).
-- `plan.rpx.before_blank_<timestamp>` — before Start New Plan clears the household facts.
-
-Until WP6 a saved `.rpx` carries the plan rows only; the flat datasets stay
-in the legacy database and the workspace's `input/`.
+- `plan.rpx.before_blank_<timestamp>` (and the legacy database's `before_blank` copy) — before Start New Plan clears the household facts.
 
 Build-time reproducibility snapshots are separate: `src/build_snapshot.py`
-writes `build_snapshot.json` (fingerprints/hashes of build artifacts) plus a
-`plan_database_snapshot.rpx` plan-file copy, consumed by the compare/restore
-endpoints in §3.4.
+builds the `build_snapshot_v1` document (fingerprints and hashes of build
+artifacts), stored in the build's `build_results` row (`snapshot_json`). It
+also copies the plan file beside the outputs as `plan_database_snapshot.rpx`.
+The compare and restore endpoints in §3.4 use both.
 
 ### 4.4 Schema and migration
 
-- `src/schema_registry.py` loads `reference_src/schema.csv` (plus a
-  generated coverage backfill) into a `(section, subsection, label) → spec`
+- `src/schema_registry.py` loads the field catalog from the shipped
+  `reference.db` (built from `reference_src/schema.csv` plus a generated
+  coverage backfill) into a `(section, subsection, label) → spec`
   map, used for validation, UI type inference, and `/api/config/rows`
   metadata.
 - `src/plan_data_migration.py` — a versioned (`PLAN_DATA_SCHEMA_VERSION = 5`)
@@ -239,7 +255,7 @@ endpoints in §3.4.
 ### 4.5 Plan row schema
 
 Most plan facts use a six-column logical row: `section`, `subsection`,
-`label`, `value`, `units`, `notes` — used across CSV adapters, the schema
+`label`, `value`, `units`, `notes` — used by the `csv_exchange` text form, the schema
 registry, UI rendering, and reporting inputs.
 
 ## 5. Build pipeline
@@ -251,7 +267,7 @@ trigger paths:
 
 - **Sync** (`POST /api/build`): `subprocess.run(..., timeout=cfg.
   max_build_seconds)`; `build_service.interpret_build_result()` reads
-  `output/plan_summary.json`, checks it against a `RETIREMENT_SYSTEM_BUILD_ID`
+  the build's summary row (`build_results`), checks it against a `RETIREMENT_SYSTEM_BUILD_ID`
   stamp to detect staleness, and regex-scans stdout for `"QC: n/n PASS"`.
 - **Async** (`POST /api/build/start`): spawns a daemon `threading.Thread`
   (`build_job_service.run_build_progress_job`) that launches the same
@@ -267,21 +283,20 @@ trigger paths:
 
 `run_build_progress_job` also diffs the local admin-config change log
 between the previous and current build timestamps (the "Build Impact"
-feature) and writes `last_build_metadata.json` on success.
+feature) and records the last build in `app.db` (`last_build`) on success.
 
 Before a build, `_clear_current_build_outputs()` deletes stale `output/`
 artifacts so old outputs can't be mistaken for the in-flight build.
 `GET /api/build/preflight` (`build_service.build_preflight_payload`) reports
 readiness (`current`/`ready`/`warning`/`blocked`) by comparing artifact
-mtimes against the SQLite DB mtime, checking for missing-required/
+mtimes against the plan file's last change, checking for missing-required/
 schema-invalid Plan Data rows, and summarizing pricing-diagnostics
 fallback/failure counts.
 
 `src/build_entry.py::run_build()` is an alternate in-process (non-subprocess)
 entry point for a host that cannot spawn a second interpreter (a future/
-parallel platform target): it syncs any configured Plan Data folder,
-materializes SQLite `client_files` to disk, then calls
-`reporting.workbook_builder.main()` directly. **Not wired into either
+parallel platform target): it calls `reporting.workbook_builder.main()`
+directly, which reads the plan file (no folder sync and no file materialization). **Not wired into either
 desktop or server HTTP routes as of this reading.**
 
 ```mermaid
@@ -298,15 +313,17 @@ flowchart TD
     Structure --> Save["Save .xlsx"]
     Save --> PDF["Render PDF from saved workbook"]
     Save --> HTML["Build offline HTML dashboard"]
-    Save --> JSON["Write Results Explorer JSON model"]
-    Save --> Summary["Write plan_summary.json, build_snapshot.json, report_package.json"]
+    Save --> JSON["Store Results Explorer model in build_results"]
+    Save --> Summary["Store summary, snapshot and report package in build_results"]
 ```
 
-Output artifacts land in `output/` (workspace-root-relative):
-`retirement_plan.xlsx`, `retirement_plan.pdf`, `retirement_dashboard.html`,
-`results_explorer_model.json`, `plan_summary.json`, `build_snapshot.json`,
-`report_package.json`, `pricing_diagnostics.json`, `run_history.json`,
-`audit_log.jsonl`, `admin_config_change_log.json`.
+Output files land in `output/plans/<plan_id>/` (per plan; the shared `output/`
+folder is read only as a fallback for pre-WP7 builds): `retirement_plan.xlsx`,
+`retirement_plan.pdf`, `retirement_dashboard.html` and
+`plan_database_snapshot.rpx`. The build's JSON parts (KPI summary, Results
+Explorer model, report package, build snapshot, pricing diagnostics) are
+columns of the plan file's `build_results` row, not files. The last build,
+run history and admin change log are rows of `app.db`.
 
 ## 6. Projection/engine architecture
 
@@ -413,7 +430,7 @@ statistics identically.
   (whole-lifetime, comparable to the optimizer/MC figures); the future
   variant discounts to `as_of_year` (default: `platform_runtime.today().year`,
   so tests can pin it) and excludes rows before that year. Both are wired
-  into `plan_summary.json` (`lcv`/`eltr`/`fcv`/`eftr`) by
+  into the build's KPI summary (`build_results`, `lcv`/`eltr`/`fcv`/`eftr`) by
   `workbook_builder.py`, and the future variant is also called directly by
   `sheets_summary_builder.py::build_sheet1` for the Executive Summary's
   Forward-Looking Metrics rows.
@@ -439,7 +456,7 @@ alimony/support modeling), and a stackable Combined Stress Test.
   establish Decimal-at-the-boundary, float-for-execution: user input is
   parsed as Decimal cents, converted to float for the legacy numeric engine,
   with `PlanInput`/`Account`/`Member` as a typed local domain model layered
-  over the legacy CSV/JSON "sectioned data" shape.
+  over the sectioned plan-data shape (`sectioned_data()`).
 - **Shared selection logic between engine and reporting.** TLH,
   gain-harvest, and holding-period modules are pure, side-effect-free
   "select" functions imported both by the projection engine (which mutates
@@ -534,8 +551,8 @@ without applying them). Routes: `/api/housing/optimize`,
 #### 7.3.2 Spending Adjustments and Large Discretionary
 
 `src/spending_adjustments.py` implements category step-downs/step-ups
-(`adj_N_category/start_year/end_year/change_pct` rows under Cashflow /
-Spending Adjustments in `client_spending.csv`, served by
+(`adj_N_category/start_year/end_year/change_pct` plan rows under Cashflow /
+Spending Adjustments, served by
 `/api/spending-adjustments`); factors compound multiplicatively in start-year
 order and `ALL:<tracking type>` rows compound with a category's own rows.
 Only Core Expenses, Housing, Wellness and Travel are adjustable. Large
@@ -558,10 +575,10 @@ sheet names into final numbered tabs) → layout/format passes (column-width
 overrides, numeric centering, template layout, row-height minimization) →
 save `.xlsx` → post-save XML patch (chart title fonts) → generate PDF from
 the same saved workbook object → generate the HTML dashboard from the
-workbook → write the Results Explorer JSON model → write `plan_summary.json`
-→ write build snapshot and `report_package.json`.
+workbook → store the Results Explorer model, KPI summary, build snapshot and
+report package in the build's `build_results` row.
 
-`plan_summary.json`'s KPI dict is the one place both the UI and the Excel
+The build's KPI summary (the `summary` part of `build_results`, formerly `plan_summary.json`) is the one place both the UI and the Excel
 Executive Summary read headline figures from: `terminal_nw`/`lifetime_tax`
 (nominal, whole-lifetime), `lcv`/`eltr` (whole-lifetime, plan-start PV,
 comparable to the Roth optimizer's and Monte Carlo's own figures), and
@@ -623,7 +640,7 @@ as **present but inert**, not as enforced access control:
 
 - `src/runtime_config.py`: `VALID_APP_MODES = {LOCAL}`; `load_runtime_
   config()` hardcodes `app_mode = LOCAL` unconditionally regardless of
-  `system_config.csv` content.
+  the stored settings.
 - `src/permissions.py`: `UserContext` always has role `"advisor"`, and
   `LOCAL_PERMISSIONS` grants every permission unconditionally — `require()`
   can never deny in the current configuration.
@@ -637,13 +654,17 @@ as **present but inert**, not as enforced access control:
   unconditionally, by design — trading away CSP/X-Frame-Options headers
   that would otherwise break `dashboard.js`'s inline `onclick="..."`
   handlers.
-- **Secrets storage** (`src/secrets_store.py`) is plaintext JSON at
-  `local_state/secrets.local.json`; `encryption_status()` reports
-  `{"encrypted": False, "mode": "local-only"}`. No OS keychain integration,
-  no at-rest encryption. This is a genuine gap if the file is ever assumed
-  to hold sensitive values (e.g. pricing-provider API keys).
-- **Audit logging** (`_audit()`) writes to both `output/audit_log.jsonl`
-  and the `audit_events` SQLite table when enabled; `redact_text()` in
+- **Secrets storage** (`src/secrets_store.py`) keeps API keys in the OS
+  credential store through `keyring` (Windows Credential Manager is the primary
+  target; macOS Keychain and Secret Service also work). Only the secret names
+  are indexed, in `app.db` settings (`secrets.names`). There is no plain-text
+  fallback: with no usable credential store, set operations raise
+  `SecretStoreUnavailable`, and the pricing path treats the key as absent and
+  surfaces a warning. `migrate_legacy_secrets_file` (used by the converter)
+  moves a legacy `local_state/secrets.local.json` into the credential store and
+  deletes it only after every key reads back.
+- **Audit logging** (`_audit()`) writes redacted events to the `audit_events`
+  table of `app.db` (the old `output/audit_log.jsonl` file is gone); `redact_text()` in
   `src/security.py` regex-scrubs obvious `api_key=`/`token=`/`password=`
   patterns before logging — best-effort pattern matching, not guaranteed
   redaction.

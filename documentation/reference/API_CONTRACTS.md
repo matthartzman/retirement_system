@@ -137,7 +137,7 @@ Transaction write response fields:
 Side effects:
 - Normalizes transaction rows.
 - Ensures account setup rows for transaction accounts.
-- Mirrors YTD CSV files into the SQLite client-file store.
+- Writes the plan file's `ytd_*` tables (no CSV file and no client-file mirror).
 
 ## `/api/ytd/transactions/preview`
 
@@ -159,24 +159,23 @@ Response:
 
 ## `/api/holdings`
 
-Purpose: canonical holdings CSV adapter for lot-level investment holdings.
+Purpose: CSV-text adapter over the active plan's holdings table (`holdings_lots`) for lot-level investment holdings.
 
 Methods:
 - `GET`: returns `text/csv`.
-- `POST`: accepts raw CSV request body.
+- `POST`: accepts raw CSV request body (`403` unless CSV writes are enabled).
 
 GET behavior:
-- Returns workspace `client_holdings.csv` when present.
-- Falls back to SQLite client-file content.
-- Returns a header-only holdings CSV when no holdings file exists.
+- Renders the active plan's holdings table as CSV text.
+- Returns a header-only holdings CSV when the table is empty.
 
 POST response:
 - `success`: boolean.
-- `path`: workspace CSV path written.
+- `path`: always empty (kept for compatibility; no file is written).
 
 Side effects:
-- Writes workspace holdings CSV.
-- Mirrors content into the SQLite client-file store.
+- Replaces the active plan's holdings table in one transaction (audit event `holdings_saved`).
+- Writes no CSV file and no client-file row.
 
 ## `/api/holdings/preview`
 
@@ -211,9 +210,9 @@ Response schema:
 - `missing_required`, `missing_required_count`.
 - `schema_errors`, `schema_error_count`.
 - `row_count`.
-- `db`: database file metadata.
+- `db`: plan file metadata.
 - `artifacts`: workbook/PDF/dashboard/results/summary/snapshot/pricing metadata.
-- `summary`: parsed `plan_summary.json` when available.
+- `summary`: the build's KPI summary (`build_results` row) when available.
 - `snapshot`: parsed `build_snapshot_v1` when available.
 - `snapshot_schema`.
 - `output_fingerprints`.
@@ -311,17 +310,17 @@ Schema:
 Response:
 - `success`: boolean indicating whether required package artifacts exist.
 - `schema`: `report_package_v1`.
-- `build_id`: build identifier shared with `plan_summary.json` and `build_snapshot.json` when available.
+- `build_id`: build identifier shared with the build's `build_results` row (summary and snapshot parts) when available.
 - `contracts`: component schema names, including `results_model_v10` and `build_snapshot_v1`.
 - `artifacts`: workbook, PDF, dashboard, Results Explorer model, summary, snapshot, and pricing artifact metadata with hashes when files exist.
 - `components`: concise component summaries for the semantic results model and build snapshot.
-- `summary`: copied KPI summary from `plan_summary.json`.
+- `summary`: copied KPI summary from the build's `build_results` row.
 
 Failure:
 - Returns `404` when `report_package.json` is missing or not a valid `report_package_v1` file.
 
 Build behavior:
-- Successful builds write `output/report_package.json` after the Results Explorer model, plan summary, and build snapshot are produced.
+- Successful builds store the report package in the build's `build_results` row, after the Results Explorer model, KPI summary, and build snapshot are produced.
 - The package treats Excel/PDF/HTML as renderers of the advisor report bundle, while `results_model_v10` remains the canonical semantic report model.
 
 ## `/api/plan/backups`
@@ -348,7 +347,7 @@ Related routes:
 Guardrails:
 - Backups are opt-in unless `force: true` is provided for manual backup.
 - Retention pruning is capped by policy.
-- Backup files are `.rpx` SQLite copies with JSON manifests.
+- Backup files are `.rpx` SQLite copies; their manifests are rows of `app.db` (`backup_manifest`), not files.
 
 ## `/api/plan/monarch-autoupdate`
 
@@ -372,7 +371,7 @@ Related routes:
 Guardrails:
 - Import is opt-in; the actual 4am trigger is an OS-level Task Scheduler entry, not an in-process timer (the app has no always-on background process).
 - Upserts by a stored Monarch id (`upsert_transactions_by_monarch_id` in `src/ytd_tracking.py`): replaces a changed transaction, adds a new one, no-ops an unchanged one. A row with no Monarch id falls back to the pre-existing hash-based dedup.
-- The headless job (`tools/monarch_autoimport.py` / `src/monarch_autoimport_job.py`) guards against OneDrive placeholder/truncated source files before reading, and mirrors the written CSVs into the SQLite plan-data store since it runs with no Flask request context.
+- The headless job (`tools/monarch_autoimport.py` / `src/monarch_autoimport_job.py`) guards against OneDrive placeholder/truncated source files before reading, and writes the plan file's `ytd_*` tables directly, since it runs with no Flask request context.
 - Reads only `new_transactions.csv` and `changed_transactions.csv` from the Monarch Extractor's output folder (never `transactions.csv`, its full history, or `duplicates_removed.csv`) — confirmed 2026-09-02 against the real `Monarch Extractor/monarch_extract.py`. Those two files hold every still-pending event across every past extractor run, each tagged with a `run_id`; after a successful upsert, the job runs `python monarch_extract.py --mark-delivered <run_id>` (via the extractor's own `.venv`, since it imports Playwright unconditionally) for every distinct `run_id` it just imported, so that run's rows stop reappearing. This is best-effort: a failure is reported in `mark_delivered_errors` but does not fail the (already-committed) import — an unmarked run just means the same, already-upserted rows harmlessly reappear next cycle.
 
 ## `/api/plan/exit-snapshot`
@@ -398,7 +397,6 @@ Side effects:
 Purpose: compare the active plan file to the plan-file copy captured in a build snapshot (`plan_database_snapshot.rpx`).
 
 - `GET`: compares against the latest build snapshot stored in the plan file.
-- `GET`: compares against `output/build_snapshot.json`.
 - `POST`: accepts optional `build_id` to compare a specific build snapshot (default: the latest build in the plan file).
 
 Response:
@@ -429,7 +427,7 @@ Request:
 Response:
 - `success`: boolean.
 - `schema`: `plan_snapshot_restore_v1`.
-- `restored_from`: build snapshot path.
+- `restored_from`: the `build_id` of the snapshot the restore used.
 - `restored_database`: snapshot-side SQLite database copy.
 - `active_database`: replaced active plan file path.
 - `backup_database`: pre-restore backup path (`plan.rpx.before_snapshot_restore_<ts>`) written before replacement.
@@ -442,7 +440,7 @@ Guardrails:
 
 ## Related Snapshot Contract
 
-Successful builds also write `output/build_snapshot.json`.
+Successful builds also store the snapshot in the build's `build_results` row (`snapshot_json`); the plan-file copy is `plan_database_snapshot.rpx`, beside the outputs.
 
 Schema:
 - `build_snapshot_v1`.
@@ -466,7 +464,7 @@ Stable restore response fields:
 - `success`: boolean.
 - `schema`: `plan_snapshot_restore_v1`.
 - `restored_database`: snapshot-side SQLite database copy.
-- `active_database`: replaced active SQLite database path.
+- `active_database`: replaced active plan file path.
 - `backup_database`: pre-restore backup path written before replacement.
 - `restored_from`: build snapshot used for restore.
 - `sha256`: restored database hash.
@@ -481,8 +479,8 @@ Guardrails:
 Purpose: Advanced Maintenance System Configuration batch-edit support.
 
 Methods:
-- `GET`: returns current `system_config.csv` rows and raw CSV text.
-- `POST`: writes confirmed row updates or replacement CSV content.
+- `GET`: returns the system configuration rows (runtime settings from `app.db`, then the engine knobs from the active plan) and their raw CSV text for the editor.
+- `POST`: writes confirmed row updates or replacement CSV content (`csv_content`). Runtime rows are saved to `app.db` settings; engine rows are saved to the active plan.
 
 Schemas:
 - `system_config_rows_v1`.
@@ -491,7 +489,7 @@ Schemas:
 Guardrails:
 - The user UI previews broad edits before posting.
 - Batch tools require an explicit field filter before previewing broad System Configuration changes.
-- Writes update `system_config.csv` immediately after confirmation.
+- Writes take effect after confirmation (audit event `admin_system_config_saved`). No `system_config.csv` file exists; the rows are not written to any file.
 
 
 ## `planning_case_v1` Browser-Local Contract
@@ -535,8 +533,8 @@ The report-output routes remain URL-compatible, but route handlers now delegate 
 ### `/api/history`
 
 Methods:
-- `GET`: returns the local build-history array stored in `output/run_history.json`; returns an empty array if no history exists or the file cannot be parsed.
-- `POST`: appends the request JSON body as one history entry, retention-trims to the latest 50 entries, and returns `{ success, count, path }`.
+- `GET`: returns the local build-history array stored in `app.db` (`run_history`, one scope per output folder); returns an empty array if no history exists or the store cannot be read.
+- `POST`: appends the request JSON body as one history entry, retention-trims to the latest 50 entries, and returns `{ success, count }`.
 
 ### `/api/xlsx`
 
