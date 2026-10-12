@@ -29,6 +29,10 @@ Numbers must not move by accident (10.3 verifies), so on top of the design's saf
 the states from the plan, applies the result through ``module_catalog`` (``PLAN_TIER_ROW`` and
 ``set_feature``) and stamps ``plan_meta['legacy_conversion.t8']``. A plan that already stores a
 tier (the user picked one) is left as it is.
+
+Safeguard (WP10.3, ``verify.py``): the converter computes the projection just before and just
+after this step; any difference blocks the conversion and the user is asked. Their "keep my
+switches" answer is ``run(store, keep_switches=True)``: only the marker, no tier, no switch change.
 """
 from __future__ import annotations
 
