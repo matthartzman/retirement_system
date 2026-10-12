@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Iterable, Sequence
 
-from ..stores import PlanStore
+from ..active_plan import PlanStore  # product code reaches PlanStore through active_plan
 
 DONE_MARKER = "legacy_conversion.done"
 

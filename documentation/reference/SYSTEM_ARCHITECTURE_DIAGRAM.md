@@ -536,7 +536,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/import_preview.py` | `csv_exchange`, `plan_datasets`, `stores.ref_getters.security_master`, `ytd_tracking` | — |
 | `src/large_discretionary.py` | — | — |
 | `src/legacy_conversion/__init__.py` | `legacy_conversion.workspace` | — |
-| `src/legacy_conversion/runner.py` | `app_state`, `csv_exchange`, `legacy_conversion`, `legacy_conversion.steps`, `plan_db_replace`, `stores` | — |
+| `src/legacy_conversion/runner.py` | `active_plan`, `app_state`, `csv_exchange`, `legacy_conversion`, `legacy_conversion.steps`, `plan_db_replace` | — |
 | `src/legacy_conversion/sources.py` | `csv_exchange`, `legacy_conversion.steps.c3b_plan_overrides`, `legacy_conversion.steps.c4b_spending`, `platform_runtime` | — |
 | `src/legacy_conversion/steps/__init__.py` | — | — |
 | `src/legacy_conversion/steps/c3_plan_rows.py` | `csv_exchange`, `plan_data_migration`, `plan_label_rules` | — |
@@ -548,7 +548,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/legacy_conversion/steps/c6b_secrets.py` | `app_state` | — |
 | `src/legacy_conversion/steps/c6c_register.py` | `active_plan`, `app_state`, `legacy_conversion.sources`, `plan_db_replace`, `platform_runtime` | — |
 | `src/legacy_conversion/steps/t8_tier_mapping.py` | `server_services.plan_tier_service` | — |
-| `src/legacy_conversion/workspace.py` | `app_state`, `legacy_conversion`, `legacy_conversion.steps`, `stores` | — |
+| `src/legacy_conversion/workspace.py` | `active_plan`, `app_state`, `legacy_conversion`, `legacy_conversion.steps` | — |
 | `src/local_backup_scheduler.py` | `app_state` | — |
 | `src/local_store.py` | `sqlite_util` | — |
 | `src/market_data.py` | `app_state`, `platform_runtime`, `secrets_store`, `version` | `requests` |
