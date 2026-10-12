@@ -552,7 +552,8 @@ DASHBOARD_JS_MAX_LINES = 7_134
 # 2026-10-12 (WP8.4: header plan switcher in dashboard_decomp_plan_switcher.js, Exit demo /
 # Reset demo / Save As / Load wording for the plan registry, +83): raised to 37,983.
 # 2026-10-12 (WP10.4: first-launch conversion notice in dashboard_decomp_conversion.js, +37): raised to 38,020.
-TOTAL_JS_MAX_LINES = 38_020
+# 2026-10-12 (Map-to-category picker on the unmapped warning +~105, txn Debits/Credits/Total +~50): raised to 38,180.
+TOTAL_JS_MAX_LINES = 38_180
 
 
 def _line_count(path: Path) -> int:
