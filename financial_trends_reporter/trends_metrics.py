@@ -24,7 +24,9 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from src import spending_tracker, ytd_tracking as ytd  # noqa: E402
+from src.active_plan import peek_plan_data_for_input_dir  # noqa: E402
 from src.plan_data_read import read_plan_data_file  # noqa: E402
+from src.plan_datasets import dataset_rows_for_input_dir  # noqa: E402
 
 # Account-setup roles ytd_tracking.ROLE_OPTIONS marks as liabilities -- their
 # "Current Value"/"Current Balance" subtracts from, rather than adds to,
@@ -33,13 +35,12 @@ LIABILITY_ROLES = frozenset({"Credit card", "Mortgage", "HELOC", "Loan", "Other 
 
 
 def _liabilities_csv_total(base_dir: Path, db_path: Path) -> float:
-    content = read_plan_data_file("client_liabilities.csv", base_dir, db_path)
-    if not content:
-        return 0.0
-    total = 0.0
-    for row in csv.DictReader(io.StringIO(content)):
-        total += ytd.parse_money(row.get("balance"))
-    return total
+    # plan.rpx first (WP6 moved liabilities out of client_files / input CSVs).
+    rows = dataset_rows_for_input_dir(base_dir / "input", "liabilities")
+    if not rows:
+        content = read_plan_data_file("client_liabilities.csv", base_dir, db_path)
+        rows = list(csv.DictReader(io.StringIO(content))) if content else []
+    return sum(ytd.parse_money(row.get("balance")) for row in rows)
 
 
 def _net_worth_from_account_setup(
@@ -73,8 +74,15 @@ def _net_worth_from_account_setup(
 
 def _plan_rows(base_dir: Path, db_path: Path, filename: str) -> dict[tuple[str, str, str], str]:
     """{(section, subsection, label): value} for a section/subsection/label/value plan CSV."""
-    content = read_plan_data_file(filename, base_dir, db_path)
     out: dict[tuple[str, str, str], str] = {}
+    # plan.rpx first (client_assets/client_spending rows live in plan_rows now).
+    for section, subs in peek_plan_data_for_input_dir(base_dir / "input").items():
+        for sub, labels in subs.items():
+            for label, value in labels.items():
+                out[(section.strip(), sub.strip(), label.strip())] = str(value).strip()
+    if out:
+        return out
+    content = read_plan_data_file(filename, base_dir, db_path)
     if not content:
         return out
     for row in csv.reader(io.StringIO(content)):
