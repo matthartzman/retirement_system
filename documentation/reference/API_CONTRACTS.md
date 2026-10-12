@@ -11,7 +11,7 @@ This document captures the stable local API contracts used by the v10 desktop UI
 - All JSON endpoints return `success: true` on normal success unless documented otherwise.
 - Write endpoints may return `403` when local runtime permissions disable the operation.
 - Build/report contracts are versioned with explicit `schema` fields.
-- The plan file (`plan.rpx`, `plan_rows`) is the runtime source of truth for the sectioned plan data; no CSV, JSON or YAML file mirrors it (WP4.5). The CSV endpoints that remain are adapters for the flat datasets (holdings, liabilities, spending, YTD) until WP6.
+- The plan file (`plan.rpx`, `plan_rows`) is the runtime source of truth for the sectioned plan data; no CSV, JSON or YAML file mirrors it (WP4.5). CSV enters and leaves only through `csv_exchange`: `/api/import/*` and `/api/export/*` (WP9, below). The flat datasets (holdings, liabilities, spending, YTD) are plan-file tables (WP6); their feature endpoints (`/api/holdings`, `/api/spending/*`, `/api/ytd/*`) read and write those tables.
 - Existing route names remain stable while newer contracts are added beside them.
 
 ## `/api/config/rows`
@@ -80,9 +80,23 @@ POST request: `{"answers": {"detail": "standard", "heloc": true}, "apply": false
 ## Removed in WP4.5 (the CSV bridge)
 
 - `POST /api/config/sync` and the `sync` request flag / response key of the save endpoints: there is nothing to sync, the plan rows are the only store (the `config_sync_v1` contract is gone).
-- `GET/POST /api/csv` (the sectioned plan anchor as CSV text) and the plan kind of `/api/admin/csv-file/<kind>/<file>` (the system kind stays). A request for `client_data.csv`, a plan part file or a JSON/YAML mirror through `/api/plan-data/...` answers `410`; the flat dataset files keep their routes until WP6.
+- `GET/POST /api/csv` (the sectioned plan anchor as CSV text) and the plan kind of `/api/admin/csv-file/<kind>/<file>` (the system kind stays). 
 - `GET /api/config/backends` no longer reports `csv_path`, `json_path` or `yaml_path`; it reports `plan_path`.
 - `/api/plan/save-as`, `/api/plan/load-file`, `/api/plan/exit-snapshot`, `/api/plan/snapshot/*`, the demo routes and Start New Plan work on the plan file (`plan.rpx`). A `.rpx` that is not a plan file (for example an older Save As of the legacy database) is refused by Load with a validation error and the active plan is untouched.
+
+## Removed: `/api/plan-data/*` and `src/server/plan_data_files.py`
+
+- `GET /api/plan-data/files`, `GET/POST /api/plan-data/<file>` are gone, with the file allowlists in `src/server/plan_data_files.py`. A dataset is addressed by `plan_datasets.DATASET_BY_FILE`; CSV import and export use the routes below.
+- `POST /api/plan-data/blank` (Start New Plan) is now `POST /api/plan/blank` (body `{ytd_blend_enabled?}`; same behavior: backs up the plan file, blanks the household rows and the holdings, liabilities and HSA schedule tables).
+
+## CSV import and export (WP9, `src/server/import_export_routes.py`)
+
+- `POST /api/import/preview` (`read_config`): what an import would change; nothing is written.
+- `POST /api/import/commit` (`write_config`, needs CSV writes enabled, else `403`): the same import in one transaction.
+  - Body: `{"dataset": "<name>", "csv_text": "..."}` for one dataset; `{"files": {name: text}}` for a browser folder; `{"dataset": "plan-set", "zip_base64": "..."}` or a raw `application/zip` body for a plan-set zip.
+  - `422` with `issues` when the import is rejected; `404` for an unknown dataset; `400` for a malformed body.
+- `GET /api/export/<dataset>`: one dataset as CSV text (`404` for an unknown or import-only dataset).
+- `GET /api/export/plan-set`: the whole plan set as a zip (`?format=files` returns `{files: {name: csv text}}` for a browser folder export).
 
 ## `/api/spending/model`
 
@@ -391,7 +405,7 @@ Response:
 - `success`: boolean.
 - `schema`: `plan_snapshot_compare_v1`.
 - `snapshot_schema`: source build snapshot schema.
-- `snapshot_build_id`.
+- `snapshot_build_id`: the `build_results` row (`build_id`) the snapshot came from.
 - `snapshot_database`.
 - `current_database`.
 - `database_matches`: whether the current database hash equals the snapshot database hash.
