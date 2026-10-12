@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-import json
 import sqlite3
 import sys
 from pathlib import Path
@@ -12,6 +11,7 @@ if str(ROOT) not in sys.path:
 
 from src.local_backup_scheduler import (
     SCHEMA,
+    list_backups,
     load_policy,
     run_backup,
     save_policy,
@@ -51,10 +51,9 @@ def test_manual_backup_creates_rpx_and_manifest(tmp_path: Path) -> None:
     assert result["created"] is True
     assert result["backup"]["filename"].endswith(".rpx")
     backup_path = Path(result["backup"]["path"])
-    manifest_path = Path(result["backup"]["manifest_path"])
     assert backup_path.exists()
-    assert manifest_path.exists()
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert not list(backup_path.parent.glob("*.manifest.json"))  # WP8.3: manifests live in app.db
+    manifest = list_backups(tmp_path)[0]
     assert manifest["schema"] == SCHEMA
     assert manifest["trigger"] == "manual"
     assert len(manifest["sha256"]) == 64

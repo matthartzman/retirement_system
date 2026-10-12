@@ -1,90 +1,56 @@
 from __future__ import annotations
 
-"""Feature-owned Open Demo Plan / Open Current Plan logic (ticket #240).
+"""Feature-owned Open demo / Exit demo / Reset demo (design F section 5A, WP8.4).
 
-Route modules adapt permissions and request bodies. This service owns the
-demo-plan swap-in/swap-out semantics: a one-time backup of the plan file and the legacy
-database, applying the demo household, and restoring the pre-demo files from those backups.
-The backup file's existence is the sole source of truth for whether a demo is currently
-active -- no other flag (in-memory or marker file) is ever trusted for that decision, so a
-crash or restart can't cause the real backup to be silently clobbered.
+The demo plan and the user's plan coexist as separate plan files, one active at a time (the
+plan registry in ``app.db``, ``src/plan_registry.py``):
 
-WP4.5: the sectioned plan data is the plan file's rows, so the demo swaps PLAN FILES: Open
-Demo copies ``plan.rpx`` to ``plan.rpx.before_demo``, builds the demo plan file (a copy of the
-slot's file when there is one, else the ``input/demo`` CSV set read once through the
-``csv_exchange`` importer) and replaces the active plan with it through the validated
-``plan_db_replace`` path; Open Current Plan puts the backup back the same way. No plan CSV
-file is written or read at runtime. WP8.4 replaces this swap with the plan registry (a demo
-plan file beside the real one).
+* **Open demo** creates ``<workspace>/demo.rpx`` (kind ``demo``, id ``demo``) from the bundled
+  seed (``input/demo``, read once through the ``csv_exchange`` importer) when it does not exist,
+  then makes it the active plan. Edits made in the demo stay in ``demo.rpx`` for next time.
+* **Exit demo** switches the active plan back to the plan that was active when the demo was
+  opened (else the most recently opened non-demo plan).
+* **Reset demo** rebuilds ``demo.rpx`` from the seed (validated, then swapped in through
+  ``plan_db_replace``).
 
-The flat datasets (holdings, liabilities, spending, YTD ... ) still live in the legacy local
-database's ``client_files`` until WP6, so they ride along as before: the legacy database is
-backed up and restored beside the plan file, and every flat demo file is applied through the
-real plan-data write path.
-
-The spending set (taxonomy, aliases, budget, lines, tier overrides, rules, category map, group
-budget) and the budget recovery seed are tables and revisions of the plan file (WP6.3), so the
-plan-file swap carries them: the demo plan file is built from input/demo (or the slot's plan
-file) with its own copies, and Open Current Plan puts the real ones back with the real plan file.
-Nothing spending-related is backed up or restored as a separate file.
-
-The demo slot (local_state/demo_plan/, see DEMO_SLOT_DIR): Open Current Plan
-used to simply discard whatever was in the demo when it swapped the real files
-back. Restore now captures the demo's live state into this slot first (the demo plan file as
-``plan.rpx`` and each flat file), and Open Demo Plan prefers a file from the slot over its
-input/demo/ counterpart, so edits made during one demo session are still there the next
-time the demo is opened. input/demo/ itself is never written to -- it stays the pristine
-first-run seed, and "Reset Demo to Defaults" just deletes the slot so the next open falls back
-to it.
+The user's plan file is never modified, copied over or restored by any of this; the demo builds
+write to ``output/plans/demo/``, so the real workbook is never overwritten. ``input/demo`` is
+never written.
 """
 
-import json
 import os
-import shutil
-import sqlite3
 import tempfile
-import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
-from ..active_plan import build_plan_file_from_csv_folder, ensure_plan_file
-from ..plan_db_replace import PLAN_FILE_TABLES, copy_sqlite_file, replace_active_db, validate_plan_file
+from .. import plan_registry
+from ..active_plan import build_plan_file_from_csv_folder
+from ..plan_db_replace import PLAN_FILE_TABLES, remove_sidecars, replace_active_db, validate_plan_file
 
 JsonDict = dict[str, Any]
-# Persistent home for demo edits, under the DB's parent (local_state/). Kept
-# separate from input/demo/ (which ships in the repo and must stay pristine
-# for the anti-leak tests) and from the live plan slot.
-DEMO_SLOT_DIR = "demo_plan"
-# The demo plan file's name inside the slot.
-SLOT_PLAN_FILE = "plan.rpx"
 
 
 @dataclass(frozen=True)
 class DemoPlanServiceContext:
-    sqlite_db: Callable[[], Path]
-    plan_db: Callable[[], Path]
+    # The bundled demo seed (the ``input/demo`` CSV set); only read.
     demo_dir: Callable[[], Path]
-    plan_data_csv_files: list[str]
-    read_plan_data_file: Callable[[str], str | None]
-    write_plan_data_file: Callable[[str, str], Path]
-    ensure_user_ui_plan_data_rows: Callable[[], None]
-    materialize: Callable[[], None]
+    # Where the demo plan file lives (default ``<workspace>/demo.rpx``).
+    demo_plan_file: Callable[[], Path] = plan_registry.demo_plan_file
     audit: Callable[[str, dict[str, Any]], None] | None = None
-    demo_slot_dir: Callable[[], Path] | None = None
-    # read_plan_data_file is DB-first (see app_core._read_plan_data_file) -- correct for the
-    # restore path. Capture reads the on-disk copy, the same thing the
-    # flat-file editors write, or an edit made during a demo could be dropped from the slot.
-    # Defaulted so existing constructions/tests are unaffected; falls back to
-    # read_plan_data_file when not supplied.
-    read_plan_data_disk_file: Callable[[str], str | None] | None = None
-    # Runs after every plan file swap (demo open and demo exit), as in PlanFileService: brings
-    # the rows of the plan that just became active to the current key names.
-    migrate: Callable[[Path], Any] | None = None
+    # Runs on the plan file that just became active (open, exit, and a reset of the active demo):
+    # the at-rest row migration and the UI-row backfill.
+    after_switch: Callable[[Path], Any] | None = None
+
+
+def _plan_view(rec: dict[str, Any] | None) -> JsonDict | None:
+    if not rec:
+        return None
+    return {k: rec.get(k) for k in ("plan_id", "name", "kind", "path", "last_opened")}
 
 
 class DemoPlanService:
-    """Framework-neutral owner for Open Demo Plan / Open Current Plan."""
+    """Framework-neutral owner for Open demo / Exit demo / Reset demo."""
 
     def __init__(self, context: DemoPlanServiceContext):
         self.context = context
@@ -93,216 +59,98 @@ class DemoPlanService:
         if self.context.audit:
             self.context.audit(event, details or {})
 
-    def _backup_path(self) -> Path:
-        """The pre-demo copy of the plan file: its existence is what ``is_active`` means."""
-        return Path(str(self.context.plan_db()) + ".before_demo")
-
-    def _legacy_backup_path(self) -> Path:
-        """The pre-demo copy of the legacy local database (the flat datasets' ``client_files``)."""
-        return Path(str(self.context.sqlite_db()) + ".before_demo")
-
-    def _slot_dir(self) -> Path:
-        if self.context.demo_slot_dir is not None:
-            return self.context.demo_slot_dir()
-        return self.context.sqlite_db().parent / DEMO_SLOT_DIR
-
-    def _demo_file_names(self) -> list[str]:
-        """Every file Open Demo Plan applies, in order, without duplicates."""
-        names: list[str] = []
-        for name in self.context.plan_data_csv_files:
-            if name not in names:
-                names.append(name)
-        return names
-
-    def _marker_path(self) -> Path:
-        return self.context.sqlite_db().parent / "demo_mode_marker.json"
-
-    def _read_marker(self) -> dict[str, Any]:
-        try:
-            return json.loads(self._marker_path().read_text(encoding="utf-8"))
-        except Exception:
-            return {}
-
-    def _checkpoint_sqlite(self, db_path: Path) -> None:
-        if not db_path.exists():
+    def _after_switch(self, path: Path) -> None:
+        if self.context.after_switch is None:
             return
         try:
-            conn = sqlite3.connect(str(db_path))
-            try:
-                conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
-            finally:
-                conn.close()
-        except Exception:
-            pass
+            self.context.after_switch(path)
+        except Exception as exc:  # noqa: BLE001 - never undoes a completed switch
+            self._audit("plan_after_switch_warning", {"path": str(path), "error": str(exc)})
 
-    def is_active(self) -> bool:
-        return self._backup_path().exists()
+    def _build_seed(self, dest: Path) -> None:
+        """Build the demo plan from the seed at ``dest`` (a temp file; the caller moves it into place)."""
+        if not build_plan_file_from_csv_folder(dest, self.context.demo_dir()):
+            raise FileNotFoundError(f"no demo plan rows found in {self.context.demo_dir()}")
 
-    def status_payload(self) -> JsonDict:
-        active = self.is_active()
-        marker = self._read_marker() if active else {}
-        return {"success": True, "active": active, "opened_at": marker.get("opened_at")}
-
-    def _seed_plan_file(self, slot_dir: Path, demo_dir: Path, dest: Path) -> str:
-        """Build the demo plan file at ``dest``: a copy of the slot's plan file, else the
-        ``input/demo`` CSV set read through the importer. Returns "slot" or "demo"."""
-        slot_plan = slot_dir / SLOT_PLAN_FILE
-        if slot_plan.is_file():
-            copy_sqlite_file(slot_plan, dest)
-            return "slot"
-        if not build_plan_file_from_csv_folder(dest, demo_dir):
-            raise FileNotFoundError(f"no demo plan rows found in {demo_dir}")
-        return "demo"
-
-    def open_demo_payload(self) -> JsonDict:
-        backup = self._backup_path()
-        plan_db = Path(self.context.plan_db())
-        dest = Path(self.context.sqlite_db())
-        if not backup.exists():
-            # First open this session: snapshot the real plan file and legacy DB (and the
-            # disk-only text files) before touching anything. If a backup is already present,
-            # a demo is already active -- re-applying demo files below must not overwrite
-            # any backup.
-            ensure_plan_file(plan_db)  # a fresh workspace: an empty plan to back up
-            copy_sqlite_file(plan_db, backup)
-            if dest.exists():
-                self._checkpoint_sqlite(dest)
-                shutil.copy2(str(dest), str(self._legacy_backup_path()))
-            try:
-                self._marker_path().write_text(
-                    json.dumps({"opened_at": time.strftime("%Y-%m-%dT%H:%M:%S")}),
-                    encoding="utf-8",
-                )
-            except Exception as exc:
-                self._audit("demo_plan_marker_warning", {"error": str(exc)})
-            self._audit("demo_plan_backup_created", {"backup": str(backup)})
-
-        demo_dir = self.context.demo_dir()
-        slot_dir = self._slot_dir()
-        written: list[dict[str, Any]] = []
-        skipped: list[str] = []
-
-        # The plan rows: build the demo plan file beside the active one and swap it in.
-        fd, tmp_name = tempfile.mkstemp(dir=str(plan_db.parent), prefix=plan_db.name + ".", suffix=".demo")
+    def _temp_beside(self, path: Path) -> Path:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fd, name = tempfile.mkstemp(dir=str(path.parent), prefix=path.name + ".", suffix=".seed")
         os.close(fd)
-        tmp = Path(tmp_name)
+        return Path(name)
+
+    def _create_demo_file(self, demo: Path) -> None:
+        tmp = self._temp_beside(demo)
         try:
-            plan_source = self._seed_plan_file(slot_dir, demo_dir, tmp)
-            replaced = replace_active_db(tmp, plan_db, required_tables=PLAN_FILE_TABLES, validate=validate_plan_file,
-                                         migrate=self.context.migrate)
+            self._build_seed(tmp)
+            remove_sidecars(tmp)
+            remove_sidecars(demo)
+            os.replace(str(tmp), str(demo))
         finally:
             tmp.unlink(missing_ok=True)
-        if not replaced.get("success"):
-            raise RuntimeError(replaced.get("error") or "Could not apply the demo plan")
-        written.append({"name": plan_db.name, "path": str(plan_db), "bytes": plan_db.stat().st_size, "source": plan_source})
+            remove_sidecars(tmp)
 
-        for name in self._demo_file_names():
-            # Prefer the persistent slot per file, not per directory -- a
-            # fixture added to input/demo/ in a later release must still be
-            # picked up by a user who already has a slot but not that file.
-            slot_src = slot_dir / name
-            demo_src = demo_dir / name
-            if slot_src.exists():
-                src, source = slot_src, "slot"
-            elif demo_src.exists():
-                src, source = demo_src, "demo"
-            else:
-                skipped.append(name)
-                continue
-            content = src.read_text(encoding="utf-8-sig")
-            path = self.context.write_plan_data_file(name, content)
-            written.append({"name": name, "path": str(path), "bytes": len(content), "source": source})
+    def _demo_record(self, demo: Path) -> dict[str, Any]:
+        return plan_registry.register_plan_file(
+            demo, name=plan_registry.DEMO_PLAN_NAME, kind="demo", plan_id=plan_registry.DEMO_PLAN_ID)
 
+    def is_active(self) -> bool:
+        return plan_registry.is_demo_active()
+
+    def status_payload(self) -> JsonDict:
+        rec = plan_registry.active_record()
+        active = rec.get("kind") == "demo"
+        return {
+            "success": True,
+            "active": active,
+            "opened_at": rec.get("last_opened") if active else None,
+            "plan": _plan_view(rec),
+            "demo_exists": Path(self.context.demo_plan_file()).is_file(),
+        }
+
+    def open_demo_payload(self) -> JsonDict:
+        demo = Path(self.context.demo_plan_file())
+        created = False
+        if not demo.is_file():
+            self._create_demo_file(demo)
+            created = True
+        rec = plan_registry.activate(self._demo_record(demo)["plan_id"])
+        self._after_switch(demo)
+        self._audit("demo_plan_opened", {"plan_id": rec["plan_id"], "created": created})
+        return {"success": True, "active": True, "created": created, "plan": _plan_view(rec)}
+
+    def exit_demo_payload(self) -> JsonDict:
+        if not self.is_active():
+            return {"success": True, "restored": False, "plan": _plan_view(plan_registry.active_record())}
+        target = plan_registry.demo_return_plan_id()
+        if target is None:  # the demo was the only plan ever registered: the workspace plan
+            target = plan_registry.register_plan_file(
+                plan_registry.workspace_plan_file(), name=plan_registry.DEFAULT_PLAN_NAME)["plan_id"]
         try:
-            self.context.ensure_user_ui_plan_data_rows()
-        except Exception as exc:
-            self._audit("demo_plan_ui_row_warning", {"error": str(exc)})
-
-        self._audit("demo_plan_opened", {"files": [w["name"] for w in written], "skipped": skipped})
-        return {"success": True, "files": written, "skipped": skipped}
-
-    def _capture_demo_slot(self) -> None:
-        """Persist the demo's current state into the slot before the DB
-        swap-back below discards it, so the next Open Demo Plan resumes where
-        this session left off instead of re-seeding from input/demo/. Must
-        never block the restore -- a capture failure is audited and that file
-        is skipped, exactly like the existing text-backup failures. Only
-        called while is_active() (restore_current_payload returns early
-        otherwise), so this never runs against a real (non-demo) plan."""
-        slot_dir = self._slot_dir()
-        read_disk = self.context.read_plan_data_disk_file or self.context.read_plan_data_file
-        try:
-            slot_dir.mkdir(parents=True, exist_ok=True)
-            copy_sqlite_file(self.context.plan_db(), slot_dir / SLOT_PLAN_FILE)
-        except Exception as exc:
-            self._audit("demo_plan_capture_warning", {"file": SLOT_PLAN_FILE, "error": str(exc)})
-        for name in self._demo_file_names():
-            try:
-                content = read_disk(name)
-                if content is None:
-                    continue
-                slot_dir.mkdir(parents=True, exist_ok=True)
-                (slot_dir / name).write_text(content, encoding="utf-8")
-            except Exception as exc:
-                self._audit("demo_plan_capture_warning", {"file": name, "error": str(exc)})
+            rec = plan_registry.activate(target, check=Path(plan_registry.get_plan(target)["path"]).is_file())
+        except plan_registry.PlanRegistryError as exc:
+            self._audit("demo_plan_exit_failed", {"plan_id": target, "error": str(exc)})
+            return {"success": False, "restored": False, "error": f"Could not switch back to your plan: {exc}"}
+        self._after_switch(Path(rec["path"]))
+        self._audit("demo_plan_exited", {"plan_id": rec["plan_id"]})
+        return {"success": True, "restored": True, "plan": _plan_view(rec)}
 
     def reset_demo_payload(self) -> JsonDict:
-        """Delete the persistent demo slot so the next Open Demo Plan re-seeds
-        from the shipped input/demo/ fixtures. Refused while a demo is open --
-        closing it would immediately re-capture the very state being reset,
-        so this is only ever reachable from the real plan."""
+        """Rebuild ``demo.rpx`` from the bundled seed (allowed whether or not the demo is open)."""
+        demo = Path(self.context.demo_plan_file())
+        if not demo.is_file():
+            self._create_demo_file(demo)
+        else:
+            tmp = self._temp_beside(demo)
+            try:
+                self._build_seed(tmp)
+                result = replace_active_db(tmp, demo, required_tables=PLAN_FILE_TABLES, validate=validate_plan_file)
+            finally:
+                tmp.unlink(missing_ok=True)
+                remove_sidecars(tmp)
+            if not result.get("success"):
+                return {"success": False, "error": result.get("error") or "Could not reset the demo plan."}
+        self._demo_record(demo)
         if self.is_active():
-            return {
-                "success": False,
-                "error": "Close the demo (Open Current Plan) before resetting it.",
-            }
-        slot_dir = self._slot_dir()
-        if slot_dir.exists():
-            shutil.rmtree(slot_dir)
-        self._audit("demo_plan_slot_reset", {"slot": str(slot_dir)})
+            self._after_switch(demo)
+        self._audit("demo_plan_reset", {"path": str(demo)})
         return {"success": True, "reset": True}
-
-    def restore_current_payload(self) -> JsonDict:
-        backup = self._backup_path()
-        if not backup.exists():
-            return {"success": True, "restored": False}
-
-        self._capture_demo_slot()
-
-        plan_db = Path(self.context.plan_db())
-        result = replace_active_db(backup, plan_db, required_tables=PLAN_FILE_TABLES, validate=validate_plan_file,
-                                  migrate=self.context.migrate)
-        if not result.get("success"):
-            self._audit("demo_plan_restore_failed", {"error": result.get("error")})
-            return {
-                "success": False,
-                "error": result.get("error") or "Could not restore your plan.",
-                "restored": False,
-            }
-        legacy_backup = self._legacy_backup_path()
-        if legacy_backup.exists():
-            legacy = replace_active_db(legacy_backup, Path(self.context.sqlite_db()))
-            if not legacy.get("success"):
-                self._audit("demo_plan_restore_legacy_warning", {"error": legacy.get("error")})
-            else:
-                try:
-                    legacy_backup.unlink()
-                except Exception:
-                    pass
-
-        try:
-            self.context.materialize()
-        except Exception as exc:
-            self._audit("demo_plan_materialize_warning", {"error": str(exc)})
-
-        try:
-            backup.unlink()
-        except Exception:
-            pass
-        try:
-            self._marker_path().unlink()
-        except Exception:
-            pass
-
-        self._audit("demo_plan_restored", {"backup": str(backup)})
-        return {"success": True, "restored": True}

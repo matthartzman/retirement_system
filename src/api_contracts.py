@@ -333,7 +333,7 @@ CONTRACTS: tuple[EndpointContract, ...] = (
         "/api/admin/system-config", "POST", "system_config_rows_update_v1",
         request_fields=(_f("rows", "list"), _f("csv_content", "str")),
         response_fields=(_f("success", "bool", True), _f("path", "str", True), _f("change_event", "dict")),
-        notes="Writes system_config.csv after explicit preview/confirmation in the user UI.",
+        notes="Writes runtime rows to app.db settings and engine rows to the active plan after explicit preview/confirmation in the user UI.",
     ),
 )
 

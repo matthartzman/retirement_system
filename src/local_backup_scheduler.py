@@ -17,7 +17,8 @@ import sqlite3
 from typing import Any
 
 SCHEMA = "local_backup_scheduler_v1"
-SETTINGS_FILENAME = "backup_scheduler.json"
+POLICY_SETTING = "backup_scheduler.policy"
+LEGACY_SETTINGS_FILENAME = "backup_scheduler.json"  # older installs; read once
 DEFAULT_BACKUP_DIR = "saved_plans/auto_backups"
 DEFAULT_RETENTION_COUNT = 7
 VALID_CADENCES = {"daily", "per_build"}
@@ -58,7 +59,24 @@ def iso_utc(dt: datetime | None = None) -> str:
 
 
 def settings_path(base_dir: str | Path) -> Path:
-    return Path(base_dir) / "local_state" / SETTINGS_FILENAME
+    """The ``app.db`` that holds the policy and manifests (WP8.3: no ``backup_scheduler.json``)."""
+    from .app_state import app_store_path_for
+
+    return app_store_path_for(base_dir)
+
+
+def _open_store(base_dir: str | Path, *, readonly: bool = False):
+    from .app_state import open_app_store
+
+    return open_app_store(settings_path(base_dir), readonly=readonly)
+
+
+def _legacy_policy_raw(base_dir: str | Path) -> dict[str, Any]:
+    try:
+        raw = json.loads((Path(base_dir) / "local_state" / LEGACY_SETTINGS_FILENAME).read_text(encoding="utf-8"))
+        return raw.get("policy") if isinstance(raw.get("policy"), dict) else raw
+    except Exception:
+        return {}
 
 
 def resolve_backup_dir(base_dir: str | Path, policy: dict[str, Any] | BackupPolicy | None = None) -> Path:
@@ -93,12 +111,16 @@ def normalize_policy(data: dict[str, Any] | None = None) -> BackupPolicy:
 def load_policy(base_dir: str | Path) -> dict[str, Any]:
     path = settings_path(base_dir)
     raw: dict[str, Any] = {}
-    if path.exists():
-        try:
-            raw = json.loads(path.read_text(encoding="utf-8"))
-        except Exception:
-            raw = {}
-    policy = normalize_policy(raw.get("policy") if isinstance(raw.get("policy"), dict) else raw)
+    try:
+        if path.exists():
+            with _open_store(base_dir, readonly=True) as store:
+                stored = store.get_setting(POLICY_SETTING)
+            raw = stored if isinstance(stored, dict) else _legacy_policy_raw(base_dir)
+        else:
+            raw = _legacy_policy_raw(base_dir)
+    except Exception:
+        raw = {}
+    policy = normalize_policy(raw)
     return {
         "schema": SCHEMA,
         "policy": policy.as_dict(),
@@ -113,10 +135,8 @@ def save_policy(base_dir: str | Path, updates: dict[str, Any]) -> dict[str, Any]
         if key in updates:
             merged[key] = updates[key]
     policy = normalize_policy(merged)
-    payload = {"schema": SCHEMA, "policy": policy.as_dict(), "updated_at": iso_utc()}
-    path = settings_path(base_dir)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    with _open_store(base_dir) as store:
+        store.set_setting(POLICY_SETTING, {**policy.as_dict(), "updated_at": iso_utc()})
     return load_policy(base_dir)
 
 
@@ -141,6 +161,7 @@ def checkpoint_sqlite(db_path: str | Path) -> None:
 
 
 def _read_manifest(path: Path) -> dict[str, Any] | None:
+    """A legacy ``*.manifest.json`` next to a backup (older installs), or None."""
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
         if data.get("schema") == SCHEMA:
@@ -150,19 +171,36 @@ def _read_manifest(path: Path) -> dict[str, Any] | None:
     return None
 
 
+def _manifest_scope(bdir: Path) -> str:
+    return str(bdir)
+
+
+def _import_legacy_manifests(store: Any, bdir: Path) -> None:
+    """Move manifest files left by older installs into app.db (once; the files are then deleted)."""
+    for manifest_path in sorted(bdir.glob("*.manifest.json")):
+        data = _read_manifest(manifest_path)
+        if data and data.get("filename"):
+            store.put_backup_manifest(_manifest_scope(bdir), data)
+            try:
+                manifest_path.unlink()
+            except OSError:
+                pass
+
+
 def list_backups(base_dir: str | Path, policy: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     policy = policy or load_policy(base_dir)["policy"]
     bdir = resolve_backup_dir(base_dir, policy)
     backups: list[dict[str, Any]] = []
-    if not bdir.exists():
+    path = settings_path(base_dir)
+    if not path.exists() and not bdir.exists():
         return backups
-    for manifest_path in sorted(bdir.glob("*.manifest.json")):
-        data = _read_manifest(manifest_path)
-        if not data:
-            continue
+    with _open_store(base_dir) as store:
+        if bdir.exists():
+            _import_legacy_manifests(store, bdir)
+        manifests = store.backup_manifests(_manifest_scope(bdir))
+    for data in manifests:
         db_file = bdir / str(data.get("filename") or "")
         data = dict(data)
-        data["manifest_path"] = str(manifest_path)
         data["path"] = str(db_file)
         data["exists"] = db_file.exists()
         backups.append(data)
@@ -242,19 +280,17 @@ def prune_backups(base_dir: str | Path, policy: dict[str, Any]) -> list[str]:
         # manifest, so the pair stays visible to the next prune instead of
         # becoming an untracked orphan.
         db_path = Path(str(item.get("path") or ""))
-        manifest_path = Path(str(item.get("manifest_path") or ""))
         if db_path.exists():
             try:
                 db_path.unlink()
                 pruned.append(str(db_path))
             except Exception:
                 continue
-        if manifest_path.exists():
-            try:
-                manifest_path.unlink()
-                pruned.append(str(manifest_path))
-            except Exception:
-                pass
+        try:
+            with _open_store(base_dir) as store:
+                store.delete_backup_manifest(_manifest_scope(resolve_backup_dir(base_dir, policy)), str(item.get("filename") or ""))
+        except Exception:
+            pass
     for orphan in orphaned_backups(base_dir, policy):
         try:
             orphan.unlink()
@@ -307,15 +343,15 @@ def run_backup(
         "sha256": digest,
         "policy": dict(policy),
     }
-    manifest_path = target.with_suffix(target.suffix + ".manifest.json")
-    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
+    with _open_store(base_dir) as store:
+        store.put_backup_manifest(_manifest_scope(bdir), manifest)
     pruned = prune_backups(base_dir, policy)
     refreshed = scheduler_status(base_dir, db_path, now=now)
     return {
         **refreshed,
         "created": True,
         "skipped": False,
-        "backup": {**manifest, "path": str(target), "manifest_path": str(manifest_path), "exists": True},
+        "backup": {**manifest, "path": str(target), "exists": True},
         "pruned": pruned,
         "pruned_count": len(pruned),
     }

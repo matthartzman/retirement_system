@@ -2,7 +2,8 @@ from __future__ import annotations
 """Local-only configuration backend for v11.
 
 The plan rows are read from the active plan file (``plan.rpx``, ``src/active_plan.py``):
-``load_active_config`` returns its sectioned view merged with the system configuration.
+``load_active_config`` returns its sectioned view with the runtime Market Pricing settings
+(``app.db``, ``system_config``) and the engine-knob code defaults (``engine_defaults``) merged in.
 Nothing mirrors plan data into CSV, JSON or YAML files any more (WP4.5); CSV import/export
 is ``csv_exchange`` (WP9). The legacy local database (``init_sqlite``) still holds the
 flat datasets' text (``client_files``: holdings, spending, YTD ...), audit events and build
@@ -16,7 +17,8 @@ import os
 from pathlib import Path
 from typing import Dict, Tuple, Optional as _Optional
 
-from .system_config import discover_system_config_csv, load_system_config, system_setting
+from .engine_defaults import with_engine_defaults
+from .system_config import load_system_config
 from . import platform_runtime
 from .sqlite_util import connect as closing_connect
 
@@ -29,7 +31,8 @@ DEFAULT_DB = _WORKSPACE_ROOT / "local_state" / "retirement_system_v10.db"
 DEFAULT_CLIENTS_CSV = _WORKSPACE_ROOT / "local_state" / "local_plan_registry.csv"
 SettingMap = Dict[str, Dict[str, Dict[str, str]]]
 
-SYSTEM_CONFIG_SECTIONS = {"Market Pricing", "Plan Settings", "Asset Class Assumptions", "Asset Correlations"}
+# Runtime settings (app.db) the engine reads from the plan view; they win over plan rows.
+SYSTEM_CONFIG_SECTIONS = {"Market Pricing"}
 # The backend name the config payloads report: the plan file is a SQLite database.
 ACTIVE_BACKEND = "SQLITE"
 
@@ -99,28 +102,26 @@ def init_sqlite(db_path: str | Path = DEFAULT_DB) -> Path:
     return p
 
 
-def discover_bootstrap_csv() -> Path:
-    return discover_system_config_csv()
-
-
 def load_active_config() -> Tuple[SettingMap, Dict[str, str]]:
-    """The active plan's sectioned rows merged with the system configuration, plus meta.
+    """The active plan's sectioned rows with runtime settings and engine defaults, plus meta.
 
-    Reads ``plan_rows`` of the active plan file (``active_plan.active_plan_data``).
-    ``meta['sqlite_db']`` is still the legacy local database (``client_files`` of the flat
-    datasets, KPI and build history); ``meta['plan_db']`` is the plan file the build
-    checkpoints and snapshots.
+    Reads ``plan_rows`` of the active plan file (``active_plan.active_plan_data``), overlays the
+    runtime Market Pricing settings and fills every engine knob the plan does not hold from
+    ``engine_defaults``. ``meta['sqlite_db']`` is still the legacy local database
+    (``client_files`` of the flat datasets, KPI and build history); ``meta['plan_db']`` is the
+    plan file the build checkpoints and snapshots; ``meta['app_db']`` the settings database.
     """
     from .active_plan import active_plan_data, active_plan_path
-    bootstrap_csv = discover_bootstrap_csv()
-    bootstrap = load_system_config(bootstrap_csv)
+    from .app_state import app_store_path
+    app_db = app_store_path()
+    system_data = load_system_config(app_db)
     # A relative default, joined against the LIVE workspace root on every call.
     _default_sqlite_db_rel = "local_state/retirement_system_v10.db"
-    sqlite_db = setting(bootstrap, "System Configuration", "Runtime", "sqlite_db", _default_sqlite_db_rel) or _default_sqlite_db_rel
+    sqlite_db = setting(system_data, "System Configuration", "Runtime", "sqlite_db", _default_sqlite_db_rel) or _default_sqlite_db_rel
     plan_db = active_plan_path()
-    data = _merge_system_config_sections(active_plan_data(), bootstrap)
+    data = with_engine_defaults(_merge_system_config_sections(active_plan_data(), system_data))
     return data, {"backend": ACTIVE_BACKEND, "path": str(plan_db), "plan_db": str(plan_db),
-                  "bootstrap_csv": str(bootstrap_csv), "sqlite_db": str(resolve_path(sqlite_db, DEFAULT_DB)),
+                  "app_db": str(app_db), "sqlite_db": str(resolve_path(sqlite_db, DEFAULT_DB)),
                   "workspace_id": "local", "client_id": "local"}
 
 

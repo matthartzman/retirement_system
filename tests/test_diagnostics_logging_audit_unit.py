@@ -1,6 +1,5 @@
 """WI-204 (ARC-003): rotating log file at bootstrap and audit rows reach SQLite."""
 import logging
-import sqlite3
 
 import pytest
 
@@ -46,12 +45,14 @@ def test_audit_log_enabled_by_default_and_opt_out(monkeypatch):
 
 
 def test_audit_inserts_audit_events_row(tmp_path, monkeypatch):
+    """WP8.3: audit rows go to app.db ``audit_events`` (the jsonl duplicate is gone)."""
+    from src.app_state import open_app_store
     from src.server import security_audit
-    db = tmp_path / "t.db"
+    db = tmp_path / "app.db"
     monkeypatch.delenv("RETIREMENT_SYSTEM_AUDIT_LOG_ENABLED", raising=False)
-    monkeypatch.setattr(security_audit._app_core, "_sqlite_db", lambda: db)
+    monkeypatch.setenv("RETIREMENT_SYSTEM_APP_DB", str(db))
     monkeypatch.setattr(security_audit, "_workspace_output", lambda: tmp_path)
     security_audit._audit("secret_set", {"name": "x"})
-    with sqlite3.connect(db) as conn:
-        rows = conn.execute("select event from audit_events").fetchall()
-    assert ("secret_set",) in rows
+    with open_app_store(db, readonly=True) as store:
+        assert "secret_set" in [r["event"] for r in store.audit_events()]
+    assert not (tmp_path / "audit_log.jsonl").exists()

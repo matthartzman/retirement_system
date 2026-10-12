@@ -56,7 +56,8 @@ except ImportError:  # direct file loading fallback
 try:
     from ..schema_registry import load_schema as _load_schema_registry, validate_value as _schema_validate_value
     from ..runtime_config import load_runtime_config
-    from ..system_config import load_system_config, setting as system_config_setting
+    from ..system_config import load_system_config, set_system_settings, setting as system_config_setting
+    from ..app_state import app_db_env, app_store_path
     from ..security import append_audit_event, constant_time_token_ok, extract_bearer_or_header, get_server_token, redact_text, sha256_fingerprint
     from ..permissions import UserContext, require as require_permission, user_from_headers
     from ..secrets_store import encryption_status, set_secret  # require_secure_master_key: system review 4.5, its one call site (SaaS-only) removed
@@ -90,7 +91,8 @@ except ImportError:  # direct execution fallback
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     from src.schema_registry import load_schema as _load_schema_registry, validate_value as _schema_validate_value
     from src.runtime_config import load_runtime_config
-    from src.system_config import load_system_config, setting as system_config_setting
+    from src.system_config import load_system_config, set_system_settings, setting as system_config_setting
+    from src.app_state import app_db_env, app_store_path
     from src.security import append_audit_event, constant_time_token_ok, extract_bearer_or_header, get_server_token, redact_text, sha256_fingerprint
     from src.permissions import UserContext, require as require_permission, user_from_headers
     from src.secrets_store import encryption_status, set_secret
@@ -141,7 +143,7 @@ except ImportError:  # direct execution fallback
     from src import platform_runtime
 
 # BASE_DIR is the code/package root: reference_data/, frontend static assets,
-# system_config.csv, and tools/build_workbook.py live here. WORKSPACE_ROOT is
+# and tools/build_workbook.py live here. WORKSPACE_ROOT is
 # where writable data (input/, output/, local_state/, saved_plans/) lives — the
 # same directory on desktop, app-private storage on mobile.
 BASE_DIR = Path(__file__).resolve().parents[2]
@@ -205,56 +207,11 @@ def _sqlite_db() -> Path:
 
 
 
-# Cache key -> (source mtime_ns, source size) for the last-written target,
-# so a request doesn't re-parse/rewrite system_config.active.csv when the
-# source system_config.csv hasn't changed since the previous request.
-_REQUEST_SYSTEM_CONFIG_CSV_CACHE: dict[str, tuple[int, int]] = {}
-
-
-def _request_system_config_csv() -> Path:
-    """Create a per-request system_config.csv copy for subprocess builds/tools.
-
-    The copy is deterministic given the source file's content, so a request can safely
-    reuse the target written by a previous request as long as the source hasn't changed
-    and the target still exists.
-    """
-    source = _system_config_path()
-    target = _workspace_output() / "system_config.active.csv"
-
-    source_fingerprint = None
-    if source.exists():
-        stat = source.stat()
-        source_fingerprint = (stat.st_mtime_ns, stat.st_size)
-        cache_key = str(target)
-        if (
-            source_fingerprint is not None
-            and _REQUEST_SYSTEM_CONFIG_CSV_CACHE.get(cache_key) == source_fingerprint
-            and target.exists()
-        ):
-            return target
-
-    rows = []
-    if source.exists():
-        with source.open(newline="", encoding="utf-8-sig") as f:
-            rows = list(csv.reader(f))
-    if not rows:
-        rows = [["section", "subsection", "label", "value", "units", "notes"]]
-
-    target.parent.mkdir(parents=True, exist_ok=True)
-    with target.open("w", newline="", encoding="utf-8") as f:
-        csv.writer(f, lineterminator="\n").writerows(rows)
-    if source_fingerprint is not None:
-        _REQUEST_SYSTEM_CONFIG_CSV_CACHE[str(target)] = source_fingerprint
-    else:
-        _REQUEST_SYSTEM_CONFIG_CSV_CACHE.pop(str(target), None)
-    return target
-
-
 # Local auth-identity helpers and audit-log helpers live in security_audit.py,
 # combined into one file due to bidirectional call coupling between the two
 # clusters (see that file's own top-of-file comment). Several more names are
 # defined there too (_bootstrap_workspace, _bootstrap_client,
-# _candidate_token, _admin_change_log_path_for, _last_build_metadata_path_for,
+# _candidate_token, _log_scope,
 # _row_key_for_change, _summarize_csv_row_changes) but are used only internally within
 # security_audit.py's own functions -- never re-exported here, since nothing
 # outside that file needs them (system review 4.9, verified via AST analysis
@@ -327,24 +284,6 @@ def _spending_budget_save_result(save_fn):
 
 
 
-def _make_request_system_config_csv_for(workspace: str, client: str, out_dir: Path) -> Path:
-    """Thread-safe version of _request_system_config_csv for async build jobs."""
-    source = _system_config_path()
-    target = out_dir / "system_config.active.csv"
-    rows: list[list[str]] = []
-    if source.exists():
-        with source.open(newline="", encoding="utf-8-sig") as f:
-            rows = list(csv.reader(f))
-    if not rows:
-        rows = [["section", "subsection", "label", "value", "units", "notes"]]
-
-    workspace = "local"
-    client = "local"
-    target.parent.mkdir(parents=True, exist_ok=True)
-    with target.open("w", newline="", encoding="utf-8") as f:
-        csv.writer(f, lineterminator="\n").writerows(rows)
-    return target
-
 def _normalize_plan_data_file_name(file_name: str) -> str:
     name = Path(str(file_name or "")).name
     if name in RETIRED_PLAN_PART_FILES:
@@ -367,41 +306,14 @@ def _reference_file_path(file_name: str) -> Path:
     return BASE_DIR / "reference_data" / _normalize_reference_file_name(file_name)
 
 
-def _read_csv_rows_file(path: Path) -> list[list[str]]:
-    if not path.exists():
-        return []
-    with path.open(newline="", encoding="utf-8-sig") as f:
-        return list(csv.reader(f))
-
-
-def _write_csv_rows_file(path: Path, rows: list[list[str]]) -> None:
-    with atomic_write(path) as f:
-        csv.writer(f, lineterminator="\n").writerows(rows)
-
 def _system_config_path() -> Path:
-    return BASE_DIR / "system_config.csv"
+    """The app.db holding the runtime settings (WP8.1: no system_config.csv)."""
+    return app_store_path()
 
 
 def _set_system_config_values(updates: dict[tuple[str, str, str], str]) -> None:
-    """Update value cells in system_config.csv, adding rows when needed."""
-    p = _system_config_path()
-    rows = _read_csv_rows_file(p)
-    if not rows:
-        rows = [["section", "subsection", "label", "value", "units", "notes"]]
-    while len(rows[0]) < 6:
-        rows[0].append("")
-    for (section, subsection, label), value in updates.items():
-        found = False
-        for row in rows[1:]:
-            while len(row) < 6:
-                row.append("")
-            if row[0] == section and row[1] == subsection and row[2] == label:
-                row[3] = str(value)
-                found = True
-                break
-        if not found:
-            rows.append([section, subsection, label, str(value), "", "Set by Admin operating mode."])
-    _write_csv_rows_file(p, rows)
+    """Set runtime settings in app.db."""
+    set_system_settings(updates, _system_config_path())
 
 
 def _blank_holdings_csv(content: str) -> str:

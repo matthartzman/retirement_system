@@ -19,8 +19,10 @@ from typing import Any
 
 SCHEMA = "monarch_autoupdate_v1"
 STATUS_SCHEMA = "monarch_autoupdate_status_v1"
-SETTINGS_FILENAME = "monarch_autoupdate.json"
-STATUS_FILENAME = "monarch_autoupdate_status.json"
+POLICY_SETTING = "monarch_autoupdate.policy"
+STATUS_SETTING = "monarch_autoupdate.status"
+LEGACY_SETTINGS_FILENAME = "monarch_autoupdate.json"  # older installs; read once
+LEGACY_STATUS_FILENAME = "monarch_autoupdate_status.json"
 DEFAULT_SOURCE_DIR = "Monarch Extractor/output"
 
 
@@ -50,11 +52,36 @@ def iso_utc(dt: datetime | None = None) -> str:
 
 
 def settings_path(base_dir: str | Path) -> Path:
-    return Path(base_dir) / "local_state" / SETTINGS_FILENAME
+    """The ``app.db`` holding the policy and status (WP8.3: no monarch_autoupdate*.json)."""
+    from .app_state import app_store_path_for
+
+    return app_store_path_for(base_dir)
 
 
-def status_path(base_dir: str | Path) -> Path:
-    return Path(base_dir) / "local_state" / STATUS_FILENAME
+def _read_setting(base_dir: str | Path, key: str, legacy_name: str) -> Any:
+    """``key`` from app.db, else the one-time read of an older install's ``local_state/<legacy_name>``."""
+    try:
+        from .app_state import open_app_store
+
+        path = settings_path(base_dir)
+        if path.exists():
+            with open_app_store(path, readonly=True) as store:
+                value = store.get_setting(key)
+            if value is not None:
+                return value
+    except Exception:
+        return None
+    try:
+        return json.loads((Path(base_dir) / "local_state" / legacy_name).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def _write_setting(base_dir: str | Path, key: str, value: Any) -> None:
+    from .app_state import open_app_store
+
+    with open_app_store(settings_path(base_dir)) as store:
+        store.set_setting(key, value)
 
 
 # 2026-09 outage: RetirementSystem_MonarchAutoImport only reads whatever CSVs
@@ -152,18 +179,14 @@ def normalize_policy(data: dict[str, Any] | None = None, *, base_dir: str | Path
 
 
 def load_policy(base_dir: str | Path) -> dict[str, Any]:
-    path = settings_path(base_dir)
-    raw: dict[str, Any] = {}
-    if path.exists():
-        try:
-            raw = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            raw = {}
-    # Not confinement-checked on load: a value already on disk must still be
+    raw = _read_setting(base_dir, POLICY_SETTING, LEGACY_SETTINGS_FILENAME)
+    if not isinstance(raw, dict):
+        raw = {}
+    # Not confinement-checked on load: a value already stored must still be
     # readable (e.g. to display it back for correction) even if it would now
     # be rejected on save; only save_policy (new/updated values) enforces it.
     policy = normalize_policy(raw.get("policy") if isinstance(raw.get("policy"), dict) else raw)
-    return {"schema": SCHEMA, "policy": policy.as_dict(), "settings_path": str(path)}
+    return {"schema": SCHEMA, "policy": policy.as_dict(), "settings_path": str(settings_path(base_dir))}
 
 
 def save_policy(base_dir: str | Path, updates: dict[str, Any]) -> dict[str, Any]:
@@ -176,21 +199,13 @@ def save_policy(base_dir: str | Path, updates: dict[str, Any]) -> dict[str, Any]
             merged[key] = updates[key]
     policy = normalize_policy(merged, base_dir=base_dir)
     payload = {"schema": SCHEMA, "policy": policy.as_dict(), "updated_at": iso_utc()}
-    path = settings_path(base_dir)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    _write_setting(base_dir, POLICY_SETTING, payload)
     return load_policy(base_dir)
 
 
 def load_status(base_dir: str | Path) -> dict[str, Any] | None:
-    path = status_path(base_dir)
-    if not path.exists():
-        return None
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
-    return data if data.get("schema") == STATUS_SCHEMA else None
+    data = _read_setting(base_dir, STATUS_SETTING, LEGACY_STATUS_FILENAME)
+    return data if isinstance(data, dict) and data.get("schema") == STATUS_SCHEMA else None
 
 
 def write_status(
@@ -204,7 +219,7 @@ def write_status(
     errors: list[str] | None = None,
     now: datetime | None = None,
 ) -> dict[str, Any]:
-    """Write the "mark the update as complete" status file for one run."""
+    """Record the "mark the update as complete" status for one run."""
     payload = {
         "schema": STATUS_SCHEMA,
         "last_run_at": iso_utc(now),
@@ -215,9 +230,7 @@ def write_status(
         "rows_skipped": int(rows_skipped),
         "errors": list(errors or []),
     }
-    path = status_path(base_dir)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    _write_setting(base_dir, STATUS_SETTING, payload)
     return payload
 
 

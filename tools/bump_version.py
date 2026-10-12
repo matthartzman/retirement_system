@@ -8,7 +8,7 @@ What it does:
     2. Updates frontend/index.html  <span>OLD</span> → <span>NEW</span>
     2b. Updates frontend/admin.html  "Retirement System v<OLD>" → "...v<NEW>"
         (a separate page from index.html, easy to miss -- found 2026-09-04)
-    3. Updates system_config.csv  system_version,OLD → system_version,NEW
+    3. (removed in WP8.1: the version lives only in src/version.py, no data file carries it)
     4. Re-runs tools/check_version_surfaces.py --old-version <OLD>  (validates
        no stale "Retirement System v<OLD>" / User-Agent / version-badge text
        remains anywhere in src/, frontend/, tools/, top-level documentation/*.md,
@@ -343,20 +343,6 @@ def bump(new_version: str) -> str | None:
         else:
             manifest_path.write_text(updated_manifest, encoding='utf-8')
             print(f'  updated {manifest_path.relative_to(ROOT)}')
-
-    # 4. system_config.csv
-    csv_path = ROOT / 'system_config.csv'
-    csv_text = csv_path.read_text(encoding='utf-8')
-    updated_csv = re.sub(
-        r'(system_version,)' + re.escape(old_version),
-        r'\g<1>' + new_version,
-        csv_text,
-    )
-    if updated_csv == csv_text:
-        print(f'  WARNING: system_version,{old_version} not found in system_config.csv — update manually')
-    else:
-        csv_path.write_text(updated_csv, encoding='utf-8')
-        print(f'  updated {csv_path.relative_to(ROOT)}')
 
     # 6. Validate version surfaces. --old-version makes this check dynamic
     # for THIS bump (leftover "Retirement System v<old>" text etc.), not just
