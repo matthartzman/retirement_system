@@ -66,9 +66,6 @@
   "src/server_services/base_service.py": {
    "path_io": 1
   },
-  "src/server_services/demo_plan_service.py": {
-   "path_io": 4
-  },
   "src/server_services/spending_service.py": {
    "path_io": 2
   },
@@ -80,5 +77,5 @@
    "csv": 4
   }
  },
- "total": 59
+ "total": 55
 }

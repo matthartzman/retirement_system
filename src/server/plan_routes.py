@@ -1346,7 +1346,7 @@ def plans_forget():
 def _demo_plan_feature_service() -> demo_plan_service.DemoPlanService:
     return demo_plan_service.DemoPlanService(
         demo_plan_service.DemoPlanServiceContext(
-            demo_dir=lambda: WORKSPACE_ROOT / "input" / "demo",
+            demo_dir=lambda: platform_runtime.package_root() / "input" / "demo",  # the bundled seed
             audit=_audit,
             after_switch=_after_plan_switch,
         )
