@@ -408,8 +408,9 @@ def clear_build_results(path: str | Path | None = None) -> int:
 
 
 def plan_db_env(env: dict[str, Any]) -> dict[str, Any]:
-    """Set ``PLAN_DB_ENV`` in a subprocess environment to the active plan file and
-    ``PLAN_REVISION_ENV`` to its current revision (dropped when the file cannot be read yet)."""
+    """Set ``PLAN_DB_ENV`` in a subprocess environment to the active plan file, ``PLAN_ID_ENV``
+    to its registry id (the output folder) and ``PLAN_REVISION_ENV`` to its current revision
+    (dropped when the file cannot be read yet)."""
     path = active_plan_path()
     env[PLAN_DB_ENV] = str(path)
     from .workspace_context import active_plan_id  # noqa: PLC0415
