@@ -2113,6 +2113,12 @@
       "scope": "inside-function"
     },
     {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_conversion.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
       "name": "searchText",
       "file": "frontend/js/dashboard_decomp_death_benefits.js",
       "kind": "read",
