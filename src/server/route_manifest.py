@@ -14,6 +14,7 @@ ROUTE_MODULES = {
         "/api/plan/monarch-autoupdate", "/api/plan/monarch-autoupdate/config", "/api/plan/monarch-autoupdate/run",
         "/api/plan/demo-status", "/api/plan/open-demo", "/api/plan/reset-demo", "/api/plan/exit-demo", "/api/plan/exit-snapshot",
         "/api/plans", "/api/plans/switch", "/api/plans/rename", "/api/plans/forget",
+        "/api/import/preview", "/api/import/commit", "/api/export/plan-set", "/api/export/<dataset>",
         "/api/plan-data/blank", "/api/plan-data/files", "/api/plan-data/<path:file_name>",
     ],
     "plan_config": ["/api/config/backends", "/api/config/rows", "/api/allocation-preview", "/api/plan/tier", "/api/plan/feature", "/api/plan/interview"],
@@ -46,8 +47,8 @@ ROUTE_MODULES = {
         "/api/hsa-schedule", "/api/liabilities", "/api/withdrawal-account-order",
     ],
     "admin": ["/api/admin/diagnostics", "/api/admin/system-config", "/api/contracts", "/api/glossary",
-        "/api/admin/clear-webview-cache", "/api/admin/csv-backup", "/api/admin/csv-file/<kind>/<path:file_name>", "/api/admin/mode",
-        "/api/admin/reference-files", "/api/admin/reference-files/<path:file_name>", "/api/admin/server", "/api/admin/server/shutdown",
+        "/api/admin/clear-webview-cache", "/api/admin/csv-backup", "/api/admin/mode",
+        "/api/admin/server", "/api/admin/server/shutdown",
         "/api/admin/tax-law-dashboard",
     ],
 }

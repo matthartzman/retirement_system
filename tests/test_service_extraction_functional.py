@@ -38,7 +38,7 @@ def test_feature_services_are_http_runtime_independent():
 def test_route_adapters_delegate_migrated_families_to_services():
     expected = {
         ROOT / "src" / "server" / "base_routes.py": ["base_service.ping_payload", "base_service.read_prefs", "base_service.runtime_payload"],
-        ROOT / "src" / "server" / "admin_routes.py": ["admin_service.csv_file_payload", "admin_service.system_config_payload", "admin_service.diagnostics_payload"],
+        ROOT / "src" / "server" / "admin_routes.py": ["admin_service.build_csv_backup_zip", "admin_service.system_config_payload", "admin_service.diagnostics_payload"],
         ROOT / "src" / "server" / "workbook_routes.py": ["build_service.build_preflight_payload", "build_service.read_summary_payload", "plan_forms_service.get_forms_payload"],
     }
     missing = []
@@ -198,47 +198,19 @@ def test_auth_session_and_login_return_csrf_token():
     assert login_payload["csrf_token"]
 
 
-def test_admin_csv_backup_zip_is_exhaustive_over_input_and_reference_dirs(tmp_path):
+def test_admin_csv_backup_zip_is_the_plan_set_export(tmp_path, monkeypatch):
     import io
     import zipfile
 
+    from src.active_plan import PLAN_DB_ENV, active_plan_store
     from src.server_services import admin_service
 
-    (tmp_path / "input").mkdir()
-    (tmp_path / "input" / "client_data.csv").write_text("a,b\n1,2\n", encoding="utf-8")
-    (tmp_path / "input" / "client_holdings.csv").write_text("c,d\n3,4\n", encoding="utf-8")
-    (tmp_path / "input" / "not_a_csv.txt").write_text("ignore me", encoding="utf-8")
-    (tmp_path / "reference_data").mkdir()
-    (tmp_path / "reference_data" / "security_master.csv").write_text("e,f\n5,6\n", encoding="utf-8")
-    from src.system_config import set_system_settings
-    cfg = tmp_path / "app.db"
-    set_system_settings({("A", "B", "C"): "D"}, cfg)
-
-    payload, status = admin_service.csv_backup_zip(tmp_path, cfg)
-    assert status == 200
-    assert payload["success"] is True
-    assert set(payload["included"]) == {
-        "input/client_data.csv",
-        "input/client_holdings.csv",
-        "reference_data/security_master.csv",
-        "system_config.csv",
-    }
-
-    zf = zipfile.ZipFile(io.BytesIO(payload["data"]))
-    names = set(zf.namelist())
-    assert names == set(payload["included"]) | {"BACKUP_MANIFEST.txt"}
-    assert b"A,B,C,D" in zf.read("system_config.csv")
-    assert "not_a_csv.txt" not in "".join(names)
-
-
-def test_admin_csv_backup_zip_always_carries_the_settings(tmp_path):
-    from src.server_services import admin_service
-
-    # WP8.1: the runtime settings (defaults on a fresh install) are always exported.
-    payload, status = admin_service.csv_backup_zip(tmp_path, tmp_path / "app.db")
-    assert status == 200
-    assert payload["included"] == ["system_config.csv"]
-    assert not (tmp_path / "app.db").exists()
+    monkeypatch.setenv(PLAN_DB_ENV, str(tmp_path / "plan.rpx"))
+    with active_plan_store():  # creates the empty plan file
+        pass
+    data, name = admin_service.build_csv_backup_zip(tmp_path)
+    assert name.startswith("plan_data_csv_backup_") and name.endswith(".zip")
+    assert "manifest.json" in zipfile.ZipFile(io.BytesIO(data)).namelist()
 
 
 def test_admin_csv_backup_route_returns_zip_attachment():

@@ -18,7 +18,6 @@ try:
         _read_active_plan,
         _read_plan_data_file,
         _read_schema_map,
-        _reference_file_path,
         _system_config_path,
         _require,
         _runtime_config,
@@ -54,7 +53,6 @@ except ImportError:
         _read_active_plan,
         _read_plan_data_file,
         _read_schema_map,
-        _reference_file_path,
         _system_config_path,
         _require,
         _runtime_config,
@@ -86,7 +84,6 @@ def _strategy_asset_feature_service() -> strategy_asset_service.StrategyAssetSer
     return strategy_asset_service.StrategyAssetService(
         strategy_asset_service.StrategyAssetServiceContext(
             base_dir=BASE_DIR,
-            reference_file_path=_reference_file_path,
             edit_plan=_edit_active_plan,
             read_plan=_read_active_plan,
             normalize_large_discretionary_type=_normalize_large_discretionary_type,
