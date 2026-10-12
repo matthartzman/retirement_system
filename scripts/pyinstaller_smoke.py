@@ -106,12 +106,12 @@ def check_default_workspace(exe: Path, env: dict[str, str]) -> None:
         line = next((ln for ln in r.stdout.splitlines() if ln.startswith("SMOKE_WORKSPACE_OK ")), None)
         assert r.returncode == 0 and line, f"workspace probe failed ({r.returncode})\n{r.stdout[-2000:]}\n{r.stderr[-2000:]}"
         info = json.loads(line.split(" ", 1)[1])
-        ws, pkg, sec = Path(info["workspace_root"]), Path(info["package_root"]), Path(info["secrets_path"])
+        ws, pkg, sec = Path(info["workspace_root"]), Path(info["package_root"]), Path(info["legacy_secrets_path"])
         assert info["frozen"] is True, f"probe did not run frozen: {info}"
         assert home in ws.parents and ws != pkg, f"default workspace is not per-user: {info}"
-        assert sec == ws / "local_state" / "secrets.local.json", f"secrets not under the workspace: {info}"
-        assert pkg not in sec.parents, f"secrets landed inside the bundle: {info}"
-        assert sec.is_file(), f"secrets file was not written: {sec}"
+        assert sec == ws / "local_state" / "secrets.local.json", f"legacy secrets path not under the workspace: {info}"
+        assert pkg not in sec.parents, f"legacy secrets path inside the bundle: {info}"
+        assert not sec.exists(), f"a plain-text secrets file was written: {sec}"
         assert (ws / "input" / "client_data.csv").is_file(), "default workspace was not seeded from bundled demo"
         assert (ws / "plan.rpx").is_file(), "default workspace plan file was not seeded from bundled demo"
         print(f"    default workspace ok: {ws}")

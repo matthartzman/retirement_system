@@ -119,7 +119,7 @@ else. Current service modules: `base_service`, `admin_service`,
 | Secrets | `/api/secrets` (POST only) | `plan_routes.py` → `secret_service.py` → `secrets_store.py` |
 | Admin | `/admin`, `/api/admin/csv-file/*`, `/api/admin/diagnostics`, `/api/admin/system-config`, `/api/admin/reference-files*`, `/api/admin/csv-backup`, `/api/admin/server*` | `admin_routes.py` → `admin_service.py` |
 | Base/runtime | `/`, `/api/ping`, `/api/runtime`, `/api/prefs`, `/api/contracts`, `/api/glossary`, `/api/auth/*`, `/login` | `base_routes.py` |
-| Demo plan | `/api/plan/demo-status`, `/api/plan/open-demo`, `/api/plan/restore-current`, `/api/plan/reset-demo` | `plan_routes.py` → `demo_plan_service.py` |
+| Demo plan / plan registry | `/api/plan/demo-status`, `/api/plan/open-demo`, `/api/plan/exit-demo`, `/api/plan/reset-demo`, `/api/plans`, `/api/plans/switch`, `/api/plans/rename`, `/api/plans/forget` | `plan_routes.py` → `demo_plan_service.py`, `plan_registry.py` |
 
 `documentation/reference/API_CONTRACTS.md` documents a curated subset of "stable"
 contracts, not the full route inventory — treat this table and the route

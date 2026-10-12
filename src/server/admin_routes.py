@@ -92,7 +92,7 @@ def admin_tax_law_dashboard():
         from ..governance import tax_law_dashboard
     except Exception:
         from src.governance import tax_law_dashboard
-    data = load_system_config(_system_config_path()) if _system_config_path().exists() else {}
+    data = load_system_config(_system_config_path())
     try:
         max_lag = int(float(system_config_setting(data, "Tax Governance", "max_tax_table_lag_years", "1") or 1))
     except Exception:

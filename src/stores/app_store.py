@@ -1,6 +1,6 @@
 """AppStore: the access layer over ``app.db`` (per-install state that survives plan swaps).
 
-WP2.2 / P1.2. Nothing in the product imports this yet (P6 moves app state onto it).
+WP2.2 / P1.2. The product reaches it through ``src/app_state.open_app_store`` (WP8).
 
 Schema v1 (``PRAGMA user_version = 1``, ``PRAGMA application_id = APP_APPLICATION_ID``)
 -------------------------------------------------------------------------------------
@@ -11,6 +11,17 @@ Schema v1 (``PRAGMA user_version = 1``, ``PRAGMA application_id = APP_APPLICATIO
                    ``switched_at``. A registered plan cannot be removed while active.
 ``settings``       ``key -> value``; the value is JSON text (``json.dumps``, sorted keys,
                    no NaN/Infinity), returned decoded.
+
+Schema v2 (WP8.3: small per-install logs and caches, all keyed by a ``scope`` text where one
+install can hold several: a workspace id, an output folder, a backup folder, a price-cache id)
+-------------------------------------------------------------------------------------------
+``audit_events``     ``id``, ``ts`` (epoch seconds), ``event``, ``workspace_id``, ``user_id``,
+                     ``payload`` (the redacted JSON line the old ``audit_log.jsonl`` held).
+``admin_change_log`` ``id``, ``scope``, ``ts``, ``event`` (JSON); newest ``ADMIN_CHANGE_KEEP`` per scope.
+``run_history``      ``id``, ``scope``, ``entry`` (JSON); newest ``limit`` per scope.
+``last_build``       ``scope`` (PK), ``data`` (JSON): the last build's timing / QC record.
+``backup_manifest``  ``scope``, ``filename`` (PK together), ``created_at``, ``manifest`` (JSON).
+``price_cache``      ``scope``, ``symbol`` (PK together), ``record`` (JSON quote record).
 
 Secrets never go here (design decision 5: OS credential store).
 """
@@ -49,8 +60,51 @@ CREATE TABLE settings (
 ) WITHOUT ROWID;
 """
 
-APP_MIGRATIONS: tuple[str, ...] = (_SCHEMA_V1,)
+_SCHEMA_V2 = """
+CREATE TABLE audit_events (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts           REAL NOT NULL,
+    event        TEXT NOT NULL,
+    workspace_id TEXT NOT NULL DEFAULT '',
+    user_id      TEXT NOT NULL DEFAULT '',
+    payload      TEXT NOT NULL
+);
+CREATE TABLE admin_change_log (
+    id    INTEGER PRIMARY KEY AUTOINCREMENT,
+    scope TEXT NOT NULL,
+    ts    REAL NOT NULL,
+    event TEXT NOT NULL
+);
+CREATE INDEX admin_change_log_scope ON admin_change_log (scope, ts);
+CREATE TABLE run_history (
+    id    INTEGER PRIMARY KEY AUTOINCREMENT,
+    scope TEXT NOT NULL,
+    entry TEXT NOT NULL
+);
+CREATE INDEX run_history_scope ON run_history (scope, id);
+CREATE TABLE last_build (
+    scope TEXT PRIMARY KEY,
+    data  TEXT NOT NULL
+) WITHOUT ROWID;
+CREATE TABLE backup_manifest (
+    scope      TEXT NOT NULL,
+    filename   TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    manifest   TEXT NOT NULL,
+    PRIMARY KEY (scope, filename)
+) WITHOUT ROWID;
+CREATE TABLE price_cache (
+    scope  TEXT NOT NULL,
+    symbol TEXT NOT NULL,
+    record TEXT NOT NULL,
+    PRIMARY KEY (scope, symbol)
+) WITHOUT ROWID;
+"""
+
+APP_MIGRATIONS: tuple[str, ...] = (_SCHEMA_V1, _SCHEMA_V2)
 APP_SCHEMA_VERSION = len(APP_MIGRATIONS)
+
+ADMIN_CHANGE_KEEP = 250
 
 _PLAN_COLUMNS = "plan_id, path, name, kind, last_opened"
 _PLAN_ORDER = "ORDER BY last_opened IS NULL, last_opened DESC, name, plan_id"
@@ -210,6 +264,98 @@ class AppStore(_SqliteStore):
         with self._read() as con:
             return {k: _loads(k, v) for k, v in con.execute("SELECT key, value FROM settings ORDER BY key")}
 
+    # ------------------------------------------------------- audit / change log / history
+    def append_audit_event(
+        self, event: str, payload: str, *, ts: float, workspace_id: str = "", user_id: str = ""
+    ) -> None:
+        """Record one audit event; ``payload`` is the (already redacted) JSON text."""
+        with self._write() as con:
+            con.execute(
+                "INSERT INTO audit_events (ts, event, workspace_id, user_id, payload) VALUES (?, ?, ?, ?, ?)",
+                (float(ts), str(event), str(workspace_id), str(user_id), str(payload)),
+            )
+
+    def audit_events(self, limit: int | None = None) -> list[dict[str, Any]]:
+        """Audit events, oldest first (the newest ``limit`` when given); ``payload`` stays JSON text."""
+        sql = "SELECT id, ts, event, workspace_id, user_id, payload FROM audit_events ORDER BY id"
+        with self._read() as con:
+            rows = [dict(r) for r in con.execute(sql)]
+        return rows if limit is None else rows[-max(0, int(limit)):]
+
+    def append_admin_change(self, scope: str, event: dict[str, Any], *, ts: float, keep: int = ADMIN_CHANGE_KEEP) -> None:
+        with self._write() as con:
+            con.execute("INSERT INTO admin_change_log (scope, ts, event) VALUES (?, ?, ?)", (scope, float(ts), _dumps(event)))
+            con.execute(
+                "DELETE FROM admin_change_log WHERE scope = ? AND id NOT IN "
+                "(SELECT id FROM admin_change_log WHERE scope = ? ORDER BY id DESC LIMIT ?)",
+                (scope, scope, max(1, int(keep))),
+            )
+
+    def admin_changes(self, scope: str) -> list[dict[str, Any]]:
+        """The scope's change events, oldest first."""
+        with self._read() as con:
+            return [json.loads(r[0]) for r in con.execute("SELECT event FROM admin_change_log WHERE scope = ? ORDER BY id", (scope,))]
+
+    def append_run_history(self, scope: str, entry: Any, *, limit: int = 50) -> int:
+        """Append an entry, keep the newest ``limit``; return how many remain."""
+        limit = max(1, int(limit))
+        with self._write() as con:
+            con.execute("INSERT INTO run_history (scope, entry) VALUES (?, ?)", (scope, _dumps(entry)))
+            con.execute(
+                "DELETE FROM run_history WHERE scope = ? AND id NOT IN "
+                "(SELECT id FROM run_history WHERE scope = ? ORDER BY id DESC LIMIT ?)",
+                (scope, scope, limit),
+            )
+            return con.execute("SELECT count(*) FROM run_history WHERE scope = ?", (scope,)).fetchone()[0]
+
+    def run_history(self, scope: str) -> list[Any]:
+        with self._read() as con:
+            return [json.loads(r[0]) for r in con.execute("SELECT entry FROM run_history WHERE scope = ? ORDER BY id", (scope,))]
+
+    def set_last_build(self, scope: str, data: dict[str, Any]) -> None:
+        with self._write() as con:
+            con.execute(
+                "INSERT INTO last_build (scope, data) VALUES (?, ?) ON CONFLICT (scope) DO UPDATE SET data = excluded.data",
+                (scope, _dumps(data)),
+            )
+
+    def last_build(self, scope: str) -> dict[str, Any] | None:
+        with self._read() as con:
+            r = con.execute("SELECT data FROM last_build WHERE scope = ?", (scope,)).fetchone()
+        return None if r is None else json.loads(r[0])
+
+    # ------------------------------------------------------- backup manifests / price cache
+    def put_backup_manifest(self, scope: str, manifest: dict[str, Any]) -> None:
+        """Insert or replace the manifest of ``manifest['filename']`` (``created_at`` is indexed)."""
+        with self._write() as con:
+            con.execute(
+                "INSERT OR REPLACE INTO backup_manifest (scope, filename, created_at, manifest) VALUES (?, ?, ?, ?)",
+                (scope, str(manifest["filename"]), str(manifest.get("created_at") or ""), _dumps(manifest)),
+            )
+
+    def backup_manifests(self, scope: str) -> list[dict[str, Any]]:
+        """The scope's manifests, oldest first (by ``created_at``, then filename)."""
+        with self._read() as con:
+            cur = con.execute("SELECT manifest FROM backup_manifest WHERE scope = ? ORDER BY created_at, filename", (scope,))
+            return [json.loads(r[0]) for r in cur]
+
+    def delete_backup_manifest(self, scope: str, filename: str) -> bool:
+        with self._write() as con:
+            return con.execute("DELETE FROM backup_manifest WHERE scope = ? AND filename = ?", (scope, filename)).rowcount > 0
+
+    def price_cache(self, scope: str) -> dict[str, dict[str, Any]]:
+        with self._read() as con:
+            return {k: json.loads(v) for k, v in con.execute("SELECT symbol, record FROM price_cache WHERE scope = ?", (scope,))}
+
+    def replace_price_cache(self, scope: str, records: dict[str, Any]) -> None:
+        """Make the scope's cache exactly ``records`` (one transaction)."""
+        with self._write() as con:
+            con.execute("DELETE FROM price_cache WHERE scope = ?", (scope,))
+            con.executemany(
+                "INSERT INTO price_cache (scope, symbol, record) VALUES (?, ?, ?)",
+                [(scope, str(k), _dumps(v)) for k, v in records.items()],
+            )
+
     # ------------------------------------------------------------------- internals
     @staticmethod
     def _plan(con: Any, plan_id: str) -> dict[str, Any]:
@@ -227,3 +373,8 @@ def _loads(key: str, text: str):
         return json.loads(text)
     except ValueError as exc:
         raise StoreError(f"setting {key!r} holds invalid JSON") from exc
+
+
+def _dumps(value: Any) -> str:
+    """JSON text for log / cache rows (the old files tolerated non-JSON leaves via ``default=str``)."""
+    return json.dumps(value, sort_keys=True, default=str)

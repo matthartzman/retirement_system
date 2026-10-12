@@ -1,7 +1,5 @@
-"""Regression: tools/set_local_mode.py must never truncate system_config.csv."""
-import csv
+"""Regression: tools/set_local_mode.py writes the local-mode settings to app.db (WP8.1)."""
 import importlib.util
-import shutil
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -14,30 +12,21 @@ def _load():
     return mod
 
 
-def _rows(path):
-    with path.open(newline="", encoding="utf-8-sig") as f:
-        return list(csv.reader(f))
+def test_reset_writes_local_mode_settings_and_keeps_others(tmp_path):
+    from src.system_config import load_system_config, set_system_settings, stored_settings, system_setting
+
+    app_db = tmp_path / "app.db"
+    set_system_settings({("System Configuration", "Dashboard", "port"): "6060",
+                         ("System Configuration", "Downloads", "filename_root"): "Mine"}, app_db)
+    assert _load().main(app_db) == 0
+    data = load_system_config(app_db)
+    assert system_setting(data, "Dashboard", "port") == "5050"
+    assert system_setting(data, "Security", "session_cookie_secure") == "NO"
+    assert system_setting(data, "Downloads", "filename_root") == "Mine"
+    # values equal to the built-in defaults are unset, not stored
+    assert ("System Configuration", "Dashboard", "port") not in stored_settings(app_db)
 
 
-def test_reset_keeps_every_row_of_the_real_config(tmp_path):
-    cfg = tmp_path / "system_config.csv"
-    shutil.copy(ROOT / "system_config.csv", cfg)
-    before = _rows(cfg)
-    assert _load().main(cfg) == 0
-    after = _rows(cfg)
-    assert len(after) >= len(before)
-    assert {r[2] for r in before if len(r) > 2} <= {r[2] for r in after if len(r) > 2}
-
-
-def test_malformed_row_with_extra_fields_does_not_truncate_file(tmp_path):
-    cfg = tmp_path / "system_config.csv"
-    cfg.write_text(
-        "section,subsection,label,value,units,notes\n"
-        "Market Pricing,Holdings,pricing_mode,LIVE,choice,CACHE = a, b; LIVE = c, d\n"
-        "Rebalancing,Optimization,max_tax_cost_bps,25,bps,keep me\n",
-        encoding="utf-8",
-    )
-    assert _load().main(cfg) == 0
-    labels = [r[2] for r in _rows(cfg) if len(r) > 2]
-    assert "pricing_mode" in labels and "max_tax_cost_bps" in labels
-    assert not list(tmp_path.glob("*.tmp"))
+def test_no_system_config_csv_is_written(tmp_path):
+    _load().main(tmp_path / "app.db")
+    assert sorted(p.name for p in tmp_path.iterdir() if not p.name.startswith("app.db")) == []

@@ -1,5 +1,5 @@
 from __future__ import annotations
-import argparse, csv, re, sys
+import argparse, re, sys
 from pathlib import Path
 
 # Same fix as main.py's (2026-09-03) and bump_version.py's (2026-09-04):
@@ -16,10 +16,10 @@ for _stream in (sys.stdout, sys.stderr):
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from src.version import VERSION
+from src.version import VERSION  # noqa: F401  (kept for callers of this module)
 
 # Directories/files actually scanned for stale text. Historically only
-# src/frontend/tools/system_config.csv -- documentation and tests were
+# src/frontend/tools -- documentation and tests were
 # excluded entirely (see IGNORE_PARTS), which let two real gaps through
 # undetected: (1) documentation/*.md files outside CLAUDE.md silently kept
 # stale "Version <old>" path text after a bump, and (2) a hardcoded absolute
@@ -28,7 +28,7 @@ from src.version import VERSION
 # documentation/reference/GOLDEN_MASTER_CHANGELOG.md). Both are now covered below,
 # each with its own narrow allowance for legitimate non-current-version text
 # (dated historical docs, and this tool's own fixture-only test file).
-USER_SURFACES=[ROOT/'src',ROOT/'frontend',ROOT/'tools',ROOT/'system_config.csv']
+USER_SURFACES=[ROOT/'src',ROOT/'frontend',ROOT/'tools']
 IGNORE_PARTS={'documentation','tests'}
 ALLOWED_PATTERNS=[r'/api/v8', r'API_NAMESPACE = "v8"', r'test_v8_', r'v8_1', r'v8_2', r'Version 7\.8\.1 correction']
 
@@ -187,14 +187,6 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     errors: list[str] = []
-    cfg = ROOT / 'system_config.csv'
-    if cfg.exists():
-        with cfg.open(newline='', encoding='utf-8-sig') as f:
-            for row in csv.DictReader(f):
-                if row.get('section') == 'System Configuration' and row.get('subsection') == 'Runtime' and row.get('label') == 'system_version':
-                    if str(row.get('value')).strip() != VERSION:
-                        errors.append(f'system_config system_version={row.get("value")} expected {VERSION}')
-
     _check_user_surfaces(STALE, errors)
 
     if args.old_version:

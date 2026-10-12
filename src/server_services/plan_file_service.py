@@ -6,12 +6,13 @@ The HTTP layer is responsible for request parsing and permissions. This service
 owns SQLite file checkpoint/copy/retention semantics so desktop save/load logic
 is not buried in route modules.
 
-WP4.5: Save As, Load Saved Plan and snapshot restore operate on the plan file itself
-(``plan.rpx``: ``PlanStore``'s ``plan_rows``, revisions and meta), copied or replaced through
-``plan_db_replace`` (validated, backed up, atomic) with no CSV step. The legacy local
-database (``sqlite_db``: the flat datasets' ``client_files``, audit and build history) is no
-longer part of a saved plan until WP6 moves those datasets into the plan file; the exit
-snapshot still keeps a versioned copy of both.
+WP8.4 (design F section 5A): Save As and Load Saved Plan are plan-registry operations over plan
+files. Save As copies the active plan file to a new path, registers it and (by default) makes
+it the active plan; Load Saved Plan registers the chosen file and activates it. Neither touches
+the other plan files. Restoring a backup or a saved copy INTO the active plan file
+(``load_file`` with ``mode: "restore"``, and snapshot restore) keeps ``plan_db_replace``'s
+validate-then-swap path (validated copy, ``before_load`` backup, atomic replace). The exit
+snapshot still keeps a versioned copy of the plan file and of the legacy database.
 """
 
 import shutil
@@ -21,6 +22,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
 
+from .. import plan_registry
 from ..plan_db_replace import PLAN_FILE_TABLES, copy_sqlite_file, replace_active_db, validate_plan_file
 from ..active_plan import read_build_results
 from ..build_snapshot import (
@@ -38,6 +40,8 @@ class PlanFileServiceContext:
     output_dir: Callable[[], Path] | None = None
     # Runs the at-rest plan-data migration against the freshly replaced plan file.
     migrate: Callable[[Path], Any] | None = None
+    # Runs on a plan file that just became the active plan (Save As, Load Saved Plan).
+    after_switch: Callable[[Path], Any] | None = None
 
 
 def _sidecar_paths(db_path: Path) -> list[Path]:
@@ -103,9 +107,22 @@ class PlanFileService:
         self.ctx.audit("exit_snapshot_created", {"snapshot": out.get("snapshot"), "plan_snapshot": out.get("plan_snapshot"), "pruned": pruned})
         return out
 
+    def _plan_view(self, rec: dict[str, Any]) -> dict[str, Any]:
+        return {k: rec.get(k) for k in ("plan_id", "name", "kind", "path", "last_opened")}
+
+    def _switch_to(self, plan_id: str) -> dict[str, Any]:
+        rec = plan_registry.activate(plan_id)
+        if self.ctx.after_switch is not None:
+            try:
+                self.ctx.after_switch(Path(rec["path"]))
+            except Exception as exc:  # noqa: BLE001 - never undoes a completed switch
+                self.ctx.audit("plan_after_switch_warning", {"path": rec["path"], "error": str(exc)})
+        return rec
+
     def save_as(self, body: dict[str, Any]) -> dict[str, Any]:
-        """Copy the plan file to a user-chosen path (a consistent copy through the SQLite
-        backup API; the WAL is folded in)."""
+        """Copy the active plan file to a user-chosen path (a consistent copy through the SQLite
+        backup API; the WAL is folded in), register the copy as a user plan and, unless
+        ``activate`` is false, make it the active plan."""
         dest_path = str(body.get("path", "")).strip()
         if not dest_path:
             return {"success": False, "error": "No path provided"}
@@ -113,19 +130,45 @@ class PlanFileService:
         if not src.exists():
             return {"success": False, "error": "No active plan file found"}
         dest = Path(dest_path).expanduser()
-        copy_sqlite_file(src, dest)
-        self.ctx.audit("plan_saved_as", {"dest": str(dest)})
-        return {"success": True}
+        if not dest.is_absolute():
+            dest = Path.cwd() / dest
+        same = plan_registry.same_path(src, dest)
+        if not same:
+            copy_sqlite_file(src, dest)
+        name = str(body.get("name") or "").strip() or dest.stem
+        rec = plan_registry.register_plan_file(dest, name=name)
+        activate = body.get("activate", True) not in (False, "false", "0", 0)
+        if activate and not same:  # a copy of the plan in use: nothing to migrate or backfill
+            rec = plan_registry.activate(rec["plan_id"])
+        self.ctx.audit("plan_saved_as", {"dest": str(dest), "plan_id": rec["plan_id"], "activated": bool(activate)})
+        return {"success": True, "plan": self._plan_view(rec), "activated": bool(activate)}
 
     def load_file(self, body: dict[str, Any]) -> dict[str, Any]:
-        """Replace the plan file with a user-chosen plan file (validated first; the current
-        plan is backed up to ``<plan>.before_load_<ts>``)."""
+        """Load Saved Plan. ``mode: "open"`` (default): register the chosen plan file and make it
+        the active plan (no copy; the current plan file is untouched). ``mode: "restore"``: replace
+        the ACTIVE plan file's contents with the chosen file (a backup or saved copy), validated
+        first, the current plan backed up to ``<plan>.before_load_<ts>``."""
         src_raw = str(body.get("path", "")).strip()
         if not src_raw:
             return {"success": False, "error": "No path provided"}
         src = Path(src_raw).expanduser()
         if not src.exists() or not src.is_file():
             return {"success": False, "error": "Saved plan file not found"}
+        if str(body.get("mode") or "open").strip().lower() == "restore":
+            return self._restore_into_active(src)
+        error = plan_registry.check_plan_file(src)
+        if error:
+            return {"success": False, "error": error}
+        name = str(body.get("name") or "").strip() or None
+        rec = plan_registry.register_plan_file(src, name=name)
+        try:
+            rec = self._switch_to(rec["plan_id"])
+        except plan_registry.PlanRegistryError as exc:
+            return {"success": False, "error": str(exc)}
+        self.ctx.audit("plan_loaded_file", {"source": str(src), "plan_id": rec["plan_id"]})
+        return {"success": True, "plan": self._plan_view(rec), "backup": None}
+
+    def _restore_into_active(self, src: Path) -> dict[str, Any]:
         dest = self.ctx.plan_db()
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_name = f"{dest.name}.before_load_{ts}"
@@ -136,7 +179,7 @@ class PlanFileService:
             return {"success": False, "error": result.get("error", "Could not load plan file")}
         pruned = self._prune_backups(dest.parent, f"{dest.name}.before_load_*")
         self.ctx.audit(
-            "plan_loaded_file",
+            "plan_restored_file",
             {"source": str(src), "backup": backup_name if backup.exists() else None, "sidecars_removed": result.get("sidecars_removed", 0), "pruned": pruned},
         )
         return {"success": True, "backup": backup_name if backup.exists() else None}
