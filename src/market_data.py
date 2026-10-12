@@ -210,7 +210,7 @@ class MarketDataProvider:
     fallback_prices: Dict[str, float] = field(default_factory=dict)
     frozen_prices: Dict[str, float] = field(default_factory=dict)
     frozen_metadata: Dict[str, object] = field(default_factory=dict)
-    # Holdings pricing behavior is configured from multi_user/system_config.csv, not environment variables.
+    # Holdings pricing behavior is configured from the runtime settings (app.db), not environment variables.
     # Valid modes:
     #   CACHE   = use a fresh cache first; fetch live only when cache is missing/stale
     #   LIVE    = fetch live first; fall back to cache/cost basis
@@ -325,9 +325,9 @@ class MarketDataProvider:
                 pass
 
     def configure_api_keys(self, fmp_api_key: object = "", alpha_vantage_api_key: object = "") -> None:
-        """Apply API keys from multi_user/system_config.csv.
+        """Apply API keys from the runtime settings (``Market Pricing|API|...``).
 
-        CSV location:
+        Setting keys:
           Market Pricing,API,fmp_api_key,<key>
           Market Pricing,API,alpha_vantage_api_key,<key>
         """
@@ -343,7 +343,7 @@ class MarketDataProvider:
             self.reset_runtime_state(clear_failures=True, clear_provider_failures=True)
 
     def configure_holdings_pricing(self, mode: str = "CACHE", cache_hours: object = 24) -> None:
-        """Apply holdings-pricing settings from multi_user/system_config.csv.
+        """Apply holdings-pricing settings from the runtime settings (app.db).
 
         mode values:
           CACHE   - use cached price first even when stale; call live providers only when no cache exists
@@ -1534,7 +1534,7 @@ class MarketDataProvider:
             "cache_first_enabled": self.cache_first,
             "cache_ttl_hours": round(self.ttl_seconds / 3600, 2),
             "csv_settings": {
-                "file": "multi_user/system_config.csv",
+                "file": "app.db settings (System Configuration)",
                 "section": "Market Pricing",
                 "subsection": "Holdings",
                 "pricing_mode": "CACHE | LIVE | OFFLINE",
@@ -1550,7 +1550,7 @@ class MarketDataProvider:
             "stooq_configured": True,
             "fmp_api_key_fingerprint": _secret_fingerprint(self.fmp_api_key),
             "alpha_vantage_api_key_fingerprint": _secret_fingerprint(self.alpha_vantage_api_key),
-            "api_key_source": "UI/system_config.csv, environment variables, or encrypted secret store",
+            "api_key_source": "System Configuration UI, environment variables, or encrypted secret store",
             "effective_api_key_sources": self.api_key_sources(),
             "proxy_environment_present": any(os.environ.get(k) for k in ("HTTPS_PROXY", "HTTP_PROXY", "ALL_PROXY", "REQUESTS_CA_BUNDLE", "SSL_CERT_FILE")),
             "proxy_environment_keys": [k for k in ("HTTPS_PROXY", "HTTP_PROXY", "ALL_PROXY", "NO_PROXY", "REQUESTS_CA_BUNDLE", "SSL_CERT_FILE") if os.environ.get(k)],
@@ -1558,11 +1558,11 @@ class MarketDataProvider:
             "nasdaq_asset_classes": ["etf", "stocks"],
             "stooq_symbol_rule": "append .us only for Stooq calls; other providers receive original symbols",
             "api_key_csv_settings": {
-                "file": "multi_user/system_config.csv",
+                "file": "app.db settings (System Configuration)",
                 "section": "Market Pricing",
                 "subsection": "API",
-                "fmp_api_key": "Financial Modeling Prep key from UI/system_config.csv, RETIREMENT_SYSTEM_FMP_API_KEY, FMP_API_KEY, FINANCIAL_MODELING_PREP_API_KEY, or encrypted secret store",
-                "alpha_vantage_api_key": "Alpha Vantage key from UI/system_config.csv, RETIREMENT_SYSTEM_ALPHA_VANTAGE_API_KEY, ALPHA_VANTAGE_API_KEY, or encrypted secret store",
+                "fmp_api_key": "Financial Modeling Prep key from the System Configuration UI, RETIREMENT_SYSTEM_FMP_API_KEY, FMP_API_KEY, FINANCIAL_MODELING_PREP_API_KEY, or encrypted secret store",
+                "alpha_vantage_api_key": "Alpha Vantage key from the System Configuration UI, RETIREMENT_SYSTEM_ALPHA_VANTAGE_API_KEY, ALPHA_VANTAGE_API_KEY, or encrypted secret store",
             },
             "cache_schema_version": CACHE_SCHEMA_VERSION,
             "cache_path": str(self.cache_path),

@@ -150,11 +150,14 @@ def test_service_unit_payloads_are_plain_data(tmp_path):
     assert status == 200 and payload["success"] is True
     assert json.loads((tmp_path / "data" / "prefs.json").read_text())["theme"] == "dark"
 
-    cfg = tmp_path / "system_config.csv"
-    cfg.write_text("section,subsection,label,value\nA,B,C,D\n", encoding="utf-8")
-    assert admin_service.system_config_payload(cfg)["rows"][1] == ["A", "B", "C", "D"]
+    from src.system_config import set_system_settings
+    app_db = tmp_path / "app.db"
+    set_system_settings({("A", "B", "C"): "D"}, app_db)
+    rows = admin_service.system_config_payload(app_db)["rows"]
+    assert ["A", "B", "C", "D", "", ""] in rows
+    assert rows[0][:4] == ["section", "subsection", "label", "value"]
 
-    meta = build_service.file_meta(cfg)
+    meta = build_service.file_meta(app_db)
     assert meta["exists"] is True and meta["bytes"] > 0
 
 
@@ -206,8 +209,9 @@ def test_admin_csv_backup_zip_is_exhaustive_over_input_and_reference_dirs(tmp_pa
     (tmp_path / "input" / "not_a_csv.txt").write_text("ignore me", encoding="utf-8")
     (tmp_path / "reference_data").mkdir()
     (tmp_path / "reference_data" / "security_master.csv").write_text("e,f\n5,6\n", encoding="utf-8")
-    cfg = tmp_path / "system_config.csv"
-    cfg.write_text("section,subsection,label,value\nA,B,C,D\n", encoding="utf-8")
+    from src.system_config import set_system_settings
+    cfg = tmp_path / "app.db"
+    set_system_settings({("A", "B", "C"): "D"}, cfg)
 
     payload, status = admin_service.csv_backup_zip(tmp_path, cfg)
     assert status == 200
@@ -222,16 +226,18 @@ def test_admin_csv_backup_zip_is_exhaustive_over_input_and_reference_dirs(tmp_pa
     zf = zipfile.ZipFile(io.BytesIO(payload["data"]))
     names = set(zf.namelist())
     assert names == set(payload["included"]) | {"BACKUP_MANIFEST.txt"}
-    assert zf.read("system_config.csv") == cfg.read_bytes()
+    assert b"A,B,C,D" in zf.read("system_config.csv")
     assert "not_a_csv.txt" not in "".join(names)
 
 
-def test_admin_csv_backup_zip_reports_no_files_found(tmp_path):
+def test_admin_csv_backup_zip_always_carries_the_settings(tmp_path):
     from src.server_services import admin_service
 
-    payload, status = admin_service.csv_backup_zip(tmp_path, tmp_path / "system_config.csv")
-    assert status == 404
-    assert payload["success"] is False
+    # WP8.1: the runtime settings (defaults on a fresh install) are always exported.
+    payload, status = admin_service.csv_backup_zip(tmp_path, tmp_path / "app.db")
+    assert status == 200
+    assert payload["included"] == ["system_config.csv"]
+    assert not (tmp_path / "app.db").exists()
 
 
 def test_admin_csv_backup_route_returns_zip_attachment():

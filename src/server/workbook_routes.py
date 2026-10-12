@@ -37,12 +37,11 @@ from .app_core import (
     _ensure_user_ui_plan_data_rows,
     _blank_plan_rows,
     _make_blank_plan_files,
-    _make_request_system_config_csv_for,
     _normalize_plan_data_file_name,
     _protected_client_data_status,
     _read_last_build_timestamp,
     _read_plan_data_file,
-    _request_system_config_csv,
+    app_db_env,
     _require,
     _runtime_config,
     _spending_budget_save_result,
@@ -232,7 +231,7 @@ def build_start():
     output_dir = _workspace_output()
     output_dir.mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
-    env["RETIREMENT_SYSTEM_SYSTEM_CONFIG_CSV"] = str(_make_request_system_config_csv_for(workspace_id, client_id, output_dir))
+    app_db_env(env)  # WP8.1: the build reads this server's runtime settings (app.db)
     env["PYTHONIOENCODING"] = env.get("PYTHONIOENCODING", "utf-8:replace")
     env["PYTHONUNBUFFERED"] = "1"
     plan_db_env(env)  # WP4.2: the build reads the plan rows of this server's active plan file
@@ -338,7 +337,7 @@ def build():
 
     # Local-only package builds from the saved SQLite-backed working copy; input/ files are import/export adapters.
     env = os.environ.copy()
-    env["RETIREMENT_SYSTEM_SYSTEM_CONFIG_CSV"] = str(_request_system_config_csv())
+    app_db_env(env)  # WP8.1: the build reads this server's runtime settings (app.db)
     env["PYTHONIOENCODING"] = env.get("PYTHONIOENCODING", "utf-8:replace")
     env["PYTHONUNBUFFERED"] = "1"
     plan_db_env(env)  # WP4.2: the build reads the plan rows of this server's active plan file

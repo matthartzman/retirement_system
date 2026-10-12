@@ -43,10 +43,11 @@ def test_load_active_config_reads_the_plan_file_not_the_csvs(workspace):
 
 def test_load_active_config_view_equals_the_csv_loader_for_the_fixture(workspace):
     from src.config_backend import _merge_system_config_sections, load_active_config
-    from src.system_config import discover_system_config_csv, load_system_config
+    from src.engine_defaults import with_engine_defaults
+    from src.system_config import load_system_config
 
     data, _ = load_active_config()
-    expected = _merge_system_config_sections(workspace.data(), load_system_config(discover_system_config_csv()))
+    expected = with_engine_defaults(_merge_system_config_sections(workspace.data(), load_system_config()))
     assert data == expected and list(data) == list(expected)
 
 

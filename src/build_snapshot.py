@@ -194,6 +194,13 @@ def restore_sqlite_database_from_snapshot(snapshot: dict[str, Any] | None, activ
         "sha256": actual_hash,
     }
 
+def _settings_record(settings: dict[str, Any]) -> dict[str, Any]:
+    """Content record of the runtime settings (app.db) a build ran with (WP8.1)."""
+    import json  # noqa: PLC0415
+    data = json.dumps(settings, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return {"file": "app.db settings", "exists": True, "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest()}
+
+
 def make_build_snapshot(
     output_dir: str | Path,
     *,
@@ -203,7 +210,7 @@ def make_build_snapshot(
     summary: dict[str, Any] | None = None,
     explorer: dict[str, Any] | None = None,
     output_files: Iterable[str] | None = None,
-    system_config_path: str | Path | None = None,
+    system_settings: dict[str, Any] | None = None,
     pricing: dict[str, Any] | None = None,
     sqlite_db_path: str | Path | None = None,
 ) -> dict[str, Any]:
@@ -218,7 +225,8 @@ def make_build_snapshot(
     artifacts.append(build_part_record("explorer", explorer or {}))
     artifacts.append(build_part_record("summary", summary or {}))
     artifacts.append(build_part_record("pricing", pricing or {}))
-    system_config = _file_record(Path(system_config_path)) if system_config_path else {}
+    # The runtime settings (app.db) the build ran with: content hash, not a file record (WP8.1).
+    system_config = _settings_record(system_settings) if system_settings is not None else {}
     pricing_diagnostics = build_part_record("pricing", pricing or {})
     sqlite_database = _file_record(Path(sqlite_db_path)) if sqlite_db_path else {}
     sqlite_database_snapshot = capture_sqlite_database_snapshot(sqlite_db_path, out) if sqlite_db_path else {"exists": False, "reason": "sqlite_db_path_not_provided", "file": SNAPSHOT_DB_FILENAME}
