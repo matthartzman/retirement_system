@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 237 Python files under `src/`, 50 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 238 Python files under `src/`, 50 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -24,7 +24,7 @@ flowchart TB
     subgraph L_HTTP_Runtime["HTTP Runtime (3 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
-    subgraph L_Core_Engine___Domain["Core Engine & Domain (155 modules)"]
+    subgraph L_Core_Engine___Domain["Core Engine & Domain (156 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
     subgraph L_Projection_Stages["Projection Stages (23 modules)"]
@@ -536,6 +536,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/import_preview.py` | `csv_exchange`, `plan_datasets`, `stores.ref_getters.security_master`, `ytd_tracking` | — |
 | `src/large_discretionary.py` | — | — |
 | `src/legacy_conversion/__init__.py` | — | — |
+| `src/legacy_conversion/runner.py` | `legacy_conversion.steps`, `stores` | — |
 | `src/legacy_conversion/steps/__init__.py` | — | — |
 | `src/legacy_conversion/steps/c3_plan_rows.py` | `csv_exchange`, `plan_data_migration`, `plan_label_rules` | — |
 | `src/legacy_conversion/steps/c3b_plan_overrides.py` | `csv_exchange`, `plan_overrides` | — |
