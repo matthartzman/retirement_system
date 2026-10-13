@@ -46,6 +46,7 @@ from .text_csv import (
     rows_to_text,
     write_rows_stream,
 )
+from . import rental_csv
 from .plan_set import export_plan_set, export_plan_set_files, import_plan_set, split_plan_rows
 from .plan_csv import (
     ANCHOR_FILE,
@@ -65,6 +66,7 @@ from .plan_csv import (
 )
 
 __all__ = [
+    "rental_csv",
     "dict_reader",
     "dict_reader_stream",
     "list_rows",
