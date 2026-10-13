@@ -1,11 +1,12 @@
 """Flat datasets of the active plan (WP6): holdings, liabilities, HSA schedule, target
 allocation, and the spending set (taxonomy, aliases, budget, budget lines, tier overrides:
-WP6.3), the spending recovery copies (WP6.3c) and the YTD tables (WP6.4). The functions live in ``active_plan`` (the one product module that opens the plan
+WP6.3), the spending recovery copies (WP6.3c) and the YTD tables (WP6.4), plus the typed rental properties (WP12.4: ``active_rental_properties``). The functions live in ``active_plan`` (the one product module that opens the plan
 file); this module is their import point for readers."""
 from __future__ import annotations
 
 from .active_plan import (
     active_hsa_schedule_saved,
+    active_rental_properties,
     transform_dataset_rows_for_input_dir,
     append_dataset_row_for_input_dir,
     active_dataset_rows,
@@ -30,6 +31,7 @@ DATASET_BY_FILE: dict[str, str] = {file: name for name, file in FLAT_DATASET_FIL
 
 __all__ = [
     "active_hsa_schedule_saved",
+    "active_rental_properties",
     "transform_dataset_rows_for_input_dir",
     "append_dataset_row_for_input_dir",
     "DATASET_BY_FILE",

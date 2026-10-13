@@ -458,6 +458,19 @@ def active_dataset_rows(name: str) -> list[dict[str, str]]:
     return _dataset_rows(active_plan_path(), name)
 
 
+def active_rental_properties() -> list[dict[str, Any]]:
+    """The active plan's rental properties as ``parse_rental_properties`` input rows (WP12.4;
+    ``store.rental``). ``[]`` when there is no plan file. Never creates a plan file."""
+    path = active_plan_path()
+    if not path.is_file():
+        return []
+    try:
+        with _reading(path) as store:
+            return store.rental.properties()
+    except LookupError:  # stores.NotFoundError: not an initialised plan file
+        return []
+
+
 def dataset_text_for_input_dir(input_dir: str | Path, name: str) -> str | None:
     """For code handed a workspace's ``input`` folder: the active plan when it is the live
     workspace's ``input``, else the ``plan.rpx`` of the workspace that holds it."""

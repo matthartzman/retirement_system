@@ -465,3 +465,55 @@ DAF,Settings,grant_start_year,year,FALSE,,2026,2100,First year of DAF grants.
 DAF,Settings,grant_end_year,year,FALSE,,2026,2100,Last year of DAF grants.
 DAF,Settings,contribution_is_appreciated,boolean,FALSE,FALSE,,,TRUE if the DAF contribution is appreciated securities rather than cash. Limits the deductible amount to 30% of AGI instead of 60% (5-year carryforward for any excess) and transfers the shares in kind out of the taxable accounts - no cash withdrawal and no realized capital gain. A cash contribution is instead funded through the normal spending/withdrawal waterfall.
 Estate Planning,Step-Up,former_spouse_name,text,FALSE,,,,Optional name used only by the Beneficiary & Titling Audit (Sheet 14) to flag a former spouse still named as a beneficiary on any account.
+Rental Properties,Property,name,text,FALSE,,,,Unique name of the rental property.
+Rental Properties,Property,kind,choice,FALSE,Standalone,,,Standalone | Converted home. A converted home is the plan's own home turned into a rental.
+Rental Properties,Property,owner,choice,FALSE,,,,"Who owns it: member 1, member 2 or joint."
+Rental Properties,Property,notes,text,FALSE,,,,Free-text notes.
+Rental Properties,Property,purchase_price,dollars,FALSE,,,,Purchase price.
+Rental Properties,Property,closing_costs,dollars,FALSE,,,,Closing costs added to the basis.
+Rental Properties,Property,current_value,dollars,FALSE,,,,Current value.
+Rental Properties,Property,monthly_rent,dollars,FALSE,,,,Monthly rent at the start of renting.
+Rental Properties,Property,property_tax,dollars,FALSE,,,,Annual property tax.
+Rental Properties,Property,insurance,dollars,FALSE,,,,Annual insurance.
+Rental Properties,Property,hoa,dollars,FALSE,,,,Annual HOA dues.
+Rental Properties,Property,utilities,dollars,FALSE,,,,Annual utilities paid by the owner.
+Rental Properties,Property,other_expenses,dollars,FALSE,,,,Other annual expenses.
+Rental Properties,Property,loan_balance,dollars,FALSE,,,,Loan balance in the balance year.
+Rental Properties,Property,loan_monthly_payment,dollars,FALSE,,,,Monthly loan payment (optional with a rate).
+Rental Properties,Property,prior_suspended_loss,dollars,FALSE,,,,Passive loss already suspended and carried in from earlier years.
+Rental Properties,Property,sale_price,dollars,FALSE,,,,Sale price (blank = appreciated value).
+Rental Properties,Property,value_at_conversion,dollars,FALSE,,,,Converted home: value on the conversion date.
+Rental Properties,Property,adjusted_basis_at_conversion,dollars,FALSE,,,,Converted home: adjusted basis on the conversion date.
+Rental Properties,Property,land_share,percent,FALSE,20%,,,Land share of the basis (not depreciable).
+Rental Properties,Property,vacancy_rate,percent,FALSE,0%,,,Share of the year the property is vacant.
+Rental Properties,Property,maintenance_pct,percent,FALSE,,,,Maintenance as a share of rent.
+Rental Properties,Property,management_pct,percent,FALSE,,,,Management fee as a share of rent.
+Rental Properties,Property,selling_cost_pct,percent,FALSE,,,,Selling costs as a share of the sale price.
+Rental Properties,Property,appreciation,percent,FALSE,,,,Annual appreciation.
+Rental Properties,Property,rent_growth,percent,FALSE,,,,Annual rent growth.
+Rental Properties,Property,expense_growth,percent,FALSE,,,,Annual expense growth.
+Rental Properties,Property,property_tax_growth,percent,FALSE,,,,Annual property tax growth.
+Rental Properties,Property,loan_rate,percent,FALSE,,,,Loan interest rate.
+Rental Properties,Property,purchase_year,year,FALSE,,,,Year of purchase.
+Rental Properties,Property,value_as_of_year,year,FALSE,,,,Year of the current value.
+Rental Properties,Property,rental_start_year,year,FALSE,,,,First year of renting.
+Rental Properties,Property,rental_end_year,year,FALSE,,,,Last year of renting.
+Rental Properties,Property,loan_balance_year,year,FALSE,,,,Year of the loan balance.
+Rental Properties,Property,placed_in_service_year,year,FALSE,,,,Year first available for rent (depreciation starts).
+Rental Properties,Property,sale_year,year,FALSE,,,,Year of sale.
+Rental Properties,Property,conversion_year,year,FALSE,,,,Converted home: year it became a rental.
+Rental Properties,Property,purchase_month,integer,FALSE,,,,"Month of purchase (1-12; blank = 7, mid-year)."
+Rental Properties,Property,placed_in_service_month,integer,FALSE,,,,Month placed in service (1-12; blank = 7).
+Rental Properties,Property,sale_month,integer,FALSE,,,,Month of sale (1-12; blank = 7).
+Rental Properties,Property,conversion_month,integer,FALSE,,,,Converted home: month of conversion (1-12; blank = 7).
+Rental Properties,Property,loan_term_years,integer,FALSE,,,,Loan term in years.
+Rental Properties,Property,active_participation,boolean,FALSE,TRUE,,,"Active participation in the rental (passive-loss allowance of up to 25,000). Yes when blank."
+Rental Properties,Improvement,year,year,FALSE,,,,Year the capital improvement was placed in service.
+Rental Properties,Improvement,month,integer,FALSE,,,,"Month placed in service (1-12; blank = 7, mid-year)."
+Rental Properties,Improvement,amount,dollars,FALSE,,,,Cost added to the basis and depreciated over 27.5 years.
+Rental Properties,Improvement,description,text,FALSE,,,,What was done.
+Rental Properties,Year Override,year,year,FALSE,,,,Calendar year the override applies to.
+Rental Properties,Year Override,gross_rent,dollars,FALSE,,,,"Gross rent for the year, replacing the formula."
+Rental Properties,Year Override,operating_expenses,dollars,FALSE,,,,"Operating expenses for the year, replacing the formula."
+Rental Properties,Year Override,notes,text,FALSE,,,,Why the year differs.
+Household,,mfs_lived_apart,boolean,FALSE,FALSE,,,"Spouses filing separately lived apart all year (gives the MFS passive-loss allowance of 12,500). No when blank."
