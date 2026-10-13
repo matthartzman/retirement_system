@@ -40,3 +40,10 @@ Open `rental_properties_mockup.html#<n>` (e.g. `#1_list`). Desktop 1280x900, mob
 8. Off state keeps "Preview what it would add". (default)
 9. Net yield = (rent - operating expenses) / value. (default)
 10. "Convert my home" in Next Housing Move / Housing Comparison is handled in 12.8 with its own mockup. (default)
+
+## WP12.8 housing entry (text mockup, no screenshot)
+Shown only while Rental Properties is on; off, both screens are unchanged (Phase 1 text kept).
+- **Optimize > Next Housing Move, Home Sale area:** note "Keeping your home and renting it out? [Convert my home to a rental] opens Rental Properties with the conversion year set to your next move; you enter the rent." The button opens screen 10_convert_my_home pre-filled; rent is asked there, no suggestion.
+- **Where to live search, step 2 Current home:** Disposition gains "Keep and rent out" (Auto searches it too when a rent is known); a "Monthly rent if rented out" field (today's $, blank = the converted home's rent; never suggested). The "rental income is not modelled" note and help text are replaced.
+- **Results row** for keep and rent out: current home "Keep and rent out"; notes "rented out from 2028; s.121 two-of-five: exclusion only if sold by 2031; s.1250 recapture: $X depreciation taken ..., taxed up to 25% on a sale" and a [Convert my home] button (year and typed rent pre-filled). A failing s.121 test is a note only.
+- Housing Comparison is a workbook sheet with no page, so it has no entry; its sweep is unchanged.

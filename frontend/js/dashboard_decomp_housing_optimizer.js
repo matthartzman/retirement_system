@@ -109,9 +109,32 @@ const HOUSING_OPT_PERSIST_META_KEYS = new Set([
 const HOUSING_OPT_OBJECTIVES = ["net_worth", "lifetime_cost", "mc_success_rate"];
 const HOUSING_OPT_SEARCH_MODES = ["full", "narrowed"];
 const HOUSING_OPT_MOVE2_STRATEGIES = ["anchored", "cross_product"];
-const HOUSING_OPT_DISPOSITIONS = ["sell", "keep", "auto"];
+const HOUSING_OPT_DISPOSITIONS = ["sell", "keep", "auto", "rent_out"];
 const HOUSING_OPT_ALLOWED_RADII_MILES = [5, 10, 25, 50];
 const HOUSING_OPT_FAMILY_RADII_MILES = [10, 25, 50, 100];
+
+// WP12.8: "Keep and rent out" is offered, and the Phase 1 "no rental income"
+// disclosure retired, only while Rental Properties (rental_property_income) is
+// on. Off, every text and control below is exactly what it was.
+// A harness without the plan rows reads as off.
+export function housingOptRentOutOn() {
+  try {
+    return typeof optionalFunctionEnabled === "function" && optionalFunctionEnabled("rental_property_income");
+  } catch (e) {
+    return false;
+  }
+}
+// The Phase 1 texts, shown while the feature is off.
+const HOUSING_OPT_PHASE1_PANEL_IMPACT =
+  "Phase 1 limitation: keeping the current home (Disposition = Keep) is scored as a pure cost center -- its carrying costs keep accruing and no rental income is modelled. A kept home can still win on net worth or lifetime cost by avoiding a sale's costs and capital-gains tax while it appreciates, but the comparison does not yet credit any rent it could earn. That comparison is Phase 2 (see the Disposition field's help for the same note in context).";
+const HOUSING_OPT_PHASE1_NO_DUAL_CONNECTIONS =
+  "When on, two combinations are rejected during candidate generation: keeping the current home while any move buys (no rental income exists to offset owning two homes in Phase 1), and buying a move before the current home's sale year. Concurrent second-move mode always keeps both homes, so this checkbox is disabled and ignored while concurrent is active.";
+const HOUSING_OPT_PHASE1_DISPOSITION_MEANING =
+  "What happens to the current home: Sell, Keep, or Auto (search both and let the objective decide).";
+const HOUSING_OPT_PHASE1_DISPOSITION_CONNECTIONS =
+  "Sell searches an earliest/latest sale-year window. Keep sets no sale at all -- the home's carrying costs keep accruing for the rest of the plan. Important: Keep does NOT mean the home is rented out. No rental income is modelled for a kept home in this phase; it is scored purely as an ongoing cost. (Turning a kept home into an income property is a separate, not-yet-built feature -- Phase 2.) 'Never own two homes at once' also treats Keep + any Buy move as disallowed by default, since there is no rental income in Phase 1 to justify owning two homes.";
+const HOUSING_OPT_PHASE1_DISPOSITION_IMPACT =
+  "Keep avoids selling costs and capital-gains tax and lets the home keep appreciating, which can make it win on net worth or lifetime cost despite earning no rental income -- but it also disables the sale-year fields and, with 'Never own two homes at once' on, rules out buying while keeping.";
 
 // Per-move anchor counts, keyed by move index. Rendered markup and the
 // add/remove controls both read this, so the two never disagree.
@@ -334,8 +357,11 @@ const HOUSING_OPT_FIELD_HELP = (() => {
       "Objective picks what is ranked: Ending net worth, Lifetime housing cost (minimized), or Monte Carlo success rate. Step 1 fixes the places and the timing; step 2 fixes everything the costing needs. Each searched move runs its own ZIP-radius screen -- a funnel of in_radius -> with_data -> above_score -> matching_area_type -> under_population_cap -> affordable -> distinct -> near_family -> per_anchor_quota -> promoted -- and you pick the candidates from what survives it.",
     options:
       "Start with Full grid search mode for a thorough run; switch to Narrowed only when the search space is too large to run in full. Step 1's 'Find candidate locations' shows exactly which ZIPs each move's screen returns, and what each is estimated to cost in the year you would move, before anything is run.",
-    impact:
-      "Phase 1 limitation: keeping the current home (Disposition = Keep) is scored as a pure cost center -- its carrying costs keep accruing and no rental income is modelled. A kept home can still win on net worth or lifetime cost by avoiding a sale's costs and capital-gains tax while it appreciates, but the comparison does not yet credit any rent it could earn. That comparison is Phase 2 (see the Disposition field's help for the same note in context).",
+    get impact() {
+      return housingOptRentOutOn()
+        ? "Keeping the current home comes in two forms. Keep scores it as a cost center: its carrying costs keep accruing and it earns nothing. Keep and rent out rents it from move 1's year at your monthly rent, with Schedule E, depreciation and the passive-loss limit, and each such row notes the year a sale would still keep the section 121 exclusion and the depreciation a sale would recapture."
+        : HOUSING_OPT_PHASE1_PANEL_IMPACT;
+    },
   };
 
   return help;
@@ -382,8 +408,11 @@ Object.assign(HOUSING_OPT_FIELD_HELP, {
     title: "Never own two homes at once",
     meaning:
       "Constrains ownership only. Renting a residence while still owning the previous home is always permitted and is the intended way to bridge a timing gap -- this checkbox never blocks that.",
-    connections:
-      "When on, two combinations are rejected during candidate generation: keeping the current home while any move buys (no rental income exists to offset owning two homes in Phase 1), and buying a move before the current home's sale year. Concurrent second-move mode always keeps both homes, so this checkbox is disabled and ignored while concurrent is active.",
+    get connections() {
+      return housingOptRentOutOn()
+        ? "When on, two combinations are rejected during candidate generation: keeping the current home without renting it (Keep) while any move buys, and buying a move before the current home's sale year. Keep and rent out is never rejected: the rented home's costs are rental expenses. Concurrent second-move mode always keeps both homes, so this checkbox is disabled and ignored while concurrent is active."
+        : HOUSING_OPT_PHASE1_NO_DUAL_CONNECTIONS;
+    },
     options:
       "Leave it on for a household that genuinely cannot carry two mortgages/insurance/tax bills at once. Turn it off to let the optimizer consider overlapping ownership windows and let the objective decide whether the overlap is worth it.",
     impact:
@@ -422,14 +451,31 @@ Object.assign(HOUSING_OPT_FIELD_HELP, {
   },
   housingOptDisposition: {
     title: "Disposition (current home)",
-    meaning:
-      "What happens to the current home: Sell, Keep, or Auto (search both and let the objective decide).",
-    connections:
-      "Sell searches an earliest/latest sale-year window. Keep sets no sale at all -- the home's carrying costs keep accruing for the rest of the plan. Important: Keep does NOT mean the home is rented out. No rental income is modelled for a kept home in this phase; it is scored purely as an ongoing cost. (Turning a kept home into an income property is a separate, not-yet-built feature -- Phase 2.) 'Never own two homes at once' also treats Keep + any Buy move as disallowed by default, since there is no rental income in Phase 1 to justify owning two homes.",
+    get meaning() {
+      return housingOptRentOutOn()
+        ? "What happens to the current home: Sell, Keep, Keep and rent out, or Auto (search them all and let the objective decide)."
+        : HOUSING_OPT_PHASE1_DISPOSITION_MEANING;
+    },
+    get connections() {
+      return housingOptRentOutOn()
+        ? "Sell searches an earliest/latest sale-year window. Keep sets no sale: the home's carrying costs keep accruing and it earns no rent. Keep and rent out keeps it and rents it from move 1's year at the monthly rent you type (blank: your Rental Properties converted home's rent; with neither it is not searched); from then its carrying costs are rental expenses. Owning it while a move buys is allowed even with 'Never own two homes at once' on, because it is rented."
+        : HOUSING_OPT_PHASE1_DISPOSITION_CONNECTIONS;
+    },
+    get impact() {
+      return housingOptRentOutOn()
+        ? "Keep and rent out adds rent and its tax: a loss is limited by the passive-activity rules, and a later sale loses the section 121 exclusion about three years after the move-out (the row says the year) and taxes the depreciation taken at up to 25%. Keep avoids selling costs and capital-gains tax and lets the home keep appreciating, but earns nothing."
+        : HOUSING_OPT_PHASE1_DISPOSITION_IMPACT;
+    },
     options:
       "Choose Sell or Keep only when the household has already decided; choose Auto to let the search compare both and report whichever wins on the objective.",
-    impact:
-      "Keep avoids selling costs and capital-gains tax and lets the home keep appreciating, which can make it win on net worth or lifetime cost despite earning no rental income -- but it also disables the sale-year fields and, with 'Never own two homes at once' on, rules out buying while keeping.",
+  },
+  housingOptRentOutRent: {
+    title: "Monthly rent if rented out",
+    meaning: "The rent you expect to charge for the current home, per month, in today's dollars. Shown only while Rental Properties is on.",
+    connections:
+      "Keep and rent out rents the home from move 1's year at this rent, growing with inflation. Blank uses the rent of your Rental Properties converted home; with neither, Keep and rent out is not searched. No rent is ever suggested.",
+    options: "Use a realistic market rent for the home as it is. Vacancy and expenses come from your converted home on Rental Properties, if you have one.",
+    impact: "A higher rent makes Keep and rent out score better; the tax on it and any passive-loss limit are applied by the projection.",
   },
   housingOptDownPaymentPct: {
     title: "Down payment %",
@@ -1074,8 +1120,8 @@ export function toggleHousingOptNoDualOwnershipAvailability() {
 // Keeping the current home means there is no sale to schedule, so the sale
 // window is disabled and dimmed rather than silently ignored (§9.2).
 export function toggleHousingOptDispositionFields() {
-  const keep =
-    String(document.getElementById("housingOptDisposition")?.value || "auto") === "keep";
+  const keep = ["keep", "rent_out"].includes(
+    String(document.getElementById("housingOptDisposition")?.value || "auto"));
   ["housingOptEarliestSale", "housingOptLatestSale"].forEach((id) => {
     const el = document.getElementById(id);
     if (el) el.disabled = keep;
@@ -1346,6 +1392,7 @@ export function renderHousingOptimizePanelHtml() {
       ),
   );
 
+  const rentOut = housingOptRentOutOn();
   const currentHomeRow = housingOptRow(
     "Current home",
     housingOptField(
@@ -1354,14 +1401,24 @@ export function renderHousingOptimizePanelHtml() {
       housingOptSelect(
         "housingOptDisposition",
         [
-          { value: "auto", label: "Auto (search both)", selected: true },
+          { value: "auto", label: rentOut ? "Auto (search all)" : "Auto (search both)", selected: true },
           { value: "sell", label: "Sell" },
           { value: "keep", label: "Keep" },
-        ],
+        ].concat(rentOut ? [{ value: "rent_out", label: "Keep and rent out" }] : []),
         'onchange="toggleHousingOptDispositionFields(); debouncedRefreshHousingOptValidation()"',
       ),
-      "Auto searches selling and keeping and lets the objective decide.",
+      rentOut
+        ? "Auto searches selling, keeping and (when a rent is known) renting out, and lets the objective decide."
+        : "Auto searches selling and keeping and lets the objective decide.",
     ) +
+      (rentOut
+        ? housingOptField(
+          "housingOptRentOutRent",
+          "Monthly rent if rented out",
+          `<input type="number" id="housingOptRentOutRent" class="money" min="0" placeholder="from Rental Properties" oninput="debouncedRefreshHousingOptValidation()">`,
+          "Today's dollars. Blank uses your Rental Properties converted home's rent.",
+        )
+        : "") +
       housingOptField(
         "housingOptEarliestSale",
         "Earliest sale year",
@@ -1374,7 +1431,9 @@ export function renderHousingOptimizePanelHtml() {
         `<input type="number" id="housingOptLatestSale" class="year" oninput="debouncedRefreshHousingOptValidation()">`,
         "Last year the current home may be sold. Must not be earlier than the earliest sale year.",
       ) +
-      `<div class="housing-opt-note small" id="housingOptKeepNote" hidden>Keeping the current home means its costs keep accruing. Rental income from a kept home is not modelled -- see the help panel.</div>`,
+      `<div class="housing-opt-note small" id="housingOptKeepNote" hidden>${rentOut
+        ? "Keep: its costs keep accruing and it earns no rent. Keep and rent out: rented from move 1's year; its costs become rental expenses."
+        : "Keeping the current home means its costs keep accruing. Rental income from a kept home is not modelled -- see the help panel."}</div>`,
   );
 
   const purchaseAssumptionsRow = housingOptRow(
@@ -1931,6 +1990,7 @@ function renderHousingOptimizeEmptyHtml(payload) {
 function housingOptCurrentHomeHtml(originalHome) {
   if (!originalHome) return "—";
   if (originalHome.disposition === "keep") return "Keep";
+  if (originalHome.disposition === "rent_out") return "Keep and rent out";
   return originalHome.sale_year != null ? `Sell ${originalHome.sale_year}` : "Sell";
 }
 
@@ -2036,7 +2096,12 @@ function housingOptResultRowHtml(c, objective, baselineValue) {
     ? `<span class="housing-opt-rank housing-opt-rank-top" title="Recommended">&#9733; 1</span>`
     : `<span class="housing-opt-rank">${esc(String(c.rank))}</span>`;
   const moves = c.moves || [];
-  const notes = (c.notes || []).length ? esc(c.notes.join("; ")) : "—";
+  let notes = (c.notes || []).length ? esc(c.notes.join("; ")) : "—";
+  // WP12.8: a rent-out row links to Rental Properties' Convert my home dialog, pre-filled.
+  const orig = c.original_home || {};
+  if (orig.disposition === "rent_out") {
+    notes += ` <button class="btn btn-sm" type="button" onclick="rpConvertFromHousing(${Number(orig.conversion_year) || 0}, ${Number(orig.monthly_rent) || 0})">Convert my home</button>`;
+  }
   return `<tr class="housing-opt-result ${shade}${topClass}">
     <td>${rankCell}</td>
     <td>${esc(housingOptCurrentHomeHtml(c.original_home))}</td>
@@ -2149,7 +2214,8 @@ export function housingOptimizerPatch(payload, candidate) {
   const orig = cand.original_home || {};
   const saleRow = housingRow("Other Assets", "Home", "home_sale_year");
   if (saleRow) {
-    const keeping = String(orig.disposition || "").toLowerCase() === "keep";
+    const disp = String(orig.disposition || "").toLowerCase();
+    const keeping = disp === "keep" || disp === "rent_out";
     const saleYear = keeping ? 0 : orig.sale_year;
     if (keeping || saleYear != null)
       push(
@@ -2158,7 +2224,7 @@ export function housingOptimizerPatch(payload, candidate) {
           saleYear,
           "Current home sale year",
           keeping
-            ? "This option keeps the current home, which this row spells as year 0."
+            ? `This option keeps the current home${disp === "rent_out" ? " and rents it out (add the rental with Convert my home)" : ""}, which this row spells as year 0.`
             : `This option sells the current home in ${saleYear}.`,
         ),
       );
@@ -2352,10 +2418,13 @@ export function buildHousingOptRequest() {
 
   const disposition = (housingOptDomVal("housingOptDisposition") || "auto").toLowerCase();
   const original_home = { disposition };
-  if (disposition !== "keep") {
+  if (disposition !== "keep" && disposition !== "rent_out") {
     original_home.earliest_sale_year = housingOptDomNum("housingOptEarliestSale");
     original_home.latest_sale_year = housingOptDomNum("housingOptLatestSale");
   }
+  // WP12.8: the typed rent (today's dollars) for Keep and rent out; only while the feature is on.
+  const rent = housingOptRentOutOn() ? housingOptDomVal("housingOptRentOutRent") : "";
+  if (rent !== "") original_home.monthly_rent = Number(rent);
 
   const move1 = {
     earliest_acquisition_year: housingOptDomNum("housingOptMove1Earliest"),
@@ -2431,8 +2500,12 @@ function housingOptFirstViolation() {
   }
 
   const disposition = (housingOptDomVal("housingOptDisposition") || "auto").toLowerCase();
-  if (!HOUSING_OPT_DISPOSITIONS.includes(disposition)) {
+  if (!HOUSING_OPT_DISPOSITIONS.includes(disposition) || (disposition === "rent_out" && !housingOptRentOutOn())) {
     return { step: 2, message: `Unknown disposition: ${housingOptRepr(disposition)}.` };
+  }
+  const rentRaw = housingOptRentOutOn() ? housingOptDomVal("housingOptRentOutRent") : "";
+  if (rentRaw !== "" && !(Number.isFinite(Number(rentRaw)) && Number(rentRaw) > 0)) {
+    return { step: 2, message: "Monthly rent for keep-and-rent-out must be a number more than 0." };
   }
 
   const sells = disposition === "sell" || disposition === "auto";
@@ -2724,6 +2797,7 @@ export function startHousingOptimization() {
 // of module scoping, and dashboard_decomp_housing_scenarios.js calls
 // renderHousingOptimizePanelHtml() as a bare global.
 Object.assign(window, {
+  housingOptRentOutOn,
   HOUSING_OPT_PANEL_ID,
   HOUSING_OPT_STORAGE_KEY,
   HOUSING_OPTIMIZER_ID,

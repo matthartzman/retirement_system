@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 255 Python files under `src/`, 52 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 256 Python files under `src/`, 52 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -24,7 +24,7 @@ flowchart TB
     subgraph L_HTTP_Runtime["HTTP Runtime (3 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
-    subgraph L_Core_Engine___Domain["Core Engine & Domain (169 modules)"]
+    subgraph L_Core_Engine___Domain["Core Engine & Domain (170 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
     subgraph L_Projection_Stages["Projection Stages (24 modules)"]
@@ -524,14 +524,15 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/governance.py` | `src`, `stores.ref_getters.tax_update_dashboard`, `version` | — |
 | `src/holding_period.py` | — | — |
 | `src/housing/__init__.py` | — | — |
-| `src/housing/api.py` | `housing.models`, `housing.optimizer`, `housing.zip_screen.resolve`, `housing.zip_screen.schema`, `housing.zip_screen.screen`, `housing.zip_screen.table`, `server_services.strategy_asset_service`, `stores.ref_getters.zip_data` | — |
+| `src/housing/api.py` | `housing.models`, `housing.optimizer`, `housing.zip_screen.resolve`, `housing.zip_screen.schema`, `housing.zip_screen.screen`, `housing.zip_screen.table`, `module_catalog`, `server_services.strategy_asset_service`, `stores.ref_getters.zip_data` | — |
 | `src/housing/candidates.py` | `housing.models` | — |
 | `src/housing/constraints.py` | `housing.models`, `housing.zip_screen.geo` | — |
 | `src/housing/models.py` | — | — |
-| `src/housing/optimizer.py` | `housing.candidates`, `housing.constraints`, `housing.models`, `housing.plan_variant`, `housing.results`, `housing.scoring`, `housing.search`, `housing.zip_screen.screen`, `server_services.strategy_asset_service` | — |
-| `src/housing/plan_variant.py` | `housing.models`, `server_services.strategy_asset_service` | — |
+| `src/housing/optimizer.py` | `housing.candidates`, `housing.constraints`, `housing.models`, `housing.plan_variant`, `housing.rent_out`, `housing.results`, `housing.scoring`, `housing.search`, `housing.zip_screen.screen`, `server_services.strategy_asset_service` | — |
+| `src/housing/plan_variant.py` | `housing.models`, `housing.rent_out`, `server_services.strategy_asset_service` | — |
+| `src/housing/rent_out.py` | `housing.models`, `module_catalog`, `rental_tax`, `tax_law` | — |
 | `src/housing/results.py` | `housing.models`, `housing.plan_variant`, `server_services.strategy_asset_service` | — |
-| `src/housing/scoring.py` | `housing.constraints`, `housing.models` | — |
+| `src/housing/scoring.py` | `housing.constraints`, `housing.models`, `housing.rent_out` | — |
 | `src/housing/search.py` | `housing.candidates`, `housing.models`, `housing.scoring` | — |
 | `src/housing/zip_screen/__init__.py` | — | — |
 | `src/housing/zip_screen/geo.py` | `housing.zip_screen.schema` | — |

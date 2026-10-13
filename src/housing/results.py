@@ -11,7 +11,7 @@ from ..server_services.strategy_asset_service import (
     HOME_APPR_DEFAULT,
     INFLATION_GENERAL_DEFAULT,
 )
-from .models import Location, Move, ScoredCandidate
+from .models import RENT_OUT, Location, Move, ScoredCandidate
 from .plan_variant import (
     _effective_mortgage_rate,
     _estimate_for_location,
@@ -96,15 +96,23 @@ def _format_candidate(
     sc: ScoredCandidate, objective: str, rank: int, *,
     down_payment_pct: float, mortgage_rate_pct: float | None,
     home_appr: float, inflation_general: float,
+    rent_out_monthly_rent: float | None = None,
 ) -> dict[str, Any]:
     cand = sc.candidate
     lost = list(sc.sec121_exclusion_lost)
+    original_home: dict[str, Any] = {
+        'disposition': cand.original_home.disposition,
+        'sale_year': cand.original_home.sale_year,
+    }
+    if cand.original_home.disposition == RENT_OUT:
+        # WP12.8: the year the home becomes a rental (move 1's year) and the
+        # monthly rent it was scored with (today's dollars), for the page's
+        # "Convert my home" link. Absent for every other disposition.
+        original_home['conversion_year'] = cand.move1.acquisition_year
+        original_home['monthly_rent'] = rent_out_monthly_rent
     return {
         'rank': rank,
-        'original_home': {
-            'disposition': cand.original_home.disposition,
-            'sale_year': cand.original_home.sale_year,
-        },
+        'original_home': original_home,
         'moves': [
             _format_move(
                 m, lost[i] if i < len(lost) else False,
@@ -132,6 +140,7 @@ def format_output(
     down_payment_pct: float = 0.20, mortgage_rate_pct: float | None = None,
     home_appr: float = HOME_APPR_DEFAULT, inflation_general: float = INFLATION_GENERAL_DEFAULT,
     baseline: dict[str, Any] | None = None,
+    rent_out_monthly_rent: float | None = None,
 ) -> dict[str, Any]:
     """One ranked ``candidates`` list, not a recommendation plus a disjoint
     alternatives list -- v1 duplicated the rank-1 candidate across both and
@@ -155,6 +164,7 @@ def format_output(
             sc, objective, i + 1,
             down_payment_pct=down_payment_pct, mortgage_rate_pct=mortgage_rate_pct,
             home_appr=home_appr, inflation_general=inflation_general,
+            rent_out_monthly_rent=rent_out_monthly_rent,
         )
         for i, sc in enumerate(ranked[:MAX_CANDIDATES])
     ]
