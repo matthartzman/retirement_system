@@ -89,6 +89,7 @@ let rpWhyId = "";
 let rpConvert = null;
 let rpPreview = false;
 let rpKept = 0;
+let rpSeq = 0;
 
 // ── pure helpers (tested in tests/frontend/rental_properties.test.mjs) ──────────────────────
 export function rentalMoney(n) {
@@ -407,7 +408,10 @@ export function renderRentalProperties() {
   return `<div class="field-list rp-page">${body}</div>`;
 }
 
-export async function loadRentalProperties() {
+// A read superseded by a newer one, or by a plan reload (setRentalKeptCount), is dropped; a read
+// that fails (the app can be mid-reload) is retried a few times before the error is shown.
+export async function loadRentalProperties(attempt = 0) {
+  const seq = ++rpSeq;
   rpLoading = true;
   rpError = "";
   try {
@@ -415,9 +419,15 @@ export async function loadRentalProperties() {
     if (rpYear) q.set("year", rpYear);
     if (rpMagi) q.set("magi", rpMagi);
     const out = await api("/api/rental/properties" + (q.toString() ? "?" + q : ""));
+    if (seq !== rpSeq) return;
     rpData = out && out.success ? out : null;
     if (!rpData) rpError = "Rental properties could not be loaded.";
   } catch (e) {
+    if (seq !== rpSeq) return;
+    if (attempt < 3) {
+      setTimeout(() => { if (seq === rpSeq) loadRentalProperties(attempt + 1); }, 400 * (attempt + 1));
+      return;
+    }
     rpData = null;
     rpError = "Rental properties could not be loaded: " + e.message;
   }
@@ -428,6 +438,9 @@ export async function loadRentalProperties() {
 export function setRentalKeptCount(n) {
   rpKept = Number(n) || 0;
   rpData = null; // the plan (or its switch) changed: the next render reads the page again
+  rpSeq += 1; // a read still in flight is from before the change
+  rpLoading = false;
+  rpError = "";
   rpConvert = null;
 }
 export function rentalKeptCount() {
