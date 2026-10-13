@@ -186,8 +186,41 @@ def init_local_store(db_path: str | Path | None = None) -> Path:
     return p
 
 
+def _json_key(key: Any) -> str:
+    """The string ``json.dumps`` would write for a dict key (so content is unchanged)."""
+    if isinstance(key, str):
+        return key
+    if key is True:
+        return "true"
+    if key is False:
+        return "false"
+    if key is None:
+        return "null"
+    if isinstance(key, (int, float)):
+        return repr(key)
+    return str(key)
+
+
+def _string_keys(obj: Any) -> Any:
+    """Recursively rewrite dict keys as the strings JSON would write anyway.
+
+    ``json.dumps(sort_keys=True)`` raises ``TypeError`` on a dict that mixes key
+    types (e.g. ``str`` and ``int`` year keys); sorting after stringifying is
+    type-safe and yields the same text for every dict that already sorted.
+    """
+    if isinstance(obj, dict):
+        return {_json_key(k): _string_keys(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_string_keys(v) for v in obj]
+    return obj
+
+
+def _sorted_dumps(obj: Any, **kwargs: Any) -> str:
+    return json.dumps(_string_keys(obj), sort_keys=True, default=str, **kwargs)
+
+
 def _stable_json(obj: Any) -> str:
-    return json.dumps(obj, sort_keys=True, separators=(",", ":"), default=str)
+    return _sorted_dumps(obj, separators=(",", ":"))
 
 
 def _digest(obj: Any) -> str:
@@ -225,7 +258,7 @@ def set_local_setting(key: str, value: Any, db_path: str | Path | None = None) -
         con.execute(
             "INSERT INTO local_settings(key, value_json, updated_at) VALUES(?,?,?) "
             "ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json, updated_at=excluded.updated_at",
-            (key, json.dumps(value, sort_keys=True, default=str), now_utc()),
+            (key, _sorted_dumps(value), now_utc()),
         )
 
 
@@ -238,7 +271,7 @@ def save_result_snapshot(result: dict[str, Any], event_log: list[dict[str, Any]]
                        VALUES(?,?,?,?,?,?)
                        ON CONFLICT(result_id) DO UPDATE SET result_json=excluded.result_json,
                          event_log_json=excluded.event_log_json, result_sha256=excluded.result_sha256""",
-                    (result_id, now_utc(), plan_snapshot_id, json.dumps(result, sort_keys=True, default=str), json.dumps(event_log or [], sort_keys=True, default=str), result_sha))
+                    (result_id, now_utc(), plan_snapshot_id, _sorted_dumps(result), _sorted_dumps(event_log or []), result_sha))
         _prune_result_snapshots(con)
     return result_id
 
@@ -328,7 +361,7 @@ def save_kpi_snapshot(
                 kpis.get("after_tax_terminal_nw"),
                 kpis.get("npv_future_taxes"),
                 kpis.get("terminal_nw_mc_p5"),
-                json.dumps(payload, sort_keys=True, default=str),
+                _sorted_dumps(payload),
             ),
         )
         _prune_kpi_snapshots(con)
@@ -465,4 +498,4 @@ def append_build_event(stage: str, event_type: str, detail: dict[str, Any] | Non
     p = init_local_store(db_path)
     with closing_connect(p) as con:
         con.execute("INSERT INTO build_events(created_at, build_id, stage, event_type, detail_json) VALUES(?,?,?,?,?)",
-                    (now_utc(), build_id or "local", stage, event_type, json.dumps(detail or {}, sort_keys=True, default=str)))
+                    (now_utc(), build_id or "local", stage, event_type, _sorted_dumps(detail or {})))
