@@ -17,6 +17,10 @@ ROUTE_MODULES = {
         "/api/import/preview", "/api/import/commit", "/api/export/plan-set", "/api/export/<dataset>",
         "/api/plan/blank", "/api/conversion/status", "/api/conversion/check", "/api/conversion/run",
     ],
+    "rental": [
+        "/api/rental/properties", "/api/rental/property", "/api/rental/home", "/api/rental/property/duplicate",
+        "/api/rental/property/delete", "/api/rental/improvements", "/api/rental/overrides",
+    ],
     "plan_config": ["/api/config/backends", "/api/config/rows", "/api/allocation-preview", "/api/plan/tier", "/api/plan/feature", "/api/plan/interview"],
     "pricing": ["/api/prices/refresh", "/api/prices/snapshots", "/api/prices/freeze", "/api/prices/unfreeze", "/api/prices/test-symbol", "/api/prices/test-symbol/start", "/api/prices/test-symbol/status/<job_id>"],
     "portfolio": ["/api/portfolio/drift"],

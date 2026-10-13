@@ -29,6 +29,13 @@ export function setPlanTierPayload(cfg) {
     presets: (cfg && cfg.tier_presets) || { tiers: [] },
     suggestions: (cfg && cfg.feature_suggestions) || [],
   };
+  // WP12.6: the same config read carries the stored rental count (the nav keeps the Rental Properties page while data is kept).
+  if (typeof setRentalKeptCount === "function") setRentalKeptCount(cfg && cfg.rental_property_count);
+}
+
+// The plan's tier ("" before the plan loads), for pages that apply their own field filter.
+export function currentPlanTier() {
+  return (planTierPayload.profile || {}).tier || "";
 }
 
 // The preset entry for `tier`, or null.
@@ -394,6 +401,7 @@ export async function setPlanFeatureSwitch(key, on) {
 }
 
 Object.assign(window, {
+  currentPlanTier,
   pickPlanTier,
   planTierDiffBadgeHtml,
   planTierLabel,

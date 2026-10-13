@@ -32,7 +32,9 @@ display order; each row is serialised as the compact JSON array
 per line after the header line ``plan_rows/v1``; the digest is SHA-256 hex. So renumbering
 ``sort_order`` without changing the order, or deleting and re-inserting identical rows
 (new ids), leaves the hash unchanged, while editing a field, adding/removing a row or moving
-a row changes it.
+a row changes it. When the plan has rental properties (WP12.7) the digest is re-hashed with the
+header ``rental/v1`` and the canonical JSON of the rental tables, so a rental edit changes it
+too; a plan without rentals keeps the plain value.
 
 Schema v2 (WP6.1) adds the flat dataset tables ``holdings_lots``, ``liabilities``,
 ``hsa_schedule`` and ``target_allocation`` (see ``datasets.py``); they are reached through
@@ -61,6 +63,12 @@ pruned by retention (``PROTECTED_REVISION_SOURCES``).
 Schema v6 (WP6.4) adds the YTD tables ``ytd_transactions``, ``ytd_account_setup`` and
 ``ytd_import_history`` (same conventions; the columns are the YTD files' own, spaces included,
 e.g. ``"Original Statement"``), reached as ``store.dataset("ytd_transactions")`` and so on.
+
+Schema v7/v8 (WP7.2) add ``build_results`` (see ``build_results.py``).
+
+Schema v9 (WP12.4) adds the typed rental tables ``rental_properties``, ``rental_improvements``
+and ``rental_year_overrides`` (see ``rental_repo.py``), reached as ``store.rental``
+(``properties()``, ``replace_all()``, ``upsert()``, ``delete()``). Typed columns, not text.
 """
 from __future__ import annotations
 
@@ -75,6 +83,7 @@ from .. import platform_runtime
 from ._base import _SqliteStore
 from .datasets import SCHEMA_V2_DDL, SCHEMA_V3_DDL, SCHEMA_V4_DDL, SCHEMA_V5_DDL, SCHEMA_V6_DDL, YTD_DATASETS, FlatDatasetRepository
 from .build_results import SCHEMA_V7_DDL, SCHEMA_V8_DDL, BuildResultsRepo
+from .rental_repo import SCHEMA_V9_DDL, RentalRepo
 from .spending_repo import SpendingRepo
 from .errors import IntegrityError, NotFoundError, ValidationError
 
@@ -82,6 +91,7 @@ PLAN_APPLICATION_ID = 0x5250504C  # "RPPL"
 DEFAULT_REVISION_RETENTION = 20
 RETENTION_KEY = "revision_retention"
 HASH_HEADER = "plan_rows/v1"
+RENTAL_REVISION_HEADER = "rental/v1"  # joins the revision hash only when rental properties exist (WP12.7)
 # Revision sources retention never prunes: the spending recovery copies (WP6.3c).
 PROTECTED_REVISION_SOURCES = ("pre-recovery", "budget-recovery-seed")
 
@@ -129,7 +139,7 @@ CREATE TABLE plan_meta (
 INSERT INTO plan_meta (key, value) VALUES ('{RETENTION_KEY}', '{DEFAULT_REVISION_RETENTION}');
 """
 
-PLAN_MIGRATIONS: tuple[str, ...] = (_SCHEMA_V1, SCHEMA_V2_DDL, SCHEMA_V3_DDL, SCHEMA_V4_DDL, SCHEMA_V5_DDL, SCHEMA_V6_DDL, SCHEMA_V7_DDL, SCHEMA_V8_DDL)
+PLAN_MIGRATIONS: tuple[str, ...] = (_SCHEMA_V1, SCHEMA_V2_DDL, SCHEMA_V3_DDL, SCHEMA_V4_DDL, SCHEMA_V5_DDL, SCHEMA_V6_DDL, SCHEMA_V7_DDL, SCHEMA_V8_DDL, SCHEMA_V9_DDL)
 PLAN_SCHEMA_VERSION = len(PLAN_MIGRATIONS)
 
 
@@ -258,6 +268,18 @@ class PlanStore(_SqliteStore):
     def spending(self) -> SpendingRepo:
         """The plan's spending set (taxonomy, aliases; budget, rules ... from WP6.3b/c)."""
         return SpendingRepo(self)
+
+    # ------------------------------------------------------ rental properties (WP12.4)
+    @property
+    def rental(self) -> RentalRepo:
+        """The plan's rental properties, with their improvements and year overrides."""
+        return RentalRepo(self)
+
+    def rental_state_text(self) -> str:
+        """Canonical text of the rental tables (``""`` when empty), the part of the revision
+        hash that covers them."""
+        with self._read() as con:
+            return RentalRepo.state_text(con)
 
     def dataset(self, name: str) -> FlatDatasetRepository:
         """A flat dataset by its ``csv_exchange`` name: ``holdings``, ``liabilities``,
@@ -446,12 +468,20 @@ class PlanStore(_SqliteStore):
 
     # ------------------------------------------------------------------ revisions
     def revision(self) -> str:
-        """Deterministic SHA-256 of the current rows (content + order; see module docstring)."""
+        """Deterministic SHA-256 of the current rows (content + order; see module docstring).
+
+        Since WP12.7 the rental tables count too: with at least one rental property the hash
+        also covers them (``RentalRepo.state_text``), so editing a rental changes the revision
+        and marks a build stale. With none the value is exactly the rows' hash as before."""
         with self._read() as con:
             cur = con.execute(
                 f"SELECT {', '.join(TEXT_FIELDS)} FROM plan_rows ORDER BY section, sort_order, row_id"
             )
-            return hash_rows(tuple(r) for r in cur)
+            digest = hash_rows(tuple(r) for r in cur)
+            rental = RentalRepo.state_text(con)
+        if not rental:
+            return digest
+        return hashlib.sha256(f"{digest}\n{RENTAL_REVISION_HEADER}\n{rental}".encode("utf-8")).hexdigest()
 
     @property
     def revision_retention(self) -> int:

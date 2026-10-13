@@ -108,6 +108,16 @@ def build_sheet3(ws, c, rows):
         ('Cash (Checking Accounts)', cash_val, 'Sum of _Checking positions'),
         ('Note Receivable',  note_val, f"Projected balance through {c['note_last']}"),
     ]
+    # WP12.7: Rental Properties (feature on): gross property value in assets, its mortgages in
+    # liabilities, like the primary residence. The values are the projection's at the end of
+    # the plan-start year (the same row the Net Worth sheet and the reconciliation below use).
+    rental_on = 'rental_net_cash_flow' in yr0
+    rental_value = float(yr0.get('rental_property_value', 0.0) or 0.0) if rental_on else 0.0
+    rental_loans = float(yr0.get('rental_mortgage_balance', 0.0) or 0.0) if rental_on else 0.0
+    if rental_on:
+        other_items.append(('Rental Properties', rental_value,
+                            f"Gross value at the end of {yr0['year']}; mortgages shown in Liabilities. "
+                            "A home converted to a rental stays under Primary Residence."))
     other_total = write_group('Other Assets', other_items)
 
     total_assets = ann_total + pretax_total + roth_total + trust_total + hsa_total + other_total
@@ -118,12 +128,18 @@ def build_sheet3(ws, c, rows):
     write_cell(ws, r, 2, mort_val, fmt=FMT_DOLLAR, align='right')
     write_cell(ws, r, 3, 'Offsets Primary Residence gross value; not double-counted as Home Equity')
     r+=1
+    if rental_on:
+        write_cell(ws, r, 1, '  Rental Property Mortgages')
+        write_cell(ws, r, 2, rental_loans, fmt=FMT_DOLLAR, align='right')
+        write_cell(ws, r, 3, 'Offsets Rental Properties gross value')
+        r+=1
+    total_liabilities = mort_val + rental_loans
     write_cell(ws, r, 1, '  Total Liabilities', bold=True, bg=LGRAY)
-    write_cell(ws, r, 2, mort_val, fmt=FMT_DOLLAR, bold=True, bg=LGRAY, align='right')
+    write_cell(ws, r, 2, total_liabilities, fmt=FMT_DOLLAR, bold=True, bg=LGRAY, align='right')
     write_cell(ws, r, 3, '', bg=LGRAY)
     r+=2
 
-    net_worth = total_assets - mort_val
+    net_worth = total_assets - total_liabilities
     write_cell(ws, r, 1, 'NET WORTH', bold=True, bg=NAVY, fg=WHITE)
     write_cell(ws, r, 2, net_worth, fmt=FMT_DOLLAR, bold=True, bg=NAVY, fg=WHITE, align='right')
     r += 3

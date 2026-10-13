@@ -223,5 +223,6 @@ Planning bands (assumption, not measured): S about 0.2-0.5M tokens, M 0.5-1M, L 
 | WP11.4 | done | WP11 PR | CSV fixtures moved to `tests/fixtures/csv_exchange/`; golden compare unchanged (no re-record). |
 | WP11.5 | done | WP11 PR | docs and release notes updated; the architecture diagram generator label fixed. |
 | WP11.6 | not started (later release) | none | delete `legacy_conversion/`, `load_csv`/`migrate_sectioned_data` loader path once every install has converted. |
-| WP12a | done, awaiting merge (12.1 to 12.3 as commits) | draft PR (branch `claude/wp12a-rental-engine`) | 12.1 done (9e1676d), checkpoint cleared by owner 2026-10-13 (tax preparer must still verify constants before switch-on); 12.2 done (328cbc1), golden green; 12.3 done (a90fa61); WP12a complete pending CI and owner merge; rules in `documentation/reference/RENTAL_TAX_RULES.md` |
-| WP12b - WP12c | not started | none | separate later sessions |
+| WP12a | merged (12.1 to 12.3) | PR #199 (merged 2026-10-13, 85924a8) | rental tax core, engine integration (default off), parse boundary, converted-home hooks; owner checkpoint 12.1 cleared; tax preparer must still verify constants before switch-on |
+| WP12b | in progress | draft PR (branch `claude/wp12b-rental-data-ui`) | 12.4 done (typed tables, `RentalRepo`, schema v9); 12.5 mockup done, owner decisions recorded; 12.6 page done (d9b4078); 12.7 workbook sheet and report lines done (7d193c4), owner approved layout 2026-10-13; 12.8 housing `rent_out` in its own stacked PR |
+| WP12c | not started | none | separate later session |

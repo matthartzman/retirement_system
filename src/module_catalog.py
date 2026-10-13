@@ -1186,17 +1186,21 @@ _OUTPUTS: List[OutputModule] = [
         optional=True, csv_row=False, dashboard_step="assets_home_cash",
     ),
     # ── WP12.2: Rental Properties (design 2026-10-05 §5). ──
-    # Engine-first: the projection reads c['rental_properties'] only while this
-    # is on (src/projection_stages/rental_property.py). No workbook sheet and
-    # no nav step yet (WP12.4 / WP12.5); default off, no CSV row (WP1.3 rule
-    # for new features).
+    # The projection reads c['rental_properties'] only while this is on
+    # (src/projection_stages/rental_property.py). The Rental Properties page
+    # (WP12.6, step ``rental_properties`` under Investments & Property) owns
+    # the data; no workbook sheet yet (WP12.7); default off, no CSV row (WP1.3
+    # rule for new features). The nav step hides while off unless properties
+    # are stored (the page then shows its off state, see the frontend gate).
     OutputModule(
         "rental_property_income", "Rental Properties", PROJECTION, MEDIUM,
         "Rental real estate: rent, expenses, mortgage, depreciation, passive-loss "
         "limits, cash flow, equity and sale with depreciation recapture.",
         domain=HOUSING_PROPERTY, tier=ADVANCED,
         optional=True, csv_row=False, default_on=False,
-        engine_participation=True,
+        engine_participation=True, dashboard_step="rental_properties",
+        # WP12.7: the workbook sheet exists only while the feature is on (design section 7).
+        sheet="40. Rental Properties", tab="1E. Rental Properties",
     ),
     OutputModule(
         "planning_workbench", "Planning Workbench", WORKSHEET, LOW,
@@ -1647,6 +1651,10 @@ SHEET_REGISTRY = dict([
     # characters -- "38. Housing Trajectory Comparison" (33 chars) tripped
     # that limit.
     _visible('38. Housing Comparison', '2', 17, 15, 'Housing Comparison', 'housing_trajectory_comparison', slug='housing_comparison'),
+    # WP12.7 (design 2026-10-05 section 7, owner decision 2026-10-13): Rental Properties,
+    # section 1 (Reports) after Balance Sheet (rank 3), before Lifetime Taxes (4), present
+    # only while the rental_property_income feature is on (module_key gates it).
+    _visible('40. Rental Properties', '1', 3.5, 3.5, 'Rental Properties', 'rental_property_income', slug='rental_properties'),
 ])
 
 # OPTIONAL_MODULE_SHEETS maps each client_optional_functions.csv toggle key to
