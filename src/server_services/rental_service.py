@@ -38,6 +38,14 @@ from ..projection_stages.rental_property import (
 from ..rental_tax import converted_home_depreciable_basis, property_accumulated_depreciation
 
 JsonDict = dict[str, Any]
+
+
+def _liability_options(c: dict[str, Any] | None) -> list[JsonDict]:
+    """Liabilities rows a property can use as its loan (H2): everything with an id but student loans."""
+    return [{"id": li["liability_id"], "label": li.get("label") or li["liability_id"], "type": li.get("type"),
+             "balance": li.get("balance", 0.0), "rate": li.get("interest_rate", 0.0)}
+            for li in ((c or {}).get("liabilities") or [])
+            if li.get("liability_id") and li.get("type") != "student_loan"]
 AuditFn = Callable[[str, dict[str, Any] | None], None]
 
 # The keys ``RentalRepo`` stores (src/stores/rental_repo.py; product code reaches the stores
@@ -45,7 +53,7 @@ AuditFn = Callable[[str, dict[str, Any] | None], None]
 IMPROVEMENT_KEYS = ("year", "month", "amount", "description")
 OVERRIDE_KEYS = ("year", "gross_rent", "operating_expenses", "notes")
 PROPERTY_COLUMNS = (
-    "kind", "owner", "notes",
+    "kind", "owner", "notes", "loan_liability_id",
     "purchase_price", "closing_costs", "current_value", "monthly_rent", "property_tax", "insurance", "hoa",
     "utilities", "other_expenses", "loan_balance", "loan_monthly_payment", "prior_suspended_loss", "sale_price",
     "value_at_conversion", "adjusted_basis_at_conversion",
@@ -318,6 +326,7 @@ class RentalService:
                 ],
             },
             "summary": None, "warnings": [], "table": [t for t in (table_row(p) for p in rows)],
+            "liability_options": _liability_options(c),
         }
         if c is None:
             payload["estimate"]["error"] = config_error
@@ -330,6 +339,8 @@ class RentalService:
             payload["estimate"]["error"] = str(exc)
             return payload, 200
         payload["warnings"] = _double_counts(rows, c)
+        if book is not None:
+            payload["warnings"] += list(book.link_warnings)
         if book is None:
             return payload, 200
         series = _series(book, c, magi_value)

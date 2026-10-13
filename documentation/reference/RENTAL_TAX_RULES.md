@@ -188,7 +188,7 @@ publications. The Table A-6 cells (R01, R02, R06) are the published percentages.
 - First-death step-up: the converted sale uses the stepped-up gain basis; the loss basis is not stepped up.
 - Estate sale after conversion keeps the step-up (no gain) and drops suspended losses (IRC 469(g)(2) would allow part).
 - Shifted carrying costs: mortgage payment, real-estate tax, budget utilities/maintenance/other. Improvement lumps stay personal.
-- Not modelled: owner split, death handling, back to personal use, linking a loan to an existing liability row, sale-proceeds split across accounts.
+- Not modelled: owner split, death handling, back to personal use, sale-proceeds split across accounts. (Loan link to a Liabilities row: built in H2, section 9.)
 
 ## 8. Workbook (12.7)
 New sheet `40. Rental Properties` (section 1 Reports, after Balance Sheet; letter computed per build, `1E` when on), present **only while `rental_property_income` is on**. Sections: A summary by year; B by property and year (collapsible rows); C depreciation schedule; D passive-loss ledger; E sale analysis; F metrics; G assumptions and warnings (this document's sections 4-7 in plain words, constants quoted from the reference data in force). Code: `src/reporting/rental_report_data.py` (figures), `src/reporting/sheets_rental.py` (layout).
@@ -198,9 +198,9 @@ New sheet `40. Rental Properties` (section 1 Reports, after Balance Sheet; lette
 - The plan-file revision (`PlanStore.revision()`), the plan state and the build input fingerprint include the rental tables, so editing a rental marks the last build stale; a plan with no rental keeps its old revision.
 
 
-## 9. H2: link a rental to an existing liability (design, OWNER CHECKPOINT: H2)
+## 9. H2: link a rental to an existing liability (built; owner answered yes to the three questions 2026-10-13)
 
-Status: design and worked examples only. Nothing built. Rental stays default OFF; with the feature off the link
+Status: built. The worked examples below are pinned by `tests/test_rental_loan_link_functional.py`. Rental stays default OFF; with the feature off the link
 is ignored and every number is as today.
 
 ### 9.1 Problem
@@ -214,8 +214,10 @@ as personal debt after the conversion, so its interest never reaches Schedule E.
 ### 9.2 Data model
 One new optional text column on the rental table: `loan_liability_id` (matches `liability_id` in Liabilities).
 Added to `rental_repo` columns, `parsing/rental_properties` (`RentalSpec.loan_liability_id`), the rental
-service field list and the editor. No schema bump (extra text column in the existing rental table; blank for
-every existing row).
+service field list and the editor. Plan file schema v10 (forward-only `ALTER TABLE rental_properties ADD COLUMN
+loan_liability_id TEXT NOT NULL DEFAULT ''`; blank for every existing row). The CSV exchange template gains the
+column after `notes`. The editor's Loan block lists the Liabilities rows (`liability_options` in the page payload);
+link warnings show with the page warnings and in the row as `rental_loan_link_warnings`.
 
 ### 9.3 Rule
 | Case | Behaviour |

@@ -55,6 +55,7 @@ const RP_FIELDS = {
     F("hoa", "HOA (per year)", "money"), F("utilities", "Utilities (per year)", "money"),
     F("other_expenses", "Other (per year)", "money"), F("expense_growth", "Expense growth", "pct", { hint: "Blank means inflation." })]]],
   financing: [["Loan", [
+    F("loan_liability_id", "Existing loan", "liab", { hint: "Pick a loan from Liabilities to count it once. Standalone: its balance, rate and payment replace the fields below. Converted home: its interest moves to Schedule E." }),
     F("loan_balance", "Balance", "money", { only: "standalone" }), F("loan_rate", "Rate", "pct", { only: "standalone" }),
     F("loan_monthly_payment", "Monthly payment", "money", { only: "standalone", hint: "Blank means computed from the term." }),
     F("loan_term_years", "Term remaining (years)", "int", { only: "standalone" }),
@@ -310,6 +311,11 @@ function rpFieldHtml(f, draft, tiers, planTier, data) {
     const cur = draft[f.k] || f.o[0][0];
     ctl = `<select ${fk} aria-label="${esc(f.l)}" onchange="rpSet('${esc(f.k)}',this.value,'select')">` +
       f.o.map((o) => `<option value="${esc(o[0])}"${o[0] === cur ? " selected" : ""}>${esc(o[1])}</option>`).join("") + "</select>";
+  } else if (f.t === "liab") {
+    const cur = draft[f.k] || "";
+    const opts = ((data || {}).liability_options || []);
+    ctl = `<select ${fk} aria-label="${esc(f.l)}" onchange="rpSet('${esc(f.k)}',this.value,'select')"><option value="">None (enter a loan below)</option>` +
+      opts.map((o) => `<option value="${esc(o.id)}"${o.id === cur ? " selected" : ""}>${esc(o.id)}: ${esc(o.label)} ${esc(rentalMoney(o.balance))} ${esc(String(Math.round((o.rate || 0) * 10000) / 100))}%</option>`).join("") + "</select>";
   } else if (f.t === "bool") {
     const cur = draft[f.k] === false ? "no" : "yes";
     ctl = `<select ${fk} aria-label="${esc(f.l)}" onchange="rpSet('${esc(f.k)}',this.value,'bool')"><option value="yes"${cur === "yes" ? " selected" : ""}>Yes</option><option value="no"${cur === "no" ? " selected" : ""}>No</option></select>`;
