@@ -224,11 +224,16 @@ def test_force_all_modules_all_enabled(monkeypatch):
 
 
 def test_default_toggles_match_baseline():
-    # With no config at all, every optional module defaults enabled (unchanged
-    # pre-Phase-2 default-on behavior).
+    # With no config at all, every optional module defaults to its catalog default: enabled
+    # (unchanged pre-Phase-2 default-on behavior) except the default-off features
+    # (rental_property_income, WP12.7), whose sheet exists only once the owner switches them on.
+    from src.module_catalog import CATALOG
+
     for key in OPTIONAL_MODULE_SHEETS:
-        assert module_enabled(None, key) is True
-        assert module_enabled({}, key) is True
+        expected = CATALOG[key].default_on
+        assert module_enabled(None, key) is expected
+        assert module_enabled({}, key) is expected
+    assert CATALOG["rental_property_income"].default_on is False
 
 
 # ── module_status: UI-facing gating explanation ───────────────────────────────

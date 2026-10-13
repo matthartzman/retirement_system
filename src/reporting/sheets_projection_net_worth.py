@@ -51,6 +51,16 @@ def build_sheet5(ws, c, rows):
         'Home Equity':21,'Next Housing Equity':22,'Startup':23,'Autos':24,'Note':25,'Cash':26,'Σ Other':27,
         'TOTAL NW':28,
     }
+    # WP12.7: Rental Properties adds a Rental Equity column (property value less its mortgage,
+    # which is already inside the engine's other_nw and total_nw) before Σ Other, only while
+    # the feature ran. Off, the historic layout is unchanged.
+    rental_on = any(r.get('rental_equity') is not None for r in rows)
+    if rental_on:
+        COLS['Rental Equity'] = 27
+        COLS['Σ Other'] = 28
+        COLS['TOTAL NW'] = 29
+    COL_SIGMA_OTHER = COLS['Σ Other']
+    COL_TOTAL = COLS['TOTAL NW']
 
     def _account_slots(tax=None, acct_type=None, count=1):
         """Return workbook account slots in semantic owner/type order.
@@ -171,8 +181,8 @@ def build_sheet5(ws, c, rows):
     write_hdr(ws, r, 14, 'ROTH', GREEN, WHITE, span=3)
     write_hdr(ws, r, 17, 'TRUSTS', '7030A0', WHITE, span=3)
     write_hdr(ws, r, 20, 'HSA', GOLD, '000000', span=1)
-    write_hdr(ws, r, 21, 'OTHER ASSETS', DGRAY, WHITE, span=7)
-    write_hdr(ws, r, 28, 'TOTAL', NAVY, WHITE, span=1)
+    write_hdr(ws, r, 21, 'OTHER ASSETS', DGRAY, WHITE, span=COL_SIGMA_OTHER - 20)
+    write_hdr(ws, r, COL_TOTAL, 'TOTAL', NAVY, WHITE, span=1)
 
     r = 2
     for name, col in COLS.items():
@@ -226,9 +236,10 @@ def build_sheet5(ws, c, rows):
         # reserve draws or growth, even though TOTAL NW (sourced separately)
         # was already correct.
         cash_val = row.get('cash_nw', 0)
+        rental_eq = row.get('rental_equity') or 0
         other_tot  = (row.get('home_equity',0)+row.get('next_housing_equity',0)+
                       row.get('startup_val',0)+row.get('autos_val',0)+
-                      row.get('note_bal',0)+cash_val)
+                      row.get('note_bal',0)+cash_val+rental_eq)
 
         # Keep the TOTAL NW column footing to the values shown. When the current
         # year uses opening (current-holdings) balances for investment accounts,
@@ -248,7 +259,8 @@ def build_sheet5(ws, c, rows):
                 trust_vals[0], trust_vals[1], trust_tot,
                 hsa_val,
                 row.get('home_equity',0), row.get('next_housing_equity',0), row.get('startup_val',0),
-                row.get('autos_val',0), row.get('note_bal',0), cash_val, other_tot,
+                row.get('autos_val',0), row.get('note_bal',0), cash_val,
+                *([rental_eq] if rental_on else []), other_tot,
                 total_nw]
 
         for col_idx, val in enumerate(vals, 1):
@@ -258,16 +270,16 @@ def build_sheet5(ws, c, rows):
             else:
                 fmt = FMT_DOLLAR_ZERO_BAND
                 align = 'right'
-            is_subtotal = col_idx in (9,13,16,19,27,28)
-            bg = LGRAY if is_subtotal else (GRAY if col_idx==28 else None)
-            bold = is_subtotal or col_idx==28
+            is_subtotal = col_idx in (9,13,16,19,COL_SIGMA_OTHER,COL_TOTAL)
+            bg = LGRAY if is_subtotal else (GRAY if col_idx==COL_TOTAL else None)
+            bold = is_subtotal or col_idx==COL_TOTAL
             write_cell(ws, r, col_idx, val, fmt=fmt, bold=bold, bg=bg, align=align)
 
     # Column widths
     ws.column_dimensions['A'].width = 7
     ws.column_dimensions['B'].width = 7
     ws.column_dimensions['C'].width = 7
-    for col in range(4, 29):
+    for col in range(4, COL_TOTAL + 1):
         ws.column_dimensions[get_column_letter(col)].width = 13
 
     # Collapsible column groups for Sheet 5 (individual account detail vs subtotals)
@@ -281,7 +293,7 @@ def build_sheet5(ws, c, rows):
         ws.column_dimensions[get_column_letter(col)].outlineLevel = 1
     for col in range(17, 19): # Trust detail under col 19
         ws.column_dimensions[get_column_letter(col)].outlineLevel = 1
-    for col in range(21, 27): # Other detail under col 27
+    for col in range(21, COL_SIGMA_OTHER): # Other detail under the Σ Other column
         ws.column_dimensions[get_column_letter(col)].outlineLevel = 1
 
 

@@ -22,6 +22,7 @@ Carried passive losses and accumulated depreciation are computed by the engine, 
 """
 from __future__ import annotations
 
+import json
 import math
 from typing import Any, Iterable, Mapping
 
@@ -257,13 +258,18 @@ class RentalRepo:
     def properties(self) -> list[dict[str, Any]]:
         """Every property in entry order, as ``parse_rental_properties`` input rows."""
         with self._store._read() as con:
-            props = [dict(r) for r in con.execute("SELECT * FROM rental_properties ORDER BY property_id")]
-            imps: dict[int, list[dict[str, Any]]] = {}
-            for r in con.execute("SELECT * FROM rental_improvements ORDER BY property_id, position"):
-                imps.setdefault(r["property_id"], []).append(_present({k: r[k] for k in IMPROVEMENT_KEYS}))
-            ovs: dict[int, list[dict[str, Any]]] = {}
-            for r in con.execute("SELECT * FROM rental_year_overrides ORDER BY property_id, year"):
-                ovs.setdefault(r["property_id"], []).append(_present({k: r[k] for k in OVERRIDE_KEYS}))
+            return self.read_properties(con)
+
+    @staticmethod
+    def read_properties(con: Any) -> list[dict[str, Any]]:
+        """:meth:`properties` over an open read connection."""
+        props = [dict(r) for r in con.execute("SELECT * FROM rental_properties ORDER BY property_id")]
+        imps: dict[int, list[dict[str, Any]]] = {}
+        for r in con.execute("SELECT * FROM rental_improvements ORDER BY property_id, position"):
+            imps.setdefault(r["property_id"], []).append(_present({k: r[k] for k in IMPROVEMENT_KEYS}))
+        ovs: dict[int, list[dict[str, Any]]] = {}
+        for r in con.execute("SELECT * FROM rental_year_overrides ORDER BY property_id, year"):
+            ovs.setdefault(r["property_id"], []).append(_present({k: r[k] for k in OVERRIDE_KEYS}))
         out = []
         for p in props:
             pid = p.pop("property_id")
@@ -274,6 +280,19 @@ class RentalRepo:
             row["overrides"] = ovs.get(pid, [])
             out.append(row)
         return out
+
+    @staticmethod
+    def state_text(con: Any) -> str:
+        """Canonical text of the whole rental set for the plan's revision hash (WP12.7): the
+        properties in entry order with their improvements and overrides, without row ids, so
+        renumbering ids changes nothing and any edit does. ``""`` when there is no rental table
+        (a file older than schema v9) or no property, which keeps the revision of a plan that
+        never used rentals byte-for-byte what it was."""
+        have = con.execute("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'rental_properties'").fetchone()[0]
+        if not have:
+            return ""
+        props = RentalRepo.read_properties(con)
+        return json.dumps(props, sort_keys=True, separators=(",", ":"), ensure_ascii=False) if props else ""
 
     def get(self, name: str) -> dict[str, Any] | None:
         key = str(name).strip().casefold()

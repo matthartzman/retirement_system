@@ -138,13 +138,17 @@ def test_dashboard_expense_extraction_total_col_matches_actual_sheet_layout():
         if data.cell(row=header_row, column=col).value == "Σ Spend+Tax"
     )
     src = (ROOT / "src/reporting/dashboard.py").read_text(encoding="utf-8")
-    m = re.search(r"exp_years, exp_labels, exp_ser = _extract_chart_block\([^)]*total_col=(\d+)", src)
-    assert m, "could not find dashboard.py's expense _extract_chart_block call"
+    # WP12.7: with Rental Properties on the table has more series, so dashboard.py finds the total
+    # column by its header (row 4) and keeps the historic column only as the fallback; that
+    # fallback must still equal the real column of the feature-off layout.
+    m = re.search(r"_header_col\('Σ Spend\+Tax', (\d+)\)", src)
+    assert m, "could not find dashboard.py's expense total-column lookup"
     assert int(m.group(1)) == total_col, (
-        f"dashboard.py's expense total_col={m.group(1)} does not match the actual "
+        f"dashboard.py's expense fallback total_col={m.group(1)} does not match the actual "
         f"Sigma Spend+Tax column ({total_col}) -- series between them are silently "
         "dropped from the HTML dashboard chart"
     )
+    assert re.search(r"exp_years, exp_labels, exp_ser = _extract_chart_block\([^)]*total_col=exp_total_col", src)
 
 
 def test_html_dashboard_expense_chart_includes_all_series_with_matching_colors(tmp_path):

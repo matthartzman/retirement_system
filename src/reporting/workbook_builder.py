@@ -60,6 +60,7 @@ from .sheets_protection import build_existing_life, build_disability, build_pc_u
 from .sheets_wealth import build_education_funding, build_equity_comp, build_special_needs, build_business_succession
 from .sheets_qc_reference import validate_all, build_sheet21, build_sheet22, build_sheet23, build_sheet24, account_reconciliation_rows, build_sheet25
 from .sheets_current_vs_proposed import build_sheet_current_vs_proposed
+from .sheets_rental import build_sheet_rental
 from .dashboard import post_save_patch, build_html_dashboard
 from ..governance import advisor_readiness, source_citations, tax_law_dashboard, stress_narratives, workbook_consistency_warnings
 from ..after_tax import estimate_after_tax_terminal_net_worth
@@ -95,6 +96,11 @@ def _build_plan_input_fingerprint(base_dir, config_meta):
         revision, row_count = _plan_file_fingerprint(plan_db)
         files.append({"file": "plan_rows", "sha256": revision, "bytes": row_count})
         h.update(b"plan_rows\0"); h.update(revision.encode("ascii")); h.update(b"\0")
+        from ..active_plan import rental_fingerprint as _rental_fingerprint
+        rental = _rental_fingerprint(plan_db)
+        if rental:  # WP12.7: the rental tables are part of what the build read
+            files.append({"file": "rental_properties", "sha256": rental})
+            h.update(b"rental_properties\0"); h.update(rental.encode("ascii")); h.update(b"\0")
         from ..plan_datasets import dataset_fingerprint as _dataset_fingerprint
         for dname, digest in _dataset_fingerprint(plan_db).items():
             files.append({"file": f"plan_datasets/{dname}", "sha256": digest})
@@ -1191,6 +1197,10 @@ def _main(plan_read):
     if '38. Housing Comparison' in sheets:
         print('  Sheet 38 — Housing Trajectory Comparison')
         build_sheet_housing_comparison(sheets['38. Housing Comparison'], c, rows)
+    # WP12.7: present only while rental_property_income is on (module_key gate).
+    if '40. Rental Properties' in sheets:
+        print('  Sheet 40 — Rental Properties')
+        build_sheet_rental(sheets['40. Rental Properties'], c, rows)
 
     # QC last
     print('  Sheet 21 — Quality Control')

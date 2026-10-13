@@ -66,7 +66,9 @@ def build_sheet8(ws, c, rows, mc_data=None):
     chart_ws['A1'].alignment = Alignment(horizontal='left', vertical='center')
     chart_ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=14)
     chart_ws.row_dimensions[1].height = 24
-    chart_ws.cell(row=2, column=1, value='Chart source data is stored on a hidden helper sheet. Use this page and the app explorer for visuals; use detailed result sheets for tabular audits.')
+    _rental_note = (' Rental net cash flow is a series in the Income chart (or the Spending chart when it is a net cost); '
+                    'the Rental Properties chart at the bottom adds Schedule E and equity.') if any('rental_net_cash_flow' in _r for _r in rows) else ''
+    chart_ws.cell(row=2, column=1, value='Chart source data is stored on a hidden helper sheet. Use this page and the app explorer for visuals; use detailed result sheets for tabular audits.' + _rental_note)
     chart_ws['A2'].font = Font(name='Arial', italic=True, color='666666', size=10)
     chart_ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=14)
     for col in range(1, 15):
@@ -106,6 +108,13 @@ def build_sheet8(ws, c, rows, mc_data=None):
     # max(0, inc_total - exp_raw) so this bar's total always reconciles
     # exactly with the Income & Portfolio Draws bar for the same year.
     nw_rows = rows  # alias — rows already have all NW fields
+    # WP12.7: with Rental Properties on, the engine's income dict carries the year's net rental
+    # cash ('rental', negative when the rentals cost more than they bring in) and the tax dict
+    # the tax on a rental sale outside ordinary income ('rental_sale'). Positive rental cash is
+    # an income series, a net cost is a spending series (so the two bars still reconcile) and
+    # the sale tax is a tax series; each exists only while the feature ran, and the helper
+    # table's columns after them shift (src/reporting/dashboard.py reads them by header).
+    rental_on = any('rental_net_cash_flow' in _r for _r in rows)
 
     per_year = []
     for row in rows:
@@ -165,7 +174,10 @@ def build_sheet8(ws, c, rows, mc_data=None):
         roth_wd  = max(0, round(_draws['roth_wd']))
         ira_wd   = max(0, round(_draws['ira_elective']))
         heloc_draw_wd = max(0, round(_draws['heloc_draw']))
-        inc_total = sum(streams.values()) + trust_wd + hsa_wd + roth_wd + ira_wd + heloc_draw_wd
+        rental_cash = round(_inc.get('rental', 0.0)) if rental_on else 0
+        rental_in, rental_out = max(0, rental_cash), max(0, -rental_cash)
+        rental_sale_tax = round(_tax.get('rental_sale', 0.0)) if rental_on else 0
+        inc_total = sum(streams.values()) + trust_wd + hsa_wd + roth_wd + ira_wd + heloc_draw_wd + rental_in
 
         # This dashboard's fixed column layout (year_col=29/first_series=30 is
         # hard-referenced by src/reporting/dashboard.py's HTML extractor and by
@@ -202,7 +214,8 @@ def build_sheet8(ws, c, rows, mc_data=None):
         # the same surplus figure for a given year.
         surplus_reinvested = max(0, round(bd['surplus'] if bd else row.get('surplus', 0)))
         exp_raw    = (spend_base + housing + wellness + travel + other + other_cash_need_chart + heloc_pai_chart
-                      + fed_tax + state_tax + niit + payroll_tax + irmaa + home_sale_tax)
+                      + fed_tax + state_tax + niit + payroll_tax + irmaa + home_sale_tax
+                      + rental_out + rental_sale_tax)
 
         # Real-dollar equivalent (deflated to plan_start year)
         cpi_deflator = (1 + c['inf']) ** (row['year'] - c['plan_start'])
@@ -221,6 +234,7 @@ def build_sheet8(ws, c, rows, mc_data=None):
             'fed_tax': fed_tax, 'state_tax': state_tax,
             'niit': niit, 'payroll_tax': payroll_tax, 'irmaa': irmaa,
             'home_sale_tax': home_sale_tax, 'surplus_reinvested': surplus_reinvested,
+            'rental_in': rental_in, 'rental_out': rental_out, 'rental_sale_tax': rental_sale_tax,
             'exp_total': exp_raw + surplus_reinvested,
             # NW components — home equity separated from other
             'ann_nw':    round(row.get('ann_nw',0)),
@@ -304,48 +318,54 @@ def build_sheet8(ws, c, rows, mc_data=None):
         (25, 'ira_wd',   'IRA Draw',              'B85C00'),
         (26, 'heloc_draw_wd', 'HELOC Draw',         '8B5E3C'),
     ]
-    # Income section title — span exactly cols 11-27
+    if rental_on:
+        INC_SER.append((27, 'rental_in', 'Rental Cash', '16A34A'))
+    INC_TOTAL = 27 + (1 if rental_on else 0)
+    # Income section title — span exactly cols 11-27 (28 with a Rental Cash series)
     cell = ws.cell(row=2, column=INC_YEAR, value=f'Cash Flow — Income & Portfolio Draws  ·  {c["plan_start"]}–{c["plan_end"]}')
     cell.fill = fill(GREEN); cell.font = Font(name='Arial',bold=True,color=WHITE,size=11)
     cell.alignment = Alignment(horizontal='left',vertical='center')
-    ws.merge_cells(start_row=2, start_column=INC_YEAR, end_row=2, end_column=27)
+    ws.merge_cells(start_row=2, start_column=INC_YEAR, end_row=2, end_column=INC_TOTAL)
 
     wh(TABLE_ROW, INC_YEAR, 'Year', bg=DGRAY)
     for col, key, lbl, clr in INC_SER:
         wh(TABLE_ROW, col, lbl, bg=DGRAY)
-    wh(TABLE_ROW, 27, 'Σ Income', bg=GREEN)
+    wh(TABLE_ROW, INC_TOTAL, 'Σ Income', bg=GREEN)
 
     for ri, p in enumerate(per_year):
         r = DATA_FIRST + ri; bg = GRAY if ri%2==0 else None
         wd(r, INC_YEAR, p['yr'], fmt=FMT_YEAR, bg=bg)
         for col, key, _, _ in INC_SER:
             wd(r, col, p[key], fmt=FMT_DOLLAR, bg=bg)
-        wd(r, 27, p['inc_total'], fmt=FMT_DOLLAR, bg=bg, bold=True)
+        wd(r, INC_TOTAL, p['inc_total'], fmt=FMT_DOLLAR, bg=bg, bold=True)
 
-    for _col in range(11, 28): ws.column_dimensions[get_column_letter(_col)].width = 13
+    for _col in range(11, INC_TOTAL + 1): ws.column_dimensions[get_column_letter(_col)].width = 13
     ws.column_dimensions[get_column_letter(11)].width = 7
-    ws.column_dimensions[get_column_letter(28)].width = 2  # gap
+    ws.column_dimensions[get_column_letter(INC_TOTAL + 1)].width = 2  # gap
 
     # ── Expense Table ─────────────────────────────────────────────────────────
-    EXP_YEAR = 29
-    EXP_SER  = [
-        (30, 'spend_base',  'Base Spending',    '1F3864'),
-        (31, 'housing',     'Housing',          '2E75B6'),
-        (32, 'wellness',    'Wellness',       'C55A11'),
-        (33, 'travel',      'Travel',           'C9A84C'),
-        (34, 'other',       'Other',            '059669'),
-        (35, 'other_cash_need', 'Other Cash Need', '6B21A8'),
-        (36, 'fed_tax',     'Federal Tax',      '9B2335'),
-        (37, 'state_tax',   f'State Tax ({c["state"][:2]})',   'C5384E'),
-        (38, 'niit',        'NIIT',             'E07595'),
-        (39, 'payroll_tax', 'Payroll Tax',      '8B5E3C'),
-        (40, 'irmaa',       'IRMAA',            'B85C00'),
-        (41, 'home_sale_tax', 'Home Sale Tax',  '7B3F9E'),
-        (42, 'surplus_reinvested', 'Surplus (Reinvested)', '595959'),
-        (43, 'heloc_pai',   'HELOC P&I',        '2D6A8F'),
+    EXP_YEAR = INC_TOTAL + 2
+    _exp_defs = [
+        ('spend_base',  'Base Spending',    '1F3864'),
+        ('housing',     'Housing',          '2E75B6'),
+        ('wellness',    'Wellness',       'C55A11'),
+        ('travel',      'Travel',           'C9A84C'),
+        ('other',       'Other',            '059669'),
+        ('other_cash_need', 'Other Cash Need', '6B21A8'),
+        ('fed_tax',     'Federal Tax',      '9B2335'),
+        ('state_tax',   f'State Tax ({c["state"][:2]})',   'C5384E'),
+        ('niit',        'NIIT',             'E07595'),
+        ('payroll_tax', 'Payroll Tax',      '8B5E3C'),
+        ('irmaa',       'IRMAA',            'B85C00'),
+        ('home_sale_tax', 'Home Sale Tax',  '7B3F9E'),
+        ('surplus_reinvested', 'Surplus (Reinvested)', '595959'),
+        ('heloc_pai',   'HELOC P&I',        '2D6A8F'),
     ]
-    EXP_TOTAL_COL = 44
-    # Expense section title — span exactly cols 29-43
+    if rental_on:
+        _exp_defs += [('rental_out', 'Rental Net Cost', '14532D'), ('rental_sale_tax', 'Rental Sale Tax', '0F766E')]
+    EXP_SER = [(EXP_YEAR + 1 + _i, _k, _l, _c) for _i, (_k, _l, _c) in enumerate(_exp_defs)]
+    EXP_TOTAL_COL = EXP_YEAR + len(EXP_SER) + 1
+    # Expense section title — year column through the last series (EXP_TOTAL_COL - 1)
     cell = ws.cell(row=2, column=EXP_YEAR, value=f'Cash Flow — Spending & Taxes  ·  {c["plan_start"]}–{c["plan_end"]}')
     cell.fill = fill(RED); cell.font = Font(name='Arial',bold=True,color=WHITE,size=11)
     cell.alignment = Alignment(horizontal='left',vertical='center')
@@ -363,8 +383,8 @@ def build_sheet8(ws, c, rows, mc_data=None):
             wd(r, col, p[key], fmt=FMT_DOLLAR, bg=bg)
         wd(r, EXP_TOTAL_COL, p['exp_total'], fmt=FMT_DOLLAR, bg=bg, bold=True)
 
-    for _col in range(29, EXP_TOTAL_COL + 1): ws.column_dimensions[get_column_letter(_col)].width = 14
-    ws.column_dimensions[get_column_letter(29)].width = 7
+    for _col in range(EXP_YEAR, EXP_TOTAL_COL + 1): ws.column_dimensions[get_column_letter(_col)].width = 14
+    ws.column_dimensions[get_column_letter(EXP_YEAR)].width = 7
     ws.column_dimensions[get_column_letter(EXP_TOTAL_COL + 1)].width = 2  # gap
 
     # ════════════════════════════════════════════════════════════════════════
@@ -426,7 +446,7 @@ def build_sheet8(ws, c, rows, mc_data=None):
 
     # ── Chart 4: Net Worth Percentile Bands (Monte Carlo) ────────────────────
     # Write data table for the MC percentile bands (cols AO onward = col 41+)
-    MC_YEAR_COL = 45  # gap column at 44, first free column after the Expense table's total (col 43)
+    MC_YEAR_COL = EXP_TOTAL_COL + 1  # first column after the Expense table's total
     MC_PCTS     = [10, 25, 50, 75, 90]
     MC_LABELS   = ['P10','P25','P50 Median','P75','P90']
     MC_COLORS   = ['9B2335','C55A11','2D6A4F','2E75B6','1F3864']
@@ -490,6 +510,66 @@ def build_sheet8(ws, c, rows, mc_data=None):
     # shown anywhere when the chart is not embedded.)
     if module_enabled(c, 'market_luck_stress_test'):
         chart_ws.add_chart(chart_mc, 'A118')
+
+    # ── Rental Properties series (WP12.7) ─────────────────────────────────
+    # Present only while the feature ran (its row fields exist), so a plan without it keeps
+    # the exact chart set and helper-sheet layout. Net cash flow and the Schedule E amount
+    # that reaches AGI are columns; rental equity is a line on a second axis. The helper
+    # columns sit right of the Monte Carlo block, clear of every other table.
+    _rental_chart_added = False
+    if any('rental_net_cash_flow' in _r for _r in rows):
+        from openpyxl.chart import LineChart as _LineChart
+        RENT_YEAR_COL = MC_YEAR_COL + len(MC_PCTS) + 3
+        RENT_SER = [(RENT_YEAR_COL + 1, 'Net cash flow', '2E75B6', 'rental_net_cash_flow'),
+                    (RENT_YEAR_COL + 2, 'Schedule E added to AGI', 'C55A11', 'rental_schedule_e_to_agi'),
+                    (RENT_YEAR_COL + 3, 'Rental equity (right axis)', '16A34A', 'rental_equity')]
+        cell_r = ws.cell(row=2, column=RENT_YEAR_COL, value='Rental Properties data  ·  used by the rental chart')
+        cell_r.fill = fill('7030A0')
+        cell_r.font = Font(name='Arial', bold=True, color=WHITE, size=11)
+        cell_r.alignment = Alignment(horizontal='left', vertical='center')
+        ws.merge_cells(start_row=2, start_column=RENT_YEAR_COL, end_row=2, end_column=RENT_YEAR_COL + len(RENT_SER))
+        wh(TABLE_ROW, RENT_YEAR_COL, 'Year', bg=DGRAY)
+        for _col, _lbl, _clr, _key in RENT_SER:
+            wh(TABLE_ROW, _col, _lbl, bg=DGRAY)
+        for ri, _row in enumerate(rows):
+            r_r = DATA_FIRST + ri
+            bg_r = GRAY if ri % 2 == 0 else None
+            wd(r_r, RENT_YEAR_COL, _row['year'], fmt=FMT_YEAR, bg=bg_r)
+            for _col, _lbl, _clr, _key in RENT_SER:
+                wd(r_r, _col, round(_row.get(_key, 0) or 0), fmt=FMT_DOLLAR, bg=bg_r)
+        for _col in range(RENT_YEAR_COL, RENT_YEAR_COL + len(RENT_SER) + 1):
+            ws.column_dimensions[get_column_letter(_col)].width = 14
+        chart_rent = BarChart()
+        chart_rent.type = 'col'; chart_rent.grouping = 'clustered'
+        chart_rent.title = f'Rental Properties — Cash Flow, Schedule E and Equity  ·  {c["plan_start"]}–{c["plan_end"]}'
+        chart_rent.width = 30; chart_rent.height = 18
+        chart_rent.y_axis.numFmt = '$#,##0,"K"'
+        chart_rent.y_axis.delete = False
+        chart_rent.x_axis.delete = False
+        chart_rent.x_axis.numFmt = '0'
+        chart_rent.x_axis.tickLblPos = 'low'
+        chart_rent.legend.position = 'r'; chart_rent.legend.overlay = False
+        for _i, (_col, _lbl, _clr, _key) in enumerate(RENT_SER[:2]):
+            chart_rent.add_data(Reference(ws, min_col=_col, max_col=_col, min_row=DATA_FIRST, max_row=DATA_LAST))
+            _s = chart_rent.series[_i]
+            _s.title = SeriesLabel(v=_lbl)
+            _gp = GraphicalProperties(); _gp.solidFill = _clr; _s.spPr = _gp
+        chart_rent.set_categories(Reference(ws, min_col=RENT_YEAR_COL, max_col=RENT_YEAR_COL,
+                                            min_row=DATA_FIRST, max_row=DATA_LAST))
+        line_eq = _LineChart()
+        _col, _lbl, _clr, _key = RENT_SER[2]
+        line_eq.add_data(Reference(ws, min_col=_col, max_col=_col, min_row=DATA_FIRST, max_row=DATA_LAST))
+        line_eq.series[0].title = SeriesLabel(v=_lbl)
+        line_eq.series[0].graphicalProperties.line.solidFill = _clr
+        line_eq.series[0].graphicalProperties.line.width = 28000
+        line_eq.y_axis.axId = 200
+        line_eq.y_axis.numFmt = '$#,##0,"K"'
+        line_eq.y_axis.delete = False
+        line_eq.y_axis.crosses = 'max'
+        chart_rent += line_eq
+        chart_rent.visible_cells_only = False
+        chart_ws.add_chart(chart_rent, 'A300')
+        _rental_chart_added = True
 
     # ── Allocation Pie Charts (Before & After) ────────────────────────────
     chart_data = c.get('_alloc_chart_data', {})
@@ -851,10 +931,12 @@ def build_sheet8(ws, c, rows, mc_data=None):
 
     _chart_count = 7 if _ef_chart_added else 6
     _chart_count += 1 if _hp_chart_added else 0
+    _chart_count += 1 if _rental_chart_added else 0
     qc('8. Charts Dashboard',
        f'{_chart_count} charts: NW, CF Income, CF Expense, MC Bands, Alloc Before, Alloc After'
        + (', Efficient Frontier' if _ef_chart_added else '')
-       + (', Holding-Period Real-Loss' if _hp_chart_added else ''),
+       + (', Holding-Period Real-Loss' if _hp_chart_added else '')
+       + (', Rental Properties' if _rental_chart_added else ''),
        True,
        f'NW, Income (15 ser, ymax=${CF_YMAX:,}), Expense (13 ser, ymax=${CF_YMAX:,}), MC bands, 2 pie charts'
        + (', efficient frontier scatter' if _ef_chart_added else '')
