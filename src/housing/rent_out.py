@@ -93,6 +93,32 @@ def apply_rent_out(c: dict[str, Any], cand: HousingCandidate, plan: RentOutPlan)
     c['rental_properties'] = props
 
 
+def plan_converted_home(c: dict[str, Any]) -> dict[str, Any] | None:
+    """The plan's own converted-home entry (Rental Properties page), if any."""
+    return next((p for p in (c.get('rental_properties') or []) if _is_converted(p)), None)
+
+
+def without_plan_converted_home(c: dict[str, Any]) -> dict[str, Any]:
+    """A shallow copy of ``c`` without the plan's own converted-home entry: the same
+    normalisation ``apply_rent_out`` gives every sell / keep candidate (M6), so the
+    do-nothing baseline compares like for like with them."""
+    c2 = dict(c)
+    c2['rental_properties'] = [p for p in (c.get('rental_properties') or []) if not _is_converted(p)]
+    return c2
+
+
+def baseline_comparison_notes(entry: dict[str, Any], as_entered: dict[str, Any], baseline: dict[str, Any]) -> list[str]:
+    """Why the baseline leaves out the plan's own converted home (M6), with the as-entered figures."""
+    name = str(entry.get('name') or DEFAULT_NAME)
+    return [
+        f"Do-nothing baseline and sell / keep candidates leave out the plan's own converted home "
+        f"'{name}' (the disposition decides it); only rent-out candidates rent the home.",
+        f"The plan as entered, with '{name}' rented, would end at net worth "
+        f"${as_entered['net_worth']:,.0f} (lifetime cost ${as_entered['lifetime_cost']:,.0f}); "
+        f"the baseline above is ${baseline['net_worth']:,.0f} (${baseline['lifetime_cost']:,.0f}).",
+    ]
+
+
 def _overrides_from(overrides: Any, year: int) -> Any:
     """The per-year overrides from ``year`` on, in either stored shape (a
     ``{year: {...}}`` map or a list of ``{year, ...}`` rows)."""

@@ -55,10 +55,6 @@ def _by_disposition(result: dict) -> dict:
 def runs():
     off = _c0(False, rf.CONVERTED_HOME)
     on = _c0(True)
-    # Warm-up: the first optimizer run in a pytest process ends a few thousand dollars
-    # away from every later one (baseline included). That predates WP12.8; it is not
-    # what these comparisons are about.
-    _optimize(off)
     return {
         'off': _optimize(off),
         'off_with_rent': _optimize(off, rent_out_monthly_rent=RENT),
@@ -140,3 +136,21 @@ def test_no_rent_means_no_rent_out_candidate():
 
 def test_deterministic(runs):
     assert json.dumps(runs['on'], sort_keys=True) == json.dumps(runs['on_again'], sort_keys=True)
+
+
+def test_baseline_matches_the_candidates_when_the_plan_has_a_converted_home():
+    """M6: with the feature on and the plan's own converted-home entry present, the do-nothing
+    baseline leaves that entry out like every sell / keep candidate, shows the as-entered run
+    beside it, and says so in the comparison notes. Off: no such keys, results unchanged."""
+    on = _optimize(_c0(True, rf.CONVERTED_HOME), rent_out_monthly_rent=RENT)
+    entered = on['baseline']['as_entered']
+    assert entered['net_worth'] != on['baseline']['net_worth']
+    assert len(on['comparison_notes']) == 2
+    assert any('as entered' in n for n in on['comparison_notes'])
+    keep = _by_disposition(on)['keep']
+    plain_on = _optimize(_c0(True), rent_out_monthly_rent=RENT)  # no entry in the plan
+    assert 'comparison_notes' not in plain_on and 'as_entered' not in plain_on['baseline']
+    assert plain_on['baseline']['net_worth'] == pytest.approx(on['baseline']['net_worth'])
+    assert keep['net_worth'] == pytest.approx(_by_disposition(plain_on)['keep']['net_worth'])
+    off = _optimize(_c0(False, rf.CONVERTED_HOME))
+    assert 'comparison_notes' not in off and 'as_entered' not in off['baseline']
