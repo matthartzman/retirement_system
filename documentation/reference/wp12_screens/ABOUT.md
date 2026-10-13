@@ -28,3 +28,15 @@ Open `rental_properties_mockup.html#<n>` (e.g. `#1_list`). Desktop 1280x900, mob
 8. Off state: offer "Preview what it would add" (shown) or just the switch?
 9. Net yield definition shown: (rent - operating expenses) / value. Confirm, or use cash-on-cash or cap rate on cost?
 10. Where the "Convert my home" entry also appears in Next Housing Move / Housing Comparison is not mocked.
+
+## Owner decisions (2026-10-13)
+1. Active participation: Standard field, default yes, with a plain-words hint.
+2. Summary strip: year selectable (default first projection year); suspended loss = balance at the selected year end. (default, not asked)
+3. Warnings dismissible per session; double-count match = same name OR value within 5%. (default)
+4. Convert dialog: ask for rent only, no suggestion.
+5. Failed section 121 test: warn only (red warning with the tax effect).
+6. Detail: full page with tabs.
+7. Improvements stay on the Tax tab. (default)
+8. Off state keeps "Preview what it would add". (default)
+9. Net yield = (rent - operating expenses) / value. (default)
+10. "Convert my home" in Next Housing Move / Housing Comparison is handled in 12.8 with its own mockup. (default)
