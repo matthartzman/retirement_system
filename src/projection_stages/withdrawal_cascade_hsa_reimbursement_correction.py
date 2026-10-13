@@ -62,6 +62,11 @@ def apply_hsa_reimbursement_correction(
     other_cash_need_yr: float,
     brk_inf: Any,
     compute_fed_tax_fn: Callable[[float, int, str, Any], float],
+    # WP12.2: a fixed tax term outside fed/state/payroll/IRMAA that every
+    # total_tax_pre_niit recombination keeps (the rental sale adjustments:
+    # the 25% cap on unrecaptured 1250 gain and state tax on the long-term gain).
+    # 0.0 for every plan without Rental Properties, so the sums are unchanged.
+    other_fixed_tax: float = 0.0,
 ) -> HsaReimbursementCorrectionResult:
     """Withdrawal Cascade sub-stage #3 (design doc addendum): the
     HSA-reimbursement medical-deduction correction (lines ~1005-1099).
@@ -148,7 +153,7 @@ def apply_hsa_reimbursement_correction(
             # breakdown's `other` remainder absorbing exactly the gap.
             # Recomputing the subtotal from its own components is the
             # idiom the engine already uses at its other two update sites.
-            total_tax_pre_niit = fed_tax + state_tax + payroll_tax + irmaa_yr
+            total_tax_pre_niit = fed_tax + state_tax + payroll_tax + irmaa_yr + other_fixed_tax
             total_tax = total_tax_pre_niit + home_sale_ltcg_tax
             gap += _fed_tax_extra
             item_ded = _cand_item_ded

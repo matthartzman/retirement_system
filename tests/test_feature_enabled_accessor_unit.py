@@ -38,6 +38,11 @@ OPTIONAL_TOGGLES = [k for k in TOGGLE_KEYS if mc.CATALOG[k].optional]
 # gate_config_key before WP1.2; the engine read c['heloc_enabled'] directly.
 LEGACY_FLAG_CONFIG_KEY = {"heloc": "heloc_enabled", "hybrid_ltc_policy": "ltc_enabled",
                           "daf_giving": "daf_enabled", "qcd_giving": "qcd_enabled"}
+# WP12.2: rowless module toggles declared default-off (none existed before
+# WP1.2; rental_property_income is the first). The reference implementation
+# below reads their registry default for an absent key, as the frontend does.
+ROWLESS_DEFAULT_OFF = {k for k, m in mc.CATALOG.items()
+                       if m.gate_kind == mc.GATE_MODULE_TOGGLE and not m.csv_row and not m.default_on}
 
 
 # ── Frozen pre-WP1.2 accessors (reference implementation) ───────────────────
@@ -78,7 +83,7 @@ def _legacy_base_enabled(c, key):
     for kk, vv in opt.items():
         if str(kk).strip().lower() == k:
             return bool(vv)
-    return True
+    return k not in ROWLESS_DEFAULT_OFF
 
 
 def _legacy_effective(c):
@@ -345,7 +350,8 @@ def test_default_on_matches_legacy_absent_key_behavior(clean_env):
         if m.gated_by or m.gated_by_any_flag:
             continue
         assert m.default_on is _legacy({}, key), key
-    assert {k for k, m in mc.CATALOG.items() if not m.default_on} == set(FLAG_KEYS)
+    assert {k for k, m in mc.CATALOG.items() if not m.default_on} == set(FLAG_KEYS) | ROWLESS_DEFAULT_OFF
+    assert ROWLESS_DEFAULT_OFF == {"rental_property_income"}
 
 
 @pytest.mark.parametrize("key,tier", [

@@ -235,6 +235,13 @@ DECLARED_SITES: dict[tuple[str, str, str], tuple[str, str | None, tuple[str, ...
         "Adds the owner's projected business interest to the taxable estate, "
         "changing computed estate tax and not merely sheet 34's existence.",
     ),
+    ("src/projection_stages/rental_property.py", "rental_book_for",
+     "rental_property_income"): (
+        ENGINE, None, (),
+        "WP12.2: Rental Properties. Off (or no property entered), the engine "
+        "builds no RentalBook and skips every rental step, so the projection "
+        "is the same as a plan with no rentals; the entered rows are kept.",
+    ),
     ("src/data_io.py", "parse_client", "housing_location_search"): (
         ENGINE, None, (),
         "Design 2026-09-24 \u00a76 [C]: Next Housing Move off blanks the home "
