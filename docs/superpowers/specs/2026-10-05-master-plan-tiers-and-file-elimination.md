@@ -223,5 +223,5 @@ Planning bands (assumption, not measured): S about 0.2-0.5M tokens, M 0.5-1M, L 
 | WP11.4 | done | WP11 PR | CSV fixtures moved to `tests/fixtures/csv_exchange/`; golden compare unchanged (no re-record). |
 | WP11.5 | done | WP11 PR | docs and release notes updated; the architecture diagram generator label fixed. |
 | WP11.6 | not started (later release) | none | delete `legacy_conversion/`, `load_csv`/`migrate_sectioned_data` loader path once every install has converted. |
-| WP12a | in progress (12.1 to 12.3 as commits) | draft PR (branch `claude/wp12a-rental-engine`) | 12.1 pending: OWNER CHECKPOINT on tax rules and worked examples before 12.2 |
+| WP12a | in progress (12.1 to 12.3 as commits) | draft PR (branch `claude/wp12a-rental-engine`) | 12.1 done (commit 9e1676d); OWNER CHECKPOINT: 12.1 awaiting owner/tax-preparer reply before 12.2; rules in `documentation/reference/RENTAL_TAX_RULES.md` |
 | WP12b - WP12c | not started | none | separate later sessions |
