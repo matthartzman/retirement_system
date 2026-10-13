@@ -585,7 +585,7 @@ INVARIANTS = [
                   r.get('earned', 0) + r.get('ss_taxable', 0)
                   + r.get('rmd_total', 0) + r.get('roth_conv', 0) + r.get('pension', 0)
                   + r.get('_niit_ws_taxable', r.get('wife_single_ann', 0)) + r.get('wife_joint_ann', 0)
-                  + r.get('_niit_hs_taxable', r.get('h_single_ann', 0)) + r.get('h_joint_ann', 0) + r.get('note_int', 0)
+                  + r.get('_niit_hs_taxable', r.get('h_single_ann', 0)) + r.get('h_joint_ann', 0) + r.get('note_int', 0) + r.get('sale_cap_gain_in_agi', 0)
               )) < max(1000, r.get('agi', 0) * 0.001),
               'WARN', 'AGI should equal sum of taxable income components'),
     Invariant('TAX_REASONABLE',
