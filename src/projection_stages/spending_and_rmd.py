@@ -108,6 +108,10 @@ class SpendingAndRMDResult(NamedTuple):
     daf_is_inkind: bool
     daf_grant_yr: float
 
+    # WP12.3: the home's carrying costs moved to the rental's Schedule E this
+    # year (home converted to a rental), or None when nothing moved.
+    converted_home_costs: "dict[str, float] | None" = None
+
 
 def apply_spending_and_rmd(
     c: dict[str, Any],
@@ -145,6 +149,7 @@ def apply_spending_and_rmd(
     medicare_month_fraction: Callable[[int, Any, int], float],
     taxable_portfolio_income_for_year: Callable[[], tuple],
     emit: Callable[[Any], None],
+    converted_home_share: float = 0.0,
 ) -> SpendingAndRMDResult:
     """Compute this year's total spending need (including RMD *sizing*) and
     then withdraw the sized RMD from the household's accounts (RMD
@@ -350,6 +355,29 @@ def apply_spending_and_rmd(
     if home_improvement_budget_yr > 0:
         home_improvement_budget_yr *= infl_ratio(year, int(c.get('plan_start', year) or year))
     home_improvement_yr = home_improvement_override_yr if home_improvement_override_yr > 0 else home_improvement_budget_yr
+    # WP12.3 carrying-cost shift (design 2026-10-05 section 4.5): once the
+    # current home is converted to a rental, the share of the year it is
+    # rented (``converted_home_share``, 0 when the feature is off) of its
+    # mortgage payment, real-estate tax and Housing budget utilities,
+    # maintenance and other moves out of spending and into the rental's
+    # Schedule E and cash flow (rental_property.RentalBook.with_carrying_costs),
+    # so nothing counts twice. The interest is deducted there; the principal
+    # stays a financing flow in the rental's debt service.
+    converted_home_costs = None
+    if converted_home_share > 0:
+        _share = min(1.0, float(converted_home_share))
+        _home_util = float(housing_budget_groups.get('Utilities', 0.0) or 0.0) if owns_home_for_re_tax else 0.0
+        _home_maint = float(housing_budget_groups.get('Maintenance', 0.0) or 0.0) if owns_home_for_re_tax else 0.0
+        _home_other = float(housing_budget_groups.get('Other', 0.0) or 0.0) if owns_home_for_re_tax else 0.0
+        converted_home_costs = {
+            'share': _share, 'mortgage_payment': mort_yr * _share, 'real_estate_tax': re_tax_yr * _share,
+            'utilities': _home_util * _share, 'maintenance': _home_maint * _share,
+            'other': _home_other * _share,
+        }
+        mort_yr -= converted_home_costs['mortgage_payment']
+        re_tax_yr -= converted_home_costs['real_estate_tax']
+        row['converted_home_share'] = _share
+        row['converted_home_carrying_costs'] = sum(v for k, v in converted_home_costs.items() if k != 'share')
     # Next Housing Step rows are authoritative future rent/buy events.
     # They add ongoing Housing cash flow and, for purchases, home equity /
     # mortgage liability.  Start-year down payment is a separate cash need.
@@ -366,6 +394,10 @@ def apply_spending_and_rmd(
     housing_budget_utilities_yr = float(housing_budget_groups.get('Utilities', 0.0) or 0.0) if current_home_operating_active else 0.0
     housing_budget_maintenance_yr = float(housing_budget_groups.get('Maintenance', 0.0) or 0.0) if current_home_operating_active else 0.0
     housing_budget_other_yr = float(housing_budget_groups.get('Other', 0.0) or 0.0) if current_home_operating_active else 0.0
+    if converted_home_costs is not None:
+        housing_budget_utilities_yr -= converted_home_costs['utilities']
+        housing_budget_maintenance_yr -= converted_home_costs['maintenance']
+        housing_budget_other_yr -= converted_home_costs['other']
     housing_utilities_yr = housing_budget_utilities_yr + float(next_housing_yr.get('utilities', 0.0) or 0.0)
     housing_maintenance_yr = housing_budget_maintenance_yr + float(next_housing_yr.get('maintenance', 0.0) or 0.0)
     housing_other_yr = (housing_budget_other_yr + float(next_housing_yr.get('insurance', 0.0) or 0.0)
@@ -734,6 +766,7 @@ def apply_spending_and_rmd(
         daf_gift_requested=daf_gift_requested,
         daf_is_inkind=daf_is_inkind,
         daf_grant_yr=daf_grant_yr,
+        converted_home_costs=converted_home_costs,
     )
 
 

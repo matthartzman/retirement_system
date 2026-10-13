@@ -46,6 +46,8 @@ def apply_portfolio_growth_and_net_worth(
     note_bal: float,
     cst_balance: float,
     mort_bal_yr: float,
+    rental_equity: float | None = None,
+    rental_mortgage_balance: float = 0.0,
 ) -> None:
     """Apply end-of-year portfolio growth, value the annuity streams for net
     worth, and assemble the year's total net worth + liability breakdown.
@@ -176,6 +178,11 @@ def apply_portfolio_growth_and_net_worth(
     # other_nw = current home equity + next-housing equity + depreciating assets + note receivable + cash
     next_housing_equity = float(row.get('next_housing_equity', 0.0) or 0.0)
     other_nw = home_equity + next_housing_equity + autos_val + float(startup or 0.0) + float(note_bal or 0.0) + cash_nw
+    # WP12.2: rental property equity (value - mortgage) joins other_nw the way
+    # home equity does, and its mortgage joins the liability decomposition the
+    # way the home mortgage does. None = Rental Properties off: no change.
+    if rental_equity is not None:
+        other_nw += rental_equity
 
     # Outstanding balances on additional liabilities (auto/student/other/heloc
     # line items) directly reduce net worth. Empty for a liability-free plan.
@@ -191,6 +198,8 @@ def apply_portfolio_growth_and_net_worth(
     heloc_liability = float(bal.get('_heloc_balance', 0.0) or 0.0)
     next_housing_mortgage_balance = float(row.get('next_housing_mortgage_balance', 0.0) or 0.0)
     total_liabilities = mort_bal_yr + next_housing_mortgage_balance + heloc_liability + additional_liabilities
+    if rental_equity is not None:
+        total_liabilities += rental_mortgage_balance
 
     row.update({
         'ann_nw': ann_nw,

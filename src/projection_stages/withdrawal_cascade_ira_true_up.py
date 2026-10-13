@@ -155,6 +155,11 @@ def apply_priority_3_pretax_elective(
     brk_inf: Any,
     inflate_brackets_fn: Callable[[Any, Any, int], Any],
     ira_elective_tax_delta_fn: Callable[..., tuple],
+    # WP12.2: a fixed tax term outside fed/state/payroll/IRMAA that every
+    # total_tax_pre_niit recombination keeps (the rental sale adjustments:
+    # the 25% cap on unrecaptured 1250 gain and state tax on the long-term gain).
+    # 0.0 for every plan without Rental Properties, so the sums are unchanged.
+    other_fixed_tax: float = 0.0,
 ) -> Priority3Result:
     """Withdrawal Cascade sub-stage #4 (design doc addendum): Priority 3,
     the pre-tax elective withdrawal (bracket-capped), lines ~1097-1212.
@@ -235,7 +240,7 @@ def apply_priority_3_pretax_elective(
             agi += ira_wd
             taxable_inc += ira_wd
             irmaa_magi_current += ira_wd
-            total_tax_pre_niit = fed_tax + state_tax + payroll_tax + irmaa_yr
+            total_tax_pre_niit = fed_tax + state_tax + payroll_tax + irmaa_yr + other_fixed_tax
     row['_pretax_elective_by_account'] = pretax_by_account
     for _aid, _amt in pretax_by_account.items():
         _add_account_flow(row['_account_withdrawals'], _aid, _amt)
@@ -323,6 +328,11 @@ def apply_priority_4b_final_pretax_draw(
     brk_inf: Any,
     inflate_brackets_fn: Callable[[Any, Any, int], Any],
     ira_elective_tax_delta_fn: Callable[..., tuple],
+    # WP12.2: a fixed tax term outside fed/state/payroll/IRMAA that every
+    # total_tax_pre_niit recombination keeps (the rental sale adjustments:
+    # the 25% cap on unrecaptured 1250 gain and state tax on the long-term gain).
+    # 0.0 for every plan without Rental Properties, so the sums are unchanged.
+    other_fixed_tax: float = 0.0,
 ) -> Priority4bResult:
     """Withdrawal Cascade sub-stage #7 (design doc addendum): Priority 4b,
     the final pre-tax draw before any Roth withdrawal (cap override),
@@ -442,7 +452,7 @@ def apply_priority_4b_final_pretax_draw(
             agi += p4b_wd
             taxable_inc += p4b_wd
             irmaa_magi_current += p4b_wd
-            total_tax_pre_niit = fed_tax + state_tax + payroll_tax + irmaa_yr
+            total_tax_pre_niit = fed_tax + state_tax + payroll_tax + irmaa_yr + other_fixed_tax
 
         row['_pretax_elective_by_account'] = dict(pretax_by_account)
         row['ira_wd'] = ira_wd

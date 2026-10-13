@@ -273,7 +273,9 @@ def test_engine_participants_are_the_modules_the_engine_reads():
         "equity_compensation", "disability_income_insurance",
         "business_succession", "spending_tracker_ytd",
         # Design 2026-09-24 §6 [C]: off blanks the housing plan inputs.
-        "housing_location_search"}
+        "housing_location_search",
+        # WP12.2: the engine reads c['rental_properties'] only while on.
+        "rental_property_income"}
 
 
 def test_engine_participation_defaults_off():

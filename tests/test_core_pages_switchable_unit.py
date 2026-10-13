@@ -22,8 +22,13 @@ def test_pages_are_gated_by_their_features():
 
 def test_new_features_default_on_with_no_csv_row():
     new = [k for k, m in mc.CATALOG.items() if not m.csv_row]
-    assert sorted(new) == ["insurance_inputs", "planning_workbench", "reserve_requirements"]
+    assert sorted(new) == ["insurance_inputs", "planning_workbench", "rental_property_income",
+                           "reserve_requirements"]
     assert set(mc.rowless_defaults()) == set(new)
+    # WP12.2: Rental Properties is the one rowless feature that defaults off.
+    assert mc.rowless_defaults()["rental_property_income"] is False
+    assert mc.feature_enabled({}, "rental_property_income") is False
+    new.remove("rental_property_income")
     shipped = ROOT / "input" / "demo" / "client_optional_functions.csv"
     with shipped.open(encoding="utf-8-sig", newline="") as fh:
         assert not ({r.get("label") for r in csv.DictReader(fh)} & set(new))

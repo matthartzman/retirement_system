@@ -569,6 +569,10 @@ from .parsing.roth_conversion_policy import parse_roth_conversion_policy  # noqa
 # parse_withdrawal_spending_policy`) keep working unchanged.
 from .parsing.withdrawal_policy import parse_withdrawal_spending_policy  # noqa: F401
 
+# WP12.3: the Rental Properties parse boundary (source rows -> c['rental_properties']
+# and the optional household c['mfs_lived_apart']); see src/parsing/rental_properties.py.
+from .parsing.rental_properties import RentalPropertyInputError, parse_rental_properties  # noqa: F401
+
 
 def parse_client(data, url_template, *, skip_live_pricing=False):
     """Parse sectioned client data into an engine-ready config dict.
