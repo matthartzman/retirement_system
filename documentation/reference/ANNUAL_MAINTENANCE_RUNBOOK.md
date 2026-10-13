@@ -44,7 +44,7 @@ place mislabels its value year and silently mis-indexes every later year.
    announcement for the new tax year, and note the document and date you used
    for each value. After editing `reference_src/`, rebuild the shipped database with
    `python tools/build_reference_db.py` (bump `REFERENCE_RELEASE` in that tool) and run the
-   golden tests; the engine reads only `reference.db`. `python tools/build_reference_db.py --check`
+   golden tests; the engine reads only `reference.db`. Additive tax-constant rows may re-record the `tax_law` goldens (owner decision, WP12a): the diff must be additions-only, recorded with a reason via `tools/golden_compare.py record --reason ...` and the reference-db flow, with a `GOLDEN_MASTER_CHANGELOG.md` entry, reviewed in the PR. `python tools/build_reference_db.py --check`
    exits 1 when the committed database does not match a fresh build (it compares `ref_meta`, which carries the content hash, and the schema).
 2. In `reference_src/tax_law_v10.json`, append a row (or, for brackets, a full
    table) with the new `effective_year`, a `source` naming the document, and
