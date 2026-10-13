@@ -1,6 +1,6 @@
 # WP5.1 tier picker screenshots (owner checkpoint)
 
-Settings > Plan Features with the tier picker (WP5.1), on the frozen sample plan (`tests/fixtures/sample_plan_frozen`, no tier row, so it opens as "Expert (customized)").
+Settings > Plan Features with the tier picker (WP5.1), on the frozen sample plan (`tests/fixtures/csv_exchange/sample_plan_frozen`, no tier row, so it opens as "Expert (customized)").
 
 | File | What it shows |
 |---|---|

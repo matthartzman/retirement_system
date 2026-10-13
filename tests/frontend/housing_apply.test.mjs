@@ -34,7 +34,7 @@ const {
 const OA = sandbox.window.OptimizerApply;
 
 // The Housing rows the frozen sample plan actually carries
-// (tests/fixtures/sample_plan_frozen/client_spending.csv), plus the home
+// (tests/fixtures/csv_exchange/sample_plan_frozen/client_spending.csv), plus the home
 // sale year row from client_assets.csv.
 function planRows() {
   const housing = (subsection, label, value, format) => ({

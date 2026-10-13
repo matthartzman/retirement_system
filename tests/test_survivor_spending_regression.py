@@ -9,7 +9,7 @@ per-person scaling would compound two reductions (0.53 x 0.65 ~ 0.34 of the
 joint figure), which is wrong. Housing is excluded by explicit user decision:
 a survivor lives in the same house.
 
-The frozen fixture (tests/fixtures/sample_plan_frozen) has h_death_yr=2054 and
+The frozen fixture (tests/fixtures/csv_exchange/sample_plan_frozen) has h_death_yr=2054 and
 w_death_yr=2056, so 2052-2054 are both-alive years and 2055-2056 are
 survivor years. plan_end == max(death years) == 2056, so there are no
 both-dead rows here -- those belong to Task S2.

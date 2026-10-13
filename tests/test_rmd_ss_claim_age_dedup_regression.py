@@ -43,7 +43,7 @@ class Item195RmdSsClaimAgeDedupTests(unittest.TestCase):
         self.assertNotIn(("Model Constants", "Retirement", "rmd_start_age"), keys)
 
     def test_household_generic_fields_are_gone_from_live_and_frozen_csv(self):
-        for rel in ("input/client_policy.csv", "tests/fixtures/sample_plan_frozen/client_policy.csv"):
+        for rel in ("input/client_policy.csv", "tests/fixtures/csv_exchange/sample_plan_frozen/client_policy.csv"):
             path = ROOT / rel
             # /input/* is gitignored, so the live copy simply does not exist on
             # CI or in a fresh worktree. Check whichever copies are present --
@@ -102,7 +102,7 @@ class Item195RmdSsClaimAgeDedupTests(unittest.TestCase):
         self.assertEqual(c["rmd_start_age"], statutory_rmd_start_age(c["h_dob_yr"]))
         self.assertEqual(c["ss_claim_age"], 70)
         # Per-member overrides round-trip unchanged. These now track the frozen
-        # fixture (tests/fixtures/sample_plan_frozen/client_household.csv,
+        # fixture (tests/fixtures/csv_exchange/sample_plan_frozen/client_household.csv,
         # Social Security/Member 1|2/claim_age = 69) rather than the live plan.
         # The previous version read the real input/ and asserted 65/66, so it
         # broke whenever the user edited their own claim ages -- an assertion

@@ -53,7 +53,7 @@ if str(ROOT) not in sys.path:
 # against, and the date they pin it to (tests/conftest.py's
 # FROZEN_PLAN_TODAY). Defaulting here means a bare invocation is reproducible
 # and never touches the user's real, gitignored input/ plan.
-DEFAULT_PLAN = 'tests/fixtures/sample_plan_frozen'
+DEFAULT_PLAN = 'tests/fixtures/csv_exchange/sample_plan_frozen'
 FROZEN_PLAN_TODAY = '2026-08-04'
 
 

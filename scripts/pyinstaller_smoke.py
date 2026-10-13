@@ -112,8 +112,8 @@ def check_default_workspace(exe: Path, env: dict[str, str]) -> None:
         assert sec == ws / "local_state" / "secrets.local.json", f"legacy secrets path not under the workspace: {info}"
         assert pkg not in sec.parents, f"legacy secrets path inside the bundle: {info}"
         assert not sec.exists(), f"a plain-text secrets file was written: {sec}"
-        assert (ws / "input" / "client_data.csv").is_file(), "default workspace was not seeded from bundled demo"
-        assert (ws / "plan.rpx").is_file(), "default workspace plan file was not seeded from bundled demo"
+        assert (ws / "local_state" / "app.db").is_file(), "default workspace app database was not created"
+        assert (ws / "plan.rpx").is_file(), "default workspace plan file was not seeded from the bundled seed plan"
         print(f"    default workspace ok: {ws}")
     finally:
         shutil.rmtree(home, ignore_errors=True)
@@ -147,8 +147,7 @@ def check_server(exe: Path, env: dict[str, str], workspace: Path) -> None:
         with urllib.request.urlopen(base + "/", timeout=10) as resp:
             body = resp.read().decode("utf-8", "replace").lower()
             assert resp.status == 200 and "<html" in body, "/ did not serve the bundled frontend"
-        assert (workspace / "input" / "client_data.csv").is_file(), "workspace was not seeded from bundled demo"
-        assert (workspace / "plan.rpx").is_file(), "workspace plan file was not seeded from bundled demo"
+        assert (workspace / "plan.rpx").is_file(), "workspace plan file was not seeded from the bundled seed plan"
         print(f"    server ok: /api/status keys={sorted(status)[:6]}")
     finally:
         proc.terminate()

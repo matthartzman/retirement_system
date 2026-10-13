@@ -11,7 +11,7 @@ from pathlib import Path
 from src.plan_data_migration import migrate_csv_content, migrate_rows, migrate_sectioned_data
 
 ROOT = Path(__file__).resolve().parents[1]
-LEGACY = ROOT / "tests" / "fixtures" / "legacy_plans" / "legacy_household.csv"
+LEGACY = ROOT / "tests" / "fixtures" / "csv_exchange" / "legacy_plans" / "legacy_household.csv"
 
 
 def _sectioned(content):

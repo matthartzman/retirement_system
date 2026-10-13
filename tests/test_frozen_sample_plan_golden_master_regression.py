@@ -18,7 +18,7 @@ fix (which destroyed the pre-tax balance for an owner with no traditional
 IRA) to land first, since freezing before that fix would have enshrined a
 broken plan as the mandatory baseline. Both preconditions are now satisfied.
 
-The frozen copy lives at tests/fixtures/sample_plan_frozen/ (every
+The frozen copy lives at tests/fixtures/csv_exchange/sample_plan_frozen/ (every
 client_*.csv from a clean checkout of the commit this file was authored
 against). To update it after a deliberate plan-shape change: copy the new
 client_*.csv files over the ones in that directory, regenerate the two pins

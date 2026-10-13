@@ -32,13 +32,15 @@ def ws(tmp_path, monkeypatch):
 
 # 1. frozen workspace seed --------------------------------------------------------------------
 
-def _frozen(monkeypatch, tmp_path):
+def _frozen(monkeypatch, tmp_path, *, seed=True):
     pkg = tmp_path / "bundle"
-    (pkg / "input" / "demo").mkdir(parents=True)
-    (pkg / "input" / "demo" / "client_data.csv").write_text(
-        HEADER + "Household,,member_1_name,Demo,text,\n", encoding="utf-8")
+    (pkg / "src" / "reference").mkdir(parents=True)
+    if seed:
+        with PlanStore.open(pkg / "src" / "reference" / "demo_seed.rpx") as store:
+            store.set_value("Household", "", "member_1_name", "Demo")
     monkeypatch.setattr(platform_runtime, "package_root", lambda: pkg)
     monkeypatch.delenv(platform_runtime.WORKSPACE_ROOT_ENV, raising=False)
+    monkeypatch.delenv("RETIREMENT_SYSTEM_APP_DB", raising=False)
     monkeypatch.setattr(platform_runtime.sys, "frozen", True, raising=False)
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "appdata"))
     return pkg, tmp_path / "appdata" / "RetirementPlanner"
@@ -53,21 +55,18 @@ def test_seed_fills_an_existing_but_empty_plan_file(monkeypatch, tmp_path):
         assert store.sectioned_data() == {"Household": {"": {"member_1_name": "Demo"}}}
 
 
-def test_a_failed_or_empty_import_raises_and_the_next_launch_retries(monkeypatch, tmp_path):
-    _pkg, ws_root = _frozen(monkeypatch, tmp_path)
-    real = active_plan.build_plan_file_from_csv_folder
-    monkeypatch.setattr(active_plan, "build_plan_file_from_csv_folder", lambda dest, folder: 0)
+def test_a_missing_or_empty_seed_raises_and_the_next_launch_retries(monkeypatch, tmp_path):
+    pkg, ws_root = _frozen(monkeypatch, tmp_path, seed=False)
+    with pytest.raises(RuntimeError, match="is missing"):
+        platform_runtime.seed_frozen_workspace()
+    assert not (ws_root / "plan.rpx").exists()
+    PlanStore.open(pkg / "src" / "reference" / "demo_seed.rpx").close()  # a seed with no rows
     with pytest.raises(RuntimeError, match="imported no rows"):
         platform_runtime.seed_frozen_workspace()
-    assert not (ws_root / "input" / "client_data.csv").exists()  # not marked as seeded
-    monkeypatch.setattr(active_plan, "build_plan_file_from_csv_folder",
-                        lambda dest, folder: (_ for _ in ()).throw(OSError("disk full")))
-    with pytest.raises(RuntimeError, match="disk full"):
-        platform_runtime.seed_frozen_workspace()
-    assert not (ws_root / "input" / "client_data.csv").exists()
-    monkeypatch.setattr(active_plan, "build_plan_file_from_csv_folder", real)
+    assert not (ws_root / "plan.rpx").exists()  # not left behind as a permanently empty plan
+    with PlanStore.open(pkg / "src" / "reference" / "demo_seed.rpx") as store:
+        store.set_value("Household", "", "member_1_name", "Demo")
     assert platform_runtime.seed_frozen_workspace() is True
-    assert (ws_root / "input" / "client_data.csv").exists()
     with PlanStore.open(ws_root / "plan.rpx", create=False, readonly=True) as store:
         assert store.all_rows()
 

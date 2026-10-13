@@ -20,7 +20,6 @@ FORBIDDEN_PATHS = (
     'local_state/secrets.db',
     'output/retirement_dashboard_ui.html',
     'output/market_price_cache.json',
-    'output/live_pricing_test_results.json',
 )
 ROOT_LAUNCHER_NAMES = {
     'START_UI.py', 'START_SERVER.py', 'START_UI.command', 'START_SERVER.command',
@@ -45,6 +44,9 @@ def main() -> int:
     if not (ROOT / 'src' / 'server' / 'wsgi.py').exists():
         errors.append('Packaged release must include canonical WSGI entry point at src/server/wsgi.py.')
 
+    for shipped in ('src/reference/reference.db', 'src/reference/demo_seed.rpx'):
+        if not (ROOT / shipped).is_file():
+            errors.append(f'Packaged release must include {shipped} (reference data / seed demo plan).')
     if (ROOT / 'input').exists():
         errors.append('Packaged release must not include input/ Plan Data; load or select a Plan Data folder at runtime.')
     if (ROOT / 'output').exists():

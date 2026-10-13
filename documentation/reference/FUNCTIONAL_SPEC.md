@@ -42,7 +42,7 @@ source shown in-app.
 
 - **Plan** — the complete set of household facts plus the levers the
   household controls. One plan is active at a time; it can be saved,
-  reloaded, and exported/imported as a portable file set.
+  reloaded from a plan file (`.rpx`), and exported and imported as a CSV plan set.
 - **Withdrawal cascade** — the fixed order the engine draws on accounts to
   cover any year's cash shortfall: RMDs (forced) → HSA (contingent-liability
   draw, then the scheduled window) → pre-tax/IRA (bracket-aware) → taxable/
@@ -275,7 +275,7 @@ Economic and tax assumptions (capital market assumptions, correlations, tax
 constants, state tax tables), optional-module toggles, a field-finder search
 across every plan input, per-sheet/column workbook formatting overrides, and
 data/maintenance tools (pricing snapshot management, local backups, CSV
-export, a low-level config console).
+export and import of the plan set, a low-level config console).
 
 ### 4.11a Plan Features
 Settings → Plan Features is the single place where the household turns
@@ -322,10 +322,10 @@ disagree with each other:
 | **Offline HTML dashboard** (`retirement_dashboard.html`) | Lightweight client-facing snapshot, no Excel required | Self-contained single file: KPI masthead, inline charts (net worth, income, spending/tax), holdings-by-account grid. |
 | **Results Explorer (JSON model)** | The app's own in-browser report viewer | A renderer-neutral semantic model of the workbook's sections/tables/charts, letting the UI show report content without downloading Excel. |
 
-A build also writes a manifest (`report_package.json`) recording each
+A build also records a manifest (the report package, kept with the build results) recording each
 artifact's presence, size, hash, and version — a QC/integrity record, not a
-user-facing document — plus `plan_summary.json` (the KPI snapshot the UI
-reads for quick status).
+user-facing document — plus the build's KPI summary (stored with the build
+results in the plan file, which the UI reads for quick status).
 
 ## 6. Business rules worth calling out
 
