@@ -55,7 +55,7 @@ class RecommendationCompletionTests(unittest.TestCase):
         #
         # The old warn-only rationale ("these move whenever the sample client's
         # data is edited, which is routine") no longer held either: conftest
-        # stages input/ from the committed tests/fixtures/sample_plan_frozen/
+        # stages input/ from the committed tests/fixtures/csv_exchange/sample_plan_frozen/
         # and pins the clock via RETIREMENT_SYSTEM_FROZEN_TODAY, so this plan is
         # static. Any real move in these dollars is an ENGINE change, and it now
         # fails test_frozen_sample_plan_golden_master_regression.py to the cent

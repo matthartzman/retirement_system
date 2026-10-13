@@ -32,7 +32,7 @@ def test_default_frozen_workspace_holds_secrets_and_seed(tmp_path):
     assert tmp_path in ws.parents and ws != pkg
     assert sec == ws / "local_state" / "secrets.local.json" and not sec.exists()  # WP8.2: never a plain file
     assert pkg not in sec.parents
-    assert (ws / "input" / "client_data.csv").is_file()
+    assert (ws / "plan.rpx").is_file() and (ws / "local_state" / "app.db").is_file()  # WP11.2: seed plan + app db
     # Nothing was written into the project (stand-in for the bundle) by the probe.
     assert not (ROOT / "local_state" / "secrets.local.json").exists() or \
         "smoke_probe_key" not in (ROOT / "local_state" / "secrets.local.json").read_text(encoding="utf-8")

@@ -31,8 +31,8 @@ def test_runbook_names_every_value_family_in_the_dataset():
     assert not missing, f"runbook omits value families in tax_law_v10.json: {missing}"
 
 
-def test_runbook_treats_tax_constants_as_fallback_and_limits_as_plan_data():
-    assert "fallback only" in RUNBOOK
+def test_runbook_says_tax_constants_csv_is_gone_and_limits_are_plan_data():
+    assert "tax_constants.csv` has been removed" in RUNBOOK
     assert "annual_401k_limit_base_year" in RUNBOOK
     assert "Update `reference_data/tax_constants.csv`: standard deduction" not in RUNBOOK
 

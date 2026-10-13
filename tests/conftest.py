@@ -25,7 +25,7 @@ os.environ.setdefault("TAX_REFERENCE_YEAR", FROZEN_TAX_REFERENCE_YEAR)
 
 # The committed, static, self-contained plan every test should load instead of
 # the user's live input/. Kept in sync with test_199's FROZEN_TODAY.
-_FROZEN_PLAN_DIR = ROOT / "tests" / "fixtures" / "sample_plan_frozen"
+_FROZEN_PLAN_DIR = ROOT / "tests" / "fixtures" / "csv_exchange" / "sample_plan_frozen"
 FROZEN_PLAN_TODAY = "2026-08-04"
 
 # Absolute path to the staged plan-data directory for this test process.

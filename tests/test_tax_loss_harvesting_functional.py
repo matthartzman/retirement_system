@@ -129,7 +129,7 @@ class EngineIntegrationTests(unittest.TestCase):
         (Historical note, corrected 2026-08-12: this docstring used to justify
         the choice by saying the config "reads the live, routinely edited
         input/client_data.csv". It does not -- conftest stages input/ from the
-        committed tests/fixtures/sample_plan_frozen/ and pins the clock -- and it
+        committed tests/fixtures/csv_exchange/sample_plan_frozen/ and pins the clock -- and it
         pointed at a _warn_on_baseline_drift helper in
         test_recommendations_functional.py that has since been deleted, along
         with the two stale pins it guarded. Absolute dollar pins for this frozen

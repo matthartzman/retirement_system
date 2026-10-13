@@ -11,7 +11,7 @@ effect exists to suppress.
 
 Workspace setup mirrors tests/test_workbook_pdf_build_snapshot.py's pattern:
 a throwaway directory seeded from the committed, static, self-contained
-tests/fixtures/sample_plan_frozen/ plan, with pricing and the wall-clock date
+tests/fixtures/csv_exchange/sample_plan_frozen/ plan, with pricing and the wall-clock date
 pinned so every E2E run sees the same household regardless of when or where
 it runs. Monte Carlo sim counts are reduced the same way that file's
 subprocess build reduces them, since J2 (build -> results) would otherwise
@@ -44,7 +44,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-FROZEN_DIR = ROOT / "tests" / "fixtures" / "sample_plan_frozen"
+FROZEN_DIR = ROOT / "tests" / "fixtures" / "csv_exchange" / "sample_plan_frozen"
 
 # Fixed port so playwright.config.js's url check has a stable target.
 E2E_PORT = int(os.environ.get("RETIREMENT_SYSTEM_E2E_PORT", "5951"))

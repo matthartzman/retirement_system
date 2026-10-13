@@ -44,7 +44,8 @@ place mislabels its value year and silently mis-indexes every later year.
    announcement for the new tax year, and note the document and date you used
    for each value. After editing `reference_src/`, rebuild the shipped database with
    `python tools/build_reference_db.py` (bump `REFERENCE_RELEASE` in that tool) and run the
-   golden tests; the engine reads only `reference.db`.
+   golden tests; the engine reads only `reference.db`. `python tools/build_reference_db.py --check`
+   exits 1 when the committed database does not match a fresh build (it compares `ref_meta`, which carries the content hash, and the schema).
 2. In `reference_src/tax_law_v10.json`, append a row (or, for brackets, a full
    table) with the new `effective_year`, a `source` naming the document, and
    `status` set to reflect whether the value is verified or an assumption, for
@@ -78,8 +79,8 @@ place mislabels its value year and silently mis-indexes every later year.
    The staleness banner compares `year` with the reference year, so do this
    **only after every row of that family is added** -- a bumped date over stale
    values is worse than a visible banner.
-4. `tax_constants.csv` (a fallback only, read just when the JSON dataset could
-   not be loaded) has been removed; the dated dataset is the single source.
+4. `tax_constants.csv` has been removed; the dated dataset
+   (`reference_src/tax_law_v10.json`) is the single source.
 5. **Contribution limits are not reference data.** 401(k), HSA (self-only and
    family) and similar limits are per-household Plan Data fields -- for example
    `annual_401k_limit_base_year` (Cashflow > Retirement Contributions) and
@@ -88,8 +89,8 @@ place mislabels its value year and silently mis-indexes every later year.
    the plan (see the Contributions rows of `reference_src/schema.csv`), not in
    the tax-law dataset.
 6. If your own household's per-plan Social Security wage base or Medicare
-   premium fields (`input/client_household.csv`, "Payroll Tax" / "Wellness >
-   Medicare" sections) are meant to track the new official figures rather
+   premium fields (the plan rows in the "Payroll Tax" / "Wellness >
+   Medicare" sections, edited in the app) are meant to track the new official figures rather
    than a custom override, update them there too -- these are separate,
    per-household fields and are **not** auto-populated from the JSON dataset
    (see "Known gaps" below).
@@ -107,7 +108,7 @@ place mislabels its value year and silently mis-indexes every later year.
 
 1. Note the newly-announced Social Security wage base and Medicare Part
    B/D premiums for next year.
-2. You can enter these into `input/client_household.csv` as soon as they're
+2. You can enter these in the app (the household's Payroll Tax and Wellness > Medicare fields) as soon as they're
    announced (they take effect January 1, so there's no rush, but doing it
    now avoids a January scramble).
 
@@ -148,15 +149,15 @@ place mislabels its value year and silently mis-indexes every later year.
 ## Known gaps (things a person still has to catch)
 
 - **Per-household Social Security wage base is not auto-populated from
-  the tax-law dataset.** `input/client_household.csv`'s
-  `ss_wage_base_base_year` field is the one actually used by payroll tax
+  the tax-law dataset.** The household plan row
+  `ss_wage_base_base_year` (Payroll Tax > Social Security) is the one actually used by payroll tax
   calculations (`src/data_io.py`) — it does not read from
   the dataset's `ss_wage_base` row at all. These two
   numbers can drift (they already have, in this plan, as of this writing —
   confirm both against a current SSA source before relying on either). A
   single hardcoded fallback constant (`DEFAULT_SS_WAGE_BASE` in
   `src/data_io.py`) is used only when the household field is blank.
-- **Medicare Part B/D/G premiums** (`client_household.csv`, "Wellness >
+- **Medicare Part B/D/G premiums** (plan rows, "Wellness >
   Medicare") are entered per-household with no reference-table backing at
   all — there's nothing to "de-duplicate," but also nothing that will ever
   flag them as stale. Update them every September/October per the checklist
