@@ -344,7 +344,7 @@ def test_snapshot_list_and_restore(store):
     r1 = store.snapshot_revision("manual", "first")
     revs = store.list_revisions()
     assert revs == [{"id": r1, "created_at": "2026-01-01T00:00:01+00:00", "source": "manual", "note": "first",
-                     "rows_sha256": h1, "row_count": 2}]
+                     "rows_sha256": h1, "row_count": 2, "group": "history", "label": "manual"}]
     assert [r["row_id"] for r in store.revision_rows(r1)] == [a, b]
 
     store.set_row(a, value="changed")
