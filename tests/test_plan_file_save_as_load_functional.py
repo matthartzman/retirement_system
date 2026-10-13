@@ -149,3 +149,11 @@ def test_save_as_refuses_to_overwrite_another_registered_plan(own_workspace, tmp
     out = client.post("/api/plan/save-as", headers=HEADERS, json={"path": str(first), "activate": False}).get_json()
     assert out["success"] is False and "already the plan" in out["error"]
     assert first.read_bytes() == before
+
+
+def test_dataset_writers_refuse_to_create_a_stray_plan_file(tmp_path):
+    base = tmp_path / "csvs"          # a CLI --base-dir: not a workspace
+    base.mkdir()
+    with pytest.raises(FileNotFoundError):
+        active_plan.write_dataset_rows_for_input_dir(base, "ytd_transactions", [])
+    assert not (tmp_path / "plan.rpx").exists()
