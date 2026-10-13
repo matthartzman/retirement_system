@@ -165,7 +165,7 @@ export function rentalSummaryHtml(data, magi) {
     html += `<label>Year <select id="rpYear" aria-label="Summary year" onchange="rpSetYear(this.value)">${opts.join("")}</select></label> ` +
       `<label>Assumed other income (MAGI) <input id="rpMagi" aria-label="Assumed other income" type="text" inputmode="numeric" value="${esc(String(magi || 0))}" onchange="rpSetMagi(this.value)"></label>`;
   }
-  html += "</div>";
+  html += ' <span class="rp-verified">Tax rules verified 2026-10-13 against 2025 law.</span></div>';
   if (!s) return html + '<div class="section-note">' + esc(est.error || "Add a property to see the summary.") + "</div>";
   const card = (value, label, cls) => `<div class="review-card${cls ? " " + cls : ""}"><b>${esc(value)}</b><span>${esc(label)}</span></div>`;
   return html + '<div class="rp-strip">' +

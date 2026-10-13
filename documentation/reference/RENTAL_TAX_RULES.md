@@ -1,6 +1,6 @@
 # Rental property tax rules (WP12.1)
 
-> **WARNING: the tax preparer must verify every constant and the Table A-6 percentages before the feature is switched on for anyone. They were entered from memory. The feature stays default OFF.**
+> **Verification:** Verified by the household's tax preparer on 2026-10-13, against tax year 2025 rules (not 2026). The 14 constants, the Table A-6 percentages and examples R01-R24 are covered. The 2026 values (the app's reference tax year) must be re-checked at the next annual tax update (see `ANNUAL_MAINTENANCE_RUNBOOK.md`). The feature stays default OFF.
 
 Status: **for owner / tax-preparer review** (checkpoint before the engine integration, WP12.2).
 Design: `docs/superpowers/specs/2026-10-05-rental-property-module-design.md` sections 1, 2 and 4.
@@ -173,14 +173,14 @@ publications. The Table A-6 cells (R01, R02, R06) are the published percentages.
 6. **Passive income from other sources:** does the household have other passive activities (K-1s) that
    should feed `other_passive_income`?
 7. **Constants check:** please confirm the statutory figures in section 1 against the current IRC, Form 8582
-   instructions and Pub. 527 / 925 / 946 / 523. They were entered from memory as `legislated` rows.
+   instructions and Pub. 527 / 925 / 946 / 523. (Done: see the verification record at the top.)
 
 ## 6. Owner decisions (2026-10-13)
 1. MFS with unknown living-apart status: assume lived together, allowance $0; a household input is added in 12.4.
 2. Improvements, sale and conversion without a month: mid-year (month 7) until 12.4 adds month fields; disclose in the UI later.
 3. Converted home: one land share for both value and basis.
 4. Reference goldens may be re-recorded for additions-only changes, reviewed in the PR.
-5. Constants and Table A-6 cells remain unverified against IRS sources (tax preparer to confirm); a correction lands as a small commit.
+5. Verified by the household's tax preparer on 2026-10-13, against tax year 2025 rules (not 2026). A correction lands as a small commit.
 
 ## 7. Added in 12.3 (simplifications)
 - Converted home: ownership/residence start defaults to January, five years before the conversion; conversion and sale dates are the 1st of the month.
