@@ -50,6 +50,10 @@ class IncomeResult(NamedTuple):
     equity_events: dict
     di_taxable: float
     di_cash: float
+    # WP12.2: the year's rental flows (``rental_property.RentalYear``), or None when the
+    # Rental Properties feature is off -- read by the AGI stage (passive-loss limit) and
+    # the withdrawal cascade (cash).
+    rental_year: Any = None
 
 
 def apply_income(
@@ -73,6 +77,7 @@ def apply_income(
     ss_spousal_excess_factor: Callable[..., float],
     ss_survivor_reduction_factor: Callable[..., float],
     ss_funding_factor: Callable[[int], float],
+    rental_book: Any = None,
 ) -> IncomeResult:
     """Earned income, payroll/SE tax, 401(k)/HSA contributions, Social
     Security (incl. survivor benefit), annuity income, and note income --
@@ -508,6 +513,12 @@ def apply_income(
     row['note_princ'] = note_princ_yr
     row['note_int']   = note_int_yr
 
+    # ── Rental properties (WP12.2) ───────────────────────────────────────
+    # Rent, expenses, debt service, depreciation and any sale, per property.
+    # The net reaches AGI after the passive-loss limit (AGI stage) and cash
+    # through the withdrawal cascade; None (feature off) adds nothing.
+    rental_year = rental_book.year_flows(year) if rental_book is not None else None
+
     return IncomeResult(
         earned_base=earned_base,
         net_earned_taxable=net_earned_taxable,
@@ -526,6 +537,7 @@ def apply_income(
         equity_events=equity_events,
         di_taxable=di_taxable,
         di_cash=di_cash,
+        rental_year=rental_year,
     )
 
 

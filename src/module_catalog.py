@@ -1185,6 +1185,19 @@ _OUTPUTS: List[OutputModule] = [
         domain=INVESTMENTS, tier=STANDARD,
         optional=True, csv_row=False, dashboard_step="assets_home_cash",
     ),
+    # ── WP12.2: Rental Properties (design 2026-10-05 §5). ──
+    # Engine-first: the projection reads c['rental_properties'] only while this
+    # is on (src/projection_stages/rental_property.py). No workbook sheet and
+    # no nav step yet (WP12.4 / WP12.5); default off, no CSV row (WP1.3 rule
+    # for new features).
+    OutputModule(
+        "rental_property_income", "Rental Properties", PROJECTION, MEDIUM,
+        "Rental real estate: rent, expenses, mortgage, depreciation, passive-loss "
+        "limits, cash flow, equity and sale with depreciation recapture.",
+        domain=HOUSING_PROPERTY, tier=ADVANCED,
+        optional=True, csv_row=False, default_on=False,
+        engine_participation=True,
+    ),
     OutputModule(
         "planning_workbench", "Planning Workbench", WORKSHEET, LOW,
         "Compare the baseline, named change sets and stress-suite results in "
@@ -2387,12 +2400,16 @@ def validate() -> None:
         assert isinstance(m.default_on, bool), (
             f"{key}: default_on must be a bool, got {m.default_on!r}")
         # Convention (read side relies on it): module toggles default on when
-        # no row is stored, plan flags default off.
+        # no row is stored, plan flags default off. A rowless toggle
+        # (csv_row=False) may default off instead: the frontend reads its
+        # default from rowless_defaults(), not from the absent-row rule
+        # (WP12.2: rental_property_income, design 2026-10-05 §5).
         if not m.csv_row:
-            assert m.optional and m.gate_kind == GATE_MODULE_TOGGLE and m.default_on, (
-                f"{key}: csv_row=False needs an optional, default-on module toggle")
-        assert m.default_on == (m.gate_kind == GATE_MODULE_TOGGLE), (
-            f"{key}: default_on={m.default_on} disagrees with gate_kind={m.gate_kind}")
+            assert m.optional and m.gate_kind == GATE_MODULE_TOGGLE, (
+                f"{key}: csv_row=False needs an optional module toggle")
+        else:
+            assert m.default_on == (m.gate_kind == GATE_MODULE_TOGGLE), (
+                f"{key}: default_on={m.default_on} disagrees with gate_kind={m.gate_kind}")
         # feature_enabled() reads every plan flag through gate_config_key.
         if m.gate_kind == GATE_PLAN_FLAG:
             assert m.gate_config_key, (

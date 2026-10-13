@@ -30,6 +30,7 @@ def apply_gap_assembly(
     heloc_draw_yr: float,
     heloc_interest_yr: float,
     heloc_repayment_principal_yr: float,
+    rental_cash: float | None = None,
 ) -> float:
     """Withdrawal Cascade sub-stage #0 (design doc addendum): assemble this
     year's cash ``gap`` (design doc Stage 10, lines ~959-1050), apply new
@@ -52,6 +53,12 @@ def apply_gap_assembly(
                            wife_joint_ann + h_single_ann + h_joint_ann +
                            note_princ_yr + note_int_yr + rmd_taxable_total + earned_base +
                            equity_events['cash_proceeds'] + di_cash)
+    if rental_cash is not None:
+        # WP12.2: rental operating cash (negative when the rentals cost more
+        # than they bring in) funds the gap like any income stream, before the
+        # HELOC draw is sized; income_funding carries it to the Monte Carlo
+        # replay. None = Rental Properties off.
+        income_from_streams += rental_cash
     row['income_funding'] = income_from_streams
     row['other_cash_need_yr'] = other_cash_need_yr
     row['total_cash_need'] = total_spend_need + total_tax + other_cash_need_yr

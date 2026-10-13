@@ -244,6 +244,43 @@ def build_roth_strategy_result(c: Mapping[str, Any], rows: Sequence[Mapping[str,
     )
 
 
+# WP12.2: projection-row fields the engine writes for Rental Properties, every
+# year, only while that feature is on (src/projection_stages/rental_property.py).
+# Report surfaces (WP12.4) read these names; a row without them means "off".
+RENTAL_ROW_FIELDS: tuple[str, ...] = (
+    'rental_gross_rent', 'rental_vacancy_loss', 'rental_operating_expenses',
+    'rental_mortgage_interest', 'rental_mortgage_principal', 'rental_depreciation',
+    'rental_schedule_e_net', 'rental_improvements', 'rental_purchase_cash',
+    'rental_net_cash_flow', 'rental_property_value', 'rental_mortgage_balance', 'rental_equity',
+    'rental_sale_price', 'rental_sale_selling_costs', 'rental_sale_loan_payoff', 'rental_sale_gain',
+    'rental_sale_unrecaptured_1250_gain', 'rental_sale_capital_gain', 'rental_sale_ordinary_loss',
+    'rental_sale_net_proceeds', 'rental_by_property',
+    'rental_passive_magi', 'rental_passive_allowance_available', 'rental_passive_allowance_used',
+    'rental_passive_loss_released', 'rental_schedule_e_to_agi', 'rental_suspended_loss_carryforward',
+    'rental_passive_magi_for_conversion_sizing', 'rental_schedule_e_to_agi_for_conversion_sizing',
+    'rental_conversion_sizing_difference',
+    'rental_sale_ltcg_tax', 'rental_sale_1250_cap_adjustment', 'rental_sale_state_tax_on_ltcg',
+    'rental_tax_adjustment',
+)
+
+
+def rental_summary(rows: Sequence[Mapping[str, Any]]) -> dict[str, float] | None:
+    """Lifetime rental totals for the plan result, or None when no row carries rental
+    fields (feature off: the result keeps its pre-WP12 shape)."""
+    rental_rows = [r for r in rows if 'rental_net_cash_flow' in r]
+    if not rental_rows:
+        return None
+    last = rental_rows[-1]
+    return {
+        'lifetime_net_cash_flow': sum(_f(r.get('rental_net_cash_flow')) for r in rental_rows),
+        'lifetime_schedule_e_to_agi': sum(_f(r.get('rental_schedule_e_to_agi')) for r in rental_rows),
+        'lifetime_depreciation': sum(_f(r.get('rental_depreciation')) for r in rental_rows),
+        'lifetime_sale_net_proceeds': sum(_f(r.get('rental_sale_net_proceeds')) for r in rental_rows),
+        'terminal_equity': _f(last.get('rental_equity')),
+        'terminal_suspended_loss_carryforward': _f(last.get('rental_suspended_loss_carryforward')),
+    }
+
+
 def attach_plan_result(c: dict[str, Any], rows: Sequence[Mapping[str, Any]], mc_data: Mapping[str, Any] | None = None,
                        validation: Mapping[str, Any] | None = None) -> dict[str, Any]:
     roth = build_roth_strategy_result(c, rows)
@@ -253,6 +290,7 @@ def attach_plan_result(c: dict[str, Any], rows: Sequence[Mapping[str, Any]], mc_
     row_list = [dict(r) for r in (rows or [])]
     lifetime_tax = sum(_f(r.get('total_tax')) for r in row_list)
     total_conversions = sum(_f(r.get('roth_conv')) for r in row_list)
+    rental = rental_summary(row_list)
     try:
         from .tax_law import dataset_freshness_summary
         tax_law_summary = dataset_freshness_summary()
@@ -294,6 +332,7 @@ def attach_plan_result(c: dict[str, Any], rows: Sequence[Mapping[str, Any]], mc_
             # this drops that requirement (true-ruin only) so a reserve-setting
             # change doesn't get misread as a change in plan resilience.
             'monte_carlo_success_rate_no_ruin': _f((mc_data or {}).get('success_rate_no_ruin')) if isinstance(mc_data, Mapping) else 0.0,
+            **({'rental': rental} if rental is not None else {}),
         },
         result_pages=result_pages,
         report_spec=report_spec,
