@@ -322,3 +322,10 @@ def test_writes_need_write_permission_and_the_runtime_write_switch(ws, client, m
     monkeypatch.setattr(plan_routes, "_runtime_config", lambda: Cfg())
     status, out = _save(client, dict(rf.PROFITABLE, name="Other"))
     assert status == 403 and [p["name"] for p in _stored(ws)] == ["Duplex"]
+
+
+def test_service_key_lists_match_the_repo():
+    from src.server_services import rental_service as rs
+    from src.stores import rental_repo as rr
+    assert rs.PROPERTY_COLUMNS == rr.PROPERTY_COLUMNS
+    assert rs.IMPROVEMENT_KEYS == rr.IMPROVEMENT_KEYS and rs.OVERRIDE_KEYS == rr.OVERRIDE_KEYS
