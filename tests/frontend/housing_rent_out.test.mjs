@@ -56,13 +56,13 @@ describe("feature on: keep and rent out", () => {
     const html = sandbox.renderHousingOptimizeResultsHtml({
       objective: "net_worth", baseline_objective_value: null,
       candidates: [{
-        rank: 1, original_home: { disposition: "rent_out", sale_year: null, conversion_year: 2028 },
+        rank: 1, original_home: { disposition: "rent_out", sale_year: null, conversion_year: 2028, monthly_rent: 4200 },
         moves: [], net_worth: 1, lifetime_cost: 1, objective_value: 1,
         notes: ["rented out from 2028", "§121 two-of-five: exclusion only if sold by 2031"],
       }],
     });
     assert.match(html, /Keep and rent out/);
-    assert.match(html, /rpConvertFromHousing\(2028, housingOptDomNum\('housingOptRentOutRent'\)\)/);
+    assert.match(html, /onclick="rpConvertFromHousing\(2028, 4200\)"/);
     assert.match(html, /exclusion only if sold by 2031/);
   });
 });

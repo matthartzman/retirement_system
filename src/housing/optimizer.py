@@ -333,6 +333,7 @@ def optimize_housing(
         home_appr=float(c0.get('home_appr', HOME_APPR_DEFAULT) or HOME_APPR_DEFAULT),
         inflation_general=float(c0.get('inf', INFLATION_GENERAL_DEFAULT) or INFLATION_GENERAL_DEFAULT),
         baseline=baseline,
+        rent_out_monthly_rent=(float(rent_out.template['monthly_rent']) if can_rent_out else None),
     )
 
 

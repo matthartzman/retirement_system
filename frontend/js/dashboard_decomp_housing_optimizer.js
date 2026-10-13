@@ -2100,7 +2100,7 @@ function housingOptResultRowHtml(c, objective, baselineValue) {
   // WP12.8: a rent-out row links to Rental Properties' Convert my home dialog, pre-filled.
   const orig = c.original_home || {};
   if (orig.disposition === "rent_out") {
-    notes += ` <button class="btn btn-sm" type="button" onclick="rpConvertFromHousing(${Number(orig.conversion_year) || 0}, housingOptDomNum('housingOptRentOutRent'))">Convert my home</button>`;
+    notes += ` <button class="btn btn-sm" type="button" onclick="rpConvertFromHousing(${Number(orig.conversion_year) || 0}, ${Number(orig.monthly_rent) || 0})">Convert my home</button>`;
   }
   return `<tr class="housing-opt-result ${shade}${topClass}">
     <td>${rankCell}</td>
@@ -2500,11 +2500,11 @@ function housingOptFirstViolation() {
   }
 
   const disposition = (housingOptDomVal("housingOptDisposition") || "auto").toLowerCase();
-  if (!HOUSING_OPT_DISPOSITIONS.includes(disposition)) {
+  if (!HOUSING_OPT_DISPOSITIONS.includes(disposition) || (disposition === "rent_out" && !housingOptRentOutOn())) {
     return { step: 2, message: `Unknown disposition: ${housingOptRepr(disposition)}.` };
   }
   const rentRaw = housingOptRentOutOn() ? housingOptDomVal("housingOptRentOutRent") : "";
-  if (rentRaw !== "" && !(Number(rentRaw) > 0)) {
+  if (rentRaw !== "" && !(Number.isFinite(Number(rentRaw)) && Number(rentRaw) > 0)) {
     return { step: 2, message: "Monthly rent for keep-and-rent-out must be a number more than 0." };
   }
 
