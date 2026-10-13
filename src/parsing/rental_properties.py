@@ -148,6 +148,8 @@ def _parse_one(raw: Any, index: int, home_value: float | None) -> dict[str, Any]
         raise RentalPropertyInputError(f"{where}: kind must be 'Standalone' or 'Converted home', got {raw['kind']!r}")
     kind = _KINDS[kind_raw]
     out: dict[str, Any] = {"name": name, "kind": kind}
+    if not _blank(raw.get("loan_liability_id")):
+        out["loan_liability_id"] = str(raw["loan_liability_id"]).strip()
     for k in _MONEY:
         if not _blank(raw.get(k)):
             out[k] = _number(raw[k], where, k)
