@@ -523,7 +523,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/governance.py` | `src`, `stores.ref_getters.tax_update_dashboard`, `version` | — |
 | `src/holding_period.py` | — | — |
 | `src/housing/__init__.py` | — | — |
-| `src/housing/api.py` | `housing.models`, `housing.optimizer`, `housing.rent_out`, `housing.zip_screen.resolve`, `housing.zip_screen.schema`, `housing.zip_screen.screen`, `housing.zip_screen.table`, `module_catalog`, `server_services.strategy_asset_service`, `stores.ref_getters.zip_data` | — |
+| `src/housing/api.py` | `housing.models`, `housing.optimizer`, `housing.zip_screen.resolve`, `housing.zip_screen.schema`, `housing.zip_screen.screen`, `housing.zip_screen.table`, `module_catalog`, `server_services.strategy_asset_service`, `stores.ref_getters.zip_data` | — |
 | `src/housing/candidates.py` | `housing.models` | — |
 | `src/housing/constraints.py` | `housing.models`, `housing.zip_screen.geo` | — |
 | `src/housing/models.py` | — | — |
