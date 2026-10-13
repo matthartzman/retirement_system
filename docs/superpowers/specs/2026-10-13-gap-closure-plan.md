@@ -69,3 +69,9 @@ Priority order (rental use expected within a year):
 ## Cost and order (estimates from earlier sessions)
 - Tier 1: roughly $5 to $15, a few hours. Tier 2: roughly $15 to $35. Tier 3: roughly $60 to $120 in total, spread across H1 to H6.
 - Run one tier at a time. Stop after any tier. After Tier 1, Tier 2 and H1, the plan is in good shape even if H2 to H6 wait.
+
+### Tier 3 status (PR A, draft)
+| ID | Status | Result |
+|---|---|---|
+| H1 | design done, **OWNER CHECKPOINT** (waiting on owner and tax-preparer review) | rule, worked examples and fixture before/after in `documentation/reference/CAPITAL_GAINS_IN_AGI.md`; prototype only, goldens not re-recorded; frozen sample and demo have no sale, so they do not move |
+| H2 to H6 | not started | PR B, after PR A is merged |
