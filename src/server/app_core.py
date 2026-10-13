@@ -74,7 +74,6 @@ try:
     from .. import plan_datasets as _plan_datasets
     from ..config_backend import (
         DEFAULT_DB,
-        append_audit_event_sqlite,
         init_sqlite,
         load_active_config,
         lookup_api_token,
@@ -97,7 +96,6 @@ except ImportError:  # direct execution fallback
     from src import plan_datasets as _plan_datasets
     from src.config_backend import (
         DEFAULT_DB,
-        append_audit_event_sqlite,
         init_sqlite,
         load_active_config,
         lookup_api_token,

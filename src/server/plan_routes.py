@@ -1295,7 +1295,11 @@ def _migrate_after_db_replace(plan_path):
 def _after_plan_switch(plan_path):
     """Runs on the plan file that just became active: the at-rest row migration, then the UI-row
     backfill (both on the active plan)."""
-    migration = _migrate_after_db_replace(plan_path)
+    migration = None
+    try:
+        migration = _migrate_after_db_replace(plan_path)
+    except Exception as exc:  # noqa: BLE001 - a migration problem never undoes the switch
+        _audit("plan_after_switch_warning", {"path": str(plan_path), "error": str(exc)})
     try:
         _ensure_user_ui_plan_data_rows()
     except Exception as exc:  # noqa: BLE001 - a backfill problem never undoes the switch

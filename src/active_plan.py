@@ -556,6 +556,20 @@ def plan_path_for_workspace(root: str | Path) -> Path:
     return active_plan_path() if same else Path(root) / PLAN_FILE_NAME
 
 
+def _workspace_plan_for_write(root: str | Path, *, input_dir: str | Path | None = None) -> Path:
+    """:func:`plan_path_for_workspace` for a writer. A missing plan file is created only for the
+    live workspace's active plan or in a folder that is a workspace (it holds an ``input``
+    folder, or the caller's ``input_dir`` is named ``input``), so a helper handed an ``input`` folder that is not inside a workspace (a CLI
+    ``--base-dir``) cannot leave a stray ``<input_dir>/../plan.rpx`` behind."""
+    path = plan_path_for_workspace(root)
+    if not path.is_file() and path != active_plan_path() and not (Path(root) / "input").is_dir() \
+            and not (input_dir is not None and Path(input_dir).name.lower() == "input"):
+        raise FileNotFoundError(
+            f"No plan file at {path}: not creating a plan file outside a workspace "
+            "(a folder with an input/ folder). Point the tool at a workspace.")
+    return path
+
+
 def _dataset_rows(path: Path, name: str) -> list[dict[str, str]]:
     if not path.is_file():
         return []
@@ -586,13 +600,14 @@ def write_workspace_dataset_rows(root: str | Path, name: str, rows: list[dict[st
 
 def write_dataset_rows_for_input_dir(input_dir: str | Path, name: str, rows: list[dict[str, Any]]) -> int:
     """:func:`write_workspace_dataset_rows` for code handed a workspace's ``input`` folder."""
-    return write_workspace_dataset_rows(Path(input_dir).parent, name, rows)
+    with _writing(_workspace_plan_for_write(Path(input_dir).parent, input_dir=input_dir)) as store:
+        return store.dataset(name).replace_all(rows)
 
 
 def append_dataset_row_for_input_dir(input_dir: str | Path, name: str, row: dict[str, Any]) -> int:
     """Append one row to dataset ``name`` of the plan behind a workspace's ``input`` folder (the
     plan is created when missing); read and write are one transaction. Returns the row count."""
-    with _writing(plan_path_for_workspace(Path(input_dir).parent)) as store:
+    with _writing(_workspace_plan_for_write(Path(input_dir).parent, input_dir=input_dir)) as store:
         repo = store.dataset(name)
         with store.transaction():
             rows = repo.rows()
@@ -607,7 +622,7 @@ def transform_dataset_rows_for_input_dir(
     ``fn(current rows)`` (the plan is created when missing). The read and the write are one
     transaction, so a concurrent writer (another process on the same plan file) cannot be lost.
     Returns the row count written."""
-    with _writing(plan_path_for_workspace(Path(input_dir).parent)) as store:
+    with _writing(_workspace_plan_for_write(Path(input_dir).parent, input_dir=input_dir)) as store:
         repo = store.dataset(name)
         with store.transaction():
             return repo.replace_all(fn(repo.rows()))

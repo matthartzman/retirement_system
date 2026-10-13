@@ -99,7 +99,7 @@ def test_ytd_ui_contains_step_upload_table_and_account_mapping():
     assert 'real_estate_tax_annual_adjustment_pct' in text
     assert 'Top 20 YTD spending categories' not in text
     assert 'Accounts &amp; Sources' in text
-    assert 'Investment current value is derived from mapped client_holdings.csv accounts' in text
+    assert 'Investment current value is derived from mapped Holdings accounts' in text
     assert 'growthSeries' in text
     assert 'Current value' in text
     assert 'Income categories only' in text
