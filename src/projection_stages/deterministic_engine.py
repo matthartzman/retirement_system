@@ -279,8 +279,12 @@ def run_deterministic_projection_stage(c):
     # private key so a liability-free plan keeps the dict empty and unchanged.
     if '_liability_balances' not in bal:
         bal['_liability_balances'] = {}
+        # H2: a Liabilities row a rental carries as its loan is not counted here.
+        _rental_loan_ids = _rental.linked_liability_ids(c)
         for _li_idx, _li in enumerate(c.get('liabilities', []) or []):
             _li_key = _li.get('liability_id') or f'liability_{_li_idx}'
+            if _li_key in _rental_loan_ids:
+                continue
             bal['_liability_balances'][_li_key] = float(_li.get('balance', 0.0) or 0.0)
     autos_val = year_state.autos_value
     startup = year_state.startup_value
@@ -997,8 +1001,13 @@ def run_deterministic_projection_stage(c):
             if _conv_costs:
                 _rental_year = _rental_book.with_carrying_costs(
                     _rental_year, _conv_costs,
-                    float((c.get('mort_interest_schedule') or {}).get(year, 0.0) or 0.0) * _conv_costs['share'])
+                    float((c.get('mort_interest_schedule') or {}).get(year, 0.0) or 0.0) * _conv_costs['share'],
+                    _rental.converted_link_interest(
+                        _rental_book.converted_links, bal.get('_liability_balances') or {}, year)
+                    * _conv_costs['share'])
             _rental.write_flow_fields(row, _rental_year, _rental_deposited)
+            if _rental_book.link_warnings:
+                row['rental_loan_link_warnings'] = list(_rental_book.link_warnings)
         # Multi-year state: must be reassigned here, not just read, so next
         # year's call sees this year's update (same reasoning as Stage 3's
         # cst_balance/startup -- see Stage3Result's docstring).

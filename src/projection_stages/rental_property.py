@@ -187,6 +187,7 @@ class RentalSpec:
     kind: str = STANDALONE
     value_at_conversion: float = 0.0
     owned_from: tuple[int, int] = (0, 1)  # (year, month) bought and lived in
+    loan_liability_id: str = ''  # H2: the Liabilities row this property's loan is (resolved links only)
 
     @property
     def cost_basis(self) -> float:
@@ -234,6 +235,78 @@ def _overrides(raw: dict[str, Any]) -> dict[int, dict[str, float]]:
     return out
 
 
+def _linked_payment(link: dict[str, Any], from_year: int) -> float:
+    """Monthly payment of a linked Liabilities row, as the liability loop would pay it:
+    the stated payment, else level over the years to ``payoff_year``, else interest only."""
+    pay = _f(link.get('monthly_payment'))
+    if pay > 0:
+        return pay
+    bal, rate, payoff = _f(link.get('balance')), _f(link.get('interest_rate')), _i(link.get('payoff_year'), 0) or 0
+    if payoff >= from_year:
+        return _loan_payment(bal, rate, payoff - from_year + 1)
+    return bal * rate / 12.0
+
+
+class LoanLinks(NamedTuple):
+    """H2: which Liabilities rows the rental rows use as their loan."""
+    standalone: dict[int, dict[str, Any]]  # raw row index -> liability row
+    converted: tuple[dict[str, Any], ...]  # liability rows linked to the converted home
+    warnings: tuple[str, ...]
+
+
+def resolve_loan_links(c: dict[str, Any]) -> LoanLinks:
+    """Resolve each rental row's ``loan_liability_id``: first claim on a Liabilities row
+    wins; an unknown id, a student loan or a second claim warns and leaves the row on its
+    own loan fields."""
+    raw_rows = [p for p in (c.get('rental_properties') or []) if isinstance(p, dict)]
+    libs = {str(li.get('liability_id') or '').strip(): li for li in (c.get('liabilities') or [])
+            if str(li.get('liability_id') or '').strip()}
+    standalone: dict[int, dict[str, Any]] = {}
+    converted: list[dict[str, Any]] = []
+    warnings: list[str] = []
+    claimed: set[str] = set()
+    for i, raw in enumerate(raw_rows):
+        lid = str(raw.get('loan_liability_id') or '').strip()
+        if not lid:
+            continue
+        name = str(raw.get('name') or f'Rental {i + 1}')
+        li = libs.get(lid)
+        if li is None:
+            warnings.append(f"{name}: loan '{lid}' not found in Liabilities; using the loan fields on the property")
+        elif str(li.get('type') or '') == 'student_loan':
+            warnings.append(f"{name}: loan '{lid}' is a student loan, not a property loan; ignored")
+        elif lid in claimed:
+            warnings.append(f"{name}: loan '{lid}' is already used by another property; using its own loan fields")
+        else:
+            claimed.add(lid)
+            if str(raw.get('kind') or STANDALONE).strip().lower().replace(' ', '_') == CONVERTED_HOME:
+                converted.append(li)
+            else:
+                standalone[i] = li
+    return LoanLinks(standalone, tuple(converted), tuple(warnings))
+
+
+def linked_liability_ids(c: dict[str, Any]) -> frozenset[str]:
+    """Ids of Liabilities rows a standalone rental now carries (the general liability loop
+    and the opening liability sum skip them). Empty when the feature is off."""
+    if not feature_enabled(c, 'rental_property_income'):
+        return frozenset()
+    return frozenset(str(li.get('liability_id')) for li in resolve_loan_links(c).standalone.values())
+
+
+def converted_link_interest(links: tuple[dict[str, Any], ...], balances: dict[str, float], year: int) -> float:
+    """Full-year interest on the converted home's linked liabilities at their start-of-year
+    balances, inside each row's start and payoff years (the liability loop's own window)."""
+    total = 0.0
+    for li in links:
+        bal = _f(balances.get(str(li.get('liability_id')), 0.0))
+        start, payoff = _i(li.get('start_year'), 0) or 0, _i(li.get('payoff_year'), 0) or 0
+        if bal <= 1e-6 or (start and year < start) or (payoff and year > payoff):
+            continue
+        total += bal * _f(li.get('interest_rate'))
+    return total
+
+
 def _parse_converted_home(raw: dict[str, Any], index: int, c: dict[str, Any]) -> RentalSpec | None:
     """WP12.3: the plan's home converted to a rental (see the module docstring)."""
     conv_year = _i(raw.get("conversion_year"))
@@ -277,7 +350,8 @@ def _parse_converted_home(raw: dict[str, Any], index: int, c: dict[str, Any]) ->
     )
 
 
-def parse_rental_spec(raw: dict[str, Any], index: int, c: dict[str, Any]) -> RentalSpec | None:
+def parse_rental_spec(raw: dict[str, Any], index: int, c: dict[str, Any],
+                      link: dict[str, Any] | None = None) -> RentalSpec | None:
     """Normalize one property dict; ``None`` for an unknown kind or a converted home
     without a conversion year or without a home in the plan."""
     kind = str(raw.get("kind") or STANDALONE).strip().lower().replace(" ", "_")
@@ -297,6 +371,11 @@ def parse_rental_spec(raw: dict[str, Any], index: int, c: dict[str, Any]) -> Ren
     payment = _f(raw.get("loan_monthly_payment"))
     if payment <= 0 and loan_balance > 0:
         payment = _loan_payment(loan_balance, loan_rate, _i(raw.get("loan_term_years"), DEFAULT_LOAN_TERM_YEARS))
+    if link is not None:  # H2: the Liabilities row is the one source of the loan
+        loan_balance_year = max(plan_start, purchase_year, int(link.get('start_year') or 0))
+        loan_balance = _f(link.get('balance'))
+        loan_rate = _f(link.get('interest_rate'))
+        payment = _linked_payment(link, loan_balance_year)
     sale_price = raw.get("sale_price")
     rental_start = _i(raw.get("rental_start_year"), purchase_year)
     placed_year = _i(raw.get("placed_in_service_year"), max(rental_start, purchase_year))
@@ -335,6 +414,7 @@ def parse_rental_spec(raw: dict[str, Any], index: int, c: dict[str, Any]) -> Ren
         sale_price=None if sale_price in (None, "") else _f(sale_price),
         selling_cost_pct=_f(raw.get("selling_cost_pct"), _f(c.get("home_sell_cost_pct"), 0.0)),
         overrides=_overrides(raw),
+        loan_liability_id=str(link.get('liability_id') or '') if link is not None else '',
     )
 
 
@@ -406,6 +486,9 @@ class RentalBook:
     # year rented after an estate sale (no gain, see the module docstring).
     _converted_sale: tuple[int, HomeSaleEconomics] | None = None
     _converted_last_year: int | None = None
+    # H2: Liabilities rows linked to the converted home, and the link warnings.
+    converted_links: tuple[dict[str, Any], ...] = ()
+    link_warnings: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         for s in self.specs:
@@ -552,11 +635,13 @@ class RentalBook:
             sec121_qualifies=terms.qualifies)
 
     def with_carrying_costs(self, ry: RentalYear, costs: dict[str, float] | None,
-                            mortgage_interest: float) -> RentalYear:
+                            mortgage_interest: float, linked_interest: float = 0.0) -> RentalYear:
         """``ry`` with the converted home's share of the home's carrying costs (moved out
         of spending by ``spending_and_rmd``) added: real-estate tax, utilities,
         maintenance and other as operating expenses, the mortgage payment as debt service
-        split into ``mortgage_interest`` (deductible, at most the payment) and principal."""
+        split into ``mortgage_interest`` (deductible, at most the payment) and principal.
+        ``linked_interest`` (H2) is interest on Liabilities rows linked to the home: a
+        deduction only, its payment stays in the liability loop (no cash moves)."""
         s = self.converted_spec()
         if s is None or not costs:
             return ry
@@ -570,6 +655,9 @@ class RentalBook:
                             mortgage_interest=p.mortgage_interest + interest,
                             mortgage_principal=p.mortgage_principal + payment - interest,
                             schedule_e=p.schedule_e - added - interest, net_cash=p.net_cash - added - payment)
+                if linked_interest:
+                    p = replace(p, mortgage_interest=p.mortgage_interest + linked_interest,
+                                schedule_e=p.schedule_e - linked_interest)
             props.append(p)
         for spec in self.specs:
             py = next(p for p in props if p.name == spec.name)
@@ -691,7 +779,9 @@ def rental_book_for(c: dict[str, Any]) -> RentalBook | None:
     if not feature_enabled(c, 'rental_property_income'):
         return None
     raw = [p for p in (c.get('rental_properties') or []) if isinstance(p, dict)]
-    specs = tuple(s for s in (parse_rental_spec(p, i, c) for i, p in enumerate(raw)) if s is not None)
+    links = resolve_loan_links(c)
+    specs = tuple(s for s in (parse_rental_spec(p, i, c, links.standalone.get(i)) for i, p in enumerate(raw))
+                  if s is not None)
     converted = [s for s in specs if s.kind == CONVERTED_HOME]
     if len(converted) > 1:  # one plan home: the first converted-home entry wins
         specs = tuple(s for s in specs if s.kind != CONVERTED_HOME or s is converted[0])
@@ -704,7 +794,8 @@ def rental_book_for(c: dict[str, Any]) -> RentalBook | None:
     if isinstance(lived_apart, str):
         lived_apart = lived_apart.strip().lower() in ('true', 'yes', 'y', '1')
     return RentalBook(specs=specs, plan_start=int(c['plan_start']),
-                      mfs_lived_apart_all_year=bool(lived_apart))
+                      mfs_lived_apart_all_year=bool(lived_apart),
+                      converted_links=links.converted, link_warnings=links.warnings)
 
 
 def ordinary_income(ry: RentalYear, passive: PassiveLossResult) -> float:

@@ -29,7 +29,9 @@ from typing import Any, Iterable, Mapping
 from .errors import ValidationError
 
 # Column groups, named as the parser's keys (src/parsing/rental_properties.py).
-TEXT_COLUMNS = ("kind", "owner", "notes")
+TEXT_COLUMNS = ("kind", "owner", "notes", "loan_liability_id")
+# Columns added after schema v9 (see SCHEMA_V10_DDL); the v9 table does not have them.
+_ADDED_AFTER_V9 = ("loan_liability_id",)
 REAL_COLUMNS = (
     # money
     "purchase_price", "closing_costs", "current_value", "monthly_rent", "property_tax", "insurance", "hoa",
@@ -55,7 +57,7 @@ OVERRIDE_KEYS = ("year", *OVERRIDE_REAL_COLUMNS, "notes")
 
 def _property_ddl() -> str:
     cols = ",\n    ".join(
-        [f"{c} TEXT NOT NULL DEFAULT ''" for c in TEXT_COLUMNS if c != "kind"]
+        [f"{c} TEXT NOT NULL DEFAULT ''" for c in TEXT_COLUMNS if c != "kind" and c not in _ADDED_AFTER_V9]
         + [f"{c} REAL" for c in REAL_COLUMNS]
         + [f"{c} INTEGER" for c in INT_COLUMNS]
         + [f"{c} INTEGER CHECK ({c} IN (0, 1))" for c in BOOL_COLUMNS]
@@ -88,6 +90,9 @@ CREATE TABLE rental_year_overrides (
     PRIMARY KEY (property_id, year)
 ) WITHOUT ROWID;
 """
+
+# v10 (H2): the id of the Liabilities row a property uses as its loan ('' = none).
+SCHEMA_V10_DDL = "ALTER TABLE rental_properties ADD COLUMN loan_liability_id TEXT NOT NULL DEFAULT '';"
 
 
 # ------------------------------------------------------------------------------ coercion
@@ -349,4 +354,4 @@ class RentalRepo:
         )
 
 
-__all__ = ["RentalRepo", "SCHEMA_V9_DDL", "PROPERTY_COLUMNS"]
+__all__ = ["RentalRepo", "SCHEMA_V9_DDL", "SCHEMA_V10_DDL", "PROPERTY_COLUMNS"]

@@ -50,15 +50,14 @@ const RP_FIELDS = {
     F("rental_end_year", "Rental end year", "year", { hint: "Blank means until sale." })]]],
   expenses: [["Operating expenses", [
     F("property_tax", "Property tax (per year)", "money"), F("property_tax_growth", "Property tax growth", "pct"),
-    F("insurance", "Insurance (per year)", "money"), F("maintenance_pct", "Maintenance (% of rent)", "pct"),
-    F("management_pct", "Management (% of rent)", "pct", { hint: "0% when self-managed." }),
+    F("insurance", "Insurance (per year)", "money"), F("maintenance_pct", "Maintenance (% of rent)", "pct"), F("management_pct", "Management (% of rent)", "pct", { hint: "0% when self-managed." }),
     F("hoa", "HOA (per year)", "money"), F("utilities", "Utilities (per year)", "money"),
     F("other_expenses", "Other (per year)", "money"), F("expense_growth", "Expense growth", "pct", { hint: "Blank means inflation." })]]],
   financing: [["Loan", [
+    F("loan_liability_id", "Existing loan", "liab", { hint: "Pick a loan from Liabilities to count it once. Standalone: its balance, rate and payment replace the fields below. Converted home: its interest moves to Schedule E." }),
     F("loan_balance", "Balance", "money", { only: "standalone" }), F("loan_rate", "Rate", "pct", { only: "standalone" }),
     F("loan_monthly_payment", "Monthly payment", "money", { only: "standalone", hint: "Blank means computed from the term." }),
-    F("loan_term_years", "Term remaining (years)", "int", { only: "standalone" }),
-    F("loan_balance_year", "Balance as of year", "year", { only: "standalone" })]]],
+    F("loan_term_years", "Term remaining (years)", "int", { only: "standalone" }), F("loan_balance_year", "Balance as of year", "year", { only: "standalone" })]]],
   tax: [
     ["Depreciation", [F("placed_year", "Placed in service", "ym", { m: "placed_in_service_month", yk: "placed_in_service_year", only: "standalone" }),
       F("dep_basis", "Depreciable basis", "calc", { only: "standalone", x: true,
@@ -305,6 +304,7 @@ function rpFieldHtml(f, draft, tiers, planTier, data) {
   const hint = f.hint ? `<div class="unit">${esc(f.hint)}</div>` : "";
   const fk = `data-focus-key="rp_${esc(f.k)}"`;
   let ctl;
+  if (f.t === "liab") f = Object.assign({}, f, { t: "select", o: [["", "None (enter a loan below)"]].concat(((data || {}).liability_options || []).map((o) => [o.id, `${o.id}: ${o.label} ${rentalMoney(o.balance)} ${Math.round((o.rate || 0) * 10000) / 100}%`])) });
   if (f.t === "calc") ctl = `<div class="field-readonly" data-rp-calc="${esc(f.k)}">${esc(rpCalcText(f.k, draft, data))}</div>`;
   else if (f.t === "select") {
     const cur = draft[f.k] || f.o[0][0];
