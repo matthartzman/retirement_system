@@ -555,7 +555,9 @@ DASHBOARD_JS_MAX_LINES = 7_134
 # 2026-10-12 (Map-to-category picker on the unmapped warning +~105, txn Debits/Credits/Total +~50): raised to 38,180.
 # 2026-10-13 (WP12.6: Rental Properties page in dashboard_decomp_rental_properties.js, +603 with the
 # nav gate, STEPS/help entries and Plan Features count; dashboard.js stays under its own ceiling): raised to 38,783.
-TOTAL_JS_MAX_LINES = 38_783
+# 2026-10-13 (WP12.8: Keep and rent out in the housing optimizer -- disposition, rent field, the
+# feature-on help texts beside the kept Phase 1 ones -- and the Convert my home links, +98): raised to 38,881.
+TOTAL_JS_MAX_LINES = 38_881
 
 
 def _line_count(path: Path) -> int:

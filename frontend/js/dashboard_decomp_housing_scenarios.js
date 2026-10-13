@@ -843,6 +843,10 @@ export function nextHousingMoveInputsHtml(rs) {
     renderResidencySchedule() +
     "</div></details>";
   html += renderBaseHomeSaleRows(rs);
+  // WP12.8: keep the home and rent it out, via Rental Properties' convert dialog (rent asked there).
+  if (typeof housingOptRentOutOn === "function" && housingOptRentOutOn())
+    html +=
+      '<div class="section-note">Keeping your home and renting it out? <button class="btn btn-sm" type="button" onclick="rpConvertFromHousing()">Convert my home to a rental</button> opens Rental Properties with the conversion year set to your next move; you enter the rent. Leave the sale year blank.</div>';
   html +=
     '<div class="section-note">Not sure what year or location to plan for? The <b>Where to live</b> search below sweeps candidate sale/purchase years, locations, and dwelling specs (area type, bedrooms, bathrooms, property type, square footage, lot size) with the same engine as the rest of the plan. Each result reports the ZIP code, an estimated price, and the distance to your anchor -- transcribe the winning candidate\'s state, area type, population, ZIP, and dwelling fields into the steps here.</div>';
   if (nextStep1Rows.length)

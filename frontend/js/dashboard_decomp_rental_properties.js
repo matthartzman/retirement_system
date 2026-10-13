@@ -404,6 +404,7 @@ export function renderRentalProperties() {
     if (!rpLoading && !rpError) loadRentalProperties();
     return `<div class="field-list">${rpError ? `<div class="section-note">${esc(rpError)} <button class="btn" type="button" onclick="loadRentalProperties()">Retry</button></div>` : '<div class="section-note">Loading rental properties…</div>'}</div>`;
   }
+  if (rpPrefill) rpPrefillApply();
   const body = !rpData.enabled ? rentalOffHtml(rpData, rpPreview) : rpView === "detail" && rpDraft ? rentalDetailHtml(rpDraft, rpData) : rpListHtml(rpData);
   return `<div class="field-list rp-page">${body}</div>`;
 }
@@ -543,6 +544,25 @@ export function rpConvertOpen() {
   rpConvert = { year: String(h.conversion_year), value: String(h.value_at_conversion), prefill: h.value_at_conversion, rent: "" };
   renderMain();
 }
+// WP12.8: "Convert my home" from Next Housing Move opens this page with the convert dialog
+// pre-filled (year; the rent when the search had one). The rent is still asked; nothing is saved
+// until Create. Ignored when the feature is off or the home is already converted.
+let rpPrefill = null;
+export function rpConvertFromHousing(year, rent) {
+  rpPrefill = { year: Number(year) || 0, rent: Number(rent) > 0 ? String(rent) : "" };
+  setStep("rental_properties");
+}
+function rpPrefillApply() {
+  const p = rpPrefill, h = rpData.home || {};
+  rpPrefill = null;
+  if (!rpData.enabled || !h.available || (rpData.properties || []).some((x) => x.kind === "converted_home")) return;
+  const year = p.year || Number(h.conversion_year);
+  // The value grows with the page's own estimate from its default year to this one.
+  const grown = Math.round(Number(h.value_at_conversion) * (1 + Number(h.appreciation || 0)) ** (year - Number(h.conversion_year)));
+  const value = Number.isFinite(grown) ? grown : h.value_at_conversion;
+  rpView = "list";
+  rpConvert = { year: String(year), value: String(value), prefill: value, rent: p.rent };
+}
 export function rpConvertSet(key, raw) {
   rpConvert[key] = String(raw ?? "").trim();
   const el = document.getElementById("rpConvBasis");
@@ -572,5 +592,5 @@ Object.assign(window, {
   rentalDetailHtml, renderRentalProperties, loadRentalProperties, setRentalKeptCount, rentalKeptCount,
   rpOpen, rpAdd, rpTabSet, rpToggleAdvanced, rpDismiss, rpWhy, rpPreviewToggle, rpSetYear, rpSetMagi, rpTurnOn,
   rpSet, rpSetYm, rpChildSet, rpChildAdd, rpChildDel, rpBack, rpSave, rpDuplicate, rpRemove,
-  rpConvertOpen, rpConvertSet, rpConvertCancel, rpConvertCreate,
+  rpConvertOpen, rpConvertSet, rpConvertCancel, rpConvertCreate, rpConvertFromHousing,
 });
