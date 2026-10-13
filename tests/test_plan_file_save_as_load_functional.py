@@ -139,3 +139,13 @@ def test_exit_snapshot_keeps_a_versioned_copy_of_the_plan_file(own_workspace):
     from src.stores import PlanStore
     with PlanStore.open(copy, create=False, readonly=True) as store:
         assert store.sectioned_data() == own_workspace.store_data()
+
+
+def test_save_as_refuses_to_overwrite_another_registered_plan(own_workspace, tmp_path):
+    client = app.test_client()
+    first = tmp_path / "first.rpx"
+    assert client.post("/api/plan/save-as", headers=HEADERS, json={"path": str(first), "activate": False}).get_json()["success"]
+    before = first.read_bytes()
+    out = client.post("/api/plan/save-as", headers=HEADERS, json={"path": str(first), "activate": False}).get_json()
+    assert out["success"] is False and "already the plan" in out["error"]
+    assert first.read_bytes() == before
