@@ -45,3 +45,18 @@ def test_old_revision_without_tables_leaves_tables_alone(tmp_path):
     before = _state(store)
     store.restore_revision(rev)
     assert _state(store) == before
+
+
+def test_recovery_revisions_labelled_grouped_and_unpruned(tmp_path):
+    store = PlanStore.open(tmp_path / "p.rpx")
+    store.insert_row("income", label="pay", value="1")
+    store.snapshot_revision("budget-recovery-seed", "seed")
+    store.snapshot_revision("pre-recovery", "pre")
+    store.set_revision_retention(1)
+    for i in range(3):
+        store.snapshot_revision("manual", str(i))
+    revs = store.list_revisions()
+    rec = store.list_revisions(group="recovery")
+    assert {r["source"] for r in rec} == {"budget-recovery-seed", "pre-recovery"}
+    assert {r["group"] for r in rec} == {"recovery"} and rec[0]["label"]
+    assert [r["group"] for r in revs].count("history") == 1
