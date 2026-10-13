@@ -17,7 +17,7 @@ import posixpath
 import zipfile
 from typing import Any, Mapping, Sequence
 
-from . import core
+from . import core, rental_csv
 from .plan_csv import PLAN_CSV_FILES, part_file_for_section
 
 MANIFEST_NAME = "manifest.json"
@@ -63,6 +63,12 @@ def export_plan_set_files(store: Any) -> dict[str, str]:
         files[spec.files[0]] = core.export_dataset(store, spec.name)
         manifest["files"][spec.files[0]] = spec.name
         manifest["datasets"][spec.name] = {"files": [spec.files[0]], "rows": len(core.current_rows(store, spec.name))}
+    rental_rows = rental_csv.current_rows(store) if hasattr(store, "rental") else []
+    if rental_rows:   # kept while the feature is off; omitted when there are none (older exports unchanged)
+        files.update(rental_csv.export_files(rental_rows))
+        manifest["datasets"][rental_csv.DATASET] = {
+            "files": list(rental_csv.FILES), "rows": sum(r["_file"] == rental_csv.PART_PROPERTY for r in rental_rows)}
+        manifest["files"].update({f: rental_csv.DATASET for f in rental_csv.FILES})
     files[MANIFEST_NAME] = json.dumps(manifest, indent=2, sort_keys=True) + "\n"
     return files
 
