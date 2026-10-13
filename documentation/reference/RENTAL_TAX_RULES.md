@@ -321,3 +321,59 @@ Sale tab, "Section 121 estimate (home sale year 2031)"   (read only, estimate)
 ### 10.6 Questions
 1. Owner: default `reversion_month` 7 and the one-rental-period limit OK?
 2. Tax preparer: (a) nonqualified use applied to the gain left after the 1250 split (as Pub. 523 orders them); (b) suspended passive losses stay suspended on the move-back and release at the later sale; (c) the end-year depreciation uses the mid-month disposal convention at the move-back month.
+
+## 11. H4: owner split between spouses and sale proceeds split (design, OWNER CHECKPOINT: H4)
+
+Status: design and worked examples only. Nothing built. Rental stays default OFF.
+
+### 11.1 Problem
+Each property already stores `owner` (Joint / Member 1 / Member 2), but nothing reads it. A jointly titled
+property's sale proceeds are deposited to one account (`home_sale_acct`, else the first taxable account), and
+the rental views show no owner. On a joint return the income tax is the same whoever owns the property, so the
+split matters for where proceeds land, for what each spouse owns after a death (H5 reads it for the step-up),
+and for reporting.
+
+### 11.2 Data model (plan schema v12, forward-only)
+One new optional column `member_1_share` (0 to 1) on the rental table, used only with `owner` = Joint.
+Blank means 50% for Joint, 100% for Member 1, 0% for Member 2. A share with an owner other than Joint is an
+input error ("use Joint for a split"). Applies to the converted home as well (its `owner` and share).
+
+### 11.3 Rules
+| Rule | Behaviour |
+|---|---|
+| Income tax on a joint return | unchanged: Schedule E, depreciation, passive-loss limit and gain use the one return; the golden numbers do not move. |
+| Sale proceeds | Positive net proceeds of a rental sale (and of a converted-home sale that is not already split by `home_sale_splits`) are deposited `member_1_share` to the first taxable account of member 1 and the rest to member 2's (`first_taxable(c, owner_idx)`). A member with no taxable account: that member's part goes to the other member's account; none at all: the household default account as today. The deposit is basis-free cash (gain taxed in the sale year), as today. |
+| Existing `home_sale_splits` | win for the plan's home, unchanged. |
+| An owner who died before the sale | the deceased member's part goes to the survivor's account (all of it to the survivor; estate transfers are H5). |
+| Reporting | `rental_by_property` rows carry `owner` and `member_1_share`; the Rental Properties sheet gets an Owner column and the sale proceeds by account. |
+| Death | no new tax effect in H4; H5 reads the stored share for the step-up (decedent's share). |
+| MFS | the plan models one return; Schedule E is not split between two separate returns (stated limitation; the MFS lived-apart allowance stays as built). |
+| Feature off | ignored. |
+
+### 11.4 Worked examples (net sale proceeds 200,000; accounts Member_1_Trust and Member_2_Trust)
+| # | Inputs | Today | With H4 | Rule |
+|---|---|---|---|---|
+| O1 | Owner Joint, blank share (50%) | 200,000 to the default account | 100,000 to Member_1_Trust, 100,000 to Member_2_Trust | 50% each |
+| O2 | Owner Joint, member_1_share 60% | all to the default account | 120,000 to Member 1, 80,000 to Member 2 | share |
+| O3 | Owner Member 1 | default account | 200,000 to Member 1 | 100% |
+| O4 | Owner Joint, Member 2 has no taxable account | default | 100,000 to Member 1 and 100,000 more to Member 1's account (all 200,000 to Member 1) | fallback |
+| O5 | Joint 50/50, Member 2 died two years before the sale | default | all 200,000 to the survivor (Member 1) | survivor |
+| O6 | Owner Member 1, share 60% entered | n/a | input error: "member_1_share applies only to Joint ownership" | validation |
+| O7 | Joint return, any owner | tax as today | identical tax and AGI; only deposits and reporting differ | MFJ |
+
+### 11.5 UI mock (property editor, Identity group; the split preview sits on the Sale tab)
+```
+Identity
+  Owner         [ Joint v ]            (Joint | Member 1 | Member 2)
+  Member 1 owns [ 50 ] %               Member 2 owns 50 %      (only shown for Joint)
+Sale tab, "Where the proceeds go"        (read only, estimate)
+  Net proceeds after costs and loan     $200,000
+  Member 1 (Member_1_Trust)             $100,000
+  Member 2 (Member_2_Trust)             $100,000
+  Note: "Income tax is the same on a joint return whoever owns the property."
+```
+
+### 11.6 Questions for the owner
+1. Is "derive the split from ownership (Joint 50/50 by default)" right, or do you want an explicit split table like the home-sale splits?
+2. OK that MFS households keep the one-return model (no per-return Schedule E split), listed as a limitation?
+3. OK that a deceased owner's part goes to the survivor's account until H5 defines estate transfers?
