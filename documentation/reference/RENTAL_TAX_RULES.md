@@ -262,3 +262,62 @@ Liabilities page: a linked row shows the badge "Used by rental: Duplex" (read on
 1. Standalone: is "the liability is the source, the property fields are ignored" the right direction? (Alternative: the property wins and the liability row is hidden from totals.)
 2. Converted home: only Schedule E interest moves; do you also want the linked loan's balance shown on the property? (Default: no.)
 3. OK to leave "payoff of other liabilities at home sale" as a stated limitation?
+
+## 10. H3: personal-use reversion (rent, then move back in) (design, OWNER CHECKPOINT: H3)
+
+Status: design and worked examples only. Nothing built. Rental stays default OFF.
+
+### 10.1 Problem
+A converted home today is rented from the conversion date to `rental_end_year`; after that the engine counts **no
+residence use**, so a later sale fails the two-of-five test even when the household moved back in. It also
+treats the whole end year as rented and takes a full year of depreciation. Real moves back in need three
+rules the module skips: the move-back counts as residence for the 121 clock, depreciation stops at the move-back
+date, and rental use that sits *before* the last residence date is **nonqualified use** (IRC 121(b)(5)).
+
+### 10.2 Data model (plan schema v11, forward-only, converted-home rows only)
+| Column | Meaning |
+|---|---|
+| `moves_back_in` | yes/no, default no (today's behaviour, byte-identical). |
+| `reversion_month` | month of `rental_end_year` the household moves back in (default 7, mid-year, as the other months). |
+
+`rental_end_year` + `reversion_month` = the move-back date (1st of the month). Rented months in the end year:
+January to the month before; depreciation runs to that month (mid-month disposal convention, as for a sale).
+From the move-back date the home's carrying costs return to personal spending (the existing rented share, now
+partial in the end year). One rental period per home (a second conversion is out of scope).
+
+### 10.3 Rules
+| Rule | Behaviour |
+|---|---|
+| Section 121 clock | residence periods = `[owned_from, conversion)` and `[move-back, sale)`; passes when residence days in the 5 years before the sale >= 730 and ownership days >= 730 (existing `section_121_two_of_five`). Without `moves_back_in`: only the first period, as today. |
+| Depreciation taken | `accumulated = sum of depreciation through the move-back month`; no depreciation afterwards; it stays in the basis reduction at the later sale and is unrecaptured 1250 gain (IRC 121(d)(6)), never excluded. |
+| Nonqualified use | rental days (conversion to move-back) / ownership days (`owned_from` to sale). Applies only when the household moves back in (rental *after* the last residence date is exempt, 121(b)(5)(C)(ii)(I)); applies only to periods after 2008 (all conversions in the plan are). Allocated to the gain that is left after the 1250 split: `nonqualified gain = (gain - 1250 gain) x ratio` is taxable LTCG; the exclusion applies to the rest. |
+| Passive losses | moving back in is not a disposition: suspended losses stay suspended (they can still offset other passive income) and are released by the later fully taxable sale of the home, as for today's converted-home sale. Open question for the tax preparer, see 10.6. |
+| Sold while rented, or no move-back | exactly as today (no nonqualified use, no residence credit after conversion). |
+| Feature off | ignored. |
+
+### 10.4 Worked examples (MFJ exclusion 500,000; owned and lived in from 1 Jan 2015; converted 1 Jul 2027; depreciable basis 400,000 so depreciation is 6,668 in 2027, 14,544 in 2028 and 7,878 in 2029 to the move-back; 27.5 years, mid-month)
+| # | Inputs | Today | With reversion | Rule |
+|---|---|---|---|---|
+| T1 | Moves back 1 Jul 2029, sold 1 Jul 2031, gain (after depreciation) 400,000 | Residence days 365 in the window, test **fails**: excluded 0; 1250 gain 35,756 (a full year of 2029 depreciation); LTCG 364,244 | Residence 365 + 730 = 1,095 days, **passes**. 1250 gain 29,090. Rest 370,910. Nonqualified ratio 731 / 6,025 = 12.133%, so LTCG 45,001.69. Excluded 325,908.31. | 121(a), (b)(5), (d)(6) |
+| T2 | Same, gain 900,000 | fails: LTCG 864,244, 1250 gain 35,756 | 1250 gain 29,090; rest 870,910; nonqualified 105,665.60; eligible 765,244.40; excluded capped at 500,000; LTCG 370,910.00 | exclusion cap |
+| T3 | Moves back 1 Jul 2029, sold 1 Dec 2029, gain 400,000 | fails | residence 942 + 153 = 1,095 days passes. Ratio 731 / 5,448 = 13.418%. LTCG 49,767.84, excluded 321,142.16, 1250 gain 29,090 | same |
+| T4 | Sold 1 Jul 2029 while still rented (no move-back) | as today | as today (rental after the last residence date is not nonqualified use) | 121(b)(5)(C)(ii)(I) |
+| T5 | `moves_back_in` = no | as today | as today, byte-identical | default |
+
+### 10.5 UI mock (converted-home row, Basics tab; the estimate sits on the Sale tab)
+```
+Rental period
+  Rental end     [ 2029 - 07 ]            Move back in on that date  [ Yes v ]
+  Hint: "Moving back in starts a new residence period for the 2-of-5-year test,
+         stops depreciation, and makes the rental months nonqualified use."
+Sale tab, "Section 121 estimate (home sale year 2031)"   (read only, estimate)
+  Residence days in the last 5 years   1,095 of 730 needed   passes
+  Depreciation taken (recaptured)      $29,090
+  Nonqualified use                     12.1% of 6,025 ownership days
+  Taxable part of the gain             $45,002 LTCG + $29,090 recapture
+  Excluded                             $325,908
+```
+
+### 10.6 Questions
+1. Owner: default `reversion_month` 7 and the one-rental-period limit OK?
+2. Tax preparer: (a) nonqualified use applied to the gain left after the 1250 split (as Pub. 523 orders them); (b) suspended passive losses stay suspended on the move-back and release at the later sale; (c) the end-year depreciation uses the mid-month disposal convention at the move-back month.
