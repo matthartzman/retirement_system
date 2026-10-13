@@ -61,6 +61,12 @@ pruned by retention (``PROTECTED_REVISION_SOURCES``).
 Schema v6 (WP6.4) adds the YTD tables ``ytd_transactions``, ``ytd_account_setup`` and
 ``ytd_import_history`` (same conventions; the columns are the YTD files' own, spaces included,
 e.g. ``"Original Statement"``), reached as ``store.dataset("ytd_transactions")`` and so on.
+
+Schema v7/v8 (WP7.2) add ``build_results`` (see ``build_results.py``).
+
+Schema v9 (WP12.4) adds the typed rental tables ``rental_properties``, ``rental_improvements``
+and ``rental_year_overrides`` (see ``rental_repo.py``), reached as ``store.rental``
+(``properties()``, ``replace_all()``, ``upsert()``, ``delete()``). Typed columns, not text.
 """
 from __future__ import annotations
 
@@ -75,6 +81,7 @@ from .. import platform_runtime
 from ._base import _SqliteStore
 from .datasets import SCHEMA_V2_DDL, SCHEMA_V3_DDL, SCHEMA_V4_DDL, SCHEMA_V5_DDL, SCHEMA_V6_DDL, YTD_DATASETS, FlatDatasetRepository
 from .build_results import SCHEMA_V7_DDL, SCHEMA_V8_DDL, BuildResultsRepo
+from .rental_repo import SCHEMA_V9_DDL, RentalRepo
 from .spending_repo import SpendingRepo
 from .errors import IntegrityError, NotFoundError, ValidationError
 
@@ -129,7 +136,7 @@ CREATE TABLE plan_meta (
 INSERT INTO plan_meta (key, value) VALUES ('{RETENTION_KEY}', '{DEFAULT_REVISION_RETENTION}');
 """
 
-PLAN_MIGRATIONS: tuple[str, ...] = (_SCHEMA_V1, SCHEMA_V2_DDL, SCHEMA_V3_DDL, SCHEMA_V4_DDL, SCHEMA_V5_DDL, SCHEMA_V6_DDL, SCHEMA_V7_DDL, SCHEMA_V8_DDL)
+PLAN_MIGRATIONS: tuple[str, ...] = (_SCHEMA_V1, SCHEMA_V2_DDL, SCHEMA_V3_DDL, SCHEMA_V4_DDL, SCHEMA_V5_DDL, SCHEMA_V6_DDL, SCHEMA_V7_DDL, SCHEMA_V8_DDL, SCHEMA_V9_DDL)
 PLAN_SCHEMA_VERSION = len(PLAN_MIGRATIONS)
 
 
@@ -258,6 +265,12 @@ class PlanStore(_SqliteStore):
     def spending(self) -> SpendingRepo:
         """The plan's spending set (taxonomy, aliases; budget, rules ... from WP6.3b/c)."""
         return SpendingRepo(self)
+
+    # ------------------------------------------------------ rental properties (WP12.4)
+    @property
+    def rental(self) -> RentalRepo:
+        """The plan's rental properties, with their improvements and year overrides."""
+        return RentalRepo(self)
 
     def dataset(self, name: str) -> FlatDatasetRepository:
         """A flat dataset by its ``csv_exchange`` name: ``holdings``, ``liabilities``,

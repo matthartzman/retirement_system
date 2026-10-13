@@ -468,3 +468,55 @@ Estate Planning,Step-Up,former_spouse_name,expert
 Forced Actions,Roth Conversion 1,source_account,advanced
 Forced Actions,Roth Conversion 1,year,advanced
 Forced Actions,Roth Conversion 1,amount,advanced
+Rental Properties,Property,name,advanced
+Rental Properties,Property,kind,advanced
+Rental Properties,Property,owner,advanced
+Rental Properties,Property,notes,advanced
+Rental Properties,Property,purchase_price,advanced
+Rental Properties,Property,closing_costs,advanced
+Rental Properties,Property,current_value,advanced
+Rental Properties,Property,monthly_rent,advanced
+Rental Properties,Property,property_tax,advanced
+Rental Properties,Property,insurance,advanced
+Rental Properties,Property,hoa,advanced
+Rental Properties,Property,utilities,advanced
+Rental Properties,Property,other_expenses,advanced
+Rental Properties,Property,loan_balance,advanced
+Rental Properties,Property,loan_monthly_payment,advanced
+Rental Properties,Property,prior_suspended_loss,expert
+Rental Properties,Property,sale_price,advanced
+Rental Properties,Property,value_at_conversion,advanced
+Rental Properties,Property,adjusted_basis_at_conversion,advanced
+Rental Properties,Property,land_share,advanced
+Rental Properties,Property,vacancy_rate,advanced
+Rental Properties,Property,maintenance_pct,advanced
+Rental Properties,Property,management_pct,advanced
+Rental Properties,Property,selling_cost_pct,advanced
+Rental Properties,Property,appreciation,advanced
+Rental Properties,Property,rent_growth,advanced
+Rental Properties,Property,expense_growth,advanced
+Rental Properties,Property,property_tax_growth,advanced
+Rental Properties,Property,loan_rate,advanced
+Rental Properties,Property,purchase_year,advanced
+Rental Properties,Property,value_as_of_year,advanced
+Rental Properties,Property,rental_start_year,advanced
+Rental Properties,Property,rental_end_year,advanced
+Rental Properties,Property,loan_balance_year,advanced
+Rental Properties,Property,placed_in_service_year,advanced
+Rental Properties,Property,sale_year,advanced
+Rental Properties,Property,conversion_year,advanced
+Rental Properties,Property,purchase_month,advanced
+Rental Properties,Property,placed_in_service_month,advanced
+Rental Properties,Property,sale_month,advanced
+Rental Properties,Property,conversion_month,advanced
+Rental Properties,Property,loan_term_years,advanced
+Rental Properties,Property,active_participation,expert
+Rental Properties,Improvement,year,expert
+Rental Properties,Improvement,month,expert
+Rental Properties,Improvement,amount,expert
+Rental Properties,Improvement,description,expert
+Rental Properties,Year Override,year,expert
+Rental Properties,Year Override,gross_rent,expert
+Rental Properties,Year Override,operating_expenses,expert
+Rental Properties,Year Override,notes,expert
+Household,,mfs_lived_apart,expert

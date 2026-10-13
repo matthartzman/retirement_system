@@ -2089,6 +2089,15 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
         method=lot_method.upper()
     )
 
+    # Rental Properties (WP12.4): the typed plan tables feed c['rental_properties'] only while
+    # the rental_property_income feature is on. Off: nothing is read or set, the stored
+    # properties are kept, and the engine sees no rental input.
+    from .module_catalog import feature_enabled
+    if feature_enabled(c, 'rental_property_income'):
+        from .plan_datasets import active_rental_properties
+        parse_rental_properties(c, active_rental_properties(),
+                                mfs_lived_apart=_v(data, 'Household', '', 'mfs_lived_apart', ''))
+
     _apply_allocation_projection_assumptions(c)
     c = ensure_engine_config(c, source='sectioned')
     _resolve_auto_horizon_and_reapply(c)

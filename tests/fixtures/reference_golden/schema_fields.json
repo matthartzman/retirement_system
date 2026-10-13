@@ -9323,6 +9323,1046 @@
   [
    {
     "$tuple": [
+     "Rental Properties",
+     "Property",
+     "name"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "name",
+    "type": "text",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Unique name of the rental property."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "kind"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "kind",
+    "type": "choice",
+    "required": "FALSE",
+    "default": "Standalone",
+    "min": "",
+    "max": "",
+    "description": "Standalone | Converted home. A converted home is the plan's own home turned into a rental."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "owner"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "owner",
+    "type": "choice",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Who owns it: member 1, member 2 or joint."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "notes"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "notes",
+    "type": "text",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Free-text notes."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "purchase_price"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "purchase_price",
+    "type": "dollars",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Purchase price."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "closing_costs"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "closing_costs",
+    "type": "dollars",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Closing costs added to the basis."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "current_value"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "current_value",
+    "type": "dollars",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Current value."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "monthly_rent"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "monthly_rent",
+    "type": "dollars",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Monthly rent at the start of renting."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "property_tax"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "property_tax",
+    "type": "dollars",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Annual property tax."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "insurance"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "insurance",
+    "type": "dollars",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Annual insurance."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "hoa"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "hoa",
+    "type": "dollars",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Annual HOA dues."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "utilities"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "utilities",
+    "type": "dollars",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Annual utilities paid by the owner."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "other_expenses"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "other_expenses",
+    "type": "dollars",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Other annual expenses."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "loan_balance"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "loan_balance",
+    "type": "dollars",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Loan balance in the balance year."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "loan_monthly_payment"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "loan_monthly_payment",
+    "type": "dollars",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Monthly loan payment (optional with a rate)."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "prior_suspended_loss"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "prior_suspended_loss",
+    "type": "dollars",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Passive loss already suspended and carried in from earlier years."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "sale_price"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "sale_price",
+    "type": "dollars",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Sale price (blank = appreciated value)."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "value_at_conversion"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "value_at_conversion",
+    "type": "dollars",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Converted home: value on the conversion date."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "adjusted_basis_at_conversion"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "adjusted_basis_at_conversion",
+    "type": "dollars",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Converted home: adjusted basis on the conversion date."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "land_share"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "land_share",
+    "type": "percent",
+    "required": "FALSE",
+    "default": "20%",
+    "min": "",
+    "max": "",
+    "description": "Land share of the basis (not depreciable)."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "vacancy_rate"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "vacancy_rate",
+    "type": "percent",
+    "required": "FALSE",
+    "default": "0%",
+    "min": "",
+    "max": "",
+    "description": "Share of the year the property is vacant."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "maintenance_pct"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "maintenance_pct",
+    "type": "percent",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Maintenance as a share of rent."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "management_pct"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "management_pct",
+    "type": "percent",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Management fee as a share of rent."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "selling_cost_pct"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "selling_cost_pct",
+    "type": "percent",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Selling costs as a share of the sale price."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "appreciation"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "appreciation",
+    "type": "percent",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Annual appreciation."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "rent_growth"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "rent_growth",
+    "type": "percent",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Annual rent growth."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "expense_growth"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "expense_growth",
+    "type": "percent",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Annual expense growth."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "property_tax_growth"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "property_tax_growth",
+    "type": "percent",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Annual property tax growth."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "loan_rate"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "loan_rate",
+    "type": "percent",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Loan interest rate."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "purchase_year"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "purchase_year",
+    "type": "year",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Year of purchase."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "value_as_of_year"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "value_as_of_year",
+    "type": "year",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Year of the current value."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "rental_start_year"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "rental_start_year",
+    "type": "year",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "First year of renting."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "rental_end_year"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "rental_end_year",
+    "type": "year",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Last year of renting."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "loan_balance_year"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "loan_balance_year",
+    "type": "year",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Year of the loan balance."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "placed_in_service_year"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "placed_in_service_year",
+    "type": "year",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Year first available for rent (depreciation starts)."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "sale_year"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "sale_year",
+    "type": "year",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Year of sale."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "conversion_year"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "conversion_year",
+    "type": "year",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Converted home: year it became a rental."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "purchase_month"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "purchase_month",
+    "type": "integer",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Month of purchase (1-12; blank = 7, mid-year)."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "placed_in_service_month"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "placed_in_service_month",
+    "type": "integer",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Month placed in service (1-12; blank = 7)."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "sale_month"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "sale_month",
+    "type": "integer",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Month of sale (1-12; blank = 7)."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "conversion_month"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "conversion_month",
+    "type": "integer",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Converted home: month of conversion (1-12; blank = 7)."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "loan_term_years"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "loan_term_years",
+    "type": "integer",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Loan term in years."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Property",
+     "active_participation"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Property",
+    "label": "active_participation",
+    "type": "boolean",
+    "required": "FALSE",
+    "default": "TRUE",
+    "min": "",
+    "max": "",
+    "description": "Active participation in the rental (passive-loss allowance of up to 25,000). Yes when blank."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Improvement",
+     "year"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Improvement",
+    "label": "year",
+    "type": "year",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Year the capital improvement was placed in service."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Improvement",
+     "month"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Improvement",
+    "label": "month",
+    "type": "integer",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Month placed in service (1-12; blank = 7, mid-year)."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Improvement",
+     "amount"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Improvement",
+    "label": "amount",
+    "type": "dollars",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Cost added to the basis and depreciated over 27.5 years."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Improvement",
+     "description"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Improvement",
+    "label": "description",
+    "type": "text",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "What was done."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Year Override",
+     "year"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Year Override",
+    "label": "year",
+    "type": "year",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Calendar year the override applies to."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Year Override",
+     "gross_rent"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Year Override",
+    "label": "gross_rent",
+    "type": "dollars",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Gross rent for the year, replacing the formula."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Year Override",
+     "operating_expenses"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Year Override",
+    "label": "operating_expenses",
+    "type": "dollars",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Operating expenses for the year, replacing the formula."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Rental Properties",
+     "Year Override",
+     "notes"
+    ]
+   },
+   {
+    "section": "Rental Properties",
+    "subsection": "Year Override",
+    "label": "notes",
+    "type": "text",
+    "required": "FALSE",
+    "default": "",
+    "min": "",
+    "max": "",
+    "description": "Why the year differs."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Household",
+     "",
+     "mfs_lived_apart"
+    ]
+   },
+   {
+    "section": "Household",
+    "subsection": "",
+    "label": "mfs_lived_apart",
+    "type": "boolean",
+    "required": "FALSE",
+    "default": "FALSE",
+    "min": "",
+    "max": "",
+    "description": "Spouses filing separately lived apart all year (gives the MFS passive-loss allowance of 12,500). No when blank."
+   }
+  ],
+  [
+   {
+    "$tuple": [
      "Forced Actions",
      "Roth Conversion 1",
      "source_account"
