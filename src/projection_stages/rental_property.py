@@ -17,15 +17,15 @@ balances, sold flags) and produces, per year,
    (``roth_conversion_and_agi_tax.rental_passive_magi``); ``settle_passive`` commits the
    carryforward, ``passive_result`` only previews it (Roth-conversion sizing).
 
-Input (one dict per property in ``c['rental_properties']``; the parse boundary that
-produces it from plan data is WP12.3). Amounts are today's dollars unless noted; rates
-are fractions. Missing keys take the defaults shown.
+Input (one dict per property in ``c['rental_properties']``, produced from source rows by
+the parse boundary ``src.parsing.rental_properties.parse_rental_properties``, WP12.3).
+Amounts are today's dollars unless noted; rates are fractions. Missing keys take the
+defaults shown.
 
 ======================== ================================================================
 ``name``                 label (default ``Rental N``)
-``kind``                 ``standalone`` (default). ``converted_home`` is WP12.3 and is
-                         ignored here (the home's carrying-cost shift and section 121
-                         test are not built yet)
+``kind``                 ``standalone`` (default) or ``converted_home`` (the plan's own
+                         home, see "Converted home" below)
 ``purchase_year``        year bought (default: the plan start year). A year after the plan
                          start is a future purchase: the down payment and closing costs
                          are cash out that year; up to the plan start it is already owned
@@ -63,20 +63,42 @@ are fractions. Missing keys take the defaults shown.
 ``overrides``            ``{year: {gross_rent, operating_expenses}}`` replacing the formulas
 ======================== ================================================================
 
+Converted home (WP12.3, design sections 3, 4.2, 4.5, 4.7, 4.8): one property of kind
+``converted_home`` is the plan's current home turned into a rental on the first of
+``conversion_month`` (7) of ``conversion_year`` (required). Its value, mortgage, sale year
+and sale price stay the home's (``home_val``, the mortgage schedule, ``home_sale_yr``,
+``home_sale_px``), so its rental row value and loan balance are 0 (no double count in net
+worth). Extra keys: ``value_at_conversion`` (default: the home value projected to the
+conversion date) and ``adjusted_basis_at_conversion`` (default: ``home_basis``, else half
+the home value, as the home sale does): depreciation basis = the lesser of the two, land
+excluded (one land share for both, owner decision); a loss at sale is measured from it
+(dual basis). ``purchase_year`` / ``purchase_month`` (default five years before the
+conversion, January) is when the home was bought and lived in, for the section 121
+two-of-five-year test; residence ends at the conversion. From the conversion, the rented
+share of the year of the home's carrying costs (mortgage payment, real-estate tax,
+Housing budget utilities, maintenance and other) moves from spending to this property
+(:meth:`RentalBook.with_carrying_costs`): interest on Schedule E, principal as debt
+service. At the home's planned sale (``sale_month``, 7) the home-sale stage applies the
+two-of-five test and depreciation recapture (``home_sale.ConvertedHomeTerms``); an estate
+sale at the second death keeps today's step-up and the suspended losses lapse. Loan, sale
+and purchase-price keys are ignored for a converted home.
+
 Simplifications (all listed for the WP12.4 assumptions section): the owner split is not
 modelled (the property stays in the household through both deaths); a rental-to-personal
 change of use is not modelled; married filing separately assumes the spouses lived
-together (allowance 0, owner decision 2026-10-13); the MAGI for the passive limit is the
+together (allowance 0, owner decision 2026-10-13) unless the household input
+``c['mfs_lived_apart']`` is true; the MAGI for the passive limit is the
 first-pass AGI before the withdrawal cascade, like the engine's other AGI-dependent
 deductions.
 """
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field, replace
+from datetime import date
 from typing import Any, Callable, NamedTuple
 
 from .. import core as _aa
-from .home_sale import _add_account_flow, _tag_deposit_source
+from .home_sale import ConvertedHomeTerms, HomeSaleEconomics, _add_account_flow, _tag_deposit_source
 from ..module_catalog import feature_enabled
 from ..rental_tax import (
     DepreciableAsset,
@@ -84,15 +106,18 @@ from ..rental_tax import (
     PassiveLossResult,
     RentalTaxConstants,
     apply_passive_loss_limits,
+    converted_home_depreciable_basis,
     depreciable_basis,
     property_accumulated_depreciation,
     property_depreciation,
     rental_sale,
     rental_tax_constants,
     schedule_e_net,
+    section_121_two_of_five,
 )
 
 STANDALONE = "standalone"
+CONVERTED_HOME = "converted_home"
 DEFAULT_LAND_SHARE = 0.20
 # Owner decision 2026-10-13: a missing month (improvement, sale, conversion) is mid-year,
 # month 7; purchase and placed-in-service months use the same default.
@@ -157,15 +182,28 @@ class RentalSpec:
     sale_price: float | None
     selling_cost_pct: float
     overrides: dict[int, dict[str, float]]
+    # WP12.3, converted home only: purchase_year/month are the conversion date,
+    # purchase_price the adjusted basis at conversion.
+    kind: str = STANDALONE
+    value_at_conversion: float = 0.0
+    owned_from: tuple[int, int] = (0, 1)  # (year, month) bought and lived in
 
     @property
     def cost_basis(self) -> float:
         """Purchase price + capitalized closing costs, land included (basis for gain)."""
         return self.purchase_price + self.closing_costs
 
+    @property
+    def loss_basis(self) -> float:
+        """Converted home: lesser of value and adjusted basis at conversion, land included."""
+        return min(self.value_at_conversion, self.cost_basis)
+
     def assets(self) -> tuple[DepreciableAsset, ...]:
-        building = DepreciableAsset(depreciable_basis(self.purchase_price, self.closing_costs, self.land_share),
-                                    self.placed_year, self.placed_month)
+        if self.kind == CONVERTED_HOME:
+            basis = converted_home_depreciable_basis(self.value_at_conversion, self.cost_basis, self.land_share)
+        else:
+            basis = depreciable_basis(self.purchase_price, self.closing_costs, self.land_share)
+        building = DepreciableAsset(basis, self.placed_year, self.placed_month)
         return (building,) + tuple(DepreciableAsset(amt, y, m) for y, m, amt in self.improvements)
 
 
@@ -177,9 +215,74 @@ def _loan_payment(balance: float, annual_rate: float, term_years: int) -> float:
     return balance / n if r <= 1e-12 else balance * r / (1 - (1 + r) ** (-n))
 
 
+def _improvements(raw: dict[str, Any]) -> tuple[tuple[int, int, float], ...]:
+    out = []
+    for imp in raw.get("improvements") or []:
+        if not isinstance(imp, dict):
+            continue
+        y, amt = _i(imp.get("year")), _f(imp.get("amount"))
+        if y is not None and amt > 0:
+            out.append((y, _month(imp.get("month"), DEFAULT_MONTH), amt))
+    return tuple(out)
+
+
+def _overrides(raw: dict[str, Any]) -> dict[int, dict[str, float]]:
+    out = {}
+    for y, ov in (raw.get("overrides") or {}).items():
+        if _i(y) is not None and isinstance(ov, dict):
+            out[_i(y)] = {k: _f(v) for k, v in ov.items() if k in ("gross_rent", "operating_expenses")}
+    return out
+
+
+def _parse_converted_home(raw: dict[str, Any], index: int, c: dict[str, Any]) -> RentalSpec | None:
+    """WP12.3: the plan's home converted to a rental (see the module docstring)."""
+    conv_year = _i(raw.get("conversion_year"))
+    home_val = _f(c.get("home_val"))
+    if conv_year is None or home_val <= 0:
+        return None
+    plan_start = int(c["plan_start"])
+    conv_month = _month(raw.get("conversion_month"), DEFAULT_MONTH)
+    appr = _f(c.get("home_appr"), 0.0)
+    projected = home_val * (1.0 + appr) ** max(0.0, conv_year - plan_start + (conv_month - 1) / 12.0)
+    expense_growth = _f(raw.get("expense_growth"), _f(c.get("inf"), 0.0))
+    bought = _i(raw.get("purchase_year"))
+    owned_from = (bought, _month(raw.get("purchase_month"), DEFAULT_MONTH)) if bought else (conv_year - 5, 1)
+    return RentalSpec(
+        name=str(raw.get("name") or f"Rental {index + 1}"),
+        purchase_year=conv_year, purchase_month=conv_month,
+        purchase_price=_f(raw.get("adjusted_basis_at_conversion"), _f(c.get("home_basis")) or home_val * 0.5),
+        closing_costs=0.0,
+        land_share=min(1.0, max(0.0, _f(raw.get("land_share"), DEFAULT_LAND_SHARE))),
+        current_value=0.0, value_as_of_year=conv_year, appreciation=0.0,
+        monthly_rent=_f(raw.get("monthly_rent")),
+        vacancy_rate=min(1.0, max(0.0, _f(raw.get("vacancy_rate")))),
+        rent_growth=_f(raw.get("rent_growth"), _f(c.get("inf"), 0.0)),
+        rental_start_year=conv_year, rental_end_year=_i(raw.get("rental_end_year")),
+        property_tax=_f(raw.get("property_tax")),
+        property_tax_growth=_f(raw.get("property_tax_growth"), expense_growth),
+        fixed_expenses=sum(_f(raw.get(k)) for k in ("insurance", "hoa", "utilities", "other_expenses")),
+        variable_expense_pct=_f(raw.get("maintenance_pct")) + _f(raw.get("management_pct")),
+        expense_growth=expense_growth,
+        loan_balance=0.0, loan_balance_year=conv_year, loan_rate=0.0, loan_monthly_payment=0.0,
+        placed_year=conv_year, placed_month=conv_month,
+        improvements=_improvements(raw),
+        active_participation=bool(raw.get("active_participation", True)),
+        prior_suspended_loss=max(0.0, _f(raw.get("prior_suspended_loss"))),
+        sale_year=None, sale_month=_month(raw.get("sale_month"), DEFAULT_SALE_MONTH), sale_price=None,
+        selling_cost_pct=_f(c.get("home_sell_cost_pct"), 0.0),
+        overrides=_overrides(raw),
+        kind=CONVERTED_HOME,
+        value_at_conversion=_f(raw.get("value_at_conversion"), projected),
+        owned_from=owned_from,
+    )
+
+
 def parse_rental_spec(raw: dict[str, Any], index: int, c: dict[str, Any]) -> RentalSpec | None:
-    """Normalize one property dict; ``None`` for a kind this unit does not model."""
+    """Normalize one property dict; ``None`` for an unknown kind or a converted home
+    without a conversion year or without a home in the plan."""
     kind = str(raw.get("kind") or STANDALONE).strip().lower().replace(" ", "_")
+    if kind == CONVERTED_HOME:
+        return _parse_converted_home(raw, index, c)
     if kind != STANDALONE:
         return None
     plan_start = int(c["plan_start"])
@@ -194,17 +297,6 @@ def parse_rental_spec(raw: dict[str, Any], index: int, c: dict[str, Any]) -> Ren
     payment = _f(raw.get("loan_monthly_payment"))
     if payment <= 0 and loan_balance > 0:
         payment = _loan_payment(loan_balance, loan_rate, _i(raw.get("loan_term_years"), DEFAULT_LOAN_TERM_YEARS))
-    improvements = []
-    for imp in raw.get("improvements") or []:
-        if not isinstance(imp, dict):
-            continue
-        y, amt = _i(imp.get("year")), _f(imp.get("amount"))
-        if y is not None and amt > 0:
-            improvements.append((y, _month(imp.get("month"), DEFAULT_MONTH), amt))
-    overrides = {}
-    for y, ov in (raw.get("overrides") or {}).items():
-        if _i(y) is not None and isinstance(ov, dict):
-            overrides[_i(y)] = {k: _f(v) for k, v in ov.items() if k in ("gross_rent", "operating_expenses")}
     sale_price = raw.get("sale_price")
     rental_start = _i(raw.get("rental_start_year"), purchase_year)
     placed_year = _i(raw.get("placed_in_service_year"), max(rental_start, purchase_year))
@@ -235,14 +327,14 @@ def parse_rental_spec(raw: dict[str, Any], index: int, c: dict[str, Any]) -> Ren
         placed_year=placed_year,
         placed_month=_month(raw.get("placed_in_service_month"),
                             purchase_month if placed_year == purchase_year else 1),
-        improvements=tuple(improvements),
+        improvements=_improvements(raw),
         active_participation=bool(raw.get("active_participation", True)),
         prior_suspended_loss=max(0.0, _f(raw.get("prior_suspended_loss"))),
         sale_year=_i(raw.get("sale_year")),
         sale_month=_month(raw.get("sale_month"), DEFAULT_SALE_MONTH),
         sale_price=None if sale_price in (None, "") else _f(sale_price),
         selling_cost_pct=_f(raw.get("selling_cost_pct"), _f(c.get("home_sell_cost_pct"), 0.0)),
-        overrides=overrides,
+        overrides=_overrides(raw),
     )
 
 
@@ -283,6 +375,13 @@ class PropertyYear:
     capital_gain: float = 0.0
     ordinary_loss: float = 0.0
     sale_net_proceeds: float = 0.0  # price - selling costs - loan payoff (may be < 0)
+    # WP12.3, converted home sold through the home-sale stage: its LTCG after the
+    # section 121 exclusion is taxed there (``capital_gain`` stays 0), price,
+    # costs and proceeds are on the ``home_sale_*`` row fields.
+    kind: str = STANDALONE
+    home_sale_capital_gain: float = 0.0
+    sec121_excluded: float = 0.0
+    sec121_qualifies: bool | None = None
 
 
 class RentalYear(NamedTuple):
@@ -303,6 +402,10 @@ class RentalBook:
     mfs_lived_apart_all_year: bool = False  # owner decision 2026-10-13: unknown = lived together
     _state: dict[str, _PropertyState] = field(default_factory=dict)
     _constants: dict[tuple[int, str], RentalTaxConstants] = field(default_factory=dict)
+    # WP12.3 converted home: the home-sale year and its economics, and the last
+    # year rented after an estate sale (no gain, see the module docstring).
+    _converted_sale: tuple[int, HomeSaleEconomics] | None = None
+    _converted_last_year: int | None = None
 
     def __post_init__(self) -> None:
         for s in self.specs:
@@ -326,14 +429,154 @@ class RentalBook:
         props, acts = [], []
         for s in self.specs:
             st = self._state[s.name]
-            py = self._property_year(s, st, year, recovery)
+            if s.kind == CONVERTED_HOME:
+                py = self._converted_year(s, st, year, recovery)
+            else:
+                py = self._property_year(s, st, year, recovery)
             props.append(py)
-            if py.in_service or py.sold or st.suspended > 0 and py.owned:
-                acts.append(PassiveActivity(
-                    name=s.name, net_income=py.schedule_e, prior_suspended=st.suspended,
-                    active_participation=s.active_participation, fully_disposed=py.sold,
-                    disposition_gain=max(0.0, py.sale_gain) if py.sold else 0.0))
+            act = self._activity(s, st, py)
+            if act is not None:
+                acts.append(act)
         return RentalYear(year, tuple(props), tuple(acts))
+
+    @staticmethod
+    def _activity(s: RentalSpec, st: _PropertyState, py: PropertyYear) -> PassiveActivity | None:
+        if not (py.in_service or py.sold or st.suspended > 0 and py.owned):
+            return None
+        return PassiveActivity(
+            name=s.name, net_income=py.schedule_e, prior_suspended=st.suspended,
+            active_participation=s.active_participation, fully_disposed=py.sold,
+            disposition_gain=max(0.0, py.sale_gain) if py.sold else 0.0)
+
+    # ── converted home (WP12.3) ─────────────────────────────────────────
+    def converted_spec(self) -> RentalSpec | None:
+        return next((s for s in self.specs if s.kind == CONVERTED_HOME), None)
+
+    @staticmethod
+    def _converted_by(s: RentalSpec, year: int) -> bool:
+        """The conversion date falls before a sale in ``year`` (at ``sale_month``)."""
+        return year > s.placed_year or (year == s.placed_year and s.sale_month > s.placed_month)
+
+    def _rent_window(self, s: RentalSpec, year: int) -> tuple[int, int] | None:
+        """(first, last) month the converted home is rented in ``year``, or None."""
+        st = self._state[s.name]
+        if st.sold or year < s.placed_year or (s.rental_end_year is not None and year > s.rental_end_year):
+            return None
+        if self._converted_last_year is not None and year > self._converted_last_year:
+            return None
+        first = s.placed_month if year == s.placed_year else 1
+        selling = self._converted_sale is not None and self._converted_sale[0] == year
+        last = s.sale_month if selling else 12
+        return (first, last) if last >= first else None
+
+    def converted_home_share(self, year: int) -> float:
+        """Share of ``year`` the plan's home is rented (0 without a converted home): the
+        part of its carrying costs the spending stage moves to Schedule E."""
+        s = self.converted_spec()
+        win = None if s is None else self._rent_window(s, year)
+        return 0.0 if win is None else (win[1] - win[0] + 1) / 12.0
+
+    def converted_home_sale_terms(self, year: int, filing: str) -> ConvertedHomeTerms | None:
+        """What a sale of the plan's home in ``year`` needs for the converted-home rules
+        (depreciation recapture, dual basis, section 121 two-of-five test), or None when
+        there is no converted home or the sale comes before the conversion."""
+        s = self.converted_spec()
+        if s is None or self._state[s.name].sold or not self._converted_by(s, year):
+            return None
+        recovery = self.constants(year, "MFJ").recovery_years
+        dep_through = year if s.rental_end_year is None else min(year, s.rental_end_year)
+        accumulated = property_accumulated_depreciation(
+            s.assets(), dep_through, recovery, disposed_month=s.sale_month if dep_through == year else None)
+        k = self.constants(year, filing)
+        owned_from = date(s.owned_from[0], s.owned_from[1], 1)
+        qualifies = section_121_two_of_five(
+            date(year, s.sale_month, 1), owned_from, [(owned_from, date(s.placed_year, s.placed_month, 1))],
+            required_days=k.section_121_required_days, lookback_years=k.section_121_lookback_years)
+        return ConvertedHomeTerms(
+            accumulated_depreciation=accumulated,
+            improvements=sum(amt for y, _m, amt in s.improvements if y <= year),
+            loss_basis=s.loss_basis, qualifies=qualifies)
+
+    def record_home_sale(self, year: int, economics: HomeSaleEconomics | None) -> None:
+        """The plan's home left the household in ``year`` (home-sale stage, before the
+        year's flows). A converted-home sale carries its economics; an estate sale after
+        the conversion ends the rental this year; a sale before the conversion means it
+        never happens."""
+        s = self.converted_spec()
+        if s is None:
+            return
+        if economics is not None and economics.converted is not None:
+            self._converted_sale = (year, economics)
+        elif self._converted_by(s, year):
+            self._converted_last_year = year
+        else:
+            self._state[s.name].sold = True
+
+    def _converted_year(self, s: RentalSpec, st: _PropertyState, year: int, recovery: float) -> PropertyYear:
+        win = self._rent_window(s, year)
+        selling = self._converted_sale is not None and self._converted_sale[0] == year and not st.sold
+        if win is None and not selling:
+            return PropertyYear(s.name, False, False, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                kind=s.kind)
+        gross_rent = opex = depreciation = sched_e = improvements_cash = collected = 0.0
+        if win is not None:
+            n = year - self.plan_start
+            frac = (win[1] - win[0] + 1) / 12.0
+            ov = s.overrides.get(year, {})
+            gross_rent = ov.get("gross_rent", s.monthly_rent * 12.0 * (1.0 + s.rent_growth) ** n * frac)
+            collected = gross_rent * (1.0 - s.vacancy_rate)
+            opex = ov.get("operating_expenses", (
+                s.property_tax * (1.0 + s.property_tax_growth) ** n * frac
+                + s.fixed_expenses * (1.0 + s.expense_growth) ** n * frac
+                + s.variable_expense_pct * collected))
+            depreciation = property_depreciation(s.assets(), year, recovery,
+                                                 disposed_month=s.sale_month if selling else None)
+            sched_e = schedule_e_net(gross_rent, s.vacancy_rate, opex, 0.0, depreciation)
+            improvements_cash = sum(amt for y, _m, amt in s.improvements if y == year)
+        net_cash = collected - opex - improvements_cash
+        base = dict(name=s.name, owned=True, in_service=win is not None, gross_rent=gross_rent,
+                    vacancy_loss=gross_rent - collected, operating_expenses=opex, mortgage_interest=0.0,
+                    mortgage_principal=0.0, depreciation=depreciation, schedule_e=sched_e,
+                    improvements_cash=improvements_cash, purchase_cash=0.0, net_cash=net_cash,
+                    value=0.0, loan_balance=0.0, kind=s.kind)
+        if not selling:
+            return PropertyYear(**base)
+        econ = self._converted_sale[1]
+        terms = econ.converted
+        recognized = econ.unrecaptured_1250_gain + econ.taxable_gain - econ.ordinary_loss
+        return PropertyYear(
+            **base, sold=True, accumulated_depreciation=terms.accumulated_depreciation,
+            adjusted_basis=econ.adjusted_basis, sale_gain=recognized,
+            unrecaptured_1250_gain=econ.unrecaptured_1250_gain, ordinary_loss=econ.ordinary_loss,
+            home_sale_capital_gain=econ.taxable_gain, sec121_excluded=econ.sec121_excluded,
+            sec121_qualifies=terms.qualifies)
+
+    def with_carrying_costs(self, ry: RentalYear, costs: dict[str, float] | None,
+                            mortgage_interest: float) -> RentalYear:
+        """``ry`` with the converted home's share of the home's carrying costs (moved out
+        of spending by ``spending_and_rmd``) added: real-estate tax, utilities,
+        maintenance and other as operating expenses, the mortgage payment as debt service
+        split into ``mortgage_interest`` (deductible, at most the payment) and principal."""
+        s = self.converted_spec()
+        if s is None or not costs:
+            return ry
+        payment = float(costs.get("mortgage_payment", 0.0))
+        interest = min(payment, max(0.0, mortgage_interest))
+        added = sum(float(costs.get(k, 0.0)) for k in ("real_estate_tax", "utilities", "maintenance", "other"))
+        props, acts = [], []
+        for p in ry.properties:
+            if p.name == s.name and p.in_service:
+                p = replace(p, operating_expenses=p.operating_expenses + added,
+                            mortgage_interest=p.mortgage_interest + interest,
+                            mortgage_principal=p.mortgage_principal + payment - interest,
+                            schedule_e=p.schedule_e - added - interest, net_cash=p.net_cash - added - payment)
+            props.append(p)
+        for spec in self.specs:
+            py = next(p for p in props if p.name == spec.name)
+            act = self._activity(spec, self._state[spec.name], py)
+            if act is not None:
+                acts.append(act)
+        return RentalYear(ry.year, tuple(props), tuple(acts))
 
     def _value_eoy(self, s: RentalSpec, year: int) -> float:
         years = year - s.value_as_of_year + 1
@@ -449,12 +692,19 @@ def rental_book_for(c: dict[str, Any]) -> RentalBook | None:
         return None
     raw = [p for p in (c.get('rental_properties') or []) if isinstance(p, dict)]
     specs = tuple(s for s in (parse_rental_spec(p, i, c) for i, p in enumerate(raw)) if s is not None)
+    converted = [s for s in specs if s.kind == CONVERTED_HOME]
+    if len(converted) > 1:  # one plan home: the first converted-home entry wins
+        specs = tuple(s for s in specs if s.kind != CONVERTED_HOME or s is converted[0])
     if not specs:
         return None
     names = [s.name for s in specs]
     if len(set(names)) != len(names):  # the passive ledger is keyed by name
         specs = tuple(replace(s, name=f"{s.name} ({i + 1})") for i, s in enumerate(specs))
-    return RentalBook(specs=specs, plan_start=int(c['plan_start']))
+    lived_apart = c.get('mfs_lived_apart')
+    if isinstance(lived_apart, str):
+        lived_apart = lived_apart.strip().lower() in ('true', 'yes', 'y', '1')
+    return RentalBook(specs=specs, plan_start=int(c['plan_start']),
+                      mfs_lived_apart_all_year=bool(lived_apart))
 
 
 def ordinary_income(ry: RentalYear, passive: PassiveLossResult) -> float:

@@ -803,6 +803,13 @@ def run_deterministic_projection_stage(c):
         # here -- same caveat as the appreciation/divorce/QLAC stage above.
         _sec121_survivor_window = _surviving_spouse_sec121_window(
             c, year=year, first_death_yr=_first_death_home_yr)
+        # WP12.3: a home converted to a rental is sold with the converted-home
+        # rules (recapture, dual basis, two-of-five test); None otherwise.
+        _home_val_before_sale = home_val
+        _converted_home_terms = (
+            _rental_book.converted_home_sale_terms(year, filing)
+            if _rental_book is not None and home_val > 0
+            and year in (int(c.get('home_sale_yr') or 0), _second_death_yr) else None)
         _stage4 = _apply_home_sale(
             c,
             row,
@@ -815,7 +822,10 @@ def run_deterministic_projection_stage(c):
             emit=emit,
             adjusted_basis=_home_basis_adjusted,
             surviving_spouse_window=_sec121_survivor_window,
+            converted_home=_converted_home_terms,
         )
+        if _rental_book is not None and _home_val_before_sale > 0 and _stage4.home_val <= 0:
+            _rental_book.record_home_sale(year, _stage4.economics)
         home_val = _stage4.home_val
         home_equity = _stage4.home_equity
         mort_bal_yr = _stage4.mort_bal_yr
@@ -952,7 +962,6 @@ def run_deterministic_projection_stage(c):
             # Sale proceeds go to the taxable account like a home sale's; the
             # operating cash (and any underwater sale) reaches the gap below.
             _rental_deposited = _rental.deposit_sale_proceeds(c, row, bal, bal_basis_free, _rental_year)
-            _rental.write_flow_fields(row, _rental_year, _rental_deposited)
         if earned_base > 0:
             emit(EvIncome(year, 'earned', earned_base, c['entity']))
 
@@ -978,7 +987,18 @@ def run_deterministic_projection_stage(c):
             medicare_month_fraction=_medicare_month_fraction,
             taxable_portfolio_income_for_year=_taxable_portfolio_income_for_year,
             emit=emit,
+            converted_home_share=(_rental_book.converted_home_share(year)
+                                  if _rental_book is not None else 0.0),
         )
+        if _rental_year is not None:
+            # WP12.3: the converted home's carrying costs the spending stage
+            # moved out of spending join its Schedule E and cash flow.
+            _conv_costs = _spending_rmd.converted_home_costs
+            if _conv_costs:
+                _rental_year = _rental_book.with_carrying_costs(
+                    _rental_year, _conv_costs,
+                    float((c.get('mort_interest_schedule') or {}).get(year, 0.0) or 0.0) * _conv_costs['share'])
+            _rental.write_flow_fields(row, _rental_year, _rental_deposited)
         # Multi-year state: must be reassigned here, not just read, so next
         # year's call sees this year's update (same reasoning as Stage 3's
         # cst_balance/startup -- see Stage3Result's docstring).
