@@ -108,6 +108,16 @@ const STEPS = [
     help: "The strategy improves projected net worth when compound growth on the preserved liquid assets exceeds total borrowing costs. It worsens outcomes when interest drag or reduced home equity at sale outweigh the investment benefit.",
   },
   {
+    // WP12.6: Rental Properties (design 2026-10-05 section 6); gated by rental_property_income.
+    id: "rental_properties",
+    group: "Investments & Property",
+    title: "Rental Properties",
+    desc: "Rent, expenses, depreciation, passive-loss limits and sale for each rental property.",
+    intro:
+      "Add each rental property, or convert your own home to a rental. Rent, expenses, mortgage interest, depreciation and the sale feed your taxes, cash flow and net worth.",
+    help: "Rental income is taxed on Schedule E: rent less expenses, interest and depreciation. A loss is limited by the passive-activity rules and carried forward. The summary here is an estimate from your entries; the build applies your real income.",
+  },
+  {
     // #332 W-F F1: "Assets & Protection" splits by Topic -- annuities/insurance are Insurance & Care.
     id: "annuity_death_benefits",
     group: "Insurance & Care",
@@ -417,6 +427,13 @@ const STEP_HELP = {
     "Holdings drive account totals, allocation drift, pricing, tax-lot sell guidance, rebalancing recommendations, and year-to-date growth for investment accounts. Account names must match names used on Withdrawal Sequencing and Asset Allocation.",
     "Use CASH at price 1.00 for money market and cash positions. Keep separate lots per purchase when tax-basis guidance matters — blended basis reduces sell-guidance precision. For large broker downloads, export a backup before importing to replace all.",
     "More complete cost basis and purchase dates improve taxable sell guidance and estimated tax impact on trade recommendations.",
+  ),
+  rental_properties: pageHelp(
+    "Rental properties",
+    "One record per rental property, plus your own home if you convert it to a rental.",
+    "Rent, operating expenses, mortgage interest and depreciation net on Schedule E into AGI; passive-loss limits, NIIT, state tax, cash flow, net worth and the sale (with depreciation recapture) follow. Turn the feature on in Plan Features.",
+    "Fill the Standard fields for each property; Show advanced adds the Expert fields (placed-in-service month, capital improvements, per-year overrides). Enter a property once: here, not also in Other Assets.",
+    "Rent above expenses adds taxable income; a loss may be limited by the passive rules and carried forward until you sell. Converting your home moves its carrying costs from spending to Schedule E.",
   ),
   assets_home_cash: pageHelp(
     "Cash reserves",
@@ -3434,6 +3451,7 @@ let renderMain = function() {
   else if (activeStep === "assets_home_cash")
     content += renderAssetsCashReserves();
   else if (activeStep === "assets_special") content += renderAssetsSpecial();
+  else if (activeStep === "rental_properties") content += renderRentalProperties();
   else if (activeStep === "family_business") content += renderFamilyBusiness();
   // #329/#330 W9: HELOC moved from Strategy → Assets & Protection (a plan
   // input against a held asset, not an optimizer). Same content, same
