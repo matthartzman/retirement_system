@@ -77,6 +77,18 @@ POST request: `{"answers": {"detail": "standard", "heloc": true}, "apply": false
 
 `GET /api/config/rows` also carries `feature_suggestions`: `[{key, name, entered_rows, text}]`, the off features that hold entered data (`text` reads "Turn on HELOC? You have 3 rows entered for it."), and each row carries `min_tier` (WP5.2; empty for rows the field catalog does not list).
 
+## `/api/rental/*`
+
+Purpose: the Rental Properties page (WP12.6), reading and writing the typed rental tables through `store.rental`. Schemas `rental_properties_v1`, `rental_property_save_v1`.
+
+- `GET /api/rental/properties?year=&magi=`: `success`, `enabled` (the feature switch), `count`, `max_properties`, `properties` (stored rows, the `parse_rental_properties` input shape with `improvements` and `overrides` lists), `table` (per property: `name`, `kind`, `value`, `annual_rent`, `operating_expenses`, `net_yield`, `sale_year`), `warnings` (`[{id, kind, level, title, text, property, action}]`: `double_count`, `passive_limit`, `section_121`), `summary` (`year`, `net_cash_flow`, `taxable_rental_income`, `suspended_loss`, `equity`; null when unavailable), `estimate` (`available`, `label`, `magi`, `years`, `notes`, `error`), `home` (the plan's home for Convert my home) and `field_tiers` (`min_tier` per field, `property`/`improvement`/`override`). The summary is an estimate from the stored properties with the projection's rental stage, not the last build; `magi` is the assumed other income for the passive-loss limit (default 0) and `year` defaults to the first projection year. It works while the feature is off (data kept, the page previews it).
+- `GET /api/rental/property?name=`: `{success, property}`; `404` for an unknown name. `GET /api/rental/home`: `{success, home}`.
+- `POST /api/rental/property`: `{property, original_name?}` adds the property or replaces the one named `original_name` (default: its own name) keeping its place. Unknown keys are dropped; the whole set is checked with `parse_rental_properties` (the build's check) and a bad property is refused with `400` and the parser's message. Audit event `rental_property_saved`.
+- `POST /api/rental/property/duplicate` and `/delete`: `{name}`. A converted home cannot be duplicated (the plan has one home). Audit events `rental_property_duplicated`, `rental_property_deleted`.
+- `POST /api/rental/improvements` `{name, improvements}` and `POST /api/rental/overrides` `{name, overrides}`: replace one property's capital improvements or per-year rent and expense overrides (same validation).
+
+`GET /api/config/rows` also carries `rental_property_count` (WP12.6): the nav keeps the page, in its off state, while the feature is off but properties are stored.
+
 ## Removed in WP4.5 (the CSV bridge)
 
 - `POST /api/config/sync` and the `sync` request flag / response key of the save endpoints: there is nothing to sync, the plan rows are the only store (the `config_sync_v1` contract is gone).

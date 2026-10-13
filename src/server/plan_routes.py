@@ -71,7 +71,7 @@ except ImportError:
 from ..active_plan import active_plan_path, peek_plan_data
 from .. import plan_registry
 from ..version import VERSION
-from ..server_services import base_service, config_service, conversion_service, demo_plan_service, plan_tier_service, pricing_service, ytd_service, plan_file_service, portfolio_service, secret_service, spending_service, strategy_asset_service
+from ..server_services import base_service, config_service, conversion_service, demo_plan_service, plan_tier_service, pricing_service, rental_service, ytd_service, plan_file_service, portfolio_service, secret_service, spending_service, strategy_asset_service
 from ..portfolio_analytics import freeze_latest_pricing_snapshot, unfreeze_pricing_snapshot
 from .. import local_backup_scheduler
 from .. import monarch_autoupdate
@@ -123,6 +123,25 @@ def _plan_tier_feature_service() -> plan_tier_service.PlanTierService:
 def _service_json(result):
     payload, status_code = result
     return jsonify(payload), status_code
+
+
+def _rental_engine_config():
+    """The active plan's engine config, for the Rental Properties page's estimate (no live pricing)."""
+    from ..data_io import parse_client
+    return parse_client(peek_plan_data(), "", skip_live_pricing=True)
+
+
+def _rental_feature_service() -> rental_service.RentalService:
+    from ..stores.ref_getters.schema_fields import field_tiers
+    return rental_service.RentalService(
+        rental_service.RentalServiceContext(
+            edit_plan=_edit_active_plan,
+            read_plan=_read_active_plan,
+            load_config=_rental_engine_config,
+            field_tiers=field_tiers,
+            audit=_audit,
+        )
+    )
 
 
 def _path_roots_from_config():
@@ -417,6 +436,70 @@ def plan_feature():
     if not isinstance(body, dict):
         return jsonify({"success": False, "error": "JSON object body required"}), 400
     return _service_json(_plan_tier_feature_service().set_feature_payload(body))
+
+
+def _rental_write(handler):
+    """Shared guard of the Rental Properties writes: permission, runtime write switch, JSON object body."""
+    denied = _require("write_config")
+    if denied:
+        return denied
+    if not _runtime_config().allow_csv_write:
+        return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
+    body = request.get_json(silent=True) or {}
+    if not isinstance(body, dict):
+        return jsonify({"success": False, "error": "JSON object body required"}), 400
+    return _service_json(handler(_rental_feature_service(), body))
+
+
+@app.route("/api/rental/properties", methods=["GET"])
+def rental_properties_list():
+    """WP12.6: the stored rental properties with the page's estimate (``year``, ``magi`` query)."""
+    denied = _require("read_config")
+    if denied:
+        return denied
+    return _service_json(_rental_feature_service().list_payload(request.args.get("year"), request.args.get("magi")))
+
+
+@app.route("/api/rental/property", methods=["GET"])
+def rental_property_get():
+    denied = _require("read_config")
+    if denied:
+        return denied
+    return _service_json(_rental_feature_service().get_payload(request.args.get("name")))
+
+
+@app.route("/api/rental/home", methods=["GET"])
+def rental_home():
+    """The plan's home, to pre-fill Convert my home."""
+    denied = _require("read_config")
+    if denied:
+        return denied
+    return _service_json(_rental_feature_service().home_payload())
+
+
+@app.route("/api/rental/property", methods=["POST"])
+def rental_property_save():
+    return _rental_write(lambda svc, body: svc.save_payload(body))
+
+
+@app.route("/api/rental/property/duplicate", methods=["POST"])
+def rental_property_duplicate():
+    return _rental_write(lambda svc, body: svc.duplicate_payload(body))
+
+
+@app.route("/api/rental/property/delete", methods=["POST"])
+def rental_property_delete():
+    return _rental_write(lambda svc, body: svc.delete_payload(body))
+
+
+@app.route("/api/rental/improvements", methods=["POST"])
+def rental_improvements_save():
+    return _rental_write(lambda svc, body: svc.improvements_payload(body))
+
+
+@app.route("/api/rental/overrides", methods=["POST"])
+def rental_overrides_save():
+    return _rental_write(lambda svc, body: svc.overrides_payload(body))
 
 
 @app.route("/api/plan/interview", methods=["GET"])

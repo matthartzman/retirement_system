@@ -112,6 +112,9 @@ class ConfigService:
             # each tier's preset, for the Plan Features tier picker.
             "plan_profile": self._plan_profile(),
             "tier_presets": tier_presets_payload(),
+            # WP12.6: stored rental properties, so the nav keeps the Rental Properties page
+            # (in its off state) while the feature is off but data is kept.
+            "rental_property_count": self._rental_property_count(),
             # WP5.3: "Turn on X?" for features that are off while the plan holds data for them.
             "feature_suggestions": self._feature_suggestions(),
             **payload,
@@ -126,6 +129,14 @@ class ConfigService:
                 return plan_profile(store)
         except Exception:
             return {}
+
+    def _rental_property_count(self) -> int:
+        """Stored rental properties (best effort: 0 when the plan cannot be read)."""
+        try:
+            with self.context.read_plan() as store:
+                return int(store.rental.count())
+        except Exception:
+            return 0
 
     def _feature_suggestions(self) -> list[JsonDict]:
         """``plan_interview.feature_suggestions`` (best effort: ``[]`` when unreadable)."""
