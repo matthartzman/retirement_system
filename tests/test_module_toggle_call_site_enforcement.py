@@ -242,6 +242,12 @@ DECLARED_SITES: dict[tuple[str, str, str], tuple[str, str | None, tuple[str, ...
         "builds no RentalBook and skips every rental step, so the projection "
         "is the same as a plan with no rentals; the entered rows are kept.",
     ),
+    ("src/data_io.py", "parse_client", "rental_property_income"): (
+        ENGINE, None, (),
+        "WP12.4: Rental Properties. Off, parse_client neither reads the typed "
+        "rental tables nor sets c['rental_properties'], so the engine sees no "
+        "rentals; the stored rows are kept.",
+    ),
     ("src/data_io.py", "parse_client", "housing_location_search"): (
         ENGINE, None, (),
         "Design 2026-09-24 \u00a76 [C]: Next Housing Move off blanks the home "
