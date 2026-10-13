@@ -60,3 +60,17 @@ def test_recovery_revisions_labelled_grouped_and_unpruned(tmp_path):
     assert {r["source"] for r in rec} == {"budget-recovery-seed", "pre-recovery"}
     assert {r["group"] for r in rec} == {"recovery"} and rec[0]["label"]
     assert [r["group"] for r in revs].count("history") == 1
+
+
+def test_header_only_save_keeps_extra_columns_and_round_trips(tmp_path):
+    from src.csv_exchange import dataset_csv_text, replace_dataset_from_csv_text
+    store = PlanStore.open(tmp_path / "p.rpx")
+    text = "account,symbol,purchase_date,shares,purchase_price,lot_type,note,market_value\n"
+    replace_dataset_from_csv_text(store.holdings, text)
+    assert store.holdings.count() == 0
+    assert dataset_csv_text(store.holdings) == text
+    rev = store.snapshot_revision("manual", "hdr")
+    replace_dataset_from_csv_text(store.holdings, "account,symbol\n")
+    assert dataset_csv_text(store.holdings).splitlines()[0].endswith("note")
+    store.restore_revision(rev)
+    assert dataset_csv_text(store.holdings) == text

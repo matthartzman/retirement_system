@@ -444,7 +444,7 @@ def plan_db_env(env: dict[str, Any]) -> dict[str, Any]:
 # ----------------------------------------------------------------- flat datasets (WP6)
 # Holdings, liabilities, HSA schedule and target allocation are tables of the plan file.
 # Readers get CSV text (the shape their parsers take) or ``None`` for "no rows".
-def _dataset_text(path: Path, name: str) -> str | None:
+def _dataset_text(path: Path, name: str, *, keep_header: bool = False) -> str | None:
     from .csv_exchange import dataset_csv_text  # noqa: PLC0415
 
     if not path.is_file():
@@ -452,15 +452,18 @@ def _dataset_text(path: Path, name: str) -> str | None:
     try:
         with _reading(path) as store:
             repo = store.dataset(name)
-            return dataset_csv_text(repo) if repo.count() else None
+            if repo.count() or (keep_header and repo.extra_columns()):
+                return dataset_csv_text(repo)
+            return None
     except LookupError:  # stores.NotFoundError: not an initialised plan file
         return None
 
 
-def active_dataset_text(name: str) -> str | None:
+def active_dataset_text(name: str, *, keep_header: bool = False) -> str | None:
     """CSV text of dataset ``name`` in the active plan; ``None`` when there is no plan file or
-    the table is empty. Never creates a plan file."""
-    return _dataset_text(active_plan_path(), name)
+    the table is empty (with ``keep_header``, an empty table that kept extra header columns
+    gives its header-only text). Never creates a plan file."""
+    return _dataset_text(active_plan_path(), name, keep_header=keep_header)
 
 
 def active_dataset_rows(name: str) -> list[dict[str, str]]:

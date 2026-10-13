@@ -706,6 +706,10 @@ class PlanStore(_SqliteStore):
         dump = lambda d: json.dumps(d, ensure_ascii=False, sort_keys=True)  # noqa: E731
         con.execute(ins, (revision_id, TABLES_MARKER, 0, "{}"))
         for table, cols in _DATASETS.items():
+            key = f"dataset.{table}.extra_columns"  # M4: the header kept for a header-only save
+            meta = con.execute("SELECT value FROM plan_meta WHERE key = ?", (key,)).fetchone()
+            if meta:
+                con.execute(ins, (revision_id, TABLE_PREFIX + table, -1, dump({"__header__": json.loads(meta[0])})))
             cur = con.execute(f"SELECT {', '.join(map(_q, cols))}, extra FROM {table} ORDER BY position")
             con.executemany(
                 ins,
@@ -731,11 +735,20 @@ class PlanStore(_SqliteStore):
             kept.setdefault(ds, []).append(json.loads(row))
         for table, cols in _DATASETS.items():
             con.execute(f"DELETE FROM {table}")
+            key = f"dataset.{table}.extra_columns"
+            rows_kept = kept.get(TABLE_PREFIX + table, [])
+            hdr = next((r["__header__"] for r in rows_kept if "__header__" in r), None)
+            rows_kept = [r for r in rows_kept if "__header__" not in r]
+            if hdr:
+                con.execute("INSERT INTO plan_meta (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value",
+                            (key, json.dumps(hdr, ensure_ascii=False)))
+            else:
+                con.execute("DELETE FROM plan_meta WHERE key = ?", (key,))
             marks = ", ".join("?" for _ in range(len(cols) + 2))
             con.executemany(
                 f"INSERT INTO {table} (position, {', '.join(map(_q, cols))}, extra) VALUES ({marks})",
                 [(i, *(r.get(c, "") for c in cols), json.dumps(r.get("__extra__", {}), ensure_ascii=False, sort_keys=True))
-                 for i, r in enumerate(kept.get(TABLE_PREFIX + table, []))],
+                 for i, r in enumerate(rows_kept)],
             )
         con.execute("DELETE FROM rental_properties")  # children cascade
         for pid, p in enumerate(_clean_property(r, i) for i, r in enumerate(kept.get(TABLE_RENTAL, []))):
