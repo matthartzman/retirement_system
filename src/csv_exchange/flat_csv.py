@@ -57,19 +57,19 @@ def read_dataset_csv_file(path: str | Path) -> tuple[list[str], list[dict[str, s
 def replace_dataset_from_csv_text(repo, text: str) -> int:
     """Replace a flat plan dataset from CSV text (UTF-8 BOM ignored, missing columns empty,
     other columns kept as extra columns, fully blank lines skipped, cells kept unstripped)."""
-    _, rows = dataset_rows_from_csv_text(text)
-    return _replace_dataset_rows(repo, rows)
+    header, rows = dataset_rows_from_csv_text(text)
+    return _replace_dataset_rows(repo, rows, header)
 
 
 # plan_meta key set when a household's HSA schedule was saved, seeded or imported (even empty).
 HSA_SCHEDULE_SAVED_KEY = "dataset.hsa_schedule.saved"
 
 
-def _replace_dataset_rows(repo, rows: list[dict[str, str]]) -> int:
+def _replace_dataset_rows(repo, rows: list[dict[str, str]], header: list[str] | None = None) -> int:
     for row in rows:
         for c in repo.columns:
             row.setdefault(c, "")
-    return repo.replace_all(rows)
+    return repo.replace_all(rows, header=header)
 
 
 # Plan dataset name (``PlanStore.dataset(name)``) -> its legacy CSV file name.
@@ -118,8 +118,8 @@ def import_flat_datasets(folder: str | Path, store: Any, names: Iterable[str] | 
         for name in wanted:
             path = Path(folder) / FLAT_DATASET_FILES[name]
             if path.is_file():
-                _, rows = read_dataset_csv_file(path)
-                out[name] = _replace_dataset_rows(store.dataset(name), rows)
+                header, rows = read_dataset_csv_file(path)
+                out[name] = _replace_dataset_rows(store.dataset(name), rows, header)
                 if name == "hsa_schedule":
                     # The file existed (even header-only): the household's schedule is "saved".
                     store.set_meta(HSA_SCHEDULE_SAVED_KEY, "1")

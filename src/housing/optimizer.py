@@ -49,7 +49,15 @@ from .candidates import (
 )
 from .constraints import family_presence_ok
 from .plan_variant import _run_engine
-from .rent_out import rent_out_plan
+from .rent_out import (
+    ESTIMATED_TAX_NOTE,
+    EXACT_TAX_NOTE,
+    baseline_comparison_notes,
+    exact_rent_tax,
+    plan_converted_home,
+    rent_out_plan,
+    without_plan_converted_home,
+)
 from .results import format_output, MAX_CANDIDATES
 from .scoring import _lifetime_cost, _pass1_objective, rank_candidates, score_candidate
 from .search import (
@@ -290,11 +298,22 @@ def optimize_housing(
 
     # ---- Pass 2: Monte Carlo the shortlist --------------------------------
     shortlist = combined[:max(3, min(5, shortlist_size))]
+    exact_tax = False
     for sc in shortlist:
         c2, rows = _run_engine(c0, sc.candidate, down_payment_pct=down_payment_pct,
                                mortgage_rate_pct=mortgage_rate_pct, rent_out=rent_out)
         mc = _pe.monte_carlo(c2, base_rows=rows)
         sc.mc_success_rate = float(mc.get('success_rate', 0.0) or 0.0)
+        if ESTIMATED_TAX_NOTE in sc.notes:
+            _exact_rent_out_cost(sc, c2, rows)
+            exact_tax = True
+
+    if exact_tax and objective == 'lifetime_cost':
+        # M7: exact tax deltas can reorder the shortlist; it keeps its seats
+        # (the rows below it still carry the estimate, labelled as such).
+        shortlist = rank_candidates(shortlist, objective)
+        shortlist_ids = {id(s) for s in shortlist}
+        combined = shortlist + [s for s in combined if id(s) not in shortlist_ids]
 
     if objective == 'mc_success_rate':
         shortlist = sorted(shortlist, key=lambda s: (s.mc_success_rate or 0.0), reverse=True)
@@ -313,8 +332,12 @@ def optimize_housing(
     # Carlo when it is the active objective, matching the shortlist's own
     # policy of not paying for MC on every candidate.
     baseline = None
+    comparison_notes: list[str] = []
     if final_ranked:
-        baseline_c2, baseline_rows = _pe.run_scenario(c0)
+        # M6: feature on with a converted-home entry in the plan: the candidates all drop it
+        # (apply_rent_out), so the baseline drops it too and the as-entered run is shown.
+        plan_entry = plan_converted_home(c0) if rent_out is not None else None
+        baseline_c2, baseline_rows = _pe.run_scenario(without_plan_converted_home(c0) if plan_entry else c0)
         baseline_mc_success_rate = None
         if objective == 'mc_success_rate':
             baseline_mc = _pe.monte_carlo(baseline_c2, base_rows=baseline_rows)
@@ -324,6 +347,15 @@ def optimize_housing(
             'lifetime_cost': _lifetime_cost(baseline_rows),
             'mc_success_rate': baseline_mc_success_rate,
         }
+        if plan_entry:
+            _, entered_rows = _pe.run_scenario(c0)
+            as_entered = {
+                'net_worth': float(entered_rows[-1].get('total_nw', 0.0) or 0.0) if entered_rows else 0.0,
+                # M7: the baseline is this run without the entry, so the exact tax delta is free.
+                'lifetime_cost': _lifetime_cost(entered_rows, exact_rent_tax(entered_rows, baseline_rows)),
+            }
+            baseline['as_entered'] = as_entered
+            comparison_notes = baseline_comparison_notes(plan_entry, as_entered, baseline)
 
     return format_output(
         final_ranked, objective=objective, search_mode=search_mode,
@@ -334,7 +366,18 @@ def optimize_housing(
         inflation_general=float(c0.get('inf', INFLATION_GENERAL_DEFAULT) or INFLATION_GENERAL_DEFAULT),
         baseline=baseline,
         rent_out_monthly_rent=(float(rent_out.template['monthly_rent']) if can_rent_out else None),
+        comparison_notes=comparison_notes,
     )
+
+
+def _exact_rent_out_cost(sc: ScoredCandidate, c2: dict[str, Any], rows: list[dict[str, Any]]) -> None:
+    """M7: replace a shortlisted rent-out candidate's estimated tax on the rent
+    with the engine's exact delta -- this run's lifetime tax less the same
+    config run with the converted-home entry left out (one extra engine run,
+    paid only for the shortlist, never in Pass 1) -- and swap the label."""
+    _, rows_without = _pe.run_scenario(without_plan_converted_home(c2))
+    sc.lifetime_cost = _lifetime_cost(rows, exact_rent_tax(rows, rows_without))
+    sc.notes = [EXACT_TAX_NOTE if n == ESTIMATED_TAX_NOTE else n for n in sc.notes]
 
 
 def _extend_and_score(

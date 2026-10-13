@@ -55,10 +55,6 @@ def _by_disposition(result: dict) -> dict:
 def runs():
     off = _c0(False, rf.CONVERTED_HOME)
     on = _c0(True)
-    # Warm-up: the first optimizer run in a pytest process ends a few thousand dollars
-    # away from every later one (baseline included). That predates WP12.8; it is not
-    # what these comparisons are about.
-    _optimize(off)
     return {
         'off': _optimize(off),
         'off_with_rent': _optimize(off, rent_out_monthly_rent=RENT),
@@ -140,3 +136,62 @@ def test_no_rent_means_no_rent_out_candidate():
 
 def test_deterministic(runs):
     assert json.dumps(runs['on'], sort_keys=True) == json.dumps(runs['on_again'], sort_keys=True)
+
+
+def test_baseline_matches_the_candidates_when_the_plan_has_a_converted_home():
+    """M6: with the feature on and the plan's own converted-home entry present, the do-nothing
+    baseline leaves that entry out like every sell / keep candidate, shows the as-entered run
+    beside it, and says so in the comparison notes. Off: no such keys, results unchanged."""
+    on = _optimize(_c0(True, rf.CONVERTED_HOME), rent_out_monthly_rent=RENT)
+    entered = on['baseline']['as_entered']
+    assert entered['net_worth'] != on['baseline']['net_worth']
+    assert len(on['comparison_notes']) == 2
+    assert any('as entered' in n for n in on['comparison_notes'])
+    keep = _by_disposition(on)['keep']
+    plain_on = _optimize(_c0(True), rent_out_monthly_rent=RENT)  # no entry in the plan
+    assert 'comparison_notes' not in plain_on and 'as_entered' not in plain_on['baseline']
+    assert plain_on['baseline']['net_worth'] == pytest.approx(on['baseline']['net_worth'])
+    assert keep['net_worth'] == pytest.approx(_by_disposition(plain_on)['keep']['net_worth'])
+    off = _optimize(_c0(False, rf.CONVERTED_HOME))
+    assert 'comparison_notes' not in off and 'as_entered' not in off['baseline']
+
+
+def test_shortlisted_rent_out_lifetime_cost_uses_the_exact_tax_delta(runs):
+    """M7: a shortlisted rent-out row's lifetime cost carries the engine's own tax delta
+    (the run with the rental less the same run without the converted-home entry), and its
+    notes say so; the number matches recomputing it here. Off: no label anywhere."""
+    from src.housing.rent_out import (
+        ESTIMATED_TAX_NOTE, EXACT_TAX_NOTE, exact_rent_tax, without_plan_converted_home)
+    from src.housing.scoring import _lifetime_cost
+    import src.planning_engines as pe
+
+    row = _by_disposition(runs['on'])[RENT_OUT]
+    assert EXACT_TAX_NOTE in row['notes'] and ESTIMATED_TAX_NOTE not in row['notes']
+    assert not any(n in (EXACT_TAX_NOTE, ESTIMATED_TAX_NOTE)
+                   for d, r in _by_disposition(runs['on']).items() if d != RENT_OUT for n in r['notes'])
+    assert not any(n in (EXACT_TAX_NOTE, ESTIMATED_TAX_NOTE) for r in runs['off']['candidates'] for n in r['notes'])
+
+    c0 = _c0(True)
+    plan = rent_out_plan(c0, RENT)
+    cand = ho.HousingCandidate(ho.OriginalHome(RENT_OUT), (ho.Move(1, 2028, 'buy', TX),))
+    with empty_workspace(), frozen_holdings_prices():
+        c2, rows = ho._run_engine(c0, cand, mortgage_rate_pct=0.065, rent_out=plan)
+        _c, rows_without = pe.run_scenario(without_plan_converted_home(c2))
+    delta = exact_rent_tax(rows, rows_without)
+    assert delta != 0
+    assert row['lifetime_cost'] == pytest.approx(_lifetime_cost(rows, delta))
+    assert row['lifetime_cost'] != pytest.approx(_lifetime_cost(rows))  # the estimate differs
+
+
+def test_rent_out_outside_the_shortlist_keeps_the_estimate_with_its_label():
+    """M7: past the shortlist no second run is paid for; the row keeps the estimate and says so."""
+    from src.housing.rent_out import ESTIMATED_TAX_NOTE, EXACT_TAX_NOTE
+    locs = [TX, ho.Location(state='Texas', population_size=150000, zip_code='78702'),
+            ho.Location(state='Texas', population_size=150000, zip_code='78703'),
+            ho.Location(state='Texas', population_size=150000, zip_code='78704')]
+    result = _optimize(_c0(True), locations1=locs, dispositions=(RENT_OUT,),
+                       rent_out_monthly_rent=RENT, shortlist_size=3)
+    labels = [EXACT_TAX_NOTE in r['notes'] for r in result['candidates']]
+    assert labels == [True, True, True, False]
+    last = result['candidates'][-1]
+    assert ESTIMATED_TAX_NOTE in last['notes'] and EXACT_TAX_NOTE not in last['notes']
