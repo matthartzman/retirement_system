@@ -44,6 +44,17 @@ TEST_INPUT_DIR: Path
 # resolves lazily via workspace_root() lands in the throwaway copy instead of
 # the real client files, without needing to find/patch the actual culprit.
 # setdefault-style: only redirect if the environment doesn't already override it.
+# Under pytest-xdist the workers inherit the controller's environment, so they would all share
+# the ONE workspace the controller staged (one plan.rpx, one local_state/app.db with its
+# active-plan record). Since the plan registry (WP8.4) a test that activates another plan, Save
+# As, or opens the demo changes that shared state under the other workers: they read an
+# active-plan path that was replaced or removed and fail with "unable to open database file"
+# (Windows, first seen on WP8's CI; the serial re-run of the failures passed). A workspace this
+# harness staged itself is therefore re-staged per worker; one an outer harness chose is honored.
+_AUTO_WORKSPACE_FLAG = "RETIREMENT_SYSTEM_TEST_WORKSPACE_AUTO"
+if os.environ.get("PYTEST_XDIST_WORKER") and os.environ.get(_AUTO_WORKSPACE_FLAG):
+    os.environ.pop("RETIREMENT_SYSTEM_WORKSPACE_ROOT", None)
+
 if not os.environ.get("RETIREMENT_SYSTEM_WORKSPACE_ROOT"):
     import atexit
     import shutil
@@ -72,6 +83,7 @@ if not os.environ.get("RETIREMENT_SYSTEM_WORKSPACE_ROOT"):
     # re-resolves workspace_root() fresh on every call and was never
     # affected) silently read/wrote the real project's database.
     os.environ["RETIREMENT_SYSTEM_WORKSPACE_ROOT"] = str(_TEST_WORKSPACE_ROOT)
+    os.environ[_AUTO_WORKSPACE_FLAG] = "1"
     for _name in _platform_runtime.WORKSPACE_SUBDIRS:
         _src_dir = ROOT / _name
         # Only "input" needs real content copied in — it's the one directory

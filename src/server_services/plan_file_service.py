@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from .. import plan_registry
-from ..plan_db_replace import PLAN_FILE_TABLES, copy_sqlite_file, replace_active_db, validate_plan_file
+from ..plan_db_replace import PLAN_FILE_TABLES, copy_sqlite_file, remove_sidecars, replace_active_db, validate_plan_file
 from ..active_plan import read_build_results
 from ..build_snapshot import (
     compare_snapshot_to_current,
@@ -134,6 +134,10 @@ class PlanFileService:
             dest = Path.cwd() / dest
         same = plan_registry.same_path(src, dest)
         if not same:
+            other = next((r for r in plan_registry.list_plans() if plan_registry.same_path(r["path"], dest)), None)
+            if other is not None:  # never overwrite another registered plan (demo, a saved case)
+                return {"success": False, "error": f"{dest} is already the plan \"{other['name']}\". Choose a different file name."}
+            remove_sidecars(dest)  # a stale -wal/-shm beside an overwritten file must not be replayed
             copy_sqlite_file(src, dest)
         name = str(body.get("name") or "").strip() or dest.stem
         rec = plan_registry.register_plan_file(dest, name=name)

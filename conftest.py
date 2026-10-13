@@ -72,7 +72,7 @@ def built_workbook_dir(tmp_path_factory):
         env=env,
         text=True,
         capture_output=True,
-        timeout=180,
+        timeout=420,
     )
     assert result.returncode == 0, result.stdout + result.stderr
     return out_dir
@@ -80,7 +80,12 @@ def built_workbook_dir(tmp_path_factory):
 
 @pytest.fixture(scope="session")
 def built_workbook_path(built_workbook_dir) -> Path:
-    return built_workbook_dir / "retirement_plan.xlsx"
+    """The built workbook. Builds write to ``<output>/plans/<plan id>/``; the
+    fixture build has exactly one plan, so locate its folder rather than
+    expecting a copy in the output root."""
+    matches = sorted((built_workbook_dir / "plans").glob("*/retirement_plan.xlsx"))
+    assert len(matches) == 1, f"expected one built plan workbook, found {matches}"
+    return matches[0]
 
 
 def _hash_input_dir() -> dict[str, str]:

@@ -127,11 +127,6 @@ def create_api_token(*args, **kwargs) -> dict:
 def lookup_api_token(*args, **kwargs) -> _Optional[dict]:
     return None
 
-def append_audit_event_sqlite(event: str, details: dict | None = None, workspace_id: str = "local", user_id: str = "local", db_path: str | Path = DEFAULT_DB) -> None:
-    p = init_sqlite(db_path)
-    with closing_connect(p) as con:
-        con.execute("INSERT INTO audit_events(user_id,event,details_json) VALUES(?,?,?)", ("local", event, json.dumps(details or {}, sort_keys=True, default=str)))
-
 def set_client_file(file_name: str, content: str, workspace_id: str = "local", client_id: str = "local", updated_by: str = "local", db_path: str | Path = DEFAULT_DB) -> None:
     p = init_sqlite(db_path)
     name = Path(file_name).name
