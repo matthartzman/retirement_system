@@ -97,6 +97,13 @@ PROTECTED_REVISION_SOURCES = ("pre-recovery", "budget-recovery-seed")
 # M1: a revision also retains every plan table (flat datasets, rental) in ``revision_datasets``
 # under ``table:<name>`` (no schema change); ``table:*`` is the marker row. Revisions made
 # before that (or the protected recovery ones) hold none and restore the plan rows only.
+# M2: display labels; recovery sources form their own collapsible group, never pruned.
+REVISION_LABELS = {
+    "budget-recovery-seed": "Budget recovery seed",
+    "pre-recovery": "Budget before recovery",
+    "pre-restore": "Before a restore",
+    "pre-conversion": "Before legacy conversion",
+}
 TABLE_PREFIX = "table:"
 TABLES_MARKER = TABLE_PREFIX + "*"
 TABLE_RENTAL = TABLE_PREFIX + "rental"
@@ -578,13 +585,21 @@ class PlanStore(_SqliteStore):
             ],
         )
 
-    def list_revisions(self) -> list[dict[str, Any]]:
-        """Revision headers, newest first."""
+    def list_revisions(self, *, group: str | None = None) -> list[dict[str, Any]]:
+        """Revision headers, newest first; each carries ``label`` and ``group`` ("recovery" for
+        the never-pruned recovery copies, else "history"). ``group`` keeps one group only."""
         with self._read() as con:
             cur = con.execute(
                 "SELECT id, created_at, source, note, rows_sha256, row_count FROM plan_revisions ORDER BY id DESC"
             )
-            return [dict(r) for r in cur]
+            out = []
+            for r in cur:
+                d = dict(r)
+                d["group"] = "recovery" if d["source"] in PROTECTED_REVISION_SOURCES else "history"
+                d["label"] = REVISION_LABELS.get(d["source"], d["source"])
+                if group in (None, "", "all") or d["group"] == group:
+                    out.append(d)
+            return out
 
     def revision_rows(self, revision_id: int) -> list[dict[str, Any]]:
         """The retained rows of a revision, in canonical order (for compare / preview)."""

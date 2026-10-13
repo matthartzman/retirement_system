@@ -9,7 +9,7 @@ ROUTE_MODULES = {
         "/api/ping", "/api/status", "/api/runtime", "/api/shutdown", "/api/prefs", "/api/schema", "/api/summary", "/api/validate",
         "/api/auth/login", "/api/auth/logout", "/api/auth/session", "/api/settings/workbook-download",
     ],
-    "plan_data": ["/api/plan/forms", "/api/plan/save-as", "/api/plan/load-file", "/api/plan/snapshot/compare", "/api/plan/snapshot/restore",
+    "plan_data": ["/api/plan/forms", "/api/plan/save-as", "/api/plan/load-file", "/api/plan/snapshot/compare", "/api/plan/snapshot/restore", "/api/plan/revisions",
         "/api/plan", "/api/plan/forms/<path:section_path>", "/api/plan/backups", "/api/plan/backups/config", "/api/plan/backups/run",
         "/api/plan/monarch-autoupdate", "/api/plan/monarch-autoupdate/config", "/api/plan/monarch-autoupdate/run",
         "/api/plan/demo-status", "/api/plan/open-demo", "/api/plan/reset-demo", "/api/plan/exit-demo", "/api/plan/exit-snapshot",
