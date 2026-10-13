@@ -47,7 +47,7 @@ const RP_FIELDS = {
     F("monthly_rent", "Monthly rent", "money"), F("vacancy_rate", "Vacancy", "pct"),
     F("rent_growth", "Annual rent growth", "pct", { hint: "Blank means inflation." }),
     F("rental_start_year", "Rental start year", "year", { only: "standalone", hint: "Blank means the purchase year." }),
-    F("rental_end_year", "Rental end year", "year", { hint: "Blank means until sale." })]]],
+    F("rental_end_year", "Rental end year", "year", { hint: "Blank means until sale." }), F("moves_back_in", "Move back in at the end", "bool", { only: "converted_home", hint: "Yes: you live in the home again from the move-back month of the end year. Restarts the section 121 residence clock, stops depreciation, and makes the rental months nonqualified use." }), F("reversion_month", "Move-back month (1-12)", "int", { only: "converted_home", hint: "Blank means July." })]]],
   expenses: [["Operating expenses", [
     F("property_tax", "Property tax (per year)", "money"), F("property_tax_growth", "Property tax growth", "pct"),
     F("insurance", "Insurance (per year)", "money"), F("maintenance_pct", "Maintenance (% of rent)", "pct"), F("management_pct", "Management (% of rent)", "pct", { hint: "0% when self-managed." }),
@@ -311,7 +311,7 @@ function rpFieldHtml(f, draft, tiers, planTier, data) {
     ctl = `<select ${fk} aria-label="${esc(f.l)}" onchange="rpSet('${esc(f.k)}',this.value,'select')">` +
       f.o.map((o) => `<option value="${esc(o[0])}"${o[0] === cur ? " selected" : ""}>${esc(o[1])}</option>`).join("") + "</select>";
   } else if (f.t === "bool") {
-    const cur = draft[f.k] === false ? "no" : "yes";
+    const cur = (f.k === "moves_back_in" ? draft[f.k] === true : draft[f.k] !== false) ? "yes" : "no";
     ctl = `<select ${fk} aria-label="${esc(f.l)}" onchange="rpSet('${esc(f.k)}',this.value,'bool')"><option value="yes"${cur === "yes" ? " selected" : ""}>Yes</option><option value="no"${cur === "no" ? " selected" : ""}>No</option></select>`;
   } else if (f.t === "ym") {
     const yk = f.yk || f.k;

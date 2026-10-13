@@ -188,7 +188,7 @@ publications. The Table A-6 cells (R01, R02, R06) are the published percentages.
 - First-death step-up: the converted sale uses the stepped-up gain basis; the loss basis is not stepped up.
 - Estate sale after conversion keeps the step-up (no gain) and drops suspended losses (IRC 469(g)(2) would allow part).
 - Shifted carrying costs: mortgage payment, real-estate tax, budget utilities/maintenance/other. Improvement lumps stay personal.
-- Not modelled: owner split, death handling, back to personal use, sale-proceeds split across accounts. (Loan link to a Liabilities row: built in H2, section 9.)
+- Not modelled: owner split, death handling, sale-proceeds split across accounts. (Back to personal use: built in H3, section 10.) (Loan link to a Liabilities row: built in H2, section 9.)
 
 ## 8. Workbook (12.7)
 New sheet `40. Rental Properties` (section 1 Reports, after Balance Sheet; letter computed per build, `1E` when on), present **only while `rental_property_income` is on**. Sections: A summary by year; B by property and year (collapsible rows); C depreciation schedule; D passive-loss ledger; E sale analysis; F metrics; G assumptions and warnings (this document's sections 4-7 in plain words, constants quoted from the reference data in force). Code: `src/reporting/rental_report_data.py` (figures), `src/reporting/sheets_rental.py` (layout).
@@ -263,9 +263,9 @@ Liabilities page: a linked row shows the badge "Used by rental: Duplex" (read on
 2. Converted home: only Schedule E interest moves; do you also want the linked loan's balance shown on the property? (Default: no.)
 3. OK to leave "payoff of other liabilities at home sale" as a stated limitation?
 
-## 10. H3: personal-use reversion (rent, then move back in) (design, OWNER CHECKPOINT: H3)
+## 10. H3: personal-use reversion (rent, then move back in) (built; owner and tax preparer approved 2026-10-13)
 
-Status: design and worked examples only. Nothing built. Rental stays default OFF.
+Status: built. T1 to T3 are pinned by `tests/test_rental_reversion_functional.py`. Rental stays default OFF.
 
 ### 10.1 Problem
 A converted home today is rented from the conversion date to `rental_end_year`; after that the engine counts **no
@@ -274,7 +274,7 @@ treats the whole end year as rented and takes a full year of depreciation. Real 
 rules the module skips: the move-back counts as residence for the 121 clock, depreciation stops at the move-back
 date, and rental use that sits *before* the last residence date is **nonqualified use** (IRC 121(b)(5)).
 
-### 10.2 Data model (plan schema v11, forward-only, converted-home rows only)
+### 10.2 Data model (plan schema v11, forward-only `ALTER TABLE ... ADD COLUMN`, converted-home rows only; the editor shows both fields next to Rental end year)
 | Column | Meaning |
 |---|---|
 | `moves_back_in` | yes/no, default no (today's behaviour, byte-identical). |

@@ -188,6 +188,16 @@ class RentalSpec:
     value_at_conversion: float = 0.0
     owned_from: tuple[int, int] = (0, 1)  # (year, month) bought and lived in
     loan_liability_id: str = ''  # H2: the Liabilities row this property's loan is (resolved links only)
+    # H3, converted home: the household moves back in on 1st of ``reversion_month`` of ``rental_end_year``.
+    moves_back_in: bool = False
+    reversion_month: int = DEFAULT_MONTH
+
+    @property
+    def reversion_date(self) -> date | None:
+        """H3: the day the household moves back in (None unless the converted home reverts)."""
+        if self.kind != CONVERTED_HOME or not self.moves_back_in or self.rental_end_year is None:
+            return None
+        return date(self.rental_end_year, self.reversion_month, 1)
 
     @property
     def cost_basis(self) -> float:
@@ -347,6 +357,8 @@ def _parse_converted_home(raw: dict[str, Any], index: int, c: dict[str, Any]) ->
         kind=CONVERTED_HOME,
         value_at_conversion=_f(raw.get("value_at_conversion"), projected),
         owned_from=owned_from,
+        moves_back_in=bool(raw.get("moves_back_in")) and _i(raw.get("rental_end_year")) is not None,
+        reversion_month=_month(raw.get("reversion_month"), DEFAULT_MONTH),
     )
 
 
@@ -550,6 +562,8 @@ class RentalBook:
         first = s.placed_month if year == s.placed_year else 1
         selling = self._converted_sale is not None and self._converted_sale[0] == year
         last = s.sale_month if selling else 12
+        if s.reversion_date is not None and year == s.rental_end_year:
+            last = min(last, s.reversion_month - 1)  # H3: rented until the month before the move-back
         return (first, last) if last >= first else None
 
     def converted_home_share(self, year: int) -> float:
@@ -568,17 +582,27 @@ class RentalBook:
             return None
         recovery = self.constants(year, "MFJ").recovery_years
         dep_through = year if s.rental_end_year is None else min(year, s.rental_end_year)
-        accumulated = property_accumulated_depreciation(
-            s.assets(), dep_through, recovery, disposed_month=s.sale_month if dep_through == year else None)
+        sale_date = date(year, s.sale_month, 1)
+        rev = s.reversion_date
+        moved_back = rev is not None and rev < sale_date  # H3: back in before the sale
+        if moved_back:
+            stop = s.reversion_month if dep_through == rev.year else None
+        else:
+            stop = s.sale_month if dep_through == year else None
+        accumulated = property_accumulated_depreciation(s.assets(), dep_through, recovery, disposed_month=stop)
         k = self.constants(year, filing)
         owned_from = date(s.owned_from[0], s.owned_from[1], 1)
+        conversion = date(s.placed_year, s.placed_month, 1)
+        residence = [(owned_from, conversion)] + ([(rev, sale_date)] if moved_back else [])
         qualifies = section_121_two_of_five(
-            date(year, s.sale_month, 1), owned_from, [(owned_from, date(s.placed_year, s.placed_month, 1))],
+            sale_date, owned_from, residence,
             required_days=k.section_121_required_days, lookback_years=k.section_121_lookback_years)
+        owned_days = (sale_date - owned_from).days
+        ratio = (rev - conversion).days / owned_days if moved_back and owned_days > 0 else 0.0
         return ConvertedHomeTerms(
             accumulated_depreciation=accumulated,
             improvements=sum(amt for y, _m, amt in s.improvements if y <= year),
-            loss_basis=s.loss_basis, qualifies=qualifies)
+            loss_basis=s.loss_basis, qualifies=qualifies, nonqualified_ratio=ratio)
 
     def record_home_sale(self, year: int, economics: HomeSaleEconomics | None) -> None:
         """The plan's home left the household in ``year`` (home-sale stage, before the
@@ -594,6 +618,16 @@ class RentalBook:
             self._converted_last_year = year
         else:
             self._state[s.name].sold = True
+
+    @staticmethod
+    def _dep_stop_month(s: RentalSpec, year: int, selling: bool) -> int | None:
+        """Month depreciation of the converted home stops in ``year`` (mid-month disposal
+        convention): the sale month, or the move-back month when the household moves back
+        in (H3) before any sale that year; None for a full year."""
+        rev = s.reversion_date
+        if rev is not None and year == rev.year and not (selling and s.sale_month < s.reversion_month):
+            return s.reversion_month
+        return s.sale_month if selling else None
 
     def _converted_year(self, s: RentalSpec, st: _PropertyState, year: int, recovery: float) -> PropertyYear:
         win = self._rent_window(s, year)
@@ -613,7 +647,7 @@ class RentalBook:
                 + s.fixed_expenses * (1.0 + s.expense_growth) ** n * frac
                 + s.variable_expense_pct * collected))
             depreciation = property_depreciation(s.assets(), year, recovery,
-                                                 disposed_month=s.sale_month if selling else None)
+                                                 disposed_month=self._dep_stop_month(s, year, selling))
             sched_e = schedule_e_net(gross_rent, s.vacancy_rate, opex, 0.0, depreciation)
             improvements_cash = sum(amt for y, _m, amt in s.improvements if y == year)
         net_cash = collected - opex - improvements_cash
