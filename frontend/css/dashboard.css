@@ -1157,3 +1157,42 @@ details.page-accordion[open]>summary::before,.page-recommendations[open]>summary
 .pf-interview-result{margin-top:12px;padding-top:8px;border-top:1px solid var(--border,#d0d7de)}
 .pf-suggest{margin-top:12px}
 .pf-suggest-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;font-size:13px}
+
+/* Rental Properties page (WP12.6; approved mockup documentation/reference/wp12_screens/) */
+.rp-page{padding-top:8px}
+.rp-head-actions{margin:4px 0 12px}
+.rp-estimate{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;margin:8px 0}
+.rp-estimate select,.rp-estimate input{width:auto;max-width:130px;padding:5px 8px;border:1px solid var(--line2);border-radius:8px}
+.rp-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:8px 0 16px}
+.rp-warns{margin:8px 0}
+.rp-warn{padding:10px 12px;border:1px solid #fde68a;background:#fffbeb;color:var(--warn);border-radius:10px;margin:6px 0;display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap}
+.rp-warn.bad{border-color:#fecaca;background:#fef2f2;color:var(--danger)}
+.rp-why{flex-basis:100%;color:var(--ink)}
+.rp-table{width:100%;border-collapse:collapse;border:1px solid var(--line);margin:8px 0}
+.rp-table th,.rp-table td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left}
+.rp-table th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);background:#fbfaf7}
+.rp-table td.n,.rp-table th.n{text-align:right}
+.rp-cards{display:none}
+.rp-card{border:1px solid var(--line);border-radius:12px;padding:12px;margin:8px 0;background:#fff}
+.rp-card h3{margin:0 0 6px;font-size:15px}
+.rp-card dl{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;margin:8px 0}
+.rp-card dt{font-size:10px;text-transform:uppercase;color:var(--muted);letter-spacing:.05em}
+.rp-card dd{margin:0;font-weight:800}
+.rp-foot{margin:6px 0 14px}
+.rp-convert{margin:8px 0 16px;padding:14px;border:1px solid var(--line);border-radius:12px;background:#fff;box-shadow:var(--shadow);max-width:640px}
+.rp-convert h3{margin:0 0 4px}
+.rp-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:10px}
+.rp-offbox{margin:12px 0;padding:18px;border:1px dashed var(--line2);border-radius:12px;background:var(--soft)}
+.rp-offbox .rp-actions{justify-content:flex-start}
+.rp-switch{display:inline-block;width:42px;height:24px;border-radius:99px;background:#cbd5e1;position:relative;vertical-align:middle}
+.rp-switch:after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:99px;background:#fff}
+.rp-crumb{margin-bottom:6px}
+.rp-title{margin:0 0 4px;font-size:22px}
+.rp-tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);overflow-x:auto;white-space:nowrap;margin-top:10px}
+.rp-tab{padding:9px 14px;border:1px solid transparent;border-bottom:0;border-radius:9px 9px 0 0;font-weight:800;color:var(--muted);background:transparent;cursor:pointer}
+.rp-tab.on{background:#fff;border-color:var(--line);color:var(--accent);margin-bottom:-1px}
+.rp-advbar{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;flex-wrap:wrap}
+.rp-inline{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.rp-inline input{width:auto;min-width:90px;flex:1 1 90px}
+.badge.exp{background:#eef2ff;color:#3730a3;border:1px dashed #a5b4fc}
+@media(max-width:700px){.rp-strip{grid-template-columns:1fr 1fr}.rp-table{display:none}.rp-cards{display:block}}

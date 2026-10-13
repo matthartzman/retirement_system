@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 252 Python files under `src/`, 51 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 252 Python files under `src/`, 52 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -12,7 +12,7 @@ Every box is a real directory in the repo. Every arrow is a real `import` found 
 flowchart TB
     User(["Desktop user"]) --> FE
     subgraph FE["Frontend SPA (frontend/)"]
-        FEcount["51 JS files, browser-loaded via index.html script tags"]
+        FEcount["52 JS files, browser-loaded via index.html script tags"]
     end
     FE -->|fetch /api/*| L_HTTP_Routes
     subgraph L_HTTP_Routes["HTTP Routes (11 modules)"]
@@ -363,19 +363,20 @@ Script load order, as declared in `frontend/index.html` (this is the frontend's 
 37. `js/dashboard_decomp_workbook_formatting.js?v=2`
 38. `js/dashboard_decomp_plan_features.js?v=2`
 39. `js/dashboard_decomp_plan_tiers.js?v=1`
-40. `js/dashboard_decomp_tax_assumptions.js?v=1`
-41. `js/dashboard_decomp_roth_guardrails.js?v=1`
-42. `js/dashboard_decomp_misc.js?v=1`
-43. `js/dashboard_decomp_state_inputs.js?v=2`
-44. `js/dashboard_decomp_home_panels.js?v=2`
-45. `js/modules/phase3_module_manifest.js?v=2`
-46. `js/dashboard_source_truth_banners.js?v=2`
-47. `js/dashboard_decomp_optimizer_apply.js?v=1`
-48. `js/dashboard_batch_assumption_edit.js?v=2`
-49. `js/dashboard_decomp_holdings.js?v=1`
-50. `js/spending_dashboard.js?v=12`
+40. `js/dashboard_decomp_rental_properties.js?v=1`
+41. `js/dashboard_decomp_tax_assumptions.js?v=1`
+42. `js/dashboard_decomp_roth_guardrails.js?v=1`
+43. `js/dashboard_decomp_misc.js?v=1`
+44. `js/dashboard_decomp_state_inputs.js?v=2`
+45. `js/dashboard_decomp_home_panels.js?v=2`
+46. `js/modules/phase3_module_manifest.js?v=2`
+47. `js/dashboard_source_truth_banners.js?v=2`
+48. `js/dashboard_decomp_optimizer_apply.js?v=1`
+49. `js/dashboard_batch_assumption_edit.js?v=2`
+50. `js/dashboard_decomp_holdings.js?v=1`
+51. `js/spending_dashboard.js?v=12`
 
-All `.js` files found under `frontend/` (51):
+All `.js` files found under `frontend/` (52):
 
 - `frontend/js/admin.js`
 - `frontend/js/api_client.js`
@@ -407,6 +408,7 @@ All `.js` files found under `frontend/` (51):
 - `frontend/js/dashboard_decomp_plan_features.js`
 - `frontend/js/dashboard_decomp_plan_switcher.js`
 - `frontend/js/dashboard_decomp_plan_tiers.js`
+- `frontend/js/dashboard_decomp_rental_properties.js`
 - `frontend/js/dashboard_decomp_roth_guardrails.js`
 - `frontend/js/dashboard_decomp_row_model.js`
 - `frontend/js/dashboard_decomp_spending_adjustments.js`
@@ -470,7 +472,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/server_services/plan_tier_service.py` | — | — |
 | `src/server_services/portfolio_service.py` | — | — |
 | `src/server_services/pricing_service.py` | `config_backend`, `market_data`, `portfolio_analytics` | — |
-| `src/server_services/rental_service.py` | `parsing.rental_properties`, `projection_stages.rental_property`, `rental_tax`, `stores.errors`, `stores.rental_repo` | — |
+| `src/server_services/rental_service.py` | `parsing.rental_properties`, `projection_stages.rental_property`, `rental_tax` | — |
 | `src/server_services/report_service.py` | `app_state`, `detailed_results`, `report_package`, `system_config` | — |
 | `src/server_services/secret_service.py` | `secrets_store` | — |
 | `src/server_services/spending_service.py` | `active_plan` | — |
