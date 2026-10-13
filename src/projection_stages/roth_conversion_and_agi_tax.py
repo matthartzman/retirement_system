@@ -141,6 +141,55 @@ def _state_tax_estimate_for_conversion(
     return _estimate
 
 
+def agi_income_before_social_security(
+    c: dict[str, Any],
+    *,
+    net_earned_taxable: float,
+    half_se_ded: float,
+    sehi_ded: float,
+    rmd_taxable_total: float,
+    roth_conv: float,
+    pension: float,
+    wife_single_ann: float,
+    wife_joint_ann: float,
+    h_single_ann: float,
+    h_joint_ann: float,
+    note_int_yr: float,
+    portfolio_ordinary: float,
+    portfolio_qualified: float,
+    equity_ordinary_income: float,
+    di_taxable: float,
+) -> float:
+    """The AGI terms of :func:`apply_agi_and_tax` other than taxable Social Security
+    (its ``non_ss_income``), in that stage's exact summation order. Shared with
+    :func:`rental_passive_magi` so the two can never list different income."""
+    ws_taxable = wife_single_ann * c['wife_single'].get('exclusion_ratio', 1.0)
+    hs_taxable = h_single_ann * c['h_single'].get('exclusion_ratio', 1.0)
+    return (net_earned_taxable - half_se_ded - sehi_ded + rmd_taxable_total + roth_conv +
+            pension + ws_taxable + wife_joint_ann +
+            hs_taxable + h_joint_ann + note_int_yr +
+            portfolio_ordinary + portfolio_qualified +
+            equity_ordinary_income + di_taxable)
+
+
+def rental_passive_magi(c: dict[str, Any], *, capital_gains: float = 0.0, **agi_terms: float) -> float:
+    """WP12.2: modified AGI for the rental passive-loss allowance (IRC 469(i)(3)(F);
+    Form 8582 line 7; RENTAL_TAX_RULES.md section 2): the AGI terms of
+    :func:`agi_income_before_social_security` (``agi_terms``, its keywords except
+    ``half_se_ded``) without any rental Schedule E amount, without taxable Social Security
+    and without the deduction for half of self-employment tax, plus the year's realized
+    capital gains the engine keeps outside ``agi`` (``capital_gains``: a home or rental
+    sale gain).
+
+    Called twice a year with the same terms: once before the Roth conversion is sized
+    (``roth_conv=0``) and once in the final tax step with the actual conversion, so the
+    two MAGIs differ by the conversion only (design section 4, "Roth conversion
+    interaction"). Rental net income is not added: the allowance only matters for a net
+    passive loss, and the passive-income offset is applied separately (Form 8582 lines 1-4).
+    """
+    return agi_income_before_social_security(c, half_se_ded=0.0, **agi_terms) + capital_gains
+
+
 class RothConversionResult(NamedTuple):
     """Everything Stage 8 (Roth Conversions, plus the DAF in-kind gift that
     the legacy engine runs immediately after it -- see this module's
@@ -518,11 +567,13 @@ def apply_agi_and_tax(
     ws_taxable = wife_single_ann * c['wife_single'].get('exclusion_ratio', 1.0)
     hs_taxable = h_single_ann * c['h_single'].get('exclusion_ratio', 1.0)
     ss_total = h_ss + w_ss
-    non_ss_income = (net_earned_taxable - half_se_ded - sehi_ded + rmd_taxable_total + roth_conv +
-                     pension + ws_taxable + wife_joint_ann +
-                     hs_taxable + h_joint_ann + note_int_yr +
-                     portfolio_ordinary + portfolio_qualified +
-                     equity_events['ordinary_income'] + di_taxable)
+    non_ss_income = agi_income_before_social_security(
+        c, net_earned_taxable=net_earned_taxable, half_se_ded=half_se_ded, sehi_ded=sehi_ded,
+        rmd_taxable_total=rmd_taxable_total, roth_conv=roth_conv, pension=pension,
+        wife_single_ann=wife_single_ann, wife_joint_ann=wife_joint_ann,
+        h_single_ann=h_single_ann, h_joint_ann=h_joint_ann, note_int_yr=note_int_yr,
+        portfolio_ordinary=portfolio_ordinary, portfolio_qualified=portfolio_qualified,
+        equity_ordinary_income=equity_events['ordinary_income'], di_taxable=di_taxable)
     provisional_other_income = non_ss_income + portfolio_tax_exempt
     ss_taxable = social_security_taxable_amount(ss_total, provisional_other_income, filing)
     row['ss_taxable'] = ss_taxable
@@ -637,8 +688,15 @@ def apply_agi_and_tax(
     il_tax_est = agi * (_state_rules.get('rate', 0.0495) if _sro is None else _sro)
     configured_prop_tax_yr = float(row.get('real_estate_tax_yr', 0.0) or 0.0)
     estimated_prop_tax_yr = (home_val * _state_rules.get('prop_rate', 0.0)) if home_val > 0 else 0.0
-    prop_tax_yr = configured_prop_tax_yr if configured_prop_tax_yr > 0 else estimated_prop_tax_yr
     mort_interest_yr = float((c.get('mort_interest_schedule') or {}).get(year, 0.0) or 0.0)
+    # WP12.3: a home converted to a rental deducts its mortgage interest and
+    # real-estate tax on Schedule E for the rented share of the year
+    # (row['real_estate_tax_yr'] already excludes it), not on Schedule A.
+    _converted_share = float(row.get('converted_home_share', 0.0) or 0.0)
+    if _converted_share > 0:
+        estimated_prop_tax_yr *= 1.0 - _converted_share
+        mort_interest_yr *= 1.0 - _converted_share
+    prop_tax_yr = configured_prop_tax_yr if configured_prop_tax_yr > 0 else estimated_prop_tax_yr
     salt_gross = il_tax_est + prop_tax_yr
     salt = min(salt_gross, salt_cap(year, agi, filing))
     # Item 4.1: QCD dollars already left AGI above (never a deduction);

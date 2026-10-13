@@ -68,6 +68,8 @@ from ..equity_comp import equity_comp_year_events as _equity_comp_year_events
 from ..core import state_for_year
 from ..core import qlac_premium_limit
 from ..module_catalog import module_enabled
+from . import rental_property as _rental
+from .roth_conversion_and_agi_tax import rental_passive_magi as _rental_passive_magi
 
 # withdrawal_engine/conversion_engine/inheritance_engine/growth_engine were
 # consolidated into planning_engines.py itself; call sites below use
@@ -503,11 +505,14 @@ def run_deterministic_projection_stage(c):
         factor = _bracket_factor_for_year(year_eff)
         return [(lo * factor, hi * factor if hi != float('inf') else float('inf'), rate) for lo, hi, rate in brackets]
 
-    def _compute_fed_tax_path(taxable, year, filing, brk_inf_unused=None):
+    def _fed_brackets_path(year, filing):
         brk = FEDERAL_BRACKETS_BASE_YEAR.get(filing, FEDERAL_BRACKETS_BASE_YEAR['Single'])
         brk = _inflate_brackets_path(brk, None, int(year) - int(c.get('plan_start', year)))
         # Tax-law stress (src/tax_assumptions.py): rates only, tax owed only.
-        brk = _ta_stressed_brackets(brk, year, c.get('law_scenario'))
+        return _ta_stressed_brackets(brk, year, c.get('law_scenario'))
+
+    def _compute_fed_tax_path(taxable, year, filing, brk_inf_unused=None):
+        brk = _fed_brackets_path(year, filing)
         tax = 0.0
         taxable = max(0.0, float(taxable or 0.0))
         for lo, hi, rate in brk:
@@ -677,6 +682,9 @@ def run_deterministic_projection_stage(c):
     # its sheet was built from a projection that excluded its own subject.
     _equity_on = module_enabled(c, 'equity_compensation') and bool(c.get('equity_comp'))
     _disability_on = module_enabled(c, 'disability_income_insurance')
+    # WP12.2: Rental Properties. None when the feature is off or no property is
+    # entered; every rental step below is skipped then, so nothing moves.
+    _rental_book = _rental.rental_book_for(c)
     amt_credit_carry = 0.0  # ISO minimum-tax credit carried across years
     # Item 3.5 (F6): running state for the adoptable spending guardrail
     # policy (fixed_real/guyton_klinger/floor_ceiling_band), carried across
@@ -795,6 +803,13 @@ def run_deterministic_projection_stage(c):
         # here -- same caveat as the appreciation/divorce/QLAC stage above.
         _sec121_survivor_window = _surviving_spouse_sec121_window(
             c, year=year, first_death_yr=_first_death_home_yr)
+        # WP12.3: a home converted to a rental is sold with the converted-home
+        # rules (recapture, dual basis, two-of-five test); None otherwise.
+        _home_val_before_sale = home_val
+        _converted_home_terms = (
+            _rental_book.converted_home_sale_terms(year, filing)
+            if _rental_book is not None and home_val > 0
+            and year in (int(c.get('home_sale_yr') or 0), _second_death_yr) else None)
         _stage4 = _apply_home_sale(
             c,
             row,
@@ -807,7 +822,10 @@ def run_deterministic_projection_stage(c):
             emit=emit,
             adjusted_basis=_home_basis_adjusted,
             surviving_spouse_window=_sec121_survivor_window,
+            converted_home=_converted_home_terms,
         )
+        if _rental_book is not None and _home_val_before_sale > 0 and _stage4.home_val <= 0:
+            _rental_book.record_home_sale(year, _stage4.economics)
         home_val = _stage4.home_val
         home_equity = _stage4.home_equity
         mort_bal_yr = _stage4.mort_bal_yr
@@ -920,6 +938,7 @@ def run_deterministic_projection_stage(c):
             ss_spousal_excess_factor=_ss_spousal_excess_factor,
             ss_survivor_reduction_factor=_ss_survivor_reduction_factor,
             ss_funding_factor=_ss_funding_factor,
+            rental_book=_rental_book,
         )
         earned_base = _stage5.earned_base
         net_earned_taxable = _stage5.net_earned_taxable
@@ -938,6 +957,11 @@ def run_deterministic_projection_stage(c):
         _equity_events = _stage5.equity_events
         _di_taxable = _stage5.di_taxable
         _di_cash = _stage5.di_cash
+        _rental_year = _stage5.rental_year
+        if _rental_year is not None:
+            # Sale proceeds go to the taxable account like a home sale's; the
+            # operating cash (and any underwater sale) reaches the gap below.
+            _rental_deposited = _rental.deposit_sale_proceeds(c, row, bal, bal_basis_free, _rental_year)
         if earned_base > 0:
             emit(EvIncome(year, 'earned', earned_base, c['entity']))
 
@@ -963,7 +987,18 @@ def run_deterministic_projection_stage(c):
             medicare_month_fraction=_medicare_month_fraction,
             taxable_portfolio_income_for_year=_taxable_portfolio_income_for_year,
             emit=emit,
+            converted_home_share=(_rental_book.converted_home_share(year)
+                                  if _rental_book is not None else 0.0),
         )
+        if _rental_year is not None:
+            # WP12.3: the converted home's carrying costs the spending stage
+            # moved out of spending join its Schedule E and cash flow.
+            _conv_costs = _spending_rmd.converted_home_costs
+            if _conv_costs:
+                _rental_year = _rental_book.with_carrying_costs(
+                    _rental_year, _conv_costs,
+                    float((c.get('mort_interest_schedule') or {}).get(year, 0.0) or 0.0) * _conv_costs['share'])
+            _rental.write_flow_fields(row, _rental_year, _rental_deposited)
         # Multi-year state: must be reassigned here, not just read, so next
         # year's call sees this year's update (same reasoning as Stage 3's
         # cst_balance/startup -- see Stage3Result's docstring).
@@ -1017,6 +1052,27 @@ def run_deterministic_projection_stage(c):
         daf_is_inkind = _spending_rmd.daf_is_inkind
         daf_grant_yr = _spending_rmd.daf_grant_yr
 
+        # ── Rental passive-loss limit, conversion-sizing preview (WP12.2) ───
+        # Design 2026-10-05 section 4: the conversion is sized with the rental
+        # allowance at the MAGI before the conversion; the final step below
+        # uses the actual MAGI and logs the (bounded) difference.
+        if _rental_year is not None:
+            _rental_magi_terms = dict(
+                net_earned_taxable=net_earned_taxable, sehi_ded=sehi_ded,
+                rmd_taxable_total=rmd_taxable_total, pension=pension,
+                wife_single_ann=wife_single_ann, wife_joint_ann=wife_joint_ann,
+                h_single_ann=h_single_ann, h_joint_ann=h_joint_ann, note_int_yr=note_int_yr,
+                portfolio_ordinary=portfolio_ordinary, portfolio_qualified=portfolio_qualified,
+                equity_ordinary_income=_equity_events['ordinary_income'], di_taxable=_di_taxable,
+                capital_gains=(float(row.get('_home_sale_taxable_gain_pending', 0.0) or 0.0)
+                               + _rental_year.total('unrecaptured_1250_gain')
+                               + _rental_year.total('capital_gain')))
+            _rental_sizing_magi = _rental_passive_magi(c, roth_conv=0.0, **_rental_magi_terms)
+            _rental_sizing = _rental_book.passive_result(_rental_year, _rental_sizing_magi, filing)
+            _conv_portfolio_ordinary = portfolio_ordinary + _rental.ordinary_income(_rental_year, _rental_sizing)
+        else:
+            _conv_portfolio_ordinary = portfolio_ordinary
+
         # ── Roth Conversions (design doc Stage 8, extracted) ────────────────
         # See roth_conversion_and_agi_tax.py's apply_roth_conversion_stage
         # docstring for why the DAF in-kind gift is bundled into the same
@@ -1032,7 +1088,7 @@ def run_deterministic_projection_stage(c):
             h_single_ann=h_single_ann, h_joint_ann=h_joint_ann,
             note_int_yr=note_int_yr, note_princ_yr=note_princ_yr,
             total_spend_need=total_spend_need, spend=spend,
-            portfolio_ordinary=portfolio_ordinary, portfolio_qualified=portfolio_qualified,
+            portfolio_ordinary=_conv_portfolio_ordinary, portfolio_qualified=portfolio_qualified,
             portfolio_tax_exempt=portfolio_tax_exempt, bridge_people=bridge_people,
             daf_is_inkind=daf_is_inkind, daf_gift_requested=daf_gift_requested,
             daf_contrib_yr=daf_contrib_yr,
@@ -1041,6 +1097,18 @@ def run_deterministic_projection_stage(c):
         )
         roth_conv = _stage8.roth_conv
         daf_contrib_yr = _stage8.daf_contrib_yr
+
+        # ── Rental passive-loss limit, final (WP12.2) ───────────────────────
+        # Actual MAGI (with the conversion); commits the suspended-loss
+        # carryforward. The allowed Schedule E amount, the unrecaptured 1250
+        # gain and a 1231 sale loss are ordinary income of the investment kind
+        # (AGI, state, NII), so they ride on portfolio_ordinary from here on;
+        # the spending stage's own row['portfolio_ordinary_income'] is unchanged.
+        if _rental_year is not None:
+            _rental_magi = _rental_passive_magi(c, roth_conv=roth_conv, **_rental_magi_terms)
+            _rental_passive = _rental_book.settle_passive(_rental_year, _rental_magi, filing)
+            portfolio_ordinary = portfolio_ordinary + _rental.ordinary_income(_rental_year, _rental_passive)
+            _rental.write_passive_fields(row, _rental_passive, _rental_magi, _rental_sizing, _rental_sizing_magi)
 
         # ── AGI / Tax (design doc Stage 9, extracted) ────────────────────────
         # See roth_conversion_and_agi_tax.py's apply_agi_and_tax docstring:
@@ -1123,6 +1191,34 @@ def run_deterministic_projection_stage(c):
         gross_income = _stage9.gross_income
         net_income = _stage9.net_income
 
+        # ── Rental sale tax (WP12.2) ─────────────────────────────────────────
+        # The long-term part of a rental sale gain joins the home-sale gain in
+        # the LTCG channel the cascade's LTCG/NIIT fixed point starts from. Two
+        # fixed adjustments go into every later total_tax_pre_niit
+        # recombination as other_fixed_tax: the 25% cap on unrecaptured 1250
+        # gain (already in ordinary income above; trued up after Priority 4b)
+        # and state tax on the long-term part (the design taxes all of the gain
+        # as ordinary for state purposes).
+        _rental_fixed_tax = 0.0
+        if _rental_year is not None:
+            _rental_tax = _rental.apply_sale_tax(
+                c, row, _rental_year, _rental_book, year=year, filing=filing,
+                taxable_inc=taxable_inc, home_sale_ltcg_gain=home_sale_ltcg_gain,
+                home_sale_ltcg_tax=home_sale_ltcg_tax,
+                fed_brackets=_fed_brackets_path(year, filing), compute_fed_tax_fn=_compute_fed_tax_path,
+                state_tax=state_tax, state_tax_fn=lambda investment_inc: state_income_tax(
+                    state_for_year(c, year), earned_net, retirement_dist, ss_taxable, investment_inc,
+                    nonqual_ann, roth_conv, year, h_over_65, filing=filing, brk_inf=c['brk_inf'],
+                    rate_override=c.get('state_rate_override')),
+                investment_inc=note_int_yr + portfolio_ordinary + portfolio_qualified)
+            home_sale_ltcg_gain = _rental_tax.ltcg_gain
+            total_tax += _rental_tax.ltcg_tax - home_sale_ltcg_tax + _rental_tax.fixed_adjustment
+            home_sale_ltcg_tax = _rental_tax.ltcg_tax
+            total_tax_pre_niit += _rental_tax.fixed_adjustment
+            _rental_fixed_tax = _rental_tax.fixed_adjustment
+            row['total_tax'] = total_tax
+            row['net_income'] = row['gross_income'] - total_tax
+
         # ── Apply Trust portfolio growth BEFORE withdrawal cascade ────────────
         # (Trust growth is now applied at end-of-year with all other accounts below)
 
@@ -1140,6 +1236,7 @@ def run_deterministic_projection_stage(c):
             other_cash_need_yr=other_cash_need_yr, rec_extra=rec_extra, lump_yr=lump_yr,
             heloc_draw_yr=heloc_draw_yr, heloc_interest_yr=heloc_interest_yr,
             heloc_repayment_principal_yr=heloc_repayment_principal_yr,
+            rental_cash=None if _rental_year is None else _rental.net_cash_flow(_rental_year),
         )
 
         # ── Withdrawal Cascade — order matches client_data.csv Withdrawal Policy ──
@@ -1178,6 +1275,7 @@ def run_deterministic_projection_stage(c):
             total_tax_pre_niit=total_tax_pre_niit, total_tax=total_tax, gap=gap,
             total_spend_need=total_spend_need, other_cash_need_yr=other_cash_need_yr,
             brk_inf=c['brk_inf'], compute_fed_tax_fn=_compute_fed_tax_path,
+            other_fixed_tax=_rental_fixed_tax,
         )
         gap = _hsa_reimb.gap
         fed_tax = _hsa_reimb.fed_tax
@@ -1200,6 +1298,7 @@ def run_deterministic_projection_stage(c):
             nonqual_ann=nonqual_ann, roth_conv=roth_conv, h_over_65=h_over_65,
             brk_inf=c['brk_inf'], inflate_brackets_fn=_inflate_brackets_path,
             ira_elective_tax_delta_fn=_ira_elective_ordinary_tax_delta,
+            other_fixed_tax=_rental_fixed_tax,
         )
         gap = _priority3.gap
         agi = _priority3.agi
@@ -1288,6 +1387,7 @@ def run_deterministic_projection_stage(c):
             ira_taxable_inc_orig=_ira_taxable_inc_orig, ira_retirement_dist_orig=_ira_retirement_dist_orig,
             brk_inf=c['brk_inf'], inflate_brackets_fn=_inflate_brackets_path,
             ira_elective_tax_delta_fn=_ira_elective_ordinary_tax_delta,
+            other_fixed_tax=_rental_fixed_tax,
         )
         gap = _priority4b.gap
         agi = _priority4b.agi
@@ -1302,6 +1402,18 @@ def run_deterministic_projection_stage(c):
         w_ira_elective = _priority4b.w_ira_elective
         pretax_by_account = _priority4b.pretax_by_account
         ira_tax_true_up_iterations = _priority4b.ira_tax_true_up_iterations
+        if _rental_year is not None:
+            # The elective draws above sit under the unrecaptured 1250 gain in
+            # the stack, so re-cap it at the converged taxable income.
+            _cap_delta = _rental.true_up_1250_cap(
+                row, _rental_year, _rental_book, year=year, filing=filing, taxable_inc=taxable_inc,
+                fed_brackets=_fed_brackets_path(year, filing), compute_fed_tax_fn=_compute_fed_tax_path)
+            if _cap_delta:
+                total_tax_pre_niit += _cap_delta
+                total_tax += _cap_delta
+                gap += _cap_delta
+                row['total_tax'] = total_tax
+                row['total_cash_need'] = total_spend_need + total_tax + other_cash_need_yr
 
         # ── DAF carryforward make-up (design doc Stage 10, sub-stage #8) ─────
         # `agi` above is a first-pass estimate computed before the elective-
@@ -1437,6 +1549,8 @@ def run_deterministic_projection_stage(c):
             note_bal=note_bal,
             cst_balance=cst_balance,
             mort_bal_yr=mort_bal_yr,
+            rental_equity=row.get('rental_equity'),
+            rental_mortgage_balance=float(row.get('rental_mortgage_balance', 0.0) or 0.0),
         )
         rows.append(row)
     return rows

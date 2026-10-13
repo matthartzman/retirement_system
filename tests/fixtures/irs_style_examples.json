@@ -50,5 +50,898 @@
       "expected_rmd": 100000,
       "source_note": "IRS Pub. 590-B Uniform Lifetime Table age 115 divisor."
     }
-  ]
+  ],
+  "rental_property_examples": {
+    "depreciation_table": [
+      {
+        "id": "R01",
+        "name": "Table A-6 first-year percentages by month",
+        "placed_month": 1,
+        "recovery_year": 1,
+        "expected_pct": 3.485,
+        "source_note": "IRS Pub. 946 Table A-6 (residential rental property, mid-month convention, straight line, 27.5 years): recovery year 1 row."
+      },
+      {
+        "id": "R01",
+        "name": "Table A-6 first-year percentages by month",
+        "placed_month": 2,
+        "recovery_year": 1,
+        "expected_pct": 3.182,
+        "source_note": "IRS Pub. 946 Table A-6 (residential rental property, mid-month convention, straight line, 27.5 years): recovery year 1 row."
+      },
+      {
+        "id": "R01",
+        "name": "Table A-6 first-year percentages by month",
+        "placed_month": 3,
+        "recovery_year": 1,
+        "expected_pct": 2.879,
+        "source_note": "IRS Pub. 946 Table A-6 (residential rental property, mid-month convention, straight line, 27.5 years): recovery year 1 row."
+      },
+      {
+        "id": "R01",
+        "name": "Table A-6 first-year percentages by month",
+        "placed_month": 4,
+        "recovery_year": 1,
+        "expected_pct": 2.576,
+        "source_note": "IRS Pub. 946 Table A-6 (residential rental property, mid-month convention, straight line, 27.5 years): recovery year 1 row."
+      },
+      {
+        "id": "R01",
+        "name": "Table A-6 first-year percentages by month",
+        "placed_month": 5,
+        "recovery_year": 1,
+        "expected_pct": 2.273,
+        "source_note": "IRS Pub. 946 Table A-6 (residential rental property, mid-month convention, straight line, 27.5 years): recovery year 1 row."
+      },
+      {
+        "id": "R01",
+        "name": "Table A-6 first-year percentages by month",
+        "placed_month": 6,
+        "recovery_year": 1,
+        "expected_pct": 1.97,
+        "source_note": "IRS Pub. 946 Table A-6 (residential rental property, mid-month convention, straight line, 27.5 years): recovery year 1 row."
+      },
+      {
+        "id": "R01",
+        "name": "Table A-6 first-year percentages by month",
+        "placed_month": 7,
+        "recovery_year": 1,
+        "expected_pct": 1.667,
+        "source_note": "IRS Pub. 946 Table A-6 (residential rental property, mid-month convention, straight line, 27.5 years): recovery year 1 row."
+      },
+      {
+        "id": "R01",
+        "name": "Table A-6 first-year percentages by month",
+        "placed_month": 8,
+        "recovery_year": 1,
+        "expected_pct": 1.364,
+        "source_note": "IRS Pub. 946 Table A-6 (residential rental property, mid-month convention, straight line, 27.5 years): recovery year 1 row."
+      },
+      {
+        "id": "R01",
+        "name": "Table A-6 first-year percentages by month",
+        "placed_month": 9,
+        "recovery_year": 1,
+        "expected_pct": 1.061,
+        "source_note": "IRS Pub. 946 Table A-6 (residential rental property, mid-month convention, straight line, 27.5 years): recovery year 1 row."
+      },
+      {
+        "id": "R01",
+        "name": "Table A-6 first-year percentages by month",
+        "placed_month": 10,
+        "recovery_year": 1,
+        "expected_pct": 0.758,
+        "source_note": "IRS Pub. 946 Table A-6 (residential rental property, mid-month convention, straight line, 27.5 years): recovery year 1 row."
+      },
+      {
+        "id": "R01",
+        "name": "Table A-6 first-year percentages by month",
+        "placed_month": 11,
+        "recovery_year": 1,
+        "expected_pct": 0.455,
+        "source_note": "IRS Pub. 946 Table A-6 (residential rental property, mid-month convention, straight line, 27.5 years): recovery year 1 row."
+      },
+      {
+        "id": "R01",
+        "name": "Table A-6 first-year percentages by month",
+        "placed_month": 12,
+        "recovery_year": 1,
+        "expected_pct": 0.152,
+        "source_note": "IRS Pub. 946 Table A-6 (residential rental property, mid-month convention, straight line, 27.5 years): recovery year 1 row."
+      },
+      {
+        "id": "R02",
+        "name": "Table A-6 year 2 month 1",
+        "placed_month": 1,
+        "recovery_year": 2,
+        "expected_pct": 3.636,
+        "source_note": "IRS Pub. 946 Table A-6 (residential rental property, mid-month convention, straight line, 27.5 years): later-year rows (3.636 in years 2-9, 3.637/3.636 alternating from year 10, short final year)."
+      },
+      {
+        "id": "R02",
+        "name": "Table A-6 year 9 month 12",
+        "placed_month": 12,
+        "recovery_year": 9,
+        "expected_pct": 3.636,
+        "source_note": "IRS Pub. 946 Table A-6 (residential rental property, mid-month convention, straight line, 27.5 years): later-year rows (3.636 in years 2-9, 3.637/3.636 alternating from year 10, short final year)."
+      },
+      {
+        "id": "R02",
+        "name": "Table A-6 year 10 month 1",
+        "placed_month": 1,
+        "recovery_year": 10,
+        "expected_pct": 3.637,
+        "source_note": "IRS Pub. 946 Table A-6 (residential rental property, mid-month convention, straight line, 27.5 years): later-year rows (3.636 in years 2-9, 3.637/3.636 alternating from year 10, short final year)."
+      },
+      {
+        "id": "R02",
+        "name": "Table A-6 year 10 month 6",
+        "placed_month": 6,
+        "recovery_year": 10,
+        "expected_pct": 3.637,
+        "source_note": "IRS Pub. 946 Table A-6 (residential rental property, mid-month convention, straight line, 27.5 years): later-year rows (3.636 in years 2-9, 3.637/3.636 alternating from year 10, short final year)."
+      },
+      {
+        "id": "R02",
+        "name": "Table A-6 year 10 month 7",
+        "placed_month": 7,
+        "recovery_year": 10,
+        "expected_pct": 3.636,
+        "source_note": "IRS Pub. 946 Table A-6 (residential rental property, mid-month convention, straight line, 27.5 years): later-year rows (3.636 in years 2-9, 3.637/3.636 alternating from year 10, short final year)."
+      },
+      {
+        "id": "R02",
+        "name": "Table A-6 year 10 month 12",
+        "placed_month": 12,
+        "recovery_year": 10,
+        "expected_pct": 3.636,
+        "source_note": "IRS Pub. 946 Table A-6 (residential rental property, mid-month convention, straight line, 27.5 years): later-year rows (3.636 in years 2-9, 3.637/3.636 alternating from year 10, short final year)."
+      },
+      {
+        "id": "R02",
+        "name": "Table A-6 year 11 month 1",
+        "placed_month": 1,
+        "recovery_year": 11,
+        "expected_pct": 3.636,
+        "source_note": "IRS Pub. 946 Table A-6 (residential rental property, mid-month convention, straight line, 27.5 years): later-year rows (3.636 in years 2-9, 3.637/3.636 alternating from year 10, short final year)."
+      },
+      {
+        "id": "R02",
+        "name": "Table A-6 year 11 month 7",
+        "placed_month": 7,
+        "recovery_year": 11,
+        "expected_pct": 3.637,
+        "source_note": "IRS Pub. 946 Table A-6 (residential rental property, mid-month convention, straight line, 27.5 years): later-year rows (3.636 in years 2-9, 3.637/3.636 alternating from year 10, short final year)."
+      },
+      {
+        "id": "R02",
+        "name": "Table A-6 year 28 month 1",
+        "placed_month": 1,
+        "recovery_year": 28,
+        "expected_pct": 1.97,
+        "source_note": "IRS Pub. 946 Table A-6 (residential rental property, mid-month convention, straight line, 27.5 years): later-year rows (3.636 in years 2-9, 3.637/3.636 alternating from year 10, short final year)."
+      },
+      {
+        "id": "R02",
+        "name": "Table A-6 year 28 month 6",
+        "placed_month": 6,
+        "recovery_year": 28,
+        "expected_pct": 3.485,
+        "source_note": "IRS Pub. 946 Table A-6 (residential rental property, mid-month convention, straight line, 27.5 years): later-year rows (3.636 in years 2-9, 3.637/3.636 alternating from year 10, short final year)."
+      },
+      {
+        "id": "R02",
+        "name": "Table A-6 year 28 month 7",
+        "placed_month": 7,
+        "recovery_year": 28,
+        "expected_pct": 3.636,
+        "source_note": "IRS Pub. 946 Table A-6 (residential rental property, mid-month convention, straight line, 27.5 years): later-year rows (3.636 in years 2-9, 3.637/3.636 alternating from year 10, short final year)."
+      },
+      {
+        "id": "R02",
+        "name": "Table A-6 year 28 month 12",
+        "placed_month": 12,
+        "recovery_year": 28,
+        "expected_pct": 3.636,
+        "source_note": "IRS Pub. 946 Table A-6 (residential rental property, mid-month convention, straight line, 27.5 years): later-year rows (3.636 in years 2-9, 3.637/3.636 alternating from year 10, short final year)."
+      },
+      {
+        "id": "R02",
+        "name": "Table A-6 year 29 month 7",
+        "placed_month": 7,
+        "recovery_year": 29,
+        "expected_pct": 0.152,
+        "source_note": "IRS Pub. 946 Table A-6 (residential rental property, mid-month convention, straight line, 27.5 years): later-year rows (3.636 in years 2-9, 3.637/3.636 alternating from year 10, short final year)."
+      },
+      {
+        "id": "R02",
+        "name": "Table A-6 year 29 month 12",
+        "placed_month": 12,
+        "recovery_year": 29,
+        "expected_pct": 1.667,
+        "source_note": "IRS Pub. 946 Table A-6 (residential rental property, mid-month convention, straight line, 27.5 years): later-year rows (3.636 in years 2-9, 3.637/3.636 alternating from year 10, short final year)."
+      }
+    ],
+    "depreciation_dollars": [
+      {
+        "id": "R03",
+        "name": "Building placed in service June 2026, first year",
+        "basis": 288000,
+        "placed_year": 2026,
+        "placed_month": 6,
+        "tax_year": 2026,
+        "disposed_month": null,
+        "expected": 5673.6,
+        "source_note": "IRS Pub. 946 Table A-6 (residential rental property, mid-month convention, straight line, 27.5 years): 288,000 x 1.970%."
+      },
+      {
+        "id": "R03",
+        "name": "Building placed in service June 2026, second year",
+        "basis": 288000,
+        "placed_year": 2026,
+        "placed_month": 6,
+        "tax_year": 2027,
+        "disposed_month": null,
+        "expected": 10471.68,
+        "source_note": "IRS Pub. 946 Table A-6 (residential rental property, mid-month convention, straight line, 27.5 years): 288,000 x 3.636%."
+      },
+      {
+        "id": "R04",
+        "name": "Roof improvement placed in service October 2028, first year",
+        "basis": 27500,
+        "placed_year": 2028,
+        "placed_month": 10,
+        "tax_year": 2028,
+        "disposed_month": null,
+        "expected": 208.45,
+        "source_note": "IRS Pub. 527 ch. 4 (improvements are depreciated as separate property from when placed in service) and IRS Pub. 946 Table A-6 (residential rental property, mid-month convention, straight line, 27.5 years): 27,500 x 0.758%."
+      },
+      {
+        "id": "R05",
+        "name": "Building sold March 2031 (recovery year 6), sale-year depreciation",
+        "basis": 288000,
+        "placed_year": 2026,
+        "placed_month": 6,
+        "tax_year": 2031,
+        "disposed_month": 3,
+        "expected": 2181.6,
+        "source_note": "IRS Pub. 946 ch. 4 'Dispositions' with the mid-month convention: full-year 288,000 x 3.636% x 2.5/12."
+      },
+      {
+        "id": "R06",
+        "name": "Placed January 2026: final recovery year 2053",
+        "basis": 100000,
+        "placed_year": 2026,
+        "placed_month": 1,
+        "tax_year": 2053,
+        "disposed_month": null,
+        "expected": 1970.0,
+        "source_note": "IRS Pub. 946 Table A-6 (residential rental property, mid-month convention, straight line, 27.5 years): month 1, year 28 = 1.970%."
+      },
+      {
+        "id": "R06",
+        "name": "Placed January 2026: fully recovered by 2054",
+        "basis": 100000,
+        "placed_year": 2026,
+        "placed_month": 1,
+        "tax_year": 2054,
+        "disposed_month": null,
+        "expected": 0.0,
+        "source_note": "IRS Pub. 946 Table A-6 (residential rental property, mid-month convention, straight line, 27.5 years): month 1 has 28 recovery years."
+      }
+    ],
+    "accumulated_depreciation": [
+      {
+        "id": "R05",
+        "name": "Building June 2026 through sale in March 2031",
+        "basis": 288000,
+        "placed_year": 2026,
+        "placed_month": 6,
+        "through_year": 2031,
+        "disposed_month": 3,
+        "expected": 49741.92,
+        "source_note": "IRS Pub. 946 Table A-6 (residential rental property, mid-month convention, straight line, 27.5 years): 288,000 x (1.970% + 4 x 3.636%) + 2,181.60."
+      }
+    ],
+    "schedule_e": [
+      {
+        "id": "R07",
+        "name": "Loss year: rent 30,000, 5% vacancy",
+        "gross_rent": 30000,
+        "vacancy_rate": 0.05,
+        "operating_expenses": 9000,
+        "mortgage_interest": 12000,
+        "depreciation": 10471.68,
+        "expected": -2971.68,
+        "source_note": "IRS Pub. 527 ch. 3-4, Schedule E lines 3-26: rents received less expenses, mortgage interest and depreciation."
+      }
+    ],
+    "basis": [
+      {
+        "id": "R08",
+        "name": "Purchased rental: building basis",
+        "kind": "purchase",
+        "purchase_price": 350000,
+        "closing_costs": 10000,
+        "land_share": 0.2,
+        "expected": 288000,
+        "source_note": "IRS Pub. 527 ch. 4 'Basis of Depreciable Property' and Pub. 551: cost plus settlement costs, land not depreciable."
+      },
+      {
+        "id": "R09",
+        "name": "Converted home: value below adjusted basis",
+        "kind": "converted",
+        "value_at_conversion": 320000,
+        "adjusted_basis_at_conversion": 340000,
+        "land_share": 0.25,
+        "expected": 240000,
+        "source_note": "IRS Pub. 527 ch. 4 'Property Changed to Rental Use'; Treas. Reg. 1.168(i)-4(b): lesser of FMV and adjusted basis, land excluded."
+      },
+      {
+        "id": "R09",
+        "name": "Converted home: adjusted basis below value",
+        "kind": "converted",
+        "value_at_conversion": 450000,
+        "adjusted_basis_at_conversion": 340000,
+        "land_share": 0.25,
+        "expected": 255000,
+        "source_note": "IRS Pub. 527 ch. 4 'Property Changed to Rental Use'; Treas. Reg. 1.168(i)-4(b)."
+      }
+    ],
+    "special_allowance": [
+      {
+        "id": "R10",
+        "name": "MFJ MAGI 90,000",
+        "filing": "MFJ",
+        "mfs_lived_apart_all_year": false,
+        "magi": 90000,
+        "expected": 25000,
+        "source_note": "IRC 469(i); Form 8582 and instructions (Part II special allowance, Worksheets 4-5 allocation); IRS Pub. 925 and Pub. 527 ch. 5: 25,000 less 50% of MAGI over 100,000."
+      },
+      {
+        "id": "R10",
+        "name": "MFJ MAGI 100,000",
+        "filing": "MFJ",
+        "mfs_lived_apart_all_year": false,
+        "magi": 100000,
+        "expected": 25000,
+        "source_note": "IRC 469(i); Form 8582 and instructions (Part II special allowance, Worksheets 4-5 allocation); IRS Pub. 925 and Pub. 527 ch. 5: 25,000 less 50% of MAGI over 100,000."
+      },
+      {
+        "id": "R10",
+        "name": "MFJ MAGI 125,000",
+        "filing": "MFJ",
+        "mfs_lived_apart_all_year": false,
+        "magi": 125000,
+        "expected": 12500,
+        "source_note": "IRC 469(i); Form 8582 and instructions (Part II special allowance, Worksheets 4-5 allocation); IRS Pub. 925 and Pub. 527 ch. 5: 25,000 less 50% of MAGI over 100,000."
+      },
+      {
+        "id": "R10",
+        "name": "MFJ MAGI 130,000",
+        "filing": "MFJ",
+        "mfs_lived_apart_all_year": false,
+        "magi": 130000,
+        "expected": 10000,
+        "source_note": "IRC 469(i); Form 8582 and instructions (Part II special allowance, Worksheets 4-5 allocation); IRS Pub. 925 and Pub. 527 ch. 5: 25,000 less 50% of MAGI over 100,000."
+      },
+      {
+        "id": "R10",
+        "name": "MFJ MAGI 150,000",
+        "filing": "MFJ",
+        "mfs_lived_apart_all_year": false,
+        "magi": 150000,
+        "expected": 0,
+        "source_note": "IRC 469(i); Form 8582 and instructions (Part II special allowance, Worksheets 4-5 allocation); IRS Pub. 925 and Pub. 527 ch. 5: 25,000 less 50% of MAGI over 100,000."
+      },
+      {
+        "id": "R10",
+        "name": "MFJ MAGI 175,000",
+        "filing": "MFJ",
+        "mfs_lived_apart_all_year": false,
+        "magi": 175000,
+        "expected": 0,
+        "source_note": "IRC 469(i); Form 8582 and instructions (Part II special allowance, Worksheets 4-5 allocation); IRS Pub. 925 and Pub. 527 ch. 5: 25,000 less 50% of MAGI over 100,000."
+      },
+      {
+        "id": "R10",
+        "name": "Single MAGI 125,000 (uses the 25,000 / 100,000 rule)",
+        "filing": "Single",
+        "mfs_lived_apart_all_year": false,
+        "magi": 125000,
+        "expected": 12500,
+        "source_note": "IRC 469(i); Form 8582 and instructions (Part II special allowance, Worksheets 4-5 allocation); IRS Pub. 925 and Pub. 527 ch. 5."
+      },
+      {
+        "id": "R11",
+        "name": "MFS lived apart all year, MAGI 50,000",
+        "filing": "MFS",
+        "mfs_lived_apart_all_year": true,
+        "magi": 50000,
+        "expected": 12500,
+        "source_note": "IRC 469(i)(5)(A); Form 8582 line 5-8 MFS amounts: 12,500 less 50% of MAGI over 50,000."
+      },
+      {
+        "id": "R11",
+        "name": "MFS lived apart all year, MAGI 60,000",
+        "filing": "MFS",
+        "mfs_lived_apart_all_year": true,
+        "magi": 60000,
+        "expected": 7500,
+        "source_note": "IRC 469(i)(5)(A)."
+      },
+      {
+        "id": "R11",
+        "name": "MFS lived apart all year, MAGI 75,000",
+        "filing": "MFS",
+        "mfs_lived_apart_all_year": true,
+        "magi": 75000,
+        "expected": 0,
+        "source_note": "IRC 469(i)(5)(A)."
+      },
+      {
+        "id": "R11",
+        "name": "MFS lived with spouse during the year, MAGI 40,000",
+        "filing": "MFS",
+        "mfs_lived_apart_all_year": false,
+        "magi": 40000,
+        "expected": 0,
+        "source_note": "IRC 469(i)(5)(B): no allowance."
+      }
+    ],
+    "passive_loss": [
+      {
+        "id": "R12",
+        "name": "One property, loss 20,000, MFJ MAGI 100,000",
+        "filing": "MFJ",
+        "mfs_lived_apart_all_year": false,
+        "magi": 100000,
+        "other_passive_income": 0,
+        "activities": [
+          {
+            "name": "A",
+            "net_income": -20000
+          }
+        ],
+        "expected": {
+          "A": {
+            "allowed": -20000,
+            "suspended": 0,
+            "released": false
+          }
+        },
+        "expected_net_to_agi": -20000,
+        "source_note": "IRC 469(i); Form 8582 and instructions (Part II special allowance, Worksheets 4-5 allocation); IRS Pub. 925 and Pub. 527 ch. 5."
+      },
+      {
+        "id": "R12",
+        "name": "One property, loss 20,000, MFJ MAGI 125,000",
+        "filing": "MFJ",
+        "mfs_lived_apart_all_year": false,
+        "magi": 125000,
+        "other_passive_income": 0,
+        "activities": [
+          {
+            "name": "A",
+            "net_income": -20000
+          }
+        ],
+        "expected": {
+          "A": {
+            "allowed": -12500,
+            "suspended": 7500,
+            "released": false
+          }
+        },
+        "expected_net_to_agi": -12500,
+        "source_note": "IRC 469(i); Form 8582 and instructions (Part II special allowance, Worksheets 4-5 allocation); IRS Pub. 925 and Pub. 527 ch. 5."
+      },
+      {
+        "id": "R12",
+        "name": "One property, loss 20,000, MFJ MAGI 150,000",
+        "filing": "MFJ",
+        "mfs_lived_apart_all_year": false,
+        "magi": 150000,
+        "other_passive_income": 0,
+        "activities": [
+          {
+            "name": "A",
+            "net_income": -20000
+          }
+        ],
+        "expected": {
+          "A": {
+            "allowed": 0,
+            "suspended": 20000,
+            "released": false
+          }
+        },
+        "expected_net_to_agi": 0,
+        "source_note": "IRC 469(i); Form 8582 and instructions (Part II special allowance, Worksheets 4-5 allocation); IRS Pub. 925 and Pub. 527 ch. 5."
+      },
+      {
+        "id": "R13",
+        "name": "MFS lived apart, MAGI 60,000, loss 20,000",
+        "filing": "MFS",
+        "mfs_lived_apart_all_year": true,
+        "magi": 60000,
+        "other_passive_income": 0,
+        "activities": [
+          {
+            "name": "A",
+            "net_income": -20000
+          }
+        ],
+        "expected": {
+          "A": {
+            "allowed": -7500,
+            "suspended": 12500,
+            "released": false
+          }
+        },
+        "expected_net_to_agi": -7500,
+        "source_note": "IRC 469(i)(5)(A); Form 8582."
+      },
+      {
+        "id": "R13",
+        "name": "MFS lived with spouse, MAGI 40,000, loss 20,000",
+        "filing": "MFS",
+        "mfs_lived_apart_all_year": false,
+        "magi": 40000,
+        "other_passive_income": 0,
+        "activities": [
+          {
+            "name": "A",
+            "net_income": -20000
+          }
+        ],
+        "expected": {
+          "A": {
+            "allowed": 0,
+            "suspended": 20000,
+            "released": false
+          }
+        },
+        "expected_net_to_agi": 0,
+        "source_note": "IRC 469(i)(5)(B); Form 8582."
+      },
+      {
+        "id": "R14",
+        "name": "Loss property offset by another property's income, then the phased allowance",
+        "filing": "MFJ",
+        "mfs_lived_apart_all_year": false,
+        "magi": 130000,
+        "other_passive_income": 0,
+        "activities": [
+          {
+            "name": "A",
+            "net_income": -30000
+          },
+          {
+            "name": "B",
+            "net_income": 10000
+          }
+        ],
+        "expected": {
+          "A": {
+            "allowed": -20000,
+            "suspended": 10000,
+            "released": false
+          },
+          "B": {
+            "allowed": 10000,
+            "suspended": 0,
+            "released": false
+          }
+        },
+        "expected_net_to_agi": -10000,
+        "source_note": "IRC 469(i); Form 8582 and instructions (Part II special allowance, Worksheets 4-5 allocation); IRS Pub. 925 and Pub. 527 ch. 5: line 3 = -20,000; allowance 25,000 - 15,000 = 10,000; losses allowed = 10,000 income + 10,000 allowance."
+      },
+      {
+        "id": "R15",
+        "name": "Carryforward absorbs the property's own later income (MAGI over the phase-out)",
+        "filing": "MFJ",
+        "mfs_lived_apart_all_year": false,
+        "magi": 160000,
+        "other_passive_income": 0,
+        "activities": [
+          {
+            "name": "A",
+            "net_income": 4000,
+            "prior_suspended": 10000
+          }
+        ],
+        "expected": {
+          "A": {
+            "allowed": 0,
+            "suspended": 6000,
+            "released": false
+          }
+        },
+        "expected_net_to_agi": 0,
+        "source_note": "IRC 469(b) carryforward; Form 8582 Worksheet 1 column (c) prior-year unallowed loss."
+      },
+      {
+        "id": "R16",
+        "name": "Full taxable sale releases the suspended loss",
+        "filing": "MFJ",
+        "mfs_lived_apart_all_year": false,
+        "magi": 200000,
+        "other_passive_income": 0,
+        "activities": [
+          {
+            "name": "A",
+            "net_income": -2000,
+            "prior_suspended": 18000,
+            "fully_disposed": true
+          }
+        ],
+        "expected": {
+          "A": {
+            "allowed": -20000,
+            "suspended": 0,
+            "released": true
+          }
+        },
+        "expected_net_to_agi": -20000,
+        "source_note": "IRC 469(g)(1)(A); Pub. 925 'Dispositions'; Form 8582 instructions 'Entire interest disposed of'."
+      },
+      {
+        "id": "R17",
+        "name": "Sale gain is passive income that frees another property's loss",
+        "filing": "MFJ",
+        "mfs_lived_apart_all_year": false,
+        "magi": 200000,
+        "other_passive_income": 0,
+        "activities": [
+          {
+            "name": "A",
+            "net_income": -2000,
+            "prior_suspended": 18000,
+            "fully_disposed": true,
+            "disposition_gain": 50000
+          },
+          {
+            "name": "C",
+            "net_income": -12000
+          }
+        ],
+        "expected": {
+          "A": {
+            "allowed": -20000,
+            "suspended": 0,
+            "released": false
+          },
+          "C": {
+            "allowed": -12000,
+            "suspended": 0,
+            "released": false
+          }
+        },
+        "expected_net_to_agi": -32000,
+        "source_note": "Treas. Reg. 1.469-2T(c)(2) (gain on disposing of a passive activity's property is passive income); Form 8582 line 1a."
+      }
+    ],
+    "sale": [
+      {
+        "id": "R18",
+        "name": "Gain above depreciation: recapture plus LTCG",
+        "sale_price": 500000,
+        "selling_costs": 30000,
+        "cost_basis": 360000,
+        "improvements": 27500,
+        "accumulated_depreciation": 60000,
+        "loss_basis": null,
+        "expected": {
+          "amount_realized": 470000,
+          "adjusted_basis": 327500,
+          "gain": 142500,
+          "unrecaptured_1250_gain": 60000,
+          "capital_gain": 82500,
+          "ordinary_loss": 0
+        },
+        "source_note": "IRC 1001, 1016(a)(2), 1(h)(6); IRS Pub. 544 ch. 3 and Pub. 527 ch. 5; Form 4797 and the Unrecaptured Section 1250 Gain Worksheet (Schedule D instructions)."
+      },
+      {
+        "id": "R19",
+        "name": "Gain below depreciation: all recapture",
+        "sale_price": 380000,
+        "selling_costs": 22800,
+        "cost_basis": 360000,
+        "improvements": 27500,
+        "accumulated_depreciation": 60000,
+        "loss_basis": null,
+        "expected": {
+          "amount_realized": 357200,
+          "adjusted_basis": 327500,
+          "gain": 29700,
+          "unrecaptured_1250_gain": 29700,
+          "capital_gain": 0,
+          "ordinary_loss": 0
+        },
+        "source_note": "IRC 1(h)(6): unrecaptured section 1250 gain is limited to the gain."
+      },
+      {
+        "id": "R20",
+        "name": "Loss: section 1231 ordinary loss",
+        "sale_price": 320000,
+        "selling_costs": 20000,
+        "cost_basis": 360000,
+        "improvements": 27500,
+        "accumulated_depreciation": 60000,
+        "loss_basis": null,
+        "expected": {
+          "amount_realized": 300000,
+          "adjusted_basis": 327500,
+          "gain": -27500,
+          "unrecaptured_1250_gain": 0,
+          "capital_gain": 0,
+          "ordinary_loss": 27500
+        },
+        "source_note": "IRC 1231(a)(2); IRS Pub. 544 ch. 3 (net section 1231 loss is ordinary)."
+      },
+      {
+        "id": "R21",
+        "name": "Converted home sold between its two bases: no gain or loss",
+        "sale_price": 310000,
+        "selling_costs": 0,
+        "cost_basis": 340000,
+        "improvements": 0,
+        "accumulated_depreciation": 20000,
+        "loss_basis": 320000,
+        "expected": {
+          "amount_realized": 310000,
+          "adjusted_basis": 320000,
+          "gain": 0,
+          "unrecaptured_1250_gain": 0,
+          "capital_gain": 0,
+          "ordinary_loss": 0
+        },
+        "source_note": "Treas. Reg. 1.165-9(b)(2); IRS Pub. 551 'Property Changed to Business or Rental Use' (basis for loss is the lesser of FMV and adjusted basis at conversion)."
+      },
+      {
+        "id": "R21",
+        "name": "Converted home sold below the loss basis",
+        "sale_price": 280000,
+        "selling_costs": 0,
+        "cost_basis": 340000,
+        "improvements": 0,
+        "accumulated_depreciation": 20000,
+        "loss_basis": 320000,
+        "expected": {
+          "amount_realized": 280000,
+          "adjusted_basis": 320000,
+          "gain": -20000,
+          "unrecaptured_1250_gain": 0,
+          "capital_gain": 0,
+          "ordinary_loss": 20000
+        },
+        "source_note": "Treas. Reg. 1.165-9(b)(2); IRS Pub. 551."
+      }
+    ],
+    "recapture_tax": [
+      {
+        "id": "R22",
+        "name": "25% cap binds above the 24% bracket (2026 MFJ)",
+        "amount": 60000,
+        "ordinary_taxable_income": 380000,
+        "filing": "MFJ",
+        "year": 2026,
+        "expected": 14764.5,
+        "source_note": "IRC 1(h)(1)(E); Schedule D Tax Worksheet: 23,550 at 24% + 36,450 at 25% (2026 MFJ brackets, Rev. Proc. 2025-32)."
+      },
+      {
+        "id": "R22",
+        "name": "Ordinary rates below the cap (2026 MFJ)",
+        "amount": 20000,
+        "ordinary_taxable_income": 90000,
+        "filing": "MFJ",
+        "year": 2026,
+        "expected": 3320.0,
+        "source_note": "IRC 1(h)(1)(E): 10,800 at 12% + 9,200 at 22% (2026 MFJ brackets, Rev. Proc. 2025-32)."
+      }
+    ],
+    "section_121_test": [
+      {
+        "id": "R23",
+        "name": "Moved out 1 Jan 2024, sold 30 Jun 2026: passes",
+        "owned_from": "2015-01-01",
+        "residence_periods": [
+          [
+            "2015-01-01",
+            "2024-01-01"
+          ]
+        ],
+        "sale_date": "2026-06-30",
+        "expected": true,
+        "source_note": "IRC 121(a); Treas. Reg. 1.121-1(c)(1) (730 days of use in the 5 years before sale); IRS Pub. 523."
+      },
+      {
+        "id": "R23",
+        "name": "Moved out 1 Jan 2024, sold 30 Jun 2027: fails (550 days)",
+        "owned_from": "2015-01-01",
+        "residence_periods": [
+          [
+            "2015-01-01",
+            "2024-01-01"
+          ]
+        ],
+        "sale_date": "2027-06-30",
+        "expected": false,
+        "source_note": "IRC 121(a); IRS Pub. 523."
+      },
+      {
+        "id": "R23",
+        "name": "Boundary: exactly 730 days of use in the window",
+        "owned_from": "2015-01-01",
+        "residence_periods": [
+          [
+            "2015-01-01",
+            "2024-01-01"
+          ]
+        ],
+        "sale_date": "2027-01-01",
+        "expected": true,
+        "source_note": "Treas. Reg. 1.121-1(c)(1)."
+      },
+      {
+        "id": "R23",
+        "name": "Boundary: 729 days of use in the window",
+        "owned_from": "2015-01-01",
+        "residence_periods": [
+          [
+            "2015-01-01",
+            "2024-01-01"
+          ]
+        ],
+        "sale_date": "2027-01-02",
+        "expected": false,
+        "source_note": "Treas. Reg. 1.121-1(c)(1)."
+      }
+    ],
+    "section_121_gain": [
+      {
+        "id": "R24",
+        "name": "MFJ passes: depreciation taxed, rest excluded",
+        "filing": "MFJ",
+        "gain": 300000,
+        "accumulated_depreciation": 25000,
+        "qualifies": true,
+        "expected": {
+          "excluded": 275000,
+          "unrecaptured_1250_gain": 25000,
+          "capital_gain": 0
+        },
+        "source_note": "IRC 121(b)(2) and 121(d)(6); IRS Pub. 523 'Business or rental use of home' (depreciation after May 6, 1997 is not excluded)."
+      },
+      {
+        "id": "R24",
+        "name": "Single passes: exclusion capped at 250,000",
+        "filing": "Single",
+        "gain": 300000,
+        "accumulated_depreciation": 25000,
+        "qualifies": true,
+        "expected": {
+          "excluded": 250000,
+          "unrecaptured_1250_gain": 25000,
+          "capital_gain": 25000
+        },
+        "source_note": "IRC 121(b)(1) and 121(d)(6); IRS Pub. 523."
+      },
+      {
+        "id": "R24",
+        "name": "Fails the two-of-five test: full gain taxable",
+        "filing": "MFJ",
+        "gain": 300000,
+        "accumulated_depreciation": 25000,
+        "qualifies": false,
+        "expected": {
+          "excluded": 0,
+          "unrecaptured_1250_gain": 25000,
+          "capital_gain": 275000
+        },
+        "source_note": "IRC 121(a); IRS Pub. 523."
+      }
+    ]
+  }
 }

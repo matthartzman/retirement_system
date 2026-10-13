@@ -118,6 +118,21 @@ def compute_cashflow_breakdown(row: dict[str, Any]) -> tuple[dict[str, Any], flo
         'surplus': row.get('surplus', 0.0),  # authoritative engine value, not re-derived
         'unfunded_gap': row['unfunded_gap'],
     }
+    # WP12.2: Rental Properties, only when the feature ran this year (its row
+    # fields exist), so a plan without it keeps the exact key set above.
+    # 'rental' is the net operating cash (negative when the rentals cost more
+    # than they bring in), which the engine nets against the gap like any
+    # income stream. 'rental_sale' is the sale's tax outside ordinary income:
+    # its federal LTCG (taken out of 'ltcg', where the engine's LTCG channel
+    # carries it) plus the fixed adjustments (1250 cap, state tax on the
+    # long-term gain) that 'other' would otherwise absorb.
+    if 'rental_net_cash_flow' in row:
+        cashflow_breakdown['income']['rental'] = row['rental_net_cash_flow']
+        rental_ltcg_tax = row.get('rental_sale_ltcg_tax', 0.0)
+        rental_tax_adj = row.get('rental_tax_adjustment', 0.0)
+        cashflow_breakdown['tax']['ltcg'] = ltcg_tax - home_sale_tax - rental_ltcg_tax
+        cashflow_breakdown['tax']['rental_sale'] = rental_ltcg_tax + rental_tax_adj
+        cashflow_breakdown['tax']['other'] = total_tax - tax_named - rental_tax_adj
     gross_cash_flow_yr = (
         sum(cashflow_breakdown['income'].values())
         + sum(cashflow_breakdown['draws'].values())
