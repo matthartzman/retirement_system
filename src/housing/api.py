@@ -34,7 +34,6 @@ from .models import (
     SaleWindow,
 )
 from .optimizer import optimize_housing
-from .rent_out import FEATURE_KEY as RENT_OUT_FEATURE_KEY
 from .zip_screen.schema import (
     ALLOWED_RADII_MILES,
     NSS_DISCLOSURE,
@@ -415,7 +414,7 @@ def optimize_housing_from_request(
     hand-picked-location path.
     """
     try:
-        rent_out_on = feature_enabled(c0, RENT_OUT_FEATURE_KEY)
+        rent_out_on = feature_enabled(c0, 'rental_property_income')
         err = validate_request(body, rent_out_enabled=rent_out_on)
         if err:
             return {'success': False, 'error': err}, 400
