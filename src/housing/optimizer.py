@@ -32,6 +32,7 @@ from .models import (
     MOVE2_STRATEGIES,
     MoveWindow,
     OBJECTIVES,
+    RENT_OUT,
     SEARCH_MODES,
     SaleWindow,
     ScoredCandidate,
@@ -48,6 +49,7 @@ from .candidates import (
 )
 from .constraints import family_presence_ok
 from .plan_variant import _run_engine
+from .rent_out import rent_out_plan
 from .results import format_output, MAX_CANDIDATES
 from .scoring import _lifetime_cost, _pass1_objective, rank_candidates, score_candidate
 from .search import (
@@ -100,6 +102,7 @@ def optimize_housing(
     down_payment_pct: float = 0.20,
     mortgage_rate_pct: float | None = None,
     shortlist_size: int = 5,
+    rent_out_monthly_rent: float | None = None,
 ) -> dict[str, Any]:
     if objective not in OBJECTIVES:
         raise ValueError(f"Unknown objective: {objective!r}")
@@ -116,14 +119,24 @@ def optimize_housing(
     if not locations1:
         raise ValueError("Provide at least one move-1 candidate location.")
 
+    # WP12.8: None while the rental feature is off -- 'rent_out' is then an
+    # unknown disposition and nothing below changes.
+    rent_out = rent_out_plan(c0, rent_out_monthly_rent)
+    can_rent_out = rent_out is not None and rent_out.template is not None
+    known = ('sell', 'keep') + ((RENT_OUT,) if rent_out is not None else ())
     dispositions = tuple(dispositions or ('sell',))
     if 'auto' in dispositions:
-        # 'auto' is a request-level value: generation expands it into both
-        # concrete dispositions and the objective decides (§5.4).
-        dispositions = ('sell', 'keep')
-    unknown = [d for d in dispositions if d not in ('sell', 'keep')]
+        # 'auto' is a request-level value: generation expands it into every
+        # concrete disposition and the objective decides (§5.4). Keep and rent
+        # out joins only when a rent is known (never invented).
+        dispositions = ('sell', 'keep') + ((RENT_OUT,) if can_rent_out else ())
+    unknown = [d for d in dispositions if d not in known]
     if unknown:
         raise ValueError(f"Unknown disposition: {unknown[0]!r}")
+    if RENT_OUT in dispositions and not can_rent_out:
+        raise ValueError(
+            'Keep and rent out needs a monthly rent: type one, or enter it on the '
+            "Rental Properties page's converted home. The plan also needs a home value.")
 
     family_coords = dict(family_coords or {})
     zip_screens = dict(zip_screens or {})
@@ -156,7 +169,7 @@ def optimize_housing(
             rejections['family_presence'] += 1
             return None
         c2, rows = _run_engine(c0, cand, down_payment_pct=down_payment_pct,
-                               mortgage_rate_pct=mortgage_rate_pct)
+                               mortgage_rate_pct=mortgage_rate_pct, rent_out=rent_out)
         if not rows:
             return None
         return score_candidate(c2, cand, rows, via_rental=via_rental)
@@ -279,7 +292,7 @@ def optimize_housing(
     shortlist = combined[:max(3, min(5, shortlist_size))]
     for sc in shortlist:
         c2, rows = _run_engine(c0, sc.candidate, down_payment_pct=down_payment_pct,
-                               mortgage_rate_pct=mortgage_rate_pct)
+                               mortgage_rate_pct=mortgage_rate_pct, rent_out=rent_out)
         mc = _pe.monte_carlo(c2, base_rows=rows)
         sc.mc_success_rate = float(mc.get('success_rate', 0.0) or 0.0)
 
@@ -320,6 +333,7 @@ def optimize_housing(
         home_appr=float(c0.get('home_appr', HOME_APPR_DEFAULT) or HOME_APPR_DEFAULT),
         inflation_general=float(c0.get('inf', INFLATION_GENERAL_DEFAULT) or INFLATION_GENERAL_DEFAULT),
         baseline=baseline,
+        rent_out_monthly_rent=(float(rent_out.template['monthly_rent']) if can_rent_out else None),
     )
 
 
