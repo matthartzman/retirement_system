@@ -51,3 +51,20 @@ def test_corrupt_value_falls_back_to_default():
             ("bad", "{not json", now_utc()),
         )
     assert get_local_setting("bad", "fallback", db_path=p) == "fallback"
+
+
+def test_save_result_snapshot_accepts_mixed_type_dict_keys(tmp_path):
+    """A result with int and str keys in one dict (e.g. year keys) used to raise
+    TypeError from json's sort_keys on every build; content must be unchanged."""
+    import json
+
+    from src import local_store
+
+    db = tmp_path / "local.db"
+    result = {"by_year": {2030: 1, "2031": 2, "total": 3}, "plain": {"b": 1, "a": 2}}
+    rid = local_store.save_result_snapshot(result, [{"k": {1: "x", "y": "z"}}], db_path=db)
+    assert rid
+    # Same text as plain json for a dict that already sorted fine.
+    assert local_store._stable_json({"b": 1, "a": {"d": 2, "c": 3}}) == json.dumps(
+        {"b": 1, "a": {"d": 2, "c": 3}}, sort_keys=True, separators=(",", ":")
+    )
