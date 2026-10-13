@@ -724,7 +724,9 @@ _OUTPUTS: List[OutputModule] = [
         # 2-candidate v0 in place, same sheet, same toggle.
         "housing_trajectory_comparison", "Housing Comparison", OPTIMIZATION, LOW,
         "Sweeps the current-home sale year and both future housing steps (buy vs. rent x year) "
-        "by coordinate descent, ranked on the same LCV basis as the Social Security sweep.",
+        "by coordinate descent, ranked on the same LCV basis as the Social Security sweep. "
+        "It has no Convert entry: to keep your home and rent it out, use Convert my home on "
+        "Rental Properties (or the Next Housing Move search, which can offer rent-out).",
         domain=HOUSING_PROPERTY, tier=ADVANCED,
         optional=True, sheet="38. Housing Comparison", tab="2G. Housing Comparison",
         requires_inputs=(_in("household", "next_housing_steps"), _in("assumptions", "growth")),
