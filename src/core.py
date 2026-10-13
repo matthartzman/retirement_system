@@ -356,7 +356,9 @@ class LotEngine:
         method: 'HIFO' | 'LIFO' | 'FIFO'
         """
         self.lots = lots_by_account
-        self.prices = prices
+        # A copy: the caller's dict is the process-wide price cache, which is cleared and refilled
+        # between runs; a live reference made a run depend on what ran before it (M5).
+        self.prices = dict(prices)
         self.method = method
         self.fallback = fallback_gain_fraction
         self.warnings = []

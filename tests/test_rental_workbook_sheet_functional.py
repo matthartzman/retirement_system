@@ -41,8 +41,8 @@ def test_sheet_has_every_section_and_every_limitation(name):
                     "E. SALE ANALYSIS", "F. METRICS", "G. ASSUMPTIONS AND WARNINGS"):
         assert any(t.startswith(heading) for t in body), heading
     joined = "\n".join(body)
-    # The tax-preparer warning, the defaults and every exclusion are stated in plain words.
-    for phrase in ("tax preparer must verify every constant and the Table A-6 percentages",
+    # The verification note, the defaults and every exclusion are stated in plain words.
+    for phrase in ("Verified by the household's tax preparer on 2026-10-13, against tax year 2025 rules (not 2026)",
                    "placed in July (mid-year)", "assumed to have lived together all year",
                    "Like-kind (section 1031) exchanges", "qualified business income (QBI)", "real-estate-professional status",
                    "short-term rentals", "personal use of a dwelling unit (section 280A)", "Refinancing events",

@@ -150,16 +150,27 @@ class FlatDatasetRepository:
                 out.append(row)
             return out
 
+    @property
+    def header_key(self) -> str:
+        return f"dataset.{self.table}.extra_columns"
+
     def extra_columns(self) -> list[str]:
-        """Names of the extra (unknown) columns used by any row, sorted."""
+        """Names of the extra (unknown) columns used by any row, or kept in the plan meta by a
+        header-only save (M4), sorted."""
         with self._store._read() as con:
             names: set[str] = set()
             for (blob,) in con.execute(f"SELECT extra FROM {self.table}"):
                 names.update(json.loads(blob))
+            r = con.execute("SELECT value FROM plan_meta WHERE key = ?", (self.header_key,)).fetchone()
+            if r:
+                names.update(json.loads(r[0]))
         return sorted(names)
 
-    def replace_all(self, rows: Iterable[Mapping[str, Any]]) -> int:
+    def replace_all(self, rows: Iterable[Mapping[str, Any]], *, header: Iterable[str] | None = None) -> int:
         """Atomically replace the dataset; return the number of rows written.
+
+        ``header`` (the file's column names) keeps its extra columns in the plan meta so a
+        dataset with no rows still has its header (M4).
 
         Values must be text (``None`` is stored as an empty string); columns other than the
         known ones are kept as extra columns. A failure leaves the old rows in place.
@@ -172,6 +183,14 @@ class FlatDatasetRepository:
                 f"INSERT INTO {self.table} (position, {', '.join(map(_q, self.columns))}, extra) VALUES ({marks})",
                 [(i, *vals, json.dumps(extra, ensure_ascii=False, sort_keys=True)) for i, (vals, extra) in enumerate(clean)],
             )
+            kept = sorted({str(c) for c in (header or ()) if c and c not in self.columns})
+            if kept:
+                con.execute(
+                    "INSERT INTO plan_meta (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value",
+                    (self.header_key, json.dumps(kept, ensure_ascii=False)),
+                )
+            else:
+                con.execute("DELETE FROM plan_meta WHERE key = ?", (self.header_key,))
         return len(clean)
 
     def count(self) -> int:

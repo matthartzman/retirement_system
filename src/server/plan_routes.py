@@ -1529,6 +1529,27 @@ def plan_reset_demo():
         return jsonify({"success": False, "error": str(exc)})
 
 
+@app.route("/api/plan/revisions", methods=["GET"])
+def plan_revisions():
+    """Plan revisions, labelled and grouped: ``?group=recovery|history|all`` (default all).
+    ``groups`` lists each group with its count; recovery is collapsed by default."""
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    from ..active_plan import active_plan_store  # noqa: PLC0415
+
+    group = (request.args.get("group") or "all").strip().lower()
+    store = active_plan_store(readonly=True)
+    try:
+        everything = store.list_revisions()
+    finally:
+        store.close()
+    shown = [r for r in everything if group == "all" or r["group"] == group]
+    groups = [{"group": g, "label": lbl, "collapsed": g == "recovery", "count": sum(1 for r in everything if r["group"] == g)}
+              for g, lbl in (("history", "Revisions"), ("recovery", "Recovery copies (kept)"))]
+    return jsonify({"success": True, "revisions": shown, "groups": groups})
+
+
 @app.route("/api/plan/snapshot/compare", methods=["GET", "POST"])
 def plan_snapshot_compare():
     denied = _require("view_dashboard")

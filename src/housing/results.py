@@ -141,6 +141,7 @@ def format_output(
     home_appr: float = HOME_APPR_DEFAULT, inflation_general: float = INFLATION_GENERAL_DEFAULT,
     baseline: dict[str, Any] | None = None,
     rent_out_monthly_rent: float | None = None,
+    comparison_notes: list[str] | None = None,
 ) -> dict[str, Any]:
     """One ranked ``candidates`` list, not a recommendation plus a disjoint
     alternatives list -- v1 duplicated the rank-1 candidate across both and
@@ -182,6 +183,8 @@ def format_output(
         'baseline': baseline,
         'baseline_objective_value': baseline[objective] if baseline else None,
     }
+    if comparison_notes:  # M6: only with the rental feature on and a converted home in the plan
+        payload['comparison_notes'] = list(comparison_notes)
     if message:
         payload['message'] = message
     return payload
