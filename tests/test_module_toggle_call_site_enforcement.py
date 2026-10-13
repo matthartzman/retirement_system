@@ -242,6 +242,13 @@ DECLARED_SITES: dict[tuple[str, str, str], tuple[str, str | None, tuple[str, ...
         "builds no RentalBook and skips every rental step, so the projection "
         "is the same as a plan with no rentals; the entered rows are kept.",
     ),
+    ("src/projection_stages/rental_property.py", "linked_liability_ids",
+     "rental_property_income"): (
+        ENGINE, None, (),
+        "H2: a Liabilities row a rental uses as its loan is skipped by the "
+        "general liability loop only while Rental Properties is on; off, the "
+        "link is ignored and the liability behaves as before.",
+    ),
     ("src/housing/rent_out.py", "rent_out_plan", "rental_property_income"): (
         ENGINE, None, (),
         "WP12.8: Rental Properties. Off, no rent_out plan is built, so the "
