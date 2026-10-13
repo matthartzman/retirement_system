@@ -10,9 +10,9 @@ from typing import Any
 
 from .models import HousingCandidate, ScoredCandidate
 from .constraints import sec121_exclusion_flag
-from .rent_out import converted_after_tax_net_cash, rent_out_notes
+from .rent_out import ESTIMATED_TAX_NOTE, converted_after_tax_net_cash, rent_out_notes
 
-def _lifetime_cost(rows: list[dict[str, Any]]) -> float:
+def _lifetime_cost(rows: list[dict[str, Any]], rent_tax: float | None = None) -> float:
     """Total after-tax housing-attributable cost (§4): ongoing housing cash
     flow (mortgage P&I, RE tax, insurance/HOA/utilities/maintenance, rent --
     already summed by the engine into ``housing_total_yr``) plus each sale's
@@ -35,8 +35,9 @@ def _lifetime_cost(rows: list[dict[str, Any]]) -> float:
     # WP12.8: a home converted to a rental moved its carrying costs out of
     # housing_total_yr; its after-tax rental net cash (rent less those costs
     # and the estimated tax) counts here instead. 0 with no converted home,
-    # so nothing changes off.
-    return total - converted_after_tax_net_cash(rows)
+    # so nothing changes off. ``rent_tax`` (M7): the engine's exact tax delta
+    # for the rental in place of the estimate.
+    return total - converted_after_tax_net_cash(rows, rent_tax)
 
 
 def score_candidate(c: dict[str, Any], cand: HousingCandidate, rows: list[dict[str, Any]],
@@ -82,6 +83,10 @@ def score_candidate(c: dict[str, Any], cand: HousingCandidate, rows: list[dict[s
     if any(sec121_flags):
         notes.append('likely loses §121 exclusion')
     notes.extend(rent_notes)
+    if rent_notes:
+        # M7: Pass 1 scores rent-out with an estimated tax on the rent; the
+        # optimizer swaps in the exact delta (and this label) for the shortlist.
+        notes.append(ESTIMATED_TAX_NOTE)
 
     buys = [m for m in cand.moves if m.action == 'buy' and m.mode != 'concurrent']
     overlapping = [m.acquisition_year for m in buys

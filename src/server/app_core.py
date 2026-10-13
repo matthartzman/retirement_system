@@ -307,7 +307,7 @@ def _make_blank_plan_files() -> dict[str, str]:
     }
     files: dict[str, str] = {}
     for name, blank in blankers.items():
-        files[name] = blank(_plan_datasets.active_dataset_text(_plan_datasets.DATASET_BY_FILE[name]) or "")
+        files[name] = blank(_plan_datasets.active_dataset_text(_plan_datasets.DATASET_BY_FILE[name], keep_header=True) or "")
     return files
 
 
@@ -328,7 +328,7 @@ def _plan_data_path(file_name: str, prefer_existing: bool = True) -> Path:
 def _read_plan_data_file(file_name: str) -> str | None:
     """A flat dataset as its legacy CSV text, read from the plan file's table (``None`` when empty)."""
     name = _normalize_plan_data_file_name(file_name)
-    return _plan_datasets.active_dataset_text(_plan_datasets.DATASET_BY_FILE[name])
+    return _plan_datasets.active_dataset_text(_plan_datasets.DATASET_BY_FILE[name], keep_header=True)
 
 
 def _write_plan_data_file(file_name: str, content: str) -> Path:
