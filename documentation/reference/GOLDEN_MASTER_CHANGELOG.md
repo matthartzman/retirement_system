@@ -1,3 +1,11 @@
+## 2026-10-13 — H1: sale gains in AGI, NIIT MAGI and IRMAA MAGI (no golden value moved)
+
+Reported `agi`, `irmaa_magi_current` and the NIIT MAGI now include the taxable gain of a home or rental sale
+(new row fields `sale_cap_gain_in_agi`, `agi_ordinary`; only present in a sale year). None of the committed
+goldens (frozen sample, demo, full-row snapshot cases, synthetic cases) has a sale, so `tools/golden_compare.py compare`
+is unchanged and nothing was re-recorded. Moved numbers exist only in sale scenarios; listed in
+`H1_BEFORE_AFTER_FIXTURES.txt` and covered by `tests/test_capital_gains_in_agi_functional.py`.
+
 ## 2026-10-03 — Full-row snapshot regenerated: bracket entries in `conv_guardrail_caps` record their rate (no value change)
 
 <!-- fixture-provenance: deterministic_engine_full_row_snapshot_cases.json sha256=3fdb272f8e0f383b523cc6c0771d36ea6577053f000bf01ba83654b7182ddf3a -->

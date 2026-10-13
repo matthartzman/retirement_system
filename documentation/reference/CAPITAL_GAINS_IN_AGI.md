@@ -1,6 +1,6 @@
 # Capital gains from sales in AGI, MAGI and IRMAA MAGI (H1)
 
-Status: **rule proposed, awaiting owner and tax-preparer review** (nothing recorded in the goldens yet).
+Status: **approved 2026-10-13** (scope: home and rental sales only; other AGI-keyed rules stay as they are; sale-year vs lookback confirmed) and implemented. No golden value moved (no sale in any golden).
 Rental constants were verified against 2025 rules by the household's tax preparer on 2026-10-13; this note
 adds no new constants. Companion to `RENTAL_TAX_RULES.md` (section 4, the "excluded" simplification).
 
@@ -74,7 +74,7 @@ optimizer re-sizing conversions and withdrawals once the sale-year MAGI is highe
 After approval the same counts will be produced for the golden workbook sheets and recorded in
 `GOLDEN_MASTER_CHANGELOG`; for the owner's real plan only counts and column names will be reported.
 
-## 5. Decisions needed from the owner and the tax preparer
+## 5. Decisions (answered 2026-10-13: 1 home and rental sales only, 2 stay as they are, 3 confirmed)
 
 1. **Scope.** Proposed: home sales and rental sales (the owner's decision). The same gap exists for LTCG
    realised by selling investments in taxable accounts (the cascade's `ltcg_gain`): that gain is also missing

@@ -73,5 +73,5 @@ Priority order (rental use expected within a year):
 ### Tier 3 status (PR A, draft)
 | ID | Status | Result |
 |---|---|---|
-| H1 | design done, **OWNER CHECKPOINT** (waiting on owner and tax-preparer review) | rule, worked examples and fixture before/after in `documentation/reference/CAPITAL_GAINS_IN_AGI.md`; prototype only, goldens not re-recorded; frozen sample and demo have no sale, so they do not move |
+| H1 | done (checkpoint approved 2026-10-13) | `documentation/reference/CAPITAL_GAINS_IN_AGI.md`; engine change in `deterministic_engine.py`; no golden has a sale so none moved, changelog entry added; test `tests/test_capital_gains_in_agi_functional.py` |
 | H2 to H6 | not started | PR B, after PR A is merged |

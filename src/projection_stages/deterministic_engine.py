@@ -1219,6 +1219,16 @@ def run_deterministic_projection_stage(c):
             row['total_tax'] = total_tax
             row['net_income'] = row['gross_income'] - total_tax
 
+        # H1: the taxable gain of a home or rental sale (after any section 121
+        # exclusion; unrecaptured 1250 gain is already ordinary income above) is part
+        # of AGI, of MAGI for NIIT and of IRMAA MAGI. ``agi`` stays the ordinary
+        # income the bracket maths run on (the gain is taxed separately as LTCG).
+        sale_gain_in_agi = max(0.0, float(home_sale_ltcg_gain or 0.0))
+        if sale_gain_in_agi > 0:
+            irmaa_magi_current += sale_gain_in_agi
+            row['irmaa_magi_current'] = irmaa_magi_current
+            row['sale_cap_gain_in_agi'] = sale_gain_in_agi
+
         # ── Apply Trust portfolio growth BEFORE withdrawal cascade ────────────
         # (Trust growth is now applied at end-of-year with all other accounts below)
 
@@ -1342,7 +1352,7 @@ def run_deterministic_projection_stage(c):
         # WithdrawalCascadeInvestmentTaxResult specifically.)
         _inv_tax = _apply_investment_tax_cascade(
             c, bal, bal_basis_free, row,
-            year=year, gap=gap, agi=agi, taxable_inc=taxable_inc, filing=filing,
+            year=year, gap=gap, agi=agi + sale_gain_in_agi, taxable_inc=taxable_inc, filing=filing,
             total_tax_pre_niit=total_tax_pre_niit, total_spend_need=total_spend_need,
             other_cash_need_yr=other_cash_need_yr,
             home_sale_ltcg_tax=home_sale_ltcg_tax, home_sale_ltcg_gain=home_sale_ltcg_gain,
@@ -1414,6 +1424,11 @@ def run_deterministic_projection_stage(c):
                 gap += _cap_delta
                 row['total_tax'] = total_tax
                 row['total_cash_need'] = total_spend_need + total_tax + other_cash_need_yr
+
+        if sale_gain_in_agi > 0:
+            # Reported AGI = the ordinary-income AGI the brackets ran on + the sale gain.
+            row['agi_ordinary'] = row['agi']
+            row['agi'] = row['agi'] + sale_gain_in_agi
 
         # ── DAF carryforward make-up (design doc Stage 10, sub-stage #8) ─────
         # `agi` above is a first-pass estimate computed before the elective-
