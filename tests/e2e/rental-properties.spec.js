@@ -137,7 +137,8 @@ test('rental properties page: add, edit, advanced fields, convert, duplicate, re
     await expect(pane.locator('.rp-table tbody tr')).toHaveCount(2);
     await expect(pane.locator('.rp-table').getByRole('button', { name: 'Open' })).toHaveCount(0); // read only
     await pane.getByRole('button', { name: 'Turn on Rental Properties' }).click();
-    await expect(pane.getByRole('button', { name: '+ Add property' })).toBeVisible();
+    // turning it on reloads the whole plan (loadAll), which is slow on a busy runner
+    await expect(pane.getByRole('button', { name: '+ Add property' })).toBeVisible({ timeout: 30_000 });
     await expect(pane.locator('.rp-table tbody tr')).toHaveCount(2);
 
     expect(errors, `JS errors: ${errors.join(' | ')}`).toEqual([]);

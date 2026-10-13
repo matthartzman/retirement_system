@@ -553,9 +553,9 @@ DASHBOARD_JS_MAX_LINES = 7_134
 # Reset demo / Save As / Load wording for the plan registry, +83): raised to 37,983.
 # 2026-10-12 (WP10.4: first-launch conversion notice in dashboard_decomp_conversion.js, +37): raised to 38,020.
 # 2026-10-12 (Map-to-category picker on the unmapped warning +~105, txn Debits/Credits/Total +~50): raised to 38,180.
-# 2026-10-13 (WP12.6: Rental Properties page in dashboard_decomp_rental_properties.js, +590 with the
-# nav gate, STEPS/help entries and Plan Features count; dashboard.js stays under its own ceiling): raised to 38,770.
-TOTAL_JS_MAX_LINES = 38_770
+# 2026-10-13 (WP12.6: Rental Properties page in dashboard_decomp_rental_properties.js, +603 with the
+# nav gate, STEPS/help entries and Plan Features count; dashboard.js stays under its own ceiling): raised to 38,783.
+TOTAL_JS_MAX_LINES = 38_783
 
 
 def _line_count(path: Path) -> int:
