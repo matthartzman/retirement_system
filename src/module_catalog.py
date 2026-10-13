@@ -164,20 +164,21 @@ MODE_COMPARISON = "comparison"
 # ─────────────────────────────────────────────────────────────────────────────
 # Input modules (the control/fact surface every Output draws from)
 # ─────────────────────────────────────────────────────────────────────────────
+# "files" names the plan datasets (csv_exchange.DATASETS keys) the module reads, not CSV files.
 INPUT_MODULES: Dict[str, Dict[str, object]] = {
-    "household":       {"label": "Household & timing",     "files": ["client_household.csv"]},
-    "income":          {"label": "Income",                 "files": ["client_income.csv"]},
-    "spending":        {"label": "Spending",               "files": ["client_spending.csv", "client_spending_budget_lines.csv"]},
-    "assets":          {"label": "Assets & liquidity",     "files": ["client_assets.csv"]},
-    "liabilities":     {"label": "Liabilities",            "files": ["client_liabilities.csv"]},
-    "holdings":        {"label": "Holdings & lots",        "files": ["client_holdings.csv", "security_master.csv"]},
-    "planning_levers": {"label": "Planning Levers",        "files": ["client_policy.csv", "target_allocation.csv", "asset_class_optimizer_controls.csv"]},
-    "insurance_estate":{"label": "Insurance & estate",     "files": ["client_insurance_estate.csv"]},
-    "business":        {"label": "Business",               "files": ["client_business.csv"]},
+    "household":       {"label": "Household & timing",     "files": ["plan_rows"]},
+    "income":          {"label": "Income",                 "files": ["plan_rows"]},
+    "spending":        {"label": "Spending",               "files": ["plan_rows", "spending_budget_lines"]},
+    "assets":          {"label": "Assets & liquidity",     "files": ["plan_rows"]},
+    "liabilities":     {"label": "Liabilities",            "files": ["liabilities"]},
+    "holdings":        {"label": "Holdings & lots",        "files": ["holdings", "security_master"]},
+    "planning_levers": {"label": "Planning Levers",        "files": ["plan_rows", "target_allocation"]},
+    "insurance_estate":{"label": "Insurance & estate",     "files": ["plan_rows"]},
+    "business":        {"label": "Business",               "files": ["plan_rows"]},
     "assumptions":     {"label": "Assumptions (economic/tax)", "files": ["reference_data/*", "tax_law_v10.json"]},
-    "pricing":         {"label": "Market pricing",         "files": ["security_master.csv"]},
-    "ytd":             {"label": "YTD actuals",            "files": ["ytd_transactions.csv", "ytd_account_setup.csv"]},
-    "toggles":         {"label": "Module toggles",         "files": ["client_optional_functions.csv"]},
+    "pricing":         {"label": "Market pricing",         "files": ["security_master"]},
+    "ytd":             {"label": "YTD actuals",            "files": ["ytd_transactions", "ytd_account_setup"]},
+    "toggles":         {"label": "Module toggles",         "files": ["plan_rows"]},
 }
 
 ALL_INPUTS: Tuple[str, ...] = tuple(INPUT_MODULES)

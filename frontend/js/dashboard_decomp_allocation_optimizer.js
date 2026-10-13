@@ -963,7 +963,7 @@ export function renderRothMissingNotice() {
     (x) => !present.has(norm(x)),
   );
   if (!missing.length) return "";
-  return `<div class="missing-list"><h3>Roth controls need to be backfilled</h3><p>The page is missing ${missing.length} primary control${missing.length === 1 ? "" : "s"}: ${missing.map(humanLabel).join(", ")}. Reload the current plan or start the app again; v11 now backfills these rows into client_policy.csv without overwriting existing values.</p></div>`;
+  return `<div class="missing-list"><h3>Roth controls need to be backfilled</h3><p>The page is missing ${missing.length} primary control${missing.length === 1 ? "" : "s"}: ${missing.map(humanLabel).join(", ")}. Reload the current plan or start the app again; v11 now backfills these rows into the plan's policy rows without overwriting existing values.</p></div>`;
 }
 
 // ---------------------------------------------------------------------------

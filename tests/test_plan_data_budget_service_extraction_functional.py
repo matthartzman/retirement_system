@@ -29,6 +29,7 @@ def test_workbook_routes_delegate_blank_plan_budget_lines_and_liabilities():
 def test_spending_service_owns_budget_line_contracts(tmp_path):
     from src.server_services.spending_service import SpendingService, SpendingServiceContext
 
+    (tmp_path / "input").mkdir()  # a workspace (plan files are only created inside one)
     written = {}
 
     def read_file(name):
