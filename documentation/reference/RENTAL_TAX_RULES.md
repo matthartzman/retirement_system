@@ -188,7 +188,7 @@ publications. The Table A-6 cells (R01, R02, R06) are the published percentages.
 - First-death step-up: the converted sale uses the stepped-up gain basis; the loss basis is not stepped up.
 - Estate sale after conversion keeps the step-up (no gain) and drops suspended losses (IRC 469(g)(2) would allow part).
 - Shifted carrying costs: mortgage payment, real-estate tax, budget utilities/maintenance/other. Improvement lumps stay personal.
-- Not modelled: owner split, death handling, back to personal use, linking a loan to an existing liability row, sale-proceeds split across accounts.
+- Not modelled: owner split, death handling, back to personal use, sale-proceeds split across accounts. (Loan link to a Liabilities row: built in H2, section 9.)
 
 ## 8. Workbook (12.7)
 New sheet `40. Rental Properties` (section 1 Reports, after Balance Sheet; letter computed per build, `1E` when on), present **only while `rental_property_income` is on**. Sections: A summary by year; B by property and year (collapsible rows); C depreciation schedule; D passive-loss ledger; E sale analysis; F metrics; G assumptions and warnings (this document's sections 4-7 in plain words, constants quoted from the reference data in force). Code: `src/reporting/rental_report_data.py` (figures), `src/reporting/sheets_rental.py` (layout).
@@ -197,3 +197,127 @@ New sheet `40. Rental Properties` (section 1 Reports, after Balance Sheet; lette
 - Estimates (labelled on the sheet): estimated tax effect = Schedule E added to AGI x the year's `effective_marginal_rate` (federal, Social Security inclusion, NIIT; no state); tax on the 1250 gain at a sale = gain x the lesser of that rate and 25%; federal and state tax on the long-term part come from the tax stages. The after-tax hold-to-sale return is an annual IRR (not for a converted home). Years after the last rental activity are not listed.
 - The plan-file revision (`PlanStore.revision()`), the plan state and the build input fingerprint include the rental tables, so editing a rental marks the last build stale; a plan with no rental keeps its old revision.
 
+
+## 9. H2: link a rental to an existing liability (built; owner answered yes to the three questions 2026-10-13)
+
+Status: built. The worked examples below are pinned by `tests/test_rental_loan_link_functional.py`. Rental stays default OFF; with the feature off the link
+is ignored and every number is as today.
+
+### 9.1 Problem
+A rented property's loan can be entered twice: once on the property (`loan_balance`, `loan_rate`,
+`loan_monthly_payment`) and once as a row in Liabilities (`client_liabilities`, type `other`/`heloc`). The
+engine then counts the debt twice in net worth (the property's loan inside rental equity, the liability row in
+`additional_liabilities`) and the payment twice in the cash need. A converted home has the opposite gap: a
+loan on the home that sits in Liabilities (for example a HELOC or a cash-out second loan) keeps being treated
+as personal debt after the conversion, so its interest never reaches Schedule E.
+
+### 9.2 Data model
+One new optional text column on the rental table: `loan_liability_id` (matches `liability_id` in Liabilities).
+Added to `rental_repo` columns, `parsing/rental_properties` (`RentalSpec.loan_liability_id`), the rental
+service field list and the editor. Plan file schema v10 (forward-only `ALTER TABLE rental_properties ADD COLUMN
+loan_liability_id TEXT NOT NULL DEFAULT ''`; blank for every existing row). The CSV exchange template gains the
+column after `notes`. The editor's Loan block lists the Liabilities rows (`liability_options` in the page payload);
+link warnings show with the page warnings and in the row as `rental_loan_link_warnings`.
+
+### 9.3 Rule
+| Case | Behaviour |
+|---|---|
+| Standalone property, link set, liability found, feature on | The liability is the single source of the loan: balance (at `loan_balance_year`, default the liability `start_year` or the plan start), `interest_rate`, `monthly_payment` (or level payment to `payoff_year` when blank). The property's own loan fields are ignored. The rental book amortizes the loan (interest to Schedule E, principal to cash, balance inside rental equity). The liability row is skipped by the general liability loop and by the opening balance sum, so nothing counts twice. |
+| Converted home, link set | Balance and payment stay in the liability loop exactly as today (cash and net worth unchanged: the rental row keeps loan 0, as for the home mortgage). From the conversion date the linked liability's interest is deducted on Schedule E at the same rented share as the home mortgage interest (`converted_home_share`: 0.5 in the conversion year when converted in July, 1.0 after). It joins the passive-loss limit with the rest of Schedule E. |
+| Link set, id not found | Warning on the rental row and in the build notes; the property's own loan fields are used; the liability (if any exists under another id) is untouched. |
+| Two properties link the same liability | First wins; the second gets a warning and uses its own fields. |
+| Link to a `student_loan` row | Rejected with a warning (not a property loan). |
+| Property sold while linked | Payoff is the linked balance at the sale month (reduces net proceeds); the liability is not paid again afterwards. Converted home: payoff of the linked balance from home-sale proceeds is **not** modeled today for any liability; unchanged and listed as a limitation. |
+| Feature off | Link column ignored; liabilities behave as today. |
+
+### 9.4 Worked examples (engine arithmetic: monthly level payment, monthly interest)
+| # | Inputs | Today | With link | Rule |
+|---|---|---|---|---|
+| L1 | Duplex loan 200,000 at 4%, 22 years (payment 1,140.36 a month, 13,684.34 a year), entered on the property **and** as a Liabilities row | Debt counted twice: net worth 200,000 too low at start; cash payments 27,368.68 a year; Schedule E interest year 1 = 7,894.62 | Debt once: balance 200,000, payment 13,684.34, Schedule E interest 7,894.62, principal 5,789.72, end balance 194,210.28 | single source of the loan |
+| L2 | Same loan only in Liabilities, link set on the property, property loan fields blank | Property shows no interest (Schedule E too high by 7,894.62); liability payment in the cash need | Interest 7,894.62 on Schedule E; payment moves from the liability loop into rental cash (cash need unchanged) | link supplies the property loan |
+| L3 | Converted home (July 2027), HELOC liability 100,000 at 7%, interest-only | Interest 7,000 a year stays personal (no deduction) | 2027 Schedule E interest 3,500 (share 0.5); 2028 onward 7,000 (share 1.0); cash and net worth unchanged | Schedule E interest at the rented share |
+| L4 | Link id typo "heloc-1" (liability is "heloc1") | n/a | warning; property's own loan fields used; liability stays personal | not found |
+| L5 | Two rentals both link "mtg-a" | n/a | first uses it; second warns, uses own fields | first wins |
+
+### 9.5 UI mock (rental property editor, Loan block)
+```
+Loan
+  Existing loan   [ None (enter a loan below)            v ]
+                  [ mtg-a  Duplex mortgage   $200,000 4.0% ]
+                  [ heloc1 Home HELOC        $100,000 7.0% ]
+  -- when one is chosen --------------------------------------
+  Balance         $200,000     (from Liabilities, read only)
+  Rate            4.0%         (from Liabilities, read only)
+  Monthly payment $1,140.36    (from Liabilities, read only)
+  Note: "This loan is counted once. It is taken out of the general
+         Liabilities totals while this property uses it."
+  -- when None -----------------------------------------------
+  Balance / Rate / Payment / Term years   (as today, editable)
+Warning strip (only when a link is broken): "Loan 'heloc-1' not found.
+  Using the loan fields on this property."
+```
+Liabilities page: a linked row shows the badge "Used by rental: Duplex" (read only, no delete while linked).
+
+### 9.6 Questions for the owner
+1. Standalone: is "the liability is the source, the property fields are ignored" the right direction? (Alternative: the property wins and the liability row is hidden from totals.)
+2. Converted home: only Schedule E interest moves; do you also want the linked loan's balance shown on the property? (Default: no.)
+3. OK to leave "payoff of other liabilities at home sale" as a stated limitation?
+
+## 10. H3: personal-use reversion (rent, then move back in) (design, OWNER CHECKPOINT: H3)
+
+Status: design and worked examples only. Nothing built. Rental stays default OFF.
+
+### 10.1 Problem
+A converted home today is rented from the conversion date to `rental_end_year`; after that the engine counts **no
+residence use**, so a later sale fails the two-of-five test even when the household moved back in. It also
+treats the whole end year as rented and takes a full year of depreciation. Real moves back in need three
+rules the module skips: the move-back counts as residence for the 121 clock, depreciation stops at the move-back
+date, and rental use that sits *before* the last residence date is **nonqualified use** (IRC 121(b)(5)).
+
+### 10.2 Data model (plan schema v11, forward-only, converted-home rows only)
+| Column | Meaning |
+|---|---|
+| `moves_back_in` | yes/no, default no (today's behaviour, byte-identical). |
+| `reversion_month` | month of `rental_end_year` the household moves back in (default 7, mid-year, as the other months). |
+
+`rental_end_year` + `reversion_month` = the move-back date (1st of the month). Rented months in the end year:
+January to the month before; depreciation runs to that month (mid-month disposal convention, as for a sale).
+From the move-back date the home's carrying costs return to personal spending (the existing rented share, now
+partial in the end year). One rental period per home (a second conversion is out of scope).
+
+### 10.3 Rules
+| Rule | Behaviour |
+|---|---|
+| Section 121 clock | residence periods = `[owned_from, conversion)` and `[move-back, sale)`; passes when residence days in the 5 years before the sale >= 730 and ownership days >= 730 (existing `section_121_two_of_five`). Without `moves_back_in`: only the first period, as today. |
+| Depreciation taken | `accumulated = sum of depreciation through the move-back month`; no depreciation afterwards; it stays in the basis reduction at the later sale and is unrecaptured 1250 gain (IRC 121(d)(6)), never excluded. |
+| Nonqualified use | rental days (conversion to move-back) / ownership days (`owned_from` to sale). Applies only when the household moves back in (rental *after* the last residence date is exempt, 121(b)(5)(C)(ii)(I)); applies only to periods after 2008 (all conversions in the plan are). Allocated to the gain that is left after the 1250 split: `nonqualified gain = (gain - 1250 gain) x ratio` is taxable LTCG; the exclusion applies to the rest. |
+| Passive losses | moving back in is not a disposition: suspended losses stay suspended (they can still offset other passive income) and are released by the later fully taxable sale of the home, as for today's converted-home sale. Open question for the tax preparer, see 10.6. |
+| Sold while rented, or no move-back | exactly as today (no nonqualified use, no residence credit after conversion). |
+| Feature off | ignored. |
+
+### 10.4 Worked examples (MFJ exclusion 500,000; owned and lived in from 1 Jan 2015; converted 1 Jul 2027; depreciable basis 400,000 so depreciation is 6,668 in 2027, 14,544 in 2028 and 7,878 in 2029 to the move-back; 27.5 years, mid-month)
+| # | Inputs | Today | With reversion | Rule |
+|---|---|---|---|---|
+| T1 | Moves back 1 Jul 2029, sold 1 Jul 2031, gain (after depreciation) 400,000 | Residence days 365 in the window, test **fails**: excluded 0; 1250 gain 35,756 (a full year of 2029 depreciation); LTCG 364,244 | Residence 365 + 730 = 1,095 days, **passes**. 1250 gain 29,090. Rest 370,910. Nonqualified ratio 731 / 6,025 = 12.133%, so LTCG 45,001.69. Excluded 325,908.31. | 121(a), (b)(5), (d)(6) |
+| T2 | Same, gain 900,000 | fails: LTCG 864,244, 1250 gain 35,756 | 1250 gain 29,090; rest 870,910; nonqualified 105,665.60; eligible 765,244.40; excluded capped at 500,000; LTCG 370,910.00 | exclusion cap |
+| T3 | Moves back 1 Jul 2029, sold 1 Dec 2029, gain 400,000 | fails | residence 942 + 153 = 1,095 days passes. Ratio 731 / 5,448 = 13.418%. LTCG 49,767.84, excluded 321,142.16, 1250 gain 29,090 | same |
+| T4 | Sold 1 Jul 2029 while still rented (no move-back) | as today | as today (rental after the last residence date is not nonqualified use) | 121(b)(5)(C)(ii)(I) |
+| T5 | `moves_back_in` = no | as today | as today, byte-identical | default |
+
+### 10.5 UI mock (converted-home row, Basics tab; the estimate sits on the Sale tab)
+```
+Rental period
+  Rental end     [ 2029 - 07 ]            Move back in on that date  [ Yes v ]
+  Hint: "Moving back in starts a new residence period for the 2-of-5-year test,
+         stops depreciation, and makes the rental months nonqualified use."
+Sale tab, "Section 121 estimate (home sale year 2031)"   (read only, estimate)
+  Residence days in the last 5 years   1,095 of 730 needed   passes
+  Depreciation taken (recaptured)      $29,090
+  Nonqualified use                     12.1% of 6,025 ownership days
+  Taxable part of the gain             $45,002 LTCG + $29,090 recapture
+  Excluded                             $325,908
+```
+
+### 10.6 Questions
+1. Owner: default `reversion_month` 7 and the one-rental-period limit OK?
+2. Tax preparer: (a) nonqualified use applied to the gain left after the 1250 split (as Pub. 523 orders them); (b) suspended passive losses stay suspended on the move-back and release at the later sale; (c) the end-year depreciation uses the mid-month disposal convention at the move-back month.
