@@ -1,0 +1,33 @@
+{
+  "comment": "Content expectations for the Rental Properties sheet (WP12.7), checked on a real build with the feature on (standalone_loss case). Not part of workbook_snapshot_expectations.json: that file describes the feature-off golden workbook and must stay unchanged.",
+  "sheet_suffix": "Rental Properties",
+  "required_phrases": [
+    "RENTAL PROPERTIES",
+    "A. SUMMARY BY YEAR",
+    "B. BY PROPERTY AND YEAR",
+    "C. DEPRECIATION SCHEDULE",
+    "D. PASSIVE-LOSS LEDGER",
+    "E. SALE ANALYSIS",
+    "F. METRICS",
+    "G. ASSUMPTIONS AND WARNINGS",
+    "Net Schedule E (before passive limit)",
+    "Suspended loss (year end)",
+    "Estimated tax effect",
+    "Depreciable basis (building + improvements)",
+    "Opening carryforward",
+    "Released at sale",
+    "Unrecaptured section 1250 gain",
+    "Section 121 two-of-five-year test (converted home)",
+    "After-tax hold-to-sale return",
+    "the tax preparer must verify every constant and the Table A-6 percentages",
+    "Like-kind (section 1031) exchanges",
+    "assumed to have lived together all year"
+  ],
+  "other_sheet_phrases": {
+    "Executive Summary": ["Rental net cash flow, lifetime"],
+    "Cash Flow": ["Rental Cash (net)", "Rental Sale Tax"],
+    "Net Worth": ["Rental Equity"],
+    "Balance Sheet": ["Rental Property Mortgages"],
+    "Lifetime Taxes": ["Rental Schedule E in AGI"]
+  }
+}

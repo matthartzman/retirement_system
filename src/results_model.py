@@ -333,6 +333,12 @@ def _chart_page(c: dict[str, Any], rows: list[dict[str, Any]], mc_data: dict[str
     # shortfall is materially different from a surplus, so it gets its own
     # labeled series rather than being silently dropped.
     inc_values["Unfunded Shortfall"] = [round(max(0, _n(bd['unfunded_gap']))) for bd in bds]
+    # WP12.7: Rental Properties (feature on): positive net rental cash is income, a net cost is
+    # spending, so the two bars still reconcile; mirrors build_sheet8's Rental Cash / Rental Net
+    # Cost / Rental Sale Tax series.
+    rental_on = any('rental' in bd['income'] for bd in bds)
+    if rental_on:
+        inc_values["Rental Cash"] = [round(max(0, _n(bd['income'].get('rental')))) for bd in bds]
 
     def _exp_series(key: str) -> list[int]:
         return [round(_n(bd['expense'].get(key))) for bd in bds]
@@ -369,6 +375,9 @@ def _chart_page(c: dict[str, Any], rows: list[dict[str, Any]], mc_data: dict[str
     # bars still reconcile: income+draws+unfunded == spend+taxes+surplus, using
     # the engine's own surplus/unfunded_gap rather than a chart-local guess.
     exp_values["Surplus (Reinvested)"] = [round(max(0, _n(bd['surplus']))) for bd in bds]
+    if rental_on:
+        exp_values["Rental Net Cost"] = [round(max(0, -_n(bd['income'].get('rental')))) for bd in bds]
+        exp_values["Rental Sale Tax"] = _tax_series('rental_sale')
 
     add_xy("Cash Flow — Income & Portfolio Draws", "stacked_bar", [
         {"label": label, "values": vals} for label, vals in inc_values.items()
@@ -459,8 +468,11 @@ def _chart_page(c: dict[str, Any], rows: list[dict[str, Any]], mc_data: dict[str
 
 
 def _cashflow_page(c: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, Any]:
+    # WP12.7: a Rental Cash (net) column joins the Income group only while the feature ran, so
+    # the displayed income columns add up to the engine's income (cashflow_breakdown).
+    rental_on = any('rental_net_cash_flow' in r for r in rows)
     group = [
-        ("Identifiers", 3), ("Income", 11), ("Tax & RMD", 6), ("Spending", 8),
+        ("Identifiers", 3), ("Income", 12 if rental_on else 11), ("Tax & RMD", 6), ("Spending", 8),
         ("Portfolio Draws", 16), ("Surplus", 2),
     ]
     group_row = []
@@ -472,7 +484,9 @@ def _cashflow_page(c: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, A
         ("Year", "text"), (f"{n1} Age", "text"), (f"{n2} Age", "text"),
         ("Earned", "text"), (f"{n1} SS", "text"), (f"{n2} SS", "text"), ("Pension", "text"),
         (f"{n2} Single Ann", "text"), (f"{n2} Joint Ann", "text"), (f"{n1} Single Ann", "text"), (f"{n1} Joint Ann", "text"),
-        ("Note P+I", "text"), ("RMD Dist", "text"), ("Σ Income", "text"),
+        ("Note P+I", "text"), ("RMD Dist", "text"),
+        *([("Rental Cash (net)", "text")] if rental_on else []),
+        ("Σ Income", "text"),
         ("Roth Conv", "text"), ("AGI", "text"), ("Taxable Inc", "text"), ("Fed Tax", "text"), ("State Tax", "text"), ("NIIT", "text"),
         ("Spend Base", "text"), ("Rec Extra", "text"), ("Lump", "text"), ("Business Exp", "text"), ("Mortgage + RE Tax", "text"), ("Rent", "text"), ("HELOC P&I", "text"), ("Σ Spend", "text"),
         (f"{n1} Trust WD", "text"), (f"{n2} Trust WD", "text"), ("Σ Trust", "text"), ("HSA WD", "text"),
@@ -506,7 +520,9 @@ def _cashflow_page(c: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, A
             (r.get('year'), 'year'), (r.get('h_age'), 'integer'), (r.get('w_age'), 'integer'),
             (r.get('earned'), 'currency'), (r.get('h_ss'), 'currency'), (r.get('w_ss'), 'currency'), (r.get('pension'), 'currency'),
             (r.get('wife_single_ann'), 'currency'), (r.get('wife_joint_ann'), 'currency'), (r.get('h_single_ann'), 'currency'), (r.get('h_joint_ann'), 'currency'),
-            (_n(r.get('note_princ')) + _n(r.get('note_int')), 'currency'), (r.get('rmd_total'), 'currency'), (inc_total, 'currency'),
+            (_n(r.get('note_princ')) + _n(r.get('note_int')), 'currency'), (r.get('rmd_total'), 'currency'),
+            *([(_bi.get('rental', 0.0), 'currency')] if rental_on else []),
+            (inc_total, 'currency'),
             (r.get('roth_conv'), 'currency'), (r.get('agi'), 'currency'), (r.get('taxable_inc'), 'currency'), (r.get('fed_tax'), 'currency'), (r.get('state_tax'), 'currency'), (r.get('niit'), 'currency'),
             (r.get('spend_base_yr'), 'currency'), (r.get('rec_extra'), 'currency'), (r.get('lump'), 'currency'), (business_exp, 'currency'), (r.get('mortgage'), 'currency'), (r.get('rent_yr'), 'currency'), (heloc_pai, 'currency'), (spend_total, 'currency'),
             (r.get('h_trust_wd'), 'currency'), (r.get('w_trust_wd'), 'currency'), (trust_total, 'currency'), (r.get('hsa_wd'), 'currency'),
@@ -530,17 +546,22 @@ def _net_worth_page(c: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, 
     # #247: a note receivable balance used to be folded into "Σ Other" with no
     # way to tell it apart from autos, startup equity, and cash. It gets its
     # own column, and Σ Other is narrowed to exclude it.
+    # WP12.7: a Rental Equity column (property value less its mortgage) joins Other Assets
+    # only while the feature ran; Σ Other then excludes it, as it excludes the note.
+    rental_on = any(r.get('rental_equity') is not None for r in rows)
     group_row = row([
         ("Identifiers", "text"), ("", "text"), ("", "text"),
         ("Account balances", "text"), ("", "text"), ("", "text"), ("", "text"), ("", "text"),
         ("Real Estate", "text"), ("", "text"), ("", "text"), ("", "text"),
         ("", "text"), ("", "text"), ("", "text"),
+        *([("", "text")] if rental_on else []),
     ])
     headers = row([
         ("Year", "text"), (f"{member_nick(c, 'member_1')} Age", "text"), (f"{member_nick(c, 'member_2')} Age", "text"),
         ("Σ Ann", "text"), ("Σ PreTax", "text"), ("Σ Roth", "text"), ("Σ Trust", "text"), ("HSA", "text"),
         ("Home Value", "text"), ("Mortgage", "text"), ("HELOC", "text"), ("Home Equity", "text"),
-        ("Note Receivable", "text"), ("Σ Other", "text"), ("TOTAL NW", "text"),
+        ("Note Receivable", "text"), *([("Rental Equity", "text")] if rental_on else []),
+        ("Σ Other", "text"), ("TOTAL NW", "text"),
     ])
     data = [group_row, headers]
     for r in rows:
@@ -554,14 +575,16 @@ def _net_worth_page(c: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, 
             (r.get('home_val'), 'currency'), (-mort if mort else 0, 'currency'), (-heloc if heloc else 0, 'currency'),
             (r.get('home_equity'), 'currency'),
             (note_bal, 'currency'),
-            (_n(r.get('other_nw')) - note_bal, 'currency'), (r.get('total_nw'), 'currency'),
+            *([(_n(r.get('rental_equity')), 'currency')] if rental_on else []),
+            (_n(r.get('other_nw')) - note_bal - (_n(r.get('rental_equity')) if rental_on else 0.0), 'currency'),
+            (r.get('total_nw'), 'currency'),
         ]))
     return _page("1B. Net Worth", "Reports", [_section("Net Worth Projection", data, column_groups=[
         {"label": "Identifiers", "start": 0, "end": 2},
         {"label": "Account balances", "start": 3, "end": 7},
         {"label": "Real Estate", "start": 8, "end": 11},
-        {"label": "Other Assets", "start": 12, "end": 12},
-        {"label": "Totals", "start": 13, "end": 14},
+        {"label": "Other Assets", "start": 12, "end": 13 if rental_on else 12},
+        {"label": "Totals", "start": 14 if rental_on else 13, "end": 15 if rental_on else 14},
     ])])
 
 
@@ -632,6 +655,14 @@ def _balance_sheet_page(c: dict[str, Any], rows: list[dict[str, Any]]) -> dict[s
         ('Cash (Checking Accounts)', cash_val, 'Sum of _Checking positions'),
         ('Note Receivable', note_val, f"Projected balance through {c.get('note_last', '')}"),
     ]
+    # WP12.7: Rental Properties (feature on) as in build_sheet3: gross value in assets, mortgages in liabilities.
+    rental_on = 'rental_net_cash_flow' in yr0
+    rental_value = _n(yr0.get('rental_property_value')) if rental_on else 0.0
+    rental_loans = _n(yr0.get('rental_mortgage_balance')) if rental_on else 0.0
+    if rental_on:
+        other_items.append(('Rental Properties', rental_value,
+                            f"Gross value at the end of {yr0.get('year')}; mortgages shown in Liabilities. "
+                            "A home converted to a rental stays under Primary Residence."))
     other_section, other_total = _group_section('Other Assets', other_items)
 
     total_assets = ann_total + pretax_total + roth_total + trust_total + hsa_total + other_total
@@ -639,13 +670,17 @@ def _balance_sheet_page(c: dict[str, Any], rows: list[dict[str, Any]]) -> dict[s
     liab_data = [headers]
     liab_data.append(row([('Mortgage', 'text'), (mort_val, 'currency'),
                            ('Offsets Primary Residence gross value; not double-counted as Home Equity', 'text')]))
-    liab_data.append(row([('Total Liabilities', 'text'), (mort_val, 'currency'), ('', 'text')]))
+    if rental_on:
+        liab_data.append(row([('Rental Property Mortgages', 'text'), (rental_loans, 'currency'),
+                               ('Offsets Rental Properties gross value', 'text')]))
+    total_liabilities = mort_val + rental_loans
+    liab_data.append(row([('Total Liabilities', 'text'), (total_liabilities, 'currency'), ('', 'text')]))
     liab_section = _section('Liabilities', liab_data)
 
-    net_worth = total_assets - mort_val
+    net_worth = total_assets - total_liabilities
     nw_data = [
         row([('Total Assets', 'text'), (total_assets, 'currency')]),
-        row([('Total Liabilities', 'text'), (mort_val, 'currency')]),
+        row([('Total Liabilities', 'text'), (total_liabilities, 'currency')]),
         row([('NET WORTH', 'text'), (net_worth, 'currency')]),
     ]
     nw_section = _section('Net Worth', nw_data)

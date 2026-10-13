@@ -54,6 +54,12 @@ export function stepGatedByOptionalModule(stepId, isOn) {
       !sectionFlagEnabled("Cashflow", "Charitable Giving", "qcd_enabled")
     );
   }
+  // WP12.6: Rental Properties hides while off, unless properties are stored: the page then
+  // stays in the nav and shows its off state ("Off . N rows entered", data kept).
+  if (stepId === "rental_properties") {
+    if (isOn) return !isOn("rental_property_income");
+    return !on("rental_property_income") && !(typeof rentalKeptCount === "function" && rentalKeptCount() > 0);
+  }
   // §7.4: every other module-gated step is server-declared (module_catalog's
   // dashboard_step, via moduleGates.step_gates) rather than hand-listed here —
   // when the module is off, no computation runs and no sheet is built, so the

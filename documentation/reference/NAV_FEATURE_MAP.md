@@ -44,6 +44,7 @@ Legend: Optional? = Always on / Switchable. Position = group and ordinal in the 
 | Investments & Property | Other Assets > Equity Compensation section | Equity comp rows on this page | Switchable | `equity_compensation`, Plan Features | Off (FALSE) | Section of 5.3 and 9.1 |
 | Investments & Property | Other Assets > Hybrid LTC row group | Hybrid LTC/life policy rows | Switchable | Plan flag `Hybrid LTC / Settings / enabled` (key `hybrid_ltc_policy`), Plan Features | Off (FALSE, `client_assets.csv:84`) | Row group of 5.3 |
 | Investments & Property | Home Equity Line (`heloc_strategy`) | Bridge large discretionary spending with home equity | Switchable | Plan flag `HELOC / Setup / heloc_enabled` (key `heloc`), Plan Features | Off (NO, `client_policy.csv:11`): nav item hidden | 5.4 |
+| Investments & Property | Rental Properties (`rental_properties`) | Rental real estate: rent, expenses, mortgage, depreciation, passive-loss limits and sale per property; Convert my home; summary estimate and warnings | Switchable | `rental_property_income`, Plan Features (Advanced tier, default off) | Off (default): hidden while nothing is entered; with properties stored the page stays and shows its off state ("Off · N rows entered", data kept, preview) | 5.5 |
 | Insurance & Care | (group heading) | Insurance inputs | Always on | - | n/a | Group 6 |
 | Insurance & Care | Insurance (`annuity_death_benefits`) | Carrier illustrations for annuities and special income, plus all insurance policies | Always on | - | n/a | 6.1 |
 | Insurance & Care | Insurance > Existing Life Insurance rows (section `Insurance In Force`) | Policies in force | Switchable | `existing_life_insurance`, Plan Features (`section_gates`) | Off (FALSE) | Rows of 6.1 |
@@ -120,6 +121,7 @@ Numbering is group.item; the UI's own step number (1-25, groups not counted) is 
    5.2. Reserve Requirements **(required)**
    5.3. Other Assets and Liabilities **(required)**
    5.4. Home Equity Line - `heloc` (`HELOC/Setup/heloc_enabled`)
+   5.5. Rental Properties - `rental_property_income`
 6. **Insurance & Care** **(required)**
    6.1. Insurance **(required)**
 7. **Estate & Legacy** **(required)**
@@ -155,7 +157,7 @@ Numbering is group.item; the UI's own step number (1-25, groups not counted) is 
     12.4. Workbook Formatting **(required)**
     12.5. Data & Maintenance **(required)**
 
-Totals: 12 groups, 25 pages. Always-on pages: 21. Pages with their own show/hide switch: Home Equity Line, Roth Conversion, Charitable Giving, Stress Test (any-of-four). Demo plan today: 24 of 25 pages visible (Home Equity Line hidden; HELOC is NO).
+Totals: 12 groups, 26 pages. Always-on pages: 21. Pages with their own show/hide switch: Home Equity Line, Rental Properties, Roth Conversion, Charitable Giving, Stress Test (any-of-four). Demo plan today: 24 of 26 pages visible (Home Equity Line and Rental Properties hidden).
 
 Workbook note (not nav): in the workbook, Current vs Proposed and Planning Levers move from section 1 (Reports) to section 3 (Comparisons). The Reports order becomes Executive Summary, Net Worth, Cash Flow, Balance Sheet, Lifetime Taxes, Charts, Spending Summary.
 

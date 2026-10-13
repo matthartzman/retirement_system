@@ -61,14 +61,18 @@ def build_sheet6(ws, c, rows):
     ltc_configured = bool(c.get('ltc_enabled', False) and _pos(c.get('ltc_annual_prem')))
     include_ltc = bool(ltc_configured or any(_pos(r.get('ltc_prem_yr')) for r in rows))
 
-    COL = {
-        'Year': 1, 'H_Age': 2, 'W_Age': 3,
-        'Earned': 4, 'H_SS': 5, 'W_SS': 6, 'Pension': 7,
-        'W_Sgl': 8, 'W_Jnt': 9, 'H_Sgl': 10, 'H_Jnt': 11, 'Note': 12, 'RMD': 13, 'Σ_Inc': 14,
-        'Roth_Conv': 15, 'AGI': 16, 'Taxable': 17, 'Fed': 18, 'State': 19, 'NIIT': 20, 'IRMAA': 21,
-        'Payroll': 22, 'LTCG': 23,
-    }
-    col = 24
+    # WP12.7: Rental Properties adds an income column (the year's net rental cash, which the
+    # engine's cashflow_breakdown carries as income['rental']) and a tax column (tax on a
+    # rental sale outside ordinary income). Both exist only while the feature ran; with it
+    # off the layout is the historic one.
+    rental_on = any('rental_net_cash_flow' in r for r in rows)
+    _order = (['Year', 'H_Age', 'W_Age', 'Earned', 'H_SS', 'W_SS', 'Pension',
+               'W_Sgl', 'W_Jnt', 'H_Sgl', 'H_Jnt', 'Note', 'RMD']
+              + (['Rental'] if rental_on else [])
+              + ['Σ_Inc', 'Roth_Conv', 'AGI', 'Taxable', 'Fed', 'State', 'NIIT', 'IRMAA', 'Payroll', 'LTCG']
+              + (['Rental_Tax'] if rental_on else []))
+    COL = {name: i + 1 for i, name in enumerate(_order)}
+    col = len(_order) + 1
     for key in [
         'Spend_Base', 'Housing', 'Mort_PI', 'Prop_Tax', 'Housing_Utilities',
         'Home_Imp', 'Housing_Maintenance', 'Housing_Other'
@@ -96,7 +100,7 @@ def build_sheet6(ws, c, rows):
     ]:
         COL[key] = col; col += 1
     income_span = COL['Roth_Conv'] - COL['Earned'] + 1
-    tax_span = COL['LTCG'] - COL['AGI'] + 1
+    tax_span = COL['Rental_Tax' if rental_on else 'LTCG'] - COL['AGI'] + 1
     spending_span = COL['Other_Cash_Need'] - COL['Spend_Base'] + 1
     cash_bridge_span = COL['Cash_Bridge_Gap'] - COL['Total_Tax'] + 1
     withdrawal_span = COL['Σ_WD'] - COL['H_Trust_WD'] + 1
@@ -126,12 +130,15 @@ def build_sheet6(ws, c, rows):
         (COL['Pension'],    'Pension'),      (COL['W_Sgl'],      f'{_n2} Single Ann'),
         (COL['W_Jnt'],      f'{_n2} Joint Ann'),  (COL['H_Sgl'],  f'{_n1} Single Ann'),
         (COL['H_Jnt'],      f'{_n1} Joint Ann'),  (COL['Note'],   'Note P+I'),
-        (COL['RMD'],        'RMD Dist'),     (COL['Σ_Inc'],      'Σ Income'),
+        (COL['RMD'],        'RMD Dist'),
+        *(([(COL['Rental'], 'Rental Cash (net)')] if rental_on else [])),
+        (COL['Σ_Inc'],      'Σ Income'),
         (COL['Roth_Conv'],  'Roth Conv'),    (COL['AGI'],        'AGI'),
         (COL['Taxable'],    'Taxable Inc'),  (COL['Fed'],        'Fed Tax'),
         (COL['State'],      'State Tax'),    (COL['NIIT'],       'NIIT'),
         (COL['IRMAA'],      'IRMAA'),
         (COL['Payroll'],    'Payroll Tax'), (COL['LTCG'],       'LTCG Tax'),
+        *(([(COL['Rental_Tax'], 'Rental Sale Tax')] if rental_on else [])),
         (COL['Spend_Base'], 'Spend Base'),   (COL['Housing'],    'Housing'),
         (COL['Mort_PI'],    'Mortgage P&I'), (COL['Prop_Tax'],   'Property Tax'),
         (COL['Housing_Utilities'], 'Utilities'), (COL['Home_Imp'], 'Home Impr'),
@@ -218,7 +225,8 @@ def build_sheet6(ws, c, rows):
         ws.column_dimensions[get_column_letter(col)].outlineLevel = 1
     # Tax detail (summary=Total Taxes, in the Cash Bridge section) — Fed, State,
     # NIIT, IRMAA, Payroll, and LTCG are the components that sum to Total Taxes.
-    for col in [COL['Fed'], COL['State'], COL['NIIT'], COL['IRMAA'], COL['Payroll'], COL['LTCG']]:
+    for col in [COL['Fed'], COL['State'], COL['NIIT'], COL['IRMAA'], COL['Payroll'], COL['LTCG'],
+                *([COL['Rental_Tax']] if rental_on else [])]:
         ws.column_dimensions[get_column_letter(col)].outlineLevel = 1
     # HELOC Draw collapses under HELOC Bal
     ws.column_dimensions[get_column_letter(COL['HELOC_Draw'])].outlineLevel = 1
@@ -261,7 +269,8 @@ def build_sheet6(ws, c, rows):
             inc_total = (row.get('earned', 0) + row.get('h_ss', 0) + row.get('w_ss', 0) + row.get('pension', 0) +
                          row.get('wife_single_ann', 0) + row.get('wife_joint_ann', 0) +
                          row.get('h_single_ann', 0) + row.get('h_joint_ann', 0) +
-                         row.get('note_princ', 0) + row.get('note_int', 0) + row.get('rmd_total', 0))
+                         row.get('note_princ', 0) + row.get('note_int', 0) + row.get('rmd_total', 0)
+                         + row.get('rental_net_cash_flow', 0))
             heloc_pai       = row.get('heloc_interest', 0) + row.get('heloc_repayment_principal', 0)
             other_cash_need = row.get('other_cash_need_yr', 0)
             spend_total = (row.get('spend_base_yr', 0)
@@ -274,6 +283,11 @@ def build_sheet6(ws, c, rows):
             other_funding   = row.get('heloc_draw', 0)
             total_tax       = row.get('total_tax', row.get('fed_tax', 0) + row.get('state_tax', 0) + row.get('niit', 0) + row.get('irmaa', 0) + row.get('payroll_tax', 0) + row.get('ltcg_tax', 0))
             total_cash_need = row.get('total_cash_need', spend_total + total_tax + other_cash_need)
+        # Rental Properties (WP12.7): net rental cash is in the income total above (the engine's
+        # breakdown carries it as income['rental']); the sale's tax outside ordinary income is
+        # the breakdown's tax['rental_sale'], and the LTCG column then excludes its federal part.
+        rental_cash = row.get('rental_net_cash_flow', 0.0) if rental_on else 0.0
+        rental_sale_tax = (row.get('rental_sale_ltcg_tax', 0.0) + row.get('rental_tax_adjustment', 0.0)) if rental_on else 0.0
         wd_total        = required_portfolio_draws + row.get('rmd_h', 0) + row.get('rmd_w', 0)
         income_funding  = inc_total
         cash_bridge_gap = total_cash_need - income_funding - other_funding - required_portfolio_draws
@@ -301,7 +315,8 @@ def build_sheet6(ws, c, rows):
             COL['NIIT']:      row['niit'],
             COL['IRMAA']:     row.get('irmaa', 0),
             COL['Payroll']:   row.get('payroll_tax', 0),
-            COL['LTCG']:      row.get('ltcg_tax', 0),
+            COL['LTCG']:      row.get('ltcg_tax', 0) - (row.get('rental_sale_ltcg_tax', 0.0) if rental_on else 0.0),
+            **({COL['Rental']: rental_cash, COL['Rental_Tax']: rental_sale_tax} if rental_on else {}),
             COL['Spend_Base']:  row['spend_base_yr'],
             COL['Housing']:     row.get('housing_total_yr', row.get('mortgage', 0) + row.get('rent_yr', 0)),
             COL['Mort_PI']:     row.get('mortgage_payment_yr', 0),

@@ -109,6 +109,22 @@ CONTRACTS: tuple[EndpointContract, ...] = (
         notes="WP5.3: suggest a tier and switches from the answers; apply=true writes them in one edit.",
     ),
     EndpointContract(
+        "/api/rental/properties", "GET", "rental_properties_v1",
+        response_fields=(
+            _f("success", "bool", True), _f("enabled", "bool", True), _f("count", "int", True),
+            _f("properties", "list", True), _f("table", "list", True), _f("warnings", "list", True),
+            _f("estimate", "dict", True), _f("summary", "dict"), _f("home", "dict", True),
+            _f("field_tiers", "dict", True), _f("max_properties", "int", True),
+        ),
+        notes="WP12.6: stored rental properties plus the page's estimate (query year, magi); an estimate, not the last build.",
+    ),
+    EndpointContract(
+        "/api/rental/property", "POST", "rental_property_save_v1",
+        request_fields=(_f("property", "dict", True), _f("original_name", "str")),
+        response_fields=(_f("success", "bool", True), _f("count", "int"), _f("revision", "str"), _f("property", "dict"), _f("error", "str")),
+        notes="WP12.6: add or replace one property (unknown keys dropped, validated by parse_rental_properties).",
+    ),
+    EndpointContract(
         "/api/spending/model", "GET", "spending_model_v1",
         response_fields=(_f("success", "bool", True), _f("categories", "list"), _f("budget", "list"), _f("summary", "dict")),
     ),

@@ -3319,6 +3319,96 @@
       "scope": "inside-function"
     },
     {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_rental_properties.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_rental_properties.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_rental_properties.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_rental_properties.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_rental_properties.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_rental_properties.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_rental_properties.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_rental_properties.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_rental_properties.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_rental_properties.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_rental_properties.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_rental_properties.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_rental_properties.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_rental_properties.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_rental_properties.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
       "name": "rows",
       "file": "frontend/js/dashboard_decomp_roth_guardrails.js",
       "kind": "read",
@@ -8479,6 +8569,12 @@
       "scope": "inside-function"
     },
     {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "YTD_TX_PAGE_SIZE",
       "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
       "kind": "read",
@@ -8486,6 +8582,12 @@
     },
     {
       "name": "ytdTxSort",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdTxPage",
       "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
       "kind": "read",
       "scope": "inside-function"
@@ -9598,6 +9700,48 @@
       "name": "lastBuildOk",
       "file": "frontend/js/spending_dashboard.js",
       "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/spending_dashboard.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/spending_dashboard.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/spending_dashboard.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/spending_dashboard.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/spending_dashboard.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/spending_dashboard.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/spending_dashboard.js",
+      "kind": "call",
       "scope": "inside-function"
     },
     {

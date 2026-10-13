@@ -351,7 +351,8 @@ function featureRowHtml(entry) {
   // #330 §5.4: off, but the household's data is still there.
   if (!on) {
     const owned = moduleOwnedRows(entry.key);
-    const n = owned === null ? 0 : enteredRowCount(owned);
+    // WP12.6: rental rows are typed-table rows, counted by the server (rentalKeptCount()).
+    const n = entry.key === "rental_property_income" ? rentalKeptCount() : owned === null ? 0 : enteredRowCount(owned);
     if (n)
       html += '<span class="pf-retained">' + offRowsLabel(n) + "</span>";
     const ignored = engineIgnoredWarning(meta);
@@ -425,7 +426,7 @@ export function offFeaturesForPage(stepId, taxonomy) {
 // One compact line on a nav page: the optional features that are off and
 // would appear here if enabled, with the single link to Plan Features.
 export function offFeaturesLineHtml(stepId) {
-  if (stepId === "optional_functions") return "";
+  if (stepId === "optional_functions" || stepId === "rental_properties") return ""; // the page shows its own off state
   const off = offFeaturesForPage(stepId, planModuleTaxonomy());
   if (!off.length) return "";
   return (
