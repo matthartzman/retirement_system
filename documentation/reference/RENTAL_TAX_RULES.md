@@ -181,3 +181,11 @@ publications. The Table A-6 cells (R01, R02, R06) are the published percentages.
 3. Converted home: one land share for both value and basis.
 4. Reference goldens may be re-recorded for additions-only changes, reviewed in the PR.
 5. Constants and Table A-6 cells remain unverified against IRS sources (tax preparer to confirm); a correction lands as a small commit.
+
+## 7. Added in 12.3 (simplifications)
+- Converted home: ownership/residence start defaults to January, five years before the conversion; conversion and sale dates are the 1st of the month.
+- Converted-home sale year and price are the plan's `home_sale_yr` / `home_sale_px`.
+- First-death step-up: the converted sale uses the stepped-up gain basis; the loss basis is not stepped up.
+- Estate sale after conversion keeps the step-up (no gain) and drops suspended losses (IRC 469(g)(2) would allow part).
+- Shifted carrying costs: mortgage payment, real-estate tax, budget utilities/maintenance/other. Improvement lumps stay personal.
+- Not modelled: owner split, death handling, back to personal use, linking a loan to an existing liability row, sale-proceeds split across accounts. Workbook cash-flow sheet rental cash comes in 12.4.
