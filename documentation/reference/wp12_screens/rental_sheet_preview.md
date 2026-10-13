@@ -8,7 +8,7 @@ Generated from the fixture case "Condo (loss-making) + Duplex for sale (profitab
 
 #### RENTAL PROPERTIES
 
-> WARNING: the tax preparer must verify every constant and the Table A-6 percentages before this feature is switched on for anyone. See section G for every simplification and exclusion.
+> Tax rules verified 2026-10-13 against 2025 law. See section G for every simplification and exclusion.
 
 #### A. SUMMARY BY YEAR (all properties)
 
@@ -118,9 +118,9 @@ Generated from the fixture case "Condo (loss-making) + Duplex for sale (profitab
 
 #### G. ASSUMPTIONS AND WARNINGS
 
-**Tax preparer must verify before switch-on**
+**Tax rules verification**
 
-> - The tax preparer must verify every constant and the Table A-6 percentages before the feature is switched on for anyone. They were entered from memory and have not been checked against IRS sources. Treat every number on this sheet as an estimate until they have been.
+> - Verified by the household's tax preparer on 2026-10-13, against tax year 2025 rules (not 2026). The 2026 values are re-checked at the next annual tax update.
 
 **How the numbers are built**
 
