@@ -16,7 +16,8 @@ from ..server_services.strategy_asset_service import (
     INFLATION_GENERAL_DEFAULT,
     housing_state_estimate_payload,
 )
-from .models import HousingCandidate, Location, Move
+from .models import NO_SALE_DISPOSITIONS, HousingCandidate, Location, Move
+from .rent_out import RentOutPlan, apply_rent_out
 
 _DEFAULT_MORTGAGE_RATE = 0.0685
 
@@ -219,7 +220,8 @@ def _residency_schedule(base_state: str, transitions: list[tuple[int, str]]) -> 
 
 def _apply_candidate(c: dict[str, Any], cand: HousingCandidate, *,
                      down_payment_pct: float | None = None,
-                     mortgage_rate_pct: float | None = None) -> None:
+                     mortgage_rate_pct: float | None = None,
+                     rent_out: RentOutPlan | None = None) -> None:
     """Mutate engine config ``c`` IN PLACE to reflect ``cand`` -- rewrites
     ``next_housing_steps`` and ``residency_schedule`` only (§3.1/§3.2 of the
     design doc), plus ``home_sale_yr`` for the original home. Returns None:
@@ -231,12 +233,18 @@ def _apply_candidate(c: dict[str, Any], cand: HousingCandidate, *,
     or a rental because ``Move.action`` says so, not because
     ``purchase_year`` happened to be None, and the original home is kept or
     sold because ``OriginalHome.disposition`` says so.
+
+    ``rent_out`` (WP12.8) is passed only while the rental feature is on; it
+    also rewrites ``rental_properties`` (``rent_out.apply_rent_out``). ``None``
+    leaves that key untouched, as before.
     """
     base_state = str(c.get('state', '') or '')
     home = cand.original_home
-    # 'keep' leaves home_sale_yr at 0 -- the engine's sentinel for "never
-    # sold". A kept home has no sale year to write.
-    c['home_sale_yr'] = 0 if home.disposition == 'keep' else (home.sale_year or 0)
+    # 'keep' and 'rent_out' leave home_sale_yr at 0 -- the engine's sentinel
+    # for "never sold". A kept home has no sale year to write.
+    c['home_sale_yr'] = 0 if home.disposition in NO_SALE_DISPOSITIONS else (home.sale_year or 0)
+    if rent_out is not None:
+        apply_rent_out(c, cand, rent_out)
 
     # Same two reads, from the same two keys, with the same two fallbacks,
     # that housing_comparison.py's priced_step performs -- one convention
@@ -299,11 +307,12 @@ def _step_for(move: Move, step_id: str, end_year: int | None, *,
 
 def _run_engine(c0: dict[str, Any], cand: HousingCandidate, *,
                 down_payment_pct: float | None = None,
-                mortgage_rate_pct: float | None = None
+                mortgage_rate_pct: float | None = None,
+                rent_out: RentOutPlan | None = None,
                 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     """Returns the ``(mutated_config, rows)`` PAIR ``run_scenario`` produces --
     the config is the deep copy ``_apply_candidate`` actually wrote to, and is
     what ``score_candidate``/``monte_carlo`` must be handed, not ``c0``."""
     return _pe.run_scenario(c0, mutate=lambda cc: _apply_candidate(
         cc, cand, down_payment_pct=down_payment_pct,
-        mortgage_rate_pct=mortgage_rate_pct))
+        mortgage_rate_pct=mortgage_rate_pct, rent_out=rent_out))

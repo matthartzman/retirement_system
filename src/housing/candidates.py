@@ -17,8 +17,10 @@ from .models import (
     Location,
     Move,
     MoveWindow,
+    NO_SALE_DISPOSITIONS,
     OriginalHome,
     NARROWED_MAX_EVALS_PER_AXIS,
+    RENT_OUT,
     NARROWED_MOVE2_AXES,
     SaleWindow,
     ScoredCandidate,
@@ -71,15 +73,22 @@ def dual_ownership_ok(cand: HousingCandidate) -> bool:
     """The single place the 'never own two homes' rule is decided (§5.3).
 
     Two ways a candidate can own two homes at once:
-      1. The original home is kept and something else is bought. With no
-         rental-income model (Phase 2), a kept home is a pure cost centre, so
-         this is refused outright rather than scored.
+      1. The original home is kept and something else is bought. A plain
+         'keep' has no rental income, so the kept home is a pure cost centre
+         and this is refused outright rather than scored.
       2. A home is bought before the original one is sold.
+
+    'rent_out' (WP12.8, only generated with the rental feature on) is always
+    allowed: the kept home is rented, so owning it beside the next one is the
+    point. The engine counts each home's costs once (the rented home's move
+    to Schedule E from the conversion, the new home's stay housing costs).
 
     Concurrent mode is exempt: it always keeps two homes by construction, so
     the flag does not apply and the UI disables it.
     """
     home = cand.original_home
+    if home.disposition == RENT_OUT:
+        return True
     buys = [m for m in cand.moves if m.action == 'buy' and m.mode != 'concurrent']
     if home.disposition == 'keep':
         return not buys
@@ -127,7 +136,7 @@ def generate_candidates(
     """
     out: list[HousingCandidate] = []
     for disposition in dispositions:
-        if disposition == 'keep':
+        if disposition in NO_SALE_DISPOSITIONS:
             sale_years: list[int | None] = [None]
         else:
             sale_years = list(range(sale_window.earliest_sale_year,

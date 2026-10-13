@@ -10,6 +10,7 @@ from typing import Any
 
 from .models import HousingCandidate, ScoredCandidate
 from .constraints import sec121_exclusion_flag
+from .rent_out import converted_net_cash, rent_out_notes
 
 def _lifetime_cost(rows: list[dict[str, Any]]) -> float:
     """Total after-tax housing-attributable cost (§4): ongoing housing cash
@@ -31,7 +32,10 @@ def _lifetime_cost(rows: list[dict[str, Any]]) -> float:
         total -= float(r.get('home_sale_gain', 0.0) or 0.0)
         total += float(r.get('next_housing_sale_tax', 0.0) or 0.0)
         total -= float(r.get('next_housing_sale_gain', 0.0) or 0.0)
-    return total
+    # WP12.8: a home converted to a rental moved its carrying costs out of
+    # housing_total_yr; its rental net cash (rent less those costs) counts
+    # here instead. 0 with no converted home, so nothing changes off.
+    return total - converted_net_cash(rows)
 
 
 def score_candidate(c: dict[str, Any], cand: HousingCandidate, rows: list[dict[str, Any]],
@@ -71,14 +75,20 @@ def score_candidate(c: dict[str, Any], cand: HousingCandidate, rows: list[dict[s
             # year -- but only if move 1 actually bought one.
             bought1 = cand.move1.acquisition_year if cand.move1.action == 'buy' else None
             sec121_flags.append(sec121_exclusion_flag(bought1, m2.acquisition_year))
+    # WP12.8 keep-and-rent-out: the section 121 window, recapture and
+    # passive-loss notes (the plan never sells a rented-out home).
+    rent_notes = rent_out_notes(c, cand, rows)
     if any(sec121_flags):
         notes.append('likely loses §121 exclusion')
+    notes.extend(rent_notes)
 
     buys = [m for m in cand.moves if m.action == 'buy' and m.mode != 'concurrent']
     overlapping = [m.acquisition_year for m in buys
                    if sale_year is not None and m.acquisition_year < sale_year]
     if overlapping:
         notes.append(f'dual_ownership_years {min(overlapping)}-{sale_year}')
+    if rent_notes and buys:
+        notes.append(f'dual_ownership_years {min(m.acquisition_year for m in buys)}- (current home rented out)')
 
     return ScoredCandidate(
         candidate=cand, net_worth=net_worth, lifetime_cost=lifetime_cost,
