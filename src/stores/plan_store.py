@@ -81,9 +81,9 @@ from typing import Any, Iterable, Mapping, Protocol, TypedDict, TypeVar, runtime
 
 from .. import platform_runtime
 from ._base import _SqliteStore
-from .datasets import SCHEMA_V2_DDL, SCHEMA_V3_DDL, SCHEMA_V4_DDL, SCHEMA_V5_DDL, SCHEMA_V6_DDL, YTD_DATASETS, FlatDatasetRepository
+from .datasets import _DATASETS, _q, SCHEMA_V2_DDL, SCHEMA_V3_DDL, SCHEMA_V4_DDL, SCHEMA_V5_DDL, SCHEMA_V6_DDL, YTD_DATASETS, FlatDatasetRepository
 from .build_results import SCHEMA_V7_DDL, SCHEMA_V8_DDL, BuildResultsRepo
-from .rental_repo import SCHEMA_V9_DDL, RentalRepo
+from .rental_repo import SCHEMA_V9_DDL, RentalRepo, _clean_property
 from .spending_repo import SpendingRepo
 from .errors import IntegrityError, NotFoundError, ValidationError
 
@@ -94,6 +94,12 @@ HASH_HEADER = "plan_rows/v1"
 RENTAL_REVISION_HEADER = "rental/v1"  # joins the revision hash only when rental properties exist (WP12.7)
 # Revision sources retention never prunes: the spending recovery copies (WP6.3c).
 PROTECTED_REVISION_SOURCES = ("pre-recovery", "budget-recovery-seed")
+# M1: a revision also retains every plan table (flat datasets, rental) in ``revision_datasets``
+# under ``table:<name>`` (no schema change); ``table:*`` is the marker row. Revisions made
+# before that (or the protected recovery ones) hold none and restore the plan rows only.
+TABLE_PREFIX = "table:"
+TABLES_MARKER = TABLE_PREFIX + "*"
+TABLE_RENTAL = TABLE_PREFIX + "rental"
 
 TEXT_FIELDS = ("section", "subsection", "label", "value", "units", "notes")
 ROW_FIELDS = (*TEXT_FIELDS, "sort_order")
@@ -502,16 +508,22 @@ class PlanStore(_SqliteStore):
             self._prune(con, keep)
 
     def snapshot_revision(
-        self, source: str, note: str = "", *, datasets: Mapping[str, Iterable[Mapping[str, Any]]] | None = None
+        self, source: str, note: str = "", *, datasets: Mapping[str, Iterable[Mapping[str, Any]]] | None = None,
+        tables: bool | None = None,
     ) -> int:
         """Copy the current rows into a new revision and return its id; prunes to retention.
 
         ``datasets`` (``{flat dataset name: rows}``) is retained with the revision as its
-        revision-scoped dataset copies (recovery copies); see ``revision_dataset_rows``."""
+        revision-scoped dataset copies (recovery copies); see ``revision_dataset_rows``.
+        ``tables`` keeps every plan table with the revision so restoring it restores them too
+        (default: yes, except for the never-pruned recovery sources)."""
         _check_text("source", source, allow_empty=False)
         _check_text("note", note)
         with self._write() as con:
-            rev_id = self._snapshot(con, source, note, prune=False)
+            rev_id = self._snapshot(
+                con, source, note, prune=False,
+                tables=source not in PROTECTED_REVISION_SOURCES if tables is None else tables,
+            )
             for name, rows in (datasets or {}).items():
                 self._store_revision_dataset(con, rev_id, name, rows)
             self._prune(con, self.revision_retention)
@@ -614,6 +626,7 @@ class PlanStore(_SqliteStore):
             )
             con.execute("DELETE FROM plan_rows")
             con.executemany(f"INSERT INTO plan_rows ({_ROW_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", rows)
+            self._restore_tables(con, revision_id)
             self._prune(con, self.revision_retention, protect=revision_id)
             return backup_id
 
@@ -651,7 +664,7 @@ class PlanStore(_SqliteStore):
             raise NotFoundError(f"plan revision {revision_id} not found")
         return dict(r)
 
-    def _snapshot(self, con: Any, source: str, note: str, *, prune: bool = True) -> int:
+    def _snapshot(self, con: Any, source: str, note: str, *, prune: bool = True, tables: bool = True) -> int:
         rows = [
             tuple(r)
             for r in con.execute(f"SELECT {_ROW_COLUMNS} FROM plan_rows ORDER BY section, sort_order, row_id")
@@ -665,9 +678,54 @@ class PlanStore(_SqliteStore):
             f"INSERT INTO revision_rows (revision_id, {_ROW_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [(rev_id, *r) for r in rows],
         )
+        if tables:
+            self._capture_tables(con, rev_id)
         if prune:
             self._prune(con, self.revision_retention)
         return rev_id
+
+    @staticmethod
+    def _capture_tables(con: Any, revision_id: int) -> None:
+        """Copy every flat dataset table and the rental set into ``revision_datasets``."""
+        ins = "INSERT INTO revision_datasets (revision_id, dataset, position, row) VALUES (?, ?, ?, ?)"
+        dump = lambda d: json.dumps(d, ensure_ascii=False, sort_keys=True)  # noqa: E731
+        con.execute(ins, (revision_id, TABLES_MARKER, 0, "{}"))
+        for table, cols in _DATASETS.items():
+            cur = con.execute(f"SELECT {', '.join(map(_q, cols))}, extra FROM {table} ORDER BY position")
+            con.executemany(
+                ins,
+                [(revision_id, TABLE_PREFIX + table, i, dump({**dict(zip(cols, r[:-1])), "__extra__": json.loads(r[-1])}))
+                 for i, r in enumerate(cur)],
+            )
+        have = con.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='rental_properties'").fetchone()[0]
+        if have:
+            con.executemany(ins, [(revision_id, TABLE_RENTAL, i, dump(p)) for i, p in enumerate(RentalRepo.read_properties(con))])
+
+    @staticmethod
+    def _restore_tables(con: Any, revision_id: int) -> bool:
+        """Put back the tables a revision retained; False when it kept none."""
+        if not con.execute(
+            "SELECT 1 FROM revision_datasets WHERE revision_id = ? AND dataset = ?", (revision_id, TABLES_MARKER)
+        ).fetchone():
+            return False
+        kept: dict[str, list[dict[str, Any]]] = {}
+        for ds, row in con.execute(
+            "SELECT dataset, row FROM revision_datasets WHERE revision_id = ? AND dataset LIKE ? "
+            "ORDER BY dataset, position", (revision_id, TABLE_PREFIX + "%")
+        ):
+            kept.setdefault(ds, []).append(json.loads(row))
+        for table, cols in _DATASETS.items():
+            con.execute(f"DELETE FROM {table}")
+            marks = ", ".join("?" for _ in range(len(cols) + 2))
+            con.executemany(
+                f"INSERT INTO {table} (position, {', '.join(map(_q, cols))}, extra) VALUES ({marks})",
+                [(i, *(r.get(c, "") for c in cols), json.dumps(r.get("__extra__", {}), ensure_ascii=False, sort_keys=True))
+                 for i, r in enumerate(kept.get(TABLE_PREFIX + table, []))],
+            )
+        con.execute("DELETE FROM rental_properties")  # children cascade
+        for pid, p in enumerate(_clean_property(r, i) for i, r in enumerate(kept.get(TABLE_RENTAL, []))):
+            RentalRepo._insert(con, pid + 1, p)
+        return True
 
     @staticmethod
     def _prune(con: Any, keep: int, protect: int | None = None) -> None:
