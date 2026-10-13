@@ -216,7 +216,11 @@ household owns a business.
   the projection engine on the surviving location and timing combinations
   and ranks them by their effect on the plan. Housing costs there are
   estimated from state and area type (city size and population), not from
-  the ZIP code itself. A kept home earns no rental income in the model. This
+  the ZIP code itself. A kept home earns no rental income in the model,
+  unless Rental Properties is on: then a third choice, keep and rent out,
+  rents it from the move year at a rent the household gives, with its
+  Schedule E tax, and notes the section 121 window and depreciation
+  recapture; Convert my home links to the Rental Properties page. This
   section is gated by the Next Housing Move feature switch on Plan
   Features: while it is off, the saved sale, next-step and residency values
   are kept and listed on the page but the projection ignores them.
