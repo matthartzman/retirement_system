@@ -333,10 +333,9 @@ def assumption_lines(rep: RentalReport) -> list[tuple[str, list[str]]]:
         "period, a check that both spouses used the home, and any non-qualified-use proration.",
     ]
     return [
-        ("Tax preparer must verify before switch-on",
-         ["The tax preparer must verify every constant and the Table A-6 percentages before the feature is switched on for anyone. "
-          "They were entered from memory and have not been checked against IRS sources. Treat every number on this sheet as an estimate "
-          "until they have been."]),
+        ("Tax rules verification",
+         ["Verified by the household's tax preparer on 2026-10-13, against tax year 2025 rules (not 2026). "
+          "The 2026 values are re-checked at the next annual tax update."]),
         ("How the numbers are built", how),
         ("Defaults and simplifications", defaults),
         ("Not modelled", excluded),
@@ -370,8 +369,7 @@ def build_sheet_rental(ws, c, rows):
         ws.merge_cells(start_row=3, start_column=1, end_row=3, end_column=SPAN)
         qc(SHEET, 'Rental sheet built', True, 'no properties entered')
         return None
-    r = _note(ws, 2, 'WARNING: the tax preparer must verify every constant and the Table A-6 percentages before this feature is switched on for anyone. '
-                     'See section G for every simplification and exclusion.', italic_fg='C00000')
+    r = _note(ws, 2, 'Tax rules verified 2026-10-13 against 2025 law. See section G for every simplification and exclusion.')
     r += 1
     for section in (_section_a, _section_b, _section_c, _section_d, _section_e, _section_f, _section_g):
         r = section(ws, r, rep)

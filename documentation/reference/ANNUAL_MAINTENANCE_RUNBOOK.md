@@ -87,14 +87,15 @@ place mislabels its value year and silently mis-indexes every later year.
    values is worse than a visible banner.
 4. `tax_constants.csv` has been removed; the dated dataset
    (`reference_src/tax_law_v10.json`) is the single source.
-5. **Contribution limits are not reference data.** 401(k), HSA (self-only and
+5. **Rental constants.** The rental constants (`residential_rental_recovery_years`, `passive_rental_*`, the 25% recapture cap), the Table A-6 depreciation percentages and the passive-loss thresholds were verified by the household's tax preparer on 2026-10-13 against tax year 2025 rules only. Re-check the 2026 values and Table A-6 with the preparer at this update, then update `documentation/reference/RENTAL_TAX_RULES.md` (rules in that file).
+6. **Contribution limits are not reference data.** 401(k), HSA (self-only and
    family) and similar limits are per-household Plan Data fields -- for example
    `annual_401k_limit_base_year` (Cashflow > Retirement Contributions) and
    `self_only_annual_limit_base_year` / `family_annual_limit_base_year` (HSA
    Policy > Contributions), each with an `index_*_limit` toggle. Update them in
    the plan (see the Contributions rows of `reference_src/schema.csv`), not in
    the tax-law dataset.
-6. If your own household's per-plan Social Security wage base or Medicare
+7. If your own household's per-plan Social Security wage base or Medicare
    premium fields (the plan rows in the "Payroll Tax" / "Wellness >
    Medicare" sections, edited in the app) are meant to track the new official figures rather
    than a custom override, update them there too -- these are separate,
