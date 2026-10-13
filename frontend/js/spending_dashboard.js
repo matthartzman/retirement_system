@@ -439,12 +439,117 @@ export function renderBusinessSection(d) {
   return html;
 }
 
+// "Map to category" on the unmapped warning. Confirming POSTs either
+// /api/spending/alias (existing category) or /api/spending/category (new
+// category + exact alias in one call); the alias matches the raw Monarch text
+// and load_category_map/_resolve_alias compare case-insensitively.
+export function spendMapRequest(rawCat, choice) {
+  var raw = String(rawCat || '').trim();
+  if (!raw) return { error: 'Missing category text.' };
+  if (choice && choice.mode === 'new') {
+    var label = String(choice.label || '').trim();
+    var group = String(choice.group || '').trim();
+    var tt = String(choice.tracking_type || '').trim();
+    if (!label || !group || !tt) return { error: 'Tracking type, group and label are required.' };
+    return { path: '/api/spending/category', body: { label: label, tracking_type: tt, group: group, match_value: raw, match_field: 'category', exact: true } };
+  }
+  var id = String((choice && choice.category_id) || '').trim();
+  if (!id) return { error: 'Pick a category.' };
+  return { path: '/api/spending/alias', body: { match_value: raw, match_field: 'category', exact: true, category_id: id } };
+}
+
+export function spendMapOptionsHtml(taxonomy) {
+  return (taxonomy || []).map(function (t) {
+    return (t.groups || []).map(function (g) {
+      var cats = (g.categories || []);
+      if (!cats.length) return '';
+      return '<optgroup label="' + esc(t.tracking_type + ' > ' + g.group) + '">' + cats.map(function (c) {
+        return '<option value="' + esc(c.id) + '">' + esc(c.label || c.id) + '</option>';
+      }).join('') + '</optgroup>';
+    }).join('');
+  }).join('');
+}
+
+export function spendMapOpen(idx) {
+  var d = window.spendingData || {};
+  var cat = (d.unmapped_categories || [])[idx];
+  if (cat === undefined) return;
+  if (window.spendMapState && window.spendMapState.idx === idx) { window.spendMapState = null; renderMain(); return; }
+  window.spendMapState = { idx: idx, cat: cat, taxonomy: null, error: '' };
+  renderMain();
+  api('/api/spending/taxonomy').then(function (res) {
+    if (!window.spendMapState || window.spendMapState.idx !== idx) return;
+    if (res && res.success) window.spendMapState.taxonomy = res.taxonomy || [];
+    else window.spendMapState.error = (res && res.error) || 'Could not load categories.';
+    renderMain();
+  }).catch(function (e) {
+    if (window.spendMapState) { window.spendMapState.error = e.message || 'Network error.'; renderMain(); }
+  });
+}
+
+export function spendMapFilter(idx, q) {
+  var sel = document.getElementById('spendMapSel' + idx);
+  if (!sel) return;
+  q = String(q || '').toLowerCase().trim();
+  Array.prototype.forEach.call(sel.querySelectorAll('option'), function (o) {
+    if (o.value === '__new__') return;
+    o.hidden = !!q && o.textContent.toLowerCase().indexOf(q) < 0 && (o.parentNode.label || '').toLowerCase().indexOf(q) < 0;
+  });
+}
+
+export function spendMapSelChanged(idx) {
+  var sel = document.getElementById('spendMapSel' + idx);
+  var box = document.getElementById('spendMapNew' + idx);
+  if (box && sel) box.style.display = sel.value === '__new__' ? '' : 'none';
+}
+
+export function spendMapConfirm(idx) {
+  var st = window.spendMapState;
+  if (!st || st.idx !== idx) return;
+  var val = function (id) { var el = document.getElementById(id); return el ? el.value : ''; };
+  var sel = val('spendMapSel' + idx);
+  var choice = sel === '__new__'
+    ? { mode: 'new', tracking_type: val('spendMapTT' + idx), group: val('spendMapGrp' + idx), label: val('spendMapLbl' + idx) }
+    : { mode: 'existing', category_id: sel };
+  var req = spendMapRequest(st.cat, choice);
+  if (req.error) { st.error = req.error; renderMain(); return; }
+  st.busy = true;
+  api(req.path, { method: 'POST', body: JSON.stringify(req.body) }).then(function (res) {
+    if (res && res.success) { window.spendMapState = null; loadSpendingDashboard(true); }
+    else { st.busy = false; st.error = (res && res.error) || 'Mapping failed.'; renderMain(); }
+  }).catch(function (e) { st.busy = false; st.error = e.message || 'Network error.'; renderMain(); });
+}
+
+function spendMapPanelHtml(st) {
+  var i = st.idx;
+  if (!st.taxonomy) return '<div class="spend-map-panel small">' + (st.error ? esc(st.error) : 'Loading categories...') + '</div>';
+  var tts = st.taxonomy.map(function (t) { return t.tracking_type; });
+  var groups = {};
+  st.taxonomy.forEach(function (t) { (t.groups || []).forEach(function (g) { groups[g.group] = 1; }); });
+  return '<div class="spend-map-panel">' +
+    '<input type="search" placeholder="Search categories..." oninput="spendMapFilter(' + i + ',this.value)"> ' +
+    '<select id="spendMapSel' + i + '" onchange="spendMapSelChanged(' + i + ')"><option value="">Choose a category...</option>' +
+    spendMapOptionsHtml(st.taxonomy) + '<option value="__new__">New category...</option></select>' +
+    '<div id="spendMapNew' + i + '" style="display:none;margin-top:6px">' +
+    '<label>Tracking type <select id="spendMapTT' + i + '">' + tts.map(function (t) { return '<option>' + esc(t) + '</option>'; }).join('') + '</select></label> ' +
+    '<label>Group <input id="spendMapGrp' + i + '" list="spendMapGrpList' + i + '" value="Other"></label>' +
+    '<datalist id="spendMapGrpList' + i + '">' + Object.keys(groups).map(function (g) { return '<option value="' + esc(g) + '">'; }).join('') + '</datalist> ' +
+    '<label>Label <input id="spendMapLbl' + i + '" value="' + esc(st.cat) + '"></label></div>' +
+    '<div style="margin-top:6px"><button class="btn primary" type="button"' + (st.busy ? ' disabled' : '') + ' onclick="spendMapConfirm(' + i + ')">Map</button> ' +
+    '<button class="btn" type="button" onclick="spendMapOpen(' + i + ')">Cancel</button>' +
+    (st.error ? ' <span class="small" style="color:#b00020">' + esc(st.error) + '</span>' : '') + '</div></div>';
+}
+
 export function renderUnmappedWarning(d) {
   var cats = d.unmapped_categories || [];
   if (!cats.length) return '';
+  var open = window.spendMapState;
   return '<div class="missing-list"><h3>' + cats.length + ' unmapped categories</h3>' +
-    '<p>These transaction categories do not yet have a canonical Spending Category assignment and default to the Other group.</p>' +
-    '<ul>' + cats.map(function (c) { return '<li>' + esc(c) + '</li>' }).join('') + '</ul></div>';
+    '<p>These transaction categories do not yet have a canonical Spending Category assignment and default to the Other group. Use <b>Map to category</b> to assign one.</p>' +
+    '<ul>' + cats.map(function (c, i) {
+      return '<li>' + esc(c) + ' <button class="btn" type="button" onclick="spendMapOpen(' + i + ')">Map to category</button>' +
+        (open && open.idx === i ? spendMapPanelHtml(open) : '') + '</li>';
+    }).join('') + '</ul></div>';
 }
 
 // Wave 6.4 (system review 2026-08-04, architect finding
@@ -467,4 +572,5 @@ Object.assign(window, {
   renderSpendingDashboard,
   renderSpendingSummary, renderSpendingBars, renderSpendingMonthly, renderModelManaged,
   renderBusinessSection, renderUnmappedWarning,
+  spendMapOpen, spendMapFilter, spendMapSelChanged, spendMapConfirm,
 });
