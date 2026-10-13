@@ -79,7 +79,8 @@ def test_on_auto_compares_rent_out_with_sell_and_keep_after_tax(runs):
     rows = _by_disposition(runs['on'])
     assert set(rows) == {'sell', 'keep', RENT_OUT}
     rent, keep = rows[RENT_OUT], rows['keep']
-    assert rent['original_home'] == {'disposition': RENT_OUT, 'sale_year': None, 'conversion_year': 2028}
+    assert rent['original_home'] == {'disposition': RENT_OUT, 'sale_year': None, 'conversion_year': 2028,
+                                     'monthly_rent': RENT}
     # Same home kept, same purchase: the difference is the rent and its tax.
     assert rent['net_worth'] > keep['net_worth']
     assert rent['lifetime_cost'] < keep['lifetime_cost']
@@ -93,7 +94,7 @@ def test_rent_out_notes_carry_the_section_121_window_and_the_recapture(runs):
     assert '§121 two-of-five: exclusion only if sold by 2031' in notes
     recapture = [n for n in notes if n.startswith('§1250 recapture: $')]
     assert recapture and 'taxed up to 25% on a sale' in recapture[0]
-    assert 'dual_ownership_years 2028- (current home rented out)' in notes
+    assert 'owns two homes from 2028 (current home rented out)' in notes
     assert not any(m['sec121_exclusion_lost'] for m in _by_disposition(runs['on'])[RENT_OUT]['moves'])
 
 

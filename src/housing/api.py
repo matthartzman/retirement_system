@@ -15,9 +15,11 @@ so client and server never disagree about which rule fired first.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import replace
 from typing import Any
 
+from ..module_catalog import feature_enabled
 from ..server_services.strategy_asset_service import HOME_APPR_DEFAULT
 from .models import (
     AREA_TYPES,
@@ -32,7 +34,7 @@ from .models import (
     SaleWindow,
 )
 from .optimizer import optimize_housing
-from .rent_out import rent_out_plan
+from .rent_out import FEATURE_KEY as RENT_OUT_FEATURE_KEY
 from .zip_screen.schema import (
     ALLOWED_RADII_MILES,
     NSS_DISCLOSURE,
@@ -108,7 +110,7 @@ def validate_request(body: dict[str, Any], *, rent_out_enabled: bool = False) ->
     rent = home.get('monthly_rent')
     if rent_out_enabled and rent not in (None, ''):
         try:
-            rent_ok = float(rent) > 0
+            rent_ok = math.isfinite(float(rent)) and float(rent) > 0
         except (TypeError, ValueError):
             rent_ok = False
         if not rent_ok:
@@ -413,7 +415,7 @@ def optimize_housing_from_request(
     hand-picked-location path.
     """
     try:
-        rent_out_on = rent_out_plan(c0) is not None
+        rent_out_on = feature_enabled(c0, RENT_OUT_FEATURE_KEY)
         err = validate_request(body, rent_out_enabled=rent_out_on)
         if err:
             return {'success': False, 'error': err}, 400

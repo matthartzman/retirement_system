@@ -56,8 +56,9 @@ def test_rent_is_never_invented():
     assert rent_out_plan(_c()).template is None
     assert rent_out_plan(_c(props=[dict(CONVERTED, monthly_rent=None)])).template is None
     assert rent_out_plan(_c(home_val=0.0), 3000.0).template is None
-    with pytest.raises(ValueError):
-        rent_out_plan(_c(), 0.0)
+    for bad in (0.0, float('inf'), float('nan')):
+        with pytest.raises(ValueError):
+            rent_out_plan(_c(), bad)
 
 
 def test_typed_rent_wins_and_keeps_the_converted_entrys_other_inputs():
@@ -82,12 +83,18 @@ def test_apply_converts_in_move_1s_year_and_strips_the_plans_conversion_otherwis
         assert c['rental_properties'] == [STANDALONE]
 
 
-def test_apply_drops_a_purchase_or_rental_end_that_no_longer_fits():
-    plan = RentOutPlan(dict(CONVERTED, purchase_year=2030, purchase_month=3, rental_end_year=2027))
+def test_apply_drops_inputs_tied_to_the_plans_own_conversion_date():
+    plan = RentOutPlan(dict(
+        CONVERTED, purchase_year=2030, purchase_month=3, rental_end_year=2027, value_at_conversion=500000.0,
+        improvements=[{'year': 2027, 'month': 7, 'amount': 9000.0}, {'year': 2029, 'month': 7, 'amount': 5000.0}],
+        overrides={2027: {'gross_rent': 1.0}, 2030: {'gross_rent': 2.0}}))
     c = _c()
     apply_rent_out(c, _cand(RENT_OUT, year=2028), plan)
     entry = c['rental_properties'][0]
-    assert 'purchase_year' not in entry and 'purchase_month' not in entry and 'rental_end_year' not in entry
+    for key in ('purchase_year', 'purchase_month', 'rental_end_year', 'value_at_conversion'):
+        assert key not in entry
+    assert entry['improvements'] == [{'year': 2029, 'month': 7, 'amount': 5000.0}]
+    assert entry['overrides'] == {2030: {'gross_rent': 2.0}}
 
 
 def test_apply_candidate_keeps_the_home_and_leaves_properties_alone_without_a_plan():
@@ -113,3 +120,4 @@ def test_validation_refuses_rent_out_exactly_as_before_when_off():
     assert validate_request(_body(monthly_rent=4200), rent_out_enabled=True) is None
     assert 'more than 0' in validate_request(_body(monthly_rent='-5'), rent_out_enabled=True)
     assert 'more than 0' in validate_request(_body(monthly_rent='abc'), rent_out_enabled=True)
+    assert 'more than 0' in validate_request(_body(monthly_rent='inf'), rent_out_enabled=True)

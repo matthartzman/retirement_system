@@ -19,6 +19,7 @@ as before this module existed.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Any
 
@@ -56,7 +57,7 @@ def rent_out_plan(c: dict[str, Any], monthly_rent: float | None = None) -> RentO
         return RentOutPlan(None)  # no home to rent out
     existing = next((p for p in (c.get('rental_properties') or []) if _is_converted(p)), None)
     if monthly_rent is not None:
-        if monthly_rent <= 0:
+        if not math.isfinite(monthly_rent) or monthly_rent <= 0:
             raise ValueError('Monthly rent for keep-and-rent-out must be more than 0.')
         base = dict(existing) if existing else {'name': DEFAULT_NAME, 'kind': CONVERTED_HOME,
                                                 'conversion_month': DEFAULT_MONTH, 'sale_month': DEFAULT_MONTH}
@@ -76,6 +77,13 @@ def apply_rent_out(c: dict[str, Any], cand: HousingCandidate, plan: RentOutPlan)
     if cand.original_home.disposition == RENT_OUT and plan.template is not None:
         year = cand.move1.acquisition_year
         entry = {**plan.template, 'conversion_year': year}
+        # Inputs tied to the plan's own conversion date do not carry to another
+        # year: the value at conversion is re-projected by the engine, and
+        # improvements or overrides before this conversion never happen.
+        entry.pop('value_at_conversion', None)
+        entry['improvements'] = [i for i in entry.get('improvements') or []
+                                 if isinstance(i, dict) and int(i.get('year') or 0) >= year]
+        entry['overrides'] = _overrides_from(entry.get('overrides'), year)
         if entry.get('rental_end_year') is not None and int(entry['rental_end_year']) < year:
             entry.pop('rental_end_year')
         if entry.get('purchase_year') is not None and int(entry['purchase_year']) > year:
@@ -85,21 +93,41 @@ def apply_rent_out(c: dict[str, Any], cand: HousingCandidate, plan: RentOutPlan)
     c['rental_properties'] = props
 
 
-def _converted_rows(rows: list[dict[str, Any]]) -> list[tuple[int, dict[str, Any]]]:
+def _overrides_from(overrides: Any, year: int) -> Any:
+    """The per-year overrides from ``year`` on, in either stored shape (a
+    ``{year: {...}}`` map or a list of ``{year, ...}`` rows)."""
+    if isinstance(overrides, dict):
+        return {y: v for y, v in overrides.items() if int(y) >= year}
+    return [o for o in overrides or [] if isinstance(o, dict) and int(o.get('year') or 0) >= year]
+
+
+def _converted_rows(rows: list[dict[str, Any]]) -> list[tuple[dict[str, Any], dict[str, Any]]]:
+    """``(row, converted-home property figures)`` for each year the home is a rental."""
     out = []
     for r in rows:
         for p in r.get('rental_by_property') or []:
             if p.get('kind') == CONVERTED_HOME and p.get('owned'):
-                out.append((int(r.get('year', 0) or 0), p))
+                out.append((r, p))
     return out
 
 
-def converted_net_cash(rows: list[dict[str, Any]]) -> float:
-    """Lifetime rental net cash of the converted home (rent collected less its
-    operating costs, debt service and improvements). Its carrying costs left
-    ``housing_total_yr`` at the conversion, so the lifetime housing cost adds
-    them back through this. 0 without a converted home (feature off)."""
-    return sum(float(p.get('net_cash', 0.0) or 0.0) for _y, p in _converted_rows(rows))
+def converted_after_tax_net_cash(rows: list[dict[str, Any]]) -> float:
+    """Lifetime after-tax rental net cash of the converted home: rent collected
+    less its operating costs, debt service and improvements, less an estimate
+    of the income tax on it -- the year's Schedule E amount that reached AGI
+    (its Schedule E less the change in its suspended passive loss) times the
+    row's effective marginal rate (a loss that reached AGI is a tax saving).
+    The carrying costs left ``housing_total_yr`` at the conversion, so the
+    lifetime housing cost counts them through this. 0 without a converted home
+    (feature off). Net worth needs no estimate: the engine taxes the rent."""
+    total, prior_suspended = 0.0, 0.0
+    for r, p in _converted_rows(rows):
+        suspended = float(p.get('suspended_loss_carryforward', 0.0) or 0.0)
+        to_agi = float(p.get('schedule_e', 0.0) or 0.0) - (suspended - prior_suspended)
+        rate = float(r.get('effective_marginal_rate') or 0.0)
+        total += float(p.get('net_cash', 0.0) or 0.0) - to_agi * rate
+        prior_suspended = suspended
+    return total
 
 
 def last_sale_year_keeping_sec121(entry: dict[str, Any], filing: str = 'MFJ') -> int | None:
@@ -155,10 +183,10 @@ def rent_out_notes(c: dict[str, Any], cand: HousingCandidate,
     else:
         notes.append(f'§121 two-of-five: exclusion only if sold by {last_ok}')
     conv = _converted_rows(rows)
-    depreciation = sum(float(p.get('depreciation', 0.0) or 0.0) for _y, p in conv)
+    depreciation = sum(float(p.get('depreciation', 0.0) or 0.0) for _r, p in conv)
     if depreciation > 0:
         notes.append(f'§1250 recapture: ${depreciation:,.0f} depreciation taken '
-                     f'{conv[0][0]}-{conv[-1][0]}, taxed up to 25% on a sale')
+                     f'{conv[0][0].get("year")}-{conv[-1][0].get("year")}, taxed up to 25% on a sale')
     suspended = float((conv[-1][1].get('suspended_loss_carryforward', 0.0) or 0.0) if conv else 0.0)
     if suspended > 0:
         notes.append(f'passive loss suspended: ${suspended:,.0f} at plan end')
