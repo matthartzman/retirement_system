@@ -46,7 +46,7 @@ file-I/O enforcing audit stays green; push often (weekly usage limit); only the 
 | M4 | done | a header-only save keeps the file's extra columns in `plan_meta` (`dataset.<table>.extra_columns`); revision capture/restore and blank-plan rollback keep it |
 | M5 | done | cause: `LotEngine` kept a live reference to the process-wide `PRICE_CACHE`, which is cleared between runs, so the first run priced lots differently (about $2.7k). It now copies the dict. The warm-up in `test_housing_rent_out_functional.py` is gone |
 | M6 | done | feature on with a converted home in the plan: the do-nothing baseline drops that entry like every candidate; `baseline.as_entered` and `comparison_notes` show the as-entered run. Off: no new keys |
-| M7 | see PR | |
+| M7 | done | shortlisted rent-out rows use the engine's exact tax delta (one extra run without the converted home); rows below the shortlist keep the estimate; each row note says which |
 
 ## Tier 3: hard (new rental modelling and tax-law changes; each behind an owner/tax-preparer checkpoint). Separate unit per item, one PR for the tier or split at the owner's choice. Opus xhigh for design; Sonnet for build.
 Priority order (rental use expected within a year):
