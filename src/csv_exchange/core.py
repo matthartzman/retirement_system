@@ -29,6 +29,7 @@ import io
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
+from . import rental_csv
 from .flat_csv import FLAT_DATASET_FILES, dataset_csv_text, dataset_rows_from_csv_text
 from .plan_csv import PLAN_CSV_FILES, collapse_duplicate_keys, parse_plan_csv
 
@@ -36,6 +37,7 @@ PLAN_ROWS = "plan_rows"
 TARGET_PLAN_ROWS = "plan_rows"      # store.all_rows / insert_row
 TARGET_PLAN_DATASET = "plan_dataset"  # store.dataset(table)
 TARGET_REFERENCE = "reference"       # RefData.table(table), read-only
+TARGET_RENTAL = "rental"             # store.rental (three typed tables; csv_exchange.rental_csv)
 MODE_REPLACE = "replace"             # the incoming rows become the dataset
 MODE_UPSERT = "upsert"               # incoming rows replace same-key rows, others are appended
 
@@ -135,6 +137,9 @@ def _build_registry() -> dict[str, DatasetSpec]:
         target=TARGET_PLAN_DATASET, table="ytd_transactions", columns=_flat_columns("ytd_transactions"),
         key=("Monarch Id",), required=("id", "date", "amount"), numeric=("Amount",),
         mode=MODE_UPSERT, column_map=MONARCH_COLUMN_MAP, group="monarch")
+    out[rental_csv.DATASET] = DatasetSpec(
+        name=rental_csv.DATASET, files=rental_csv.FILES, target=TARGET_RENTAL, table=rental_csv.DATASET,
+        columns=rental_csv.COLUMNS, key=rental_csv.KEY, group="rental")
     for name, file_name, cols, key, required, numeric in _REFERENCE_SPECS:
         out[name] = DatasetSpec(name=name, files=(file_name,), target=TARGET_REFERENCE, table=name,
                                 columns=cols, key=key, required=required, numeric=numeric, group="reference")
@@ -207,6 +212,9 @@ def parse(text: str | Mapping[str, str], name: str) -> ParsedDataset:
     texts = dict(text) if isinstance(text, Mapping) else {spec.files[0]: text}
     if spec.target == TARGET_PLAN_ROWS:
         return _parse_plan_rows(spec, texts)
+    if spec.target == TARGET_RENTAL:
+        header, rental_rows, problems = rental_csv.parse_files(texts)
+        return ParsedDataset(name, header, rental_rows, [Issue(lv, msg, None, col) for lv, msg, col in problems])
     header: list[str] = []
     rows: list[dict[str, str]] = []
     issues: list[Issue] = []
@@ -303,6 +311,8 @@ def validate(parsed: ParsedDataset, *, schema: SchemaFields | None = None,
         if unknown:  # one summary warning: many legitimate rows (lists, notes) have no catalog entry
             shown = "; ".join(unknown[:SAMPLE_LIMIT]) + (" ..." if len(unknown) > SAMPLE_LIMIT else "")
             issues.append(Issue("warning", f"{len(unknown)} row(s) not in the field catalog: {shown}"))
+    elif spec.target == TARGET_RENTAL:
+        issues += [Issue(lv, msg, n, col) for lv, msg, n, col in rental_csv.validate_rows(parsed.rows)]
     else:
         for n, row in enumerate(parsed.rows, 1):
             for c in spec.required:
@@ -326,6 +336,8 @@ def current_rows(store: Any, name: str) -> list[dict[str, str]]:
             for r in store.rows(section):
                 out.append({c: str(r.get(c) or "") for c in spec.columns})
         return out
+    if spec.target == TARGET_RENTAL:
+        return rental_csv.current_rows(store)
     if spec.target == TARGET_PLAN_DATASET:
         return store.dataset(spec.table).rows()
     return [{c: _ref_text(r.get(c)) for c in spec.columns} for r in store.table(spec.table)]
@@ -461,6 +473,9 @@ def commit(store: Any, incoming: ParsedDataset | Iterable[ParsedDataset], *,
             spec = p.spec
             if spec.target == TARGET_PLAN_ROWS:
                 out[spec.name] = _write_plan_rows(store, _result_rows(spec, current_rows(store, spec.name), p.rows))
+            elif spec.target == TARGET_RENTAL:
+                rental_csv.write_rows(store, p.rows)
+                out[spec.name] = len(store.rental.names())
             else:
                 repo = store.dataset(spec.table)
                 rows = _result_rows(spec, repo.rows() if spec.mode != MODE_REPLACE else [], p.rows)
@@ -486,6 +501,8 @@ def export_dataset(store: Any, name: str) -> str:
     spec = dataset_spec(name)
     if spec.target == TARGET_PLAN_DATASET and spec.mode == MODE_REPLACE:
         return dataset_csv_text(store.dataset(spec.table))
+    if spec.target == TARGET_RENTAL:
+        return rental_csv.export_dataset(store)[spec.files[0]]   # the properties file; the plan-set export carries all three
     if spec.mode == MODE_UPSERT:
         raise KeyError(f"{name} is an import-only shape; export {spec.table!r} instead")
     buf = io.StringIO()
