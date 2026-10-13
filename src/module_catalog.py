@@ -1186,17 +1186,19 @@ _OUTPUTS: List[OutputModule] = [
         optional=True, csv_row=False, dashboard_step="assets_home_cash",
     ),
     # ── WP12.2: Rental Properties (design 2026-10-05 §5). ──
-    # Engine-first: the projection reads c['rental_properties'] only while this
-    # is on (src/projection_stages/rental_property.py). No workbook sheet and
-    # no nav step yet (WP12.4 / WP12.5); default off, no CSV row (WP1.3 rule
-    # for new features).
+    # The projection reads c['rental_properties'] only while this is on
+    # (src/projection_stages/rental_property.py). The Rental Properties page
+    # (WP12.6, step ``rental_properties`` under Investments & Property) owns
+    # the data; no workbook sheet yet (WP12.7); default off, no CSV row (WP1.3
+    # rule for new features). The nav step hides while off unless properties
+    # are stored (the page then shows its off state, see the frontend gate).
     OutputModule(
         "rental_property_income", "Rental Properties", PROJECTION, MEDIUM,
         "Rental real estate: rent, expenses, mortgage, depreciation, passive-loss "
         "limits, cash flow, equity and sale with depreciation recapture.",
         domain=HOUSING_PROPERTY, tier=ADVANCED,
         optional=True, csv_row=False, default_on=False,
-        engine_participation=True,
+        engine_participation=True, dashboard_step="rental_properties",
     ),
     OutputModule(
         "planning_workbench", "Planning Workbench", WORKSHEET, LOW,

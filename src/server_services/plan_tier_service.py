@@ -31,8 +31,11 @@ def entered_value(value: Any) -> bool:
 
 def entered_rows(store: Any, key: str) -> int | None:
     """Rows of entered data behind feature ``key``, or None when the catalog declares no data
-    location for it (only modules that gate input sections, ``csv_sections``, have one; a
-    module owning a whole page is counted by the page from its own rows)."""
+    location for it (only modules that gate input sections, ``csv_sections``, have one, plus
+    Rental Properties, whose rows are its typed tables; a module owning a whole page is counted
+    by the page from its own rows)."""
+    if key == "rental_property_income":  # typed rental tables (WP12.4), not plan rows
+        return store.rental.count()
     sections = mc.CATALOG[key].csv_sections
     if not sections:
         return None
