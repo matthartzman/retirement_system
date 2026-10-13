@@ -242,6 +242,17 @@ DECLARED_SITES: dict[tuple[str, str, str], tuple[str, str | None, tuple[str, ...
         "builds no RentalBook and skips every rental step, so the projection "
         "is the same as a plan with no rentals; the entered rows are kept.",
     ),
+    ("src/housing/rent_out.py", "rent_out_plan", "rental_property_income"): (
+        ENGINE, None, (),
+        "WP12.8: Rental Properties. Off, no rent_out plan is built, so the "
+        "housing optimizer's candidates and results are unchanged.",
+    ),
+    ("src/housing/api.py", "optimize_housing_from_request",
+     "rental_property_income"): (
+        ENGINE, None, (),
+        "WP12.8: Rental Properties. Off, the request's rent_out disposition "
+        "is rejected as unknown, exactly as before the feature existed.",
+    ),
     ("src/data_io.py", "parse_client", "rental_property_income"): (
         ENGINE, None, (),
         "WP12.4: Rental Properties. Off, parse_client neither reads the typed "

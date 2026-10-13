@@ -51,7 +51,7 @@ def rent_out_plan(c: dict[str, Any], monthly_rent: float | None = None) -> RentO
     """``None`` when the feature is off. ``monthly_rent`` (today's dollars) is the
     typed value; it overrides the plan's converted-home entry's rent and keeps
     that entry's other inputs (expenses, vacancy, land share)."""
-    if not feature_enabled(c, FEATURE_KEY):
+    if not feature_enabled(c, 'rental_property_income'):
         return None
     if float(c.get('home_val', 0.0) or 0.0) <= 0:
         return RentOutPlan(None)  # no home to rent out
