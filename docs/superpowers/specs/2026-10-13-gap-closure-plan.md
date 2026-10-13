@@ -37,6 +37,17 @@ file-I/O enforcing audit stays green; push often (weekly usage limit); only the 
 | M6 | WP12.8 doubt 2: with the feature on, sell/keep candidates drop the plan's own converted-home entry; the do-nothing baseline keeps it | make the candidate set consistent and show it in the comparison notes | notes and numbers agree |
 | M7 | WP12.8 doubt 3: lifetime cost uses an estimated tax on rent | use the engine's exact tax delta for rent-out candidates when cheap, else keep the estimate with a visible label | estimate labelled, or exact |
 
+### Tier 2 status (PR #205, draft)
+| ID | Status | Result |
+|---|---|---|
+| M1 | done | revisions keep and restore every plan table (flat datasets, rental) in `revision_datasets` as `table:<name>`; no schema bump; round-trip test over all tables; older revisions restore plan rows only |
+| M2 | done | `list_revisions` adds `label` and `group` (`recovery` / `history`); `GET /api/plan/revisions?group=` returns groups with counts (recovery collapsed by default); recovery sources stay unpruned. There was no revision list in the UI to extend, so no UI change |
+| M3 | measured, no change | 55 ms per dataset fingerprint (and per `plan_state`) with 5,000 YTD rows, 0.9 ms for the row revision; under the 200 ms threshold, so no revision counter. Fingerprint unchanged |
+| M4 | done | a header-only save keeps the file's extra columns in `plan_meta` (`dataset.<table>.extra_columns`); revision capture/restore and blank-plan rollback keep it |
+| M5 | done | cause: `LotEngine` kept a live reference to the process-wide `PRICE_CACHE`, which is cleared between runs, so the first run priced lots differently (about $2.7k). It now copies the dict. The warm-up in `test_housing_rent_out_functional.py` is gone |
+| M6 | done | feature on with a converted home in the plan: the do-nothing baseline drops that entry like every candidate; `baseline.as_entered` and `comparison_notes` show the as-entered run. Off: no new keys |
+| M7 | see PR | |
+
 ## Tier 3: hard (new rental modelling and tax-law changes; each behind an owner/tax-preparer checkpoint). Separate unit per item, one PR for the tier or split at the owner's choice. Opus xhigh for design; Sonnet for build.
 Priority order (rental use expected within a year):
 | ID | Item | Why this order | Checkpoint |

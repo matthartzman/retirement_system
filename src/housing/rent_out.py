@@ -114,7 +114,7 @@ def baseline_comparison_notes(entry: dict[str, Any], as_entered: dict[str, Any],
         f"Do-nothing baseline and sell / keep candidates leave out the plan's own converted home "
         f"'{name}' (the disposition decides it); only rent-out candidates rent the home.",
         f"The plan as entered, with '{name}' rented, would end at net worth "
-        f"${as_entered['net_worth']:,.0f} (lifetime cost ${as_entered['lifetime_cost']:,.0f}); "
+        f"${as_entered['net_worth']:,.0f} (lifetime cost ${as_entered['lifetime_cost']:,.0f}, exact tax delta); "
         f"the baseline above is ${baseline['net_worth']:,.0f} (${baseline['lifetime_cost']:,.0f}).",
     ]
 
@@ -137,7 +137,21 @@ def _converted_rows(rows: list[dict[str, Any]]) -> list[tuple[dict[str, Any], di
     return out
 
 
-def converted_after_tax_net_cash(rows: list[dict[str, Any]]) -> float:
+# M7: every rent-out row says which tax its lifetime cost carries.
+EXACT_TAX_NOTE = 'lifetime cost uses exact tax delta'
+ESTIMATED_TAX_NOTE = 'estimated tax on rent'
+
+
+def exact_rent_tax(rows: list[dict[str, Any]], rows_without: list[dict[str, Any]]) -> float:
+    """The engine's own tax on the converted home (M7): lifetime ``total_tax`` of
+    the run with it rented less the same run with the converted-home entry left
+    out (negative when the rental lowers tax)."""
+    def _tax(rs: list[dict[str, Any]]) -> float:
+        return sum(float(r.get('total_tax', 0.0) or 0.0) for r in rs)
+    return _tax(rows) - _tax(rows_without)
+
+
+def converted_after_tax_net_cash(rows: list[dict[str, Any]], tax: float | None = None) -> float:
     """Lifetime after-tax rental net cash of the converted home: rent collected
     less its operating costs, debt service and improvements, less an estimate
     of the income tax on it -- the year's Schedule E amount that reached AGI
@@ -145,7 +159,12 @@ def converted_after_tax_net_cash(rows: list[dict[str, Any]]) -> float:
     row's effective marginal rate (a loss that reached AGI is a tax saving).
     The carrying costs left ``housing_total_yr`` at the conversion, so the
     lifetime housing cost counts them through this. 0 without a converted home
-    (feature off). Net worth needs no estimate: the engine taxes the rent."""
+    (feature off). Net worth needs no estimate: the engine taxes the rent.
+
+    ``tax`` (M7) replaces the estimate with a known lifetime tax on the rental
+    (:func:`exact_rent_tax`)."""
+    if tax is not None:
+        return sum(float(p.get('net_cash', 0.0) or 0.0) for _r, p in _converted_rows(rows)) - tax
     total, prior_suspended = 0.0, 0.0
     for r, p in _converted_rows(rows):
         suspended = float(p.get('suspended_loss_carryforward', 0.0) or 0.0)
