@@ -11,7 +11,7 @@ from ..server_services.strategy_asset_service import (
     HOME_APPR_DEFAULT,
     INFLATION_GENERAL_DEFAULT,
 )
-from .models import Location, Move, ScoredCandidate
+from .models import RENT_OUT, Location, Move, ScoredCandidate
 from .plan_variant import (
     _effective_mortgage_rate,
     _estimate_for_location,
@@ -99,12 +99,17 @@ def _format_candidate(
 ) -> dict[str, Any]:
     cand = sc.candidate
     lost = list(sc.sec121_exclusion_lost)
+    original_home: dict[str, Any] = {
+        'disposition': cand.original_home.disposition,
+        'sale_year': cand.original_home.sale_year,
+    }
+    if cand.original_home.disposition == RENT_OUT:
+        # WP12.8: the year the home becomes a rental (move 1's year), for the
+        # page's "Convert my home" link. Absent for every other disposition.
+        original_home['conversion_year'] = cand.move1.acquisition_year
     return {
         'rank': rank,
-        'original_home': {
-            'disposition': cand.original_home.disposition,
-            'sale_year': cand.original_home.sale_year,
-        },
+        'original_home': original_home,
         'moves': [
             _format_move(
                 m, lost[i] if i < len(lost) else False,

@@ -28,6 +28,7 @@ from .models import (
     NARROWED_MAX_EVALS_PER_AXIS,
     NARROWED_MOVE1_AXES,
     NARROWED_MOVE2_AXES,
+    NO_SALE_DISPOSITIONS,
     OriginalHome,
     SaleWindow,
     ScoredCandidate,
@@ -104,7 +105,7 @@ def _axes_for_move1(sale_window, move1_window, disposition):
     ``point`` accordingly."""
     axes = [range(move1_window.earliest_acquisition_year,
                   move1_window.latest_acquisition_year + 1)]
-    if disposition != 'keep':
+    if disposition not in NO_SALE_DISPOSITIONS:
         axes.insert(0, range(sale_window.earliest_sale_year,
                              sale_window.latest_sale_year + 1))
     return axes
@@ -125,7 +126,7 @@ def generate_move1_candidates_narrowed(
     out: list[ScoredCandidate] = []
     for disposition in dispositions:
         axes = _axes_for_move1(sale_window, move1_window, disposition)
-        keep = disposition == 'keep'
+        keep = disposition in NO_SALE_DISPOSITIONS
         for loc in locations1:
             for action in actions_for_location(move1_action, loc):
                 def build(point, _loc=loc, _action=action, _keep=keep, _d=disposition):

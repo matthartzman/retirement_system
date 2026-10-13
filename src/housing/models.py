@@ -89,6 +89,12 @@ class Location:
 
 
 DISPOSITIONS = ('sell', 'keep', 'auto')
+# WP12.8: keep the current home and rent it out. A disposition only while the
+# rental_property_income feature is on (``rent_out.rent_out_plan``); off, it is
+# an unknown disposition exactly as before.
+RENT_OUT = 'rent_out'
+# Dispositions with no sale of the current home in the plan: no sale-year axis.
+NO_SALE_DISPOSITIONS = ('keep', RENT_OUT)
 AREA_TYPES = ('any', 'urban', 'suburban', 'exurban', 'rural')
 FAMILY_RADII_MILES = (10, 25, 50, 100)
 MOVE_ACTIONS = ('auto', 'buy', 'rent')
@@ -120,7 +126,9 @@ class OriginalHome:
     """What happens to the home the household owns today.
 
     ``disposition`` is resolved per candidate: 'sell' carries a searched
-    ``sale_year``; 'keep' carries ``None`` and leaves ``home_sale_yr`` at 0.
+    ``sale_year``; 'keep' carries ``None`` and leaves ``home_sale_yr`` at 0;
+    'rent_out' (WP12.8, feature on) is 'keep' plus the home rented from move
+    1's acquisition year (``rent_out.apply_rent_out``).
     'auto' is a request-level value only -- it never reaches a candidate,
     because generation expands it into both concrete dispositions.
     """

@@ -22,6 +22,7 @@ from ..server_services.strategy_asset_service import HOME_APPR_DEFAULT
 from .models import (
     AREA_TYPES,
     DISPOSITIONS,
+    RENT_OUT,
     FAMILY_RADII_MILES,
     FamilyPresence,
     MOVE2_STRATEGIES,
@@ -31,6 +32,7 @@ from .models import (
     SaleWindow,
 )
 from .optimizer import optimize_housing
+from .rent_out import rent_out_plan
 from .zip_screen.schema import (
     ALLOWED_RADII_MILES,
     NSS_DISCLOSURE,
@@ -69,13 +71,17 @@ SELECTED_ZIPS_MIN = 1
 SELECTED_ZIPS_MAX = 10
 
 
-def validate_request(body: dict[str, Any]) -> str | None:
+def validate_request(body: dict[str, Any], *, rent_out_enabled: bool = False) -> str | None:
     """The design §8 rules, server-side, plus the three enum checks Task 9
     dropped (``objective``, ``search_mode``, ``move2_strategy`` -- see the
     inherited-obligation note above Task 10 Step 1 in the design doc). Rules
     are checked in a fixed order and the FIRST violation's message is
     returned, so the client's own copy and this one never disagree about
     which rule fired.
+
+    ``rent_out_enabled`` (WP12.8): the rental feature is on, so disposition
+    ``rent_out`` is known and ``original_home.monthly_rent`` is checked. Off,
+    ``rent_out`` is refused with the same message as any unknown disposition.
 
     Returns ``None`` when the request is valid.
     """
@@ -97,8 +103,16 @@ def validate_request(body: dict[str, Any]) -> str | None:
 
     home = body.get('original_home') or {}
     disposition = str(home.get('disposition', 'auto') or 'auto').lower()
-    if disposition not in DISPOSITIONS:
+    if disposition not in DISPOSITIONS + ((RENT_OUT,) if rent_out_enabled else ()):
         return f'Unknown disposition: {disposition!r}.'
+    rent = home.get('monthly_rent')
+    if rent_out_enabled and rent not in (None, ''):
+        try:
+            rent_ok = float(rent) > 0
+        except (TypeError, ValueError):
+            rent_ok = False
+        if not rent_ok:
+            return 'Monthly rent for keep-and-rent-out must be a number more than 0.'
 
     sells = disposition in ('sell', 'auto')
     earliest_sale = int(home.get('earliest_sale_year') or 0)
@@ -399,12 +413,15 @@ def optimize_housing_from_request(
     hand-picked-location path.
     """
     try:
-        err = validate_request(body)
+        rent_out_on = rent_out_plan(c0) is not None
+        err = validate_request(body, rent_out_enabled=rent_out_on)
         if err:
             return {'success': False, 'error': err}, 400
 
         home = body.get('original_home') or {}
         disposition = str(home.get('disposition', 'auto') or 'auto').lower()
+        rent_raw = home.get('monthly_rent') if rent_out_on else None
+        rent_out_monthly_rent = None if rent_raw in (None, '') else float(rent_raw)
         sale_window = SaleWindow(
             earliest_sale_year=int(home.get('earliest_sale_year') or 0),
             latest_sale_year=int(home.get('latest_sale_year') or 0),
@@ -535,6 +552,7 @@ def optimize_housing_from_request(
             down_payment_pct=down_payment_pct,
             mortgage_rate_pct=mortgage_rate_pct,
             shortlist_size=shortlist_size,
+            rent_out_monthly_rent=rent_out_monthly_rent,
         )
         return result, 200
     except AnchorNotFoundError as exc:

@@ -10,11 +10,14 @@ tuple of ``Move``s, each with its own ``acquisition_year`` and an explicit
 market is now representable; previously it was not. ``purchase_year`` no
 longer exists anywhere in this package.
 
-``Keep`` means ``home_sale_yr = 0``: carrying costs keep accruing and **no
-rental income is modelled**. Treating a kept home as an income property needs
-a rental-income channel, Schedule E netting, depreciation, §1250 recapture and
-a real §121 non-qualified-use test, none of which the engine has. That is
-Phase 2 (§13 of the same design doc) and is deliberately out of scope here.
+``Keep`` means ``home_sale_yr = 0``: carrying costs keep accruing and no
+rental income is modelled for it. Phase 2 (§13 of the same design doc) is
+``rent_out`` -- keep the home and rent it -- built in WP12.8 on the Rental
+Properties engine and offered only while the ``rental_property_income``
+feature is on (``rent_out``: the home becomes a converted-home rental in move
+1's year, with Schedule E, depreciation, the passive-loss limit, and §121 /
+§1250 recapture notes on the candidate). With the feature off the candidate
+set, the results and the Phase 1 disclosure are exactly as before.
 
 Where things live (all of the below is a pure carve-up of the former
 single-file ``src/housing_optimizer.py``; behavior is unchanged and that
@@ -37,6 +40,8 @@ path still works as a re-export shim):
 * ``results``     -- ``housing_optimize_v2`` payload shaping.
 * ``optimizer``   -- the orchestrator; delegates all of the above.
 * ``api``         -- request parsing for ``POST /api/housing/optimize``.
+* ``rent_out``    -- WP12.8 keep-and-rent-out: the converted-home entry a
+                     ``rent_out`` candidate writes, and its notes.
 
 To try something out without writing throwaway code, use the bundled
 harness: ``python tools/housing_lab.py --help`` runs a real optimization
@@ -128,6 +133,7 @@ _EXPORTS = {
     'OBJECTIVES': 'models',
     'SEARCH_MODES': 'models',
     'DISPOSITIONS': 'models',
+    'RENT_OUT': 'models',
     'AREA_TYPES': 'models',
     'FAMILY_RADII_MILES': 'models',
     'MOVE_ACTIONS': 'models',
