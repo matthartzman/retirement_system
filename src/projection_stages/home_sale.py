@@ -5,6 +5,7 @@ from typing import Any, Callable, NamedTuple
 from .. import core as _aa  # consolidated from account_access
 from .. import tax_kernel as _tk
 from ..planning_engines import EvHomeSale
+from ..rental_tax import rental_sale, section_121_converted_home
 
 
 class HomeSaleResult(NamedTuple):
@@ -34,6 +35,19 @@ class HomeSaleResult(NamedTuple):
     home_val: float
     home_equity: float
     mort_bal_yr: float
+    # The sale's economics in the sale year (None otherwise): WP12.3 hands it
+    # to the rental book when the home was converted to a rental.
+    economics: "HomeSaleEconomics | None" = None
+
+
+class ConvertedHomeTerms(NamedTuple):
+    """WP12.3: what a home converted to a rental adds to its sale (design
+    2026-10-05 sections 4.7-4.8; ``rental_property.RentalBook.converted_home_sale_terms``).
+    Only a converted home gets these; every other home sale is unchanged."""
+    accumulated_depreciation: float  # allowed or allowable while rented, through the sale
+    improvements: float  # capital improvements made while a rental (added to basis)
+    loss_basis: float  # lesser of value and adjusted basis at conversion, land included
+    qualifies: bool  # section 121 two-of-five-year ownership-and-use test at the sale date
 
 
 class HomeSaleEconomics(NamedTuple):
@@ -48,6 +62,15 @@ class HomeSaleEconomics(NamedTuple):
     sec121_exclusion: float
     taxable_gain: float
     net_proceeds_after_costs_and_mortgage: float
+    # WP12.3, a converted home only (zero / None for every other sale): gain
+    # equal to the depreciation taken is never excluded and is taxed as
+    # unrecaptured section 1250 gain (ordinary, capped at 25%); a loss is a
+    # section 1231 ordinary loss; ``taxable_gain`` is then the LTCG part only.
+    unrecaptured_1250_gain: float = 0.0
+    ordinary_loss: float = 0.0
+    sec121_excluded: float = 0.0
+    adjusted_basis: float = 0.0  # basis + improvements - depreciation
+    converted: ConvertedHomeTerms | None = None
 
 
 def first_death_home_basis(basis: float, fmv_at_death: float, step_up_fraction: float) -> float:
@@ -88,7 +111,7 @@ def surviving_spouse_sec121_window(
 
 def _compute_home_sale_economics(
     c: dict[str, Any], *, gross_proceeds: float, mort_payoff: float, basis: float, filing: str,
-    surviving_spouse_window: bool = False,
+    surviving_spouse_window: bool = False, converted: ConvertedHomeTerms | None = None,
 ) -> HomeSaleEconomics:
     """Selling costs, capital gain, §121 exclusion, taxable gain, and net
     proceeds (before any HELOC payoff) for a single home sale. ``c['sec121']``
@@ -101,12 +124,31 @@ def _compute_home_sale_economics(
     §121(b)(4) two-year surviving-spouse window (see
     :func:`surviving_spouse_sec121_window`), so the $500k joint exclusion
     applies even though filing status has already reverted to Single.
+
+    ``converted`` (WP12.3): the home was converted to a rental. The gain uses
+    the rental rules (``rental_tax.rental_sale``: adjusted basis net of the
+    depreciation, dual basis for a loss) and the exclusion applies only when
+    the two-of-five-year test passes, never to the depreciation taken
+    (``rental_tax.section_121_converted_home``); failing it, the whole gain is
+    taxable.
     """
     selling_costs = gross_proceeds * c['home_sell_cost_pct']
     proceeds_after = max(0, gross_proceeds - selling_costs - mort_payoff)
     cap_gain = max(0, gross_proceeds - selling_costs - basis)
     sec121_exclusion = 500000.0 if (filing == 'MFJ' or surviving_spouse_window) else 250000.0
     sec121_exclusion = min(float(c.get('sec121', sec121_exclusion) or sec121_exclusion), sec121_exclusion)
+    if converted is not None:
+        sale = rental_sale(gross_proceeds, selling_costs, basis, converted.improvements,
+                           converted.accumulated_depreciation, loss_basis=converted.loss_basis)
+        split = section_121_converted_home(sale.gain, converted.accumulated_depreciation,
+                                           qualifies=converted.qualifies, exclusion=sec121_exclusion)
+        return HomeSaleEconomics(
+            selling_costs=selling_costs, cap_gain=max(0.0, sale.gain),
+            sec121_exclusion=sec121_exclusion if converted.qualifies else 0.0,
+            taxable_gain=split.capital_gain, net_proceeds_after_costs_and_mortgage=proceeds_after,
+            unrecaptured_1250_gain=split.unrecaptured_1250_gain, ordinary_loss=sale.ordinary_loss,
+            sec121_excluded=split.excluded, adjusted_basis=sale.adjusted_basis, converted=converted,
+        )
     taxable_gain = max(0, cap_gain - sec121_exclusion)
     return HomeSaleEconomics(
         selling_costs=selling_costs, cap_gain=cap_gain, sec121_exclusion=sec121_exclusion,
@@ -127,6 +169,7 @@ def apply_home_sale(
     emit: Callable[[Any], None],
     adjusted_basis: float | None = None,
     surviving_spouse_window: bool = False,
+    converted_home: ConvertedHomeTerms | None = None,
 ) -> HomeSaleResult:
     """Appreciate or sell the home for the year, pay off HELOC/mortgage at
     sale, and route sale proceeds.
@@ -138,6 +181,13 @@ def apply_home_sale(
     §121(b)(4) $500k survivor exclusion. When either is in effect, the sale
     year also records ``home_sale_basis`` and
     ``home_sale_sec121_survivor_window`` for audit.
+
+    ``converted_home`` (WP12.3): the home is a rental at a planned sale (not
+    an estate sale, whose step-up leaves no gain); see
+    :func:`_compute_home_sale_economics`. The sale year then also records
+    ``home_sale_converted_home``, ``home_sale_accumulated_depreciation``,
+    ``home_sale_sec121_two_of_five``, ``home_sale_sec121_excluded``,
+    ``home_sale_unrecaptured_1250_gain`` and ``home_sale_ordinary_loss``.
 
     In the sale year (the configured ``home_sale_yr``, or an estate sale
     forced at the second death), this:
@@ -228,10 +278,18 @@ def apply_home_sale(
         _survivor_rule = bool(surviving_spouse_window) and not _estate_sale
         _econ = _compute_home_sale_economics(
             c, gross_proceeds=gross_proceeds, mort_payoff=mort_payoff, basis=basis, filing=filing,
-            surviving_spouse_window=_survivor_rule)
+            surviving_spouse_window=_survivor_rule,
+            converted=None if _estate_sale else converted_home)
         if adjusted_basis is not None or _survivor_rule:
             row['home_sale_basis'] = basis
             row['home_sale_sec121_survivor_window'] = _survivor_rule
+        if _econ.converted is not None:
+            row['home_sale_converted_home'] = True
+            row['home_sale_accumulated_depreciation'] = _econ.converted.accumulated_depreciation
+            row['home_sale_sec121_two_of_five'] = _econ.converted.qualifies
+            row['home_sale_sec121_excluded'] = _econ.sec121_excluded
+            row['home_sale_unrecaptured_1250_gain'] = _econ.unrecaptured_1250_gain
+            row['home_sale_ordinary_loss'] = _econ.ordinary_loss
         selling_costs = _econ.selling_costs
         cap_gain = _econ.cap_gain
         sec121_exclusion = _econ.sec121_exclusion
@@ -301,6 +359,8 @@ def apply_home_sale(
         row['home_sale_acct']     = acct
         emit(EvHomeSale(year, gross_proceeds, selling_costs, mort_payoff,
                         home_sale_tax, net_proceeds, acct))
+        return HomeSaleResult(home_val=home_val, home_equity=home_equity, mort_bal_yr=mort_bal_yr,
+                              economics=_econ)
     else:
         # Normal year -- appreciate home if still owned
         if not home_sold:

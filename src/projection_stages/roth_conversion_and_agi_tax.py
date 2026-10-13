@@ -688,8 +688,15 @@ def apply_agi_and_tax(
     il_tax_est = agi * (_state_rules.get('rate', 0.0495) if _sro is None else _sro)
     configured_prop_tax_yr = float(row.get('real_estate_tax_yr', 0.0) or 0.0)
     estimated_prop_tax_yr = (home_val * _state_rules.get('prop_rate', 0.0)) if home_val > 0 else 0.0
-    prop_tax_yr = configured_prop_tax_yr if configured_prop_tax_yr > 0 else estimated_prop_tax_yr
     mort_interest_yr = float((c.get('mort_interest_schedule') or {}).get(year, 0.0) or 0.0)
+    # WP12.3: a home converted to a rental deducts its mortgage interest and
+    # real-estate tax on Schedule E for the rented share of the year
+    # (row['real_estate_tax_yr'] already excludes it), not on Schedule A.
+    _converted_share = float(row.get('converted_home_share', 0.0) or 0.0)
+    if _converted_share > 0:
+        estimated_prop_tax_yr *= 1.0 - _converted_share
+        mort_interest_yr *= 1.0 - _converted_share
+    prop_tax_yr = configured_prop_tax_yr if configured_prop_tax_yr > 0 else estimated_prop_tax_yr
     salt_gross = il_tax_est + prop_tax_yr
     salt = min(salt_gross, salt_cap(year, agi, filing))
     # Item 4.1: QCD dollars already left AGI above (never a deduction);
