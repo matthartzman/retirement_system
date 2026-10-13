@@ -73,6 +73,12 @@ place mislabels its value year and silently mis-indexes every later year.
      table uses that table. The rows first entered for 2026 are recalled,
      unverified assumptions -- verify them against Rev. Proc. 2025-25 and the
      current enhanced-credit status.
+   - Rental properties (WP12.1, statutory, not indexed -- re-confirm only when
+     law changes; rules in `RENTAL_TAX_RULES.md`): `residential_rental_recovery_years`,
+     `passive_rental_special_allowance`, `passive_rental_phaseout_start`,
+     `passive_rental_phaseout_rate`, `passive_rental_special_allowance_mfs_not_living_apart`,
+     `unrecaptured_1250_max_rate`, `section_121_exclusion`, `section_121_required_days`
+     and `section_121_lookback_years`.
    Leave the previous rows in place: the lookup uses them for earlier years.
 3. Update `reference_src/tax_update_dashboard.csv`: for each family you just
    refreshed, set `year` to the new value year and `last_reviewed` to today.
