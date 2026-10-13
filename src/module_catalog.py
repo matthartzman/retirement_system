@@ -1199,6 +1199,8 @@ _OUTPUTS: List[OutputModule] = [
         domain=HOUSING_PROPERTY, tier=ADVANCED,
         optional=True, csv_row=False, default_on=False,
         engine_participation=True, dashboard_step="rental_properties",
+        # WP12.7: the workbook sheet exists only while the feature is on (design section 7).
+        sheet="40. Rental Properties", tab="1E. Rental Properties",
     ),
     OutputModule(
         "planning_workbench", "Planning Workbench", WORKSHEET, LOW,
@@ -1649,6 +1651,10 @@ SHEET_REGISTRY = dict([
     # characters -- "38. Housing Trajectory Comparison" (33 chars) tripped
     # that limit.
     _visible('38. Housing Comparison', '2', 17, 15, 'Housing Comparison', 'housing_trajectory_comparison', slug='housing_comparison'),
+    # WP12.7 (design 2026-10-05 section 7, owner decision 2026-10-13): Rental Properties,
+    # section 1 (Reports) after Balance Sheet (rank 3), before Lifetime Taxes (4), present
+    # only while the rental_property_income feature is on (module_key gates it).
+    _visible('40. Rental Properties', '1', 3.5, 3.5, 'Rental Properties', 'rental_property_income', slug='rental_properties'),
 ])
 
 # OPTIONAL_MODULE_SHEETS maps each client_optional_functions.csv toggle key to

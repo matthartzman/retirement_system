@@ -28,7 +28,12 @@ from .workbook_common import (
 def build_sheet7(ws, c, rows):
     """Lifetime Tax Projection"""
     ws.sheet_view.showGridLines = False
-    section_title(ws, 1, 'LIFETIME TAX PROJECTION', 16)
+    # WP12.7: with Rental Properties on, two columns follow the historic 16: the Schedule E amount
+    # the passive-loss limit lets into AGI, and the tax on a rental sale outside ordinary income
+    # (already inside Total Tax). Off, the layout and the totals are unchanged.
+    rental_on = any('rental_net_cash_flow' in x for x in rows)
+    n_cols = 18 if rental_on else 16
+    section_title(ws, 1, 'LIFETIME TAX PROJECTION', n_cols)
 
     r = 2
     # Kept short deliberately: a long note merged across every column wraps
@@ -49,6 +54,8 @@ def build_sheet7(ws, c, rows):
             'Fed Tax','State Tax','NIIT','Payroll Tax','IRMAA',
             'Total Tax','Effective Rate','Marginal Rate (bracket)',
             'Effective Marginal Rate','Future IRMAA Impact']
+    if rental_on:
+        hdrs += ['Rental Schedule E in AGI', 'Rental Sale Tax']
     for i, h in enumerate(hdrs, 1):
         write_hdr(ws, r, i, h, NAVY, WHITE, size=9)
     r += 1
@@ -57,6 +64,7 @@ def build_sheet7(ws, c, rows):
     # C5: "Lifetime Total Tax" adds a 2026 dollar and a 2058 dollar together
     # with no inflation adjustment -- deflate_to_present() companions below
     # give a purchasing-power-comparable total alongside the nominal sum.
+    lifetime_rental_agi = 0.0; lifetime_rental_sale_tax = 0.0
     lifetime_fed_pv = 0; lifetime_state_pv = 0; lifetime_niit_pv = 0; lifetime_total_pv = 0
 
     for row in rows:
@@ -75,6 +83,9 @@ def build_sheet7(ws, c, rows):
                 row['payroll_tax'], row['irmaa'],
                 row['total_tax'], eff_rate, marg,
                 emr if emr is not None else '', irmaa_flag]
+        if rental_on:
+            vals += [row.get('rental_schedule_e_to_agi', 0.0),
+                     row.get('rental_sale_ltcg_tax', 0.0) + row.get('rental_tax_adjustment', 0.0)]
         for col_idx, val in enumerate(vals, 1):
             if col_idx == 1:
                 fmt = FMT_YEAR
@@ -88,6 +99,8 @@ def build_sheet7(ws, c, rows):
                 fmt = FMT_DOLLAR
             write_cell(ws, r, col_idx, val, fmt=fmt,
                        align='right' if col_idx>4 else 'center')
+        lifetime_rental_agi += row.get('rental_schedule_e_to_agi', 0.0)
+        lifetime_rental_sale_tax += row.get('rental_sale_ltcg_tax', 0.0) + row.get('rental_tax_adjustment', 0.0)
         lifetime_fed   += row['fed_tax']
         lifetime_state += row['state_tax']
         lifetime_niit  += row['niit']
@@ -104,17 +117,23 @@ def build_sheet7(ws, c, rows):
               (f'Lifetime State Tax ({c["state"][:2]})',   lifetime_state, lifetime_state_pv),
               ('Lifetime NIIT',        lifetime_niit, lifetime_niit_pv),
               ('Lifetime Total Tax',   lifetime_total, lifetime_total_pv)]
+    if rental_on:
+        totals += [('Lifetime Rental Schedule E added to AGI (after the passive-loss limit)', lifetime_rental_agi, None),
+                   ('Lifetime Tax on Rental Sales (outside ordinary income; included in Total Tax)',
+                    lifetime_rental_sale_tax, None)]
     for label, val, val_pv in totals:
         write_cell(ws, r, 1, label, bold=True, bg=NAVY, fg=WHITE)
         ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=6)
         write_cell(ws, r, 7, val, fmt=FMT_DOLLAR, bold=True, bg=NAVY, fg=WHITE)
         r += 1
+        if val_pv is None:
+            continue
         write_cell(ws, r, 1, f"{label} (Today's $)", bg=DGRAY, fg=WHITE)
         ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=6)
         write_cell(ws, r, 7, val_pv, fmt=FMT_DOLLAR, bg=DGRAY, fg=WHITE)
         r += 1
 
-    for col in range(1, 15):
+    for col in range(1, n_cols - 1):
         ws.column_dimensions[get_column_letter(col)].width = 14
 
     qc('7. Lifetime Tax', 'Lifetime totals present', True,

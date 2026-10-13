@@ -34,6 +34,7 @@ from .workbook_common import (
 from .. import allocation_policy as _ap
 from . import summary_figures
 from ..governance import readiness_label as _readiness_label
+from ..result_contract import rental_summary as _rental_summary
 from ..planning_engines import compute_baseline_lcv_and_eltr, compute_future_lcv_and_eftr
 from .sheets_allocation_helpers import _workbook_pricing_source_label, _rebalance_settings
 
@@ -216,6 +217,28 @@ def build_sheet1(ws, c, rows, mc_data, ss_sweep=None):
         write_cell(ws, r, 1, label, bold=True, bg=LGRAY)
         write_cell(ws, r, 2, value, fmt=fmt, bold=True, bg=GRAY)
         ws.merge_cells(start_row=r, start_column=2, end_row=r, end_column=6)
+        r += 1
+
+    # Rental Properties (WP12.7): only when the feature ran (its row fields exist).
+    _rental = _rental_summary(rows)
+    if _rental is not None:
+        r += 1
+        write_hdr(ws, r, 1, 'Rental Properties', NAVY, WHITE, span=6); r += 1
+        for label, value in [
+            ('Rental net cash flow, lifetime (after expenses and debt service)', _rental['lifetime_net_cash_flow']),
+            ('Rental Schedule E added to AGI, lifetime (after the passive-loss limit)', _rental['lifetime_schedule_e_to_agi']),
+            ('Rental depreciation, lifetime', _rental['lifetime_depreciation']),
+            ('Rental sale net proceeds deposited, lifetime', _rental['lifetime_sale_net_proceeds']),
+            ('Rental equity at plan end', _rental['terminal_equity']),
+            ('Suspended passive loss carried at plan end', _rental['terminal_suspended_loss_carryforward']),
+        ]:
+            write_cell(ws, r, 1, label, bold=True, bg=LGRAY)
+            write_cell(ws, r, 2, value, fmt=FMT_DOLLAR, bold=True, bg=GRAY)
+            ws.merge_cells(start_row=r, start_column=2, end_row=r, end_column=6)
+            r += 1
+        write_cell(ws, r, 1, 'Detail by year and property, depreciation, the passive-loss ledger and every assumption are on sheet 40. Rental Properties.',
+                   fg='595959', border=False)
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=6)
         r += 1
 
     # Recommendations

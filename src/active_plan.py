@@ -342,6 +342,17 @@ def plan_file_fingerprint(path: str | Path) -> tuple[str, int]:
         return store.revision(), len(store.all_rows())
 
 
+def rental_fingerprint(path: str | Path) -> str:
+    """SHA-256 of the plan file's rental tables (WP12.7), or ``""`` when it has no rental
+    property. The same text enters ``PlanStore.revision()``; the build's input fingerprint
+    lists it on its own so an edited rental shows as the changed input."""
+    import hashlib  # noqa: PLC0415
+
+    with _reading(path, readonly=True) as store:
+        text = store.rental_state_text()
+    return hashlib.sha256(text.encode("utf-8")).hexdigest() if text else ""
+
+
 def plan_state(path: str | Path | None = None) -> str:
     """Digest of everything a build reads from the plan file: the plan rows' revision and the
     flat datasets. A build records it with its results; a later difference means the plan changed."""
