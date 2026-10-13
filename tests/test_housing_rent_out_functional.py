@@ -186,7 +186,6 @@ def test_shortlisted_rent_out_lifetime_cost_uses_the_exact_tax_delta(runs):
 def test_rent_out_outside_the_shortlist_keeps_the_estimate_with_its_label():
     """M7: past the shortlist no second run is paid for; the row keeps the estimate and says so."""
     from src.housing.rent_out import ESTIMATED_TAX_NOTE, EXACT_TAX_NOTE
-    from src.housing.scoring import _lifetime_cost
     locs = [TX, ho.Location(state='Texas', population_size=150000, zip_code='78702'),
             ho.Location(state='Texas', population_size=150000, zip_code='78703'),
             ho.Location(state='Texas', population_size=150000, zip_code='78704')]
