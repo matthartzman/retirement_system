@@ -49,7 +49,7 @@ from .candidates import (
 )
 from .constraints import family_presence_ok
 from .plan_variant import _run_engine
-from .rent_out import rent_out_plan
+from .rent_out import baseline_comparison_notes, plan_converted_home, rent_out_plan, without_plan_converted_home
 from .results import format_output, MAX_CANDIDATES
 from .scoring import _lifetime_cost, _pass1_objective, rank_candidates, score_candidate
 from .search import (
@@ -313,8 +313,12 @@ def optimize_housing(
     # Carlo when it is the active objective, matching the shortlist's own
     # policy of not paying for MC on every candidate.
     baseline = None
+    comparison_notes: list[str] = []
     if final_ranked:
-        baseline_c2, baseline_rows = _pe.run_scenario(c0)
+        # M6: feature on with a converted-home entry in the plan: the candidates all drop it
+        # (apply_rent_out), so the baseline drops it too and the as-entered run is shown.
+        plan_entry = plan_converted_home(c0) if rent_out is not None else None
+        baseline_c2, baseline_rows = _pe.run_scenario(without_plan_converted_home(c0) if plan_entry else c0)
         baseline_mc_success_rate = None
         if objective == 'mc_success_rate':
             baseline_mc = _pe.monte_carlo(baseline_c2, base_rows=baseline_rows)
@@ -324,6 +328,14 @@ def optimize_housing(
             'lifetime_cost': _lifetime_cost(baseline_rows),
             'mc_success_rate': baseline_mc_success_rate,
         }
+        if plan_entry:
+            _, entered_rows = _pe.run_scenario(c0)
+            as_entered = {
+                'net_worth': float(entered_rows[-1].get('total_nw', 0.0) or 0.0) if entered_rows else 0.0,
+                'lifetime_cost': _lifetime_cost(entered_rows),
+            }
+            baseline['as_entered'] = as_entered
+            comparison_notes = baseline_comparison_notes(plan_entry, as_entered, baseline)
 
     return format_output(
         final_ranked, objective=objective, search_mode=search_mode,
@@ -334,6 +346,7 @@ def optimize_housing(
         inflation_general=float(c0.get('inf', INFLATION_GENERAL_DEFAULT) or INFLATION_GENERAL_DEFAULT),
         baseline=baseline,
         rent_out_monthly_rent=(float(rent_out.template['monthly_rent']) if can_rent_out else None),
+        comparison_notes=comparison_notes,
     )
 
 
