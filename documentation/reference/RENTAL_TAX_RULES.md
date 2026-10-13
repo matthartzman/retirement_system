@@ -1,5 +1,7 @@
 # Rental property tax rules (WP12.1)
 
+> **WARNING: the tax preparer must verify every constant and the Table A-6 percentages before the feature is switched on for anyone. They were entered from memory. The feature stays default OFF.**
+
 Status: **for owner / tax-preparer review** (checkpoint before the engine integration, WP12.2).
 Design: `docs/superpowers/specs/2026-10-05-rental-property-module-design.md` sections 1, 2 and 4.
 
@@ -174,8 +176,8 @@ publications. The Table A-6 cells (R01, R02, R06) are the published percentages.
    instructions and Pub. 527 / 925 / 946 / 523. They were entered from memory as `legislated` rows.
 
 ## 6. Owner decisions (2026-10-13)
-1. MFS with unknown living-apart status: assume lived together, allowance $0.
-2. Improvements without a month: assume month 7 (mid-year).
+1. MFS with unknown living-apart status: assume lived together, allowance $0; a household input is added in 12.4.
+2. Improvements, sale and conversion without a month: mid-year (month 7) until 12.4 adds month fields; disclose in the UI later.
 3. Converted home: one land share for both value and basis.
 4. Reference goldens may be re-recorded for additions-only changes, reviewed in the PR.
 5. Constants and Table A-6 cells remain unverified against IRS sources (tax preparer to confirm); a correction lands as a small commit.
