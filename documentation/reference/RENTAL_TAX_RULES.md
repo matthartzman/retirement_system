@@ -197,3 +197,66 @@ New sheet `40. Rental Properties` (section 1 Reports, after Balance Sheet; lette
 - Estimates (labelled on the sheet): estimated tax effect = Schedule E added to AGI x the year's `effective_marginal_rate` (federal, Social Security inclusion, NIIT; no state); tax on the 1250 gain at a sale = gain x the lesser of that rate and 25%; federal and state tax on the long-term part come from the tax stages. The after-tax hold-to-sale return is an annual IRR (not for a converted home). Years after the last rental activity are not listed.
 - The plan-file revision (`PlanStore.revision()`), the plan state and the build input fingerprint include the rental tables, so editing a rental marks the last build stale; a plan with no rental keeps its old revision.
 
+
+## 9. H2: link a rental to an existing liability (design, OWNER CHECKPOINT: H2)
+
+Status: design and worked examples only. Nothing built. Rental stays default OFF; with the feature off the link
+is ignored and every number is as today.
+
+### 9.1 Problem
+A rented property's loan can be entered twice: once on the property (`loan_balance`, `loan_rate`,
+`loan_monthly_payment`) and once as a row in Liabilities (`client_liabilities`, type `other`/`heloc`). The
+engine then counts the debt twice in net worth (the property's loan inside rental equity, the liability row in
+`additional_liabilities`) and the payment twice in the cash need. A converted home has the opposite gap: a
+loan on the home that sits in Liabilities (for example a HELOC or a cash-out second loan) keeps being treated
+as personal debt after the conversion, so its interest never reaches Schedule E.
+
+### 9.2 Data model
+One new optional text column on the rental table: `loan_liability_id` (matches `liability_id` in Liabilities).
+Added to `rental_repo` columns, `parsing/rental_properties` (`RentalSpec.loan_liability_id`), the rental
+service field list and the editor. No schema bump (extra text column in the existing rental table; blank for
+every existing row).
+
+### 9.3 Rule
+| Case | Behaviour |
+|---|---|
+| Standalone property, link set, liability found, feature on | The liability is the single source of the loan: balance (at `loan_balance_year`, default the liability `start_year` or the plan start), `interest_rate`, `monthly_payment` (or level payment to `payoff_year` when blank). The property's own loan fields are ignored. The rental book amortizes the loan (interest to Schedule E, principal to cash, balance inside rental equity). The liability row is skipped by the general liability loop and by the opening balance sum, so nothing counts twice. |
+| Converted home, link set | Balance and payment stay in the liability loop exactly as today (cash and net worth unchanged: the rental row keeps loan 0, as for the home mortgage). From the conversion date the linked liability's interest is deducted on Schedule E at the same rented share as the home mortgage interest (`converted_home_share`: 0.5 in the conversion year when converted in July, 1.0 after). It joins the passive-loss limit with the rest of Schedule E. |
+| Link set, id not found | Warning on the rental row and in the build notes; the property's own loan fields are used; the liability (if any exists under another id) is untouched. |
+| Two properties link the same liability | First wins; the second gets a warning and uses its own fields. |
+| Link to a `student_loan` row | Rejected with a warning (not a property loan). |
+| Property sold while linked | Payoff is the linked balance at the sale month (reduces net proceeds); the liability is not paid again afterwards. Converted home: payoff of the linked balance from home-sale proceeds is **not** modeled today for any liability; unchanged and listed as a limitation. |
+| Feature off | Link column ignored; liabilities behave as today. |
+
+### 9.4 Worked examples (engine arithmetic: monthly level payment, monthly interest)
+| # | Inputs | Today | With link | Rule |
+|---|---|---|---|---|
+| L1 | Duplex loan 200,000 at 4%, 22 years (payment 1,140.36 a month, 13,684.34 a year), entered on the property **and** as a Liabilities row | Debt counted twice: net worth 200,000 too low at start; cash payments 27,368.68 a year; Schedule E interest year 1 = 7,894.62 | Debt once: balance 200,000, payment 13,684.34, Schedule E interest 7,894.62, principal 5,789.72, end balance 194,210.28 | single source of the loan |
+| L2 | Same loan only in Liabilities, link set on the property, property loan fields blank | Property shows no interest (Schedule E too high by 7,894.62); liability payment in the cash need | Interest 7,894.62 on Schedule E; payment moves from the liability loop into rental cash (cash need unchanged) | link supplies the property loan |
+| L3 | Converted home (July 2027), HELOC liability 100,000 at 7%, interest-only | Interest 7,000 a year stays personal (no deduction) | 2027 Schedule E interest 3,500 (share 0.5); 2028 onward 7,000 (share 1.0); cash and net worth unchanged | Schedule E interest at the rented share |
+| L4 | Link id typo "heloc-1" (liability is "heloc1") | n/a | warning; property's own loan fields used; liability stays personal | not found |
+| L5 | Two rentals both link "mtg-a" | n/a | first uses it; second warns, uses own fields | first wins |
+
+### 9.5 UI mock (rental property editor, Loan block)
+```
+Loan
+  Existing loan   [ None (enter a loan below)            v ]
+                  [ mtg-a  Duplex mortgage   $200,000 4.0% ]
+                  [ heloc1 Home HELOC        $100,000 7.0% ]
+  -- when one is chosen --------------------------------------
+  Balance         $200,000     (from Liabilities, read only)
+  Rate            4.0%         (from Liabilities, read only)
+  Monthly payment $1,140.36    (from Liabilities, read only)
+  Note: "This loan is counted once. It is taken out of the general
+         Liabilities totals while this property uses it."
+  -- when None -----------------------------------------------
+  Balance / Rate / Payment / Term years   (as today, editable)
+Warning strip (only when a link is broken): "Loan 'heloc-1' not found.
+  Using the loan fields on this property."
+```
+Liabilities page: a linked row shows the badge "Used by rental: Duplex" (read only, no delete while linked).
+
+### 9.6 Questions for the owner
+1. Standalone: is "the liability is the source, the property fields are ignored" the right direction? (Alternative: the property wins and the liability row is hidden from totals.)
+2. Converted home: only Schedule E interest moves; do you also want the linked loan's balance shown on the property? (Default: no.)
+3. OK to leave "payoff of other liabilities at home sale" as a stated limitation?
