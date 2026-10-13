@@ -172,3 +172,10 @@ publications. The Table A-6 cells (R01, R02, R06) are the published percentages.
    should feed `other_passive_income`?
 7. **Constants check:** please confirm the statutory figures in section 1 against the current IRC, Form 8582
    instructions and Pub. 527 / 925 / 946 / 523. They were entered from memory as `legislated` rows.
+
+## 6. Owner decisions (2026-10-13)
+1. MFS with unknown living-apart status: assume lived together, allowance $0.
+2. Improvements without a month: assume month 7 (mid-year).
+3. Converted home: one land share for both value and basis.
+4. Reference goldens may be re-recorded for additions-only changes, reviewed in the PR.
+5. Constants and Table A-6 cells remain unverified against IRS sources (tax preparer to confirm); a correction lands as a small commit.

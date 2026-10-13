@@ -32,6 +32,7 @@ Runtime access: `from src.stores.ref_access import reference` (shared handle, ha
 ## Rules
 
 - A golden fixture is never edited by hand and never re-captured from the new getter. A mismatch is a getter bug.
+- Exception (owner decision, WP12a): when a reference-data change only adds rows, the golden may be re-recorded with the old loader logic, provided the diff is additions-only and reviewed in the PR.
 - The getter output must match the golden as text. The encoding (`tests/reference_golden.py`) keeps `1` and `1.0`, tuples and lists, key order and non-string keys distinct.
 - Shipped data changes (for example the annual tax update) edit `reference_src/`, rebuild, and bump `REFERENCE_RELEASE` in the tool.
 - `--check` compares content (`ref_meta` and table DDL), not bytes, because the SQLite header records the library version. Two builds with the same library are byte-identical.
