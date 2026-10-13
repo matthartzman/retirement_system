@@ -35,17 +35,27 @@ from ..projection_stages.rental_property import (
     ordinary_income,
     parse_rental_spec,
 )
-from ..rental_tax import converted_home_depreciable_basis
-from ..stores.errors import ValidationError
-from ..stores.rental_repo import (
-    IMPROVEMENT_KEYS,
-    OVERRIDE_KEYS,
-    PROPERTY_COLUMNS,
-)
+from ..rental_tax import converted_home_depreciable_basis, property_accumulated_depreciation
 
 JsonDict = dict[str, Any]
 AuditFn = Callable[[str, dict[str, Any] | None], None]
 
+# The keys ``RentalRepo`` stores (src/stores/rental_repo.py; product code reaches the stores
+# package only through active_plan, so they are named here and a test pins them to the repo's).
+IMPROVEMENT_KEYS = ("year", "month", "amount", "description")
+OVERRIDE_KEYS = ("year", "gross_rent", "operating_expenses", "notes")
+PROPERTY_COLUMNS = (
+    "kind", "owner", "notes",
+    "purchase_price", "closing_costs", "current_value", "monthly_rent", "property_tax", "insurance", "hoa",
+    "utilities", "other_expenses", "loan_balance", "loan_monthly_payment", "prior_suspended_loss", "sale_price",
+    "value_at_conversion", "adjusted_basis_at_conversion",
+    "land_share", "vacancy_rate", "maintenance_pct", "management_pct", "selling_cost_pct",
+    "appreciation", "rent_growth", "expense_growth", "property_tax_growth", "loan_rate",
+    "purchase_year", "value_as_of_year", "rental_start_year", "rental_end_year", "loan_balance_year",
+    "placed_in_service_year", "sale_year", "conversion_year",
+    "purchase_month", "placed_in_service_month", "sale_month", "conversion_month", "loan_term_years",
+    "active_participation",
+)
 _PROPERTY_KEYS = frozenset(("name", "improvements", "overrides", *PROPERTY_COLUMNS))
 DOUBLE_COUNT_TOLERANCE = 0.05  # owner decision 2026-10-13: same name OR value within 5%
 MAX_YEARS = 60
@@ -117,6 +127,13 @@ def _series(book: RentalBook, c: JsonDict, magi: float) -> list[JsonDict]:
         res = book.settle_passive(ry, magi, filing)
         k = book.constants(y, filing)
         rental_rows = [p for p in ry.properties if p.owned or p.sold]
+        recovery = book.constants(y, "MFJ").recovery_years
+        susp = {a.name: a.suspended for a in res.activities}
+        accumulated = {}
+        for sp in book.specs:
+            through = y if sp.rental_end_year is None else min(y, sp.rental_end_year)
+            sold_before = sp.sale_year is not None and y > sp.sale_year
+            accumulated[sp.name] = 0.0 if sold_before else property_accumulated_depreciation(sp.assets(), through, recovery)
         out.append({
             "year": y,
             "net_cash_flow": net_cash_flow(ry),
@@ -129,7 +146,10 @@ def _series(book: RentalBook, c: JsonDict, magi: float) -> list[JsonDict]:
             "phaseout_start": k.phaseout_start,
             "equity": sum(p.value - p.loan_balance for p in ry.properties),
             "losses": {p.name: p.schedule_e for p in rental_rows if p.schedule_e < 0},
-            "suspended_by_property": {a.name: a.suspended for a in res.activities if a.suspended > 0},
+            "suspended_by_property": {n: v for n, v in susp.items() if v > 0},
+            "by_property": {p.name: {"depreciation": p.depreciation, "schedule_e": p.schedule_e,
+                                     "accumulated_depreciation": accumulated.get(p.name, 0.0),
+                                     "suspended_loss": susp.get(p.name, 0.0)} for p in ry.properties},
         })
         prior = res.total_suspended
     return out
@@ -327,7 +347,7 @@ class RentalService:
         payload["summary"] = {
             "year": row["year"], "net_cash_flow": row["net_cash_flow"],
             "taxable_rental_income": row["taxable_rental_income"], "suspended_loss": row["suspended_loss"],
-            "equity": row["equity"],
+            "equity": row["equity"], "by_property": row["by_property"],
         }
         return payload, 200
 
@@ -351,7 +371,7 @@ class RentalService:
             with self.context.edit_plan() as edit:
                 edit.store.rental.replace_all(rows)
             revision = edit.revision
-        except (RentalPropertyInputError, ValidationError) as exc:
+        except ValueError as exc:  # parse boundary (RentalPropertyInputError) or the repo's ValidationError
             return {"success": False, "error": str(exc)}, 400
         except Exception as exc:
             self._audit(event + "_failed", {**details, "error": str(exc)})
