@@ -429,10 +429,10 @@ Property: cost 400,000 (land 20%: building 320,000), accumulated depreciation 10
 - Converted home: only the second-death estate year (the last rented year) releases the excess suspended loss; its first-death step-up and depreciation restart are not modelled (the plan home's basis step-up in the home-sale stage is as before). Its value path uses the plan's home appreciation.
 - The passive ledger drops the decedent's share in the death year; the survivor's share stays suspended.
 
-## 13. H6: optimizer search "rent out, then sell in year X" (built; OWNER VIEW OF THE COMPARISON: H6)
+## 13. H6: optimizer search "rent out, then sell in year X" (built; owner approved the comparison 2026-10-13)
 
 Status: built behind the rental feature (default OFF, so off the housing optimizer is unchanged).
-Pinned by `tests/test_housing_rent_then_sell_functional.py`. Awaiting the owner's view of the comparison below.
+Pinned by `tests/test_housing_rent_then_sell_functional.py`. The sale window is shared with Sell; cash-on-sale and sale-year tax stay in the notes.
 
 ### 13.1 What it is
 A fourth disposition of the current home, `rent_then_sell` ("Rent out, then sell"), searched next to
