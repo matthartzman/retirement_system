@@ -229,3 +229,4 @@ Planning bands (assumption, not measured): S about 0.2-0.5M tokens, M 0.5-1M, L 
 | Tier 3 H1 | done (checkpoint approved 2026-10-13) | draft PR A (claude/tier3-h1) | capital gains from home and rental sales into AGI, NIIT MAGI and IRMAA MAGI; `documentation/reference/CAPITAL_GAINS_IN_AGI.md`; no golden has a sale, none moved |
 | Tier 3 H2 | done (checkpoint approved 2026-10-13) | PR B (#208, claude/tier3-h2-h6) | rental loan link to a Liabilities row; plan schema v10; `RENTAL_TAX_RULES.md` section 9; goldens unchanged |
 | Tier 3 H3 | done (checkpoint approved 2026-10-13) | PR C (claude/tier3-h3-h6) | converted home moves back in: 121 residence clock, depreciation stop, nonqualified use; plan schema v11; `RENTAL_TAX_RULES.md` section 10; goldens unchanged |
+| Tier 3 H4 | done (checkpoint approved 2026-10-13) | PR C (#209) | rental owner and proceeds split by ownership; plan schema v12; `RENTAL_TAX_RULES.md` section 11; goldens unchanged |

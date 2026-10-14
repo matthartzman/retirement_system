@@ -14,7 +14,7 @@ const RP_KEY = "rental_property_income";
 const RP_TABS = [["basics", "Basics"], ["income", "Income"], ["expenses", "Expenses"], ["financing", "Financing"],
   ["tax", "Tax"], ["sale", "Sale"], ["overrides", "Overrides"]];
 const RP_KINDS = [["standalone", "Standalone"], ["converted_home", "Converted home"]];
-const RP_OWNERS = [["joint", "Joint"], ["member_1", "Member 1"], ["member_2", "Member 2"]];
+const RP_OWNERS = [["", "Not set (proceeds to the default account)"], ["joint", "Joint"], ["member_1", "Member 1"], ["member_2", "Member 2"]];
 // A converted home takes these from the plan's home (the parse boundary refuses them on the property).
 const RP_NOT_FOR_CONVERTED = ["purchase_price", "closing_costs", "current_value", "value_as_of_year", "appreciation",
   "loan_balance", "loan_balance_year", "loan_rate", "loan_monthly_payment", "loan_term_years", "sale_year",
@@ -25,7 +25,7 @@ const F = (k, l, t, extra) => Object.assign({ k, l, t }, extra || {});
 const RP_FIELDS = {
   basics: [
     ["Identity", [F("name", "Name", "text"), F("kind", "Kind", "select", { o: RP_KINDS }),
-      F("owner", "Owner", "select", { o: RP_OWNERS })]],
+      F("owner", "Owner", "select", { o: RP_OWNERS }), F("member_1_share", "Member 1 owns (Joint only)", "pct", { hint: "Blank means 50%. Sale proceeds go to each owner's first taxable account by share; income tax on a joint return is the same." })]],
     ["Purchase", [
       F("purchase_year", "Purchase date", "ym", { m: "purchase_month", only: "standalone" }),
       F("purchase_year", "Purchase date (bought and lived in)", "ym", { m: "purchase_month", only: "converted_home",

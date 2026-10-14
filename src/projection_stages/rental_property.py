@@ -191,6 +191,9 @@ class RentalSpec:
     # H3, converted home: the household moves back in on 1st of ``reversion_month`` of ``rental_end_year``.
     moves_back_in: bool = False
     reversion_month: int = DEFAULT_MONTH
+    # H4: '' (not set: proceeds to the default account), joint, member_1 or member_2; and member 1's share.
+    owner: str = ''
+    member_1_share: float | None = None
 
     @property
     def reversion_date(self) -> date | None:
@@ -243,6 +246,20 @@ def _overrides(raw: dict[str, Any]) -> dict[int, dict[str, float]]:
         if _i(y) is not None and isinstance(ov, dict):
             out[_i(y)] = {k: _f(v) for k, v in ov.items() if k in ("gross_rent", "operating_expenses")}
     return out
+
+
+def _share_or_none(raw: dict[str, Any]) -> float | None:
+    v = raw.get("member_1_share")
+    return None if v in (None, "") else min(1.0, max(0.0, _f(v)))
+
+
+def member_1_share_of(spec: RentalSpec) -> float:
+    """H4: member 1's ownership share: Member 1 100%, Member 2 0%, Joint the entered share or 50%."""
+    if spec.owner == "member_1":
+        return 1.0
+    if spec.owner == "member_2":
+        return 0.0
+    return 0.5 if spec.member_1_share is None else spec.member_1_share
 
 
 def _linked_payment(link: dict[str, Any], from_year: int) -> float:
@@ -359,6 +376,7 @@ def _parse_converted_home(raw: dict[str, Any], index: int, c: dict[str, Any]) ->
         owned_from=owned_from,
         moves_back_in=bool(raw.get("moves_back_in")) and _i(raw.get("rental_end_year")) is not None,
         reversion_month=_month(raw.get("reversion_month"), DEFAULT_MONTH),
+        owner=str(raw.get("owner") or ""), member_1_share=_share_or_none(raw),
     )
 
 
@@ -427,6 +445,7 @@ def parse_rental_spec(raw: dict[str, Any], index: int, c: dict[str, Any],
         selling_cost_pct=_f(raw.get("selling_cost_pct"), _f(c.get("home_sell_cost_pct"), 0.0)),
         overrides=_overrides(raw),
         loan_liability_id=str(link.get('liability_id') or '') if link is not None else '',
+        owner=str(raw.get("owner") or ""), member_1_share=_share_or_none(raw),
     )
 
 
@@ -857,27 +876,62 @@ def unrecaptured_1250_cap_adjustment(amount: float, taxable_inc: float, year: in
     return min(0.0, capped - ordinary)
 
 
+def _sale_deposit_parts(c: dict[str, Any], row: dict[str, Any], spec: RentalSpec | None) -> list[tuple[str, float]]:
+    """H4: (account, fraction) parts for one sale's proceeds. No owner set: the single default
+    account as always. Otherwise member 1's share to member 1's first taxable account and the
+    rest to member 2's (a deceased owner's part goes to the survivor; a member without a
+    taxable account falls back to the household's first one)."""
+    default = c.get('home_sale_acct') or _aa.first_taxable(c)
+    if spec is None or not spec.owner:
+        return [(default, 1.0)]
+    share1 = member_1_share_of(spec)
+    h_alive, w_alive = row.get('h_alive', True), row.get('w_alive', True)
+    if h_alive and not w_alive:
+        share1 = 1.0
+    elif w_alive and not h_alive:
+        share1 = 0.0
+    parts: dict[str, float] = {}
+    for idx, frac in ((0, share1), (1, 1.0 - share1)):
+        if frac > 1e-12:
+            acct = _aa.first_taxable(c, idx) or default
+            parts[acct] = parts.get(acct, 0.0) + frac
+    return list(parts.items()) or [(default, 1.0)]
+
+
 def deposit_sale_proceeds(c: dict[str, Any], row: dict[str, Any], bal: dict[str, float],
-                          bal_basis_free: dict[str, float], ry: RentalYear) -> float:
-    """Deposit each sold property's positive net proceeds to the taxable account a
-    ``next_housing_steps`` sale uses (``home_sale_acct``, else the first taxable account;
-    basis-free cash, the gain is taxed this year); returns the total deposited.
+                          bal_basis_free: dict[str, float], ry: RentalYear,
+                          book: RentalBook | None = None) -> float:
+    """Deposit each sold property's positive net proceeds to the taxable account(s) a
+    ``next_housing_steps`` sale uses (``home_sale_acct``, else the first taxable account), or
+    split by owner (H4, see :func:`_sale_deposit_parts`); basis-free cash, the gain is taxed
+    this year. Returns the total deposited.
     A negative net (loan above the proceeds) is a cash need in :func:`net_cash_flow`."""
     total = 0.0
     for p in ry.properties:
         amt = max(0.0, p.sale_net_proceeds) if p.sold else 0.0
         if amt <= 0:
             continue
-        acct = c.get('home_sale_acct') or _aa.first_taxable(c)
-        if acct not in bal:
-            acct = _aa.first_taxable(c)
-        _aa.deposit(bal, acct, amt)
-        _add_account_flow(row['_account_deposits'], acct, amt)
-        _tag_deposit_source(row, acct, f'Rental Sale Proceeds ({p.name})', amt)
-        if acct in bal_basis_free:
-            bal_basis_free[acct] += amt
+        spec = next((s for s in book.specs if s.name == p.name), None) if book is not None else None
+        for acct, frac in _sale_deposit_parts(c, row, spec):
+            if acct not in bal:
+                acct = _aa.first_taxable(c)
+            part = amt * frac
+            _aa.deposit(bal, acct, part)
+            _add_account_flow(row['_account_deposits'], acct, part)
+            _tag_deposit_source(row, acct, f'Rental Sale Proceeds ({p.name})', part)
+            if acct in bal_basis_free:
+                bal_basis_free[acct] += part
         total += amt
     return total
+
+
+def annotate_owners(row: dict[str, Any], book: RentalBook) -> None:
+    """H4: add ``owner`` and ``member_1_share`` to the by-property rows of properties with an owner set."""
+    owners = {s.name: s for s in book.specs if s.owner}
+    for p in row.get('rental_by_property') or []:
+        s = owners.get(p.get('name'))
+        if s is not None:
+            p['owner'], p['member_1_share'] = s.owner, member_1_share_of(s)
 
 
 def net_cash_flow(ry: RentalYear) -> float:

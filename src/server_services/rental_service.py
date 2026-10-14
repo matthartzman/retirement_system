@@ -59,6 +59,7 @@ PROPERTY_COLUMNS = (
     "value_at_conversion", "adjusted_basis_at_conversion",
     "land_share", "vacancy_rate", "maintenance_pct", "management_pct", "selling_cost_pct",
     "appreciation", "rent_growth", "expense_growth", "property_tax_growth", "loan_rate",
+    "member_1_share",
     "purchase_year", "value_as_of_year", "rental_start_year", "rental_end_year", "loan_balance_year",
     "placed_in_service_year", "sale_year", "conversion_year",
     "purchase_month", "placed_in_service_month", "sale_month", "conversion_month", "loan_term_years",
