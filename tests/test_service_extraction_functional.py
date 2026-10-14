@@ -69,7 +69,7 @@ SERVICE_ROUTE_PAIRS = [
         "service": "src/server_services/spending_service.py",
         "route": "src/server/plan_routes.py",
         "service_defines": ["class SpendingService", "SpendingServiceContext", "def load_actuals_payload", "def unified_budget_payload", "def category_create_payload", "def alias_add_payload"],
-        "route_calls": ["def _spending_feature_service()", "SpendingServiceContext", ".dashboard_payload()", ".taxonomy_payload()", ".load_actuals_payload()", ".save_unified_budget_payload("],
+        "route_calls": ["def _spending_feature_service()", "SpendingServiceContext", ".dashboard_payload(", ".taxonomy_payload()", ".load_actuals_payload()", ".save_unified_budget_payload("],
         "route_forbids": ["spending_tracker as st", "def _core_spending_from_plan", 'st.save_taxonomy_category(BASE_DIR', 'st.spending_summary_taxonomy(BASE_DIR'],
     },
     {

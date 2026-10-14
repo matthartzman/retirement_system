@@ -472,7 +472,7 @@ export function setGroupBudgetMode(tt, grp, mode) {
   groupBudgetMode[tt + "::" + grp] = mode;
   const gk = groupKeyFor(tt, grp);
   if (mode === "summary") {
-    const sum = groupCatSum(tt, grp);
+    const sum = groupCatSum(tt, grp, new Date().getFullYear());
     if (!taxBudget[gk]) taxBudget[gk] = { annual_budget: 0, notes: "" };
     if (!(Number(taxBudget[gk].annual_budget) > 0))
       taxBudget[gk].annual_budget = Math.round(sum);

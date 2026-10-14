@@ -39,7 +39,7 @@ beforeEach(() => {
   sandbox.__model = ldModel();
   run(`spendingModelData = globalThis.__model; taxonomyData = globalThis.__model.tracking_types;
        taxBudgetLoaded = true; budgetLinesLoaded = true; spendingModelLoading = false; spendingModelError = "";
-       searchText = ""; rows = []; budgetLines = globalThis.__lines;`);
+       searchText = ""; rows = []; budgetLines = globalThis.__lines; ytdActualsPeriod = "ytd";`);
   sandbox.rowsForStep = () => [];
   setOptional529(false);
 });
@@ -63,6 +63,27 @@ describe("Large Discretionary section (#336)", () => {
   test("In budget marks only rows dated this year", () => {
     const cells = [...sandbox.renderLargeDiscretionaryBudgetPage().matchAll(/class="large-disc-in-budget"[^>]*>([^<]*)</g)].map((m) => m[1]);
     assert.deepEqual(cells, ["—", "✓"]);
+  });
+
+  test("#346/D9: budget view follows the selected year, display-only", () => {
+    const past = THIS_YEAR - 1;
+    sandbox.__lines.push({ section: "large_discretionary", line_id: "p1", label: "Roof", category_id: "ld_auto", one_time_year: String(past), amount_per_year: "7000", notes: "" });
+    run(`ytdActualsPeriod = "${past}"`);
+    const html = sandbox.renderLargeDiscretionaryBudgetPage();
+    const cells = [...html.matchAll(/class="large-disc-in-budget"[^>]*>([^<]*)</g)].map((m) => m[1]);
+    assert.deepEqual(cells, ["—", "—", "✓"]);
+    assert.ok(html.includes(`<b>${past} budget: $7,000</b>`));
+    assert.match(html, new RegExp(`Showing ${past}`));
+    // category sums and the header Budget follow the selected year...
+    assert.equal(run('catDetailSum("ld_auto")'), 7000);
+    assert.equal(run('catEffectiveBudget("ld_auto")'), 7000);
+    // ...but what gets saved into the plan budget always uses the real current year
+    run('taxBudget = {}; syncCategoryTotal("ld_auto")');
+    assert.equal(run('taxBudget.ld_auto.annual_budget'), 45000);
+  });
+
+  test("no past-year cue when the current year is selected", () => {
+    assert.doesNotMatch(sandbox.renderLargeDiscretionaryBudgetPage(), /large-disc-year-cue/);
   });
 
   test("#344: category detail sums count only rows dated this year", () => {

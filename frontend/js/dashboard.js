@@ -217,8 +217,8 @@ const STEPS = [
     id: "actual_spending",
     group: "Reports & Review",
     title: "Actual Spending",
-    desc: "This year's imported income and expense transactions, and how they compare with the spending model.",
-    intro: "Import and assign this year's transactions on This year; compare annualized spending with the plan on Analysis, then sync the actual rate before building.",
+    desc: "Imported income and expense transactions for the selected year, and how they compare with the spending model.",
+    intro: "Import and assign transactions for the selected year on the year tab; compare annualized spending with the plan on Analysis, then sync the actual rate before building.",
     help: "Category assignment happens on Spending Model. Accounts & Sources controls account/source type, prior-year balances, and current values.",
   },
   {
@@ -2593,6 +2593,7 @@ async function recoverYtdAccountSetup() {
     });
     await loadYtdStatus();
     setYtdDirtyButtonStates();
+    if (out && out.recovered) markBuildStale();
     renderMain();
     if (out && out.recovered) {
       const after = out.after || {};
@@ -2634,6 +2635,7 @@ async function rollForwardYtdAccounts() {
       body: JSON.stringify({}),
     });
     await loadYtdStatus();
+    markBuildStale();
     renderMain();
     showMessage(
       `Rolled forward ${out.accounts_updated || 0} account${(out.accounts_updated || 0) === 1 ? "" : "s"} for the new tracking year.`,
@@ -2777,7 +2779,7 @@ function addManualYtdAccount() {
 // freshly-imported rows may still be in another supported format, so fall
 // back to the first 4-digit run in the string.
 // The calendar year the currently selected actuals period reports on
-// (this year for Year-to-date, last calendar year for Last Year).
+// (the selected year).
 // Rows matching the currently selected actuals period, independent of the
 // search/category/account filters -- used to tell "no transactions for this
 // period" apart from "the current filters matched nothing".
@@ -3141,11 +3143,11 @@ function hideSpendingModelLoadOverlay() {
 }
 
 
-function catEffectiveBudget(catId) {
-  if (categoryBudgetMode[catId] === "detail" || catDetailLines(catId).length) return catDetailSum(catId); // #344: lines win; stored total may hold other years
+function catEffectiveBudget(catId, y) {
+  if (categoryBudgetMode[catId] === "detail" || catDetailLines(catId).length) return catDetailSum(catId, y); // #344: lines win; stored total may hold other years
   if (hasExplicitBudget(catId))
     return budgetAmount(taxBudget[catId].annual_budget);
-  return catDetailSum(catId);
+  return catDetailSum(catId, y);
 }
 function groupModelData(tt, grp) {
   const types =
@@ -3265,7 +3267,7 @@ window.setPlanReportSection = function (id) {
   renderMain();
 };
 function renderStrategyTabs(step, tabs, active) {
-  return `<div class="workspace-tabs" role="tablist">${tabs.map((t) => `<button class="workspace-tab ${t === active ? "active" : ""}" type="button" role="tab" aria-selected="${t === active ? "true" : "false"}" onclick="setStrategyTab('${escJs(step)}','${escJs(t)}')">${esc(t)}</button>`).join("")}</div>`;
+  return `<div class="workspace-tabs" role="tablist">${tabs.map((t) => `<button class="workspace-tab ${t === active ? "active" : ""}" type="button" role="tab" aria-selected="${t === active ? "true" : "false"}" onclick="setStrategyTab('${escJs(step)}','${escJs(t)}')">${esc(t === "This year" ? String(selectedSpendingYear()) : t)}</button>`).join("")}</div>`;
 }
 // Generic tab registry for "workspace" steps that tab-switch between what
 // used to be several separate nav steps -- keyed by the merged step's own
@@ -3279,7 +3281,7 @@ const STRATEGY_TABS = {
 // Shared left-nav sub-tab strip for any STRATEGY_TABS-registered workspace step.
 function renderWorkspaceSubtabsNav(stepId) {
   const activeTab = getStrategyTab(stepId);
-  return `<div class="nav-subtabs">${STRATEGY_TABS[stepId].map((tab) => `<button class="nav-subtab${activeStep === stepId && activeTab === tab ? " active" : ""}" type="button"${!planLoaded ? " disabled" : ""} onclick="goToStrategyTab('${escJs(stepId)}','${escJs(tab)}')">${esc(tab)}</button>`).join("")}</div>`;
+  return `<div class="nav-subtabs">${STRATEGY_TABS[stepId].map((tab) => `<button class="nav-subtab${activeStep === stepId && activeTab === tab ? " active" : ""}" type="button"${!planLoaded ? " disabled" : ""} onclick="goToStrategyTab('${escJs(stepId)}','${escJs(tab)}')">${esc(tab === "This year" ? String(selectedSpendingYear()) : tab)}</button>`).join("")}</div>`;
 }
 function getStrategyTab(step) {
   const tabs = STRATEGY_TABS[step] || [];

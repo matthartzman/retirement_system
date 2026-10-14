@@ -6,7 +6,7 @@ import { openCurrentPlan, navigateToStep } from './helpers.js';
 test('YTD charts are labeled and the breakdown notes are not truncated', async ({ page }) => {
   await openCurrentPlan(page);
   await navigateToStep(page, 'actual_spending', 'Actual Spending');
-  await page.getByRole('tab', { name: 'This year' }).click();
+  await page.getByRole('tab', { name: String(new Date().getFullYear()), exact: true }).click();
 
   // Import a few current-year transactions so the performance cards render.
   await page.evaluate(async () => {
