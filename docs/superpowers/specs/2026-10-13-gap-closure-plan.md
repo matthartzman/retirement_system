@@ -77,4 +77,5 @@ Priority order (rental use expected within a year):
 | H2 | done (checkpoint approved 2026-10-13) | `loan_liability_id` on a rental (schema v10); standalone: the liability row is the one source of the loan; converted home: linked interest to Schedule E at the rented share; `RENTAL_TAX_RULES.md` section 9; `tests/test_rental_loan_link_functional.py` |
 | H3 | done (checkpoint approved 2026-10-13) | `moves_back_in`, `reversion_month` (schema v11); move-back restarts the 121 clock, stops depreciation at the move-back month, rental days are nonqualified use after the 1250 split; `RENTAL_TAX_RULES.md` section 10; `tests/test_rental_reversion_functional.py` |
 | H4 | done (checkpoint approved 2026-10-13) | `member_1_share` (schema v12), owner parsed, sale proceeds split by ownership with survivor and fallback rules, owner in row data and editor; `RENTAL_TAX_RULES.md` section 11; `tests/test_rental_owner_split_functional.py`; workbook Owner column not built |
-| H5, H6 | not started | PR C (this branch) |
+| H5 | design done, **TAX-PREPARER REVIEW: H5** | `RENTAL_TAX_RULES.md` section 12 (step-up by decedent share, depreciation restart, 469(g)(2) release on the final return, estate-sale correction) |
+| H6 | not started | PR C (this branch) |
