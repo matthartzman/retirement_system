@@ -1401,7 +1401,7 @@ def _actuals_by_taxonomy(root, year: int):
     return actuals, alias_hits, list(unmatched.values()), days_elapsed, annual_factor
 
 
-def ytd_spending_hierarchy(root=None, year=None, merchants_per_category: int = 5):
+def ytd_spending_hierarchy(root=None, year=None, merchants_per_category: int = 5, through=None):
     """YTD spending as Tracking Type -> Group -> Category -> Merchant -> amount.
 
     Uses the same transaction-to-taxonomy mapping and sign rules as the
@@ -1410,7 +1410,8 @@ def ytd_spending_hierarchy(root=None, year=None, merchants_per_category: int = 5
     "Unmapped" tracking type so totals still reconcile. Each category keeps
     its top ``merchants_per_category`` merchants; the rest roll into
     "Other merchants". Tracking types / groups / categories netting to zero
-    or less are dropped.
+    or less are dropped. ``through`` (a date) ignores later transactions, for
+    comparing the same window of a prior year.
     """
     r = _root(root)
     if year is None:
@@ -1420,7 +1421,7 @@ def ytd_spending_hierarchy(root=None, year=None, merchants_per_category: int = 5
     tree: dict[str, dict[str, dict[str, dict[str, float]]]] = {}
     for txn in load_transactions_extended(r, year):
         amount = txn.get("amount", 0)
-        if amount == 0 or _shared_ytd_class(txn) == "transfer":
+        if amount == 0 or _shared_ytd_class(txn) == "transfer" or (through and txn["date"] > through):
             continue
         merchant = txn.get("merchant") or "(no merchant)"
         cid = _resolve_alias(txn, aliases, flat)

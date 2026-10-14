@@ -213,7 +213,8 @@ function sumLeaves(node) {
   return typeof node === "number" ? node : Object.values(node).reduce((t, v) => t + sumLeaves(v), 0);
 }
 
-export function buildHierarchyRows(hierarchy) {
+// priorByType / budgetByType (347a): optional {trackingType: amount} for the bar markers.
+export function buildHierarchyRows(hierarchy, priorByType, budgetByType) {
   const rows = [];
   for (const [name, groups] of Object.entries(hierarchy || {})) {
     const categories = [];
@@ -229,12 +230,17 @@ export function buildHierarchyRows(hierarchy) {
     }
     categories.sort((a, b) => b.value - a.value);
     const amount = categories.reduce((t, c) => t + c.value, 0);
-    if (amount > 0.005) rows.push({ name, amount, kind: "category", detailTitle: name, categories });
+    if (amount > 0.005) rows.push({ name, amount, kind: "category", detailTitle: name, categories,
+      prior: priorByType && priorByType[name] != null ? priorByType[name] : null,
+      budget: budgetByType && budgetByType[name] != null ? budgetByType[name] : null });
   }
   rows.sort((a, b) => b.amount - a.amount);
   const total = rows.reduce((t, r) => t + r.amount, 0);
+  // Totals come from the full maps, not just the visible rows: a type budgeted but not yet spent still counts.
+  const sumMarker = map => (map && Object.keys(map).length ? Object.values(map).reduce((t, v) => t + v, 0) : null);
   return {
     total, rows,
+    totalMarkers: { prior: sumMarker(priorByType), budget: sumMarker(budgetByType) },
     totalDetail: { detailTitle: "Total - by tracking type", detail: rows.map(r => [r.name, r.amount]) },
   };
 }
@@ -277,10 +283,12 @@ export function detailPopupHtml(title, detail, maxLines) {
 // row, not scaled), "other" (muted bar) or anything else (normal bar). Rows
 // with meta carry data-row so the page can attach the detail popup; rows
 // without it keep a native <title> tooltip.
+const PRIOR_COLOR = "#475569", BUDGET_COLOR = "#d97706";
 export function barChartSvg(entries) {
   if (!entries.length) return '<div class="empty">No expenses recorded yet.</div>';
   const w = 560, barH = 18, gap = 6, padL = 120, padR = 60, padB = 20;
-  const max = Math.max(...entries.filter(e => !(e[2] && e[2].kind === "total")).map(e => e[1]), 1);
+  // Axis fits the longest of spend / prior-year / budget so no marker runs off the plot.
+  const max = Math.max(...entries.filter(e => !(e[2] && e[2].kind === "total")).flatMap(e => [e[1], e[2] && e[2].prior || 0, e[2] && e[2].budget || 0]), 1);
   const plotW = w - padL - padR;
   const h = entries.length * (barH + gap) + padB;
 
@@ -295,6 +303,11 @@ export function barChartSvg(entries) {
       `<text x="${xx}" y="${h - padB + 14}" text-anchor="middle" style="font-size:10px">${escSvg(fmtMoney(v))}</text>`;
   }
 
+  const marker = (v, y, len, color, label, sw) => {
+    if (v == null) return "";
+    const xx = padL + (v / max) * plotW;
+    return `<line x1="${xx}" y1="${y}" x2="${xx}" y2="${y + len}" stroke="${color}" stroke-width="${sw}"><title>${escSvg(label)}: ${escSvg(fmtMoney(v))}</title></line>`;
+  };
   const bars = entries.map((e, i) => {
     const y = i * (barH + gap);
     const meta = e[2];
@@ -305,20 +318,28 @@ export function barChartSvg(entries) {
         `<text x="0" y="${y + barH - 5}" style="font-weight:600">${escSvg(e[0])}</text>` +
         `<text x="${padL + 6}" y="${y + barH - 5}" style="font-weight:600">${escSvg(fmtMoney(e[1]))}</text></g>`;
     }
+    const markers = marker(meta && meta.prior, y - 2, barH + 4, PRIOR_COLOR, "Prior-year YTD", 2.5) +
+      marker(meta && meta.budget, y + barH / 2, barH / 2 + 2, BUDGET_COLOR, "Full-year budget", 2);
     const bw = (e[1] / max) * plotW;
     const fill = meta && meta.kind === "other" ? "#94a3b8" : "#2563eb";
     const tip = meta ? "" : `<title>${escSvg(e[0])}: ${escSvg(fmtMoney(e[1]))}</title>`;
     return `<g${row} class="bar-row">${hit}` +
       `<text x="0" y="${y + barH - 5}">${escSvg(e[0])}</text>` +
-      `<rect x="${padL}" y="${y}" width="${bw}" height="${barH}" fill="${fill}" rx="3">${tip}</rect>` +
+      `<rect x="${padL}" y="${y}" width="${bw}" height="${barH}" fill="${fill}" rx="3">${tip}</rect>` + markers +
       `<text x="${padL + bw + 6}" y="${y + barH - 5}">${escSvg(fmtMoney(e[1]))}</text></g>`;
   }).join("");
-  const svg = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="YTD expenses by tracking type, bar chart">
+  const anyPrior = entries.some(e => e[2] && e[2].prior != null), anyBudget = entries.some(e => e[2] && e[2].budget != null);
+  const legend = (anyPrior || anyBudget) ? `<div class="bar-legend" style="font-size:12px">` +
+    (anyPrior ? `<span style="color:${PRIOR_COLOR}">&#9646; Prior-year YTD (same dates)</span> ` : "") +
+    (anyBudget ? `<span style="color:${BUDGET_COLOR}">&#9646; Full-year budget</span>` : "") + `</div>` : "";
+  const svg = legend + `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="YTD expenses by tracking type, bar chart">
     ${xAxis}
     <line x1="${padL}" y1="0" x2="${padL}" y2="${h - padB}" stroke="#999" stroke-width="1"/>
     ${bars}
   </svg>`;
-  return svg + dataTableFallbackHtml("YTD expenses by tracking type", ["Tracking type", "Amount"], entries.map(e => [e[0], fmtMoney(e[1])]));
+  const money = v => (v == null ? "-" : fmtMoney(v));
+  return svg + dataTableFallbackHtml("YTD expenses by tracking type", ["Tracking type", "Amount", ...(anyPrior ? ["Prior-year YTD"] : []), ...(anyBudget ? ["Full-year budget"] : [])],
+    entries.map(e => [e[0], fmtMoney(e[1]), ...(anyPrior ? [money(e[2] && e[2].prior)] : []), ...(anyBudget ? [money(e[2] && e[2].budget)] : [])]));
 }
 
 // Cashflow = YTD income - YTD expenses, on one consistent definition of
