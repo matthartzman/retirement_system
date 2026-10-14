@@ -21,8 +21,8 @@ import { openCurrentPlan, navigateToStep } from './helpers.js';
 test('typing in the YTD transaction search box survives the per-keystroke re-render, including under fast typing', async ({ page }) => {
   await openCurrentPlan(page);
   await navigateToStep(page, 'actual_spending', 'Actual Spending');
-  await page.getByRole('tab', { name: 'This year' }).click();
-  await expect(page.getByRole('tab', { name: 'This year' })).toHaveClass(/active/);
+  await page.getByRole('tab', { name: String(new Date().getFullYear()), exact: true }).click();
+  await expect(page.getByRole('tab', { name: String(new Date().getFullYear()), exact: true })).toHaveClass(/active/);
 
   const search = page.locator('input[data-focus-key="ytd:tx-search"]');
   await expect(search, 'search box is missing its data-focus-key -- the round-2 opt-in did not ship').toHaveCount(1);
