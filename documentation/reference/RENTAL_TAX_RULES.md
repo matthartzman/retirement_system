@@ -377,3 +377,47 @@ Sale tab, "Where the proceeds go"        (read only, estimate)
 1. Is "derive the split from ownership (Joint 50/50 by default)" right, or do you want an explicit split table like the home-sale splits?
 2. OK that MFS households keep the one-return model (no per-return Schedule E split), listed as a limitation?
 3. OK that a deceased owner's part goes to the survivor's account until H5 defines estate transfers?
+
+## 12. H5: death handling (design, TAX-PREPARER REVIEW: H5)
+
+Status: design and worked examples only. Nothing built. Rental stays default OFF. Reads the H4 `owner` and
+`member_1_share`; applies only to properties with an owner set (unset owner = today's behaviour, so existing
+rental plans do not move).
+
+### 12.1 Problem
+The module has no death handling. A first death changes nothing for a rental; at the second death the converted
+home's estate sale keeps the step-up (no gain) but every suspended passive loss simply lapses
+(`RENTAL_TAX_RULES.md` section 7). The law gives three things: a basis step-up (IRC 1014), loss of the
+depreciation recapture on the stepped-up part, and a deduction on the decedent's final return for suspended
+losses that exceed the step-up (IRC 469(g)(2)).
+
+### 12.2 Rules
+| # | Rule | Behaviour |
+|---|---|---|
+| 1 | Decedent's share | Sole owner who dies: 100%. Sole owner who survives: 0%. Joint: 50% (spouses' qualified joint interest, IRC 2040(b)); 100% in a community-property regime (IRC 1014(b)(6)); the plan's existing regime flag (`_basis_stepup_fraction`) decides, as for the home. |
+| 2 | Step-up (or down) at the date of death | the decedent's share of the adjusted basis (cost + improvements - accumulated depreciation) becomes its share of fair market value at death (`value path` at the death month). The change is `delta B` (negative = step-down). |
+| 3 | Depreciation | the stepped share is a new asset placed in service at the date of death (27.5 years, mid-month) on FMV x (1 - land share); its old accumulated depreciation is erased (no 1250 recapture on it). The survivor's share keeps its original schedule and its accumulated depreciation. |
+| 4 | Suspended losses at death | the decedent's share of the suspended loss `S` is allowed on the final (death-year) return only to the extent it exceeds the increase: `allowed = max(0, S - max(0, delta B))`, deducted against ordinary income in the death year (joint return); the rest is permanently lost. The survivor's share stays suspended. |
+| 5 | Second death | the same on the whole remaining share; the property is stepped to FMV at that date. For the converted home's estate sale this replaces "all suspended losses lapse" by rule 4 (`allowed` released in the final year). |
+| 6 | Not set owner / feature off | unchanged from today. |
+Limitations: the converted home's first-death step-up of the plan's home stays as built (home sale stage); its depreciation restart is not modelled. Rental income taxed to the estate or heirs after the second death is not modelled.
+
+### 12.3 Worked examples
+Property: cost 400,000 (land 20%: building 320,000), accumulated depreciation 100,000 so adjusted basis 300,000; FMV at death 500,000.
+| # | Inputs | Today | With H5 | Rule |
+|---|---|---|---|---|
+| D1 | Joint 50/50, common-law, first death | nothing happens; later sale at 500,000: gain 200,000, of which 1250 gain 100,000 | decedent half: basis 150,000 to 250,000 (`delta B` 100,000); new building basis 250,000 x 80% = 200,000, 7,272.73 a year from the death date; survivor half keeps 160,000 building at 5,818.18 a year and 50,000 accumulated. Later sale at 500,000: gain 100,000, of which 1250 gain 50,000 | 1014, 2040(b) |
+| D2 | Same, suspended loss 40,000 | stays suspended | decedent share 20,000; `delta B` 100,000 so allowed = max(0, 20,000 - 100,000) = 0, all 20,000 lost; survivor's 20,000 stays suspended | 469(g)(2) |
+| D3 | Sole owner dies, suspended loss 120,000, `delta B` 50,000 | stays suspended | allowed = 70,000 on the final return; 50,000 lost | 469(g)(2) |
+| D4 | Second death, suspended 60,000, FMV 700,000, adjusted basis 450,000 (`delta B` 250,000) | lapses | allowed = max(0, 60,000 - 250,000) = 0 (same as today) | 469(g)(2) |
+| D5 | Second death, suspended 300,000, same property | lapses (0) | allowed = 300,000 - 250,000 = 50,000 deducted on the final return | 469(g)(2) |
+| D6 | First death, FMV 250,000 (below the 300,000 adjusted basis), suspended 30,000 | stays | step-down: no increase, so the decedent's share of the loss is allowed in full (15,000 if joint 50/50); basis steps down | 1014, 469(g)(2) |
+| D7 | Community property, first death | n/a | 100% of the property is stepped up (`delta B` 200,000); decedent share of losses is the whole loss | 1014(b)(6) |
+
+### 12.4 Questions for the tax preparer (please confirm each)
+1. Decedent's share by owner: sole 100%/0%, joint 50% common-law, 100% community property.
+2. The stepped share restarts 27.5-year mid-month depreciation from the date of death on FMV x (1 - land share); its accumulated depreciation is erased.
+3. Suspended-loss release on the final return is `max(0, S - increase)` for the decedent's share only, deducted in the death year on the joint return; the rest is lost.
+4. At the second death the same applies to the remaining share and the estate sale keeps the step-up.
+5. FMV at death = the engine's value path at the death month.
+6. Owner: OK that an unset owner keeps today's behaviour (no death handling)?
