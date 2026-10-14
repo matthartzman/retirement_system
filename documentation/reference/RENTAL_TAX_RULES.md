@@ -188,7 +188,7 @@ publications. The Table A-6 cells (R01, R02, R06) are the published percentages.
 - First-death step-up: the converted sale uses the stepped-up gain basis; the loss basis is not stepped up.
 - Estate sale after conversion keeps the step-up (no gain) and drops suspended losses (IRC 469(g)(2) would allow part).
 - Shifted carrying costs: mortgage payment, real-estate tax, budget utilities/maintenance/other. Improvement lumps stay personal.
-- Not modelled: owner split, death handling, back to personal use, sale-proceeds split across accounts. (Loan link to a Liabilities row: built in H2, section 9.)
+- Not modelled: owner split, death handling, sale-proceeds split across accounts. (Back to personal use: built in H3, section 10.) (Loan link to a Liabilities row: built in H2, section 9.)
 
 ## 8. Workbook (12.7)
 New sheet `40. Rental Properties` (section 1 Reports, after Balance Sheet; letter computed per build, `1E` when on), present **only while `rental_property_income` is on**. Sections: A summary by year; B by property and year (collapsible rows); C depreciation schedule; D passive-loss ledger; E sale analysis; F metrics; G assumptions and warnings (this document's sections 4-7 in plain words, constants quoted from the reference data in force). Code: `src/reporting/rental_report_data.py` (figures), `src/reporting/sheets_rental.py` (layout).
@@ -263,9 +263,9 @@ Liabilities page: a linked row shows the badge "Used by rental: Duplex" (read on
 2. Converted home: only Schedule E interest moves; do you also want the linked loan's balance shown on the property? (Default: no.)
 3. OK to leave "payoff of other liabilities at home sale" as a stated limitation?
 
-## 10. H3: personal-use reversion (rent, then move back in) (design, OWNER CHECKPOINT: H3)
+## 10. H3: personal-use reversion (rent, then move back in) (built; owner and tax preparer approved 2026-10-13)
 
-Status: design and worked examples only. Nothing built. Rental stays default OFF.
+Status: built. T1 to T3 are pinned by `tests/test_rental_reversion_functional.py`. Rental stays default OFF.
 
 ### 10.1 Problem
 A converted home today is rented from the conversion date to `rental_end_year`; after that the engine counts **no
@@ -274,7 +274,7 @@ treats the whole end year as rented and takes a full year of depreciation. Real 
 rules the module skips: the move-back counts as residence for the 121 clock, depreciation stops at the move-back
 date, and rental use that sits *before* the last residence date is **nonqualified use** (IRC 121(b)(5)).
 
-### 10.2 Data model (plan schema v11, forward-only, converted-home rows only)
+### 10.2 Data model (plan schema v11, forward-only `ALTER TABLE ... ADD COLUMN`, converted-home rows only; the editor shows both fields next to Rental end year)
 | Column | Meaning |
 |---|---|
 | `moves_back_in` | yes/no, default no (today's behaviour, byte-identical). |
@@ -321,3 +321,163 @@ Sale tab, "Section 121 estimate (home sale year 2031)"   (read only, estimate)
 ### 10.6 Questions
 1. Owner: default `reversion_month` 7 and the one-rental-period limit OK?
 2. Tax preparer: (a) nonqualified use applied to the gain left after the 1250 split (as Pub. 523 orders them); (b) suspended passive losses stay suspended on the move-back and release at the later sale; (c) the end-year depreciation uses the mid-month disposal convention at the move-back month.
+
+## 11. H4: owner split between spouses and sale proceeds split (built; owner approved 2026-10-13)
+
+Status: built (plan schema v12). Pinned by `tests/test_rental_owner_split_functional.py`. Rental stays default OFF. An owner left **Not set** keeps today's single default account (so existing rental plans do not move); the workbook Owner column is not built: the owner is in the row data (`rental_by_property`) and the editor.
+
+### 11.1 Problem
+Each property already stores `owner` (Joint / Member 1 / Member 2), but nothing reads it. A jointly titled
+property's sale proceeds are deposited to one account (`home_sale_acct`, else the first taxable account), and
+the rental views show no owner. On a joint return the income tax is the same whoever owns the property, so the
+split matters for where proceeds land, for what each spouse owns after a death (H5 reads it for the step-up),
+and for reporting.
+
+### 11.2 Data model (plan schema v12, forward-only)
+One new optional column `member_1_share` (0 to 1) on the rental table, used only with `owner` = Joint.
+Blank means 50% for Joint, 100% for Member 1, 0% for Member 2. A share with an owner other than Joint is an
+input error ("use Joint for a split"). Applies to the converted home as well (its `owner` and share).
+
+### 11.3 Rules
+| Rule | Behaviour |
+|---|---|
+| Income tax on a joint return | unchanged: Schedule E, depreciation, passive-loss limit and gain use the one return; the golden numbers do not move. Owner **Not set** (blank): proceeds go to the single default account as before. |
+| Sale proceeds | Positive net proceeds of a rental sale (and of a converted-home sale that is not already split by `home_sale_splits`) are deposited `member_1_share` to the first taxable account of member 1 and the rest to member 2's (`first_taxable(c, owner_idx)`). A member with no taxable account: that member's part goes to the other member's account; none at all: the household default account as today. The deposit is basis-free cash (gain taxed in the sale year), as today. |
+| Existing `home_sale_splits` | win for the plan's home, unchanged. |
+| An owner who died before the sale | the deceased member's part goes to the survivor's account (all of it to the survivor; estate transfers are H5). |
+| Reporting | `rental_by_property` rows carry `owner` and `member_1_share`; the Rental Properties sheet gets an Owner column and the sale proceeds by account. |
+| Death | no new tax effect in H4; H5 reads the stored share for the step-up (decedent's share). |
+| MFS | the plan models one return; Schedule E is not split between two separate returns (stated limitation; the MFS lived-apart allowance stays as built). |
+| Feature off | ignored. |
+
+### 11.4 Worked examples (net sale proceeds 200,000; accounts Member_1_Trust and Member_2_Trust)
+| # | Inputs | Today | With H4 | Rule |
+|---|---|---|---|---|
+| O1 | Owner Joint, blank share (50%) | 200,000 to the default account | 100,000 to Member_1_Trust, 100,000 to Member_2_Trust | 50% each |
+| O2 | Owner Joint, member_1_share 60% | all to the default account | 120,000 to Member 1, 80,000 to Member 2 | share |
+| O3 | Owner Member 1 | default account | 200,000 to Member 1 | 100% |
+| O4 | Owner Joint, Member 2 has no taxable account | default | 100,000 to Member 1 and 100,000 more to Member 1's account (all 200,000 to Member 1) | fallback |
+| O5 | Joint 50/50, Member 2 died two years before the sale | default | all 200,000 to the survivor (Member 1) | survivor |
+| O6 | Owner Member 1, share 60% entered | n/a | input error: "member_1_share applies only to Joint ownership" | validation |
+| O7 | Joint return, any owner | tax as today | identical rental tax items (Schedule E, gain, passive limit); only where the cash is deposited differs, so later investment income in those accounts can differ slightly | MFJ |
+
+### 11.5 UI mock (property editor, Identity group; the split preview sits on the Sale tab)
+```
+Identity
+  Owner         [ Joint v ]            (Joint | Member 1 | Member 2)
+  Member 1 owns [ 50 ] %               Member 2 owns 50 %      (only shown for Joint)
+Sale tab, "Where the proceeds go"        (read only, estimate)
+  Net proceeds after costs and loan     $200,000
+  Member 1 (Member_1_Trust)             $100,000
+  Member 2 (Member_2_Trust)             $100,000
+  Note: "Income tax is the same on a joint return whoever owns the property."
+```
+
+### 11.6 Questions for the owner
+1. Is "derive the split from ownership (Joint 50/50 by default)" right, or do you want an explicit split table like the home-sale splits?
+2. OK that MFS households keep the one-return model (no per-return Schedule E split), listed as a limitation?
+3. OK that a deceased owner's part goes to the survivor's account until H5 defines estate transfers?
+
+## 12. H5: death handling (built; tax preparer approved the examples 2026-10-13)
+
+Status: built (no schema change). Pinned by `tests/test_rental_death_functional.py`. Rental stays default OFF. Reads the H4 `owner` and
+`member_1_share`; applies only to properties with an owner set (unset owner = today's behaviour, so existing
+rental plans do not move).
+
+### 12.1 Problem
+The module has no death handling. A first death changes nothing for a rental; at the second death the converted
+home's estate sale keeps the step-up (no gain) but every suspended passive loss simply lapses
+(`RENTAL_TAX_RULES.md` section 7). The law gives three things: a basis step-up (IRC 1014), loss of the
+depreciation recapture on the stepped-up part, and a deduction on the decedent's final return for suspended
+losses that exceed the step-up (IRC 469(g)(2)).
+
+### 12.2 Rules
+| # | Rule | Behaviour |
+|---|---|---|
+| 1 | Decedent's share | Sole owner who dies: 100%. Sole owner who survives: 0%. Joint: the decedent's ownership share, 50% unless `member_1_share` says otherwise (spouses' qualified joint interest, IRC 2040(b)); 100% in a community-property regime (IRC 1014(b)(6)); the plan's existing regime flag (`_basis_stepup_fraction`) decides, as for the home. |
+| 2 | Step-up (or down) at the date of death | the decedent's share of the adjusted basis (cost + improvements - accumulated depreciation) becomes its share of fair market value at death (`value path` at the death month). The change is `delta B` (negative = step-down). |
+| 3 | Depreciation | the stepped share is a new asset placed in service at the date of death (27.5 years, mid-month) on FMV x (1 - land share); its old accumulated depreciation is erased (no 1250 recapture on it). The survivor's share keeps its original schedule and its accumulated depreciation. |
+| 4 | Suspended losses at death | the decedent's share of the suspended loss `S` is allowed on the final (death-year) return only to the extent it exceeds the increase: `allowed = max(0, S - max(0, delta B))`, deducted against ordinary income in the death year (joint return); the rest is permanently lost. The survivor's share stays suspended. |
+| 5 | Second death | the same on the whole remaining share; the property is stepped to FMV at that date. For the converted home's estate sale this replaces "all suspended losses lapse" by rule 4 (`allowed` released in the final year). |
+| 6 | Not set owner / feature off | unchanged from today. |
+Limitations: the converted home's first-death step-up of the plan's home stays as built (home sale stage); its depreciation restart is not modelled. Rental income taxed to the estate or heirs after the second death is not modelled.
+
+### 12.3 Worked examples
+Property: cost 400,000 (land 20%: building 320,000), accumulated depreciation 100,000 so adjusted basis 300,000; FMV at death 500,000.
+| # | Inputs | Today | With H5 | Rule |
+|---|---|---|---|---|
+| D1 | Joint 50/50, common-law, first death | nothing happens; later sale at 500,000: gain 200,000, of which 1250 gain 100,000 | decedent half: basis 150,000 to 250,000 (`delta B` 100,000); new building basis 250,000 x 80% = 200,000, 7,272.73 a year from the death date; survivor half keeps 160,000 building at 5,818.18 a year and 50,000 accumulated. Later sale at 500,000: gain 100,000, of which 1250 gain 50,000 | 1014, 2040(b) |
+| D2 | Same, suspended loss 40,000 | stays suspended | decedent share 20,000; `delta B` 100,000 so allowed = max(0, 20,000 - 100,000) = 0, all 20,000 lost; survivor's 20,000 stays suspended | 469(g)(2) |
+| D3 | Sole owner dies, suspended loss 120,000, `delta B` 50,000 | stays suspended | allowed = 70,000 on the final return; 50,000 lost | 469(g)(2) |
+| D4 | Second death, suspended 60,000, FMV 700,000, adjusted basis 450,000 (`delta B` 250,000) | lapses | allowed = max(0, 60,000 - 250,000) = 0 (same as today) | 469(g)(2) |
+| D5 | Second death, suspended 300,000, same property | lapses (0) | allowed = 300,000 - 250,000 = 50,000 deducted on the final return | 469(g)(2) |
+| D6 | First death, FMV 250,000 (below the 300,000 adjusted basis), suspended 30,000 | stays | step-down: no increase, so the decedent's share of the loss is allowed in full (15,000 if joint 50/50); basis steps down | 1014, 469(g)(2) |
+| D7 | Community property, first death | n/a | 100% of the property is stepped up (`delta B` 200,000); decedent share of losses is the whole loss | 1014(b)(6) |
+
+### 12.4 Questions for the tax preparer (please confirm each)
+1. Decedent's share by owner: sole 100%/0%, joint 50% common-law, 100% community property.
+2. The stepped share restarts 27.5-year mid-month depreciation from the date of death on FMV x (1 - land share); its accumulated depreciation is erased.
+3. Suspended-loss release on the final return is `max(0, S - increase)` for the decedent's share only, deducted in the death year on the joint return; the rest is lost.
+4. At the second death the same applies to the remaining share and the estate sale keeps the step-up.
+5. FMV at death = the engine's value path at the death month.
+6. Owner: OK that an unset owner keeps today's behaviour (no death handling)?
+
+### 12.5 As built
+- `RentalBook` reads the household's deaths (`h_death_yr`, `w_death_yr`, couple flag, `basis_step_up_property_regime`). A first death exists only for a couple dying in different years; a single death or two deaths in one year is the second-death case (fraction 1).
+- Death month is 7; fair market value is the property's value path at mid-year; improvements before the death are inside the stepped basis.
+- Standalone properties with an owner: depreciation slices (`_Seg`), the stepped basis (`_sale_basis`) and the depreciation still on the books at a later sale (`_accumulated`) follow the rules above. Row fields: `rental_by_property[].death_suspended_removed / death_loss_released / death_loss_lost / death_basis_change` and `rental_death_loss_released / lost / basis_change` (present in a death year only). The released loss is an ordinary deduction in the death year (`ordinary_income`).
+- Converted home: only the second-death estate year (the last rented year) releases the excess suspended loss; its first-death step-up and depreciation restart are not modelled (the plan home's basis step-up in the home-sale stage is as before). Its value path uses the plan's home appreciation.
+- The passive ledger drops the decedent's share in the death year; the survivor's share stays suspended.
+
+## 13. H6: optimizer search "rent out, then sell in year X" (built; owner approved the comparison 2026-10-13)
+
+Status: built behind the rental feature (default OFF, so off the housing optimizer is unchanged).
+Pinned by `tests/test_housing_rent_then_sell_functional.py`. The sale window is shared with Sell; cash-on-sale and sale-year tax stay in the notes.
+
+### 13.1 What it is
+A fourth disposition of the current home, `rent_then_sell` ("Rent out, then sell"), searched next to
+sell, keep and keep-and-rent-out when the Housing optimizer's Disposition is Auto (or chosen alone).
+It converts the home to a rental in move 1's acquisition year (as `rent_out` does) and sells it in a
+searched year X from the request's sale window, with X after the conversion year. The engine does the rest
+with what H1 to H3 built: carrying costs move to Schedule E, depreciation runs, the sale in X uses the
+converted-home rules (recapture, two-of-five test, dual basis), and the taxable gain is in X's AGI and in
+the IRMAA lookback two years later (H1).
+
+### 13.2 Rules
+| Rule | Behaviour |
+|---|---|
+| Candidates | one per (location, acquisition year, sale year X > acquisition year); owning two homes is allowed (the home is rented), as for `rent_out`. |
+| Rent | never invented: typed rent, else the plan's converted-home rent; with neither, not searched (as `rent_out`). |
+| Scoring | the same net worth and lifetime cost as the other dispositions: housing cost less sale gain plus the sale's tax, with the rental's after-tax net cash in place of the moved carrying costs. The tax on the rent is the estimate in Pass 1 and the engine's exact delta for the shortlist; the exact delta leaves the sale's own tax out (it is counted once, with the sale). |
+| Notes on each row | `rented out from Y, sold in X`; whether the section 121 test is met for X (and the last year it would be); the depreciation recaptured in X; the sale gain in X's AGI and the IRMAA tier two years later. |
+| Off | `rent_then_sell` is an unknown disposition; nothing else changes. |
+
+### 13.3 Comparison (frozen sample plan, move 1 buys in 2028, rent 5,500 a month; objective net worth; one location)
+The Disposition column is what the Current home cell shows; Sell is the best plain sale in the window.
+| Current home | Net worth at plan end | Lifetime housing cost | Section 121 for the sale | Notes |
+|---|---|---|---|---|
+| Sell 2029 | 10,065,402 | 1,073,227 | n/a (home not rented) | dual ownership 2028-2029 |
+| Keep and rent out | 12,422,678 | 252,206 | exclusion only if sold by 2031 | keeps the home; recapture on a later sale |
+| Rent out, sell 2029 | 10,425,797 | 966,560 | met | |
+| Rent out, sell 2030 | 10,390,135 | 910,450 | met | sale gain 345,000 in 2030 AGI; IRMAA tier 4 in 2032 |
+| Rent out, sell 2031 | 10,444,554 | 880,199 | met (last year) | gain 345,000; IRMAA tier 4 in 2033 |
+| Rent out, sell 2032 | 10,126,789 | 870,219 | NOT met | gain 845,000 in AGI; IRMAA tier 5 in 2034 |
+| Rent out, sell 2034 | 10,363,394 | 724,283 | NOT met | recapture 139,626 |
+| Rent out, sell 2036 | 10,376,475 | 576,660 | NOT met | lowest lifetime cost in the window |
+Reading it: selling by 2031 keeps the 500,000 exclusion; one year later the whole gain is taxable, which also lifts the
+IRMAA tier two years on. Net worth is highest for a 2031 sale; lifetime cost keeps falling as more rent is collected before
+the sale. Keep-and-rent-out is not comparable on net worth because it never sells (the home stays in net worth).
+
+### 13.4 UI mock (Housing optimizer, step 2 "Current home")
+```
+Disposition   [ Auto (search all) v ]      options: Sell | Keep | Keep and rent out | Rent out, then sell
+Sale window   Earliest [ 2029 ]  Latest [ 2036 ]          (used by Sell and Rent out, then sell)
+Monthly rent  [ 5,500 ]  (today's dollars)                  (rent options)
+Results row:  Current home: "Rent out, sell 2031"      Notes: rented out from 2028, sold in 2031; §121 met ...;
+              §1250 recapture ...; sale gain ... in 2031 AGI; IRMAA tier 4 in 2033   [Convert my home]
+```
+
+### 13.5 Questions for the owner
+1. Is this comparison (net worth and lifetime cost per sale year, with the section 121 / recapture / IRMAA notes) what you want to see?
+2. Should the results also show, for each rent-then-sell row, the cash on the sale and the sale-year tax as their own columns? (Not built: they are in the notes today.)
+3. Keep the sale window shared with Sell (X after the conversion year), or give Rent out, then sell its own window?

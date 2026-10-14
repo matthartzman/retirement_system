@@ -11,7 +11,7 @@ from ..server_services.strategy_asset_service import (
     HOME_APPR_DEFAULT,
     INFLATION_GENERAL_DEFAULT,
 )
-from .models import RENT_OUT, Location, Move, ScoredCandidate
+from .models import RENTAL_DISPOSITIONS, Location, Move, ScoredCandidate
 from .plan_variant import (
     _effective_mortgage_rate,
     _estimate_for_location,
@@ -104,7 +104,7 @@ def _format_candidate(
         'disposition': cand.original_home.disposition,
         'sale_year': cand.original_home.sale_year,
     }
-    if cand.original_home.disposition == RENT_OUT:
+    if cand.original_home.disposition in RENTAL_DISPOSITIONS:
         # WP12.8: the year the home becomes a rental (move 1's year) and the
         # monthly rent it was scored with (today's dollars), for the page's
         # "Convert my home" link. Absent for every other disposition.

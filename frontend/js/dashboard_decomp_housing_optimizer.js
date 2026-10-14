@@ -109,7 +109,7 @@ const HOUSING_OPT_PERSIST_META_KEYS = new Set([
 const HOUSING_OPT_OBJECTIVES = ["net_worth", "lifetime_cost", "mc_success_rate"];
 const HOUSING_OPT_SEARCH_MODES = ["full", "narrowed"];
 const HOUSING_OPT_MOVE2_STRATEGIES = ["anchored", "cross_product"];
-const HOUSING_OPT_DISPOSITIONS = ["sell", "keep", "auto", "rent_out"];
+const HOUSING_OPT_DISPOSITIONS = ["sell", "keep", "auto", "rent_out", "rent_then_sell"];
 const HOUSING_OPT_ALLOWED_RADII_MILES = [5, 10, 25, 50];
 const HOUSING_OPT_FAMILY_RADII_MILES = [10, 25, 50, 100];
 
@@ -1404,7 +1404,7 @@ export function renderHousingOptimizePanelHtml() {
           { value: "auto", label: rentOut ? "Auto (search all)" : "Auto (search both)", selected: true },
           { value: "sell", label: "Sell" },
           { value: "keep", label: "Keep" },
-        ].concat(rentOut ? [{ value: "rent_out", label: "Keep and rent out" }] : []),
+        ].concat(rentOut ? [{ value: "rent_out", label: "Keep and rent out" }, { value: "rent_then_sell", label: "Rent out, then sell" }] : []),
         'onchange="toggleHousingOptDispositionFields(); debouncedRefreshHousingOptValidation()"',
       ),
       rentOut
@@ -1988,9 +1988,9 @@ function renderHousingOptimizeEmptyHtml(payload) {
 }
 
 function housingOptCurrentHomeHtml(originalHome) {
-  if (!originalHome) return "—";
-  if (originalHome.disposition === "keep") return "Keep";
+  if (!originalHome) return "—"; if (originalHome.disposition === "keep") return "Keep";
   if (originalHome.disposition === "rent_out") return "Keep and rent out";
+  if (originalHome.disposition === "rent_then_sell") return `Rent out, sell ${originalHome.sale_year}`;
   return originalHome.sale_year != null ? `Sell ${originalHome.sale_year}` : "Sell";
 }
 
@@ -2099,7 +2099,7 @@ function housingOptResultRowHtml(c, objective, baselineValue) {
   let notes = (c.notes || []).length ? esc(c.notes.join("; ")) : "—";
   // WP12.8: a rent-out row links to Rental Properties' Convert my home dialog, pre-filled.
   const orig = c.original_home || {};
-  if (orig.disposition === "rent_out") {
+  if (orig.disposition === "rent_out" || orig.disposition === "rent_then_sell") {
     notes += ` <button class="btn btn-sm" type="button" onclick="rpConvertFromHousing(${Number(orig.conversion_year) || 0}, ${Number(orig.monthly_rent) || 0})">Convert my home</button>`;
   }
   return `<tr class="housing-opt-result ${shade}${topClass}">
@@ -2500,7 +2500,7 @@ function housingOptFirstViolation() {
   }
 
   const disposition = (housingOptDomVal("housingOptDisposition") || "auto").toLowerCase();
-  if (!HOUSING_OPT_DISPOSITIONS.includes(disposition) || (disposition === "rent_out" && !housingOptRentOutOn())) {
+  if (!HOUSING_OPT_DISPOSITIONS.includes(disposition) || (["rent_out", "rent_then_sell"].includes(disposition) && !housingOptRentOutOn())) {
     return { step: 2, message: `Unknown disposition: ${housingOptRepr(disposition)}.` };
   }
   const rentRaw = housingOptRentOutOn() ? housingOptDomVal("housingOptRentOutRent") : "";

@@ -59,10 +59,11 @@ PROPERTY_COLUMNS = (
     "value_at_conversion", "adjusted_basis_at_conversion",
     "land_share", "vacancy_rate", "maintenance_pct", "management_pct", "selling_cost_pct",
     "appreciation", "rent_growth", "expense_growth", "property_tax_growth", "loan_rate",
+    "member_1_share",
     "purchase_year", "value_as_of_year", "rental_start_year", "rental_end_year", "loan_balance_year",
     "placed_in_service_year", "sale_year", "conversion_year",
     "purchase_month", "placed_in_service_month", "sale_month", "conversion_month", "loan_term_years",
-    "active_participation",
+    "reversion_month", "active_participation", "moves_back_in",
 )
 _PROPERTY_KEYS = frozenset(("name", "improvements", "overrides", *PROPERTY_COLUMNS))
 DOUBLE_COUNT_TOLERANCE = 0.05  # owner decision 2026-10-13: same name OR value within 5%

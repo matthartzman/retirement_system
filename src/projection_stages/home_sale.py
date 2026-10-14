@@ -48,6 +48,7 @@ class ConvertedHomeTerms(NamedTuple):
     improvements: float  # capital improvements made while a rental (added to basis)
     loss_basis: float  # lesser of value and adjusted basis at conversion, land included
     qualifies: bool  # section 121 two-of-five-year ownership-and-use test at the sale date
+    nonqualified_ratio: float = 0.0  # H3: rental days before the last residence date / ownership days
 
 
 class HomeSaleEconomics(NamedTuple):
@@ -141,7 +142,8 @@ def _compute_home_sale_economics(
         sale = rental_sale(gross_proceeds, selling_costs, basis, converted.improvements,
                            converted.accumulated_depreciation, loss_basis=converted.loss_basis)
         split = section_121_converted_home(sale.gain, converted.accumulated_depreciation,
-                                           qualifies=converted.qualifies, exclusion=sec121_exclusion)
+                                           qualifies=converted.qualifies, exclusion=sec121_exclusion,
+                                           nonqualified_ratio=converted.nonqualified_ratio)
         return HomeSaleEconomics(
             selling_costs=selling_costs, cap_gain=max(0.0, sale.gain),
             sec121_exclusion=sec121_exclusion if converted.qualifies else 0.0,

@@ -421,11 +421,13 @@ class Section121Result:
 
 
 def section_121_converted_home(gain: float, accumulated_depreciation: float, *, qualifies: bool,
-                               exclusion: float) -> Section121Result:
+                               exclusion: float, nonqualified_ratio: float = 0.0) -> Section121Result:
     """Split a converted home's sale gain: depreciation taken first (unrecaptured 1250, taxable),
     then the exclusion (when the two-of-five test is met) up to ``exclusion``, the rest LTCG.
-    Nonqualified use is not applied: rental use after the last residence use is not
-    nonqualified use (121(b)(5)(C)(ii)(I)), and this module models no rental before residence."""
+    Rental use after the last residence use is not nonqualified use (121(b)(5)(C)(ii)(I)),
+    so ``nonqualified_ratio`` is 0 unless the household moved back in (H3): then that share of
+    the gain left after the depreciation split (121(b)(5)(A)) is not excludable (taxable LTCG)."""
     recapture, rest = split_sale_gain(gain, accumulated_depreciation)
-    excluded = min(rest, exclusion) if qualifies else 0.0
+    eligible = rest * (1.0 - min(1.0, max(0.0, nonqualified_ratio)))
+    excluded = min(eligible, exclusion) if qualifies else 0.0
     return Section121Result(excluded, recapture, rest - excluded)

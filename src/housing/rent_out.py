@@ -24,7 +24,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from ..module_catalog import feature_enabled
-from .models import RENT_OUT, HousingCandidate
+from .models import RENT_OUT, RENT_THEN_SELL, RENTAL_DISPOSITIONS, HousingCandidate
 
 FEATURE_KEY = 'rental_property_income'
 CONVERTED_HOME = 'converted_home'
@@ -74,7 +74,7 @@ def apply_rent_out(c: dict[str, Any], cand: HousingCandidate, plan: RentOutPlan)
     it); a ``rent_out`` candidate adds the template converted in move 1's
     acquisition year. Standalone properties are untouched."""
     props = [p for p in (c.get('rental_properties') or []) if not _is_converted(p)]
-    if cand.original_home.disposition == RENT_OUT and plan.template is not None:
+    if cand.original_home.disposition in RENTAL_DISPOSITIONS and plan.template is not None:
         year = cand.move1.acquisition_year
         entry = {**plan.template, 'conversion_year': year}
         # Inputs tied to the plan's own conversion date do not carry to another
@@ -147,7 +147,8 @@ def exact_rent_tax(rows: list[dict[str, Any]], rows_without: list[dict[str, Any]
     the run with it rented less the same run with the converted-home entry left
     out (negative when the rental lowers tax)."""
     def _tax(rs: list[dict[str, Any]]) -> float:
-        return sum(float(r.get('total_tax', 0.0) or 0.0) for r in rs)
+        # the sale's own tax is counted separately in the lifetime cost (H6: rent then sell)
+        return sum(float(r.get('total_tax', 0.0) or 0.0) - float(r.get('home_sale_tax', 0.0) or 0.0) for r in rs)
     return _tax(rows) - _tax(rows_without)
 
 
@@ -207,6 +208,31 @@ def last_sale_year_keeping_sec121(entry: dict[str, Any], filing: str = 'MFJ') ->
     return last
 
 
+def _sale_notes(rows: list[dict[str, Any]], sale_year: int, last_ok: int | None) -> list[str]:
+    """H6: what the sale of the rented home in ``sale_year`` did, read back from the run: the
+    section 121 test, the depreciation recaptured, the taxable gain, and the two-year IRMAA effect
+    of the gain (H1) when the plan reaches that year."""
+    by_year = {int(r.get('year', 0) or 0): r for r in rows}
+    sale = by_year.get(sale_year)
+    if sale is None:
+        return []
+    notes = []
+    if sale.get('home_sale_sec121_two_of_five'):
+        notes.append(f'§121 two-of-five met for the {sale_year} sale: ${float(sale.get("home_sale_sec121_excluded", 0.0)):,.0f} excluded')
+    else:
+        window = f' (last year with the exclusion: {last_ok})' if last_ok else ''
+        notes.append(f'§121 two-of-five NOT met for the {sale_year} sale: no exclusion{window}')
+    recapture = float(sale.get('home_sale_unrecaptured_1250_gain', 0.0) or 0.0)
+    if recapture > 0:
+        notes.append(f'§1250 recapture on the sale: ${recapture:,.0f} (taxed up to 25%)')
+    gain = float(sale.get('sale_cap_gain_in_agi', 0.0) or 0.0)
+    later = by_year.get(sale_year + 2)
+    if gain > 0 and later is not None:
+        notes.append(f'sale gain ${gain:,.0f} is in {sale_year} AGI; IRMAA tier {later.get("irmaa_tier", 0)} '
+                     f'in {sale_year + 2} (MAGI ${float(later.get("irmaa_magi_used", 0.0)):,.0f})')
+    return notes
+
+
 def rent_out_notes(c: dict[str, Any], cand: HousingCandidate,
                    rows: list[dict[str, Any]]) -> list[str]:
     """Notes for a ``rent_out`` candidate: the section 121 two-of-five window
@@ -215,24 +241,27 @@ def rent_out_notes(c: dict[str, Any], cand: HousingCandidate,
     the end. ``c`` is the config the run used. Warn only (owner decision
     2026-10-13): nothing is dropped or re-scored, and the plan sells nothing,
     so no per-move §121 flag is set."""
-    if cand.original_home.disposition != RENT_OUT:
+    if cand.original_home.disposition not in RENTAL_DISPOSITIONS:
         return []
     entry = next((p for p in (c.get('rental_properties') or []) if _is_converted(p)), None)
     if entry is None:
         return []
-    notes = [f'rented out from {cand.move1.acquisition_year}']
+    sale_year = cand.original_home.sale_year if cand.original_home.disposition == RENT_THEN_SELL else None
+    notes = [f'rented out from {cand.move1.acquisition_year}' + (f', sold in {sale_year}' if sale_year else '')]
     filing = str((rows[0].get('filing') if rows else None) or 'MFJ')
     last_ok = last_sale_year_keeping_sec121(entry, filing)
-    if last_ok is None:
+    if sale_year is not None:
+        notes.extend(_sale_notes(rows, sale_year, last_ok))
+    elif last_ok is None:
         notes.append('§121 two-of-five test fails: no exclusion on any sale of the rented home')
     else:
         notes.append(f'§121 two-of-five: exclusion only if sold by {last_ok}')
     conv = _converted_rows(rows)
     depreciation = sum(float(p.get('depreciation', 0.0) or 0.0) for _r, p in conv)
-    if depreciation > 0:
+    if depreciation > 0 and sale_year is None:
         notes.append(f'§1250 recapture: ${depreciation:,.0f} depreciation taken '
                      f'{conv[0][0].get("year")}-{conv[-1][0].get("year")}, taxed up to 25% on a sale')
     suspended = float((conv[-1][1].get('suspended_loss_carryforward', 0.0) or 0.0) if conv else 0.0)
-    if suspended > 0:
+    if suspended > 0 and sale_year is None:
         notes.append(f'passive loss suspended: ${suspended:,.0f} at plan end')
     return notes
