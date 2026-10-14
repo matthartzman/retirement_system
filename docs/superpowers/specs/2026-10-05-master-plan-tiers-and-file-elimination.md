@@ -231,4 +231,4 @@ Planning bands (assumption, not measured): S about 0.2-0.5M tokens, M 0.5-1M, L 
 | Tier 3 H3 | done (checkpoint approved 2026-10-13) | PR C (claude/tier3-h3-h6) | converted home moves back in: 121 residence clock, depreciation stop, nonqualified use; plan schema v11; `RENTAL_TAX_RULES.md` section 10; goldens unchanged |
 | Tier 3 H4 | done (checkpoint approved 2026-10-13) | PR C (#209) | rental owner and proceeds split by ownership; plan schema v12; `RENTAL_TAX_RULES.md` section 11; goldens unchanged |
 | Tier 3 H5 | done (tax preparer approved 2026-10-13) | PR C (#209) | rental death handling: step-up by decedent share, depreciation restart, suspended-loss release on the final return; no schema change; `RENTAL_TAX_RULES.md` section 12; goldens unchanged |
-| Tier 3 H6 | built (owner view of the comparison pending) | PR C (#209) | housing optimizer disposition "Rent out, then sell"; `RENTAL_TAX_RULES.md` section 13; goldens unchanged |
+| Tier 3 H6 | done (owner approved the comparison 2026-10-13) | PR C (#209) | housing optimizer disposition "Rent out, then sell"; `RENTAL_TAX_RULES.md` section 13; goldens unchanged |
