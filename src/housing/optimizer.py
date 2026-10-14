@@ -33,6 +33,7 @@ from .models import (
     MoveWindow,
     OBJECTIVES,
     RENT_OUT,
+    RENT_THEN_SELL,
     SEARCH_MODES,
     SaleWindow,
     ScoredCandidate,
@@ -131,17 +132,17 @@ def optimize_housing(
     # unknown disposition and nothing below changes.
     rent_out = rent_out_plan(c0, rent_out_monthly_rent)
     can_rent_out = rent_out is not None and rent_out.template is not None
-    known = ('sell', 'keep') + ((RENT_OUT,) if rent_out is not None else ())
+    known = ('sell', 'keep') + ((RENT_OUT, RENT_THEN_SELL) if rent_out is not None else ())
     dispositions = tuple(dispositions or ('sell',))
     if 'auto' in dispositions:
         # 'auto' is a request-level value: generation expands it into every
         # concrete disposition and the objective decides (§5.4). Keep and rent
         # out joins only when a rent is known (never invented).
-        dispositions = ('sell', 'keep') + ((RENT_OUT,) if can_rent_out else ())
+        dispositions = ('sell', 'keep') + ((RENT_OUT, RENT_THEN_SELL) if can_rent_out else ())
     unknown = [d for d in dispositions if d not in known]
     if unknown:
         raise ValueError(f"Unknown disposition: {unknown[0]!r}")
-    if RENT_OUT in dispositions and not can_rent_out:
+    if (RENT_OUT in dispositions or RENT_THEN_SELL in dispositions) and not can_rent_out:
         raise ValueError(
             'Keep and rent out needs a monthly rent: type one, or enter it on the '
             "Rental Properties page's converted home. The plan also needs a home value.")

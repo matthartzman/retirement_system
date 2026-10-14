@@ -21,6 +21,7 @@ from .models import (
     OriginalHome,
     NARROWED_MAX_EVALS_PER_AXIS,
     RENT_OUT,
+    RENT_THEN_SELL,
     NARROWED_MOVE2_AXES,
     SaleWindow,
     ScoredCandidate,
@@ -87,7 +88,7 @@ def dual_ownership_ok(cand: HousingCandidate) -> bool:
     the flag does not apply and the UI disables it.
     """
     home = cand.original_home
-    if home.disposition == RENT_OUT:
+    if home.disposition in (RENT_OUT, RENT_THEN_SELL):
         return True
     buys = [m for m in cand.moves if m.action == 'buy' and m.mode != 'concurrent']
     if home.disposition == 'keep':
@@ -146,6 +147,8 @@ def generate_candidates(
             for loc in locations1:
                 for year in range(move1_window.earliest_acquisition_year,
                                   move1_window.latest_acquisition_year + 1):
+                    if disposition == RENT_THEN_SELL and sale_year <= year:
+                        continue  # the sale must come after the conversion (move 1's year)
                     for action in actions_for_location(move1_action, loc):
                         cand = HousingCandidate(
                             original_home=home,

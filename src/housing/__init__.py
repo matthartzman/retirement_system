@@ -134,6 +134,8 @@ _EXPORTS = {
     'SEARCH_MODES': 'models',
     'DISPOSITIONS': 'models',
     'RENT_OUT': 'models',
+    'RENT_THEN_SELL': 'models',
+    'RENTAL_DISPOSITIONS': 'models',
     'AREA_TYPES': 'models',
     'FAMILY_RADII_MILES': 'models',
     'MOVE_ACTIONS': 'models',

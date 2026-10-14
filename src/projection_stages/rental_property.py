@@ -105,6 +105,8 @@ from ..rental_tax import (
     PassiveActivity,
     PassiveLossResult,
     RentalTaxConstants,
+    accumulated_depreciation,
+    annual_depreciation,
     apply_passive_loss_limits,
     converted_home_depreciable_basis,
     depreciable_basis,
@@ -353,7 +355,7 @@ def _parse_converted_home(raw: dict[str, Any], index: int, c: dict[str, Any]) ->
         purchase_price=_f(raw.get("adjusted_basis_at_conversion"), _f(c.get("home_basis")) or home_val * 0.5),
         closing_costs=0.0,
         land_share=min(1.0, max(0.0, _f(raw.get("land_share"), DEFAULT_LAND_SHARE))),
-        current_value=0.0, value_as_of_year=conv_year, appreciation=0.0,
+        current_value=0.0, value_as_of_year=conv_year, appreciation=_f(c.get("home_appr"), 0.0),
         monthly_rent=_f(raw.get("monthly_rent")),
         vacancy_rate=min(1.0, max(0.0, _f(raw.get("vacancy_rate")))),
         rent_growth=_f(raw.get("rent_growth"), _f(c.get("inf"), 0.0)),
@@ -493,6 +495,35 @@ class PropertyYear:
     home_sale_capital_gain: float = 0.0
     sec121_excluded: float = 0.0
     sec121_qualifies: bool | None = None
+    # H5, death year only: the decedent's suspended loss allowed on the final return, the part
+    # lost for good, the whole decedent share removed from the passive ledger, and the basis change.
+    death_loss_released: float = 0.0
+    death_loss_lost: float = 0.0
+    death_suspended_removed: float = 0.0
+    death_basis_change: float = 0.0
+
+
+DEATH_KEYS = ("death_loss_released", "death_loss_lost", "death_suspended_removed", "death_basis_change")
+
+
+class _Seg(NamedTuple):
+    """H5: a slice of a depreciable asset: its basis, when placed in service, and when it
+    left the decedent's hands (year, month) or None while it is still depreciated."""
+    basis: float
+    placed_year: int
+    placed_month: int
+    off_year: int | None = None
+    off_month: int | None = None
+
+
+class DeathEvent(NamedTuple):
+    """H5: a death that steps up the basis of the decedent's ``fraction`` of a property."""
+    year: int
+    fraction: float
+    fmv: float
+    adjusted_basis: float  # whole property, before the step
+    delta_basis: float  # fraction x (fmv - adjusted basis); negative = step-down
+    basis_after: float  # cost + improvements basis after the step
 
 
 class RentalYear(NamedTuple):
@@ -520,6 +551,13 @@ class RentalBook:
     # H2: Liabilities rows linked to the converted home, and the link warnings.
     converted_links: tuple[dict[str, Any], ...] = ()
     link_warnings: tuple[str, ...] = ()
+    # H5: the household's deaths (first only for a couple dying in different years), who died first
+    # (1 or 2) and whether joint property is community property (both halves stepped up).
+    first_death_year: int | None = None
+    second_death_year: int | None = None
+    first_decedent: int = 1
+    community: bool = False
+    _walks: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         for s in self.specs:
@@ -558,7 +596,7 @@ class RentalBook:
         if not (py.in_service or py.sold or st.suspended > 0 and py.owned):
             return None
         return PassiveActivity(
-            name=s.name, net_income=py.schedule_e, prior_suspended=st.suspended,
+            name=s.name, net_income=py.schedule_e, prior_suspended=st.suspended - py.death_suspended_removed,
             active_participation=s.active_participation, fully_disposed=py.sold,
             disposition_gain=max(0.0, py.sale_gain) if py.sold else 0.0)
 
@@ -648,6 +686,20 @@ class RentalBook:
             return s.reversion_month
         return s.sale_month if selling else None
 
+    def _converted_estate(self, s: RentalSpec, st: _PropertyState, year: int, recovery: float) -> dict[str, float]:
+        """H5: the estate sale of the converted home at the second death (the last year rented): the
+        suspended loss is allowed on the final return only to the extent it exceeds the step-up of the
+        home to fair market value (IRC 469(g)(2)); it no longer simply lapses. Owner set only."""
+        if not s.owner or self._converted_last_year != year or st.sold or st.suspended <= 0:
+            return {}
+        fmv = s.value_at_conversion * (1.0 + s.appreciation) ** (year + 0.5 - s.placed_year - (s.placed_month - 1) / 12.0)
+        improvements = sum(amt for y, _m, amt in s.improvements if y <= year)
+        accumulated = property_accumulated_depreciation(s.assets(), year, recovery, disposed_month=DEFAULT_MONTH)
+        delta = fmv - (s.cost_basis + improvements - accumulated)
+        allowed = max(0.0, st.suspended - max(0.0, delta))
+        return {"death_suspended_removed": st.suspended, "death_loss_released": allowed,
+                "death_loss_lost": st.suspended - allowed, "death_basis_change": delta}
+
     def _converted_year(self, s: RentalSpec, st: _PropertyState, year: int, recovery: float) -> PropertyYear:
         win = self._rent_window(s, year)
         selling = self._converted_sale is not None and self._converted_sale[0] == year and not st.sold
@@ -670,7 +722,8 @@ class RentalBook:
             sched_e = schedule_e_net(gross_rent, s.vacancy_rate, opex, 0.0, depreciation)
             improvements_cash = sum(amt for y, _m, amt in s.improvements if y == year)
         net_cash = collected - opex - improvements_cash
-        base = dict(name=s.name, owned=True, in_service=win is not None, gross_rent=gross_rent,
+        death = self._converted_estate(s, st, year, recovery) if win is not None else {}
+        base = dict(name=s.name, owned=True, in_service=win is not None, gross_rent=gross_rent, **death,
                     vacancy_loss=gross_rent - collected, operating_expenses=opex, mortgage_interest=0.0,
                     mortgage_principal=0.0, depreciation=depreciation, schedule_e=sched_e,
                     improvements_cash=improvements_cash, purchase_cash=0.0, net_cash=net_cash,
@@ -719,6 +772,119 @@ class RentalBook:
                 acts.append(act)
         return RentalYear(ry.year, tuple(props), tuple(acts))
 
+    # ── H5: death handling ──────────────────────────────────────────────
+    def _decedent_fraction(self, s: RentalSpec, member: int) -> float:
+        """The share of ``s`` that member (1 or 2) owns and that a death steps up: sole owner 1 or 0;
+        joint: both halves in a community-property regime, else the member's ownership share."""
+        m1 = member_1_share_of(s)
+        if s.owner == "joint" and self.community:
+            return 1.0
+        return m1 if member == 1 else 1.0 - m1
+
+    def _death_schedule(self, s: RentalSpec) -> list[tuple[int, float]]:
+        """(year, fraction stepped up) for each death that hits ``s``: only a standalone property
+        with an owner set, between its purchase and its sale. After a first death the survivor owns
+        all that is left, so the second death steps up all of it."""
+        if not s.owner or s.kind != STANDALONE:
+            return []
+        out: list[tuple[int, float]] = []
+        if self.first_death_year is not None:
+            f = self._decedent_fraction(s, self.first_decedent)
+            if f > 1e-12:
+                out.append((self.first_death_year, f))
+        if self.second_death_year is not None:
+            out.append((self.second_death_year, 1.0))
+        return [(y, f) for y, f in out
+                if y >= s.purchase_year and (s.sale_year is None or y < s.sale_year)]
+
+    def _walk(self, s: RentalSpec) -> tuple[tuple[DeathEvent, ...], tuple[_Seg, ...]]:
+        """The death events of ``s`` in order and the depreciable slices they leave: each live
+        slice is split into the decedent's part (off the books in the death year, its depreciation
+        erased) and the survivor's part (same schedule); the decedent's part of fair market value
+        becomes a new asset placed in service at the death (month 7), land excluded."""
+        if s.name in self._walks:
+            return self._walks[s.name]
+        schedule = self._death_schedule(s)
+        segs = [_Seg(a.basis, a.placed_year, a.placed_month) for a in s.assets()]
+        events: list[DeathEvent] = []
+        recovery = self.constants(s.purchase_year, "MFJ").recovery_years
+        basis = s.cost_basis
+        added_through = s.purchase_year - 1
+        for year, f in schedule:
+            basis += sum(amt for y, _m, amt in s.improvements if added_through < y <= year)
+            added_through = year
+            accumulated = sum(accumulated_depreciation(g.basis, g.placed_year, g.placed_month, year, recovery,
+                                                        disposed_month=DEFAULT_MONTH)
+                              for g in segs if g.off_year is None and g.placed_year <= year)
+            fmv = self._value_eoy(s, year - 1) * (1.0 + s.appreciation) ** 0.5
+            adjusted = basis - accumulated
+            delta = f * (fmv - adjusted)
+            basis = basis * (1.0 - f) + f * fmv
+            new: list[_Seg] = []
+            for g in segs:
+                if g.off_year is not None or g.placed_year > year:
+                    new.append(g)
+                    continue
+                new.append(_Seg(g.basis * (1.0 - f), g.placed_year, g.placed_month))
+                if f > 0:
+                    new.append(_Seg(g.basis * f, g.placed_year, g.placed_month, year, DEFAULT_MONTH))
+            if f > 0:
+                new.append(_Seg(f * fmv * (1.0 - s.land_share), year, DEFAULT_MONTH))
+            segs = new
+            events.append(DeathEvent(year, f, fmv, adjusted, delta, basis))
+        self._walks[s.name] = (tuple(events), tuple(segs))
+        return self._walks[s.name]
+
+    def _depreciation(self, s: RentalSpec, year: int, recovery: float, disposed_month: int | None) -> float:
+        events, segs = self._walk(s)
+        if not events:
+            return property_depreciation(s.assets(), year, recovery, disposed_month=disposed_month)
+        total = 0.0
+        for g in segs:
+            if g.off_year is not None and year > g.off_year:
+                continue
+            dm = g.off_month if g.off_year == year else disposed_month
+            if g.off_year == year and disposed_month is not None:
+                dm = min(dm, disposed_month)
+            if dm is not None and g.placed_year == year and dm < g.placed_month:
+                continue
+            total += annual_depreciation(g.basis, g.placed_year, g.placed_month, year, recovery, disposed_month=dm)
+        return total
+
+    def _accumulated(self, s: RentalSpec, through_year: int, recovery: float, disposed_month: int | None) -> float:
+        """Depreciation still on the books (the decedent's part is erased) through ``through_year``."""
+        events, segs = self._walk(s)
+        if not events:
+            return property_accumulated_depreciation(s.assets(), through_year, recovery, disposed_month=disposed_month)
+        total = 0.0
+        for g in segs:
+            if g.off_year is not None or g.placed_year > through_year:
+                continue
+            total += accumulated_depreciation(g.basis, g.placed_year, g.placed_month, through_year, recovery,
+                                              disposed_month=disposed_month)
+        return total
+
+    def _sale_basis(self, s: RentalSpec, year: int) -> tuple[float, float]:
+        """(cost basis, improvements) for the gain at a sale in ``year``: after a death the stepped
+        basis (improvements are inside it)."""
+        events = [e for e in self._walk(s)[0] if e.year <= year]
+        if not events:
+            return s.cost_basis, sum(amt for y, _m, amt in s.improvements if y <= year)
+        last = events[-1]
+        return last.basis_after, sum(amt for y, _m, amt in s.improvements if last.year < y <= year)
+
+    def _death_in(self, s: RentalSpec, st: _PropertyState, year: int) -> dict[str, float]:
+        """H5 fields for ``year`` if a death steps up ``s`` in it: the decedent's share of the
+        suspended loss, how much is allowed on the final return (the excess over the basis
+        increase, IRC 469(g)(2)), how much is lost, and the basis change."""
+        event = next((e for e in self._walk(s)[0] if e.year == year), None)
+        if event is None or st.sold:
+            return {}
+        share = st.suspended * event.fraction
+        allowed = max(0.0, share - max(0.0, event.delta_basis))
+        return {"death_suspended_removed": share, "death_loss_released": allowed,
+                "death_loss_lost": share - allowed, "death_basis_change": event.delta_basis}
+
     def _value_eoy(self, s: RentalSpec, year: int) -> float:
         years = year - s.value_as_of_year + 1
         if s.purchase_year > self.plan_start and s.value_as_of_year == s.purchase_year:
@@ -754,27 +920,28 @@ class RentalBook:
         pay_from = first_month + 1 if year == s.purchase_year and year > self.plan_start else first_month
         interest, principal = self._amortize(s, st, year, pay_from, last_month)
         disposed_month = s.sale_month if selling else None
-        depreciation = property_depreciation(s.assets(), year, recovery, disposed_month=disposed_month) if in_service else 0.0
+        depreciation = self._depreciation(s, year, recovery, disposed_month) if in_service else 0.0
         sched_e = schedule_e_net(gross_rent, s.vacancy_rate, opex, interest, depreciation) if in_service else 0.0
         improvements_cash = sum(amt for y, _m, amt in s.improvements if y == year)
         purchase_cash = 0.0
         if year == s.purchase_year and year > self.plan_start:
             purchase_cash = s.purchase_price + s.closing_costs - s.loan_balance
         net_cash = collected - opex - interest - principal - improvements_cash - purchase_cash
+        death = self._death_in(s, st, year)
         if not selling:
             return PropertyYear(s.name, True, in_service, gross_rent, gross_rent - collected, opex, interest,
                                 principal, depreciation, sched_e, improvements_cash, purchase_cash, net_cash,
-                                self._value_eoy(s, year), st.loan_balance)
+                                self._value_eoy(s, year), st.loan_balance, **death)
         # ── sale year ──
         price = s.sale_price if s.sale_price is not None else self._value_eoy(s, year - 1)
         selling_costs = price * s.selling_cost_pct
         # Allowed or allowable while rented: through the sale, or through the
         # last rental year when the rental ended earlier.
         dep_through = year if s.rental_end_year is None else min(year, s.rental_end_year)
-        accumulated = property_accumulated_depreciation(
-            s.assets(), dep_through, recovery, disposed_month=s.sale_month if dep_through == year else None)
-        improvements_total = sum(amt for y, _m, amt in s.improvements if y <= year)
-        sale = rental_sale(price, selling_costs, s.cost_basis, improvements_total, accumulated)
+        accumulated = self._accumulated(
+            s, dep_through, recovery, s.sale_month if dep_through == year else None)
+        cost_basis, improvements_total = self._sale_basis(s, year)
+        sale = rental_sale(price, selling_costs, cost_basis, improvements_total, accumulated)
         payoff = st.loan_balance
         st.loan_balance = 0.0
         proceeds = price - selling_costs - payoff
@@ -846,9 +1013,15 @@ def rental_book_for(c: dict[str, Any]) -> RentalBook | None:
     lived_apart = c.get('mfs_lived_apart')
     if isinstance(lived_apart, str):
         lived_apart = lived_apart.strip().lower() in ('true', 'yes', 'y', '1')
+    hd, wd = int(c.get('h_death_yr') or 0), int(c.get('w_death_yr') or 0)
+    couple = int(c.get('household_size', len(c.get('members') or []) or 1)) > 1
+    regime = str(c.get('basis_step_up_property_regime', 'COMMON_LAW') or 'COMMON_LAW').upper()
     return RentalBook(specs=specs, plan_start=int(c['plan_start']),
                       mfs_lived_apart_all_year=bool(lived_apart),
-                      converted_links=links.converted, link_warnings=links.warnings)
+                      converted_links=links.converted, link_warnings=links.warnings,
+                      first_death_year=min(hd, wd) if couple and hd and wd and hd != wd else None,
+                      second_death_year=max(hd, wd) or None, first_decedent=1 if hd < wd else 2,
+                      community=regime in ('COMMUNITY_PROPERTY', 'FULL_STEP_UP'))
 
 
 def ordinary_income(ry: RentalYear, passive: PassiveLossResult) -> float:
@@ -856,7 +1029,8 @@ def ordinary_income(ry: RentalYear, passive: PassiveLossResult) -> float:
     passive limit allows (released losses included), the unrecaptured section 1250 gain on
     a sale (ordinary rates capped at 25%, see :func:`unrecaptured_1250_cap_adjustment`)
     and a section 1231 sale loss (ordinary, negative)."""
-    return passive.net_to_agi + ry.total("unrecaptured_1250_gain") - ry.total("ordinary_loss")
+    return (passive.net_to_agi + ry.total("unrecaptured_1250_gain") - ry.total("ordinary_loss")
+            - ry.total("death_loss_released"))
 
 
 def unrecaptured_1250_cap_adjustment(amount: float, taxable_inc: float, year: int, filing: str,
@@ -963,7 +1137,11 @@ def write_flow_fields(row: dict[str, Any], ry: RentalYear, deposited: float) -> 
     row['rental_sale_capital_gain'] = ry.total("capital_gain")
     row['rental_sale_ordinary_loss'] = ry.total("ordinary_loss")
     row['rental_sale_net_proceeds'] = deposited
-    row['rental_by_property'] = [asdict(p) for p in ry.properties]
+    row['rental_by_property'] = [{k: v for k, v in asdict(p).items() if k not in DEATH_KEYS or v} for p in ry.properties]
+    if ry.total("death_loss_released") or ry.total("death_loss_lost") or ry.total("death_basis_change"):
+        row['rental_death_loss_released'] = ry.total("death_loss_released")
+        row['rental_death_loss_lost'] = ry.total("death_loss_lost")
+        row['rental_death_basis_change'] = ry.total("death_basis_change")
 
 
 def write_passive_fields(row: dict[str, Any], passive: PassiveLossResult, magi: float,

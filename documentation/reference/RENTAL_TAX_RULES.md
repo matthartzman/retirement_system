@@ -378,9 +378,9 @@ Sale tab, "Where the proceeds go"        (read only, estimate)
 2. OK that MFS households keep the one-return model (no per-return Schedule E split), listed as a limitation?
 3. OK that a deceased owner's part goes to the survivor's account until H5 defines estate transfers?
 
-## 12. H5: death handling (design, TAX-PREPARER REVIEW: H5)
+## 12. H5: death handling (built; tax preparer approved the examples 2026-10-13)
 
-Status: design and worked examples only. Nothing built. Rental stays default OFF. Reads the H4 `owner` and
+Status: built (no schema change). Pinned by `tests/test_rental_death_functional.py`. Rental stays default OFF. Reads the H4 `owner` and
 `member_1_share`; applies only to properties with an owner set (unset owner = today's behaviour, so existing
 rental plans do not move).
 
@@ -394,7 +394,7 @@ losses that exceed the step-up (IRC 469(g)(2)).
 ### 12.2 Rules
 | # | Rule | Behaviour |
 |---|---|---|
-| 1 | Decedent's share | Sole owner who dies: 100%. Sole owner who survives: 0%. Joint: 50% (spouses' qualified joint interest, IRC 2040(b)); 100% in a community-property regime (IRC 1014(b)(6)); the plan's existing regime flag (`_basis_stepup_fraction`) decides, as for the home. |
+| 1 | Decedent's share | Sole owner who dies: 100%. Sole owner who survives: 0%. Joint: the decedent's ownership share, 50% unless `member_1_share` says otherwise (spouses' qualified joint interest, IRC 2040(b)); 100% in a community-property regime (IRC 1014(b)(6)); the plan's existing regime flag (`_basis_stepup_fraction`) decides, as for the home. |
 | 2 | Step-up (or down) at the date of death | the decedent's share of the adjusted basis (cost + improvements - accumulated depreciation) becomes its share of fair market value at death (`value path` at the death month). The change is `delta B` (negative = step-down). |
 | 3 | Depreciation | the stepped share is a new asset placed in service at the date of death (27.5 years, mid-month) on FMV x (1 - land share); its old accumulated depreciation is erased (no 1250 recapture on it). The survivor's share keeps its original schedule and its accumulated depreciation. |
 | 4 | Suspended losses at death | the decedent's share of the suspended loss `S` is allowed on the final (death-year) return only to the extent it exceeds the increase: `allowed = max(0, S - max(0, delta B))`, deducted against ordinary income in the death year (joint return); the rest is permanently lost. The survivor's share stays suspended. |
@@ -421,3 +421,63 @@ Property: cost 400,000 (land 20%: building 320,000), accumulated depreciation 10
 4. At the second death the same applies to the remaining share and the estate sale keeps the step-up.
 5. FMV at death = the engine's value path at the death month.
 6. Owner: OK that an unset owner keeps today's behaviour (no death handling)?
+
+### 12.5 As built
+- `RentalBook` reads the household's deaths (`h_death_yr`, `w_death_yr`, couple flag, `basis_step_up_property_regime`). A first death exists only for a couple dying in different years; a single death or two deaths in one year is the second-death case (fraction 1).
+- Death month is 7; fair market value is the property's value path at mid-year; improvements before the death are inside the stepped basis.
+- Standalone properties with an owner: depreciation slices (`_Seg`), the stepped basis (`_sale_basis`) and the depreciation still on the books at a later sale (`_accumulated`) follow the rules above. Row fields: `rental_by_property[].death_suspended_removed / death_loss_released / death_loss_lost / death_basis_change` and `rental_death_loss_released / lost / basis_change` (present in a death year only). The released loss is an ordinary deduction in the death year (`ordinary_income`).
+- Converted home: only the second-death estate year (the last rented year) releases the excess suspended loss; its first-death step-up and depreciation restart are not modelled (the plan home's basis step-up in the home-sale stage is as before). Its value path uses the plan's home appreciation.
+- The passive ledger drops the decedent's share in the death year; the survivor's share stays suspended.
+
+## 13. H6: optimizer search "rent out, then sell in year X" (built; OWNER VIEW OF THE COMPARISON: H6)
+
+Status: built behind the rental feature (default OFF, so off the housing optimizer is unchanged).
+Pinned by `tests/test_housing_rent_then_sell_functional.py`. Awaiting the owner's view of the comparison below.
+
+### 13.1 What it is
+A fourth disposition of the current home, `rent_then_sell` ("Rent out, then sell"), searched next to
+sell, keep and keep-and-rent-out when the Housing optimizer's Disposition is Auto (or chosen alone).
+It converts the home to a rental in move 1's acquisition year (as `rent_out` does) and sells it in a
+searched year X from the request's sale window, with X after the conversion year. The engine does the rest
+with what H1 to H3 built: carrying costs move to Schedule E, depreciation runs, the sale in X uses the
+converted-home rules (recapture, two-of-five test, dual basis), and the taxable gain is in X's AGI and in
+the IRMAA lookback two years later (H1).
+
+### 13.2 Rules
+| Rule | Behaviour |
+|---|---|
+| Candidates | one per (location, acquisition year, sale year X > acquisition year); owning two homes is allowed (the home is rented), as for `rent_out`. |
+| Rent | never invented: typed rent, else the plan's converted-home rent; with neither, not searched (as `rent_out`). |
+| Scoring | the same net worth and lifetime cost as the other dispositions: housing cost less sale gain plus the sale's tax, with the rental's after-tax net cash in place of the moved carrying costs. The tax on the rent is the estimate in Pass 1 and the engine's exact delta for the shortlist; the exact delta leaves the sale's own tax out (it is counted once, with the sale). |
+| Notes on each row | `rented out from Y, sold in X`; whether the section 121 test is met for X (and the last year it would be); the depreciation recaptured in X; the sale gain in X's AGI and the IRMAA tier two years later. |
+| Off | `rent_then_sell` is an unknown disposition; nothing else changes. |
+
+### 13.3 Comparison (frozen sample plan, move 1 buys in 2028, rent 5,500 a month; objective net worth; one location)
+The Disposition column is what the Current home cell shows; Sell is the best plain sale in the window.
+| Current home | Net worth at plan end | Lifetime housing cost | Section 121 for the sale | Notes |
+|---|---|---|---|---|
+| Sell 2029 | 10,065,402 | 1,073,227 | n/a (home not rented) | dual ownership 2028-2029 |
+| Keep and rent out | 12,422,678 | 252,206 | exclusion only if sold by 2031 | keeps the home; recapture on a later sale |
+| Rent out, sell 2029 | 10,425,797 | 966,560 | met | |
+| Rent out, sell 2030 | 10,390,135 | 910,450 | met | sale gain 345,000 in 2030 AGI; IRMAA tier 4 in 2032 |
+| Rent out, sell 2031 | 10,444,554 | 880,199 | met (last year) | gain 345,000; IRMAA tier 4 in 2033 |
+| Rent out, sell 2032 | 10,126,789 | 870,219 | NOT met | gain 845,000 in AGI; IRMAA tier 5 in 2034 |
+| Rent out, sell 2034 | 10,363,394 | 724,283 | NOT met | recapture 139,626 |
+| Rent out, sell 2036 | 10,376,475 | 576,660 | NOT met | lowest lifetime cost in the window |
+Reading it: selling by 2031 keeps the 500,000 exclusion; one year later the whole gain is taxable, which also lifts the
+IRMAA tier two years on. Net worth is highest for a 2031 sale; lifetime cost keeps falling as more rent is collected before
+the sale. Keep-and-rent-out is not comparable on net worth because it never sells (the home stays in net worth).
+
+### 13.4 UI mock (Housing optimizer, step 2 "Current home")
+```
+Disposition   [ Auto (search all) v ]      options: Sell | Keep | Keep and rent out | Rent out, then sell
+Sale window   Earliest [ 2029 ]  Latest [ 2036 ]          (used by Sell and Rent out, then sell)
+Monthly rent  [ 5,500 ]  (today's dollars)                  (rent options)
+Results row:  Current home: "Rent out, sell 2031"      Notes: rented out from 2028, sold in 2031; §121 met ...;
+              §1250 recapture ...; sale gain ... in 2031 AGI; IRMAA tier 4 in 2033   [Convert my home]
+```
+
+### 13.5 Questions for the owner
+1. Is this comparison (net worth and lifetime cost per sale year, with the section 121 / recapture / IRMAA notes) what you want to see?
+2. Should the results also show, for each rent-then-sell row, the cash on the sale and the sale-year tax as their own columns? (Not built: they are in the notes today.)
+3. Keep the sale window shared with Sell (X after the conversion year), or give Rent out, then sell its own window?
