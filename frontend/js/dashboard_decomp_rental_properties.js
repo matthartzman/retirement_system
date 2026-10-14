@@ -14,7 +14,7 @@ const RP_KEY = "rental_property_income";
 const RP_TABS = [["basics", "Basics"], ["income", "Income"], ["expenses", "Expenses"], ["financing", "Financing"],
   ["tax", "Tax"], ["sale", "Sale"], ["overrides", "Overrides"]];
 const RP_KINDS = [["standalone", "Standalone"], ["converted_home", "Converted home"]];
-const RP_OWNERS = [["joint", "Joint"], ["member_1", "Member 1"], ["member_2", "Member 2"]];
+const RP_OWNERS = [["", "Not set (proceeds to the default account)"], ["joint", "Joint"], ["member_1", "Member 1"], ["member_2", "Member 2"]];
 // A converted home takes these from the plan's home (the parse boundary refuses them on the property).
 const RP_NOT_FOR_CONVERTED = ["purchase_price", "closing_costs", "current_value", "value_as_of_year", "appreciation",
   "loan_balance", "loan_balance_year", "loan_rate", "loan_monthly_payment", "loan_term_years", "sale_year",
@@ -25,7 +25,7 @@ const F = (k, l, t, extra) => Object.assign({ k, l, t }, extra || {});
 const RP_FIELDS = {
   basics: [
     ["Identity", [F("name", "Name", "text"), F("kind", "Kind", "select", { o: RP_KINDS }),
-      F("owner", "Owner", "select", { o: RP_OWNERS })]],
+      F("owner", "Owner", "select", { o: RP_OWNERS }), F("member_1_share", "Member 1 owns (Joint only)", "pct", { hint: "Blank means 50%. Sale proceeds go to each owner's first taxable account by share; income tax on a joint return is the same." })]],
     ["Purchase", [
       F("purchase_year", "Purchase date", "ym", { m: "purchase_month", only: "standalone" }),
       F("purchase_year", "Purchase date (bought and lived in)", "ym", { m: "purchase_month", only: "converted_home",
@@ -47,7 +47,7 @@ const RP_FIELDS = {
     F("monthly_rent", "Monthly rent", "money"), F("vacancy_rate", "Vacancy", "pct"),
     F("rent_growth", "Annual rent growth", "pct", { hint: "Blank means inflation." }),
     F("rental_start_year", "Rental start year", "year", { only: "standalone", hint: "Blank means the purchase year." }),
-    F("rental_end_year", "Rental end year", "year", { hint: "Blank means until sale." })]]],
+    F("rental_end_year", "Rental end year", "year", { hint: "Blank means until sale." }), F("moves_back_in", "Move back in at the end", "bool", { only: "converted_home", hint: "Yes: you live in the home again from the move-back month of the end year. Restarts the section 121 residence clock, stops depreciation, and makes the rental months nonqualified use." }), F("reversion_month", "Move-back month (1-12)", "int", { only: "converted_home", hint: "Blank means July." })]]],
   expenses: [["Operating expenses", [
     F("property_tax", "Property tax (per year)", "money"), F("property_tax_growth", "Property tax growth", "pct"),
     F("insurance", "Insurance (per year)", "money"), F("maintenance_pct", "Maintenance (% of rent)", "pct"), F("management_pct", "Management (% of rent)", "pct", { hint: "0% when self-managed." }),
@@ -311,7 +311,7 @@ function rpFieldHtml(f, draft, tiers, planTier, data) {
     ctl = `<select ${fk} aria-label="${esc(f.l)}" onchange="rpSet('${esc(f.k)}',this.value,'select')">` +
       f.o.map((o) => `<option value="${esc(o[0])}"${o[0] === cur ? " selected" : ""}>${esc(o[1])}</option>`).join("") + "</select>";
   } else if (f.t === "bool") {
-    const cur = draft[f.k] === false ? "no" : "yes";
+    const cur = (f.k === "moves_back_in" ? draft[f.k] === true : draft[f.k] !== false) ? "yes" : "no";
     ctl = `<select ${fk} aria-label="${esc(f.l)}" onchange="rpSet('${esc(f.k)}',this.value,'bool')"><option value="yes"${cur === "yes" ? " selected" : ""}>Yes</option><option value="no"${cur === "no" ? " selected" : ""}>No</option></select>`;
   } else if (f.t === "ym") {
     const yk = f.yk || f.k;

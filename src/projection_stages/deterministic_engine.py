@@ -965,7 +965,7 @@ def run_deterministic_projection_stage(c):
         if _rental_year is not None:
             # Sale proceeds go to the taxable account like a home sale's; the
             # operating cash (and any underwater sale) reaches the gap below.
-            _rental_deposited = _rental.deposit_sale_proceeds(c, row, bal, bal_basis_free, _rental_year)
+            _rental_deposited = _rental.deposit_sale_proceeds(c, row, bal, bal_basis_free, _rental_year, _rental_book)
         if earned_base > 0:
             emit(EvIncome(year, 'earned', earned_base, c['entity']))
 
@@ -1006,6 +1006,7 @@ def run_deterministic_projection_stage(c):
                         _rental_book.converted_links, bal.get('_liability_balances') or {}, year)
                     * _conv_costs['share'])
             _rental.write_flow_fields(row, _rental_year, _rental_deposited)
+            _rental.annotate_owners(row, _rental_book)
             if _rental_book.link_warnings:
                 row['rental_loan_link_warnings'] = list(_rental_book.link_warnings)
         # Multi-year state: must be reassigned here, not just read, so next

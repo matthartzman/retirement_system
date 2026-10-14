@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .models import HousingCandidate, ScoredCandidate
+from .models import RENT_THEN_SELL, HousingCandidate, ScoredCandidate
 from .constraints import sec121_exclusion_flag
 from .rent_out import ESTIMATED_TAX_NOTE, converted_after_tax_net_cash, rent_out_notes
 
@@ -90,7 +90,8 @@ def score_candidate(c: dict[str, Any], cand: HousingCandidate, rows: list[dict[s
 
     buys = [m for m in cand.moves if m.action == 'buy' and m.mode != 'concurrent']
     overlapping = [m.acquisition_year for m in buys
-                   if sale_year is not None and m.acquisition_year < sale_year]
+                   if sale_year is not None and m.acquisition_year < sale_year
+                   and cand.original_home.disposition != RENT_THEN_SELL]
     if overlapping:
         notes.append(f'dual_ownership_years {min(overlapping)}-{sale_year}')
     if rent_notes and buys:
