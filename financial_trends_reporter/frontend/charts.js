@@ -114,8 +114,8 @@ export function dataTableFallbackHtml(caption, columnHeaders, rows) {
   // screen readers also skip), so a sighted keyboard user tabbing past it
   // isn't confused by a chart with no visible label either.
   const head = columnHeaders.map(h => `<th>${escSvg(h)}</th>`).join("");
-  const body = rows.map(([label, value]) =>
-    `<tr><td>${escSvg(label)}</td><td>${escSvg(value)}</td></tr>`).join("");
+  const body = rows.map(cells =>
+    `<tr>${cells.map(c => `<td>${escSvg(c)}</td>`).join("")}</tr>`).join("");
   return `<table class="visually-hidden"><caption>${escSvg(caption)}</caption>` +
     `<thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
 }
@@ -184,9 +184,16 @@ export function lineChartSvg(points, opts) {
   // Hover targets: one dot per point, with a native tooltip giving the
   // x label and y value.
   let dots = "";
+  // Roving tabindex: only the newest point is a tab stop; arrow keys move between points.
+  let lastShown = -1;
+  points.forEach((p, i) => { if (p.value !== null && p.value !== undefined) lastShown = i; });
   points.forEach((p, i) => {
     if (p.value === null || p.value === undefined) return;
-    dots += `<circle cx="${x(i)}" cy="${y(p.value)}" r="3" fill="${opts.color || '#2563eb'}" class="chart-dot">` +
+    // opts.interactive: dots are keyboard-focusable and carry their index so the
+    // page can show a rollover (see rolloverModel) on hover or focus.
+    const focus = opts.interactive
+      ? ` tabindex="${i === lastShown ? 0 : -1}" data-i="${i}" role="img" aria-label="${escSvg(p.label)}: ${escSvg(fmtMoney(p.value))}"` : "";
+    dots += `<circle cx="${x(i)}" cy="${y(p.value)}" r="3" fill="${opts.color || '#2563eb'}" class="chart-dot"${focus}>` +
       `<title>${escSvg(p.label)}: ${escSvg(fmtMoney(p.value))}</title></circle>`;
   });
 
@@ -321,22 +328,137 @@ export function barChartSvg(entries) {
   return svg + dataTableFallbackHtml("YTD expenses by tracking type", ["Tracking type", "Amount"], entries.map(e => [e[0], fmtMoney(e[1])]));
 }
 
-// Cashflow = YTD income - YTD expenses, on one consistent definition of
-// "expenses" (spending including income taxes and real estate taxes).
-// Log entries written before 2026-09-30's tracker change (#158) excluded both
-// taxes from expenses; they're recognizable because expenses came in below the
-// category total (which includes real estate tax), whereas current expenses are
-// category total + income taxes. Those older entries get the two taxes added
-// back so the series has no artificial step. The stored "net" is never used:
-// older entries also subtracted taxes a second time.
-export function cashflowNet(r) {
-  const cf = r && r.cashflow;
-  if (!cf || cf.income == null || cf.expenses == null) return null;
-  let expenses = cf.expenses;
-  const cats = r.ytd_expenses_by_category;
-  if (cats) {
-    const categoryTotal = Object.values(cats).reduce((t, v) => t + v, 0);
-    if (expenses < categoryTotal) expenses += (cf.taxes || 0) + (cats["Real Estate Taxes"] || 0);
+// Hover/focus rollover for the Net worth and Investments line charts: the
+// account subtotals at one log entry. `kind` is "networth" or "investments".
+// Accounts come from holdings.by_account (investments) and, for net worth,
+// net_worth.other_accounts (cash, cards, loans; logged since 347b) grouped by
+// role with a subtotal each. Net worth adds the plan-level lines from
+// net_worth. Entries lacking account detail return an aggregate-only model
+// (groups empty) so the page still shows the total.
+function groupByRole(accounts) {
+  const byRole = new Map();
+  for (const a of accounts) {
+    if (!byRole.has(a.role)) byRole.set(a.role, []);
+    byRole.get(a.role).push({ name: a.name, value: a.value });
   }
-  return cf.income - expenses;
+  return Array.from(byRole, ([role, items]) => ({
+    role, items: items.sort((p, q) => Math.abs(q.value) - Math.abs(p.value)),
+    subtotal: items.reduce((t, i) => t + i.value, 0),
+  }));
+}
+
+export function rolloverModel(row, kind) {
+  if (!row) return null;
+  const h = row.holdings || {}, nw = row.net_worth || {};
+  const invAccounts = (h.by_account || []).map(a => ({
+    name: a.account, role: a.role || "Investment", value: a.current_value || 0,
+  }));
+  if (kind === "investments") {
+    return { title: "Investments", date: row.as_of_date, total: h.current_value ?? null, groups: groupByRole(invAccounts), lines: [] };
+  }
+  const other = Array.isArray(nw.other_accounts) ? nw.other_accounts : [];
+  // Liability roles are shown negative so the groups add toward the total.
+  const otherAccounts = other.map(a => ({ name: a.account, role: a.role, value: a.liability ? -a.value : a.value }));
+  const accountLiabilities = other.reduce((t, a) => t + (a.liability ? a.value : 0), 0);
+  const lines = [];
+  if (nw.home != null) lines.push(["Home", nw.home]);
+  if (nw.other_assets != null) lines.push(["Other assets (plan)", nw.other_assets]);
+  if (nw.mortgage != null) lines.push(["Mortgage", -nw.mortgage]);
+  // nw.liabilities = account liabilities + liabilities file + mortgage. Cards/loans are already listed
+  // under their role above and the mortgage has its own line, so show only the remainder.
+  if (nw.liabilities != null) {
+    const rest = nw.liabilities - (nw.mortgage || 0) - accountLiabilities;
+    if (Math.abs(rest) >= 0.5) lines.push(["Other liabilities", -rest]);
+  }
+  return {
+    title: "Net worth", date: row.as_of_date, total: nw.total ?? null,
+    groups: groupByRole(invAccounts.concat(otherAccounts)), lines,
+  };
+}
+
+export function rolloverHtml(model) {
+  if (!model) return "";
+  const head = `<div class="pop-title">${escSvg(model.title)} - ${escSvg(model.date)}</div>`;
+  const total = `<div class="pop-total"><span>${escSvg(model.title)}</span><span>${escSvg(fmtMoney(model.total))}</span></div>`;
+  if (!model.groups.length) {
+    return head + total + '<div class="pop-hint">No per-account detail was logged for this date.</div>';
+  }
+  const groups = model.groups.map(g =>
+    `<div class="pop-group"><strong>${escSvg(g.role)}</strong>` +
+    g.items.map(i => `<div class="pop-row${i.value < 0 ? " pop-neg" : ""}"><span class="pop-name">${escSvg(i.name)}</span><span></span><span class="pop-val">${escSvg(fmtMoney(i.value))}</span></div>`).join("") +
+    `<div class="pop-row pop-sub"><span class="pop-name">Subtotal</span><span></span><span class="pop-val">${escSvg(fmtMoney(g.subtotal))}</span></div></div>`).join("");
+  const lines = model.lines.map(([n, v]) =>
+    `<div class="pop-row${v < 0 ? " pop-neg" : ""}"><span class="pop-name">${escSvg(n)}</span><span></span><span class="pop-val">${escSvg(fmtMoney(v))}</span></div>`).join("");
+  return head + groups + lines + total;
+}
+
+// Rows for the investment-flows chart, from a log entry's
+// investment_net_flows_by_account ({account: {to_checking, from_checking, net}}).
+// Returns null when the entry predates the field (no backfill, decision D3) so
+// the page can show an empty state. net > 0 is a net withdrawal to checking,
+// net < 0 a net contribution from checking. Largest magnitude first.
+export function investmentFlowRows(flows) {
+  if (!flows || typeof flows !== "object") return null;
+  const rows = Object.entries(flows).map(([name, f]) => ({
+    name, net: f.net || 0, toChecking: f.to_checking || 0, fromChecking: f.from_checking || 0,
+  }));
+  rows.sort((a, b) => Math.abs(b.net) - Math.abs(a.net));
+  const total = rows.reduce((t, r) => t + r.net, 0);
+  return { rows, total };
+}
+
+// Warning block for near-match investment-to-investment pairs (amounts within $100,
+// not equal) awaiting the user's decision. `items` is the log entry's
+// passthrough_review; each button carries the pair key for the decision POST.
+export function passthroughReviewHtml(items) {
+  if (!Array.isArray(items) || !items.length) return "";
+  const rows = items.map(it => {
+    const w = it.withdrawal || {}, d = it.deposit || {};
+    return `<div class="review-item" data-key="${escSvg(it.key)}">` +
+      `<span>${escSvg(w.date)} ${escSvg(fmtMoney(w.amount))} out of ${escSvg(w.account)} and ${escSvg(d.date)} ${escSvg(fmtMoney(d.amount))} into ${escSvg(d.account)} ` +
+      `(differ by ${escSvg(fmtMoney(it.difference))}). Same money moving between investment accounts?</span> ` +
+      `<button type="button" data-decision="approve">Yes, exclude</button> ` +
+      `<button type="button" data-decision="deny">No, count both</button></div>`;
+  }).join("");
+  return `<div class="review-warning" role="alert"><strong>Possible investment-to-investment transfers.</strong> ` +
+    `Until you decide, both legs still count as a withdrawal and a contribution.${rows}</div>`;
+}
+
+// Signed horizontal bars around a zero line: withdrawals extend right, contributions
+// left. Each bar's tooltip gives the to/from-checking split; the last row is the total.
+export function flowBarChartSvg(model) {
+  if (!model || !model.rows.length) return '<div class="empty">No investment transfers recorded yet this year.</div>';
+  const w = 560, barH = 18, gap = 6, padL = 150, padR = 70, padB = 20;
+  const entries = model.rows.concat([{ name: "Total", net: model.total, total: true }]);
+  const maxAbs = Math.max(...entries.map(e => Math.abs(e.net)), 1);
+  const neg = entries.some(e => e.net < 0), pos = entries.some(e => e.net > 0);
+  const plotW = w - padL - padR;
+  // Zero line sits where the negative and positive extents meet.
+  const negW = neg ? (pos ? plotW / 2 : plotW) : 0;
+  const zeroX = padL + negW;
+  const scale = (neg && pos ? plotW / 2 : plotW) / maxAbs;
+  const h = entries.length * (barH + gap) + padB;
+  const bars = entries.map((e, i) => {
+    const y = i * (barH + gap);
+    const bw = Math.abs(e.net) * scale;
+    const x = e.net < 0 ? zeroX - bw : zeroX;
+    const fill = e.total ? "#475569" : e.net < 0 ? "#0d9488" : "#d97706";
+    const tipText = e.total ? `Total: ${fmtMoney(e.net)}`
+      : `${e.name}: net ${fmtMoney(e.net)} (withdrawn ${fmtMoney(e.toChecking)}, contributed ${fmtMoney(e.fromChecking)})`;
+    // Negative bars label on the far side of the zero line so the text never lands on the account names.
+    const labelX = e.net < 0 ? zeroX + 6 : x + bw + 6;
+    const anchor = "start";
+    return `<g class="bar-row" tabindex="0" role="img" aria-label="${escSvg(tipText)}">` +
+      `<rect x="0" y="${y - 2}" width="${w}" height="${barH + 4}" fill="transparent"/>` +
+      `<text x="0" y="${y + barH - 5}"${e.total ? ' style="font-weight:600"' : ""}>${escSvg(e.name)}</text>` +
+      `<rect x="${x}" y="${y}" width="${bw}" height="${barH}" fill="${fill}" rx="3"><title>${escSvg(tipText)}</title></rect>` +
+      `<text x="${labelX}" y="${y + barH - 5}" text-anchor="${anchor}">${escSvg(fmtMoney(e.net))}</text></g>`;
+  }).join("");
+  const svg = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="group" aria-label="YTD net investment flows by account, bar chart">` +
+    `<line x1="${zeroX}" y1="0" x2="${zeroX}" y2="${h - padB}" stroke="#999" stroke-width="1"/>` +
+    `<text x="${zeroX}" y="${h - padB + 14}" text-anchor="middle" style="font-size:10px">$0</text>${bars}</svg>`;
+  return svg + dataTableFallbackHtml("YTD net investment flows by account",
+    ["Account", "Net (withdrawal +)", "Withdrawn", "Contributed"],
+    model.rows.map(r => [r.name, fmtMoney(r.net)]).map((row, i) => row.concat([fmtMoney(model.rows[i].toChecking), fmtMoney(model.rows[i].fromChecking)]))
+      .concat([["Total", fmtMoney(model.total), "", ""]]));
 }

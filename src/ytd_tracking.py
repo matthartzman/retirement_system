@@ -851,6 +851,138 @@ def classify_investment_transaction(row: dict[str, Any]) -> str:
     return "neutral"
 
 
+# A row tagged/noted like this is never counted as an investment deposit or withdrawal.
+PASSTHROUGH_TAG_RE = re.compile(r"\b(invest(?:ment)?[- ]to[- ]invest(?:ment)?|pass[- ]?through)\b", re.I)
+PASSTHROUGH_MATCH_WINDOW_DAYS = 30
+PASSTHROUGH_NEAR_MATCH_TOLERANCE = 100.0
+# Payroll-side contributions (employee deferral, employer match, 401k/403b) arrive from
+# the paycheck/employer, never through checking, so they are never pass-through candidates.
+PAYROLL_CONTRIBUTION_RE = re.compile(r"\b(employee deferral|employer|payroll|40[13]\s*\(?[kb]\)?)", re.I)
+
+
+def account_label(row: dict[str, Any]) -> str:
+    """The row's account name, with a stable placeholder for blank ones."""
+    return str(row.get("Account", "") or "").strip() or "Unassigned"
+
+
+def passthrough_pair_key(w_date, w_acct: str, w_amt: float, d_date, d_acct: str, d_amt: float) -> str:
+    """Stable id for a withdrawal/deposit candidate pair (survives re-imports)."""
+    return f"{w_date.isoformat()}|{w_acct}|{w_amt:.2f}>{d_date.isoformat()}|{d_acct}|{d_amt:.2f}"
+
+
+def investment_passthrough_review(ytd_rows, setup_map, decisions=None) -> tuple[set[int], list[dict[str, Any]]]:
+    """Find investment-to-investment moves routed through checking.
+
+    Such money never leaves the investment side, so it must not count as a
+    withdrawal (or a contribution). Returns ``(excluded_indexes, review)``.
+    A row is excluded when:
+      * the user tags it (Tags/Notes contain ``invest-to-invest`` or ``pass-through``),
+        and so is its same-amount counterpart in a different Investment account;
+      * auto-match: a withdrawal from one Investment account and a deposit into a
+        *different* Investment account with the **same amount** within
+        ``PASSTHROUGH_MATCH_WINDOW_DAYS`` days (each row matches at most once).
+        Payroll-style deposits (employee deferral, employer match, 401k/403b) are
+        never candidates -- they do not come through checking;
+      * near-match the user approved: amounts within ``PASSTHROUGH_NEAR_MATCH_TOLERANCE``
+        dollars (but not equal) in the same window. ``decisions`` maps pair keys to
+        "approve"/"deny". Undecided near-matches are *not* excluded and are returned
+        in ``review`` so the caller can ask; denied ones count normally and are not re-asked.
+    """
+    decisions = decisions or {}
+    withdrawals, deposits, excluded = [], [], set()
+    for idx, d, row in ytd_rows:
+        account = account_label(row)
+        role = str(setup_map.get(account.lower(), {}).get("Role", "") or "")
+        if role != "Investment":
+            continue
+        kind = classify_investment_transaction(row)
+        if kind not in ("investment_deposit", "investment_withdrawal"):
+            continue
+        tagged = bool(PASSTHROUGH_TAG_RE.search(f"{row.get('Tags', '')} {row.get('Notes', '')}"))
+        if tagged:
+            excluded.add(idx)
+        elif kind == "investment_deposit" and PAYROLL_CONTRIBUTION_RE.search(transaction_text(row)):
+            continue
+        entry = (idx, d, account, round(abs(parse_money(row.get("Amount"))), 2), tagged)
+        (deposits if kind == "investment_deposit" else withdrawals).append(entry)
+    withdrawals.sort(key=lambda e: not e[4])  # tagged withdrawals claim their counterpart first
+    used: set[int] = set()
+
+    def best_deposit(w, tolerance):
+        best = None
+        for dep in deposits:
+            if dep[0] in used or dep[2] == w[2]:
+                continue
+            diff = abs(dep[3] - w[3])
+            gap = abs((dep[1] - w[1]).days)
+            if gap > PASSTHROUGH_MATCH_WINDOW_DAYS or diff > tolerance + 1e-9:
+                continue
+            rank = (not dep[4], diff, gap)
+            if best is None or rank < best[0]:
+                best = (rank, dep)
+        return best[1] if best else None
+
+    unmatched = []
+    for w in withdrawals:
+        dep = best_deposit(w, 0.0)
+        if dep:
+            used.add(dep[0])
+            excluded.update((w[0], dep[0]))
+        else:
+            unmatched.append(w)
+    review: list[dict[str, Any]] = []
+    seen_keys: dict[str, int] = {}
+    for w in unmatched:
+        if w[4]:  # already excluded by the user's tag; nothing to ask
+            continue
+        dep = best_deposit(w, PASSTHROUGH_NEAR_MATCH_TOLERANCE)
+        if not dep:
+            continue
+        used.add(dep[0])
+        base_key = passthrough_pair_key(w[1], w[2], w[3], dep[1], dep[2], dep[3])
+        # Identical look-alike pairs (same dates/accounts/amounts) get distinct keys.
+        seen_keys[base_key] = seen_keys.get(base_key, 0) + 1
+        key = base_key if seen_keys[base_key] == 1 else f"{base_key}#{seen_keys[base_key]}"
+        decision = decisions.get(key)
+        if decision == "approve":
+            excluded.update((w[0], dep[0]))
+        elif decision != "deny":
+            review.append({
+                "key": key,
+                "withdrawal": {"date": w[1].isoformat(), "account": w[2], "amount": w[3]},
+                "deposit": {"date": dep[1].isoformat(), "account": dep[2], "amount": dep[3]},
+                "difference": round(abs(dep[3] - w[3]), 2),
+            })
+    return excluded, review
+
+
+def accumulate_investment_flow(flows: dict[str, dict[str, float]], account: str, kind: str, amount: float) -> None:
+    """Add one classified Investment-account transaction to the per-account flow ledger.
+
+    ``to_checking`` is money withdrawn out of the account; ``from_checking`` is money
+    contributed into it. Only the two flow kinds count -- every other kind (income,
+    tax, unclassified transfers) is ignored, which is exactly how the account-wide
+    deposit/withdrawal totals are built, so the ledger always reconciles to them.
+    """
+    if kind not in ("investment_deposit", "investment_withdrawal"):
+        return
+    entry = flows.setdefault(account, {"to_checking": 0.0, "from_checking": 0.0})
+    key = "from_checking" if kind == "investment_deposit" else "to_checking"
+    entry[key] += abs(amount)
+
+
+def investment_net_flows_by_account(flows: dict[str, dict[str, float]]) -> dict[str, dict[str, float]]:
+    """Rounded ``{account: {to_checking, from_checking, net}}``; net = withdrawals - contributions."""
+    return {
+        acct: {
+            "to_checking": round(v["to_checking"], 2),
+            "from_checking": round(v["from_checking"], 2),
+            "net": round(v["to_checking"] - v["from_checking"], 2),
+        }
+        for acct, v in flows.items()
+    }
+
+
 def classify_transaction(row: dict[str, Any], *, role: str = "Cash / spending") -> str:
     if role == "Investment":
         return classify_investment_transaction(row)
@@ -1244,7 +1376,8 @@ def normalize_actuals_period(period: str | None) -> str:
 
 
 @_reads_plan_once
-def ytd_summary(root: str | Path, *, today: date | None = None, period: str | None = None) -> dict[str, Any]:
+def ytd_summary(root: str | Path, *, today: date | None = None, period: str | None = None,
+                passthrough_decisions: dict[str, str] | None = None) -> dict[str, Any]:
     """Return the actuals summary for either the current year-to-date or the
     prior calendar year, selected via ``period`` ("ytd" default, or
     "last_year"). All imported transactions (not just current-year rows) are
@@ -1288,6 +1421,7 @@ def ytd_summary(root: str | Path, *, today: date | None = None, period: str | No
     transfer = 0.0
     investment_deposits = 0.0
     investment_withdrawals = 0.0
+    investment_flows: dict[str, dict[str, float]] = {}
     # Real estate taxes are paid in one or two lump installments a year, not
     # smoothly across it -- day-prorating a lump payment into the YTD "spending"
     # run rate wildly over- or under-states the full-year projection depending
@@ -1305,12 +1439,15 @@ def ytd_summary(root: str | Path, *, today: date | None = None, period: str | No
     transaction_type_totals: dict[str, float] = {}
     monthly = {m: {"spending": 0.0, "income": 0.0, "growth": None, "taxes": 0.0} for m in range(1, 13)}
 
-    for _, d, row in ytd_rows:
+    passthrough, passthrough_review = investment_passthrough_review(ytd_rows, setup_map, passthrough_decisions)
+    for tx_idx, d, row in ytd_rows:
         amount = parse_money(row.get("Amount"))
         account_key = str(row.get("Account", "") or "").strip().lower()
         setup_row = setup_map.get(account_key, {})
         role = str(setup_row.get("Role", "Cash / spending") or "Cash / spending")
         kind = classify_transaction(row, role=role)
+        if tx_idx in passthrough:
+            kind = "transfer"
         transaction_type_totals[kind] = transaction_type_totals.get(kind, 0.0) + amount
 
         if role == "Ignore":
@@ -1326,8 +1463,10 @@ def ytd_summary(root: str | Path, *, today: date | None = None, period: str | No
                 income_category_totals[cat] = income_category_totals.get(cat, 0.0) + val
             elif kind == "investment_deposit":
                 investment_deposits += abs(amount)
+                accumulate_investment_flow(investment_flows, account_label(row), kind, amount)
             elif kind == "investment_withdrawal":
                 investment_withdrawals += abs(amount)
+                accumulate_investment_flow(investment_flows, account_label(row), kind, amount)
             elif kind == "note_receivable_income":
                 val = abs(amount)
                 note_receivable_income += val
@@ -1394,7 +1533,7 @@ def ytd_summary(root: str | Path, *, today: date | None = None, period: str | No
             monthly[d.month]["spending"] -= val
             category_totals[cat] = category_totals.get(cat, 0.0) - val
 
-        account = str(row.get("Account", "") or "Unassigned").strip() or "Unassigned"
+        account = account_label(row)
         account_totals[account] = account_totals.get(account, 0.0) + amount
 
     total_income = earned_income + investment_income + note_receivable_income + other_income
@@ -1557,6 +1696,9 @@ def ytd_summary(root: str | Path, *, today: date | None = None, period: str | No
             "external_deposits": round(investment_deposits, 2),
             "external_withdrawals": round(investment_withdrawals, 2),
             "net_ytd_investment_cashflow": round(net_external_investment_cashflow, 2),
+            "net_flows_by_account": investment_net_flows_by_account(investment_flows),
+            "excluded_passthrough_rows": len(passthrough),
+            "passthrough_review": passthrough_review,
             "investment_income_transactions": round(investment_income, 2),
             "actual_growth_available": current_bal_value is not None,
             "growth_method": "mapped_accounts_current_value_minus_prior_year_end_balance",

@@ -36,7 +36,7 @@
   .note { font-size: 11px; color: #777; margin-top: 8px; line-height: 1.45; }
   .bar-row { cursor: default; }
   .bar-row:hover rect[fill] { filter: brightness(1.15); }
-  #detailPopup, #detailPopup2 { position: fixed; z-index: 10; display: none; min-width: 340px; max-width: 420px; padding: 10px 12px;
+  #detailPopup, #detailPopup2, #rollPopup { position: fixed; z-index: 10; display: none; min-width: 340px; max-width: 420px; padding: 10px 12px;
     background: var(--card-bg); color: inherit; border: 1px solid #c8c8cc; border-radius: 8px;
     box-shadow: 0 4px 16px rgba(0,0,0,.18); font-size: 12px; max-height: 80vh; overflow-y: auto; }
   .pop-title { font-weight: 600; margin-bottom: 6px; }
@@ -46,12 +46,16 @@
   .pop-bar i { display: block; height: 100%; background: #2563eb; border-radius: 3px; }
   .pop-cat:hover { background: rgba(37,99,235,.12); border-radius: 3px; }
   .pop-hint { font-weight: 400; opacity: .6; font-size: 11px; }
+  .pop-group { margin: 6px 0; }
+  .pop-sub { font-weight: 600; border-top: 1px dashed rgba(127,127,127,.4); }
   .pop-neg .pop-val { color: #b91c1c; }
   .pop-val { text-align: right; font-variant-numeric: tabular-nums; }
   .pop-total { display: flex; justify-content: space-between; border-top: 1px solid rgba(127,127,127,.4); margin-top: 6px; padding-top: 4px; font-weight: 600; }
   .legend { font-size: 11px; color: #888; margin-top: 6px; }
   .error { color: #b91c1c; font-size: 13px; }
   @media (prefers-color-scheme: dark) { .error { color: #f87171; } }
+  .review-warning { background:#fef3c7; border:1px solid #d97706; border-radius:6px; padding:8px 10px; margin-bottom:10px; font-size:13px; }
+  .review-item { margin-top:6px; }
   .visually-hidden {
     position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
     overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
@@ -60,7 +64,7 @@
 </head>
 <body>
 <h1>Financial trends</h1>
-<div class="sub">YTD expenses by category, holdings value/performance, net worth, and cashflow — one entry per weekday close. Scroll a chart sideways to see earlier dates.</div>
+<div class="sub">YTD expenses by category, holdings value/performance, net worth, and investment transfers — one entry per weekday close. Scroll a chart sideways to see earlier dates.</div>
 <div class="toolbar" id="timeframeBar">
   <button data-tf="week" aria-pressed="false">Week</button>
   <button data-tf="month" class="active" aria-pressed="true">Month</button>
@@ -78,27 +82,29 @@
   <div class="card"><h2>Net worth</h2><div id="chartNetWorth"></div>
     <div class="note">Net worth = investments (live holdings) + annuities/pension + home, startup equity, cash and autos from the plan inputs, minus the mortgage (amortized from its plan-start balance) and any other liabilities. Home and other plan values are held at their plan-start figures, so day-to-day movement is mostly investments.</div></div>
   <div class="card"><h2>Holdings value</h2><div id="chartHoldings"></div></div>
-  <div class="card"><h2>Cashflow (income vs. expenses)</h2><div id="chartCashflow"></div>
-    <div class="note">Cashflow on any date = year-to-date income minus year-to-date expenses, from Jan 1 through that date (a running total, not a single day's or month's flow). Expenses include income and real-estate taxes paid, so this figure is lower than the category total shown in the expenses chart.</div></div>
+  <div class="card"><h2>Investment net flows by account (YTD)</h2><div id="passthroughReview"></div><div id="chartInvFlows"></div>
+    <div class="note">Year-to-date transfers between each investment account and checking, as of the latest snapshot. A net withdrawal (money moved to checking) is positive and extends right; net contributions, including 401k employee deferrals and employer match, are negative and extend left. Money moved from one investment account to another through checking is not counted. A withdrawal and a same-amount deposit in different investment accounts within 30 days are matched automatically; pairs within $100 of each other are flagged above for you to approve or deny; and any transaction tagged "invest-to-invest" (or noted "pass-through") is excluded. Decisions apply at the next Run now.</div></div>
   <div class="card"><h2>YTD expenses by tracking type (latest)</h2><div id="chartCategories"></div>
-    <div class="note">Roll over a bar to see its categories, then roll over a category to see its merchants. Totals follow the Spending Analysis mapping and include taxes; the Cashflow figure uses the YTD tracker, so the two can differ slightly (credits such as pension or balance adjustments net against spending in the tracker).</div></div>
+    <div class="note">Roll over a bar to see its categories, then roll over a category to see its merchants. Totals follow the Spending Analysis mapping and include taxes.</div></div>
 </div>
 <div id="detailPopup" role="tooltip"></div>
 <div id="detailPopup2" role="tooltip"></div>
+<div id="rollPopup" role="tooltip"></div>
 
 <script type="module">
 // Finding QUA-302 (Wave 6 item W6-11): the chart-rendering logic below used
 // to be defined inline, right here, with no module boundary. It now lives
 // in ./charts.js, importable and testable directly.
-import { fmtMoney, escSvg, filterByTimeframe, aggregateByGranularity, granularityForTimeframe, labelForDate, dataTableFallbackHtml, lineChartSvg, barChartSvg, buildHierarchyRows, detailPopupHtml, categoryListHtml, cashflowNet } from "./charts.js";
+import { fmtMoney, escSvg, filterByTimeframe, aggregateByGranularity, granularityForTimeframe, labelForDate, dataTableFallbackHtml, lineChartSvg, barChartSvg, buildHierarchyRows, detailPopupHtml, categoryListHtml, investmentFlowRows, flowBarChartSvg, passthroughReviewHtml, rolloverModel, rolloverHtml } from "./charts.js";
 
 let history = [];
 let timeframe = "month";
 let categoryModel = null;
+let chartRows = [];
 
 // Show the newest dates first: scrolled all the way to the right.
 function scrollChartsToLatest() {
-  for (const id of ["chartNetWorth", "chartHoldings", "chartCashflow"]) {
+  for (const id of ["chartNetWorth", "chartHoldings"]) {
     const box = document.getElementById(id);
     const sc = box && box.querySelector && box.querySelector(".chart-scroll");
     if (sc) sc.scrollLeft = sc.scrollWidth;
@@ -127,16 +133,20 @@ function render() {
   // for ytd/12-month/all-time (custom infers from the span it covers).
   const granularity = granularityForTimeframe(timeframe, filtered);
   const rows = aggregateByGranularity(filtered, granularity);
+  chartRows = rows;
+  hideRollover();
   document.getElementById("chartNetWorth").innerHTML = lineChartSvg(
-    rows.map(r => ({ label: labelForDate(r.as_of_date, granularity), value: r.net_worth && r.net_worth.total })), { color: "#16a34a", title: "Net worth" }
+    rows.map(r => ({ label: labelForDate(r.as_of_date, granularity), value: r.net_worth && r.net_worth.total })), { color: "#16a34a", title: "Net worth", interactive: true }
   );
   document.getElementById("chartHoldings").innerHTML = lineChartSvg(
-    rows.map(r => ({ label: labelForDate(r.as_of_date, granularity), value: r.holdings && r.holdings.current_value })), { color: "#2563eb", title: "Holdings value" }
-  );
-  document.getElementById("chartCashflow").innerHTML = lineChartSvg(
-    rows.map(r => ({ label: labelForDate(r.as_of_date, granularity), value: cashflowNet(r) })), { color: "#d97706", title: "Cashflow" }
+    rows.map(r => ({ label: labelForDate(r.as_of_date, granularity), value: r.holdings && r.holdings.current_value })), { color: "#2563eb", title: "Holdings value", interactive: true }
   );
   const latest = filtered[filtered.length - 1];
+  const flowModel = latest ? investmentFlowRows(latest.investment_net_flows_by_account) : null;
+  document.getElementById("passthroughReview").innerHTML = latest ? passthroughReviewHtml(latest.passthrough_review) : "";
+  document.getElementById("chartInvFlows").innerHTML = flowModel
+    ? flowBarChartSvg(flowModel)
+    : '<div class="empty">No per-account investment flows logged yet - click Run now to capture them.</div>';
   categoryModel = latest && latest.ytd_expense_hierarchy ? buildHierarchyRows(latest.ytd_expense_hierarchy) : null;
   const categories = [];
   if (categoryModel && categoryModel.rows.length) {
@@ -154,7 +164,7 @@ function render() {
 // this range" -- indistinguishable from a household with a genuinely new,
 // empty history. Surface a distinct error state instead.
 function renderFetchError(message) {
-  const ids = ["chartNetWorth", "chartHoldings", "chartCashflow", "chartCategories"];
+  const ids = ["chartNetWorth", "chartHoldings", "chartInvFlows", "chartCategories"];
   for (const id of ids) {
     document.getElementById(id).innerHTML = `<div class="error">${escSvg(message)}</div>`;
   }
@@ -246,6 +256,55 @@ popup.addEventListener("mouseover", (e) => {
   const idx = Number(rowEl.dataset.cat);
   if (idx !== popCat) showMerchants(rowEl, idx);
 });
+
+document.getElementById("passthroughReview").addEventListener("click", async (e) => {
+  const btn = e.target.closest("button[data-decision]");
+  const item = btn && btn.closest("[data-key]");
+  if (!item) return;
+  btn.disabled = true;
+  try {
+    const resp = await fetch("/api/passthrough-decision", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: item.dataset.key, decision: btn.dataset.decision }),
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    item.textContent = "Saved - click Run now to apply.";
+  } catch (err) {
+    btn.disabled = false;
+    item.insertAdjacentText("beforeend", " Couldn't save: " + err.message);
+  }
+});
+
+// Rollover on the Net worth / Holdings line charts: account subtotals at the
+// hovered (or keyboard-focused) point's log entry.
+const rollPopup = document.getElementById("rollPopup");
+function hideRollover() { rollPopup.style.display = "none"; }
+function showRollover(dot, kind) {
+  const model = rolloverModel(chartRows[Number(dot.dataset.i)], kind);
+  if (!model) { hideRollover(); return; }
+  rollPopup.innerHTML = rolloverHtml(model);
+  rollPopup.style.display = "block";
+  const r = dot.getBoundingClientRect(), pw = rollPopup.offsetWidth;
+  rollPopup.style.left = Math.max(MARGIN, Math.min(r.left + 12, window.innerWidth - pw - MARGIN)) + "px";
+  fitVertically(rollPopup, r.bottom + 8);
+}
+for (const [id, kind] of [["chartNetWorth", "networth"], ["chartHoldings", "investments"]]) {
+  const box = document.getElementById(id);
+  const open = (e) => { const dot = e.target.closest && e.target.closest(".chart-dot[data-i]"); if (dot) showRollover(dot, kind); };
+  box.addEventListener("mouseover", open);
+  box.addEventListener("focusin", open);
+  box.addEventListener("mouseout", (e) => { if (e.target.closest && e.target.closest(".chart-dot")) hideRollover(); });
+  box.addEventListener("focusout", hideRollover);
+  box.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { hideRollover(); return; }
+    const dir = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+    const dot = e.target.closest && e.target.closest(".chart-dot[data-i]");
+    if (!dir || !dot) return;
+    const dots = Array.from(box.querySelectorAll(".chart-dot[data-i]"));
+    const next = dots[dots.indexOf(dot) + dir];
+    if (next) { e.preventDefault(); next.focus(); }
+  });
+}
 
 document.getElementById("customFrom").addEventListener("change", () => { if (timeframe === "custom") render(); });
 document.getElementById("customTo").addEventListener("change", () => { if (timeframe === "custom") render(); });

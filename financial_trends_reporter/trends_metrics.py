@@ -72,6 +72,27 @@ def _net_worth_from_account_setup(
     return {"assets": assets, "account_liabilities": account_liabilities}
 
 
+def _non_investment_balances(accounts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Per-account balances for accounts NOT in holdings.by_account (cash, cards, loans...).
+
+    Logged so the net-worth rollover can list every account, not just
+    investments. ``value`` is the positive balance; liability roles are flagged
+    by ``role`` (see LIABILITY_ROLES).
+    """
+    out = []
+    for row in accounts:
+        role = str(row.get("Role") or "").strip()
+        name = str(row.get("Account") or "").strip()
+        if not name or role == "Ignore" or role in ytd.GROWTH_ROLES:
+            continue
+        value = ytd.parse_money(row.get("Current Value") or row.get("Current Balance"))
+        out.append({
+            "account": name, "role": role or "Cash / spending", "value": round(value, 2),
+            "liability": role in LIABILITY_ROLES,
+        })
+    return out
+
+
 def _plan_rows(base_dir: Path, db_path: Path, filename: str) -> dict[tuple[str, str, str], str]:
     """{(section, subsection, label): value} for a section/subsection/label/value plan CSV."""
     out: dict[tuple[str, str, str], str] = {}
@@ -129,7 +150,7 @@ def _plan_assets_and_mortgage(base_dir: Path, db_path: Path, as_of: date) -> dic
     return other
 
 
-def compute_snapshot(base_dir: str | Path, *, today=None) -> dict[str, Any]:
+def compute_snapshot(base_dir: str | Path, *, today=None, passthrough_decisions: dict[str, str] | None = None) -> dict[str, Any]:
     """Return one snapshot's worth of the four metric groups.
 
     ``base_dir`` is the retirement_system workspace root (contains input/,
@@ -141,7 +162,7 @@ def compute_snapshot(base_dir: str | Path, *, today=None) -> dict[str, Any]:
     input_dir = base_dir / "input"
     db_path = base_dir / "local_state" / "retirement_system_v10.db"
 
-    summary = ytd.ytd_summary(input_dir, today=today)
+    summary = ytd.ytd_summary(input_dir, today=today, passthrough_decisions=passthrough_decisions)
 
     ytd_expenses_by_category = {
         row["category"]: row["amount"] for row in summary.get("category_totals", [])
@@ -181,6 +202,7 @@ def compute_snapshot(base_dir: str | Path, *, today=None) -> dict[str, Any]:
         "assets": round(assets, 2),
         "liabilities": round(liabilities, 2),
         "total": round(assets - liabilities, 2),
+        "other_accounts": _non_investment_balances(summary.get("accounts", [])),
     }
 
     actual = summary.get("actual", {})
@@ -216,6 +238,10 @@ def compute_snapshot(base_dir: str | Path, *, today=None) -> dict[str, Any]:
         "ytd_expenses_by_category": ytd_expenses_by_category,
         "ytd_expense_hierarchy": ytd_expense_hierarchy,
         "holdings": holdings,
+        # {account: {to_checking, from_checking, net}}; net = withdrawals - contributions.
+        "investment_net_flows_by_account": inv.get("net_flows_by_account", {}),
+        # Near-match investment-to-investment pairs awaiting the user's approve/deny.
+        "passthrough_review": inv.get("passthrough_review", []),
         "net_worth": net_worth,
         "cashflow": cashflow,
     }
