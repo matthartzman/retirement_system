@@ -136,6 +136,31 @@ def test_expense_hierarchy_is_tracking_type_group_category_merchant(tmp_path):
     assert list(categories.values())[0] == {"Kroger": 100.0}
 
 
+def test_prior_year_same_window_and_budget_markers(tmp_path):
+    # 347a: prior-year spend counts only through the same month/day; budget is a dict by type.
+    base_dir = _workspace(tmp_path)
+    _seed(base_dir)
+    rows = ytd.read_transactions(base_dir / "input", today=date(2026, 1, 20))
+    rows += [
+        {"Date": "2025-01-12", "Merchant": "Kroger", "Category": "Groceries", "Account": "Checking", "Amount": "-80.00", "Owner": "Member_1"},
+        {"Date": "2025-01-25", "Merchant": "Kroger", "Category": "Groceries", "Account": "Checking", "Amount": "-50.00", "Owner": "Member_1"},
+    ]
+    ytd.write_transactions(base_dir / "input", rows, today=date(2026, 1, 20))
+    snapshot = compute_snapshot(base_dir, today=date(2026, 1, 20))
+    (tracking_type, prior), = snapshot["ytd_expense_prior_year"].items()
+    assert prior == 80.0
+    assert tracking_type in snapshot["ytd_expense_hierarchy"]
+    assert snapshot["ytd_expenses_by_category"]["Groceries"] == 100.0  # current year unaffected
+    assert isinstance(snapshot["annual_budget_by_tracking_type"], dict)
+
+
+def test_same_day_prior_year_handles_leap_day():
+    from financial_trends_reporter.trends_metrics import _same_day_prior_year as prior
+    assert prior(date(2026, 6, 12)) == date(2025, 6, 12)
+    assert prior(date(2028, 2, 29)) == date(2027, 2, 28)  # no Feb 29 a year earlier
+    assert prior(date(2029, 2, 28)) == date(2028, 2, 28)
+
+
 def test_net_worth_includes_plan_assets_and_mortgage(tmp_path):
     base_dir = _workspace(tmp_path)
     _seed(base_dir)

@@ -137,10 +137,10 @@ function render() {
     rows.map(r => ({ label: labelForDate(r.as_of_date, granularity), value: cashflowNet(r) })), { color: "#d97706", title: "Cashflow" }
   );
   const latest = filtered[filtered.length - 1];
-  categoryModel = latest && latest.ytd_expense_hierarchy ? buildHierarchyRows(latest.ytd_expense_hierarchy) : null;
+  categoryModel = latest && latest.ytd_expense_hierarchy ? buildHierarchyRows(latest.ytd_expense_hierarchy, latest.ytd_expense_prior_year, latest.annual_budget_by_tracking_type) : null;
   const categories = [];
   if (categoryModel && categoryModel.rows.length) {
-    categories.push(["Total", categoryModel.total, { kind: "total", ...categoryModel.totalDetail }]);
+    categories.push(["Total", categoryModel.total, { kind: "total", ...categoryModel.totalDetail, ...categoryModel.totalMarkers }]);
     for (const r of categoryModel.rows) categories.push([r.name, r.amount, r]);
   }
   document.getElementById("chartCategories").innerHTML = categories.length
