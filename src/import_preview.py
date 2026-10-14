@@ -99,7 +99,9 @@ def preview_ytd_transactions_import(input_root: str | Path, text: str, mode: str
     non_current_year = 0
     valid_current_year: list[dict[str, str]] = []
     invalid_date_rows = 0
-    latest_existing = max([ytd.parse_date(r.get("Date")) for r in existing if ytd.parse_date(r.get("Date"))] or [None])
+    existing_dates = [ytd.parse_date(r.get("Date")) for r in existing if ytd.parse_date(r.get("Date"))]
+    latest_existing = max(existing_dates or [None])
+    existing_years = {d.year for d in existing_dates}
     skipped_by_incremental_window = 0
 
     for row in incoming_all:
@@ -113,7 +115,7 @@ def preview_ytd_transactions_import(input_root: str | Path, text: str, mode: str
         if h in seen_upload_hashes:
             duplicate_within_upload += 1
         seen_upload_hashes.add(h)
-        if mode not in {"replace", "reload", "delete_all_and_reload"} and latest_existing and d <= latest_existing:
+        if mode not in {"replace", "reload", "delete_all_and_reload"} and ytd.incremental_window_skips(d, latest_existing, existing_years):
             skipped_by_incremental_window += 1
         valid_current_year.append(row)
 
@@ -128,7 +130,7 @@ def preview_ytd_transactions_import(input_root: str | Path, text: str, mode: str
         for row in valid_current_year:
             d = ytd.parse_date(row.get("Date"))
             h = ytd.transaction_hash(row)
-            if latest_existing and d and d <= latest_existing:
+            if ytd.incremental_window_skips(d, latest_existing, existing_years):
                 continue
             if h in hashes:
                 continue
@@ -187,7 +189,7 @@ def _ytd_preview_warnings(non_current_year: int, duplicate_count: int, unmapped_
     if unmapped_count:
         warnings.append(f"{unmapped_count} incoming categor{'y is' if unmapped_count == 1 else 'ies are'} not currently mapped in spending categories.")
     if mode not in {"replace", "reload", "delete_all_and_reload"} and incremental_window_skips:
-        warnings.append(f"{incremental_window_skips} row(s) are on or before the latest existing transaction date and will be skipped in incremental mode.")
+        warnings.append(f"{incremental_window_skips} row(s) are on or before the latest existing transaction date (in a year already loaded) and will be skipped in incremental mode; rows from years with no stored data are added.")
     return warnings
 
 

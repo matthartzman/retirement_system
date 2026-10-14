@@ -186,6 +186,26 @@ def test_period_aliases_follow_the_clock_across_new_year(tmp_path):
     assert (s['current_year'], s['is_last_year'], s['calendar_year']) == (2026, True, 2027)
 
 
+def test_incremental_import_backfills_a_year_with_no_stored_rows(tmp_path):
+    # Backfilling last year's history via "Add without replacing" must work, while rows in an
+    # already-loaded year on/before the latest date are still skipped (edits/deletes not resurrected).
+    hdr = 'Date,Merchant,Category,Account,Original Statement,Notes,Amount,Tags,Owner\n'
+    today = date(2026, 10, 14)
+    root = tmp_path / "input"
+    ytd.import_transactions(root, hdr + '2026-03-01,A,Groceries,Checking,B,,-10,,H\n2026-06-01,B,Groceries,Checking,B,,-11,,H\n', mode='replace', today=today)
+    csv_text = hdr + (
+        '2025-03-01,Old,Groceries,Checking,B,,-20,,H\n'
+        '2025-04-01,Old2,Groceries,Checking,B,,-30,,H\n'
+        '2026-04-01,Back,Groceries,Checking,B,,-12,,H\n'   # loaded year, before latest -> still skipped
+        '2026-07-01,New,Groceries,Checking,B,,-13,,H\n'    # after latest -> added
+    )
+    r = ytd.import_transactions(root, csv_text, mode='incremental', today=today)
+    assert (r['added'], r['skipped']) == (3, 1)
+    assert ytd.ytd_summary(root, today=today)['available_years'] == [2026, 2025]
+    again = ytd.import_transactions(root, csv_text, mode='incremental', today=today)
+    assert again['added'] == 0  # re-importing the same file adds nothing (hash dedupe)
+
+
 def test_ytd_growth_is_point_to_point_and_reports_external_flows_diagnostics(tmp_path):
     root = stage_flat_datasets(tmp_path, {'client_holdings.csv': 'account,symbol,purchase_date,shares,purchase_price,lot_type\nJoint Brokerage,CASH,2026-01-01,110000,1,buy\n'})
     tx = 'Date,Merchant,Category,Account,Original Statement,Notes,Amount,Tags,Owner\n2026-01-10,ACH,Deposit,Joint Brokerage,Bank,,5000,,Household\n2026-02-10,ETF Distribution,Dividends and Capital Gains,Joint Brokerage,Broker,,200,,Household\n2026-03-10,Transfer Out,Withdrawal,Joint Brokerage,Broker,,-1000,,Household\n'
