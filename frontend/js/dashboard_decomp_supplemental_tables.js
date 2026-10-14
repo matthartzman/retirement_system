@@ -22,9 +22,7 @@ export async function saveTravelExtras(sync = false) {
 export function markLiquidityDirty() {
   noteSpecialSessionChange("Liquidity buffer table");
   liquidityChanged = true;
-  lastBuildOk = false;
-  updateUnsaved();
-  setAppControls(appReady);
+  markBuildStale();
   scheduleStatusUpdate();
 }
 export function updateLiquidityBuffer(i, field, val) {
@@ -114,9 +112,7 @@ export function forcedAccountOptions() {
 export function markForcedConversionsDirty() {
   noteSpecialSessionChange("Forced conversions table");
   forcedConversionsChanged = true;
-  lastBuildOk = false;
-  updateUnsaved();
-  setAppControls(appReady);
+  markBuildStale();
   scheduleStatusUpdate();
 }
 export function updateForcedConversion(i, field, val) {
@@ -216,9 +212,7 @@ export async function saveHomeSaleSplits(sync = false) {
 export function markHomeSaleSplitsDirty() {
   noteSpecialSessionChange("Home sale split table");
   homeSaleSplitsChanged = true;
-  lastBuildOk = false;
-  updateUnsaved();
-  setAppControls(appReady);
+  markBuildStale();
   scheduleStatusUpdate();
 }
 export function updateHomeSaleSplit(i, field, val) {
@@ -311,9 +305,7 @@ export async function saveResidencySchedule(sync = false) {
 export function markResidencyScheduleDirty() {
   noteSpecialSessionChange("State residency schedule");
   residencyScheduleChanged = true;
-  lastBuildOk = false;
-  updateUnsaved();
-  setAppControls(appReady);
+  markBuildStale();
   scheduleStatusUpdate();
 }
 export function updateResidencyPeriod(i, field, val) {

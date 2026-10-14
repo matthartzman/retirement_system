@@ -1,38 +1,37 @@
 // Extracted from dashboard.js by tools/js_codemod/extract_module.mjs.
 
+// Period: "ytd" (current year) or a 4-digit past year; legacy "last_year" becomes last year's number (#346).
 export function normalizeYtdActualsPeriod(v) {
-  return String(v || "").toLowerCase() === "last_year" ? "last_year" : "ytd";
+  const p = String(v || "").trim().toLowerCase(), now = new Date().getFullYear();
+  return p === "last_year" ? String(now - 1) : /^\d{4}$/.test(p) && Number(p) < now ? p : "ytd";
+}
+
+// Year the spending views report on; reads only saved state so the Budget page can share it.
+export function selectedSpendingYear() {
+  // The server's calendar year wins once loaded, so a skewed browser clock cannot disagree with it.
+  return Number(ytdActualsPeriod) || Number(ytdData?.summary?.calendar_year) || new Date().getFullYear();
 }
 
 export function readYtdActualsPeriod() {
-  try {
-    return normalizeYtdActualsPeriod(
-      localStorage.getItem(YTD_ACTUALS_PERIOD_LS_KEY) || "ytd",
-    );
-  } catch (_e) {
-    return "ytd";
-  }
+  try { return normalizeYtdActualsPeriod(localStorage.getItem(YTD_ACTUALS_PERIOD_LS_KEY)); } catch (_e) { return "ytd"; }
 }
 
 export function setYtdActualsPeriod(period) {
   const next = normalizeYtdActualsPeriod(period);
-  if (next === ytdActualsPeriod) return;
+  if (next === ytdActualsPeriod || next === String(selectedSpendingYear())) return;
   ytdActualsPeriod = next;
-  try {
-    localStorage.setItem(YTD_ACTUALS_PERIOD_LS_KEY, ytdActualsPeriod);
-  } catch (_e) {}
-  loadYtdStatus().then(() => renderMain());
+  try { localStorage.setItem(YTD_ACTUALS_PERIOD_LS_KEY, ytdActualsPeriod); } catch (_e) {}
+  loadYtdStatus().then(() => (window.spendingData && typeof loadSpendingDashboard === 'function' ? loadSpendingDashboard(true) : renderMain()));
 }
 
+// Year pull-down replacing the Year-to-date / Last year toggle: every year in the data.
 export function ytdActualsPeriodToggleHtml(idSuffix) {
   const id = "ytdActualsPeriod_" + String(idSuffix || "default");
-  const isLastYear = ytdActualsPeriod === "last_year";
-  return (
-    `<div class="ytd-actuals-period-toggle segmented-toggle" role="radiogroup" aria-label="Actuals period">` +
-    `<button type="button" class="seg-btn${isLastYear ? "" : " active"}" role="radio" aria-checked="${!isLastYear}" onclick="setYtdActualsPeriod('ytd')">Year-to-date</button>` +
-    `<button type="button" class="seg-btn${isLastYear ? " active" : ""}" role="radio" aria-checked="${isLastYear}" onclick="setYtdActualsPeriod('last_year')">Last year</button>` +
-    `</div>`
-  );
+  const now = Number(ytdData?.summary?.calendar_year) || new Date().getFullYear(), selected = selectedSpendingYear();
+  const years = new Set([...(ytdData?.summary?.available_years || []).map(Number), ...(ytdData?.transactions || []).map((r) => ytdTxYear(r.Date)), now, selected].filter(Boolean));
+  const options = [...years].sort((a, b) => b - a)
+    .map((y) => `<option value="${y}"${y === selected ? " selected" : ""}>${y} (${y === now ? "year-to-date" : "full year"})</option>`).join("");
+  return `<div class="ytd-actuals-period-toggle"><label for="${id}">Year </label><select id="${id}" aria-label="Spending year" onchange="setYtdActualsPeriod(this.value)">${options}</select></div>`;
 }
 
 export function cacheChart(html, title) {
@@ -300,6 +299,7 @@ export async function handleYtdTransactionUpload(input) {
       body: JSON.stringify({ mode, csv_text: text }),
     });
     await loadYtdStatus();
+    markBuildStale();
     renderMain();
     showMessage(
       `YTD transactions loaded: ${out.added || 0} added, ${out.skipped || 0} skipped (${out.skipped_not_current_year || 0} non-current-year), ${out.total || 0} current-year total.`,
@@ -333,6 +333,7 @@ export async function deleteAllYtdTransactions() {
       body: JSON.stringify({}),
     });
     await loadYtdStatus();
+    markBuildStale();
     renderMain();
     showMessage("All YTD transactions deleted.");
   } catch (e) {
@@ -605,18 +606,18 @@ export function ytdMetricCard(
   breakdown = "",
 ) {
   const isLastYear = !!ytdData?.summary?.is_last_year;
-  const actualLabel = isLastYear ? "Actual (last year)" : "Actual YTD";
-  return `<div class="ytd-metric"><h3>${esc(title)}</h3><div class="ytd-metric-values"><span><b>${ytdMoney(actual)}</b><small>${esc(actualLabel)}</small></span><span><b>${ytdMoney(forecast)}</b><small>${esc(forecastLabel)}</small></span></div>${ytdSparkline(series, actualKey, forecastKey, { ...(sparkOptions || {}), legend: [["actual", isLastYear ? "Actual (last year)" : "Actual YTD"], ...(forecastKey ? [["forecast", forecastLabel]] : [])] })}${breakdown ? `<div class="ytd-breakdown">${breakdown}</div>` : ""}${extra ? `<p class="small">${esc(extra)}</p>` : ""}</div>`;
+  const actualLabel = isLastYear ? `Actual (${ytdPeriodTargetYear()})` : "Actual YTD";
+  return `<div class="ytd-metric"><h3>${esc(title)}</h3><div class="ytd-metric-values"><span><b>${ytdMoney(actual)}</b><small>${esc(actualLabel)}</small></span><span><b>${ytdMoney(forecast)}</b><small>${esc(forecastLabel)}</small></span></div>${ytdSparkline(series, actualKey, forecastKey, { ...(sparkOptions || {}), legend: [["actual", actualLabel], ...(forecastKey ? [["forecast", forecastLabel]] : [])] })}${breakdown ? `<div class="ytd-breakdown">${breakdown}</div>` : ""}${extra ? `<p class="small">${esc(extra)}</p>` : ""}</div>`;
 }
 
 export function renderYtdUploadPanel(enabled) {
-  return `<div class="ytd-upload-panel"><input type="file" id="ytdUploadInput" accept=".csv,text/csv" style="display:none" onchange="handleYtdTransactionUpload(this)"><div><h3>Import transactions</h3><p class="small">CSV columns: <code>Date, Merchant, Category, Account, Original Statement, Notes, Amount, Tags, Owner</code> — only <code>Date</code> and <code>Amount</code> are required. Column order does not matter, capitalization is ignored, and extra columns are skipped. All rows with a valid date are imported, regardless of year. Use the Year-to-date / Last year toggle above to choose which calendar year's actuals are shown.</p></div><div class="table-actions"><select id="ytdUploadMode"><option value="replace">Replace all</option><option value="incremental">Add without replacing</option></select><button class="btn primary" type="button" data-requires-app="1" onclick="document.getElementById('ytdUploadInput').click()">Preview &amp; import CSV</button><button class="btn" type="button" data-requires-app="1" onclick="downloadYtdTemplate()">Download Template</button>${enabled ? `<button class="btn" type="button" data-requires-app="1" onclick="deduplicateYtdTransactions()">Remove Duplicates</button>` : ""} ${enabled ? `<button class="btn danger" type="button" data-requires-app="1" onclick="deleteAllYtdTransactions()">Delete All</button>` : ""}</div></div>`;
+  return `<div class="ytd-upload-panel"><input type="file" id="ytdUploadInput" accept=".csv,text/csv" style="display:none" onchange="handleYtdTransactionUpload(this)"><div><h3>Import transactions</h3><p class="small">CSV columns: <code>Date, Merchant, Category, Account, Original Statement, Notes, Amount, Tags, Owner</code> — only <code>Date</code> and <code>Amount</code> are required. Column order does not matter, capitalization is ignored, and extra columns are skipped. All rows with a valid date are imported, regardless of year. Use the Year pull-down above to choose which calendar year's actuals are shown.</p></div><div class="table-actions"><select id="ytdUploadMode"><option value="replace">Replace all</option><option value="incremental">Add without replacing</option></select><button class="btn primary" type="button" data-requires-app="1" onclick="document.getElementById('ytdUploadInput').click()">Preview &amp; import CSV</button><button class="btn" type="button" data-requires-app="1" onclick="downloadYtdTemplate()">Download Template</button>${enabled ? `<button class="btn" type="button" data-requires-app="1" onclick="deduplicateYtdTransactions()">Remove Duplicates</button>` : ""} ${enabled ? `<button class="btn danger" type="button" data-requires-app="1" onclick="deleteAllYtdTransactions()">Delete All</button>` : ""}</div></div>`;
 }
 
 export function renderYtdSummary() {
   const s = ytdData?.summary || { enabled: false };
   if (!s.enabled)
-    return `<div class="section-note ytd-disabled"><b>YTD tracking is not enabled yet.</b> Upload transaction data to enable YTD spending, income, growth charts, transaction editing, and account mapping. All years of transaction history are kept; use the Year-to-date / Last year toggle to choose the reporting window once enabled.</div>`;
+    return `<div class="section-note ytd-disabled"><b>YTD tracking is not enabled yet.</b> Upload transaction data to enable YTD spending, income, growth charts, transaction editing, and account mapping. All years of transaction history are kept; use the Year pull-down to choose the reporting year once enabled.</div>`;
   const inv = s.investment_balance || {};
   const growthExtra = inv.actual_growth_available
     ? `Actual growth = mapped account current value − 12/31 prior-year balance. Investment rows use current holdings prices; non-investment rows use Current Value/Current Balance. Net investment cashflow is shown for diagnostics only.`
@@ -631,7 +632,7 @@ export function renderYtdSummary() {
       : "";
   const growthSeries = s.growth_series || [];
   const windowLabel = s.is_last_year
-    ? "Last year reporting window"
+    ? `${ytdPeriodTargetYear()} full-year reporting window`
     : "YTD reporting window";
   const windowLine = `${esc(windowLabel)}: ${esc(s.ytd_start || "—")} – ${esc(s.through_date || "—")} · ${esc(s.transaction_count || 0)} transactions`;
   const spendingBreakdown = `<span>Includes income taxes <b>${ytdMoney(s.actual?.taxes)}</b></span><span>and real estate tax <b>${ytdMoney(s.actual?.real_estate_taxes)}</b></span>`;
@@ -650,9 +651,9 @@ export function renderYtdTransactions() {
   const periodHasAnyTx = ytdTxnsForPeriod().length > 0;
   const emptyMessage = periodHasAnyTx
     ? "No transactions match the current filters."
-    : ytdActualsPeriod === "last_year"
-      ? `No transactions from last year (${ytdPeriodTargetYear()}) — please import.`
-      : `No transactions from this year (${ytdPeriodTargetYear()}) yet — please import.`;
+    : ytdData?.summary?.is_last_year
+      ? `No transactions from ${ytdPeriodTargetYear()} — please import.`
+      : `No transactions from ${ytdPeriodTargetYear()} yet — please import.`;
   const boundaries = ytdTxPageBoundaries(tx);
   const pages = boundaries
     ? boundaries.length
@@ -1109,6 +1110,7 @@ export function renderHsaSchedule() {
 // bridge exists only for callers that cannot move to import in the same pass.
 Object.assign(window, {
   normalizeYtdActualsPeriod,
+  selectedSpendingYear,
   readYtdActualsPeriod,
   setYtdActualsPeriod,
   ytdActualsPeriodToggleHtml,

@@ -4855,18 +4855,6 @@
       "scope": "inside-function"
     },
     {
-      "name": "lastBuildOk",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "appReady",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
       "name": "rows",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
@@ -4963,39 +4951,27 @@
       "scope": "inside-function"
     },
     {
+      "name": "lastBuildOk",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "appReady",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "ytdTransactionsChanged",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "assign",
       "scope": "inside-function"
     },
     {
-      "name": "lastBuildOk",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "appReady",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
       "name": "ytdAccountsChanged",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "lastBuildOk",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "appReady",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
       "scope": "inside-function"
     },
     {
@@ -5698,18 +5674,6 @@
       "name": "taxBudgetChanged",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "lastBuildOk",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "appReady",
-      "file": "frontend/js/dashboard_decomp_row_model.js",
-      "kind": "read",
       "scope": "inside-function"
     },
     {
@@ -7675,18 +7639,6 @@
       "scope": "inside-function"
     },
     {
-      "name": "lastBuildOk",
-      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "appReady",
-      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
       "name": "liquidityBuffers",
       "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
       "kind": "read",
@@ -7804,18 +7756,6 @@
       "name": "forcedConversionsChanged",
       "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
       "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "lastBuildOk",
-      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "appReady",
-      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
-      "kind": "read",
       "scope": "inside-function"
     },
     {
@@ -7975,18 +7915,6 @@
       "scope": "inside-function"
     },
     {
-      "name": "lastBuildOk",
-      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "appReady",
-      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
       "name": "homeSaleSplits",
       "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
       "kind": "read",
@@ -8122,18 +8050,6 @@
       "name": "residencyScheduleChanged",
       "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
       "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "lastBuildOk",
-      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "appReady",
-      "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
-      "kind": "read",
       "scope": "inside-function"
     },
     {
@@ -8281,6 +8197,18 @@
       "scope": "inside-function"
     },
     {
+      "name": "ytdActualsPeriod",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdData",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "YTD_ACTUALS_PERIOD_LS_KEY",
       "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
       "kind": "read",
@@ -8317,7 +8245,13 @@
       "scope": "inside-function"
     },
     {
-      "name": "ytdActualsPeriod",
+      "name": "ytdData",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdData",
       "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
       "kind": "read",
       "scope": "inside-function"
@@ -8809,7 +8743,7 @@
       "scope": "inside-function"
     },
     {
-      "name": "ytdActualsPeriod",
+      "name": "ytdData",
       "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
       "kind": "read",
       "scope": "inside-function"

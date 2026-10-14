@@ -3452,9 +3452,7 @@ export function ensureLiabilityRows() {
 export function markLiabilitiesDirty() {
   serializeLiabilities();
   liabilitiesChanged = true;
-  lastBuildOk = false;
-  updateUnsaved();
-  setAppControls(appReady);
+  markBuildStale();
   scheduleStatusUpdate();
 }
 
@@ -3587,19 +3585,24 @@ export function setYtdDirtyButtonStates() {
   if (acctBtn) acctBtn.disabled = !ytdAccountsChanged;
 }
 
-export function markYtdTransactionsDirty() {
-  ytdTransactionsChanged = true;
+// Shared "inputs changed, last build is stale" step. #345: also called directly
+// after server-side writes (import, delete-all, recover, roll-forward) that
+// leave nothing to Save but still make the build stale -- activates Rebuild.
+export function markBuildStale() {
   lastBuildOk = false;
   updateUnsaved();
   setAppControls(appReady);
+}
+
+export function markYtdTransactionsDirty() {
+  ytdTransactionsChanged = true;
+  markBuildStale();
   setYtdDirtyButtonStates();
 }
 
 export function markYtdAccountsDirty() {
   ytdAccountsChanged = true;
-  lastBuildOk = false;
-  updateUnsaved();
-  setAppControls(appReady);
+  markBuildStale();
   setYtdDirtyButtonStates();
 }
 
@@ -4010,9 +4013,7 @@ export async function saveBudgetLines() {
 export function markBudgetLinesDirty() {
   budgetLinesChanged = true;
   taxBudgetChanged = true;
-  lastBuildOk = false;
-  updateUnsaved();
-  setAppControls(appReady);
+  markBuildStale();
   scheduleStatusUpdate();
 }
 
@@ -4024,9 +4025,9 @@ export function budgetAmount(value) {
   return budgetMoneyNumber(value);
 }
 
-// #344: mirrors spending_tracker._line_amount_for_year (dated lines count only in their year).
-export function catDetailSum(catId) {
-  const y = new Date().getFullYear(), n = (v) => parseInt(v, 10) || 0, ok = (l) => n(l.one_time_year) ? n(l.one_time_year) === y : !((n(l.start_year) && y < n(l.start_year)) || (n(l.end_year) && y > n(l.end_year)));
+// #344: mirrors spending_tracker._line_amount_for_year. `y` = selected spending year (display); saved budgets pass the real year.
+export function catDetailSum(catId, y = selectedSpendingYear()) {
+  const n = (v) => parseInt(v, 10) || 0, ok = (l) => n(l.one_time_year) ? n(l.one_time_year) === y : !((n(l.start_year) && y < n(l.start_year)) || (n(l.end_year) && y > n(l.end_year)));
   return catDetailLines(catId).reduce((s, l) => s + (ok(l) ? budgetAmount(l.amount_per_year) || 0 : 0), 0);
 }
 
@@ -4040,13 +4041,13 @@ export function hasExplicitBudget(key) {
   );
 }
 
-export function groupCatSum(tt, grp) {
+export function groupCatSum(tt, grp, y) {
   const ids = groupCatIds(tt, grp);
   if (!ids.length) {
     const mg = groupModelData(tt, grp);
     return budgetAmount(mg && mg.budget);
   }
-  return ids.reduce((s, id) => s + (catEffectiveBudget(id) || 0), 0);
+  return ids.reduce((s, id) => s + (catEffectiveBudget(id, y) || 0), 0);
 }
 
 export function groupKeyFor(tt, grp) {
@@ -4059,7 +4060,7 @@ export function groupIsSummary(tt, grp) {
 
 export function syncCategoryTotal(catId) {
   if (!taxBudget[catId]) taxBudget[catId] = { annual_budget: 0, notes: "" };
-  taxBudget[catId].annual_budget = Math.round(catDetailSum(catId));
+  taxBudget[catId].annual_budget = Math.round(catDetailSum(catId, new Date().getFullYear()));
   taxBudgetChanged = true;
   syncTaxonomyBudgetToBudgetLines();
 }
@@ -5437,6 +5438,7 @@ Object.assign(window, {
   loadYtdStatus,
   ltcLifePolicyModuleEnabled,
   markBudgetLinesDirty,
+  markBuildStale,
   markLiabilitiesDirty,
   markYtdAccountsDirty,
   markYtdTransactionsDirty,
