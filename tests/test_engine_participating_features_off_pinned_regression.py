@@ -10,6 +10,7 @@ regression.py (benefit years with the gate on/off); not repeated here.
 """
 from __future__ import annotations
 
+import copy
 from datetime import date
 
 import src.module_catalog as mc
@@ -30,8 +31,10 @@ def _config(**switches):
 
 def _project(c):
     from src.planning_engines import project
+    # project() consumes lot state held in the config (``lot_engine``), so the first run of a config
+    # differs slightly from later runs of it; compare every projection from a pristine copy.
     with empty_workspace(), frozen_holdings_prices():
-        return project(c)
+        return project(copy.deepcopy(c))
 
 
 def test_every_engine_participant_is_pinned_here_or_named():
