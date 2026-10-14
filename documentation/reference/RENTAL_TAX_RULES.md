@@ -322,9 +322,9 @@ Sale tab, "Section 121 estimate (home sale year 2031)"   (read only, estimate)
 1. Owner: default `reversion_month` 7 and the one-rental-period limit OK?
 2. Tax preparer: (a) nonqualified use applied to the gain left after the 1250 split (as Pub. 523 orders them); (b) suspended passive losses stay suspended on the move-back and release at the later sale; (c) the end-year depreciation uses the mid-month disposal convention at the move-back month.
 
-## 11. H4: owner split between spouses and sale proceeds split (design, OWNER CHECKPOINT: H4)
+## 11. H4: owner split between spouses and sale proceeds split (built; owner approved 2026-10-13)
 
-Status: design and worked examples only. Nothing built. Rental stays default OFF.
+Status: built (plan schema v12). Pinned by `tests/test_rental_owner_split_functional.py`. Rental stays default OFF. An owner left **Not set** keeps today's single default account (so existing rental plans do not move); the workbook Owner column is not built: the owner is in the row data (`rental_by_property`) and the editor.
 
 ### 11.1 Problem
 Each property already stores `owner` (Joint / Member 1 / Member 2), but nothing reads it. A jointly titled
@@ -341,7 +341,7 @@ input error ("use Joint for a split"). Applies to the converted home as well (it
 ### 11.3 Rules
 | Rule | Behaviour |
 |---|---|
-| Income tax on a joint return | unchanged: Schedule E, depreciation, passive-loss limit and gain use the one return; the golden numbers do not move. |
+| Income tax on a joint return | unchanged: Schedule E, depreciation, passive-loss limit and gain use the one return; the golden numbers do not move. Owner **Not set** (blank): proceeds go to the single default account as before. |
 | Sale proceeds | Positive net proceeds of a rental sale (and of a converted-home sale that is not already split by `home_sale_splits`) are deposited `member_1_share` to the first taxable account of member 1 and the rest to member 2's (`first_taxable(c, owner_idx)`). A member with no taxable account: that member's part goes to the other member's account; none at all: the household default account as today. The deposit is basis-free cash (gain taxed in the sale year), as today. |
 | Existing `home_sale_splits` | win for the plan's home, unchanged. |
 | An owner who died before the sale | the deceased member's part goes to the survivor's account (all of it to the survivor; estate transfers are H5). |
@@ -359,7 +359,7 @@ input error ("use Joint for a split"). Applies to the converted home as well (it
 | O4 | Owner Joint, Member 2 has no taxable account | default | 100,000 to Member 1 and 100,000 more to Member 1's account (all 200,000 to Member 1) | fallback |
 | O5 | Joint 50/50, Member 2 died two years before the sale | default | all 200,000 to the survivor (Member 1) | survivor |
 | O6 | Owner Member 1, share 60% entered | n/a | input error: "member_1_share applies only to Joint ownership" | validation |
-| O7 | Joint return, any owner | tax as today | identical tax and AGI; only deposits and reporting differ | MFJ |
+| O7 | Joint return, any owner | tax as today | identical rental tax items (Schedule E, gain, passive limit); only where the cash is deposited differs, so later investment income in those accounts can differ slightly | MFJ |
 
 ### 11.5 UI mock (property editor, Identity group; the split preview sits on the Sale tab)
 ```

@@ -31,7 +31,7 @@ from .errors import ValidationError
 # Column groups, named as the parser's keys (src/parsing/rental_properties.py).
 TEXT_COLUMNS = ("kind", "owner", "notes", "loan_liability_id")
 # Columns added after schema v9 (see SCHEMA_V10_DDL); the v9 table does not have them.
-_ADDED_AFTER_V9 = ("loan_liability_id", "reversion_month", "moves_back_in")
+_ADDED_AFTER_V9 = ("loan_liability_id", "reversion_month", "moves_back_in", "member_1_share")
 REAL_COLUMNS = (
     # money
     "purchase_price", "closing_costs", "current_value", "monthly_rent", "property_tax", "insurance", "hoa",
@@ -40,6 +40,7 @@ REAL_COLUMNS = (
     # shares and rates
     "land_share", "vacancy_rate", "maintenance_pct", "management_pct", "selling_cost_pct",
     "appreciation", "rent_growth", "expense_growth", "property_tax_growth", "loan_rate",
+    "member_1_share",
 )
 INT_COLUMNS = (
     "purchase_year", "value_as_of_year", "rental_start_year", "rental_end_year", "loan_balance_year",
@@ -59,7 +60,7 @@ OVERRIDE_KEYS = ("year", *OVERRIDE_REAL_COLUMNS, "notes")
 def _property_ddl() -> str:
     cols = ",\n    ".join(
         [f"{c} TEXT NOT NULL DEFAULT ''" for c in TEXT_COLUMNS if c != "kind" and c not in _ADDED_AFTER_V9]
-        + [f"{c} REAL" for c in REAL_COLUMNS]
+        + [f"{c} REAL" for c in REAL_COLUMNS if c not in _ADDED_AFTER_V9]
         + [f"{c} INTEGER" for c in INT_COLUMNS if c not in _ADDED_AFTER_V9]
         + [f"{c} INTEGER CHECK ({c} IN (0, 1))" for c in BOOL_COLUMNS if c not in _ADDED_AFTER_V9]
     )
@@ -100,6 +101,9 @@ SCHEMA_V11_DDL = (
     "ALTER TABLE rental_properties ADD COLUMN reversion_month INTEGER;\n"
     "ALTER TABLE rental_properties ADD COLUMN moves_back_in INTEGER CHECK (moves_back_in IN (0, 1));"
 )
+
+# v12 (H4): member 1's share of a jointly owned property (0 to 1; blank = by owner).
+SCHEMA_V12_DDL = "ALTER TABLE rental_properties ADD COLUMN member_1_share REAL;"
 
 
 # ------------------------------------------------------------------------------ coercion
@@ -361,4 +365,4 @@ class RentalRepo:
         )
 
 
-__all__ = ["RentalRepo", "SCHEMA_V9_DDL", "SCHEMA_V10_DDL", "SCHEMA_V11_DDL", "PROPERTY_COLUMNS"]
+__all__ = ["RentalRepo", "SCHEMA_V9_DDL", "SCHEMA_V10_DDL", "SCHEMA_V11_DDL", "SCHEMA_V12_DDL", "PROPERTY_COLUMNS"]

@@ -32,7 +32,8 @@ _KINDS = {"standalone": STANDALONE, "converted_home": CONVERTED_HOME, "converted
 _MONEY = ("purchase_price", "closing_costs", "current_value", "monthly_rent", "property_tax", "insurance",
           "hoa", "utilities", "other_expenses", "loan_balance", "loan_monthly_payment",
           "prior_suspended_loss", "sale_price", "value_at_conversion", "adjusted_basis_at_conversion")
-_SHARES = ("land_share", "vacancy_rate", "maintenance_pct", "management_pct", "selling_cost_pct")
+_SHARES = ("land_share", "vacancy_rate", "maintenance_pct", "management_pct", "selling_cost_pct", "member_1_share")
+_OWNERS = {"joint": "joint", "member_1": "member_1", "member_2": "member_2", "member1": "member_1", "member2": "member_2"}
 _GROWTH = ("appreciation", "rent_growth", "expense_growth", "property_tax_growth")
 _YEARS = ("purchase_year", "value_as_of_year", "rental_start_year", "rental_end_year", "loan_balance_year",
           "placed_in_service_year", "sale_year", "conversion_year")
@@ -148,6 +149,11 @@ def _parse_one(raw: Any, index: int, home_value: float | None) -> dict[str, Any]
         raise RentalPropertyInputError(f"{where}: kind must be 'Standalone' or 'Converted home', got {raw['kind']!r}")
     kind = _KINDS[kind_raw]
     out: dict[str, Any] = {"name": name, "kind": kind}
+    if not _blank(raw.get("owner")):
+        key = str(raw["owner"]).strip().lower().replace(" ", "_")
+        if key not in _OWNERS:
+            raise RentalPropertyInputError(f"{where}: owner must be Joint, Member 1 or Member 2, got {raw['owner']!r}")
+        out["owner"] = _OWNERS[key]
     if not _blank(raw.get("loan_liability_id")):
         out["loan_liability_id"] = str(raw["loan_liability_id"]).strip()
     for k in _MONEY:
@@ -179,6 +185,8 @@ def _parse_one(raw: Any, index: int, home_value: float | None) -> dict[str, Any]
         out["loan_term_years"] = _int(raw["loan_term_years"], where, "loan_term_years", 1, 50)
     out["active_participation"] = (True if _blank(raw.get("active_participation"))
                                    else _bool(raw["active_participation"], where, "active_participation"))
+    if "member_1_share" in out and out.get("owner") != "joint":
+        raise RentalPropertyInputError(f"{where}: member_1_share applies only to Joint ownership (use Owner = Joint for a split)")
     if not _blank(raw.get("moves_back_in")):
         out["moves_back_in"] = _bool(raw["moves_back_in"], where, "moves_back_in")
     out["improvements"] = _improvements(raw.get("improvements"), where)
