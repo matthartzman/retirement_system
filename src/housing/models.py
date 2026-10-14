@@ -95,6 +95,10 @@ DISPOSITIONS = ('sell', 'keep', 'auto')
 RENT_OUT = 'rent_out'
 # Dispositions with no sale of the current home in the plan: no sale-year axis.
 NO_SALE_DISPOSITIONS = ('keep', RENT_OUT)
+# H6: rent the current home out from move 1's acquisition year, then sell it in a searched year X
+# (X after the conversion). Has a sale year like 'sell' and a rental like 'rent_out'.
+RENT_THEN_SELL = 'rent_then_sell'
+RENTAL_DISPOSITIONS = (RENT_OUT, RENT_THEN_SELL)
 AREA_TYPES = ('any', 'urban', 'suburban', 'exurban', 'rural')
 FAMILY_RADII_MILES = (10, 25, 50, 100)
 MOVE_ACTIONS = ('auto', 'buy', 'rent')
@@ -128,7 +132,8 @@ class OriginalHome:
     ``disposition`` is resolved per candidate: 'sell' carries a searched
     ``sale_year``; 'keep' carries ``None`` and leaves ``home_sale_yr`` at 0;
     'rent_out' (WP12.8, feature on) is 'keep' plus the home rented from move
-    1's acquisition year (``rent_out.apply_rent_out``).
+    1's acquisition year (``rent_out.apply_rent_out``); 'rent_then_sell' (H6) is
+    that rental followed by a sale in the searched ``sale_year``.
     'auto' is a request-level value only -- it never reaches a candidate,
     because generation expands it into both concrete dispositions.
     """

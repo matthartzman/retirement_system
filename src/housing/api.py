@@ -25,6 +25,7 @@ from .models import (
     AREA_TYPES,
     DISPOSITIONS,
     RENT_OUT,
+    RENT_THEN_SELL,
     FAMILY_RADII_MILES,
     FamilyPresence,
     MOVE2_STRATEGIES,
@@ -104,7 +105,7 @@ def validate_request(body: dict[str, Any], *, rent_out_enabled: bool = False) ->
 
     home = body.get('original_home') or {}
     disposition = str(home.get('disposition', 'auto') or 'auto').lower()
-    if disposition not in DISPOSITIONS + ((RENT_OUT,) if rent_out_enabled else ()):
+    if disposition not in DISPOSITIONS + ((RENT_OUT, RENT_THEN_SELL) if rent_out_enabled else ()):
         return f'Unknown disposition: {disposition!r}.'
     rent = home.get('monthly_rent')
     if rent_out_enabled and rent not in (None, ''):
@@ -115,7 +116,7 @@ def validate_request(body: dict[str, Any], *, rent_out_enabled: bool = False) ->
         if not rent_ok:
             return 'Monthly rent for keep-and-rent-out must be a number more than 0.'
 
-    sells = disposition in ('sell', 'auto')
+    sells = disposition in ('sell', 'auto', RENT_THEN_SELL)
     earliest_sale = int(home.get('earliest_sale_year') or 0)
     latest_sale = int(home.get('latest_sale_year') or 0)
     if sells and earliest_sale > latest_sale:
