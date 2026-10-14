@@ -73,7 +73,7 @@ export function renderActualSpendingWorkspace(tabs) {
   if (tab === 'Analysis')
     body = ytdOn ? window.renderSpendingDashboardOrLoad() : window.featureGatedNote('spending_tracker_ytd', { title: 'Spending Analysis' });
   else
-    body = ytdOn ? window.renderYtdTransactionsStep() : window.featureGatedNote('spending_tracker_ytd', { title: 'Actual Spending (This Year)' });
+    body = ytdOn ? window.renderYtdTransactionsStep() : window.featureGatedNote('spending_tracker_ytd', { title: 'Actual Spending' });
   return '<div class="tabbed-workspace spending-workspace">' + spendingDivergenceNoteHtml() + window.renderStrategyTabs('actual_spending', tabs, tab) + '<div class="workspace-tab-body">' + body + '</div></div>';
 }
 window.renderActualSpendingWorkspace = renderActualSpendingWorkspace;
@@ -94,9 +94,9 @@ export function loadSpendingDashboard(force) {
   if (window.spendingLoading && !force) return;
   window.spendingLoading = true;
   window.spendingError = '';
-  renderMain();
-  api('/api/spending/dashboard').then(function (data) {
-    window.spendingLoading = false;
+  renderMain(); var yr = selectedSpendingYear();
+  api('/api/spending/dashboard?year=' + yr).then(function (data) {
+    window.spendingLoading = false; if (yr !== selectedSpendingYear()) return; // stale: newer year picked
     if (data && data.success) { window.spendingData = data; window.spendingError = '' }
     else { window.spendingError = (data && data.error) || 'Failed to load spending data.' }
     renderMain();
@@ -180,7 +180,7 @@ export function renderSpendingDashboard() {
   // Same scope on both sides: annualized spending and the annual budget cover
   // the same Tracking Types (not the core-only model assumption).
   var prevOver = Number(window.spendingDivergencePct) > 0.03;
-  window.spendingDivergencePct = Number(d.budget_total) > 0 ? (Number(d.annualized_total || 0) - Number(d.budget_total)) / Number(d.budget_total) : 0;
+  if (d.year == null || d.year === new Date().getFullYear()) window.spendingDivergencePct = Number(d.budget_total) > 0 ? (Number(d.annualized_total || 0) - Number(d.budget_total)) / Number(d.budget_total) : 0;
   if (prevOver !== (window.spendingDivergencePct > 0.03)) setTimeout(function () { if (window.renderSteps) window.renderSteps(); }, 0);
   if (!d.enabled) {
     return '<div class="holdings spending-dashboard"><div class="question"><b>No transaction data loaded.</b> ' +
@@ -195,7 +195,7 @@ export function renderSpendingDashboard() {
   // This-year performance summary (badges + charts + top categories)
   var ytdSummaryHtml = (typeof renderYtdSummary === 'function') ? renderYtdSummary() : '';
   if (ytdSummaryHtml) {
-    html += '<h3 class="group-title" style="margin:0 20px 12px">This Year Performance</h3>';
+    html += '<h3 class="group-title" style="margin:0 20px 12px">' + (d.year || selectedSpendingYear()) + ' Performance</h3>';
     html += ytdSummaryHtml;
     html += '<h3 class="group-title" style="margin:16px 20px 8px">Spending Budget Tracker</h3>';
   }
@@ -208,7 +208,7 @@ export function renderSpendingDashboard() {
   html += '<div class="table-actions">';
   html += '<button class="btn" onclick="loadSpendingDashboard(true)">Refresh</button>';
   if (!d.budget_total) html += '<button class="btn primary" data-requires-app="1" onclick="seedSpendingBudget()" title="Creates category budget targets based on current actual spending proportions">Initialize Budget from Actual Spending</button>';
-  if (d.forecast_total > 0) html += '<button class="btn good" data-requires-app="1" onclick="applySpendingForecast()" title="Updates the spending categories assumption used by the 30-year retirement projection">Sync Actual Rate → 30-Year Model</button>';
+  if (d.forecast_total > 0 && d.year === new Date().getFullYear()) html += '<button class="btn good" data-requires-app="1" onclick="applySpendingForecast()" title="Updates the spending categories assumption used by the 30-year retirement projection">Sync Actual Rate → 30-Year Model</button>';
   html += '</div>';
   html += '</div>';
   return html;
@@ -256,7 +256,7 @@ export function renderSpendingSummary(d) {
     html += '</div>';
   }
   html += '<p class="small" style="margin:0 0 12px">' + d.days_elapsed + ' days elapsed &middot; annualization factor ' + (d.annualization_factor || 1).toFixed(2) + 'x &middot; the five KPI tiles above include income taxes and exclude only internal transfers' +
-    (hasAllInDelta ? '; the All-In row adds transfer transactions back in' : '; no transfer transactions are logged this year, so the All-In totals would match the tiles above and are omitted') + '</p>';
+    (hasAllInDelta ? '; the All-In row adds transfer transactions back in' : '; no transfer transactions are logged in ' + (d.year || selectedSpendingYear()) + ', so the All-In totals would match the tiles above and are omitted') + '</p>';
   return html;
 }
 
@@ -297,7 +297,7 @@ export function renderSpendingBars(d) {
     return h + '</div>';
   }
   function valCell(ytd, ann, bud, seed, st) {
-    var h = '<div class="spend-bar-values"><span>This Year ' + fmtSpend(ytd) + '</span>';
+    var h = '<div class="spend-bar-values"><span>' + (window.spendingData && window.spendingData.year || selectedSpendingYear()) + ' ' + fmtSpend(ytd) + '</span>';
     h += '<span class="small">Annualized ' + fmtSpend(ann) + '</span>';
     h += '<span class="small">Budget ' + fmtSpend(bud) + '</span>';
     h += '<span class="small">Projection ' + fmtSpend(seed) + '</span>';

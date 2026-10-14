@@ -274,3 +274,35 @@ describe("line chart x labels and scrolling", () => {
     assert.ok(axisH < 188, `axis height ${axisH} reaches the x-label row`);
   });
 });
+
+describe("347a: prior-year and budget markers on the YTD bars", () => {
+  const tree = { Core: { Food: { Groceries: { Kroger: 100 } } }, Travel: { Trips: { Air: { Delta: 40 } } } };
+
+  test("buildHierarchyRows attaches prior/budget per tracking type and totals them", () => {
+    const m = buildHierarchyRows(tree, { Core: 80 }, { Core: 500, Travel: 200 });
+    const core = m.rows.find(r => r.name === "Core");
+    assert.equal(core.prior, 80);
+    assert.equal(core.budget, 500);
+    assert.equal(m.rows.find(r => r.name === "Travel").prior, null);
+    assert.deepEqual(m.totalMarkers, { prior: 80, budget: 700 });
+    // a budgeted type with no spend yet still counts toward the Total budget
+    assert.equal(buildHierarchyRows(tree, {}, { Core: 500, Housing: 900 }).totalMarkers.budget, 1400);
+  });
+
+  test("entries from older log rows (no marker data) draw no markers or legend", () => {
+    const m = buildHierarchyRows(tree);
+    assert.deepEqual(m.totalMarkers, { prior: null, budget: null });
+    const svg = barChartSvg(m.rows.map(r => [r.name, r.amount, r]));
+    assert.doesNotMatch(svg, /Prior-year YTD|Full-year budget/);
+  });
+
+  test("markers, legend, tooltips and fallback columns appear, and the axis fits the budget", () => {
+    const m = buildHierarchyRows(tree, { Core: 80 }, { Core: 500 });
+    const svg = barChartSvg(m.rows.map(r => [r.name, r.amount, r]));
+    assert.match(svg, /<title>Prior-year YTD: \$80<\/title>/);
+    assert.match(svg, /<title>Full-year budget: \$500<\/title>/);
+    assert.match(svg, /Prior-year YTD \(same dates\)/);
+    assert.match(svg, /<th[^>]*>Prior-year YTD<\/th>/);
+    assert.match(svg, />\$500</, "axis max reaches the $500 budget");
+  });
+});

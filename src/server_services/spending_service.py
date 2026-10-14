@@ -13,6 +13,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
+from .. import platform_runtime as _platform_runtime
+
 from .. import spending_tracker as st
 
 AuditFn = Callable[[str, dict[str, Any] | None], None]
@@ -76,8 +78,10 @@ class SpendingService:
                     return 0.0
         return 0.0
 
-    def dashboard_payload(self) -> tuple[dict[str, Any], int]:
-        return st.spending_dashboard(root=self.base_dir, core_spending=self.core_spending_from_plan()), 200
+    def dashboard_payload(self, year: int | None = None) -> tuple[dict[str, Any], int]:
+        if year is not None and not 1900 <= year <= _platform_runtime.today().year:
+            year = None  # ignore nonsense/future years; the dashboard defaults to the current year
+        return st.spending_dashboard(root=self.base_dir, year=year, core_spending=self.core_spending_from_plan()), 200
 
     def seed_budget_payload(self) -> tuple[dict[str, Any], int]:
         budget = st.seed_budget_from_actuals(root=self.base_dir, core_spending=self.core_spending_from_plan())

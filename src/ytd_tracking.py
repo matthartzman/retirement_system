@@ -1370,23 +1370,33 @@ def _account_setup_map(root: str | Path) -> dict[str, dict[str, str]]:
     return {str(r.get("Account", "") or "").strip().lower(): r for r in read_account_setup(root)}
 
 
-def normalize_actuals_period(period: str | None) -> str:
+def normalize_actuals_period(period: str | None, *, today: date | None = None) -> str:
+    """``"ytd"`` (current year) or a four-digit past calendar year such as
+    ``"2024"``. The ``last_year`` aliases (saved state) become last year's
+    number; the current year and any future year collapse to ``"ytd"``."""
     p = str(period or "ytd").strip().lower()
-    return "last_year" if p in {"last_year", "prior_year", "last-year"} else "ytd"
+    this_year = (today or _platform_runtime.today()).year
+    if p in {"last_year", "prior_year", "last-year"}:
+        return str(this_year - 1)
+    return p if re.fullmatch(r"\d{4}", p) and int(p) < this_year else "ytd"
 
 
 @_reads_plan_once
 def ytd_summary(root: str | Path, *, today: date | None = None, period: str | None = None,
                 passthrough_decisions: dict[str, str] | None = None) -> dict[str, Any]:
-    """Return the actuals summary for either the current year-to-date or the
-    prior calendar year, selected via ``period`` ("ytd" default, or
-    "last_year"). All imported transactions (not just current-year rows) are
-    read so a full prior-year window is available."""
+    """Return the actuals summary for the current year-to-date or a full past
+    calendar year, selected via ``period`` ("ytd" default, or a four-digit
+    year; "last_year" is accepted as an alias). All imported transactions (not just current-year rows)
+    are read so any imported year is available."""
     today = today or _platform_runtime.today()
-    period = normalize_actuals_period(period)
-    is_last_year = period == "last_year"
-    report_year = (today.year - 1) if is_last_year else today.year
+    period = normalize_actuals_period(period, today=today)
+    report_year = today.year if period == "ytd" else int(period)
+    is_last_year = report_year != today.year
     transactions = read_transactions(root, today=today)
+    available_years = sorted(
+        {d.year for d in (parse_date(r.get("Date")) for r in transactions) if d} | {today.year},
+        reverse=True,
+    )
     setup = ensure_account_setup_for_transactions(root, today=today) if transactions else read_account_setup(root)
     setup_map = _account_setup_map(root)
     parsed = []
@@ -1652,6 +1662,8 @@ def ytd_summary(root: str | Path, *, today: date | None = None, period: str | No
         "enabled": len(transactions) > 0,
         "period": period,
         "is_last_year": is_last_year,
+        "available_years": available_years,
+        "calendar_year": today.year,
         "transaction_count": len(transactions),
         "earliest_transaction_date": format_date(min(dates) if dates else None),
         "latest_transaction_date": format_date(max(dates) if dates else None),

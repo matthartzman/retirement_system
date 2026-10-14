@@ -72,7 +72,7 @@ test('the overlay is shown before Actual Spending (YTD)\'s render runs, not afte
   });
   await expect(page.locator('#buildOverlay')).toHaveClass(/active/, { timeout: 500 });
 
-  await expect(page.getByRole('tab', { name: 'This year' })).toHaveClass(/active/, { timeout: 15_000 });
+  await expect(page.getByRole('tab', { name: String(new Date().getFullYear()), exact: true })).toHaveClass(/active/, { timeout: 15_000 });
   await expect(page.locator('.workspace-tab-body')).not.toBeEmpty();
 
   const result = await page.evaluate(() => ({

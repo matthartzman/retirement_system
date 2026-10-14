@@ -146,12 +146,44 @@ def test_ytd_summary_last_year_period_reports_prior_calendar_year(tmp_path):
     assert s_ytd['actual']['spending'] == 100.43
 
     s_last = ytd.ytd_summary(tmp_path / "input", today=date(2026, 6, 12), period='last_year')
-    assert s_last['period'] == 'last_year'
+    assert s_last['period'] == '2025'  # the last_year alias resolves to last year's number
     assert s_last['is_last_year'] is True
     assert s_last['current_year'] == 2025
     assert s_last['actual']['spending'] == 50.0
     assert s_last['ytd_start'] == '2025-01-01'
     assert s_last['ytd_end'] == '2025-12-31'
+
+
+def test_ytd_summary_accepts_a_specific_past_year_and_lists_available_years(tmp_path):
+    # #346: the year pull-down passes a 4-digit year; any past year is a full calendar year.
+    csv_text = (
+        'Date,Merchant,Category,Account,Original Statement,Notes,Amount,Tags,Owner\n'
+        '2024-05-01,Older Store,Groceries,Checking,Bank,,-30,,Household\n'
+        '2025-03-15,Old Store,Groceries,Checking,Bank,,-50,,Household\n'
+        '2026-01-31,New Store,Groceries,Checking,Bank,,-100.43,,Household\n'
+    )
+    today = date(2026, 6, 12)
+    ytd.import_transactions(tmp_path / "input", csv_text, mode='replace', today=today)
+    s = ytd.ytd_summary(tmp_path / "input", today=today, period='2024')
+    assert (s['period'], s['is_last_year'], s['current_year']) == ('2024', True, 2024)
+    assert s['actual']['spending'] == 30.0
+    assert s['ytd_end'] == '2024-12-31'
+    assert s['available_years'] == [2026, 2025, 2024]
+    # The current (or a future) year collapses to year-to-date; junk falls back too.
+    for p in ('2026', '2031', 'abc', None):
+        out = ytd.ytd_summary(tmp_path / "input", today=today, period=p)
+        assert (out['period'], out['is_last_year'], out['current_year']) == ('ytd', False, 2026)
+
+
+def test_period_aliases_follow_the_clock_across_new_year(tmp_path):
+    # Year boundary: on 2027-01-02 "last_year" is 2026, and 2026 is a past year, not ytd.
+    new_year = date(2027, 1, 2)
+    assert ytd.normalize_actuals_period('last_year', today=new_year) == '2026'
+    assert ytd.normalize_actuals_period('2026', today=new_year) == '2026'
+    assert ytd.normalize_actuals_period('2027', today=new_year) == 'ytd'
+    assert ytd.normalize_actuals_period('2026', today=date(2026, 12, 31)) == 'ytd'
+    s = ytd.ytd_summary(tmp_path / "input", today=new_year, period='last_year')
+    assert (s['current_year'], s['is_last_year'], s['calendar_year']) == (2026, True, 2027)
 
 
 def test_ytd_growth_is_point_to_point_and_reports_external_flows_diagnostics(tmp_path):

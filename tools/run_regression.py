@@ -215,7 +215,7 @@ check("Spending: renderSpendingBars defined", "function renderSpendingBars(" in 
 check("Spending: renderSpendingMonthly defined", "function renderSpendingMonthly(" in spend)
 check("Spending: loadSpendingDashboard defined", "function loadSpendingDashboard(" in spend)
 check("Spending: /api/spending/dashboard endpoint used",
-      "'/api/spending/dashboard'" in spend)
+      "'/api/spending/dashboard" in spend)  # the call now carries ?year=
 
 # ---------------------------------------------------------------------------
 # 7. Detailed Results / Retirement Plan Workbook
