@@ -26,6 +26,7 @@ if str(_REPO_ROOT) not in sys.path:
 from src.http_runtime.server import run_local_server  # noqa: E402
 from src.http_runtime.wsgi_facade import Flask, Response, request  # noqa: E402
 
+from financial_trends_reporter.passthrough_decisions import decisions_path_for_log, save_decision  # noqa: E402
 from financial_trends_reporter.trends_job import run as run_trends_job  # noqa: E402
 from financial_trends_reporter.trends_log import default_log_path, read_history  # noqa: E402
 
@@ -83,6 +84,17 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None) -> Fla
     @app.route("/api/history", methods=["GET"])
     def history():
         return Response(json.dumps(read_history(resolved_log_path)), content_type="application/json")
+
+    @app.route("/api/passthrough-decision", methods=["POST"])
+    def passthrough_decision():
+        # Approve/deny a near-match investment-to-investment pair. Takes effect
+        # on the next snapshot (Run now), which re-reads the saved decisions.
+        body = request.get_json(silent=True) or {}
+        try:
+            save_decision(decisions_path_for_log(resolved_log_path), str(body.get("key") or ""), str(body.get("decision") or ""))
+        except ValueError as exc:
+            return Response(json.dumps({"success": False, "error": str(exc)}), status=400, content_type="application/json")
+        return Response(json.dumps({"success": True}), content_type="application/json")
 
     @app.route("/api/run-now", methods=["POST"])
     def run_now():
