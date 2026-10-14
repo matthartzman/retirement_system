@@ -22,8 +22,8 @@ import { openCurrentPlan, navigateToStep } from './helpers.js';
 test('changing the YTD category filter keeps it focused, on the newly chosen option, after the autosave rerender', async ({ page }) => {
   await openCurrentPlan(page);
   await navigateToStep(page, 'actual_spending', 'Actual Spending');
-  await page.getByRole('tab', { name: 'This year' }).click();
-  await expect(page.getByRole('tab', { name: 'This year' })).toHaveClass(/active/);
+  await page.getByRole('tab', { name: String(new Date().getFullYear()), exact: true }).click();
+  await expect(page.getByRole('tab', { name: String(new Date().getFullYear()), exact: true })).toHaveClass(/active/);
 
   // The category filter's options are derived from EXISTING transactions'
   // Category values (ytdFilterOptions("Category")), not from a static list --

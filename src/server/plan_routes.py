@@ -1084,7 +1084,7 @@ def spending_dashboard():
     denied = _require("view_dashboard")
     if denied:
         return denied
-    return _json_service_result(_spending_feature_service().dashboard_payload())
+    return _json_service_result(_spending_feature_service().dashboard_payload(request.args.get("year", type=int)))
 
 
 @app.route("/api/spending/budget/seed", methods=["POST"])

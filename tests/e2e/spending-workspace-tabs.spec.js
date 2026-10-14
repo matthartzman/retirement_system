@@ -19,7 +19,7 @@ import { openCurrentPlan, navigateToStep } from './helpers.js';
 // Other Spending's removal (2026-09) brought the count back down to 4.
 // #338 W-C: Withdrawal Order moved to Optimize and Actual Spending (YTD) /
 // Spending Analysis became the "Actual Spending" step under Reports &
-// Review (tabs "This year" and "Analysis"), so Spending Model has no tab
+// Review (tabs (named for the selected year) and "Analysis"), so Spending Model has no tab
 // strip left and the tab behavior below is Actual Spending's.
 test('Spending Model has no tabs; Actual Spending tab-switches between its merged pages', async ({ page }) => {
   await openCurrentPlan(page);
@@ -44,7 +44,7 @@ test('Spending Model has no tabs; Actual Spending tab-switches between its merge
   await navigateToStep(page, 'actual_spending', 'Actual Spending');
   const tabs = page.locator('.spending-workspace .workspace-tab');
   await expect(tabs).toHaveCount(2);
-  await expect(tabs.first()).toHaveText('This year');
+  await expect(tabs.first()).toHaveText(String(new Date().getFullYear()));
 
   await page.getByRole('tab', { name: 'Analysis' }).click();
   await expect(page.getByRole('tab', { name: 'Analysis' })).toHaveClass(/active/);
@@ -76,7 +76,7 @@ test('navigating to the old standalone Spending Analysis/YTD/Other-Spending step
   await expect(page.locator('.nav-group-summary', { hasText: /^Reports$/ })).toHaveCount(0);
 
   await page.evaluate(() => window.setStep('ytd_transactions'));
-  await expect(page.getByRole('tab', { name: 'This year' })).toHaveClass(/active/);
+  await expect(page.getByRole('tab', { name: String(new Date().getFullYear()), exact: true })).toHaveClass(/active/);
 
   await page.evaluate(() => window.setStep('lifestyle_spending'));
   await expect(page.getByRole('heading', { name: 'Spending Model' })).toBeVisible();

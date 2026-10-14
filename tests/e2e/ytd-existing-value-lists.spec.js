@@ -9,7 +9,7 @@ import { openCurrentPlan, navigateToStep } from './helpers.js';
 test('transaction Category cell offers every existing value and restores its text on blur', async ({ page }) => {
   await openCurrentPlan(page);
   await navigateToStep(page, 'actual_spending', 'Actual Spending');
-  await page.getByRole('tab', { name: 'This year' }).click();
+  await page.getByRole('tab', { name: String(new Date().getFullYear()), exact: true }).click();
 
   await page.evaluate(() => {
     window.addYtdTxn();
