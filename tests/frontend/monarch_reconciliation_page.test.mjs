@@ -304,3 +304,12 @@ describe("M4: inbox, policy, closed accounts, automatic updates", () => {
     assert.match(all, /Import mapping CSV/);
   });
 });
+
+describe("M4 review fix: parked accounts", () => {
+  test("accounts matched to something the page cannot update are listed apart, not in the inbox", () => {
+    const data = DATA([], { parked_accounts: [{ account_key: "a", label: "Annuity - Matt", ref: "SS, Pensions, & Annuities|Matt Single Annuity", policy: "app" }] });
+    assert.match(m.rcParkedHtml(data), /Annuity - Matt[\s\S]*Matt Single Annuity/);
+    assert.equal(m.rcParkedHtml(DATA([])), "");
+    assert.match(m.rcInboxHtml(data), /Nothing needs a decision/);
+  });
+});

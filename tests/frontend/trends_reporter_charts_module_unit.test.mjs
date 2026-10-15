@@ -309,7 +309,7 @@ describe("347a: prior-year and budget markers on the YTD bars", () => {
 
 describe("351: budget and prior-year markers match at every level", () => {
   const tree = { Core: { Food: { Groceries: { Kroger: 100, Aldi: 20 } } } };
-  const priorDetail = { Core: { Groceries: { prior: 80, merchants: { Kroger: 70 } } } };
+  const priorDetail = { Core: { Food: { Groceries: { prior: 80, merchants: { Kroger: 70 } } } } };
   const budgetByCat = { Core: { Groceries: 400 } };
 
   test("the budget marker has the same height as the prior-year marker (351a)", () => {

@@ -202,7 +202,9 @@ def _resolve_pending(ref: str, dyn: dict[str, dict[str, Any]]) -> str | None:
     if not core:
         return None
     want = DYN_LIABILITY if field.casefold().startswith("liabilities") else DYN_NOTE if "note" in field.casefold() and "face" in field.casefold() else DYN_OTHER_ASSET
-    hits = [tid for tid, d in dyn.items() if tid.startswith(want) and (core in d["name"].casefold() or d["name"].casefold() in core)]
+    pool = {tid: d["name"].casefold() for tid, d in dyn.items() if tid.startswith(want)}
+    whole = lambda a, b: re.search(rf"(?<!\w){re.escape(a)}(?!\w)", b) is not None  # a is a whole word/phrase in b
+    hits = [tid for tid, n in pool.items() if n == core] or [tid for tid, n in pool.items() if whole(core, n) or whole(n, core)]
     return hits[0] if len(hits) == 1 else None
 
 
@@ -263,6 +265,7 @@ def build_rows(input_dir: str | Path, as_of: str | None = None, *, tolerance: fl
     unmatched: list[dict[str, Any]] = []
     ignored: list[dict[str, str]] = []
     closed_quiet: list[dict[str, str]] = []  # closed and empty: nothing to decide
+    parked: list[dict[str, str]] = []  # matched to something the page cannot update (e.g. an annuity), policy app/ignore
     for acct in monarch_accounts:
         saved = mapping.get(acct["account_key"])
         target = None
@@ -282,6 +285,9 @@ def build_rows(input_dir: str | Path, as_of: str | None = None, *, tolerance: fl
         elif acct["account"].strip().casefold() in setup_rows:
             target = "setup:" + setup_rows[acct["account"].strip().casefold()][0]
             auto = True
+        if target is None and saved and saved["kind"] == KIND_PENDING and saved.get("policy") in ("app", "ignore"):
+            parked.append({"account_key": acct["account_key"], "label": acct["account"], "ref": saved["ref"], "policy": saved["policy"]})
+            continue
         if target is None and acct["closed"] and abs(acct["last_balance"]) < 0.005:
             closed_quiet.append({"account_key": acct["account_key"], "label": acct["account"], "last_date": acct["last_date"]})
             continue
@@ -385,6 +391,7 @@ def build_rows(input_dir: str | Path, as_of: str | None = None, *, tolerance: fl
         "has_balances": True, "as_of": as_of_date, "latest": latest, "tolerance": tolerance, "dates": dates,
         "rows": rows, "unmatched": sorted(unmatched, key=lambda u: u["label"].casefold()), "ignored": len(ignored),
         "closed_accounts": sorted(closed_quiet, key=lambda u: u["label"].casefold()),
+        "parked_accounts": sorted(parked, key=lambda u: u["label"].casefold()),
         "ignored_accounts": sorted(ignored, key=lambda u: u["label"].casefold()),
         "import": last_import, "last_ok_import": last_ok,
         "app_targets": [{"id": f"setup:{n}", "label": n, "role": ro} for n, ro, _ in sorted(setup_rows.values(), key=lambda t: t[0].casefold())]
@@ -433,18 +440,29 @@ def set_policy(input_dir: str | Path, account_key: str, policy: str) -> dict[str
     """Set what happens when a matched Monarch account differs: ask / auto / app / ignore."""
     from .stores.errors import NotFoundError, ValidationError
     with active_plan.workspace_store(Path(input_dir).parent, write=True) as store:
+        repo = store.monarch
         try:
-            store.monarch.set_policy(account_key, policy)
+            if account_key not in repo.mapping():
+                # Matched by name only so far: save that match (kind and ref) so the policy has a row to live on.
+                names = {str(r.get("Account") or "").strip().casefold(): str(r.get("Account") or "").strip()
+                         for r in store.dataset("ytd_account_setup").rows()}
+                acct = next((a for a in repo.accounts_as_of(repo.latest_date() or "9999-12-31") if a["account_key"] == account_key), None)
+                ref = names.get((acct or {}).get("account", "").strip().casefold())
+                if ref is None:
+                    raise ReconcileError("match this Monarch account to an app account before choosing a policy")
+                repo.set_mapping(account_key, MAP_SETUP, ref, policy)
+            else:
+                repo.set_policy(account_key, policy)
         except (NotFoundError, ValidationError) as exc:
             raise ReconcileError(str(exc)) from exc
         return {"account_key": account_key, "policy": policy}
 
 
 @_store_errors
-def seed_from_csv(input_dir: str | Path, csv_text: str) -> dict[str, Any]:
+def seed_from_csv(input_dir: str | Path, csv_text: str, overwrite: bool = False) -> dict[str, Any]:
     """Save matches and policies from the mapping CSV (see ``monarch_mapping_seed``)."""
     from . import monarch_mapping_seed
-    return {"seed": monarch_mapping_seed.seed_mapping(Path(input_dir).parent, csv_text=csv_text)}
+    return {"seed": monarch_mapping_seed.seed_mapping(Path(input_dir).parent, csv_text=csv_text, overwrite=overwrite)}
 
 
 # ------------------------------------------------------------------------------ preview / apply / undo
@@ -494,6 +512,8 @@ def apply(input_dir: str | Path, items: list[dict[str, Any]], as_of: str | None 
     The rows are recomputed here (never trusted from the page); an item whose ``expected_new`` no longer
     matches is rejected so a stale preview cannot write a different number than the one shown.
     """
+    if source not in ("manual", "auto"):
+        raise ReconcileError(f"source must be 'manual' or 'auto', got {source!r}")
     input_dir = Path(input_dir)
     data = build_rows(input_dir, as_of, tolerance=tolerance, today=today)
     chosen, rejected = _select(data["rows"], items)

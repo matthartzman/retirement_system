@@ -228,7 +228,7 @@ function sumLeaves(node) {
 }
 
 // priorByType / budgetByType (347a): optional {trackingType: amount} for the bar markers.
-// priorDetail {type: {category: {prior, merchants: {name: amount}}}} and budgetByCategory
+// priorDetail {type: {group: {category: {prior, merchants: {name: amount}}}}} and budgetByCategory
 // {type: {category: amount}} (both optional) carry the same markers into the popups.
 export function buildHierarchyRows(hierarchy, priorByType, budgetByType, priorDetail, budgetByCategory) {
   const rows = [];
@@ -238,7 +238,7 @@ export function buildHierarchyRows(hierarchy, priorByType, budgetByType, priorDe
       for (const [cat, merchants] of Object.entries(cats)) {
         const value = sumLeaves(merchants);
         if (Math.abs(value) < 0.005) continue;
-        const priorCat = priorDetail && priorDetail[name] && priorDetail[name][cat];
+        const priorCat = priorDetail && priorDetail[name] && priorDetail[name][group] && priorDetail[name][group][cat];
         const priorMerchants = (priorCat && priorCat.merchants) || {};
         const budgetCat = budgetByCategory && budgetByCategory[name] && budgetByCategory[name][cat];
         categories.push({

@@ -566,7 +566,8 @@ DASHBOARD_JS_MAX_LINES = 7_134
 # 2026-10-15 (ticket 354: snapshot revert re-formats before-values via revertValueForChange, +2): raised to 39,191.
 # 2026-10-15 (Monarch mapping redesign M4: inbox tab, per-row policy, closed accounts, automatic-update banner and
 # CSV import in dashboard_decomp_monarch_reconciliation.js, +139): raised to 39,330.
-TOTAL_JS_MAX_LINES = 39_330
+# 2026-10-15 (code-review fixes: parked-accounts list and seed message on the Monarch page, +7): raised to 39,337.
+TOTAL_JS_MAX_LINES = 39_337
 
 
 def _line_count(path: Path) -> int:

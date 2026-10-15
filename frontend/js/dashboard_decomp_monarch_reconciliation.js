@@ -146,6 +146,13 @@ export function rcInboxHtml(data, dismissed) {
   return table + flagged + rcUnmatchedHtml({ ...data, unmatched: rest });
 }
 
+export function rcParkedHtml(data) {
+  const items = data.parked_accounts || [];
+  if (!items.length) return "";
+  return `<details class="rc-ignored"><summary>Matched to something the page cannot update (${items.length}): report only</summary><ul>` +
+    items.map((u) => `<li>${esc(u.label)} <span class="rc-sub">${esc(String(u.ref || "").split("|").pop())}</span></li>`).join("") + "</ul></details>";
+}
+
 export function rcClosedHtml(data) {
   const items = data.closed_accounts || [];
   if (!items.length) return "";
@@ -242,7 +249,7 @@ export function rcBodyHtml(state) {
     `<strong>${s.notInMonarch}</strong> not in Monarch · <strong>${s.notInApp}</strong> Monarch accounts not in the app</div>` +
     `<div class="pane-actions"><button class="btn good" type="button" onclick="rcPreview()"${nSel ? "" : " disabled"}>Preview update from Monarch (${nSel} selected)</button> ` +
     `<label class="btn">Import mapping CSV<input type="file" accept=".csv,text/csv" hidden onchange="rcImportCsv(this.files[0])"></label></div>` +
-    rcGroupsHtml(data, selected, showMatched) + rcUnmatchedHtml(data) + rcClosedHtml(data) + rcIgnoredHtml(data) +
+    rcGroupsHtml(data, selected, showMatched) + rcUnmatchedHtml(data) + rcParkedHtml(data) + rcClosedHtml(data) + rcIgnoredHtml(data) +
     `<h3>Change log</h3>${rcLogHtml(log)}`;
 }
 
@@ -400,7 +407,7 @@ export async function rcImportCsv(file) {
   try {
     const out = await api("/api/reconcile/seed", { method: "POST", body: JSON.stringify({ csv_text: await file.text() }) });
     const r = out.seed;
-    rcMessage = { text: `Mapping imported: ${r.saved.length} matched, ${r.pending.length} resolved by name or waiting, ${r.ignored.length} ignored, ${r.not_in_monarch.length} not found in Monarch.`, error: false };
+    rcMessage = { text: `Mapping imported: ${r.saved.length} matched, ${r.pending.length} resolved by name or waiting, ${r.ignored.length} ignored, ${r.not_in_monarch.length} not found in Monarch, ${r.kept.length} already matched (left as they are).`, error: false };
   } catch (e) {
     rcMessage = { text: "Could not import the mapping: " + e.message, error: true };
   }
@@ -425,6 +432,6 @@ Object.assign(window, {
   rcMoney, rcDiffHtml, rcSummary, rcRowHtml, rcGroupsHtml, rcPreviewHtml, rcUnmatchedHtml, rcLogHtml, rcImportNote, rcBodyHtml,
   renderMonarchReconciliation, loadMonarchReconciliation, rcToggle, rcSelectGroup, rcSetAsOf, rcSetTolerance, rcSetShowMatched,
   rcPreviewCancel, rcPreview, rcApply, rcUndo, rcMap, rcUnmatch, rcIgnoredHtml,
-  rcPolicyHtml, rcInboxItems, rcInboxRowHtml, rcInboxHtml, rcClosedHtml, rcAutoBannerHtml,
+  rcPolicyHtml, rcParkedHtml, rcInboxItems, rcInboxRowHtml, rcInboxHtml, rcClosedHtml, rcAutoBannerHtml,
   rcSetTab, rcSetPolicy, rcDecide, rcUndoAuto, rcImportCsv,
 });

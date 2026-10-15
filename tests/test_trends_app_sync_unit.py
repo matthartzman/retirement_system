@@ -73,3 +73,23 @@ def test_sync_never_raises_when_the_plan_cannot_be_read(tmp_path):
     _, db = _setup(tmp_path)
     out = app_sync.sync_from_app(db, tmp_path / "no_such_workspace")
     assert out["success"] is False and "error" in out
+
+
+def test_un_ignoring_in_the_app_re_enables_the_account(tmp_path):
+    base, db = _setup(tmp_path)
+    with active_plan.workspace_store(base, write=True) as store:
+        store.monarch.set_mapping("venmo", "ignore")
+    app_sync.sync_from_app(db, base)
+    assert _by_key(db)["venmo"]["enabled"]["networth"] is False
+    with active_plan.workspace_store(base, write=True) as store:
+        store.monarch.set_mapping("venmo", "setup_account", "Venmo", "ask")
+    out = app_sync.sync_from_app(db, base)
+    assert out["un_ignored"] == 1 and _by_key(db)["venmo"]["enabled"]["networth"] is True
+    # a match removed altogether also frees it
+    with active_plan.workspace_store(base, write=True) as store:
+        store.monarch.set_mapping("venmo", "ignore")
+    app_sync.sync_from_app(db, base)
+    with active_plan.workspace_store(base, write=True) as store:
+        store.monarch.clear_mapping("venmo")
+    assert app_sync.sync_from_app(db, base)["un_ignored"] == 1
+    assert _by_key(db)["venmo"]["enabled"]["networth"] is True

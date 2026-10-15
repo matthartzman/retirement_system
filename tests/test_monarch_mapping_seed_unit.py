@@ -82,4 +82,17 @@ def test_seed_is_idempotent_and_dry_run_writes_nothing(tmp_path):
         assert store.monarch.mapping() == {}
     first = seed.seed_mapping(base, mp)
     second = seed.seed_mapping(base, mp)
-    assert first == second
+    assert second["saved"] == [] and len(second["kept"]) == len(first["saved"]) + len(first["pending"]) + len(first["ignored"])
+
+
+def test_reimport_keeps_what_the_user_changed_unless_overwrite(tmp_path):
+    base, mp = _workspace(tmp_path)
+    seed.seed_mapping(base, mp)
+    with active_plan.workspace_store(base, write=True) as store:
+        store.monarch.set_policy("roth - matt", "auto")
+    seed.seed_mapping(base, mp)
+    with active_plan.workspace_store(base) as store:
+        assert store.monarch.mapping()["roth - matt"]["policy"] == "auto"
+    seed.seed_mapping(base, mp, overwrite=True)
+    with active_plan.workspace_store(base) as store:
+        assert store.monarch.mapping()["roth - matt"]["policy"] == "app"

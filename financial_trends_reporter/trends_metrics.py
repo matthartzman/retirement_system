@@ -219,8 +219,9 @@ def compute_snapshot(base_dir: str | Path, *, today=None, passthrough_decisions:
     # Same markers one and two levels down: prior-year per category (and its merchants), budget per category.
     ytd_expense_prior_detail = {
         tt: {
-            cat: {"prior": round(sum(merchants.values()), 2), "merchants": {m: round(v, 2) for m, v in merchants.items()}}
-            for cats in groups.values() for cat, merchants in cats.items()
+            grp: {cat: {"prior": round(sum(merchants.values()), 2), "merchants": {m: round(v, 2) for m, v in merchants.items()}}
+                  for cat, merchants in cats.items()}
+            for grp, cats in groups.items()
         }
         for tt, groups in prior_tree.items()
     }

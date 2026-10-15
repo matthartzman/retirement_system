@@ -395,3 +395,40 @@ def test_big_change_is_held_and_undo_auto_restores_everything(tmp_path):
     undone = reconcile.undo_auto(base / "input")
     assert undone == {"undone": ["Family Checking"], "skipped": []}
     assert _setup_value(base, "Family Checking", "Current Value") == "13000"
+
+
+# ---- review fixes
+def test_pending_name_match_is_exact_first_and_whole_word(tmp_path):
+    base = _dyn_workspace(tmp_path)
+    with active_plan.workspace_store(base, write=True) as store:
+        for label, v in (("type", "Start-up Equity"), ("name", "Start-up Equity"), ("value", "$66,000"), ("as_of_date", "12/31/2025")):
+            store.set_value("Other Assets", "Other Asset 3", label, v)
+        store.monarch.upsert_balances([("2026-10-14", "hucu", "hucu.ai", 70000.0)])
+        store.monarch.set_mapping("hucu", "pending", "Other Assets and Liabilities|Start-up Equity", "ask")
+    rows = _rows(base)
+    assert rows["other_asset:Other Asset 3"]["monarch_value"] == 70000.0   # "art" in "start-up" no longer makes it ambiguous
+    assert rows["other_asset:Other Asset 2"]["monarch_value"] == 12000.0   # Art still resolves to Art
+
+
+def test_policy_on_a_name_matched_account_saves_the_match(tmp_path):
+    base = _workspace(tmp_path)
+    out = reconcile.set_policy(base / "input", "family checking", "auto")
+    assert out == {"account_key": "family checking", "policy": "auto"}
+    assert _rows(base)["setup:Family Checking"]["policy"] == "auto"
+    with pytest.raises(reconcile.ReconcileError):
+        reconcile.set_policy(base / "input", "mystery", "auto")   # nothing to match it to
+
+
+def test_unresolved_app_or_ignore_matches_are_parked_not_in_the_inbox(tmp_path):
+    base = _workspace(tmp_path)
+    with active_plan.workspace_store(base, write=True) as store:
+        store.monarch.set_mapping("mystery", "pending", "SS, Pensions, & Annuities|Matt Single Annuity", "app")
+    data = reconcile.build_rows(base / "input", today=TODAY)
+    assert [p["label"] for p in data["parked_accounts"]] == ["Mystery Account"]
+    assert "Mystery Account" not in [u["label"] for u in data["unmatched"]]
+
+
+def test_apply_rejects_an_unknown_source(tmp_path):
+    base = _workspace(tmp_path)
+    with pytest.raises(reconcile.ReconcileError):
+        reconcile.apply(base / "input", [{"id": "setup:Family Checking"}], today=TODAY, source="nightly")

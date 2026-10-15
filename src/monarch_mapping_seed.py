@@ -58,14 +58,16 @@ def policy_for(row: dict[str, str]) -> str:
 
 
 def seed_mapping(base_dir: str | Path, csv_path: str | Path | None = None, *, dry_run: bool = False,
-                 csv_text: str | None = None) -> dict[str, Any]:
+                 csv_text: str | None = None, overwrite: bool = False) -> dict[str, Any]:
     """Save the CSV's matches. Returns ``{saved, pending, ignored, not_in_monarch, skipped}`` lists of
-    ``{monarch, ...}``; ``not_in_monarch`` rows (no stored balances under that name) are never saved."""
+    ``{monarch, ...}``; ``not_in_monarch`` rows (no stored balances under that name) are never saved, and a Monarch account that already
+    has a saved match is left as it is (``kept``) unless ``overwrite``."""
     base = Path(base_dir)
     rows = parse_mapping_csv(csv_text) if csv_text is not None else read_mapping_csv(csv_path)
-    report: dict[str, list[dict[str, str]]] = {k: [] for k in ("saved", "pending", "ignored", "not_in_monarch", "skipped")}
+    report: dict[str, list[dict[str, str]]] = {k: [] for k in ("saved", "pending", "ignored", "not_in_monarch", "skipped", "kept")}
     with active_plan.workspace_store(base, write=not dry_run) as store:
         known = {a["account_key"] for a in store.monarch.accounts_as_of(store.monarch.latest_date() or "9999-12-31")}
+        existing = store.monarch.mapping()
         setup = {str(r.get("Account") or "").strip().casefold(): str(r.get("Account") or "").strip()
                  for r in store.dataset("ytd_account_setup").rows()}
         for r in rows:
@@ -74,6 +76,9 @@ def seed_mapping(base_dir: str | Path, csv_path: str | Path | None = None, *, dr
             item = {"monarch": r["Monarch"], "field": field, "location": loc}
             if key not in known:
                 report["not_in_monarch"].append(item)
+                continue
+            if key in existing and not overwrite:  # a match already saved (maybe edited on the page) is not replaced
+                report["kept"].append(item)
                 continue
             policy = policy_for(r)
             if field.upper() == "IGNORE":
