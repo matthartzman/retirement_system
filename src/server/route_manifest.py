@@ -39,7 +39,7 @@ ROUTE_MODULES = {
         "/api/ytd/transactions/<int:index>", "/api/ytd/transactions/bulk", "/api/ytd/transactions/template", "/api/ytd/transactions/upload",
         "/api/ytd/account-setup", "/api/ytd/account-setup/recover", "/api/ytd/account-setup/roll-forward",
     ],
-    "reconcile": ["/api/reconcile", "/api/reconcile/map", "/api/reconcile/preview", "/api/reconcile/apply", "/api/reconcile/undo", "/api/reconcile/log"],
+    "reconcile": ["/api/reconcile", "/api/reconcile/map", "/api/reconcile/preview", "/api/reconcile/apply", "/api/reconcile/undo", "/api/reconcile/log", "/api/reconcile/policy", "/api/reconcile/undo-auto", "/api/reconcile/seed"],
     "strategy_assets": [
         "/api/holdings", "/api/holdings/preview",
         "/api/large-discretionary-expenses", "/api/spending-adjustments", "/api/forced-roth-conversions", "/api/liquidity-buffers",

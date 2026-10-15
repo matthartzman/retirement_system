@@ -19,6 +19,7 @@ if str(_REPO_ROOT) not in sys.path:
 
 from src import onedrive_guard  # noqa: E402
 
+from .app_sync import sync_from_app  # noqa: E402
 from .balance_store import DB_FILENAME, default_source_path, import_balances  # noqa: E402
 from .passthrough_decisions import decisions_path_for_log, load_decisions  # noqa: E402
 from .trends_log import append_or_replace_entry, default_log_path  # noqa: E402
@@ -87,6 +88,8 @@ def run(retirement_system_base_dir: str | Path, *, log_path: str | Path | None =
         balances = import_balances(balances_db, default_source_path(base_dir), today=today)
     except Exception as exc:  # noqa: BLE001 - a locked/unwritable store must not stop the snapshot
         balances = {"success": False, "status": "error", "error": f"{exc.__class__.__name__}: {exc}"}
+    if balances.get("status") != "error":
+        sync_from_app(balances_db, base_dir)  # type, match and ignore from the app's Monarch mapping (never raises)
     snapshot = compute_snapshot(base_dir, today=today, passthrough_decisions=load_decisions(decisions_path_for_log(path)),
                                 balances_db=balances_db if balances.get("status") != "error" else None)
     snapshot["pricing"] = pricing

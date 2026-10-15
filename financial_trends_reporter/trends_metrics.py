@@ -216,9 +216,27 @@ def compute_snapshot(base_dir: str | Path, *, today=None, passthrough_decisions:
         tt: round(sum(v for cats in groups.values() for merchants in cats.values() for v in merchants.values()), 2)
         for tt, groups in prior_tree.items()
     }
+    # Same markers one and two levels down: prior-year per category (and its merchants), budget per category.
+    ytd_expense_prior_detail = {
+        tt: {
+            grp: {cat: {"prior": round(sum(merchants.values()), 2), "merchants": {m: round(v, 2) for m, v in merchants.items()}}
+                  for cat, merchants in cats.items()}
+            for grp, cats in groups.items()
+        }
+        for tt, groups in prior_tree.items()
+    }
+    taxonomy = spending_tracker.spending_summary_taxonomy(base_dir, as_of.year).get("tracking_types", [])
+    annual_budget_by_category = {
+        t["tracking_type"]: {
+            c["label"]: c["annual_budget"]
+            for g in t.get("groups", []) for c in g.get("categories", []) if c.get("annual_budget")
+        }
+        for t in taxonomy
+        if t["tracking_type"] != "Income" and t["tracking_type"] not in spending_tracker._TRANSFER_NAMES
+    }
     annual_budget_by_tracking_type = {
         t["tracking_type"]: t.get("annual_budget", 0.0)
-        for t in spending_tracker.spending_summary_taxonomy(base_dir, as_of.year).get("tracking_types", [])
+        for t in taxonomy
         if t.get("annual_budget") and t["tracking_type"] != "Income" and t["tracking_type"] not in spending_tracker._TRANSFER_NAMES
     }
 
@@ -287,6 +305,8 @@ def compute_snapshot(base_dir: str | Path, *, today=None, passthrough_decisions:
         "ytd_expense_hierarchy": ytd_expense_hierarchy,
         "ytd_expense_prior_year": ytd_expense_prior_year,
         "annual_budget_by_tracking_type": annual_budget_by_tracking_type,
+        "ytd_expense_prior_detail": ytd_expense_prior_detail,
+        "annual_budget_by_category": annual_budget_by_category,
         "holdings": holdings,
         # {account: {to_checking, from_checking, net}}; net = withdrawals - contributions.
         "investment_net_flows_by_account": inv.get("net_flows_by_account", {}),

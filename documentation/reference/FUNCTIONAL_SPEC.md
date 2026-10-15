@@ -251,10 +251,17 @@ Excel; download the Excel workbook and PDF; review a plan-data summary;
 review Spending Analysis (actual vs. budget, annualized run rate, portfolio
 growth vs. prior year, reconciliation back into the 30-year model). Monarch
 Reconciliation compares each account number in the app with Monarch's daily
-balance as of a chosen date and lets the household copy Monarch's number into
-the app (cash, cards, loans, manual accounts, and the home, autos and mortgage
-plan inputs) after a preview, with a change log and Undo; investment accounts
-are report only.
+balance as of a chosen date. It opens on **Needs a decision**: each difference
+is resolved with Update app (after a preview), Ignore this time, Always update, or
+App is source. **All mappings** lists every match with its policy (ask, auto,
+app, ignore); a mapping CSV can be imported to seed matches. Targets: Accounts &
+Sources rows, home, autos and mortgage plan inputs, Other Asset Items (value and
+as-of date together), notes and liabilities. Auto policy copies Monarch's number at
+the 04:00 import unless the change is a plan-start input or over both 10% and
+$5,000. Closed accounts with no balance are quiet; a closed account that still
+holds money is flagged. Every change is logged (by you or automatic) with Undo and
+Undo all automatic updates. Investment accounts and annuities/pensions are report
+only.
 
 ### 4.8 Year-to-date actuals
 Upload or manually enter actual account transactions and balances for the
@@ -279,8 +286,11 @@ household's historical net worth and spending trends over time from saved
 snapshots — a longitudinal view the main single-plan-projection app does
 not otherwise provide. Runs as its own local process on its own port; not
 part of the main app's route registry. Its Net worth and Holdings charts use
-Monarch's daily account balances (accounts and mapping are set in the app), and
-investment flows are shown as a monthly line with a year-to-date summary.
+Monarch's daily account balances (account type, match to the plan and Ignore are
+set on the app's Monarch Reconciliation page and read at import; per-chart
+inclusion is set in each chart's Accounts popover), and investment flows are
+shown as a monthly line with a year-to-date summary. The Holdings chart is titled
+Liquid Investments and Cash; All time starts 2025-02-01.
 
 ### 4.11 Settings
 Economic and tax assumptions (capital market assumptions, correlations, tax

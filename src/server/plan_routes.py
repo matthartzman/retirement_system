@@ -1087,6 +1087,46 @@ def reconcile_map():
     return response
 
 
+@app.route("/api/reconcile/policy", methods=["POST"])
+def reconcile_policy():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    from .. import reconcile as _reconcile
+    body = request.get_json(silent=True) or {}
+    response = _reconcile_call(_reconcile.set_policy, str(body.get("account_key") or ""), str(body.get("policy") or ""))
+    if response[1] == 200:
+        _audit("reconcile_policy", {"account_key": str(body.get("account_key") or ""), "policy": str(body.get("policy") or "")})
+    return response
+
+
+@app.route("/api/reconcile/undo-auto", methods=["POST"])
+def reconcile_undo_auto():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    from .. import reconcile as _reconcile
+    response = _reconcile_call(_reconcile.undo_auto)
+    if response[1] == 200:
+        _audit("reconcile_undo_auto", {"undone": len(response[0].get_json().get("undone", []))})
+    return response
+
+
+@app.route("/api/reconcile/seed", methods=["POST"])
+def reconcile_seed():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    from .. import reconcile as _reconcile
+    text = (request.get_json(silent=True) or {}).get("csv_text")
+    if not isinstance(text, str) or not text.strip():
+        return jsonify({"success": False, "error": "csv_text is required"}), 400
+    response = _reconcile_call(_reconcile.seed_from_csv, text)
+    if response[1] == 200:
+        _audit("reconcile_seeded", {"saved": len(response[0].get_json()["seed"]["saved"])})
+    return response
+
+
 @app.route("/api/reconcile/preview", methods=["POST"])
 def reconcile_preview():
     denied = _require("write_config")
