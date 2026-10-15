@@ -614,7 +614,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/projection_pipeline.py` | `observability`, `planning_engines` | — |
 | `src/qlac_optimizer.py` | — | — |
 | `src/real_loss_curves.py` | `allocation_policy`, `stores.ref_getters.mortality_real_loss` | — |
-| `src/reconcile.py` | `stores.errors` | — |
+| `src/reconcile.py` | — | — |
 | `src/rental_tax.py` | `tax_law` | — |
 | `src/report_compute.py` | `data_io`, `governance`, `local_store`, `market_data`, `plan_config`, `planning_engines`, `projection_pipeline`, `report_spec`, `result_contract`, `results_model` | — |
 | `src/report_package.py` | `active_plan`, `build_snapshot`, `results_model`, `version` | — |
