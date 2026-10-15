@@ -437,24 +437,21 @@ def set_mapping(input_dir: str | Path, account_key: str, target: str | None) -> 
 
 @_store_errors
 def set_policy(input_dir: str | Path, account_key: str, policy: str) -> dict[str, Any]:
-    """Set what happens when a matched Monarch account differs: ask / auto / app / ignore."""
-    from .stores.errors import NotFoundError, ValidationError
+    """Set what happens when a matched Monarch account differs: ask / auto / app / ignore. Store errors
+    (unknown account, bad policy) surface as ReconcileError via ``_store_errors``."""
     with active_plan.workspace_store(Path(input_dir).parent, write=True) as store:
         repo = store.monarch
-        try:
-            if account_key not in repo.mapping():
-                # Matched by name only so far: save that match (kind and ref) so the policy has a row to live on.
-                names = {str(r.get("Account") or "").strip().casefold(): str(r.get("Account") or "").strip()
-                         for r in store.dataset("ytd_account_setup").rows()}
-                acct = next((a for a in repo.accounts_as_of(repo.latest_date() or "9999-12-31") if a["account_key"] == account_key), None)
-                ref = names.get((acct or {}).get("account", "").strip().casefold())
-                if ref is None:
-                    raise ReconcileError("match this Monarch account to an app account before choosing a policy")
-                repo.set_mapping(account_key, MAP_SETUP, ref, policy)
-            else:
-                repo.set_policy(account_key, policy)
-        except (NotFoundError, ValidationError) as exc:
-            raise ReconcileError(str(exc)) from exc
+        if account_key in repo.mapping():
+            repo.set_policy(account_key, policy)
+        else:
+            # Matched by name only so far: save that match (kind and ref) so the policy has a row to live on.
+            names = {str(r.get("Account") or "").strip().casefold(): str(r.get("Account") or "").strip()
+                     for r in store.dataset("ytd_account_setup").rows()}
+            acct = next((a for a in repo.accounts_as_of(repo.latest_date() or "9999-12-31") if a["account_key"] == account_key), None)
+            ref = names.get((acct or {}).get("account", "").strip().casefold())
+            if ref is None:
+                raise ReconcileError("match this Monarch account to an app account before choosing a policy")
+            repo.set_mapping(account_key, MAP_SETUP, ref, policy)
         return {"account_key": account_key, "policy": policy}
 
 
