@@ -204,3 +204,82 @@ are relative estimates, not token counts. **Check `/usage` after each phase and 
 - **Format differences the normalizer must accept:** headless dates are ISO (`2024-01-10`) while the manual
   download used `m/d/yyyy`; amounts differ cosmetically (`168376.00` vs `168376`).
 - The raw CSV is in `Monarch Extractor/raw/spike/` (gitignored); Phase 1 will turn it into a redacted fixture.
+
+## 9. Addendum: Account Reconciliation page (app vs Monarch), added 2026-10-14
+
+A new page in the main app's **Reports & Review** nav group that compares the app's account numbers with
+Monarch's and lets you copy Monarch's number into the app where they differ. This is a main-app feature
+(the trends reporter is a separate app and is not packaged with it), so it needs its own copy of the
+balances in the plan database.
+
+### 9.1 Decisions already made
+
+1. **Data source:** import Monarch balances into the plan DB from the 04:00 import job (same path as transactions).
+2. **Investment accounts: report only.** They are valued from holdings lots × live prices, so the page shows the
+   difference and never writes to holdings.
+3. **Updatable numbers:** cash, cards and loans; home, autos and mortgage; and manual accounts.
+4. **Apply flow:** tick rows → preview → confirm once → change log with one-step Undo. Autosaved like other data pages.
+
+### 9.2 What each app number is and where the update goes
+
+| Account kind | App value comes from | Update writes | Notes |
+|---|---|---|---|
+| Cash / cards / loans | Accounts & Sources row (`Current Balance`) | that field | Monarch liabilities are negative, the app stores them positive: compare magnitudes, write positive. |
+| Manual accounts (annuity, pension, "Other" such as private notes and art) | Accounts & Sources `Current Value` | that field | If the account is mapped to an income stream, the app's value is that stream's base value instead: **report only**, with a note saying where to change it. |
+| Home, autos | plan inputs `client_assets` (`Home / value_as_of_plan_start`, `Autos / value`) | that input | These are plan-start figures; the page says so and warns before writing. |
+| Mortgage | plan input `Cashflow / Mortgage / balance_as_of_plan_start` | that input | The app amortizes it forward, so the compared app value is the amortized one. Writing sets the plan-start balance. |
+| Investment accounts | holdings lots × prices | nothing (report only) | |
+
+### 9.3 Design
+
+- **Storage (schema v7).** `monarch_balances(date, account_key, account, balance)`, full daily history (about
+  18,000 rows, the same scale as transactions), upserted by (date, account_key). `monarch_account_map(monarch_key,
+  kind, ref)` holds saved matches. `reconcile_log(id, applied_at, kind, ref, field, old_value, new_value,
+  monarch_date, undone)` holds applied changes. Added through the existing dataset/migration mechanism.
+- **Import.** New `src/monarch_balances_import.py`, called from `monarch_autoimport_job.run()` after the
+  transaction import. It is non-fatal and uses the same guards as the trends store (header, stale date, >20%
+  account drop). Added to the file-I/O audit allowlist with a reason, like `monarch_import.py`.
+- **Matching.** Auto-match by exact case-insensitive account name against Accounts & Sources and holdings
+  accounts (the Monarch transaction account names already are the setup names). Anything else is matched by hand
+  on the page and saved in `monarch_account_map`. Unmatched Monarch accounts show as "Not in app"; app accounts
+  with no Monarch match show as "Not in Monarch".
+- **Engine (`src/reconcile.py`, pure).** For each pair: app value, Monarch value as of the chosen date (default the
+  latest Monarch date, any stored date selectable), difference, status (matches / differs / report-only / unmatched),
+  and the exact write an update would make. Tolerance default $1. Preview returns the writes without making them.
+  Apply writes and logs in one transaction. Undo restores the old value only if the current value still equals what
+  Undo would overwrite, otherwise it refuses and says why.
+- **API** (permission `write_config`, registered in `route_manifest.py` and `API_CONTRACTS.md`):
+  `GET /api/reconcile`, `POST /api/reconcile/map`, `POST /api/reconcile/preview`, `POST /api/reconcile/apply`,
+  `POST /api/reconcile/undo`, `GET /api/reconcile/log`.
+- **Page.** New step `account_reconciliation` in the Reports & Review group, rendered from a new
+  `frontend/js/reconcile_ui.js` (not `dashboard.js`, 7,287 lines). Table grouped by kind with app value, Monarch value,
+  difference, status and a checkbox on updatable differing rows; as-of date picker; "Match accounts" for unmatched rows;
+  preview dialog listing old → new for every write; change log with Undo. Updates mark the plan as needing a rebuild, as
+  other input edits do.
+- **Not affected:** golden masters (no engine change; the page only edits inputs), the trends reporter.
+
+### 9.4 Assumptions to confirm (defaults I will use otherwise)
+
+1. "Manual accounts" means the Accounts & Sources `Current Value` for annuity/pension/"Other" accounts. Annuities mapped to an
+   income stream are report-only because that stream's base value is edited elsewhere.
+2. Differences under $1 count as matching.
+3. The as-of date defaults to Monarch's latest date. For plan-start inputs (home, mortgage) you may want to compare as of the plan start
+   date; the date picker covers that, and the page shows which date each plan-start figure refers to.
+4. Setting "Prior Year End Balance" from Monarch's Dec 31 balance is out of scope (easy to add later because the history is stored).
+
+### 9.5 Implementation plan
+
+Model/effort and usage per phase, relative to one 5-hour Pro session (light < 10%, moderate 10–25%, heavy 25–40%).
+These are relative estimates, not token counts. **Check `/usage` after each phase against them.**
+
+| # | Phase | Model / effort | Usage | Context drivers | Done when |
+|---|---|---|---|---|---|
+| R1 | Schema v7 tables, `monarch_balances_import.py`, hook into the 04:00 job, backfill from the existing `balances.csv` | **Opus 5.5 / high** | **Heavy** | `stores/datasets.py` (216 lines) plus migration and CSV-exchange registration; **grep `schema_version`, `SCHEMA_VERSION` and `v6` first, because a version bump can touch many tests.** File-I/O guard and frozen-build spec tests. | A plan opens and migrates, an import is idempotent, guards reject bad files, latest-day sum matches Monarch. |
+| R2 | Reconcile engine: matching, app-value readers per kind, diff, preview/apply/undo, log | **Opus 5.5 / high** | Moderate | `ytd_tracking.py` (**grep** `read_account_setup`, `write_account_setup`, `_account_current_value`), assets and spending input readers. Test-fix loop is the variable. | Hand-checked cases per kind; undo refuses when the value changed; liability signs right. |
+| R3 | Service, routes, route manifest, API contract doc | Sonnet 5.5 / medium | Moderate | `plan_routes.py` (read only the ytd account-setup region), `route_manifest.py`, `API_CONTRACTS.md`, tests that tie manifest to docs. | Endpoint tests pass; permission and origin checks hold. |
+| R4 | Frontend page `reconcile_ui.js`, nav step, styles, preview dialog, mapping UI, log/undo | Sonnet 5.5 / high | **Heavy** | New file plus the STEPS entry in `dashboard.js` (**grep** `reports_and_review`, read about 40 lines). **Read the Python tests that assert on panel JS before editing.** Browser checks drive the loop. | Verified in the browser end to end on a scratch plan copy. |
+| R5 | Verification and docs: full suites, `/code-review`, FUNCTIONAL_SPEC and release note, then the pending trends Phase 7 | Sonnet 5.5 / medium | Light–moderate | Test output only. | CI green; one scheduled run populates both stores. |
+
+**Disproportionately expensive steps:** R1 (schema bump ripple) and R4 (UI iteration). Scope down R1 by grepping version
+constants before opening files, and by copying the v6 (WP6.4) migration pattern exactly instead of designing a new one.
+Scope down R4 by building the table and preview first and styling last, screenshotting once per milestone.
