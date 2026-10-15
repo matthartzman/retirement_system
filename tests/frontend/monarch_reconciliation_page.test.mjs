@@ -1,0 +1,202 @@
+// R4 of the reconciliation page: the pure HTML helpers of dashboard_decomp_monarch_reconciliation.js
+// and the nav/step wiring that makes the page reachable under Reports & Review.
+import { test, describe, before } from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const JS = path.join(HERE, "..", "..", "frontend", "js");
+const read = (f) => fs.readFileSync(path.join(JS, f), "utf8");
+
+let m;
+before(async () => {
+  // The module uses the page's bare globals and registers its helpers on window.
+  globalThis.esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  globalThis.window = globalThis;
+  globalThis.document = { getElementById: () => null };
+  globalThis.api = async () => ({});
+  m = await import("../../frontend/js/dashboard_decomp_monarch_reconciliation.js");
+});
+
+const ROW = (over) => ({
+  id: "setup:Checking", label: "Checking", group: "Cash, cards and loans", status: "differs", updatable: true,
+  app_value: 13000, monarch_value: 13894.27, difference: 894.27, monarch_accounts: [], auto_matched: true, report_reason: null,
+  write: { kind: "setup_account", ref: "Checking", field: "Current Value", old: "13000", new: "13894.27" }, ...over,
+});
+const DATA = (rows, extra) => ({
+  has_balances: true, as_of: "2026-10-14", latest: "2026-10-14", dates: ["2026-10-14", "2026-10-13"], rows, unmatched: [],
+  app_targets: [{ id: "setup:Checking", label: "Checking", role: "Cash / spending" }, { id: "plan:home", label: "Home value (plan input)", role: "" }],
+  import: { status: "ok" }, last_ok_import: { latest_date: "2026-10-14" }, ...extra,
+});
+
+describe("formatting", () => {
+  test("money and signed differences", () => {
+    assert.equal(m.rcMoney(1234.5), "$1,234.50");
+    assert.equal(m.rcMoney(-10021.2), "-$10,021.20");
+    assert.equal(m.rcMoney(null), "—");
+    assert.match(m.rcDiffHtml(894.27), /rc-up.*\+\$894\.27/);
+    assert.match(m.rcDiffHtml(-5), /rc-down.*-\$5\.00/);
+    assert.equal(m.rcDiffHtml(null), "—");
+  });
+});
+
+describe("rows", () => {
+  test("a differing updatable row has a checkbox wired to rcToggle", () => {
+    const html = m.rcRowHtml(ROW(), true);
+    assert.match(html, /<input type="checkbox" data-id="setup:Checking"/);
+    assert.match(html, /onchange="rcToggle\(this\.dataset\.id, this\.checked\)" checked/);
+    assert.match(html, /\$13,000\.00/);
+    assert.match(html, /\+\$894\.27/);
+  });
+
+  test("report-only rows have no checkbox and show their reason", () => {
+    const html = m.rcRowHtml(ROW({ id: "setup:Brokerage", status: "report_only", updatable: false, report_reason: "Investment accounts are valued from holdings", write: null }), false);
+    assert.ok(!html.includes("<input"));
+    assert.match(html, /Report only/);
+    assert.match(html, /valued from holdings/);
+  });
+
+  test("matched Monarch accounts are listed with how they matched", () => {
+    const html = m.rcRowHtml(ROW({ auto_matched: false, monarch_accounts: [{ account: "Car A", balance: 1, closed: false, balance_date: "2026-10-14" }, { account: "Car B", balance: 2, closed: true, balance_date: "2026-10-12" }] }), false, "2026-10-14");
+    assert.match(html, /Car A \+ Car B \(closed\)/);
+    assert.match(html, /matched by you/);
+  });
+
+  test("labels are escaped", () => {
+    const html = m.rcRowHtml(ROW({ id: 'x"><img>', label: "<b>Bad</b>" }), false);
+    assert.ok(!html.includes("<img>") && !html.includes("<b>Bad"));
+  });
+});
+
+describe("groups", () => {
+  const rows = [
+    ROW(), ROW({ id: "setup:Same", label: "Same", status: "match", updatable: false, difference: 0 }),
+    ROW({ id: "plan:home", label: "Home value (plan input)", group: "Plan inputs" }),
+    ROW({ id: "setup:Inv", label: "Inv", group: "Investments (report only)", status: "report_only", updatable: false }),
+  ];
+
+  test("matching rows are hidden until asked for, with a count", () => {
+    const hidden = m.rcGroupsHtml(DATA(rows), new Set(), false);
+    assert.ok(!hidden.includes("data-row=\"setup:Same\""));
+    assert.match(hidden, /1 matching hidden/);
+    assert.ok(m.rcGroupsHtml(DATA(rows), new Set(), true).includes('data-row="setup:Same"'));
+  });
+
+  test("groups appear in the fixed order and offer select/clear all", () => {
+    const html = m.rcGroupsHtml(DATA(rows), new Set(["setup:Checking"]), false);
+    const order = ["Cash, cards and loans", "Plan inputs", "Investments (report only)"].map((g) => html.indexOf(`<h3>${g}</h3>`));
+    assert.ok(order.every((i) => i >= 0) && order[0] < order[1] && order[1] < order[2]);
+    assert.match(html, /rcSelectGroup\(&quot;Cash, cards and loans&quot;, false\)">Clear/);
+    assert.match(html, /rcSelectGroup\(&quot;Plan inputs&quot;, true\)">Select all differences/);
+  });
+
+  test("a group where everything matches says so", () => {
+    const html = m.rcGroupsHtml(DATA([ROW({ status: "match", updatable: false, difference: 0 })]), new Set(), false);
+    assert.match(html, /Everything here matches/);
+  });
+
+  test("no rows at all", () => {
+    assert.match(m.rcGroupsHtml(DATA([]), new Set(), false), /No accounts to compare yet/);
+  });
+});
+
+describe("summary, preview, unmatched, log", () => {
+  test("summary counts statuses", () => {
+    const s = m.rcSummary([{ status: "differs" }, { status: "differs" }, { status: "match" }, { status: "report_only" }, { status: "not_in_monarch" }], [{}, {}]);
+    assert.deepEqual(s, { differs: 2, match: 1, reportOnly: 1, notInMonarch: 1, notInApp: 2 });
+  });
+
+  test("preview lists old to new, warns for plan inputs, and disables Apply when empty", () => {
+    const html = m.rcPreviewHtml({ changes: [
+      { id: "setup:Checking", label: "Checking", kind: "setup_account", old: "13000", new: "13894.27", app_value: 13000, monarch_value: 13894.27 },
+      { id: "plan:home", label: "Home value (plan input)", kind: "plan:home", old: "", new: "1279500.00", app_value: 0, monarch_value: 1279500 },
+    ], rejected: [{ id: "setup:Inv", reason: "Investment accounts are valued from holdings" }] });
+    assert.match(html, /Update 2 numbers from Monarch/);
+    assert.match(html, /13000.*13894\.27/s);
+    assert.match(html, /blank/);
+    assert.match(html, /Rebuild after applying/);
+    assert.match(html, /setup:Inv: Investment accounts/);
+    assert.match(html, /Apply 2 changes/);
+    const empty = m.rcPreviewHtml({ changes: [], rejected: [] });
+    assert.match(empty, /Nothing to update/);
+    assert.match(empty, /disabled/);
+    assert.equal(m.rcPreviewHtml(null), "");
+  });
+
+  test("a setup-only preview has no plan-input warning", () => {
+    assert.ok(!m.rcPreviewHtml({ changes: [{ id: "a", label: "A", kind: "setup_account", old: "1", new: "2", app_value: 1, monarch_value: 2 }], rejected: [] }).includes("Rebuild after"));
+  });
+
+  test("unmatched Monarch accounts get a match picker with app targets and Ignore", () => {
+    const html = m.rcUnmatchedHtml(DATA([], { unmatched: [{ account_key: "mystery", label: "Mystery <1>", monarch_value: 77, closed: false }] }));
+    assert.match(html, /data-key="mystery"/);
+    assert.match(html, /value="ignore"/);
+    assert.match(html, /value="plan:home"/);
+    assert.match(html, /Mystery &lt;1&gt;/);
+    assert.equal(m.rcUnmatchedHtml(DATA([])), "");
+  });
+
+  test("change log shows Undo only for changes not yet undone", () => {
+    const html = m.rcLogHtml([
+      { id: 2, applied_at: "2026-10-14T04:00:00+00:00", label: "Checking", old_value: "13000", new_value: "13894.27", monarch_date: "2026-10-14", undone_at: null },
+      { id: 1, applied_at: "2026-10-13T04:00:00+00:00", label: "Visa", old_value: "", new_value: "5.00", monarch_date: "2026-10-13", undone_at: "2026-10-13T05:00:00+00:00" },
+    ]);
+    assert.equal((html.match(/rcUndo\(/g) || []).length, 1);
+    assert.match(html, /data-id="2"/);
+    assert.match(html, /undone/);
+    assert.match(m.rcLogHtml([]), /No updates from Monarch yet/);
+  });
+
+  test("a rejected latest import is surfaced with its reason", () => {
+    assert.match(m.rcImportNote(DATA([], { import: { status: "rejected", detail: "stale export" } })), /rejected \(stale export\).*2026-10-14/);
+    assert.equal(m.rcImportNote(DATA([])), "");
+  });
+});
+
+describe("page body", () => {
+  const state = (over) => ({ data: DATA([ROW()]), loading: false, error: "", message: null, selected: new Set(), preview: null, showMatched: false, tolerance: 1, log: [], ...over });
+
+  test("loading, error and not-yet-imported states", () => {
+    assert.match(m.rcBodyHtml(state({ data: null, loading: true })), /Loading the comparison/);
+    assert.match(m.rcBodyHtml(state({ error: "boom" })), /boom.*Retry/s);
+    assert.match(m.rcBodyHtml(state({ data: { has_balances: false } })), /No Monarch balances have been imported/);
+  });
+
+  test("the preview button counts only selected updatable rows", () => {
+    assert.match(m.rcBodyHtml(state()), /Preview update from Monarch \(0 selected\)"?[^>]*>|disabled>Preview update from Monarch \(0 selected\)/);
+    const html = m.rcBodyHtml(state({ selected: new Set(["setup:Checking", "gone"]) }));
+    assert.match(html, /Preview update from Monarch \(1 selected\)/);
+    assert.ok(!/disabled>Preview update from Monarch \(1/.test(html));
+  });
+
+  test("the as-of picker lists dates with the latest marked, and a message shows", () => {
+    const html = m.rcBodyHtml(state({ message: { text: "Updated 1 number", error: false } }));
+    assert.match(html, /<option value="2026-10-14" selected>2026-10-14 \(latest\)/);
+    assert.match(html, /Updated 1 number/);
+    assert.match(html, /Change log/);
+  });
+
+  test("renderMonarchReconciliation returns the root container", () => {
+    globalThis.setTimeout = () => 0;
+    assert.match(m.renderMonarchReconciliation(), /id="rcRoot"/);
+  });
+});
+
+describe("wiring", () => {
+  test("the step is registered under Reports & Review, dispatched, helped and loaded", () => {
+    const dash = read("dashboard.js");
+    assert.match(dash, /id: "monarch_reconciliation",\s+group: "Reports & Review",\s+title: "Monarch Reconciliation"/);
+    assert.match(dash, /activeStep === "monarch_reconciliation"\) content \+= renderMonarchReconciliation\(\)/);
+    assert.match(dash, /monarch_reconciliation: pageHelp\(/);
+    const html = fs.readFileSync(path.join(JS, "..", "index.html"), "utf8");
+    assert.match(html, /js\/dashboard_decomp_monarch_reconciliation\.js\?v=1/);
+  });
+
+  test("every handler the markup calls is registered on window", () => {
+    const src = read("dashboard_decomp_monarch_reconciliation.js");
+    const called = new Set([...src.matchAll(/onchange="(rc\w+)\(|onclick="(rc\w+)\(|onclick="(loadMonarchReconciliation)\(/g)].map((x) => x[1] || x[2] || x[3]));
+    for (const fn of called) assert.equal(typeof globalThis[fn], "function", `${fn} is not on window`);
+  });
+});

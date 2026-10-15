@@ -1055,10 +1055,9 @@ def ytd_account_setup_roll_forward():
 
 def _reconcile_call(fn, *args, **kwargs):
     from .. import reconcile as _reconcile
-    from ..stores.errors import StoreError
     try:
         return jsonify({"success": True, **fn(_ytd_input_root(), *args, **kwargs)}), 200
-    except (_reconcile.ReconcileError, StoreError) as exc:
+    except (ValueError, LookupError) as exc:  # ReconcileError, store validation / not-found errors
         return jsonify({"success": False, "error": str(exc)}), 400
 
 

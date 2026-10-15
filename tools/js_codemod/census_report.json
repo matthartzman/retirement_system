@@ -3031,6 +3031,24 @@
       "scope": "inside-function"
     },
     {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_monarch_reconciliation.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_monarch_reconciliation.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_monarch_reconciliation.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "dirty",
       "file": "frontend/js/dashboard_decomp_optimizer_apply.js",
       "kind": "read",
