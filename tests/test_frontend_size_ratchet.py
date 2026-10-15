@@ -564,7 +564,9 @@ DASHBOARD_JS_MAX_LINES = 7_134
 # 2026-10-15 (Credit card liability type: type-picker entry, field list and help text in
 # dashboard_decomp_assets_other.js, +3): raised to 39,189.
 # 2026-10-15 (ticket 354: snapshot revert re-formats before-values via revertValueForChange, +2): raised to 39,191.
-TOTAL_JS_MAX_LINES = 39_191
+# 2026-10-15 (Monarch mapping redesign M4: inbox tab, per-row policy, closed accounts, automatic-update banner and
+# CSV import in dashboard_decomp_monarch_reconciliation.js, +139): raised to 39,330.
+TOTAL_JS_MAX_LINES = 39_330
 
 
 def _line_count(path: Path) -> int:
