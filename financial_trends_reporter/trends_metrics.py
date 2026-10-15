@@ -24,6 +24,7 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from src import spending_tracker, ytd_tracking as ytd  # noqa: E402
+from . import balance_series  # noqa: E402
 from src.active_plan import peek_plan_data_for_input_dir  # noqa: E402
 from src.plan_data_read import read_plan_data_file  # noqa: E402
 from src.plan_datasets import dataset_rows_for_input_dir  # noqa: E402
@@ -158,7 +159,8 @@ def _same_day_prior_year(d: date) -> date:
         return date(d.year - 1, 2, 28)
 
 
-def compute_snapshot(base_dir: str | Path, *, today=None, passthrough_decisions: dict[str, str] | None = None) -> dict[str, Any]:
+def compute_snapshot(base_dir: str | Path, *, today=None, passthrough_decisions: dict[str, str] | None = None,
+                     balances_db: str | Path | None = None) -> dict[str, Any]:
     """Return one snapshot's worth of the four metric groups.
 
     ``base_dir`` is the retirement_system workspace root (contains input/,
@@ -269,4 +271,7 @@ def compute_snapshot(base_dir: str | Path, *, today=None, passthrough_decisions:
         "passthrough_review": inv.get("passthrough_review", []),
         "net_worth": net_worth,
         "cashflow": cashflow,
+        # Latest Monarch figures (toggle-aware) when the balance store has data; the plan-derived
+        # holdings/net_worth above remain the fallback and a cross-check.
+        "monarch_balances": balance_series.snapshot_summary(balances_db) if balances_db else None,
     }

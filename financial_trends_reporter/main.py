@@ -26,7 +26,7 @@ if str(_REPO_ROOT) not in sys.path:
 from src.http_runtime.server import run_local_server  # noqa: E402
 from src.http_runtime.wsgi_facade import Flask, Response, request  # noqa: E402
 
-from financial_trends_reporter import account_registry  # noqa: E402
+from financial_trends_reporter import account_registry, balance_series  # noqa: E402
 from financial_trends_reporter.balance_store import DB_FILENAME, freshness  # noqa: E402
 from financial_trends_reporter.passthrough_decisions import decisions_path_for_log, save_decision  # noqa: E402
 from financial_trends_reporter.trends_job import run as run_trends_job  # noqa: E402
@@ -112,6 +112,13 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None) -> Fla
             "charts": list(account_registry.CHARTS),
             "freshness": freshness(balances_db),
         })
+
+    @app.route("/api/balances", methods=["GET"])
+    def balances():
+        # Full per-account daily series (client re-sums on toggle) + merged Monarch/plan points.
+        payload = balance_series.balances_payload(balances_db, read_history(resolved_log_path))
+        payload["freshness"] = freshness(balances_db)
+        return _json(payload)
 
     @app.route("/api/app-accounts", methods=["GET"])
     def app_accounts():
