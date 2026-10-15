@@ -603,7 +603,7 @@ export function balancesFreshnessNote(freshness, today) {
   return "";
 }
 
-// ---- per-chart account toggle popover and the Accounts & mapping table ----
+// ---- per-chart account toggle popover ----
 
 const TYPE_ORDER = ["Cash", "Investment", "Retirement", "HSA", "Annuity/Pension", "Real estate", "Vehicle", "Loan", "Credit card", "Other"];
 
@@ -625,26 +625,10 @@ export function accountToggleHtml(accounts, chart, title) {
       `<span>${escSvg(a.display_name)}${a.active ? "" : ' <em class="pop-hint">(closed)</em>'}</span></label>`).join("") +
     `</fieldset>`).join("");
   return `<div class="pop-title">${escSvg(title)} - accounts</div>` +
+    `<div class="note">Type, match to the plan and Ignore come from the Retirement app's Monarch Reconciliation page.</div>` +
     `<div class="acct-actions"><button type="button" data-bulk="all" data-chart="${escSvg(chart)}">All</button> ` +
     `<button type="button" data-bulk="none" data-chart="${escSvg(chart)}">None</button> ` +
     `<button type="button" data-bulk="default" data-chart="${escSvg(chart)}">Reset to defaults</button></div>${body}`;
-}
-
-export function accountsTableHtml(accounts, types, appAccounts) {
-  const opts = (appAccounts || []).map(n => `<option value="${escSvg(n)}"></option>`).join("");
-  const row = a => `<tr data-key="${escSvg(a.account_key)}">` +
-    `<td>${escSvg(a.display_name)}${a.confirmed ? "" : ' <span class="badge-new">review</span>'}${a.active ? "" : ` <em class="pop-hint">closed ${escSvg(a.last_seen)}</em>`}</td>` +
-    `<td><select data-field="type" aria-label="Type for ${escSvg(a.display_name)}">` +
-      (types || []).map(t => `<option${t === a.type ? " selected" : ""}>${escSvg(t)}</option>`).join("") + `</select></td>` +
-    `<td><input type="text" list="appAccountList" data-field="app_account" value="${escSvg(a.app_account || "")}" placeholder="not mapped" aria-label="App account for ${escSvg(a.display_name)}"></td>` +
-    `<td class="num">${a.latest_balance == null ? "-" : escSvg(fmtMoney(a.latest_balance))}</td>` +
-    ["networth", "holdings", "flows"].map(c => `<td class="chk"><input type="checkbox" data-chart="${c}" aria-label="${c} for ${escSvg(a.display_name)}"${a.enabled && a.enabled[c] ? " checked" : ""}></td>`).join("") +
-    `</tr>`;
-  const active = accounts.filter(a => a.active), closed = accounts.filter(a => !a.active);
-  const head = `<thead><tr><th>Monarch account</th><th>Type</th><th>App account</th><th class="num">Balance</th><th>Net worth</th><th>Liquid &amp; cash</th><th>Flows</th></tr></thead>`;
-  const table = list => `<div class="acct-scroll"><table class="acct-table">${head}<tbody>${list.map(row).join("")}</tbody></table></div>`;
-  return `<datalist id="appAccountList">${opts}</datalist>${table(active)}` +
-    (closed.length ? `<details class="acct-closed"><summary>Closed accounts (${closed.length})</summary>${table(closed)}</details>` : "");
 }
 
 // ---- monthly investment flows (payload from /api/flows) ----

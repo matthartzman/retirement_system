@@ -4,7 +4,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import {
   buildMonarchRows, monarchRolloverModel, rolloverHtml, rolloverModel, balancesFreshnessNote,
-  accountToggleHtml, accountsTableHtml, flowIncludedAccounts, flowMonthlySeries, flowYtdSummary,
+  accountToggleHtml, flowIncludedAccounts, flowMonthlySeries, flowYtdSummary,
   flowSummaryHtml, flowLineChartSvg, fmtMoneySigned, hasMonarchBalances,
 } from "../../financial_trends_reporter/frontend/charts.js";
 
@@ -145,20 +145,8 @@ describe("account toggle popover and accounts table", () => {
     assert.ok(html.includes("&lt;b&gt;&amp;"));
   });
 
-  test("table rows carry the key, type options, mapping, review badge and three chart toggles", () => {
-    const rows = [{ ...acct("ira", "IRA - A", "Retirement", ON), confirmed: false, app_account: "IRA A", latest_balance: 120 }];
-    const html = accountsTableHtml(rows, ["Cash", "Retirement"], ["IRA A", "Other"]);
-    assert.match(html, /data-key="ira"/);
-    assert.match(html, /<option selected>Retirement<\/option>/);
-    assert.match(html, /value="IRA A"/);
-    assert.match(html, /badge-new/);
-    assert.equal((html.match(/data-chart="(networth|holdings|flows)"/g) || []).length, 3);
-    assert.match(html, /<datalist id="appAccountList">/);
-  });
-
-  test("closed accounts sit in a collapsed section", () => {
-    const html = accountsTableHtml(BAL.accounts, ["Cash"], []);
-    assert.match(html, /<details class="acct-closed"><summary>Closed accounts \(1\)/);
+  test("the popover says type, match and ignore come from the app", () => {
+    assert.match(accountToggleHtml([acct("x", "X", "Cash", ON)], "networth", "Net worth"), /Retirement app's Monarch Reconciliation/);
   });
 });
 

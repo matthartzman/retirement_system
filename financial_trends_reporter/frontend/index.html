@@ -123,12 +123,7 @@
   <div class="card"><h2>YTD expenses by tracking type (latest)</h2><div id="chartCategories"></div>
     <div class="note">Roll over a bar to see its categories, then roll over a category to see its merchants. Totals follow the Spending Analysis mapping and include taxes.</div></div>
 </div>
-<details class="card acct-panel" id="acctPanel">
-  <summary>Monarch accounts &amp; mapping</summary>
-  <div class="note">Set each Monarch account's type, map it to the matching account in the plan (several Monarch accounts can map to one), and choose which charts include it. Accounts marked "review" were classified from their name and haven't been confirmed.</div>
-  <div id="accountsBody"><div class="empty">Open to load accounts.</div></div>
-  <div id="accountsMsg" role="status"></div>
-</details>
+<div id="accountsMsg" role="status"></div>
 <div id="detailPopup" role="tooltip"></div>
 <div id="detailPopup2" role="tooltip"></div>
 <div id="rollPopup" role="tooltip"></div>
@@ -138,7 +133,7 @@
 // Finding QUA-302 (Wave 6 item W6-11): the chart-rendering logic below used
 // to be defined inline, right here, with no module boundary. It now lives
 // in ./charts.js, importable and testable directly.
-import { fmtMoney, escSvg, filterByTimeframe, aggregateByGranularity, granularityForTimeframe, labelForDate, dataTableFallbackHtml, lineChartSvg, barChartSvg, buildHierarchyRows, detailPopupHtml, categoryListHtml, investmentFlowRows, flowBarChartSvg, passthroughReviewHtml, rolloverModel, rolloverHtml, hasMonarchBalances, buildMonarchRows, truncateAllTime, ALL_TIME_START, monarchRolloverModel, balancesFreshnessNote, accountToggleHtml, accountsTableHtml, flowIncludedAccounts, flowMonthlySeries, flowYtdSummary, flowSummaryHtml, flowLineChartSvg } from "./charts.js";
+import { fmtMoney, escSvg, filterByTimeframe, aggregateByGranularity, granularityForTimeframe, labelForDate, dataTableFallbackHtml, lineChartSvg, barChartSvg, buildHierarchyRows, detailPopupHtml, categoryListHtml, investmentFlowRows, flowBarChartSvg, passthroughReviewHtml, rolloverModel, rolloverHtml, hasMonarchBalances, buildMonarchRows, truncateAllTime, ALL_TIME_START, monarchRolloverModel, balancesFreshnessNote, accountToggleHtml, flowIncludedAccounts, flowMonthlySeries, flowYtdSummary, flowSummaryHtml, flowLineChartSvg } from "./charts.js";
 
 let history = [];
 let timeframe = "month";
@@ -147,8 +142,6 @@ let chartRows = [];
 // Monarch data (best effort: the page still works from the plan-derived log without it).
 let balances = null;      // /api/balances
 let flowsData = null;     // /api/flows
-let accountTypes = [];
-let appAccounts = null;   // /api/app-accounts, loaded when the accounts panel opens
 
 // Show the newest dates first: scrolled all the way to the right.
 function scrollChartsToLatest() {
@@ -473,7 +466,6 @@ async function reloadBalances() {
 }
 function refreshOpenAccountViews() {
   if (acctPopChart && hasMonarchBalances(balances)) acctPop.innerHTML = accountToggleHtml(balances.accounts, acctPopChart, acctPopTitle);
-  if (document.getElementById("acctPanel").open) renderAccountsPanel();
 }
 function openAcctPop(btn) {
   if (!hasMonarchBalances(balances)) return;
@@ -499,50 +491,6 @@ acctPop.addEventListener("click", (e) => {
   if (!btn || !hasMonarchBalances(balances)) return;
   const chart = btn.dataset.chart, mode = btn.dataset.bulk;
   savePrefs(balances.accounts.map(a => ({ chart, account_key: a.account_key, enabled: mode === "default" ? null : mode === "all" })));
-});
-
-function renderAccountsPanel() {
-  const body = document.getElementById("accountsBody");
-  if (!hasMonarchBalances(balances)) { body.innerHTML = '<div class="empty">No Monarch balances imported yet.</div>'; return; }
-  body.innerHTML = accountsTableHtml(balances.accounts, accountTypes, appAccounts);
-}
-async function loadAccountsPanel() {
-  try {
-    const [types, apps] = await Promise.all([
-      fetch("/api/accounts").then(r => r.json()),
-      fetch("/api/app-accounts").then(r => r.json()),
-    ]);
-    accountTypes = types.types || [];
-    appAccounts = apps.app_accounts || [];
-    if (hasMonarchBalances(balances) && Array.isArray(types.accounts)) {
-      // Fresh registry rows (type, mapping, confirmed) while keeping the loaded series.
-      balances.accounts = types.accounts;
-    }
-  } catch (err) {
-    showMsg("Couldn't load the account list: " + err.message, true);
-  }
-  renderAccountsPanel();
-}
-document.getElementById("acctPanel").addEventListener("toggle", () => {
-  if (document.getElementById("acctPanel").open) loadAccountsPanel();
-});
-document.getElementById("accountsBody").addEventListener("change", async (e) => {
-  const row = e.target.closest && e.target.closest("tr[data-key]");
-  if (!row) return;
-  const key = row.dataset.key;
-  if (e.target.dataset.chart) { savePrefs([{ chart: e.target.dataset.chart, account_key: key, enabled: e.target.checked }]); return; }
-  const field = e.target.dataset.field;
-  if (!field) return;
-  try {
-    const payload = await postJson("/api/account", { account_key: key, [field]: e.target.value });
-    const i = balances.accounts.findIndex(a => a.account_key === key);
-    if (i >= 0) balances.accounts[i] = payload.account;
-    showMsg("Saved.", false);
-  } catch (err) {
-    showMsg("Couldn't save: " + err.message, true);
-  }
-  render();
-  renderAccountsPanel();
 });
 
 document.getElementById("customFrom").addEventListener("change", () => { if (timeframe === "custom") render(); });
