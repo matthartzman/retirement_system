@@ -458,6 +458,14 @@ def transaction_hash(row: dict[str, Any]) -> str:
     return hashlib.sha1(payload.encode("utf-8")).hexdigest()
 
 
+def incremental_window_skips(d: date | None, latest_existing: date | None, existing_years: set[int]) -> bool:
+    """Incremental imports only take rows newer than the latest stored transaction,
+    so edited or deleted rows are not resurrected -- but only for years already
+    loaded. A year with no stored rows is a backfill (e.g. last year's history)
+    and is accepted, still subject to duplicate-hash skipping."""
+    return bool(latest_existing and d and d <= latest_existing and d.year in existing_years)
+
+
 def import_transactions(root: str | Path, text: str, mode: str = "replace", *, today: date | None = None) -> dict[str, Any]:
     """Import transactions from CSV text.
 
@@ -481,7 +489,9 @@ def import_transactions(root: str | Path, text: str, mode: str = "replace", *, t
     mode = str(mode or "replace").strip().lower()
     existing = read_transactions(root, today=today)
     existing_hashes = {transaction_hash(r) for r in existing}
-    latest_existing = max([parse_date(r.get("Date")) for r in existing if parse_date(r.get("Date"))] or [None])
+    existing_dates = [parse_date(r.get("Date")) for r in existing if parse_date(r.get("Date"))]
+    latest_existing = max(existing_dates or [None])
+    existing_years = {d.year for d in existing_dates}
     added = []
     skipped = skipped_not_current_year
     if mode in {"replace", "reload", "delete_all_and_reload"}:
@@ -491,7 +501,7 @@ def import_transactions(root: str | Path, text: str, mode: str = "replace", *, t
         final = list(existing)
         for row in incoming:
             d = parse_date(row.get("Date"))
-            if latest_existing and d and d <= latest_existing:
+            if incremental_window_skips(d, latest_existing, existing_years):
                 skipped += 1
                 continue
             h = transaction_hash(row)
