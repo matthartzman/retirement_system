@@ -124,17 +124,11 @@ export function resolveCurrentRowIndex(rowsList, c) {
   return row ? row.row_index : null;
 }
 
-// A change's beforeStorage is the editor's raw storage form (percent fields hold
-// a bare "0", not "0.00%"). Normal saves pass values through normalizeValueForSave,
-// which restores the percent/date/currency format the server validates; a revert
-// has to do the same or the server rejects the replay (ticket 354).
+// beforeStorage is the editor's raw form (percent "0"); saves re-format it via normalizeValueForSave, so a
+// revert must too or the server rejects it (ticket 354).
 export function revertValueForChange(row, c) {
-  const raw = String(
-    c.beforeStorage != null ? c.beforeStorage : c.before != null ? c.before : "",
-  );
-  return row && typeof normalizeValueForSave === "function"
-    ? normalizeValueForSave(row, raw)
-    : raw;
+  const raw = String(c.beforeStorage ?? c.before ?? "");
+  return row && typeof normalizeValueForSave === "function" ? normalizeValueForSave(row, raw) : raw;
 }
 
 export async function revertToBuildHistoryEntry(id) {
@@ -174,10 +168,7 @@ export async function revertToBuildHistoryEntry(id) {
   try {
     const updates = changes.map(({ change: c, row_index }) => ({
       row_index,
-      value: revertValueForChange(
-        rows.find((r) => r.row_index === row_index),
-        c,
-      ),
+      value: revertValueForChange(rows.find((r) => r.row_index === row_index), c),
     }));
     await api("/api/config/rows", {
       method: "POST",

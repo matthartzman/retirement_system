@@ -1501,10 +1501,7 @@ async function revertLastBuildChanges() {
     }
     const updates = changes.map((c) => ({
       row_index: c.row_index,
-      value: revertValueForChange(
-        rows.find((r) => r.row_index === c.row_index),
-        c,
-      ),
+      value: revertValueForChange(rows.find((r) => r.row_index === c.row_index), c),
     }));
     await api("/api/config/rows", {
       method: "POST",

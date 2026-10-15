@@ -563,7 +563,8 @@ DASHBOARD_JS_MAX_LINES = 7_134
 # plus its STEPS/help/dispatch entries; dashboard.js stays under its own ceiling): raised to 39,186.
 # 2026-10-15 (Credit card liability type: type-picker entry, field list and help text in
 # dashboard_decomp_assets_other.js, +3): raised to 39,189.
-TOTAL_JS_MAX_LINES = 39_189
+# 2026-10-15 (ticket 354: snapshot revert re-formats before-values via revertValueForChange, +2): raised to 39,191.
+TOTAL_JS_MAX_LINES = 39_191
 
 
 def _line_count(path: Path) -> int:
