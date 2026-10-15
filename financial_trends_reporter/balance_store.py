@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS accounts (
     display_name TEXT NOT NULL,
     type TEXT,
     app_account TEXT,
+    confirmed INTEGER NOT NULL DEFAULT 0,
     first_seen TEXT NOT NULL,
     last_seen TEXT NOT NULL,
     active INTEGER NOT NULL DEFAULT 1
@@ -72,6 +73,10 @@ def connect(db_path: str | Path) -> sqlite3.Connection:
     conn = sqlite3.connect(str(path))
     conn.row_factory = sqlite3.Row
     conn.executescript(_SCHEMA)
+    # Phase 2 stores created before the registry lack ``confirmed``.
+    if "confirmed" not in {r["name"] for r in conn.execute("PRAGMA table_info(accounts)")}:
+        conn.execute("ALTER TABLE accounts ADD COLUMN confirmed INTEGER NOT NULL DEFAULT 0")
+        conn.commit()
     return conn
 
 
