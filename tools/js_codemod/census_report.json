@@ -8257,6 +8257,12 @@
       "scope": "inside-function"
     },
     {
+      "name": "ytdData",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "chartCacheSeq",
       "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
       "kind": "read",
