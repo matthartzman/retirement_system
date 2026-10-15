@@ -354,3 +354,11 @@ def test_other_asset_update_writes_value_and_as_of_date_and_undo_restores_both(t
         assert store.find_rows("Other Assets", "Other Asset 1", "value")[-1]["value"] == "$10,554.12"
         assert store.find_rows("Other Assets", "Other Asset 1", "as_of_date")[-1]["value"] == "06/30/2026"
         assert store.liabilities.rows()[0]["balance"] == "199000"
+
+
+def test_change_log_records_whether_a_change_was_manual_or_auto(tmp_path):
+    base = _workspace(tmp_path)
+    reconcile.apply(base / "input", [{"id": "setup:Family Checking"}], today=TODAY)
+    reconcile.apply(base / "input", [{"id": "setup:Private Note"}], today=TODAY, source="auto")
+    log = {e["label"]: e["source"] for e in reconcile.change_log(base / "input")}
+    assert log == {"Family Checking": "manual", "Private Note": "auto"}

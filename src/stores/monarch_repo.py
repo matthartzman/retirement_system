@@ -68,6 +68,7 @@ SCHEMA_V14_DDL = f"""
 ALTER TABLE monarch_account_map ADD COLUMN policy TEXT NOT NULL DEFAULT '{DEFAULT_POLICY}'
     CHECK (policy IN ({", ".join(repr(p) for p in POLICIES)}));
 UPDATE monarch_account_map SET policy = 'ignore' WHERE kind = 'ignore';
+ALTER TABLE reconcile_log ADD COLUMN source TEXT NOT NULL DEFAULT 'manual' CHECK (source IN ('manual', 'auto'));
 """
 
 # An account whose last row is within this many days of the newest stored date is treated as still live
@@ -188,11 +189,11 @@ class MonarchRepo:
 
     # ------------------------------------------------------------------ reconcile log
     def log_change(self, applied_at: str, kind: str, ref: str, field: str, label: str, old_value: str,
-                   new_value: str, monarch_date: str) -> int:
+                   new_value: str, monarch_date: str, source: str = "manual") -> int:
         with self._store._write() as con:
             cur = con.execute(
-                "INSERT INTO reconcile_log (applied_at, kind, ref, field, label, old_value, new_value, monarch_date) "
-                "VALUES (?,?,?,?,?,?,?,?)", (applied_at, kind, ref, field, label, old_value, new_value, monarch_date))
+                "INSERT INTO reconcile_log (applied_at, kind, ref, field, label, old_value, new_value, monarch_date, source) "
+                "VALUES (?,?,?,?,?,?,?,?,?)", (applied_at, kind, ref, field, label, old_value, new_value, monarch_date, source))
             return int(cur.lastrowid)
 
     def log_entries(self, limit: int = 200) -> list[dict[str, Any]]:

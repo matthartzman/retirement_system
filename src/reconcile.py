@@ -451,7 +451,7 @@ def _now() -> str:
 
 @_store_errors
 def apply(input_dir: str | Path, items: list[dict[str, Any]], as_of: str | None = None, *,
-          tolerance: float = DEFAULT_TOLERANCE, today: date | None = None) -> dict[str, Any]:
+          tolerance: float = DEFAULT_TOLERANCE, today: date | None = None, source: str = "manual") -> dict[str, Any]:
     """Write the chosen rows' Monarch numbers into the app and log each change.
 
     The rows are recomputed here (never trusted from the page); an item whose ``expected_new`` no longer
@@ -484,7 +484,7 @@ def apply(input_dir: str | Path, items: list[dict[str, Any]], as_of: str | None 
                     _write_other_asset(store, w["ref"], *w["new"].split("|"))
                 elif w["kind"].startswith(DYN_LIABILITY):
                     _write_liability_balance(store, w["ref"], w["new"])
-                entry_id = store.monarch.log_change(_now(), w["kind"], w["ref"], w["field"], r["label"], w["old"], w["new"], data["as_of"])
+                entry_id = store.monarch.log_change(_now(), w["kind"], w["ref"], w["field"], r["label"], w["old"], w["new"], data["as_of"], source)
                 applied.append({**_change(r), "change_id": entry_id})
     return {"as_of": data["as_of"], "applied": applied, "rejected": rejected}
 
