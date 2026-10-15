@@ -226,7 +226,7 @@ const STEPS = [
     group: "Reports & Review",
     title: "Monarch Reconciliation",
     desc: "The app's account numbers beside Monarch's daily balances, with a way to copy Monarch's number into the app.",
-    intro: "Review differences, tick the ones to update, preview the old and new values, then apply. Every change is logged and can be undone.",
+    intro: "Each difference needs a choice: update the app, ignore it this time, always update from Monarch, or keep the app as the source. Every change is logged and can be undone.",
     help: "Investment accounts are valued from holdings, so they are report only. Plan inputs (home, autos, mortgage) are plan-start figures; rebuild after changing them.",
   },
   {
@@ -438,9 +438,9 @@ const STEP_HELP = {
   ),
   monarch_reconciliation: pageHelp(
     "Monarch reconciliation",
-    "Compares each account number in the app with the balance Monarch reports, as of a date you pick, and lists what differs.",
-    "Accounts match by name or by a match you save. Cash, cards, loans and manual accounts update the Accounts & Sources value; home, autos and mortgage update the plan inputs. Investments are valued from holdings and are never changed here.",
-    "Select the differences you trust, preview the old and new values, then apply. Use Undo in the change log to put a number back; it refuses if the value was edited since.",
+    "Compares each account number in the app with the balance Monarch reports, as of a date you pick, and lists what needs a decision.",
+    "Accounts match by name, by a match you save, or by importing your mapping CSV. Each match has a policy: ask me, always update (copied at the nightly import unless the change is large or a plan-start input), app is source, or ignore. Investments are never changed here.",
+    "Update app previews the old and new value before anything is written. Use Undo in the change log, or Undo all automatic updates; it refuses if the value was edited since.",
     "A corrected balance changes net worth, YTD growth and the starting values the next build uses. Rebuild after applying.",
   ),
   rental_properties: pageHelp(
