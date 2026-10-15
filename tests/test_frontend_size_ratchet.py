@@ -561,7 +561,9 @@ DASHBOARD_JS_MAX_LINES = 7_134
 # import/delete-all/recover/roll-forward gain the call, net -2): lowered to 38,879.
 # 2026-10-14 (Monarch Reconciliation page: new feature module dashboard_decomp_monarch_reconciliation.js, 272 lines,
 # plus its STEPS/help/dispatch entries; dashboard.js stays under its own ceiling): raised to 39,186.
-TOTAL_JS_MAX_LINES = 39_186
+# 2026-10-15 (Credit card liability type: type-picker entry, field list and help text in
+# dashboard_decomp_assets_other.js, +3): raised to 39,189.
+TOTAL_JS_MAX_LINES = 39_189
 
 
 def _line_count(path: Path) -> int:
