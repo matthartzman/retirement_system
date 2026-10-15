@@ -26,6 +26,8 @@ if str(_REPO_ROOT) not in sys.path:
 from src.http_runtime.server import run_local_server  # noqa: E402
 from src.http_runtime.wsgi_facade import Flask, Response, request  # noqa: E402
 
+from financial_trends_reporter import account_registry, balance_series, flows  # noqa: E402
+from financial_trends_reporter.balance_store import DB_FILENAME, freshness  # noqa: E402
 from financial_trends_reporter.passthrough_decisions import decisions_path_for_log, save_decision  # noqa: E402
 from financial_trends_reporter.trends_job import run as run_trends_job  # noqa: E402
 from financial_trends_reporter.trends_log import default_log_path, read_history  # noqa: E402
@@ -95,6 +97,63 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None) -> Fla
         except ValueError as exc:
             return Response(json.dumps({"success": False, "error": str(exc)}), status=400, content_type="application/json")
         return Response(json.dumps({"success": True}), content_type="application/json")
+
+    balances_db = resolved_log_path.with_name(DB_FILENAME)
+
+    def _json(payload, status=200):
+        return Response(json.dumps(payload), status=status, content_type="application/json")
+
+    @app.route("/api/accounts", methods=["GET"])
+    def accounts():
+        # Monarch accounts with type, app-account mapping and per-chart toggles.
+        return _json({
+            "accounts": account_registry.list_accounts(balances_db),
+            "types": list(account_registry.TYPES),
+            "charts": list(account_registry.CHARTS),
+            "freshness": freshness(balances_db),
+        })
+
+    @app.route("/api/balances", methods=["GET"])
+    def balances():
+        # Full per-account daily series (client re-sums on toggle) + merged Monarch/plan points.
+        payload = balance_series.balances_payload(balances_db, read_history(resolved_log_path))
+        payload["freshness"] = freshness(balances_db)
+        return _json(payload)
+
+    @app.route("/api/flows", methods=["GET"])
+    def flows_endpoint():
+        # Monthly investment flows from the latest log entry, toggled by the registry's Flows prefs.
+        history = read_history(resolved_log_path)
+        return _json(flows.flows_payload(history[-1] if history else None, account_registry.list_accounts(balances_db)))
+
+    @app.route("/api/app-accounts", methods=["GET"])
+    def app_accounts():
+        return _json({"app_accounts": account_registry.list_app_accounts(retirement_system_dir)})
+
+    @app.route("/api/account", methods=["POST"])
+    def update_account():
+        # Body-keyed (not a path segment): Monarch account names contain spaces, parentheses and '%'.
+        body = request.get_json(silent=True) or {}
+        try:
+            updated = account_registry.set_account(
+                balances_db, str(body.get("account_key") or ""),
+                type=body.get("type"), app_account=body.get("app_account"),
+            )
+        except ValueError as exc:
+            return _json({"success": False, "error": str(exc)}, 400)
+        return _json({"success": True, "account": updated})
+
+    @app.route("/api/account-prefs", methods=["POST"])
+    def update_account_prefs():
+        body = request.get_json(silent=True) or {}
+        items = body.get("items")
+        if not isinstance(items, list):
+            return _json({"success": False, "error": "items must be a list"}, 400)
+        try:
+            count = account_registry.set_prefs(balances_db, items)
+        except ValueError as exc:
+            return _json({"success": False, "error": str(exc)}, 400)
+        return _json({"success": True, "updated": count})
 
     @app.route("/api/run-now", methods=["POST"])
     def run_now():

@@ -24,6 +24,7 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from src import spending_tracker, ytd_tracking as ytd  # noqa: E402
+from . import balance_series  # noqa: E402
 from src.active_plan import peek_plan_data_for_input_dir  # noqa: E402
 from src.plan_data_read import read_plan_data_file  # noqa: E402
 from src.plan_datasets import dataset_rows_for_input_dir  # noqa: E402
@@ -158,7 +159,31 @@ def _same_day_prior_year(d: date) -> date:
         return date(d.year - 1, 2, 28)
 
 
-def compute_snapshot(base_dir: str | Path, *, today=None, passthrough_decisions: dict[str, str] | None = None) -> dict[str, Any]:
+def _monthly_investment_flows(input_dir: Path, summary: dict[str, Any], today, passthrough_decisions) -> dict[str, dict[str, dict[str, float]]]:
+    """``{account: {YYYY-MM: {to_checking, from_checking}}}`` across every imported year.
+
+    The current-year ledger comes from ``summary``; each earlier year with transactions is
+    computed by the same summary pass (same passthrough rules and decisions) so the monthly
+    line can run back to the first imported month.
+    """
+    merged: dict[str, dict[str, dict[str, float]]] = {}
+    current_year = (today or date.today()).year
+
+    def fold(ledger):
+        for acct, months in (ledger or {}).items():
+            merged.setdefault(acct, {}).update(months)
+
+    fold(summary.get("investment_balance", {}).get("monthly_flows_by_account"))
+    for year in summary.get("available_years", []):
+        if year >= current_year:
+            continue
+        past = ytd.ytd_summary(input_dir, today=today, period=str(year), passthrough_decisions=passthrough_decisions)
+        fold(past.get("investment_balance", {}).get("monthly_flows_by_account"))
+    return {a: dict(sorted(m.items())) for a, m in merged.items()}
+
+
+def compute_snapshot(base_dir: str | Path, *, today=None, passthrough_decisions: dict[str, str] | None = None,
+                     balances_db: str | Path | None = None) -> dict[str, Any]:
     """Return one snapshot's worth of the four metric groups.
 
     ``base_dir`` is the retirement_system workspace root (contains input/,
@@ -265,8 +290,13 @@ def compute_snapshot(base_dir: str | Path, *, today=None, passthrough_decisions:
         "holdings": holdings,
         # {account: {to_checking, from_checking, net}}; net = withdrawals - contributions.
         "investment_net_flows_by_account": inv.get("net_flows_by_account", {}),
+        # {account: {YYYY-MM: {to_checking, from_checking}}}, every imported year; feeds the monthly flows line.
+        "investment_flows_monthly": _monthly_investment_flows(input_dir, summary, today, passthrough_decisions),
         # Near-match investment-to-investment pairs awaiting the user's approve/deny.
         "passthrough_review": inv.get("passthrough_review", []),
         "net_worth": net_worth,
         "cashflow": cashflow,
+        # Latest Monarch figures (toggle-aware) when the balance store has data; the plan-derived
+        # holdings/net_worth above remain the fallback and a cross-check.
+        "monarch_balances": balance_series.snapshot_summary(balances_db) if balances_db else None,
     }

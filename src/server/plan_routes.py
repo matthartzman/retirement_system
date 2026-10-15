@@ -1050,6 +1050,94 @@ def ytd_account_setup_roll_forward():
     return jsonify(_ytd_feature_service().roll_forward_account_setup())
 
 
+# ---- Account reconciliation (app vs Monarch) ----
+# Logic lives in src/reconcile.py; every write is logged and undoable (reconcile_log).
+
+def _reconcile_call(fn, *args, **kwargs):
+    from .. import reconcile as _reconcile
+    try:
+        return jsonify({"success": True, **fn(_ytd_input_root(), *args, **kwargs)}), 200
+    except _reconcile.ReconcileError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+
+
+@app.route("/api/reconcile", methods=["GET"])
+def reconcile_rows():
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    from .. import reconcile as _reconcile
+    try:
+        tolerance = float(request.args.get("tolerance") or _reconcile.DEFAULT_TOLERANCE)
+    except ValueError:
+        return jsonify({"success": False, "error": "tolerance must be a number"}), 400
+    return _reconcile_call(_reconcile.build_rows, request.args.get("as_of") or None, tolerance=tolerance)
+
+
+@app.route("/api/reconcile/map", methods=["POST"])
+def reconcile_map():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    from .. import reconcile as _reconcile
+    body = request.get_json(silent=True) or {}
+    response = _reconcile_call(_reconcile.set_mapping, str(body.get("account_key") or ""), body.get("target") or None)
+    if response[1] == 200:
+        _audit("reconcile_mapped", {"account_key": str(body.get("account_key") or ""), "target": str(body.get("target") or "")})
+    return response
+
+
+@app.route("/api/reconcile/preview", methods=["POST"])
+def reconcile_preview():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    from .. import reconcile as _reconcile
+    body = request.get_json(silent=True) or {}
+    items = body.get("items") if isinstance(body.get("items"), list) else []
+    return _reconcile_call(_reconcile.preview, items, body.get("as_of") or None)
+
+
+@app.route("/api/reconcile/apply", methods=["POST"])
+def reconcile_apply():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    from .. import reconcile as _reconcile
+    body = request.get_json(silent=True) or {}
+    items = body.get("items") if isinstance(body.get("items"), list) else []
+    response = _reconcile_call(_reconcile.apply, items, body.get("as_of") or None)
+    if response[1] == 200:
+        _audit("reconcile_applied", {"changes": len(response[0].get_json().get("applied", []))})
+    return response
+
+
+@app.route("/api/reconcile/undo", methods=["POST"])
+def reconcile_undo():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    from .. import reconcile as _reconcile
+    body = request.get_json(silent=True) or {}
+    try:
+        change_id = int(body.get("change_id"))
+    except (TypeError, ValueError):
+        return jsonify({"success": False, "error": "change_id must be a number"}), 400
+    response = _reconcile_call(_reconcile.undo, change_id)
+    if response[1] == 200:
+        _audit("reconcile_undone", {"change_id": change_id})
+    return response
+
+
+@app.route("/api/reconcile/log", methods=["GET"])
+def reconcile_log():
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    from .. import reconcile as _reconcile
+    return _reconcile_call(lambda input_dir: {"log": _reconcile.change_log(input_dir)})
+
+
 @app.route("/api/ytd/transactions/bulk", methods=["PUT"])
 def ytd_transactions_bulk_save():
     denied = _require("write_config")

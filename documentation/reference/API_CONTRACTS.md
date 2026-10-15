@@ -596,3 +596,16 @@ Ownership:
 
 Representative typed contracts are also exposed by `/api/contracts` using the `large_discretionary_expenses_v1`, `forced_roth_conversions_v1`, `liquidity_buffers_v1`, `insurance_policy_add_v1`, and `insurance_policy_delete_v1` schemas.
 
+
+## `/api/reconcile`
+
+Account reconciliation: the app's account numbers against Monarch's daily balances (imported into the plan file's `monarch_balances` table by the 04:00 job). Logic lives in `src/reconcile.py`; the routes are thin.
+
+- `GET /api/reconcile?as_of=YYYY-MM-DD&tolerance=1`: comparison rows as of a Monarch date (default the latest). Response `{success, has_balances, as_of, latest, tolerance, dates, rows, unmatched, ignored, import, last_ok_import, app_targets}`. Each row has `id` (`setup:<account>`, `plan:home`, `plan:autos`, `plan:mortgage`), `label`, `group`, `app_value`, `monarch_value` (liabilities sign-flipped to the app's positive convention), `difference`, `status` (`match`, `differs`, `report_only`, `not_in_monarch`), `updatable`, `write` (what an update would change: `{kind, ref, field, old, new}`), `report_reason` and the matched `monarch_accounts`. `unmatched` lists Monarch accounts with no app match. `400` for a bad `as_of` or `tolerance`.
+- `POST /api/reconcile/map`: body `{account_key, target}`; `target` is a row id, `ignore`, or empty to clear. Saves how a Monarch account matches an app number (several may map to one; their balances are summed). `400` for an unknown account or target.
+- `POST /api/reconcile/preview`: body `{items: [{id}], as_of?}`. Returns `{changes, rejected}` (old to new for each row that would change) and writes nothing.
+- `POST /api/reconcile/apply`: same body; each item may carry `expected_new` (the preview's number), and an item whose current number differs is rejected as stale. Returns `{applied: [{change_id, ...}], rejected}`; every change is logged. Investment accounts and income-stream annuities are report only and always rejected.
+- `POST /api/reconcile/undo`: body `{change_id}`. Restores the old value only while the app still holds the number that change wrote; `400` otherwise or if already undone.
+- `GET /api/reconcile/log`: `{log: [...]}`, newest first, each with `old_value`, `new_value`, `monarch_date` and `undone_at`.
+
+Writes need the `write_config` permission; reads need `view_dashboard`.

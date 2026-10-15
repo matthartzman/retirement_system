@@ -13,6 +13,7 @@ from typing import Any
 
 from . import monarch_autoupdate as mau
 from . import monarch_import as mi
+from .monarch_balances_import import import_balances
 from . import onedrive_guard
 from . import ytd_tracking as ytd
 
@@ -70,6 +71,19 @@ def _mark_runs_delivered(extractor_dir: Path, run_ids: list[str]) -> list[str]:
 
 
 def run(base_dir: str | Path, *, force: bool = False) -> dict[str, Any]:
+    """Transaction import, then the daily account balances (best effort: a balances problem is
+    reported under ``balances`` and never changes ``success``)."""
+    result = _run_transactions(base_dir, force=force)
+    if result.get("skip_reason") == "disabled":
+        return result
+    try:
+        result["balances"] = import_balances(base_dir)
+    except Exception as exc:  # noqa: BLE001 - must not fail the transaction import
+        result["balances"] = {"success": False, "status": "error", "error": f"{exc.__class__.__name__}: {exc}"}
+    return result
+
+
+def _run_transactions(base_dir: str | Path, *, force: bool = False) -> dict[str, Any]:
     base_dir = Path(base_dir)
     loaded = mau.load_policy(base_dir)
     policy = loaded["policy"]

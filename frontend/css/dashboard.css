@@ -1196,3 +1196,32 @@ details.page-accordion[open]>summary::before,.page-recommendations[open]>summary
 .rp-inline input{width:auto;min-width:90px;flex:1 1 90px}
 .badge.exp{background:#eef2ff;color:#3730a3;border:1px dashed #a5b4fc}
 @media(max-width:700px){.rp-strip{grid-template-columns:1fr 1fr}.rp-table{display:none}.rp-cards{display:block}}
+
+/* Monarch Reconciliation page (Reports & Review) */
+.rc-page{padding-top:8px}
+.rc-page h3{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:18px 0 6px}
+.rc-controls{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;margin:8px 0}
+.rc-controls select{width:auto;padding:5px 8px;border:1px solid var(--line2);border-radius:8px}
+.rc-summary{margin:6px 0 10px;color:var(--muted)}
+.rc-group-head{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:14px}
+.rc-group-head h3{margin:0}
+.rc-scroll{overflow-x:auto}
+.rc-table{width:100%;border-collapse:collapse;border:1px solid var(--line);margin:6px 0}
+.rc-table th,.rc-table td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+.rc-table th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);background:#fbfaf7}
+.rc-table .rc-num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rc-table td.rc-box{width:34px}
+.rc-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.rc-up{color:var(--ok)}
+.rc-down{color:var(--danger)}
+.rc-status{font-size:11px;font-weight:800;border-radius:999px;padding:2px 8px;background:#f3f1ea;white-space:nowrap}
+.rc-status.rc-differs{background:#fef3c7;color:var(--warn)}
+.rc-status.rc-match{background:#dcfce7;color:var(--ok)}
+.rc-status.rc-not_in_monarch,.rc-status.rc-not_in_app{background:#fee2e2;color:var(--danger)}
+.rc-preview{border:1px solid #9bc4f5;background:#f8fbff;border-radius:12px;padding:12px 14px;margin:12px 0}
+.rc-preview h3{margin-top:0}
+.rc-warn{border-color:#fde68a;background:#fffbeb;color:var(--warn)}
+@media (max-width:700px){.rc-table th,.rc-table td{padding:6px}}
+
+.rc-unmatch{border:0;background:transparent;color:var(--muted);cursor:pointer;padding:0 2px;font-size:11px}.rc-unmatch:hover{color:var(--danger)}
+.rc-ignored{margin:10px 0}.rc-ignored ul{margin:6px 0 6px 20px}

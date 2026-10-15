@@ -14,6 +14,7 @@ this directory must exist.
 Entries:
 
 - [`2026-09-changes-334-339.md`](2026-09-changes-334-339.md) -- IRMAA indexing (#334), one-time Large Discretionary (#336), Next Housing Move gating (#338) and related changes.
+- [`2026-10-monarch-balances-and-reconciliation.md`](2026-10-monarch-balances-and-reconciliation.md) -- daily Monarch account balances, the trends charts built on them, and the Monarch Reconciliation page.
 
 For the running record of golden-master projection changes, see
 [`../GOLDEN_MASTER_CHANGELOG.md`](../GOLDEN_MASTER_CHANGELOG.md).

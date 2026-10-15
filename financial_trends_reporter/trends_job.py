@@ -19,6 +19,7 @@ if str(_REPO_ROOT) not in sys.path:
 
 from src import onedrive_guard  # noqa: E402
 
+from .balance_store import DB_FILENAME, default_source_path, import_balances  # noqa: E402
 from .passthrough_decisions import decisions_path_for_log, load_decisions  # noqa: E402
 from .trends_log import append_or_replace_entry, default_log_path  # noqa: E402
 from .trends_metrics import compute_snapshot  # noqa: E402
@@ -79,9 +80,17 @@ def run(retirement_system_base_dir: str | Path, *, log_path: str | Path | None =
 
     pricing = refresh_prices(base_dir) if refresh else {"refreshed": False, "stale": False, "skipped": True}
     path = Path(log_path) if log_path else default_log_path(_APP_ROOT)
-    snapshot = compute_snapshot(base_dir, today=today, passthrough_decisions=load_decisions(decisions_path_for_log(path)))
+    # Monarch balances are best-effort here: the 03:30 chain imports them too, and a
+    # missing/rejected file must not fail the snapshot (the result just reports it).
+    balances_db = path.with_name(DB_FILENAME)
+    try:
+        balances = import_balances(balances_db, default_source_path(base_dir), today=today)
+    except Exception as exc:  # noqa: BLE001 - a locked/unwritable store must not stop the snapshot
+        balances = {"success": False, "status": "error", "error": f"{exc.__class__.__name__}: {exc}"}
+    snapshot = compute_snapshot(base_dir, today=today, passthrough_decisions=load_decisions(decisions_path_for_log(path)),
+                                balances_db=balances_db if balances.get("status") != "error" else None)
     snapshot["pricing"] = pricing
     snapshot["run_at"] = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
     history = append_or_replace_entry(path, snapshot)
-    return {"success": True, "snapshot": snapshot, "log_path": str(path), "total_entries": len(history)}
+    return {"success": True, "snapshot": snapshot, "log_path": str(path), "total_entries": len(history), "balances": balances}
