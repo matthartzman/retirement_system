@@ -34,6 +34,14 @@ from . import ytd_tracking as ytd
 
 DEFAULT_TOLERANCE = 1.0
 
+# Auto-update guards: a policy-"auto" difference is held for the inbox, not written overnight, when it is a
+# plan-start anchor, or when it is both over AUTO_MAX_PCT of the app's number and over AUTO_MAX_ABS dollars.
+AUTO_MAX_PCT = 0.10
+AUTO_MAX_ABS = 5000.0
+AUTO_HOLD_ANCHOR = "Plan-start input: confirm it here before it changes."
+AUTO_HOLD_BIG = "Change is over 10% and $5,000: confirm it here before it changes."
+AUTO_ANCHOR_TARGETS = ("plan:home", "plan:mortgage")
+
 LIABILITY_ROLES = frozenset({"Credit card", "Mortgage", "HELOC", "Loan", "Other liability"})
 INVESTMENT_ROLE = "Investment"
 ANNUITY_ROLES = frozenset({"Annuity/Pension", "Annuity", "Pension"})
@@ -198,6 +206,15 @@ def _resolve_pending(ref: str, dyn: dict[str, dict[str, Any]]) -> str | None:
     return hits[0] if len(hits) == 1 else None
 
 
+def _auto_hold(row: dict[str, Any]) -> str | None:
+    if row["id"] in AUTO_ANCHOR_TARGETS:
+        return AUTO_HOLD_ANCHOR
+    diff = abs(row["difference"] or 0.0)
+    if diff > AUTO_MAX_ABS and diff > AUTO_MAX_PCT * max(abs(row["app_value"]), 1.0):
+        return AUTO_HOLD_BIG
+    return None
+
+
 def _monarch_side(monarch: list[dict[str, Any]], liability: bool) -> dict[str, Any]:
     total = sum(a["balance"] for a in monarch)
     return {"policy": _row_policy(monarch) if monarch else "ask",
@@ -295,6 +312,7 @@ def build_rows(input_dir: str | Path, as_of: str | None = None, *, tolerance: fl
                 row["status"] = "differs" if abs(row["difference"]) >= tolerance else "match"
         if row["status"] == "differs" and row.get("policy") == "app":
             row["status"], row["report_reason"] = "report_only", REPORT_ONLY_APP
+        row["auto_hold"] = _auto_hold(row) if row["status"] == "differs" and row.get("policy") == "auto" else None
         row["updatable"] = row["status"] == "differs" and row.get("write") is not None
         rows.append(row)
 
@@ -487,6 +505,34 @@ def apply(input_dir: str | Path, items: list[dict[str, Any]], as_of: str | None 
                 entry_id = store.monarch.log_change(_now(), w["kind"], w["ref"], w["field"], r["label"], w["old"], w["new"], data["as_of"], source)
                 applied.append({**_change(r), "change_id": entry_id})
     return {"as_of": data["as_of"], "applied": applied, "rejected": rejected}
+
+
+@_store_errors
+def auto_apply(input_dir: str | Path, *, tolerance: float = DEFAULT_TOLERANCE, today: date | None = None) -> dict[str, Any]:
+    """Copy Monarch's number into every row whose policy is ``auto`` and whose change passes the guards
+    (see ``_auto_hold``). Held rows stay in the page's inbox with their reason. Each write is logged with
+    source ``auto`` so it can be undone (``undo_auto``)."""
+    data = build_rows(input_dir, None, tolerance=tolerance, today=today)
+    due = [r for r in data["rows"] if r.get("policy") == "auto" and r["updatable"]]
+    held = [{"id": r["id"], "label": r["label"], "reason": r["auto_hold"]} for r in due if r["auto_hold"]]
+    items = [{"id": r["id"], "expected_new": r["write"]["new"]} for r in due if not r["auto_hold"]]
+    out = apply(input_dir, items, data.get("as_of"), tolerance=tolerance, today=today, source="auto") if items else {"applied": [], "rejected": []}
+    return {"as_of": data.get("as_of"), "applied": out["applied"], "rejected": out["rejected"], "held": held}
+
+
+@_store_errors
+def undo_auto(input_dir: str | Path) -> dict[str, Any]:
+    """Undo every automatic change not yet undone, newest first. A value edited since is left alone and listed."""
+    undone, skipped = [], []
+    for entry in change_log(input_dir, limit=10_000):
+        if entry["source"] != "auto" or entry["undone_at"]:
+            continue
+        try:
+            undo(input_dir, entry["id"])
+            undone.append(entry["label"])
+        except ReconcileError as exc:
+            skipped.append({"label": entry["label"], "reason": str(exc)})
+    return {"undone": undone, "skipped": skipped}
 
 
 def _write_other_asset(store: Any, sub: str, value: str, as_of: str) -> None:

@@ -178,3 +178,25 @@ def test_policy_defaults_survives_rematch_and_ignore_kind_forces_ignore(tmp_path
             m.set_policy("a", "sometimes")
         with pytest.raises(Exception):
             m.set_policy("nope", "ask")
+
+
+def test_job_runs_auto_update_after_a_good_balances_import_and_never_fails_the_run(tmp_path, monkeypatch):
+    from src import reconcile, ytd_tracking as ytd
+    base = _workspace(tmp_path)
+    ytd.write_account_setup(base / "input", [{"Account": "Acct 0", "Role": "Cash / spending", "Current Balance": "50"}])
+    _csv(base / "Monarch Extractor" / "output" / "balances.csv", _rows())
+    with active_plan.workspace_store(base, write=True) as store:
+        store.monarch.upsert_balances([("2026-10-14", "acct0", "Acct 0", 100.0)])
+        store.monarch.set_mapping("acct0", "setup_account", "Acct 0", "auto")
+    monkeypatch.setattr(job, "_run_transactions", lambda b, force=False: {"success": True, "skipped": True, "skip_reason": "no_rows"})
+    monkeypatch.setattr(job, "import_balances", lambda b: mbi.import_balances(b, today=TODAY, now=NOW))
+    res = job.run(base)
+    assert res["auto_update"] == {"success": True, "applied": 1, "held": 0}
+    assert next(r["Current Balance"] for r in ytd.read_account_setup(base / "input")) in ("100.00", "100")
+
+    def boom(*a, **k):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(reconcile, "auto_apply", boom)
+    res = job.run(base)
+    assert res["success"] and res["auto_update"]["success"] is False

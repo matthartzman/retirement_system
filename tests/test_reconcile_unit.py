@@ -362,3 +362,36 @@ def test_change_log_records_whether_a_change_was_manual_or_auto(tmp_path):
     reconcile.apply(base / "input", [{"id": "setup:Private Note"}], today=TODAY, source="auto")
     log = {e["label"]: e["source"] for e in reconcile.change_log(base / "input")}
     assert log == {"Family Checking": "manual", "Private Note": "auto"}
+
+
+# ---- M3: auto-update with guards
+def test_auto_apply_writes_only_auto_rows_that_pass_the_guards_and_logs_them(tmp_path):
+    base = _workspace(tmp_path)
+    with active_plan.workspace_store(base, write=True) as store:
+        m = store.monarch
+        m.set_mapping("family checking", "setup_account", "Family Checking", "auto")   # +$894 on $13,000: fine
+        m.set_mapping("private note", "setup_account", "Private Note", "auto")         # +$12,848 on $500,000: under 10%
+        m.set_mapping("house", "plan:home", "", "auto")                                 # anchor: held
+        m.set_mapping("visa card", "setup_account", "Visa Card", "ask")                 # not auto
+    out = reconcile.auto_apply(base / "input", today=TODAY)
+    assert sorted(a["label"] for a in out["applied"]) == ["Family Checking", "Private Note"]
+    assert [(h["id"], h["reason"]) for h in out["held"]] == [("plan:home", reconcile.AUTO_HOLD_ANCHOR)]
+    assert _setup_value(base, "Family Checking", "Current Value") == "13894.27"
+    assert _setup_value(base, "Visa Card", "Current Balance") == "900"
+    assert {e["source"] for e in reconcile.change_log(base / "input")} == {"auto"}
+    # held rows show their reason in the page data
+    assert _rows(base)["plan:home"]["auto_hold"] == reconcile.AUTO_HOLD_ANCHOR
+
+
+def test_big_change_is_held_and_undo_auto_restores_everything(tmp_path):
+    base = _workspace(tmp_path)
+    with active_plan.workspace_store(base, write=True) as store:
+        store.set_value("Other Assets", "Autos", "value", "10000")   # Monarch: cars sum 53,215.88 -> +432%, > $5,000
+        store.monarch.set_mapping("car one", "plan:autos", "", "auto")
+        store.monarch.set_mapping("car two", "plan:autos", "", "auto")
+        store.monarch.set_mapping("family checking", "setup_account", "Family Checking", "auto")
+    out = reconcile.auto_apply(base / "input", today=TODAY)
+    assert [h["id"] for h in out["held"]] == ["plan:autos"] and [a["label"] for a in out["applied"]] == ["Family Checking"]
+    undone = reconcile.undo_auto(base / "input")
+    assert undone == {"undone": ["Family Checking"], "skipped": []}
+    assert _setup_value(base, "Family Checking", "Current Value") == "13000"
