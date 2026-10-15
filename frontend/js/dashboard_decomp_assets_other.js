@@ -513,6 +513,7 @@ export const LIABILITY_TYPES = [
   { v: "auto", t: "Auto loan" },
   { v: "heloc", t: "HELOC" },
   { v: "student_loan", t: "Student loan" },
+  { v: "credit_card", t: "Credit card" },
   { v: "other", t: "Other" },
 ];
 
@@ -538,6 +539,8 @@ export const LIABILITY_TYPE_FIELDS = {
     "payoff_year",
   ],
   student_loan: ["balance", "interest_rate", "monthly_payment", "payoff_year"],
+  // Revolving debt: no start/payoff year; no payment = interest-only (engine default).
+  credit_card: ["balance", "interest_rate", "monthly_payment"],
   other: [
     "balance",
     "interest_rate",
@@ -612,7 +615,7 @@ export function renderLiabilitiesTable() {
     "payoff_year",
     "notes",
   ];
-  let html = `<details><summary>Liabilities</summary><div class="field-list"><div class="section-note"><b>Purpose:</b> Track loans the plan must pay down over time. Choose a type, then enter the fields needed to forecast its cash flow. Each liability is amortized into the yearly cash-flow forecast and its outstanding balance reduces net worth. Auto and student loans use standard fixed amortization; HELOC line items amortize over the years to payoff. Leave a field blank to use sensible defaults (no monthly payment = interest-only unless a payoff year is set).</div><div class="table-actions"><button class="btn" type="button" data-requires-app="1" onclick="addLiability()">Add liability</button></div><div class="lot-table-wrap"><table class="lot-table"><thead><tr><th>Type</th>${cols.map((c) => `<th>${esc(LIABILITY_LABELS[c] || humanLabel(c))}</th>`).join("")}<th>Actions</th></tr></thead><tbody>`;
+  let html = `<details><summary>Liabilities</summary><div class="field-list"><div class="section-note"><b>Purpose:</b> Track loans the plan must pay down over time. Choose a type, then enter the fields needed to forecast its cash flow. Each liability is amortized into the yearly cash-flow forecast and its outstanding balance reduces net worth. Auto and student loans use standard fixed amortization; credit cards take a balance, APR and monthly payment only (no payment = interest-only); HELOC line items amortize over the years to payoff. Leave a field blank to use sensible defaults (no monthly payment = interest-only unless a payoff year is set).</div><div class="table-actions"><button class="btn" type="button" data-requires-app="1" onclick="addLiability()">Add liability</button></div><div class="lot-table-wrap"><table class="lot-table"><thead><tr><th>Type</th>${cols.map((c) => `<th>${esc(LIABILITY_LABELS[c] || humanLabel(c))}</th>`).join("")}<th>Actions</th></tr></thead><tbody>`;
   if (!h.data.length) {
     html += `<tr><td colspan="${cols.length + 2}"><span class="small">No liabilities yet. Click "Add liability" to add one.</span></td></tr>`;
   }

@@ -1750,7 +1750,7 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     # Flat table: liability_id, type, label, balance, interest_rate,
     # monthly_payment, start_year, payoff_year, notes. Each row becomes a dict
     # the deterministic engine amortizes into yearly cash flow + net worth.
-    # type in (auto | heloc | student_loan | other). A zero/absent file yields
+    # type in (auto | heloc | student_loan | credit_card | other). A zero/absent file yields
     # an empty list so a liability-free plan behaves exactly as before.
     liabilities = []
     liab_text = active_dataset_text('liabilities')
