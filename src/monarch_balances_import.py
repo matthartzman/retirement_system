@@ -12,6 +12,7 @@ older than yesterday, or an account count more than 20% below the last accepted 
 """
 
 import csv
+import math
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -45,6 +46,8 @@ def read_balances_csv(path: Path) -> list[tuple[str, str, str, float]]:
                 balance = float(row[3])
             except ValueError as exc:
                 raise ValueError(f"line {line_no}: {exc}") from None
+            if not math.isfinite(balance):
+                raise ValueError(f"line {line_no}: non-finite balance")
             if not row[1] or not row[2]:
                 raise ValueError(f"line {line_no}: empty account")
             rows.append((iso, row[1], row[2], balance))

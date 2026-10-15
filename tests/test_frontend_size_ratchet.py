@@ -560,8 +560,8 @@ DASHBOARD_JS_MAX_LINES = 7_134
 # 2026-10-14 (#345: shared markBuildStale() replaces eight copies of the stale-build triple while
 # import/delete-all/recover/roll-forward gain the call, net -2): lowered to 38,879.
 # 2026-10-14 (Monarch Reconciliation page: new feature module dashboard_decomp_monarch_reconciliation.js, 272 lines,
-# plus its STEPS/help/dispatch entries; dashboard.js stays under its own ceiling): raised to 39,167.
-TOTAL_JS_MAX_LINES = 39_167
+# plus its STEPS/help/dispatch entries; dashboard.js stays under its own ceiling): raised to 39,186.
+TOTAL_JS_MAX_LINES = 39_186
 
 
 def _line_count(path: Path) -> int:

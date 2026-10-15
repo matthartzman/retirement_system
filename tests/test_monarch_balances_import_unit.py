@@ -88,7 +88,7 @@ def test_missing_file_is_a_quiet_skip_not_a_rejection(tmp_path):
 def test_accounts_as_of_carries_forward_and_zeroes_closed(tmp_path):
     base = _workspace(tmp_path)
     rows = [("2026-10-12", "gap", "Gap", 10.0), ("2026-10-14", "gap", "Gap", 30.0),
-            ("2026-10-12", "closed", "Closed", 5.0), ("2026-10-14", "live", "Live", 1.0),
+            ("2026-10-01", "closed", "Closed", 5.0), ("2026-10-14", "live", "Live", 1.0),
             ("2026-10-13", "live", "Live", 1.0), ("2026-10-12", "live", "Live", 1.0)]
     assert mbi.import_balances(base, _csv(base / "b.csv", rows), today=TODAY, now=NOW)["success"]
     on13 = {r["account_key"]: r for r in _repo_read(base, lambda r: r.accounts_as_of("2026-10-13"))}
@@ -96,8 +96,26 @@ def test_accounts_as_of_carries_forward_and_zeroes_closed(tmp_path):
     assert on13["closed"]["closed"] and on13["closed"]["balance"] == 0.0
     on14 = {r["account_key"]: r for r in _repo_read(base, lambda r: r.accounts_as_of("2026-10-14"))}
     assert on14["gap"]["balance"] == 30.0 and not on14["live"]["closed"]
-    early = {r["account_key"] for r in _repo_read(base, lambda r: r.accounts_as_of("2026-10-11"))}
+    early = {r["account_key"] for r in _repo_read(base, lambda r: r.accounts_as_of("2026-09-30"))}
     assert early == set()                                                                       # nothing existed yet
+
+
+def test_a_late_syncing_account_is_not_treated_as_closed(tmp_path):
+    base = _workspace(tmp_path)
+    rows = [("2026-10-13", "late", "Late", 50.0), ("2026-10-14", "live", "Live", 1.0), ("2026-10-13", "live", "Live", 1.0),
+            ("2026-10-09", "gone", "Gone", 9.0), ("2026-10-10", "live", "Live", 1.0)]
+    assert mbi.import_balances(base, _csv(base / "b.csv", rows), today=TODAY, now=NOW)["success"]
+    on14 = {r["account_key"]: r for r in _repo_read(base, lambda r: r.accounts_as_of("2026-10-14"))}
+    assert on14["late"]["balance"] == 50.0 and not on14["late"]["closed"]     # one day behind: carried forward
+    assert on14["gone"]["closed"] and on14["gone"]["balance"] == 0.0           # stopped five days before the newest date
+
+
+def test_non_finite_balances_are_rejected_not_crashed(tmp_path):
+    base = _workspace(tmp_path)
+    for bad in ("nan", "inf", "-inf"):
+        res = mbi.import_balances(base, _csv(base / "b.csv", [("2026-10-14", "a", "A", bad)]), today=TODAY, now=NOW)
+        assert not res["success"] and "non-finite" in res["error"]
+    assert _repo_read(base, lambda r: r.count()) == 0
 
 
 def test_mapping_and_log_roundtrip(tmp_path):

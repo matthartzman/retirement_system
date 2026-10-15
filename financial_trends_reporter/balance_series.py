@@ -5,8 +5,8 @@ from __future__ import annotations
 Pure functions over plain data (``dense_series`` and below take no database), so the
 rules are easy to test:
 
-* An account's value is carried forward across gaps inside [first row, last row] and
-  is 0 outside it, so a closed or replaced account never inflates later history and a
+* An account's value is carried forward across gaps inside [first row, last row] (and on to the newest
+  date when its last row is within CLOSED_GRACE_DAYS of it, a late sync) and is 0 outside that, so a closed or replaced account never inflates later history and a
   not-yet-opened one never inflates earlier history.
 * A chart total is the sum over the accounts enabled for that chart. Liabilities are
   already negative in Monarch's export, so net worth is a plain sum.
@@ -24,6 +24,8 @@ from . import account_registry
 from .balance_store import connect
 
 ZERO_EPSILON = 0.005
+# An account whose last row is within this many days of the newest date is a late sync, not a closed account.
+CLOSED_GRACE_DAYS = 3
 MONARCH_CHARTS = ("networth", "holdings")
 
 
@@ -47,9 +49,12 @@ def dense_series(rows: Iterable[tuple[str, str, float]]) -> tuple[list[str], dic
         return [], {}
     days = _daterange(date.fromisoformat(lo), date.fromisoformat(hi))
     iso = [d.isoformat() for d in days]
+    live_from = (date.fromisoformat(hi) - timedelta(days=CLOSED_GRACE_DAYS)).isoformat()
     series: dict[str, list[float]] = {}
     for key, by_date in per_account.items():
         first, last = min(by_date), max(by_date)
+        if last >= live_from:
+            last = hi  # still live: a late sync carries its last balance forward
         values: list[float] = []
         current = 0.0
         for d in iso:

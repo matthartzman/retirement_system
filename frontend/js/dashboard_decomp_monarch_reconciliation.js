@@ -23,6 +23,8 @@ let rcPreviewData = null;
 let rcShowMatched = false;
 let rcMessage = null; // { text, error }
 let rcSeq = 0;
+let rcLoadedAt = 0;
+const RC_STALE_MS = 5000; // coming back to the page re-reads: Accounts & Sources may have changed meanwhile
 
 // ── pure html helpers (exported for tests) ───────────────────────────────────────────────────
 export function rcMoney(v) {
@@ -47,8 +49,11 @@ function rcMatchedNames(row, asOf) {
   const accts = row.monarch_accounts || [];
   if (!accts.length) return "";
   const note = row.auto_matched ? "matched by name" : "matched by you";
-  return `<div class="rc-sub">${accts.map((a) => esc(a.account) + (a.closed ? " (closed)" : "") +
-    (a.balance_date && a.balance_date !== asOf ? ` (balance from ${esc(a.balance_date)})` : "")).join(" + ")} · ${note}</div>`;
+  // Each match can be removed: a saved match is cleared, a by-name match is switched off by ignoring that Monarch account.
+  const chip = (a) => esc(a.account) + (a.closed ? " (closed)" : "") +
+    (a.balance_date && a.balance_date !== asOf ? ` (balance from ${esc(a.balance_date)})` : "") +
+    ` <button class="rc-unmatch" type="button" data-key="${esc(a.account_key)}" data-auto="${a.auto ? "1" : ""}" title="Remove this match" aria-label="Remove match for ${esc(a.account)}" onclick="rcUnmatch(this.dataset.key, this.dataset.auto)">✕</button>`;
+  return `<div class="rc-sub">${accts.map(chip).join(" + ")} · ${note}</div>`;
 }
 
 export function rcRowHtml(row, selected, asOf) {
@@ -113,6 +118,14 @@ export function rcUnmatchedHtml(data) {
     "</tbody></table></div>";
 }
 
+export function rcIgnoredHtml(data) {
+  const items = data.ignored_accounts || [];
+  if (!items.length) return "";
+  return `<details class="rc-ignored"><summary>Ignored Monarch accounts (${items.length})</summary><ul>` +
+    items.map((u) => `<li>${esc(u.label)} <button class="btn" type="button" data-key="${esc(u.account_key)}" onclick="rcMap(this.dataset.key, '')">Stop ignoring</button></li>`).join("") +
+    "</ul></details>";
+}
+
 export function rcLogHtml(log) {
   if (!log || !log.length) return '<div class="section-note">No updates from Monarch yet.</div>';
   return '<div class="rc-scroll"><table class="rc-table"><thead><tr><th>When</th><th>Account</th><th class="rc-num">Old</th><th class="rc-num">New</th><th>Monarch date</th><th></th></tr></thead><tbody>' +
@@ -149,7 +162,7 @@ export function rcBodyHtml(state) {
     `<div class="rc-summary"><strong>${s.differs}</strong> differ · <strong>${s.match}</strong> match · <strong>${s.reportOnly}</strong> report only · ` +
     `<strong>${s.notInMonarch}</strong> not in Monarch · <strong>${s.notInApp}</strong> Monarch accounts not in the app</div>` +
     `<div class="pane-actions"><button class="btn good" type="button" onclick="rcPreview()"${nSel ? "" : " disabled"}>Preview update from Monarch (${nSel} selected)</button></div>` +
-    rcPreviewHtml(preview) + rcGroupsHtml(data, selected, showMatched) + rcUnmatchedHtml(data) +
+    rcPreviewHtml(preview) + rcGroupsHtml(data, selected, showMatched) + rcUnmatchedHtml(data) + rcIgnoredHtml(data) +
     `<h3>Change log</h3>${rcLogHtml(log)}`;
 }
 
@@ -160,7 +173,8 @@ function rcState() {
 }
 
 export function renderMonarchReconciliation() {
-  if (rcData === null && !rcLoading && !rcError) setTimeout(loadMonarchReconciliation, 0);
+  const stale = rcData === null || Date.now() - rcLoadedAt > RC_STALE_MS;
+  if (stale && !rcLoading && !rcError) setTimeout(loadMonarchReconciliation, 0);
   return `<div class="field-list rc-page" id="rcRoot">${rcBodyHtml(rcState())}</div>`;
 }
 
@@ -189,6 +203,7 @@ export async function loadMonarchReconciliation() {
     rcError = "The comparison could not be loaded: " + e.message;
   }
   rcLoading = false;
+  rcLoadedAt = Date.now();
   rcPaint();
 }
 
@@ -255,6 +270,10 @@ export async function rcUndo(id) {
   await loadMonarchReconciliation();
 }
 
+export function rcUnmatch(accountKey, auto) {
+  return rcMap(accountKey, auto ? "ignore" : "");
+}
+
 export async function rcMap(accountKey, target) {
   try {
     await api("/api/reconcile/map", { method: "POST", body: JSON.stringify({ account_key: accountKey, target: target || null }) });
@@ -268,5 +287,5 @@ export async function rcMap(accountKey, target) {
 Object.assign(window, {
   rcMoney, rcDiffHtml, rcSummary, rcRowHtml, rcGroupsHtml, rcPreviewHtml, rcUnmatchedHtml, rcLogHtml, rcImportNote, rcBodyHtml,
   renderMonarchReconciliation, loadMonarchReconciliation, rcToggle, rcSelectGroup, rcSetAsOf, rcSetTolerance, rcSetShowMatched,
-  rcPreviewCancel, rcPreview, rcApply, rcUndo, rcMap,
+  rcPreviewCancel, rcPreview, rcApply, rcUndo, rcMap, rcUnmatch, rcIgnoredHtml,
 });

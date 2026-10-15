@@ -1057,7 +1057,7 @@ def _reconcile_call(fn, *args, **kwargs):
     from .. import reconcile as _reconcile
     try:
         return jsonify({"success": True, **fn(_ytd_input_root(), *args, **kwargs)}), 200
-    except (ValueError, LookupError) as exc:  # ReconcileError, store validation / not-found errors
+    except _reconcile.ReconcileError as exc:
         return jsonify({"success": False, "error": str(exc)}), 400
 
 
@@ -1135,7 +1135,7 @@ def reconcile_log():
     if denied:
         return denied
     from .. import reconcile as _reconcile
-    return jsonify({"success": True, "log": _reconcile.change_log(_ytd_input_root())})
+    return _reconcile_call(lambda input_dir: {"log": _reconcile.change_log(input_dir)})
 
 
 @app.route("/api/ytd/transactions/bulk", methods=["PUT"])

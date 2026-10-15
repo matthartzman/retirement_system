@@ -96,6 +96,12 @@ def test_account_count_drop_is_rejected_but_small_drop_allowed(tmp_path):
     assert bs.import_balances(db, _csv(tmp_path, _rows(9), "b3.csv"), today=TODAY, now=NOW)["success"]
 
 
+def test_non_finite_balance_is_rejected(tmp_path):
+    db = tmp_path / "b.sqlite3"
+    result = bs.import_balances(db, _csv(tmp_path, [("2026-10-14", "a", "A", "nan")]), today=TODAY, now=NOW)
+    assert not result["success"] and "non-finite" in result["error"] and _count(db, "balances") == 0
+
+
 def test_missing_file_is_rejected(tmp_path):
     result = bs.import_balances(tmp_path / "b.sqlite3", tmp_path / "nope.csv", today=TODAY, now=NOW)
     assert not result["success"]
@@ -107,6 +113,19 @@ def test_freshness_reports_last_good_run(tmp_path):
     bs.import_balances(db, tmp_path / "nope.csv", today=TODAY, now=NOW)
     f = bs.freshness(db)
     assert f["last_run"]["status"] == "rejected" and f["last_ok"]["latest_date"] == "2026-10-14"
+
+
+def test_trends_job_survives_a_failing_balances_import(tmp_path, monkeypatch):
+    from financial_trends_reporter import trends_job
+
+    def boom(*a, **k):
+        raise RuntimeError("database is locked")
+
+    monkeypatch.setattr(trends_job, "import_balances", boom)
+    monkeypatch.setattr(trends_job, "compute_snapshot", lambda base, **kw: {"as_of_date": "2026-10-14", "seen_db": kw.get("balances_db")})
+    res = trends_job.run(tmp_path / "ws", log_path=tmp_path / "data" / "log.jsonl", refresh=False)
+    assert res["success"] and res["balances"]["status"] == "error" and "locked" in res["balances"]["error"]
+    assert res["snapshot"]["seen_db"] is None
 
 
 def test_trends_job_stores_balances_beside_its_log(tmp_path):

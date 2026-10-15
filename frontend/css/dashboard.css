@@ -1222,3 +1222,6 @@ details.page-accordion[open]>summary::before,.page-recommendations[open]>summary
 .rc-preview h3{margin-top:0}
 .rc-warn{border-color:#fde68a;background:#fffbeb;color:var(--warn)}
 @media (max-width:700px){.rc-table th,.rc-table td{padding:6px}}
+
+.rc-unmatch{border:0;background:transparent;color:var(--muted);cursor:pointer;padding:0 2px;font-size:11px}.rc-unmatch:hover{color:var(--danger)}
+.rc-ignored{margin:10px 0}.rc-ignored ul{margin:6px 0 6px 20px}

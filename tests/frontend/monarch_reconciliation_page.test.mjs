@@ -60,7 +60,7 @@ describe("rows", () => {
 
   test("matched Monarch accounts are listed with how they matched", () => {
     const html = m.rcRowHtml(ROW({ auto_matched: false, monarch_accounts: [{ account: "Car A", balance: 1, closed: false, balance_date: "2026-10-14" }, { account: "Car B", balance: 2, closed: true, balance_date: "2026-10-12" }] }), false, "2026-10-14");
-    assert.match(html, /Car A \+ Car B \(closed\)/);
+    assert.match(html, /Car A[^<]*<button[^>]*>✕<\/button> \+ Car B \(closed\) \(balance from 2026-10-12\) <button/);
     assert.match(html, /matched by you/);
   });
 
@@ -198,5 +198,51 @@ describe("wiring", () => {
     const src = read("dashboard_decomp_monarch_reconciliation.js");
     const called = new Set([...src.matchAll(/onchange="(rc\w+)\(|onclick="(rc\w+)\(|onclick="(loadMonarchReconciliation)\(/g)].map((x) => x[1] || x[2] || x[3]));
     for (const fn of called) assert.equal(typeof globalThis[fn], "function", `${fn} is not on window`);
+  });
+});
+
+describe("review fixes", () => {
+  test("each matched Monarch account has a remove-match control (by-name matches switch to ignore)", () => {
+    const html = m.rcRowHtml(ROW({ monarch_accounts: [{ account_key: "chk", account: "Checking", balance: 1, closed: false, balance_date: "2026-10-14", auto: true },
+      { account_key: "car", account: "Car", balance: 2, closed: false, balance_date: "2026-10-14", auto: false }] }), false, "2026-10-14");
+    assert.match(html, /data-key="chk" data-auto="1"[^>]*onclick="rcUnmatch\(this\.dataset\.key, this\.dataset\.auto\)"/);
+    assert.match(html, /data-key="car" data-auto=""/);
+  });
+
+  test("rcUnmatch ignores a by-name match and clears a saved one", async () => {
+    const calls = [];
+    globalThis.api = async (url, opts) => { calls.push([url, JSON.parse(opts && opts.body || "{}")]); return { success: true }; };
+    globalThis.document = { getElementById: () => null };
+    await m.rcUnmatch("chk", "1");
+    await m.rcUnmatch("car", "");
+    const maps = calls.filter((c) => c[0] === "/api/reconcile/map").map((c) => c[1]);
+    assert.deepEqual(maps, [{ account_key: "chk", target: "ignore" }, { account_key: "car", target: null }]);
+  });
+
+  test("ignored Monarch accounts are listed with a way back", () => {
+    const html = m.rcIgnoredHtml({ ignored_accounts: [{ account_key: "mystery", label: "Mystery <1>" }] });
+    assert.match(html, /Ignored Monarch accounts \(1\)/);
+    assert.match(html, /Mystery &lt;1&gt;/);
+    assert.match(html, /rcMap\(this\.dataset\.key, ''\)/);
+    assert.equal(m.rcIgnoredHtml({}), "");
+  });
+
+  test("re-entering the page refetches once the cached comparison is stale", async () => {
+    let timers = 0;
+    globalThis.setTimeout = () => { timers += 1; return 0; };
+    globalThis.api = async () => ({ success: true, has_balances: false, rows: [], unmatched: [], dates: [], log: [] });
+    globalThis.document = { getElementById: () => ({ innerHTML: "" }) };
+    await m.loadMonarchReconciliation();
+    timers = 0;
+    m.renderMonarchReconciliation();
+    assert.equal(timers, 0, "fresh data is not refetched");
+    const realNow = Date.now;
+    Date.now = () => realNow() + 60000;
+    try {
+      m.renderMonarchReconciliation();
+    } finally {
+      Date.now = realNow;
+    }
+    assert.equal(timers, 1, "stale data is refetched");
   });
 });

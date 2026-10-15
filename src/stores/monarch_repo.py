@@ -13,6 +13,7 @@ Typed tables (not flat text datasets), so a plan revision does not copy the ~18,
 """
 from __future__ import annotations
 
+from datetime import date, timedelta
 from typing import Any, Iterable
 
 from .errors import NotFoundError, ValidationError
@@ -56,6 +57,11 @@ CREATE TABLE reconcile_log (
 """
 
 
+# An account whose last row is within this many days of the newest stored date is treated as still live
+# (a late sync), not closed: its last balance carries forward instead of dropping to 0.
+CLOSED_GRACE_DAYS = 3
+
+
 class MonarchRepo:
     """The Monarch tables of one open ``PlanStore`` (``store.monarch``). Cheap to create;
     writes join the store's enclosing ``transaction()`` like every other store write."""
@@ -95,21 +101,25 @@ class MonarchRepo:
         trends reporter's daily series."""
         with self._store._read() as con:
             newest = con.execute("SELECT MAX(date) FROM monarch_balances").fetchone()[0]
+            if newest is None:
+                return []
+            live_from = (date.fromisoformat(newest) - timedelta(days=CLOSED_GRACE_DAYS)).isoformat()
+            # One pass: each account's first/last date, its latest name, and its last row on or before as_of.
+            rows = con.execute(
+                "SELECT s.account_key, s.first, s.last, n.account, v.date, v.balance FROM "
+                "(SELECT account_key, MIN(date) AS first, MAX(date) AS last FROM monarch_balances GROUP BY account_key) s "
+                "JOIN monarch_balances n ON n.account_key = s.account_key AND n.date = s.last "
+                "JOIN (SELECT b.account_key, b.date, b.balance FROM monarch_balances b JOIN "
+                "      (SELECT account_key, MAX(date) AS d FROM monarch_balances WHERE date <= ? GROUP BY account_key) m "
+                "      ON b.account_key = m.account_key AND b.date = m.d) v ON v.account_key = s.account_key",
+                (as_of,)).fetchall()
             out = []
-            for key, first, last in con.execute(
-                "SELECT account_key, MIN(date), MAX(date) FROM monarch_balances GROUP BY account_key"
-            ).fetchall():
-                if first > as_of:
-                    continue
-                row = con.execute(
-                    "SELECT date, account, balance FROM monarch_balances WHERE account_key = ? AND date <= ? "
-                    "ORDER BY date DESC LIMIT 1", (key, as_of)).fetchone()
-                name = con.execute(
-                    "SELECT account FROM monarch_balances WHERE account_key = ? ORDER BY date DESC LIMIT 1", (key,)).fetchone()[0]
-                closed = last < as_of
+            for key, first, last, name, bal_date, balance in rows:
+                # Closed: no row on or after as_of AND it stopped well before the newest stored date.
+                closed = last < as_of and last < live_from
                 out.append({
-                    "account_key": key, "account": name, "balance": 0.0 if closed else float(row[2]),
-                    "balance_date": row[0], "first_date": first, "last_date": last, "closed": closed,
+                    "account_key": key, "account": name, "balance": 0.0 if closed else float(balance),
+                    "balance_date": bal_date, "first_date": first, "last_date": last, "closed": closed,
                 })
             return sorted(out, key=lambda r: r["account"].casefold())
 

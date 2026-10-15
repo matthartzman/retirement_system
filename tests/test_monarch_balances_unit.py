@@ -36,10 +36,22 @@ def test_name_cleaning_and_key(tmp_path):
     assert rows["Trust Under Agreement"]["account_key"] == "trust under agreement"
 
 
-def test_duplicate_date_account_keeps_last(tmp_path):
-    path = _write(tmp_path, "Date,Balance,Account\n2026-01-01,1,A\n2026-01-01,2,a \n")
+def test_identical_duplicate_rows_collapse(tmp_path):
+    path = _write(tmp_path, "Date,Balance,Account\n2026-01-01,2,A\n2026-01-01,2,a \n")
     rows = mb.normalize_balances_csv(path)
     assert len(rows) == 1 and rows[0]["balance"] == 2.0
+
+
+def test_same_named_accounts_with_different_balances_are_refused(tmp_path):
+    path = _write(tmp_path, "Date,Balance,Account\n2026-01-01,1,Checking\n2026-01-01,2,Checking\n")
+    with pytest.raises(ValueError, match="two accounts named"):
+        mb.normalize_balances_csv(path)
+
+
+@pytest.mark.parametrize("bad", ["nan", "inf", "-inf"])
+def test_non_finite_balances_are_refused(tmp_path, bad):
+    with pytest.raises(ValueError, match="non-finite"):
+        mb.normalize_balances_csv(_write(tmp_path, f"Date,Balance,Account\n2026-01-01,{bad},A\n"))
 
 
 @pytest.mark.parametrize("body", [

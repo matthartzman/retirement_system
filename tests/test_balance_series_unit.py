@@ -48,6 +48,13 @@ def test_dense_series_fills_calendar_days_missing_from_every_account():
     assert s["a"] == [1.0, 1.0, 1.0, 4.0]
 
 
+def test_a_late_syncing_account_carries_forward_but_an_old_closure_does_not():
+    rows = [("2026-01-01", "a", 1.0), ("2026-01-10", "a", 1.0), ("2026-01-09", "late", 40.0), ("2026-01-02", "gone", 7.0)]
+    dates, s = bser.dense_series(rows)
+    assert s["late"][-1] == 40.0 and s["late"][-2] == 40.0      # last row one day before the newest date: still live
+    assert s["gone"][1] == 7.0 and s["gone"][-1] == 0.0         # stopped eight days before: closed
+
+
 def test_empty_input():
     assert bser.dense_series([]) == ([], {})
 

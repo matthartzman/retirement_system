@@ -41,6 +41,8 @@ NOW = datetime(2026, 10, 14, 4, 0, tzinfo=timezone.utc)
     ("2016 KIA Optima EX", "Vehicle"),
     ("114 S Main St Springfield IL 60521", "Real estate"),
     ("Masterworks Dec 25", "Other"),
+    ("Masterworks Sep 25", "Other"),
+    ("Simple Note Jan 2026", "Other"),
     ("Private Note Jan 2026", "Other"),
     ("USBank (...3635)", "Other"),  # ambiguous by name: the user confirms it in the UI
 ])

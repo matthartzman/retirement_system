@@ -13,6 +13,7 @@ written -- so a partial or changed export cannot corrupt the history.
 """
 
 import csv
+import math
 import sqlite3
 from contextlib import closing
 from datetime import date, datetime, timedelta, timezone
@@ -97,6 +98,8 @@ def _read_rows(csv_path: Path) -> list[tuple[str, str, str, float]]:
                 balance = float(row[3])
             except ValueError as exc:
                 raise ValueError(f"line {line_no}: {exc}") from None
+            if not math.isfinite(balance):
+                raise ValueError(f"line {line_no}: non-finite balance")
             if not row[1] or not row[2]:
                 raise ValueError(f"line {line_no}: empty account")
             rows.append((iso, row[1], row[2], balance))

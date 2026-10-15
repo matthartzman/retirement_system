@@ -23,6 +23,7 @@ Matches are automatic when the Monarch account name equals an Accounts & Sources
 saved by hand in ``monarch_account_map``.
 """
 
+import functools
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
@@ -58,7 +59,19 @@ REPORT_ONLY_STREAM = "This annuity's value comes from its income stream's base v
 
 
 class ReconcileError(ValueError):
-    """A request the page cannot honor (bad id, stale preview, a value that changed since)."""
+    """A request the page cannot honor (bad id, stale preview, a value that changed since, no such plan)."""
+
+
+def _store_errors(fn):
+    """Report the plan store's own errors (missing plan, not found, invalid value) as ReconcileError, so the
+    routes catch one type and real programming errors are not mistaken for a bad request."""
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except active_plan.StoreError as exc:
+            raise ReconcileError(str(exc)) from exc
+    return wrapper
 
 
 def _money_text(value: float) -> str:
@@ -114,10 +127,11 @@ def _monarch_side(monarch: list[dict[str, Any]], liability: bool) -> dict[str, A
     return {
         "monarch_value": round(-total if liability else total, 2),
         "monarch_accounts": [{"account_key": a["account_key"], "account": a["account"], "balance": a["balance"],
-                              "closed": a["closed"], "balance_date": a["balance_date"]} for a in monarch],
+                              "closed": a["closed"], "balance_date": a["balance_date"], "auto": bool(a.get("auto"))} for a in monarch],
     }
 
 
+@_store_errors
 def build_rows(input_dir: str | Path, as_of: str | None = None, *, tolerance: float = DEFAULT_TOLERANCE,
                today: date | None = None) -> dict[str, Any]:
     """Every comparison row for the plan behind ``input_dir`` as of a Monarch date (default: the latest)."""
@@ -132,7 +146,7 @@ def build_rows(input_dir: str | Path, as_of: str | None = None, *, tolerance: fl
                     "import": repo.last_import(), "dates": []}
         monarch_accounts = repo.accounts_as_of(as_of_date)
         mapping = repo.mapping()
-        dates = repo.dates(limit=400)
+        dates = repo.dates()
         last_import = repo.last_import()
         last_ok = repo.last_import(ok_only=True)
 
@@ -152,14 +166,14 @@ def build_rows(input_dir: str | Path, as_of: str | None = None, *, tolerance: fl
     # ---- resolve each Monarch account to an app target
     by_target: dict[str, list[dict[str, Any]]] = {}
     unmatched: list[dict[str, Any]] = []
-    ignored = 0
+    ignored: list[dict[str, str]] = []
     for acct in monarch_accounts:
         saved = mapping.get(acct["account_key"])
         target = None
         auto = False
         if saved:
             if saved["kind"] == MAP_IGNORE:
-                ignored += 1
+                ignored.append({"account_key": acct["account_key"], "label": acct["account"]})
                 continue
             if saved["kind"] == MAP_SETUP and saved["ref"].casefold() in setup_rows:
                 target = "setup:" + setup_rows[saved["ref"].casefold()][0]
@@ -235,7 +249,8 @@ def build_rows(input_dir: str | Path, as_of: str | None = None, *, tolerance: fl
     rows.sort(key=lambda r: (order.get(r["group"], 99), r["label"].casefold()))
     return {
         "has_balances": True, "as_of": as_of_date, "latest": latest, "tolerance": tolerance, "dates": dates,
-        "rows": rows, "unmatched": sorted(unmatched, key=lambda u: u["label"].casefold()), "ignored": ignored,
+        "rows": rows, "unmatched": sorted(unmatched, key=lambda u: u["label"].casefold()), "ignored": len(ignored),
+        "ignored_accounts": sorted(ignored, key=lambda u: u["label"].casefold()),
         "import": last_import, "last_ok_import": last_ok,
         "app_targets": [{"id": f"setup:{n}", "label": n, "role": ro} for n, ro, _ in sorted(setup_rows.values(), key=lambda t: t[0].casefold())]
                        + [{"id": rid, "label": v[0], "role": ""} for rid, v in PLAN_TARGETS.items()],
@@ -243,6 +258,7 @@ def build_rows(input_dir: str | Path, as_of: str | None = None, *, tolerance: fl
 
 
 # ------------------------------------------------------------------------------ mapping
+@_store_errors
 def set_mapping(input_dir: str | Path, account_key: str, target: str | None) -> dict[str, Any]:
     """Save (or with ``target`` None/'' clear) the match for a Monarch account. ``target`` is a row id
     (``setup:<account>``, ``plan:home`` ...) or ``ignore``."""
@@ -298,6 +314,7 @@ def _change(row: dict[str, Any]) -> dict[str, Any]:
             "old": w["old"], "new": w["new"], "app_value": row["app_value"], "monarch_value": row["monarch_value"]}
 
 
+@_store_errors
 def preview(input_dir: str | Path, items: list[dict[str, Any]], as_of: str | None = None, *,
             tolerance: float = DEFAULT_TOLERANCE, today: date | None = None) -> dict[str, Any]:
     data = build_rows(input_dir, as_of, tolerance=tolerance, today=today)
@@ -309,6 +326,7 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+@_store_errors
 def apply(input_dir: str | Path, items: list[dict[str, Any]], as_of: str | None = None, *,
           tolerance: float = DEFAULT_TOLERANCE, today: date | None = None) -> dict[str, Any]:
     """Write the chosen rows' Monarch numbers into the app and log each change.
@@ -355,6 +373,7 @@ def _current_text(store: Any, input_dir: Path, kind: str, ref: str, field: str) 
     return str(found[-1]["value"]).strip() if found else ""
 
 
+@_store_errors
 def undo(input_dir: str | Path, change_id: int) -> dict[str, Any]:
     """Restore the value a logged change replaced, but only while the app still holds the number that change
     wrote; otherwise someone has edited it since and Undo refuses rather than overwrite that edit."""
@@ -380,6 +399,7 @@ def undo(input_dir: str | Path, change_id: int) -> dict[str, Any]:
         return {"change_id": entry["id"], "label": entry["label"], "restored": entry["old_value"]}
 
 
+@_store_errors
 def change_log(input_dir: str | Path, limit: int = 100) -> list[dict[str, Any]]:
     with active_plan.workspace_store(Path(input_dir).parent) as store:
         return store.monarch.log_entries(limit)

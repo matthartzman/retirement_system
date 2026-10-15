@@ -16,6 +16,7 @@ without the extractor venv.
 import argparse
 import asyncio
 import csv
+import math
 import os
 import re
 import sys
@@ -66,9 +67,12 @@ def parse_amount(text):
     if text.startswith("(") and text.endswith(")"):
         text = "-" + text[1:-1]
     try:
-        return float(text)
+        value = float(text)
     except ValueError:
         raise ValueError(f"unparseable balance {text!r}") from None
+    if not math.isfinite(value):
+        raise ValueError(f"non-finite balance {text!r}")
+    return value
 
 
 def normalize_balances_csv(path):
@@ -76,7 +80,8 @@ def normalize_balances_csv(path):
 
     Raises ValueError on a wrong header, an empty file, or any bad date/amount
     (a partial or changed export must not be written as if it were good).
-    Duplicate (date, account_key) rows keep the last one.
+    Two rows for the same (date, account) with different balances are refused: the export has no account
+    id, so same-named accounts would otherwise be merged and one balance silently dropped.
     """
     with open(path, "r", encoding="utf-8-sig", newline="") as handle:
         reader = csv.reader(handle)
@@ -97,7 +102,13 @@ def normalize_balances_csv(path):
             name = clean_account_name(row[2])
             if not name:
                 raise ValueError(f"line {line_no}: empty account name")
-            merged[(iso, account_key(name))] = {
+            key = (iso, account_key(name))
+            if key in merged and merged[key]["balance"] != amount:
+                raise ValueError(
+                    f"line {line_no}: two accounts named {name!r} on {iso} with different balances; "
+                    "rename one in Monarch so they can be told apart"
+                )
+            merged[key] = {
                 "date": iso,
                 "account_key": account_key(name),
                 "account": name,

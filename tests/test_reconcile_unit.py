@@ -140,6 +140,42 @@ def test_saved_mapping_overrides_name_match_and_ignore_hides(tmp_path):
     assert "Mystery Account" in {u["label"] for u in reconcile.build_rows(base / "input", today=TODAY)["unmatched"]}
 
 
+def test_each_matched_account_says_whether_it_was_matched_by_name_and_ignored_ones_are_listed(tmp_path):
+    base = _workspace(tmp_path)
+    reconcile.set_mapping(base / "input", "car one", "plan:autos")
+    rows = _rows(base)
+    assert rows["setup:Family Checking"]["monarch_accounts"][0]["auto"] is True
+    assert rows["plan:autos"]["monarch_accounts"][0]["auto"] is False
+    reconcile.set_mapping(base / "input", "family checking", "ignore")       # switch the by-name match off
+    data = reconcile.build_rows(base / "input", today=TODAY)
+    assert [i["label"] for i in data["ignored_accounts"]] == ["Family Checking"] and data["ignored"] == 1
+    assert next(r for r in data["rows"] if r["id"] == "setup:Family Checking")["status"] == "not_in_monarch"
+    reconcile.set_mapping(base / "input", "family checking", None)           # stop ignoring: the name match is back
+    assert _rows(base)["setup:Family Checking"]["auto_matched"]
+
+
+def test_the_as_of_picker_lists_every_stored_date(tmp_path):
+    base = tmp_path / "ws"
+    (base / "input").mkdir(parents=True)
+    ytd.write_account_setup(base / "input", SETUP[:1])
+    path = base / "Monarch Extractor" / "output" / "balances.csv"
+    path.parent.mkdir(parents=True)
+    lines = ["date,account_key,account,balance"] + [f"2025-{m:02d}-01,family checking,Family Checking,{m}" for m in range(1, 13)]
+    lines += [f"2026-10-{d:02d},family checking,Family Checking,1" for d in range(1, 15)]
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    assert mbi.import_balances(base, today=TODAY, now=NOW)["success"]
+    dates = reconcile.build_rows(base / "input", today=TODAY)["dates"]
+    assert len(dates) == 26 and dates[-1] == "2025-01-01" and dates[0] == "2026-10-14"
+
+
+def test_store_errors_surface_as_reconcile_errors(tmp_path):
+    with pytest.raises(reconcile.ReconcileError):
+        reconcile.build_rows(tmp_path / "nowhere" / "input", today=TODAY)
+    base = _workspace(tmp_path)
+    with pytest.raises(reconcile.ReconcileError):
+        reconcile.undo(base / "input", 999)
+
+
 def test_mapping_rejects_bad_targets(tmp_path):
     base = _workspace(tmp_path)
     for key, target in (("ghost", "plan:home"), ("mystery", "setup:No Such"), ("mystery", "bogus")):

@@ -34,7 +34,7 @@ _RULES: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("Credit card", re.compile(r"\b(visa|mastercar\w*|credit card|platinum card|amex|american express|discover)\b")),
     ("Annuity/Pension", re.compile(r"\b(annuity|pension)\b")),
     ("HSA", re.compile(r"\b(hsa|health savings)\b")),
-    ("Retirement", re.compile(r"\b(ira|roth|401\s?\(?k\)?|403\s?\(?b\)?|sep|simple)\b")),
+    ("Retirement", re.compile(r"\b(ira|roth|401\s?\(?k\)?|403\s?\(?b\)?)\b")),
     ("Investment", re.compile(r"\b(brokerage|trust|ibond|i bond|treasury)\b")),
     ("Cash", re.compile(r"\b(checking|savings|venmo|paypal|money market)\b")),
     ("Vehicle", re.compile(r"^(19|20)\d\d\s+\S+")),
