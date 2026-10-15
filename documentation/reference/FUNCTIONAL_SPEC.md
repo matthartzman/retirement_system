@@ -249,7 +249,12 @@ Build a full report package on demand; watch build progress; review a
 build; browse every workbook sheet in-app (Results Explorer) without opening
 Excel; download the Excel workbook and PDF; review a plan-data summary;
 review Spending Analysis (actual vs. budget, annualized run rate, portfolio
-growth vs. prior year, reconciliation back into the 30-year model).
+growth vs. prior year, reconciliation back into the 30-year model). Monarch
+Reconciliation compares each account number in the app with Monarch's daily
+balance as of a chosen date and lets the household copy Monarch's number into
+the app (cash, cards, loans, manual accounts, and the home, autos and mortgage
+plan inputs) after a preview, with a change log and Undo; investment accounts
+are report only.
 
 ### 4.8 Year-to-date actuals
 Upload or manually enter actual account transactions and balances for the
@@ -265,14 +270,17 @@ avoiding manual entry. Configured with a source directory (confined to the
 app's own workspace root) that a scheduled or on-demand job reads from;
 "Import now" runs the sync immediately. Newly-imported rows are matched
 against, not duplicated on top of, any rows the household already entered
-manually.
+manually. The Monarch Extractor also exports daily account balances; they are
+imported into the plan file by the same job and feed Monarch Reconciliation.
 
 ### 4.10 Financial Trends Reporter (companion app)
 A companion browser app, run alongside the main planner, that charts a
 household's historical net worth and spending trends over time from saved
 snapshots — a longitudinal view the main single-plan-projection app does
 not otherwise provide. Runs as its own local process on its own port; not
-part of the main app's route registry.
+part of the main app's route registry. Its Net worth and Holdings charts use
+Monarch's daily account balances (accounts and mapping are set in the app), and
+investment flows are shown as a monthly line with a year-to-date summary.
 
 ### 4.11 Settings
 Economic and tax assumptions (capital market assumptions, correlations, tax
