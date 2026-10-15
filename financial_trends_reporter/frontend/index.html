@@ -17,9 +17,12 @@
   input[type=date] { padding: 5px 8px; border-radius: 6px; border: 1px solid #ccc; font-size: 13px; }
   .grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; }
   @media (max-width: 900px) { .grid { grid-template-columns: minmax(0, 1fr); } }
-  .card { min-width: 0; background: #fff; border-radius: 10px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .card { position: relative; overflow: hidden; min-width: 0; background: #fff; border-radius: 10px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
   @media (prefers-color-scheme: dark) { .card { background: #1e2126; box-shadow: none; border: 1px solid #2a2d33; } }
   .card h2 { font-size: 14px; margin: 0 0 12px; }
+  .card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+  .card-head h2 { margin: 0; }
+  .acct-btn { border: 1px solid #ccc; background: transparent; color: inherit; border-radius: 6px; padding: 3px 10px; font-size: 12px; cursor: pointer; }
   .empty { color: #888; font-size: 13px; }
   #runNow { margin-left: auto; }
   svg text { fill: currentColor; font-size: 12px; }
@@ -36,7 +39,7 @@
   .note { font-size: 11px; color: #777; margin-top: 8px; line-height: 1.45; }
   .bar-row { cursor: default; }
   .bar-row:hover rect[fill] { filter: brightness(1.15); }
-  #detailPopup, #detailPopup2, #rollPopup { position: fixed; z-index: 10; display: none; min-width: 340px; max-width: 420px; padding: 10px 12px;
+  #detailPopup, #detailPopup2, #rollPopup, #acctPop { position: fixed; z-index: 10; display: none; min-width: 340px; max-width: 420px; padding: 10px 12px;
     background: var(--card-bg); color: inherit; border: 1px solid #c8c8cc; border-radius: 8px;
     box-shadow: 0 4px 16px rgba(0,0,0,.18); font-size: 12px; max-height: 80vh; overflow-y: auto; }
   .pop-title { font-weight: 600; margin-bottom: 6px; }
@@ -60,11 +63,38 @@
     position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
     overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
   }
+  /* account toggles popover */
+  #acctPop { min-width: 300px; max-width: 360px; }
+  .acct-actions { display: flex; gap: 6px; margin-bottom: 8px; }
+  .acct-actions button { border: 1px solid #ccc; background: transparent; color: inherit; border-radius: 6px; padding: 2px 8px; font-size: 11px; cursor: pointer; }
+  .acct-group { border: 0; border-top: 1px solid rgba(127,127,127,.3); margin: 6px 0 0; padding: 4px 0 0; }
+  .acct-group legend { font-weight: 600; font-size: 11px; opacity: .7; padding: 0 4px 0 0; }
+  .acct-item { display: flex; gap: 6px; align-items: center; margin: 2px 0; cursor: pointer; }
+  /* investment flows summary */
+  .flow-summary { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: baseline; margin-bottom: 10px; }
+  .flow-year { font-weight: 600; font-size: 13px; }
+  .flow-stat { display: flex; flex-direction: column; }
+  .flow-stat-label { font-size: 11px; color: #777; }
+  .flow-stat-value { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .flow-credit .flow-stat-value { color: #0d9488; }
+  .flow-debit .flow-stat-value { color: #d97706; }
+  /* accounts & mapping */
+  .acct-panel { margin-top: 20px; }
+  .acct-panel > summary { cursor: pointer; font-size: 14px; font-weight: 600; }
+  .acct-scroll { overflow-x: auto; }
+  .acct-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+  .acct-table th, .acct-table td { text-align: left; padding: 4px 6px; border-bottom: 1px solid rgba(127,127,127,.2); }
+  .acct-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .acct-table .chk { text-align: center; }
+  .acct-table input[type=text], .acct-table select { font-size: 12px; max-width: 200px; }
+  .badge-new { background: #fef3c7; color: #78350f; border-radius: 4px; padding: 0 5px; font-size: 10px; }
+  .acct-closed { margin-top: 10px; }
+  #accountsMsg { font-size: 12px; margin-top: 6px; }
 </style>
 </head>
 <body>
 <h1>Financial trends</h1>
-<div class="sub">YTD expenses by category, holdings value/performance, net worth, and investment transfers — one entry per weekday close. Scroll a chart sideways to see earlier dates.</div>
+<div class="sub">YTD expenses by category, holdings value/performance, net worth, and investment transfers — one entry per weekday close. Net worth and Holdings use daily Monarch account balances. Scroll a chart sideways to see earlier dates.</div>
 <div class="toolbar" id="timeframeBar">
   <button data-tf="week" aria-pressed="false">Week</button>
   <button data-tf="month" class="active" aria-pressed="true">Month</button>
@@ -78,33 +108,47 @@
   <button id="runNow">Run now</button>
 </div>
 <div id="priceNote" class="price-note" role="status" style="display:none"></div>
+<div id="balancesNote" class="price-note" role="status" style="display:none"></div>
 <div class="grid">
-  <div class="card"><h2>Net worth</h2><div id="chartNetWorth"></div>
-    <div class="note">Net worth = investments (live holdings) + annuities/pension + home, startup equity, cash and autos from the plan inputs, minus the mortgage (amortized from its plan-start balance) and any other liabilities. Home and other plan values are held at their plan-start figures, so day-to-day movement is mostly investments.</div></div>
-  <div class="card"><h2>Holdings value</h2><div id="chartHoldings"></div></div>
-  <div class="card"><h2>Investment net flows by account (YTD)</h2><div id="passthroughReview"></div><div id="chartInvFlows"></div>
-    <div class="note">Year-to-date transfers between each investment account and checking, as of the latest snapshot. A net withdrawal (money moved to checking) is positive and extends right; net contributions, including 401k employee deferrals and employer match, are negative and extend left. Money moved from one investment account to another through checking is not counted. A withdrawal and a same-amount deposit in different investment accounts within 30 days are matched automatically; pairs within $100 of each other are flagged above for you to approve or deny; and any transaction tagged "invest-to-invest" (or noted "pass-through") is excluded. Decisions apply at the next Run now.</div></div>
+  <div class="card"><div class="card-head"><h2>Net worth</h2><button type="button" class="acct-btn" data-acct-chart="networth" data-acct-title="Net worth" aria-haspopup="dialog">Accounts ▾</button></div><div id="chartNetWorth"></div>
+    <div class="note" id="noteNetWorth">Net worth = investments (live holdings) + annuities/pension + home, startup equity, cash and autos from the plan inputs, minus the mortgage (amortized from its plan-start balance) and any other liabilities. Home and other plan values are held at their plan-start figures, so day-to-day movement is mostly investments.</div></div>
+  <div class="card"><div class="card-head"><h2>Holdings value</h2><button type="button" class="acct-btn" data-acct-chart="holdings" data-acct-title="Holdings" aria-haspopup="dialog">Accounts ▾</button></div><div id="chartHoldings"></div>
+    <div class="note" id="noteHoldings"></div></div>
+  <div class="card"><div class="card-head"><h2 id="flowsTitle">Investment net flows by account (YTD)</h2><button type="button" class="acct-btn" id="flowsAcctBtn" data-acct-chart="flows" data-acct-title="Investment flows" aria-haspopup="dialog" style="display:none">Accounts ▾</button></div><div id="passthroughReview"></div><div id="flowSummary"></div><div id="chartInvFlows"></div>
+    <div class="note" id="noteFlows">Year-to-date transfers between each investment account and checking, as of the latest snapshot. A net withdrawal (money moved to checking) is positive and extends right; net contributions, including 401k employee deferrals and employer match, are negative and extend left. Money moved from one investment account to another through checking is not counted. A withdrawal and a same-amount deposit in different investment accounts within 30 days are matched automatically; pairs within $100 of each other are flagged above for you to approve or deny; and any transaction tagged "invest-to-invest" (or noted "pass-through") is excluded. Decisions apply at the next Run now.</div></div>
   <div class="card"><h2>YTD expenses by tracking type (latest)</h2><div id="chartCategories"></div>
     <div class="note">Roll over a bar to see its categories, then roll over a category to see its merchants. Totals follow the Spending Analysis mapping and include taxes.</div></div>
 </div>
+<details class="card acct-panel" id="acctPanel">
+  <summary>Monarch accounts &amp; mapping</summary>
+  <div class="note">Set each Monarch account's type, map it to the matching account in the plan (several Monarch accounts can map to one), and choose which charts include it. Accounts marked "review" were classified from their name and haven't been confirmed.</div>
+  <div id="accountsBody"><div class="empty">Open to load accounts.</div></div>
+  <div id="accountsMsg" role="status"></div>
+</details>
 <div id="detailPopup" role="tooltip"></div>
 <div id="detailPopup2" role="tooltip"></div>
 <div id="rollPopup" role="tooltip"></div>
+<div id="acctPop" role="dialog" aria-label="Choose accounts"></div>
 
 <script type="module">
 // Finding QUA-302 (Wave 6 item W6-11): the chart-rendering logic below used
 // to be defined inline, right here, with no module boundary. It now lives
 // in ./charts.js, importable and testable directly.
-import { fmtMoney, escSvg, filterByTimeframe, aggregateByGranularity, granularityForTimeframe, labelForDate, dataTableFallbackHtml, lineChartSvg, barChartSvg, buildHierarchyRows, detailPopupHtml, categoryListHtml, investmentFlowRows, flowBarChartSvg, passthroughReviewHtml, rolloverModel, rolloverHtml } from "./charts.js";
+import { fmtMoney, escSvg, filterByTimeframe, aggregateByGranularity, granularityForTimeframe, labelForDate, dataTableFallbackHtml, lineChartSvg, barChartSvg, buildHierarchyRows, detailPopupHtml, categoryListHtml, investmentFlowRows, flowBarChartSvg, passthroughReviewHtml, rolloverModel, rolloverHtml, hasMonarchBalances, buildMonarchRows, monarchRolloverModel, balancesFreshnessNote, accountToggleHtml, accountsTableHtml, flowIncludedAccounts, flowMonthlySeries, flowYtdSummary, flowSummaryHtml, flowLineChartSvg } from "./charts.js";
 
 let history = [];
 let timeframe = "month";
 let categoryModel = null;
 let chartRows = [];
+// Monarch data (best effort: the page still works from the plan-derived log without it).
+let balances = null;      // /api/balances
+let flowsData = null;     // /api/flows
+let accountTypes = [];
+let appAccounts = null;   // /api/app-accounts, loaded when the accounts panel opens
 
 // Show the newest dates first: scrolled all the way to the right.
 function scrollChartsToLatest() {
-  for (const id of ["chartNetWorth", "chartHoldings"]) {
+  for (const id of ["chartNetWorth", "chartHoldings", "chartInvFlows"]) {
     const box = document.getElementById(id);
     const sc = box && box.querySelector && box.querySelector(".chart-scroll");
     if (sc) sc.scrollLeft = sc.scrollWidth;
@@ -118,7 +162,7 @@ function renderPriceNote() {
   const el = document.getElementById("priceNote");
   const latest = history[history.length - 1];
   const pricing = latest && latest.pricing;
-  if (pricing && pricing.stale) {
+  if (pricing && pricing.stale && !hasMonarchBalances(balances)) {
     el.textContent = `Prices for the ${latest.as_of_date} snapshot could not be refreshed (${pricing.error || "unknown cause"}), so Holdings and Net worth reflect older prices.`;
     el.style.display = "block";
   } else {
@@ -126,9 +170,56 @@ function renderPriceNote() {
   }
 }
 
+function renderBalancesNote() {
+  const el = document.getElementById("balancesNote");
+  const text = hasMonarchBalances(balances) ? balancesFreshnessNote(balances.freshness) : "";
+  el.textContent = text;
+  el.style.display = text ? "block" : "none";
+  const usingMonarch = hasMonarchBalances(balances);
+  document.getElementById("noteNetWorth").textContent = usingMonarch
+    ? "Net worth = the sum of the Monarch accounts switched on under Accounts ▾ (debts count as negative), from Monarch's daily balances. Dates before Monarch's history use the plan-derived figures. Roll over a point for the accounts behind it; accounts with a zero balance that day are left out."
+    : "Net worth = investments (live holdings) + annuities/pension + home, startup equity, cash and autos from the plan inputs, minus the mortgage (amortized from its plan-start balance) and any other liabilities. Home and other plan values are held at their plan-start figures, so day-to-day movement is mostly investments.";
+  document.getElementById("noteHoldings").textContent = usingMonarch
+    ? "Holdings = liquid investments, checking and Venmo from Monarch's daily balances. Annuities, pensions and other illiquid accounts are off by default; change any account under Accounts ▾."
+    : "";
+}
+
+// Net worth / Holdings rows: Monarch daily balances when available, else the plan-derived log.
+function seriesRows() {
+  return (hasMonarchBalances(balances) && buildMonarchRows(balances, history)) || history;
+}
+
+function flowSeriesForPage() {
+  if (!flowsData || !flowsData.monthly || !Object.keys(flowsData.monthly).length) return null;
+  const included = flowIncludedAccounts(flowsData.accounts, balances);
+  const series = flowMonthlySeries(flowsData.monthly, included);
+  const year = Number(String(flowsData.as_of_date || "").slice(0, 4)) || new Date().getFullYear();
+  return { series, ytd: flowYtdSummary(series, year) };
+}
+
+function renderFlows(latest) {
+  const flows = flowSeriesForPage();
+  document.getElementById("flowsAcctBtn").style.display = flows && hasMonarchBalances(balances) ? "inline-block" : "none";
+  document.getElementById("passthroughReview").innerHTML = latest ? passthroughReviewHtml(latest.passthrough_review) : "";
+  if (flows) {
+    document.getElementById("flowsTitle").textContent = "Investment net flows (monthly)";
+    document.getElementById("flowSummary").innerHTML = flowSummaryHtml(flows.ytd);
+    document.getElementById("chartInvFlows").innerHTML = flowLineChartSvg(flows.series);
+    document.getElementById("noteFlows").textContent = "Monthly net contributions: money moved from checking into investment accounts (credits) minus money withdrawn to checking (debits). Positive months added to investments. Investment-to-investment transfers are matched and excluded as before (pairs within $100 of each other are flagged above for you to approve or deny). Accounts follow the Flows toggles under Accounts ▾; decisions apply at the next Run now.";
+    return;
+  }
+  // Older logs without the monthly ledger keep the YTD bar chart.
+  const flowModel = latest ? investmentFlowRows(latest.investment_net_flows_by_account) : null;
+  document.getElementById("flowSummary").innerHTML = "";
+  document.getElementById("chartInvFlows").innerHTML = flowModel
+    ? flowBarChartSvg(flowModel)
+    : '<div class="empty">No per-account investment flows logged yet - click Run now to capture them.</div>';
+}
+
 function render() {
   renderPriceNote();
-  const filtered = filterByTimeframe(history, timeframe);
+  renderBalancesNote();
+  const filtered = filterByTimeframe(seriesRows(), timeframe);
   // Granularity: daily for day/week/month, weekly for quarter, monthly
   // for ytd/12-month/all-time (custom infers from the span it covers).
   const granularity = granularityForTimeframe(timeframe, filtered);
@@ -141,12 +232,9 @@ function render() {
   document.getElementById("chartHoldings").innerHTML = lineChartSvg(
     rows.map(r => ({ label: labelForDate(r.as_of_date, granularity), value: r.holdings && r.holdings.current_value })), { color: "#2563eb", title: "Holdings value", interactive: true }
   );
-  const latest = filtered[filtered.length - 1];
-  const flowModel = latest ? investmentFlowRows(latest.investment_net_flows_by_account) : null;
-  document.getElementById("passthroughReview").innerHTML = latest ? passthroughReviewHtml(latest.passthrough_review) : "";
-  document.getElementById("chartInvFlows").innerHTML = flowModel
-    ? flowBarChartSvg(flowModel)
-    : '<div class="empty">No per-account investment flows logged yet - click Run now to capture them.</div>';
+  // The remaining cards read the latest plan snapshot, whatever the Monarch rows are.
+  const latest = history[history.length - 1];
+  renderFlows(latest);
   categoryModel = latest && latest.ytd_expense_hierarchy ? buildHierarchyRows(latest.ytd_expense_hierarchy, latest.ytd_expense_prior_year, latest.annual_budget_by_tracking_type) : null;
   const categories = [];
   if (categoryModel && categoryModel.rows.length) {
@@ -170,15 +258,38 @@ function renderFetchError(message) {
   }
 }
 
+// Monarch balances and monthly flows are an enhancement: a failure here leaves the
+// plan-derived charts in place instead of replacing them with an error.
+async function loadMonarch() {
+  try {
+    const resp = await fetch("/api/balances");
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const payload = await resp.json();
+    balances = hasMonarchBalances(payload) ? payload : null;
+  } catch (err) {
+    balances = null;
+  }
+  try {
+    const resp = await fetch("/api/flows");
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const payload = await resp.json();
+    flowsData = payload && payload.monthly ? payload : null;
+  } catch (err) {
+    flowsData = null;
+  }
+}
+
 async function loadHistory() {
   try {
     const resp = await fetch("/api/history");
     if (!resp.ok) throw new Error(`history request failed (HTTP ${resp.status})`);
     history = await resp.json();
-    render();
   } catch (err) {
     renderFetchError("Couldn't load trend history: " + err.message);
+    return;
   }
+  await loadMonarch();
+  render();
 }
 
 document.getElementById("timeframeBar").addEventListener("click", (e) => {
@@ -276,11 +387,13 @@ document.getElementById("passthroughReview").addEventListener("click", async (e)
 });
 
 // Rollover on the Net worth / Holdings line charts: account subtotals at the
-// hovered (or keyboard-focused) point's log entry.
+// hovered (or keyboard-focused) point -- Monarch accounts with a non-zero balance for
+// Monarch-sourced points, the logged plan accounts for plan-sourced ones.
 const rollPopup = document.getElementById("rollPopup");
 function hideRollover() { rollPopup.style.display = "none"; }
 function showRollover(dot, kind) {
-  const model = rolloverModel(chartRows[Number(dot.dataset.i)], kind);
+  const row = chartRows[Number(dot.dataset.i)];
+  const model = row && row.source && hasMonarchBalances(balances) ? monarchRolloverModel(row, balances, kind) : rolloverModel(row, kind);
   if (!model) { hideRollover(); return; }
   rollPopup.innerHTML = rolloverHtml(model);
   rollPopup.style.display = "block";
@@ -305,6 +418,117 @@ for (const [id, kind] of [["chartNetWorth", "networth"], ["chartHoldings", "inve
     if (next) { e.preventDefault(); next.focus(); }
   });
 }
+
+// ---- Account toggles (per chart) and the Accounts & mapping panel ----
+// A toggle writes an explicit per-chart override; "Reset to defaults" clears them so the
+// account follows its type's default again.
+const acctPop = document.getElementById("acctPop");
+let acctPopChart = null, acctPopTitle = "";
+function hideAcctPop() { acctPop.style.display = "none"; acctPopChart = null; }
+function showMsg(text, isError) {
+  const el = document.getElementById("accountsMsg");
+  el.textContent = text;
+  el.className = isError ? "error" : "";
+}
+async function postJson(url, body) {
+  const resp = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const payload = await resp.json().catch(() => ({}));
+  if (!resp.ok || payload.success === false) throw new Error(payload.error || `HTTP ${resp.status}`);
+  return payload;
+}
+async function savePrefs(items) {
+  const before = new Map(balances.accounts.map(a => [a.account_key, { ...a.enabled }]));
+  for (const it of items) {
+    const a = balances.accounts.find(x => x.account_key === it.account_key);
+    if (a && it.enabled !== null) a.enabled[it.chart] = it.enabled;
+  }
+  try {
+    await postJson("/api/account-prefs", { items });
+    if (items.some(it => it.enabled === null)) await reloadBalances();   // defaults come from the server
+  } catch (err) {
+    for (const a of balances.accounts) a.enabled = before.get(a.account_key);
+    showMsg("Couldn't save the account selection: " + err.message, true);
+  }
+  render();
+  refreshOpenAccountViews();
+}
+async function reloadBalances() {
+  const resp = await fetch("/api/balances");
+  if (resp.ok) { const p = await resp.json(); if (hasMonarchBalances(p)) balances = p; }
+}
+function refreshOpenAccountViews() {
+  if (acctPopChart && hasMonarchBalances(balances)) acctPop.innerHTML = accountToggleHtml(balances.accounts, acctPopChart, acctPopTitle);
+  if (document.getElementById("acctPanel").open) renderAccountsPanel();
+}
+function openAcctPop(btn) {
+  if (!hasMonarchBalances(balances)) return;
+  acctPopChart = btn.dataset.acctChart; acctPopTitle = btn.dataset.acctTitle;
+  acctPop.innerHTML = accountToggleHtml(balances.accounts, acctPopChart, acctPopTitle);
+  acctPop.style.display = "block"; acctPop.scrollTop = 0;
+  const r = btn.getBoundingClientRect(), pw = acctPop.offsetWidth;
+  acctPop.style.left = Math.max(MARGIN, Math.min(r.right - pw, window.innerWidth - pw - MARGIN)) + "px";
+  fitVertically(acctPop, r.bottom + 6);
+}
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest && e.target.closest("button[data-acct-chart]");
+  if (btn) { if (acctPopChart === btn.dataset.acctChart) hideAcctPop(); else openAcctPop(btn); return; }
+  if (acctPop.style.display === "block" && !(e.target.closest && e.target.closest("#acctPop"))) hideAcctPop();
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") hideAcctPop(); });
+acctPop.addEventListener("change", (e) => {
+  const box = e.target.closest && e.target.closest("input[data-key]");
+  if (box) savePrefs([{ chart: box.dataset.chart, account_key: box.dataset.key, enabled: box.checked }]);
+});
+acctPop.addEventListener("click", (e) => {
+  const btn = e.target.closest && e.target.closest("button[data-bulk]");
+  if (!btn || !hasMonarchBalances(balances)) return;
+  const chart = btn.dataset.chart, mode = btn.dataset.bulk;
+  savePrefs(balances.accounts.map(a => ({ chart, account_key: a.account_key, enabled: mode === "default" ? null : mode === "all" })));
+});
+
+function renderAccountsPanel() {
+  const body = document.getElementById("accountsBody");
+  if (!hasMonarchBalances(balances)) { body.innerHTML = '<div class="empty">No Monarch balances imported yet.</div>'; return; }
+  body.innerHTML = accountsTableHtml(balances.accounts, accountTypes, appAccounts);
+}
+async function loadAccountsPanel() {
+  try {
+    const [types, apps] = await Promise.all([
+      fetch("/api/accounts").then(r => r.json()),
+      fetch("/api/app-accounts").then(r => r.json()),
+    ]);
+    accountTypes = types.types || [];
+    appAccounts = apps.app_accounts || [];
+    if (hasMonarchBalances(balances) && Array.isArray(types.accounts)) {
+      // Fresh registry rows (type, mapping, confirmed) while keeping the loaded series.
+      balances.accounts = types.accounts;
+    }
+  } catch (err) {
+    showMsg("Couldn't load the account list: " + err.message, true);
+  }
+  renderAccountsPanel();
+}
+document.getElementById("acctPanel").addEventListener("toggle", () => {
+  if (document.getElementById("acctPanel").open) loadAccountsPanel();
+});
+document.getElementById("accountsBody").addEventListener("change", async (e) => {
+  const row = e.target.closest && e.target.closest("tr[data-key]");
+  if (!row) return;
+  const key = row.dataset.key;
+  if (e.target.dataset.chart) { savePrefs([{ chart: e.target.dataset.chart, account_key: key, enabled: e.target.checked }]); return; }
+  const field = e.target.dataset.field;
+  if (!field) return;
+  try {
+    const payload = await postJson("/api/account", { account_key: key, [field]: e.target.value });
+    const i = balances.accounts.findIndex(a => a.account_key === key);
+    if (i >= 0) balances.accounts[i] = payload.account;
+    showMsg("Saved.", false);
+  } catch (err) {
+    showMsg("Couldn't save: " + err.message, true);
+  }
+  render();
+  renderAccountsPanel();
+});
 
 document.getElementById("customFrom").addEventListener("change", () => { if (timeframe === "custom") render(); });
 document.getElementById("customTo").addEventListener("change", () => { if (timeframe === "custom") render(); });

@@ -356,9 +356,14 @@ export function barChartSvg(entries) {
 // role with a subtotal each. Net worth adds the plan-level lines from
 // net_worth. Entries lacking account detail return an aggregate-only model
 // (groups empty) so the page still shows the total.
+// Accounts whose value is zero are omitted (a closed account or one not yet opened adds only noise).
+const ZERO_EPS = 0.005;
+export function isNonZero(v) { return Math.abs(Number(v) || 0) >= ZERO_EPS; }
+
 function groupByRole(accounts) {
   const byRole = new Map();
   for (const a of accounts) {
+    if (!isNonZero(a.value)) continue;
     if (!byRole.has(a.role)) byRole.set(a.role, []);
     byRole.get(a.role).push({ name: a.name, value: a.value });
   }
@@ -402,7 +407,7 @@ export function rolloverHtml(model) {
   const head = `<div class="pop-title">${escSvg(model.title)} - ${escSvg(model.date)}</div>`;
   const total = `<div class="pop-total"><span>${escSvg(model.title)}</span><span>${escSvg(fmtMoney(model.total))}</span></div>`;
   if (!model.groups.length) {
-    return head + total + '<div class="pop-hint">No per-account detail was logged for this date.</div>';
+    return head + total + `<div class="pop-hint">${escSvg(model.emptyNote || "No per-account detail was logged for this date.")}</div>`;
   }
   const groups = model.groups.map(g =>
     `<div class="pop-group"><strong>${escSvg(g.role)}</strong>` +
@@ -482,4 +487,196 @@ export function flowBarChartSvg(model) {
     ["Account", "Net (withdrawal +)", "Withdrawn", "Contributed"],
     model.rows.map(r => [r.name, fmtMoney(r.net)]).map((row, i) => row.concat([fmtMoney(model.rows[i].toChecking), fmtMoney(model.rows[i].fromChecking)]))
       .concat([["Total", fmtMoney(model.total), "", ""]]));
+}
+
+// ---------------------------------------------------------------------------
+// Monarch daily balances (balances payload from /api/balances) -- Net worth, Holdings.
+// `balances` = {dates, series: {account_key: [value per date]}, accounts: [{account_key,
+// display_name, type, active, enabled: {networth, holdings, flows}, ...}]}. Totals are
+// summed here from the toggles so switching an account on/off needs no server round trip.
+// ---------------------------------------------------------------------------
+
+function round2(v) { return Math.round(v * 100) / 100; }
+
+export function hasMonarchBalances(balances) {
+  return !!balances && Array.isArray(balances.dates) && balances.dates.length > 0
+    && !!balances.series && Array.isArray(balances.accounts);
+}
+
+function enabledKeys(balances, chart) {
+  return balances.accounts.filter(a => a.enabled && a.enabled[chart]).map(a => a.account_key);
+}
+
+// Log-entry-shaped rows, so the existing timeframe filter / granularity / line chart code
+// works unchanged. Monarch dates use Monarch totals; dates Monarch doesn't cover keep the
+// plan-derived log entry (source "plan", `plan` holds it for the rollover).
+export function buildMonarchRows(balances, history) {
+  if (!hasMonarchBalances(balances)) return null;
+  const nwKeys = enabledKeys(balances, "networth"), hKeys = enabledKeys(balances, "holdings");
+  const total = (keys, i) => keys.reduce((t, k) => t + ((balances.series[k] || [])[i] || 0), 0);
+  const rows = balances.dates.map((d, i) => ({
+    as_of_date: d, source: "monarch", idx: i,
+    net_worth: { total: round2(total(nwKeys, i)) }, holdings: { current_value: round2(total(hKeys, i)) },
+  }));
+  const covered = new Set(balances.dates);
+  for (const e of history || []) {
+    if (covered.has(e.as_of_date)) continue;
+    rows.push({
+      as_of_date: e.as_of_date, source: "plan", idx: -1, plan: e,
+      net_worth: { total: e.net_worth ? e.net_worth.total : null },
+      holdings: { current_value: e.holdings ? e.holdings.current_value : null },
+    });
+  }
+  rows.sort((a, b) => (a.as_of_date < b.as_of_date ? -1 : a.as_of_date > b.as_of_date ? 1 : 0));
+  return rows;
+}
+
+// Rollover for a Monarch-sourced row: enabled accounts with a non-zero value on that date,
+// grouped by account type with subtotals. Plan-sourced rows use the legacy model.
+export function monarchRolloverModel(row, balances, kind) {
+  if (!row) return null;
+  if (row.source !== "monarch") return rolloverModel(row.plan || row, kind);
+  const chart = kind === "investments" ? "holdings" : "networth";
+  const byType = new Map();
+  for (const a of balances.accounts) {
+    if (!(a.enabled && a.enabled[chart])) continue;
+    const v = (balances.series[a.account_key] || [])[row.idx] || 0;
+    if (!isNonZero(v)) continue;
+    const type = a.type || "Other";
+    if (!byType.has(type)) byType.set(type, []);
+    byType.get(type).push({ name: a.display_name, value: v });
+  }
+  const groups = Array.from(byType, ([role, items]) => ({
+    role, items: items.sort((p, q) => Math.abs(q.value) - Math.abs(p.value)),
+    subtotal: items.reduce((t, i) => t + i.value, 0),
+  })).sort((p, q) => Math.abs(q.subtotal) - Math.abs(p.subtotal));
+  return {
+    title: chart === "holdings" ? "Holdings" : "Net worth", date: row.as_of_date,
+    total: chart === "holdings" ? row.holdings.current_value : row.net_worth.total,
+    groups, lines: [], emptyNote: "No accounts with a balance are switched on for this date.",
+  };
+}
+
+// Banner text when the daily Monarch import is failing or stale; "" when healthy.
+export function balancesFreshnessNote(freshness, today) {
+  const last = freshness && freshness.last_run, ok = freshness && freshness.last_ok;
+  if (!last) return "";
+  const now = today ? new Date(today + "T00:00:00") : new Date();
+  const ageDays = ok && ok.latest_date ? Math.floor((now - new Date(ok.latest_date + "T00:00:00")) / 86400000) : null;
+  if (last.status !== "ok") {
+    return `The latest Monarch balances import was rejected (${last.detail || "unknown reason"}); showing balances through ${ok && ok.latest_date ? ok.latest_date : "no date"}.`;
+  }
+  if (ageDays !== null && ageDays > 2) return `Monarch balances were last updated ${ok.latest_date}.`;
+  return "";
+}
+
+// ---- per-chart account toggle popover and the Accounts & mapping table ----
+
+const TYPE_ORDER = ["Cash", "Investment", "Retirement", "HSA", "Annuity/Pension", "Real estate", "Vehicle", "Loan", "Credit card", "Other"];
+
+function groupAccountsByType(accounts) {
+  const groups = new Map();
+  for (const a of accounts) {
+    const t = a.type || "Other";
+    if (!groups.has(t)) groups.set(t, []);
+    groups.get(t).push(a);
+  }
+  const rank = t => { const i = TYPE_ORDER.indexOf(t); return i < 0 ? TYPE_ORDER.length : i; };
+  return Array.from(groups).sort((p, q) => rank(p[0]) - rank(q[0]));
+}
+
+export function accountToggleHtml(accounts, chart, title) {
+  const body = groupAccountsByType(accounts).map(([type, list]) =>
+    `<fieldset class="acct-group"><legend>${escSvg(type)}</legend>` +
+    list.map(a => `<label class="acct-item"><input type="checkbox" data-chart="${escSvg(chart)}" data-key="${escSvg(a.account_key)}"${a.enabled && a.enabled[chart] ? " checked" : ""}> ` +
+      `<span>${escSvg(a.display_name)}${a.active ? "" : ' <em class="pop-hint">(closed)</em>'}</span></label>`).join("") +
+    `</fieldset>`).join("");
+  return `<div class="pop-title">${escSvg(title)} - accounts</div>` +
+    `<div class="acct-actions"><button type="button" data-bulk="all" data-chart="${escSvg(chart)}">All</button> ` +
+    `<button type="button" data-bulk="none" data-chart="${escSvg(chart)}">None</button> ` +
+    `<button type="button" data-bulk="default" data-chart="${escSvg(chart)}">Reset to defaults</button></div>${body}`;
+}
+
+export function accountsTableHtml(accounts, types, appAccounts) {
+  const opts = (appAccounts || []).map(n => `<option value="${escSvg(n)}"></option>`).join("");
+  const row = a => `<tr data-key="${escSvg(a.account_key)}">` +
+    `<td>${escSvg(a.display_name)}${a.confirmed ? "" : ' <span class="badge-new">review</span>'}${a.active ? "" : ` <em class="pop-hint">closed ${escSvg(a.last_seen)}</em>`}</td>` +
+    `<td><select data-field="type" aria-label="Type for ${escSvg(a.display_name)}">` +
+      (types || []).map(t => `<option${t === a.type ? " selected" : ""}>${escSvg(t)}</option>`).join("") + `</select></td>` +
+    `<td><input type="text" list="appAccountList" data-field="app_account" value="${escSvg(a.app_account || "")}" placeholder="not mapped" aria-label="App account for ${escSvg(a.display_name)}"></td>` +
+    `<td class="num">${a.latest_balance == null ? "-" : escSvg(fmtMoney(a.latest_balance))}</td>` +
+    ["networth", "holdings", "flows"].map(c => `<td class="chk"><input type="checkbox" data-chart="${c}" aria-label="${c} for ${escSvg(a.display_name)}"${a.enabled && a.enabled[c] ? " checked" : ""}></td>`).join("") +
+    `</tr>`;
+  const active = accounts.filter(a => a.active), closed = accounts.filter(a => !a.active);
+  const head = `<thead><tr><th>Monarch account</th><th>Type</th><th>App account</th><th class="num">Balance</th><th>Net worth</th><th>Holdings</th><th>Flows</th></tr></thead>`;
+  const table = list => `<div class="acct-scroll"><table class="acct-table">${head}<tbody>${list.map(row).join("")}</tbody></table></div>`;
+  return `<datalist id="appAccountList">${opts}</datalist>${table(active)}` +
+    (closed.length ? `<details class="acct-closed"><summary>Closed accounts (${closed.length})</summary>${table(closed)}</details>` : "");
+}
+
+// ---- monthly investment flows (payload from /api/flows) ----
+
+export function monthLabel(month) {
+  return new Date(`${month}-01T00:00:00`).toLocaleDateString(undefined, { month: "short", year: "numeric" });
+}
+
+function monthsBetween(first, last) {
+  const out = [];
+  let y = Number(first.slice(0, 4)), m = Number(first.slice(5, 7));
+  const ly = Number(last.slice(0, 4)), lm = Number(last.slice(5, 7));
+  while (y < ly || (y === ly && m <= lm)) {
+    out.push(`${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}`);
+    if (++m === 13) { y++; m = 1; }
+  }
+  return out;
+}
+
+// Flow accounts that the Flows toggles include: a flow account tied to registry accounts is
+// included when any of them has Flows on; one with no registry match stays included.
+export function flowIncludedAccounts(flowAccounts, balances) {
+  const byKey = new Map(((balances && balances.accounts) || []).map(a => [a.account_key, a]));
+  return (flowAccounts || []).filter(fa => {
+    const keys = (fa.account_keys || []).filter(k => byKey.has(k));
+    return keys.length ? keys.some(k => byKey.get(k).enabled && byKey.get(k).enabled.flows) : (fa.account_keys && fa.account_keys.length ? !!fa.enabled : true);
+  }).map(fa => fa.flow_account);
+}
+
+// credits = contributions into investments, debits = withdrawals out of them, net = credits - debits.
+export function flowMonthlySeries(monthly, included) {
+  const chosen = new Set(included);
+  const all = Object.entries(monthly || {}).filter(([a]) => chosen.has(a));
+  const months = [...new Set(all.flatMap(([, ms]) => Object.keys(ms)))].sort();
+  if (!months.length) return [];
+  return monthsBetween(months[0], months[months.length - 1]).map(month => {
+    let credits = 0, debits = 0;
+    for (const [, ms] of all) { const c = ms[month]; if (c) { credits += c.from_checking || 0; debits += c.to_checking || 0; } }
+    return { month, credits: round2(credits), debits: round2(debits), net: round2(credits - debits) };
+  });
+}
+
+export function flowYtdSummary(series, year) {
+  const rows = series.filter(p => p.month.startsWith(`${year}-`));
+  const credits = round2(rows.reduce((t, p) => t + p.credits, 0)), debits = round2(rows.reduce((t, p) => t + p.debits, 0));
+  return { year, credits, debits, total: round2(credits - debits) };
+}
+
+export function fmtMoneySigned(v) {
+  if (v === null || v === undefined) return "-";
+  return (v < 0 ? "-" : "") + "$" + Math.abs(Number(v)).toLocaleString(undefined, { maximumFractionDigits: 0 });
+}
+
+export function flowSummaryHtml(ytd) {
+  if (!ytd) return "";
+  const tile = (label, value, cls) => `<div class="flow-stat ${cls}"><span class="flow-stat-label">${escSvg(label)}</span><span class="flow-stat-value">${escSvg(fmtMoneySigned(value))}</span></div>`;
+  return `<div class="flow-summary" role="group" aria-label="${escSvg(String(ytd.year))} year to date investment flows">` +
+    `<div class="flow-year">${escSvg(String(ytd.year))} YTD</div>` +
+    tile("Credits (into investments)", ytd.credits, "flow-credit") +
+    tile("Debits (out of investments)", ytd.debits, "flow-debit") +
+    tile("Total (net contributions)", ytd.total, "flow-total") + `</div>`;
+}
+
+export function flowLineChartSvg(series) {
+  if (!series.length) return '<div class="empty">No investment transfers recorded for the accounts switched on.</div>';
+  return lineChartSvg(series.map(p => ({ label: monthLabel(p.month), value: p.net })),
+    { color: "#0d9488", title: "Net investment contributions by month", pxPerPoint: 56 });
 }

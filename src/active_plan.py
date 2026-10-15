@@ -586,6 +586,19 @@ def workspace_dataset_rows(root: str | Path, name: str) -> list[dict[str, str]]:
     return _dataset_rows(plan_path_for_workspace(root), name)
 
 
+@contextmanager
+def workspace_store(root: str | Path, *, write: bool = False) -> Iterator[PlanStore]:
+    """The plan store of workspace ``root`` (the active plan for the live workspace). Read use never
+    creates a plan file; write use creates one only in a real workspace, like the dataset writers."""
+    path = _workspace_plan_for_write(root) if write else plan_path_for_workspace(root)
+    if write:
+        with _writing(path) as store:
+            yield store
+    else:
+        with _reading(path, readonly=False) as store:
+            yield store
+
+
 def dataset_rows_for_input_dir(input_dir: str | Path, name: str) -> list[dict[str, str]]:
     """:func:`workspace_dataset_rows` for code handed a workspace's ``input`` folder."""
     return workspace_dataset_rows(Path(input_dir).parent, name)

@@ -222,6 +222,14 @@ const STEPS = [
     help: "Category assignment happens on Spending Model. Accounts & Sources controls account/source type, prior-year balances, and current values.",
   },
   {
+    id: "monarch_reconciliation",
+    group: "Reports & Review",
+    title: "Monarch Reconciliation",
+    desc: "The app's account numbers beside Monarch's daily balances, with a way to copy Monarch's number into the app.",
+    intro: "Review differences, tick the ones to update, preview the old and new values, then apply. Every change is logged and can be undone.",
+    help: "Investment accounts are valued from holdings, so they are report only. Plan inputs (home, autos, mortgage) are plan-start figures; rebuild after changing them.",
+  },
+  {
     id: "reports_and_review",
     group: "Reports & Review",
     title: "Build & Results",
@@ -427,6 +435,13 @@ const STEP_HELP = {
     "Holdings drive account totals, allocation drift, pricing, tax-lot sell guidance, rebalancing recommendations, and year-to-date growth for investment accounts. Account names must match names used on Withdrawal Sequencing and Asset Allocation.",
     "Use CASH at price 1.00 for money market and cash positions. Keep separate lots per purchase when tax-basis guidance matters — blended basis reduces sell-guidance precision. For large broker downloads, export a backup before importing to replace all.",
     "More complete cost basis and purchase dates improve taxable sell guidance and estimated tax impact on trade recommendations.",
+  ),
+  monarch_reconciliation: pageHelp(
+    "Monarch reconciliation",
+    "Compares each account number in the app with the balance Monarch reports, as of a date you pick, and lists what differs.",
+    "Accounts match by name or by a match you save. Cash, cards, loans and manual accounts update the Accounts & Sources value; home, autos and mortgage update the plan inputs. Investments are valued from holdings and are never changed here.",
+    "Select the differences you trust, preview the old and new values, then apply. Use Undo in the change log to put a number back; it refuses if the value was edited since.",
+    "A corrected balance changes net worth, YTD growth and the starting values the next build uses. Rebuild after applying.",
   ),
   rental_properties: pageHelp(
     "Rental properties",
@@ -3454,6 +3469,7 @@ let renderMain = function() {
     content += renderAssetsCashReserves();
   else if (activeStep === "assets_special") content += renderAssetsSpecial();
   else if (activeStep === "rental_properties") content += renderRentalProperties();
+  else if (activeStep === "monarch_reconciliation") content += renderMonarchReconciliation();
   else if (activeStep === "family_business") content += renderFamilyBusiness();
   // #329/#330 W9: HELOC moved from Strategy → Assets & Protection (a plan
   // input against a held asset, not an optimizer). Same content, same

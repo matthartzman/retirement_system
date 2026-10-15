@@ -3031,6 +3031,24 @@
       "scope": "inside-function"
     },
     {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_monarch_reconciliation.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_monarch_reconciliation.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_monarch_reconciliation.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "dirty",
       "file": "frontend/js/dashboard_decomp_optimizer_apply.js",
       "kind": "read",
@@ -8242,6 +8260,12 @@
       "name": "renderMain",
       "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
       "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "ytdData",
+      "file": "frontend/js/dashboard_decomp_ytd_and_plan_folder_io.js",
+      "kind": "read",
       "scope": "inside-function"
     },
     {

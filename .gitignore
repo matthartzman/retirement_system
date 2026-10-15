@@ -34,6 +34,8 @@ saved_plans/
 # spending-by-category figures for every logged day -- same PII sensitivity
 # class as input/, so it stays untracked for the same reason (see below).
 financial_trends_reporter/data/*.jsonl
+# Monarch daily account balances (real balances for every account): same sensitivity class.
+financial_trends_reporter/data/*.sqlite3
 
 # Real plan data: a household's actual name, DOB, retirement date, SSA
 # benefit amounts, insurance premiums, and every other personal/financial
