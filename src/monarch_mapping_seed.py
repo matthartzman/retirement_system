@@ -15,6 +15,7 @@ Closed accounts are not a policy: closedness is computed from the balances.
 """
 
 import csv
+import io
 import re
 import unicodedata
 from pathlib import Path
@@ -39,10 +40,13 @@ def account_key(name: str) -> str:
     return re.sub(r"\s+", " ", unicodedata.normalize("NFKC", name or "")).strip().casefold()
 
 
-def read_mapping_csv(path: str | Path) -> list[dict[str, str]]:
-    with open(path, newline="", encoding="utf-8-sig") as fh:
-        rows = [{k.strip(): (v or "").strip() for k, v in r.items() if k} for r in csv.DictReader(fh)]
+def parse_mapping_csv(text: str) -> list[dict[str, str]]:
+    rows = [{k.strip(): (v or "").strip() for k, v in r.items() if k} for r in csv.DictReader(io.StringIO(text.lstrip("\ufeff")))]
     return [r for r in rows if r.get("Monarch")]
+
+
+def read_mapping_csv(path: str | Path) -> list[dict[str, str]]:
+    return parse_mapping_csv(Path(path).read_text(encoding="utf-8-sig"))
 
 
 def policy_for(row: dict[str, str]) -> str:
@@ -53,11 +57,12 @@ def policy_for(row: dict[str, str]) -> str:
     return "auto" if row.get("Primary Source", "").casefold() == "monarch" else "app"
 
 
-def seed_mapping(base_dir: str | Path, csv_path: str | Path, *, dry_run: bool = False) -> dict[str, Any]:
+def seed_mapping(base_dir: str | Path, csv_path: str | Path | None = None, *, dry_run: bool = False,
+                 csv_text: str | None = None) -> dict[str, Any]:
     """Save the CSV's matches. Returns ``{saved, pending, ignored, not_in_monarch, skipped}`` lists of
     ``{monarch, ...}``; ``not_in_monarch`` rows (no stored balances under that name) are never saved."""
     base = Path(base_dir)
-    rows = read_mapping_csv(csv_path)
+    rows = parse_mapping_csv(csv_text) if csv_text is not None else read_mapping_csv(csv_path)
     report: dict[str, list[dict[str, str]]] = {k: [] for k in ("saved", "pending", "ignored", "not_in_monarch", "skipped")}
     with active_plan.workspace_store(base, write=not dry_run) as store:
         known = {a["account_key"] for a in store.monarch.accounts_as_of(store.monarch.latest_date() or "9999-12-31")}

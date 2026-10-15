@@ -606,6 +606,9 @@ Account reconciliation: the app's account numbers against Monarch's daily balanc
 - `POST /api/reconcile/preview`: body `{items: [{id}], as_of?}`. Returns `{changes, rejected}` (old to new for each row that would change) and writes nothing.
 - `POST /api/reconcile/apply`: same body; each item may carry `expected_new` (the preview's number), and an item whose current number differs is rejected as stale. Returns `{applied: [{change_id, ...}], rejected}`; every change is logged. Investment accounts and income-stream annuities are report only and always rejected.
 - `POST /api/reconcile/undo`: body `{change_id}`. Restores the old value only while the app still holds the number that change wrote; `400` otherwise or if already undone.
+- `POST /api/reconcile/policy`: body `{account_key, policy}`; `policy` is `ask`, `auto` (copy Monarch's number at import, guarded), `app` (the app is the source, report only) or `ignore`. `400` for an unknown policy or an account with no saved match. Rows now also carry `policy` and `auto_hold` (why an `auto` change is waiting for you), and the response lists `closed_accounts` (closed and empty, nothing to decide); a closed account that still holds money is in `unmatched` with status `closed_with_balance`.
+- `POST /api/reconcile/undo-auto`: undoes every automatic change not yet undone; returns `{undone, skipped}` (a value edited since is skipped).
+- `POST /api/reconcile/seed`: body `{csv_text}` (the Monarch-to-app mapping CSV). Saves matches and policies; returns `{seed: {saved, pending, ignored, not_in_monarch, skipped}}`.
 - `GET /api/reconcile/log`: `{log: [...]}`, newest first, each with `old_value`, `new_value`, `monarch_date` and `undone_at`.
 
 Writes need the `write_config` permission; reads need `view_dashboard`.

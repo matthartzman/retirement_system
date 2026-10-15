@@ -428,6 +428,25 @@ def set_mapping(input_dir: str | Path, account_key: str, target: str | None) -> 
         return {"account_key": account_key, "mapping": repo.mapping()[account_key]}
 
 
+@_store_errors
+def set_policy(input_dir: str | Path, account_key: str, policy: str) -> dict[str, Any]:
+    """Set what happens when a matched Monarch account differs: ask / auto / app / ignore."""
+    from .stores.errors import NotFoundError, ValidationError
+    with active_plan.workspace_store(Path(input_dir).parent, write=True) as store:
+        try:
+            store.monarch.set_policy(account_key, policy)
+        except (NotFoundError, ValidationError) as exc:
+            raise ReconcileError(str(exc)) from exc
+        return {"account_key": account_key, "policy": policy}
+
+
+@_store_errors
+def seed_from_csv(input_dir: str | Path, csv_text: str) -> dict[str, Any]:
+    """Save matches and policies from the mapping CSV (see ``monarch_mapping_seed``)."""
+    from . import monarch_mapping_seed
+    return {"seed": monarch_mapping_seed.seed_mapping(Path(input_dir).parent, csv_text=csv_text)}
+
+
 # ------------------------------------------------------------------------------ preview / apply / undo
 def _select(rows: list[dict[str, Any]], items: Iterable[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
     by_id = {r["id"]: r for r in rows}
