@@ -45,7 +45,10 @@
   .pop-title { font-weight: 600; margin-bottom: 6px; }
   .pop-row { display: grid; grid-template-columns: 150px 1fr 64px; gap: 6px; align-items: center; margin: 2px 0; }
   .pop-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .pop-bar { background: rgba(127,127,127,.18); border-radius: 3px; height: 8px; }
+  .pop-bar { background: rgba(127,127,127,.18); border-radius: 3px; height: 8px; position: relative; }
+  .pop-bar .pm { position: absolute; top: -2px; height: 12px; width: 2.5px; margin-left: -1px; }
+  .pm-prior { background: #475569; }
+  .pm-budget { background: #d97706; }
   .pop-bar i { display: block; height: 100%; background: #2563eb; border-radius: 3px; }
   .pop-cat:hover { background: rgba(37,99,235,.12); border-radius: 3px; }
   .pop-hint { font-weight: 400; opacity: .6; font-size: 11px; }
@@ -94,7 +97,7 @@
 </head>
 <body>
 <h1>Financial trends</h1>
-<div class="sub">YTD expenses by category, holdings value/performance, net worth, and investment transfers — one entry per weekday close. Net worth and Holdings use daily Monarch account balances. Scroll a chart sideways to see earlier dates.</div>
+<div class="sub">YTD expenses by category, liquid investments and cash/performance, net worth, and investment transfers — one entry per weekday close. Net worth and Liquid Investments and Cash use daily Monarch account balances. Scroll a chart sideways to see earlier dates.</div>
 <div class="toolbar" id="timeframeBar">
   <button data-tf="week" aria-pressed="false">Week</button>
   <button data-tf="month" class="active" aria-pressed="true">Month</button>
@@ -107,12 +110,13 @@
   <button data-tf="custom" aria-pressed="false">Custom</button>
   <button id="runNow">Run now</button>
 </div>
+<div class="note" id="allTimeNote" style="display:none"></div>
 <div id="priceNote" class="price-note" role="status" style="display:none"></div>
 <div id="balancesNote" class="price-note" role="status" style="display:none"></div>
 <div class="grid">
   <div class="card"><div class="card-head"><h2>Net worth</h2><button type="button" class="acct-btn" data-acct-chart="networth" data-acct-title="Net worth" aria-haspopup="dialog">Accounts ▾</button></div><div id="chartNetWorth"></div>
     <div class="note" id="noteNetWorth">Net worth = investments (live holdings) + annuities/pension + home, startup equity, cash and autos from the plan inputs, minus the mortgage (amortized from its plan-start balance) and any other liabilities. Home and other plan values are held at their plan-start figures, so day-to-day movement is mostly investments.</div></div>
-  <div class="card"><div class="card-head"><h2>Holdings value</h2><button type="button" class="acct-btn" data-acct-chart="holdings" data-acct-title="Holdings" aria-haspopup="dialog">Accounts ▾</button></div><div id="chartHoldings"></div>
+  <div class="card"><div class="card-head"><h2>Liquid Investments and Cash</h2><button type="button" class="acct-btn" data-acct-chart="holdings" data-acct-title="Liquid Investments and Cash" aria-haspopup="dialog">Accounts ▾</button></div><div id="chartHoldings"></div>
     <div class="note" id="noteHoldings"></div></div>
   <div class="card"><div class="card-head"><h2 id="flowsTitle">Investment net flows by account (YTD)</h2><button type="button" class="acct-btn" id="flowsAcctBtn" data-acct-chart="flows" data-acct-title="Investment flows" aria-haspopup="dialog" style="display:none">Accounts ▾</button></div><div id="passthroughReview"></div><div id="flowSummary"></div><div id="chartInvFlows"></div>
     <div class="note" id="noteFlows">Year-to-date transfers between each investment account and checking, as of the latest snapshot. A net withdrawal (money moved to checking) is positive and extends right; net contributions, including 401k employee deferrals and employer match, are negative and extend left. Money moved from one investment account to another through checking is not counted. A withdrawal and a same-amount deposit in different investment accounts within 30 days are matched automatically; pairs within $100 of each other are flagged above for you to approve or deny; and any transaction tagged "invest-to-invest" (or noted "pass-through") is excluded. Decisions apply at the next Run now.</div></div>
@@ -134,7 +138,7 @@
 // Finding QUA-302 (Wave 6 item W6-11): the chart-rendering logic below used
 // to be defined inline, right here, with no module boundary. It now lives
 // in ./charts.js, importable and testable directly.
-import { fmtMoney, escSvg, filterByTimeframe, aggregateByGranularity, granularityForTimeframe, labelForDate, dataTableFallbackHtml, lineChartSvg, barChartSvg, buildHierarchyRows, detailPopupHtml, categoryListHtml, investmentFlowRows, flowBarChartSvg, passthroughReviewHtml, rolloverModel, rolloverHtml, hasMonarchBalances, buildMonarchRows, monarchRolloverModel, balancesFreshnessNote, accountToggleHtml, accountsTableHtml, flowIncludedAccounts, flowMonthlySeries, flowYtdSummary, flowSummaryHtml, flowLineChartSvg } from "./charts.js";
+import { fmtMoney, escSvg, filterByTimeframe, aggregateByGranularity, granularityForTimeframe, labelForDate, dataTableFallbackHtml, lineChartSvg, barChartSvg, buildHierarchyRows, detailPopupHtml, categoryListHtml, investmentFlowRows, flowBarChartSvg, passthroughReviewHtml, rolloverModel, rolloverHtml, hasMonarchBalances, buildMonarchRows, truncateAllTime, ALL_TIME_START, monarchRolloverModel, balancesFreshnessNote, accountToggleHtml, accountsTableHtml, flowIncludedAccounts, flowMonthlySeries, flowYtdSummary, flowSummaryHtml, flowLineChartSvg } from "./charts.js";
 
 let history = [];
 let timeframe = "month";
@@ -156,14 +160,14 @@ function scrollChartsToLatest() {
 }
 
 // The newest snapshot's price refresh status: if live prices couldn't be
-// fetched, Holdings and Net worth are valued at older prices -- say so rather
+// fetched, Liquid Investments and Cash and Net worth are valued at older prices -- say so rather
 // than let a flat line pass for a real "no change".
 function renderPriceNote() {
   const el = document.getElementById("priceNote");
   const latest = history[history.length - 1];
   const pricing = latest && latest.pricing;
   if (pricing && pricing.stale && !hasMonarchBalances(balances)) {
-    el.textContent = `Prices for the ${latest.as_of_date} snapshot could not be refreshed (${pricing.error || "unknown cause"}), so Holdings and Net worth reflect older prices.`;
+    el.textContent = `Prices for the ${latest.as_of_date} snapshot could not be refreshed (${pricing.error || "unknown cause"}), so Liquid Investments and Cash and Net worth reflect older prices.`;
     el.style.display = "block";
   } else {
     el.style.display = "none";
@@ -180,7 +184,7 @@ function renderBalancesNote() {
     ? "Net worth = the sum of the Monarch accounts switched on under Accounts ▾ (debts count as negative), from Monarch's daily balances. Dates before Monarch's history use the plan-derived figures. Roll over a point for the accounts behind it; accounts with a zero balance that day are left out."
     : "Net worth = investments (live holdings) + annuities/pension + home, startup equity, cash and autos from the plan inputs, minus the mortgage (amortized from its plan-start balance) and any other liabilities. Home and other plan values are held at their plan-start figures, so day-to-day movement is mostly investments.";
   document.getElementById("noteHoldings").textContent = usingMonarch
-    ? "Holdings = liquid investments, checking and Venmo from Monarch's daily balances. Annuities, pensions and other illiquid accounts are off by default; change any account under Accounts ▾."
+    ? "Liquid Investments and Cash = liquid investments, checking and Venmo from Monarch's daily balances. Annuities, pensions and other illiquid accounts are off by default; change any account under Accounts ▾."
     : "";
 }
 
@@ -219,7 +223,18 @@ function renderFlows(latest) {
 function render() {
   renderPriceNote();
   renderBalancesNote();
-  const filtered = filterByTimeframe(seriesRows(), timeframe);
+  let filtered = filterByTimeframe(seriesRows(), timeframe);
+  const allTimeNote = document.getElementById("allTimeNote");
+  allTimeNote.style.display = "none";
+  if (timeframe === "all") {
+    const t = truncateAllTime(filtered);
+    filtered = t.rows;
+    if (t.truncated) {
+      allTimeNote.textContent = `All time starts ${ALL_TIME_START}; earlier history is not shown.`;
+      allTimeNote.style.display = "block";
+    }
+  }
+
   // Granularity: daily for day/week/month, weekly for quarter, monthly
   // for ytd/12-month/all-time (custom infers from the span it covers).
   const granularity = granularityForTimeframe(timeframe, filtered);
@@ -230,12 +245,12 @@ function render() {
     rows.map(r => ({ label: labelForDate(r.as_of_date, granularity), value: r.net_worth && r.net_worth.total })), { color: "#16a34a", title: "Net worth", interactive: true }
   );
   document.getElementById("chartHoldings").innerHTML = lineChartSvg(
-    rows.map(r => ({ label: labelForDate(r.as_of_date, granularity), value: r.holdings && r.holdings.current_value })), { color: "#2563eb", title: "Holdings value", interactive: true }
+    rows.map(r => ({ label: labelForDate(r.as_of_date, granularity), value: r.holdings && r.holdings.current_value })), { color: "#2563eb", title: "Liquid Investments and Cash", interactive: true }
   );
   // The remaining cards read the latest plan snapshot, whatever the Monarch rows are.
   const latest = history[history.length - 1];
   renderFlows(latest);
-  categoryModel = latest && latest.ytd_expense_hierarchy ? buildHierarchyRows(latest.ytd_expense_hierarchy, latest.ytd_expense_prior_year, latest.annual_budget_by_tracking_type) : null;
+  categoryModel = latest && latest.ytd_expense_hierarchy ? buildHierarchyRows(latest.ytd_expense_hierarchy, latest.ytd_expense_prior_year, latest.annual_budget_by_tracking_type, latest.ytd_expense_prior_detail, latest.annual_budget_by_category) : null;
   const categories = [];
   if (categoryModel && categoryModel.rows.length) {
     categories.push(["Total", categoryModel.total, { kind: "total", ...categoryModel.totalDetail, ...categoryModel.totalMarkers }]);

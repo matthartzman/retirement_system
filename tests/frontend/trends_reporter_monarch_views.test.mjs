@@ -78,7 +78,7 @@ describe("monarchRolloverModel", () => {
 
   test("groups by type with subtotals; holdings uses only holdings accounts", () => {
     const m = monarchRolloverModel(rows[1], BAL, "investments");
-    assert.equal(m.title, "Holdings");
+    assert.equal(m.title, "Liquid Investments and Cash");
     assert.deepEqual(m.groups.map(g => [g.role, g.subtotal]).sort(), [["Cash", 10], ["Retirement", 110]]);
     assert.equal(m.total, 120);
   });

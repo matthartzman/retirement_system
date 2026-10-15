@@ -152,6 +152,10 @@ def test_prior_year_same_window_and_budget_markers(tmp_path):
     assert tracking_type in snapshot["ytd_expense_hierarchy"]
     assert snapshot["ytd_expenses_by_category"]["Groceries"] == 100.0  # current year unaffected
     assert isinstance(snapshot["annual_budget_by_tracking_type"], dict)
+    # 351b: the same markers one level down (per category and merchant).
+    prior_cat = snapshot["ytd_expense_prior_detail"][tracking_type]["Groceries"]
+    assert prior_cat["prior"] == 80.0 and prior_cat["merchants"] == {"Kroger": 80.0}
+    assert isinstance(snapshot["annual_budget_by_category"], dict)
 
 
 def test_same_day_prior_year_handles_leap_day():

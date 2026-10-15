@@ -306,3 +306,73 @@ describe("347a: prior-year and budget markers on the YTD bars", () => {
     assert.match(svg, />\$500</, "axis max reaches the $500 budget");
   });
 });
+
+describe("351: budget and prior-year markers match at every level", () => {
+  const tree = { Core: { Food: { Groceries: { Kroger: 100, Aldi: 20 } } } };
+  const priorDetail = { Core: { Groceries: { prior: 80, merchants: { Kroger: 70 } } } };
+  const budgetByCat = { Core: { Groceries: 400 } };
+
+  test("the budget marker has the same height as the prior-year marker (351a)", () => {
+    const m = buildHierarchyRows(tree, { Core: 80 }, { Core: 500 });
+    const svg = barChartSvg(m.rows.map(r => [r.name, r.amount, r]));
+    const lines = [...svg.matchAll(/<line x1="[\d.]+" y1="([\d.-]+)" x2="[\d.]+" y2="([\d.-]+)" stroke="(#475569|#d97706)"/g)];
+    const h = c => Number(lines.find(l => l[3] === c)[2]) - Number(lines.find(l => l[3] === c)[1]);
+    assert.equal(h("#d97706"), h("#475569"));
+  });
+
+  test("category popup rows carry prior and budget markers (351b)", () => {
+    const m = buildHierarchyRows(tree, { Core: 80 }, { Core: 500 }, priorDetail, budgetByCat);
+    const cat = m.rows[0].categories[0];
+    assert.equal(cat.prior, 80);
+    assert.equal(cat.budget, 400);
+    const html = categoryListHtml("Core", m.rows[0].categories);
+    assert.match(html, /pm pm-prior/);
+    assert.match(html, /pm pm-budget/);
+  });
+
+  test("merchant rows show prior-year only where last year had that merchant", () => {
+    const m = buildHierarchyRows(tree, { Core: 80 }, { Core: 500 }, priorDetail, budgetByCat);
+    const [kroger, aldi] = m.rows[0].categories[0].merchants;
+    assert.deepEqual(kroger[2], { prior: 70 });
+    assert.deepEqual(aldi[2], { prior: null });
+    const html = detailPopupHtml("merchants", m.rows[0].categories[0].merchants);
+    assert.equal((html.match(/pm pm-prior/g) || []).length, 1);
+    assert.doesNotMatch(html, /pm-budget/);
+  });
+
+  test("the Total popup lists tracking types with their markers", () => {
+    const m = buildHierarchyRows(tree, { Core: 80 }, { Core: 500 });
+    const html = detailPopupHtml(m.totalDetail.detailTitle, m.totalDetail.detail);
+    assert.match(html, /pm pm-prior/);
+    assert.match(html, /pm pm-budget/);
+  });
+
+  test("without detail data (older log rows) popups draw no markers", () => {
+    const m = buildHierarchyRows(tree);
+    assert.doesNotMatch(categoryListHtml("Core", m.rows[0].categories), /class="pm /);
+  });
+});
+
+describe("352: All time starts 2025-02-01", () => {
+  const mk = (d, nw) => ({ as_of_date: d, source: "monarch", net_worth: { total: nw }, holdings: { current_value: nw } });
+
+  test("truncateAllTime keeps 2025-02-01 onward and nothing earlier", async () => {
+    const { truncateAllTime } = await import("../../financial_trends_reporter/frontend/charts.js");
+    const rows = [mk("2024-01-10", -360000), mk("2025-01-31", 2008000), mk("2025-02-01", 4174000), mk("2026-10-15", 6570000)];
+    const t = truncateAllTime(rows);
+    assert.deepEqual(t.rows.map(r => r.as_of_date), ["2025-02-01", "2026-10-15"]);
+    assert.equal(t.truncated, true);
+  });
+
+  test("nothing is flagged when all rows are on or after the start", async () => {
+    const { truncateAllTime } = await import("../../financial_trends_reporter/frontend/charts.js");
+    assert.equal(truncateAllTime([mk("2025-03-01", 1)]).truncated, false);
+  });
+
+  test("a missing value breaks the line instead of dropping to zero", () => {
+    const svg = lineChartSvg([{ label: "a", value: 100 }, { label: "b", value: null }, { label: "c", value: 120 }, { label: "d", value: 130 }]);
+    const d = svg.match(/<path d="([^"]+)"/)[1];
+    assert.equal((d.match(/M/g) || []).length, 2);
+    assert.doesNotMatch(d, /NaN/);
+  });
+});
