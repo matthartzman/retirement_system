@@ -283,3 +283,24 @@ These are relative estimates, not token counts. **Check `/usage` after each phas
 **Disproportionately expensive steps:** R1 (schema bump ripple) and R4 (UI iteration). Scope down R1 by grepping version
 constants before opening files, and by copying the v6 (WP6.4) migration pattern exactly instead of designing a new one.
 Scope down R4 by building the table and preview first and styling last, screenshotting once per milestone.
+
+## 10. Outcome (2026-10-14) and deviations from this plan
+
+All phases (0 to 7 and R1 to R5) are implemented on branch `monarch-account-balances`.
+
+Deviations from the design above:
+
+- **Where the trends balances are imported (section 4.1).** The trends store is loaded at the end of the 03:30 chain
+  (`run_monarch.ps1` runs `financial_trends_reporter/tools/import_monarch_balances.py`) and by the trends job, not by the
+  04:00 job. Hooking it into `src/` would have made main-app code import the trends reporter, which is not packaged with it.
+  The 04:00 job loads the separate plan-file copy (section 9).
+- **Mortgage on the reconciliation page (section 9.2).** Compared as the plan stores it (the plan-start balance), not amortized
+  forward; the amortization in the trends reporter is that app's own estimate.
+- **Mapping endpoint (section 4.5).** `POST /api/account` takes the account key in the body, not the path.
+- **Closed accounts (sections 5 and 9).** An account counts as closed only when it stopped more than 3 days before the newest
+  stored date; a shorter lag is a late sync and its last balance carries forward (found in code review).
+- **Account type list.** Retirement and HSA are their own types (the design had them as subtypes of Investment).
+
+Known limits: the Monarch export has no account id (accounts are keyed by name; two accounts with one name make the export fail
+with a message); `GET /api/reconcile` recomputes the year-to-date summary on each request (about 0.8 s on real data);
+the first run against the live plan upgrades `plan.rpx` to schema v13, after which older app versions cannot open it.
