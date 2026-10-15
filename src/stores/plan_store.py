@@ -68,6 +68,7 @@ Schema v7/v8 (WP7.2) add ``build_results`` (see ``build_results.py``).
 
 Schema v13 adds the typed Monarch tables ``monarch_balances``, ``monarch_balance_imports``,
 ``monarch_account_map`` and ``reconcile_log`` (see ``monarch_repo.py``), reached as ``store.monarch``.
+Schema v14 adds ``monarch_account_map.policy`` (ask / auto / app / ignore).
 
 Schema v9 (WP12.4) adds the typed rental tables ``rental_properties``, ``rental_improvements``
 and ``rental_year_overrides`` (see ``rental_repo.py``), reached as ``store.rental``
@@ -86,7 +87,7 @@ from .. import platform_runtime
 from ._base import _SqliteStore
 from .datasets import _DATASETS, _q, SCHEMA_V2_DDL, SCHEMA_V3_DDL, SCHEMA_V4_DDL, SCHEMA_V5_DDL, SCHEMA_V6_DDL, YTD_DATASETS, FlatDatasetRepository
 from .build_results import SCHEMA_V7_DDL, SCHEMA_V8_DDL, BuildResultsRepo
-from .monarch_repo import SCHEMA_V13_DDL, MonarchRepo
+from .monarch_repo import SCHEMA_V13_DDL, SCHEMA_V14_DDL, MonarchRepo
 from .rental_repo import SCHEMA_V9_DDL, SCHEMA_V10_DDL, SCHEMA_V11_DDL, SCHEMA_V12_DDL, RentalRepo, _clean_property
 from .spending_repo import SpendingRepo
 from .errors import IntegrityError, NotFoundError, ValidationError
@@ -156,7 +157,7 @@ CREATE TABLE plan_meta (
 INSERT INTO plan_meta (key, value) VALUES ('{RETENTION_KEY}', '{DEFAULT_REVISION_RETENTION}');
 """
 
-PLAN_MIGRATIONS: tuple[str, ...] = (_SCHEMA_V1, SCHEMA_V2_DDL, SCHEMA_V3_DDL, SCHEMA_V4_DDL, SCHEMA_V5_DDL, SCHEMA_V6_DDL, SCHEMA_V7_DDL, SCHEMA_V8_DDL, SCHEMA_V9_DDL, SCHEMA_V10_DDL, SCHEMA_V11_DDL, SCHEMA_V12_DDL, SCHEMA_V13_DDL)
+PLAN_MIGRATIONS: tuple[str, ...] = (_SCHEMA_V1, SCHEMA_V2_DDL, SCHEMA_V3_DDL, SCHEMA_V4_DDL, SCHEMA_V5_DDL, SCHEMA_V6_DDL, SCHEMA_V7_DDL, SCHEMA_V8_DDL, SCHEMA_V9_DDL, SCHEMA_V10_DDL, SCHEMA_V11_DDL, SCHEMA_V12_DDL, SCHEMA_V13_DDL, SCHEMA_V14_DDL)
 PLAN_SCHEMA_VERSION = len(PLAN_MIGRATIONS)
 
 

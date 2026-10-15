@@ -4,6 +4,9 @@
 // rows, collects a selection, asks for a preview, then applies it. Each applied change is logged and can
 // be undone from the change log. Investment accounts (valued from holdings x prices) and annuities that
 // take their value from an income stream are report only.
+// Two tabs: "Needs a decision" (a difference needs one of Update app / Ignore this time / Always update / App is
+// source) and "All mappings" (every match with its policy). Policy: ask, auto (copied at import, guarded),
+// app (report only), ignore. Closed accounts with no balance are quiet; closed with money is flagged.
 // Helpers are bare globals; renderMain() calls renderMonarchReconciliation().
 
 const RC_GROUPS = ["Cash, cards and loans", "Manual accounts", "Plan inputs", "Investments (report only)"];
@@ -22,9 +25,19 @@ let rcSelected = new Set();
 let rcPreviewData = null;
 let rcShowMatched = false;
 let rcMessage = null; // { text, error }
+let rcTab = "inbox";
+let rcDismissed = new Set(rcLoadDismissed());
 let rcSeq = 0;
 let rcLoadedAt = 0;
 const RC_STALE_MS = 5000; // coming back to the page re-reads: Accounts & Sources may have changed meanwhile
+
+const RC_POLICIES = [["ask", "Ask me"], ["auto", "Always update"], ["app", "App is source"], ["ignore", "Ignore"]];
+function rcLoadDismissed() {
+  try { return JSON.parse(localStorage.getItem("rcDismissed") || "[]"); } catch (e) { return []; }
+}
+function rcSaveDismissed() {
+  try { localStorage.setItem("rcDismissed", JSON.stringify([...rcDismissed])); } catch (e) { /* storage unavailable: dismissal lasts this visit */ }
+}
 
 // ── pure html helpers (exported for tests) ───────────────────────────────────────────────────
 export function rcMoney(v) {
@@ -64,7 +77,7 @@ export function rcRowHtml(row, selected, asOf) {
     ? `<span class="rc-status rc-report" title="${esc(row.report_reason)}">Report only</span><div class="rc-sub">${esc(row.report_reason)}</div>`
     : `<span class="rc-status rc-${esc(row.status)}">${esc(RC_STATUS_LABEL[row.status] || row.status)}</span>`;
   return `<tr class="rc-row rc-${esc(row.status)}" data-row="${esc(row.id)}"><td class="rc-box">${box}</td>` +
-    `<td>${esc(row.label)}${rcMatchedNames(row, asOf)}</td>` +
+    `<td>${esc(row.label)}${rcMatchedNames(row, asOf)}</td>` + `<td>${rcPolicyHtml(row)}</td>` +
     `<td class="rc-num">${esc(rcMoney(row.app_value))}</td><td class="rc-num">${esc(rcMoney(row.monarch_value))}</td>` +
     `<td class="rc-num">${rcDiffHtml(row.difference)}</td><td>${status}</td></tr>`;
 }
@@ -83,11 +96,77 @@ export function rcGroupsHtml(data, selected, showMatched) {
       (selectable.length ? `<button class="btn" type="button" onclick="rcSelectGroup(${esc(JSON.stringify(g))}, ${all ? "false" : "true"})">${all ? "Clear" : "Select all differences"}</button>` : "") +
       (hidden ? `<span class="rc-sub">${hidden} matching hidden</span>` : "") + "</div>";
     html += head + (shown.length
-      ? `<div class="rc-scroll"><table class="rc-table"><thead><tr><th></th><th>Account</th><th class="rc-num">App</th><th class="rc-num">Monarch</th><th class="rc-num">Difference</th><th>Status</th></tr></thead><tbody>` +
+      ? `<div class="rc-scroll"><table class="rc-table"><thead><tr><th></th><th>Account</th><th>Policy</th><th class="rc-num">App</th><th class="rc-num">Monarch</th><th class="rc-num">Difference</th><th>Status</th></tr></thead><tbody>` +
         shown.map((r) => rcRowHtml(r, selected.has(r.id), data.as_of)).join("") + "</tbody></table></div>"
       : '<div class="section-note">Everything here matches.</div>');
   }
   return html || '<div class="section-note">No accounts to compare yet.</div>';
+}
+
+// Policy control for a row: one select that sets the policy on every Monarch account feeding it.
+export function rcPolicyHtml(row) {
+  const accts = row.monarch_accounts || [];
+  if (!accts.length) return '<span class="rc-sub">—</span>';
+  const keys = accts.map((a) => a.account_key).join("\u001f");
+  const opts = RC_POLICIES.map(([v, l]) => `<option value="${v}"${v === (row.policy || "ask") ? " selected" : ""}>${esc(l)}</option>`).join("");
+  return `<select class="rc-policy" data-keys="${esc(keys)}" aria-label="What to do when ${esc(row.label)} differs" onchange="rcSetPolicy(this.dataset.keys, this.value)">${opts}</select>`;
+}
+
+const rcDismissKey = (r) => r.id + "@" + r.monarch_value;
+
+// What needs a decision: differences on rows set to ask (or held auto changes), minus ones dismissed for
+// this Monarch number, plus Monarch accounts with no match and closed accounts that still hold money.
+export function rcInboxItems(data, dismissed) {
+  const gone = dismissed || new Set();
+  const diffs = (data.rows || []).filter((r) => r.status === "differs" && r.updatable && (r.policy !== "auto" || r.auto_hold) && !gone.has(rcDismissKey(r)));
+  const unmatched = (data.unmatched || []).filter((u) => !gone.has("monarch:" + u.account_key + "@" + u.monarch_value));
+  return { diffs, unmatched };
+}
+
+export function rcInboxRowHtml(row) {
+  const btn = (act, label, cls) => `<button class="btn ${cls || ""}" type="button" data-id="${esc(row.id)}" onclick="rcDecide('${act}', this.dataset.id)">${label}</button>`;
+  const hold = row.auto_hold ? `<div class="rc-sub rc-warn">${esc(row.auto_hold)}</div>` : "";
+  return `<tr class="rc-row" data-row="${esc(row.id)}"><td>${esc(row.label)}${rcMatchedNames(row, "")}${hold}</td>` +
+    `<td class="rc-num">${esc(rcMoney(row.app_value))}</td><td class="rc-num">${esc(rcMoney(row.monarch_value))}</td><td class="rc-num">${rcDiffHtml(row.difference)}</td>` +
+    `<td class="rc-actions">${btn("update", "Update app", "good")} ${btn("ignore", "Ignore this time")} ${btn("always", "Always update")} ${btn("app", "App is source")}</td></tr>`;
+}
+
+export function rcInboxHtml(data, dismissed) {
+  const { diffs, unmatched } = rcInboxItems(data, dismissed);
+  if (!diffs.length && !unmatched.length) return '<div class="section-note">Nothing needs a decision. Every matched account agrees with the app, is handled automatically, or is set to ignore.</div>';
+  const table = diffs.length
+    ? `<h3>Numbers that differ (${diffs.length})</h3><div class="rc-scroll"><table class="rc-table"><thead><tr><th>Account</th><th class="rc-num">App</th><th class="rc-num">Monarch</th><th class="rc-num">Difference</th><th>Choose</th></tr></thead><tbody>${diffs.map(rcInboxRowHtml).join("")}</tbody></table></div>` +
+      '<div class="section-note"><b>Update app</b> copies Monarch\'s number once (after a preview). <b>Always update</b> does that now and copies it automatically at each import. <b>App is source</b> keeps the app\'s number and only reports. <b>Ignore this time</b> hides it until Monarch\'s number changes.</div>'
+    : "";
+  const closedMoney = unmatched.filter((u) => u.status === "closed_with_balance");
+  const flagged = closedMoney.length
+    ? `<h3>Closed accounts that still show a balance (${closedMoney.length})</h3><div class="rc-scroll"><table class="rc-table"><tbody>${closedMoney.map((u) => `<tr><td>${esc(u.label)} <span class="rc-sub">stopped syncing ${esc(u.closed_since || "")}</span></td><td class="rc-num">${esc(rcMoney(u.monarch_value))}</td><td><button class="btn" type="button" data-key="${esc(u.account_key)}" onclick="rcMap(this.dataset.key, 'ignore')">Money moved: mark done</button></td></tr>`).join("")}</tbody></table></div>`
+    : "";
+  const rest = unmatched.filter((u) => u.status !== "closed_with_balance");
+  return table + flagged + rcUnmatchedHtml({ ...data, unmatched: rest });
+}
+
+export function rcParkedHtml(data) {
+  const items = data.parked_accounts || [];
+  if (!items.length) return "";
+  return `<details class="rc-ignored"><summary>Matched to something the page cannot update (${items.length}): report only</summary><ul>` +
+    items.map((u) => `<li>${esc(u.label)} <span class="rc-sub">${esc(String(u.ref || "").split("|").pop())}</span></li>`).join("") + "</ul></details>";
+}
+
+export function rcClosedHtml(data) {
+  const items = data.closed_accounts || [];
+  if (!items.length) return "";
+  return `<details class="rc-ignored"><summary>Closed accounts with no balance (${items.length}): nothing to decide</summary><ul>` +
+    items.map((u) => `<li>${esc(u.label)} <span class="rc-sub">last balance ${esc(u.last_date || "")}</span></li>`).join("") + "</ul></details>";
+}
+
+// Automatic updates in the last 7 days, with a way to undo them all.
+export function rcAutoBannerHtml(log, now) {
+  const cutoff = (now || Date.now()) - 7 * 86400000;
+  const auto = (log || []).filter((e) => e.source === "auto" && !e.undone_at && Date.parse(e.applied_at) >= cutoff);
+  if (!auto.length) return "";
+  return `<div class="section-note" role="status">${auto.length} number${auto.length === 1 ? " was" : "s were"} updated automatically from Monarch in the last 7 days (see the change log). ` +
+    '<button class="btn" type="button" onclick="rcUndoAuto()">Undo all automatic updates</button></div>';
 }
 
 export function rcPreviewHtml(preview) {
@@ -128,8 +207,8 @@ export function rcIgnoredHtml(data) {
 
 export function rcLogHtml(log) {
   if (!log || !log.length) return '<div class="section-note">No updates from Monarch yet.</div>';
-  return '<div class="rc-scroll"><table class="rc-table"><thead><tr><th>When</th><th>Account</th><th class="rc-num">Old</th><th class="rc-num">New</th><th>Monarch date</th><th></th></tr></thead><tbody>' +
-    log.map((e) => `<tr><td>${esc(String(e.applied_at || "").replace("T", " ").replace("+00:00", " UTC"))}</td><td>${esc(e.label)}</td>` +
+  return '<div class="rc-scroll"><table class="rc-table"><thead><tr><th>When</th><th>Account</th><th>By</th><th class="rc-num">Old</th><th class="rc-num">New</th><th>Monarch date</th><th></th></tr></thead><tbody>' +
+    log.map((e) => `<tr><td>${esc(String(e.applied_at || "").replace("T", " ").replace("+00:00", " UTC"))}</td><td>${esc(e.label)}</td><td>${e.source === "auto" ? "automatic" : "you"}</td>` +
       `<td class="rc-num">${esc(e.old_value === "" ? "blank" : e.old_value)}</td><td class="rc-num">${esc(e.new_value)}</td><td>${esc(e.monarch_date)}</td>` +
       `<td>${e.undone_at ? '<span class="rc-sub">undone</span>' : `<button class="btn" type="button" data-id="${esc(String(e.id))}" onclick="rcUndo(this.dataset.id)">Undo</button>`}</td></tr>`).join("") +
     "</tbody></table></div>";
@@ -144,32 +223,40 @@ export function rcImportNote(data) {
 }
 
 export function rcBodyHtml(state) {
-  const { data, loading, error, message, selected, preview, showMatched, tolerance, log } = state;
+  const { data, loading, error, message, selected, preview, showMatched, tolerance, log, tab, dismissed } = state;
   if (error) return `<div class="section-note rc-warn">${esc(error)} <button class="btn" type="button" onclick="loadMonarchReconciliation()">Retry</button></div>`;
   if (!data) return `<div class="section-note">${loading ? "Loading the comparison…" : "Nothing loaded yet."}</div>`;
   if (!data.has_balances) {
     return '<div class="section-note">No Monarch balances have been imported into this plan yet. They arrive with the daily Monarch import (the Monarch Extractor writes balances.csv, then the 04:00 job loads it).</div>';
   }
   const s = rcSummary(data.rows, data.unmatched);
+  const inbox = rcInboxItems(data, dismissed);
+  const need = inbox.diffs.length + inbox.unmatched.length;
   const dates = (data.dates || []).map((d) => `<option value="${esc(d)}"${d === data.as_of ? " selected" : ""}>${esc(d)}${d === data.latest ? " (latest)" : ""}</option>`).join("");
   const note = rcImportNote(data);
   const nSel = [...selected].filter((id) => data.rows.some((r) => r.id === id && r.updatable)).length;
-  return (message ? `<div class="section-note${message.error ? " rc-warn" : ""}" role="status">${esc(message.text)}</div>` : "") +
-    (note ? `<div class="section-note rc-warn" role="alert">${note}</div>` : "") +
-    `<div class="rc-controls"><label>Compare as of <select id="rcAsOf" onchange="rcSetAsOf(this.value)">${dates}</select></label> ` +
-    `<label>Count as matching within <select onchange="rcSetTolerance(this.value)">${[1, 10, 100].map((t) => `<option value="${t}"${t === tolerance ? " selected" : ""}>$${t}</option>`).join("")}</select></label> ` +
-    `<label><input type="checkbox" onchange="rcSetShowMatched(this.checked)"${showMatched ? " checked" : ""}> Show matching accounts (${s.match})</label></div>` +
+  const tabBtn = (id, label) => `<button class="btn${tab === id ? " good" : ""}" type="button" role="tab" aria-selected="${tab === id}" onclick="rcSetTab('${id}')">${label}</button>`;
+  const controls = `<div class="rc-controls"><label>Compare as of <select id="rcAsOf" onchange="rcSetAsOf(this.value)">${dates}</select></label> ` +
+    `<label>Count as matching within <select onchange="rcSetTolerance(this.value)">${[1, 10, 100].map((t) => `<option value="${t}"${t === tolerance ? " selected" : ""}>$${t}</option>`).join("")}</select></label></div>`;
+  const head = (message ? `<div class="section-note${message.error ? " rc-warn" : ""}" role="status">${esc(message.text)}</div>` : "") +
+    (note ? `<div class="section-note rc-warn" role="alert">${note}</div>` : "") + rcAutoBannerHtml(log) +
+    `<div class="rc-tabs" role="tablist">${tabBtn("inbox", `Needs a decision (${need})`)} ${tabBtn("all", "All mappings")}</div>` + controls +
+    rcPreviewHtml(preview);
+  if (tab === "inbox") return head + rcInboxHtml(data, dismissed);
+  return head +
+    `<label><input type="checkbox" onchange="rcSetShowMatched(this.checked)"${showMatched ? " checked" : ""}> Show matching accounts (${s.match})</label>` +
     `<div class="rc-summary"><strong>${s.differs}</strong> differ · <strong>${s.match}</strong> match · <strong>${s.reportOnly}</strong> report only · ` +
     `<strong>${s.notInMonarch}</strong> not in Monarch · <strong>${s.notInApp}</strong> Monarch accounts not in the app</div>` +
-    `<div class="pane-actions"><button class="btn good" type="button" onclick="rcPreview()"${nSel ? "" : " disabled"}>Preview update from Monarch (${nSel} selected)</button></div>` +
-    rcPreviewHtml(preview) + rcGroupsHtml(data, selected, showMatched) + rcUnmatchedHtml(data) + rcIgnoredHtml(data) +
+    `<div class="pane-actions"><button class="btn good" type="button" onclick="rcPreview()"${nSel ? "" : " disabled"}>Preview update from Monarch (${nSel} selected)</button> ` +
+    `<label class="btn">Import mapping CSV<input type="file" accept=".csv,text/csv" hidden onchange="rcImportCsv(this.files[0])"></label></div>` +
+    rcGroupsHtml(data, selected, showMatched) + rcUnmatchedHtml(data) + rcParkedHtml(data) + rcClosedHtml(data) + rcIgnoredHtml(data) +
     `<h3>Change log</h3>${rcLogHtml(log)}`;
 }
 
 // ── page ─────────────────────────────────────────────────────────────────────────────────────
 function rcState() {
   return { data: rcData, loading: rcLoading, error: rcError, message: rcMessage, selected: rcSelected,
-    preview: rcPreviewData, showMatched: rcShowMatched, tolerance: rcTolerance, log: rcLog };
+    preview: rcPreviewData, showMatched: rcShowMatched, tolerance: rcTolerance, log: rcLog, tab: rcTab, dismissed: rcDismissed };
 }
 
 export function renderMonarchReconciliation() {
@@ -270,6 +357,63 @@ export async function rcUndo(id) {
   await loadMonarchReconciliation();
 }
 
+export function rcSetTab(t) { rcTab = t === "all" ? "all" : "inbox"; rcPaint(); }
+
+export async function rcSetPolicy(keys, policy) {
+  try {
+    for (const k of String(keys).split("\u001f")) {
+      await api("/api/reconcile/policy", { method: "POST", body: JSON.stringify({ account_key: k, policy }) });
+    }
+    rcMessage = { text: "Saved: " + (RC_POLICIES.find((p) => p[0] === policy) || [0, policy])[1] + ".", error: false };
+  } catch (e) {
+    rcMessage = { text: "Could not save the policy: " + e.message, error: true };
+  }
+  await loadMonarchReconciliation();
+}
+
+// Inbox buttons. Update app and Always update both preview first: nothing is written without the confirm.
+export async function rcDecide(action, id) {
+  const row = rcData && rcData.rows.find((r) => r.id === id);
+  if (!row) return;
+  if (action === "ignore") { rcDismissed.add(rcDismissKey(row)); rcSaveDismissed(); rcPaint(); return; }
+  const keys = (row.monarch_accounts || []).map((a) => a.account_key).join("\u001f");
+  if (action === "app") { await rcSetPolicy(keys, "app"); return; }
+  if (action === "always") {
+    try {
+      for (const k of keys.split("\u001f")) await api("/api/reconcile/policy", { method: "POST", body: JSON.stringify({ account_key: k, policy: "auto" }) });
+    } catch (e) {
+      rcMessage = { text: "Could not save the policy: " + e.message, error: true };
+      rcPaint();
+      return;
+    }
+  }
+  rcSelected = new Set([id]);
+  await rcPreview();
+}
+
+export async function rcUndoAuto() {
+  try {
+    const out = await api("/api/reconcile/undo-auto", { method: "POST", body: "{}" });
+    rcMessage = { text: `Undid ${(out.undone || []).length} automatic update(s).` + ((out.skipped || []).length ? " Left alone (edited since): " + out.skipped.map((x) => x.label).join(", ") : ""), error: false };
+    if ((out.undone || []).length && typeof markBuildStale === "function") markBuildStale();
+  } catch (e) {
+    rcMessage = { text: e.message, error: true };
+  }
+  await loadMonarchReconciliation();
+}
+
+export async function rcImportCsv(file) {
+  if (!file) return;
+  try {
+    const out = await api("/api/reconcile/seed", { method: "POST", body: JSON.stringify({ csv_text: await file.text() }) });
+    const r = out.seed;
+    rcMessage = { text: `Mapping imported: ${r.saved.length} matched, ${r.pending.length} resolved by name or waiting, ${r.ignored.length} ignored, ${r.not_in_monarch.length} not found in Monarch, ${r.kept.length} already matched (left as they are).`, error: false };
+  } catch (e) {
+    rcMessage = { text: "Could not import the mapping: " + e.message, error: true };
+  }
+  await loadMonarchReconciliation();
+}
+
 export function rcUnmatch(accountKey, auto) {
   return rcMap(accountKey, auto ? "ignore" : "");
 }
@@ -288,4 +432,6 @@ Object.assign(window, {
   rcMoney, rcDiffHtml, rcSummary, rcRowHtml, rcGroupsHtml, rcPreviewHtml, rcUnmatchedHtml, rcLogHtml, rcImportNote, rcBodyHtml,
   renderMonarchReconciliation, loadMonarchReconciliation, rcToggle, rcSelectGroup, rcSetAsOf, rcSetTolerance, rcSetShowMatched,
   rcPreviewCancel, rcPreview, rcApply, rcUndo, rcMap, rcUnmatch, rcIgnoredHtml,
+  rcPolicyHtml, rcParkedHtml, rcInboxItems, rcInboxRowHtml, rcInboxHtml, rcClosedHtml, rcAutoBannerHtml,
+  rcSetTab, rcSetPolicy, rcDecide, rcUndoAuto, rcImportCsv,
 });

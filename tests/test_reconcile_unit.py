@@ -269,3 +269,166 @@ def test_undo_plan_input(tmp_path):
     cid = reconcile.apply(base / "input", [{"id": "plan:home"}], today=TODAY)["applied"][0]["change_id"]
     reconcile.undo(base / "input", cid)
     assert _plan_value(base, "Other Assets", "Home", "value_as_of_plan_start") == "1313000"
+
+
+# ---- M2: policy and closed accounts
+def test_policy_app_is_report_only_and_policy_ignore_hides(tmp_path):
+    base = _workspace(tmp_path)
+    with active_plan.workspace_store(base, write=True) as store:
+        store.monarch.set_mapping("family checking", "setup_account", "Family Checking", "app")
+        store.monarch.set_mapping("private note", "setup_account", "Private Note", "ignore")
+    data = reconcile.build_rows(base / "input", today=TODAY)
+    rows = {r["id"]: r for r in data["rows"]}
+    chk = rows["setup:Family Checking"]
+    assert chk["status"] == "report_only" and not chk["updatable"] and chk["policy"] == "app"
+    assert chk["report_reason"] == reconcile.REPORT_ONLY_APP and chk["difference"] == 894.27
+    assert rows["setup:Private Note"]["status"] == "not_in_monarch"  # the ignored account no longer feeds it
+    assert data["ignored"] == 1
+
+
+def test_policy_app_that_matches_still_reads_as_a_match(tmp_path):
+    base = _workspace(tmp_path)
+    with active_plan.workspace_store(base, write=True) as store:
+        store.monarch.set_mapping("family checking", "setup_account", "Family Checking", "app")
+    data = reconcile.build_rows(base / "input", today=TODAY, tolerance=1000)
+    assert {r["id"]: r for r in data["rows"]}["setup:Family Checking"]["status"] == "match"
+
+
+def test_closed_empty_accounts_are_quiet_and_closed_with_money_is_flagged(tmp_path):
+    base = _workspace(tmp_path)
+    with active_plan.workspace_store(base, write=True) as store:
+        store.monarch.upsert_balances([("2026-01-01", "old ira", "Old IRA", 0.0), ("2026-01-02", "old ira", "Old IRA", 0.0),
+                                       ("2026-01-01", "lost acct", "Lost Acct", 5000.0), ("2026-01-02", "lost acct", "Lost Acct", 5000.0)])
+    data = reconcile.build_rows(base / "input", today=TODAY)
+    assert [c["label"] for c in data["closed_accounts"]] == ["Old IRA"]
+    flagged = {u["label"]: u for u in data["unmatched"]}
+    assert "Old IRA" not in flagged
+    assert flagged["Lost Acct"]["status"] == "closed_with_balance" and flagged["Lost Acct"]["monarch_value"] == 5000.0
+
+
+# ---- M2: row-level targets (Other Asset Items with as-of date, notes, liabilities) resolved from seeded matches
+def _dyn_workspace(tmp_path):
+    base = _workspace(tmp_path)
+    with active_plan.workspace_store(base, write=True) as store:
+        for sub, typ, name, val, when in (("Other Asset 1", "Auto", "2016 Kia Optima EX", "$10,554.12", "06/30/2026"),
+                                          ("Other Asset 2", "Art", "Art", "$10,000", "06/30/2026")):
+            for label, v in (("type", typ), ("name", name), ("value", val), ("as_of_date", when)):
+                store.set_value("Other Assets", sub, label, v)
+        store.set_value("Note Receivable", "Note 1", "name", "RedMane Note")
+        store.set_value("Note Receivable", "Note 1", "face_value", "$320,000")
+        store.liabilities.replace_all([{"liability_id": "1", "type": "HELOC", "label": "HELOC", "balance": "199000"}])
+        m = store.monarch
+        m.upsert_balances([(d, k, n, b) for d in ("2026-10-13", "2026-10-14") for k, n, b in
+                           (("kia", "2016 KIA Optima EX", 9800.0), ("art", "Masterworks Art", 12000.0),
+                            ("redmane", "RedMane Note Jan 2026", 300000.0), ("heloc", "Home Equity Line", -150000.0))])
+        m.set_mapping("kia", "pending", "Other Assets and Liabilities|Auto - 2016 Kia Optima", "auto")
+        m.set_mapping("art", "pending", "Other Assets and Liabilities|Art", "ask")
+        m.set_mapping("redmane", "pending", "Other Assets and Liabilities|RedMane Note - Face Value", "ask")
+        m.set_mapping("heloc", "pending", "Other Assets and Liabilities|Liabilities - HELOC Balance", "ask")
+    return base
+
+
+def test_pending_matches_resolve_to_plan_rows(tmp_path):
+    base = _dyn_workspace(tmp_path)
+    rows = _rows(base)
+    assert rows["other_asset:Other Asset 1"]["monarch_value"] == 9800.0 and rows["other_asset:Other Asset 1"]["policy"] == "auto"
+    assert rows["other_asset:Other Asset 2"]["app_value"] == 10000.0
+    assert rows["note:Note 1"]["difference"] == -20000.0
+    heloc = rows["liability:1"]
+    assert heloc["monarch_value"] == 150000.0 and heloc["app_value"] == 199000.0  # liabilities compare by magnitude
+    assert heloc["write"]["new"] == "150000.00"
+
+
+def test_other_asset_update_writes_value_and_as_of_date_and_undo_restores_both(tmp_path):
+    base = _dyn_workspace(tmp_path)
+    out = reconcile.apply(base / "input", [{"id": "other_asset:Other Asset 1"}, {"id": "note:Note 1"}, {"id": "liability:1"}], today=TODAY)
+    assert len(out["applied"]) == 3, out["rejected"]
+    with active_plan.workspace_store(base) as store:
+        assert store.find_rows("Other Assets", "Other Asset 1", "value")[-1]["value"] == "9800.00"
+        assert store.find_rows("Other Assets", "Other Asset 1", "as_of_date")[-1]["value"] == "10/14/2026"  # m/d/yyyy kept
+        assert store.find_rows("Note Receivable", "Note 1", "face_value")[-1]["value"] == "300000.00"
+        assert store.liabilities.rows()[0]["balance"] == "150000.00"
+    for entry in out["applied"]:
+        reconcile.undo(base / "input", entry["change_id"])
+    with active_plan.workspace_store(base) as store:
+        assert store.find_rows("Other Assets", "Other Asset 1", "value")[-1]["value"] == "$10,554.12"
+        assert store.find_rows("Other Assets", "Other Asset 1", "as_of_date")[-1]["value"] == "06/30/2026"
+        assert store.liabilities.rows()[0]["balance"] == "199000"
+
+
+def test_change_log_records_whether_a_change_was_manual_or_auto(tmp_path):
+    base = _workspace(tmp_path)
+    reconcile.apply(base / "input", [{"id": "setup:Family Checking"}], today=TODAY)
+    reconcile.apply(base / "input", [{"id": "setup:Private Note"}], today=TODAY, source="auto")
+    log = {e["label"]: e["source"] for e in reconcile.change_log(base / "input")}
+    assert log == {"Family Checking": "manual", "Private Note": "auto"}
+
+
+# ---- M3: auto-update with guards
+def test_auto_apply_writes_only_auto_rows_that_pass_the_guards_and_logs_them(tmp_path):
+    base = _workspace(tmp_path)
+    with active_plan.workspace_store(base, write=True) as store:
+        m = store.monarch
+        m.set_mapping("family checking", "setup_account", "Family Checking", "auto")   # +$894 on $13,000: fine
+        m.set_mapping("private note", "setup_account", "Private Note", "auto")         # +$12,848 on $500,000: under 10%
+        m.set_mapping("house", "plan:home", "", "auto")                                 # anchor: held
+        m.set_mapping("visa card", "setup_account", "Visa Card", "ask")                 # not auto
+    out = reconcile.auto_apply(base / "input", today=TODAY)
+    assert sorted(a["label"] for a in out["applied"]) == ["Family Checking", "Private Note"]
+    assert [(h["id"], h["reason"]) for h in out["held"]] == [("plan:home", reconcile.AUTO_HOLD_ANCHOR)]
+    assert _setup_value(base, "Family Checking", "Current Value") == "13894.27"
+    assert _setup_value(base, "Visa Card", "Current Balance") == "900"
+    assert {e["source"] for e in reconcile.change_log(base / "input")} == {"auto"}
+    # held rows show their reason in the page data
+    assert _rows(base)["plan:home"]["auto_hold"] == reconcile.AUTO_HOLD_ANCHOR
+
+
+def test_big_change_is_held_and_undo_auto_restores_everything(tmp_path):
+    base = _workspace(tmp_path)
+    with active_plan.workspace_store(base, write=True) as store:
+        store.set_value("Other Assets", "Autos", "value", "10000")   # Monarch: cars sum 53,215.88 -> +432%, > $5,000
+        store.monarch.set_mapping("car one", "plan:autos", "", "auto")
+        store.monarch.set_mapping("car two", "plan:autos", "", "auto")
+        store.monarch.set_mapping("family checking", "setup_account", "Family Checking", "auto")
+    out = reconcile.auto_apply(base / "input", today=TODAY)
+    assert [h["id"] for h in out["held"]] == ["plan:autos"] and [a["label"] for a in out["applied"]] == ["Family Checking"]
+    undone = reconcile.undo_auto(base / "input")
+    assert undone == {"undone": ["Family Checking"], "skipped": []}
+    assert _setup_value(base, "Family Checking", "Current Value") == "13000"
+
+
+# ---- review fixes
+def test_pending_name_match_is_exact_first_and_whole_word(tmp_path):
+    base = _dyn_workspace(tmp_path)
+    with active_plan.workspace_store(base, write=True) as store:
+        for label, v in (("type", "Start-up Equity"), ("name", "Start-up Equity"), ("value", "$66,000"), ("as_of_date", "12/31/2025")):
+            store.set_value("Other Assets", "Other Asset 3", label, v)
+        store.monarch.upsert_balances([("2026-10-14", "hucu", "hucu.ai", 70000.0)])
+        store.monarch.set_mapping("hucu", "pending", "Other Assets and Liabilities|Start-up Equity", "ask")
+    rows = _rows(base)
+    assert rows["other_asset:Other Asset 3"]["monarch_value"] == 70000.0   # "art" in "start-up" no longer makes it ambiguous
+    assert rows["other_asset:Other Asset 2"]["monarch_value"] == 12000.0   # Art still resolves to Art
+
+
+def test_policy_on_a_name_matched_account_saves_the_match(tmp_path):
+    base = _workspace(tmp_path)
+    out = reconcile.set_policy(base / "input", "family checking", "auto")
+    assert out == {"account_key": "family checking", "policy": "auto"}
+    assert _rows(base)["setup:Family Checking"]["policy"] == "auto"
+    with pytest.raises(reconcile.ReconcileError):
+        reconcile.set_policy(base / "input", "mystery", "auto")   # nothing to match it to
+
+
+def test_unresolved_app_or_ignore_matches_are_parked_not_in_the_inbox(tmp_path):
+    base = _workspace(tmp_path)
+    with active_plan.workspace_store(base, write=True) as store:
+        store.monarch.set_mapping("mystery", "pending", "SS, Pensions, & Annuities|Matt Single Annuity", "app")
+    data = reconcile.build_rows(base / "input", today=TODAY)
+    assert [p["label"] for p in data["parked_accounts"]] == ["Mystery Account"]
+    assert "Mystery Account" not in [u["label"] for u in data["unmatched"]]
+
+
+def test_apply_rejects_an_unknown_source(tmp_path):
+    base = _workspace(tmp_path)
+    with pytest.raises(reconcile.ReconcileError):
+        reconcile.apply(base / "input", [{"id": "setup:Family Checking"}], today=TODAY, source="nightly")

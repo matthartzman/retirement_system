@@ -246,3 +246,70 @@ describe("review fixes", () => {
     assert.equal(timers, 1, "stale data is refetched");
   });
 });
+
+describe("M4: inbox, policy, closed accounts, automatic updates", () => {
+  const rows = [
+    ROW({ id: "a", label: "Ask row", policy: "ask", monarch_accounts: [{ account_key: "k1", account: "K1", balance: 1 }] }),
+    ROW({ id: "b", label: "Auto held", policy: "auto", auto_hold: "Plan-start input: confirm it here before it changes." }),
+    ROW({ id: "c", label: "Auto clean", policy: "auto", auto_hold: null }),
+    ROW({ id: "d", label: "App wins", policy: "app", status: "report_only", updatable: false }),
+  ];
+
+  test("the inbox lists ask rows and held auto rows, not clean auto, report-only or dismissed ones", () => {
+    const { diffs } = m.rcInboxItems(DATA(rows));
+    assert.deepEqual(diffs.map((r) => r.id), ["a", "b"]);
+    assert.deepEqual(m.rcInboxItems(DATA(rows), new Set(["a@13894.27"])).diffs.map((r) => r.id), ["b"]);
+  });
+
+  test("each inbox row offers the four choices and shows why an auto change is held", () => {
+    const html = m.rcInboxHtml(DATA(rows));
+    for (const act of ["update", "ignore", "always", "app"]) assert.ok(html.includes("rcDecide('" + act + "'"), act);
+    assert.match(html, /Plan-start input: confirm it here/);
+  });
+
+  test("an empty inbox says nothing needs a decision", () => {
+    assert.match(m.rcInboxHtml(DATA([ROW({ status: "match", updatable: false })])), /Nothing needs a decision/);
+  });
+
+  test("closed accounts holding money are flagged; empty closed ones are quiet", () => {
+    const data = DATA([], { unmatched: [{ account_key: "x", label: "Old brokerage", status: "closed_with_balance", monarch_value: 5000, closed_since: "2026-01-02" }],
+      closed_accounts: [{ account_key: "y", label: "Old IRA", last_date: "2026-01-02" }] });
+    assert.match(m.rcInboxHtml(data), /still show a balance[\s\S]*Old brokerage[\s\S]*mark done/);
+    assert.doesNotMatch(m.rcInboxHtml(data), /Old IRA/);
+    assert.match(m.rcClosedHtml(data), /Old IRA/);
+  });
+
+  test("the policy select lists the four policies and carries the account keys", () => {
+    const html = m.rcPolicyHtml(rows[0]);
+    assert.match(html, /<option value="ask" selected>Ask me/);
+    for (const v of ["auto", "app", "ignore"]) assert.match(html, new RegExp(`value="${v}"`));
+    assert.match(html, /data-keys="k1"/);
+    assert.match(m.rcPolicyHtml(ROW({ monarch_accounts: [] })), /—/);
+  });
+
+  test("the banner counts automatic updates from the last 7 days and offers Undo all", () => {
+    const now = Date.parse("2026-10-15T12:00:00Z");
+    const log = [{ source: "auto", applied_at: "2026-10-14T04:00:00+00:00" }, { source: "auto", applied_at: "2026-09-01T04:00:00+00:00" },
+      { source: "manual", applied_at: "2026-10-14T04:00:00+00:00" }, { source: "auto", applied_at: "2026-10-14T04:00:00+00:00", undone_at: "x" }];
+    assert.match(m.rcAutoBannerHtml(log, now), /1 number was updated automatically[\s\S]*rcUndoAuto/);
+    assert.equal(m.rcAutoBannerHtml([], now), "");
+  });
+
+  test("the page defaults to the inbox tab and the All mappings tab shows policy and the CSV import", () => {
+    const state = (tab) => ({ data: DATA(rows), selected: new Set(), showMatched: false, tolerance: 1, log: [], tab, dismissed: new Set() });
+    assert.match(m.rcBodyHtml(state("inbox")), /Needs a decision \(2\)/);
+    assert.doesNotMatch(m.rcBodyHtml(state("inbox")), /Import mapping CSV/);
+    const all = m.rcBodyHtml(state("all"));
+    assert.match(all, /<th>Policy<\/th>/);
+    assert.match(all, /Import mapping CSV/);
+  });
+});
+
+describe("M4 review fix: parked accounts", () => {
+  test("accounts matched to something the page cannot update are listed apart, not in the inbox", () => {
+    const data = DATA([], { parked_accounts: [{ account_key: "a", label: "Annuity - Matt", ref: "SS, Pensions, & Annuities|Matt Single Annuity", policy: "app" }] });
+    assert.match(m.rcParkedHtml(data), /Annuity - Matt[\s\S]*Matt Single Annuity/);
+    assert.equal(m.rcParkedHtml(DATA([])), "");
+    assert.match(m.rcInboxHtml(data), /Nothing needs a decision/);
+  });
+});

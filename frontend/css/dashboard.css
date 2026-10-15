@@ -1210,6 +1210,9 @@ details.page-accordion[open]>summary::before,.page-recommendations[open]>summary
 .rc-table th,.rc-table td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
 .rc-table th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);background:#fbfaf7}
 .rc-table .rc-num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rc-tabs{display:flex;gap:6px;margin:10px 0 4px}
+.rc-actions{display:flex;flex-wrap:wrap;gap:6px}
+.rc-policy{width:auto;padding:4px 6px;border:1px solid var(--line2);border-radius:8px}
 .rc-table td.rc-box{width:34px}
 .rc-sub{font-size:11px;color:var(--muted);margin-top:2px}
 .rc-up{color:var(--ok)}

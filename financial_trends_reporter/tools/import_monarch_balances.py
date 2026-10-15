@@ -17,6 +17,7 @@ _REPO_ROOT = _APP_ROOT.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
+from financial_trends_reporter.app_sync import sync_from_app  # noqa: E402
 from financial_trends_reporter.balance_store import default_db_path, default_source_path, import_balances  # noqa: E402
 
 
@@ -24,8 +25,10 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--retirement-system-dir", default=str(_REPO_ROOT))
     args = parser.parse_args(argv)
-    result = import_balances(default_db_path(_APP_ROOT), default_source_path(args.retirement_system_dir))
+    db = default_db_path(_APP_ROOT)
+    result = import_balances(db, default_source_path(args.retirement_system_dir))
     print(result)
+    print({"app_sync": sync_from_app(db, args.retirement_system_dir)})  # best effort; never changes the exit code
     return 0 if result.get("success") else 1
 
 

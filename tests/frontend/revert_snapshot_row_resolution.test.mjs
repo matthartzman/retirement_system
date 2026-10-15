@@ -68,3 +68,25 @@ describe("resolveCurrentRowIndex (ticket 297)", () => {
     assert.equal(resolveCurrentRowIndex(currentRows, change), 1);
   });
 });
+
+// Ticket 354: the editor stores percent fields as a bare number, so a snapshot's
+// beforeStorage for annual_appreciation_pct is "0". Replaying it verbatim failed
+// server validation ("expected percentage format ending with %; got '0'").
+describe("revertValueForChange (ticket 354)", () => {
+  const { revertValueForChange } = sandbox;
+  const pctRow = {
+    row_index: 7, section: "Other Assets", subsection: "Other Asset 4",
+    label: "annual_appreciation_pct", value: "0.00%", units: "percent",
+    schema: { type: "percent", default: "0.00%" },
+  };
+
+  test("restores the % suffix on a bare percent before-value", () => {
+    assert.equal(revertValueForChange(pctRow, { beforeStorage: "0" }), "0.00%");
+    assert.equal(revertValueForChange(pctRow, { beforeStorage: "-15" }), "-15.00%");
+  });
+
+  test("falls back to the raw text when the row is unknown", () => {
+    assert.equal(revertValueForChange(undefined, { beforeStorage: "0" }), "0");
+    assert.equal(revertValueForChange(undefined, { before: "abc" }), "abc");
+  });
+});

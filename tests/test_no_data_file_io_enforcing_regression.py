@@ -36,6 +36,7 @@ ALLOWLIST: dict[str, str] = {
     "src/market_data.py": "price cache file and in-memory CSV text from market-data providers; not plan data",
     "src/domain_models.py": "reads a user-supplied JSON model definition by path (a file the user picked)",
     "src/monarch_import.py": "reads the Monarch export file the user picked (import source)",
+    "src/monarch_mapping_seed.py": "reads the user-supplied Monarch-to-app mapping CSV (one-time seed import)",
     "src/monarch_balances_import.py": "reads the Monarch Extractor's balances.csv (import source), like monarch_import.py",
     "src/server_services/admin_service.py": "CSV text for the Admin raw-file view and export of the legacy system files",
     "src/server_services/spending_service.py": "reads/writes a spending upload the user picked (import source)",

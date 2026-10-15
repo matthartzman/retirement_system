@@ -161,7 +161,14 @@ export function lineChartSvg(points, opts) {
   const xStep = points.length > 1 ? plotW / (points.length - 1) : 0;
   const x = i => padL + i * xStep;
   const y = v => padT + plotH - ((v - min) / (max - min || 1)) * plotH;
-  const path = points.map((p, i) => `${i === 0 ? "M" : "L"}${x(i)},${y(p.value ?? 0)}`).join(" ");
+  // A missing value breaks the line (a new "M") rather than dropping to $0.
+  let pen = false;
+  const path = points.map((p, i) => {
+    if (p.value === null || p.value === undefined) { pen = false; return ""; }
+    const cmd = pen ? "L" : "M";
+    pen = true;
+    return `${cmd}${x(i)},${y(p.value)}`;
+  }).filter(Boolean).join(" ");
 
   // Y-axis: gridlines in the scrolling plot, value labels in the sticky overlay.
   let grid = "", yLabels = "";
@@ -221,7 +228,9 @@ function sumLeaves(node) {
 }
 
 // priorByType / budgetByType (347a): optional {trackingType: amount} for the bar markers.
-export function buildHierarchyRows(hierarchy, priorByType, budgetByType) {
+// priorDetail {type: {group: {category: {prior, merchants: {name: amount}}}}} and budgetByCategory
+// {type: {category: amount}} (both optional) carry the same markers into the popups.
+export function buildHierarchyRows(hierarchy, priorByType, budgetByType, priorDetail, budgetByCategory) {
   const rows = [];
   for (const [name, groups] of Object.entries(hierarchy || {})) {
     const categories = [];
@@ -229,9 +238,16 @@ export function buildHierarchyRows(hierarchy, priorByType, budgetByType) {
       for (const [cat, merchants] of Object.entries(cats)) {
         const value = sumLeaves(merchants);
         if (Math.abs(value) < 0.005) continue;
+        const priorCat = priorDetail && priorDetail[name] && priorDetail[name][group] && priorDetail[name][group][cat];
+        const priorMerchants = (priorCat && priorCat.merchants) || {};
+        const budgetCat = budgetByCategory && budgetByCategory[name] && budgetByCategory[name][cat];
         categories.push({
           name: cat, group, value,
-          merchants: Object.entries(merchants).filter(e => Math.abs(e[1]) > 0.005).sort((a, b) => b[1] - a[1]),
+          prior: priorCat && priorCat.prior != null ? priorCat.prior : null,
+          budget: budgetCat != null ? budgetCat : null,
+          // Merchants have no budget; prior-year shows only for a merchant that also appears last year.
+          merchants: Object.entries(merchants).filter(e => Math.abs(e[1]) > 0.005).sort((a, b) => b[1] - a[1])
+            .map(([m, v]) => priorCat ? [m, v, { prior: priorMerchants[m] != null ? priorMerchants[m] : null }] : [m, v]),
         });
       }
     }
@@ -248,8 +264,16 @@ export function buildHierarchyRows(hierarchy, priorByType, budgetByType) {
   return {
     total, rows,
     totalMarkers: { prior: sumMarker(priorByType), budget: sumMarker(budgetByType) },
-    totalDetail: { detailTitle: "Total - by tracking type", detail: rows.map(r => [r.name, r.amount]) },
+    totalDetail: { detailTitle: "Total - by tracking type", detail: rows.map(r => [r.name, r.amount, { prior: r.prior, budget: r.budget }]) },
   };
+}
+
+// Prior-year (black) and full-year budget (orange) ticks on a popup bar, same colours
+// as the YTD bars. `max` is the bar scale shared by the popup so ticks never overflow.
+function popMarkers(prior, budget, max) {
+  const tick = (v, cls, label) => v == null ? "" :
+    `<b class="pm ${cls}" style="left:${Math.min(100, Math.max(0, (v / max) * 100)).toFixed(1)}%" title="${escSvg(label)}: ${escSvg(fmtMoney(v))}"></b>`;
+  return tick(prior, "pm-prior", "Prior-year YTD") + tick(budget, "pm-budget", "Full-year budget");
 }
 
 // Step-1 popup: a tracking type's categories (each tagged data-cat for the
@@ -257,10 +281,10 @@ export function buildHierarchyRows(hierarchy, priorByType, budgetByType) {
 export function categoryListHtml(title, categories) {
   if (!categories.length) return `<div class="pop-title">${escSvg(title)}</div><div class="empty">No further detail logged.</div>`;
   const total = categories.reduce((t, c) => t + c.value, 0);
-  const max = Math.max(...categories.map(c => c.value), 1);
+  const max = Math.max(...categories.flatMap(c => [c.value, c.prior || 0, c.budget || 0]), 1);
   const body = categories.map((c, i) =>
     `<div class="pop-row pop-cat${c.value < 0 ? " pop-neg" : ""}" data-cat="${i}"><span class="pop-name" title="${escSvg(c.group)}">${escSvg(c.name)}</span>` +
-    `<span class="pop-bar"><i style="width:${c.value > 0 ? Math.max(1, (c.value / max) * 100).toFixed(1) : 0}%"></i></span>` +
+    `<span class="pop-bar"><i style="width:${c.value > 0 ? Math.max(1, (c.value / max) * 100).toFixed(1) : 0}%"></i>${popMarkers(c.prior, c.budget, max)}</span>` +
     `<span class="pop-val">${escSvg(fmtMoney(c.value))}</span></div>`).join("");
   return `<div class="pop-title">${escSvg(title)} <span class="pop-hint">- roll over a category for merchants</span></div>${body}` +
     `<div class="pop-total"><span>Total</span><span>${escSvg(fmtMoney(total))}</span></div>`;
@@ -277,10 +301,10 @@ export function detailPopupHtml(title, detail, maxLines) {
     const more = detail.slice(maxLines);
     lines = lines.concat([[`${more.length} more`, more.reduce((t, e) => t + e[1], 0)]]);
   }
-  const max = Math.max(...lines.map(e => e[1]), 1);
-  const body = lines.map(([n, v]) =>
+  const max = Math.max(...lines.flatMap(e => [e[1], (e[2] && e[2].prior) || 0, (e[2] && e[2].budget) || 0]), 1);
+  const body = lines.map(([n, v, meta]) =>
     `<div class="pop-row${v < 0 ? " pop-neg" : ""}"><span class="pop-name">${escSvg(n)}</span>` +
-    `<span class="pop-bar"><i style="width:${v > 0 ? Math.max(1, (v / max) * 100).toFixed(1) : 0}%"></i></span>` +
+    `<span class="pop-bar"><i style="width:${v > 0 ? Math.max(1, (v / max) * 100).toFixed(1) : 0}%"></i>${popMarkers(meta && meta.prior, meta && meta.budget, max)}</span>` +
     `<span class="pop-val">${escSvg(fmtMoney(v))}</span></div>`).join("");
   return `<div class="pop-title">${escSvg(title)}</div>${body}` +
     `<div class="pop-total"><span>Total</span><span>${escSvg(fmtMoney(total))}</span></div>`;
@@ -326,7 +350,7 @@ export function barChartSvg(entries) {
         `<text x="${padL + 6}" y="${y + barH - 5}" style="font-weight:600">${escSvg(fmtMoney(e[1]))}</text></g>`;
     }
     const markers = marker(meta && meta.prior, y - 2, barH + 4, PRIOR_COLOR, "Prior-year YTD", 2.5) +
-      marker(meta && meta.budget, y + barH / 2, barH / 2 + 2, BUDGET_COLOR, "Full-year budget", 2);
+      marker(meta && meta.budget, y - 2, barH + 4, BUDGET_COLOR, "Full-year budget", 2.5);
     const bw = (e[1] / max) * plotW;
     const fill = meta && meta.kind === "other" ? "#94a3b8" : "#2563eb";
     const tip = meta ? "" : `<title>${escSvg(e[0])}: ${escSvg(fmtMoney(e[1]))}</title>`;
@@ -531,6 +555,15 @@ export function buildMonarchRows(balances, history) {
   return rows;
 }
 
+// All time starts here. Monarch history before this date has only a loan or two linked, so it
+// is not a comparable total and it stretches the Y axis; it is cut, not just hidden.
+export const ALL_TIME_START = "2025-02-01";
+
+export function truncateAllTime(rows, start = ALL_TIME_START) {
+  const kept = rows.filter(r => r.as_of_date >= start);
+  return { rows: kept, truncated: kept.length < rows.length };
+}
+
 // Rollover for a Monarch-sourced row: enabled accounts with a non-zero value on that date,
 // grouped by account type with subtotals. Plan-sourced rows use the legacy model.
 export function monarchRolloverModel(row, balances, kind) {
@@ -551,7 +584,7 @@ export function monarchRolloverModel(row, balances, kind) {
     subtotal: items.reduce((t, i) => t + i.value, 0),
   })).sort((p, q) => Math.abs(q.subtotal) - Math.abs(p.subtotal));
   return {
-    title: chart === "holdings" ? "Holdings" : "Net worth", date: row.as_of_date,
+    title: chart === "holdings" ? "Liquid Investments and Cash" : "Net worth", date: row.as_of_date,
     total: chart === "holdings" ? row.holdings.current_value : row.net_worth.total,
     groups, lines: [], emptyNote: "No accounts with a balance are switched on for this date.",
   };
@@ -570,7 +603,7 @@ export function balancesFreshnessNote(freshness, today) {
   return "";
 }
 
-// ---- per-chart account toggle popover and the Accounts & mapping table ----
+// ---- per-chart account toggle popover ----
 
 const TYPE_ORDER = ["Cash", "Investment", "Retirement", "HSA", "Annuity/Pension", "Real estate", "Vehicle", "Loan", "Credit card", "Other"];
 
@@ -592,26 +625,10 @@ export function accountToggleHtml(accounts, chart, title) {
       `<span>${escSvg(a.display_name)}${a.active ? "" : ' <em class="pop-hint">(closed)</em>'}</span></label>`).join("") +
     `</fieldset>`).join("");
   return `<div class="pop-title">${escSvg(title)} - accounts</div>` +
+    `<div class="note">Type, match to the plan and Ignore come from the Retirement app's Monarch Reconciliation page.</div>` +
     `<div class="acct-actions"><button type="button" data-bulk="all" data-chart="${escSvg(chart)}">All</button> ` +
     `<button type="button" data-bulk="none" data-chart="${escSvg(chart)}">None</button> ` +
     `<button type="button" data-bulk="default" data-chart="${escSvg(chart)}">Reset to defaults</button></div>${body}`;
-}
-
-export function accountsTableHtml(accounts, types, appAccounts) {
-  const opts = (appAccounts || []).map(n => `<option value="${escSvg(n)}"></option>`).join("");
-  const row = a => `<tr data-key="${escSvg(a.account_key)}">` +
-    `<td>${escSvg(a.display_name)}${a.confirmed ? "" : ' <span class="badge-new">review</span>'}${a.active ? "" : ` <em class="pop-hint">closed ${escSvg(a.last_seen)}</em>`}</td>` +
-    `<td><select data-field="type" aria-label="Type for ${escSvg(a.display_name)}">` +
-      (types || []).map(t => `<option${t === a.type ? " selected" : ""}>${escSvg(t)}</option>`).join("") + `</select></td>` +
-    `<td><input type="text" list="appAccountList" data-field="app_account" value="${escSvg(a.app_account || "")}" placeholder="not mapped" aria-label="App account for ${escSvg(a.display_name)}"></td>` +
-    `<td class="num">${a.latest_balance == null ? "-" : escSvg(fmtMoney(a.latest_balance))}</td>` +
-    ["networth", "holdings", "flows"].map(c => `<td class="chk"><input type="checkbox" data-chart="${c}" aria-label="${c} for ${escSvg(a.display_name)}"${a.enabled && a.enabled[c] ? " checked" : ""}></td>`).join("") +
-    `</tr>`;
-  const active = accounts.filter(a => a.active), closed = accounts.filter(a => !a.active);
-  const head = `<thead><tr><th>Monarch account</th><th>Type</th><th>App account</th><th class="num">Balance</th><th>Net worth</th><th>Holdings</th><th>Flows</th></tr></thead>`;
-  const table = list => `<div class="acct-scroll"><table class="acct-table">${head}<tbody>${list.map(row).join("")}</tbody></table></div>`;
-  return `<datalist id="appAccountList">${opts}</datalist>${table(active)}` +
-    (closed.length ? `<details class="acct-closed"><summary>Closed accounts (${closed.length})</summary>${table(closed)}</details>` : "");
 }
 
 // ---- monthly investment flows (payload from /api/flows) ----

@@ -90,4 +90,23 @@ def test_apply_with_a_stale_expected_value_writes_nothing(client):
 def test_routes_are_in_the_manifest():
     from src.server.route_manifest import ROUTE_MODULES
     assert set(ROUTE_MODULES["reconcile"]) == {"/api/reconcile", "/api/reconcile/map", "/api/reconcile/preview",
-                                              "/api/reconcile/apply", "/api/reconcile/undo", "/api/reconcile/log"}
+                                              "/api/reconcile/apply", "/api/reconcile/undo", "/api/reconcile/log",
+                                              "/api/reconcile/policy", "/api/reconcile/undo-auto", "/api/reconcile/seed"}
+
+
+def test_policy_undo_auto_and_seed_routes(client):
+    code, body = _post(client, "/api/reconcile/map", {"account_key": "family checking", "target": "setup:Family Checking"})
+    assert code == 200
+    assert _post(client, "/api/reconcile/policy", {"account_key": "family checking", "policy": "auto"})[0] == 200
+    assert _post(client, "/api/reconcile/policy", {"account_key": "family checking", "policy": "sometimes"})[0] == 400
+    assert _post(client, "/api/reconcile/policy", {"account_key": "nope", "policy": "ask"})[0] == 400
+    row = {r["id"]: r for r in client.get("/api/reconcile").get_json()["rows"]}["setup:Family Checking"]
+    assert row["policy"] == "auto" and row["auto_hold"] is None
+    assert _post(client, "/api/reconcile/undo-auto", {})[1]["undone"] == []
+    csv_text = ("Monarch,App Location,App Field,Status,Primary Source\n"
+                "Brokerage A,Investment Holdings,Brokerage A,Active,App\n"
+                "Ghost,Investment Holdings,X,CLOSED,App\n")
+    code, body = _post(client, "/api/reconcile/seed", {"csv_text": csv_text})
+    assert code == 200 and [r["monarch"] for r in body["seed"]["saved"]] == ["Brokerage A"] and body["seed"]["saved"][0]["policy"] == "app"
+    assert [r["monarch"] for r in body["seed"]["not_in_monarch"]] == ["Ghost"]
+    assert _post(client, "/api/reconcile/seed", {"csv_text": ""})[0] == 400

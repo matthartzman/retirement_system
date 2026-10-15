@@ -124,6 +124,13 @@ export function resolveCurrentRowIndex(rowsList, c) {
   return row ? row.row_index : null;
 }
 
+// beforeStorage is the editor's raw form (percent "0"); saves re-format it via normalizeValueForSave, so a
+// revert must too or the server rejects it (ticket 354).
+export function revertValueForChange(row, c) {
+  const raw = String(c.beforeStorage ?? c.before ?? "");
+  return row && typeof normalizeValueForSave === "function" ? normalizeValueForSave(row, raw) : raw;
+}
+
 export async function revertToBuildHistoryEntry(id) {
   loadBuildHistory();
   const entry = buildHistory.find((e) => e.id === id);
@@ -161,13 +168,7 @@ export async function revertToBuildHistoryEntry(id) {
   try {
     const updates = changes.map(({ change: c, row_index }) => ({
       row_index,
-      value: String(
-        c.beforeStorage != null
-          ? c.beforeStorage
-          : c.before != null
-            ? c.before
-            : "",
-      ),
+      value: revertValueForChange(rows.find((r) => r.row_index === row_index), c),
     }));
     await api("/api/config/rows", {
       method: "POST",
@@ -897,6 +898,7 @@ Object.assign(window, {
   shortHash,
   buildHistoryProvenanceHtml,
   revertToBuildHistoryEntry,
+  revertValueForChange,
   buildKpiDial,
   buildHistoryEntryHtml,
   deleteBuildHistoryEntry,

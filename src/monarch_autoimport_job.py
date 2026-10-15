@@ -80,6 +80,13 @@ def run(base_dir: str | Path, *, force: bool = False) -> dict[str, Any]:
         result["balances"] = import_balances(base_dir)
     except Exception as exc:  # noqa: BLE001 - must not fail the transaction import
         result["balances"] = {"success": False, "status": "error", "error": f"{exc.__class__.__name__}: {exc}"}
+    if result["balances"].get("status") == "ok":
+        try:  # copy Monarch's number into rows set to "always update"; guarded and logged, never fatal
+            from . import reconcile
+            auto = reconcile.auto_apply(Path(base_dir) / "input")
+            result["auto_update"] = {"success": True, "applied": len(auto["applied"]), "held": len(auto["held"])}
+        except Exception as exc:  # noqa: BLE001
+            result["auto_update"] = {"success": False, "error": f"{exc.__class__.__name__}: {exc}"}
     return result
 
 
