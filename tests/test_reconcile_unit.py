@@ -304,3 +304,53 @@ def test_closed_empty_accounts_are_quiet_and_closed_with_money_is_flagged(tmp_pa
     flagged = {u["label"]: u for u in data["unmatched"]}
     assert "Old IRA" not in flagged
     assert flagged["Lost Acct"]["status"] == "closed_with_balance" and flagged["Lost Acct"]["monarch_value"] == 5000.0
+
+
+# ---- M2: row-level targets (Other Asset Items with as-of date, notes, liabilities) resolved from seeded matches
+def _dyn_workspace(tmp_path):
+    base = _workspace(tmp_path)
+    with active_plan.workspace_store(base, write=True) as store:
+        for sub, typ, name, val, when in (("Other Asset 1", "Auto", "2016 Kia Optima EX", "$10,554.12", "06/30/2026"),
+                                          ("Other Asset 2", "Art", "Art", "$10,000", "06/30/2026")):
+            for label, v in (("type", typ), ("name", name), ("value", val), ("as_of_date", when)):
+                store.set_value("Other Assets", sub, label, v)
+        store.set_value("Note Receivable", "Note 1", "name", "RedMane Note")
+        store.set_value("Note Receivable", "Note 1", "face_value", "$320,000")
+        store.liabilities.replace_all([{"liability_id": "1", "type": "HELOC", "label": "HELOC", "balance": "199000"}])
+        m = store.monarch
+        m.upsert_balances([(d, k, n, b) for d in ("2026-10-13", "2026-10-14") for k, n, b in
+                           (("kia", "2016 KIA Optima EX", 9800.0), ("art", "Masterworks Art", 12000.0),
+                            ("redmane", "RedMane Note Jan 2026", 300000.0), ("heloc", "Home Equity Line", -150000.0))])
+        m.set_mapping("kia", "pending", "Other Assets and Liabilities|Auto - 2016 Kia Optima", "auto")
+        m.set_mapping("art", "pending", "Other Assets and Liabilities|Art", "ask")
+        m.set_mapping("redmane", "pending", "Other Assets and Liabilities|RedMane Note - Face Value", "ask")
+        m.set_mapping("heloc", "pending", "Other Assets and Liabilities|Liabilities - HELOC Balance", "ask")
+    return base
+
+
+def test_pending_matches_resolve_to_plan_rows(tmp_path):
+    base = _dyn_workspace(tmp_path)
+    rows = _rows(base)
+    assert rows["other_asset:Other Asset 1"]["monarch_value"] == 9800.0 and rows["other_asset:Other Asset 1"]["policy"] == "auto"
+    assert rows["other_asset:Other Asset 2"]["app_value"] == 10000.0
+    assert rows["note:Note 1"]["difference"] == -20000.0
+    heloc = rows["liability:1"]
+    assert heloc["monarch_value"] == 150000.0 and heloc["app_value"] == 199000.0  # liabilities compare by magnitude
+    assert heloc["write"]["new"] == "150000.00"
+
+
+def test_other_asset_update_writes_value_and_as_of_date_and_undo_restores_both(tmp_path):
+    base = _dyn_workspace(tmp_path)
+    out = reconcile.apply(base / "input", [{"id": "other_asset:Other Asset 1"}, {"id": "note:Note 1"}, {"id": "liability:1"}], today=TODAY)
+    assert len(out["applied"]) == 3, out["rejected"]
+    with active_plan.workspace_store(base) as store:
+        assert store.find_rows("Other Assets", "Other Asset 1", "value")[-1]["value"] == "9800.00"
+        assert store.find_rows("Other Assets", "Other Asset 1", "as_of_date")[-1]["value"] == "10/14/2026"  # m/d/yyyy kept
+        assert store.find_rows("Note Receivable", "Note 1", "face_value")[-1]["value"] == "300000.00"
+        assert store.liabilities.rows()[0]["balance"] == "150000.00"
+    for entry in out["applied"]:
+        reconcile.undo(base / "input", entry["change_id"])
+    with active_plan.workspace_store(base) as store:
+        assert store.find_rows("Other Assets", "Other Asset 1", "value")[-1]["value"] == "$10,554.12"
+        assert store.find_rows("Other Assets", "Other Asset 1", "as_of_date")[-1]["value"] == "06/30/2026"
+        assert store.liabilities.rows()[0]["balance"] == "199000"
