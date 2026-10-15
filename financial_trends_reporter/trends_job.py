@@ -19,6 +19,7 @@ if str(_REPO_ROOT) not in sys.path:
 
 from src import onedrive_guard  # noqa: E402
 
+from .balance_store import DB_FILENAME, default_source_path, import_balances  # noqa: E402
 from .passthrough_decisions import decisions_path_for_log, load_decisions  # noqa: E402
 from .trends_log import append_or_replace_entry, default_log_path  # noqa: E402
 from .trends_metrics import compute_snapshot  # noqa: E402
@@ -84,4 +85,7 @@ def run(retirement_system_base_dir: str | Path, *, log_path: str | Path | None =
     snapshot["run_at"] = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
     history = append_or_replace_entry(path, snapshot)
-    return {"success": True, "snapshot": snapshot, "log_path": str(path), "total_entries": len(history)}
+    # Monarch balances are best-effort here: the 03:30 chain imports them too, and a
+    # missing/rejected file must not fail the snapshot (the result just reports it).
+    balances = import_balances(path.with_name(DB_FILENAME), default_source_path(base_dir), today=today)
+    return {"success": True, "snapshot": snapshot, "log_path": str(path), "total_entries": len(history), "balances": balances}

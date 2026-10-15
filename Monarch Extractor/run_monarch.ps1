@@ -18,6 +18,13 @@ $TransactionsExit = $LASTEXITCODE
 & $Python "$ProjectDir\monarch_balances.py"
 $BalancesExit = $LASTEXITCODE
 
+# Load the fresh balances into the trends reporter's store (stdlib-only importer, so the
+# extractor's venv can run it). Skipped when the export itself failed.
+if ($BalancesExit -eq 0) {
+    & $Python "$ProjectDir\..\financial_trends_reporter\tools\import_monarch_balances.py" --retirement-system-dir "$ProjectDir\.."
+    $BalancesExit = $LASTEXITCODE
+}
+
 if ($TransactionsExit -ne 0) {
     throw "Monarch extraction failed with exit code $TransactionsExit"
 }
