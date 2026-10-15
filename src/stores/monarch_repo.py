@@ -1,4 +1,4 @@
-"""Monarch account balances and reconciliation of a plan file (schema v13): ``MonarchRepo``,
+"""Monarch account balances and reconciliation of a plan file (schema v13; v14 adds the match policy): ``MonarchRepo``,
 reached as ``store.monarch``.
 
 Typed tables (not flat text datasets), so a plan revision does not copy the ~18,000 balance rows:
@@ -56,6 +56,19 @@ CREATE TABLE reconcile_log (
 );
 """
 
+
+# v14: what the page does when a mapped account's number differs from the app's.
+#   ask    show it in the inbox; the user chooses (the default for a new match)
+#   auto   copy Monarch's number into the app at import (guarded; see reconcile)
+#   app    the app is the source: report the difference, never write
+#   ignore never compare (kept so the match is remembered)
+POLICIES = ("ask", "auto", "app", "ignore")
+DEFAULT_POLICY = "ask"
+SCHEMA_V14_DDL = f"""
+ALTER TABLE monarch_account_map ADD COLUMN policy TEXT NOT NULL DEFAULT '{DEFAULT_POLICY}'
+    CHECK (policy IN ({", ".join(repr(p) for p in POLICIES)}));
+UPDATE monarch_account_map SET policy = 'ignore' WHERE kind = 'ignore';
+"""
 
 # An account whose last row is within this many days of the newest stored date is treated as still live
 # (a late sync), not closed: its last balance carries forward instead of dropping to 0.
@@ -141,15 +154,32 @@ class MonarchRepo:
     # ------------------------------------------------------------------ account map
     def mapping(self) -> dict[str, dict[str, str]]:
         with self._store._read() as con:
-            return {r["account_key"]: {"kind": r["kind"], "ref": r["ref"]} for r in con.execute("SELECT * FROM monarch_account_map")}
+            return {r["account_key"]: {"kind": r["kind"], "ref": r["ref"], "policy": r["policy"]}
+                    for r in con.execute("SELECT * FROM monarch_account_map")}
 
-    def set_mapping(self, account_key: str, kind: str, ref: str = "") -> None:
+    def set_mapping(self, account_key: str, kind: str, ref: str = "", policy: str | None = None) -> None:
+        """Save a match. ``policy`` None keeps the account's current policy (``ask`` for a new match;
+        an ``ignore`` kind is always policy ``ignore``)."""
         if not account_key or not kind:
             raise ValidationError("a mapping needs an account key and a kind")
+        if policy is not None and policy not in POLICIES:
+            raise ValidationError(f"unknown policy {policy!r}; one of {', '.join(POLICIES)}")
+        if kind == "ignore":
+            policy = "ignore"
         with self._store._write() as con:
             con.execute(
-                "INSERT INTO monarch_account_map (account_key, kind, ref) VALUES (?,?,?) "
-                "ON CONFLICT (account_key) DO UPDATE SET kind = excluded.kind, ref = excluded.ref", (account_key, kind, ref))
+                "INSERT INTO monarch_account_map (account_key, kind, ref, policy) VALUES (?,?,?,?) "
+                "ON CONFLICT (account_key) DO UPDATE SET kind = excluded.kind, ref = excluded.ref, "
+                "policy = CASE WHEN ? IS NULL THEN monarch_account_map.policy ELSE excluded.policy END",
+                (account_key, kind, ref, policy or DEFAULT_POLICY, policy))
+
+    def set_policy(self, account_key: str, policy: str) -> None:
+        if policy not in POLICIES:
+            raise ValidationError(f"unknown policy {policy!r}; one of {', '.join(POLICIES)}")
+        with self._store._write() as con:
+            cur = con.execute("UPDATE monarch_account_map SET policy = ? WHERE account_key = ?", (policy, account_key))
+            if cur.rowcount == 0:
+                raise NotFoundError(f"no saved match for {account_key!r}")
 
     def clear_mapping(self, account_key: str) -> None:
         with self._store._write() as con:

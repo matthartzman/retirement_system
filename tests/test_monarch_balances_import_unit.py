@@ -124,7 +124,7 @@ def test_mapping_and_log_roundtrip(tmp_path):
         m = store.monarch
         m.set_mapping("acct0", "setup_account", "Checking")
         m.set_mapping("acct0", "setup_account", "Checking 2")
-        assert m.mapping() == {"acct0": {"kind": "setup_account", "ref": "Checking 2"}}
+        assert m.mapping() == {"acct0": {"kind": "setup_account", "ref": "Checking 2", "policy": "ask"}}
         m.clear_mapping("acct0")
         assert m.mapping() == {}
         i = m.log_change("2026-10-14T00:00:00", "setup_account", "Checking", "Current Balance", "Checking", "100", "120", "2026-10-14")
@@ -135,11 +135,11 @@ def test_mapping_and_log_roundtrip(tmp_path):
             m.log_entry(9999)
 
 
-def test_new_plan_files_are_schema_13_and_revisions_do_not_copy_balances(tmp_path):
+def test_new_plan_files_are_schema_14_and_revisions_do_not_copy_balances(tmp_path):
     base = _workspace(tmp_path)
     mbi.import_balances(base, _csv(base / "b.csv", _rows()), today=TODAY, now=NOW)
     with PlanStore.open(base / "plan.rpx") as store:
-        assert store.schema_version == 13
+        assert store.schema_version == 14
         store.snapshot_revision("test")
         n = store._con.execute("SELECT COUNT(*) FROM revision_datasets WHERE dataset LIKE '%monarch%'").fetchone()[0]
         assert n == 0
@@ -161,3 +161,20 @@ def test_job_wrapper_imports_balances_and_never_changes_success(tmp_path, monkey
     assert res["success"] and res["balances"]["status"] == "error"
     monkeypatch.setattr(job, "_run_transactions", lambda b, force=False: {"success": True, "skipped": True, "skip_reason": "disabled"})
     assert "balances" not in job.run(base)
+
+
+def test_policy_defaults_survives_rematch_and_ignore_kind_forces_ignore(tmp_path):
+    base = _workspace(tmp_path)
+    with active_plan.workspace_store(base, write=True) as store:
+        m = store.monarch
+        m.set_mapping("a", "setup_account", "Checking", "auto")
+        m.set_mapping("a", "setup_account", "Checking 2")  # re-match without a policy keeps it
+        assert m.mapping()["a"]["policy"] == "auto"
+        m.set_policy("a", "app")
+        assert m.mapping()["a"]["policy"] == "app"
+        m.set_mapping("b", "ignore")
+        assert m.mapping()["b"]["policy"] == "ignore"
+        with pytest.raises(Exception):
+            m.set_policy("a", "sometimes")
+        with pytest.raises(Exception):
+            m.set_policy("nope", "ask")
