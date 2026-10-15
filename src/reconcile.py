@@ -55,6 +55,7 @@ MAP_IGNORE = "ignore"
 MAP_KINDS = (MAP_SETUP, *PLAN_TARGETS, MAP_IGNORE)
 
 REPORT_ONLY_INVEST = "Investment accounts are valued from holdings lots x prices. Change lots on the Holdings page."
+REPORT_ONLY_APP = "The app is the source for this account (policy: app is source). Change the policy to update it from Monarch."
 REPORT_ONLY_STREAM = "This annuity's value comes from its income stream's base value. Change it where the income stream is set up."
 
 
@@ -122,9 +123,18 @@ def _read_plan_values(input_dir: Path) -> dict[tuple[str, str, str], str]:
     return out
 
 
+def _row_policy(monarch: list[dict[str, Any]]) -> str:
+    """One policy for a row fed by several Monarch accounts: any ``app`` wins (never write), then ``ask``
+    unless every account is ``auto``."""
+    policies = {a.get("policy") or "ask" for a in monarch}
+    if "app" in policies:
+        return "app"
+    return "auto" if policies == {"auto"} else "ask"
+
+
 def _monarch_side(monarch: list[dict[str, Any]], liability: bool) -> dict[str, Any]:
     total = sum(a["balance"] for a in monarch)
-    return {
+    return {"policy": _row_policy(monarch) if monarch else "ask",
         "monarch_value": round(-total if liability else total, 2),
         "monarch_accounts": [{"account_key": a["account_key"], "account": a["account"], "balance": a["balance"],
                               "closed": a["closed"], "balance_date": a["balance_date"], "auto": bool(a.get("auto"))} for a in monarch],
@@ -167,12 +177,13 @@ def build_rows(input_dir: str | Path, as_of: str | None = None, *, tolerance: fl
     by_target: dict[str, list[dict[str, Any]]] = {}
     unmatched: list[dict[str, Any]] = []
     ignored: list[dict[str, str]] = []
+    closed_quiet: list[dict[str, str]] = []  # closed and empty: nothing to decide
     for acct in monarch_accounts:
         saved = mapping.get(acct["account_key"])
         target = None
         auto = False
         if saved:
-            if saved["kind"] == MAP_IGNORE:
+            if saved["kind"] == MAP_IGNORE or saved.get("policy") == "ignore":
                 ignored.append({"account_key": acct["account_key"], "label": acct["account"]})
                 continue
             if saved["kind"] == MAP_SETUP and saved["ref"].casefold() in setup_rows:
@@ -182,15 +193,24 @@ def build_rows(input_dir: str | Path, as_of: str | None = None, *, tolerance: fl
         elif acct["account"].strip().casefold() in setup_rows:
             target = "setup:" + setup_rows[acct["account"].strip().casefold()][0]
             auto = True
+        if target is None and acct["closed"] and abs(acct["last_balance"]) < 0.005:
+            closed_quiet.append({"account_key": acct["account_key"], "label": acct["account"], "last_date": acct["last_date"]})
+            continue
         if target is None:
-            if abs(acct["balance"]) >= 0.005:
+            if acct["closed"]:  # stopped syncing with money still on it: flag it
+                unmatched.append({
+                    "id": "monarch:" + acct["account_key"], "account_key": acct["account_key"], "label": acct["account"],
+                    "status": "closed_with_balance", "monarch_value": acct["last_balance"], "closed": True,
+                    "closed_since": acct["last_date"], "saved_mapping": saved or None,
+                })
+            elif abs(acct["balance"]) >= 0.005:
                 unmatched.append({
                     "id": "monarch:" + acct["account_key"], "account_key": acct["account_key"], "label": acct["account"],
                     "status": "not_in_app", "monarch_value": acct["balance"], "closed": acct["closed"],
                     "saved_mapping": saved or None,
                 })
             continue
-        by_target.setdefault(target, []).append({**acct, "auto": auto})
+        by_target.setdefault(target, []).append({**acct, "auto": auto, "policy": (saved or {}).get("policy") or "ask"})
 
     rows: list[dict[str, Any]] = []
 
@@ -201,6 +221,8 @@ def build_rows(input_dir: str | Path, as_of: str | None = None, *, tolerance: fl
             row["difference"] = round(row["monarch_value"] - row["app_value"], 2)
             if row["status"] in ("match", "differs"):
                 row["status"] = "differs" if abs(row["difference"]) >= tolerance else "match"
+        if row["status"] == "differs" and row.get("policy") == "app":
+            row["status"], row["report_reason"] = "report_only", REPORT_ONLY_APP
         row["updatable"] = row["status"] == "differs" and row.get("write") is not None
         rows.append(row)
 
@@ -250,6 +272,7 @@ def build_rows(input_dir: str | Path, as_of: str | None = None, *, tolerance: fl
     return {
         "has_balances": True, "as_of": as_of_date, "latest": latest, "tolerance": tolerance, "dates": dates,
         "rows": rows, "unmatched": sorted(unmatched, key=lambda u: u["label"].casefold()), "ignored": len(ignored),
+        "closed_accounts": sorted(closed_quiet, key=lambda u: u["label"].casefold()),
         "ignored_accounts": sorted(ignored, key=lambda u: u["label"].casefold()),
         "import": last_import, "last_ok_import": last_ok,
         "app_targets": [{"id": f"setup:{n}", "label": n, "role": ro} for n, ro, _ in sorted(setup_rows.values(), key=lambda t: t[0].casefold())]

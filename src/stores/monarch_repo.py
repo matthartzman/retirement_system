@@ -132,6 +132,7 @@ class MonarchRepo:
                 closed = last < as_of and last < live_from
                 out.append({
                     "account_key": key, "account": name, "balance": 0.0 if closed else float(balance),
+                    "last_balance": float(balance),  # what a closed account held when it stopped
                     "balance_date": bal_date, "first_date": first, "last_date": last, "closed": closed,
                 })
             return sorted(out, key=lambda r: r["account"].casefold())

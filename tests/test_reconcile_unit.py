@@ -269,3 +269,38 @@ def test_undo_plan_input(tmp_path):
     cid = reconcile.apply(base / "input", [{"id": "plan:home"}], today=TODAY)["applied"][0]["change_id"]
     reconcile.undo(base / "input", cid)
     assert _plan_value(base, "Other Assets", "Home", "value_as_of_plan_start") == "1313000"
+
+
+# ---- M2: policy and closed accounts
+def test_policy_app_is_report_only_and_policy_ignore_hides(tmp_path):
+    base = _workspace(tmp_path)
+    with active_plan.workspace_store(base, write=True) as store:
+        store.monarch.set_mapping("family checking", "setup_account", "Family Checking", "app")
+        store.monarch.set_mapping("private note", "setup_account", "Private Note", "ignore")
+    data = reconcile.build_rows(base / "input", today=TODAY)
+    rows = {r["id"]: r for r in data["rows"]}
+    chk = rows["setup:Family Checking"]
+    assert chk["status"] == "report_only" and not chk["updatable"] and chk["policy"] == "app"
+    assert chk["report_reason"] == reconcile.REPORT_ONLY_APP and chk["difference"] == 894.27
+    assert rows["setup:Private Note"]["status"] == "not_in_monarch"  # the ignored account no longer feeds it
+    assert data["ignored"] == 1
+
+
+def test_policy_app_that_matches_still_reads_as_a_match(tmp_path):
+    base = _workspace(tmp_path)
+    with active_plan.workspace_store(base, write=True) as store:
+        store.monarch.set_mapping("family checking", "setup_account", "Family Checking", "app")
+    data = reconcile.build_rows(base / "input", today=TODAY, tolerance=1000)
+    assert {r["id"]: r for r in data["rows"]}["setup:Family Checking"]["status"] == "match"
+
+
+def test_closed_empty_accounts_are_quiet_and_closed_with_money_is_flagged(tmp_path):
+    base = _workspace(tmp_path)
+    with active_plan.workspace_store(base, write=True) as store:
+        store.monarch.upsert_balances([("2026-01-01", "old ira", "Old IRA", 0.0), ("2026-01-02", "old ira", "Old IRA", 0.0),
+                                       ("2026-01-01", "lost acct", "Lost Acct", 5000.0), ("2026-01-02", "lost acct", "Lost Acct", 5000.0)])
+    data = reconcile.build_rows(base / "input", today=TODAY)
+    assert [c["label"] for c in data["closed_accounts"]] == ["Old IRA"]
+    flagged = {u["label"]: u for u in data["unmatched"]}
+    assert "Old IRA" not in flagged
+    assert flagged["Lost Acct"]["status"] == "closed_with_balance" and flagged["Lost Acct"]["monarch_value"] == 5000.0
