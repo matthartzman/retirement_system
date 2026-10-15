@@ -26,7 +26,7 @@ if str(_REPO_ROOT) not in sys.path:
 from src.http_runtime.server import run_local_server  # noqa: E402
 from src.http_runtime.wsgi_facade import Flask, Response, request  # noqa: E402
 
-from financial_trends_reporter import account_registry, balance_series  # noqa: E402
+from financial_trends_reporter import account_registry, balance_series, flows  # noqa: E402
 from financial_trends_reporter.balance_store import DB_FILENAME, freshness  # noqa: E402
 from financial_trends_reporter.passthrough_decisions import decisions_path_for_log, save_decision  # noqa: E402
 from financial_trends_reporter.trends_job import run as run_trends_job  # noqa: E402
@@ -119,6 +119,12 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None) -> Fla
         payload = balance_series.balances_payload(balances_db, read_history(resolved_log_path))
         payload["freshness"] = freshness(balances_db)
         return _json(payload)
+
+    @app.route("/api/flows", methods=["GET"])
+    def flows_endpoint():
+        # Monthly investment flows from the latest log entry, toggled by the registry's Flows prefs.
+        history = read_history(resolved_log_path)
+        return _json(flows.flows_payload(history[-1] if history else None, account_registry.list_accounts(balances_db)))
 
     @app.route("/api/app-accounts", methods=["GET"])
     def app_accounts():
