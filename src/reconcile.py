@@ -104,6 +104,8 @@ def _parse_as_of(as_of: str | None, default: str | None) -> str | None:
         raise ReconcileError(f"as-of date must be YYYY-MM-DD, got {as_of!r}") from None
 
 
+DYN_CASH_LOT = "cash_lot:"
+CASH_LOT_FIELD = "shares+purchase_date"  # a cash account's one CASH lot: balance and its date change together
 OTHER_ASSET_FIELD = "value+as_of_date"  # one logged change writes both cells, so one Undo restores both
 
 
@@ -186,7 +188,8 @@ def _dynamic_context(plan_values: dict[tuple[str, str, str], str], liabilities: 
         lid = str(r.get("liability_id") or "").strip()
         if lid:
             out[DYN_LIABILITY + lid] = {"label": f"{r.get('label') or lid} (liability)", "name": str(r.get("label") or lid),
-                                        "app_text": str(r.get("balance") or ""), "liability": True}
+                                        "app_text": str(r.get("balance") or ""), "liability": True,
+                                        "type": str(r.get("type") or "")}
     return out
 
 
@@ -201,10 +204,17 @@ def _resolve_pending(ref: str, dyn: dict[str, dict[str, Any]]) -> str | None:
     core = re.sub(r"\s*-?\s*(face value|balance)$", "", core.strip(), flags=re.I).strip().casefold()
     if not core:
         return None
-    want = DYN_LIABILITY if field.casefold().startswith("liabilities") else DYN_NOTE if "note" in field.casefold() and "face" in field.casefold() else DYN_OTHER_ASSET
-    pool = {tid: d["name"].casefold() for tid, d in dyn.items() if tid.startswith(want)}
+    if field.casefold().startswith("liabilities"):
+        wants: tuple[str, ...] = (DYN_LIABILITY,)
+    elif "note" in field.casefold() and "face" in field.casefold():
+        wants = (DYN_NOTE,)
+    else:  # a bare name ("Amex") may be an other asset or a liability (credit card)
+        wants = (DYN_OTHER_ASSET, DYN_LIABILITY)
+    pool = {tid: d["name"].casefold() for tid, d in dyn.items() if tid.startswith(wants)}
     whole = lambda a, b: re.search(rf"(?<!\w){re.escape(a)}(?!\w)", b) is not None  # a is a whole word/phrase in b
     hits = [tid for tid, n in pool.items() if n == core] or [tid for tid, n in pool.items() if whole(core, n) or whole(n, core)]
+    if not hits:  # "HELOC Balance" names the liability's type, not its label
+        hits = [tid for tid in pool if tid.startswith(DYN_LIABILITY) and str(dyn[tid].get("type", "")).casefold() == core]
     return hits[0] if len(hits) == 1 else None
 
 
@@ -245,7 +255,9 @@ def build_rows(input_dir: str | Path, as_of: str | None = None, *, tolerance: fl
         last_import = repo.last_import()
         last_ok = repo.last_import(ok_only=True)
         liabilities = store.liabilities.rows()
+        holdings = store.holdings.rows()
 
+    cash_lots = _cash_only_lots(holdings)
     setup = ytd.read_account_setup(input_dir)
     summary = ytd.ytd_summary(input_dir, today=today)
     growth = {str(r.get("account") or "").strip().casefold(): r
@@ -336,6 +348,13 @@ def build_rows(input_dir: str | Path, as_of: str | None = None, *, tolerance: fl
                "auto_matched": bool(mapped) and all(m["auto"] for m in mapped), **_monarch_side(mapped, liability)}
         if not mapped:
             row.update(status="not_in_monarch", monarch_value=None, monarch_accounts=[])
+        elif role == INVESTMENT_ROLE and key in cash_lots:  # a cash-only account: its one CASH lot is the balance
+            lot = cash_lots[key]
+            new_date = _like_date(str(lot.get("purchase_date") or ""), max(a["balance_date"] for a in mapped))
+            row.update(status="differs", write={
+                "kind": DYN_CASH_LOT + name, "ref": name, "field": CASH_LOT_FIELD,
+                "old": f"{str(lot.get('shares') or '').strip()}|{str(lot.get('purchase_date') or '').strip()}",
+                "new": f"{_money_text(row['monarch_value'])}|{new_date}"})
         elif role == INVESTMENT_ROLE:
             row.update(status="report_only", report_reason=REPORT_ONLY_INVEST)
         elif role in ANNUITY_ROLES and g is not None and str(g.get("source", "")).startswith("income_stream_base"):
@@ -538,6 +557,8 @@ def apply(input_dir: str | Path, items: list[dict[str, Any]], as_of: str | None 
                     _write_other_asset(store, w["ref"], *w["new"].split("|"))
                 elif w["kind"].startswith(DYN_LIABILITY):
                     _write_liability_balance(store, w["ref"], w["new"])
+                elif w["kind"].startswith(DYN_CASH_LOT):
+                    _write_cash_lot(store, w["ref"], *w["new"].split("|"))
                 entry_id = store.monarch.log_change(_now(), w["kind"], w["ref"], w["field"], r["label"], w["old"], w["new"], data["as_of"], source)
                 applied.append({**_change(r), "change_id": entry_id})
     return {"as_of": data["as_of"], "applied": applied, "rejected": rejected}
@@ -571,6 +592,30 @@ def undo_auto(input_dir: str | Path) -> dict[str, Any]:
     return {"undone": undone, "skipped": skipped}
 
 
+def _cash_only_lots(holdings: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """``account casefold -> its lot`` for accounts whose holdings are exactly one CASH lot (e.g. a checking account)."""
+    by_acct: dict[str, list[dict[str, Any]]] = {}
+    for r in holdings:
+        by_acct.setdefault(str(r.get("account") or "").strip().casefold(), []).append(r)
+    return {k: lots[0] for k, lots in by_acct.items()
+            if k and len(lots) == 1 and str(lots[0].get("symbol") or "").strip().upper() == "CASH"}
+
+
+def _find_cash_lot(rows: list[dict[str, Any]], account: str) -> dict[str, Any]:
+    lots = _cash_only_lots([r for r in rows if str(r.get("account") or "").strip().casefold() == account.casefold()])
+    if not lots:
+        raise ReconcileError(f"{account!r} no longer has a single CASH holding")
+    return next(iter(lots.values()))
+
+
+def _write_cash_lot(store: Any, account: str, shares: str, when: str) -> None:
+    ds = store.holdings
+    rows = ds.rows()
+    lot = _find_cash_lot(rows, account)
+    lot["shares"], lot["purchase_date"] = shares, when
+    ds.replace_all(rows, header=ds.extra_columns())
+
+
 def _write_other_asset(store: Any, sub: str, value: str, as_of: str) -> None:
     store.set_value("Other Assets", sub, "value", value)
     store.set_value("Other Assets", sub, "as_of_date", as_of)
@@ -595,6 +640,9 @@ def _current_text(store: Any, input_dir: Path, kind: str, ref: str, field: str) 
     if kind.startswith(DYN_OTHER_ASSET):
         cell = lambda label: (store.find_rows("Other Assets", ref, label) or [{"value": ""}])[-1]["value"]
         return f"{str(cell('value')).strip()}|{str(cell('as_of_date')).strip()}"
+    if kind.startswith(DYN_CASH_LOT):
+        lot = _find_cash_lot(store.holdings.rows(), ref)
+        return f"{str(lot.get('shares') or '').strip()}|{str(lot.get('purchase_date') or '').strip()}"
     if kind.startswith(DYN_LIABILITY):
         for row in store.liabilities.rows():
             if str(row.get("liability_id") or "").strip() == ref:
@@ -628,6 +676,8 @@ def undo(input_dir: str | Path, change_id: int) -> dict[str, Any]:
                 _write_other_asset(store, entry["ref"], *entry["old_value"].split("|"))
             elif entry["kind"].startswith(DYN_LIABILITY):
                 _write_liability_balance(store, entry["ref"], entry["old_value"])
+            elif entry["kind"].startswith(DYN_CASH_LOT):
+                _write_cash_lot(store, entry["ref"], *entry["old_value"].split("|"))
             else:
                 section, sub, label = entry["ref"].split("|")
                 store.set_value(section, sub, label, entry["old_value"])
