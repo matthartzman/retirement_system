@@ -6,7 +6,7 @@ reads the app's answer once per import instead:
 
 * a match to an Accounts & Sources row sets the account's ``app_account`` (used by the flows chart) and, when the
   user has not confirmed a type, the type from that row's Role;
-* a match to a plan input (home, autos, mortgage) or a plan row (other asset, note, liability) sets the type the
+* a match to a plan input (home, mortgage) or a plan row (other asset, note, liability) sets the type the
   same way;
 * policy ``ignore`` switches the account off in every chart.
 
@@ -33,8 +33,6 @@ def _type_for(kind: str, ref: str, roles: dict[str, str]) -> str | None:
         return ROLE_TYPE.get(roles.get(ref.casefold(), ""))
     if kind == "plan:home":
         return "Real estate"
-    if kind == "plan:autos":
-        return "Vehicle"
     if kind in ("plan:mortgage",) or kind.startswith("liability:"):
         return "Loan"
     if kind.startswith(("other_asset:", "note:")):

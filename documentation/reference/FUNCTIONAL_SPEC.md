@@ -255,7 +255,7 @@ balance as of a chosen date. It opens on **Needs a decision**: each difference
 is resolved with Update app (after a preview), Ignore this time, Always update, or
 App is source. **All mappings** lists every match with its policy (ask, auto,
 app, ignore); a mapping CSV can be imported to seed matches. Targets: Accounts &
-Sources rows, home, autos and mortgage plan inputs, Other Asset Items (value and
+Sources rows, home and mortgage plan inputs (autos are Other Asset Items), Other Asset Items (value and
 as-of date together), notes and liabilities. Auto policy copies Monarch's number at
 the 04:00 import unless the change is a plan-start input or over both 10% and
 $5,000. Closed accounts with no balance are quiet; a closed account that still
