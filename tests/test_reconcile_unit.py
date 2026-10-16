@@ -490,3 +490,20 @@ def test_linked_cash_holding_that_disagrees_makes_a_matching_account_updatable(t
                                      "purchase_price": "$1", "lot_type": "buy", "note": ""}])
     row = _rows(base)["setup:Family Checking"]
     assert row["difference"] == 0 and row["status"] == "differs" and row["updatable"]
+
+
+def test_card_mapped_to_a_liability_also_updates_its_same_named_accounts_row(tmp_path):
+    base = _workspace(tmp_path)
+    with active_plan.workspace_store(base, write=True) as store:
+        store.liabilities.replace_all([{"liability_id": "v1", "type": "credit_card", "label": "Visa", "balance": ""}])
+        store.monarch.set_mapping("visa card", "liability:v1", "", "ask")
+    row = _rows(base)["liability:v1"]
+    assert row["monarch_value"] == 10021.2 and row["write"]["new"] == "10021.20" and row["write_also"]["ref"] == "Visa Card"
+    out = reconcile.apply(base / "input", [{"id": "liability:v1"}], today=TODAY)
+    assert len(out["applied"]) == 1, out["rejected"]
+    with active_plan.workspace_store(base) as store:
+        assert store.liabilities.rows()[0]["balance"] == "10021.20"
+    assert _setup_value(base, "Visa Card", "Current Balance") == "-10021.20"
+    for e in reconcile.change_log(base / "input"):
+        reconcile.undo(base / "input", e["id"])
+    assert _setup_value(base, "Visa Card", "Current Balance") == "900"

@@ -405,6 +405,10 @@ def build_rows(input_dir: str | Path, as_of: str | None = None, *, tolerance: fl
                             "field": "face_value", "old": stored, "new": new_text}
         else:
             row["write"] = {"kind": tid, "ref": tid[len(DYN_LIABILITY):], "field": "balance", "old": stored, "new": new_text}
+            sr = setup_rows.get(mapped[0]["account"].strip().casefold()) if len(mapped) == 1 else None
+            if sr and (sr[1] == CASH_ROLE or sr[1] in LIABILITY_ROLES):  # the same-named Accounts & Sources row follows
+                row["write_also"] = {"kind": MAP_SETUP, "ref": sr[0], "field": SETUP_VALUE_FIELD,
+                                     "old": str(sr[2].get(SETUP_VALUE_FIELD) or "").strip(), "new": _money_text(mapped[0]["balance"])}
         finish(row)
 
     order = {g: i for i, g in enumerate(GROUP_ORDER)}
@@ -566,8 +570,15 @@ def apply(input_dir: str | Path, items: list[dict[str, Any]], as_of: str | None 
                 applied.append({**_change(r), "change_id": entry_id})
                 a = r.get("write_also")
                 if a and not _same_current(a["old"], a["new"]):
-                    _write_cash_lot(store, a["ref"], *a["new"].split("|"))
-                    store.monarch.log_change(_now(), a["kind"], a["ref"], a["field"], f"{a['ref']} (holding)", a["old"], a["new"], data["as_of"], source)
+                    if a["kind"] == MAP_SETUP:
+                        sheet = [ytd.normalize_account_setup(x) for x in ytd.read_account_setup(input_dir)]
+                        for x in sheet:
+                            if x["Account"].strip().casefold() == a["ref"].casefold():
+                                _set_setup_value(x, a["new"])
+                        store.dataset("ytd_account_setup").replace_all(sheet)
+                    else:
+                        _write_cash_lot(store, a["ref"], *a["new"].split("|"))
+                    store.monarch.log_change(_now(), a["kind"], a["ref"], a["field"], f"{a['ref']} (follows)", a["old"], a["new"], data["as_of"], source)
     return {"as_of": data["as_of"], "applied": applied, "rejected": rejected}
 
 
