@@ -113,16 +113,15 @@ def test_blank_unmatched_app_rows_are_hidden_and_unmatched_monarch_listed(tmp_pa
 
 def test_plan_inputs_need_a_mapping_then_sum_several_accounts(tmp_path):
     base = _workspace(tmp_path)
-    assert _rows(base)["plan:autos"]["status"] == "not_in_monarch"
-    reconcile.set_mapping(base / "input", "car one", "plan:autos")
-    reconcile.set_mapping(base / "input", "car two", "plan:autos")
+    assert "plan:autos" not in _rows(base)                      # autos live in Other Asset Items now
+    assert _rows(base)["plan:home"]["status"] == "not_in_monarch"
     reconcile.set_mapping(base / "input", "house", "plan:home")
+    reconcile.set_mapping(base / "input", "car one", "plan:home")
     reconcile.set_mapping(base / "input", "home loan", "plan:mortgage")
     rows = _rows(base)
-    autos = rows["plan:autos"]
-    assert autos["monarch_value"] == 53215.88 and len(autos["monarch_accounts"]) == 2
-    assert autos["write"] == {"kind": "plan:autos", "ref": "Other Assets|Autos|value", "field": "value", "old": "50000", "new": "53215.88"}
-    assert rows["plan:home"]["difference"] == 1279500.0 - 1313000.0
+    home = rows["plan:home"]
+    assert home["monarch_value"] == 1279500.0 + 10244.38 and len(home["monarch_accounts"]) == 2   # balances are summed
+    assert home["write"]["ref"] == "Other Assets|Home|value_as_of_plan_start" and home["write"]["old"] == "1313000"
     mort = rows["plan:mortgage"]
     assert mort["monarch_value"] == 283204.0 and mort["app_value"] == 293284.0
     assert "setup:Home Loan" not in rows or rows["setup:Home Loan"]["status"] == "not_in_monarch"   # remapped away
@@ -142,10 +141,10 @@ def test_saved_mapping_overrides_name_match_and_ignore_hides(tmp_path):
 
 def test_each_matched_account_says_whether_it_was_matched_by_name_and_ignored_ones_are_listed(tmp_path):
     base = _workspace(tmp_path)
-    reconcile.set_mapping(base / "input", "car one", "plan:autos")
+    reconcile.set_mapping(base / "input", "house", "plan:home")
     rows = _rows(base)
     assert rows["setup:Family Checking"]["monarch_accounts"][0]["auto"] is True
-    assert rows["plan:autos"]["monarch_accounts"][0]["auto"] is False
+    assert rows["plan:home"]["monarch_accounts"][0]["auto"] is False
     reconcile.set_mapping(base / "input", "family checking", "ignore")       # switch the by-name match off
     data = reconcile.build_rows(base / "input", today=TODAY)
     assert [i["label"] for i in data["ignored_accounts"]] == ["Family Checking"] and data["ignored"] == 1
@@ -383,12 +382,11 @@ def test_auto_apply_writes_only_auto_rows_that_pass_the_guards_and_logs_them(tmp
 def test_big_change_is_held_and_undo_auto_restores_everything(tmp_path):
     base = _workspace(tmp_path)
     with active_plan.workspace_store(base, write=True) as store:
-        store.set_value("Other Assets", "Autos", "value", "10000")   # Monarch: cars sum 53,215.88 -> +432%, > $5,000
-        store.monarch.set_mapping("car one", "plan:autos", "", "auto")
-        store.monarch.set_mapping("car two", "plan:autos", "", "auto")
+        store.set_value("Other Assets", "Home", "value_as_of_plan_start", "500000")   # Monarch 1,279,500 -> +156%, > $5,000
+        store.monarch.set_mapping("house", "plan:home", "", "auto")
         store.monarch.set_mapping("family checking", "setup_account", "Family Checking", "auto")
     out = reconcile.auto_apply(base / "input", today=TODAY)
-    assert [h["id"] for h in out["held"]] == ["plan:autos"] and [a["label"] for a in out["applied"]] == ["Family Checking"]
+    assert [h["id"] for h in out["held"]] == ["plan:home"] and [a["label"] for a in out["applied"]] == ["Family Checking"]
     undone = reconcile.undo_auto(base / "input")
     assert undone == {"undone": ["Family Checking"], "skipped": []}
     assert _setup_value(base, "Family Checking", "Current Value") == "13000"

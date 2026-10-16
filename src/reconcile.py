@@ -12,13 +12,12 @@ What each app number is, and what an update writes:
   assets, annuities with no income stream, ...) write the row's ``Current Value`` / ``Current Balance``.
   Liabilities are stored positive in the app and negative in Monarch, so the compared Monarch value is
   sign-flipped.
-* **Plan inputs**: home (``Other Assets / Home / value_as_of_plan_start``), autos (``Other Assets / Autos /
-  value``) and mortgage (``Cashflow / Mortgage / balance_as_of_plan_start``). These are the plan's
+* **Plan inputs**: home (``Other Assets / Home / value_as_of_plan_start``) and mortgage (``Cashflow / Mortgage / balance_as_of_plan_start``). These are the plan's
   stored (plan-start) figures, compared as stored.
 * **Report only**: investment accounts (valued from holdings lots x prices) and annuities/pensions whose
   value comes from an income stream's base value. The page shows the difference; nothing is written.
 
-Several Monarch accounts can map to one app number (their balances are summed): two vehicles to "Autos".
+Several Monarch accounts can map to one app number (their balances are summed): two cards to one liability.
 Matches are automatic when the Monarch account name equals an Accounts & Sources account name, otherwise
 saved by hand in ``monarch_account_map``.
 """
@@ -54,7 +53,6 @@ GROUP_ORDER = (GROUP_CASH, GROUP_MANUAL, GROUP_PLAN, GROUP_INVEST)
 # Plan-input targets: id -> (label, (section, subsection, label), is_liability)
 PLAN_TARGETS: dict[str, tuple[str, tuple[str, str, str], bool]] = {
     "plan:home": ("Home value (plan input)", ("Other Assets", "Home", "value_as_of_plan_start"), False),
-    "plan:autos": ("Autos value (plan input)", ("Other Assets", "Autos", "value"), False),
     "plan:mortgage": ("Mortgage balance (plan input)", ("Cashflow", "Mortgage", "balance_as_of_plan_start"), True),
 }
 MAP_SETUP = "setup_account"
