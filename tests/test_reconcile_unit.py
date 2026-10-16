@@ -461,3 +461,34 @@ def test_cash_only_holding_is_updated_with_its_date_and_undone(tmp_path):
     reconcile.undo(base / "input", out["applied"][0]["change_id"])
     with active_plan.workspace_store(base) as store:
         assert store.holdings.rows()[0]["shares"] == "1000" and store.holdings.rows()[0]["purchase_date"] == "06/01/2026"
+
+
+def test_cash_account_linked_to_a_cash_holding_updates_the_holding_too(tmp_path):
+    base = _workspace(tmp_path)
+    rows = [dict(r, **({"Mapped Investment Account": "Chk_Hold"} if r["Account"] == "Family Checking" else {})) for r in ytd.read_account_setup(base / "input")]
+    ytd.write_account_setup(base / "input", rows)
+    with active_plan.workspace_store(base, write=True) as store:
+        store.holdings.replace_all([{"account": "Chk_Hold", "symbol": "CASH", "purchase_date": "06/01/2026", "shares": "15000",
+                                     "purchase_price": "$1", "lot_type": "buy", "note": ""}])
+    out = reconcile.apply(base / "input", [{"id": "setup:Family Checking"}], today=TODAY)
+    assert len(out["applied"]) == 1, out["rejected"]
+    assert _setup_value(base, "Family Checking", "Current Value") == "13894.27"
+    with active_plan.workspace_store(base) as store:
+        assert store.holdings.rows()[0]["shares"] == "13894.27"
+    logged = reconcile.change_log(base / "input")
+    assert len(logged) == 2
+    for e in logged:
+        reconcile.undo(base / "input", e["id"])
+    with active_plan.workspace_store(base) as store:
+        assert store.holdings.rows()[0]["shares"] == "15000"
+
+
+def test_linked_cash_holding_that_disagrees_makes_a_matching_account_updatable(tmp_path):
+    base = _workspace(tmp_path)
+    rows = [dict(r, **({"Mapped Investment Account": "Chk_Hold", "Current Value": "13894.27"} if r["Account"] == "Family Checking" else {})) for r in ytd.read_account_setup(base / "input")]
+    ytd.write_account_setup(base / "input", rows)
+    with active_plan.workspace_store(base, write=True) as store:
+        store.holdings.replace_all([{"account": "Chk_Hold", "symbol": "CASH", "purchase_date": "06/01/2026", "shares": "15000",
+                                     "purchase_price": "$1", "lot_type": "buy", "note": ""}])
+    row = _rows(base)["setup:Family Checking"]
+    assert row["difference"] == 0 and row["status"] == "differs" and row["updatable"]

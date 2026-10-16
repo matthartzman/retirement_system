@@ -326,6 +326,9 @@ def build_rows(input_dir: str | Path, as_of: str | None = None, *, tolerance: fl
                 row["status"] = "differs" if abs(row["difference"]) >= tolerance else "match"
         if row["status"] == "differs" and row.get("policy") == "app":
             row["status"], row["report_reason"] = "report_only", REPORT_ONLY_APP
+        also = row.get("write_also")
+        if also and row["status"] == "match" and not _same_current(also["old"], also["new"]):
+            row["status"] = "differs"  # the account agrees but its linked cash holding does not
         row["auto_hold"] = _auto_hold(row) if row["status"] == "differs" and row.get("policy") == "auto" else None
         row["updatable"] = row["status"] == "differs" and row.get("write") is not None
         rows.append(row)
@@ -358,6 +361,12 @@ def build_rows(input_dir: str | Path, as_of: str | None = None, *, tolerance: fl
         else:
             row.update(status="differs", write={"kind": MAP_SETUP, "ref": name, "field": SETUP_VALUE_FIELD,
                                                 "old": str(raw.get(SETUP_VALUE_FIELD) or "").strip(), "new": _money_text(row["monarch_value"])})
+            lot = cash_lots.get(str(raw.get("Mapped Investment Account") or "").strip().casefold())
+            if lot and role == CASH_ROLE:  # a cash account linked to a cash-only holding: that CASH lot follows it
+                when = _like_date(str(lot.get("purchase_date") or ""), max(a["balance_date"] for a in mapped))
+                row["write_also"] = {"kind": DYN_CASH_LOT + lot["account"], "ref": lot["account"], "field": CASH_LOT_FIELD,
+                                     "old": f"{str(lot.get('shares') or '').strip()}|{str(lot.get('purchase_date') or '').strip()}",
+                                     "new": f"{_money_text(row['monarch_value'])}|{when}"}
         finish(row)
 
     # ---- plan inputs
@@ -557,6 +566,10 @@ def apply(input_dir: str | Path, items: list[dict[str, Any]], as_of: str | None 
                     _write_cash_lot(store, w["ref"], *w["new"].split("|"))
                 entry_id = store.monarch.log_change(_now(), w["kind"], w["ref"], w["field"], r["label"], w["old"], w["new"], data["as_of"], source)
                 applied.append({**_change(r), "change_id": entry_id})
+                a = r.get("write_also")
+                if a and not _same_current(a["old"], a["new"]):
+                    _write_cash_lot(store, a["ref"], *a["new"].split("|"))
+                    store.monarch.log_change(_now(), a["kind"], a["ref"], a["field"], f"{a['ref']} (holding)", a["old"], a["new"], data["as_of"], source)
     return {"as_of": data["as_of"], "applied": applied, "rejected": rejected}
 
 
