@@ -261,6 +261,15 @@ describe("M4: inbox, policy, closed accounts, automatic updates", () => {
     assert.deepEqual(m.rcInboxItems(DATA(rows), new Set(["a@13894.27"])).diffs.map((r) => r.id), ["b"]);
   });
 
+  test("items hidden by Ignore this time are counted and a Show hidden button brings them back", () => {
+    const gone = new Set(["a@13894.27"]);
+    assert.equal(m.rcInboxItems(DATA(rows), gone).hidden, 1);
+    assert.match(m.rcInboxHtml(DATA(rows), gone), /1 hidden by[\s\S]*rcRestoreDismissed\(\)/);
+    assert.ok(!m.rcInboxHtml(DATA(rows)).includes("rcRestoreDismissed"));
+    const only = [rows[0]];
+    assert.match(m.rcInboxHtml(DATA(only), gone), /Nothing needs a decision[\s\S]*Show hidden/);
+  });
+
   test("each inbox row offers the four choices and shows why an auto change is held", () => {
     const html = m.rcInboxHtml(DATA(rows));
     for (const act of ["update", "ignore", "always", "app"]) assert.ok(html.includes("rcDecide('" + act + "'"), act);

@@ -118,10 +118,13 @@ const rcDismissKey = (r) => r.id + "@" + r.monarch_value;
 // this Monarch number, plus Monarch accounts with no match and closed accounts that still hold money.
 export function rcInboxItems(data, dismissed) {
   const gone = dismissed || new Set();
-  const diffs = (data.rows || []).filter((r) => r.status === "differs" && r.updatable && (r.policy !== "auto" || r.auto_hold) && !gone.has(rcDismissKey(r)));
+  const open = (data.rows || []).filter((r) => r.status === "differs" && r.updatable && (r.policy !== "auto" || r.auto_hold));
+  const diffs = open.filter((r) => !gone.has(rcDismissKey(r)));
   const unmatched = (data.unmatched || []).filter((u) => !gone.has("monarch:" + u.account_key + "@" + u.monarch_value));
-  return { diffs, unmatched };
+  return { diffs, unmatched, hidden: open.length - diffs.length };
 }
+
+const rcHiddenHtml = (n) => n ? `<div class="section-note">${n} hidden by "Ignore this time". <button class="btn" type="button" onclick="rcRestoreDismissed()">Show hidden</button></div>` : "";
 
 export function rcInboxRowHtml(row) {
   const btn = (act, label, cls) => `<button class="btn ${cls || ""}" type="button" data-id="${esc(row.id)}" onclick="rcDecide('${act}', this.dataset.id)">${label}</button>`;
@@ -132,8 +135,8 @@ export function rcInboxRowHtml(row) {
 }
 
 export function rcInboxHtml(data, dismissed) {
-  const { diffs, unmatched } = rcInboxItems(data, dismissed);
-  if (!diffs.length && !unmatched.length) return '<div class="section-note">Nothing needs a decision. Every matched account agrees with the app, is handled automatically, or is set to ignore.</div>';
+  const { diffs, unmatched, hidden } = rcInboxItems(data, dismissed);
+  if (!diffs.length && !unmatched.length) return '<div class="section-note">Nothing needs a decision. Every matched account agrees with the app, is handled automatically, or is set to ignore.</div>' + rcHiddenHtml(hidden);
   const table = diffs.length
     ? `<h3>Numbers that differ (${diffs.length})</h3><div class="rc-scroll"><table class="rc-table"><thead><tr><th>Account</th><th class="rc-num">App</th><th class="rc-num">Monarch</th><th class="rc-num">Difference</th><th>Choose</th></tr></thead><tbody>${diffs.map(rcInboxRowHtml).join("")}</tbody></table></div>` +
       '<div class="section-note"><b>Update app</b> copies Monarch\'s number once (after a preview). <b>Always update</b> does that now and copies it automatically at each import. <b>App is source</b> keeps the app\'s number and only reports. <b>Ignore this time</b> hides it until Monarch\'s number changes.</div>'
@@ -143,7 +146,7 @@ export function rcInboxHtml(data, dismissed) {
     ? `<h3>Closed accounts that still show a balance (${closedMoney.length})</h3><div class="rc-scroll"><table class="rc-table"><tbody>${closedMoney.map((u) => `<tr><td>${esc(u.label)} <span class="rc-sub">stopped syncing ${esc(u.closed_since || "")}</span></td><td class="rc-num">${esc(rcMoney(u.monarch_value))}</td><td><button class="btn" type="button" data-key="${esc(u.account_key)}" onclick="rcMap(this.dataset.key, 'ignore')">Money moved: mark done</button></td></tr>`).join("")}</tbody></table></div>`
     : "";
   const rest = unmatched.filter((u) => u.status !== "closed_with_balance");
-  return table + flagged + rcUnmatchedHtml({ ...data, unmatched: rest });
+  return table + flagged + rcUnmatchedHtml({ ...data, unmatched: rest }) + rcHiddenHtml(hidden);
 }
 
 export function rcParkedHtml(data) {
@@ -391,6 +394,8 @@ export async function rcDecide(action, id) {
   await rcPreview();
 }
 
+export function rcRestoreDismissed() { rcDismissed.clear(); rcSaveDismissed(); rcPaint(); }
+
 export async function rcUndoAuto() {
   try {
     const out = await api("/api/reconcile/undo-auto", { method: "POST", body: "{}" });
@@ -429,7 +434,7 @@ export async function rcMap(accountKey, target) {
 }
 
 Object.assign(window, {
-  rcMoney, rcDiffHtml, rcSummary, rcRowHtml, rcGroupsHtml, rcPreviewHtml, rcUnmatchedHtml, rcLogHtml, rcImportNote, rcBodyHtml,
+  rcRestoreDismissed, rcMoney, rcDiffHtml, rcSummary, rcRowHtml, rcGroupsHtml, rcPreviewHtml, rcUnmatchedHtml, rcLogHtml, rcImportNote, rcBodyHtml,
   renderMonarchReconciliation, loadMonarchReconciliation, rcToggle, rcSelectGroup, rcSetAsOf, rcSetTolerance, rcSetShowMatched,
   rcPreviewCancel, rcPreview, rcApply, rcUndo, rcMap, rcUnmatch, rcIgnoredHtml,
   rcPolicyHtml, rcParkedHtml, rcInboxItems, rcInboxRowHtml, rcInboxHtml, rcClosedHtml, rcAutoBannerHtml,
