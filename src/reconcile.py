@@ -326,6 +326,9 @@ def build_rows(input_dir: str | Path, as_of: str | None = None, *, tolerance: fl
                 row["status"] = "differs" if abs(row["difference"]) >= tolerance else "match"
         if row["status"] == "differs" and row.get("policy") == "app":
             row["status"], row["report_reason"] = "report_only", REPORT_ONLY_APP
+        also = row.get("write_also")
+        if also and row["status"] == "match" and not _same_current(also["old"], also["new"]):
+            row["status"] = "differs"  # the account agrees but its linked cash holding does not
         row["auto_hold"] = _auto_hold(row) if row["status"] == "differs" and row.get("policy") == "auto" else None
         row["updatable"] = row["status"] == "differs" and row.get("write") is not None
         rows.append(row)
