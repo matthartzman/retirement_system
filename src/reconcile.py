@@ -34,13 +34,11 @@ from . import ytd_tracking as ytd
 
 DEFAULT_TOLERANCE = 1.0
 
-# Auto-update guards: a policy-"auto" difference is held for the inbox, not written overnight, when it is a
-# plan-start anchor, or when it is both over AUTO_MAX_PCT of the app's number and over AUTO_MAX_ABS dollars.
+# Auto-update guard: a policy-"auto" difference is held for the inbox, not written overnight, when it is both
+# over AUTO_MAX_PCT of the app's number and over AUTO_MAX_ABS dollars.
 AUTO_MAX_PCT = 0.10
 AUTO_MAX_ABS = 5000.0
-AUTO_HOLD_ANCHOR = "Plan-start input: confirm it here before it changes."
 AUTO_HOLD_BIG = "Change is over 10% and $5,000: confirm it here before it changes."
-AUTO_ANCHOR_TARGETS = ("plan:home", "plan:mortgage")
 
 LIABILITY_ROLES = frozenset({"Credit card", "Mortgage", "HELOC", "Loan", "Other liability"})
 INVESTMENT_ROLE = "Investment"
@@ -219,8 +217,6 @@ def _resolve_pending(ref: str, dyn: dict[str, dict[str, Any]]) -> str | None:
 
 
 def _auto_hold(row: dict[str, Any]) -> str | None:
-    if row["id"] in AUTO_ANCHOR_TARGETS:
-        return AUTO_HOLD_ANCHOR
     diff = abs(row["difference"] or 0.0)
     if diff > AUTO_MAX_ABS and diff > AUTO_MAX_PCT * max(abs(row["app_value"]), 1.0):
         return AUTO_HOLD_BIG

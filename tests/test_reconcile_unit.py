@@ -371,16 +371,13 @@ def test_auto_apply_writes_only_auto_rows_that_pass_the_guards_and_logs_them(tmp
         m = store.monarch
         m.set_mapping("family checking", "setup_account", "Family Checking", "auto")   # +$894 on $13,000: fine
         m.set_mapping("private note", "setup_account", "Private Note", "auto")         # +$12,848 on $500,000: under 10%
-        m.set_mapping("house", "plan:home", "", "auto")                                 # anchor: held
+        m.set_mapping("house", "plan:home", "", "auto")                                 # plan-start input: updated like any other
         m.set_mapping("visa card", "setup_account", "Visa Card", "ask")                 # not auto
     out = reconcile.auto_apply(base / "input", today=TODAY)
-    assert sorted(a["label"] for a in out["applied"]) == ["Family Checking", "Private Note"]
-    assert [(h["id"], h["reason"]) for h in out["held"]] == [("plan:home", reconcile.AUTO_HOLD_ANCHOR)]
+    assert {a["id"] for a in out["applied"]} == {"setup:Family Checking", "setup:Private Note", "plan:home"} and out["held"] == []
     assert _setup_value(base, "Family Checking", "Current Value") == "13894.27"
     assert _setup_value(base, "Visa Card", "Current Balance") == "900"
     assert {e["source"] for e in reconcile.change_log(base / "input")} == {"auto"}
-    # held rows show their reason in the page data
-    assert _rows(base)["plan:home"]["auto_hold"] == reconcile.AUTO_HOLD_ANCHOR
 
 
 def test_big_change_is_held_and_undo_auto_restores_everything(tmp_path):
