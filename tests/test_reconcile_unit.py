@@ -371,16 +371,13 @@ def test_auto_apply_writes_only_auto_rows_that_pass_the_guards_and_logs_them(tmp
         m = store.monarch
         m.set_mapping("family checking", "setup_account", "Family Checking", "auto")   # +$894 on $13,000: fine
         m.set_mapping("private note", "setup_account", "Private Note", "auto")         # +$12,848 on $500,000: under 10%
-        m.set_mapping("house", "plan:home", "", "auto")                                 # anchor: held
+        m.set_mapping("house", "plan:home", "", "auto")                                 # plan-start input: updated like any other
         m.set_mapping("visa card", "setup_account", "Visa Card", "ask")                 # not auto
     out = reconcile.auto_apply(base / "input", today=TODAY)
-    assert sorted(a["label"] for a in out["applied"]) == ["Family Checking", "Private Note"]
-    assert [(h["id"], h["reason"]) for h in out["held"]] == [("plan:home", reconcile.AUTO_HOLD_ANCHOR)]
+    assert {a["id"] for a in out["applied"]} == {"setup:Family Checking", "setup:Private Note", "plan:home"} and out["held"] == []
     assert _setup_value(base, "Family Checking", "Current Value") == "13894.27"
     assert _setup_value(base, "Visa Card", "Current Balance") == "900"
     assert {e["source"] for e in reconcile.change_log(base / "input")} == {"auto"}
-    # held rows show their reason in the page data
-    assert _rows(base)["plan:home"]["auto_hold"] == reconcile.AUTO_HOLD_ANCHOR
 
 
 def test_big_change_is_held_and_undo_auto_restores_everything(tmp_path):
@@ -432,3 +429,35 @@ def test_apply_rejects_an_unknown_source(tmp_path):
     base = _workspace(tmp_path)
     with pytest.raises(reconcile.ReconcileError):
         reconcile.apply(base / "input", [{"id": "setup:Family Checking"}], today=TODAY, source="nightly")
+
+
+def test_bare_card_names_and_heloc_type_resolve_to_liabilities(tmp_path):
+    base = _workspace(tmp_path)
+    with active_plan.workspace_store(base, write=True) as store:
+        store.liabilities.replace_all([
+            {"liability_id": "1", "type": "HELOC", "label": "Home Equity Line", "balance": "171.80"},
+            {"liability_id": "2", "type": "Credit card", "label": "Amex", "balance": ""}])
+        store.monarch.upsert_balances([(d, k, n, b) for d in ("2026-10-13", "2026-10-14") for k, n, b in
+                                       (("platinum", "Platinum Card (...1008)", -2500.0), ("heloc", "HELOC $199K", -171.8))])
+        store.monarch.set_mapping("platinum", "pending", "Other Assets and Liabilities|Amex", "auto")
+        store.monarch.set_mapping("heloc", "pending", "Other Assets and Liabilities|Liabilities - HELOC Balance", "auto")
+    rows = _rows(base)
+    assert rows["liability:2"]["monarch_value"] == 2500.0 and rows["liability:2"]["write"]["new"] == "2500.00"
+    assert rows["liability:1"]["monarch_accounts"][0]["account"] == "HELOC $199K"
+
+
+def test_cash_only_holding_is_updated_with_its_date_and_undone(tmp_path):
+    base = _workspace(tmp_path)
+    with active_plan.workspace_store(base, write=True) as store:
+        store.holdings.replace_all([{"account": "Brokerage A", "symbol": "CASH", "purchase_date": "06/01/2026", "shares": "1000",
+                                     "purchase_price": "$1", "lot_type": "buy", "note": ""}])
+    row = _rows(base)["setup:Brokerage A"]
+    assert row["write"] and row["write"]["field"] == reconcile.CASH_LOT_FIELD, row["status"]
+    out = reconcile.apply(base / "input", [{"id": "setup:Brokerage A"}], today=TODAY)
+    assert len(out["applied"]) == 1, out["rejected"]
+    with active_plan.workspace_store(base) as store:
+        lot = store.holdings.rows()[0]
+        assert lot["shares"] == row["write"]["new"].split("|")[0] and lot["purchase_date"] == "10/14/2026"
+    reconcile.undo(base / "input", out["applied"][0]["change_id"])
+    with active_plan.workspace_store(base) as store:
+        assert store.holdings.rows()[0]["shares"] == "1000" and store.holdings.rows()[0]["purchase_date"] == "06/01/2026"
