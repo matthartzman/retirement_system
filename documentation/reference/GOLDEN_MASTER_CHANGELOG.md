@@ -1,3 +1,15 @@
+## 2026-10-19 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
+
+<!-- pin-provenance: terminal_nw=5300872.54 lifetime_tax=1270016.83 -->
+
+**Old pins.** terminal_nw=5,300,663.15, lifetime_tax=1,270,059.16
+
+**New pins.** terminal_nw=5,300,872.54, lifetime_tax=1,270,016.83
+
+**Reason.**
+
+363p: OBBBA senior bonus deduction was lost when a household itemized (max(std+bonus, itemized)). Itemized now includes the bonus. Hand-checked 2028: deduction +231, fed tax -55 (231 x 24%), 39,578 -> 39,523; only the 2028 MFJ itemizing year moves; terminal NW +209.39, lifetime tax -42.33.
+
 ## 2026-10-13 — H1: sale gains in AGI, NIIT MAGI and IRMAA MAGI (no golden value moved)
 
 Reported `agi`, `irmaa_magi_current` and the NIIT MAGI now include the taxable gain of a home or rental sale
