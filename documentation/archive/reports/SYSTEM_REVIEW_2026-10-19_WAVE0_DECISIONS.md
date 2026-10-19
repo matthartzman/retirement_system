@@ -7,9 +7,9 @@ Companion to `SYSTEM_REVIEW_2026-10-19.md` (section 9, Wave 0). Decisions record
 | Item | Decision |
 |---|---|
 | Remote visibility | Public |
-| Clone/fork list | Not enumerated. Treat as unknown; any existing clone or fork keeps the old blob. |
+| Clone/fork list | Owner verified (2026-10-19) that no clones or forks exist outside the owner's own copies |
 | Chosen option | Purge history (git filter-repo, then force-push) after the HEAD fix |
-| Follow-up | A separate scheduled task is required for the purge, with a clone-notification step. Before purging, the owner reviews which account labels and balances the file holds and decides whether anything needs rotating or renaming. Never copy values from the file into any document. |
+| Follow-up | A separate scheduled task is required for the purge; with no external clones, no clone-notification step is needed beyond the owner's own copies, which must be re-cloned or reset after the force-push. Before purging, the owner reviews which account labels and balances the file holds and decides whether anything needs rotating or renaming. Never copy values from the file into any document. |
 
 Exit criteria met: decision recorded. Purge itself is not scheduled yet (see open items).
 
@@ -27,7 +27,7 @@ Jurisdiction for all items: US federal (state rows are covered by WI-003). Rule 
 
 ## WI-003 — External rule-value verification
 
-Not decided; it needs a CPA or advisor and cannot be done in this review. Checklist to hand over (value, source citation, retrieval date and verifier are to be filled in per row):
+Status: verified by the owner acting as advisor (2026-10-19), covering the checklist below. The per-row table of value, source citation and retrieval date was not supplied, so this record states the outcome only. Add the table here if it is needed for audit, and mark any row not individually verified as unverified.
 
 - 2026 AMT exemption, phase-out start and rate (FIN-005)
 - 2026 QLAC and QCD limits (FIN-011)
@@ -37,6 +37,8 @@ Not decided; it needs a CPA or advisor and cannot be done in this review. Checkl
 - Federal estate exemption and portability treatment (FIN-009)
 - Current ACA enhanced-subsidy law
 
+The estate-attorney review for FIN-009 portability and credit-shelter arithmetic is a separate requirement and is not covered by this verification.
+
 ## Other owner decisions (from the section 11 open questions)
 
 - Monarch may be named in the README and UI; describe extraction as vendor-neutral, since more integrations are planned.
@@ -44,6 +46,6 @@ Not decided; it needs a CPA or advisor and cannot be done in this review. Checkl
 
 ## Open items blocking Wave 1
 
-1. WI-003 external verification has no owner or date.
-2. The history purge needs a scheduled date and a list of known clones/forks.
-3. FIN-007 needs a verifier to confirm the earnings test is actually missing.
+1. The history purge needs a scheduled date. Its prerequisite (no external clones or forks) is met.
+2. FIN-007 needs a verifier to confirm the earnings test is actually missing.
+3. Optional: the per-row WI-003 verification table, if an audit trail is wanted.
