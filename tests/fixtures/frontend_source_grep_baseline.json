@@ -46,7 +46,7 @@
   "test_mobile_responsive_shell_functional.py",
   "test_monte_carlo_ui_toggle_functional.py",
   "test_mortgage_re_tax_ui_functional.py",
-  "test_no_vendor_name_in_ui_strings.py",
+  "test_no_vendor_name_in_ui_strings_regression.py",
   "test_offline_html_dashboard_charts.py",
   "test_optional_module_gating.py",
   "test_page_recommendations_functional.py",

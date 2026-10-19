@@ -489,7 +489,7 @@ def test_ytd_account_mapping_ui_uses_inline_source_add_current_value_no_notes_or
     assert 'id="ytdManualAccountName"' in text
     assert 'id="ytdManualAccountRole"' in text
     assert "prompt('Account/source" not in text
-    assert '<th>Prior Year End Balance</th><th>Current Value</th>' in text
+    assert '<th>${ytdPriorYearEndHeader()}</th><th>Current Value</th>' in text
     assert 'From holdings' in text
     # renderYtdAccounts stayed in dashboard.js while renderYtdTracking moved out
     # in F3.4, so slicing between them now spans the entire rest of dashboard.js
