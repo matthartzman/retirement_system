@@ -618,8 +618,12 @@ function groupAccountsByType(accounts) {
   return Array.from(groups).sort((p, q) => rank(p[0]) - rank(q[0]));
 }
 
-export function accountToggleHtml(accounts, chart, title) {
-  const body = groupAccountsByType(accounts).map(([type, list]) =>
+// showClosed: closed (inactive) accounts are hidden unless the popup's toggle is on. Hidden accounts keep
+// their saved selection and are still covered by the All / None / Reset buttons.
+export function accountToggleHtml(accounts, chart, title, showClosed = false) {
+  const hasClosed = accounts.some(a => !a.active);
+  const shown = showClosed ? accounts : accounts.filter(a => a.active);
+  const body = groupAccountsByType(shown).map(([type, list]) =>
     `<fieldset class="acct-group"><legend>${escSvg(type)}</legend>` +
     list.map(a => `<label class="acct-item"><input type="checkbox" data-chart="${escSvg(chart)}" data-key="${escSvg(a.account_key)}"${a.enabled && a.enabled[chart] ? " checked" : ""}> ` +
       `<span>${escSvg(a.display_name)}${a.active ? "" : ' <em class="pop-hint">(closed)</em>'}</span></label>`).join("") +
@@ -628,7 +632,9 @@ export function accountToggleHtml(accounts, chart, title) {
     `<div class="note">Type, match to the plan and Ignore come from the Retirement app's Monarch Reconciliation page.</div>` +
     `<div class="acct-actions"><button type="button" data-bulk="all" data-chart="${escSvg(chart)}">All</button> ` +
     `<button type="button" data-bulk="none" data-chart="${escSvg(chart)}">None</button> ` +
-    `<button type="button" data-bulk="default" data-chart="${escSvg(chart)}">Reset to defaults</button></div>${body}`;
+    `<button type="button" data-bulk="default" data-chart="${escSvg(chart)}">Reset to defaults</button></div>` +
+    (hasClosed ? `<label class="acct-closed-toggle"><input type="checkbox" data-show-closed${showClosed ? " checked" : ""}> Show closed accounts</label>` : "") +
+    body;
 }
 
 // ---- monthly investment flows (payload from /api/flows) ----
