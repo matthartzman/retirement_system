@@ -568,7 +568,8 @@ DASHBOARD_JS_MAX_LINES = 7_134
 # CSV import in dashboard_decomp_monarch_reconciliation.js, +139): raised to 39,330.
 # 2026-10-15 (code-review fixes: parked-accounts list and seed message on the Monarch page, +7): raised to 39,337.
 # 2026-10-16 (Show hidden button for inbox items hidden by Ignore this time, +5): raised to 39,342.
-TOTAL_JS_MAX_LINES = 39_342
+# 2026-10-19 (liability payoff month + carry-zero columns on the Liabilities table, +19): raised to 39,361.
+TOTAL_JS_MAX_LINES = 39_361
 
 
 def _line_count(path: Path) -> int:

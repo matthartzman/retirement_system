@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 260 Python files under `src/`, 53 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 261 Python files under `src/`, 53 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -24,7 +24,7 @@ flowchart TB
     subgraph L_HTTP_Runtime["HTTP Runtime (3 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
-    subgraph L_Core_Engine___Domain["Core Engine & Domain (174 modules)"]
+    subgraph L_Core_Engine___Domain["Core Engine & Domain (175 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
     subgraph L_Projection_Stages["Projection Stages (24 modules)"]
@@ -501,6 +501,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/allocation_policy.py` | — | — |
 | `src/api_contracts.py` | — | — |
 | `src/app_state.py` | `stores` | — |
+| `src/balance_sheet_liabilities.py` | — | — |
 | `src/blank_plan.py` | `csv_exchange` | — |
 | `src/bootstrap.py` | `src`, `plan_data_migration`, `platform_runtime`, `security` | — |
 | `src/build_entry.py` | `reporting.workbook_builder` | — |
@@ -620,7 +621,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/report_package.py` | `active_plan`, `build_snapshot`, `results_model`, `version` | — |
 | `src/report_spec.py` | — | — |
 | `src/result_contract.py` | `report_spec`, `results_model`, `tax_law`, `version` | — |
-| `src/results_model.py` | `person_labels`, `version` | — |
+| `src/results_model.py` | `balance_sheet_liabilities`, `person_labels`, `version` | — |
 | `src/roth_ui_build_guard.py` | — | — |
 | `src/runtime_config.py` | `system_config` | — |
 | `src/schema_registry.py` | `plan_data_registry`, `stores.ref_getters.schema_fields` | — |
@@ -721,7 +722,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/reporting/sheets_stress.py` | `after_tax`, `optimization`, `person_labels`, `planning_engines`, `reporting`, `reporting.workbook_common` | — |
 | `src/reporting/sheets_summary_builder.py` | `governance`, `planning_engines`, `reporting`, `reporting.sheets_allocation_helpers`, `reporting.workbook_common`, `result_contract` | — |
 | `src/reporting/sheets_tax_capacity.py` | `reporting.workbook_common` | — |
-| `src/reporting/sheets_tax_reporter.py` | `reporting.workbook_common` | — |
+| `src/reporting/sheets_tax_reporter.py` | `balance_sheet_liabilities`, `reporting.workbook_common` | — |
 | `src/reporting/sheets_wealth.py` | `reporting.workbook_common` | — |
 | `src/reporting/summary_figures.py` | `after_tax`, `core` | — |
 | `src/reporting/workbook_builder.py` | `active_plan`, `after_tax`, `build_snapshot`, `governance`, `hsa_schedule`, `local_store`, `plan_datasets`, `planning_engines`, `report_package`, `reporting.dashboard`, `reporting.sheets_allocation_helpers`, `reporting.sheets_current_vs_proposed`, `reporting.sheets_projection_facade`, `reporting.sheets_protection`, `reporting.sheets_qc_reference`, `reporting.sheets_rental`, `reporting.sheets_strategy`, `reporting.sheets_stress`, `reporting.sheets_summary_builder`, `reporting.sheets_tax_capacity`, `reporting.sheets_tax_reporter`, `reporting.sheets_wealth`, `reporting.summary_figures`, `reporting.workbook_common`, `reporting.workbook_format_config`, `results_model`, `spending_tracker`, `system_config`, `ytd_projection_blend` | — |
