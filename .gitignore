@@ -33,7 +33,8 @@ saved_plans/
 # financial_trends_reporter's own runtime log: real net worth, cashflow, and
 # spending-by-category figures for every logged day -- same PII sensitivity
 # class as input/, so it stays untracked for the same reason (see below).
-financial_trends_reporter/data/*.jsonl
+financial_trends_reporter/data/*
+!financial_trends_reporter/data/.gitkeep
 # Monarch daily account balances (real balances for every account): same sensitivity class.
 financial_trends_reporter/data/*.sqlite3
 

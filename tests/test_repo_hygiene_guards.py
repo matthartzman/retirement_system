@@ -126,3 +126,23 @@ def test_no_tracked_file_is_gitignored(git_available: None) -> None:
         "enough -- the blobs stay reachable in history:\n  "
         + "\n  ".join(offenders)
     )
+
+
+def test_trends_data_dir_tracks_only_gitkeep(git_available: None) -> None:
+    """The trends reporter writes real figures (and .bak/.rejected sidecars) here.
+
+    The ignore rule covers the whole directory, so only .gitkeep may be tracked.
+    This catches a file no pattern matches, which the tracked-and-ignored guard
+    above cannot see.
+    """
+    tracked = _git("ls-files", "-z", "--", "financial_trends_reporter/data")
+    if tracked.returncode != 0:
+        pytest.skip(f"git ls-files failed: {tracked.stderr.strip()}")
+    extra = [
+        path for path in tracked.stdout.split("\0")
+        if path and not path.endswith("/.gitkeep")
+    ]
+    assert not extra, (
+        "Only .gitkeep may be tracked under financial_trends_reporter/data; "
+        "these hold real financial data:\n  " + "\n  ".join(extra)
+    )
