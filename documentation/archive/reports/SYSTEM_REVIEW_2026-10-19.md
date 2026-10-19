@@ -165,7 +165,7 @@ Verification-status key: confirmed = evidence reopened and the claim holds; part
   1. Remove the file from HEAD, widen the ignore rule to financial_trends_reporter/data/* with a !.gitkeep exception (this also covers .bak and .rejected), and add a hygiene test that fails on any tracked file under data directories other than .gitkeep.
   2. Do option 1, then also rewrite history (git filter-repo) to purge the blob, then force-push and notify collaborators. This has a real coordination cost and only fully works if no clone or fork exists.
   3. Remove the file from HEAD and leave history alone, accepting the exposure if the remote is private. Cheapest, but it leaves the recoverable copy.
-- **Recommendation:** Do option 1 now. Have the owner decide on option 2 once the repository's visibility and clones are known. Never copy the file's values into any report.
+- **Recommendation:** Do option 1 now. Owner update (2026-10-19): the repository is public, so option 2 is now the recommended path after option 1. Never copy the file's values into any report.
 - **Dependencies:** Owner decision on history purge; Confirmation of remote visibility
 - **Implementation considerations:** The app's own .bak and .rejected sidecars live in the same directory, so ignore the whole directory instead of enumerating suffixes. Check the Monarch balances store and any other runtime directory for the same pattern.
 - **Risk of change:** Low for the ignore and test change. A history rewrite is high-risk and affects every clone.
@@ -1507,13 +1507,17 @@ Nothing below has been performed. Each item states how an implementer would show
 | FIN-010 | US federal (IRC 1014(b)(9), 2040(b)) | Statutory | Titling configurable per account; step-up fraction logic hard-coded | Secondary (code reading), unverified externally | Tax professional for titling advice; planner sign-off before re-pin |
 | FIN-011 | US federal (IRC 401(a)(9)(H), 408(d)(8), 221) | 2025 base extrapolated to 2026 onward | Hard-coded base with assumed inflation | Unverified (expert recollection) | CPA verification (WI-003) |
 
-**Open questions for the owner**
+**Owner decisions (recorded 2026-10-19)**
 
-- Is the repository remote public, shared or private, and who holds clones?
-- Is retiring before 59.5 a supported scenario? Is the earnings test in scope?
-- Which Monte Carlo success definition is the headline: 'funded as asked' (as the diagnostic addendum records) or 'funded within tier buckets', and does the secondary 'without using Roth for extras' figure stay on the tile? This is a definitional choice, not a bias to remove (owner approval required).
-- Is the vendor name intentionally hidden in the UI (affects README wording)?
-- Is server mode needed beyond debugging?
+The five open questions from the review were answered by the owner after the report was produced. The findings above were not re-verified against these answers; the implications below are the planner-side reading and the ordering consequences for the implementation waves.
+
+| Question | Owner answer | Implication |
+|---|---|---|
+| Repository visibility and clones | Public | QA-001 exposure is real, not conditional: treat the tracked trends-log backup as published. Do WI-001 now, take the history-purge option (WI-004) as the recommended path, and expect that a purge cannot recall copies already cloned or forked. Review the account labels and balances it holds with the owner before deciding whether anything needs rotating. |
+| Retiring before 59.5; Social Security earnings test | Both in scope | FIN-004 (10% additional tax, IRC 72(t) exceptions) and FIN-007 (earnings test) move from undeclared-scope notes to modeled requirements. FIN-004's planner-requested medium rating applies. FIN-007 stays insufficient_evidence until a verifier opens income.py:322-396, then needs a work item of its own. Both need CPA review of the exceptions. |
+| Monte Carlo headline success definition | Funded as asked | Matches the diagnostic addendum. The within-tier figure leaves the headline tile; WI-002(d) is resolved. FIN-002 stays partially confirmed pending re-measurement of the shipped-default Roth policy (WI-009). |
+| Vendor name in the UI and README | Monarch may be named; it is the first of several planned extraction integrations | DOC-003 README wording can name Monarch. Describe extraction as a vendor-neutral integration with Monarch as the first provider, so later integrations do not require rewrites. |
+| Server mode beyond debugging | Hosted use planned | ARC-001 and ARC-009 become release blockers for hosted mode, not hardening items: authentication, a Host allow-list, removal of the ALLOW_UNAUTHENTICATED_SAAS=YES default and a non-loopback startup guard are required before any hosted deployment. Plan this as a design item, not only WI-006. |
 
 ## 12. Review limitations
 
