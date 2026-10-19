@@ -29,9 +29,23 @@ def _workspace(tmp_path: Path) -> Path:
 
 def test_disabled_toggle_skips_the_run(tmp_path):
     base_dir = _workspace(tmp_path)
+    mau.save_policy(base_dir, {"enabled": False})
     result = monarch_autoimport.run(base_dir)
     assert result["skipped"] is True
     assert result["skip_reason"] == "disabled"
+
+
+def test_steps_run_independently_with_separate_status(tmp_path):
+    base_dir = _workspace(tmp_path)
+    mau.save_policy(base_dir, {"transactions": False, "balances": True})
+    result = monarch_autoimport.run(base_dir)
+    assert result["skip_reason"] == "transactions off"
+    assert result["balances"]["status"] == "skipped"  # no balances file in the folder
+    assert mau.load_status(base_dir) is None  # transactions step never ran
+    assert mau.load_balances_status(base_dir)["status"] == "skipped"
+    mau.save_policy(base_dir, {"transactions": True, "balances": False})
+    result = monarch_autoimport.run(base_dir)
+    assert "balances" not in result
 
 
 def test_first_run_imports_new_rows_into_the_plan_tables(tmp_path):
@@ -72,7 +86,7 @@ def test_first_run_imports_new_rows_into_the_plan_tables(tmp_path):
     # No Monarch Extractor venv exists in this test environment, so
     # mark-delivered is expected to fail -- reported, not fatal to the
     # already-successful import.
-    assert result["mark_delivered_errors"]
+    assert result["mark_delivered_errors"] == []  # no extractor install here, nothing to acknowledge
     # The source files are left exactly as Monarch wrote them -- this app
     # never moves/archives them itself (superseded by --mark-delivered).
     assert (source_dir / "new_transactions.csv").exists()

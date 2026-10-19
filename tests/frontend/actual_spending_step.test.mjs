@@ -59,12 +59,12 @@ const dash = loadDashboardSandbox();
 const run = (code) => vm.runInContext(code, dash);
 
 describe("Actual Spending step (#338 C5)", () => {
-  test("visible Reports & Review group is exactly Actual Spending, Monarch Reconciliation, Build & Results", () => {
+  test("visible Reports & Review group is exactly Actual Spending, Account Reconciliation, Build & Results", () => {
     run("planLoaded = true; activeStep = 'spending_core';");
     const titles = run(
       "visibleSteps().filter((s) => s.group === 'Reports & Review').map((s) => s.title).join('|')",
     );
-    assert.equal(titles, "Actual Spending|Monarch Reconciliation|Build & Results");
+    assert.equal(titles, "Actual Spending|Account Reconciliation|Build & Results");
   });
 
   test("actual_spending has the two tabs, This year first", () => {
