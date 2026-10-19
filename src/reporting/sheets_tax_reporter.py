@@ -11,6 +11,7 @@ System review 2026-08-04, architect finding `reporting-facade-theater`
 the canonical source for tax reporting and balance-sheet builders.
 """
 
+from ..balance_sheet_liabilities import balance_sheet_liabilities
 from .workbook_common import (
     BLUE,
     FMT_DOLLAR,
@@ -108,6 +109,9 @@ def build_sheet3(ws, c, rows):
         ('Cash (Checking Accounts)', cash_val, 'Sum of _Checking positions'),
         ('Note Receivable',  note_val, f"Projected balance through {c['note_last']}"),
     ]
+    _next_home = float(yr0.get('next_housing_home_value', 0.0) or 0.0)
+    if _next_home:
+        other_items.append(('Next Housing', _next_home, 'Gross value of the next home; its mortgage is in Liabilities'))
     # WP12.7: Rental Properties (feature on): gross property value in assets, its mortgages in
     # liabilities, like the primary residence. The values are the projection's at the end of
     # the plan-start year (the same row the Net Worth sheet and the reconciliation below use).
@@ -124,16 +128,20 @@ def build_sheet3(ws, c, rows):
 
     r += 1
     write_hdr(ws, r, 1, 'LIABILITIES', NAVY, WHITE); r+=1
-    write_cell(ws, r, 1, '  Mortgage')
-    write_cell(ws, r, 2, mort_val, fmt=FMT_DOLLAR, align='right')
-    write_cell(ws, r, 3, 'Offsets Primary Residence gross value; not double-counted as Home Equity')
-    r+=1
+    total_liabilities = 0.0
+    for _lbl, _amt, _note in balance_sheet_liabilities(yr0, mort_val):
+        if _amt or _lbl == 'Mortgage':
+            write_cell(ws, r, 1, '  ' + _lbl)
+            write_cell(ws, r, 2, _amt, fmt=FMT_DOLLAR, align='right')
+            write_cell(ws, r, 3, _note)
+            r+=1
+            total_liabilities += _amt
     if rental_on:
         write_cell(ws, r, 1, '  Rental Property Mortgages')
         write_cell(ws, r, 2, rental_loans, fmt=FMT_DOLLAR, align='right')
         write_cell(ws, r, 3, 'Offsets Rental Properties gross value')
         r+=1
-    total_liabilities = mort_val + rental_loans
+    total_liabilities += rental_loans
     write_cell(ws, r, 1, '  Total Liabilities', bold=True, bg=LGRAY)
     write_cell(ws, r, 2, total_liabilities, fmt=FMT_DOLLAR, bold=True, bg=LGRAY, align='right')
     write_cell(ws, r, 3, '', bg=LGRAY)

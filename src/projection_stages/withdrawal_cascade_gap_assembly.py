@@ -105,35 +105,48 @@ def apply_gap_assembly(
                 continue
             _li_start = int(_li.get('start_year', 0) or 0)
             _li_payoff = int(_li.get('payoff_year', 0) or 0)
-            # Not yet originated, or already past the scheduled payoff year.
+            # Payoff date = payoff_year + payoff_month (blank month = December).
+            _li_pay_month = min(12, max(1, int(_li.get('payoff_month', 0) or 12)))
+            # Carry zero (default): the balance is paid off on the payoff date and is 0 from
+            # then on. Off: payments stop at that date and the residual balance is held.
+            _li_carry_zero = _li.get('carry_zero', True) is not False
             if _li_start and year < _li_start:
-                continue
+                continue  # not yet originated
             if _li_payoff and year > _li_payoff:
-                # Forgiven/assumed-settled after payoff year: drop the balance.
-                _liab_balances[_li_key] = 0.0
+                if _li_carry_zero:
+                    _liab_balances[_li_key] = 0.0
                 continue
+            _li_months_left = ((_li_payoff - year) * 12 + _li_pay_month) if (_li_payoff and _li_payoff >= year) else 0
+            _li_months = min(12, _li_months_left) if _li_months_left else 12
             _li_rate = float(_li.get('interest_rate', 0.0) or 0.0)
-            _li_annual_interest = _li_bal * _li_rate
+            _li_annual_interest = _li_bal * _li_rate * (_li_months / 12.0)
             _li_monthly_pmt = float(_li.get('monthly_payment', 0.0) or 0.0)
-            _li_annual_pmt = _li_monthly_pmt * 12.0
+            _li_annual_pmt = _li_monthly_pmt * _li_months
             if _li_annual_pmt <= 0.0:
-                # No payment specified: if a payoff year is given, level-amortize
-                # the remaining balance over the years left; else interest-only.
-                if _li_payoff and _li_payoff >= year:
-                    _yrs_left = max(1, _li_payoff - year + 1)
+                # No payment specified: if a payoff date is given, level-amortize
+                # the remaining balance over the months left; else interest-only.
+                if _li_months_left:
                     _mrate = _li_rate / 12.0
-                    _n = _yrs_left * 12
+                    _n = _li_months_left
                     if _mrate > 1e-9:
-                        _li_annual_pmt = (_li_bal * _mrate / (1 - (1 + _mrate) ** (-_n))) * 12.0
+                        _li_monthly_level = _li_bal * _mrate / (1 - (1 + _mrate) ** (-_n))
                     else:
-                        _li_annual_pmt = (_li_bal / max(1, _n)) * 12.0
+                        _li_monthly_level = _li_bal / max(1, _n)
+                    _li_annual_pmt = _li_monthly_level * _li_months
                 else:
                     _li_annual_pmt = _li_annual_interest  # interest-only
             # Cap the payment so it never overpays the balance + interest.
             _li_annual_pmt = min(_li_annual_pmt, _li_bal + _li_annual_interest)
             _li_principal = max(0.0, _li_annual_pmt - _li_annual_interest)
             _li_principal = min(_li_principal, _li_bal)
-            _liab_balances[_li_key] = max(0.0, _li_bal - _li_principal)
+            _li_remaining = max(0.0, _li_bal - _li_principal)
+            if _li_payoff and year == _li_payoff and _li_carry_zero and _li_remaining > 1e-6:
+                # Payoff date reached with a residual: settle it as a final payment so the
+                # balance is 0 going forward and the cash comes out of the ledger once.
+                _li_annual_pmt += _li_remaining
+                _li_principal += _li_remaining
+                _li_remaining = 0.0
+            _liab_balances[_li_key] = _li_remaining
             liability_payment_yr += _li_annual_pmt
             liability_interest_yr += _li_annual_interest
             liability_principal_yr += _li_principal
