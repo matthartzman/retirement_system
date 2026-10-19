@@ -5,6 +5,7 @@ from __future__ import annotations
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
+from .host_guard import assert_safe_to_bind, body_too_large
 from .wsgi_facade import Response
 
 
@@ -12,7 +13,17 @@ class _Handler(BaseHTTPRequestHandler):
     server_version = "RetirementStdlibHTTP/1.0"
 
     def _handle(self) -> None:
-        length = int(self.headers.get("Content-Length") or 0)
+        try:
+            length = max(0, int(self.headers.get("Content-Length") or 0))
+        except ValueError:
+            length = -1
+        if length < 0 or body_too_large(length):
+            self.send_response(413 if length >= 0 else 400)
+            self.send_header("Content-Length", "0")
+            self.send_header("Connection", "close")
+            self.end_headers()
+            self.close_connection = True
+            return
         body = self.rfile.read(length) if length else b""
         headers = {k: v for k, v in self.headers.items()}
         app = getattr(self.server, "retirement_app")
@@ -64,7 +75,14 @@ class LocalHTTPServer(ThreadingHTTPServer):
         self.retirement_app = app
 
 
+def _configured_token() -> str:
+    from ..runtime_config import load_runtime_config  # noqa: PLC0415
+
+    return str(load_runtime_config().server_api_token or "")
+
+
 def run_local_server(app: Any, host: str = "127.0.0.1", port: int = 5050, debug: bool = False) -> None:  # noqa: ARG001
+    assert_safe_to_bind(host, _configured_token())
     server = LocalHTTPServer((host, int(port)), app)
     print(f"Retirement stdlib HTTP runtime listening on http://{host}:{int(port)}")
     try:

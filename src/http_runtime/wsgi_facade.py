@@ -49,16 +49,6 @@ class HTTPException(Exception):
         self.description = description or self.description
 
 
-class ProxyFix:
-    """No-op compatibility wrapper for the old optional Werkzeug middleware."""
-
-    def __init__(self, app: Any, **_kwargs: Any) -> None:
-        self.app = app
-
-    def __call__(self, environ: dict, start_response: Callable) -> Any:  # pragma: no cover - WSGI compatibility
-        return self.app(environ, start_response)
-
-
 class HeaderMap(dict):
     """Case-insensitive-ish header mapping preserving canonical values."""
 
