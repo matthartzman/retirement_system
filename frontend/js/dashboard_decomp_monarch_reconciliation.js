@@ -1,5 +1,5 @@
-// Monarch Reconciliation page (Reports & Review): the app's account numbers beside Monarch's daily
-// balances, with a way to copy Monarch's number into the app where they differ.
+// Account Reconciliation page (Reports & Review): the app's account numbers beside imported's daily
+// balances, with a way to copy imported's number into the app where they differ.
 // Logic and every write live on the server (src/reconcile.py, /api/reconcile/*): the page only shows
 // rows, collects a selection, asks for a preview, then applies it. Each applied change is logged and can
 // be undone from the change log. Investment accounts (valued from holdings x prices) and annuities that
@@ -12,7 +12,7 @@
 const RC_GROUPS = ["Cash, cards and loans", "Manual accounts", "Plan inputs", "Investments (report only)"];
 const RC_STATUS_LABEL = {
   differs: "Differs", match: "Matches", report_only: "Report only",
-  not_in_monarch: "Not in Monarch", not_in_app: "Not in app",
+  not_in_monarch: "Not in import", not_in_app: "Not in app",
 };
 
 let rcData = null;
@@ -62,7 +62,7 @@ function rcMatchedNames(row, asOf) {
   const accts = row.monarch_accounts || [];
   if (!accts.length) return "";
   const note = row.auto_matched ? "matched by name" : "matched by you";
-  // Each match can be removed: a saved match is cleared, a by-name match is switched off by ignoring that Monarch account.
+  // Each match can be removed: a saved match is cleared, a by-name match is switched off by ignoring that Imported account.
   const chip = (a) => esc(a.account) + (a.closed ? " (closed)" : "") +
     (a.balance_date && a.balance_date !== asOf ? ` (balance from ${esc(a.balance_date)})` : "") +
     ` <button class="rc-unmatch" type="button" data-key="${esc(a.account_key)}" data-auto="${a.auto ? "1" : ""}" title="Remove this match" aria-label="Remove match for ${esc(a.account)}" onclick="rcUnmatch(this.dataset.key, this.dataset.auto)">✕</button>`;
@@ -96,14 +96,14 @@ export function rcGroupsHtml(data, selected, showMatched) {
       (selectable.length ? `<button class="btn" type="button" onclick="rcSelectGroup(${esc(JSON.stringify(g))}, ${all ? "false" : "true"})">${all ? "Clear" : "Select all differences"}</button>` : "") +
       (hidden ? `<span class="rc-sub">${hidden} matching hidden</span>` : "") + "</div>";
     html += head + (shown.length
-      ? `<div class="rc-scroll"><table class="rc-table"><thead><tr><th></th><th>Account</th><th>Policy</th><th class="rc-num">App</th><th class="rc-num">Monarch</th><th class="rc-num">Difference</th><th>Status</th></tr></thead><tbody>` +
+      ? `<div class="rc-scroll"><table class="rc-table"><thead><tr><th></th><th>Account</th><th>Policy</th><th class="rc-num">App</th><th class="rc-num">Imported</th><th class="rc-num">Difference</th><th>Status</th></tr></thead><tbody>` +
         shown.map((r) => rcRowHtml(r, selected.has(r.id), data.as_of)).join("") + "</tbody></table></div>"
       : '<div class="section-note">Everything here matches.</div>');
   }
   return html || '<div class="section-note">No accounts to compare yet.</div>';
 }
 
-// Policy control for a row: one select that sets the policy on every Monarch account feeding it.
+// Policy control for a row: one select that sets the policy on every Imported account feeding it.
 export function rcPolicyHtml(row) {
   const accts = row.monarch_accounts || [];
   if (!accts.length) return '<span class="rc-sub">—</span>';
@@ -115,7 +115,7 @@ export function rcPolicyHtml(row) {
 const rcDismissKey = (r) => r.id + "@" + r.monarch_value;
 
 // What needs a decision: differences on rows set to ask (or held auto changes), minus ones dismissed for
-// this Monarch number, plus Monarch accounts with no match and closed accounts that still hold money.
+// this imported number, plus Imported accounts with no match and closed accounts that still hold money.
 export function rcInboxItems(data, dismissed) {
   const gone = dismissed || new Set();
   const open = (data.rows || []).filter((r) => r.status === "differs" && r.updatable && (r.policy !== "auto" || r.auto_hold));
@@ -138,8 +138,8 @@ export function rcInboxHtml(data, dismissed) {
   const { diffs, unmatched, hidden } = rcInboxItems(data, dismissed);
   if (!diffs.length && !unmatched.length) return '<div class="section-note">Nothing needs a decision. Every matched account agrees with the app, is handled automatically, or is set to ignore.</div>' + rcHiddenHtml(hidden);
   const table = diffs.length
-    ? `<h3>Numbers that differ (${diffs.length})</h3><div class="rc-scroll"><table class="rc-table"><thead><tr><th>Account</th><th class="rc-num">App</th><th class="rc-num">Monarch</th><th class="rc-num">Difference</th><th>Choose</th></tr></thead><tbody>${diffs.map(rcInboxRowHtml).join("")}</tbody></table></div>` +
-      '<div class="section-note"><b>Update app</b> copies Monarch\'s number once (after a preview). <b>Always update</b> does that now and copies it automatically at each import. <b>App is source</b> keeps the app\'s number and only reports. <b>Ignore this time</b> hides it until Monarch\'s number changes.</div>'
+    ? `<h3>Numbers that differ (${diffs.length})</h3><div class="rc-scroll"><table class="rc-table"><thead><tr><th>Account</th><th class="rc-num">App</th><th class="rc-num">Imported</th><th class="rc-num">Difference</th><th>Choose</th></tr></thead><tbody>${diffs.map(rcInboxRowHtml).join("")}</tbody></table></div>` +
+      '<div class="section-note"><b>Update app</b> copies imported\'s number once (after a preview). <b>Always update</b> does that now and copies it automatically at each import. <b>App is source</b> keeps the app\'s number and only reports. <b>Ignore this time</b> hides it until imported\'s number changes.</div>'
     : "";
   const closedMoney = unmatched.filter((u) => u.status === "closed_with_balance");
   const flagged = closedMoney.length
@@ -168,7 +168,7 @@ export function rcAutoBannerHtml(log, now) {
   const cutoff = (now || Date.now()) - 7 * 86400000;
   const auto = (log || []).filter((e) => e.source === "auto" && !e.undone_at && Date.parse(e.applied_at) >= cutoff);
   if (!auto.length) return "";
-  return `<div class="section-note" role="status">${auto.length} number${auto.length === 1 ? " was" : "s were"} updated automatically from Monarch in the last 7 days (see the change log). ` +
+  return `<div class="section-note" role="status">${auto.length} number${auto.length === 1 ? " was" : "s were"} updated automatically from the import in the last 7 days (see the change log). ` +
     '<button class="btn" type="button" onclick="rcUndoAuto()">Undo all automatic updates</button></div>';
 }
 
@@ -179,8 +179,8 @@ export function rcPreviewHtml(preview) {
   const planInput = changes.some((c) => String(c.kind || "").startsWith("plan:"));
   const rows = changes.map((c) => `<tr><td>${esc(c.label)}</td><td class="rc-num">${esc(c.old === "" ? "blank" : c.old)}</td><td class="rc-num">${esc(c.new)}</td>` +
     `<td class="rc-num">${esc(rcMoney(c.app_value))} → ${esc(rcMoney(c.monarch_value))}</td></tr>`).join("");
-  return `<div class="rc-preview" role="dialog" aria-label="Preview update from Monarch"><h3>Update ${changes.length} number${changes.length === 1 ? "" : "s"} from Monarch</h3>` +
-    (changes.length ? `<div class="rc-scroll"><table class="rc-table"><thead><tr><th>Account</th><th class="rc-num">Stored now</th><th class="rc-num">Will store</th><th class="rc-num">App → Monarch</th></tr></thead><tbody>${rows}</tbody></table></div>` : '<div class="section-note">Nothing to update.</div>') +
+  return `<div class="rc-preview" role="dialog" aria-label="Preview update from import"><h3>Update ${changes.length} number${changes.length === 1 ? "" : "s"} from the import</h3>` +
+    (changes.length ? `<div class="rc-scroll"><table class="rc-table"><thead><tr><th>Account</th><th class="rc-num">Stored now</th><th class="rc-num">Will store</th><th class="rc-num">App → Imported</th></tr></thead><tbody>${rows}</tbody></table></div>` : '<div class="section-note">Nothing to update.</div>') +
     (planInput ? '<div class="section-note rc-warn">Plan inputs change what the next build calculates. Rebuild after applying.</div>' : "") +
     (rejected.length ? `<div class="section-note">${rejected.map((r) => esc(r.id) + ": " + esc(r.reason)).join("<br>")}</div>` : "") +
     `<div class="pane-actions"><button class="btn good" type="button" onclick="rcApply()"${changes.length ? "" : " disabled"}>Apply ${changes.length} change${changes.length === 1 ? "" : "s"}</button> ` +
@@ -192,9 +192,9 @@ export function rcUnmatchedHtml(data) {
   if (!items.length) return "";
   const targets = data.app_targets || [];
   const opts = (sel) => '<option value="">Match to…</option>' +
-    `<option value="ignore">Ignore this Monarch account</option>` +
+    `<option value="ignore">Ignore this imported account</option>` +
     targets.map((t) => `<option value="${esc(t.id)}"${t.id === sel ? " selected" : ""}>${esc(t.label)}${t.role ? " (" + esc(t.role) + ")" : ""}</option>`).join("");
-  return `<h3>Monarch accounts with no match in the app</h3><div class="rc-scroll"><table class="rc-table"><thead><tr><th>Monarch account</th><th class="rc-num">Balance</th><th>Match it to</th></tr></thead><tbody>` +
+  return `<h3>Imported accounts with no match in the app</h3><div class="rc-scroll"><table class="rc-table"><thead><tr><th>Imported account</th><th class="rc-num">Balance</th><th>Match it to</th></tr></thead><tbody>` +
     items.map((u) => `<tr><td>${esc(u.label)}${u.closed ? ' <span class="rc-sub">(closed)</span>' : ""}</td><td class="rc-num">${esc(rcMoney(u.monarch_value))}</td>` +
       `<td><select data-key="${esc(u.account_key)}" aria-label="Match ${esc(u.label)} to" onchange="rcMap(this.dataset.key, this.value)">${opts("")}</select></td></tr>`).join("") +
     "</tbody></table></div>";
@@ -203,14 +203,14 @@ export function rcUnmatchedHtml(data) {
 export function rcIgnoredHtml(data) {
   const items = data.ignored_accounts || [];
   if (!items.length) return "";
-  return `<details class="rc-ignored"><summary>Ignored Monarch accounts (${items.length})</summary><ul>` +
+  return `<details class="rc-ignored"><summary>Ignored imported accounts (${items.length})</summary><ul>` +
     items.map((u) => `<li>${esc(u.label)} <button class="btn" type="button" data-key="${esc(u.account_key)}" onclick="rcMap(this.dataset.key, '')">Stop ignoring</button></li>`).join("") +
     "</ul></details>";
 }
 
 export function rcLogHtml(log) {
-  if (!log || !log.length) return '<div class="section-note">No updates from Monarch yet.</div>';
-  return '<div class="rc-scroll"><table class="rc-table"><thead><tr><th>When</th><th>Account</th><th>By</th><th class="rc-num">Old</th><th class="rc-num">New</th><th>Monarch date</th><th></th></tr></thead><tbody>' +
+  if (!log || !log.length) return '<div class="section-note">No updates from the import yet.</div>';
+  return '<div class="rc-scroll"><table class="rc-table"><thead><tr><th>When</th><th>Account</th><th>By</th><th class="rc-num">Old</th><th class="rc-num">New</th><th>Import date</th><th></th></tr></thead><tbody>' +
     log.map((e) => `<tr><td>${esc(String(e.applied_at || "").replace("T", " ").replace("+00:00", " UTC"))}</td><td>${esc(e.label)}</td><td>${e.source === "auto" ? "automatic" : "you"}</td>` +
       `<td class="rc-num">${esc(e.old_value === "" ? "blank" : e.old_value)}</td><td class="rc-num">${esc(e.new_value)}</td><td>${esc(e.monarch_date)}</td>` +
       `<td>${e.undone_at ? '<span class="rc-sub">undone</span>' : `<button class="btn" type="button" data-id="${esc(String(e.id))}" onclick="rcUndo(this.dataset.id)">Undo</button>`}</td></tr>`).join("") +
@@ -220,7 +220,7 @@ export function rcLogHtml(log) {
 export function rcImportNote(data) {
   const last = data.import, ok = data.last_ok_import;
   if (last && last.status !== "ok") {
-    return `The latest Monarch balances import was rejected (${esc(last.detail || "unknown reason")}); these figures are from ${esc(ok && ok.latest_date ? ok.latest_date : "an earlier import")}.`;
+    return `The latest Imported balances import was rejected (${esc(last.detail || "unknown reason")}); these figures are from ${esc(ok && ok.latest_date ? ok.latest_date : "an earlier import")}.`;
   }
   return "";
 }
@@ -230,7 +230,7 @@ export function rcBodyHtml(state) {
   if (error) return `<div class="section-note rc-warn">${esc(error)} <button class="btn" type="button" onclick="loadMonarchReconciliation()">Retry</button></div>`;
   if (!data) return `<div class="section-note">${loading ? "Loading the comparison…" : "Nothing loaded yet."}</div>`;
   if (!data.has_balances) {
-    return '<div class="section-note">No Monarch balances have been imported into this plan yet. They arrive with the daily Monarch import (the Monarch Extractor writes balances.csv, then the 04:00 job loads it).</div>';
+    return '<div class="section-note">No account balances have been imported into this plan yet. They arrive with the daily account balance import (another process writes balances.csv to the source folder, then the scheduled job loads it).</div>';
   }
   const s = rcSummary(data.rows, data.unmatched);
   const inbox = rcInboxItems(data, dismissed);
@@ -249,8 +249,8 @@ export function rcBodyHtml(state) {
   return head +
     `<label><input type="checkbox" onchange="rcSetShowMatched(this.checked)"${showMatched ? " checked" : ""}> Show matching accounts (${s.match})</label>` +
     `<div class="rc-summary"><strong>${s.differs}</strong> differ · <strong>${s.match}</strong> match · <strong>${s.reportOnly}</strong> report only · ` +
-    `<strong>${s.notInMonarch}</strong> not in Monarch · <strong>${s.notInApp}</strong> Monarch accounts not in the app</div>` +
-    `<div class="pane-actions"><button class="btn good" type="button" onclick="rcPreview()"${nSel ? "" : " disabled"}>Preview update from Monarch (${nSel} selected)</button> ` +
+    `<strong>${s.notInMonarch}</strong> not in the import · <strong>${s.notInApp}</strong> Imported accounts not in the app</div>` +
+    `<div class="pane-actions"><button class="btn good" type="button" onclick="rcPreview()"${nSel ? "" : " disabled"}>Preview update from import (${nSel} selected)</button> ` +
     `<label class="btn">Import mapping CSV<input type="file" accept=".csv,text/csv" hidden onchange="rcImportCsv(this.files[0])"></label></div>` +
     rcGroupsHtml(data, selected, showMatched) + rcUnmatchedHtml(data) + rcParkedHtml(data) + rcClosedHtml(data) + rcIgnoredHtml(data) +
     `<h3>Change log</h3>${rcLogHtml(log)}`;
@@ -338,7 +338,7 @@ export async function rcApply() {
   try {
     const out = await api("/api/reconcile/apply", { method: "POST", body: JSON.stringify({ items, as_of: rcData.as_of }) });
     const n = (out.applied || []).length;
-    rcMessage = { text: n ? `Updated ${n} number${n === 1 ? "" : "s"} from Monarch. Rebuild to see them in results.` : "Nothing was changed.", error: !n };
+    rcMessage = { text: n ? `Updated ${n} number${n === 1 ? "" : "s"} from the import. Rebuild to see them in results.` : "Nothing was changed.", error: !n };
     if (out.rejected && out.rejected.length) rcMessage.text += " Skipped: " + out.rejected.map((r) => r.reason).join("; ");
     if (n && typeof markBuildStale === "function") markBuildStale();
     rcSelected = new Set();
@@ -412,7 +412,7 @@ export async function rcImportCsv(file) {
   try {
     const out = await api("/api/reconcile/seed", { method: "POST", body: JSON.stringify({ csv_text: await file.text() }) });
     const r = out.seed;
-    rcMessage = { text: `Mapping imported: ${r.saved.length} matched, ${r.pending.length} resolved by name or waiting, ${r.ignored.length} ignored, ${r.not_in_monarch.length} not found in Monarch, ${r.kept.length} already matched (left as they are).`, error: false };
+    rcMessage = { text: `Mapping imported: ${r.saved.length} matched, ${r.pending.length} resolved by name or waiting, ${r.ignored.length} ignored, ${r.not_in_monarch.length} not found in the import, ${r.kept.length} already matched (left as they are).`, error: false };
   } catch (e) {
     rcMessage = { text: "Could not import the mapping: " + e.message, error: true };
   }

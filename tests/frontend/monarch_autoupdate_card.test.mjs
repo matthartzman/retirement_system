@@ -27,8 +27,8 @@ import { loadDashboardSandbox } from "./load_dashboard.mjs";
 const sandbox = loadDashboardSandbox();
 
 describe("monarchAutoUpdateStatusLine (default/unfetched state)", () => {
-  test("reads as off when no status has been fetched yet", () => {
-    assert.match(sandbox.monarchAutoUpdateStatusLine(), /Off/);
+  test("reads as enabled with no run yet when nothing has been fetched (default on)", () => {
+    assert.match(sandbox.monarchAutoUpdateStatusLine(), /no run yet/);
   });
 });
 
@@ -36,23 +36,21 @@ describe("monarchAutoUpdateControlsHtml (default/unfetched state)", () => {
   const html = sandbox.monarchAutoUpdateControlsHtml();
 
   test("renders the card heading and enable label", () => {
-    assert.match(html, /Monarch auto-update/);
+    assert.match(html, /Third-party import auto-update/);
     assert.match(html, /Enable daily auto-update/);
   });
 
-  test("renders an unchecked toggle", () => {
-    assert.doesNotMatch(html, /id="monarchAutoUpdateEnabled"[^>]*checked/);
+  test("renders a checked toggle (default on)", () => {
+    assert.match(html, /id="monarchAutoUpdateEnabled" checked/);
   });
 
-  test("renders the default Monarch Extractor source folder", () => {
-    // System review 2026-09-07 UX-104: the client-side fallback default used
-    // to point at the pre-consolidation sibling path ("../Monarch
-    // Extractor/output"). Monarch Extractor is a child directory of the
-    // workspace root now (commit b0ac82a), matching the server's own
-    // DEFAULT_SOURCE_DIR (src/monarch_autoupdate.py) -- and the sibling path
-    // is now rejected outright by that module's workspace-confinement check
-    // (system review SEC-2), so this client default must agree with it.
-    assert.match(html, /value="Monarch Extractor\/output"/);
+  test("renders run time 04:00, both step checkboxes and a source folder input", () => {
+    assert.match(html, /type="time" id="monarchAutoUpdateRunTime" value="04:00"/);
+    assert.match(html, /id="monarchAutoUpdateTransactions" checked/);
+    assert.match(html, /id="monarchAutoUpdateBalances" checked/);
+    assert.match(html, /id="monarchAutoUpdateSourceDir"/);
+    assert.match(html, /<b>Transactions:<\/b>/);
+    assert.match(html, /<b>Account balances:<\/b>/);
   });
 
   test("wires up save/run-now/refresh actions", () => {

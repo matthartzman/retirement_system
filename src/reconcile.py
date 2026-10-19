@@ -60,7 +60,7 @@ MAP_IGNORE = "ignore"
 MAP_KINDS = (MAP_SETUP, *PLAN_TARGETS, MAP_IGNORE)
 
 REPORT_ONLY_INVEST = "Investment accounts are valued from holdings lots x prices. Change lots on the Holdings page."
-REPORT_ONLY_APP = "The app is the source for this account (policy: app is source). Change the policy to update it from Monarch."
+REPORT_ONLY_APP = "The app is the source for this account (policy: app is source). Change the policy to update it from the import."
 REPORT_ONLY_STREAM = "This annuity's value comes from its income stream's base value. Change it where the income stream is set up."
 
 
@@ -436,7 +436,7 @@ def set_mapping(input_dir: str | Path, account_key: str, target: str | None) -> 
         repo = store.monarch
         known = {a["account_key"] for a in repo.accounts_as_of(repo.latest_date() or "9999-12-31")}
         if account_key not in known:
-            raise ReconcileError(f"unknown Monarch account {account_key!r}")
+            raise ReconcileError(f"unknown imported account {account_key!r}")
         if not target:
             repo.clear_mapping(account_key)
             return {"account_key": account_key, "mapping": None}
@@ -476,7 +476,7 @@ def set_policy(input_dir: str | Path, account_key: str, policy: str) -> dict[str
             acct = next((a for a in repo.accounts_as_of(repo.latest_date() or "9999-12-31") if a["account_key"] == account_key), None)
             ref = names.get((acct or {}).get("account", "").strip().casefold())
             if ref is None:
-                raise ReconcileError("match this Monarch account to an app account before choosing a policy")
+                raise ReconcileError("match this imported account to an app account before choosing a policy")
             repo.set_mapping(account_key, MAP_SETUP, ref, policy)
         return {"account_key": account_key, "policy": policy}
 
@@ -503,7 +503,7 @@ def _select(rows: list[dict[str, Any]], items: Iterable[dict[str, Any]]) -> tupl
         elif not row["updatable"]:
             rejected.append({"id": rid, "reason": row.get("report_reason") or "nothing to update"})
         elif item.get("expected_new") not in (None, "") and str(item["expected_new"]) != row["write"]["new"]:
-            rejected.append({"id": rid, "reason": "Monarch's number changed since the preview; preview again"})
+            rejected.append({"id": rid, "reason": "the imported number changed since the preview; preview again"})
         else:
             chosen.append(row)
     return chosen, rejected
