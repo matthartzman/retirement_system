@@ -332,9 +332,15 @@ def build_rows(input_dir: str | Path, as_of: str | None = None, *, tolerance: fl
         rows.append(row)
 
     # ---- Accounts & Sources rows
+    # An imported account mapped to a plan input or liability row is shown on that row, which also writes
+    # its same-named Accounts & Sources row; listing the setup row again would read "Not in import".
+    covered = {a["account"].strip().casefold() for tid, accts in by_target.items()
+               if not tid.startswith("setup:") for a in accts}
     for key, (name, role, raw) in setup_rows.items():
         rid = "setup:" + name
         mapped = by_target.get(rid, [])
+        if not mapped and key in covered:
+            continue
         liability = role in LIABILITY_ROLES
         g = growth.get(key)
         app_value = float(g["current_value"]) if g is not None else ytd._account_current_value(raw)
@@ -383,6 +389,10 @@ def build_rows(input_dir: str | Path, as_of: str | None = None, *, tolerance: fl
         else:
             row["status"] = "differs"
             row["write"]["new"] = _money_text(row["monarch_value"])
+            sr = setup_rows.get(mapped[0]["account"].strip().casefold()) if len(mapped) == 1 else None
+            if liability and sr and (sr[1] == CASH_ROLE or sr[1] in LIABILITY_ROLES):  # e.g. the mortgage's Accounts & Sources row follows
+                row["write_also"] = {"kind": MAP_SETUP, "ref": sr[0], "field": SETUP_VALUE_FIELD,
+                                     "old": str(sr[2].get(SETUP_VALUE_FIELD) or "").strip(), "new": _money_text(mapped[0]["balance"])}
         finish(row)
 
     # ---- row-level targets: Other Asset Items (value + as-of date), notes, liabilities

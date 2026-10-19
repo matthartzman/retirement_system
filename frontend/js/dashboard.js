@@ -225,7 +225,7 @@ const STEPS = [
     id: "monarch_reconciliation",
     group: "Reports & Review",
     title: "Account Reconciliation",
-    desc: "The app's account numbers beside imported's daily balances, with a way to copy imported's number into the app.",
+    desc: "The app's account numbers beside the imported daily balances, with a way to copy the imported number into the app.",
     intro: "Each difference needs a choice: update the app, ignore it this time, always update from the import, or keep the app as the source. Every change is logged and can be undone.",
     help: "Investment accounts are valued from holdings, so they are report only. Plan inputs (home, autos, mortgage) are plan-start figures; rebuild after changing them.",
   },
