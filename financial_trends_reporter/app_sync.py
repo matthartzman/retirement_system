@@ -19,7 +19,7 @@ from contextlib import closing
 from pathlib import Path
 from typing import Any
 
-from .account_registry import CHARTS, TYPES, connect
+from .account_registry import CHARTS, TYPES, classify, connect
 
 ROLE_TYPE = {
     "Investment": "Investment", "Cash / spending": "Cash", "Credit card": "Credit card", "Mortgage": "Loan",
@@ -54,7 +54,7 @@ def sync_from_app(db_path: str | Path, base_dir: str | Path) -> dict[str, Any]:
     with closing(connect(db_path)) as conn:
         conn.execute("CREATE TABLE IF NOT EXISTS app_sync_ignored (account_key TEXT PRIMARY KEY)")
         was_ignored = {r[0] for r in conn.execute("SELECT account_key FROM app_sync_ignored")}
-        known = {r["account_key"]: r for r in conn.execute("SELECT account_key, type, confirmed, app_account FROM accounts")}
+        known = {r["account_key"]: r for r in conn.execute("SELECT account_key, display_name, type, confirmed, app_account FROM accounts")}
         with conn:
             for key, m in mapping.items():
                 row = known.get(key)
@@ -76,7 +76,16 @@ def sync_from_app(db_path: str | Path, base_dir: str | Path) -> dict[str, Any]:
                     conn.execute("UPDATE accounts SET app_account=? WHERE account_key=?", (ref, key))
                     changed["app_account"] += 1
                 new_type = _type_for(kind, ref, roles)
-                if new_type in TYPES and not row["confirmed"] and row["type"] != new_type:
+                # A matched Accounts & Sources row defaults to the "Cash / spending" role, which is not evidence
+                # that a mortgage or card is cash. A name that clearly says Loan / Credit card wins over that
+                # default, and repairs rows an earlier sync stamped "Cash" (confirmed) from the default role.
+                named = classify(row["display_name"])
+                if new_type == "Cash" and named in ("Loan", "Credit card"):
+                    new_type = named
+                    stale_cash = row["type"] == "Cash"
+                else:
+                    stale_cash = False
+                if new_type in TYPES and (not row["confirmed"] or stale_cash) and row["type"] != new_type:
                     conn.execute("UPDATE accounts SET type=?, confirmed=1 WHERE account_key=?", (new_type, key))
                     changed["type"] += 1
             for key in was_ignored - set(mapping):  # the match was removed in the app

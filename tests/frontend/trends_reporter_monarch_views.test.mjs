@@ -131,12 +131,21 @@ describe("balancesFreshnessNote", () => {
 
 describe("account toggle popover and accounts table", () => {
   test("groups by type, checks enabled accounts, marks closed, offers bulk actions", () => {
-    const html = accountToggleHtml(BAL.accounts, "holdings", "Holdings");
+    const html = accountToggleHtml(BAL.accounts, "holdings", "Holdings", true);
     assert.match(html, /<legend>Retirement<\/legend>/);
     assert.match(html, /data-chart="holdings" data-key="ira" checked/);
     assert.ok(!/data-key="annuity" checked/.test(html));
     assert.match(html, /\(closed\)/);
     for (const mode of ["all", "none", "default"]) assert.ok(html.includes(`data-bulk="${mode}"`));
+  });
+
+  test("closed accounts are hidden by default and shown by the toggle", () => {
+    const hidden = accountToggleHtml(BAL.accounts, "holdings", "Holdings");
+    assert.ok(!/\(closed\)/.test(hidden));
+    assert.match(hidden, /data-show-closed>/);
+    const shown = accountToggleHtml(BAL.accounts, "holdings", "Holdings", true);
+    assert.match(shown, /data-show-closed checked>/);
+    assert.match(shown, /\(closed\)/);
   });
 
   test("account names are escaped in the popover", () => {

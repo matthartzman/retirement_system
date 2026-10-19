@@ -93,3 +93,31 @@ def test_un_ignoring_in_the_app_re_enables_the_account(tmp_path):
         store.monarch.clear_mapping("venmo")
     assert app_sync.sync_from_app(db, base)["un_ignored"] == 1
     assert _by_key(db)["venmo"]["enabled"]["networth"] is True
+
+
+def test_sync_does_not_stamp_cash_on_a_mortgage_or_card_matched_to_a_default_cash_role(tmp_path):
+    """Regression: matched Accounts & Sources rows default to the 'Cash / spending' role, which used to
+    overwrite the name-based Loan / Credit card type with a confirmed 'Cash'."""
+    base, db = _setup(tmp_path)
+    conn = reg.connect(db)
+    with conn:
+        conn.executemany(
+            "INSERT INTO accounts (account_key, display_name, type, confirmed, active, first_seen, last_seen) "
+            "VALUES (?,?,?,?,1,'2026-10-13','2026-10-14')",
+            [("mortgage 1.99% 7/34", "Mortgage 1.99% 7/34", "Cash", 1),  # already damaged by the old sync
+             ("platinum card", "Platinum Card (...1008)", None, 0),
+             ("checking", "Family Checking", None, 0)])
+    conn.close()
+    ytd.write_account_setup(base / "input", [
+        {"Account": "Mortgage 1.99% 7/34", "Role": "Cash / spending"},
+        {"Account": "Platinum Card (...1008)", "Role": "Cash / spending"},
+        {"Account": "Family Checking", "Role": "Cash / spending"}])
+    with active_plan.workspace_store(base, write=True) as store:
+        for key, name in (("mortgage 1.99% 7/34", "Mortgage 1.99% 7/34"), ("platinum card", "Platinum Card (...1008)"),
+                          ("checking", "Family Checking")):
+            store.monarch.set_mapping(key, "setup_account", name, "app")
+    app_sync.sync_from_app(db, base)
+    accts = _by_key(db)
+    assert accts["mortgage 1.99% 7/34"]["type"] == "Loan"
+    assert accts["platinum card"]["type"] == "Credit card"
+    assert accts["checking"]["type"] == "Cash"

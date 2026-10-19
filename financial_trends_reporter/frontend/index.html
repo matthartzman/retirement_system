@@ -68,6 +68,7 @@
   }
   /* account toggles popover */
   #acctPop { min-width: 300px; max-width: 360px; }
+  .acct-closed-toggle { display: block; font-size: 12px; margin-bottom: 8px; cursor: pointer; }
   .acct-actions { display: flex; gap: 6px; margin-bottom: 8px; }
   .acct-actions button { border: 1px solid #ccc; background: transparent; color: inherit; border-radius: 6px; padding: 2px 8px; font-size: 11px; cursor: pointer; }
   .acct-group { border: 0; border-top: 1px solid rgba(127,127,127,.3); margin: 6px 0 0; padding: 4px 0 0; }
@@ -431,7 +432,7 @@ for (const [id, kind] of [["chartNetWorth", "networth"], ["chartHoldings", "inve
 // A toggle writes an explicit per-chart override; "Reset to defaults" clears them so the
 // account follows its type's default again.
 const acctPop = document.getElementById("acctPop");
-let acctPopChart = null, acctPopTitle = "";
+let acctPopChart = null, acctPopTitle = "", acctShowClosed = false;   // closed accounts hidden by default
 function hideAcctPop() { acctPop.style.display = "none"; acctPopChart = null; }
 function showMsg(text, isError) {
   const el = document.getElementById("accountsMsg");
@@ -465,12 +466,12 @@ async function reloadBalances() {
   if (resp.ok) { const p = await resp.json(); if (hasMonarchBalances(p)) balances = p; }
 }
 function refreshOpenAccountViews() {
-  if (acctPopChart && hasMonarchBalances(balances)) acctPop.innerHTML = accountToggleHtml(balances.accounts, acctPopChart, acctPopTitle);
+  if (acctPopChart && hasMonarchBalances(balances)) acctPop.innerHTML = accountToggleHtml(balances.accounts, acctPopChart, acctPopTitle, acctShowClosed);
 }
 function openAcctPop(btn) {
   if (!hasMonarchBalances(balances)) return;
   acctPopChart = btn.dataset.acctChart; acctPopTitle = btn.dataset.acctTitle;
-  acctPop.innerHTML = accountToggleHtml(balances.accounts, acctPopChart, acctPopTitle);
+  acctPop.innerHTML = accountToggleHtml(balances.accounts, acctPopChart, acctPopTitle, acctShowClosed);
   acctPop.style.display = "block"; acctPop.scrollTop = 0;
   const r = btn.getBoundingClientRect(), pw = acctPop.offsetWidth;
   acctPop.style.left = Math.max(MARGIN, Math.min(r.right - pw, window.innerWidth - pw - MARGIN)) + "px";
@@ -483,6 +484,7 @@ document.addEventListener("click", (e) => {
 });
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") hideAcctPop(); });
 acctPop.addEventListener("change", (e) => {
+  if (e.target.matches && e.target.matches("input[data-show-closed]")) { acctShowClosed = e.target.checked; refreshOpenAccountViews(); return; }
   const box = e.target.closest && e.target.closest("input[data-key]");
   if (box) savePrefs([{ chart: box.dataset.chart, account_key: box.dataset.key, enabled: box.checked }]);
 });
