@@ -62,3 +62,15 @@ test("card html without payload shows loading / error", () => {
   assert.ok(s.taxAssumptionsCardHtml(null, {}, "", true).includes("Loading tax assumptions"));
   assert.ok(s.taxAssumptionsCardHtml(null, {}, "nope", false).includes("nope"));
 });
+
+test("scenario rows: friendly labels, same stored values, start year only for higher_rates", () => {
+  const cur = s.taxScenarioRowsHtml("current_law", "", 7, 8);
+  assert.match(cur, /value="current_law" selected>Current law</);
+  assert.match(cur, /value="higher_rates">Higher rates/);
+  assert.match(cur, /editValue\(7,this\.value/);
+  assert.ok(!cur.includes("start year"));
+  const hi = s.taxScenarioRowsHtml("higher_rates", "2030", 7, 8);
+  assert.match(hi, /value="higher_rates" selected/);
+  assert.match(hi, /value="2030"/);
+  assert.match(hi, /editValue\(8,this\.value/);
+});
