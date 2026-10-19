@@ -8,7 +8,6 @@
 import { spawn } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { pathToFileURL } from 'node:url'
 
 const argv = process.argv.slice(2)
 const opt = (name, dflt) => {
@@ -84,8 +83,10 @@ const pipeline = (items, ...stages) => Promise.all(items.map(async item => {
 }))
 
 const args = argsFile ? JSON.parse(readFileSync(argsFile, 'utf8')) : JSON.parse(argsJson || '{}')
-Object.assign(globalThis, { args, agent, parallel, pipeline, phase, log, budget: {} })
 
-const file = resolve(scriptArg)
-const mod = await import(pathToFileURL(file).href)
-if (mod.meta) log(`workflow: ${mod.meta.name}`)
+// Scripts use function-body semantics (top-level await and `return`), so wrap rather than import.
+const src = readFileSync(resolve(scriptArg), 'utf8').replace(/^export\s+const\s+meta\b/m, 'const meta')
+const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
+const names = ['args', 'agent', 'parallel', 'pipeline', 'phase', 'log', 'budget']
+const result = await new AsyncFunction(...names, src)(args, agent, parallel, pipeline, phase, log, {})
+console.log(JSON.stringify(result ?? null, null, 2))
