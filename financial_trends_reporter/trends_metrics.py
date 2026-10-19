@@ -13,6 +13,7 @@ summation for net worth (a plain sum, not a computation worth re-deriving).
 """
 
 import csv
+import re
 import io
 import sys
 from datetime import date
@@ -113,6 +114,21 @@ def _plan_rows(base_dir: Path, db_path: Path, filename: str) -> dict[tuple[str, 
     return out
 
 
+_VEHICLE_TOKENS = ("auto", "boat", "vehicle", "car", "truck", "rv")
+
+
+def _other_asset_items_totals(assets: dict[tuple[str, str, str], str]) -> dict[str, float]:
+    """Autos and startup equity are Other Asset N rows (type + value); the reconcile page keeps ``value`` at the
+    latest Monarch balance of the mapped account, so the legacy Startup Equity / Autos rows are not read."""
+    out = {"startup_equity": 0.0, "autos": 0.0}
+    for (section, sub, label), raw in assets.items():
+        if section != "Other Assets" or label != "value" or not re.match(r"Other Asset\s+\d+$", sub, re.I):
+            continue
+        kind = re.sub(r"[^a-z0-9]+", "_", str(assets.get((section, sub, "type"), "")).lower()).strip("_")
+        out["autos" if any(t in kind for t in _VEHICLE_TOKENS) else "startup_equity"] += ytd.parse_money(raw)
+    return out
+
+
 def _amortized_balance(balance: float, annual_rate: float, payment: float, months: int) -> float:
     monthly_rate = annual_rate / 12.0
     for _ in range(max(0, months)):
@@ -136,9 +152,8 @@ def _plan_assets_and_mortgage(base_dir: Path, db_path: Path, as_of: date) -> dic
 
     other = {
         "home": money(assets, ("Other Assets", "Home", "value_as_of_plan_start")),
-        "startup_equity": money(assets, ("Other Assets", "Startup Equity", "value")),
         "cash": money(assets, ("Other Assets", "Cash", "value")),
-        "autos": money(assets, ("Other Assets", "Autos", "value")),
+        **_other_asset_items_totals(assets),
     }
     mortgage = money(spending, ("Cashflow", "Mortgage", "balance_as_of_plan_start"))
     if mortgage:

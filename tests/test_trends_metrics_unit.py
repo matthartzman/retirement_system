@@ -189,3 +189,21 @@ def test_net_worth_includes_plan_assets_and_mortgage(tmp_path):
     assert nw["mortgage"] == 200000.0
     assert nw["total"] == nw["assets"] - nw["liabilities"]
     assert nw["assets"] == 111500.0 + 1100000.0
+
+
+def test_net_worth_reads_startup_and_autos_from_other_asset_items(tmp_path):
+    base_dir = _workspace(tmp_path)
+    _seed(base_dir)
+    db_path = base_dir / "local_state" / "retirement_system_v10.db"
+    config_backend.set_client_file(
+        "client_assets.csv",
+        "section,subsection,label,value\n"
+        "Other Assets,Other Asset 1,type,Auto\n"
+        "Other Assets,Other Asset 1,value,40000\n"
+        "Other Assets,Other Asset 2,type,Start-up equity\n"
+        "Other Assets,Other Asset 2,value,66000\n"
+        "Other Assets,Autos,value,999999\n",
+        db_path=db_path,
+    )
+    nw = compute_snapshot(base_dir, today=date(2026, 4, 1))["net_worth"]
+    assert nw["other_assets"] == 106000.0     # legacy Autos row ignored
