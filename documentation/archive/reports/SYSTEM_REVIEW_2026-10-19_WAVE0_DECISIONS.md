@@ -44,11 +44,22 @@ The estate-attorney review for FIN-009 portability and credit-shelter arithmetic
 - Monarch may be named in the README and UI; describe extraction as vendor-neutral, since more integrations are planned.
 - Hosted use is planned: ARC-001 and ARC-009 (authentication, Host allow-list, remove `ALLOW_UNAUTHENTICATED_SAAS=YES`, non-loopback startup guard) are required before any hosted deployment.
 
-## Purge status check (2026-10-19)
+## Purge status (2026-10-19)
 
-The owner stated a history purge was done "as of 10/1/2026". A repository check does not support that for this file: `financial_trends_log.jsonl.bak` was added in commit 0bd50f3 (#215, committed 2026-10-14, after 10/1), is still tracked at HEAD, and is still in history on `main`. An earlier purge cannot have covered a file added later. Any 10/1 purge, if done, was of other content or a different copy. The QA-001 purge is therefore still open.
+The owner stated a history purge was done "as of 10/1/2026". A repository check did not support that for this file: `financial_trends_log.jsonl.bak` was added in commit 0bd50f3 (#215, 2026-10-14, after 10/1) and was still tracked and in history on `main`.
+
+Executed 2026-10-19 on the owner's explicit instruction ("Full purge now"):
+
+- The file was removed from every commit with git-filter-repo and `main` was force-pushed (new head e363ce4). All commit hashes on `main` changed.
+- `.gitignore` now ignores all of `financial_trends_reporter/data/` except `.gitkeep`.
+- `tests/test_repo_hygiene_guards.py::test_trends_data_dir_tracks_only_gitkeep` fails if anything but `.gitkeep` is tracked there. It passes on the clean tree and fails with a planted `.bak` file. The wider test suite was not run.
+- Only two branches existed on the remote; both were rewritten.
+
+**Residual exposure (open).** GitHub keeps read-only pull-request refs (`refs/pull/N/head`) that a push cannot rewrite. PR #215's ref was fetched after the purge and still contains the file, so anyone with the old commit hash can reach it. Closing this needs GitHub Support to remove the cached views and PR refs for the old commits. Until then QA-001 is mitigated, not closed.
+
+Owner follow-ups: contact GitHub Support (old commit 0bd50f3); decide whether account names or balances in the file need changing; re-clone or hard-reset any other local copy.
 
 ## Open items blocking Wave 1
 
-1. Reconcile the purge status above, then run the QA-001 HEAD fix and, if still wanted, the history rewrite (needs explicit go-ahead before any force-push).
+1. GitHub Support request for the residual PR refs (QA-001 stays open until done).
 2. Optional: the per-row WI-003 verification table, if an audit trail is wanted.
