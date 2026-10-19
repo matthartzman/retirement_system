@@ -6,6 +6,7 @@ validate -> Monte Carlo, which is the first step away from the old monolith.
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Any, Dict, Mapping, Sequence
 
@@ -27,6 +28,8 @@ try:
 except ImportError:
     pricing_diagnostics = lambda: {}
 
+_LOG = logging.getLogger('retirement_system.report')
+
 
 @dataclass
 class ProjectionArtifacts:
@@ -34,6 +37,11 @@ class ProjectionArtifacts:
     rows: Sequence[Mapping[str, Any]]
     mc_data: Dict[str, Any]
     validation: Dict[str, Any]
+
+    @property
+    def config_contract_warnings(self) -> list:
+        """Non-fatal derived-result failures recorded during the build (WI-007)."""
+        return list(self.config.get('config_contract_warnings') or [])
 
 
 def build_model_heard_assumptions(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]]) -> Dict[str, Any]:
@@ -278,16 +286,20 @@ def run_projection_artifacts(c: Mapping[str, Any], run_mc: bool = True, enforce_
         if isinstance(mc_data, dict):
             mc_data.setdefault('model_risk', readiness.get('model_risk', {}))
     except Exception as exc:
+        _LOG.exception('advisor_readiness / governance step failed')
+        cfg.setdefault('config_contract_warnings', []).append(f'Advisor readiness analysis failed: {exc}')
         cfg['advisor_readiness'] = {'status': 'REVIEW_REQUIRED', 'warnings': [str(exc)], 'is_advisor_ready': False}
     try:
         if cfg.get('roth_policy') not in (None, '', 'none'):
             from .planning_engines import roth_guardrail_analysis
             cfg['roth_guardrail_analysis'] = roth_guardrail_analysis(cfg, rows)
     except Exception as exc:
+        _LOG.exception('Roth guardrail analysis skipped')
         cfg.setdefault('config_contract_warnings', []).append(f'Roth guardrail analysis skipped: {exc}')
     try:
         cfg = attach_plan_result(cfg, rows, mc_data, validation)
     except Exception as exc:
+        _LOG.exception('PlanResult contract build failed')
         cfg.setdefault('config_contract_warnings', []).append(f'PlanResult contract build failed: {exc}')
     try:
         # Item 2.17 (finding A13): report_spec was independently derived
@@ -307,11 +319,11 @@ def run_projection_artifacts(c: Mapping[str, Any], run_mc: bool = True, enforce_
             semantic_model = build_result_explorer_model(cfg, list(rows), mc_data)
             cfg['report_spec'] = report_spec_from_results_model(semantic_model).to_dict()
     except Exception as exc:
+        _LOG.exception('ReportSpec contract build failed')
         cfg.setdefault('config_contract_warnings', []).append(f'ReportSpec contract build failed: {exc}')
     try:
         from .local_store import save_result_snapshot
         save_result_snapshot(cfg.get('plan_result', {}), cfg.get('projection_event_log', []))
     except Exception:
-        import logging
-        logging.getLogger('retirement_system.report').warning('save_result_snapshot failed', exc_info=True)
+        _LOG.warning('save_result_snapshot failed', exc_info=True)
     return ProjectionArtifacts(cfg, rows, mc_data, validation)
