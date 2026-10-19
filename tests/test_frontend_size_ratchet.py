@@ -570,7 +570,8 @@ DASHBOARD_JS_MAX_LINES = 7_134
 # 2026-10-16 (Show hidden button for inbox items hidden by Ignore this time, +5): raised to 39,342.
 # 2026-10-19 (items 355/361/358: holdings sort + insert-lot action, year-end header, scenario rows in the Tax
 # Assumptions table, ACA reorder; no dashboard.js growth, +103): raised to 39,445.
-TOTAL_JS_MAX_LINES = 39_445
+# 2026-10-19 (liability payoff month + carry-zero columns on the Liabilities table, +19): raised to 39,361.
+TOTAL_JS_MAX_LINES = 39_464
 
 
 def _line_count(path: Path) -> int:

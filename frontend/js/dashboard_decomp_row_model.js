@@ -3459,6 +3459,10 @@ export function ensureLiabilityRows() {
   const header = (parsed[0] || LIABILITY_HEADER.slice()).map((x) =>
     String(x || "").trim(),
   );
+  // Older files predate the payoff-month / carry-zero columns; add them so edits serialize.
+  ["payoff_month", "carry_zero"].forEach((h) => {
+    if (!header.includes(h)) header.splice(Math.max(0, header.indexOf("notes")), 0, h);
+  });
   const data = (parsed.length > 1 ? parsed.slice(1) : []).map((r) => {
     const o = {};
     header.forEach((h, i) => {

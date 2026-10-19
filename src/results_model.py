@@ -13,6 +13,7 @@ from datetime import datetime, UTC
 from typing import Any, Iterable
 
 from .version import VERSION
+from .balance_sheet_liabilities import balance_sheet_liabilities
 from .person_labels import member_nick
 
 RESULTS_MODEL_SCHEMA = "results_model_v10"
@@ -655,6 +656,9 @@ def _balance_sheet_page(c: dict[str, Any], rows: list[dict[str, Any]]) -> dict[s
         ('Cash (Checking Accounts)', cash_val, 'Sum of _Checking positions'),
         ('Note Receivable', note_val, f"Projected balance through {c.get('note_last', '')}"),
     ]
+    _next_home = _n(yr0.get('next_housing_home_value'))
+    if _next_home:
+        other_items.append(('Next Housing', _next_home, 'Gross value of the next home; its mortgage is in Liabilities'))
     # WP12.7: Rental Properties (feature on) as in build_sheet3: gross value in assets, mortgages in liabilities.
     rental_on = 'rental_net_cash_flow' in yr0
     rental_value = _n(yr0.get('rental_property_value')) if rental_on else 0.0
@@ -668,12 +672,15 @@ def _balance_sheet_page(c: dict[str, Any], rows: list[dict[str, Any]]) -> dict[s
     total_assets = ann_total + pretax_total + roth_total + trust_total + hsa_total + other_total
 
     liab_data = [headers]
-    liab_data.append(row([('Mortgage', 'text'), (mort_val, 'currency'),
-                           ('Offsets Primary Residence gross value; not double-counted as Home Equity', 'text')]))
+    total_liabilities = 0.0
+    for _lbl, _amt, _note in balance_sheet_liabilities(yr0, mort_val):
+        if _amt or _lbl == 'Mortgage':
+            liab_data.append(row([(_lbl, 'text'), (_amt, 'currency'), (_note, 'text')]))
+            total_liabilities += _amt
     if rental_on:
         liab_data.append(row([('Rental Property Mortgages', 'text'), (rental_loans, 'currency'),
                                ('Offsets Rental Properties gross value', 'text')]))
-    total_liabilities = mort_val + rental_loans
+    total_liabilities += rental_loans
     liab_data.append(row([('Total Liabilities', 'text'), (total_liabilities, 'currency'), ('', 'text')]))
     liab_section = _section('Liabilities', liab_data)
 

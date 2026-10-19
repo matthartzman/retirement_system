@@ -2428,6 +2428,8 @@ const LIABILITY_HEADER = [
   "monthly_payment",
   "start_year",
   "payoff_year",
+  "payoff_month",
+  "carry_zero",
   "notes",
 ];
 // Fields revealed per type. balance + interest_rate are always shown; payment-style

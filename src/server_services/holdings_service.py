@@ -14,7 +14,7 @@ from typing import Any
 from ..plan_datasets import active_dataset_text, write_active_dataset
 
 EMPTY_HOLDINGS_CSV = "account,symbol,purchase_date,shares,purchase_price,lot_type,note\n"
-EMPTY_LIABILITIES_CSV = "liability_id,type,label,balance,interest_rate,monthly_payment,start_year,payoff_year,notes\n"
+EMPTY_LIABILITIES_CSV = "liability_id,type,label,balance,interest_rate,monthly_payment,start_year,payoff_year,payoff_month,carry_zero,notes\n"
 EMPTY_HSA_SCHEDULE_CSV = "year,optimizer_amount,override_amount,locked,note\n"
 
 
