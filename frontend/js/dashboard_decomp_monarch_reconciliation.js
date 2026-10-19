@@ -1,5 +1,5 @@
-// Account Reconciliation page (Reports & Review): the app's account numbers beside imported's daily
-// balances, with a way to copy imported's number into the app where they differ.
+// Account Reconciliation page (Reports & Review): the app's account numbers beside the imported daily
+// balances, with a way to copy the imported number into the app where they differ.
 // Logic and every write live on the server (src/reconcile.py, /api/reconcile/*): the page only shows
 // rows, collects a selection, asks for a preview, then applies it. Each applied change is logged and can
 // be undone from the change log. Investment accounts (valued from holdings x prices) and annuities that

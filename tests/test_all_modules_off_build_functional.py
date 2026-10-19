@@ -70,9 +70,13 @@ def _run_build(tmp_path_factory, *, env_overrides: dict[str, str], label: str):
 def _assert_core_artifacts(out_dir: Path, result, label: str):
     tail = (result.stdout + result.stderr)[-4000:]
     assert result.returncode == 0, f"{label} build failed:\n{tail}"
-    assert (out_dir / "retirement_plan.xlsx").exists(), f"{label}: workbook missing"
-    assert (out_dir / "retirement_dashboard.html").exists(), f"{label}: HTML dashboard missing"
-    html = (out_dir / "retirement_dashboard.html").read_text(encoding="utf-8")
+    # Build artifacts are written under <out_dir>/plans/<plan>/ (the per-plan output layout),
+    # not directly in <out_dir>, so locate them rather than assuming the flat layout.
+    workbooks = list(out_dir.rglob("retirement_plan.xlsx"))
+    dashboards = list(out_dir.rglob("retirement_dashboard.html"))
+    assert workbooks, f"{label}: workbook missing"
+    assert dashboards, f"{label}: HTML dashboard missing"
+    html = dashboards[0].read_text(encoding="utf-8")
     assert len(html) > 1000, f"{label}: HTML dashboard suspiciously small ({len(html)} chars)"
 
 

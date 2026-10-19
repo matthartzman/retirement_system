@@ -507,3 +507,14 @@ def test_card_mapped_to_a_liability_also_updates_its_same_named_accounts_row(tmp
     for e in reconcile.change_log(base / "input"):
         reconcile.undo(base / "input", e["id"])
     assert _setup_value(base, "Visa Card", "Current Balance") == "900"
+
+
+def test_setup_row_covered_by_a_mapped_liability_is_not_listed_as_not_in_import(tmp_path):
+    base = _workspace(tmp_path)
+    assert "setup:Visa Card" in _rows(base)
+    with active_plan.workspace_store(base, write=True) as store:
+        store.liabilities.replace_all([{"liability_id": "v1", "type": "credit_card", "label": "Visa", "balance": ""}])
+        store.monarch.set_mapping("visa card", "liability:v1", "", "ask")
+    rows = _rows(base)
+    assert "setup:Visa Card" not in rows and "liability:v1" in rows
+    assert not [r for r in rows.values() if r["status"] == "not_in_monarch" and r["label"] == "Visa Card"]

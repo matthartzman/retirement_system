@@ -107,7 +107,10 @@ def _ddl(datasets: Mapping[str, tuple[str, ...]], *, quote: bool = True) -> str:
     return "\n".join(parts)
 
 
-SCHEMA_V2_DDL = _ddl(_V2_DATASETS, quote=False)  # as shipped in v2 (its names need no quoting)
+# Frozen as shipped in v2 (names need no quoting): the liabilities columns added later
+# (payoff_month, carry_zero) arrive in v15, so an existing plan.db and a new one reach the same schema.
+_V2_LIABILITIES_SHIPPED = tuple(c for c in LIABILITIES_COLUMNS if c not in ("payoff_month", "carry_zero"))
+SCHEMA_V2_DDL = _ddl({**_V2_DATASETS, "liabilities": _V2_LIABILITIES_SHIPPED}, quote=False)
 SCHEMA_V3_DDL = _ddl(_V3_DATASETS)
 SCHEMA_V4_DDL = _ddl(_V4_DATASETS)
 # v5 also adds the revision-scoped dataset copies (recovery copies of a flat dataset: the rows
@@ -122,6 +125,11 @@ CREATE TABLE revision_datasets (
 ) WITHOUT ROWID;
 """
 SCHEMA_V6_DDL = _ddl(_V6_DATASETS)
+# v15: per-liability payoff month and carry-zero flag (item 356).
+SCHEMA_V15_DDL = """
+ALTER TABLE liabilities ADD COLUMN "payoff_month" TEXT NOT NULL DEFAULT '';
+ALTER TABLE liabilities ADD COLUMN "carry_zero" TEXT NOT NULL DEFAULT '';
+"""
 
 
 class FlatDatasetRepository:
