@@ -25,9 +25,9 @@ HOLDINGS = (
     "IRA,BND,2021-03-04,5.5,80,,first\n"
 )
 LIABILITIES = (
-    "liability_id,type,label,balance,interest_rate,monthly_payment,start_year,payoff_year,notes\n"
-    "L1,mortgage,Home,250000,3.25%,1500,2020,2050,\n"
-    "L2,auto,Car,12000,4.9%,400,2023,2027,\n"
+    "liability_id,type,label,balance,interest_rate,monthly_payment,start_year,payoff_year,payoff_month,carry_zero,notes\n"
+    "L1,mortgage,Home,250000,3.25%,1500,2020,2050,,,\n"
+    "L2,auto,Car,12000,4.9%,400,2023,2027,,,\n"
 )
 PLAN_HEADER = "section,subsection,label,value,units,notes\n"
 SCHEMA = {
@@ -118,9 +118,9 @@ def test_validate_plan_rows_uses_the_shipped_catalog_by_default():
 def test_preview_counts_added_changed_removed_unchanged_without_writing(store):
     commit(store, parse(LIABILITIES, "liabilities"))
     incoming = parse(
-        "liability_id,type,label,balance,interest_rate,monthly_payment,start_year,payoff_year,notes\n"
-        "L1,mortgage,Home,249000,3.25%,1500,2020,2050,\n"
-        "L3,heloc,Line,0,8%,0,2026,2030,\n", "liabilities")
+        "liability_id,type,label,balance,interest_rate,monthly_payment,start_year,payoff_year,payoff_month,carry_zero,notes\n"
+        "L1,mortgage,Home,249000,3.25%,1500,2020,2050,,,\n"
+        "L3,heloc,Line,0,8%,0,2026,2030,,,\n", "liabilities")
     before = store.liabilities.rows()
     rep = preview(store, incoming)
     assert store.liabilities.rows() == before

@@ -20,7 +20,7 @@ from .errors import ValidationError
 HOLDINGS_COLUMNS = ("account", "symbol", "purchase_date", "shares", "purchase_price", "lot_type", "note")
 LIABILITIES_COLUMNS = (
     "liability_id", "type", "label", "balance", "interest_rate",
-    "monthly_payment", "start_year", "payoff_year", "notes",
+    "monthly_payment", "start_year", "payoff_year", "payoff_month", "carry_zero", "notes",
 )
 HSA_SCHEDULE_COLUMNS = ("year", "optimizer_amount", "override_amount", "locked", "note")
 TARGET_ALLOCATION_COLUMNS = ("asset_class", "target_pct")

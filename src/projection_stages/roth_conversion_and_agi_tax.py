@@ -795,7 +795,9 @@ def apply_agi_and_tax(
     # legitimately generate.
     medical_expense_yr = wellness_premium_yr + wellness_detail_budget_yr + wellness_shock_yr + ltc_prem_yr
     medical_ded = max(0.0, medical_expense_yr - 0.075 * max(0.0, agi))
-    item_ded = salt + char + mort_interest_yr + medical_ded
+    # OBBBA senior bonus is added to whichever deduction is taken, so itemizers get it too
+    # (std_ded above already includes it; max(std_ded, item_ded) then compares like with like).
+    item_ded = salt + char + mort_interest_yr + medical_ded + senior_bonus
     row['property_tax_for_salt'] = prop_tax_yr
     row['salt_gross'] = salt_gross
     row['mortgage_interest_deduction'] = mort_interest_yr
