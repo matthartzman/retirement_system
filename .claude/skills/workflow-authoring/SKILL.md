@@ -44,3 +44,13 @@ Invoke by `scriptPath`, not `name`, unless the workflow is registered.
 - Treat any agent result as possibly missing and record the gap instead of crashing, unless the stage is essential (then `throw`).
 - Never overwrite existing outputs; probe candidate paths.
 - Keep effort low for mechanical stages and high only for reasoning stages, to limit tokens.
+
+## Fallback runner (no native Workflow tool)
+
+`.claude/workflows/run.mjs` executes a workflow script in plain Node, running each `agent()` as a headless `claude -p` subprocess (needs the `claude` CLI on PATH and Node 18+):
+
+```text
+node .claude/workflows/run.mjs .claude/workflows/system-review.js '{"date":"YYYY-MM-DD","scratch":"<abs dir outside project>"}'
+```
+
+Options: `--args-file f.json`, `--concurrency 4`, `--permission-mode auto`, `--dry-run` (no agents; validates the script). Progress goes to stderr. Limitations: `budget` is an empty object, and each agent is a fresh session with no shared context beyond its prompt.
