@@ -319,6 +319,7 @@ def monarch_autoupdate_status():
         return denied
     payload = monarch_autoupdate.load_policy(WORKSPACE_ROOT)
     payload["status"] = monarch_autoupdate.load_status(WORKSPACE_ROOT)
+    payload["balances_status"] = monarch_autoupdate.load_balances_status(WORKSPACE_ROOT)
     payload["extractor_freshness"] = monarch_autoupdate.get_extractor_freshness(WORKSPACE_ROOT)
     return jsonify(payload)
 
@@ -331,15 +332,16 @@ def monarch_autoupdate_config():
     body = request.get_json(silent=True) or {}
     try:
         payload = monarch_autoupdate.save_policy(WORKSPACE_ROOT, body)
-    except monarch_autoupdate.SourceDirOutsideWorkspaceError as exc:
+    except ValueError as exc:
         return jsonify({"success": False, "error": str(exc)}), 400
     # Best-effort: keep the OS-level Task Scheduler entry in sync with the
     # toggle. A failure here (non-Windows dev box, no PowerShell, missing
     # privilege) does not undo the just-saved policy -- it's surfaced to the
     # UI's status chip instead.
     registration = None
-    if "enabled" in body:
-        registration = monarch_autoupdate.register_scheduled_task(WORKSPACE_ROOT, bool(body.get("enabled")))
+    if "enabled" in body or "run_time" in body:
+        saved = payload["policy"]
+        registration = monarch_autoupdate.register_scheduled_task(WORKSPACE_ROOT, saved["enabled"], saved["run_time"])
     payload["task_registration"] = registration
     _audit("monarch_autoupdate_policy_saved", {"policy": payload.get("policy"), "task_registration": registration})
     return jsonify(payload)
@@ -352,6 +354,7 @@ def monarch_autoupdate_run():
         return denied
     body = request.get_json(silent=True) or {}
     payload = _run_monarch_autoimport(WORKSPACE_ROOT, force=bool(body.get("force", True)))
+    payload["balances_status"] = monarch_autoupdate.load_balances_status(WORKSPACE_ROOT)
     _audit("monarch_autoupdate_run", {"success": payload.get("success"), "skipped": payload.get("skipped")})
     return jsonify(payload), 200 if payload.get("success", True) else 400
 

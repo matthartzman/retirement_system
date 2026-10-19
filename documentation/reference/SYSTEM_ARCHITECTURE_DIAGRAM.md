@@ -296,10 +296,11 @@ flowchart LR
     OUT_insurance_inputs["Insurance\n(worksheet)"]
     OUT_reserve_requirements["Reserve Requirements\n(worksheet)"]
     OUT_rental_property_income["Rental Properties\n(projection)"]
+    OUT_account_import["Third-party transaction and account balance auto-import\n(worksheet)"]
     OUT_planning_workbench["Planning Workbench\n(worksheet)"]
 ```
 
-Input modules: 13. Output modules: 53.
+Input modules: 13. Output modules: 54.
 
 ## 4. Frontend ↔ Server API Surface
 

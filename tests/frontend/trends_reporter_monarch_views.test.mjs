@@ -155,7 +155,7 @@ describe("account toggle popover and accounts table", () => {
   });
 
   test("the popover says type, match and ignore come from the app", () => {
-    assert.match(accountToggleHtml([acct("x", "X", "Cash", ON)], "networth", "Net worth"), /Retirement app's Monarch Reconciliation/);
+    assert.match(accountToggleHtml([acct("x", "X", "Cash", ON)], "networth", "Net worth"), /Retirement app's Account Reconciliation/);
   });
 });
 

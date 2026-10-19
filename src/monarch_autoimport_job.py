@@ -51,7 +51,7 @@ def _mark_runs_delivered(extractor_dir: Path, run_ids: list[str]) -> list[str]:
         return [f"monarch_extract.py not found at {script}; could not mark {len(run_ids)} run(s) delivered."]
     python_exe = _resolve_extractor_python(extractor_dir)
     if python_exe is None:
-        return [f"No Monarch Extractor venv Python found under {extractor_dir}\\.venv; could not mark {len(run_ids)} run(s) delivered."]
+        return [f"No extractor venv Python found under {extractor_dir}\\.venv; could not mark {len(run_ids)} run(s) delivered."]
 
     errors: list[str] = []
     for run_id in run_ids:
@@ -71,22 +71,39 @@ def _mark_runs_delivered(extractor_dir: Path, run_ids: list[str]) -> list[str]:
 
 
 def run(base_dir: str | Path, *, force: bool = False) -> dict[str, Any]:
-    """Transaction import, then the daily account balances (best effort: a balances problem is
-    reported under ``balances`` and never changes ``success``)."""
-    result = _run_transactions(base_dir, force=force)
-    if result.get("skip_reason") == "disabled":
-        return result
-    try:
-        result["balances"] = import_balances(base_dir)
-    except Exception as exc:  # noqa: BLE001 - must not fail the transaction import
-        result["balances"] = {"success": False, "status": "error", "error": f"{exc.__class__.__name__}: {exc}"}
-    if result["balances"].get("status") == "ok":
-        try:  # copy Monarch's number into rows set to "always update"; guarded and logged, never fatal
-            from . import reconcile
-            auto = reconcile.auto_apply(Path(base_dir) / "input")
-            result["auto_update"] = {"success": True, "applied": len(auto["applied"]), "held": len(auto["held"])}
+    """The daily job: two independent steps under one schedule -- transactions, then
+    account balances. Each is switched by its own policy checkbox and records its own
+    status; one failing never stops or fails the other. ``force`` ignores only the
+    master enabled flag (the "Import now" button)."""
+    policy = mau.load_policy(base_dir)["policy"]
+    if not policy["enabled"] and not force:
+        return {"success": True, "skipped": True, "skip_reason": "disabled"}
+    result: dict[str, Any] = {"success": True, "skipped": True, "skip_reason": "transactions off"}
+    if policy["transactions"]:
+        try:
+            result = _run_transactions(base_dir, force=True)
+        except Exception as exc:  # noqa: BLE001 - the balances step still runs
+            status = mau.write_status(base_dir, success=False, errors=[f"{exc.__class__.__name__}: {exc}"])
+            result = {"success": False, "status": status}
+    if policy["balances"]:
+        try:
+            src = mau.resolve_source_dir(base_dir, policy) / "balances.csv"
+            bal = import_balances(base_dir, src)
         except Exception as exc:  # noqa: BLE001
-            result["auto_update"] = {"success": False, "error": f"{exc.__class__.__name__}: {exc}"}
+            bal = {"success": False, "status": "error", "error": f"{exc.__class__.__name__}: {exc}"}
+        result["balances"] = bal
+        mau.write_balances_status(
+            base_dir, success=bool(bal.get("success")), status=str(bal.get("status")),
+            detail=str(bal.get("error") or bal.get("skip_reason")
+                       or f"{bal.get('rows', 0)} rows, {bal.get('accounts', 0)} accounts"),
+        )
+        if bal.get("status") == "ok":
+            try:  # copy the imported balance into rows set to "always update"; never fatal
+                from . import reconcile
+                auto = reconcile.auto_apply(Path(base_dir) / "input")
+                result["auto_update"] = {"success": True, "applied": len(auto["applied"]), "held": len(auto["held"])}
+            except Exception as exc:  # noqa: BLE001
+                result["auto_update"] = {"success": False, "error": f"{exc.__class__.__name__}: {exc}"}
     return result
 
 
@@ -131,7 +148,10 @@ def _run_transactions(base_dir: str | Path, *, force: bool = False) -> dict[str,
     # this app ships the extractor at, independent of the configured
     # `source_dir` (which only ever needs to name the *output* subfolder).
     extractor_dir = base_dir / "Monarch Extractor"
-    mark_delivered_errors = _mark_runs_delivered(extractor_dir, result["run_ids"])
+    # Only a Monarch Extractor install has an outbox to acknowledge; other sources have none.
+    mark_delivered_errors = (
+        _mark_runs_delivered(extractor_dir, result["run_ids"]) if (extractor_dir / "monarch_extract.py").exists() else []
+    )
 
     status = mau.write_status(
         base_dir,

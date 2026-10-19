@@ -23,19 +23,27 @@ POLICY_SETTING = "monarch_autoupdate.policy"
 STATUS_SETTING = "monarch_autoupdate.status"
 LEGACY_SETTINGS_FILENAME = "monarch_autoupdate.json"  # older installs; read once
 LEGACY_STATUS_FILENAME = "monarch_autoupdate_status.json"
-DEFAULT_SOURCE_DIR = "Monarch Extractor/output"
+DEFAULT_SOURCE_DIR = "Monarch Extractor/output"  # relative to the workspace; only the fallback
+DEFAULT_RUN_TIME = "04:00"
+BALANCES_STATUS_SETTING = "monarch_autoupdate.balances_status"
 
 
 @dataclass(frozen=True)
 class AutoUpdatePolicy:
-    enabled: bool = False
-    source_dir: str = DEFAULT_SOURCE_DIR
+    enabled: bool = True
+    source_dir: str = ""  # absolute path; "" = the shipped default folder under the workspace
     field_map_path: str = ""  # "" = use the shipped default (from reference database)
+    run_time: str = DEFAULT_RUN_TIME  # 24h HH:MM, the daily Task Scheduler time
+    transactions: bool = True  # step 1: import transactions
+    balances: bool = True  # step 2: import account balances
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "enabled": self.enabled,
             "source_dir": self.source_dir,
+            "run_time": self.run_time,
+            "transactions": self.transactions,
+            "balances": self.balances,
             "field_map_path": self.field_map_path,
         }
 
@@ -127,54 +135,59 @@ def get_extractor_freshness(base_dir: str | Path, *, now: datetime | None = None
     }
 
 
-class SourceDirOutsideWorkspaceError(ValueError):
-    """Raised when a policy's source_dir would resolve outside the workspace root.
-
-    System review 2026-09-07 SEC-2: `source_dir` used to be accepted with no
-    confinement check at all. Because `resolve_source_dir` feeds directly
-    into a subprocess interpreter lookup (`monarch_autoimport_job.py`'s
-    `_resolve_extractor_python`, which executes `<source_dir's parent>/.venv/
-    .../python.exe`), an unconfined path let the `/api/plan/monarch-
-    autoupdate/config` route (which passes request bodies straight through
-    to `save_policy`) select an arbitrary interpreter to execute.
-    """
+class SourceDirNotAbsoluteError(ValueError):
+    """Raised when a policy's source_dir is not a full absolute path."""
 
 
-def _confine_to_workspace(base_dir: str | Path, raw: str) -> Path:
-    base = Path(base_dir).resolve()
-    p = Path(raw).expanduser()
-    resolved = (p if p.is_absolute() else (base / p)).resolve()
+# Kept so older callers/imports keep working; the folder is no longer confined to the workspace.
+SourceDirOutsideWorkspaceError = SourceDirNotAbsoluteError
+
+
+def default_source_dir(base_dir: str | Path) -> str:
+    return str((Path(base_dir) / DEFAULT_SOURCE_DIR).resolve())
+
+
+def _normalize_run_time(raw: Any) -> str:
+    text = str(raw or "").strip() or DEFAULT_RUN_TIME
     try:
-        resolved.relative_to(base)
+        hh, mm = text.split(":")
+        if len(hh) not in (1, 2) or len(mm) != 2 or not (0 <= int(hh) <= 23 and 0 <= int(mm) <= 59):
+            raise ValueError
     except ValueError:
-        raise SourceDirOutsideWorkspaceError(
-            f"source_dir must resolve to a path inside the workspace root ({base}); got {resolved}"
-        ) from None
-    return resolved
+        raise ValueError(f"run_time must be 24-hour HH:MM; got {text!r}") from None
+    return f"{int(hh):02d}:{mm}"
 
 
 def resolve_source_dir(base_dir: str | Path, policy: dict[str, Any] | AutoUpdatePolicy | None = None) -> Path:
-    raw = DEFAULT_SOURCE_DIR
+    raw = ""
     if isinstance(policy, AutoUpdatePolicy):
         raw = policy.source_dir
     elif isinstance(policy, dict):
-        raw = str(policy.get("source_dir") or DEFAULT_SOURCE_DIR)
-    return _confine_to_workspace(base_dir, raw)
+        raw = str(policy.get("source_dir") or "")
+    p = Path(raw).expanduser() if raw else Path(default_source_dir(base_dir))
+    return p if p.is_absolute() else (Path(base_dir) / p).resolve()
 
 
-def normalize_policy(data: dict[str, Any] | None = None, *, base_dir: str | Path | None = None) -> AutoUpdatePolicy:
+def normalize_policy(data: dict[str, Any] | None = None, *, strict: bool = False) -> AutoUpdatePolicy:
+    """``strict`` (save time) rejects a relative source folder and a bad run time;
+    loading is lenient so an older stored value can still be displayed and corrected."""
     data = data or {}
-    source_dir = str(data.get("source_dir") or DEFAULT_SOURCE_DIR).strip() or DEFAULT_SOURCE_DIR
-    if base_dir is not None:
-        # Validate confinement eagerly (at save time) rather than only at
-        # resolve/execution time, so a bad value is rejected with a clear
-        # error instead of silently persisted and only failing later.
-        _confine_to_workspace(base_dir, source_dir)
-    field_map_path = str(data.get("field_map_path") or "").strip()
+    source_dir = str(data.get("source_dir") or "").strip()
+    if strict and source_dir and not Path(source_dir).expanduser().is_absolute():
+        raise SourceDirNotAbsoluteError(f"source_dir must be a full absolute path; got {source_dir!r}")
+    try:
+        run_time = _normalize_run_time(data.get("run_time"))
+    except ValueError:
+        if strict:
+            raise
+        run_time = DEFAULT_RUN_TIME
     return AutoUpdatePolicy(
-        enabled=bool(data.get("enabled", False)),
+        enabled=bool(data.get("enabled", True)),
         source_dir=source_dir,
-        field_map_path=field_map_path,
+        field_map_path=str(data.get("field_map_path") or "").strip(),
+        run_time=run_time,
+        transactions=bool(data.get("transactions", True)),
+        balances=bool(data.get("balances", True)),
     )
 
 
@@ -182,22 +195,19 @@ def load_policy(base_dir: str | Path) -> dict[str, Any]:
     raw = _read_setting(base_dir, POLICY_SETTING, LEGACY_SETTINGS_FILENAME)
     if not isinstance(raw, dict):
         raw = {}
-    # Not confinement-checked on load: a value already stored must still be
-    # readable (e.g. to display it back for correction) even if it would now
-    # be rejected on save; only save_policy (new/updated values) enforces it.
     policy = normalize_policy(raw.get("policy") if isinstance(raw.get("policy"), dict) else raw)
-    return {"schema": SCHEMA, "policy": policy.as_dict(), "settings_path": str(settings_path(base_dir))}
+    out = policy.as_dict()
+    out["source_dir"] = str(resolve_source_dir(base_dir, policy))  # always shown as a full path
+    return {"schema": SCHEMA, "policy": out, "settings_path": str(settings_path(base_dir))}
 
 
 def save_policy(base_dir: str | Path, updates: dict[str, Any]) -> dict[str, Any]:
-    """Raises SourceDirOutsideWorkspaceError if `updates` sets a `source_dir`
-    that would resolve outside the workspace root."""
-    current = load_policy(base_dir)["policy"]
-    merged = dict(current)
-    for key in ("enabled", "source_dir", "field_map_path"):
+    """Raises SourceDirNotAbsoluteError for a relative ``source_dir``, ValueError for a bad ``run_time``."""
+    merged = dict(load_policy(base_dir)["policy"])
+    for key in ("enabled", "source_dir", "field_map_path", "run_time", "transactions", "balances"):
         if key in updates:
             merged[key] = updates[key]
-    policy = normalize_policy(merged, base_dir=base_dir)
+    policy = normalize_policy(merged, strict=True)
     payload = {"schema": SCHEMA, "policy": policy.as_dict(), "updated_at": iso_utc()}
     _write_setting(base_dir, POLICY_SETTING, payload)
     return load_policy(base_dir)
@@ -234,12 +244,25 @@ def write_status(
     return payload
 
 
-def _run_registration_script(script: Path, action: str) -> dict[str, Any]:
+def load_balances_status(base_dir: str | Path) -> dict[str, Any] | None:
+    data = _read_setting(base_dir, BALANCES_STATUS_SETTING, "")
+    return data if isinstance(data, dict) else None
+
+
+def write_balances_status(base_dir: str | Path, *, success: bool, status: str, detail: str = "",
+                          now: datetime | None = None) -> dict[str, Any]:
+    payload = {"last_run_at": iso_utc(now), "success": bool(success), "status": status, "detail": detail}
+    _write_setting(base_dir, BALANCES_STATUS_SETTING, payload)
+    return payload
+
+
+def _run_registration_script(script: Path, action: str, start_time: str | None = None) -> dict[str, Any]:
     if not script.exists():
         return {"attempted": False, "success": False, "error": f"Registration script not found: {script}"}
     try:
         proc = subprocess.run(
-            ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(script), "-Action", action],
+            ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(script), "-Action", action]
+            + (["-StartTime", start_time] if start_time and action == "Register" else []),
             capture_output=True,
             text=True,
             timeout=30,
@@ -250,41 +273,22 @@ def _run_registration_script(script: Path, action: str) -> dict[str, Any]:
         return {"attempted": True, "success": False, "error": str(exc)}
 
 
-def register_scheduled_task(base_dir: str | Path, enabled: bool) -> dict[str, Any]:
-    """Best-effort sync of the OS-level Task Scheduler entries with the
-    in-app toggle, via the PowerShell helper scripts.
+def register_scheduled_task(base_dir: str | Path, enabled: bool, run_time: str = DEFAULT_RUN_TIME) -> dict[str, Any]:
+    """Best-effort sync of the OS-level Task Scheduler entry with the in-app
+    flag and run time, via the PowerShell helper script. One daily entry runs
+    both import steps (transactions, then account balances).
 
-    Registers/unregisters *two* tasks, not one: the downstream import
-    (tools/monarch_autoimport.py, 4am) and the extractor itself (Monarch
-    Extractor/run_monarch.ps1, 3:30am -- see that script's own header for
-    why this one exists). Before 2026-09, only the import task was wired
-    to this toggle; the extractor was never scheduled anywhere, so nothing
-    ever refreshed the data the import job reads. Both are now driven by
-    the same toggle so enabling "Monarch auto-update" always yields a
-    complete, self-refreshing pipeline rather than half of one.
+    The task that produces the files is outside this app and is neither
+    registered nor removed here.
 
     Never raises: a registration failure (non-Windows dev machine, no
-    PowerShell, insufficient privilege) must not block saving the toggle
-    itself -- the caller surfaces {"attempted", "success", "error"} to the
-    UI's status chip instead.
+    PowerShell, insufficient privilege) must not block saving the setting
+    itself -- the caller surfaces {"attempted", "success", "error"} to the UI.
     """
     if sys.platform != "win32":
         return {"attempted": False, "success": False, "error": "Not running on Windows; scheduled-task registration skipped."}
     action = "Register" if enabled else "Unregister"
-    results = {
-        "extract": _run_registration_script(
-            Path(base_dir) / "Monarch Extractor" / "register_monarch_extract_task.ps1", action
-        ),
-        "import": _run_registration_script(
-            Path(base_dir) / "tools" / "launchers" / "register_monarch_autoimport_task.ps1", action
-        ),
-    }
-    attempted = any(r["attempted"] for r in results.values())
-    success = attempted and all(r["success"] for r in results.values() if r["attempted"])
-    errors = [f"{name}: {r['error']}" for name, r in results.items() if r["attempted"] and not r["success"]]
-    return {
-        "attempted": attempted,
-        "success": success,
-        "error": "; ".join(errors) or None,
-        "details": results,
-    }
+    result = _run_registration_script(
+        Path(base_dir) / "tools" / "launchers" / "register_monarch_autoimport_task.ps1", action, _normalize_run_time(run_time)
+    )
+    return {**result, "details": {"import": result}}
