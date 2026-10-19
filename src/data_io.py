@@ -1781,6 +1781,9 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
                     'monthly_payment': _clean_num(row.get('monthly_payment', '0')),
                     'start_year': _clean_year(row.get('start_year', '0')),
                     'payoff_year': _clean_year(row.get('payoff_year', '0')),
+                    'payoff_month': min(12, max(0, _clean_year(row.get('payoff_month', '0')))),
+                    # Blank = carry zero after the payoff date (the default for every type).
+                    'carry_zero': str(row.get('carry_zero', '') or '').strip().lower() not in ('no', 'false', '0', 'n'),
                     'notes': (row.get('notes', '') or '').strip(),
                 })
         except Exception:

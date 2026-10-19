@@ -526,27 +526,33 @@ export const LIABILITY_LABELS = {
   monthly_payment: "Monthly payment",
   start_year: "Start year",
   payoff_year: "Payoff year",
+  payoff_month: "Payoff month (1-12)",
+  carry_zero: "Carry $0 after payoff",
   notes: "Notes",
 };
 
 export const LIABILITY_TYPE_FIELDS = {
-  auto: ["balance", "interest_rate", "monthly_payment", "payoff_year"],
+  auto: ["balance", "interest_rate", "monthly_payment", "payoff_year", "payoff_month", "carry_zero"],
   heloc: [
     "balance",
     "interest_rate",
     "monthly_payment",
     "start_year",
     "payoff_year",
+    "payoff_month",
+    "carry_zero",
   ],
-  student_loan: ["balance", "interest_rate", "monthly_payment", "payoff_year"],
-  // Revolving debt: no start/payoff year; no payment = interest-only (engine default).
-  credit_card: ["balance", "interest_rate", "monthly_payment"],
+  student_loan: ["balance", "interest_rate", "monthly_payment", "payoff_year", "payoff_month", "carry_zero"],
+  // Revolving debt: no payment = interest-only; with a payoff date it is paid off then and carries $0 after.
+  credit_card: ["balance", "interest_rate", "monthly_payment", "payoff_year", "payoff_month", "carry_zero"],
   other: [
     "balance",
     "interest_rate",
     "monthly_payment",
     "start_year",
     "payoff_year",
+    "payoff_month",
+    "carry_zero",
   ],
 };
 
@@ -613,9 +619,11 @@ export function renderLiabilitiesTable() {
     "monthly_payment",
     "start_year",
     "payoff_year",
+    "payoff_month",
+    "carry_zero",
     "notes",
   ];
-  let html = `<details><summary>Liabilities</summary><div class="field-list"><div class="section-note"><b>Purpose:</b> Track loans the plan must pay down over time. Choose a type, then enter the fields needed to forecast its cash flow. Each liability is amortized into the yearly cash-flow forecast and its outstanding balance reduces net worth. Auto and student loans use standard fixed amortization; credit cards take a balance, APR and monthly payment only (no payment = interest-only); HELOC line items amortize over the years to payoff. Leave a field blank to use sensible defaults (no monthly payment = interest-only unless a payoff year is set).</div><div class="table-actions"><button class="btn" type="button" data-requires-app="1" onclick="addLiability()">Add liability</button></div><div class="lot-table-wrap"><table class="lot-table"><thead><tr><th>Type</th>${cols.map((c) => `<th>${esc(LIABILITY_LABELS[c] || humanLabel(c))}</th>`).join("")}<th>Actions</th></tr></thead><tbody>`;
+  let html = `<details><summary>Liabilities</summary><div class="field-list"><div class="section-note"><b>Purpose:</b> Track loans the plan must pay down over time. Choose a type, then enter the fields needed to forecast its cash flow. Each liability is amortized into the yearly cash-flow forecast and its outstanding balance reduces net worth. Auto and student loans use standard fixed amortization; credit cards take a balance, APR and monthly payment (no payment = interest-only; add a payoff month/year to retire the card on that date); HELOC line items amortize over the years to payoff. On the payoff date the remaining balance is paid off and carried at $0 afterwards (untick "Carry $0" to keep a residual balance instead). Leave a field blank to use sensible defaults (no monthly payment = interest-only unless a payoff year is set).</div><div class="table-actions"><button class="btn" type="button" data-requires-app="1" onclick="addLiability()">Add liability</button></div><div class="lot-table-wrap"><table class="lot-table"><thead><tr><th>Type</th>${cols.map((c) => `<th>${esc(LIABILITY_LABELS[c] || humanLabel(c))}</th>`).join("")}<th>Actions</th></tr></thead><tbody>`;
   if (!h.data.length) {
     html += `<tr><td colspan="${cols.length + 2}"><span class="small">No liabilities yet. Click "Add liability" to add one.</span></td></tr>`;
   }
@@ -635,8 +643,13 @@ export function renderLiabilitiesTable() {
         html += `<td data-label="${lbl}"><span class="small">—</span></td>`;
         return;
       }
+      if (c === "carry_zero") {
+        const on = !["no", "false", "0", "n"].includes(String(r[c] || "").trim().toLowerCase());
+        html += `<td data-label="${lbl}"><input data-lcol="carry_zero" type="checkbox" ${on ? "checked" : ""} title="Balance is $0 from the payoff date onward; uncheck to keep any residual balance on the books" onchange="updateLiability(${i},'carry_zero',this.checked?'yes':'no')"></td>`;
+        return;
+      }
       const isMoney = c === "balance" || c === "monthly_payment";
-      const isYear = c === "start_year" || c === "payoff_year";
+      const isYear = c === "start_year" || c === "payoff_year" || c === "payoff_month";
       if (isMoney) {
         html += `<td data-label="${lbl}"><input class="tiny" data-lcol="${esc(c)}" type="text" value="${esc(currencyDisplay(r[c] || ""))}" oninput="updateLiability(${i},'${esc(c)}',currencyRaw(this.value))" onfocus="this.value=currencyRaw(this.value);this.select&&this.select()" onblur="this.value=currencyDisplay(this.value)"></td>`;
       } else if (isYear) {

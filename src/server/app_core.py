@@ -286,7 +286,7 @@ def _blank_holdings_csv(content: str) -> str:
 
 def _blank_liabilities_csv(content: str) -> str:
     rows = _tcsv.list_rows(content)
-    header = rows[0] if rows else ["liability_id", "type", "label", "balance", "interest_rate", "monthly_payment", "start_year", "payoff_year", "notes"]
+    header = rows[0] if rows else ["liability_id", "type", "label", "balance", "interest_rate", "monthly_payment", "start_year", "payoff_year", "payoff_month", "carry_zero", "notes"]
     return _tcsv.rows_to_text([header])
 
 

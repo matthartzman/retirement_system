@@ -20,8 +20,8 @@ from src.stores import PlanStore
 
 HOLDINGS = ("account,symbol,purchase_date,shares,purchase_price,lot_type,note\n"
             "Brokerage,VTI,2020-01-02,10,150.25,,\nIRA,BND,2021-03-04,5.5,80,,first\n")
-LIABILITIES = ("liability_id,type,label,balance,interest_rate,monthly_payment,start_year,payoff_year,notes\n"
-               "L1,mortgage,Home,250000,3.25%,1500,2020,2050,\n")
+LIABILITIES = ("liability_id,type,label,balance,interest_rate,monthly_payment,start_year,payoff_year,payoff_month,carry_zero,notes\n"
+               "L1,mortgage,Home,250000,3.25%,1500,2020,2050,,,\n")
 SPENDING_BUDGET = "kind,key,annual_budget\ncategory,groceries,12000\n"
 ROWS = [
     ("Household", "", "retirement_year", "2030", "year", ""),
