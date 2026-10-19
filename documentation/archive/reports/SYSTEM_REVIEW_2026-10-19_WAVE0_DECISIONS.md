@@ -18,7 +18,7 @@ Exit criteria met: decision recorded. Purge itself is not scheduled yet (see ope
 | Item | Decision | Professional review |
 |---|---|---|
 | (a) Retiring before 59.5 (FIN-004) | In scope: model the 10% additional tax and its IRC 72(t) exceptions | CPA for the exceptions |
-| (b) Earnings test (FIN-007) | In scope. The claim is still unconfirmed: a verifier must open `income.py:322-396` before work starts | Benefits counselor or CPA |
+| (b) Earnings test (FIN-007) | In scope. Owner reviewed `income.py:322-396` on 2026-10-19 and confirmed the earnings test is missing; FIN-007 moves from insufficient_evidence to confirmed (owner-verified) | Benefits counselor or CPA |
 | (c) Brokerage-gain MAGI phasing (FIN-001) | Two phases. Phase 1: IRMAA MAGI only, pinned separately. Phase 2: NIIT, ACA MAGI and Social Security taxation | Planner sign-off before each golden re-pin; CPA review recommended for phase 2 |
 | (d) Monte Carlo headline (FIN-002) | "Funded as asked". The secondary "without using Roth for extras" figure is removed from the tile | Planner reviews the displayed success definition |
 | (e) Federal estate defaults (FIN-009) | Derive the exemption from the household: single exemption for one-person households; married default only for couples with a portability election | Estate attorney |
@@ -44,8 +44,11 @@ The estate-attorney review for FIN-009 portability and credit-shelter arithmetic
 - Monarch may be named in the README and UI; describe extraction as vendor-neutral, since more integrations are planned.
 - Hosted use is planned: ARC-001 and ARC-009 (authentication, Host allow-list, remove `ALLOW_UNAUTHENTICATED_SAAS=YES`, non-loopback startup guard) are required before any hosted deployment.
 
+## Purge status check (2026-10-19)
+
+The owner stated a history purge was done "as of 10/1/2026". A repository check does not support that for this file: `financial_trends_log.jsonl.bak` was added in commit 0bd50f3 (#215, committed 2026-10-14, after 10/1), is still tracked at HEAD, and is still in history on `main`. An earlier purge cannot have covered a file added later. Any 10/1 purge, if done, was of other content or a different copy. The QA-001 purge is therefore still open.
+
 ## Open items blocking Wave 1
 
-1. The history purge needs a scheduled date. Its prerequisite (no external clones or forks) is met.
-2. FIN-007 needs a verifier to confirm the earnings test is actually missing.
-3. Optional: the per-row WI-003 verification table, if an audit trail is wanted.
+1. Reconcile the purge status above, then run the QA-001 HEAD fix and, if still wanted, the history rewrite (needs explicit go-ahead before any force-push).
+2. Optional: the per-row WI-003 verification table, if an audit trail is wanted.
