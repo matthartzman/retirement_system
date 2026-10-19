@@ -63,7 +63,7 @@ describe("Monarch auto-update card shows busy state while saving", () => {
     sandbox.api = () => gate.promise;
     sandbox.document.getElementById = (id) => {
       if (id === "monarchAutoUpdateEnabled") return { checked: true };
-      if (id === "monarchAutoUpdateSourceDir") return { value: "Monarch Extractor/output" };
+      if (id === "monarchAutoUpdateSourceDir") return { value: "C:/Data/import" };
       return { style: {}, classList: { add() {}, remove() {}, toggle() {}, contains: () => false } };
     };
 
@@ -86,7 +86,7 @@ describe("Monarch auto-update card shows busy state while saving", () => {
       "busy-state render must show the just-submitted value, not the stale pre-save policy",
     );
 
-    gate.resolve({ policy: { enabled: true, source_dir: "Monarch Extractor/output" } });
+    gate.resolve({ policy: { enabled: true, source_dir: "C:/Data/import" } });
     await inFlight;
 
     const doneHtml = sandbox.monarchAutoUpdateControlsHtml();
@@ -102,7 +102,7 @@ describe("Monarch auto-update card shows busy state while saving", () => {
     };
     sandbox.document.getElementById = (id) => {
       if (id === "monarchAutoUpdateEnabled") return { checked: true };
-      if (id === "monarchAutoUpdateSourceDir") return { value: "Monarch Extractor/output" };
+      if (id === "monarchAutoUpdateSourceDir") return { value: "C:/Data/import" };
       return { style: {}, classList: { add() {}, remove() {}, toggle() {}, contains: () => false } };
     };
 

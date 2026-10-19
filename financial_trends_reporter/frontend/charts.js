@@ -17,7 +17,7 @@ export function fmtMoney(v) {
 
 // Finding UX-102 (Wave 5 item W5-6): category names and date labels were
 // interpolated directly into these SVG strings (then assigned via
-// innerHTML) with no escaping -- a Monarch category containing "&" or "<"
+// innerHTML) with no escaping -- a imported category containing "&" or "<"
 // broke the SVG markup, and a category name chosen to contain markup could
 // inject arbitrary SVG/HTML. Escape every interpolated string, not just the
 // ones a realistic category name might hit today.
@@ -514,7 +514,7 @@ export function flowBarChartSvg(model) {
 }
 
 // ---------------------------------------------------------------------------
-// Monarch daily balances (balances payload from /api/balances) -- Net worth, Holdings.
+// imported daily balances (balances payload from /api/balances) -- Net worth, Holdings.
 // `balances` = {dates, series: {account_key: [value per date]}, accounts: [{account_key,
 // display_name, type, active, enabled: {networth, holdings, flows}, ...}]}. Totals are
 // summed here from the toggles so switching an account on/off needs no server round trip.
@@ -532,7 +532,7 @@ function enabledKeys(balances, chart) {
 }
 
 // Log-entry-shaped rows, so the existing timeframe filter / granularity / line chart code
-// works unchanged. Monarch dates use Monarch totals; dates Monarch doesn't cover keep the
+// works unchanged. Import dates use imported totals; dates imported doesn't cover keep the
 // plan-derived log entry (source "plan", `plan` holds it for the rollover).
 export function buildMonarchRows(balances, history) {
   if (!hasMonarchBalances(balances)) return null;
@@ -555,7 +555,7 @@ export function buildMonarchRows(balances, history) {
   return rows;
 }
 
-// All time starts here. Monarch history before this date has only a loan or two linked, so it
+// All time starts here. imported history before this date has only a loan or two linked, so it
 // is not a comparable total and it stretches the Y axis; it is cut, not just hidden.
 export const ALL_TIME_START = "2025-02-01";
 
@@ -564,7 +564,7 @@ export function truncateAllTime(rows, start = ALL_TIME_START) {
   return { rows: kept, truncated: kept.length < rows.length };
 }
 
-// Rollover for a Monarch-sourced row: enabled accounts with a non-zero value on that date,
+// Rollover for a imported-sourced row: enabled accounts with a non-zero value on that date,
 // grouped by account type with subtotals. Plan-sourced rows use the legacy model.
 export function monarchRolloverModel(row, balances, kind) {
   if (!row) return null;
@@ -590,16 +590,16 @@ export function monarchRolloverModel(row, balances, kind) {
   };
 }
 
-// Banner text when the daily Monarch import is failing or stale; "" when healthy.
+// Banner text when the daily imported import is failing or stale; "" when healthy.
 export function balancesFreshnessNote(freshness, today) {
   const last = freshness && freshness.last_run, ok = freshness && freshness.last_ok;
   if (!last) return "";
   const now = today ? new Date(today + "T00:00:00") : new Date();
   const ageDays = ok && ok.latest_date ? Math.floor((now - new Date(ok.latest_date + "T00:00:00")) / 86400000) : null;
   if (last.status !== "ok") {
-    return `The latest Monarch balances import was rejected (${last.detail || "unknown reason"}); showing balances through ${ok && ok.latest_date ? ok.latest_date : "no date"}.`;
+    return `The latest Imported balances import was rejected (${last.detail || "unknown reason"}); showing balances through ${ok && ok.latest_date ? ok.latest_date : "no date"}.`;
   }
-  if (ageDays !== null && ageDays > 2) return `Monarch balances were last updated ${ok.latest_date}.`;
+  if (ageDays !== null && ageDays > 2) return `Imported balances were last updated ${ok.latest_date}.`;
   return "";
 }
 
@@ -625,7 +625,7 @@ export function accountToggleHtml(accounts, chart, title) {
       `<span>${escSvg(a.display_name)}${a.active ? "" : ' <em class="pop-hint">(closed)</em>'}</span></label>`).join("") +
     `</fieldset>`).join("");
   return `<div class="pop-title">${escSvg(title)} - accounts</div>` +
-    `<div class="note">Type, match to the plan and Ignore come from the Retirement app's Monarch Reconciliation page.</div>` +
+    `<div class="note">Type, match to the plan and Ignore come from the Retirement app's Account Reconciliation page.</div>` +
     `<div class="acct-actions"><button type="button" data-bulk="all" data-chart="${escSvg(chart)}">All</button> ` +
     `<button type="button" data-bulk="none" data-chart="${escSvg(chart)}">None</button> ` +
     `<button type="button" data-bulk="default" data-chart="${escSvg(chart)}">Reset to defaults</button></div>${body}`;

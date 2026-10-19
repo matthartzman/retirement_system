@@ -97,7 +97,7 @@
 </head>
 <body>
 <h1>Financial trends</h1>
-<div class="sub">YTD expenses by category, liquid investments and cash/performance, net worth, and investment transfers — one entry per weekday close. Net worth and Liquid Investments and Cash use daily Monarch account balances. Scroll a chart sideways to see earlier dates.</div>
+<div class="sub">YTD expenses by category, liquid investments and cash/performance, net worth, and investment transfers — one entry per weekday close. Net worth and Liquid Investments and Cash use daily Imported account balances. Scroll a chart sideways to see earlier dates.</div>
 <div class="toolbar" id="timeframeBar">
   <button data-tf="week" aria-pressed="false">Week</button>
   <button data-tf="month" class="active" aria-pressed="true">Month</button>
@@ -139,7 +139,7 @@ let history = [];
 let timeframe = "month";
 let categoryModel = null;
 let chartRows = [];
-// Monarch data (best effort: the page still works from the plan-derived log without it).
+// imported data (best effort: the page still works from the plan-derived log without it).
 let balances = null;      // /api/balances
 let flowsData = null;     // /api/flows
 
@@ -174,14 +174,14 @@ function renderBalancesNote() {
   el.style.display = text ? "block" : "none";
   const usingMonarch = hasMonarchBalances(balances);
   document.getElementById("noteNetWorth").textContent = usingMonarch
-    ? "Net worth = the sum of the Monarch accounts switched on under Accounts ▾ (debts count as negative), from Monarch's daily balances. Dates before Monarch's history use the plan-derived figures. Roll over a point for the accounts behind it; accounts with a zero balance that day are left out."
+    ? "Net worth = the sum of the Imported accounts switched on under Accounts ▾ (debts count as negative), from the import's daily balances. Dates before imported's history use the plan-derived figures. Roll over a point for the accounts behind it; accounts with a zero balance that day are left out."
     : "Net worth = investments (live holdings) + annuities/pension + home, startup equity, cash and autos from the plan inputs, minus the mortgage (amortized from its plan-start balance) and any other liabilities. Home and other plan values are held at their plan-start figures, so day-to-day movement is mostly investments.";
   document.getElementById("noteHoldings").textContent = usingMonarch
-    ? "Liquid Investments and Cash = liquid investments, checking and Venmo from Monarch's daily balances. Annuities, pensions and other illiquid accounts are off by default; change any account under Accounts ▾."
+    ? "Liquid Investments and Cash = liquid investments, checking and Venmo from the import's daily balances. Annuities, pensions and other illiquid accounts are off by default; change any account under Accounts ▾."
     : "";
 }
 
-// Net worth / Holdings rows: Monarch daily balances when available, else the plan-derived log.
+// Net worth / Holdings rows: imported daily balances when available, else the plan-derived log.
 function seriesRows() {
   return (hasMonarchBalances(balances) && buildMonarchRows(balances, history)) || history;
 }
@@ -240,7 +240,7 @@ function render() {
   document.getElementById("chartHoldings").innerHTML = lineChartSvg(
     rows.map(r => ({ label: labelForDate(r.as_of_date, granularity), value: r.holdings && r.holdings.current_value })), { color: "#2563eb", title: "Liquid Investments and Cash", interactive: true }
   );
-  // The remaining cards read the latest plan snapshot, whatever the Monarch rows are.
+  // The remaining cards read the latest plan snapshot, whatever the imported rows are.
   const latest = history[history.length - 1];
   renderFlows(latest);
   categoryModel = latest && latest.ytd_expense_hierarchy ? buildHierarchyRows(latest.ytd_expense_hierarchy, latest.ytd_expense_prior_year, latest.annual_budget_by_tracking_type, latest.ytd_expense_prior_detail, latest.annual_budget_by_category) : null;
@@ -266,7 +266,7 @@ function renderFetchError(message) {
   }
 }
 
-// Monarch balances and monthly flows are an enhancement: a failure here leaves the
+// Imported balances and monthly flows are an enhancement: a failure here leaves the
 // plan-derived charts in place instead of replacing them with an error.
 async function loadMonarch() {
   try {
@@ -395,8 +395,8 @@ document.getElementById("passthroughReview").addEventListener("click", async (e)
 });
 
 // Rollover on the Net worth / Holdings line charts: account subtotals at the
-// hovered (or keyboard-focused) point -- Monarch accounts with a non-zero balance for
-// Monarch-sourced points, the logged plan accounts for plan-sourced ones.
+// hovered (or keyboard-focused) point -- Imported accounts with a non-zero balance for
+// imported-sourced points, the logged plan accounts for plan-sourced ones.
 const rollPopup = document.getElementById("rollPopup");
 function hideRollover() { rollPopup.style.display = "none"; }
 function showRollover(dot, kind) {

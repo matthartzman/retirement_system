@@ -22,7 +22,7 @@ def test_pages_are_gated_by_their_features():
 
 def test_new_features_default_on_with_no_csv_row():
     new = [k for k, m in mc.CATALOG.items() if not m.csv_row]
-    assert sorted(new) == ["insurance_inputs", "planning_workbench", "rental_property_income",
+    assert sorted(new) == ["account_import", "insurance_inputs", "planning_workbench", "rental_property_income",
                            "reserve_requirements"]
     assert set(mc.rowless_defaults()) == set(new)
     # WP12.2: Rental Properties is the one rowless feature that defaults off.

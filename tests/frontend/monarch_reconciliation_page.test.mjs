@@ -113,7 +113,7 @@ describe("summary, preview, unmatched, log", () => {
       { id: "setup:Checking", label: "Checking", kind: "setup_account", old: "13000", new: "13894.27", app_value: 13000, monarch_value: 13894.27 },
       { id: "plan:home", label: "Home value (plan input)", kind: "plan:home", old: "", new: "1279500.00", app_value: 0, monarch_value: 1279500 },
     ], rejected: [{ id: "setup:Inv", reason: "Investment accounts are valued from holdings" }] });
-    assert.match(html, /Update 2 numbers from Monarch/);
+    assert.match(html, /Update 2 numbers from the import/);
     assert.match(html, /13000.*13894\.27/s);
     assert.match(html, /blank/);
     assert.match(html, /Rebuild after applying/);
@@ -146,7 +146,7 @@ describe("summary, preview, unmatched, log", () => {
     assert.equal((html.match(/rcUndo\(/g) || []).length, 1);
     assert.match(html, /data-id="2"/);
     assert.match(html, /undone/);
-    assert.match(m.rcLogHtml([]), /No updates from Monarch yet/);
+    assert.match(m.rcLogHtml([]), /No updates from the import yet/);
   });
 
   test("a rejected latest import is surfaced with its reason", () => {
@@ -161,14 +161,14 @@ describe("page body", () => {
   test("loading, error and not-yet-imported states", () => {
     assert.match(m.rcBodyHtml(state({ data: null, loading: true })), /Loading the comparison/);
     assert.match(m.rcBodyHtml(state({ error: "boom" })), /boom.*Retry/s);
-    assert.match(m.rcBodyHtml(state({ data: { has_balances: false } })), /No Monarch balances have been imported/);
+    assert.match(m.rcBodyHtml(state({ data: { has_balances: false } })), /No account balances have been imported/);
   });
 
   test("the preview button counts only selected updatable rows", () => {
-    assert.match(m.rcBodyHtml(state()), /Preview update from Monarch \(0 selected\)"?[^>]*>|disabled>Preview update from Monarch \(0 selected\)/);
+    assert.match(m.rcBodyHtml(state()), /Preview update from import \(0 selected\)"?[^>]*>|disabled>Preview update from import \(0 selected\)/);
     const html = m.rcBodyHtml(state({ selected: new Set(["setup:Checking", "gone"]) }));
-    assert.match(html, /Preview update from Monarch \(1 selected\)/);
-    assert.ok(!/disabled>Preview update from Monarch \(1/.test(html));
+    assert.match(html, /Preview update from import \(1 selected\)/);
+    assert.ok(!/disabled>Preview update from import \(1/.test(html));
   });
 
   test("the as-of picker lists dates with the latest marked, and a message shows", () => {
@@ -187,7 +187,7 @@ describe("page body", () => {
 describe("wiring", () => {
   test("the step is registered under Reports & Review, dispatched, helped and loaded", () => {
     const dash = read("dashboard.js");
-    assert.match(dash, /id: "monarch_reconciliation",\s+group: "Reports & Review",\s+title: "Monarch Reconciliation"/);
+    assert.match(dash, /id: "monarch_reconciliation",\s+group: "Reports & Review",\s+title: "Account Reconciliation"/);
     assert.match(dash, /activeStep === "monarch_reconciliation"\) content \+= renderMonarchReconciliation\(\)/);
     assert.match(dash, /monarch_reconciliation: pageHelp\(/);
     const html = fs.readFileSync(path.join(JS, "..", "index.html"), "utf8");
@@ -221,7 +221,7 @@ describe("review fixes", () => {
 
   test("ignored Monarch accounts are listed with a way back", () => {
     const html = m.rcIgnoredHtml({ ignored_accounts: [{ account_key: "mystery", label: "Mystery <1>" }] });
-    assert.match(html, /Ignored Monarch accounts \(1\)/);
+    assert.match(html, /Ignored imported accounts \(1\)/);
     assert.match(html, /Mystery &lt;1&gt;/);
     assert.match(html, /rcMap\(this\.dataset\.key, ''\)/);
     assert.equal(m.rcIgnoredHtml({}), "");

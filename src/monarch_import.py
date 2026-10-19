@@ -138,9 +138,9 @@ def map_monarch_csv_text(text: str, field_map: dict[str, str]) -> tuple[list[dic
     id_column = str(field_map.get("id_column") or "").strip().lower()
     if not id_column or id_column not in header_by_lower:
         return [], [
-            f"CSV is missing the configured Monarch id column ('{field_map.get('id_column')}'). "
+            f"CSV is missing the configured id column ('{field_map.get('id_column')}'). "
             f"Header received: {', '.join(reader.fieldnames)}. "
-            "Update the Monarch field map's id_column to match, or fix the export."
+            "Update the field map's id_column to match, or fix the export."
         ]
 
     resolved: dict[str, str] = {}  # internal column -> actual CSV header

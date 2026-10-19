@@ -4,6 +4,7 @@ src/local_backup_scheduler.py's policy pattern.
 """
 from __future__ import annotations
 
+from pathlib import Path
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -11,38 +12,38 @@ import pytest
 from src import monarch_autoupdate as mau
 
 
-def test_default_policy_is_disabled_with_default_source_dir(tmp_path):
-    loaded = mau.load_policy(tmp_path)
-    assert loaded["policy"]["enabled"] is False
-    assert loaded["policy"]["source_dir"] == mau.DEFAULT_SOURCE_DIR
+def test_default_policy_is_enabled_at_4am_with_absolute_default_folder(tmp_path):
+    p = mau.load_policy(tmp_path)["policy"]
+    assert p["enabled"] is True
+    assert p["run_time"] == "04:00"
+    assert p["transactions"] is True and p["balances"] is True
+    assert Path(p["source_dir"]).is_absolute()
+    assert p["source_dir"] == str((tmp_path / mau.DEFAULT_SOURCE_DIR).resolve())
 
 
 def test_save_and_reload_policy_round_trips(tmp_path):
-    mau.save_policy(tmp_path, {"enabled": True, "source_dir": "Monarch Extractor/output"})
-    loaded = mau.load_policy(tmp_path)
-    assert loaded["policy"]["enabled"] is True
-    assert loaded["policy"]["source_dir"] == "Monarch Extractor/output"
+    folder = str(tmp_path / "drop")
+    mau.save_policy(tmp_path, {"enabled": False, "source_dir": folder, "run_time": "6:30",
+                               "transactions": False, "balances": True})
+    p = mau.load_policy(tmp_path)["policy"]
+    assert (p["enabled"], p["source_dir"], p["run_time"], p["transactions"], p["balances"]) == (
+        False, folder, "06:30", False, True)
 
 
-def test_save_policy_rejects_source_dir_outside_workspace_root(tmp_path):
-    """System review 2026-09-07 SEC-2: source_dir used to be accepted with no
-    confinement check, and fed straight into a subprocess interpreter lookup
-    -- a sibling-of-workspace (or any other out-of-tree) path must be
-    rejected rather than silently persisted."""
-    import pytest
-
-    with pytest.raises(mau.SourceDirOutsideWorkspaceError):
-        mau.save_policy(tmp_path, {"source_dir": "../Monarch Extractor/output"})
-    with pytest.raises(mau.SourceDirOutsideWorkspaceError):
-        mau.save_policy(tmp_path, {"source_dir": "/etc"})
+def test_save_policy_rejects_relative_source_dir_and_bad_time(tmp_path):
+    with pytest.raises(mau.SourceDirNotAbsoluteError):
+        mau.save_policy(tmp_path, {"source_dir": "Monarch Extractor/output"})
+    with pytest.raises(ValueError):
+        mau.save_policy(tmp_path, {"run_time": "25:00"})
 
 
 def test_save_policy_only_updates_provided_keys(tmp_path):
-    mau.save_policy(tmp_path, {"enabled": True, "source_dir": "custom/dir"})
+    folder = str(tmp_path / "custom")
+    mau.save_policy(tmp_path, {"enabled": True, "source_dir": folder})
     mau.save_policy(tmp_path, {"enabled": False})
     loaded = mau.load_policy(tmp_path)
     assert loaded["policy"]["enabled"] is False
-    assert loaded["policy"]["source_dir"] == "custom/dir"
+    assert loaded["policy"]["source_dir"] == folder
 
 
 def test_no_status_file_yet_returns_none(tmp_path):
@@ -66,7 +67,7 @@ def test_write_status_records_failure_with_errors(tmp_path):
 
 
 def test_resolve_source_dir_is_relative_to_base_dir(tmp_path):
-    mau.save_policy(tmp_path, {"source_dir": "Monarch Extractor/output"})
+    mau.save_policy(tmp_path, {"source_dir": str(tmp_path / "Monarch Extractor" / "output")})
     policy = mau.load_policy(tmp_path)["policy"]
     resolved = mau.resolve_source_dir(tmp_path, policy)
     assert resolved.name == "output"

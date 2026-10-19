@@ -1205,6 +1205,16 @@ _OUTPUTS: List[OutputModule] = [
         # WP12.7: the workbook sheet exists only while the feature is on (design section 7).
         sheet="40. Rental Properties", tab="1E. Rental Properties",
     ),
+    # Item 359: the account reconciliation page and the daily import panel are
+    # generic -- some other process populates the data. Default on, no CSV row.
+    OutputModule(
+        "account_import", "Third-party transaction and account balance auto-import",
+        WORKSHEET, MEDIUM,
+        "Import transactions and account balances that another process drops in a "
+        "folder, and reconcile the app's account numbers against them.",
+        domain=WHOLE_PLAN, tier=STANDARD,
+        optional=True, csv_row=False, dashboard_step="monarch_reconciliation",
+    ),
     OutputModule(
         "planning_workbench", "Planning Workbench", WORKSHEET, LOW,
         "Compare the baseline, named change sets and stress-suite results in "
