@@ -142,7 +142,9 @@ export function addHoldingLot(account = "") {
   markHoldingsDirty();
   renderMain();
   setTimeout(() => {
-    const f = document.querySelector('.lot-table input[data-hcol="symbol"]');
+    const f = document.querySelector(
+      `.lot-table tr[data-hidx="${h.data.length - 1}"] input[data-hcol="symbol"]`,
+    );
     if (f) f.focus();
   }, 0);
 }
@@ -375,6 +377,41 @@ export async function runUserLivePriceSymbolTest() {
     showMessage("Pricing tester error: " + detail, "error");
   }
 }
+// #355: display order is always account, then symbol, then purchase date
+// (ascending). Blank values sort last so a freshly added lot stays at the end
+// of its group until it is filled in. Stored row order is never changed.
+function holdingSortPart(v) {
+  const s = String(v || "").trim().toLowerCase();
+  return [s === "" ? 1 : 0, s];
+}
+export function compareHoldingLots(a, b) {
+  for (const col of ["account", "symbol", "purchase_date"]) {
+    const [ab, av] = holdingSortPart(a.r[col]);
+    const [bb, bv] = holdingSortPart(b.r[col]);
+    if (ab !== bb) return ab - bb;
+    if (av !== bv) return av < bv ? -1 : 1;
+  }
+  return a.i - b.i;
+}
+export function insertHoldingLotLike(i) {
+  const h = ensureHoldingRows();
+  const src = h.data[i] || {};
+  const row = {};
+  h.header.forEach((c) => (row[c] = ""));
+  row.account = src.account || "";
+  row.symbol = src.symbol || "";
+  row.lot_type = src.lot_type || "buy";
+  h.data.push(row);
+  window.focusHoldingIdx = h.data.length - 1;
+  markHoldingsDirty();
+  renderMain();
+  setTimeout(() => {
+    const f = document.querySelector(
+      `.lot-table tr[data-hidx="${window.focusHoldingIdx}"] input[data-hcol="purchase_date"]`,
+    );
+    if (f) f.focus();
+  }, 0);
+}
 export function renderHoldings() {
   const h = ensureHoldingRows();
   const accounts = holdingAccounts();
@@ -384,7 +421,8 @@ export function renderHoldings() {
       (x) =>
         window.currentHoldingAccount === "ALL" ||
         String(x.r.account || "") === window.currentHoldingAccount,
-    );
+    )
+    .sort(compareHoldingLots);
   const cols = h.header.length
     ? h.header
     : [
@@ -405,7 +443,7 @@ export function renderHoldings() {
   let html = `<div class="holdings"><h3 class="group-title">Plan Holdings</h3><div class="section-note">Enter investment holdings by account and lot. A lot is a separate purchase, reinvestment, or cash position. Use CASH with price 1 for cash balances.</div><div class="section-note small"><b>CSV import columns:</b> <code>account, symbol, purchase_date, shares, purchase_price, lot_type, note</code> — date as YYYY-MM-DD, lot_type as <code>standard</code>, <code>reinvestment</code>, or <code>cash</code>. Download a template from your broker CSV export or use Export CSV backup in Settings first.</div>${renderUserPricingSymbolTester()}<input type="file" id="holdingsImportInput" accept=".csv,text/csv" style="display:none" onchange="handleHoldingsCsvImport(this)"><div class="table-actions"><select data-focus-key="holdings:account-select" onchange="setHoldingAccount(this.value)"><option value="ALL" ${window.currentHoldingAccount === "ALL" ? "selected" : ""}>All accounts</option>${accounts.map((a) => `<option value="${esc(a)}" ${window.currentHoldingAccount === a ? "selected" : ""}>${esc(accountDisplayLabel(a))}</option>`).join("")}</select><button class="btn" onclick="addHoldingLot()">Add Lot</button><button class="btn" onclick="addHoldingAccount()">Add Account</button><button class="btn" type="button" data-requires-app="1" onclick="document.getElementById('holdingsImportInput').click()">Preview &amp; replace CSV</button><button class="btn danger" ${window.currentHoldingAccount === "ALL" ? "disabled" : ""} onclick="deleteHoldingAccount()">Delete Account</button><button class="btn col-group-toggle" type="button" onclick="window.holdingsColsCollapsed=${colsCollapsed ? "false" : "true"};renderMain()">${colsCollapsed ? "Show note column" : "Hide note column"}</button></div><div class="lot-table-wrap pinned-col${colsCollapsed ? " cols-collapsed" : ""}"><table class="lot-table"><thead><tr>${cols.map((c) => `<th${c === "note" ? ' data-col-group="extra"' : ""}>${esc(humanLabel(c))}</th>`).join("")}<th>Actions</th></tr></thead><tbody>`;
   visible.forEach(({ r, i }) => {
     html +=
-      "<tr>" +
+      `<tr data-hidx="${i}">` +
       cols
         .map((c) => {
           const isDate = c.includes("date");
@@ -434,7 +472,7 @@ export function renderHoldings() {
           return `<td data-label="${esc(humanLabel(c))}"${c === "note" ? ' data-col-group="extra"' : ""}><input class="${cls}" data-hcol="${esc(c)}" type="${type}" value="${esc(display)}" ${input} ${focus}></td>`;
         })
         .join("") +
-      `<td data-label="Actions">${deleteIconBtn(`deleteHoldingLot(${i})`)}</td></tr>`;
+      `<td data-label="Actions"><button class="btn" type="button" title="Insert a lot for this symbol" onclick="insertHoldingLotLike(${i})">+</button> ${deleteIconBtn(`deleteHoldingLot(${i})`)}</td></tr>`;
   });
   html += `</tbody></table></div>`;
   // #235: moved here from Economic & Tax Assumptions -- dividend reinvestment
@@ -520,6 +558,7 @@ Object.assign(window, {
   holdingAccounts,
   updateHolding,
   addHoldingLot,
+  insertHoldingLotLike,
   addHoldingAccount,
   deleteHoldingLot,
   deleteHoldingAccount,
