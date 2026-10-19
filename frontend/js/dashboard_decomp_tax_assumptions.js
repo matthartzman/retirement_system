@@ -66,6 +66,41 @@ function taxLeverRow(lv, draft) {
   return h;
 }
 
+// #358: Tax Law Scenario (+ its stress start year) lives in this table. Unlike
+// the three levers, these are plain plan fields, so they read/write the same
+// "Economic Assumptions" rows through editValue(); stored values are unchanged.
+export const TAX_LAW_SCENARIO_OPTIONS = [
+  ["current_law", "Current law"],
+  ["higher_rates", "Higher rates (pre-2018 schedule)"],
+];
+function taxPlanRow(label) {
+  try {
+    return typeof window.findEditableRow === "function"
+      ? window.findEditableRow("Economic Assumptions", "", label)
+      : null;
+  } catch (_e) {
+    return null;
+  }
+}
+export function taxScenarioRowsHtml(scenario, startYear, scenarioIdx, startIdx) {
+  const cur = String(scenario || "current_law").trim().toLowerCase() || "current_law";
+  let h = `<tr><td><b>Tax law scenario</b></td><td colspan="4"><select aria-label="Tax law scenario" onchange="editValue(${Number(scenarioIdx)},this.value,this);renderMain()">`;
+  h += TAX_LAW_SCENARIO_OPTIONS.map(
+    ([v, l]) => `<option value="${esc(v)}"${v === cur ? " selected" : ""}>${esc(l)}</option>`,
+  ).join("");
+  h += `</select> <span class="small">Higher rates is a stress: federal ordinary income is taxed at pre-2018 rates; thresholds unchanged.</span></td></tr>`;
+  if (cur === "higher_rates" && startIdx !== null && startIdx !== undefined)
+    h += `<tr><td><b>Higher-rates start year</b></td><td colspan="4"><input type="text" class="tiny" value="${esc(startYear || "")}" placeholder="First plan year" aria-label="Higher-rates start year" oninput="editValue(${Number(startIdx)},this.value,this)"></td></tr>`;
+  return h;
+}
+function taxScenarioRows() {
+  const sc = taxPlanRow("tax_law_scenario");
+  if (!sc) return "";
+  const st = taxPlanRow("higher_rates_start_year");
+  const val = (r) => (r && typeof window.valOf === "function" ? window.valOf(r) : "");
+  return taxScenarioRowsHtml(val(sc), val(st), sc.row_index, st ? st.row_index : null);
+}
+
 export function taxLawHtml(law, periods) {
   if (!law) return "";
   const mfj = (o) => (o || {}).MFJ;
@@ -97,6 +132,7 @@ export function taxAssumptionsCardHtml(p, drafts, err, loading) {
     return h + `<div class="small">${esc(err || (loading ? "Loading tax assumptions..." : "Tax assumptions are not available."))}</div></div>`;
   }
   h += `<div class="lot-table-wrap"><table class="lot-table"><thead><tr><th>Assumption</th><th>Model value</th><th>Your override</th><th>Effective</th><th>Status</th></tr></thead><tbody>`;
+  h += taxScenarioRows();
   (p.levers || []).forEach((lv) => {
     h += taxLeverRow(lv, (drafts || {})[lv.key]);
   });
@@ -195,6 +231,7 @@ Object.assign(window, {
   taxEffectiveText,
   taxAssumptionsCardHtml,
   taxLawHtml,
+  taxScenarioRowsHtml,
   taxMoney,
   taxOverrideText,
   taxPct,

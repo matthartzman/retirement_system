@@ -1719,6 +1719,15 @@ export function rawRowsForStep(id) {
               "cash_yield_rate",
               "annuity_default_dividend_rate",
               "annuity_default_additional_income_pct",
+              // #358: these live in the Tax Assumptions table now
+              // (dashboard_decomp_tax_assumptions.js); tax_model_baseline is a
+              // system-written record, not an input.
+              "tax_model_baseline",
+              "fed_tax_bracket_inflator",
+              "social_security_taxable_fraction",
+              "state_income_tax_rate",
+              "tax_law_scenario",
+              "higher_rates_start_year",
             ].includes(lbl)) ||
             sec === "Account Policy" ||
             // #238/#237: Payroll Tax / Medicare and / Self-Employment (FICA
@@ -3183,6 +3192,18 @@ export function renderFields(step) {
       : false;
   if (gateKey && gateOff) html += featureGatedNote(gateKey, { rows: rs });
   if (step === "all_assumptions") return html + renderFieldFinderGroups(rs);
+  // #358: the ACA section sits directly above the Tax Assumptions table, which
+  // the tax-assumptions module appends after this page's fields.
+  if (step === "economic_tax_assumptions") {
+    const isAca = (r) => norm(r.subsection).startsWith("aca");
+    const aca = rs.filter(isAca);
+    if (aca.length)
+      return (
+        html +
+        renderFieldGroups(rs.filter((r) => !isAca(r))) +
+        `<div class="field-list"><h3 class="group-title">${esc(friendlyGroup(aca[0]))}</h3>${sortRowsByDependency(aca).map(fieldHtml).join("")}</div>`
+      );
+  }
   return html + renderFieldGroups(rs);
 }
 
