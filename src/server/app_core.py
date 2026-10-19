@@ -29,7 +29,6 @@ try:
     from ..http_runtime.wsgi_facade import (
         Flask,
         HTTPException,
-        ProxyFix,
         Response,
         g,
         jsonify,
@@ -45,7 +44,6 @@ except ImportError:  # direct file loading fallback
     from src.http_runtime.wsgi_facade import (
         Flask,
         HTTPException,
-        ProxyFix,
         Response,
         g,
         jsonify,
@@ -128,8 +126,6 @@ BUILD_SCRIPT = BASE_DIR / "tools" / "build_workbook.py"
 UI_NAMES = ["index.html", "retirement_dashboard.html"]
 app = Flask(__name__, static_folder=str(BASE_DIR))
 RUNTIME_CONFIG = load_runtime_config()
-if getattr(RUNTIME_CONFIG, "reverse_proxy_enabled", False):
-    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1, x_prefix=1)
 
 
 
@@ -1039,8 +1035,39 @@ def _csrf_and_origin_gate():
     return None
 
 
+def _transport_gate():
+    """WI-006 (ARC-001): Host allow-list and, off loopback, the access token.
+
+    Skipped for the desktop bridge (in-process, no socket). The Host header is
+    checked on every method so a DNS-rebinding page cannot read GET responses;
+    Origin/Referer, when present, must also name an allow-listed host (a
+    spoofed Host/Origin pair is rejected on the Host alone).
+    """
+    from ..http_runtime import host_guard  # noqa: PLC0415
+
+    configured = str(getattr(_runtime_config(), "dashboard_host", "") or "")
+    if not host_guard.host_allowed(str(request.headers.get("Host", "") or ""), configured):
+        return jsonify({"success": False, "error": "Host not allowed"}), 403
+    for header in ("Origin", "Referer"):
+        value = str(request.headers.get(header, "") or "")
+        if value and not host_guard.origin_netloc_allowed(value, configured):
+            return jsonify({"success": False, "error": "Cross-origin requests are not allowed"}), 403
+    if not host_guard.is_loopback_host(configured) and request.path != "/api/ping":
+        from ..security import constant_time_token_ok, get_server_token  # noqa: PLC0415
+
+        auth = str(request.headers.get("Authorization", "") or "").strip()
+        candidate = auth[7:].strip() if auth.lower().startswith("bearer ") else str(request.headers.get("X-API-Token", "") or "")
+        if not constant_time_token_ok(candidate, get_server_token()):
+            return jsonify({"success": False, "error": "Access token required"}), 401
+    return None
+
+
 @app.before_request
 def _security_gate():
+    if not getattr(app, "_no_http_transport", False):
+        denied = _transport_gate()
+        if denied:
+            return denied
     if request.method == "OPTIONS":
         return None
     if _public_path():
