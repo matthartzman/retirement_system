@@ -26,6 +26,21 @@ if (!scriptArg) {
   console.error('usage: run.mjs <script.js> [args-json] [--args-file f] [--concurrency n] [--permission-mode m] [--dry-run]')
   process.exit(2)
 }
+// Dry-run stub: a minimal value satisfying a JSON Schema's required fields.
+function stub(sc) {
+  if (!sc) return ''
+  if (sc.enum) return sc.enum[0]
+  const t = Array.isArray(sc.type) ? sc.type.find(x => x !== 'null') : sc.type
+  if (t === 'object') {
+    const o = {}
+    for (const k of sc.required || []) o[k] = stub((sc.properties || {})[k])
+    return o
+  }
+  if (t === 'array') return []
+  if (t === 'boolean') return true
+  if (t === 'integer' || t === 'number') return 1
+  return 'x'
+}
 const CLAUDE = process.env.CLAUDE_BIN || 'claude'
 
 // ---- simple semaphore so parallel() cannot spawn unbounded subprocesses
@@ -58,7 +73,7 @@ function runClaude(prompt, o) {
 // Resolves to the parsed result (object when a schema is given, else text); null on failure.
 async function agent(prompt, o = {}) {
   const label = o.label || 'agent'
-  if (DRY) { log(`[dry-run] ${label}`); return o.schema ? null : '' }
+  if (DRY) { log(`[dry-run] ${label}`); return o.schema ? stub(o.schema) : '' }
   await acquire()
   try {
     log(`start ${label}${o.phase ? ` (${o.phase})` : ''}`)
