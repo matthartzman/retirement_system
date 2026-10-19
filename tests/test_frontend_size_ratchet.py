@@ -568,7 +568,9 @@ DASHBOARD_JS_MAX_LINES = 7_134
 # CSV import in dashboard_decomp_monarch_reconciliation.js, +139): raised to 39,330.
 # 2026-10-15 (code-review fixes: parked-accounts list and seed message on the Monarch page, +7): raised to 39,337.
 # 2026-10-16 (Show hidden button for inbox items hidden by Ignore this time, +5): raised to 39,342.
-TOTAL_JS_MAX_LINES = 39_342
+# 2026-10-19 (items 355/361/358: holdings sort + insert-lot action, year-end header, scenario rows in the Tax
+# Assumptions table, ACA reorder; no dashboard.js growth, +103): raised to 39,445.
+TOTAL_JS_MAX_LINES = 39_445
 
 
 def _line_count(path: Path) -> int:
