@@ -12,6 +12,7 @@ plan in `future/` and in `archive/superpowers/` dated 2026-09-16 or later carrie
 | Document | Use it for |
 |---|---|
 | `reference/readme/README.md` | End-user README shipped with the app |
+| `reference/Retirement_Planner_Concepts_Guide.docx` | Plain-English guide to the app's settings for non-experts (Word file; also pointed to from the README and the app's Data & Maintenance page) |
 | `reference/CLAUDE.md` | Commands, testing discipline and architecture notes for AI-assisted sessions |
 | `reference/CONTRIBUTING.md` | Contributor setup, tests, documentation layout |
 | `reference/FUNCTIONAL_SPEC.md` | What the household can do (behavior today) |
