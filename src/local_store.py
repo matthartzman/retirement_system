@@ -4,8 +4,9 @@ from __future__ import annotations
 
 Local settings, result and KPI snapshots and build events. The sectioned plan
 snapshots (``plan_snapshots`` and its summary tables) are no longer written or read
-since WP4.2: the plan rows live in the plan file (``src/active_plan.py``). Their tables
-stay in the schema until the one-time conversion (WP10) has read them. It intentionally
+since WP4.2: the plan rows live in the plan file (``src/active_plan.py``). New databases
+no longer create those tables; the legacy conversion reads them from an existing database
+when present (``src/legacy_conversion/sources.py``). It intentionally
 contains no tenant, workspace, user, role, token, or hosted identity concepts.
 """
 
@@ -75,25 +76,13 @@ def init_local_store(db_path: str | Path | None = None) -> Path:
     with closing_connect(p) as con:
         con.execute("PRAGMA journal_mode=WAL")
         con.execute("PRAGMA synchronous=NORMAL")
-        con.execute("""CREATE TABLE IF NOT EXISTS plan_snapshots(
-            snapshot_id TEXT PRIMARY KEY,
-            created_at TEXT NOT NULL,
-            source TEXT NOT NULL,
-            input_json TEXT NOT NULL,
-            sectioned_json TEXT NOT NULL,
-            result_json TEXT,
-            input_sha256 TEXT NOT NULL,
-            result_sha256 TEXT,
-            note TEXT
-        )""")
         con.execute("""CREATE TABLE IF NOT EXISTS result_snapshots(
             result_id TEXT PRIMARY KEY,
             created_at TEXT NOT NULL,
             plan_snapshot_id TEXT,
             result_json TEXT NOT NULL,
             event_log_json TEXT NOT NULL,
-            result_sha256 TEXT NOT NULL,
-            FOREIGN KEY(plan_snapshot_id) REFERENCES plan_snapshots(snapshot_id)
+            result_sha256 TEXT NOT NULL
         )""")
         con.execute("""CREATE TABLE IF NOT EXISTS build_events(
             event_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -107,40 +96,6 @@ def init_local_store(db_path: str | Path | None = None) -> Path:
             key TEXT PRIMARY KEY,
             value_json TEXT NOT NULL,
             updated_at TEXT NOT NULL
-        )""")
-        con.execute("""CREATE TABLE IF NOT EXISTS plan_members(
-            snapshot_id TEXT NOT NULL,
-            member_id TEXT NOT NULL,
-            display_name TEXT,
-            birth_year INTEGER,
-            owner_role TEXT,
-            PRIMARY KEY(snapshot_id, member_id),
-            FOREIGN KEY(snapshot_id) REFERENCES plan_snapshots(snapshot_id)
-        )""")
-        con.execute("""CREATE TABLE IF NOT EXISTS plan_accounts(
-            snapshot_id TEXT NOT NULL,
-            account_id TEXT NOT NULL,
-            display_name TEXT,
-            owner_id TEXT,
-            account_type TEXT,
-            tax_treatment TEXT,
-            current_value_cents INTEGER,
-            prior_year_end_value_cents INTEGER,
-            PRIMARY KEY(snapshot_id, account_id),
-            FOREIGN KEY(snapshot_id) REFERENCES plan_snapshots(snapshot_id)
-        )""")
-        con.execute("""CREATE TABLE IF NOT EXISTS plan_income_streams(
-            snapshot_id TEXT NOT NULL,
-            income_id TEXT NOT NULL,
-            label TEXT,
-            owner_id TEXT,
-            income_type TEXT,
-            annual_amount_cents INTEGER,
-            start_year INTEGER,
-            end_year INTEGER,
-            inflation_index TEXT,
-            PRIMARY KEY(snapshot_id, income_id),
-            FOREIGN KEY(snapshot_id) REFERENCES plan_snapshots(snapshot_id)
         )""")
         con.execute("""CREATE TABLE IF NOT EXISTS kpi_snapshots(
             snapshot_id TEXT PRIMARY KEY,
@@ -173,16 +128,6 @@ def init_local_store(db_path: str | Path | None = None) -> Path:
             con.execute("ALTER TABLE kpi_snapshots ADD COLUMN npv_future_taxes REAL")
         if "terminal_nw_mc_p5" not in kpi_cols:
             con.execute("ALTER TABLE kpi_snapshots ADD COLUMN terminal_nw_mc_p5 REAL")
-        con.execute("""CREATE TABLE IF NOT EXISTS plan_spending_policy(
-            snapshot_id TEXT PRIMARY KEY,
-            annual_core_spending_cents INTEGER,
-            core_growth_method TEXT,
-            manual_core_growth_rate TEXT,
-            annual_mortgage_cents INTEGER,
-            annual_real_estate_tax_cents INTEGER,
-            real_estate_tax_growth_rate TEXT,
-            FOREIGN KEY(snapshot_id) REFERENCES plan_snapshots(snapshot_id)
-        )""")
     return p
 
 

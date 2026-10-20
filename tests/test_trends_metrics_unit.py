@@ -10,7 +10,22 @@ from datetime import date
 from pathlib import Path
 
 from financial_trends_reporter.trends_metrics import compute_snapshot
-from src import config_backend, ytd_tracking as ytd
+from src import ytd_tracking as ytd
+from src.csv_exchange import parse_plan_csv, write_plan_rows
+from src.plan_datasets import write_dataset_rows_for_input_dir
+from src.stores import PlanStore
+
+_PLAN_HEADER = "section,subsection,label,value,units,notes\n"
+
+
+def _write_plan_csv(base_dir: Path, csv_text: str) -> None:
+    """Seed section/subsection/label/value rows into the workspace's plan.rpx (the only source the
+    trends reporter reads since the legacy client_files fallback was removed, ARC-004)."""
+    store = PlanStore.open(base_dir / "plan.rpx")
+    try:
+        write_plan_rows(store, parse_plan_csv(_PLAN_HEADER + csv_text, "client_x.csv").rows)
+    finally:
+        store.close()
 
 
 def _workspace(tmp_path: Path) -> Path:
@@ -34,8 +49,8 @@ def _seed(base_dir: Path) -> None:
          "Prior Year End Balance": "100000", "Current Value": "110000"},
         {"Account": "Visa", "Role": "Credit card", "Current Balance": "2000"},
     ])
-    db_path = base_dir / "local_state" / "retirement_system_v10.db"
-    config_backend.set_client_file("client_liabilities.csv", "balance\n50000\n", db_path=db_path)
+    write_dataset_rows_for_input_dir(input_dir, "liabilities", [
+        {"liability_id": "l1", "type": "loan", "label": "Loan", "balance": "50000"}])
 
 
 def test_ytd_expenses_by_category(tmp_path):
@@ -168,21 +183,13 @@ def test_same_day_prior_year_handles_leap_day():
 def test_net_worth_includes_plan_assets_and_mortgage(tmp_path):
     base_dir = _workspace(tmp_path)
     _seed(base_dir)
-    db_path = base_dir / "local_state" / "retirement_system_v10.db"
-    config_backend.set_client_file(
-        "client_assets.csv",
-        "section,subsection,label,value\n"
-        "Other Assets,Home,value_as_of_plan_start,1000000\n"
-        "Other Assets,Cash,value,100000\n",
-        db_path=db_path,
-    )
-    config_backend.set_client_file(
-        "client_spending.csv",
-        "section,subsection,label,value\n"
-        "Cashflow,Mortgage,balance_as_of_plan_start,200000\n"
-        "Cashflow,Mortgage,interest_rate,2.0%\n"
-        "Cashflow,Mortgage,monthly_payment,3000\n",
-        db_path=db_path,
+    _write_plan_csv(
+        base_dir,
+        "Other Assets,Home,value_as_of_plan_start,1000000,,\n"
+        "Other Assets,Cash,value,100000,,\n"
+        "Cashflow,Mortgage,balance_as_of_plan_start,200000,,\n"
+        "Cashflow,Mortgage,interest_rate,2.0%,,\n"
+        "Cashflow,Mortgage,monthly_payment,3000,,\n",
     )
     nw = compute_snapshot(base_dir, today=date(2026, 4, 1))["net_worth"]
     assert nw["home"] == 1000000.0
@@ -194,16 +201,13 @@ def test_net_worth_includes_plan_assets_and_mortgage(tmp_path):
 def test_net_worth_reads_startup_and_autos_from_other_asset_items(tmp_path):
     base_dir = _workspace(tmp_path)
     _seed(base_dir)
-    db_path = base_dir / "local_state" / "retirement_system_v10.db"
-    config_backend.set_client_file(
-        "client_assets.csv",
-        "section,subsection,label,value\n"
-        "Other Assets,Other Asset 1,type,Auto\n"
-        "Other Assets,Other Asset 1,value,40000\n"
-        "Other Assets,Other Asset 2,type,Start-up equity\n"
-        "Other Assets,Other Asset 2,value,66000\n"
-        "Other Assets,Autos,value,999999\n",
-        db_path=db_path,
+    _write_plan_csv(
+        base_dir,
+        "Other Assets,Other Asset 1,type,Auto,,\n"
+        "Other Assets,Other Asset 1,value,40000,,\n"
+        "Other Assets,Other Asset 2,type,Start-up equity,,\n"
+        "Other Assets,Other Asset 2,value,66000,,\n"
+        "Other Assets,Autos,value,999999,,\n",
     )
     nw = compute_snapshot(base_dir, today=date(2026, 4, 1))["net_worth"]
     assert nw["other_assets"] == 106000.0     # legacy Autos row ignored
