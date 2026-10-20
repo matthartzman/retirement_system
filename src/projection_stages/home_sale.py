@@ -484,6 +484,7 @@ def resolve_home_sale_gain_tax(
     *,
     year: int,
     taxable_inc: float,
+    filing: str | None = None,
 ) -> HomeSaleGainTaxResult:
     """Compute the LTCG tax on a home sale's deferred taxable gain.
 
@@ -520,7 +521,7 @@ def resolve_home_sale_gain_tax(
     """
     home_sale_ltcg_gain = float(row.get('_home_sale_taxable_gain_pending', 0.0) or 0.0)
     home_sale_ltcg_tax = (
-        _tk.ltcg_tax_on_gain(c, home_sale_ltcg_gain, max(0.0, taxable_inc), year)
+        _tk.ltcg_tax_on_gain(c, home_sale_ltcg_gain, max(0.0, taxable_inc), year, filing)
         if home_sale_ltcg_gain > 0 else 0.0
     )
     if home_sale_ltcg_gain > 0:

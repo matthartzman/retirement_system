@@ -95,7 +95,7 @@ def apply_amt_and_equity_comp_true_up(
 
     _extra_tax = 0.0
     if equity_events['ltcg_gain'] > 0:
-        _eq_ltcg_tax = _tk.ltcg_tax_on_gain(c, equity_events['ltcg_gain'], max(0.0, taxable_inc), year)
+        _eq_ltcg_tax = _tk.ltcg_tax_on_gain(c, equity_events['ltcg_gain'], max(0.0, taxable_inc), year, filing)
         _extra_tax += _eq_ltcg_tax
         equity_comp_ltcg_gain = equity_events['ltcg_gain']
         equity_comp_ltcg_tax = _eq_ltcg_tax
