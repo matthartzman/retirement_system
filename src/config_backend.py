@@ -6,7 +6,7 @@ The plan rows are read from the active plan file (``plan.rpx``, ``src/active_pla
 (``app.db``, ``system_config``) and the engine-knob code defaults (``engine_defaults``) merged in.
 Nothing mirrors plan data into CSV, JSON or YAML files any more (WP4.5); CSV import/export
 is ``csv_exchange`` (WP9). The legacy local database (``init_sqlite``) still holds the
-flat datasets' text (``client_files``: holdings, spending, YTD ...), audit events and build
+flat datasets' text (``client_files``: holdings, spending, YTD ...) and build
 history until WP6/WP8. Compatibility functions keep older route call sites working, but all
 identity/client arguments are ignored and resolved to the single local plan.
 """
@@ -68,13 +68,6 @@ def init_sqlite(db_path: str | Path = DEFAULT_DB) -> Path:
             content TEXT NOT NULL,
             updated_by TEXT,
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-        )""")
-        con.execute("""CREATE TABLE IF NOT EXISTS audit_events(
-            event_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id TEXT DEFAULT 'local',
-            event TEXT,
-            details_json TEXT,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )""")
         con.execute("""CREATE TABLE IF NOT EXISTS price_snapshots(
             snapshot_id INTEGER PRIMARY KEY AUTOINCREMENT,
