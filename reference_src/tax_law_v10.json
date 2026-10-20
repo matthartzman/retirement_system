@@ -2622,6 +2622,16 @@
       "expires_year": null,
       "source": "SSA annual earnings test exempt amounts (2026 COLA fact sheet); 42 USC 403(b). Owner-accepted 2026-10-20; retrieval date and verifier not recorded",
       "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "early_distribution_additional_tax_rate",
+      "value": 0.1,
+      "effective_year": 1986,
+      "expires_year": null,
+      "source": "IRC 72(t)(1): 10% additional tax on early distributions from qualified retirement plans (statutory, not indexed)",
+      "status": "legislated"
     }
   ],
   "brackets": [

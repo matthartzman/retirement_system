@@ -68,6 +68,8 @@ place mislabels its value year and silently mis-indexes every later year.
    - Social Security earnings test (WI-040): `ss_earnings_test_annual_limit`,
      `ss_earnings_test_fra_year_limit`, `ss_earnings_test_rate`, `ss_earnings_test_fra_year_rate`
      (SSA COLA fact sheet each autumn; add a new dated row, never overwrite)
+   - `early_distribution_additional_tax_rate` (WI-039; statutory 10% under IRC 72(t), not indexed: confirm
+     no change each year)
    - `federal_estate_basic_exclusion` (per person; Rev. Proc. estate section)
    - `salt_cap`, `salt_phasedown_threshold`, `salt_phasedown_growth` (the cap is
      keyed to absolute statutory years -- extend the schedule when law changes)

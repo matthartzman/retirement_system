@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 263 Python files under `src/`, 53 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 264 Python files under `src/`, 53 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -24,7 +24,7 @@ flowchart TB
     subgraph L_HTTP_Runtime["HTTP Runtime (4 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
-    subgraph L_Core_Engine___Domain["Core Engine & Domain (176 modules)"]
+    subgraph L_Core_Engine___Domain["Core Engine & Domain (177 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
     subgraph L_Projection_Stages["Projection Stages (24 modules)"]
@@ -524,6 +524,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/desktop_app.py` | `desktop_api` | `pywebview` |
 | `src/detailed_results.py` | `results_model` | `openpyxl` |
 | `src/domain_models.py` | `money`, `person_labels`, `plan_data_migration` | — |
+| `src/early_distribution.py` | — | — |
 | `src/engine_defaults.py` | — | — |
 | `src/equity_comp.py` | — | — |
 | `src/gain_harvest.py` | `tlh` | — |
@@ -685,7 +686,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/projection_stages/budget_rollups.py` | — | — |
 | `src/projection_stages/cashflow_breakdown.py` | — | — |
 | `src/projection_stages/deaths_and_spousal_rollover.py` | `planning_engines` | — |
-| `src/projection_stages/deterministic_engine.py` | `core`, `equity_comp`, `module_catalog`, `planning_engines`, `projection_stages`, `projection_stages.amt_equity_comp_true_up`, `projection_stages.appreciation_divorce_qlac`, `projection_stages.budget_rollups`, `projection_stages.cashflow_breakdown`, `projection_stages.deaths_and_spousal_rollover`, `projection_stages.effective_marginal_rate`, `projection_stages.home_sale`, `projection_stages.income`, `projection_stages.portfolio_growth_and_net_worth`, `projection_stages.roth_conversion_and_agi_tax`, `projection_stages.spending_and_rmd`, `projection_stages.withdrawal_cascade_daf_makeup`, `projection_stages.withdrawal_cascade_final_draws`, `projection_stages.withdrawal_cascade_gap_assembly`, `projection_stages.withdrawal_cascade_hsa_priority_draws`, `projection_stages.withdrawal_cascade_hsa_reimbursement_correction`, `projection_stages.withdrawal_cascade_investment_tax`, `projection_stages.withdrawal_cascade_ira_true_up`, `projection_stages.withdrawal_cascade_taxable_trust`, `projection_stages.year_state`, `tax_assumptions` | — |
+| `src/projection_stages/deterministic_engine.py` | `core`, `early_distribution`, `equity_comp`, `module_catalog`, `planning_engines`, `projection_stages`, `projection_stages.amt_equity_comp_true_up`, `projection_stages.appreciation_divorce_qlac`, `projection_stages.budget_rollups`, `projection_stages.cashflow_breakdown`, `projection_stages.deaths_and_spousal_rollover`, `projection_stages.effective_marginal_rate`, `projection_stages.home_sale`, `projection_stages.income`, `projection_stages.portfolio_growth_and_net_worth`, `projection_stages.roth_conversion_and_agi_tax`, `projection_stages.spending_and_rmd`, `projection_stages.withdrawal_cascade_daf_makeup`, `projection_stages.withdrawal_cascade_final_draws`, `projection_stages.withdrawal_cascade_gap_assembly`, `projection_stages.withdrawal_cascade_hsa_priority_draws`, `projection_stages.withdrawal_cascade_hsa_reimbursement_correction`, `projection_stages.withdrawal_cascade_investment_tax`, `projection_stages.withdrawal_cascade_ira_true_up`, `projection_stages.withdrawal_cascade_taxable_trust`, `projection_stages.year_state`, `tax_assumptions`, `tax_law` | — |
 | `src/projection_stages/effective_marginal_rate.py` | `core`, `planning_engines` | — |
 | `src/projection_stages/home_sale.py` | `planning_engines`, `rental_tax` | — |
 | `src/projection_stages/income.py` | `equity_comp`, `planning_engines`, `ss_earnings_test`, `tax_law` | — |

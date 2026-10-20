@@ -396,6 +396,17 @@ SOCIAL_SECURITY_FUNDING_UI_PLAN_DATA_ROWS: list[list[str]] = [
     ["Social Security", "Funding Discount", "ss_funding_discount_pct", "22.00%", "percent", "Percentage reduction to gross Social Security benefits from the funding-discount year onward. Default 22%."],
 ]
 
+EARLY_DISTRIBUTION_UI_PLAN_DATA_ROWS: list[list[str]] = [
+    ["Withdrawal Policy", f"Early Distributions Member {n}", label, default, kind, text]
+    for n in (1, 2)
+    for label, default, kind, text in (
+        ("separation_year", "", "year", "Year the member separates from the employer sponsoring their 401(k)/403(b), in or after the year they turn 55 (Rule of 55). Blank if none. From that year the employer-plan balance is exempt from the 10% additional tax before 59½."),
+        ("disability_start_year", "", "year", "First year the member is totally and permanently disabled. Blank if none. From that year pre-tax distributions are exempt from the 10% additional tax."),
+        ("sepp_start_year", "", "year", "First year of a substantially equal periodic payment (SEPP) schedule you have set up. Blank if none. The schedule is entered, not calculated."),
+        ("sepp_annual_amount", "$0", "currency", "Annual SEPP payment (today dollars). Up to this amount of the member's pre-tax distributions each year is exempt from the 10% additional tax. A modified schedule is not modeled."),
+    )
+]
+
 SS_FRA_AGE_UI_PLAN_DATA_ROWS: list[list[str]] = [
     ["Social Security", "Member 1", "fra_age", "0", "number", "Full Retirement Age (SSA), in years, e.g. 66.67 for 66 years 8 months. 0 auto-derives from date of birth (67 for birth year 1960 or later); otherwise enter 60-70."],
     ["Social Security", "Member 2", "fra_age", "0", "number", "Full Retirement Age (SSA), in years, e.g. 66.67 for 66 years 8 months. 0 auto-derives from date of birth (67 for birth year 1960 or later); otherwise enter 60-70."],
@@ -542,6 +553,7 @@ PLAN_DATA_BACKFILL_ENTRIES: list[plan_data_backfill.BackfillEntry] = [
     _BF.BackfillEntry(SS_FRA_AGE_UI_PLAN_DATA_ROWS, _BF.before_first(_BF.label_is("spousal_benefits_enabled"))),
     _BF.BackfillEntry(HEALTHCARE_UI_PLAN_DATA_ROWS, _BF.before_first(_BF.subsection_is("Out-of-Pocket"))),
     _BF.BackfillEntry(HELOC_UI_PLAN_DATA_ROWS),
+    _BF.BackfillEntry(EARLY_DISTRIBUTION_UI_PLAN_DATA_ROWS),
     _BF.BackfillEntry(CORE_SPENDING_UI_PLAN_DATA_ROWS, _BF.after_last(_BF.subsection_is("Spending"))),
     _BF.BackfillEntry(MORTGAGE_RE_TAX_UI_PLAN_DATA_ROWS, _BF.after_last(_BF.subsection_is("Mortgage"))),
     _BF.BackfillEntry(QCD_UI_PLAN_DATA_ROWS, _BF.after_last(_BF.subsection_is("Spending"))),

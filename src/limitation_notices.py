@@ -92,7 +92,7 @@ NOTICES: tuple[Notice, ...] = (
         "exception applies. This version does not calculate that tax, so plans that draw from pre-tax "
         "accounts before 59½ may look more sustainable than they are.",
         "Plan has pre-tax draws before age 59½",
-        (RemovalTrigger("WI-002a", "Early-withdrawal tax is modeled (WI-002(a) decided and implemented)"),),
+        (RemovalTrigger("WI-039", "Early-withdrawal tax is modeled (WI-002(a) decided; WI-039 implemented)", shipped=True),),
     ),
     Notice(
         "N4", "FIN-010", SEVERITY_INFO,

@@ -8,7 +8,7 @@ Wording approved by the repository owner on 2026-10-20. Companion to `SYSTEM_REV
 |---|---|---|---|---|
 | N1 | FIN-001 | warning | Plan sells taxable holdings at a gain | Phase 1 (IRMAA) ships: update wording. Phase 2 (NIIT, ACA, Social Security) ships: remove |
 | N2 | FIN-003 | info | Plan has taxable equity holdings | Qualified-dividend stacking fix ships |
-| N3 | FIN-004 | warning | Plan has pre-tax draws before age 59½ | Early-withdrawal tax is modeled |
+| N3 | FIN-004 | warning | Plan has pre-tax draws before age 59½ | Early-withdrawal tax is modeled (WI-039 shipped; retired) |
 | N4 | FIN-010 | info | Plan has joint taxable accounts | Symmetric step-up fix ships |
 
 **N1.** Gains from selling taxable investments are not yet counted as income in the Medicare (IRMAA), net investment income tax, ACA subsidy and Social Security taxation calculations. Federal income tax on those gains is calculated. Results may be optimistic for plans that fund spending from appreciated taxable holdings.

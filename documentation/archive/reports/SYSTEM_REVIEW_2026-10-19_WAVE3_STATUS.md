@@ -9,7 +9,7 @@ Companion to `SYSTEM_REVIEW_2026-10-19.md` section 9 (Wave 3). Opened 2026-10-20
 | WI-027 | Code done, awaiting planner sign-off on the impact table before any golden re-pin | Values below. FIN-009 credit-shelter arithmetic and the mortality table stay open. |
 | WI-028, WI-029 | Not started | Serial after WI-027 (W3-A) |
 | WI-031, WI-033 | Not started | Independent |
-| WI-039 (new) | Not started | FIN-004: 10% additional tax on pre-59.5 distributions (WI-002(a) decided "in scope") |
+| WI-039 (new) | Code done; **demo golden baseline needs re-recording** | FIN-004: 10% additional tax on pre-59.5 distributions. Notice N3 retired. See the WI-039 section below. |
 | WI-040 (new) | Done (no pin moved) | FIN-007: Social Security earnings test. Notice N5 retired. See the WI-040 section below. |
 | WI-041 (new) | Done | UX-002 follow-up: real server-side build cancel (the Wave 2 overlay only hid the window) |
 
@@ -63,3 +63,26 @@ Owner decisions recorded 2026-10-20 ("accept all recommendations"; plan year 202
 Measured effect: the frozen sample plan and the demo plan show no engine-row change (neither claims early while earning), so no golden pin moves. The earnings-test projection tests are in `tests/test_wi040_ss_earnings_test_regression.py`. Notice N5 is retired; the spousal-record limitation has no notice yet, because notice wording is owner-approved text. Decide whether it needs one.
 
 Planner sign-off on the design is still wanted, and a benefits counselor or CPA should review the rules.
+
+## WI-039 — Additional 10% tax on early distributions (FIN-004)
+
+Scope accepted by the owner 2026-10-20 (planner and CPA signed off on the design). Kernel: `src/early_distribution.py`.
+
+| Exception | Modeled as |
+|---|---|
+| Age 59½ and later | No tax. In the year 59½ is reached, only the months before the birthday count (draws are assumed even through the year). |
+| Rule of 55 | Per-member `separation_year`, valid when the member is 55 or older in that year; from then on the member's 401(k)/403(b) balances are exempt (IRAs are not). |
+| Disability | Per-member `disability_start_year`; from then on all of the member's pre-tax draws are exempt. |
+| SEPP | Per-member `sepp_start_year` and `sepp_annual_amount`; up to that amount of the member's pre-tax draws each year is exempt. The schedule is entered, never calculated; a modified schedule (recapture) is not modeled. |
+| Death | A deceased owner has no draws. |
+| Not modeled | Education, first home, birth/adoption, medical, QDRO, levy and the other 72(t) exceptions; the Roth-conversion five-year rule (Roth withdrawals are treated as exempt); state additional taxes; HSA non-medical withdrawals. |
+
+Inputs are under Withdrawal Policy, subsections "Early Distributions Member 1" and "Early Distributions Member 2" (blank means no exception). The 10% is a dated, legislated row (`early_distribution_additional_tax_rate`).
+
+How it enters the cascade: the tax is a separate term (never folded into federal tax). The IRA true-up loop prices it on the cumulative pre-tax draws by account, so the gap includes it and the next round of elective draws funds it, in both Priority 3 and Priority 4b. It joins `total_tax_pre_niit`, so every later stage sees it. Years with the tax carry `early_dist_tax` on the row and a named `early_distribution` line in the cash-flow tax breakdown. Plans with nobody under 59½ run through exactly the old code path.
+
+Measured effect (same environment, before vs after): the frozen sample plan and all 10 synthetic golden scenarios do not move. The demo plan moves: additional tax 1,195.04 in 2026 and 17.55 in 2027; lifetime tax +1,305.13; terminal net worth −9,757.80 (16,786,034.80 → 16,776,277.00, local environment values).
+
+**Golden baseline: not re-recorded.** `tests/fixtures/golden_phase_baseline/` for the demo plan must be re-recorded, and the local cloud environment cannot do that faithfully (it already differs from the committed baseline before this change). Run on a machine that matches CI: `python tools/golden_compare.py record --plan demo --reason "WI-039: 10% additional tax on early distributions (demo plan: 2026 1,195.04; 2027 17.55)"`, then commit the baseline. Planner sign-off on the impact table above is the remaining gate before that re-record.
+
+Notice N3 is retired. A short replacement note for the exceptions not modeled needs owner-approved wording; none is added yet.

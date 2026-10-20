@@ -827,6 +827,15 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     # engine auto-derives FRA from date of birth via the SSA birth-year table.
     c['w_fra_age'] = _n(_v(data,'Social Security','Member 2','fra_age','0'), 0) or None
     c['h_fra_age'] = _n(_v(data,'Social Security','Member 1','fra_age','0'), 0) or None
+    # WI-039 / FIN-004: per-owner 72(t) exception inputs (blank / 0 = none).
+    c['early_dist_exceptions'] = {
+        idx: {
+            'separation_year': int(_n(_v(data, 'Withdrawal Policy', f'Early Distributions Member {idx + 1}', 'separation_year', '0'), 0) or 0),
+            'disability_year': int(_n(_v(data, 'Withdrawal Policy', f'Early Distributions Member {idx + 1}', 'disability_start_year', '0'), 0) or 0),
+            'sepp_year': int(_n(_v(data, 'Withdrawal Policy', f'Early Distributions Member {idx + 1}', 'sepp_start_year', '0'), 0) or 0),
+            'sepp_amount': float(_n(_v(data, 'Withdrawal Policy', f'Early Distributions Member {idx + 1}', 'sepp_annual_amount', '0'), 0) or 0.0),
+        } for idx in (0, 1)
+    }
     c['w_ss_claim_monthly'] = c['w_ss_benefit_table'].get(max(62, min(70, c['w_ss_claim_age'])), 0.0)
     c['h_ss_claim_monthly'] = c['h_ss_benefit_table'].get(max(62, min(70, c['h_ss_claim_age'])), 0.0)
     c['w_ss70']    = c['w_ss_benefit_table'].get(70, c['w_ss_claim_monthly'])
