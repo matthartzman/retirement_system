@@ -59,7 +59,11 @@ Executed 2026-10-19 on the owner's explicit instruction ("Full purge now"):
 
 Owner follow-ups: contact GitHub Support (old commit 0bd50f3); decide whether account names or balances in the file need changing; re-clone or hard-reset any other local copy.
 
+## Closed follow-ups (owner-reported, 2026-10-20)
+
+- **GitHub Support request** for the residual pull-request refs: owner reports it complete. Not independently verified from the repository; to confirm, fetch `refs/pull/215/head` and check that the old commit 0bd50f3 is no longer served. QA-001 is treated as closed on that basis.
+- **Per-row WI-003 verification table:** owner reports it complete. The table itself is not stored in the repository; keep it with the owner's own records.
+
 ## Open items blocking Wave 1
 
-1. GitHub Support request for the residual PR refs (QA-001 stays open until done).
-2. Optional: the per-row WI-003 verification table, if an audit trail is wanted.
+None. Wave 1 is complete and merged.
