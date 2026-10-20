@@ -6,8 +6,7 @@
 - Each ``tests/fixtures/reference_golden/<name>.json`` (the OLD loader's output,
   captured by ``tools/capture_reference_golden.py``) must be reproduced exactly by
   ``GOLDEN_GETTERS[name]`` reading the committed database.
-- While a source still exists in both ``reference_src/`` and ``reference_data/``
-  (copied, not yet moved), the two copies must not drift.
+- ``reference_data/`` is retired; only ``reference_src/`` may hold sources.
 """
 from __future__ import annotations
 
@@ -44,11 +43,11 @@ def test_getter_matches_old_loader_golden(shipped, name):
     assert_getter_matches_golden(name, GOLDEN_GETTERS[name](shipped))
 
 
-def test_sources_not_yet_moved_do_not_drift():
-    for src in sorted((ROOT / "reference_src").rglob("*")):
-        legacy = ROOT / "reference_data" / src.relative_to(ROOT / "reference_src")
-        if src.is_file() and legacy.is_file():
-            assert src.read_bytes() == legacy.read_bytes(), f"{src.name} differs between reference_src/ and reference_data/"
+def test_reference_data_directory_is_retired():
+    """reference_src/ is the only source tree; a stray reference_data/ copy would be
+    an unchecked second source of truth (the old drift guard compared the two)."""
+    assert (ROOT / "reference_src").is_dir()
+    assert not (ROOT / "reference_data").exists(), "reference_data/ was retired; use reference_src/"
 
 
 def test_field_tiers_cover_the_catalog_with_known_tiers(shipped):
