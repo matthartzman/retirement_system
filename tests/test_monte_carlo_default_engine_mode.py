@@ -16,10 +16,7 @@ from conftest import TEST_INPUT_DIR
 class ReleaseMonteCarloBehaviorTests(unittest.TestCase):
     def test_monte_carlo_defaults_to_vectorized_and_exact_scalar_is_opt_in(self):
         data = plan_data()
-        try:
-            cfg = prepare_config_from_sectioned_data(data, "")
-        except ValueError as exc:
-            self.skipTest(f"Sample legacy flat input is missing current engine registry fields: {exc}")
+        cfg = prepare_config_from_sectioned_data(data, "")
         cfg["mc_sims"] = 4
         cfg["mc_sensitivity_sims"] = 1
         cfg["plan_end"] = cfg["plan_start"] + 1
@@ -108,10 +105,7 @@ class ReleaseMonteCarloBehaviorTests(unittest.TestCase):
         check the signed gap first and re-measure across seeds before widening.
         """
         data = plan_data()
-        try:
-            cfg = prepare_config_from_sectioned_data(data, "")
-        except ValueError as exc:
-            self.skipTest(f"Sample legacy flat input is missing current engine registry fields: {exc}")
+        cfg = prepare_config_from_sectioned_data(data, "")
         cfg["mc_sims"] = 400
         cfg["mc_sensitivity_sims"] = 1
 
