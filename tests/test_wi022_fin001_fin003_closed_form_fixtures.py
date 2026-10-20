@@ -148,12 +148,6 @@ def test_cascade_niit_uses_magi_that_includes_brokerage_gain():
 
 # ---- FIN-001 phase 1: IRMAA MAGI (xfail until WI-024 phase 1) ---------------
 
-@pytest.mark.xfail(
-    strict=False,
-    reason="FIN-001 phase 1 / WI-024 not implemented: only the home/rental sale gain is added to "
-           "irmaa_magi_current (deterministic_engine.py:1236-1241); the cascade's brokerage gain "
-           "is not, so the two-year IRMAA lookback sees too little income.",
-)
 def test_irmaa_magi_includes_brokerage_gain_realized_in_year(frozen_rows):
     _c, rows = frozen_rows
     checked = 0

@@ -1435,6 +1435,19 @@ def run_deterministic_projection_stage(c):
         total_tax_pre_niit = _priority4b.total_tax_pre_niit
         total_tax = _priority4b.total_tax
         irmaa_magi_current = _priority4b.irmaa_magi_current
+        # WI-024 phase 1 / FIN-001: the net gain realized by selling taxable
+        # (brokerage) holdings in the cascade is part of AGI, hence of IRMAA MAGI
+        # (read two years later by the lookback). Net of the capital-loss usage
+        # against gains, and excluding the home/rental sale gain already added
+        # above (``sale_gain_in_agi``). IRMAA only: NIIT, ACA and Social Security
+        # taxation (phase 2) are deliberately unchanged. ``agi`` is not changed.
+        _brokerage_gain = max(0.0, float(ltcg_gain or 0.0))
+        _brokerage_used = min(max(0.0, float(row.get('cap_loss_used') or 0.0)), _brokerage_gain)
+        _brokerage_net_gain = max(0.0, _brokerage_gain - _brokerage_used - sale_gain_in_agi)
+        if _brokerage_net_gain > 0:
+            irmaa_magi_current += _brokerage_net_gain
+            row['irmaa_magi_current'] = irmaa_magi_current
+            row['brokerage_gain_in_irmaa_magi'] = _brokerage_net_gain
         ira_wd = _priority4b.ira_wd
         h_ira_elective = _priority4b.h_ira_elective
         w_ira_elective = _priority4b.w_ira_elective
