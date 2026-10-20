@@ -34,8 +34,8 @@ Plan Data is complete.
 **Third-party import auto-update** — if another process places exported
 transactions and daily account balances in a folder, this app can import new
 and changed ones once a day. Turn it on from **Settings → Data & Maintenance**,
-on the card headed **Third-party import auto-update**: check **Enable daily
-auto-update**, confirm the source folder and run time, and it saves on its own,
+on the card headed **Third-party import auto-update**: check
+**Enable daily auto-update**, confirm the source folder and run time, and it saves on its own,
 with no separate save button. Use **Import now** on the same card any time you
 want to pull in the latest files without waiting for the daily run. The
 **Account Reconciliation** page (under Reports & Review) then shows the app's
