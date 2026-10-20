@@ -42,6 +42,9 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    // 1600px keeps the three-column desktop layout the specs were written
+    // against; below 1500px the help pane is an overlay drawer (WI-014) that
+    // covers the right-hand page controls (Build Reports, etc.) while open.
+    { name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1600, height: 900 } } },
   ],
 });
