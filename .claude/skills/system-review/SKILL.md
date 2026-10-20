@@ -1,6 +1,6 @@
 ﻿---
 name: system-review
-description: Perform a read-only, evidence-backed, system-wide review of a retirement-planning application. Use for complete system reviews, health checks, consolidated improvement plans, expert-panel reviews, and full architectural, usability, documentation, quality, and financial-planning assessments. Do not use for a single diff or isolated change; use /code-review instead.
+description: Perform a read-only, evidence-backed, system-wide review of a retirement-planning application. Use for complete system reviews, health checks, consolidated improvement plans, expert-panel reviews, and full architectural, efficiency, consistency, usability, documentation, quality, and financial-planning assessments. Do not use for a single diff or isolated change; use /code-review instead.
 ---
 
 # System Review
