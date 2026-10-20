@@ -1,3 +1,9 @@
+## 2026-10-20 — WI-024 phase 1 (FIN-001, IRMAA MAGI only): fixtures re-recorded, pins unchanged
+
+<!-- fixture-provenance: deterministic_engine_full_row_snapshot_cases.json sha256=fb03cd1b515a636f4156f3c232286ebd1b2a5a0d94271e0a5a246e372e0aab24 -->
+
+Phase 1 is pinned separately from phase 2 (NIIT, ACA, Social Security). `PINNED_TERMINAL_NW` and `PINNED_LIFETIME_TAX` are unchanged: no headline figure moved (terminal NW 5,383,495.40, lifetime tax 1,236,390.19, Roth conversions unchanged; every KPI and IRMAA tier unchanged). Re-recorded with planner sign-off through `tools/regen_full_row_snapshot.py --reason` and `tools/golden_compare.py record --plan sample_frozen --reason`. Only the IRMAA MAGI diagnostics (`irmaa_magi_current`, `irmaa_magi_used`) and the new row field `brokerage_gain_in_irmaa_magi` changed: the net realized brokerage gain is now part of IRMAA MAGI, read by the two-year lookback.
+
 ## 2026-10-20 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
 
 <!-- pin-provenance: terminal_nw=5383495.40 lifetime_tax=1236390.19 -->
