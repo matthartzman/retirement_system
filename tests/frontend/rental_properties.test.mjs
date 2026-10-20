@@ -101,7 +101,7 @@ describe("list page", () => {
     assert.equal(sandbox.rentalWarningsHtml([], new Set(), "", false), "");
   });
   test("double-count warning offers Review Other Assets", () => {
-    assert.match(sandbox.rentalWarningsHtml(DATA.warnings, new Set(), "", false), /setStep\('assets_special'\)">Review Other Assets/);
+    assert.match(sandbox.rentalWarningsHtml(DATA.warnings, new Set(), "", false), /navigateTo\('assets_special'\)">Review Other Assets/);
   });
   test("table and phone cards carry the same rows and actions; read-only has none", () => {
     const html = sandbox.rentalTableHtml(DATA, false);

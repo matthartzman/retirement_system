@@ -2,7 +2,7 @@
 
 export function renderSurvivorStress() {
   const rs = rowsForStep("survivor_stress");
-  let html = `<div class="section-note">These are the key inputs driving the Survivor workbook sheet. The primary risks: single-filer tax bracket compression, loss of one Social Security stream, and accelerated required distributions. Change mortality ages or filing status on <a href="#" onclick="setStep('household_people');return false">Household &amp; People</a> to adjust the base assumptions. After rebuilding, view the full Survivor analysis on <a href="#" onclick="setStep('detailed_results');return false">Retirement Plan Workbook</a>.</div>`;
+  let html = `<div class="section-note">These are the key inputs driving the Survivor workbook sheet. The primary risks: single-filer tax bracket compression, loss of one Social Security stream, and accelerated required distributions. Change mortality ages or filing status on <a href="#" onclick="navigateTo('household_people');return false">Household &amp; People</a> to adjust the base assumptions. After rebuilding, view the full Survivor analysis on <a href="#" onclick="navigateTo('detailed_results');return false">Retirement Plan Workbook</a>.</div>`;
   return (
     html +
     (rs.length
@@ -13,9 +13,9 @@ export function renderSurvivorStress() {
 
 export function renderLtcStress() {
   if (!optionalFunctionEnabled("long_term_care_stress"))
-    return '<div class="field-list"><p>Long-Term Care Stress inputs are hidden until the Long-Term-Care Stress optional workbook module is enabled on <a href="#" onclick="setStep(\'optional_functions\');return false">Plan Features</a>.</p></div>';
+    return '<div class="field-list"><p>Long-Term Care Stress inputs are hidden until the Long-Term-Care Stress optional workbook module is enabled on <a href="#" onclick="navigateTo(\'optional_functions\');return false">Plan Features</a>.</p></div>';
   const rs = rowsForStep("ltc_stress");
-  let html = `<div class="section-note">Set care cost and duration, then rebuild. Policy details (benefit amount, elimination period) are on <a href="#" onclick="setStep('assets_special');return false">Other assets</a>.</div>`;
+  let html = `<div class="section-note">Set care cost and duration, then rebuild. Policy details (benefit amount, elimination period) are on <a href="#" onclick="navigateTo('assets_special');return false">Other assets</a>.</div>`;
   return (
     html +
     (rs.length

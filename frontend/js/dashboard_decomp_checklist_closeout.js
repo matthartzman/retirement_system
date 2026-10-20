@@ -723,7 +723,7 @@ export function taxFreshnessBannerHtml() {
         `<li><b>${esc(r.constant || "")}</b> (${esc(r.category || "")}) — last confirmed for ${esc(r.year || "unknown")}${r.last_reviewed ? ", reviewed " + esc(r.last_reviewed) : ""}: ${esc(r.status || "REVIEW_REQUIRED")}</li>`,
     )
     .join("");
-  return `<div class="section-note warning"><b>${rows.length} reference constant${rows.length === 1 ? " needs" : "s need"} annual review.</b> These drive tax brackets, IRMAA, Social Security, state tax, and capital market return calculations — confirm against the current-year source before relying on projections.<ul class="inapp-modal-list">${items}</ul><button class="btn tiny" type="button" onclick="setStep('system_configuration');setTimeout(()=>openSystemConfigurationConsole(),0)">Open tax-law dashboard</button></div>`;
+  return `<div class="section-note warning"><b>${rows.length} reference constant${rows.length === 1 ? " needs" : "s need"} annual review.</b> These drive tax brackets, IRMAA, Social Security, state tax, and capital market return calculations — confirm against the current-year source before relying on projections.<ul class="inapp-modal-list">${items}</ul><button class="btn tiny" type="button" onclick="navigateTo('system_configuration').then((ok)=>ok&&openSystemConfigurationConsole())">Open tax-law dashboard</button></div>`;
 }
 
 export function renderDetailedResults() {

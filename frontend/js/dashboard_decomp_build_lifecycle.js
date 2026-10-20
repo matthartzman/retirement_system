@@ -6,15 +6,15 @@
    converted to a real ES module. Unlike dashboard_decomp_local_backups.js
    (which stayed classic), none of this file's functions are called from
    dashboard.js's own synchronous top-level boot chain -- every call site
-   (buildWithProgress, cancelBuild, setBuildOverlay, etc.) lives inside a
-   user-triggered action (Build Reports / Download / Cancel), which can only
+   (buildWithProgress, hideBuildInBackground, setBuildOverlay, etc.) lives inside a
+   user-triggered action (Build Reports / Download / Hide), which can only
    fire after the page has finished loading. All the module-level state these
    functions read/write (buildOverlayStartedAt, buildOverlayDepth,
    buildProgressTicker, sessionBaselineSummary, ...) is owned by dashboard.js
    itself (`let` declarations, not this file's), which modules can read and
    write as bare identifiers the same as any other classic-script global (see
-   dashboard_decomp_holdings.js's header for why). buildCancelled is the one
-   piece of state this file owns; nothing outside reads or writes it. */
+   dashboard_decomp_holdings.js's header for why). buildHiddenByUser is the one
+   piece of state this file owns; runBuild reads it through buildWasHiddenByUser(). */
 export function formatElapsed(ms) {
   const total = Math.max(0, Math.floor(ms / 1000));
   const m = Math.floor(total / 60),
@@ -79,6 +79,10 @@ export function setBuildOverlay(active, title, detail, pct, popupId) {
     clearInterval(buildOverlayTimer);
     buildOverlayTimer = null;
   }
+  // Only a real build can be hidden-and-continued; "Saving changes"/"Loading plan" and the
+  // other shared popups have nothing to hide, so they get no button at all.
+  if (active && buildOverlayDepth === 1)
+    overlay.classList.toggle("no-cancel", String(popupId || "") !== "build");
   overlay.classList.toggle("active", !!active);
   overlay.classList.toggle("done", false);
   overlay.classList.toggle("error", false);
@@ -120,21 +124,56 @@ export function updateBuildOverlay(title, detail, pct, state) {
   }
   refreshBuildOverlayTimer();
 }
-let buildCancelled = false;
-export async function cancelBuild() {
-  if (
-    !(await showInAppConfirm("The workbook will be left incomplete.", {
-      title: "Cancel Build",
-      confirmLabel: "Cancel Build",
-      cancelLabel: "Keep Building",
-      variant: "warn",
-    }))
-  )
-    return;
-  buildCancelled = true;
+// UX-002 / WI-019: there is no server-side build cancellation (the build is a subprocess that
+// runs to completion), so the overlay button no longer says "Cancel". It hides the progress
+// window, keeps a visible "build still running" chip, and tells runBuild() the user has moved
+// on so it does not navigate them away when the job later finishes.
+let buildHiddenByUser = false;
+export function buildWasHiddenByUser() {
+  return buildHiddenByUser;
+}
+export function resetBuildHidden() {
+  buildHiddenByUser = false;
+  setBuildRunningChip(false);
+}
+export function setBuildRunningChip(show) {
+  let chip = document.getElementById("buildRunningChip");
+  if (!chip && show) {
+    chip = document.createElement("div");
+    chip.id = "buildRunningChip";
+    chip.className = "build-running-chip";
+    chip.setAttribute("role", "status");
+    chip.innerHTML =
+      '<span>Build still running in the background.</span> <button class="btn" type="button" onclick="showBuildProgress()">Show progress</button>';
+    document.body.appendChild(chip);
+  }
+  if (chip) chip.hidden = !show;
+}
+export function hideBuildInBackground() {
+  buildHiddenByUser = true;
+  // Close the window outright (whatever the overlay nesting depth) without recording a
+  // partial run-time sample; the build itself is untouched.
+  buildOverlayStartedAt = 0;
+  buildOverlayDepth = 1;
   hideBuildOverlay();
   setAppControls(true);
-  showMessage("Build cancelled.", "warn");
+  setBuildRunningChip(true);
+  showMessage(
+    "Build is still running in the background. You will be told when it finishes.",
+    "info",
+    { persistent: true },
+  );
+}
+export function showBuildProgress() {
+  buildHiddenByUser = false;
+  setBuildRunningChip(false);
+  setBuildOverlay(
+    true,
+    buildOverlayLastTitle || "Building workbook",
+    "",
+    buildOverlayLastPct || "waiting",
+    "build",
+  );
 }
 export function hideBuildOverlay() {
   if (buildOverlayDepth > 0) buildOverlayDepth--;
@@ -377,7 +416,11 @@ Object.assign(window, {
   refreshBuildOverlayTimer,
   setBuildOverlay,
   updateBuildOverlay,
-  cancelBuild,
+  hideBuildInBackground,
+  showBuildProgress,
+  buildWasHiddenByUser,
+  resetBuildHidden,
+  setBuildRunningChip,
   hideBuildOverlay,
   startBuildProgressTicker,
   stopBuildProgressTicker,

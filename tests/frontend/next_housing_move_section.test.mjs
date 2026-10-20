@@ -102,7 +102,7 @@ describe("off-state", () => {
       html,
     );
     assert.ok(html.includes("Open Plan Features"));
-    assert.ok(html.includes("setStep('optional_functions')"));
+    assert.ok(html.includes("navigateTo('optional_functions')"));
     assert.ok(html.includes('class="small next-housing-saved"'), "values listed muted");
     assert.ok(html.includes("Florida from 2040"));
     assert.ok(html.includes("900000"));

@@ -92,7 +92,7 @@ export function featureGatedNote(key, opts = {}) {
   const countNote = (n ? ` ${offRowsLabel(n)}.` : "") + (engineIgnoredWarning(meta) ? ` ${engineIgnoredWarning(meta)}` : "");
   // Every optional feature's switch lives on Plan Features only -- no inline
   // switch here, just the one link.
-  const action = `<a href="#" onclick="setStep('optional_functions');return false">Turn it on in Plan Features</a>`;
+  const action = `<a href="#" onclick="navigateTo('optional_functions');return false">Turn it on in Plan Features</a>`;
   return `<div class="section-note">${esc(title)} is off.${countNote} ${action}.</div>`;
 }
 

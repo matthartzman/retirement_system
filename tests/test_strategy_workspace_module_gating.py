@@ -117,7 +117,7 @@ def test_the_enable_note_is_one_generic_link_to_plan_features():
     assert "Enable HELOC Strategy" not in note_fn
     assert "InlineSwitch(" not in note_fn
     assert "editValue(" not in note_fn
-    assert "setStep('optional_functions')" in note_fn
+    assert "navigateTo('optional_functions')" in note_fn
     # The catalog still owns the flag's own enable label.
     assert flag_gate_map()["heloc_strategy"]["enable_label"] == "Enable HELOC Strategy"
 

@@ -160,15 +160,27 @@
     const fwd=document.getElementById('navForwardBtn');
     if(fwd)fwd.disabled=!canGoForward();
   }
+  // UX-009 / WI-021: Back and Forward used to call setStep() directly, so they skipped the
+  // autosave / 3-way unsaved guard the left nav applies. They (and navigateTo, below) now go
+  // through guardedNavigate; the history index only moves once the guard lets the user through.
   function goBackInHistory(ctx){
-    if(!canGoBack())return;
-    historyIndex--;
-    setStep(ctx,historyStack[historyIndex],{skipHistory:true});
+    if(!canGoBack())return Promise.resolve(false);
+    const to=historyIndex-1;
+    return guardedNavigate(ctx,historyStack[to],function(){historyIndex=to;setStep(ctx,historyStack[to],{skipHistory:true});},{skipWhenClean:true});
   }
   function goForwardInHistory(ctx){
-    if(!canGoForward())return;
-    historyIndex++;
-    setStep(ctx,historyStack[historyIndex],{skipHistory:true});
+    if(!canGoForward())return Promise.resolve(false);
+    const to=historyIndex+1;
+    return guardedNavigate(ctx,historyStack[to],function(){historyIndex=to;setStep(ctx,historyStack[to],{skipHistory:true});},{skipWhenClean:true});
+  }
+
+  const BASE_TITLE=(typeof document!=='undefined'&&document.title)||'Retirement Planner';
+  function announcePage(id){
+    const title=safeCall(()=>typeof window.stepTitleById==='function'?window.stepTitleById(id):'')||String(id||'');
+    if(!title)return;
+    try{document.title=title+' - '+BASE_TITLE;}catch(_e){}
+    const live=document.getElementById('navAnnouncer');
+    if(live)live.textContent='Now on '+title;
   }
 
   function setStep(ctx,id,opts){
@@ -206,6 +218,7 @@
       updateHistoryNavButtons();
       safeCall(ctx.renderMain);
       setTimeout(()=>{try{window.scrollTo({top:0,behavior:'smooth'});}catch(_e){}},0);
+      announcePage('start');
       return;
     }
     safeCall(()=>ctx.setActiveStep(id));
@@ -228,6 +241,16 @@
     const scrollAndFocus=()=>setTimeout(()=>{
       try{window.scrollTo({top:0,behavior:'smooth'});}catch(_e){}
       revealPendingSection();
+      // UX-008 / WI-021: the page change is announced (document title + polite live region) and
+      // focus lands on the new page's heading, so a keyboard or screen-reader user starts at the top
+      // of the page they just opened instead of on whatever field happens to come first.
+      announcePage(id);
+      const heading=document.querySelector('#mainPane h2, #mainPane h1');
+      if(heading&&heading.focus){
+        heading.setAttribute('tabindex','-1');
+        try{heading.focus({preventScroll:true});}catch(_e){heading.focus();}
+        return;
+      }
       const entries=safeCall(ctx.focusableEntries)||[];
       const first=entries.find(el=>el&&el.closest&&el.closest('#mainPane'));
       if(first&&first.focus)first.focus();
@@ -267,10 +290,60 @@
     return ctx.saveWorkingCopy?ctx.saveWorkingCopy():Promise.resolve(true);
   }
 
+  // The one user-navigation guard (left nav, Back/Forward, in-page jump links via navigateTo):
+  // autosave pages save first (and stay put when the save fails), explicit-save pages get the
+  // 3-way Save/Discard/Stay choice. `go` performs the actual step change (default: ctx.setStep).
+  // opts.skipWhenClean: when nothing is unsaved, navigate at once -- no save, no "Auto-saved." toast
+  // (the left nav keeps its original always-autosave behaviour). Resolves true when it navigated.
+  function guardedNavigate(ctx,targetStep,go,opts){
+    ctx=ctx||{};
+    opts=opts||{};
+    go=go||function(){ctx.setStep(targetStep);};
+    const fromStep=safeCall(ctx.getActiveStep)||'';
+    if(opts.skipWhenClean&&!safeCall(ctx.hasUnsavedPlanChanges)){go();return Promise.resolve(true);}
+    if(AUTOSAVE_STEPS.includes(fromStep)){
+      return Promise.resolve(saveCurrentStep(ctx,fromStep)).then(function(result){
+        if(result===false){
+          // saveWorkingCopy() already called showMessage() with the specific
+          // reason (e.g. "Residency row 2 needs an end year...") before
+          // returning false -- showing a second, generic message here just
+          // overwrites that useful text with an unactionable one, and one
+          // that also falsely implies a field gets highlighted (nothing
+          // does). Leave the specific message on screen instead.
+          return false;
+        }
+        safeCall(()=>ctx.showMessage('Auto-saved.','success'));
+        go();
+        return true;
+      }).catch(function(err){
+        safeCall(()=>ctx.showMessage('Auto-save failed — correct the error before leaving this step. ('+((err&&err.message)||String(err))+')','error'));
+        return false;
+      });
+    }
+    if(safeCall(ctx.hasUnsavedPlanChanges)){
+      // #205: pages kept on the explicit-save model (e.g. system settings) still
+      // get a real 3-way Save/Discard/Stay choice instead of a binary confirm.
+      const decide=ctx.confirmSaveDiscardStay||function(m){return Promise.resolve(window.confirm(m)?'discard':'stay')};
+      return Promise.resolve(decide('You have unsaved changes on this page. Save them before leaving, discard them, or stay?',{title:'Unsaved Changes'})).then(function(choice){
+        if(choice==='save'){
+          return Promise.resolve(safeCall(ctx.saveAll)?ctx.saveAll(true):true).then(function(ok){
+            if(ok!==false){go();return true;}
+            return false;
+          });
+        }
+        if(choice==='discard'){go();return true;}
+        return false;
+      });
+    }
+    go();
+    return Promise.resolve(true);
+  }
+
   function exposeGlobals(ctx){
     window.setStep=function(id){return ctx.setStep(id)};
-    window.navigateHistoryBack=function(){goBackInHistory(ctx)};
-    window.navigateHistoryForward=function(){goForwardInHistory(ctx)};
+    window.navigateTo=function(id){return guardedNavigate(ctx,id,undefined,{skipWhenClean:true})};
+    window.navigateHistoryBack=function(){return goBackInHistory(ctx)};
+    window.navigateHistoryForward=function(){return goForwardInHistory(ctx)};
     window.showStepHelp=ctx.showStepHelp||noop;
     window.jumpRecommendationSource=ctx.jumpRecommendationSource||noop;
     window.planningCaseCreate=ctx.planningCaseCreate||noop;
@@ -305,40 +378,7 @@
       const target=e.target&&e.target.closest?e.target.closest('[data-step-id]'):null;
       if(!target||target.disabled)return;
       e.preventDefault();
-      const fromStep=safeCall(ctx.getActiveStep)||'';
-      const targetStep=target.getAttribute('data-step-id');
-      if(AUTOSAVE_STEPS.includes(fromStep)){
-        Promise.resolve(saveCurrentStep(ctx,fromStep)).then(function(result){
-          if(result===false){
-            // saveWorkingCopy() already called showMessage() with the specific
-            // reason (e.g. "Residency row 2 needs an end year...") before
-            // returning false -- showing a second, generic message here just
-            // overwrites that useful text with an unactionable one, and one
-            // that also falsely implies a field gets highlighted (nothing
-            // does). Leave the specific message on screen instead.
-            return;
-          }
-          safeCall(()=>ctx.showMessage('Auto-saved.','success'));
-          ctx.setStep(targetStep);
-        }).catch(function(err){
-          safeCall(()=>ctx.showMessage('Auto-save failed — correct the error before leaving this step. ('+((err&&err.message)||String(err))+')','error'));
-        });
-      }else if(safeCall(ctx.hasUnsavedPlanChanges)){
-        // #205: pages kept on the explicit-save model (e.g. system settings) still
-        // get a real 3-way Save/Discard/Stay choice instead of a binary confirm.
-        const decide=ctx.confirmSaveDiscardStay||function(m){return Promise.resolve(window.confirm(m)?'discard':'stay')};
-        decide('You have unsaved changes on this page. Save them before leaving, discard them, or stay?',{title:'Unsaved Changes'}).then(function(choice){
-          if(choice==='save'){
-            Promise.resolve(safeCall(ctx.saveAll)?ctx.saveAll(true):true).then(function(ok){
-              if(ok!==false)ctx.setStep(targetStep);
-            });
-          }else if(choice==='discard'){
-            ctx.setStep(targetStep);
-          }
-        });
-      }else{
-        ctx.setStep(targetStep);
-      }
+      guardedNavigate(ctx,target.getAttribute('data-step-id'));
     });
     exposeGlobals(ctx);
   }
@@ -433,6 +473,8 @@
     setSearchScope,
     setCombinedSearch,
     focusableEntries,
-    updateSaveModeBadge
+    updateSaveModeBadge,
+    guardedNavigate,
+    announcePage
   };
 })();

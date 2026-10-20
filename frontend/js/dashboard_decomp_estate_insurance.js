@@ -65,15 +65,18 @@ export function renderEstateStatesTable() {
   html += `</tbody></table></div></div></details>`;
   return html;
 }
+// UX-010: trust type is an enumerated value, chosen rather than typed (the add prompt and the table pulldown).
+const TRUST_TYPES = ["Revocable", "Irrevocable", "Credit Shelter", "QTIP", "Special Needs", "Other"];
 export async function addEstateState(state) {
   try {
     state =
       state ||
-      (await showInAppPrompt("State abbreviation or name:", "", {
+      (await showInAppPrompt("State:", "", {
         title: "Add Estate State",
-        placeholder: "e.g. CA, NY",
+        choices: [{ value: "", label: "Choose a state" }].concat(_stateNameChoiceOptions()),
       }));
     if (!state) return;
+    if (!(await saveBeforeStructuralChange())) return;
     const out = await api("/api/estate-state/add", {
       method: "POST",
       body: JSON.stringify({ state }),
@@ -91,13 +94,12 @@ export async function addTrustAccount() {
       title: "Add Trust Account",
     });
     if (!name) return;
-    const rawType = await showInAppPrompt("Trust type:", "Revocable", {
+    const type = await showInAppPrompt("Trust type:", "Revocable", {
       title: "Trust Type",
-      placeholder:
-        "Revocable, Irrevocable, Credit Shelter, QTIP, Special Needs, Other",
+      choices: TRUST_TYPES,
     });
-    if (rawType === null) return;
-    const type = rawType || "Revocable";
+    if (type === null) return;
+    if (!(await saveBeforeStructuralChange())) return;
     const out = await api("/api/trust-account/add", {
       method: "POST",
       body: JSON.stringify({ account_name: name, trust_type: type }),
@@ -127,7 +129,7 @@ export function renderTrustAccountsTable() {
     const rs = bySub[sub];
     const name = rs.find((r) => norm(r.label) === "account_name");
     const typ = rs.find((r) => norm(r.label) === "trust_type");
-    html += `<details><summary>${esc(translatePersonPlaceholders(name ? valOf(name) : sub))} · ${typ ? `<select onclick="event.stopPropagation()" onchange="editValue(${typ.row_index},this.value,this)">${["Revocable", "Irrevocable", "Credit Shelter", "QTIP", "Special Needs", "Other"].map((x) => `<option value="${esc(x)}" ${norm(valOf(typ)) === norm(x) ? "selected" : ""}>${esc(x)}</option>`).join("")}</select>` : esc(translatePersonPlaceholders(sub))}</summary><div class="field-list">${rs.map(fieldHtml).join("")}</div></details>`;
+    html += `<details><summary>${esc(translatePersonPlaceholders(name ? valOf(name) : sub))} · ${typ ? `<select onclick="event.stopPropagation()" onchange="editValue(${typ.row_index},this.value,this)">${TRUST_TYPES.map((x) => `<option value="${esc(x)}" ${norm(valOf(typ)) === norm(x) ? "selected" : ""}>${esc(x)}</option>`).join("")}</select>` : esc(translatePersonPlaceholders(sub))}</summary><div class="field-list">${rs.map(fieldHtml).join("")}</div></details>`;
   });
   html += `</div></details>`;
   return html;
@@ -270,7 +272,7 @@ export function renderQcdTable(rs) {
   );
 }
 export function renderEntityCharitable() {
-  let html = `<div class="section-note">Qualified charitable distributions (age 70½+) satisfy required distributions without the amount appearing as taxable income. S-Corp election is a self-employment decision, entered on <a href="#" onclick="setStep('income_work');return false">Work Income</a>.</div>`;
+  let html = `<div class="section-note">Qualified charitable distributions (age 70½+) satisfy required distributions without the amount appearing as taxable income. S-Corp election is a self-employment decision, entered on <a href="#" onclick="navigateTo('income_work');return false">Work Income</a>.</div>`;
   if (searchText.trim()) return html + renderFields("entity_charitable");
   const rs = rowsForStep("entity_charitable", { includeInactive: true });
   // #330 §5.2/§5.3 (W12): DAF and QCD are each gated by their OWN plan flag,
@@ -489,9 +491,9 @@ export function renderInsurancePolicyGroup(opts) {
       // isn't silently authoritative without explanation.
       const budgetNote =
         norm(typ) === "auto"
-          ? `<div class="section-note">This policy's Annual Premium now sets the "Auto Insurance" spending budget amount, replacing the value entered on <a href="#" onclick="setStep('spending_core');return false">Spending Categories</a>.</div>`
+          ? `<div class="section-note">This policy's Annual Premium now sets the "Auto Insurance" spending budget amount, replacing the value entered on <a href="#" onclick="navigateTo('spending_core');return false">Spending Categories</a>.</div>`
           : norm(typ) === "home"
-            ? `<div class="section-note">This policy's Annual Premium now sets the homeowners-insurance baseline used on <a href="#" onclick="setStep('state_residency');return false">State Residency Analysis</a>, replacing the value entered on <a href="#" onclick="setStep('spending_mortgage_events');return false">Housing</a>.</div>`
+            ? `<div class="section-note">This policy's Annual Premium now sets the homeowners-insurance baseline used on <a href="#" onclick="navigateTo('state_residency');return false">State Residency Analysis</a>, replacing the value entered on <a href="#" onclick="navigateTo('spending_mortgage_events');return false">Housing</a>.</div>`
             : "";
       const body = prs
         .filter((r) => r !== typeRow)
@@ -547,6 +549,7 @@ export function renderInsurancePolicies() {
 }
 export async function addInsurancePolicy() {
   try {
+    if (!(await saveBeforeStructuralChange())) return;
     const isLife = norm(newInsurancePolicyType) === "life";
     const out = await api("/api/insurance-policy/add", {
       method: "POST",
@@ -582,6 +585,7 @@ export async function deleteInsurancePolicy(evt, subsection) {
   )
     return;
   try {
+    if (!(await saveBeforeStructuralChange())) return;
     const wasLife = /^life(_|$)/i.test(String(subsection || "").trim());
     const out = await api("/api/insurance-policy/delete", {
       method: "POST",
