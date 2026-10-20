@@ -290,6 +290,13 @@ def run_projection_artifacts(c: Mapping[str, Any], run_mc: bool = True, enforce_
         cfg.setdefault('config_contract_warnings', []).append(f'Advisor readiness analysis failed: {exc}')
         cfg['advisor_readiness'] = {'status': 'REVIEW_REQUIRED', 'warnings': [str(exc)], 'is_advisor_ready': False}
     try:
+        # WI-010 / WI-010a: display-only limitation notices; no calculation reads them.
+        from .limitation_notices import evaluate_notices
+        cfg['limitation_notices'] = evaluate_notices(cfg, rows)
+    except Exception:
+        _LOG.exception('limitation notices step failed')
+        cfg['limitation_notices'] = []
+    try:
         if cfg.get('roth_policy') not in (None, '', 'none'):
             from .planning_engines import roth_guardrail_analysis
             cfg['roth_guardrail_analysis'] = roth_guardrail_analysis(cfg, rows)

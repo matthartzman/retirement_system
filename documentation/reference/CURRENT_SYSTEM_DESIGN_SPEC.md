@@ -482,10 +482,10 @@ by `frontend/js/admin.js` rather than the dashboard scripts.
 
 ### 7.2 Monolith-being-decomposed pattern
 
-This is not a bundler-based SPA. ~30 `dashboard_decomp_*.js` files plus
-`dashboard.js` itself (still ~7,500 lines) are loaded as a mix of classic
+This is not a bundler-based SPA. Dozens of `dashboard_decomp_*.js` files plus
+`dashboard.js` itself (several thousand lines) are loaded as a mix of classic
 `<script>` and ES `type="module"` tags. `dashboard.js` remains the core: it
-owns the `STEPS` catalog (~35 guided steps with id/group/title/help), the
+owns the `STEPS` catalog (about 30 guided steps with id/group/title/help), the
 large `renderMain()` string-template switch, and dozens of module-level `let`
 globals (`rows`, `activeStep`, `planLoaded`, `holdingsChanged`, etc.). Each
 `dashboard_decomp_*` file is a mechanically extracted slice of that

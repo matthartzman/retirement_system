@@ -1,8 +1,8 @@
 """W8b: `hsa_drawdown` became optional, and Sheet 11 had a dangling pointer.
 
-Master plan `docs/superpowers/plans/2026-09-19-optimizers-modules-housing-
+Master plan `documentation/archive/superpowers/plans/2026-09-19-optimizers-modules-housing-
 master-plan.md` §4, W8b (#330 P6b). Notes:
-`docs/superpowers/plans/2026-09-22-w8b-newly-optional-medium-risk-notes.md`.
+`documentation/archive/superpowers/plans/2026-09-22-w8b-newly-optional-medium-risk-notes.md`.
 
 Two independent switches decide what the HSA drawdown schedule looks like, and
 W8b is where they stop being the same thing:

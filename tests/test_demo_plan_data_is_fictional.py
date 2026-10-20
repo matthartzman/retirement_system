@@ -84,13 +84,23 @@ def test_demo_directory_exists():
     assert (DEMO / "client_holdings.csv").exists()
 
 
+def test_demo_populates_the_household_identifying_fields():
+    """Guards the sensitive-field comparison below against passing vacuously:
+    the demo must itself carry values for these fields."""
+    demo = _all_sectioned(DEMO)
+    populated = [k for k in SENSITIVE if demo.get(k) not in (None, "")]
+    assert len(populated) >= len(SENSITIVE) // 2, (
+        f"demo plan populates only {len(populated)} of {len(SENSITIVE)} household-identifying fields"
+    )
+
+
 @pytest.mark.parametrize("key", SENSITIVE, ids=lambda k: f"{k[0]}|{k[1]}|{k[2]}")
 def test_sensitive_field_differs_from_live_plan(key):
     demo, live = _all_sectioned(DEMO), _all_sectioned(LIVE)
     d, l = demo.get(key), live.get(key)
-    if d in (None, "") or l in (None, ""):
-        pytest.skip(f"{key} not present in both demo and live plan")
-    assert d != l, (
+    # Nothing to compare unless both plans carry a value; the aggregate test
+    # below guarantees the demo itself is populated.
+    assert d in (None, "") or l in (None, "") or d != l, (
         f"Demo plan field {key} matches the live plan ({d!r}). input/demo/ must "
         "never be a copy of the advisor's real data -- regenerate it with "
         "invented figures rather than copying the current plan."
@@ -206,8 +216,6 @@ def _live_plan_is_populated() -> bool:
 def test_no_budget_line_label_is_shared_with_the_live_plan():
     """Budget *line* labels are free text the advisor types -- real children's
     first names and personal notes ("10k for each child in 2026") lived here."""
-    if not _live_plan_is_populated():
-        pytest.skip("live plan is currently blank (no member_1_dob) -- nothing to leak")
 
     def line_labels(p):
         # line_mode=summary rows are the app's own auto-synced roll-ups.
@@ -226,12 +234,12 @@ def test_no_budget_line_label_is_shared_with_the_live_plan():
     # name, so those coinciding is shared taxonomy, not leaked data. Anything
     # else in a line label was typed by hand.
     taxonomy_names = set()
-    with (LIVE / "client_spending_taxonomy.csv").open(newline="", encoding="utf-8-sig") as f:
-        for row in csv.DictReader(f):
-            name = (row.get("display_name") or row.get("label") or "").strip()
-            if name:
-                taxonomy_names.add(name)
-    shared = (demo & live) - taxonomy_names
+    for row in _budget_rows(LIVE / "client_spending_taxonomy.csv"):  # [] when no live plan exists
+        name = (row.get("display_name") or row.get("label") or "").strip()
+        if name:
+            taxonomy_names.add(name)
+    # A blank live plan has nothing to leak; its placeholder labels would match by coincidence.
+    shared = ((demo & live) - taxonomy_names) if _live_plan_is_populated() else set()
     assert not shared, (
         f"demo budget lines reuse the live plan's labels: {sorted(shared)}. These are "
         "hand-typed by the advisor and routinely name real people."
@@ -271,11 +279,10 @@ def _target_allocation(base: Path) -> dict:
 def test_demo_target_allocation_is_not_the_live_plans():
     """The target weights are the advisor's own portfolio policy, not a
     statutory constant -- the demo needs its own."""
-    if not _live_plan_is_populated():
-        pytest.skip("live plan is currently blank (no member_1_dob) -- nothing to leak")
     demo, live = _target_allocation(DEMO), _target_allocation(LIVE)
     assert demo, "input/demo/target_allocation.csv is missing or empty"
-    assert demo != live, "demo target_allocation.csv is a copy of the live plan's target weights"
+    # A blank live plan seeds default weights that may coincide; only compare a populated one.
+    assert not _live_plan_is_populated() or demo != live, "demo target_allocation.csv is a copy of the live plan's target weights"
 
 
 def test_demo_target_allocation_matches_the_demo_allocation_policy():
@@ -299,8 +306,6 @@ def test_demo_budget_recovery_seed_is_fictional():
     whenever the category rows total zero. If the demo does not ship (and
     apply) its own, that merge pulls the advisor's real annualized actuals
     into the demo household's budget."""
-    if not _live_plan_is_populated():
-        pytest.skip("live plan is currently blank (no member_1_dob) -- nothing to leak")
     seed = DEMO / "client_spending_budget.recovery_seed.csv"
     assert seed.exists(), "input/demo/client_spending_budget.recovery_seed.csv is missing"
     demo_rows = {(r.get("kind"), r.get("key"), r.get("label"), r.get("annual_budget")) for r in _budget_rows(seed)}
@@ -308,7 +313,10 @@ def test_demo_budget_recovery_seed_is_fictional():
         (r.get("kind"), r.get("key"), r.get("label"), r.get("annual_budget"))
         for r in _budget_rows(LIVE / "client_spending_budget.recovery_seed.csv")
     }
+    assert demo_rows, "demo recovery seed has no rows"
     shared = {row for row in demo_rows & live_rows if (row[3] or "").strip() not in ("", "0")}
+    if not _live_plan_is_populated():
+        shared = set()  # blank live plan: its seed rows are generic placeholders, not leaks
     assert not shared, f"demo recovery seed carries the live plan's amounts: {sorted(shared)[:3]}"
 
 

@@ -2,7 +2,7 @@
 move's acquisition year, and location).
 
 **The 2026-09-16 refinement decoupled selling from moving** (see
-docs/superpowers/specs/2026-09-16-housing-optimizer-refinement-design.md,
+documentation/archive/superpowers/specs/2026-09-16-housing-optimizer-refinement-design.md,
 §5.1). A candidate is no longer one welded ``(sale_year, purchase_year)``
 pair. It is an ``OriginalHome`` -- sold in a searched year, or kept -- plus a
 tuple of ``Move``s, each with its own ``acquisition_year`` and an explicit

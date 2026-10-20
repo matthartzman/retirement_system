@@ -1,8 +1,8 @@
 """W10a: the Roth optimizer result reaches the UI through plan_summary.json.
 
-Master plan `docs/superpowers/plans/2026-09-19-optimizers-modules-housing-
+Master plan `documentation/archive/superpowers/plans/2026-09-19-optimizers-modules-housing-
 master-plan.md` §4, W10a (#329 P5). Notes:
-`docs/superpowers/plans/2026-09-22-w10a-roth-result-panel-notes.md`.
+`documentation/archive/superpowers/plans/2026-09-22-w10a-roth-result-panel-notes.md`.
 
 #329 §4.5 path 1 -- "read from the last build" -- says the Roth panel should
 display `roth_optimization` / `roth_strategy_result`, which are already

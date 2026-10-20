@@ -1,5 +1,7 @@
 # Roth Conversion Gap Design — Tax Payment Source & Asset-Location-Aware Conversion
 
+Status: planned (design only; its own text says no code was written, and a search of `src/` for the two conversion-source keys still finds nothing, checked in WI-016, 2026-10-20).
+
 Ticket 289, Step 8.3. **Design only — no code in this document, and none was
 written for these two features.** Companion to
 `documentation/archive/superpowers/plans/2026-08-17-roth-guide-audit.md`, which confirmed both

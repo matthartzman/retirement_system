@@ -5,14 +5,24 @@ import asyncio
 import csv
 import hashlib
 import json
+import os
 import sqlite3
 import sys
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from playwright.async_api import TimeoutError as PlaywrightTimeoutError
-from playwright.async_api import async_playwright
+try:
+    from playwright.async_api import TimeoutError as PlaywrightTimeoutError
+    from playwright.async_api import async_playwright
+except ImportError:  # Test seam: data-handling logic needs no browser package.
+    class PlaywrightTimeoutError(Exception):
+        """Placeholder used when playwright is not installed."""
+
+    def async_playwright():
+        raise RuntimeError(
+            "playwright is not installed; run the extractor from its venv."
+        )
 
 
 MONARCH_URL = "https://app.monarchmoney.com"
@@ -52,8 +62,11 @@ PERIOD_LABELS = {
     "last year": "Last year",
 }
 
-RAW_DIR.mkdir(exist_ok=True)
-OUTPUT_DIR.mkdir(exist_ok=True)
+
+def ensure_dirs():
+    """Create the raw and output directories on demand (not at import)."""
+    RAW_DIR.mkdir(parents=True, exist_ok=True)
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def utc_now():
@@ -340,27 +353,45 @@ def save_history_csv(history):
 
     fieldnames = standard_fields + source_fields
 
-    with open(
-        HISTORY_FILE,
-        "w",
-        encoding="utf-8-sig",
-        newline="",
-    ) as file:
-        writer = csv.DictWriter(
-            file,
-            fieldnames=fieldnames,
-            extrasaction="ignore",
-        )
+    ensure_dirs()
 
-        writer.writeheader()
+    # Atomic write: build a temp file beside the target, then replace, so a
+    # crash mid-write cannot truncate the existing history CSV.
+    temp_path = HISTORY_FILE.with_name(HISTORY_FILE.name + ".tmp")
 
-        for transaction in transactions:
-            writer.writerow(
-                transaction_to_flat_row(
-                    transaction,
-                    source_fields,
-                )
+    try:
+        with open(
+            temp_path,
+            "w",
+            encoding="utf-8-sig",
+            newline="",
+        ) as file:
+            writer = csv.DictWriter(
+                file,
+                fieldnames=fieldnames,
+                extrasaction="ignore",
             )
+
+            writer.writeheader()
+
+            for transaction in transactions:
+                writer.writerow(
+                    transaction_to_flat_row(
+                        transaction,
+                        source_fields,
+                    )
+                )
+
+            file.flush()
+            os.fsync(file.fileno())
+
+        os.replace(temp_path, HISTORY_FILE)
+    except BaseException:
+        try:
+            temp_path.unlink()
+        except OSError:
+            pass
+        raise
 
     print(f"Saved {len(transactions)} historical transactions")
     print(f"History output: {HISTORY_FILE}")
@@ -436,6 +467,7 @@ def init_database():
     JSON is stored internally in SQLite to preserve full comparisons; no
     output CSV includes JSON columns.
     """
+    ensure_dirs()
     connection = sqlite3.connect(STATE_DB)
 
     try:
@@ -1228,6 +1260,8 @@ async def download_monarch_csv(headed, period_label):
 
 async def run_export(headed, period_label):
     """Export, deduplicate, queue changes, and regenerate pending CSV backlog."""
+    ensure_dirs()
+
     raw_csv_path = await download_monarch_csv(
         headed=headed,
         period_label=period_label,

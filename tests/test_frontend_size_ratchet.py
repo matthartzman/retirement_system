@@ -185,7 +185,7 @@ DASHBOARD_JS_MAX_LINES = 7_134
 # dashboard.js into new modules, which should not be penalised. This ceiling
 # only catches wholesale duplication.
 # 2026-09-16: raised from 32,000 to 32,730, the measured size with no slack.
-# The housing-optimizer refinement (docs/superpowers/specs/2026-09-16-housing-
+# The housing-optimizer refinement (documentation/archive/superpowers/specs/2026-09-16-housing-
 # optimizer-refinement-design.md) added frontend/js/dashboard_decomp_housing_
 # optimizer.js. Checked against what this ceiling is actually for -- wholesale
 # duplication -- rather than against the number: dashboard.js is byte-for-byte
@@ -211,7 +211,7 @@ DASHBOARD_JS_MAX_LINES = 7_134
 # side's diff alone could see coming; raised to the genuinely measured total
 # of both real, non-duplicate additions.
 # 2026-09-17: raised from 33,076 to 33,217 -- merging the housing-financing-
-# and-zip-ux branch (docs/superpowers/specs/2026-09-16-housing-financing-and-
+# and-zip-ux branch (documentation/archive/superpowers/specs/2026-09-16-housing-financing-and-
 # zip-ux-design.md) into main, which by then already carried the ticket-323
 # Strategy redesign's own raise to 33,076. dashboard_decomp_housing_optimizer.js
 # gained a Purchase assumptions section (down payment %/mortgage rate % inputs,
@@ -414,7 +414,7 @@ DASHBOARD_JS_MAX_LINES = 7_134
 # entry; guarded each with the null check dashboard.js's own rowGateStatus()
 # already uses for the same call, matching an existing convention rather than
 # inventing one. Pure hardening, no calculation change.
-# 2026-09-21 (H1, #331 valuation-as-of-move-year, docs/superpowers/plans/
+# 2026-09-21 (H1, #331 valuation-as-of-move-year, documentation/archive/superpowers/plans/
 # 2026-09-19-optimizers-modules-housing-master-plan.md): on the housing-
 # valuation-h1 branch (PR #133), independently measured at 33,311 before this
 # branch's own changes landed -- the same base value the W5..W13 chain above
@@ -571,7 +571,11 @@ DASHBOARD_JS_MAX_LINES = 7_134
 # 2026-10-19 (items 355/361/358: holdings sort + insert-lot action, year-end header, scenario rows in the Tax
 # Assumptions table, ACA reorder; no dashboard.js growth, +103): raised to 39,445.
 # 2026-10-19 (liability payoff month + carry-zero columns on the Liabilities table, +19): raised to 39,361.
-TOTAL_JS_MAX_LINES = 39_464
+# 2026-10-20 (WI-013 / UX-006: admin.js live-region msg(), in-app confirm dialog, grid aria-labels, +42):
+# raised to 39,499.
+# 2026-10-20 (WI-010 / WI-010a: limitation notices in the preflight panel and Tax Assumptions card, +25):
+# raised to 39,524.
+TOTAL_JS_MAX_LINES = 39_524
 
 
 def _line_count(path: Path) -> int:

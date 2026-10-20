@@ -21,7 +21,7 @@
    dependency on dashboard.js. */
 
 // Planning order for the Spending Model accordions (§3 of
-// docs/superpowers/specs/2026-09-24-taxonomy-and-spending-restructure-design.md).
+// documentation/archive/superpowers/specs/2026-09-24-taxonomy-and-spending-restructure-design.md).
 // Deliberately NOT src/spending_tracker.py's TRACKING_TYPE_ORDER: that one
 // orders reports and CSV output and puts Wellness/Housing last; this one is
 // the order a planner fills the model in.

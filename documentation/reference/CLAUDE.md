@@ -228,7 +228,7 @@ Plan data lives in the plan file, and per-install state in `app.db` (`documentat
 
 **Flat datasets (not section/subsection/label rows)**: plan-file tables, rendered as CSV text by the routes —
 - `holdings_lots` — `account, symbol, purchase_date, shares, purchase_price, lot_type`
-- `liabilities` — auto / HELOC / student-loan debts (amortized into the projection cash flow)
+- `liabilities` — auto / HELOC / student-loan / credit-card / other debts (amortized into the projection cash flow)
 - `spending_budget_lines` — per-line spending budget rows (`section, line_id, label, category_id, start_year, end_year, one_time_year, amount_per_year, mode, notes`)
 
 ### "Start New Plan" vs "Load Saved Plan"
@@ -243,7 +243,7 @@ Plan data lives in the plan file, and per-install state in `app.db` (`documentat
 - `frontend/js/pywebview_bridge.js` — intercepts `fetch()` in desktop mode and routes through `window.pywebview.api.request()`
 - `frontend/js/spending_dashboard.js` — spending detail sub-view
 
-`dashboard.js` is the largest file (~16,700 lines, heavily minified — roughly one statement per line). Key patterns:
+`dashboard.js` is the central frontend file (several thousand lines, readable source, split further across the `dashboard_decomp_*.js` files beside it; check the current size with `wc -l`). Key patterns:
 - `STEPS` array (top of file) defines the left nav; each step has an `id`, `group`, `title`, and optional custom render function. The nav renders a group header whenever `group` changes, so all steps sharing a group must be contiguous in the array.
 - `rows` array holds all plan data fields fetched from `/api/config/rows`
 - `renderMain()` dispatches to per-step render functions (`renderIncomeWork`, `renderFieldGroups`, etc.)

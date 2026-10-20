@@ -20,6 +20,8 @@ EXCLUDED_DIR_NAMES = {
     "reference_src",
     ".claude",
     "input",
+    "input_backup",  # local backup of real plan data: never ship
+    "node_modules",  # dev-only (Playwright/jscodeshift); untracked, so the working-tree copy must skip it
     "data",
     "sample_plan_data",
     "output",

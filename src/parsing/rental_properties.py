@@ -1,6 +1,6 @@
 """rental_properties.py — the Rental Properties parse boundary (WP12.3).
 
-Design ``docs/superpowers/specs/2026-10-05-rental-property-module-design.md``
+Design ``documentation/archive/superpowers/specs/2026-10-05-rental-property-module-design.md``
 sections 3 and 8: one function turns source rows into ``c['rental_properties']``,
 the only rental input the engine reads (``src/projection_stages/rental_property.py``
 documents every key and its engine-side default).

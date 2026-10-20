@@ -2,8 +2,8 @@
 
 > **Verification:** Verified by the household's tax preparer on 2026-10-13, against tax year 2025 rules (not 2026). The 14 constants, the Table A-6 percentages and examples R01-R24 are covered. The 2026 values (the app's reference tax year) must be re-checked at the next annual tax update (see `ANNUAL_MAINTENANCE_RUNBOOK.md`). The feature stays default OFF.
 
-Status: **for owner / tax-preparer review** (checkpoint before the engine integration, WP12.2).
-Design: `docs/superpowers/specs/2026-10-05-rental-property-module-design.md` sections 1, 2 and 4.
+Status: **verified and in use.** Reviewed by the household's tax preparer on 2026-10-13 (see the verification note above); the engine integration (WP12.2 and later H1 to H6) is merged.
+Design: `documentation/archive/superpowers/specs/2026-10-05-rental-property-module-design.md` sections 1, 2 and 4.
 
 | What | Where |
 |---|---|

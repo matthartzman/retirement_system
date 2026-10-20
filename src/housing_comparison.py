@@ -1,4 +1,4 @@
-"""Housing trajectory sweep -- Slice 4 (H9/H10) of docs/superpowers/plans/
+"""Housing trajectory sweep -- Slice 4 (H9/H10) of documentation/archive/superpowers/plans/
 2026-09-09-housing-estimate-realism-and-dollar-convention-design.md, §4.
 
 A candidate is a whole future housing *trajectory*: the current home's sale

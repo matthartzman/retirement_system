@@ -1,6 +1,6 @@
 """Keep and rent out (WP12.8): the current home's third disposition.
 
-Design ``docs/superpowers/specs/2026-10-05-rental-property-module-design.md``
+Design ``documentation/archive/superpowers/specs/2026-10-05-rental-property-module-design.md``
 decision 2 and the housing refinement design section 13. Only when the
 ``rental_property_income`` feature is on: a ``rent_out`` candidate keeps the
 current home (no sale in the plan) and rents it from move 1's acquisition

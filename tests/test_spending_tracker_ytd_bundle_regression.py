@@ -1,8 +1,8 @@
 """W8b: one switch, three modules — the Spending Tracker / YTD bundle.
 
-Master plan `docs/superpowers/plans/2026-09-19-optimizers-modules-housing-
+Master plan `documentation/archive/superpowers/plans/2026-09-19-optimizers-modules-housing-
 master-plan.md` §4, W8b (#330 P6b); design in #330 §3.3 and §3.2. Notes:
-`docs/superpowers/plans/2026-09-22-w8b-newly-optional-medium-risk-notes.md`.
+`documentation/archive/superpowers/plans/2026-09-22-w8b-newly-optional-medium-risk-notes.md`.
 
 Every other workstream on this branch has used one toggle per module. This one
 does not, and the reason is in #330 §3.3: `spending_summary` and
