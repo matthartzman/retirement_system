@@ -1056,6 +1056,10 @@ def _main(plan_read):
     rows = artifacts.rows
     mc_data = artifacts.mc_data
     validation_summary = artifacts.validation
+    # WI-019 / ARC-003: one stdout line per swallowed derived-result step (WI-007's
+    # config_contract_warnings); build_service.build_warnings_from_stdout carries them to the UI.
+    for _warn in dict.fromkeys(str(w).replace('\n', ' ') for w in (c.get('config_contract_warnings') or [])):
+        print(f'Build warning: {_warn}')
     print(f'  {len(rows)} rows; validation FAIL={validation_summary.get("fail_count")} WARN={validation_summary.get("warn_count")}')
 
     print('Building workbook...')

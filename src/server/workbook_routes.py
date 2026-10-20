@@ -364,6 +364,7 @@ def build():
         "elapsed_seconds": elapsed,
         "qc_result": outcome.qc_result,
         "kpi": outcome.summary,
+        "warnings": [redact_text(w) if cfg.redact_secrets_in_logs else w for w in outcome.warnings],
         "output_dir": str(_workspace_output()),
         "admin_changes": admin_changes,
         "previous_build_ts": previous_build_ts,

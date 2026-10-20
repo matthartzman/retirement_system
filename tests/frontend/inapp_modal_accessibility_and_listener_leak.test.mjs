@@ -32,6 +32,7 @@ function loadModuleExports(filename) {
   const addedListenerTypes = [];
   const removedListenerTypes = [];
   let lastOverlay = null;
+  const keydownHandlers = [];
 
   function makeStubElement() {
     const childCache = new Map();
@@ -78,8 +79,9 @@ function loadModuleExports(filename) {
       lastOverlay = makeStubElement();
       return lastOverlay;
     },
-    addEventListener(type) {
+    addEventListener(type, fn) {
       addedListenerTypes.push(type);
+      if (type === "keydown") keydownHandlers.push(fn);
     },
     removeEventListener(type) {
       removedListenerTypes.push(type);
@@ -108,6 +110,8 @@ function loadModuleExports(filename) {
   return {
     sandbox,
     getLastOverlay: () => lastOverlay,
+    getKeydownHandlers: () => keydownHandlers,
+    documentStub,
     getPreviouslyFocusedStub: () => previouslyFocusedStub,
     getListenerBalance: () => ({
       added: addedListenerTypes.filter((t) => t === "keydown").length,
@@ -249,5 +253,79 @@ describe("showYtdBlendChoiceModal has dialog semantics and does not leak keydown
       before.focusCalls, 1,
       "closing the dialog must call .focus() on the element that had focus before it opened",
     );
+  });
+});
+
+// UX-010 (WI-020): showInAppPrompt gets the same dialog pattern as the confirm dialogs, plus a
+// choices mode so enumerated values (state, trust type) are chosen rather than typed.
+describe("showInAppPrompt has dialog semantics, restores focus and supports choices", () => {
+  test("dialog markup declares role=dialog, aria-modal and a labelled control", async () => {
+    const { sandbox, getLastOverlay } = loadModuleExports("dashboard_decomp_row_model.js");
+    const p = sandbox.showInAppPrompt("Trust account name:", "", { title: "Add Trust Account" });
+    const overlay = getLastOverlay();
+    const html = overlay.innerHTML;
+    assert.ok(html.includes('role="dialog"'), "missing role=dialog");
+    assert.ok(html.includes('aria-modal="true"'), "missing aria-modal=true");
+    assert.match(html, /aria-labelledby="inapp-modal-title-\d+"/);
+    assert.match(html, /<input[^>]*aria-labelledby="inapp-modal-title-\d+ inapp-modal-label-\d+"/);
+    assert.match(html, /<label[^>]*for="inapp-modal-input-\d+"/);
+    overlay.querySelector(".inapp-cancel").onclick();
+    assert.equal(await p, null);
+  });
+
+  test("repeated open+close never leaves a dangling keydown listener and focus is restored", async () => {
+    const { sandbox, getLastOverlay, getListenerBalance, getPreviouslyFocusedStub } = loadModuleExports("dashboard_decomp_row_model.js");
+    for (let i = 0; i < 4; i++) {
+      const p = sandbox.showInAppPrompt("Name:", "x", { title: "Name" });
+      const overlay = getLastOverlay();
+      overlay.querySelector(".inapp-modal-input").value = "typed";
+      (i % 2 ? overlay.querySelector(".inapp-cancel") : overlay.querySelector(".inapp-confirm")).onclick();
+      await p;
+    }
+    const balance = getListenerBalance();
+    assert.equal(balance.added, balance.removed);
+    assert.equal(getPreviouslyFocusedStub().focusCalls, 4, "focus must return to the opener on every close");
+  });
+
+  test("OK returns the typed text, empty text returns null, Escape cancels, Enter accepts", async () => {
+    const { sandbox, getLastOverlay, getKeydownHandlers, documentStub } = loadModuleExports("dashboard_decomp_row_model.js");
+    let p = sandbox.showInAppPrompt("Name:", "", { title: "Name" });
+    let overlay = getLastOverlay();
+    overlay.querySelector(".inapp-modal-input").value = "  My Trust ";
+    overlay.querySelector(".inapp-confirm").onclick();
+    assert.equal(await p, "My Trust");
+
+    p = sandbox.showInAppPrompt("Name:", "", { title: "Name" });
+    overlay = getLastOverlay();
+    overlay.querySelector(".inapp-modal-input").value = "   ";
+    overlay.querySelector(".inapp-confirm").onclick();
+    assert.equal(await p, null);
+
+    p = sandbox.showInAppPrompt("Name:", "", { title: "Name" });
+    const handlers = getKeydownHandlers();
+    handlers[handlers.length - 1]({ key: "Escape" });
+    assert.equal(await p, null);
+
+    p = sandbox.showInAppPrompt("Name:", "", { title: "Name" });
+    overlay = getLastOverlay();
+    const input = overlay.querySelector(".inapp-modal-input");
+    input.value = "Enter works";
+    documentStub.activeElement = input;
+    getKeydownHandlers().slice(-1)[0]({ key: "Enter", preventDefault() {} });
+    assert.equal(await p, "Enter works");
+  });
+
+  test("choices mode renders a select with the options and returns the chosen value", async () => {
+    const { sandbox, getLastOverlay } = loadModuleExports("dashboard_decomp_row_model.js");
+    const p = sandbox.showInAppPrompt("Trust type:", "Revocable", { title: "Trust Type", choices: ["Revocable", "Irrevocable", { value: "QTIP", label: "QTIP trust" }] });
+    const overlay = getLastOverlay();
+    const html = overlay.innerHTML;
+    assert.match(html, /<select class="inapp-modal-input[^>]*aria-labelledby=/);
+    assert.match(html, /<option value="Revocable" selected>/);
+    assert.match(html, /<option value="QTIP">QTIP trust<\/option>/);
+    assert.doesNotMatch(html, /<input/);
+    overlay.querySelector(".inapp-modal-input").value = "QTIP";
+    overlay.querySelector(".inapp-confirm").onclick();
+    assert.equal(await p, "QTIP");
   });
 });

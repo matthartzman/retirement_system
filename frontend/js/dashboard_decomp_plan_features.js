@@ -432,7 +432,7 @@ export function offFeaturesLineHtml(stepId) {
   return (
     '<div class="section-note pf-off-features">Optional features not enabled that would appear here: ' +
     off.map((f) => esc(f.name)).join(", ") +
-    '. <a href="#" onclick="setStep(\'optional_functions\');return false">Turn on in Plan Features</a></div>'
+    '. <a href="#" onclick="navigateTo(\'optional_functions\');return false">Turn on in Plan Features</a></div>'
   );
 }
 

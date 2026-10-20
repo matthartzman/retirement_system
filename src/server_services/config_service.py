@@ -8,6 +8,7 @@ bulk row-save semantics so route modules remain thin under the
 Flask-free runtime.
 """
 
+import re
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from pathlib import Path
@@ -49,12 +50,39 @@ def backfill_optional_function_rows(rows: list[JsonDict], effective: dict[str, b
     return out
 
 
+# schema_registry.validate_rows formats "('<section>', '<subsection>', '<label>'): <message>; got <repr>".
+_VALIDATION_ERROR_RE = re.compile(
+    r"""^\(\s*(['"])(.*?)\1\s*,\s*(['"])(.*?)\3\s*,\s*(['"])(.*?)\5\s*\)\s*:\s*(.*?)(?:;\s*got\s+(.*))?$""",
+    re.S,
+)
+
+
+def structure_validation_errors(errors: list[str], row_ids: dict[tuple[str, str, str], int] | None = None) -> list[JsonDict]:
+    """One ``{message, raw, section, subsection, label, got, row_index}`` per validation error
+    (WI-020 / UX-004), so the UI marks each field without re-parsing the string. Errors that do
+    not name a field (cross-field checks) carry only ``message`` and ``raw``."""
+    out: list[JsonDict] = []
+    for raw in errors:
+        m = _VALIDATION_ERROR_RE.match(str(raw))
+        if not m:
+            out.append({"message": str(raw), "raw": str(raw)})
+            continue
+        key = (m.group(2).strip(), m.group(4).strip(), m.group(6).strip())
+        item: JsonDict = {"section": key[0], "subsection": key[1], "label": key[2],
+                          "message": m.group(7).strip(), "got": (m.group(8) or "").strip(), "raw": str(raw)}
+        if row_ids and key in row_ids:
+            item["row_index"] = row_ids[key]
+        out.append(item)
+    return out
+
+
 class _Rejected(Exception):
     """Rolls the grid's edit transaction back (a schema validation failure)."""
 
-    def __init__(self, errors: list[str]):
+    def __init__(self, errors: list[str], field_errors: list[JsonDict] | None = None):
         super().__init__("Plan Data validation failed")
         self.errors = errors
+        self.field_errors = field_errors or []
 
 
 @dataclass(frozen=True)
@@ -499,11 +527,12 @@ class ConfigService:
                     applied[row_id] = ((section, subsection, label), value)
                 errors = _schema_validate_rows_full(store.all_rows())
                 if errors:
-                    raise _Rejected(errors)
+                    row_ids = {(r["section"], r["subsection"], r["label"]): r["row_id"] for r in store.all_rows() if "row_id" in r}
+                    raise _Rejected(errors, structure_validation_errors(errors[:50], row_ids))
             revision = edit.revision
         except _Rejected as exc:
             self._audit("config_rows_validation_failed", {"updated_attempted": len(applied), "error_count": len(exc.errors)})
-            return {"success": False, "error": "Plan Data validation failed", "errors": exc.errors[:50]}, 422
+            return {"success": False, "error": "Plan Data validation failed", "errors": exc.errors[:50], "field_errors": exc.field_errors}, 422
         except Exception as exc:
             self._audit("config_rows_save_failed", {"error": str(exc)})
             return {"success": False, "error": f"Plan Data could not be saved: {exc}"}, 500

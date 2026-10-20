@@ -75,8 +75,10 @@ beforeEach(() => {
     openedSections.push([key, open]);
   sandbox.window.setStrategyTab = (step, tab) => openedTabs.push([step, tab]);
   revealed = [];
+  // WI-021: setStep() also looks up the new page's heading to focus it; only the
+  // section-reveal ([data-dkey]) lookups are what these tests are about.
   sandbox.document.querySelector = (sel) => {
-    revealed.push(sel);
+    if (String(sel).includes("data-dkey")) revealed.push(sel);
     return null;
   };
 });
@@ -305,7 +307,7 @@ describe("pendingSectionDkey does not leak across an aborted redirect (final rev
     // this navigation has nothing to do with Asset Allocation.
     let queried = null;
     sandbox.document.querySelector = (sel) => {
-      queried = sel;
+      if (String(sel).includes("data-dkey")) queried = sel;
       return null;
     };
     go("holdings", true);

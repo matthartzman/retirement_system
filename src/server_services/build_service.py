@@ -16,6 +16,19 @@ from . import build_job_service
 
 
 _QC_RE = re.compile(r"QC:\s*(\d+)\s*/\s*(\d+)\s+PASS")
+# WI-019 / ARC-003: workbook_builder prints one "Build warning: <text>" stdout line per
+# config_contract_warnings entry (the swallowed derived-result steps from WI-007). The
+# summary row is golden-compared, so the warnings travel on the build result, not in it.
+_BUILD_WARNING_RE = re.compile(r"^Build warning: (.+)$", re.MULTILINE)
+
+
+def build_warnings_from_stdout(stdout: str) -> tuple[str, ...]:
+    seen: list[str] = []
+    for m in _BUILD_WARNING_RE.finditer(stdout or ""):
+        text = m.group(1).strip()
+        if text and text not in seen:
+            seen.append(text)
+    return tuple(seen)
 
 
 @dataclass(frozen=True)
@@ -29,6 +42,7 @@ class BuildResultSummary:
     stale_summary: bool
     summary: dict[str, Any] = field(default_factory=dict)
     error_message: str = ""
+    warnings: tuple[str, ...] = ()
 
 
 def interpret_build_result(
@@ -60,6 +74,7 @@ def interpret_build_result(
         stale_summary=stale_summary,
         summary=summary,
         error_message=error_message,
+        warnings=build_warnings_from_stdout(stdout),
     )
 
 

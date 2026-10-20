@@ -62,11 +62,22 @@ function withEntries(list) {
 }
 
 describe("moveToNextEntry only advances between curated data-entry fields", () => {
-  test("Tab on a field input moves focus to the next listed entry", () => {
+  // UX-003 (WI-021, deliberate change): Tab is native again so the help badges and in-row buttons
+  // between fields are reachable in DOM order; only Enter advances.
+  test("Tab on a field input keeps native Tab order (never intercepted)", () => {
     const a = el("input");
     const b = el("input");
     withEntries([a, b]);
     const ev = keydown(a, "Tab");
+    assert.equal(ev.prevented, false);
+    assert.equal(b.focused, 0);
+  });
+
+  test("Enter on a field input advances to the next listed entry", () => {
+    const a = el("input");
+    const b = el("input");
+    withEntries([a, b]);
+    const ev = keydown(a, "Enter");
     assert.equal(ev.prevented, true);
     assert.equal(b.focused, 1);
   });
@@ -135,11 +146,11 @@ describe("moveToNextEntry only advances between curated data-entry fields", () =
     assert.equal(b.focused, 0);
   });
 
-  test("Tab on the last listed entry falls through to native Tab", () => {
+  test("Enter on the last listed entry falls through", () => {
     const a = el("input");
     const last = el("input");
     withEntries([a, last]);
-    const ev = keydown(last, "Tab");
+    const ev = keydown(last, "Enter");
     assert.equal(ev.prevented, false);
     assert.equal(last.focused, 0);
   });

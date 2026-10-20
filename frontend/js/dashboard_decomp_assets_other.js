@@ -103,6 +103,7 @@ export function renderOtherAssetItemsTable() {
 
 export async function addOtherAssetItem() {
   try {
+    if (!(await saveBeforeStructuralChange())) return;
     const typ =
       (document.getElementById("newOtherAssetType") || {}).value || "Auto";
     const out = await api("/api/other-asset/add", {
@@ -128,6 +129,7 @@ export async function deleteOtherAssetItem(subsection) {
   )
     return;
   try {
+    if (!(await saveBeforeStructuralChange())) return;
     const out = await api("/api/other-asset/delete", {
       method: "POST",
       body: JSON.stringify({ subsection }),
@@ -211,6 +213,7 @@ export function renderNoteReceivableTable() {
 
 export async function addNoteReceivable() {
   try {
+    if (!(await saveBeforeStructuralChange())) return;
     const out = await api("/api/note-receivable/add", {
       method: "POST",
       body: JSON.stringify({}),
@@ -234,6 +237,7 @@ export async function deleteNoteReceivable(subsection) {
   )
     return;
   try {
+    if (!(await saveBeforeStructuralChange())) return;
     const out = await api("/api/note-receivable/delete", {
       method: "POST",
       body: JSON.stringify({ subsection }),
@@ -458,6 +462,7 @@ export function renderAssetsSpecial() {
 
 export async function addEducation529Section() {
   try {
+    if (!(await saveBeforeStructuralChange())) return;
     const out = await api("/api/education-529/add", {
       method: "POST",
       body: JSON.stringify({}),

@@ -924,7 +924,7 @@ export function nextHousingMoveOffNoteHtml(rs) {
   const list = n
     ? `<ul class="small next-housing-saved">${saved.map((f) => `<li>${esc(f.label)}: ${esc(f.value)}</li>`).join("")}</ul>`
     : "";
-  return `<div class="section-note">Off \u2014 ${n} saved ${n === 1 ? "field" : "fields"} not applied: the plan assumes you stay in your current home and state. <a href="#" onclick="setStep('optional_functions');return false">Open Plan Features</a></div>${list}`;
+  return `<div class="section-note">Off \u2014 ${n} saved ${n === 1 ? "field" : "fields"} not applied: the plan assumes you stay in your current home and state. <a href="#" onclick="navigateTo('optional_functions');return false">Open Plan Features</a></div>${list}`;
 }
 
 export function homeSaleScenarioYearRow(home) {
@@ -1387,6 +1387,7 @@ export function renderScenarios() {
 
 export async function seedHousingRows() {
   try {
+    if (!(await saveBeforeStructuralChange())) return;
     const resp = await api("/api/housing/seed", { method: "POST" });
     if (resp && resp.seeded !== undefined) {
       await loadAll({ source: planSource, preferLocal: false, silent: true });

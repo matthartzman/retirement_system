@@ -429,7 +429,7 @@ export function impactCardHtml(
     headlineColorClass = isGood ? "positive-money" : "negative-money";
   }
   const infoIcon = help
-    ? ` <sup class="field-info-i" tabindex="0" title="${esc(help)}" aria-label="More info: ${esc(help)}">i</sup>`
+    ? ` <button type="button" class="field-info-i" title="${esc(help)}" aria-label="More info: ${esc(help)}">i</button>`
     : "";
   return `<div class="impact-card"><span>${esc(title)}${infoIcon}</span><b class="${headlineColorClass}">${headline}</b><div class="impact-headline-label">${headlineLabel}</div><div class="impact-row"><span>Before</span><strong class="${bNeg ? "negative-money" : ""}">${valueFormatter(beforeVal)}</strong></div><div class="impact-row"><span>After</span><strong class="${aNeg ? "negative-money" : ""}">${valueFormatter(afterVal)}</strong></div></div>`;
 }
