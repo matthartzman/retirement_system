@@ -1,20 +1,7 @@
-/* Build lifecycle UI: duration estimate, progress overlay, smooth-progress
-   ticker, cancel, and post-build snapshot/baseline handling. Extracted verbatim
-   from dashboard.js as part of the dashboard decomposition.
-
-   Wave 6.4 ("leaves inward" ES-module migration, 'plan_state_build' leaf):
-   converted to a real ES module. Unlike dashboard_decomp_local_backups.js
-   (which stayed classic), none of this file's functions are called from
-   dashboard.js's own synchronous top-level boot chain -- every call site
-   (buildWithProgress, hideBuildInBackground, setBuildOverlay, etc.) lives inside a
-   user-triggered action (Build Reports / Download / Hide), which can only
-   fire after the page has finished loading. All the module-level state these
-   functions read/write (buildOverlayStartedAt, buildOverlayDepth,
-   buildProgressTicker, sessionBaselineSummary, ...) is owned by dashboard.js
-   itself (`let` declarations, not this file's), which modules can read and
-   write as bare identifiers the same as any other classic-script global (see
-   dashboard_decomp_holdings.js's header for why). buildHiddenByUser is the one
-   piece of state this file owns; runBuild reads it through buildWasHiddenByUser(). */
+/* Build lifecycle UI: duration estimate, progress overlay, smooth-progress ticker, cancel, and
+   post-build snapshot/baseline handling (ES module; extracted from dashboard.js). The shared state
+   (buildOverlayStartedAt, buildOverlayDepth, ...) is owned by dashboard.js and read here as
+   globals. buildHiddenByUser and activeBuildJobId are the state this file owns. */
 export function formatElapsed(ms) {
   const total = Math.max(0, Math.floor(ms / 1000));
   const m = Math.floor(total / 60),
@@ -124,11 +111,19 @@ export function updateBuildOverlay(title, detail, pct, state) {
   }
   refreshBuildOverlayTimer();
 }
-// UX-002 / WI-019: there is no server-side build cancellation (the build is a subprocess that
-// runs to completion), so the overlay button no longer says "Cancel". It hides the progress
-// window, keeps a visible "build still running" chip, and tells runBuild() the user has moved
-// on so it does not navigate them away when the job later finishes.
+// UX-002 / WI-019: Hide keeps the build running; it shows a "still running" chip and tells runBuild() not to navigate.
 let buildHiddenByUser = false;
+let activeBuildJobId = "";
+export const setActiveBuildJob = (jobId) => (activeBuildJobId = String(jobId || ""));
+export async function cancelActiveBuild() {
+  if (!activeBuildJobId) return;
+  try {
+    const out = await api("/api/build/cancel/" + encodeURIComponent(activeBuildJobId), { method: "POST" });
+    if (out && out.outcome === "cancelling") updateBuildOverlay("Cancelling build", "Stopping the build…", "indeterminate");
+  } catch (e) {
+    showMessage("Could not cancel the build: " + ((e && e.message) || e), "error");
+  }
+}
 export function buildWasHiddenByUser() {
   return buildHiddenByUser;
 }
@@ -274,7 +269,7 @@ export function updateBuildProgress(job) {
     window.__desktopBuildResolve = null;
     window.__desktopBuildReject = null;
     if (res) res(job.result || { success: true });
-  } else if (job.status === "failed") {
+  } else if (job.status === "failed" || job.status === "cancelled") {
     if (window.__desktopBuildTimeout)
       clearTimeout(window.__desktopBuildTimeout);
     var rej = window.__desktopBuildReject;
@@ -314,6 +309,7 @@ export async function buildWithProgress(buildBody) {
   }
   if (!started || !started.job_id)
     throw new Error("Build progress endpoint did not return a job id.");
+  setActiveBuildJob(started.job_id);
   let lastProgress = Math.max(0, Number(started.progress) || 0);
   updateBuildOverlay(
     started.phase || "Preparing build",
@@ -357,6 +353,7 @@ export async function buildWithProgress(buildBody) {
         const result = job.result || {};
         throw new Error(result.error || job.detail || "Build failed.");
       }
+      if (job.status === "cancelled") throw new Error("Build cancelled.");
     }
   } finally {
     stopSmoothProgress();
@@ -417,6 +414,8 @@ Object.assign(window, {
   setBuildOverlay,
   updateBuildOverlay,
   hideBuildInBackground,
+  cancelActiveBuild,
+  setActiveBuildJob,
   showBuildProgress,
   buildWasHiddenByUser,
   resetBuildHidden,

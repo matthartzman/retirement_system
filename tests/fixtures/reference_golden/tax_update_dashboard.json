@@ -33,7 +33,7 @@
   "review_frequency": "annual",
   "status": "CURRENT_WITHIN_POLICY",
   "blocking": false,
-  "notes": "VERIFIED 2026-09-29 against the CMS fact sheet PDF: every 2026 IRMAA threshold (individual, joint, married filing separately), the Part B and Part D surcharges and the $202.90 standard Part B premium. The part_d_base_premium_monthly row is a household plan-premium estimate (the CMS 2026 Part D bid fact sheet gives the national base beneficiary premium of 38.99, a different quantity), so it is left as a planning assumption. Annual process: after CMS publishes new Medicare Part B/D premiums and IRMAA tables, ADD new dated irmaa_tier thresholds, Part B/Part D surcharges and base premiums (every filing status) to reference_data/tax_law_v10.json, then update UI tier labels, Roth IRMAA tests, and this dashboard."
+  "notes": "VERIFIED 2026-09-29 against the CMS fact sheet PDF: every 2026 IRMAA threshold (individual, joint, married filing separately), the Part B and Part D surcharges and the $202.90 standard Part B premium. The part_d_base_premium_monthly row is a household plan-premium estimate (the CMS 2026 Part D bid fact sheet gives the national base beneficiary premium of 38.99, a different quantity), so it is left as a planning assumption. Annual process: after CMS publishes new Medicare Part B/D premiums and IRMAA tables, ADD new dated irmaa_tier thresholds, Part B/Part D surcharges and base premiums (every filing status) to reference_data/tax_law_v10.json, then update UI tier labels, Roth IRMAA tests, and this dashboard. 2026-10-20: the dataset now also carries the verified 2026 national base beneficiary premium (38.99, CMS July 28, 2025 announcement)."
  },
  {
   "constant": "ltcg_brackets",
@@ -52,12 +52,12 @@
   "category": "Social Security wage base",
   "year": "2026",
   "source": "SSA 2026 wage base; dated row in reference_data/tax_law_v10.json",
-  "source_url": "https://www.ssa.gov/",
-  "last_reviewed": "2026-07-01",
+  "source_url": "https://www.ssa.gov/oact/cola/cbb.html",
+  "last_reviewed": "2026-10-20",
   "review_frequency": "annual",
   "status": "CURRENT_WITHIN_POLICY",
   "blocking": false,
-  "notes": "Annual process: ADD a new dated ss_wage_base row to reference_data/tax_law_v10.json and update payroll tax tests; per-household wage base fields are separate."
+  "notes": "VERIFIED 2026-10-20 against SSA Contribution and Benefit Base: 2026 wage base 184,500. Annual process: ADD a new dated ss_wage_base row to reference_data/tax_law_v10.json and update payroll tax tests; per-household wage base fields are separate."
  },
  {
   "constant": "rmd_divisors",
@@ -77,11 +77,11 @@
   "year": "varies",
   "source": "reference_data/state_tax.csv sources per state",
   "source_url": "",
-  "last_reviewed": "2026-06-10",
+  "last_reviewed": "2026-10-20",
   "review_frequency": "annual",
   "status": "REVIEW_REQUIRED_BY_STATE",
   "blocking": true,
-  "notes": "Annual process: verify residence-state income, retirement-income, property, sales and estate-tax law before advisor-ready state-specific use."
+  "notes": "PARTIAL 2026-10-20 (WI-027): NC 3.99%, IN 2.95% (state only; county taxes excluded), NY 2026 income-tax schedule and NY estate basic exclusion 7,350,000 updated from primary sources. California brackets are the official FTB 2025 schedules carried forward (provisional, not a final 2026 schedule); the 1% Behavioral Health Services Tax over 1,000,000 is applied. NY 601(d) benefit recapture and NYC/Yonkers taxes are not modeled. Remaining states unreviewed. Annual process: verify residence-state income, retirement-income, property, sales and estate-tax law before advisor-ready state-specific use."
  },
  {
   "constant": "capital_market_assumptions",
@@ -94,5 +94,41 @@
   "status": "CURRENT_WITHIN_POLICY",
   "blocking": false,
   "notes": "Annual process (or sooner if market outlook materially changes): review expected return/volatility/correlation assumptions across all presets and horizons in capital_market_assumptions.csv and asset_correlations.csv, then update the refresh date in both this row and the CSV row-level notes."
+ },
+ {
+  "constant": "amt",
+  "category": "Alternative minimum tax",
+  "year": "2026",
+  "source": "IRS Rev. Proc. 2025-32 sec. 4.10; dated amt_* rows in reference_data/tax_law_v10.json",
+  "source_url": "https://www.irs.gov/pub/irs-drop/rp-25-32.pdf",
+  "last_reviewed": "2026-10-20",
+  "review_frequency": "annual",
+  "status": "CURRENT_WITHIN_POLICY",
+  "blocking": false,
+  "notes": "VERIFIED 2026-10-20 (owner-reported against the Rev. Proc.): exemption 140,200 / 90,100 / 70,100, phase-out start 1,000,000 / 500,000 / 500,000 at 50%, rate break 244,500. The 2025 rate break is 239,100 (the previous hard-coded 232,600 was the 2024 figure). Annual process: ADD new dated amt_exemption, amt_phaseout_start, amt_phaseout_rate and amt_rate_break rows (never overwrite), then update the closed-form AMT tests and this dashboard."
+ },
+ {
+  "constant": "annual_limits",
+  "category": "QLAC, QCD and student-loan interest limits",
+  "year": "2026",
+  "source": "IRS Notice 2025-67 (QLAC 210,000; QCD 111,000); Rev. Proc. 2025-32 sec. 4.29 (student-loan interest phase-out 175,000-205,000 MFJ, 85,000-100,000 other); dated rows in reference_data/tax_law_v10.json",
+  "source_url": "https://www.irs.gov/pub/irs-drop/n-25-67.pdf",
+  "last_reviewed": "2026-10-20",
+  "review_frequency": "annual",
+  "status": "CURRENT_WITHIN_POLICY",
+  "blocking": false,
+  "notes": "VERIFIED 2026-10-20 (owner-reported). Years after the latest row compound that row by the plan bracket inflation. Annual process: ADD new dated qlac_premium_limit, qcd_annual_limit and student_loan_interest_phaseout_* rows."
+ },
+ {
+  "constant": "federal_estate_exclusion",
+  "category": "Federal estate and gift tax",
+  "year": "2026",
+  "source": "IRC 2010(c)(3) as amended by P.L. 119-21; Rev. Proc. 2025-32 sec. 2.14; federal_estate_basic_exclusion row in reference_data/tax_law_v10.json",
+  "source_url": "https://www.irs.gov/pub/irs-drop/rp-25-32.pdf",
+  "last_reviewed": "2026-10-20",
+  "review_frequency": "annual",
+  "status": "CURRENT_WITHIN_POLICY",
+  "blocking": false,
+  "notes": "VERIFIED 2026-10-20: 15,000,000 per person (indexed after 2026). A blank plan exemption is derived from the household (one person: 15,000,000; couple: 30,000,000 with portability). Estate-attorney review of the portability and credit-shelter arithmetic is NOT documented; the credit-shelter double count (FIN-009) remains open."
  }
 ]

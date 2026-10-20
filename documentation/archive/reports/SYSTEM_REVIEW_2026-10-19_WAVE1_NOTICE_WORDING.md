@@ -24,7 +24,7 @@ Wording approved by the repository owner on 2026-10-20. Companion to `SYSTEM_REV
 | ID | Finding | Severity | Shown when | Removed when |
 |---|---|---|---|---|
 | N5 | FIN-007 | warning | Claim age is before full retirement age and wages continue | Earnings test is modeled |
-| N6 | FIN-009 | warning | Household has one member | Exemption is derived from the household |
+| N6 | FIN-009 | warning | Household has one member and the federal exemption is above the per-person amount | Exemption is derived from the household |
 | N7 | FIN-005, FIN-006 | info | Always (data status) | A data family is updated and verified: change its status |
 
 **N5.** The Social Security earnings test is not modeled. If you claim before full retirement age while still earning wages, some benefits may be temporarily withheld, and this plan does not reflect that.

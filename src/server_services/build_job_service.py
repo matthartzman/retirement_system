@@ -157,6 +157,39 @@ class BuildJobRegistry:
         self._lock = threading.RLock()
         self._jobs: dict[str, dict[str, Any]] = {}
         self._push_callback: Callable[[dict[str, Any]], None] | None = None
+        self._procs: dict[str, Any] = {}
+        self._cancelled: set[str] = set()
+
+    def attach_process(self, job_id: str, proc: Any) -> None:
+        with self._lock:
+            self._procs[job_id] = proc
+
+    def detach_process(self, job_id: str) -> None:
+        with self._lock:
+            self._procs.pop(job_id, None)
+
+    def is_cancel_requested(self, job_id: str) -> bool:
+        with self._lock:
+            return job_id in self._cancelled
+
+    def request_cancel(self, job_id: str) -> str:
+        """Stop a running build (UX-002 / WI-019 follow-up). Returns ``cancelling``
+        when the build process was signalled, ``not_found`` for an unknown job and
+        ``finished`` when the job already reached a final state."""
+        with self._lock:
+            job = self._jobs.get(job_id)
+            if not job:
+                return "not_found"
+            if job.get("status") in ("done", "failed", "cancelled"):
+                return "finished"
+            self._cancelled.add(job_id)
+            proc = self._procs.get(job_id)
+        if proc is not None:
+            try:
+                proc.terminate()
+            except Exception:
+                pass
+        return "cancelling"
 
     def register_push_callback(self, callback: Callable[[dict[str, Any]], None] | None) -> None:
         self._push_callback = callback
@@ -190,7 +223,7 @@ class BuildJobRegistry:
                 events.append({
                     "job_id": job_id,
                     "sequence": len(events) + 1,
-                    "event_type": "completed" if kwargs.get("status") == "done" else "failed" if kwargs.get("status") == "failed" else "progress",
+                    "event_type": "completed" if kwargs.get("status") == "done" else "failed" if kwargs.get("status") == "failed" else "cancelled" if kwargs.get("status") == "cancelled" else "progress",
                     "phase": str(job.get("phase") or "Build progress"),
                     "progress": int(job.get("progress") if job.get("progress") is not None else old_progress),
                     "detail": str(job.get("detail") or ""),
@@ -203,7 +236,7 @@ class BuildJobRegistry:
                     "progress": job.get("progress"),
                     "phase": job.get("phase"),
                     "detail": job.get("detail"),
-                    "result": job.get("result") if status in ("done", "failed") else None,
+                    "result": job.get("result") if status in ("done", "failed", "cancelled") else None,
                 }
 
         if push_data is not None and self._push_callback is not None:
@@ -218,7 +251,7 @@ class BuildJobRegistry:
             with self._lock:
                 candidates = sorted(self._jobs.values(), key=lambda j: float(j.get("created_at") or 0), reverse=True)
                 for candidate in candidates:
-                    if candidate.get("status") in ("starting", "running", "done", "failed"):
+                    if candidate.get("status") in ("starting", "running", "done", "failed", "cancelled"):
                         return dict(candidate)
             if time.time() >= deadline:
                 return {}
@@ -301,6 +334,9 @@ def run_build_progress_job(
             bufsize=1,
         )
         assert proc.stdout is not None
+        registry.attach_process(job_id, proc)
+        if registry.is_cancel_requested(job_id):
+            proc.terminate()
         while True:
             if time.time() - start > timeout_seconds:
                 proc.kill()
@@ -314,6 +350,15 @@ def run_build_progress_job(
                 break
             else:
                 time.sleep(0.15)
+        registry.detach_process(job_id)
+        if registry.is_cancel_requested(job_id):
+            try:
+                proc.communicate(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+            payload = {"success": False, "cancelled": True, "error": "Build cancelled."}
+            registry.update(job_id, status="cancelled", progress=100, phase="Build cancelled", detail="The build was stopped before it finished.", result=payload)
+            return
         remaining_out, stderr_text = proc.communicate(timeout=2)
         if remaining_out:
             for line in remaining_out.splitlines(True):

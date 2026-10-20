@@ -67,7 +67,7 @@ TRIGGERS = {
     "N3": (_base_config(), [_row(h_age=55, _account_withdrawals={"Member_1_IRA": 20000.0})]),
     "N4": (_base_config(account_registry=[_acct("Joint_Trust", "taxable", 0)]), [_row()]),
     "N5": (_base_config(h_ss_claim_age_precise=62.0), [_row(h_age=63, earned=90000.0)]),
-    "N6": (_base_config(members=[{"name": "A"}], household_size=1), [_row()]),
+    "N6": (_base_config(members=[{"name": "A"}], household_size=1, fed_exempt=30_000_000), [_row()]),
 }
 # A plan where none of N1-N6 holds.
 QUIET = (_base_config(), [_row()])
@@ -110,7 +110,7 @@ def test_n7_lists_the_six_families_with_dataset_vocabulary():
     assert [f["family"] for f in n7["families"]] == list(ln.DATA_FAMILIES)
     assert {f["status"] for f in n7["families"]} <= {"verified", "assumption", "unreviewed"}
     by = {f["family"]: f["status"] for f in n7["families"]}
-    assert by["AMT"] != "verified"  # the dataset holds no AMT rows
+    assert by["AMT"] == "verified"  # WI-027: dated, verified AMT rows
 
 
 def test_n7_never_verified_when_a_row_in_force_is_assumption():

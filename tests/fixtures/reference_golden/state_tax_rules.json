@@ -13,7 +13,7 @@
   "source": "IL 35 ILCS 5/203"
  },
  "Indiana": {
-  "rate": 0.0305,
+  "rate": 0.029500000000000002,
   "type": "flat",
   "exempt_retirement": false,
   "exempt_ss": true,
@@ -23,7 +23,7 @@
   "estate_exempt": 0.0,
   "estate_calc": "none",
   "retirement_exempt_over_65": 0.0,
-  "source": "IN Department of Revenue flat individual income tax; verify current local/county rates separately"
+  "source": "IN Department of Revenue flat individual income tax (2.95% for 2026; reviewed 2026-10-20); county income taxes are separate and not included"
  },
  "Florida": {
   "rate": 0.0,
@@ -65,7 +65,7 @@
   "source": "TN Code §67-2-104 (Hall Tax repealed 2021)"
  },
  "North Carolina": {
-  "rate": 0.045,
+  "rate": 0.039900000000000005,
   "type": "flat",
   "exempt_retirement": false,
   "exempt_ss": true,
@@ -75,7 +75,7 @@
   "estate_exempt": 0.0,
   "estate_calc": "none",
   "retirement_exempt_over_65": 0.0,
-  "source": "NC GS §105-153.7"
+  "source": "NC GS §105-153.7; NCDOR Tax Rate Schedules (3.99% for taxable years after 2025; reviewed 2026-10-20)"
  },
  "Arizona": {
   "rate": 0.025,
@@ -137,10 +137,10 @@
   "prop_rate": 0.0168,
   "sales_rate": 0.08,
   "estate": true,
-  "estate_exempt": 6940000.0,
+  "estate_exempt": 7350000.0,
   "estate_calc": "ny_graduated_cliff",
   "retirement_exempt_over_65": 20000.0,
-  "source": "NY Tax Law §601; §612(c)(3-a); §952 (graduated estate rate table); §954(a)(3) (3-year gift add-back)"
+  "source": "NY Tax Law §601 (2026 schedule; reviewed 2026-10-20); NY DTF estate tax basic exclusion 7350000 per decedent (no state portability); §612(c)(3-a); §952 (graduated estate rate table); §954(a)(3) (3-year gift add-back)"
  },
  "South Dakota": {
   "rate": 0.0,
