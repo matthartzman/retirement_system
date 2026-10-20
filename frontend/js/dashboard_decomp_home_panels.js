@@ -5,6 +5,24 @@
 // with dashboard.js, so these remain plain global functions/vars just as
 // they were inline.
 
+// WI-009: '+/-tol' only for Roth policies measured within tolerance, else
+// 'directional'. Mirrors MC_PARITY_DEMONSTRATED_POLICIES (planning_engines.py);
+// see documentation/reference/MC_PARITY_MEASUREMENT_WI009.md.
+export const MC_TOLERANCE_DEMONSTRATED_POLICIES = ["none", "fill_to_bracket", "optimize_terminal_tax"];
+export function mcSuccessDisclosure(summary, rothPolicy) {
+  let label = "Probability plan is fully funded (funded as asked)";
+  let title = "Percentage of simulated scenarios where spending is fully funded through the plan, exactly as asked; any account, including Roth as a last resort, may fund any spending.";
+  const status = summary && summary.mc_approximation_status;
+  if (status && status !== "EXACT") {
+    const tol = Number(summary.mc_parity_tolerance_pp);
+    const policy = String(rothPolicy || "optimize_terminal_tax").toLowerCase();
+    const bounded = status === "TOLERANCE_BOUNDED" && Number.isFinite(tol) && MC_TOLERANCE_DEMONSTRATED_POLICIES.includes(policy);
+    label += bounded ? ` (\u00b1${tol}pp)` : " (directional)";
+    title += (bounded ? ` -- fast vectorized engine; measured within ${tol} percentage points of the exact scalar engine for the ${policy} Roth policy. ` : ` -- fast vectorized engine; accuracy not demonstrated for the ${policy} Roth policy, so treat as directional. `) + (summary.model_risk_label || "Switch to the exact scalar engine mode for advisor-ready validation.");
+  }
+  return { label, title };
+}
+
 /* ── 5.1 Plan KPI metrics panel (home screen) ── */
 export function planKpiMetricsHtml() {
   if (!planLoaded || !kpiHasValues(lastBuildSummary)) return "";
@@ -29,26 +47,9 @@ export function planKpiMetricsHtml() {
     lastBuildSummary && lastBuildSummary.spending_policy_active;
   const worstCutPct =
     lastBuildSummary && lastBuildSummary.worst_modeled_spending_cut_pct;
-  let successLabel = "Probability plan is fully funded";
-  let successTitle = "Percentage of simulated scenarios where spending is fully funded through the plan; any account, including Roth as a last resort, may fund any spending";
-  // W4-2 (N1) disclosure: the shipped default Monte Carlo engine
-  // (vectorized) is a documented approximation of the exact_scalar oracle,
-  // within a planner-signed-off tolerance -- see
-  // tests/test_monte_carlo_default_engine_mode.py and
-  // documentation/archive/reports/N1_MC_PARITY_DIAGNOSTIC_2026-09-07.md. Surface
-  // that on the KPI tile itself, not just the workbook's "Model Risk
-  // Rating" headline, so it's visible before a download.
-  const approxStatus =
-    lastBuildSummary && lastBuildSummary.mc_approximation_status;
-  if (approxStatus && approxStatus !== "EXACT") {
-    const tol = Number(lastBuildSummary.mc_parity_tolerance_pp);
-    const bounded = approxStatus === "TOLERANCE_BOUNDED" && Number.isFinite(tol);
-    successLabel += bounded ? ` (\u00b1${tol}pp)` : " (approximate)";
-    successTitle += (bounded ? ` -- fast vectorized Monte Carlo engine, tested within ${tol} percentage points of the exact scalar engine. ` : " -- computed with the fast, approximate Monte Carlo engine; treat as directional. ") +
-      (lastBuildSummary.model_risk_label ||
-        "Switch to the exact scalar engine mode for advisor-ready validation.");
-  }
-  if (!spendPolicyActive && lastBuildSummary && lastBuildSummary.mc_success_within_tier_policy != null && Number.isFinite(Number(lastBuildSummary.mc_success_within_tier_policy))) successVal += ` <span class="small" title="Approximate. Same simulation, but discretionary and important spending may never draw Roth, and discretionary never draws HSA.">(without using Roth for extras: ${fmtPct(Number(lastBuildSummary.mc_success_within_tier_policy) * 100)})</span>`;
+  const disclosure = mcSuccessDisclosure(lastBuildSummary, rothPolicyValue());
+  let successLabel = disclosure.label;
+  let successTitle = disclosure.title;
   if (spendPolicyActive) {
     successLabel = "Probability plan is fully funded (conditional on modelled cuts)";
     successTitle =
