@@ -1,24 +1,30 @@
 # System Review 2026-10-19 — Wave 2 Status
 
-Companion to `SYSTEM_REVIEW_2026-10-19.md` section 9 (Wave 2). Checked against `main` at f9f910e (2026-10-20). Only WI-005 to WI-009 of Wave 1 are merged; WI-010/010a are in a parallel session; WI-012, WI-013, WI-015 and WI-016 are not on main.
+Companion to `SYSTEM_REVIEW_2026-10-19.md` section 9 (Wave 2). Updated 2026-10-20 after Wave 1 (WI-010 to WI-016) merged to `main` (#233). Planner decisions are the owner's sign-offs given in session on 2026-10-20.
 
-| Item | Status | Note |
+| Item | Status | Where |
 |---|---|---|
-| WI-017 | Blocked | Needs WI-013 and WI-016 |
-| WI-018 | Blocked | Needs WI-015 |
-| WI-019 | Blocked | Needs WI-018 (WI-007 is merged) |
-| WI-020 | Blocked | Needs WI-018, WI-019, WI-014 |
-| WI-021 | Blocked | Needs WI-018, WI-020 |
-| WI-022 | Blocked | Needs WI-012 (WI-002 and WI-005 are done). Measure-only, no pins change |
-| WI-023 | Blocked | Needs WI-022, then planner sign-off before any re-pin |
-| WI-024 | Blocked | Needs WI-023; two phases per Wave 0 decision (c); planner sign-off before each re-pin |
-| WI-025 | Blocked | Needs WI-024 |
-| WI-026 | Done (branch) | See below |
+| WI-017 | Done | PR #235 (`claude/wave2-docs`) |
+| WI-018 to WI-021 | Done | PR #234 (`claude/wave2-ui`). Open call: the build overlay offers Hide, not a real server-side cancel |
+| WI-022 | Done (measure only) | engine PR; impact table `SYSTEM_REVIEW_2026-10-19_WI022_IMPACT.md` |
+| WI-023 | Done, re-pinned | engine PR (FIN-003) |
+| WI-024 phase 1 (IRMAA) | Done, baselines re-recorded | engine PR |
+| WI-024 phase 2 (NIIT, ACA, Social Security) | Done, re-pinned | engine PR |
+| WI-025 | Done, no pin moved | engine PR |
+| WI-026 | Done, merged | #232 |
 
-## WI-026 (ARC-004, option 2)
+## Engine chain (branch `claude/wave2-eng`)
 
-Removed: `src/plan_data_read.py` and its unit test; the legacy `client_files` / `input/*.csv` fallbacks in `financial_trends_reporter/trends_metrics.py` (liabilities and plan rows now come from the plan file only); the never-written legacy `audit_events` table in `config_backend.init_sqlite`; the `plan_snapshots` table and its four summary tables, plus the `result_snapshots` foreign key to it, in `local_store.init_local_store` (the nullable `plan_snapshot_id` column stays). The plan_data_read allow-list line in the no-data-file-IO test was dropped.
+Pins after WI-024 phase 2 (frozen sample plan): terminal NW 5,381,597.38; lifetime tax 1,237,081.61; Roth conversions 125,000. Each step was measured and signed off before its re-pin; per-step figures are in the impact document, sections 7 and 8.
 
-Kept: `client_files` and `get_client_file` (the conversion and `plan_db_replace` still require them), and the conversion's reads of `client_files` / `plan_snapshots` from an existing legacy database (`legacy_conversion/sources.py` checks table existence). Existing databases keep their old tables.
+Decisions recorded: align the LTCG band tops to the verified 2026 dataset (98,900 / 613,700); change all FIN-003 call sites in one patch; stack qualified dividends and gains by the filing status in force for each year (this fixed a 2056 survivor-year error); measure NIIT, ACA and Social Security taxation as separate steps; re-pin in sequence; the closed-form conventions in the WI-022 fixtures are confirmed.
 
-Tests: three `test_trends_metrics_unit.py` cases that seeded the removed fallback now seed `plan.rpx`; a new regression asserts a legacy `client_liabilities.csv` is ignored when the plan has no liabilities. No calculation, golden or tax result changed. No professional review needed.
+Notices retired per their triggers: N1 (WI-024 both phases), N2 (WI-023), N4 (WI-025). N3, N5, N6 and N7 stay. The `sample_frozen` phase baseline was re-recorded for structure only after merging main and retiring these notices; no figure moved.
+
+## Open items
+
+- **Roth LTCG cap** stays on the AGI basis. Measuring it from AGI less the standard deduction added about 142k of Roth conversions in the golden_compare pipeline, far beyond FIN-003. Planner decision pending.
+- The `[demo]` phase baseline cannot be checked or re-recorded where `input/demo` is absent. It needs recording on a machine that has it.
+- CPA review of the phase 2 sample outputs is recommended, not blocking. Attorney review is not involved in this chain.
+- Frozen-plan sensitivity: ACA and Social Security taxation steps have no effect on the frozen plan (no bridge years; taxable share already at 85%). They are covered by end-to-end tests on constructed households.
+- Environmental test failures in the cloud sandbox (missing gitignored `input/`, Node packages, parallel-run flakes in tax-loss harvesting and state residency that pass alone) are unchanged from clean base.

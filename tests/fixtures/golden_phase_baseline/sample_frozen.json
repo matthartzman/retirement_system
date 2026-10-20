@@ -10715,6 +10715,7 @@
   "lcv",
   "lcv_all_in_including_taxes",
   "lifetime_tax",
+  "limitation_notices",
   "mc_approximation_status",
   "mc_parity_tolerance_pp",
   "mc_success",
@@ -16300,6 +16301,106 @@
     null,
     null,
     "Re-sort candidate table or rerun optimization.",
+    null,
+    null
+   ],
+   [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+   ],
+   [
+    "LIMITATION NOTICES \u2014 known model limits for this plan (no calculation is changed)",
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+   ],
+   [
+    "Severity",
+    "Notice",
+    "Text",
+    null,
+    null,
+    null,
+    null,
+    null
+   ],
+   [
+    "INFO",
+    "N7",
+    "Reference data status by family: verified, assumption or unreviewed.",
+    null,
+    null,
+    null,
+    null,
+    null
+   ],
+   [
+    "INFO",
+    "N7",
+    "Federal tables: assumption (tax_law dataset v10, rows in force for 2026)",
+    null,
+    null,
+    null,
+    null,
+    null
+   ],
+   [
+    "INFO",
+    "N7",
+    "AMT: unreviewed (no dated AMT rows in the dataset)",
+    null,
+    null,
+    null,
+    null,
+    null
+   ],
+   [
+    "INFO",
+    "N7",
+    "State income tax: unreviewed (state_tax table; tax-update dashboard review flag)",
+    null,
+    null,
+    null,
+    null,
+    null
+   ],
+   [
+    "INFO",
+    "N7",
+    "State estate tax: unreviewed (state_tax table; tax-update dashboard review flag)",
+    null,
+    null,
+    null,
+    null,
+    null
+   ],
+   [
+    "INFO",
+    "N7",
+    "Mortality: assumption (SSA Actuarial Study No. 124 (interpolated/extrapolated))",
+    null,
+    null,
+    null,
+    null,
+    null
+   ],
+   [
+    "INFO",
+    "N7",
+    "Part D: assumption (tax_law dataset v10, Part D rows in force for 2026)",
+    null,
+    null,
+    null,
     null,
     null
    ]
