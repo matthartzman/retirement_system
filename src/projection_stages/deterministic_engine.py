@@ -1387,7 +1387,10 @@ def run_deterministic_projection_stage(c):
                             bridge_people=bridge_people)
 
         def _ss_extra_from_gain(extra_gain, _non_ss=agi - ss_taxable + sale_gain_in_agi):
-            return _ss_taxable_amount(ss_total, _non_ss + extra_gain + portfolio_tax_exempt, filing) - ss_taxable
+            # Marginal effect of the gain only (same base income on both sides): elective
+            # IRA draws already in ``agi`` do not retroactively re-tax the benefit here.
+            return (_ss_taxable_amount(ss_total, _non_ss + extra_gain + portfolio_tax_exempt, filing)
+                    - _ss_taxable_amount(ss_total, _non_ss + portfolio_tax_exempt, filing))
 
         _inv_tax = _apply_investment_tax_cascade(
             c, bal, bal_basis_free, row,

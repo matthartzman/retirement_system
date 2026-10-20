@@ -163,3 +163,24 @@ Non-slow tier (`pytest tests -m "not slow and not nightly" -n 4`): 23 failures. 
 ### 7.10 Re-pin
 
 Done through the documented tools only: `tools/regen_golden_master.py regen --reason` (entry added to `documentation/reference/GOLDEN_MASTER_CHANGELOG.md`) and `tools/golden_compare.py record --plan sample_frozen --reason` for the phase baseline. New pins: `PINNED_TERMINAL_NW` 5,383,495.40, `PINNED_LIFETIME_TAX` 1,236,390.19. The demo baseline could not be regenerated here (no `input/demo`) and still needs recording where that plan exists.
+
+## 8. WI-024 phase 2 measurement (NIIT, ACA, Social Security) — NOT re-pinned, awaiting planner sign-off
+
+Phase 1 (IRMAA MAGI) is re-recorded and pinned separately (changelog 2026-10-20; baselines at 1cedff2, pins unchanged). Phase 2 is implemented as three commits, each with its own closed-form and cascade-convergence test, measured step by step on the frozen plan against the phase-1 state. No pin, snapshot or baseline was touched for phase 2.
+
+| Step | Commit | Closed-form test | `measure` NW / lifetime tax (vs pins 5,383,495.40 / 1,236,390.19) | Roth conversions | Lifetime NIIT | ACA credit | Taxable SS |
+|---|---|---|---|---|---|---|---|
+| Phase-1 state | 1cedff2 | | 5,383,495.40 / 1,236,390.19 | 125,000 | 17,370.45 | 0 | 2,183,816.24 |
+| 1 NIIT MAGI | 6cfbec2 | AGI 230k + 100k gain: 3.8% x min(100k, 80k) = 3,040 | 5,381,597.38 / 1,237,081.61 (-1,898.02 / +691.42) | 125,000 | 18,109.54 (+739.09) | 0 | 2,183,747.06 |
+| 2 ACA MAGI | 1e1cd1c | 50k gain, linear credit schedule: loss 10,000 | no change vs step 1 | 125,000 | no change | 0 (no bridge years) | no change |
+| 3 Social Security | 5cb62a3 | benefits 40k, other 20k, gain 20k: taxable 4,000 to 19,600 (+15,600) | no change vs step 1 | 125,000 | no change | 0 | no change |
+
+`golden_compare` pipeline (committed phase-1 baseline to step 1; steps 2 and 3 identical to step 1): terminal NW 5,511,444.98 to 5,508,783.24 (-2,661.74); lifetime tax 1,128,988.71 to 1,129,664.36 (+675.65); Roth conversions 598,627.59 to 598,722.95 (+95.36); lifetime NIIT 13,774.32 to 14,528.69 (+754.37); IRMAA, ACA unchanged; KPI lifetime tax 1,001,118.80 to 1,001,139.31, terminal NW 4,510,016.12 to 4,509,915.89.
+
+Reading: only the NIIT step moves the frozen plan, by about +0.7k lifetime NIIT; this is the sample plan's exposure, not a general bound. The plan has no ACA bridge years and the extra taxable benefit from its gains is nil in every year (the benefit inclusion appears to be at its cap when gains are realized; not separately verified), so steps 2 and 3 have no measurable effect here (they are covered by closed-form and convergence tests only, and a plan with bridge years or partial benefit inclusion would move).
+
+Implementation notes. NIIT: `_refresh_investment_taxes` adds the net cascade gain (less the home/rental gain already in AGI) to NIIT MAGI on every pass. ACA: the cascade carries an `aca_ptc_fn`; the credit lost to the gain is added to the cash need in the same fixed point and written to `aca_ptc_loss_from_brokerage_gain`. Social Security: the cascade carries an `ss_extra_fn`; the extra taxable benefit is taxed on the ordinary stack (below the gain), counted in NIIT/ACA/IRMAA MAGI and AGI, and its tax is kept through later recombinations via the fixed-tax term. Not modeled: state tax on the extra benefit; the senior-deduction phase-out.
+
+Convergence: each step has a test that iterates the cascade map (withdrawal = need + tax + credit loss, gain = half of the withdrawal) and checks it contracts and settles under 0.005 within the loop limit (the NIIT test asserts fewer than 20 passes).
+
+Correction found by the non-slow tier (`test_qcd_agi_exclusion_functional`): the first version of step 3 measured the extra taxable benefit against the stage-9 benefit amount, so elective IRA draws already in AGI (which do not feed Social Security taxability in this engine) were charged to the gain. It now measures the gain's own marginal effect (same base income on both sides). Frozen-plan figures in the table are unchanged by the correction. Open observation, not changed: elective IRA draws made in the cascade do not retroactively raise taxable Social Security.
