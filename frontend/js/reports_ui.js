@@ -1197,6 +1197,96 @@
     const items = (series || []).slice(0, 12);
     return `<div class="detail-chart-legend">${items.map((s, i) => `<span><i style="background:${detailChartColor(i)}"></i>${esc(s.label || "Series")}</span>`).join("")}${(series || []).length > items.length ? `<span>+${(series || []).length - items.length} more</span>` : ""}</div>`;
   }
+  // UX-012 / WI-021: a plain-language summary of what the chart shows, read by assistive technology
+  // (the SVG itself exposes only its title). Built from the same data the chart is drawn from.
+  function detailChartSummary(chart) {
+    chart = chart || {};
+    var money = function (v) {
+      return detailCurrencyK(Number(v) || 0);
+    };
+    var xs = chart.x || [];
+    var series = chart.series || [];
+    var type = chart.type || "";
+    var span =
+      xs.length > 1
+        ? " from " + xs[0] + " to " + xs[xs.length - 1]
+        : xs.length === 1
+          ? " for " + xs[0]
+          : "";
+    if (type === "pie") {
+      var slices = (chart.slices || []).filter(function (s) {
+        return Number(s.value) > 0;
+      });
+      var total =
+        slices.reduce(function (n, s) {
+          return n + Number(s.value || 0);
+        }, 0) || 1;
+      if (!slices.length) return "Pie chart with no data.";
+      return (
+        "Pie chart with " +
+        slices.length +
+        (slices.length === 1 ? " slice: " : " slices: ") +
+        slices
+          .map(function (s) {
+            return s.label + " " + Math.round((Number(s.value) / total) * 100) + "%";
+          })
+          .join(", ") +
+        "."
+      );
+    }
+    if (type === "scatter") {
+      var pts = series.reduce(function (n, s) {
+        return n + (s.points || []).length;
+      }, 0);
+      return (
+        "Scatter chart with " +
+        pts +
+        " point" +
+        (pts === 1 ? "" : "s") +
+        " in " +
+        series.length +
+        " series" +
+        (series.length ? ": " + series.map(function (s) { return s.label || "Series"; }).join(", ") : "") +
+        "."
+      );
+    }
+    var kind = type === "line" ? "Line chart" : "Bar chart";
+    if (!series.length || !xs.length) return kind + " with no data.";
+    var names = series.map(function (s) { return s.label || "Series"; });
+    var parts = series.slice(0, 4).map(function (s) {
+      var vs = (s.values || []).map(Number).filter(Number.isFinite);
+      if (!vs.length) return (s.label || "Series") + ": no data";
+      return (
+        (s.label || "Series") +
+        ": " +
+        money(vs[0]) +
+        " to " +
+        money(vs[vs.length - 1]) +
+        " (low " +
+        money(Math.min.apply(null, vs)) +
+        ", high " +
+        money(Math.max.apply(null, vs)) +
+        ")"
+      );
+    });
+    return (
+      kind +
+      " of " +
+      xs.length +
+      " period" +
+      (xs.length === 1 ? "" : "s") +
+      span +
+      ", " +
+      series.length +
+      " series (" +
+      names.slice(0, 6).join(", ") +
+      (names.length > 6 ? ", and more" : "") +
+      "). " +
+      parts.join("; ") +
+      (series.length > 4 ? "; and " + (series.length - 4) + " more series." : ".")
+    );
+  }
+  var detailChartSeq = 0;
   function renderDetailChartCard(ctx, chart) {
     var body = "";
     var KNOWN_TYPES = ["pie", "line", "bar", "stacked_bar", "stacked-bar", "scatter"];
@@ -1224,14 +1314,26 @@
       ctx && ctx.cacheChart
         ? ctx.cacheChart(body, chart.title || "Chart")
         : "nocache";
+    var sumId = "chart-sum-" + ++detailChartSeq;
+    // Tie the summary to the (first) svg so it is read with the chart's name.
+    body = body.replace("<svg ", '<svg aria-describedby="' + sumId + '" ');
     return (
       '<section class="detail-chart-card chart-expandable" onclick="openCachedChart(\'' +
       cacheId +
       '\')" title="Click to expand">' +
-      '<div class="chart-expand-hint">&#x2922; Expand</div>' +
+      '<button class="chart-expand-hint" type="button" aria-label="Expand chart: ' +
+      esc(chart.title || "Chart") +
+      '" onclick="event.stopPropagation();openCachedChart(\'' +
+      cacheId +
+      '\')">&#x2922; Expand</button>' +
       "<h4>" +
       esc(chart.title || "Chart") +
       "</h4>" +
+      '<p class="sr-only" id="' +
+      sumId +
+      '">' +
+      esc(detailChartSummary(chart)) +
+      "</p>" +
       body +
       "</section>"
     );
@@ -1442,5 +1544,7 @@
     detailLabelForColumn,
     detailGroupLabel,
     detailIdentifierRowIndex,
+    detailChartSummary,
+    renderDetailChartCard,
   };
 })();

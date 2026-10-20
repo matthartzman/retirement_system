@@ -1211,7 +1211,7 @@ export function analysisFrame(body, kind) {
   const isStress = kind === "stress";
   const intro = `<div class="section-note">${isStress ? "Set the assumptions below, rebuild, then open the full result in the workbook." : "Set the inputs below, preview the directional impact on Planning Overview, then rebuild to confirm."}</div>`;
   const chip = `<div class="ytd-status-grid"><div class="pill"><b>Current terminal NW</b><span>${fmtMoney(b.terminal)}</span></div><div class="pill"><b>Monte Carlo success</b><span>${fmtPct(b.success)}</span></div></div>`;
-  const footer = `<div class="section-note"><div class="pane-actions"><button class="btn" type="button" data-step-id="planning_levers">Preview impact (Planning overview)</button> <button class="btn good" type="button" onclick="setStep('detailed_results')">View full result in workbook</button></div></div>`;
+  const footer = `<div class="section-note"><div class="pane-actions"><button class="btn" type="button" data-step-id="planning_levers">Preview impact (Planning overview)</button> <button class="btn good" type="button" onclick="navigateTo('detailed_results')">View full result in workbook</button></div></div>`;
   return intro + chip + (body || "") + footer;
 }
 
@@ -2419,8 +2419,36 @@ export function reportsUiContext() {
   };
 }
 
+// UX-008 / WI-021: nav groups the user opened stay open across the re-renders an edit triggers
+// (scheduleStatusUpdate), and a focused nav button keeps focus.
+const navGroupsOpenedByUser = new Set();
+let navGroupListenerBox = null;
+// Only groups the USER opened or closed are remembered: a group that is open merely because it
+// holds the active step is ignored here, so it still collapses when the user moves elsewhere.
+function watchNavGroupToggles(box) {
+  if (!box || navGroupListenerBox === box || !box.addEventListener) return;
+  navGroupListenerBox = box;
+  box.addEventListener(
+    "toggle",
+    (e) => {
+      const d = e.target;
+      const name = d && d.getAttribute && d.getAttribute("data-group");
+      if (!name) return;
+      const holdsActive = !!(d.querySelector && d.querySelector('[aria-current="step"]'));
+      if (d.open) {
+        if (!holdsActive) navGroupsOpenedByUser.add(name);
+      } else navGroupsOpenedByUser.delete(name);
+    },
+    true,
+  );
+}
 export function renderSteps() {
   const box = document.getElementById("steps");
+  watchNavGroupToggles(box);
+  const focusedStepId =
+    box && box.contains && document.activeElement && box.contains(document.activeElement)
+      ? document.activeElement.getAttribute && document.activeElement.getAttribute("data-step-id")
+      : null;
   let html = "";
   const stats = overallStats();
   const pct = stats.total ? Math.round(100 * (stats.done / stats.total)) : 0;
@@ -2495,8 +2523,8 @@ export function renderSteps() {
       0,
     );
     const badge = gMissing ? `<span class="badge bad">${gMissing}</span>` : "";
-    const open = isActive ? "open" : "";
-    html += `<details class="nav-group" ${open}><summary class="nav-group-summary">${esc(g.name)}${badge}</summary><div class="nav-group-steps">`;
+    const open = isActive || navGroupsOpenedByUser.has(g.name) ? "open" : "";
+    html += `<details class="nav-group" data-group="${esc(g.name)}" ${open}><summary class="nav-group-summary">${esc(g.name)}${badge}</summary><div class="nav-group-steps">`;
     g.steps.forEach((s) => {
       html += stepButton(s);
       // Workspace tabs (e.g. Actual Spending's This year / Analysis) are
@@ -2511,6 +2539,10 @@ export function renderSteps() {
     html += `</div></details>`;
   });
   box.innerHTML = html;
+  if (focusedStepId && box.querySelector) {
+    const again = box.querySelector('[data-step-id="' + focusedStepId + '"]');
+    if (again && again.focus) again.focus({ preventScroll: true });
+  }
   updateUnsaved();
 }
 

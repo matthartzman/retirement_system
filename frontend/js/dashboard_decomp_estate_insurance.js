@@ -272,7 +272,7 @@ export function renderQcdTable(rs) {
   );
 }
 export function renderEntityCharitable() {
-  let html = `<div class="section-note">Qualified charitable distributions (age 70½+) satisfy required distributions without the amount appearing as taxable income. S-Corp election is a self-employment decision, entered on <a href="#" onclick="setStep('income_work');return false">Work Income</a>.</div>`;
+  let html = `<div class="section-note">Qualified charitable distributions (age 70½+) satisfy required distributions without the amount appearing as taxable income. S-Corp election is a self-employment decision, entered on <a href="#" onclick="navigateTo('income_work');return false">Work Income</a>.</div>`;
   if (searchText.trim()) return html + renderFields("entity_charitable");
   const rs = rowsForStep("entity_charitable", { includeInactive: true });
   // #330 §5.2/§5.3 (W12): DAF and QCD are each gated by their OWN plan flag,
@@ -491,9 +491,9 @@ export function renderInsurancePolicyGroup(opts) {
       // isn't silently authoritative without explanation.
       const budgetNote =
         norm(typ) === "auto"
-          ? `<div class="section-note">This policy's Annual Premium now sets the "Auto Insurance" spending budget amount, replacing the value entered on <a href="#" onclick="setStep('spending_core');return false">Spending Categories</a>.</div>`
+          ? `<div class="section-note">This policy's Annual Premium now sets the "Auto Insurance" spending budget amount, replacing the value entered on <a href="#" onclick="navigateTo('spending_core');return false">Spending Categories</a>.</div>`
           : norm(typ) === "home"
-            ? `<div class="section-note">This policy's Annual Premium now sets the homeowners-insurance baseline used on <a href="#" onclick="setStep('state_residency');return false">State Residency Analysis</a>, replacing the value entered on <a href="#" onclick="setStep('spending_mortgage_events');return false">Housing</a>.</div>`
+            ? `<div class="section-note">This policy's Annual Premium now sets the homeowners-insurance baseline used on <a href="#" onclick="navigateTo('state_residency');return false">State Residency Analysis</a>, replacing the value entered on <a href="#" onclick="navigateTo('spending_mortgage_events');return false">Housing</a>.</div>`
             : "";
       const body = prs
         .filter((r) => r !== typeRow)

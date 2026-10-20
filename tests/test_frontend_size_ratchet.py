@@ -581,7 +581,9 @@ DASHBOARD_JS_MAX_LINES = 7_134
 # 2026-10-20 (WI-020 / UX-004, UX-010: per-field save-error messages, error summary, structured field_errors
 # in api_client, showInAppPrompt dialog semantics + choices mode, estate state/trust-type selects, +205):
 # raised to 39,874.
-TOTAL_JS_MAX_LINES = 39_874
+# 2026-10-20 (WI-021 / UX-003, UX-008, UX-009, UX-012: navigateTo guard, page announcements and heading focus,
+# nav-group state, help badge button, chart summaries + expand button, +179): raised to 40,053.
+TOTAL_JS_MAX_LINES = 40_053
 
 
 def _line_count(path: Path) -> int:

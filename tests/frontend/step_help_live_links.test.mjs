@@ -24,11 +24,11 @@ function stepById(id) {
 }
 
 describe("stepHelpLinkHtml (pure render helper)", () => {
-  test("renders a clickable setStep() link when helpLink is present", () => {
+  test("renders a clickable navigateTo() link (the guarded jump, WI-021) when helpLink is present", () => {
     const html = sandbox.stepHelpLinkHtml({
       helpLink: { id: "roth_conversion", label: "Open Roth Conversion" },
     });
-    assert.match(html, /<a href="#" onclick="setStep\('roth_conversion'\);return false">/);
+    assert.match(html, /<a href="#" onclick="navigateTo\('roth_conversion'\);return false">/);
     assert.match(html, />Open Roth Conversion<\/a>/);
   });
   test("escapes the label text", () => {

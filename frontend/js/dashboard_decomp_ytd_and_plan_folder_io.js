@@ -705,7 +705,7 @@ export function renderYtdTracking() {
 
 export function renderYtdTransactionsStep() {
   const enabled = !!ytdData?.summary?.enabled;
-  return `<div class="holdings ytd-tracking"><h3 class="group-title">Income &amp; Expense Transactions</h3><div class="section-note"><b>Step 1 of 2 — Import transactions here.</b> After importing, go to <a href="#" onclick="setStep('spending_core');return false">Spending Categories</a> (step 2) to assign categories to your transactions. Use Accounts &amp; Sources below to identify account/source type and balances.</div>${enabled ? ytdActualsPeriodToggleHtml("transactions_step") : ""}${ytdBlendToggleHtml()}${renderYtdUploadPanel(enabled)}${renderYtdTransactions()}${renderYtdAccounts()}</div>`;
+  return `<div class="holdings ytd-tracking"><h3 class="group-title">Income &amp; Expense Transactions</h3><div class="section-note"><b>Step 1 of 2 — Import transactions here.</b> After importing, go to <a href="#" onclick="navigateTo('spending_core');return false">Spending Categories</a> (step 2) to assign categories to your transactions. Use Accounts &amp; Sources below to identify account/source type and balances.</div>${enabled ? ytdActualsPeriodToggleHtml("transactions_step") : ""}${ytdBlendToggleHtml()}${renderYtdUploadPanel(enabled)}${renderYtdTransactions()}${renderYtdAccounts()}</div>`;
 }
 
 export function deduplicateYtdTransactions() {
