@@ -1,6 +1,6 @@
 """Rental properties of a plan file (WP12.4): ``RentalRepo``, reached as ``store.rental``.
 
-Design ``docs/superpowers/specs/2026-10-05-rental-property-module-design.md`` section 3. Three
+Design ``documentation/archive/superpowers/specs/2026-10-05-rental-property-module-design.md`` section 3. Three
 typed tables (schema v9), unlike the text-only flat datasets: numbers are ``REAL`` / ``INTEGER``,
 a blank is ``NULL``.
 

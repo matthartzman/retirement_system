@@ -129,7 +129,7 @@ def evaluate_claim_age_pair(config: dict, spec: dict, settings: dict) -> dict:
     # bonus below is untouched (still nominal, still not PV'd) -- it is
     # a distinct, deliberately-tuned incentive to delay the higher
     # earner's claim for survivor protection, not a wealth term LCV
-    # should absorb. See docs/superpowers/plans/2026-08-27-phase4-lcv-
+    # should absorb. See documentation/archive/superpowers/plans/2026-08-27-phase4-lcv-
     # feasibility-gate-spec.md.
     _discount = _roth_discount_rate(c2)
     _plan_start = int(c2.get('plan_start', proj_rows[0].get('year', 0) if proj_rows else 0) or 0)

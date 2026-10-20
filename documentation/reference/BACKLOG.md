@@ -3,7 +3,7 @@
 Deferred items that are not in flight. The repository has no GitHub issue
 tracker, so this file is the tracker: when an item is picked up, move it to a
 spec or plan and delete the line here. Source for the first entries is
-`docs/superpowers/plans/2026-09-19-optimizers-modules-housing-master-plan.md`
+`documentation/archive/superpowers/plans/2026-09-19-optimizers-modules-housing-master-plan.md`
 section 9.
 
 | Item | Origin | Note |

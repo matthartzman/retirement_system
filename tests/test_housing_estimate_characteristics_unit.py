@@ -1,4 +1,4 @@
-# Slice 2 (docs/superpowers/plans/2026-09-09-housing-estimate-realism-and-
+# Slice 2 (documentation/archive/superpowers/plans/2026-09-09-housing-estimate-realism-and-
 # dollar-convention-design.md, §3.3): the five realism characteristics that
 # replace the Estimator's fixed 3BR/2BA/single-family/1800-2500sqft profile.
 # Pure-function coverage per §6 item 2 -- no plan-file or HTTP mocking needed.

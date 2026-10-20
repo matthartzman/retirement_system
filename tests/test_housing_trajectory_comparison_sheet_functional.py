@@ -1,5 +1,5 @@
 """Housing Comparison sheet (Slice 4, H11) --
-docs/superpowers/plans/2026-09-09-housing-estimate-realism-and-dollar-
+documentation/archive/superpowers/plans/2026-09-09-housing-estimate-realism-and-dollar-
 convention-design.md, §4.5.
 
 Covers registration/gating (same pattern as

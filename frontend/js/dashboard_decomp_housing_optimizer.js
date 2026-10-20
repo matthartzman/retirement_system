@@ -2,7 +2,7 @@
 // dashboard_decomp_housing_scenarios.js on 2026-09-16: that file also owns the
 // spending/housing screen and had reached 1,841 lines, and the optimizer block
 // roughly doubles in size under the refinement design
-// (docs/superpowers/specs/2026-09-16-housing-optimizer-refinement-design.md
+// (documentation/archive/superpowers/specs/2026-09-16-housing-optimizer-refinement-design.md
 // §9.1). 2026-09-17: relocated from Strategy -> Scenarios -> Scenario Change
 // Sets to its own tab, Strategy -> Optimize -> Next Housing Move
 // (dashboard_decomp_strategy_workspace.js's renderStrategyOptimize()), a

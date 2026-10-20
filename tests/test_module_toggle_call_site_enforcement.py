@@ -13,7 +13,7 @@ exactly those. A third spelling exists for a plan flag (#330 §5.3, W6): a
 plan flag is not routed through ``module_enabled()`` at all -- its state
 lives on a plan-data key parsed straight off the client CSV, not in
 ``c['opt']``. Deferred by W9, confirmed by W12, and added here (see
-``docs/superpowers/plans/2026-09-23-hybrid-ltc-soft-dependency-notes.md``):
+``documentation/archive/superpowers/plans/2026-09-23-hybrid-ltc-soft-dependency-notes.md``):
 
 * a call to anything whose name ends in ``module_enabled`` (this deliberately
   catches ``spending_tracker._existing_life_insurance_module_enabled``, which

@@ -1,8 +1,8 @@
 """W10c: the Social Security claim-age sweep's result reaches the apply path.
 
-Master plan `docs/superpowers/plans/2026-09-19-optimizers-modules-housing-
+Master plan `documentation/archive/superpowers/plans/2026-09-19-optimizers-modules-housing-
 master-plan.md` §4, W10c (#329 P6). Notes:
-`docs/superpowers/plans/2026-09-22-w10c-apply-to-plan-notes.md`.
+`documentation/archive/superpowers/plans/2026-09-22-w10c-apply-to-plan-notes.md`.
 
 Social Security is #329 §4.3's *scalar adoption* case: the whole
 recommendation is one claim age per person, so applying it is a two-row patch
