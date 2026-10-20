@@ -88,7 +88,7 @@ Page header = title, status badge, actions. Sections = label, input, output. Cla
 Effort is stated against a 5-hour Claude Code Pro session. Check `/usage` as each phase runs.
 
 ### Phase 0: inventory and classification (Sonnet, medium; light)
-- Write `tools/extract_ui_prose.py`: scans `frontend/js/*.js` and `frontend/index.html` for template-literal and string prose in `section-note`, `small`, `muted`, `question`, `title=`, banner, `STEPS.intro/help`, and `pageHelp(` calls; writes `documentation/future/ui_prose_inventory.csv` (file, line, class guess, text, level, step id).
+- Write `tools/extract_ui_prose.py`: scans `frontend/js/*.js` and `frontend/index.html` for template-literal and string prose in `section-note`, `small`, `muted`, `question`, `title=`, banner, `STEPS.intro/help`, and `pageHelp(` calls; writes `ui_prose_inventory.csv` (to be created in documentation/future/) (file, line, class guess, text, level, step id).
 - Review the CSV together; correct the class column. Replace the estimates in this plan with measured counts.
 - Add `merged_into` and `unique_info_kept` columns for class D rows (3.1). Group near-duplicates by step id and meaning, not by exact text.
 - Exit: every string has a class and a destination (page, section or field record, or delete).
