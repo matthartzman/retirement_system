@@ -576,7 +576,9 @@ DASHBOARD_JS_MAX_LINES = 7_134
 # 2026-10-20 (WI-018 / UX-001, UX-011: saveBeforeStructuralChange helper + reportSaveFailure extraction in
 # row_model.js, guard calls in 10 add/delete/seed handlers, in-app confirm + loadAll in importPlanFolder, +59):
 # raised to 39,558.
-TOTAL_JS_MAX_LINES = 39_558
+# 2026-10-20 (WI-019 / UX-002, ARC-003: hide-in-background replaces the fake Cancel, running chip, in-flight
+# guard, build-warnings banner in build_lifecycle.js and row_model.js, +111): raised to 39,669.
+TOTAL_JS_MAX_LINES = 39_669
 
 
 def _line_count(path: Path) -> int:

@@ -1261,7 +1261,11 @@ export function unsavedChangesPromptBar() {
   return "";
 }
 
+// WI-019: the build-warnings banner leads every page that shows the impact section.
 export function renderImpactSectionContent() {
+  return buildWarningsBannerHtml() + renderImpactSectionBody();
+}
+function renderImpactSectionBody() {
   loadBuildHistory();
   const headerActions =
     '<div class="pane-actions"><button class="btn" type="button" data-requires-app="1" onclick="takeBuildSnapshot()">Take Snapshot</button> <button class="btn danger" type="button" data-requires-app="1" onclick="revertLastBuildChanges()">Revert User Changes</button></div>';
@@ -5176,9 +5180,37 @@ export async function saveAll(sync = true) {
   }
 }
 
+// WI-019: a build the user hid (hideBuildInBackground) is still running; a second one must not
+// start on top of it, and the hide flag/chip are cleared whenever a build ends.
+let buildInFlight = false;
+// WI-019 / ARC-003: swallowed derived-result steps reported by the last build (the
+// config_contract_warnings WI-007 collects), shown on the build result banner and Build Impact.
+let lastBuildWarnings = [];
+export function buildWarningsBannerHtml() {
+  if (!lastBuildWarnings.length) return "";
+  return (
+    '<div class="section-note warn build-warnings" role="group" aria-label="Build warnings"><b>The last build finished with ' +
+    lastBuildWarnings.length +
+    " warning" +
+    (lastBuildWarnings.length === 1 ? "" : "s") +
+    ".</b> Some report content may be missing:<ul class=\"inapp-modal-list\">" +
+    lastBuildWarnings.map((w) => "<li>" + esc(w) + "</li>").join("") +
+    "</ul></div>"
+  );
+}
+
 export async function runBuild(queue = false, opts = {}) {
   const fromDownload = !!(opts && opts.fromDownload);
   const stepBeforeBuild = activeStep;
+  if (buildInFlight) {
+    showMessage(
+      "A build is already running in the background. Wait for it to finish before starting another.",
+      "warn",
+    );
+    return false;
+  }
+  buildInFlight = true;
+  resetBuildHidden();
   try {
     if (!validateAllocationTargetsOrMessage()) return false;
     setBuildOverlay(
@@ -5289,6 +5321,9 @@ export async function runBuild(queue = false, opts = {}) {
         96,
       );
       lastBuildOk = true;
+      lastBuildWarnings = Array.isArray(out.warnings)
+        ? out.warnings.map((w) => String(w))
+        : [];
       lastBuildSummary = summaryFromApiPayload(out);
       if (!kpiHasValues(lastBuildSummary)) lastBuildSummary = out.kpi || {};
       const postBuildStatus = await refreshBuildStatus();
@@ -5311,12 +5346,40 @@ export async function runBuild(queue = false, opts = {}) {
         100,
         "done",
       );
+      const nWarn = lastBuildWarnings.length;
+      const warnText =
+        "Build finished with " +
+        nWarn +
+        " warning" +
+        (nWarn === 1 ? "" : "s") +
+        ": " +
+        lastBuildWarnings[0] +
+        (nWarn > 1 ? " (and " + (nWarn - 1) + " more on Impact & Build History)" : "");
       if (fromDownload) {
         setTimeout(hideBuildOverlay, 400);
-        showMessage("Build successful.");
+        if (nWarn) showMessage(warnText, "warn", { persistent: true });
+        else showMessage("Build successful.");
         renderMain();
+      } else if (buildWasHiddenByUser()) {
+        // The user hid the progress window and moved on: do not pull them to another page.
+        setBuildRunningChip(false);
+        showMessage(
+          (nWarn ? warnText : "Build finished in the background.") + " Open Impact & Build History to see the results.",
+          nWarn ? "warn" : "info",
+          {
+            persistent: true,
+            action: {
+              label: "View Impact & Build History",
+              fn: "renderBuildImpactAfterBuild(null,null)",
+            },
+          },
+        );
       } else {
-        renderBuildImpactAfterBuild("Build successful. Build impact is ready.", stepBeforeBuild);
+        renderBuildImpactAfterBuild(
+          nWarn ? null : "Build successful. Build impact is ready.",
+          stepBeforeBuild,
+        );
+        if (nWarn) showMessage(warnText, "warn", { persistent: true });
       }
       maybeRunLocalBackup("build");
     } else throw new Error(JSON.stringify(out));
@@ -5330,8 +5393,12 @@ export async function runBuild(queue = false, opts = {}) {
       100,
       "error",
     );
-    setTimeout(hideBuildOverlay, 700);
+    // A hidden overlay is already closed; a delayed hide would close someone else's.
+    if (!buildWasHiddenByUser()) setTimeout(hideBuildOverlay, 700);
+    setBuildRunningChip(false);
     showMessage("Error building: " + e.message, "error");
+  } finally {
+    buildInFlight = false;
   }
   return lastBuildOk;
 }
@@ -5443,6 +5510,7 @@ Object.assign(window, {
   budgetMoneyInputValue,
   budgetMoneyNumber,
   buildHistoryProvenance,
+  buildWarningsBannerHtml,
   capturedSessionChanges,
   catDetailLines,
   catDetailSum,
