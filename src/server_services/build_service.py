@@ -10,6 +10,7 @@ from typing import Any, Callable
 from ..schema_registry import validate_rows as _schema_validate_rows
 
 from .. import active_plan
+from .. import limitation_notices
 
 from . import build_job_service
 
@@ -271,4 +272,6 @@ def build_preflight_payload(
         "output_fingerprints": (snapshot or {}).get("artifacts", []),
         "pricing_status": pricing_status,
         "pricing_mode": pricing_mode,
+        # WI-010 / WI-010a: display-only limitation notices (never change readiness).
+        "limitation_notices": limitation_notices.with_always_on(summary.get("limitation_notices")),
     }

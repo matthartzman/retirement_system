@@ -400,6 +400,23 @@ def build_sheet26_workbook_warnings(ws, c, rows):
             write_cell(ws, r, 6, w.get('action',''))
             ws.merge_cells(start_row=r, start_column=6, end_row=r, end_column=8)
             r += 1
+    from ..limitation_notices import display_lines
+    notice_lines = display_lines(c.get('limitation_notices') or [])
+    if notice_lines:
+        r += 1
+        section_title(ws, r, 'LIMITATION NOTICES — known model limits for this plan (no calculation is changed)', 8, bg=ORANGE)
+        r += 1
+        write_hdr(ws, r, 1, 'Severity', DGRAY, WHITE)
+        write_hdr(ws, r, 2, 'Notice', DGRAY, WHITE)
+        write_hdr(ws, r, 3, 'Text', DGRAY, WHITE, span=6)
+        r += 1
+        for nid, sev, text in notice_lines:
+            write_cell(ws, r, 1, sev.upper(), bold=True, bg='FFF2CC' if sev == 'warning' else 'DDEBF7')
+            write_cell(ws, r, 2, nid)
+            write_cell(ws, r, 3, text)
+            ws.merge_cells(start_row=r, start_column=3, end_row=r, end_column=8)
+            ws.row_dimensions[r].height = 45 if len(text) > 110 else 18
+            r += 1
     for col, width in {'A':12,'B':30,'C':36,'D':12,'E':12,'F':42,'G':12,'H':12}.items():
         ws.column_dimensions[col].width = width
 
@@ -1330,6 +1347,8 @@ def _main(plan_read):
         'validation_warn_count': int((validation_summary or {}).get('warn_count', 0) or 0),
         'validation_first_fail': (validation_summary or {}).get('first_fail'),
         'format_override_warning': format_override_warning,
+        # WI-010 / WI-010a: limitation notices for this plan (display only).
+        'limitation_notices': list(c.get('limitation_notices') or []),
         # W4-2 (N1) disclosure: surface the vectorized-vs-exact_scalar
         # approximation status on the KPI tile, not just the workbook's
         # "Model Risk Rating" headline (sheets_summary_builder.py already
