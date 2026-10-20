@@ -2354,11 +2354,13 @@ def plan_roth_conversion(
             # stack position tested here contains the dividends, and the band tops
             # come from the verified 2026 dataset via _roth_ltcg_thresholds_base and
             # the kernel's bracket factor -- the same tops tax_kernel.ltcg_tax_on_gain
-            # applies. NOTE (unchanged, flagged for planner): the position is pre-
-            # deduction AGI while the band tops are taxable-income thresholds, which
-            # is conservative; measuring from AGI less the standard deduction would
-            # loosen this cap (see the WI-023 impact section for the measured effect).
-            _stack_pos = pre_agi
+            # applies.
+            # WI-023b (planner decision): the band tops are TAXABLE-income thresholds,
+            # so the stack position is pre-conversion AGI less the deduction (the
+            # standard deduction is the floor available at sizing time, as in the
+            # bracket-room calculation above). A conversion adds ordinary income
+            # dollar for dollar, so headroom is measured from this position.
+            _stack_pos = max(0.0, pre_agi - std)
             # roth_ltcg_band: 'auto' stays within whichever band income is in
             # today; '0%' / '15%' name the band to stay within. A named band
             # income has already passed cannot be stayed within, so it adds no
@@ -2477,7 +2479,7 @@ def plan_roth_conversion(
                      (_roth_irmaa_target_threshold(c, filing, year) - pre_agi)
                      * float(c.get('roth_irmaa_headroom_usage_pct', 0.95) or 0.95))
         _t0, _t15 = _roth_ltcg_thresholds_base(c, filing)
-        _sp = pre_agi  # same stack position as the active cap in _ltcg_niit_caps
+        _sp = max(0.0, pre_agi - std)  # same stack position as the active cap in _ltcg_niit_caps
         _ceil = _t0 * _bf if _sp < _t0 * _bf else (_t15 * _bf if _sp < _t15 * _bf else None)
         if _ceil is not None:
             _would_allow("ltcg", "LTCG rate tier",

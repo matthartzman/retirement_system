@@ -175,13 +175,14 @@ def test_engine_row_fed_tax_matches_closed_form_every_year():
 
 def test_roth_ltcg_cap_counts_dividends_and_uses_dataset_top():
     from tests.test_roth_ltcg_niit_guardrails import _plan
-    # 50,000 qualified dividends and nothing else: pre-conversion stack position
-    # 50,000. Zero band tops out at 98,900 (2026 MFJ, bracket factor 1.0), so the
-    # guardrail allows 98,900 - 50,000 = 48,900 of conversion (usage pct 1.0).
+    # 50,000 qualified dividends and nothing else (2026 MFJ, bracket factor 1.0,
+    # usage pct 1.0, zero band tops out at 98,900).
     c, plan = _plan({"roth_niit_cap": False}, portfolio_qualified=50_000.0)
     assert plan.pre_agi == 50_000.0
     assert plan.binding_limit == "LTCG rate tier"
-    assert plan.amount == pytest.approx(98_900.0 - 50_000.0)
+    # WI-023b: measured on taxable income: 50,000 - 32,200 standard deduction = 17,800,
+    # so 98,900 - 17,800 = 81,100 of room.
+    assert plan.amount == pytest.approx(98_900.0 - (50_000.0 - 32_200.0))
 
 
 # ---- survivor (Single) year uses Single band tops ---------------------------
