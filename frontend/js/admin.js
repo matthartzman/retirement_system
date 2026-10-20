@@ -41,7 +41,39 @@ function deleteIconBtn(onclickExpr, opts) {
   const extraCls = opts.cls ? " " + opts.cls : "";
   return `<button type="button" class="danger icon-btn${extraCls}" onclick="${onclickExpr}" title="Delete" aria-label="Delete">${TRASH_SVG_ICON}</button>`;
 }
-const msg = (s) => (document.getElementById("msg").textContent = s);
+// UX-006: #msg is a live region (role=status, aria-live=polite in admin.html).
+// Errors switch it to role=alert / assertive and add the .error style.
+function msg(s, isError) {
+  const el = document.getElementById("msg");
+  if (!el) return;
+  el.setAttribute("role", isError ? "alert" : "status");
+  el.setAttribute("aria-live", isError ? "assertive" : "polite");
+  el.classList.toggle("error", !!isError);
+  el.textContent = s;
+}
+// Unsaved-change announcement: announced once per editor, not per keystroke.
+function announceUnsaved(title) {
+  const text = "Unsaved changes in " + title;
+  const el = document.getElementById("msg");
+  if (el && el.textContent === text && !el.classList.contains("error")) return;
+  msg(text);
+}
+// UX-006: in-app confirm (a modal <dialog>: native focus trap, Escape, restore).
+function adminConfirm(message, confirmLabel) {
+  return new Promise((resolve) => {
+    const d = document.createElement("dialog");
+    d.className = "admin-modal";
+    d.setAttribute("role", "alertdialog");
+    d.setAttribute("aria-labelledby", "adminConfirmText");
+    d.innerHTML = `<p id="adminConfirmText">${esc(message)}</p><form method="dialog" class="admin-modal-actions"><button value="no" autofocus>Cancel</button><button value="yes" class="danger">${esc(confirmLabel || "Confirm")}</button></form>`;
+    d.addEventListener("close", () => {
+      d.remove();
+      resolve(d.returnValue === "yes");
+    });
+    document.body.appendChild(d);
+    d.showModal();
+  });
+}
 let adminAppReady = true;
 async function checkApp() {
   const st = document.getElementById("adminAppStatus");
@@ -366,9 +398,10 @@ async function showAppSettings() {
 }
 async function clearAppCache() {
   if (
-    !confirm(
+    !(await adminConfirm(
       "Clear saved UI state (Build History, workbench layout, etc.) and the app's render cache? This cannot be undone.",
-    )
+      "Clear cache",
+    ))
   )
     return;
   try {
@@ -1280,6 +1313,9 @@ function gridChoicesFor(profile, col, row, head) {
     return ["CURRENT_WITHIN_POLICY", "REVIEW_REQUIRED", "STALE", "UNKNOWN"];
   return null;
 }
+function gridAriaLabel(head, ci, ri) {
+  return esc(titleCaseLabel(head[ci] || "Value") + " row " + (ri + 1));
+}
 function gridControl(profile, h, row, ri, ci, head) {
   const choices = gridChoicesFor(profile, h, row, head);
   const val = row[ci] || "";
@@ -1290,9 +1326,9 @@ function gridControl(profile, h, row, ri, ci, head) {
     const customOption = choices.includes(val)
       ? ""
       : `<option value="${esc(val)}" selected>Custom: ${esc(val)}</option>`;
-    return `<select class="grid-input" data-row="${ri + 1}" data-col="${ci}" onchange="markGridChanged(this)">${choices.map((c) => `<option value="${esc(c)}" ${String(c) === String(val) ? "selected" : ""}>${esc(c)}</option>`).join("")}${customOption}</select>`;
+    return `<select class="grid-input" aria-label="${gridAriaLabel(head, ci, ri)}" data-row="${ri + 1}" data-col="${ci}" onchange="markGridChanged(this)">${choices.map((c) => `<option value="${esc(c)}" ${String(c) === String(val) ? "selected" : ""}>${esc(c)}</option>`).join("")}${customOption}</select>`;
   }
-  return `<input class="grid-input" data-row="${ri + 1}" data-col="${ci}" value="${esc(val)}" oninput="markGridChanged(this)">`;
+  return `<input class="grid-input" aria-label="${gridAriaLabel(head, ci, ri)}" data-row="${ri + 1}" data-col="${ci}" value="${esc(val)}" oninput="markGridChanged(this)">`;
 }
 function buildDataGrid(rows, profile = "generic") {
   if (!rows.length) return '<div class="no-results">No rows found.</div>';
@@ -1314,7 +1350,7 @@ function markActiveChanged(el) {
   el.classList.add("changed");
   activeEditor.changed = true;
   if (activeEditor.file === "system_config.csv") sysCfgChanged = true;
-  msg("Unsaved changes in " + activeEditor.title);
+  announceUnsaved(activeEditor.title);
 }
 function markGridChanged(el) {
   const r = Number(el.dataset.row),
@@ -1323,7 +1359,7 @@ function markGridChanged(el) {
   activeEditor.rows[r][c] = el.value;
   el.classList.add("changed");
   activeEditor.changed = true;
-  msg("Unsaved changes in " + activeEditor.title);
+  announceUnsaved(activeEditor.title);
 }
 function filterActiveTable() {
   const cfgEl = document.getElementById("cfgSearch");
@@ -1471,7 +1507,7 @@ async function loadCsvEditor(def, backAction = "showAppSettings()") {
     ? buildSectionSettings(rows, def)
     : buildDataGrid(rows, def.profile);
   document.getElementById("main").innerHTML =
-    `<h2>${esc(activeEditor.title)}</h2><p class="muted">${esc(out.path)} · Compact table view. Changes save to the system configuration store and maintain CSV adapter compatibility.</p>${def.note ? `<div class="note-box">${esc(def.note)}</div>` : ""}<div class="toolbar compact-toolbar"><input id="cfgSearch" class="cfg-input hidden" placeholder="Search rows, values, or helper notes..." oninput="filterActiveTable()"><span id="cfgResultCount" class="pill">${Math.max(0, rows.length - 1)} rows</span><span><button onclick="document.querySelectorAll('#editorBody details').forEach(d=>d.open=true)">Expand all</button><button onclick="document.querySelectorAll('#editorBody details').forEach(d=>d.open=false)">Collapse all</button><button onclick="toggleRawEditor()">Advanced raw CSV</button></span><div class="collapsed-note">Use the triangles to expand sections. Focus any value control to update the right help panel.</div></div><div id="editorBody">${body}</div><div id="rawBox" class="advanced-box"><h3>Advanced CSV adapter editor</h3><p class="muted">Use only for bulk adapter maintenance or adding columns. Normal planning edits belong in the main UI.</p><textarea id="rawCsv">${esc(rowsToCsv(rows))}</textarea></div><div class="cfg-actions"><button class="primary" onclick="saveActiveEditor()">Save</button><button onclick="loadCsvEditor(activeEditor,activeEditor.backAction)">Reload from disk</button><span class="mini">Save stays visible. Use the left navigation to move between pages; raw CSV fallback is preserved.</span></div>`;
+    `<h2>${esc(activeEditor.title)}</h2><p class="muted">${esc(out.path)} · Compact table view. Changes save to the system configuration store and maintain CSV adapter compatibility.</p>${def.note ? `<div class="note-box">${esc(def.note)}</div>` : ""}<div class="toolbar compact-toolbar"><input id="cfgSearch" class="cfg-input hidden" aria-label="Search rows, values, or helper notes" placeholder="Search rows, values, or helper notes..." oninput="filterActiveTable()"><span id="cfgResultCount" class="pill">${Math.max(0, rows.length - 1)} rows</span><span><button onclick="document.querySelectorAll('#editorBody details').forEach(d=>d.open=true)">Expand all</button><button onclick="document.querySelectorAll('#editorBody details').forEach(d=>d.open=false)">Collapse all</button><button onclick="toggleRawEditor()">Advanced raw CSV</button></span><div class="collapsed-note">Use the triangles to expand sections. Focus any value control to update the right help panel.</div></div><div id="editorBody">${body}</div><div id="rawBox" class="advanced-box"><h3>Advanced CSV adapter editor</h3><p class="muted">Use only for bulk adapter maintenance or adding columns. Normal planning edits belong in the main UI.</p><textarea id="rawCsv" aria-label="Raw CSV adapter data">${esc(rowsToCsv(rows))}</textarea></div><div class="cfg-actions"><button class="primary" onclick="saveActiveEditor()">Save</button><button onclick="loadCsvEditor(activeEditor,activeEditor.backAction)">Reload from disk</button><span class="mini">Save stays visible. Use the left navigation to move between pages; raw CSV fallback is preserved.</span></div>`;
   initEditorInteractions();
   msg(activeEditor.title + " loaded");
 }
@@ -1802,7 +1838,7 @@ function renderPricingSymbolTester() {
   const html = `<div id="pricingSymbolTester" class="note-box" style="margin:0 0 14px 0">
     <h3 style="margin-top:0">Single-symbol live pricing tester</h3>
     <p class="muted">Enter one ticker and this will call each live provider directly, bypassing cache selection for the diagnostic. It prints the redacted command sent to each service plus response status, timing, preview, parser result, and final provider selection.</p>
-    <div class="row"><input id="pricingTestSymbol" placeholder="Ticker, e.g. VTI" style="max-width:220px;text-transform:uppercase" onkeydown="if(event.key==='Enter')runLivePriceSymbolTest()"><button class="primary" onclick="runLivePriceSymbolTest()">Test live quote</button><span id="pricingTestStatus" class="muted"></span></div>
+    <div class="row"><input id="pricingTestSymbol" aria-label="Ticker symbol to test" placeholder="Ticker, e.g. VTI" style="max-width:220px;text-transform:uppercase" onkeydown="if(event.key==='Enter')runLivePriceSymbolTest()"><button class="primary" onclick="runLivePriceSymbolTest()">Test live quote</button><span id="pricingTestStatus" class="muted"></span></div>
     <div id="pricingTestResult" style="margin-top:12px"></div>
   </div>`;
   const pane = main.querySelector(".pane-head");
@@ -1900,7 +1936,7 @@ async function runLivePriceSymbolTest() {
     if (result)
       result.innerHTML = `<div class="section-note warn"><b>Pricing tester could not reach the local API.</b><br>${esc(detail)}<br><br>Endpoint: <code>/api/prices/test-symbol/start</code>. If the browser says "Failed to fetch", restart the app and confirm the status indicator shows Ready.</div>`;
     if (status) status.textContent = "Error";
-    msg("Pricing tester error: " + detail);
+    msg("Pricing tester error: " + detail, true);
   }
 }
 async function showPricingAdmin() {
@@ -1953,7 +1989,7 @@ function summarizeDiagnostic(j) {
 async function showWorkspaces() {
   setAdminStep("app_settings");
   document.getElementById("main").innerHTML =
-    `<h2>Local-only package</h2><p class="muted">Client registry and report browsing pages were removed. Use the User UI to edit the single local Plan Data folder and the download buttons after a build to retrieve reports.</p>`;
+    `<h2>Local-only package</h2><p class="muted">Client registry and report browsing pages were removed. Plan data is stored in the plan file; use the User UI to edit it, and the download buttons after a build to retrieve reports.</p>`;
   msg("Local-only package: client registry removed");
 }
 async function showWorkspaceFiles(t) {
@@ -1990,7 +2026,7 @@ updateAdminSearchToggle();
 // same pre-parsing-complete phase, before any deferred module runs).
 // See tests/test_pywebview_bridge_load_order_regression.py.
 function _bootAppStatus() {
-  showAppSettings().catch((e) => msg("Error: " + e.message));
+  showAppSettings().catch((e) => msg("Error: " + e.message, true));
   checkApp();
   setInterval(checkApp, 5000);
 }

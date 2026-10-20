@@ -571,7 +571,9 @@ DASHBOARD_JS_MAX_LINES = 7_134
 # 2026-10-19 (items 355/361/358: holdings sort + insert-lot action, year-end header, scenario rows in the Tax
 # Assumptions table, ACA reorder; no dashboard.js growth, +103): raised to 39,445.
 # 2026-10-19 (liability payoff month + carry-zero columns on the Liabilities table, +19): raised to 39,361.
-TOTAL_JS_MAX_LINES = 39_464
+# 2026-10-20 (WI-013 / UX-006: admin.js live-region msg(), in-app confirm dialog, grid aria-labels, +42):
+# raised to 39,499.
+TOTAL_JS_MAX_LINES = 39_499
 
 
 def _line_count(path: Path) -> int:
