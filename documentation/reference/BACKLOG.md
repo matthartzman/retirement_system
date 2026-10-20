@@ -6,6 +6,14 @@ spec or plan and delete the line here. Source for the first entries is
 `documentation/archive/superpowers/plans/2026-09-19-optimizers-modules-housing-master-plan.md`
 section 9.
 
+**Numbering note (DOC-009).** A bare `#NNN` in this file, in the plan notes and in the
+design documents is an *item number* from the owner's numbered work list (for example
+`#329` to `#339`, `#345` to `#354`). Pull request numbers also appear as `(#NNN)` at the
+end of commit subjects, and the two number ranges overlap (item numbers and pull request
+numbers both run through the 300s), so a bare number cannot be told apart by its value.
+When you write a new reference, say `item #NNN` or `PR #NNN`. Whether any item number was
+ever also a GitHub issue has not been confirmed from this repository.
+
 | Item | Origin | Note |
 |---|---|---|
 | Automatic Move-2 strategy selection (try `cross_product`, fall back to `anchored` above `MOVE2_CROSS_PRODUCT_CAP`, report which ran) | #331 | Excluded from H2/A3 as scope expansion. |

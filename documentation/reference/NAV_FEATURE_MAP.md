@@ -4,15 +4,15 @@ Inventory of the dashboard's left navigation: what each item does, whether it ca
 
 ## How the left nav works
 
-- The nav is built from the `STEPS` array in `frontend/js/dashboard.js` (lines 5-515). `renderSteps()` (`frontend/js/dashboard_decomp_row_model.js:2386`) groups consecutive visible steps by `group` and numbers the pages 1..N (the group headings are not numbered in the UI).
+- The nav is built from the `STEPS` array in `frontend/js/dashboard.js` (lines 14-296). `renderSteps()` (`frontend/js/dashboard_decomp_row_model.js:2386`) groups consecutive visible steps by `group` and numbers the pages 1..N (the group headings are not numbered in the UI).
 - `visibleSteps()` (`dashboard_decomp_row_model.js:61-71`) drops a step when it is gated off, when `group` is `null`, or when `hidden: true`. The currently active step is always kept, so a hidden step reached by a link would appear while open.
 - Hidden or `group: null` steps are redirect-only. `frontend/js/navigation.js:55-123` maps their old ids onto a visible page (`WORKSPACE_TAB_REDIRECTS`, `STEP_REDIRECTS`, `SECTION_REDIRECTS`, plus `REPORTS_REDIRECT_IDS` at line 33).
 - Two kinds of switch gate a nav item:
-  1. **Module toggle** - a row in `client_optional_functions.csv` (section `Optional Functions`), switched on Settings > Plan Features. The step-to-module map is `step_gate_map()` in `src/module_catalog.py`, served as `module_gates.step_gates` (`src/server_services/config_service.py:113-142`).
-  2. **Plan flag** - a row in the plan data (`GATE_PLAN_FLAG` entries, `module_catalog.py:1035-1100`), also switched on Plan Features. Served as `module_gates.flag_gates`; today only HELOC has a nav step.
+  1. **Module toggle** - a plan row in section `Optional Functions` (the old `client_optional_functions.csv`; the runtime reads the plan file, not the CSV), switched on Settings > Plan Features. A module declared with `csv_row=False` has no row and uses its default (Account Reconciliation is one). The step-to-module map is `step_gate_map()` in `src/module_catalog.py`, served as `module_gates.step_gates` (`src/server_services/config_service.py:113-142`).
+  2. **Plan flag** - a plan row (the old `client_assets.csv` / `client_policy.csv`) (`GATE_PLAN_FLAG` entries, `module_catalog.py:1035-1100`), also switched on Plan Features. Served as `module_gates.flag_gates`; today only HELOC has a nav step.
 - Some switches gate only a section or tab inside a page, not the nav item. The page stays in the nav and the section shows an enable-note.
 - `module_taxonomy` (`config_service.py:144-`) feeds Plan Features: per module `name`, `kind`, `domain`, `demand`, `optional`, `gated_by`, `engine_participation`, and soft dependents.
-- **Current state** was read from the demo plan: `input/demo/client_optional_functions.csv` for module toggles and `input/demo/client_assets.csv` / `client_policy.csv` for plan flags. A flag with no demo row uses its loader default (`src/data_io.py:958`: `qcd_enabled` defaults FALSE). "Off" means the item is hidden or gated; "n/a" means always on.
+- **Current state** was read from the demo plan in its legacy CSV form: `input/demo/client_optional_functions.csv` for module toggles and `input/demo/client_assets.csv` / `client_policy.csv` for plan flags (the file:line references below point there). A flag with no demo row uses its loader default (`src/data_io.py:958`: `qcd_enabled` defaults FALSE). "Off" means the item is hidden or gated; "n/a" means always on.
 
 ### Charitable Giving (implemented)
 
@@ -78,7 +78,8 @@ Legend: Optional? = Always on / Switchable. Position = group and ordinal in the 
 | Reports & Review | (group heading) | Results | Always on | - | n/a | Group 11 |
 | Reports & Review | Actual Spending (`actual_spending`) | This year's imported transactions and comparison vs the spending model; tabs "This year" and "Analysis" | Always on (page) | - | n/a | 11.1 |
 | Reports & Review | Actual Spending tabs (This year, Analysis) | Transaction import/review and actual-vs-budget analysis | Switchable | `spending_tracker_ytd` (also switches Spending Summary and Account Reconciliation sheets), Plan Features | On (TRUE) | Tabs of 11.1 |
-| Reports & Review | Build & Results (`reports_and_review`) | Readiness, build, impact, results, downloads, plan data review | Always on | - | n/a | 11.2 |
+| Reports & Review | Account Reconciliation (`monarch_reconciliation`) | The app's account numbers beside the imported daily balances; update the app, ignore, always update or keep the app as source (`dashboard.js:225-232`) | Switchable | `account_import`, Plan Features (default on, no plan row) | On (default) | 11.2 |
+| Reports & Review | Build & Results (`reports_and_review`) | Readiness, build, impact, results, downloads, plan data review | Always on | - | n/a | 11.3 |
 | Settings | (group heading) | System settings | Always on | - | n/a | Group 12 |
 | Settings | Economic & Tax Assumptions (`economic_tax_assumptions`) | Return rates, inflation, tax bracket indexing, COLA | Always on | - | n/a | 12.1 |
 | Settings | Plan Features (`optional_functions`) | Switch page for every optional module and plan flag, grouped by life area | Always on | - (it is the switch surface) | n/a | 12.2 |
@@ -105,7 +106,7 @@ Legend: Optional? = Always on / Switchable. Position = group and ordinal in the 
 
 ## Left nav with everything enabled
 
-Numbering is group.item; the UI's own step number (1-25, groups not counted) is the item's rank in this list. **(required)** = always on. Backticked keys are the switch. HELOC is tagged by its plan flag key.
+Numbering is group.item; the UI's own step number (1-27, groups not counted) is the item's rank in this list. **(required)** = always on. Backticked keys are the switch. HELOC is tagged by its plan flag key.
 
 1. **Plan Status** **(required)**
    1.1. Plan Status **(required)**
@@ -149,7 +150,8 @@ Numbering is group.item; the UI's own step number (1-25, groups not counted) is 
     10.4. Workbench **(required)**
 11. **Reports & Review** **(required)**
     11.1. Actual Spending **(required page)** - tabs This year / Analysis gated by `spending_tracker_ytd`
-    11.2. Build & Results **(required)**
+    11.2. Account Reconciliation - `account_import`
+    11.3. Build & Results **(required)**
 12. **Settings** **(required)**
     12.1. Economic & Tax Assumptions **(required)**
     12.2. Plan Features **(required)**
@@ -157,7 +159,7 @@ Numbering is group.item; the UI's own step number (1-25, groups not counted) is 
     12.4. Workbook Formatting **(required)**
     12.5. Data & Maintenance **(required)**
 
-Totals: 12 groups, 26 pages. Always-on pages: 21. Pages with their own show/hide switch: Home Equity Line, Rental Properties, Roth Conversion, Charitable Giving, Stress Test (any-of-four). Demo plan today: 24 of 26 pages visible (Home Equity Line and Rental Properties hidden).
+Totals: 12 groups, 27 pages. Always-on pages: 21. Pages with their own show/hide switch: Home Equity Line, Rental Properties, Roth Conversion, Charitable Giving, Stress Test (any-of-four), Account Reconciliation. Demo plan today: 25 of 27 pages visible (Home Equity Line and Rental Properties hidden).
 
 Workbook note (not nav): in the workbook, Current vs Proposed and Planning Levers move from section 1 (Reports) to section 3 (Comparisons). The Reports order becomes Executive Summary, Net Worth, Cash Flow, Balance Sheet, Lifetime Taxes, Charts, Spending Summary.
 
