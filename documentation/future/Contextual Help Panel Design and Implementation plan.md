@@ -1,6 +1,6 @@
 # Contextual Help Panel: move all explanation to the right panel
 
-Status: planned (nothing built; extends WI-033 — see `WI-033_plain_english_help_review.md` and `WI-033_glossary_draft.md`. Counts below are from code searches on 2026-10-20 and are replaced by measured counts in Phase 0).
+Status: planned, decisions accepted (nothing built; extends WI-033 — see `WI-033_plain_english_help_review.md` and `WI-033_glossary_draft.md`. Counts below are from code searches on 2026-10-20 and are replaced by measured counts in Phase 0).
 
 ## 1. Context and problem
 
@@ -42,7 +42,17 @@ Every string is placed in one class:
 | A | Explains what something is, how it works, what to choose | Move to the panel |
 | B | State or empty ("No data yet", "Build is stale") | Stay; one line |
 | C | Warning, error, or consequence ("this overrides the Auto Insurance budget") | Stay, beside the field |
-| D | Duplicate of another string | Delete |
+| D | Duplicate: adds no information beyond another string that stays (see 3.1) | Delete |
+
+### 3.1 Duplicate rule (aggressive)
+A string is class D when it adds no incremental information over another string that stays, even if the wording, grammar or word choice differs. The test: delete it and ask whether a reader could now do or understand anything less. If not, it goes.
+
+- Compare across levels and surfaces, not only within one page: nav `desc`, `intro`, `help`, `STEP_HELP`, section notes, field notes, tooltips and the WI-033 summary all count.
+- Keep the surviving string by this order: (1) the one with the most information, (2) the one nearest to where the reader needs it, (3) the plainest wording (WI-033 audience).
+- Fold any extra fact from the deleted string into the survivor before deleting; never lose information, only repetition.
+- A string that restates the label, the page title, or the obvious effect of the control ("Enter the amount" under "Amount") is class D.
+- Partial overlap: keep only the non-overlapping part.
+- When unsure, mark it D with a note in the Phase 0 CSV (`merged_into` column); the reviewer reverses a call there, so every deletion is traceable and reversible before code changes.
 
 Rejected alternatives:
 - Move everything including B and C: breaks error identification (WCAG) and hides consequences when the panel is closed.
@@ -80,6 +90,7 @@ Effort is stated against a 5-hour Claude Code Pro session. Check `/usage` as eac
 ### Phase 0: inventory and classification (Sonnet, medium; light)
 - Write `tools/extract_ui_prose.py`: scans `frontend/js/*.js` and `frontend/index.html` for template-literal and string prose in `section-note`, `small`, `muted`, `question`, `title=`, banner, `STEPS.intro/help`, and `pageHelp(` calls; writes `documentation/future/ui_prose_inventory.csv` (file, line, class guess, text, level, step id).
 - Review the CSV together; correct the class column. Replace the estimates in this plan with measured counts.
+- Add `merged_into` and `unique_info_kept` columns for class D rows (3.1). Group near-duplicates by step id and meaning, not by exact text.
 - Exit: every string has a class and a destination (page, section or field record, or delete).
 - Cost driver: script runs, not reading whole files (do not open `dashboard.js` or `dashboard_decomp_row_model.js` linearly; use Grep and offset reads).
 
@@ -92,7 +103,7 @@ Effort is stated against a 5-hour Claude Code Pro session. Check `/usage` as eac
 
 ### Phase 2: page level (Sonnet, high; moderate)
 - Move `intro`, `help` and `STEP_HELP` content into `HELP_PAGES` for all 28 pages; remove the `intro` line and "question" box from the center (`renderMain` at the `pane-head` / `question` render); change the nav `desc` source.
-- Delete duplicated sentences (class D) while merging; keep wording otherwise.
+- Delete class D strings under the 3.1 rule, including near-duplicates with different wording, while merging; fold any unique fact into the survivor.
 - Update tests that assert on `intro` / `help` text.
 - Exit: no page shows a question box or intro paragraph; nav and panel text come from one record.
 
@@ -100,6 +111,7 @@ Effort is stated against a 5-hour Claude Code Pro session. Check `/usage` as eac
 - Work in batches by module, from the Phase 0 CSV, one batch per `dashboard_decomp_*` group: Income and Benefits; Spending; Investments and Property; Insurance, Estate, Taxes; Strategy; Reports and Review; Settings.
 - For each class A string: add a `HELP_SECTIONS` / field entry, remove the node. For class B and C: shorten to one line and tag `data-kind`.
 - Parallelise by module group (separate files, so no merge conflicts); each batch runs its own module tests.
+- Apply class D deletions from the CSV in the same pass; each deleted string's `merged_into` target must exist.
 - Exit: Phase 0 CSV shows every class A string moved or deleted.
 
 ### Phase 4: tests and guard (Sonnet, high; moderate)
@@ -117,6 +129,7 @@ Effort is stated against a 5-hour Claude Code Pro session. Check `/usage` as eac
 |---|---|
 | Users do not find help | Default-open on pre-build pages; "?" in every header; remembered state |
 | Warnings or consequences lost with the panel closed | Classes B and C stay in the center by rule; guard test |
+| Aggressive deletion removes something useful | Fold unique facts into the survivor first; Phase 0 CSV records `merged_into` so each call is reviewed and reversible before code changes |
 | Large diff across 30 modules | Batches by module group; each batch independently shippable |
 | Test churn | Phase 0 lists coupled tests up front; fix per group |
 | Size ratchets | Moving text out should lower `dashboard.js`; lower the ceilings to measured size after each phase |
@@ -142,8 +155,9 @@ Effort is stated against a 5-hour Claude Code Pro session. Check `/usage` as eac
 
 Total about 4 to 6 sessions. To limit cost, ship Phases 0 to 2 first: they remove the page-level boxes, which is most of the visible clutter. Expensive steps: broad searches across 30 modules (use the Phase 0 CSV instead) and the Phase 4 test-fix loop.
 
-## 9. Open decisions
+## 9. Decisions (resolved)
 
-1. Default-open panel on the 11 pre-build pages: yes or no (recommended: yes).
-2. Clickable glossary terms inside the panel text: now or follow-up (recommended: follow-up).
-3. Whether class B empty states may stay at one line or move into the panel too (recommended: stay).
+1. Default-open panel on the 11 pre-build pages: **yes**, and remember if the user closes it.
+2. Clickable glossary terms inside panel text: **follow-up**, not in this plan.
+3. Class B empty and state messages: **stay in the center**, one line each.
+4. Duplicates: **aggressive deletion** under rule 3.1.
