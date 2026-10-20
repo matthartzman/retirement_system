@@ -76,15 +76,15 @@ NOTICES: tuple[Notice, ...] = (
         "tax on those gains is calculated. Results may be optimistic for plans that fund spending from "
         "appreciated taxable holdings.",
         "Plan sells taxable holdings at a gain",
-        (RemovalTrigger("WI-024", "Phase 1 (IRMAA MAGI) ships: update the wording", "update_wording"),
-         RemovalTrigger("WI-024", "Phase 2 (NIIT, ACA MAGI, Social Security taxation) ships: remove")),
+        (RemovalTrigger("WI-024", "Phase 1 (IRMAA MAGI) ships: update the wording", "update_wording", shipped=True),
+         RemovalTrigger("WI-024", "Phase 2 (NIIT, ACA MAGI, Social Security taxation) ships: remove", shipped=True)),
     ),
     Notice(
         "N2", "FIN-003", SEVERITY_INFO,
         "Qualified dividends are currently taxed at ordinary rates instead of the lower 0%, 15% and 20% "
         "rates. Estimated federal tax is overstated (conservative) for plans with taxable stock holdings.",
         "Plan has taxable equity holdings",
-        (RemovalTrigger("WI-023", "Qualified-dividend stacking fix ships"),),
+        (RemovalTrigger("WI-023", "Qualified-dividend stacking fix ships", shipped=True),),
     ),
     Notice(
         "N3", "FIN-004", SEVERITY_WARNING,
@@ -99,7 +99,7 @@ NOTICES: tuple[Notice, ...] = (
         "When the spouse who does not own a joint taxable account dies first, the survivor's step-up in "
         "cost basis is not modeled. Later capital gains tax may be overstated in that case.",
         "Plan has joint taxable accounts",
-        (RemovalTrigger("WI-025", "Symmetric survivor step-up fix ships"),),
+        (RemovalTrigger("WI-025", "Symmetric survivor step-up fix ships", shipped=True),),
     ),
     Notice(
         "N5", "FIN-007", SEVERITY_WARNING,
