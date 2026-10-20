@@ -16,6 +16,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from tests._decomp_dashboard import dashboard_js_text
+
 ROOT = Path(__file__).resolve().parents[1]
 README_PATH = ROOT / "documentation" / "reference" / "readme" / "README.md"
 
@@ -59,7 +61,7 @@ def test_pricing_mode_card_discloses_outbound_calls():
 
 def test_readme_screen_names_match_frontend_titles():
     text = README_PATH.read_text(encoding="utf-8")
-    dash = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+    dash = dashboard_js_text()
     for name in SCREEN_NAMES:
         assert name in text, f"README should mention {name!r}"
         assert f'title: "{name}"' in dash, f"{name!r} is not a nav title in dashboard.js"
