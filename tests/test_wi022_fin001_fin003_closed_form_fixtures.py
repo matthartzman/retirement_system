@@ -128,12 +128,6 @@ def test_niit_closed_form_230k_agi_plus_100k_gain():
     assert niit_tax(100_000, 230_000, "MFJ") == 0.0
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason="FIN-001 phase 2 / WI-024 not implemented: _refresh_investment_taxes passes state.agi "
-           "(first-pass AGI without the brokerage gain) to niit_tax "
-           "(withdrawal_cascade_investment_tax.py:233). Target 3.8% x min(NII 100k, 80k) = 3,040.",
-)
 def test_cascade_niit_uses_magi_that_includes_brokerage_gain():
     from src.projection_stages.withdrawal_cascade_investment_tax import (
         _InvestmentTaxState, _refresh_investment_taxes)

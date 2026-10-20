@@ -76,6 +76,9 @@ class _InvestmentTaxState:
     taxable_inc: float
     filing: str
     base_nii_without_ltcg: float
+    # WI-024 phase 2 (NIIT): gain already inside ``agi`` (home/rental sale gain
+    # added by H1); only the rest of the cascade gain is added to NIIT MAGI.
+    gain_in_agi_already: float = 0.0
 
 
 def _apply_tax_loss_harvesting(
@@ -230,7 +233,11 @@ def _refresh_investment_taxes(
     if model_niit:
         # Keep the engine's existing MAGI convention but recompute on
         # cumulative NII as additional taxable withdrawals are made.
-        new_niit = niit_tax(state.base_nii_without_ltcg + net_gain, state.agi, state.filing)
+        # WI-024 phase 2 / FIN-001: NIIT MAGI includes the brokerage gain realized
+        # in this cascade (net of loss usage; the sale gain already in ``agi`` is
+        # not counted twice). Re-evaluated on every pass of the fixed point.
+        magi = state.agi + max(0.0, net_gain - state.gain_in_agi_already)
+        new_niit = niit_tax(state.base_nii_without_ltcg + net_gain, magi, state.filing)
         delta_niit = max(0.0, new_niit - state.niit)
         state.niit = new_niit
     return delta_ltcg + delta_niit
@@ -318,6 +325,7 @@ def apply_investment_tax_cascade(
         taxable_inc=taxable_inc,
         filing=filing,
         base_nii_without_ltcg=base_nii_without_ltcg,
+        gain_in_agi_already=max(0.0, float(home_sale_ltcg_gain or 0.0)),
     )
 
     model_niit = c['model_niit']

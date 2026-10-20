@@ -128,11 +128,12 @@ def test_niit_case_dividends_are_in_nii_with_realized_gain():
 
 def test_niit_case_magi_binds():
     from src.projection_stages.withdrawal_cascade_investment_tax import _refresh_investment_taxes
-    # AGI 270,000 -> MAGI excess 20,000 < NII 50,000: 3.8% x 20,000 = 760.00.
+    # AGI 270,000 + 20,000 gain (WI-024 phase 2: gain is in NIIT MAGI) = 290,000 ->
+    # MAGI excess 40,000 < NII 50,000: 3.8% x 40,000 = 1,520.00.
     state = _state(ltcg_gain=20_000.0, taxable_inc=200_000.0, agi=270_000.0,
                    base_nii_without_ltcg=30_000.0)
     _refresh_investment_taxes(dict(C26), state, True, YEAR)
-    assert state.niit == pytest.approx(760.0)
+    assert state.niit == pytest.approx(1_520.0)
 
 
 # ---- engine: LTCG band tops from the 2026 dataset ---------------------------
