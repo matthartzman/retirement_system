@@ -149,3 +149,13 @@ Closed form (tests): 2056, bracket factor 1.02^30 = 1.811362, Single 0% top 49,4
 | Change vs 8e2b347 | -4,772.15 | +4,535.92 | 0 |
 
 `golden_compare` pipeline: terminal NW 5,511,444.98 (was 5,516,217.14 at 8e2b347; baseline 5,429,963.80, now +81,481.18); lifetime tax 1,128,988.71 (was 1,124,452.80; baseline 1,156,879.26, now -27,890.55); Roth conversions 598,627.59 (unchanged from 8e2b347; baseline 600,175.26). The 2056 saving is now about -3,790, as predicted. Stale-pin tests are the same three listed in 7.7; no pin or baseline was edited.
+
+### 7.9 Update: home-sale and AMT/equity-comp gain stacks follow the year's filing
+
+Planner decision before any re-pin. `resolve_home_sale_gain_tax` (called from stage 9 with the year's `filing`) and `apply_amt_and_equity_comp_true_up` now pass the year's filing to `tax_kernel.ltcg_tax_on_gain`, the same helper as 7.8. Every LTCG/dividend stack in the engine now uses the filing status in force for the year.
+
+Closed form (new `tests/test_wi023_gain_stacks_filing_regression.py`): 2056, factor 1.811362, 20,000 gain on 119,811 taxable income. Single 0% top 89,572 gives 3,000.00 for both the home-sale and the equity-comp stack; MFJ control (0% top 179,144) gives 0.00.
+
+Frozen-plan figures did NOT move versus 322021d: `measure` 5,383,495.40 / 1,236,390.19 (+82,622.86 / -33,626.64 vs pins), Roth conversions 125,000; `golden_compare` pipeline 5,511,444.98 / 1,128,988.71 / 598,627.59, identical to 7.8 (the frozen plan has no taxable home-sale or equity-comp gain in a Single year). Stale-pin tests unchanged (7.7).
+
+Non-slow tier (`pytest tests -m "not slow and not nightly" -n 4`): 23 failures. 22 are identical to the clean-base failures listed in 7.7 (dashboard codemod/extract tools, efficient-frontier and Sharpe tests, real-loss-aware, results-model contract, skip-count ratchet, architecture diagram, tax-aware rebalance optimizer, test-suffix count, cash-flow chart compaction). The 23rd is the stale golden-master pin `test_frozen_plan_dollar_figures_are_exact`. The phase-golden-equality tests are slow-marked and not in this tier. The earlier parallel-only TLH and withdrawal-sequencing failures did not recur.
