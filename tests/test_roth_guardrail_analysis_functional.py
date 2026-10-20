@@ -40,7 +40,10 @@ def test_ltcg_band_named_fifteen_caps_at_fifteen_top():
     c, plan = _plan({'roth_niit_cap': False, 'roth_ltcg_band': '15%'}, portfolio_qualified=200_000.0)
     _top0, top15 = _roth_ltcg_thresholds_base(c, 'MFJ')
     assert plan.binding_limit == 'LTCG rate tier'
-    assert plan.amount == top15 - plan.pre_agi
+    # WI-023b: the cap is measured on taxable income (pre-conversion AGI less the standard deduction).
+    from src.core import standard_deduction
+    std = standard_deduction(2026, 'MFJ', float(c.get('brk_inf', 0.02)), 0)
+    assert plan.amount == top15 - (plan.pre_agi - std)
 
 
 def test_full_pipeline_analysis_reports_measured_whatif():

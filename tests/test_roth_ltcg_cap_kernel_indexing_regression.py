@@ -23,7 +23,9 @@ def test_ltcg_cap_threshold_matches_kernel_ltcg_tax_threshold():
     assert plan.binding_limit == 'LTCG rate tier'
     top0, top15 = pe._roth_ltcg_thresholds_base(c, 'MFJ')
     factor = tk.bracket_factor_for_year(c, year)
-    ceiling = plan.pre_agi + plan.amount
+    # WI-023b: stack position is taxable income (pre-conversion AGI less the standard deduction).
+    from src.core import standard_deduction
+    ceiling = plan.pre_agi - standard_deduction(year, 'MFJ', c['brk_inf'], 0) + plan.amount
     assert abs(ceiling - top15 * factor) < 1e-6
     # The old plan_start convention gives a different factor (guards against
     # a silent revert): the brackets' value year is not plan_start here.

@@ -506,6 +506,14 @@ def _survivor_bonus_step_fraction(c: Mapping, account_id: str) -> float:
         return 1.0
     if titling == 'SEPARATE_PROPERTY':
         return 0.0
+    if titling in {'JTWROS', 'TENANTS_IN_COMMON'}:
+        # WI-025 / FIN-010: a jointly held account (explicit JTWROS, or the default
+        # titling of a joint/household-named account) gets a half step-up on the
+        # decedent's share whichever spouse dies first. The deceased-side logic
+        # (_account_basis_step_fraction) already returns 0.5; the survivor-owned
+        # side used to fall through to the household regime (0 under common law),
+        # so the step-up depended on which spouse happened to die first.
+        return 0.5
     regime = str(c.get('basis_step_up_property_regime', 'COMMON_LAW') or 'COMMON_LAW').strip().upper()
     return 1.0 if regime in {'COMMUNITY_PROPERTY', 'FULL_STEP_UP'} else 0.0
 
@@ -2114,8 +2122,8 @@ def _roth_ltcg_thresholds_base(c: Mapping, filing: str) -> tuple[float, float]:
     """
     filing = str(filing or "MFJ")
     tiers = LTCG_BRACKETS_BASE_YEAR.get(filing) or LTCG_BRACKETS_BASE_YEAR.get("MFJ", {})
-    top0 = float(tiers.get("zero_top", c.get("ltcg_0_top", 96700)) or 96700)
-    top15 = float(tiers.get("fifteen_top", c.get("ltcg_15_top", 600050)) or 600050)
+    top0 = float(tiers.get("zero_top", c.get("ltcg_0_top", 98900)) or 98900)
+    top15 = float(tiers.get("fifteen_top", c.get("ltcg_15_top", 613700)) or 613700)
     return top0, top15
 
 
@@ -2340,23 +2348,36 @@ def plan_roth_conversion(
             ltcg_top0, ltcg_top15 = _roth_ltcg_thresholds_base(c, filing)
             ltcg_top0 *= bracket_factor
             ltcg_top15 *= bracket_factor
+            # WI-023 / FIN-003: qualified dividends are now taxed in the 0/15/20%
+            # preferential stack, directly below any realized gain. ``pre_agi``
+            # already includes ``portfolio_qualified`` (see pre_non_ss above), so the
+            # stack position tested here contains the dividends, and the band tops
+            # come from the verified 2026 dataset via _roth_ltcg_thresholds_base and
+            # the kernel's bracket factor -- the same tops tax_kernel.ltcg_tax_on_gain
+            # applies.
+            # WI-023b (planner decision): the band tops are TAXABLE-income thresholds,
+            # so the stack position is pre-conversion AGI less the deduction (the
+            # standard deduction is the floor available at sizing time, as in the
+            # bracket-room calculation above). A conversion adds ordinary income
+            # dollar for dollar, so headroom is measured from this position.
+            _stack_pos = max(0.0, pre_agi - std)
             # roth_ltcg_band: 'auto' stays within whichever band income is in
             # today; '0%' / '15%' name the band to stay within. A named band
             # income has already passed cannot be stayed within, so it adds no
             # cap (a cap of $0 would silently block every conversion).
             _band = str(c.get("roth_ltcg_band", "auto") or "auto").strip().lower()
             if _band in ("0%", "0", "zero"):
-                ltcg_ceiling = ltcg_top0 if pre_agi < ltcg_top0 else None
+                ltcg_ceiling = ltcg_top0 if _stack_pos < ltcg_top0 else None
             elif _band in ("15%", "15", "fifteen"):
-                ltcg_ceiling = ltcg_top15 if pre_agi < ltcg_top15 else None
-            elif pre_agi < ltcg_top0:
+                ltcg_ceiling = ltcg_top15 if _stack_pos < ltcg_top15 else None
+            elif _stack_pos < ltcg_top0:
                 ltcg_ceiling = ltcg_top0
-            elif pre_agi < ltcg_top15:
+            elif _stack_pos < ltcg_top15:
                 ltcg_ceiling = ltcg_top15
             else:
                 ltcg_ceiling = None
             if ltcg_ceiling is not None:
-                cap_ltcg = max(0.0, ltcg_ceiling - pre_agi) * float(c.get('roth_ltcg_headroom_usage_pct', 0.95) or 0.95)
+                cap_ltcg = max(0.0, ltcg_ceiling - _stack_pos) * float(c.get('roth_ltcg_headroom_usage_pct', 0.95) or 0.95)
                 extra.append(("LTCG rate tier", cap_ltcg))
 
         nii_known_est = max(0.0, float(note_int_yr) + float(portfolio_ordinary) + float(portfolio_qualified))
@@ -2458,10 +2479,11 @@ def plan_roth_conversion(
                      (_roth_irmaa_target_threshold(c, filing, year) - pre_agi)
                      * float(c.get('roth_irmaa_headroom_usage_pct', 0.95) or 0.95))
         _t0, _t15 = _roth_ltcg_thresholds_base(c, filing)
-        _ceil = _t0 * _bf if pre_agi < _t0 * _bf else (_t15 * _bf if pre_agi < _t15 * _bf else None)
+        _sp = max(0.0, pre_agi - std)  # same stack position as the active cap in _ltcg_niit_caps
+        _ceil = _t0 * _bf if _sp < _t0 * _bf else (_t15 * _bf if _sp < _t15 * _bf else None)
         if _ceil is not None:
             _would_allow("ltcg", "LTCG rate tier",
-                         (_ceil - pre_agi) * float(c.get('roth_ltcg_headroom_usage_pct', 0.95) or 0.95))
+                         (_ceil - _sp) * float(c.get('roth_ltcg_headroom_usage_pct', 0.95) or 0.95))
         _would_allow("niit", "NIIT threshold",
                      (_roth_niit_threshold_base(c, filing) - pre_agi)
                      * float(c.get('roth_niit_headroom_usage_pct', 0.95) or 0.95))

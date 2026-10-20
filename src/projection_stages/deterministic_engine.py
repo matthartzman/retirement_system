@@ -57,7 +57,10 @@ from ..planning_engines import (
     TAX_BASE_YEAR,
     ensure_engine_config,
     liquidity_buffer_years_for_year,
+    aca_magi as _aca_magi,
+    aca_premium_tax_credit as _aca_ptc,
     marginal_rate,
+    social_security_taxable_amount as _ss_taxable_amount,
     state_income_tax,
 )
 from .. import planning_engines as _legacy_pe
@@ -515,7 +518,8 @@ def run_deterministic_projection_stage(c):
         # Tax-law stress (src/tax_assumptions.py): rates only, tax owed only.
         return _ta_stressed_brackets(brk, year, c.get('law_scenario'))
 
-    def _compute_fed_tax_path(taxable, year, filing, brk_inf_unused=None):
+    def _ordinary_fed_tax_path(taxable, year, filing):
+        """Ordinary-schedule tax on ``taxable`` (no preferential income)."""
         brk = _fed_brackets_path(year, filing)
         tax = 0.0
         taxable = max(0.0, float(taxable or 0.0))
@@ -524,6 +528,21 @@ def run_deterministic_projection_stage(c):
                 break
             tax += (min(taxable, hi) - lo) * rate
         return max(0.0, tax)
+
+    # WI-023 / FIN-003: the year's qualified dividends, registered by the year
+    # loop as soon as the portfolio income split is known. Every stage that
+    # prices a taxable-income level through ``_compute_fed_tax_path`` (stage 9,
+    # Roth planner, IRA true-up, DAF/HSA corrections, effective marginal rate,
+    # capital-loss offset value) then sees the same preferential stack.
+    _qualified_dividends_by_year: dict[int, float] = {}
+
+    def _compute_fed_tax_path(taxable, year, filing, brk_inf_unused=None):
+        """Federal tax on ``taxable`` (qualified dividends included): the
+        ordinary schedule on the rest, plus 0/15/20% on the dividends stacked
+        on top of it. Realized gains are priced separately above this stack."""
+        return _tk.fed_tax_with_qualified(
+            c, lambda o: _ordinary_fed_tax_path(o, year, filing), taxable,
+            _qualified_dividends_by_year.get(year, 0.0), year, filing)
 
     def _ira_elective_ordinary_tax_delta(fed_tax_base, state_tax_base, taxable_inc_base,
                                           retirement_dist_base, ira_wd_cumulative, year, filing,
@@ -1055,6 +1074,7 @@ def run_deterministic_projection_stage(c):
         wellness_other_yr = _spending_rmd.wellness_other_yr
         portfolio_ordinary = _spending_rmd.portfolio_ordinary
         portfolio_qualified = _spending_rmd.portfolio_qualified
+        _qualified_dividends_by_year[year] = portfolio_qualified
         portfolio_tax_exempt = _spending_rmd.portfolio_tax_exempt
         qcd_total_yr = _spending_rmd.qcd_total_yr
         daf_contrib_yr = _spending_rmd.daf_contrib_yr
@@ -1215,7 +1235,8 @@ def run_deterministic_projection_stage(c):
                 c, row, _rental_year, _rental_book, year=year, filing=filing,
                 taxable_inc=taxable_inc, home_sale_ltcg_gain=home_sale_ltcg_gain,
                 home_sale_ltcg_tax=home_sale_ltcg_tax,
-                fed_brackets=_fed_brackets_path(year, filing), compute_fed_tax_fn=_compute_fed_tax_path,
+                fed_brackets=_fed_brackets_path(year, filing), compute_fed_tax_fn=_ordinary_fed_tax_path,
+                qualified_dividends=portfolio_qualified,
                 state_tax=state_tax, state_tax_fn=lambda investment_inc: state_income_tax(
                     state_for_year(c, year), earned_net, retirement_dist, ss_taxable, investment_inc,
                     nonqual_ann, roth_conv, year, h_over_65, filing=filing, brk_inf=c['brk_inf'],
@@ -1360,6 +1381,17 @@ def run_deterministic_projection_stage(c):
         # withdrawal_cascade_investment_tax.py's apply_investment_tax_cascade
         # docstring, and cap_loss_carryforward's threading note on
         # WithdrawalCascadeInvestmentTaxResult specifically.)
+        def _aca_ptc_with_gain(extra_magi, _agi=agi + sale_gain_in_agi):
+            return _aca_ptc(c, year=year, magi=_aca_magi(_agi + extra_magi, portfolio_tax_exempt,
+                                                         ss_total, ss_taxable),
+                            bridge_people=bridge_people)
+
+        def _ss_extra_from_gain(extra_gain, _non_ss=agi - ss_taxable + sale_gain_in_agi):
+            # Marginal effect of the gain only (same base income on both sides): elective
+            # IRA draws already in ``agi`` do not retroactively re-tax the benefit here.
+            return (_ss_taxable_amount(ss_total, _non_ss + extra_gain + portfolio_tax_exempt, filing)
+                    - _ss_taxable_amount(ss_total, _non_ss + portfolio_tax_exempt, filing))
+
         _inv_tax = _apply_investment_tax_cascade(
             c, bal, bal_basis_free, row,
             year=year, gap=gap, agi=agi + sale_gain_in_agi, taxable_inc=taxable_inc, filing=filing,
@@ -1371,6 +1403,8 @@ def run_deterministic_projection_stage(c):
             note_int_yr=note_int_yr, portfolio_ordinary=portfolio_ordinary,
             portfolio_qualified=portfolio_qualified, spend=spend, emit=emit,
             bracket_factor_fn=_bracket_factor_for_year, compute_fed_tax_fn=_compute_fed_tax_path,
+            aca_ptc_fn=_aca_ptc_with_gain if bridge_people > 0 else None,
+            ss_extra_fn=_ss_extra_from_gain if ss_total > 0 else None,
         )
         gap = _inv_tax.gap
         ltcg_gain = _inv_tax.ltcg_gain
@@ -1385,6 +1419,16 @@ def run_deterministic_projection_stage(c):
         total_tax = _inv_tax.total_tax
         investment_tax_iterations = _inv_tax.investment_tax_iterations
         investment_tax_funded_by_taxable = _inv_tax.investment_tax_funded_by_taxable
+        # WI-024 phase 2 (Social Security): extra taxable benefit caused by the brokerage
+        # gain, and the ordinary tax on it, kept through every later recombination.
+        _ss_gain_extra = _inv_tax.ss_extra_taxable
+        if _ss_gain_extra > 0:
+            total_tax_pre_niit += _inv_tax.ss_extra_tax
+            _rental_fixed_tax += _inv_tax.ss_extra_tax
+            ss_taxable += _ss_gain_extra
+            row['ss_taxable'] = ss_taxable
+            row['ss_extra_taxable_from_brokerage_gain'] = _ss_gain_extra
+            row['ss_extra_tax_from_brokerage_gain'] = _inv_tax.ss_extra_tax
 
         # ── Priority 4b: Final pre-tax draw before any Roth withdrawal ───────
         # (design doc Stage 10, sub-stage #7 -- near-duplicate of sub-stage
@@ -1417,6 +1461,23 @@ def run_deterministic_projection_stage(c):
         total_tax_pre_niit = _priority4b.total_tax_pre_niit
         total_tax = _priority4b.total_tax
         irmaa_magi_current = _priority4b.irmaa_magi_current
+        # WI-024 phase 1 / FIN-001: the net gain realized by selling taxable
+        # (brokerage) holdings in the cascade is part of AGI, hence of IRMAA MAGI
+        # (read two years later by the lookback). Net of the capital-loss usage
+        # against gains, and excluding the home/rental sale gain already added
+        # above (``sale_gain_in_agi``). IRMAA only: NIIT, ACA and Social Security
+        # taxation (phase 2) are deliberately unchanged. ``agi`` is not changed.
+        _brokerage_gain = max(0.0, float(ltcg_gain or 0.0))
+        _brokerage_used = min(max(0.0, float(row.get('cap_loss_used') or 0.0)), _brokerage_gain)
+        _brokerage_net_gain = max(0.0, _brokerage_gain - _brokerage_used - sale_gain_in_agi)
+        if _ss_gain_extra > 0:
+            irmaa_magi_current += _ss_gain_extra
+            row['agi'] = row['agi'] + _ss_gain_extra
+            row['irmaa_magi_current'] = irmaa_magi_current
+        if _brokerage_net_gain > 0:
+            irmaa_magi_current += _brokerage_net_gain
+            row['irmaa_magi_current'] = irmaa_magi_current
+            row['brokerage_gain_in_irmaa_magi'] = _brokerage_net_gain
         ira_wd = _priority4b.ira_wd
         h_ira_elective = _priority4b.h_ira_elective
         w_ira_elective = _priority4b.w_ira_elective
@@ -1427,7 +1488,8 @@ def run_deterministic_projection_stage(c):
             # the stack, so re-cap it at the converged taxable income.
             _cap_delta = _rental.true_up_1250_cap(
                 row, _rental_year, _rental_book, year=year, filing=filing, taxable_inc=taxable_inc,
-                fed_brackets=_fed_brackets_path(year, filing), compute_fed_tax_fn=_compute_fed_tax_path)
+                fed_brackets=_fed_brackets_path(year, filing), compute_fed_tax_fn=_ordinary_fed_tax_path,
+                qualified_dividends=portfolio_qualified)
             if _cap_delta:
                 total_tax_pre_niit += _cap_delta
                 total_tax += _cap_delta

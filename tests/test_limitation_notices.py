@@ -19,6 +19,22 @@ ROOT = Path(__file__).resolve().parents[1]
 WORDING = ROOT / "documentation" / "archive" / "reports" / "SYSTEM_REVIEW_2026-10-19_WAVE1_NOTICE_WORDING.md"
 
 ALL_IDS = ["N1", "N2", "N3", "N4", "N5", "N6", "N7"]
+# The registry as shipped, captured before any test patches it.
+REAL_NOTICES = ln.NOTICES
+# Notices whose fix has shipped (their removal triggers are marked shipped in the registry).
+RETIRED_IDS = ["N1", "N2", "N4"]
+
+
+@pytest.fixture(autouse=True)
+def _all_notices_in_force(monkeypatch):
+    """The display and retirement mechanics are tested against every notice in force, so a
+    retired notice (its fix shipped) still has its condition and preflight behaviour covered.
+    ``test_shipped_fixes_have_retired_their_notices`` checks the real registry."""
+    unshipped = tuple(
+        dataclasses.replace(n, triggers=tuple(dataclasses.replace(t, shipped=False) for t in n.triggers))
+        for n in REAL_NOTICES)
+    monkeypatch.setattr(ln, "NOTICES", unshipped)
+    monkeypatch.setattr(ln, "NOTICE_BY_ID", {n.id: n for n in unshipped})
 
 
 def _acct(aid, tax, owner_idx=0, balance=100000.0):
@@ -213,13 +229,26 @@ def _with_shipped(monkeypatch, nid, *, effects=("remove",)):
     return shipped
 
 
-def test_registry_has_no_shown_notice_whose_trigger_is_shipped():
+def test_registry_has_no_shown_notice_whose_trigger_is_shipped(monkeypatch):
     """Fails if a work item is marked shipped but its notice is still in force."""
-    for n in ln.NOTICES:
+    monkeypatch.setattr(ln, "NOTICES", REAL_NOTICES)
+    for n in REAL_NOTICES:
         removers = [t for t in n.triggers if t.effect == "remove"]
         if removers and all(t.shipped for t in removers):
             assert n.retired
             assert n.id not in {a.id for a in ln.active_notices()}, f"{n.id} still shown after its trigger shipped"
+
+
+def test_shipped_fixes_have_retired_their_notices(monkeypatch):
+    """N1 (WI-024 phases 1 and 2), N2 (WI-023) and N4 (WI-025) shipped; the rest stay in force."""
+    monkeypatch.setattr(ln, "NOTICES", REAL_NOTICES)
+    monkeypatch.setattr(ln, "NOTICE_BY_ID", {n.id: n for n in REAL_NOTICES})
+    assert sorted(n.id for n in REAL_NOTICES if n.retired) == RETIRED_IDS
+    shown = {a.id for a in ln.active_notices()}
+    assert not set(RETIRED_IDS) & shown and {"N3", "N5", "N6", "N7"} <= shown
+    for nid in RETIRED_IDS:
+        config, rows = TRIGGERS[nid]
+        assert nid not in _ids(config, rows)
 
 
 @pytest.mark.parametrize("nid", sorted(TRIGGERS))

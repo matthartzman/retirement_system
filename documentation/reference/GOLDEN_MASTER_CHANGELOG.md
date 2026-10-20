@@ -1,3 +1,43 @@
+## 2026-10-20 — WI-023b: Roth LTCG cap measured from AGI less the standard deduction (fixtures re-recorded, pins unchanged)
+
+<!-- fixture-provenance: deterministic_engine_full_row_snapshot_cases.json sha256=6beb6b806b37eece4ade2db424aecdf11b91de0913003cb3dee9cce263d03499 -->
+
+`PINNED_TERMINAL_NW` (5,381,597.38) and `PINNED_LIFETIME_TAX` (1,237,081.61) are unchanged: the `measure` path sizes no conversions after 2026. Planner-approved in session after the Monte Carlo investigation (impact doc sections 9 and 9.1). Re-recorded through `tools/regen_full_row_snapshot.py --reason` (8 `conv_guardrail_caps` diagnostic fields in the baseline_balanced_couple and single_filer scenarios) and `tools/golden_compare.py record --plan sample_frozen --reason`. Measured effect in the `golden_compare` pipeline: Roth conversions 598,722.95 to 742,151.76 (+143,428.81, almost all in 2027 to 2029 where the LTCG rate tier binds); terminal NW +44,752.34; lifetime tax -27,279.94; lifetime IRMAA -5,832 (one tier change, 2045); lifetime NIIT +318.54. Monte Carlo (400 simulations, six seeds): success within tier policy -5.7 points, funded as asked +0.9.
+
+## 2026-10-20 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
+
+<!-- fixture-provenance: deterministic_engine_full_row_snapshot_cases.json sha256=479d93a28bdb3ef76d5ed3a89fcbede96b86359c8c62a996e3fc79594b76dcd7 -->
+
+Also re-recorded for WI-024 phase 2 (planner sign-off): `deterministic_engine_full_row_snapshot_cases.json` and `tests/fixtures/golden_phase_baseline/sample_frozen.json` (new row fields `ss_extra_*` / `aca_ptc_loss_*` appear only where the steps act; on the frozen plan only the NIIT step moves figures).
+
+<!-- pin-provenance: terminal_nw=5381597.38 lifetime_tax=1237081.61 -->
+
+**Old pins.** terminal_nw=5,383,495.40, lifetime_tax=1,236,390.19
+
+**New pins.** terminal_nw=5,381,597.38, lifetime_tax=1,237,081.61
+
+**Reason.**
+
+WI-024 phase 2 (FIN-001), planner-approved in session after verification: NIIT MAGI now includes the net brokerage gain realized in the withdrawal cascade (inside the fixed-point loop, with a convergence test); the ACA MAGI and Social Security taxation steps are implemented and verified end to end on synthetic bridge-year and partial-inclusion households, and have no frozen-plan effect (frozen plan: gain years before Social Security starts have no benefit to tax, later years are at the 85% inclusion cap, and the only bridge year has MAGI far above the credit range). Only the NIIT step moves the frozen plan: terminal NW 5,383,495.40 to 5,381,597.38, lifetime tax 1,236,390.19 to 1,237,081.61, Roth conversions unchanged at 125,000, lifetime NIIT +739.09. Details: documentation/archive/reports/SYSTEM_REVIEW_2026-10-19_WI022_IMPACT.md section 8.
+
+## 2026-10-20 — WI-024 phase 1 (FIN-001, IRMAA MAGI only): fixtures re-recorded, pins unchanged
+
+<!-- fixture-provenance: deterministic_engine_full_row_snapshot_cases.json sha256=fb03cd1b515a636f4156f3c232286ebd1b2a5a0d94271e0a5a246e372e0aab24 -->
+
+Phase 1 is pinned separately from phase 2 (NIIT, ACA, Social Security). `PINNED_TERMINAL_NW` and `PINNED_LIFETIME_TAX` are unchanged: no headline figure moved (terminal NW 5,383,495.40, lifetime tax 1,236,390.19, Roth conversions unchanged; every KPI and IRMAA tier unchanged). Re-recorded with planner sign-off through `tools/regen_full_row_snapshot.py --reason` and `tools/golden_compare.py record --plan sample_frozen --reason`. Only the IRMAA MAGI diagnostics (`irmaa_magi_current`, `irmaa_magi_used`) and the new row field `brokerage_gain_in_irmaa_magi` changed: the net realized brokerage gain is now part of IRMAA MAGI, read by the two-year lookback.
+
+## 2026-10-20 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
+
+<!-- pin-provenance: terminal_nw=5383495.40 lifetime_tax=1236390.19 -->
+
+**Old pins.** terminal_nw=5,300,872.54, lifetime_tax=1,270,016.83
+
+**New pins.** terminal_nw=5,383,495.40, lifetime_tax=1,236,390.19
+
+**Reason.**
+
+WI-023 / FIN-003 (system review 2026-10-19): intentional engine evolution, signed off by the planner (repo owner) in session. (1) Qualified dividends are taxed at 0/15/20% stacked above ordinary income and below realized gains; the ordinary schedule excludes them; they stay in NII for NIIT. (2) LTCG band tops are aligned to the verified 2026 dataset (MFJ 98,900 / 613,700) instead of the stale 2025 model constants 96,700 / 600,050. (3) LTCG and dividend band tops follow the filing status in force for each projection year (Single in survivor years), for dividends, cascade gains, home-sale, rental-sale and AMT/equity-comp gain stacks. Measured before re-pin: terminal NW 5,300,872.54 to 5,383,495.40, lifetime tax 1,270,016.83 to 1,236,390.19, Roth conversions 125,000 unchanged. Details: documentation/archive/reports/SYSTEM_REVIEW_2026-10-19_WI022_IMPACT.md section 7.
+
 ## 2026-10-19 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
 
 <!-- pin-provenance: terminal_nw=5300872.54 lifetime_tax=1270016.83 -->

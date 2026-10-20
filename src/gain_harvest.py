@@ -118,7 +118,7 @@ def scan_gain_harvest_opportunities(c: Mapping[str, Any], year: int, *,
                                      min_gain_pct: float = 0.0) -> dict:
     """Build the per-lot ledger for the 0%-bracket gain-harvest opportunities
     in `year`, for the reporting sheet."""
-    ltcg_0_top = float(c.get('ltcg_0_top', 96_700) or 0.0)
+    ltcg_0_top = float(c.get('ltcg_0_top', 98_900) or 0.0)
     try:
         # WI-306 / FIN-014: kernel indexing convention (brk_inf compounded
         # from FEDERAL_BRACKETS_VALUE_YEAR) -- same factor the projection's
