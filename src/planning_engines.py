@@ -2341,13 +2341,16 @@ def plan_roth_conversion(
             ltcg_top0 *= bracket_factor
             ltcg_top15 *= bracket_factor
             # WI-023 / FIN-003: qualified dividends are now taxed in the 0/15/20%
-            # preferential stack (stacked on top of ordinary taxable income), so the
-            # band the dividends and any later gain sit in is set by TAXABLE income,
-            # the same stack position tax_kernel.ltcg_tax_on_gain uses. The old test
-            # compared pre-deduction AGI with the band tops. A conversion adds
-            # ordinary income dollar for dollar, so headroom is measured from
-            # pre-conversion taxable income (AGI less the standard deduction).
-            _stack_pos = max(0.0, pre_agi - std)
+            # preferential stack, directly below any realized gain. ``pre_agi``
+            # already includes ``portfolio_qualified`` (see pre_non_ss above), so the
+            # stack position tested here contains the dividends, and the band tops
+            # come from the verified 2026 dataset via _roth_ltcg_thresholds_base and
+            # the kernel's bracket factor -- the same tops tax_kernel.ltcg_tax_on_gain
+            # applies. NOTE (unchanged, flagged for planner): the position is pre-
+            # deduction AGI while the band tops are taxable-income thresholds, which
+            # is conservative; measuring from AGI less the standard deduction would
+            # loosen this cap (see the WI-023 impact section for the measured effect).
+            _stack_pos = pre_agi
             # roth_ltcg_band: 'auto' stays within whichever band income is in
             # today; '0%' / '15%' name the band to stay within. A named band
             # income has already passed cannot be stayed within, so it adds no
@@ -2466,7 +2469,7 @@ def plan_roth_conversion(
                      (_roth_irmaa_target_threshold(c, filing, year) - pre_agi)
                      * float(c.get('roth_irmaa_headroom_usage_pct', 0.95) or 0.95))
         _t0, _t15 = _roth_ltcg_thresholds_base(c, filing)
-        _sp = max(0.0, pre_agi - std)  # WI-023: taxable-income stack position (see _ltcg_niit_caps)
+        _sp = pre_agi  # same stack position as the active cap in _ltcg_niit_caps
         _ceil = _t0 * _bf if _sp < _t0 * _bf else (_t15 * _bf if _sp < _t15 * _bf else None)
         if _ceil is not None:
             _would_allow("ltcg", "LTCG rate tier",
