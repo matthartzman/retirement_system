@@ -8,7 +8,7 @@ Status: **draft for review. No UI text has changed yet.**
 
 1. The reviewer reads only each page's `desc`, `intro` and `help`, with no coaching.
 2. They mark every term they cannot explain in their own words (column "Terms to confirm").
-3. Confirmed terms become glossary entries. The "Draft summary" becomes the one-line plain summary.
+3. Every term in "Terms to confirm" is defined in `WI-033_glossary_draft.md` (written for a high-school reader with little financial experience). The reviewer checks those definitions too. Confirmed terms become glossary entries. The "Draft summary" becomes the one-line plain summary.
 4. A page with no flagged terms is left as is.
 
 Acceptance (from the review): pages used before the first build have plain-language summaries.
