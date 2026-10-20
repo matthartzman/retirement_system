@@ -60,6 +60,7 @@ from ..planning_engines import (
     aca_magi as _aca_magi,
     aca_premium_tax_credit as _aca_ptc,
     marginal_rate,
+    social_security_taxable_amount as _ss_taxable_amount,
     state_income_tax,
 )
 from .. import planning_engines as _legacy_pe
@@ -1385,6 +1386,9 @@ def run_deterministic_projection_stage(c):
                                                          ss_total, ss_taxable),
                             bridge_people=bridge_people)
 
+        def _ss_extra_from_gain(extra_gain, _non_ss=agi - ss_taxable + sale_gain_in_agi):
+            return _ss_taxable_amount(ss_total, _non_ss + extra_gain + portfolio_tax_exempt, filing) - ss_taxable
+
         _inv_tax = _apply_investment_tax_cascade(
             c, bal, bal_basis_free, row,
             year=year, gap=gap, agi=agi + sale_gain_in_agi, taxable_inc=taxable_inc, filing=filing,
@@ -1397,6 +1401,7 @@ def run_deterministic_projection_stage(c):
             portfolio_qualified=portfolio_qualified, spend=spend, emit=emit,
             bracket_factor_fn=_bracket_factor_for_year, compute_fed_tax_fn=_compute_fed_tax_path,
             aca_ptc_fn=_aca_ptc_with_gain if bridge_people > 0 else None,
+            ss_extra_fn=_ss_extra_from_gain if ss_total > 0 else None,
         )
         gap = _inv_tax.gap
         ltcg_gain = _inv_tax.ltcg_gain
@@ -1411,6 +1416,16 @@ def run_deterministic_projection_stage(c):
         total_tax = _inv_tax.total_tax
         investment_tax_iterations = _inv_tax.investment_tax_iterations
         investment_tax_funded_by_taxable = _inv_tax.investment_tax_funded_by_taxable
+        # WI-024 phase 2 (Social Security): extra taxable benefit caused by the brokerage
+        # gain, and the ordinary tax on it, kept through every later recombination.
+        _ss_gain_extra = _inv_tax.ss_extra_taxable
+        if _ss_gain_extra > 0:
+            total_tax_pre_niit += _inv_tax.ss_extra_tax
+            _rental_fixed_tax += _inv_tax.ss_extra_tax
+            ss_taxable += _ss_gain_extra
+            row['ss_taxable'] = ss_taxable
+            row['ss_extra_taxable_from_brokerage_gain'] = _ss_gain_extra
+            row['ss_extra_tax_from_brokerage_gain'] = _inv_tax.ss_extra_tax
 
         # ── Priority 4b: Final pre-tax draw before any Roth withdrawal ───────
         # (design doc Stage 10, sub-stage #7 -- near-duplicate of sub-stage
@@ -1452,6 +1467,10 @@ def run_deterministic_projection_stage(c):
         _brokerage_gain = max(0.0, float(ltcg_gain or 0.0))
         _brokerage_used = min(max(0.0, float(row.get('cap_loss_used') or 0.0)), _brokerage_gain)
         _brokerage_net_gain = max(0.0, _brokerage_gain - _brokerage_used - sale_gain_in_agi)
+        if _ss_gain_extra > 0:
+            irmaa_magi_current += _ss_gain_extra
+            row['agi'] = row['agi'] + _ss_gain_extra
+            row['irmaa_magi_current'] = irmaa_magi_current
         if _brokerage_net_gain > 0:
             irmaa_magi_current += _brokerage_net_gain
             row['irmaa_magi_current'] = irmaa_magi_current

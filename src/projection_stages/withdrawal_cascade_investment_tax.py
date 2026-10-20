@@ -51,6 +51,10 @@ class WithdrawalCascadeInvestmentTaxResult(NamedTuple):
     total_tax: float
     investment_tax_iterations: int
     investment_tax_funded_by_taxable: float
+    # WI-024 phase 2 (Social Security): extra taxable benefit caused by the cascade's
+    # gain and the ordinary tax on it (0.0 unless the engine supplied ss_extra_fn).
+    ss_extra_taxable: float = 0.0
+    ss_extra_tax: float = 0.0
 
 
 @dataclass
@@ -83,6 +87,12 @@ class _InvestmentTaxState:
     # built by the engine; ``aca_loss`` is the credit lost to the cascade's gain so far.
     aca_ptc_fn: Any = None
     aca_loss: float = 0.0
+    # WI-024 phase 2 (Social Security taxation): ``ss_extra_fn(extra_gain) -> extra
+    # taxable benefit`` and ``fed_tax_fn(taxable) -> ordinary-stack federal tax``.
+    ss_extra_fn: Any = None
+    fed_tax_fn: Any = None
+    ss_extra: float = 0.0
+    ss_tax: float = 0.0
 
 
 def _apply_tax_loss_harvesting(
@@ -230,17 +240,33 @@ def _refresh_investment_taxes(
     # Capital losses (carryforward + harvested) offset realized gains
     # before any LTCG/NIIT is due.
     net_gain = max(0.0, state.ltcg_gain - state.available_losses)
-    new_ltcg_tax = _tk.ltcg_tax_on_gain(c, net_gain, max(0, state.taxable_inc), year, state.filing) if net_gain > 0 else 0.0
+    extra = max(0.0, net_gain - state.gain_in_agi_already)
+    # WI-024 phase 2 (Social Security): the gain raises provisional income, so more of
+    # the benefit is taxable. That extra is ordinary income: it is taxed on the ordinary
+    # stack, sits below the gain in the preferential stack, and is part of AGI/MAGI.
+    ss_extra = 0.0
+    delta_ss = 0.0
+    if state.ss_extra_fn is not None and extra > 0:
+        ss_extra = max(0.0, float(state.ss_extra_fn(extra)))
+        if state.fed_tax_fn is not None:
+            base_t = max(0.0, state.taxable_inc)
+            ss_tax = max(0.0, float(state.fed_tax_fn(base_t + ss_extra)) - float(state.fed_tax_fn(base_t)))
+        else:
+            ss_tax = 0.0
+        delta_ss = max(0.0, ss_tax - state.ss_tax)
+        state.ss_tax = ss_tax
+    state.ss_extra = ss_extra
+    stack_base = max(0, state.taxable_inc + ss_extra)
+    new_ltcg_tax = _tk.ltcg_tax_on_gain(c, net_gain, stack_base, year, state.filing) if net_gain > 0 else 0.0
     delta_ltcg = max(0.0, new_ltcg_tax - state.ltcg_tax)
     state.ltcg_tax = new_ltcg_tax
     delta_niit = 0.0
     if model_niit:
-        # Keep the engine's existing MAGI convention but recompute on
-        # cumulative NII as additional taxable withdrawals are made.
         # WI-024 phase 2 / FIN-001: NIIT MAGI includes the brokerage gain realized
         # in this cascade (net of loss usage; the sale gain already in ``agi`` is
-        # not counted twice). Re-evaluated on every pass of the fixed point.
-        magi = state.agi + max(0.0, net_gain - state.gain_in_agi_already)
+        # not counted twice) and the extra taxable Social Security. Re-evaluated on
+        # every pass of the fixed point.
+        magi = state.agi + extra + ss_extra
         new_niit = niit_tax(state.base_nii_without_ltcg + net_gain, magi, state.filing)
         delta_niit = max(0.0, new_niit - state.niit)
         state.niit = new_niit
@@ -248,11 +274,10 @@ def _refresh_investment_taxes(
     if state.aca_ptc_fn is not None:
         # WI-024 phase 2 / FIN-001: the brokerage gain raises ACA MAGI, shrinking the
         # premium tax credit; the lost credit is extra cash need in the same fixed point.
-        extra = max(0.0, net_gain - state.gain_in_agi_already)
-        loss = max(0.0, float(state.aca_ptc_fn(0.0)) - float(state.aca_ptc_fn(extra)))
+        loss = max(0.0, float(state.aca_ptc_fn(0.0)) - float(state.aca_ptc_fn(extra + ss_extra)))
         delta_aca = max(0.0, loss - state.aca_loss)
         state.aca_loss = loss
-    return delta_ltcg + delta_niit + delta_aca
+    return delta_ltcg + delta_niit + delta_aca + delta_ss
 
 
 def apply_investment_tax_cascade(
@@ -285,6 +310,7 @@ def apply_investment_tax_cascade(
     bracket_factor_fn: Callable[[int], float],
     compute_fed_tax_fn: Callable[[float, int, str], float],
     aca_ptc_fn: Callable[[float], float] | None = None,
+    ss_extra_fn: Callable[[float], float] | None = None,
 ) -> WithdrawalCascadeInvestmentTaxResult:
     """Withdrawal Cascade sub-stage #6 (design doc addendum, "step 4"):
     the LTCG/NIIT fixed point + tax-loss harvesting + 0%-bracket gain
@@ -340,6 +366,8 @@ def apply_investment_tax_cascade(
         base_nii_without_ltcg=base_nii_without_ltcg,
         gain_in_agi_already=max(0.0, float(home_sale_ltcg_gain or 0.0)),
         aca_ptc_fn=aca_ptc_fn,
+        ss_extra_fn=ss_extra_fn,
+        fed_tax_fn=(lambda t: compute_fed_tax_fn(t, year, filing)),
     )
 
     model_niit = c['model_niit']
@@ -412,7 +440,7 @@ def apply_investment_tax_cascade(
     row['investment_tax_funded_by_taxable'] = investment_tax_funded_by_taxable
     if state.niit > 0:
         emit(EvTax(year, 'niit', state.niit, 0))
-    total_tax = total_tax_pre_niit + state.ltcg_tax + state.niit - tlh_ordinary_credit
+    total_tax = total_tax_pre_niit + state.ss_tax + state.ltcg_tax + state.niit - tlh_ordinary_credit
     row['total_tax'] = total_tax
     row['net_income'] = row.get('gross_income', agi) - total_tax
     # Refresh total_cash_need now that ltcg_tax/niit reflect the fixed-point
@@ -444,6 +472,8 @@ def apply_investment_tax_cascade(
         total_tax=total_tax,
         investment_tax_iterations=investment_tax_iterations,
         investment_tax_funded_by_taxable=investment_tax_funded_by_taxable,
+        ss_extra_taxable=state.ss_extra,
+        ss_extra_tax=state.ss_tax,
     )
 
 
