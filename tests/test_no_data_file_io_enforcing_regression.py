@@ -23,7 +23,6 @@ ALLOWLIST: dict[str, str] = {
     "src/legacy_conversion/": "one-time legacy source reader (removed with the converter, unit 11.6)",
     "src/data_io.py": "load_csv: the old loader path the converter's verify.py compares against (removed with 11.6)",
     "src/plan_data_migration.py": "reads legacy files to migrate old plan data forward (removed with 11.6)",
-    "src/plan_data_read.py": "reads a legacy plan-data file by name for the old loader path (removed with 11.6)",
     "src/local_backup_scheduler.py": "reads the legacy backup settings file once and the backup manifest (migrates into app.db)",
     "src/monarch_autoupdate.py": "reads the legacy Monarch auto-update state file once (migrates into app.db)",
     "src/server_services/base_service.py": "reads the legacy data/prefs.json once (migrates into app.db)",

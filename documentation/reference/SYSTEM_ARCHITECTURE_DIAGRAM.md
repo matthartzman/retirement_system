@@ -21,10 +21,10 @@ flowchart TB
     subgraph L_Server_Services["Server Services (21 modules)"]
         L_Server_Services_d["Feature-owned, request-independent business logic"]
     end
-    subgraph L_HTTP_Runtime["HTTP Runtime (3 modules)"]
+    subgraph L_HTTP_Runtime["HTTP Runtime (4 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
-    subgraph L_Core_Engine___Domain["Core Engine & Domain (175 modules)"]
+    subgraph L_Core_Engine___Domain["Core Engine & Domain (174 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
     subgraph L_Projection_Stages["Projection Stages (24 modules)"]
@@ -41,6 +41,7 @@ flowchart TB
     L_Core_Engine___Domain --> L_Server_Services
     L_HTTP_Routes --> L_Core_Engine___Domain
     L_HTTP_Routes --> L_HTTP_Runtime
+    L_HTTP_Runtime --> L_Core_Engine___Domain
     L_Projection_Stages --> L_Core_Engine___Domain
     L_Reporting___Workbook --> L_Core_Engine___Domain
     L_Reporting___Workbook --> L_Projection_Stages
@@ -449,7 +450,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/server/__init__.py` | `server`, `server.app_core` | — |
 | `src/server/__main__.py` | `http_runtime.server`, `server` | — |
 | `src/server/admin_routes.py` | `governance`, `server.app_core`, `server_services`, `version` | — |
-| `src/server/app_core.py` | `src`, `active_plan`, `app_state`, `blank_plan`, `config_backend`, `csv_exchange`, `http_runtime.wsgi_facade`, `permissions`, `plan_dates`, `plan_file_io`, `roth_ui_build_guard`, `runtime_config`, `schema_registry`, `secrets_store`, `security`, `server.security_audit`, `stores.ref_getters.schema_fields`, `system_config`, `us_states`, `workspace_context` | — |
+| `src/server/app_core.py` | `src`, `active_plan`, `app_state`, `blank_plan`, `config_backend`, `csv_exchange`, `http_runtime`, `http_runtime.wsgi_facade`, `permissions`, `plan_dates`, `plan_file_io`, `roth_ui_build_guard`, `runtime_config`, `schema_registry`, `secrets_store`, `security`, `server.security_audit`, `stores.ref_getters.schema_fields`, `system_config`, `us_states`, `workspace_context` | — |
 | `src/server/base_routes.py` | `api_contracts`, `glossary`, `server.app_core`, `server.route_manifest`, `server_services`, `version` | — |
 | `src/server/import_export_routes.py` | `src`, `active_plan`, `server.app_core` | — |
 | `src/server/plan_routes.py` | `active_plan`, `data_io`, `housing`, `module_catalog`, `monarch_autoimport_job`, `plan_data_migration`, `plan_interview`, `portfolio_analytics`, `report_compute`, `secrets_store`, `server.app_core`, `server_services`, `stores.ref_getters.schema_fields`, `version` | — |
@@ -489,7 +490,8 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | Module | Internal imports | External imports |
 |---|---|---|
 | `src/http_runtime/__init__.py` | `http_runtime.wsgi_facade` | — |
-| `src/http_runtime/server.py` | `http_runtime.wsgi_facade` | — |
+| `src/http_runtime/host_guard.py` | — | — |
+| `src/http_runtime/server.py` | `http_runtime.host_guard`, `http_runtime.wsgi_facade`, `runtime_config` | — |
 | `src/http_runtime/wsgi_facade.py` | `http_runtime.server` | — |
 
 ### Core Engine & Domain
@@ -510,7 +512,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/config_backend.py` | `active_plan`, `app_state`, `engine_defaults`, `sqlite_util`, `system_config` | — |
 | `src/core.py` | `person_labels` | — |
 | `src/csv_exchange/__init__.py` | `csv_exchange`, `csv_exchange.core`, `csv_exchange.flat_csv`, `csv_exchange.plan_csv`, `csv_exchange.plan_set`, `csv_exchange.text_csv`, `plan_label_rules` | — |
-| `src/csv_exchange/core.py` | `csv_exchange`, `csv_exchange.flat_csv`, `csv_exchange.plan_csv`, `schema_registry`, `stores.datasets` | — |
+| `src/csv_exchange/core.py` | `csv_exchange`, `csv_exchange.flat_csv`, `csv_exchange.plan_csv`, `money`, `schema_registry`, `stores.datasets` | — |
 | `src/csv_exchange/flat_csv.py` | — | — |
 | `src/csv_exchange/plan_csv.py` | `plan_label_rules` | — |
 | `src/csv_exchange/plan_set.py` | `csv_exchange`, `csv_exchange.plan_csv` | — |
@@ -599,7 +601,6 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/plan_config.py` | — | — |
 | `src/plan_data_backfill.py` | — | — |
 | `src/plan_data_migration.py` | `active_plan`, `csv_exchange`, `local_store`, `plan_file_io`, `stores` | — |
-| `src/plan_data_read.py` | — | — |
 | `src/plan_data_registry.py` | — | — |
 | `src/plan_datasets.py` | `active_plan`, `csv_exchange` | — |
 | `src/plan_dates.py` | — | — |
