@@ -12,9 +12,7 @@ engine the main app's YTD dashboard already calls, plus a liabilities-CSV
 summation for net worth (a plain sum, not a computation worth re-deriving).
 """
 
-import csv
 import re
-import io
 import sys
 from datetime import date
 from pathlib import Path
@@ -27,7 +25,6 @@ if str(_REPO_ROOT) not in sys.path:
 from src import spending_tracker, ytd_tracking as ytd  # noqa: E402
 from . import balance_series  # noqa: E402
 from src.active_plan import peek_plan_data_for_input_dir  # noqa: E402
-from src.plan_data_read import read_plan_data_file  # noqa: E402
 from src.plan_datasets import dataset_rows_for_input_dir  # noqa: E402
 
 # Account-setup roles ytd_tracking.ROLE_OPTIONS marks as liabilities -- their
@@ -37,11 +34,9 @@ LIABILITY_ROLES = frozenset({"Credit card", "Mortgage", "HELOC", "Loan", "Other 
 
 
 def _liabilities_csv_total(base_dir: Path, db_path: Path) -> float:
-    # plan.rpx first (WP6 moved liabilities out of client_files / input CSVs).
+    # plan.rpx only: the legacy client_files / input CSV fallback was removed (ARC-004), so a
+    # plan with no liabilities counts none instead of an old converted balance.
     rows = dataset_rows_for_input_dir(base_dir / "input", "liabilities")
-    if not rows:
-        content = read_plan_data_file("client_liabilities.csv", base_dir, db_path)
-        rows = list(csv.DictReader(io.StringIO(content))) if content else []
     return sum(ytd.parse_money(row.get("balance")) for row in rows)
 
 
@@ -98,19 +93,11 @@ def _non_investment_balances(accounts: list[dict[str, Any]]) -> list[dict[str, A
 def _plan_rows(base_dir: Path, db_path: Path, filename: str) -> dict[tuple[str, str, str], str]:
     """{(section, subsection, label): value} for a section/subsection/label/value plan CSV."""
     out: dict[tuple[str, str, str], str] = {}
-    # plan.rpx first (client_assets/client_spending rows live in plan_rows now).
+    # plan.rpx only (client_assets/client_spending rows live in plan_rows; legacy fallback removed, ARC-004).
     for section, subs in peek_plan_data_for_input_dir(base_dir / "input").items():
         for sub, labels in subs.items():
             for label, value in labels.items():
                 out[(section.strip(), sub.strip(), label.strip())] = str(value).strip()
-    if out:
-        return out
-    content = read_plan_data_file(filename, base_dir, db_path)
-    if not content:
-        return out
-    for row in csv.reader(io.StringIO(content)):
-        if len(row) >= 4 and row[0] and not row[0].startswith("#"):
-            out[(row[0].strip(), row[1].strip(), row[2].strip())] = row[3].strip()
     return out
 
 

@@ -24,7 +24,7 @@ flowchart TB
     subgraph L_HTTP_Runtime["HTTP Runtime (4 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
-    subgraph L_Core_Engine___Domain["Core Engine & Domain (175 modules)"]
+    subgraph L_Core_Engine___Domain["Core Engine & Domain (174 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
     subgraph L_Projection_Stages["Projection Stages (24 modules)"]
@@ -601,7 +601,6 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/plan_config.py` | — | — |
 | `src/plan_data_backfill.py` | — | — |
 | `src/plan_data_migration.py` | `active_plan`, `csv_exchange`, `local_store`, `plan_file_io`, `stores` | — |
-| `src/plan_data_read.py` | — | — |
 | `src/plan_data_registry.py` | — | — |
 | `src/plan_datasets.py` | `active_plan`, `csv_exchange` | — |
 | `src/plan_dates.py` | — | — |
