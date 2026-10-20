@@ -38,6 +38,7 @@
       if(!res.ok){
         const err = new Error((data && data.error) || text || res.statusText);
         if(data && Array.isArray(data.errors)) err.errors = data.errors;
+        if(data && Array.isArray(data.field_errors)) err.fieldErrors = data.field_errors;
         throw err;
       }
       return data;

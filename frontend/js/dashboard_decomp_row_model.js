@@ -2757,6 +2757,22 @@ export function finishEdit(idx, el) {
 // on the last failed save. fieldHtml marks those controls aria-invalid; the
 // set is replaced on every failed save and cleared on a successful one.
 export const saveValidationInvalidRows = new Set();
+// WI-020 / UX-004: the server's message for each rejected row (row_index -> text), shown
+// under the control (aria-describedby) and listed, with links, in the #saveErrorSummary region.
+export const saveValidationErrors = new Map();
+let saveValidationUnmapped = [];
+export function saveFieldErrorId(rowIndex) {
+  return "field-" + rowIndex + "-err";
+}
+function saveFieldErrorHtml(rowIndex) {
+  return (
+    '<div class="field-error" id="' +
+    saveFieldErrorId(rowIndex) +
+    '"><span aria-hidden="true">&#9888; </span><span class="sr-only">Error: </span>' +
+    esc(saveValidationErrors.get(rowIndex) || "") +
+    "</div>"
+  );
+}
 
 // UX-002 (system review 2026-09-25, WI-503): stable ids tying each plan-data
 // control to its visible label and its describing text (unit caption,
@@ -2786,7 +2802,10 @@ export function fieldHtml(r, opts) {
   const inactiveState = rowBuildUsageState(r, activeStep);
   const inactiveRevealed =
     inactiveEditReveals.has(r.row_index) && !inactiveState.active;
+  const saveErr = saveValidationErrors.has(r.row_index);
+  const errId = saveFieldErrorId(r.row_index);
   const describedBy = [
+    saveErr ? errId : "",
     missing ? reqId : "",
     units && !hideUnit ? unitId : "",
     inactiveRevealed ? inactiveId : "",
@@ -2866,7 +2885,8 @@ export function fieldHtml(r, opts) {
   // inside the same bordered card.
   const sizeClass = fieldSizeClass(r);
   const flow = dependencyRank(r.label) > "01" && sizeClass !== "w-long";
-  return `<div class="field ${missing ? "missing" : ""} ${dirtyHere ? "dirty" : ""} ${inactiveRevealed ? "inactive-edit" : ""}${paired ? " paired" : ""}${flow ? " flow" : ""}${sizeClass ? " " + sizeClass : ""}${negClass}" id="field-${r.row_index}" onclick="showFieldHelp(${r.row_index})"><div><div class="field-label"><label id="${lblId}"${boolish ? "" : ` for="${ctlId}"`}>${esc(opts && opts.dropRoth ? humanLabel(r.label, r).replace(/^Roth\s+/i, "") : humanLabel(r.label, r))}${fieldLabelNoteHtml(r)}</label>${fieldTooltipHtml(lblNorm, r)}</div><div class="field-meta">${req}${dirtyHere ? '<span class="badge dirty">Edited</span>' : ""}${inactiveBadge}</div></div><div>${control}${unit}${inactiveRevealed ? `<div class="unit" id="${inactiveId}">${esc(formatAcronyms(inactiveState.activation || "Change this value or its controlling setting to make it active in the build."))}</div>` : ""}</div></div>`;
+  const saveErrHtml = saveErr ? saveFieldErrorHtml(r.row_index) : "";
+  return `<div class="field ${missing ? "missing" : ""} ${saveErr ? "invalid" : ""} ${dirtyHere ? "dirty" : ""} ${inactiveRevealed ? "inactive-edit" : ""}${paired ? " paired" : ""}${flow ? " flow" : ""}${sizeClass ? " " + sizeClass : ""}${negClass}" id="field-${r.row_index}" onclick="showFieldHelp(${r.row_index})"><div><div class="field-label"><label id="${lblId}"${boolish ? "" : ` for="${ctlId}"`}>${esc(opts && opts.dropRoth ? humanLabel(r.label, r).replace(/^Roth\s+/i, "") : humanLabel(r.label, r))}${fieldLabelNoteHtml(r)}</label>${fieldTooltipHtml(lblNorm, r)}</div><div class="field-meta">${req}${dirtyHere ? '<span class="badge dirty">Edited</span>' : ""}${inactiveBadge}</div></div><div>${control}${saveErrHtml}${unit}${inactiveRevealed ? `<div class="unit" id="${inactiveId}">${esc(formatAcronyms(inactiveState.activation || "Change this value or its controlling setting to make it active in the build."))}</div>` : ""}</div></div>`;
 }
 
 export function sortRowsByDependency(rs) {
@@ -3399,44 +3419,90 @@ export function showSaveDiscardStayModal(message, opts) {
   });
 }
 
+// UX-010 / WI-020: same dialog pattern as showInAppConfirm (role=dialog, aria-modal, labelled,
+// Tab trap, Escape, focus restored). opts.choices = [string | {value,label}] turns the free-text
+// box into a <select> for enumerated values (state, trust type); the result is then always one of them.
 export function showInAppPrompt(message, defaultValue, opts) {
   defaultValue = defaultValue || "";
   opts = opts || {};
   return new Promise(function (resolve) {
+    const previouslyFocused = document.activeElement;
     const overlay = document.createElement("div");
     overlay.className = "inapp-modal-overlay";
     const title = opts.title || message;
     const placeholder = opts.placeholder || "";
+    const seq = _inAppModalIdSeq++;
+    const titleId = "inapp-modal-title-" + seq;
+    const labelId = "inapp-modal-label-" + seq;
+    const inputId = "inapp-modal-input-" + seq;
+    const showLabel = !!message && message !== title;
+    const labelledBy = titleId + (showLabel ? " " + labelId : "");
+    const choices = Array.isArray(opts.choices) ? opts.choices : null;
+    const control = choices
+      ? '<select class="inapp-modal-input compact-input" id="' +
+        inputId +
+        '" aria-labelledby="' +
+        labelledBy +
+        '">' +
+        choices
+          .map(function (c) {
+            const v = typeof c === "object" ? c.value : c;
+            const l = typeof c === "object" ? c.label || c.value : c;
+            return (
+              '<option value="' + esc(v) + '"' + (String(v) === String(defaultValue) ? " selected" : "") + ">" + esc(l) + "</option>"
+            );
+          })
+          .join("") +
+        "</select>"
+      : '<input class="inapp-modal-input compact-input" id="' +
+        inputId +
+        '" type="text" aria-labelledby="' +
+        labelledBy +
+        '" value="' +
+        esc(defaultValue) +
+        '" placeholder="' +
+        esc(placeholder) +
+        '">';
     overlay.innerHTML =
-      '<div class="inapp-modal"><b class="inapp-modal-title">' +
+      '<div class="inapp-modal" role="dialog" aria-modal="true" aria-labelledby="' +
+      titleId +
+      '"><b class="inapp-modal-title" id="' +
+      titleId +
+      '">' +
       esc(title) +
-      '</b><div class="inapp-modal-body"><input class="inapp-modal-input compact-input" type="text" value="' +
-      esc(defaultValue) +
-      '" placeholder="' +
-      esc(placeholder) +
-      '"></div><div class="inapp-modal-actions"><button class="btn inapp-cancel" type="button">Cancel</button><button class="btn primary inapp-confirm" type="button">OK</button></div></div>';
+      '</b><div class="inapp-modal-body">' +
+      (showLabel ? '<label class="inapp-modal-label" id="' + labelId + '" for="' + inputId + '">' + esc(message) + "</label>" : "") +
+      control +
+      '</div><div class="inapp-modal-actions"><button class="btn inapp-cancel" type="button">Cancel</button><button class="btn primary inapp-confirm" type="button">OK</button></div></div>';
     document.body.appendChild(overlay);
     const input = overlay.querySelector(".inapp-modal-input");
     function close(v) {
       overlay.remove();
+      document.removeEventListener("keydown", onKey);
+      if (previouslyFocused && typeof previouslyFocused.focus === "function") previouslyFocused.focus();
       resolve(v);
     }
-    overlay.querySelector(".inapp-confirm").onclick = function () {
-      close(input.value.trim() || null);
-    };
+    function accept() {
+      close(String(input.value || "").trim() || null);
+    }
+    overlay.querySelector(".inapp-confirm").onclick = accept;
     overlay.querySelector(".inapp-cancel").onclick = function () {
       close(null);
     };
     overlay.onclick = function (e) {
       if (e.target === overlay) close(null);
     };
-    input.addEventListener("keydown", function (e) {
-      if (e.key === "Enter") close(input.value.trim() || null);
-      else if (e.key === "Escape") close(null);
-    });
+    function onKey(e) {
+      if (e.key === "Escape") close(null);
+      else if (e.key === "Enter" && document.activeElement === input) {
+        if (e.preventDefault) e.preventDefault();
+        accept();
+      } else if (e.key === "Tab") _trapTabWithinModal(e, overlay);
+    }
+    document.addEventListener("keydown", onKey);
     setTimeout(function () {
-      input.focus();
-      input.select();
+      if (input && input.focus) input.focus();
+      if (!choices && input && input.select) input.select();
     }, 30);
   });
 }
@@ -4399,6 +4465,7 @@ export function scheduleStatusUpdate() {
 }
 
 export function editValue(idx, val, el) {
+  if (saveValidationErrors.has(idx)) clearFieldSaveError(idx);
   const row = rows.find((r) => r.row_index === idx);
   const stored = storageValueForInput(row, val);
   const original = storageValueForInput(row, row?.value || "");
@@ -5080,15 +5147,148 @@ export function rowIndexesForSaveErrors(errs) {
   }
   return out;
 }
-export function markSaveValidationErrors(errs) {
-  const bad = rowIndexesForSaveErrors(errs);
-  saveValidationInvalidRows.clear();
-  bad.forEach((i) => saveValidationInvalidRows.add(i));
-  bad.forEach((i) => {
-    const el = document.getElementById(fieldControlId(i));
-    if (el && el.setAttribute) el.setAttribute("aria-invalid", "true");
+// "('<section>', '<subsection>', '<label>'): <message>; got <value>" -> its message part.
+const SAVE_ERROR_FULL_RE = /^\(\s*(['"])(.*?)\1\s*,\s*(['"])(.*?)\3\s*,\s*(['"])(.*?)\5\s*\)\s*:\s*([\s\S]*?)(?:;\s*got\s+[\s\S]*)?$/;
+function saveErrorMessageFromString(err) {
+  const m = String(err || "").match(SAVE_ERROR_FULL_RE);
+  return m ? m[7].trim() : String(err || "").trim();
+}
+// Prefer the server's structured field_errors (WI-020); fall back to parsing the string list.
+// Returns { mapped: [{row_index, message}], unmapped: [message] }.
+export function resolveSaveErrors(errs, fieldErrs) {
+  const mapped = [];
+  const unmapped = [];
+  const add = (row_index, message) => {
+    const hit = mapped.find((m) => m.row_index === row_index);
+    if (hit) {
+      if (!hit.message.includes(message)) hit.message += "; " + message;
+    } else mapped.push({ row_index, message });
+  };
+  if (Array.isArray(fieldErrs) && fieldErrs.length) {
+    fieldErrs.forEach((f) => {
+      if (!f) return;
+      const known =
+        f.row_index !== undefined && (rows || []).some((r) => r.row_index === f.row_index);
+      if (known) {
+        add(f.row_index, String(f.message || f.raw || "Invalid value"));
+        return;
+      }
+      const viaRaw = rowIndexesForSaveErrors([f.raw]);
+      if (viaRaw.length) add(viaRaw[0], String(f.message || saveErrorMessageFromString(f.raw)));
+      else unmapped.push(String(f.message || f.raw || ""));
+    });
+    return { mapped, unmapped };
+  }
+  (errs || []).forEach((err) => {
+    const idx = rowIndexesForSaveErrors([err]);
+    if (idx.length) add(idx[0], saveErrorMessageFromString(err));
+    else unmapped.push(String(err || ""));
   });
-  return bad;
+  return { mapped, unmapped };
+}
+function applySaveErrorToDom(rowIndex) {
+  const el = document.getElementById(fieldControlId(rowIndex));
+  if (!el || !el.setAttribute) return;
+  el.setAttribute("aria-invalid", "true");
+  const errId = saveFieldErrorId(rowIndex);
+  const ids = String((el.getAttribute && el.getAttribute("aria-describedby")) || "")
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!ids.includes(errId)) el.setAttribute("aria-describedby", [errId, ...ids].join(" "));
+  const field = el.closest ? el.closest(".field") : null;
+  if (field) field.classList.add("invalid");
+  const existing = document.getElementById(errId);
+  if (existing && existing.parentNode) {
+    existing.innerHTML = saveFieldErrorHtml(rowIndex).replace(/^<div[^>]*>|<\/div>$/g, "");
+    return;
+  }
+  const anchor = (el.closest && el.closest("label.toggle-switch")) || el;
+  if (anchor.insertAdjacentHTML) anchor.insertAdjacentHTML("afterend", saveFieldErrorHtml(rowIndex));
+}
+function removeSaveErrorFromDom(rowIndex) {
+  const el = document.getElementById(fieldControlId(rowIndex));
+  const errEl = document.getElementById(saveFieldErrorId(rowIndex));
+  if (errEl && errEl.remove) errEl.remove();
+  if (!el || !el.setAttribute) return;
+  const errId = saveFieldErrorId(rowIndex);
+  const ids = String((el.getAttribute && el.getAttribute("aria-describedby")) || "")
+    .split(/\s+/)
+    .filter((x) => x && x !== errId);
+  if (ids.length) el.setAttribute("aria-describedby", ids.join(" "));
+  else if (el.removeAttribute) el.removeAttribute("aria-describedby");
+  const row = (rows || []).find((r) => r.row_index === rowIndex);
+  if (!(row && isMissing(row)) && el.removeAttribute) el.removeAttribute("aria-invalid");
+  const field = el.closest ? el.closest(".field") : null;
+  if (field) field.classList.remove("invalid");
+}
+// The error summary (a region above the page): one link per rejected field plus any
+// error the server could not tie to a single field. Moves focus to it after a failed save.
+export function renderSaveErrorSummary(moveFocus) {
+  const box = document.getElementById("saveErrorSummary");
+  if (!box) return;
+  const items = Array.from(saveValidationErrors.entries());
+  const n = items.length + saveValidationUnmapped.length;
+  if (!n) {
+    box.hidden = true;
+    box.innerHTML = "";
+    return;
+  }
+  const label = (i) => {
+    const r = (rows || []).find((x) => x.row_index === i);
+    return r ? humanLabel(r.label, r) : "Field " + i;
+  };
+  box.innerHTML =
+    '<h2 class="error-summary-title" id="saveErrorSummaryTitle">' +
+    n +
+    (n === 1 ? " problem" : " problems") +
+    " to fix before this can be saved</h2><ul>" +
+    items
+      .map(
+        ([i, msg]) =>
+          '<li><button type="button" class="link-btn" onclick="goToInvalidField(' +
+          Number(i) +
+          ')">' +
+          esc(label(i)) +
+          "</button>: " +
+          esc(msg) +
+          "</li>",
+      )
+      .join("") +
+    saveValidationUnmapped.map((m) => "<li>" + esc(m) + "</li>").join("") +
+    "</ul>";
+  box.setAttribute("aria-labelledby", "saveErrorSummaryTitle");
+  box.hidden = false;
+  if (moveFocus && box.focus) {
+    if (box.scrollIntoView) box.scrollIntoView({ block: "start" });
+    box.focus();
+  }
+}
+export function markSaveValidationErrors(errs, fieldErrs) {
+  const { mapped, unmapped } = resolveSaveErrors(errs, fieldErrs);
+  saveValidationInvalidRows.clear();
+  saveValidationErrors.clear();
+  saveValidationUnmapped = unmapped;
+  mapped.forEach(({ row_index, message }) => {
+    saveValidationInvalidRows.add(row_index);
+    saveValidationErrors.set(row_index, message);
+  });
+  mapped.forEach(({ row_index }) => applySaveErrorToDom(row_index));
+  renderSaveErrorSummary(true);
+  return mapped.map((m) => m.row_index);
+}
+export function clearSaveValidationErrors() {
+  Array.from(saveValidationErrors.keys()).forEach(removeSaveErrorFromDom);
+  saveValidationInvalidRows.clear();
+  saveValidationErrors.clear();
+  saveValidationUnmapped = [];
+  renderSaveErrorSummary(false);
+}
+// The user is fixing this field: drop its own error (the rest stay until the next save).
+export function clearFieldSaveError(rowIndex) {
+  removeSaveErrorFromDom(rowIndex);
+  saveValidationInvalidRows.delete(rowIndex);
+  saveValidationErrors.delete(rowIndex);
+  renderSaveErrorSummary(false);
 }
 export function goToInvalidField(rowIndex) {
   const row = (rows || []).find((r) => r.row_index === rowIndex);
@@ -5118,7 +5318,7 @@ function reportSaveFailure(e) {
   if (errs && errs.length) {
     // UX-003 (WI-504): tie each validation error back to its field --
     // aria-invalid on the control, and a "Go to" action for the first.
-    const bad = markSaveValidationErrors(errs);
+    const bad = markSaveValidationErrors(errs, e && e.fieldErrors);
     const first = bad.length ? rows.find((r) => r.row_index === bad[0]) : null;
     showMessage("Error saving: " + e.message, "error", {
       persistent: true,
@@ -5147,7 +5347,7 @@ export async function saveBeforeStructuralChange() {
     if (!planLoaded) return true;
     const saved = await saveWorkingCopy();
     if (!saved) return false;
-    saveValidationInvalidRows.clear();
+    clearSaveValidationErrors();
     return true;
   } catch (e) {
     reportSaveFailure(e);
@@ -5163,7 +5363,7 @@ export async function saveAll(sync = true) {
     }
     const saved = await saveWorkingCopy();
     if (!saved) return false;
-    saveValidationInvalidRows.clear();
+    clearSaveValidationErrors();
     showMessage("Changes saved.");
     await loadAll({
       source: "Local database",
@@ -5620,6 +5820,10 @@ Object.assign(window, {
   runBuild,
   saveAll,
   saveBeforeStructuralChange,
+  clearSaveValidationErrors,
+  clearFieldSaveError,
+  renderSaveErrorSummary,
+  resolveSaveErrors,
   saveBudgetLines,
   saveMappingRulesData,
   saveTaxonomyBudgetData,

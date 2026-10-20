@@ -65,13 +65,15 @@ export function renderEstateStatesTable() {
   html += `</tbody></table></div></div></details>`;
   return html;
 }
+// UX-010: trust type is an enumerated value, chosen rather than typed (the add prompt and the table pulldown).
+const TRUST_TYPES = ["Revocable", "Irrevocable", "Credit Shelter", "QTIP", "Special Needs", "Other"];
 export async function addEstateState(state) {
   try {
     state =
       state ||
-      (await showInAppPrompt("State abbreviation or name:", "", {
+      (await showInAppPrompt("State:", "", {
         title: "Add Estate State",
-        placeholder: "e.g. CA, NY",
+        choices: [{ value: "", label: "Choose a state" }].concat(_stateNameChoiceOptions()),
       }));
     if (!state) return;
     if (!(await saveBeforeStructuralChange())) return;
@@ -92,13 +94,11 @@ export async function addTrustAccount() {
       title: "Add Trust Account",
     });
     if (!name) return;
-    const rawType = await showInAppPrompt("Trust type:", "Revocable", {
+    const type = await showInAppPrompt("Trust type:", "Revocable", {
       title: "Trust Type",
-      placeholder:
-        "Revocable, Irrevocable, Credit Shelter, QTIP, Special Needs, Other",
+      choices: TRUST_TYPES,
     });
-    if (rawType === null) return;
-    const type = rawType || "Revocable";
+    if (type === null) return;
     if (!(await saveBeforeStructuralChange())) return;
     const out = await api("/api/trust-account/add", {
       method: "POST",
@@ -129,7 +129,7 @@ export function renderTrustAccountsTable() {
     const rs = bySub[sub];
     const name = rs.find((r) => norm(r.label) === "account_name");
     const typ = rs.find((r) => norm(r.label) === "trust_type");
-    html += `<details><summary>${esc(translatePersonPlaceholders(name ? valOf(name) : sub))} · ${typ ? `<select onclick="event.stopPropagation()" onchange="editValue(${typ.row_index},this.value,this)">${["Revocable", "Irrevocable", "Credit Shelter", "QTIP", "Special Needs", "Other"].map((x) => `<option value="${esc(x)}" ${norm(valOf(typ)) === norm(x) ? "selected" : ""}>${esc(x)}</option>`).join("")}</select>` : esc(translatePersonPlaceholders(sub))}</summary><div class="field-list">${rs.map(fieldHtml).join("")}</div></details>`;
+    html += `<details><summary>${esc(translatePersonPlaceholders(name ? valOf(name) : sub))} · ${typ ? `<select onclick="event.stopPropagation()" onchange="editValue(${typ.row_index},this.value,this)">${TRUST_TYPES.map((x) => `<option value="${esc(x)}" ${norm(valOf(typ)) === norm(x) ? "selected" : ""}>${esc(x)}</option>`).join("")}</select>` : esc(translatePersonPlaceholders(sub))}</summary><div class="field-list">${rs.map(fieldHtml).join("")}</div></details>`;
   });
   html += `</div></details>`;
   return html;

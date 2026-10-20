@@ -578,7 +578,10 @@ DASHBOARD_JS_MAX_LINES = 7_134
 # raised to 39,558.
 # 2026-10-20 (WI-019 / UX-002, ARC-003: hide-in-background replaces the fake Cancel, running chip, in-flight
 # guard, build-warnings banner in build_lifecycle.js and row_model.js, +111): raised to 39,669.
-TOTAL_JS_MAX_LINES = 39_669
+# 2026-10-20 (WI-020 / UX-004, UX-010: per-field save-error messages, error summary, structured field_errors
+# in api_client, showInAppPrompt dialog semantics + choices mode, estate state/trust-type selects, +205):
+# raised to 39,874.
+TOTAL_JS_MAX_LINES = 39_874
 
 
 def _line_count(path: Path) -> int:
