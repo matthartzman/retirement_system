@@ -18,7 +18,7 @@ Entries:
 - [`2026-10-monarch-mapping-and-trends-fixes.md`](2026-10-monarch-mapping-and-trends-fixes.md) -- Monarch mapping redesign (inbox, policies, closed accounts, automatic updates) and the Financial Reporting fixes (items 349 to 354).
 - [`2026-10-wp11-file-elimination.md`](2026-10-wp11-file-elimination.md) -- WP11 storage changes: where plan data, settings and secrets live now, and CSV as import/export only.
 
-- [`2026-10-engine-tax-correctness.md`](2026-10-engine-tax-correctness.md) -- October tax-correctness engine changes: senior bonus for itemizers, qualified-dividend stacking, brokerage and home/rental sale gains in income tests, symmetric survivor step-up, and the September engine changes.
+- [`2026-10-engine-tax-correctness.md`](2026-10-engine-tax-correctness.md) -- October tax-correctness engine changes: senior bonus for itemizers, qualified-dividend stacking, brokerage and home/rental sale gains in income tests, symmetric survivor step-up, the rental and housing changes (H2 to H6), and the September engine changes.
 
 ## Golden-master changelog map
 
