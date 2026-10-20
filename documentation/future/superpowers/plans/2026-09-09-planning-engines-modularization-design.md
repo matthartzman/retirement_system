@@ -1,6 +1,6 @@
 # planning_engines.py modularization — design
 
-**Status:** design only. Nothing in this document has been implemented. §2.4 is
+Status: planned (design only; WI-016 did not re-verify the "nothing implemented" claim). **Original status line:** design only. Nothing in this document has been implemented. §2.4 is
 the one section backed by measurement rather than analysis — it settles the
 feasibility question the first draft flagged as the risk to Tier 1, and §6, §7
 and §9's question 4 were rewritten from its numbers.

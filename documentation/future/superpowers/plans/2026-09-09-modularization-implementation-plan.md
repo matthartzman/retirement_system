@@ -5,7 +5,7 @@
 * `documentation/future/superpowers/plans/2026-09-09-dashboard-js-modularization-design.md` — `frontend/js/dashboard.js`, 7,512 lines
 * `documentation/future/superpowers/plans/2026-09-09-planning-engines-modularization-design.md` — `src/planning_engines.py`, 6,418 lines
 
-**Status:** not started. This plan sequences both and assigns a model tier and
+Status: planned (not started per its own text; WI-016 did not re-verify, and the `dashboard_decomp_*.js` files suggest part of the frontend split has since been done). **Original status line:** not started. This plan sequences both and assigns a model tier and
 reasoning effort per item, following the policy convention established in
 `documentation/archive/reports/REMAINING_WORK_PLAN_2026-08-12.md` §5.
 
