@@ -17706,7 +17706,7 @@
    [
     "WARNING",
     "N3",
-    "Withdrawals from IRAs and 401(k)s before age 59\u00bd may carry a 10% additional tax unless an exception applies. This version does not calculate that tax, so plans that draw from pre-tax accounts before 59\u00bd may look more sustainable than they are.",
+    "Pre-tax withdrawals before age 59\u00bd may owe an extra 10% tax. This plan does not include that tax, so results may look better than they are.",
     null,
     null,
     null,
