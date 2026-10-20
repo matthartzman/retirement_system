@@ -3,7 +3,7 @@
 Audience: a high-school-educated reader with little financial experience.
 Style rules: short sentences, everyday words, one small example where it helps, no term defined using another unexplained term.
 Coverage: every term in the "Terms to confirm" column of `WI-033_plain_english_help_review.md`.
-Status: draft for the non-expert read-through. Dollar examples are illustrations only, not advice.
+Status: draft
 
 ## A
 

@@ -2,7 +2,7 @@
 
 Source: DOC-008 in `documentation/archive/reports/SYSTEM_REVIEW_2026-10-19.md`.
 Help text lives in the `STEPS` array in `frontend/js/dashboard.js` (`desc`, `intro`, `help`).
-Status: **draft for review. No UI text has changed yet.**
+Status: draft
 
 ## How to run the read-through
 
