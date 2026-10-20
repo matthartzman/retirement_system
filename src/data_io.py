@@ -785,7 +785,6 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     # override); see src/tax_assumptions.py. Blank/absent fields mean Auto.
     _apply_tax_assumptions(c, {
         'fed_tax_bracket_inflator': _v(data,'Economic Assumptions','','fed_tax_bracket_inflator',''),
-        'social_security_taxable_fraction': _v(data,'Economic Assumptions','','social_security_taxable_fraction',''),
         'state_income_tax_rate': _v(data,'Economic Assumptions','','state_income_tax_rate',''),
     }, {
         'tax_law_scenario': _v(data,'Economic Assumptions','','tax_law_scenario',''),
@@ -2229,7 +2228,6 @@ def build_plan_from_json(plan, url_template=''):
     c['inf']             = a.get('inflation', 0.025)
     _apply_tax_assumptions(c, {
         'fed_tax_bracket_inflator': a.get('bracket_inflation'),
-        'social_security_taxable_fraction': a.get('ss_taxable_pct'),
         'state_income_tax_rate': a.get('state_income_tax_rate'),
     }, {
         'tax_law_scenario': a.get('tax_law_scenario'),

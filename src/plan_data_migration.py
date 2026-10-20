@@ -35,7 +35,16 @@ from .csv_exchange import text_csv as _tcsv
 #   |illinois_baseline_annual baked the state name directly into a LABEL
 #   (the auto-insurance baseline for whatever state the household actually
 #   lives in, not specifically Illinois).
-PLAN_DATA_SCHEMA_VERSION = 5
+#   5 -> 6 (2026-10-20, WI-028 / FIN-008): Economic Assumptions|
+#   social_security_taxable_fraction is retired. The engine always computed the
+#   statutory IRC 86 share, so the stored override never changed any tax; the
+#   rows are dropped from stored plans.
+PLAN_DATA_SCHEMA_VERSION = 6
+
+# (section, subsection, label) rows removed from stored plans outright.
+_RETIRED_KEYS = frozenset({
+    ("Economic Assumptions", "", "social_security_taxable_fraction"),
+})
 
 # (section, subsection) -> {old_label: new_label}. A ``None`` subsection matches
 # any subsection within the section.
@@ -158,6 +167,9 @@ def migrate_rows(rows: Sequence[Sequence[str]]) -> tuple[List[list], int]:
             out.append(list(row))
             continue
         sec, sub, lbl = str(row[0]), str(row[1]), str(row[2])
+        if (sec, sub, lbl) in _RETIRED_KEYS:
+            changed += 1
+            continue
         tgt = _target_key(row)
         if tgt == (sec, sub, lbl):
             out.append(list(row))
@@ -236,6 +248,11 @@ def migrate_sectioned_data(data: dict) -> tuple[dict, int]:
     current key are present the legacy one is dropped without overwriting.
     """
     changed = 0
+    for sec, sub, lbl in _RETIRED_KEYS:
+        labels = (data.get(sec) or {}).get(sub)
+        if isinstance(labels, dict) and lbl in labels:
+            labels.pop(lbl)
+            changed += 1
     for sec, sub_map in _SUBSECTION_RENAMES.items():
         sec_data = data.get(sec)
         if not isinstance(sec_data, dict):

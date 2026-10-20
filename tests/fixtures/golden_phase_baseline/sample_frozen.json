@@ -14082,16 +14082,6 @@
     null
    ],
    [
-    "SS Taxable Fraction",
-    0.85,
-    "decimal",
-    "OVERRIDE (model value 85.00%). Statutory maximum taxable share of Social Security (IRC section 86)",
-    null,
-    null,
-    null,
-    null
-   ],
-   [
     "State Income-Tax Rate",
     0.05,
     "decimal",

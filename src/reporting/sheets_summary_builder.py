@@ -470,7 +470,6 @@ def build_sheet2(ws, c, rows):
         ('Medicare Inflation',         c['med_inf'],   'decimal', '5.50% annual'),
         ('Portfolio Nominal Return',   c['ret'],       'decimal', 'No-volatility deterministic reference return; MC may use asset-class covariance and sampled geometric returns'),
         ('Fed Bracket Inflator',       c['brk_inf'],   'decimal', _tax_assumption_note(c, 'fed_tax_bracket_inflator', '2.00%/yr')),
-        ('SS Taxable Fraction',        c['ss_taxable'],'decimal', _tax_assumption_note(c, 'social_security_taxable_fraction', '85%')),
         ('State Income-Tax Rate',      _state_rate_display(c), 'decimal', _tax_assumption_note(c, 'state_income_tax_rate', 'State rules')),
         ('Tax Law Scenario',           _law_scenario_label(c), 'text', 'higher_rates = STRESS: pre-2018 federal ordinary rates from the start year; thresholds and strategy unchanged.'),
         ('Roth Conversion Target Bracket', c['roth_brk'], 'decimal', 'Configured target bracket used when the selected strategy fills bracket headroom.'),

@@ -465,26 +465,6 @@
     "$tuple": [
      "Economic Assumptions",
      "",
-     "social_security_taxable_fraction"
-    ]
-   },
-   {
-    "section": "Economic Assumptions",
-    "subsection": "",
-    "label": "social_security_taxable_fraction",
-    "type": "percent",
-    "required": "TRUE",
-    "default": "85.00%",
-    "min": "0",
-    "max": "100",
-    "description": "SS fraction in AGI"
-   }
-  ],
-  [
-   {
-    "$tuple": [
-     "Economic Assumptions",
-     "",
      "state_income_tax_rate"
     ]
    },

@@ -1,6 +1,6 @@
 # Capital gains from sales in AGI, MAGI and IRMAA MAGI (H1)
 
-Status (WI-024 phase 1, 2026-10-20): **investment-sale gains now count in IRMAA MAGI** (net realized brokerage gain after loss usage, read by the two-year lookback; see section 7). Still open (phase 2, WI-024): NIIT MAGI, ACA MAGI and Social Security taxation for brokerage gains.
+Status (WI-024 phase 1, 2026-10-20): **investment-sale gains now count in IRMAA MAGI** (net realized brokerage gain after loss usage, read by the two-year lookback; see section 7). Phase 2 (WI-024, 2026-10-20) is also done: brokerage gains now count in NIIT MAGI (inside the cascade fixed-point loop), ACA MAGI and Social Security taxation. Plain-language summary: `release_notes/2026-10-engine-tax-correctness.md`.
 
 Status: **approved 2026-10-13** (scope: home and rental sales only; other AGI-keyed rules stay as they are; sale-year vs lookback confirmed) and implemented. No golden value moved (no sale in any golden).
 Rental constants were verified against 2025 rules by the household's tax preparer on 2026-10-13; this note
