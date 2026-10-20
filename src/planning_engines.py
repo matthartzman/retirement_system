@@ -6556,6 +6556,83 @@ def sustainable_spending_solve(c: dict, base_rows: list[dict], batch: dict, succ
 #: still disclosed as bounded rather than claimed exact.
 MC_VECTORIZED_PARITY_TOLERANCE_PP = 5.0
 
+#: Roth policies whose vectorized-vs-scalar signed gap (replay headline path,
+#: paired paths) has been MEASURED and found within the tolerance above.
+#: The '+/-tol' KPI label may only be shown for these; every other policy is
+#: labelled 'directional'. Mirrored in frontend/js/dashboard_decomp_home_panels.js
+#: (MC_TOLERANCE_DEMONSTRATED_POLICIES); a Python test keeps the two in step.
+#: See documentation/reference/MC_PARITY_MEASUREMENT_WI009.md.
+MC_PARITY_DEMONSTRATED_POLICIES = frozenset({'none', 'fill_to_bracket', 'optimize_terminal_tax'})
+
+
+def mc_scalar_spotcheck(c, n=20, seed=11, base_rows=None):
+    """Small-N paired-path scalar spot-check of the vectorized headline.
+
+    Samples one set of paths with the vectorized engine's generators and runs
+    both the replay-allocation vectorized projection and the exact scalar
+    ``project()`` on identical paths. Returns the signed gap (vectorized minus
+    scalar, percentage points) for the ACTIVE policy so diagnostics can report
+    it. Opt-in (slow); ``monte_carlo`` calls it only when
+    ``c['mc_scalar_spotcheck_n'] > 0``.
+    """
+    n = max(1, int(n))
+    c = _clone_for_mc(c)
+    base_rows = base_rows if base_rows is not None else project(c)
+    years = [int(r['year']) for r in base_rows]
+    _classes, _weights, _means, _cov, mu, sig = _portfolio_asset_class_inputs(c)
+    rng = _np.random.default_rng(int(seed))
+    h_death, w_death, max_death = _mc_vectorized_death_years(c, rng, n)
+    returns, _diag = _mc_vectorized_return_paths(c, rng, n, years, mu, sig)
+    infl = _mc_vectorized_inflation_health_paths(c, rng, returns, mu, sig)
+    survivor = _mc_survivor_bucket_flows(c, base_rows)
+    floor = float(_mc_success_threshold_for_spotcheck(c, base_rows))
+    proj = _mc_vectorized_projection(
+        c, base_rows, returns, infl, max_death, h_death_years=h_death, w_death_years=w_death,
+        survivor_buckets=survivor, allocation='replay')
+    active = _np.array(years).reshape(1, -1) <= max_death.reshape(-1, 1)
+    vec_fail = ((proj['unfunded'] > 1.0) | (proj['liquid'] <= floor)) & active
+    vec_ok = ~vec_fail.any(axis=1)
+
+    def series(matrix, i):
+        return {y: float(matrix[i, j]) for j, y in enumerate(years)}
+
+    scalar_ok = _np.zeros(n, dtype=bool)
+    for i in range(n):
+        c2 = _clone_for_mc(c)
+        c2.update({'h_death_yr': int(h_death[i]), 'w_death_yr': int(w_death[i]),
+                   'first_death_yr': int(min(h_death[i], w_death[i])), 'plan_end': int(c['plan_end'])})
+        rets = series(returns, i)
+        c2['return_by_year'] = rets
+        c2['return_by_account_by_year'] = _apply_account_return_adjustments(c2, rets, years)
+        c2.update({
+            'inflation_by_year': series(infl['inflation_by_year_matrix'], i),
+            'inflation_index_by_year': series(infl['inflation_index_matrix'], i),
+            'ss_cola_index_by_year': series(infl['ss_cola_index_matrix'], i),
+            'bracket_index_by_year': series(infl['bracket_index_matrix'], i),
+            'medical_index_by_year': series(infl['medical_index_matrix'], i),
+            'wellness_shock_by_year': {},
+            'sampled_inflation_geometric': float(c['inf']),
+            'sampled_bracket_inflation_geometric': float(c.get('brk_inf', 0.02) or 0.02),
+        })
+        scalar_ok[i] = _funding_success(project(c2), floor)
+    policy = str(c.get('roth_policy') or 'optimize_terminal_tax').lower()
+    s_rate, v_rate = float(scalar_ok.mean()), float(vec_ok.mean())
+    return {
+        'status': 'run', 'n_paths': n, 'seed': int(seed), 'roth_policy': policy,
+        'scalar_success_rate': s_rate, 'vectorized_success_rate': v_rate,
+        'signed_gap_pp': (v_rate - s_rate) * 100.0,
+        'path_agreement': float(_np.mean(scalar_ok == vec_ok)),
+        'standard_error_pp': 100.0 * (max(s_rate * (1 - s_rate), 0.0) / n) ** 0.5,
+        'policy_tolerance_demonstrated': policy in MC_PARITY_DEMONSTRATED_POLICIES,
+        'note': 'Small-N sampling noise applies; compare to standard_error_pp. Diagnostic only, not a bound.',
+    }
+
+
+def _mc_success_threshold_for_spotcheck(c, base_rows):
+    c2 = copy.deepcopy(c)
+    c2['mc_scalar_spotcheck_n'] = 0  # avoid recursion
+    return monte_carlo(c2, n_sims=1, seed=1, base_rows=base_rows)['success_liquid_floor']
+
 
 def monte_carlo(c, n_sims=1000, seed=42, base_rows=None, survivor_buckets='__unset__'):
     """Run Monte Carlo on the shared vectorized fast core by default.
@@ -6852,6 +6929,12 @@ def monte_carlo(c, n_sims=1000, seed=42, base_rows=None, survivor_buckets='__uns
         'mc_engine_label': 'Tolerance-bounded vectorized Monte Carlo',
         'mc_approximation_status': 'TOLERANCE_BOUNDED',
         'mc_parity_tolerance_pp': MC_VECTORIZED_PARITY_TOLERANCE_PP,
+        'mc_parity_policy_demonstrated': (
+            str(c.get('roth_policy') or 'optimize_terminal_tax').lower() in MC_PARITY_DEMONSTRATED_POLICIES),
+        'scalar_spotcheck': (
+            mc_scalar_spotcheck(c, n=int(c.get('mc_scalar_spotcheck_n') or 0), base_rows=base_rows)
+            if int(c.get('mc_scalar_spotcheck_n') or 0) > 0
+            else {'status': 'not_run', 'note': 'Set mc_scalar_spotcheck_n > 0 to run a small-N paired scalar spot-check.'}),
         'model_risk_rating': 'TOLERANCE_BOUNDED_VECTORIZED_MC',
     }
 
