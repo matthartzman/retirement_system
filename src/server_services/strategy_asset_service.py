@@ -873,9 +873,18 @@ class StrategyAssetService:
         scenario = ta.resolve_law_scenario(
             econ.get("tax_law_scenario"), econ.get("higher_rates_start_year"),
             _platform_runtime.today().year, _n)
+        # WI-010 / WI-010a: display-only limitation notices from the last build, plus the
+        # always-on data-status notice (N7).
+        from .. import active_plan as _active_plan
+        from .. import limitation_notices as _notices
+        try:
+            built = ((_active_plan.read_build_results() or {}).get("summary") or {}).get("limitation_notices")
+        except Exception:
+            built = None
         return {"success": True, "state": state, "levers": levers,
                 "law_scenario": scenario, "residency_periods": periods,
-                "law_table": ta.law_reference_table()}, 200
+                "law_table": ta.law_reference_table(),
+                "limitation_notices": _notices.with_always_on(built)}, 200
 
     def save_tax_assumptions_payload(self, body: dict[str, Any]) -> tuple[dict[str, Any], int]:
         """Upsert override rows (blank = Auto) and record the model value at
