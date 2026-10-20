@@ -573,7 +573,9 @@ DASHBOARD_JS_MAX_LINES = 7_134
 # 2026-10-19 (liability payoff month + carry-zero columns on the Liabilities table, +19): raised to 39,361.
 # 2026-10-20 (WI-013 / UX-006: admin.js live-region msg(), in-app confirm dialog, grid aria-labels, +42):
 # raised to 39,499.
-TOTAL_JS_MAX_LINES = 39_499
+# 2026-10-20 (WI-010 / WI-010a: limitation notices in the preflight panel and Tax Assumptions card, +25):
+# raised to 39,524.
+TOTAL_JS_MAX_LINES = 39_524
 
 
 def _line_count(path: Path) -> int:
