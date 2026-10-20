@@ -1,4 +1,4 @@
-// WI-019 / UX-002 / ARC-003: the build overlay offers Hide (not a fake Cancel), a hidden build does
+// WI-019 / UX-002 / ARC-003: the build overlay offers Hide and a real server-side Cancel build, a hidden build does
 // not pull the user to another page when it finishes, and swallowed-step warnings (WI-007's
 // config_contract_warnings, carried as `warnings` on the build result) are visible.
 // The build API is intercepted (like build-failure.spec.js) so this does not run a real ~100s build.
@@ -26,6 +26,11 @@ async function mockBuild(page) {
       : { job_id: JOB, status: 'running', progress: 20, phase: 'Running projection', detail: 'Working...' };
     return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, job }) });
   });
+  gate.cancelCalls = 0;
+  await page.route(`**/api/build/cancel/${JOB}`, (route) => {
+    gate.cancelCalls += 1;
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, job_id: JOB, outcome: 'cancelling' }) });
+  });
   return gate;
 }
 
@@ -46,7 +51,11 @@ test('hiding a running build: honest button, no forced navigation, warnings show
   await openCurrentPlan(page);
   await startBuild(page);
 
-  await expect(page.getByRole('button', { name: /^Cancel/ })).toHaveCount(0);
+  // Cancel build asks the server to stop the build; the overlay only says "Cancelling" until the
+  // server reports the cancelled state (the mocked job keeps running, so it never claims one).
+  await page.getByRole('button', { name: /^Cancel build/ }).click();
+  await expect.poll(() => gate.cancelCalls).toBe(1);
+  await expect(page.locator('#buildOverlayTitle')).toContainText('Cancelling build');
   await page.getByRole('button', { name: /Hide/ }).first().click();
   await expect(page.locator('#buildOverlay')).not.toHaveClass(/active/);
   await expect(page.locator('#buildRunningChip')).toBeVisible();
