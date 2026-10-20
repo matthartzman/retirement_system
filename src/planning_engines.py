@@ -506,6 +506,14 @@ def _survivor_bonus_step_fraction(c: Mapping, account_id: str) -> float:
         return 1.0
     if titling == 'SEPARATE_PROPERTY':
         return 0.0
+    if titling in {'JTWROS', 'TENANTS_IN_COMMON'}:
+        # WI-025 / FIN-010: a jointly held account (explicit JTWROS, or the default
+        # titling of a joint/household-named account) gets a half step-up on the
+        # decedent's share whichever spouse dies first. The deceased-side logic
+        # (_account_basis_step_fraction) already returns 0.5; the survivor-owned
+        # side used to fall through to the household regime (0 under common law),
+        # so the step-up depended on which spouse happened to die first.
+        return 0.5
     regime = str(c.get('basis_step_up_property_regime', 'COMMON_LAW') or 'COMMON_LAW').strip().upper()
     return 1.0 if regime in {'COMMUNITY_PROPERTY', 'FULL_STEP_UP'} else 0.0
 
