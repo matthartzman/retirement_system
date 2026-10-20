@@ -1033,7 +1033,7 @@ _OUTPUTS: List[OutputModule] = [
         # none of the `planning_levers` input files despite the dependency
         # declared below -- it restates nothing chosen, it screens
         # hypotheticals. User decision (2026-09-22, recorded in
-        # `docs/superpowers/plans/2026-09-22-w11-planning-levers-retirement-
+        # `documentation/archive/superpowers/plans/2026-09-22-w11-planning-levers-retirement-
         # notes.md`): keep the sheet, fix the classification. Kind is
         # WORKSHEET, matching `current_vs_proposed` (also WHOLE_PLAN,
         # also computes a delta from figures produced elsewhere) rather than
@@ -1505,7 +1505,7 @@ SheetSpec = namedtuple(
 # REFERENCE take '5' ('5. Reference' -- #332 renamed the old '5. System'):
 # group '4' is claimed by Risks, and #329 never named that section in its own
 # numbering (it is outside its scope; see
-# docs/superpowers/plans/2026-09-21-w3-workbook-regrouping-notes.md).
+# documentation/archive/superpowers/plans/2026-09-21-w3-workbook-regrouping-notes.md).
 #
 # WORKSHEET shares '1' with PROJECTION deliberately: a worksheet restates
 # figures computed elsewhere, which is what a report does (`current_vs_

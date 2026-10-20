@@ -1,5 +1,5 @@
 """Unit tests for src/housing_comparison.py -- Slice 4 (H9/H10) of
-docs/superpowers/plans/2026-09-09-housing-estimate-realism-and-dollar-
+documentation/archive/superpowers/plans/2026-09-09-housing-estimate-realism-and-dollar-
 convention-design.md, §4.
 
 Supersedes Slice 3's 2-candidate (H9a) coverage: the module no longer

@@ -1,5 +1,7 @@
 # Add 4 Missing Planning Strategies: 72(t)/SEPP, Backdoor/Mega-Backdoor Roth, NUA, CRT
 
+Status: planned (a search of `src/` for SEPP, backdoor and NUA code finds none, checked in WI-016, 2026-10-20).
+
 ## Context
 
 A codebase survey found the system already implements a broad set of tax/estate optimization strategies (Roth conversion bracket-fill, TLH, gain harvesting, asset location, QCD/DAF, AMT, RMD, step-up basis, estate portability, gifting, 529s, equity comp). Four commonly-used real-world levers are absent entirely: **72(t)/SEPP** (penalty-avoidance for early pre-59½ withdrawals), **backdoor/mega-backdoor Roth** (high-earner Roth access), **NUA** (net unrealized appreciation on employer stock held in a 401(k)), and **CRT** (charitable remainder trusts, for large appreciated/concentrated positions — QCD/DAF don't substitute for this). This plan adds all four as new optional modules following the codebase's existing module pattern, so they compute, report, and gate on/off identically to modules like `gain_harvest.py`.

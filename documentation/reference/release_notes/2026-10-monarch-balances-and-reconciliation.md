@@ -57,4 +57,4 @@ touches the planning engine, so the golden masters are unchanged.
 New: `Monarch Extractor/monarch_balances.py`, `src/monarch_balances_import.py`, `src/reconcile.py`,
 `src/stores/monarch_repo.py`, `financial_trends_reporter/{balance_store,balance_series,account_registry,flows}.py`,
 `frontend/js/dashboard_decomp_monarch_reconciliation.js`. Routes: `/api/reconcile*` (see
-`../API_CONTRACTS.md`). Design and plan: `docs/superpowers/specs/2026-10-14-monarch-account-balances-trends-plan.md`.
+`../API_CONTRACTS.md`). Design and plan: `documentation/archive/superpowers/specs/2026-10-14-monarch-account-balances-trends-plan.md`.

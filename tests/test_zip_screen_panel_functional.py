@@ -1,6 +1,6 @@
 """The optimizer panel exposes the ZIP-radius search controls, per move.
 
-Task 11 (docs/superpowers/specs/2026-09-16-housing-optimizer-refinement-design.md)
+Task 11 (documentation/archive/superpowers/specs/2026-09-16-housing-optimizer-refinement-design.md)
 extracted the panel to frontend/js/dashboard_decomp_housing_optimizer.js, rewrote
 it row-oriented, and made a move's where/what/when rows a single templated
 function shared by both moves (housingOptMoveWhereRowHtml/housingOptMoveWhatRowHtml

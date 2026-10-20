@@ -4,13 +4,19 @@ Status: **approved 2026-10-13** (scope: home and rental sales only; other AGI-ke
 Rental constants were verified against 2025 rules by the household's tax preparer on 2026-10-13; this note
 adds no new constants. Companion to `RENTAL_TAX_RULES.md` (section 4, the "excluded" simplification).
 
-## 1. Today (the gap)
+## 1. Before this change (the gap, for home and rental sales)
 
-The engine taxes the gain on a home sale or a rental sale as long-term capital gain (LTCG) in a separate
+> Historical. This section describes the behaviour before H1 was implemented. For home and rental
+> sales the engine now adds the taxable gain to AGI, NIIT MAGI and IRMAA MAGI
+> (`src/projection_stages/deterministic_engine.py`, `sale_gain_in_agi`). The same gap **still exists** for
+> gains realised by selling investments in taxable accounts (the withdrawal cascade's `ltcg_gain`, see
+> section 5, decision 1), until that follow-up is built.
+
+Before H1 the engine taxed the gain on a home sale or a rental sale as long-term capital gain (LTCG) in a separate
 step (`resolve_home_sale_gain_tax`, `rental_property.apply_sale_tax`). That gain is **not** added to the
 year's AGI. Everything that keys off AGI or MAGI therefore sees too little income in the sale year:
 
-| What | Today | Law |
+| What | Before H1 (home and rental sales) | Law |
 |---|---|---|
 | Reported AGI (sheets, `agi` column) | ordinary income only | Form 1040 line 11 includes the taxable gain (Schedule D) |
 | IRMAA MAGI (`irmaa_magi_current`, read two years later) | AGI + tax-exempt interest, no gain | MAGI = AGI + tax-exempt interest; the gain is in AGI (42 USC 1395r(i); 20 CFR 418.1115) |

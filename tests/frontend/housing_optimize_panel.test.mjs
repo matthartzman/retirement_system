@@ -1,5 +1,5 @@
 // Housing move optimizer panel markup
-// (docs/superpowers/specs/2026-09-16-housing-optimizer-refinement-design.md
+// (documentation/archive/superpowers/specs/2026-09-16-housing-optimizer-refinement-design.md
 // §9.1-§9.3). The panel now lives in its own module,
 // frontend/js/dashboard_decomp_housing_optimizer.js.
 //

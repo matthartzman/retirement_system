@@ -1,6 +1,8 @@
 # dashboard.js modularization — design
 
-**Status:** design only. Nothing in this document has been implemented.
+Status: planned (design only). The text below says nothing is implemented; WI-016 did not re-verify that, and the `dashboard_decomp_*.js` files now beside `dashboard.js` (see `documentation/reference/CURRENT_SYSTEM_DESIGN_SPEC.md` 7.2) mean parts may already be done. Confirm before acting on it.
+
+Original status line: design only. Nothing in this document has been implemented.
 **Date:** 2026-09-09
 **Subject:** `frontend/js/dashboard.js`, 7,512 lines
 **Predecessors:** `documentation/archive/superpowers/specs/2026-08-10-dashboard-js-split-codemod-design.md`

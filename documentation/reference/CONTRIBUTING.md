@@ -101,10 +101,11 @@ document *is*, not by when it was written:
 | `documentation/future/` | Plans and specs for work that is not yet implemented (`future/superpowers/{plans,specs}`). | Move the file to `archive/` when the work ships, and record what shipped. |
 | `documentation/archive/` | Implemented, superseded or obsolete material, including dated system reviews (`archive/reports/`), shipped specs/plans (`archive/superpowers/`) and legacy notes (`archive/legacy/`). | Never cited as "current". Do not edit except to fix links. |
 
-Do not create new files under a top-level `docs/` directory. `docs/superpowers/`
-reappeared after the consolidation and still holds some specs and plans; treat
-it as a legacy location: new specs and plans go to `documentation/future/`,
-and existing ones move to `documentation/archive/` when their work ships. The
+Do not create new files under a top-level `docs/` directory
+(`tests/test_documentation_status_and_layout_regression.py` fails if any tracked
+file is there). New specs and plans go to `documentation/future/`, and move to
+`documentation/archive/` when their work ships. Each carries a first-lines
+`Status: draft|approved|implemented|superseded|planned` line, which the same test checks. The
 index of what lives where is `documentation/DOCUMENTATION_INDEX.md`.
 
 When you move or rename a document, grep the repository for its old path

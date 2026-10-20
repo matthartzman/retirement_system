@@ -1,7 +1,7 @@
 """The optimizer panel exposes its own property-spec and price-range controls
 per move, rather than silently reusing a hidden manual-entry row's fields.
 
-Task 11 (docs/superpowers/specs/2026-09-16-housing-optimizer-refinement-design.md)
+Task 11 (documentation/archive/superpowers/specs/2026-09-16-housing-optimizer-refinement-design.md)
 extracted the panel to frontend/js/dashboard_decomp_housing_optimizer.js and
 replaced the single ZIP-panel-vs-manual-row distinction with a per-move field set:
 the concept survives as ``housingOptZipBedrooms`` -> ``housingOptMove1Bedrooms``

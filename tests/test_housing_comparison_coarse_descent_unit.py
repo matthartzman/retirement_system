@@ -9,7 +9,7 @@ here under a name that says which module it actually guards.
 Original docstring follows.
 
 Coordinate-descent correctness (H13) --
-docs/superpowers/plans/2026-09-09-housing-estimate-realism-and-dollar-
+documentation/archive/superpowers/plans/2026-09-09-housing-estimate-realism-and-dollar-
 convention-design.md, §4.2 steps 1 and 3.
 
 The design names H9/H10's silent-failure mode explicitly: a coarse-pass stage

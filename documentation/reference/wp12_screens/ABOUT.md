@@ -1,6 +1,6 @@
 # WP12.5 Rental Properties UI mockup (owner review)
 
-Static HTML, fake data, real app CSS (`frontend/css/dashboard.css` inlined). No product code. Design: `docs/superpowers/specs/2026-10-05-rental-property-module-design.md` sections 3 and 6.
+Static HTML, fake data, real app CSS (`frontend/css/dashboard.css` inlined). No product code. Design: `documentation/archive/superpowers/specs/2026-10-05-rental-property-module-design.md` sections 3 and 6.
 Open `rental_properties_mockup.html#<n>` (e.g. `#1_list`). Desktop 1280x900, mobile 390x844 (`wp12_desktop_<n>.png`, `wp12_mobile_<n>.png`). "Expert" badge = advanced field, shown only with "Show advanced".
 
 | # | State | Shows |

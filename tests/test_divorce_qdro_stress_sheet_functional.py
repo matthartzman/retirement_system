@@ -1,8 +1,8 @@
 """W9: Divorce/QDRO gains a workbook sheet.
 
-Master plan `docs/superpowers/plans/2026-09-19-optimizers-modules-housing-
+Master plan `documentation/archive/superpowers/plans/2026-09-19-optimizers-modules-housing-
 master-plan.md` §4, W9 (#329 P4 + #330). Notes:
-`docs/superpowers/plans/2026-09-22-w9-ui-section-registry-notes.md`.
+`documentation/archive/superpowers/plans/2026-09-22-w9-ui-section-registry-notes.md`.
 
 `divorce_qdro` was `sheet=None` -- a UI-only stress test with no workbook
 counterpart, "the mirror image of the workbook-only optimizers" (#329 §1.2).
