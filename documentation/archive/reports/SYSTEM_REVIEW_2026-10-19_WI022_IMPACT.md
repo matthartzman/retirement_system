@@ -194,3 +194,42 @@ Frozen plan, ACA step. Only 2026 has a household member under 65 (age 64), the p
 The steps do act when exposed (`tests/test_wi024_phase2_end_to_end_regression.py`, real engine, step on versus off): a taxable-heavy household with benefits from 2027 has 7,526 of extra taxable benefit in 2027 and 9,176 in 2028, taxed at 10% (753 and 918), carried into AGI and IRMAA MAGI, lowering net worth; a bridge-year household with a 20,000 benchmark loses 1,209.84 of credit in 2027 (credit 20,000 to 18,790) and 1,240.09 in 2028, with lower net worth. No defect or unexplained zero was found. A defect found earlier by the tier (elective IRA draws charged to the gain) is fixed (b34b5e3).
 
 Re-pinned through `tools/regen_golden_master.py regen --reason`, `tools/regen_full_row_snapshot.py --reason` and `tools/golden_compare.py record --plan sample_frozen --reason`; changelog entry added. New pins: `PINNED_TERMINAL_NW` 5,381,597.38, `PINNED_LIFETIME_TAX` 1,237,081.61; Roth conversions unchanged (125,000). The demo baseline cannot be re-recorded here (no `input/demo`).
+
+## 9. WI-023b: Roth LTCG cap on the deduction-adjusted basis — DRAFT, pending planner sign-off (not re-pinned)
+
+Planner decision: the Roth conversion LTCG rate-tier cap now measures the stack position as pre-conversion AGI less the standard deduction (`max(0, pre_agi - std)`), because the 0% and 15% band tops are taxable-income thresholds. Before, it compared pre-deduction AGI with those tops, which was conservative. The standard deduction is the floor available at sizing time (itemized is not known yet), as in the existing bracket-room calculation. Both the active cap and the "would allow" diagnostic use the same position. Closed form (`test_roth_ltcg_cap_counts_dividends_and_uses_dataset_top`): 50,000 of qualified dividends, MFJ 2026 standard deduction 32,200, zero band top 98,900: room = 98,900 - (50,000 - 32,200) = 81,100 (was 48,900). Three older tests that encoded the AGI basis were updated to the new basis (`test_roth_ltcg_niit_guardrails`, `test_roth_ltcg_cap_kernel_indexing_regression`, `test_roth_guardrail_analysis_functional`).
+
+Nothing else changed. Measured on the frozen plan against the current pins:
+
+| | `measure` NW / lifetime tax | Roth conversions |
+|---|---|---:|
+| Current pins | 5,381,597.38 / 1,237,081.61 | 125,000 |
+| After WI-023b | 5,381,597.38 / 1,237,081.61 (delta 0.00 / 0.00) | 125,000 |
+
+The `measure` path (the pins) sizes no conversions after 2026, so the pins do not move. The conversion effect appears only in the `golden_compare` build pipeline (the app path, policy resolved by the build), against the committed baseline:
+
+| `golden_compare` | Baseline | After | Delta |
+|---|---:|---:|---:|
+| Terminal NW | 5,508,783.24 | 5,553,535.58 | +44,752.34 |
+| Lifetime tax | 1,129,664.36 | 1,102,384.42 | -27,279.94 |
+| Roth conversions | 598,722.95 | 742,151.76 | +143,428.81 |
+| Lifetime NIIT | 14,528.69 | 14,847.23 | +318.54 |
+| Lifetime IRMAA | 86,777.60 | 80,945.60 | -5,832.00 |
+| KPI terminal NW (after-tax) | 4,509,915.89 | 4,545,179.06 | +35,263.17 |
+| KPI lifetime tax | 1,001,139.31 | 983,423.56 | -17,715.75 |
+| KPI total Roth conversions | 602,147.57 | 745,063.41 | +142,915.84 |
+
+Why conversions rise (the +143k is the driver of everything else). Three years carry almost all of it, and in each the binding constraint is the LTCG rate tier (the plan holds taxable dividends, so the cap protects the 0% band):
+
+| Year | Conversion before | After | Delta | Binding limit |
+|---|---:|---:|---:|---|
+| 2027 | 50,729 | 95,834 | +45,105 | LTCG rate tier |
+| 2028 | 42,427 | 89,796 | +47,369 | LTCG rate tier |
+| 2029 | 9,507 | 47,131 | +37,624 | LTCG rate tier |
+| 2030 to 2035 | 54,517 to 86,127 | 57,028 to 88,081 | +2,000 to +2,500 each | NIIT threshold |
+
+In 2027 to 2029 the cap equals 95% of (0% band top - position), so moving the position down by the standard deduction raises it by 95% of that deduction (the deduction is about 47k to 50k in these years). From 2030 the NIIT threshold binds instead, so the LTCG change only matters through second-order path effects (small balance and income differences, about 2k a year). The 2026 conversion (125,000) is forced or bracket-bound and does not move.
+
+Secondary effects. Taxes rise in the conversion years (2027 +1,041, 2028 +1,160, 2029 +11,818) and fall in most later years (smaller pre-tax balances and RMDs), net -27,280 over the plan. IRMAA: one tier change, 2045 tier 1 to 0 (tax that year 19,936 to 13,607), accounting for the -5,832 lifetime IRMAA; no other tier changes. NIIT rises slightly (+318.54) from the larger early income. Terminal NW +44,752. The headline Monte Carlo success KPI moves from 0.62 to 0.56 (stochastic and path-dependent; not a deterministic effect of this change and not investigated separately).
+
+Stale tests (expected) once the planner signs off a re-pin: `tests/test_deterministic_engine_full_row_snapshot_regression.py::test_full_row_snapshot_is_unchanged` (8 `conv_guardrail_caps` diagnostic fields in the baseline_balanced_couple and single_filer scenarios; no money field moves) and `tests/test_phase_golden_equality_regression.py::test_live_output_equals_baseline[sample_frozen]` (baseline conversions, taxes and NW). The golden-master pin test and the synthetic golden master do not move.
