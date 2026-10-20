@@ -15,7 +15,7 @@ Wording approved by the repository owner on 2026-10-20. Companion to `SYSTEM_REV
 
 **N2.** Qualified dividends are currently taxed at ordinary rates instead of the lower 0%, 15% and 20% rates. Estimated federal tax is overstated (conservative) for plans with taxable stock holdings.
 
-**N3.** Withdrawals from IRAs and 401(k)s before age 59½ may carry a 10% additional tax unless an exception applies. This version does not calculate that tax, so plans that draw from pre-tax accounts before 59½ may look more sustainable than they are.
+**N3.** Pre-tax withdrawals before age 59½ may owe an extra 10% tax. This plan does not include that tax, so results may look better than they are.
 
 **N4.** When the spouse who does not own a joint taxable account dies first, the survivor's step-up in cost basis is not modeled. Later capital gains tax may be overstated in that case.
 

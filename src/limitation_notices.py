@@ -88,9 +88,8 @@ NOTICES: tuple[Notice, ...] = (
     ),
     Notice(
         "N3", "FIN-004", SEVERITY_WARNING,
-        "Withdrawals from IRAs and 401(k)s before age 59½ may carry a 10% additional tax unless an "
-        "exception applies. This version does not calculate that tax, so plans that draw from pre-tax "
-        "accounts before 59½ may look more sustainable than they are.",
+        "Pre-tax withdrawals before age 59½ may owe an extra 10% tax. This plan does not include that "
+        "tax, so results may look better than they are.",
         "Plan has pre-tax draws before age 59½",
         (RemovalTrigger("WI-002a", "Early-withdrawal tax is modeled (WI-002(a) decided and implemented)"),),
     ),
