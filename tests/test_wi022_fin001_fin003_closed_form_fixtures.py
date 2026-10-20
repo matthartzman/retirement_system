@@ -88,7 +88,7 @@ def test_qualified_dividends_stay_in_nii_for_niit():
     assert niit_tax(0, 400_000, "MFJ") == 0.0  # if dividends were left out of NII
 
 
-# ---- FIN-003: engine target (xfail until WI-023) ---------------------------
+# ---- FIN-003: engine target (WI-023 implemented; xfail removed) ------------
 
 @pytest.fixture(scope="module")
 def frozen_rows():
@@ -102,12 +102,6 @@ def frozen_rows():
     return c, rows
 
 
-@pytest.mark.xfail(
-    strict=False,
-    reason="FIN-003 / WI-023 not implemented: stage 9 taxes qualified dividends at ordinary rates "
-           "(roth_conversion_and_agi_tax.py:810-811). Target: fed_tax = ordinary(taxable - QD) + "
-           "0/15/20 tax on QD stacked above ordinary.",
-)
 def test_engine_federal_tax_taxes_qualified_dividends_at_preferential_rates(frozen_rows):
     c, rows = frozen_rows
     row = rows[0]
