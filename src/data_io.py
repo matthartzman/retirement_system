@@ -63,7 +63,9 @@ def _client_data_csv_paths(path):
     return paths
 
 from . import taxes as _td  # consolidated from tax_data
-from .money import decimal_from_user_value as _money_decimal
+from .money import decimal_from_user_value as _money_decimal, strict_float as _strict_float
+import logging as _logging
+_log = _logging.getLogger(__name__)
 from .plan_config import ensure_engine_config
 from . import core as _ar  # consolidated from account_registry
 from . import optimization as _ao  # consolidated from allocation_optimizer
@@ -320,8 +322,9 @@ def _n(v, default=0.0):
     if default is None and (v is None or str(v).strip() == ''):
         return None
     try:
-        return float(_money_decimal(v, _money_decimal(default if default is not None else 0.0)))
-    except Exception:
+        return _strict_float(v, float(default if default is not None else 0.0))
+    except (ValueError, TypeError, ArithmeticError):
+        _log.warning("unparseable number %r; using default %r", v, default)
         return default
 
 def _b(v):
@@ -1729,8 +1732,14 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
             sym  = (row.get('symbol','') or '').strip()
             if not acct or not sym:
                 continue
-            shares = float((row.get('shares','0') or '0').replace(',',''))
-            price  = float((row.get('purchase_price','0') or '0').replace('$','').replace(',',''))
+            try:
+                shares = _strict_float(row.get('shares'), 0.0)
+                price = _strict_float(row.get('purchase_price'), 0.0)
+            except ValueError as _exc:
+                _msg = f"holdings lot skipped ({acct} {sym}): {_exc}"
+                _log.warning(_msg)
+                c.setdefault('config_contract_warnings', []).append(_msg)
+                continue
             pdate  = (row.get('purchase_date','') or '').strip()
             ltype  = (row.get('lot_type','buy') or 'buy').strip().lower()
             if shares <= 0:
@@ -1755,10 +1764,17 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     liabilities = []
     liab_text = active_dataset_text('liabilities')
     if liab_text:
-        try:
-            for row in _tcsv.dict_reader(liab_text):
+        def _clean_year(raw):
+            try:
+                return int(float(str(raw or '0').replace(',', '').strip() or 0))
+            except Exception:
+                return 0
+        for _lrow_no, row in enumerate(_tcsv.dict_reader(liab_text), start=1):
+            _lid = (row.get('liability_id', '') or row.get('label', '') or '').strip()
+            try:
+                # '%' is stripped, not divided: the 0.06-or-6 heuristic below handles rates.
                 def _clean_num(raw):
-                    return float((str(raw or '0')).replace('$', '').replace(',', '').replace('%', '').strip() or 0.0)
+                    return _strict_float(raw, 0.0, percent_as_fraction=False)
                 ltype = (row.get('type', '') or 'other').strip().lower()
                 balance = _clean_num(row.get('balance', '0'))
                 if balance <= 0:
@@ -1767,11 +1783,6 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
                 # Accept either a fraction (0.06) or a percent (6) for the rate.
                 if rate > 1.0:
                     rate = rate / 100.0
-                def _clean_year(raw):
-                    try:
-                        return int(float(str(raw or '0').replace(',', '').strip() or 0))
-                    except Exception:
-                        return 0
                 liabilities.append({
                     'liability_id': (row.get('liability_id', '') or '').strip(),
                     'type': ltype,
@@ -1786,8 +1797,11 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
                     'carry_zero': str(row.get('carry_zero', '') or '').strip().lower() not in ('no', 'false', '0', 'n'),
                     'notes': (row.get('notes', '') or '').strip(),
                 })
-        except Exception:
-            liabilities = []
+            except Exception as _exc:
+                # Skip only the bad row; never drop the whole list silently.
+                _msg = f"liability row {_lrow_no} ({_lid or 'unnamed'}) skipped: {_exc}"
+                _log.warning(_msg)
+                c.setdefault('config_contract_warnings', []).append(_msg)
     c['liabilities'] = liabilities
 
     # ── Load HSA withdrawal schedule from client_hsa_schedule.csv ─────────────

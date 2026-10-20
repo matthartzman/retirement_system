@@ -274,14 +274,8 @@ SchemaFields = Mapping[tuple[str, str, str], Mapping[str, str]]
 
 
 def _is_number(text: str) -> bool:
-    t = text.strip().replace("$", "").replace(",", "").replace("%", "")
-    if t.startswith("(") and t.endswith(")"):
-        t = t[1:-1]
-    try:
-        float(t)
-    except ValueError:
-        return False
-    return True
+    from ..money import is_strict_number  # noqa: PLC0415
+    return is_strict_number(text)
 
 
 def validate(parsed: ParsedDataset, *, schema: SchemaFields | None = None,
