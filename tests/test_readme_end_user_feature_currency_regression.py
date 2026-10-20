@@ -20,8 +20,17 @@ ROOT = Path(__file__).resolve().parents[1]
 README_PATH = ROOT / "documentation" / "reference" / "readme" / "README.md"
 
 FEATURE_MARKERS = [
-    ("Monarch auto-update", "Monarch auto-update"),
+    ("Third-party import auto-update", "Third-party import auto-update"),
     ("Financial trends reporter", "Financial trends reporter companion app"),
+    ("Concepts Guide", "Concepts Guide pointer"),
+]
+
+# DOC-003: menu names the README tells the reader to click must exist on screen.
+SCREEN_NAMES = ["Data & Maintenance", "Plan Features", "Account Reconciliation", "Build & Results"]
+CARD_TEXT = [
+    ("dashboard_decomp_monarch_autoupdate.js", "Third-party import auto-update"),
+    ("dashboard_decomp_monarch_autoupdate.js", "Enable daily auto-update"),
+    ("dashboard_decomp_monarch_autoupdate.js", "Import now"),
 ]
 
 
@@ -46,3 +55,21 @@ def test_readme_does_not_claim_nothing_leaves_the_machine():
 def test_pricing_mode_card_discloses_outbound_calls():
     js = (ROOT / "frontend" / "js" / "dashboard_decomp_checklist_closeout.js").read_text(encoding="utf-8")
     assert "ticker symbols of your holdings" in js and "OFFLINE mode makes no outside calls" in js
+
+
+def test_readme_screen_names_match_frontend_titles():
+    text = README_PATH.read_text(encoding="utf-8")
+    dash = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+    for name in SCREEN_NAMES:
+        assert name in text, f"README should mention {name!r}"
+        assert f'title: "{name}"' in dash, f"{name!r} is not a nav title in dashboard.js"
+    for fname, label in CARD_TEXT:
+        assert label in text, f"README should mention {label!r}"
+        js = (ROOT / "frontend" / "js" / fname).read_text(encoding="utf-8")
+        assert label in js, f"{label!r} is not on screen in {fname}"
+    assert "Monarch auto-update" not in text
+
+
+def test_readme_has_no_developer_commands():
+    text = README_PATH.read_text(encoding="utf-8")
+    assert "python -m pytest" not in text and "build_workbook" not in text
