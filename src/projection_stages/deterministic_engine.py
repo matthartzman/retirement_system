@@ -57,6 +57,8 @@ from ..planning_engines import (
     TAX_BASE_YEAR,
     ensure_engine_config,
     liquidity_buffer_years_for_year,
+    aca_magi as _aca_magi,
+    aca_premium_tax_credit as _aca_ptc,
     marginal_rate,
     state_income_tax,
 )
@@ -1378,6 +1380,11 @@ def run_deterministic_projection_stage(c):
         # withdrawal_cascade_investment_tax.py's apply_investment_tax_cascade
         # docstring, and cap_loss_carryforward's threading note on
         # WithdrawalCascadeInvestmentTaxResult specifically.)
+        def _aca_ptc_with_gain(extra_magi, _agi=agi + sale_gain_in_agi):
+            return _aca_ptc(c, year=year, magi=_aca_magi(_agi + extra_magi, portfolio_tax_exempt,
+                                                         ss_total, ss_taxable),
+                            bridge_people=bridge_people)
+
         _inv_tax = _apply_investment_tax_cascade(
             c, bal, bal_basis_free, row,
             year=year, gap=gap, agi=agi + sale_gain_in_agi, taxable_inc=taxable_inc, filing=filing,
@@ -1389,6 +1396,7 @@ def run_deterministic_projection_stage(c):
             note_int_yr=note_int_yr, portfolio_ordinary=portfolio_ordinary,
             portfolio_qualified=portfolio_qualified, spend=spend, emit=emit,
             bracket_factor_fn=_bracket_factor_for_year, compute_fed_tax_fn=_compute_fed_tax_path,
+            aca_ptc_fn=_aca_ptc_with_gain if bridge_people > 0 else None,
         )
         gap = _inv_tax.gap
         ltcg_gain = _inv_tax.ltcg_gain

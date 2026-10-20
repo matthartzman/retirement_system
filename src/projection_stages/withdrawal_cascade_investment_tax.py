@@ -79,6 +79,10 @@ class _InvestmentTaxState:
     # WI-024 phase 2 (NIIT): gain already inside ``agi`` (home/rental sale gain
     # added by H1); only the rest of the cascade gain is added to NIIT MAGI.
     gain_in_agi_already: float = 0.0
+    # WI-024 phase 2 (ACA): optional ``aca_ptc_fn(extra_magi) -> premium tax credit``
+    # built by the engine; ``aca_loss`` is the credit lost to the cascade's gain so far.
+    aca_ptc_fn: Any = None
+    aca_loss: float = 0.0
 
 
 def _apply_tax_loss_harvesting(
@@ -240,7 +244,15 @@ def _refresh_investment_taxes(
         new_niit = niit_tax(state.base_nii_without_ltcg + net_gain, magi, state.filing)
         delta_niit = max(0.0, new_niit - state.niit)
         state.niit = new_niit
-    return delta_ltcg + delta_niit
+    delta_aca = 0.0
+    if state.aca_ptc_fn is not None:
+        # WI-024 phase 2 / FIN-001: the brokerage gain raises ACA MAGI, shrinking the
+        # premium tax credit; the lost credit is extra cash need in the same fixed point.
+        extra = max(0.0, net_gain - state.gain_in_agi_already)
+        loss = max(0.0, float(state.aca_ptc_fn(0.0)) - float(state.aca_ptc_fn(extra)))
+        delta_aca = max(0.0, loss - state.aca_loss)
+        state.aca_loss = loss
+    return delta_ltcg + delta_niit + delta_aca
 
 
 def apply_investment_tax_cascade(
@@ -272,6 +284,7 @@ def apply_investment_tax_cascade(
     emit: Callable[[Any], None],
     bracket_factor_fn: Callable[[int], float],
     compute_fed_tax_fn: Callable[[float, int, str], float],
+    aca_ptc_fn: Callable[[float], float] | None = None,
 ) -> WithdrawalCascadeInvestmentTaxResult:
     """Withdrawal Cascade sub-stage #6 (design doc addendum, "step 4"):
     the LTCG/NIIT fixed point + tax-loss harvesting + 0%-bracket gain
@@ -326,6 +339,7 @@ def apply_investment_tax_cascade(
         filing=filing,
         base_nii_without_ltcg=base_nii_without_ltcg,
         gain_in_agi_already=max(0.0, float(home_sale_ltcg_gain or 0.0)),
+        aca_ptc_fn=aca_ptc_fn,
     )
 
     model_niit = c['model_niit']
@@ -406,7 +420,15 @@ def apply_investment_tax_cascade(
     # predates those passes and would otherwise understate cash need,
     # causing the cashflow sheet's recomputed Cash Bridge Gap to disagree
     # with the true engine gap (Surplus/unfunded_gap).
-    row['total_cash_need'] = total_spend_need + total_tax + other_cash_need_yr
+    if state.aca_loss > 1e-9:
+        # The lost credit is a higher net bridge premium: carry it through the
+        # premium and spend rows the cash-bridge reads.
+        row['aca_ptc_loss_from_brokerage_gain'] = state.aca_loss
+        row['aca_premium_tax_credit'] = max(0.0, float(row.get('aca_premium_tax_credit') or 0.0) - state.aca_loss)
+        for _k in ('wellness_bridge_premium', 'wellness_premiums_yr', 'wellness_base_yr', 'total_spend'):
+            if _k in row:
+                row[_k] = float(row[_k] or 0.0) + state.aca_loss
+    row['total_cash_need'] = total_spend_need + total_tax + other_cash_need_yr + state.aca_loss
 
     return WithdrawalCascadeInvestmentTaxResult(
         gap=gap,
