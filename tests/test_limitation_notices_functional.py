@@ -22,7 +22,7 @@ ALL_IDS = ["N1", "N2", "N3", "N4", "N5", "N6", "N7"]
 # The registry as shipped, captured before any test patches it.
 REAL_NOTICES = ln.NOTICES
 # Notices whose fix has shipped (their removal triggers are marked shipped in the registry).
-RETIRED_IDS = ["N1", "N2", "N4"]
+RETIRED_IDS = ["N1", "N2", "N4", "N5"]
 
 
 @pytest.fixture(autouse=True)
@@ -245,7 +245,7 @@ def test_shipped_fixes_have_retired_their_notices(monkeypatch):
     monkeypatch.setattr(ln, "NOTICE_BY_ID", {n.id: n for n in REAL_NOTICES})
     assert sorted(n.id for n in REAL_NOTICES if n.retired) == RETIRED_IDS
     shown = {a.id for a in ln.active_notices()}
-    assert not set(RETIRED_IDS) & shown and {"N3", "N5", "N6", "N7"} <= shown
+    assert not set(RETIRED_IDS) & shown and {"N3", "N6", "N7"} <= shown
     for nid in RETIRED_IDS:
         config, rows = TRIGGERS[nid]
         assert nid not in _ids(config, rows)

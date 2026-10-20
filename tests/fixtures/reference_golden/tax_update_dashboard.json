@@ -130,5 +130,17 @@
   "status": "CURRENT_WITHIN_POLICY",
   "blocking": false,
   "notes": "VERIFIED 2026-10-20: 15,000,000 per person (indexed after 2026). A blank plan exemption is derived from the household (one person: 15,000,000; couple: 30,000,000 with portability). Estate-attorney review of the portability and credit-shelter arithmetic is NOT documented; the credit-shelter double count (FIN-009) remains open."
+ },
+ {
+  "constant": "ss_earnings_test",
+  "category": "Social Security earnings test",
+  "year": "2026",
+  "source": "SSA annual earnings test exempt amounts (2026 COLA fact sheet); 42 USC 403(b); dated ss_earnings_test_* rows in reference_data/tax_law_v10.json",
+  "source_url": "https://www.ssa.gov/oact/cola/rtea.html",
+  "last_reviewed": "2026-10-20",
+  "review_frequency": "annual",
+  "status": "CURRENT_WITHIN_POLICY",
+  "blocking": false,
+  "notes": "ASSUMPTION 2026-10-20: 24,480 below FRA and 65,160 in the FRA year, owner-accepted; the retrieval date and verifier are not recorded, so the rows carry status assumption until a source is attached. Annual process: ADD new dated ss_earnings_test_annual_limit and ss_earnings_test_fra_year_limit rows (never overwrite)."
  }
 ]

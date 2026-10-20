@@ -10,7 +10,7 @@ Companion to `SYSTEM_REVIEW_2026-10-19.md` section 9 (Wave 3). Opened 2026-10-20
 | WI-028, WI-029 | Not started | Serial after WI-027 (W3-A) |
 | WI-031, WI-033 | Not started | Independent |
 | WI-039 (new) | Not started | FIN-004: 10% additional tax on pre-59.5 distributions (WI-002(a) decided "in scope") |
-| WI-040 (new) | Not started | FIN-007: Social Security earnings test (WI-002(b) decided "in scope") |
+| WI-040 (new) | Done (no pin moved) | FIN-007: Social Security earnings test. Notice N5 retired. See the WI-040 section below. |
 | WI-041 (new) | Done | UX-002 follow-up: real server-side build cancel (the Wave 2 overlay only hid the window) |
 
 ## New work items
@@ -45,3 +45,21 @@ Open after WI-027:
 - Mortality table: the embedded values are not reconciled to a source. Candidate replacement: the SSA period life table or the Trustees Report projected death probabilities (a modeling decision for the owner).
 - Estate-attorney review of portability and credit-shelter arithmetic: not documented. The credit-shelter double count in FIN-009 is unchanged. Estate and legacy outputs that use a credit shelter trust are provisional and must not be represented as legally reviewed.
 - California 2026 final schedule: replace the provisional 2025 carry-forward when the FTB publishes it.
+
+## WI-040 — Social Security earnings test (FIN-007)
+
+Owner decisions recorded 2026-10-20 ("accept all recommendations"; plan year 2025 will never be supported, so there are no 2025 rows):
+
+| Decision | Implementation |
+|---|---|
+| Limits (2026) | 24,480 below full retirement age (FRA) all year; 65,160 in the FRA year. $1 withheld per $2 over (before the FRA year), $1 per $3 over (FRA year). Dated rows `ss_earnings_test_*` in `tax_law_v10.json`. **Status `assumption`**: the owner accepted the figures, but no retrieval date or verifier is recorded. Attach the SSA source and mark them verified when available. |
+| Earnings counted | Wages, plus net self-employment earnings for a sole proprietor; S-corp salary only (distributions are not earnings). The plan holds one household earned-income stream that ends at member 1's last earned year, so the earnings belong to member 1. |
+| FRA year | Earnings counted = full-year earnings × (months before the FRA month ÷ 12); benefits at risk are the same share of the year. |
+| Withholding | A dollar reduction of the year's benefit, capped at the benefit payable. No whole-month rounding. |
+| Credit at FRA | Months withheld (withheld dollars ÷ the month's benefit) shrink the early-claim reduction: from the year after the FRA year the benefit uses an effective claim age of the claim age plus months withheld ÷ 12, capped at FRA. |
+| Years after 2026 | Limits compound by the plan's bracket inflation (the plan has no separate wage-growth assumption). |
+| Scope | Member 1's own retirement benefit. **Not modeled:** spousal benefits payable on a working spouse's record (SSA also withholds those), disability benefits, and the FRA-year credit within the FRA year itself. |
+
+Measured effect: the frozen sample plan and the demo plan show no engine-row change (neither claims early while earning), so no golden pin moves. The earnings-test projection tests are in `tests/test_wi040_ss_earnings_test_regression.py`. Notice N5 is retired; the spousal-record limitation has no notice yet, because notice wording is owner-approved text. Decide whether it needs one.
+
+Planner sign-off on the design is still wanted, and a benefits counselor or CPA should review the rules.

@@ -106,7 +106,7 @@ NOTICES: tuple[Notice, ...] = (
         "The Social Security earnings test is not modeled. If you claim before full retirement age while "
         "still earning wages, some benefits may be temporarily withheld, and this plan does not reflect that.",
         "Claim age is before full retirement age and wages continue",
-        (RemovalTrigger("WI-002b", "Earnings test is modeled (WI-002(b) decided and implemented)"),),
+        (RemovalTrigger("WI-040", "Earnings test is modeled (WI-002(b) decided; WI-040 implemented)", shipped=True),),
     ),
     Notice(
         "N6", "FIN-009", SEVERITY_WARNING,

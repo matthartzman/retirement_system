@@ -958,6 +958,7 @@ def run_deterministic_projection_stage(c):
             ss_ratio=_ss_ratio,
             ss_first_claim_year_month_fraction=_ss_first_claim_year_month_fraction,
             ss_claim_factor=_ss_claim_factor,
+            fra_for_birth_year=_fra_for_birth_year,
             ss_spousal_excess_factor=_ss_spousal_excess_factor,
             ss_survivor_reduction_factor=_ss_survivor_reduction_factor,
             ss_funding_factor=_ss_funding_factor,

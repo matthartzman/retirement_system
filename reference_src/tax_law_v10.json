@@ -2582,6 +2582,46 @@
       "expires_year": null,
       "source": "CMS CY2026 Part D national base beneficiary premium (July 28, 2025 announcement; reviewed 2026-10-20). A national reference amount, not a selected plan premium.",
       "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "ss_earnings_test_annual_limit",
+      "value": 24480,
+      "effective_year": 2026,
+      "expires_year": null,
+      "source": "SSA annual earnings test exempt amounts (2026 COLA fact sheet); 42 USC 403(b). Owner-accepted 2026-10-20; retrieval date and verifier not recorded",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "ss_earnings_test_fra_year_limit",
+      "value": 65160,
+      "effective_year": 2026,
+      "expires_year": null,
+      "source": "SSA annual earnings test exempt amounts (2026 COLA fact sheet); 42 USC 403(b). Owner-accepted 2026-10-20; retrieval date and verifier not recorded",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "ss_earnings_test_rate",
+      "value": 0.5,
+      "effective_year": 2026,
+      "expires_year": null,
+      "source": "SSA annual earnings test exempt amounts (2026 COLA fact sheet); 42 USC 403(b). Owner-accepted 2026-10-20; retrieval date and verifier not recorded",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "ss_earnings_test_fra_year_rate",
+      "value": 0.3333333333333333,
+      "effective_year": 2026,
+      "expires_year": null,
+      "source": "SSA annual earnings test exempt amounts (2026 COLA fact sheet); 42 USC 403(b). Owner-accepted 2026-10-20; retrieval date and verifier not recorded",
+      "status": "assumption"
     }
   ],
   "brackets": [
