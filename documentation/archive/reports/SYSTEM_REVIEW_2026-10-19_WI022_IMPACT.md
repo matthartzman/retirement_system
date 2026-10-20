@@ -164,7 +164,7 @@ Non-slow tier (`pytest tests -m "not slow and not nightly" -n 4`): 23 failures. 
 
 Done through the documented tools only: `tools/regen_golden_master.py regen --reason` (entry added to `documentation/reference/GOLDEN_MASTER_CHANGELOG.md`) and `tools/golden_compare.py record --plan sample_frozen --reason` for the phase baseline. New pins: `PINNED_TERMINAL_NW` 5,383,495.40, `PINNED_LIFETIME_TAX` 1,236,390.19. The demo baseline could not be regenerated here (no `input/demo`) and still needs recording where that plan exists.
 
-## 8. WI-024 phase 2 measurement (NIIT, ACA, Social Security) — NOT re-pinned, awaiting planner sign-off
+## 8. WI-024 phase 2 (NIIT, ACA, Social Security) — AGREED by planner (owner sign-off in session) and re-pinned
 
 Phase 1 (IRMAA MAGI) is re-recorded and pinned separately (changelog 2026-10-20; baselines at 1cedff2, pins unchanged). Phase 2 is implemented as three commits, each with its own closed-form and cascade-convergence test, measured step by step on the frozen plan against the phase-1 state. No pin, snapshot or baseline was touched for phase 2.
 
@@ -184,3 +184,13 @@ Implementation notes. NIIT: `_refresh_investment_taxes` adds the net cascade gai
 Convergence: each step has a test that iterates the cascade map (withdrawal = need + tax + credit loss, gain = half of the withdrawal) and checks it contracts and settles under 0.005 within the loop limit (the NIIT test asserts fewer than 20 passes).
 
 Correction found by the non-slow tier (`test_qcd_agi_exclusion_functional`): the first version of step 3 measured the extra taxable benefit against the stage-9 benefit amount, so elective IRA draws already in AGI (which do not feed Social Security taxability in this engine) were charged to the gain. It now measures the gain's own marginal effect (same base income on both sides). Frozen-plan figures in the table are unchanged by the correction. Open observation, not changed: elective IRA draws made in the cascade do not retroactively raise taxable Social Security.
+
+### 8.1 Verification of the zero steps, and re-pin
+
+Frozen plan, Social Security step. Gain years 2026 to 2029 (gains 382, 5,646, 2,041 and 1): taxable benefit 0 and inclusion 0%, because benefits have not started (first claim 2031 for member 1), so there is nothing for a gain to tax. Gain years 2030 to 2049 (gains 1 to 17,033): inclusion exactly 85% every year (taxable benefit 23,181 in 2030 rising to 98,540 in 2049), the statutory cap, so an extra dollar of income adds no taxable benefit. The extra-benefit field is empty in every year. Asserted by `test_frozen_plan_zeros_are_explained`.
+
+Frozen plan, ACA step. Only 2026 has a household member under 65 (age 64), the premium tax credit is 0 in every year, and 2026 IRMAA MAGI is about 455,000, far above the credit range, so there is no credit to lose.
+
+The steps do act when exposed (`tests/test_wi024_phase2_end_to_end_regression.py`, real engine, step on versus off): a taxable-heavy household with benefits from 2027 has 7,526 of extra taxable benefit in 2027 and 9,176 in 2028, taxed at 10% (753 and 918), carried into AGI and IRMAA MAGI, lowering net worth; a bridge-year household with a 20,000 benchmark loses 1,209.84 of credit in 2027 (credit 20,000 to 18,790) and 1,240.09 in 2028, with lower net worth. No defect or unexplained zero was found. A defect found earlier by the tier (elective IRA draws charged to the gain) is fixed (b34b5e3).
+
+Re-pinned through `tools/regen_golden_master.py regen --reason`, `tools/regen_full_row_snapshot.py --reason` and `tools/golden_compare.py record --plan sample_frozen --reason`; changelog entry added. New pins: `PINNED_TERMINAL_NW` 5,381,597.38, `PINNED_LIFETIME_TAX` 1,237,081.61; Roth conversions unchanged (125,000). The demo baseline cannot be re-recorded here (no `input/demo`).

@@ -1,3 +1,19 @@
+## 2026-10-20 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
+
+<!-- fixture-provenance: deterministic_engine_full_row_snapshot_cases.json sha256=479d93a28bdb3ef76d5ed3a89fcbede96b86359c8c62a996e3fc79594b76dcd7 -->
+
+Also re-recorded for WI-024 phase 2 (planner sign-off): `deterministic_engine_full_row_snapshot_cases.json` and `tests/fixtures/golden_phase_baseline/sample_frozen.json` (new row fields `ss_extra_*` / `aca_ptc_loss_*` appear only where the steps act; on the frozen plan only the NIIT step moves figures).
+
+<!-- pin-provenance: terminal_nw=5381597.38 lifetime_tax=1237081.61 -->
+
+**Old pins.** terminal_nw=5,383,495.40, lifetime_tax=1,236,390.19
+
+**New pins.** terminal_nw=5,381,597.38, lifetime_tax=1,237,081.61
+
+**Reason.**
+
+WI-024 phase 2 (FIN-001), planner-approved in session after verification: NIIT MAGI now includes the net brokerage gain realized in the withdrawal cascade (inside the fixed-point loop, with a convergence test); the ACA MAGI and Social Security taxation steps are implemented and verified end to end on synthetic bridge-year and partial-inclusion households, and have no frozen-plan effect (frozen plan: gain years before Social Security starts have no benefit to tax, later years are at the 85% inclusion cap, and the only bridge year has MAGI far above the credit range). Only the NIIT step moves the frozen plan: terminal NW 5,383,495.40 to 5,381,597.38, lifetime tax 1,236,390.19 to 1,237,081.61, Roth conversions unchanged at 125,000, lifetime NIIT +739.09. Details: documentation/archive/reports/SYSTEM_REVIEW_2026-10-19_WI022_IMPACT.md section 8.
+
 ## 2026-10-20 — WI-024 phase 1 (FIN-001, IRMAA MAGI only): fixtures re-recorded, pins unchanged
 
 <!-- fixture-provenance: deterministic_engine_full_row_snapshot_cases.json sha256=fb03cd1b515a636f4156f3c232286ebd1b2a5a0d94271e0a5a246e372e0aab24 -->
