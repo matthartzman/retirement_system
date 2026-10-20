@@ -58,43 +58,20 @@ function announceUnsaved(title) {
   if (el && el.textContent === text && !el.classList.contains("error")) return;
   msg(text);
 }
-// UX-006: in-app confirm (replaces native confirm()); resolves true/false.
+// UX-006: in-app confirm (a modal <dialog>: native focus trap, Escape, restore).
 function adminConfirm(message, confirmLabel) {
   return new Promise((resolve) => {
-    const opener = document.activeElement;
-    const ov = document.createElement("div");
-    ov.className = "admin-modal-overlay";
-    ov.innerHTML = `<div class="admin-modal" role="alertdialog" aria-modal="true" aria-labelledby="adminConfirmText" tabindex="-1"><p id="adminConfirmText">${esc(message)}</p><div class="admin-modal-actions"><button type="button" class="btn" data-act="cancel">Cancel</button><button type="button" class="btn danger" data-act="ok">${esc(confirmLabel || "Confirm")}</button></div></div>`;
-    const done = (v) => {
-      document.removeEventListener("keydown", onKey, true);
-      ov.remove();
-      if (opener && opener.focus) opener.focus();
-      resolve(v);
-    };
-    const onKey = (e) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        done(false);
-      } else if (e.key === "Tab") {
-        const b = ov.querySelectorAll("button");
-        const first = b[0],
-          last = b[b.length - 1];
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    };
-    ov.addEventListener("click", (e) => {
-      const a = e.target && e.target.getAttribute && e.target.getAttribute("data-act");
-      if (a) done(a === "ok");
+    const d = document.createElement("dialog");
+    d.className = "admin-modal";
+    d.setAttribute("role", "alertdialog");
+    d.setAttribute("aria-labelledby", "adminConfirmText");
+    d.innerHTML = `<p id="adminConfirmText">${esc(message)}</p><form method="dialog" class="admin-modal-actions"><button value="no" autofocus>Cancel</button><button value="yes" class="danger">${esc(confirmLabel || "Confirm")}</button></form>`;
+    d.addEventListener("close", () => {
+      d.remove();
+      resolve(d.returnValue === "yes");
     });
-    document.addEventListener("keydown", onKey, true);
-    document.body.appendChild(ov);
-    ov.querySelector('[data-act="cancel"]').focus();
+    document.body.appendChild(d);
+    d.showModal();
   });
 }
 let adminAppReady = true;
@@ -1530,7 +1507,7 @@ async function loadCsvEditor(def, backAction = "showAppSettings()") {
     ? buildSectionSettings(rows, def)
     : buildDataGrid(rows, def.profile);
   document.getElementById("main").innerHTML =
-    `<h2>${esc(activeEditor.title)}</h2><p class="muted">${esc(out.path)} · Compact table view. Changes save to the system configuration store and maintain CSV adapter compatibility.</p>${def.note ? `<div class="note-box">${esc(def.note)}</div>` : ""}<div class="toolbar compact-toolbar"><input id="cfgSearch" class="cfg-input hidden" aria-label="Search rows, values, or helper notes" placeholder="Search rows, values, or helper notes..." oninput="filterActiveTable()"><span id="cfgResultCount" class="pill">${Math.max(0, rows.length - 1)} rows</span><span><button onclick="document.querySelectorAll('#editorBody details').forEach(d=>d.open=true)">Expand all</button><button onclick="document.querySelectorAll('#editorBody details').forEach(d=>d.open=false)">Collapse all</button><button onclick="toggleRawEditor()">Advanced raw CSV</button></span><div class="collapsed-note">Use the triangles to expand sections. Focus any value control to update the right help panel.</div></div><div id="editorBody">${body}</div><div id="rawBox" class="advanced-box"><h3>Advanced CSV adapter editor</h3><p class="muted">Use only for bulk adapter maintenance or adding columns. Normal planning edits belong in the main UI.</p><textarea id="rawCsv">${esc(rowsToCsv(rows))}</textarea></div><div class="cfg-actions"><button class="primary" onclick="saveActiveEditor()">Save</button><button onclick="loadCsvEditor(activeEditor,activeEditor.backAction)">Reload from disk</button><span class="mini">Save stays visible. Use the left navigation to move between pages; raw CSV fallback is preserved.</span></div>`;
+    `<h2>${esc(activeEditor.title)}</h2><p class="muted">${esc(out.path)} · Compact table view. Changes save to the system configuration store and maintain CSV adapter compatibility.</p>${def.note ? `<div class="note-box">${esc(def.note)}</div>` : ""}<div class="toolbar compact-toolbar"><input id="cfgSearch" class="cfg-input hidden" aria-label="Search rows, values, or helper notes" placeholder="Search rows, values, or helper notes..." oninput="filterActiveTable()"><span id="cfgResultCount" class="pill">${Math.max(0, rows.length - 1)} rows</span><span><button onclick="document.querySelectorAll('#editorBody details').forEach(d=>d.open=true)">Expand all</button><button onclick="document.querySelectorAll('#editorBody details').forEach(d=>d.open=false)">Collapse all</button><button onclick="toggleRawEditor()">Advanced raw CSV</button></span><div class="collapsed-note">Use the triangles to expand sections. Focus any value control to update the right help panel.</div></div><div id="editorBody">${body}</div><div id="rawBox" class="advanced-box"><h3>Advanced CSV adapter editor</h3><p class="muted">Use only for bulk adapter maintenance or adding columns. Normal planning edits belong in the main UI.</p><textarea id="rawCsv" aria-label="Raw CSV adapter data">${esc(rowsToCsv(rows))}</textarea></div><div class="cfg-actions"><button class="primary" onclick="saveActiveEditor()">Save</button><button onclick="loadCsvEditor(activeEditor,activeEditor.backAction)">Reload from disk</button><span class="mini">Save stays visible. Use the left navigation to move between pages; raw CSV fallback is preserved.</span></div>`;
   initEditorInteractions();
   msg(activeEditor.title + " loaded");
 }
