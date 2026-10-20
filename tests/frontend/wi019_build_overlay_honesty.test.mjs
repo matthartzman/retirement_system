@@ -42,14 +42,18 @@ function setup() {
 const OK = { success: true, kpi: { qc_result: "QC: 1 / 1 PASS", lcv: 1 }, qc_result: "QC: 1 / 1 PASS" };
 
 describe("hiding a running build", () => {
-  test("cancelBuild is gone and nothing claims the build was cancelled", () => {
+  test("cancelBuild is gone; a cancel is claimed only after the server reports the cancelled state", () => {
     const sb = loadDashboardSandbox();
     assert.equal(typeof sb.cancelBuild, "undefined");
     const html = fs.readFileSync(path.join(FRONTEND, "index.html"), "utf8");
     assert.doesNotMatch(html, /cancelBuild/);
     assert.match(html, /hideBuildInBackground\(\)/);
     const src = fs.readFileSync(path.join(FRONTEND, "js", "dashboard_decomp_build_lifecycle.js"), "utf8");
-    assert.doesNotMatch(src, /Build cancelled|left incomplete/);
+    assert.doesNotMatch(src, /left incomplete/);
+    // Real cancel: the server is asked to stop the build, and "Build cancelled." is raised only
+    // from a job the server reports as cancelled.
+    assert.match(src, /\/api\/build\/cancel\//);
+    assert.match(src, /job\.status === "cancelled"\) throw new Error\("Build cancelled\."\)/);
   });
 
   test("pending build, hide, resolve: no navigation and an accurate message", async () => {
