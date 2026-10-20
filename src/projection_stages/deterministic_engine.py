@@ -539,7 +539,7 @@ def run_deterministic_projection_stage(c):
         on top of it. Realized gains are priced separately above this stack."""
         return _tk.fed_tax_with_qualified(
             c, lambda o: _ordinary_fed_tax_path(o, year, filing), taxable,
-            _qualified_dividends_by_year.get(year, 0.0), year)
+            _qualified_dividends_by_year.get(year, 0.0), year, filing)
 
     def _ira_elective_ordinary_tax_delta(fed_tax_base, state_tax_base, taxable_inc_base,
                                           retirement_dist_base, ira_wd_cumulative, year, filing,

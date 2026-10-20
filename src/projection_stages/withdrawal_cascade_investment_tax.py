@@ -223,7 +223,7 @@ def _refresh_investment_taxes(
     # Capital losses (carryforward + harvested) offset realized gains
     # before any LTCG/NIIT is due.
     net_gain = max(0.0, state.ltcg_gain - state.available_losses)
-    new_ltcg_tax = _tk.ltcg_tax_on_gain(c, net_gain, max(0, state.taxable_inc), year) if net_gain > 0 else 0.0
+    new_ltcg_tax = _tk.ltcg_tax_on_gain(c, net_gain, max(0, state.taxable_inc), year, state.filing) if net_gain > 0 else 0.0
     delta_ltcg = max(0.0, new_ltcg_tax - state.ltcg_tax)
     state.ltcg_tax = new_ltcg_tax
     delta_niit = 0.0
@@ -376,7 +376,7 @@ def apply_investment_tax_cascade(
     # with the ordinary-offset credit this is the realized-this-year tax
     # value of harvesting, which the Tax-Loss Harvesting sheet sums to a
     # net-of-transaction-cost lifetime figure.
-    tlh_gain_offset_value = _tk.ltcg_tax_on_gain(c, _used_vs_gain, max(0.0, taxable_inc), year) if _used_vs_gain > 0 else 0.0
+    tlh_gain_offset_value = _tk.ltcg_tax_on_gain(c, _used_vs_gain, max(0.0, taxable_inc), year, filing) if _used_vs_gain > 0 else 0.0
     row['tlh_gain_offset_value'] = tlh_gain_offset_value
     row['tlh_tax_value'] = tlh_gain_offset_value + tlh_ordinary_credit
 

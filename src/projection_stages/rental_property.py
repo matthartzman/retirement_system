@@ -1200,7 +1200,7 @@ def apply_sale_tax(c: dict[str, Any], row: dict[str, Any], ry: RentalYear, book:
     gain, tax, cap_adj, state_adj = home_sale_ltcg_gain, home_sale_ltcg_tax, 0.0, 0.0
     if ltcg > 0:
         gain = home_sale_ltcg_gain + ltcg
-        tax = _tk.ltcg_tax_on_gain(c, gain, max(0.0, taxable_inc), year)
+        tax = _tk.ltcg_tax_on_gain(c, gain, max(0.0, taxable_inc), year, filing)
         state_adj = state_tax_fn(investment_inc + ltcg) - state_tax
     if u1250 > 0:
         cap_adj = unrecaptured_1250_cap_adjustment(

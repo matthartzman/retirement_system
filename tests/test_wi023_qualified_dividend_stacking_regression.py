@@ -163,7 +163,7 @@ def test_engine_row_fed_tax_matches_closed_form_every_year():
             continue
         ordinary, qd_in = tk.split_qualified_dividends(taxable, qd)
         expected = (compute_fed_tax(ordinary, r["year"], r["filing"], c["brk_inf"])
-                    + tk.ltcg_tax_on_gain(c, qd_in, ordinary, r["year"]))
+                    + tk.ltcg_tax_on_gain(c, qd_in, ordinary, r["year"], r["filing"]))
         # fed_tax can carry later true-up adjustments (AMT, credits); allow $1.
         assert r["fed_tax"] == pytest.approx(expected, abs=1.0), r["year"]
         checked += 1
@@ -181,3 +181,27 @@ def test_roth_ltcg_cap_counts_dividends_and_uses_dataset_top():
     assert plan.pre_agi == 50_000.0
     assert plan.binding_limit == "LTCG rate tier"
     assert plan.amount == pytest.approx(98_900.0 - 50_000.0)
+
+
+# ---- survivor (Single) year uses Single band tops ---------------------------
+
+def test_survivor_single_year_stacks_on_single_band_tops():
+    # Plan seeded as MFJ (c carries MFJ tops); projection year 2056 is Single.
+    # Bracket factor 2056 = 1.02**30 = 1.811362 (brk_inf 0.02, value year 2026).
+    # Single tops 49,450 / 545,500 -> 0% top 89,572.3 in 2056 dollars.
+    # 74,192 ordinary + 45,619 qualified dividends (taxable 119,811):
+    #   0% : 89,572.3 - 74,192 = 15,380.3 ; 15% : 45,619 - 15,380.3 = 30,238.7
+    #   tax = 30,238.7 x 0.15 = 4,535.8 (rounded; exact below).
+    c = {**C26, "filing_status": "MFJ"}
+    f = 1.02 ** 30
+    zero_top = 49_450.0 * f
+    expected = (45_619.0 - (zero_top - 74_192.0)) * 0.15
+    flat = lambda o: 0.0
+    single = tk.fed_tax_with_qualified(c, flat, 119_811.0, 45_619.0, 2056, "Single")
+    assert single == pytest.approx(expected)
+    assert single == pytest.approx(4_535.9, abs=0.2)
+    # Realized gain of 10,000 above the dividends is entirely in the 15% band: 1,500.
+    assert tk.ltcg_tax_on_gain(c, 10_000.0, 119_811.0, 2056, "Single") == pytest.approx(1_500.0)
+    # MFJ control: same year, MFJ tops 98,900 x f = 179,144 -> all dividends at 0%.
+    assert tk.fed_tax_with_qualified(c, flat, 119_811.0, 45_619.0, 2056, "MFJ") == pytest.approx(0.0)
+    assert tk.fed_tax_with_qualified(c, flat, 119_811.0, 45_619.0, 2056) == pytest.approx(0.0)

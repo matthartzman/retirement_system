@@ -104,14 +104,14 @@ Lifetime components, before to after: federal 1,091,276.28 to 1,053,484.36; LTCG
 
 Reproduced exactly (2056 total tax -8,326). It is not a bug in the stacking; it is two things at once.
 1. Size. The survivor (Single since 2055) sells the home in 2056 (net proceeds 2,995,776, no gain after the 250,000 exclusion) and the proceeds land in the taxable account (Member_2_Trust 2,946,234 at year end), so the portfolio-income split yields 45,619 of qualified dividends against 0 in 2054 and 2055 and 4,498 to 19,872 in the years before. Taxable income is 119,811; ordinary part 74,192 (tax 8,453.86). Old: all 119,811 ordinary, federal tax 16,780. New: 8,454. The saving is about 18% of 45.6k, in line with other years' ratio scaled to a dividend 2.5 to 10 times larger and a filer with fewer 0% dollars.
-2. A pre-existing filing-status defect that this change exposes. `tax_kernel.ltcg_tax_on_gain` reads `c['ltcg_0_top']`, seeded once from the plan's original MFJ status, so the Single survivor year is stacked on MFJ band tops. At bracket factor 1.8114 the 0% top used is 179,144; the Single 0% top would be 49,450 x 1.8114 = 89,572. With the MFJ tops all 45,619 of dividends are taxed at 0% (preferential tax 0.00); with Single tops it would be 4,535.92, and the 2056 drop would be -3,790 rather than -8,326. The Roth cap already looks tops up per year's filing (`_roth_ltcg_thresholds_base`); the kernel does not. Not fixed here (out of the stated WI-023 scope; not a review finding). Recommend a small separate item: make `ltcg_tax_on_gain` take the year's filing status. It also affects every survivor-year gain, home sale and equity-comp stack today.
+2. A pre-existing filing-status defect that this change exposes. `tax_kernel.ltcg_tax_on_gain` reads `c['ltcg_0_top']`, seeded once from the plan's original MFJ status, so the Single survivor year is stacked on MFJ band tops. At bracket factor 1.8114 the 0% top used is 179,144; the Single 0% top would be 49,450 x 1.8114 = 89,572. With the MFJ tops all 45,619 of dividends are taxed at 0% (preferential tax 0.00); with Single tops it would be 4,535.92, and the 2056 drop would be -3,790 rather than -8,326. The Roth cap already looks tops up per year's filing (`_roth_ltcg_thresholds_base`); the kernel does not. Fixed afterwards on planner instruction: see 7.8.
 
 Secondary effect worth knowing: 2047 total tax rises +6,160 (2048 falls 2,062, 2049 falls 1,692). The lower tax in earlier years changes balances, and in 2047 the elective IRA draw rises from 16,937 to 49,051 while the taxable draw falls from 175,609 to 147,492 (NIIT 0 to 646). It is a withdrawal-mix timing shift caused by the dividend change itself (it persists with the marginal-rate change reverted and with old band tops), not a separate defect. The prototype had the same total.
 
 ### 7.5 Flagged, not changed
 
 - Roth LTCG cap compares pre-deduction AGI with taxable-income band tops (conservative, pre-existing). Measuring from AGI less the standard deduction was tried and reverted: through the `golden_compare` pipeline it adds about 142k of conversions over the conversion window (600,175 to 742,002), terminal NW 5,561,837.88 and lifetime tax 1,097,119.55, an effect well beyond FIN-003. Planner decision.
-- Survivor-year LTCG band tops (7.4 item 2).
+- Survivor-year LTCG band tops: fixed, see 7.8 (home-sale and AMT/equity-comp gain stacks still use the seeded status).
 - N2 (qualified-dividend overstatement notice): the WI-010a notices are not implemented on this branch (only the approved wording exists in `SYSTEM_REVIEW_2026-10-19_WAVE1_NOTICE_WORDING.md`), so there is no N2 code or preflight test to retire. When WI-010a is built, N2 must not ship: its retirement trigger (this fix) has already occurred.
 - FIN-001 (brokerage-gain MAGI, NIIT MAGI) untouched; its xfails remain.
 
@@ -133,3 +133,19 @@ One test needed a convention update, not a pin: `tests/test_effective_marginal_r
 
 Failures identical on the clean base (not caused by this change): dashboard codemod and extract-module tool tests, optional-module gating and rental/divorce/housing workbook-build tests, efficient frontier and tangency Sharpe tests, `test_real_loss_aware_mode_regression.py`, `test_tax_aware_rebalance_functional.py` (global optimizer), `test_roth_result_panel_payload_functional.py`, `test_social_security_apply_payload_functional.py`, results-model contract fixture, skip-count ratchet, architecture diagram freshness, test-file-suffix count. A few tests (tax-loss harvesting scanner, withdrawal-sequencing comparison) failed only while four shards ran concurrently and pass when run alone on this branch; two workbook-build files (`test_all_modules_off_build_functional.py`, `test_engine_module_gate_agrees_with_sheets_regression.py`) exceed the shard timeout and were compared one-to-one with the base separately.
 
+
+### 7.8 Update: band tops follow the filing status in force for the year
+
+Planner decision before any re-pin. `tax_kernel.ltcg_band_tops(c, filing)` returns the dataset tops for the year's filing status when it differs from the plan's seeded status (seeded values, including client overrides, are kept otherwise). `ltcg_tax_on_gain` and `fed_tax_with_qualified` take an optional `filing`; the engine's dividend stacking, the cascade LTCG refresh and capital-loss offset value, and the rental-sale LTCG now pass the year's filing. Home-sale and equity-comp (AMT) gain stacks still use the seeded status (no 2056 effect on the frozen plan; follow-up).
+
+Closed form (tests): 2056, bracket factor 1.02^30 = 1.811362, Single 0% top 49,450 x 1.811362 = 89,572; 74,192 ordinary + 45,619 dividends: (45,619 - 15,380.3) x 15% = 4,535.9 of dividend tax; a 10,000 gain above them 1,500; MFJ control on the same inputs 0.00. The engine's 2056 `fed_tax` is 12,989.77 (8,453.86 ordinary + 4,535.9), versus 8,453.86 at 8e2b347.
+
+| | Terminal NW | Lifetime tax | Roth conversions |
+|---|---:|---:|---:|
+| Pins (unchanged) | 5,300,872.54 | 1,270,016.83 | 125,000 |
+| `measure` at 8e2b347 | 5,388,267.55 | 1,231,854.27 | 125,000 |
+| `measure` now | 5,383,495.40 | 1,236,390.19 | 125,000 |
+| Delta vs pins now | +82,622.86 | -33,626.64 | 0 |
+| Change vs 8e2b347 | -4,772.15 | +4,535.92 | 0 |
+
+`golden_compare` pipeline: terminal NW 5,511,444.98 (was 5,516,217.14 at 8e2b347; baseline 5,429,963.80, now +81,481.18); lifetime tax 1,128,988.71 (was 1,124,452.80; baseline 1,156,879.26, now -27,890.55); Roth conversions 598,627.59 (unchanged from 8e2b347; baseline 600,175.26). The 2056 saving is now about -3,790, as predicted. Stale-pin tests are the same three listed in 7.7; no pin or baseline was edited.
