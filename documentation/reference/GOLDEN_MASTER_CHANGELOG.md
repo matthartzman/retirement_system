@@ -1,3 +1,9 @@
+## 2026-10-20 — WI-023b: Roth LTCG cap measured from AGI less the standard deduction (fixtures re-recorded, pins unchanged)
+
+<!-- fixture-provenance: deterministic_engine_full_row_snapshot_cases.json sha256=6beb6b806b37eece4ade2db424aecdf11b91de0913003cb3dee9cce263d03499 -->
+
+`PINNED_TERMINAL_NW` (5,381,597.38) and `PINNED_LIFETIME_TAX` (1,237,081.61) are unchanged: the `measure` path sizes no conversions after 2026. Planner-approved in session after the Monte Carlo investigation (impact doc sections 9 and 9.1). Re-recorded through `tools/regen_full_row_snapshot.py --reason` (8 `conv_guardrail_caps` diagnostic fields in the baseline_balanced_couple and single_filer scenarios) and `tools/golden_compare.py record --plan sample_frozen --reason`. Measured effect in the `golden_compare` pipeline: Roth conversions 598,722.95 to 742,151.76 (+143,428.81, almost all in 2027 to 2029 where the LTCG rate tier binds); terminal NW +44,752.34; lifetime tax -27,279.94; lifetime IRMAA -5,832 (one tier change, 2045); lifetime NIIT +318.54. Monte Carlo (400 simulations, six seeds): success within tier policy -5.7 points, funded as asked +0.9.
+
 ## 2026-10-20 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
 
 <!-- fixture-provenance: deterministic_engine_full_row_snapshot_cases.json sha256=479d93a28bdb3ef76d5ed3a89fcbede96b86359c8c62a996e3fc79594b76dcd7 -->

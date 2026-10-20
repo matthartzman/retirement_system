@@ -195,7 +195,7 @@ The steps do act when exposed (`tests/test_wi024_phase2_end_to_end_regression.py
 
 Re-pinned through `tools/regen_golden_master.py regen --reason`, `tools/regen_full_row_snapshot.py --reason` and `tools/golden_compare.py record --plan sample_frozen --reason`; changelog entry added. New pins: `PINNED_TERMINAL_NW` 5,381,597.38, `PINNED_LIFETIME_TAX` 1,237,081.61; Roth conversions unchanged (125,000). The demo baseline cannot be re-recorded here (no `input/demo`).
 
-## 9. WI-023b: Roth LTCG cap on the deduction-adjusted basis — DRAFT, pending planner sign-off (not re-pinned)
+## 9. WI-023b: Roth LTCG cap on the deduction-adjusted basis — AGREED by planner and re-recorded
 
 Planner decision: the Roth conversion LTCG rate-tier cap now measures the stack position as pre-conversion AGI less the standard deduction (`max(0, pre_agi - std)`), because the 0% and 15% band tops are taxable-income thresholds. Before, it compared pre-deduction AGI with those tops, which was conservative. The standard deduction is the floor available at sizing time (itemized is not known yet), as in the existing bracket-room calculation. Both the active cap and the "would allow" diagnostic use the same position. Closed form (`test_roth_ltcg_cap_counts_dividends_and_uses_dataset_top`): 50,000 of qualified dividends, MFJ 2026 standard deduction 32,200, zero band top 98,900: room = 98,900 - (50,000 - 32,200) = 81,100 (was 48,900). Three older tests that encoded the AGI basis were updated to the new basis (`test_roth_ltcg_niit_guardrails`, `test_roth_ltcg_cap_kernel_indexing_regression`, `test_roth_guardrail_analysis_functional`).
 
@@ -252,3 +252,5 @@ Basis consistency between scalar and vectorized paths. The Monte Carlo engines (
 2045 IRMAA tier 1 to 0 is consistent. The 2045 surcharge is assessed on 2043 MAGI. The conversions empty the pre-tax accounts earlier: pre-tax balance at the end of 2042 is 221,314 before and 105,323 after, so 2043 IRA withdrawals fall from 172,869 to 99,894 (the account is exhausted that year), 2043 AGI from 390,083 to 307,280 and IRMAA MAGI from 390,181 to 310,474, which is under the tier-1 threshold. 2045 IRMAA falls from 5,832 to 0 (the whole lifetime IRMAA change of -5,832); the 2046 lookback MAGI (2044) also falls, 255,845 to 203,386. Total tax in 2043 falls 61,486 to 43,355 and in 2045 19,936 to 13,607 for the same reason.
 
 Conclusion: the KPI move and the tier change are expected consequences of the cap change. Nothing was re-recorded or edited.
+
+Re-recorded (planner sign-off after 9.1): full-row snapshot and `golden_phase_baseline/sample_frozen.json` through their documented tools; changelog entry added; `PINNED_*` unchanged.
