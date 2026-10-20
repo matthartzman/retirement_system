@@ -1,6 +1,6 @@
 # WI-022 impact table: FIN-003 and FIN-001 on the frozen sample plan
 
-**DRAFT — pending planner agreement.** Nothing here authorises a re-pin. No engine, tax code, golden or pin was changed to produce these figures.
+**AGREED by planner (owner sign-off in session) and re-pinned for WI-023 (section 7); sections 1-6 remain the WI-022 draft record.** Nothing here authorises a re-pin. No engine, tax code, golden or pin was changed to produce these figures.
 
 - Source items: SYSTEM_REVIEW_2026-10-19.md section 9 (WI-022), findings FIN-001 and FIN-003 (section 5); phasing from SYSTEM_REVIEW_2026-10-19_WAVE0_DECISIONS.md (FIN-001: phase 1 IRMAA MAGI only, reported separately from phase 2 NIIT / ACA MAGI / Social Security taxation).
 - Plan measured: the synthetic frozen sample plan (`tests/fixtures/csv_exchange/sample_plan_frozen/`), MFJ, 2026 to 2056, frozen prices. All dollar figures below are for that synthetic plan only.
@@ -57,7 +57,7 @@ Three local edits in a scratch copy, each behind an environment switch: (a) the 
 
 ---
 
-## 7. WI-023 as implemented (FIN-003) — DRAFT, pending planner sign-off
+## 7. WI-023 as implemented (FIN-003) — AGREED by planner (owner sign-off in session) and re-pinned
 
 Nothing in this section re-pins anything. `PINNED_*`, `golden_master_engine_cases.json` and `tests/fixtures/golden_phase_baseline/` are untouched; figures below come from `tools/regen_golden_master.py measure` and `tools/golden_compare.py` (live capture compared with the committed baseline). Branch `claude/wave2-eng`, commits prefixed `WI-023:`.
 
@@ -159,3 +159,7 @@ Closed form (new `tests/test_wi023_gain_stacks_filing_regression.py`): 2056, fac
 Frozen-plan figures did NOT move versus 322021d: `measure` 5,383,495.40 / 1,236,390.19 (+82,622.86 / -33,626.64 vs pins), Roth conversions 125,000; `golden_compare` pipeline 5,511,444.98 / 1,128,988.71 / 598,627.59, identical to 7.8 (the frozen plan has no taxable home-sale or equity-comp gain in a Single year). Stale-pin tests unchanged (7.7).
 
 Non-slow tier (`pytest tests -m "not slow and not nightly" -n 4`): 23 failures. 22 are identical to the clean-base failures listed in 7.7 (dashboard codemod/extract tools, efficient-frontier and Sharpe tests, real-loss-aware, results-model contract, skip-count ratchet, architecture diagram, tax-aware rebalance optimizer, test-suffix count, cash-flow chart compaction). The 23rd is the stale golden-master pin `test_frozen_plan_dollar_figures_are_exact`. The phase-golden-equality tests are slow-marked and not in this tier. The earlier parallel-only TLH and withdrawal-sequencing failures did not recur.
+
+### 7.10 Re-pin
+
+Done through the documented tools only: `tools/regen_golden_master.py regen --reason` (entry added to `documentation/reference/GOLDEN_MASTER_CHANGELOG.md`) and `tools/golden_compare.py record --plan sample_frozen --reason` for the phase baseline. New pins: `PINNED_TERMINAL_NW` 5,383,495.40, `PINNED_LIFETIME_TAX` 1,236,390.19. The demo baseline could not be regenerated here (no `input/demo`) and still needs recording where that plan exists.

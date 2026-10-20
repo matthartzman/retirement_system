@@ -1,3 +1,15 @@
+## 2026-10-20 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
+
+<!-- pin-provenance: terminal_nw=5383495.40 lifetime_tax=1236390.19 -->
+
+**Old pins.** terminal_nw=5,300,872.54, lifetime_tax=1,270,016.83
+
+**New pins.** terminal_nw=5,383,495.40, lifetime_tax=1,236,390.19
+
+**Reason.**
+
+WI-023 / FIN-003 (system review 2026-10-19): intentional engine evolution, signed off by the planner (repo owner) in session. (1) Qualified dividends are taxed at 0/15/20% stacked above ordinary income and below realized gains; the ordinary schedule excludes them; they stay in NII for NIIT. (2) LTCG band tops are aligned to the verified 2026 dataset (MFJ 98,900 / 613,700) instead of the stale 2025 model constants 96,700 / 600,050. (3) LTCG and dividend band tops follow the filing status in force for each projection year (Single in survivor years), for dividends, cascade gains, home-sale, rental-sale and AMT/equity-comp gain stacks. Measured before re-pin: terminal NW 5,300,872.54 to 5,383,495.40, lifetime tax 1,270,016.83 to 1,236,390.19, Roth conversions 125,000 unchanged. Details: documentation/archive/reports/SYSTEM_REVIEW_2026-10-19_WI022_IMPACT.md section 7.
+
 ## 2026-10-19 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
 
 <!-- pin-provenance: terminal_nw=5300872.54 lifetime_tax=1270016.83 -->
