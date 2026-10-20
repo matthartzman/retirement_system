@@ -48,7 +48,7 @@ Closed-form check (committed tests): MFJ 80k ordinary + 30k qualified dividends 
 2. Decide whether the pin moves in one step (net) or two (FIN-003, then FIN-001 phase 1, then phase 2) as the Wave 0 decision allows; phase 1 would be a no-op re-pin on this plan.
 3. LTCG band constants: the frozen plan carries model constants `ltcg_0pct_top_mfj_base_year` 96,700 and 15% top 600,050 (2025 values via `data_io.py` defaults), while the verified 2026 dataset has 98,900 and 613,700. The engine indexes the model constants as if they were 2026 values. The prototype used the plan's constants unchanged. Decide whether WI-023 also aligns the constants to the dataset (this would shift the figures again).
 4. Confirm ACA, Social Security and senior-phase-out effects are measured as a separate phase 2b (not prototyped here) and whether CPA review of the sample outputs happens before or after the re-pin.
-5. Confirm the xfail fixtures in `tests/test_wi022_fin001_fin003_closed_form_fixtures.py` encode the intended conventions (NIIT target passes MAGI that includes the gain; IRMAA MAGI >= AGI + brokerage net gain; dividend tax = ordinary on the rest + preferential stack).
+5. Confirm the xfail fixtures in `tests/test_wi022_fin001_fin003_closed_form_fixtures_regression.py` encode the intended conventions (NIIT target passes MAGI that includes the gain; IRMAA MAGI >= AGI + brokerage net gain; dividend tax = ordinary on the rest + preferential stack).
 
 ## 6. Prototype description (for reproducibility; not committed)
 
@@ -117,7 +117,7 @@ Secondary effect worth knowing: 2047 total tax rises +6,160 (2048 falls 2,062, 2
 
 ### 7.6 Tests
 
-New `tests/test_wi023_qualified_dividend_stacking_regression.py`: dividends plus a realized gain together (hand value 13,769.00), the 15% to 20% straddle (3,315.00 + 2,000.00), the zero-band case, the cascade call site (3,000.00 versus 165.00 if dividends were left out of the base), NIIT with dividends in NII (1,900.00 versus 760.00 without), the MAGI-bound NIIT case (760.00), the Roth LTCG cap (98,900 - 50,000), dataset band tops on the frozen plan, and a per-year engine check that `fed_tax` equals ordinary-on-the-rest plus the dividend stack. The FIN-003 xfail in `tests/test_wi022_fin001_fin003_closed_form_fixtures.py` is removed (it now passes); the FIN-001 xfails remain.
+New `tests/test_wi023_qualified_dividend_stacking_regression.py`: dividends plus a realized gain together (hand value 13,769.00), the 15% to 20% straddle (3,315.00 + 2,000.00), the zero-band case, the cascade call site (3,000.00 versus 165.00 if dividends were left out of the base), NIIT with dividends in NII (1,900.00 versus 760.00 without), the MAGI-bound NIIT case (760.00), the Roth LTCG cap (98,900 - 50,000), dataset band tops on the frozen plan, and a per-year engine check that `fed_tax` equals ordinary-on-the-rest plus the dividend stack. The FIN-003 xfail in `tests/test_wi022_fin001_fin003_closed_form_fixtures_regression.py` is removed (it now passes); the FIN-001 xfails remain.
 
 ### 7.7 Tests that fail because pins are stale (expected, not hidden)
 
