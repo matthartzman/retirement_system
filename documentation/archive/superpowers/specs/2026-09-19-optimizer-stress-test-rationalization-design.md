@@ -1,7 +1,7 @@
 # Optimizer & Stress-Test Rationalization
 
 Item 329. Date: 2026-09-19.
-Status: **Open questions resolved** (§5) — ready for planning, except the two
+Status: implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20). Earlier status text, kept for history: **Open questions resolved** (§5) — ready for planning, except the two
 items in §5.1 that remain open.
 Design only; no implementation. §6's phasing is indicative.
 

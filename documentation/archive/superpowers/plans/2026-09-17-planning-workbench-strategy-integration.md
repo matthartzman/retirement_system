@@ -1,5 +1,7 @@
 # Planning Workbench Strategy Integration Implementation Plan
 
+Status: implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Give Planning Workbench a fourth peer Strategy screen (Optimize / Stress Test / Scenarios / Workbench), eliminate its two real duplications (a full copy of the Stress Test screen, and a second stale Strategy Levers renderer that links to an already-dead step), and rebuild its internal layout on the same `strategySection` primitive its three siblings already use.

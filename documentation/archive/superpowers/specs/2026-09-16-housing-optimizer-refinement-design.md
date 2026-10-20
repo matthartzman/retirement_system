@@ -1,7 +1,7 @@
 # Housing Optimizer Refinement — Design
 
 Date: 2026-09-16
-Status: Approved for planning
+Status: implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20). Earlier status text, kept for history: Approved for planning
 Supersedes parts of: `documentation/archive/superpowers/specs/2026-09-09-housing-optimization-design.md`,
 `documentation/archive/superpowers/specs/2026-09-15-zip-code-housing-screening-design.md`
 

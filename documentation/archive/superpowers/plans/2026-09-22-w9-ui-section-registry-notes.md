@@ -1,5 +1,7 @@
 # W9 — UI section registry: what was built, and the judgment calls
 
+Status: implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).
+
 > Execution record for **W9** of
 > `docs/superpowers/plans/2026-09-19-optimizers-modules-housing-master-plan.md`
 > §4, implementing #329 P4 + #330. Requires W3, W6 — both landed on this branch.

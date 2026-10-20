@@ -1,5 +1,7 @@
 # Planning Workbench integration into the Strategy redesign
 
+Status: implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).
+
 2026-09-17
 
 ## Problem

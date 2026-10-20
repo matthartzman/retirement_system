@@ -1,6 +1,6 @@
-# Rental Properties module — design (DRAFT for review)
+# Rental Properties module — design
 
-Status: draft for owner review. **Nothing here is built.** Sequencing and staffing live in `2026-10-05-master-plan-tiers-and-file-elimination.md` (WP12).
+Status: implemented (WP12a to WP12c, PRs #199 to #202; rental code in `src/rental_tax.py`, `src/stores/rental_repo.py` and `src/server_services/rental_service.py`; living rules in `documentation/reference/RENTAL_TAX_RULES.md`; later H1 to H6 extensions in PRs #207 to #209). Checked in WI-016, 2026-10-20. Earlier banner, kept for history: "draft for owner review. Nothing here is built." Sequencing and staffing live in `2026-10-05-master-plan-tiers-and-file-elimination.md` (WP12).
 Builds on: the housing refinement design §13 "Phase 2 — keep and rent out" (`2026-09-16-housing-optimizer-refinement-design.md`), which already lists what a rental channel needs; the engine today has none of it (`src/housing/__init__.py` states "no rental income is modelled").
 
 ## 1. Decisions (owner, 2026-10-05)

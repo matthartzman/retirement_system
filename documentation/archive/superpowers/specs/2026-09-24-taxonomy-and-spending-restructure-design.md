@@ -1,5 +1,7 @@
 # Taxonomy reconciliation and Spending / Housing restructure — design + implementation plan
 
+Status: implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).
+
 > Items **#332** (taxonomy across Plan Features filters, Plan Features
 > categories, left nav, workbook) and **#334–#339** (IRMAA indexing, spending
 > adjustments, Large Discretionary, "Annualized" label, nav restructure,

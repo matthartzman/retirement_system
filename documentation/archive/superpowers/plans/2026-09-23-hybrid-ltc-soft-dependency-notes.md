@@ -1,5 +1,7 @@
 # Hybrid LTC soft dependency — what was built, and the judgment calls
 
+Status: implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).
+
 > Small, scoped follow-up deferred by W9 (`docs/superpowers/plans/
 > 2026-09-22-w9-ui-section-registry-notes.md`) and confirmed by W12
 > (`docs/superpowers/plans/2026-09-22-w12-off-state-rendering-notes.md`), not

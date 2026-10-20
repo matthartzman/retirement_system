@@ -1,6 +1,6 @@
-# Master plan: feature tiers + file-dependency elimination (DRAFT for review)
+# Master plan: feature tiers + file-dependency elimination
 
-Status: draft for owner review. **Nothing here is executed**; each work package (WP) needs an explicit owner go.
+Status: implemented, except unit 11.6 (delete `legacy_conversion/`), which its own section 7 marks "not started (later release)". WP0 to WP12c are merged (section 7 rows; release note `documentation/reference/release_notes/2026-10-wp11-file-elimination.md`; rental module in `src/rental_tax.py` and `src/projection_stages/rental_property.py`). Checked in WI-016, 2026-10-20. Earlier banner, kept for history: "draft for owner review. Nothing here is executed; each work package (WP) needs an explicit owner go."
 This document is the single sequencing, staffing and gating plan for two approved designs. It does not repeat their detail; it merges their order, removes duplicated work, and says who (which model, at what effort) should do each piece.
 
 - Tiers design: `2026-10-04-feature-tiers-and-switches-design.md` (referred to as **T**)

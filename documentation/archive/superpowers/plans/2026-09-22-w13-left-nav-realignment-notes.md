@@ -1,5 +1,7 @@
 # W13 — Left-nav realignment: what was built, and the judgment calls
 
+Status: implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).
+
 > Execution record for **W13** of
 > `docs/superpowers/plans/2026-09-19-optimizers-modules-housing-master-plan.md`
 > §4, implementing #330 P8 / Q6. Requires W12 — landed on this branch.

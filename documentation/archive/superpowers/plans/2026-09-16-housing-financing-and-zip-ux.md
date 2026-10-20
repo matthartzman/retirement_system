@@ -1,5 +1,7 @@
 # Housing Financing Display + ZIP-First UX Implementation Plan
 
+Status: implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make the housing optimizer's results table show the dollar figure that actually matches a move's action (monthly rent for rent, purchase price + P&I for buy, using the same price the plan's own cost math uses), add a "Purchase assumptions" section for down payment/mortgage rate, and redesign the Spending -> Housing page's location entry to be ZIP-first with auto-filled Area Type/Population, matching the optimizer's layout.

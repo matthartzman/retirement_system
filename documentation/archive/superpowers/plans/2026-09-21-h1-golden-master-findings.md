@@ -1,5 +1,7 @@
 # H1/B5 golden-master findings
 
+Status: implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).
+
 Ticket #331 B5 (`docs/superpowers/plans/2026-09-19-optimizers-modules-housing-master-plan.md`
 §4 H1, and `docs/superpowers/specs/2026-09-19-housing-optimizer-anchor-flow-and-timing-design.md`
 §6.6) calls for regenerating the housing optimizer's golden-master fixture(s)

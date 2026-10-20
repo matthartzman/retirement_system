@@ -1,5 +1,7 @@
 # H2/A1-A4 anchor-flow implementation notes
 
+Status: implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).
+
 Decisions made while implementing #331 A1-A4
 (`docs/superpowers/plans/2026-09-19-optimizers-modules-housing-master-plan.md`
 §4 "H2", against

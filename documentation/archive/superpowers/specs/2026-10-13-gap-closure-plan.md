@@ -1,6 +1,6 @@
 # Gap-closure plan (after WP0-WP12c)
 
-Status: draft for owner go. Nothing here is executed. Owner answers recorded 2026-10-13:
+Status: implemented, except the date-driven items below (the 30-day window cleanup, unit 11.6 and the next annual tax update), which are still open. Tier 1 merged in PR #206, Tier 2 in PR #205, Tier 3 (H1 to H6) in PRs #207 to #209 (see the status tables in this file). Checked in WI-016, 2026-10-20. Earlier banner, kept for history: "draft for owner go. Nothing here is executed." Owner answers recorded 2026-10-13:
 scope = all gaps, easy to hard; rental use = expected within a year (large rental items are prioritized);
 capital gains in AGI and IRMAA MAGI = fix for ALL sales and re-record goldens; delivery = one session and one PR per tier.
 

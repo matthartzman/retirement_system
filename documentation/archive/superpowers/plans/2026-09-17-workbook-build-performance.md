@@ -1,5 +1,7 @@
 # Workbook Build Performance Implementation Plan
 
+Status: implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Cut the workbook build from ~37 s (live prices) / 32.7 s (frozen prices) to ~15–18 s without changing a single number in any build artifact.

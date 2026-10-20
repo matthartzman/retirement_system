@@ -1,5 +1,7 @@
 # Strategy Section UI Redesign
 
+Status: implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).
+
 Ticket 323. Date: 2026-09-16.
 
 ## Problem

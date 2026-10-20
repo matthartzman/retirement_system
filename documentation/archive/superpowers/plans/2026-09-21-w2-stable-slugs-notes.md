@@ -1,5 +1,7 @@
 # W2 — Stable slugs: what was built, and the judgment calls
 
+Status: implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).
+
 > Execution record for **W2** of
 > `docs/superpowers/plans/2026-09-19-optimizers-modules-housing-master-plan.md` §4,
 > implementing #329 P2 (`docs/superpowers/specs/2026-09-19-optimizer-stress-test-rationalization-design.md`

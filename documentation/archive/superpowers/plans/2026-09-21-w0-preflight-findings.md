@@ -1,5 +1,7 @@
 # W0 — Pre-flight verification findings
 
+Status: implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).
+
 > Deliverable of **W0** in
 > `docs/superpowers/plans/2026-09-19-optimizers-modules-housing-master-plan.md` §3.
 > Three cheap checks whose answers change the size or content of W1, W3 and W5.

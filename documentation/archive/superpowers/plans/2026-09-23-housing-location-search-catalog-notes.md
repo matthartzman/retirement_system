@@ -1,5 +1,7 @@
 # Housing Location Search — catalog entry + off-semantics: what was built, and the judgment calls
 
+Status: implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).
+
 > Follow-up item flagged since W8b and reconfirmed by W9, described by both as
 > "W1-shaped" work: genuinely new catalog territory, not a numbered master-plan
 > workstream. Closes the gap named in

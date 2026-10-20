@@ -1,5 +1,7 @@
 # W7 — Engine gate fix: execution notes
 
+Status: implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).
+
 Implements the master plan's W7 (`docs/superpowers/plans/2026-09-19-optimizers-modules-housing-master-plan.md`
 §4, "W7 — Engine gate fix · golden regen #1"), #330 F3. Requires W5 (landed;
 see `2026-09-21-w5-dependency-declarations-notes.md`, which declared

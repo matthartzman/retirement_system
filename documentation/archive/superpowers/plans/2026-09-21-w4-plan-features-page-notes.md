@@ -1,5 +1,7 @@
 # W4 — Plan Features page: what was built, and the judgment calls
 
+Status: implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).
+
 > Execution record for **W4** of
 > `docs/superpowers/plans/2026-09-19-optimizers-modules-housing-master-plan.md` §4,
 > implementing #330 P3 + Q7 (`docs/superpowers/specs/2026-09-19-modular-feature-nav-design.md`

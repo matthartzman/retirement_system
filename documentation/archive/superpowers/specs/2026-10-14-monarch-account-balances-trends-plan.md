@@ -1,6 +1,6 @@
 # Monarch Daily Account Balances → Financial Trends Reporter
 
-Design + implementation plan. Date: 2026-10-14. Status: awaiting approval of the "Open items" section.
+Design + implementation plan. Date: 2026-10-14. Status: implemented (PR #215, with later reconcile follow-ups in #218 to #220; see `documentation/reference/release_notes/2026-10-monarch-balances-and-reconciliation.md`; checked in WI-016, 2026-10-20). Earlier status, kept for history: "awaiting approval of the Open items section."
 
 ## 1. Goal
 

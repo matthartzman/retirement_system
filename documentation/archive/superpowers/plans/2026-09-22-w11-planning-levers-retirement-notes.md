@@ -1,5 +1,7 @@
 # W11 — Planning Levers retirement: blocked, not landed
 
+Status: superseded (retirement of Planning Levers was blocked and the keep decision recorded in the addendum; nothing was removed; checked in WI-016, 2026-10-20).
+
 > Execution record for **W11** of
 > `docs/superpowers/plans/2026-09-19-optimizers-modules-housing-master-plan.md`
 > (#329 §3.2 gate). Requires W10b — landed on this branch.

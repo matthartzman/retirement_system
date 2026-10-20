@@ -1,5 +1,7 @@
 # W1 — Catalog foundation: what was built, and the two judgment calls
 
+Status: implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).
+
 > Execution record for **W1** of
 > `docs/superpowers/plans/2026-09-19-optimizers-modules-housing-master-plan.md` §4.
 > Merges #329 phase 1 with #330 phases 1–2 into one pass over

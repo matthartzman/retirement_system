@@ -1,7 +1,7 @@
 # Modular Features & Feature-Switch Navigation
 
 Item 330. Date: 2026-09-19.
-Status: **Open questions resolved** (§7) — ready for planning.
+Status: implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20). Earlier status text, kept for history: **Open questions resolved** (§7) — ready for planning.
 Design only; no implementation. §8's phasing is indicative.
 
 Two resolutions came from investigating the code rather than from judgement, and

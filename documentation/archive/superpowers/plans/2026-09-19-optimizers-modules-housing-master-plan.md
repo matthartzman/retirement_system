@@ -1,5 +1,7 @@
 # Optimizers, Modules & Housing — Master Implementation Plan
 
+Status: implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).
+
 > **For agentic workers:** This is a **master sequencing plan**, not a task-level
 > plan. It fixes the order, the merges and the cross-cutting constraints for three
 > designs. Each workstream below gets its own bite-sized TDD task plan, written

@@ -1,5 +1,7 @@
 # W12 — Off-state rendering: what was built, and the judgment calls
 
+Status: implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).
+
 > Execution record for **W12** of
 > `docs/superpowers/plans/2026-09-19-optimizers-modules-housing-master-plan.md`
 > §4, implementing #330 P7. Requires W4, W9 — both landed on this branch.

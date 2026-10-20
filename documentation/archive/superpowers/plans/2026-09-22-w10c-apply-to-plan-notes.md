@@ -1,5 +1,7 @@
 # W10c — apply-to-plan: execution notes
 
+Status: implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).
+
 Master plan: `docs/superpowers/plans/2026-09-19-optimizers-modules-housing-master-plan.md` §4, W10c.
 Spec: `docs/superpowers/specs/2026-09-19-optimizer-stress-test-rationalization-design.md` §4.2–§4.6 (#329 P6).
 Precedent: W10a (`2026-09-22-w10a-roth-result-panel-notes.md`), W10b (`2026-09-22-w10b-disclosure-badges-notes.md`).

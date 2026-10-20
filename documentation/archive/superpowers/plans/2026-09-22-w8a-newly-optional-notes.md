@@ -1,5 +1,7 @@
 # W8a — Newly-optional, low risk: execution notes
 
+Status: implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).
+
 > Execution record for **W8a** of
 > `docs/superpowers/plans/2026-09-19-optimizers-modules-housing-master-plan.md` §4
 > ("W8a / W8b — Newly-optional modules"), implementing #330 P6a.

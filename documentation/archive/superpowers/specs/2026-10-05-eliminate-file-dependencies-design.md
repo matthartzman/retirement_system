@@ -3,7 +3,7 @@
 > **Sequencing and staffing are superseded by [`2026-10-05-master-plan-tiers-and-file-elimination.md`](2026-10-05-master-plan-tiers-and-file-elimination.md).** This document remains the authority for the design detail it covers; the master plan decides order, merged phases, models and effort.
 
 
-Status: approved by the owner on 2026-10-05 (decisions 1-9 in section 1A). Ready for per-phase planning.
+Status: implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20). Earlier status text, kept for history: approved by the owner on 2026-10-05 (decisions 1-9 in section 1A). Ready for per-phase planning.
 Evidence: a read-only audit of every runtime file dependency (counts and file:line citations are quoted from it below). It found that SQLite today holds only a *derived* plan snapshot, and that the real edit and build surface is still the `input/` files.
 
 ## 1. Goal, scope, rules

@@ -1,7 +1,7 @@
 # Housing Optimizer — Anchor Flow and Valuation Timing — Design
 
 Date: 2026-09-19
-Status: Reviewed — all six open questions resolved 2026-09-19, plus four raised by
+Status: implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20). Earlier status text, kept for history: Reviewed — all six open questions resolved 2026-09-19, plus four raised by
 those answers. See §7 (Resolved decisions) and the last ten rows of §8.
 Backlog item: #331 (a) multi-anchor selection UX, (b) housing valuation timing
 Amends: `docs/superpowers/specs/2026-09-16-housing-optimizer-refinement-design.md`

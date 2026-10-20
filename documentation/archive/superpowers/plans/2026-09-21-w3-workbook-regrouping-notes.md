@@ -1,5 +1,7 @@
 # W3 — Workbook regrouping: what was built, and the judgment calls
 
+Status: implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).
+
 > Execution record for **W3** of
 > `docs/superpowers/plans/2026-09-19-optimizers-modules-housing-master-plan.md` §4.
 > #329 P3 + F7. Follows W0/W1's addenda (Tax Capacity → System) and does not

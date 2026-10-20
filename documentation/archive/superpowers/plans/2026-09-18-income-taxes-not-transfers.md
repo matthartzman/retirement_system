@@ -1,5 +1,7 @@
 # Income Taxes Are Not Transfers — Implementation Plan
 
+Status: implemented (work shipped; checked against code and commit history in WI-016, 2026-10-20).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Reclassify the `income_taxes` spending category out of `tracking_type = "Transfer"` into its own `"Taxes"` tracking type, so income-tax transactions flow through Actual Spending, the Spending Categories budget/actual/forecast table, and Spending Analysis like any other real expense — while still being excluded from the 30-year model's core spend-base sync (the retirement engine computes its own projected taxes; counting historical tax dollars there would double-count).
