@@ -85,6 +85,8 @@ Status: draft for the non-expert read-through. Dollar examples are illustrations
 
 ## H
 
+**Home sale proceeds** — The cash left over when you sell your home, after paying off the mortgage and the costs of selling.
+
 **HSA (Health Savings Account)** — A savings account for medical costs. Money goes in without income tax, grows tax-free, and comes out tax-free when used for medical costs.
 
 ## I

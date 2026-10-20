@@ -35,7 +35,7 @@ Acceptance (from the review): pages used before the first build have plain-langu
 |---|---|---|---|
 | 12 | Home Equity Line (`heloc_strategy`) | Borrow against your home for big purchases instead of selling investments early. | credit limit, draw year, rate drift, discretionary spending, home sale proceeds |
 | 13 | Rental Properties (`rental_properties`) | Income, costs and eventual sale of each rental property. | depreciation, passive-activity rules, Schedule E |
-| 14 | Roth Conversion (`roth_conversion`) | Decide how much pre-tax money to move into a Roth account each year, and how to weigh the trade-offs. | conversion policy, bracket ceiling, Medicare income surcharge, premium tiers, objective weights, marginal rate |
+| 14 | Roth Conversion (`roth_conversion`) | Decide how much pre-tax money to move into a Roth account each year, and how to weigh the trade-offs. | Roth conversion, conversion policy, bracket ceiling, Medicare income surcharge, premium tiers, objective weights, marginal rate |
 | 15 | Charitable Giving (`entity_charitable`) | How you give to charity: direct gifts, a donor-advised fund, or gifts straight from an IRA. | donor-advised fund, qualified charitable distribution, adjusted gross income, required distributions |
 | 16 | Education & Equity Comp (`family_business`) | College savings plans and stock awards from an employer. | 529, vesting, exercise, optional module |
 | 17 | Optimize (`strategy_optimize`) | One place to adjust the main levers: Roth conversions, investment mix, giving and home-equity borrowing. | asset allocation and location, lever |

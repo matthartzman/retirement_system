@@ -586,7 +586,9 @@ DASHBOARD_JS_MAX_LINES = 7_134
 # 2026-10-20 (WI-010 / WI-010a: limitation notices in the preflight panel and Tax Assumptions card, +25):
 # raised to 39,524.
 # Merged WI-018 to WI-021 with main's WI-010/010a: 40,078.
-TOTAL_JS_MAX_LINES = 40_078
+# 2026-10-20 (WI-033: new frontend/js/help_glossary.js, 141 lines of plain-English page summaries and
+# glossary data; dashboard.js did not grow). New behavior, not duplication: raised by 141 to 40,219.
+TOTAL_JS_MAX_LINES = 40_219
 
 
 def _line_count(path: Path) -> int:
