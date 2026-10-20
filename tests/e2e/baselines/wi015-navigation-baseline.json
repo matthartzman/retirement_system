@@ -1,0 +1,161 @@
+{
+  "stepCount": 26,
+  "steps": [
+    {
+      "stepId": "start",
+      "heading": "Retirement planning workspace",
+      "hasContent": true,
+      "errors": 0
+    },
+    {
+      "stepId": "household_people",
+      "heading": "Household & People",
+      "hasContent": true,
+      "errors": 0
+    },
+    {
+      "stepId": "income_work",
+      "heading": "Work Income",
+      "hasContent": true,
+      "errors": 0
+    },
+    {
+      "stepId": "income_retirement",
+      "heading": "SS, Pensions, & Annuities",
+      "hasContent": true,
+      "errors": 0
+    },
+    {
+      "stepId": "spending_core",
+      "heading": "Spending Model",
+      "hasContent": true,
+      "errors": 0
+    },
+    {
+      "stepId": "holdings",
+      "heading": "Investment Holdings",
+      "hasContent": true,
+      "errors": 0
+    },
+    {
+      "stepId": "assets_home_cash",
+      "heading": "Reserve Requirements",
+      "hasContent": true,
+      "errors": 0
+    },
+    {
+      "stepId": "assets_special",
+      "heading": "Other Assets and Liabilities",
+      "hasContent": true,
+      "errors": 0
+    },
+    {
+      "stepId": "annuity_death_benefits",
+      "heading": "Insurance",
+      "hasContent": true,
+      "errors": 0
+    },
+    {
+      "stepId": "estate",
+      "heading": "Estate Inputs",
+      "hasContent": true,
+      "errors": 0
+    },
+    {
+      "stepId": "roth_conversion",
+      "heading": "Roth Conversion",
+      "hasContent": true,
+      "errors": 0
+    },
+    {
+      "stepId": "entity_charitable",
+      "heading": "Charitable Giving",
+      "hasContent": true,
+      "errors": 0
+    },
+    {
+      "stepId": "strategy_optimize",
+      "heading": "Optimize",
+      "hasContent": true,
+      "errors": 0
+    },
+    {
+      "stepId": "strategy_stress",
+      "heading": "Stress Test",
+      "hasContent": true,
+      "errors": 0
+    },
+    {
+      "stepId": "strategy_scenarios",
+      "heading": "Scenarios",
+      "hasContent": true,
+      "errors": 0
+    },
+    {
+      "stepId": "strategy_workbench",
+      "heading": "Workbench",
+      "hasContent": true,
+      "errors": 0
+    },
+    {
+      "stepId": "actual_spending",
+      "heading": "Actual Spending",
+      "hasContent": true,
+      "errors": 0
+    },
+    {
+      "stepId": "monarch_reconciliation",
+      "heading": "Account Reconciliation",
+      "hasContent": true,
+      "errors": 0
+    },
+    {
+      "stepId": "reports_and_review",
+      "heading": "Build & Results",
+      "hasContent": true,
+      "errors": 0
+    },
+    {
+      "stepId": "economic_tax_assumptions",
+      "heading": "Economic & Tax Assumptions",
+      "hasContent": true,
+      "errors": 0
+    },
+    {
+      "stepId": "optional_functions",
+      "heading": "Plan Features",
+      "hasContent": true,
+      "errors": 0
+    },
+    {
+      "stepId": "all_assumptions",
+      "heading": "Plan Features",
+      "hasContent": true,
+      "errors": 0
+    },
+    {
+      "stepId": "workbook_formatting",
+      "heading": "Workbook Formatting",
+      "hasContent": true,
+      "errors": 0
+    },
+    {
+      "stepId": "system_configuration",
+      "heading": "Data & Maintenance",
+      "hasContent": true,
+      "errors": 0
+    },
+    {
+      "stepId": "distribution_strategy",
+      "heading": "Optimize",
+      "hasContent": true,
+      "errors": 0
+    },
+    {
+      "stepId": "monte_carlo_options",
+      "heading": "Stress Test",
+      "hasContent": true,
+      "errors": 0
+    }
+  ]
+}
