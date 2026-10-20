@@ -1387,6 +1387,7 @@ export function renderScenarios() {
 
 export async function seedHousingRows() {
   try {
+    if (!(await saveBeforeStructuralChange())) return;
     const resp = await api("/api/housing/seed", { method: "POST" });
     if (resp && resp.seeded !== undefined) {
       await loadAll({ source: planSource, preferLocal: false, silent: true });

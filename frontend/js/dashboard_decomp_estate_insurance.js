@@ -74,6 +74,7 @@ export async function addEstateState(state) {
         placeholder: "e.g. CA, NY",
       }));
     if (!state) return;
+    if (!(await saveBeforeStructuralChange())) return;
     const out = await api("/api/estate-state/add", {
       method: "POST",
       body: JSON.stringify({ state }),
@@ -98,6 +99,7 @@ export async function addTrustAccount() {
     });
     if (rawType === null) return;
     const type = rawType || "Revocable";
+    if (!(await saveBeforeStructuralChange())) return;
     const out = await api("/api/trust-account/add", {
       method: "POST",
       body: JSON.stringify({ account_name: name, trust_type: type }),
@@ -547,6 +549,7 @@ export function renderInsurancePolicies() {
 }
 export async function addInsurancePolicy() {
   try {
+    if (!(await saveBeforeStructuralChange())) return;
     const isLife = norm(newInsurancePolicyType) === "life";
     const out = await api("/api/insurance-policy/add", {
       method: "POST",
@@ -582,6 +585,7 @@ export async function deleteInsurancePolicy(evt, subsection) {
   )
     return;
   try {
+    if (!(await saveBeforeStructuralChange())) return;
     const wasLife = /^life(_|$)/i.test(String(subsection || "").trim());
     const out = await api("/api/insurance-policy/delete", {
       method: "POST",

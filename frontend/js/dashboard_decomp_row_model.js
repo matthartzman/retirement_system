@@ -5097,6 +5097,60 @@ export function goToInvalidField(rowIndex) {
   }, 0);
 }
 
+// Shared by saveAll and saveBeforeStructuralChange (UX-001): turn a failed
+// save into the field-aware error toast.
+function reportSaveFailure(e) {
+  // #315: the backend's structured validation-error list (api_client.js's
+  // request() attaches it as e.errors from the response body's `errors`
+  // array, e.g. /api/config/rows' 422 "Plan Data validation failed") was
+  // being discarded in favor of the generic e.message toast, so a save
+  // failure gave no clue which field(s) actually failed. Surface the full
+  // list in the message's expandable "Technical details" section (and to
+  // the console) whenever the backend supplied one; fall back to the
+  // plain message when it didn't.
+  const errs = e && Array.isArray(e.errors) ? e.errors : null;
+  if (typeof console !== "undefined" && console.error)
+    console.error("Save failed:", e, errs || undefined);
+  if (errs && errs.length) {
+    // UX-003 (WI-504): tie each validation error back to its field --
+    // aria-invalid on the control, and a "Go to" action for the first.
+    const bad = markSaveValidationErrors(errs);
+    const first = bad.length ? rows.find((r) => r.row_index === bad[0]) : null;
+    showMessage("Error saving: " + e.message, "error", {
+      persistent: true,
+      technicalDetail: errs.join("\n"),
+      action: first
+        ? {
+            label: "Go to " + humanLabel(first.label, first),
+            fn: "goToInvalidField(" + Number(first.row_index) + ")",
+          }
+        : undefined,
+    });
+  } else {
+    showMessage("Error saving: " + e.message, "error");
+  }
+}
+
+// UX-001 / WI-018: every in-page add/delete/seed handler ends in loadAll(),
+// which re-reads rows from the server and clears the dirty map. Call this
+// first: it saves any staged edits (saveWorkingCopy, same as the plan-tier
+// actions) and returns false -- after showing the usual field-aware save
+// error -- when the save fails, so the caller must abort and the structural
+// change never runs on top of unsaved edits.
+export async function saveBeforeStructuralChange() {
+  try {
+    if (!hasUnsavedPlanChanges()) return true;
+    if (!planLoaded) return true;
+    const saved = await saveWorkingCopy();
+    if (!saved) return false;
+    saveValidationInvalidRows.clear();
+    return true;
+  } catch (e) {
+    reportSaveFailure(e);
+    return false;
+  }
+}
+
 export async function saveAll(sync = true) {
   try {
     if (!planLoaded) {
@@ -5117,35 +5171,7 @@ export async function saveAll(sync = true) {
     maybeRunLocalBackup("save");
     return true;
   } catch (e) {
-    // #315: the backend's structured validation-error list (api_client.js's
-    // request() attaches it as e.errors from the response body's `errors`
-    // array, e.g. /api/config/rows' 422 "Plan Data validation failed") was
-    // being discarded in favor of the generic e.message toast, so a save
-    // failure gave no clue which field(s) actually failed. Surface the full
-    // list in the message's expandable "Technical details" section (and to
-    // the console) whenever the backend supplied one; fall back to the
-    // plain message when it didn't.
-    const errs = e && Array.isArray(e.errors) ? e.errors : null;
-    if (typeof console !== "undefined" && console.error)
-      console.error("Save failed:", e, errs || undefined);
-    if (errs && errs.length) {
-      // UX-003 (WI-504): tie each validation error back to its field --
-      // aria-invalid on the control, and a "Go to" action for the first.
-      const bad = markSaveValidationErrors(errs);
-      const first = bad.length ? rows.find((r) => r.row_index === bad[0]) : null;
-      showMessage("Error saving: " + e.message, "error", {
-        persistent: true,
-        technicalDetail: errs.join("\n"),
-        action: first
-          ? {
-              label: "Go to " + humanLabel(first.label, first),
-              fn: "goToInvalidField(" + Number(first.row_index) + ")",
-            }
-          : undefined,
-      });
-    } else {
-      showMessage("Error saving: " + e.message, "error");
-    }
+    reportSaveFailure(e);
     return false;
   }
 }
@@ -5525,6 +5551,7 @@ Object.assign(window, {
   rowsForStep,
   runBuild,
   saveAll,
+  saveBeforeStructuralChange,
   saveBudgetLines,
   saveMappingRulesData,
   saveTaxonomyBudgetData,
