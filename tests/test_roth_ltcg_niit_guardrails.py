@@ -25,6 +25,11 @@ from src.planning_engines import (
 )
 
 
+def _std(c, year):
+    from src.core import standard_deduction
+    return standard_deduction(year, 'MFJ', float(c.get('brk_inf', 0.02)), 0)
+
+
 def _plan(c_overrides, **kw_overrides):
     c = {
         'plan_start': 2026,
@@ -62,7 +67,8 @@ def test_ltcg_rate_tier_caps_conversion_when_qualified_dividends_present():
     assert plan.pre_agi == 200_000.0
     assert top0 < plan.pre_agi < top15  # already past the 0% ceiling, not yet at 20%
     assert plan.binding_limit == 'LTCG rate tier'
-    assert plan.amount == top15 - plan.pre_agi
+    # WI-023b: the cap is measured on taxable income (pre-conversion AGI less the standard deduction).
+    assert plan.amount == top15 - (plan.pre_agi - _std(c, 2026))
 
 
 def test_ltcg_cap_absent_when_no_capital_gain_rate_income():
@@ -108,7 +114,8 @@ def test_fill_to_irmaa_policy_also_carries_the_ltcg_and_niit_guardrails():
     )
     top0, top15 = _roth_ltcg_thresholds_base(c, 'MFJ')
     assert plan.binding_limit == 'LTCG rate tier'
-    assert plan.amount == top15 - plan.pre_agi
+    # WI-023b: the cap is measured on taxable income (pre-conversion AGI less the standard deduction).
+    assert plan.amount == top15 - (plan.pre_agi - _std(c, 2026))
 
 
 def test_ltcg_and_niit_thresholds_are_filing_status_aware():

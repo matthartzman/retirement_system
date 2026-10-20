@@ -1,4 +1,4 @@
-# Demo Plan Data (#240)
+# Demo Plan Data (#240): source files and format notes
 
 Fictional household — **Alex & Morgan Rivera**, Illinois — sized to exercise the
 core engine end-to-end and safe to show to prospects, colleagues, or on a
@@ -38,8 +38,7 @@ automatically, applies these files, and **Open Current Plan** restores it. The
 backup file's existence is the source of truth for whether a demo is active, so
 a crash or restart cannot clobber it.
 
-To apply the files by hand instead, copy every `input/demo/*.csv` over the
-matching `input/*.csv` — after backing up your own plan.
+To bring the files in by hand instead, use **Settings → Data & Maintenance → CSV backup → Import from folder** and pick this folder. The app previews first and changes nothing until you confirm; back up your own plan first. Copying files over `input/*.csv` does nothing: the app does not read them.
 
 ### Edits made during a demo are kept
 

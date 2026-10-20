@@ -128,7 +128,7 @@ describe("strategySection lazy body (ticket 323)", () => {
         () => "<p>body</p>",
         "heloc_strategy",
       );
-      assert.ok(html.includes("setStep('optional_functions')"));
+      assert.ok(html.includes("navigateTo('optional_functions')"));
       assert.ok(html.includes("Plan Features"));
       assert.ok(!html.includes("<p>body</p>"));
     } finally {

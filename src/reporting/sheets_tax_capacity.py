@@ -116,7 +116,7 @@ def build_sheet_tax_capacity(ws, c, rows):
 
     plan_start = int(c.get('plan_start', rows[0]['year'] if rows else 2026))
     brk_inf = float(c.get('brk_inf', 0.02) or 0.02)
-    ltcg_0_top = float(c.get('ltcg_0_top', 96_700) or 0.0)
+    ltcg_0_top = float(c.get('ltcg_0_top', 98_900) or 0.0)
     aca_fpl_base = max(0.0, float(c.get('aca_fpl_base', 0.0) or 0.0))
 
     total_conv = total_gain = total_qcd = 0.0
@@ -139,8 +139,13 @@ def build_sheet_tax_capacity(ws, c, rows):
         # Roth conversion policy is configured, exactly as Sheet 11 shows it.
         bracket_room_target = float(row.get('conv_bracket_room', 0.0) or 0.0)
 
-        cur_bracket_top = _bracket_top(taxable_inc, year, filing, brk_inf)
-        cur_bracket_room = max(0.0, cur_bracket_top - taxable_inc)
+        # WI-023 / FIN-003: ordinary-bracket room is measured on the ordinary stack;
+        # qualified dividends sit above it in the preferential stack.
+        _qd_in_stack = min(max(0.0, float(row.get('portfolio_qualified_dividends', 0.0) or 0.0)),
+                           max(0.0, taxable_inc))
+        _ord_taxable = taxable_inc - _qd_in_stack
+        cur_bracket_top = _bracket_top(_ord_taxable, year, filing, brk_inf)
+        cur_bracket_room = max(0.0, cur_bracket_top - _ord_taxable)
 
         # compute_zero_bracket_headroom, src/gain_harvest.py:39 -- the exact
         # function Sheet 12C calls (via scan_gain_harvest_opportunities) for

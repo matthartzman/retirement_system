@@ -69,7 +69,12 @@ def build_sheet7(ws, c, rows):
 
     for row in rows:
         eff_rate = row['total_tax'] / row['agi'] if row['agi'] > 0 else 0
-        marg = marginal_rate(row['taxable_inc'], row['year'], row['filing'], c['brk_inf'])
+        # WI-023 / FIN-003: statutory ordinary bracket of the next ordinary dollar --
+        # qualified dividends sit above the ordinary stack at 0/15/20%.
+        _ord_taxable = max(0.0, float(row['taxable_inc'] or 0.0)
+                           - min(max(0.0, float(row.get('portfolio_qualified_dividends') or 0.0)),
+                                 max(0.0, float(row['taxable_inc'] or 0.0))))
+        marg = marginal_rate(_ord_taxable, row['year'], row['filing'], c['brk_inf'])
         # What another $1,000 of ordinary income actually costs THIS year --
         # the Social Security torpedo and NIIT, on top of statutory tax.
         # Excludes IRMAA (see the note above this table for why) and the ACA

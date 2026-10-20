@@ -59,7 +59,7 @@ describe("featureGatedNote (Collapsed-with-a-note, #330 §5.2)", () => {
       gateEnableLabel: "Enabled",
     });
     assert.ok(!html.includes("editValue"));
-    assert.ok(html.includes("setStep('optional_functions')"));
+    assert.ok(html.includes("navigateTo('optional_functions')"));
   });
 
   test("shows how many already-entered rows are affected, per §5.2's invariant text", () => {

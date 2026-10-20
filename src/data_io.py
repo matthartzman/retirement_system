@@ -1626,11 +1626,21 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     # Home sale selling costs (realtor commission + closing), as fraction of gross
     c['home_sell_cost_pct']= _n(_v(data,'Model Constants','Home Sale',
                                      'selling_cost_pct','0.06'), 0.06)
-    # LTCG bracket thresholds (MFJ, tax-reference-year base; inflated by irmaa-style inflator)
-    c['ltcg_0_top']        = _n(_v(data,'Model Constants','Capital Gains',
-                                     'ltcg_0pct_top_mfj_base_year','96700'), 96_700)
-    c['ltcg_15_top']       = _n(_v(data,'Model Constants','Capital Gains',
-                                     'ltcg_15pct_top_mfj_base_year','600050'), 600_050)
+    # LTCG bracket thresholds. WI-023 / FIN-003 (decision 3): the verified 2026 federal
+    # dataset (LTCG_BRACKETS_BASE_YEAR, by filing status) is the source. The Model
+    # Constants rows ltcg_0pct_top_mfj_base_year / ltcg_15pct_top_mfj_base_year used to
+    # supply 2025 values (96,700 / 600,050) that the engine then indexed as if they were
+    # 2026 values; those two legacy numbers are treated as "unset" and replaced by the
+    # dataset. Any other explicit value is a deliberate client override and is kept.
+    _ltcg_ds = _td.LTCG_BRACKETS_BASE_YEAR.get(c['filing_status']) or _td.LTCG_BRACKETS_BASE_YEAR.get('MFJ', {})
+    _ltcg0_raw = _n(_v(data,'Model Constants','Capital Gains',
+                       'ltcg_0pct_top_mfj_base_year',''), None)
+    _ltcg15_raw = _n(_v(data,'Model Constants','Capital Gains',
+                        'ltcg_15pct_top_mfj_base_year',''), None)
+    c['ltcg_0_top'] = (float(_ltcg_ds.get('zero_top', 98_900)) if _ltcg0_raw in (None, 0, 96_700)
+                       else _ltcg0_raw)
+    c['ltcg_15_top'] = (float(_ltcg_ds.get('fifteen_top', 613_700)) if _ltcg15_raw in (None, 0, 600_050)
+                        else _ltcg15_raw)
     c['niit_threshold']    = _n(_v(data,'Model Constants','Capital Gains',
                                      'niit_magi_threshold_mfj','250000'), 250_000)
 
@@ -2421,8 +2431,8 @@ def build_plan_from_json(plan, url_template=''):
     c['rollover_yr']       = a.get('rollover_year', c['plan_start'] + 5)
     c['payroll_wage_base'] = a.get('ss_wage_base', DEFAULT_SS_WAGE_BASE)
     c['payroll_ee_rate']   = 0.0765
-    c['ltcg_0_top']        = _td.LTCG_BRACKETS_BASE_YEAR.get(c['filing_status'], {}).get('zero_top', 96700)
-    c['ltcg_15_top']       = _td.LTCG_BRACKETS_BASE_YEAR.get(c['filing_status'], {}).get('fifteen_top', 600050)
+    c['ltcg_0_top']        = _td.LTCG_BRACKETS_BASE_YEAR.get(c['filing_status'], {}).get('zero_top', 98900)
+    c['ltcg_15_top']       = _td.LTCG_BRACKETS_BASE_YEAR.get(c['filing_status'], {}).get('fifteen_top', 613700)
     c['niit_threshold']    = _td.NIIT_THRESHOLD.get(c['filing_status'], 250000)
     c['tax_constants_registry'] = _td.load_tax_constants()
     c['tax_provenance']    = dict(_td.TAX_YEAR_PROVENANCE)

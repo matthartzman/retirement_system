@@ -181,7 +181,7 @@ export function rentalWarningsHtml(warnings, dismissed, why, readOnly) {
   const items = shown.map((w) => {
     let actions = "";
     if (!readOnly) {
-      if (w.action === "other_assets") actions += '<button class="btn warn" type="button" onclick="setStep(\'assets_special\')">Review Other Assets</button> ';
+      if (w.action === "other_assets") actions += '<button class="btn warn" type="button" onclick="navigateTo(\'assets_special\')">Review Other Assets</button> ';
       if (w.action === "why") actions += `<button class="btn" type="button" aria-expanded="${why === w.id}" onclick="rpWhy(${idArg(w)})">Why?</button> `;
       if (w.action === "open_property") actions += `<button class="btn danger" type="button" onclick="rpOpen('${esc(escJs(w.property || ""))}')">Open property</button> `;
     }
@@ -249,7 +249,7 @@ export function rentalOffHtml(data, preview) {
     `<p class="small">${n ? `Your ${n} ${n === 1 ? "property is" : "properties are"} kept but not used: no rent, depreciation, taxes or sale in projections, and no rental lines in reports or the workbook.` : "Nothing is entered yet. Turn the feature on to add rental properties."} ${esc(ignored)}</p>` +
     '<div class="rp-actions"><button class="btn primary" type="button" data-requires-app="1" onclick="rpTurnOn()">Turn on Rental Properties</button>' +
     (n ? ` <button class="btn" type="button" aria-pressed="${!!preview}" onclick="rpPreviewToggle()">${preview ? "Hide preview" : "Preview what it would add"}</button>` : "") + "</div></div>";
-  html += `<div class="section-note">${esc(meta.tier ? "Tier: " + meta.tier.charAt(0).toUpperCase() + meta.tier.slice(1) + ". " : "")}Change it in <a href="#" onclick="setStep('optional_functions');return false">Settings &gt; Plan Features</a>.</div>`;
+  html += `<div class="section-note">${esc(meta.tier ? "Tier: " + meta.tier.charAt(0).toUpperCase() + meta.tier.slice(1) + ". " : "")}Change it in <a href="#" onclick="navigateTo('optional_functions');return false">Settings &gt; Plan Features</a>.</div>`;
   if (preview && n) {
     html += '<div class="section-note"><b>Preview.</b> This is what turning it on would add (read only).</div>' +
       rentalSummaryHtml(data, (data.estimate || {}).magi) + rentalWarningsHtml(data.warnings, new Set(), "", true) + rentalTableHtml(data, true);

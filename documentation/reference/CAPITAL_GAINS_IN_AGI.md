@@ -1,5 +1,7 @@
 # Capital gains from sales in AGI, MAGI and IRMAA MAGI (H1)
 
+Status (WI-024 phase 1, 2026-10-20): **investment-sale gains now count in IRMAA MAGI** (net realized brokerage gain after loss usage, read by the two-year lookback; see section 7). Still open (phase 2, WI-024): NIIT MAGI, ACA MAGI and Social Security taxation for brokerage gains.
+
 Status: **approved 2026-10-13** (scope: home and rental sales only; other AGI-keyed rules stay as they are; sale-year vs lookback confirmed) and implemented. No golden value moved (no sale in any golden).
 Rental constants were verified against 2025 rules by the household's tax preparer on 2026-10-13; this note
 adds no new constants. Companion to `RENTAL_TAX_RULES.md` (section 4, the "excluded" simplification).
@@ -97,3 +99,11 @@ After approval the same counts will be produced for the golden workbook sheets a
    gain state treatment is as today).
 
 Not in scope: section 121 partial exclusions, installment sales, gifts, deaths (H5).
+
+## 7. WI-024 phase 1: brokerage gains in IRMAA MAGI (FIN-001)
+
+The net gain realized by selling taxable holdings in the withdrawal cascade (cascade `ltcg_gain` less capital-loss usage against gains, less the home/rental sale gain already added in H1) is added to `irmaa_magi_current` after the cascade settles (`deterministic_engine.py`, after Priority 4b); recorded on the row as `brokerage_gain_in_irmaa_magi`. Reported AGI, NIIT MAGI, ACA MAGI and Social Security taxation are unchanged (phase 2). The lookback already uses the prior return's own filing status (`irmaa_lookback_magi_and_filing`).
+
+Closed form (`tests/test_wi024_irmaa_magi_brokerage_gain_regression.py`): MFJ, 2026 AGI 200,000 plus a 50,000 brokerage gain gives IRMAA MAGI 250,000; the 2028 tier-1 threshold is 218,000 x 1.025^3 = 234,762, rounded to 2,000 = 234,000, so 2028 is tier 1 (without the gain: tier 0).
+
+Frozen sample plan: financial outputs do not move (terminal NW, lifetime tax, Roth conversions, lifetime IRMAA 86,777.60, every KPI and every IRMAA tier unchanged). Only 16 diagnostic cells per column change: `irmaa_magi_current`, `irmaa_magi_used` and the new `brokerage_gain_in_irmaa_magi` (largest shift +9,855 in 2027 into the 2029 lookback). The golden pins therefore hold; the phase-golden row baseline, which records those diagnostic cells, is stale for them.

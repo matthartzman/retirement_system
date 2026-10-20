@@ -868,7 +868,7 @@ def apply_agi_and_tax(
     # apply_home_sale() (earlier this same year) computed the gain but
     # could not tax it without taxable_inc, which only exists here.
     # See home_sale.py's resolve_home_sale_gain_tax() docstring.
-    _stage9_home_sale = _resolve_home_sale_gain_tax(c, row, year=year, taxable_inc=taxable_inc)
+    _stage9_home_sale = _resolve_home_sale_gain_tax(c, row, year=year, taxable_inc=taxable_inc, filing=filing)
     home_sale_ltcg_gain = _stage9_home_sale.gain
     home_sale_ltcg_tax = _stage9_home_sale.tax
     total_tax_pre_niit = fed_tax + state_tax + payroll_tax + irmaa_yr

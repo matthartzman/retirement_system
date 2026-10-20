@@ -127,7 +127,7 @@ export function spendingSourceTailHtml(tt) {
   if (tt !== "Housing") return "";
   return (
     homeImprovementsHtml(rowsForStep("spending_mortgage_events")) +
-    '<div class="section-note">Home value and mortgage balance are on <a href="#" onclick="setStep(\'assets_special\');return false">Other Assets and Liabilities</a>; home sale, next housing steps and state residency are in <a href="#" onclick="setStep(\'strategy_optimize\');return false">Optimize &rarr; Next Housing Move</a>.</div>'
+    '<div class="section-note">Home value and mortgage balance are on <a href="#" onclick="navigateTo(\'assets_special\');return false">Other Assets and Liabilities</a>; home sale, next housing steps and state residency are in <a href="#" onclick="navigateTo(\'strategy_optimize\');return false">Optimize &rarr; Next Housing Move</a>.</div>'
   );
 }
 

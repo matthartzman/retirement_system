@@ -166,6 +166,12 @@ def ltcg_marginal_rate(ordinary_income, existing_gain, ltcg_0_top, ltcg_15_top,
                         bracket_factor, niit_applies):
     """Marginal LTCG rate on the next dollar of gain, given where ordinary
     income plus existing gain already sits in the stacked 0/15/20% bands.
+
+    WI-023: ``ordinary_income`` is the taxable-income stack base BELOW the
+    gain, which must include qualified dividends (they occupy the lowest
+    preferential layer, under realized gains). Callers pass the row's
+    ``taxable_inc`` (dividends included); ``existing_gain`` is gain already
+    realized above that base.
     """
     base = max(0.0, ordinary_income) + max(0.0, existing_gain)
     top0 = ltcg_0_top * bracket_factor
@@ -179,7 +185,26 @@ def ltcg_marginal_rate(ordinary_income, existing_gain, ltcg_0_top, ltcg_15_top,
     return rate + (0.038 if niit_applies else 0.0)
 
 
-def ltcg_tax_on_gain(c, gain, ordinary_income, year):
+def ltcg_band_tops(c, filing=None):
+    """(0% top, 15% top) in base-year dollars for ``filing``.
+
+    WI-023: ``c['ltcg_0_top']`` / ``c['ltcg_15_top']`` are seeded once from the
+    plan's ORIGINAL filing status. When ``filing`` (the status in force for the
+    projection year, e.g. Single after the first death) differs from it, the
+    verified dataset row for that status is used instead, as the Roth cap
+    already does. ``filing=None`` keeps the seeded values.
+    """
+    top0 = float(c.get('ltcg_0_top', 0.0) or 0.0)
+    top15 = float(c.get('ltcg_15_top', 0.0) or 0.0)
+    if filing and c.get('filing_status') and filing != c.get('filing_status'):
+        row = _td.LTCG_BRACKETS_BASE_YEAR.get(filing)
+        if row:
+            top0 = float(row.get('zero_top', top0))
+            top15 = float(row.get('fifteen_top', top15))
+    return top0, top15
+
+
+def ltcg_tax_on_gain(c, gain, ordinary_income, year, filing=None):
     """Total 0%/15%/20% LTCG bracket-stacking tax on ``gain``, stacked on
     top of ``ordinary_income``. The single canonical implementation -- see
     the module docstring for the inflation-index and base-year convention.
@@ -189,8 +214,9 @@ def ltcg_tax_on_gain(c, gain, ordinary_income, year):
     if gain <= 0:
         return 0.0
     infl = bracket_factor_for_year(c, year)
-    top0 = float(c.get('ltcg_0_top', 0.0) or 0.0) * infl
-    top15 = float(c.get('ltcg_15_top', 0.0) or 0.0) * infl
+    _t0, _t15 = ltcg_band_tops(c, filing)
+    top0 = _t0 * infl
+    top15 = _t15 * infl
     base = max(0.0, ordinary_income)
     remaining = float(gain or 0.0)
     in0 = min(remaining, max(0.0, top0 - base))
@@ -199,6 +225,39 @@ def ltcg_tax_on_gain(c, gain, ordinary_income, year):
     remaining -= in15
     tax = in15 * 0.15 + max(0.0, remaining) * 0.20
     return max(0.0, tax)
+
+
+def split_qualified_dividends(taxable_income, qualified_dividends):
+    """WI-023 / FIN-003: split ``taxable_income`` (which includes this year's
+    qualified dividends) into ``(ordinary_taxable, qualified_in_taxable)``.
+
+    Qualified dividends are the lowest layer of the preferential stack: they sit
+    on top of the ordinary income and below any realized capital gain. Taxable
+    income can be smaller than the dividends (a large deduction), so the
+    dividends in the stack are capped at ``taxable_income``. Ordinary taxable
+    income is the remainder (deductions absorb ordinary income first).
+    """
+    taxable = max(0.0, float(taxable_income or 0.0))
+    qd = min(taxable, max(0.0, float(qualified_dividends or 0.0)))
+    return taxable - qd, qd
+
+
+def fed_tax_with_qualified(c, ordinary_tax_fn, taxable_income, qualified_dividends, year, filing=None):
+    """WI-023 / FIN-003: federal income tax on ``taxable_income`` when
+    ``qualified_dividends`` (already included in it) are taxed at the 0/15/20%
+    preferential rates rather than the ordinary schedule.
+
+    ``ordinary_tax_fn(ordinary_taxable)`` is the ordinary-schedule tax;
+    the dividends are stacked by ``ltcg_tax_on_gain`` on top of the ordinary
+    taxable income. Realized capital gains are NOT included: they are taxed
+    separately (cascade ``ltcg_tax``) and stack above ``taxable_income``,
+    i.e. above these dividends.
+    """
+    ordinary, qd = split_qualified_dividends(taxable_income, qualified_dividends)
+    tax = float(ordinary_tax_fn(ordinary))
+    if qd > 0:
+        tax += ltcg_tax_on_gain(c, qd, ordinary, year, filing)
+    return tax
 
 
 def rmd_divisor(age, spouse_age=None, sole_beneficiary_spouse=False, table=None):

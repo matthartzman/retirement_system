@@ -29,6 +29,15 @@ def projected():
     return c, project(c)
 
 
+def _statutory_ordinary_rate(r, c):
+    """Statutory bracket of the next ORDINARY dollar. WI-023 / FIN-003: qualified
+    dividends are taxed in the 0/15/20% stack above the ordinary income, so the
+    ordinary bracket is read at taxable income less the dividends."""
+    taxable = max(0.0, float(r["taxable_inc"]))
+    qd = min(taxable, max(0.0, float(r.get("portfolio_qualified_dividends") or 0.0)))
+    return marginal_rate(taxable - qd, r["year"], r["filing"], c["brk_inf"])
+
+
 def test_every_year_reports_an_effective_marginal_rate(projected):
     _c, rows = projected
     missing = [r["year"] for r in rows if r.get("effective_marginal_rate") is None]
@@ -61,7 +70,7 @@ def test_effective_rate_is_at_least_the_statutory_bracket(projected):
     c, rows = projected
     below = []
     for r in rows:
-        statutory = marginal_rate(r["taxable_inc"], r["year"], r["filing"], c["brk_inf"])
+        statutory = _statutory_ordinary_rate(r, c)
         if r["effective_marginal_rate"] < statutory - 1e-6:
             below.append((r["year"], statutory, r["effective_marginal_rate"]))
     assert not below, (
@@ -80,7 +89,7 @@ def test_social_security_torpedo_is_detected(projected):
     c, rows = projected
     torpedo = []
     for r in rows:
-        statutory = marginal_rate(r["taxable_inc"], r["year"], r["filing"], c["brk_inf"])
+        statutory = _statutory_ordinary_rate(r, c)
         pct = r.get("ss_taxable_pct_actual") or 0.0
         # Inclusion strictly between 0 and the 85% cap => still phasing in.
         if 0.0 < pct < 0.85 - 1e-9 and r["effective_marginal_rate"] > statutory + 1e-6:

@@ -1,7 +1,7 @@
 # Release Notes
 
 Versioned release notes for the Retirement Planning system live in this
-directory, one file per release (for example `v11.0.0.md`). Keeping them here
+directory, one file per release (for example `v11.0.0.md`; today's files are dated, such as `2026-09-changes-334-339.md`). Keeping them here
 matches the repository's documentation layout — long-form docs under
 `documentation/`, READMEs under `documentation/reference/readme/`, and release notes under
 `documentation/reference/release_notes/` — and keeps the project root free of
@@ -16,6 +16,7 @@ Entries:
 - [`2026-09-changes-334-339.md`](2026-09-changes-334-339.md) -- IRMAA indexing (#334), one-time Large Discretionary (#336), Next Housing Move gating (#338) and related changes.
 - [`2026-10-monarch-balances-and-reconciliation.md`](2026-10-monarch-balances-and-reconciliation.md) -- daily Monarch account balances, the trends charts built on them, and the Monarch Reconciliation page.
 - [`2026-10-monarch-mapping-and-trends-fixes.md`](2026-10-monarch-mapping-and-trends-fixes.md) -- Monarch mapping redesign (inbox, policies, closed accounts, automatic updates) and the Financial Reporting fixes (items 349 to 354).
+- [`2026-10-wp11-file-elimination.md`](2026-10-wp11-file-elimination.md) -- WP11 storage changes: where plan data, settings and secrets live now, and CSV as import/export only.
 
 For the running record of golden-master projection changes, see
 [`../GOLDEN_MASTER_CHANGELOG.md`](../GOLDEN_MASTER_CHANGELOG.md).
