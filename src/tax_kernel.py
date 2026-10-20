@@ -166,6 +166,12 @@ def ltcg_marginal_rate(ordinary_income, existing_gain, ltcg_0_top, ltcg_15_top,
                         bracket_factor, niit_applies):
     """Marginal LTCG rate on the next dollar of gain, given where ordinary
     income plus existing gain already sits in the stacked 0/15/20% bands.
+
+    WI-023: ``ordinary_income`` is the taxable-income stack base BELOW the
+    gain, which must include qualified dividends (they occupy the lowest
+    preferential layer, under realized gains). Callers pass the row's
+    ``taxable_inc`` (dividends included); ``existing_gain`` is gain already
+    realized above that base.
     """
     base = max(0.0, ordinary_income) + max(0.0, existing_gain)
     top0 = ltcg_0_top * bracket_factor
@@ -199,6 +205,39 @@ def ltcg_tax_on_gain(c, gain, ordinary_income, year):
     remaining -= in15
     tax = in15 * 0.15 + max(0.0, remaining) * 0.20
     return max(0.0, tax)
+
+
+def split_qualified_dividends(taxable_income, qualified_dividends):
+    """WI-023 / FIN-003: split ``taxable_income`` (which includes this year's
+    qualified dividends) into ``(ordinary_taxable, qualified_in_taxable)``.
+
+    Qualified dividends are the lowest layer of the preferential stack: they sit
+    on top of the ordinary income and below any realized capital gain. Taxable
+    income can be smaller than the dividends (a large deduction), so the
+    dividends in the stack are capped at ``taxable_income``. Ordinary taxable
+    income is the remainder (deductions absorb ordinary income first).
+    """
+    taxable = max(0.0, float(taxable_income or 0.0))
+    qd = min(taxable, max(0.0, float(qualified_dividends or 0.0)))
+    return taxable - qd, qd
+
+
+def fed_tax_with_qualified(c, ordinary_tax_fn, taxable_income, qualified_dividends, year):
+    """WI-023 / FIN-003: federal income tax on ``taxable_income`` when
+    ``qualified_dividends`` (already included in it) are taxed at the 0/15/20%
+    preferential rates rather than the ordinary schedule.
+
+    ``ordinary_tax_fn(ordinary_taxable)`` is the ordinary-schedule tax;
+    the dividends are stacked by ``ltcg_tax_on_gain`` on top of the ordinary
+    taxable income. Realized capital gains are NOT included: they are taxed
+    separately (cascade ``ltcg_tax``) and stack above ``taxable_income``,
+    i.e. above these dividends.
+    """
+    ordinary, qd = split_qualified_dividends(taxable_income, qualified_dividends)
+    tax = float(ordinary_tax_fn(ordinary))
+    if qd > 0:
+        tax += ltcg_tax_on_gain(c, qd, ordinary, year)
+    return tax
 
 
 def rmd_divisor(age, spouse_age=None, sole_beneficiary_spouse=False, table=None):

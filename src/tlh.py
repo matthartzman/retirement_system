@@ -187,8 +187,8 @@ def scan_harvest_opportunities(c: Mapping[str, Any], year: int, *,
     death). The split makes the *permanent* portion (rate arbitrage / step-up)
     visible separately from the pure *deferral* portion.
     """
-    ltcg_0_top = float(c.get('ltcg_0_top', 96_700) or 0.0)
-    ltcg_15_top = float(c.get('ltcg_15_top', 600_050) or 0.0)
+    ltcg_0_top = float(c.get('ltcg_0_top', 98_900) or 0.0)
+    ltcg_15_top = float(c.get('ltcg_15_top', 613_700) or 0.0)
     try:
         # Tax-kernel extraction (Wave 2 item 2.1): this used to read a config
         # key, `bracket_inf`, that data_io.py never actually sets -- it

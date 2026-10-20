@@ -15,6 +15,7 @@ def _bracket_caps_and_marginal_rate(
     taxable_inc: float,
     brk_inf: Any,
     inflate_brackets_fn: Callable[[Any, Any, int], Any],
+    qualified_dividends: float = 0.0,
 ) -> tuple[float, float, float]:
     """The three tax inputs ``withdraw_pretax_elective`` needs:
     ``(top_24_yr, irmaa_thr_yr, marg)``.
@@ -45,7 +46,11 @@ def _bracket_caps_and_marginal_rate(
     # #334: IRMAA tier-2 threshold (0-based tier_idx 1) for this year's filing
     # status, from the single tax_kernel implementation.
     irmaa_thr_yr = _tk.irmaa_threshold(c, filing, 1, year)
-    marg = marginal_rate(taxable_inc, year, filing, c['brk_inf'])
+    # WI-023 / FIN-003: the next elective-IRA dollar is ordinary income and lands
+    # on top of the ORDINARY stack; qualified dividends sit above it in the
+    # preferential stack, so the bracket is read at taxable income less dividends.
+    ordinary_taxable, _qd = _tk.split_qualified_dividends(taxable_inc, qualified_dividends)
+    marg = marginal_rate(ordinary_taxable, year, filing, c['brk_inf'])
     return top_24_yr, irmaa_thr_yr, marg
 
 
@@ -193,6 +198,7 @@ def apply_priority_3_pretax_elective(
         top_24_yr, irmaa_thr_yr, marg = _bracket_caps_and_marginal_rate(
             c, year=year, filing=filing, taxable_inc=taxable_inc,
             brk_inf=brk_inf, inflate_brackets_fn=inflate_brackets_fn,
+            qualified_dividends=portfolio_qualified,
         )
         pretax_res = _legacy_pe.withdraw_pretax_elective(
             c, bal, gap, agi, taxable_inc, year, filing, top_24_yr, irmaa_thr_yr, marg,
@@ -390,6 +396,7 @@ def apply_priority_4b_final_pretax_draw(
             top_24_yr, irmaa_thr_yr, marg = _bracket_caps_and_marginal_rate(
                 c, year=year, filing=filing, taxable_inc=taxable_inc,
                 brk_inf=brk_inf, inflate_brackets_fn=inflate_brackets_fn,
+                qualified_dividends=portfolio_qualified,
             )
         if ira_taxable_inc_orig is None:
             # Same cause, same reasoning: the true-up helper's contract is

@@ -515,7 +515,8 @@ def run_deterministic_projection_stage(c):
         # Tax-law stress (src/tax_assumptions.py): rates only, tax owed only.
         return _ta_stressed_brackets(brk, year, c.get('law_scenario'))
 
-    def _compute_fed_tax_path(taxable, year, filing, brk_inf_unused=None):
+    def _ordinary_fed_tax_path(taxable, year, filing):
+        """Ordinary-schedule tax on ``taxable`` (no preferential income)."""
         brk = _fed_brackets_path(year, filing)
         tax = 0.0
         taxable = max(0.0, float(taxable or 0.0))
@@ -524,6 +525,21 @@ def run_deterministic_projection_stage(c):
                 break
             tax += (min(taxable, hi) - lo) * rate
         return max(0.0, tax)
+
+    # WI-023 / FIN-003: the year's qualified dividends, registered by the year
+    # loop as soon as the portfolio income split is known. Every stage that
+    # prices a taxable-income level through ``_compute_fed_tax_path`` (stage 9,
+    # Roth planner, IRA true-up, DAF/HSA corrections, effective marginal rate,
+    # capital-loss offset value) then sees the same preferential stack.
+    _qualified_dividends_by_year: dict[int, float] = {}
+
+    def _compute_fed_tax_path(taxable, year, filing, brk_inf_unused=None):
+        """Federal tax on ``taxable`` (qualified dividends included): the
+        ordinary schedule on the rest, plus 0/15/20% on the dividends stacked
+        on top of it. Realized gains are priced separately above this stack."""
+        return _tk.fed_tax_with_qualified(
+            c, lambda o: _ordinary_fed_tax_path(o, year, filing), taxable,
+            _qualified_dividends_by_year.get(year, 0.0), year)
 
     def _ira_elective_ordinary_tax_delta(fed_tax_base, state_tax_base, taxable_inc_base,
                                           retirement_dist_base, ira_wd_cumulative, year, filing,
@@ -1055,6 +1071,7 @@ def run_deterministic_projection_stage(c):
         wellness_other_yr = _spending_rmd.wellness_other_yr
         portfolio_ordinary = _spending_rmd.portfolio_ordinary
         portfolio_qualified = _spending_rmd.portfolio_qualified
+        _qualified_dividends_by_year[year] = portfolio_qualified
         portfolio_tax_exempt = _spending_rmd.portfolio_tax_exempt
         qcd_total_yr = _spending_rmd.qcd_total_yr
         daf_contrib_yr = _spending_rmd.daf_contrib_yr
@@ -1215,7 +1232,8 @@ def run_deterministic_projection_stage(c):
                 c, row, _rental_year, _rental_book, year=year, filing=filing,
                 taxable_inc=taxable_inc, home_sale_ltcg_gain=home_sale_ltcg_gain,
                 home_sale_ltcg_tax=home_sale_ltcg_tax,
-                fed_brackets=_fed_brackets_path(year, filing), compute_fed_tax_fn=_compute_fed_tax_path,
+                fed_brackets=_fed_brackets_path(year, filing), compute_fed_tax_fn=_ordinary_fed_tax_path,
+                qualified_dividends=portfolio_qualified,
                 state_tax=state_tax, state_tax_fn=lambda investment_inc: state_income_tax(
                     state_for_year(c, year), earned_net, retirement_dist, ss_taxable, investment_inc,
                     nonqual_ann, roth_conv, year, h_over_65, filing=filing, brk_inf=c['brk_inf'],
@@ -1427,7 +1445,8 @@ def run_deterministic_projection_stage(c):
             # the stack, so re-cap it at the converged taxable income.
             _cap_delta = _rental.true_up_1250_cap(
                 row, _rental_year, _rental_book, year=year, filing=filing, taxable_inc=taxable_inc,
-                fed_brackets=_fed_brackets_path(year, filing), compute_fed_tax_fn=_compute_fed_tax_path)
+                fed_brackets=_fed_brackets_path(year, filing), compute_fed_tax_fn=_ordinary_fed_tax_path,
+                qualified_dividends=portfolio_qualified)
             if _cap_delta:
                 total_tax_pre_niit += _cap_delta
                 total_tax += _cap_delta

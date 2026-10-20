@@ -1036,11 +1036,18 @@ def ordinary_income(ry: RentalYear, passive: PassiveLossResult) -> float:
 def unrecaptured_1250_cap_adjustment(amount: float, taxable_inc: float, year: int, filing: str,
                                      brackets: list[tuple[float, float, float]],
                                      fed_tax_fn: Callable[[float, int, str], float],
-                                     max_rate: float) -> float:
+                                     max_rate: float,
+                                     qualified_dividends: float = 0.0) -> float:
     """The (non-positive) federal tax change that caps the unrecaptured section 1250 gain
-    at ``max_rate``: the gain sits in ordinary taxable income at the top of ``taxable_inc``
-    and was taxed at full bracket rates; each dollar is owed at most ``max_rate``."""
+    at ``max_rate``: the gain sits in ordinary taxable income at the top of the ORDINARY
+    stack and was taxed at full bracket rates; each dollar is owed at most ``max_rate``.
+
+    WI-023 / FIN-003: qualified dividends are taxed in the preferential stack above the
+    ordinary income, so the ordinary stack is ``taxable_inc`` less the dividends and
+    ``fed_tax_fn`` must be the ORDINARY-schedule tax (no dividend stacking)."""
     from ..rental_tax import unrecaptured_1250_tax
+    from .. import tax_kernel as _tk
+    taxable_inc, _qd = _tk.split_qualified_dividends(taxable_inc, qualified_dividends)
     slice_amt = min(max(0.0, amount), max(0.0, taxable_inc))
     if slice_amt <= 0:
         return 0.0
@@ -1175,7 +1182,8 @@ def apply_sale_tax(c: dict[str, Any], row: dict[str, Any], ry: RentalYear, book:
                    filing: str, taxable_inc: float, home_sale_ltcg_gain: float, home_sale_ltcg_tax: float,
                    fed_brackets: list[tuple[float, float, float]],
                    compute_fed_tax_fn: Callable[[float, int, str], float], state_tax: float,
-                   state_tax_fn: Callable[[float], float], investment_inc: float) -> RentalSaleTax:
+                   state_tax_fn: Callable[[float], float], investment_inc: float,
+                   qualified_dividends: float = 0.0) -> RentalSaleTax:
     """The tax on a rental sale beyond what ordinary income already carries (the
     unrecaptured 1250 gain and a 1231 loss are in ``portfolio_ordinary`` by now):
 
@@ -1197,7 +1205,7 @@ def apply_sale_tax(c: dict[str, Any], row: dict[str, Any], ry: RentalYear, book:
     if u1250 > 0:
         cap_adj = unrecaptured_1250_cap_adjustment(
             u1250, taxable_inc, year, filing, fed_brackets, compute_fed_tax_fn,
-            book.constants(year, filing).unrecaptured_1250_max_rate)
+            book.constants(year, filing).unrecaptured_1250_max_rate, qualified_dividends)
     row['rental_sale_ltcg_tax'] = tax - home_sale_ltcg_tax
     row['rental_sale_1250_cap_adjustment'] = cap_adj
     row['rental_sale_state_tax_on_ltcg'] = state_adj
@@ -1207,7 +1215,8 @@ def apply_sale_tax(c: dict[str, Any], row: dict[str, Any], ry: RentalYear, book:
 
 def true_up_1250_cap(row: dict[str, Any], ry: RentalYear, book: RentalBook, *, year: int, filing: str,
                      taxable_inc: float, fed_brackets: list[tuple[float, float, float]],
-                     compute_fed_tax_fn: Callable[[float, int, str], float]) -> float:
+                     compute_fed_tax_fn: Callable[[float, int, str], float],
+                     qualified_dividends: float = 0.0) -> float:
     """Re-cap the unrecaptured 1250 gain at the converged ``taxable_inc`` (after the
     cascade's elective draws pushed it up the brackets); returns the change to the
     sale-year tax and updates the row's adjustment fields. 0 outside a sale year."""
@@ -1216,7 +1225,7 @@ def true_up_1250_cap(row: dict[str, Any], ry: RentalYear, book: RentalBook, *, y
         return 0.0
     cap_adj = unrecaptured_1250_cap_adjustment(
         u1250, taxable_inc, year, filing, fed_brackets, compute_fed_tax_fn,
-        book.constants(year, filing).unrecaptured_1250_max_rate)
+        book.constants(year, filing).unrecaptured_1250_max_rate, qualified_dividends)
     delta = cap_adj - row['rental_sale_1250_cap_adjustment']
     row['rental_sale_1250_cap_adjustment'] = cap_adj
     row['rental_tax_adjustment'] += delta
