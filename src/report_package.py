@@ -93,6 +93,7 @@ def build_report_package(
             "results_model": "canonical_semantic_report_model",
         },
         "artifacts": artifacts,
+        "limitation_notices": list(summary_payload.get("limitation_notices") or []),
         "artifact_count": len(artifacts),
         "required_missing": required_missing,
         "summary": summary_payload,

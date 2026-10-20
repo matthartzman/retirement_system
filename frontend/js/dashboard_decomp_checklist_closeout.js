@@ -771,6 +771,18 @@ export function renderBuildPreflightPanel() {
     } else
       body +=
         '<p class="small">No preflight warnings found for the saved local plan.</p>';
+    // WI-010 / WI-010a: limitation notices (display only; they never change readiness).
+    const notices = p.limitation_notices || [];
+    if (notices.length) {
+      body += '<p class="small"><b>Limitations of this plan</b></p><ul class="limitation-notices">';
+      notices.forEach((n) => {
+        body += `<li data-notice="${esc(n.id)}"><b>${esc(n.severity === "warning" ? "Warning" : "Note")}:</b> ${esc(n.text)}`;
+        if ((n.families || []).length)
+          body += "<ul>" + n.families.map((f) => `<li>${esc(f.family)}: ${esc(f.status)}</li>`).join("") + "</ul>";
+        body += "</li>";
+      });
+      body += "</ul>";
+    }
   }
   return `<div class="preflight-panel ${cls}"><div><h3>${esc(title)}</h3>${body}</div><div class="preflight-actions"><button class="btn" type="button" onclick="refreshPreflightForReview()">Refresh Preflight</button></div></div>`;
 }

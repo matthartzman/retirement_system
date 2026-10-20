@@ -64,6 +64,7 @@ CONTRACTS: tuple[EndpointContract, ...] = (
             _f("success", "bool", True), _f("schema", "str", True), _f("readiness", "str", True),
             _f("blockers", "list", True), _f("warnings", "list", True), _f("recommendations", "list", True),
             _f("artifacts", "dict", True), _f("snapshot", "dict"), _f("pricing_mode", "str"),
+            _f("limitation_notices", "list"),
         ),
         notes="Fast side-effect-free readiness contract before build.",
     ),
@@ -298,7 +299,7 @@ CONTRACTS: tuple[EndpointContract, ...] = (
     ),
     EndpointContract(
         "/api/tax-assumptions", "GET", "tax_assumptions_v1",
-        response_fields=(_f("success", "bool", True), _f("state", "str"), _f("levers", "list", True), _f("residency_periods", "list"), _f("law_table", "dict")),
+        response_fields=(_f("success", "bool", True), _f("state", "str"), _f("levers", "list", True), _f("residency_periods", "list"), _f("law_table", "dict"), _f("limitation_notices", "list")),
     ),
     EndpointContract(
         "/api/tax-assumptions", "POST", "tax_assumptions_update_v1",

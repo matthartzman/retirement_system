@@ -125,6 +125,19 @@ export function taxLawHtml(law, periods) {
   return h + "</div></details>";
 }
 
+// WI-010 / WI-010a: limitation notices and the per-family data status list (N7).
+export function taxNoticesHtml(notices) {
+  if (!(notices || []).length) return "";
+  let h = `<div class="section-note limitation-notices"><b>Limitations of this plan</b><ul>`;
+  notices.forEach((n) => {
+    h += `<li data-notice="${esc(n.id)}">${esc(n.text)}`;
+    if ((n.families || []).length)
+      h += "<ul>" + n.families.map((f) => `<li>${esc(f.family)}: ${esc(f.status)}</li>`).join("") + "</ul>";
+    h += "</li>";
+  });
+  return h + "</ul></div>";
+}
+
 export function taxAssumptionsCardHtml(p, drafts, err, loading) {
   let h = `<div class="holdings" id="taxAssumptionsCard"><h3 class="group-title">Tax Assumptions</h3>`;
   h += `<div class="section-note">Model values come from the tax-law dataset and your state. Type a value (e.g. 3% or 0.03) to override one; leave it blank to use Auto.</div>`;
@@ -140,7 +153,7 @@ export function taxAssumptionsCardHtml(p, drafts, err, loading) {
   if (err) h += `<div class="missing-list" role="alert">${esc(err)}</div>`;
   h += `<div class="table-actions"><button class="btn primary" type="button" onclick="taxAssumptionsSave()">Save</button>`;
   h += `<button class="btn" type="button" onclick="taxAssumptionsResetAll()">Reset all</button></div>`;
-  return h + taxLawHtml(p.law_table, p.residency_periods) + `</div>`;
+  return h + taxNoticesHtml(p.limitation_notices) + taxLawHtml(p.law_table, p.residency_periods) + `</div>`;
 }
 
 function taxRefreshCard() {

@@ -116,6 +116,8 @@ body{font-family:"DM Sans","Aptos","Segoe UI",Arial,sans-serif;background:var(--
 .pos-num{font-size:12px;text-align:right;color:var(--ink);}
 .type-pretax{background:#C55A11;}.type-roth{background:#2D6A4F;}
 .type-taxable{background:#3D5A80;}.type-hsa{background:#1B7A9E;}.type-cash{background:#595959;}
+.notices{margin:24px 32px 0;padding:14px 18px;border:1px solid var(--rule);font-size:12px;color:var(--ink);}
+.notices h2{font-size:13px;margin:0 0 8px;}.notices li{margin:0 0 6px;}
 .footer{text-align:center;padding:24px;font-size:11px;color:var(--muted);
   border-top:1px solid var(--rule);margin-top:32px;}
 @media(max-width:900px){.chart-body{display:block}.chart-legend{max-height:none;flex:auto;margin-top:10px}.masthead{padding:28px 24px}.chart-card{padding:20px}.col-hdr,.pos-row{grid-template-columns:52px 1fr 66px 66px 58px}}
@@ -175,6 +177,7 @@ body{font-family:"DM Sans","Aptos","Segoe UI",Arial,sans-serif;background:var(--
 <div class="holdings-grid" id="holdingsGrid"></div>
 </div>
 
+__NOTICES__
 <div class="footer">
   Built __TODAY__ · OBBBA (One Big Beautiful Bill Act, signed July 4 2025) · __PRICES__ ·
   For informational purposes only — not financial, tax, or legal advice.
@@ -317,6 +320,13 @@ renderAllCharts(); renderHoldings();
     else:
         ss_claim = f'Age {int(h_claim or w_claim or 70)}'
 
+    from ..limitation_notices import display_lines
+    _lines = display_lines(c.get('limitation_notices') or [])
+    notices_html = (
+        '<div class="notices"><h2>Limitations of this plan</h2><ul>'
+        + ''.join(f'<li data-notice="{_esc(n)}">{_esc(t)}</li>' for n, _s, t in _lines)
+        + '</ul></div>') if _lines else ''
+
     y0 = 0  # snapshot cells show end of the first projection year
     snap = {
         '__SNAP_PRETAX__': _fmt_compact(_series_year_value(['Pre-Tax IRA/401k'], y0)),
@@ -339,6 +349,7 @@ renderAllCharts(); renderHoldings();
         "__LIFETIME_TAX__": f'~{_fmt_compact(lifetime_tax)}' if years else 'n/a',
         "__SS_CLAIM__": ss_claim,
         **snap,
+        "__NOTICES__": notices_html,
         "__DATA_SCRIPT__": data_script,
     }
     for key, value in replacements.items():
