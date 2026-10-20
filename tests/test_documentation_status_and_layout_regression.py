@@ -22,7 +22,10 @@ _CUTOFF = "2026-09-16"
 def _tracked():
     out = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True, text=True)
     if out.returncode != 0:
-        pytest.skip("not a git checkout")
+        # Packaged release or exported tree: walk the files instead of skipping.
+        return sorted(
+            p.relative_to(ROOT).as_posix() for p in (ROOT / "documentation").rglob("*") if p.is_file()
+        )
     return out.stdout.splitlines()
 
 

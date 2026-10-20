@@ -47,7 +47,7 @@ test('Monarch settings card: toggle persists via autosave, and Import now update
 
   const checkbox = card.locator('#monarchAutoUpdateEnabled');
   const sourceDirInput = card.locator('#monarchAutoUpdateSourceDir');
-  const statusLine = page.locator('.monarch-autoupdate-card p', { hasText: 'Status:' });
+  const statusLine = page.locator('.monarch-autoupdate-card p', { hasText: 'Transactions:' });
   const originalChecked = await checkbox.isChecked();
   const originalSourceDir = await sourceDirInput.inputValue();
 
@@ -68,7 +68,12 @@ test('Monarch settings card: toggle persists via autosave, and Import now update
 
     // Point source_dir at a directory that genuinely exists (see header
     // comment) so the upcoming "Import now" exercises the real success path.
-    await sourceDirInput.fill('input');
+    // The server requires a full absolute path (SourceDirNotAbsoluteError), so
+    // derive the staged workspace's input/ from the default
+    // "<workspace>/Monarch Extractor/output".
+    const sep = originalSourceDir.includes('\\') ? '\\' : '/';
+    const inputDir = [...originalSourceDir.split(/[\\/]/).slice(0, -2), 'input'].join(sep);
+    await sourceDirInput.fill(inputDir);
     await sourceDirInput.blur();
     await expect(card.getByText('Saving…')).toHaveCount(0, { timeout: 10_000 });
 
@@ -80,7 +85,7 @@ test('Monarch settings card: toggle persists via autosave, and Import now update
     const reloadedCheckbox = page.locator('.monarch-autoupdate-card #monarchAutoUpdateEnabled');
     const reloadedSourceDir = page.locator('.monarch-autoupdate-card #monarchAutoUpdateSourceDir');
     await expect(reloadedCheckbox).toHaveJSProperty('checked', true, { timeout: 10_000 });
-    await expect(reloadedSourceDir).toHaveValue('input', { timeout: 10_000 });
+    await expect(reloadedSourceDir).toHaveValue(inputDir, { timeout: 10_000 });
 
     const importButton = page.locator('.monarch-autoupdate-card').getByRole('button', { name: /Import now|Importing…/ });
     const statusBefore = await statusLine.innerText();
