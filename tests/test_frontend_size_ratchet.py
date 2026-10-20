@@ -573,9 +573,20 @@ DASHBOARD_JS_MAX_LINES = 7_134
 # 2026-10-19 (liability payoff month + carry-zero columns on the Liabilities table, +19): raised to 39,361.
 # 2026-10-20 (WI-013 / UX-006: admin.js live-region msg(), in-app confirm dialog, grid aria-labels, +42):
 # raised to 39,499.
+# 2026-10-20 (WI-018 / UX-001, UX-011: saveBeforeStructuralChange helper + reportSaveFailure extraction in
+# row_model.js, guard calls in 10 add/delete/seed handlers, in-app confirm + loadAll in importPlanFolder, +59):
+# raised to 39,558.
+# 2026-10-20 (WI-019 / UX-002, ARC-003: hide-in-background replaces the fake Cancel, running chip, in-flight
+# guard, build-warnings banner in build_lifecycle.js and row_model.js, +111): raised to 39,669.
+# 2026-10-20 (WI-020 / UX-004, UX-010: per-field save-error messages, error summary, structured field_errors
+# in api_client, showInAppPrompt dialog semantics + choices mode, estate state/trust-type selects, +205):
+# raised to 39,874.
+# 2026-10-20 (WI-021 / UX-003, UX-008, UX-009, UX-012: navigateTo guard, page announcements and heading focus,
+# nav-group state, help badge button, chart summaries + expand button, +179): raised to 40,053.
 # 2026-10-20 (WI-010 / WI-010a: limitation notices in the preflight panel and Tax Assumptions card, +25):
 # raised to 39,524.
-TOTAL_JS_MAX_LINES = 39_524
+# Merged WI-018 to WI-021 with main's WI-010/010a: 40,078.
+TOTAL_JS_MAX_LINES = 40_078
 
 
 def _line_count(path: Path) -> int:

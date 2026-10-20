@@ -338,6 +338,7 @@ def run_build_progress_job(
             "elapsed_seconds": elapsed,
             "qc_result": outcome.qc_result,
             "kpi": outcome.summary,
+            "warnings": [redact_text(w) if redact_logs else w for w in getattr(outcome, "warnings", ())],
             "output_dir": str(output_dir),
             "admin_changes": admin_changes,
             "previous_build_ts": previous_build_ts,

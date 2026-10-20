@@ -815,7 +815,7 @@ let _autoLoadPref = null; // null = not yet loaded from server; bool after first
 
 function stepHelpLinkHtml(st) {
   if (!st || !st.helpLink) return "";
-  return ` <a href="#" onclick="setStep('${st.helpLink.id}');return false">${esc(st.helpLink.label)}</a>`;
+  return ` <a href="#" onclick="navigateTo('${st.helpLink.id}');return false">${esc(st.helpLink.label)}</a>`;
 }
 function pageHelp(title, meaning, connections, options, impact) {
   const acronyms = acronymDefinitionsHtml([
@@ -2020,12 +2020,12 @@ function fieldTooltipHtml(lbl, row) {
   const suffix = / Click for the full explanation\.?$/i.test(tip)
     ? ""
     : " Click for the full explanation.";
-  // #219/#220: standard superscript-i info link. Hover/focus shows the short
-  // hint via the native title tooltip; click bubbles to the field row's own
-  // onclick, which opens the full purpose/impact/consider panel via
-  // showFieldHelp -- the badge itself needs no separate click handler.
+  // #219/#220: info badge. Hover/focus shows the short hint via the native title tooltip.
+  // UX-003 (WI-021): a real <button>, so Tab reaches it and Enter/Space activate it; the click
+  // bubbles to the field row's own onclick, which opens the full purpose/impact/consider panel
+  // via showFieldHelp (aria-controls points at that panel).
   const full = tip + suffix;
-  return `<sup class="field-info-i" tabindex="0" title="${esc(full)}" aria-label="More info: ${esc(full)}">i</sup>`;
+  return `<button type="button" class="field-info-i" title="${esc(full)}" aria-controls="helpPanel" aria-label="More info: ${esc(full)}">i</button>`;
 }
 // Width of the control should match the width of the value people actually
 // type: a 4-digit year does not need the same box as a free-text name. Kept
@@ -2136,7 +2136,7 @@ function renderFieldFinderGroups(rs) {
   const _ffQ = norm(searchText || "");
   const travelPointer =
     _ffQ && "travel".includes(_ffQ)
-      ? `<div class="section-note">Travel budget (annual amount, start/end year) and Travel transaction detail are on <a href="#" onclick="setStep('lifestyle_spending');return false">Other Spending</a> — not indexed here yet.</div>`
+      ? `<div class="section-note">Travel budget (annual amount, start/end year) and Travel transaction detail are on <a href="#" onclick="navigateTo('lifestyle_spending');return false">Other Spending</a> — not indexed here yet.</div>`
       : "";
   if (!rs.length)
     return (
@@ -2385,7 +2385,7 @@ function renderAssetsCashReserves() {
   if (searchText.trim())
     return renderFields("assets_home_cash") + renderLiquidityBuffers();
   let html =
-    '<div class="section-note">The reserve floor the plan protects before drawing from the portfolio. <b>Home value and mortgage balance are on <a href="#" onclick="setStep(\'assets_special\');return false">Other Assets and Liabilities</a>; home sale is in <a href="#" onclick="setStep(\'strategy_optimize\');return false">Optimize → Next Housing Move</a>.</b></div>';
+    '<div class="section-note">The reserve floor the plan protects before drawing from the portfolio. <b>Home value and mortgage balance are on <a href="#" onclick="navigateTo(\'assets_special\');return false">Other Assets and Liabilities</a>; home sale is in <a href="#" onclick="navigateTo(\'strategy_optimize\');return false">Optimize → Next Housing Move</a>.</b></div>';
   html += renderLiquidityBuffers();
   return html;
 }
@@ -6529,8 +6529,9 @@ function openNextCollapsedSectionFrom(el) {
     n = n.nextElementSibling;
   }
 }
-// Enter/Tab advances between plan-data fields. UX-001 (WI-501): acts ONLY on focusableEntries() inputs/selects
+// Enter advances between plan-data fields. UX-001 (WI-501): acts ONLY on focusableEntries() inputs/selects
 // outside dialogs; buttons, textareas, nav/search and dialog controls keep native keys (no preventDefault).
+// UX-003 (WI-021): Tab is native again, so the help badges and in-row buttons between fields are reachable.
 function moveToNextEntry(e) {
   const el = e.target;
   if (!el || typeof el.matches !== "function" || e.defaultPrevented) return;
@@ -6543,7 +6544,7 @@ function moveToNextEntry(e) {
   // focus-move, sometimes stealing focus to an unrelated element.
   if (el.closest(".wf-col-width")) return;
   if (el.closest('[role="dialog"],[aria-modal="true"]')) return; // dialogs trap their own focus
-  if (e.key === "Enter" || (e.key === "Tab" && !e.shiftKey)) {
+  if (e.key === "Enter") {
     const current = focusableEntries();
     const at = current.indexOf(el);
     if (at < 0 || at >= current.length - 1) return;

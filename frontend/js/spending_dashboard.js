@@ -184,7 +184,7 @@ export function renderSpendingDashboard() {
   if (prevOver !== (window.spendingDivergencePct > 0.03)) setTimeout(function () { if (window.renderSteps) window.renderSteps(); }, 0);
   if (!d.enabled) {
     return '<div class="holdings spending-dashboard"><div class="question"><b>No transaction data loaded.</b> ' +
-      'Import transactions on the <a href="#" onclick="setStep(\'ytd_transactions\');return false">Income &amp; Expense Transactions tab</a> first, then return here to track budget vs actuals.</div></div>';
+      'Import transactions on the <a href="#" onclick="navigateTo(\'ytd_transactions\');return false">Income &amp; Expense Transactions tab</a> first, then return here to track budget vs actuals.</div></div>';
   }
 
   var html = '<div class="holdings spending-dashboard">';

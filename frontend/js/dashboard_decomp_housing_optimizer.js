@@ -598,7 +598,7 @@ Object.assign(HOUSING_OPT_FIELD_HELP, {
 // `key` is both the control's id and its help-registry key, so the DOM, the
 // help registry and the persistence snapshot (Task 15) all agree on one name.
 function housingOptField(key, labelText, controlHtml, hint) {
-  return `<div class="housing-opt-field" onclick="showHousingOptFieldHelp('${key}')"><label for="${key}">${esc(labelText)}<sup class="field-info-i" tabindex="0" title="${esc(hint || labelText)}" aria-label="More info: ${esc(hint || labelText)}">i</sup></label>${controlHtml}</div>`;
+  return `<div class="housing-opt-field" onclick="showHousingOptFieldHelp('${key}')"><label for="${key}">${esc(labelText)}<button type="button" class="field-info-i" title="${esc(hint || labelText)}" aria-label="More info: ${esc(hint || labelText)}">i</button></label>${controlHtml}</div>`;
 }
 
 function housingOptRow(title, fieldsHtml) {
@@ -1244,7 +1244,7 @@ function housingOptMoveSelectionHtml(n) {
   return (
     `<div class="housing-opt-selection" onclick="showHousingOptFieldHelp('${p}SelectedZips')">` +
     `<div class="housing-opt-row-label">Move ${n} — candidate locations` +
-    `<sup class="field-info-i" tabindex="0" title="The ZIPs this move's search runs on. Pre-checked as the screen promoted them; tick or untick to change the search." aria-label="More info: candidate locations">i</sup></div>` +
+    `<button type="button" class="field-info-i" title="The ZIPs this move's search runs on. Pre-checked as the screen promoted them; tick or untick to change the search." aria-label="More info: candidate locations">i</button></div>` +
     `<div class="housing-opt-shortlist" id="${p}Shortlist"><p class="small">Press <em>Find candidate locations</em> to screen ZIPs around this move's anchors.</p></div>` +
     "</div>"
   );

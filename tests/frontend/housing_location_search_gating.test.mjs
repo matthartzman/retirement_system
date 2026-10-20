@@ -82,7 +82,7 @@ describe("the off-state is Collapsed-with-a-note, and the body is not built", ()
   test("the note links to Plan Features instead of offering an inline switch", () => {
     const html = sandbox.featureGatedNote(KEY, { title: "Next Housing Move" });
     assert.ok(!html.includes("editValue"));
-    assert.ok(html.includes("setStep('optional_functions')"));
+    assert.ok(html.includes("navigateTo('optional_functions')"));
   });
 
   test("on, the panel body IS built", () => {
