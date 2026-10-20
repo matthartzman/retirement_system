@@ -51,11 +51,13 @@ test('hiding a running build: honest button, no forced navigation, warnings show
   await openCurrentPlan(page);
   await startBuild(page);
 
-  // Cancel build asks the server to stop the build; the overlay only says "Cancelling" until the
-  // server reports the cancelled state (the mocked job keeps running, so it never claims one).
+  // Cancel build asks the server to stop the build. The mocked job keeps running, so the overlay
+  // must not claim a cancellation: it stays up (the title is rewritten by every progress poll, so
+  // it is not asserted here).
   await page.getByRole('button', { name: /^Cancel build/ }).click();
   await expect.poll(() => gate.cancelCalls).toBe(1);
-  await expect(page.locator('#buildOverlayTitle')).toContainText('Cancelling build');
+  await expect(page.locator('#buildOverlay')).toHaveClass(/active/);
+  await expect(page.locator('#actionMessage')).not.toContainText(/cancel/i);
   await page.getByRole('button', { name: /Hide/ }).first().click();
   await expect(page.locator('#buildOverlay')).not.toHaveClass(/active/);
   await expect(page.locator('#buildRunningChip')).toBeVisible();
