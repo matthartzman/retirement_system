@@ -202,7 +202,6 @@
     "SPENDING_WORKFLOW_INDEX",
     "SPENDING_WORKFLOW_STEPS",
     "STEPS",
-    "STEP_HELP",
     "STRATEGY_TABS",
     "SYSTEM_CONFIG_FIELD_HELP",
     "TERM_NOTES",
@@ -351,7 +350,6 @@
     "SPENDING_WORKFLOW_INDEX",
     "SPENDING_WORKFLOW_STEPS",
     "STEPS",
-    "STEP_HELP",
     "STRATEGY_TABS",
     "SYSTEM_CONFIG_FIELD_HELP",
     "TERM_NOTES",
@@ -1670,12 +1668,6 @@
     },
     {
       "name": "SYSTEM_CONFIG_FIELD_HELP",
-      "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "STEP_HELP",
       "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
       "kind": "read",
       "scope": "inside-function"
@@ -9782,7 +9774,6 @@
     "ROTH_WINDOW_LABELS",
     "SCENARIO_SET_STORAGE_KEY",
     "STEPS",
-    "STEP_HELP",
     "STRATEGY_TABS",
     "SYSTEM_CONFIG_FIELD_HELP",
     "YTD_ACTUALS_PERIOD_LS_KEY",

@@ -38,9 +38,7 @@ def test_dashboard_adds_planning_workbench_step_and_case_store():
     assert "renderPlanningWorkbench" not in js
     assert "function planningCaseCreate(source)" in js
     assert "function stepIdForRow(row) {\n  return sourceStepForRow(row);\n}" in js
-    assert 'planning_workbench: pageHelp(\n    "Planning Workbench"' in js
     assert "planning_case_v1 browser-local store" in js
-    assert "Baseline → Change Set → Run Type → Impact → Decision" in js
 
 
 def test_planning_workbench_route_is_available_before_plan_load():

@@ -92,7 +92,6 @@ def test_ytd_ui_contains_step_upload_table_and_account_mapping():
     assert 'YTD spending and growth' in text
     assert 'Income &amp; Expense Transactions' in text
     assert 'Replace all' in text
-    assert 'Add to merge new transactions' in text
     assert 'Expected YTD' in text
     assert 'Mortgage and RE Tax' in text
     assert 'annual_real_estate_taxes' in text
