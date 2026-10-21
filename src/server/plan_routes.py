@@ -252,7 +252,7 @@ def price_snapshots():
     denied = _require("view_dashboard")
     if denied:
         return denied
-    return jsonify({"success": True, "latest": pricing_service.latest_price_snapshots(workspace_id=_workspace_id(), db_path=_sqlite_db())})
+    return jsonify({"success": True, "latest": pricing_service.latest_price_snapshots(workspace_id=_workspace_id())})
 
 
 @app.route("/api/prices/freeze", methods=["POST"])
@@ -260,7 +260,7 @@ def freeze_prices():
     denied = _require("refresh_prices")
     if denied:
         return denied
-    payload = freeze_latest_pricing_snapshot(workspace_id=_workspace_id(), db_path=_sqlite_db())
+    payload = freeze_latest_pricing_snapshot(workspace_id=_workspace_id())
     _audit("prices_frozen", {k: v for k, v in payload.items() if k != "symbols"})
     return jsonify(payload)
 
@@ -270,7 +270,7 @@ def unfreeze_prices():
     denied = _require("refresh_prices")
     if denied:
         return denied
-    payload = unfreeze_pricing_snapshot(workspace_id=_workspace_id(), db_path=_sqlite_db())
+    payload = unfreeze_pricing_snapshot(workspace_id=_workspace_id())
     _audit("prices_unfrozen", payload)
     return jsonify(payload)
 

@@ -1472,16 +1472,8 @@ def _main(plan_read):
         print(f'KPI snapshot archived: {kpi_snapshot_id}')
     except Exception as _kpi_snap_exc:
         print(f'Warning: KPI snapshot archive failed (build continues): {_kpi_snap_exc}')
-    # save_kpi_snapshot() writes through a WAL-mode connection (see
-    # local_store.py), so the INSERT above only lands in the .db-wal file --
-    # the main .db file's mtime does not move until something checkpoints
-    # the WAL. Without this second checkpoint, that would happen later, at
-    # make_build_snapshot() -> capture_sqlite_database_snapshot()'s own
-    # checkpoint, which runs after every essential artifact below is already
-    # on disk -- reintroducing the exact staleness bug the early
-    # checkpoint_sqlite_database() call above and this whole reordering
-    # exist to prevent. Checkpointing here, before any essential artifact is
-    # written, makes that later checkpoint a no-op.
+    # The KPI snapshot lives in app.db (WI-038), not in the plan file the build snapshots below,
+    # so the checkpoint here only settles the plan file's own pending writes.
     checkpoint_sqlite_database(config_meta.get('plan_db') or config_meta.get('sqlite_db') or config_meta.get('path'))
 
     # Widen any numeric column that would otherwise render "#####" at its

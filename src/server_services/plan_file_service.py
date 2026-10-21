@@ -25,6 +25,7 @@ from typing import Any, Callable
 from .. import plan_registry
 from ..plan_db_replace import PLAN_FILE_TABLES, copy_sqlite_file, remove_sidecars, replace_active_db, validate_plan_file
 from ..active_plan import read_build_results
+from ..app_state import app_store_path
 from ..build_snapshot import (
     compare_snapshot_to_current,
     restore_sqlite_database_from_snapshot,
@@ -84,7 +85,7 @@ class PlanFileService:
         return dict((row or {}).get("snapshot") or {})
 
     def exit_snapshot(self) -> dict[str, Any]:
-        """A versioned copy of the legacy database and of the plan file; each keeps the last
+        """A versioned copy of the legacy database, of app.db (snapshots, prices, history) and of the plan file; each keeps the last
         ``retention_count``."""
         src = self.ctx.sqlite_db()
         plan = self.ctx.plan_db()
@@ -99,6 +100,13 @@ class PlanFileService:
             shutil.copy2(str(src), str(src.parent / snapshot_name))
             pruned += self._prune_backups(src.parent, "retirement_system_v10.db.version_*")
             out["snapshot"] = snapshot_name
+        app_db = app_store_path()
+        if app_db.exists():
+            _checkpoint_sqlite(app_db)
+            app_snapshot = f"{app_db.name}.version_{ts}"
+            shutil.copy2(str(app_db), str(app_db.parent / app_snapshot))
+            pruned += self._prune_backups(app_db.parent, f"{app_db.name}.version_*")
+            out["app_snapshot"] = app_snapshot
         if plan.exists():
             plan_snapshot = f"{plan.name}.version_{ts}"
             copy_sqlite_file(plan, plan.parent / plan_snapshot)

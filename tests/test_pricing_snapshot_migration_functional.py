@@ -8,9 +8,9 @@ from src.portfolio_analytics import load_latest_snapshots, snapshot_prices
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_snapshot_prices_migrates_legacy_table_without_workspace_id(tmp_path):
-    db = tmp_path / "legacy.db"
-    with sqlite3.connect(db) as con:
+def test_snapshot_prices_imports_legacy_table_without_workspace_id(tmp_path):
+    """A pre-workspace_id legacy price table is imported into app.db (WI-038), rows defaulting to 'local'."""
+    with sqlite3.connect(tmp_path / "retirement_system_v10.db") as con:
         con.execute("""CREATE TABLE price_snapshots(
             snapshot_id INTEGER PRIMARY KEY AUTOINCREMENT,
             symbol TEXT,
@@ -20,16 +20,16 @@ def test_snapshot_prices_migrates_legacy_table_without_workspace_id(tmp_path):
             as_of TEXT DEFAULT CURRENT_TIMESTAMP
         )""")
         con.execute("INSERT INTO price_snapshots(symbol, price, source, status) VALUES(?,?,?,?)", ("OLD", 1.23, "legacy", "OK"))
+    db = tmp_path / "app.db"
 
     assert snapshot_prices({"VTI": 321.09}, {"VTI": "yahoo_live"}, workspace_id="local", db_path=db) == 1
 
     with sqlite3.connect(db) as con:
-        cols = {row[1] for row in con.execute("PRAGMA table_info(price_snapshots)").fetchall()}
-        assert "workspace_id" in cols
         row = con.execute("SELECT workspace_id, symbol, price, source FROM price_snapshots WHERE symbol='VTI'").fetchone()
     assert row == ("local", "VTI", 321.09, "yahoo_live")
     latest = load_latest_snapshots(workspace_id="local", db_path=db)
     assert latest["VTI"]["source"] == "yahoo_live"
+    assert latest["OLD"]["price"] == 1.23
 
 
 def test_refresh_prices_reports_live_vs_cache_vs_fallback_counts():
