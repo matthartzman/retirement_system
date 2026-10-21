@@ -1,3 +1,7 @@
+## 2026-10-21 — Phase golden baseline: demo re-recorded, sample_frozen labels (WI-023/024/027/039)
+
+`tests/fixtures/golden_phase_baseline/demo.json` re-recorded with `tools/golden_compare.py record --plan demo` for engine changes already signed off (WI-023/023b qualified-dividend and gain stacking, WI-024 brokerage gain in IRMAA/NIIT/ACA/Social Security MAGI, WI-027 dated limits, WI-039 early-distribution tax). The WI-039 figures match the signed-off table (2026 1,195.04; 2027 17.55). Headline moves: lifetime tax 2,157,986 to 2,121,716; total Roth conversions 500,181 to 134,541; after-tax terminal net worth 13,464,605 to 13,458,325. `sample_frozen.json` changes two Quality Control labels only (AMT unreviewed to verified, Part D assumption to verified); no numeric change.
+
 ## 2026-10-21 — Synthetic golden master: three depletion scenarios and shortfall metrics added (WI-030)
 
 <!-- fixture-provenance: synthetic_golden_master_cases.json sha256=298d52f316c819c5363303882d0f4654aef4064441b51413feb1f4fdc42792ea -->
