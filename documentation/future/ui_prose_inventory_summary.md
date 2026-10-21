@@ -39,3 +39,6 @@ Assert on structure (`.intro`, `.help`, `.desc`, `STEP_HELP`, `section-note`, `.
 
 ## Exit status
 Every row has a class guess and a destination. Human correction of the class column is the remaining Phase 0 step before Phase 1.
+
+## Phase 2a: `slot` column
+`python tools/page_help_ledger.py slots` fills a `slot` column for every page-level row (STEPS and `pageHelp`): `HELP_PAGES[<page id>].<slot>`, several slots joined by `;`, or `D` when every sentence of the row is a pure repeat of a kept sentence. The slot column is the truth for page rows; the older automated `class` / `merged_into` guesses are unchanged and are superseded by the slot where they differ (for example a row guessed D that the ledger merged into a slot). Legacy sub-page keys map to their parent page. Review: `page_help_review.md`.

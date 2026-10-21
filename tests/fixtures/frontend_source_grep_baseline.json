@@ -49,6 +49,7 @@
   "test_no_vendor_name_in_ui_strings_regression.py",
   "test_offline_html_dashboard_charts.py",
   "test_optional_module_gating.py",
+  "test_page_help_ledger_unit.py",
   "test_page_recommendations_functional.py",
   "test_planning_levers_layout_functional.py",
   "test_planning_workbench_consolidation_functional.py",
