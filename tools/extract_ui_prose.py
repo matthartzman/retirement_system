@@ -21,7 +21,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_OUT = ROOT / "documentation" / "future" / "ui_prose_inventory.csv"
 COLUMNS = ["file", "line", "class", "text", "level", "step_id", "destination",
-           "merged_into", "unique_info_kept", "source_kind"]
+           "merged_into", "unique_info_kept", "source_kind", "slot"]
 
 PROSE_CLASS = re.compile(
     r"(^|-)(small|note|muted|hint|banner|warn|warning|empty|question|desc|info|sub|meta|help)($|-)")
