@@ -94,3 +94,31 @@ def test_vectorized_and_scalar_samplers_agree_on_median_within_noise():
     scalar_ages = sorted(sample_death_year(c, 0, rng_scalar) - h_dob for _ in range(5000))
     scalar_median = scalar_ages[len(scalar_ages) // 2]
     assert abs(vec_median - scalar_median) <= 2, "the two independent samplers must agree, not silently diverge"
+
+
+def _life_expectancy(age: int, sex_idx: int) -> float:
+    table = _mortality_qx_table()
+    alive, years = 1.0, 0.0
+    for a in range(age, max(table) + 1):
+        died = alive * table[a][sex_idx]
+        years += alive - died / 2.0
+        alive -= died
+    return years
+
+
+def test_table_reproduces_published_period_life_expectancy():
+    """SSA period life table 2023 (2026 Trustees Report, Table V.A4: 18.1 / 20.7 at 65).
+
+    The published exact values are 18.12 (male) and 20.66 (female) at 65, and
+    58.56 / 63.69 at 18. A table that drifts from its source fails here.
+    """
+    for age, male, female in ((65, 18.12, 20.66), (18, 58.56, 63.69)):
+        assert abs(_life_expectancy(age, 0) - male) < 0.05, (age, "male")
+        assert abs(_life_expectancy(age, 1) - female) < 0.05, (age, "female")
+
+
+def test_table_matches_published_spot_values():
+    table = _mortality_qx_table()
+    assert table[65] == (0.016455, 0.010188)
+    assert table[85] == (0.092680, 0.071752)
+    assert table[100] == (0.366568, 0.329680)

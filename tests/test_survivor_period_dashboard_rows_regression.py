@@ -117,6 +117,9 @@ def test_short_horizon_with_no_deaths_in_window_reports_none():
     c = _two_spouse_config()
     c["plan_end"] = int(c["plan_start"]) + 1
     base_rows = project(c)
-    batch = _mc_vectorized_batch(c, base_rows, 20, 7, 0.06, 0.12, 0.0, use_asset_classes=False)
+    # Seed 1: no sampled first death in the window. With the exact SSA 2023
+    # mortality table a few seeds (e.g. 6, 7, 9, 12) draw one early death in
+    # 20 paths, so the seed is part of this test's setup.
+    batch = _mc_vectorized_batch(c, base_rows, 20, 1, 0.06, 0.12, 0.0, use_asset_classes=False)
     assert batch["survivor_period_applicable_probability"] is None
     assert batch["survivor_period_failure_probability"] is None
