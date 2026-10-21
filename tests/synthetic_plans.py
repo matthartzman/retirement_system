@@ -188,6 +188,33 @@ def _single_filer_plan() -> Dict[str, Any]:
     return plan
 
 
+def _thin_portfolio_plan(*, member_1_dies_year: int | None = None,
+                         member_2_dies_year: int | None = None) -> Dict[str, Any]:
+    """A household whose portfolio cannot fund its spending to the horizon.
+
+    Account balances are cut to 35% of the standard set while spending is raised
+    and the return assumption lowered, so liquid assets run out inside the
+    projection and the unfunded-gap / depletion branches are reached. The
+    comfortably solvent scenarios never get here, which is why withdrawal
+    ordering, HELOC-style draws and essential-spend cuts were previously pinned
+    by narrow unit tests only (QA-005 / WI-030).
+
+    ``member_N_dies_year`` sets that member's mortality age so they die in the
+    given calendar year, pairing the shortfall with a survivor transition.
+    """
+    plan = base_plan()
+    plan["accounts"] = [dict(a, balance=round(a["balance"] * 0.35, 2)) for a in _accounts()]
+    plan["assumptions"] = dict(plan["assumptions"], return_rate=0.04)
+    plan["spending"] = dict(plan["spending"], annual_base=150_000.0)
+    members = [dict(m) for m in plan["members"]]
+    if member_1_dies_year is not None:
+        members[0]["mortality_age"] = member_1_dies_year - members[0]["dob_year"]
+    if member_2_dies_year is not None:
+        members[1]["mortality_age"] = member_2_dies_year - members[1]["dob_year"]
+    plan["members"] = members
+    return plan
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Post-build overrides
 #
@@ -456,6 +483,30 @@ SCENARIOS: Dict[str, Scenario] = {s.name: s for s in [
         "10 sub-stage #6) ahead of its extraction.",
         override=_enable_tlh,
     ),
+    Scenario(
+        "depletion_thin_portfolio",
+        "Portfolio cut to 35% of the standard set against $150k of core spending "
+        "and a 4% return. Liquid assets run out inside the horizon, so this is the "
+        "end-to-end anchor for the shortfall path: the first unfunded year, the "
+        "depletion year and the shape of the unfunded gap are pinned, which no "
+        "solvent scenario can do.",
+        plan=_thin_portfolio_plan,
+    ),
+    Scenario(
+        "depletion_member_1_dies_first",
+        "The thin-portfolio household with member 1 dying in year 6. Pairs the "
+        "shortfall with a survivor transition (MFJ to Single, survivor Social "
+        "Security) where the surviving member 2 carries the remaining horizon.",
+        plan=lambda: _thin_portfolio_plan(member_1_dies_year=PLAN_START + 5),
+    ),
+    Scenario(
+        "depletion_member_2_dies_first",
+        "The thin-portfolio household with member 2 dying in year 6, the mirror of "
+        "the member 1 case: the other spouse's accounts and benefit are the ones "
+        "that survive, so ordering bugs that depend on who dies first show up "
+        "here and not above.",
+        plan=lambda: _thin_portfolio_plan(member_2_dies_year=PLAN_START + 5),
+    ),
 ]}
 
 
@@ -464,9 +515,15 @@ SCENARIOS: Dict[str, Scenario] = {s.name: s for s in [
 # ─────────────────────────────────────────────────────────────────────────────
 
 def project_metrics(c: Mapping[str, Any]) -> Dict[str, Any]:
+    from src.parsing.validation import summarize_validation
     from src.planning_engines import project
 
     rows = project(c)
+    # WI-030 / QA-005: pin the shape of the shortfall path, not just terminal NW,
+    # so a plan that newly fails or newly recovers moves the pin in either direction.
+    gaps = [(int(r["year"]), float(r.get("unfunded_gap", 0) or 0)) for r in rows]
+    unfunded = [(y, g) for y, g in gaps if g > 0]
+    failures = summarize_validation(rows, c)["failures"]
     terminal = rows[-1]
     first = rows[0]
     first_rmd = next((r for r in rows if float(r.get("rmd_total", 0) or 0) > 0), None)
@@ -490,4 +547,9 @@ def project_metrics(c: Mapping[str, Any]) -> Dict[str, Any]:
         "first_conversion_year": int(first_conv["year"]) if first_conv else None,
         "first_conversion_amount": round(float(first_conv.get("roth_conv", 0) or 0), 2) if first_conv else 0,
         "selected_roth_strategy": (c.get("roth_optimization") or {}).get("selected_label", ""),
+        "first_unfunded_year": unfunded[0][0] if unfunded else None,
+        "unfunded_year_count": len(unfunded),
+        "cumulative_unfunded_gap": round(sum(g for _, g in unfunded), 2),
+        "peak_unfunded_gap": round(max((g for _, g in unfunded), default=0.0), 2),
+        "validation_failures": [[int(y), str(level), str(code)] for y, level, code, _detail in failures],
     }
