@@ -29,7 +29,7 @@ export function renderYearMatrix(section, title, intro, opts = {}) {
   const policies = matrixPolicies(rs);
   const frozen = opts.frozenLabel || "Policy";
   let html = `<div class="holdings"><h3 class="group-title">${esc(title)}</h3><div class="section-note">${esc(intro)}</div>`;
-  html += `<div class="table-actions"><button class="btn" type="button" onclick="showStepHelp(activeStep)">How to use this table</button></div>`;
+  html += `<div class="table-actions"><button class="btn" type="button" onclick="openStepHelp(activeStep)">How to use this table</button></div>`;
   html += `<div class="matrix-wrap" role="region" aria-label="${esc(title)} matrix" tabindex="0"><table class="matrix-table"><thead><tr><th>${esc(frozen)}</th>${years.map((y) => `<th>${esc(y)}</th>`).join("")}</tr></thead><tbody>`;
   policies.forEach((pol) => {
     html += `<tr><td><span>${esc(humanLabel(pol))}</span></td>`;

@@ -390,7 +390,7 @@
     const idx=visible.findIndex(s=>s.id===active);
     const prev=visible[Math.max(0,idx-1)]||visible[0]||{id:'start'};
     const next=visible[Math.min(visible.length-1,idx+1)]||visible[visible.length-1]||{id:'review'};
-    return `<div class="nav-actions"><button class="btn" type="button" ${idx<=0?'disabled':''} data-step-id="${prev.id}">&larr; Previous</button><div><button class="btn" type="button" onclick="showStepHelp(activeStep)">Step Help</button> <button class="btn primary" type="button" ${idx>=visible.length-1?'disabled':''} data-step-id="${next.id}">Next →</button></div></div>`;
+    return `<div class="nav-actions"><button class="btn" type="button" ${idx<=0?'disabled':''} data-step-id="${prev.id}">&larr; Previous</button><div><button class="btn" type="button" onclick="openStepHelp(activeStep)">Step Help</button> <button class="btn primary" type="button" ${idx>=visible.length-1?'disabled':''} data-step-id="${next.id}">Next →</button></div></div>`;
   }
 
   function updateSearchToggle(ctx){

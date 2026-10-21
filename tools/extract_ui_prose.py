@@ -72,7 +72,7 @@ MODULE_STEPS = {
     "reports_ui.js": "reports",
     "planning_workbench_ui.js": "strategy_planning_cases",
     "admin.js": "settings",
-    "help_glossary.js": "(glossary)",
+    "help_registry.js": "(glossary)",
     "index.html": "(shell)",
 }
 
