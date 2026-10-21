@@ -588,7 +588,12 @@ DASHBOARD_JS_MAX_LINES = 7_134
 # Merged WI-018 to WI-021 with main's WI-010/010a: 40,078.
 # 2026-10-20 (WI-033: new frontend/js/help_glossary.js, 141 lines of plain-English page summaries and
 # glossary data; dashboard.js did not grow). New behavior, not duplication: raised by 141 to 40,219.
-TOTAL_JS_MAX_LINES = 40_219
+# 2026-10-21 (Contextual help panel Phase 1: help_glossary.js becomes help_registry.js -- page,
+# section and field help records for the Household & People pilot, the panel's follow-focus /
+# default-open / remembered-close logic and its "?" openers -- plus the showStepHelp/showFieldHelp
+# hooks and the pilot page's section wrappers, +227). STEP_HELP stays as the fallback until
+# Phase 2 moves the remaining pages. New behavior, not duplication: raised to the measured 40,446.
+TOTAL_JS_MAX_LINES = 40_446
 
 
 def _line_count(path: Path) -> int:

@@ -1260,3 +1260,20 @@ header :where(a,button,input,select,textarea,summary,[tabindex]):focus-visible{o
 .plain-help dl{margin:0;padding:6px 14px 10px}
 .plain-help dt{font-weight:800;margin-top:8px}
 .plain-help dd{margin:2px 0 0;color:#312f2a}
+
+/* Contextual help panel, Phase 1 (help_registry.js): "?" openers beside the page title and
+   section headings, the panel's fixed layout, and below 1180px a slide-over sheet opened by the
+   "?" / "i" buttons instead of a block stacked under the page. */
+.page-help-btn,.section-help-btn{border:1px solid var(--line2);background:#fff;color:var(--accent);border-radius:999px;width:26px;height:26px;padding:0;font-weight:900;font-size:13px;line-height:1;cursor:pointer;vertical-align:middle}
+.section-help-btn{width:22px;height:22px;font-size:12px;margin-left:6px;text-transform:none;letter-spacing:0}
+.page-title-row h2{display:inline-block;vertical-align:middle;margin-right:8px}
+.page-help-btn{margin-right:8px}
+.help-section-head{padding-bottom:0}
+.help-body .help-plain{padding:10px 12px;background:#f3faf4;border:1px solid #bbf7d0;border-radius:10px;color:#14532d}
+.help-body dl.help-terms{margin:0}
+.help-body dl.help-terms dt{font-weight:800;margin-top:8px}
+.help-body dl.help-terms dd{margin:2px 0 0}
+@media(max-width:1180px){
+  aside.card.help{position:fixed;top:0;right:0;bottom:0;width:min(400px,92vw);max-height:none;overflow-y:auto;z-index:55;border-radius:0;box-shadow:-8px 0 30px rgba(0,0,0,.25);transform:translateX(105%);visibility:hidden;transition:transform .22s ease,visibility 0s linear .22s}
+  body.help-open aside.card.help{transform:translateX(0);visibility:visible;transition:transform .22s ease}
+}

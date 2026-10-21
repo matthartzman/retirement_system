@@ -332,7 +332,7 @@ Script load order, as declared in `frontend/index.html` (this is the frontend's 
 2. `js/dashboard_shared_helpers.js?v=2`
 3. `js/render_hooks.js?v=1`
 4. `js/text_size.js?v=1`
-5. `js/help_glossary.js?v=1`
+5. `js/help_registry.js?v=1`
 6. `js/api_client.js?v=2`
 7. `js/app_store.js?v=2`
 8. `js/navigation.js?v=4`
@@ -431,7 +431,7 @@ All `.js` files found under `frontend/` (55):
 - `frontend/js/dashboard_plan_folder_io.js`
 - `frontend/js/dashboard_shared_helpers.js`
 - `frontend/js/dashboard_source_truth_banners.js`
-- `frontend/js/help_glossary.js`
+- `frontend/js/help_registry.js`
 - `frontend/js/modules/phase3_module_manifest.js`
 - `frontend/js/navigation.js`
 - `frontend/js/planning_workbench_ui.js`

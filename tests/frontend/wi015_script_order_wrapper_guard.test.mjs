@@ -27,7 +27,7 @@ const FROZEN_SCRIPT_ORDER = [
   "js/dashboard_shared_helpers.js",
   "js/render_hooks.js",
   "js/text_size.js",
-  "js/help_glossary.js",
+  "js/help_registry.js",
   "js/api_client.js",
   "js/app_store.js",
   "js/navigation.js",

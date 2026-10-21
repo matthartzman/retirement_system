@@ -2330,7 +2330,8 @@ function renderHouseholdPeople() {
       p.nickname &&
       !String(valOf(p.nickname) || "").trim(),
   );
-  let html = `<div class="holdings"><h3 class="group-title">People</h3><div class="section-note">One row per person. <b>Nickname</b> is the short name used everywhere the plan names a person — reports, charts, and workbook labels. ${nickMissing ? "<b>Add a nickname for each person</b> (or leave blank to use their first name)." : ""}</div><div class="lot-table-wrap"><table class="lot-table people-table"><thead><tr><th></th><th>Full name</th><th>Nickname (used in reports)</th><th>Date of birth</th><th title="Year is parsed from this date; base retirement assumption">Retirement date</th><th title="Plan horizon = birth year + this age">Mortality age</th><th title="Age Required Minimum Distributions begin (SECURE 2.0)">RMD start age</th></tr></thead><tbody>`;
+  const secBtn = (k) => window.RPHelp?.sectionButtonHtml(k) || "";
+  let html = `<div class="holdings" data-help-section="household_people.people"><h3 class="group-title">People ${secBtn("household_people.people")}</h3><div class="section-note">One row per person. <b>Nickname</b> is the short name used everywhere the plan names a person — reports, charts, and workbook labels. ${nickMissing ? "<b>Add a nickname for each person</b> (or leave blank to use their first name)." : ""}</div><div class="lot-table-wrap"><table class="lot-table people-table"><thead><tr><th></th><th>Full name</th><th>Nickname (used in reports)</th><th>Date of birth</th><th title="Year is parsed from this date; base retirement assumption">Retirement date</th><th title="Plan horizon = birth year + this age">Mortality age</th><th title="Age Required Minimum Distributions begin (SECURE 2.0)">RMD start age</th></tr></thead><tbody>`;
   people.forEach((p) => {
     const who = String(p.name ? valOf(p.name) : "").trim() || `Person ${p.n}`;
     html += `<tr><td><b>Person ${p.n}</b></td><td>${personCellInput(p.name, `Full name for ${who}`)}</td><td>${personCellInput(p.nickname, `Nickname for ${who}`, personNickPlaceholder(p.name))}</td><td>${personCellInput(p.dob, `Date of birth for ${who}`)}</td><td>${personCellInput(p.retire, `Retirement date for ${who}`)}</td><td>${personCellInput(p.mortality, `Mortality age for ${who}`)}</td><td>${personCellInput(p.rmdAge, `RMD start age for ${who}`)}</td></tr>`;
@@ -2349,7 +2350,7 @@ function renderHouseholdPeople() {
         .map((r) => `<li>${esc(humanLabel(r.label, r))}</li>`)
         .join("")}</ul></div>`
     : "";
-  return banner + html + renderFieldGroups(rest);
+  return banner + html + `<div data-help-section="household_people.tax_survivor"><div class="field-list help-section-head"><h3 class="group-title">State, filing status and survivor ${secBtn("household_people.tax_survivor")}</h3></div>${renderFieldGroups(rest)}</div>`;
 }
 // renderIncomeWork and rowSortKeyForIncomeWork moved to
 // dashboard_decomp_income_streams.js (item 2.20 / frontend size ratchet).
@@ -3423,7 +3424,7 @@ let renderMain = function() {
     : st.group === null
       ? "Compare & Decide"
       : `Step ${_stIdx} of ${visibleSteps().length}`;
-  let content = `<div class="pane-head"><div class="eyebrow">${_eyebrow}</div><div class="page-title-row"><h2>${esc(st.title)}</h2>${pageStatusHtml(st.id)}</div><p>${esc(addParentheticals(st.intro))}</p>${pageSaveModeHtml(st.id)}<div class="pane-actions"><button class="btn" type="button" data-step-id="planning_workbench">Compare & Decide</button>${primaryActionForStep(st.id)}`;
+  let content = `<div class="pane-head"><div class="eyebrow">${_eyebrow}</div><div class="page-title-row"><h2>${esc(st.title)}</h2>${window.pageHelpButtonHtml ? window.pageHelpButtonHtml(st.id) : ""}${pageStatusHtml(st.id)}</div><p>${esc(addParentheticals(st.intro))}</p>${pageSaveModeHtml(st.id)}<div class="pane-actions"><button class="btn" type="button" data-step-id="planning_workbench">Compare & Decide</button>${primaryActionForStep(st.id)}`;
   if (st.id === "review")
     content += `<button class="btn good" data-requires-app="1" onclick="downloadWithBuild('/api/xlsx','Workbook')">Download Workbook</button>`;
   content += `</div></div><div class="question"><b>${esc(st.desc)}</b>${esc(st.help)}${stepHelpLinkHtml(st)}</div>${window.plainHelpHtml ? window.plainHelpHtml(st.id) : ""}`;
@@ -3561,10 +3562,13 @@ function setCombinedSearch(q) {
 let statusTimer = null;
 
 
-let showStepHelp = function(id) {
-  ensureHelpPanelVisible();
+// Contextual help Phase 1: help_registry.js (RPHelp) decides the open state on arrival and keeps
+// pinned field/section help across re-renders; force = an explicit "?" / Step Help request.
+let showStepHelp = function(id, force) {
+  if (!window.RPHelp) ensureHelpPanelVisible();
+  else if (!window.RPHelp.arrive(id, force)) return;
   document.getElementById("helpPanel").innerHTML =
-    STEP_HELP[id] || STEP_HELP.start;
+    window.RPHelp?.pageHtml(id) || STEP_HELP[id] || STEP_HELP.start;
   window.RPHooks?.run("showStepHelp", id);
 };
 const FIELD_GUIDANCE_OVERRIDES = {

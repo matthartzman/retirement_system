@@ -4838,12 +4838,15 @@ export function ensureHelpPanelVisible() {
 export function showFieldHelp(idx) {
   const row = rows.find((r) => r.row_index === idx);
   if (!row) return;
-  ensureHelpPanelVisible();
+  // Contextual help Phase 1: with help_registry.js loaded, field help follows focus without
+  // opening the panel; explicit openers ("i", aria-controls="helpPanel") open it there.
+  if (window.RPHelp) window.RPHelp.pinned("field", idx);
+  else ensureHelpPanelVisible();
   const label = humanLabel(row.label, row);
   const note = translatePersonPlaceholders(
     formatAcronyms(row.schema?.description || row.notes || ""),
   );
-  const g = fieldGuidance(row);
+  const g = { ...fieldGuidance(row), ...(window.RPHelp?.fieldEntry(row.label) || {}) };
   const meaning = formatAcronyms(
     g.purpose || note || `${label} is an input used by the planner.`,
   );

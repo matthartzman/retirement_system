@@ -1,6 +1,6 @@
 # Contextual Help Panel: move all explanation to the right panel
 
-Status: planned, decisions accepted (nothing built; extends WI-033 — see `WI-033_plain_english_help_review.md` and `WI-033_glossary_draft.md`. Counts below are from code searches on 2026-10-20 and are replaced by measured counts in Phase 0).
+Status: approved (decisions accepted; Phases 0 and 1 implemented 2026-10-21, Phases 2-5 planned). Extends WI-033 — see `WI-033_plain_english_help_review.md` and `WI-033_glossary_draft.md`. Measured counts are in `ui_prose_inventory_summary.md`.
 
 ## 1. Context and problem
 
@@ -100,6 +100,7 @@ Effort is stated against a 5-hour Claude Code Pro session. Check `/usage` as eac
 - Keep the old `STEP_HELP` as a fallback until Phase 2 completes so nothing goes blank.
 - Tests: new `tests/frontend/help_panel_follow_focus.test.mjs`; extend `plain_english_help.test.mjs`.
 - Exit: panel shows page, section and field help from the registry on a pilot page (Household & People); other pages unchanged.
+- As built: `help_glossary.js` was renamed to `help_registry.js` (same script slot) so GLOSSARY keeps one source. `showStepHelp` (dashboard.js) and `showFieldHelp` / `ensureHelpPanelVisible` (`dashboard_decomp_row_model.js`) are the real functions; before this phase `showStepHelp` called `ensureHelpPanelVisible()` on every `renderMain`, so the panel was in fact forced open on every page. Now the open state is set only when the page changes (`arriveAtPage`), and a re-render keeps pinned field or section help. The 11 pre-build pages are `PRE_BUILD_PAGES` (Household & People through Estate & Legacy in nav order); default-open applies above 1180px only. Explicit openers are any control with `aria-controls="helpPanel"` (the "i" badges, the new "?" buttons) plus Step Help (`openStepHelp`).
 
 ### Phase 2: page level (Sonnet, high; moderate)
 - Move `intro`, `help` and `STEP_HELP` content into `HELP_PAGES` for all 28 pages; remove the `intro` line and "question" box from the center (`renderMain` at the `pane-head` / `question` render); change the nav `desc` source.

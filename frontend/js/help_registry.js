@@ -1,7 +1,9 @@
-// Plain-English help layer (WI-033, DOC-008): a one-line summary per page plus a glossary,
-// written for a high-school reader with little financial experience. Kept out of
-// dashboard.js (size ratchet). Sources: documentation/future/WI-033_*.md.
-// Exposes window.plainHelpHtml(stepId), called from the page help box in dashboard.js.
+// Contextual help registry (Contextual Help Panel plan, Phase 1; was help_glossary.js, WI-033):
+// one source for page, section and field help, the glossary, and the right panel's follow-focus
+// behaviour. Data and lookup only for the center panel: window.plainHelpHtml(stepId) still feeds
+// the page help box in dashboard.js until Phase 2 removes it. Plain-English text is written for
+// a high-school reader with little financial experience (documentation/future/WI-033_*.md).
+// Pages without a full HELP_PAGES record (only summary + terms) keep the old STEP_HELP text.
 export const GLOSSARY = {
   "Accounts & Sources": "The list of your bank, credit card and investment accounts, and where the app gets each account's numbers (typed in or imported).",
   "Adjusted gross income (AGI)": "Your total income for the year after a few specific subtractions. Many tax rules and Medicare costs are based on this one number.",
@@ -91,9 +93,19 @@ export const GLOSSARY = {
   "529 plan": "A savings account for education costs. Growth is tax-free when the money is used for school."
 };
 
-export const PLAIN_PAGE_HELP = {
+// HELP_PAGES[stepId] = { summary, terms } for every page; pages with whatFor also carry title,
+// connections, options and impact and render in the panel's fixed layout (pilot: Household & People).
+export const HELP_PAGES = {
   "start": {"summary": "Open or create your plan, see what is still missing, and pick what to do next.", "terms": ["Readiness (readiness checks)"]},
-  "household_people": {"summary": "Who is in the household, when each person was born and plans to retire, and where you live and file taxes.", "terms": ["Filing status", "Planning horizon", "Mortality age", "Survivor assumptions", "Tax bracket"]},
+  "household_people": {
+    "title": "Household & People",
+    "summary": "Who is in the household, when each person was born and plans to retire, and where you live and file taxes.",
+    "whatFor": "This page defines the people, tax identity, state, and filing status used by the model, plus when earned income stops, when retirement spending begins, and how long the household should be projected. These are identity and tax-foundation inputs rather than strategy levers. Mortality age is a planning horizon, not a prediction.",
+    "connections": "Birth dates set ages. Ages connect to retirement timing, Social Security, Medicare, RMDs, mortality horizon, survivor years, and estate planning. Filing status and state connect to tax brackets, state taxes, and survivor tax treatment. Retirement dates connect to work income, savings contributions, healthcare bridge years, withdrawals, Roth conversion room, and Monte Carlo sequence risk. Life expectancy and survivor assumptions determine late-life taxes, RMD pressure, and legacy values.",
+    "options": "Use actual dates when possible. Use MFJ for married filing jointly, Single after a survivor period when appropriate, HOH only when household rules truly apply, and the resident state expected for the modeled period. Earlier retirement increases years funded by assets. Later retirement adds income, reduces withdrawals, and shortens the funding horizon.",
+    "impact": "Changing ages or filing status can materially change lifetime taxes, RMD timing, Social Security timing, Medicare years, survivor cash flow, and terminal net worth. Changing state may affect state tax, estate tax, and residency optimizer output. Retiring later usually increases terminal net worth and probability of success. Retiring earlier usually lowers liquidity and may reduce success unless spending, income, or home-equity assumptions compensate.",
+    "terms": ["Filing status", "Planning horizon", "Mortality age", "Survivor assumptions", "Tax bracket"],
+  },
   "income_work": {"summary": "Pay you still earn and what you save from it until you retire.", "terms": ["Payroll assumptions", "Retirement plan contributions", "Business-income deductions", "Roth conversion room", "Bracket ceiling"]},
   "income_retirement": {"summary": "Social Security, pension and annuity income: how much, when it starts, and what continues to a surviving spouse.", "terms": ["Claiming age", "Full retirement age", "Spousal / survivor policy", "Cost-of-living settings (COLA)", "Fixed-income-equivalent coverage"]},
   "spending_core": {"summary": "Everything you spend and earn, sorted into categories.", "terms": ["Tracking Type", "Group (spending)", "Category", "Internal transfers", "Auto-Mapping Rules"]},
@@ -122,12 +134,69 @@ export const PLAIN_PAGE_HELP = {
   "system_configuration": {"summary": "Backups, exports, price snapshots and the change log. Not plan inputs.", "terms": ["Pricing snapshot", "System Configuration Console"]}
 };
 
+// HELP_SECTIONS[key]: key is the section's data-help-section attribute, "<pageId>.<section>".
+export const HELP_SECTIONS = {
+  "household_people.people": {
+    pageId: "household_people",
+    title: "People",
+    body: "One row per person; leave Person 2 blank for a single-person household. Birth dates set each person's age, which drives retirement timing, Social Security, Medicare, required distributions and survivor years. The retirement date is when work income stops and retirement spending begins. Mortality age sets how long the plan runs (birth year plus this age); it is a planning horizon, not a prediction. RMD start age is when Required Minimum Distributions begin (SECURE 2.0). The nickname replaces \"Member 1 / Member 2\" in every report, chart and workbook label.",
+  },
+  "household_people.tax_survivor": {
+    pageId: "household_people",
+    title: "State, filing status and survivor",
+    body: "The state of residence sets state income tax and state estate tax for the modeled period. Filing status sets the tax brackets for every year of the plan. After the first death the plan switches to the survivor filing status (Single or head of household) in the following year, and \"survivor has dependent\" turns on Qualifying Surviving Spouse brackets for two years when they apply.",
+  },
+};
+
+// HELP_FIELDS[key]: purpose/impact/consider merged over fieldGuidance() by showFieldHelp. The key
+// is the row label with the person number dropped (member_1_nickname -> member_nickname).
+export const HELP_FIELDS = {
+  member_nickname: {
+    purpose: "The short name the plan uses for this person everywhere it names them: reports, charts and workbook labels.",
+    impact: "Changes labels only, not any calculation.",
+    consider: "Use the name the household goes by. Leave it blank to use the first name.",
+  },
+  member_mortality_age: {
+    purpose: "How long the plan runs for this person: the plan horizon is the birth year plus this age. It is a planning horizon, not a prediction.",
+    impact: "A higher age adds years the savings must pay for, with more late-life taxes and required distributions, which can lower terminal net worth and the probability of success.",
+    consider: "Use an age the person is unlikely to outlive, so the plan does not end too early. Test a higher age as a stress case.",
+  },
+  survivor_filing_status: {
+    purpose: "The filing status used after the first death: Single, or HOH (head of household) when its rules truly apply.",
+    impact: "Sets the tax brackets for the survivor's years. Single brackets are narrower than married filing jointly, so the same income is usually taxed more.",
+    consider: "Use Single unless the survivor will keep a qualifying dependent at home.",
+  },
+  survivor_has_dependent: {
+    purpose: "Whether the survivor will have a dependent child at home after the first death.",
+    impact: "When yes, the plan uses Qualifying Surviving Spouse brackets for two years after the first death when they apply.",
+    consider: "Answer yes only if a dependent child will live with the survivor.",
+  },
+};
+
+// The 11 pre-build input pages, Household through Estate & Legacy in nav order: the help panel
+// opens on arrival here unless the user closed it (retirementHelpOpen = "0").
+export const PRE_BUILD_PAGES = [
+  "household_people", "income_work", "income_retirement", "spending_core", "holdings",
+  "assets_home_cash", "assets_special", "heloc_strategy", "rental_properties",
+  "annuity_death_benefits", "estate",
+];
+export const NARROW_QUERY = "(max-width:1180px)";
+
 const escHtml = (v) =>
   String(v).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const win = typeof window !== "undefined" ? window : {};
+const prose = (s) => escHtml(typeof win.addParentheticals === "function" ? win.addParentheticals(s) : s);
+
+function termsHtml(terms) {
+  const list = (terms || []).filter((t) => GLOSSARY[t]);
+  return list.length
+    ? `<h3>Words on this page</h3><dl class="help-terms">${list.map((t) => `<dt>${escHtml(t)}</dt><dd>${escHtml(GLOSSARY[t])}</dd>`).join("")}</dl>`
+    : "";
+}
 
 // HTML for the "In plain English" line and the page's glossary terms; "" for pages without an entry.
 export function plainHelpHtml(stepId) {
-  const page = PLAIN_PAGE_HELP[stepId];
+  const page = HELP_PAGES[stepId];
   if (!page) return "";
   const terms = page.terms.filter((t) => GLOSSARY[t]);
   const list = terms.length
@@ -138,4 +207,156 @@ export function plainHelpHtml(stepId) {
   return `<div class="plain-help"><b>In plain English:</b> ${escHtml(page.summary)}${list}</div>`;
 }
 
-if (typeof window !== "undefined") window.plainHelpHtml = plainHelpHtml;
+// Panel page help in the fixed layout; null when the page has no full record (caller falls back to STEP_HELP).
+export function pageHelpHtml(stepId) {
+  const p = HELP_PAGES[stepId];
+  if (!p || !p.whatFor) return null;
+  const parts = [
+    ["What this page is for", p.whatFor],
+    ["How the values work together", p.connections],
+    ["How to choose values", p.options],
+    ["Likely planning impact", p.impact],
+  ].filter((x) => x[1]);
+  const acronyms = typeof win.acronymDefinitionsHtml === "function" ? win.acronymDefinitionsHtml(parts.map((x) => x[1])) : "";
+  return `<div class="help-title">${escHtml(p.title)}</div><div class="help-body"><p class="help-plain"><b>In plain English:</b> ${escHtml(p.summary)}</p>${parts
+    .map((x) => `<h3>${x[0]}</h3><p>${prose(x[1])}</p>`)
+    .join("")}${termsHtml(p.terms)}${acronyms}</div>`;
+}
+
+export function sectionHelpHtml(key) {
+  const s = HELP_SECTIONS[key];
+  if (!s) return null;
+  const page = HELP_PAGES[s.pageId] || {};
+  return `<div class="help-title">${escHtml(s.title)}</div><div class="help-body"><p class="small">Section of ${escHtml(page.title || s.pageId)} <button type="button" class="btn tiny" onclick="openStepHelp('${s.pageId}')">Page help</button></p><p>${prose(s.body)}</p>${termsHtml(page.terms)}</div>`;
+}
+
+export function fieldHelpEntry(label) {
+  const key = String(label || "").trim().toLowerCase().replace(/^member_\d+_/, "member_");
+  return HELP_FIELDS[key] || null;
+}
+
+// Small "?" beside a page title / section heading; aria-controls marks it as a panel opener.
+export function pageHelpButtonHtml(stepId) {
+  return `<button type="button" class="page-help-btn" aria-controls="helpPanel" aria-label="Help for this page" title="Help for this page" onclick="openStepHelp('${escHtml(stepId)}')">?</button>`;
+}
+export function sectionHelpButtonHtml(key) {
+  const s = HELP_SECTIONS[key];
+  return s
+    ? `<button type="button" class="section-help-btn" aria-controls="helpPanel" aria-label="Help for the ${escHtml(s.title)} section" data-help-section-btn="${escHtml(key)}">?</button>`
+    : "";
+}
+
+// Open state on arriving at a page: the remembered choice wins; otherwise open on pre-build pages.
+// Never auto-open below 1180px, where the panel is a slide-over sheet covering the page.
+export function helpOpenOnArrival(stepId, pref, narrow) {
+  if (narrow) return false;
+  if (pref === "1") return true;
+  if (pref === "0") return false;
+  return PRE_BUILD_PAGES.includes(stepId);
+}
+
+// What the panel currently shows, so a re-render of the same page keeps pinned field/section help.
+const state = { step: null, kind: null, ref: null };
+export function helpPanelState() {
+  return { ...state };
+}
+export function pinHelp(kind, ref) {
+  state.kind = kind;
+  state.ref = ref === undefined ? null : ref;
+}
+
+function readPref() {
+  try {
+    return win.localStorage ? win.localStorage.getItem("retirementHelpOpen") : null;
+  } catch (_e) {
+    return null;
+  }
+}
+function isNarrow() {
+  return !!(win.matchMedia && win.matchMedia(NARROW_QUERY).matches);
+}
+function setOpen(open) {
+  const doc = win.document;
+  if (!doc || !doc.body) return;
+  doc.body.classList.toggle("help-open", open);
+  const btn = doc.querySelector && doc.querySelector("#helpPane .help-toggle");
+  if (btn) btn.setAttribute("aria-expanded", open ? "true" : "false");
+}
+
+// Called by showStepHelp: applies the open policy when the page changes and returns whether
+// the page help should be written (false keeps a pinned field or section entry on a re-render).
+export function arriveAtPage(stepId, force) {
+  const changed = stepId !== state.step;
+  if (changed) {
+    state.step = stepId;
+    setOpen(helpOpenOnArrival(stepId, readPref(), isNarrow()));
+  }
+  if (!force && !changed && state.kind && state.kind !== "page") return false;
+  pinHelp("page");
+  return true;
+}
+
+export function showSectionHelp(key) {
+  const html = sectionHelpHtml(key);
+  const panel = win.document && win.document.getElementById("helpPanel");
+  if (!html || !panel || (state.kind === "section" && state.ref === key)) return;
+  panel.innerHTML = html;
+  pinHelp("section", key);
+}
+
+export function openStepHelp(stepId) {
+  setOpen(true);
+  if (typeof win.showStepHelp === "function") win.showStepHelp(stepId || win.activeStep, true);
+}
+
+// Follow focus inside the center panel: field help on field focus, section help when focus enters
+// a section outside a field (its "?" button, summary, links). Content only: never moves focus.
+export function onHelpFocusIn(e) {
+  const t = e && e.target;
+  if (!t || !t.closest || !t.closest("#mainPane")) return;
+  const field = t.closest('.field[id^="field-"]');
+  if (field) {
+    const idx = Number(field.id.slice(6));
+    if (Number.isFinite(idx) && !(state.kind === "field" && state.ref === idx) && typeof win.showFieldHelp === "function")
+      win.showFieldHelp(idx);
+    return;
+  }
+  const sec = t.closest("[data-help-section]");
+  if (sec && !/^(INPUT|SELECT|TEXTAREA)$/.test(t.tagName || "")) showSectionHelp(sec.getAttribute("data-help-section"));
+}
+export function onHelpToggle(e) {
+  const d = e && e.target;
+  const doc = win.document;
+  if (!d || d.tagName !== "DETAILS" || !d.open || !d.matches || !d.matches("[data-help-section]")) return;
+  // renderMain restores open <details> after every render; only a user toggle (focus inside) counts.
+  if (doc && d.contains(doc.activeElement)) showSectionHelp(d.getAttribute("data-help-section"));
+}
+// Explicit openers ("i", "?", section "?"): anything with aria-controls="helpPanel" except the sheet toggle.
+export function onHelpClick(e) {
+  const t = e && e.target;
+  const b = t && t.closest && t.closest('[aria-controls="helpPanel"]');
+  if (!b || b.classList.contains("help-toggle")) return;
+  const key = b.getAttribute("data-help-section-btn");
+  if (key) showSectionHelp(key);
+  setOpen(true);
+}
+export function onHelpKeydown(e) {
+  const doc = win.document;
+  if (!e || e.key !== "Escape" || !doc || !isNarrow() || !doc.body.classList.contains("help-open")) return;
+  const pane = doc.getElementById("helpPane");
+  const back = pane && pane.contains(doc.activeElement) ? doc.querySelector(".page-help-btn") : null;
+  if (typeof win.toggleHelpSheet === "function") win.toggleHelpSheet();
+  else setOpen(false);
+  if (back) back.focus();
+}
+
+if (typeof window !== "undefined") {
+  window.RPHelp = { pageHtml: pageHelpHtml, arrive: arriveAtPage, pinned: pinHelp, fieldEntry: fieldHelpEntry, sectionButtonHtml: sectionHelpButtonHtml };
+  Object.assign(window, { plainHelpHtml, pageHelpButtonHtml, openStepHelp });
+  if (window.document && window.document.addEventListener) {
+    window.document.addEventListener("focusin", onHelpFocusIn);
+    window.document.addEventListener("toggle", onHelpToggle, true);
+    window.document.addEventListener("click", onHelpClick);
+    window.document.addEventListener("keydown", onHelpKeydown);
+  }
+}
