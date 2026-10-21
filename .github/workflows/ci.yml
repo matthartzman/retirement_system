@@ -91,6 +91,10 @@ jobs:
 
   test:
     runs-on: ${{ matrix.os }}
+    # A hung test or wedged runner used to run to GitHub's 6-hour default, with
+    # no log (2026-10-21: runs 1196/1202 sat in "Run tests" for 90+ minutes).
+    # Normal runs finish in 12-17 minutes; fail fast instead.
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -167,18 +171,19 @@ jobs:
       shell: bash
       run: |
         set +e
-        pytest tests/ -m "not slow and not nightly" -n auto --dist loadfile --timeout=300 --timeout-method=thread --tb=short -q > /tmp/pytest_output.txt 2>&1
-        PARALLEL_EXIT=$?
-        cat /tmp/pytest_output.txt
+        # tee (not a redirect + cat afterwards) so output reaches the job log
+        # while pytest runs and survives a hang; PIPESTATUS keeps pytest's exit code.
+        pytest tests/ -m "not slow and not nightly" -n auto --dist loadfile --timeout=300 --timeout-method=thread --tb=short -q 2>&1 | tee /tmp/pytest_output.txt
+        PARALLEL_EXIT=${PIPESTATUS[0]}
         if [ "$PARALLEL_EXIT" -eq 0 ]; then
           exit 0
         fi
         echo "Parallel run failed or flaked -- retrying just the failures serially (matches CLAUDE.md's documented WinError 5 file-lock flake mitigation) before treating this as a real failure."
-        pytest tests/ -m "not slow and not nightly" --lf --tb=short -q > /tmp/pytest_retry_output.txt 2>&1
-        RETRY_EXIT=$?
         echo "--- serial retry of failures ---"
-        cat /tmp/pytest_retry_output.txt
-        exit $RETRY_EXIT
+        # --timeout here too: the retry used to run unbounded, so a test that
+        # hung in the parallel run could hang the whole job again with no limit.
+        pytest tests/ -m "not slow and not nightly" --lf --timeout=300 --timeout-method=thread --tb=short -q 2>&1 | tee /tmp/pytest_retry_output.txt
+        exit ${PIPESTATUS[0]}
 
     # F0.3 used to grep the captured -q/-v output above for this test's
     # PASSED line. That broke on this PR's own first CI run: the earlier
