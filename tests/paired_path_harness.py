@@ -69,3 +69,33 @@ def _paired_success(c: dict, n: int, seed: int):
         })
         scalar_ok[i] = pe._funding_success(pe.project(c2), floor)
     return scalar_ok, vec_ok
+
+
+def build_config(shape: str, regime: str, n: int) -> dict:
+    """Engine config for a synthetic household shape under one Roth regime.
+
+    ``shape`` is a SCENARIOS name or ``pressure:<balance_scale>:<annual_base>``
+    (a household between comfortably solvent and depleted).
+    """
+    from src.data_io import build_plan_from_json
+    from src.plan_config import ensure_engine_config
+    from src.planning_engines import optimize_roth_conversion_strategy
+    from tests.synthetic_plans import SCENARIOS
+
+    if shape.startswith("pressure:"):
+        # "pressure:<balance_scale>:<annual_base>" -- a household between solvent and depleted.
+        from tests.synthetic_plans import Scenario, _thin_portfolio_plan
+        _, scale, spend = shape.split(":")
+        sc = Scenario(shape, "intermediate pressure",
+                      plan=lambda: _thin_portfolio_plan(balance_scale=float(scale), annual_base=float(spend)))
+    else:
+        sc = SCENARIOS[shape]
+    plan = sc.plan()
+    plan["assumptions"]["roth_policy"] = regime
+    c = ensure_engine_config(build_plan_from_json(plan, ""), source="synthetic")
+    if sc._override is not None:
+        sc._override(c)
+    if regime == "optimize_terminal_tax":
+        c = ensure_engine_config(optimize_roth_conversion_strategy(c), source="synthetic.optimized")
+    c["roth_policy"] = regime
+    return prepare_mc_config(c, n)

@@ -35,36 +35,10 @@ DEFAULT_SHAPES = (
 )
 
 
-def build_config(shape: str, regime: str, n: int) -> dict:
-    from src.data_io import build_plan_from_json
-    from src.plan_config import ensure_engine_config
-    from src.planning_engines import optimize_roth_conversion_strategy
-    from tests.paired_path_harness import prepare_mc_config
-    from tests.synthetic_plans import SCENARIOS
-
-    if shape.startswith("pressure:"):
-        # "pressure:<balance_scale>:<annual_base>" -- a household between solvent and depleted.
-        from tests.synthetic_plans import Scenario, _thin_portfolio_plan
-        _, scale, spend = shape.split(":")
-        sc = Scenario(shape, "intermediate pressure",
-                      plan=lambda: _thin_portfolio_plan(balance_scale=float(scale), annual_base=float(spend)))
-    else:
-        sc = SCENARIOS[shape]
-    plan = sc.plan()
-    plan["assumptions"]["roth_policy"] = regime
-    c = ensure_engine_config(build_plan_from_json(plan, ""), source="synthetic")
-    if sc._override is not None:
-        sc._override(c)
-    if regime == "optimize_terminal_tax":
-        c = ensure_engine_config(optimize_roth_conversion_strategy(c), source="synthetic.optimized")
-    c["roth_policy"] = regime
-    return prepare_mc_config(c, n)
-
-
 def run_cell(task: tuple[str, str, int, int]) -> dict:
     shape, regime, seed, n = task
     from tests.golden_pricing import frozen_holdings_prices
-    from tests.paired_path_harness import _paired_success
+    from tests.paired_path_harness import _paired_success, build_config
 
     with frozen_holdings_prices():
         scalar_ok, vec_ok = _paired_success(build_config(shape, regime, n), n, seed)
