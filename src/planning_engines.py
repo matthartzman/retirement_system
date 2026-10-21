@@ -36,6 +36,7 @@ inline account traversal or accidentally compound the same account twice.
 """
 
 from collections import namedtuple
+from .fallback_log import log_fallback as _log_fallback
 from math import isfinite
 
 GrowthResult = namedtuple('GrowthResult', ['total_growth', 'by_account', 'warnings'])
@@ -1522,7 +1523,8 @@ def liquidity_buffer_for_year(c: Mapping, year: int) -> tuple[float, str]:
             end = int(rec.get("end_year", 9999) or 9999)
             if start <= int(year) <= end:
                 return float(rec.get("years_of_expenses", 0) or 0), _bucket(rec)
-        except Exception:
+        except (TypeError, ValueError, AttributeError) as _exc:
+            _log_fallback("liquidity_buffer_schedule.row", _exc, year=year)
             continue
     legacy = float(c.get('near_term_buffer_years', 0) if year <= c.get('near_term_buffer_end_year', c.get('plan_start', year)) else c.get('long_term_buffer_years', 0))
     return legacy, DEFAULT_LIQUIDITY_RESERVE_BUCKET
@@ -2270,8 +2272,9 @@ def plan_roth_conversion(
     )
     try:
         std += senior_bonus_deduction(year, filing, pre_agi + portfolio_tax_exempt, _n65_est)
-    except Exception:
-        pass
+    except (TypeError, ValueError, KeyError) as _exc:
+        # WI-029: the estimate proceeds without the senior bonus, but not silently.
+        _log_fallback("roth_estimate.senior_bonus_deduction", _exc, year=year, filing=filing)
     base_tax_est = compute_fed_tax_fn(max(0.0, pre_agi - std), year, filing, float(c.get("brk_inf", 0.02)))
     # FIN-002 (system review 2026-09-25): top_target is a taxable-income
     # bracket threshold, but pre_agi is income before any deduction -- comparing
@@ -2492,8 +2495,8 @@ def plan_roth_conversion(
                          aca_guardrail_max_fpl_multiple(c, year) * aca_fpl_for_year(c, year) - pre_agi)
         _would_allow("pct", "Annual IRA percentage cap", ira_total * max_pct)
         _would_allow("balance", "IRA balance", ira_total)
-    except Exception:
-        pass
+    except (TypeError, ValueError, KeyError, ZeroDivisionError) as _exc:
+        _log_fallback("roth_guardrail.trace", _exc, year=year)
     # Record which bracket rate this year's bracket cap used (a phase-varying or
     # optimizer-chosen strategy can differ from the configured target bracket).
     for _e in caps_seen:
@@ -3226,7 +3229,8 @@ def roth_guardrail_analysis(c: Mapping, rows: Iterable[Mapping]) -> Dict[str, An
         try:
             c2, rows2 = run_scenario(c, {key: False})
             m2 = _roth_strategy_metrics(c2, rows2)
-        except Exception:
+        except (TypeError, ValueError, KeyError, ZeroDivisionError) as _exc:
+            _log_fallback("roth_guardrail_attribution.scenario", _exc, guardrail=gid)
             continue
         terminal_pv_delta = (m2["lcv_score"] - m2["consumption_pv"]) - (base_metrics["lcv_score"] - base_metrics["consumption_pv"])
         whatif[gid] = {
@@ -4968,8 +4972,8 @@ def _mc_row_bucket_flows(c: dict, base_rows: list[dict]) -> dict:
         out['spend_by_tier'] = {t: _np.array(v, dtype=float) for t, v in spend_by_tier.items()}
         for f in _EXTRA_SCALAR_FIELDS:
             out[f] = _np.array(extra_scalar[f], dtype=float)
-    except Exception:
-        pass
+    except (TypeError, ValueError, KeyError) as _exc:
+        _log_fallback("monte_carlo.array_conversion", _exc)
     out['years'] = years
     return out
 
@@ -6186,8 +6190,8 @@ def _mc_vectorized_batch(c: dict, base_rows: list[dict], n_sims: int, seed: int,
         _legacy_floor = float(c.get('legacy_floor', 0.0) or 0.0)
         if _legacy_floor > 0 and _post_tax_vals:
             probability_legacy_floor_met = float(_np.mean(_np.asarray(_post_tax_vals) >= _legacy_floor))
-    except Exception:
-        pass
+    except (TypeError, ValueError, KeyError, ZeroDivisionError) as _exc:
+        _log_fallback("monte_carlo.after_tax_percentiles", _exc)
     # Phase 3 (optimization refactor): tax NPV / ELTR distribution across
     # the MC batch -- see _mc_vectorized_projection's tail for the per-path
     # computation. None when the projection didn't carry these fields
