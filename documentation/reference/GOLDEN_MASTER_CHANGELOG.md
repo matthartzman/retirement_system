@@ -1,3 +1,9 @@
+## 2026-10-21 — Synthetic golden master re-pinned for the PR 237 engine changes
+
+<!-- fixture-provenance: synthetic_golden_master_cases.json sha256=0ad8618c0f8b2520c0d81edc296e5a73b86b78c1ddd56ee551cabdde5e11974e -->
+
+`tests/fixtures/synthetic_golden_master_cases.json` was missed when PR 237 (WI-022 to WI-025) landed, so `tests/test_synthetic_golden_master.py` failed on main. Owner confirmed the move is expected. Across all seven synthetic scenarios lifetime tax rises about 3 percent (for example baseline couple 702,825.56 to 722,986.19), terminal net worth falls about 0.7 percent, and first-year RMD falls about 0.9 percent (53,210.98 to 52,738.29). Regenerated with `tools/regen_synthetic_golden_master.py`; no engine change.
+
 ## 2026-10-20 — WI-023b: Roth LTCG cap measured from AGI less the standard deduction (fixtures re-recorded, pins unchanged)
 
 <!-- fixture-provenance: deterministic_engine_full_row_snapshot_cases.json sha256=6beb6b806b37eece4ade2db424aecdf11b91de0913003cb3dee9cce263d03499 -->
