@@ -494,13 +494,7 @@
     }
     // Item 180: no system-config batch editor is injected on the Settings page.
   }
-  try {
-    const oldRenderMain = renderMain;
-    renderMain = function () {
-      oldRenderMain();
-      insertPanels();
-    };
-  } catch (_e) {}
+  window.RPHooks?.after("renderMain", insertPanels, 40);
   window.RPDashboardRoadmap12 = {
     schema: SCHEMA,
     previewPlanBatchEdit: previewPlanBatchEdit,
