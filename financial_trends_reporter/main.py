@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
 import threading
 import webbrowser
@@ -157,7 +158,11 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None) -> Fla
 
     @app.route("/api/run-now", methods=["POST"])
     def run_now():
-        result = run_trends_job(retirement_system_dir, log_path=resolved_log_path)
+        try:
+            result = run_trends_job(retirement_system_dir, log_path=resolved_log_path)
+        except Exception as exc:  # noqa: BLE001 - surface the cause instead of a bare HTTP 500
+            logging.getLogger(__name__).exception("run-now failed")
+            return _json({"success": False, "error": f"{exc.__class__.__name__}: {exc}"}, 500)
         return Response(json.dumps(result), status=200 if result.get("success") else 400, content_type="application/json")
 
     return app
