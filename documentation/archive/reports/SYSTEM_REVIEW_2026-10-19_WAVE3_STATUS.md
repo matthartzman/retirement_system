@@ -86,3 +86,14 @@ Measured effect (same environment, before vs after): the frozen sample plan and 
 **Golden baseline: not re-recorded.** `tests/fixtures/golden_phase_baseline/` for the demo plan must be re-recorded, and the local cloud environment cannot do that faithfully (it already differs from the committed baseline before this change). Run on a machine that matches CI: `python tools/golden_compare.py record --plan demo --reason "WI-039: 10% additional tax on early distributions (demo plan: 2026 1,195.04; 2027 17.55)"`, then commit the baseline. Planner sign-off on the impact table above is the remaining gate before that re-record.
 
 Notice N3 is retired. A short replacement note for the exceptions not modeled needs owner-approved wording; none is added yet.
+
+## Sign-offs recorded 2026-10-21 (owner-reported)
+
+The repository owner reported approval and sign-off, in session on 2026-10-21, of: the WI-027, WI-039 and WI-040 impact tables; the demo baseline check; the earnings-test limits source; and PR #239.
+
+What this record does and does not establish:
+
+- **Impact tables (WI-027, WI-039, WI-040):** approved as written above. The measured figures are the ones in this document; nothing was re-measured for the sign-off.
+- **Demo baseline check:** reported done by the owner. The outcome (whether the demo baseline needed re-recording, and the command run) is not stored in the repository. CI on the PR passed the demo phase-golden test without a re-record, but the cloud measurement showed the demo plan moving; if the baseline was re-recorded, that commit is not on the PR branch.
+- **Earnings-test limits (24,480 and 65,160 for 2026):** the source was reported as signed off, but no citation, retrieval date or verifier was supplied, so the dataset rows keep `status: assumption`. Attach the citation and change the status to `verified` in `reference_src/tax_law_v10.json` when it is available.
+- **PR #239:** approved by the owner. Merge is a separate action and has not been taken from this session.
