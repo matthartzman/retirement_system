@@ -416,13 +416,8 @@ function rgInsert() {
 
 try {
   document.addEventListener("pointerdown", rgStartDrag);
-  const prevRenderMain = window.renderMain;
-  if (typeof prevRenderMain === "function")
-    window.renderMain = function () {
-      prevRenderMain.apply(this, arguments);
-      rgInsert();
-    };
 } catch (_e) {}
+window.RPHooks?.after("renderMain", rgInsert, 20);
 
 Object.assign(window, {
   rgMoney,

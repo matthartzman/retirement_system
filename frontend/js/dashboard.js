@@ -3539,6 +3539,7 @@ let renderMain = function() {
   restoreMainPaneFocus(_focusState);
   setAppControls(appReady);
   showStepHelp(activeStep);
+  window.RPHooks?.run("renderMain");
 };
 
 
@@ -3564,6 +3565,7 @@ let showStepHelp = function(id) {
   ensureHelpPanelVisible();
   document.getElementById("helpPanel").innerHTML =
     STEP_HELP[id] || STEP_HELP.start;
+  window.RPHooks?.run("showStepHelp", id);
 };
 const FIELD_GUIDANCE_OVERRIDES = {
   // #220: layman-quality example the user provided verbatim (split across

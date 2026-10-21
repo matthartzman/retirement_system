@@ -116,8 +116,10 @@ function stripEsmExports(src) {
 }
 
 export function loadDashboardSandbox() {
+  // WI-035: render_hooks.js is the first script in production; dashboard.js's
+  // renderMain()/showStepHelp() and the hook registrants call window.RPHooks.
   const src = stripEsmExports(
-    orderedDashboardScriptPaths()
+    [path.join(JS_DIR, "render_hooks.js"), ...orderedDashboardScriptPaths()]
       .map((p) => fs.readFileSync(p, "utf8"))
       .join("\n"),
   );
