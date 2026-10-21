@@ -4,19 +4,20 @@
 // node.start / node.end and does source.slice(start, end)) must parse with
 // plain @babel/parser, never jscodeshift.withParser("babel").
 //
-// Why: jscodeshift's offsets are only correct when the file on disk uses CRLF
-// line endings. On an LF source it reports offsets as though every newline
-// were still two characters, so every slice lands progressively further into
-// unrelated code. Measured against this repo's own frontend/js/dashboard.js:
-// CRLF checkout -> 584 top-level functions, 0 slice wrong; the identical file
-// LF-normalised -> 584 top-level functions, ALL 584 slice wrong.
+// Why: jscodeshift's offsets only line up with the text on disk when no
+// line-ending normalisation happened. With the recast pinned in package-lock.json
+// it normalises CRLF to LF before parsing, so on a CRLF checkout every slice
+// drifts one character further per newline; on an LF source the offsets happen
+// to be right. (Older recast behaved the opposite way round -- the failure mode
+// depends on the version and the checkout's line endings, which is the point.)
+// Measured historically against this repo's own frontend/js/dashboard.js: 584
+// top-level functions, ALL 584 slice wrong on the affected line-ending style.
 //
 // That is not theoretical. This repo sets core.autocrlf=true and .gitattributes
 // pins only *.csv and input/plan_data_manifest.json to eol=lf -- nothing covers
-// *.js. So a Windows checkout gets CRLF (the codemods work by luck) and a
-// Linux/macOS/CI checkout gets LF (the codemods silently emit garbage). The
-// shipped dashboard_decomp_row_model.js extraction is correct only because
-// extract_core.mjs happened to be run on Windows.
+// *.js. So a Windows checkout gets CRLF and a Linux/macOS/CI checkout gets LF;
+// whichever style the installed jscodeshift mishandles, the codemods silently
+// emit garbage on that platform. Plain @babel/parser is correct on both.
 //
 // node.loc is not a workaround: recast returns loc: null for a declaration
 // nested inside an `export`.
@@ -156,28 +157,31 @@ for (const [label, source] of [
   });
 }
 
-// ── 2. The hazard itself: jscodeshift is wrong on LF, right on CRLF ────────
+// ── 2. The hazard itself: jscodeshift offsets depend on the line endings ───
+// With the jscodeshift/recast pinned in package-lock.json (jscodeshift 17.x,
+// recast 0.23.x) recast normalises CRLF to LF before parsing, so the reported
+// offsets index the LF-normalised text: correct on an LF source, drifting by one
+// character per newline on a CRLF source. (Older recast behaved the other way
+// round.) Either way the offsets are not reliable against the file on disk, which
+// is the reason the codemods must not slice by them.
 describe("jscodeshift offsets (the reason the codemods must not use it)", () => {
-  test("are correct on a CRLF source -- which is why this bug hid on Windows", () => {
-    const sliced = sliceTopLevelDeclarations(
-      jscodeshiftProgram(FIXTURE_CRLF),
-      FIXTURE_CRLF,
-    );
+  test("are correct on an LF source", () => {
+    const sliced = sliceTopLevelDeclarations(jscodeshiftProgram(FIXTURE_LF), FIXTURE_LF);
     for (const { name, text } of sliced) {
-      assert.equal(text, expectedText(name, FIXTURE_CRLF));
+      assert.equal(text, expectedText(name, FIXTURE_LF));
     }
   });
 
-  test("are wrong on an LF source -- garbage taken from unrelated code", () => {
+  test("are wrong on a CRLF source -- garbage taken from unrelated code", () => {
     // If this ever FAILS, jscodeshift/recast has fixed its offset handling.
     // That is good news, but do not just delete this test: confirm the fix
     // against the real frontend/js/dashboard.js at the version being used,
     // pin that jscodeshift version, and only then relax the static guard below.
-    const sliced = sliceTopLevelDeclarations(jscodeshiftProgram(FIXTURE_LF), FIXTURE_LF);
-    const wrong = sliced.filter(({ name, text }) => text !== expectedText(name, FIXTURE_LF));
+    const sliced = sliceTopLevelDeclarations(jscodeshiftProgram(FIXTURE_CRLF), FIXTURE_CRLF);
+    const wrong = sliced.filter(({ name, text }) => text !== expectedText(name, FIXTURE_CRLF));
     assert.ok(
       wrong.length > 0,
-      "jscodeshift now appears to report true offsets on LF sources -- see the comment above",
+      "jscodeshift now appears to report true offsets on CRLF sources -- see the comment above",
     );
   });
 });
