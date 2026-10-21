@@ -87,17 +87,26 @@ optimistic band (+8 to +45 pp), so the known limitation cannot worsen unnoticed
 and a repair forces the bound to be updated. The n=200 nightly test now imports
 the shared harness.
 
-## Proposed new item (needs an owner decision; not implemented here)
+## Repair: disclosure guard (option 1, implemented)
 
-The measurement shows a gap beyond the disclosed tolerance, which WI-036 says
-raises a repair item rather than changing the engine. Options, cheapest first:
+Owner chose option 1 on 2026-10-21. `monte_carlo` now sets
+`mc_base_plan_shortfall` when any deterministic base row has an unfunded gap
+above $1, and in that case reports `mc_approximation_status =
+BASE_PLAN_SHORTFALL` and `model_risk_rating = APPROXIMATE_VECTORIZED_MC` instead
+of `TOLERANCE_BOUNDED`. The KPI tile then reads "(optimistic: your plan projects
+a shortfall)" with a tooltip calling the figure an upper bound, and the
+governance label says the same. No success rate, pin or projection number moves;
+funded plans keep the "+/-5pp" label.
 
-1. **Disclosure guard:** when the deterministic base rows contain any unfunded
-   gap, drop the "+/-5pp" label and mark the headline "directional / optimistic
-   when your plan has a projected shortfall" (changes `mc_approximation_status`
-   and the tile; no number moves).
+## Still open (not implemented)
+
+The headline number itself remains optimistic for plans in shortfall. Fixing the
+number is options 2 and 3 below; both move headline MC, sustainable-spend and
+claim-age results and need an owner decision. The default-tier test pins the
+measured optimistic band so a repair must update it.
+
 2. **Funded-as-asked replay for shortfall plans:** make replay fund the full
-   sampled spending need on years where the base plan was short, then re-measure
-   with this study (moves headline MC, sustainable-spend and claim-age results).
+   sampled spending need on years where the base plan was short, then re-run this
+   study.
 3. **Scalar engine of record** for any displayed headline when the base plan has
    a shortfall (slower; removes the parity question for those plans).

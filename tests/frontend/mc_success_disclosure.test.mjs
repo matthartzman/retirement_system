@@ -43,4 +43,14 @@ describe("Monte Carlo headline disclosure", () => {
   test("secondary within-tier figure is gone from the tile", () => {
     assert.doesNotMatch(sb.planKpiMetricsHtml.toString(), /without using Roth for extras/);
   });
+
+  test("a base plan with a projected shortfall never carries the tolerance label (WI-036)", () => {
+    for (const policy of ["none", "fill_to_bracket", "optimize_terminal_tax"]) {
+      const d = sb.mcSuccessDisclosure(
+        { mc_approximation_status: "BASE_PLAN_SHORTFALL", mc_parity_tolerance_pp: 5 }, policy);
+      assert.match(d.label, /optimistic: your plan projects a shortfall/);
+      assert.doesNotMatch(d.label, /±/);
+      assert.match(d.title, /upper bound/);
+    }
+  });
 });

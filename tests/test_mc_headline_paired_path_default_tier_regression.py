@@ -41,3 +41,20 @@ def test_known_optimistic_bias_when_the_base_plan_has_a_shortfall():
         f"signed gap {gap:+.3f} left the measured +8..+45pp band for a base plan in shortfall; "
         "if the replay headline was repaired, update this bound and MC_PARITY_MEASUREMENT_WI036.md"
     )
+
+
+def test_headline_status_reflects_whether_the_base_plan_is_funded():
+    """Option 1 of the WI-036 repair: no tolerance label for a base plan in shortfall."""
+    from src import planning_engines as pe
+
+    for shape, expected, flagged in (
+        ("baseline_balanced_couple", "TOLERANCE_BOUNDED", False),
+        ("pressure:0.6:150000", "BASE_PLAN_SHORTFALL", True),
+    ):
+        with frozen_holdings_prices():
+            c = build_config(shape, "fill_to_bracket", 10)
+            result = pe.monte_carlo(c, n_sims=10, seed=SEED)
+        assert result["mc_base_plan_shortfall"] is flagged, shape
+        assert result["mc_approximation_status"] == expected, shape
+        expected_rating = "APPROXIMATE_VECTORIZED_MC" if flagged else "TOLERANCE_BOUNDED_VECTORIZED_MC"
+        assert result["model_risk_rating"] == expected_rating, shape
