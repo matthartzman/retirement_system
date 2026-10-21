@@ -4,20 +4,18 @@
 // node.start / node.end and does source.slice(start, end)) must parse with
 // plain @babel/parser, never jscodeshift.withParser("babel").
 //
-// Why: jscodeshift's offsets only line up with the text on disk when no
-// line-ending normalisation happened. With the recast pinned in package-lock.json
-// it normalises CRLF to LF before parsing, so on a CRLF checkout every slice
-// drifts one character further per newline; on an LF source the offsets happen
-// to be right. (Older recast behaved the opposite way round -- the failure mode
-// depends on the version and the checkout's line endings, which is the point.)
-// Measured historically against this repo's own frontend/js/dashboard.js: 584
-// top-level functions, ALL 584 slice wrong on the affected line-ending style.
+// Why: jscodeshift (recast) re-joins the source with the platform line
+// terminator (os.EOL) and reports offsets into that text. They are correct only
+// when the file's line endings match the platform's and drift one character per
+// newline otherwise. Measured historically against this repo's own
+// frontend/js/dashboard.js: 584 top-level functions, ALL 584 slice wrong on the
+// mismatched line-ending style.
 //
 // That is not theoretical. This repo sets core.autocrlf=true and .gitattributes
 // pins only *.csv and input/plan_data_manifest.json to eol=lf -- nothing covers
-// *.js. So a Windows checkout gets CRLF and a Linux/macOS/CI checkout gets LF;
-// whichever style the installed jscodeshift mishandles, the codemods silently
-// emit garbage on that platform. Plain @babel/parser is correct on both.
+// *.js. Any checkout whose line endings differ from the machine running the
+// codemod (e.g. an LF checkout on Windows, a CRLF file on Linux) silently emits
+// garbage. Plain @babel/parser is correct on both.
 //
 // node.loc is not a workaround: recast returns loc: null for a declaration
 // nested inside an `export`.
@@ -26,6 +24,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import * as babelParser from "@babel/parser";
@@ -157,31 +156,39 @@ for (const [label, source] of [
   });
 }
 
-// ── 2. The hazard itself: jscodeshift offsets depend on the line endings ───
-// With the jscodeshift/recast pinned in package-lock.json (jscodeshift 17.x,
-// recast 0.23.x) recast normalises CRLF to LF before parsing, so the reported
-// offsets index the LF-normalised text: correct on an LF source, drifting by one
-// character per newline on a CRLF source. (Older recast behaved the other way
-// round.) Either way the offsets are not reliable against the file on disk, which
-// is the reason the codemods must not slice by them.
+// ── 2. The hazard itself: jscodeshift offsets depend on the platform ───────
+// recast re-joins the source with the OS line terminator (os.EOL) before
+// parsing, so jscodeshift's offsets index that re-joined text: correct only when
+// the file's line endings match the platform's (CRLF on Windows, LF on
+// Linux/macOS/CI) and drifting by one character per newline when they do not.
+// So the same codemod works on one checkout and silently emits garbage on
+// another, which is the reason the codemods must not slice by these offsets.
+const NATIVE_IS_CRLF = os.EOL === "\r\n";
+const NATIVE = NATIVE_IS_CRLF
+  ? { label: "CRLF", source: FIXTURE_CRLF }
+  : { label: "LF", source: FIXTURE_LF };
+const FOREIGN = NATIVE_IS_CRLF
+  ? { label: "LF", source: FIXTURE_LF }
+  : { label: "CRLF", source: FIXTURE_CRLF };
+
 describe("jscodeshift offsets (the reason the codemods must not use it)", () => {
-  test("are correct on an LF source", () => {
-    const sliced = sliceTopLevelDeclarations(jscodeshiftProgram(FIXTURE_LF), FIXTURE_LF);
+  test(`are correct when the source uses the platform's line endings (${NATIVE.label} here)`, () => {
+    const sliced = sliceTopLevelDeclarations(jscodeshiftProgram(NATIVE.source), NATIVE.source);
     for (const { name, text } of sliced) {
-      assert.equal(text, expectedText(name, FIXTURE_LF));
+      assert.equal(text, expectedText(name, NATIVE.source));
     }
   });
 
-  test("are wrong on a CRLF source -- garbage taken from unrelated code", () => {
+  test(`are wrong when the source does not (${FOREIGN.label} here) -- garbage taken from unrelated code`, () => {
     // If this ever FAILS, jscodeshift/recast has fixed its offset handling.
     // That is good news, but do not just delete this test: confirm the fix
     // against the real frontend/js/dashboard.js at the version being used,
     // pin that jscodeshift version, and only then relax the static guard below.
-    const sliced = sliceTopLevelDeclarations(jscodeshiftProgram(FIXTURE_CRLF), FIXTURE_CRLF);
-    const wrong = sliced.filter(({ name, text }) => text !== expectedText(name, FIXTURE_CRLF));
+    const sliced = sliceTopLevelDeclarations(jscodeshiftProgram(FOREIGN.source), FOREIGN.source);
+    const wrong = sliced.filter(({ name, text }) => text !== expectedText(name, FOREIGN.source));
     assert.ok(
       wrong.length > 0,
-      "jscodeshift now appears to report true offsets on CRLF sources -- see the comment above",
+      "jscodeshift now appears to report true offsets on mismatched line endings -- see the comment above",
     );
   });
 });
