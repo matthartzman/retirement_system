@@ -92,7 +92,7 @@ def test_build_result_carries_build_id_and_rejects_stale_summary():
 
 
 def test_vectorized_monte_carlo_emits_progress_lines():
-    text = (ROOT / "src" / "planning_engines.py").read_text(encoding="utf-8")
+    text = (ROOT / "src" / "planning_engines.py").read_text(encoding="utf-8") + (ROOT / "src" / "engine_sections" / "monte_carlo_headline.py").read_text(encoding="utf-8")
     assert "Monte Carlo vectorized batch: sampling" in text
     assert "Monte Carlo vectorized batch: main batch complete" in text
     assert "Monte Carlo sensitivity grid:" in text

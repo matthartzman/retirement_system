@@ -58,7 +58,7 @@ def test_money_like_scenario_labels_get_currency_formatting_even_without_units()
 
 
 def test_engine_reads_current_home_value_alias_used_by_ui_schema():
-    source = (ROOT / "src" / "data_io.py").read_text(encoding="utf-8")
+    source = (ROOT / "src" / "data_io.py").read_text(encoding="utf-8") + (ROOT / "src" / "parsing" / "client_sections.py").read_text(encoding="utf-8")
 
     assert "_v(data,'Other Assets','Home','value_as_of_plan_start'" in source
     assert "f'value_4_1_{TAX_BASE_YEAR}'" in source

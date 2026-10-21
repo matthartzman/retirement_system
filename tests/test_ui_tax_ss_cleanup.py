@@ -47,7 +47,7 @@ def test_social_security_funding_discount_defaults_and_engine_application_are_pr
     assert 'ss_funding_discount_year,2032' in income
     assert 'ss_funding_discount_pct,22.00%' in income
     assert 'ss_funding_factor' in read('src/planning_engines.py')
-    assert 'ss_funding_discount_pct' in read('src/data_io.py')
+    assert 'ss_funding_discount_pct' in read('src/data_io.py') + read('src/parsing/client_sections.py')
 
 
 def test_tax_and_irmaa_tables_updated_to_2025_and_workflow_documents_annual_review():
