@@ -12,7 +12,7 @@ import pytest
 from src.core import new_york_estate_tax, resolved_state_estate_exemption, state_estate_tax
 
 
-EXEMPT = 6_940_000.0
+EXEMPT = 7_350_000.0
 
 
 def test_below_exemption_owes_nothing():

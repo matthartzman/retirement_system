@@ -22,7 +22,7 @@ ALL_IDS = ["N1", "N2", "N3", "N4", "N5", "N6", "N7"]
 # The registry as shipped, captured before any test patches it.
 REAL_NOTICES = ln.NOTICES
 # Notices whose fix has shipped (their removal triggers are marked shipped in the registry).
-RETIRED_IDS = ["N1", "N2", "N4"]
+RETIRED_IDS = ["N1", "N2", "N3", "N4", "N5"]
 
 
 @pytest.fixture(autouse=True)
@@ -67,7 +67,7 @@ TRIGGERS = {
     "N3": (_base_config(), [_row(h_age=55, _account_withdrawals={"Member_1_IRA": 20000.0})]),
     "N4": (_base_config(account_registry=[_acct("Joint_Trust", "taxable", 0)]), [_row()]),
     "N5": (_base_config(h_ss_claim_age_precise=62.0), [_row(h_age=63, earned=90000.0)]),
-    "N6": (_base_config(members=[{"name": "A"}], household_size=1), [_row()]),
+    "N6": (_base_config(members=[{"name": "A"}], household_size=1, fed_exempt=30_000_000), [_row()]),
 }
 # A plan where none of N1-N6 holds.
 QUIET = (_base_config(), [_row()])
@@ -110,7 +110,7 @@ def test_n7_lists_the_six_families_with_dataset_vocabulary():
     assert [f["family"] for f in n7["families"]] == list(ln.DATA_FAMILIES)
     assert {f["status"] for f in n7["families"]} <= {"verified", "assumption", "unreviewed"}
     by = {f["family"]: f["status"] for f in n7["families"]}
-    assert by["AMT"] != "verified"  # the dataset holds no AMT rows
+    assert by["AMT"] == "verified"  # WI-027: dated, verified AMT rows
 
 
 def test_n7_never_verified_when_a_row_in_force_is_assumption():
@@ -245,7 +245,7 @@ def test_shipped_fixes_have_retired_their_notices(monkeypatch):
     monkeypatch.setattr(ln, "NOTICE_BY_ID", {n.id: n for n in REAL_NOTICES})
     assert sorted(n.id for n in REAL_NOTICES if n.retired) == RETIRED_IDS
     shown = {a.id for a in ln.active_notices()}
-    assert not set(RETIRED_IDS) & shown and {"N3", "N5", "N6", "N7"} <= shown
+    assert not set(RETIRED_IDS) & shown and {"N6", "N7"} <= shown
     for nid in RETIRED_IDS:
         config, rows = TRIGGERS[nid]
         assert nid not in _ids(config, rows)

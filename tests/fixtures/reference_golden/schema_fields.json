@@ -5863,6 +5863,166 @@
   [
    {
     "$tuple": [
+     "Withdrawal Policy",
+     "Early Distributions Member 1",
+     "separation_year"
+    ]
+   },
+   {
+    "section": "Withdrawal Policy",
+    "subsection": "Early Distributions Member 1",
+    "label": "separation_year",
+    "type": "year",
+    "required": "FALSE",
+    "default": "",
+    "min": "1950",
+    "max": "2100",
+    "description": "Year the member separates from the employer sponsoring their 401(k)/403(b), in or after the year they turn 55 (Rule of 55). Blank if none. From that year the employer-plan balance is exempt from the 10% additional tax before 59½."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Withdrawal Policy",
+     "Early Distributions Member 1",
+     "disability_start_year"
+    ]
+   },
+   {
+    "section": "Withdrawal Policy",
+    "subsection": "Early Distributions Member 1",
+    "label": "disability_start_year",
+    "type": "year",
+    "required": "FALSE",
+    "default": "",
+    "min": "1950",
+    "max": "2100",
+    "description": "First year the member is totally and permanently disabled. Blank if none. From that year pre-tax distributions are exempt from the 10% additional tax."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Withdrawal Policy",
+     "Early Distributions Member 1",
+     "sepp_start_year"
+    ]
+   },
+   {
+    "section": "Withdrawal Policy",
+    "subsection": "Early Distributions Member 1",
+    "label": "sepp_start_year",
+    "type": "year",
+    "required": "FALSE",
+    "default": "",
+    "min": "1950",
+    "max": "2100",
+    "description": "First year of a substantially equal periodic payment (SEPP) schedule you have set up. Blank if none. The schedule is entered, not calculated."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Withdrawal Policy",
+     "Early Distributions Member 1",
+     "sepp_annual_amount"
+    ]
+   },
+   {
+    "section": "Withdrawal Policy",
+    "subsection": "Early Distributions Member 1",
+    "label": "sepp_annual_amount",
+    "type": "currency",
+    "required": "FALSE",
+    "default": "$0",
+    "min": "0",
+    "max": "",
+    "description": "Annual SEPP payment (today dollars). Up to this amount of the member's pre-tax distributions each year is exempt from the 10% additional tax. A modified schedule is not modeled."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Withdrawal Policy",
+     "Early Distributions Member 2",
+     "separation_year"
+    ]
+   },
+   {
+    "section": "Withdrawal Policy",
+    "subsection": "Early Distributions Member 2",
+    "label": "separation_year",
+    "type": "year",
+    "required": "FALSE",
+    "default": "",
+    "min": "1950",
+    "max": "2100",
+    "description": "Year the member separates from the employer sponsoring their 401(k)/403(b), in or after the year they turn 55 (Rule of 55). Blank if none. From that year the employer-plan balance is exempt from the 10% additional tax before 59½."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Withdrawal Policy",
+     "Early Distributions Member 2",
+     "disability_start_year"
+    ]
+   },
+   {
+    "section": "Withdrawal Policy",
+    "subsection": "Early Distributions Member 2",
+    "label": "disability_start_year",
+    "type": "year",
+    "required": "FALSE",
+    "default": "",
+    "min": "1950",
+    "max": "2100",
+    "description": "First year the member is totally and permanently disabled. Blank if none. From that year pre-tax distributions are exempt from the 10% additional tax."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Withdrawal Policy",
+     "Early Distributions Member 2",
+     "sepp_start_year"
+    ]
+   },
+   {
+    "section": "Withdrawal Policy",
+    "subsection": "Early Distributions Member 2",
+    "label": "sepp_start_year",
+    "type": "year",
+    "required": "FALSE",
+    "default": "",
+    "min": "1950",
+    "max": "2100",
+    "description": "First year of a substantially equal periodic payment (SEPP) schedule you have set up. Blank if none. The schedule is entered, not calculated."
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Withdrawal Policy",
+     "Early Distributions Member 2",
+     "sepp_annual_amount"
+    ]
+   },
+   {
+    "section": "Withdrawal Policy",
+    "subsection": "Early Distributions Member 2",
+    "label": "sepp_annual_amount",
+    "type": "currency",
+    "required": "FALSE",
+    "default": "$0",
+    "min": "0",
+    "max": "",
+    "description": "Annual SEPP payment (today dollars). Up to this amount of the member's pre-tax distributions each year is exempt from the 10% additional tax. A modified schedule is not modeled."
+   }
+  ],
+  [
+   {
+    "$tuple": [
      "Estate Planning",
      "Legacy",
      "legacy_floor"

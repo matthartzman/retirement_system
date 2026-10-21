@@ -1000,8 +1000,8 @@
       "value": 184500,
       "effective_year": 2026,
       "expires_year": null,
-      "source": "v10 local dated tax-law dataset",
-      "status": "assumption"
+      "source": "SSA Contribution and Benefit Base (reviewed 2026-10-20)",
+      "status": "verified"
     },
     {
       "jurisdiction": "US",
@@ -1019,7 +1019,7 @@
       "name": "part_d_base_premium_monthly",
       "value": 40.0,
       "effective_year": 2025,
-      "expires_year": null,
+      "expires_year": 2025,
       "source": "v10 local dated tax-law dataset",
       "status": "assumption"
     },
@@ -2231,6 +2231,406 @@
       "effective_year": 1997,
       "expires_year": null,
       "source": "IRC 121(a): the 5-year period ending on the date of sale (all filing statuses) (statutory, not indexed; recalled from the statute, not re-checked against the primary source -- owner/tax-preparer checkpoint WP12.1)",
+      "status": "legislated"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "amt_exemption",
+      "value": 137000,
+      "effective_year": 2025,
+      "expires_year": 2025,
+      "source": "IRS Rev. Proc. 2024-40 (2025 figure carried from the prior hard-coded constants; reviewed 2026-10-20)",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "amt_exemption",
+      "value": 140200,
+      "effective_year": 2026,
+      "expires_year": null,
+      "source": "IRS Rev. Proc. 2025-32 (reviewed 2026-10-20) sec. 4.10",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "amt_phaseout_start",
+      "value": 1252700,
+      "effective_year": 2025,
+      "expires_year": 2025,
+      "source": "IRS Rev. Proc. 2024-40 (2025 figure carried from the prior hard-coded constants; reviewed 2026-10-20)",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "amt_phaseout_start",
+      "value": 1000000,
+      "effective_year": 2026,
+      "expires_year": null,
+      "source": "IRS Rev. Proc. 2025-32 (reviewed 2026-10-20) sec. 4.10; P.L. 119-21 lowered the thresholds",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "amt_phaseout_rate",
+      "value": 0.25,
+      "effective_year": 2025,
+      "expires_year": 2025,
+      "source": "IRC 55(d)(3) before P.L. 119-21",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "amt_phaseout_rate",
+      "value": 0.5,
+      "effective_year": 2026,
+      "expires_year": null,
+      "source": "IRC 55(d)(3) as amended by P.L. 119-21; IRS Rev. Proc. 2025-32 (reviewed 2026-10-20) sec. 4.10",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "amt_exemption",
+      "value": 88100,
+      "effective_year": 2025,
+      "expires_year": 2025,
+      "source": "IRS Rev. Proc. 2024-40 (2025 figure carried from the prior hard-coded constants; reviewed 2026-10-20)",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "amt_exemption",
+      "value": 90100,
+      "effective_year": 2026,
+      "expires_year": null,
+      "source": "IRS Rev. Proc. 2025-32 (reviewed 2026-10-20) sec. 4.10",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "amt_phaseout_start",
+      "value": 626350,
+      "effective_year": 2025,
+      "expires_year": 2025,
+      "source": "IRS Rev. Proc. 2024-40 (2025 figure carried from the prior hard-coded constants; reviewed 2026-10-20)",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "amt_phaseout_start",
+      "value": 500000,
+      "effective_year": 2026,
+      "expires_year": null,
+      "source": "IRS Rev. Proc. 2025-32 (reviewed 2026-10-20) sec. 4.10; P.L. 119-21 lowered the thresholds",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "amt_phaseout_rate",
+      "value": 0.25,
+      "effective_year": 2025,
+      "expires_year": 2025,
+      "source": "IRC 55(d)(3) before P.L. 119-21",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "amt_phaseout_rate",
+      "value": 0.5,
+      "effective_year": 2026,
+      "expires_year": null,
+      "source": "IRC 55(d)(3) as amended by P.L. 119-21; IRS Rev. Proc. 2025-32 (reviewed 2026-10-20) sec. 4.10",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFS",
+      "name": "amt_exemption",
+      "value": 68500,
+      "effective_year": 2025,
+      "expires_year": 2025,
+      "source": "IRS Rev. Proc. 2024-40 (2025 figure carried from the prior hard-coded constants; reviewed 2026-10-20)",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFS",
+      "name": "amt_exemption",
+      "value": 70100,
+      "effective_year": 2026,
+      "expires_year": null,
+      "source": "IRS Rev. Proc. 2025-32 (reviewed 2026-10-20) sec. 4.10",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFS",
+      "name": "amt_phaseout_start",
+      "value": 626350,
+      "effective_year": 2025,
+      "expires_year": 2025,
+      "source": "IRS Rev. Proc. 2024-40 (2025 figure carried from the prior hard-coded constants; reviewed 2026-10-20)",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFS",
+      "name": "amt_phaseout_start",
+      "value": 500000,
+      "effective_year": 2026,
+      "expires_year": null,
+      "source": "IRS Rev. Proc. 2025-32 (reviewed 2026-10-20) sec. 4.10; P.L. 119-21 lowered the thresholds",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFS",
+      "name": "amt_phaseout_rate",
+      "value": 0.25,
+      "effective_year": 2025,
+      "expires_year": 2025,
+      "source": "IRC 55(d)(3) before P.L. 119-21",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFS",
+      "name": "amt_phaseout_rate",
+      "value": 0.5,
+      "effective_year": 2026,
+      "expires_year": null,
+      "source": "IRC 55(d)(3) as amended by P.L. 119-21; IRS Rev. Proc. 2025-32 (reviewed 2026-10-20) sec. 4.10",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "amt_rate_break",
+      "value": 239100,
+      "effective_year": 2025,
+      "expires_year": 2025,
+      "source": "IRS Instructions for Form 6251 (2025); replaces the 2024 figure 232,600 previously used for 2025",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "amt_rate_break",
+      "value": 244500,
+      "effective_year": 2026,
+      "expires_year": null,
+      "source": "IRS Rev. Proc. 2025-32 (reviewed 2026-10-20) sec. 4.10 (halved by the engine for MFS: 122,250)",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "qlac_premium_limit",
+      "value": 210000,
+      "effective_year": 2025,
+      "expires_year": 2025,
+      "source": "IRS Notice 2024-80 (reviewed 2026-10-20)",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "qlac_premium_limit",
+      "value": 210000,
+      "effective_year": 2026,
+      "expires_year": null,
+      "source": "IRS Notice 2025-67 p. 3; unchanged for 2026 (reviewed 2026-10-20)",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "qcd_annual_limit",
+      "value": 108000,
+      "effective_year": 2025,
+      "expires_year": 2025,
+      "source": "IRS Notice 2024-80 (reviewed 2026-10-20)",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "qcd_annual_limit",
+      "value": 111000,
+      "effective_year": 2026,
+      "expires_year": null,
+      "source": "IRS Notice 2025-67 p. 5; per eligible individual (reviewed 2026-10-20)",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "student_loan_interest_phaseout_start",
+      "value": 165000,
+      "effective_year": 2025,
+      "expires_year": 2025,
+      "source": "IRS Rev. Proc. 2024-40 (2025 figure carried from the prior hard-coded constants; reviewed 2026-10-20)",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "student_loan_interest_phaseout_start",
+      "value": 175000,
+      "effective_year": 2026,
+      "expires_year": null,
+      "source": "IRS Rev. Proc. 2025-32 (reviewed 2026-10-20) sec. 4.29",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "student_loan_interest_phaseout_end",
+      "value": 195000,
+      "effective_year": 2025,
+      "expires_year": 2025,
+      "source": "IRS Rev. Proc. 2024-40 (2025 figure carried from the prior hard-coded constants; reviewed 2026-10-20)",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "student_loan_interest_phaseout_end",
+      "value": 205000,
+      "effective_year": 2026,
+      "expires_year": null,
+      "source": "IRS Rev. Proc. 2025-32 (reviewed 2026-10-20) sec. 4.29",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "student_loan_interest_phaseout_start",
+      "value": 80000,
+      "effective_year": 2025,
+      "expires_year": 2025,
+      "source": "IRS Rev. Proc. 2024-40 (2025 figure carried from the prior hard-coded constants; reviewed 2026-10-20)",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "student_loan_interest_phaseout_start",
+      "value": 85000,
+      "effective_year": 2026,
+      "expires_year": null,
+      "source": "IRS Rev. Proc. 2025-32 (reviewed 2026-10-20) sec. 4.29",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "student_loan_interest_phaseout_end",
+      "value": 95000,
+      "effective_year": 2025,
+      "expires_year": 2025,
+      "source": "IRS Rev. Proc. 2024-40 (2025 figure carried from the prior hard-coded constants; reviewed 2026-10-20)",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "Single",
+      "name": "student_loan_interest_phaseout_end",
+      "value": 100000,
+      "effective_year": 2026,
+      "expires_year": null,
+      "source": "IRS Rev. Proc. 2025-32 (reviewed 2026-10-20) sec. 4.29",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "student_loan_interest_max_deduction",
+      "value": 2500,
+      "effective_year": 2000,
+      "expires_year": null,
+      "source": "IRC 221(b)(1); statutory, not indexed (Rev. Proc. 2025-32 sec. 4.29)",
+      "status": "legislated"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "federal_estate_basic_exclusion",
+      "value": 15000000,
+      "effective_year": 2026,
+      "expires_year": null,
+      "source": "IRC 2010(c)(3) as amended by P.L. 119-21; Rev. Proc. 2025-32 sec. 2.14. Per person; inflation-indexed after 2026. Portability/credit-shelter arithmetic is NOT attorney-reviewed.",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "part_d_base_premium_monthly",
+      "value": 38.99,
+      "effective_year": 2026,
+      "expires_year": null,
+      "source": "CMS CY2026 Part D national base beneficiary premium (July 28, 2025 announcement; reviewed 2026-10-20). A national reference amount, not a selected plan premium.",
+      "status": "verified"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "ss_earnings_test_annual_limit",
+      "value": 24480,
+      "effective_year": 2026,
+      "expires_year": null,
+      "source": "SSA annual earnings test exempt amounts (2026 COLA fact sheet); 42 USC 403(b). Owner-accepted 2026-10-20; retrieval date and verifier not recorded",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "ss_earnings_test_fra_year_limit",
+      "value": 65160,
+      "effective_year": 2026,
+      "expires_year": null,
+      "source": "SSA annual earnings test exempt amounts (2026 COLA fact sheet); 42 USC 403(b). Owner-accepted 2026-10-20; retrieval date and verifier not recorded",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "ss_earnings_test_rate",
+      "value": 0.5,
+      "effective_year": 2026,
+      "expires_year": null,
+      "source": "SSA annual earnings test exempt amounts (2026 COLA fact sheet); 42 USC 403(b). Owner-accepted 2026-10-20; retrieval date and verifier not recorded",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "ss_earnings_test_fra_year_rate",
+      "value": 0.3333333333333333,
+      "effective_year": 2026,
+      "expires_year": null,
+      "source": "SSA annual earnings test exempt amounts (2026 COLA fact sheet); 42 USC 403(b). Owner-accepted 2026-10-20; retrieval date and verifier not recorded",
+      "status": "assumption"
+    },
+    {
+      "jurisdiction": "US",
+      "filing_status": "MFJ",
+      "name": "early_distribution_additional_tax_rate",
+      "value": 0.1,
+      "effective_year": 1986,
+      "expires_year": null,
+      "source": "IRC 72(t)(1): 10% additional tax on early distributions from qualified retirement plans (statutory, not indexed)",
       "status": "legislated"
     }
   ],

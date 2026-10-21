@@ -9,6 +9,8 @@ stage module.  Additional fine-grained stage files can replace pieces behind
 this same contract without changing callers.
 """
 
+from ..early_distribution import early_distribution_tax as _early_distribution_tax, early_fraction as _early_fraction
+from ..tax_law import default_tax_law_dataset as _tax_law_ds
 from ..tax_assumptions import stressed_ordinary_brackets as _ta_stressed_brackets
 from .amt_equity_comp_true_up import apply_amt_and_equity_comp_true_up as _apply_amt_and_equity_comp_true_up
 from .appreciation_divorce_qlac import apply_appreciation_divorce_qlac as _apply_appreciation_divorce_qlac
@@ -687,6 +689,19 @@ def run_deterministic_projection_stage(c):
             tax_exempt += _bal * float(_info.get('tax_exempt_yield', 0.0) or 0.0)
         return ordinary, qualified, tax_exempt
 
+    def _early_dist_tax_fn_for_year(year):
+        """WI-039 / FIN-004: the 10% additional tax on early pre-tax distributions, as a function of the
+        cumulative pre-tax draws by account. None when no living owner is under 59 1/2 this year, so plans
+        without exposure run exactly as before."""
+        members = c.get('members') or []
+        if not members or not any(
+                _early_fraction(year, m['dob_yr'], m.get('dob_month') or 1) > 0.0 for m in members):
+            return None
+        rate = _tax_law_ds().lookup_or_earliest('early_distribution_additional_tax_rate', year).value
+        exceptions = c.get('early_dist_exceptions') or {}
+        registry = c.get('account_registry') or []
+        return lambda draws: _early_distribution_tax(rate, year, draws, registry, members, exceptions)[0]
+
     def _ss_funding_factor(year):
         try:
             cut_year = int(c.get('ss_funding_discount_year', 2032) or 2032)
@@ -958,6 +973,7 @@ def run_deterministic_projection_stage(c):
             ss_ratio=_ss_ratio,
             ss_first_claim_year_month_fraction=_ss_first_claim_year_month_fraction,
             ss_claim_factor=_ss_claim_factor,
+            fra_for_birth_year=_fra_for_birth_year,
             ss_spousal_excess_factor=_ss_spousal_excess_factor,
             ss_survivor_reduction_factor=_ss_survivor_reduction_factor,
             ss_funding_factor=_ss_funding_factor,
@@ -1327,6 +1343,7 @@ def run_deterministic_projection_stage(c):
         ded = _hsa_reimb.ded
         medical_ded = _hsa_reimb.medical_ded
 
+        _early_dist_fn = _early_dist_tax_fn_for_year(year)
         # ── Priority 3: Pre-tax elective withdrawal (design doc Stage 10, sub-stage #4) ──
         _priority3 = _apply_priority_3_pretax_elective(
             c, bal, row,
@@ -1340,6 +1357,7 @@ def run_deterministic_projection_stage(c):
             brk_inf=c['brk_inf'], inflate_brackets_fn=_inflate_brackets_path,
             ira_elective_tax_delta_fn=_ira_elective_ordinary_tax_delta,
             other_fixed_tax=_rental_fixed_tax,
+            early_dist_tax_fn=_early_dist_fn,
         )
         gap = _priority3.gap
         agi = _priority3.agi
@@ -1452,6 +1470,8 @@ def run_deterministic_projection_stage(c):
             brk_inf=c['brk_inf'], inflate_brackets_fn=_inflate_brackets_path,
             ira_elective_tax_delta_fn=_ira_elective_ordinary_tax_delta,
             other_fixed_tax=_rental_fixed_tax,
+            early_dist_tax_fn=_early_dist_fn,
+            early_dist_tax_in=_priority3.early_dist_tax,
         )
         gap = _priority4b.gap
         agi = _priority4b.agi
@@ -1483,6 +1503,8 @@ def run_deterministic_projection_stage(c):
         w_ira_elective = _priority4b.w_ira_elective
         pretax_by_account = _priority4b.pretax_by_account
         ira_tax_true_up_iterations = _priority4b.ira_tax_true_up_iterations
+        if _priority4b.early_dist_tax > 0.0:
+            row['early_dist_tax'] = _priority4b.early_dist_tax
         if _rental_year is not None:
             # The elective draws above sit under the unrecaptured 1250 gain in
             # the stack, so re-cap it at the converged taxable income.

@@ -36,7 +36,7 @@ from __future__ import annotations
 from ..data_io import _b, _n, _v
 
 
-def parse_estate_planning(data):
+def parse_estate_planning(data, household_size=None):
     """Parse the "Estate Planning" input section (plus one Household flag).
 
     Reads the already-loaded sectioned ``data`` dict (``{section:
@@ -45,7 +45,13 @@ def parse_estate_planning(data):
     docstring for the ``trust_type`` exception.
     """
     trust_type = _v(data, 'Estate Planning', 'Trust Structure', 'trust_type', 'revocable living trust')
-    fed_exempt = _n(_v(data, 'Estate Planning', 'Federal', 'exemption_mfj', '30000000'), 30000000)
+    # WI-027 / FIN-009: a blank exemption is derived from the household -- the
+    # per-person basic exclusion (dated row), doubled only for a couple (which
+    # presumes a timely portability election). An explicit value is kept.
+    from ..tax_law import default_tax_law_dataset
+    _per_person = default_tax_law_dataset().latest_value('federal_estate_basic_exclusion').value
+    _default_exempt = _per_person * (1 if household_size == 1 else 2)
+    fed_exempt = _n(_v(data, 'Estate Planning', 'Federal', 'exemption_mfj', str(int(_default_exempt))), _default_exempt)
     # Section 'State' (item 291 Class 4; was 'Illinois' -- migrate_sectioned_data,
     # called above, upgrades any legacy row to this shape before this read runs).
     # Label itself was already state-generic (state_estate_exemption); only the

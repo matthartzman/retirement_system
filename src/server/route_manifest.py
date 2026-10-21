@@ -3,7 +3,7 @@ from __future__ import annotations
 """Route ownership manifest for the local desktop API."""
 
 ROUTE_MODULES = {
-    "build_results": ["/api/build/preflight", "/api/build/start", "/api/build", "/api/build/status", "/api/build/progress/<job_id>", "/api/build/events/<job_id>", "/api/build/events/<job_id>/snapshot", "/api/detailed-results", "/api/report-package", "/api/history", "/api/xlsx", "/api/workbook-format", "/files/<path:filename>", "/api/kpi-snapshots", "/api/kpi-snapshots/compare"],
+    "build_results": ["/api/build/preflight", "/api/build/start", "/api/build/cancel/<job_id>", "/api/build", "/api/build/status", "/api/build/progress/<job_id>", "/api/build/events/<job_id>", "/api/build/events/<job_id>/snapshot", "/api/detailed-results", "/api/report-package", "/api/history", "/api/xlsx", "/api/workbook-format", "/files/<path:filename>", "/api/kpi-snapshots", "/api/kpi-snapshots/compare"],
     "app_shell": ["/", "/admin", "/login", "/frontend", "/frontend/<path:filename>", "/system-configuration"],
     "runtime": [
         "/api/ping", "/api/status", "/api/runtime", "/api/shutdown", "/api/prefs", "/api/schema", "/api/summary", "/api/validate",

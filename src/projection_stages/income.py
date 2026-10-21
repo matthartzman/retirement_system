@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from ..ss_earnings_test import earnings_test_withholding as _earnings_test_withholding
+from ..tax_law import default_tax_law_dataset as _default_tax_law_dataset
 from typing import Any, Callable, NamedTuple
 
 from .. import core as _aa  # consolidated from account_access
@@ -56,6 +58,33 @@ class IncomeResult(NamedTuple):
     rental_year: Any = None
 
 
+
+def _apply_ss_earnings_test(c, bal, row, who, year, annual_benefit, monthly_benefit, earnings, claim_age, fra_override, ss_claim_factor, fra_for_birth_year):
+    """WI-040 / FIN-007: withhold benefits for this year's earnings (before FRA) and credit the
+    withheld months back from the year after FRA. Earnings belong to member 1: the plan holds
+    one household earned-income stream that ends at member 1's last earned year."""
+    fra = fra_for_birth_year(c[f'{who}_dob_yr'], fra_override)
+    ds = _default_tax_law_dataset()
+    credits = bal.get('_ss_months_withheld') or {}
+    dob_month = int(c.get(f'{who}_dob_month') or 1)
+    withheld = _earnings_test_withholding(
+        ds, year=year, brk_inf=c['brk_inf'], dob_year=int(c[f'{who}_dob_yr']), dob_month=dob_month,
+        fra_years=fra, earnings=earnings if who == 'h' else 0.0, annual_benefit=annual_benefit)
+    if withheld > 0.0:
+        credits[who] = credits.get(who, 0.0) + (withheld / monthly_benefit if monthly_benefit > 0 else 0.0)
+        bal['_ss_months_withheld'] = credits
+        row[f'{who}_ss_withheld_earnings_test'] = withheld
+        return annual_benefit - withheld
+    mw = credits.get(who, 0.0)
+    if mw > 0.0 and claim_age < fra:
+        from ..ss_earnings_test import fra_year_and_month
+        if year > fra_year_and_month(int(c[f'{who}_dob_yr']), dob_month, fra)[0]:
+            eff = min(fra, claim_age + mw / 12.0)
+            base_factor = ss_claim_factor(claim_age, c[f'{who}_dob_yr'], fra_override)
+            if base_factor > 0:
+                return annual_benefit * ss_claim_factor(eff, c[f'{who}_dob_yr'], fra_override) / base_factor
+    return annual_benefit
+
 def apply_income(
     c: dict[str, Any],
     *,
@@ -77,6 +106,7 @@ def apply_income(
     ss_spousal_excess_factor: Callable[..., float],
     ss_survivor_reduction_factor: Callable[..., float],
     ss_funding_factor: Callable[[int], float],
+    fra_for_birth_year: Callable[..., float],
     rental_book: Any = None,
 ) -> IncomeResult:
     """Earned income, payroll/SE tax, 401(k)/HSA contributions, Social
@@ -199,6 +229,7 @@ def apply_income(
     # bases and never reduced AGI or appeared as a cash outflow anywhere.
     net_earned_taxable = 0.0
     business_expenses_yr = 0.0
+    ss_test_earnings = 0.0   # wages / net SE earnings counted by the SS earnings test
     if earned_base > 0:
         if c['entity'] == 'sole_prop':
             net_se   = earned_base - c['biz_exp'] - c['home_off']
@@ -215,6 +246,7 @@ def apply_income(
                 qbi_ded  = qbi_base * 0.20
             payroll_tax = se_tax
             net_earned_taxable = net_se
+            ss_test_earnings = max(0.0, net_se)
             business_expenses_yr = c['biz_exp'] + c['home_off']
         else:
             # S-Corp: payroll tax only on W-2 salary, not the full distribution
@@ -247,6 +279,7 @@ def apply_income(
             # IL corporate surcharge on distributable income
             # (already captured in state_tax via AGI; no separate payroll item)
             net_earned_taxable = salary + distribution
+            ss_test_earnings = salary   # S-corp distributions are not earnings
             business_expenses_yr = c['biz_exp'] + c['home_off']
 
         # Additional Medicare tax applies to Medicare wages / SE earnings,
@@ -386,6 +419,7 @@ def apply_income(
             _h_sp_factor = ss_spousal_excess_factor(_h_sp_start_age, c['h_dob_yr'], h_fra_override)
             h_monthly += max(0.0, 0.5 * w_pia - h_pia) * _h_sp_factor
         h_ss = h_monthly * 12 * ss_ratio(year, h_ss_yr) * ss_first_claim_year_month_fraction(year, h_ss_yr, c.get('h_ss_claim_month', c.get('h_dob_month')))
+        h_ss = _apply_ss_earnings_test(c, bal, row, 'h', year, h_ss, h_monthly * ss_ratio(year, h_ss_yr), ss_test_earnings, h_claim_age_precise, h_fra_override, ss_claim_factor, fra_for_birth_year)
     w_ss = 0.0
     if w_alive and year >= w_ss_yr:
         w_monthly = w_monthly_claim

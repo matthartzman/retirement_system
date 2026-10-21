@@ -91,7 +91,7 @@ NOTICES: tuple[Notice, ...] = (
         "Pre-tax withdrawals before age 59½ may owe an extra 10% tax. This plan does not include that "
         "tax, so results may look better than they are.",
         "Plan has pre-tax draws before age 59½",
-        (RemovalTrigger("WI-002a", "Early-withdrawal tax is modeled (WI-002(a) decided and implemented)"),),
+        (RemovalTrigger("WI-039", "Early-withdrawal tax is modeled (WI-002(a) decided; WI-039 implemented)", shipped=True),),
     ),
     Notice(
         "N4", "FIN-010", SEVERITY_INFO,
@@ -105,14 +105,14 @@ NOTICES: tuple[Notice, ...] = (
         "The Social Security earnings test is not modeled. If you claim before full retirement age while "
         "still earning wages, some benefits may be temporarily withheld, and this plan does not reflect that.",
         "Claim age is before full retirement age and wages continue",
-        (RemovalTrigger("WI-002b", "Earnings test is modeled (WI-002(b) decided and implemented)"),),
+        (RemovalTrigger("WI-040", "Earnings test is modeled (WI-002(b) decided; WI-040 implemented)", shipped=True),),
     ),
     Notice(
         "N6", "FIN-009", SEVERITY_WARNING,
         "The estate tax calculation uses a default exemption sized for a married couple using portability. "
         "For a one-person household the exemption is lower, so estimated federal estate tax may be understated.",
-        "Household has one member",
-        (RemovalTrigger("WI-027", "Estate exemption is derived from the household"),),
+        "Household has one member and the federal exemption is above the per-person amount",
+        (RemovalTrigger("WI-027", "Remove once saved plans no longer carry an explicit couple-sized exemption (a blank exemption is already derived from the household)"),),
     ),
     Notice(
         "N7", "FIN-005, FIN-006", SEVERITY_INFO,
@@ -208,13 +208,22 @@ def _one_member(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]]) -> bool
     return _members(c) == 1
 
 
+def _one_member_with_couple_exemption(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]]) -> bool:
+    """N6 (WI-027): a one-person household whose federal exemption is above the per-person
+    basic exclusion. A blank exemption is now derived from the household, so only an
+    explicit couple-sized value triggers it."""
+    from .tax_law import default_tax_law_dataset
+    per_person = default_tax_law_dataset().latest_value("federal_estate_basic_exclusion").value
+    return _members(c) == 1 and _f(c.get("fed_exempt")) > per_person
+
+
 CONDITIONS: dict[str, Callable[[Mapping[str, Any], Sequence[Mapping[str, Any]]], bool]] = {
     "N1": _sells_taxable_at_gain,
     "N2": _taxable_equity,
     "N3": _pretax_draw_before_59_5,
     "N4": _joint_taxable,
     "N5": _early_claim_with_wages,
-    "N6": _one_member,
+    "N6": _one_member_with_couple_exemption,
     "N7": lambda c, rows: True,
 }
 
@@ -266,7 +275,7 @@ def data_family_statuses(year: int | None = None) -> list[dict[str, str]]:
     part_d = _roll_up(_rows_in_force(
         ds, year, values=lambda n: n in _PART_D_NAMES or (n.startswith("irmaa_tier") and "_part_d_" in n),
         brackets=False))
-    # No AMT values exist in the dataset: unreviewed until WI-027 adds dated rows.
+    # AMT rows are dated dataset rows since WI-027; their own status decides the family.
     amt_rows = _rows_in_force(ds, year, values=lambda n: "amt" in n.lower(), brackets=False)
     amt = _roll_up(amt_rows)
     # State tables carry no per-row status; the tax-update dashboard flags them for review.
@@ -283,7 +292,7 @@ def data_family_statuses(year: int | None = None) -> list[dict[str, str]]:
     mortality = STATUS_ASSUMPTION
     source = {
         "Federal tables": f"tax_law dataset {ds.version}, rows in force for {year}",
-        "AMT": "no dated AMT rows in the dataset",
+        "AMT": f"tax_law dataset {ds.version}, AMT rows in force for {year}",
         "State income tax": "state_tax table; tax-update dashboard review flag",
         "State estate tax": "state_tax table; tax-update dashboard review flag",
         "Mortality": "SSA Actuarial Study No. 124 (interpolated/extrapolated)",
