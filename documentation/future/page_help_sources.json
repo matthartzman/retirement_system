@@ -1,0 +1,3879 @@
+{
+ "version": 1,
+ "pages": {
+  "start": {
+   "title": "Plan Status",
+   "summary": "Open or create your plan, see what is still missing, and pick what to do next.",
+   "terms": [
+    "Readiness (readiness checks)"
+   ],
+   "sources": [
+    {
+     "id": "s1",
+     "code": "s",
+     "text": "Open or create your plan, see what is still missing, and pick what to do next.",
+     "key": "start",
+     "line": 0
+    },
+    {
+     "id": "d1",
+     "code": "d",
+     "text": "Open a plan, check readiness, and choose the next best action.",
+     "key": "start",
+     "line": 19
+    },
+    {
+     "id": "i1",
+     "code": "i",
+     "text": "Use this as the home base for setup progress, report readiness, and the next action that moves the plan forward.",
+     "key": "start",
+     "line": 21
+    },
+    {
+     "id": "h1",
+     "code": "h",
+     "text": "Start with opening or creating a plan.",
+     "key": "start",
+     "line": 22
+    },
+    {
+     "id": "h2",
+     "code": "h",
+     "text": "Once a plan is loaded, save changes, build reports, and review results from here.",
+     "key": "start",
+     "line": 22
+    },
+    {
+     "id": "m1",
+     "code": "m",
+     "text": "These two buttons are mutually exclusive starting points.",
+     "key": "start",
+     "line": 350
+    },
+    {
+     "id": "m2",
+     "code": "m",
+     "text": "Starting new clears all household-specific data but keeps system defaults (inflation, return, and tax assumptions).",
+     "key": "start",
+     "line": 350
+    },
+    {
+     "id": "c1",
+     "code": "c",
+     "text": "Starting new clears all entered client facts, income, spending, and asset values.",
+     "key": "start",
+     "line": 351
+    },
+    {
+     "id": "c2",
+     "code": "c",
+     "text": "Opening the current plan reloads everything previously saved: income, assets, Roth strategy, Social Security, account balances, and YTD transactions.",
+     "key": "start",
+     "line": 351
+    },
+    {
+     "id": "o1",
+     "code": "o",
+     "text": "Start New when building a first draft or testing a completely different household.",
+     "key": "start",
+     "line": 352
+    },
+    {
+     "id": "o2",
+     "code": "o",
+     "text": "Open Current to continue where you left off.",
+     "key": "start",
+     "line": 352
+    },
+    {
+     "id": "o3",
+     "code": "o",
+     "text": "Bulk import and export utilities are in Settings → System Configuration.",
+     "key": "start",
+     "line": 352
+    },
+    {
+     "id": "x1",
+     "code": "x",
+     "text": "Starting new on top of existing work permanently clears the saved data unless you have exported a backup first.",
+     "key": "start",
+     "line": 353
+    },
+    {
+     "id": "x2",
+     "code": "x",
+     "text": "If unsure, export a backup before starting new.",
+     "key": "start",
+     "line": 353
+    }
+   ]
+  },
+  "household_people": {
+   "title": "Household & People",
+   "summary": "Who is in the household, when each person was born and plans to retire, and where you live and file taxes.",
+   "terms": [
+    "Filing status",
+    "Planning horizon",
+    "Mortality age",
+    "Survivor assumptions",
+    "Tax bracket"
+   ],
+   "sources": [
+    {
+     "id": "s1",
+     "code": "s",
+     "text": "Who is in the household, when each person was born and plans to retire, and where you live and file taxes.",
+     "key": "household_people",
+     "line": 0
+    },
+    {
+     "id": "d1",
+     "code": "d",
+     "text": "Names, birth dates, state of residence, tax filing status, retirement dates, planning horizon, and survivor income and filing assumptions.",
+     "key": "household_people",
+     "line": 29
+    },
+    {
+     "id": "i1",
+     "code": "i",
+     "text": "Enter each person's legal name, date of birth, retirement date, and mortality/planning-horizon age, plus the household's filing status and state of residence.",
+     "key": "household_people",
+     "line": 31
+    },
+    {
+     "id": "h1",
+     "code": "h",
+     "text": "Filing status affects tax brackets across the entire projection — changing it after plan entry can materially shift lifetime taxes and survivor results.",
+     "key": "household_people",
+     "line": 32
+    },
+    {
+     "id": "h2",
+     "code": "h",
+     "text": "Survivor assumptions drive the Survivor stress report and also appear there for review before a rebuild.",
+     "key": "household_people",
+     "line": 32
+    },
+    {
+     "id": "m1",
+     "code": "m",
+     "text": "This page defines the people, tax identity, state, and filing status used by the model, plus when earned income stops, when retirement spending begins, and how long the household should be projected.",
+     "key": "household_people",
+     "line": 364
+    },
+    {
+     "id": "m2",
+     "code": "m",
+     "text": "These are identity and tax-foundation inputs rather than strategy levers.",
+     "key": "household_people",
+     "line": 364
+    },
+    {
+     "id": "m3",
+     "code": "m",
+     "text": "Mortality age is a planning horizon, not a prediction.",
+     "key": "household_people",
+     "line": 364
+    },
+    {
+     "id": "c1",
+     "code": "c",
+     "text": "Birth dates set ages.",
+     "key": "household_people",
+     "line": 365
+    },
+    {
+     "id": "c2",
+     "code": "c",
+     "text": "Ages connect to retirement timing, Social Security, Medicare, RMDs, mortality horizon, survivor years, and estate planning.",
+     "key": "household_people",
+     "line": 365
+    },
+    {
+     "id": "c3",
+     "code": "c",
+     "text": "Filing status and state connect to tax brackets, state taxes, and survivor tax treatment.",
+     "key": "household_people",
+     "line": 365
+    },
+    {
+     "id": "c4",
+     "code": "c",
+     "text": "Retirement dates connect to work income, savings contributions, healthcare bridge years, withdrawals, Roth conversion room, and Monte Carlo sequence risk.",
+     "key": "household_people",
+     "line": 365
+    },
+    {
+     "id": "c5",
+     "code": "c",
+     "text": "Life expectancy and survivor assumptions determine late-life taxes, RMD pressure, and legacy values.",
+     "key": "household_people",
+     "line": 365
+    },
+    {
+     "id": "o1",
+     "code": "o",
+     "text": "Use actual dates when possible.",
+     "key": "household_people",
+     "line": 366
+    },
+    {
+     "id": "o2",
+     "code": "o",
+     "text": "Use MFJ for married filing jointly, Single after a survivor period when appropriate, HOH only when household rules truly apply, and the resident state expected for the modeled period.",
+     "key": "household_people",
+     "line": 366
+    },
+    {
+     "id": "o3",
+     "code": "o",
+     "text": "Earlier retirement increases years funded by assets.",
+     "key": "household_people",
+     "line": 366
+    },
+    {
+     "id": "o4",
+     "code": "o",
+     "text": "Later retirement adds income, reduces withdrawals, and shortens the funding horizon.",
+     "key": "household_people",
+     "line": 366
+    },
+    {
+     "id": "x1",
+     "code": "x",
+     "text": "Changing ages or filing status can materially change lifetime taxes, RMD timing, Social Security timing, Medicare years, survivor cash flow, and terminal net worth.",
+     "key": "household_people",
+     "line": 367
+    },
+    {
+     "id": "x2",
+     "code": "x",
+     "text": "Changing state may affect state tax, estate tax, and residency optimizer output.",
+     "key": "household_people",
+     "line": 367
+    },
+    {
+     "id": "x3",
+     "code": "x",
+     "text": "Retiring later usually increases terminal net worth and probability of success.",
+     "key": "household_people",
+     "line": 367
+    },
+    {
+     "id": "x4",
+     "code": "x",
+     "text": "Retiring earlier usually lowers liquidity and may reduce success unless spending, income, or home-equity assumptions compensate.",
+     "key": "household_people",
+     "line": 367
+    }
+   ]
+  },
+  "income_work": {
+   "title": "Work Income",
+   "summary": "Pay you still earn and what you save from it until you retire.",
+   "terms": [
+    "Payroll assumptions",
+    "Retirement plan contributions",
+    "Business-income deductions",
+    "Roth conversion room",
+    "Bracket ceiling"
+   ],
+   "sources": [
+    {
+     "id": "s1",
+     "code": "s",
+     "text": "Pay you still earn and what you save from it until you retire.",
+     "key": "income_work",
+     "line": 0
+    },
+    {
+     "id": "d1",
+     "code": "d",
+     "text": "Salary or self-employment income, payroll assumptions, and retirement plan contributions while still working.",
+     "key": "income_work",
+     "line": 38
+    },
+    {
+     "id": "i1",
+     "code": "i",
+     "text": "Contribution amounts here add to account balances annually until the retirement date.",
+     "key": "income_work",
+     "line": 40
+    },
+    {
+     "id": "i2",
+     "code": "i",
+     "text": "Business salary level affects payroll tax and business-income deductions.",
+     "key": "income_work",
+     "line": 40
+    },
+    {
+     "id": "h1",
+     "code": "h",
+     "text": "High earned income in late working years compresses Roth conversion room below the bracket ceiling — coordinate with the Roth Conversion tab when the retirement date is near.",
+     "key": "income_work",
+     "line": 41
+    },
+    {
+     "id": "m1",
+     "code": "m",
+     "text": "This page captures earned income, self-employment income, payroll assumptions, employer benefits, and savings while the household is still working.",
+     "key": "income_work",
+     "line": 371
+    },
+    {
+     "id": "c1",
+     "code": "c",
+     "text": "Earned income feeds cash flow, payroll taxes, retirement-plan contributions, taxable income, ACA/IRMAA-sensitive income in transition years, and the YTD income comparison.",
+     "key": "income_work",
+     "line": 372
+    },
+    {
+     "id": "c2",
+     "code": "c",
+     "text": "Contributions connect to account balances and future withdrawal sources.",
+     "key": "income_work",
+     "line": 372
+    },
+    {
+     "id": "o1",
+     "code": "o",
+     "text": "Salary/W-2 values are gross annual amounts.",
+     "key": "income_work",
+     "line": 373
+    },
+    {
+     "id": "o2",
+     "code": "o",
+     "text": "Self-employment or S-Corp fields should match the intended entity strategy.",
+     "key": "income_work",
+     "line": 373
+    },
+    {
+     "id": "o3",
+     "code": "o",
+     "text": "Contribution fields should reflect annual expected savings, not current account balances.",
+     "key": "income_work",
+     "line": 373
+    },
+    {
+     "id": "x1",
+     "code": "x",
+     "text": "Higher earned income generally improves near-term cash flow and terminal net worth, but can increase lifetime taxes and reduce ACA subsidy eligibility.",
+     "key": "income_work",
+     "line": 374
+    },
+    {
+     "id": "x2",
+     "code": "x",
+     "text": "Higher contributions usually improve terminal net worth but reduce spendable current cash.",
+     "key": "income_work",
+     "line": 374
+    }
+   ]
+  },
+  "income_retirement": {
+   "title": "SS, Pensions, & Annuities",
+   "summary": "Social Security, pension and annuity income: how much, when it starts, and what continues to a surviving spouse.",
+   "terms": [
+    "Claiming age",
+    "Full retirement age",
+    "Spousal / survivor policy",
+    "Cost-of-living settings (COLA)",
+    "Fixed-income-equivalent coverage"
+   ],
+   "sources": [
+    {
+     "id": "s1",
+     "code": "s",
+     "text": "Social Security, pension and annuity income: how much, when it starts, and what continues to a surviving spouse.",
+     "key": "income_retirement",
+     "line": 0
+    },
+    {
+     "id": "d1",
+     "code": "d",
+     "text": "Social Security claiming age and benefit for each person, plus pension amounts, annuity income, start ages, survivor percentages, and cost-of-living settings.",
+     "key": "income_retirement",
+     "line": 48
+    },
+    {
+     "id": "i1",
+     "code": "i",
+     "text": "Enter each person’s Social Security benefit from their statement along with the planned claiming age and the household spousal/survivor policy.",
+     "key": "income_retirement",
+     "line": 50
+    },
+    {
+     "id": "i2",
+     "code": "i",
+     "text": "Delaying past full retirement age adds about 8% per year up to age 70; the higher earner’s delay has the greatest survivor income impact.",
+     "key": "income_retirement",
+     "line": 50
+    },
+    {
+     "id": "i3",
+     "code": "i",
+     "text": "Survivor percentages control how much pension or annuity income continues after the first death.",
+     "key": "income_retirement",
+     "line": 50
+    },
+    {
+     "id": "h1",
+     "code": "h",
+     "text": "Early claiming opens gap years for Roth conversion if other income is low — model the joint timing strategy with the Roth Conversion tab.",
+     "key": "income_retirement",
+     "line": 51
+    },
+    {
+     "id": "h2",
+     "code": "h",
+     "text": "Pensions and annuities with survivor protection can be treated as fixed-income-equivalent coverage in the allocation analysis — set the coverage option on the Asset allocation & location tab.",
+     "key": "income_retirement",
+     "line": 51
+    },
+    {
+     "id": "m1",
+     "code": "m",
+     "text": "This page captures Social Security, pension, annuity, and other retirement income streams.",
+     "key": "income_retirement",
+     "line": 378
+    },
+    {
+     "id": "m2",
+     "code": "m",
+     "text": "These are income floors that can reduce portfolio withdrawals.",
+     "key": "income_retirement",
+     "line": 378
+    },
+    {
+     "id": "c1",
+     "code": "c",
+     "text": "Claim ages, survivor percentages, COLA settings, and present-value horizons connect to cash flow, tax brackets, survivor results, and allocation coverage.",
+     "key": "income_retirement",
+     "line": 379
+    },
+    {
+     "id": "c2",
+     "code": "c",
+     "text": "Some guaranteed income can also be treated as fixed-income-like coverage in allocation analysis.",
+     "key": "income_retirement",
+     "line": 379
+    },
+    {
+     "id": "o1",
+     "code": "o",
+     "text": "Social Security fields should use SSA statement values when available.",
+     "key": "income_retirement",
+     "line": 380
+    },
+    {
+     "id": "o2",
+     "code": "o",
+     "text": "Joint/survivor percentages describe how much income continues to the survivor.",
+     "key": "income_retirement",
+     "line": 380
+    },
+    {
+     "id": "o3",
+     "code": "o",
+     "text": "COLA choices indicate whether the payment keeps pace with inflation.",
+     "key": "income_retirement",
+     "line": 380
+    },
+    {
+     "id": "x1",
+     "code": "x",
+     "text": "Higher guaranteed income usually improves probability of success and reduces withdrawals, but may increase taxable income and affect Roth conversion room.",
+     "key": "income_retirement",
+     "line": 381
+    },
+    {
+     "id": "x2",
+     "code": "x",
+     "text": "Delayed claiming may reduce early liquidity but raise later survivor-protected income.",
+     "key": "income_retirement",
+     "line": 381
+    }
+   ]
+  },
+  "spending_core": {
+   "title": "Spending Model",
+   "summary": "Everything you spend and earn, sorted into categories.",
+   "terms": [
+    "Tracking Type",
+    "Group (spending)",
+    "Category",
+    "Internal transfers",
+    "Auto-Mapping Rules"
+   ],
+   "sources": [
+    {
+     "id": "s1",
+     "code": "s",
+     "text": "Everything you spend and earn, sorted into categories.",
+     "key": "spending_core",
+     "line": 0
+    },
+    {
+     "id": "d1",
+     "code": "d",
+     "text": "Comprehensive income/expense category hierarchy, budget references, and projection spending controls, with one editable accordion per Tracking Type.",
+     "key": "spending_core",
+     "line": 58
+    },
+    {
+     "id": "d2",
+     "code": "d",
+     "text": "Actual Spending (YTD) and Spending Analysis are under Reports & Review.",
+     "key": "spending_core",
+     "line": 58
+    },
+    {
+     "id": "i1",
+     "code": "i",
+     "text": "Review the full Tracking Type → Group → Category model here.",
+     "key": "spending_core",
+     "line": 60
+    },
+    {
+     "id": "i2",
+     "code": "i",
+     "text": "It should account for all income and all expenses, including taxes, except internal transfers; lifestyle detail pages still hold scheduled spending inputs.",
+     "key": "spending_core",
+     "line": 60
+    },
+    {
+     "id": "h1",
+     "code": "h",
+     "text": "Spending Model is the category manager.",
+     "key": "spending_core",
+     "line": 61
+    },
+    {
+     "id": "h2",
+     "code": "h",
+     "text": "Transaction assignment appears here as Advanced Auto-Mapping Rules only when needed.",
+     "key": "spending_core",
+     "line": 61
+    },
+    {
+     "id": "m1",
+     "code": "m",
+     "text": "This page is the comprehensive category model for income and expenses, including taxes but excluding internal transfers (401k/HSA contributions, brokerage buys/sells, credit card payments).",
+     "key": "spending_core",
+     "line": 385
+    },
+    {
+     "id": "m2",
+     "code": "m",
+     "text": "Projection spending controls live here, with one editable accordion per Tracking Type: Core Expenses, Housing, Wellness, Travel, Large Discretionary, Taxes, and Business.",
+     "key": "spending_core",
+     "line": 385
+    },
+    {
+     "id": "c1",
+     "code": "c",
+     "text": "Core spending flows directly into annual withdrawals, taxable income, liquidity stress, Monte Carlo success, and planning-lever sensitivity.",
+     "key": "spending_core",
+     "line": 386
+    },
+    {
+     "id": "c2",
+     "code": "c",
+     "text": "Growth mode and freeze year determine how that spending changes over time.",
+     "key": "spending_core",
+     "line": 386
+    },
+    {
+     "id": "o1",
+     "code": "o",
+     "text": "Use CPI/general inflation when spending should rise with inflation.",
+     "key": "spending_core",
+     "line": 387
+    },
+    {
+     "id": "o2",
+     "code": "o",
+     "text": "Use manual override when lifestyle spending should grow at a different rate.",
+     "key": "spending_core",
+     "line": 387
+    },
+    {
+     "id": "o3",
+     "code": "o",
+     "text": "Use the freeze year when spending increases stop or intentionally flatten.",
+     "key": "spending_core",
+     "line": 387
+    },
+    {
+     "id": "x1",
+     "code": "x",
+     "text": "Higher recurring spending usually lowers terminal net worth and probability of success.",
+     "key": "spending_core",
+     "line": 388
+    },
+    {
+     "id": "x2",
+     "code": "x",
+     "text": "Lower spending or earlier spending freezes usually improve both, especially in the first retirement decade.",
+     "key": "spending_core",
+     "line": 388
+    },
+    {
+     "id": "spending_mortgage_events.m1",
+     "code": "m",
+     "text": "This page captures all housing-related costs and plans: current mortgage, home operating costs, a planned home sale, and up to two next-step housing arrangements.",
+     "key": "spending_mortgage_events",
+     "line": 392
+    },
+    {
+     "id": "spending_mortgage_events.m2",
+     "code": "m",
+     "text": "Rent appears only when configured with a positive rent value.",
+     "key": "spending_mortgage_events",
+     "line": 392
+    },
+    {
+     "id": "spending_mortgage_events.c1",
+     "code": "c",
+     "text": "Mortgage payments and housing operating costs reduce annual cash flow.",
+     "key": "spending_mortgage_events",
+     "line": 393
+    },
+    {
+     "id": "spending_mortgage_events.c2",
+     "code": "c",
+     "text": "The home sale year and price affect net worth and liquidity.",
+     "key": "spending_mortgage_events",
+     "line": 393
+    },
+    {
+     "id": "spending_mortgage_events.c3",
+     "code": "c",
+     "text": "Next-step housing costs (rent or new mortgage) replace current housing spending in the projection.",
+     "key": "spending_mortgage_events",
+     "line": 393
+    },
+    {
+     "id": "spending_mortgage_events.o1",
+     "code": "o",
+     "text": "Enter insurance, utilities, and maintenance as annual amounts.",
+     "key": "spending_mortgage_events",
+     "line": 394
+    },
+    {
+     "id": "spending_mortgage_events.o2",
+     "code": "o",
+     "text": "For the next-step housing, enter the purchase price and financing plus the ongoing operating costs for that property.",
+     "key": "spending_mortgage_events",
+     "line": 394
+    },
+    {
+     "id": "spending_mortgage_events.o3",
+     "code": "o",
+     "text": "Rent fields appear only when a positive rent assumption is configured.",
+     "key": "spending_mortgage_events",
+     "line": 394
+    },
+    {
+     "id": "spending_mortgage_events.x1",
+     "code": "x",
+     "text": "Lower mortgage payments improve near-term cash flow.",
+     "key": "spending_mortgage_events",
+     "line": 395
+    },
+    {
+     "id": "spending_mortgage_events.x2",
+     "code": "x",
+     "text": "Selling and downsizing can unlock home equity.",
+     "key": "spending_mortgage_events",
+     "line": 395
+    },
+    {
+     "id": "spending_mortgage_events.x3",
+     "code": "x",
+     "text": "Renting instead of buying reduces balance-sheet exposure but may increase long-term housing costs.",
+     "key": "spending_mortgage_events",
+     "line": 395
+    },
+    {
+     "id": "spending_travel_extras.m1",
+     "code": "m",
+     "text": "This page captures flexible large expenses that are not Housing, Wellness, Travel, taxes, or recurring Core Spending: weddings, vehicles, gifts, or family support.",
+     "key": "spending_travel_extras",
+     "line": 399
+    },
+    {
+     "id": "spending_travel_extras.c1",
+     "code": "c",
+     "text": "Each row adds cash-flow needs in a specific year or recurring range.",
+     "key": "spending_travel_extras",
+     "line": 400
+    },
+    {
+     "id": "spending_travel_extras.c2",
+     "code": "c",
+     "text": "These rows connect to the Planning Levers page because they are often adjustable if markets or liquidity are stressed.",
+     "key": "spending_travel_extras",
+     "line": 400
+    },
+    {
+     "id": "spending_travel_extras.o1",
+     "code": "o",
+     "text": "Use category budgets or detail lines to document whether the item is must-fund, flexible, or aspirational.",
+     "key": "spending_travel_extras",
+     "line": 401
+    },
+    {
+     "id": "spending_travel_extras.x1",
+     "code": "x",
+     "text": "Higher discretionary spending lowers terminal net worth and can sharply reduce probability of success when it occurs early.",
+     "key": "spending_travel_extras",
+     "line": 402
+    },
+    {
+     "id": "spending_travel_extras.x2",
+     "code": "x",
+     "text": "Delaying, reducing, or making these items conditional can improve success without changing core lifestyle assumptions.",
+     "key": "spending_travel_extras",
+     "line": 402
+    },
+    {
+     "id": "spending_travel.m1",
+     "code": "m",
+     "text": "Travel is the only editable source for Travel budgets and scheduled trip spending.",
+     "key": "spending_travel",
+     "line": 413
+    },
+    {
+     "id": "spending_travel.c1",
+     "code": "c",
+     "text": "Travel budgets flow into the projection and can be referenced read-only elsewhere.",
+     "key": "spending_travel",
+     "line": 414
+    },
+    {
+     "id": "spending_travel.o1",
+     "code": "o",
+     "text": "Enter category budgets or time-bounded lines for trips and travel memberships.",
+     "key": "spending_travel",
+     "line": 415
+    },
+    {
+     "id": "spending_travel.x1",
+     "code": "x",
+     "text": "Separating Travel prevents double-counting with Core Spending and Large Discretionary.",
+     "key": "spending_travel",
+     "line": 416
+    },
+    {
+     "id": "spending_setup.m1",
+     "code": "m",
+     "text": "Manage the canonical category tree and optional transaction auto-mapping rules.",
+     "key": "spending_setup",
+     "line": 420
+    },
+    {
+     "id": "spending_setup.c1",
+     "code": "c",
+     "text": "Spending Categories controls how actual transactions roll up by Tracking Type, Group, and Category.",
+     "key": "spending_setup",
+     "line": 421
+    },
+    {
+     "id": "spending_setup.c2",
+     "code": "c",
+     "text": "Accounts & Sources live with Income & Expense Transactions because they classify where money came from, not what it was for.",
+     "key": "spending_setup",
+     "line": 421
+    },
+    {
+     "id": "spending_setup.o1",
+     "code": "o",
+     "text": "Most users should map categories directly in the Spending Categories hierarchy.",
+     "key": "spending_setup",
+     "line": 422
+    },
+    {
+     "id": "spending_setup.o2",
+     "code": "o",
+     "text": "Use Advanced Auto-Mapping Rules only for merchant/category text rules that should repeat automatically.",
+     "key": "spending_setup",
+     "line": 422
+    },
+    {
+     "id": "spending_setup.x1",
+     "code": "x",
+     "text": "Canonical categories carry their Tracking Type and Group, so a separate flat group-mapping table is no longer part of the workflow.",
+     "key": "spending_setup",
+     "line": 423
+    }
+   ]
+  },
+  "holdings": {
+   "title": "Investment Holdings",
+   "summary": "Each investment you own, one row per purchase.",
+   "terms": [
+    "Tax lot",
+    "Cost basis",
+    "Ticker",
+    "Tax-aware sell guidance"
+   ],
+   "sources": [
+    {
+     "id": "s1",
+     "code": "s",
+     "text": "Each investment you own, one row per purchase.",
+     "key": "holdings",
+     "line": 0
+    },
+    {
+     "id": "d1",
+     "code": "d",
+     "text": "One row per tax lot: account, ticker, shares, purchase date, and cost basis.",
+     "key": "holdings",
+     "line": 67
+    },
+    {
+     "id": "i1",
+     "code": "i",
+     "text": "Add holdings from your broker here — a broker statement or CSV export usually lists everything a row needs directly.",
+     "key": "holdings",
+     "line": 69
+    },
+    {
+     "id": "h1",
+     "code": "h",
+     "text": "Lot-level cost basis enables tax-aware sell guidance in the allocation output.",
+     "key": "holdings",
+     "line": 70
+    },
+    {
+     "id": "h2",
+     "code": "h",
+     "text": "Use CASH at price 1.00 for money market and cash positions.",
+     "key": "holdings",
+     "line": 70
+    },
+    {
+     "id": "h3",
+     "code": "h",
+     "text": "Export before replacing to preserve a backup.",
+     "key": "holdings",
+     "line": 70
+    },
+    {
+     "id": "m1",
+     "code": "m",
+     "text": "One row per tax lot: each purchase or reinvestment of a security with shares, price, cost basis, and purchase date.",
+     "key": "holdings",
+     "line": 434
+    },
+    {
+     "id": "c1",
+     "code": "c",
+     "text": "Holdings drive account totals, allocation drift, pricing, tax-lot sell guidance, rebalancing recommendations, and year-to-date growth for investment accounts.",
+     "key": "holdings",
+     "line": 435
+    },
+    {
+     "id": "c2",
+     "code": "c",
+     "text": "Account names must match names used on Withdrawal Sequencing and Asset Allocation.",
+     "key": "holdings",
+     "line": 435
+    },
+    {
+     "id": "o1",
+     "code": "o",
+     "text": "Use CASH at price 1.00 for money market and cash positions.",
+     "key": "holdings",
+     "line": 436
+    },
+    {
+     "id": "o2",
+     "code": "o",
+     "text": "Keep separate lots per purchase when tax-basis guidance matters — blended basis reduces sell-guidance precision.",
+     "key": "holdings",
+     "line": 436
+    },
+    {
+     "id": "o3",
+     "code": "o",
+     "text": "For large broker downloads, export a backup before importing to replace all.",
+     "key": "holdings",
+     "line": 436
+    },
+    {
+     "id": "x1",
+     "code": "x",
+     "text": "More complete cost basis and purchase dates improve taxable sell guidance and estimated tax impact on trade recommendations.",
+     "key": "holdings",
+     "line": 437
+    }
+   ]
+  },
+  "assets_home_cash": {
+   "title": "Reserve Requirements",
+   "summary": "How much cash to keep on the side before the plan sells investments.",
+   "terms": [
+    "Reserve floor",
+    "Probability analysis"
+   ],
+   "sources": [
+    {
+     "id": "s1",
+     "code": "s",
+     "text": "How much cash to keep on the side before the plan sells investments.",
+     "key": "assets_home_cash",
+     "line": 0
+    },
+    {
+     "id": "d1",
+     "code": "d",
+     "text": "The cash reserve floor the plan protects before drawing investments.",
+     "key": "assets_home_cash",
+     "line": 76
+    },
+    {
+     "id": "i1",
+     "code": "i",
+     "text": "Reserve rules set how many months of spending to hold outside the investment portfolio.",
+     "key": "assets_home_cash",
+     "line": 78
+    },
+    {
+     "id": "i2",
+     "code": "i",
+     "text": "Home value and mortgage balance are on Other Assets and Liabilities; home sale is in Optimize → Next Housing Move.",
+     "key": "assets_home_cash",
+     "line": 78
+    },
+    {
+     "id": "h1",
+     "code": "h",
+     "text": "The reserve floor is the last buffer in probability analysis — the plan counts as failing when it cannot maintain this floor without depleting all accounts.",
+     "key": "assets_home_cash",
+     "line": 79
+    },
+    {
+     "id": "m1",
+     "code": "m",
+     "text": "This page captures liquidity reserve rules.",
+     "key": "assets_home_cash",
+     "line": 455
+    },
+    {
+     "id": "m2",
+     "code": "m",
+     "text": "Home value and related fields have moved to the Housing tab.",
+     "key": "assets_home_cash",
+     "line": 455
+    },
+    {
+     "id": "c1",
+     "code": "c",
+     "text": "Reserve rules connect to withdrawal sequencing, liquidity floors, and Monte Carlo failure modes.",
+     "key": "assets_home_cash",
+     "line": 456
+    },
+    {
+     "id": "o1",
+     "code": "o",
+     "text": "Reserve rules describe how many years of spending to preserve and which account bucket should be protected.",
+     "key": "assets_home_cash",
+     "line": 457
+    },
+    {
+     "id": "o2",
+     "code": "o",
+     "text": "Home value and home sale fields are now on the Housing tab.",
+     "key": "assets_home_cash",
+     "line": 457
+    },
+    {
+     "id": "x1",
+     "code": "x",
+     "text": "Higher cash reserves improve liquidity resilience but can reduce expected return if too much capital stays out of the portfolio.",
+     "key": "assets_home_cash",
+     "line": 458
+    }
+   ]
+  },
+  "assets_special": {
+   "title": "Other Assets and Liabilities",
+   "summary": "Things you own or owe that are not in your investment accounts, such as HSA, 529 and a note owed to you.",
+   "terms": [
+    "Note receivable",
+    "HSA (Health Savings Account)",
+    "529 plan",
+    "Equity compensation",
+    "Illiquid",
+    "Donor-advised fund (DAF)"
+   ],
+   "sources": [
+    {
+     "id": "s1",
+     "code": "s",
+     "text": "Things you own or owe that are not in your investment accounts, such as HSA, 529 and a note owed to you.",
+     "key": "assets_special",
+     "line": 0
+    },
+    {
+     "id": "d1",
+     "code": "d",
+     "text": "Non-portfolio assets: notes receivable, HSA, 529 plans, equity compensation, collectibles, and personal property.",
+     "key": "assets_special",
+     "line": 85
+    },
+    {
+     "id": "i1",
+     "code": "i",
+     "text": "Pick the asset type that best describes each item's economic purpose, then enter today's fair value and, for anything illiquid, a planned sale date.",
+     "key": "assets_special",
+     "line": 87
+    },
+    {
+     "id": "h1",
+     "code": "h",
+     "text": "HSA balances grow tax-free and should reflect intended use.",
+     "key": "assets_special",
+     "line": 88
+    },
+    {
+     "id": "h2",
+     "code": "h",
+     "text": "Donor-advised fund configuration is set on Other Spending.",
+     "key": "assets_special",
+     "line": 88
+    },
+    {
+     "id": "m1",
+     "code": "m",
+     "text": "This page captures non-portfolio assets such as note receivable, HSA, DAF, 529 plans, equity compensation, collectibles, vehicles, and policy-related assets.",
+     "key": "assets_special",
+     "line": 462
+    },
+    {
+     "id": "c1",
+     "code": "c",
+     "text": "Asset type controls where the value appears, whether it is liquid, how it is taxed, and whether it affects estate, education, Wellness, charitable, or growth modules.",
+     "key": "assets_special",
+     "line": 463
+    },
+    {
+     "id": "c2",
+     "code": "c",
+     "text": "Planned sale dates connect non-liquid assets to future cash flow.",
+     "key": "assets_special",
+     "line": 463
+    },
+    {
+     "id": "o1",
+     "code": "o",
+     "text": "Use the asset type that best describes the economic purpose.",
+     "key": "assets_special",
+     "line": 464
+    },
+    {
+     "id": "o2",
+     "code": "o",
+     "text": "Enter today's fair value, timing assumptions, and whether the asset is liquid or restricted.",
+     "key": "assets_special",
+     "line": 464
+    },
+    {
+     "id": "o3",
+     "code": "o",
+     "text": "Notes receivable should use principal and schedule fields, not straight-line extrapolation.",
+     "key": "assets_special",
+     "line": 464
+    },
+    {
+     "id": "x1",
+     "code": "x",
+     "text": "Higher liquid asset values usually improve success probability.",
+     "key": "assets_special",
+     "line": 465
+    },
+    {
+     "id": "x2",
+     "code": "x",
+     "text": "Higher illiquid asset values increase terminal net worth and estate values but may not fund spending unless sale or borrowing is modeled.",
+     "key": "assets_special",
+     "line": 465
+    }
+   ]
+  },
+  "heloc_strategy": {
+   "title": "Home Equity Line",
+   "summary": "Borrow against your home for big purchases instead of selling investments early.",
+   "terms": [
+    "Credit limit",
+    "Draw year",
+    "Rate drift",
+    "Discretionary spending",
+    "Home sale proceeds"
+   ],
+   "sources": [
+    {
+     "id": "s1",
+     "code": "s",
+     "text": "Borrow against your home for big purchases instead of selling investments early.",
+     "key": "heloc_strategy",
+     "line": 0
+    },
+    {
+     "id": "d1",
+     "code": "d",
+     "text": "Bridge large discretionary spending with home equity, keeping invested assets untouched in early retirement.",
+     "key": "heloc_strategy",
+     "line": 105
+    },
+    {
+     "id": "i1",
+     "code": "i",
+     "text": "Set credit limit, last draw year, and initial rate with drift.",
+     "key": "heloc_strategy",
+     "line": 107
+    },
+    {
+     "id": "i2",
+     "code": "i",
+     "text": "The projection draws from the line when large discretionary spending creates a cash gap, then repays the balance from home sale proceeds.",
+     "key": "heloc_strategy",
+     "line": 107
+    },
+    {
+     "id": "h1",
+     "code": "h",
+     "text": "The strategy improves projected net worth when compound growth on the preserved liquid assets exceeds total borrowing costs.",
+     "key": "heloc_strategy",
+     "line": 108
+    },
+    {
+     "id": "h2",
+     "code": "h",
+     "text": "It worsens outcomes when interest drag or reduced home equity at sale outweigh the investment benefit.",
+     "key": "heloc_strategy",
+     "line": 108
+    },
+    {
+     "id": "m1",
+     "code": "m",
+     "text": "Model a home equity line of credit that funds large discretionary spending in early retirement years instead of drawing from liquid assets.",
+     "key": "heloc_strategy",
+     "line": 560
+    },
+    {
+     "id": "c1",
+     "code": "c",
+     "text": "HELOC draw reduces gap filled by liquid assets, allowing taxable/IRA balances to compound longer.",
+     "key": "heloc_strategy",
+     "line": 561
+    },
+    {
+     "id": "c2",
+     "code": "c",
+     "text": "Interest is paid from cash flow annually.",
+     "key": "heloc_strategy",
+     "line": 561
+    },
+    {
+     "id": "c3",
+     "code": "c",
+     "text": "The outstanding balance is repaid from home sale proceeds.",
+     "key": "heloc_strategy",
+     "line": 561
+    },
+    {
+     "id": "o1",
+     "code": "o",
+     "text": "Enter a credit limit, the last year of the draw period, an initial interest rate, and an annual rate drift.",
+     "key": "heloc_strategy",
+     "line": 562
+    },
+    {
+     "id": "o2",
+     "code": "o",
+     "text": "The projection automatically draws from the HELOC when large discretionary spending creates a cash gap, up to available credit.",
+     "key": "heloc_strategy",
+     "line": 562
+    },
+    {
+     "id": "x1",
+     "code": "x",
+     "text": "HELOC improves TNW when the compound benefit of undisturbed liquid assets exceeds borrowing costs.",
+     "key": "heloc_strategy",
+     "line": 563
+    },
+    {
+     "id": "x2",
+     "code": "x",
+     "text": "It worsens outcomes when interest drag or reduced home equity at sale outweigh the investment benefit.",
+     "key": "heloc_strategy",
+     "line": 563
+    }
+   ]
+  },
+  "rental_properties": {
+   "title": "Rental Properties",
+   "summary": "Income, costs and eventual sale of each rental property.",
+   "terms": [
+    "Depreciation",
+    "Passive-activity rules",
+    "Schedule E"
+   ],
+   "sources": [
+    {
+     "id": "s1",
+     "code": "s",
+     "text": "Income, costs and eventual sale of each rental property.",
+     "key": "rental_properties",
+     "line": 0
+    },
+    {
+     "id": "d1",
+     "code": "d",
+     "text": "Rent, expenses, depreciation, passive-loss limits and sale for each rental property.",
+     "key": "rental_properties",
+     "line": 115
+    },
+    {
+     "id": "i1",
+     "code": "i",
+     "text": "Add each rental property, or convert your own home to a rental.",
+     "key": "rental_properties",
+     "line": 117
+    },
+    {
+     "id": "i2",
+     "code": "i",
+     "text": "Rent, expenses, mortgage interest, depreciation and the sale feed your taxes, cash flow and net worth.",
+     "key": "rental_properties",
+     "line": 117
+    },
+    {
+     "id": "h1",
+     "code": "h",
+     "text": "Rental income is taxed on Schedule E: rent less expenses, interest and depreciation.",
+     "key": "rental_properties",
+     "line": 118
+    },
+    {
+     "id": "h2",
+     "code": "h",
+     "text": "A loss is limited by the passive-activity rules and carried forward.",
+     "key": "rental_properties",
+     "line": 118
+    },
+    {
+     "id": "h3",
+     "code": "h",
+     "text": "The summary here is an estimate from your entries; the build applies your real income.",
+     "key": "rental_properties",
+     "line": 118
+    },
+    {
+     "id": "m1",
+     "code": "m",
+     "text": "One record per rental property, plus your own home if you convert it to a rental.",
+     "key": "rental_properties",
+     "line": 448
+    },
+    {
+     "id": "c1",
+     "code": "c",
+     "text": "Rent, operating expenses, mortgage interest and depreciation net on Schedule E into AGI; passive-loss limits, NIIT, state tax, cash flow, net worth and the sale (with depreciation recapture) follow.",
+     "key": "rental_properties",
+     "line": 449
+    },
+    {
+     "id": "c2",
+     "code": "c",
+     "text": "Turn the feature on in Plan Features.",
+     "key": "rental_properties",
+     "line": 449
+    },
+    {
+     "id": "o1",
+     "code": "o",
+     "text": "Fill the Standard fields for each property; Show advanced adds the Expert fields (placed-in-service month, capital improvements, per-year overrides).",
+     "key": "rental_properties",
+     "line": 450
+    },
+    {
+     "id": "o2",
+     "code": "o",
+     "text": "Enter a property once: here, not also in Other Assets.",
+     "key": "rental_properties",
+     "line": 450
+    },
+    {
+     "id": "x1",
+     "code": "x",
+     "text": "Rent above expenses adds taxable income; a loss may be limited by the passive rules and carried forward until you sell.",
+     "key": "rental_properties",
+     "line": 451
+    },
+    {
+     "id": "x2",
+     "code": "x",
+     "text": "Converting your home moves its carrying costs from spending to Schedule E.",
+     "key": "rental_properties",
+     "line": 451
+    }
+   ]
+  },
+  "annuity_death_benefits": {
+   "title": "Insurance",
+   "summary": "Your insurance policies and the yearly benefit values from each insurer's illustration.",
+   "terms": [
+    "Carrier illustration",
+    "Rider",
+    "Beneficiary",
+    "Face amount"
+   ],
+   "sources": [
+    {
+     "id": "s1",
+     "code": "s",
+     "text": "Your insurance policies and the yearly benefit values from each insurer's illustration.",
+     "key": "annuity_death_benefits",
+     "line": 0
+    },
+    {
+     "id": "d1",
+     "code": "d",
+     "text": "Year-by-year carrier illustration values for annuities and special income, plus all insurance policies (life, disability, long-term care, umbrella, auto, home, property and casualty, and other).",
+     "key": "annuity_death_benefits",
+     "line": 125
+    },
+    {
+     "id": "i1",
+     "code": "i",
+     "text": "Enter values from each policy illustration; use 0 for years with no benefit.",
+     "key": "annuity_death_benefits",
+     "line": 127
+    },
+    {
+     "id": "i2",
+     "code": "i",
+     "text": "These totals appear in the Survivor and Estate report sections.",
+     "key": "annuity_death_benefits",
+     "line": 127
+    },
+    {
+     "id": "i3",
+     "code": "i",
+     "text": "All insurance policy details — owner, insured, beneficiary, face amount, and premiums, across life and protection policy types — are entered here as well.",
+     "key": "annuity_death_benefits",
+     "line": 127
+    },
+    {
+     "id": "h1",
+     "code": "h",
+     "text": "Rider benefits that step down or expire early can leave the survivor without protection — compare benefit schedules against the planning horizon set on Retirement Timing.",
+     "key": "annuity_death_benefits",
+     "line": 128
+    },
+    {
+     "id": "h2",
+     "code": "h",
+     "text": "Policy names must match any cross-references on stress pages.",
+     "key": "annuity_death_benefits",
+     "line": 128
+    },
+    {
+     "id": "m1",
+     "code": "m",
+     "text": "This page records policy-by-year death benefits for annuities or riders, and all insurance policy details (life, disability, long-term care, umbrella, auto, home, property and casualty, and other).",
+     "key": "annuity_death_benefits",
+     "line": 476
+    },
+    {
+     "id": "m2",
+     "code": "m",
+     "text": "It combines a year-by-year schedule with individual policy records — not a generic account balance table.",
+     "key": "annuity_death_benefits",
+     "line": 476
+    },
+    {
+     "id": "c1",
+     "code": "c",
+     "text": "Each annuity policy row connects to survivor, estate, and legacy reporting.",
+     "key": "annuity_death_benefits",
+     "line": 477
+    },
+    {
+     "id": "c2",
+     "code": "c",
+     "text": "Year columns show how protection changes over time and whether a benefit disappears before the end of the plan.",
+     "key": "annuity_death_benefits",
+     "line": 477
+    },
+    {
+     "id": "c3",
+     "code": "c",
+     "text": "Policy premiums connect to cash flow each year; benefit amounts appear in the Survivor and Long-Term Care Stress report sections.",
+     "key": "annuity_death_benefits",
+     "line": 477
+    },
+    {
+     "id": "o1",
+     "code": "o",
+     "text": "Enter the carrier illustration values for each year for annuities.",
+     "key": "annuity_death_benefits",
+     "line": 478
+    },
+    {
+     "id": "o2",
+     "code": "o",
+     "text": "Use 0 when no death benefit is available in that year.",
+     "key": "annuity_death_benefits",
+     "line": 478
+    },
+    {
+     "id": "o3",
+     "code": "o",
+     "text": "For any insurance policy, use policy type, premium end, term end, benefit amount, and owner/insured fields consistently.",
+     "key": "annuity_death_benefits",
+     "line": 478
+    },
+    {
+     "id": "o4",
+     "code": "o",
+     "text": "Keep policy names consistent with other insurance/annuity entries.",
+     "key": "annuity_death_benefits",
+     "line": 478
+    },
+    {
+     "id": "x1",
+     "code": "x",
+     "text": "Higher death benefits improve survivor/legacy protection but may come with lower investment growth, liquidity restrictions, or ongoing rider costs that should be reflected elsewhere.",
+     "key": "annuity_death_benefits",
+     "line": 479
+    },
+    {
+     "id": "x2",
+     "code": "x",
+     "text": "More insurance coverage can reduce downside risk but premiums may lower terminal net worth if no claim occurs.",
+     "key": "annuity_death_benefits",
+     "line": 479
+    }
+   ]
+  },
+  "estate": {
+   "title": "Estate Inputs",
+   "summary": "What you plan to leave, to whom, and how, including gifts and charity.",
+   "terms": [
+    "Federal / state exemption (estate)",
+    "Trust structure",
+    "Lifetime gifting"
+   ],
+   "sources": [
+    {
+     "id": "s1",
+     "code": "s",
+     "text": "What you plan to leave, to whom, and how, including gifts and charity.",
+     "key": "estate",
+     "line": 0
+    },
+    {
+     "id": "d1",
+     "code": "d",
+     "text": "Federal and state exemptions, trust structure, beneficiary needs, lifetime gifting, and charitable intent.",
+     "key": "estate",
+     "line": 135
+    },
+    {
+     "id": "i1",
+     "code": "i",
+     "text": "Enter federal and state exemption elections, trust structure, beneficiary needs, lifetime gifting, and charitable intent for this household.",
+     "key": "estate",
+     "line": 137
+    },
+    {
+     "id": "h1",
+     "code": "h",
+     "text": "The federal exemption can change with law updates — confirm the current-law amount in Settings and model the impact of any reduction in Scenarios.",
+     "key": "estate",
+     "line": 138
+    },
+    {
+     "id": "h2",
+     "code": "h",
+     "text": "Long-term-care hybrid policies with an investment component should also appear on Other assets.",
+     "key": "estate",
+     "line": 138
+    },
+    {
+     "id": "m1",
+     "code": "m",
+     "text": "This page captures estate-tax, trust, beneficiary, legacy-planning, and gifting assumptions.",
+     "key": "estate",
+     "line": 469
+    },
+    {
+     "id": "m2",
+     "code": "m",
+     "text": "It tells the model how assets should be interpreted after death or for survivor planning.",
+     "key": "estate",
+     "line": 469
+    },
+    {
+     "id": "c1",
+     "code": "c",
+     "text": "Federal/state exemptions, CST/QTIP settings, beneficiary needs, special-needs planning, gifting, and charitable intent connect to legacy value, estate-tax exposure, survivor analysis, Roth strategy scoring, and executor-oriented workbook notes.",
+     "key": "estate",
+     "line": 470
+    },
+    {
+     "id": "c2",
+     "code": "c",
+     "text": "Insurance policies (life, disability, long-term care, umbrella, and property and casualty) are entered on Insurance.",
+     "key": "estate",
+     "line": 470
+    },
+    {
+     "id": "o1",
+     "code": "o",
+     "text": "Use monitor/balanced/strong estate objectives depending on whether estate tax is a watch item or a decision driver.",
+     "key": "estate",
+     "line": 471
+    },
+    {
+     "id": "o2",
+     "code": "o",
+     "text": "Enter trust and beneficiary facts only when they are part of the intended plan.",
+     "key": "estate",
+     "line": 471
+    },
+    {
+     "id": "x1",
+     "code": "x",
+     "text": "More aggressive estate-tax planning may reduce projected estate tax and improve legacy quality, but can reduce flexibility if assets are transferred, restricted, or earmarked too early.",
+     "key": "estate",
+     "line": 472
+    }
+   ]
+  },
+  "roth_conversion": {
+   "title": "Roth Conversion",
+   "summary": "Decide how much pre-tax money to move into a Roth account each year, and how to weigh the trade-offs.",
+   "terms": [
+    "Roth conversion",
+    "Conversion policy",
+    "Bracket ceiling",
+    "Medicare income surcharge",
+    "Premium tiers",
+    "Objective weights",
+    "Marginal rate"
+   ],
+   "sources": [
+    {
+     "id": "s1",
+     "code": "s",
+     "text": "Decide how much pre-tax money to move into a Roth account each year, and how to weigh the trade-offs.",
+     "key": "roth_conversion",
+     "line": 0
+    },
+    {
+     "id": "d1",
+     "code": "d",
+     "text": "Conversion policy, ceiling (bracket or fixed dollar), Medicare income surcharge guardrails, and objective weights for tax, legacy, survivor, and estate.",
+     "key": "roth_conversion",
+     "line": 149
+    },
+    {
+     "id": "i1",
+     "code": "i",
+     "text": "Choose the policy first — the page shows only controls relevant to that policy.",
+     "key": "roth_conversion",
+     "line": 151
+    },
+    {
+     "id": "i2",
+     "code": "i",
+     "text": "Forced conversion rows run before the optimizer and reduce the space available for voluntary conversions.",
+     "key": "roth_conversion",
+     "line": 151
+    },
+    {
+     "id": "h1",
+     "code": "h",
+     "text": "Medicare income surcharge guardrails prevent projected income from crossing premium tiers during conversion years.",
+     "key": "roth_conversion",
+     "line": 152
+    },
+    {
+     "id": "h2",
+     "code": "h",
+     "text": "Bracket-fill policies convert up to a marginal rate ceiling determined by the filing status on Household People.",
+     "key": "roth_conversion",
+     "line": 152
+    },
+    {
+     "id": "m1",
+     "code": "m",
+     "text": "This page sets how voluntary Roth conversions are sized and scored.",
+     "key": "roth_conversion",
+     "line": 357
+    },
+    {
+     "id": "m2",
+     "code": "m",
+     "text": "It is a planning optimizer, not a record of taxes already paid.",
+     "key": "roth_conversion",
+     "line": 357
+    },
+    {
+     "id": "m3",
+     "code": "m",
+     "text": "Forced conversion rows are separate and represent actions already taken or imposed for a scenario.",
+     "key": "roth_conversion",
+     "line": 357
+    },
+    {
+     "id": "c1",
+     "code": "c",
+     "text": "The Roth objective, tax-bracket ceiling, IRMAA guardrail, legacy weight, estate-tax weight, and survivor-risk weight work together.",
+     "key": "roth_conversion",
+     "line": 358
+    },
+    {
+     "id": "c2",
+     "code": "c",
+     "text": "Tight guardrails preserve near-term liquidity and Medicare premium control; loose guardrails allow larger conversions when long-term tax savings or legacy value justify the current tax cost.",
+     "key": "roth_conversion",
+     "line": 358
+    },
+    {
+     "id": "o1",
+     "code": "o",
+     "text": "Bracket-fill options convert up to a tax bracket.",
+     "key": "roth_conversion",
+     "line": 359
+    },
+    {
+     "id": "o2",
+     "code": "o",
+     "text": "IRMAA guardrails stop or warn near Medicare premium cliffs.",
+     "key": "roth_conversion",
+     "line": 359
+    },
+    {
+     "id": "o3",
+     "code": "o",
+     "text": "Fixed-dollar options force a chosen annual amount.",
+     "key": "roth_conversion",
+     "line": 359
+    },
+    {
+     "id": "o4",
+     "code": "o",
+     "text": "Objective weights tell the scorer whether taxes, terminal net worth, survivor outcomes, or legacy value matter most.",
+     "key": "roth_conversion",
+     "line": 359
+    },
+    {
+     "id": "x1",
+     "code": "x",
+     "text": "Higher conversion amounts usually increase current-year taxes and may reduce liquid assets, but can lower future RMDs, survivor tax compression, and lifetime taxes.",
+     "key": "roth_conversion",
+     "line": 360
+    },
+    {
+     "id": "x2",
+     "code": "x",
+     "text": "More conservative guardrails usually protect near-term cash flow and Medicare premiums, but may leave future tax savings unused.",
+     "key": "roth_conversion",
+     "line": 360
+    }
+   ]
+  },
+  "entity_charitable": {
+   "title": "Charitable Giving",
+   "summary": "How you give to charity: direct gifts, a donor-advised fund, or gifts straight from an IRA.",
+   "terms": [
+    "Donor-advised fund (DAF)",
+    "Qualified charitable distribution (QCD)",
+    "Adjusted gross income (AGI)",
+    "Required distributions"
+   ],
+   "sources": [
+    {
+     "id": "s1",
+     "code": "s",
+     "text": "How you give to charity: direct gifts, a donor-advised fund, or gifts straight from an IRA.",
+     "key": "entity_charitable",
+     "line": 0
+    },
+    {
+     "id": "d1",
+     "code": "d",
+     "text": "Charitable giving vehicle — direct gift, donor-advised fund, or qualified charitable distribution.",
+     "key": "entity_charitable",
+     "line": 161
+    },
+    {
+     "id": "i1",
+     "code": "i",
+     "text": "Qualified charitable distributions are available at age 70½ and satisfy required distributions tax-free.",
+     "key": "entity_charitable",
+     "line": 163
+    },
+    {
+     "id": "i2",
+     "code": "i",
+     "text": "Annual giving amounts are set on Core spending.",
+     "key": "entity_charitable",
+     "line": 163
+    },
+    {
+     "id": "h1",
+     "code": "h",
+     "text": "Donor-advised funds are most effective when contributed in a high-income year and granted over time.",
+     "key": "entity_charitable",
+     "line": 164
+    },
+    {
+     "id": "h2",
+     "code": "h",
+     "text": "Qualified charitable distributions also reduce adjusted gross income, which can lower income-related Medicare surcharge tiers — model in combination with Roth Conversion.",
+     "key": "entity_charitable",
+     "line": 164
+    },
+    {
+     "id": "m1",
+     "code": "m",
+     "text": "This strategy page covers the charitable giving vehicle: cash, donor-advised fund, or qualified charitable distribution.",
+     "key": "entity_charitable",
+     "line": 574
+    },
+    {
+     "id": "m2",
+     "code": "m",
+     "text": "Annual giving amounts are entered on Core spending.",
+     "key": "entity_charitable",
+     "line": 574
+    },
+    {
+     "id": "m3",
+     "code": "m",
+     "text": "Business-entity choice (S-Corp vs LLC) is entered on Work Income.",
+     "key": "entity_charitable",
+     "line": 574
+    },
+    {
+     "id": "c1",
+     "code": "c",
+     "text": "Charitable vehicle choice connects to deductions, lifetime taxes, and legacy, and appears in a dedicated workbook sheet.",
+     "key": "entity_charitable",
+     "line": 575
+    },
+    {
+     "id": "o1",
+     "code": "o",
+     "text": "Choose how charitable gifts are funded.",
+     "key": "entity_charitable",
+     "line": 576
+    },
+    {
+     "id": "o2",
+     "code": "o",
+     "text": "Use QCDs after RMD age where appropriate.",
+     "key": "entity_charitable",
+     "line": 576
+    },
+    {
+     "id": "x1",
+     "code": "x",
+     "text": "Charitable vehicle choice can lower taxes and increase legacy, but may reduce near-term liquidity.",
+     "key": "entity_charitable",
+     "line": 577
+    }
+   ]
+  },
+  "family_business": {
+   "title": "Education & Equity Comp",
+   "summary": "College savings plans and stock awards from an employer.",
+   "terms": [
+    "529 plan",
+    "Vesting",
+    "Exercise",
+    "Optional module"
+   ],
+   "sources": [
+    {
+     "id": "s1",
+     "code": "s",
+     "text": "College savings plans and stock awards from an employer.",
+     "key": "family_business",
+     "line": 0
+    },
+    {
+     "id": "d1",
+     "code": "d",
+     "text": "529 education savings and equity compensation — the Family & Business features that carry plan inputs.",
+     "key": "family_business",
+     "line": 175
+    },
+    {
+     "id": "i1",
+     "code": "i",
+     "text": "Enter one 529 section per beneficiary or goal, and the grant, vesting and exercise assumptions for any equity compensation.",
+     "key": "family_business",
+     "line": 177
+    },
+    {
+     "id": "i2",
+     "code": "i",
+     "text": "Both are also editable on Other Assets and Liabilities.",
+     "key": "family_business",
+     "line": 177
+    },
+    {
+     "id": "h1",
+     "code": "h",
+     "text": "Each feature here is an optional module.",
+     "key": "family_business",
+     "line": 178
+    },
+    {
+     "id": "h2",
+     "code": "h",
+     "text": "A feature that is off keeps everything you have entered and says so on its own section, so turning one off never removes your data.",
+     "key": "family_business",
+     "line": 178
+    },
+    {
+     "id": "m1",
+     "code": "m",
+     "text": "This page collects the Family & Business plan inputs: 529 education savings sections and equity compensation grants.",
+     "key": "family_business",
+     "line": 567
+    },
+    {
+     "id": "m2",
+     "code": "m",
+     "text": "The same rows are editable on Other Assets and Liabilities; business entity choice (S-Corp vs LLC) is on Work Income.",
+     "key": "family_business",
+     "line": 567
+    },
+    {
+     "id": "c1",
+     "code": "c",
+     "text": "529 balances and contributions connect to education spending and legacy.",
+     "key": "family_business",
+     "line": 568
+    },
+    {
+     "id": "c2",
+     "code": "c",
+     "text": "Equity compensation connects to earned income, payroll and capital-gains tax, and the projection reads it directly when its module is on.",
+     "key": "family_business",
+     "line": 568
+    },
+    {
+     "id": "o1",
+     "code": "o",
+     "text": "Enter one 529 section per beneficiary or goal.",
+     "key": "family_business",
+     "line": 569
+    },
+    {
+     "id": "o2",
+     "code": "o",
+     "text": "For equity compensation, use grant-level assumptions rather than a single blended figure where the vesting years differ.",
+     "key": "family_business",
+     "line": 569
+    },
+    {
+     "id": "x1",
+     "code": "x",
+     "text": "Equity compensation can concentrate both portfolio risk and taxable income in a few years — check the lifetime-tax and allocation results after entering it.",
+     "key": "family_business",
+     "line": 570
+    }
+   ]
+  },
+  "strategy_optimize": {
+   "title": "Optimize",
+   "summary": "One place to adjust the main levers: Roth conversions, investment mix, giving and home-equity borrowing.",
+   "terms": [
+    "Asset allocation and location",
+    "Lever"
+   ],
+   "sources": [
+    {
+     "id": "s1",
+     "code": "s",
+     "text": "One place to adjust the main levers: Roth conversions, investment mix, giving and home-equity borrowing.",
+     "key": "strategy_optimize",
+     "line": 0
+    },
+    {
+     "id": "d1",
+     "code": "d",
+     "text": "Roth conversions, asset allocation and location, charitable giving, and home-equity borrowing in one decision workspace.",
+     "key": "strategy_optimize",
+     "line": 184
+    },
+    {
+     "id": "i1",
+     "code": "i",
+     "text": "Open a section to work on one lever at a time.",
+     "key": "strategy_optimize",
+     "line": 186
+    },
+    {
+     "id": "i2",
+     "code": "i",
+     "text": "Each section is the same input page it always was — collapsed sections are not rendered, so the page stays fast while you edit.",
+     "key": "strategy_optimize",
+     "line": 186
+    },
+    {
+     "id": "h1",
+     "code": "h",
+     "text": "Decide the strategy here, then test its resilience on Stress Test and compare alternatives on Scenarios.",
+     "key": "strategy_optimize",
+     "line": 187
+    },
+    {
+     "id": "h2",
+     "code": "h",
+     "text": "Sections whose optional module is off show how to enable it.",
+     "key": "strategy_optimize",
+     "line": 187
+    },
+    {
+     "id": "planning_levers.m1",
+     "code": "m",
+     "text": "This is your decision hub.",
+     "key": "planning_levers",
+     "line": 511
+    },
+    {
+     "id": "planning_levers.m2",
+     "code": "m",
+     "text": "It shows your current projected outcome and screens the practical changes most likely to move terminal net worth or probability of success, then links to every strategy and stress test.",
+     "key": "planning_levers",
+     "line": 511
+    },
+    {
+     "id": "planning_levers.c1",
+     "code": "c",
+     "text": "Each lever estimates a separate effect using latest build KPIs and current plan inputs.",
+     "key": "planning_levers",
+     "line": 512
+    },
+    {
+     "id": "planning_levers.c2",
+     "code": "c",
+     "text": "Spending, retirement timing, reserve, home-equity, Roth, tax, and risk levers relate to source pages where actual values must be changed.",
+     "key": "planning_levers",
+     "line": 512
+    },
+    {
+     "id": "planning_levers.o1",
+     "code": "o",
+     "text": "Edit one test amount at a time to isolate the likely effect.",
+     "key": "planning_levers",
+     "line": 513
+    },
+    {
+     "id": "planning_levers.o2",
+     "code": "o",
+     "text": "Rank by terminal net worth when legacy/estate value is the goal; rank by probability of success when liquidity and funded-spending reliability are the goal.",
+     "key": "planning_levers",
+     "line": 513
+    },
+    {
+     "id": "planning_levers.x1",
+     "code": "x",
+     "text": "Levers that improve both TNW and success are strongest.",
+     "key": "planning_levers",
+     "line": 514
+    },
+    {
+     "id": "planning_levers.x2",
+     "code": "x",
+     "text": "Some levers trade one against the other: higher risk may increase TNW but lower success; larger reserves may improve success but reduce return; Roth conversions may lower lifetime taxes but reduce near-term liquidity.",
+     "key": "planning_levers",
+     "line": 514
+    },
+    {
+     "id": "state_residency.m1",
+     "code": "m",
+     "text": "This strategy page compares the baseline home state with a target relocation state for tax and geographic cost differences.",
+     "key": "state_residency",
+     "line": 553
+    },
+    {
+     "id": "state_residency.m2",
+     "code": "m",
+     "text": "The baseline state is set on Household people, and current budgeted amounts are the baseline.",
+     "key": "state_residency",
+     "line": 553
+    },
+    {
+     "id": "state_residency.c1",
+     "code": "c",
+     "text": "State income tax connects to net cash flow and lifetime taxes.",
+     "key": "state_residency",
+     "line": 554
+    },
+    {
+     "id": "state_residency.c2",
+     "code": "c",
+     "text": "Estimated geographic deltas for auto insurance, homeowners insurance, utilities, and home maintenance connect to the State Residency workbook sheet.",
+     "key": "state_residency",
+     "line": 554
+    },
+    {
+     "id": "state_residency.o1",
+     "code": "o",
+     "text": "Enter the target state.",
+     "key": "state_residency",
+     "line": 555
+    },
+    {
+     "id": "state_residency.o2",
+     "code": "o",
+     "text": "The workbook estimates the annual and lifetime change for each cost category from relative cost-of-living factors — replace them with real quotes when available.",
+     "key": "state_residency",
+     "line": 555
+    },
+    {
+     "id": "state_residency.x1",
+     "code": "x",
+     "text": "A lower-tax or lower-cost state can improve lifetime net cash flow, but verify housing, healthcare, and lifestyle differences before treating relocation as a plan decision.",
+     "key": "state_residency",
+     "line": 556
+    },
+    {
+     "id": "allocation_policy.m1",
+     "code": "m",
+     "text": "This page defines supporting assumptions for portfolio recommendation logic: risk tolerance, glide path, capital-market assumptions, and optimizer inputs.",
+     "key": "allocation_policy",
+     "line": 595
+    },
+    {
+     "id": "allocation_policy.c1",
+     "code": "c",
+     "text": "Risk tolerance and glide path connect household capacity to target allocation.",
+     "key": "allocation_policy",
+     "line": 596
+    },
+    {
+     "id": "allocation_policy.c2",
+     "code": "c",
+     "text": "Expected return, volatility, and correlations connect to optimizer scoring and Monte Carlo assumptions when enabled.",
+     "key": "allocation_policy",
+     "line": 596
+    },
+    {
+     "id": "allocation_policy.o1",
+     "code": "o",
+     "text": "Expected return is the long-term reward assumption.",
+     "key": "allocation_policy",
+     "line": 597
+    },
+    {
+     "id": "allocation_policy.o2",
+     "code": "o",
+     "text": "Volatility is downside bumpiness.",
+     "key": "allocation_policy",
+     "line": 597
+    },
+    {
+     "id": "allocation_policy.o3",
+     "code": "o",
+     "text": "Correlation describes diversification.",
+     "key": "allocation_policy",
+     "line": 597
+    },
+    {
+     "id": "allocation_policy.o4",
+     "code": "o",
+     "text": "Glide path controls whether the portfolio de-risks over time.",
+     "key": "allocation_policy",
+     "line": 597
+    },
+    {
+     "id": "allocation_policy.x1",
+     "code": "x",
+     "text": "Higher return assumptions usually increase recommended growth exposure and TNW projections, but can overstate success if risk is understated.",
+     "key": "allocation_policy",
+     "line": 598
+    },
+    {
+     "id": "allocation_policy.x2",
+     "code": "x",
+     "text": "Higher volatility usually lowers optimizer preference unless diversification benefits offset it.",
+     "key": "allocation_policy",
+     "line": 598
+    },
+    {
+     "id": "allocation_assets.m1",
+     "code": "m",
+     "text": "This page chooses the allocation target, asset-class inclusion policy, alternates, user targets, optimizer overrides, and trade recommendation context.",
+     "key": "allocation_assets",
+     "line": 602
+    },
+    {
+     "id": "allocation_assets.c1",
+     "code": "c",
+     "text": "Selection mode determines whether user targets or optimizer recommendations drive the workbook.",
+     "key": "allocation_assets",
+     "line": 603
+    },
+    {
+     "id": "allocation_assets.c2",
+     "code": "c",
+     "text": "Include/exclude/alternate controls connect non-liquid assets, pensions, home equity, or notes to liquid target recommendations.",
+     "key": "allocation_assets",
+     "line": 603
+    },
+    {
+     "id": "allocation_assets.c3",
+     "code": "c",
+     "text": "Holdings and tax lots connect to trade guidance.",
+     "key": "allocation_assets",
+     "line": 603
+    },
+    {
+     "id": "allocation_assets.o1",
+     "code": "o",
+     "text": "Use user target when the allocation is advisor-directed.",
+     "key": "allocation_assets",
+     "line": 604
+    },
+    {
+     "id": "allocation_assets.o2",
+     "code": "o",
+     "text": "Use optimizer recommendation when model constraints should choose the mix.",
+     "key": "allocation_assets",
+     "line": 604
+    },
+    {
+     "id": "allocation_assets.o3",
+     "code": "o",
+     "text": "Include allows target exposure; Exclude prevents it; Consider alternate first lets an existing asset satisfy the sleeve before new trades are recommended.",
+     "key": "allocation_assets",
+     "line": 604
+    },
+    {
+     "id": "allocation_assets.x1",
+     "code": "x",
+     "text": "Increasing growth assets may raise expected TNW but can lower success in bad early markets.",
+     "key": "allocation_assets",
+     "line": 605
+    },
+    {
+     "id": "allocation_assets.x2",
+     "code": "x",
+     "text": "Excluding or covering an asset class can reduce unnecessary trades.",
+     "key": "allocation_assets",
+     "line": 605
+    },
+    {
+     "id": "allocation_assets.x3",
+     "code": "x",
+     "text": "Tax-aware sell guidance can lower realized tax cost but may leave more drift.",
+     "key": "allocation_assets",
+     "line": 605
+    },
+    {
+     "id": "withdrawal_strategy.m1",
+     "code": "m",
+     "text": "This page sets the order and constraints used to fund annual spending from available account buckets.",
+     "key": "withdrawal_strategy",
+     "line": 609
+    },
+    {
+     "id": "withdrawal_strategy.m2",
+     "code": "m",
+     "text": "HSA withdrawal timing is controlled on Other → Other assets.",
+     "key": "withdrawal_strategy",
+     "line": 609
+    },
+    {
+     "id": "withdrawal_strategy.c1",
+     "code": "c",
+     "text": "Withdrawal priority connects to taxable income, RMDs, Roth preservation, trust withdrawals, cash reserve rules, survivor cash flow, and annual cash-flow schedules.",
+     "key": "withdrawal_strategy",
+     "line": 610
+    },
+    {
+     "id": "withdrawal_strategy.c2",
+     "code": "c",
+     "text": "HSA scheduled withdrawals still feed the same cash-flow engine after they are set on Other.",
+     "key": "withdrawal_strategy",
+     "line": 610
+    },
+    {
+     "id": "withdrawal_strategy.o1",
+     "code": "o",
+     "text": "Earlier priority means the bucket is used sooner.",
+     "key": "withdrawal_strategy",
+     "line": 611
+    },
+    {
+     "id": "withdrawal_strategy.o2",
+     "code": "o",
+     "text": "Preserving Roth usually supports legacy and tax diversification; spending taxable first may manage RMDs but can trigger capital gains.",
+     "key": "withdrawal_strategy",
+     "line": 611
+    },
+    {
+     "id": "withdrawal_strategy.o3",
+     "code": "o",
+     "text": "Use Other assets when you want to intentionally spend HSA balances over a window.",
+     "key": "withdrawal_strategy",
+     "line": 611
+    },
+    {
+     "id": "withdrawal_strategy.x1",
+     "code": "x",
+     "text": "Changing withdrawal order can shift lifetime taxes, terminal net worth, liquidity failures, and survivor outcomes.",
+     "key": "withdrawal_strategy",
+     "line": 612
+    },
+    {
+     "id": "withdrawal_strategy.x2",
+     "code": "x",
+     "text": "It can improve one metric while worsening another, so rebuild and compare.",
+     "key": "withdrawal_strategy",
+     "line": 612
+    }
+   ]
+  },
+  "strategy_stress": {
+   "title": "Stress Test",
+   "summary": "See how the plan holds up if things go badly: poor markets, early death, long-term care, divorce.",
+   "terms": [
+    "Monte Carlo",
+    "Survivor stress",
+    "Long-term care"
+   ],
+   "sources": [
+    {
+     "id": "s1",
+     "code": "s",
+     "text": "See how the plan holds up if things go badly: poor markets, early death, long-term care, divorce.",
+     "key": "strategy_stress",
+     "line": 0
+    },
+    {
+     "id": "d1",
+     "code": "d",
+     "text": "Adverse-assumption tests: Monte Carlo probability, survivor/early death, long-term care, and divorce.",
+     "key": "strategy_stress",
+     "line": 193
+    },
+    {
+     "id": "i1",
+     "code": "i",
+     "text": "Stress assumptions are adverse tests, not forecasts.",
+     "key": "strategy_stress",
+     "line": 195
+    },
+    {
+     "id": "i2",
+     "code": "i",
+     "text": "Set the inputs for whichever tests apply, then rebuild to see them in the workbook.",
+     "key": "strategy_stress",
+     "line": 195
+    },
+    {
+     "id": "h1",
+     "code": "h",
+     "text": "Every section here is an optional workbook module — a section only has inputs once its module is enabled on Plan Features, and this whole page is hidden when all four are off.",
+     "key": "strategy_stress",
+     "line": 196
+    },
+    {
+     "id": "monte_carlo_options.m1",
+     "code": "m",
+     "text": "This page controls how uncertainty is simulated across market, inflation, tax-indexing, and Wellness-shock paths.",
+     "key": "monte_carlo_options",
+     "line": 532
+    },
+    {
+     "id": "monte_carlo_options.m2",
+     "code": "m",
+     "text": "It determines how probability of success is measured.",
+     "key": "monte_carlo_options",
+     "line": 532
+    },
+    {
+     "id": "monte_carlo_options.c1",
+     "code": "c",
+     "text": "Simulation count, engine mode, return volatility, liquidity floors, and stress assumptions connect to probability of success, downside wealth, failure timing, and build time.",
+     "key": "monte_carlo_options",
+     "line": 533
+    },
+    {
+     "id": "monte_carlo_options.o1",
+     "code": "o",
+     "text": "Quick/vectorized mode is faster and approximate.",
+     "key": "monte_carlo_options",
+     "line": 534
+    },
+    {
+     "id": "monte_carlo_options.o2",
+     "code": "o",
+     "text": "Advanced/exact mode is slower but advisor-ready.",
+     "key": "monte_carlo_options",
+     "line": 534
+    },
+    {
+     "id": "monte_carlo_options.o3",
+     "code": "o",
+     "text": "More trials reduce random noise.",
+     "key": "monte_carlo_options",
+     "line": 534
+    },
+    {
+     "id": "monte_carlo_options.o4",
+     "code": "o",
+     "text": "Tighter liquidity floors make success harder but more realistic.",
+     "key": "monte_carlo_options",
+     "line": 534
+    },
+    {
+     "id": "monte_carlo_options.x1",
+     "code": "x",
+     "text": "More conservative settings usually lower probability of success but make the risk result more reliable.",
+     "key": "monte_carlo_options",
+     "line": 535
+    },
+    {
+     "id": "monte_carlo_options.x2",
+     "code": "x",
+     "text": "Faster settings help drafts but should not drive final recommendations without confirmation.",
+     "key": "monte_carlo_options",
+     "line": 535
+    },
+    {
+     "id": "divorce_options.m1",
+     "code": "m",
+     "text": "This page models divorce-specific assumptions only when that optional module is enabled.",
+     "key": "divorce_options",
+     "line": 546
+    },
+    {
+     "id": "divorce_options.m2",
+     "code": "m",
+     "text": "It should not be used for ordinary married/survivor planning.",
+     "key": "divorce_options",
+     "line": 546
+    },
+    {
+     "id": "divorce_options.c1",
+     "code": "c",
+     "text": "Filing status, QDRO transfers, alimony, asset division, property assumptions, and health costs connect to taxes, ownership, cash flow, survivor-like outcomes, and risk.",
+     "key": "divorce_options",
+     "line": 547
+    },
+    {
+     "id": "divorce_options.o1",
+     "code": "o",
+     "text": "Turn the module on only for an explicit divorce scenario.",
+     "key": "divorce_options",
+     "line": 548
+    },
+    {
+     "id": "divorce_options.o2",
+     "code": "o",
+     "text": "Use actual legal or negotiated assumptions when available; otherwise label the case as hypothetical.",
+     "key": "divorce_options",
+     "line": 548
+    },
+    {
+     "id": "divorce_options.x1",
+     "code": "x",
+     "text": "Changing from married to split-household assumptions can materially reduce terminal net worth, raise lifetime taxes, change Wellness costs, and reduce probability of success.",
+     "key": "divorce_options",
+     "line": 549
+    },
+    {
+     "id": "survivor_stress.m1",
+     "code": "m",
+     "text": "This stress test reviews how the plan holds up if one spouse dies early.",
+     "key": "survivor_stress",
+     "line": 581
+    },
+    {
+     "id": "survivor_stress.m2",
+     "code": "m",
+     "text": "Survivor and mortality assumptions also appear on Retirement timing.",
+     "key": "survivor_stress",
+     "line": 581
+    },
+    {
+     "id": "survivor_stress.c1",
+     "code": "c",
+     "text": "Mortality ages, survivor filing status, and spousal rollover connect to survivor tax compression, RMD timing, income loss, and late-life net worth.",
+     "key": "survivor_stress",
+     "line": 582
+    },
+    {
+     "id": "survivor_stress.c2",
+     "code": "c",
+     "text": "The full result is the Survivor workbook sheet.",
+     "key": "survivor_stress",
+     "line": 582
+    },
+    {
+     "id": "survivor_stress.o1",
+     "code": "o",
+     "text": "Review the surfaced survivor assumptions, then rebuild to see the survivor stress outcome.",
+     "key": "survivor_stress",
+     "line": 583
+    },
+    {
+     "id": "survivor_stress.o2",
+     "code": "o",
+     "text": "Adjust the source values on Retirement timing if needed.",
+     "key": "survivor_stress",
+     "line": 583
+    },
+    {
+     "id": "survivor_stress.x1",
+     "code": "x",
+     "text": "Early death often compresses tax brackets for the survivor and reduces household income; adequate insurance and Roth balances can soften the impact.",
+     "key": "survivor_stress",
+     "line": 584
+    },
+    {
+     "id": "ltc_stress.m1",
+     "code": "m",
+     "text": "This stress test models a long-term-care cost shock and how existing coverage absorbs it.",
+     "key": "ltc_stress",
+     "line": 588
+    },
+    {
+     "id": "ltc_stress.m2",
+     "code": "m",
+     "text": "LTC policy details also appear on Other assets.",
+     "key": "ltc_stress",
+     "line": 588
+    },
+    {
+     "id": "ltc_stress.c1",
+     "code": "c",
+     "text": "LTC cost, duration, and coverage connect to late-life spending shocks, liquidity, and the combined LTC / life insurance workbook section.",
+     "key": "ltc_stress",
+     "line": 589
+    },
+    {
+     "id": "ltc_stress.c2",
+     "code": "c",
+     "text": "Enable the Long-Term-Care Stress module to include it in outputs.",
+     "key": "ltc_stress",
+     "line": 589
+    },
+    {
+     "id": "ltc_stress.o1",
+     "code": "o",
+     "text": "Enter or review the LTC assumptions and coverage, then rebuild.",
+     "key": "ltc_stress",
+     "line": 590
+    },
+    {
+     "id": "ltc_stress.o2",
+     "code": "o",
+     "text": "Turn on the LTC stress module in Optional modules if results do not appear.",
+     "key": "ltc_stress",
+     "line": 590
+    },
+    {
+     "id": "ltc_stress.x1",
+     "code": "x",
+     "text": "A long-term-care event is a major downside risk; coverage reduces the shock but adds premium cost.",
+     "key": "ltc_stress",
+     "line": 591
+    },
+    {
+     "id": "ltc_stress.x2",
+     "code": "x",
+     "text": "Compare funded outcomes with and without coverage.",
+     "key": "ltc_stress",
+     "line": 591
+    }
+   ]
+  },
+  "strategy_scenarios": {
+   "title": "Scenarios",
+   "summary": "Save \"what if\" versions of your plan, such as retiring two years later.",
+   "terms": [
+    "Change set",
+    "Deterministic",
+    "Lever"
+   ],
+   "sources": [
+    {
+     "id": "s1",
+     "code": "s",
+     "text": "Save \"what if\" versions of your plan, such as retiring two years later.",
+     "key": "strategy_scenarios",
+     "line": 0
+    },
+    {
+     "id": "d1",
+     "code": "d",
+     "text": "Named scenario change sets you stage and save from any source page.",
+     "key": "strategy_scenarios",
+     "line": 202
+    },
+    {
+     "id": "i1",
+     "code": "i",
+     "text": "Change sets are named deterministic cases you can compare side by side in the Workbench.",
+     "key": "strategy_scenarios",
+     "line": 204
+    },
+    {
+     "id": "i2",
+     "code": "i",
+     "text": "Rank individual levers and review saved cases there.",
+     "key": "strategy_scenarios",
+     "line": 204
+    },
+    {
+     "id": "h1",
+     "code": "h",
+     "text": "Use change sets for questions with a specific answer (retire two years later, sell the home in 2028).",
+     "key": "strategy_scenarios",
+     "line": 205
+    },
+    {
+     "id": "h2",
+     "code": "h",
+     "text": "Use Stress Test for probability ranges and adverse assumptions.",
+     "key": "strategy_scenarios",
+     "line": 205
+    },
+    {
+     "id": "scenarios.m1",
+     "code": "m",
+     "text": "This page defines named deterministic what-if cases that compare a specific bundle of lever/assumption changes against the base plan.",
+     "key": "scenarios",
+     "line": 539
+    },
+    {
+     "id": "scenarios.m2",
+     "code": "m",
+     "text": "It is a comparison mode, not a random-draw stress test like Monte Carlo.",
+     "key": "scenarios",
+     "line": 539
+    },
+    {
+     "id": "scenarios.c1",
+     "code": "c",
+     "text": "Scenario rows can change returns, inflation, home sale assumptions, spending, tax, or timing for workbook scenario sheets and risk narratives.",
+     "key": "scenarios",
+     "line": 540
+    },
+    {
+     "id": "scenarios.c2",
+     "code": "c",
+     "text": "Economy and home-sale stress cases belong here.",
+     "key": "scenarios",
+     "line": 540
+    },
+    {
+     "id": "scenarios.o1",
+     "code": "o",
+     "text": "Use one scenario per clear question: retire later, sell home, inflation stress, low returns, spending cut, or tax change.",
+     "key": "scenarios",
+     "line": 541
+    },
+    {
+     "id": "scenarios.o2",
+     "code": "o",
+     "text": "Keep scenario labels descriptive so workbook comparisons are readable.",
+     "key": "scenarios",
+     "line": 541
+    },
+    {
+     "id": "scenarios.x1",
+     "code": "x",
+     "text": "Scenarios that lean adverse often reduce TNW and success indicators, but comparing bundles side by side shows which lever combinations protect the plan best.",
+     "key": "scenarios",
+     "line": 542
+    }
+   ]
+  },
+  "strategy_workbench": {
+   "title": "Workbench",
+   "summary": "Compare your plan with the saved what-ifs and decide which to adopt.",
+   "terms": [
+    "Baseline",
+    "Change set",
+    "Run type",
+    "Planning cases"
+   ],
+   "sources": [
+    {
+     "id": "s1",
+     "code": "s",
+     "text": "Compare your plan with the saved what-ifs and decide which to adopt.",
+     "key": "strategy_workbench",
+     "line": 0
+    },
+    {
+     "id": "d1",
+     "code": "d",
+     "text": "Compare the baseline, named change sets, and stress-suite results in one place, then decide what to adopt.",
+     "key": "strategy_workbench",
+     "line": 211
+    },
+    {
+     "id": "i1",
+     "code": "i",
+     "text": "Pick a baseline, stage a change set to test, choose Scenario or Stress as the run type, then review Impact and record a Decision.",
+     "key": "strategy_workbench",
+     "line": 213
+    },
+    {
+     "id": "h1",
+     "code": "h",
+     "text": "Planning cases are browser-local change sets.",
+     "key": "strategy_workbench",
+     "line": 214
+    },
+    {
+     "id": "h2",
+     "code": "h",
+     "text": "They do not alter the saved plan until you explicitly jump to source pages, edit inputs, save, and rebuild.",
+     "key": "strategy_workbench",
+     "line": 214
+    },
+    {
+     "id": "planning_workbench.m1",
+     "code": "m",
+     "text": "This page is the unified planning flow for comparing the baseline, named change sets, scenario ideas, stress assumptions, and final decisions.",
+     "key": "planning_workbench",
+     "line": 504
+    },
+    {
+     "id": "planning_workbench.m2",
+     "code": "m",
+     "text": "Planning cases are browser-local notes until you deliberately adopt changes on source pages.",
+     "key": "planning_workbench",
+     "line": 504
+    },
+    {
+     "id": "planning_workbench.c1",
+     "code": "c",
+     "text": "The workbench connects Strategy Levers, Scenario Change Sets, Stress Suite settings, and Build Impact around the same Baseline → Change Set → Run Type → Impact → Decision vocabulary.",
+     "key": "planning_workbench",
+     "line": 505
+    },
+    {
+     "id": "planning_workbench.c2",
+     "code": "c",
+     "text": "Saved cases help organize what you are testing without mutating the saved plan.",
+     "key": "planning_workbench",
+     "line": 505
+    },
+    {
+     "id": "planning_workbench.o1",
+     "code": "o",
+     "text": "Start with the baseline, save a staged edit or strategy as a case, choose whether to compare or stress it, then use the Decision panel to adopt, archive, or leave it as reference.",
+     "key": "planning_workbench",
+     "line": 506
+    },
+    {
+     "id": "planning_workbench.o2",
+     "code": "o",
+     "text": "Adopted changes still need to be made on the source pages, saved, and rebuilt.",
+     "key": "planning_workbench",
+     "line": 506
+    },
+    {
+     "id": "planning_workbench.x1",
+     "code": "x",
+     "text": "A planning case can clarify what to test next, but it does not change workbook results by itself.",
+     "key": "planning_workbench",
+     "line": 507
+    },
+    {
+     "id": "planning_workbench.x2",
+     "code": "x",
+     "text": "Only saved source-page edits followed by a rebuild affect terminal net worth, lifetime taxes, Monte Carlo success, and report outputs.",
+     "key": "planning_workbench",
+     "line": 507
+    }
+   ]
+  },
+  "actual_spending": {
+   "title": "Actual Spending",
+   "summary": "Compare what you really spent this year with what the plan assumed.",
+   "terms": [
+    "Annualized",
+    "Sync actual rate",
+    "Accounts & Sources"
+   ],
+   "sources": [
+    {
+     "id": "s1",
+     "code": "s",
+     "text": "Compare what you really spent this year with what the plan assumed.",
+     "key": "actual_spending",
+     "line": 0
+    },
+    {
+     "id": "d1",
+     "code": "d",
+     "text": "Imported income and expense transactions for the selected year, and how they compare with the spending model.",
+     "key": "actual_spending",
+     "line": 220
+    },
+    {
+     "id": "i1",
+     "code": "i",
+     "text": "Import and assign transactions for the selected year on the year tab; compare annualized spending with the plan on Analysis, then sync the actual rate before building.",
+     "key": "actual_spending",
+     "line": 221
+    },
+    {
+     "id": "h1",
+     "code": "h",
+     "text": "Category assignment happens on Spending Model.",
+     "key": "actual_spending",
+     "line": 222
+    },
+    {
+     "id": "h2",
+     "code": "h",
+     "text": "Accounts & Sources controls account/source type, prior-year balances, and current values.",
+     "key": "actual_spending",
+     "line": 222
+    },
+    {
+     "id": "spending_dashboard.m1",
+     "code": "m",
+     "text": "Combines the current-year performance summary (spending, income, portfolio growth) with the budget vs actuals tracker and the link to the 30-year retirement model.",
+     "key": "spending_dashboard",
+     "line": 406
+    },
+    {
+     "id": "spending_dashboard.c1",
+     "code": "c",
+     "text": "Transactions from Income & Expense Transactions feed both the summary and the tracker.",
+     "key": "spending_dashboard",
+     "line": 407
+    },
+    {
+     "id": "spending_dashboard.c2",
+     "code": "c",
+     "text": "Spending Categories controls how transactions are assigned to the canonical Tracking Type → Group → Category hierarchy.",
+     "key": "spending_dashboard",
+     "line": 407
+    },
+    {
+     "id": "spending_dashboard.o1",
+     "code": "o",
+     "text": "The summary shows actual vs projected spending, income, and growth.",
+     "key": "spending_dashboard",
+     "line": 408
+    },
+    {
+     "id": "spending_dashboard.o2",
+     "code": "o",
+     "text": "The tracker compares annualized actuals to category budgets and to the retirement model core spending assumption.",
+     "key": "spending_dashboard",
+     "line": 408
+    },
+    {
+     "id": "spending_dashboard.o3",
+     "code": "o",
+     "text": "Use Sync Actual Rate to update the 30-year model.",
+     "key": "spending_dashboard",
+     "line": 408
+    },
+    {
+     "id": "spending_dashboard.x1",
+     "code": "x",
+     "text": "Spending rate above the model assumption reduces projected net worth.",
+     "key": "spending_dashboard",
+     "line": 409
+    },
+    {
+     "id": "spending_dashboard.x2",
+     "code": "x",
+     "text": "Identifying over-budget groups early — before the annual rebuild — gives time to recalibrate Core spending or adjust plans.",
+     "key": "spending_dashboard",
+     "line": 409
+    },
+    {
+     "id": "ytd_transactions.m1",
+     "code": "m",
+     "text": "Import and manage current-year income and expense transaction data.",
+     "key": "ytd_transactions",
+     "line": 427
+    },
+    {
+     "id": "ytd_transactions.c1",
+     "code": "c",
+     "text": "Upload a CSV from your bank or brokerage.",
+     "key": "ytd_transactions",
+     "line": 428
+    },
+    {
+     "id": "ytd_transactions.c2",
+     "code": "c",
+     "text": "Use Replace all to start fresh or Add to merge new transactions with existing ones.",
+     "key": "ytd_transactions",
+     "line": 428
+    },
+    {
+     "id": "ytd_transactions.c3",
+     "code": "c",
+     "text": "Remove Duplicates deduplicates by Date + Merchant + Amount + Account.",
+     "key": "ytd_transactions",
+     "line": 428
+    },
+    {
+     "id": "ytd_transactions.o1",
+     "code": "o",
+     "text": "Required CSV columns: Date, Merchant, Category, Account, Amount.",
+     "key": "ytd_transactions",
+     "line": 429
+    },
+    {
+     "id": "ytd_transactions.o2",
+     "code": "o",
+     "text": "Optional: Original Statement, Notes, Tags, Owner.",
+     "key": "ytd_transactions",
+     "line": 429
+    },
+    {
+     "id": "ytd_transactions.o3",
+     "code": "o",
+     "text": "Only current-year rows are imported.",
+     "key": "ytd_transactions",
+     "line": 429
+    },
+    {
+     "id": "ytd_transactions.x1",
+     "code": "x",
+     "text": "More complete transaction data improves the accuracy of the YTD spending, income, and growth analysis in Spending Analysis.",
+     "key": "ytd_transactions",
+     "line": 430
+    }
+   ]
+  },
+  "monarch_reconciliation": {
+   "title": "Account Reconciliation",
+   "summary": "Check the plan's account balances against your imported daily balances and fix differences.",
+   "terms": [
+    "Reconciliation",
+    "Report only",
+    "Plan-start figures"
+   ],
+   "sources": [
+    {
+     "id": "s1",
+     "code": "s",
+     "text": "Check the plan's account balances against your imported daily balances and fix differences.",
+     "key": "monarch_reconciliation",
+     "line": 0
+    },
+    {
+     "id": "d1",
+     "code": "d",
+     "text": "The app's account numbers beside the imported daily balances, with a way to copy the imported number into the app.",
+     "key": "monarch_reconciliation",
+     "line": 228
+    },
+    {
+     "id": "i1",
+     "code": "i",
+     "text": "Each difference needs a choice: update the app, ignore it this time, always update from the import, or keep the app as the source.",
+     "key": "monarch_reconciliation",
+     "line": 229
+    },
+    {
+     "id": "i2",
+     "code": "i",
+     "text": "Every change is logged and can be undone.",
+     "key": "monarch_reconciliation",
+     "line": 229
+    },
+    {
+     "id": "h1",
+     "code": "h",
+     "text": "Investment accounts are valued from holdings, so they are report only.",
+     "key": "monarch_reconciliation",
+     "line": 230
+    },
+    {
+     "id": "h2",
+     "code": "h",
+     "text": "Plan inputs (home, autos, mortgage) are plan-start figures; rebuild after changing them.",
+     "key": "monarch_reconciliation",
+     "line": 230
+    },
+    {
+     "id": "m1",
+     "code": "m",
+     "text": "Compares each account number in the app with the balance the import reports, as of a date you pick, and lists what needs a decision.",
+     "key": "monarch_reconciliation",
+     "line": 441
+    },
+    {
+     "id": "c1",
+     "code": "c",
+     "text": "Accounts match by name, by a match you save, or by importing your mapping CSV.",
+     "key": "monarch_reconciliation",
+     "line": 442
+    },
+    {
+     "id": "c2",
+     "code": "c",
+     "text": "Each match has a policy: ask me, always update (copied at the nightly import unless the change is large or a plan-start input), app is source, or ignore.",
+     "key": "monarch_reconciliation",
+     "line": 442
+    },
+    {
+     "id": "c3",
+     "code": "c",
+     "text": "Investments are never changed here.",
+     "key": "monarch_reconciliation",
+     "line": 442
+    },
+    {
+     "id": "o1",
+     "code": "o",
+     "text": "Update app previews the old and new value before anything is written.",
+     "key": "monarch_reconciliation",
+     "line": 443
+    },
+    {
+     "id": "o2",
+     "code": "o",
+     "text": "Use Undo in the change log, or Undo all automatic updates; it refuses if the value was edited since.",
+     "key": "monarch_reconciliation",
+     "line": 443
+    },
+    {
+     "id": "x1",
+     "code": "x",
+     "text": "A corrected balance changes net worth, YTD growth and the starting values the next build uses.",
+     "key": "monarch_reconciliation",
+     "line": 444
+    },
+    {
+     "id": "x2",
+     "code": "x",
+     "text": "Rebuild after applying.",
+     "key": "monarch_reconciliation",
+     "line": 444
+    }
+   ]
+  },
+  "reports_and_review": {
+   "title": "Build & Results",
+   "summary": "Check the plan is ready, build the reports, then review and download them.",
+   "terms": [
+    "Readiness (readiness checks)",
+    "Impact"
+   ],
+   "sources": [
+    {
+     "id": "s1",
+     "code": "s",
+     "text": "Check the plan is ready, build the reports, then review and download them.",
+     "key": "reports_and_review",
+     "line": 0
+    },
+    {
+     "id": "d1",
+     "code": "d",
+     "text": "One workspace for readiness, build, impact, results, downloads, and plan data review.",
+     "key": "reports_and_review",
+     "line": 236
+    },
+    {
+     "id": "i1",
+     "code": "i",
+     "text": "Build current reports (readiness checks appear right above the Build button), review impact and results, then download or print the final package.",
+     "key": "reports_and_review",
+     "line": 238
+    },
+    {
+     "id": "h1",
+     "code": "h",
+     "text": "Use this page for anything related to output.",
+     "key": "reports_and_review",
+     "line": 239
+    },
+    {
+     "id": "h2",
+     "code": "h",
+     "text": "It keeps report readiness and results in one flow.",
+     "key": "reports_and_review",
+     "line": 239
+    },
+    {
+     "id": "assumption_signoff.m1",
+     "code": "m",
+     "text": "This page is a pre-build interpretation checklist.",
+     "key": "assumption_signoff",
+     "line": 483
+    },
+    {
+     "id": "assumption_signoff.m2",
+     "code": "m",
+     "text": "It does not create new calculations; it helps confirm that the assumptions behind the report are coherent.",
+     "key": "assumption_signoff",
+     "line": 483
+    },
+    {
+     "id": "assumption_signoff.c1",
+     "code": "c",
+     "text": "Risk tolerance, spending flexibility, longevity, tax strategy, Roth objectives, inflation, returns, estate intent, and liquidity assumptions all connect to multiple workbook sections and recommendations.",
+     "key": "assumption_signoff",
+     "line": 484
+    },
+    {
+     "id": "assumption_signoff.o1",
+     "code": "o",
+     "text": "Use this page to decide whether assumptions are documented, estimated, or scenario-specific.",
+     "key": "assumption_signoff",
+     "line": 485
+    },
+    {
+     "id": "assumption_signoff.o2",
+     "code": "o",
+     "text": "If a checklist item reveals uncertainty, edit the source page before building.",
+     "key": "assumption_signoff",
+     "line": 485
+    },
+    {
+     "id": "assumption_signoff.x1",
+     "code": "x",
+     "text": "Better assumptions reduce false precision.",
+     "key": "assumption_signoff",
+     "line": 486
+    },
+    {
+     "id": "assumption_signoff.x2",
+     "code": "x",
+     "text": "Changing checklist-related inputs can affect TNW, lifetime taxes, Monte Carlo success, survivor results, and report narratives.",
+     "key": "assumption_signoff",
+     "line": 486
+    },
+    {
+     "id": "review.m1",
+     "code": "m",
+     "text": "Downloads automatically save and build as needed — you do not need to save separately before downloading.",
+     "key": "review",
+     "line": 490
+    },
+    {
+     "id": "review.c1",
+     "code": "c",
+     "text": "Save Changes stores all entered values.",
+     "key": "review",
+     "line": 491
+    },
+    {
+     "id": "review.c2",
+     "code": "c",
+     "text": "Download Workbook saves, builds, and delivers in one click when there are unsaved changes or no current build.",
+     "key": "review",
+     "line": 491
+    },
+    {
+     "id": "review.o1",
+     "code": "o",
+     "text": "Use Save Changes when you want to save without triggering a rebuild.",
+     "key": "review",
+     "line": 492
+    },
+    {
+     "id": "review.o2",
+     "code": "o",
+     "text": "Use Download when ready for final output.",
+     "key": "review",
+     "line": 492
+    },
+    {
+     "id": "review.o3",
+     "code": "o",
+     "text": "Resolve any required-field warnings before downloading.",
+     "key": "review",
+     "line": 492
+    },
+    {
+     "id": "review.o4",
+     "code": "o",
+     "text": "Bulk import/export is in Settings → System Configuration.",
+     "key": "review",
+     "line": 492
+    },
+    {
+     "id": "review.x1",
+     "code": "x",
+     "text": "A successful build refreshes projected net worth, lifetime taxes, Monte Carlo success, allocation recommendations, and all narrative sections.",
+     "key": "review",
+     "line": 493
+    },
+    {
+     "id": "review.x2",
+     "code": "x",
+     "text": "The downloaded file reflects the last successful build — download again after each rebuild to get the latest.",
+     "key": "review",
+     "line": 493
+    },
+    {
+     "id": "build_impact.m1",
+     "code": "m",
+     "text": "This page explains what changed in the latest build compared with the session baseline.",
+     "key": "build_impact",
+     "line": 497
+    },
+    {
+     "id": "build_impact.m2",
+     "code": "m",
+     "text": "It is a review and revert tool, not a data-entry page.",
+     "key": "build_impact",
+     "line": 497
+    },
+    {
+     "id": "build_impact.c1",
+     "code": "c",
+     "text": "The comparison uses values captured before this editing session and values after the last successful build.",
+     "key": "build_impact",
+     "line": 498
+    },
+    {
+     "id": "build_impact.c2",
+     "code": "c",
+     "text": "It helps connect changed assumptions to terminal net worth, lifetime taxes, Roth conversions, liquidity, and output warnings.",
+     "key": "build_impact",
+     "line": 498
+    },
+    {
+     "id": "build_impact.o1",
+     "code": "o",
+     "text": "Revert restores captured before-values for edited inputs.",
+     "key": "build_impact",
+     "line": 499
+    },
+    {
+     "id": "build_impact.o2",
+     "code": "o",
+     "text": "Rebuild confirms whether the reverted or edited plan changes the authoritative workbook output.",
+     "key": "build_impact",
+     "line": 499
+    },
+    {
+     "id": "build_impact.x1",
+     "code": "x",
+     "text": "Large differences identify high-leverage assumptions.",
+     "key": "build_impact",
+     "line": 500
+    },
+    {
+     "id": "build_impact.x2",
+     "code": "x",
+     "text": "A positive terminal-net-worth change is not automatically better if it increases lifetime taxes, liquidity stress, survivor risk, or Monte Carlo failure.",
+     "key": "build_impact",
+     "line": 500
+    },
+    {
+     "id": "plan_data_report.m1",
+     "code": "m",
+     "text": "A read-only view of everything you have entered across all plan sections.",
+     "key": "plan_data_report",
+     "line": 525
+    },
+    {
+     "id": "plan_data_report.c1",
+     "code": "c",
+     "text": "Every field from every input tab is shown here, grouped by section.",
+     "key": "plan_data_report",
+     "line": 526
+    },
+    {
+     "id": "plan_data_report.c2",
+     "code": "c",
+     "text": "Holdings are summarized by account.",
+     "key": "plan_data_report",
+     "line": 526
+    },
+    {
+     "id": "plan_data_report.o1",
+     "code": "o",
+     "text": "Use this after filling in the plan to do a final review before building outputs.",
+     "key": "plan_data_report",
+     "line": 527
+    },
+    {
+     "id": "plan_data_report.x1",
+     "code": "x",
+     "text": "If a field looks wrong here, navigate to the corresponding input tab to correct it.",
+     "key": "plan_data_report",
+     "line": 528
+    }
+   ]
+  },
+  "detailed_results": {
+   "title": "Results",
+   "summary": "View every report sheet and chart inside the app after a build.",
+   "terms": [
+    "Column groups",
+    "Conditional formatting"
+   ],
+   "sources": [
+    {
+     "id": "s1",
+     "code": "s",
+     "text": "View every report sheet and chart inside the app after a build.",
+     "key": "detailed_results",
+     "line": 0
+    },
+    {
+     "id": "d1",
+     "code": "d",
+     "text": "In-app view of all workbook sheets, charts, and data tables after a build — column groups can be collapsed to focus on key metrics.",
+     "key": "detailed_results",
+     "line": 245
+    },
+    {
+     "id": "i1",
+     "code": "i",
+     "text": "Sheet navigation and row-level search are in the left panel.",
+     "key": "detailed_results",
+     "line": 247
+    },
+    {
+     "id": "i2",
+     "code": "i",
+     "text": "Download the workbook for full Excel fidelity on complex charts and conditional formatting.",
+     "key": "detailed_results",
+     "line": 247
+    },
+    {
+     "id": "h1",
+     "code": "h",
+     "text": "The Cash Flow Projection, Monte Carlo, and Allocation sheets have the most complex rendering.",
+     "key": "detailed_results",
+     "line": 248
+    },
+    {
+     "id": "h2",
+     "code": "h",
+     "text": "If a chart or table looks incomplete in this view, the downloaded workbook is authoritative.",
+     "key": "detailed_results",
+     "line": 248
+    },
+    {
+     "id": "m1",
+     "code": "m",
+     "text": "In-app view of every workbook sheet after a build — Cash Flow Projection, Monte Carlo, Allocation, Lifetime Taxes, Estate, and all strategy comparisons.",
+     "key": "detailed_results",
+     "line": 518
+    },
+    {
+     "id": "c1",
+     "code": "c",
+     "text": "Each sheet matches the corresponding Excel tab.",
+     "key": "detailed_results",
+     "line": 519
+    },
+    {
+     "id": "c2",
+     "code": "c",
+     "text": "Column groups can be collapsed to focus on key metrics.",
+     "key": "detailed_results",
+     "line": 519
+    },
+    {
+     "id": "c3",
+     "code": "c",
+     "text": "Row-level search finds any value across all sheets.",
+     "key": "detailed_results",
+     "line": 519
+    },
+    {
+     "id": "o1",
+     "code": "o",
+     "text": "Use the sheet selector in the left panel to navigate between sections.",
+     "key": "detailed_results",
+     "line": 520
+    },
+    {
+     "id": "o2",
+     "code": "o",
+     "text": "Download the workbook when you need full chart fidelity or conditional formatting that can't be approximated here.",
+     "key": "detailed_results",
+     "line": 520
+    },
+    {
+     "id": "x1",
+     "code": "x",
+     "text": "If a sheet shows unexpected values, the issue is in the plan inputs — identify the relevant input page, correct the value, and rebuild.",
+     "key": "detailed_results",
+     "line": 521
+    }
+   ]
+  },
+  "economic_tax_assumptions": {
+   "title": "Economic & Tax Assumptions",
+   "summary": "Growth, inflation and tax-rule assumptions used for every year of the plan.",
+   "terms": [
+    "Medical inflation",
+    "Tax bracket indexing",
+    "Cost-of-living settings (COLA)"
+   ],
+   "sources": [
+    {
+     "id": "s1",
+     "code": "s",
+     "text": "Growth, inflation and tax-rule assumptions used for every year of the plan.",
+     "key": "economic_tax_assumptions",
+     "line": 0
+    },
+    {
+     "id": "d1",
+     "code": "d",
+     "text": "Baseline return rates, inflation, medical cost escalation, tax bracket indexing, and COLA — applied system-wide across all projections.",
+     "key": "economic_tax_assumptions",
+     "line": 255
+    },
+    {
+     "id": "i1",
+     "code": "i",
+     "text": "Changes here affect every projection year simultaneously.",
+     "key": "economic_tax_assumptions",
+     "line": 257
+    },
+    {
+     "id": "i2",
+     "code": "i",
+     "text": "Use Scenarios to test alternatives without altering the base assumptions.",
+     "key": "economic_tax_assumptions",
+     "line": 257
+    },
+    {
+     "id": "h1",
+     "code": "h",
+     "text": "Medical inflation is the most sensitive late-life input — a 1% change compounds across 30 years and materially shifts Medicare and care costs.",
+     "key": "economic_tax_assumptions",
+     "line": 258
+    },
+    {
+     "id": "h2",
+     "code": "h",
+     "text": "Return assumptions should reflect long-term expected rates, not recent performance.",
+     "key": "economic_tax_assumptions",
+     "line": 258
+    },
+    {
+     "id": "m1",
+     "code": "m",
+     "text": "This System page holds default inflation, COLA, tax-indexing, payroll, Wellness, and return assumptions used across the model.",
+     "key": "economic_tax_assumptions",
+     "line": 616
+    },
+    {
+     "id": "c1",
+     "code": "c",
+     "text": "Inflation connects spending, Social Security COLA, tax brackets, IRMAA thresholds, Wellness costs, and capital-market projections.",
+     "key": "economic_tax_assumptions",
+     "line": 617
+    },
+    {
+     "id": "c2",
+     "code": "c",
+     "text": "Tax constants and indexing assumptions connect to Roth and lifetime-tax analysis.",
+     "key": "economic_tax_assumptions",
+     "line": 617
+    },
+    {
+     "id": "o1",
+     "code": "o",
+     "text": "Use current-law/default assumptions for base plans; use scenarios to compare alternative assumption sets.",
+     "key": "economic_tax_assumptions",
+     "line": 618
+    },
+    {
+     "id": "o2",
+     "code": "o",
+     "text": "Keep tax data source years current before relying on tax-sensitive recommendations.",
+     "key": "economic_tax_assumptions",
+     "line": 618
+    },
+    {
+     "id": "x1",
+     "code": "x",
+     "text": "Higher inflation usually lowers real purchasing power and can reduce success unless income/assets adjust.",
+     "key": "economic_tax_assumptions",
+     "line": 619
+    },
+    {
+     "id": "x2",
+     "code": "x",
+     "text": "Higher Wellness inflation raises late-life spending.",
+     "key": "economic_tax_assumptions",
+     "line": 619
+    },
+    {
+     "id": "x3",
+     "code": "x",
+     "text": "Changing tax assumptions can materially change lifetime taxes and Roth recommendations.",
+     "key": "economic_tax_assumptions",
+     "line": 619
+    }
+   ]
+  },
+  "optional_functions": {
+   "title": "Plan Features",
+   "summary": "Turn optional parts of the plan on or off. Turning one off never deletes your entries.",
+   "terms": [
+    "Optional module",
+    "Navigation steps (nav steps)"
+   ],
+   "sources": [
+    {
+     "id": "s1",
+     "code": "s",
+     "text": "Turn optional parts of the plan on or off. Turning one off never deletes your entries.",
+     "key": "optional_functions",
+     "line": 0
+    },
+    {
+     "id": "d1",
+     "code": "d",
+     "text": "Choose which planning features this plan uses, grouped by the part of life they cover: taxes, housing, protection, risk, and the rest.",
+     "key": "optional_functions",
+     "line": 264
+    },
+    {
+     "id": "i1",
+     "code": "i",
+     "text": "Features are grouped by what they are about, and can be filtered by the kind of question they answer.",
+     "key": "optional_functions",
+     "line": 266
+    },
+    {
+     "id": "i2",
+     "code": "i",
+     "text": "Turning one off excludes it from the build but never deletes what you have entered.",
+     "key": "optional_functions",
+     "line": 266
+    },
+    {
+     "id": "h1",
+     "code": "h",
+     "text": "Features that add nav steps must be enabled here before those steps appear.",
+     "key": "optional_functions",
+     "line": 267
+    },
+    {
+     "id": "h2",
+     "code": "h",
+     "text": "Features that only add workbook output can be toggled without changing the navigation.",
+     "key": "optional_functions",
+     "line": 267
+    },
+    {
+     "id": "h3",
+     "code": "h",
+     "text": "A feature that is off but still holds your data says so on its row.",
+     "key": "optional_functions",
+     "line": 267
+    },
+    {
+     "id": "m1",
+     "code": "m",
+     "text": "Enables or disables entire planning sections — long-term care stress, divorce planning, home equity line, charitable giving, special needs, equity compensation, 529 education funding, and others — that are excluded from the build when off.",
+     "key": "optional_functions",
+     "line": 637
+    },
+    {
+     "id": "m2",
+     "code": "m",
+     "text": "Grouped by the part of life each one covers, and filterable by the kind of question it answers.",
+     "key": "optional_functions",
+     "line": 637
+    },
+    {
+     "id": "c1",
+     "code": "c",
+     "text": "Some features add their own nav pages (Special Strategies, Long-Term Care, Divorce Planning) that only appear once the feature is enabled here; others only change workbook output without adding a page.",
+     "key": "optional_functions",
+     "line": 638
+    },
+    {
+     "id": "c2",
+     "code": "c",
+     "text": "A feature that is on but depends on another that is off says what it is leaving out.",
+     "key": "optional_functions",
+     "line": 638
+    },
+    {
+     "id": "o1",
+     "code": "o",
+     "text": "Enable a feature before entering its detail elsewhere in the plan — its input page won't appear in navigation until it's turned on.",
+     "key": "optional_functions",
+     "line": 639
+    },
+    {
+     "id": "o2",
+     "code": "o",
+     "text": "Turn a feature off to exclude it from the build without deleting its saved data; the row then shows how many entries are being held.",
+     "key": "optional_functions",
+     "line": 639
+    },
+    {
+     "id": "x1",
+     "code": "x",
+     "text": "Turning a feature off removes its section from the workbook build entirely, not just from navigation.",
+     "key": "optional_functions",
+     "line": 640
+    },
+    {
+     "id": "x2",
+     "code": "x",
+     "text": "Turning one on can add new required fields to complete before the plan is build-ready.",
+     "key": "optional_functions",
+     "line": 640
+    }
+   ]
+  },
+  "all_assumptions": {
+   "title": "Field Finder",
+   "summary": "Search for any plan value that you cannot find on a guided page.",
+   "terms": [
+    "Structured plan rows"
+   ],
+   "sources": [
+    {
+     "id": "s1",
+     "code": "s",
+     "text": "Search for any plan value that you cannot find on a guided page.",
+     "key": "all_assumptions",
+     "line": 0
+    },
+    {
+     "id": "d1",
+     "code": "d",
+     "text": "Use when a value doesn't appear on its guided page.",
+     "key": "all_assumptions",
+     "line": 273
+    },
+    {
+     "id": "i1",
+     "code": "i",
+     "text": "Search by label, section, or keyword.",
+     "key": "all_assumptions",
+     "line": 275
+    },
+    {
+     "id": "i2",
+     "code": "i",
+     "text": "Changes here have the same effect as editing on the source page — prefer the source page when nearby related fields need to be consistent.",
+     "key": "all_assumptions",
+     "line": 275
+    },
+    {
+     "id": "h1",
+     "code": "h",
+     "text": "Holdings, budget lines, transactions, and liabilities are not here — those are managed on their dedicated tabs.",
+     "key": "all_assumptions",
+     "line": 276
+    },
+    {
+     "id": "h2",
+     "code": "h",
+     "text": "This view covers only structured plan rows.",
+     "key": "all_assumptions",
+     "line": 276
+    },
+    {
+     "id": "m1",
+     "code": "m",
+     "text": "Every editable plan field in one searchable view — a safety net for values that don't surface clearly on their guided pages.",
+     "key": "all_assumptions",
+     "line": 630
+    },
+    {
+     "id": "c1",
+     "code": "c",
+     "text": "Fields on this page belong to many different sections.",
+     "key": "all_assumptions",
+     "line": 631
+    },
+    {
+     "id": "c2",
+     "code": "c",
+     "text": "Changing a field here has the same build effect as changing it on the source page, but without the surrounding related fields as context.",
+     "key": "all_assumptions",
+     "line": 631
+    },
+    {
+     "id": "o1",
+     "code": "o",
+     "text": "Search by label, section, or keyword.",
+     "key": "all_assumptions",
+     "line": 632
+    },
+    {
+     "id": "o2",
+     "code": "o",
+     "text": "Review field help before changing unfamiliar inputs.",
+     "key": "all_assumptions",
+     "line": 632
+    },
+    {
+     "id": "o3",
+     "code": "o",
+     "text": "Prefer the source page when nearby related values need to be consistent.",
+     "key": "all_assumptions",
+     "line": 632
+    },
+    {
+     "id": "x1",
+     "code": "x",
+     "text": "Because this page combines fields from every section, a change can affect almost any output.",
+     "key": "all_assumptions",
+     "line": 633
+    },
+    {
+     "id": "x2",
+     "code": "x",
+     "text": "Holdings, budget lines, transactions, and liabilities are on their dedicated tabs — not here.",
+     "key": "all_assumptions",
+     "line": 633
+    }
+   ]
+  },
+  "workbook_formatting": {
+   "title": "Workbook Formatting",
+   "summary": "Set Excel column widths for the downloaded workbook.",
+   "terms": [
+    "Overrides"
+   ],
+   "sources": [
+    {
+     "id": "s1",
+     "code": "s",
+     "text": "Set Excel column widths for the downloaded workbook.",
+     "key": "workbook_formatting",
+     "line": 0
+    },
+    {
+     "id": "d1",
+     "code": "d",
+     "text": "Fine-tune Excel column widths per sheet, table, and column.",
+     "key": "workbook_formatting",
+     "line": 282
+    },
+    {
+     "id": "d2",
+     "code": "d",
+     "text": "Changes apply on the next build.",
+     "key": "workbook_formatting",
+     "line": 282
+    },
+    {
+     "id": "i1",
+     "code": "i",
+     "text": "Each sheet expands to its tables and columns.",
+     "key": "workbook_formatting",
+     "line": 284
+    },
+    {
+     "id": "i2",
+     "code": "i",
+     "text": "Edit a column width and save — overrides are stored and applied the next time you build the workbook.",
+     "key": "workbook_formatting",
+     "line": 284
+    },
+    {
+     "id": "h1",
+     "code": "h",
+     "text": "Overrides apply on top of the automatic layout, so a width you set here wins over the default sizing.",
+     "key": "workbook_formatting",
+     "line": 285
+    },
+    {
+     "id": "h2",
+     "code": "h",
+     "text": "A built workbook is required to read the current column structure.",
+     "key": "workbook_formatting",
+     "line": 285
+    },
+    {
+     "id": "m1",
+     "code": "m",
+     "text": "Adjusts the Excel column widths in the generated workbook, organized by sheet, then by table (for multi-table sheets like Net Worth and Cash Flow), then by column.",
+     "key": "workbook_formatting",
+     "line": 644
+    },
+    {
+     "id": "c1",
+     "code": "c",
+     "text": "Widths are read from the most recently built workbook.",
+     "key": "workbook_formatting",
+     "line": 645
+    },
+    {
+     "id": "c2",
+     "code": "c",
+     "text": "Each edit is saved as a per-column override and layered on top of the standard layout; a column you never touch keeps its automatic width.",
+     "key": "workbook_formatting",
+     "line": 645
+    },
+    {
+     "id": "o1",
+     "code": "o",
+     "text": "Widen a column when its numbers or labels look cramped or clipped; narrow one to fit more columns on a printed page.",
+     "key": "workbook_formatting",
+     "line": 646
+    },
+    {
+     "id": "o2",
+     "code": "o",
+     "text": "Rebuild the workbook to see the change.",
+     "key": "workbook_formatting",
+     "line": 646
+    },
+    {
+     "id": "x1",
+     "code": "x",
+     "text": "No planning impact — this changes only the appearance of the Excel output, never any calculated value.",
+     "key": "workbook_formatting",
+     "line": 647
+    }
+   ]
+  },
+  "system_configuration": {
+   "title": "Data & Maintenance",
+   "summary": "Backups, exports, price snapshots and the change log. Not plan inputs.",
+   "terms": [
+    "Pricing snapshot",
+    "System Configuration Console"
+   ],
+   "sources": [
+    {
+     "id": "s1",
+     "code": "s",
+     "text": "Backups, exports, price snapshots and the change log. Not plan inputs.",
+     "key": "system_configuration",
+     "line": 0
+    },
+    {
+     "id": "d1",
+     "code": "d",
+     "text": "Pricing snapshots, local backups, CSV export, recent-change log, and the raw System Configuration Console.",
+     "key": "system_configuration",
+     "line": 291
+    },
+    {
+     "id": "i1",
+     "code": "i",
+     "text": "Operational tools for this workspace: manage pricing snapshots, back up and export data, review recent changes, and open the raw configuration console.",
+     "key": "system_configuration",
+     "line": 293
+    },
+    {
+     "id": "h1",
+     "code": "h",
+     "text": "These are maintenance utilities, not plan inputs.",
+     "key": "system_configuration",
+     "line": 294
+    },
+    {
+     "id": "h2",
+     "code": "h",
+     "text": "Change how the plan is modeled on the other Settings pages (assumptions, optional modules, field finder, workbook formatting).",
+     "key": "system_configuration",
+     "line": 294
+    },
+    {
+     "id": "m1",
+     "code": "m",
+     "text": "Advanced configuration for build settings, market data pricing, state tax reference tables, and bulk data management.",
+     "key": "system_configuration",
+     "line": 623
+    },
+    {
+     "id": "m2",
+     "code": "m",
+     "text": "Changes here apply across all plans.",
+     "key": "system_configuration",
+     "line": 623
+    },
+    {
+     "id": "c1",
+     "code": "c",
+     "text": "Pricing mode determines how holding values are updated — live market data vs cached values.",
+     "key": "system_configuration",
+     "line": 624
+    },
+    {
+     "id": "c2",
+     "code": "c",
+     "text": "Tax and reference tables drive projection tax calculations, IRMAA thresholds, and bracket indexing.",
+     "key": "system_configuration",
+     "line": 624
+    },
+    {
+     "id": "c3",
+     "code": "c",
+     "text": "Build flags control what the workbook build includes.",
+     "key": "system_configuration",
+     "line": 624
+    },
+    {
+     "id": "o1",
+     "code": "o",
+     "text": "Use focused input pages for normal plan edits.",
+     "key": "system_configuration",
+     "line": 625
+    },
+    {
+     "id": "o2",
+     "code": "o",
+     "text": "Use bulk CSV adapters here only for reference table maintenance or data recovery.",
+     "key": "system_configuration",
+     "line": 625
+    },
+    {
+     "id": "o3",
+     "code": "o",
+     "text": "Rebuild after any change to pricing, tax, or optimizer settings.",
+     "key": "system_configuration",
+     "line": 625
+    },
+    {
+     "id": "x1",
+     "code": "x",
+     "text": "System changes affect account values, allocation recommendations, lifetime taxes, Monte Carlo results, and build output.",
+     "key": "system_configuration",
+     "line": 626
+    },
+    {
+     "id": "x2",
+     "code": "x",
+     "text": "Isolate one settings family at a time when diagnosing unexpected results.",
+     "key": "system_configuration",
+     "line": 626
+    }
+   ]
+  }
+ }
+}

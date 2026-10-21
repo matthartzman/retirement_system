@@ -11,9 +11,13 @@ Usage:
   python tools/page_help_ledger.py check  [--drafts PATH] [--strict]
   python tools/page_help_ledger.py review [--drafts PATH] [--out PATH]
   python tools/page_help_ledger.py slots  [--drafts PATH] [--csv PATH]
+  python tools/page_help_ledger.py snapshot [--sources PATH]   (only while dashboard.js still has the old prose)
 
 check   prints ledger problems and lost facts per page; exit 1 with --strict when any exist.
 review  writes the review document (sources beside merged record, ledger flags, batch order).
+snapshot freezes the page-level sources to page_help_sources.json. Once the prose is removed from
+        dashboard.js (Phase 2b) load_sources reads that file, and check also verifies that the shipped
+        HELP_PAGES records equal the reviewed drafts.
 slots   fills the `slot` column of ui_prose_inventory.csv for every page-level row (or marks it D).
 """
 from __future__ import annotations
@@ -32,6 +36,7 @@ DASHBOARD = ROOT / "frontend" / "js" / "dashboard.js"
 REGISTRY = ROOT / "frontend" / "js" / "help_registry.js"
 DRAFTS = ROOT / "documentation" / "future" / "page_help_drafts.json"
 REVIEW = ROOT / "documentation" / "future" / "page_help_review.md"
+SOURCES = ROOT / "documentation" / "future" / "page_help_sources.json"
 
 SLOTS = ["whatFor", "connections", "options", "impact"]
 RECORD_FIELDS = ["summary"] + SLOTS
@@ -109,6 +114,10 @@ def load_sources(root: Path = ROOT):
     `<code><n>` (`<key>.<code><n>` when the sentence comes from a legacy sub-page help key).
     """
     glossary, reg_pages, pre_build = _parse_registry(root)
+    frozen = root / "documentation" / "future" / "page_help_sources.json"
+    if frozen.exists() and "const STEP_HELP" not in (root / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8"):
+        data = json.loads(frozen.read_text(encoding="utf-8"))
+        return data["pages"], glossary, pre_build
     path = root / "frontend" / "js" / "dashboard.js"
     rows = eup.scan_js(path, "frontend/js/dashboard.js")
     src_text = path.read_text(encoding="utf-8")
@@ -237,6 +246,14 @@ def lost_facts(sources: list[dict], record: dict, glossary: dict, global_caps: s
                     seen.add(("glossary term", term))
                     flags.append({"kind": "glossary term", "fact": term, "source": src["id"]})
     return flags
+
+
+def registry_records(root: Path) -> dict:
+    """The HELP_PAGES records as shipped (evaluated with node)."""
+    import subprocess
+    js = "import('" + (root / "frontend" / "js" / "help_registry.js").as_uri() + "').then(m=>console.log(JSON.stringify(m.HELP_PAGES)))"
+    out = subprocess.run(["node", "-e", js], capture_output=True, text=True, check=True).stdout
+    return json.loads(out)
 
 
 # ------------------------------------------------------------------ ledger checks
@@ -431,7 +448,8 @@ def fill_slot_column(csv_path: Path, pages: dict, drafts: dict) -> int:
 # ------------------------------------------------------------------ CLI
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("command", choices=["check", "review", "slots"])
+    ap.add_argument("command", choices=["check", "review", "slots", "snapshot"])
+    ap.add_argument("--sources", type=Path, default=SOURCES)
     ap.add_argument("--root", type=Path, default=ROOT)
     ap.add_argument("--drafts", type=Path, default=DRAFTS)
     ap.add_argument("--out", type=Path, default=REVIEW)
@@ -440,6 +458,10 @@ def main(argv=None) -> int:
     a = ap.parse_args(argv)
     pages, glossary, pre_build = load_sources(a.root)
     drafts = json.loads(a.drafts.read_text(encoding="utf-8"))
+    if a.command == "snapshot":
+        a.sources.write_text(json.dumps({"version": 1, "pages": pages}, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
+        print(f"wrote {a.sources}")
+        return 0
     if a.command == "review":
         a.out.write_text(render_review(drafts, pages, glossary, pre_build), encoding="utf-8")
         print(f"wrote {a.out}")
@@ -449,6 +471,11 @@ def main(argv=None) -> int:
         print(f"slot column written to {a.csv}; {missing} page rows unmapped")
         return 1 if missing else 0
     results = check(drafts, pages, glossary)
+    for pid, shipped in registry_records(a.root).items():
+        want = drafts["pages"].get(pid, {}).get("record", {})
+        diff = [f for f in RECORD_FIELDS + ["terms"] if shipped.get(f) != want.get(f)]
+        if diff and pid in results:
+            results[pid]["problems"].append(f"HELP_PAGES record differs from the reviewed draft: {', '.join(diff)}")
     total = 0
     for pid, r in results.items():
         for p in r["problems"]:

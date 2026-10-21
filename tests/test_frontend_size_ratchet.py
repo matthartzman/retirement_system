@@ -179,7 +179,9 @@ JS_DIR = ROOT / "frontend" / "js"
 # 2026-09-25 (#336 W-D, task D2): LARGE_DISC_TYPES / LARGE_DISC_CATEGORY_IDS
 # moved out of dashboard.js into dashboard_decomp_large_discretionary.js
 # (with their two generated window accessors). Lowered to the measured 7,134.
-DASHBOARD_JS_MAX_LINES = 7_134
+# 2026-10-21 (Contextual help panel Phase 2b: STEPS desc/intro/help, STEP_HELP and the center
+# question box removed; nav desc derives from HELP_PAGES). Lowered to the measured 6,476.
+DASHBOARD_JS_MAX_LINES = 6_476
 
 # Total frontend JS is allowed to grow -- extraction moves lines out of
 # dashboard.js into new modules, which should not be penalised. This ceiling
@@ -594,7 +596,8 @@ DASHBOARD_JS_MAX_LINES = 7_134
 # hooks and the pilot page's section wrappers, +227). STEP_HELP stays as the fallback until
 # Phase 2 moves the remaining pages; showConfigCardHelp opens the panel on click, not focus, +5).
 # New behavior, not duplication: raised to the measured 40,451.
-TOTAL_JS_MAX_LINES = 40_451
+# 2026-10-21 (Phase 2b: 28 page records in help_registry.js, old STEPS/STEP_HELP prose removed): lowered to the measured 40,257.
+TOTAL_JS_MAX_LINES = 40_257
 
 
 def _line_count(path: Path) -> int:
