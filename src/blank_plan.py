@@ -35,7 +35,6 @@ PRESERVED_SYSTEM_DEFAULT_KEYS = frozenset({
     ("Economic Assumptions", "", "social_security_cola"),
     ("Economic Assumptions", "", "portfolio_nominal_return"),
     ("Economic Assumptions", "", "fed_tax_bracket_inflator"),
-    ("Economic Assumptions", "", "social_security_taxable_fraction"),
     # Annuity fallbacks: apply ONLY to streams with no explicit rate of their own.
     ("Economic Assumptions", "", "annuity_default_dividend_rate"),
     ("Economic Assumptions", "", "annuity_default_additional_income_pct"),

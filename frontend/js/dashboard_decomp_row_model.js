@@ -1728,7 +1728,6 @@ export function rawRowsForStep(id) {
               // system-written record, not an input.
               "tax_model_baseline",
               "fed_tax_bracket_inflator",
-              "social_security_taxable_fraction",
               "state_income_tax_rate",
               "tax_law_scenario",
               "higher_rates_start_year",

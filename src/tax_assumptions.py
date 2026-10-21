@@ -61,10 +61,6 @@ def _bracket_inflator_model(_ctx: Mapping[str, Any]) -> tuple[float, str]:
     return 0.02, "Model default: 2.00%/yr bracket indexation"
 
 
-def _ss_fraction_model(_ctx: Mapping[str, Any]) -> tuple[float, str]:
-    return 0.85, "Statutory maximum taxable share of Social Security (IRC section 86)"
-
-
 def _state_rate_model(ctx: Mapping[str, Any]) -> tuple[float, str]:
     state = str(ctx.get("state", "") or "")
     rules = (ctx.get("state_rules") or {}).get(state)
@@ -80,8 +76,6 @@ def _state_rate_model(ctx: Mapping[str, Any]) -> tuple[float, str]:
 LEVERS: tuple[TaxLever, ...] = (
     TaxLever("fed_tax_bracket_inflator", "Bracket inflator", "brk_inf", 0.0, 0.05,
              _bracket_inflator_model, "Annual indexation of federal brackets and deductions."),
-    TaxLever("social_security_taxable_fraction", "Social Security taxable fraction", "ss_taxable",
-             0.0, 1.0, _ss_fraction_model, "Share of Social Security benefits included in AGI."),
     TaxLever("state_income_tax_rate", "State income-tax rate", "state_rate_override",
              0.0, 0.15, _state_rate_model,
              "Blank = use the state's own rules. A value taxes state income at this flat rate."),
