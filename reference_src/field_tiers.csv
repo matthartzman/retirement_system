@@ -22,7 +22,6 @@ Economic Assumptions,,portfolio_nominal_return,simple
 Economic Assumptions,,reinvest_dividends_default,standard
 Economic Assumptions,,cash_yield_rate,standard
 Economic Assumptions,,fed_tax_bracket_inflator,simple
-Economic Assumptions,,social_security_taxable_fraction,simple
 Economic Assumptions,,state_income_tax_rate,standard
 Economic Assumptions,,tax_law_scenario,advanced
 Economic Assumptions,,higher_rates_start_year,advanced

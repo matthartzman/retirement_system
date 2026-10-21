@@ -27,7 +27,7 @@ class ResolutionOrderTests(unittest.TestCase):
         r = _resolve({})
         self.assertEqual(r["fed_tax_bracket_inflator"].value, 0.02)
         self.assertEqual(r["fed_tax_bracket_inflator"].source, "model")
-        self.assertEqual(r["social_security_taxable_fraction"].value, 0.85)
+        self.assertNotIn("social_security_taxable_fraction", r)  # WI-028: lever retired
         self.assertEqual(r["state_income_tax_rate"].source, "model")
         self.assertAlmostEqual(r["state_income_tax_rate"].value, STATE_TAX_RULES["Illinois"]["rate"])
 
@@ -70,11 +70,9 @@ class BuildIntegrationTests(unittest.TestCase):
     def test_no_overrides_matches_legacy_values(self):
         c = self._build()
         self.assertEqual(c["brk_inf"], 0.02)
-        self.assertEqual(c["ss_taxable"], 0.85)
         self.assertIsNone(c["state_rate_override"])
         eff = c["tax_assumptions_effective"]
         self.assertEqual(set(eff), {"fed_tax_bracket_inflator",
-                                    "social_security_taxable_fraction",
                                     "state_income_tax_rate", "tax_law_scenario"})
 
     def test_missing_json_inflator_uses_single_model_default(self):

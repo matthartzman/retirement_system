@@ -4267,11 +4267,6 @@ const FIELD_GUIDANCE_OVERRIDES = {
     impact: "Reinvestment causes growth to compound faster and can significantly increase portfolio value over decades. Paying dividends as cash gives you cash flow now but forgoes compounding growth.",
     consider: "For retirement planning, reinvestment is usually best if you don't need the cash to live on. Switch to cash dividends only if you're using this portfolio to fund spending.",
   },
-  social_security_taxable_fraction: {
-    purpose: "Depending on your total income, a portion of your Social Security benefits may be subject to federal income tax. This is the percentage of benefits assumed to be taxable.",
-    impact: "A higher fraction means more of your Social Security is counted as taxable income, raising your federal income tax bill. A lower fraction means less is taxed.",
-    consider: "The taxable portion depends on your income relative to specific thresholds; households with low income often pay tax on 0% of benefits, while high-income households can pay tax on up to 85%.",
-  },
   account_count: {
     purpose: "This is how many separate education savings plans you're tracking in this plan.",
     impact: "Adding accounts increases the total contributions and growth the plan models; each account can have its own contribution strategy and spending timeline.",
