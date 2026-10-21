@@ -50,7 +50,7 @@ from .year_state import MutableYearState, create_initial_year_state
 # names). Prerequisite for any future split of planning_engines.py: a
 # reader (or refactoring tool) can now see the real dependency surface here
 # instead of "everything, maybe."
-from ..planning_engines import (
+from ..engine_kernels import (
     EvDeath,
     EvIncome,
     EvWarning,
@@ -66,7 +66,7 @@ from ..planning_engines import (
     social_security_taxable_amount as _ss_taxable_amount,
     state_income_tax,
 )
-from .. import planning_engines as _legacy_pe
+from .. import engine_kernels as _legacy_pe
 from .. import core as _ar  # consolidated from account_registry
 from .. import core as _aa  # consolidated from account_access
 from .. import tax_kernel as _tk

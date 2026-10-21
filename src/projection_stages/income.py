@@ -6,7 +6,7 @@ from typing import Any, Callable, NamedTuple
 
 from .. import core as _aa  # consolidated from account_access
 from ..equity_comp import equity_comp_year_events as _equity_comp_year_events
-from ..planning_engines import EvIncome, annuity_cash_income
+from ..engine_kernels import EvIncome, annuity_cash_income
 
 
 class IncomeResult(NamedTuple):

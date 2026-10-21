@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
-from .. import planning_engines as _legacy_pe
-from ..planning_engines import EvGrowth, EvWarning, annuity_cash_income
+from .. import engine_kernels as _legacy_pe
+from ..engine_kernels import EvGrowth, EvWarning, annuity_cash_income
 
 
 def _annuity_pmt(c: dict, stream_key: str, stream: dict, year: int) -> float:

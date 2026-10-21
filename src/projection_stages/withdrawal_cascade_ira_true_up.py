@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Callable, NamedTuple
 
-from ..planning_engines import FEDERAL_BRACKETS_MFJ, marginal_rate
-from .. import planning_engines as _legacy_pe
+from ..engine_kernels import FEDERAL_BRACKETS_MFJ, marginal_rate
+from .. import engine_kernels as _legacy_pe
 from .. import tax_kernel as _tk
 
 

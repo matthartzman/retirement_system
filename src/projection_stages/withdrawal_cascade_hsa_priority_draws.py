@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, NamedTuple
 
-from .. import planning_engines as _legacy_pe
+from .. import engine_kernels as _legacy_pe
 
 
 class HsaPriorityDrawsResult(NamedTuple):

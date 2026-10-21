@@ -4,7 +4,7 @@ from typing import Any, Callable, NamedTuple
 
 from .. import core as _aa  # consolidated from account_access
 from .. import tax_kernel as _tk
-from ..planning_engines import EvHomeSale
+from ..engine_kernels import EvHomeSale
 from ..rental_tax import rental_sale, section_121_converted_home
 
 
