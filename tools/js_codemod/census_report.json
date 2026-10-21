@@ -577,18 +577,6 @@
       "scope": "inside-function"
     },
     {
-      "name": "renderMain",
-      "file": "frontend/js/dashboard_batch_assumption_edit.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "renderMain",
-      "file": "frontend/js/dashboard_batch_assumption_edit.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
       "name": "planningLeverInputs",
       "file": "frontend/js/dashboard_decomp_allocation_optimizer.js",
       "kind": "read",
@@ -1069,7 +1057,25 @@
       "scope": "inside-function"
     },
     {
+      "name": "normalizeValueForSave",
+      "file": "frontend/js/dashboard_decomp_build_history.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "normalizeValueForSave",
+      "file": "frontend/js/dashboard_decomp_build_history.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
       "name": "buildHistory",
+      "file": "frontend/js/dashboard_decomp_build_history.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
       "file": "frontend/js/dashboard_decomp_build_history.js",
       "kind": "read",
       "scope": "inside-function"
@@ -1303,6 +1309,12 @@
       "scope": "inside-function"
     },
     {
+      "name": "buildOverlayDepth",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "buildOverlayLastTitle",
       "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
       "kind": "assign",
@@ -1322,6 +1334,30 @@
     },
     {
       "name": "_smoothCap",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildOverlayStartedAt",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildOverlayDepth",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "assign",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildOverlayLastTitle",
+      "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "buildOverlayLastPct",
       "file": "frontend/js/dashboard_decomp_build_lifecycle.js",
       "kind": "read",
       "scope": "inside-function"
@@ -2341,6 +2377,12 @@
       "scope": "inside-function"
     },
     {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
       "name": "rows",
       "file": "frontend/js/dashboard_decomp_holdings.js",
       "kind": "read",
@@ -2354,48 +2396,6 @@
     },
     {
       "name": "planLoaded",
-      "file": "frontend/js/dashboard_decomp_home_panels.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "lastBuildSummary",
-      "file": "frontend/js/dashboard_decomp_home_panels.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "lastBuildSummary",
-      "file": "frontend/js/dashboard_decomp_home_panels.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "lastBuildSummary",
-      "file": "frontend/js/dashboard_decomp_home_panels.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "lastBuildSummary",
-      "file": "frontend/js/dashboard_decomp_home_panels.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "lastBuildSummary",
-      "file": "frontend/js/dashboard_decomp_home_panels.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "lastBuildSummary",
-      "file": "frontend/js/dashboard_decomp_home_panels.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "lastBuildSummary",
       "file": "frontend/js/dashboard_decomp_home_panels.js",
       "kind": "read",
       "scope": "inside-function"
@@ -5095,6 +5095,12 @@
       "scope": "inside-function"
     },
     {
+      "name": "ytdData",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "ytdInvestmentHoldingAccounts",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "call",
@@ -6619,7 +6625,31 @@
       "scope": "inside-function"
     },
     {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "activeStep",
+      "file": "frontend/js/dashboard_decomp_row_model.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
       "scope": "inside-function"
@@ -6631,7 +6661,7 @@
       "scope": "inside-function"
     },
     {
-      "name": "rows",
+      "name": "planLoaded",
       "file": "frontend/js/dashboard_decomp_row_model.js",
       "kind": "read",
       "scope": "inside-function"
@@ -9286,30 +9316,6 @@
       "name": "rows",
       "file": "frontend/js/dashboard_source_truth_banners.js",
       "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "renderMain",
-      "file": "frontend/js/dashboard_source_truth_banners.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "renderMain",
-      "file": "frontend/js/dashboard_source_truth_banners.js",
-      "kind": "assign",
-      "scope": "inside-function"
-    },
-    {
-      "name": "showStepHelp",
-      "file": "frontend/js/dashboard_source_truth_banners.js",
-      "kind": "read",
-      "scope": "inside-function"
-    },
-    {
-      "name": "showStepHelp",
-      "file": "frontend/js/dashboard_source_truth_banners.js",
-      "kind": "assign",
       "scope": "inside-function"
     },
     {
