@@ -52,7 +52,7 @@ Owner decisions recorded 2026-10-20 ("accept all recommendations"; plan year 202
 
 | Decision | Implementation |
 |---|---|
-| Limits (2026) | 24,480 below full retirement age (FRA) all year; 65,160 in the FRA year. $1 withheld per $2 over (before the FRA year), $1 per $3 over (FRA year). Dated rows `ss_earnings_test_*` in `tax_law_v10.json`. **Status `assumption`**: the owner accepted the figures, but no retrieval date or verifier is recorded. Attach the SSA source and mark them verified when available. |
+| Limits (2026) | 24,480 below full retirement age (FRA) all year; 65,160 in the FRA year. $1 withheld per $2 over (before the FRA year), $1 per $3 over (FRA year). Dated rows `ss_earnings_test_*` in `tax_law_v10.json`. **Verified 2026-10-21** by the owner against SSA's Exempt Amounts Under the Earnings Test page (https://www.ssa.gov/oact/cola/rtea.html) and the 2026 COLA Fact Sheet; 2027 amounts (25,560 and 67,920) added as dated rows. The 1/2 and 1/3 rates are statutory (`legislated`). |
 | Earnings counted | Wages, plus net self-employment earnings for a sole proprietor; S-corp salary only (distributions are not earnings). The plan holds one household earned-income stream that ends at member 1's last earned year, so the earnings belong to member 1. |
 | FRA year | Earnings counted = full-year earnings × (months before the FRA month ÷ 12); benefits at risk are the same share of the year. |
 | Withholding | A dollar reduction of the year's benefit, capped at the benefit payable. No whole-month rounding. |
@@ -97,3 +97,7 @@ What this record does and does not establish:
 - **Demo baseline check:** reported done by the owner. The outcome (whether the demo baseline needed re-recording, and the command run) is not stored in the repository. CI on the PR passed the demo phase-golden test without a re-record, but the cloud measurement showed the demo plan moving; if the baseline was re-recorded, that commit is not on the PR branch.
 - **Earnings-test limits (24,480 and 65,160 for 2026):** the source was reported as signed off, but no citation, retrieval date or verifier was supplied, so the dataset rows keep `status: assumption`. Attach the citation and change the status to `verified` in `reference_src/tax_law_v10.json` when it is available.
 - **PR #239:** approved by the owner. Merge is a separate action and has not been taken from this session.
+
+## Earnings-test limits verified 2026-10-21
+
+The owner confirmed on 2026-10-21 the SSA amounts for the earnings test: 2026 24,480 (below FRA) and 65,160 (FRA year); 2027 25,560 and 67,920. The four `ss_earnings_test_*` limit rows are now `verified` with the SSA citation; years after 2027 compound the 2027 row by the plan's bracket inflation. The withholding rates are marked `legislated` (42 USC 403(b)). No result changes for 2026; plan years 2027 and later use the published 2027 limits instead of an inflated 2026 figure.
