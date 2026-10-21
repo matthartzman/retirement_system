@@ -1,4 +1,4 @@
-Status: Phase 0 complete (measured 2026-10-21); class column is an automated guess awaiting human review.
+Status: draft (Phase 0 measured 2026-10-21; class column is an automated guess awaiting human review).
 
 # UI prose inventory: Phase 0 summary
 
