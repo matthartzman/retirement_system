@@ -1,6 +1,6 @@
 """WI-040 (FIN-007): Social Security earnings test, with hand-computed expected values.
 
-2026 limits (dated rows, owner-accepted): 24,480 below FRA, 65,160 in the FRA year;
+2026 limits (dated rows, SSA-verified): 24,480 below FRA, 65,160 in the FRA year (2027: 25,560 and 67,920);
 $1 withheld per $2 / $1 per $3 over the limit (42 USC 403(b)).
 """
 from __future__ import annotations
@@ -33,11 +33,11 @@ def test_below_fra_all_year_example():
 
 
 def test_fra_year_example():
-    # FRA in August 2029 -> 7 months tested. Earnings before FRA: 80,000 * 7/12 = 46,666.67 < 65,160.
+    # FRA in August 2029 -> 7 months tested. Earnings before FRA: 80,000 * 7/12 = 46,666.67 < 67,920.
     assert _w(2029, 80_000, 36_000) == 0.0
     # December FRA: 11 tested months, so 11/12 of 140,000 = 128,333.33 counts.
     dec = _w(2029, 140_000, 36_000, dob=(1962, 12))
-    assert dec == pytest.approx((140_000 * 11 / 12 - 65_160) / 3)
+    assert dec == pytest.approx((140_000 * 11 / 12 - 67_920) / 3)   # 2029 uses the 2027 row (no inflation here)
     # January FRA: no tested months.
     assert _w(2029, 400_000, 36_000, dob=(1962, 1)) == 0.0
 
@@ -46,8 +46,20 @@ def test_no_test_from_the_fra_year_end_or_after():
     assert _w(2030, 400_000, 36_000) == 0.0
 
 
-def test_limits_index_after_2026():
-    assert _w(2028, 40_000, 30_000, inf=0.03) == pytest.approx((40_000 - 24_480 * 1.03 ** 2) / 2)
+def test_limits_use_the_published_2027_amount_then_index():
+    # SSA publishes 25,560 (below FRA) and 67,920 (FRA year) for 2027; later years compound that row.
+    assert _w(2027, 40_000, 30_000, inf=0.03) == pytest.approx((40_000 - 25_560) / 2)
+    assert _w(2028, 40_000, 30_000, inf=0.03) == pytest.approx((40_000 - 25_560 * 1.03) / 2)
+
+
+def test_earnings_test_rows_are_verified_and_cited():
+    ds = DS
+    for name in ("ss_earnings_test_annual_limit", "ss_earnings_test_fra_year_limit"):
+        for year in (2026, 2027):
+            row = ds.lookup(name, year)
+            assert row.status == "verified" and "ssa.gov" in row.source
+    assert ds.lookup("ss_earnings_test_annual_limit", 2026).value == 24_480
+    assert ds.lookup("ss_earnings_test_fra_year_limit", 2026).value == 65_160
 
 
 # ── Through the projection ─────────────────────────────────────────────────
@@ -64,8 +76,8 @@ def _scenario(earnings_end):
 def test_projection_withholds_then_credits_at_fra():
     working, retired = _scenario(2029), _scenario(2025)
     inf = base_inf()
-    for year in (2027, 2028):   # full years under FRA
-        limit = 24_480 * (1 + inf) ** (year - 2026)
+    for year in (2027, 2028):   # full years under FRA; 2027 is the published amount, 2028 indexes it
+        limit = 25_560 * (1 + inf) ** (year - 2027)
         expect = (40_000 - limit) / 2
         assert working[year]['h_ss_withheld_earnings_test'] == pytest.approx(expect)
         assert working[year]['h_ss'] == pytest.approx(retired[year]['h_ss'] - expect)
