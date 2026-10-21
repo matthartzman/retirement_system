@@ -973,7 +973,7 @@
     "summary": "How much cash to keep on the side before the plan sells investments.",
     "whatFor": "This page captures liquidity reserve rules: the cash reserve floor the plan protects before drawing investments. Home value and mortgage balance are on Other Assets and Liabilities; home sale is in Optimize → Next Housing Move.",
     "connections": "Reserve rules connect to withdrawal sequencing, liquidity floors, and Monte Carlo failure modes. The reserve floor is the last buffer in probability analysis — the plan counts as failing when it cannot maintain this floor without depleting all accounts.",
-    "options": "Reserve rules set how many months of spending to hold outside the investment portfolio, and which account bucket should be protected.",
+    "options": "Reserve rules set how many years of spending to hold outside the investment portfolio, and which account bucket should be protected.",
     "impact": "Higher cash reserves improve liquidity resilience but can reduce expected return if too much capital stays out of the portfolio.",
     "terms": [
      "Reserve floor",
@@ -1063,10 +1063,7 @@
      "slot": "impact"
     }
    ],
-   "notes": [
-    "Conflict: i1 says the reserve rule is months of spending, o1 says years; the draft uses months (i1). Confirm against the field.",
-    "Conflict: m2 and o2 say home value and sale fields are on the 'Housing tab'; i2 says Other Assets and Liabilities and Optimize → Next Housing Move. The draft keeps i2 (most specific). Confirm the current location."
-   ]
+   "notes": []
   },
   "assets_special": {
    "title": "Other Assets and Liabilities",
@@ -2407,7 +2404,7 @@
     "summary": "See how the plan holds up if things go badly: poor markets, early death, long-term care, divorce.",
     "whatFor": "Stress assumptions are adverse tests, not forecasts: Monte Carlo probability, survivor/early death, long-term care, and divorce. This page controls how uncertainty is simulated across market, inflation, tax-indexing, and Wellness-shock paths. It determines how probability of success is measured. This stress test reviews how the plan holds up if one spouse dies early. This stress test models a long-term-care cost shock and how existing coverage absorbs it. This page models divorce-specific assumptions only when that optional module is enabled. It should not be used for ordinary married/survivor planning.",
     "connections": "Every section here is an optional workbook module — a section only has inputs once its module is enabled on Plan Features, and this whole page is hidden when all four are off. Simulation count, engine mode, return volatility, liquidity floors, and stress assumptions connect to probability of success, downside wealth, failure timing, and build time. Mortality ages, survivor filing status, and spousal rollover connect to survivor tax compression, RMD timing, income loss, and late-life net worth. The full result is the Survivor workbook sheet. LTC policy details also appear on Other assets. LTC cost, duration, and coverage connect to late-life spending shocks, liquidity, and the combined LTC / life insurance workbook section. Filing status, QDRO transfers, alimony, asset division, property assumptions, and health costs connect to taxes, ownership, cash flow, survivor-like outcomes, and risk.",
-    "options": "Set the inputs for whichever tests apply, then rebuild to see them in the workbook. Quick/vectorized mode is faster and approximate. Advanced/exact mode is slower but advisor-ready. More trials reduce random noise. Tighter liquidity floors make success harder but more realistic. Review the surfaced survivor assumptions (they also appear on Retirement timing), then rebuild to see the survivor stress outcome; adjust the source values on Retirement timing if needed. Enter or review the LTC assumptions and coverage, then rebuild. If results do not appear, turn on the Long-Term-Care Stress (LTC stress) module in Optional modules. Turn the module on only for an explicit divorce scenario. Use actual legal or negotiated assumptions when available; otherwise label the case as hypothetical.",
+    "options": "Set the inputs for whichever tests apply, then rebuild to see them in the workbook. Quick/vectorized mode is faster and approximate. Advanced/exact mode is slower but advisor-ready. More trials reduce random noise. Tighter liquidity floors make success harder but more realistic. Review the surfaced survivor assumptions (they also appear on Retirement timing), then rebuild to see the survivor stress outcome; adjust the source values on Retirement timing if needed. Enter or review the LTC assumptions and coverage, then rebuild. If results do not appear, turn on the Long-Term-Care Stress (LTC stress) module in Plan Features. Turn the module on only for an explicit divorce scenario. Use actual legal or negotiated assumptions when available; otherwise label the case as hypothetical.",
     "impact": "More conservative settings usually lower probability of success but make the risk result more reliable. Faster settings help drafts but should not drive final recommendations without confirmation. Early death often compresses tax brackets for the survivor and reduces household income; adequate insurance and Roth balances can soften the impact. A long-term-care event is a major downside risk; coverage reduces the shock but adds premium cost. Compare funded outcomes with and without coverage. Changing from married to split-household assumptions can materially reduce terminal net worth, raise lifetime taxes, change Wellness costs, and reduce probability of success.",
     "terms": [
      "Monte Carlo",
@@ -2663,7 +2660,6 @@
     }
    ],
    "notes": [
-    "Naming conflict kept visible: h1 says modules are enabled on 'Plan Features'; the LTC help says 'Optional modules' (the registry calls the page Optional Functions). Confirm the current page name.",
     "Folds four legacy sub-page helps (Monte Carlo options, Survivor stress, LTC stress, Divorce options); section-level text is Phase 3's job."
    ]
   },
