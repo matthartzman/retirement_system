@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 264 Python files under `src/`, 54 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 271 Python files under `src/`, 55 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -12,7 +12,7 @@ Every box is a real directory in the repo. Every arrow is a real `import` found 
 flowchart TB
     User(["Desktop user"]) --> FE
     subgraph FE["Frontend SPA (frontend/)"]
-        FEcount["54 JS files, browser-loaded via index.html script tags"]
+        FEcount["55 JS files, browser-loaded via index.html script tags"]
     end
     FE -->|fetch /api/*| L_HTTP_Routes
     subgraph L_HTTP_Routes["HTTP Routes (11 modules)"]
@@ -24,7 +24,7 @@ flowchart TB
     subgraph L_HTTP_Runtime["HTTP Runtime (4 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
-    subgraph L_Core_Engine___Domain["Core Engine & Domain (177 modules)"]
+    subgraph L_Core_Engine___Domain["Core Engine & Domain (184 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
     subgraph L_Projection_Stages["Projection Stages (24 modules)"]
@@ -330,59 +330,60 @@ Script load order, as declared in `frontend/index.html` (this is the frontend's 
 
 1. `js/pywebview_bridge.js?v=2`
 2. `js/dashboard_shared_helpers.js?v=2`
-3. `js/text_size.js?v=1`
-4. `js/help_glossary.js?v=1`
-5. `js/api_client.js?v=2`
-6. `js/app_store.js?v=2`
-7. `js/navigation.js?v=4`
-8. `js/reports_ui.js?v=3`
-9. `js/planning_workbench_ui.js?v=3`
-10. `js/dashboard_decomp_estate_insurance.js?v=4`
-11. `js/dashboard_decomp_build_lifecycle.js?v=4`
-12. `js/dashboard_decomp_supplemental_tables.js?v=2`
-13. `js/dashboard_decomp_local_backups.js?v=1`
-14. `js/dashboard_decomp_monarch_autoupdate.js?v=1`
-15. `js/dashboard_decomp_row_model.js?v=3`
-16. `js/dashboard_decomp_assets_other.js?v=1`
-17. `js/dashboard_decomp_spending_taxonomy.js?v=2`
-18. `js/dashboard_decomp_spending_sources.js?v=2`
-19. `js/dashboard_decomp_spending_adjustments.js?v=1`
-20. `js/dashboard_decomp_housing_optimizer.js?v=2`
-21. `js/dashboard_decomp_housing_scenarios.js?v=1`
-22. `js/dashboard_decomp_build_history.js?v=1`
-23. `js/dashboard_decomp_page_recommendations.js?v=1`
-24. `js/dashboard_decomp_income_streams.js?v=1`
-25. `js/dashboard_decomp_large_discretionary.js?v=2`
-26. `js/dashboard_decomp_death_benefits.js?v=1`
-27. `js/dashboard_decomp_mc_stress_options.js?v=1`
-28. `js/dashboard_decomp_checklist_closeout.js?v=2`
-29. `js/dashboard_decomp_plan_switcher.js?v=1`
-30. `js/dashboard_decomp_conversion.js?v=1`
-31. `js/dashboard_decomp_allocation_optimizer.js?v=1`
-32. `js/dashboard_decomp_strategy_workspace.js?v=1`
-33. `js/dashboard_decomp_ytd_and_plan_folder_io.js?v=1`
-34. `js/dashboard_plan_folder_io.js?v=1`
-35. `js/dashboard_decomp_focus_restore.js?v=1`
-36. `js/dashboard_decomp_field_choice_help.js?v=1`
-37. `js/dashboard.js?v=63`
-38. `js/dashboard_decomp_workbook_formatting.js?v=2`
-39. `js/dashboard_decomp_plan_features.js?v=2`
-40. `js/dashboard_decomp_plan_tiers.js?v=1`
-41. `js/dashboard_decomp_rental_properties.js?v=1`
-42. `js/dashboard_decomp_monarch_reconciliation.js?v=1`
-43. `js/dashboard_decomp_tax_assumptions.js?v=1`
-44. `js/dashboard_decomp_roth_guardrails.js?v=1`
-45. `js/dashboard_decomp_misc.js?v=1`
-46. `js/dashboard_decomp_state_inputs.js?v=2`
-47. `js/dashboard_decomp_home_panels.js?v=2`
-48. `js/modules/phase3_module_manifest.js?v=2`
-49. `js/dashboard_source_truth_banners.js?v=2`
-50. `js/dashboard_decomp_optimizer_apply.js?v=1`
-51. `js/dashboard_batch_assumption_edit.js?v=2`
-52. `js/dashboard_decomp_holdings.js?v=1`
-53. `js/spending_dashboard.js?v=12`
+3. `js/render_hooks.js?v=1`
+4. `js/text_size.js?v=1`
+5. `js/help_glossary.js?v=1`
+6. `js/api_client.js?v=2`
+7. `js/app_store.js?v=2`
+8. `js/navigation.js?v=4`
+9. `js/reports_ui.js?v=3`
+10. `js/planning_workbench_ui.js?v=3`
+11. `js/dashboard_decomp_estate_insurance.js?v=4`
+12. `js/dashboard_decomp_build_lifecycle.js?v=4`
+13. `js/dashboard_decomp_supplemental_tables.js?v=2`
+14. `js/dashboard_decomp_local_backups.js?v=1`
+15. `js/dashboard_decomp_monarch_autoupdate.js?v=1`
+16. `js/dashboard_decomp_row_model.js?v=3`
+17. `js/dashboard_decomp_assets_other.js?v=1`
+18. `js/dashboard_decomp_spending_taxonomy.js?v=2`
+19. `js/dashboard_decomp_spending_sources.js?v=2`
+20. `js/dashboard_decomp_spending_adjustments.js?v=1`
+21. `js/dashboard_decomp_housing_optimizer.js?v=2`
+22. `js/dashboard_decomp_housing_scenarios.js?v=1`
+23. `js/dashboard_decomp_build_history.js?v=1`
+24. `js/dashboard_decomp_page_recommendations.js?v=1`
+25. `js/dashboard_decomp_income_streams.js?v=1`
+26. `js/dashboard_decomp_large_discretionary.js?v=2`
+27. `js/dashboard_decomp_death_benefits.js?v=1`
+28. `js/dashboard_decomp_mc_stress_options.js?v=1`
+29. `js/dashboard_decomp_checklist_closeout.js?v=2`
+30. `js/dashboard_decomp_plan_switcher.js?v=1`
+31. `js/dashboard_decomp_conversion.js?v=1`
+32. `js/dashboard_decomp_allocation_optimizer.js?v=1`
+33. `js/dashboard_decomp_strategy_workspace.js?v=1`
+34. `js/dashboard_decomp_ytd_and_plan_folder_io.js?v=1`
+35. `js/dashboard_plan_folder_io.js?v=1`
+36. `js/dashboard_decomp_focus_restore.js?v=1`
+37. `js/dashboard_decomp_field_choice_help.js?v=1`
+38. `js/dashboard.js?v=63`
+39. `js/dashboard_decomp_workbook_formatting.js?v=2`
+40. `js/dashboard_decomp_plan_features.js?v=2`
+41. `js/dashboard_decomp_plan_tiers.js?v=1`
+42. `js/dashboard_decomp_rental_properties.js?v=1`
+43. `js/dashboard_decomp_monarch_reconciliation.js?v=1`
+44. `js/dashboard_decomp_tax_assumptions.js?v=1`
+45. `js/dashboard_decomp_roth_guardrails.js?v=1`
+46. `js/dashboard_decomp_misc.js?v=1`
+47. `js/dashboard_decomp_state_inputs.js?v=2`
+48. `js/dashboard_decomp_home_panels.js?v=2`
+49. `js/modules/phase3_module_manifest.js?v=2`
+50. `js/dashboard_source_truth_banners.js?v=2`
+51. `js/dashboard_decomp_optimizer_apply.js?v=1`
+52. `js/dashboard_batch_assumption_edit.js?v=2`
+53. `js/dashboard_decomp_holdings.js?v=1`
+54. `js/spending_dashboard.js?v=12`
 
-All `.js` files found under `frontend/` (54):
+All `.js` files found under `frontend/` (55):
 
 - `frontend/js/admin.js`
 - `frontend/js/api_client.js`
@@ -435,6 +436,7 @@ All `.js` files found under `frontend/` (54):
 - `frontend/js/navigation.js`
 - `frontend/js/planning_workbench_ui.js`
 - `frontend/js/pywebview_bridge.js`
+- `frontend/js/render_hooks.js`
 - `frontend/js/reports_ui.js`
 - `frontend/js/spending_dashboard.js`
 - `frontend/js/text_size.js`
@@ -475,7 +477,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/server_services/conversion_service.py` | `app_state`, `legacy_conversion`, `legacy_conversion.result` | — |
 | `src/server_services/demo_plan_service.py` | `active_plan`, `plan_db_replace` | — |
 | `src/server_services/holdings_service.py` | `plan_datasets` | — |
-| `src/server_services/plan_file_service.py` | `active_plan`, `build_snapshot`, `plan_db_replace` | — |
+| `src/server_services/plan_file_service.py` | `active_plan`, `app_state`, `build_snapshot`, `plan_db_replace` | — |
 | `src/server_services/plan_forms_service.py` | `active_plan`, `csv_exchange.plan_csv`, `plan_label_rules`, `roth_ui_build_guard` | — |
 | `src/server_services/plan_tier_service.py` | — | — |
 | `src/server_services/portfolio_service.py` | — | — |
@@ -521,14 +523,20 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/csv_exchange/rental_csv.py` | `csv_exchange.flat_csv`, `parsing.rental_properties`, `stores.rental_repo` | — |
 | `src/csv_exchange/text_csv.py` | — | — |
 | `src/daf_optimizer.py` | — | — |
-| `src/data_io.py` | `config_backend`, `core`, `csv_exchange`, `engine_defaults`, `market_data`, `module_catalog`, `money`, `parsing.advanced_modules`, `parsing.allocation_optimizer_inputs`, `parsing.daf`, `parsing.estate_planning`, `parsing.hsa_policy`, `parsing.insurance`, `parsing.note_receivable`, `parsing.rental_properties`, `parsing.roth_conversion_policy`, `parsing.validation`, `parsing.withdrawal_order`, `parsing.withdrawal_policy`, `plan_config`, `plan_data_migration`, `plan_data_registry`, `plan_datasets`, `plan_label_rules`, `portfolio_analytics`, `report_compute`, `roth_ui_build_guard`, `spending_adjustments`, `spending_budget_resolver`, `stores.ref_getters.cma`, `stores.ref_getters.security_master`, `system_config`, `tax_law`, `workspace_context` | — |
+| `src/data_io.py` | `core`, `csv_exchange`, `engine_defaults`, `market_data`, `money`, `parsing.advanced_modules`, `parsing.allocation_optimizer_inputs`, `parsing.client_sections`, `parsing.daf`, `parsing.estate_planning`, `parsing.hsa_policy`, `parsing.insurance`, `parsing.note_receivable`, `parsing.rental_properties`, `parsing.roth_conversion_policy`, `parsing.validation`, `parsing.withdrawal_order`, `parsing.withdrawal_policy`, `plan_config`, `plan_data_migration`, `plan_data_registry`, `plan_label_rules`, `report_compute`, `roth_ui_build_guard`, `stores.ref_getters.cma`, `system_config`, `tax_law`, `workspace_context` | — |
 | `src/desktop_api.py` | `src`, `bootstrap`, `server`, `server.app_core`, `server.workbook_routes`, `server_services` | `pywebview` |
 | `src/desktop_app.py` | `desktop_api` | `pywebview` |
 | `src/detailed_results.py` | `results_model` | `openpyxl` |
 | `src/domain_models.py` | `money`, `person_labels`, `plan_data_migration` | — |
 | `src/early_distribution.py` | — | — |
 | `src/engine_defaults.py` | — | — |
+| `src/engine_kernels.py` | `core`, `data_io`, `engine_sections.roth_conversion`, `fallback_log`, `hsa_schedule`, `person_labels`, `plan_config`, `stores.ref_getters.mortality_real_loss`, `tax_kernel`, `tax_law` | `numpy` |
+| `src/engine_sections/__init__.py` | — | — |
+| `src/engine_sections/monte_carlo.py` | `after_tax`, `planning_engines` | — |
+| `src/engine_sections/monte_carlo_headline.py` | `after_tax`, `planning_engines`, `spending_budget_resolver` | — |
+| `src/engine_sections/roth_conversion.py` | `engine_kernels`, `planning_engines` | — |
 | `src/equity_comp.py` | — | — |
+| `src/fallback_log.py` | — | — |
 | `src/gain_harvest.py` | `tlh` | — |
 | `src/glossary.py` | `core`, `taxes` | — |
 | `src/governance.py` | `src`, `stores.ref_getters.tax_update_dashboard`, `version` | — |
@@ -575,7 +583,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/legacy_conversion/workspace.py` | `active_plan`, `app_state`, `legacy_conversion`, `legacy_conversion.result`, `legacy_conversion.steps`, `plan_db_replace` | — |
 | `src/limitation_notices.py` | `planning_engines`, `stores.ref_getters.tax_law`, `stores.ref_getters.tax_update_dashboard`, `tax_law` | — |
 | `src/local_backup_scheduler.py` | `app_state` | — |
-| `src/local_store.py` | `sqlite_util` | — |
+| `src/local_store.py` | `app_state`, `sqlite_util` | — |
 | `src/market_data.py` | `app_state`, `platform_runtime`, `secrets_store`, `version` | `requests` |
 | `src/module_catalog.py` | — | — |
 | `src/monarch_autoimport_job.py` | `monarch_balances_import` | — |
@@ -590,6 +598,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/parsing/__init__.py` | — | — |
 | `src/parsing/advanced_modules.py` | `data_io` | — |
 | `src/parsing/allocation_optimizer_inputs.py` | `data_io` | — |
+| `src/parsing/client_sections.py` | `core`, `data_io`, `module_catalog`, `plan_datasets`, `portfolio_analytics`, `spending_adjustments`, `spending_budget_resolver`, `stores.ref_getters.security_master`, `tax_law` | — |
 | `src/parsing/daf.py` | `data_io` | — |
 | `src/parsing/estate_planning.py` | `data_io`, `tax_law` | — |
 | `src/parsing/hsa_policy.py` | `csv_exchange`, `data_io`, `plan_datasets` | — |
@@ -614,10 +623,10 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/plan_label_rules.py` | — | — |
 | `src/plan_overrides.py` | `allocation_policy`, `optimization` | — |
 | `src/plan_registry.py` | `active_plan`, `plan_db_replace` | — |
-| `src/planning_engines.py` | `after_tax`, `core`, `data_io`, `hsa_schedule`, `observability`, `optimization`, `person_labels`, `plan_config`, `projection_stages`, `spending_budget_resolver`, `stores.ref_getters.mortality_real_loss`, `tax_kernel`, `tax_law`, `vectorized_fast_core` | `numpy` |
+| `src/planning_engines.py` | `after_tax`, `core`, `engine_kernels`, `engine_sections.monte_carlo`, `engine_sections.monte_carlo_headline`, `observability`, `optimization`, `projection_stages`, `spending_budget_resolver`, `vectorized_fast_core` | `numpy` |
 | `src/planning_workbench.py` | — | — |
 | `src/platform_runtime.py` | `active_plan`, `app_state` | — |
-| `src/portfolio_analytics.py` | `config_backend`, `csv_exchange`, `plan_datasets`, `sqlite_util`, `stores.ref_getters.security_master` | — |
+| `src/portfolio_analytics.py` | `csv_exchange`, `local_store`, `plan_datasets`, `sqlite_util`, `stores.ref_getters.security_master` | — |
 | `src/projection_pipeline.py` | `observability`, `planning_engines` | — |
 | `src/qlac_optimizer.py` | — | — |
 | `src/real_loss_curves.py` | `allocation_policy`, `stores.ref_getters.mortality_real_loss` | — |
@@ -685,26 +694,26 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/projection_stages/__init__.py` | `projection_stages.deterministic_engine`, `projection_stages.year_state` | — |
 | `src/projection_stages/amt_equity_comp_true_up.py` | `core` | — |
 | `src/projection_stages/appreciation_divorce_qlac.py` | `core` | — |
-| `src/projection_stages/budget_rollups.py` | — | — |
+| `src/projection_stages/budget_rollups.py` | `fallback_log` | — |
 | `src/projection_stages/cashflow_breakdown.py` | — | — |
-| `src/projection_stages/deaths_and_spousal_rollover.py` | `planning_engines` | — |
-| `src/projection_stages/deterministic_engine.py` | `core`, `early_distribution`, `equity_comp`, `module_catalog`, `planning_engines`, `projection_stages`, `projection_stages.amt_equity_comp_true_up`, `projection_stages.appreciation_divorce_qlac`, `projection_stages.budget_rollups`, `projection_stages.cashflow_breakdown`, `projection_stages.deaths_and_spousal_rollover`, `projection_stages.effective_marginal_rate`, `projection_stages.home_sale`, `projection_stages.income`, `projection_stages.portfolio_growth_and_net_worth`, `projection_stages.roth_conversion_and_agi_tax`, `projection_stages.spending_and_rmd`, `projection_stages.withdrawal_cascade_daf_makeup`, `projection_stages.withdrawal_cascade_final_draws`, `projection_stages.withdrawal_cascade_gap_assembly`, `projection_stages.withdrawal_cascade_hsa_priority_draws`, `projection_stages.withdrawal_cascade_hsa_reimbursement_correction`, `projection_stages.withdrawal_cascade_investment_tax`, `projection_stages.withdrawal_cascade_ira_true_up`, `projection_stages.withdrawal_cascade_taxable_trust`, `projection_stages.year_state`, `tax_assumptions`, `tax_law` | — |
-| `src/projection_stages/effective_marginal_rate.py` | `core`, `planning_engines` | — |
-| `src/projection_stages/home_sale.py` | `planning_engines`, `rental_tax` | — |
-| `src/projection_stages/income.py` | `equity_comp`, `planning_engines`, `ss_earnings_test`, `tax_law` | — |
-| `src/projection_stages/portfolio_growth_and_net_worth.py` | `planning_engines` | — |
+| `src/projection_stages/deaths_and_spousal_rollover.py` | `engine_kernels` | — |
+| `src/projection_stages/deterministic_engine.py` | `core`, `early_distribution`, `engine_kernels`, `equity_comp`, `fallback_log`, `module_catalog`, `projection_stages`, `projection_stages.amt_equity_comp_true_up`, `projection_stages.appreciation_divorce_qlac`, `projection_stages.budget_rollups`, `projection_stages.cashflow_breakdown`, `projection_stages.deaths_and_spousal_rollover`, `projection_stages.effective_marginal_rate`, `projection_stages.home_sale`, `projection_stages.income`, `projection_stages.portfolio_growth_and_net_worth`, `projection_stages.roth_conversion_and_agi_tax`, `projection_stages.spending_and_rmd`, `projection_stages.withdrawal_cascade_daf_makeup`, `projection_stages.withdrawal_cascade_final_draws`, `projection_stages.withdrawal_cascade_gap_assembly`, `projection_stages.withdrawal_cascade_hsa_priority_draws`, `projection_stages.withdrawal_cascade_hsa_reimbursement_correction`, `projection_stages.withdrawal_cascade_investment_tax`, `projection_stages.withdrawal_cascade_ira_true_up`, `projection_stages.withdrawal_cascade_taxable_trust`, `projection_stages.year_state`, `tax_assumptions`, `tax_law` | — |
+| `src/projection_stages/effective_marginal_rate.py` | `core`, `engine_kernels` | — |
+| `src/projection_stages/home_sale.py` | `engine_kernels`, `rental_tax` | — |
+| `src/projection_stages/income.py` | `engine_kernels`, `equity_comp`, `ss_earnings_test`, `tax_law` | — |
+| `src/projection_stages/portfolio_growth_and_net_worth.py` | `engine_kernels` | — |
 | `src/projection_stages/rental_property.py` | `module_catalog`, `projection_stages.home_sale`, `rental_tax`, `tax_law` | — |
-| `src/projection_stages/roth_conversion_and_agi_tax.py` | `core`, `planning_engines`, `projection_stages.home_sale`, `projection_stages.spending_tiers`, `tax_law` | — |
-| `src/projection_stages/spending_and_rmd.py` | `planning_engines`, `projection_stages.budget_rollups`, `spending_adjustments` | — |
+| `src/projection_stages/roth_conversion_and_agi_tax.py` | `core`, `engine_kernels`, `projection_stages.home_sale`, `projection_stages.spending_tiers`, `tax_law` | — |
+| `src/projection_stages/spending_and_rmd.py` | `engine_kernels`, `projection_stages.budget_rollups`, `spending_adjustments` | — |
 | `src/projection_stages/spending_tiers.py` | — | — |
 | `src/projection_stages/withdrawal_cascade_daf_makeup.py` | — | — |
-| `src/projection_stages/withdrawal_cascade_final_draws.py` | `planning_engines` | — |
+| `src/projection_stages/withdrawal_cascade_final_draws.py` | `engine_kernels` | — |
 | `src/projection_stages/withdrawal_cascade_gap_assembly.py` | — | — |
 | `src/projection_stages/withdrawal_cascade_hsa_priority_draws.py` | — | — |
 | `src/projection_stages/withdrawal_cascade_hsa_reimbursement_correction.py` | — | — |
-| `src/projection_stages/withdrawal_cascade_investment_tax.py` | `core`, `planning_engines` | — |
-| `src/projection_stages/withdrawal_cascade_ira_true_up.py` | `planning_engines` | — |
-| `src/projection_stages/withdrawal_cascade_taxable_trust.py` | `planning_engines` | — |
+| `src/projection_stages/withdrawal_cascade_investment_tax.py` | `core`, `engine_kernels` | — |
+| `src/projection_stages/withdrawal_cascade_ira_true_up.py` | `engine_kernels` | — |
+| `src/projection_stages/withdrawal_cascade_taxable_trust.py` | `engine_kernels` | — |
 | `src/projection_stages/year_state.py` | — | — |
 
 ### Reporting / Workbook

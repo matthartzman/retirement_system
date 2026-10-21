@@ -23,6 +23,17 @@ install can hold several: a workspace id, an output folder, a backup folder, a p
 ``backup_manifest``  ``scope``, ``filename`` (PK together), ``created_at``, ``manifest`` (JSON).
 ``price_cache``      ``scope``, ``symbol`` (PK together), ``record`` (JSON quote record).
 
+Schema v3 (WI-038: the snapshot and build-history tables that lived in the legacy
+``retirement_system_v10.db``; the legacy database is no longer written)
+-------------------------------------------------------------------------------------------
+``local_settings``   ``key`` (PK), ``value_json``, ``updated_at``.
+``result_snapshots`` ``result_id`` (PK), ``created_at``, ``plan_snapshot_id``, ``result_json``,
+                     ``event_log_json``, ``result_sha256``; newest ``DEFAULT_RESULT_SNAPSHOT_RETENTION`` kept.
+``kpi_snapshots``    ``snapshot_id`` (PK), ``created_at``, ``build_id``, the headline KPI columns, ``kpi_json``.
+``build_events``     ``event_id``, ``created_at``, ``build_id``, ``stage``, ``event_type``, ``detail_json``.
+``price_snapshots``  ``snapshot_id``, ``workspace_id``, ``symbol``, ``price``, ``source``, ``status``, ``as_of``.
+``pricing_snapshot_freezes``  ``workspace_id`` (PK), ``active``, ``frozen_at``, ``source``, ``snapshot_json``.
+
 Secrets never go here (design decision 5: OS credential store).
 """
 from __future__ import annotations
@@ -101,7 +112,67 @@ CREATE TABLE price_cache (
 ) WITHOUT ROWID;
 """
 
-APP_MIGRATIONS: tuple[str, ...] = (_SCHEMA_V1, _SCHEMA_V2)
+_SCHEMA_V3 = """
+CREATE TABLE local_settings (
+    key        TEXT PRIMARY KEY,
+    value_json TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE TABLE result_snapshots (
+    result_id        TEXT PRIMARY KEY,
+    created_at       TEXT NOT NULL,
+    plan_snapshot_id TEXT,
+    result_json      TEXT NOT NULL,
+    event_log_json   TEXT NOT NULL,
+    result_sha256    TEXT NOT NULL
+);
+CREATE TABLE build_events (
+    event_id    INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at  TEXT NOT NULL,
+    build_id    TEXT,
+    stage       TEXT,
+    event_type  TEXT,
+    detail_json TEXT NOT NULL
+);
+CREATE TABLE kpi_snapshots (
+    snapshot_id               TEXT PRIMARY KEY,
+    created_at                TEXT NOT NULL,
+    build_id                  TEXT,
+    probability_of_success    REAL,
+    terminal_nw_deterministic REAL,
+    terminal_nw_mc_median     REAL,
+    terminal_nw_mc_p10        REAL,
+    terminal_nw_mc_p90        REAL,
+    lifetime_tax              REAL,
+    lcv                       REAL,
+    eltr                      REAL,
+    fcv                       REAL,
+    eftr                      REAL,
+    total_roth_conversions    REAL,
+    after_tax_terminal_nw     REAL,
+    npv_future_taxes          REAL,
+    terminal_nw_mc_p5         REAL,
+    kpi_json                  TEXT NOT NULL
+);
+CREATE TABLE price_snapshots (
+    snapshot_id  INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id TEXT DEFAULT 'local',
+    symbol       TEXT,
+    price        REAL,
+    source       TEXT,
+    status       TEXT DEFAULT 'OK',
+    as_of        TEXT DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE pricing_snapshot_freezes (
+    workspace_id  TEXT PRIMARY KEY,
+    active        INTEGER NOT NULL DEFAULT 1,
+    frozen_at     TEXT NOT NULL,
+    source        TEXT,
+    snapshot_json TEXT NOT NULL
+);
+"""
+
+APP_MIGRATIONS: tuple[str, ...] = (_SCHEMA_V1, _SCHEMA_V2, _SCHEMA_V3)
 APP_SCHEMA_VERSION = len(APP_MIGRATIONS)
 
 ADMIN_CHANGE_KEEP = 250

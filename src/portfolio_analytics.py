@@ -12,7 +12,7 @@ import sqlite3
 from pathlib import Path
 from typing import Dict, List, Tuple, Any
 
-from .config_backend import init_sqlite, DEFAULT_DB
+from .local_store import init_local_store, _existing
 from . import platform_runtime
 from .csv_exchange import text_csv as _tcsv
 from .sqlite_util import connect as closing_connect
@@ -58,13 +58,13 @@ def _freeze_payload_from_latest(latest: Dict[str, dict], *, workspace_id: str, s
     }
 
 
-def freeze_latest_pricing_snapshot(workspace_id: str = "local", db_path: str | Path = DEFAULT_DB, *, source: str = "latest_price_snapshots") -> dict[str, Any]:
+def freeze_latest_pricing_snapshot(workspace_id: str = "local", db_path: str | Path | None = None, *, source: str = "latest_price_snapshots") -> dict[str, Any]:
     """Freeze the current latest per-symbol price snapshots for reproducible builds.
 
     The freeze copies latest prices into a single JSON contract so later live price
     refreshes cannot move an advisor report until the user explicitly unfreezes.
     """
-    p = init_sqlite(db_path)
+    p = init_local_store(db_path)
     latest = load_latest_snapshots(workspace_id=workspace_id, db_path=p)
     payload = _freeze_payload_from_latest(latest, workspace_id=workspace_id, source=source)
     if not payload.get("symbol_count"):
@@ -87,8 +87,8 @@ def freeze_latest_pricing_snapshot(workspace_id: str = "local", db_path: str | P
     return {"success": True, "active": True, **payload}
 
 
-def unfreeze_pricing_snapshot(workspace_id: str = "local", db_path: str | Path = DEFAULT_DB) -> dict[str, Any]:
-    p = init_sqlite(db_path)
+def unfreeze_pricing_snapshot(workspace_id: str = "local", db_path: str | Path | None = None) -> dict[str, Any]:
+    p = init_local_store(db_path)
     now = _utc_now_iso()
     with closing_connect(p) as con:
         _ensure_pricing_freeze_table(con)
@@ -99,11 +99,9 @@ def unfreeze_pricing_snapshot(workspace_id: str = "local", db_path: str | Path =
     return {"success": True, "schema": PRICING_FREEZE_SCHEMA, "workspace_id": workspace_id, "active": False, "unfrozen_at": now}
 
 
-def pricing_freeze_status(workspace_id: str = "local", db_path: str | Path = DEFAULT_DB, include_prices: bool = True) -> dict[str, Any]:
-    p = Path(db_path)
-    if not p.is_absolute():
-        p = PROJECT_ROOT / p
-    if not p.exists():
+def pricing_freeze_status(workspace_id: str = "local", db_path: str | Path | None = None, include_prices: bool = True) -> dict[str, Any]:
+    p = _existing(db_path)
+    if p is None:
         return {
             "success": True,
             "schema": PRICING_FREEZE_SCHEMA,
@@ -156,7 +154,7 @@ def pricing_freeze_status(workspace_id: str = "local", db_path: str | Path = DEF
     return result
 
 
-def frozen_price_lookup(workspace_id: str = "local", db_path: str | Path = DEFAULT_DB) -> Dict[str, float]:
+def frozen_price_lookup(workspace_id: str = "local", db_path: str | Path | None = None) -> Dict[str, float]:
     status = pricing_freeze_status(workspace_id=workspace_id, db_path=db_path, include_prices=True)
     return dict(status.get("prices") or {}) if status.get("active") else {}
 
@@ -174,13 +172,13 @@ def _pct(value: object) -> float:
     return raw / 100.0 if raw > 1 else raw
 
 
-def snapshot_prices(prices: Dict[str, float], sources: Dict[str, str] | None = None, workspace_id: str = "local", db_path: str | Path = DEFAULT_DB) -> int:
+def snapshot_prices(prices: Dict[str, float], sources: Dict[str, str] | None = None, workspace_id: str = "local", db_path: str | Path | None = None) -> int:
     """Write non-zero price snapshots only.
 
     Version 7 deliberately skips missing/zero values so nightly refresh cannot
     pollute historical snapshots with unusable prices.
     """
-    p = init_sqlite(db_path)
+    p = init_local_store(db_path)
     sources = sources or {}
     n = 0
     with closing_connect(p) as con:
@@ -199,12 +197,10 @@ def snapshot_prices(prices: Dict[str, float], sources: Dict[str, str] | None = N
     return n
 
 
-def load_latest_snapshots(workspace_id: str = "local", db_path: str | Path = DEFAULT_DB) -> Dict[str, dict]:
-    p = Path(db_path)
-    if not p.is_absolute():
-        p = PROJECT_ROOT / p
+def load_latest_snapshots(workspace_id: str = "local", db_path: str | Path | None = None) -> Dict[str, dict]:
+    p = _existing(db_path)
     out: Dict[str, dict] = {}
-    if not p.exists():
+    if p is None:
         return out
     with closing_connect(p) as con:
         con.row_factory = sqlite3.Row
@@ -256,14 +252,14 @@ def read_targets() -> Dict[str, float]:
     return targets
 
 
-def _latest_price_lookup(workspace_id: str = "local", db_path: str | Path = DEFAULT_DB) -> Dict[str, float]:
+def _latest_price_lookup(workspace_id: str = "local", db_path: str | Path | None = None) -> Dict[str, float]:
     snaps = load_latest_snapshots(workspace_id=workspace_id, db_path=db_path)
     return {sym.upper(): _num(row.get("price"), 0.0) for sym, row in snaps.items() if _num(row.get("price"), 0.0) > 0}
 
 
 def holdings_market_values(
     workspace_id: str = "local",
-    db_path: str | Path = DEFAULT_DB,
+    db_path: str | Path | None = None,
 ) -> Tuple[Dict[str, float], Dict[str, dict]]:
     """Return asset-class dollar totals and per-symbol diagnostics.
 
@@ -307,7 +303,7 @@ def holdings_market_values(
 
 def holdings_allocation(
     workspace_id: str = "local",
-    db_path: str | Path = DEFAULT_DB,
+    db_path: str | Path | None = None,
 ) -> Dict[str, float]:
     totals, _ = holdings_market_values(workspace_id, db_path)
     grand = sum(totals.values())
@@ -317,7 +313,7 @@ def holdings_allocation(
 def analyze_drift(
     threshold_pct: float = 0.05,
     workspace_id: str = "local",
-    db_path: str | Path = DEFAULT_DB,
+    db_path: str | Path | None = None,
 ) -> List[dict]:
     targets = read_targets()
     totals, details = holdings_market_values(workspace_id, db_path)

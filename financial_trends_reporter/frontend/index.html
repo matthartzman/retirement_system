@@ -503,7 +503,11 @@ document.getElementById("runNow").addEventListener("click", async () => {
   btn.textContent = "Running…";
   try {
     const resp = await fetch("/api/run-now", { method: "POST" });
-    if (!resp.ok) throw new Error(`run-now request failed (HTTP ${resp.status})`);
+    if (!resp.ok) {
+      const body = await resp.json().catch(() => ({}));
+      const detail = body.error || (body.errors || []).join("; ");
+      throw new Error(`run-now request failed (HTTP ${resp.status})` + (detail ? `: ${detail}` : ""));
+    }
     await loadHistory();
   } catch (err) {
     renderFetchError("Couldn't run the update: " + err.message);

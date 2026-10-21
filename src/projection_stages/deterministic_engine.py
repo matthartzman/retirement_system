@@ -9,6 +9,7 @@ stage module.  Additional fine-grained stage files can replace pieces behind
 this same contract without changing callers.
 """
 
+from ..fallback_log import log_fallback as _log_fallback
 from ..early_distribution import early_distribution_tax as _early_distribution_tax, early_fraction as _early_fraction
 from ..tax_law import default_tax_law_dataset as _tax_law_ds
 from ..tax_assumptions import stressed_ordinary_brackets as _ta_stressed_brackets
@@ -49,7 +50,7 @@ from .year_state import MutableYearState, create_initial_year_state
 # names). Prerequisite for any future split of planning_engines.py: a
 # reader (or refactoring tool) can now see the real dependency surface here
 # instead of "everything, maybe."
-from ..planning_engines import (
+from ..engine_kernels import (
     EvDeath,
     EvIncome,
     EvWarning,
@@ -65,7 +66,7 @@ from ..planning_engines import (
     social_security_taxable_amount as _ss_taxable_amount,
     state_income_tax,
 )
-from .. import planning_engines as _legacy_pe
+from .. import engine_kernels as _legacy_pe
 from .. import core as _ar  # consolidated from account_registry
 from .. import core as _aa  # consolidated from account_access
 from .. import tax_kernel as _tk
@@ -335,8 +336,8 @@ def run_deterministic_projection_stage(c):
         if isinstance(path, dict) and year in path:
             try:
                 return float(path[year])
-            except Exception:
-                pass
+            except (TypeError, ValueError) as _exc:
+                _log_fallback("path_factor", _exc, path_key=path_key, year=year)
         return (1 + float(annual_rate or 0.0)) ** (year - c['plan_start'])
 
     def _path_ratio(path_key, annual_rate, year, base_year):
@@ -348,8 +349,8 @@ def run_deterministic_projection_stage(c):
                 denom = float(path[base_year])
                 if denom != 0:
                     return float(path[year]) / denom
-            except Exception:
-                pass
+            except (TypeError, ValueError, ZeroDivisionError) as _exc:
+                _log_fallback("path_ratio", _exc, path_key=path_key, year=year)
         return (1 + float(annual_rate or 0.0)) ** (year - base_year)
 
     def _infl_factor(year):
@@ -889,7 +890,8 @@ def run_deterministic_projection_stage(c):
                     _nh_start = int(_nh_step.get('start_year') or 0)
                     _nh_end = int(_nh_step.get('end_year') or 0)
                     _nh_sale = int(_nh_step.get('sale_year') or 0)
-                except Exception:
+                except (TypeError, ValueError) as _exc:
+                    _log_fallback("next_housing_step.fields", _exc, year=year)
                     continue
                 if (_nh_price <= 0 or not _nh_start or year < _nh_start
                         or (_nh_end and year > _nh_end) or (_nh_sale and year >= _nh_sale)):

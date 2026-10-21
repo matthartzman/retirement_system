@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
+from ..fallback_log import log_fallback
+
 
 def housing_budget_rollup(c: dict[str, Any], year: int, infl_ratio: Callable[[int, int], float]) -> dict[str, float]:
     """Return non-engine Housing budget groups for a projection year."""
@@ -60,8 +62,8 @@ def category_budget_rollup(
     for cid in category_ids:
         try:
             total += float(year_map.get(cid, 0.0) or 0.0)
-        except Exception:
-            pass
+        except (TypeError, ValueError) as _exc:
+            log_fallback("budget_rollup.category", _exc, year=year, category=cid)
     if not total:
         return 0.0
     return total * path_factor(inflator_key, c.get(annual_rate_key, c.get("inf", 0.0)), year)

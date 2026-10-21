@@ -668,20 +668,8 @@
     });
   }
 
-  try {
-    const oldRenderMain = renderMain;
-    renderMain = function () {
-      oldRenderMain();
-      applyEnhancements();
-    };
-  } catch (_e) {}
-  try {
-    const oldShowStepHelp = showStepHelp;
-    showStepHelp = function (id) {
-      oldShowStepHelp(id);
-      decorateGlossary(byId("helpPanel"));
-    };
-  } catch (_e) {}
+  window.RPHooks?.after("renderMain", applyEnhancements, 30);
+  window.RPHooks?.after("showStepHelp", () => decorateGlossary(byId("helpPanel")), 30);
 
   window.RPDashboardRoadmap11.saveSkipReason = saveSkipReason;
   window.RPDashboardRoadmap11.expandPrintableSections = expandPrintableSections;

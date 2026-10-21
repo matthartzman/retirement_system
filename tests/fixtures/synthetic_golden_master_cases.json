@@ -1,11 +1,14 @@
 {
   "baseline_balanced_couple": {
+    "cumulative_unfunded_gap": 0,
     "first_conversion_amount": 258967.67,
     "first_conversion_year": 2031,
     "first_rmd_total": 52738.29,
     "first_rmd_year": 2039,
+    "first_unfunded_year": null,
     "first_year_total_tax": 30850.0,
     "lifetime_tax": 722986.19,
+    "peak_unfunded_gap": 0.0,
     "plan_end": 2058,
     "plan_start": 2026,
     "row_count": 33,
@@ -13,15 +16,366 @@
     "terminal_liquid_nw": 13791245.5,
     "terminal_total_nw": 13911245.5,
     "terminal_year": 2058,
-    "total_roth_conversion": 1347678.17
+    "total_roth_conversion": 1347678.17,
+    "unfunded_year_count": 0,
+    "validation_failures": []
+  },
+  "depletion_member_1_dies_first": {
+    "cumulative_unfunded_gap": 1845140.53,
+    "first_conversion_amount": 57704.4,
+    "first_conversion_year": 2031,
+    "first_rmd_total": 0,
+    "first_rmd_year": null,
+    "first_unfunded_year": 2040,
+    "first_year_total_tax": 31089.74,
+    "lifetime_tax": 210154.32,
+    "peak_unfunded_gap": 103995.23,
+    "plan_end": 2058,
+    "plan_start": 2026,
+    "row_count": 33,
+    "selected_roth_strategy": "Fill current/configured 22% bracket",
+    "terminal_liquid_nw": 121308.67,
+    "terminal_total_nw": 163308.67,
+    "terminal_year": 2058,
+    "total_roth_conversion": 62494.52,
+    "unfunded_year_count": 19,
+    "validation_failures": [
+      [
+        2040,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2041,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2042,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2043,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2044,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2045,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2046,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2047,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2048,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2049,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2050,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2051,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2052,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2053,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2054,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2055,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2056,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2057,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2058,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ]
+    ]
+  },
+  "depletion_member_2_dies_first": {
+    "cumulative_unfunded_gap": 1245928.12,
+    "first_conversion_amount": 57704.4,
+    "first_conversion_year": 2031,
+    "first_rmd_total": 0,
+    "first_rmd_year": null,
+    "first_unfunded_year": 2040,
+    "first_year_total_tax": 31089.74,
+    "lifetime_tax": 214015.27,
+    "peak_unfunded_gap": 95879.91,
+    "plan_end": 2054,
+    "plan_start": 2026,
+    "row_count": 29,
+    "selected_roth_strategy": "Fill current/configured 22% bracket",
+    "terminal_liquid_nw": 13895.57,
+    "terminal_total_nw": 55895.57,
+    "terminal_year": 2054,
+    "total_roth_conversion": 62494.52,
+    "unfunded_year_count": 15,
+    "validation_failures": [
+      [
+        2040,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2041,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2042,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2043,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2044,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2045,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2046,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2047,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2048,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2049,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2050,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2051,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2052,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2053,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ]
+    ]
+  },
+  "depletion_thin_portfolio": {
+    "cumulative_unfunded_gap": 2738224.61,
+    "first_conversion_amount": 57704.4,
+    "first_conversion_year": 2031,
+    "first_rmd_total": 0,
+    "first_rmd_year": null,
+    "first_unfunded_year": 2031,
+    "first_year_total_tax": 31089.74,
+    "lifetime_tax": 200184.09,
+    "peak_unfunded_gap": 138598.12,
+    "plan_end": 2058,
+    "plan_start": 2026,
+    "row_count": 33,
+    "selected_roth_strategy": "Fill current/configured 22% bracket",
+    "terminal_liquid_nw": 121308.67,
+    "terminal_total_nw": 163308.67,
+    "terminal_year": 2058,
+    "total_roth_conversion": 62494.52,
+    "unfunded_year_count": 24,
+    "validation_failures": [
+      [
+        2036,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2037,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2038,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2039,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2040,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2041,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2042,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2043,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2044,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2045,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2046,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2047,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2048,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2049,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2050,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2051,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2052,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2053,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2054,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2055,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2056,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2057,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ],
+      [
+        2058,
+        "FAIL",
+        "UNFUNDED_GAP"
+      ]
+    ]
   },
   "dividends_not_reinvested": {
+    "cumulative_unfunded_gap": 0,
     "first_conversion_amount": 258967.67,
     "first_conversion_year": 2031,
     "first_rmd_total": 52738.29,
     "first_rmd_year": 2039,
+    "first_unfunded_year": null,
     "first_year_total_tax": 30850.0,
     "lifetime_tax": 722986.19,
+    "peak_unfunded_gap": 0.0,
     "plan_end": 2058,
     "plan_start": 2026,
     "row_count": 33,
@@ -29,15 +383,20 @@
     "terminal_liquid_nw": 12842428.16,
     "terminal_total_nw": 12962428.16,
     "terminal_year": 2058,
-    "total_roth_conversion": 1347678.17
+    "total_roth_conversion": 1347678.17,
+    "unfunded_year_count": 0,
+    "validation_failures": []
   },
   "donor_advised_fund": {
+    "cumulative_unfunded_gap": 0,
     "first_conversion_amount": 258967.67,
     "first_conversion_year": 2031,
     "first_rmd_total": 40578.91,
     "first_rmd_year": 2039,
+    "first_unfunded_year": null,
     "first_year_total_tax": 30850.0,
     "lifetime_tax": 634197.4,
+    "peak_unfunded_gap": 0.0,
     "plan_end": 2058,
     "plan_start": 2026,
     "row_count": 33,
@@ -45,15 +404,20 @@
     "terminal_liquid_nw": 12407137.11,
     "terminal_total_nw": 12527137.11,
     "terminal_year": 2058,
-    "total_roth_conversion": 1334865.29
+    "total_roth_conversion": 1334865.29,
+    "unfunded_year_count": 0,
+    "validation_failures": []
   },
   "early_survivor_compression": {
+    "cumulative_unfunded_gap": 0,
     "first_conversion_amount": 258967.67,
     "first_conversion_year": 2031,
     "first_rmd_total": 101373.63,
     "first_rmd_year": 2041,
+    "first_unfunded_year": null,
     "first_year_total_tax": 30850.0,
     "lifetime_tax": 845401.74,
+    "peak_unfunded_gap": 0.0,
     "plan_end": 2058,
     "plan_start": 2026,
     "row_count": 33,
@@ -61,15 +425,20 @@
     "terminal_liquid_nw": 15765636.54,
     "terminal_total_nw": 15885636.54,
     "terminal_year": 2058,
-    "total_roth_conversion": 805086.73
+    "total_roth_conversion": 805086.73,
+    "unfunded_year_count": 0,
+    "validation_failures": []
   },
   "high_spending_pressure": {
+    "cumulative_unfunded_gap": 0,
     "first_conversion_amount": 258967.67,
     "first_conversion_year": 2031,
     "first_rmd_total": 41580.71,
     "first_rmd_year": 2039,
+    "first_unfunded_year": null,
     "first_year_total_tax": 30850.0,
     "lifetime_tax": 702006.47,
+    "peak_unfunded_gap": 0.0,
     "plan_end": 2058,
     "plan_start": 2026,
     "row_count": 33,
@@ -77,15 +446,20 @@
     "terminal_liquid_nw": 10836997.55,
     "terminal_total_nw": 10956997.55,
     "terminal_year": 2058,
-    "total_roth_conversion": 1347678.17
+    "total_roth_conversion": 1347678.17,
+    "unfunded_year_count": 0,
+    "validation_failures": []
   },
   "lower_return_environment": {
+    "cumulative_unfunded_gap": 0,
     "first_conversion_amount": 258967.67,
     "first_conversion_year": 2031,
     "first_rmd_total": 27563.4,
     "first_rmd_year": 2039,
+    "first_unfunded_year": null,
     "first_year_total_tax": 30850.0,
     "lifetime_tax": 588219.31,
+    "peak_unfunded_gap": 0.0,
     "plan_end": 2058,
     "plan_start": 2026,
     "row_count": 33,
@@ -93,15 +467,20 @@
     "terminal_liquid_nw": 6264789.28,
     "terminal_total_nw": 6384789.28,
     "terminal_year": 2058,
-    "total_roth_conversion": 1294429.22
+    "total_roth_conversion": 1294429.22,
+    "unfunded_year_count": 0,
+    "validation_failures": []
   },
   "no_voluntary_roth_policy": {
+    "cumulative_unfunded_gap": 0,
     "first_conversion_amount": 0,
     "first_conversion_year": null,
     "first_rmd_total": 68350.61,
     "first_rmd_year": 2039,
+    "first_unfunded_year": null,
     "first_year_total_tax": 30850.0,
     "lifetime_tax": 778034.49,
+    "peak_unfunded_gap": 0.0,
     "plan_end": 2058,
     "plan_start": 2026,
     "row_count": 33,
@@ -109,15 +488,20 @@
     "terminal_liquid_nw": 14481321.07,
     "terminal_total_nw": 14601321.07,
     "terminal_year": 2058,
-    "total_roth_conversion": 0.0
+    "total_roth_conversion": 0.0,
+    "unfunded_year_count": 0,
+    "validation_failures": []
   },
   "single_filer": {
+    "cumulative_unfunded_gap": 0,
     "first_conversion_amount": 124859.08,
     "first_conversion_year": 2029,
     "first_rmd_total": 37282.08,
     "first_rmd_year": 2039,
+    "first_unfunded_year": null,
     "first_year_total_tax": 29264.0,
     "lifetime_tax": 521651.06,
+    "peak_unfunded_gap": 0.0,
     "plan_end": 2054,
     "plan_start": 2026,
     "row_count": 29,
@@ -125,15 +509,20 @@
     "terminal_liquid_nw": 7980078.87,
     "terminal_total_nw": 8100078.87,
     "terminal_year": 2054,
-    "total_roth_conversion": 928237.79
+    "total_roth_conversion": 928237.79,
+    "unfunded_year_count": 0,
+    "validation_failures": []
   },
   "split_claiming_spousal": {
+    "cumulative_unfunded_gap": 0,
     "first_conversion_amount": 258967.67,
     "first_conversion_year": 2031,
     "first_rmd_total": 56061.82,
     "first_rmd_year": 2039,
+    "first_unfunded_year": null,
     "first_year_total_tax": 30850.0,
     "lifetime_tax": 713908.05,
+    "peak_unfunded_gap": 0.0,
     "plan_end": 2058,
     "plan_start": 2026,
     "row_count": 33,
@@ -141,15 +530,20 @@
     "terminal_liquid_nw": 13441362.51,
     "terminal_total_nw": 13561362.51,
     "terminal_year": 2058,
-    "total_roth_conversion": 1347678.17
+    "total_roth_conversion": 1347678.17,
+    "unfunded_year_count": 0,
+    "validation_failures": []
   },
   "tax_loss_harvesting": {
+    "cumulative_unfunded_gap": 0,
     "first_conversion_amount": 258967.67,
     "first_conversion_year": 2031,
     "first_rmd_total": 53214.1,
     "first_rmd_year": 2039,
+    "first_unfunded_year": null,
     "first_year_total_tax": 30190.0,
     "lifetime_tax": 621585.45,
+    "peak_unfunded_gap": 0.0,
     "plan_end": 2058,
     "plan_start": 2026,
     "row_count": 33,
@@ -157,6 +551,19 @@
     "terminal_liquid_nw": 14173268.4,
     "terminal_total_nw": 14293268.4,
     "terminal_year": 2058,
-    "total_roth_conversion": 1347678.17
+    "total_roth_conversion": 1347678.17,
+    "unfunded_year_count": 0,
+    "validation_failures": [
+      [
+        2026,
+        "FAIL",
+        "ACCOUNT_RECON"
+      ],
+      [
+        2036,
+        "FAIL",
+        "ACCOUNT_RECON"
+      ]
+    ]
   }
 }

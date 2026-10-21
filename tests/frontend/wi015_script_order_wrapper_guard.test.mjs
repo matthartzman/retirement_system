@@ -1,10 +1,14 @@
 // WI-015 / ARC-007 interim guard (system review 2026-10-19).
 //
 // The frontend is 52 order-dependent <script type="module"> tags joined by
-// window globals and a renderMain/showStepHelp monkey-patch chain. Until
-// WI-035 replaces the chain with an explicit hook registry, these tests freeze:
+// window globals. WI-035 replaced the renderMain/showStepHelp monkey-patch chain
+// with the explicit hook registry in js/render_hooks.js (RPHooks.after(point,
+// fn, order)); hook order is now the numeric `order`, not script order. These
+// tests still freeze:
 //   1. the exact script list and order in frontend/index.html, and
-//   2. the exact set of files that define or reassign renderMain/showStepHelp.
+//   2. the exact set of files that define or assign renderMain/showStepHelp
+//      (only the base definitions/bridges -- NO wrapper may reappear), and
+//   3. the registry contract: loaded first, explicit unique hook orders.
 // A module that is added, removed or reordered, or a NEW wrapper, fails here.
 // The ?v= cache-busting query is deliberately ignored: bumping it is routine.
 //
@@ -21,6 +25,7 @@ const FRONTEND = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."
 const FROZEN_SCRIPT_ORDER = [
   "js/pywebview_bridge.js",
   "js/dashboard_shared_helpers.js",
+  "js/render_hooks.js",
   "js/text_size.js",
   "js/help_glossary.js",
   "js/api_client.js",
@@ -74,15 +79,11 @@ const FROZEN_SCRIPT_ORDER = [
   "js/spending_dashboard.js",
 ];
 
-// File -> symbols it defines/reassigns/wraps. Includes the original definitions
-// (dashboard.js), the window bridge (dashboard.js, navigation.js) and every
-// decorator in the chain.
+// File -> symbols it defines/assigns: the original definitions and window
+// bridge (dashboard.js) and navigation.js's showStepHelp global. Wrappers are
+// gone (WI-035); behaviour is added only through RPHooks.after().
 const FROZEN_WRAPPERS = {
   "js/dashboard.js": ["renderMain", "showStepHelp"],
-  "js/dashboard_batch_assumption_edit.js": ["renderMain"],
-  "js/dashboard_decomp_roth_guardrails.js": ["renderMain"],
-  "js/dashboard_decomp_tax_assumptions.js": ["renderMain"],
-  "js/dashboard_source_truth_banners.js": ["renderMain", "showStepHelp"],
   "js/navigation.js": ["showStepHelp"],
 };
 
@@ -118,8 +119,8 @@ function definesOrWraps(src, sym) {
   return assign.test(stripped) || define.test(stripped);
 }
 
-test("index.html script list and order are frozen (53 module scripts)", () => {
-  assert.equal(scriptSrcs().length, 53);
+test("index.html script list and order are frozen (54 module scripts)", () => {
+  assert.equal(scriptSrcs().length, 54);
   assert.deepEqual(scriptSrcs(), FROZEN_SCRIPT_ORDER);
 });
 
@@ -139,18 +140,34 @@ test("renderMain/showStepHelp wrapper set is frozen", () => {
   assert.deepEqual(found, FROZEN_WRAPPERS);
 });
 
-test("wrapper chain order: base definition precedes every decorator", () => {
-  const idx = (f) => FROZEN_SCRIPT_ORDER.indexOf(f);
-  for (const [file, syms] of Object.entries(FROZEN_WRAPPERS)) {
-    if (file === "js/dashboard.js" || file === "js/navigation.js") continue;
-    assert.ok(idx(file) > idx("js/dashboard.js"), `${file} must load after dashboard.js (${syms})`);
+test("registry loads right after the bridge and shared helpers (before any registrant)", () => {
+  assert.equal(FROZEN_SCRIPT_ORDER.indexOf("js/render_hooks.js"), 2);
+});
+
+// Lint (WI-035): no module may assign window.renderMain / window.showStepHelp
+// (or wrap them) except dashboard.js, which owns the base functions and bridge.
+test("no module assigns window.renderMain outside dashboard.js", () => {
+  for (const file of walk(path.join(FRONTEND, "js"))) {
+    const rel = path.relative(FRONTEND, file).split(path.sep).join("/");
+    if (rel === "js/dashboard.js") continue;
+    const src = fs.readFileSync(file, "utf8");
+    assert.equal(definesOrWraps(src, "renderMain"), false, `${rel} assigns renderMain`);
+    assert.doesNotMatch(src, /window\.renderMain\s*=(?![=>])/, rel);
+    assert.doesNotMatch(src, /\b(prev|old)RenderMain\b/, `${rel} has a wrapper-chain remnant`);
   }
-  // Decorators run last-installed-outermost; freeze their relative order.
-  const chain = [
-    "js/dashboard_decomp_tax_assumptions.js",
-    "js/dashboard_decomp_roth_guardrails.js",
-    "js/dashboard_source_truth_banners.js",
-    "js/dashboard_batch_assumption_edit.js",
-  ];
-  assert.deepEqual([...chain].sort((a, b) => idx(a) - idx(b)), chain);
+});
+
+test("hook registrations use explicit, unique orders (script order carries no meaning)", () => {
+  const seen = {};
+  for (const file of walk(path.join(FRONTEND, "js"))) {
+    const src = fs.readFileSync(file, "utf8");
+    for (const m of src.matchAll(/RPHooks\??\.after\(\s*"(\w+)"\s*,[\s\S]*?,\s*(\d+)\s*\)/g)) {
+      const key = `${m[1]}:${m[2]}`;
+      assert.ok(!seen[key], `duplicate hook order ${key} (${seen[key]} and ${file})`);
+      seen[key] = path.basename(file);
+    }
+  }
+  assert.deepEqual(Object.keys(seen).sort(), [
+    "renderMain:10", "renderMain:20", "renderMain:30", "renderMain:40", "showStepHelp:30",
+  ]);
 });

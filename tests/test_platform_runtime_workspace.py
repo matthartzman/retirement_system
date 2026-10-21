@@ -76,7 +76,7 @@ def test_writable_root_modules_follow_override(monkeypatch, tmp_path):
     local_store = importlib.reload(local_store)
     try:
         assert Path(config_backend.DEFAULT_DB) == tmp_path / "local_state" / "retirement_system_v10.db"
-        assert Path(local_store.DEFAULT_DB) == tmp_path / "local_state" / "retirement_system_v10.db"
+        assert Path(local_store._resolve(None)) == tmp_path / "local_state" / "app.db"
         # Code root is unchanged.
         assert Path(config_backend.PROJECT_ROOT) == platform_runtime.package_root()
     finally:

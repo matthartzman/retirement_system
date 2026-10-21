@@ -3,8 +3,8 @@ from __future__ import annotations
 from typing import Any, Callable, NamedTuple
 
 from .. import core as _ar  # consolidated from account_registry
-from .. import planning_engines as _legacy_pe
-from ..planning_engines import (
+from .. import engine_kernels as _legacy_pe
+from ..engine_kernels import (
     EvRMD,
     aca_magi,
     aca_premium_tax_credit,

@@ -226,14 +226,7 @@ function taxInsertCard() {
   if (!taxPayload && !taxLoading) taxLoad();
 }
 
-try {
-  const prevRenderMain = window.renderMain;
-  if (typeof prevRenderMain === "function")
-    window.renderMain = function () {
-      prevRenderMain.apply(this, arguments);
-      taxInsertCard();
-    };
-} catch (_e) {}
+window.RPHooks?.after("renderMain", taxInsertCard, 10);
 
 Object.assign(window, {
   taxAssumptionsEdit,

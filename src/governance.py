@@ -65,7 +65,12 @@ def model_risk_rating(mc_data: dict[str, Any] | None, deterministic: bool = Fals
         rating = 'APPROXIMATE_VECTORIZED_MC' if status != 'TOLERANCE_BOUNDED' else 'TOLERANCE_BOUNDED_VECTORIZED_MC'
         label = 'Approximate vectorized Monte Carlo' if status != 'TOLERANCE_BOUNDED' else 'Tolerance-bounded vectorized Monte Carlo'
         tol = mc_data.get('mc_parity_tolerance_pp')
-        desc = ('Batched engine for speed. Headline success rate is tested to stay within '
+        if status == 'BASE_PLAN_SHORTFALL':
+            label = 'Approximate vectorized Monte Carlo (plan projects a shortfall)'
+        desc = ('Headline success rate measured 6 to 65 percentage points above the exact scalar engine when the '
+                'plan itself projects a shortfall (WI-036); treat it as an upper bound and validate with exact scalar mode.'
+                if status == 'BASE_PLAN_SHORTFALL' else
+                'Batched engine for speed. Headline success rate is tested to stay within '
                 f'{float(tol):g} percentage points of the exact scalar engine; use exact scalar mode for validation.'
                 if status == 'TOLERANCE_BOUNDED' and tol is not None else
                 'Batched engine for speed; exact scalar parity checks must remain within tolerance before advisor-ready reliance.')

@@ -230,9 +230,14 @@ function main() {
   const functionSet = new Set(functions);
   const variableSet = new Set(variables);
 
-  const reassignedFunctions = [...new Set(
-    externalReferences.filter((r) => r.kind === "assign" && functionSet.has(r.name)).map((r) => r.name),
-  )].sort();
+  // WI-035: the decorator chain is gone (RPHooks registry), but node tests stub
+  // window.renderMain/showStepHelp and need the stub to reach dashboard.js's
+  // internal calls, so these two stay settable test seams (let + get/set).
+  const SETTABLE_TEST_SEAMS = ["renderMain", "showStepHelp"];
+  const reassignedFunctions = [...new Set([
+    ...externalReferences.filter((r) => r.kind === "assign" && functionSet.has(r.name)).map((r) => r.name),
+    ...SETTABLE_TEST_SEAMS.filter((n) => functionSet.has(n)),
+  ])].sort();
 
   const externallyReferencedVariables = [...new Set(
     externalReferences.filter((r) => variableSet.has(r.name)).map((r) => r.name),

@@ -1,3 +1,9 @@
+## 2026-10-21 — Synthetic golden master: three depletion scenarios and shortfall metrics added (WI-030)
+
+<!-- fixture-provenance: synthetic_golden_master_cases.json sha256=298d52f316c819c5363303882d0f4654aef4064441b51413feb1f4fdc42792ea -->
+
+Additive. `tests/fixtures/synthetic_golden_master_cases.json` gains three scenarios that run out of liquid assets inside the horizon (`depletion_thin_portfolio`, `depletion_member_1_dies_first`, `depletion_member_2_dies_first`) and five shortfall metrics for every scenario (`first_unfunded_year`, `unfunded_year_count`, `cumulative_unfunded_gap`, `peak_unfunded_gap`, `validation_failures`). No existing scenario value changed; solvent scenarios record no unfunded year, so a plan that newly fails or newly recovers now moves its pin in either direction. Checked on a scratch run that disabling the Roth draw in the cascade moves the depletion pins. Regenerated with `tools/regen_synthetic_golden_master.py`; no engine change.
+
 ## 2026-10-21 — Synthetic golden master re-pinned for the PR 237 engine changes
 
 <!-- fixture-provenance: synthetic_golden_master_cases.json sha256=0ad8618c0f8b2520c0d81edc296e5a73b86b78c1ddd56ee551cabdde5e11974e -->
