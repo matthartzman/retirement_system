@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 264 Python files under `src/`, 53 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 264 Python files under `src/`, 54 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -12,7 +12,7 @@ Every box is a real directory in the repo. Every arrow is a real `import` found 
 flowchart TB
     User(["Desktop user"]) --> FE
     subgraph FE["Frontend SPA (frontend/)"]
-        FEcount["53 JS files, browser-loaded via index.html script tags"]
+        FEcount["54 JS files, browser-loaded via index.html script tags"]
     end
     FE -->|fetch /api/*| L_HTTP_Routes
     subgraph L_HTTP_Routes["HTTP Routes (11 modules)"]
@@ -331,57 +331,58 @@ Script load order, as declared in `frontend/index.html` (this is the frontend's 
 1. `js/pywebview_bridge.js?v=2`
 2. `js/dashboard_shared_helpers.js?v=2`
 3. `js/text_size.js?v=1`
-4. `js/api_client.js?v=2`
-5. `js/app_store.js?v=2`
-6. `js/navigation.js?v=4`
-7. `js/reports_ui.js?v=3`
-8. `js/planning_workbench_ui.js?v=3`
-9. `js/dashboard_decomp_estate_insurance.js?v=4`
-10. `js/dashboard_decomp_build_lifecycle.js?v=4`
-11. `js/dashboard_decomp_supplemental_tables.js?v=2`
-12. `js/dashboard_decomp_local_backups.js?v=1`
-13. `js/dashboard_decomp_monarch_autoupdate.js?v=1`
-14. `js/dashboard_decomp_row_model.js?v=3`
-15. `js/dashboard_decomp_assets_other.js?v=1`
-16. `js/dashboard_decomp_spending_taxonomy.js?v=2`
-17. `js/dashboard_decomp_spending_sources.js?v=2`
-18. `js/dashboard_decomp_spending_adjustments.js?v=1`
-19. `js/dashboard_decomp_housing_optimizer.js?v=2`
-20. `js/dashboard_decomp_housing_scenarios.js?v=1`
-21. `js/dashboard_decomp_build_history.js?v=1`
-22. `js/dashboard_decomp_page_recommendations.js?v=1`
-23. `js/dashboard_decomp_income_streams.js?v=1`
-24. `js/dashboard_decomp_large_discretionary.js?v=2`
-25. `js/dashboard_decomp_death_benefits.js?v=1`
-26. `js/dashboard_decomp_mc_stress_options.js?v=1`
-27. `js/dashboard_decomp_checklist_closeout.js?v=2`
-28. `js/dashboard_decomp_plan_switcher.js?v=1`
-29. `js/dashboard_decomp_conversion.js?v=1`
-30. `js/dashboard_decomp_allocation_optimizer.js?v=1`
-31. `js/dashboard_decomp_strategy_workspace.js?v=1`
-32. `js/dashboard_decomp_ytd_and_plan_folder_io.js?v=1`
-33. `js/dashboard_plan_folder_io.js?v=1`
-34. `js/dashboard_decomp_focus_restore.js?v=1`
-35. `js/dashboard_decomp_field_choice_help.js?v=1`
-36. `js/dashboard.js?v=63`
-37. `js/dashboard_decomp_workbook_formatting.js?v=2`
-38. `js/dashboard_decomp_plan_features.js?v=2`
-39. `js/dashboard_decomp_plan_tiers.js?v=1`
-40. `js/dashboard_decomp_rental_properties.js?v=1`
-41. `js/dashboard_decomp_monarch_reconciliation.js?v=1`
-42. `js/dashboard_decomp_tax_assumptions.js?v=1`
-43. `js/dashboard_decomp_roth_guardrails.js?v=1`
-44. `js/dashboard_decomp_misc.js?v=1`
-45. `js/dashboard_decomp_state_inputs.js?v=2`
-46. `js/dashboard_decomp_home_panels.js?v=2`
-47. `js/modules/phase3_module_manifest.js?v=2`
-48. `js/dashboard_source_truth_banners.js?v=2`
-49. `js/dashboard_decomp_optimizer_apply.js?v=1`
-50. `js/dashboard_batch_assumption_edit.js?v=2`
-51. `js/dashboard_decomp_holdings.js?v=1`
-52. `js/spending_dashboard.js?v=12`
+4. `js/help_glossary.js?v=1`
+5. `js/api_client.js?v=2`
+6. `js/app_store.js?v=2`
+7. `js/navigation.js?v=4`
+8. `js/reports_ui.js?v=3`
+9. `js/planning_workbench_ui.js?v=3`
+10. `js/dashboard_decomp_estate_insurance.js?v=4`
+11. `js/dashboard_decomp_build_lifecycle.js?v=4`
+12. `js/dashboard_decomp_supplemental_tables.js?v=2`
+13. `js/dashboard_decomp_local_backups.js?v=1`
+14. `js/dashboard_decomp_monarch_autoupdate.js?v=1`
+15. `js/dashboard_decomp_row_model.js?v=3`
+16. `js/dashboard_decomp_assets_other.js?v=1`
+17. `js/dashboard_decomp_spending_taxonomy.js?v=2`
+18. `js/dashboard_decomp_spending_sources.js?v=2`
+19. `js/dashboard_decomp_spending_adjustments.js?v=1`
+20. `js/dashboard_decomp_housing_optimizer.js?v=2`
+21. `js/dashboard_decomp_housing_scenarios.js?v=1`
+22. `js/dashboard_decomp_build_history.js?v=1`
+23. `js/dashboard_decomp_page_recommendations.js?v=1`
+24. `js/dashboard_decomp_income_streams.js?v=1`
+25. `js/dashboard_decomp_large_discretionary.js?v=2`
+26. `js/dashboard_decomp_death_benefits.js?v=1`
+27. `js/dashboard_decomp_mc_stress_options.js?v=1`
+28. `js/dashboard_decomp_checklist_closeout.js?v=2`
+29. `js/dashboard_decomp_plan_switcher.js?v=1`
+30. `js/dashboard_decomp_conversion.js?v=1`
+31. `js/dashboard_decomp_allocation_optimizer.js?v=1`
+32. `js/dashboard_decomp_strategy_workspace.js?v=1`
+33. `js/dashboard_decomp_ytd_and_plan_folder_io.js?v=1`
+34. `js/dashboard_plan_folder_io.js?v=1`
+35. `js/dashboard_decomp_focus_restore.js?v=1`
+36. `js/dashboard_decomp_field_choice_help.js?v=1`
+37. `js/dashboard.js?v=63`
+38. `js/dashboard_decomp_workbook_formatting.js?v=2`
+39. `js/dashboard_decomp_plan_features.js?v=2`
+40. `js/dashboard_decomp_plan_tiers.js?v=1`
+41. `js/dashboard_decomp_rental_properties.js?v=1`
+42. `js/dashboard_decomp_monarch_reconciliation.js?v=1`
+43. `js/dashboard_decomp_tax_assumptions.js?v=1`
+44. `js/dashboard_decomp_roth_guardrails.js?v=1`
+45. `js/dashboard_decomp_misc.js?v=1`
+46. `js/dashboard_decomp_state_inputs.js?v=2`
+47. `js/dashboard_decomp_home_panels.js?v=2`
+48. `js/modules/phase3_module_manifest.js?v=2`
+49. `js/dashboard_source_truth_banners.js?v=2`
+50. `js/dashboard_decomp_optimizer_apply.js?v=1`
+51. `js/dashboard_batch_assumption_edit.js?v=2`
+52. `js/dashboard_decomp_holdings.js?v=1`
+53. `js/spending_dashboard.js?v=12`
 
-All `.js` files found under `frontend/` (53):
+All `.js` files found under `frontend/` (54):
 
 - `frontend/js/admin.js`
 - `frontend/js/api_client.js`
@@ -429,6 +430,7 @@ All `.js` files found under `frontend/` (53):
 - `frontend/js/dashboard_plan_folder_io.js`
 - `frontend/js/dashboard_shared_helpers.js`
 - `frontend/js/dashboard_source_truth_banners.js`
+- `frontend/js/help_glossary.js`
 - `frontend/js/modules/phase3_module_manifest.js`
 - `frontend/js/navigation.js`
 - `frontend/js/planning_workbench_ui.js`

@@ -22,6 +22,7 @@ const FROZEN_SCRIPT_ORDER = [
   "js/pywebview_bridge.js",
   "js/dashboard_shared_helpers.js",
   "js/text_size.js",
+  "js/help_glossary.js",
   "js/api_client.js",
   "js/app_store.js",
   "js/navigation.js",
@@ -117,8 +118,8 @@ function definesOrWraps(src, sym) {
   return assign.test(stripped) || define.test(stripped);
 }
 
-test("index.html script list and order are frozen (52 module scripts)", () => {
-  assert.equal(scriptSrcs().length, 52);
+test("index.html script list and order are frozen (53 module scripts)", () => {
+  assert.equal(scriptSrcs().length, 53);
   assert.deepEqual(scriptSrcs(), FROZEN_SCRIPT_ORDER);
 });
 

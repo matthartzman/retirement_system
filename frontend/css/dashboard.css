@@ -1252,3 +1252,11 @@ header :where(a,button,input,select,textarea,summary,[tabindex]):focus-visible{o
   body.help-open main{grid-template-columns:310px minmax(0,1fr)}
   body.help-open aside.card.help{position:fixed;top:82px;right:0;bottom:0;width:min(370px,90vw);max-height:none;z-index:25;border-radius:0;box-shadow:-8px 0 30px rgba(0,0,0,.25)}
 }
+
+/* WI-033: plain-English help line and glossary terms under a page's help box. */
+.plain-help{padding:12px 16px;margin:0 20px 16px;background:#f3faf4;border:1px solid #bbf7d0;border-radius:12px;color:#14532d}
+.plain-help .plain-terms{margin:10px 0 0;border-color:#bbf7d0;background:#fff}
+.plain-help .plain-terms summary{background:#f3faf4;font-size:13px}
+.plain-help dl{margin:0;padding:6px 14px 10px}
+.plain-help dt{font-weight:800;margin-top:8px}
+.plain-help dd{margin:2px 0 0;color:#312f2a}

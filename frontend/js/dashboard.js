@@ -3426,7 +3426,7 @@ let renderMain = function() {
   let content = `<div class="pane-head"><div class="eyebrow">${_eyebrow}</div><div class="page-title-row"><h2>${esc(st.title)}</h2>${pageStatusHtml(st.id)}</div><p>${esc(addParentheticals(st.intro))}</p>${pageSaveModeHtml(st.id)}<div class="pane-actions"><button class="btn" type="button" data-step-id="planning_workbench">Compare & Decide</button>${primaryActionForStep(st.id)}`;
   if (st.id === "review")
     content += `<button class="btn good" data-requires-app="1" onclick="downloadWithBuild('/api/xlsx','Workbook')">Download Workbook</button>`;
-  content += `</div></div><div class="question"><b>${esc(st.desc)}</b>${esc(st.help)}${stepHelpLinkHtml(st)}</div>`;
+  content += `</div></div><div class="question"><b>${esc(st.desc)}</b>${esc(st.help)}${stepHelpLinkHtml(st)}</div>${window.plainHelpHtml ? window.plainHelpHtml(st.id) : ""}`;
   content += inactiveValuesPanel(activeStep);
   content += pageRecommendationsHtml(activeStep);
   if (SPENDING_WORKFLOW_INDEX[activeStep] !== undefined) {
