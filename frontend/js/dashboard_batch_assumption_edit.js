@@ -489,7 +489,7 @@
       currentStep() === "all_assumptions" &&
       !pane.querySelector('[data-roadmap12="batch-assumption-edit"]')
     ) {
-      const q = pane.querySelector(".question");
+      const q = pane.querySelector(".pane-head");
       if (q) q.insertAdjacentHTML("afterend", planBatchPanelHtml());
     }
     // Item 180: no system-config batch editor is injected on the Settings page.

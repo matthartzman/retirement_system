@@ -8,7 +8,7 @@ export function showConfigCardHelp(key) {
   if (window.RPHelp) window.RPHelp.pinned("config", key);
   if (!window.RPHelp || (ev && ev.type === "click")) ensureHelpPanelVisible();
   document.getElementById("helpPanel").innerHTML =
-    SYSTEM_CONFIG_FIELD_HELP[key] || STEP_HELP.system_configuration;
+    SYSTEM_CONFIG_FIELD_HELP[key] || window.RPHelp?.pageHtml("system_configuration") || "";
 }
 
 // ── Workbook download (Settings → Data & Maintenance → Workbook download) ──

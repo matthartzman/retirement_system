@@ -185,11 +185,12 @@ describe("page body", () => {
 });
 
 describe("wiring", () => {
-  test("the step is registered under Reports & Review, dispatched, helped and loaded", () => {
+  test("the step is registered under Reports & Review, dispatched, helped and loaded", async () => {
     const dash = read("dashboard.js");
     assert.match(dash, /id: "monarch_reconciliation",\s+group: "Reports & Review",\s+title: "Account Reconciliation"/);
     assert.match(dash, /activeStep === "monarch_reconciliation"\) content \+= renderMonarchReconciliation\(\)/);
-    assert.match(dash, /monarch_reconciliation: pageHelp\(/);
+    const { HELP_PAGES } = await import("../../frontend/js/help_registry.js");
+    assert.ok(HELP_PAGES.monarch_reconciliation.whatFor);
     const html = fs.readFileSync(path.join(JS, "..", "index.html"), "utf8");
     assert.match(html, /js\/dashboard_decomp_monarch_reconciliation\.js\?v=1/);
   });

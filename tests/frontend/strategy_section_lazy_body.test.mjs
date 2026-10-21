@@ -16,6 +16,7 @@
 import { test, describe, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { loadDashboardSandbox } from "./load_dashboard.mjs";
+import { HELP_PAGES } from "../../frontend/js/help_registry.js";
 
 const sandbox = loadDashboardSandbox();
 // Captured before the top-level beforeEach below stubs it out for the
@@ -318,16 +319,15 @@ describe("STEPS wiring for the four Strategy screens (ticket 323 + Workbench)", 
   const NEW_STEPS = ["strategy_optimize", "strategy_stress", "strategy_scenarios", "strategy_workbench"];
   const stepById = (id) => sandbox.window.STEPS.find((s) => s.id === id);
 
-  test("each new step is a Strategy-group nav entry with desc/intro/help", () => {
+  test("each new step is a Strategy-group nav entry with a registry summary", () => {
     const titles = { strategy_optimize: "Optimize", strategy_stress: "Stress Test", strategy_scenarios: "Scenarios", strategy_workbench: "Workbench" };
     for (const id of NEW_STEPS) {
       const step = stepById(id);
       assert.ok(step, `missing STEPS entry for ${id}`);
       assert.equal(step.group, "Strategy", id);
       assert.equal(step.title, titles[id], id);
-      assert.ok(step.desc, `${id} missing desc`);
-      assert.ok(step.intro, `${id} missing intro`);
-      assert.ok(step.help, `${id} missing help`);
+      assert.ok(HELP_PAGES[id]?.summary, `${id} missing registry summary (nav desc)`);
+      assert.equal(step.intro, undefined, `${id} still carries intro prose`);
     }
   });
 
@@ -349,14 +349,13 @@ describe("STEPS wiring for the four Strategy screens (ticket 323 + Workbench)", 
     assert.ok(sandbox.window.STEPS.every((s) => s.group !== "Stress Tests"));
   });
 
-  test("strategy_workbench is a Strategy-group nav entry with desc/intro/help", () => {
+  test("strategy_workbench is a Strategy-group nav entry with a registry summary", () => {
     const step = stepById("strategy_workbench");
     assert.ok(step, "missing STEPS entry for strategy_workbench");
     assert.equal(step.group, "Strategy");
     assert.equal(step.title, "Workbench");
-    assert.ok(step.desc, "strategy_workbench missing desc");
-    assert.ok(step.intro, "strategy_workbench missing intro");
-    assert.ok(step.help, "strategy_workbench missing help");
+    assert.ok(HELP_PAGES.strategy_workbench?.summary, "strategy_workbench missing registry summary");
+    assert.equal(step.intro, undefined);
   });
 
   test("planning_workbench and planning_levers are retired (WP1.1)", () => {

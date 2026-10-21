@@ -44,7 +44,7 @@ const JS_DIR = path.join(__dirname, "..", "..", "frontend", "js");
 const INDEX_HTML_PATH = path.join(__dirname, "..", "..", "frontend", "index.html");
 
 // dashboard.js's top-level code isn't just function declarations -- e.g.
-// `const STEP_HELP = {start: pageHelp(...), ...}` calls into
+// `SYSTEM_CONFIG_FIELD_HELP = {x: pageHelp(...), ...}` calls into
 // dashboard_decomp_row_model.js's exports (acronymDefinitionsHtml,
 // formatAcronyms) as bare identifiers, immediately, at module-evaluation
 // time. Real ES modules don't share scope, so that only resolves at all

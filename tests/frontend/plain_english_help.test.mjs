@@ -34,8 +34,7 @@ test("plainHelpHtml renders the summary and escapes text; unknown pages render n
   assert.equal(plainHelpHtml("no_such_page"), "");
 });
 
-test("dashboard.js calls the plain-help hook and index.html loads the module", () => {
-  assert.match(fs.readFileSync("frontend/js/dashboard.js", "utf8"), /window\.plainHelpHtml/);
+test("index.html loads the registry module", () => {
   assert.match(fs.readFileSync("frontend/index.html", "utf8"), /js\/help_registry\.js/);
 });
 
@@ -50,12 +49,29 @@ test("the pilot page has a full record and renders the fixed panel layout in ord
   assert.match(html, /<dt>Filing status<\/dt>/);
 });
 
-test("pages without a full record return null so STEP_HELP stays the fallback", () => {
-  const full = Object.keys(HELP_PAGES).filter((id) => HELP_PAGES[id].whatFor);
-  assert.deepEqual(full, ["household_people"]);
-  assert.equal(pageHelpHtml("holdings"), null);
+test("every page has a full record; the panel renders it, nothing falls back", () => {
+  const src = fs.readFileSync("frontend/js/dashboard.js", "utf8");
+  const block = src.slice(src.indexOf("const STEPS = ["), src.indexOf("\n];", src.indexOf("const STEPS = [")));
+  const ids = [...block.matchAll(/\n    id: "(\w+)"/g)].map((m) => m[1]);
+  assert.equal(ids.length, 28);
+  for (const id of ids) {
+    const p = HELP_PAGES[id];
+    for (const k of ["title", "summary", "whatFor", "connections", "options", "impact"]) assert.ok(p && p[k], `${id}.${k}`);
+    assert.ok(p.terms.length, `${id} has no glossary terms`);
+    assert.match(pageHelpHtml(id), /What this page is for/);
+  }
+  assert.equal(Object.keys(HELP_PAGES).length, ids.length);
   assert.equal(pageHelpHtml("no_such_page"), null);
-  assert.match(fs.readFileSync("frontend/js/dashboard.js", "utf8"), /RPHelp\?\.pageHtml\(id\) \|\| STEP_HELP\[id\] \|\| STEP_HELP\.start/);
+});
+
+test("the center panel renders no question box, intro line or inline plain-help box", () => {
+  const src = fs.readFileSync("frontend/js/dashboard.js", "utf8");
+  const head = src.slice(src.indexOf('<div class="pane-head">'), src.indexOf('<div class="pane-head">') + 700);
+  assert.doesNotMatch(head, /class="question"|st\.intro|st\.help|plainHelpHtml/);
+  const steps = src.slice(src.indexOf("const STEPS = ["), src.indexOf("\n];", src.indexOf("const STEPS = [")));
+  assert.doesNotMatch(steps, /\n    (intro|help|desc):/);
+  assert.doesNotMatch(src, /\bSTEP_HELP\b/);
+  assert.match(src, /RPHelp\?\.pageHtml\(id\)/);
 });
 
 test("every section record names a real page and renders with a way back to page help", () => {
@@ -65,4 +81,16 @@ test("every section record names a real page and renders with a way back to page
     assert.match(sectionHelpHtml(key), /openStepHelp\('household_people'\)/);
   }
   assert.equal(sectionHelpHtml("nope.nope"), null);
+});
+
+test("page help keeps the pointer to where HSA withdrawal timing is controlled", () => {
+  const all = Object.values(HELP_PAGES).map((p) => `${p.whatFor} ${p.connections} ${p.options} ${p.impact}`).join(" ");
+  assert.match(all, /HSA withdrawal timing is controlled on Other → Other assets/);
+});
+
+test("page help keeps the planning workbench record and the YTD import wording", () => {
+  assert.ok(HELP_PAGES.strategy_workbench.whatFor);
+  assert.match(HELP_PAGES.strategy_workbench.whatFor + HELP_PAGES.strategy_workbench.connections, /Baseline → Change Set → Run Type → Impact → Decision/);
+  const all = Object.values(HELP_PAGES).map((p) => `${p.whatFor} ${p.connections} ${p.options} ${p.impact}`).join(" ");
+  assert.match(all, /Add to merge new transactions/);
 });

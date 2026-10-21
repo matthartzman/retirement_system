@@ -63,7 +63,7 @@ def test_transactions_to_spending_sync_journey_invalidates_spending_model():
     routes = _plan_routes()
 
     assert 'id: "actual_spending"' in js  # ytd_transactions/spending_dashboard retired (WP1.1)
-    assert "Sync Actual Rate" in js
+    assert "Sync Actual Rate" in (Path(__file__).resolve().parents[1] / "frontend" / "js" / "help_registry.js").read_text(encoding="utf-8")  # page help text (help_registry.js)
     assert "async function saveYtdTransactions" in js
     assert "/api/ytd/transactions/bulk" in js
     assert "spendingData = null" in js

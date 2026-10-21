@@ -64,9 +64,9 @@ def test_field_finder_intro_desc_and_section_note_are_not_near_duplicates():
     read as redundant when shown stacked at the top of the page."""
     js = dashboard_js_text()
     assert 'id: "all_assumptions"' in js
-    step_start = js.index('id: "all_assumptions"')
-    step_block = js[step_start : step_start + 600]
-    assert "desc: \"Use when a value doesn't appear on its guided page.\"" in step_block
+    assert "desc:" not in js[js.index('id: "all_assumptions"') : js.index('id: "all_assumptions"') + 200]
+    registry = (Path(__file__).resolve().parents[1] / "frontend" / "js" / "help_registry.js").read_text(encoding="utf-8")
+    assert "Search for any plan value that you cannot find on a guided page." in registry
     assert "Every editable plan field in one place" not in js
     assert "Grouped by source page in guided-navigation order" not in js
     assert "Grouped by plan area, matching the left navigation" in js
