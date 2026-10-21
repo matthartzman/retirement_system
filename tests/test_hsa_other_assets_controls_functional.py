@@ -21,8 +21,7 @@ def test_hsa_withdrawal_timing_lives_on_other_assets_page():
     assert 'norm(r.label) === "hsa_withdrawal_start_year"\n        ? 0' in js
     assert 'case "assets_special":\n        return (\n          (sec === "Other Assets" && sub.startsWith("other_asset")) ||\n          (sec === "HSA Policy" && sub !== "window")' in js
     assert 'case "withdrawal_strategy":\n        return sec === "Withdrawal Policy" && sub !== "roth_conversion";' in js
-    registry = (Path(__file__).resolve().parents[1] / "frontend" / "js" / "help_registry.js").read_text(encoding="utf-8")
-    assert "HSA withdrawal timing is controlled on Other → Other assets" in registry
+    # the "controlled on Other → Other assets" pointer moved to the help registry (plain_english_help.test.mjs)
 
 
 def test_hsa_window_is_normalized_before_cashflow_projection():

@@ -82,3 +82,8 @@ test("every section record names a real page and renders with a way back to page
   }
   assert.equal(sectionHelpHtml("nope.nope"), null);
 });
+
+test("page help keeps the pointer to where HSA withdrawal timing is controlled", () => {
+  const all = Object.values(HELP_PAGES).map((p) => `${p.whatFor} ${p.connections} ${p.options} ${p.impact}`).join(" ");
+  assert.match(all, /HSA withdrawal timing is controlled on Other → Other assets/);
+});
