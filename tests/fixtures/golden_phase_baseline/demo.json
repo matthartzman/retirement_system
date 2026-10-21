@@ -12115,7 +12115,7 @@
   "lifetime_tax": 2121716.44,
   "mc_approximation_status": "TOLERANCE_BOUNDED",
   "mc_parity_tolerance_pp": 5.0,
-  "mc_success": 0.88,
+  "mc_success": 0.94,
   "mc_success_within_tier_policy": 1.0,
   "model_risk_label": "Tolerance-bounded vectorized Monte Carlo",
   "model_risk_rating": "TOLERANCE_BOUNDED_VECTORIZED_MC",
@@ -12127,7 +12127,7 @@
   "terminal_deferred_taxable_cap_gain_tax": 0.0,
   "terminal_estate_tax": 913040.86,
   "terminal_nw": 13829713.26,
-  "terminal_nw_mc_p5": 6899860.9,
+  "terminal_nw_mc_p5": 7687703.29,
   "terminal_pretax_nw": 1688128.82,
   "terminal_roth_nw": 4326067.83,
   "terminal_taxable_basis_est": 2642469.24,
@@ -12678,7 +12678,7 @@
    ],
    [
     "Worst-Case Ending Wealth (5th %ile)",
-    6899860.9,
+    7687703.29,
     null,
     null,
     null,
@@ -12708,7 +12708,7 @@
    ],
    [
     "MC Success 95% CI Low",
-    0.64,
+    0.72,
     null,
     null,
     null,
@@ -12718,7 +12718,7 @@
    ],
    [
     "MC Success 95% CI High",
-    0.97,
+    0.99,
     null,
     null,
     null,
@@ -17436,7 +17436,7 @@
     "7-section MC report: 16 sims, 5 quintiles, 25-cell sensitivity",
     null,
     "PASS",
-    "Funding success=87.5%, P50 liquid end=$20,086,431",
+    "Funding success=93.8%, P50 liquid end=$16,673,386",
     null,
     null,
     null
