@@ -592,8 +592,9 @@ DASHBOARD_JS_MAX_LINES = 7_134
 # section and field help records for the Household & People pilot, the panel's follow-focus /
 # default-open / remembered-close logic and its "?" openers -- plus the showStepHelp/showFieldHelp
 # hooks and the pilot page's section wrappers, +227). STEP_HELP stays as the fallback until
-# Phase 2 moves the remaining pages. New behavior, not duplication: raised to the measured 40,446.
-TOTAL_JS_MAX_LINES = 40_446
+# Phase 2 moves the remaining pages; showConfigCardHelp opens the panel on click, not focus, +5).
+# New behavior, not duplication: raised to the measured 40,451.
+TOTAL_JS_MAX_LINES = 40_451
 
 
 def _line_count(path: Path) -> int:

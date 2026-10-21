@@ -1,7 +1,12 @@
 // Extracted from dashboard.js by tools/js_codemod/extract_module.mjs.
 
 export function showConfigCardHelp(key) {
-  ensureHelpPanelVisible();
+  // Contextual help Phase 1: these cards call this on focus AND click. Opening the closed panel on
+  // focus (mousedown) reflows the grid mid-click, so the button moves and the click is lost; focus
+  // updates the panel text only and a click opens it, as with field help.
+  const ev = window.event;
+  if (window.RPHelp) window.RPHelp.pinned("config", key);
+  if (!window.RPHelp || (ev && ev.type === "click")) ensureHelpPanelVisible();
   document.getElementById("helpPanel").innerHTML =
     SYSTEM_CONFIG_FIELD_HELP[key] || STEP_HELP.system_configuration;
 }
