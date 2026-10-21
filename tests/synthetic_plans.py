@@ -189,7 +189,9 @@ def _single_filer_plan() -> Dict[str, Any]:
 
 
 def _thin_portfolio_plan(*, member_1_dies_year: int | None = None,
-                         member_2_dies_year: int | None = None) -> Dict[str, Any]:
+                         member_2_dies_year: int | None = None,
+                         balance_scale: float = 0.35,
+                         annual_base: float = 150_000.0) -> Dict[str, Any]:
     """A household whose portfolio cannot fund its spending to the horizon.
 
     Account balances are cut to 35% of the standard set while spending is raised
@@ -203,9 +205,9 @@ def _thin_portfolio_plan(*, member_1_dies_year: int | None = None,
     given calendar year, pairing the shortfall with a survivor transition.
     """
     plan = base_plan()
-    plan["accounts"] = [dict(a, balance=round(a["balance"] * 0.35, 2)) for a in _accounts()]
+    plan["accounts"] = [dict(a, balance=round(a["balance"] * balance_scale, 2)) for a in _accounts()]
     plan["assumptions"] = dict(plan["assumptions"], return_rate=0.04)
-    plan["spending"] = dict(plan["spending"], annual_base=150_000.0)
+    plan["spending"] = dict(plan["spending"], annual_base=annual_base)
     members = [dict(m) for m in plan["members"]]
     if member_1_dies_year is not None:
         members[0]["mortality_age"] = member_1_dies_year - members[0]["dob_year"]

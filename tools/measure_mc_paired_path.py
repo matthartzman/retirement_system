@@ -42,7 +42,14 @@ def build_config(shape: str, regime: str, n: int) -> dict:
     from tests.paired_path_harness import prepare_mc_config
     from tests.synthetic_plans import SCENARIOS
 
-    sc = SCENARIOS[shape]
+    if shape.startswith("pressure:"):
+        # "pressure:<balance_scale>:<annual_base>" -- a household between solvent and depleted.
+        from tests.synthetic_plans import Scenario, _thin_portfolio_plan
+        _, scale, spend = shape.split(":")
+        sc = Scenario(shape, "intermediate pressure",
+                      plan=lambda: _thin_portfolio_plan(balance_scale=float(scale), annual_base=float(spend)))
+    else:
+        sc = SCENARIOS[shape]
     plan = sc.plan()
     plan["assumptions"]["roth_policy"] = regime
     c = ensure_engine_config(build_plan_from_json(plan, ""), source="synthetic")
