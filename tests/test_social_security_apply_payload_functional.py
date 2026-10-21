@@ -85,7 +85,7 @@ def test_h_is_member_one_and_w_is_member_two():
     assert payload["recommended_member_1_claim_age"] == 62
     assert payload["recommended_member_2_claim_age"] == 70
 
-    src = (ROOT / "src" / "data_io.py").read_text(encoding="utf-8")
+    src = (ROOT / "src" / "data_io.py").read_text(encoding="utf-8") + (ROOT / "src" / "parsing" / "client_sections.py").read_text(encoding="utf-8")
     h_pia = re.search(r"c\['h_ss_pia'\]\s*=.*?'Social Security','([^']+)'", src)
     w_pia = re.search(r"c\['w_ss_pia'\]\s*=.*?'Social Security','([^']+)'", src)
     assert h_pia and w_pia, "data_io.py's h_/w_ Social Security mapping was not found"
