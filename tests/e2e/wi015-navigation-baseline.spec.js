@@ -42,12 +42,22 @@ test('navigation baseline: every step renders the same heading and no errors', a
     await page.evaluate((id) => window.setStep(id), stepId);
     const pane = page.locator('#mainPane');
     await expect(pane).not.toBeEmpty();
-    const heading = await pane
-      .locator('h1, h2, h3')
-      .first()
-      .innerText()
-      .then((t) => t.trim().replace(/\s+/g, ' '))
-      .catch(() => null);
+    // The pane re-renders asynchronously after setStep; reading the heading at once can return the
+    // previous step's heading. Take it once it is stable across two reads.
+    const readHeading = () =>
+      pane
+        .locator('h1, h2, h3')
+        .first()
+        .innerText()
+        .then((t) => t.trim().replace(/\s+/g, ' '))
+        .catch(() => null);
+    let heading = await readHeading();
+    for (let i = 0; i < 20; i++) {
+      await page.waitForTimeout(150);
+      const again = await readHeading();
+      if (again === heading) break;
+      heading = again;
+    }
     const text = await pane.innerText();
     steps.push({
       stepId,

@@ -83,9 +83,9 @@ def test_state_brackets_do_not_shift_with_reference_year(probes):
         assert probes[ref]["ny_tax_2030"] == pytest.approx(probes["2026"]["ny_tax_2030"])
 
 
-def test_ca_brackets_tagged_with_their_2024_value_year():
+def test_ca_brackets_tagged_with_their_value_year():
     from src.core import _STATE_INCOME_BRACKETS_VALUE_YEARS
-    assert _STATE_INCOME_BRACKETS_VALUE_YEARS["California"] == 2024
+    assert _STATE_INCOME_BRACKETS_VALUE_YEARS["California"] == 2025  # WI-027: FTB 2025 schedule carried forward (provisional)
 
 
 def test_dataset_salt_rows_do_not_overlap():

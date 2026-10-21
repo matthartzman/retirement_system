@@ -20,6 +20,7 @@ from ..planning_engines import (
     state_income_tax,
 )
 from ..core import state_for_year, state_retirement_exclusion_count
+from ..tax_law import default_tax_law_dataset
 from .home_sale import resolve_home_sale_gain_tax as _resolve_home_sale_gain_tax
 from .spending_tiers import compute_spend_by_tier as _compute_spend_by_tier
 
@@ -600,14 +601,17 @@ def apply_agi_and_tax(
         if _sl_int > 0.0:
             _sl_f = str(filing or 'MFJ').upper()
             if not _sl_f.startswith('MFS') and 'SEPARATE' not in _sl_f:
-                _sl_lo, _sl_hi = (165000.0, 195000.0) if (_sl_f.startswith('MFJ') or _sl_f.startswith('MARRIED') or _sl_f.startswith('Q')) else (80000.0, 95000.0)
+                _sl_key = 'MFJ' if (_sl_f.startswith('MFJ') or _sl_f.startswith('MARRIED') or _sl_f.startswith('Q')) else 'Single'
+                _sl_ds = default_tax_law_dataset()
+                _sl_lo = _sl_ds.indexed_value('student_loan_interest_phaseout_start', year, c['brk_inf'], filing_status=_sl_key)
+                _sl_hi = _sl_ds.indexed_value('student_loan_interest_phaseout_end', year, c['brk_inf'], filing_status=_sl_key)
                 if agi_pre_slid <= _sl_lo:
                     _sl_phase = 1.0
                 elif agi_pre_slid >= _sl_hi:
                     _sl_phase = 0.0
                 else:
                     _sl_phase = 1.0 - (agi_pre_slid - _sl_lo) / (_sl_hi - _sl_lo)
-                student_loan_int_ded = min(_sl_int, 2500.0) * _sl_phase
+                student_loan_int_ded = min(_sl_int, _sl_ds.latest_value('student_loan_interest_max_deduction').value) * _sl_phase
     row['student_loan_interest_deduction'] = student_loan_int_ded
     agi = max(0.0, agi_pre_slid - student_loan_int_ded)
     irmaa_magi_current = agi + portfolio_tax_exempt

@@ -291,6 +291,14 @@ Model Constants,Retirement,member_1_rmd_start_age,standard
 Model Constants,Retirement,member_2_rmd_start_age,standard
 Reporting,Output,real_dollar_reporting_enabled,simple
 Withdrawal Policy,Roth Conversion,roth_tax_discount_rate,expert
+Withdrawal Policy,Early Distributions Member 1,separation_year,standard
+Withdrawal Policy,Early Distributions Member 1,disability_start_year,standard
+Withdrawal Policy,Early Distributions Member 1,sepp_start_year,standard
+Withdrawal Policy,Early Distributions Member 1,sepp_annual_amount,standard
+Withdrawal Policy,Early Distributions Member 2,separation_year,standard
+Withdrawal Policy,Early Distributions Member 2,disability_start_year,standard
+Withdrawal Policy,Early Distributions Member 2,sepp_start_year,standard
+Withdrawal Policy,Early Distributions Member 2,sepp_annual_amount,standard
 Estate Planning,Legacy,legacy_floor,standard
 Estate Planning,Federal,portability_enabled,standard
 Estate Planning,Step-Up,property_regime,standard

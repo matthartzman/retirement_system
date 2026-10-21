@@ -95,6 +95,7 @@ class Priority3Result(NamedTuple):
     marg: float | None
     ira_taxable_inc_orig: float | None
     ira_retirement_dist_orig: float | None
+    early_dist_tax: float = 0.0
 
 
 class Priority4bResult(NamedTuple):
@@ -116,6 +117,7 @@ class Priority4bResult(NamedTuple):
     w_ira_elective: float
     pretax_by_account: dict
     ira_tax_true_up_iterations: int
+    early_dist_tax: float = 0.0
 
 
 class _TrueUpLoopResult(NamedTuple):
@@ -127,6 +129,7 @@ class _TrueUpLoopResult(NamedTuple):
     w_ira_elective: float
     pretax_by_account: dict
     true_up_iterations: int
+    extra_tax: float = 0.0
 
 
 def apply_priority_3_pretax_elective(
@@ -165,6 +168,9 @@ def apply_priority_3_pretax_elective(
     # the 25% cap on unrecaptured 1250 gain and state tax on the long-term gain).
     # 0.0 for every plan without Rental Properties, so the sums are unchanged.
     other_fixed_tax: float = 0.0,
+    # WI-039 / FIN-004: tax (10% additional tax on early distributions) on the cumulative
+    # pre-tax draws by account; None when the plan has no early-distribution exposure.
+    early_dist_tax_fn: Callable[[dict], float] | None = None,
 ) -> Priority3Result:
     """Withdrawal Cascade sub-stage #4 (design doc addendum): Priority 3,
     the pre-tax elective withdrawal (bracket-capped), lines ~1097-1212.
@@ -183,6 +189,7 @@ def apply_priority_3_pretax_elective(
     ira_wd = 0.0
     pretax_by_account: dict[str, float] = {}
     ira_tax_true_up_iterations = 0
+    early_dist_tax = 0.0
     # Pristine pre-cascade baselines for the ordinary-tax true-up helper.
     # The helper's contract is new_tax = tax_fn(baseline + cumulative
     # ira_wd); agi/taxable_inc get mutated in place below (Priority 3's
@@ -232,6 +239,7 @@ def apply_priority_3_pretax_elective(
             nonqual_ann=nonqual_ann, roth_conv=roth_conv, h_over_65=h_over_65,
             tax_delta_fn=ira_elective_tax_delta_fn,
             on_increment=None,
+            extra_tax_fn=early_dist_tax_fn,
         )
         gap = _loop.gap
         fed_tax = _loop.fed_tax
@@ -241,12 +249,13 @@ def apply_priority_3_pretax_elective(
         w_ira_elective = _loop.w_ira_elective
         pretax_by_account = _loop.pretax_by_account
         ira_tax_true_up_iterations = _loop.true_up_iterations
+        early_dist_tax = _loop.extra_tax
 
         if ira_wd > 0:
             agi += ira_wd
             taxable_inc += ira_wd
             irmaa_magi_current += ira_wd
-            total_tax_pre_niit = fed_tax + state_tax + payroll_tax + irmaa_yr + other_fixed_tax
+            total_tax_pre_niit = fed_tax + state_tax + payroll_tax + irmaa_yr + other_fixed_tax + early_dist_tax
     row['_pretax_elective_by_account'] = pretax_by_account
     for _aid, _amt in pretax_by_account.items():
         _add_account_flow(row['_account_withdrawals'], _aid, _amt)
@@ -285,6 +294,7 @@ def apply_priority_3_pretax_elective(
         marg=marg,
         ira_taxable_inc_orig=ira_taxable_inc_orig,
         ira_retirement_dist_orig=ira_retirement_dist_orig,
+        early_dist_tax=early_dist_tax,
     )
 
 
@@ -339,6 +349,8 @@ def apply_priority_4b_final_pretax_draw(
     # the 25% cap on unrecaptured 1250 gain and state tax on the long-term gain).
     # 0.0 for every plan without Rental Properties, so the sums are unchanged.
     other_fixed_tax: float = 0.0,
+    early_dist_tax_fn: Callable[[dict], float] | None = None,
+    early_dist_tax_in: float = 0.0,
 ) -> Priority4bResult:
     """Withdrawal Cascade sub-stage #7 (design doc addendum): Priority 4b,
     the final pre-tax draw before any Roth withdrawal (cap override),
@@ -444,6 +456,8 @@ def apply_priority_4b_final_pretax_draw(
                 _add_account_flow(row['_account_withdrawals'], _aid, _amt)
                 for _aid, _amt in by_account.items()
             ],
+            extra_tax_fn=early_dist_tax_fn,
+            extra_tax_included=early_dist_tax_in,
         )
         gap = _loop.gap
         fed_tax = _loop.fed_tax
@@ -453,13 +467,14 @@ def apply_priority_4b_final_pretax_draw(
         w_ira_elective = _loop.w_ira_elective
         pretax_by_account = _loop.pretax_by_account
         ira_tax_true_up_iterations = _loop.true_up_iterations
+        early_dist_tax_in = _loop.extra_tax
 
         if ira_wd > ira_wd_before_p4b:
             p4b_wd = ira_wd - ira_wd_before_p4b
             agi += p4b_wd
             taxable_inc += p4b_wd
             irmaa_magi_current += p4b_wd
-            total_tax_pre_niit = fed_tax + state_tax + payroll_tax + irmaa_yr + other_fixed_tax
+            total_tax_pre_niit = fed_tax + state_tax + payroll_tax + irmaa_yr + other_fixed_tax + early_dist_tax_in
 
         row['_pretax_elective_by_account'] = dict(pretax_by_account)
         row['ira_wd'] = ira_wd
@@ -504,6 +519,7 @@ def apply_priority_4b_final_pretax_draw(
         w_ira_elective=w_ira_elective,
         pretax_by_account=pretax_by_account,
         ira_tax_true_up_iterations=ira_tax_true_up_iterations,
+        early_dist_tax=early_dist_tax_in,
     )
 
 
@@ -539,6 +555,8 @@ def _run_ira_tax_true_up_loop(
     h_over_65: int,
     tax_delta_fn: Callable[..., tuple],
     on_increment: Callable[[dict], None] | None,
+    extra_tax_fn: Callable[[dict], float] | None = None,
+    extra_tax_included: float = 0.0,
 ) -> _TrueUpLoopResult:
     """Shared fixed-point loop used by both Priority 3 (#4) and Priority 4b
     (#7): bounded by ``max_iters``, early ``break`` on a negligible delta,
@@ -566,8 +584,13 @@ def _run_ira_tax_true_up_loop(
             fed_tax, state_tax, baseline_taxable_inc, baseline_retirement_dist, ira_wd, year, filing,
             ss_taxable, earned_net, investment_inc, nonqual_ann, roth_conv, h_over_65,
         )
+        # WI-039: the 10% additional tax on early distributions is a separate tax term (never folded
+        # into fed_tax); its increment on the cumulative draws is funded like any other tax.
+        extra_new = extra_tax_fn(pretax_by_account) if extra_tax_fn is not None else 0.0
+        delta_tax += extra_new - extra_tax_included
         if delta_tax <= 1e-6:
             break
+        extra_tax_included = extra_new
         true_up_iterations += 1
         fed_tax, state_tax = new_fed_tax, new_state_tax
         gap += delta_tax
@@ -603,8 +626,11 @@ def _run_ira_tax_true_up_loop(
         fed_tax, state_tax, baseline_taxable_inc, baseline_retirement_dist, ira_wd, year, filing,
         ss_taxable, earned_net, investment_inc, nonqual_ann, roth_conv, h_over_65,
     )
+    settle_extra = extra_tax_fn(pretax_by_account) if extra_tax_fn is not None else 0.0
+    settle_delta += settle_extra - extra_tax_included
     if settle_delta > 1e-6:
         fed_tax, state_tax = settle_fed_tax, settle_state_tax
+        extra_tax_included = settle_extra
         gap += settle_delta
 
     return _TrueUpLoopResult(
@@ -616,6 +642,7 @@ def _run_ira_tax_true_up_loop(
         w_ira_elective=w_ira_elective,
         pretax_by_account=pretax_by_account,
         true_up_iterations=true_up_iterations,
+        extra_tax=extra_tax_included,
     )
 
 

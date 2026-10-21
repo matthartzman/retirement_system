@@ -57,7 +57,7 @@
  },
  {
   "state": "North Carolina",
-  "rate": "4.50%",
+  "rate": "3.99%",
   "type": "flat",
   "exempt_retirement": "FALSE",
   "exempt_ss": "TRUE",
@@ -66,7 +66,7 @@
   "estate": "FALSE",
   "estate_exempt": "0",
   "retirement_exempt_over_65": "0",
-  "source": "NC GS §105-153.7",
+  "source": "NC GS §105-153.7; NCDOR Tax Rate Schedules (3.99% for taxable years after 2025; reviewed 2026-10-20)",
   "estate_calc": "none"
  },
  {
@@ -134,14 +134,14 @@
   "prop_rate": "1.68%",
   "sales_rate": "8.00%",
   "estate": "TRUE",
-  "estate_exempt": "6940000",
+  "estate_exempt": "7350000",
   "retirement_exempt_over_65": "20000",
-  "source": "NY Tax Law §601; §612(c)(3-a); §952 (graduated estate rate table); §954(a)(3) (3-year gift add-back)",
+  "source": "NY Tax Law §601 (2026 schedule; reviewed 2026-10-20); NY DTF estate tax basic exclusion 7350000 per decedent (no state portability); §612(c)(3-a); §952 (graduated estate rate table); §954(a)(3) (3-year gift add-back)",
   "estate_calc": "ny_graduated_cliff"
  },
  {
   "state": "Indiana",
-  "rate": "3.05%",
+  "rate": "2.95%",
   "type": "flat",
   "exempt_retirement": "FALSE",
   "exempt_ss": "TRUE",
@@ -150,7 +150,7 @@
   "estate": "FALSE",
   "estate_exempt": "0",
   "retirement_exempt_over_65": "0",
-  "source": "IN Department of Revenue flat individual income tax; verify current local/county rates separately",
+  "source": "IN Department of Revenue flat individual income tax (2.95% for 2026; reviewed 2026-10-20); county income taxes are separate and not included",
   "estate_calc": "none"
  },
  {

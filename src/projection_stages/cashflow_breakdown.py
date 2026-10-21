@@ -133,6 +133,12 @@ def compute_cashflow_breakdown(row: dict[str, Any]) -> tuple[dict[str, Any], flo
         cashflow_breakdown['tax']['ltcg'] = ltcg_tax - home_sale_tax - rental_ltcg_tax
         cashflow_breakdown['tax']['rental_sale'] = rental_ltcg_tax + rental_tax_adj
         cashflow_breakdown['tax']['other'] = total_tax - tax_named - rental_tax_adj
+    # WI-039: the 10% additional tax on early distributions, only in years it applies; it is a named
+    # component, so 'other' (the residual) excludes it and the itemization still sums to total_tax.
+    early_dist_tax = row.get('early_dist_tax', 0.0)
+    if early_dist_tax:
+        cashflow_breakdown['tax']['early_distribution'] = early_dist_tax
+        cashflow_breakdown['tax']['other'] -= early_dist_tax
     gross_cash_flow_yr = (
         sum(cashflow_breakdown['income'].values())
         + sum(cashflow_breakdown['draws'].values())

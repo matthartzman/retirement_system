@@ -63,6 +63,7 @@ def _client_data_csv_paths(path):
     return paths
 
 from . import taxes as _td  # consolidated from tax_data
+from .tax_law import default_tax_law_dataset as _default_tax_law_dataset
 from .money import decimal_from_user_value as _money_decimal, strict_float as _strict_float
 import logging as _logging
 _log = _logging.getLogger(__name__)
@@ -825,6 +826,15 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     # engine auto-derives FRA from date of birth via the SSA birth-year table.
     c['w_fra_age'] = _n(_v(data,'Social Security','Member 2','fra_age','0'), 0) or None
     c['h_fra_age'] = _n(_v(data,'Social Security','Member 1','fra_age','0'), 0) or None
+    # WI-039 / FIN-004: per-owner 72(t) exception inputs (blank / 0 = none).
+    c['early_dist_exceptions'] = {
+        idx: {
+            'separation_year': int(_n(_v(data, 'Withdrawal Policy', f'Early Distributions Member {idx + 1}', 'separation_year', '0'), 0) or 0),
+            'disability_year': int(_n(_v(data, 'Withdrawal Policy', f'Early Distributions Member {idx + 1}', 'disability_start_year', '0'), 0) or 0),
+            'sepp_year': int(_n(_v(data, 'Withdrawal Policy', f'Early Distributions Member {idx + 1}', 'sepp_start_year', '0'), 0) or 0),
+            'sepp_amount': float(_n(_v(data, 'Withdrawal Policy', f'Early Distributions Member {idx + 1}', 'sepp_annual_amount', '0'), 0) or 0.0),
+        } for idx in (0, 1)
+    }
     c['w_ss_claim_monthly'] = c['w_ss_benefit_table'].get(max(62, min(70, c['w_ss_claim_age'])), 0.0)
     c['h_ss_claim_monthly'] = c['h_ss_benefit_table'].get(max(62, min(70, c['h_ss_claim_age'])), 0.0)
     c['w_ss70']    = c['w_ss_benefit_table'].get(70, c['w_ss_claim_monthly'])
@@ -1292,7 +1302,7 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     c.update(parse_roth_conversion_policy(data))
 
     # Estate
-    c.update(parse_estate_planning(data))
+    c.update(parse_estate_planning(data, household_size=c.get('household_size')))
 
     # Forced Actions — supports normalized Roth Conversion N rows:
     # source_account / year / amount. Legacy date-subsection rows still parse.
@@ -2437,7 +2447,8 @@ def build_plan_from_json(plan, url_template=''):
     c['tax_table_currency_warnings'] = _td.tax_table_currency_warnings(max_lag_years=int(c.get('tax_table_currency_max_lag_years', 1) or 1))
 
     # ── Estate ────────────────────────────────────────────────────────────
-    c['fed_exempt']    = plan.get('estate_federal_exemption', 30000000)
+    _fed_per_person = _default_tax_law_dataset().latest_value('federal_estate_basic_exclusion').value
+    c['fed_exempt']    = plan.get('estate_federal_exemption', _fed_per_person * (1 if c['household_size'] == 1 else 2))
     c['state_exempt']  = plan.get('estate_state_exemption', 4000000)
     c['gift_exclusion'] = 19000; c['basis_stepup'] = True
     c['state_estate']  = True; c['gifting_plan'] = {}

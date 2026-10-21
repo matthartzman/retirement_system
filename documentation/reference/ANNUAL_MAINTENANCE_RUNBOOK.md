@@ -59,6 +59,18 @@ place mislabels its value year and silently mis-indexes every later year.
      and `irmaa_tier1..5_part_d_surcharge_monthly`
    - `part_b_base_premium_monthly` and `part_d_base_premium_monthly`
    - `ss_wage_base`
+   - AMT (WI-027): `amt_exemption`, `amt_phaseout_start`, `amt_phaseout_rate`, `amt_rate_break`
+     (Rev. Proc. sec. 4.10; add one row per filing status MFJ, Single, MFS)
+   - `qlac_premium_limit` and `qcd_annual_limit` (IRS annual cost-of-living notice; the QLAC limit
+     can stay unchanged from one year to the next)
+   - `student_loan_interest_phaseout_start`, `student_loan_interest_phaseout_end` (MFJ and Single;
+     Rev. Proc. sec. 4.29) and `student_loan_interest_max_deduction` (statutory $2,500)
+   - Social Security earnings test (WI-040): `ss_earnings_test_annual_limit`,
+     `ss_earnings_test_fra_year_limit`, `ss_earnings_test_rate`, `ss_earnings_test_fra_year_rate`
+     (SSA COLA fact sheet each autumn; add a new dated row, never overwrite)
+   - `early_distribution_additional_tax_rate` (WI-039; statutory 10% under IRC 72(t), not indexed: confirm
+     no change each year)
+   - `federal_estate_basic_exclusion` (per person; Rev. Proc. estate section)
    - `salt_cap`, `salt_phasedown_threshold`, `salt_phasedown_growth` (the cap is
      keyed to absolute statutory years -- extend the schedule when law changes)
    - ACA premium tax credit (WI-307): `aca_enhanced_subsidies_through_year`
