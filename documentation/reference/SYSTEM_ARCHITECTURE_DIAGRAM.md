@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 269 Python files under `src/`, 55 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 270 Python files under `src/`, 55 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -24,7 +24,7 @@ flowchart TB
     subgraph L_HTTP_Runtime["HTTP Runtime (4 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
-    subgraph L_Core_Engine___Domain["Core Engine & Domain (182 modules)"]
+    subgraph L_Core_Engine___Domain["Core Engine & Domain (183 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
     subgraph L_Projection_Stages["Projection Stages (24 modules)"]
@@ -532,6 +532,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/engine_defaults.py` | — | — |
 | `src/engine_sections/__init__.py` | — | — |
 | `src/engine_sections/monte_carlo.py` | `after_tax`, `planning_engines` | — |
+| `src/engine_sections/monte_carlo_headline.py` | `after_tax`, `planning_engines`, `spending_budget_resolver` | — |
 | `src/engine_sections/roth_conversion.py` | `planning_engines` | — |
 | `src/equity_comp.py` | — | — |
 | `src/fallback_log.py` | — | — |
@@ -621,7 +622,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/plan_label_rules.py` | — | — |
 | `src/plan_overrides.py` | `allocation_policy`, `optimization` | — |
 | `src/plan_registry.py` | `active_plan`, `plan_db_replace` | — |
-| `src/planning_engines.py` | `after_tax`, `core`, `data_io`, `engine_sections.monte_carlo`, `engine_sections.roth_conversion`, `fallback_log`, `hsa_schedule`, `observability`, `optimization`, `person_labels`, `plan_config`, `projection_stages`, `spending_budget_resolver`, `stores.ref_getters.mortality_real_loss`, `tax_kernel`, `tax_law`, `vectorized_fast_core` | `numpy` |
+| `src/planning_engines.py` | `after_tax`, `core`, `data_io`, `engine_sections.monte_carlo`, `engine_sections.monte_carlo_headline`, `engine_sections.roth_conversion`, `fallback_log`, `hsa_schedule`, `observability`, `optimization`, `person_labels`, `plan_config`, `projection_stages`, `spending_budget_resolver`, `stores.ref_getters.mortality_real_loss`, `tax_kernel`, `tax_law`, `vectorized_fast_core` | `numpy` |
 | `src/planning_workbench.py` | — | — |
 | `src/platform_runtime.py` | `active_plan`, `app_state` | — |
 | `src/portfolio_analytics.py` | `config_backend`, `csv_exchange`, `plan_datasets`, `sqlite_util`, `stores.ref_getters.security_master` | — |
