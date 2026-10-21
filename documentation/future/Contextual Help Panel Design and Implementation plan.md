@@ -1,6 +1,6 @@
 # Contextual Help Panel: move all explanation to the right panel
 
-Status: planned, decisions accepted (nothing built; extends WI-033 — see `WI-033_plain_english_help_review.md` and `WI-033_glossary_draft.md`. Counts below are from code searches on 2026-10-20 and are replaced by measured counts in Phase 0).
+Status: planned, decisions accepted (Phase 0 inventory done: see `ui_prose_inventory_summary.md`; Phases 1 to 5 not built; extends WI-033 — see `WI-033_plain_english_help_review.md` and `WI-033_glossary_draft.md`. Counts below are from code searches on 2026-10-20 and are replaced by measured counts in Phase 0).
 
 ## 1. Context and problem
 
@@ -52,6 +52,7 @@ A string is class D when it adds no incremental information over another string 
 - Fold any extra fact from the deleted string into the survivor before deleting; never lose information, only repetition.
 - A string that restates the label, the page title, or the obvious effect of the control ("Enter the amount" under "Amount") is class D.
 - Partial overlap: keep only the non-overlapping part.
+- Page-level strings are merged by synthesis, not deleted pairwise: strings that carry different facts are combined into one record and rationalized (see 5, Phase 2). D is used for pure repetition only.
 - When unsure, mark it D with a note in the Phase 0 CSV (`merged_into` column); the reviewer reverses a call there, so every deletion is traceable and reversible before code changes.
 
 Rejected alternatives:
@@ -102,10 +103,19 @@ Effort is stated against a 5-hour Claude Code Pro session. Check `/usage` as eac
 - Exit: panel shows page, section and field help from the registry on a pilot page (Household & People); other pages unchanged.
 
 ### Phase 2: page level (Sonnet, high; moderate)
-- Move `intro`, `help` and `STEP_HELP` content into `HELP_PAGES` for all 28 pages; remove the `intro` line and "question" box from the center (`renderMain` at the `pane-head` / `question` render); change the nav `desc` source.
-- Delete class D strings under the 3.1 rule, including near-duplicates with different wording, while merging; fold any unique fact into the survivor.
+Phase 0 measured 284 page-level strings (STEPS `desc` / `intro` / `help` for 28 pages, plus `pageHelp` arguments for 43 STEP_HELP keys). The automated duplicate pass found only 6, because the sources for one page mostly carry different facts. They are therefore merged by synthesis, one record per page.
+
+- **Synthesize per page, all 28.** For each page, take every source (`desc`, `intro`, `help`, `pageHelp` meaning / connections / options / impact, and the WI-033 plain summary) and write one `HELP_PAGES[id]` record:
+  - `summary`: the WI-033 plain one-liner; the nav `desc` is derived from it.
+  - `whatFor`: `intro` plus `meaning`.
+  - `connections`, `options`, `impact`: the matching `pageHelp` arguments, with `help` folded into whichever slot it fits.
+  - A fact stated in several sources is written once; survivor order is the 3.1 order (most information, nearest the reader, plainest wording).
+- **Fact ledger.** Each page's draft lists every source sentence with a fate: kept, merged into a named slot, or dropped as repetition. A script checks that every number, percent, age, proper noun and glossary term in the sources still appears in the merged record and flags any that do not.
+- **Review in batches.** Show each page as sources beside the merged record with ledger flags: first the 11 pre-build pages (this overlaps the WI-033 read-through), then batches of 4 or 5 pages until all 28 are reviewed. Sonnet drafts, the reviewer edits, then the record is applied.
+- **Inventory trace.** Add a `slot` column to `ui_prose_inventory.csv` (for example `HELP_PAGES[income_work].impact`). Every page-level row must land in a slot or be marked D, so the check is mechanical. Rows keep class A with `merged_into` set until the code change.
+- Remove the `intro` line and "question" box from the center (`renderMain` at the `pane-head` / `question` render); change the nav `desc` source.
 - Update tests that assert on `intro` / `help` text.
-- Exit: no page shows a question box or intro paragraph; nav and panel text come from one record.
+- Exit: all 28 page records reviewed; no page shows a question box or intro paragraph; nav and panel text come from one record; the ledger check reports no lost facts.
 
 ### Phase 3: section and field level (Sonnet, medium; heavy, about two sessions)
 - Work in batches by module, from the Phase 0 CSV, one batch per `dashboard_decomp_*` group: Income and Benefits; Spending; Investments and Property; Insurance, Estate, Taxes; Strategy; Reports and Review; Settings.
@@ -129,6 +139,7 @@ Effort is stated against a 5-hour Claude Code Pro session. Check `/usage` as eac
 |---|---|
 | Users do not find help | Default-open on pre-build pages; "?" in every header; remembered state |
 | Warnings or consequences lost with the panel closed | Classes B and C stay in the center by rule; guard test |
+| Merging pages loses a fact | Per-page fact ledger plus an automated check that numbers and terms survive; all 28 pages reviewed |
 | Aggressive deletion removes something useful | Fold unique facts into the survivor first; Phase 0 CSV records `merged_into` so each call is reviewed and reversible before code changes |
 | Large diff across 30 modules | Batches by module group; each batch independently shippable |
 | Test churn | Phase 0 lists coupled tests up front; fix per group |
@@ -160,4 +171,4 @@ Total about 4 to 6 sessions. To limit cost, ship Phases 0 to 2 first: they remov
 1. Default-open panel on the 11 pre-build pages: **yes**, and remember if the user closes it.
 2. Clickable glossary terms inside panel text: **follow-up**, not in this plan.
 3. Class B empty and state messages: **stay in the center**, one line each.
-4. Duplicates: **aggressive deletion** under rule 3.1.
+4. Duplicates: **aggressive deletion** under rule 3.1; page-level strings with different facts are **merged and rationalized** into one record per page, all 28 reviewed (Phase 2).
