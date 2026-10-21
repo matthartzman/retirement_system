@@ -112,7 +112,7 @@ def test_engine_parses_and_uses_headroom_and_estate_controls():
     # src/parsing/roth_conversion_policy.py (ticket 312 extraction), not
     # inline in src/data_io.py anymore.
     roth_policy_module = (ROOT / 'src/parsing/roth_conversion_policy.py').read_text(encoding='utf-8')
-    engine = (ROOT / 'src/planning_engines.py').read_text(encoding='utf-8')
+    engine = (ROOT / 'src/planning_engines.py').read_text(encoding='utf-8') + (ROOT / 'src/engine_sections/roth_conversion.py').read_text(encoding='utf-8')
     assert "out['roth_objective_mode']" in roth_policy_module
     assert "out['estate_tax_objective_mode']" in roth_policy_module
     assert "c.get('roth_headroom_usage_pct'" in engine

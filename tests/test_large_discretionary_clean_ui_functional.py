@@ -73,7 +73,7 @@ def test_canonical_large_discretionary_rows_are_visible_as_planned_spending(tmp_
 
 
 def test_engine_reads_only_canonical_large_discretionary_section():
-    src = (ROOT / 'src/data_io.py').read_text(encoding='utf-8')
+    src = (ROOT / 'src/data_io.py').read_text(encoding='utf-8') + (ROOT / 'src/parsing/client_sections.py').read_text(encoding='utf-8')
     assert "Large Discretionary Expenses" in src
     assert "Travel & Extras" not in src
 

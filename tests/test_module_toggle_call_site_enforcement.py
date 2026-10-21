@@ -260,7 +260,7 @@ DECLARED_SITES: dict[tuple[str, str, str], tuple[str, str | None, tuple[str, ...
         "WP12.8: Rental Properties. Off, the request's rent_out disposition "
         "is rejected as unknown, exactly as before the feature existed.",
     ),
-    ("src/data_io.py", "parse_client", "rental_property_income"): (
+    ("src/parsing/client_sections.py", "parse_harvest_policies_and_lots", "rental_property_income"): (
         ENGINE, None, (),
         "WP12.4: Rental Properties. Off, parse_client neither reads the typed "
         "rental tables nor sets c['rental_properties'], so the engine sees no "
@@ -271,7 +271,7 @@ DECLARED_SITES: dict[tuple[str, str, str], tuple[str, str | None, tuple[str, ...
         "WP12.6: the Rental Properties page reports whether its own switch is on, so it shows "
         "its off state (data kept, preview only); it reads the switch and runs nothing.",
     ),
-    ("src/data_io.py", "parse_client", "housing_location_search"): (
+    ("src/parsing/client_sections.py", "parse_plan_settings", "housing_location_search"): (
         ENGINE, None, (),
         "Design 2026-09-24 \u00a76 [C]: Next Housing Move off blanks the home "
         "sale, next housing steps and state-over-time schedule on the engine "
@@ -527,7 +527,7 @@ def test_recorded_keys_still_appear_in_their_file(site):
 # built from those inputs. The site has one verdict (ENGINE), so the soft pairs
 # it backs are recorded here: (consumer, toggle).
 INPUT_GATE_SOFT: dict[tuple[str, str, str], tuple[tuple[str, str], ...]] = {
-    ("src/data_io.py", "parse_client", "housing_location_search"): (
+    ("src/parsing/client_sections.py", "parse_plan_settings", "housing_location_search"): (
         ("housing_trajectory_comparison", "housing_location_search"),
         ("state_residency", "housing_location_search"),
     ),
