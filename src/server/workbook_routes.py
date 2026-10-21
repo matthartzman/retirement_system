@@ -246,6 +246,19 @@ def build_start():
     return jsonify({"success": True, "job_id": job_id, "progress": 0, "phase": "Preparing build"})
 
 
+@app.route("/api/build/cancel/<job_id>", methods=["POST"])
+def build_cancel(job_id):
+    denied = _require("build_workbook")
+    if denied:
+        return denied
+    outcome = _BUILD_JOBS.request_cancel(job_id)
+    if outcome == "not_found":
+        return jsonify({"success": False, "error": "build job not found"}), 404
+    if outcome == "cancelling":
+        _audit("build_cancel_requested", {"job_id": job_id})
+    return jsonify({"success": True, "job_id": job_id, "outcome": outcome})
+
+
 @app.route("/api/build/progress/<job_id>", methods=["GET"])
 def build_progress(job_id):
     denied = _require("build_workbook")

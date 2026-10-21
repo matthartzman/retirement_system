@@ -6436,6 +6436,7 @@ async function buildWithDesktopProgress(buildBody) {
   });
   if (!started || !started.job_id)
     throw new Error("Build progress endpoint did not return a job id.");
+  setActiveBuildJob(started.job_id);
   const initPct = Math.max(0, Number(started.progress) || 0);
   updateBuildOverlay(
     started.phase || "Preparing build",

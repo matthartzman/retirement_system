@@ -93,6 +93,16 @@ class TaxLawDataset:
                 raise
             return sorted(matches, key=lambda v: v.effective_year)[0]
 
+    def indexed_value(self, name: str, year: int, inf: float = 0.0, jurisdiction: str = "US", filing_status: str = "MFJ") -> float:
+        """WI-027: a dated statutory dollar limit for ``year``. A year with a
+        dated row uses it as published; a later year compounds the latest
+        dated row by ``inf`` per year (documented extrapolation); an earlier
+        year uses the earliest row."""
+        row = self.lookup_or_earliest(name, year, jurisdiction=jurisdiction, filing_status=filing_status)
+        if row.expires_year is not None and year > row.expires_year:
+            row = self.latest_value(name, jurisdiction=jurisdiction, filing_status=filing_status)
+        return float(row.value) * (1.0 + float(inf or 0.0)) ** max(0, int(year) - row.effective_year)
+
     def aca_applicable_pct_table(self, regime: str, year: int) -> dict[str, Any]:
         """WI-307 / FIN-007: the dated ACA applicable-percentage table for
         ``regime`` ("enhanced" or "original" §36B) in force in ``year``.

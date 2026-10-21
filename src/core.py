@@ -632,6 +632,11 @@ from . import tax_kernel as _tk
 
 TAX_BASE_YEAR = _td.TAX_REFERENCE_YEAR
 
+
+def _tax_law_dataset():
+    from .tax_law import default_tax_law_dataset
+    return default_tax_law_dataset()
+
 EvIncome     = namedtuple('EvIncome',     ['year','source','gross','note'])
 EvWithdraw   = namedtuple('EvWithdraw',   ['year','priority','acct','amount','reason'])
 EvSpend      = namedtuple('EvSpend',      ['year','category','amount'])
@@ -780,12 +785,10 @@ def statutory_rmd_start_age(dob_year):
 # premium is excluded from the RMD-divisor account-balance base for the
 # account(s) it was purchased from, up to a flat dollar cap indexed for
 # inflation (SECURE 2.0 removed the prior 25%-of-balance cap entirely -- the
-# dollar limit is now the ONLY cap). 2025 figure per IRS Notice 2024-80.
+# dollar limit is now the ONLY cap). Dated rows in tax_law_v10.json (2026: IRS Notice 2025-67).
 # Income must begin no later than the age-85 statutory deadline (IRC Sec.
 # 401(a)(9)(H)(iv)); qlac_income_start_year_cap() below is the corresponding
 # "no later than" year for a given birth year.
-QLAC_PREMIUM_LIMIT_BASE_YEAR = 2025
-QLAC_PREMIUM_LIMIT_BASE = 210_000.0
 QLAC_LATEST_INCOME_START_AGE = 85
 
 
@@ -798,7 +801,7 @@ def qlac_premium_limit(year, brk_inf):
     this cap to that single premium figure is equivalent to the real
     aggregate-across-accounts rule.
     """
-    return QLAC_PREMIUM_LIMIT_BASE * (1.0 + float(brk_inf or 0.0)) ** (int(year) - QLAC_PREMIUM_LIMIT_BASE_YEAR)
+    return _tax_law_dataset().indexed_value('qlac_premium_limit', year, brk_inf)
 
 
 def qlac_income_start_year_cap(dob_year):
@@ -1097,7 +1100,12 @@ def state_income_tax(state, earned, retirement_dist, ss_taxable, investment_inc,
         years = int(year) - _STATE_INCOME_BRACKETS_VALUE_YEARS.get(state, TAX_BASE_YEAR)
         if years:
             brackets = inflate_brackets(brackets, brk_inf, years)
-        return _bracket_tax(taxable, brackets)
+        tax = _bracket_tax(taxable, brackets)
+        if state == 'California':
+            # Behavioral Health Services Tax: a flat $1,000,000 threshold (not
+            # doubled for MFJ and not indexed) taxed at 1% on top of the brackets.
+            tax += CA_BHST_RATE * max(0.0, taxable - CA_BHST_THRESHOLD)
+        return tax
     return max(0, taxable * rules['rate'])
 
 
@@ -1113,26 +1121,35 @@ def _bracket_tax(taxable, brackets):
 # WI-302 / FIN-005: each state's bracket thresholds are tagged with the
 # absolute tax year their dollar figures come from, never the run-date year,
 # so the schedules do not re-anchor (and silently under-index) every January.
-#   California: the thresholds below are the 2024 FTB (R&TC §17041) figures.
-#   New York: NY does not index its brackets; these are current-law statutory
-#     thresholds (Tax Law §601), tagged 2026 so the pre-WI-302 behaviour for a
-#     2026 run is preserved. Refresh via the annual tax-data workflow.
+#   California: PROVISIONAL. The thresholds below are the official FTB 2025
+#     schedules (R&TC §17041) carried forward; no final 2026 indexed schedule
+#     was verified (reviewed 2026-10-20), so they are tagged 2025 and indexed
+#     by brk_inf. The 1% Behavioral Health Services Tax on income over
+#     $1,000,000 (not doubled for MFJ) is applied separately in
+#     state_income_tax(); that surcharge is verified for 2026.
+#   New York: NY does not index its brackets; these are the enacted 2026
+#     schedules (Tax Law §601(a)(1)(B)(vii), (b)(1)(B)(vii), (c)(1)(B)(vii);
+#     reviewed 2026-10-20). The §601(d) supplemental tax-table benefit
+#     recapture is not modeled, nor are NYC/Yonkers taxes.
+#     Refresh via the annual tax-data workflow.
 _STATE_INCOME_BRACKETS_VALUE_YEARS = {
-    'California': 2024,
+    'California': 2025,
     'New York': 2026,
 }
+CA_BHST_THRESHOLD = 1_000_000.0
+CA_BHST_RATE = 0.01
 
 _STATE_INCOME_BRACKETS = {
     # Approximate current-law schedules used only where state_tax.csv marks a
     # state as graduated.  Thresholds should be refreshed in the annual tax-data
     # governance workflow. Accurate as of _STATE_INCOME_BRACKETS_VALUE_YEARS[state];
     # state_income_tax() inflates them forward by brk_inf for later years.
-    ('California','Single'): [(0, 10756, .01), (10756, 25499, .02), (25499, 40245, .04), (40245, 55866, .06), (55866, 70606, .08), (70606, 360659, .093), (360659, 432787, .103), (432787, 721314, .113), (721314, float('inf'), .123)],
-    ('California','MFJ'): [(0, 21512, .01), (21512, 50998, .02), (50998, 80490, .04), (80490, 111732, .06), (111732, 141212, .08), (141212, 721318, .093), (721318, 865574, .103), (865574, 1442628, .113), (1442628, float('inf'), .123)],
-    ('California','HOH'): [(0, 21527, .01), (21527, 51000, .02), (51000, 65744, .04), (65744, 81364, .06), (81364, 96107, .08), (96107, 490493, .093), (490493, 588593, .103), (588593, 980987, .113), (980987, float('inf'), .123)],
-    ('New York','Single'): [(0, 8500, .04), (8500, 11700, .045), (11700, 13900, .0525), (13900, 80650, .055), (80650, 215400, .06), (215400, 1077550, .0685), (1077550, 5000000, .0965), (5000000, 25000000, .103), (25000000, float('inf'), .109)],
-    ('New York','MFJ'): [(0, 17150, .04), (17150, 23600, .045), (23600, 27900, .0525), (27900, 161550, .055), (161550, 323200, .06), (323200, 2155350, .0685), (2155350, 5000000, .0965), (5000000, 25000000, .103), (25000000, float('inf'), .109)],
-    ('New York','HOH'): [(0, 12800, .04), (12800, 17650, .045), (17650, 20900, .0525), (20900, 107650, .055), (107650, 269300, .06), (269300, 1616450, .0685), (1616450, 5000000, .0965), (5000000, 25000000, .103), (25000000, float('inf'), .109)],
+    ('California','Single'): [(0, 11079, .01), (11079, 26264, .02), (26264, 41452, .04), (41452, 57542, .06), (57542, 72724, .08), (72724, 371479, .093), (371479, 445771, .103), (445771, 742953, .113), (742953, float('inf'), .123)],
+    ('California','MFJ'): [(0, 22158, .01), (22158, 52528, .02), (52528, 82904, .04), (82904, 115084, .06), (115084, 145448, .08), (145448, 742958, .093), (742958, 891542, .103), (891542, 1485906, .113), (1485906, float('inf'), .123)],
+    ('California','HOH'): [(0, 22173, .01), (22173, 52530, .02), (52530, 67716, .04), (67716, 83805, .06), (83805, 98990, .08), (98990, 505208, .093), (505208, 606251, .103), (606251, 1010417, .113), (1010417, float('inf'), .123)],
+    ('New York','Single'): [(0, 8500, .039), (8500, 11700, .044), (11700, 13900, .0515), (13900, 80650, .054), (80650, 215400, .059), (215400, 1077550, .0685), (1077550, 5000000, .0965), (5000000, 25000000, .103), (25000000, float('inf'), .109)],
+    ('New York','MFJ'): [(0, 17150, .039), (17150, 23600, .044), (23600, 27900, .0515), (27900, 161550, .054), (161550, 323200, .059), (323200, 2155350, .0685), (2155350, 5000000, .0965), (5000000, 25000000, .103), (25000000, float('inf'), .109)],
+    ('New York','HOH'): [(0, 12800, .039), (12800, 17650, .044), (17650, 20900, .0515), (20900, 107650, .054), (107650, 269300, .059), (269300, 1616450, .0685), (1616450, 5000000, .0965), (5000000, 25000000, .103), (25000000, float('inf'), .109)],
 }
 
 def _irmaa_cfg(plan_start, c):
@@ -1157,15 +1174,12 @@ def niit_tax(nii, magi, filing='MFJ'):
 
 # ── Qualified Charitable Distribution (QCD) ───────────────────────────────────
 # Item 4.1 (P3): IRC §408(d)(8) per-person annual limit, indexed for inflation
-# under SECURE 2.0 §307 since 2023. 2025 figure per IRS Notice 2024-80,
-# inflated forward by the plan's bracket inflation like every other embedded
-# statutory dollar limit in this module.
-QCD_ANNUAL_LIMIT_BASE_YEAR = 2025
-QCD_ANNUAL_LIMIT_BASE = 108_000.0
+# under SECURE 2.0 §307 since 2023. Dated rows in tax_law_v10.json (2026: IRS
+# Notice 2025-67); later years compound the latest row by brk_inf.
 
 
 def qcd_annual_limit(year, brk_inf):
-    return QCD_ANNUAL_LIMIT_BASE * (1.0 + float(brk_inf or 0.0)) ** (int(year) - QCD_ANNUAL_LIMIT_BASE_YEAR)
+    return _tax_law_dataset().indexed_value('qcd_annual_limit', year, brk_inf)
 
 
 def qcd_eligible_from_year(dob_yr, dob_month):
@@ -1187,15 +1201,16 @@ def qcd_eligible_from_year(dob_yr, dob_month):
 
 
 # ── Alternative Minimum Tax (AMT) ─────────────────────────────────────────────
-# IRS 2025 figures (Rev. Proc. 2024-40), indexed forward by the plan's bracket
-# inflation. The engine calls this only for households that enable the equity-
-# compensation module and hold ISOs, so it is a timing/preference-item AMT: the
-# ISO bargain element is an AMT preference that generates a minimum-tax credit
-# usable in later years when the regular tax exceeds the tentative minimum tax.
+# WI-027 / FIN-005: exemption, phase-out start and rate, and the 26%/28% rate
+# break are dated rows in tax_law_v10.json (2025: Rev. Proc. 2024-40 and the
+# Form 6251 instructions; 2026: Rev. Proc. 2025-32 sec. 4.10, which lowered the
+# phase-out start and raised the phase-out rate to 50%). Later years compound
+# the latest row by the plan's bracket inflation. The engine calls this only
+# for households that enable the equity-compensation module and hold ISOs, so
+# it is a timing/preference-item AMT: the ISO bargain element is an AMT
+# preference that generates a minimum-tax credit usable in later years when the
+# regular tax exceeds the tentative minimum tax.
 AMT_BASE_YEAR = 2025
-AMT_EXEMPTION_BASE = {'MFJ': 137000.0, 'Single': 88100.0, 'MFS': 68500.0}
-AMT_PHASEOUT_START_BASE = {'MFJ': 1252700.0, 'Single': 626350.0, 'MFS': 626350.0}
-AMT_RATE_BREAK_BASE = 232600.0   # 26% at/below, 28% above (halved for MFS)
 AMT_RATE_LOW = 0.26
 AMT_RATE_HIGH = 0.28
 
@@ -1209,26 +1224,25 @@ def _amt_filing_key(filing):
     return 'Single'
 
 
-def _amt_indexed(base, year, inf):
-    return base * ((1.0 + float(inf or 0.0)) ** max(0, int(year) - AMT_BASE_YEAR))
-
-
 def tentative_minimum_tax(regular_taxable_income, amt_preferences, filing='MFJ',
                           year=AMT_BASE_YEAR, inf=0.0):
     """Tentative minimum tax on the ordinary AMT base.
 
     AMTI = regular (ordinary) taxable income + AMT preference items (e.g. the ISO
-    bargain element). The exemption phases out 25% above the filing threshold.
+    bargain element). The exemption phases out above the filing threshold at the dated rate
+    (25% through 2025, 50% from 2026).
     Long-term capital gains keep their preferential rate outside this base and are
     taxed by the engine's separate LTCG path, so they are intentionally excluded
     here.
     """
     key = _amt_filing_key(filing)
     amti = max(0.0, float(regular_taxable_income or 0.0) + float(amt_preferences or 0.0))
-    exemption = _amt_indexed(AMT_EXEMPTION_BASE[key], year, inf)
-    phase_start = _amt_indexed(AMT_PHASEOUT_START_BASE[key], year, inf)
-    exemption = max(0.0, exemption - 0.25 * max(0.0, amti - phase_start))
-    rate_break = _amt_indexed(AMT_RATE_BREAK_BASE * (0.5 if key == 'MFS' else 1.0), year, inf)
+    ds = _tax_law_dataset()
+    exemption = ds.indexed_value('amt_exemption', year, inf, filing_status=key)
+    phase_start = ds.indexed_value('amt_phaseout_start', year, inf, filing_status=key)
+    phase_rate = ds.lookup_or_earliest('amt_phaseout_rate', year, filing_status=key).value
+    exemption = max(0.0, exemption - phase_rate * max(0.0, amti - phase_start))
+    rate_break = ds.indexed_value('amt_rate_break', year, inf) * (0.5 if key == 'MFS' else 1.0)
     base = max(0.0, amti - exemption)
     return AMT_RATE_LOW * min(base, rate_break) + AMT_RATE_HIGH * max(0.0, base - rate_break)
 
