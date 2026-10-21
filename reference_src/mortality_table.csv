@@ -1,103 +1,103 @@
 age,male_qx,female_qx,source,notes
-18,0.000306,0.0003,"SSA Actuarial Study No. 124 (interpolated/extrapolated)","SSA Period Life Table anchors (SSA Actuarial Study No. 124) at ages 50/55/.../95; single-year values log-linearly interpolated between anchors and log-linearly extrapolated outside that range (ages 18-49 and 96-119). Not a verbatim SSA table transcription -- ssa.gov/oact/STATS/table4c6.html and the underlying Actuarial Study PDF return HTTP 403 to automated fetches, so this was built from a secondary aggregation of the same published SSA figures. Recommended: replace with a direct SSA table transcription (manually downloaded) at the next annual tax/reference-data refresh; add to the annual-maintenance runbook alongside the tax-law dataset per the system review's C4 finding."
-19,0.000332,0.0003,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-20,0.00036,0.0003,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-21,0.000391,0.0003,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-22,0.000425,0.0003,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-23,0.000462,0.0003,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-24,0.000502,0.0003,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-25,0.000545,0.0003,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-26,0.000592,0.0003,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-27,0.000643,0.0003,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-28,0.000698,0.000315,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-29,0.000758,0.000347,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-30,0.000824,0.000382,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-31,0.000894,0.00042,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-32,0.000972,0.000463,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-33,0.001055,0.000509,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-34,0.001146,0.00056,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-35,0.001245,0.000617,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-36,0.001352,0.000679,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-37,0.001469,0.000747,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-38,0.001595,0.000822,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-39,0.001733,0.000905,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-40,0.001882,0.000996,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-41,0.002044,0.001097,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-42,0.00222,0.001207,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-43,0.002411,0.001329,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-44,0.002619,0.001462,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-45,0.002845,0.00161,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-46,0.00309,0.001772,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-47,0.003356,0.00195,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-48,0.003645,0.002146,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-49,0.003959,0.002362,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-50,0.0043,0.0026,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-51,0.00467,0.002862,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-52,0.005073,0.00315,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-53,0.00551,0.003467,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-54,0.005984,0.003816,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-55,0.0065,0.0042,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-56,0.007085,0.004597,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-57,0.007722,0.005032,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-58,0.008417,0.005508,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-59,0.009175,0.00603,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-60,0.01,0.0066,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-61,0.01093,0.007228,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-62,0.011947,0.007917,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-63,0.013058,0.00867,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-64,0.014272,0.009496,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-65,0.0156,0.0104,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-66,0.017088,0.011433,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-67,0.018718,0.012569,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-68,0.020503,0.013818,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-69,0.022458,0.015191,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-70,0.0246,0.0167,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-71,0.027003,0.018505,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-72,0.02964,0.020506,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-73,0.032535,0.022722,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-74,0.035712,0.025178,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-75,0.0392,0.0279,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-76,0.043238,0.031046,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-77,0.047692,0.034547,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-78,0.052604,0.038442,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-79,0.058023,0.042777,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-80,0.064,0.0476,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-81,0.070928,0.05316,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-82,0.078607,0.05937,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-83,0.087117,0.066305,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-84,0.096548,0.07405,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-85,0.107,0.0827,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-86,0.118465,0.092401,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-87,0.131159,0.10324,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-88,0.145213,0.115351,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-89,0.160773,0.128882,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-90,0.178,0.144,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-91,0.195434,0.159622,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-92,0.214575,0.176939,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-93,0.235591,0.196135,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-94,0.258666,0.217413,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-95,0.284,0.241,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-96,0.311816,0.267146,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-97,0.342356,0.296128,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-98,0.375887,0.328254,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-99,0.412702,0.363865,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-100,0.453124,0.40334,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-101,0.497504,0.447098,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-102,0.546231,0.495602,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-103,0.59973,0.549369,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-104,0.658469,0.608969,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-105,0.722961,0.675035,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-106,0.79377,0.748268,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-107,0.871514,0.829446,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-108,0.956872,0.91943,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-109,1.0,1.0,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-110,1.0,1.0,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-111,1.0,1.0,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-112,1.0,1.0,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-113,1.0,1.0,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-114,1.0,1.0,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-115,1.0,1.0,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-116,1.0,1.0,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-117,1.0,1.0,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-118,1.0,1.0,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
-119,1.0,1.0,"SSA Actuarial Study No. 124 (interpolated/extrapolated)",""
+18,0.000999,0.000372,"SSA period life table 2023, as used in the 2026 Trustees Report","Exact single-year death probabilities (SSA period life table, calendar year 2023), supplied by the owner 2026-10-21 alongside the 2026 OASDI Trustees Report. Replaces the interpolated Actuarial Study No. 124 anchors. Validated by tests/test_mortality_table_regression.py against the published period life expectancy at 65 (male 18.12, female 20.66)."
+19,0.001138,0.000410,"SSA period life table 2023, as used in the 2026 Trustees Report",
+20,0.001235,0.000441,"SSA period life table 2023, as used in the 2026 Trustees Report",
+21,0.001315,0.000476,"SSA period life table 2023, as used in the 2026 Trustees Report",
+22,0.001378,0.000513,"SSA period life table 2023, as used in the 2026 Trustees Report",
+23,0.001439,0.000546,"SSA period life table 2023, as used in the 2026 Trustees Report",
+24,0.001509,0.000582,"SSA period life table 2023, as used in the 2026 Trustees Report",
+25,0.001595,0.000609,"SSA period life table 2023, as used in the 2026 Trustees Report",
+26,0.001685,0.000641,"SSA period life table 2023, as used in the 2026 Trustees Report",
+27,0.001783,0.000683,"SSA period life table 2023, as used in the 2026 Trustees Report",
+28,0.001876,0.000740,"SSA period life table 2023, as used in the 2026 Trustees Report",
+29,0.001970,0.000808,"SSA period life table 2023, as used in the 2026 Trustees Report",
+30,0.002085,0.000878,"SSA period life table 2023, as used in the 2026 Trustees Report",
+31,0.002202,0.000947,"SSA period life table 2023, as used in the 2026 Trustees Report",
+32,0.002308,0.001018,"SSA period life table 2023, as used in the 2026 Trustees Report",
+33,0.002407,0.001089,"SSA period life table 2023, as used in the 2026 Trustees Report",
+34,0.002490,0.001154,"SSA period life table 2023, as used in the 2026 Trustees Report",
+35,0.002577,0.001209,"SSA period life table 2023, as used in the 2026 Trustees Report",
+36,0.002665,0.001263,"SSA period life table 2023, as used in the 2026 Trustees Report",
+37,0.002764,0.001347,"SSA period life table 2023, as used in the 2026 Trustees Report",
+38,0.002864,0.001438,"SSA period life table 2023, as used in the 2026 Trustees Report",
+39,0.002987,0.001533,"SSA period life table 2023, as used in the 2026 Trustees Report",
+40,0.003115,0.001643,"SSA period life table 2023, as used in the 2026 Trustees Report",
+41,0.003253,0.001742,"SSA period life table 2023, as used in the 2026 Trustees Report",
+42,0.003419,0.001845,"SSA period life table 2023, as used in the 2026 Trustees Report",
+43,0.003600,0.001954,"SSA period life table 2023, as used in the 2026 Trustees Report",
+44,0.003777,0.002075,"SSA period life table 2023, as used in the 2026 Trustees Report",
+45,0.003931,0.002187,"SSA period life table 2023, as used in the 2026 Trustees Report",
+46,0.004073,0.002306,"SSA period life table 2023, as used in the 2026 Trustees Report",
+47,0.004245,0.002438,"SSA period life table 2023, as used in the 2026 Trustees Report",
+48,0.004477,0.002595,"SSA period life table 2023, as used in the 2026 Trustees Report",
+49,0.004795,0.002791,"SSA period life table 2023, as used in the 2026 Trustees Report",
+50,0.005126,0.003030,"SSA period life table 2023, as used in the 2026 Trustees Report",
+51,0.005496,0.003288,"SSA period life table 2023, as used in the 2026 Trustees Report",
+52,0.005917,0.003554,"SSA period life table 2023, as used in the 2026 Trustees Report",
+53,0.006404,0.003847,"SSA period life table 2023, as used in the 2026 Trustees Report",
+54,0.006923,0.004172,"SSA period life table 2023, as used in the 2026 Trustees Report",
+55,0.007491,0.004532,"SSA period life table 2023, as used in the 2026 Trustees Report",
+56,0.008173,0.004923,"SSA period life table 2023, as used in the 2026 Trustees Report",
+57,0.008938,0.005365,"SSA period life table 2023, as used in the 2026 Trustees Report",
+58,0.009714,0.005815,"SSA period life table 2023, as used in the 2026 Trustees Report",
+59,0.010494,0.006333,"SSA period life table 2023, as used in the 2026 Trustees Report",
+60,0.011337,0.006923,"SSA period life table 2023, as used in the 2026 Trustees Report",
+61,0.012232,0.007555,"SSA period life table 2023, as used in the 2026 Trustees Report",
+62,0.013196,0.008220,"SSA period life table 2023, as used in the 2026 Trustees Report",
+63,0.014229,0.008881,"SSA period life table 2023, as used in the 2026 Trustees Report",
+64,0.015316,0.009514,"SSA period life table 2023, as used in the 2026 Trustees Report",
+65,0.016455,0.010188,"SSA period life table 2023, as used in the 2026 Trustees Report",
+66,0.017574,0.010880,"SSA period life table 2023, as used in the 2026 Trustees Report",
+67,0.018735,0.011659,"SSA period life table 2023, as used in the 2026 Trustees Report",
+68,0.019981,0.012543,"SSA period life table 2023, as used in the 2026 Trustees Report",
+69,0.021366,0.013581,"SSA period life table 2023, as used in the 2026 Trustees Report",
+70,0.022903,0.014769,"SSA period life table 2023, as used in the 2026 Trustees Report",
+71,0.024615,0.016153,"SSA period life table 2023, as used in the 2026 Trustees Report",
+72,0.026504,0.017705,"SSA period life table 2023, as used in the 2026 Trustees Report",
+73,0.028648,0.019495,"SSA period life table 2023, as used in the 2026 Trustees Report",
+74,0.031071,0.021533,"SSA period life table 2023, as used in the 2026 Trustees Report",
+75,0.033802,0.023846,"SSA period life table 2023, as used in the 2026 Trustees Report",
+76,0.037010,0.026458,"SSA period life table 2023, as used in the 2026 Trustees Report",
+77,0.041158,0.029700,"SSA period life table 2023, as used in the 2026 Trustees Report",
+78,0.045461,0.033135,"SSA period life table 2023, as used in the 2026 Trustees Report",
+79,0.050346,0.036982,"SSA period life table 2023, as used in the 2026 Trustees Report",
+80,0.055633,0.041183,"SSA period life table 2023, as used in the 2026 Trustees Report",
+81,0.061757,0.045959,"SSA period life table 2023, as used in the 2026 Trustees Report",
+82,0.068358,0.051282,"SSA period life table 2023, as used in the 2026 Trustees Report",
+83,0.075420,0.057262,"SSA period life table 2023, as used in the 2026 Trustees Report",
+84,0.083364,0.064107,"SSA period life table 2023, as used in the 2026 Trustees Report",
+85,0.092680,0.071752,"SSA period life table 2023, as used in the 2026 Trustees Report",
+86,0.103459,0.080490,"SSA period life table 2023, as used in the 2026 Trustees Report",
+87,0.115502,0.090566,"SSA period life table 2023, as used in the 2026 Trustees Report",
+88,0.129018,0.102204,"SSA period life table 2023, as used in the 2026 Trustees Report",
+89,0.143810,0.115178,"SSA period life table 2023, as used in the 2026 Trustees Report",
+90,0.159458,0.129176,"SSA period life table 2023, as used in the 2026 Trustees Report",
+91,0.176551,0.144229,"SSA period life table 2023, as used in the 2026 Trustees Report",
+92,0.195360,0.160353,"SSA period life table 2023, as used in the 2026 Trustees Report",
+93,0.216286,0.177635,"SSA period life table 2023, as used in the 2026 Trustees Report",
+94,0.238799,0.196502,"SSA period life table 2023, as used in the 2026 Trustees Report",
+95,0.262268,0.216846,"SSA period life table 2023, as used in the 2026 Trustees Report",
+96,0.286291,0.238750,"SSA period life table 2023, as used in the 2026 Trustees Report",
+97,0.310944,0.261359,"SSA period life table 2023, as used in the 2026 Trustees Report",
+98,0.332325,0.283899,"SSA period life table 2023, as used in the 2026 Trustees Report",
+99,0.349036,0.306491,"SSA period life table 2023, as used in the 2026 Trustees Report",
+100,0.366568,0.329680,"SSA period life table 2023, as used in the 2026 Trustees Report",
+101,0.384960,0.353333,"SSA period life table 2023, as used in the 2026 Trustees Report",
+102,0.404252,0.377300,"SSA period life table 2023, as used in the 2026 Trustees Report",
+103,0.424488,0.401416,"SSA period life table 2023, as used in the 2026 Trustees Report",
+104,0.445712,0.425501,"SSA period life table 2023, as used in the 2026 Trustees Report",
+105,0.467998,0.451031,"SSA period life table 2023, as used in the 2026 Trustees Report",
+106,0.491398,0.478092,"SSA period life table 2023, as used in the 2026 Trustees Report",
+107,0.515968,0.506778,"SSA period life table 2023, as used in the 2026 Trustees Report",
+108,0.541766,0.537185,"SSA period life table 2023, as used in the 2026 Trustees Report",
+109,0.568854,0.568854,"SSA period life table 2023, as used in the 2026 Trustees Report",
+110,0.597297,0.597297,"SSA period life table 2023, as used in the 2026 Trustees Report",
+111,0.627162,0.627162,"SSA period life table 2023, as used in the 2026 Trustees Report",
+112,0.658520,0.658520,"SSA period life table 2023, as used in the 2026 Trustees Report",
+113,0.691446,0.691446,"SSA period life table 2023, as used in the 2026 Trustees Report",
+114,0.726018,0.726018,"SSA period life table 2023, as used in the 2026 Trustees Report",
+115,0.762319,0.762319,"SSA period life table 2023, as used in the 2026 Trustees Report",
+116,0.800435,0.800435,"SSA period life table 2023, as used in the 2026 Trustees Report",
+117,0.840457,0.840457,"SSA period life table 2023, as used in the 2026 Trustees Report",
+118,0.882480,0.882480,"SSA period life table 2023, as used in the 2026 Trustees Report",
+119,0.926604,0.926604,"SSA period life table 2023, as used in the 2026 Trustees Report",
