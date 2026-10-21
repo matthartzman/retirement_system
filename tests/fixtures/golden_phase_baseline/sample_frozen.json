@@ -16336,7 +16336,7 @@
    [
     "INFO",
     "N7",
-    "AMT: unreviewed (no dated AMT rows in the dataset)",
+    "AMT: verified (tax_law dataset v10, AMT rows in force for 2026)",
     null,
     null,
     null,
@@ -16376,7 +16376,7 @@
    [
     "INFO",
     "N7",
-    "Part D: assumption (tax_law dataset v10, Part D rows in force for 2026)",
+    "Part D: verified (tax_law dataset v10, Part D rows in force for 2026)",
     null,
     null,
     null,
