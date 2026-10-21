@@ -50,3 +50,6 @@ indistinguishable from a right one. Verify one representative delta by hand
 first. See `documentation/reference/GOLDEN_MASTER_RECOVERY_RUNBOOK.md`.
 ## System Architecture Diagram — regenerate on every structural change
 After adding, moving, renaming or deleting any file under `src/` or `frontend/`, changing imports between modules, or editing `module_catalog.py` / `route_manifest.py`, run `python tools/generate_system_diagram.py` and commit `documentation/reference/SYSTEM_ARCHITECTURE_DIAGRAM.md` in the same PR. CI (`tests/test_system_architecture_diagram_freshness_regression.py`) fails otherwise.
+
+## Docs-only changes — never wait on CI
+When every changed file is under `documentation/` or is a `.md` file, push and open the draft PR, then move on: do not wait for, poll, or re-run CI. Merge only when the user asks. If any code, test or tool file is also changed, CI applies as normal.
