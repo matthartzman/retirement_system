@@ -702,8 +702,7 @@ def parse_client(data, url_template, *, skip_live_pricing=False):
     # advisor report packages can be reproduced after market prices change.
     try:
         from .portfolio_analytics import pricing_freeze_status
-        from .config_backend import DEFAULT_DB
-        freeze = pricing_freeze_status(workspace_id=active_workspace_id(), db_path=DEFAULT_DB, include_prices=True)
+        freeze = pricing_freeze_status(workspace_id=active_workspace_id(), include_prices=True)
         if freeze.get('active') and freeze.get('prices'):
             configure_holdings_pricing(
                 mode='FROZEN',

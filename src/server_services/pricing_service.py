@@ -182,6 +182,6 @@ class PriceSymbolTestRegistry:
         }, 200
 
 
-def latest_price_snapshots(*, workspace_id: str, db_path: Path) -> dict[str, Any]:
+def latest_price_snapshots(*, workspace_id: str, db_path: Path | None = None) -> dict[str, Any]:
     from ..portfolio_analytics import load_latest_snapshots
     return load_latest_snapshots(workspace_id=workspace_id, db_path=db_path)

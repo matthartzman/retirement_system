@@ -99,7 +99,7 @@ def two_kpi_builds(tmp_path_factory):
     _run_build(workspace_root, out_a, frozen_today=BUILD_DATE_A, build_id=BUILD_ID_A)
     _run_build(workspace_root, out_b, frozen_today=BUILD_DATE_B, build_id=BUILD_ID_B)
     return {
-        "db_path": workspace_root / "local_state" / "retirement_system_v10.db",
+        "db_path": workspace_root / "local_state" / "app.db",
         "plan": workspace_root / "plan.rpx",
         "out_a": out_a,
         "out_b": out_b,

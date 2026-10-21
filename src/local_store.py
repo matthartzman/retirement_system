@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-"""Local-only SQLite persistence for v11.
+"""Local-only persistence of settings, result and KPI snapshots and build events.
 
-Local settings, result and KPI snapshots and build events. The sectioned plan
-snapshots (``plan_snapshots`` and its summary tables) are no longer written or read
-since WP4.2: the plan rows live in the plan file (``src/active_plan.py``). New databases
-no longer create those tables; the legacy conversion reads them from an existing database
-when present (``src/legacy_conversion/sources.py``). It intentionally
-contains no tenant, workspace, user, role, token, or hosted identity concepts.
+These tables live in ``app.db`` (``stores/app_store.py``, schema v3; WI-038). The legacy
+``retirement_system_v10.db`` is no longer written: its rows are imported once on first use
+(``init_local_store``) and the legacy conversion still reads it directly
+(``src/legacy_conversion/sources.py``). The plan rows live in the plan file
+(``src/active_plan.py``). It intentionally contains no tenant, workspace, user, role, token, or
+hosted identity concepts. ``db_path`` on every function names an ``app.db`` (default: the install's).
 """
 
 from datetime import datetime, UTC
@@ -18,12 +18,25 @@ from pathlib import Path
 from typing import Any
 
 from . import platform_runtime
+from .app_state import app_store_path, open_app_store
 from .sqlite_util import connect as closing_connect
 
 # PROJECT_ROOT is the code root; the SQLite store is writable data and hangs off
 # the workspace root (== package root on desktop, app-private storage on mobile).
 PROJECT_ROOT = platform_runtime.package_root()
-DEFAULT_DB = platform_runtime.workspace_root() / "local_state" / "retirement_system_v10.db"
+
+LEGACY_DB_NAME = "retirement_system_v10.db"
+LEGACY_IMPORT_KEY = "legacy_snapshots_imported"
+# Tables the one-time import copies out of the legacy database, with the columns carried over
+# (autoincrement ids are not copied so rows append after any already in app.db).
+_LEGACY_TABLES = {
+    "local_settings": None,
+    "result_snapshots": None,
+    "kpi_snapshots": None,
+    "build_events": ("created_at", "build_id", "stage", "event_type", "detail_json"),
+    "price_snapshots": ("workspace_id", "symbol", "price", "source", "status", "as_of"),
+    "pricing_snapshot_freezes": None,
+}
 
 # Result snapshots are append-only debug/audit payloads (~400 KB each) that no
 # read path consumes.  Without a cap they dominate the database file, and every
@@ -66,69 +79,59 @@ def now_utc() -> str:
 
 
 def _resolve(db_path: str | Path | None = None) -> Path:
-    p = Path(db_path or DEFAULT_DB)
+    """The ``app.db`` to use: ``db_path`` (relative to the workspace root) or the install's own."""
+    if not db_path:
+        return app_store_path()
+    p = Path(db_path)
     return p if p.is_absolute() else platform_runtime.workspace_root() / p
 
 
+def _import_legacy(con: sqlite3.Connection, legacy: Path) -> None:
+    """Copy the snapshot and history tables of the legacy database into ``con`` (one-time, idempotent rows)."""
+    con.execute("ATTACH DATABASE ? AS legacy", (str(legacy),))
+    try:
+        for table, cols in _LEGACY_TABLES.items():
+            if not con.execute("SELECT 1 FROM legacy.sqlite_master WHERE type='table' AND name=?", (table,)).fetchone():
+                continue
+            have = {r[1] for r in con.execute(f"PRAGMA legacy.table_info({table})")}
+            want = [r[1] for r in con.execute(f"PRAGMA main.table_info({table})")]
+            use = [c for c in (cols or want) if c in have and c in want]
+            if not use:
+                continue
+            names = ", ".join(use)
+            con.execute(f"INSERT OR IGNORE INTO main.{table}({names}) SELECT {names} FROM legacy.{table}")
+        con.commit()
+    finally:
+        con.execute("DETACH DATABASE legacy")
+
+
 def init_local_store(db_path: str | Path | None = None) -> Path:
+    """Create or migrate ``app.db`` (schema in ``stores/app_store.py``) and return its path.
+
+    The first call against an ``app.db`` that sits next to a legacy ``retirement_system_v10.db``
+    imports that database's snapshots, price history, freezes and build events, then records the
+    fact in the ``settings`` table; the legacy file is never written again (the one-time
+    conversion still reads its ``client_files``).
+    """
     p = _resolve(db_path)
     p.parent.mkdir(parents=True, exist_ok=True)
-    with closing_connect(p) as con:
-        con.execute("PRAGMA journal_mode=WAL")
-        con.execute("PRAGMA synchronous=NORMAL")
-        con.execute("""CREATE TABLE IF NOT EXISTS result_snapshots(
-            result_id TEXT PRIMARY KEY,
-            created_at TEXT NOT NULL,
-            plan_snapshot_id TEXT,
-            result_json TEXT NOT NULL,
-            event_log_json TEXT NOT NULL,
-            result_sha256 TEXT NOT NULL
-        )""")
-        con.execute("""CREATE TABLE IF NOT EXISTS build_events(
-            event_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            created_at TEXT NOT NULL,
-            build_id TEXT,
-            stage TEXT,
-            event_type TEXT,
-            detail_json TEXT NOT NULL
-        )""")
-        con.execute("""CREATE TABLE IF NOT EXISTS local_settings(
-            key TEXT PRIMARY KEY,
-            value_json TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        )""")
-        con.execute("""CREATE TABLE IF NOT EXISTS kpi_snapshots(
-            snapshot_id TEXT PRIMARY KEY,
-            created_at TEXT NOT NULL,
-            build_id TEXT,
-            probability_of_success REAL,
-            terminal_nw_deterministic REAL,
-            terminal_nw_mc_median REAL,
-            terminal_nw_mc_p10 REAL,
-            terminal_nw_mc_p90 REAL,
-            lifetime_tax REAL,
-            lcv REAL,
-            eltr REAL,
-            fcv REAL,
-            eftr REAL,
-            total_roth_conversions REAL,
-            after_tax_terminal_nw REAL,
-            npv_future_taxes REAL,
-            terminal_nw_mc_p5 REAL,
-            kpi_json TEXT NOT NULL
-        )""")
-        # #293: the two columns above were added after the table already shipped -- CREATE
-        # TABLE IF NOT EXISTS above is a no-op against an existing db file,
-        # so an existing kpi_snapshots table needs an explicit ALTER (same
-        # pattern as config_backend.py's price_snapshots.workspace_id
-        # migration) or every insert against a pre-#293 db fails with
-        # "no such column".
-        kpi_cols = [r[1] for r in con.execute("PRAGMA table_info(kpi_snapshots)").fetchall()]
-        if "npv_future_taxes" not in kpi_cols:
-            con.execute("ALTER TABLE kpi_snapshots ADD COLUMN npv_future_taxes REAL")
-        if "terminal_nw_mc_p5" not in kpi_cols:
-            con.execute("ALTER TABLE kpi_snapshots ADD COLUMN terminal_nw_mc_p5 REAL")
+    with open_app_store(p) as store:
+        done = store.get_setting(LEGACY_IMPORT_KEY, False)
+    if not done:
+        legacy = p.parent / LEGACY_DB_NAME
+        if legacy.is_file() and legacy.resolve() != p.resolve():
+            with closing_connect(p) as con:
+                _import_legacy(con, legacy)
+        with open_app_store(p) as store:
+            store.set_setting(LEGACY_IMPORT_KEY, True)
     return p
+
+
+def _existing(db_path: str | Path | None = None) -> Path | None:
+    """The ``app.db`` for a read, migrated to the current schema; ``None`` when there is neither
+    one nor a legacy database beside it to import."""
+    p = _resolve(db_path)
+    return init_local_store(p) if p.exists() or (p.parent / LEGACY_DB_NAME).is_file() else None
 
 
 def _json_key(key: Any) -> str:
@@ -183,8 +186,8 @@ def get_local_setting(key: str, default: Any = None, db_path: str | Path | None 
     marker as "not migrated yet" is safe, because the migration itself is
     idempotent.
     """
-    p = _resolve(db_path)
-    if not p.exists():
+    p = _existing(db_path)
+    if p is None:
         return default
     with closing_connect(p) as con:
         row = con.execute("SELECT value_json FROM local_settings WHERE key=?", (key,)).fetchone()
@@ -240,8 +243,8 @@ def _prune_result_snapshots(con: sqlite3.Connection, keep: int = DEFAULT_RESULT_
 
 def prune_result_snapshots(keep: int = DEFAULT_RESULT_SNAPSHOT_RETENTION, db_path: str | Path | None = None) -> int:
     """Public entrypoint to trim accumulated result snapshots."""
-    p = _resolve(db_path)
-    if not p.exists():
+    p = _existing(db_path)
+    if p is None:
         return 0
     with closing_connect(p) as con:
         return _prune_result_snapshots(con, keep)
@@ -334,8 +337,8 @@ def _prune_kpi_snapshots(con: sqlite3.Connection, keep: int = DEFAULT_KPI_SNAPSH
 
 def prune_kpi_snapshots(keep: int = DEFAULT_KPI_SNAPSHOT_RETENTION, db_path: str | Path | None = None) -> int:
     """Public entrypoint to trim accumulated KPI snapshots."""
-    p = _resolve(db_path)
-    if not p.exists():
+    p = _existing(db_path)
+    if p is None:
         return 0
     with closing_connect(p) as con:
         return _prune_kpi_snapshots(con, keep)
@@ -355,8 +358,8 @@ def _kpi_row_to_payload(row: tuple) -> dict[str, Any]:
 
 def list_kpi_snapshots(limit: int = DEFAULT_KPI_SNAPSHOT_RETENTION, db_path: str | Path | None = None) -> list[dict[str, Any]]:
     """Newest-first list of archived KPI snapshots (for a "history" view)."""
-    p = _resolve(db_path)
-    if not p.exists():
+    p = _existing(db_path)
+    if p is None:
         return []
     with closing_connect(p) as con:
         rows = con.execute(
@@ -367,8 +370,8 @@ def list_kpi_snapshots(limit: int = DEFAULT_KPI_SNAPSHOT_RETENTION, db_path: str
 
 
 def get_kpi_snapshot(snapshot_id: str, db_path: str | Path | None = None) -> dict[str, Any] | None:
-    p = _resolve(db_path)
-    if not p.exists() or not snapshot_id:
+    p = _existing(db_path)
+    if p is None or not snapshot_id:
         return None
     with closing_connect(p) as con:
         row = con.execute(
@@ -382,8 +385,8 @@ def get_kpi_snapshot_by_build_id(build_id: str, db_path: str | Path | None = Non
     """Latest snapshot recorded for a given build id, when that is a more
     convenient handle than the content-derived snapshot_id (e.g. tests that
     set RETIREMENT_SYSTEM_BUILD_ID explicitly)."""
-    p = _resolve(db_path)
-    if not p.exists() or not build_id:
+    p = _existing(db_path)
+    if p is None or not build_id:
         return None
     with closing_connect(p) as con:
         row = con.execute(

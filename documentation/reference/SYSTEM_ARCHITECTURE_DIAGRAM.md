@@ -477,7 +477,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/server_services/conversion_service.py` | `app_state`, `legacy_conversion`, `legacy_conversion.result` | — |
 | `src/server_services/demo_plan_service.py` | `active_plan`, `plan_db_replace` | — |
 | `src/server_services/holdings_service.py` | `plan_datasets` | — |
-| `src/server_services/plan_file_service.py` | `active_plan`, `build_snapshot`, `plan_db_replace` | — |
+| `src/server_services/plan_file_service.py` | `active_plan`, `app_state`, `build_snapshot`, `plan_db_replace` | — |
 | `src/server_services/plan_forms_service.py` | `active_plan`, `csv_exchange.plan_csv`, `plan_label_rules`, `roth_ui_build_guard` | — |
 | `src/server_services/plan_tier_service.py` | — | — |
 | `src/server_services/portfolio_service.py` | — | — |
@@ -523,7 +523,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/csv_exchange/rental_csv.py` | `csv_exchange.flat_csv`, `parsing.rental_properties`, `stores.rental_repo` | — |
 | `src/csv_exchange/text_csv.py` | — | — |
 | `src/daf_optimizer.py` | — | — |
-| `src/data_io.py` | `config_backend`, `core`, `csv_exchange`, `engine_defaults`, `market_data`, `module_catalog`, `money`, `parsing.advanced_modules`, `parsing.allocation_optimizer_inputs`, `parsing.daf`, `parsing.estate_planning`, `parsing.hsa_policy`, `parsing.insurance`, `parsing.note_receivable`, `parsing.rental_properties`, `parsing.roth_conversion_policy`, `parsing.validation`, `parsing.withdrawal_order`, `parsing.withdrawal_policy`, `plan_config`, `plan_data_migration`, `plan_data_registry`, `plan_datasets`, `plan_label_rules`, `portfolio_analytics`, `report_compute`, `roth_ui_build_guard`, `spending_adjustments`, `spending_budget_resolver`, `stores.ref_getters.cma`, `stores.ref_getters.security_master`, `system_config`, `tax_law`, `workspace_context` | — |
+| `src/data_io.py` | `core`, `csv_exchange`, `engine_defaults`, `market_data`, `module_catalog`, `money`, `parsing.advanced_modules`, `parsing.allocation_optimizer_inputs`, `parsing.daf`, `parsing.estate_planning`, `parsing.hsa_policy`, `parsing.insurance`, `parsing.note_receivable`, `parsing.rental_properties`, `parsing.roth_conversion_policy`, `parsing.validation`, `parsing.withdrawal_order`, `parsing.withdrawal_policy`, `plan_config`, `plan_data_migration`, `plan_data_registry`, `plan_datasets`, `plan_label_rules`, `portfolio_analytics`, `report_compute`, `roth_ui_build_guard`, `spending_adjustments`, `spending_budget_resolver`, `stores.ref_getters.cma`, `stores.ref_getters.security_master`, `system_config`, `tax_law`, `workspace_context` | — |
 | `src/desktop_api.py` | `src`, `bootstrap`, `server`, `server.app_core`, `server.workbook_routes`, `server_services` | `pywebview` |
 | `src/desktop_app.py` | `desktop_api` | `pywebview` |
 | `src/detailed_results.py` | `results_model` | `openpyxl` |
@@ -578,7 +578,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/legacy_conversion/workspace.py` | `active_plan`, `app_state`, `legacy_conversion`, `legacy_conversion.result`, `legacy_conversion.steps`, `plan_db_replace` | — |
 | `src/limitation_notices.py` | `planning_engines`, `stores.ref_getters.tax_law`, `stores.ref_getters.tax_update_dashboard`, `tax_law` | — |
 | `src/local_backup_scheduler.py` | `app_state` | — |
-| `src/local_store.py` | `sqlite_util` | — |
+| `src/local_store.py` | `app_state`, `sqlite_util` | — |
 | `src/market_data.py` | `app_state`, `platform_runtime`, `secrets_store`, `version` | `requests` |
 | `src/module_catalog.py` | — | — |
 | `src/monarch_autoimport_job.py` | `monarch_balances_import` | — |
@@ -620,7 +620,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/planning_engines.py` | `after_tax`, `core`, `data_io`, `fallback_log`, `hsa_schedule`, `observability`, `optimization`, `person_labels`, `plan_config`, `projection_stages`, `spending_budget_resolver`, `stores.ref_getters.mortality_real_loss`, `tax_kernel`, `tax_law`, `vectorized_fast_core` | `numpy` |
 | `src/planning_workbench.py` | — | — |
 | `src/platform_runtime.py` | `active_plan`, `app_state` | — |
-| `src/portfolio_analytics.py` | `config_backend`, `csv_exchange`, `plan_datasets`, `sqlite_util`, `stores.ref_getters.security_master` | — |
+| `src/portfolio_analytics.py` | `csv_exchange`, `local_store`, `plan_datasets`, `sqlite_util`, `stores.ref_getters.security_master` | — |
 | `src/projection_pipeline.py` | `observability`, `planning_engines` | — |
 | `src/qlac_optimizer.py` | — | — |
 | `src/real_loss_curves.py` | `allocation_policy`, `stores.ref_getters.mortality_real_loss` | — |

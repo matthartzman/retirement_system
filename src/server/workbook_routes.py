@@ -562,7 +562,7 @@ def get_kpi_snapshots():
         limit = int(request.args.get("limit", 10))
     except (TypeError, ValueError):
         limit = 10
-    snapshots = list_kpi_snapshots(limit=limit, db_path=_sqlite_db())
+    snapshots = list_kpi_snapshots(limit=limit)
     return jsonify({"success": True, "schema": "kpi_snapshot_list_v1", "snapshots": snapshots})
 
 
@@ -581,7 +581,6 @@ def get_kpi_snapshot_compare():
     result = compare_kpi_snapshots(
         from_id=request.args.get("from") or None,
         to_id=request.args.get("to") or None,
-        db_path=_sqlite_db(),
     )
     if result is None:
         return jsonify({
