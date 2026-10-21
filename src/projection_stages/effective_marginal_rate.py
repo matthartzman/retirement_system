@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
-from ..planning_engines import niit_tax, social_security_taxable_amount, state_income_tax
+from ..engine_kernels import niit_tax, social_security_taxable_amount, state_income_tax
 from ..core import state_for_year
 
 

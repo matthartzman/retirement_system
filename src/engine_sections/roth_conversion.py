@@ -12,7 +12,7 @@ from typing import Mapping
 
 
 def _ranked_caps(caps_seen, caps: list[tuple[str, float]]) -> tuple[float, str, str]:
-    from ..planning_engines import roth_guardrail_id
+    from ..engine_kernels import roth_guardrail_id
     clean = [(name, max(0.0, float(val))) for name, val in caps if val is not None]
     clean.sort(key=lambda x: x[1])
     caps_seen[:] = [{"id": roth_guardrail_id(n), "name": n, "cap": round(v, 2)} for n, v in clean]
@@ -31,7 +31,7 @@ def _ltcg_niit_caps(c, filing, note_int_yr, portfolio_ordinary, portfolio_qualif
     cannot see gains TLH/gain-harvesting/portfolio draws realize later
     this same year).
     """
-    from ..planning_engines import _roth_ltcg_thresholds_base, _roth_niit_threshold_base, _tk
+    from ..engine_kernels import _roth_ltcg_thresholds_base, _roth_niit_threshold_base, _tk
     extra: list[tuple[str, float]] = []
     # WI-306 / FIN-014: use the kernel's signed-off indexing convention
     # (compounded from FEDERAL_BRACKETS_VALUE_YEAR, not plan_start) so the
@@ -108,7 +108,7 @@ def _avg_pretax(row_list) -> float:
 
 
 def _estate_tax_for_row(c, fed_exempt_base, row: Mapping) -> float:
-    from ..planning_engines import (
+    from ..engine_kernels import (
         indexed_federal_estate_exemption,
         resolved_state_estate_exemption,
         state_estate_tax,
@@ -142,7 +142,7 @@ def _estate_tax_for_row(c, fed_exempt_base, row: Mapping) -> float:
 
 def _roth_conversion_amount_and_caps(aca_bridge_people, bal, base_tax_est, bracket_room, c, filing, h_age, income_streams, note_int_yr, policy, portfolio_ordinary, portfolio_qualified, pre_agi, spend, std, target_rate, top_target, total_spend_need, w_age, year):
     """Size the conversion amount against the binding bracket, ACA, LTCG and NIIT caps."""
-    from ..planning_engines import (
+    from ..engine_kernels import (
         ConversionPlan,
         _ar,
         _available_by_owner,

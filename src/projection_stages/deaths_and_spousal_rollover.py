@@ -4,8 +4,8 @@ from typing import Any, Callable, NamedTuple
 
 from .. import core as _aa  # consolidated from account_access
 from .. import core as _ar  # consolidated from account_registry
-from .. import planning_engines as _legacy_pe
-from ..planning_engines import EvDeath, EvTransfer
+from .. import engine_kernels as _legacy_pe
+from ..engine_kernels import EvDeath, EvTransfer
 
 
 class Stage1Result(NamedTuple):

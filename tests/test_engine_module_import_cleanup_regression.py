@@ -42,9 +42,11 @@ def test_planning_engines_has_no_duplicate_top_level_imports():
     lines = _code_lines(ROOT / "src" / "planning_engines.py")
     numpy_imports = [ln for ln in lines if ln.strip() == "import numpy as _np"]
     assert len(numpy_imports) == 1, f"numpy should be imported exactly once, found {len(numpy_imports)}"
-    dataclass_imports = [ln for ln in lines if ln.strip() == "from dataclasses import dataclass, field"]
+    # WI-037: the dataclass-using inheritance kernels moved to engine_kernels.py.
+    kernel_lines = _code_lines(ROOT / "src" / "engine_kernels.py")
+    dataclass_imports = [ln for ln in lines + kernel_lines if ln.strip() == "from dataclasses import dataclass, field"]
     assert len(dataclass_imports) == 1, f"dataclass/field should be imported exactly once, found {len(dataclass_imports)}"
-    bare_mutable_mapping = [ln for ln in lines if ln.strip() == "from typing import MutableMapping"]
+    bare_mutable_mapping = [ln for ln in lines + kernel_lines if ln.strip() == "from typing import MutableMapping"]
     assert not bare_mutable_mapping, "the redundant bare MutableMapping re-import should have been removed"
 
 
