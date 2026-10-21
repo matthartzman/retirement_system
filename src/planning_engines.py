@@ -6702,6 +6702,7 @@ def monte_carlo(c, n_sims=1000, seed=42, base_rows=None, survivor_buckets='__uns
     c = ensure_engine_config(c, source='monte_carlo')
     base_rows = project(c) if base_rows is None else base_rows
     base_years = [int(r['year']) for r in base_rows]
+    base_plan_shortfall = any(float(r.get('unfunded_gap', 0) or 0) > 1.0 for r in base_rows)
     configured_mu = float(c.get('ret', 0.06))
     configured_sig = float(c.get('mc_sigma', 0.12))
     mu = configured_mu
@@ -6953,7 +6954,13 @@ def monte_carlo(c, n_sims=1000, seed=42, base_rows=None, survivor_buckets='__uns
         ],
         'mc_engine': 'vectorized_batched_tax_withdrawal',
         'mc_engine_label': 'Tolerance-bounded vectorized Monte Carlo',
-        'mc_approximation_status': 'TOLERANCE_BOUNDED',
+        # WI-036: the replay headline re-uses the deterministic engine's per-bucket
+        # draws, so a base plan that already runs into a shortfall is not
+        # re-funded in full on each sampled path and the headline is optimistic
+        # by 6 to 65pp (documentation/reference/MC_PARITY_MEASUREMENT_WI036.md).
+        # The +/-tolerance holds only when the base plan is fully funded.
+        'mc_base_plan_shortfall': base_plan_shortfall,
+        'mc_approximation_status': 'BASE_PLAN_SHORTFALL' if base_plan_shortfall else 'TOLERANCE_BOUNDED',
         'mc_parity_tolerance_pp': MC_VECTORIZED_PARITY_TOLERANCE_PP,
         'mc_parity_policy_demonstrated': (
             str(c.get('roth_policy') or 'optimize_terminal_tax').lower() in MC_PARITY_DEMONSTRATED_POLICIES),
@@ -6961,7 +6968,7 @@ def monte_carlo(c, n_sims=1000, seed=42, base_rows=None, survivor_buckets='__uns
             mc_scalar_spotcheck(c, n=int(c.get('mc_scalar_spotcheck_n') or 0), base_rows=base_rows)
             if int(c.get('mc_scalar_spotcheck_n') or 0) > 0
             else {'status': 'not_run', 'note': 'Set mc_scalar_spotcheck_n > 0 to run a small-N paired scalar spot-check.'}),
-        'model_risk_rating': 'TOLERANCE_BOUNDED_VECTORIZED_MC',
+        'model_risk_rating': 'APPROXIMATE_VECTORIZED_MC' if base_plan_shortfall else 'TOLERANCE_BOUNDED_VECTORIZED_MC',
     }
 
 # ===== END v8.3_vectorized_monte_carlo_engine.py =====

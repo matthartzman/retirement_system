@@ -17,6 +17,12 @@ export function mcSuccessDisclosure(summary, rothPolicy) {
     const tol = Number(summary.mc_parity_tolerance_pp);
     const policy = String(rothPolicy || "optimize_terminal_tax").toLowerCase();
     const bounded = status === "TOLERANCE_BOUNDED" && Number.isFinite(tol) && MC_TOLERANCE_DEMONSTRATED_POLICIES.includes(policy);
+    if (status === "BASE_PLAN_SHORTFALL") {
+      // WI-036: measured optimistic by 6-65pp when the plan itself projects a shortfall.
+      label += " (optimistic: your plan projects a shortfall)";
+      title += " -- fast vectorized engine. Your deterministic plan already runs short in some years, and in that case this figure measured higher than the exact scalar engine's (by 6 to 65 percentage points in testing). Treat it as an upper bound and use the exact scalar engine mode to validate.";
+      return { label, title };
+    }
     label += bounded ? ` (\u00b1${tol}pp)` : " (directional)";
     title += (bounded ? ` -- fast vectorized engine; measured within ${tol} percentage points of the exact scalar engine for the ${policy} Roth policy. ` : ` -- fast vectorized engine; accuracy not demonstrated for the ${policy} Roth policy, so treat as directional. `) + (summary.model_risk_label || "Switch to the exact scalar engine mode for advisor-ready validation.");
   }
