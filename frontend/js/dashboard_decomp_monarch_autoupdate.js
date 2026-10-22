@@ -4,6 +4,17 @@
 // by the server; this card shows status and lets the user configure it or run it now. A type="module"
 // script like dashboard_decomp_local_backups.js (see its header; dashboard.js reaches
 // refreshMonarchAutoUpdateStatus() through a dynamic import for the same load-order reason).
+// Card help for showConfigCardHelp('monarch_autoupdate'); lives here so dashboard.js does not grow.
+// This module is imported after dashboard.js has run; a loader that evaluates it earlier skips the entry.
+try {
+  SYSTEM_CONFIG_FIELD_HELP.monarch_autoupdate = pageHelp(
+    "Third-party import auto-update",
+    "Imports new and changed transactions and daily account balances that another process places in the source folder.",
+    "Both steps (transactions and account balances) run under one daily Windows Task Scheduler entry, registered automatically when you enable it.",
+    "Enable it when another process keeps the source folder current; set the run time and the full path of the source folder.",
+    "Imported balances and transactions feed the reconciliation inbox; plan inputs change only when you apply an update.",
+  );
+} catch (_e) {}
 let monarchAutoUpdateStatus = null;
 // UX-103: autosave with a busy indicator instead of a manual Save button.
 let monarchAutoUpdateSaving = false;
@@ -61,7 +72,7 @@ function monarchAutoUpdateControlsHtml() {
   const detail = p.enabled
     ? `<div class="table-actions"><label class="small">Run time <input type="time" id="monarchAutoUpdateRunTime" value="${esc(p.run_time || "04:00")}"${disabledAttr} onchange="event.stopPropagation();saveMonarchAutoUpdatePolicy()"></label> ${chk("monarchAutoUpdateTransactions", p.transactions, "Transactions")} ${chk("monarchAutoUpdateBalances", p.balances, "Account balances")}</div><div class="table-actions"><label class="small">Source folder (full path) <input id="monarchAutoUpdateSourceDir" type="text" value="${esc(p.source_dir || "")}"${disabledAttr} onblur="event.stopPropagation();saveMonarchAutoUpdatePolicy()" style="width:360px"></label></div><p class="small"><b>Transactions:</b> ${esc(monarchAutoUpdateStatusLine())}${statusSuffix}</p><p class="small"><b>Account balances:</b> ${esc(monarchAutoUpdateBalancesStatusLine())}</p>${monarchAutoUpdateFreshnessWarningHtml()}`
     : `<p class="small"><b>Status:</b> ${esc(monarchAutoUpdateStatusLine())}${statusSuffix}</p>`;
-  return `<div class="feature-card monarch-autoupdate-card" tabindex="0" onclick="showConfigCardHelp('monarch_autoupdate')" onfocus="showConfigCardHelp('monarch_autoupdate')"><h3>Third-party import auto-update</h3><p class="small">Import new and changed transactions and daily account balances that another process places in the source folder. Both steps run under one daily Windows Task Scheduler entry (registered automatically).</p>${chk("monarchAutoUpdateEnabled", p.enabled, "Enable daily auto-update")}${detail}<div class="table-actions"><button class="btn" type="button"${monarchAutoUpdateRunning ? " disabled" : ""} onclick="event.stopPropagation();runMonarchAutoUpdateNow()" onfocus="event.stopPropagation();showConfigCardHelp('monarch_autoupdate')">${runLabel}</button><button class="btn" type="button" onclick="event.stopPropagation();refreshMonarchAutoUpdateStatus()" onfocus="event.stopPropagation();showConfigCardHelp('monarch_autoupdate')">Refresh</button></div></div>`;
+  return `<div class="feature-card monarch-autoupdate-card" tabindex="0" onclick="showConfigCardHelp('monarch_autoupdate')" onfocus="showConfigCardHelp('monarch_autoupdate')"><h3>Third-party import auto-update</h3>${chk("monarchAutoUpdateEnabled", p.enabled, "Enable daily auto-update")}${detail}<div class="table-actions"><button class="btn" type="button"${monarchAutoUpdateRunning ? " disabled" : ""} onclick="event.stopPropagation();runMonarchAutoUpdateNow()" onfocus="event.stopPropagation();showConfigCardHelp('monarch_autoupdate')">${runLabel}</button><button class="btn" type="button" onclick="event.stopPropagation();refreshMonarchAutoUpdateStatus()" onfocus="event.stopPropagation();showConfigCardHelp('monarch_autoupdate')">Refresh</button></div></div>`;
 }
 async function refreshMonarchAutoUpdateStatus(silent = false) {
   try {

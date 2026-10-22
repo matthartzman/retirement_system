@@ -28,8 +28,7 @@ export function renderYearMatrix(section, title, opts = {}) {
   const years = matrixYears(rs);
   const policies = matrixPolicies(rs);
   const frozen = opts.frozenLabel || "Policy";
-  const hk = opts.helpKey;
-  let html = `<div class="holdings"${hk ? ` data-help-section="${hk}"` : ""}><h3 class="group-title">${esc(title)}${hk ? " " + (window.RPHelp?.sectionButtonHtml(hk) || "") : ""}</h3>`;
+  let html = `<div class="holdings"${opts.helpKey ? ` data-help-section="${opts.helpKey}"` : ""}><h3 class="group-title">${esc(title)}</h3>`;
   html += `<div class="table-actions"><button class="btn" type="button" onclick="openStepHelp(activeStep)">How to use this table</button></div>`;
   html += `<div class="matrix-wrap" role="region" aria-label="${esc(title)} matrix" tabindex="0"><table class="matrix-table"><thead><tr><th>${esc(frozen)}</th>${years.map((y) => `<th>${esc(y)}</th>`).join("")}</tr></thead><tbody>`;
   policies.forEach((pol) => {
@@ -41,7 +40,6 @@ export function renderYearMatrix(section, title, opts = {}) {
     html += "</tr>";
   });
   html += "</tbody></table></div>";
-  html += `<p class="small">Tip: use <span class="kbd">Tab</span> or <span class="kbd">Return</span> to move across the editable year cells. Scroll horizontally to reach later years; the ${esc(frozen.toLowerCase())} column remains visible.</p>`;
   html += "</div>";
   return html;
 }
@@ -50,7 +48,7 @@ export function renderDeathBenefitsTable() {
   return renderYearMatrix(
     "Annuity Death Benefits",
     "Annuity death benefits",
-    { frozenLabel: "Policy", helpKey: "annuity_death_benefits.death_benefits" },
+    { frozenLabel: "Policy", helpKey: "annuity_death_benefits.annuity_death_benefits" },
   );
 }
 
@@ -65,7 +63,7 @@ export function renderLifeIllustrations() {
   const deathBenefit = matrixRows("Life Illustration Death Benefit");
   const premium = matrixRows("Life Illustration Premium");
   if (!cashValue.length && !deathBenefit.length && !premium.length) return "";
-  return `<details data-help-section="annuity_death_benefits.life_illustrations"><summary>Life Insurance Illustrations</summary>${renderYearMatrix("Life Illustration Cash Value", "Cash value", { frozenLabel: "Policy" })}${renderYearMatrix("Life Illustration Death Benefit", "Death benefit", { frozenLabel: "Policy" })}${renderYearMatrix("Life Illustration Premium", "Premium", { frozenLabel: "Policy" })}</details>`;
+  return `<details data-help-section="annuity_death_benefits.life_illustrations"><summary>Life Insurance Illustrations</summary>${renderYearMatrix("Life Illustration Cash Value", "Cash value", { frozenLabel: "Policy", helpKey: "annuity_death_benefits.life_cash_value" })}${renderYearMatrix("Life Illustration Death Benefit", "Death benefit", { frozenLabel: "Policy", helpKey: "annuity_death_benefits.life_death_benefit" })}${renderYearMatrix("Life Illustration Premium", "Premium", { frozenLabel: "Policy", helpKey: "annuity_death_benefits.life_premium" })}</details>`;
 }
 
 export function renderSpecialIncomeAnnuitiesInsurance() {

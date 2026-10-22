@@ -154,9 +154,9 @@ export async function deleteForcedConversion(i) {
 }
 export function renderForcedConversionsTable() {
   const accounts = forcedAccountOptions();
-  let html = `<details class="roth-section"><summary>Forced conversions</summary><div class="field-list"><div class="section-note">Use this only for conversions that are already done or intentionally required in a scenario. Enter one row per conversion: source account, year, and dollar amount. The optimizer will not remove these rows.</div><div class="table-actions"><button class="btn" type="button" onclick="addForcedConversion()">Add Forced Conversion</button></div><div class="lot-table-wrap"><table class="lot-table"><thead><tr><th>Source Account</th><th>Year</th><th>Amount</th><th>Actions</th></tr></thead><tbody>`;
+  let html = `<details class="roth-section" data-help-section="roth_conversion.forced_conversions"><summary>Forced conversions</summary><div class="field-list"><div class="section-note" data-kind="warn">Only for conversions already done or required in a scenario; the optimizer will not remove these rows.</div><div class="table-actions"><button class="btn" type="button" onclick="addForcedConversion()">Add Forced Conversion</button></div><div class="lot-table-wrap"><table class="lot-table"><thead><tr><th>Source Account</th><th>Year</th><th>Amount</th><th>Actions</th></tr></thead><tbody>`;
   if (!forcedConversions.length) {
-    html += `<tr><td colspan="4"><span class="small">No forced conversions. Click Add Forced Conversion only for already-executed or deliberately imposed conversions.</span></td></tr>`;
+    html += `<tr><td colspan="4"><span class="small" data-kind="state">No forced conversions.</span></td></tr>`;
   }
   forcedConversions.forEach((e, i) => {
     const cur = e.source_account || "";
@@ -261,9 +261,9 @@ export function homeSaleSplitPctTotal() {
 export function renderHomeSaleSplits() {
   const total = homeSaleSplitPctTotal();
   const totalOk = homeSaleSplits.length === 0 || Math.abs(total - 100) < 0.01;
-  let html = `<div class="holdings"><h3 class="group-title">Split sale proceeds across accounts</h3><div class="section-note">Optional: divide house sale proceeds across more than one account by percentage instead of depositing the full amount to a single account above. Leave empty to use the single account setting instead. Rows must sum to 100%.</div><div class="table-actions"><button class="btn" type="button" onclick="addHomeSaleSplit()">Add split row</button></div><div class="lot-table-wrap"><table class="lot-table"><thead><tr><th>Account</th><th>Percentage</th><th></th></tr></thead><tbody>`;
+  let html = `<div class="holdings" data-help-section="spending_core.sale_proceeds_split"><h3 class="group-title">Split sale proceeds across accounts</h3><div class="section-note" data-kind="warn">Rows must sum to 100%.</div><div class="table-actions"><button class="btn" type="button" onclick="addHomeSaleSplit()">Add split row</button></div><div class="lot-table-wrap"><table class="lot-table"><thead><tr><th>Account</th><th>Percentage</th><th></th></tr></thead><tbody>`;
   if (!homeSaleSplits.length) {
-    html += `<tr><td colspan="3"><span class="small">No split rows. The single account setting above is used.</span></td></tr>`;
+    html += `<tr><td colspan="3"><span class="small" data-kind="state">No split rows.</span></td></tr>`;
   }
   homeSaleSplits.forEach((s, i) => {
     const cur = s.account || "";
@@ -360,9 +360,9 @@ export async function deleteResidencyPeriod(i) {
   renderMain();
 }
 export function renderResidencySchedule() {
-  let html = `<div class="holdings"><div class="section-note">Optional: model a move to another state at a known year instead of one fixed state for the whole plan. All state income tax, estate tax, and other state-dependent figures use the state that applies in each projection year. Leave empty to use the single Household residence state for the whole plan. The last row is always open-ended (no end year) -- it applies from its start year through the end of the plan.</div><div class="table-actions"><button class="btn" type="button" onclick="addResidencyPeriod()">Add residency period</button></div><div class="lot-table-wrap"><table class="lot-table"><thead><tr><th>State</th><th>Start year</th><th>End year</th><th></th></tr></thead><tbody>`;
+  let html = `<div class="holdings" data-help-section="spending_core.residency_periods"><div class="table-actions"><button class="btn" type="button" onclick="addResidencyPeriod()">Add residency period</button></div><div class="lot-table-wrap"><table class="lot-table"><thead><tr><th>State</th><th>Start year</th><th>End year</th><th></th></tr></thead><tbody>`;
   if (!residencySchedule.length) {
-    html += `<tr><td colspan="4"><span class="small">No residency rows. The single Household residence state is used for the whole plan.</span></td></tr>`;
+    html += `<tr><td colspan="4"><span class="small" data-kind="state">No residency rows.</span></td></tr>`;
   }
   residencySchedule.forEach((p, i) => {
     const isLast = i === residencySchedule.length - 1;

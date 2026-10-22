@@ -1327,7 +1327,7 @@ function renderImpactSectionBody() {
   const latestImpact =
     planningWorkbenchBuildImpactHtml() + latestBuildImpactHtml(buildHistory[0]);
   return (
-    "<h3>Impact</h3><p class=\"small\">Dials are heat-mapped: green = best across all entries, red = worst. LCV (Expected After-Tax Lifetime Consumption-and-Transfer Value) is total lifetime spending plus the after-tax, after-estate-tax terminal transfer to heirs. All-In LCV adds lifetime taxes paid back in, for a single figure that includes every tax dollar.</p>" +
+    "<h3>Impact " + (window.RPHelp ? window.RPHelp.sectionButtonHtml("reports_and_review.build_impact") : "") + "</h3>" +
     headerActions +
     latestImpact +
     '<details class="build-history-collapsible"><summary class="section-header">Build History (up to ' +
@@ -3214,14 +3214,9 @@ export function renderFields(step) {
     : "";
   if (["assets_special"].includes(step))
     html += `<div class="section-note">Some fields on this page feed reporting and workbook narrative only — they do not directly affect cash-flow or tax calculations. Review the workbook output after a rebuild to confirm what affected each projection year.</div>`;
-  if (step === "scenarios")
-    html += `<div class="section-note">Home sale stress-test rows apply to scenario workbook outputs only. Base-plan sale year, future rent, renters insurance, and rental utilities are managed on the Housing page.</div>`;
-  if (step === "roth_conversion")
-    html += `<div class="section-note">Tax bracket target rows appear here rather than in Economic &amp; Tax Assumptions because they are strategy inputs — they define the conversion ceiling, not a general economic forecast.</div>`;
-  if (step === "all_assumptions")
-    html += `<div class="section-note">Grouped by plan area, matching the left navigation, alphabetical within each area. Each field shows its own source page beneath its label.</div>`;
-  if (step === "monte_carlo_options")
-    html += `<div class="section-note">Advanced mode runs more trials with higher precision and is suitable for final outputs. Quick mode is faster and appropriate for working sessions. Raise trial count for final runs only when the build time budget allows.</div>`;
+  // Phase 3b: the prose for these pages lives in HELP_SECTIONS (help_registry.js); the key wraps the page body.
+  const helpKey = { scenarios: "strategy_scenarios.stress_rows", roth_conversion: "roth_conversion.bracket_targets", all_assumptions: "all_assumptions.field_list", monte_carlo_options: "strategy_stress.monte_carlo_mode" }[step];
+  const wrapHelp = (inner) => (helpKey ? `<div data-help-section="${helpKey}">${inner}</div>` : inner);
   // #330 §5.2 (W12): a step-owning module that is off gets a note, not a
   // blackout -- the earlier hand-written versions of these branches each
   // `return`ed a static "hidden" paragraph in place of the step's rows,
@@ -3246,7 +3241,7 @@ export function renderFields(step) {
       ? !optionalFunctionEnabled(gateKey)
       : false;
   if (gateKey && gateOff) html += featureGatedNote(gateKey, { rows: rs });
-  if (step === "all_assumptions") return html + renderFieldFinderGroups(rs);
+  if (step === "all_assumptions") return wrapHelp(html + renderFieldFinderGroups(rs));
   // #358: the ACA section sits directly above the Tax Assumptions table, which
   // the tax-assumptions module appends after this page's fields.
   if (step === "economic_tax_assumptions") {
@@ -3259,7 +3254,7 @@ export function renderFields(step) {
         `<div class="field-list"><h3 class="group-title">${esc(friendlyGroup(aca[0]))}</h3>${sortRowsByDependency(aca).map(fieldHtml).join("")}</div>`
       );
   }
-  return html + renderFieldGroups(rs);
+  return wrapHelp(html + renderFieldGroups(rs));
 }
 
 export function personDisplayName(n) {
@@ -3859,8 +3854,8 @@ export function renderYtdAccounts() {
   if (!enabled) return "";
   const accounts = ytdData.account_setup || [];
   const holdingCount = ytdInvestmentHoldingAccounts().length;
-  const addSourceControls = `<input id="ytdManualAccountName" class="search ytd-add-source-name" placeholder="Account/source name"><select id="ytdManualAccountRole" title="Account/source type to add">${ytdAccountRoleOptions("Offline asset")}</select><button class="btn" type="button" title="Add the typed account/source with the selected type. No pop-up required." onclick="addManualYtdAccount()">Add account/source</button>`;
-  return `<div class="holdings ytd-section"><h3 class="group-title">Accounts &amp; Sources</h3>${ytdRolloverBannerHtml()}<div class="section-note"><b>Where the money came from or is held:</b> Transaction accounts are added automatically from uploaded transactions. This section does not assign spending categories; it identifies account/source type, prior-year balance, current value, and any mapped investment account. Add non-transaction sources for annuities, pensions, Social Security, offline assets, real estate, notes, credit cards, loans, or other manual assets/liabilities. Investment current value is derived from mapped Holdings accounts.</div><div class="table-actions ytd-account-actions">${addSourceControls}<button class="btn primary" id="ytdSaveAccountSetupBtn" type="button" ${ytdAccountsChanged ? "" : "disabled"} onclick="saveYtdAccountSetup()">Save Accounts &amp; Sources</button><button class="btn" type="button" title="One-time recovery from a previous SQLite mirror, local Plan Data folder, or sibling extracted package." onclick="recoverYtdAccountSetup()">Recover previous setup</button></div>${holdingCount ? "" : '<p class="small">No investment holding accounts found in Holdings yet. Account mapping dropdowns will be blank until holdings are loaded.</p>'}<div class="lot-table-wrap ytd-account-wrap"><table class="lot-table ytd-account-table"><thead><tr><th>Account / Source</th><th>Account Type</th><th>Mapped Account</th><th>${ytdPriorYearEndHeader()}</th><th>Current Value</th><th class="ytd-delete-cell">Action</th></tr></thead><tbody>${
+  const addSourceControls = `<input id="ytdManualAccountName" class="search ytd-add-source-name" placeholder="Account/source name"><select id="ytdManualAccountRole" aria-label="Account/source type to add">${ytdAccountRoleOptions("Offline asset")}</select><button class="btn" type="button" onclick="addManualYtdAccount()">Add account/source</button>`;
+  return `<div class="holdings ytd-section" data-help-section="actual_spending.accounts_sources"><h3 class="group-title">Accounts &amp; Sources</h3>${ytdRolloverBannerHtml()}<div class="table-actions ytd-account-actions">${addSourceControls}<button class="btn primary" id="ytdSaveAccountSetupBtn" type="button" ${ytdAccountsChanged ? "" : "disabled"} onclick="saveYtdAccountSetup()">Save Accounts &amp; Sources</button><button class="btn" type="button" onclick="recoverYtdAccountSetup()">Recover previous setup</button></div>${holdingCount ? "" : '<p class="small" data-kind="state">No investment holding accounts found in Holdings yet.</p>'}<div class="lot-table-wrap ytd-account-wrap"><table class="lot-table ytd-account-table"><thead><tr><th>Account / Source</th><th>Account Type</th><th>Mapped Account</th><th>${ytdPriorYearEndHeader()}</th><th>Current Value</th><th class="ytd-delete-cell">Action</th></tr></thead><tbody>${
     accounts
       .map((r, i) => {
         const role = String(r.Role || "Cash / spending");

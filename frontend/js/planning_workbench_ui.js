@@ -341,7 +341,7 @@
     });
     html += "</tbody></table></div>";
     if (items.length > 40)
-      html += `<p class="small">+${items.length - 40} more captured items.</p>`;
+      html += `<p class="small" data-kind="state">+${items.length - 40} more captured items.</p>`;
     return html;
   }
   function matrixHtml(ctx, cases) {
@@ -356,7 +356,7 @@
       },
     ].concat(cases.filter((c) => !c.archived));
     let html =
-      '<div class="lot-table-wrap"><table class="lot-table planning-workbench-matrix"><thead><tr><th>Case</th><th>Source</th><th>Run type</th><th>Success</th><th title="Lifetime Consumption-and-Transfer Value">Lifetime value (LCV)</th><th title="Effective Lifetime Tax Rate">Lifetime tax rate (ELTR)</th><th>Roth conversions</th><th>Decision</th></tr></thead><tbody>';
+      '<div class="lot-table-wrap" data-help-section="strategy_workbench.impact_matrix"><table class="lot-table planning-workbench-matrix"><thead><tr><th>Case</th><th>Source</th><th>Run type</th><th>Success</th><th>Lifetime value (LCV)</th><th>Lifetime tax rate (ELTR)</th><th>Roth conversions</th><th>Decision</th></tr></thead><tbody>';
     rows.forEach(function (c, i) {
       const r = c.result_summary || {};
       html += `<tr class="${i === 0 ? "baseline-row" : ""}"><td><b>${esc(ctx, c.name || "Built Baseline")}</b><div class="small">${esc(ctx, c.base_snapshot_id || "latest build")}</div></td><td>${esc(ctx, c.source || "baseline")}</td><td>${esc(ctx, c.run_type || "baseline")}</td><td>${ctx.fmtPct((Number(r.success_probability ?? r.mc_success ?? 0) || 0) * 100)}</td><td>${ctx.fmtMoney(Number(r.lcv ?? r.lcv_score ?? 0) || 0)}</td><td>${ctx.fmtPct((Number(r.eltr ?? r.effective_lifetime_tax_rate ?? 0) || 0) * 100)}</td><td>${ctx.fmtMoney(Number(r.roth_conversion_total ?? 0) || 0)}</td><td>${i === 0 ? "—" : `<button class="btn tiny" type="button" onclick="setPlanningCaseActive('${escJs(ctx, c.case_id)}')">Review</button>`}</td></tr>`;
@@ -372,14 +372,14 @@
     // above. Deliberately its own panel, not a column on the Impact matrix.
     const last = call(ctx.getLastBuildSummary) || {};
     if (!Object.keys(last).length)
-      return '<div class="feature-card forward-looking-panel"><h3>Forward-Looking (From Today)</h3><p class="small">Build the plan to see Future Consumption Value (FCV) and Effective Future Tax Rate (EFTR) from today forward.</p></div>';
+      return '<div class="feature-card forward-looking-panel" data-help-section="strategy_workbench.forward_looking"><h3>Forward-Looking (From Today)</h3><p class="small" data-kind="state">Build the plan to see the forward-looking figures.</p></div>';
     const fcv = Number(last.fcv ?? 0) || 0;
     const eftr = Number(last.eftr ?? 0) || 0;
-    return `<div class="feature-card forward-looking-panel"><h3>Forward-Looking (From Today)</h3><p class="small">Supplemental to the Impact matrix above, not a substitute: what's left from today forward in the latest build, not the whole-lifetime figures used for comparing cases.</p><div class="impact-grid"><div class="impact-card"><span title="Future Consumption Value">Future value (FCV)</span><b>${ctx.fmtMoney(fcv)}</b></div><div class="impact-card"><span title="Effective Future Tax Rate">Future tax rate (EFTR)</span><b>${ctx.fmtPct(eftr * 100)}</b></div></div></div>`;
+    return `<div class="feature-card forward-looking-panel" data-help-section="strategy_workbench.forward_looking"><h3>Forward-Looking (From Today)</h3><div class="impact-grid"><div class="impact-card"><span>Future value (FCV)</span><b>${ctx.fmtMoney(fcv)}</b></div><div class="impact-card"><span>Future tax rate (EFTR)</span><b>${ctx.fmtPct(eftr * 100)}</b></div></div></div>`;
   }
   function cardsHtml(ctx, cases, active) {
     if (!cases.length)
-      return '<p class="small">No saved planning cases yet. Use the actions above to save staged edits, strategy levers, scenario overrides, or stress assumptions as a reusable case.</p>';
+      return '<p class="small" data-kind="state">No saved planning cases yet.</p>';
     let html = '<div class="planning-case-list">';
     cases.forEach(function (c) {
       const selected = active && c.case_id === active.case_id;
@@ -399,13 +399,13 @@
           ),
       )
       .join("");
-    return `<div class="feature-card"><h3>Stress suite target</h3><p class="small">Run adverse assumptions against the baseline or a saved planning case. Stress tests remain labels and inputs until you save/build deliberately.</p><label class="small">Apply stress assumptions to</label><select class="compact-input" onchange="setPlanningCaseActive(this.value==='baseline'?'':this.value)">${opts}</select><div class="pane-actions"><button class="btn" type="button" data-step-id="monte_carlo_options">Configure Stress Suite</button><button class="btn" type="button" onclick="planningCaseCreate('stress')">Save stress case</button></div></div>`;
+    return `<div class="feature-card" data-help-section="strategy_workbench.stress_suite"><h3>Stress suite target</h3><label class="small">Apply stress assumptions to</label><select class="compact-input" onchange="setPlanningCaseActive(this.value==='baseline'?'':this.value)">${opts}</select><div class="pane-actions"><button class="btn" type="button" data-step-id="monte_carlo_options">Configure Stress Suite</button><button class="btn" type="button" onclick="planningCaseCreate('stress')">Save stress case</button></div></div>`;
   }
   function renderBuildImpactContext(ctx) {
     const cases = readAll().filter((c) => !c.archived);
     if (!cases.length) return "";
     const active = cases.find((c) => c.case_id === activeId()) || cases[0];
-    return `<div class="impact-panel planning-workbench-impact"><h3>Planning Workbench comparison context</h3><p class="small">Build Impact now uses the same Baseline / Change Set / Run Type / Impact vocabulary as Strategy, Scenario Change Sets, and Stress Suite. The selected planning case is for comparison context only; adopt changes on source pages before rebuilding.</p><div class="feature-grid"><div class="feature-card"><h3>Baseline</h3><p>${esc(ctx, active.base_snapshot_id || "Latest saved/built plan")}</p></div><div class="feature-card"><h3>Change Set</h3><p><b>${esc(ctx, active.name)}</b></p><p class="small">${(active.overrides || []).length} override${(active.overrides || []).length === 1 ? "" : "s"} from ${esc(ctx, active.source)}</p></div><div class="feature-card"><h3>Run Type</h3><p>${esc(ctx, active.run_type || "quick_compare")}</p></div><div class="feature-card"><h3>Decision</h3><div class="pane-actions"><button class="btn tiny" type="button" data-step-id="planning_workbench">Open Workbench</button><button class="btn tiny" type="button" onclick="planningCaseAdopt('${escJs(ctx, active.case_id)}')">Adopt via source pages</button></div></div></div>${overrideTable(ctx, (active.overrides || []).slice(0, 8), "No overrides captured for the selected case.")}</div>`;
+    return `<div class="impact-panel planning-workbench-impact" data-help-section="strategy_workbench.comparison_context"><h3>Planning Workbench comparison context</h3><div class="feature-grid"><div class="feature-card"><h3>Baseline</h3><p>${esc(ctx, active.base_snapshot_id || "Latest saved/built plan")}</p></div><div class="feature-card"><h3>Change Set</h3><p><b>${esc(ctx, active.name)}</b></p><p class="small">${(active.overrides || []).length} override${(active.overrides || []).length === 1 ? "" : "s"} from ${esc(ctx, active.source)}</p></div><div class="feature-card"><h3>Run Type</h3><p>${esc(ctx, active.run_type || "quick_compare")}</p></div><div class="feature-card"><h3>Decision</h3><div class="pane-actions"><button class="btn tiny" type="button" data-step-id="planning_workbench">Open Workbench</button><button class="btn tiny" type="button" onclick="planningCaseAdopt('${escJs(ctx, active.case_id)}')">Adopt via source pages</button></div></div></div>${overrideTable(ctx, (active.overrides || []).slice(0, 8), "No overrides captured for the selected case.")}</div>`;
   }
   window.RetirementPlanningWorkbench = {
     STORE_KEY,

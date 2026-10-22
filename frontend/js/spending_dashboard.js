@@ -6,6 +6,7 @@
 // cache), so it lives on window explicitly rather than as module-local
 // state a module conversion would otherwise hide from that caller.
 window.spendingData = null;
+function spendSecBtn(key) { return window.RPHelp ? window.RPHelp.sectionButtonHtml(key) : ''; }
 window.spendingLoading = false;
 window.spendingError = '';
 // One Set of composite keys ('type:', 'group:', 'cat:' prefixed) tracks every
@@ -59,7 +60,7 @@ export function spendingDivergenceNoteHtml() {
   var pct = Number(getSpendingDivergencePct()) || 0;
   if (pct <= 0.03) return '';
   var d = window.spendingData || {};
-  return '<div class="section-note warning spending-divergence-note" data-kind="warn"><b>! &gt;3% &mdash; annualized spending is ' +
+  return '<div class="section-note warning spending-divergence-note"><b>! &gt;3% &mdash; annualized spending is ' +
     (pct * 100).toFixed(1) + '% over the annual budget.</b> Annualized spending (all Tracking Types, including taxes) is <b>' +
     fmtSpend(d.annualized_total) + '</b> vs. an annual budget of <b>' + fmtSpend(d.budget_total) + '</b>.' +
     ' The "! &gt;3%" badge in the left nav appears when this exceeds 3%. Review the categories below, or raise the budget if this is the right run rate.</div>';
@@ -207,8 +208,8 @@ export function renderSpendingDashboard() {
   if (d.unmapped_categories && d.unmapped_categories.length) html += renderUnmappedWarning(d);
   html += '<div class="table-actions">';
   html += '<button class="btn" onclick="loadSpendingDashboard(true)">Refresh</button>';
-  if (!d.budget_total) html += '<button class="btn primary" data-requires-app="1" onclick="seedSpendingBudget()" data-help-section="actual_spending.actions">Initialize Budget from Actual Spending</button>';
-  if (d.forecast_total > 0 && d.year === new Date().getFullYear()) html += '<button class="btn good" data-requires-app="1" onclick="applySpendingForecast()" data-help-section="actual_spending.actions">Sync Actual Rate → 30-Year Model</button>';
+  if (!d.budget_total) html += '<button class="btn primary" data-requires-app="1" onclick="seedSpendingBudget()" >Initialize Budget from Actual Spending</button>';
+  if (d.forecast_total > 0 && d.year === new Date().getFullYear()) html += '<button class="btn good" data-requires-app="1" onclick="applySpendingForecast()" title="Updates the core spending assumption used by the 30-year model">Sync Actual Rate → 30-Year Model</button>';
   html += '</div>';
   html += '</div>';
   return html;
@@ -231,7 +232,7 @@ export function renderSpendingSummary(d) {
   // and YTD spending cards in This Year Performance (same classifier).
   html += '<div class="spend-kpi"><span class="spend-kpi-value">' + fmtSpend(annualized) + '</span><span class="spend-kpi-label">Annualized Expenses</span>';
   if (annualized > 0) {
-    html += '<button class="btn tiny good" data-requires-app="1" onclick="applySpendingForecast()" data-help-section="actual_spending.actions">Sync Actual Rate → 30-Year Model</button>';
+    html += '<button class="btn tiny good" data-requires-app="1" onclick="applySpendingForecast()">Sync Actual Rate → 30-Year Model</button>';
   }
   html += '</div>';
   html += '<div class="spend-kpi"><span class="spend-kpi-value">' + fmtSpend(budget || d.model_core_spending) + '</span><span class="spend-kpi-label">' + (budget ? 'Annual Budget' : 'Model Spending Categories') + '</span></div>';
@@ -255,8 +256,8 @@ export function renderSpendingSummary(d) {
     html += '<div class="spend-kpi"><span class="spend-kpi-value">' + fmtSpend(budgetAllIn) + '</span><span class="spend-kpi-label">Annual Budget, All-In (Incl. Transfers)</span></div>';
     html += '</div>';
   }
-  html += '<p class="small" data-kind="state" data-help-section="actual_spending.kpis" style="margin:0 0 12px">' + d.days_elapsed + ' days elapsed &middot; annualization factor ' + (d.annualization_factor || 1).toFixed(2) + 'x' +
-    (hasAllInDelta ? '' : ' &middot; no transfers logged in ' + (d.year || selectedSpendingYear()) + '; All-In omitted') + ' ' + (window.RPHelp?.sectionButtonHtml("actual_spending.kpis") || "") + '</p>';
+  html += '<p class="small" data-kind="state" style="margin:0 0 12px">' + d.days_elapsed + ' days elapsed &middot; annualization factor ' + (d.annualization_factor || 1).toFixed(2) + 'x' +
+    (hasAllInDelta ? '' : ' &middot; no transfer transactions logged in ' + (d.year || selectedSpendingYear()) + ', so All-In is omitted') + ' ' + spendSecBtn('actual_spending.tracker') + '</p>';
   return html;
 }
 
@@ -360,7 +361,7 @@ export function renderSpendingBars(d) {
 export function renderSpendingMonthly(d) {
   var series = d.monthly_series || [];
   if (!series.length) return '';
-  var html = '<h3 class="group-title" data-help-section="actual_spending.monthly_trajectory">Monthly Trajectory ' + (window.RPHelp?.sectionButtonHtml("actual_spending.monthly_trajectory") || "") + '</h3>';
+  var html = '<h3 class="group-title">Monthly Trajectory ' + spendSecBtn('actual_spending.monthly_trajectory') + '</h3>';
   html += '<div class="lot-table-wrap"><table class="lot-table spend-monthly-table">';
   html += '<thead><tr><th>Month</th><th>Actual</th><th>Budget</th><th>Cum Actual</th><th>Cum Budget</th><th>Cum Δ</th></tr></thead>';
   html += '<tbody>';
@@ -387,7 +388,7 @@ export function renderModelManaged(d) {
 
   if (!typeKeys.length) return '';
 
-  var html = '<h3 class="group-title" data-help-section="actual_spending.model_managed">Model-Managed (Not in Core Budget) ' + (window.RPHelp?.sectionButtonHtml("actual_spending.model_managed") || "") + '</h3>';
+  var html = '<h3 class="group-title">Model-Managed (Not in Core Budget) ' + spendSecBtn('actual_spending.model_managed') + '</h3>';
 
   typeKeys.forEach(function(typeKey) {
     var cats = mm[typeKey] || {};
@@ -410,7 +411,7 @@ export function renderModelManaged(d) {
 export function renderBusinessSection(d) {
   var biz = d.business;
   if (!biz || !biz.actual) return '';
-  var html = '<h3 class="group-title" data-help-section="actual_spending.business">Business Expenses ' + (window.RPHelp?.sectionButtonHtml("actual_spending.business") || "") + '</h3>';
+  var html = '<h3 class="group-title">Business Expenses ' + spendSecBtn('actual_spending.model_managed') + '</h3>';
   html += '<div class="spend-mm-item"><span>Total Business</span><span>' + fmtSpend(biz.actual) + ' YTD / ' + fmtSpend(biz.annualized) + ' annualized</span></div>';
   if (biz.categories && biz.categories.length) {
     html += '<div class="spend-bar-detail">';

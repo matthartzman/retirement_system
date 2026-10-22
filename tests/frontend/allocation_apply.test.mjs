@@ -250,7 +250,7 @@ describe("the strip", () => {
     setup("user_target", false);
     const html = allocationOptimizerApplyStripHtml();
     assert.ok(!/>Lock in this schedule</.test(html));
-    assert.match(html, /needs the optimizer's computed percentages/);
+    assert.match(html, /needs the preview above to run first/);
   });
 
   test("no mode row means no strip at all", () => {

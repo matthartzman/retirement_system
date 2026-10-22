@@ -22,7 +22,11 @@
 
 import { test, describe, beforeEach } from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import { loadDashboardSandbox } from "./load_dashboard.mjs";
+
+// The apply-strip explanations moved to the help panel (contextual help Phase 3b).
+const helpRegistry = () => fs.readFileSync("frontend/js/help_registry.js", "utf8");
 
 const sandbox = loadDashboardSandbox();
 const {
@@ -351,13 +355,15 @@ describe("the results table carries the strip", () => {
 
   test("it says which row it applies", () => {
     const html = sandbox.renderHousingOptimizeResultsHtml(payload());
-    assert.match(html, /starred \(rank 1\) option/);
+    assert.match(html, /data-help-section="spending_core.where_to_live_apply"/);
+    assert.match(helpRegistry(), /starred \(rank 1\) option/);
   });
 
   test("it states the re-scaling caveat rather than leaving it a surprise", () => {
     const html = sandbox.renderHousingOptimizeResultsHtml(payload());
-    assert.match(html, /re-scale automatically/);
-    assert.match(html, /to within rounding/);
+    assert.match(html, /data-help-section="spending_core.where_to_live_apply"/);
+    assert.match(helpRegistry(), /re-scale automatically/);
+    assert.match(helpRegistry(), /to within rounding/);
   });
 
   test("§4.6: it does not imply the provenance is durable", () => {

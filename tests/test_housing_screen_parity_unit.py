@@ -274,6 +274,9 @@ def test_dwelling_option_sets_match_field_for_field(extraction, spending_fn, opt
 def test_the_cross_link_names_what_carries_across():
     # #338 W-E: the plan inputs and the search now share the Next Housing
     # Move section, so the cross-link became an in-section pointer.
-    assert '<b>Where to live</b> search below' in SCENARIOS_JS
+    # Contextual help Phase 3b: the pointer text moved to the section help record.
+    registry = (ROOT / 'frontend' / 'js' / 'help_registry.js').read_text(encoding='utf-8')
+    assert 'spending_core.next_housing_move' in SCENARIOS_JS
+    assert 'Where to live search sweeps' in registry
     for word in ('ZIP', 'price', 'distance'):
-        assert word in SCENARIOS_JS
+        assert word in registry
