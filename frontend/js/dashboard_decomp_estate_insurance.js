@@ -53,7 +53,7 @@ export function renderEstateStatesTable() {
         .filter(stateLikeEstateSubsection),
     ),
   ];
-  let html = `<details open><summary>Exemption: State estate-tax references</summary><div class="field-list"><div class="section-note">States below come from reference_data/state_tax.csv. Add a state to Plan Data when it should appear in the estate-analysis inputs.</div><div class="lot-table-wrap"><table class="lot-table"><thead><tr><th>State</th><th>Estate tax</th><th>Reference exemption</th><th>Plan Data status</th><th>Action</th></tr></thead><tbody>`;
+  let html = `<details open data-help-section="estate.state_estate_tax"><summary>Exemption: State estate-tax references</summary><div class="field-list"><div class="lot-table-wrap"><table class="lot-table"><thead><tr><th>State</th><th>Estate tax</th><th>Reference exemption</th><th>Plan Data status</th><th>Action</th></tr></thead><tbody>`;
   const names = new Set([...all.map((s) => s.state), ...existingSubs]);
   [...names]
     .sort((a, b) => a.localeCompare(b))
@@ -120,10 +120,10 @@ export function renderTrustAccountsTable() {
   trustRows.forEach((r) => {
     (bySub[r.subsection] || (bySub[r.subsection] = [])).push(r);
   });
-  let html = `<details open><summary>Trusts</summary><div class="field-list"><div class="section-note">Trust accounts are shown in a compact table. Each trust has a type pulldown and can be expanded for additional fields.</div><div class="table-actions"><button class="btn" type="button" data-requires-app="1" onclick="addTrustAccount()">Add trust account</button></div>`;
+  let html = `<details open data-help-section="estate.trusts"><summary>Trusts</summary><div class="field-list"><div class="table-actions"><button class="btn" type="button" data-requires-app="1" onclick="addTrustAccount()">Add trust account</button></div>`;
   const subs = Object.keys(bySub).sort();
   if (!subs.length) {
-    html += `<p class="small">No explicit trust-account rows yet. Investment accounts with Trust in the account name still flow through the holdings page; add trust rows here when you want estate metadata.</p>`;
+    html += `<p class="small" data-kind="state">No explicit trust-account rows yet.</p>`;
   }
   subs.forEach((sub) => {
     const rs = bySub[sub];
@@ -141,10 +141,10 @@ export function renderAccountTitlingTable() {
   titlingRows.forEach((r) => {
     (bySub[r.subsection] || (bySub[r.subsection] = [])).push(r);
   });
-  let html = `<details><summary>Beneficiary &amp; Titling</summary><div class="field-list"><div class="section-note">Per-account primary/contingent beneficiaries and titling, one panel per account from Holdings. Drives the Beneficiary &amp; Titling Audit and each account's own basis step-up on Sheet 14 -- leave Titling blank to use the household-wide default instead.</div>`;
+  let html = `<details data-help-section="estate.beneficiary_titling"><summary>Beneficiary &amp; Titling</summary><div class="field-list">`;
   const subs = Object.keys(bySub).sort();
   if (!subs.length) {
-    html += `<p class="small">No accounts found in Holdings yet.</p>`;
+    html += `<p class="small" data-kind="state">No accounts found in Holdings yet.</p>`;
   }
   if (subs.length) {
     // Every account carries the same four fields, so this reads as one row per
@@ -268,11 +268,14 @@ export function renderQcdTable(rs) {
   });
   return (
     html +
-    `</tbody></table></div><p class="small">Capped at each person's own required distribution and the annual QCD limit. Blank start year = the year they turn 70½; blank end year = through plan end.</p>`
+    `</tbody></table></div>`
   );
 }
 export function renderEntityCharitable() {
-  let html = `<div class="section-note">Qualified charitable distributions (age 70½+) satisfy required distributions without the amount appearing as taxable income. S-Corp election is a self-employment decision, entered on <a href="#" onclick="navigateTo('income_work');return false">Work Income</a>.</div>`;
+  return `<div data-help-section="entity_charitable.charitable">${entityCharitableBody()}</div>`;
+}
+function entityCharitableBody() {
+  let html = "";
   if (searchText.trim()) return html + renderFields("entity_charitable");
   const rs = rowsForStep("entity_charitable", { includeInactive: true });
   // #330 §5.2/§5.3 (W12): DAF and QCD are each gated by their OWN plan flag,
@@ -491,9 +494,9 @@ export function renderInsurancePolicyGroup(opts) {
       // isn't silently authoritative without explanation.
       const budgetNote =
         norm(typ) === "auto"
-          ? `<div class="section-note">This policy's Annual Premium now sets the "Auto Insurance" spending budget amount, replacing the value entered on <a href="#" onclick="navigateTo('spending_core');return false">Spending Categories</a>.</div>`
+          ? `<div class="section-note" data-kind="warn">Annual Premium overrides the "Auto Insurance" budget on <a href="#" onclick="navigateTo('spending_core');return false">Spending Categories</a>.</div>`
           : norm(typ) === "home"
-            ? `<div class="section-note">This policy's Annual Premium now sets the homeowners-insurance baseline used on <a href="#" onclick="navigateTo('state_residency');return false">State Residency Analysis</a>, replacing the value entered on <a href="#" onclick="navigateTo('spending_mortgage_events');return false">Housing</a>.</div>`
+            ? `<div class="section-note" data-kind="warn">Annual Premium overrides the homeowners-insurance baseline entered on <a href="#" onclick="navigateTo('spending_mortgage_events');return false">Housing</a>.</div>`
             : "";
       const body = prs
         .filter((r) => r !== typeRow)

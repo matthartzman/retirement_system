@@ -550,7 +550,7 @@
     });
     if (!picks.length) {
       box.innerHTML =
-        '<span class="small">Open a result sheet to see key-row jumps.</span>';
+        '<span class="small" data-kind="state">Open a result sheet to see key-row jumps.</span>';
       return;
     }
     box.innerHTML = picks

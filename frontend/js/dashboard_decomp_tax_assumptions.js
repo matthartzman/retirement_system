@@ -88,7 +88,7 @@ export function taxScenarioRowsHtml(scenario, startYear, scenarioIdx, startIdx) 
   h += TAX_LAW_SCENARIO_OPTIONS.map(
     ([v, l]) => `<option value="${esc(v)}"${v === cur ? " selected" : ""}>${esc(l)}</option>`,
   ).join("");
-  h += `</select> <span class="small">Higher rates is a stress: federal ordinary income is taxed at pre-2018 rates; thresholds unchanged.</span></td></tr>`;
+  h += `</select> </td></tr>`;
   if (cur === "higher_rates" && startIdx !== null && startIdx !== undefined)
     h += `<tr><td><b>Higher-rates start year</b></td><td colspan="4"><input type="text" class="tiny" value="${esc(startYear || "")}" placeholder="First plan year" aria-label="Higher-rates start year" oninput="editValue(${Number(startIdx)},this.value,this)"></td></tr>`;
   return h;
@@ -139,8 +139,7 @@ export function taxNoticesHtml(notices) {
 }
 
 export function taxAssumptionsCardHtml(p, drafts, err, loading) {
-  let h = `<div class="holdings" id="taxAssumptionsCard"><h3 class="group-title">Tax Assumptions</h3>`;
-  h += `<div class="section-note">Model values come from the tax-law dataset and your state. Type a value (e.g. 3% or 0.03) to override one; leave it blank to use Auto.</div>`;
+  let h = `<div class="holdings" id="taxAssumptionsCard" data-help-section="economic_tax_assumptions.tax_assumptions"><h3 class="group-title">Tax Assumptions</h3>`;
   if (!p) {
     return h + `<div class="small">${esc(err || (loading ? "Loading tax assumptions..." : "Tax assumptions are not available."))}</div></div>`;
   }

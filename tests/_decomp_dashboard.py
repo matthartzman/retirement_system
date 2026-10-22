@@ -35,6 +35,8 @@ def dashboard_js_text() -> str:
     positional .find()/.index() lookups into dashboard.js are unaffected)."""
     parts = [(JS_DIR / "dashboard.js").read_text(encoding="utf-8")]
     parts += [p.read_text(encoding="utf-8") for p in decomp_module_paths()]
+    # Help text moved out of the center panel lives in the registry (contextual help Phase 3).
+    parts.append((JS_DIR / "help_registry.js").read_text(encoding="utf-8"))
     return "\n".join(parts)
 
 

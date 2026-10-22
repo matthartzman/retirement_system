@@ -132,9 +132,9 @@ export function inactiveValuesPanel(stepId) {
     .join("");
   const more =
     items.length > 12
-      ? `<p class="small">${items.length - 12} additional inactive value${items.length - 12 === 1 ? "" : "s"} are hidden from this summary. Use page search or All assumptions to review broader configuration.</p>`
+      ? `<p class="small" data-kind="state">${items.length - 12} more inactive value${items.length - 12 === 1 ? "" : "s"} hidden.</p>`
       : "";
-  return `<details class="inactive-values-panel"><summary>${title}: ${items.length} saved value${items.length === 1 ? "" : "s"} not used by the next build</summary><div class="inactive-values-body"><p class="small">Inactive values are saved in Plan Data but are hidden as ordinary inputs because the current build settings will not consume them. Use the action column only when you intentionally want to change the controlling setting or value so the build starts using it.</p><div class="lot-table-wrap"><table class="lot-table inactive-values-table"><thead><tr><th>Inactive value</th><th>Saved value</th><th>Why inactive</th><th>What would activate it</th><th>Likely effect on impacts</th><th></th></tr></thead><tbody>${rowsHtml}</tbody></table></div>${more}</div></details>`;
+  return `<details class="inactive-values-panel" data-help-section="all_assumptions.inactive_values"><summary>${title}: ${items.length} saved value${items.length === 1 ? "" : "s"} not used by the next build</summary><div class="inactive-values-body"><div class="lot-table-wrap"><table class="lot-table inactive-values-table"><thead><tr><th>Inactive value</th><th>Saved value</th><th>Why inactive</th><th>What would activate it</th><th>Likely effect on impacts</th><th></th></tr></thead><tbody>${rowsHtml}</tbody></table></div>${more}</div></details>`;
 }
 
 export async function estimateHousingFromState(stepNum) {
@@ -649,7 +649,7 @@ export function renderNextHousingStepSection(stepRows, stepLabel, stepNum) {
       .filter((lbl) => cachedEst[lbl] !== null && cachedEst[lbl] !== undefined)
       .map((lbl) => '<button class="btn tiny" type="button" onclick="restoreHousingEstimateField(' + stepNum + ",'" + lbl + '\')">⇺ ' + esc(restoreFieldLabels[lbl]) + "</button>")
       .join(" ");
-    if (restoreLinks) estimateBtn += '<div class="section-note small" style="margin-bottom:8px">Restore app estimate for one field: ' + restoreLinks + "</div>";
+    if (restoreLinks) estimateBtn += '<div class="section-note small" data-kind="state" style="margin-bottom:8px">Restore app estimate for one field: ' + restoreLinks + "</div>";
     // §6.4 site 6: start_year moved since this estimate was fetched, so the
     // price/rent and the recurring cost fields may still reflect the old
     // year's dollars. Never overwritten silently (§3) -- a one-click prompt
@@ -685,7 +685,7 @@ export function renderNextHousingStepSection(stepRows, stepLabel, stepNum) {
       '" onclick="editValue(' +
       typeRow.row_index +
       ",'rent',null);renderMain()\">Rent</button>" +
-      '</div><div class="field-hint">Choose whether this housing step is a purchase or a rental. Rent stays visible even when the saved rent amount is currently zero.</div></div>';
+      '</div></div>';
   }
 
   var html =
@@ -819,10 +819,11 @@ export function primaryHomeRows(rs) {
 export function primaryHomeFieldsHtml(rs) {
   const rows = primaryHomeRows(rs);
   return (
-    '<div class="section-note">Home value, basis, and the mortgage balance at plan start. Mortgage payment timing and recurring housing costs are entered with the Housing budget.</div>' +
+    '<div data-help-section="spending_core.current_home">' +
     (rows.length
       ? '<div class="field-list">' + rows.map(fieldHtml).join("") + "</div>"
-      : "")
+      : "") +
+    "</div>"
   );
 }
 
@@ -846,9 +847,7 @@ export function nextHousingMoveInputsHtml(rs) {
   // WP12.8: keep the home and rent it out, via Rental Properties' convert dialog (rent asked there).
   if (typeof housingOptRentOutOn === "function" && housingOptRentOutOn())
     html +=
-      '<div class="section-note">Keeping your home and renting it out? <button class="btn btn-sm" type="button" onclick="rpConvertFromHousing()">Convert my home to a rental</button> opens Rental Properties with the conversion year set to your next move; you enter the rent. Leave the sale year blank.</div>';
-  html +=
-    '<div class="section-note">Not sure what year or location to plan for? The <b>Where to live</b> search below sweeps candidate sale/purchase years, locations, and dwelling specs (area type, bedrooms, bathrooms, property type, square footage, lot size) with the same engine as the rest of the plan. Each result reports the ZIP code, an estimated price, and the distance to your anchor -- transcribe the winning candidate\'s state, area type, population, ZIP, and dwelling fields into the steps here.</div>';
+      '<div class="table-actions"><button class="btn btn-sm" type="button" onclick="rpConvertFromHousing()">Convert my home to a rental</button></div>';
   if (nextStep1Rows.length)
     html += renderNextHousingStepSection(nextStep1Rows, "Next Housing Step 1", 1);
   if (nextStep2Rows.length)
@@ -857,10 +856,10 @@ export function nextHousingMoveInputsHtml(rs) {
     html +=
       '<details><summary class="section-header">Next Housing Step (Purchase)</summary><div class="section-body">';
     html +=
-      '<div class="section-note">Next-step housing fields not found. Click <button class="btn btn-sm" type="button" onclick="seedHousingRows()">Seed Housing Fields</button> to add fields for future housing steps.</div>';
+      '<div class="section-note" data-kind="state">Next-step housing fields not found. <button class="btn btn-sm" type="button" onclick="seedHousingRows()">Seed Housing Fields</button></div>';
     html += "</div></details>";
   }
-  return html;
+  return `<div data-help-section="spending_core.next_housing_move">${html}</div>`;
 }
 
 // Home improvement projects -- only relevant when a next step is a purchase.
@@ -880,8 +879,7 @@ export function homeImprovementsHtml(rs) {
   )
     return "";
   return (
-    '<details><summary class="section-header">Home improvement projects</summary><div class="section-body">' +
-    '<div class="section-note">Planned improvement costs are entered here as part of Housing. Other pages may reference them read-only.</div>' +
+    '<details data-help-section="spending_core.home_improvements"><summary class="section-header">Home improvement projects</summary><div class="section-body">' +
     '<div class="field-list">' +
     homeImprovRows.map(fieldHtml).join("") +
     "</div></div></details>"
@@ -924,7 +922,7 @@ export function nextHousingMoveOffNoteHtml(rs) {
   const list = n
     ? `<ul class="small next-housing-saved">${saved.map((f) => `<li>${esc(f.label)}: ${esc(f.value)}</li>`).join("")}</ul>`
     : "";
-  return `<div class="section-note">Off \u2014 ${n} saved ${n === 1 ? "field" : "fields"} not applied: the plan assumes you stay in your current home and state. <a href="#" onclick="navigateTo('optional_functions');return false">Open Plan Features</a></div>${list}`;
+  return `<div class="section-note" data-kind="state">Off \u2014 ${n} saved ${n === 1 ? "field" : "fields"} not applied: the plan assumes you stay in your current home and state. <a href="#" onclick="navigateTo('optional_functions');return false">Open Plan Features</a></div>${list}`;
 }
 
 export function homeSaleScenarioYearRow(home) {
@@ -979,8 +977,8 @@ export function renderBaseHomeSaleRows(rs) {
       });
   }
   const introNote = active
-    ? '<div class="section-note">Sale year set — enter sale price, commission, and related details. Home value and basis are managed in Current Home above.</div>'
-    : '<div class="section-note">Enter a home sale year to reveal sale detail fields.</div>';
+    ? '<div class="section-note" data-kind="state">Sale year set — enter the sale details.</div>'
+    : '<div class="section-note" data-kind="state">Enter a home sale year to reveal sale detail fields.</div>';
   return `<details><summary class="section-header">Home Sale</summary><div class="field-list">${introNote}${yearFirst.map(fieldHtml).join("")}${restVisible.map(fieldHtml).join("")}</div>${active ? renderHomeSaleSplits() : ""}</details>`;
 }
 
@@ -1327,7 +1325,7 @@ export function renderScenarioTemplatesHtml() {
 export function renderSavedScenarioSetsHtml() {
   const sets = scenarioStoredSets();
   if (!sets.length)
-    return '<p class="small">No saved scenario sets yet. Save the current scenario assumptions when you want a reusable package of what-if overrides.</p>';
+    return '<p class="small" data-kind="state">No saved scenario sets yet.</p>';
   let html = '<div class="scenario-set-list">';
   sets.forEach((set) => {
     const diffs = scenarioSetDiffItems(set);
@@ -1343,7 +1341,7 @@ export function renderSavedScenarioSetsHtml() {
 export function renderCurrentScenarioOverridesHtml(rs) {
   const items = scenarioActiveOverrideItems(rs);
   if (!items.length)
-    return '<p class="small">No active scenario-only overrides have meaningful values yet.</p>';
+    return '<p class="small" data-kind="state">No active scenario-only overrides have meaningful values yet.</p>';
   let html =
     '<table class="lot-table scenario-overrides-table"><thead><tr><th>Scenario</th><th>Assumption</th><th>Current value</th></tr></thead><tbody>';
   items.slice(0, 16).forEach((x) => {
@@ -1351,12 +1349,12 @@ export function renderCurrentScenarioOverridesHtml(rs) {
   });
   html += "</tbody></table>";
   if (items.length > 16)
-    html += `<p class="small">+${items.length - 16} additional active override${items.length - 16 === 1 ? "" : "s"}.</p>`;
+    html += `<p class="small" data-kind="state">+${items.length - 16} additional active override${items.length - 16 === 1 ? "" : "s"}.</p>`;
   return html;
 }
 
 export function renderScenarioManagementPanel(rs) {
-  return `<section class="scenario-management"><div class="scenario-management-head"><div><span class="eyebrow">Planning Workbench</span><h3>Scenario Change Sets</h3><p class="small">Templates stage common deterministic what-if overrides. Saved sets are browser-local change sets; review the diff, apply a set, then Save Changes, rebuild, and compare in the Planning Workbench.</p></div><button class="btn primary" type="button" onclick="saveCurrentScenarioSet()">Save current scenario set</button></div><details><summary>Scenario templates</summary>${renderScenarioTemplatesHtml()}</details><details><summary>Saved named scenario sets</summary>${renderSavedScenarioSetsHtml()}</details><details><summary>Current scenario overrides</summary>${renderCurrentScenarioOverridesHtml(rs)}</details></section>`;
+  return `<section class="scenario-management" data-help-section="strategy_scenarios.change_sets"><div class="scenario-management-head"><div><span class="eyebrow">Planning Workbench</span><h3>Scenario Change Sets</h3></div><button class="btn primary" type="button" onclick="saveCurrentScenarioSet()">Save current scenario set</button></div><details><summary>Scenario templates</summary>${renderScenarioTemplatesHtml()}</details><details><summary>Saved named scenario sets</summary>${renderSavedScenarioSetsHtml()}</details><details><summary>Current scenario overrides</summary>${renderCurrentScenarioOverridesHtml(rs)}</details></section>`;
 }
 
 export function renderScenarios() {

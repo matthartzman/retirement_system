@@ -427,7 +427,7 @@ const SYSTEM_CONFIG_FIELD_HELP = {
   ),
   local_backups: pageHelp(
     "Local backups",
-    "Opt-in .rpx database backups with automatic retention, run opportunistically after Save Changes or a successful build.",
+    "Opt-in .rpx database backups with automatic retention, run opportunistically after Save Changes or a successful build; no background service is started.",
     "Cadence controls how often a backup is captured (daily or every build); retention controls how many backups are kept before the oldest is discarded.",
     "Enable automatic backups for ordinary households working over multiple sessions. Use Back up now before a risky bulk edit or import.",
     "No planning impact — backups protect saved data but do not change projections.",

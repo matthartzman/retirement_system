@@ -52,7 +52,7 @@ export function conversionNoticeHtml(state, busy) {
   if (conversionDismissed && (!res || res.status === "done")) return "";
   if (res && res.status === "done") {
     const removable = res.removable && Object.keys(res.removable).length
-      ? `<div class="small">Safe to remove after 30 days: ${listHtml(Object.keys(res.removable))}. The app never deletes them.</div>` : "";
+      ? `<div class="small" data-kind="warn">Safe to remove after 30 days: ${listHtml(Object.keys(res.removable))}. The app never deletes them.</div>` : "";
     const warn = (res.warnings || []).length ? `<div class="small">Notes: ${listHtml(res.warnings)}</div>` : "";
     return `<div class="conversion-notice" role="status"><strong>Your plan was converted and checked.</strong> The numbers match the old version. Your original files were backed up${res.backup && res.backup.name ? " (<code>" + esc(res.backup.name) + "</code>)" : ""} and left in place.${removable}${warn} ${btn("Dismiss", "", "dismissConversionNotice()")}</div>`;
   }
@@ -65,7 +65,7 @@ export function conversionNoticeHtml(state, busy) {
     const keep = res.blocked_reason === "tier_mapping_changes_results"
       ? btn("Keep my switches and convert", "primary", "runConversion({tier_mapping:'keep'})") : "";
     const any = acceptable ? btn("Convert anyway", "", "runConversion({accept_differences:true})") : "";
-    return `<div class="conversion-notice conversion-blocked" role="alert"><strong>Nothing was changed.</strong> ${esc(why)}${checksHtml(res)}<div class="small">Your plan and original files are exactly as they were.</div>${keep}${any}${btn("Check again", "", "checkConversion()")}</div>`;
+    return `<div class="conversion-notice conversion-blocked" role="alert"><strong>Nothing was changed.</strong> ${esc(why)}${checksHtml(res)}${keep}${any}${btn("Check again", "", "checkConversion()")}</div>`;
   }
   if (s.needed && !conversionDismissed) {
     const what = s.mode === "mid_demo"

@@ -385,7 +385,7 @@
     }
     if (advisory.length)
       html +=
-        '<p class="small">' +
+        '<p class="small" data-kind="warn">' +
         esc(
           advisory.length +
             (advisory.length === 1 ? " change" : " changes") +
@@ -397,10 +397,10 @@
         ) +
         "</p>";
     html +=
-      '<p class="small">Applying stages the changes — Save Changes, then rebuild, to see the effect. ' +
+      '<p class="small" data-kind="warn">Applying stages the changes — Save Changes, then rebuild. ' +
       // §4.6's caveat, stated rather than implied. The values are plan data;
       // the record of where they came from is not.
-      "The applied values become ordinary plan data. The record of which optimizer produced them, and the ability to undo it from here, are kept in this browser only and are lost if you clear its storage.</p>";
+      "The record of which optimizer produced them, and Undo, are kept in this browser only.</p>";
     html += "</div>";
     return html;
   }
