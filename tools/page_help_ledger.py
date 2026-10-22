@@ -310,8 +310,12 @@ def check(drafts: dict, pages: dict, glossary: dict) -> dict:
         if d is None:
             out[pid] = {"problems": ["no draft record for this page"], "lost": []}
             continue
-        out[pid] = {"problems": ledger_problems(d, page["sources"]),
-                    "lost": lost_facts(page["sources"], d["record"], glossary, global_caps)}
+        # Phase 5: a lost fact may be accepted on purpose (a retired page or tab name); each waiver
+        # carries a reason in the draft's `accepted_losses` list.
+        waived = {(w["kind"], str(w["fact"]).lower()) for w in d.get("accepted_losses", [])}
+        lost = [f for f in lost_facts(page["sources"], d["record"], glossary, global_caps)
+                if (f["kind"], str(f["fact"]).lower()) not in waived]
+        out[pid] = {"problems": ledger_problems(d, page["sources"]), "lost": lost}
     return out
 
 
