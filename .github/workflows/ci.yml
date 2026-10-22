@@ -192,9 +192,9 @@ jobs:
         if [ "$PARALLEL_EXIT" -eq 0 ]; then
           exit 0
         fi
-        if grep -qE "node down|crashed while running|maximum crashed workers|Timeout >" pytest-logs/pytest_output.txt; then
+        if grep -qE "node down|crashed while running|maximum crashed workers|Timeout >|\\+\\+\\+ Timeout" pytest-logs/pytest_output.txt; then
           echo "::error::A pytest worker crashed or a test timed out; not retrying serially (a serial --lf retry would skip the tests that never ran)."
-          grep -nE "node down|crashed while running|maximum crashed workers|Timeout >" pytest-logs/pytest_output.txt
+          grep -nE "node down|crashed while running|maximum crashed workers|Timeout >|\\+\\+\\+ Timeout" pytest-logs/pytest_output.txt
           exit 1
         fi
         echo "Parallel run failed or flaked -- retrying just the failures serially (matches CLAUDE.md's documented WinError 5 file-lock flake mitigation) before treating this as a real failure."
