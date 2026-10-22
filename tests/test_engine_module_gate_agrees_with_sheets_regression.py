@@ -177,7 +177,9 @@ class TheGateAloneIsInert(unittest.TestCase):
 
     def test_no_synthetic_scenario_configures_a_disability_event(self):
         for name, scenario in SCENARIOS.items():
-            di = scenario.build().get("disability", {}) or {}
+            # optimize=False: the Roth optimizer never reads or writes
+            # `disability`, and running it for every scenario cost ~4 minutes.
+            di = scenario.build(optimize=False).get("disability", {}) or {}
             with self.subTest(scenario=name):
                 self.assertFalse(
                     int(di.get("simulate_year", 0) or 0) and (di.get("policies") or []),

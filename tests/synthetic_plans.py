@@ -386,8 +386,11 @@ class Scenario:
     def plan(self) -> Dict[str, Any]:
         return copy.deepcopy(self._plan())
 
-    def build(self) -> Dict[str, Any]:
+    def build(self, optimize: bool = True) -> Dict[str, Any]:
         """Assemble the engine config, mirroring prepare_config_from_json.
+
+        ``optimize=False`` skips the (dominant-cost) Roth optimizer pass for
+        callers that only inspect plan inputs the optimizer never touches.
 
         The only difference from ``report_compute.prepare_config_from_json`` is
         that the scenario override lands between the first normalization and the
@@ -398,7 +401,7 @@ class Scenario:
         c = ensure_engine_config(c, source="synthetic")
         if self._override is not None:
             self._override(c)
-        if self.optimize_roth:
+        if self.optimize_roth and optimize:
             c = optimize_roth_conversion_strategy(c)
             c = ensure_engine_config(c, source="synthetic.optimized")
         return c
