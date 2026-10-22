@@ -183,3 +183,9 @@ test("accessibility: labelled panel region, no aria-live chatter, openers use ar
   const css = fs.readFileSync("frontend/css/dashboard.css", "utf8");
   assert.match(css, /body\.help-open aside\.card\.help\{transform:translateX\(0\);visibility:visible/);
 });
+
+test("explanations moved out of the center panel stay in the registry", () => {
+  const body = (k) => reg.HELP_SECTIONS[k].body;
+  assert.match(body("strategy_scenarios.stress_rows"), /The Home Value and Home Basis shown here are shared canonical Home asset facts/);
+  assert.match(body("strategy_optimize.hsa_policy"), /Start here: choose the HSA withdrawal mode/);
+});

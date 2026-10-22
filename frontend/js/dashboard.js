@@ -1726,7 +1726,7 @@ function renderFieldFinderGroups(rs) {
   const _ffQ = norm(searchText || "");
   const travelPointer =
     _ffQ && "travel".includes(_ffQ)
-      ? `<div class="section-note">Travel budget (annual amount, start/end year) and Travel transaction detail are on <a href="#" onclick="navigateTo('lifestyle_spending');return false">Other Spending</a> — not indexed here yet.</div>`
+      ? `<div class="section-note" data-kind="state">Travel is on <a href="#" onclick="navigateTo('lifestyle_spending');return false">Other Spending</a>, not indexed here yet.</div>`
       : "";
   if (!rs.length)
     return (
@@ -1890,7 +1890,7 @@ function personNickPlaceholder(nameRow) {
 }
 function personCellInput(r, aria, placeholder) {
   if (!r)
-    return '<span class="small">Reload the current plan to create this field.</span>';
+    return '<span class="small" data-kind="state">Reload the current plan to create this field.</span>';
   const isDate = isDateField(r);
   const type = isDate ? "date" : "text";
   const val = isDate ? toIsoDateValue(valOf(r)) : String(valOf(r) || "");
@@ -1921,12 +1921,12 @@ function renderHouseholdPeople() {
       !String(valOf(p.nickname) || "").trim(),
   );
   const secBtn = (k) => window.RPHelp?.sectionButtonHtml(k) || "";
-  let html = `<div class="holdings" data-help-section="household_people.people"><h3 class="group-title">People ${secBtn("household_people.people")}</h3><div class="section-note">One row per person. <b>Nickname</b> is the short name used everywhere the plan names a person — reports, charts, and workbook labels. ${nickMissing ? "<b>Add a nickname for each person</b> (or leave blank to use their first name)." : ""}</div><div class="lot-table-wrap"><table class="lot-table people-table"><thead><tr><th></th><th>Full name</th><th>Nickname (used in reports)</th><th>Date of birth</th><th title="Year is parsed from this date; base retirement assumption">Retirement date</th><th title="Plan horizon = birth year + this age">Mortality age</th><th title="Age Required Minimum Distributions begin (SECURE 2.0)">RMD start age</th></tr></thead><tbody>`;
+  let html = `<div class="holdings" data-help-section="household_people.people"><h3 class="group-title">People ${secBtn("household_people.people")}</h3>${nickMissing ? '<div class="section-note" data-kind="warn">Add a nickname for each person, or the first name is used.</div>' : ""}<div class="lot-table-wrap"><table class="lot-table people-table"><thead><tr><th></th><th>Full name</th><th>Nickname (used in reports)</th><th>Date of birth</th><th >Retirement date</th><th >Mortality age</th><th title="Age Required Minimum Distributions begin (SECURE 2.0)">RMD start age</th></tr></thead><tbody>`;
   people.forEach((p) => {
     const who = String(p.name ? valOf(p.name) : "").trim() || `Person ${p.n}`;
     html += `<tr><td><b>Person ${p.n}</b></td><td>${personCellInput(p.name, `Full name for ${who}`)}</td><td>${personCellInput(p.nickname, `Nickname for ${who}`, personNickPlaceholder(p.name))}</td><td>${personCellInput(p.dob, `Date of birth for ${who}`)}</td><td>${personCellInput(p.retire, `Retirement date for ${who}`)}</td><td>${personCellInput(p.mortality, `Mortality age for ${who}`)}</td><td>${personCellInput(p.rmdAge, `RMD start age for ${who}`)}</td></tr>`;
   });
-  html += `</tbody></table></div><p class="small">Nicknames replace generic "Member 1 / Member 2" wording in every user-facing report. Leave Person 2 blank for a single-person household.</p></div>`;
+  html += `</tbody></table></div></div>`;
   const personLabelSet = new Set(
     [1, 2].flatMap((n) => PERSON_TABLE_LABELS.map((s) => `member_${n}_${s}`)),
   );
@@ -1976,7 +1976,7 @@ function renderAssetsCashReserves() {
   if (searchText.trim())
     return renderFields("assets_home_cash") + renderLiquidityBuffers();
   let html =
-    '<div class="section-note">The reserve floor the plan protects before drawing from the portfolio. <b>Home value and mortgage balance are on <a href="#" onclick="navigateTo(\'assets_special\');return false">Other Assets and Liabilities</a>; home sale is in <a href="#" onclick="navigateTo(\'strategy_optimize\');return false">Optimize → Next Housing Move</a>.</b></div>';
+    '<div class="section-note" data-kind="state">Home value and mortgage are on <a href="#" onclick="navigateTo(\'assets_special\');return false">Other Assets and Liabilities</a>; home sale is in <a href="#" onclick="navigateTo(\'strategy_optimize\');return false">Optimize → Next Housing Move</a>.</div>';
   html += renderLiquidityBuffers();
   return html;
 }
@@ -2059,7 +2059,7 @@ const FIXED_WITHDRAWAL_CASCADE_DESCRIPTION =
 // to keep this file under its line-count ratchet.
 function renderWithdrawalOrderTable() {
   const editor = window.withdrawalAccountOrderEditorHtml ? window.withdrawalAccountOrderEditorHtml() : "";
-  return `<details><summary>Withdrawal order</summary><div class="field-list"><div class="section-note"><b>Individual-account draw order is user-configurable below.</b> Each account defaults to its registry order and draws first within its account type when priority is tied; set a lower number to draw an account earlier relative to others of the same type (e.g. which of two taxable brokerage accounts drains first). The account-<i>type</i> sequence itself is fixed by the engine and not user-configurable, since it follows tax rules rather than preference: ${esc(FIXED_WITHDRAWAL_CASCADE_DESCRIPTION)}. RMDs are mandatory income; Roth and home equity are preserved until other liquid sources are exhausted.</div>${editor}</div></details>`;
+  return `<details data-help-section="strategy_optimize.withdrawal_order"><summary>Withdrawal order ${window.RPHelp?.sectionButtonHtml("strategy_optimize.withdrawal_order") || ""}</summary><div class="field-list"><div class="section-note" data-kind="state"><b>Account-type order is fixed (not user-configurable):</b> ${esc(FIXED_WITHDRAWAL_CASCADE_DESCRIPTION)}.</div>${editor}</div></details>`;
 }
 const ROTH_PRIMARY_LABELS = [
   "roth_conversion_policy",
@@ -2234,7 +2234,7 @@ function ytdRolloverBannerHtml() {
     Number(ytdData?.summary?.current_year) || new Date().getFullYear();
   const stale = ytdStaleGrowthAccounts();
   if (!stale.length) return "";
-  return `<div class="section-note warn"><b>Start ${currentYear} tracking:</b> ${stale.length} account${stale.length === 1 ? "" : "s"} still ${stale.length === 1 ? "has" : "have"} a Prior Year End Balance from an earlier year. Roll forward to copy each account's current value into Prior Year End Balance (dated 12/31/${currentYear - 1}), so growth tracking — and the current-year Net Worth/Cash Flow blend — starts fresh for ${currentYear}. <button class="btn" type="button" onclick="rollForwardYtdAccounts()">Start ${currentYear} tracking</button></div>`;
+  return `<div class="section-note warn" data-kind="warn"><b>Start ${currentYear} tracking:</b> ${stale.length} account${stale.length === 1 ? "" : "s"} still ${stale.length === 1 ? "has" : "have"} a Prior Year End Balance from an earlier year. <button class="btn" type="button" title="Copies each account's current value into Prior Year End Balance (dated 12/31/${currentYear - 1}) so growth tracking and the current-year Net Worth/Cash Flow blend start fresh for ${currentYear}." onclick="rollForwardYtdAccounts()">Start ${currentYear} tracking</button></div>`;
 }
 async function rollForwardYtdAccounts() {
   try {

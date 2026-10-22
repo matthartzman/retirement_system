@@ -141,8 +141,7 @@ function rcInboxBody(data, dismissed) {
   const { diffs, unmatched, hidden } = rcInboxItems(data, dismissed);
   if (!diffs.length && !unmatched.length) return '<div class="section-note" data-kind="state">Nothing needs a decision.</div>' + rcHiddenHtml(hidden);
   const table = diffs.length
-    ? `<h3>Numbers that differ (${diffs.length})</h3><div class="rc-scroll"><table class="rc-table"><thead><tr><th>Account</th><th class="rc-num">App</th><th class="rc-num">Imported</th><th class="rc-num">Difference</th><th>Choose</th></tr></thead><tbody>${diffs.map(rcInboxRowHtml).join("")}</tbody></table></div>` +
-      '<div class="section-note"><b>Update app</b> copies imported\'s number once (after a preview). <b>Always update</b> does that now and copies it automatically at each import. <b>App is source</b> keeps the app\'s number and only reports. <b>Ignore this time</b> hides it until imported\'s number changes.</div>'
+    ? `<h3>Numbers that differ (${diffs.length}) ${window.RPHelp?.sectionButtonHtml("monarch_reconciliation.inbox") || ""}</h3><div class="rc-scroll"><table class="rc-table"><thead><tr><th>Account</th><th class="rc-num">App</th><th class="rc-num">Imported</th><th class="rc-num">Difference</th><th>Choose</th></tr></thead><tbody>${diffs.map(rcInboxRowHtml).join("")}</tbody></table></div>`
     : "";
   const closedMoney = unmatched.filter((u) => u.status === "closed_with_balance");
   const flagged = closedMoney.length

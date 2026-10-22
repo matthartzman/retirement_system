@@ -131,17 +131,6 @@ export function spendingSourceTailHtml(tt) {
   );
 }
 
-export function domainBudgetNote(domain) {
-  if (domain === "core")
-    return "Spending Categories is comprehensive: Income and every expense Tracking Type, including Taxes, should appear in the hierarchy -- only internal transfers are excluded. Housing, Wellness, and Travel are edited in their own accordions below. Each group header shows both Annual Budget (what you entered) and Projection (the value the projection engine actually uses as the starting spend amount). They are usually equal — expand the help below to see when and why they can differ.";
-  if (domain === "housing")
-    return "Housing is the only editable place for mortgage/rent, homeowners insurance, home maintenance, utilities, real-estate taxes, and home improvement projects.";
-  if (domain === "healthcare")
-    return "Wellness is the only editable place for the Healthcare Premium group (Pre-65 Healthcare Premium plus Medicare Part B, Part D, and Part G), medical, dental, vision, drugs Rx/OTC, vitamins/supplements, and the medical OOP cap/reference.";
-  if (domain === "travel")
-    return "Travel is the only editable place for recurring travel projection inputs plus transaction-based travel detail. Domestic-travel and lifestyle labels are intentionally not used here.";
-  return "Large Discretionary rows are one-time: Weddings, Large Gifts, Education (not 529-funded), Auto, or Other -- one amount in one year, never annualized. Enter amounts in today's dollars; the projection inflates each to its year.";
-}
 
 // Every export above is also re-attached to window: dashboard.js and the
 // other leaf modules call these as bare globals.
@@ -155,5 +144,4 @@ Object.assign(window, {
   travelGroupsHtml,
   spendingSourceHeadHtml,
   spendingSourceTailHtml,
-  domainBudgetNote,
 });

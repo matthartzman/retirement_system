@@ -1001,7 +1001,7 @@ export function renderStressSellHomeRows(rs) {
       visible,
       year || stress.find((r) => norm(r.label).includes("home_sale_year")),
     );
-  return `<details><summary>Sell Home stress test — scenario sheet only</summary><div class="field-list"><div class="section-note warning"><b>Scenario-only:</b> these Sell Home stress-test rows are used by the Scenario Analysis workbook sheet, but they do <b>not</b> change the base-plan Build Impact cards. To change headline terminal net worth, set the Base Plan Home Sale Year above. The Home Value and Home Basis shown here are shared canonical Home asset facts. The sale value used by this stress test is projected from canonical Home Value and appreciation.</div>${sortRowsByDependency(visible).map(fieldHtml).join("")}</div></details>`;
+  return `<details data-help-section="strategy_scenarios.stress_rows"><summary>Sell Home stress test — scenario sheet only ${window.RPHelp?.sectionButtonHtml("strategy_scenarios.stress_rows") || ""}</summary><div class="field-list"><div class="section-note" data-kind="warn"><b>Scenario-only:</b> these rows do <b>not</b> change the base-plan Build Impact cards.</div>${sortRowsByDependency(visible).map(fieldHtml).join("")}</div></details>`;
 }
 
 // Ticket 286: Scenarios shows the STRESS home-sale panel only. It used to also
@@ -1373,7 +1373,7 @@ export function renderScenarios() {
   const other = rs.filter(
     (r) => !rowIsEconomyScenario(r) && !homeSale.includes(r),
   );
-  let html = `<div class="field-list"><div class="section-note"><b>Scenario Change Sets are deterministic planning cases.</b> Use the Stress Suite & Monte Carlo page for probabilistic or adverse-assumption testing. Economy shocks and scenario enable/year controls are grouped first because they determine which dependent assumptions matter. Home sale here is the stress-test panel only, affecting scenario sheets; the base-plan home sale is entered once on the Housing page under Spending.</div></div>`;
+  let html = "";
   html += renderScenarioManagementPanel(rs);
   html += economy.length
     ? `<details><summary>Economy</summary><div class="field-list">${sortRowsByDependency(economy).map(fieldHtml).join("")}</div></details>`

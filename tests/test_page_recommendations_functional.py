@@ -16,8 +16,7 @@ def test_page_recommendations_are_explainable_and_source_linked():
     assert "function pageRecommendationsForStep" in js
     assert "function jumpRecommendationSource" in js
     assert "recommendation-source-jump" in js
-    assert "Each item links back to the input" in js
-    assert "Explainable suggestions only" in js
+    assert "Suggestions only; nothing changes automatically." in js
 
 
 def test_recommendations_cover_initial_roadmap_domains_without_auto_applying_values():

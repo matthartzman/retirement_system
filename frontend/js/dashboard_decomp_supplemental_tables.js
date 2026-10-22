@@ -71,14 +71,14 @@ export async function deleteLiquidityBuffer(i) {
   renderMain();
 }
 export function renderLiquidityBuffers() {
-  let html = `<div class="holdings"><h3 class="group-title">Reserve requirements</h3><div class="section-note"><b>Purpose:</b> A reserve requirement retains a chosen number of years of expenses for the selected year range. The default is 0 years. Add rows only when the reserve policy changes over time.</div><div class="table-actions"><button class="btn" type="button" onclick="addLiquidityBuffer()">Add reserve rule</button></div><div class="lot-table-wrap"><table class="lot-table liquidity-table"><thead><tr><th>Start year</th><th>End year</th><th>Years of expenses to retain</th><th>Reserve account</th><th></th></tr></thead><tbody>`;
+  let html = `<div class="holdings" data-help-section="assets_home_cash.reserve_rules"><h3 class="group-title">Reserve requirements ${window.RPHelp?.sectionButtonHtml("assets_home_cash.reserve_rules") || ""}</h3><div class="table-actions"><button class="btn" type="button" onclick="addLiquidityBuffer()">Add reserve rule</button></div><div class="lot-table-wrap"><table class="lot-table liquidity-table"><thead><tr><th>Start year</th><th>End year</th><th>Years of expenses to retain</th><th>Reserve account</th><th></th></tr></thead><tbody>`;
   if (!liquidityBuffers.length) {
-    html += `<tr><td colspan="5"><span class="small">No reserve rows yet. With no rows, the reserve requirement is 0 years.</span></td></tr>`;
+    html += `<tr><td colspan="5"><span class="small" data-kind="state">No reserve rows yet; the reserve is 0 years.</span></td></tr>`;
   }
   liquidityBuffers.forEach((b, i) => {
     html += `<tr data-liquidity-row="${i}"><td><input type="number" value="${esc(b.start_year || "")}" oninput="updateLiquidityBuffer(${i},'start_year',this.value)"></td><td><input type="number" value="${esc(b.end_year || "")}" oninput="updateLiquidityBuffer(${i},'end_year',this.value)"></td><td><input type="text" value="${esc(b.years_of_expenses || "0")}" oninput="updateLiquidityBuffer(${i},'years_of_expenses',this.value)"></td><td>${liquidityAccountSelect(i, b.reserve_account)}</td><td>${deleteIconBtn(`deleteLiquidityBuffer(${i})`)}</td></tr>`;
   });
-  html += `</tbody></table></div><p class="small">Tip: leave End year blank for an open-ended rule. If rows overlap, the first matching row is used by the model.</p></div>`;
+  html += `</tbody></table></div></div>`;
   return html;
 }
 export async function loadLiquidityBuffers() {

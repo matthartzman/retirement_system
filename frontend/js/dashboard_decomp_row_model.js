@@ -1211,7 +1211,7 @@ export function analysisFrame(body, kind) {
   const isStress = kind === "stress";
   const intro = `<div class="section-note">${isStress ? "Set the assumptions below, rebuild, then open the full result in the workbook." : "Set the inputs below, preview the directional impact on Planning Overview, then rebuild to confirm."}</div>`;
   const chip = `<div class="ytd-status-grid"><div class="pill"><b>Current terminal NW</b><span>${fmtMoney(b.terminal)}</span></div><div class="pill"><b>Monte Carlo success</b><span>${fmtPct(b.success)}</span></div></div>`;
-  const footer = `<div class="section-note"><div class="pane-actions"><button class="btn" type="button" data-step-id="planning_levers">Preview impact (Planning overview)</button> <button class="btn good" type="button" onclick="navigateTo('detailed_results')">View full result in workbook</button></div></div>`;
+  const footer = `<div class="section-note" data-kind="state"><div class="pane-actions"><button class="btn" type="button" data-step-id="planning_levers">Preview impact (Planning overview)</button> <button class="btn good" type="button" onclick="navigateTo('detailed_results')">View full result in workbook</button></div></div>`;
   return intro + chip + (body || "") + footer;
 }
 
@@ -1257,7 +1257,7 @@ export function planningWorkbenchContext() {
 export function unsavedChangesPromptBar() {
   loadBuildHistory();
   if (hasUnsavedPlanChanges() && buildHistory.length > 0)
-    return '<div class="section-note warning build-snapshot-prompt"><b>You have unsaved changes.</b> Take a snapshot now to preserve the current state before rebuilding. <button class="btn" type="button" data-requires-app="1" onclick="takeBuildSnapshot()">Take Snapshot</button></div>';
+    return '<div class="section-note warning build-snapshot-prompt" data-kind="warn"><b>You have unsaved changes.</b> Snapshot before rebuilding. <button class="btn" type="button" data-requires-app="1" onclick="takeBuildSnapshot()">Take Snapshot</button></div>';
   return "";
 }
 
@@ -3213,7 +3213,7 @@ export function renderFields(step) {
         .join("")}</ul></div>`
     : "";
   if (["assets_special"].includes(step))
-    html += `<div class="section-note">Some fields on this page feed reporting and workbook narrative only — they do not directly affect cash-flow or tax calculations. Review the workbook output after a rebuild to confirm what affected each projection year.</div>`;
+    html += `<div class="section-note" data-kind="state" data-help-section="assets_special.reporting_fields">Some fields here are reporting-only. ${window.RPHelp?.sectionButtonHtml("assets_special.reporting_fields") || ""}</div>`;
   // Phase 3b: the prose for these pages lives in HELP_SECTIONS (help_registry.js); the key wraps the page body.
   const helpKey = { scenarios: "strategy_scenarios.stress_rows", roth_conversion: "roth_conversion.bracket_targets", all_assumptions: "all_assumptions.field_list", monte_carlo_options: "strategy_stress.monte_carlo_mode" }[step];
   const wrapHelp = (inner) => (helpKey ? `<div data-help-section="${helpKey}">${inner}</div>` : inner);
@@ -3875,7 +3875,7 @@ export function renderYtdAccounts() {
         })()} onfocus="focusYtdAccountMoney(this)" oninput="updateYtdAccountMoney(${i},'Current Value',this)" onblur="blurYtdAccountMoney(${i},'Current Value',this)"></td><td class="ytd-delete-cell">${deleteIconBtn(`deleteYtdAccount(${i})`)}</td></tr>`;
       })
       .join("") ||
-    `<tr><td colspan="6"><span class="small">No accounts yet. Upload transactions to seed transaction accounts automatically, or use the inline account/source controls for manual rows.</span></td></tr>`
+    `<tr><td colspan="6"><span class="small" data-kind="state">No accounts yet. Upload transactions or add a manual row.</span></td></tr>`
   }</tbody></table><datalist id="ytdAccountChoices">${ytdTransactionAccounts()
     .map((o) => `<option value="${esc(o)}"></option>`)
     .join("")}</datalist></div></div>`;
@@ -4324,12 +4324,14 @@ export function renderDomainBudgetPage(domain, opts) {
       loadTaxonomyBudget(false);
     }, 0);
   }
-  let html = '<div class="holdings">';
+  // The explanation of each budget domain lives in the help panel (HELP_SECTIONS spending_core.*).
+  const domainKey = { core: "spending_core.spending_categories", housing: "spending_core.housing_costs", healthcare: "spending_core.wellness", travel: "spending_core.travel_budget" }[domain] || "spending_core.large_discretionary";
+  const domainBtn = window.RPHelp?.sectionButtonHtml(domainKey) || "";
+  let html = '<div class="holdings" data-help-section="' + domainKey + '">';
   if (!opts.embedded)
     html +=
-      '<h3 class="group-title">' + esc(domainBudgetTitle(domain)) + "</h3>";
-  html +=
-    '<div class="section-note">' + esc(domainBudgetNote(domain)) + "</div>";
+      '<h3 class="group-title">' + esc(domainBudgetTitle(domain)) + " " + domainBtn + "</h3>";
+  else html += "<div>" + domainBtn + "</div>";
   html +=
     '<div class="table-actions"><button class="btn primary" ' +
     (budgetLinesChanged || taxBudgetChanged ? "" : "disabled") +

@@ -128,7 +128,7 @@ export function taxLawHtml(law, periods) {
 // WI-010 / WI-010a: limitation notices and the per-family data status list (N7).
 export function taxNoticesHtml(notices) {
   if (!(notices || []).length) return "";
-  let h = `<div class="section-note limitation-notices"><b>Limitations of this plan</b><ul>`;
+  let h = `<div class="section-note limitation-notices" data-kind="warn"><b>Limitations of this plan</b><ul>`;
   notices.forEach((n) => {
     h += `<li data-notice="${esc(n.id)}">${esc(n.text)}`;
     if ((n.families || []).length)

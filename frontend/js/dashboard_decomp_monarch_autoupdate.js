@@ -54,7 +54,7 @@ function monarchAutoUpdateFreshnessWarningHtml() {
   const detail = freshness.last_extract_at
     ? `the last delivery was ${aucTime(freshness.last_extract_at)} (${freshness.age_hours}h ago)`
     : "nothing has ever been delivered";
-  return `<p class="small" style="color:var(--warn)"><b>Warning:</b> the process that supplies the data looks stalled — ${esc(detail)}, past the ${Number(freshness.stale_after_hours)}h freshness threshold. The import can keep reporting success with nothing new to consume.</p>`;
+  return `<p class="small" data-kind="warn" style="color:var(--warn)"><b>Warning:</b> the data feed looks stalled — ${esc(detail)}, past the ${Number(freshness.stale_after_hours)}h limit. Imports may report success with nothing new.</p>`;
 }
 function monarchAutoUpdateControlsHtml() {
   const s = monarchAutoUpdateStatus || {};

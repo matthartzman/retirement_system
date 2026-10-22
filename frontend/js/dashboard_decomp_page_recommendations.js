@@ -494,10 +494,10 @@ export function pageRecommendationsHtml(stepId) {
   const rowsHtml = items
     .map(
       (item) =>
-        `<div class="recommendation-card ${esc(item.level || "info")}"><div><span class="recommendation-level">${esc(item.level || "info")}</span><h4>${esc(item.title)}</h4><p>${esc(formatAcronyms(item.body))}</p>${item.impact ? `<p class="small"><b>Why it matters:</b> ${esc(formatAcronyms(item.impact))}</p>` : ""}</div><div class="recommendation-actions">${recommendationSourceButton(item)}</div></div>`,
+        `<div class="recommendation-card ${esc(item.level || "info")}"><div><span class="recommendation-level">${esc(item.level || "info")}</span><h4>${esc(item.title)}</h4><p>${esc(formatAcronyms(item.body))}</p>${item.impact ? `<p class="recommendation-impact"><b>Why it matters:</b> ${esc(formatAcronyms(item.impact))}</p>` : ""}</div><div class="recommendation-actions">${recommendationSourceButton(item)}</div></div>`,
     )
     .join("");
-  return `<details class="page-recommendations" data-contract="${RECOMMENDATION_ENGINE_VERSION}"><summary class="page-recommendations-head"><span class="eyebrow">Page recommendations</span><h3>Suggested reviews before the next build (${items.length})</h3><p class="small">Explainable suggestions only — nothing is changed automatically. Each item links back to the input that controls the recommendation.</p></summary><div class="page-recommendation-list">${rowsHtml}</div></details>`;
+  return `<details class="page-recommendations" data-contract="${RECOMMENDATION_ENGINE_VERSION}"><summary class="page-recommendations-head"><span class="eyebrow">Page recommendations</span><h3>Suggested reviews before the next build (${items.length})</h3><p class="small" data-kind="state">Suggestions only; nothing changes automatically.</p></summary><div class="page-recommendation-list">${rowsHtml}</div></details>`;
 }
 
 // Every export above is also re-attached to window: dashboard.js calls these

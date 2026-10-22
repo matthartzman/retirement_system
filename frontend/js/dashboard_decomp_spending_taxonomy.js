@@ -119,7 +119,7 @@ export function renderSpendingCore() {
     (!have.inflation_general && mode === "cpi") ||
     (!have.core_spending_manual_growth_rate && mode === "manual_override")
   )
-    missingMsg = `<div class="section-note warning" data-kind="warn" id="coreSpendingRowsMissing"><b>Core spending controls are being created:</b> save or reload Plan Data if any control is missing. Expected rows are Core Spending Base, Core Spending Increase Stops, Core Spending Increase Method, and the relevant increase-rate field.</div>`;
+    missingMsg = `<div class="section-note warning" data-kind="warn" id="coreSpendingRowsMissing"><b>Core spending controls are being created:</b> save or reload Plan Data if any control is missing.</div>`;
   const v = (l) => {
     const r = rs.find((x) => norm(x.label) === l);
     return r ? String(valOf(r) || "").trim() : "";
@@ -180,7 +180,7 @@ export function renderTaxonomyManager() {
       '<div class="question"><b>No taxonomy loaded.</b> <button class="btn" onclick="loadTaxonomy(true)">Load Taxonomy</button></div>';
   }
   html +=
-    '<details class="advanced-mapping-rules" style="margin-top:32px"><summary><b>Advanced Auto-Mapping Rules</b><span class="small" style="margin-left:8px;font-weight:400;color:var(--muted)">merchant/category text rules</span></summary>' +
+    '<details class="advanced-mapping-rules" style="margin-top:32px"><summary><b>Advanced Auto-Mapping Rules</b></summary>' +
     renderCategoryMappingRules() +
     "</details>";
   html += "</div></details>";
@@ -387,7 +387,7 @@ export function renderCategoryMappingRules() {
     '<div class="lot-table-wrap pinned-col-right"><table class="lot-table"><thead><tr><th>Match text</th><th>Match source</th><th style="width:64px">Exact?</th><th>Target category</th><th>Priority</th><th style="width:64px"></th></tr></thead><tbody>';
   if (!rules.length) {
     html +=
-      '<tr><td colspan="6" class="small" style="padding:12px">No auto-mapping rules defined. Add a rule only for merchant/category text that should be classified the same way every time.</td></tr>';
+      '<tr><td colspan="6" class="small" data-kind="state" style="padding:12px">No auto-mapping rules defined.</td></tr>';
   } else {
     const catIds = Object.keys(taxonomyFlat || {}).sort((a, b) =>
       a.localeCompare(b),
@@ -662,7 +662,7 @@ export function renderDomainBudgetTable(domain) {
   // There is no workspace-wide read-only mode to guard this with; the
   // showInAppConfirm() inside loadAnnualizedActuals is the guard.
   if (domain === "core") {
-    html += `<div class="table-actions"><button class="btn" type="button" onclick="loadAnnualizedActuals()" title="Overwrite every category budget with its annualized current-year spend; new transaction categories are merged into the taxonomy">Load annualized current spend</button> <span class="small" style="color:var(--muted)">Overwrites all category budgets across every tracking type.</span></div>`;
+    html += `<div class="table-actions"><button class="btn" type="button" onclick="loadAnnualizedActuals()" title="Overwrite every category budget with its annualized current-year spend; new transaction categories are merged into the taxonomy">Load annualized current spend</button> <span class="small" data-kind="warn" style="color:var(--muted)">Overwrites all category budgets across every tracking type.</span></div>`;
   }
   html += '<div class="taxonomy-tree">';
   (domain === "core" ? sortByTrackingTypeOrder(data) : data).forEach(function (typeData) {
@@ -685,7 +685,7 @@ export function renderDomainBudgetTable(domain) {
     // its header carries no Annualized figure.
     const isLd = tt === "Large Discretionary";
     const ttAnnText = isLd ? "" : ` · Annualized ${dollars0(ttAnnualized)}`;
-    html += `<details class="taxonomy-type-section" data-dkey="budget:${esc(domain)}:${esc(tt)}"><summary><b>${esc(tt)}</b> <span class="small">YTD ${dollars0(ttActual)}${ttAnnText} · Budget ${dollars0(ttTotal)} · Projection ${dollars0(ttProjection || ttTotal)}</span>${tt === "Business" ? ` <span class="small" style="font-weight:400;color:var(--muted)">modeled; excluded from core spend base</span>` : ""}</summary>`;
+    html += `<details class="taxonomy-type-section" data-dkey="budget:${esc(domain)}:${esc(tt)}"><summary><b>${esc(tt)}</b> <span class="small">YTD ${dollars0(ttActual)}${ttAnnText} · Budget ${dollars0(ttTotal)} · Projection ${dollars0(ttProjection || ttTotal)}</span>${tt === "Business" ? ` <span class="small" data-kind="state" style="font-weight:400;color:var(--muted)">modeled; excluded from core spend base</span>` : ""}</summary>`;
     if (domain === "core") html += spendingSourceHeadHtml(tt);
     // The Large Discretionary accordion body is the one-time rows table alone.
     (domain === "core" && isLd ? [] : typeData.groups || []).forEach(function (grp) {
@@ -712,7 +712,7 @@ export function renderDomainBudgetTable(domain) {
             `toggleAnnualizeFlag('${esc(gk)}',${gIsNoAnnualize})`,
             gIsNoAnnualize,
           ) + " ";
-        html += `<div class="table-actions" style="flex-wrap:nowrap;overflow-x:auto"><label class="small" style="white-space:nowrap">Group budget / yr&nbsp;</label><input type="text" class="budget-money-input" value="${esc(budgetMoneyInputValue((taxBudget[gk] || {}).annual_budget))}" placeholder="${catSum > 0 ? dollars0(catSum) : "$0"}" onfocus="focusBudgetMoney(this)" oninput="updateTaxBudgetMoney('${esc(gk)}','annual_budget',this)" onblur="blurBudgetMoney(this)" style="width:140px;flex-shrink:0"> ${gYearFields}${gAnnualizeField}<span class="small" style="white-space:nowrap">category and line detail disabled — group number wins</span></div>`;
+        html += `<div class="table-actions" style="flex-wrap:nowrap;overflow-x:auto"><label class="small" style="white-space:nowrap">Group budget / yr&nbsp;</label><input type="text" class="budget-money-input" value="${esc(budgetMoneyInputValue((taxBudget[gk] || {}).annual_budget))}" placeholder="${catSum > 0 ? dollars0(catSum) : "$0"}" onfocus="focusBudgetMoney(this)" oninput="updateTaxBudgetMoney('${esc(gk)}','annual_budget',this)" onblur="blurBudgetMoney(this)" style="width:140px;flex-shrink:0"> ${gYearFields}${gAnnualizeField}<span class="small" data-kind="state" style="white-space:nowrap">category and line detail disabled — group number wins</span></div>`;
       } else {
         html += '<div class="budget-cat-detail-list">';
         (grp.categories || []).forEach(function (cat) {
@@ -774,7 +774,7 @@ export function renderCoreSpendingUnified() {
   // results replace the controls block and stay on top.
   const searching = !!searchText.trim();
   const categories =
-    '<details class="taxonomy-type-section page-accordion" data-dkey="budget:core:spending_categories" open data-help-section="spending_core.spending_categories"><summary><b>Spending Categories</b> <span class="small">Tracking Types, Groups and Categories</span></summary>' +
+    '<details class="taxonomy-type-section page-accordion" data-dkey="budget:core:spending_categories" open data-help-section="spending_core.spending_categories"><summary><b>Spending Categories</b></summary>' +
     renderDomainBudgetPage("core", { embedded: true }) +
     "</details>";
   let html = searching ? renderSpendingCore() : "";

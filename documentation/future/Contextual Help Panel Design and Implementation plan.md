@@ -133,6 +133,7 @@ Phase 0 measured 284 page-level strings (STEPS `desc` / `intro` / `help` for 28 
 - Add a guard test that fails when new `section-note` / `small` nodes lack `data-kind` or exceed one line of text, so prose cannot creep back.
 - Add Playwright checks: panel opens by default on a pre-build page, follows focus, works at 1000px width, keyboard-only path.
 - Watch the repeated test-fix loop; fix one failing group at a time.
+- **As built (Phase 4):** `tests/frontend/ui_prose_guard.test.mjs` (static guard, 120-character line limit), `tests/e2e/contextual-help-panel.spec.js` (default-open, follow focus, 1000px sheet, keyboard path, rendered-DOM check), `tools/verify_ui_prose_inventory.py` with `tests/test_ui_prose_inventory_closeout.py`. About 100 leftover nodes from Phases 2-3 were moved to the registry (95 `HELP_SECTIONS` records now) or shortened. Final counts are in `ui_prose_inventory_summary.md`.
 
 ### Phase 5: content pass (light)
 - Fold the WI-033 non-expert read-through into the registry text; confirm the glossary terms; regenerate nothing by script after this point (the registry is the source).

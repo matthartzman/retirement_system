@@ -16,7 +16,6 @@ def test_scenario_page_uses_canonical_home_value_and_basis_not_retired_duplicate
     assert "function rowIsRetiredScenarioHomeDuplicate" in js
     assert "!rowIsRetiredScenarioHomeDuplicate(r)" in js
     assert "homeValueLabelIsCanonical(r.label)" in js
-    assert "The Home Value and Home Basis shown here are shared canonical Home asset facts" in js
     assert "rowIsRetiredScenarioHomeDuplicate(r)" in js
 
 

@@ -611,13 +611,13 @@ export function ytdMetricCard(
 }
 
 export function renderYtdUploadPanel(enabled) {
-  return `<div class="ytd-upload-panel"><input type="file" id="ytdUploadInput" accept=".csv,text/csv" style="display:none" onchange="handleYtdTransactionUpload(this)"><div><h3>Import transactions</h3><p class="small">CSV columns: <code>Date, Merchant, Category, Account, Original Statement, Notes, Amount, Tags, Owner</code> — only <code>Date</code> and <code>Amount</code> are required. Column order does not matter, capitalization is ignored, and extra columns are skipped. All rows with a valid date are imported, regardless of year. Use the Year pull-down above to choose which calendar year's actuals are shown.</p></div><div class="table-actions"><select id="ytdUploadMode"><option value="replace">Replace all</option><option value="incremental">Add without replacing</option></select><button class="btn primary" type="button" data-requires-app="1" onclick="document.getElementById('ytdUploadInput').click()">Preview &amp; import CSV</button><button class="btn" type="button" data-requires-app="1" onclick="downloadYtdTemplate()">Download Template</button>${enabled ? `<button class="btn" type="button" data-requires-app="1" onclick="deduplicateYtdTransactions()">Remove Duplicates</button>` : ""} ${enabled ? `<button class="btn danger" type="button" data-requires-app="1" onclick="deleteAllYtdTransactions()">Delete All</button>` : ""}</div></div>`;
+  return `<div class="ytd-upload-panel"><input type="file" id="ytdUploadInput" accept=".csv,text/csv" style="display:none" onchange="handleYtdTransactionUpload(this)"><div data-help-section="actual_spending.import_transactions"><h3>Import transactions ${window.RPHelp?.sectionButtonHtml("actual_spending.import_transactions") || ""}</h3></div><div class="table-actions"><select id="ytdUploadMode"><option value="replace">Replace all</option><option value="incremental">Add without replacing</option></select><button class="btn primary" type="button" data-requires-app="1" onclick="document.getElementById('ytdUploadInput').click()">Preview &amp; import CSV</button><button class="btn" type="button" data-requires-app="1" onclick="downloadYtdTemplate()">Download Template</button>${enabled ? `<button class="btn" type="button" data-requires-app="1" onclick="deduplicateYtdTransactions()">Remove Duplicates</button>` : ""} ${enabled ? `<button class="btn danger" type="button" data-requires-app="1" onclick="deleteAllYtdTransactions()">Delete All</button>` : ""}</div></div>`;
 }
 
 export function renderYtdSummary() {
   const s = ytdData?.summary || { enabled: false };
   if (!s.enabled)
-    return `<div class="section-note ytd-disabled"><b>YTD tracking is not enabled yet.</b> Upload transaction data to enable YTD spending, income, growth charts, transaction editing, and account mapping. All years of transaction history are kept; use the Year pull-down to choose the reporting year once enabled.</div>`;
+    return `<div class="section-note ytd-disabled" data-kind="state"><b>YTD tracking is not enabled yet.</b> Upload transactions to enable it.</div>`;
   const inv = s.investment_balance || {};
   const growthExtra = inv.actual_growth_available
     ? `Actual growth = mapped account current value − 12/31 prior-year balance. Investment rows use current holdings prices; non-investment rows use Current Value/Current Balance. Net investment cashflow is shown for diagnostics only.`
@@ -705,7 +705,7 @@ export function renderYtdTracking() {
 
 export function renderYtdTransactionsStep() {
   const enabled = !!ytdData?.summary?.enabled;
-  return `<div class="holdings ytd-tracking"><h3 class="group-title">Income &amp; Expense Transactions</h3><div class="section-note"><b>Step 1 of 2 — Import transactions here.</b> After importing, go to <a href="#" onclick="navigateTo('spending_core');return false">Spending Categories</a> (step 2) to assign categories to your transactions. Use Accounts &amp; Sources below to identify account/source type and balances.</div>${enabled ? ytdActualsPeriodToggleHtml("transactions_step") : ""}${ytdBlendToggleHtml()}${renderYtdUploadPanel(enabled)}${renderYtdTransactions()}${renderYtdAccounts()}</div>`;
+  return `<div class="holdings ytd-tracking"><h3 class="group-title">Income &amp; Expense Transactions</h3><div class="section-note" data-kind="state"><b>Step 1 of 2 — Import transactions here.</b> Then assign categories in <a href="#" onclick="navigateTo('spending_core');return false">Spending Categories</a> (step 2).</div>${enabled ? ytdActualsPeriodToggleHtml("transactions_step") : ""}${ytdBlendToggleHtml()}${renderYtdUploadPanel(enabled)}${renderYtdTransactions()}${renderYtdAccounts()}</div>`;
 }
 
 export function deduplicateYtdTransactions() {
@@ -826,7 +826,7 @@ export function renderYtdDuplicateReview() {
     (groups.length === 1 ? "" : "s") +
     "</h3>";
   html +=
-    '<p class="small">Rows marked <b>Dup</b> are pre-checked for deletion. Uncheck any to keep, then click Delete Selected.</p>';
+    '<p class="small" data-kind="warn">Dup rows are pre-checked for deletion; uncheck any to keep.</p>';
   html += '<div class="table-actions">';
   html +=
     '<button class="btn danger ytd-dedup-delete-btn" type="button" onclick="ytdDeleteSelectedDuplicates()">' +

@@ -1942,7 +1942,7 @@ async function runLivePriceSymbolTest() {
   } catch (e) {
     const detail = String((e && e.message) || e || "Unknown error");
     if (result)
-      result.innerHTML = `<div class="section-note warn"><b>Pricing tester could not reach the local API.</b><br>${esc(detail)}<br><br>Endpoint: <code>/api/prices/test-symbol/start</code>. If the browser says "Failed to fetch", restart the app and confirm the status indicator shows Ready.</div>`;
+      result.innerHTML = `<div class="section-note warn" data-kind="warn" title="Endpoint: /api/prices/test-symbol/start"><b>Pricing tester could not reach the local API.</b><br>${esc(detail)}<br>Restart the app and check the status shows Ready.</div>`;
     if (status) status.textContent = "Error";
     msg("Pricing tester error: " + detail, true);
   }

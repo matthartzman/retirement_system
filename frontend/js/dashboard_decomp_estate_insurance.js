@@ -39,9 +39,10 @@ export function estateRowsBySub(sub) {
     (r) => String(r.subsection || "") === String(sub || ""),
   );
 }
+// desc: kept for callers; the explanation lives in the help panel (HELP_SECTIONS estate.*).
 export function renderEstateSection(title, desc, rs, open = false) {
   if (!rs.length) return "";
-  return `<details ${open ? "open" : ""}><summary>${esc(title)}</summary><div class="field-list"><div class="section-note">${esc(desc)}</div>${rs.map(fieldHtml).join("")}</div></details>`;
+  return `<details ${open ? "open" : ""}><summary>${esc(title)}</summary><div class="field-list">${rs.map(fieldHtml).join("")}</div></details>`;
 }
 export function renderEstateStatesTable() {
   const all = estateStateOptions.length ? estateStateOptions : [];
@@ -479,7 +480,7 @@ export function renderInsurancePolicyGroup(opts) {
   policyRows.forEach((r) => {
     (bySub[r.subsection] || (bySub[r.subsection] = [])).push(r);
   });
-  let html = `<div class="holdings"><h3 class="group-title">${esc(title)}</h3><div class="section-note"><b>How to use this page:</b> each policy appears as a collapsible section with a policy-type pulldown. Premium-end and term-end fields are YYYY year inputs. Add another policy from the selector below; duplicate types receive a sequential number.</div><div class="table-actions"><select onchange="setNewInsurancePolicyType(this.value)">${types.map((t) => `<option value="${esc(t)}" ${t === newInsurancePolicyType ? "selected" : ""}>${esc(t)}</option>`).join("")}</select><button class="btn" type="button" data-requires-app="1" onclick="addInsurancePolicy()">${esc(addLabel)}</button></div></div>`;
+  let html = `<div class="holdings" data-help-section="annuity_death_benefits.policies"><h3 class="group-title">${esc(title)} ${window.RPHelp?.sectionButtonHtml("annuity_death_benefits.policies") || ""}</h3><div class="table-actions"><select onchange="setNewInsurancePolicyType(this.value)">${types.map((t) => `<option value="${esc(t)}" ${t === newInsurancePolicyType ? "selected" : ""}>${esc(t)}</option>`).join("")}</select><button class="btn" type="button" data-requires-app="1" onclick="addInsurancePolicy()">${esc(addLabel)}</button></div></div>`;
   let counters = {};
   Object.keys(bySub)
     .sort()
@@ -496,7 +497,7 @@ export function renderInsurancePolicyGroup(opts) {
         norm(typ) === "auto"
           ? `<div class="section-note" data-kind="warn">Annual Premium overrides the "Auto Insurance" budget on <a href="#" onclick="navigateTo('spending_core');return false">Spending Categories</a>.</div>`
           : norm(typ) === "home"
-            ? `<div class="section-note" data-kind="warn">Annual Premium overrides the homeowners-insurance baseline entered on <a href="#" onclick="navigateTo('spending_mortgage_events');return false">Housing</a>.</div>`
+            ? `<div class="section-note" data-kind="warn">Annual Premium overrides the homeowners-insurance baseline entered on <a href="#" data-page="spending_mortgage_events" onclick="navigateTo(this.dataset.page);return false">Housing</a>.</div>`
             : "";
       const body = prs
         .filter((r) => r !== typeRow)

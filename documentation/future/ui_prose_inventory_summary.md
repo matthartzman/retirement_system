@@ -1,4 +1,4 @@
-Status: draft (Phase 0 measured 2026-10-21; class column is an automated guess awaiting human review).
+Status: implemented (closed out in Phase 4, 2026-10-22). Phase 0 measurements below are historical; see "Phase 4 closeout" for the final counts.
 
 # UI prose inventory: Phase 0 summary
 
@@ -54,3 +54,22 @@ Modules: `dashboard_decomp_income_streams`, `_death_benefits`, `_spending_taxono
 | Deferred: `domainBudgetNote()` strings rendered by `dashboard_decomp_row_model.js`, a module outside these batches | 0 | 4 |
 
 Notes: the scan guessed some rows A that are really B/C (for example "Showing {year} (not the current plan year)"); the class column now follows the code. Sections without a heading get a bare "?" row; headings, `<details>` and `table-actions` rows carry `data-help-section` where they exist. Two pointer lines that hold navigation links (Family & Business, Spending Model's Housing tail) stay as one-line `state` notes; their explanation moved to the records. The rental page id is `rental_properties` (the scan's `MODULE_STEPS` maps the module to `assets_special`).
+
+
+## Phase 4 closeout (final counts)
+`python tools/verify_ui_prose_inventory.py --counts` (also run by `tests/test_ui_prose_inventory_closeout.py`) checks that every row's `destination` starts with `moved:`, `deleted:` or `kept:`, that no class A row is `kept` except hover-only tooltips, and that every class D row's `merged_into` target exists (a file, a `file:line` within the file, or a registry key). The CSV grew from 551 to 584 rows because Phase 3a added rows for modules the first scan missed.
+
+| Level | A moved to panel | B state (kept, one line) | C warn (kept, one line) | D deleted | Total |
+|---|---|---|---|---|---|
+| Page | 250 | 0 | 0 | 6 | 256 |
+| Section | 72 | 41 | 15 | 0 | 128 |
+| Field | 48 | 3 | 4 | 9 | 64 |
+| Message | 42 | 67 | 17 | 10 | 136 |
+| **Total** | **412** | **111** | **36** | **25** | **584** |
+
+Dispositions: 406 moved, 25 deleted, 153 kept (including 7 class A hover-only tooltips on readouts, which are not in-flow prose).
+
+Notes:
+- Page rows are traced by the `slot` column (Phase 2a); section and field rows by the `destination` column. A `moved:` destination written by the automated pass names the target page, not always a specific key, so the check is on the class and disposition, not on a per-row registry key.
+- Phase 4 found about 100 section-note / small nodes that Phases 2-3 had missed (dynamic or concatenated strings the first scan could not see). They were moved to 15 new and 15 extended `HELP_SECTIONS` records, deleted as duplicates of existing help, or shortened and tagged. Two exceptions are recorded in the PR: the recommendation card's "Why it matters" line is card content (class `recommendation-impact`, not `small`), and the Final review list on the welcome page lost its `small` class.
+- Guard: `tests/frontend/ui_prose_guard.test.mjs` fails any `section-note` / `small` node with three or more words of static text that lacks `data-kind="state|warn"` or exceeds 120 characters. Nodes that interpolate values are treated as readouts (length rule only); `<button>` and `<label>` are exempt. `tests/e2e/contextual-help-panel.spec.js` repeats the check on rendered pages.

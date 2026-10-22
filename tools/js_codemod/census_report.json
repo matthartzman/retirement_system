@@ -2981,6 +2981,18 @@
       "scope": "inside-function"
     },
     {
+      "name": "SYSTEM_CONFIG_FIELD_HELP",
+      "file": "frontend/js/dashboard_decomp_monarch_autoupdate.js",
+      "kind": "read",
+      "scope": "top-level"
+    },
+    {
+      "name": "pageHelp",
+      "file": "frontend/js/dashboard_decomp_monarch_autoupdate.js",
+      "kind": "call",
+      "scope": "top-level"
+    },
+    {
       "name": "activeStep",
       "file": "frontend/js/dashboard_decomp_monarch_autoupdate.js",
       "kind": "read",

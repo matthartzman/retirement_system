@@ -295,7 +295,7 @@ export function allocationOptimizerRecommendationHtml() {
     "Global",
     "capital_market_assumption_horizon_years",
   );
-  return `<div class="section-note" id="allocationOptimizerExplanation"><b>Optimizer recommendation:</b> this is a second-opinion mix based on risk tolerance or auto risk score, age, withdrawal rate, years to retirement, human-capital stability, existing assets credited against class targets, concentration flags, enabled asset classes, capital-market assumptions, correlations, glide path, and inflation-sensitive spending. Consider it because it can reflect household-specific risk capacity and diversification relationships that a static mix cannot see.<br><br><b>Current inputs used by the optimizer:</b> risk tolerance ${esc(risk ? displayValueForInput(risk, valOf(risk)) : "auto")}; glide path ${esc(glide ? displayValueForInput(glide, valOf(glide)) : "default")}; cash target ${esc(cash ? displayValueForInput(cash, valOf(cash)) : "default")}; human-capital stability ${esc(hc ? displayValueForInput(hc, valOf(hc)) : "default")}; inflation-sensitive spending ${esc(infl ? displayValueForInput(infl, valOf(infl)) : "default")}; capital-market preset ${esc(cap ? displayValueForInput(cap, valOf(cap)) : "baseline")}; horizon ${esc(horizon ? displayValueForInput(horizon, valOf(horizon)) : "30")} years.</div>`;
+  return `<div class="section-note" id="allocationOptimizerExplanation" data-kind="state"><b>Current inputs used by the optimizer:</b></div><div style="margin:4px 0 8px">risk tolerance ${esc(risk ? displayValueForInput(risk, valOf(risk)) : "auto")}; glide path ${esc(glide ? displayValueForInput(glide, valOf(glide)) : "default")}; cash target ${esc(cash ? displayValueForInput(cash, valOf(cash)) : "default")}; human-capital stability ${esc(hc ? displayValueForInput(hc, valOf(hc)) : "default")}; inflation-sensitive spending ${esc(infl ? displayValueForInput(infl, valOf(infl)) : "default")}; capital-market preset ${esc(cap ? displayValueForInput(cap, valOf(cap)) : "baseline")}; horizon ${esc(horizon ? displayValueForInput(horizon, valOf(horizon)) : "30")} years.</div>`;
 }
 
 export function alternateAssetRows() {
@@ -494,12 +494,12 @@ export function optimizerPreviewStatusCell(asset, action) {
 
 export function renderOptimizerPreviewNote() {
   if (allocationPreviewLoading)
-    return '<div class="section-note" id="allocationPreviewNote"><b>Optimizer preview:</b> calculating from the current UI values…</div>';
+    return '<div class="section-note" id="allocationPreviewNote" data-kind="state"><b>Optimizer preview:</b> calculating from the current UI values…</div>';
   if (allocationPreviewError)
-    return `<div class="section-note" id="allocationPreviewNote"><b>Optimizer preview unavailable:</b> ${esc(allocationPreviewError)}. Save/build still uses the backend calculation; this message only affects the on-screen preview.</div>`;
+    return `<div class="section-note warn" id="allocationPreviewNote" data-kind="warn"><b>Optimizer preview unavailable:</b> ${esc(allocationPreviewError)}. Save/build still uses the backend; only this preview is affected.</div>`;
   if (!allocationPreview) {
     setTimeout(requestAllocationPreview, 0);
-    return '<div class="section-note" id="allocationPreviewNote"><b>Optimizer preview:</b> waiting to calculate computed targets.</div>';
+    return '<div class="section-note" id="allocationPreviewNote" data-kind="state"><b>Optimizer preview:</b> waiting to calculate computed targets.</div>';
   }
   const mode =
     allocationPreview.optimizer_policy_mode || "optimizer_recommendation";
@@ -510,7 +510,7 @@ export function renderOptimizerPreviewNote() {
           allocationPreview.optimizer_diagnostics.coverage_adjustments,
         ).length
       : 0;
-  return `<div class="section-note" id="allocationPreviewNote"><b>Optimizer preview:</b> computed targets shown below are read-only and are not written into the user-defined allocation file. <b>Active target used</b> reflects optimizer overrides plus covered/excluded classes. Coverage adjustments detected: ${cov}. Policy mode: ${esc(mode)}.</div>`;
+  return `<div class="section-note" id="allocationPreviewNote" data-kind="state"><b>Optimizer preview:</b> targets below are read-only. Coverage adjustments detected: ${cov}. Policy mode: ${esc(mode)}.</div>`;
 }
 
 export function renderAssetClassSelectionTable() {
@@ -525,17 +525,17 @@ export function renderAssetClassSelectionTable() {
     : `<tr><th>Subcategory</th><th>Asset class</th><th>Selection</th><th>User Target %</th><th>Existing asset/source credited to this class</th></tr>`;
   let note;
   if (mode === "optimizer_recommendation") {
-    note = `<div class="section-note"><b>Optimizer mode is active.</b> User target percentages are hidden because the next build will not use them; they are listed in Inactive values above when saved. The workbook uses the computed optimizer target, unless you enter a full optional optimizer override. Excluded rows and covered rows are removed from the active liquid target before the remaining recommendation is normalized.</div>${renderOptimizerPreviewNote()}`;
+    note = `<div class="section-note" data-kind="state"><b>Optimizer mode is active.</b> User targets are hidden (kept under Inactive values above).</div>${renderOptimizerPreviewNote()}`;
   } else if (mode === "max_sharpe") {
-    note = `<div class="section-note"><b>Max-Sharpe (risk-budgeted) mode is active.</b> User target percentages are hidden because the next build will not use them. This mode keeps the same risk level as the optimizer recommendation (risk tolerance, glide path, guaranteed-income/home-equity coverage) but chooses the equity sleeve with the best risk-adjusted (Sharpe) return, using the same Selection-driven candidate classes as the optimizer recommendation (Excluded classes, and classes already covered by a mapped guaranteed-income/home-equity source, are left out); it does not support a manual override.</div>${renderOptimizerPreviewNote()}`;
+    note = `<div class="section-note" data-kind="state"><b>Max-Sharpe (risk-budgeted) mode is active.</b> User targets are hidden; no manual override.</div>${renderOptimizerPreviewNote()}`;
   } else if (mode === "tangency") {
-    note = `<div class="section-note"><b>Pure tangency mode is active.</b> User target percentages are hidden because the next build will not use them. This mode ignores risk tolerance and glide path entirely and solves for the single portfolio with the highest Sharpe ratio across the enabled/uncovered classes below (Excluded classes, and classes already covered by a mapped guaranteed-income/home-equity source, are left out); it does not support a manual override. Review the recommended risk level carefully before using it to drive the plan.</div>${renderOptimizerPreviewNote()}`;
+    note = `<div class="section-note warn" data-kind="warn"><b>Pure tangency mode is active.</b> User targets are hidden; no manual override. Review the risk level first.</div>${renderOptimizerPreviewNote()}`;
   } else if (mode === "real_loss_aware") {
-    note = `<div class="section-note"><b>Holding-period real-loss-aware mode is active.</b> User target percentages are hidden because the next build will not use them. This mode splits today's liquid balance into holding-period buckets from this household's own projected withdrawal schedule and solves each bucket separately across the enabled/uncovered classes below with an added real-loss-probability penalty (Excluded classes, and classes already covered by a mapped guaranteed-income/home-equity source, are left out); it does not support a manual override.</div>${renderOptimizerPreviewNote()}`;
+    note = `<div class="section-note" data-kind="state"><b>Holding-period real-loss-aware mode is active.</b> User targets are hidden; no manual override.</div>${renderOptimizerPreviewNote()}`;
   } else {
-    note = `<div class="section-note"><b>User-defined mode is active.</b> This table edits the active user target %. Rows are grouped by Equity, Fixed income, and Other. Choose exactly one action per row. <b>Include</b> and <b>Consider alternate first</b> activate the user target %. <b>Exclude</b> ignores that row's target.</div>`;
+    note = `<div class="section-note" data-kind="state"><b>User-defined mode is active.</b> Choose one action per row; Exclude ignores that row's target.</div>`;
   }
-  let html = `<div class="holdings"><h3 class="group-title">Asset-class allocation policy</h3>${note}<div class="lot-table-wrap"><table class="lot-table allocation-selection-table"><thead>${header}</thead><tbody>`;
+  let html = `<div class="holdings" data-help-section="strategy_optimize.selection_modes"><h3 class="group-title">Asset-class allocation policy ${window.RPHelp?.sectionButtonHtml("strategy_optimize.selection_modes") || ""}</h3>${note}<div class="lot-table-wrap"><table class="lot-table allocation-selection-table"><thead>${header}</thead><tbody>`;
   let cat = "";
   names.forEach((asset) => {
     const actionRow = findAssetRow(asset, ["selection_action"]);
@@ -829,7 +829,7 @@ export function renderMaxSharpeAllocationPanel() {
 }
 
 export function renderTangencyAllocationPanel() {
-  return `<div class="holdings"><h3 class="group-title">Pure tangency recommendation active</h3><div class="section-note warn"><b>No risk budget:</b> this solves for the single long-only portfolio, across the enabled/uncovered asset classes, with the highest possible Sharpe ratio. It still respects the Selection column below: Excluded classes are never candidates, and a class set to Consider alternate first and mapped to a covered source (guaranteed income, home equity, ...) is left out once that source meets the target &mdash; so if this household's annuities/home equity already cover the bond/real-estate sleeves, tangency is automatically scoped to the remaining liquid classes, driven by that configuration rather than a fixed list. Risk tolerance and glide path are not applied, and it does not support a manual override. It can concentrate heavily in a single class depending on the configured capital-market assumptions &mdash; review it as an analytical reference before using it to drive the plan.</div></div>`;
+  return `<div class="holdings" data-help-section="strategy_optimize.tangency"><h3 class="group-title">Pure tangency recommendation active ${window.RPHelp?.sectionButtonHtml("strategy_optimize.tangency") || ""}</h3><div class="section-note warn" data-kind="warn"><b>No risk budget:</b> can concentrate heavily in one class; treat it as an analytical reference.</div></div>`;
 }
 
 export function renderRealLossAwarePanel() {
@@ -845,7 +845,7 @@ export function renderRealLossAwarePanel() {
   const bucketTable = bucketRows
     ? `<div class="section-note" data-kind="state">Holding-period buckets used for this blend:</div><div class="lot-table-wrap"><table class="lot-table"><thead><tr><th>Holding-period bucket</th><th>Share of liquid balance</th></tr></thead><tbody>${bucketRows}</tbody></table></div>`
     : "";
-  return `<div class="holdings"><h3 class="group-title">Holding-period real-loss-aware recommendation active</h3><div class="section-note warn"><b>No risk budget:</b> today's liquid balance is split into holding-period buckets based on this household's own projected withdrawal schedule, and each bucket is solved separately across the enabled/uncovered asset classes with an added penalty for that bucket's probability of a real (inflation-adjusted) loss at that holding period &mdash; near-term buckets are penalized for holding equities, long-horizon buckets are penalized for sitting in cash. The final recommendation blends each bucket's solution by its dollar share of today's balance. It still respects the Selection column below: Excluded classes are never candidates, and a class set to Consider alternate first and mapped to a covered source (guaranteed income, home equity, ...) is left out once that source meets the target. Risk tolerance and glide path are not applied, and it does not support a manual override.</div>${bucketTable}</div>${renderRealLossAwareTuningHtml()}`;
+  return `<div class="holdings" data-help-section="strategy_optimize.real_loss_aware"><h3 class="group-title">Holding-period real-loss-aware recommendation active ${window.RPHelp?.sectionButtonHtml("strategy_optimize.real_loss_aware") || ""}</h3><div class="section-note warn" data-kind="warn"><b>No risk budget:</b> risk tolerance and glide path are not applied; no manual override.</div>${bucketTable}</div>${renderRealLossAwareTuningHtml()}`;
 }
 
 export function renderAllocationRecommendation() {
