@@ -23,7 +23,8 @@ def test_retired_scenario_home_basis_cannot_reappear_as_editable_scenario_input(
 
     assert "function rowIsRetiredScenarioHomeDuplicate" in js
     assert "function isEditable(r) {\n  return (\n    r &&\n    !r.is_header &&\n    !r.is_comment &&\n    r.label &&\n    !rowIsRetiredScenarioHomeDuplicate(r)\n  );\n}" in js
-    assert "The Home Value and Home Basis shown here are shared canonical Home asset facts" in js
+    # The explanation moved to the help panel (Phase 3a).
+    assert "The Home Value and Home Basis shown here are shared canonical Home asset facts" in (ROOT / "frontend" / "js" / "help_registry.js").read_text(encoding="utf-8")
 
 
 def test_model_heard_reports_property_tax_and_home_sale_sources():

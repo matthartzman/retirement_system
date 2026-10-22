@@ -88,8 +88,8 @@ test('rendered section-note / small nodes are one-line state or warning messages
     await navigateToStep(page, id, new RegExp(title));
     const found = await page.evaluate(() =>
       Array.from(document.querySelectorAll('#mainPane .section-note, #mainPane .small'))
-        // Prose only: skip control names, table cells (plan data and readouts) and figures such as "YTD $0 · Budget $5".
-        .filter((n) => !n.closest('button, label, td, th') && !/[\d$%]/.test(n.textContent || ''))
+        // Prose only: skip control names, table cells (plan data and readouts), widgets that hold a control and figures such as "YTD $0 · Budget $5".
+        .filter((n) => !n.closest('button, label, td, th') && !n.querySelector('input, select, button') && !/[\d$%]/.test(n.textContent || ''))
         .filter((n) => (n.textContent || '').trim().split(/\s+/).length >= 3)
         .filter((n) => !/^(state|warn)$/.test(n.getAttribute('data-kind') || '') || n.textContent.trim().length > 140)
         .map((n) => n.textContent.trim().slice(0, 70)),

@@ -22,7 +22,7 @@ function nodeText(src, from, tag) {
   const close = src.indexOf(`</${tag}>`, from);
   let raw = src.slice(from, close >= 0 && close - from < 900 ? close : from + 300);
   raw = raw.replace(/\$\{(?:[^{}]|\{[^{}]*\})*\}/g, HOLE).replace(/['"`]\s*\+[\s\S]*?\+\s*['"`]/g, HOLE);
-  raw = raw.split(/['"`]\s*[,;)]|\n\s*['"`]/)[0].replace(/<[^>]*>/g, " ");
+  raw = raw.replace(/<[^>]*>/g, " ").split(/['"`]\s*[,;)]|\n\s*['"`]/)[0];
   return raw;
 }
 
@@ -36,7 +36,7 @@ export function scanSource(src, file) {
     if (SKIP_TAGS.has(tag) || !(classes.includes("section-note") || classes.includes("small"))) continue;
     const raw = nodeText(src, m.index + m[0].length, tag);
     const dynamic = raw.includes(HOLE);
-    const text = raw.replace(/\u0000/g, "").replace(/&[a-z#0-9]+;/gi, " ").replace(/\s+/g, " ").trim();
+    const text = raw.replace(/\u0000/g, "").replace(/\\u[0-9a-f]{4}/gi, "-").replace(/&[a-z#0-9]+;/gi, " ").replace(/\s+/g, " ").trim();
     const words = (text.match(/[A-Za-z]{2,}/g) || []).length;
     if (words < 3) continue;
     const line = src.slice(0, m.index).split("\n").length;

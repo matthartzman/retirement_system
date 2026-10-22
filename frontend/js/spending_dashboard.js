@@ -60,8 +60,8 @@ export function spendingDivergenceNoteHtml() {
   if (pct <= 0.03) return '';
   var d = window.spendingData || {};
   return '<div class="section-note warning spending-divergence-note" data-kind="warn"><b>! &gt;3% &mdash; annualized spending is ' +
-    (pct * 100).toFixed(1) + '% over the annual budget.</b> Annualized (incl. taxes) <b>' +
-    fmtSpend(d.annualized_total) + '</b> vs. budget <b>' + fmtSpend(d.budget_total) + '</b>. Review the categories below or raise the budget.</div>';
+    (pct * 100).toFixed(1) + '% over the annual budget.</b> Annualized <b>' +
+    fmtSpend(d.annualized_total) + '</b> vs. budget <b>' + fmtSpend(d.budget_total) + '</b>. Review the categories or raise the budget.</div>';
 }
 window.spendingDivergenceNoteHtml = spendingDivergenceNoteHtml;
 

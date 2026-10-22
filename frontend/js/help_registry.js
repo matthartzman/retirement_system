@@ -361,7 +361,7 @@ export const HELP_SECTIONS = {
   "estate.trusts": {
     pageId: "estate",
     title: "Trusts",
-    body: "Trust accounts are shown in a compact table. Each trust has a type pulldown and can be expanded for additional fields. Investment accounts with Trust in the account name still flow through the holdings page; add trust rows here when you want estate metadata.",
+    body: "Trust accounts are shown in a compact table. Each trust has a type pulldown and can be expanded for additional fields. Investment accounts with Trust in the account name still flow through the holdings page; add trust rows here when you want estate metadata. For the QTIP and Credit Shelter trusts, start with Enabled: the trust's mechanics appear only when it is enabled. Enable Special Needs Planning in Optional workbook modules to edit the ABLE, trust and government-benefit rows.",
   },
   "estate.beneficiary_titling": {
     pageId: "estate",
@@ -466,7 +466,7 @@ export const HELP_SECTIONS = {
   "strategy_optimize.recommendation": {
     pageId: "strategy_optimize",
     title: "Optimizer recommendation",
-    body: "The selection table controls which asset classes the optimizer may use and whether existing holdings satisfy a sleeve before new trades are recommended. Override percentages lock a specific target, bypassing the optimizer.",
+    body: "The selection table controls which asset classes the optimizer may use and whether existing holdings satisfy a sleeve before new trades are recommended. Override percentages lock a specific target, bypassing the optimizer. This is a second-opinion mix based on risk tolerance or auto risk score, age, withdrawal rate, years to retirement, human-capital stability, existing assets credited against class targets, concentration flags, enabled asset classes, capital-market assumptions, correlations, glide path, and inflation-sensitive spending. Consider it because it can reflect household-specific risk capacity and diversification relationships that a static mix cannot see. The preview's computed targets are read-only and are not written into the user-defined allocation file; Active target used reflects optimizer overrides plus covered or excluded classes.",
   },
   "strategy_optimize.max_sharpe": {
     pageId: "strategy_optimize",
@@ -541,7 +541,7 @@ export const HELP_SECTIONS = {
   "strategy_scenarios.stress_rows": {
     pageId: "strategy_scenarios",
     title: "Home sale stress test",
-    body: "Home sale stress-test rows apply to scenario workbook outputs only. Base-plan sale year, future rent, renters insurance and rental utilities are managed on the Housing page. These rows are used by the Scenario Analysis workbook sheet, but they do not change the base-plan Build Impact cards. To change headline terminal net worth, set the Base Plan Home Sale Year on the Housing page. The Home Value and Home Basis shown here are shared Home asset facts. The sale value used by this stress test is projected from the Home Value and appreciation.",
+    body: "Home sale stress-test rows apply to scenario workbook outputs only. Base-plan sale year, future rent, renters insurance and rental utilities are managed on the Housing page. These rows are used by the Scenario Analysis workbook sheet, but they do not change the base-plan Build Impact cards. To change headline terminal net worth, set the Base Plan Home Sale Year on the Housing page. The Home Value and Home Basis shown here are shared canonical Home asset facts. The sale value used by this stress test is projected from the Home Value and appreciation.",
   },
   "strategy_scenarios.change_sets": {
     pageId: "strategy_scenarios",
@@ -650,7 +650,7 @@ export const HELP_SECTIONS = {
   "spending_core.large_discretionary": {
     pageId: "spending_core",
     title: "Large Discretionary",
-    body: "The table shows the year selected on Actual Spending; change it with the Year pull-down there. Add one row per one-time expense. A row counts toward that year's budget only when its year is the year shown. Each row is one-time: it projects only in its own year (inflated from today's dollars) and is never annualized.",
+    body: "The table shows the year selected on Actual Spending; change it with the Year pull-down there. Add one row per one-time expense. A row counts toward that year's budget only when its year is the year shown. Each row is one-time: it projects only in its own year (inflated from today's dollars) and is never annualized. Large Discretionary rows are one-time: Weddings, Large Gifts, Education (not 529-funded), Auto, or Other. Enter amounts in today's dollars; the projection inflates each to its year.",
   },
   "spending_core.adjustments": {
     pageId: "spending_core",
@@ -660,12 +660,12 @@ export const HELP_SECTIONS = {
   "spending_core.housing_costs": {
     pageId: "spending_core",
     title: "Housing costs",
-    body: "Housing costs: mortgage payment timing and other recurring home costs. Real-estate taxes, homeowners insurance, maintenance, utilities, and HOA are budgeted in the groups below. Click Seed Housing Fields to add any missing housing fields.",
+    body: "Housing costs: mortgage payment timing and other recurring home costs. Real-estate taxes, homeowners insurance, maintenance, utilities, and HOA are budgeted in the groups below. Click Seed Housing Fields to add any missing housing fields. Housing is the only editable place for mortgage/rent, homeowners insurance, home maintenance, utilities, real-estate taxes, and home improvement projects.",
   },
   "spending_core.wellness": {
     pageId: "spending_core",
     title: "Wellness",
-    body: "Wellness is the authoritative view for healthcare spending. Enter Pre-65 premiums, Medicare Part B/D/G premiums, and non-premium medical, dental, vision, Rx/OTC, and out-of-pocket estimates. The projection uses these values as-entered for cash flow and income impact; Medicare premium categories are split to match spending taxonomy.",
+    body: "Wellness is the authoritative view for healthcare spending. Enter Pre-65 premiums, Medicare Part B/D/G premiums, and non-premium medical, dental, vision, Rx/OTC, and out-of-pocket estimates. The projection uses these values as-entered for cash flow and income impact; Medicare premium categories are split to match spending taxonomy. Wellness is the only editable place for the Healthcare Premium group (Pre-65 Healthcare Premium plus Medicare Part B, Part D, and Part G), medical, dental, vision, drugs Rx/OTC, vitamins/supplements, and the medical OOP cap/reference.",
   },
   "spending_core.travel_budget": {
     pageId: "spending_core",
@@ -695,7 +695,7 @@ export const HELP_SECTIONS = {
   "spending_core.spending_categories": {
     pageId: "spending_core",
     title: "Spending Categories",
-    body: "Spending Categories shows Tracking Types, Groups, and Categories with non-zero YTD Actual, Annualized, Annual Budget, or Projection. Use Income & Expense Transactions to import transactions, or add budget/projection values on the source page, then Reload. This section is organised by Tracking Types, Groups and Categories.",
+    body: "Spending Categories shows Tracking Types, Groups, and Categories with non-zero YTD Actual, Annualized, Annual Budget, or Projection. Use Income & Expense Transactions to import transactions, or add budget/projection values on the source page, then Reload. This section is organised by Tracking Types, Groups and Categories. Spending Categories is comprehensive: Income and every expense Tracking Type, including Taxes, should appear in the hierarchy -- only internal transfers are excluded. Housing, Wellness, and Travel are edited in their own accordions below. Each group header shows both Annual Budget (what you entered) and Projection (the value the projection engine actually uses as the starting spend amount). They are usually equal — expand the help below to see when and why they can differ.",
   },
   "spending_core.budget_vs_projection": {
     pageId: "spending_core",
@@ -831,6 +831,41 @@ export const HELP_SECTIONS = {
     pageId: "actual_spending",
     title: "Importing transactions",
     body: "CSV columns: Date, Merchant, Category, Account, Original Statement, Notes, Amount, Tags, Owner. Only Date and Amount are required. Column order does not matter, capitalization is ignored, and extra columns are skipped. All rows with a valid date are imported, regardless of year. Use the Year pull-down above to choose which calendar year's actuals are shown.\n\nUploading transaction data enables YTD spending, income, growth charts, transaction editing and account mapping. All years of transaction history are kept. Use Accounts and Sources below the import to identify account or source type and balances.",
+  },
+  "strategy_optimize.withdrawal_order": {
+    pageId: "strategy_optimize",
+    title: "Withdrawal order",
+    body: "Individual-account draw order is user-configurable below. Each account defaults to its registry order and draws first within its account type when priority is tied; set a lower number to draw an account earlier relative to others of the same type (for example, which of two taxable brokerage accounts drains first).\n\nThe account-type sequence itself is fixed by the engine and is not user-configurable, because it follows tax rules rather than preference (shown above the table). RMDs are mandatory income; Roth and home equity are preserved until other liquid sources are exhausted.",
+  },
+  "strategy_optimize.selection_modes": {
+    pageId: "strategy_optimize",
+    title: "Allocation policy modes",
+    body: "Optimizer mode: user target percentages are hidden because the next build will not use them; they are listed in Inactive values above when saved. The workbook uses the computed optimizer target, unless you enter a full optional optimizer override. Excluded rows and covered rows are removed from the active liquid target before the remaining recommendation is normalized.\n\nMax-Sharpe (risk-budgeted) mode: keeps the same risk level as the optimizer recommendation (risk tolerance, glide path, guaranteed-income and home-equity coverage) but chooses the equity sleeve with the best risk-adjusted (Sharpe) return, using the same Selection-driven candidate classes as the optimizer recommendation (Excluded classes, and classes already covered by a mapped guaranteed-income or home-equity source, are left out). It does not support a manual override.\n\nPure tangency mode: ignores risk tolerance and glide path entirely and solves for the single portfolio with the highest Sharpe ratio across the enabled and uncovered classes below (Excluded classes, and classes already covered by a mapped guaranteed-income or home-equity source, are left out). It does not support a manual override. Review the recommended risk level carefully before using it to drive the plan.\n\nHolding-period real-loss-aware mode: splits today's liquid balance into holding-period buckets from this household's own projected withdrawal schedule and solves each bucket separately across the enabled and uncovered classes below, with an added real-loss-probability penalty (Excluded and covered classes are left out). It does not support a manual override.\n\nUser-defined mode: this table edits the active user target %. Rows are grouped by Equity, Fixed income, and Other. Choose exactly one action per row. Include and Consider alternate first activate the user target %. Exclude ignores that row's target.",
+  },
+  "strategy_optimize.tangency": {
+    pageId: "strategy_optimize",
+    title: "Pure tangency recommendation",
+    body: "No risk budget: this solves for the single long-only portfolio, across the enabled and uncovered asset classes, with the highest possible Sharpe ratio. It still respects the Selection column below: Excluded classes are never candidates, and a class set to Consider alternate first and mapped to a covered source (guaranteed income, home equity, and so on) is left out once that source meets the target. So if this household's annuities or home equity already cover the bond and real-estate sleeves, tangency is automatically scoped to the remaining liquid classes, driven by that configuration rather than a fixed list.\n\nRisk tolerance and glide path are not applied, and it does not support a manual override. It can concentrate heavily in a single class depending on the configured capital-market assumptions, so review it as an analytical reference before using it to drive the plan.",
+  },
+  "strategy_optimize.real_loss_aware": {
+    pageId: "strategy_optimize",
+    title: "Holding-period real-loss-aware recommendation",
+    body: "No risk budget: today's liquid balance is split into holding-period buckets based on this household's own projected withdrawal schedule, and each bucket is solved separately across the enabled and uncovered asset classes with an added penalty for that bucket's probability of a real (inflation-adjusted) loss at that holding period. Near-term buckets are penalized for holding equities; long-horizon buckets are penalized for sitting in cash. The final recommendation blends each bucket's solution by its dollar share of today's balance.\n\nIt still respects the Selection column below: Excluded classes are never candidates, and a class set to Consider alternate first and mapped to a covered source (guaranteed income, home equity, and so on) is left out once that source meets the target. Risk tolerance and glide path are not applied, and it does not support a manual override.",
+  },
+  "annuity_death_benefits.policies": {
+    pageId: "annuity_death_benefits",
+    title: "Insurance policies",
+    body: "Each policy appears as a collapsible section with a policy-type pulldown. Premium-end and term-end fields are YYYY year inputs. Add another policy from the selector below the sections; duplicate types receive a sequential number.",
+  },
+  "reports_and_review.model_used": {
+    pageId: "reports_and_review",
+    title: "What the model used in this build",
+    body: "Plain-English checks for assumptions that materially change cash flow, taxes, risk, and terminal net worth. These are not extra recommendations; they explain which model switches were actually consumed so you can run targeted what-if tests.",
+  },
+  "reports_and_review.dynamic_suggestions": {
+    pageId: "reports_and_review",
+    title: "Suggestions to improve the plan without lowering risk",
+    body: "These suggestions are generated from this build's LCV, NPV of Future Taxes, Worst-Case Ending Wealth (5th percentile), and model-heard assumptions. Keep Worst-Case Ending Wealth flat or better when improving LCV or lowering NPV of Future Taxes.",
   },
 };
 

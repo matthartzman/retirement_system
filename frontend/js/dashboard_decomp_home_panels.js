@@ -150,7 +150,7 @@ export function closeoutChecklistHtml() {
     allDone && !finalized
       ? `<div style="margin-top:10px"><button class="btn primary" type="button" onclick="markPlanFinal()">Mark plan as final</button></div>`
       : "";
-  return `<div class="closeout-checklist"><div class="closeout-head"><h3>Plan closeout checklist</h3><p class="small">Check each item when done. Advisory only — does not lock editing.</p></div>${finalBadge}<div class="closeout-items">${itemsHtml}</div>${finalBtn}</div>`;
+  return `<div class="closeout-checklist"><div class="closeout-head"><h3>Plan closeout checklist</h3><p class="small" data-kind="state">Check each item when done. Advisory only — does not lock editing.</p></div>${finalBadge}<div class="closeout-items">${itemsHtml}</div>${finalBtn}</div>`;
 }
 export function toggleCloseoutItem(key, checked) {
   try {

@@ -44,7 +44,7 @@ export function conversionNoticeHtml(state, busy) {
   const running = busy || s.running;
   const btn = (label, cls, onclick) => `<button class="btn tiny ${cls || ""}" type="button" onclick="${onclick}">${esc(label)}</button>`;
   const opts =
-    '<div class="small"><label><input type="checkbox" id="convBackupSecrets"> Also back up the old keys file (<code>secrets.local.json</code>)</label><br>' +
+    '<div class="small" data-kind="state"><label><input type="checkbox" id="convBackupSecrets"> Also back up the old keys file (<code>secrets.local.json</code>)</label><br>' +
     '<label><input type="checkbox" id="convDeleteSecrets"> Delete the old keys file once the keys are safely in the credential store</label></div>';
   if (running) {
     return '<div class="conversion-notice" role="status"><strong>Converting your plan…</strong> Backing up, converting and checking the numbers. This takes about ten seconds. Your original files are not changed.</div>';

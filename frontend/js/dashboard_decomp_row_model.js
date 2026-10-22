@@ -4324,12 +4324,14 @@ export function renderDomainBudgetPage(domain, opts) {
       loadTaxonomyBudget(false);
     }, 0);
   }
-  let html = '<div class="holdings">';
+  // The explanation of each budget domain lives in the help panel (HELP_SECTIONS spending_core.*).
+  const domainKey = { core: "spending_core.spending_categories", housing: "spending_core.housing_costs", healthcare: "spending_core.wellness", travel: "spending_core.travel_budget" }[domain] || "spending_core.large_discretionary";
+  const domainBtn = window.RPHelp?.sectionButtonHtml(domainKey) || "";
+  let html = '<div class="holdings" data-help-section="' + domainKey + '">';
   if (!opts.embedded)
     html +=
-      '<h3 class="group-title">' + esc(domainBudgetTitle(domain)) + "</h3>";
-  html +=
-    '<div class="section-note">' + esc(domainBudgetNote(domain)) + "</div>";
+      '<h3 class="group-title">' + esc(domainBudgetTitle(domain)) + " " + domainBtn + "</h3>";
+  else html += "<div>" + domainBtn + "</div>";
   html +=
     '<div class="table-actions"><button class="btn primary" ' +
     (budgetLinesChanged || taxBudgetChanged ? "" : "disabled") +

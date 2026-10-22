@@ -399,7 +399,7 @@
     html +=
       // §4.6's caveat, stated rather than implied. The values are plan data;
       // the record of where they came from is not.
-      '<p class="small" data-kind="warn">Applying stages changes: Save Changes, then rebuild. Undo and the optimizer record stay in this browser only.</p>';
+      '<p class="small" data-kind="warn">Applying stages changes: Save Changes, then rebuild. Undo and the optimizer record are kept in this browser only.</p>';
     html += "</div>";
     return html;
   }

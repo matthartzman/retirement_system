@@ -599,7 +599,8 @@ DASHBOARD_JS_MAX_LINES = 6_476
 # 2026-10-21 (Phase 2b: 28 page records in help_registry.js, old STEPS/STEP_HELP prose removed): lowered to the measured 40,257.
 # 2026-10-22 (Phase 3b: 54 section records in help_registry.js for Insurance/Estate/Taxes, Strategy, Reports and
 # Review and Settings; the prose they replace left the center panel, +266 net): raised to the measured 40,523.
-TOTAL_JS_MAX_LINES = 40_523
+# 2026-10-22 (Phase 3a merge + Phase 4: leftover prose moved to the registry; ceilings reset to the measured sizes): 40,733.
+TOTAL_JS_MAX_LINES = 40_733
 
 
 def _line_count(path: Path) -> int:

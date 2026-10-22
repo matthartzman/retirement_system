@@ -92,7 +92,8 @@ def test_monte_carlo_hsa_home_sale_and_estate_dependencies_are_dynamic():
     dash = dashboard_all()
     assert "Start here: choose the Monte Carlo engine" in dash
     assert 'mode === "quick_vectorized"' in dash
-    assert "Start here:</b> choose HSA withdrawal mode" in dash
+    # The HSA start-here note moved to the help panel (Phase 4); the mode switch stays in the page.
+    assert "Start here: choose the HSA withdrawal mode" in (ROOT / "frontend" / "js" / "help_registry.js").read_text(encoding="utf-8")
     assert 'mode === "annual_pct"' in dash and '"smooth_window"' in dash
     assert "renderHomeSaleScenarioRows" in dash
     assert 'renderToggleRows(\n    "QTIP Trust"' in dash
