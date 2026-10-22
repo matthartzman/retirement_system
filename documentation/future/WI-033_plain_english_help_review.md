@@ -2,7 +2,7 @@
 
 Source: DOC-008 in `documentation/archive/reports/SYSTEM_REVIEW_2026-10-19.md`.
 Help text now lives in `HELP_PAGES` in `frontend/js/help_registry.js` (it used to be `desc`, `intro`, `help` in `STEPS`).
-Status: complete (applied in `frontend/js/help_registry.js` by Contextual Help Panel Phases 2 and 5; the registry is now the source for the summaries and text below).
+Status: implemented (applied in `frontend/js/help_registry.js` by Contextual Help Panel Phases 2 and 5; the registry is now the source for the summaries and text below).
 
 ## How to run the read-through
 

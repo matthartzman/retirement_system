@@ -1,6 +1,6 @@
 # Contextual Help Panel: move all explanation to the right panel
 
-Status: complete (decisions accepted; Phases 0-5 implemented; the registry is the source from Phase 5 on). Extends WI-033 — see `WI-033_plain_english_help_review.md` and `WI-033_glossary_draft.md`. Measured counts are in `ui_prose_inventory_summary.md`.
+Status: implemented (decisions accepted; Phases 0-5 implemented; the registry is the source from Phase 5 on). Extends WI-033 — see `WI-033_plain_english_help_review.md` and `WI-033_glossary_draft.md`. Measured counts are in `ui_prose_inventory_summary.md`.
 
 ## 1. Context and problem
 
