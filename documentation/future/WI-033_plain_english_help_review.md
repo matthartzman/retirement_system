@@ -1,8 +1,8 @@
 # WI-033 — Plain-English help layer: page list and draft for non-expert read-through
 
 Source: DOC-008 in `documentation/archive/reports/SYSTEM_REVIEW_2026-10-19.md`.
-Help text lives in the `STEPS` array in `frontend/js/dashboard.js` (`desc`, `intro`, `help`).
-Status: draft
+Help text now lives in `HELP_PAGES` in `frontend/js/help_registry.js` (it used to be `desc`, `intro`, `help` in `STEPS`).
+Status: complete (applied in `frontend/js/help_registry.js` by Contextual Help Panel Phases 2 and 5; the registry is now the source for the summaries and text below).
 
 ## How to run the read-through
 
@@ -55,4 +55,4 @@ Acceptance (from the review): pages used before the first build have plain-langu
 
 - Collect flagged terms into one glossary list (shared across pages).
 - Add a plain `summary` field per `STEPS` entry plus glossary links in the help panel (frontend change, covered by a test that every page has a summary).
-- Keep the existing `desc`, `intro` and `help` text unchanged. The plain layer sits above it.
+- Done: `desc`, `intro` and `help` were merged into one record per page (summary, what it is for, connections, options, impact); the summary is the left-nav one-liner.

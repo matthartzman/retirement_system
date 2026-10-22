@@ -3,7 +3,7 @@
 Audience: a high-school-educated reader with little financial experience.
 Style rules: short sentences, everyday words, one small example where it helps, no term defined using another unexplained term.
 Coverage: every term in the "Terms to confirm" column of `WI-033_plain_english_help_review.md`.
-Status: draft
+Status: complete (the same definitions ship as `GLOSSARY` in `frontend/js/help_registry.js`; edit the registry, not this file, from here on).
 
 ## A
 

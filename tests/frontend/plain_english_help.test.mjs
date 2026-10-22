@@ -85,7 +85,7 @@ test("every section record names a real page and renders with a way back to page
 
 test("page help keeps the pointer to where HSA withdrawal timing is controlled", () => {
   const all = Object.values(HELP_PAGES).map((p) => `${p.whatFor} ${p.connections} ${p.options} ${p.impact}`).join(" ");
-  assert.match(all, /HSA withdrawal timing is controlled on Other → Other assets/);
+  assert.match(all, /HSA withdrawal timing is controlled on Other Assets and Liabilities/);
 });
 
 test("page help keeps the planning workbench record and the YTD import wording", () => {
