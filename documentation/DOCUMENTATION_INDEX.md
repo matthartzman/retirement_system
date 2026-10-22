@@ -27,7 +27,7 @@ plan in `future/` and in `archive/superpowers/` dated 2026-09-16 or later carrie
 | `reference/CONVERSION_SAFEGUARD.md` | The conversion's verification and safeguard (WP10.3): what is checked, what blocks, the backup, what is never deleted, rollback |
 | `reference/release_notes/` | Plain-language record of changes that move results |
 | `reference/BACKLOG.md` | Deferred work tracker |
-| `reference/CI_SETUP.md`, `reference/TESTING_REFACTOR_RECOMMENDATIONS.md`, `reference/HAPPY_PATH_E2E_TEST_PLAN.md` | CI and testing |
+| `reference/CI_SETUP.md`, `reference/TEST_RUN_GUIDE.md`, `reference/TESTING_REFACTOR_RECOMMENDATIONS.md`, `reference/HAPPY_PATH_E2E_TEST_PLAN.md` | CI and testing |
 | `reference/OPTIMIZATION_DOCS_INDEX.md`, `reference/OPTIMIZATION_REFACTOR_STATUS.md`, `reference/roth_conversion_modeling_guide.md` | Optimization documents |
 | `reference/NAV_FEATURE_MAP.md` | Left-nav inventory: gating, switches, current state, order |
 
