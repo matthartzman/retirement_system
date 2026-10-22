@@ -1244,7 +1244,7 @@ function housingOptMoveSelectionHtml(n) {
     `<div class="housing-opt-selection" onclick="showHousingOptFieldHelp('${p}SelectedZips')">` +
     `<div class="housing-opt-row-label">Move ${n} — candidate locations` +
     `<button type="button" class="field-info-i" aria-label="More info: candidate locations">i</button></div>` +
-    `<div class="housing-opt-shortlist" id="${p}Shortlist"><p class="small">Press <em>Find candidate locations</em> to screen ZIPs around this move's anchors.</p></div>` +
+    `<div class="housing-opt-shortlist" id="${p}Shortlist"><p class="small" data-kind="state">Press <em>Find candidate locations</em> to screen ZIPs around this move's anchors.</p></div>` +
     "</div>"
   );
 }
@@ -1976,7 +1976,7 @@ function renderHousingOptimizeEmptyHtml(payload) {
     ? `<p class="small">${esc(rejectionParts.join("; ") + ".")}</p>`
     : "";
   const funnelHtml = funnelParts.length
-    ? `<p class="small">${funnelParts.map((p) => esc(p)).join("</p><p class=\"small\">")}</p>`
+    ? `<p class="small" data-kind="state">${funnelParts.map((p) => esc(p)).join("</p><p class=\"small\" data-kind=\"state\">")}</p>`
     : "";
   return `<div class="housing-opt-empty">${rejectionHtml}${funnelHtml}</div>`;
 }

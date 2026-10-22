@@ -60,9 +60,8 @@ export function spendingDivergenceNoteHtml() {
   if (pct <= 0.03) return '';
   var d = window.spendingData || {};
   return '<div class="section-note warning spending-divergence-note" data-kind="warn"><b>! &gt;3% &mdash; annualized spending is ' +
-    (pct * 100).toFixed(1) + '% over the annual budget.</b> Annualized spending (all Tracking Types, including taxes) is <b>' +
-    fmtSpend(d.annualized_total) + '</b> vs. an annual budget of <b>' + fmtSpend(d.budget_total) + '</b>.' +
-    ' The "! &gt;3%" badge in the left nav appears when this exceeds 3%. Review the categories below, or raise the budget if this is the right run rate.</div>';
+    (pct * 100).toFixed(1) + '% over the annual budget.</b> Annualized (incl. taxes) <b>' +
+    fmtSpend(d.annualized_total) + '</b> vs. budget <b>' + fmtSpend(d.budget_total) + '</b>. Review the categories below or raise the budget.</div>';
 }
 window.spendingDivergenceNoteHtml = spendingDivergenceNoteHtml;
 

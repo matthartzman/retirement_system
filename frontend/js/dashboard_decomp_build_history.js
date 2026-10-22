@@ -285,7 +285,7 @@ export function buildHistoryEntryHtml(entry, isCurrent, heat) {
   const changesHtml =
     entry.changes && entry.changes.length
       ? buildChangeSummaryHtml(entry.changes)
-      : '<p class="small">No user field changes recorded in this entry.</p>';
+      : '<p class="small" data-kind="state">No user field changes recorded in this entry.</p>';
   const revertBtn = !isCurrent
     ? '<button class="btn" type="button" data-requires-app="1" onclick="revertToBuildHistoryEntry(\'' +
       escJs(entry.id || "") +
@@ -370,14 +370,14 @@ export function buildSourceJumpHtml(stepId, label) {
 export function buildChangeSummaryHtml(changes) {
   const all = Array.isArray(changes) ? changes : capturedSessionChanges();
   if (!all.length)
-    return '<p class="small">No user UI edits were captured before this build.</p>';
+    return '<p class="small" data-kind="state">No user UI edits were captured before this build.</p>';
   const scenarioOnly = all.filter((c) =>
     String(c.scope || "")
       .toLowerCase()
       .includes("scenario analysis"),
   );
   let html = scenarioOnly.length
-    ? `<div class="section-note warning"><b>${scenarioOnly.length} scenario-only change${scenarioOnly.length === 1 ? "" : "s"} captured.</b> These values are used in the workbook Scenario Analysis sheet but do not move the headline Build Impact cards unless the matching base-plan input is also changed.</div>`
+    ? `<div class="section-note warning" data-kind="warn" title="These values are used in the workbook Scenario Analysis sheet but do not move the headline Build Impact cards unless the matching base-plan input is also changed."><b>${scenarioOnly.length} scenario-only change${scenarioOnly.length === 1 ? "" : "s"} captured.</b> Scenario Analysis only; headline cards unchanged.</div>`
     : "";
   html +=
     '<table class="change-table"><thead><tr><th>Factor</th><th>Source page</th><th>Before</th><th>After</th></tr></thead><tbody>';
@@ -467,7 +467,7 @@ export function buildImpactCardsHtml(before, after) {
           "The 5th-percentile ending net worth across Monte Carlo simulation paths -- what the plan leaves even in a bad-market scenario, without collapsing risk into a single pass/fail probability.",
           fmtDelta,
         )
-      : `<div class="impact-card"><span>Worst-Case Ending Wealth</span><b>Not available</b><div class="small">Monte Carlo results were not available for this comparison.</div></div>`;
+      : `<div class="impact-card"><span>Worst-Case Ending Wealth</span><b>Not available</b><div class="small" data-kind="state">Monte Carlo results were not available for this comparison.</div></div>`;
   // #225: Post-Tax Inheritance was shown as its own headline card here AND
   // separately on Estate & Legacy Plan, computed at a different point in the
   // timeline (terminal plan year here vs. second-death year there) -- the two
@@ -480,7 +480,7 @@ export function buildImpactCardsHtml(before, after) {
     : null;
   const estateTaxNote =
     afterEstateTax !== null && Math.abs(afterEstateTax) > 0.5
-      ? `<div class="small">LCV's terminal-transfer component is already net of estate tax (${fmtMoney(afterEstateTax)} reduced to ${fmtMoney(after.post_tax_inheritance)} for heirs). See Estate &amp; Legacy Plan for the figure at second death.</div>`
+      ? `<div class="small" data-kind="state">LCV's terminal transfer is net of estate tax (${fmtMoney(afterEstateTax)} to ${fmtMoney(after.post_tax_inheritance)} for heirs); see Estate &amp; Legacy Plan.</div>`
       : "";
   const lcvCard = impactCardHtml("Expected After-Tax LCV", dLcv, before.lcv, after.lcv, fmtMoney, "Lifetime Consumption-and-Transfer Value: total spending across the plan plus the after-tax, after-estate-tax terminal transfer to heirs (Post-Tax Inheritance) -- the household's total expected financial welfare, not just what's left at the end.");
   // #293: Effective Future Tax Rate (EFTR) -- an added 4th stat, not a
@@ -768,7 +768,7 @@ export function modelHeardHtml(summary) {
     ),
   );
   const acronyms = acronymDefinitionsHtml(rows);
-  return `<details class="impact-suggestions model-used-panel collapsible-impact-section"><summary class="collapsible-summary"><span class="collapse-caret" aria-hidden="true"></span><span class="collapsible-title">What the model used in this build</span><span class="small collapsible-meta">${rows.length} impact checks</span></summary><div class="collapsible-content"><p class="small">Plain-English checks for assumptions that materially change cash flow, taxes, risk, and terminal net worth. These are not extra recommendations; they explain which model switches were actually consumed so you can run targeted what-if tests.</p><ol>${rows.join("")}</ol>${acronyms}</div></details>`;
+  return `<details class="impact-suggestions model-used-panel collapsible-impact-section" data-help-section="reports_and_review.model_used"><summary class="collapsible-summary"><span class="collapse-caret" aria-hidden="true"></span><span class="collapsible-title">What the model used in this build</span><span class="small collapsible-meta">${rows.length} impact checks</span></summary><div class="collapsible-content"><p class="small" data-kind="state">Plain-English checks for assumptions that materially change cash flow, taxes, risk, and net worth. ${window.RPHelp?.sectionButtonHtml("reports_and_review.model_used") || ""}</p><ol>${rows.join("")}</ol>${acronyms}</div></details>`;
 }
 
 // #293/#309: keyed to the plan's headline KPIs (LCV, NPV of Future Taxes,
@@ -885,7 +885,7 @@ export function buildImpactSuggestionsHtml(before, after, summary = {}) {
     "This keeps suggestions tied to measured risk, tax, and LCV moves.",
   );
   const shown = suggestions.slice(0, 6);
-  return `<details class="impact-suggestions collapsible-impact-section dynamic-suggestions-panel"><summary class="collapsible-summary"><span class="collapse-caret" aria-hidden="true"></span><span class="collapsible-title">Suggestions to improve the plan without lowering risk</span><span class="small collapsible-meta">${shown.length} dynamic tests</span></summary><div class="collapsible-content"><p class="small">These are generated from this build's LCV, NPV of Future Taxes, Worst-Case Ending Wealth (5th %ile), and model-heard assumptions. Keep Worst-Case Ending Wealth flat or better when improving LCV or lowering NPV of Future Taxes.</p><ol>${shown.map((s) => `<li><b>${esc(s[0])}</b><span>${esc(s[1])}</span>${s[2] ? `<span class="change-context">${esc(s[2])}</span>` : ""}</li>`).join("")}</ol></div></details>`;
+  return `<details class="impact-suggestions collapsible-impact-section dynamic-suggestions-panel" data-help-section="reports_and_review.dynamic_suggestions"><summary class="collapsible-summary"><span class="collapse-caret" aria-hidden="true"></span><span class="collapsible-title">Suggestions to improve the plan without lowering risk</span><span class="small collapsible-meta">${shown.length} dynamic tests</span></summary><div class="collapsible-content"><p class="small" data-kind="state">Keep Worst-Case Ending Wealth flat or better when raising LCV or lowering NPV of Future Taxes. ${window.RPHelp?.sectionButtonHtml("reports_and_review.dynamic_suggestions") || ""}</p><ol>${shown.map((s) => `<li><b>${esc(s[0])}</b><span>${esc(s[1])}</span>${s[2] ? `<span class="change-context">${esc(s[2])}</span>` : ""}</li>`).join("")}</ol></div></details>`;
 }
 
 // Every export above is also re-attached to window: dashboard.js calls these

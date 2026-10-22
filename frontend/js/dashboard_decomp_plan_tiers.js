@@ -104,8 +104,8 @@ export function tierStatusHtml(profile, presets) {
   html += "</div>";
   if (!p.tier_stored)
     html +=
-      '<div class="section-note">No tier picked yet: this plan keeps the switches it has, read as Expert. ' +
-      "Picking a tier sets every switch to that tier's preset; you can still change any switch afterwards.</div>";
+      '<div class="section-note" data-kind="state" data-help-section="optional_functions.tiers">No tier picked yet: this plan keeps its current switches, read as Expert. ' +
+      (window.RPHelp ? window.RPHelp.sectionButtonHtml("optional_functions.tiers") : "") + "</div>";
   return html;
 }
 

@@ -169,8 +169,8 @@ function withdrawalAccountOrderEditorHtml() {
     .join("");
   if (!withdrawalAccountOrder) return '<p class="small">Loading accounts…</p>';
   if (!withdrawalAccountOrder.length)
-    return '<p class="small">No accounts found yet. Add accounts on Investment Holdings first.</p>';
-  return `<div class="table-actions"><button class="btn primary" type="button" ${withdrawalAccountOrderChanged ? "" : "disabled"} onclick="saveWithdrawalAccountOrder()">Save account order</button><button class="btn" type="button" onclick="resetWithdrawalAccountOrderToDefault()">Reset to default order</button><button class="btn" type="button" onclick="loadWithdrawalAccountOrder(true)">Reload</button></div><div class="section-note small">Drag the <b>⠿</b> handle to reorder accounts drawn first within their type. Order saves automatically when you leave this section.</div><div class="lot-table-wrap"><table class="lot-table withdrawal-order-table"><thead><tr><th style="width:36px"></th><th>Account (drawn top to bottom)</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
+    return '<p class="small" data-kind="state">No accounts found yet. Add accounts on Investment Holdings first.</p>';
+  return `<div data-help-section="strategy_optimize.withdrawal_account_order"><div class="table-actions">${window.RPHelp?.sectionButtonHtml("strategy_optimize.withdrawal_account_order") || ""}<button class="btn primary" type="button" ${withdrawalAccountOrderChanged ? "" : "disabled"} onclick="saveWithdrawalAccountOrder()">Save account order</button><button class="btn" type="button" onclick="resetWithdrawalAccountOrderToDefault()">Reset to default order</button><button class="btn" type="button" onclick="loadWithdrawalAccountOrder(true)">Reload</button></div><div class="lot-table-wrap"><table class="lot-table withdrawal-order-table"><thead><tr><th style="width:36px"></th><th>Account (drawn top to bottom)</th></tr></thead><tbody>${rowsHtml}</tbody></table></div></div>`;
 }
 
 // ── #274: unified Build Impact change summary ───────────────────────────────
@@ -217,9 +217,9 @@ function unifiedBuildChangeSummaryHtml(changes, adminEvents) {
     });
   });
   if (!rows.length)
-    return '<p class="small">No input or configuration changes were captured before this build.</p>';
+    return '<p class="small" data-kind="state">No input or configuration changes were captured before this build.</p>';
   let html = scenarioOnly.length
-    ? `<div class="section-note warning"><b>${scenarioOnly.length} scenario-only change${scenarioOnly.length === 1 ? "" : "s"} captured.</b> These values are used in the workbook Scenario Analysis sheet but do not move the headline Build Impact cards unless the matching base-plan input is also changed.</div>`
+    ? `<div class="section-note warning" data-kind="warn"><b>${scenarioOnly.length} scenario-only change${scenarioOnly.length === 1 ? "" : "s"} captured.</b> They do not move the headline Build Impact cards.</div>`
     : "";
   html +=
     '<table class="change-table"><thead><tr><th>Factor</th><th>Source</th><th>Before</th><th>After</th></tr></thead><tbody>';

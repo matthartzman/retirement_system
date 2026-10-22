@@ -440,7 +440,7 @@ export function renderOptionalFunctions() {
   if (searchText.trim()) return renderFields("optional_functions");
   const rs = rowsForStep("optional_functions");
   if (!rs.length)
-    return '<div class="section-note">No plan feature rows found. Save Changes to initialize defaults, then reload.</div>';
+    return '<div class="section-note" data-kind="state">No plan feature rows found. Save Changes to initialize defaults, then reload.</div>';
 
   const taxonomy = planModuleTaxonomy();
   let html = "";
@@ -455,7 +455,7 @@ export function renderOptionalFunctions() {
 
   const groups = planFeatureGroups(rs, taxonomy, planFeatureKind);
   if (!groups.length)
-    return html + '<div class="section-note">No features match this filter.</div>';
+    return html + '<div class="section-note" data-kind="state">No features match this filter.</div>';
 
   groups.forEach(function (g) {
     const open = !planFeatureCollapsed.has(g.domain);

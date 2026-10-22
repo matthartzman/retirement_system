@@ -308,7 +308,7 @@ export function _wfSheetHtml(sheetNode, maxNameLen) {
 export function renderWorkbookFormatting() {
   if (!workbookFormatData && !workbookFormatLoading) loadWorkbookFormat(false);
   const back = `<button class="btn" type="button" data-step-id="system_configuration">← Back to Settings</button>`;
-  const header = `<div class="section-note"><b>Workbook formatting.</b> Adjust Excel column widths per sheet, table, and column. Widths come from the most recently built workbook. Every edit saves immediately — there is no separate Save step, and no other part of the app ever touches these saved widths except this page. Columns you don't touch keep their automatic width.</div>`;
+  const header = `<div class="section-note" data-kind="warn" data-help-section="workbook_formatting.widths">Every edit saves immediately; there is no Save step. ${window.RPHelp?.sectionButtonHtml("workbook_formatting.widths") || ""}</div>`;
   if (workbookFormatLoading && !workbookFormatData) {
     return `<div class="workbook-format-panel">${back}${header}<div class="section-note" data-kind="state">Loading workbook layout…</div></div>`;
   }

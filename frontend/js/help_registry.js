@@ -541,12 +541,12 @@ export const HELP_SECTIONS = {
   "strategy_scenarios.stress_rows": {
     pageId: "strategy_scenarios",
     title: "Home sale stress test",
-    body: "Home sale stress-test rows apply to scenario workbook outputs only. Base-plan sale year, future rent, renters insurance and rental utilities are managed on the Housing page.",
+    body: "Home sale stress-test rows apply to scenario workbook outputs only. Base-plan sale year, future rent, renters insurance and rental utilities are managed on the Housing page. These rows are used by the Scenario Analysis workbook sheet, but they do not change the base-plan Build Impact cards. To change headline terminal net worth, set the Base Plan Home Sale Year on the Housing page. The Home Value and Home Basis shown here are shared Home asset facts. The sale value used by this stress test is projected from the Home Value and appreciation.",
   },
   "strategy_scenarios.change_sets": {
     pageId: "strategy_scenarios",
     title: "Scenario change sets",
-    body: "Templates stage common deterministic what-if overrides. Saved sets are browser-local change sets; review the diff, apply a set, then Save Changes, rebuild, and compare in the Planning Workbench. Save the current scenario assumptions when you want a reusable package of what-if overrides.",
+    body: "Templates stage common deterministic what-if overrides. Saved sets are browser-local change sets; review the diff, apply a set, then Save Changes, rebuild, and compare in the Planning Workbench. Save the current scenario assumptions when you want a reusable package of what-if overrides. Scenario Change Sets are deterministic planning cases. Use the Stress Suite & Monte Carlo page for probabilistic or adverse-assumption testing. Economy shocks and scenario enable/year controls are grouped first because they determine which dependent assumptions matter. Home sale in this section is the stress-test panel only, affecting scenario sheets; the base-plan home sale is entered once on the Housing page under Spending.",
   },
   "strategy_stress.survivor": {
     pageId: "strategy_stress",
@@ -596,7 +596,7 @@ export const HELP_SECTIONS = {
   "monarch_reconciliation.inbox": {
     pageId: "monarch_reconciliation",
     title: "Needs a decision",
-    body: "Nothing needs a decision when every matched account agrees with the app, is handled automatically, or is set to ignore. Account balances arrive with the daily account balance import: another process writes balances.csv to the source folder, then the scheduled job loads it.",
+    body: "Nothing needs a decision when every matched account agrees with the app, is handled automatically, or is set to ignore. Account balances arrive with the daily account balance import: another process writes balances.csv to the source folder, then the scheduled job loads it. Your choices for each number that differs: Update app copies the imported number once, after a preview. Always update does that now and copies the imported number automatically at each import. App is source keeps the app's number and only reports. Ignore this time hides the difference until the imported number changes.",
   },
 
 
@@ -604,12 +604,12 @@ export const HELP_SECTIONS = {
   "actual_spending.accounts_sources": {
     pageId: "actual_spending",
     title: "Accounts and sources",
-    body: "Where the money came from or is held. Transaction accounts are added automatically from uploaded transactions. This section does not assign spending categories; it identifies account or source type, prior-year balance, current value and any mapped investment account. Add non-transaction sources for annuities, pensions, Social Security, offline assets, real estate, notes, credit cards, loans or other manual assets and liabilities. Investment current value is derived from mapped Holdings accounts, and the mapping dropdowns stay blank until holdings are loaded. Add account/source adds the typed account with the selected type, no pop-up. Recover previous setup is a one-time recovery from a previous SQLite mirror, local Plan Data folder or sibling extracted package.",
+    body: "Where the money came from or is held. Transaction accounts are added automatically from uploaded transactions. This section does not assign spending categories; it identifies account or source type, prior-year balance, current value and any mapped investment account. Add non-transaction sources for annuities, pensions, Social Security, offline assets, real estate, notes, credit cards, loans or other manual assets and liabilities. Investment current value is derived from mapped Holdings accounts, and the mapping dropdowns stay blank until holdings are loaded. Add account/source adds the typed account with the selected type, no pop-up. Recover previous setup is a one-time recovery from a previous SQLite mirror, local Plan Data folder or sibling extracted package. If there are no accounts yet, upload transactions to seed transaction accounts automatically, or use the inline account/source controls to add manual rows.",
   },
   "reports_and_review.build_impact": {
     pageId: "reports_and_review",
     title: "Build impact",
-    body: "Dials are heat-mapped: green is the best across all entries, red the worst. LCV (Expected After-Tax Lifetime Consumption-and-Transfer Value) is total lifetime spending plus the after-tax, after-estate-tax terminal transfer to heirs. All-In LCV adds lifetime taxes paid back in, for a single figure that includes every tax dollar.",
+    body: "Dials are heat-mapped: green is the best across all entries, red the worst. LCV (Expected After-Tax Lifetime Consumption-and-Transfer Value) is total lifetime spending plus the after-tax, after-estate-tax terminal transfer to heirs. All-In LCV adds lifetime taxes paid back in, for a single figure that includes every tax dollar. Scenario-only changes are used in the workbook Scenario Analysis sheet but do not move the headline Build Impact cards unless the matching base-plan input is also changed.",
   },
   // End Phase 3b.
   "household_people.people": {
@@ -650,7 +650,7 @@ export const HELP_SECTIONS = {
   "spending_core.large_discretionary": {
     pageId: "spending_core",
     title: "Large Discretionary",
-    body: "The table shows the year selected on Actual Spending; change it with the Year pull-down there. Add one row per one-time expense. A row counts toward that year's budget only when its year is the year shown.",
+    body: "The table shows the year selected on Actual Spending; change it with the Year pull-down there. Add one row per one-time expense. A row counts toward that year's budget only when its year is the year shown. Each row is one-time: it projects only in its own year (inflated from today's dollars) and is never annualized.",
   },
   "spending_core.adjustments": {
     pageId: "spending_core",
@@ -680,7 +680,7 @@ export const HELP_SECTIONS = {
   "spending_core.projection_controls": {
     pageId: "spending_core",
     title: "Projection Controls",
-    body: "Core spending base and growth feed recurring lifestyle spending in the projection.",
+    body: "Core spending base and growth feed recurring lifestyle spending in the projection. If a control is missing, the expected rows are Core Spending Base, Core Spending Increase Stops, Core Spending Increase Method, and the relevant increase-rate field.",
   },
   "spending_core.category_manager": {
     pageId: "spending_core",
@@ -690,12 +690,12 @@ export const HELP_SECTIONS = {
   "spending_core.category_rules": {
     pageId: "spending_core",
     title: "Advanced Auto-Mapping Rules",
-    body: "Optional rules auto-assign imported merchant or category text to a canonical Spending Category. Most users should use the category picker in Spending Categories; use these rules only when the same text should be classified automatically every time.",
+    body: "Optional rules auto-assign imported merchant or category text to a canonical Spending Category. Most users should use the category picker in Spending Categories; use these rules only when the same text should be classified automatically every time. Add a rule only for merchant/category text that should be classified the same way every time.",
   },
   "spending_core.spending_categories": {
     pageId: "spending_core",
     title: "Spending Categories",
-    body: "Spending Categories shows Tracking Types, Groups, and Categories with non-zero YTD Actual, Annualized, Annual Budget, or Projection. Use Income & Expense Transactions to import transactions, or add budget/projection values on the source page, then Reload.",
+    body: "Spending Categories shows Tracking Types, Groups, and Categories with non-zero YTD Actual, Annualized, Annual Budget, or Projection. Use Income & Expense Transactions to import transactions, or add budget/projection values on the source page, then Reload. This section is organised by Tracking Types, Groups and Categories.",
   },
   "spending_core.budget_vs_projection": {
     pageId: "spending_core",
@@ -710,7 +710,7 @@ export const HELP_SECTIONS = {
   "actual_spending.kpis": {
     pageId: "actual_spending",
     title: "Spending totals",
-    body: "The five KPI tiles include income taxes and exclude only internal transfers. The All-In row adds transfer transactions back in; when no transfer transactions are logged for the year, the All-In totals would match the tiles and are omitted.",
+    body: "The five KPI tiles include income taxes and exclude only internal transfers. The All-In row adds transfer transactions back in; when no transfer transactions are logged for the year, the All-In totals would match the tiles and are omitted. The \"! >3%\" badge in the left nav appears when annualized spending (all Tracking Types, including taxes) exceeds the annual budget by more than 3%. Review the categories, or raise the budget if this is the right run rate.",
   },
   "actual_spending.monthly_trajectory": {
     pageId: "actual_spending",
@@ -791,6 +791,46 @@ export const HELP_SECTIONS = {
     pageId: "heloc_strategy",
     title: "HELOC modeling inputs",
     body: "Turn on HELOC strategy to reveal the borrowing assumptions.",
+  },
+  "strategy_optimize.withdrawal_account_order": {
+    pageId: "strategy_optimize",
+    title: "Account draw order",
+    body: "Drag the handle on a row to reorder accounts. Accounts nearer the top are drawn first within their account type. The order saves automatically when you leave this section, and you can use Reset to default order to go back to the standard order.",
+  },
+  "optional_functions.tiers": {
+    pageId: "optional_functions",
+    title: "Plan tiers",
+    body: "Picking a tier sets every switch to that tier's preset; you can still change any switch afterwards. Until you pick a tier, the plan keeps the switches it already has, which are read as Expert.",
+  },
+  "assets_special.reporting_fields": {
+    pageId: "assets_special",
+    title: "Reporting-only fields",
+    body: "Some fields on this page feed reporting and workbook narrative only. They do not directly affect cash-flow or tax calculations. Review the workbook output after a rebuild to confirm what affected each projection year.",
+  },
+  "strategy_optimize.hsa_policy": {
+    pageId: "strategy_optimize",
+    title: "HSA withdrawal policy",
+    body: "Start here: choose the HSA withdrawal mode. The schedule fields below change based on that mode. The default is spend as needed, which hides the annual-percentage and window controls.",
+  },
+  "strategy_workbench.model": {
+    pageId: "strategy_workbench",
+    title: "Planning Workbench model",
+    body: "The workbench follows one chain: Baseline, then Change Set, then Run Type, then Impact, then Decision. A Planning Case is stored only in your browser and never changes the saved plan by itself.",
+  },
+  "assets_home_cash.reserve_rules": {
+    pageId: "assets_home_cash",
+    title: "Reserve requirements",
+    body: "Purpose: a reserve requirement keeps a chosen number of years of expenses in reserve for the selected year range. The default is 0 years. Add rows only when the reserve policy changes over time.\n\nTip: leave End year blank for an open-ended rule. If rows overlap, the model uses the first matching row.",
+  },
+  "workbook_formatting.widths": {
+    pageId: "workbook_formatting",
+    title: "Adjusting column widths",
+    body: "Adjust Excel column widths per sheet, table and column. Widths come from the most recently built workbook. Every edit saves immediately, so there is no separate Save step, and no other part of the app ever touches these saved widths except this page. Columns you do not touch keep their automatic width.",
+  },
+  "actual_spending.import_transactions": {
+    pageId: "actual_spending",
+    title: "Importing transactions",
+    body: "CSV columns: Date, Merchant, Category, Account, Original Statement, Notes, Amount, Tags, Owner. Only Date and Amount are required. Column order does not matter, capitalization is ignored, and extra columns are skipped. All rows with a valid date are imported, regardless of year. Use the Year pull-down above to choose which calendar year's actuals are shown.\n\nUploading transaction data enables YTD spending, income, growth charts, transaction editing and account mapping. All years of transaction history are kept. Use Accounts and Sources below the import to identify account or source type and balances.",
   },
 };
 

@@ -234,7 +234,7 @@ export function hsaWithdrawalPolicyBlock(other) {
           ].includes(norm(r.label)) && r !== modeRow,
       ),
     );
-  return `<details><summary>HSA withdrawal policy</summary><div class="field-list"><div class="section-note"><b>Start here:</b> choose HSA withdrawal mode. The schedule fields below change based on that mode. Default is spend as needed, which hides annual-percentage and window controls.</div>${sortRowsByDependency(visible).map(fieldHtml).join("")}</div></details>`;
+  return `<details data-help-section="strategy_optimize.hsa_policy"><summary>HSA withdrawal policy</summary><div class="field-list"><div>${window.RPHelp?.sectionButtonHtml("strategy_optimize.hsa_policy") || ""}</div>${sortRowsByDependency(visible).map(fieldHtml).join("")}</div></details>`;
 }
 export function taxLossHarvestingBlock(other) {
   const tlh = other.filter(
@@ -440,7 +440,7 @@ export function renderStrategyWorkbench() {
     cases.find((c) => !c.archived) ||
     null;
   return (
-    '<div class="section-note workbench-model"><b>Planning Workbench model:</b> Baseline -> Change Set -> Run Type -> Impact -> Decision. A Planning Case is browser-local and never changes the saved plan by itself.</div>' +
+    '<div class="workbench-model" data-help-section="strategy_workbench.model"><h3 class="group-title">Planning Workbench model ' + (window.RPHelp ? window.RPHelp.sectionButtonHtml("strategy_workbench.model") : "") + '</h3></div>' +
     renderStrategyScreen([
       {
         key: "levers",

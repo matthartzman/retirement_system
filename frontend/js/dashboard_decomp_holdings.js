@@ -278,7 +278,7 @@ export async function handleHoldingsCsvImport(input) {
 }
 
 export function renderUserPricingSymbolTester() {
-  return `<div id="userPricingSymbolTester" class="section-note" data-help-section="holdings.pricing_tester"><b>Single-symbol live pricing tester:</b> ${(window.RPHelp?.sectionButtonHtml("holdings.pricing_tester") || "")} <div class="row" style="margin-top:8px"><input id="userPricingTestSymbol" placeholder="Ticker, e.g. VTI" style="max-width:210px;text-transform:uppercase" onkeydown="if(event.key==='Enter')runUserLivePriceSymbolTest()"><button class="btn primary" type="button" onclick="runUserLivePriceSymbolTest()">Test live quote</button><span id="userPricingTestStatus" class="small"></span></div><div id="userPricingTestResult" style="margin-top:10px"></div></div>`;
+  return `<div id="userPricingSymbolTester" class="section-note" data-help-section="holdings.pricing_tester"><b>Single-symbol live pricing tester:</b> ${(window.RPHelp?.sectionButtonHtml("holdings.pricing_tester") || "")} <div class="row" style="margin-top:8px"><input id="userPricingTestSymbol" placeholder="Ticker, e.g. VTI" style="max-width:210px;text-transform:uppercase" onkeydown='event.key==="Enter"&&runUserLivePriceSymbolTest()'><button class="btn primary" type="button" onclick="runUserLivePriceSymbolTest()">Test live quote</button><span id="userPricingTestStatus" class="small"></span></div><div id="userPricingTestResult" style="margin-top:10px"></div></div>`;
 }
 export function fmtUserPriceDiagnostic(v) {
   const n = Number(v);
@@ -371,7 +371,7 @@ export async function runUserLivePriceSymbolTest() {
   } catch (e) {
     const detail = String((e && e.message) || e || "Unknown error");
     if (result)
-      result.innerHTML = `<div class="section-note warn" data-kind="warn"><b>Pricing tester could not reach the local API.</b><br>${esc(detail)}<br><br>Endpoint: <code>/api/prices/test-symbol/start</code>. If the browser says "Failed to fetch", restart the app and confirm the status indicator shows Ready.</div>`;
+      result.innerHTML = `<div class="section-note warn" data-kind="warn" title="Endpoint: /api/prices/test-symbol/start"><b>Pricing tester could not reach the local API.</b><br>${esc(detail)}<br>Restart the app and check the status shows Ready.</div>`;
     if (status) status.textContent = "Error";
     showMessage("Pricing tester error: " + detail, "error");
   }
