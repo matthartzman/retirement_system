@@ -270,6 +270,10 @@ def _frozen_config(withhold: tuple[str, ...] = ()):
 
 
 @pytest.mark.golden_master
+# Longest legitimate test in the suite (~4 minutes on a loaded Windows runner):
+# CI's blanket --timeout=300 would sit too close to it, so it gets its own
+# bound. Other tests keep the 300s limit.
+@pytest.mark.timeout(1200)
 class FrozenSamplePlanGoldenMasterTests(unittest.TestCase):
     """Mandatory: a regression here means the ENGINE changed, since the input
     is a static, committed copy no one edits day to day. Contrast with

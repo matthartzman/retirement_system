@@ -122,3 +122,5 @@ coverage.xml
 
 # PyInstaller smoke-test environment (scripts/pyinstaller_smoke.py)
 .smoke_env/
+
+pytest-logs/
