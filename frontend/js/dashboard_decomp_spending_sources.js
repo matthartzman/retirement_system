@@ -86,7 +86,7 @@ export function rowIsSpendingSourceRow(r) {
 export function housingCostGroupsHtml(rows) {
   const cost = (rows || []).filter(rowIsHousingCost);
   let html =
-    '<div class="section-note">Housing costs: mortgage payment timing and other recurring home costs. Real-estate taxes, homeowners insurance, maintenance, utilities, and HOA are budgeted in the groups below. Click <button class="btn btn-sm" type="button" onclick="seedHousingRows()">Seed Housing Fields</button> to add any missing housing fields.</div>';
+    '<div class="table-actions" data-help-section="spending_core.housing_costs"><button class="btn btn-sm" type="button" onclick="seedHousingRows()">Seed Housing Fields</button>' + (window.RPHelp?.sectionButtonHtml("spending_core.housing_costs") || "") + '</div>';
   if (cost.length)
     html += '<div class="field-list">' + cost.map(fieldHtml).join("") + "</div>";
   return html;
@@ -94,7 +94,7 @@ export function housingCostGroupsHtml(rows) {
 
 export function wellnessGroupsHtml(rows) {
   let html =
-    '<div class="section-note"><b>Wellness is the authoritative view for healthcare spending.</b> Enter Pre-65 premiums, Medicare Part B/D/G premiums, and non-premium medical, dental, vision, Rx/OTC, and out-of-pocket estimates. The projection uses these values as-entered for cash flow and income impact; Medicare premium categories are split to match spending taxonomy.</div>';
+    '<div class="help-section-head" data-help-section="spending_core.wellness">' + (window.RPHelp?.sectionButtonHtml("spending_core.wellness") || "") + '</div>';
   // The old Wellness page showed its own rows only while searching; the
   // budget groups below are the everyday editor.
   const own = (rows || []).filter(rowIsRetirementWellness);
@@ -104,7 +104,7 @@ export function wellnessGroupsHtml(rows) {
 }
 
 export function travelGroupsHtml() {
-  return `<div class="section-note">${esc(domainBudgetNote("travel"))} A group in Summary mode budgets the whole group -- group number wins over its categories.</div>`;
+  return `<div class="help-section-head" data-help-section="spending_core.travel_budget">${(window.RPHelp?.sectionButtonHtml("spending_core.travel_budget") || "")}</div>`;
 }
 
 // Body prefix for a Tracking Type's Spending Model accordion, before its
@@ -127,7 +127,7 @@ export function spendingSourceTailHtml(tt) {
   if (tt !== "Housing") return "";
   return (
     homeImprovementsHtml(rowsForStep("spending_mortgage_events")) +
-    '<div class="section-note">Home value and mortgage balance are on <a href="#" onclick="navigateTo(\'assets_special\');return false">Other Assets and Liabilities</a>; home sale, next housing steps and state residency are in <a href="#" onclick="navigateTo(\'strategy_optimize\');return false">Optimize &rarr; Next Housing Move</a>.</div>'
+    '<div class="section-note" data-kind="state" data-help-section="spending_core.home_links">See <a href="#" onclick="navigateTo(\'assets_special\');return false">Other Assets and Liabilities</a> and <a href="#" onclick="navigateTo(\'strategy_optimize\');return false">Optimize &rarr; Next Housing Move</a>. ' + (window.RPHelp?.sectionButtonHtml("spending_core.home_links") || "") + '</div>'
   );
 }
 

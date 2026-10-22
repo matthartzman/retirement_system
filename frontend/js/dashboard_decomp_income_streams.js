@@ -101,7 +101,7 @@ export function ssClaimDateCell(person, claimDateRow) {
   // The blank-defaults-to-70 explanation lives once in the section-note
   // above the table, not repeated per row.
   if (!raw) return input;
-  const ageBadge = `<span class="computed-value small">Age ${ssTrueAgeFromDate(person, claimDateRow)} at claim</span>`;
+  const ageBadge = `<span class="computed-value small" data-kind="state">Age ${ssTrueAgeFromDate(person, claimDateRow)} at claim</span>`;
   return `${input}<div class="unit">${ageBadge}</div>`;
 }
 
@@ -143,10 +143,10 @@ export function ssMonthlyAtClaimAgeCell(person, claimDateRow) {
     (piaRow ? fieldNumericValue(piaRow) : 0) ||
     (age67Row ? fieldNumericValue(age67Row) : 0);
   if (!pia)
-    return `<span class="small">Enter Monthly at FRA</span>`;
+    return "";
   const agePrecise = ssClaimAgePreciseFromDate(person, claimDateRow);
   const derived = pia * ssClaimFactor(agePrecise, fra);
-  return `<span class="computed-value">~${esc(fmtMoney(derived))} <span class="small">(derived from FRA)</span></span>`;
+  return `<span class="computed-value">~${esc(fmtMoney(derived))}</span>`;
 }
 
 // ---------------------------------------------------------------------------
@@ -300,7 +300,7 @@ export function renderSsCompactTable() {
     { key: "Member 1", n: 1 },
     { key: "Member 2", n: 2 },
   ];
-  let html = `<div class="holdings retirement-income-section"><h3 class="group-title">Social Security</h3><div class="section-note">Enter each person’s FRA Age, Monthly at FRA, and claim date (month/year benefits start) — leave claim date blank to default to age 70, claimed in that person’s own birth month. Claim Age is calculated from the claim date and date of birth, not entered directly. Monthly at Claim Age is calculated: it’s looked up from a saved SSA benefit-table entry for that exact age when available, otherwise it’s derived from FRA Age and Monthly at FRA using the SSA reduction/delayed-credit factor. FRA Age defaults to 67 (SSA birth-year rule) if left blank.</div><div class="lot-table-wrap"><table class="lot-table compact-table ss-compact-table"><thead><tr><th>Person</th><th>FRA Age</th><th>Monthly at FRA</th><th>Claim Date</th><th>Monthly at Claim Age</th></tr></thead><tbody>`;
+  let html = `<div class="holdings retirement-income-section" data-help-section="income_retirement.social_security"><h3 class="group-title">Social Security ${(window.RPHelp?.sectionButtonHtml("income_retirement.social_security") || "")}</h3><div class="lot-table-wrap"><table class="lot-table compact-table ss-compact-table"><thead><tr><th>Person</th><th>FRA Age</th><th>Monthly at FRA</th><th>Claim Date</th><th>Monthly at Claim Age</th></tr></thead><tbody>`;
   people.forEach((p) => {
     const r = ssPersonRows(p.key);
     const by = {};
@@ -364,7 +364,7 @@ export function renderIncomeStreamsSection() {
         "annuity_default_additional_income_pct",
       ]),
     );
-  let html = `<div class="holdings retirement-income-section"><h3 class="group-title">Pensions and annuities</h3><div class="section-note">Each card starts with Type, then the payment and valuation fields for that income stream. Recovery Age is the age at which each stream's cash dividend payout stops (the guaranteed payment continues for life).</div>`;
+  let html = `<div class="holdings retirement-income-section" data-help-section="income_retirement.pensions_annuities"><h3 class="group-title">Pensions and annuities ${(window.RPHelp?.sectionButtonHtml("income_retirement.pensions_annuities") || "")}</h3>`;
   incomeStreamSubsections().forEach((sub) => {
     let rs = rows
       .filter(isEditable)
@@ -421,7 +421,7 @@ export function renderSsPolicySection() {
       Object.keys(bySub).find((k) => k.toLowerCase() === "policy") || "Policy";
     bySub[policyKey] = (bySub[policyKey] || []).concat(fundingRows);
   }
-  let html = `<div class="holdings retirement-income-section"><h3 class="group-title">Social Security policy &amp; benefit details</h3><div class="section-note">Household-wide spousal, survivor, and funding-discount policy settings.</div>`;
+  let html = `<div class="holdings retirement-income-section" data-help-section="income_retirement.ss_policy"><h3 class="group-title">Social Security policy &amp; benefit details ${(window.RPHelp?.sectionButtonHtml("income_retirement.ss_policy") || "")}</h3>`;
   Object.keys(bySub).forEach((sub) => {
     if (sub && sub.toLowerCase() !== "policy")
       html += `<div class="subsection-label">${esc(friendlyGroup({ section: "Social Security", subsection: sub }) || sub)}</div>`;

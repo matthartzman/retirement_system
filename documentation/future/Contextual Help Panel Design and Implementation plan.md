@@ -125,6 +125,7 @@ Phase 0 measured 284 page-level strings (STEPS `desc` / `intro` / `help` for 28 
 - Parallelise by module group (separate files, so no merge conflicts); each batch runs its own module tests.
 - Apply class D deletions from the CSV in the same pass; each deleted string's `merged_into` target must exist.
 - Exit: Phase 0 CSV shows every class A string moved or deleted.
+- **As built (batches 1-3, Income and Benefits; Spending; Investments and Property):** 36 `HELP_SECTIONS` records, 10 modules, tests updated, ceilings reset; see `ui_prose_inventory_summary.md`. Later groups remain.
 
 ### Phase 4: tests and guard (Sonnet, high; moderate)
 - Fix the tests coupled to center text (found so far: `tests/test_field_finder_category_grouping_functional.py`, `tests/test_frozen_sample_plan_golden_master_regression.py`, `tests/frontend/strategy_section_lazy_body.test.mjs`; the Phase 0 scan lists the rest).

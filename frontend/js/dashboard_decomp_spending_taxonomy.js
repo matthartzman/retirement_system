@@ -119,7 +119,7 @@ export function renderSpendingCore() {
     (!have.inflation_general && mode === "cpi") ||
     (!have.core_spending_manual_growth_rate && mode === "manual_override")
   )
-    missingMsg = `<div class="section-note warning" id="coreSpendingRowsMissing"><b>Core spending controls are being created:</b> save or reload Plan Data if any control is missing. Expected rows are Core Spending Base, Core Spending Increase Stops, Core Spending Increase Method, and the relevant increase-rate field.</div>`;
+    missingMsg = `<div class="section-note warning" data-kind="warn" id="coreSpendingRowsMissing"><b>Core spending controls are being created:</b> save or reload Plan Data if any control is missing. Expected rows are Core Spending Base, Core Spending Increase Stops, Core Spending Increase Method, and the relevant increase-rate field.</div>`;
   const v = (l) => {
     const r = rs.find((x) => norm(x.label) === l);
     return r ? String(valOf(r) || "").trim() : "";
@@ -136,7 +136,7 @@ export function renderSpendingCore() {
   ];
   // Collapsed by default; opens itself when a control is missing so that
   // warning is never buried. Open state persists across re-renders via data-dkey.
-  return `<details class="taxonomy-type-section page-accordion projection-controls" data-dkey="budget:core:projection_controls"${missingMsg ? " open" : ""}><summary><b>Projection Controls</b> <span class="pc-readout small">${bits.map(([k, x]) => `<span><b>${k}</b> ${esc(x)}</span>`).join("")}</span>${unsaved ? '<span class="pc-unsaved">Unsaved</span>' : ""}</summary><div class="pc-body"><div class="section-note">Core spending base and growth feed recurring lifestyle spending in the projection.</div>${missingMsg}<div class="pc-fields"><div class="pc-row pc-row-1">${row1.map(fieldHtml).join("")}</div>${row2.length ? `<div class="pc-row pc-row-2">${row2.map(fieldHtml).join("")}</div>` : ""}</div>${renderSpendingAdjustmentsBlock()}</div></details>`;
+  return `<details class="taxonomy-type-section page-accordion projection-controls" data-dkey="budget:core:projection_controls" data-help-section="spending_core.projection_controls"${missingMsg ? " open" : ""}><summary><b>Projection Controls</b> <span class="pc-readout small">${bits.map(([k, x]) => `<span><b>${k}</b> ${esc(x)}</span>`).join("")}</span>${unsaved ? '<span class="pc-unsaved">Unsaved</span>' : ""}</summary><div class="pc-body">${missingMsg}<div class="pc-fields"><div class="pc-row pc-row-1">${row1.map(fieldHtml).join("")}</div>${row2.length ? `<div class="pc-row pc-row-2">${row2.map(fieldHtml).join("")}</div>` : ""}</div>${renderSpendingAdjustmentsBlock()}</div></details>`;
 }
 
 export function renderTaxonomyManager() {
@@ -147,9 +147,7 @@ export function renderTaxonomyManager() {
     (n, t) => n + (t.groups || []).reduce((m, g) => m + (g.categories || []).length, 0),
     0,
   );
-  let html = `<details class="taxonomy-type-section page-accordion" data-dkey="budget:core:category_manager"><summary><b>Category Manager</b> <span class="small">${taxonomyData ? `${mgrCats} categories` : "Tracking Type → Group → Category"}</span></summary><div class="holdings taxonomy-manager">`;
-  html +=
-    '<div class="section-note">Manage the canonical <b>Tracking Type → Group → Category</b> tree. Transaction assignment uses these canonical categories, so there is no separate group-mapping table to maintain.</div>';
+  let html = `<details class="taxonomy-type-section page-accordion" data-dkey="budget:core:category_manager" data-help-section="spending_core.category_manager"><summary><b>Category Manager</b> <span class="small">${taxonomyData ? `${mgrCats} categories` : "Tracking Type → Group → Category"}</span></summary><div class="holdings taxonomy-manager">`;
   if (taxonomyLoading) {
     html += '<div class="question"><b>Loading taxonomy…</b></div>';
   } else if (taxonomyError && !taxonomyData) {
@@ -378,9 +376,7 @@ export function renderCategoryMappingRules() {
     setTimeout(() => loadMappingRules(false), 0);
   }
   let html =
-    '<div class="holdings"><h3 class="group-title">Advanced Auto-Mapping Rules</h3>';
-  html +=
-    '<div class="section-note">Optional rules auto-assign imported merchant or category text to a canonical Spending Category. Most users should use the category picker in Spending Categories; use these rules only when the same text should be classified automatically every time.</div>';
+    '<div class="holdings" data-help-section="spending_core.category_rules"><h3 class="group-title">Advanced Auto-Mapping Rules ' + (window.RPHelp?.sectionButtonHtml("spending_core.category_rules") || "") + '</h3>';
   const rules = mappingRules || [];
   html +=
     '<div class="table-actions"><button class="btn" onclick="addMappingRule()">+ Add rule</button>';
@@ -639,9 +635,9 @@ export function renderDomainBudgetTable(domain) {
     );
   const emptyNote = data.length
     ? ""
-    : '<div class="question"><b>No ' +
+    : '<div class="question" data-kind="state" data-help-section="spending_core.spending_categories"><b>No ' +
       esc(domainBudgetTitle(domain)) +
-      ' transaction categories loaded.</b><p class="small">Spending Categories shows Tracking Types, Groups, and Categories with non-zero YTD Actual, Annualized, Annual Budget, or Projection. Use Income &amp; Expense Transactions to import transactions, or add budget/projection values on the source page, then Reload.</p></div>';
+      ' transaction categories loaded.</b> ' + (window.RPHelp?.sectionButtonHtml("spending_core.spending_categories") || "") + '</div>';
   // #336/#335: the Large Discretionary rows table and the Adjustments table
   // are how those inputs are first entered, so the core page always shows
   // both -- even before any Large Discretionary category has a value.
@@ -656,7 +652,7 @@ export function renderDomainBudgetTable(domain) {
   });
   let html = emptyNote;
   if (domain === "core") {
-    html += `<details class="section-note help-detail"><summary style="cursor:pointer;font-weight:500;list-style:none;display:flex;align-items:center;gap:6px"><span style="font-size:13px">▸</span> Annual Budget vs. Projection — when do they differ?</summary><div style="margin-top:8px"><p class="small"><b>Annual Budget</b> is what you entered. <b>Projection</b> is what the engine uses as the year-one spending base for that category. In most cases they are equal. They diverge in four scenarios:</p><ul class="small" style="margin:6px 0 0 18px;line-height:1.8"><li><b>Cap/reference categories</b> (e.g., Medical OOP Cap in Wellness): Annual Budget holds the cap value so you can see it; Projection is forced to <b>$0</b> because a cap is a ceiling on out-of-pocket costs, not a recurring spending input.</li><li><b>Group in Summary mode</b>: The single group-level override number becomes the Projection for the whole group. Any per-category Annual Budget values that were entered before switching to Summary are stale — the engine ignores them and uses the group total.</li><li><b>Detail-line total disagrees with the Annual Budget override</b>: In Detail mode, Projection equals the sum of the detail lines. If you also typed a manual value in the Annual field, it is stored but overridden by the line sum in the projection.</li><li><b>$0 budget categories with transaction history</b>: The category appears in the table because transactions were imported, but Projection = $0, so it contributes nothing to the projected spend base.</li></ul><p class="small" style="margin-top:8px">The <b>Projection</b> column in each group header shows the value that feeds the projection. If it looks wrong compared to Annual Budget, check whether Summary mode is active or whether a cap/reference flag is set on that category.</p></div></details>`;
+    html += `<div class="help-section-head" data-help-section="spending_core.budget_vs_projection">${(window.RPHelp?.sectionButtonHtml("spending_core.budget_vs_projection") || "")}</div>`;
   }
   // #1000: bulk "overwrite every category budget with its annualized current
   // spend". Shown only on the core domain because it rewrites EVERY category
@@ -767,7 +763,7 @@ export function renderDomainBudgetTable(domain) {
     if (domain === "core") html += spendingSourceTailHtml(tt);
     html += "</details>";
   });
-  html += `<div class="section-note" style="margin-top:12px"><b>${esc(domainBudgetTitle(domain))} total: $${Math.round(grandTotal).toLocaleString()}/yr</b></div>`;
+  html += `<div class="section-note" data-kind="state" style="margin-top:12px"><b>${esc(domainBudgetTitle(domain))} total: $${Math.round(grandTotal).toLocaleString()}/yr</b></div>`;
   html += "</div>";
   return html;
 }
@@ -778,7 +774,7 @@ export function renderCoreSpendingUnified() {
   // results replace the controls block and stay on top.
   const searching = !!searchText.trim();
   const categories =
-    '<details class="taxonomy-type-section page-accordion" data-dkey="budget:core:spending_categories" open><summary><b>Spending Categories</b> <span class="small">Tracking Types, Groups and Categories</span></summary>' +
+    '<details class="taxonomy-type-section page-accordion" data-dkey="budget:core:spending_categories" open data-help-section="spending_core.spending_categories"><summary><b>Spending Categories</b> <span class="small">Tracking Types, Groups and Categories</span></summary>' +
     renderDomainBudgetPage("core", { embedded: true }) +
     "</details>";
   let html = searching ? renderSpendingCore() : "";

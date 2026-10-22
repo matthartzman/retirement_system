@@ -6,6 +6,7 @@
 import { test, describe, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import vm from "node:vm";
+import fs from "node:fs";
 import { loadDashboardSandbox } from "./load_dashboard.mjs";
 
 const sandbox = loadDashboardSandbox();
@@ -84,8 +85,9 @@ describe("Spending Model accordions (#338 C2)", () => {
     assert.doesNotMatch(html, /budgeted on its source page/);
   });
 
-  test("Travel keeps its group-number-wins note", () => {
-    assert.match(accordionBody(sandbox.renderDomainBudgetTable("core"), "Travel"), /group number wins/);
+  test("Travel keeps its group-number-wins note, now as section help", () => {
+    assert.match(accordionBody(sandbox.renderDomainBudgetTable("core"), "Travel"), /data-help-section="spending_core\.travel_budget"/);
+    assert.match(fs.readFileSync("frontend/js/help_registry.js", "utf8"), /group number wins/);
   });
 });
 

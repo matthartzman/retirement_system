@@ -597,7 +597,9 @@ DASHBOARD_JS_MAX_LINES = 6_476
 # Phase 2 moves the remaining pages; showConfigCardHelp opens the panel on click, not focus, +5).
 # New behavior, not duplication: raised to the measured 40,451.
 # 2026-10-21 (Phase 2b: 28 page records in help_registry.js, old STEPS/STEP_HELP prose removed): lowered to the measured 40,257.
-TOTAL_JS_MAX_LINES = 40_257
+# 2026-10-22 (Phase 3 batches 1-3: 36 section records move into help_registry.js, +180; the Income, Spending and
+# Investments/Property modules lose their prose nodes, -13 net): raised to the measured 40,424.
+TOTAL_JS_MAX_LINES = 40_424
 
 
 def _line_count(path: Path) -> int:
