@@ -165,7 +165,7 @@ export function rentalSummaryHtml(data, magi) {
       `<label>Assumed other income (MAGI) <input id="rpMagi" aria-label="Assumed other income" type="text" inputmode="numeric" value="${esc(String(magi || 0))}" onchange="rpSetMagi(this.value)"></label>`;
   }
   html += ' <span class="rp-verified">Tax rules verified 2026-10-13 against 2025 law.</span></div>';
-  if (!s) return html + '<div class="section-note">' + esc(est.error || "Add a property to see the summary.") + "</div>";
+  if (!s) return html + '<div class="section-note" data-kind="state">' + esc(est.error || "Add a property to see the summary.") + "</div>";
   const card = (value, label, cls) => `<div class="review-card${cls ? " " + cls : ""}"><b>${esc(value)}</b><span>${esc(label)}</span></div>`;
   return html + '<div class="rp-strip">' +
     card(rentalMoney(s.net_cash_flow), "Annual net cash flow (" + s.year + ")") +
@@ -219,23 +219,21 @@ export function rentalTableHtml(data, readOnly) {
   });
   html += "</div>";
   const max = (data || {}).max_properties || 20;
-  return html + `<div class="small rp-foot">${count} of ${max} properties. Net yield = (rent - operating expenses) / value.</div>`;
+  return html + `<div class="small rp-foot" data-kind="state" data-help-section="rental_properties.list">${count} of ${max} properties. ${(window.RPHelp?.sectionButtonHtml("rental_properties.list") || "")}</div>`;
 }
 
 export function rentalConvertPanelHtml(state, home) {
   if (!state) return "";
   const h = home || {};
   const basis = rentalConvertedBasis(state.value, h.adjusted_basis, 0.2);
-  const row = (label, input, hint) => `<div class="field"><div><div class="field-label">${esc(label)}</div>${hint ? `<div class="unit">${esc(hint)}</div>` : ""}</div><div>${input}</div></div>`;
-  return '<div class="rp-convert" role="group" aria-label="Convert my home to a rental"><h3>Convert my home to a rental</h3>' +
-    "<p class=\"small\">Pre-filled from your plan's home. Change anything before creating.</p>" +
-    row("Home", `<div class="field-readonly">${esc(h.label || "Your home")}</div>`) +
-    row("Conversion year", `<input id="rpConvYear" aria-label="Conversion year" data-focus-key="rpConvYear" value="${esc(state.year)}" onchange="rpConvertSet('year',this.value)">`, "Defaults to your next housing move year.") +
-    row("Value at conversion", `<input id="rpConvValue" aria-label="Value at conversion" data-focus-key="rpConvValue" value="${esc(state.value)}" onchange="rpConvertSet('value',this.value)">`, "Your home's value grown to that year.") +
-    row("Depreciation basis", `<div class="field-readonly" id="rpConvBasis">${rentalMoney(basis)}</div>`, "Lesser of value and adjusted basis, land excluded.") +
-    row("Monthly rent", `<input id="rpConvRent" aria-label="Monthly rent" data-focus-key="rpConvRent" inputmode="numeric" value="${esc(state.rent)}" onchange="rpConvertSet('rent',this.value)">`, "What you expect to charge. Required.") +
+  const row = (label, input, hint) => `<div class="field"><div><div class="field-label">${esc(label)}</div>${hint ? `<div class="unit" data-kind="warn">${esc(hint)}</div>` : ""}</div><div>${input}</div></div>`;
+  return '<div class="rp-convert" role="group" aria-label="Convert my home to a rental" data-help-section="rental_properties.convert_home"><h3>Convert my home to a rental ' + (window.RPHelp?.sectionButtonHtml("rental_properties.convert_home") || "") + '</h3>' +
+        row("Home", `<div class="field-readonly">${esc(h.label || "Your home")}</div>`) +
+    row("Conversion year", `<input id="rpConvYear" aria-label="Conversion year" data-focus-key="rpConvYear" value="${esc(state.year)}" onchange="rpConvertSet('year',this.value)">`) +
+    row("Value at conversion", `<input id="rpConvValue" aria-label="Value at conversion" data-focus-key="rpConvValue" value="${esc(state.value)}" onchange="rpConvertSet('value',this.value)">`) +
+    row("Depreciation basis", `<div class="field-readonly" id="rpConvBasis">${rentalMoney(basis)}</div>`) +
+    row("Monthly rent", `<input id="rpConvRent" aria-label="Monthly rent" data-focus-key="rpConvRent" inputmode="numeric" value="${esc(state.rent)}" onchange="rpConvertSet('rent',this.value)">`) +
     row("Carrying costs", '<div class="field-readonly">Move to Schedule E</div>', "Mortgage, property tax, insurance, utilities and maintenance stop counting as personal spending from the conversion date.") +
-    '<div class="section-note">Section 121 applies to this property only: owned and lived in 2 of the 5 years before sale. Depreciation is never excluded.</div>' +
     '<div class="rp-actions"><button class="btn" type="button" onclick="rpConvertCancel()">Cancel</button> ' +
     '<button class="btn primary" type="button" data-requires-app="1" onclick="rpConvertCreate()">Create converted home</button></div></div>';
 }
@@ -246,12 +244,12 @@ export function rentalOffHtml(data, preview) {
   const ignored = typeof engineIgnoredWarning === "function" ? engineIgnoredWarning({ name: "Rental Properties", engine_participation: true }) : "";
   const label = n ? offRowsLabel(n) : "Off";
   let html = '<div class="rp-offbox"><div class="rp-off-head"><span class="rp-switch" aria-hidden="true"></span> <b>Rental Properties: ' + esc(label) + "</b></div>" +
-    `<p class="small">${n ? `Your ${n} ${n === 1 ? "property is" : "properties are"} kept but not used: no rent, depreciation, taxes or sale in projections, and no rental lines in reports or the workbook.` : "Nothing is entered yet. Turn the feature on to add rental properties."} ${esc(ignored)}</p>` +
+    `<p class="small" data-kind="${n ? "warn" : "state"}">${n ? `Your ${n} ${n === 1 ? "property is" : "properties are"} kept but not used: no rent, depreciation, taxes or sale in projections, and no rental lines in reports or the workbook.` : "Nothing is entered yet. Turn the feature on to add rental properties."} ${esc(ignored)}</p>` +
     '<div class="rp-actions"><button class="btn primary" type="button" data-requires-app="1" onclick="rpTurnOn()">Turn on Rental Properties</button>' +
     (n ? ` <button class="btn" type="button" aria-pressed="${!!preview}" onclick="rpPreviewToggle()">${preview ? "Hide preview" : "Preview what it would add"}</button>` : "") + "</div></div>";
-  html += `<div class="section-note">${esc(meta.tier ? "Tier: " + meta.tier.charAt(0).toUpperCase() + meta.tier.slice(1) + ". " : "")}Change it in <a href="#" onclick="navigateTo('optional_functions');return false">Settings &gt; Plan Features</a>.</div>`;
+  html += `<div class="section-note" data-kind="state">${esc(meta.tier ? "Tier: " + meta.tier.charAt(0).toUpperCase() + meta.tier.slice(1) + ". " : "")}Change it in <a href="#" onclick="navigateTo('optional_functions');return false">Settings &gt; Plan Features</a>.</div>`;
   if (preview && n) {
-    html += '<div class="section-note"><b>Preview.</b> This is what turning it on would add (read only).</div>' +
+    html += '<div class="section-note" data-kind="state"><b>Preview.</b> This is what turning it on would add (read only).</div>' +
       rentalSummaryHtml(data, (data.estimate || {}).magi) + rentalWarningsHtml(data.warnings, new Set(), "", true) + rentalTableHtml(data, true);
   }
   return html;
@@ -268,7 +266,7 @@ function rpListHtml(data) {
     `<button class="btn good" type="button" onclick="rpConvertOpen()"${convertOff || full ? ` disabled title="${esc(convertWhy)}"` : ""}>Convert my home to a rental</button></div>`;
   if (rpConvert) html += rentalConvertPanelHtml(rpConvert, home);
   html += rentalSummaryHtml(data, rpMagi) + rentalWarningsHtml(data.warnings, rpDismissed, rpWhyId, false);
-  if (!data.count) html += '<div class="section-note">No rental properties yet. Add one, or convert your home.</div>';
+  if (!data.count) html += '<div class="section-note" data-kind="state">No rental properties yet. Add one, or convert your home.</div>';
   else html += rentalTableHtml(data, false);
   return html;
 }
@@ -339,7 +337,7 @@ function rpImprovementsHtml(draft) {
 
 function rpOverridesHtml(draft) {
   if (!rpAdvanced && !rpIsExpertPlan()) {
-    return '<div class="section-note"><b>Expert feature.</b> Per-year overrides replace the rent and expense formulas for years that differ. Turn on Show advanced to edit them.</div>';
+    return '<div class="section-note" data-kind="state"><b>Expert feature.</b> Turn on Show advanced to edit per-year overrides.</div>';
   }
   const list = draft.overrides || [];
   let html = '<div class="group-title">Per-year overrides <span class="badge exp">Expert</span></div><div class="unit">A value replaces the formula for that year; leave a cell blank to keep the formula.</div>' +
@@ -375,10 +373,8 @@ function rpTabBodyHtml(draft, data) {
     const body = rpVisibleFields(fields, kind).map((f) => rpFieldHtml(f, draft, tiers, planTier, data)).join("");
     if (body) html += `<div class="group-title">${esc(title)}</div>` + body;
   });
-  if (rpTab === "financing" && kind === "converted_home") html += '<div class="section-note">A converted home keeps your plan\'s own mortgage for the home.</div>';
-  if (rpTab === "sale") html += `<div class="section-note">${kind === "converted_home" ? "A converted home is sold with your plan's home (Other Assets and Liabilities). " : ""}Gain, depreciation recapture (capped at 25%) and the tax at sale are computed by the projection. A loss on the sale is treated as ordinary.</div>`;
-  if (rpTab === "tax") html += (rpAdvanced || rpIsExpertPlan() ? rpImprovementsHtml(draft) + rpResultsHtml(draft.name, data) : "");
-  if (!html) html = '<div class="section-note">Nothing to enter here for this kind of property.</div>';
+      if (rpTab === "tax") html += (rpAdvanced || rpIsExpertPlan() ? rpImprovementsHtml(draft) + rpResultsHtml(draft.name, data) : "");
+  if (!html) html = '<div class="section-note" data-kind="state">Nothing to enter here for this kind of property.</div>';
   return html;
 }
 
@@ -387,13 +383,13 @@ export function rentalDetailHtml(draft, data) {
   const tabs = RP_TABS.map(([id, label]) => `<button class="rp-tab${rpTab === id ? " on" : ""}" type="button" role="tab" aria-selected="${rpTab === id}" onclick="rpTabSet('${id}')">${label}</button>`).join("");
   const owner = (RP_OWNERS.find((o) => o[0] === draft.owner) || RP_OWNERS[0])[1].toLowerCase();
   const saved = !isNew ? `<button class="btn" type="button" onclick="rpDuplicate('${esc(escJs(rpOrig))}')">Duplicate</button><button class="btn danger" type="button" onclick="rpRemove('${esc(escJs(rpOrig))}')">Remove</button>` : "";
-  return '<div class="rp-detail"><div class="rp-crumb small">Investments &amp; Property &gt; Rental Properties &gt; ' + esc(draft.name || "New property") + "</div>" +
-    `<h3 class="rp-title">${esc(draft.name || "New property")}</h3><div class="small">${rpKindLabel(draft.kind)} &middot; owned ${esc(owner)}</div>` +
+  return '<div class="rp-detail" data-help-section="rental_properties.detail"><div class="rp-crumb small">Investments &amp; Property &gt; Rental Properties &gt; ' + esc(draft.name || "New property") + "</div>" +
+    `<h3 class="rp-title">${esc(draft.name || "New property")} ${(window.RPHelp?.sectionButtonHtml("rental_properties.detail") || "")}</h3><div class="small">${rpKindLabel(draft.kind)} &middot; owned ${esc(owner)}</div>` +
     '<div class="table-actions"><button class="btn" type="button" onclick="rpBack()">&larr; Back to list</button>' +
     '<button class="btn primary" type="button" data-requires-app="1" onclick="rpSave()">Save property</button>' + saved +
     (rpDirty ? ' <span class="status unsaved" id="rpDirtyBadge">Unsaved changes</span>' : "") + "</div>" +
     `<div class="rp-tabs" role="tablist">${tabs}</div>` +
-    '<div class="rp-advbar"><span class="small">' + (rpAdvanced ? "Showing Standard + Expert fields." : "Showing Standard fields only.") + ' <span class="badge exp">Expert</span> = advanced field.</span>' +
+    '<div class="rp-advbar"><span class="small" data-kind="state">' + (rpAdvanced ? "Showing Standard + Expert fields." : "Showing Standard fields only.") + ' <span class="badge exp">Expert</span> = advanced field.</span>' +
     `<label><input type="checkbox" id="rpAdvanced"${rpAdvanced ? " checked" : ""} onchange="rpToggleAdvanced()"> <b>Show advanced</b></label></div>` +
     '<div class="field-list rp-fields">' + rpTabBodyHtml(draft, data) + "</div></div>";
 }
@@ -402,7 +398,7 @@ export function rentalDetailHtml(draft, data) {
 export function renderRentalProperties() {
   if (rpData === null) {
     if (!rpLoading && !rpError) loadRentalProperties();
-    return `<div class="field-list">${rpError ? `<div class="section-note">${esc(rpError)} <button class="btn" type="button" onclick="loadRentalProperties()">Retry</button></div>` : '<div class="section-note">Loading rental properties…</div>'}</div>`;
+    return `<div class="field-list">${rpError ? `<div class="section-note" data-kind="state">${esc(rpError)} <button class="btn" type="button" onclick="loadRentalProperties()">Retry</button></div>` : '<div class="section-note" data-kind="state">Loading rental properties…</div>'}</div>`;
   }
   if (rpPrefill) rpPrefillApply();
   const body = !rpData.enabled ? rentalOffHtml(rpData, rpPreview) : rpView === "detail" && rpDraft ? rentalDetailHtml(rpDraft, rpData) : rpListHtml(rpData);

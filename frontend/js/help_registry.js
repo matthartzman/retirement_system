@@ -381,7 +381,7 @@ export const HELP_SECTIONS = {
   "annuity_death_benefits.life_illustrations": {
     pageId: "annuity_death_benefits",
     title: "Life insurance illustrations",
-    body: "Enter values from each life policy's carrier illustration for the years shown. Each policy below matches a policy added under Insurance Policies.",
+    body: "Enter values from each life policy's carrier illustration for the years shown. Each policy below matches a policy added under Insurance Policies. Cash value is the cash surrender value in each year, per the illustration. Death benefit is the amount payable to beneficiaries in each year, per the illustration. Premium is the premium due in each year, per the illustration.",
   },
   "annuity_death_benefits.life_cash_value": {
     pageId: "annuity_death_benefits",
@@ -601,7 +601,7 @@ export const HELP_SECTIONS = {
   "actual_spending.tracker": {
     pageId: "actual_spending",
     title: "Spending tracker",
-    body: "The five KPI tiles include income taxes and exclude only internal transfers; the All-In row adds transfer transactions back in. Initialize Budget from Actual Spending creates category budget targets based on current actual spending proportions.",
+    body: "The five KPI tiles include income taxes and exclude only internal transfers; the All-In row adds transfer transactions back in. Initialize Budget from Actual Spending creates category budget targets based on current actual spending proportions. Sync Actual Rate → 30-Year Model updates the spending categories assumption used by the 30-year retirement projection and sets the retirement model's core spending assumption to the annualized rate.",
   },
   "actual_spending.monthly_trajectory": {
     pageId: "actual_spending",
@@ -633,6 +633,151 @@ export const HELP_SECTIONS = {
     pageId: "household_people",
     title: "State, filing status and survivor",
     body: "The state of residence sets state income tax and state estate tax for the modeled period. Filing status sets the tax brackets for every year of the plan. After the first death the plan switches to the survivor filing status (Single or head of household) in the following year, and \"survivor has dependent\" turns on Qualifying Surviving Spouse brackets for two years when they apply.",
+  },
+  "income_retirement.social_security": {
+    pageId: "income_retirement",
+    title: "Social Security",
+    body: "Enter each person’s FRA Age, Monthly at FRA, and claim date (month/year benefits start) — leave claim date blank to default to age 70, claimed in that person’s own birth month. Claim Age is calculated from the claim date and date of birth, not entered directly. Monthly at Claim Age is calculated: it’s looked up from a saved SSA benefit-table entry for that exact age when available, otherwise it’s derived from FRA Age and Monthly at FRA using the SSA reduction/delayed-credit factor. FRA Age defaults to 67 (SSA birth-year rule) if left blank.",
+  },
+  "income_retirement.pensions_annuities": {
+    pageId: "income_retirement",
+    title: "Pensions and annuities",
+    body: "Each card starts with Type, then the payment and valuation fields for that income stream. Recovery Age is the age at which each stream's cash dividend payout stops (the guaranteed payment continues for life).",
+  },
+  "income_retirement.ss_policy": {
+    pageId: "income_retirement",
+    title: "Social Security policy and benefit details",
+    body: "Household-wide spousal, survivor, and funding-discount policy settings.",
+  },
+  "holdings.plan_holdings": {
+    pageId: "holdings",
+    title: "Plan Holdings",
+    body: "Enter investment holdings by account and lot. A lot is a separate purchase, reinvestment, or cash position. Use CASH with price 1 for cash balances. CSV import columns: account, symbol, purchase_date, shares, purchase_price, lot_type, note — date as YYYY-MM-DD, lot_type as standard, reinvestment, or cash. Download a template from your broker CSV export or use Export CSV backup in Settings first.",
+  },
+  "holdings.pricing_tester": {
+    pageId: "holdings",
+    title: "Live pricing tester",
+    body: "Type one ticker to see every live pricing command and response trace without relying on the workbook build.",
+  },
+  "spending_core.large_discretionary": {
+    pageId: "spending_core",
+    title: "Large Discretionary",
+    body: "The table shows the year selected on Actual Spending; change it with the Year pull-down there. Add one row per one-time expense. A row counts toward that year's budget only when its year is the year shown.",
+  },
+  "spending_core.adjustments": {
+    pageId: "spending_core",
+    title: "Spending Adjustments",
+    body: "A step change to a category (or a whole tracking type) from a start year; inflation continues on the stepped amount. Rows on the same category compound in start-year order, and an \"All\" row compounds with a category's own rows. Leave End year blank to run through plan end. Large Discretionary, Taxes and Business are not adjustable.",
+  },
+  "spending_core.housing_costs": {
+    pageId: "spending_core",
+    title: "Housing costs",
+    body: "Housing costs: mortgage payment timing and other recurring home costs. Real-estate taxes, homeowners insurance, maintenance, utilities, and HOA are budgeted in the groups below. Click Seed Housing Fields to add any missing housing fields.",
+  },
+  "spending_core.wellness": {
+    pageId: "spending_core",
+    title: "Wellness",
+    body: "Wellness is the authoritative view for healthcare spending. Enter Pre-65 premiums, Medicare Part B/D/G premiums, and non-premium medical, dental, vision, Rx/OTC, and out-of-pocket estimates. The projection uses these values as-entered for cash flow and income impact; Medicare premium categories are split to match spending taxonomy.",
+  },
+  "spending_core.travel_budget": {
+    pageId: "spending_core",
+    title: "Travel",
+    body: "Travel is the only editable place for recurring travel projection inputs plus transaction-based travel detail. Domestic-travel and lifestyle labels are intentionally not used here. A group in Summary mode budgets the whole group -- group number wins over its categories.",
+  },
+  "spending_core.home_links": {
+    pageId: "spending_core",
+    title: "Home value and housing moves",
+    body: "Home value and mortgage balance are on Other Assets and Liabilities; home sale, next housing steps and state residency are in Optimize → Next Housing Move.",
+  },
+  "spending_core.projection_controls": {
+    pageId: "spending_core",
+    title: "Projection Controls",
+    body: "Core spending base and growth feed recurring lifestyle spending in the projection.",
+  },
+  "spending_core.category_manager": {
+    pageId: "spending_core",
+    title: "Category Manager",
+    body: "Manage the canonical Tracking Type → Group → Category tree. Transaction assignment uses these canonical categories, so there is no separate group-mapping table to maintain.",
+  },
+  "spending_core.category_rules": {
+    pageId: "spending_core",
+    title: "Advanced Auto-Mapping Rules",
+    body: "Optional rules auto-assign imported merchant or category text to a canonical Spending Category. Most users should use the category picker in Spending Categories; use these rules only when the same text should be classified automatically every time.",
+  },
+  "spending_core.spending_categories": {
+    pageId: "spending_core",
+    title: "Spending Categories",
+    body: "Spending Categories shows Tracking Types, Groups, and Categories with non-zero YTD Actual, Annualized, Annual Budget, or Projection. Use Income & Expense Transactions to import transactions, or add budget/projection values on the source page, then Reload.",
+  },
+  "spending_core.budget_vs_projection": {
+    pageId: "spending_core",
+    title: "Annual Budget vs. Projection",
+    body: "▸ Annual Budget vs. Projection — when do they differ?Annual Budget is what you entered. Projection is what the engine uses as the year-one spending base for that category. In most cases they are equal. They diverge in four scenarios:Cap/reference categories (e.g., Medical OOP Cap in Wellness): Annual Budget holds the cap value so you can see it; Projection is forced to $0 because a cap is a ceiling on out-of-pocket costs, not a recurring spending input.Group in Summary mode: The single group-level override number becomes the Projection for the whole group. Any per-category Annual Budget values that were entered before switching to Summary are stale — the engine ignores them and uses the group total.Detail-line total disagrees with the Annual Budget override: In Detail mode, Projection equals the sum of the detail lines. If you also typed a manual value in the Annual field, it is stored but overridden by the line sum in the projection.$0 budget categories with transaction history: The category appears in the table because transactions were imported, but Projection = $0, so it contributes nothing to the projected spend base.The Projection column in each group header shows the value that feeds the projection. If it looks wrong compared to Annual Budget, check whether Summary mode is active or whether a cap/reference flag is set on that category.",
+  },
+  "rental_properties.list": {
+    pageId: "rental_properties",
+    title: "Rental properties",
+    body: "Net yield = (rent - operating expenses) / value.",
+  },
+  "rental_properties.convert_home": {
+    pageId: "rental_properties",
+    title: "Convert my home to a rental",
+    body: "Pre-filled from your plan's home. Change anything before creating. Conversion year defaults to your next housing move year. Value at conversion is your home's value grown to that year. Depreciation basis is the lesser of value and adjusted basis, land excluded. Monthly rent is what you expect to charge; it is required. Section 121 applies to this property only: owned and lived in 2 of the 5 years before sale. Depreciation is never excluded.",
+  },
+  "rental_properties.detail": {
+    pageId: "rental_properties",
+    title: "Property detail",
+    body: "A converted home keeps your plan's own mortgage for the home. A converted home is sold with your plan's home (Other Assets and Liabilities). Gain, depreciation recapture (capped at 25%) and the tax at sale are computed by the projection. A loss on the sale is treated as ordinary. Per-year overrides (an Expert feature) replace the rent and expense formulas for years that differ.",
+  },
+  "assets_special.other_asset_items": {
+    pageId: "assets_special",
+    title: "Other Asset Items",
+    body: "One row per non-portfolio asset — auto, boat, start-up equity, art, or collectible. Enter today's estimated value and as-of date. Use a positive annual rate for appreciating assets (e.g., collectibles, equity) and a negative rate for depreciating ones (e.g., vehicles). For appreciating assets such as start-up equity, art, or collectibles, enter a basis when you know the purchase price or tax basis. For depreciating assets, basis can be left blank unless it matters for a later sale scenario.",
+  },
+  "assets_special.note_interest": {
+    pageId: "assets_special",
+    title: "Note interest by year",
+    body: "Interest by year: Enter the expected taxable interest income from this note for each calendar year. This affects cash flow, taxable income, NIIT exposure, and projected note income. Years run across the top.",
+  },
+  "assets_special.notes_receivable": {
+    pageId: "assets_special",
+    title: "Notes receivable",
+    body: "One or more promissory notes receivable. Each note has a descriptive name plus its own face value, payment schedule, and interest-by-year detail. The current note is named \"RedMane Note\".",
+  },
+  "assets_special.hsa_withdrawals": {
+    pageId: "assets_special",
+    title: "HSA withdrawal timing",
+    body: "Withdrawal timing: choose how the HSA is used in Cash Flow. Spend as needed uses HSA for qualified Wellness costs/gaps. Annual percentage and Smooth window use the start/end years below to schedule HSA withdrawals across the cash-flow projection.",
+  },
+  "assets_special.hsa_contributions": {
+    pageId: "assets_special",
+    title: "HSA contributions",
+    body: "Contribution limits and eligibility feed annual HSA additions before Medicare eligibility.",
+  },
+  "assets_special.education_529": {
+    pageId: "assets_special",
+    title: "529 plans",
+    body: "Purpose: 529 plans are education savings accounts. Enter one section per beneficiary or goal, then add another 529 when a different beneficiary or goal should be tracked separately.",
+  },
+  "assets_special.family_business": {
+    pageId: "assets_special",
+    title: "Family & Business",
+    body: "These are the Family & Business features that carry plan inputs. They are also editable in place on Other Assets and Liabilities, beside the rest of the non-portfolio assets. Business entity choice (S-Corp vs LLC) is entered on Work Income.",
+  },
+  "assets_special.heloc_summary": {
+    pageId: "assets_special",
+    title: "HELOC summary",
+    body: "Read-only summary — shown here with other liabilities so the borrowing assumption is not stranded on the Strategy page; edit on the HELOC Strategy page.",
+  },
+  "assets_special.liabilities": {
+    pageId: "assets_special",
+    title: "Liabilities",
+    body: "Purpose: Track loans the plan must pay down over time. Choose a type, then enter the fields needed to forecast its cash flow. Each liability is amortized into the yearly cash-flow forecast and its outstanding balance reduces net worth. Auto and student loans use standard fixed amortization; credit cards take a balance, APR and monthly payment (no payment = interest-only; add a payoff month/year to retire the card on that date); HELOC line items amortize over the years to payoff. On the payoff date the remaining balance is paid off and carried at $0 afterwards (untick \"Carry $0\" to keep a residual balance instead). Leave a field blank to use sensible defaults (no monthly payment = interest-only unless a payoff year is set). Carry $0 after payoff: the balance is $0 from the payoff date onward; untick it to keep any residual balance on the books.",
+  },
+  "heloc_strategy.inputs": {
+    pageId: "heloc_strategy",
+    title: "HELOC modeling inputs",
+    body: "Turn on HELOC strategy to reveal the borrowing assumptions.",
   },
 };
 

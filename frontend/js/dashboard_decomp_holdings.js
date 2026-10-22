@@ -278,7 +278,7 @@ export async function handleHoldingsCsvImport(input) {
 }
 
 export function renderUserPricingSymbolTester() {
-  return `<div id="userPricingSymbolTester" class="section-note"><b>Single-symbol live pricing tester:</b> Type one ticker to see every live pricing command and response trace without relying on the workbook build. <div class="row" style="margin-top:8px"><input id="userPricingTestSymbol" placeholder="Ticker, e.g. VTI" style="max-width:210px;text-transform:uppercase" onkeydown="if(event.key==='Enter')runUserLivePriceSymbolTest()"><button class="btn primary" type="button" onclick="runUserLivePriceSymbolTest()">Test live quote</button><span id="userPricingTestStatus" class="small"></span></div><div id="userPricingTestResult" style="margin-top:10px"></div></div>`;
+  return `<div id="userPricingSymbolTester" class="section-note" data-help-section="holdings.pricing_tester"><b>Single-symbol live pricing tester:</b> ${(window.RPHelp?.sectionButtonHtml("holdings.pricing_tester") || "")} <div class="row" style="margin-top:8px"><input id="userPricingTestSymbol" placeholder="Ticker, e.g. VTI" style="max-width:210px;text-transform:uppercase" onkeydown="if(event.key==='Enter')runUserLivePriceSymbolTest()"><button class="btn primary" type="button" onclick="runUserLivePriceSymbolTest()">Test live quote</button><span id="userPricingTestStatus" class="small"></span></div><div id="userPricingTestResult" style="margin-top:10px"></div></div>`;
 }
 export function fmtUserPriceDiagnostic(v) {
   const n = Number(v);
@@ -345,8 +345,7 @@ export async function runUserLivePriceSymbolTest() {
   }
   if (status) status.textContent = "Starting diagnostic...";
   if (result)
-    result.innerHTML =
-      '<p class="small">Starting local diagnostic job. Provider commands and responses will appear as each service returns.</p>';
+    result.innerHTML = "";
   try {
     const started = await api("/api/prices/test-symbol/start", {
       method: "POST",
@@ -372,7 +371,7 @@ export async function runUserLivePriceSymbolTest() {
   } catch (e) {
     const detail = String((e && e.message) || e || "Unknown error");
     if (result)
-      result.innerHTML = `<div class="section-note warn"><b>Pricing tester could not reach the local API.</b><br>${esc(detail)}<br><br>Endpoint: <code>/api/prices/test-symbol/start</code>. If the browser says "Failed to fetch", restart the app and confirm the status indicator shows Ready.</div>`;
+      result.innerHTML = `<div class="section-note warn" data-kind="warn"><b>Pricing tester could not reach the local API.</b><br>${esc(detail)}<br><br>Endpoint: <code>/api/prices/test-symbol/start</code>. If the browser says "Failed to fetch", restart the app and confirm the status indicator shows Ready.</div>`;
     if (status) status.textContent = "Error";
     showMessage("Pricing tester error: " + detail, "error");
   }
@@ -440,7 +439,7 @@ export function renderHoldings() {
   // window (not module-local) because the toggle button's onclick attribute
   // runs in global scope, not this module's scope -- see the file header.
   const colsCollapsed = window.holdingsColsCollapsed !== false;
-  let html = `<div class="holdings"><h3 class="group-title">Plan Holdings</h3><div class="section-note">Enter investment holdings by account and lot. A lot is a separate purchase, reinvestment, or cash position. Use CASH with price 1 for cash balances.</div><div class="section-note small"><b>CSV import columns:</b> <code>account, symbol, purchase_date, shares, purchase_price, lot_type, note</code> — date as YYYY-MM-DD, lot_type as <code>standard</code>, <code>reinvestment</code>, or <code>cash</code>. Download a template from your broker CSV export or use Export CSV backup in Settings first.</div>${renderUserPricingSymbolTester()}<input type="file" id="holdingsImportInput" accept=".csv,text/csv" style="display:none" onchange="handleHoldingsCsvImport(this)"><div class="table-actions"><select data-focus-key="holdings:account-select" onchange="setHoldingAccount(this.value)"><option value="ALL" ${window.currentHoldingAccount === "ALL" ? "selected" : ""}>All accounts</option>${accounts.map((a) => `<option value="${esc(a)}" ${window.currentHoldingAccount === a ? "selected" : ""}>${esc(accountDisplayLabel(a))}</option>`).join("")}</select><button class="btn" onclick="addHoldingLot()">Add Lot</button><button class="btn" onclick="addHoldingAccount()">Add Account</button><button class="btn" type="button" data-requires-app="1" onclick="document.getElementById('holdingsImportInput').click()">Preview &amp; replace CSV</button><button class="btn danger" ${window.currentHoldingAccount === "ALL" ? "disabled" : ""} onclick="deleteHoldingAccount()">Delete Account</button><button class="btn col-group-toggle" type="button" onclick="window.holdingsColsCollapsed=${colsCollapsed ? "false" : "true"};renderMain()">${colsCollapsed ? "Show note column" : "Hide note column"}</button></div><div class="lot-table-wrap pinned-col${colsCollapsed ? " cols-collapsed" : ""}"><table class="lot-table"><thead><tr>${cols.map((c) => `<th${c === "note" ? ' data-col-group="extra"' : ""}>${esc(humanLabel(c))}</th>`).join("")}<th>Actions</th></tr></thead><tbody>`;
+  let html = `<div class="holdings" data-help-section="holdings.plan_holdings"><h3 class="group-title">Plan Holdings ${(window.RPHelp?.sectionButtonHtml("holdings.plan_holdings") || "")}</h3>${renderUserPricingSymbolTester()}<input type="file" id="holdingsImportInput" accept=".csv,text/csv" style="display:none" onchange="handleHoldingsCsvImport(this)"><div class="table-actions"><select data-focus-key="holdings:account-select" onchange="setHoldingAccount(this.value)"><option value="ALL" ${window.currentHoldingAccount === "ALL" ? "selected" : ""}>All accounts</option>${accounts.map((a) => `<option value="${esc(a)}" ${window.currentHoldingAccount === a ? "selected" : ""}>${esc(accountDisplayLabel(a))}</option>`).join("")}</select><button class="btn" onclick="addHoldingLot()">Add Lot</button><button class="btn" onclick="addHoldingAccount()">Add Account</button><button class="btn" type="button" data-requires-app="1" onclick="document.getElementById('holdingsImportInput').click()">Preview &amp; replace CSV</button><button class="btn danger" ${window.currentHoldingAccount === "ALL" ? "disabled" : ""} onclick="deleteHoldingAccount()">Delete Account</button><button class="btn col-group-toggle" type="button" onclick="window.holdingsColsCollapsed=${colsCollapsed ? "false" : "true"};renderMain()">${colsCollapsed ? "Show note column" : "Hide note column"}</button></div><div class="lot-table-wrap pinned-col${colsCollapsed ? " cols-collapsed" : ""}"><table class="lot-table"><thead><tr>${cols.map((c) => `<th${c === "note" ? ' data-col-group="extra"' : ""}>${esc(humanLabel(c))}</th>`).join("")}<th>Actions</th></tr></thead><tbody>`;
   visible.forEach(({ r, i }) => {
     html +=
       `<tr data-hidx="${i}">` +
@@ -472,7 +471,7 @@ export function renderHoldings() {
           return `<td data-label="${esc(humanLabel(c))}"${c === "note" ? ' data-col-group="extra"' : ""}><input class="${cls}" data-hcol="${esc(c)}" type="${type}" value="${esc(display)}" ${input} ${focus}></td>`;
         })
         .join("") +
-      `<td data-label="Actions"><button class="btn" type="button" title="Insert a lot for this symbol" onclick="insertHoldingLotLike(${i})">+</button> ${deleteIconBtn(`deleteHoldingLot(${i})`)}</td></tr>`;
+      `<td data-label="Actions"><button class="btn" type="button" aria-label="Insert a lot for this symbol" onclick="insertHoldingLotLike(${i})">+</button> ${deleteIconBtn(`deleteHoldingLot(${i})`)}</td></tr>`;
   });
   html += `</tbody></table></div>`;
   // #235: moved here from Economic & Tax Assumptions -- dividend reinvestment

@@ -28,7 +28,7 @@ def test_home_current_section_excludes_budget_detail_fields():
     # housing plan input (housingPlanSectionsHtml), not a cost.
     assert 'const HOUSING_MORTGAGE_NON_COST = [\n  "annual_real_estate_taxes",\n  "balance_as_of_plan_start",\n];' in js
     assert '"homeowners_insurance_annual",\n  "home_maintenance_annual",\n  "utilities_annual"' in js
-    assert 'Real-estate taxes, homeowners insurance, maintenance, utilities, and HOA are budgeted in the groups below.' in js
+    # the explanatory sentence moved to the help registry (plain_english_help.test.mjs)
 
 
 def test_home_improvement_is_single_category_and_line_target():
