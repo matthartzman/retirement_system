@@ -41,7 +41,9 @@ def test_social_security_pia_and_claim_age_inputs_are_mutually_explained():
 
 def test_allocation_optimizer_hides_unused_user_targets_and_lists_them_inactive():
     js = dashboard_js_text()
-    assert "User target percentages are hidden because the next build will not use them" in js
+    # The explanation moved to the help panel (Phase 4).
+    registry = (ROOT / "frontend" / "js" / "help_registry.js").read_text(encoding="utf-8")
+    assert "user target percentages are hidden because the next build will not use them" in registry
     assert "A computed allocation mode is selected" in js
     assert "Choose Use user-specified allocation" in js
     optimizer_header = "<th>Selection</th><th>Computed Optimizer Target %</th><th>Active Target Used %</th>"
