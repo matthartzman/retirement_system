@@ -15,7 +15,8 @@ def test_hsa_withdrawal_timing_lives_on_other_assets_page():
     # #213: consolidated into one collapsible "HSA" section (was up to 4
     # separate <details>); withdrawal timing is the first sub-block inside it.
     assert "<details><summary>HSA</summary>" in js
-    assert "choose how the HSA is used in Cash Flow" in js
+    # the explanatory note moved to the help registry (Phase 3)
+    assert "choose how the HSA is used in Cash Flow" in (ROOT / "frontend" / "js" / "help_registry.js").read_text(encoding="utf-8")
     # #213: start year must sort before end year (was reversed by the
     # generic dependency sort's alphabetical tie-break, "end" < "start").
     assert 'norm(r.label) === "hsa_withdrawal_start_year"\n        ? 0' in js
