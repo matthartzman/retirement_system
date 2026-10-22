@@ -66,3 +66,30 @@ def test_run_now_appends_a_fresh_snapshot(tmp_path):
     body = json.loads(resp2.get_data(as_text=True))
     assert len(body) == 1
     assert body[0]["ytd_expenses_by_category"]["Groceries"] == 50.0
+
+
+def test_run_now_tells_the_user_to_restart_when_the_app_database_is_newer(tmp_path, monkeypatch):
+    from financial_trends_reporter import main as reporter_main
+    from src.stores import SchemaVersionError
+
+    def _stale(*_a, **_k):
+        raise SchemaVersionError("app schema v3 is newer than supported v2")
+
+    monkeypatch.setattr(reporter_main, "run_trends_job", _stale)
+    app = reporter_main.create_app(_workspace(tmp_path), log_path=tmp_path / "log.jsonl")
+    resp = app.test_client().post("/api/run-now")
+    assert resp.status_code == 500
+    assert "older code" in resp.get_json()["error"]
+
+
+def test_second_instance_refuses_to_start_when_the_port_is_taken(capsys):
+    import socket
+
+    from financial_trends_reporter import main as reporter_main
+
+    with socket.socket() as srv:
+        srv.bind(("127.0.0.1", 0))
+        srv.listen(1)
+        port = srv.getsockname()[1]
+        assert reporter_main.main(["--port", str(port), "--no-open"]) == 1
+    assert "already running" in capsys.readouterr().err
