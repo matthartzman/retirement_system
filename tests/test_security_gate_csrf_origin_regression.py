@@ -16,8 +16,32 @@ existing pattern for the sibling app.
 """
 from __future__ import annotations
 
+import shutil
+
+import pytest
+
+from src.platform_runtime import workspace_root
 from src.server import create_app
 from src.server.security_audit import _csrf_token_for_current_request
+
+
+@pytest.fixture(autouse=True)
+def _restore_workspace_after_blank_plan(tmp_path):
+    """Several tests here POST /api/plan/blank for real and pass the gate, which
+    blanks the plan in the (per-xdist-worker) test workspace. Without this
+    restore the blank plan leaks to every later test on the same worker: they
+    fail with "Engine config has no account registry" or a 500, but only when
+    the scheduler happens to place them after this file (order-dependent)."""
+    root = workspace_root()
+    snapshot = tmp_path / "workspace_snapshot"
+    shutil.copytree(root, snapshot)
+    yield
+    for entry in root.iterdir():
+        if entry.is_dir():
+            shutil.rmtree(entry, ignore_errors=True)
+        else:
+            entry.unlink(missing_ok=True)
+    shutil.copytree(snapshot, root, dirs_exist_ok=True)
 
 
 def _client():
