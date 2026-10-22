@@ -310,16 +310,16 @@ export function renderWorkbookFormatting() {
   const back = `<button class="btn" type="button" data-step-id="system_configuration">← Back to Settings</button>`;
   const header = `<div class="section-note"><b>Workbook formatting.</b> Adjust Excel column widths per sheet, table, and column. Widths come from the most recently built workbook. Every edit saves immediately — there is no separate Save step, and no other part of the app ever touches these saved widths except this page. Columns you don't touch keep their automatic width.</div>`;
   if (workbookFormatLoading && !workbookFormatData) {
-    return `<div class="workbook-format-panel">${back}${header}<div class="section-note">Loading workbook layout…</div></div>`;
+    return `<div class="workbook-format-panel">${back}${header}<div class="section-note" data-kind="state">Loading workbook layout…</div></div>`;
   }
   if (workbookFormatError) {
-    return `<div class="workbook-format-panel">${back}${header}<div class="section-note warn">Could not load workbook layout: ${esc(workbookFormatError)} <button class="btn tiny" type="button" onclick="refreshWorkbookFormat()">Retry</button></div></div>`;
+    return `<div class="workbook-format-panel">${back}${header}<div class="section-note warn" data-kind="warn">Could not load workbook layout: ${esc(workbookFormatError)} <button class="btn tiny" type="button" onclick="refreshWorkbookFormat()">Retry</button></div></div>`;
   }
   if (!workbookFormatData || !workbookFormatData.available) {
-    return `<div class="workbook-format-panel">${back}${header}<div class="section-note warn">No built workbook found yet. Build the workbook once (Reports &amp; Review → Build), then return here to fine-tune column widths.</div></div>`;
+    return `<div class="workbook-format-panel">${back}${header}<div class="section-note warn" data-kind="warn">No built workbook found yet. Build the workbook once (Reports &amp; Review → Build), then return here.</div></div>`;
   }
   const staleNotice = workbookFormatData.overrides_stale
-    ? `<div class="section-note warn">One or more saved overrides were edited after the workbook shown below was built. "Last built" widths on this page reflect that older build, not your latest edits — the edits themselves are saved and will apply on your next rebuild. <button class="btn tiny" type="button" data-step-id="reports_and_review">Rebuild now</button></div>`
+    ? `<div class="section-note warn" data-kind="warn">Edits were saved after the workbook below was built; "Last built" widths reflect the older build. <button class="btn tiny" type="button" data-step-id="reports_and_review">Rebuild now</button></div>`
     : "";
   const sheetNodes = workbookFormatData.sheets || [];
   const maxSheetNameLen = sheetNodes.reduce(
@@ -329,7 +329,7 @@ export function renderWorkbookFormatting() {
   const sheets = sheetNodes
     .map((s) => _wfSheetHtml(s, maxSheetNameLen))
     .join("");
-  const toolbar = `<div class="wf-toolbar"><button class="btn" type="button" onclick="refreshWorkbookFormat()">Reload from last build</button> <span class="small">Changes save automatically as you edit</span></div>`;
+  const toolbar = `<div class="wf-toolbar"><button class="btn" type="button" onclick="refreshWorkbookFormat()">Reload from last build</button> <span class="small" data-kind="state">Changes save automatically as you edit</span></div>`;
   return `<div class="workbook-format-panel">${back}${header}${staleNotice}${toolbar}<div class="wf-sheets">${sheets}</div></div>`;
 }
 

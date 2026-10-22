@@ -526,7 +526,7 @@
   function renderDetailedResultTable(ctx, section, q) {
     const rows = filteredDetailRows(section, q);
     if (!rows.length)
-      return '<div class="section-note">No rows match the current search.</div>';
+      return '<div class="section-note" data-kind="state">No rows match the current search.</div>';
     const maxCells = Math.max(1, ...rows.map((r) => (r.cells || []).length));
     const headerIdx = q ? -1 : detailHeaderRowIndex(section, rows);
     const headers = headerIdx >= 0 ? rows[headerIdx].cells || [] : [];
@@ -1302,13 +1302,13 @@
         body = renderDetailStackedBarChart(chart);
       else if (!chart.type || KNOWN_TYPES.indexOf(chart.type) < 0)
         body =
-          '<div class="chart-type-note">Chart type not yet supported: ' +
+          '<div class="chart-type-note" data-kind="warn">Chart type not yet supported: ' +
           esc(chart.type || "unknown") +
           "</div>";
       else body = renderDetailStackedBarChart(chart);
     } catch (e) {
       body =
-        '<div class="section-note">This chart could not be rendered in the UI. Use Download Workbook to view the Excel chart.</div>';
+        '<div class="section-note" data-kind="warn">This chart could not be rendered in the UI. Use Download Workbook to view the Excel chart.</div>';
     }
     var cacheId =
       ctx && ctx.cacheChart
@@ -1375,7 +1375,7 @@
     let html = `<details class="detailed-results-nav" ${navOpen ? "open" : ""} ontoggle="setDetailedResultsNavOpen(this.open)"><summary>Retirement Plan Workbook</summary><div class="detailed-results-nav-body">`;
     const activeCls =
       call(ctx.getActiveStep) === "detailed_results" ? "active" : "";
-    html += `<button class="stepbtn ${activeCls}" type="button" data-step-id="detailed_results"${activeCls ? ' aria-current="step"' : ""}><span class="num">↳</span><span><span class="step-title">Retirement Plan Workbook</span><div class="step-desc">Every workbook result sheet — charts and tables.</div></span></button>`;
+    html += `<button class="stepbtn ${activeCls}" type="button" data-step-id="detailed_results"${activeCls ? ' aria-current="step"' : ""}><span class="num">↳</span><span><span class="step-title">Retirement Plan Workbook</span><div class="step-desc">${escCtx(ctx, (window.RPHelp && window.RPHelp.summary("detailed_results")) || "")}</div></span></button>`;
     const data = call(ctx.getDetailedResultsData);
     if (data && data.success && Array.isArray(data.sheets)) {
       const allSheets = data.sheets;
@@ -1434,7 +1434,7 @@
       html += `<div class="detail-nav-note error">${escCtx(ctx, call(ctx.getDetailedResultsError))}</div>`;
     } else {
       html +=
-        '<div class="detail-nav-note">Build outputs, then open this section to browse detailed results.</div>';
+        '<div class="detail-nav-note" data-kind="state">Build outputs, then open this section to browse detailed results.</div>';
     }
     html += "</div></details>";
     return html;
@@ -1451,15 +1451,15 @@
       // Kick off the async load, and show loading state immediately so there is no
       // "Build outputs first" flash while the setTimeout macro-task is pending.
       setTimeout(() => call(() => ctx.loadDetailedResults(false)), 0);
-      return `<div class="holdings detailed-results"><div class="detail-loading-card"><h3>Loading results index</h3><p class="small">Opening the generated results and loading navigation first. Selected result pages load separately so large workbooks do not freeze the explorer.</p><div class="table-actions"><button class="btn" type="button" onclick="loadDetailedResults(true)" disabled>Refresh results</button></div></div></div>`;
+      return `<div class="holdings detailed-results"><div class="detail-loading-card"><h3>Loading results index</h3><p class="small" data-kind="state">Opening the generated results…</p><div class="table-actions"><button class="btn" type="button" onclick="loadDetailedResults(true)" disabled>Refresh results</button></div></div></div>`;
     }
     if (isLoading) {
-      return `<div class="holdings detailed-results"><div class="detail-loading-card"><h3>Loading results index</h3><p class="small">Opening the generated results and loading navigation first. Selected result pages load separately so large workbooks do not freeze the explorer.</p>${detailedProgressHtml(ctx, false)}<div class="table-actions"><button class="btn" type="button" onclick="loadDetailedResults(true)" disabled>Refresh results</button></div></div></div>`;
+      return `<div class="holdings detailed-results"><div class="detail-loading-card"><h3>Loading results index</h3><p class="small" data-kind="state">Opening the generated results…</p>${detailedProgressHtml(ctx, false)}<div class="table-actions"><button class="btn" type="button" onclick="loadDetailedResults(true)" disabled>Refresh results</button></div></div></div>`;
     }
     const detailedResultsError = call(ctx.getDetailedResultsError) || "";
     const detailedResultsData = call(ctx.getDetailedResultsData);
     if (detailedResultsError && !detailedResultsData) {
-      return `<div class="holdings detailed-results"><div class="missing-list"><h3>Results unavailable</h3><p>${escCtx(ctx, detailedResultsError)}</p><p class="small">The explorer now times out instead of staying on a frozen loading message. Rebuild outputs if the file is missing or corrupt, then refresh this screen.</p></div><div class="table-actions"><button class="btn good" type="button" data-requires-app="1" onclick="downloadWithBuild('/api/xlsx','Workbook')">Download Workbook</button><button class="btn" type="button" onclick="loadDetailedResults(true)">Refresh results</button></div></div>`;
+      return `<div class="holdings detailed-results"><div class="missing-list"><h3>Results unavailable</h3><p>${escCtx(ctx, detailedResultsError)}</p><p class="small" data-kind="warn">Rebuild outputs if the file is missing or corrupt, then refresh.</p></div><div class="table-actions"><button class="btn good" type="button" data-requires-app="1" onclick="downloadWithBuild('/api/xlsx','Workbook')">Download Workbook</button><button class="btn" type="button" onclick="loadDetailedResults(true)">Refresh results</button></div></div>`;
     }
     const data = detailedResultsData || {};
     if (!data.success) {
@@ -1473,7 +1473,7 @@
     const q = String(call(ctx.getDetailResultsSearchText) || "")
       .trim()
       .toLowerCase();
-    let html = `<div class="holdings detailed-results"><div class="detail-results-head"><div><h3 class="group-title">Retirement Plan Workbook</h3><p class="small">${Number(data.sheet_count || 0)} result sheets from <b>${escCtx(ctx, data.workbook || "retirement_plan.xlsx")}</b>. Charts rendered natively; tables enhanced for the UI.</p></div><div class="table-actions"><button class="btn" type="button" onclick="loadDetailedResults(true)">Refresh results</button><button class="btn" data-requires-app="1" data-download="1" onclick="downloadWithBuild('/api/xlsx','Workbook')">Download Workbook</button></div></div>`;
+    let html = `<div class="holdings detailed-results" data-help-section="detailed_results.workbook"><div class="detail-results-head"><div><h3 class="group-title">Retirement Plan Workbook</h3><p class="small" data-kind="state">${Number(data.sheet_count || 0)} result sheets from <b>${escCtx(ctx, data.workbook || "retirement_plan.xlsx")}</b>.</p></div><div class="table-actions"><button class="btn" type="button" onclick="loadDetailedResults(true)">Refresh results</button><button class="btn" data-requires-app="1" data-download="1" onclick="downloadWithBuild('/api/xlsx','Workbook')">Download Workbook</button></div></div>`;
     html += `<div class="detail-results-toolbar"><label><b>Search this result sheet</b><input class="search" value="${escCtx(ctx, call(ctx.getDetailResultsSearchText) || "")}" placeholder="Filter rows within the selected result page..." oninput="detailResultsSearchText=this.value;renderMain()"></label><label><b>Sheet</b><select onchange="setDetailedResultSheet(this.value)">${(
       data.sheets || []
     )
@@ -1485,7 +1485,7 @@
       )
       .join("")}</select></label><button class="btn" type="button" onclick="expandAllDetailColumnsOnPage()">Expand all columns</button></div>`;
     if (!sheet) {
-      html += `<div class="section-note">No workbook sheets were found.</div></div>`;
+      html += `<div class="section-note" data-kind="state">No workbook sheets were found.</div></div>`;
       return html;
     }
     if (sheet.kind === "chart_dashboard" && Array.isArray(sheet.charts)) {
@@ -1507,7 +1507,7 @@
         html += `<div class="missing-list"><h3>Selected sheet unavailable</h3><p>${escCtx(ctx, call(ctx.getDetailedResultSheetError))}</p></div><div class="table-actions"><button class="btn" type="button" onclick="loadDetailedResultSheet(activeDetailedSheet,true)">Retry selected sheet</button><button class="btn" type="button" onclick="loadDetailedResults(true)">Refresh results</button></div></div>`;
         return html;
       }
-      html += `<div class="detail-loading-card"><h3>Loading selected sheet</h3><p class="small">Loading the selected result page for <b>${escCtx(ctx, call(() => resultDisplayName(sheet.name)) || sheet.name)}</b>. Other result pages load only when selected.</p>${detailedProgressHtml(ctx, false)}</div></div>`;
+      html += `<div class="detail-loading-card"><h3>Loading selected sheet</h3><p class="small" data-kind="state">Loading <b>${escCtx(ctx, call(() => resultDisplayName(sheet.name)) || sheet.name)}</b>…</p>${detailedProgressHtml(ctx, false)}</div></div>`;
       return html;
     }
     html += `<div class="detail-sheet-title"><h3>${escCtx(ctx, call(() => resultDisplayName(sheet.name)) || sheet.name)}</h3><span>${Number(sheet.row_count || 0)} rows · ${Number((sheet.sections || []).length)} sections · ${Number(sheet.column_count || 0)} columns</span></div>`;
@@ -1517,7 +1517,7 @@
       detailSectionMatches(sec, q),
     );
     if (!sections.length)
-      html += `<div class="section-note">No rows in this sheet match the current search.</div>`;
+      html += `<div class="section-note" data-kind="state">No rows in this sheet match the current search.</div>`;
     sections.forEach(function (sec, i) {
       const rows = filteredDetailRows(sec, q);
       const sectionTitle =

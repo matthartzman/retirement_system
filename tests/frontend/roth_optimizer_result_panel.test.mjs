@@ -14,6 +14,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import { loadDashboardSandbox } from "./load_dashboard.mjs";
 
 function render(payload) {
@@ -107,8 +108,11 @@ test("the score column is disclosed as a relative ranking", () => {
   // Sheet 11's own wording for the same column. Without it, "100" next to a
   // strategy reads as a projected outcome.
   const html = render(payload());
-  assert.match(html, /ranks these candidates relative to each other/);
-  assert.match(html, /not a projected dollar outcome/);
+  // The disclosure moved to the help panel (contextual help Phase 3b); the panel carries the key.
+  assert.match(html, /data-help-section="strategy_optimize.roth_result"/);
+  const registry = fs.readFileSync("frontend/js/help_registry.js", "utf8");
+  assert.match(registry, /ranks the candidates relative to each other/);
+  assert.match(registry, /not a projected dollar outcome/);
 });
 
 test("a trimmed candidate list says how many were scored", () => {

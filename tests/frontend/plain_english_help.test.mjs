@@ -78,7 +78,7 @@ test("every section record names a real page and renders with a way back to page
   for (const [key, s] of Object.entries(HELP_SECTIONS)) {
     assert.ok(HELP_PAGES[s.pageId], key);
     assert.ok(key.startsWith(`${s.pageId}.`), key);
-    assert.match(sectionHelpHtml(key), /openStepHelp\('household_people'\)/);
+    assert.ok(sectionHelpHtml(key).includes(`openStepHelp('${s.pageId}')`), key);
   }
   assert.equal(sectionHelpHtml("nope.nope"), null);
 });

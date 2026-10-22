@@ -243,7 +243,7 @@ export function taxLossHarvestingBlock(other) {
       r.subsection === "Tax-Loss Harvesting",
   );
   if (!tlh.length) return "";
-  return `<details><summary>Tax Loss Harvesting</summary><div class="field-list"><div class="section-note">Controls whether and how the projection harvests capital losses from taxable-account lots each year.</div>${sortRowsByDependency(tlh).map(fieldHtml).join("")}</div></details>`;
+  return `<details data-help-section="strategy_optimize.tax_loss_harvesting"><summary>Tax Loss Harvesting</summary><div class="field-list">${sortRowsByDependency(tlh).map(fieldHtml).join("")}</div></details>`;
 }
 // #277: Gain Harvest gets its own collapsible section, on par with TLH.
 export function gainHarvestBlock(other) {
@@ -251,7 +251,7 @@ export function gainHarvestBlock(other) {
     (r) => r.section === "Withdrawal Policy" && r.subsection === "Gain Harvesting",
   );
   if (!gainHarvest.length) return "";
-  return `<details><summary>Gain Harvest</summary><div class="field-list"><div class="section-note">Controls whether and how the projection harvests capital gains from taxable-account lots each year (e.g. to fill up a low tax bracket).</div>${sortRowsByDependency(gainHarvest).map(fieldHtml).join("")}</div></details>`;
+  return `<details data-help-section="strategy_optimize.gain_harvest"><summary>Gain Harvest</summary><div class="field-list">${sortRowsByDependency(gainHarvest).map(fieldHtml).join("")}</div></details>`;
 }
 export function withdrawalMiscBlock(other) {
   const misc = other.filter(
@@ -267,7 +267,7 @@ export function withdrawalMiscBlock(other) {
       ),
   );
   if (!misc.length) return "";
-  return `<details><summary>Other funding and rollover settings</summary><div class="field-list"><div class="section-note">Annual funding tolerance and spousal rollover settings are operational assumptions. They affect workbook QC, survivor account consolidation, RMD timing, and late-life cash-flow output.</div>${sortRowsByDependency(misc).map(fieldHtml).join("")}</div></details>`;
+  return `<details data-help-section="strategy_optimize.funding_rollover"><summary>Other funding and rollover settings</summary><div class="field-list">${sortRowsByDependency(misc).map(fieldHtml).join("")}</div></details>`;
 }
 
 // #329 §3.3 (W9): Social Security has no page of its own -- its claiming-age
@@ -281,8 +281,8 @@ function socialSecurityOptimizePanelHtml() {
     (r) => r.section === "Social Security",
   );
   if (!rows.length)
-    return '<div class="field-list"><p class="small">No Social Security rows found.</p></div>';
-  return `<div class="field-list"><div class="section-note">Claiming age and benefit assumptions. Pensions and annuities are entered on <button class="btn linklike" type="button" data-step-id="income_retirement">SS, Pensions &amp; Annuities</button>.</div>${sortRowsByDependency(rows).map(fieldHtml).join("")}</div>`;
+    return '<div class="field-list"><p class="small" data-kind="state">No Social Security rows found.</p></div>';
+  return `<div class="field-list" data-help-section="strategy_optimize.social_security">${sortRowsByDependency(rows).map(fieldHtml).join("")}</div>`;
 }
 
 export function renderStrategyOptimize() {
@@ -308,7 +308,7 @@ export function renderStrategyOptimize() {
         const html = hsaWithdrawalPolicyBlock(withdrawalOtherRows());
         return (
           html ||
-          '<div class="field-list"><p class="small">No HSA withdrawal policy rows — configure HSA on Other Assets and Liabilities.</p></div>'
+          '<div class="field-list"><p class="small" data-kind="state">No HSA withdrawal policy rows — configure HSA on Other Assets and Liabilities.</p></div>'
         );
       },
     },
@@ -372,7 +372,7 @@ export function renderStrategyOptimize() {
         const html = taxLossHarvestingBlock(other) + gainHarvestBlock(other);
         return (
           html ||
-          '<div class="field-list"><p class="small">No harvesting rows configured.</p></div>'
+          '<div class="field-list"><p class="small" data-kind="state">No harvesting rows configured.</p></div>'
         );
       },
     },
@@ -471,10 +471,10 @@ export function renderStrategyWorkbench() {
           W.forwardLookingHtml(ctx) +
           '<div class="feature-grid">' +
           W.stressSelectorHtml(ctx, cases) +
-          '<div class="feature-card"><h3>Decision panel</h3><p class="small">Every comparison ends with one deliberate choice: adopt selected changes into the saved plan via source pages, keep as a named scenario only, or archive/no action.</p>' +
+          '<div class="feature-card" data-help-section="strategy_workbench.decision_panel"><h3>Decision panel</h3>' +
           (active
             ? `<p><b>Selected:</b> ${esc(active.name)}</p><div class="pane-actions"><button class="btn primary" type="button" onclick="planningCaseAdopt('${escJs(active.case_id)}')">Adopt via source pages</button><button class="btn" type="button" data-step-id="build_impact">View impact</button><button class="btn" type="button" onclick="planningCaseArchive('${escJs(active.case_id)}')">Archive/no action</button></div>`
-            : '<p class="small">Select or create a case to make a decision.</p>') +
+            : '<p class="small" data-kind="state">Select or create a case to make a decision.</p>') +
           "</div></div>",
       },
       {

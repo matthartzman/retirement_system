@@ -453,7 +453,7 @@ export function ytdTxnPager(total, start, end, pages, firstDate, lastDate, total
   if (total <= YTD_TX_PAGE_SIZE && pages <= 1)
     return bottom
       ? ""
-      : `<p class="small">Showing ${total} of ${total} matching transactions.${totalsHtml}</p>`;
+      : `<p class="small" data-kind="state">Showing ${total} of ${total} matching transactions.${totalsHtml}</p>`;
   const canShowRange = ytdTxSort.field === "Date" && firstDate && lastDate;
   const rangeLabel = canShowRange
     ? `Showing ${ytdShortDate(firstDate)}–${ytdShortDate(lastDate)}`
@@ -645,7 +645,7 @@ export function renderYtdTransactions() {
   if (ytdDuplicateGroups) return renderYtdDuplicateReview();
   const enabled = !!ytdData?.summary?.enabled;
   if (!enabled)
-    return `<div class="ytd-disabled-table"><h3>Transactions</h3><p class="small">Upload a transaction CSV to enable the compact table.</p></div>`;
+    return `<div class="ytd-disabled-table"><h3>Transactions</h3><p class="small" data-kind="state">Upload a transaction CSV to enable the compact table.</p></div>`;
   const tx = ytdFilteredTxns();
   const total = tx.length;
   const periodHasAnyTx = ytdTxnsForPeriod().length > 0;
@@ -1075,12 +1075,11 @@ export function renderHsaSchedule() {
     `<span class="hsa-schedule-feasibility${verdict ? " " + esc(String(verdict).replace(/_/g, "-")) : " unknown"}">` +
     `${esc(hsaScheduleFeasibilityLabel(verdict))}</span>`;
   let html =
-    `<div class="hsa-schedule"><h3 class="group-title">HSA Withdrawal Schedule</h3>` +
-    `<div class="section-note">Per-year HSA withdrawal plan for Optimizer mode. There is no separate calculation step: "Add Year" adds a row for a year, type an amount in "Override" for it, and that amount applies the next time you save or build -- exactly like any other plan field. "Optimizer" shows the search's own proposal once that feature computes one (not yet available); until then it stays blank and that year draws an even, level amount instead. "Locked" pins whatever the optimizer proposed, so it has nothing to do yet either.</div>` +
+    `<div class="hsa-schedule" data-help-section="strategy_optimize.hsa_schedule"><h3 class="group-title">HSA Withdrawal Schedule</h3>` +
     `<div class="table-actions">${badge}<button class="btn" type="button" onclick="addHsaScheduleYear()">Add Year</button></div>`;
   if (!rows.length) {
     html +=
-      `<div class="section-note small">No schedule years yet. Click "Add Year" to enter an override for a specific year.</div></div>`;
+      `<div class="section-note small" data-kind="state">No schedule years yet. Click "Add Year" to add one.</div></div>`;
     return html;
   }
   html +=

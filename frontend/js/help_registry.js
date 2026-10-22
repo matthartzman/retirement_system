@@ -352,6 +352,278 @@ export const HELP_PAGES = {
 
 // HELP_SECTIONS[key]: key is the section's data-help-section attribute, "<pageId>.<section>".
 export const HELP_SECTIONS = {
+  // Phase 3b: section help for Insurance/Estate/Taxes, Strategy, Reports and Review, and Settings.
+  "estate.state_estate_tax": {
+    pageId: "estate",
+    title: "State estate-tax references",
+    body: "The states listed come from the reference table in reference_data/state_tax.csv. Add a state to Plan Data when it should appear in the estate-analysis inputs.",
+  },
+  "estate.trusts": {
+    pageId: "estate",
+    title: "Trusts",
+    body: "Trust accounts are shown in a compact table. Each trust has a type pulldown and can be expanded for additional fields. Investment accounts with Trust in the account name still flow through the holdings page; add trust rows here when you want estate metadata.",
+  },
+  "estate.beneficiary_titling": {
+    pageId: "estate",
+    title: "Beneficiary and titling",
+    body: "One panel per account from Holdings, for primary and contingent beneficiaries and titling. It drives the Beneficiary and Titling Audit and each account's own basis step-up on Sheet 14. Leave Titling blank to use the household-wide default instead.",
+  },
+  "entity_charitable.charitable": {
+    pageId: "entity_charitable",
+    title: "Charitable giving and QCDs",
+    body: "Qualified charitable distributions (QCDs, age 70½ and over) satisfy required distributions without the amount appearing as taxable income. Each QCD is capped at the person's own required distribution and the annual QCD limit. A blank start year means the year they turn 70½; a blank end year means through plan end. An S-Corp election is a self-employment decision, entered on Work Income.",
+  },
+  "annuity_death_benefits.annuity_death_benefits": {
+    pageId: "annuity_death_benefits",
+    title: "Annuity death benefits",
+    body: "Each row is a separate annuity policy and each column is a calendar year. Enter the benefit payable to heirs if death occurs in that year. Use Tab or Return to move across the editable year cells; scroll horizontally to reach later years, the policy column stays visible.",
+  },
+  "annuity_death_benefits.life_illustrations": {
+    pageId: "annuity_death_benefits",
+    title: "Life insurance illustrations",
+    body: "Enter values from each life policy's carrier illustration for the years shown. Each policy below matches a policy added under Insurance Policies.",
+  },
+  "annuity_death_benefits.life_cash_value": {
+    pageId: "annuity_death_benefits",
+    title: "Life illustration: cash value",
+    body: "Cash surrender value in each year, per the illustration. Use Tab or Return to move across the editable year cells; scroll horizontally to reach later years, the policy column stays visible.",
+  },
+  "annuity_death_benefits.life_death_benefit": {
+    pageId: "annuity_death_benefits",
+    title: "Life illustration: death benefit",
+    body: "Death benefit payable to beneficiaries in each year, per the illustration. Use Tab or Return to move across the editable year cells; scroll horizontally to reach later years, the policy column stays visible.",
+  },
+  "annuity_death_benefits.life_premium": {
+    pageId: "annuity_death_benefits",
+    title: "Life illustration: premium",
+    body: "Premium due in each year, per the illustration. Use Tab or Return to move across the editable year cells; scroll horizontally to reach later years, the policy column stays visible.",
+  },
+  "economic_tax_assumptions.tax_assumptions": {
+    pageId: "economic_tax_assumptions",
+    title: "Tax assumptions",
+    body: "Model values come from the tax-law dataset and your state. Type a value (for example 3% or 0.03) to override one; leave it blank to use Auto. The Higher rates tax-law scenario is a stress: federal ordinary income is taxed at pre-2018 rates with thresholds unchanged.",
+  },
+  "roth_conversion.guardrails": {
+    pageId: "roth_conversion",
+    title: "Conversion guardrails",
+    body: "Conversion is always the lowest active cap, whatever order you set. Your order controls how guardrails are listed; the badges follow the dollars. The what-if figures come from re-running your plan with that guardrail off. Changes to settings take effect at the next build.",
+  },
+  "roth_conversion.bracket_targets": {
+    pageId: "roth_conversion",
+    title: "Tax bracket targets",
+    body: "Tax bracket target rows appear here rather than in Economic and Tax Assumptions because they are strategy inputs: they define the conversion ceiling, not a general economic forecast.",
+  },
+  "roth_conversion.policy": {
+    pageId: "roth_conversion",
+    title: "Conversion policy",
+    body: "Choose a conversion policy first; the page then shows only the controls relevant to that choice. Fill-to-IRMAA uses the Medicare premium tier boundary as the conversion ceiling; choosing it hides the separate IRMAA guardrail to avoid duplicate controls. Bracket strategy options appear only for bracket-fill and optimizer policies.",
+  },
+  "roth_conversion.forced_conversions": {
+    pageId: "roth_conversion",
+    title: "Forced conversions",
+    body: "Use this only for conversions that are already done or intentionally required in a scenario. Enter one row per conversion: source account, year and dollar amount. The optimizer will not remove these rows.",
+  },
+  "all_assumptions.field_list": {
+    pageId: "all_assumptions",
+    title: "Field list",
+    body: "Grouped by plan area, matching the left navigation, alphabetical within each area. Each field shows its own source page beneath its label.",
+  },
+  "all_assumptions.inactive_values": {
+    pageId: "all_assumptions",
+    title: "Inactive values",
+    body: "Inactive values are saved in Plan Data but hidden as ordinary inputs because the current build settings will not consume them. Use the action column only when you intentionally want to change the controlling setting or value so the build starts using it. Use page search or All assumptions to review broader configuration.",
+  },
+  "all_assumptions.batch_edit": {
+    pageId: "all_assumptions",
+    title: "Batch edit assumptions",
+    body: "Preview first, then stage many plan-row edits at once. Applying a preview only marks fields edited; click Save Changes to persist.",
+  },
+  "strategy_optimize.levers": {
+    pageId: "strategy_optimize",
+    title: "Strategy levers",
+    body: "Ranked lever estimates, measured baseline figures and source-page jumps for changing the actual plan. Levers rank against the latest successful baseline, so build reports first; until then use the Roth Conversion, Asset Allocation, Spending Categories, Scenarios and Monte Carlo pages to stage inputs. Estimates assume all other inputs stay fixed; change the test amount to resize any estimate without affecting your plan. After ranking, use the Source button beside a lever to change the actual input, rebuild, and check Build History for the measured effect on projected net worth and success rate. TNW is terminal net worth, the projected portfolio at the end of the plan horizon. PTI (Post-Tax Inheritance) is terminal net worth minus the embedded taxes heirs would owe on pre-tax accounts and unrealized gains, what beneficiaries actually keep. Success rate is the share of Monte Carlo trials where the plan keeps the reserve floor through the planning horizon.",
+  },
+  "strategy_optimize.allocation_mode": {
+    pageId: "strategy_optimize",
+    title: "Allocation mode",
+    body: "Choose the allocation source with the buttons; the page then shows only the controls for that source.",
+  },
+  "strategy_optimize.holding_period": {
+    pageId: "strategy_optimize",
+    title: "Holding-period allocation",
+    body: "Optional: use this household's own projected withdrawal schedule to nudge the optimizer or max-Sharpe recommendation toward Cash for near-term money and growth for long-horizon money. It has no effect on user-target or tangency modes; selecting the holding-period real-loss-aware mode enables the underlying discovery automatically, whatever this toggle says.",
+  },
+  "strategy_optimize.override": {
+    pageId: "strategy_optimize",
+    title: "Optimizer override allocation",
+    body: "Leave override rows blank to use the computed optimizer target. Enter percentages only when you want to override the computed result; if any are entered, the override total must equal 100%. Override percentages lock a specific target, bypassing the optimizer.",
+  },
+  "strategy_optimize.total_wealth": {
+    pageId: "strategy_optimize",
+    title: "Total wealth allocation",
+    body: "Combines the liquid portfolio with illiquid sources credited against allocation targets. Illiquid values use a 20% haircut on home equity and the present value of guaranteed income. This panel is read-only.",
+  },
+  "strategy_optimize.recommendation": {
+    pageId: "strategy_optimize",
+    title: "Optimizer recommendation",
+    body: "The selection table controls which asset classes the optimizer may use and whether existing holdings satisfy a sleeve before new trades are recommended. Override percentages lock a specific target, bypassing the optimizer.",
+  },
+  "strategy_optimize.max_sharpe": {
+    pageId: "strategy_optimize",
+    title: "Max-Sharpe recommendation",
+    body: "Keeps the same risk level as the allocation optimizer recommendation (risk tolerance or auto risk score, glide path, guaranteed-income and home-equity coverage), but chooses the equity sleeve's sub-class weights to maximize the sleeve's own Sharpe ratio (return in excess of the risk-free rate, per unit of volatility) instead of a fixed risk-aversion utility. The sleeve's candidate classes are driven by the Selection column: a class set to Exclude never enters it, and a class set to Consider alternate first and mapped to a covered source (guaranteed income, home equity, and so on) is left out once that source meets the target, so large annuities or home equity already covering the bond and real-estate sleeves keep this scoped to the classes it does not already decide. It does not itself re-optimize the equity, bond and cash split, and does not support a manual override.",
+  },
+  "strategy_optimize.roth_result": {
+    pageId: "strategy_optimize",
+    title: "Roth optimizer result",
+    body: "Score (0-100) ranks the candidates relative to each other (100 is best in this set); it is a scoring unit, not a projected dollar outcome. The workbook's Roth Conversion sheet lists the scored candidates beyond those shown.",
+  },
+  "strategy_optimize.tax_loss_harvesting": {
+    pageId: "strategy_optimize",
+    title: "Tax loss harvesting",
+    body: "Controls whether and how the projection harvests capital losses from taxable-account lots each year.",
+  },
+  "strategy_optimize.gain_harvest": {
+    pageId: "strategy_optimize",
+    title: "Gain harvest",
+    body: "Controls whether and how the projection harvests capital gains from taxable-account lots each year (for example to fill up a low tax bracket).",
+  },
+  "strategy_optimize.funding_rollover": {
+    pageId: "strategy_optimize",
+    title: "Funding and rollover settings",
+    body: "Annual funding tolerance and spousal rollover settings are operational assumptions. They affect workbook QC, survivor account consolidation, RMD timing and late-life cash-flow output.",
+  },
+  "strategy_optimize.social_security": {
+    pageId: "strategy_optimize",
+    title: "Social Security",
+    body: "Claiming age and benefit assumptions. Pensions and annuities are entered on SS, Pensions and Annuities.",
+  },
+  "strategy_optimize.hsa_schedule": {
+    pageId: "strategy_optimize",
+    title: "HSA withdrawal schedule",
+    body: "Per-year HSA withdrawal plan for Optimizer mode. There is no separate calculation step: Add Year adds a row for a year, type an amount in Override for it, and that amount applies the next time you save or build, like any other plan field. Optimizer shows the search's own proposal once that feature computes one (not yet available); until then it stays blank and that year draws an even, level amount instead. Locked pins whatever the optimizer proposed, so it has nothing to do yet either.",
+  },
+  "spending_core.where_to_live": {
+    pageId: "spending_core",
+    title: "Where to live",
+    body: "The Where to live engine searches, given the places you would consider, which location, year and action for each move leaves the plan best off. It does not weigh moving against staying put across a range of timings; that is the When to move engine, the workbook's Housing Comparison sheet, which holds the location fixed and varies the timing instead. Move costs are estimated in the dollars of the year you move, not today's dollars; earlier results understated future moves and favored moving later. The candidate locations are the ZIPs the move's search runs on, pre-checked as the screen promoted them; tick or untick to change the search. Concurrent mode keeps both homes and is only available with Full grid search mode.",
+  },
+  "spending_core.where_to_live_apply": {
+    pageId: "spending_core",
+    title: "Apply a housing result",
+    body: "This applies the starred (rank 1) option. To apply a different row, change the search so it wins, or edit the Home and Housing fields directly. Estimated utilities, maintenance and insurance re-scale automatically with the price or rent this writes. Because that is a ratio, undoing a price change restores the price exactly and those estimates to within rounding.",
+  },
+  "spending_core.current_home": {
+    pageId: "spending_core",
+    title: "Current home",
+    body: "Home value, basis and the mortgage balance at plan start. Mortgage payment timing and recurring housing costs are entered with the Housing budget.",
+  },
+  "spending_core.next_housing_move": {
+    pageId: "spending_core",
+    title: "Next housing move",
+    body: "Choose whether each housing step is a purchase or a rental; rent stays visible even when the saved rent amount is currently zero. Keeping your home and renting it out? Convert my home to a rental opens Rental Properties with the conversion year set to your next move; you enter the rent, and you leave the sale year blank. Not sure what year or location to plan for? The Where to live search sweeps candidate sale and purchase years, locations and dwelling specs (area type, bedrooms, bathrooms, property type, square footage, lot size) with the same engine as the rest of the plan. Each result reports the ZIP code, an estimated price and the distance to your anchor; transcribe the winning candidate's state, area type, population, ZIP and dwelling fields into the steps here. Once a sale year is set, enter the sale price, commission and related details; home value and basis are managed in Current Home.",
+  },
+  "spending_core.home_improvements": {
+    pageId: "spending_core",
+    title: "Home improvement projects",
+    body: "Planned improvement costs are entered here as part of Housing. Other pages may reference them read-only.",
+  },
+  "spending_core.sale_proceeds_split": {
+    pageId: "spending_core",
+    title: "Split sale proceeds",
+    body: "Optional: divide house sale proceeds across more than one account by percentage instead of depositing the full amount to a single account above. Leave empty to use the single account setting instead. Rows must sum to 100%.",
+  },
+  "spending_core.residency_periods": {
+    pageId: "spending_core",
+    title: "Residency periods",
+    body: "Optional: model a move to another state at a known year instead of one fixed state for the whole plan. All state income tax, estate tax and other state-dependent figures use the state that applies in each projection year. Leave empty to use the single Household residence state for the whole plan. The last row is always open-ended (no end year): it applies from its start year through the end of the plan.",
+  },
+  "strategy_scenarios.stress_rows": {
+    pageId: "strategy_scenarios",
+    title: "Home sale stress test",
+    body: "Home sale stress-test rows apply to scenario workbook outputs only. Base-plan sale year, future rent, renters insurance and rental utilities are managed on the Housing page.",
+  },
+  "strategy_scenarios.change_sets": {
+    pageId: "strategy_scenarios",
+    title: "Scenario change sets",
+    body: "Templates stage common deterministic what-if overrides. Saved sets are browser-local change sets; review the diff, apply a set, then Save Changes, rebuild, and compare in the Planning Workbench. Save the current scenario assumptions when you want a reusable package of what-if overrides.",
+  },
+  "strategy_stress.survivor": {
+    pageId: "strategy_stress",
+    title: "Survivor stress",
+    body: "These are the key inputs driving the Survivor workbook sheet. The primary risks are single-filer tax bracket compression, loss of one Social Security stream, and accelerated required distributions. Change mortality ages or filing status on Household and People to adjust the base assumptions. After rebuilding, view the full Survivor analysis on Retirement Plan Workbook.",
+  },
+  "strategy_stress.long_term_care": {
+    pageId: "strategy_stress",
+    title: "Long-term care stress",
+    body: "Set care cost and duration, then rebuild. Policy details (benefit amount, elimination period) are on Other assets, where you add a Hybrid LTC policy.",
+  },
+  "strategy_stress.monte_carlo_mode": {
+    pageId: "strategy_stress",
+    title: "Monte Carlo engine mode",
+    body: "Use Simple for fast assumption testing and Complex for final or advisor-ready workbooks, because each simulated path then runs the fuller planning engine. Simple shows only the settings that materially affect the faster approximation; switch to Complex to see sensitivity grids, stochastic tax and IRMAA, inflation-path, serial-correlation and Wellness-shock controls. Advanced mode runs more trials with higher precision and suits final outputs; quick mode is faster and suits working sessions. Raise the trial count for final runs only when the build time budget allows.",
+  },
+  "strategy_workbench.decision_panel": {
+    pageId: "strategy_workbench",
+    title: "Decision panel",
+    body: "Every comparison ends with one deliberate choice: adopt selected changes into the saved plan via source pages, keep as a named scenario only, or archive with no action.",
+  },
+  "strategy_workbench.impact_matrix": {
+    pageId: "strategy_workbench",
+    title: "Impact matrix",
+    body: "LCV is Lifetime Consumption-and-Transfer Value and ELTR is Effective Lifetime Tax Rate. Save staged edits, strategy levers, scenario overrides or stress assumptions as a reusable planning case with the actions above the matrix.",
+  },
+  "strategy_workbench.forward_looking": {
+    pageId: "strategy_workbench",
+    title: "Forward-looking figures",
+    body: "Supplemental to the Impact matrix, not a substitute: what is left from today forward in the latest build, not the whole-lifetime figures used for comparing cases. FCV is Future Consumption Value and EFTR is Effective Future Tax Rate; build the plan to see them.",
+  },
+  "strategy_workbench.stress_suite": {
+    pageId: "strategy_workbench",
+    title: "Stress suite target",
+    body: "Run adverse assumptions against the baseline or a saved planning case. Stress tests remain labels and inputs until you save and build deliberately.",
+  },
+  "strategy_workbench.comparison_context": {
+    pageId: "strategy_workbench",
+    title: "Comparison context",
+    body: "Build Impact uses the same Baseline / Change Set / Run Type / Impact vocabulary as Strategy, Scenario Change Sets and Stress Suite. The selected planning case is for comparison context only; adopt changes on source pages before rebuilding.",
+  },
+  "detailed_results.workbook": {
+    pageId: "detailed_results",
+    title: "Retirement Plan Workbook",
+    body: "Every workbook result sheet, charts and tables. Charts are rendered natively and tables are enhanced for the UI. Selected result pages load separately, and other pages load only when selected, so large workbooks do not freeze the explorer; the explorer times out instead of staying on a loading message.",
+  },
+  "monarch_reconciliation.inbox": {
+    pageId: "monarch_reconciliation",
+    title: "Needs a decision",
+    body: "Nothing needs a decision when every matched account agrees with the app, is handled automatically, or is set to ignore. Account balances arrive with the daily account balance import: another process writes balances.csv to the source folder, then the scheduled job loads it.",
+  },
+  "actual_spending.tracker": {
+    pageId: "actual_spending",
+    title: "Spending tracker",
+    body: "The five KPI tiles include income taxes and exclude only internal transfers; the All-In row adds transfer transactions back in. Initialize Budget from Actual Spending creates category budget targets based on current actual spending proportions.",
+  },
+  "actual_spending.monthly_trajectory": {
+    pageId: "actual_spending",
+    title: "Monthly trajectory",
+    body: "All spending except internal transfers. It includes Housing, Wellness and healthcare, Travel, Large Discretionary, Business, Core Expense and Taxes outflows when present in transactions.",
+  },
+  "actual_spending.model_managed": {
+    pageId: "actual_spending",
+    title: "Model-managed and business spending",
+    body: "Model-managed categories are tracked separately by the projection model and excluded from the spending categories budget. Business expenses are likewise tracked separately from the personal core budget.",
+  },
+  "actual_spending.accounts_sources": {
+    pageId: "actual_spending",
+    title: "Accounts and sources",
+    body: "Where the money came from or is held. Transaction accounts are added automatically from uploaded transactions. This section does not assign spending categories; it identifies account or source type, prior-year balance, current value and any mapped investment account. Add non-transaction sources for annuities, pensions, Social Security, offline assets, real estate, notes, credit cards, loans or other manual assets and liabilities. Investment current value is derived from mapped Holdings accounts, and the mapping dropdowns stay blank until holdings are loaded. Add account/source adds the typed account with the selected type, no pop-up. Recover previous setup is a one-time recovery from a previous SQLite mirror, local Plan Data folder or sibling extracted package.",
+  },
+  "reports_and_review.build_impact": {
+    pageId: "reports_and_review",
+    title: "Build impact",
+    body: "Dials are heat-mapped: green is the best across all entries, red the worst. LCV (Expected After-Tax Lifetime Consumption-and-Transfer Value) is total lifetime spending plus the after-tax, after-estate-tax terminal transfer to heirs. All-In LCV adds lifetime taxes paid back in, for a single figure that includes every tax dollar.",
+  },
+  // End Phase 3b.
   "household_people.people": {
     pageId: "household_people",
     title: "People",

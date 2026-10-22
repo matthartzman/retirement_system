@@ -2,26 +2,22 @@
 
 export function renderSurvivorStress() {
   const rs = rowsForStep("survivor_stress");
-  let html = `<div class="section-note">These are the key inputs driving the Survivor workbook sheet. The primary risks: single-filer tax bracket compression, loss of one Social Security stream, and accelerated required distributions. Change mortality ages or filing status on <a href="#" onclick="navigateTo('household_people');return false">Household &amp; People</a> to adjust the base assumptions. After rebuilding, view the full Survivor analysis on <a href="#" onclick="navigateTo('detailed_results');return false">Retirement Plan Workbook</a>.</div>`;
-  return (
-    html +
-    (rs.length
+  return `<div data-help-section="strategy_stress.survivor">${
+    rs.length
       ? renderFieldGroups(rs)
-      : `<div class="field-list"><p>Survivor inputs are entered on Household &amp; People. The full survivor result appears in the workbook after a build.</p></div>`)
-  );
+      : `<div class="field-list"><p data-kind="state">Survivor inputs are entered on Household &amp; People.</p></div>`
+  }</div>`;
 }
 
 export function renderLtcStress() {
   if (!optionalFunctionEnabled("long_term_care_stress"))
     return '<div class="field-list"><p>Long-Term Care Stress inputs are hidden until the Long-Term-Care Stress optional workbook module is enabled on <a href="#" onclick="navigateTo(\'optional_functions\');return false">Plan Features</a>.</p></div>';
   const rs = rowsForStep("ltc_stress");
-  let html = `<div class="section-note">Set care cost and duration, then rebuild. Policy details (benefit amount, elimination period) are on <a href="#" onclick="navigateTo('assets_special');return false">Other assets</a>.</div>`;
-  return (
-    html +
-    (rs.length
+  return `<div data-help-section="strategy_stress.long_term_care">${
+    rs.length
       ? renderFieldGroups(rs)
-      : `<div class="field-list"><p>No long-term-care policy inputs found yet. Add a Hybrid LTC policy on Other assets.</p></div>`)
-  );
+      : `<div class="field-list"><p data-kind="state">No long-term-care policy inputs found yet.</p></div>`
+  }</div>`;
 }
 
 export function mcEngineRow() {
@@ -51,7 +47,7 @@ export function setMcEngineMode(value) {
 export function mcEngineToggleHtml(engine) {
   const mode = mcEngineModeValue();
   if (!engine)
-    return '<p class="small">Monte Carlo engine row is missing from Plan Data. Reloading Plan Data with this package will add it automatically.</p>';
+    return '<p class="small" data-kind="warn">Monte Carlo engine row is missing from Plan Data; reload the current plan.</p>';
   return `<div class="mc-mode-toggle" role="radiogroup" aria-label="Monte Carlo engine mode"><button type="button" class="mc-mode-option ${mode === "quick_vectorized" ? "active" : ""}" aria-pressed="${mode === "quick_vectorized" ? "true" : "false"}" onclick="setMcEngineMode('quick_vectorized')"><b>Simple</b><span>Runs in seconds. Good for testing changes during plan entry. Approximate — not for final outputs.</span></button><button type="button" class="mc-mode-option ${mode === "advanced_exact_scalar" ? "active" : ""}" aria-pressed="${mode === "advanced_exact_scalar" ? "true" : "false"}" onclick="setMcEngineMode('advanced_exact_scalar')"><b>Complex</b><span>Runs fuller paths per trial. Use for final and advisor-ready workbooks where precision matters.</span></button></div><div class="small mc-mode-current">Saved value: ${esc(valOf(engine) || "advanced_exact_scalar")}</div>`;
 }
 
@@ -95,12 +91,12 @@ export function renderMonteCarloOptions() {
     );
   });
   let html =
-    '<div class="field-list"><div class="section-note mc-engine-card"><b>Start here: choose the Monte Carlo engine.</b><p>Use <b>Simple</b> for fast assumption testing. Use <b>Complex</b> for final/advisor-ready workbooks because each simulated path runs the fuller planning engine.</p>' +
+    '<div class="field-list"><div class="section-note mc-engine-card" data-kind="state"><b>Start here: choose the Monte Carlo engine.</b>' +
     mcEngineToggleHtml(engine) +
     "</div></div>";
-  html += `<div class="field-list"><div class="section-note"><b>Showing ${mode === "quick_vectorized" ? "simple / quick-mode" : "complex / advanced-mode"} options.</b> ${mode === "quick_vectorized" ? "Only the settings that materially affect the faster approximation are shown. Switch to Complex to see sensitivity grids, stochastic tax/IRMAA, inflation-path, serial-correlation, and Wellness-shock controls." : "Advanced controls are shown because Complex mode runs fuller scalar paths and can use tax/IRMAA, inflation, sensitivity, Wellness-shock, and serial-correlation settings."}</div></div>`;
+  html += `<div class="field-list"><div class="section-note" data-kind="state"><b>Showing ${mode === "quick_vectorized" ? "simple / quick-mode" : "complex / advanced-mode"} options.</b></div></div>`;
   html += renderFieldGroups(rowsToShow);
-  return html;
+  return `<div data-help-section="strategy_stress.monte_carlo_mode">${html}</div>`;
 }
 
 export function renderDivorceOptions() {

@@ -123,7 +123,7 @@ const ADMIN_HELP = {
     impact:
       "These settings affect whether the local User UI and System Configuration can connect and whether workbook builds run from the browser.",
     consider:
-      "Ask: do I need to change how I start the local app or give builds more time? Change the port only if it conflicts with another local program; change build timeout when Advanced Exact Scalar Monte Carlo needs more time.",
+      "Ask: do I need to change how I start the local app or give builds more time? Change the port only if it conflicts with another local program; change build timeout when Advanced Exact Scalar Monte Carlo needs more time. This build is local-only: client registry, public-hosting, reverse-proxy and browser-login controls are removed, plan data lives in the plan file, and reports come from the download buttons after a build. Clear cache removes saved browser-side UI state (Build History, workbench layout, etc.) and the app window's render/HTTP cache; use it if the UI still looks stale after an update. A code change to the Python backend always needs a full app restart.",
   },
   system_config: {
     title: "System configuration",
@@ -132,7 +132,7 @@ const ADMIN_HELP = {
     impact:
       "These rows flow into runtime startup, workbook generation, optimizer choices, report content, output warnings, and advisor-readiness flags.",
     consider:
-      "Use the focused pages for routine edits. Use the broad table only when you need to audit or change several related settings.",
+      "Use the focused pages for routine edits. Use the broad table only when you need to audit or change several related settings. Compact table view: changes save to the system configuration store and keep CSV adapter compatibility. Use the triangles to expand sections; focus any value control to update this panel. The raw CSV editor is only for bulk adapter maintenance or adding columns; normal planning edits belong in the main UI.",
   },
   pricing: {
     title: "Pricing / market data",
@@ -141,7 +141,16 @@ const ADMIN_HELP = {
     impact:
       "Pricing affects account values in the workbook, allocation drift, trade recommendations, tax-lot gain/loss estimates, report warnings, and advisor-ready pricing status.",
     consider:
-      "Use CACHE for ordinary work. It uses any cached quote, even stale, before falling back to cost basis when no cache exists. Cost basis is now only a fallback when no cached quote exists.",
+      "Use CACHE for ordinary work. It uses any cached quote, even stale, before falling back to cost basis when no cache exists. Cost basis is now only a fallback when no cached quote exists. The single-symbol tester calls each live provider directly, bypassing cache selection, and prints the redacted command sent to each service plus response status, timing, preview, parser result and final provider selection.",
+  },
+  tax_law: {
+    title: "Tax-law update dashboard",
+    purpose:
+      "Review every tax-sensitive constant with its vintage, source, last reviewed date and whether it blocks advisor-ready status.",
+    impact:
+      "Blocking means the report may still be illustrative, but advisor-ready or recommendation status is not allowed until the constant is updated or signed off.",
+    consider:
+      "Plan assumption review lives in the User UI Review section so it stays connected to plan outputs; it is not mandatory signoff language.",
   },
   diagnostics: {
     title: "Workbook build diagnostics",
@@ -149,7 +158,7 @@ const ADMIN_HELP = {
     impact:
       "Diagnostics reveal the source data behind workbook outputs: price sources, QC status, generated files, and whether report warnings should be investigated.",
     consider:
-      "Ask: did the workbook use the data and assumptions I expected? Open this after changing pricing, tax, allocation, or other system settings.",
+      "Ask: did the workbook use the data and assumptions I expected? Open this after changing pricing, tax, allocation, or other system settings. The list shows the last generated local output files.",
   },
   allocation: {
     title: "Allocation policy / asset classes",
@@ -384,7 +393,7 @@ async function showAppSettings() {
       .map(([k, v]) => modeCard(k, v, s.app_mode))
       .join(
         "",
-      )}</div><p class="muted">This build is local-only. Client registry, public-hosting, reverse-proxy, and browser-login controls have been removed from this local-only UI.</p><button class="primary" onclick="showSystemConfig('build_timeout')">Edit build timeout / max_build_seconds</button><h3>Start commands</h3><table><tr><th>Command</th><th>Purpose</th></tr>${Object.entries(
+      )}</div><button class="primary" onclick="showSystemConfig('build_timeout')">Edit build timeout / max_build_seconds</button><h3>Start commands</h3><table><tr><th>Command</th><th>Purpose</th></tr>${Object.entries(
       s.commands || {},
     )
       .map(
@@ -393,7 +402,7 @@ async function showAppSettings() {
       )
       .join(
         "",
-      )}</table><button class="danger" onclick="shutdown()">Shut down app</button> <button onclick="clearAppCache()">Clear cache</button><p class="muted">Clears saved browser-side UI state (Build History, workbench layout, etc.) and the app window's render/HTTP cache. Use this if the UI still looks stale after an update. A code change to the Python backend always needs a full app restart -- this button does not replace that.</p>`;
+      )}</table><button class="danger" onclick="shutdown()">Shut down app</button> <button onclick="clearAppCache()">Clear cache</button>`;
   msg("App settings loaded");
 }
 async function clearAppCache() {
@@ -1507,7 +1516,7 @@ async function loadCsvEditor(def, backAction = "showAppSettings()") {
     ? buildSectionSettings(rows, def)
     : buildDataGrid(rows, def.profile);
   document.getElementById("main").innerHTML =
-    `<h2>${esc(activeEditor.title)}</h2><p class="muted">${esc(out.path)} · Compact table view. Changes save to the system configuration store and maintain CSV adapter compatibility.</p>${def.note ? `<div class="note-box">${esc(def.note)}</div>` : ""}<div class="toolbar compact-toolbar"><input id="cfgSearch" class="cfg-input hidden" aria-label="Search rows, values, or helper notes" placeholder="Search rows, values, or helper notes..." oninput="filterActiveTable()"><span id="cfgResultCount" class="pill">${Math.max(0, rows.length - 1)} rows</span><span><button onclick="document.querySelectorAll('#editorBody details').forEach(d=>d.open=true)">Expand all</button><button onclick="document.querySelectorAll('#editorBody details').forEach(d=>d.open=false)">Collapse all</button><button onclick="toggleRawEditor()">Advanced raw CSV</button></span><div class="collapsed-note">Use the triangles to expand sections. Focus any value control to update the right help panel.</div></div><div id="editorBody">${body}</div><div id="rawBox" class="advanced-box"><h3>Advanced CSV adapter editor</h3><p class="muted">Use only for bulk adapter maintenance or adding columns. Normal planning edits belong in the main UI.</p><textarea id="rawCsv" aria-label="Raw CSV adapter data">${esc(rowsToCsv(rows))}</textarea></div><div class="cfg-actions"><button class="primary" onclick="saveActiveEditor()">Save</button><button onclick="loadCsvEditor(activeEditor,activeEditor.backAction)">Reload from disk</button><span class="mini">Save stays visible. Use the left navigation to move between pages; raw CSV fallback is preserved.</span></div>`;
+    `<h2>${esc(activeEditor.title)}</h2><p class="muted">${esc(out.path)}</p>${def.note ? `<div class="note-box">${esc(def.note)}</div>` : ""}<div class="toolbar compact-toolbar"><input id="cfgSearch" class="cfg-input hidden" aria-label="Search rows, values, or helper notes" placeholder="Search rows, values, or helper notes..." oninput="filterActiveTable()"><span id="cfgResultCount" class="pill">${Math.max(0, rows.length - 1)} rows</span><span><button onclick="document.querySelectorAll('#editorBody details').forEach(d=>d.open=true)">Expand all</button><button onclick="document.querySelectorAll('#editorBody details').forEach(d=>d.open=false)">Collapse all</button><button onclick="toggleRawEditor()">Advanced raw CSV</button></span></div><div id="editorBody">${body}</div><div id="rawBox" class="advanced-box"><h3>Advanced CSV adapter editor</h3><textarea id="rawCsv" aria-label="Raw CSV adapter data">${esc(rowsToCsv(rows))}</textarea></div><div class="cfg-actions"><button class="primary" onclick="saveActiveEditor()">Save</button><button onclick="loadCsvEditor(activeEditor,activeEditor.backAction)">Reload from disk</button><span class="mini">Save stays visible. Use the left navigation to move between pages; raw CSV fallback is preserved.</span></div>`;
   initEditorInteractions();
   msg(activeEditor.title + " loaded");
 }
@@ -1701,7 +1710,7 @@ function adminNavItems() {
     title: "Tax-law update dashboard",
     desc: "Federal/state/IRMAA/Social Security/RMD constants, source, year, and review status",
     action: "showTaxLawDashboard()",
-    helpKey: "tax",
+    helpKey: "tax_law",
   });
   pages("Tax & accounts").forEach(add);
 
@@ -1837,8 +1846,7 @@ function renderPricingSymbolTester() {
   if (!main || document.getElementById("pricingSymbolTester")) return;
   const html = `<div id="pricingSymbolTester" class="note-box" style="margin:0 0 14px 0">
     <h3 style="margin-top:0">Single-symbol live pricing tester</h3>
-    <p class="muted">Enter one ticker and this will call each live provider directly, bypassing cache selection for the diagnostic. It prints the redacted command sent to each service plus response status, timing, preview, parser result, and final provider selection.</p>
-    <div class="row"><input id="pricingTestSymbol" aria-label="Ticker symbol to test" placeholder="Ticker, e.g. VTI" style="max-width:220px;text-transform:uppercase" onkeydown="if(event.key==='Enter')runLivePriceSymbolTest()"><button class="primary" onclick="runLivePriceSymbolTest()">Test live quote</button><span id="pricingTestStatus" class="muted"></span></div>
+        <div class="row"><input id="pricingTestSymbol" aria-label="Ticker symbol to test" placeholder="Ticker, e.g. VTI" style="max-width:220px;text-transform:uppercase" onkeydown="if(event.key==='Enter')runLivePriceSymbolTest()"><button class="primary" onclick="runLivePriceSymbolTest()">Test live quote</button><span id="pricingTestStatus" class="muted"></span></div>
     <div id="pricingTestResult" style="margin-top:12px"></div>
   </div>`;
   const pane = main.querySelector(".pane-head");
@@ -1913,7 +1921,7 @@ async function runLivePriceSymbolTest() {
   if (status) status.textContent = "Starting diagnostic...";
   if (result)
     result.innerHTML =
-      '<div class="section-note">Starting local diagnostic job. Provider commands and responses will appear as each service returns.</div>';
+      '<div class="section-note" data-kind="state">Starting local diagnostic job…</div>';
   try {
     const started = await api("/api/prices/test-symbol/start", {
       method: "POST",
@@ -1947,13 +1955,13 @@ async function showTaxLawDashboard() {
   setAdminStep("tax_law_dashboard");
   const out = await api("/api/admin/tax-law-dashboard");
   document.getElementById("main").innerHTML =
-    `<h2>Tax-law update dashboard</h2><p class="muted">Every tax-sensitive output must identify constant vintage, source, last reviewed date, and whether it is blocking advisor-ready status.</p><table><tr><th>Constant</th><th>Category</th><th>Year</th><th>Source</th><th>Last reviewed</th><th>Status</th></tr>${(out.rows || []).map((r) => `<tr><td>${esc(r.constant)}</td><td>${esc(r.category)}</td><td>${esc(r.year)}</td><td>${esc(r.source)}</td><td>${esc(r.last_reviewed)}</td><td><span class="badge ${r.blocking ? "bad" : "ok"}">${esc(r.status)}</span></td></tr>`).join("")}</table><div class="section-note">Blocking means the report may still be illustrative, but advisor-ready/recommendation status is not allowed until updated or signed off.</div>`;
+    `<h2>Tax-law update dashboard</h2><table><tr><th>Constant</th><th>Category</th><th>Year</th><th>Source</th><th>Last reviewed</th><th>Status</th></tr>${(out.rows || []).map((r) => `<tr><td>${esc(r.constant)}</td><td>${esc(r.category)}</td><td>${esc(r.year)}</td><td>${esc(r.source)}</td><td>${esc(r.last_reviewed)}</td><td><span class="badge ${r.blocking ? "bad" : "ok"}">${esc(r.status)}</span></td></tr>`).join("")}</table>`;
   msg("Tax-law dashboard loaded");
 }
 async function showAdvisorSignoff() {
   setAdminStep("reference");
   document.getElementById("main").innerHTML =
-    `<h2>Assumption review moved</h2><p class="muted">Plan assumption review is handled in the User UI Review section so it stays connected to plan outputs. It is not mandatory signoff language.</p>`;
+    `<h2>Assumption review moved</h2><p class="muted" data-kind="state">Plan assumption review is in the User UI Review section.</p>`;
   msg("Assumption review is in the User UI");
 }
 
@@ -1961,7 +1969,7 @@ async function showDiagnostics() {
   setAdminStep("diagnostics");
   const out = await api("/api/admin/diagnostics");
   document.getElementById("main").innerHTML =
-    `<h2>Workbook build diagnostics</h2><p class="muted">${esc(out.output_dir)} · Last generated local output files.</p><div class="diag-grid">${out.files.map((f) => `<div class="diag-card"><b>${esc(f.name)}</b><p class="muted">${esc(f.path)}</p><span class="pill ${f.available ? "good" : "bad"}">${f.available ? "available" : "missing"}</span><span class="pill">${esc(f.bytes)} bytes</span>${f.json ? `<h4>Summary</h4><pre class="code" style="white-space:pre-wrap;display:block;max-height:220px;overflow:auto">${esc(JSON.stringify(summarizeDiagnostic(f.json), null, 2))}</pre>` : ""}</div>`).join("")}</div>`;
+    `<h2>Workbook build diagnostics</h2><p class="muted">${esc(out.output_dir)}</p><div class="diag-grid">${out.files.map((f) => `<div class="diag-card"><b>${esc(f.name)}</b><p class="muted">${esc(f.path)}</p><span class="pill ${f.available ? "good" : "bad"}">${f.available ? "available" : "missing"}</span><span class="pill">${esc(f.bytes)} bytes</span>${f.json ? `<h4>Summary</h4><pre class="code" style="white-space:pre-wrap;display:block;max-height:220px;overflow:auto">${esc(JSON.stringify(summarizeDiagnostic(f.json), null, 2))}</pre>` : ""}</div>`).join("")}</div>`;
   msg("Diagnostics loaded");
 }
 function summarizeDiagnostic(j) {
@@ -1989,7 +1997,7 @@ function summarizeDiagnostic(j) {
 async function showWorkspaces() {
   setAdminStep("app_settings");
   document.getElementById("main").innerHTML =
-    `<h2>Local-only package</h2><p class="muted">Client registry and report browsing pages were removed. Plan data is stored in the plan file; use the User UI to edit it, and the download buttons after a build to retrieve reports.</p>`;
+    `<h2>Local-only package</h2><p class="muted" data-kind="state">Client registry and report browsing pages were removed.</p>`;
   msg("Local-only package: client registry removed");
 }
 async function showWorkspaceFiles(t) {

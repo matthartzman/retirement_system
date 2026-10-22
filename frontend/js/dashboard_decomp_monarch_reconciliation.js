@@ -65,7 +65,7 @@ function rcMatchedNames(row, asOf) {
   // Each match can be removed: a saved match is cleared, a by-name match is switched off by ignoring that Imported account.
   const chip = (a) => esc(a.account) + (a.closed ? " (closed)" : "") +
     (a.balance_date && a.balance_date !== asOf ? ` (balance from ${esc(a.balance_date)})` : "") +
-    ` <button class="rc-unmatch" type="button" data-key="${esc(a.account_key)}" data-auto="${a.auto ? "1" : ""}" title="Remove this match" aria-label="Remove match for ${esc(a.account)}" onclick="rcUnmatch(this.dataset.key, this.dataset.auto)">✕</button>`;
+    ` <button class="rc-unmatch" type="button" data-key="${esc(a.account_key)}" data-auto="${a.auto ? "1" : ""}" aria-label="Remove match for ${esc(a.account)}" onclick="rcUnmatch(this.dataset.key, this.dataset.auto)">✕</button>`;
   return `<div class="rc-sub">${accts.map(chip).join(" + ")} · ${note}</div>`;
 }
 
@@ -98,9 +98,9 @@ export function rcGroupsHtml(data, selected, showMatched) {
     html += head + (shown.length
       ? `<div class="rc-scroll"><table class="rc-table"><thead><tr><th></th><th>Account</th><th>Policy</th><th class="rc-num">App</th><th class="rc-num">Imported</th><th class="rc-num">Difference</th><th>Status</th></tr></thead><tbody>` +
         shown.map((r) => rcRowHtml(r, selected.has(r.id), data.as_of)).join("") + "</tbody></table></div>"
-      : '<div class="section-note">Everything here matches.</div>');
+      : '<div class="section-note" data-kind="state">Everything here matches.</div>');
   }
-  return html || '<div class="section-note">No accounts to compare yet.</div>';
+  return html || '<div class="section-note" data-kind="state">No accounts to compare yet.</div>';
 }
 
 // Policy control for a row: one select that sets the policy on every Imported account feeding it.
@@ -124,7 +124,7 @@ export function rcInboxItems(data, dismissed) {
   return { diffs, unmatched, hidden: open.length - diffs.length };
 }
 
-const rcHiddenHtml = (n) => n ? `<div class="section-note">${n} hidden by "Ignore this time". <button class="btn" type="button" onclick="rcRestoreDismissed()">Show hidden</button></div>` : "";
+const rcHiddenHtml = (n) => n ? `<div class="section-note" data-kind="state">${n} hidden by "Ignore this time". <button class="btn" type="button" onclick="rcRestoreDismissed()">Show hidden</button></div>` : "";
 
 export function rcInboxRowHtml(row) {
   const btn = (act, label, cls) => `<button class="btn ${cls || ""}" type="button" data-id="${esc(row.id)}" onclick="rcDecide('${act}', this.dataset.id)">${label}</button>`;
@@ -135,8 +135,11 @@ export function rcInboxRowHtml(row) {
 }
 
 export function rcInboxHtml(data, dismissed) {
+  return `<div data-help-section="monarch_reconciliation.inbox">${rcInboxBody(data, dismissed)}</div>`;
+}
+function rcInboxBody(data, dismissed) {
   const { diffs, unmatched, hidden } = rcInboxItems(data, dismissed);
-  if (!diffs.length && !unmatched.length) return '<div class="section-note">Nothing needs a decision. Every matched account agrees with the app, is handled automatically, or is set to ignore.</div>' + rcHiddenHtml(hidden);
+  if (!diffs.length && !unmatched.length) return '<div class="section-note" data-kind="state">Nothing needs a decision.</div>' + rcHiddenHtml(hidden);
   const table = diffs.length
     ? `<h3>Numbers that differ (${diffs.length})</h3><div class="rc-scroll"><table class="rc-table"><thead><tr><th>Account</th><th class="rc-num">App</th><th class="rc-num">Imported</th><th class="rc-num">Difference</th><th>Choose</th></tr></thead><tbody>${diffs.map(rcInboxRowHtml).join("")}</tbody></table></div>` +
       '<div class="section-note"><b>Update app</b> copies imported\'s number once (after a preview). <b>Always update</b> does that now and copies it automatically at each import. <b>App is source</b> keeps the app\'s number and only reports. <b>Ignore this time</b> hides it until imported\'s number changes.</div>'
@@ -168,7 +171,7 @@ export function rcAutoBannerHtml(log, now) {
   const cutoff = (now || Date.now()) - 7 * 86400000;
   const auto = (log || []).filter((e) => e.source === "auto" && !e.undone_at && Date.parse(e.applied_at) >= cutoff);
   if (!auto.length) return "";
-  return `<div class="section-note" role="status">${auto.length} number${auto.length === 1 ? " was" : "s were"} updated automatically from the import in the last 7 days (see the change log). ` +
+  return `<div class="section-note" role="status" data-kind="state">${auto.length} number${auto.length === 1 ? " was" : "s were"} updated automatically from the import in the last 7 days (see the change log). ` +
     '<button class="btn" type="button" onclick="rcUndoAuto()">Undo all automatic updates</button></div>';
 }
 
@@ -180,8 +183,8 @@ export function rcPreviewHtml(preview) {
   const rows = changes.map((c) => `<tr><td>${esc(c.label)}</td><td class="rc-num">${esc(c.old === "" ? "blank" : c.old)}</td><td class="rc-num">${esc(c.new)}</td>` +
     `<td class="rc-num">${esc(rcMoney(c.app_value))} → ${esc(rcMoney(c.monarch_value))}</td></tr>`).join("");
   return `<div class="rc-preview" role="dialog" aria-label="Preview update from import"><h3>Update ${changes.length} number${changes.length === 1 ? "" : "s"} from the import</h3>` +
-    (changes.length ? `<div class="rc-scroll"><table class="rc-table"><thead><tr><th>Account</th><th class="rc-num">Stored now</th><th class="rc-num">Will store</th><th class="rc-num">App → Imported</th></tr></thead><tbody>${rows}</tbody></table></div>` : '<div class="section-note">Nothing to update.</div>') +
-    (planInput ? '<div class="section-note rc-warn">Plan inputs change what the next build calculates. Rebuild after applying.</div>' : "") +
+    (changes.length ? `<div class="rc-scroll"><table class="rc-table"><thead><tr><th>Account</th><th class="rc-num">Stored now</th><th class="rc-num">Will store</th><th class="rc-num">App → Imported</th></tr></thead><tbody>${rows}</tbody></table></div>` : '<div class="section-note" data-kind="state">Nothing to update.</div>') +
+    (planInput ? '<div class="section-note rc-warn" data-kind="warn">Plan inputs change what the next build calculates. Rebuild after applying.</div>' : "") +
     (rejected.length ? `<div class="section-note">${rejected.map((r) => esc(r.id) + ": " + esc(r.reason)).join("<br>")}</div>` : "") +
     `<div class="pane-actions"><button class="btn good" type="button" onclick="rcApply()"${changes.length ? "" : " disabled"}>Apply ${changes.length} change${changes.length === 1 ? "" : "s"}</button> ` +
     `<button class="btn" type="button" onclick="rcPreviewCancel()">Cancel</button></div></div>`;
@@ -209,7 +212,7 @@ export function rcIgnoredHtml(data) {
 }
 
 export function rcLogHtml(log) {
-  if (!log || !log.length) return '<div class="section-note">No updates from the import yet.</div>';
+  if (!log || !log.length) return '<div class="section-note" data-kind="state">No updates from the import yet.</div>';
   return '<div class="rc-scroll"><table class="rc-table"><thead><tr><th>When</th><th>Account</th><th>By</th><th class="rc-num">Old</th><th class="rc-num">New</th><th>Import date</th><th></th></tr></thead><tbody>' +
     log.map((e) => `<tr><td>${esc(String(e.applied_at || "").replace("T", " ").replace("+00:00", " UTC"))}</td><td>${esc(e.label)}</td><td>${e.source === "auto" ? "automatic" : "you"}</td>` +
       `<td class="rc-num">${esc(e.old_value === "" ? "blank" : e.old_value)}</td><td class="rc-num">${esc(e.new_value)}</td><td>${esc(e.monarch_date)}</td>` +
@@ -230,7 +233,7 @@ export function rcBodyHtml(state) {
   if (error) return `<div class="section-note rc-warn">${esc(error)} <button class="btn" type="button" onclick="loadMonarchReconciliation()">Retry</button></div>`;
   if (!data) return `<div class="section-note">${loading ? "Loading the comparison…" : "Nothing loaded yet."}</div>`;
   if (!data.has_balances) {
-    return '<div class="section-note">No account balances have been imported into this plan yet. They arrive with the daily account balance import (another process writes balances.csv to the source folder, then the scheduled job loads it).</div>';
+    return '<div class="section-note" data-kind="state">No account balances have been imported into this plan yet.</div>';
   }
   const s = rcSummary(data.rows, data.unmatched);
   const inbox = rcInboxItems(data, dismissed);

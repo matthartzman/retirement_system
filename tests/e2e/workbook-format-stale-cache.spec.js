@@ -74,7 +74,7 @@ test('a rebuilt column width replaces the stale "Last built" value after navigat
   // Edited-but-not-yet-rebuilt state: the stale banner appears, and "Last
   // built" still shows the OLD width -- both correct at this point.
   await expect(page.locator('.workbook-format-panel .section-note.warn').first()).toContainText(
-    'saved overrides were edited after the workbook shown below was built',
+    'Edits were saved after the workbook below was built',
   );
   await expect(firstRow.locator('.wf-col-default')).toHaveText(`Last built: ${originalWidth}`);
 

@@ -92,13 +92,13 @@ def test_schema_csv_is_still_well_formed():
 
 def test_ui_discloses_both_gaps_near_the_conversion_controls():
     js = (ROOT / "frontend" / "js" / "dashboard_decomp_allocation_optimizer.js").read_text(encoding="utf-8")
-    assert "how</b> conversion taxes are paid" in js
+    assert "Not modeled: how conversion taxes are paid" in js
     assert "asset-location-aware conversion" in js
     # Must appear before the policy control fields render, i.e. near the top
     # of renderRothConversion, not buried after every field -- "near the
     # conversion policy controls" per the brief.
     fn_start = js.index("export function renderRothConversion()")
-    disclosure_pos = js.index("how</b> conversion taxes are paid", fn_start)
+    disclosure_pos = js.index("Not modeled: how conversion taxes are paid", fn_start)
     control_render_pos = js.index('${control.map((r) => fieldHtml(r, { hideUnit: true, dropRoth: true })).join("")}', fn_start)
     assert disclosure_pos < control_render_pos
 

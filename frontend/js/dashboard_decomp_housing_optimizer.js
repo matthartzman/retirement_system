@@ -74,8 +74,7 @@ function housingOptValuationNoticeHtml() {
   if (housingOptValuationNoticeDismissed()) return "";
   return (
     '<div class="housing-opt-notice" id="housingOptValuationNotice">' +
-    "<p class=\"small\">Move costs are now estimated in the dollars of the year you move, " +
-    "not today's dollars. Earlier results understated future moves and favored moving later.</p>" +
+    "<p class=\"small\" data-kind=\"warn\">Move costs are now in the dollars of the year you move, not today's dollars.</p>" +
     '<button class="btn tiny" type="button" onclick="dismissHousingOptValuationNotice()">Dismiss</button>' +
     "</div>"
   );
@@ -1244,7 +1243,7 @@ function housingOptMoveSelectionHtml(n) {
   return (
     `<div class="housing-opt-selection" onclick="showHousingOptFieldHelp('${p}SelectedZips')">` +
     `<div class="housing-opt-row-label">Move ${n} — candidate locations` +
-    `<button type="button" class="field-info-i" title="The ZIPs this move's search runs on. Pre-checked as the screen promoted them; tick or untick to change the search." aria-label="More info: candidate locations">i</button></div>` +
+    `<button type="button" class="field-info-i" aria-label="More info: candidate locations">i</button></div>` +
     `<div class="housing-opt-shortlist" id="${p}Shortlist"><p class="small">Press <em>Find candidate locations</em> to screen ZIPs around this move's anchors.</p></div>` +
     "</div>"
   );
@@ -1353,7 +1352,7 @@ export function renderHousingOptimizePanelHtml() {
       housingOptField(
         "housingOptNoDualOwnership",
         "Never own two homes at once",
-        `<input type="checkbox" id="housingOptNoDualOwnership" checked onchange="debouncedRefreshHousingOptValidation()"><span class="housing-opt-note small" id="housingOptNoDualOwnershipConcurrentNote" hidden>Not applicable in concurrent mode -- both homes are always kept.</span>`,
+        `<input type="checkbox" id="housingOptNoDualOwnership" checked onchange="debouncedRefreshHousingOptValidation()"><span class="housing-opt-note small" id="housingOptNoDualOwnershipConcurrentNote" data-kind="state" hidden>Not applicable in concurrent mode -- both homes are always kept.</span>`,
         "Constrains ownership only. Renting a residence while still owning the previous home is always permitted.",
       ),
   );
@@ -1472,7 +1471,7 @@ export function renderHousingOptimizePanelHtml() {
     housingOptField(
       "housingOptMove2Concurrent",
       "Concurrent with move 1",
-      `<input type="checkbox" id="housingOptMove2Concurrent" onchange="toggleHousingOptMove2ConcurrentAvailability(); debouncedRefreshHousingOptValidation()"><span class="housing-opt-note small" id="housingOptMove2ConcurrentNarrowedNote" hidden>Concurrent mode is only available with Full grid search mode.</span>`,
+      `<input type="checkbox" id="housingOptMove2Concurrent" onchange="toggleHousingOptMove2ConcurrentAvailability(); debouncedRefreshHousingOptValidation()"><span class="housing-opt-note small" id="housingOptMove2ConcurrentNarrowedNote" data-kind="warn" hidden>Concurrent mode is only available with Full grid search mode.</span>`,
       "Keeps the move-1 home and adds this as a second residence rather than replacing it.",
     ) +
       housingOptField(
@@ -1487,14 +1486,9 @@ export function renderHousingOptimizePanelHtml() {
   // housing engines and say what each one does and does not answer, so
   // "Where to live" and "When to move" stop reading as two spellings of the
   // same tool.
-  const engineNote =
-    '<div class="section-note">This is the <strong>Where to live</strong> engine: given the places you would consider, ' +
-    "it searches which location, year and action for each move leaves the plan best off. It does not weigh moving " +
-    "against staying put across a range of timings -- that is the <strong>When to move</strong> engine, the " +
-    "workbook's Housing Comparison sheet, which holds the location fixed and varies the timing instead.</div>";
 
-  const html = `<details class="housing-optimize-panel" id="${HOUSING_OPT_PANEL_ID}" oninput="debouncedSaveHousingOptInputs()" onchange="debouncedSaveHousingOptInputs()" ontoggle="debouncedSaveHousingOptInputs()"><summary>Where to live — optimize next housing move<span class="housing-opt-step-indicator" id="housingOptStepIndicator">Step 1 of 2 — Where and when</span></summary><div class="housing-opt-body">
-    <div class="housing-opt-head">${engineNote}<button class="btn small" type="button" id="housingOptPanelHelp" onclick="showHousingOptFieldHelp('_panel')">Help</button></div>
+  const html = `<details class="housing-optimize-panel" data-help-section="spending_core.where_to_live" id="${HOUSING_OPT_PANEL_ID}" oninput="debouncedSaveHousingOptInputs()" onchange="debouncedSaveHousingOptInputs()" ontoggle="debouncedSaveHousingOptInputs()"><summary>Where to live — optimize next housing move<span class="housing-opt-step-indicator" id="housingOptStepIndicator">Step 1 of 2 — Where and when</span></summary><div class="housing-opt-body">
+    <div class="housing-opt-head"><button class="btn small" type="button" id="housingOptPanelHelp" onclick="showHousingOptFieldHelp('_panel')">Help</button></div>
     ${housingOptValuationNoticeHtml()}
     <div class="housing-opt-step" id="housingOptStep1">
       <div class="housing-opt-step-title">Step 1 of 2 — Where and when could you go?</div>
@@ -1862,7 +1856,7 @@ function housingZipRowHtml(z, familyPresence, moveIndex, checked) {
   const price = housingOptZipPriceCellHtml(z.est_price, z.est_price_move_year);
   const distance = `${z.distance_miles} mi`;
   const cross = z.cross_state
-    ? ` <span class="small warning">${esc(z.cross_state)} — different state tax treatment</span>`
+    ? ` <span class="small warning" data-kind="warn">${esc(z.cross_state)} — different state tax treatment</span>`
     : "";
   const upi = z.upi_adjusted ? ' <span class="small">(university-adjusted)</span>' : "";
   const collapsed = (z.collapsed || []).length
@@ -1976,7 +1970,7 @@ function renderHousingOptimizeEmptyHtml(payload) {
   const rejectionParts = housingOptRejectionParts(payload.rejections);
   const funnelParts = housingOptEmptyFunnelParts(payload.zip_screens);
   if (!rejectionParts.length && !funnelParts.length) {
-    return '<p class="small">No candidates satisfied the search windows and constraints.</p>';
+    return '<p class="small" data-kind="state">No candidates satisfied the search windows and constraints.</p>';
   }
   const rejectionHtml = rejectionParts.length
     ? `<p class="small">${esc(rejectionParts.join("; ") + ".")}</p>`
@@ -2346,13 +2340,7 @@ export function renderHousingOptimizerApplyStrip(payload) {
   if (!patch.length) return "";
   let html = apply.renderApplyStrip(HOUSING_OPTIMIZER_ID);
   if (!html) return "";
-  html = html.replace(
-    '<div class="optimizer-apply-state">',
-    '<p class="small">This applies the starred (rank 1) option. To apply a different row, change the search so it wins, or edit the Home &amp; Housing fields directly.</p><div class="optimizer-apply-state">',
-  );
-  html +=
-    '<p class="small">Estimated utilities, maintenance and insurance re-scale automatically with the price or rent this writes. Because that is a ratio, undoing a price change restores the price exactly and those estimates to within rounding.</p>';
-  return html;
+  return `<div data-help-section="spending_core.where_to_live_apply">${html}</div>`;
 }
 
 export function renderHousingOptimizeResultsHtml(payload) {

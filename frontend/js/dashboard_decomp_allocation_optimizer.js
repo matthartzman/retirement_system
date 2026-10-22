@@ -35,7 +35,7 @@ export function planningLeversBaselineReady() {
 export function planningLeversPlaceholder() {
   if (!buildPreflight)
     setTimeout(() => refreshBuildStatus().catch(function () {}), 0);
-  return `<div class="holdings planning-levers planning-levers-empty"><div class="empty-state-panel"><span class="eyebrow">Baseline required</span><h3>Build once before using Strategy Levers</h3><p>Planning Levers rank changes against the latest successful baseline. Build reports first so the page can use real terminal net worth, post-tax inheritance, lifetime tax, and Monte Carlo success values instead of placeholder zeros.</p><div class="pane-actions"><button class="btn primary" type="button" data-requires-app="1" onclick="runBuild(false)">Build Reports</button><button class="btn" type="button" data-step-id="review">Open Review and Build</button><button class="btn" type="button" onclick="refreshPreflightForReview()">Refresh Preflight</button></div></div><div class="feature-grid optimizer-hub" style="margin:10px 0 14px"><div class="feature-card"><h3>What unlocks after build</h3><p class="small">Ranked lever estimates, measured baseline KPIs, and source-page jumps for changing the actual plan.</p></div><div class="feature-card"><h3>Where to work meanwhile</h3><p class="small">Use Roth Conversion, Asset Allocation, Spending Categories, Scenarios, and Monte Carlo pages to stage inputs before the first baseline build.</p></div></div></div>`;
+  return `<div class="holdings planning-levers planning-levers-empty" data-help-section="strategy_optimize.levers"><div class="empty-state-panel"><span class="eyebrow">Baseline required</span><h3>Build once before using Strategy Levers</h3><p data-kind="state">Build reports first so the levers rank against a real baseline.</p><div class="pane-actions"><button class="btn primary" type="button" data-requires-app="1" onclick="runBuild(false)">Build Reports</button><button class="btn" type="button" data-step-id="review">Open Review and Build</button><button class="btn" type="button" onclick="refreshPreflightForReview()">Refresh Preflight</button></div></div></div>`;
 }
 
 export function renderPlanningLevers() {
@@ -67,7 +67,7 @@ export function renderPlanningLevers() {
   // grid duplicating them was exactly the redundancy the redesign removes.
   // The per-lever Source column below still jumps to the input page a
   // lever's real value lives on, which is a different, still-needed link.
-  return `<div class="holdings planning-levers"><h3 class="group-title">Strategy Levers</h3><p class="small">Estimates assume all other inputs stay fixed. Change the test amount to resize any estimate without affecting your plan. Use the Source column beside each lever to jump to the page where the actual plan value is changed, then rebuild to confirm the real effect.</p><div class="ytd-status-grid"><div class="pill"><b>Current terminal NW</b><span>${fmtMoney(b.terminal)}</span></div><div class="pill" title="Post-Tax Inheritance: terminal net worth minus the embedded taxes heirs would owe on pre-tax accounts and unrealized gains — what beneficiaries actually keep."><b>Post-Tax Inheritance (PTI)</b><span>${Number.isFinite(b.pti) ? fmtMoney(b.pti) : "—"}</span></div><div class="pill"><b>Lifetime taxes</b><span>${Number.isFinite(b.lifetime_tax) ? fmtMoney(b.lifetime_tax) : "—"}</span></div><div class="pill"><b>Current success rate</b><span>${fmtPct(b.success)}</span></div><div class="pill"><b>Core annual spending</b><span>${fmtMoney(b.spend)}</span></div><div class="pill"><b>Earned income assumption</b><span>${fmtMoney(b.earned)}</span></div></div><div class="section-note small" style="margin:4px 0 10px"><b>TNW</b> = Terminal Net Worth (projected portfolio at end of plan horizon) · <b>PTI</b> = Post-Tax Inheritance (TNW minus embedded taxes heirs would owe) · <b>Success rate</b> = Monte Carlo trials where the plan maintains the reserve floor through the planning horizon</div><div><div><h3>Ranked by estimated TNW lift</h3><div class="lot-table-wrap"><table class="lot-table planning-lever-table"><thead><tr><th>Focus</th><th>Lever</th><th>Source</th><th>Test amount</th><th>Est. Δ TNW</th><th>Est. Δ success</th></tr></thead><tbody>${tnw.map(tr).join("")}</tbody></table></div></div><div><h3>Ranked by estimated success lift</h3><div class="lot-table-wrap"><table class="lot-table planning-lever-table"><thead><tr><th>Focus</th><th>Lever</th><th>Source</th><th>Test amount</th><th>Est. Δ TNW</th><th>Est. Δ success</th></tr></thead><tbody>${suc.map(tr).join("")}</tbody></table></div></div></div><p class="section-note">After ranking, use the Source button beside a lever to change the actual input → rebuild → check Build History to see the measured effect on projected net worth and success rate.</p></div>`;
+  return `<div class="holdings planning-levers" data-help-section="strategy_optimize.levers"><h3 class="group-title">Strategy Levers</h3><div class="ytd-status-grid"><div class="pill"><b>Current terminal NW</b><span>${fmtMoney(b.terminal)}</span></div><div class="pill"><b>Post-Tax Inheritance (PTI)</b><span>${Number.isFinite(b.pti) ? fmtMoney(b.pti) : "—"}</span></div><div class="pill"><b>Lifetime taxes</b><span>${Number.isFinite(b.lifetime_tax) ? fmtMoney(b.lifetime_tax) : "—"}</span></div><div class="pill"><b>Current success rate</b><span>${fmtPct(b.success)}</span></div><div class="pill"><b>Core annual spending</b><span>${fmtMoney(b.spend)}</span></div><div class="pill"><b>Earned income assumption</b><span>${fmtMoney(b.earned)}</span></div></div><div><div><h3>Ranked by estimated TNW lift</h3><div class="lot-table-wrap"><table class="lot-table planning-lever-table"><thead><tr><th>Focus</th><th>Lever</th><th>Source</th><th>Test amount</th><th>Est. Δ TNW</th><th>Est. Δ success</th></tr></thead><tbody>${tnw.map(tr).join("")}</tbody></table></div></div><div><h3>Ranked by estimated success lift</h3><div class="lot-table-wrap"><table class="lot-table planning-lever-table"><thead><tr><th>Focus</th><th>Lever</th><th>Source</th><th>Test amount</th><th>Est. Δ TNW</th><th>Est. Δ success</th></tr></thead><tbody>${suc.map(tr).join("")}</tbody></table></div></div></div></div>`;
 }
 
 export function allocationModeIsComputed(mode) {
@@ -241,7 +241,7 @@ export function allocationOptimizerApplyStripHtml() {
   if (!html) return "";
   if (!canFreeze)
     html +=
-      '<p class="small">"Lock in this schedule" needs the optimizer\'s computed percentages, which appear once the preview above has run. Switch to a computed mode and let it load.</p>';
+      '<p class="small" data-kind="state">"Lock in this schedule" needs the preview above to run first.</p>';
   return html;
 }
 
@@ -264,7 +264,7 @@ export function allocationModeHtml() {
         `<button class="btn ${mode === v ? "primary" : ""}" type="button" onclick="setAllocationSelectionMode('${v}')"${disabled}>${esc(label)}</button>`,
     )
     .join("");
-  return `<div class="holdings"><h3 class="group-title">Allocation Mode</h3><div class="section-note allocation-mode-panel" id="allocationModeNote">Active: ${esc(activeLabel)}. Choose the source below; the page then shows only controls for that source.<div class="table-actions">${buttonsHtml}</div>${r ? "" : '<p class="small">The CSV row for allocation_selection_mode was not found. Reload the current plan so required allocation rows are present.</p>'}</div>${allocationOptimizerApplyStripHtml()}</div>`;
+  return `<div class="holdings"><h3 class="group-title">Allocation Mode</h3><div class="section-note allocation-mode-panel" id="allocationModeNote" data-help-section="strategy_optimize.allocation_mode"><span data-kind="state">Active: ${esc(activeLabel)}.</span><div class="table-actions">${buttonsHtml}</div>${r ? "" : '<p class="small" data-kind="warn">allocation_selection_mode row not found; reload the current plan.</p>'}</div>${allocationOptimizerApplyStripHtml()}</div>`;
 }
 
 export function allocationOptimizerRecommendationHtml() {
@@ -436,7 +436,7 @@ export function alternateSelect(row, assetClass, action) {
 }
 
 export function targetPctInput(row, assetClass, action) {
-  if (!row) return '<span class="small">Missing target row</span>';
+  if (!row) return '<span class="small" data-kind="state">Missing target row</span>';
   const disabled = action === "exclude" ? " disabled" : "";
   const label = "Target percent for " + assetClass;
   return `<input class="tiny" type="text" value="${esc(displayValueForInput(row, valOf(row)))}" aria-label="${esc(label)}" oninput="editValue(${row.row_index},this.value,this)" onfocus="beginEdit(${row.row_index},this)" onblur="finishEdit(${row.row_index},this)"${disabled}>`;
@@ -489,7 +489,7 @@ export function optimizerPreviewStatusCell(asset, action) {
   if (covered) return '<span class="badge ok">Covered by alternate</span>';
   const used = activeOptimizerUsedTarget(asset);
   if (used > 0) return '<span class="badge ok">Recommended</span>';
-  return '<span class="small">No liquid target</span>';
+  return '<span class="small" data-kind="state">No liquid target</span>';
 }
 
 export function renderOptimizerPreviewNote() {
@@ -516,7 +516,7 @@ export function renderOptimizerPreviewNote() {
 export function renderAssetClassSelectionTable() {
   const names = assetClassNamesForAllocation();
   if (!names.length)
-    return `<div class="holdings"><div class="section-note">Asset-class selection rows were not found. Reload the current plan so asset_class_optimizer_controls.csv can be backfilled with the compact selection policy rows.</div></div>`;
+    return `<div class="holdings"><div class="section-note" data-kind="warn">Asset-class selection rows not found; reload the current plan.</div></div>`;
   const mode = allocationSelectionMode();
   const optMode = allocationModeIsComputed(mode);
   if (optMode) setTimeout(requestAllocationPreview, 0);
@@ -632,7 +632,7 @@ export function renderHoldingPeriodSettingsHtml() {
     .filter(Boolean)
     .map(fieldHtml)
     .join("");
-  return `<div class="holdings"><details><summary>Holding-period allocation settings</summary><div class="section-note">Optional: use this household's own projected withdrawal schedule to nudge the optimizer/max-Sharpe recommendation toward Cash for near-term money and growth for long-horizon money. Has no effect on user_target or tangency modes; selecting the holding-period real-loss-aware mode above enables the underlying discovery automatically regardless of this toggle.</div><div class="field-list">${fields}</div></details></div>`;
+  return `<div class="holdings"><details data-help-section="strategy_optimize.holding_period"><summary>Holding-period allocation settings</summary><div class="field-list">${fields}</div></details></div>`;
 }
 
 export function renderRealLossAwareTuningHtml() {
@@ -655,8 +655,8 @@ export function renderOptimizerOverrideTable() {
   const names = assetClassNamesForAllocation();
   const rowsByClass = optimizerOverrideRows();
   if (!rowsByClass.length)
-    return `<div class="holdings"><div class="section-note">Optimizer override rows were not found. Reload the current plan so optional optimizer_override_pct rows can be backfilled.</div></div>`;
-  let html = `<div class="holdings"><h3 class="group-title">Optional optimizer override allocation</h3><div class="section-note">Leave override rows blank to use the computed optimizer target. Enter percentages only when you want to override the computed result; if any are entered, the override total must equal 100%.</div><div class="lot-table-wrap"><table class="lot-table allocation-override-table"><thead><tr><th>Subcategory</th><th>Asset class</th><th>Override target %</th></tr></thead><tbody>`;
+    return `<div class="holdings"><div class="section-note" data-kind="warn">Optimizer override rows not found; reload the current plan.</div></div>`;
+  let html = `<div class="holdings" data-help-section="strategy_optimize.override"><h3 class="group-title">Optional optimizer override allocation</h3><div class="section-note" data-kind="warn">If any override is entered, the total must equal 100%.</div><div class="lot-table-wrap"><table class="lot-table allocation-override-table"><thead><tr><th>Subcategory</th><th>Asset class</th><th>Override target %</th></tr></thead><tbody>`;
   let cat = "";
   names.forEach((asset) => {
     const r = rowsByClass.find((x) => norm(x.subsection) === norm(asset));
@@ -809,7 +809,7 @@ export function renderTotalWealthAllocationHtml() {
       tradeable: false,
     });
   }
-  let html = `<div class="holdings total-wealth-allocation-panel"><h3 class="group-title">Total Wealth Allocation <span class="small" style="font-weight:normal;color:var(--muted)">(display only)</span></h3><div class="section-note">Combines liquid portfolio with illiquid sources credited against allocation targets. Illiquid values use a 20% haircut on home equity and present-value of guaranteed income. This panel is read-only.</div><div class="lot-table-wrap"><table class="lot-table"><thead><tr><th>Asset class</th><th>Value</th><th>% of Total</th><th>Type</th><th>Notes</th></tr></thead><tbody>`;
+  let html = `<div class="holdings total-wealth-allocation-panel" data-help-section="strategy_optimize.total_wealth"><h3 class="group-title">Total Wealth Allocation <span class="small" style="font-weight:normal;color:var(--muted)">(display only)</span></h3><div class="lot-table-wrap"><table class="lot-table"><thead><tr><th>Asset class</th><th>Value</th><th>% of Total</th><th>Type</th><th>Notes</th></tr></thead><tbody>`;
   rows2.forEach((row2) => {
     const pct = total > 0 ? row2.value / total : 0;
     html += `<tr><td>${esc(row2.label)}</td><td>${fmt(row2.value)}</td><td>${fmtPct(pct)}</td><td>${row2.tradeable ? "Liquid" : '<span class="badge">Illiquid</span>'}</td><td class="small">${esc(row2.note)}</td></tr>`;
@@ -819,13 +819,13 @@ export function renderTotalWealthAllocationHtml() {
 }
 
 export function renderOptimizerAllocationPanel() {
-  let html = `<div class="holdings"><h3 class="group-title">Optimizer recommendation active</h3>${allocationOptimizerRecommendationHtml()}<div class="section-note">The table above controls which asset classes the optimizer may use and whether existing holdings satisfy a sleeve before new trades are recommended. Override percentages below lock a specific target, bypassing the optimizer.</div></div>`;
+  let html = `<div class="holdings" data-help-section="strategy_optimize.recommendation"><h3 class="group-title">Optimizer recommendation active</h3>${allocationOptimizerRecommendationHtml()}</div>`;
   html += renderOptimizerOverrideTable();
   return html;
 }
 
 export function renderMaxSharpeAllocationPanel() {
-  return `<div class="holdings"><h3 class="group-title">Max-Sharpe (risk-budgeted) recommendation active</h3><div class="section-note">Keeps the same risk level as the allocation optimizer recommendation (risk tolerance/auto risk score, glide path, guaranteed-income/home-equity coverage), but chooses the equity sleeve's sub-class weights to maximize the sleeve's own Sharpe ratio (return in excess of the risk-free rate, per unit of volatility) instead of a fixed risk-aversion utility. The sleeve's candidate classes are driven by the Selection column below: a class set to Exclude never enters it, and a class set to Consider alternate first and mapped to a covered source (guaranteed income, home equity, ...) is left out once that source meets the target &mdash; so large annuities/home equity already covering the bond/real-estate sleeves keeps this scoped to the classes it doesn't already decide. It does not itself re-optimize the equity/bond/cash split, and does not support a manual override.</div>${allocationOptimizerRecommendationHtml()}</div>`;
+  return `<div class="holdings" data-help-section="strategy_optimize.max_sharpe"><h3 class="group-title">Max-Sharpe (risk-budgeted) recommendation active</h3>${allocationOptimizerRecommendationHtml()}</div>`;
 }
 
 export function renderTangencyAllocationPanel() {
@@ -843,7 +843,7 @@ export function renderRealLossAwarePanel() {
     )
     .join("");
   const bucketTable = bucketRows
-    ? `<div class="section-note">Holding-period buckets used for this blend (derived from this household's own projected withdrawal schedule):</div><div class="lot-table-wrap"><table class="lot-table"><thead><tr><th>Holding-period bucket</th><th>Share of liquid balance</th></tr></thead><tbody>${bucketRows}</tbody></table></div>`
+    ? `<div class="section-note" data-kind="state">Holding-period buckets used for this blend:</div><div class="lot-table-wrap"><table class="lot-table"><thead><tr><th>Holding-period bucket</th><th>Share of liquid balance</th></tr></thead><tbody>${bucketRows}</tbody></table></div>`
     : "";
   return `<div class="holdings"><h3 class="group-title">Holding-period real-loss-aware recommendation active</h3><div class="section-note warn"><b>No risk budget:</b> today's liquid balance is split into holding-period buckets based on this household's own projected withdrawal schedule, and each bucket is solved separately across the enabled/uncovered asset classes with an added penalty for that bucket's probability of a real (inflation-adjusted) loss at that holding period &mdash; near-term buckets are penalized for holding equities, long-horizon buckets are penalized for sitting in cash. The final recommendation blends each bucket's solution by its dollar share of today's balance. It still respects the Selection column below: Excluded classes are never candidates, and a class set to Consider alternate first and mapped to a covered source (guaranteed income, home equity, ...) is left out once that source meets the target. Risk tolerance and glide path are not applied, and it does not support a manual override.</div>${bucketTable}</div>${renderRealLossAwareTuningHtml()}`;
 }
@@ -1109,7 +1109,7 @@ export function rothOptimizerResultPanelHtml(result) {
     )
     .join("");
   let html =
-    '<div class="roth-optimizer-result">' +
+    '<div class="roth-optimizer-result" data-help-section="strategy_optimize.roth_result">' +
     '<div class="group-title">Optimizer result — from the last build</div>' +
     `<div class="runtime-grid roth-result-facts">${facts}</div>`;
   // The optimizer picking the winner and the user picking it are different
@@ -1121,7 +1121,7 @@ export function rothOptimizerResultPanelHtml(result) {
     html += `<p class="small">${esc(result.explanation)}</p>`;
   if (!shown) {
     html +=
-      '<p class="small">The last build scored no alternative strategies, so there is no candidate comparison to show.</p></div>';
+      '<p class="small" data-kind="state">The last build scored no alternative strategies.</p></div>';
     return html;
   }
   html +=
@@ -1133,10 +1133,8 @@ export function rothOptimizerResultPanelHtml(result) {
     "</tbody></table></div>";
   // Sheet 11's own wording for the same column, because it is the same
   // column: a relative ranking, not a projected dollar outcome.
-  html +=
-    '<p class="small">Score (0-100) ranks these candidates relative to each other (100 = best in this set); it is a scoring unit, not a projected dollar outcome.</p>';
   if (total > shown)
-    html += `<p class="small">Showing the top ${esc(shown)} of ${esc(total)} scored candidates. The workbook's Roth Conversion sheet lists the rest.</p>`;
+    html += `<p class="small" data-kind="state">Showing the top ${esc(shown)} of ${esc(total)} scored candidates.</p>`;
   html += "</div>";
   return html;
 }
@@ -1149,18 +1147,18 @@ export function renderRothOptimizerResultPanel() {
   if (!planningLeversBaselineReady()) {
     if (!buildPreflight)
       setTimeout(() => refreshBuildStatus().catch(function () {}), 0);
-    return '<div class="section-note">The optimizer result appears here once this plan has been built. The controls below stage the inputs; Build Reports runs the optimizer and records what it chose.</div>';
+    return '<div class="section-note" data-kind="state">The optimizer result appears here once this plan has been built.</div>';
   }
   const result = rothStrategyResultFromLastBuild();
   if (result) return rothOptimizerResultPanelHtml(result);
   if (!optimizerResultFetchDone(ROTH_RESULT_KEY)) {
     setTimeout(() => fetchRothStrategyResult().catch(function () {}), 0);
-    return '<div class="section-note">Reading the last build’s optimizer result…</div>';
+    return '<div class="section-note" data-kind="state">Reading the last build’s optimizer result…</div>';
   }
   // Reached by a plan whose newest build predates this panel, and by one whose
   // Roth policy left the optimizer nothing to score. Says so rather than
   // rendering an empty table.
-  return '<div class="section-note">The last build recorded no Roth optimizer result. Build Reports again to produce one.</div>';
+  return '<div class="section-note" data-kind="state">The last build recorded no Roth optimizer result. Build Reports again.</div>';
 }
 
 // #329 §4.7 (W10b): named export rather than an inline const inside
@@ -1334,9 +1332,9 @@ export function renderRothConversion() {
     !rowByNormLabel("roth_conversion_tax_source") &&
     !rowByNormLabel("roth_conversion_asset_location_aware")
   ) {
-    html += `<div class="section-note">This model does not yet choose <b>how</b> conversion taxes are paid (taxable cash vs. withholding from the IRA) or preferentially convert higher-growth holdings inside the IRA first (asset-location-aware conversion). Both apply the same conversion mechanics either way; see the workbook's Roth Conversion sheet for the full disclosure.</div>`;
+    html += `<div class="section-note" data-kind="warn">Not modeled: how conversion taxes are paid, or asset-location-aware conversion order.</div>`;
   }
-  html += `<div class="field-list"><div class="section-note">Choose a conversion policy first — the page shows only the controls relevant to that choice. Fill-to-IRMAA uses the Medicare premium tier boundary as the conversion ceiling; choosing it hides the separate IRMAA guardrail to avoid duplicate controls. Bracket strategy options appear only for bracket-fill and optimizer policies.</div>${control.map((r) => fieldHtml(r, { hideUnit: true, dropRoth: true })).join("")}</div>`;
+  html += `<div class="field-list" data-help-section="roth_conversion.policy">${control.map((r) => fieldHtml(r, { hideUnit: true, dropRoth: true })).join("")}</div>`;
   html += renderForcedConversionsTable();
   const policyLabel = policyIsFixed
     ? "Fixed-dollar conversion controls"

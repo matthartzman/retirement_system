@@ -296,7 +296,7 @@ export function rothGuardrailPanelHtml(g, ctx) {
       const bar = r.active ? `<div class="rg-bar" aria-hidden="true"><i style="width:${Math.min(100, (r.cap / maxCap) * 100)}%"></i></div>` : "";
       return (
         `<li class="rg-row${r.binding === "now" ? " p1" : ""}${r.active ? "" : " off"}" data-gid="${rgEsc(r.id)}">` +
-        `<span class="rg-grip" title="Drag to reorder" aria-label="Drag to reorder ${rgEsc(r.name)}" role="button" tabindex="0">⋮⋮</span>` +
+        `<span class="rg-grip" aria-label="Drag to reorder ${rgEsc(r.name)}" role="button" tabindex="0">⋮⋮</span>` +
         `<div class="rg-main"><div class="rg-name">${i + 1}. ${rgEsc(r.name)} ${badge}</div><div class="rg-desc">${rgEsc(rgDesc(r, ctx))}</div></div>` +
         `<div class="rg-cap${r.active ? "" : " rg-would"}">${r.cap == null ? "—" : rgMoney(r.cap)}<small>${r.active ? "allows up to" : r.cap == null ? "no figure" : "would allow, not applied"}</small></div>` +
         bar +
@@ -307,12 +307,12 @@ export function rothGuardrailPanelHtml(g, ctx) {
     })
     .join("");
   return (
-    `<div id="rothGuardrailPanel" class="rg-panel"><div class="group-title">Conversion guardrails — from the last build</div>` +
+    `<div id="rothGuardrailPanel" class="rg-panel" data-help-section="roth_conversion.guardrails"><div class="group-title">Conversion guardrails — from the last build</div>` +
     `<div class="rg-bar-top"><label>Plan year <select aria-label="Plan year" onchange="rothGuardrailSetYear(this.value)">${yearOpts}</select></label>` +
     `<button class="btn" type="button" aria-pressed="${ctx.manual ? "false" : "true"}" onclick="rothGuardrailAuto()">Auto-sort by dollars</button>` +
     `<span class="rg-note">${ctx.manual ? "Using your order." : "Sorted by dollars, lowest first."}</span></div>` +
     `<p class="rg-sum">${summary}</p><ol class="rg-list">${items}</ol>` +
-    `<p class="small">Conversion is always the lowest active cap, whatever order you set. Your order controls how guardrails are listed; the badges follow the dollars. The what-if figures come from re-running your plan with that guardrail off; changes to settings take effect at the next build.</p></div>`
+    `</div>`
   );
 }
 
