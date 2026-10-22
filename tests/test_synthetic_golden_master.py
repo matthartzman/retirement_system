@@ -172,6 +172,14 @@ class SyntheticLibraryIsolationTests(unittest.TestCase):
 
 @pytest.mark.golden_master
 class SyntheticGoldenMasterTests(unittest.TestCase):
+    # ~230s on an idle Linux core (measured): build() runs the Roth optimizer's
+    # per-candidate Monte Carlo for every scenario. On a loaded Windows runner
+    # that exceeds CI's blanket --timeout=300, and pytest-timeout's thread
+    # method then kills the whole xdist worker (os._exit), which xdist reports
+    # as "node down: Not properly terminated" -- the 2026-10-22 CI hangs.
+    # (The other crasher, test_engine_module_gate_agrees_with_sheets_regression,
+    # is fixed by #269: it only needs build(optimize=False).)
+    @pytest.mark.timeout(1200)
     def test_golden_master_library_covers_multiple_plan_stresses(self):
         expected = json.loads(FIXTURE.read_text(encoding="utf-8"))
         self.assertEqual(

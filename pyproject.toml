@@ -43,9 +43,9 @@ markers = [
     # for the same behavior stays in the PR tier in each affected file.
     "nightly: expensive relative to how often it changes (engine-equivalence, sweep-breadth, or rarely-changing-registry sweep); PR tier skips it, the nightly workflow runs it",
 ]
-# Timeout safety net removed: pytest-timeout configuration was causing
-# silent crashes in CI despite plugin installation attempts. Tests will
-# run without a timeout; CI infrastructure itself enforces job limits.
+# Per-test timeouts are enforced by CI only (--timeout=300 --timeout-method=thread
+# in .github/workflows/ci.yml), not here, so local runs are unaffected. A test
+# that needs longer carries @pytest.mark.timeout(N).
 
 [build-system]
 requires = ["setuptools"]

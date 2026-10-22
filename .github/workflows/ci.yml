@@ -167,23 +167,51 @@ jobs:
     # sweep that is 26x more expensive than one build. See pyproject.toml's
     # `nightly` marker doc and nightly.yml, which runs it (and everything
     # else this excludes) once a day.
+    # --max-worker-restart=0: on 2026-10-22 three main runs (#264, #265, #268)
+    # lost two xdist workers at ~96-98% ("[gwN] node down: Not properly
+    # terminated"), after which pytest/xdist waited on the dead workers until
+    # the 45-minute job limit cancelled the job -- no test name, no traceback.
+    # With restarts disabled xdist aborts the run at the first dead worker and
+    # reports "worker 'gwN' crashed while running '<test id>'", so the log names
+    # the culprit within minutes. A crash is also never "retried serially"
+    # below: `--lf` only re-runs recorded failures, so retrying after an abort
+    # would skip every test that had not run yet and could report green.
+    #
+    # --durations=25 / -rfE: slowest tests and failure summary in the log, to
+    # judge runner load when a crash does reproduce. Output is also kept under
+    # pytest-logs/ and uploaded as an artifact when the job fails or is cancelled.
     - name: Run tests
       shell: bash
       run: |
         set +e
+        mkdir -p pytest-logs
         # tee (not a redirect + cat afterwards) so output reaches the job log
         # while pytest runs and survives a hang; PIPESTATUS keeps pytest's exit code.
-        pytest tests/ -m "not slow and not nightly" -n auto --dist loadfile --timeout=300 --timeout-method=thread --tb=short -q 2>&1 | tee /tmp/pytest_output.txt
+        pytest tests/ -m "not slow and not nightly" -n auto --dist loadfile --max-worker-restart=0 --timeout=300 --timeout-method=thread --durations=25 -rfE --tb=short -q 2>&1 | tee pytest-logs/pytest_output.txt
         PARALLEL_EXIT=${PIPESTATUS[0]}
         if [ "$PARALLEL_EXIT" -eq 0 ]; then
           exit 0
+        fi
+        if grep -qE "node down|crashed while running|maximum crashed workers|Timeout >|\\+\\+\\+ Timeout" pytest-logs/pytest_output.txt; then
+          echo "::error::A pytest worker crashed or a test timed out; not retrying serially (a serial --lf retry would skip the tests that never ran)."
+          grep -nE "node down|crashed while running|maximum crashed workers|Timeout >|\\+\\+\\+ Timeout" pytest-logs/pytest_output.txt
+          exit 1
         fi
         echo "Parallel run failed or flaked -- retrying just the failures serially (matches CLAUDE.md's documented WinError 5 file-lock flake mitigation) before treating this as a real failure."
         echo "--- serial retry of failures ---"
         # --timeout here too: the retry used to run unbounded, so a test that
         # hung in the parallel run could hang the whole job again with no limit.
-        pytest tests/ -m "not slow and not nightly" --lf --timeout=300 --timeout-method=thread --tb=short -q 2>&1 | tee /tmp/pytest_retry_output.txt
+        pytest tests/ -m "not slow and not nightly" --lf --timeout=300 --timeout-method=thread --durations=25 --tb=short -q 2>&1 | tee pytest-logs/pytest_retry_output.txt
         exit ${PIPESTATUS[0]}
+
+    - name: Upload pytest output
+      if: always()
+      uses: actions/upload-artifact@v7
+      with:
+        name: pytest-output
+        path: pytest-logs/
+        if-no-files-found: ignore
+        retention-days: 7
 
     # F0.3 used to grep the captured -q/-v output above for this test's
     # PASSED line. That broke on this PR's own first CI run: the earlier
@@ -197,7 +225,7 @@ jobs:
     # run's flags or log format, and costs under a second.
     - name: Verify frozen golden-master gate executed (F0.3)
       run: |
-        pytest "tests/test_frozen_sample_plan_golden_master_regression.py::FrozenSamplePlanGoldenMasterTests::test_frozen_plan_dollar_figures_are_exact" -q
+        pytest "tests/test_frozen_sample_plan_golden_master_regression.py::FrozenSamplePlanGoldenMasterTests::test_frozen_plan_dollar_figures_are_exact" --timeout=300 --timeout-method=thread -q
 
     - name: Fail if the test suite mutated input/
       run: git diff --exit-code -- input/
