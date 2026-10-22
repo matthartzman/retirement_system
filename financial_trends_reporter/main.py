@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import socket
 import sys
 import threading
 import webbrowser
@@ -26,6 +27,7 @@ if str(_REPO_ROOT) not in sys.path:
 
 from src.http_runtime.server import run_local_server  # noqa: E402
 from src.http_runtime.wsgi_facade import Flask, Response, request  # noqa: E402
+from src.stores import SchemaVersionError  # noqa: E402
 
 from financial_trends_reporter import account_registry, balance_series, flows  # noqa: E402
 from financial_trends_reporter.balance_store import DB_FILENAME, freshness  # noqa: E402
@@ -160,12 +162,24 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None) -> Fla
     def run_now():
         try:
             result = run_trends_job(retirement_system_dir, log_path=resolved_log_path)
+        except SchemaVersionError as exc:
+            # This process loaded its code before the app database was upgraded.
+            logging.getLogger(__name__).exception("run-now: reporter code is older than the app database")
+            return _json({"success": False, "error": f"This reporter is running older code than the app database ({exc}). Close it and start it again."}, 500)
         except Exception as exc:  # noqa: BLE001 - surface the cause instead of a bare HTTP 500
             logging.getLogger(__name__).exception("run-now failed")
             return _json({"success": False, "error": f"{exc.__class__.__name__}: {exc}"}, 500)
         return Response(json.dumps(result), status=200 if result.get("success") else 400, content_type="application/json")
 
     return app
+
+
+def _port_in_use(host: str, port: int) -> bool:
+    # LocalHTTPServer sets SO_REUSEADDR, which on Windows lets a second server bind a
+    # port that is already serving, so probe before binding rather than trust bind().
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        probe.settimeout(0.5)
+        return probe.connect_ex((host, port)) == 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -179,6 +193,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--no-open", action="store_true", help="Don't auto-open a browser tab")
     args = parser.parse_args(argv)
 
+    if _port_in_use(args.host, args.port):
+        print(f"Financial trends reporter is already running on port {args.port}. "
+              "Close it first if it needs to pick up new code.", file=sys.stderr)
+        return 1
     app = create_app(Path(args.retirement_system_dir))
     url = f"http://{args.host}:{args.port}"
     print(f"Financial trends reporter listening on {url}")
