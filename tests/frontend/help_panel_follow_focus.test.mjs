@@ -162,10 +162,8 @@ test("dashboard wiring: showStepHelp delegates to the registry, ? button, pilot 
   const dash = fs.readFileSync("frontend/js/dashboard.js", "utf8");
   assert.match(dash, /window\.RPHelp\.arrive\(id, force\)/);
   assert.match(dash, /window\.pageHelpButtonHtml\(st\.id\)/);
-  // Section keys are wired in whichever module renders the section (a literal attribute or a helpKey).
-  const allJs = fs.readdirSync("frontend/js").filter((f) => f.endsWith(".js") && f !== "help_registry.js")
-    .map((f) => fs.readFileSync(`frontend/js/${f}`, "utf8")).join("\n");
-  for (const key of Object.keys(reg.HELP_SECTIONS)) assert.ok(allJs.includes(`"${key}"`) || allJs.includes(`'${key}'`), key);
+  const allJs = fs.readdirSync("frontend/js").filter((f) => f.endsWith(".js")).map((f) => fs.readFileSync(`frontend/js/${f}`, "utf8")).join("\n");
+  for (const key of Object.keys(reg.HELP_SECTIONS)) assert.ok(allJs.includes(`data-help-section="${key}"`) || allJs.includes(`helpKey: "${key}"`), key);
   const rowModel = fs.readFileSync("frontend/js/dashboard_decomp_row_model.js", "utf8");
   assert.match(rowModel, /RPHelp\?\.fieldEntry\(row\.label\)/);
   assert.match(rowModel, /window\.RPHelp\.pinned\("field", idx\)/);

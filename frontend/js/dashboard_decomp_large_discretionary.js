@@ -174,29 +174,29 @@ export function renderLargeDiscretionaryBudgetPage() {
       Number(String(l.amount_per_year || "").replace(/[$,]/g, "")) || 0;
     if (parseInt(l.one_time_year, 10) === thisYear) budgetThisYear += amt;
   });
-  let html = '<div class="holdings large-disc-section">' + (thisYear !== calYear ? `<div class="section-note large-disc-year-cue">Showing ${thisYear} (not the current plan year). Change it with the Year pull-down on Actual Spending.</div>` : "");
+  let html = '<div class="holdings large-disc-section" data-help-section="spending_core.large_discretionary">' + (thisYear !== calYear ? `<div class="section-note large-disc-year-cue" data-kind="warn">Showing ${thisYear} (not the current plan year).</div>` : "");
   if (notices.length)
-    html += `<div class="section-note large-disc-import-notice"><b>Imported repeatable rows as one-time rows:</b><ul>${notices.map((n) => `<li>${esc(n)}</li>`).join("")}</ul>Save to keep the conversion.</div>`;
+    html += `<div class="section-note large-disc-import-notice" data-kind="warn"><b>Imported repeatable rows as one-time rows:</b><ul>${notices.map((n) => `<li>${esc(n)}</li>`).join("")}</ul>Save to keep the conversion.</div>`;
   if (largeDisc529On())
     html +=
-      '<div class="section-note large-disc-529-caution">529 education funding is on: enter only education costs the 529 does not pay here, so they are not counted twice.</div>';
+      '<div class="section-note large-disc-529-caution" data-kind="warn">529 education funding is on: enter only education costs the 529 does not pay here, so they are not counted twice.</div>';
   html +=
     '<div class="table-actions"><button class="btn primary" ' +
     (budgetLinesChanged ? "" : "disabled") +
-    ' onclick="saveAll(true)">Save Changes</button><button class="btn" onclick="loadBudgetLines(true)">Reload</button><button class="btn" onclick="addLargeDiscLine()">Add Row</button></div>';
+    ' onclick="saveAll(true)">Save Changes</button><button class="btn" onclick="loadBudgetLines(true)">Reload</button><button class="btn" onclick="addLargeDiscLine()">Add Row</button>' + (window.RPHelp?.sectionButtonHtml("spending_core.large_discretionary") || "") + '</div>';
   html +=
     '<div class="lot-table-wrap"><table class="lot-table large-disc-table"><thead><tr><th>Category</th><th>Amount</th><th>Year</th><th>Note</th><th>In budget</th><th>Actions</th></tr></thead><tbody>';
   if (!lines.length) {
     html +=
-      '<tr><td colspan="6" class="small" style="padding:12px">No Large Discretionary rows. Add one row per one-time expense.</td></tr>';
+      '<tr><td colspan="6" class="small" data-kind="state" style="padding:12px">No Large Discretionary rows.</td></tr>';
   }
   lines.forEach(function (l) {
     const lid = esc(l.line_id);
     const typ = largeDiscTypeFromLine(l);
     const inBudget = parseInt(l.one_time_year, 10) === thisYear;
-    html += `<tr><td><select onchange="updateLargeDiscLine('${lid}','type',this.value)">${LARGE_DISC_TYPES.map((t) => `<option value="${esc(t)}" ${t === typ ? "selected" : ""}>${esc(largeDiscTypeLabel(t))}</option>`).join("")}</select></td><td><input type="text" class="budget-money-input" value="${esc(budgetMoneyInputValue(l.amount_per_year))}" onfocus="focusBudgetMoney(this)" oninput="updateLargeDiscLineMoney('${lid}','amount_per_year',this)" onblur="blurBudgetMoney(this)" style="width:110px"></td><td><input type="number" value="${esc(l.one_time_year || "")}" oninput="updateLargeDiscLine('${lid}','one_time_year',this.value)" style="width:90px"></td><td><input value="${esc(l.notes || "")}" placeholder="Optional" oninput="updateLargeDiscLine('${lid}','notes',this.value)" style="width:200px"></td><td class="large-disc-in-budget" title="Counts toward the ${thisYear} budget only when its year is ${thisYear}">${inBudget ? "✓" : "—"}</td><td>${deleteIconBtn(`deleteLargeDiscLine('${lid}')`)}</td></tr>`;
+    html += `<tr><td><select onchange="updateLargeDiscLine('${lid}','type',this.value)">${LARGE_DISC_TYPES.map((t) => `<option value="${esc(t)}" ${t === typ ? "selected" : ""}>${esc(largeDiscTypeLabel(t))}</option>`).join("")}</select></td><td><input type="text" class="budget-money-input" value="${esc(budgetMoneyInputValue(l.amount_per_year))}" onfocus="focusBudgetMoney(this)" oninput="updateLargeDiscLineMoney('${lid}','amount_per_year',this)" onblur="blurBudgetMoney(this)" style="width:110px"></td><td><input type="number" value="${esc(l.one_time_year || "")}" oninput="updateLargeDiscLine('${lid}','one_time_year',this.value)" style="width:90px"></td><td><input value="${esc(l.notes || "")}" placeholder="Optional" oninput="updateLargeDiscLine('${lid}','notes',this.value)" style="width:200px"></td><td class="large-disc-in-budget">${inBudget ? "✓" : "—"}</td><td>${deleteIconBtn(`deleteLargeDiscLine('${lid}')`)}</td></tr>`;
   });
-  html += `</tbody></table></div><div class="section-note"><b>${thisYear} budget: $${Math.round(budgetThisYear).toLocaleString()}</b> (rows dated ${thisYear}). Each row is one-time: it projects only in its own year (inflated from today's dollars) and is never annualized.</div></div>`;
+  html += `</tbody></table></div><div class="section-note" data-kind="state"><b>${thisYear} budget: $${Math.round(budgetThisYear).toLocaleString()}</b> (rows dated ${thisYear}). Each row is one-time: it projects only in its own year (inflated from today's dollars) and is never annualized.</div></div>`;
   return html;
 }
 

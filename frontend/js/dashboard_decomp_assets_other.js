@@ -84,7 +84,7 @@ export function otherAssetInputCell(sub, label, placeholder = "") {
 
 export function renderOtherAssetItemsTable() {
   const subs = otherAssetSubsections();
-  let html = `<details><summary>Other Asset Items</summary><div class="field-list"><div class="section-note">One row per non-portfolio asset — auto, boat, start-up equity, art, or collectible. Enter today's estimated value and as-of date. Use a positive annual rate for appreciating assets (e.g., collectibles, equity) and a negative rate for depreciating ones (e.g., vehicles).</div>`;
+  let html = `<details data-help-section="assets_special.other_asset_items"><summary>Other Asset Items</summary><div class="field-list">`;
   html += `<div class="table-actions"><select id="newOtherAssetType">${OTHER_ASSET_TYPES.map((t) => `<option value="${esc(t)}">${esc(t)}</option>`).join("")}</select><button class="btn" type="button" data-requires-app="1" onclick="addOtherAssetItem()">Add asset</button></div>`;
   if (!subs.length) {
     return (
@@ -97,7 +97,7 @@ export function renderOtherAssetItemsTable() {
     html += `<tr><td>${otherAssetTypeCell(otherAssetRow(sub, "type"))}</td><td>${otherAssetInputCell(sub, "name")}</td><td>${otherAssetInputCell(sub, "value")}</td><td>${otherAssetInputCell(sub, "as_of_date")}</td><td>${otherAssetInputCell(sub, "annual_appreciation_pct")}</td><td>${otherAssetInputCell(sub, "basis")}</td><td>${otherAssetInputCell(sub, "sell_date")}</td><td>${deleteIconBtn(`deleteOtherAssetItem('${escJs(sub)}')`)}</td></tr>`;
   });
   html +=
-    '</tbody></table></div><p class="small">For appreciating assets such as start-up equity, art, or collectibles, enter a basis when you know the purchase price or tax basis. For depreciating assets, basis can be left blank unless it matters for a later sale scenario.</p></div></details>';
+    '</tbody></table></div></div></details>';
   return html;
 }
 
@@ -180,19 +180,19 @@ export function renderNoteInterestTable(sub) {
     (a, b) =>
       (Number(a) || 0) - (Number(b) || 0) || String(a).localeCompare(String(b)),
   );
-  let html = `<div class="section-note"><b>Interest by year:</b> Enter the expected taxable interest income from this note for each calendar year. This affects cash flow, taxable income, NIIT exposure, and projected note income.</div><div class="matrix-wrap" role="region" aria-label="Note receivable interest schedule" tabindex="0"><table class="matrix-table"><thead><tr><th>Schedule</th>${years.map((y) => `<th>${esc(y)}</th>`).join("")}</tr></thead><tbody><tr><td>Interest income</td>`;
+  let html = `<div class="help-section-head" data-help-section="assets_special.note_interest">${(window.RPHelp?.sectionButtonHtml("assets_special.note_interest") || "")}</div><div class="matrix-wrap" role="region" aria-label="Note receivable interest schedule" tabindex="0"><table class="matrix-table"><thead><tr><th>Schedule</th>${years.map((y) => `<th>${esc(y)}</th>`).join("")}</tr></thead><tbody><tr><td>Interest income</td>`;
   years.forEach((y) => {
     const r = rs.find((x) => String(x.label) === String(y));
     html += `<td>${r ? `<input class="year-cell" type="text" value="${esc(displayValueForInput(r, valOf(r)))}" aria-label="Note interest ${esc(y)}" oninput="editValue(${r.row_index},this.value,this)" onfocus="beginEdit(${r.row_index},this)" onblur="finishEdit(${r.row_index},this)">` : '<span class="small">—</span>'}</td>`;
   });
-  html += `</tr></tbody></table></div><p class="small">Years run across the top. Enter dollars for each year the note is expected to pay interest.</p>`;
+  html += `</tr></tbody></table></div>`;
   return html;
 }
 
 export function renderNoteReceivableTable() {
   const subs = noteReceivableSubsections();
-  let html = `<div class="section-note">One or more promissory notes receivable. Each note has a descriptive name plus its own face value, payment schedule, and interest-by-year detail. The current note is named "RedMane Note".</div>`;
-  html += `<div class="table-actions"><button class="btn" type="button" data-requires-app="1" onclick="addNoteReceivable()">Add note</button></div>`;
+  let html = "";
+  html += `<div class="table-actions" data-help-section="assets_special.notes_receivable"><button class="btn" type="button" data-requires-app="1" onclick="addNoteReceivable()">Add note</button>${(window.RPHelp?.sectionButtonHtml("assets_special.notes_receivable") || "")}</div>`;
   if (!subs.length)
     return (
       html +
@@ -301,9 +301,9 @@ export function renderHsaPolicyOnOtherAssets(rs) {
   );
   // #213: one collapsible HSA section instead of up to 4 -- compact
   // sub-headings inside, not separate nested <details>.
-  let body = `<div class="section-note"><b>Withdrawal timing:</b> choose how the HSA is used in Cash Flow. <b>Spend as needed</b> uses HSA for qualified Wellness costs/gaps. <b>Annual percentage</b> and <b>Smooth window</b> use the start/end years below to schedule HSA withdrawals across the cash-flow projection.</div>${withdrawalRows.map(fieldHtml).join("")}`;
+  let body = `<div class="help-section-head" data-help-section="assets_special.hsa_withdrawals">${(window.RPHelp?.sectionButtonHtml("assets_special.hsa_withdrawals") || "")}</div>${withdrawalRows.map(fieldHtml).join("")}`;
   if (contribRows.length)
-    body += `<h4 class="group-title">Contributions</h4><div class="section-note">Contribution limits and eligibility feed annual HSA additions before Medicare eligibility.</div>${contribRows.map(fieldHtml).join("")}`;
+    body += `<h4 class="group-title" data-help-section="assets_special.hsa_contributions">Contributions ${(window.RPHelp?.sectionButtonHtml("assets_special.hsa_contributions") || "")}</h4>${contribRows.map(fieldHtml).join("")}`;
   if (rolloverRows.length)
     body += `<h4 class="group-title">Spousal Rollover</h4>${rolloverRows.map(fieldHtml).join("")}`;
   if (otherRows.length)
@@ -347,7 +347,7 @@ export function familyBusinessGroupsHtml(rsAll, only) {
         "529 Plans",
         "education_funding_529",
         eduGate ? optionalFunctionEnabled(eduGate.key) : true,
-        `<div class="section-note"><b>Purpose:</b> 529 plans are education savings accounts. Enter one section per beneficiary or goal, then add another 529 when a different beneficiary or goal should be tracked separately.</div>`,
+        `<div class="help-section-head" data-help-section="assets_special.education_529">${(window.RPHelp?.sectionButtonHtml("assets_special.education_529") || "")}</div>`,
         `<div class="table-actions"><button class="btn" type="button" data-requires-app="1" onclick="addEducation529Section()">Add 529 section</button></div>`,
       ),
     );
@@ -380,7 +380,7 @@ export function renderFamilyBusiness() {
   const html = familyBusinessGroupsHtml(
     rowsForStep("assets_special", { includeInactive: true }),
   );
-  const note = `<div class="field-list"><div class="section-note">These are the Family &amp; Business features that carry plan inputs. They are also editable in place on <button class="btn linklike" type="button" data-step-id="assets_special">Other Assets and Liabilities</button>, beside the rest of the non-portfolio assets. Business entity choice (S-Corp vs LLC) is entered on <button class="btn linklike" type="button" data-step-id="income_work">Work Income</button>.</div></div>`;
+  const note = `<div class="field-list"><div class="section-note" data-kind="state" data-help-section="assets_special.family_business">Also editable in place on <button class="btn linklike" type="button" data-step-id="assets_special">Other Assets and Liabilities</button>. ${(window.RPHelp?.sectionButtonHtml("assets_special.family_business") || "")}</div></div>`;
   return note + (html || '<div class="field-list"><p>No fields in this step.</p></div>');
 }
 
@@ -483,7 +483,7 @@ export function renderHELOCInputsOnOtherPage() {
   const enabledRow = rs.find((x) => norm(x.label) === "heloc_enabled");
   if (!helocModuleEnabled())
     return enabledRow
-      ? `<details><summary>HELOC modeling inputs</summary><div class="field-list"><div class="section-note">HELOC strategy is turned off. Turn it on below to reveal the borrowing assumptions.</div>${fieldHtml(enabledRow)}</div></details>`
+      ? `<details data-help-section="heloc_strategy.inputs"><summary>HELOC modeling inputs</summary><div class="field-list"><div class="section-note" data-kind="state">HELOC strategy is turned off.</div>${fieldHtml(enabledRow)}</div></details>`
       : "";
   const ordered = [
     "heloc_enabled",
@@ -511,7 +511,7 @@ export function renderHELOCInputsOnOtherPage() {
         `<div class="impact-row"><span>${esc(humanLabel(r.label, r))}</span><strong>${esc(displayValueForInput(r, valOf(r)) || "—")}</strong></div>`,
     )
     .join("");
-  return `<details><summary>HELOC modeling inputs</summary><div class="field-list"><div class="section-note"><b>Read-only summary</b> — shown here with other liabilities so the borrowing assumption is not stranded on the Strategy page; edit on the HELOC Strategy page.</div>${summaryRows}<div class="table-actions"><button class="btn" type="button" data-step-id="heloc_strategy">Open HELOC strategy page</button></div></div></details>`;
+  return `<details><summary>HELOC modeling inputs</summary><div class="field-list"><div class="help-section-head" data-help-section="assets_special.heloc_summary">${(window.RPHelp?.sectionButtonHtml("assets_special.heloc_summary") || "")}</div>${summaryRows}<div class="table-actions"><button class="btn" type="button" data-step-id="heloc_strategy">Open HELOC strategy page</button></div></div></details>`;
 }
 
 export const LIABILITY_TYPES = [
@@ -628,9 +628,9 @@ export function renderLiabilitiesTable() {
     "carry_zero",
     "notes",
   ];
-  let html = `<details><summary>Liabilities</summary><div class="field-list"><div class="section-note"><b>Purpose:</b> Track loans the plan must pay down over time. Choose a type, then enter the fields needed to forecast its cash flow. Each liability is amortized into the yearly cash-flow forecast and its outstanding balance reduces net worth. Auto and student loans use standard fixed amortization; credit cards take a balance, APR and monthly payment (no payment = interest-only; add a payoff month/year to retire the card on that date); HELOC line items amortize over the years to payoff. On the payoff date the remaining balance is paid off and carried at $0 afterwards (untick "Carry $0" to keep a residual balance instead). Leave a field blank to use sensible defaults (no monthly payment = interest-only unless a payoff year is set).</div><div class="table-actions"><button class="btn" type="button" data-requires-app="1" onclick="addLiability()">Add liability</button></div><div class="lot-table-wrap"><table class="lot-table"><thead><tr><th>Type</th>${cols.map((c) => `<th>${esc(LIABILITY_LABELS[c] || humanLabel(c))}</th>`).join("")}<th>Actions</th></tr></thead><tbody>`;
+  let html = `<details><summary>Liabilities</summary><div class="field-list"><div class="table-actions" data-help-section="assets_special.liabilities"><button class="btn" type="button" data-requires-app="1" onclick="addLiability()">Add liability</button>${(window.RPHelp?.sectionButtonHtml("assets_special.liabilities") || "")}</div><div class="lot-table-wrap"><table class="lot-table"><thead><tr><th>Type</th>${cols.map((c) => `<th>${esc(LIABILITY_LABELS[c] || humanLabel(c))}</th>`).join("")}<th>Actions</th></tr></thead><tbody>`;
   if (!h.data.length) {
-    html += `<tr><td colspan="${cols.length + 2}"><span class="small">No liabilities yet. Click "Add liability" to add one.</span></td></tr>`;
+    html += `<tr><td colspan="${cols.length + 2}"><span class="small" data-kind="state">No liabilities yet.</span></td></tr>`;
   }
   h.data.forEach((r, i) => {
     const type = String(r.type || "other").toLowerCase();
@@ -650,7 +650,7 @@ export function renderLiabilitiesTable() {
       }
       if (c === "carry_zero") {
         const on = !["no", "false", "0", "n"].includes(String(r[c] || "").trim().toLowerCase());
-        html += `<td data-label="${lbl}"><input data-lcol="carry_zero" type="checkbox" ${on ? "checked" : ""} title="Balance is $0 from the payoff date onward; uncheck to keep any residual balance on the books" onchange="updateLiability(${i},'carry_zero',this.checked?'yes':'no')"></td>`;
+        html += `<td data-label="${lbl}"><input data-lcol="carry_zero" type="checkbox" ${on ? "checked" : ""} onchange="updateLiability(${i},'carry_zero',this.checked?'yes':'no')"></td>`;
         return;
       }
       const isMoney = c === "balance" || c === "monthly_payment";

@@ -175,15 +175,14 @@ export function renderSpendingAdjustmentsTable() {
     setTimeout(() => loadTaxonomy(false), 0);
   const flat = taxonomyFlat || {};
   const options = spendingAdjustmentCategoryOptions(flat);
-  let html =
-    '<div class="section-note">A step change to a category (or a whole tracking type) from a start year; inflation continues on the stepped amount. Rows on the same category compound in start-year order, and an "All" row compounds with a category\'s own rows. Leave End year blank to run through plan end. Large Discretionary, Taxes and Business are not adjustable.</div>';
+  let html = "";
   html +=
-    '<div class="table-actions"><button class="btn" type="button" onclick="addSpendingAdjustment()">Add Adjustment</button></div>';
+    '<div class="table-actions" data-help-section="spending_core.adjustments"><button class="btn" type="button" onclick="addSpendingAdjustment()">Add Adjustment</button>' + (window.RPHelp?.sectionButtonHtml("spending_core.adjustments") || "") + '</div>';
   html +=
     '<div class="lot-table-wrap"><table class="lot-table spending-adjustments-table"><thead><tr><th>Category</th><th>Start year</th><th>End year</th><th>Change %</th><th>Result</th><th>Actions</th></tr></thead><tbody>';
   if (!spendingAdjustments.length)
     html +=
-      '<tr><td colspan="6" class="small" style="padding:12px">No adjustments. Add one to step a category down (or up) from a given year.</td></tr>';
+      '<tr><td colspan="6" class="small" data-kind="state" style="padding:12px">No adjustments.</td></tr>';
   spendingAdjustments.forEach((a, i) => {
     const cur = a.category || "";
     const known = options.some((o) => o.value === cur);

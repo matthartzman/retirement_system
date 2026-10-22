@@ -98,7 +98,7 @@ describe("Spending page accordions", () => {
     const page = sandbox.renderCoreSpendingUnified();
     const heads = [...page.matchAll(/<details class="taxonomy-type-section page-accordion[^"]*" data-dkey="budget:core:(\w+)"[^>]*><summary><b>([^<]+)<\/b>/g)].map((m) => m[2]);
     assert.deepEqual(heads, ["Spending Categories", "Projection Controls", "Category Manager"]);
-    assert.match(page, /data-dkey="budget:core:spending_categories" open>/);
+    assert.match(page, /data-dkey="budget:core:spending_categories" open[^>]*>/);
     assert.doesNotMatch(page, /<h3 class="group-title">(Spending Categories|Category Manager)/);
   });
 

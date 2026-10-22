@@ -42,3 +42,15 @@ Every row has a class guess and a destination. Human correction of the class col
 
 ## Phase 2a: `slot` column
 `python tools/page_help_ledger.py slots` fills a `slot` column for every page-level row (STEPS and `pageHelp`): `HELP_PAGES[<page id>].<slot>`, several slots joined by `;`, or `D` when every sentence of the row is a pure repeat of a kept sentence. The slot column is the truth for page rows; the older automated `class` / `merged_into` guesses are unchanged and are superseded by the slot where they differ (for example a row guessed D that the ledger merged into a slot). Legacy sub-page keys map to their parent page. Review: `page_help_review.md`.
+
+## Phase 3, batches 1-3 (Income and Benefits; Spending; Investments and Property)
+Modules: `dashboard_decomp_income_streams`, `_death_benefits`, `_spending_taxonomy`, `_spending_sources`, `_spending_adjustments`, `_large_discretionary`, `spending_dashboard`, `_holdings`, `_rental_properties`, `_assets_other`. 83 rows now (50 from the scan, 33 added by a leftover Grep; the scan was a lower bound). `line` is the pre-change line number.
+
+| Result | Scan rows | Leftover rows |
+|---|---|---|
+| Class A moved to `HELP_SECTIONS` (36 new records in `help_registry.js`) | 28 | 16 |
+| Class D deleted (`merged_into` target exists) | 5 | 0 |
+| Kept as one line, tagged `data-kind="state"` or `"warn"` (B/C, or A shortened with the rest folded into a record) | 17 | 13 |
+| Deferred: `domainBudgetNote()` strings rendered by `dashboard_decomp_row_model.js`, a module outside these batches | 0 | 4 |
+
+Notes: the scan guessed some rows A that are really B/C (for example "Showing {year} (not the current plan year)"); the class column now follows the code. Sections without a heading get a bare "?" row; headings, `<details>` and `table-actions` rows carry `data-help-section` where they exist. Two pointer lines that hold navigation links (Family & Business, Spending Model's Housing tail) stay as one-line `state` notes; their explanation moved to the records. The rental page id is `rental_properties` (the scan's `MODULE_STEPS` maps the module to `assets_special`).

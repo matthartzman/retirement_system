@@ -94,3 +94,8 @@ test("page help keeps the planning workbench record and the YTD import wording",
   const all = Object.values(HELP_PAGES).map((p) => `${p.whatFor} ${p.connections} ${p.options} ${p.impact}`).join(" ");
   assert.match(all, /Add to merge new transactions/);
 });
+
+test("section help keeps the facts moved out of the Spending and Other Assets pages", () => {
+  assert.match(HELP_SECTIONS["spending_core.housing_costs"].body, /Real-estate taxes, homeowners insurance, maintenance, utilities, and HOA are budgeted in the groups below\./);
+  assert.match(HELP_SECTIONS["assets_special.hsa_withdrawals"].body, /choose how the HSA is used in Cash Flow/);
+});

@@ -4,6 +4,7 @@
 // state ("Off · N rows entered"), the nav gate, and the detail tabs with Show advanced.
 import { test, describe, beforeEach } from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import { loadDashboardSandbox } from "./load_dashboard.mjs";
 
 const sandbox = loadDashboardSandbox();
@@ -109,7 +110,8 @@ describe("list page", () => {
     assert.match(html, /\$30,000\/yr/);
     assert.match(html, /4\.7%/);
     assert.match(html, /Converted home/);
-    assert.match(html, /2 of 20 properties\. Net yield = \(rent - operating expenses\) \/ value\./);
+    assert.match(html, /2 of 20 properties\./);
+    assert.match(fs.readFileSync("frontend/js/help_registry.js", "utf8"), /Net yield = \(rent - operating expenses\) \/ value\./);
     assert.doesNotMatch(sandbox.rentalTableHtml(DATA, true), /rpOpen|rpDuplicate|rpRemove/);
   });
 });
@@ -123,7 +125,8 @@ describe("convert my home", () => {
     assert.match(html, /\$400,000/); // min(1,070,000, 500,000) x 80%
     assert.match(html, /id="rpConvRent"[^>]*value=""/);
     assert.match(html, /Move to Schedule E/);
-    assert.match(html, /Section 121 applies to this property only/);
+    assert.match(html, /data-help-section="rental_properties\.convert_home"/);
+    assert.match(fs.readFileSync("frontend/js/help_registry.js", "utf8"), /Section 121 applies to this property only/);
     assert.doesNotMatch(html, /[Ss]uggested|0\.52/);
     assert.equal(sandbox.rentalConvertPanelHtml(null, DATA.home), "");
   });

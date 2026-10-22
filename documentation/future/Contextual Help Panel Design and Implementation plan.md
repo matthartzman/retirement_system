@@ -125,6 +125,7 @@ Phase 0 measured 284 page-level strings (STEPS `desc` / `intro` / `help` for 28 
 - Parallelise by module group (separate files, so no merge conflicts); each batch runs its own module tests.
 - Apply class D deletions from the CSV in the same pass; each deleted string's `merged_into` target must exist.
 - Exit: Phase 0 CSV shows every class A string moved or deleted.
+- **As built (batches 1-3, Income and Benefits; Spending; Investments and Property):** 36 `HELP_SECTIONS` records, 10 modules, tests updated, ceilings reset; see `ui_prose_inventory_summary.md`. Later groups remain.
 - **As built (Phase 3b: Insurance, Estate, Taxes; Strategy; Reports and Review; Settings):** 54 `HELP_SECTIONS` records in one `// Phase 3b:` block at the start of `help_registry.js`. Section prose left the center; wrappers carry `data-help-section` (a few headings use the section "?" button instead). Class B/C lines were shortened and tagged `data-kind="state|warn"`. The CSV `destination` column records each row as `moved: ...`, `deleted: ...` or `kept: ...`; two automated D calls were reversed (a loading state; tax-loss vs gain harvesting). `admin.html` is a separate shell with its own panel, so `admin.js` prose moved into its `ADMIN_HELP` entries, and config-card prose (Local backups, auto-update import) went into `SYSTEM_CONFIG_FIELD_HELP`. No `HELP_FIELDS` entries were needed: none of these modules' class A text was row-level field help.
 
 ### Phase 4: tests and guard (Sonnet, high; moderate)
