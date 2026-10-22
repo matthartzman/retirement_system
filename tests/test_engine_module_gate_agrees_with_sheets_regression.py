@@ -175,6 +175,11 @@ class TheGateAloneIsInert(unittest.TestCase):
     reviewer's judgement call over thousands of moved numbers.
     """
 
+    # ~230s on an idle core (build() runs the Roth optimizer per scenario); over
+    # CI's --timeout=300 on a loaded runner, where pytest-timeout then kills the
+    # xdist worker. #269 removes the cost (build(optimize=False)); until it lands
+    # this bound keeps the worker alive.
+    @pytest.mark.timeout(1200)
     def test_no_synthetic_scenario_configures_a_disability_event(self):
         for name, scenario in SCENARIOS.items():
             di = scenario.build().get("disability", {}) or {}
