@@ -80,11 +80,12 @@ def sync_from_app(db_path: str | Path, base_dir: str | Path) -> dict[str, Any]:
                 # that a mortgage or card is cash. A name that clearly says Loan / Credit card wins over that
                 # default, and repairs rows an earlier sync stamped "Cash" (confirmed) from the default role.
                 named = classify(row["display_name"])
-                if new_type == "Cash" and named in ("Loan", "Credit card"):
+                if new_type in ("Cash", "Loan") and named == "Credit card":
+                    new_type = named  # a card is a liability row in the plan but still a credit card
+                elif new_type == "Cash" and named == "Loan":
                     new_type = named
-                    stale_cash = row["type"] == "Cash"
-                else:
-                    stale_cash = False
+                # A liability can never be Cash, whatever an earlier sync or default role stamped on it.
+                stale_cash = row["type"] == "Cash" and new_type in ("Loan", "Credit card")
                 if new_type in TYPES and (not row["confirmed"] or stale_cash) and row["type"] != new_type:
                     conn.execute("UPDATE accounts SET type=?, confirmed=1 WHERE account_key=?", (new_type, key))
                     changed["type"] += 1

@@ -5,6 +5,7 @@ framework)."""
 from __future__ import annotations
 
 import json
+import threading
 from datetime import date
 from pathlib import Path
 
@@ -93,3 +94,29 @@ def test_second_instance_refuses_to_start_when_the_port_is_taken(capsys):
         port = srv.getsockname()[1]
         assert reporter_main.main(["--port", str(port), "--no-open"]) == 1
     assert "already running" in capsys.readouterr().err
+
+
+def test_exit_endpoint_stops_the_server(tmp_path):
+    from financial_trends_reporter.main import Lifecycle
+
+    stopped = threading.Event()
+    app = create_app(_workspace(tmp_path), log_path=tmp_path / "log.jsonl", lifecycle=Lifecycle(stopped.set))
+    assert app.test_client().post("/api/exit").status_code == 200
+    assert stopped.wait(2)
+
+
+def test_closed_page_stops_the_server_after_the_grace_period_but_a_reload_does_not():
+    from financial_trends_reporter.main import CLOSE_GRACE_SECONDS, Lifecycle
+
+    now = [0.0]
+    life = Lifecycle(lambda: None, clock=lambda: now[0])
+    assert not life.expired()  # never armed: an API-only server is not stopped
+    life.ping()
+    life.closing()
+    now[0] = CLOSE_GRACE_SECONDS - 1
+    life.ping()  # the reloaded page pings again
+    now[0] = CLOSE_GRACE_SECONDS + 5
+    assert not life.expired()
+    life.closing()
+    now[0] += CLOSE_GRACE_SECONDS + 1
+    assert life.expired()

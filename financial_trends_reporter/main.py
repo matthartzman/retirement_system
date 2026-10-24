@@ -17,6 +17,7 @@ import logging
 import socket
 import sys
 import threading
+import time
 import webbrowser
 from pathlib import Path
 
@@ -25,11 +26,13 @@ _REPO_ROOT = _APP_ROOT.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from src.http_runtime.server import run_local_server  # noqa: E402
+from src.http_runtime.host_guard import assert_safe_to_bind  # noqa: E402
+from src.http_runtime.server import LocalHTTPServer, _configured_token  # noqa: E402
 from src.http_runtime.wsgi_facade import Flask, Response, request  # noqa: E402
 from src.stores import SchemaVersionError  # noqa: E402
 
 from financial_trends_reporter import account_registry, balance_series, flows  # noqa: E402
+from financial_trends_reporter.app_sync import sync_from_app  # noqa: E402
 from financial_trends_reporter.balance_store import DB_FILENAME, freshness  # noqa: E402
 from financial_trends_reporter.passthrough_decisions import decisions_path_for_log, save_decision  # noqa: E402
 from financial_trends_reporter.trends_job import run as run_trends_job  # noqa: E402
@@ -38,7 +41,7 @@ from financial_trends_reporter.trends_log import default_log_path, read_history 
 INDEX_HTML_PATH = _APP_ROOT / "frontend" / "index.html"
 
 
-def create_app(retirement_system_dir: Path, log_path: Path | None = None) -> Flask:
+def create_app(retirement_system_dir: Path, log_path: Path | None = None, lifecycle: "Lifecycle | None" = None) -> Flask:
     app = Flask("financial_trends_reporter", static_folder=str(_APP_ROOT / "frontend"))
     resolved_log_path = log_path or default_log_path(_APP_ROOT)
 
@@ -171,7 +174,69 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None) -> Fla
             return _json({"success": False, "error": f"{exc.__class__.__name__}: {exc}"}, 500)
         return Response(json.dumps(result), status=200 if result.get("success") else 400, content_type="application/json")
 
+    @app.route("/api/ping", methods=["POST"])
+    def ping():
+        if lifecycle is not None:
+            lifecycle.ping()
+        return _json({"success": True})
+
+    @app.route("/api/closing", methods=["POST"])
+    def closing():
+        if lifecycle is not None:
+            lifecycle.closing()
+        return _json({"success": True})
+
+    @app.route("/api/exit", methods=["POST"])
+    def exit_app():
+        if lifecycle is not None:
+            lifecycle.stop_soon()
+        return _json({"success": True})
+
     return app
+
+
+# The page pings every 5s. A hidden tab can be throttled to about one timer a minute, so the
+# idle timeout is generous; a closed page also sends a beacon that shortens it to a short
+# grace period (a reload's first ping cancels that).
+IDLE_TIMEOUT_SECONDS = 150.0
+CLOSE_GRACE_SECONDS = 10.0
+
+
+class Lifecycle:
+    """Stops the server when the browser page goes away. Armed by the first ping, so a server
+    used only through the API (no page ever opened) is never stopped by it."""
+
+    def __init__(self, stop, clock=time.monotonic) -> None:
+        self._stop = stop
+        self._clock = clock
+        self._deadline: float | None = None
+        self._lock = threading.Lock()
+
+    def ping(self) -> None:
+        with self._lock:
+            self._deadline = self._clock() + IDLE_TIMEOUT_SECONDS
+
+    def closing(self) -> None:
+        with self._lock:
+            if self._deadline is not None:
+                self._deadline = min(self._deadline, self._clock() + CLOSE_GRACE_SECONDS)
+
+    def expired(self) -> bool:
+        with self._lock:
+            return self._deadline is not None and self._clock() >= self._deadline
+
+    def stop_soon(self) -> None:
+        # shutdown() blocks until serve_forever exits, so it must not run on the request thread.
+        threading.Thread(target=self._stop, daemon=True).start()
+
+    def watch(self, interval: float = 1.0) -> None:
+        def loop() -> None:
+            while True:
+                time.sleep(interval)
+                if self.expired():
+                    self._stop()
+                    return
+        threading.Thread(target=loop, daemon=True).start()
 
 
 def _port_in_use(host: str, port: int) -> bool:
@@ -197,12 +262,26 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Financial trends reporter is already running on port {args.port}. "
               "Close it first if it needs to pick up new code.", file=sys.stderr)
         return 1
-    app = create_app(Path(args.retirement_system_dir))
+    # Re-read account types/mapping from the app so a fix to the sync applies without waiting for the next import.
+    sync_from_app(default_log_path(_APP_ROOT).with_name(DB_FILENAME), args.retirement_system_dir)
+    assert_safe_to_bind(args.host, _configured_token())
+    # Build the server here (not run_local_server) so Exit and the closed-page watchdog can stop it.
+    holder: dict[str, LocalHTTPServer] = {}
+    lifecycle = Lifecycle(lambda: holder["server"].shutdown())
+    app = create_app(Path(args.retirement_system_dir), lifecycle=lifecycle)
+    server = holder["server"] = LocalHTTPServer((args.host, int(args.port)), app)
     url = f"http://{args.host}:{args.port}"
     print(f"Financial trends reporter listening on {url}")
     if not args.no_open:
         threading.Timer(1.0, lambda: webbrowser.open(url)).start()
-    run_local_server(app, host=args.host, port=args.port, debug=False)
+    lifecycle.watch()
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.server_close()
+    print("Financial trends reporter stopped.")
     return 0
 
 
