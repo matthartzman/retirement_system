@@ -132,10 +132,10 @@ def test_add_estate_state_goes_before_the_gifting_rows_and_is_idempotent(ws, cli
         "state_estate_exemption", "state_estate_tax_applies", "state_estate_rate_note"]
     after = _subs(ws, "Estate Planning")
     assert after == [*before[:before.index("Gifting")], "New York", *before[before.index("Gifting"):]]
-    revision = ws.store(readonly=True).revision()
+    revision = ws.revision()
     status, out = _post(client, "/api/estate-state/add", {"state": "New York"})
     assert (status, out["message"]) == (200, "New York already exists in Estate Information.")
-    assert ws.store(readonly=True).revision() == revision
+    assert ws.revision() == revision
     # a state the reference data does not know is added as typed
     status, out = _post(client, "/api/estate-state/add", {"state": "Zzz"})
     assert out["state"] == "Zzz" and _rows(ws, "Estate Planning", "Zzz")[1]["value"] == "FALSE"

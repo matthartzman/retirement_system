@@ -239,10 +239,10 @@ def test_residency_schedule_reads_and_replaces_the_period_rows(ws, client):
      "Row 1 needs an end year -- only the last row may be open-ended."),
 ])
 def test_residency_schedule_validation_changes_nothing(ws, client, schedule, error):
-    revision = ws.store(readonly=True).revision()
+    revision = ws.revision()
     status, out = _post(client, "/api/residency-schedule", {"schedule": schedule})
     assert (status, out) == (400, {"success": False, "error": error})
-    assert ws.store(readonly=True).revision() == revision
+    assert ws.revision() == revision
 
 
 # ---------------------------------------------------------------------- tax assumptions
@@ -313,11 +313,11 @@ def test_a_failed_edit_changes_nothing(ws, client, monkeypatch):
             return False
 
     monkeypatch.setattr(plan_routes, "_edit_active_plan", lambda: Failing())
-    revision = ws.store(readonly=True).revision()
+    revision = ws.revision()
     for path, body in [("/api/residency-schedule", {"schedule": []}), ("/api/forced-roth-conversions", {"conversions": []})]:
         status, out = _post(client, path, body)
         assert status == 500 and out["success"] is False and "locked" in out["error"], path
-    assert ws.store(readonly=True).revision() == revision
+    assert ws.revision() == revision
 
 
 def test_audit_events_are_recorded_after_the_edit(ws, client, monkeypatch):
