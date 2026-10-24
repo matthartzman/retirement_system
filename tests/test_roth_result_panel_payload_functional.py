@@ -33,6 +33,7 @@ from pathlib import Path
 
 import pytest
 
+from tests.build_output_helpers import built_file
 from src.reporting.summary_figures import (
     ROTH_CANDIDATE_DISPLAY_LIMIT,
     roth_candidate_objective_values,
@@ -199,7 +200,7 @@ def test_a_real_build_writes_the_panels_payload_into_plan_summary(tmp_path_facto
     # need to name the policy the plan is actually running.
     assert payload["selected_policy"]
 
-    sheet_rows = _sheet11_candidate_rows(out_dir / "retirement_plan.xlsx")
+    sheet_rows = _sheet11_candidate_rows(built_file(out_dir, "retirement_plan.xlsx"))
     assert sheet_rows, "Sheet 11 printed no candidates to compare against"
     panel_rows = [
         (c["rank"], c["label"], c["relative_score"]) for c in payload["candidates"]

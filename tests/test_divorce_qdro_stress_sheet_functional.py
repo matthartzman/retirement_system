@@ -25,6 +25,7 @@ from pathlib import Path
 import pytest
 
 from src.module_catalog import CATALOG, OPTIONAL_MODULE_SHEETS
+from tests.build_output_helpers import built_file
 
 ROOT = Path(__file__).resolve().parents[1]
 TOGGLE = "divorce_qdro"
@@ -83,7 +84,7 @@ def test_full_workbook_build_succeeds_with_the_module_on_and_off(tmp_path_factor
     out_dir, result = _build_workbook(tmp_path_factory, enabled=enabled)
     tail = (result.stdout + result.stderr)[-4000:]
     assert result.returncode == 0, f"build with {TOGGLE}={enabled} failed:\n{tail}"
-    book = out_dir / "retirement_plan.xlsx"
+    book = built_file(out_dir, "retirement_plan.xlsx")
     assert book.exists()
 
     from openpyxl import load_workbook

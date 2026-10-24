@@ -16,6 +16,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 from tests._decomp_dashboard import dashboard_js_text
+from tests.build_output_helpers import built_file
 
 # Whole of section 4 (Risks) plus a couple of System/Comparisons sheets, so
 # we can assert both sheet removal and empty-section pruning. W3 (#329 O10)
@@ -65,15 +66,15 @@ def gated_build(tmp_path_factory):
 @pytest.mark.slow
 def test_build_succeeds_with_modules_off(gated_build):
     out_dir, _ = gated_build
-    assert (out_dir / "retirement_plan.xlsx").exists()
+    assert (built_file(out_dir, "retirement_plan.xlsx")).exists()
     # Nothing breaks: the in-app dashboard is still produced.
-    assert (out_dir / "retirement_dashboard.html").exists()
+    assert (built_file(out_dir, "retirement_dashboard.html")).exists()
 
 
 @pytest.mark.slow
 def test_disabled_module_sheets_are_absent(gated_build):
     out_dir, _ = gated_build
-    names = _sheet_names(out_dir / "retirement_plan.xlsx")
+    names = _sheet_names(built_file(out_dir, "retirement_plan.xlsx"))
     for gone in ["4A. Monte Carlo", "4B. Survivor", "4C. LTC Stress Test", "4D. Life Insurance Need",
                  "5G. Glossary", "3A. State Residency"]:
         assert gone not in names, f"{gone} should be gated out but was present"
@@ -88,7 +89,7 @@ def test_disabled_module_sheets_are_absent(gated_build):
 @pytest.mark.slow
 def test_empty_section_divider_is_dropped(gated_build):
     out_dir, _ = gated_build
-    names = _sheet_names(out_dir / "retirement_plan.xlsx")
+    names = _sheet_names(built_file(out_dir, "retirement_plan.xlsx"))
     # Every sheet under "4. Risks" is disabled, so its divider is dropped
     # entirely; the sections whose sheets survive stay.
     assert "4. Risks" not in names

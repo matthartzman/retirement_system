@@ -225,7 +225,7 @@ def test_a_real_build_writes_the_apply_payload_into_plan_summary(tmp_path_factor
     # Sheet 11, so a renumbering does not silently skip the comparison.
     headline = {}
     checked = []
-    for book in sorted(out_dir.glob("*.xlsx")):
+    for book in sorted(out_dir.rglob("*.xlsx")):
         wb = load_workbook(book, read_only=True, data_only=True)
         try:
             checked.extend(wb.sheetnames)

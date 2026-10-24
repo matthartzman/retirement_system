@@ -3,6 +3,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.version import VERSION
 from openpyxl import Workbook
@@ -12,6 +14,17 @@ from openpyxl.chart.series import SeriesLabel
 from src.detailed_results import workbook_detailed_results, workbook_detailed_index, workbook_detailed_sheet, _clean_sheet_title
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+@pytest.fixture(autouse=True)
+def _no_stored_results_model(tmp_path, monkeypatch):
+    """These tests parse a hand-made workbook; keep the active plan's stored build results (written by
+    any earlier real build) out of the explorer so only the Excel parser is exercised."""
+    from src.active_plan import PLAN_DB_ENV, ensure_plan_file
+
+    plan = tmp_path / 'empty_plan.rpx'
+    monkeypatch.setenv(PLAN_DB_ENV, str(plan))
+    ensure_plan_file(plan)
 from tests._decomp_dashboard import dashboard_js_text
 
 

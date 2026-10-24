@@ -1,9 +1,22 @@
 from pathlib import Path
 
+import pytest
+
 from openpyxl import Workbook, load_workbook
 
 from src.detailed_results import workbook_detailed_index, workbook_detailed_sheet
 from src.reporting.dashboard import _find_workbook_charts_sheet, build_html_dashboard
+
+
+@pytest.fixture(autouse=True)
+def _no_stored_results_model(tmp_path, monkeypatch):
+    """These tests parse a hand-made workbook; keep the active plan's stored build results (written by
+    any earlier real build) out of the explorer so only the Excel parser is exercised."""
+    from src.active_plan import PLAN_DB_ENV, ensure_plan_file
+
+    plan = tmp_path / 'empty_plan.rpx'
+    monkeypatch.setenv(PLAN_DB_ENV, str(plan))
+    ensure_plan_file(plan)
 
 
 def _make_refactored_charts_workbook(path: Path) -> None:
