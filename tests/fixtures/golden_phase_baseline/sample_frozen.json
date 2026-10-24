@@ -14723,27 +14723,7 @@
    ],
    [
     "Optimizer Target \u2014 US Large Cap",
-    0.12,
-    "decimal",
-    "Computed recommendation using risk tolerance, withdrawal rate, guaranteed-income/home-equity coverage, capital-market assumptions, correlations, glide path, and inflation-sensitive spending.",
-    null,
-    null,
-    null,
-    null
-   ],
-   [
-    "Optimizer Target \u2014 US Mid Cap",
-    0.12,
-    "decimal",
-    "Computed recommendation using risk tolerance, withdrawal rate, guaranteed-income/home-equity coverage, capital-market assumptions, correlations, glide path, and inflation-sensitive spending.",
-    null,
-    null,
-    null,
-    null
-   ],
-   [
-    "Optimizer Target \u2014 US Small Cap",
-    0.12,
+    0.57,
     "decimal",
     "Computed recommendation using risk tolerance, withdrawal rate, guaranteed-income/home-equity coverage, capital-market assumptions, correlations, glide path, and inflation-sensitive spending.",
     null,
@@ -14753,17 +14733,7 @@
    ],
    [
     "Optimizer Target \u2014 International",
-    0.12,
-    "decimal",
-    "Computed recommendation using risk tolerance, withdrawal rate, guaranteed-income/home-equity coverage, capital-market assumptions, correlations, glide path, and inflation-sensitive spending.",
-    null,
-    null,
-    null,
-    null
-   ],
-   [
-    "Optimizer Target \u2014 Emerging Markets",
-    0.12,
+    0.05,
     "decimal",
     "Computed recommendation using risk tolerance, withdrawal rate, guaranteed-income/home-equity coverage, capital-market assumptions, correlations, glide path, and inflation-sensitive spending.",
     null,
@@ -14773,7 +14743,7 @@
    ],
    [
     "Optimizer Target \u2014 Commodities",
-    0.12,
+    0.11,
     "decimal",
     "Computed recommendation using risk tolerance, withdrawal rate, guaranteed-income/home-equity coverage, capital-market assumptions, correlations, glide path, and inflation-sensitive spending.",
     null,
@@ -14783,7 +14753,7 @@
    ],
    [
     "Optimizer Target \u2014 Managed Futures",
-    0.12,
+    0.11,
     "decimal",
     "Computed recommendation using risk tolerance, withdrawal rate, guaranteed-income/home-equity coverage, capital-market assumptions, correlations, glide path, and inflation-sensitive spending.",
     null,
@@ -14793,7 +14763,7 @@
    ],
    [
     "Optimizer Target \u2014 Private Credit",
-    0.1,
+    0.09,
     "decimal",
     "Computed recommendation using risk tolerance, withdrawal rate, guaranteed-income/home-equity coverage, capital-market assumptions, correlations, glide path, and inflation-sensitive spending.",
     null,
@@ -15768,7 +15738,7 @@
     "Efficient frontier and Sharpe ratio computed for recommended allocation",
     null,
     "PASS",
-    "1 frontier points; Sharpe=0.29",
+    "15 frontier points; Sharpe=0.29",
     null,
     null,
     null
@@ -15815,10 +15785,10 @@
    ],
    [
     "1F. Charts",
-    "7 charts: NW, CF Income, CF Expense, MC Bands, Alloc Before, Alloc After, Holding-Period Real-Loss",
+    "8 charts: NW, CF Income, CF Expense, MC Bands, Alloc Before, Alloc After, Efficient Frontier, Holding-Period Real-Loss",
     null,
     "PASS",
-    "NW, Income (15 ser, ymax=$500,000), Expense (13 ser, ymax=$500,000), MC bands, 2 pie charts, holding-period real-loss scatter",
+    "NW, Income (15 ser, ymax=$500,000), Expense (13 ser, ymax=$500,000), MC bands, 2 pie charts, efficient frontier scatter, holding-period real-loss scatter",
     null,
     null,
     null

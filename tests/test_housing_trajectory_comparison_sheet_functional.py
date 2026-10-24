@@ -38,6 +38,7 @@ from src.plan_config import ensure_engine_config
 from src.planning_engines import project
 from src.reporting.sheets_strategy import build_sheet_housing_comparison
 from src.reporting.workbook_common import SHEET_LETTER_ORDER, compute_final_sheet_renames
+from tests.build_output_helpers import built_file
 
 from conftest import TEST_INPUT_DIR
 from tests.golden_pricing import FROZEN_GOLDEN_MASTER_PRICES, frozen_holdings_prices
@@ -219,7 +220,7 @@ def test_full_workbook_build_succeeds_with_the_module_on_and_off(tmp_path_factor
     out_dir, result = _build_workbook(tmp_path_factory, enabled=enabled)
     tail = (result.stdout + result.stderr)[-4000:]
     assert result.returncode == 0, f"build with {TOGGLE}={enabled} failed:\n{tail}"
-    book = out_dir / "retirement_plan.xlsx"
+    book = built_file(out_dir, "retirement_plan.xlsx")
     assert book.exists()
 
     from openpyxl import load_workbook

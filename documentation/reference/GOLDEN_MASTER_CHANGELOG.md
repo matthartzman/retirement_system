@@ -1,3 +1,7 @@
+## 2026-10-24 — Phase golden baseline: 5D Assumptions optimizer-target rows restored (demo, sample_frozen)
+
+`tests/fixtures/golden_phase_baseline/demo.json` and `sample_frozen.json` re-recorded with `tools/golden_compare.py record`. The 2026-10-21 re-record (c492f61b) had captured nine `Optimizer Target` rows on sheet 5D. Assumptions (0.12 for seven classes, 0.10, 0.05; sum 99%, not a valid allocation). A clean build, locally and in the nightly CI run, computes the six-class target (0.58, 0.05, 0.11, 0.11, 0.10, 0.05; sum 100%), which also equals the baseline before c492f61b. These rows were the only cells that moved; the engine rows and pins are unchanged (`regen_golden_master.py measure` reports MATCH).
+
 ## 2026-10-21 — Mortality table replaced with the SSA 2023 period life table (FIN-006)
 
 `reference_src/mortality_table.csv` now holds the exact SSA period life table (calendar 2023, as used in the 2026 Trustees Report), ages 18 to 119, instead of values interpolated from Actuarial Study No. 124 anchors. Life expectancy at 65 moves from 17.3 (male) and 19.7 (female) to 18.12 and 20.66, matching the published table. The reference golden `mortality_qx_table.json` is re-captured from the new table. Deterministic engine rows do not change; only Monte Carlo outputs move. Frozen sample plan: `mc_success_within_tier_policy` 0.56 to 0.44. Demo plan: `mc_success` 0.88 to 0.94, `terminal_nw_mc_p5` 6,899,861 to 7,687,703. The demo and sample_frozen phase baselines were re-recorded with these values when the change merged.

@@ -70,7 +70,7 @@ def _build(tmp: Path, rows: list | None) -> Path:
             store.rental.replace_all(rows)
             mc.set_feature(store, "rental_property_income", True)
     env = os.environ.copy()
-    env.update(RETIREMENT_SYSTEM_WORKSPACE_ROOT=str(work), RETIREMENT_SYSTEM_OUTPUT_DIR=str(tmp / "out"),
+    env.update(RETIREMENT_SYSTEM_WORKSPACE_ROOT=str(work), RETIREMENT_SYSTEM_PLAN_DB=str(work / "plan.rpx"), RETIREMENT_SYSTEM_OUTPUT_DIR=str(tmp / "out"),
                RETIREMENT_SYSTEM_APP_MODE="LOCAL", RETIREMENT_SYSTEM_WORKSPACE_ID="local",
                RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS="1", RETIREMENT_MC_SIMS="16", RETIREMENT_MC_SENSITIVITY_SIMS="3")
     result = subprocess.run([sys.executable, "tools/build_workbook.py"], cwd=ROOT, env=env, text=True, capture_output=True, timeout=600)
