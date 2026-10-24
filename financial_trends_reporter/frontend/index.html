@@ -25,6 +25,7 @@
   .acct-btn { border: 1px solid #ccc; background: transparent; color: inherit; border-radius: 6px; padding: 3px 10px; font-size: 12px; cursor: pointer; }
   .empty { color: #888; font-size: 13px; }
   #runNow { margin-left: auto; }
+  #exitBtn { margin-left: 8px; }
   svg text { fill: currentColor; font-size: 12px; }
   .chart-dot { cursor: pointer; }
   .chart-dot:hover { r: 5; }
@@ -110,6 +111,7 @@
   <input type="date" id="customTo" style="display:none" aria-label="Custom range end date">
   <button data-tf="custom" aria-pressed="false">Custom</button>
   <button id="runNow">Run now</button>
+  <button id="exitBtn" title="Stop the local reporter server">Exit</button>
 </div>
 <div class="note" id="allTimeNote" style="display:none"></div>
 <div id="priceNote" class="price-note" role="status" style="display:none"></div>
@@ -515,6 +517,19 @@ document.getElementById("runNow").addEventListener("click", async () => {
     btn.disabled = false;
     btn.textContent = "Run now";
   }
+});
+
+// ---- Lifecycle: the server stops when this page is closed or Exit is clicked ----
+const sendPing = () => fetch("/api/ping", { method: "POST", keepalive: true }).catch(() => {});
+sendPing();
+setInterval(sendPing, 5000);
+// A reload fires pagehide too; the next page's first ping cancels the server's short grace period.
+window.addEventListener("pagehide", () => { navigator.sendBeacon("/api/closing"); });
+document.getElementById("exitBtn").addEventListener("click", async () => {
+  if (!confirm("Exit the Financial trends reporter? The local server will stop.")) return;
+  try { await fetch("/api/exit", { method: "POST" }); } catch (err) { /* server already gone */ }
+  document.body.innerHTML = '<h1>Financial trends</h1><div class="sub">The reporter has exited. You can close this tab.</div>';
+  window.close();
 });
 
 loadHistory();
