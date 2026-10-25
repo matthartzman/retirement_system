@@ -497,7 +497,8 @@ def test_review_fixes_plan_id_newline_and_restore_keeps_target():
     from src.stores.plan_store import validate_plan_id
     with pytest.raises(ValidationError):
         validate_plan_id("abc\n")
-    s = PlanStore.open()
+    from tests.open_stores import track
+    s = track(PlanStore.open())
     s.insert_row("A", label="x", value="1")
     first = s.snapshot_revision("t")
     s.set_revision_retention(1)

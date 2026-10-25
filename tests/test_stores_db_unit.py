@@ -1,7 +1,13 @@
 """WP2.1: connection helpers and forward-only schema versioning."""
 import pytest
 
-from src.stores import SchemaVersionError, StoreError, connect, get_version, migrate, transaction
+from src.stores import SchemaVersionError, StoreError, get_version, migrate, transaction
+from src.stores import connect as _connect
+from tests.open_stores import track
+
+
+def connect(*args, **kwargs):
+    return track(_connect(*args, **kwargs))  # closed by the autouse fixture in conftest
 
 M = ["CREATE TABLE a(x INTEGER);", "CREATE TABLE b(y TEXT); INSERT INTO b VALUES('s;t');"]
 
