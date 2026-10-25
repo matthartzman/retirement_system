@@ -56,7 +56,9 @@ def _optional_functions_service(tmp_path, *, load_active_config, edits=None):
     from src.server_services.config_service import ConfigService, ConfigServiceContext
     from src.stores import PlanStore
 
-    store = PlanStore.open(tmp_path / "unit.rpx", create=True)
+    from tests.open_stores import track
+
+    store = track(PlanStore.open(tmp_path / "unit.rpx", create=True))
     store.insert_row("Optional Functions", subsection="", label="roth_conversion_plan", value="TRUE",
                      units="boolean", notes="Roth Conversion")
 

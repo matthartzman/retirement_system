@@ -139,4 +139,5 @@ def test_set_feature_still_refuses_features_without_a_switch_of_their_own(tmp_pa
             mc.set_feature(store, core, False)
         with pytest.raises(KeyError):
             mc.set_feature(store, "no_such_feature", True)
-        assert store.all_rows() == ws.store().all_rows()
+        with ws.store() as reread:
+            assert store.all_rows() == reread.all_rows()
