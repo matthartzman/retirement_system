@@ -111,6 +111,11 @@ class PlanWorkspace:
         from src.stores import PlanStore
         return PlanStore.open(self.plan_db, create=False, readonly=readonly)
 
+    def revision(self) -> str:
+        """The plan file's current revision, read through a store that is closed again."""
+        with self.store(readonly=True) as store:
+            return store.revision()
+
     def data(self):
         from src.data_io import load_csv
         return load_csv(self.input_dir / "client_data.csv")

@@ -12,13 +12,14 @@ from typing import Any
 
 from src.server_services.strategy_asset_service import StrategyAssetService, StrategyAssetServiceContext
 from src.stores import PlanStore
+from tests.open_stores import track
 
 
 def service_over_rows(tmp_path: Path, rows: list[tuple[str, str, str, str]], **context: Any):
     """``(service, store, audit_events)``; ``rows`` are ``(section, subsection, label, value)``.
 
     ``context`` overrides or adds ``StrategyAssetServiceContext`` fields."""
-    store = PlanStore.open(tmp_path / "unit.rpx", create=True)
+    store = track(PlanStore.open(tmp_path / "unit.rpx", create=True))
     for section, subsection, label, value in rows:
         store.insert_row(section, subsection=subsection, label=label, value=value)
     events: list[tuple[str, dict]] = []

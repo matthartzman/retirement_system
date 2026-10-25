@@ -126,8 +126,12 @@ def test_sync_does_not_stamp_cash_on_a_mortgage_or_card_matched_to_a_default_cas
 def test_sync_repairs_a_credit_card_stamped_cash(tmp_path):
     base, db = _setup(tmp_path)
     reg.set_account(db, "mystery", type="Cash")  # what an earlier sync stamped from the default role
-    with reg.connect(db) as conn:
+    conn = reg.connect(db)
+    try:
         conn.execute("UPDATE accounts SET display_name='Costco Anywhere Visa Card (...1530)' WHERE account_key='mystery'")
+        conn.commit()
+    finally:
+        conn.close()
     with active_plan.workspace_store(base, write=True) as store:
         store.monarch.set_mapping("mystery", "liability:liab_x", "", "app")
     assert app_sync.sync_from_app(db, base)["type"] == 1

@@ -209,6 +209,13 @@ def _reset_market_data_price_cache():
     _market_data._DEFAULT_PROVIDER.cache = copy.deepcopy(_PRISTINE_PROVIDER_CACHE)
 
 
+@pytest.fixture(autouse=True)
+def _close_helper_opened_stores():
+    yield
+    from tests.open_stores import close_all
+    close_all()
+
+
 # ---------------------------------------------------------------------------
 # `requires_live_input` -- tests that read the real, gitignored input/ CSVs
 # ---------------------------------------------------------------------------

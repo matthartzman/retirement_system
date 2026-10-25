@@ -27,8 +27,8 @@ def test_legacy_client_files_liabilities_are_ignored_when_plan_has_none(tmp_path
     write_dataset_rows_for_input_dir(ws.input_dir, "liabilities", [])
     legacy = tmp_path / "legacy.db"
     config_backend.init_sqlite(legacy)
-    import sqlite3
-    with sqlite3.connect(legacy) as con:
+    from src.sqlite_util import connect as sqlite_connect
+    with sqlite_connect(legacy) as con:
         con.execute("INSERT INTO client_files(file_name, content) VALUES(?,?)",
                     ("client_liabilities.csv", "balance\n999999\n"))
     nw = compute_snapshot(ws.root, today=date(2026, 9, 30))["net_worth"]

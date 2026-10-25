@@ -110,5 +110,6 @@ def use_zip_test_db(sample_csv_path: str | Path) -> None:
     Args:
         sample_csv_path: Path to the sample CSV file
     """
-    ref = build_zip_test_db(sample_csv_path)
-    set_reference_for_tests(ref.path)
+    with build_zip_test_db(sample_csv_path) as ref:  # only the path is needed; don't leak the handle
+        path = ref.path
+    set_reference_for_tests(path)
