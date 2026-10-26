@@ -23,7 +23,9 @@ JS_DIR = ROOT / "frontend" / "js"
 
 def _dashboard_smoke_sources():
     mods = sorted(JS_DIR.glob("dashboard_decomp_*.js"))
-    return [str(JS_DIR / "dashboard_shared_helpers.js")] + [str(m) for m in mods] + [str(JS)]
+    # runtime_history.js is imported by dashboard_decomp_build_lifecycle.js; concatenating it first
+    # (and dropping the import line below) keeps its helpers in scope.
+    return [str(JS_DIR / "dashboard_shared_helpers.js"), str(JS_DIR / "runtime_history.js")] + [str(m) for m in mods] + [str(JS)]
 
 
 def _smoke_sources_js_array():
@@ -51,7 +53,7 @@ def _run_smoke(rows_literal: str, call: str, tmp_path: Path) -> str:
     script = tmp_path / "wellness_section_smoke.js"
     script.write_text(textwrap.dedent(f"""
         const fs = require('fs');
-        const code = {_smoke_sources_js_array()}.map(f => fs.readFileSync(f, 'utf8').replace(/^export (async )?function /gm, '$1function ').replace(/^export (const|let|var) /gm, '$1 ')).join('\\n');
+        const code = {_smoke_sources_js_array()}.map(f => fs.readFileSync(f, 'utf8').replace(/^export (async )?function /gm, '$1function ').replace(/^export (const|let|var) /gm, '$1 ').replace(/^import {{[^}}]*}} from "[^"]+";\\r?\\n/gm, '')).join('\\n');
         const el = () => ({{
           style: {{}}, innerHTML: '', textContent: '', value: '', disabled: false,
           classList: {{ toggle(){{}}, remove(){{}}, add(){{}}, contains(){{return false;}} }},
