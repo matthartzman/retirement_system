@@ -285,12 +285,15 @@ A companion browser app, run alongside the main planner, that charts a
 household's historical net worth and spending trends over time from saved
 snapshots — a longitudinal view the main single-plan-projection app does
 not otherwise provide. Runs as its own local process on its own port; not
-part of the main app's route registry. Its Net worth and Holdings charts use
+part of the main app's route registry. Its Net Worth and Holdings charts use
 Monarch's daily account balances (account type, match to the plan and Ignore are
 set on the app's Monarch Reconciliation page and read at import; per-chart
-inclusion is set in each chart's Accounts popover), and investment flows are
-shown as a monthly line with a year-to-date summary. The Holdings chart is titled
-Liquid Investments and Cash; All time starts 2025-02-01.
+inclusion is set in each chart's Accounts popover). One Time scope pulldown (1 Week,
+1 Month, 3 Months, 6 Months, YTD, 1 Year, All Time, Custom) drives all four charts: net worth,
+Liquid Investments and Cash, Investment Net Flows (from a daily flows ledger) and Spending
+(computed per window, with last-year, prorated-budget and full-year-budget markers). The page
+updates its data on open (with an Updating Data overlay) instead of a Run now button;
+All Time starts 2025-02-01.
 
 ### 4.11 Settings
 Economic and tax assumptions (capital market assumptions, correlations, tax

@@ -366,3 +366,24 @@ Overall: **moderate-to-heavy for one 5-hour session**. Phase 3b is self-containe
 chart rendering and the page's CSS, so it can run in parallel with phase 4. Splitting is natural
 after phase 3b (one PR for scope, titles, fitted charts and the update on open) and after phases 4–5 (a second PR for flows and
 Spending by window).
+
+## Implementation status
+
+Branch `trends-time-scope`.
+
+- Phase 1: shared runtime_history module: `071051ad` (WIP), `2e176a4c`
+- Phase 2: titles, update on open, run lock, /api/run-status: `50b4a1ee`
+- Phase 3: time scope pulldown, scopeRange, saved choice, period label: `b66a1cfc`
+- Phase 3b: fitted line charts and scope-aware x-axis labels: `ca842e4a`
+- Phase 4: daily investment flows ledger and scope-aware Investment Net Flows: `ef5aa82f`
+- Phase 5: Spending by window with markers: `b34bae45`, `ebb62876`
+- Phase 6: release note and final verification: see the "Docs: Trends time scope and Spending by window
+  release note" commit.
+
+Known limitations and follow-ups:
+
+1. A Monarch account rename loses its mappings (the key is the casefolded name).
+2. All Time flows and Spending start 2025-02-01, so about $522.5k of earlier flow credits are excluded.
+3. The 1 Week scope covers 8 days (Oct 19-26 style).
+4. Point tooltips in the flows chart show net only.
+5. The dark-mode y gridlines in line charts are still #e5e5e5.
