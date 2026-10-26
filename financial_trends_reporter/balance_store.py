@@ -108,6 +108,48 @@ def _read_rows(csv_path: Path) -> list[tuple[str, str, str, float]]:
     return rows
 
 
+def _detect_renames(conn: sqlite3.Connection, rows: list[tuple[str, str, str, float]]) -> list[tuple[str, str]]:
+    """Old key -> new key for a Monarch rename. The export has no account id, so a rename arrives as a new
+    key repeating a stored key's history (same dates and balances) while the old key is gone from the file.
+    Mirrors ``MonarchRepo.migrate_renames`` in the app's plan store."""
+    incoming: dict[str, dict[str, float]] = {}
+    for d, key, _name, bal in rows:
+        incoming.setdefault(key, {})[d] = bal
+    stored: dict[str, dict[str, float]] = {}
+    for r in conn.execute("SELECT date, account_key, balance FROM balances"):
+        if r["account_key"] not in incoming:
+            stored.setdefault(r["account_key"], {})[r["date"]] = r["balance"]
+    # A key that is already confirmed or matched has been dealt with; only unreviewed ones can be a rename target.
+    taken = {r["account_key"] for r in conn.execute("SELECT account_key FROM accounts WHERE confirmed=1 OR app_account IS NOT NULL")}
+    candidates = {k: v for k, v in incoming.items() if k not in taken}
+    moves: list[tuple[str, str]] = []
+    for old, old_hist in stored.items():
+        best, best_hits = None, 0
+        for new, new_hist in candidates.items():
+            hits = [d for d, b in old_hist.items() if d in new_hist and abs(new_hist[d] - b) < 0.005]
+            if any(abs(old_hist[d]) >= 0.005 for d in hits) and len(hits) > best_hits:
+                best, best_hits = new, len(hits)
+        if best is None or best_hits < min(3, len(old_hist)) or best_hits < 0.8 * len(old_hist):
+            continue
+        candidates.pop(best)
+        moves.append((old, best))
+    return moves
+
+
+def _move_account(conn: sqlite3.Connection, old: str, new: str) -> None:
+    """Hand the old key's type, match and per-chart choices to the new key and drop the old key's history."""
+    conn.execute(
+        "UPDATE accounts SET type=(SELECT type FROM accounts WHERE account_key=?), "
+        "app_account=(SELECT app_account FROM accounts WHERE account_key=?), "
+        "confirmed=(SELECT confirmed FROM accounts WHERE account_key=?) WHERE account_key=?",
+        (old, old, old, new))
+    conn.execute("INSERT OR IGNORE INTO account_prefs (chart, account_key, enabled) "
+                 "SELECT chart, ?, enabled FROM account_prefs WHERE account_key=?", (new, old))
+    conn.execute("DELETE FROM account_prefs WHERE account_key=?", (old,))
+    conn.execute("DELETE FROM balances WHERE account_key=?", (old,))
+    conn.execute("DELETE FROM accounts WHERE account_key=?", (old,))
+
+
 def _record(conn: sqlite3.Connection, now: datetime, source: Path, status: str, *, rows=0, accounts=0, latest=None, detail=None) -> None:
     conn.execute(
         "INSERT INTO import_runs (run_at, source_file, rows, accounts, latest_date, status, detail) VALUES (?,?,?,?,?,?,?)",
@@ -146,6 +188,7 @@ def import_balances(db_path: str | Path, csv_path: str | Path, *, today: date | 
         for d, key, name, _ in rows:
             if key not in names or d >= names[key][0]:
                 names[key] = (d, name)
+        renames = _detect_renames(conn, rows)
         with conn:
             conn.executemany(
                 "INSERT INTO balances (date, account_key, balance) VALUES (?,?,?) "
@@ -158,6 +201,8 @@ def import_balances(db_path: str | Path, csv_path: str | Path, *, today: date | 
                     "ON CONFLICT(account_key) DO UPDATE SET display_name=excluded.display_name",
                     (key, name, latest, latest),
                 )
+            for old, new in renames:
+                _move_account(conn, old, new)
             # first/last seen and active come from the stored history, not just this file.
             conn.execute(
                 "UPDATE accounts SET "

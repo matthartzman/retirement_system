@@ -116,9 +116,14 @@
   .update-title { font-size: 20px; font-weight: 800; margin: 0 0 6px; }
   .update-detail { font-size: 13px; color: var(--ov-muted); min-height: 20px; }
   .update-bar { height: 12px; background: var(--ov-track); border: 1px solid var(--ov-line); border-radius: 999px; overflow: hidden; margin-top: 16px; position: relative; }
-  .update-bar span { position: absolute; top: 0; bottom: 0; width: 35%; background: var(--ov-accent); border-radius: 999px; animation: update-slide 1.3s ease-in-out infinite; }
-  @keyframes update-slide { 0% { left: -35%; } 100% { left: 100%; } }
-  @media (prefers-reduced-motion: reduce) { .update-spinner, .update-bar span { animation: none; } .update-bar span { width: 100%; left: 0; } }
+  .update-bar span { position: absolute; top: 0; bottom: 0; left: 0; width: 0; background: var(--ov-accent); border-radius: 999px; transition: width .35s ease; }
+  @media (prefers-reduced-motion: reduce) { .update-spinner { animation: none; } .update-bar span { transition: none; } }
+  .update-actions { display: flex; gap: 8px; justify-content: center; margin-top: 14px; }
+  .update-btn { border: 1px solid var(--ov-line); background: transparent; color: inherit; border-radius: 8px; padding: 5px 14px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .update-btn:disabled { opacity: .55; cursor: default; }
+  .update-note { font-size: 12px; color: var(--ov-muted); margin-top: 8px; }
+  .update-chip { position: fixed; right: 16px; bottom: 16px; z-index: 130; background: var(--ov-card); border: 1px solid var(--ov-line); border-radius: 10px; padding: 8px 12px; font-size: 13px; box-shadow: 0 8px 24px rgba(0,0,0,.2); }
+  .update-chip[hidden] { display: none; }
   .update-avg { font-size: 12px; color: var(--ov-muted); margin-top: 10px; }
   #updateError { display: none; }
   #updateError button { margin-left: 8px; border: 1px solid currentColor; background: transparent; color: inherit; border-radius: 6px; padding: 2px 10px; font-size: 12px; cursor: pointer; }
@@ -159,7 +164,8 @@
     <div class="note" id="noteSpending">Totals follow the Spending Analysis mapping and include taxes. Markers: same period last year, budget for this period, and full-year budget. Roll over a bar to see its categories, then roll over a category to see its merchants.</div></div>
 </div>
 <div id="accountsMsg" role="status"></div>
-<div id="updateOverlay" class="update-overlay" role="status" aria-live="polite" aria-hidden="true"><div class="update-card"><div class="update-spinner" aria-hidden="true"></div><div class="update-title">Updating Data</div><div id="updateOverlayDetail" class="update-detail">Elapsed 0:00</div><div class="update-bar" aria-hidden="true"><span></span></div><div id="updateOverlayAvg" class="update-avg">Working…</div></div></div>
+<div id="updateOverlay" class="update-overlay" role="status" aria-live="polite" aria-hidden="true"><div class="update-card"><div class="update-spinner" aria-hidden="true"></div><div class="update-title">Updating Data</div><div id="updateOverlayDetail" class="update-detail">Elapsed 0:00</div><div class="update-bar" role="progressbar" aria-label="Update progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="updateOverlayBar"></span></div><div id="updateOverlayAvg" class="update-avg">Working…</div><div class="update-actions"><button type="button" id="updateCancel" class="update-btn">Cancel update</button><button type="button" id="updateHide" class="update-btn">Hide</button></div><div class="update-note">The update keeps running if you hide this window.</div></div></div>
+<div id="updateChip" class="update-chip" role="status" hidden><span>Update still running in the background.</span> <button type="button" id="updateShow" class="update-btn">Show progress</button></div>
 <div id="detailPopup" role="tooltip"></div>
 <div id="detailPopup2" role="tooltip"></div>
 <div id="rollPopup" role="tooltip"></div>
@@ -170,7 +176,7 @@
 // to be defined inline, right here, with no module boundary. It now lives
 // in ./charts.js, importable and testable directly.
 import { fmtMoney, escSvg, filterByTimeframe, aggregateByGranularity, granularityForTimeframe, labelForDate, scopeRange, parseSavedScope, dataTableFallbackHtml, lineChartSvg, barChartSvg, detailPopupHtml, categoryListHtml, investmentFlowRows, flowBarChartSvg, passthroughReviewHtml, rolloverModel, rolloverHtml, hasMonarchBalances, buildMonarchRows, truncateAllTime, ALL_TIME_START, monarchRolloverModel, balancesFreshnessNote, accountToggleHtml, flowIncludedAccounts, flowSeries, flowMonthlyRangeSeries, flowPeriodSummary, flowSummaryHtml, flowLineChartSvg, updateDecision, spendingUrl, spendingModelFromWindow, spendingModelFromSnapshot, latestOnly, spendingNoteText } from "./charts.js";
-import { formatElapsed, recordPopupRuntime, averageRuntimeText } from "/shared/runtime_history.js";
+import { formatElapsed, recordPopupRuntime, averageRuntimeText, loadPopupRuntimeHistory } from "/shared/runtime_history.js";
 
 let history = [];
 // Time scope: one choice drives every chart. Saved per browser; every storage access is guarded.
@@ -617,24 +623,57 @@ syncScopeControls();
 // ---- Update on open: run the job when the log is stale, behind an "Updating Data" overlay ----
 const UPDATE_POPUP_ID = "trends-update";
 const updateOverlay = document.getElementById("updateOverlay");
-let updateTimer = null, updateStartedAt = 0, updateBusy = false;
+let updateTimer = null, updateStartedAt = 0, updateBusy = false, updateCancelled = false;
+const updateChip = document.getElementById("updateChip");
+const updateCancelBtn = document.getElementById("updateCancel");
+// The bar fills toward 90% over the average run-time (or on a slow curve with no history yet) and never
+// reaches the end until the update itself finishes.
+function updateBarPct(elapsedMs) {
+  const runs = loadPopupRuntimeHistory()[UPDATE_POPUP_ID];
+  const avgMs = Array.isArray(runs) && runs.length >= 2 ? runs.reduce((a, b) => a + b, 0) / runs.length : 0;
+  return avgMs > 0 ? Math.min(90, (elapsedMs / avgMs) * 90) : 85 * (1 - Math.exp(-elapsedMs / 20000));
+}
 function showUpdateOverlay() {
   updateStartedAt = Date.now();
+  updateCancelled = false;
+  updateCancelBtn.disabled = false;
+  updateCancelBtn.textContent = "Cancel update";
   const detail = document.getElementById("updateOverlayDetail");
-  const tick = () => { detail.textContent = `Elapsed ${formatElapsed(Date.now() - updateStartedAt)}`; };
+  const bar = document.getElementById("updateOverlayBar");
+  const meter = bar.parentElement;
+  const tick = () => {
+    const elapsed = Date.now() - updateStartedAt;
+    detail.textContent = `Elapsed ${formatElapsed(elapsed)}`;
+    const pct = updateBarPct(elapsed);
+    bar.style.width = `${pct}%`;
+    meter.setAttribute("aria-valuenow", String(Math.round(pct)));
+  };
   tick();
   clearInterval(updateTimer);
   updateTimer = setInterval(tick, 1000);
   document.getElementById("updateOverlayAvg").textContent = averageRuntimeText(UPDATE_POPUP_ID) || "Working…";
-  updateOverlay.classList.add("active");
-  updateOverlay.setAttribute("aria-hidden", "false");
+  showUpdateWindow(true);
+}
+function showUpdateWindow(show) {
+  updateChip.hidden = show;
+  updateOverlay.classList.toggle("active", show);
+  updateOverlay.setAttribute("aria-hidden", show ? "false" : "true");
 }
 function hideUpdateOverlay() {
   clearInterval(updateTimer);
   updateTimer = null;
   updateOverlay.classList.remove("active");
   updateOverlay.setAttribute("aria-hidden", "true");
+  updateChip.hidden = true;
 }
+document.getElementById("updateHide").addEventListener("click", () => showUpdateWindow(false));
+document.getElementById("updateShow").addEventListener("click", () => showUpdateWindow(true));
+updateCancelBtn.addEventListener("click", async () => {
+  updateCancelled = true;
+  updateCancelBtn.disabled = true;
+  updateCancelBtn.textContent = "Cancelling…";
+  try { await fetch("/api/run-cancel", { method: "POST" }); } catch (err) { /* the run ends on its own */ }
+});
 function showUpdateError(message) {
   document.getElementById("updateErrorText").textContent = message;
   document.getElementById("updateError").style.display = "block";
@@ -649,11 +688,13 @@ async function fetchRunStatus() {
 }
 async function postRunNow() {
   const resp = await fetch("/api/run-now", { method: "POST" });
+  if (resp.status === 409) return false; // cancelled from the Updating Data window
   if (!resp.ok) {
     const body = await resp.json().catch(() => ({}));
     const detail = body.error || (body.errors || []).join("; ");
     throw new Error(`The update failed (HTTP ${resp.status})` + (detail ? `: ${detail}` : ""));
   }
+  return true;
 }
 // force: ignore the 15-minute freshness skip (Try again, and after a passthrough decision).
 async function updateData(force) {
@@ -672,8 +713,7 @@ async function updateData(force) {
           if (status && !status.running) break;
         }
       } else {
-        await postRunNow();
-        recordPopupRuntime(UPDATE_POPUP_ID, Date.now() - updateStartedAt);
+        if (await postRunNow()) recordPopupRuntime(UPDATE_POPUP_ID, Date.now() - updateStartedAt);
       }
       await loadHistory();
     } catch (err) {

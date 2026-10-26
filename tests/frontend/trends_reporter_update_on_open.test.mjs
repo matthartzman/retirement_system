@@ -56,7 +56,14 @@ describe("page markup", () => {
     assert.match(html, /id="updateOverlay"[^>]*role="status"[^>]*aria-live="polite"[^>]*aria-hidden="true"/);
     assert.match(html, /Updating Data/);
     assert.match(html, /id="updateOverlayAvg"/);
-    assert.ok(!/Cancel/.test(html.match(/id="updateOverlay"[\s\S]*?<\/div>\s*<\/div>\s*<\/div>/)[0]));
+  });
+  test("the overlay has a progress bar, Cancel update and Hide buttons, and the keeps-running note", () => {
+    assert.match(html, /role="progressbar"[^>]*aria-valuenow="0"/);
+    assert.match(html, /id="updateCancel"[^>]*>Cancel update</);
+    assert.match(html, /id="updateHide"[^>]*>Hide</);
+    assert.match(html, /The update keeps running if you hide this window\./);
+    assert.match(html, /id="updateChip"[^>]*hidden/);
+    assert.match(html, /\/api\/run-cancel/);
   });
   test("the page imports the shared run-time helpers", () => {
     assert.match(html, /from "\/shared\/runtime_history\.js"/);
