@@ -19,6 +19,7 @@ import sys
 import threading
 import time
 import webbrowser
+from datetime import date, timedelta
 from pathlib import Path
 
 _APP_ROOT = Path(__file__).resolve().parent
@@ -31,16 +32,39 @@ from src.http_runtime.server import LocalHTTPServer, _configured_token  # noqa: 
 from src.http_runtime.wsgi_facade import Flask, Response, request  # noqa: E402
 from src.stores import SchemaVersionError  # noqa: E402
 
-from financial_trends_reporter import account_registry, balance_series, flows  # noqa: E402
+from financial_trends_reporter import account_registry, balance_series, flows, spending_window  # noqa: E402
 from financial_trends_reporter.app_sync import sync_from_app  # noqa: E402
 from financial_trends_reporter.balance_store import DB_FILENAME, freshness  # noqa: E402
 from financial_trends_reporter.passthrough_decisions import decisions_path_for_log, save_decision  # noqa: E402
 from financial_trends_reporter.trends_job import run as run_trends_job  # noqa: E402
 from financial_trends_reporter.trends_log import default_log_path, read_history  # noqa: E402
+from src.active_plan import plan_path_for_workspace  # noqa: E402
 
 INDEX_HTML_PATH = _APP_ROOT / "frontend" / "index.html"
 # A run newer than this is fresh enough that the page skips its automatic update on open.
 FRESH_RUN_SECONDS = 900
+# /api/spending keeps at most this many windows in memory.
+SPENDING_CACHE_MAX = 64
+
+
+def _today() -> date:
+    return date.today()
+
+
+def _parse_spending_window(args) -> tuple[date, date]:
+    """``(from, to)`` from /api/spending's query, or ValueError with a message for the page."""
+    raw_from, raw_to = str(args.get("from") or ""), str(args.get("to") or "")
+    try:
+        start, end = date.fromisoformat(raw_from), date.fromisoformat(raw_to)
+    except ValueError:
+        raise ValueError("from and to must be dates in YYYY-MM-DD form") from None
+    if start > end:
+        raise ValueError("from must be on or before to")
+    if end > _today() + timedelta(days=1):
+        raise ValueError("to cannot be later than tomorrow")
+    if (end - start).days + 1 > round(365.25 * spending_window.MAX_SPAN_YEARS):
+        raise ValueError(f"the window cannot be longer than {spending_window.MAX_SPAN_YEARS} years")
+    return start, end
 
 
 def create_app(retirement_system_dir: Path, log_path: Path | None = None, lifecycle: "Lifecycle | None" = None) -> Flask:
@@ -143,6 +167,39 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, lifecy
         history = read_history(resolved_log_path)
         return _json(flows.flows_payload(history[-1] if history else None, account_registry.list_accounts(balances_db)))
 
+    # /api/spending: the Spending card for any window. Results are cached per (from, to) and the
+    # plan file's mtime (transactions, taxonomy, aliases and budget all live in it); a run-now
+    # clears the cache.
+    spending_cache: dict = {}
+    spending_cache_lock = threading.Lock()
+
+    def _spending_inputs_mtime():
+        try:
+            return plan_path_for_workspace(retirement_system_dir).stat().st_mtime_ns
+        except OSError:
+            return None
+
+    @app.route("/api/spending", methods=["GET"])
+    def spending():
+        try:
+            start, end = _parse_spending_window(request.args)
+        except ValueError as exc:
+            return _json({"success": False, "error": str(exc)}, 400)
+        key = (start.isoformat(), end.isoformat(), _spending_inputs_mtime())
+        with spending_cache_lock:
+            cached = spending_cache.get(key)
+        if cached is None:
+            try:
+                cached = json.dumps(spending_window.spending_window_payload(retirement_system_dir, start, end))
+            except Exception as exc:  # noqa: BLE001 - the page falls back to the logged YTD figures
+                logging.getLogger(__name__).exception("spending window failed")
+                return _json({"success": False, "error": f"{exc.__class__.__name__}: {exc}"}, 500)
+            with spending_cache_lock:
+                if len(spending_cache) >= SPENDING_CACHE_MAX:
+                    spending_cache.clear()
+                spending_cache[key] = cached
+        return Response(cached, content_type="application/json")
+
     @app.route("/api/app-accounts", methods=["GET"])
     def app_accounts():
         return _json({"app_accounts": account_registry.list_app_accounts(retirement_system_dir)})
@@ -212,6 +269,9 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, lifecy
         else:
             holder["done"].wait()
         payload, status = holder["response"] or ({"success": False, "error": "update did not finish"}, 500)
+        if status == 200:
+            with spending_cache_lock:
+                spending_cache.clear()
         return Response(json.dumps(payload), status=status, content_type="application/json")
 
     @app.route("/api/ping", methods=["POST"])

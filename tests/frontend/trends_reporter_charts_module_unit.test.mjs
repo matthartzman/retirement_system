@@ -503,7 +503,7 @@ describe("category rows and detail popup", () => {
   });
 });
 
-describe("347a: prior-year and budget markers on the YTD bars", () => {
+describe("347a: prior-year and budget markers on the Spending bars", () => {
   const tree = { Core: { Food: { Groceries: { Kroger: 100 } } }, Travel: { Trips: { Air: { Delta: 40 } } } };
 
   test("buildHierarchyRows attaches prior/budget per tracking type and totals them", () => {
@@ -512,25 +512,25 @@ describe("347a: prior-year and budget markers on the YTD bars", () => {
     assert.equal(core.prior, 80);
     assert.equal(core.budget, 500);
     assert.equal(m.rows.find(r => r.name === "Travel").prior, null);
-    assert.deepEqual(m.totalMarkers, { prior: 80, budget: 700 });
+    assert.deepEqual(m.totalMarkers, { prior: 80, budget: 700, fullYear: null });
     // a budgeted type with no spend yet still counts toward the Total budget
     assert.equal(buildHierarchyRows(tree, {}, { Core: 500, Housing: 900 }).totalMarkers.budget, 1400);
   });
 
   test("entries from older log rows (no marker data) draw no markers or legend", () => {
     const m = buildHierarchyRows(tree);
-    assert.deepEqual(m.totalMarkers, { prior: null, budget: null });
+    assert.deepEqual(m.totalMarkers, { prior: null, budget: null, fullYear: null });
     const svg = barChartSvg(m.rows.map(r => [r.name, r.amount, r]));
-    assert.doesNotMatch(svg, /Prior-year YTD|Full-year budget/);
+    assert.doesNotMatch(svg, /Same period last year|Budget for this period|Full-year budget/);
   });
 
   test("markers, legend, tooltips and fallback columns appear, and the axis fits the budget", () => {
     const m = buildHierarchyRows(tree, { Core: 80 }, { Core: 500 });
     const svg = barChartSvg(m.rows.map(r => [r.name, r.amount, r]));
-    assert.match(svg, /<title>Prior-year YTD: \$80<\/title>/);
-    assert.match(svg, /<title>Full-year budget: \$500<\/title>/);
-    assert.match(svg, /Prior-year YTD \(same dates\)/);
-    assert.match(svg, /<th[^>]*>Prior-year YTD<\/th>/);
+    assert.match(svg, /<title>Same period last year: \$80<\/title>/);
+    assert.match(svg, /<title>Budget for this period: \$500<\/title>/);
+    assert.match(svg, /class="mk-key">.*Same period last year/);
+    assert.match(svg, /<th[^>]*>Same period last year<\/th>/);
     assert.match(svg, />\$500</, "axis max reaches the $500 budget");
   });
 });
@@ -543,9 +543,9 @@ describe("351: budget and prior-year markers match at every level", () => {
   test("the budget marker has the same height as the prior-year marker (351a)", () => {
     const m = buildHierarchyRows(tree, { Core: 80 }, { Core: 500 });
     const svg = barChartSvg(m.rows.map(r => [r.name, r.amount, r]));
-    const lines = [...svg.matchAll(/<line x1="[\d.]+" y1="([\d.-]+)" x2="[\d.]+" y2="([\d.-]+)" stroke="(#475569|#d97706)"/g)];
-    const h = c => Number(lines.find(l => l[3] === c)[2]) - Number(lines.find(l => l[3] === c)[1]);
-    assert.equal(h("#d97706"), h("#475569"));
+    const lines = [...svg.matchAll(/<line class="mk (mk-prior|mk-period)" x1="[\d.]+" y1="([\d.-]+)" x2="[\d.]+" y2="([\d.-]+)"/g)];
+    const h = c => Number(lines.find(l => l[1] === c)[3]) - Number(lines.find(l => l[1] === c)[2]);
+    assert.equal(h("mk-period"), h("mk-prior"));
   });
 
   test("category popup rows carry prior and budget markers (351b)", () => {
@@ -554,8 +554,8 @@ describe("351: budget and prior-year markers match at every level", () => {
     assert.equal(cat.prior, 80);
     assert.equal(cat.budget, 400);
     const html = categoryListHtml("Core", m.rows[0].categories);
-    assert.match(html, /pm pm-prior/);
-    assert.match(html, /pm pm-budget/);
+    assert.match(html, /pm mk-prior/);
+    assert.match(html, /pm mk-period/);
   });
 
   test("merchant rows show prior-year only where last year had that merchant", () => {
@@ -564,15 +564,15 @@ describe("351: budget and prior-year markers match at every level", () => {
     assert.deepEqual(kroger[2], { prior: 70 });
     assert.deepEqual(aldi[2], { prior: null });
     const html = detailPopupHtml("merchants", m.rows[0].categories[0].merchants);
-    assert.equal((html.match(/pm pm-prior/g) || []).length, 1);
-    assert.doesNotMatch(html, /pm-budget/);
+    assert.equal((html.match(/pm mk-prior/g) || []).length, 1);
+    assert.doesNotMatch(html, /mk-period|mk-full/);
   });
 
   test("the Total popup lists tracking types with their markers", () => {
     const m = buildHierarchyRows(tree, { Core: 80 }, { Core: 500 });
     const html = detailPopupHtml(m.totalDetail.detailTitle, m.totalDetail.detail);
-    assert.match(html, /pm pm-prior/);
-    assert.match(html, /pm pm-budget/);
+    assert.match(html, /pm mk-prior/);
+    assert.match(html, /pm mk-period/);
   });
 
   test("without detail data (older log rows) popups draw no markers", () => {

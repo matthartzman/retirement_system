@@ -387,10 +387,38 @@ function sumLeaves(node) {
   return typeof node === "number" ? node : Object.values(node).reduce((t, v) => t + sumLeaves(v), 0);
 }
 
-// priorByType / budgetByType (347a): optional {trackingType: amount} for the bar markers.
-// priorDetail {type: {group: {category: {prior, merchants: {name: amount}}}}} and budgetByCategory
-// {type: {category: amount}} (both optional) carry the same markers into the popups.
-export function buildHierarchyRows(hierarchy, priorByType, budgetByType, priorDetail, budgetByCategory) {
+// The three spending markers (design §2.5): same dates one year earlier, the annual budget
+// prorated to the window, and the end year's whole annual budget. Each has its own shape, so
+// colour never carries the meaning alone. The page sets the colours as CSS custom properties
+// (index.html :root, with dark overrides); light/dark here are those values, used as var()
+// fallbacks and by the contrast test. The period and full-year colours were moved from the
+// design's #ea580c/#c026d3 (light) and #fb923c/#e879f9 (dark), keeping hue and saturation, just
+// far enough in lightness to reach 3:1 against both the bar blue and the card background.
+export const BAR_BLUE = "#2563eb";
+export const SPEND_MARKERS = [
+  { key: "prior", cls: "mk-prior", cssVar: "--mk-prior", light: "#111827", dark: "#f3f4f6", width: 2.5, dash: null, label: "Same period last year" },
+  { key: "budget", cls: "mk-period", cssVar: "--mk-period", light: "#401803", dark: "#fcb77d", width: 3.5, dash: null, label: "Budget for this period" },
+  { key: "fullYear", cls: "mk-full", cssVar: "--mk-full", light: "#3f0c45", dark: "#f1affb", width: 2.5, dash: "3 2", label: "Full-year budget" },
+];
+const markerColor = m => `var(${m.cssVar}, ${m.light})`;
+const markerStyle = m => `stroke:${markerColor(m)};stroke-width:${m.width}px${m.dash ? `;stroke-dasharray:${m.dash}` : ""}`;
+// When the prorated and full-year budgets are within 1% the full-year tick shifts 1px so both show.
+export function fullYearNudge(meta) {
+  const b = meta && meta.budget, f = meta && meta.fullYear;
+  return b != null && f != null && Math.abs(f - b) <= 0.01 * Math.max(Math.abs(f), Math.abs(b), 1e-9) ? 1 : 0;
+}
+
+// Arguments after `hierarchy` are optional maps for the three markers (older log rows have none):
+// priorByType {type: amount}, budgetByType {type: amount} (prorated to the window), priorDetail
+// {type: {group: {category: {prior, merchants: {name: amount}}}}}, budgetByCategory
+// {type: {category: amount}}, and fullYearByType / fullYearByCategory (the end year's whole
+// annual budget, same shapes). Each row and category carries {prior, budget, fullYear}.
+export function buildHierarchyRows(hierarchy, priorByType, budgetByType, priorDetail, budgetByCategory, fullYearByType, fullYearByCategory) {
+  const pick = (map, ...keys) => {
+    let node = map;
+    for (const k of keys) { if (node == null) return null; node = node[k]; }
+    return node != null ? node : null;
+  };
   const rows = [];
   for (const [name, groups] of Object.entries(hierarchy || {})) {
     const categories = [];
@@ -398,13 +426,13 @@ export function buildHierarchyRows(hierarchy, priorByType, budgetByType, priorDe
       for (const [cat, merchants] of Object.entries(cats)) {
         const value = sumLeaves(merchants);
         if (Math.abs(value) < 0.005) continue;
-        const priorCat = priorDetail && priorDetail[name] && priorDetail[name][group] && priorDetail[name][group][cat];
+        const priorCat = pick(priorDetail, name, group, cat);
         const priorMerchants = (priorCat && priorCat.merchants) || {};
-        const budgetCat = budgetByCategory && budgetByCategory[name] && budgetByCategory[name][cat];
         categories.push({
           name: cat, group, value,
           prior: priorCat && priorCat.prior != null ? priorCat.prior : null,
-          budget: budgetCat != null ? budgetCat : null,
+          budget: pick(budgetByCategory, name, cat),
+          fullYear: pick(fullYearByCategory, name, cat),
           // Merchants have no budget; prior-year shows only for a merchant that also appears last year.
           merchants: Object.entries(merchants).filter(e => Math.abs(e[1]) > 0.005).sort((a, b) => b[1] - a[1])
             .map(([m, v]) => priorCat ? [m, v, { prior: priorMerchants[m] != null ? priorMerchants[m] : null }] : [m, v]),
@@ -414,8 +442,7 @@ export function buildHierarchyRows(hierarchy, priorByType, budgetByType, priorDe
     categories.sort((a, b) => b.value - a.value);
     const amount = categories.reduce((t, c) => t + c.value, 0);
     if (amount > 0.005) rows.push({ name, amount, kind: "category", detailTitle: name, categories,
-      prior: priorByType && priorByType[name] != null ? priorByType[name] : null,
-      budget: budgetByType && budgetByType[name] != null ? budgetByType[name] : null });
+      prior: pick(priorByType, name), budget: pick(budgetByType, name), fullYear: pick(fullYearByType, name) });
   }
   rows.sort((a, b) => b.amount - a.amount);
   const total = rows.reduce((t, r) => t + r.amount, 0);
@@ -423,17 +450,25 @@ export function buildHierarchyRows(hierarchy, priorByType, budgetByType, priorDe
   const sumMarker = map => (map && Object.keys(map).length ? Object.values(map).reduce((t, v) => t + v, 0) : null);
   return {
     total, rows,
-    totalMarkers: { prior: sumMarker(priorByType), budget: sumMarker(budgetByType) },
-    totalDetail: { detailTitle: "Total - By Tracking Type", detail: rows.map(r => [r.name, r.amount, { prior: r.prior, budget: r.budget }]) },
+    totalMarkers: { prior: sumMarker(priorByType), budget: sumMarker(budgetByType), fullYear: sumMarker(fullYearByType) },
+    totalDetail: { detailTitle: "Total - By Tracking Type", detail: rows.map(r => [r.name, r.amount, { prior: r.prior, budget: r.budget, fullYear: r.fullYear }]) },
   };
 }
 
-// Prior-year (black) and full-year budget (orange) ticks on a popup bar, same colours
-// as the YTD bars. `max` is the bar scale shared by the popup so ticks never overflow.
-function popMarkers(prior, budget, max) {
-  const tick = (v, cls, label) => v == null ? "" :
-    `<b class="pm ${cls}" style="left:${Math.min(100, Math.max(0, (v / max) * 100)).toFixed(1)}%" title="${escSvg(label)}: ${escSvg(fmtMoney(v))}"></b>`;
-  return tick(prior, "pm-prior", "Prior-year YTD") + tick(budget, "pm-budget", "Full-year budget");
+const markerValues = meta => SPEND_MARKERS.map(m => (meta && meta[m.key]) || 0);
+
+// The three marker ticks on a popup bar, same colours and shapes as the Spending bars. `max`
+// is the bar scale shared by the popup so ticks never overflow.
+function popMarkers(meta, max) {
+  if (!meta) return "";
+  const nudge = fullYearNudge(meta);
+  return SPEND_MARKERS.map(m => {
+    const v = meta[m.key];
+    if (v == null) return "";
+    const pct = Math.min(100, Math.max(0, (v / max) * 100)).toFixed(1);
+    const left = m.key === "fullYear" && nudge ? `calc(${pct}% + 1px)` : `${pct}%`;
+    return `<b class="pm ${m.cls}" style="left:${left}" title="${escSvg(m.label)}: ${escSvg(fmtMoney(v))}"></b>`;
+  }).join("");
 }
 
 // Step-1 popup: a tracking type's categories (each tagged data-cat for the
@@ -441,10 +476,10 @@ function popMarkers(prior, budget, max) {
 export function categoryListHtml(title, categories) {
   if (!categories.length) return `<div class="pop-title">${escSvg(title)}</div><div class="empty">No further detail logged.</div>`;
   const total = categories.reduce((t, c) => t + c.value, 0);
-  const max = Math.max(...categories.flatMap(c => [c.value, c.prior || 0, c.budget || 0]), 1);
+  const max = Math.max(...categories.flatMap(c => [c.value, ...markerValues(c)]), 1);
   const body = categories.map((c, i) =>
     `<div class="pop-row pop-cat${c.value < 0 ? " pop-neg" : ""}" data-cat="${i}"><span class="pop-name" title="${escSvg(c.group)}">${escSvg(c.name)}</span>` +
-    `<span class="pop-bar"><i style="width:${c.value > 0 ? Math.max(1, (c.value / max) * 100).toFixed(1) : 0}%"></i>${popMarkers(c.prior, c.budget, max)}</span>` +
+    `<span class="pop-bar"><i style="width:${c.value > 0 ? Math.max(1, (c.value / max) * 100).toFixed(1) : 0}%"></i>${popMarkers(c, max)}</span>` +
     `<span class="pop-val">${escSvg(fmtMoney(c.value))}</span></div>`).join("");
   return `<div class="pop-title">${escSvg(title)} <span class="pop-hint">- roll over a category for merchants</span></div>${body}` +
     `<div class="pop-total"><span>Total</span><span>${escSvg(fmtMoney(total))}</span></div>`;
@@ -461,10 +496,10 @@ export function detailPopupHtml(title, detail, maxLines) {
     const more = detail.slice(maxLines);
     lines = lines.concat([[`${more.length} more`, more.reduce((t, e) => t + e[1], 0)]]);
   }
-  const max = Math.max(...lines.flatMap(e => [e[1], (e[2] && e[2].prior) || 0, (e[2] && e[2].budget) || 0]), 1);
+  const max = Math.max(...lines.flatMap(e => [e[1], ...markerValues(e[2])]), 1);
   const body = lines.map(([n, v, meta]) =>
     `<div class="pop-row${v < 0 ? " pop-neg" : ""}"><span class="pop-name">${escSvg(n)}</span>` +
-    `<span class="pop-bar"><i style="width:${v > 0 ? Math.max(1, (v / max) * 100).toFixed(1) : 0}%"></i>${popMarkers(meta && meta.prior, meta && meta.budget, max)}</span>` +
+    `<span class="pop-bar"><i style="width:${v > 0 ? Math.max(1, (v / max) * 100).toFixed(1) : 0}%"></i>${popMarkers(meta, max)}</span>` +
     `<span class="pop-val">${escSvg(fmtMoney(v))}</span></div>`).join("");
   return `<div class="pop-title">${escSvg(title)}</div>${body}` +
     `<div class="pop-total"><span>Total</span><span>${escSvg(fmtMoney(total))}</span></div>`;
@@ -473,13 +508,12 @@ export function detailPopupHtml(title, detail, maxLines) {
 // entries: [name, amount, meta?] -- meta.kind is "total" (text-only summary
 // row, not scaled), "other" (muted bar) or anything else (normal bar). Rows
 // with meta carry data-row so the page can attach the detail popup; rows
-// without it keep a native <title> tooltip.
-const PRIOR_COLOR = "#475569", BUDGET_COLOR = "#d97706";
+// without it keep a native <title> tooltip. meta.prior / budget / fullYear draw the markers.
 export function barChartSvg(entries) {
   if (!entries.length) return '<div class="empty">No expenses recorded yet.</div>';
   const w = 560, barH = 18, gap = 6, padL = 120, padR = 60, padB = 20;
-  // Axis fits the longest of spend / prior-year / budget so no marker runs off the plot.
-  const max = Math.max(...entries.filter(e => !(e[2] && e[2].kind === "total")).flatMap(e => [e[1], e[2] && e[2].prior || 0, e[2] && e[2].budget || 0]), 1);
+  // Axis fits the longest of spend and the three markers so no marker runs off the plot.
+  const max = Math.max(...entries.filter(e => !(e[2] && e[2].kind === "total")).flatMap(e => [e[1], ...markerValues(e[2])]), 1);
   const plotW = w - padL - padR;
   const h = entries.length * (barH + gap) + padB;
 
@@ -494,10 +528,16 @@ export function barChartSvg(entries) {
       `<text x="${xx}" y="${h - padB + 14}" text-anchor="middle" style="font-size:10px">${escSvg(fmtMoney(v))}</text>`;
   }
 
-  const marker = (v, y, len, color, label, sw) => {
-    if (v == null) return "";
-    const xx = padL + (v / max) * plotW;
-    return `<line x1="${xx}" y1="${y}" x2="${xx}" y2="${y + len}" stroke="${color}" stroke-width="${sw}"><title>${escSvg(label)}: ${escSvg(fmtMoney(v))}</title></line>`;
+  const markersFor = (meta, y) => {
+    if (!meta) return "";
+    const nudge = fullYearNudge(meta);
+    return SPEND_MARKERS.map(m => {
+      const v = meta[m.key];
+      if (v == null) return "";
+      const xx = padL + (v / max) * plotW + (m.key === "fullYear" ? nudge : 0);
+      return `<line class="mk ${m.cls}" x1="${xx}" y1="${y - 2}" x2="${xx}" y2="${y + barH + 2}" style="${markerStyle(m)}">` +
+        `<title>${escSvg(m.label)}: ${escSvg(fmtMoney(v))}</title></line>`;
+    }).join("");
   };
   const bars = entries.map((e, i) => {
     const y = i * (barH + gap);
@@ -509,28 +549,72 @@ export function barChartSvg(entries) {
         `<text x="0" y="${y + barH - 5}" style="font-weight:600">${escSvg(e[0])}</text>` +
         `<text x="${padL + 6}" y="${y + barH - 5}" style="font-weight:600">${escSvg(fmtMoney(e[1]))}</text></g>`;
     }
-    const markers = marker(meta && meta.prior, y - 2, barH + 4, PRIOR_COLOR, "Prior-year YTD", 2.5) +
-      marker(meta && meta.budget, y - 2, barH + 4, BUDGET_COLOR, "Full-year budget", 2.5);
     const bw = (e[1] / max) * plotW;
-    const fill = meta && meta.kind === "other" ? "#94a3b8" : "#2563eb";
+    const fill = meta && meta.kind === "other" ? "#94a3b8" : BAR_BLUE;
     const tip = meta ? "" : `<title>${escSvg(e[0])}: ${escSvg(fmtMoney(e[1]))}</title>`;
     return `<g${row} class="bar-row">${hit}` +
       `<text x="0" y="${y + barH - 5}">${escSvg(e[0])}</text>` +
-      `<rect x="${padL}" y="${y}" width="${bw}" height="${barH}" fill="${fill}" rx="3">${tip}</rect>` + markers +
+      `<rect x="${padL}" y="${y}" width="${bw}" height="${barH}" fill="${fill}" rx="3">${tip}</rect>` + markersFor(meta, y) +
       `<text x="${padL + bw + 6}" y="${y + barH - 5}">${escSvg(fmtMoney(e[1]))}</text></g>`;
   }).join("");
-  const anyPrior = entries.some(e => e[2] && e[2].prior != null), anyBudget = entries.some(e => e[2] && e[2].budget != null);
-  const legend = (anyPrior || anyBudget) ? `<div class="bar-legend" style="font-size:12px">` +
-    (anyPrior ? `<span style="color:${PRIOR_COLOR}">&#9646; Prior-year YTD (same dates)</span> ` : "") +
-    (anyBudget ? `<span style="color:${BUDGET_COLOR}">&#9646; Full-year budget</span>` : "") + `</div>` : "";
+  // Legend: one entry per marker present, each with a swatch in the marker's own shape.
+  const shown = SPEND_MARKERS.filter(m => entries.some(e => e[2] && e[2][m.key] != null));
+  const legend = shown.length ? `<div class="bar-legend" style="font-size:12px">` +
+    shown.map(m => `<span class="mk-key"><svg class="mk-swatch" width="10" height="14" viewBox="0 0 10 14" aria-hidden="true">` +
+      `<line class="${m.cls}" x1="5" y1="0" x2="5" y2="14" style="${markerStyle(m)}"/></svg> ${escSvg(m.label)}</span>`).join(" ") + `</div>` : "";
   const svg = legend + `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" style="width:100%;max-width:100%;height:auto" role="img" aria-label="Spending, bar chart">
     ${xAxis}
     <line x1="${padL}" y1="0" x2="${padL}" y2="${h - padB}" stroke="#999" stroke-width="1"/>
     ${bars}
   </svg>`;
   const money = v => (v == null ? "-" : fmtMoney(v));
-  return svg + dataTableFallbackHtml("Spending", ["Tracking type", "Amount", ...(anyPrior ? ["Prior-year YTD"] : []), ...(anyBudget ? ["Full-year budget"] : [])],
-    entries.map(e => [e[0], fmtMoney(e[1]), ...(anyPrior ? [money(e[2] && e[2].prior)] : []), ...(anyBudget ? [money(e[2] && e[2].budget)] : [])]));
+  return svg + dataTableFallbackHtml("Spending", ["Tracking type", "Amount", ...shown.map(m => m.label)],
+    entries.map(e => [e[0], fmtMoney(e[1]), ...shown.map(m => money(e[2] && e[2][m.key]))]));
+}
+
+// --- Spending card (Trends Phase 5): window data from /api/spending, YTD snapshot fallback ---
+
+export function spendingUrl(range) {
+  return `/api/spending?from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}`;
+}
+
+// The card's model from an /api/spending response. A null `prior` (window before the data
+// starts) leaves the same-period marker off rather than drawing it at $0.
+export function spendingModelFromWindow(resp) {
+  if (!resp || !resp.hierarchy) return null;
+  const prior = resp.prior, budget = resp.budget || {}, full = resp.full_year_budget || {};
+  return buildHierarchyRows(resp.hierarchy, prior ? prior.by_type : null, budget.by_type, prior ? prior.detail : null,
+    budget.by_category, full.by_type, full.by_category);
+}
+
+// Fallback when the window can't be loaded: the latest logged YTD snapshot. Its budget is the
+// whole year's, so it draws as the full-year marker; the snapshot has no prorated budget.
+export function spendingModelFromSnapshot(latest) {
+  if (!latest || !latest.ytd_expense_hierarchy) return null;
+  return buildHierarchyRows(latest.ytd_expense_hierarchy, latest.ytd_expense_prior_year, null, latest.ytd_expense_prior_detail,
+    null, latest.annual_budget_by_tracking_type, latest.annual_budget_by_category);
+}
+
+// Drops out-of-order responses: only the most recently started request may draw.
+export function latestOnly() {
+  let n = 0;
+  return { start: () => ++n, isCurrent: id => id === n };
+}
+
+// The note under the Spending card, describing the markers for the period shown.
+export function spendingNoteText(resp, label) {
+  const lead = "Totals follow the Spending Analysis mapping and include taxes.";
+  const tail = "Roll over a bar to see its categories, then roll over a category to see its merchants.";
+  if (!resp) {
+    return `${lead} Markers: same dates last year, and the full-year budget. ${tail}`;
+  }
+  const days = resp.window && resp.window.days;
+  const prior = resp.prior && resp.prior.window
+    ? `same period last year (${fmtMonthDay(resp.prior.window.from, true)} – ${fmtMonthDay(resp.prior.window.to, true)})`
+    : "same period last year (not shown: it falls before the first imported transactions)";
+  const year = resp.full_year_budget && resp.full_year_budget.year;
+  return `${lead} Markers for ${label || "this period"}: ${prior}; budget for this period (the annual budget prorated to these ${days} day${days === 1 ? "" : "s"}); ` +
+    `full-year budget (the whole ${year} annual budget). ${tail}`;
 }
 
 // Hover/focus rollover for the Net worth and Investments line charts: the

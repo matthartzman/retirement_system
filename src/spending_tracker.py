@@ -1404,24 +1404,42 @@ def _actuals_by_taxonomy(root, year: int):
 def ytd_spending_hierarchy(root=None, year=None, merchants_per_category: int = 5, through=None):
     """YTD spending as Tracking Type -> Group -> Category -> Merchant -> amount.
 
+    A thin wrapper over :func:`spending_hierarchy_window` for Jan 1 of ``year``
+    through ``through`` (a date; default Dec 31), so the YTD view and any other
+    window share one set of mapping, sign, refund and "Other merchants" rules.
+    ``through`` ignores later transactions, for comparing the same window of a
+    prior year; it never reaches past the year.
+    """
+    if year is None:
+        year = _platform_runtime.today().year
+    year_end = date(year, 12, 31)
+    end = min(through, year_end) if through else year_end
+    return spending_hierarchy_window(root, date(year, 1, 1), end, merchants_per_category)
+
+
+def spending_hierarchy_window(root=None, start=None, end=None, merchants_per_category: int = 5):
+    """Spending in the inclusive date range [``start``, ``end``] as
+    Tracking Type -> Group -> Category -> Merchant -> amount.
+
     Uses the same transaction-to-taxonomy mapping and sign rules as the
     Spending Analysis (transfers and Income excluded, refunds net against
     their category). Spend with no taxonomy mapping lands under an
     "Unmapped" tracking type so totals still reconcile. Each category keeps
     its top ``merchants_per_category`` merchants; the rest roll into
     "Other merchants". Tracking types / groups / categories netting to zero
-    or less are dropped. ``through`` (a date) ignores later transactions, for
-    comparing the same window of a prior year.
+    or less are dropped. Transactions are loaded for every calendar year the
+    range touches.
     """
     r = _root(root)
-    if year is None:
-        year = _platform_runtime.today().year
+    if start is None or end is None or start > end:
+        return {}
     flat = taxonomy_flat(r)
     aliases = load_aliases(r)
     tree: dict[str, dict[str, dict[str, dict[str, float]]]] = {}
-    for txn in load_transactions_extended(r, year):
+    # One calendar year loads just that year; a range touching several loads them all at once.
+    for txn in load_transactions_extended(r, start.year if start.year == end.year else None):
         amount = txn.get("amount", 0)
-        if amount == 0 or _shared_ytd_class(txn) == "transfer" or (through and txn["date"] > through):
+        if amount == 0 or not (start <= txn["date"] <= end) or _shared_ytd_class(txn) == "transfer":
             continue
         merchant = txn.get("merchant") or "(no merchant)"
         cid = _resolve_alias(txn, aliases, flat)

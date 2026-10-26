@@ -24,6 +24,7 @@ if str(_REPO_ROOT) not in sys.path:
 
 from src import spending_tracker, ytd_tracking as ytd  # noqa: E402
 from . import balance_series  # noqa: E402
+from .spending_window import annual_budgets, prior_detail, same_day_prior_year as _same_day_prior_year, tracking_type_totals  # noqa: E402
 from src.active_plan import peek_plan_data_for_input_dir  # noqa: E402
 from src.plan_datasets import dataset_rows_for_input_dir  # noqa: E402
 
@@ -153,14 +154,6 @@ def _plan_assets_and_mortgage(base_dir: Path, db_path: Path, as_of: date) -> dic
     return other
 
 
-def _same_day_prior_year(d: date) -> date:
-    """The same month/day one year earlier; Feb 29 maps to Feb 28."""
-    try:
-        return d.replace(year=d.year - 1)
-    except ValueError:
-        return date(d.year - 1, 2, 28)
-
-
 _FLOW_LEDGER_KEYS = {"monthly": "monthly_flows_by_account", "daily": "daily_flows_by_account"}
 
 
@@ -230,33 +223,13 @@ def compute_snapshot(base_dir: str | Path, *, today=None, passthrough_decisions:
     as_of = today or date.today()
     prior_through = _same_day_prior_year(as_of)
     prior_tree = spending_tracker.ytd_spending_hierarchy(base_dir, as_of.year - 1, through=prior_through)
-    ytd_expense_prior_year = {
-        tt: round(sum(v for cats in groups.values() for merchants in cats.values() for v in merchants.values()), 2)
-        for tt, groups in prior_tree.items()
-    }
+    ytd_expense_prior_year = tracking_type_totals(prior_tree)
     # Same markers one and two levels down: prior-year per category (and its merchants), budget per category.
-    ytd_expense_prior_detail = {
-        tt: {
-            grp: {cat: {"prior": round(sum(merchants.values()), 2), "merchants": {m: round(v, 2) for m, v in merchants.items()}}
-                  for cat, merchants in cats.items()}
-            for grp, cats in groups.items()
-        }
-        for tt, groups in prior_tree.items()
-    }
-    taxonomy = spending_tracker.spending_summary_taxonomy(base_dir, as_of.year).get("tracking_types", [])
-    annual_budget_by_category = {
-        t["tracking_type"]: {
-            c["label"]: c["annual_budget"]
-            for g in t.get("groups", []) for c in g.get("categories", []) if c.get("annual_budget")
-        }
-        for t in taxonomy
-        if t["tracking_type"] != "Income" and t["tracking_type"] not in spending_tracker._TRANSFER_NAMES
-    }
-    annual_budget_by_tracking_type = {
-        t["tracking_type"]: t.get("annual_budget", 0.0)
-        for t in taxonomy
-        if t.get("annual_budget") and t["tracking_type"] != "Income" and t["tracking_type"] not in spending_tracker._TRANSFER_NAMES
-    }
+    # The derivations are shared with /api/spending (spending_window), which generalises them to any window.
+    ytd_expense_prior_detail = prior_detail(prior_tree)
+    budgets = annual_budgets(base_dir, as_of.year)
+    annual_budget_by_category = budgets["by_category"]
+    annual_budget_by_tracking_type = budgets["by_type"]
 
     inv = summary.get("investment_balance", {})
     current_value = inv.get("current_balance")

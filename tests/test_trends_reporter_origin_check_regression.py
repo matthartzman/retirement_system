@@ -78,3 +78,15 @@ def test_a_cross_origin_run_status_request_is_rejected(tmp_path):
         headers={"Host": "127.0.0.1:5057", "Origin": "http://evil.example"},
     )
     assert resp.status_code == 403
+
+
+def test_a_cross_origin_spending_request_is_rejected(tmp_path):
+    # Trends Phase 5: /api/spending returns spending detail, so it gets the same guard.
+    app = create_app(_workspace(tmp_path), log_path=tmp_path / "log.jsonl")
+    client = app.test_client()
+    resp = client.get(
+        "/api/spending?from=2026-01-01&to=2026-01-31",
+        headers={"Host": "127.0.0.1:5057", "Origin": "http://evil.example"},
+    )
+    assert resp.status_code == 403
+    assert client.get("/api/spending?from=2026-01-01&to=2026-01-31").status_code == 200

@@ -47,9 +47,19 @@
   .pop-row { display: grid; grid-template-columns: 150px 1fr 64px; gap: 6px; align-items: center; margin: 2px 0; }
   .pop-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .pop-bar { background: rgba(127,127,127,.18); border-radius: 3px; height: 8px; position: relative; }
+  /* Spending markers (design §2.5): same period last year, budget for this period, full-year budget. */
+  :root { --mk-prior: #111827; --mk-period: #401803; --mk-full: #3f0c45; }
+  @media (prefers-color-scheme: dark) { :root { --mk-prior: #f3f4f6; --mk-period: #fcb77d; --mk-full: #f1affb; } }
   .pop-bar .pm { position: absolute; top: -2px; height: 12px; width: 2.5px; margin-left: -1px; }
-  .pm-prior { background: #475569; }
-  .pm-budget { background: #d97706; }
+  .pm.mk-prior { background: var(--mk-prior); }
+  .pm.mk-period { width: 3.5px; margin-left: -1.5px; background: var(--mk-period); }
+  .pm.mk-full { background: repeating-linear-gradient(to bottom, var(--mk-full) 0 3px, transparent 3px 5px); }
+  .bar-legend { display: flex; flex-wrap: wrap; gap: 2px 14px; margin-bottom: 6px; }
+  .mk-key { display: inline-flex; align-items: center; gap: 4px; }
+  .card-period { font-size: 12px; color: #666; margin: -6px 0 10px; }
+  @media (prefers-color-scheme: dark) { .card-period { color: #a0a0a8; } }
+  .spend-fallback { font-size: 12px; margin: 0 0 8px; color: #92400e; }
+  @media (prefers-color-scheme: dark) { .spend-fallback { color: #fcd34d; } }
   .pop-bar i { display: block; height: 100%; background: #2563eb; border-radius: 3px; }
   .pop-cat:hover { background: rgba(37,99,235,.12); border-radius: 3px; }
   .pop-hint { font-weight: 400; opacity: .6; font-size: 11px; }
@@ -144,8 +154,9 @@
     <div class="note" id="noteHoldings"></div></div>
   <div class="card"><div class="card-head"><h2 id="flowsTitle">Investment Net Flows</h2><button type="button" class="acct-btn" id="flowsAcctBtn" data-acct-chart="flows" data-acct-title="Investment Net Flows" aria-haspopup="dialog" style="display:none">Accounts ▾</button></div><div id="passthroughReview"></div><div id="flowSummary"></div><div id="chartInvFlows"></div>
     <div class="note" id="noteFlows">Year-to-date transfers between each investment account and checking, as of the latest snapshot. A net withdrawal (money moved to checking) is positive and extends right; net contributions, including 401k employee deferrals and employer match, are negative and extend left. Money moved from one investment account to another through checking is not counted. A withdrawal and a same-amount deposit in different investment accounts within 30 days are matched automatically; pairs within $100 of each other are flagged above for you to approve or deny; and any transaction tagged "invest-to-invest" (or noted "pass-through") is excluded. Decisions apply right away: the page updates the data after you approve or deny.</div></div>
-  <div class="card"><h2>Spending</h2><div id="chartCategories"></div>
-    <div class="note">Roll over a bar to see its categories, then roll over a category to see its merchants. Totals follow the Spending Analysis mapping and include taxes.</div></div>
+  <div class="card"><h2>Spending</h2><div class="card-period" id="spendingPeriod"></div>
+    <div class="spend-fallback" id="spendingFallback" role="status" style="display:none"></div><div id="chartCategories" aria-live="polite"></div>
+    <div class="note" id="noteSpending">Totals follow the Spending Analysis mapping and include taxes. Markers: same period last year, budget for this period, and full-year budget. Roll over a bar to see its categories, then roll over a category to see its merchants.</div></div>
 </div>
 <div id="accountsMsg" role="status"></div>
 <div id="updateOverlay" class="update-overlay" role="status" aria-live="polite" aria-hidden="true"><div class="update-card"><div class="update-spinner" aria-hidden="true"></div><div class="update-title">Updating Data</div><div id="updateOverlayDetail" class="update-detail">Elapsed 0:00</div><div class="update-bar" aria-hidden="true"><span></span></div><div id="updateOverlayAvg" class="update-avg">Working…</div></div></div>
@@ -158,7 +169,7 @@
 // Finding QUA-302 (Wave 6 item W6-11): the chart-rendering logic below used
 // to be defined inline, right here, with no module boundary. It now lives
 // in ./charts.js, importable and testable directly.
-import { fmtMoney, escSvg, filterByTimeframe, aggregateByGranularity, granularityForTimeframe, labelForDate, scopeRange, parseSavedScope, dataTableFallbackHtml, lineChartSvg, barChartSvg, buildHierarchyRows, detailPopupHtml, categoryListHtml, investmentFlowRows, flowBarChartSvg, passthroughReviewHtml, rolloverModel, rolloverHtml, hasMonarchBalances, buildMonarchRows, truncateAllTime, ALL_TIME_START, monarchRolloverModel, balancesFreshnessNote, accountToggleHtml, flowIncludedAccounts, flowSeries, flowMonthlyRangeSeries, flowPeriodSummary, flowSummaryHtml, flowLineChartSvg, updateDecision } from "./charts.js";
+import { fmtMoney, escSvg, filterByTimeframe, aggregateByGranularity, granularityForTimeframe, labelForDate, scopeRange, parseSavedScope, dataTableFallbackHtml, lineChartSvg, barChartSvg, detailPopupHtml, categoryListHtml, investmentFlowRows, flowBarChartSvg, passthroughReviewHtml, rolloverModel, rolloverHtml, hasMonarchBalances, buildMonarchRows, truncateAllTime, ALL_TIME_START, monarchRolloverModel, balancesFreshnessNote, accountToggleHtml, flowIncludedAccounts, flowSeries, flowMonthlyRangeSeries, flowPeriodSummary, flowSummaryHtml, flowLineChartSvg, updateDecision, spendingUrl, spendingModelFromWindow, spendingModelFromSnapshot, latestOnly, spendingNoteText } from "./charts.js";
 import { formatElapsed, recordPopupRuntime, averageRuntimeText } from "/shared/runtime_history.js";
 
 let history = [];
@@ -308,16 +319,52 @@ function render() {
   // The remaining cards read the latest plan snapshot, whatever the imported rows are.
   const latest = history[history.length - 1];
   renderFlows(latest);
-  categoryModel = latest && latest.ytd_expense_hierarchy ? buildHierarchyRows(latest.ytd_expense_hierarchy, latest.ytd_expense_prior_year, latest.annual_budget_by_tracking_type, latest.ytd_expense_prior_detail, latest.annual_budget_by_category) : null;
+  renderSpending(latest);
+  for (const id of FITTED_CHARTS) drawnWidth[id] = boxWidth(id);
+}
+
+// Spending follows the Time scope: /api/spending for the current range (kept per window until
+// the next data load). Only the newest request may draw; if it fails, the card falls back to
+// the latest logged year-to-date snapshot and says so.
+const spendingSeq = latestOnly();
+const spendingMemo = new Map();
+function drawSpending(model, emptyText) {
+  categoryModel = model;
   const categories = [];
-  if (categoryModel && categoryModel.rows.length) {
-    categories.push(["Total", categoryModel.total, { kind: "total", ...categoryModel.totalDetail, ...categoryModel.totalMarkers }]);
-    for (const r of categoryModel.rows) categories.push([r.name, r.amount, r]);
+  if (model && model.rows.length) {
+    categories.push(["Total", model.total, { kind: "total", ...model.totalDetail, ...model.totalMarkers }]);
+    for (const r of model.rows) categories.push([r.name, r.amount, r]);
   }
   document.getElementById("chartCategories").innerHTML = categories.length
     ? barChartSvg(categories)
-    : '<div class="empty">No tracking-type breakdown logged yet.</div>';
-  for (const id of FITTED_CHARTS) drawnWidth[id] = boxWidth(id);
+    : `<div class="empty">${escSvg(emptyText)}</div>`;
+}
+async function renderSpending(latest) {
+  const range = currentRange();
+  const key = `${range.from}|${range.to}`;
+  const id = spendingSeq.start();
+  document.getElementById("spendingPeriod").textContent = range.label;
+  let resp = spendingMemo.get(key) || null;
+  if (!resp) {
+    categoryModel = null;
+    hideAll();
+    document.getElementById("chartCategories").innerHTML = '<div class="empty">Loading…</div>';
+    try {
+      const r = await fetch(spendingUrl(range));
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      resp = await r.json();
+      spendingMemo.set(key, resp);
+    } catch (err) {
+      resp = null;
+    }
+    if (!spendingSeq.isCurrent(id)) return;  // a newer range was asked for meanwhile
+  }
+  const fallback = document.getElementById("spendingFallback");
+  fallback.textContent = resp ? "" : "Showing year-to-date figures; couldn't load this period.";
+  fallback.style.display = resp ? "none" : "block";
+  document.getElementById("noteSpending").textContent = spendingNoteText(resp, range.label);
+  if (resp) drawSpending(spendingModelFromWindow(resp), "No spending recorded in this period.");
+  else drawSpending(spendingModelFromSnapshot(latest), "No tracking-type breakdown logged yet.");
 }
 
 // Finding UX-106 (Wave 5 item W5-6): a failed history fetch previously left
@@ -353,6 +400,7 @@ async function loadMonarch() {
 }
 
 async function loadHistory() {
+  spendingMemo.clear();
   try {
     const resp = await fetch("/api/history");
     if (!resp.ok) throw new Error(`history request failed (HTTP ${resp.status})`);
