@@ -9,6 +9,7 @@ import assert from "node:assert/strict";
 import {
   filterByTimeframe, granularityForTimeframe, aggregateByGranularity, labelForDate,
   lineChartSvg, barChartSvg, escSvg, fmtMoney, niceRange, buildHierarchyRows, detailPopupHtml, categoryListHtml,
+  scopeRange, normalizeScope, parseSavedScope, ALL_TIME_START,
 } from "../../financial_trends_reporter/frontend/charts.js";
 
 describe("filterByTimeframe", () => {
@@ -33,7 +34,7 @@ describe("filterByTimeframe", () => {
     assert.deepEqual(kept, ["2026-01-15", "2026-06-01"]);
   });
 
-  test("an unrecognized timeframe falls through to 'all time' (every row)", () => {
+  test("'all' returns every row (truncation to ALL_TIME_START is the page's job)", () => {
     const rows = [{ as_of_date: "2020-01-01" }, { as_of_date: "2026-06-01" }];
     assert.equal(filterByTimeframe(rows, "all").length, 2);
   });
@@ -374,5 +375,91 @@ describe("352: All time starts 2025-02-01", () => {
     const d = svg.match(/<path d="([^"]+)"/)[1];
     assert.equal((d.match(/M/g) || []).length, 2);
     assert.doesNotMatch(d, /NaN/);
+  });
+});
+
+describe("scopeRange", () => {
+  const R = (scope, anchor, custom) => scopeRange(scope, anchor, custom);
+  test("week goes back 7 days, month 1 calendar month, 3m/6m/1y 3/6/12 months", () => {
+    assert.equal(R("week", "2026-10-26").from, "2026-10-19");
+    assert.equal(R("month", "2026-10-26").from, "2026-09-26");
+    assert.equal(R("3m", "2026-10-26").from, "2026-07-26");
+    assert.equal(R("6m", "2026-10-26").from, "2026-04-26");
+    assert.equal(R("1y", "2026-10-26").from, "2025-10-26");
+    for (const s of ["week", "month", "3m", "6m", "1y", "ytd", "all"]) assert.equal(R(s, "2026-10-26").to, "2026-10-26");
+  });
+  test("month-end anchors clamp to the shorter month", () => {
+    assert.equal(R("month", "2026-03-31").from, "2026-02-28");
+    assert.equal(R("month", "2028-03-31").from, "2028-02-29");
+    assert.equal(R("3m", "2026-05-31").from, "2026-02-28");
+    assert.equal(R("6m", "2026-08-31").from, "2026-02-28");
+    assert.equal(R("1y", "2028-02-29").from, "2027-02-28");
+    assert.equal(R("month", "2026-01-31").from, "2025-12-31");
+  });
+  test("week crosses month and year boundaries without local-timezone drift", () => {
+    assert.equal(R("week", "2026-01-03").from, "2025-12-27");
+    assert.equal(R("week", "2026-03-02").from, "2026-02-23");
+  });
+  test("ytd starts on Jan 1 of the anchor year, including when the anchor is Jan 1", () => {
+    assert.equal(R("ytd", "2026-10-26").from, "2026-01-01");
+    assert.equal(R("ytd", "2026-01-01").from, "2026-01-01");
+  });
+  test("all time starts at ALL_TIME_START", () => {
+    assert.equal(R("all", "2026-10-26").from, ALL_TIME_START);
+  });
+  test("custom uses the inputs; either bound may be empty (open-ended)", () => {
+    const both = R("custom", "2026-10-26", { from: "2026-02-01", to: "2026-03-15" });
+    assert.deepEqual([both.from, both.to], ["2026-02-01", "2026-03-15"]);
+    const onlyFrom = R("custom", "2026-10-26", { from: "2026-02-01", to: "" });
+    assert.deepEqual([onlyFrom.from, onlyFrom.to], ["2026-02-01", ""]);
+    const onlyTo = R("custom", "2026-10-26", { from: "", to: "2026-03-15" });
+    assert.deepEqual([onlyTo.from, onlyTo.to], ["", "2026-03-15"]);
+    const none = R("custom", "2026-10-26");
+    assert.deepEqual([none.from, none.to], ["", ""]);
+    assert.match(onlyFrom.label, /^Custom/);
+  });
+  test("label names the scope and the window", () => {
+    assert.equal(R("month", "2026-10-26").label, "1 Month · Sep 26 – Oct 26, 2026");
+    assert.equal(R("1y", "2026-10-26").label, "1 Year · Oct 26, 2025 – Oct 26, 2026");
+    assert.match(R("week", "2026-10-26").label, /^1 Week · Oct 19 – Oct 26, 2026$/);
+    assert.match(R("ytd", "2026-10-26").label, /^YTD · Jan 1 – Oct 26, 2026$/);
+    assert.match(R("3m", "2026-10-26").label, /^3 Months/);
+    assert.match(R("6m", "2026-10-26").label, /^6 Months/);
+    assert.match(R("all", "2026-10-26").label, /^All Time/);
+  });
+  test("granularity table: day / week / month, custom inferred from its span", () => {
+    const g = (s, c) => R(s, "2026-10-26", c).granularity;
+    assert.deepEqual(["week", "month"].map((s) => g(s)), ["day", "day"]);
+    assert.deepEqual(["3m", "6m"].map((s) => g(s)), ["week", "week"]);
+    assert.deepEqual(["ytd", "1y", "all"].map((s) => g(s)), ["month", "month", "month"]);
+    assert.equal(g("custom", { from: "2026-10-01", to: "2026-10-10" }), "day");
+    assert.equal(g("custom", { from: "2026-09-01", to: "2026-10-20" }), "week");
+    assert.equal(g("custom", { from: "2025-01-01", to: "2026-10-20" }), "month");
+  });
+  test("an invalid anchor falls back to today instead of throwing", () => {
+    assert.match(R("month", "").to, /^\d{4}-\d{2}-\d{2}$/);
+  });
+  test("filterByTimeframe is driven by scopeRange (custom bounds passed in)", () => {
+    const rows = ["2026-01-01", "2026-02-01", "2026-03-01"].map((d) => ({ as_of_date: d }));
+    assert.equal(filterByTimeframe(rows, "custom", { from: "2026-02-01", to: "" }).length, 2);
+    assert.equal(filterByTimeframe(rows, "custom", { from: "", to: "2026-02-01" }).length, 2);
+    assert.equal(filterByTimeframe(rows, "month").length, 2);
+  });
+});
+
+describe("saved scope", () => {
+  test("old keys map to the new ones", () => {
+    assert.equal(normalizeScope("quarter"), "3m");
+    assert.equal(normalizeScope("12m"), "1y");
+    assert.equal(normalizeScope("6m"), "6m");
+  });
+  test("a missing, corrupt or unknown preference falls back to month", () => {
+    for (const raw of [null, undefined, "", "not json", "{}", '{"scope":"bogus"}', "42"]) {
+      assert.deepEqual(parseSavedScope(raw), { scope: "month", from: "", to: "" }, String(raw));
+    }
+  });
+  test("a saved preference round-trips, mapping old keys and dropping bad dates", () => {
+    assert.deepEqual(parseSavedScope('{"scope":"quarter","from":"","to":""}'), { scope: "3m", from: "", to: "" });
+    assert.deepEqual(parseSavedScope('{"scope":"custom","from":"2026-02-01","to":"zzz"}'), { scope: "custom", from: "2026-02-01", to: "" });
   });
 });

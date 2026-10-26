@@ -68,7 +68,7 @@ function loadPageSandbox() {
     };
   }
   const CHART_IDS = ["chartNetWorth", "chartHoldings", "chartCashflow", "chartCategories"];
-  const OTHER_IDS = ["timeframeBar", "customFrom", "customTo", "updateOverlay", "updateOverlayDetail", "updateOverlayAvg", "retryUpdate", "updateError", "updateErrorText"];
+  const OTHER_IDS = ["scopeBar", "scopeSelect", "scopeLabel", "customFrom", "customTo", "updateOverlay", "updateOverlayDetail", "updateOverlayAvg", "retryUpdate", "updateError", "updateErrorText"];
   for (const id of [...CHART_IDS, ...OTHER_IDS]) elements.set(id, makeStubElement(id));
 
   const documentStub = {

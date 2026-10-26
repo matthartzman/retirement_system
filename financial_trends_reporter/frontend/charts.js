@@ -30,40 +30,117 @@ export function escSvg(s) {
     .replace(/'/g, "&#39;");
 }
 
-export function filterByTimeframe(rows, tf) {
-  if (!rows.length) return rows;
-  const last = new Date(rows[rows.length - 1].as_of_date);
-  let from = null;
-  if (tf === "week") { from = new Date(last); from.setDate(from.getDate() - 7); }
-  else if (tf === "month") { from = new Date(last); from.setMonth(from.getMonth() - 1); }
-  else if (tf === "quarter") { from = new Date(last); from.setMonth(from.getMonth() - 3); }
-  else if (tf === "ytd") { from = new Date(last.getFullYear(), 0, 1); }
-  else if (tf === "12m") { from = new Date(last); from.setFullYear(from.getFullYear() - 1); }
-  else if (tf === "custom") {
-    const fromEl = document.getElementById("customFrom");
-    const toEl = document.getElementById("customTo");
-    const fromVal = fromEl.value ? new Date(fromEl.value) : null;
-    const toVal = toEl.value ? new Date(toEl.value) : null;
-    return rows.filter(r => {
-      const d = new Date(r.as_of_date);
-      return (!fromVal || d >= fromVal) && (!toVal || d <= toVal);
-    });
-  } else {
-    return rows; // all time
-  }
-  return rows.filter(r => new Date(r.as_of_date) >= from);
+// ---- Time scope -------------------------------------------------------------
+// All date math below works on the "YYYY-MM-DD" string's own numbers (or UTC), never
+// through a local-timezone getter -- see the isoWeekKey comment further down.
+const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+export const SCOPE_NAMES = ["week", "month", "3m", "6m", "ytd", "1y", "all", "custom"];
+const SCOPE_TITLE = { week: "1 Week", month: "1 Month", "3m": "3 Months", "6m": "6 Months", ytd: "YTD", "1y": "1 Year", all: "All Time", custom: "Custom" };
+const SCOPE_NOMINAL_GRANULARITY = { week: "day", month: "day", "3m": "week", "6m": "week", ytd: "month", "1y": "month", all: "month" };
+
+function parseYmd(s) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s == null ? "" : s));
+  return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+}
+function ymdStr(y, m, d) {
+  return `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+function addDaysStr(s, n) {
+  const [y, m, d] = parseYmd(s);
+  const t = new Date(Date.UTC(y, m - 1, d + n));
+  return ymdStr(t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate());
+}
+// Calendar-month arithmetic with month-end clamping (Mar 31 - 1 month = Feb 28/29).
+function addMonthsStr(s, n) {
+  const [y, m, d] = parseYmd(s);
+  const total = y * 12 + (m - 1) + n;
+  const ny = Math.floor(total / 12), nm = total - ny * 12 + 1;
+  return ymdStr(ny, nm, Math.min(d, new Date(Date.UTC(ny, nm, 0)).getUTCDate()));
+}
+function spanDaysStr(from, to) {
+  const [a, b, c] = parseYmd(from), [x, y, z] = parseYmd(to);
+  return (Date.UTC(x, y - 1, z) - Date.UTC(a, b - 1, c)) / 86400000;
+}
+function todayStr() {
+  const t = new Date();
+  return ymdStr(t.getFullYear(), t.getMonth() + 1, t.getDate());
+}
+function fmtMonthDay(s, withYear) {
+  const [y, m, d] = parseYmd(s);
+  return `${MONTH_ABBR[m - 1]} ${d}${withYear ? `, ${y}` : ""}`;
 }
 
-// Nominal granularity: daily points for week/month ranges, weekly for
-// quarter, monthly for ytd/12-month/all-time -- but never finer than the data
-// supports: monthly points revert to weekly when the rows span under 4 months,
-// and weekly to daily when they span under 4 weeks. A custom range has no
-// nominal answer, so it's inferred from how many days the range spans.
+// Old saved preferences used "quarter" and "12m".
+export function normalizeScope(key) {
+  const k = ({ quarter: "3m", "12m": "1y" })[key] || key;
+  return SCOPE_NAMES.includes(k) ? k : "month";
+}
+
+// The saved choice (localStorage "trendsScope_v1") -> {scope, from, to}; anything unusable -> Month.
+export function parseSavedScope(raw) {
+  let v = null;
+  try { v = raw ? JSON.parse(raw) : null; } catch (_e) { v = null; }
+  if (!v || typeof v !== "object") return { scope: "month", from: "", to: "" };
+  const okDate = (d) => (typeof d === "string" && parseYmd(d) && d.length === 10 ? d : "");
+  return { scope: normalizeScope(v.scope), from: okDate(v.from), to: okDate(v.to) };
+}
+
+// The one range every chart reads. anchorDate = the latest data date ("YYYY-MM-DD"; today when
+// none). A Custom range's empty bound is left open ("").
+export function scopeRange(scope, anchorDate, custom) {
+  const sc = normalizeScope(scope);
+  const anchor = parseYmd(anchorDate) ? String(anchorDate).slice(0, 10) : todayStr();
+  const title = SCOPE_TITLE[sc];
+  const rangeText = (from, to) => {
+    const [fy] = parseYmd(from), [ty] = parseYmd(to);
+    return `${fmtMonthDay(from, fy !== ty)} – ${fmtMonthDay(to, true)}`;
+  };
+  if (sc === "custom") {
+    const from = custom && parseYmd(custom.from) ? custom.from : "";
+    const to = custom && parseYmd(custom.to) ? custom.to : "";
+    const span = spanDaysStr(from || ALL_TIME_START, to || anchor);
+    const granularity = span < 28 ? "day" : span < 120 ? "week" : "month";
+    const text = from && to ? rangeText(from, to) : from ? `from ${fmtMonthDay(from, true)}` : to ? `through ${fmtMonthDay(to, true)}` : "all dates";
+    return { from, to, label: `${title} · ${text}`, granularity };
+  }
+  let from;
+  if (sc === "week") from = addDaysStr(anchor, -7);
+  else if (sc === "month") from = addMonthsStr(anchor, -1);
+  else if (sc === "3m") from = addMonthsStr(anchor, -3);
+  else if (sc === "6m") from = addMonthsStr(anchor, -6);
+  else if (sc === "1y") from = addMonthsStr(anchor, -12);
+  else if (sc === "ytd") from = ymdStr(parseYmd(anchor)[0], 1, 1);
+  else from = ALL_TIME_START;
+  return { from, to: anchor, label: `${title} · ${rangeText(from, anchor)}`, granularity: SCOPE_NOMINAL_GRANULARITY[sc] };
+}
+
+// Rows inside the scope. "all" returns every row (the page truncates to ALL_TIME_START itself, so
+// it can say so). `custom` ({from, to}) defaults to the page's two date inputs.
+export function filterByTimeframe(rows, tf, custom) {
+  if (!rows.length) return rows;
+  const sc = normalizeScope(tf);
+  if (sc === "all") return rows;
+  if (sc === "custom" && !custom && typeof document !== "undefined") {
+    const f = document.getElementById("customFrom"), t = document.getElementById("customTo");
+    custom = { from: f ? f.value : "", to: t ? t.value : "" };
+  }
+  const { from, to } = scopeRange(sc, rows[rows.length - 1].as_of_date, custom);
+  return rows.filter((r) => {
+    const d = String(r.as_of_date).slice(0, 10);
+    return (!from || d >= from) && (!to || d <= to);
+  });
+}
+
+// Nominal granularity comes from scopeRange (day for week/month, weekly for 3m/6m, monthly for
+// ytd/1y/all) -- but never finer than the data supports: monthly points revert to weekly when
+// the rows span under 4 months, and weekly to daily when they span under 4 weeks. A custom range
+// has no nominal answer, so it's inferred from how many days the rows span.
 export function granularityForTimeframe(tf, rows) {
   const spanDays = rows && rows.length >= 2
     ? (new Date(rows[rows.length - 1].as_of_date) - new Date(rows[0].as_of_date)) / 86400000
     : null;
-  const nominal = { week: "day", month: "day", quarter: "week", ytd: "month", "12m": "month", all: "month" }[tf];
+  const sc = normalizeScope(tf);
+  const nominal = SCOPE_NOMINAL_GRANULARITY[sc];
   if (nominal) {
     if (spanDays === null) return nominal;
     if (nominal === "month" && spanDays < 120) return spanDays < 28 ? "day" : "week";

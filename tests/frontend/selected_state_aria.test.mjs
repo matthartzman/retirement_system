@@ -109,59 +109,93 @@ describe("nav search scope toggles expose aria-pressed", () => {
   });
 });
 
-describe("trends reporter timeframe buttons expose aria-pressed", () => {
+describe("trends reporter time scope pulldown", () => {
   const INDEX = path.join(ROOT, "financial_trends_reporter", "frontend", "index.html");
   const html = fs.readFileSync(INDEX, "utf8");
 
-  test("initial markup: only the default Month button is pressed", () => {
-    const tf = [...html.matchAll(/<button data-tf="([^"]+)"[^>]*aria-pressed="(true|false)"/g)];
-    assert.ok(tf.length >= 7, "every timeframe button must declare aria-pressed");
-    assert.deepEqual(tf.filter((m) => m[2] === "true").map((m) => m[1]), ["month"]);
+  test("markup: one labelled select with every scope, Month is the default, no timeframe buttons", () => {
+    assert.match(html, /<label[^>]*>\s*Time scope\s*<select id="scopeSelect"/);
+    const sel = html.match(/<select id="scopeSelect"[^>]*>([\s\S]*?)<\/select>/)[1];
+    const values = [...sel.matchAll(/<option value="([^"]+)"( selected)?>/g)];
+    assert.deepEqual(values.map((m) => m[1]), ["week", "month", "3m", "6m", "ytd", "1y", "all", "custom"]);
+    assert.deepEqual(values.filter((m) => m[2]).map((m) => m[1]), ["month"]);
+    assert.ok(!html.includes("data-tf="), "old timeframe buttons must be gone");
+    assert.match(html, /id="scopeLabel"/);
   });
 
-  test("clicking a timeframe moves aria-pressed to it", () => {
+  // Runs the page's inline module script against stub elements; returns the elements, handlers and storage.
+  async function loadPage({ saved = null, throwStorage = false } = {}) {
     let src = html.match(/<script type="module">([\s\S]*?)<\/script>/)[1];
-    src = src.replace(/^import\s*\{[^}]*\}\s*from\s*["'][^"']*["'];?\s*$/mg, "");
-    const handlers = {};
-    const tfButtons = ["week", "ytd", "12m"].map((tf) => ({
-      dataset: { tf },
-      attrs: {},
-      setAttribute(k, v) {
-        this.attrs[k] = v;
-      },
-      classList: { toggle: noop },
-      closest() {
-        return this;
-      },
-    }));
+    src = src.replace(/^import\s*{[^}]*}\s*from\s*["'][^"']*["'];?\s*$/mg, "");
+    const charts = await import("../../financial_trends_reporter/frontend/charts.js");
+    const els = {}, handlers = {}, store = {};
+    if (saved !== null) store.trendsScope_v1 = saved;
+    const el = (id) => (els[id] ||= {
+      id, innerHTML: "", textContent: "", value: "", style: {}, disabled: false,
+      classList: { add: noop, remove: noop, toggle: noop, contains: () => false },
+      setAttribute: noop, querySelectorAll: () => [], querySelector: () => null,
+      addEventListener: (type, fn) => { handlers[id + ":" + type] = fn; },
+    });
     const box = {
-      console,
+      ...charts, console, setTimeout: (fn) => { fn(); return 0; }, clearTimeout: noop, setInterval: () => 0, clearInterval: noop,
       fetch: async () => ({ ok: true, json: async () => [] }),
-      document: {
-        getElementById: (id) => {
-          const e = stubEl(id);
-          e.addEventListener = (type, fn) => {
-            handlers[id + ":" + type] = fn;
-          };
-          return e;
-        },
-        querySelectorAll: (sel) => (sel.includes("button[data-tf]") ? tfButtons : []),
-        addEventListener: noop,
-      },
+      localStorage: throwStorage
+        ? { getItem() { throw new Error("blocked"); }, setItem() { throw new Error("blocked"); } }
+        : { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); } },
+      document: { getElementById: el, querySelectorAll: () => [], addEventListener: noop },
+      navigator: { sendBeacon: noop }, window: null,
     };
-    box.window = box;
-    box.globalThis = box;
+    box.window = box; box.globalThis = box;
     vm.createContext(box);
-    try {
-      new vm.Script(src, { filename: "trends_inline.js" }).runInContext(box);
-    } catch (_e) {}
-    // render() needs chart helpers the page imports; stub it out.
-    box.render = noop;
-    const click = handlers["timeframeBar:click"];
-    assert.ok(click, "timeframe bar click handler not wired");
-    try {
-      click({ target: tfButtons[0] });
-    } catch (_e) {}
-    assert.deepEqual(tfButtons.map((b) => b.attrs["aria-pressed"]), ["true", "false", "false"]);
+    try { new vm.Script(src, { filename: "trends_inline.js" }).runInContext(box); } catch (_e) {}
+    return { els, handlers, store, el };
+  }
+
+  test("first visit defaults to Month and shows the period label", async () => {
+    const { els } = await loadPage();
+    assert.equal(els.scopeSelect.value, "month");
+    assert.match(els.scopeLabel.textContent, /^1 Month · /);
+  });
+
+  test("changing the select re-renders (label + chart) and saves the choice", async () => {
+    const { els, handlers, store } = await loadPage();
+    els.chartNetWorth.innerHTML = "stale";
+    els.scopeSelect.value = "6m";
+    handlers["scopeSelect:change"]({ target: els.scopeSelect });
+    assert.match(els.scopeLabel.textContent, /^6 Months · /);
+    assert.notEqual(els.chartNetWorth.innerHTML, "stale", "chart was not re-rendered");
+    assert.deepEqual(JSON.parse(store.trendsScope_v1), { scope: "6m", from: "", to: "" });
+  });
+
+  test("custom shows the date inputs and saves their values; other scopes hide them", async () => {
+    const { els, handlers, store } = await loadPage();
+    els.scopeSelect.value = "custom";
+    handlers["scopeSelect:change"]({ target: els.scopeSelect });
+    assert.notEqual(els.customFrom.style.display, "none");
+    els.customFrom.value = "2026-02-01";
+    handlers["customFrom:change"]({ target: els.customFrom });
+    assert.deepEqual(JSON.parse(store.trendsScope_v1), { scope: "custom", from: "2026-02-01", to: "" });
+    assert.match(els.scopeLabel.textContent, /^Custom/);
+    els.scopeSelect.value = "ytd";
+    handlers["scopeSelect:change"]({ target: els.scopeSelect });
+    assert.equal(els.customFrom.style.display, "none");
+    assert.equal(els.customTo.style.display, "none");
+  });
+
+  test("a saved choice is restored on load, mapping the old keys", async () => {
+    const a = await loadPage({ saved: JSON.stringify({ scope: "12m", from: "", to: "" }) });
+    assert.equal(a.els.scopeSelect.value, "1y");
+    const b = await loadPage({ saved: JSON.stringify({ scope: "custom", from: "2026-02-01", to: "2026-03-01" }) });
+    assert.equal(b.els.scopeSelect.value, "custom");
+    assert.equal(b.els.customFrom.value, "2026-02-01");
+    assert.equal(b.els.customTo.value, "2026-03-01");
+  });
+
+  test("blocked localStorage never breaks the page: Month default, change still re-renders", async () => {
+    const { els, handlers } = await loadPage({ throwStorage: true });
+    assert.equal(els.scopeSelect.value, "month");
+    els.scopeSelect.value = "3m";
+    handlers["scopeSelect:change"]({ target: els.scopeSelect });
+    assert.match(els.scopeLabel.textContent, /^3 Months/);
   });
 });
