@@ -400,6 +400,12 @@ export const SPEND_MARKERS = [
   { key: "budget", cls: "mk-period", cssVar: "--mk-period", light: "#ea580c", dark: "#fcb77d", width: 3.5, dash: null, label: "Budget for this period" },
   { key: "fullYear", cls: "mk-full", cssVar: "--mk-full", light: "#c026d3", dark: "#f1affb", width: 2.5, dash: "3 2", label: "Full-year budget" },
 ];
+// The full-year budget marker is optional (the Spending card's checkbox). Defaults to shown so the pure
+// helpers behave as before when a page never calls the setter.
+let showFullYear = true;
+export function setShowFullYear(on) { showFullYear = !!on; }
+export const fullYearDefault = scope => scope === "ytd";
+const activeMarkers = () => SPEND_MARKERS.filter(m => m.key !== "fullYear" || showFullYear);
 const markerColor = m => `var(${m.cssVar}, ${m.light})`;
 const markerStyle = m => `stroke:${markerColor(m)};stroke-width:${m.width}px${m.dash ? `;stroke-dasharray:${m.dash}` : ""}`;
 // Each tick sits on a thin card-coloured outline (OUTLINE_PX each side) so it stands out against the blue bar
@@ -459,14 +465,14 @@ export function buildHierarchyRows(hierarchy, priorByType, budgetByType, priorDe
   };
 }
 
-const markerValues = meta => SPEND_MARKERS.map(m => (meta && meta[m.key]) || 0);
+const markerValues = meta => activeMarkers().map(m => (meta && meta[m.key]) || 0);
 
 // The three marker ticks on a popup bar, same colours and shapes as the Spending bars. `max`
 // is the bar scale shared by the popup so ticks never overflow.
 function popMarkers(meta, max) {
   if (!meta) return "";
-  const nudge = fullYearNudge(meta);
-  return SPEND_MARKERS.map(m => {
+  const nudge = showFullYear ? fullYearNudge(meta) : 0;
+  return activeMarkers().map(m => {
     const v = meta[m.key];
     if (v == null) return "";
     const pct = Math.min(100, Math.max(0, (v / max) * 100)).toFixed(1);
@@ -534,8 +540,8 @@ export function barChartSvg(entries) {
 
   const markersFor = (meta, y) => {
     if (!meta) return "";
-    const nudge = fullYearNudge(meta);
-    return SPEND_MARKERS.map(m => {
+    const nudge = showFullYear ? fullYearNudge(meta) : 0;
+    return activeMarkers().map(m => {
       const v = meta[m.key];
       if (v == null) return "";
       const xx = padL + (v / max) * plotW + (m.key === "fullYear" ? nudge : 0);
@@ -563,7 +569,7 @@ export function barChartSvg(entries) {
       `<text x="${padL + bw + 6}" y="${y + barH - 5}">${escSvg(fmtMoney(e[1]))}</text></g>`;
   }).join("");
   // Legend: one entry per marker present, each with a swatch in the marker's own shape.
-  const shown = SPEND_MARKERS.filter(m => entries.some(e => e[2] && e[2][m.key] != null));
+  const shown = activeMarkers().filter(m => entries.some(e => e[2] && e[2][m.key] != null));
   const legend = shown.length ? `<div class="bar-legend" style="font-size:12px">` +
     shown.map(m => `<span class="mk-key"><svg class="mk-swatch" width="10" height="14" viewBox="0 0 10 14" aria-hidden="true">` +
       `<line class="${m.cls}" x1="5" y1="0" x2="5" y2="14" style="${markerStyle(m)}"/></svg> ${escSvg(m.label)}</span>`).join(" ") + `</div>` : "";

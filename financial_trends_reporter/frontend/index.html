@@ -25,6 +25,7 @@
   .card h2 { font-size: 14px; margin: 0 0 12px; }
   .card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
   .card-head h2 { margin: 0; }
+  .fy-toggle { font-size: 12px; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
   .acct-btn { border: 1px solid #ccc; background: transparent; color: inherit; border-radius: 6px; padding: 3px 10px; font-size: 12px; cursor: pointer; }
   .empty { color: #888; font-size: 13px; }
   #exitBtn { margin-left: auto; }
@@ -159,7 +160,7 @@
     <div class="note" id="noteHoldings"></div></div>
   <div class="card"><div class="card-head"><h2 id="flowsTitle">Investment Net Flows</h2><button type="button" class="acct-btn" id="flowsAcctBtn" data-acct-chart="flows" data-acct-title="Investment Net Flows" aria-haspopup="dialog" style="display:none">Accounts ▾</button></div><div id="passthroughReview"></div><div id="flowSummary"></div><div id="chartInvFlows"></div>
     <div class="note" id="noteFlows">Year-to-date transfers between each investment account and checking, as of the latest snapshot. A net withdrawal (money moved to checking) is positive and extends right; net contributions, including 401k employee deferrals and employer match, are negative and extend left. Money moved from one investment account to another through checking is not counted. A withdrawal and a same-amount deposit in different investment accounts within 30 days are matched automatically; pairs within $100 of each other are flagged above for you to approve or deny; and any transaction tagged "invest-to-invest" (or noted "pass-through") is excluded. Decisions apply right away: the page updates the data after you approve or deny.</div></div>
-  <div class="card"><h2>Spending</h2><div class="card-period" id="spendingPeriod"></div>
+  <div class="card"><div class="card-head"><h2>Spending</h2><label class="fy-toggle"><input type="checkbox" id="fullYearToggle"> Show full-year budget</label></div><div class="card-period" id="spendingPeriod"></div>
     <div class="spend-fallback" id="spendingFallback" role="status" style="display:none"></div><div id="chartCategories" aria-live="polite"></div>
     <div class="note" id="noteSpending">Totals follow the Spending Analysis mapping and include taxes. Markers: same period last year, budget for this period, and full-year budget. Roll over a bar to see its categories, then roll over a category to see its merchants.</div></div>
 </div>
@@ -175,7 +176,7 @@
 // Finding QUA-302 (Wave 6 item W6-11): the chart-rendering logic below used
 // to be defined inline, right here, with no module boundary. It now lives
 // in ./charts.js, importable and testable directly.
-import { fmtMoney, escSvg, filterByTimeframe, aggregateByGranularity, granularityForTimeframe, labelForDate, scopeRange, parseSavedScope, dataTableFallbackHtml, lineChartSvg, barChartSvg, detailPopupHtml, categoryListHtml, investmentFlowRows, flowBarChartSvg, passthroughReviewHtml, rolloverModel, rolloverHtml, hasMonarchBalances, buildMonarchRows, truncateAllTime, ALL_TIME_START, monarchRolloverModel, balancesFreshnessNote, accountToggleHtml, flowIncludedAccounts, flowSeries, flowMonthlyRangeSeries, flowPeriodSummary, flowSummaryHtml, flowLineChartSvg, updateDecision, spendingUrl, spendingModelFromWindow, spendingModelFromSnapshot, latestOnly, spendingNoteText } from "./charts.js";
+import { fmtMoney, escSvg, filterByTimeframe, aggregateByGranularity, granularityForTimeframe, labelForDate, scopeRange, parseSavedScope, dataTableFallbackHtml, lineChartSvg, barChartSvg, detailPopupHtml, categoryListHtml, investmentFlowRows, flowBarChartSvg, passthroughReviewHtml, rolloverModel, rolloverHtml, hasMonarchBalances, buildMonarchRows, truncateAllTime, ALL_TIME_START, monarchRolloverModel, balancesFreshnessNote, accountToggleHtml, flowIncludedAccounts, flowSeries, flowMonthlyRangeSeries, flowPeriodSummary, flowSummaryHtml, flowLineChartSvg, updateDecision, spendingUrl, spendingModelFromWindow, spendingModelFromSnapshot, latestOnly, spendingNoteText, setShowFullYear, fullYearDefault } from "./charts.js";
 import { formatElapsed, recordPopupRuntime, averageRuntimeText, loadPopupRuntimeHistory } from "/shared/runtime_history.js";
 
 let history = [];
@@ -345,7 +346,22 @@ function drawSpending(model, emptyText) {
     ? barChartSvg(categories)
     : `<div class="empty">${escSvg(emptyText)}</div>`;
 }
+// Full-year budget markers: off unless the Year to date view is showing; the checkbox overrides that
+// until the Time scope changes.
+let fullYearOverride = null, fullYearScope = null;
+function syncFullYear() {
+  if (fullYearScope !== scope) { fullYearScope = scope; fullYearOverride = null; }
+  const on = fullYearOverride != null ? fullYearOverride : fullYearDefault(scope);
+  document.getElementById("fullYearToggle").checked = on;
+  setShowFullYear(on);
+}
+document.getElementById("fullYearToggle").addEventListener("change", (e) => {
+  fullYearOverride = e.target.checked;
+  hideAll();
+  renderSpending(history[history.length - 1]);
+});
 async function renderSpending(latest) {
+  syncFullYear();
   const range = currentRange();
   const key = `${range.from}|${range.to}`;
   const id = spendingSeq.start();

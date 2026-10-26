@@ -69,3 +69,25 @@ describe("page markup", () => {
     assert.match(html, /from "\/shared\/runtime_history\.js"/);
   });
 });
+
+describe("full-year budget marker toggle", async () => {
+  const charts = await import("../../financial_trends_reporter/frontend/charts.js");
+  const entries = [["Total", 300, { kind: "total", prior: 250, budget: 280, fullYear: 900 }], ["Fixed", 300, { kind: "category", prior: 250, budget: 280, fullYear: 900 }]];
+  test("on only for YTD by default", () => {
+    assert.equal(charts.fullYearDefault("ytd"), true);
+    for (const s of ["week", "month", "year", "all", "custom"]) assert.equal(charts.fullYearDefault(s), false);
+  });
+  test("unchecked: no full-year tick, legend entry or axis stretch; checked: all three return", () => {
+    charts.setShowFullYear(false);
+    const off = charts.barChartSvg(entries);
+    assert.ok(!/mk-full/.test(off));
+    assert.ok(!/Full-year budget/.test(off));
+    charts.setShowFullYear(true);
+    const on = charts.barChartSvg(entries);
+    assert.match(on, /mk-full/);
+    assert.match(on, /Full-year budget/);
+  });
+  test("the page has the checkbox in the Spending card head", () => {
+    assert.match(html, /<div class="card-head"><h2>Spending<\/h2><label class="fy-toggle"><input type="checkbox" id="fullYearToggle">/);
+  });
+});
