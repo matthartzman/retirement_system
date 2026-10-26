@@ -48,9 +48,9 @@
   .pop-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .pop-bar { background: rgba(127,127,127,.18); border-radius: 3px; height: 8px; position: relative; }
   /* Spending markers (design §2.5): same period last year, budget for this period, full-year budget. */
-  :root { --mk-prior: #111827; --mk-period: #401803; --mk-full: #3f0c45; }
+  :root { --mk-prior: #111827; --mk-period: #ea580c; --mk-full: #c026d3; }
   @media (prefers-color-scheme: dark) { :root { --mk-prior: #f3f4f6; --mk-period: #fcb77d; --mk-full: #f1affb; } }
-  .pop-bar .pm { position: absolute; top: -2px; height: 12px; width: 2.5px; margin-left: -1px; }
+  .pop-bar .pm { position: absolute; top: -2px; height: 12px; width: 2.5px; margin-left: -1px; box-shadow: 0 0 0 1px var(--card-bg); }
   .pm.mk-prior { background: var(--mk-prior); }
   .pm.mk-period { width: 3.5px; margin-left: -1.5px; background: var(--mk-period); }
   .pm.mk-full { background: repeating-linear-gradient(to bottom, var(--mk-full) 0 3px, transparent 3px 5px); }

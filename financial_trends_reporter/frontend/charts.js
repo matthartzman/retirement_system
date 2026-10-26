@@ -397,11 +397,15 @@ function sumLeaves(node) {
 export const BAR_BLUE = "#2563eb";
 export const SPEND_MARKERS = [
   { key: "prior", cls: "mk-prior", cssVar: "--mk-prior", light: "#111827", dark: "#f3f4f6", width: 2.5, dash: null, label: "Same period last year" },
-  { key: "budget", cls: "mk-period", cssVar: "--mk-period", light: "#401803", dark: "#fcb77d", width: 3.5, dash: null, label: "Budget for this period" },
-  { key: "fullYear", cls: "mk-full", cssVar: "--mk-full", light: "#3f0c45", dark: "#f1affb", width: 2.5, dash: "3 2", label: "Full-year budget" },
+  { key: "budget", cls: "mk-period", cssVar: "--mk-period", light: "#ea580c", dark: "#fcb77d", width: 3.5, dash: null, label: "Budget for this period" },
+  { key: "fullYear", cls: "mk-full", cssVar: "--mk-full", light: "#c026d3", dark: "#f1affb", width: 2.5, dash: "3 2", label: "Full-year budget" },
 ];
 const markerColor = m => `var(${m.cssVar}, ${m.light})`;
 const markerStyle = m => `stroke:${markerColor(m)};stroke-width:${m.width}px${m.dash ? `;stroke-dasharray:${m.dash}` : ""}`;
+// Each tick sits on a thin card-coloured outline (OUTLINE_PX each side) so it stands out against the blue bar
+// whatever its own colour; the outline is drawn first, with the same dash pattern.
+export const OUTLINE_PX = 1;
+const outlineStyle = m => `stroke:var(--card-bg, #fff);stroke-width:${m.width + 2 * OUTLINE_PX}px${m.dash ? `;stroke-dasharray:${m.dash}` : ""}`;
 // When the prorated and full-year budgets are within 1% the full-year tick shifts 1px so both show.
 export function fullYearNudge(meta) {
   const b = meta && meta.budget, f = meta && meta.fullYear;
@@ -535,7 +539,8 @@ export function barChartSvg(entries) {
       const v = meta[m.key];
       if (v == null) return "";
       const xx = padL + (v / max) * plotW + (m.key === "fullYear" ? nudge : 0);
-      return `<line class="mk ${m.cls}" x1="${xx}" y1="${y - 2}" x2="${xx}" y2="${y + barH + 2}" style="${markerStyle(m)}">` +
+      return `<line class="mk-outline" x1="${xx}" y1="${y - 2}" x2="${xx}" y2="${y + barH + 2}" style="${outlineStyle(m)}"/>` +
+        `<line class="mk ${m.cls}" x1="${xx}" y1="${y - 2}" x2="${xx}" y2="${y + barH + 2}" style="${markerStyle(m)}">` +
         `<title>${escSvg(m.label)}: ${escSvg(fmtMoney(v))}</title></line>`;
     }).join("");
   };

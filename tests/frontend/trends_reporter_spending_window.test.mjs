@@ -6,7 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  buildHierarchyRows, barChartSvg, categoryListHtml, detailPopupHtml, SPEND_MARKERS, BAR_BLUE,
+  buildHierarchyRows, barChartSvg, categoryListHtml, detailPopupHtml, SPEND_MARKERS, BAR_BLUE, OUTLINE_PX,
   spendingModelFromWindow, spendingModelFromSnapshot, spendingUrl, latestOnly, spendingNoteText, fullYearNudge,
 } from "../../financial_trends_reporter/frontend/charts.js";
 
@@ -111,14 +111,39 @@ describe("marker palette", () => {
     const all = SPEND_MARKERS.flatMap(m => [m.light.toLowerCase(), m.dark.toLowerCase()]);
     assert.equal(new Set(all).size, 6);
   });
+  // A tick is drawn on a card-coloured outline, so what the eye measures is the tick against that outline
+  // (the card colour) and the outline against the bar blue -- not the tick directly against the blue.
   for (const theme of ["light", "dark"]) {
-    test(`every ${theme} marker is at least 3:1 against the bar blue and the card background`, () => {
+    test(`every ${theme} marker is at least 3:1 against its card-coloured outline, and the outline against the bar blue`, () => {
+      assert.ok(contrast(CARD_BG[theme], BAR_BLUE) >= 3, `${theme} outline vs blue: ${contrast(CARD_BG[theme], BAR_BLUE).toFixed(2)}`);
       for (const m of SPEND_MARKERS) {
-        assert.ok(contrast(m[theme], BAR_BLUE) >= 3, `${m.key} ${m[theme]} vs blue: ${contrast(m[theme], BAR_BLUE).toFixed(2)}`);
-        assert.ok(contrast(m[theme], CARD_BG[theme]) >= 3, `${m.key} ${m[theme]} vs card: ${contrast(m[theme], CARD_BG[theme]).toFixed(2)}`);
+        assert.ok(contrast(m[theme], CARD_BG[theme]) >= 3, `${m.key} ${m[theme]} vs outline/card: ${contrast(m[theme], CARD_BG[theme]).toFixed(2)}`);
       }
     });
   }
+  test("dark-mode markers also clear 3:1 against the bar blue directly", () => {
+    for (const m of SPEND_MARKERS) assert.ok(contrast(m.dark, BAR_BLUE) >= 3, `${m.key} ${m.dark}`);
+  });
+  test("light-mode orange and magenta are the visible design colours", () => {
+    const by = Object.fromEntries(SPEND_MARKERS.map(m => [m.key, m.light.toLowerCase()]));
+    assert.equal(by.budget, "#ea580c");
+    assert.equal(by.fullYear, "#c026d3");
+  });
+  test("every bar tick is drawn on an outline of the card colour, one px wider each side, with the same dash", () => {
+    const meta = { kind: "category", prior: 100, budget: 200, fullYear: 300 };
+    const svg = barChartSvg([["Housing", 150, meta]]);
+    const outlines = [...svg.matchAll(/<line class="mk-outline"[^>]*style="([^"]*)"/g)].map(m => m[1]);
+    assert.equal(outlines.length, 3);
+    for (const [i, m] of SPEND_MARKERS.entries()) {
+      assert.match(outlines[i], /stroke:var\(--card-bg, #fff\)/);
+      assert.match(outlines[i], new RegExp(`stroke-width:${m.width + 2 * OUTLINE_PX}px`));
+      assert.equal(/stroke-dasharray/.test(outlines[i]), !!m.dash);
+    }
+    assert.ok(svg.indexOf('class="mk-outline"') < svg.indexOf('class="mk mk-prior"'), "outline is drawn before the tick");
+  });
+  test("popup ticks carry a card-coloured outline in the page CSS", () => {
+    assert.match(html, /\.pop-bar \.pm \{[^}]*box-shadow: 0 0 0 1px var\(--card-bg\)/);
+  });
   test("the bars stay blue #2563eb", () => assert.equal(BAR_BLUE, "#2563eb"));
   test("index.html defines the three CSS variables with these values, dark overrides included", () => {
     for (const m of SPEND_MARKERS) {
