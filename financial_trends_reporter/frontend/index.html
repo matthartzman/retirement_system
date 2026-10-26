@@ -158,7 +158,7 @@
 // Finding QUA-302 (Wave 6 item W6-11): the chart-rendering logic below used
 // to be defined inline, right here, with no module boundary. It now lives
 // in ./charts.js, importable and testable directly.
-import { fmtMoney, escSvg, filterByTimeframe, aggregateByGranularity, granularityForTimeframe, labelForDate, scopeRange, parseSavedScope, dataTableFallbackHtml, lineChartSvg, barChartSvg, buildHierarchyRows, detailPopupHtml, categoryListHtml, investmentFlowRows, flowBarChartSvg, passthroughReviewHtml, rolloverModel, rolloverHtml, hasMonarchBalances, buildMonarchRows, truncateAllTime, ALL_TIME_START, monarchRolloverModel, balancesFreshnessNote, accountToggleHtml, flowIncludedAccounts, flowMonthlySeries, flowYtdSummary, flowSummaryHtml, flowLineChartSvg, updateDecision } from "./charts.js";
+import { fmtMoney, escSvg, filterByTimeframe, aggregateByGranularity, granularityForTimeframe, labelForDate, scopeRange, parseSavedScope, dataTableFallbackHtml, lineChartSvg, barChartSvg, buildHierarchyRows, detailPopupHtml, categoryListHtml, investmentFlowRows, flowBarChartSvg, passthroughReviewHtml, rolloverModel, rolloverHtml, hasMonarchBalances, buildMonarchRows, truncateAllTime, ALL_TIME_START, monarchRolloverModel, balancesFreshnessNote, accountToggleHtml, flowIncludedAccounts, flowSeries, flowMonthlyRangeSeries, flowPeriodSummary, flowSummaryHtml, flowLineChartSvg, updateDecision } from "./charts.js";
 import { formatElapsed, recordPopupRuntime, averageRuntimeText } from "/shared/runtime_history.js";
 
 let history = [];
@@ -239,12 +239,20 @@ function seriesRows() {
   return (hasMonarchBalances(balances) && buildMonarchRows(balances, history)) || history;
 }
 
+// The flows line follows the Time scope: the daily ledger bucketed by day/week/month, or --
+// for log entries written before the daily ledger existed -- whole months overlapping the range.
 function flowSeriesForPage() {
-  if (!flowsData || !flowsData.monthly || !Object.keys(flowsData.monthly).length) return null;
+  if (!flowsData) return null;
+  const hasDaily = flowsData.daily && Object.keys(flowsData.daily).length;
+  const hasMonthly = flowsData.monthly && Object.keys(flowsData.monthly).length;
+  if (!hasDaily && !hasMonthly) return null;
   const included = flowIncludedAccounts(flowsData.accounts, balances);
-  const series = flowMonthlySeries(flowsData.monthly, included);
-  const year = Number(String(flowsData.as_of_date || "").slice(0, 4)) || new Date().getFullYear();
-  return { series, ytd: flowYtdSummary(series, year) };
+  const range = currentRange();
+  const granularity = hasDaily ? range.granularity : "month";
+  const series = hasDaily
+    ? flowSeries(flowsData.daily, included, range, granularity)
+    : flowMonthlyRangeSeries(flowsData.monthly, included, range);
+  return { series, granularity, daily: !!hasDaily, summary: flowPeriodSummary(series, range.label) };
 }
 
 function renderFlows(latest) {
@@ -252,9 +260,11 @@ function renderFlows(latest) {
   document.getElementById("flowsAcctBtn").style.display = flows && hasMonarchBalances(balances) ? "inline-block" : "none";
   document.getElementById("passthroughReview").innerHTML = latest ? passthroughReviewHtml(latest.passthrough_review) : "";
   if (flows) {
-    document.getElementById("flowSummary").innerHTML = flowSummaryHtml(flows.ytd);
-    document.getElementById("chartInvFlows").innerHTML = flowLineChartSvg(flows.series, { width: boxWidth("chartInvFlows") });
-    document.getElementById("noteFlows").textContent = "Monthly net contributions: money moved from checking into investment accounts (credits) minus money withdrawn to checking (debits). Positive months added to investments. Investment-to-investment transfers are matched and excluded as before (pairs within $100 of each other are flagged above for you to approve or deny). Accounts follow the Flows toggles under Accounts ▾; decisions apply right away.";
+    document.getElementById("flowSummary").innerHTML = flowSummaryHtml(flows.summary);
+    document.getElementById("chartInvFlows").innerHTML = flowLineChartSvg(flows.series, { width: boxWidth("chartInvFlows"), granularity: flows.granularity });
+    document.getElementById("noteFlows").textContent = "Net contributions over the selected time scope: money moved from checking into investment accounts (credits) minus money withdrawn to checking (debits), totalled above for the period. Like the other charts, the line shows one point per day for 1 Week and 1 Month, per week for 3 and 6 Months, and per month for longer scopes; a point above zero added to investments. " +
+      (flows.daily ? "" : "This snapshot has only monthly figures, so short scopes show the whole months they touch until the next update. ") +
+      "Investment-to-investment transfers are matched and excluded as before (pairs within $100 of each other are flagged above for you to approve or deny). Accounts follow the Flows toggles under Accounts ▾; decisions apply right away.";
     return;
   }
   // Older logs without the monthly ledger keep the YTD bar chart.
@@ -336,7 +346,7 @@ async function loadMonarch() {
     const resp = await fetch("/api/flows");
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const payload = await resp.json();
-    flowsData = payload && payload.monthly ? payload : null;
+    flowsData = payload && (payload.monthly || payload.daily) ? payload : null;
   } catch (err) {
     flowsData = null;
   }

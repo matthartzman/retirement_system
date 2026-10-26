@@ -998,6 +998,20 @@ def investment_monthly_flows_by_account(monthly: dict[str, dict[str, dict[str, f
     }
 
 
+def accumulate_investment_flow_daily(daily: dict[str, dict[str, dict[str, float]]], account: str, d: date, kind: str, amount: float) -> None:
+    """Same rule as :func:`accumulate_investment_flow_monthly`, bucketed by ``YYYY-MM-DD``:
+    ``{account: {day: {to_checking, from_checking}}}``. Only days with a flow get a key."""
+    if kind not in ("investment_deposit", "investment_withdrawal"):
+        return
+    entry = daily.setdefault(account, {}).setdefault(d.isoformat(), {"to_checking": 0.0, "from_checking": 0.0})
+    entry["from_checking" if kind == "investment_deposit" else "to_checking"] += abs(amount)
+
+
+def investment_daily_flows_by_account(daily: dict[str, dict[str, dict[str, float]]]) -> dict[str, dict[str, dict[str, float]]]:
+    """Rounded ``{account: {day: {to_checking, from_checking}}}``, days in order."""
+    return investment_monthly_flows_by_account(daily)
+
+
 def investment_net_flows_by_account(flows: dict[str, dict[str, float]]) -> dict[str, dict[str, float]]:
     """Rounded ``{account: {to_checking, from_checking, net}}``; net = withdrawals - contributions."""
     return {
@@ -1460,6 +1474,7 @@ def ytd_summary(root: str | Path, *, today: date | None = None, period: str | No
     investment_withdrawals = 0.0
     investment_flows: dict[str, dict[str, float]] = {}
     investment_flows_monthly: dict[str, dict[str, dict[str, float]]] = {}
+    investment_flows_daily: dict[str, dict[str, dict[str, float]]] = {}
     # Real estate taxes are paid in one or two lump installments a year, not
     # smoothly across it -- day-prorating a lump payment into the YTD "spending"
     # run rate wildly over- or under-states the full-year projection depending
@@ -1503,10 +1518,12 @@ def ytd_summary(root: str | Path, *, today: date | None = None, period: str | No
                 investment_deposits += abs(amount)
                 accumulate_investment_flow(investment_flows, account_label(row), kind, amount)
                 accumulate_investment_flow_monthly(investment_flows_monthly, account_label(row), d, kind, amount)
+                accumulate_investment_flow_daily(investment_flows_daily, account_label(row), d, kind, amount)
             elif kind == "investment_withdrawal":
                 investment_withdrawals += abs(amount)
                 accumulate_investment_flow(investment_flows, account_label(row), kind, amount)
                 accumulate_investment_flow_monthly(investment_flows_monthly, account_label(row), d, kind, amount)
+                accumulate_investment_flow_daily(investment_flows_daily, account_label(row), d, kind, amount)
             elif kind == "note_receivable_income":
                 val = abs(amount)
                 note_receivable_income += val
@@ -1740,6 +1757,7 @@ def ytd_summary(root: str | Path, *, today: date | None = None, period: str | No
             "net_ytd_investment_cashflow": round(net_external_investment_cashflow, 2),
             "net_flows_by_account": investment_net_flows_by_account(investment_flows),
             "monthly_flows_by_account": investment_monthly_flows_by_account(investment_flows_monthly),
+            "daily_flows_by_account": investment_daily_flows_by_account(investment_flows_daily),
             "excluded_passthrough_rows": len(passthrough),
             "passthrough_review": passthrough_review,
             "investment_income_transactions": round(investment_income, 2),

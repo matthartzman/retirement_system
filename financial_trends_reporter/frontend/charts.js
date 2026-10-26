@@ -848,20 +848,90 @@ export function fmtMoneySigned(v) {
   return (v < 0 ? "-" : "") + "$" + Math.abs(Number(v)).toLocaleString(undefined, { maximumFractionDigits: 0 });
 }
 
-export function flowSummaryHtml(ytd) {
-  if (!ytd) return "";
-  const tile = (label, value, cls) => `<div class="flow-stat ${cls}"><span class="flow-stat-label">${escSvg(label)}</span><span class="flow-stat-value">${escSvg(fmtMoneySigned(value))}</span></div>`;
-  return `<div class="flow-summary" role="group" aria-label="${escSvg(String(ytd.year))} year to date investment flows">` +
-    `<div class="flow-year">${escSvg(String(ytd.year))} YTD</div>` +
-    tile("Credits (into investments)", ytd.credits, "flow-credit") +
-    tile("Debits (out of investments)", ytd.debits, "flow-debit") +
-    tile("Total (net contributions)", ytd.total, "flow-total") + `</div>`;
+// ---- Investment Net Flows on any time scope (Trends Phase 4) ----
+// A point per bucket of the selected scope: {key, date, label, credits, debits, net}. `label` is
+// the full text (tooltips, screen-reader table) from labelForDate, so the flows chart reads like
+// the other charts; `date` drives the fitted x-axis.
+function flowPoint(key, date, granularity, credits, debits) {
+  return { key, date, label: labelForDate(date, granularity), credits: round2(credits), debits: round2(debits), net: round2(credits - debits) };
 }
 
+// Sums the daily ledger ({account: {"YYYY-MM-DD": {to_checking, from_checking}}}) for the
+// included accounts into the scope's buckets: day = every calendar day in [from, to]; week = ISO
+// weeks (the same keys and "Week of <Monday>" labels as the other charts); month = calendar
+// months. Empty buckets are zero so the line keeps its spacing. An open bound ("" in a Custom
+// range) falls back to the first/last day with a flow. No included account with data -> [].
+export function flowSeries(daily, included, range, granularity) {
+  const chosen = new Set(included || []);
+  const all = Object.entries(daily || {}).filter(([a]) => chosen.has(a));
+  const days = [...new Set(all.flatMap(([, ds]) => Object.keys(ds)))].sort();
+  if (!days.length) return [];
+  const from = (range && parseYmd(range.from) && String(range.from).slice(0, 10)) || days[0];
+  const to = (range && parseYmd(range.to) && String(range.to).slice(0, 10)) || days[days.length - 1];
+  if (from > to) return [];
+  const gran = granularity === "week" || granularity === "month" ? granularity : "day";
+  const keyOf = gran === "week" ? isoWeekKey : gran === "month" ? (d) => d.slice(0, 7) : (d) => d;
+  // Buckets in order, each dated by its first day inside the range (month: the 1st).
+  const buckets = new Map();
+  for (let d = from; d <= to; d = addDaysStr(d, 1)) {
+    const k = keyOf(d);
+    if (!buckets.has(k)) buckets.set(k, { date: gran === "month" ? `${k}-01` : d, credits: 0, debits: 0 });
+  }
+  for (const [, ds] of all) {
+    for (const [d, c] of Object.entries(ds)) {
+      if (d < from || d > to || !c) continue;
+      const b = buckets.get(keyOf(d));
+      b.credits += c.from_checking || 0;
+      b.debits += c.to_checking || 0;
+    }
+  }
+  return Array.from(buckets, ([k, b]) => flowPoint(k, b.date, gran, b.credits, b.debits));
+}
+
+// Fallback for log entries without the daily ledger: the monthly ledger, keeping every whole
+// month that overlaps [from, to] (zero-filled), as month points.
+export function flowMonthlyRangeSeries(monthly, included, range) {
+  const series = flowMonthlySeries(monthly, included);
+  if (!series.length) return [];
+  const from = range && parseYmd(range.from) ? String(range.from).slice(0, 7) : series[0].month;
+  const to = range && parseYmd(range.to) ? String(range.to).slice(0, 7) : series[series.length - 1].month;
+  if (from > to) return [];
+  const byMonth = new Map(series.map(p => [p.month, p]));
+  return monthsBetween(from, to).map(m => {
+    const p = byMonth.get(m);
+    return flowPoint(m, `${m}-01`, "month", p ? p.credits : 0, p ? p.debits : 0);
+  });
+}
+
+// Totals for the selected period, labelled with the scope's period text.
+export function flowPeriodSummary(points, label) {
+  const credits = round2((points || []).reduce((t, p) => t + p.credits, 0));
+  const debits = round2((points || []).reduce((t, p) => t + p.debits, 0));
+  return { label, credits, debits, total: round2(credits - debits) };
+}
+
+// summary = {label, credits, debits, total} (flowPeriodSummary); a legacy {year, ...} reads "YYYY YTD".
+export function flowSummaryHtml(summary) {
+  if (!summary) return "";
+  const heading = summary.label || `${summary.year} YTD`;
+  const tile = (label, value, cls) => `<div class="flow-stat ${cls}"><span class="flow-stat-label">${escSvg(label)}</span><span class="flow-stat-value">${escSvg(fmtMoneySigned(value))}</span></div>`;
+  return `<div class="flow-summary" role="group" aria-label="Investment flows, ${escSvg(String(heading))}">` +
+    `<div class="flow-year">${escSvg(String(heading))}</div>` +
+    tile("Credits (into investments)", summary.credits, "flow-credit") +
+    tile("Debits (out of investments)", summary.debits, "flow-debit") +
+    tile("Total (net contributions)", summary.total, "flow-total") + `</div>`;
+}
+
+// Points from flowSeries / flowMonthlyRangeSeries (opts.granularity picks the axis style), or a
+// legacy flowMonthlySeries ({month, ...}), which draws as months.
 export function flowLineChartSvg(series, opts) {
+  opts = opts || {};
   if (!series.length) return '<div class="empty">No investment transfers recorded for the accounts switched on.</div>';
-  return lineChartSvg(series.map(p => ({ label: monthLabel(p.month), date: `${p.month}-01`, value: p.net })),
-    { color: "#0d9488", title: "Net Investment Contributions", granularity: "month", width: opts && opts.width });
+  const legacy = series[0].month !== undefined && series[0].date === undefined;
+  const points = legacy
+    ? series.map(p => ({ label: monthLabel(p.month), date: `${p.month}-01`, value: p.net }))
+    : series.map(p => ({ label: p.label, date: p.date, value: p.net }));
+  return lineChartSvg(points, { color: "#0d9488", title: "Net Investment Contributions", granularity: legacy ? "month" : (opts.granularity || "month"), width: opts.width });
 }
 
 // What the page does on open (and after a passthrough decision), given GET /api/run-status:
