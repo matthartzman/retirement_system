@@ -33,10 +33,8 @@
   .chart-dot:hover { r: 5; }
   :root { --card-bg: #fff; }
   @media (prefers-color-scheme: dark) { :root { --card-bg: #1e2126; } }
-  .chart-scroll { overflow-x: auto; }
-  .chart-inner { position: relative; }
-  .chart-yaxis { position: sticky; left: 0; z-index: 2; display: block; background: var(--card-bg); margin-bottom: -200px; }
-  .chart-inner > svg:not(.chart-yaxis) { display: block; }
+  .chart-dot-hit:hover, .chart-dot-hit:focus { fill-opacity: 1; }
+  #chartNetWorth, #chartHoldings, #chartInvFlows, #chartCategories { min-width: 0; }
   .price-note { background: #fef3c7; color: #78350f; border: 1px solid #f59e0b; border-radius: 8px; padding: 8px 12px; font-size: 13px; margin-bottom: 16px; }
   @media (prefers-color-scheme: dark) { .price-note { background: #3b2a08; color: #fcd34d; border-color: #92660a; } }
   .note { font-size: 11px; color: #777; margin-top: 8px; line-height: 1.45; }
@@ -199,13 +197,12 @@ let chartRows = [];
 let balances = null;      // /api/balances
 let flowsData = null;     // /api/flows
 
-// Show the newest dates first: scrolled all the way to the right.
-function scrollChartsToLatest() {
-  for (const id of ["chartNetWorth", "chartHoldings", "chartInvFlows"]) {
-    const box = document.getElementById(id);
-    const sc = box && box.querySelector && box.querySelector(".chart-scroll");
-    if (sc) sc.scrollLeft = sc.scrollWidth;
-  }
+// Charts are drawn at their card's measured width (no horizontal scrolling); 0 = unknown.
+const FITTED_CHARTS = ["chartNetWorth", "chartHoldings", "chartInvFlows"];
+const drawnWidth = {};
+function boxWidth(id) {
+  const box = document.getElementById(id);
+  return box && box.clientWidth > 0 ? Math.floor(box.clientWidth) : 0;
 }
 
 // The newest snapshot's price refresh status: if live prices couldn't be
@@ -256,7 +253,7 @@ function renderFlows(latest) {
   document.getElementById("passthroughReview").innerHTML = latest ? passthroughReviewHtml(latest.passthrough_review) : "";
   if (flows) {
     document.getElementById("flowSummary").innerHTML = flowSummaryHtml(flows.ytd);
-    document.getElementById("chartInvFlows").innerHTML = flowLineChartSvg(flows.series);
+    document.getElementById("chartInvFlows").innerHTML = flowLineChartSvg(flows.series, { width: boxWidth("chartInvFlows") });
     document.getElementById("noteFlows").textContent = "Monthly net contributions: money moved from checking into investment accounts (credits) minus money withdrawn to checking (debits). Positive months added to investments. Investment-to-investment transfers are matched and excluded as before (pairs within $100 of each other are flagged above for you to approve or deny). Accounts follow the Flows toggles under Accounts ▾; decisions apply right away.";
     return;
   }
@@ -290,11 +287,13 @@ function render() {
   const rows = aggregateByGranularity(filtered, granularity);
   chartRows = rows;
   hideRollover();
+  // label = the full date (tooltips, data table); date drives the shorter x-axis labels.
+  const pointsOf = (pick) => rows.map(r => ({ label: labelForDate(r.as_of_date, granularity), date: String(r.as_of_date).slice(0, 10), value: pick(r) }));
   document.getElementById("chartNetWorth").innerHTML = lineChartSvg(
-    rows.map(r => ({ label: labelForDate(r.as_of_date, granularity), value: r.net_worth && r.net_worth.total })), { color: "#16a34a", title: "Net Worth", interactive: true }
+    pointsOf(r => r.net_worth && r.net_worth.total), { color: "#16a34a", title: "Net Worth", interactive: true, granularity, width: boxWidth("chartNetWorth") }
   );
   document.getElementById("chartHoldings").innerHTML = lineChartSvg(
-    rows.map(r => ({ label: labelForDate(r.as_of_date, granularity), value: r.holdings && r.holdings.current_value })), { color: "#2563eb", title: "Liquid Investments and Cash", interactive: true }
+    pointsOf(r => r.holdings && r.holdings.current_value), { color: "#2563eb", title: "Liquid Investments and Cash", interactive: true, granularity, width: boxWidth("chartHoldings") }
   );
   // The remaining cards read the latest plan snapshot, whatever the imported rows are.
   const latest = history[history.length - 1];
@@ -308,7 +307,7 @@ function render() {
   document.getElementById("chartCategories").innerHTML = categories.length
     ? barChartSvg(categories)
     : '<div class="empty">No tracking-type breakdown logged yet.</div>';
-  scrollChartsToLatest();
+  for (const id of FITTED_CHARTS) drawnWidth[id] = boxWidth(id);
 }
 
 // Finding UX-106 (Wave 5 item W5-6): a failed history fetch previously left
@@ -642,6 +641,20 @@ document.getElementById("exitBtn").addEventListener("click", async () => {
   document.body.innerHTML = '<h1>Financial Trends</h1><div class="sub">The reporter has exited. You can close this tab.</div>';
   window.close();
 });
+
+// Re-draw when a chart's card changes width (window resize, rotation, layout switch): one render
+// per animation frame, and only when a width actually changed (so a render can't re-trigger itself).
+if (typeof ResizeObserver !== "undefined") {
+  let resizeFrame = 0;
+  const observer = new ResizeObserver(() => {
+    if (resizeFrame) return;
+    resizeFrame = requestAnimationFrame(() => {
+      resizeFrame = 0;
+      if (Object.keys(drawnWidth).length && FITTED_CHARTS.some(id => boxWidth(id) !== drawnWidth[id])) render();
+    });
+  });
+  for (const id of FITTED_CHARTS) observer.observe(document.getElementById(id));
+}
 
 loadHistory().then(() => updateData(false));
 </script>

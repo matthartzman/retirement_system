@@ -178,11 +178,22 @@ export function aggregateByGranularity(rows, granularity) {
   return Array.from(buckets.values());
 }
 
+const WEEKDAY_ABBR = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+function weekdayOfStr(s) {
+  const [y, m, d] = parseYmd(s);
+  return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+}
+// The Monday on or before the date.
+function weekStartStr(s) { return addDaysStr(s, -((weekdayOfStr(s) + 6) % 7)); }
+
+// Full, unambiguous text for a point -- used by tooltips and the screen-reader table (the axis
+// shows shorter text, see xAxisLabels): a day, the week starting on a Monday, or a month.
 export function labelForDate(dateStr, granularity) {
-  if (granularity === "month") {
-    return new Date(`${dateStr}T00:00:00`).toLocaleDateString(undefined, { month: "short", year: "numeric" });
-  }
-  return dateStr.slice(5); // MM-DD
+  if (!parseYmd(dateStr)) return String(dateStr);
+  const [y, m, d] = parseYmd(dateStr);
+  if (granularity === "month") return `${MONTH_ABBR[m - 1]} ${y}`;
+  if (granularity === "week") return `Week of ${fmtMonthDay(weekStartStr(dateStr), true)}`;
+  return `${WEEKDAY_ABBR[weekdayOfStr(dateStr)]}, ${MONTH_ABBR[m - 1]} ${d}, ${y}`;
 }
 
 export function dataTableFallbackHtml(caption, columnHeaders, rows) {
@@ -220,24 +231,98 @@ export function niceRange(min, max, tickTarget) {
   return { min: ticks[0], max: ticks[ticks.length - 1], ticks };
 }
 
-// Line chart wide enough to give each point `pxPerPoint` of room; when that
-// exceeds the card, the chart scrolls horizontally (.chart-scroll) with the
-// y-axis labels pinned in a sticky overlay so they stay visible.
+// ---- x-axis labels for a fitted line chart (design 2.6) ---------------------------------
+// Which points get a label, and how it reads, depends on the granularity rather than on "every
+// Nth point". Points carry `date` ("YYYY-MM-DD"); a point without one is labelled by its `label`
+// text and thinned by measurement alone. Returns [{i, x, width, text, sub, year, lines}] oldest
+// first, x = offset from the left edge of the plot. Label width is estimated at ~6 px per
+// character (10 px type) plus 10 px padding; labels are kept greedily from the newest point
+// backward, so the newest is always labelled and none overlap.
+const AXIS_CHAR_PX = 6, AXIS_LABEL_PAD = 10;
+export function xAxisLabels(points, opts) {
+  opts = opts || {};
+  const n = points.length;
+  if (!n) return [];
+  const plotWidth = opts.plotWidth > 0 ? opts.plotWidth : 470;
+  const narrow = opts.narrow !== undefined ? !!opts.narrow : plotWidth < 420;
+  const gran = opts.granularity;
+  const last = n - 1;
+  const xOf = (i) => (n > 1 ? (i * plotWidth) / (n - 1) : 0);
+  const dated = points.every((p) => p && parseYmd(p.date));
+  const cands = [];
+  const add = (i, text, sub, year, month) => cands.push({ i, text, sub: sub || "", year: year || "", month: month || 0 });
+  if (!dated) {
+    points.forEach((p, i) => add(i, String(p.label)));
+  } else if (gran === "week") {
+    // week-start text; the first week of each month, plus the newest
+    let prevKey = "";
+    points.forEach((p, i) => {
+      const ws = weekStartStr(p.date), [y, m, d] = parseYmd(ws), key = ws.slice(0, 7);
+      if (key !== prevKey || i === last) add(i, narrow ? MONTH_ABBR[m - 1] : `${MONTH_ABBR[m - 1]} ${d}`, "", String(y), m);
+      prevKey = key;
+    });
+  } else if (gran === "month") {
+    points.forEach((p, i) => {
+      const [y, m] = parseYmd(p.date);
+      add(i, narrow ? MONTH_ABBR[m - 1][0] : MONTH_ABBR[m - 1], "", String(y), m);
+    });
+  } else {
+    // day: Mondays plus the newest; with 14 points or fewer every day is a candidate, with a
+    // weekday initial underneath
+    const few = n <= 14;
+    points.forEach((p, i) => {
+      const [y, m, d] = parseYmd(p.date), dow = weekdayOfStr(p.date);
+      if (few || dow === 1 || i === last) add(i, narrow ? String(d) : `${MONTH_ABBR[m - 1]} ${d}`, few && !narrow ? "SMTWTFS"[dow] : "", String(y), m);
+    });
+  }
+  const widthOf = (c) => Math.max(c.text.length, c.sub.length, c.year ? 4 : 0) * AXIS_CHAR_PX + AXIS_LABEL_PAD;
+  const greedy = (list) => {
+    const kept = [];
+    for (let k = list.length - 1; k >= 0; k--) {
+      const x = xOf(list[k].i), width = widthOf(list[k]);
+      if (kept.every((o) => Math.abs(o.x - x) >= (o.width + width) / 2)) kept.push({ ...list[k], x, width });
+    }
+    return kept.reverse();
+  };
+  let kept = greedy(cands);
+  // Months: every month if they fit, otherwise quarter starts (Jan/Apr/Jul/Oct) plus the newest.
+  if (dated && gran === "month" && kept.length < cands.length) {
+    kept = greedy(cands.filter((c) => c.month % 3 === 1 || c.i === last));
+  }
+  // Narrow cards aim for about three labels.
+  if (narrow && kept.length > 3) {
+    const every = Math.ceil(kept.length / 3);
+    kept = kept.filter((_, idx) => (kept.length - 1 - idx) % every === 0);
+  }
+  // Year line under the first label and wherever the year changes.
+  let prevYear = "";
+  return kept.map((c) => {
+    const year = c.year && c.year !== prevYear ? c.year : "";
+    if (c.year) prevYear = c.year;
+    return { i: c.i, x: c.x, width: c.width, text: c.text, sub: c.sub, year, lines: [c.text, c.sub, year].filter(Boolean) };
+  });
+}
+
+// Line chart drawn at the card's measured width (opts.width; 560 when unknown) so it never
+// scrolls: points are spaced evenly across the plot and the x-axis labels do the work of keeping
+// it readable (see xAxisLabels). opts.granularity ("day"|"week"|"month") picks the label style;
+// points are {label, value, date}: `label` is the full text for the tooltip and the
+// screen-reader table, `date` ("YYYY-MM-DD") drives the axis labels.
 export function lineChartSvg(points, opts) {
   opts = opts || {};
-  const minW = 560, h = 200, padL = 56, padR = 34, padT = 16, padB = 28;
-  const pxPerPoint = opts.pxPerPoint || 36;
+  const h = 216, padL = 56, padR = 34, padT = 16, padB = 44;
   const label = (opts.title || "Chart") + ", line chart";
   if (!points.length) return '<div class="empty">No data yet for this range.</div>';
   const values = points.map(p => p.value).filter(v => v !== null && v !== undefined);
   if (!values.length) return '<div class="empty">No data yet for this range.</div>';
   const range = niceRange(Math.min(...values), Math.max(...values));
   const min = range.min, max = range.max;
-  const w = Math.max(minW, padL + padR + (points.length - 1) * pxPerPoint);
+  const w = opts.width > 0 ? Math.max(160, Math.round(opts.width)) : 560;
   const plotW = w - padL - padR, plotH = h - padT - padB;
   const xStep = points.length > 1 ? plotW / (points.length - 1) : 0;
   const x = i => padL + i * xStep;
   const y = v => padT + plotH - ((v - min) / (max - min || 1)) * plotH;
+  const color = opts.color || '#2563eb';
   // A missing value breaks the line (a new "M") rather than dropping to $0.
   let pen = false;
   const path = points.map((p, i) => {
@@ -247,26 +332,27 @@ export function lineChartSvg(points, opts) {
     return `${cmd}${x(i)},${y(p.value)}`;
   }).filter(Boolean).join(" ");
 
-  // Y-axis: gridlines in the scrolling plot, value labels in the sticky overlay.
-  let grid = "", yLabels = "";
+  // Y-axis: gridlines and value labels (plain SVG text).
+  let grid = "";
   for (const v of range.ticks) {
     const yy = y(v);
-    grid += `<line x1="${padL}" y1="${yy}" x2="${w - padR}" y2="${yy}" stroke="#e5e5e5" stroke-width="1"/>`;
-    yLabels += `<text x="${padL - 6}" y="${yy + 3}" text-anchor="end" style="font-size:10px">${escSvg(fmtMoney(v))}</text>`;
+    grid += `<line x1="${padL}" y1="${yy}" x2="${w - padR}" y2="${yy}" stroke="#e5e5e5" stroke-width="1"/>` +
+      `<text x="${padL - 6}" y="${yy + 3}" text-anchor="end" style="font-size:10px">${escSvg(fmtMoney(v))}</text>`;
   }
 
-  // X-axis: date labels, thinned out so they don't overlap.
-  const xLabelStep = xStep > 0 ? Math.max(1, Math.ceil(60 / xStep)) : 1;
+  // X-axis: scope-aware labels, each with a faint vertical tick at its point.
   let xAxis = "";
-  // Counted back from the newest point so the last label is always drawn and
-  // never crowds its neighbour; padR leaves room for it to render untruncated.
-  points.forEach((p, i) => {
-    if ((points.length - 1 - i) % xLabelStep !== 0) return;
-    xAxis += `<text x="${x(i)}" y="${h - padB + 16}" text-anchor="middle" style="font-size:10px">${escSvg(p.label)}</text>`;
-  });
+  for (const lab of xAxisLabels(points, { granularity: opts.granularity, plotWidth: plotW })) {
+    const lx = padL + lab.x;
+    xAxis += `<line class="x-tick" x1="${lx}" y1="${padT}" x2="${lx}" y2="${h - padB + 4}" stroke="currentColor" stroke-opacity=".12" stroke-width="1"/>`;
+    lab.lines.forEach((line, k) => {
+      xAxis += `<text x="${lx}" y="${h - padB + 16 + k * 12}" text-anchor="middle" style="font-size:10px">${escSvg(line)}</text>`;
+    });
+  }
 
-  // Hover targets: one dot per point, with a native tooltip giving the
-  // x label and y value.
+  // One hover/keyboard target per point, with a tooltip giving the full date and value. Dots
+  // shrink above 40 points and are invisible (but still targets) above 90.
+  const n = points.length, hidden = n > 90, r = n > 40 ? 2 : 3;
   let dots = "";
   // Roving tabindex: only the newest point is a tab stop; arrow keys move between points.
   let lastShown = -1;
@@ -277,22 +363,19 @@ export function lineChartSvg(points, opts) {
     // page can show a rollover (see rolloverModel) on hover or focus.
     const focus = opts.interactive
       ? ` tabindex="${i === lastShown ? 0 : -1}" data-i="${i}" role="img" aria-label="${escSvg(p.label)}: ${escSvg(fmtMoney(p.value))}"` : "";
-    dots += `<circle cx="${x(i)}" cy="${y(p.value)}" r="3" fill="${opts.color || '#2563eb'}" class="chart-dot"${focus}>` +
+    const look = hidden ? `r="4" fill="${color}" fill-opacity="0" class="chart-dot chart-dot-hit"` : `r="${r}" fill="${color}" class="chart-dot"`;
+    dots += `<circle cx="${x(i)}" cy="${y(p.value)}" ${look}${focus}>` +
       `<title>${escSvg(p.label)}: ${escSvg(fmtMoney(p.value))}</title></circle>`;
   });
 
-  // The pinned y-axis stops above the x-axis labels so it can't clip the first one.
-  const axisH = h - padB + 8;
-  const axisSvg = `<svg class="chart-yaxis" width="${padL}" height="${axisH}" style="margin-bottom:-${axisH}px" aria-hidden="true">${yLabels}</svg>`;
-  const svg = `<div class="chart-scroll"><div class="chart-inner" style="width:${w}px">${axisSvg}` +
-    `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" role="img" aria-label="${escSvg(label)}">
+  const svg = `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="display:block;max-width:100%;height:auto" role="img" aria-label="${escSvg(label)}">
     ${grid}
     <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${h - padB}" stroke="#999" stroke-width="1"/>
     <line x1="${padL}" y1="${h - padB}" x2="${w - padR}" y2="${h - padB}" stroke="#999" stroke-width="1"/>
-    <path d="${path}" fill="none" stroke="${opts.color || '#2563eb'}" stroke-width="2"/>
-    ${dots}
     ${xAxis}
-  </svg></div></div>`;
+    <path d="${path}" fill="none" stroke="${color}" stroke-width="2"/>
+    ${dots}
+  </svg>`;
   return svg + dataTableFallbackHtml(label, ["Date", "Value"], points.map(p => [p.label, fmtMoney(p.value)]));
 }
 
@@ -440,7 +523,7 @@ export function barChartSvg(entries) {
   const legend = (anyPrior || anyBudget) ? `<div class="bar-legend" style="font-size:12px">` +
     (anyPrior ? `<span style="color:${PRIOR_COLOR}">&#9646; Prior-year YTD (same dates)</span> ` : "") +
     (anyBudget ? `<span style="color:${BUDGET_COLOR}">&#9646; Full-year budget</span>` : "") + `</div>` : "";
-  const svg = legend + `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="Spending, bar chart">
+  const svg = legend + `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" style="width:100%;max-width:100%;height:auto" role="img" aria-label="Spending, bar chart">
     ${xAxis}
     <line x1="${padL}" y1="0" x2="${padL}" y2="${h - padB}" stroke="#999" stroke-width="1"/>
     ${bars}
@@ -581,7 +664,7 @@ export function flowBarChartSvg(model) {
       `<rect x="${x}" y="${y}" width="${bw}" height="${barH}" fill="${fill}" rx="3"><title>${escSvg(tipText)}</title></rect>` +
       `<text x="${labelX}" y="${y + barH - 5}" text-anchor="${anchor}">${escSvg(fmtMoney(e.net))}</text></g>`;
   }).join("");
-  const svg = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="group" aria-label="YTD net investment flows by account, bar chart">` +
+  const svg = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" style="width:100%;max-width:100%;height:auto" role="group" aria-label="YTD net investment flows by account, bar chart">` +
     `<line x1="${zeroX}" y1="0" x2="${zeroX}" y2="${h - padB}" stroke="#999" stroke-width="1"/>` +
     `<text x="${zeroX}" y="${h - padB + 14}" text-anchor="middle" style="font-size:10px">$0</text>${bars}</svg>`;
   return svg + dataTableFallbackHtml("YTD net investment flows by account",
@@ -775,10 +858,10 @@ export function flowSummaryHtml(ytd) {
     tile("Total (net contributions)", ytd.total, "flow-total") + `</div>`;
 }
 
-export function flowLineChartSvg(series) {
+export function flowLineChartSvg(series, opts) {
   if (!series.length) return '<div class="empty">No investment transfers recorded for the accounts switched on.</div>';
-  return lineChartSvg(series.map(p => ({ label: monthLabel(p.month), value: p.net })),
-    { color: "#0d9488", title: "Net Investment Contributions", pxPerPoint: 56 });
+  return lineChartSvg(series.map(p => ({ label: monthLabel(p.month), date: `${p.month}-01`, value: p.net })),
+    { color: "#0d9488", title: "Net Investment Contributions", granularity: "month", width: opts && opts.width });
 }
 
 // What the page does on open (and after a passthrough decision), given GET /api/run-status:

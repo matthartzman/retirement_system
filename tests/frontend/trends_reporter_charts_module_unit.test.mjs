@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import {
   filterByTimeframe, granularityForTimeframe, aggregateByGranularity, labelForDate,
   lineChartSvg, barChartSvg, escSvg, fmtMoney, niceRange, buildHierarchyRows, detailPopupHtml, categoryListHtml,
-  scopeRange, normalizeScope, parseSavedScope, ALL_TIME_START,
+  scopeRange, normalizeScope, parseSavedScope, ALL_TIME_START, xAxisLabels, flowBarChartSvg, flowLineChartSvg,
 } from "../../financial_trends_reporter/frontend/charts.js";
 
 describe("filterByTimeframe", () => {
@@ -157,13 +157,12 @@ describe("aggregateByGranularity", () => {
   });
 });
 
-describe("labelForDate", () => {
-  test("day/week granularity uses MM-DD", () => {
-    assert.equal(labelForDate("2026-03-05", "day"), "03-05");
-    assert.equal(labelForDate("2026-03-05", "week"), "03-05");
-  });
-
-  test("month granularity uses a short month + year", () => {
+describe("labelForDate (full text for tooltips and the data table)", () => {
+  test("day: weekday, month, day, year; week: the Monday it starts; month: month and year", () => {
+    assert.equal(labelForDate("2026-03-05", "day"), "Thu, Mar 5, 2026");
+    assert.equal(labelForDate("2026-10-26", "day"), "Mon, Oct 26, 2026");
+    assert.equal(labelForDate("2026-03-05", "week"), "Week of Mar 2, 2026");
+    assert.equal(labelForDate("2026-03-01", "week"), "Week of Feb 23, 2026");
     assert.equal(labelForDate("2026-03-05", "month"), "Mar 2026");
   });
 });
@@ -199,13 +198,258 @@ describe("niceRange", () => {
   });
 });
 
-describe("scrollable line chart", () => {
-  test("many points widen the chart beyond the card so it scrolls", () => {
-    const pts = Array.from({ length: 60 }, (_, i) => ({ label: `d${i}`, value: i }));
-    const svg = lineChartSvg(pts, {});
-    assert.match(svg, /class="chart-scroll"/);
-    const w = Number(svg.match(/class="chart-inner" style="width:(\d+)px"/)[1]);
-    assert.ok(w > 560);
+// ---- fitted line chart (design 2.6): no horizontal scroll, scope-aware x-axis ----
+const pad2 = (n) => String(n).padStart(2, "0");
+function addDays(start, n) {
+  const [y, m, d] = start.split("-").map(Number);
+  const t = new Date(Date.UTC(y, m - 1, d + n));
+  return t.getUTCFullYear() + "-" + pad2(t.getUTCMonth() + 1) + "-" + pad2(t.getUTCDate());
+}
+// n consecutive daily points ending on 'end'
+function dayPoints(n, end = "2026-10-26") {
+  return Array.from({ length: n }, (_, i) => {
+    const date = addDays(end, i - (n - 1));
+    return { date, label: labelForDate(date, "day"), value: 100 + i };
+  });
+}
+// n weekly points (Fridays) ending on 'end'
+function weekPoints(n, end = "2026-10-23") {
+  return Array.from({ length: n }, (_, i) => {
+    const date = addDays(end, 7 * (i - (n - 1)));
+    return { date, label: labelForDate(date, "week"), value: 100 + i };
+  });
+}
+// n monthly points ending on the month of 'endMonth' ("YYYY-MM")
+function monthPoints(n, endMonth = "2026-10") {
+  const [ey, em] = endMonth.split("-").map(Number);
+  return Array.from({ length: n }, (_, i) => {
+    const t = ey * 12 + (em - 1) - (n - 1 - i);
+    const date = Math.floor(t / 12) + "-" + pad2((t % 12) + 1) + "-28";
+    return { date, label: labelForDate(date, "month"), value: 100 + i };
+  });
+}
+const WIDTHS = [320, 480, 560]; // card widths; the plot is the card minus the 56 px / 34 px margins
+const plotOf = (w) => w - 56 - 34;
+
+describe("fitted line chart", () => {
+  test("no scroll wrappers or pinned y-axis, and the SVG width equals the width passed, for 3..400 points", () => {
+    for (const n of [3, 4, 7, 14, 15, 30, 40, 41, 90, 91, 150, 400]) {
+      for (const width of [320, 480, 777]) {
+        const svg = lineChartSvg(dayPoints(n), { width, granularity: "day" });
+        assert.ok(!/chart-scroll|chart-inner|chart-yaxis/.test(svg), "n=" + n);
+        assert.equal(Number(svg.match(/<svg viewBox="0 0 ([0-9]+) /)[1]), width, "n=" + n);
+        assert.match(svg, new RegExp('<svg viewBox="0 0 ' + width + ' [0-9]+" width="' + width + '"'));
+        assert.ok(!/NaN/.test(svg), "n=" + n);
+      }
+    }
+  });
+
+  test("falls back to 560 px when the width is unknown", () => {
+    assert.match(lineChartSvg(dayPoints(10), { granularity: "day" }), /<svg viewBox="0 0 560 /);
+  });
+
+  test("the y-axis labels are plain SVG text inside the one chart svg", () => {
+    const svg = lineChartSvg(dayPoints(5), { width: 480, granularity: "day" });
+    assert.equal((svg.match(/<svg /g) || []).length, 1);
+    assert.match(svg, /<text x="50" [^>]*text-anchor="end"[^>]*>\$/);
+  });
+
+  test("points are spaced evenly across the plot", () => {
+    const svg = lineChartSvg(dayPoints(5), { width: 480, granularity: "day" });
+    const xs = [...svg.matchAll(/<circle cx="([0-9.]+)"/g)].map((m) => Number(m[1]));
+    assert.equal(xs.length, 5);
+    assert.equal(xs[0], 56);
+    assert.equal(xs[4], 480 - 34);
+    const gaps = xs.slice(1).map((x, i) => Math.round((x - xs[i]) * 100) / 100);
+    assert.equal(new Set(gaps).size, 1);
+  });
+
+  test("dots: r=3 normally, r=2 above 40 points, hidden above 90 with one target per point", () => {
+    const dotR = (n) => [...lineChartSvg(dayPoints(n), { width: 480, granularity: "day", interactive: true }).matchAll(/<circle [^>]*>/g)];
+    assert.ok(dotR(40).every((m) => m[0].includes('r="3"')));
+    assert.ok(dotR(41).every((m) => m[0].includes('r="2"')));
+    assert.ok(dotR(90).every((m) => m[0].includes('r="2"') && !m[0].includes("fill-opacity")));
+    const hidden = dotR(91);
+    assert.equal(hidden.length, 91);
+    assert.ok(hidden.every((m) => m[0].includes('fill-opacity="0"') && m[0].includes("chart-dot")));
+  });
+
+  test("keyboard/hover markup survives at every density: roving tabindex, data-i, tooltips", () => {
+    for (const n of [5, 60, 200]) {
+      const svg = lineChartSvg(dayPoints(n), { width: 480, granularity: "day", interactive: true });
+      assert.equal((svg.match(/<circle /g) || []).length, n);
+      assert.equal((svg.match(/tabindex="0"/g) || []).length, 1);
+      assert.match(svg, new RegExp('tabindex="0" data-i="' + (n - 1) + '"'));
+      assert.equal((svg.match(/data-i="/g) || []).length, n);
+      assert.equal((svg.match(/<title>/g) || []).length, n);
+    }
+  });
+
+  test("tooltips, aria-labels and the data table keep the FULL date; the axis does not", () => {
+    const pts = dayPoints(20);
+    const svg = lineChartSvg(pts, { width: 560, granularity: "day", interactive: true });
+    const newest = pts[19];
+    assert.equal(newest.label, "Mon, Oct 26, 2026");
+    assert.ok(svg.includes("<title>Mon, Oct 26, 2026: $119</title>"));
+    assert.ok(svg.includes('aria-label="Mon, Oct 26, 2026: $119"'));
+    assert.ok(svg.includes("<td>Mon, Oct 26, 2026</td>"));
+    const table = svg.indexOf("<table");
+    const axisTexts = [...svg.slice(0, table).matchAll(/text-anchor="middle"[^>]*>([^<]*)</g)].map((m) => m[1]);
+    assert.ok(axisTexts.includes("Oct 26"));
+    assert.ok(!axisTexts.some((t) => t.includes("Mon,")));
+  });
+
+  test("a faint vertical tick marks every labelled point", () => {
+    const pts = dayPoints(30);
+    const svg = lineChartSvg(pts, { width: 560, granularity: "day" });
+    const labels = xAxisLabels(pts, { granularity: "day", plotWidth: plotOf(560) });
+    assert.equal((svg.match(/class="x-tick"/g) || []).length, labels.length);
+  });
+
+  test("points without dates fall back to their label text, still thinned by measurement", () => {
+    const pts = Array.from({ length: 40 }, (_, i) => ({ label: "L" + i, value: i }));
+    const svg = lineChartSvg(pts, { width: 560 });
+    const axis = svg.slice(0, svg.indexOf("<table"));
+    assert.ok(axis.includes(">L39<"), "newest label missing");
+    assert.ok(!axis.includes(">L38<"), "neighbour of the newest should be dropped as overlapping");
+  });
+});
+
+describe("xAxisLabels", () => {
+  const dow = (date) => {
+    const [y, m, d] = date.split("-").map(Number);
+    return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+  };
+  const noOverlap = (labels) => {
+    for (let k = 1; k < labels.length; k++) {
+      const gap = labels[k].x - labels[k - 1].x;
+      assert.ok(gap >= (labels[k].width + labels[k - 1].width) / 2, "labels " + labels[k - 1].text + " and " + labels[k].text + " overlap");
+    }
+  };
+
+  test("day: Mondays plus the newest, text like 'Oct 26', no year on the label itself", () => {
+    const pts = dayPoints(30);
+    const labels = xAxisLabels(pts, { granularity: "day", plotWidth: 470 });
+    assert.ok(labels.length >= 3);
+    for (const l of labels.slice(0, -1)) assert.equal(dow(pts[l.i].date), 1, "non-Monday labelled: " + pts[l.i].date);
+    assert.equal(labels[labels.length - 1].i, 29);
+    for (const l of labels) assert.match(l.text, /^[A-Z][a-z][a-z] [0-9]+$/);
+  });
+
+  test("day with 14 points or fewer: every day is a candidate and carries a weekday initial", () => {
+    const pts = dayPoints(7);
+    const labels = xAxisLabels(pts, { granularity: "day", plotWidth: 470 });
+    assert.ok(labels.length >= 3);
+    for (const l of labels) assert.equal(l.sub, "SMTWTFS"[dow(pts[l.i].date)]);
+    const many = xAxisLabels(dayPoints(15), { granularity: "day", plotWidth: 470 });
+    assert.ok(many.every((l) => l.sub === ""));
+  });
+
+  test("week: week-start dates, first week of each month plus the newest", () => {
+    const pts = weekPoints(26);
+    const labels = xAxisLabels(pts, { granularity: "week", plotWidth: 470 });
+    const monthOfWeekStart = (date) => {
+      const [y, m, d] = date.split("-").map(Number);
+      const t = new Date(Date.UTC(y, m - 1, d - ((dow(date) + 6) % 7)));
+      return t.getUTCFullYear() + "-" + pad2(t.getUTCMonth() + 1);
+    };
+    const firstOfMonth = new Set();
+    const seen = new Set();
+    pts.forEach((p, i) => { const k = monthOfWeekStart(p.date); if (!seen.has(k)) { seen.add(k); firstOfMonth.add(i); } });
+    assert.ok(labels.length >= 3);
+    for (const l of labels.slice(0, -1)) assert.ok(firstOfMonth.has(l.i), "label on a week that is not the first of its month: " + pts[l.i].date);
+    assert.equal(labels[labels.length - 1].i, 25);
+    // text is the week START (a Monday), not the Friday row date
+    assert.equal(labels[labels.length - 1].text, "Oct 19");
+  });
+
+  test("month: every month when they fit, quarter starts when they do not", () => {
+    const fits = xAxisLabels(monthPoints(12), { granularity: "month", plotWidth: 470 });
+    assert.equal(fits.length, 12);
+    assert.deepEqual(fits.slice(-3).map((l) => l.text), ["Aug", "Sep", "Oct"]);
+    const tight = xAxisLabels(monthPoints(36), { granularity: "month", plotWidth: 470 });
+    assert.ok(tight.length < 36);
+    for (const l of tight.slice(0, -1)) assert.ok(["Jan", "Apr", "Jul", "Oct"].includes(l.text), l.text);
+    assert.equal(tight[tight.length - 1].i, 35);
+  });
+
+  test("the newest point is always labelled, for every granularity and width", () => {
+    const sets = { day: [3, 7, 20, 31, 90, 400], week: [3, 13, 26, 52], month: [3, 12, 24, 60] };
+    const make = { day: dayPoints, week: weekPoints, month: monthPoints };
+    for (const gran of Object.keys(sets)) {
+      for (const n of sets[gran]) {
+        for (const w of WIDTHS) {
+          const labels = xAxisLabels(make[gran](n), { granularity: gran, plotWidth: plotOf(w) });
+          assert.ok(labels.length >= 1, gran + n);
+          assert.equal(labels[labels.length - 1].i, n - 1, gran + " n=" + n + " w=" + w);
+        }
+      }
+    }
+  });
+
+  test("no two kept labels overlap at plot widths for 320, 480 and 560 px cards", () => {
+    const sets = { day: [7, 14, 21, 31, 90], week: [13, 26, 52], month: [6, 12, 24, 60] };
+    const make = { day: dayPoints, week: weekPoints, month: monthPoints };
+    for (const gran of Object.keys(sets)) {
+      for (const n of sets[gran]) {
+        for (const w of WIDTHS) noOverlap(xAxisLabels(make[gran](n), { granularity: gran, plotWidth: plotOf(w) }));
+      }
+    }
+  });
+
+  test("year line: under the first label and wherever the year changes, nowhere else", () => {
+    const pts = monthPoints(8, "2026-02"); // Jul 2025 .. Feb 2026
+    const labels = xAxisLabels(pts, { granularity: "month", plotWidth: 470 });
+    assert.equal(labels.length, 8);
+    const withYear = labels.filter((l) => l.year).map((l) => [l.text, l.year]);
+    assert.deepEqual(withYear, [["Jul", "2025"], ["Jan", "2026"]]);
+    assert.deepEqual(labels.find((l) => l.text === "Jan").lines, ["Jan", "2026"]);
+    // a single calendar year: only the first label carries it
+    const one = xAxisLabels(monthPoints(6, "2026-10"), { granularity: "month", plotWidth: 470 });
+    assert.deepEqual(one.filter((l) => l.year).map((l) => l.year), ["2026"]);
+    assert.ok(one[0].year);
+    // day labels across New Year
+    const days = xAxisLabels(dayPoints(40, "2026-01-15"), { granularity: "day", plotWidth: 470 });
+    assert.deepEqual(days.filter((l) => l.year).map((l) => l.year), ["2025", "2026"]);
+  });
+
+  test("narrow card (< 420 px plot): day-of-month only, single-letter months, about three labels", () => {
+    const days = xAxisLabels(dayPoints(31), { granularity: "day", plotWidth: 300 });
+    assert.ok(days.length <= 4 && days.length >= 1);
+    for (const l of days) assert.match(l.text, /^[0-9]+$/);
+    assert.equal(days[days.length - 1].i, 30);
+    const months = xAxisLabels(monthPoints(24), { granularity: "month", plotWidth: 300 });
+    assert.ok(months.length <= 4 && months.length >= 1);
+    for (const l of months) assert.match(l.text, /^[A-Z]$/);
+    assert.ok(months[0].year, "the year line stays on narrow cards");
+    assert.equal(months[months.length - 1].i, 23);
+    // the page can force it too
+    const forced = xAxisLabels(dayPoints(31), { granularity: "day", plotWidth: 470, narrow: true });
+    for (const l of forced) assert.match(l.text, /^[0-9]+$/);
+  });
+
+  test("an empty list gives no labels", () => {
+    assert.deepEqual(xAxisLabels([], { granularity: "day", plotWidth: 400 }), []);
+  });
+});
+
+describe("responsive bar charts and the flows line", () => {
+  test("barChartSvg carries a viewBox and width:100%", () => {
+    const svg = barChartSvg([["Groceries", 500], ["Rent", 2000]]);
+    assert.match(svg, /<svg viewBox="0 0 [0-9]+ [0-9]+" width="100%"[^>]*style="width:100%/);
+  });
+  test("flowBarChartSvg carries a viewBox and width:100%", () => {
+    const svg = flowBarChartSvg({ rows: [{ name: "IRA", net: -500, toChecking: 0, fromChecking: 500 }], total: -500 });
+    assert.match(svg, /<svg viewBox="0 0 [0-9]+ [0-9]+" width="100%"[^>]*style="width:100%/);
+  });
+  test("flows line uses the fitted chart: month labels with a year line, full month in the table", () => {
+    const series = Array.from({ length: 10 }, (_, i) => ({ month: "2026-" + pad2(i + 1), net: i * 10 }));
+    const svg = flowLineChartSvg(series, { width: 560 });
+    assert.ok(!/chart-scroll|chart-yaxis/.test(svg));
+    assert.match(svg, /<svg viewBox="0 0 560 /);
+    assert.match(svg, /text-anchor="middle"[^>]*>Jan</);
+    assert.match(svg, /text-anchor="middle"[^>]*>2026</);
+    assert.match(svg, /<td>Oct 2026<\/td>/);
   });
 });
 
@@ -256,23 +500,6 @@ describe("category rows and detail popup", () => {
   test("total and other rows render with data-row hooks", () => {
     const svg = barChartSvg([["Total", 100, { kind: "total" }], ["A", 60, { kind: "category" }], ["Other", 40, { kind: "other" }]]);
     assert.equal((svg.match(/data-row=/g) || []).length, 3);
-  });
-});
-
-describe("line chart x labels and scrolling", () => {
-  test("the newest point's label is always drawn and the right margin leaves room for it", () => {
-    const pts = Array.from({ length: 40 }, (_, i) => ({ label: `L${i}`, value: i }));
-    const svg = lineChartSvg(pts, {});
-    assert.ok(svg.includes(">L39<"), "last label missing");
-    const w = Number(svg.match(/class="chart-inner" style="width:(\d+)px"/)[1]);
-    const lastX = Number(svg.match(/<text x="([\d.]+)"[^>]*>L39</)[1]);
-    assert.ok(w - lastX >= 30, `last label centre only ${w - lastX}px from the right edge`);
-  });
-
-  test("the pinned y-axis is shorter than the chart so it can't hide the first x label", () => {
-    const svg = lineChartSvg([{ label: "a", value: 1 }, { label: "b", value: 2 }], {});
-    const axisH = Number(svg.match(/class="chart-yaxis" width="\d+" height="(\d+)"/)[1]);
-    assert.ok(axisH < 188, `axis height ${axisH} reaches the x-label row`);
   });
 });
 
