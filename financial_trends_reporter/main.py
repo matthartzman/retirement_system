@@ -89,6 +89,15 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, lifecy
             content_type="text/javascript; charset=utf-8",
         )
 
+    @app.route("/shared/runtime_history.js", methods=["GET"])
+    def runtime_history_js():
+        # The planner's run-time helpers (formatElapsed, averageRuntimeText, ...), served from the
+        # planner's own frontend/js so both apps run the same code.
+        return Response(
+            (_REPO_ROOT / "frontend" / "js" / "runtime_history.js").read_text(encoding="utf-8"),
+            content_type="text/javascript; charset=utf-8",
+        )
+
     @app.route("/api/history", methods=["GET"])
     def history():
         return Response(json.dumps(read_history(resolved_log_path)), content_type="application/json")

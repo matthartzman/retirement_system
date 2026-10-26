@@ -2,49 +2,10 @@
    post-build snapshot/baseline handling (ES module; extracted from dashboard.js). The shared state
    (buildOverlayStartedAt, buildOverlayDepth, ...) is owned by dashboard.js and read here as
    globals. buildHiddenByUser and activeBuildJobId are the state this file owns. */
-export function formatElapsed(ms) {
-  const total = Math.max(0, Math.floor(ms / 1000));
-  const m = Math.floor(total / 60),
-    sec = String(total % 60).padStart(2, "0");
-  return `${m}:${sec}`;
-}
+import { formatElapsed, recordPopupRuntime, averageRuntimeText } from "./runtime_history.js";
 
-// Per-popup average run-time (#326): each progress popup (build, plan load,
-// YTD load, spending model load, housing optimizer screen/run, load-all-
-// assumptions) shares this one overlay, so run-time history is bucketed by
-// the caller-supplied popupId rather than by title (titles change mid-run,
-// e.g. the build sequence cycles through several). Persisted client-side
-// only -- this is a display nicety, not data the app needs to survive a
-// reinstall or sync across machines.
-const POPUP_RUNTIME_HISTORY_LS_KEY = "popupRuntimeHistory_v1";
-const POPUP_RUNTIME_HISTORY_MAX = 20;
+// Run-time history helpers live in runtime_history.js (shared with the Financial Trends reporter).
 let buildOverlayPopupId = "";
-function loadPopupRuntimeHistory() {
-  try {
-    const raw = localStorage.getItem(POPUP_RUNTIME_HISTORY_LS_KEY);
-    const parsed = raw ? JSON.parse(raw) : {};
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch (_e) {
-    return {};
-  }
-}
-function recordPopupRuntime(popupId, durationMs) {
-  if (!popupId || !Number.isFinite(durationMs) || durationMs <= 0) return;
-  const history = loadPopupRuntimeHistory();
-  const runs = Array.isArray(history[popupId]) ? history[popupId] : [];
-  runs.unshift(durationMs);
-  history[popupId] = runs.slice(0, POPUP_RUNTIME_HISTORY_MAX);
-  try {
-    localStorage.setItem(POPUP_RUNTIME_HISTORY_LS_KEY, JSON.stringify(history));
-  } catch (_e) {}
-}
-function averageRuntimeText(popupId) {
-  if (!popupId) return null;
-  const runs = loadPopupRuntimeHistory()[popupId];
-  if (!Array.isArray(runs) || runs.length < 2) return null;
-  const avgMs = runs.reduce((sum, v) => sum + v, 0) / runs.length;
-  return `The average run-time over the last ${runs.length} runs has been ${formatElapsed(avgMs)}`;
-}
 
 export function refreshBuildOverlayTimer() {
   const d = document.getElementById("buildOverlayDetail");

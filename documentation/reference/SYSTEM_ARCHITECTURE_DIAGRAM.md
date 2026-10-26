@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 271 Python files under `src/`, 55 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 271 Python files under `src/`, 56 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -12,7 +12,7 @@ Every box is a real directory in the repo. Every arrow is a real `import` found 
 flowchart TB
     User(["Desktop user"]) --> FE
     subgraph FE["Frontend SPA (frontend/)"]
-        FEcount["55 JS files, browser-loaded via index.html script tags"]
+        FEcount["56 JS files, browser-loaded via index.html script tags"]
     end
     FE -->|fetch /api/*| L_HTTP_Routes
     subgraph L_HTTP_Routes["HTTP Routes (11 modules)"]
@@ -383,7 +383,7 @@ Script load order, as declared in `frontend/index.html` (this is the frontend's 
 53. `js/dashboard_decomp_holdings.js?v=1`
 54. `js/spending_dashboard.js?v=12`
 
-All `.js` files found under `frontend/` (55):
+All `.js` files found under `frontend/` (56):
 
 - `frontend/js/admin.js`
 - `frontend/js/api_client.js`
@@ -438,10 +438,11 @@ All `.js` files found under `frontend/` (55):
 - `frontend/js/pywebview_bridge.js`
 - `frontend/js/render_hooks.js`
 - `frontend/js/reports_ui.js`
+- `frontend/js/runtime_history.js`
 - `frontend/js/spending_dashboard.js`
 - `frontend/js/text_size.js`
 
-Files present under `frontend/js/` but not referenced by `index.html`'s script tags (`admin.js`): loaded by a different page (e.g. an admin/standalone HTML entry point), or dead code -- check before assuming either.
+Files present under `frontend/js/` but not referenced by `index.html`'s script tags (`admin.js`, `runtime_history.js`): loaded by a different page (e.g. an admin/standalone HTML entry point), or dead code -- check before assuming either.
 
 ## 6. Appendix: Full Module Dependency Table
 

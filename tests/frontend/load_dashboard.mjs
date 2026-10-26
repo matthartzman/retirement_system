@@ -115,13 +115,22 @@ function stripEsmExports(src) {
   return src.replace(/^export (function|const|async function)/gm, "$1");
 }
 
+// Drops single-line `import {...} from "./x.js";` statements: the imported module (only
+// runtime_history.js today) is concatenated into the same script ahead of its importers, so its
+// declarations are already in scope.
+function stripEsmImports(src) {
+  return src.replace(/^import \{[^}]*\} from "[^"]+";[ \t]*\r?\n/gm, "");
+}
+
 export function loadDashboardSandbox() {
   // WI-035: render_hooks.js is the first script in production; dashboard.js's
   // renderMain()/showStepHelp() and the hook registrants call window.RPHooks.
-  const src = stripEsmExports(
-    [path.join(JS_DIR, "render_hooks.js"), ...orderedDashboardScriptPaths()]
-      .map((p) => fs.readFileSync(p, "utf8"))
-      .join("\n"),
+  const src = stripEsmImports(
+    stripEsmExports(
+      [path.join(JS_DIR, "render_hooks.js"), path.join(JS_DIR, "runtime_history.js"), ...orderedDashboardScriptPaths()]
+        .map((p) => fs.readFileSync(p, "utf8"))
+        .join("\n"),
+    ),
   );
   const sandbox = {
     window: {

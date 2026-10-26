@@ -42,6 +42,16 @@ def test_charts_js_is_served_with_a_js_capable_content_type(tmp_path):
     assert "export function barChartSvg" in resp.get_data(as_text=True)
 
 
+def test_shared_runtime_history_js_is_served_with_a_js_capable_content_type(tmp_path):
+    # The planner's run-time helpers are served to the trends page from the planner's own file.
+    app = create_app(_workspace(tmp_path), log_path=tmp_path / "log.jsonl")
+    client = app.test_client()
+    resp = client.get("/shared/runtime_history.js")
+    assert resp.status_code == 200
+    assert "javascript" in resp.headers.get("Content-Type", "").lower()
+    assert "averageRuntimeText" in resp.get_data(as_text=True)
+
+
 def test_history_endpoint_returns_the_jsonl_log(tmp_path):
     log_path = tmp_path / "log.jsonl"
     append_or_replace_entry(log_path, {"as_of_date": "2026-01-01", "net_worth": {"total": 100}})
