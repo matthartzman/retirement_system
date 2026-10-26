@@ -491,7 +491,7 @@ export function categoryListHtml(title, categories) {
     `<div class="pop-row pop-cat${c.value < 0 ? " pop-neg" : ""}" data-cat="${i}"><span class="pop-name" title="${escSvg(c.group)}">${escSvg(c.name)}</span>` +
     `<span class="pop-bar"><i style="width:${c.value > 0 ? Math.max(1, (c.value / max) * 100).toFixed(1) : 0}%"></i>${popMarkers(c, max)}</span>` +
     `<span class="pop-val">${escSvg(fmtMoney(c.value))}</span></div>`).join("");
-  return `<div class="pop-title">${escSvg(title)} <span class="pop-hint">- roll over a category for merchants</span></div>${body}` +
+  return `<div class="pop-title">${escSvg(title)} <span class="pop-hint">- hover a category for merchants, click to pin</span></div>${body}` +
     `<div class="pop-total"><span>Total</span><span>${escSvg(fmtMoney(total))}</span></div>`;
 }
 
@@ -550,6 +550,14 @@ export function barChartSvg(entries) {
         `<title>${escSvg(m.label)}: ${escSvg(fmtMoney(v))}</title></line>`;
     }).join("");
   };
+  // The row label is the only thing that opens the breakdown panels: a focusable button (Enter/Space pins),
+  // with its own hit area so the ticks and the bar never trigger anything.
+  const labelFor = (name, y, bold, meta) => {
+    const text = `<text x="0" y="${y + barH - 5}"${bold ? ' style="font-weight:600"' : ""}>${escSvg(name)}</text>`;
+    if (!meta) return text;
+    return `<g class="row-label" tabindex="0" role="button" aria-label="${escSvg(name)}: show breakdown">` +
+      `<rect x="0" y="${y - 2}" width="${padL - 6}" height="${barH + 4}" fill="transparent"/>${text}</g>`;
+  };
   const bars = entries.map((e, i) => {
     const y = i * (barH + gap);
     const meta = e[2];
@@ -557,14 +565,14 @@ export function barChartSvg(entries) {
     const hit = `<rect x="0" y="${y - 2}" width="${w}" height="${barH + 4}" fill="transparent"/>`;
     if (meta && meta.kind === "total") {
       return `<g${row} class="bar-row">${hit}` +
-        `<text x="0" y="${y + barH - 5}" style="font-weight:600">${escSvg(e[0])}</text>` +
+        `${labelFor(e[0], y, true, meta)}` +
         `<text x="${padL + 6}" y="${y + barH - 5}" style="font-weight:600">${escSvg(fmtMoney(e[1]))}</text></g>`;
     }
     const bw = (e[1] / max) * plotW;
     const fill = meta && meta.kind === "other" ? "#94a3b8" : BAR_BLUE;
     const tip = meta ? "" : `<title>${escSvg(e[0])}: ${escSvg(fmtMoney(e[1]))}</title>`;
     return `<g${row} class="bar-row">${hit}` +
-      `<text x="0" y="${y + barH - 5}">${escSvg(e[0])}</text>` +
+      `${labelFor(e[0], y, false, meta)}` +
       `<rect x="${padL}" y="${y}" width="${bw}" height="${barH}" fill="${fill}" rx="3">${tip}</rect>` + markersFor(meta, y) +
       `<text x="${padL + bw + 6}" y="${y + barH - 5}">${escSvg(fmtMoney(e[1]))}</text></g>`;
   }).join("");
@@ -615,7 +623,7 @@ export function latestOnly() {
 // The note under the Spending card, describing the markers for the period shown.
 export function spendingNoteText(resp, label) {
   const lead = "Totals follow the Spending Analysis mapping and include taxes.";
-  const tail = "Roll over a bar to see its categories, then roll over a category to see its merchants.";
+  const tail = "Hover a row label to see its categories (click to pin), then hover a category to see its merchants.";
   if (!resp) {
     return `${lead} Markers: same dates last year, and the full-year budget. ${tail}`;
   }

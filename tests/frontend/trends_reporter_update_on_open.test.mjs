@@ -91,3 +91,20 @@ describe("full-year budget marker toggle", async () => {
     assert.match(html, /<div class="card-head"><h2>Spending<\/h2><label class="fy-toggle"><input type="checkbox" id="fullYearToggle">/);
   });
 });
+
+describe("breakdown panels (label-only trigger, fixed dock)", async () => {
+  const charts = await import("../../financial_trends_reporter/frontend/charts.js");
+  const entries = [["Total", 300, { kind: "total", detail: [], detailTitle: "T" }], ["Fixed", 300, { kind: "category", prior: 250, budget: 280, fullYear: 900 }]];
+  test("each row with detail has a focusable label button; ticks are not inside it", () => {
+    const svg = charts.barChartSvg(entries);
+    assert.equal((svg.match(/class="row-label" tabindex="0" role="button"/g) || []).length, 2);
+    const label = svg.match(/<g class="row-label"[\s\S]*?<\/g>/)[0];
+    assert.ok(!/class="mk/.test(label));
+  });
+  test("the panels live in one fixed dock, closed by Escape/Close/outside click", () => {
+    assert.match(html, /<div id="spendDock"[^>]*>\s*<div id="detailPopup"[^>]*><\/div><div id="detailPopup2"/);
+    assert.match(html, /e\.key === "Escape"\) hideAll\(\)/);
+    assert.match(html, /data-dock="close"/);
+    assert.ok(!/scheduleHide|keepOpen/.test(html));
+  });
+});

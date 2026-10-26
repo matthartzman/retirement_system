@@ -40,8 +40,24 @@
   @media (prefers-color-scheme: dark) { .price-note { background: #3b2a08; color: #fcd34d; border-color: #92660a; } }
   .note { font-size: 11px; color: #777; margin-top: 8px; line-height: 1.45; }
   .bar-row { cursor: default; }
-  .bar-row:hover rect[fill] { filter: brightness(1.15); }
-  #detailPopup, #detailPopup2, #rollPopup, #acctPop { position: fixed; z-index: 10; display: none; min-width: 340px; max-width: 420px; padding: 10px 12px;
+  .row-label { cursor: pointer; outline: none; }
+  .row-label:hover text, .row-label:focus-visible text { text-decoration: underline; }
+  .row-label:focus-visible rect { stroke: #2563eb; stroke-width: 1.5px; }
+  .bar-row.sel .row-label text { fill: #2563eb; font-weight: 700; }
+  /* Breakdown panels: fixed along the bottom of the window, off the cards, same place for every row. */
+  #spendDock { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; display: none; gap: 10px; padding: 8px 16px 12px;
+    background: var(--card-bg); border-top: 1px solid #c8c8cc; box-shadow: 0 -4px 16px rgba(0,0,0,.14); }
+  #spendDock.open { display: flex; }
+  body:has(#spendDock.open) { padding-bottom: 42vh; }
+  #detailPopup, #detailPopup2 { flex: 1 1 0; min-width: 0; max-height: 36vh; overflow-y: auto; font-size: 12px; padding: 2px 4px; }
+  #detailPopup2:empty::before { content: "Hover a category for its merchants."; opacity: .55; }
+  @media (max-width: 700px) { #spendDock { flex-direction: column; } #detailPopup, #detailPopup2 { max-height: 18vh; } }
+  .dock-bar { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; font-size: 11px; opacity: .8; }
+  .dock-bar button { border: 1px solid currentColor; background: transparent; color: inherit; border-radius: 6px; padding: 0 8px; font-size: 11px; cursor: pointer; }
+  .dock-bar .grow { flex: 1; }
+  .pop-cat { cursor: pointer; }
+  .pop-cat.pinned { background: rgba(37,99,235,.2); border-radius: 3px; }
+  #rollPopup, #acctPop { position: fixed; z-index: 10; display: none; min-width: 340px; max-width: 420px; padding: 10px 12px;
     background: var(--card-bg); color: inherit; border: 1px solid #c8c8cc; border-radius: 8px;
     box-shadow: 0 4px 16px rgba(0,0,0,.18); font-size: 12px; max-height: 80vh; overflow-y: auto; }
   .pop-title { font-weight: 600; margin-bottom: 6px; }
@@ -162,13 +178,12 @@
     <div class="note" id="noteFlows">Year-to-date transfers between each investment account and checking, as of the latest snapshot. A net withdrawal (money moved to checking) is positive and extends right; net contributions, including 401k employee deferrals and employer match, are negative and extend left. Money moved from one investment account to another through checking is not counted. A withdrawal and a same-amount deposit in different investment accounts within 30 days are matched automatically; pairs within $100 of each other are flagged above for you to approve or deny; and any transaction tagged "invest-to-invest" (or noted "pass-through") is excluded. Decisions apply right away: the page updates the data after you approve or deny.</div></div>
   <div class="card"><div class="card-head"><h2>Spending</h2><label class="fy-toggle"><input type="checkbox" id="fullYearToggle"> Show full-year budget</label></div><div class="card-period" id="spendingPeriod"></div>
     <div class="spend-fallback" id="spendingFallback" role="status" style="display:none"></div><div id="chartCategories" aria-live="polite"></div>
-    <div class="note" id="noteSpending">Totals follow the Spending Analysis mapping and include taxes. Markers: same period last year, budget for this period, and full-year budget. Roll over a bar to see its categories, then roll over a category to see its merchants.</div></div>
+    <div class="note" id="noteSpending">Totals follow the Spending Analysis mapping and include taxes. Markers: same period last year, budget for this period, and full-year budget. Hover a row label to see its categories (click to pin), then hover a category to see its merchants.</div></div>
 </div>
 <div id="accountsMsg" role="status"></div>
 <div id="updateOverlay" class="update-overlay" role="status" aria-live="polite" aria-hidden="true"><div class="update-card"><div class="update-spinner" aria-hidden="true"></div><div class="update-title">Updating Data</div><div id="updateOverlayDetail" class="update-detail">Elapsed 0:00</div><div class="update-bar" role="progressbar" aria-label="Update progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="updateOverlayBar"></span></div><div id="updateOverlayAvg" class="update-avg">Working…</div><div class="update-actions"><button type="button" id="updateCancel" class="update-btn">Cancel update</button><button type="button" id="updateHide" class="update-btn">Hide</button></div><div class="update-note">The update keeps running if you hide this window.</div></div></div>
 <div id="updateChip" class="update-chip" role="status" hidden><span>Update still running in the background.</span> <button type="button" id="updateShow" class="update-btn">Show progress</button></div>
-<div id="detailPopup" role="tooltip"></div>
-<div id="detailPopup2" role="tooltip"></div>
+<div id="spendDock" role="region" aria-label="Spending breakdown"><div id="detailPopup" aria-live="polite"></div><div id="detailPopup2" aria-live="polite"></div></div>
 <div id="rollPopup" role="tooltip"></div>
 <div id="acctPop" role="dialog" aria-label="Choose accounts"></div>
 
@@ -442,67 +457,105 @@ document.getElementById("scopeSelect").addEventListener("change", (e) => {
   saveScope();
   render();
 });
-// Hover popup: next level of detail for a category bar (with its total).
+// Spending breakdown panels (docked along the bottom, off the card). Hovering a row LABEL shows that row's
+// categories in the left panel; hovering a category there shows its merchants in the right panel. A click
+// (or Enter/Space on the focused label) pins a panel so hovering elsewhere no longer replaces it; Escape,
+// the Close button or a click outside the chart and panels closes everything. Ticks and bars open nothing.
 const popup = document.getElementById("detailPopup");
-const catBox = document.getElementById("chartCategories");
-function rowForEvent(e) {
-  const g = e.target.closest && e.target.closest("[data-row]");
-  if (!g || !categoryModel) return null;
-  const idx = Number(g.dataset.row);
-  if (idx === 0) return categoryModel.totalDetail;
-  return categoryModel.rows[idx - 1] || null;
-}
-// Two-step hover. Step 1: rolling over a bar opens a popup of its categories.
-// Step 2: rolling over a category in that popup opens a second popup beside
-// it listing the merchants. Both stay open while the pointer is over the bar
-// or either popup (short hide delay bridges the gaps) and are kept fully on
-// screen: they scroll internally rather than run off the bottom.
 const popup2 = document.getElementById("detailPopup2");
-let popRow = null, popCat = -1, hideTimer = null;
+const dock = document.getElementById("spendDock");
+const catBox = document.getElementById("chartCategories");
 const MARGIN = 8;
+let popRow = null, popCat = -1, rowPinned = false, catPinned = false;
 function fitVertically(el, desiredTop) {
   el.style.maxHeight = (window.innerHeight - 2 * MARGIN) + "px";
   const h = el.offsetHeight;
   el.style.top = Math.max(MARGIN, Math.min(desiredTop, window.innerHeight - h - MARGIN)) + "px";
 }
-function showPopup(e) {
-  popup.innerHTML = popRow.categories ? categoryListHtml(popRow.detailTitle, popRow.categories)
-                                      : detailPopupHtml(popRow.detailTitle, popRow.detail);
-  popup.style.display = "block"; popup.scrollTop = 0;
-  const pw = popup.offsetWidth;
-  popup.style.left = Math.max(MARGIN, Math.min(e.clientX + 12, window.innerWidth - pw - MARGIN)) + "px";
-  fitVertically(popup, e.clientY + 8);
+function rowIndexForLabel(target) {
+  const label = target.closest && target.closest(".row-label");
+  const g = label && label.closest("[data-row]");
+  return g ? Number(g.dataset.row) : -1;
 }
-function hideMerchants() { popup2.style.display = "none"; popCat = -1; }
-function showMerchants(rowEl, idx) {
-  const cat = popRow.categories[idx];
-  popup2.innerHTML = detailPopupHtml(`${cat.name} - merchants`, cat.merchants);
-  popup2.style.display = "block"; popup2.scrollTop = 0;
-  const r1 = popup.getBoundingClientRect(), w2 = popup2.offsetWidth;
-  const right = r1.right + 6;
-  popup2.style.left = (right + w2 <= window.innerWidth - MARGIN ? right : Math.max(MARGIN, r1.left - w2 - 6)) + "px";
-  fitVertically(popup2, rowEl.getBoundingClientRect().top - 8);
+function modelRow(idx) {
+  if (!categoryModel || idx < 0) return null;
+  return idx === 0 ? categoryModel.totalDetail : categoryModel.rows[idx - 1] || null;
+}
+function dockBar(pinned, what) {
+  return `<div class="dock-bar"><span class="grow">${pinned ? "Pinned" : "Preview"} - ${escSvg(what)}</span>` +
+    `<button type="button" data-dock="${pinned ? "unpin" : "pin"}">${pinned ? "Unpin" : "Pin"}</button>` +
+    `<button type="button" data-dock="close" aria-label="Close breakdown">Close</button></div>`;
+}
+function markSelected(idx) {
+  catBox.querySelectorAll(".bar-row.sel").forEach(g => g.classList.remove("sel"));
+  const g = idx >= 0 && catBox.querySelector(`[data-row="${idx}"]`);
+  if (g) g.classList.add("sel");
+}
+function showRow(idx) {
+  const row = modelRow(idx);
+  if (!row) return;
+  popRow = row; popCat = -1; catPinned = false;
+  popup2.innerHTML = "";
+  popup.innerHTML = dockBar(rowPinned, row.detailTitle) + (row.categories ? categoryListHtml(row.detailTitle, row.categories)
+                                                                         : detailPopupHtml(row.detailTitle, row.detail));
+  popup.scrollTop = 0;
+  markSelected(idx);
+  dock.classList.add("open");
+}
+function showMerchants(idx) {
+  const cat = popRow && popRow.categories && popRow.categories[idx];
+  if (!cat) return;
   popCat = idx;
+  popup2.innerHTML = dockBar(catPinned, cat.name) + detailPopupHtml(`${cat.name} - merchants`, cat.merchants);
+  popup2.scrollTop = 0;
+  popup.querySelectorAll(".pop-cat").forEach(el => el.classList.toggle("pinned", catPinned && Number(el.dataset.cat) === idx));
 }
-function hideAll() { popup.style.display = "none"; hideMerchants(); popRow = null; }
-function scheduleHide() { clearTimeout(hideTimer); hideTimer = setTimeout(hideAll, 350); }
-function keepOpen() { clearTimeout(hideTimer); }
-catBox.addEventListener("mousemove", (e) => {
-  const row = rowForEvent(e);
-  if (!row) { scheduleHide(); return; }
-  keepOpen();
-  if (row !== popRow) { popRow = row; hideMerchants(); showPopup(e); }
+function hideAll() {
+  dock.classList.remove("open");
+  popup.innerHTML = ""; popup2.innerHTML = "";
+  popRow = null; popCat = -1; rowPinned = false; catPinned = false;
+  markSelected(-1);
+}
+catBox.addEventListener("mouseover", (e) => {
+  if (rowPinned) return;
+  const idx = rowIndexForLabel(e.target);
+  if (idx >= 0 && modelRow(idx) !== popRow) showRow(idx);
 });
-catBox.addEventListener("mouseleave", scheduleHide);
-for (const el of [popup, popup2]) {
-  el.addEventListener("mouseenter", keepOpen);
-  el.addEventListener("mouseleave", scheduleHide);
+function pinRow(e) {
+  const idx = rowIndexForLabel(e.target);
+  if (idx < 0) return false;
+  rowPinned = true; showRow(idx);
+  return true;
 }
+catBox.addEventListener("click", pinRow);
+catBox.addEventListener("keydown", (e) => {
+  if ((e.key === "Enter" || e.key === " ") && pinRow(e)) e.preventDefault();
+});
 popup.addEventListener("mouseover", (e) => {
   const rowEl = e.target.closest && e.target.closest("[data-cat]");
-  if (!rowEl || !popRow || !popRow.categories) return;
+  if (!rowEl || !popRow || !popRow.categories || catPinned) return;
   const idx = Number(rowEl.dataset.cat);
-  if (idx !== popCat) showMerchants(rowEl, idx);
+  if (idx !== popCat) showMerchants(idx);
+});
+popup.addEventListener("click", (e) => {
+  const rowEl = e.target.closest && e.target.closest("[data-cat]");
+  if (!rowEl || !popRow || !popRow.categories) return;
+  catPinned = true; showMerchants(Number(rowEl.dataset.cat));
+});
+dock.addEventListener("click", (e) => {
+  const btn = e.target.closest && e.target.closest("button[data-dock]");
+  if (!btn) return;
+  const what = btn.dataset.dock;
+  if (what === "close") { hideAll(); return; }
+  if (popup2.contains(btn)) { catPinned = what === "pin"; showMerchants(popCat); return; }
+  rowPinned = what === "pin";
+  showRow(categoryModel ? [categoryModel.totalDetail, ...categoryModel.rows].indexOf(popRow) : -1);
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") hideAll(); });
+document.addEventListener("click", (e) => {
+  if (!dock.classList.contains("open")) return;
+  if (e.target.closest && e.target.closest("#chartCategories, #spendDock")) return;
+  hideAll();
 });
 
 document.getElementById("passthroughReview").addEventListener("click", async (e) => {
