@@ -30,40 +30,117 @@ export function escSvg(s) {
     .replace(/'/g, "&#39;");
 }
 
-export function filterByTimeframe(rows, tf) {
-  if (!rows.length) return rows;
-  const last = new Date(rows[rows.length - 1].as_of_date);
-  let from = null;
-  if (tf === "week") { from = new Date(last); from.setDate(from.getDate() - 7); }
-  else if (tf === "month") { from = new Date(last); from.setMonth(from.getMonth() - 1); }
-  else if (tf === "quarter") { from = new Date(last); from.setMonth(from.getMonth() - 3); }
-  else if (tf === "ytd") { from = new Date(last.getFullYear(), 0, 1); }
-  else if (tf === "12m") { from = new Date(last); from.setFullYear(from.getFullYear() - 1); }
-  else if (tf === "custom") {
-    const fromEl = document.getElementById("customFrom");
-    const toEl = document.getElementById("customTo");
-    const fromVal = fromEl.value ? new Date(fromEl.value) : null;
-    const toVal = toEl.value ? new Date(toEl.value) : null;
-    return rows.filter(r => {
-      const d = new Date(r.as_of_date);
-      return (!fromVal || d >= fromVal) && (!toVal || d <= toVal);
-    });
-  } else {
-    return rows; // all time
-  }
-  return rows.filter(r => new Date(r.as_of_date) >= from);
+// ---- Time scope -------------------------------------------------------------
+// All date math below works on the "YYYY-MM-DD" string's own numbers (or UTC), never
+// through a local-timezone getter -- see the isoWeekKey comment further down.
+const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+export const SCOPE_NAMES = ["week", "month", "3m", "6m", "ytd", "1y", "all", "custom"];
+const SCOPE_TITLE = { week: "1 Week", month: "1 Month", "3m": "3 Months", "6m": "6 Months", ytd: "YTD", "1y": "1 Year", all: "All Time", custom: "Custom" };
+const SCOPE_NOMINAL_GRANULARITY = { week: "day", month: "day", "3m": "week", "6m": "week", ytd: "month", "1y": "month", all: "month" };
+
+function parseYmd(s) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(s == null ? "" : s));
+  return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+}
+function ymdStr(y, m, d) {
+  return `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+function addDaysStr(s, n) {
+  const [y, m, d] = parseYmd(s);
+  const t = new Date(Date.UTC(y, m - 1, d + n));
+  return ymdStr(t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate());
+}
+// Calendar-month arithmetic with month-end clamping (Mar 31 - 1 month = Feb 28/29).
+function addMonthsStr(s, n) {
+  const [y, m, d] = parseYmd(s);
+  const total = y * 12 + (m - 1) + n;
+  const ny = Math.floor(total / 12), nm = total - ny * 12 + 1;
+  return ymdStr(ny, nm, Math.min(d, new Date(Date.UTC(ny, nm, 0)).getUTCDate()));
+}
+function spanDaysStr(from, to) {
+  const [a, b, c] = parseYmd(from), [x, y, z] = parseYmd(to);
+  return (Date.UTC(x, y - 1, z) - Date.UTC(a, b - 1, c)) / 86400000;
+}
+function todayStr() {
+  const t = new Date();
+  return ymdStr(t.getFullYear(), t.getMonth() + 1, t.getDate());
+}
+function fmtMonthDay(s, withYear) {
+  const [y, m, d] = parseYmd(s);
+  return `${MONTH_ABBR[m - 1]} ${d}${withYear ? `, ${y}` : ""}`;
 }
 
-// Nominal granularity: daily points for week/month ranges, weekly for
-// quarter, monthly for ytd/12-month/all-time -- but never finer than the data
-// supports: monthly points revert to weekly when the rows span under 4 months,
-// and weekly to daily when they span under 4 weeks. A custom range has no
-// nominal answer, so it's inferred from how many days the range spans.
+// Old saved preferences used "quarter" and "12m".
+export function normalizeScope(key) {
+  const k = ({ quarter: "3m", "12m": "1y" })[key] || key;
+  return SCOPE_NAMES.includes(k) ? k : "month";
+}
+
+// The saved choice (localStorage "trendsScope_v1") -> {scope, from, to}; anything unusable -> Month.
+export function parseSavedScope(raw) {
+  let v = null;
+  try { v = raw ? JSON.parse(raw) : null; } catch (_e) { v = null; }
+  if (!v || typeof v !== "object") return { scope: "month", from: "", to: "" };
+  const okDate = (d) => (typeof d === "string" && parseYmd(d) && d.length === 10 ? d : "");
+  return { scope: normalizeScope(v.scope), from: okDate(v.from), to: okDate(v.to) };
+}
+
+// The one range every chart reads. anchorDate = the latest data date ("YYYY-MM-DD"; today when
+// none). A Custom range's empty bound is left open ("").
+export function scopeRange(scope, anchorDate, custom) {
+  const sc = normalizeScope(scope);
+  const anchor = parseYmd(anchorDate) ? String(anchorDate).slice(0, 10) : todayStr();
+  const title = SCOPE_TITLE[sc];
+  const rangeText = (from, to) => {
+    const [fy] = parseYmd(from), [ty] = parseYmd(to);
+    return `${fmtMonthDay(from, fy !== ty)} – ${fmtMonthDay(to, true)}`;
+  };
+  if (sc === "custom") {
+    const from = custom && parseYmd(custom.from) ? custom.from : "";
+    const to = custom && parseYmd(custom.to) ? custom.to : "";
+    const span = spanDaysStr(from || ALL_TIME_START, to || anchor);
+    const granularity = span < 28 ? "day" : span < 120 ? "week" : "month";
+    const text = from && to ? rangeText(from, to) : from ? `from ${fmtMonthDay(from, true)}` : to ? `through ${fmtMonthDay(to, true)}` : "all dates";
+    return { from, to, label: `${title} · ${text}`, granularity };
+  }
+  let from;
+  if (sc === "week") from = addDaysStr(anchor, -7);
+  else if (sc === "month") from = addMonthsStr(anchor, -1);
+  else if (sc === "3m") from = addMonthsStr(anchor, -3);
+  else if (sc === "6m") from = addMonthsStr(anchor, -6);
+  else if (sc === "1y") from = addMonthsStr(anchor, -12);
+  else if (sc === "ytd") from = ymdStr(parseYmd(anchor)[0], 1, 1);
+  else from = ALL_TIME_START;
+  return { from, to: anchor, label: `${title} · ${rangeText(from, anchor)}`, granularity: SCOPE_NOMINAL_GRANULARITY[sc] };
+}
+
+// Rows inside the scope. "all" returns every row (the page truncates to ALL_TIME_START itself, so
+// it can say so). `custom` ({from, to}) defaults to the page's two date inputs.
+export function filterByTimeframe(rows, tf, custom) {
+  if (!rows.length) return rows;
+  const sc = normalizeScope(tf);
+  if (sc === "all") return rows;
+  if (sc === "custom" && !custom && typeof document !== "undefined") {
+    const f = document.getElementById("customFrom"), t = document.getElementById("customTo");
+    custom = { from: f ? f.value : "", to: t ? t.value : "" };
+  }
+  const { from, to } = scopeRange(sc, rows[rows.length - 1].as_of_date, custom);
+  return rows.filter((r) => {
+    const d = String(r.as_of_date).slice(0, 10);
+    return (!from || d >= from) && (!to || d <= to);
+  });
+}
+
+// Nominal granularity comes from scopeRange (day for week/month, weekly for 3m/6m, monthly for
+// ytd/1y/all) -- but never finer than the data supports: monthly points revert to weekly when
+// the rows span under 4 months, and weekly to daily when they span under 4 weeks. A custom range
+// has no nominal answer, so it's inferred from how many days the rows span.
 export function granularityForTimeframe(tf, rows) {
   const spanDays = rows && rows.length >= 2
     ? (new Date(rows[rows.length - 1].as_of_date) - new Date(rows[0].as_of_date)) / 86400000
     : null;
-  const nominal = { week: "day", month: "day", quarter: "week", ytd: "month", "12m": "month", all: "month" }[tf];
+  const sc = normalizeScope(tf);
+  const nominal = SCOPE_NOMINAL_GRANULARITY[sc];
   if (nominal) {
     if (spanDays === null) return nominal;
     if (nominal === "month" && spanDays < 120) return spanDays < 28 ? "day" : "week";
@@ -101,11 +178,22 @@ export function aggregateByGranularity(rows, granularity) {
   return Array.from(buckets.values());
 }
 
+const WEEKDAY_ABBR = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+function weekdayOfStr(s) {
+  const [y, m, d] = parseYmd(s);
+  return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+}
+// The Monday on or before the date.
+function weekStartStr(s) { return addDaysStr(s, -((weekdayOfStr(s) + 6) % 7)); }
+
+// Full, unambiguous text for a point -- used by tooltips and the screen-reader table (the axis
+// shows shorter text, see xAxisLabels): a day, the week starting on a Monday, or a month.
 export function labelForDate(dateStr, granularity) {
-  if (granularity === "month") {
-    return new Date(`${dateStr}T00:00:00`).toLocaleDateString(undefined, { month: "short", year: "numeric" });
-  }
-  return dateStr.slice(5); // MM-DD
+  if (!parseYmd(dateStr)) return String(dateStr);
+  const [y, m, d] = parseYmd(dateStr);
+  if (granularity === "month") return `${MONTH_ABBR[m - 1]} ${y}`;
+  if (granularity === "week") return `Week of ${fmtMonthDay(weekStartStr(dateStr), true)}`;
+  return `${WEEKDAY_ABBR[weekdayOfStr(dateStr)]}, ${MONTH_ABBR[m - 1]} ${d}, ${y}`;
 }
 
 export function dataTableFallbackHtml(caption, columnHeaders, rows) {
@@ -143,24 +231,98 @@ export function niceRange(min, max, tickTarget) {
   return { min: ticks[0], max: ticks[ticks.length - 1], ticks };
 }
 
-// Line chart wide enough to give each point `pxPerPoint` of room; when that
-// exceeds the card, the chart scrolls horizontally (.chart-scroll) with the
-// y-axis labels pinned in a sticky overlay so they stay visible.
+// ---- x-axis labels for a fitted line chart (design 2.6) ---------------------------------
+// Which points get a label, and how it reads, depends on the granularity rather than on "every
+// Nth point". Points carry `date` ("YYYY-MM-DD"); a point without one is labelled by its `label`
+// text and thinned by measurement alone. Returns [{i, x, width, text, sub, year, lines}] oldest
+// first, x = offset from the left edge of the plot. Label width is estimated at ~6 px per
+// character (10 px type) plus 10 px padding; labels are kept greedily from the newest point
+// backward, so the newest is always labelled and none overlap.
+const AXIS_CHAR_PX = 6, AXIS_LABEL_PAD = 10;
+export function xAxisLabels(points, opts) {
+  opts = opts || {};
+  const n = points.length;
+  if (!n) return [];
+  const plotWidth = opts.plotWidth > 0 ? opts.plotWidth : 470;
+  const narrow = opts.narrow !== undefined ? !!opts.narrow : plotWidth < 420;
+  const gran = opts.granularity;
+  const last = n - 1;
+  const xOf = (i) => (n > 1 ? (i * plotWidth) / (n - 1) : 0);
+  const dated = points.every((p) => p && parseYmd(p.date));
+  const cands = [];
+  const add = (i, text, sub, year, month) => cands.push({ i, text, sub: sub || "", year: year || "", month: month || 0 });
+  if (!dated) {
+    points.forEach((p, i) => add(i, String(p.label)));
+  } else if (gran === "week") {
+    // week-start text; the first week of each month, plus the newest
+    let prevKey = "";
+    points.forEach((p, i) => {
+      const ws = weekStartStr(p.date), [y, m, d] = parseYmd(ws), key = ws.slice(0, 7);
+      if (key !== prevKey || i === last) add(i, narrow ? MONTH_ABBR[m - 1] : `${MONTH_ABBR[m - 1]} ${d}`, "", String(y), m);
+      prevKey = key;
+    });
+  } else if (gran === "month") {
+    points.forEach((p, i) => {
+      const [y, m] = parseYmd(p.date);
+      add(i, narrow ? MONTH_ABBR[m - 1][0] : MONTH_ABBR[m - 1], "", String(y), m);
+    });
+  } else {
+    // day: Mondays plus the newest; with 14 points or fewer every day is a candidate, with a
+    // weekday initial underneath
+    const few = n <= 14;
+    points.forEach((p, i) => {
+      const [y, m, d] = parseYmd(p.date), dow = weekdayOfStr(p.date);
+      if (few || dow === 1 || i === last) add(i, narrow ? String(d) : `${MONTH_ABBR[m - 1]} ${d}`, few && !narrow ? "SMTWTFS"[dow] : "", String(y), m);
+    });
+  }
+  const widthOf = (c) => Math.max(c.text.length, c.sub.length, c.year ? 4 : 0) * AXIS_CHAR_PX + AXIS_LABEL_PAD;
+  const greedy = (list) => {
+    const kept = [];
+    for (let k = list.length - 1; k >= 0; k--) {
+      const x = xOf(list[k].i), width = widthOf(list[k]);
+      if (kept.every((o) => Math.abs(o.x - x) >= (o.width + width) / 2)) kept.push({ ...list[k], x, width });
+    }
+    return kept.reverse();
+  };
+  let kept = greedy(cands);
+  // Months: every month if they fit, otherwise quarter starts (Jan/Apr/Jul/Oct) plus the newest.
+  if (dated && gran === "month" && kept.length < cands.length) {
+    kept = greedy(cands.filter((c) => c.month % 3 === 1 || c.i === last));
+  }
+  // Narrow cards aim for about three labels.
+  if (narrow && kept.length > 3) {
+    const every = Math.ceil(kept.length / 3);
+    kept = kept.filter((_, idx) => (kept.length - 1 - idx) % every === 0);
+  }
+  // Year line under the first label and wherever the year changes.
+  let prevYear = "";
+  return kept.map((c) => {
+    const year = c.year && c.year !== prevYear ? c.year : "";
+    if (c.year) prevYear = c.year;
+    return { i: c.i, x: c.x, width: c.width, text: c.text, sub: c.sub, year, lines: [c.text, c.sub, year].filter(Boolean) };
+  });
+}
+
+// Line chart drawn at the card's measured width (opts.width; 560 when unknown) so it never
+// scrolls: points are spaced evenly across the plot and the x-axis labels do the work of keeping
+// it readable (see xAxisLabels). opts.granularity ("day"|"week"|"month") picks the label style;
+// points are {label, value, date}: `label` is the full text for the tooltip and the
+// screen-reader table, `date` ("YYYY-MM-DD") drives the axis labels.
 export function lineChartSvg(points, opts) {
   opts = opts || {};
-  const minW = 560, h = 200, padL = 56, padR = 34, padT = 16, padB = 28;
-  const pxPerPoint = opts.pxPerPoint || 36;
+  const h = 216, padL = 56, padR = 34, padT = 16, padB = 44;
   const label = (opts.title || "Chart") + ", line chart";
   if (!points.length) return '<div class="empty">No data yet for this range.</div>';
   const values = points.map(p => p.value).filter(v => v !== null && v !== undefined);
   if (!values.length) return '<div class="empty">No data yet for this range.</div>';
   const range = niceRange(Math.min(...values), Math.max(...values));
   const min = range.min, max = range.max;
-  const w = Math.max(minW, padL + padR + (points.length - 1) * pxPerPoint);
+  const w = opts.width > 0 ? Math.max(160, Math.round(opts.width)) : 560;
   const plotW = w - padL - padR, plotH = h - padT - padB;
   const xStep = points.length > 1 ? plotW / (points.length - 1) : 0;
   const x = i => padL + i * xStep;
   const y = v => padT + plotH - ((v - min) / (max - min || 1)) * plotH;
+  const color = opts.color || '#2563eb';
   // A missing value breaks the line (a new "M") rather than dropping to $0.
   let pen = false;
   const path = points.map((p, i) => {
@@ -170,26 +332,27 @@ export function lineChartSvg(points, opts) {
     return `${cmd}${x(i)},${y(p.value)}`;
   }).filter(Boolean).join(" ");
 
-  // Y-axis: gridlines in the scrolling plot, value labels in the sticky overlay.
-  let grid = "", yLabels = "";
+  // Y-axis: gridlines and value labels (plain SVG text).
+  let grid = "";
   for (const v of range.ticks) {
     const yy = y(v);
-    grid += `<line x1="${padL}" y1="${yy}" x2="${w - padR}" y2="${yy}" stroke="#e5e5e5" stroke-width="1"/>`;
-    yLabels += `<text x="${padL - 6}" y="${yy + 3}" text-anchor="end" style="font-size:10px">${escSvg(fmtMoney(v))}</text>`;
+    grid += `<line x1="${padL}" y1="${yy}" x2="${w - padR}" y2="${yy}" stroke="#e5e5e5" stroke-width="1"/>` +
+      `<text x="${padL - 6}" y="${yy + 3}" text-anchor="end" style="font-size:10px">${escSvg(fmtMoney(v))}</text>`;
   }
 
-  // X-axis: date labels, thinned out so they don't overlap.
-  const xLabelStep = xStep > 0 ? Math.max(1, Math.ceil(60 / xStep)) : 1;
+  // X-axis: scope-aware labels, each with a faint vertical tick at its point.
   let xAxis = "";
-  // Counted back from the newest point so the last label is always drawn and
-  // never crowds its neighbour; padR leaves room for it to render untruncated.
-  points.forEach((p, i) => {
-    if ((points.length - 1 - i) % xLabelStep !== 0) return;
-    xAxis += `<text x="${x(i)}" y="${h - padB + 16}" text-anchor="middle" style="font-size:10px">${escSvg(p.label)}</text>`;
-  });
+  for (const lab of xAxisLabels(points, { granularity: opts.granularity, plotWidth: plotW })) {
+    const lx = padL + lab.x;
+    xAxis += `<line class="x-tick" x1="${lx}" y1="${padT}" x2="${lx}" y2="${h - padB + 4}" stroke="currentColor" stroke-opacity=".12" stroke-width="1"/>`;
+    lab.lines.forEach((line, k) => {
+      xAxis += `<text x="${lx}" y="${h - padB + 16 + k * 12}" text-anchor="middle" style="font-size:10px">${escSvg(line)}</text>`;
+    });
+  }
 
-  // Hover targets: one dot per point, with a native tooltip giving the
-  // x label and y value.
+  // One hover/keyboard target per point, with a tooltip giving the full date and value. Dots
+  // shrink above 40 points and are invisible (but still targets) above 90.
+  const n = points.length, hidden = n > 90, r = n > 40 ? 2 : 3;
   let dots = "";
   // Roving tabindex: only the newest point is a tab stop; arrow keys move between points.
   let lastShown = -1;
@@ -200,22 +363,19 @@ export function lineChartSvg(points, opts) {
     // page can show a rollover (see rolloverModel) on hover or focus.
     const focus = opts.interactive
       ? ` tabindex="${i === lastShown ? 0 : -1}" data-i="${i}" role="img" aria-label="${escSvg(p.label)}: ${escSvg(fmtMoney(p.value))}"` : "";
-    dots += `<circle cx="${x(i)}" cy="${y(p.value)}" r="3" fill="${opts.color || '#2563eb'}" class="chart-dot"${focus}>` +
+    const look = hidden ? `r="4" fill="${color}" fill-opacity="0" class="chart-dot chart-dot-hit"` : `r="${r}" fill="${color}" class="chart-dot"`;
+    dots += `<circle cx="${x(i)}" cy="${y(p.value)}" ${look}${focus}>` +
       `<title>${escSvg(p.label)}: ${escSvg(fmtMoney(p.value))}</title></circle>`;
   });
 
-  // The pinned y-axis stops above the x-axis labels so it can't clip the first one.
-  const axisH = h - padB + 8;
-  const axisSvg = `<svg class="chart-yaxis" width="${padL}" height="${axisH}" style="margin-bottom:-${axisH}px" aria-hidden="true">${yLabels}</svg>`;
-  const svg = `<div class="chart-scroll"><div class="chart-inner" style="width:${w}px">${axisSvg}` +
-    `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" role="img" aria-label="${escSvg(label)}">
+  const svg = `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="display:block;max-width:100%;height:auto" role="img" aria-label="${escSvg(label)}">
     ${grid}
     <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${h - padB}" stroke="#999" stroke-width="1"/>
     <line x1="${padL}" y1="${h - padB}" x2="${w - padR}" y2="${h - padB}" stroke="#999" stroke-width="1"/>
-    <path d="${path}" fill="none" stroke="${opts.color || '#2563eb'}" stroke-width="2"/>
-    ${dots}
     ${xAxis}
-  </svg></div></div>`;
+    <path d="${path}" fill="none" stroke="${color}" stroke-width="2"/>
+    ${dots}
+  </svg>`;
   return svg + dataTableFallbackHtml(label, ["Date", "Value"], points.map(p => [p.label, fmtMoney(p.value)]));
 }
 
@@ -227,10 +387,42 @@ function sumLeaves(node) {
   return typeof node === "number" ? node : Object.values(node).reduce((t, v) => t + sumLeaves(v), 0);
 }
 
-// priorByType / budgetByType (347a): optional {trackingType: amount} for the bar markers.
-// priorDetail {type: {group: {category: {prior, merchants: {name: amount}}}}} and budgetByCategory
-// {type: {category: amount}} (both optional) carry the same markers into the popups.
-export function buildHierarchyRows(hierarchy, priorByType, budgetByType, priorDetail, budgetByCategory) {
+// The three spending markers (design §2.5): same dates one year earlier, the annual budget
+// prorated to the window, and the end year's whole annual budget. Each has its own shape, so
+// colour never carries the meaning alone. The page sets the colours as CSS custom properties
+// (index.html :root, with dark overrides); light/dark here are those values, used as var()
+// fallbacks and by the contrast test. The period and full-year colours were moved from the
+// design's #ea580c/#c026d3 (light) and #fb923c/#e879f9 (dark), keeping hue and saturation, just
+// far enough in lightness to reach 3:1 against both the bar blue and the card background.
+export const BAR_BLUE = "#2563eb";
+export const SPEND_MARKERS = [
+  { key: "prior", cls: "mk-prior", cssVar: "--mk-prior", light: "#111827", dark: "#f3f4f6", width: 2.5, dash: null, label: "Same period last year" },
+  { key: "budget", cls: "mk-period", cssVar: "--mk-period", light: "#ea580c", dark: "#fcb77d", width: 3.5, dash: null, label: "Budget for this period" },
+  { key: "fullYear", cls: "mk-full", cssVar: "--mk-full", light: "#c026d3", dark: "#f1affb", width: 2.5, dash: "3 2", label: "Full-year budget" },
+];
+const markerColor = m => `var(${m.cssVar}, ${m.light})`;
+const markerStyle = m => `stroke:${markerColor(m)};stroke-width:${m.width}px${m.dash ? `;stroke-dasharray:${m.dash}` : ""}`;
+// Each tick sits on a thin card-coloured outline (OUTLINE_PX each side) so it stands out against the blue bar
+// whatever its own colour; the outline is drawn first, with the same dash pattern.
+export const OUTLINE_PX = 1;
+const outlineStyle = m => `stroke:var(--card-bg, #fff);stroke-width:${m.width + 2 * OUTLINE_PX}px${m.dash ? `;stroke-dasharray:${m.dash}` : ""}`;
+// When the prorated and full-year budgets are within 1% the full-year tick shifts 1px so both show.
+export function fullYearNudge(meta) {
+  const b = meta && meta.budget, f = meta && meta.fullYear;
+  return b != null && f != null && Math.abs(f - b) <= 0.01 * Math.max(Math.abs(f), Math.abs(b), 1e-9) ? 1 : 0;
+}
+
+// Arguments after `hierarchy` are optional maps for the three markers (older log rows have none):
+// priorByType {type: amount}, budgetByType {type: amount} (prorated to the window), priorDetail
+// {type: {group: {category: {prior, merchants: {name: amount}}}}}, budgetByCategory
+// {type: {category: amount}}, and fullYearByType / fullYearByCategory (the end year's whole
+// annual budget, same shapes). Each row and category carries {prior, budget, fullYear}.
+export function buildHierarchyRows(hierarchy, priorByType, budgetByType, priorDetail, budgetByCategory, fullYearByType, fullYearByCategory) {
+  const pick = (map, ...keys) => {
+    let node = map;
+    for (const k of keys) { if (node == null) return null; node = node[k]; }
+    return node != null ? node : null;
+  };
   const rows = [];
   for (const [name, groups] of Object.entries(hierarchy || {})) {
     const categories = [];
@@ -238,13 +430,13 @@ export function buildHierarchyRows(hierarchy, priorByType, budgetByType, priorDe
       for (const [cat, merchants] of Object.entries(cats)) {
         const value = sumLeaves(merchants);
         if (Math.abs(value) < 0.005) continue;
-        const priorCat = priorDetail && priorDetail[name] && priorDetail[name][group] && priorDetail[name][group][cat];
+        const priorCat = pick(priorDetail, name, group, cat);
         const priorMerchants = (priorCat && priorCat.merchants) || {};
-        const budgetCat = budgetByCategory && budgetByCategory[name] && budgetByCategory[name][cat];
         categories.push({
           name: cat, group, value,
           prior: priorCat && priorCat.prior != null ? priorCat.prior : null,
-          budget: budgetCat != null ? budgetCat : null,
+          budget: pick(budgetByCategory, name, cat),
+          fullYear: pick(fullYearByCategory, name, cat),
           // Merchants have no budget; prior-year shows only for a merchant that also appears last year.
           merchants: Object.entries(merchants).filter(e => Math.abs(e[1]) > 0.005).sort((a, b) => b[1] - a[1])
             .map(([m, v]) => priorCat ? [m, v, { prior: priorMerchants[m] != null ? priorMerchants[m] : null }] : [m, v]),
@@ -254,8 +446,7 @@ export function buildHierarchyRows(hierarchy, priorByType, budgetByType, priorDe
     categories.sort((a, b) => b.value - a.value);
     const amount = categories.reduce((t, c) => t + c.value, 0);
     if (amount > 0.005) rows.push({ name, amount, kind: "category", detailTitle: name, categories,
-      prior: priorByType && priorByType[name] != null ? priorByType[name] : null,
-      budget: budgetByType && budgetByType[name] != null ? budgetByType[name] : null });
+      prior: pick(priorByType, name), budget: pick(budgetByType, name), fullYear: pick(fullYearByType, name) });
   }
   rows.sort((a, b) => b.amount - a.amount);
   const total = rows.reduce((t, r) => t + r.amount, 0);
@@ -263,17 +454,25 @@ export function buildHierarchyRows(hierarchy, priorByType, budgetByType, priorDe
   const sumMarker = map => (map && Object.keys(map).length ? Object.values(map).reduce((t, v) => t + v, 0) : null);
   return {
     total, rows,
-    totalMarkers: { prior: sumMarker(priorByType), budget: sumMarker(budgetByType) },
-    totalDetail: { detailTitle: "Total - by tracking type", detail: rows.map(r => [r.name, r.amount, { prior: r.prior, budget: r.budget }]) },
+    totalMarkers: { prior: sumMarker(priorByType), budget: sumMarker(budgetByType), fullYear: sumMarker(fullYearByType) },
+    totalDetail: { detailTitle: "Total - By Tracking Type", detail: rows.map(r => [r.name, r.amount, { prior: r.prior, budget: r.budget, fullYear: r.fullYear }]) },
   };
 }
 
-// Prior-year (black) and full-year budget (orange) ticks on a popup bar, same colours
-// as the YTD bars. `max` is the bar scale shared by the popup so ticks never overflow.
-function popMarkers(prior, budget, max) {
-  const tick = (v, cls, label) => v == null ? "" :
-    `<b class="pm ${cls}" style="left:${Math.min(100, Math.max(0, (v / max) * 100)).toFixed(1)}%" title="${escSvg(label)}: ${escSvg(fmtMoney(v))}"></b>`;
-  return tick(prior, "pm-prior", "Prior-year YTD") + tick(budget, "pm-budget", "Full-year budget");
+const markerValues = meta => SPEND_MARKERS.map(m => (meta && meta[m.key]) || 0);
+
+// The three marker ticks on a popup bar, same colours and shapes as the Spending bars. `max`
+// is the bar scale shared by the popup so ticks never overflow.
+function popMarkers(meta, max) {
+  if (!meta) return "";
+  const nudge = fullYearNudge(meta);
+  return SPEND_MARKERS.map(m => {
+    const v = meta[m.key];
+    if (v == null) return "";
+    const pct = Math.min(100, Math.max(0, (v / max) * 100)).toFixed(1);
+    const left = m.key === "fullYear" && nudge ? `calc(${pct}% + 1px)` : `${pct}%`;
+    return `<b class="pm ${m.cls}" style="left:${left}" title="${escSvg(m.label)}: ${escSvg(fmtMoney(v))}"></b>`;
+  }).join("");
 }
 
 // Step-1 popup: a tracking type's categories (each tagged data-cat for the
@@ -281,10 +480,10 @@ function popMarkers(prior, budget, max) {
 export function categoryListHtml(title, categories) {
   if (!categories.length) return `<div class="pop-title">${escSvg(title)}</div><div class="empty">No further detail logged.</div>`;
   const total = categories.reduce((t, c) => t + c.value, 0);
-  const max = Math.max(...categories.flatMap(c => [c.value, c.prior || 0, c.budget || 0]), 1);
+  const max = Math.max(...categories.flatMap(c => [c.value, ...markerValues(c)]), 1);
   const body = categories.map((c, i) =>
     `<div class="pop-row pop-cat${c.value < 0 ? " pop-neg" : ""}" data-cat="${i}"><span class="pop-name" title="${escSvg(c.group)}">${escSvg(c.name)}</span>` +
-    `<span class="pop-bar"><i style="width:${c.value > 0 ? Math.max(1, (c.value / max) * 100).toFixed(1) : 0}%"></i>${popMarkers(c.prior, c.budget, max)}</span>` +
+    `<span class="pop-bar"><i style="width:${c.value > 0 ? Math.max(1, (c.value / max) * 100).toFixed(1) : 0}%"></i>${popMarkers(c, max)}</span>` +
     `<span class="pop-val">${escSvg(fmtMoney(c.value))}</span></div>`).join("");
   return `<div class="pop-title">${escSvg(title)} <span class="pop-hint">- roll over a category for merchants</span></div>${body}` +
     `<div class="pop-total"><span>Total</span><span>${escSvg(fmtMoney(total))}</span></div>`;
@@ -301,10 +500,10 @@ export function detailPopupHtml(title, detail, maxLines) {
     const more = detail.slice(maxLines);
     lines = lines.concat([[`${more.length} more`, more.reduce((t, e) => t + e[1], 0)]]);
   }
-  const max = Math.max(...lines.flatMap(e => [e[1], (e[2] && e[2].prior) || 0, (e[2] && e[2].budget) || 0]), 1);
+  const max = Math.max(...lines.flatMap(e => [e[1], ...markerValues(e[2])]), 1);
   const body = lines.map(([n, v, meta]) =>
     `<div class="pop-row${v < 0 ? " pop-neg" : ""}"><span class="pop-name">${escSvg(n)}</span>` +
-    `<span class="pop-bar"><i style="width:${v > 0 ? Math.max(1, (v / max) * 100).toFixed(1) : 0}%"></i>${popMarkers(meta && meta.prior, meta && meta.budget, max)}</span>` +
+    `<span class="pop-bar"><i style="width:${v > 0 ? Math.max(1, (v / max) * 100).toFixed(1) : 0}%"></i>${popMarkers(meta, max)}</span>` +
     `<span class="pop-val">${escSvg(fmtMoney(v))}</span></div>`).join("");
   return `<div class="pop-title">${escSvg(title)}</div>${body}` +
     `<div class="pop-total"><span>Total</span><span>${escSvg(fmtMoney(total))}</span></div>`;
@@ -313,13 +512,12 @@ export function detailPopupHtml(title, detail, maxLines) {
 // entries: [name, amount, meta?] -- meta.kind is "total" (text-only summary
 // row, not scaled), "other" (muted bar) or anything else (normal bar). Rows
 // with meta carry data-row so the page can attach the detail popup; rows
-// without it keep a native <title> tooltip.
-const PRIOR_COLOR = "#475569", BUDGET_COLOR = "#d97706";
+// without it keep a native <title> tooltip. meta.prior / budget / fullYear draw the markers.
 export function barChartSvg(entries) {
   if (!entries.length) return '<div class="empty">No expenses recorded yet.</div>';
   const w = 560, barH = 18, gap = 6, padL = 120, padR = 60, padB = 20;
-  // Axis fits the longest of spend / prior-year / budget so no marker runs off the plot.
-  const max = Math.max(...entries.filter(e => !(e[2] && e[2].kind === "total")).flatMap(e => [e[1], e[2] && e[2].prior || 0, e[2] && e[2].budget || 0]), 1);
+  // Axis fits the longest of spend and the three markers so no marker runs off the plot.
+  const max = Math.max(...entries.filter(e => !(e[2] && e[2].kind === "total")).flatMap(e => [e[1], ...markerValues(e[2])]), 1);
   const plotW = w - padL - padR;
   const h = entries.length * (barH + gap) + padB;
 
@@ -334,10 +532,17 @@ export function barChartSvg(entries) {
       `<text x="${xx}" y="${h - padB + 14}" text-anchor="middle" style="font-size:10px">${escSvg(fmtMoney(v))}</text>`;
   }
 
-  const marker = (v, y, len, color, label, sw) => {
-    if (v == null) return "";
-    const xx = padL + (v / max) * plotW;
-    return `<line x1="${xx}" y1="${y}" x2="${xx}" y2="${y + len}" stroke="${color}" stroke-width="${sw}"><title>${escSvg(label)}: ${escSvg(fmtMoney(v))}</title></line>`;
+  const markersFor = (meta, y) => {
+    if (!meta) return "";
+    const nudge = fullYearNudge(meta);
+    return SPEND_MARKERS.map(m => {
+      const v = meta[m.key];
+      if (v == null) return "";
+      const xx = padL + (v / max) * plotW + (m.key === "fullYear" ? nudge : 0);
+      return `<line class="mk-outline" x1="${xx}" y1="${y - 2}" x2="${xx}" y2="${y + barH + 2}" style="${outlineStyle(m)}"/>` +
+        `<line class="mk ${m.cls}" x1="${xx}" y1="${y - 2}" x2="${xx}" y2="${y + barH + 2}" style="${markerStyle(m)}">` +
+        `<title>${escSvg(m.label)}: ${escSvg(fmtMoney(v))}</title></line>`;
+    }).join("");
   };
   const bars = entries.map((e, i) => {
     const y = i * (barH + gap);
@@ -349,28 +554,72 @@ export function barChartSvg(entries) {
         `<text x="0" y="${y + barH - 5}" style="font-weight:600">${escSvg(e[0])}</text>` +
         `<text x="${padL + 6}" y="${y + barH - 5}" style="font-weight:600">${escSvg(fmtMoney(e[1]))}</text></g>`;
     }
-    const markers = marker(meta && meta.prior, y - 2, barH + 4, PRIOR_COLOR, "Prior-year YTD", 2.5) +
-      marker(meta && meta.budget, y - 2, barH + 4, BUDGET_COLOR, "Full-year budget", 2.5);
     const bw = (e[1] / max) * plotW;
-    const fill = meta && meta.kind === "other" ? "#94a3b8" : "#2563eb";
+    const fill = meta && meta.kind === "other" ? "#94a3b8" : BAR_BLUE;
     const tip = meta ? "" : `<title>${escSvg(e[0])}: ${escSvg(fmtMoney(e[1]))}</title>`;
     return `<g${row} class="bar-row">${hit}` +
       `<text x="0" y="${y + barH - 5}">${escSvg(e[0])}</text>` +
-      `<rect x="${padL}" y="${y}" width="${bw}" height="${barH}" fill="${fill}" rx="3">${tip}</rect>` + markers +
+      `<rect x="${padL}" y="${y}" width="${bw}" height="${barH}" fill="${fill}" rx="3">${tip}</rect>` + markersFor(meta, y) +
       `<text x="${padL + bw + 6}" y="${y + barH - 5}">${escSvg(fmtMoney(e[1]))}</text></g>`;
   }).join("");
-  const anyPrior = entries.some(e => e[2] && e[2].prior != null), anyBudget = entries.some(e => e[2] && e[2].budget != null);
-  const legend = (anyPrior || anyBudget) ? `<div class="bar-legend" style="font-size:12px">` +
-    (anyPrior ? `<span style="color:${PRIOR_COLOR}">&#9646; Prior-year YTD (same dates)</span> ` : "") +
-    (anyBudget ? `<span style="color:${BUDGET_COLOR}">&#9646; Full-year budget</span>` : "") + `</div>` : "";
-  const svg = legend + `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="YTD expenses by tracking type, bar chart">
+  // Legend: one entry per marker present, each with a swatch in the marker's own shape.
+  const shown = SPEND_MARKERS.filter(m => entries.some(e => e[2] && e[2][m.key] != null));
+  const legend = shown.length ? `<div class="bar-legend" style="font-size:12px">` +
+    shown.map(m => `<span class="mk-key"><svg class="mk-swatch" width="10" height="14" viewBox="0 0 10 14" aria-hidden="true">` +
+      `<line class="${m.cls}" x1="5" y1="0" x2="5" y2="14" style="${markerStyle(m)}"/></svg> ${escSvg(m.label)}</span>`).join(" ") + `</div>` : "";
+  const svg = legend + `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" style="width:100%;max-width:100%;height:auto" role="img" aria-label="Spending, bar chart">
     ${xAxis}
     <line x1="${padL}" y1="0" x2="${padL}" y2="${h - padB}" stroke="#999" stroke-width="1"/>
     ${bars}
   </svg>`;
   const money = v => (v == null ? "-" : fmtMoney(v));
-  return svg + dataTableFallbackHtml("YTD expenses by tracking type", ["Tracking type", "Amount", ...(anyPrior ? ["Prior-year YTD"] : []), ...(anyBudget ? ["Full-year budget"] : [])],
-    entries.map(e => [e[0], fmtMoney(e[1]), ...(anyPrior ? [money(e[2] && e[2].prior)] : []), ...(anyBudget ? [money(e[2] && e[2].budget)] : [])]));
+  return svg + dataTableFallbackHtml("Spending", ["Tracking type", "Amount", ...shown.map(m => m.label)],
+    entries.map(e => [e[0], fmtMoney(e[1]), ...shown.map(m => money(e[2] && e[2][m.key]))]));
+}
+
+// --- Spending card (Trends Phase 5): window data from /api/spending, YTD snapshot fallback ---
+
+export function spendingUrl(range) {
+  return `/api/spending?from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}`;
+}
+
+// The card's model from an /api/spending response. A null `prior` (window before the data
+// starts) leaves the same-period marker off rather than drawing it at $0.
+export function spendingModelFromWindow(resp) {
+  if (!resp || !resp.hierarchy) return null;
+  const prior = resp.prior, budget = resp.budget || {}, full = resp.full_year_budget || {};
+  return buildHierarchyRows(resp.hierarchy, prior ? prior.by_type : null, budget.by_type, prior ? prior.detail : null,
+    budget.by_category, full.by_type, full.by_category);
+}
+
+// Fallback when the window can't be loaded: the latest logged YTD snapshot. Its budget is the
+// whole year's, so it draws as the full-year marker; the snapshot has no prorated budget.
+export function spendingModelFromSnapshot(latest) {
+  if (!latest || !latest.ytd_expense_hierarchy) return null;
+  return buildHierarchyRows(latest.ytd_expense_hierarchy, latest.ytd_expense_prior_year, null, latest.ytd_expense_prior_detail,
+    null, latest.annual_budget_by_tracking_type, latest.annual_budget_by_category);
+}
+
+// Drops out-of-order responses: only the most recently started request may draw.
+export function latestOnly() {
+  let n = 0;
+  return { start: () => ++n, isCurrent: id => id === n };
+}
+
+// The note under the Spending card, describing the markers for the period shown.
+export function spendingNoteText(resp, label) {
+  const lead = "Totals follow the Spending Analysis mapping and include taxes.";
+  const tail = "Roll over a bar to see its categories, then roll over a category to see its merchants.";
+  if (!resp) {
+    return `${lead} Markers: same dates last year, and the full-year budget. ${tail}`;
+  }
+  const days = resp.window && resp.window.days;
+  const prior = resp.prior && resp.prior.window
+    ? `same period last year (${fmtMonthDay(resp.prior.window.from, true)} – ${fmtMonthDay(resp.prior.window.to, true)})`
+    : "same period last year (not shown: it falls before the first imported transactions)";
+  const year = resp.full_year_budget && resp.full_year_budget.year;
+  return `${lead} Markers for ${label || "this period"}: ${prior}; budget for this period (the annual budget prorated to these ${days} day${days === 1 ? "" : "s"}); ` +
+    `full-year budget (the whole ${year} annual budget). ${tail}`;
 }
 
 // Hover/focus rollover for the Net worth and Investments line charts: the
@@ -421,7 +670,7 @@ export function rolloverModel(row, kind) {
     if (Math.abs(rest) >= 0.5) lines.push(["Other liabilities", -rest]);
   }
   return {
-    title: "Net worth", date: row.as_of_date, total: nw.total ?? null,
+    title: "Net Worth", date: row.as_of_date, total: nw.total ?? null,
     groups: groupByRole(invAccounts.concat(otherAccounts)), lines,
   };
 }
@@ -504,7 +753,7 @@ export function flowBarChartSvg(model) {
       `<rect x="${x}" y="${y}" width="${bw}" height="${barH}" fill="${fill}" rx="3"><title>${escSvg(tipText)}</title></rect>` +
       `<text x="${labelX}" y="${y + barH - 5}" text-anchor="${anchor}">${escSvg(fmtMoney(e.net))}</text></g>`;
   }).join("");
-  const svg = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="group" aria-label="YTD net investment flows by account, bar chart">` +
+  const svg = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" style="width:100%;max-width:100%;height:auto" role="group" aria-label="YTD net investment flows by account, bar chart">` +
     `<line x1="${zeroX}" y1="0" x2="${zeroX}" y2="${h - padB}" stroke="#999" stroke-width="1"/>` +
     `<text x="${zeroX}" y="${h - padB + 14}" text-anchor="middle" style="font-size:10px">$0</text>${bars}</svg>`;
   return svg + dataTableFallbackHtml("YTD net investment flows by account",
@@ -584,7 +833,7 @@ export function monarchRolloverModel(row, balances, kind) {
     subtotal: items.reduce((t, i) => t + i.value, 0),
   })).sort((p, q) => Math.abs(q.subtotal) - Math.abs(p.subtotal));
   return {
-    title: chart === "holdings" ? "Liquid Investments and Cash" : "Net worth", date: row.as_of_date,
+    title: chart === "holdings" ? "Liquid Investments and Cash" : "Net Worth", date: row.as_of_date,
     total: chart === "holdings" ? row.holdings.current_value : row.net_worth.total,
     groups, lines: [], emptyNote: "No accounts with a balance are switched on for this date.",
   };
@@ -688,18 +937,100 @@ export function fmtMoneySigned(v) {
   return (v < 0 ? "-" : "") + "$" + Math.abs(Number(v)).toLocaleString(undefined, { maximumFractionDigits: 0 });
 }
 
-export function flowSummaryHtml(ytd) {
-  if (!ytd) return "";
-  const tile = (label, value, cls) => `<div class="flow-stat ${cls}"><span class="flow-stat-label">${escSvg(label)}</span><span class="flow-stat-value">${escSvg(fmtMoneySigned(value))}</span></div>`;
-  return `<div class="flow-summary" role="group" aria-label="${escSvg(String(ytd.year))} year to date investment flows">` +
-    `<div class="flow-year">${escSvg(String(ytd.year))} YTD</div>` +
-    tile("Credits (into investments)", ytd.credits, "flow-credit") +
-    tile("Debits (out of investments)", ytd.debits, "flow-debit") +
-    tile("Total (net contributions)", ytd.total, "flow-total") + `</div>`;
+// ---- Investment Net Flows on any time scope (Trends Phase 4) ----
+// A point per bucket of the selected scope: {key, date, label, credits, debits, net}. `label` is
+// the full text (tooltips, screen-reader table) from labelForDate, so the flows chart reads like
+// the other charts; `date` drives the fitted x-axis.
+function flowPoint(key, date, granularity, credits, debits) {
+  return { key, date, label: labelForDate(date, granularity), credits: round2(credits), debits: round2(debits), net: round2(credits - debits) };
 }
 
-export function flowLineChartSvg(series) {
+// Sums the daily ledger ({account: {"YYYY-MM-DD": {to_checking, from_checking}}}) for the
+// included accounts into the scope's buckets: day = every calendar day in [from, to]; week = ISO
+// weeks (the same keys and "Week of <Monday>" labels as the other charts); month = calendar
+// months. Empty buckets are zero so the line keeps its spacing. An open bound ("" in a Custom
+// range) falls back to the first/last day with a flow. No included account with data -> [].
+export function flowSeries(daily, included, range, granularity) {
+  const chosen = new Set(included || []);
+  const all = Object.entries(daily || {}).filter(([a]) => chosen.has(a));
+  const days = [...new Set(all.flatMap(([, ds]) => Object.keys(ds)))].sort();
+  if (!days.length) return [];
+  const from = (range && parseYmd(range.from) && String(range.from).slice(0, 10)) || days[0];
+  const to = (range && parseYmd(range.to) && String(range.to).slice(0, 10)) || days[days.length - 1];
+  if (from > to) return [];
+  const gran = granularity === "week" || granularity === "month" ? granularity : "day";
+  const keyOf = gran === "week" ? isoWeekKey : gran === "month" ? (d) => d.slice(0, 7) : (d) => d;
+  // Buckets in order, each dated by its first day inside the range (month: the 1st).
+  const buckets = new Map();
+  for (let d = from; d <= to; d = addDaysStr(d, 1)) {
+    const k = keyOf(d);
+    if (!buckets.has(k)) buckets.set(k, { date: gran === "month" ? `${k}-01` : d, credits: 0, debits: 0 });
+  }
+  for (const [, ds] of all) {
+    for (const [d, c] of Object.entries(ds)) {
+      if (d < from || d > to || !c) continue;
+      const b = buckets.get(keyOf(d));
+      b.credits += c.from_checking || 0;
+      b.debits += c.to_checking || 0;
+    }
+  }
+  return Array.from(buckets, ([k, b]) => flowPoint(k, b.date, gran, b.credits, b.debits));
+}
+
+// Fallback for log entries without the daily ledger: the monthly ledger, keeping every whole
+// month that overlaps [from, to] (zero-filled), as month points.
+export function flowMonthlyRangeSeries(monthly, included, range) {
+  const series = flowMonthlySeries(monthly, included);
+  if (!series.length) return [];
+  const from = range && parseYmd(range.from) ? String(range.from).slice(0, 7) : series[0].month;
+  const to = range && parseYmd(range.to) ? String(range.to).slice(0, 7) : series[series.length - 1].month;
+  if (from > to) return [];
+  const byMonth = new Map(series.map(p => [p.month, p]));
+  return monthsBetween(from, to).map(m => {
+    const p = byMonth.get(m);
+    return flowPoint(m, `${m}-01`, "month", p ? p.credits : 0, p ? p.debits : 0);
+  });
+}
+
+// Totals for the selected period, labelled with the scope's period text.
+export function flowPeriodSummary(points, label) {
+  const credits = round2((points || []).reduce((t, p) => t + p.credits, 0));
+  const debits = round2((points || []).reduce((t, p) => t + p.debits, 0));
+  return { label, credits, debits, total: round2(credits - debits) };
+}
+
+// summary = {label, credits, debits, total} (flowPeriodSummary); a legacy {year, ...} reads "YYYY YTD".
+export function flowSummaryHtml(summary) {
+  if (!summary) return "";
+  const heading = summary.label || `${summary.year} YTD`;
+  const tile = (label, value, cls) => `<div class="flow-stat ${cls}"><span class="flow-stat-label">${escSvg(label)}</span><span class="flow-stat-value">${escSvg(fmtMoneySigned(value))}</span></div>`;
+  return `<div class="flow-summary" role="group" aria-label="Investment flows, ${escSvg(String(heading))}">` +
+    `<div class="flow-year">${escSvg(String(heading))}</div>` +
+    tile("Credits (into investments)", summary.credits, "flow-credit") +
+    tile("Debits (out of investments)", summary.debits, "flow-debit") +
+    tile("Total (net contributions)", summary.total, "flow-total") + `</div>`;
+}
+
+// Points from flowSeries / flowMonthlyRangeSeries (opts.granularity picks the axis style), or a
+// legacy flowMonthlySeries ({month, ...}), which draws as months.
+export function flowLineChartSvg(series, opts) {
+  opts = opts || {};
   if (!series.length) return '<div class="empty">No investment transfers recorded for the accounts switched on.</div>';
-  return lineChartSvg(series.map(p => ({ label: monthLabel(p.month), value: p.net })),
-    { color: "#0d9488", title: "Net investment contributions by month", pxPerPoint: 56 });
+  const legacy = series[0].month !== undefined && series[0].date === undefined;
+  const points = legacy
+    ? series.map(p => ({ label: monthLabel(p.month), date: `${p.month}-01`, value: p.net }))
+    : series.map(p => ({ label: p.label, date: p.date, value: p.net }));
+  return lineChartSvg(points, { color: "#0d9488", title: "Net Investment Contributions", granularity: legacy ? "month" : (opts.granularity || "month"), width: opts.width });
+}
+
+// What the page does on open (and after a passthrough decision), given GET /api/run-status:
+// "poll" a run already in flight, "run" a fresh update, or "skip" when the last run is recent.
+// force ignores the freshness window but never starts a second run beside one in flight.
+export function updateDecision(status, nowMs, force = false) {
+  if (!status) return "run";
+  if (status.running) return "poll";
+  if (force) return "run";
+  const last = status.last_run_at ? Date.parse(status.last_run_at) : NaN;
+  if (!Number.isFinite(last)) return "run";
+  return (nowMs - last) / 1000 < Number(status.fresh_seconds ?? 900) ? "skip" : "run";
 }

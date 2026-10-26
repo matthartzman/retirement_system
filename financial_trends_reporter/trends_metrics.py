@@ -24,6 +24,7 @@ if str(_REPO_ROOT) not in sys.path:
 
 from src import spending_tracker, ytd_tracking as ytd  # noqa: E402
 from . import balance_series  # noqa: E402
+from .spending_window import annual_budgets, prior_detail, same_day_prior_year as _same_day_prior_year, tracking_type_totals  # noqa: E402
 from src.active_plan import peek_plan_data_for_input_dir  # noqa: E402
 from src.plan_datasets import dataset_rows_for_input_dir  # noqa: E402
 
@@ -153,35 +154,43 @@ def _plan_assets_and_mortgage(base_dir: Path, db_path: Path, as_of: date) -> dic
     return other
 
 
-def _same_day_prior_year(d: date) -> date:
-    """The same month/day one year earlier; Feb 29 maps to Feb 28."""
-    try:
-        return d.replace(year=d.year - 1)
-    except ValueError:
-        return date(d.year - 1, 2, 28)
+_FLOW_LEDGER_KEYS = {"monthly": "monthly_flows_by_account", "daily": "daily_flows_by_account"}
 
 
-def _monthly_investment_flows(input_dir: Path, summary: dict[str, Any], today, passthrough_decisions) -> dict[str, dict[str, dict[str, float]]]:
-    """``{account: {YYYY-MM: {to_checking, from_checking}}}`` across every imported year.
+def _investment_flow_ledgers(input_dir: Path, summary: dict[str, Any], today, passthrough_decisions) -> dict[str, dict[str, dict[str, dict[str, float]]]]:
+    """``{"monthly": {account: {YYYY-MM: ...}}, "daily": {account: {YYYY-MM-DD: ...}}}`` across every imported year.
 
-    The current-year ledger comes from ``summary``; each earlier year with transactions is
-    computed by the same summary pass (same passthrough rules and decisions) so the monthly
-    line can run back to the first imported month.
+    The current-year ledgers come from ``summary``; each earlier year with transactions is
+    computed by the same summary pass (same passthrough rules and decisions), once for both
+    ledgers, so the lines can run back to the first imported month/day. Each cell is
+    ``{to_checking, from_checking}``; the daily ledger only has days with a flow, and its days
+    sum to the monthly ledger.
     """
-    merged: dict[str, dict[str, dict[str, float]]] = {}
+    merged: dict[str, dict[str, dict[str, dict[str, float]]]] = {name: {} for name in _FLOW_LEDGER_KEYS}
     current_year = (today or date.today()).year
 
-    def fold(ledger):
-        for acct, months in (ledger or {}).items():
-            merged.setdefault(acct, {}).update(months)
+    def fold(inv):
+        for name, key in _FLOW_LEDGER_KEYS.items():
+            for acct, periods in ((inv or {}).get(key) or {}).items():
+                merged[name].setdefault(acct, {}).update(periods)
 
-    fold(summary.get("investment_balance", {}).get("monthly_flows_by_account"))
+    fold(summary.get("investment_balance"))
     for year in summary.get("available_years", []):
         if year >= current_year:
             continue
         past = ytd.ytd_summary(input_dir, today=today, period=str(year), passthrough_decisions=passthrough_decisions)
-        fold(past.get("investment_balance", {}).get("monthly_flows_by_account"))
-    return {a: dict(sorted(m.items())) for a, m in merged.items()}
+        fold(past.get("investment_balance"))
+    return {name: {a: dict(sorted(p.items())) for a, p in ledger.items()} for name, ledger in merged.items()}
+
+
+def _monthly_investment_flows(input_dir: Path, summary: dict[str, Any], today, passthrough_decisions) -> dict[str, dict[str, dict[str, float]]]:
+    """``{account: {YYYY-MM: {to_checking, from_checking}}}`` across every imported year."""
+    return _investment_flow_ledgers(input_dir, summary, today, passthrough_decisions)["monthly"]
+
+
+def _daily_investment_flows(input_dir: Path, summary: dict[str, Any], today, passthrough_decisions) -> dict[str, dict[str, dict[str, float]]]:
+    """``{account: {YYYY-MM-DD: {to_checking, from_checking}}}`` across every imported year (daily twin)."""
+    return _investment_flow_ledgers(input_dir, summary, today, passthrough_decisions)["daily"]
 
 
 def compute_snapshot(base_dir: str | Path, *, today=None, passthrough_decisions: dict[str, str] | None = None,
@@ -214,33 +223,13 @@ def compute_snapshot(base_dir: str | Path, *, today=None, passthrough_decisions:
     as_of = today or date.today()
     prior_through = _same_day_prior_year(as_of)
     prior_tree = spending_tracker.ytd_spending_hierarchy(base_dir, as_of.year - 1, through=prior_through)
-    ytd_expense_prior_year = {
-        tt: round(sum(v for cats in groups.values() for merchants in cats.values() for v in merchants.values()), 2)
-        for tt, groups in prior_tree.items()
-    }
+    ytd_expense_prior_year = tracking_type_totals(prior_tree)
     # Same markers one and two levels down: prior-year per category (and its merchants), budget per category.
-    ytd_expense_prior_detail = {
-        tt: {
-            grp: {cat: {"prior": round(sum(merchants.values()), 2), "merchants": {m: round(v, 2) for m, v in merchants.items()}}
-                  for cat, merchants in cats.items()}
-            for grp, cats in groups.items()
-        }
-        for tt, groups in prior_tree.items()
-    }
-    taxonomy = spending_tracker.spending_summary_taxonomy(base_dir, as_of.year).get("tracking_types", [])
-    annual_budget_by_category = {
-        t["tracking_type"]: {
-            c["label"]: c["annual_budget"]
-            for g in t.get("groups", []) for c in g.get("categories", []) if c.get("annual_budget")
-        }
-        for t in taxonomy
-        if t["tracking_type"] != "Income" and t["tracking_type"] not in spending_tracker._TRANSFER_NAMES
-    }
-    annual_budget_by_tracking_type = {
-        t["tracking_type"]: t.get("annual_budget", 0.0)
-        for t in taxonomy
-        if t.get("annual_budget") and t["tracking_type"] != "Income" and t["tracking_type"] not in spending_tracker._TRANSFER_NAMES
-    }
+    # The derivations are shared with /api/spending (spending_window), which generalises them to any window.
+    ytd_expense_prior_detail = prior_detail(prior_tree)
+    budgets = annual_budgets(base_dir, as_of.year)
+    annual_budget_by_category = budgets["by_category"]
+    annual_budget_by_tracking_type = budgets["by_type"]
 
     inv = summary.get("investment_balance", {})
     current_value = inv.get("current_balance")
@@ -297,6 +286,7 @@ def compute_snapshot(base_dir: str | Path, *, today=None, passthrough_decisions:
     # independent of transaction activity. data_through_date keeps the
     # transaction-coverage info (what the YTD expense/income figures actually
     # reflect) available separately, for anything that wants it.
+    flow_ledgers = _investment_flow_ledgers(input_dir, summary, today, passthrough_decisions)
     as_of_date = (today or date.today()).isoformat()
     data_through_date = summary.get("through_date") or summary.get("ytd_end") or as_of_date
 
@@ -313,7 +303,10 @@ def compute_snapshot(base_dir: str | Path, *, today=None, passthrough_decisions:
         # {account: {to_checking, from_checking, net}}; net = withdrawals - contributions.
         "investment_net_flows_by_account": inv.get("net_flows_by_account", {}),
         # {account: {YYYY-MM: {to_checking, from_checking}}}, every imported year; feeds the monthly flows line.
-        "investment_flows_monthly": _monthly_investment_flows(input_dir, summary, today, passthrough_decisions),
+        "investment_flows_monthly": flow_ledgers["monthly"],
+        # {account: {YYYY-MM-DD: {to_checking, from_checking}}}, days with a flow only; sums to the monthly
+        # ledger. Lets the flows chart follow any time scope down to 1 Week.
+        "investment_flows_daily": flow_ledgers["daily"],
         # Near-match investment-to-investment pairs awaiting the user's approve/deny.
         "passthrough_review": inv.get("passthrough_review", []),
         "net_worth": net_worth,

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Financial trends</title>
+<title>Financial Trends</title>
 <style>
   :root { color-scheme: light dark; }
   body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; padding: 24px; background: #f7f7f8; color: #1a1a1a; }
@@ -12,9 +12,12 @@
   .sub { color: #666; font-size: 13px; margin-bottom: 16px; }
   .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 20px; flex-wrap: wrap; }
   .toolbar button { border: 1px solid #ccc; background: #fff; border-radius: 6px; padding: 6px 12px; font-size: 13px; cursor: pointer; }
-  .toolbar button.active { background: #2563eb; color: #fff; border-color: #2563eb; }
   @media (prefers-color-scheme: dark) { .toolbar button { background: #1e2126; color: #e8e8ea; border-color: #3a3d44; } }
-  input[type=date] { padding: 5px 8px; border-radius: 6px; border: 1px solid #ccc; font-size: 13px; }
+  .scope-pick { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+  .toolbar select, input[type=date] { padding: 5px 8px; border-radius: 6px; border: 1px solid #ccc; font-size: 13px; background: #fff; color: inherit; }
+  @media (prefers-color-scheme: dark) { .toolbar select, input[type=date] { background: #1e2126; border-color: #3a3d44; } }
+  .scope-label { font-size: 12px; color: #666; }
+  @media (prefers-color-scheme: dark) { .scope-label { color: #a0a0a8; } }
   .grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; }
   @media (max-width: 900px) { .grid { grid-template-columns: minmax(0, 1fr); } }
   .card { position: relative; overflow: hidden; min-width: 0; background: #fff; border-radius: 10px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
@@ -24,17 +27,14 @@
   .card-head h2 { margin: 0; }
   .acct-btn { border: 1px solid #ccc; background: transparent; color: inherit; border-radius: 6px; padding: 3px 10px; font-size: 12px; cursor: pointer; }
   .empty { color: #888; font-size: 13px; }
-  #runNow { margin-left: auto; }
-  #exitBtn { margin-left: 8px; }
+  #exitBtn { margin-left: auto; }
   svg text { fill: currentColor; font-size: 12px; }
   .chart-dot { cursor: pointer; }
   .chart-dot:hover { r: 5; }
   :root { --card-bg: #fff; }
   @media (prefers-color-scheme: dark) { :root { --card-bg: #1e2126; } }
-  .chart-scroll { overflow-x: auto; }
-  .chart-inner { position: relative; }
-  .chart-yaxis { position: sticky; left: 0; z-index: 2; display: block; background: var(--card-bg); margin-bottom: -200px; }
-  .chart-inner > svg:not(.chart-yaxis) { display: block; }
+  .chart-dot-hit:hover, .chart-dot-hit:focus { fill-opacity: 1; }
+  #chartNetWorth, #chartHoldings, #chartInvFlows, #chartCategories { min-width: 0; }
   .price-note { background: #fef3c7; color: #78350f; border: 1px solid #f59e0b; border-radius: 8px; padding: 8px 12px; font-size: 13px; margin-bottom: 16px; }
   @media (prefers-color-scheme: dark) { .price-note { background: #3b2a08; color: #fcd34d; border-color: #92660a; } }
   .note { font-size: 11px; color: #777; margin-top: 8px; line-height: 1.45; }
@@ -47,9 +47,19 @@
   .pop-row { display: grid; grid-template-columns: 150px 1fr 64px; gap: 6px; align-items: center; margin: 2px 0; }
   .pop-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .pop-bar { background: rgba(127,127,127,.18); border-radius: 3px; height: 8px; position: relative; }
-  .pop-bar .pm { position: absolute; top: -2px; height: 12px; width: 2.5px; margin-left: -1px; }
-  .pm-prior { background: #475569; }
-  .pm-budget { background: #d97706; }
+  /* Spending markers (design §2.5): same period last year, budget for this period, full-year budget. */
+  :root { --mk-prior: #111827; --mk-period: #ea580c; --mk-full: #c026d3; }
+  @media (prefers-color-scheme: dark) { :root { --mk-prior: #f3f4f6; --mk-period: #fcb77d; --mk-full: #f1affb; } }
+  .pop-bar .pm { position: absolute; top: -2px; height: 12px; width: 2.5px; margin-left: -1px; box-shadow: 0 0 0 1px var(--card-bg); }
+  .pm.mk-prior { background: var(--mk-prior); }
+  .pm.mk-period { width: 3.5px; margin-left: -1.5px; background: var(--mk-period); }
+  .pm.mk-full { background: repeating-linear-gradient(to bottom, var(--mk-full) 0 3px, transparent 3px 5px); }
+  .bar-legend { display: flex; flex-wrap: wrap; gap: 2px 14px; margin-bottom: 6px; }
+  .mk-key { display: inline-flex; align-items: center; gap: 4px; }
+  .card-period { font-size: 12px; color: #666; margin: -6px 0 10px; }
+  @media (prefers-color-scheme: dark) { .card-period { color: #a0a0a8; } }
+  .spend-fallback { font-size: 12px; margin: 0 0 8px; color: #92400e; }
+  @media (prefers-color-scheme: dark) { .spend-fallback { color: #fcd34d; } }
   .pop-bar i { display: block; height: 100%; background: #2563eb; border-radius: 3px; }
   .pop-cat:hover { background: rgba(37,99,235,.12); border-radius: 3px; }
   .pop-hint { font-weight: 400; opacity: .6; font-size: 11px; }
@@ -95,38 +105,61 @@
   .badge-new { background: #fef3c7; color: #78350f; border-radius: 4px; padding: 0 5px; font-size: 10px; }
   .acct-closed { margin-top: 10px; }
   #accountsMsg { font-size: 12px; margin-top: 6px; }
+  /* "Updating Data" overlay (same look as the planner's build overlay) */
+  :root { --ov-card: #fff; --ov-line: #d8d8dc; --ov-track: #e5e5e8; --ov-accent: #2563eb; --ov-muted: #666; }
+  @media (prefers-color-scheme: dark) { :root { --ov-card: #1e2126; --ov-line: #3a3d44; --ov-track: #2a2d33; --ov-accent: #60a5fa; --ov-muted: #a0a0a8; } }
+  .update-overlay { display: none; position: fixed; inset: 0; z-index: 140; background: rgba(23,23,19,.62); backdrop-filter: blur(2px); align-items: center; justify-content: center; padding: 24px; }
+  .update-overlay.active { display: flex; }
+  .update-card { width: min(520px, calc(100vw - 48px)); background: var(--ov-card); color: inherit; border: 1px solid var(--ov-line); border-radius: 16px; box-shadow: 0 24px 70px rgba(0,0,0,.32); padding: 24px; text-align: center; }
+  .update-spinner { width: 44px; height: 44px; border-radius: 999px; border: 4px solid var(--ov-track); border-top-color: var(--ov-accent); margin: 0 auto 14px; animation: update-spin .85s linear infinite; }
+  @keyframes update-spin { to { transform: rotate(360deg); } }
+  .update-title { font-size: 20px; font-weight: 800; margin: 0 0 6px; }
+  .update-detail { font-size: 13px; color: var(--ov-muted); min-height: 20px; }
+  .update-bar { height: 12px; background: var(--ov-track); border: 1px solid var(--ov-line); border-radius: 999px; overflow: hidden; margin-top: 16px; position: relative; }
+  .update-bar span { position: absolute; top: 0; bottom: 0; width: 35%; background: var(--ov-accent); border-radius: 999px; animation: update-slide 1.3s ease-in-out infinite; }
+  @keyframes update-slide { 0% { left: -35%; } 100% { left: 100%; } }
+  @media (prefers-reduced-motion: reduce) { .update-spinner, .update-bar span { animation: none; } .update-bar span { width: 100%; left: 0; } }
+  .update-avg { font-size: 12px; color: var(--ov-muted); margin-top: 10px; }
+  #updateError { display: none; }
+  #updateError button { margin-left: 8px; border: 1px solid currentColor; background: transparent; color: inherit; border-radius: 6px; padding: 2px 10px; font-size: 12px; cursor: pointer; }
 </style>
 </head>
 <body>
-<h1>Financial trends</h1>
-<div class="sub">YTD expenses by category, liquid investments and cash/performance, net worth, and investment transfers — one entry per weekday close. Net worth and Liquid Investments and Cash use daily Imported account balances. Scroll a chart sideways to see earlier dates.</div>
-<div class="toolbar" id="timeframeBar">
-  <button data-tf="week" aria-pressed="false">Week</button>
-  <button data-tf="month" class="active" aria-pressed="true">Month</button>
-  <button data-tf="quarter" aria-pressed="false">Quarter</button>
-  <button data-tf="ytd" aria-pressed="false">YTD</button>
-  <button data-tf="12m" aria-pressed="false">12-month</button>
-  <button data-tf="all" aria-pressed="false">All time</button>
+<h1>Financial Trends</h1>
+<div class="sub">Four charts: Net Worth, Liquid Investments and Cash, Investment Net Flows, and Spending — one entry per weekday close. Net Worth and Liquid Investments and Cash use daily Imported account balances. The Time scope pulldown sets the dates every chart covers. The data updates automatically when this page opens.</div>
+<div class="toolbar" id="scopeBar">
+  <label class="scope-pick">Time scope <select id="scopeSelect">
+    <option value="week">1 Week</option>
+    <option value="month" selected>1 Month</option>
+    <option value="3m">3 Months</option>
+    <option value="6m">6 Months</option>
+    <option value="ytd">YTD</option>
+    <option value="1y">1 Year</option>
+    <option value="all">All Time</option>
+    <option value="custom">Custom</option>
+  </select></label>
   <input type="date" id="customFrom" style="display:none" aria-label="Custom range start date">
   <input type="date" id="customTo" style="display:none" aria-label="Custom range end date">
-  <button data-tf="custom" aria-pressed="false">Custom</button>
-  <button id="runNow">Run now</button>
+  <span class="scope-label" id="scopeLabel" role="status"></span>
   <button id="exitBtn" title="Stop the local reporter server">Exit</button>
 </div>
 <div class="note" id="allTimeNote" style="display:none"></div>
 <div id="priceNote" class="price-note" role="status" style="display:none"></div>
 <div id="balancesNote" class="price-note" role="status" style="display:none"></div>
+<div id="updateError" class="price-note" role="alert"><span id="updateErrorText"></span><button type="button" id="retryUpdate">Try again</button></div>
 <div class="grid">
-  <div class="card"><div class="card-head"><h2>Net worth</h2><button type="button" class="acct-btn" data-acct-chart="networth" data-acct-title="Net worth" aria-haspopup="dialog">Accounts ▾</button></div><div id="chartNetWorth"></div>
+  <div class="card"><div class="card-head"><h2>Net Worth</h2><button type="button" class="acct-btn" data-acct-chart="networth" data-acct-title="Net Worth" aria-haspopup="dialog">Accounts ▾</button></div><div id="chartNetWorth"></div>
     <div class="note" id="noteNetWorth">Net worth = investments (live holdings) + annuities/pension + home, startup equity, cash and autos from the plan inputs, minus the mortgage (amortized from its plan-start balance) and any other liabilities. Home and other plan values are held at their plan-start figures, so day-to-day movement is mostly investments.</div></div>
   <div class="card"><div class="card-head"><h2>Liquid Investments and Cash</h2><button type="button" class="acct-btn" data-acct-chart="holdings" data-acct-title="Liquid Investments and Cash" aria-haspopup="dialog">Accounts ▾</button></div><div id="chartHoldings"></div>
     <div class="note" id="noteHoldings"></div></div>
-  <div class="card"><div class="card-head"><h2 id="flowsTitle">Investment net flows by account (YTD)</h2><button type="button" class="acct-btn" id="flowsAcctBtn" data-acct-chart="flows" data-acct-title="Investment flows" aria-haspopup="dialog" style="display:none">Accounts ▾</button></div><div id="passthroughReview"></div><div id="flowSummary"></div><div id="chartInvFlows"></div>
-    <div class="note" id="noteFlows">Year-to-date transfers between each investment account and checking, as of the latest snapshot. A net withdrawal (money moved to checking) is positive and extends right; net contributions, including 401k employee deferrals and employer match, are negative and extend left. Money moved from one investment account to another through checking is not counted. A withdrawal and a same-amount deposit in different investment accounts within 30 days are matched automatically; pairs within $100 of each other are flagged above for you to approve or deny; and any transaction tagged "invest-to-invest" (or noted "pass-through") is excluded. Decisions apply at the next Run now.</div></div>
-  <div class="card"><h2>YTD expenses by tracking type (latest)</h2><div id="chartCategories"></div>
-    <div class="note">Roll over a bar to see its categories, then roll over a category to see its merchants. Totals follow the Spending Analysis mapping and include taxes.</div></div>
+  <div class="card"><div class="card-head"><h2 id="flowsTitle">Investment Net Flows</h2><button type="button" class="acct-btn" id="flowsAcctBtn" data-acct-chart="flows" data-acct-title="Investment Net Flows" aria-haspopup="dialog" style="display:none">Accounts ▾</button></div><div id="passthroughReview"></div><div id="flowSummary"></div><div id="chartInvFlows"></div>
+    <div class="note" id="noteFlows">Year-to-date transfers between each investment account and checking, as of the latest snapshot. A net withdrawal (money moved to checking) is positive and extends right; net contributions, including 401k employee deferrals and employer match, are negative and extend left. Money moved from one investment account to another through checking is not counted. A withdrawal and a same-amount deposit in different investment accounts within 30 days are matched automatically; pairs within $100 of each other are flagged above for you to approve or deny; and any transaction tagged "invest-to-invest" (or noted "pass-through") is excluded. Decisions apply right away: the page updates the data after you approve or deny.</div></div>
+  <div class="card"><h2>Spending</h2><div class="card-period" id="spendingPeriod"></div>
+    <div class="spend-fallback" id="spendingFallback" role="status" style="display:none"></div><div id="chartCategories" aria-live="polite"></div>
+    <div class="note" id="noteSpending">Totals follow the Spending Analysis mapping and include taxes. Markers: same period last year, budget for this period, and full-year budget. Roll over a bar to see its categories, then roll over a category to see its merchants.</div></div>
 </div>
 <div id="accountsMsg" role="status"></div>
+<div id="updateOverlay" class="update-overlay" role="status" aria-live="polite" aria-hidden="true"><div class="update-card"><div class="update-spinner" aria-hidden="true"></div><div class="update-title">Updating Data</div><div id="updateOverlayDetail" class="update-detail">Elapsed 0:00</div><div class="update-bar" aria-hidden="true"><span></span></div><div id="updateOverlayAvg" class="update-avg">Working…</div></div></div>
 <div id="detailPopup" role="tooltip"></div>
 <div id="detailPopup2" role="tooltip"></div>
 <div id="rollPopup" role="tooltip"></div>
@@ -136,23 +169,51 @@
 // Finding QUA-302 (Wave 6 item W6-11): the chart-rendering logic below used
 // to be defined inline, right here, with no module boundary. It now lives
 // in ./charts.js, importable and testable directly.
-import { fmtMoney, escSvg, filterByTimeframe, aggregateByGranularity, granularityForTimeframe, labelForDate, dataTableFallbackHtml, lineChartSvg, barChartSvg, buildHierarchyRows, detailPopupHtml, categoryListHtml, investmentFlowRows, flowBarChartSvg, passthroughReviewHtml, rolloverModel, rolloverHtml, hasMonarchBalances, buildMonarchRows, truncateAllTime, ALL_TIME_START, monarchRolloverModel, balancesFreshnessNote, accountToggleHtml, flowIncludedAccounts, flowMonthlySeries, flowYtdSummary, flowSummaryHtml, flowLineChartSvg } from "./charts.js";
+import { fmtMoney, escSvg, filterByTimeframe, aggregateByGranularity, granularityForTimeframe, labelForDate, scopeRange, parseSavedScope, dataTableFallbackHtml, lineChartSvg, barChartSvg, detailPopupHtml, categoryListHtml, investmentFlowRows, flowBarChartSvg, passthroughReviewHtml, rolloverModel, rolloverHtml, hasMonarchBalances, buildMonarchRows, truncateAllTime, ALL_TIME_START, monarchRolloverModel, balancesFreshnessNote, accountToggleHtml, flowIncludedAccounts, flowSeries, flowMonthlyRangeSeries, flowPeriodSummary, flowSummaryHtml, flowLineChartSvg, updateDecision, spendingUrl, spendingModelFromWindow, spendingModelFromSnapshot, latestOnly, spendingNoteText } from "./charts.js";
+import { formatElapsed, recordPopupRuntime, averageRuntimeText } from "/shared/runtime_history.js";
 
 let history = [];
-let timeframe = "month";
+// Time scope: one choice drives every chart. Saved per browser; every storage access is guarded.
+const SCOPE_KEY = "trendsScope_v1";
+let scope = "month", customFrom = "", customTo = "";
+let scopeTimer = null;
+function loadScope() {
+  let raw = null;
+  try { raw = localStorage.getItem(SCOPE_KEY); } catch (err) { raw = null; }
+  ({ scope, from: customFrom, to: customTo } = parseSavedScope(raw));
+}
+function saveScope() {
+  try { localStorage.setItem(SCOPE_KEY, JSON.stringify({ scope, from: customFrom, to: customTo })); } catch (err) { /* storage blocked: the choice just won't persist */ }
+}
+function todayLocal() {
+  const t = new Date();
+  return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`;
+}
+// Latest data date: the newest series row, or today when there is none.
+function anchorDate() {
+  const rows = seriesRows();
+  return rows.length ? String(rows[rows.length - 1].as_of_date).slice(0, 10) : todayLocal();
+}
+function currentRange() { return scopeRange(scope, anchorDate(), { from: customFrom, to: customTo }); }
+function syncScopeControls() {
+  document.getElementById("scopeSelect").value = scope;
+  const from = document.getElementById("customFrom"), to = document.getElementById("customTo");
+  from.value = customFrom; to.value = customTo;
+  from.style.display = to.style.display = scope === "custom" ? "inline-block" : "none";
+  document.getElementById("scopeLabel").textContent = currentRange().label;
+}
 let categoryModel = null;
 let chartRows = [];
 // imported data (best effort: the page still works from the plan-derived log without it).
 let balances = null;      // /api/balances
 let flowsData = null;     // /api/flows
 
-// Show the newest dates first: scrolled all the way to the right.
-function scrollChartsToLatest() {
-  for (const id of ["chartNetWorth", "chartHoldings", "chartInvFlows"]) {
-    const box = document.getElementById(id);
-    const sc = box && box.querySelector && box.querySelector(".chart-scroll");
-    if (sc) sc.scrollLeft = sc.scrollWidth;
-  }
+// Charts are drawn at their card's measured width (no horizontal scrolling); 0 = unknown.
+const FITTED_CHARTS = ["chartNetWorth", "chartHoldings", "chartInvFlows"];
+const drawnWidth = {};
+function boxWidth(id) {
+  const box = document.getElementById(id);
+  return box && box.clientWidth > 0 ? Math.floor(box.clientWidth) : 0;
 }
 
 // The newest snapshot's price refresh status: if live prices couldn't be
@@ -189,12 +250,20 @@ function seriesRows() {
   return (hasMonarchBalances(balances) && buildMonarchRows(balances, history)) || history;
 }
 
+// The flows line follows the Time scope: the daily ledger bucketed by day/week/month, or --
+// for log entries written before the daily ledger existed -- whole months overlapping the range.
 function flowSeriesForPage() {
-  if (!flowsData || !flowsData.monthly || !Object.keys(flowsData.monthly).length) return null;
+  if (!flowsData) return null;
+  const hasDaily = flowsData.daily && Object.keys(flowsData.daily).length;
+  const hasMonthly = flowsData.monthly && Object.keys(flowsData.monthly).length;
+  if (!hasDaily && !hasMonthly) return null;
   const included = flowIncludedAccounts(flowsData.accounts, balances);
-  const series = flowMonthlySeries(flowsData.monthly, included);
-  const year = Number(String(flowsData.as_of_date || "").slice(0, 4)) || new Date().getFullYear();
-  return { series, ytd: flowYtdSummary(series, year) };
+  const range = currentRange();
+  const granularity = hasDaily ? range.granularity : "month";
+  const series = hasDaily
+    ? flowSeries(flowsData.daily, included, range, granularity)
+    : flowMonthlyRangeSeries(flowsData.monthly, included, range);
+  return { series, granularity, daily: !!hasDaily, summary: flowPeriodSummary(series, range.label) };
 }
 
 function renderFlows(latest) {
@@ -202,10 +271,11 @@ function renderFlows(latest) {
   document.getElementById("flowsAcctBtn").style.display = flows && hasMonarchBalances(balances) ? "inline-block" : "none";
   document.getElementById("passthroughReview").innerHTML = latest ? passthroughReviewHtml(latest.passthrough_review) : "";
   if (flows) {
-    document.getElementById("flowsTitle").textContent = "Investment net flows (monthly)";
-    document.getElementById("flowSummary").innerHTML = flowSummaryHtml(flows.ytd);
-    document.getElementById("chartInvFlows").innerHTML = flowLineChartSvg(flows.series);
-    document.getElementById("noteFlows").textContent = "Monthly net contributions: money moved from checking into investment accounts (credits) minus money withdrawn to checking (debits). Positive months added to investments. Investment-to-investment transfers are matched and excluded as before (pairs within $100 of each other are flagged above for you to approve or deny). Accounts follow the Flows toggles under Accounts ▾; decisions apply at the next Run now.";
+    document.getElementById("flowSummary").innerHTML = flowSummaryHtml(flows.summary);
+    document.getElementById("chartInvFlows").innerHTML = flowLineChartSvg(flows.series, { width: boxWidth("chartInvFlows"), granularity: flows.granularity });
+    document.getElementById("noteFlows").textContent = "Net contributions over the selected time scope: money moved from checking into investment accounts (credits) minus money withdrawn to checking (debits), totalled above for the period. Like the other charts, the line shows one point per day for 1 Week and 1 Month, per week for 3 and 6 Months, and per month for longer scopes; a point above zero added to investments. " +
+      (flows.daily ? "" : "This snapshot has only monthly figures, so short scopes show the whole months they touch until the next update. ") +
+      "Investment-to-investment transfers are matched and excluded as before (pairs within $100 of each other are flagged above for you to approve or deny). Accounts follow the Flows toggles under Accounts ▾; decisions apply right away.";
     return;
   }
   // Older logs without the monthly ledger keep the YTD bar chart.
@@ -213,16 +283,17 @@ function renderFlows(latest) {
   document.getElementById("flowSummary").innerHTML = "";
   document.getElementById("chartInvFlows").innerHTML = flowModel
     ? flowBarChartSvg(flowModel)
-    : '<div class="empty">No per-account investment flows logged yet - click Run now to capture them.</div>';
+    : '<div class="empty">No per-account investment flows logged yet.</div>';
 }
 
 function render() {
   renderPriceNote();
   renderBalancesNote();
-  let filtered = filterByTimeframe(seriesRows(), timeframe);
+  document.getElementById("scopeLabel").textContent = currentRange().label;
+  let filtered = filterByTimeframe(seriesRows(), scope, { from: customFrom, to: customTo });
   const allTimeNote = document.getElementById("allTimeNote");
   allTimeNote.style.display = "none";
-  if (timeframe === "all") {
+  if (scope === "all") {
     const t = truncateAllTime(filtered);
     filtered = t.rows;
     if (t.truncated) {
@@ -231,31 +302,69 @@ function render() {
     }
   }
 
-  // Granularity: daily for day/week/month, weekly for quarter, monthly
-  // for ytd/12-month/all-time (custom infers from the span it covers).
-  const granularity = granularityForTimeframe(timeframe, filtered);
+  // Granularity: daily for 1 Week/1 Month, weekly for 3/6 Months, monthly for
+  // YTD/1 Year/All Time (Custom infers from the span it covers).
+  const granularity = granularityForTimeframe(scope, filtered);
   const rows = aggregateByGranularity(filtered, granularity);
   chartRows = rows;
   hideRollover();
+  // label = the full date (tooltips, data table); date drives the shorter x-axis labels.
+  const pointsOf = (pick) => rows.map(r => ({ label: labelForDate(r.as_of_date, granularity), date: String(r.as_of_date).slice(0, 10), value: pick(r) }));
   document.getElementById("chartNetWorth").innerHTML = lineChartSvg(
-    rows.map(r => ({ label: labelForDate(r.as_of_date, granularity), value: r.net_worth && r.net_worth.total })), { color: "#16a34a", title: "Net worth", interactive: true }
+    pointsOf(r => r.net_worth && r.net_worth.total), { color: "#16a34a", title: "Net Worth", interactive: true, granularity, width: boxWidth("chartNetWorth") }
   );
   document.getElementById("chartHoldings").innerHTML = lineChartSvg(
-    rows.map(r => ({ label: labelForDate(r.as_of_date, granularity), value: r.holdings && r.holdings.current_value })), { color: "#2563eb", title: "Liquid Investments and Cash", interactive: true }
+    pointsOf(r => r.holdings && r.holdings.current_value), { color: "#2563eb", title: "Liquid Investments and Cash", interactive: true, granularity, width: boxWidth("chartHoldings") }
   );
   // The remaining cards read the latest plan snapshot, whatever the imported rows are.
   const latest = history[history.length - 1];
   renderFlows(latest);
-  categoryModel = latest && latest.ytd_expense_hierarchy ? buildHierarchyRows(latest.ytd_expense_hierarchy, latest.ytd_expense_prior_year, latest.annual_budget_by_tracking_type, latest.ytd_expense_prior_detail, latest.annual_budget_by_category) : null;
+  renderSpending(latest);
+  for (const id of FITTED_CHARTS) drawnWidth[id] = boxWidth(id);
+}
+
+// Spending follows the Time scope: /api/spending for the current range (kept per window until
+// the next data load). Only the newest request may draw; if it fails, the card falls back to
+// the latest logged year-to-date snapshot and says so.
+const spendingSeq = latestOnly();
+const spendingMemo = new Map();
+function drawSpending(model, emptyText) {
+  categoryModel = model;
   const categories = [];
-  if (categoryModel && categoryModel.rows.length) {
-    categories.push(["Total", categoryModel.total, { kind: "total", ...categoryModel.totalDetail, ...categoryModel.totalMarkers }]);
-    for (const r of categoryModel.rows) categories.push([r.name, r.amount, r]);
+  if (model && model.rows.length) {
+    categories.push(["Total", model.total, { kind: "total", ...model.totalDetail, ...model.totalMarkers }]);
+    for (const r of model.rows) categories.push([r.name, r.amount, r]);
   }
   document.getElementById("chartCategories").innerHTML = categories.length
     ? barChartSvg(categories)
-    : '<div class="empty">No tracking-type breakdown logged yet - click Run now to capture one.</div>';
-  scrollChartsToLatest();
+    : `<div class="empty">${escSvg(emptyText)}</div>`;
+}
+async function renderSpending(latest) {
+  const range = currentRange();
+  const key = `${range.from}|${range.to}`;
+  const id = spendingSeq.start();
+  document.getElementById("spendingPeriod").textContent = range.label;
+  let resp = spendingMemo.get(key) || null;
+  if (!resp) {
+    categoryModel = null;
+    hideAll();
+    document.getElementById("chartCategories").innerHTML = '<div class="empty">Loading…</div>';
+    try {
+      const r = await fetch(spendingUrl(range));
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      resp = await r.json();
+      spendingMemo.set(key, resp);
+    } catch (err) {
+      resp = null;
+    }
+    if (!spendingSeq.isCurrent(id)) return;  // a newer range was asked for meanwhile
+  }
+  const fallback = document.getElementById("spendingFallback");
+  fallback.textContent = resp ? "" : "Showing year-to-date figures; couldn't load this period.";
+  fallback.style.display = resp ? "none" : "block";
+  document.getElementById("noteSpending").textContent = spendingNoteText(resp, range.label);
+  if (resp) drawSpending(spendingModelFromWindow(resp), "No spending recorded in this period.");
+  else drawSpending(spendingModelFromSnapshot(latest), "No tracking-type breakdown logged yet.");
 }
 
 // Finding UX-106 (Wave 5 item W5-6): a failed history fetch previously left
@@ -284,13 +393,14 @@ async function loadMonarch() {
     const resp = await fetch("/api/flows");
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const payload = await resp.json();
-    flowsData = payload && payload.monthly ? payload : null;
+    flowsData = payload && (payload.monthly || payload.daily) ? payload : null;
   } catch (err) {
     flowsData = null;
   }
 }
 
 async function loadHistory() {
+  spendingMemo.clear();
   try {
     const resp = await fetch("/api/history");
     if (!resp.ok) throw new Error(`history request failed (HTTP ${resp.status})`);
@@ -303,17 +413,11 @@ async function loadHistory() {
   render();
 }
 
-document.getElementById("timeframeBar").addEventListener("click", (e) => {
-  const btn = e.target.closest("button[data-tf]");
-  if (!btn) return;
-  timeframe = btn.dataset.tf;
-  // UX-010 (WI-509): selected timeframe is exposed as aria-pressed, not only the "active" class.
-  document.querySelectorAll("#timeframeBar button[data-tf]").forEach(b => {
-    b.classList.toggle("active", b === btn);
-    b.setAttribute("aria-pressed", b === btn ? "true" : "false");
-  });
-  document.getElementById("customFrom").style.display = timeframe === "custom" ? "inline-block" : "none";
-  document.getElementById("customTo").style.display = timeframe === "custom" ? "inline-block" : "none";
+document.getElementById("scopeSelect").addEventListener("change", (e) => {
+  scope = parseSavedScope(JSON.stringify({ scope: e.target.value })).scope;
+  document.getElementById("customFrom").style.display = scope === "custom" ? "inline-block" : "none";
+  document.getElementById("customTo").style.display = scope === "custom" ? "inline-block" : "none";
+  saveScope();
   render();
 });
 // Hover popup: next level of detail for a category bar (with its total).
@@ -390,7 +494,8 @@ document.getElementById("passthroughReview").addEventListener("click", async (e)
       body: JSON.stringify({ key: item.dataset.key, decision: btn.dataset.decision }),
     });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    item.textContent = "Saved - click Run now to apply.";
+    item.textContent = "Saved - updating.";
+    updateData(true);
   } catch (err) {
     btn.disabled = false;
     item.insertAdjacentText("beforeend", " Couldn't save: " + err.message);
@@ -497,27 +602,90 @@ acctPop.addEventListener("click", (e) => {
   savePrefs(balances.accounts.map(a => ({ chart, account_key: a.account_key, enabled: mode === "default" ? null : mode === "all" })));
 });
 
-document.getElementById("customFrom").addEventListener("change", () => { if (timeframe === "custom") render(); });
-document.getElementById("customTo").addEventListener("change", () => { if (timeframe === "custom") render(); });
-document.getElementById("runNow").addEventListener("click", async () => {
-  const btn = document.getElementById("runNow");
-  btn.disabled = true;
-  btn.textContent = "Running…";
+// Changing a custom date re-renders after a 300 ms debounce (Spending makes a server call).
+function onCustomDate() {
+  customFrom = document.getElementById("customFrom").value;
+  customTo = document.getElementById("customTo").value;
+  saveScope();
+  clearTimeout(scopeTimer);
+  scopeTimer = setTimeout(() => { if (scope === "custom") render(); else syncScopeControls(); }, 300);
+}
+document.getElementById("customFrom").addEventListener("change", onCustomDate);
+document.getElementById("customTo").addEventListener("change", onCustomDate);
+loadScope();
+syncScopeControls();
+// ---- Update on open: run the job when the log is stale, behind an "Updating Data" overlay ----
+const UPDATE_POPUP_ID = "trends-update";
+const updateOverlay = document.getElementById("updateOverlay");
+let updateTimer = null, updateStartedAt = 0, updateBusy = false;
+function showUpdateOverlay() {
+  updateStartedAt = Date.now();
+  const detail = document.getElementById("updateOverlayDetail");
+  const tick = () => { detail.textContent = `Elapsed ${formatElapsed(Date.now() - updateStartedAt)}`; };
+  tick();
+  clearInterval(updateTimer);
+  updateTimer = setInterval(tick, 1000);
+  document.getElementById("updateOverlayAvg").textContent = averageRuntimeText(UPDATE_POPUP_ID) || "Working…";
+  updateOverlay.classList.add("active");
+  updateOverlay.setAttribute("aria-hidden", "false");
+}
+function hideUpdateOverlay() {
+  clearInterval(updateTimer);
+  updateTimer = null;
+  updateOverlay.classList.remove("active");
+  updateOverlay.setAttribute("aria-hidden", "true");
+}
+function showUpdateError(message) {
+  document.getElementById("updateErrorText").textContent = message;
+  document.getElementById("updateError").style.display = "block";
+}
+function clearUpdateError() { document.getElementById("updateError").style.display = "none"; }
+async function fetchRunStatus() {
   try {
-    const resp = await fetch("/api/run-now", { method: "POST" });
-    if (!resp.ok) {
-      const body = await resp.json().catch(() => ({}));
-      const detail = body.error || (body.errors || []).join("; ");
-      throw new Error(`run-now request failed (HTTP ${resp.status})` + (detail ? `: ${detail}` : ""));
-    }
-    await loadHistory();
-  } catch (err) {
-    renderFetchError("Couldn't run the update: " + err.message);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = "Run now";
+    const resp = await fetch("/api/run-status");
+    if (!resp.ok) return null;
+    return await resp.json();
+  } catch (err) { return null; }
+}
+async function postRunNow() {
+  const resp = await fetch("/api/run-now", { method: "POST" });
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => ({}));
+    const detail = body.error || (body.errors || []).join("; ");
+    throw new Error(`The update failed (HTTP ${resp.status})` + (detail ? `: ${detail}` : ""));
   }
-});
+}
+// force: ignore the 15-minute freshness skip (Try again, and after a passthrough decision).
+async function updateData(force) {
+  if (updateBusy) return;
+  updateBusy = true;
+  try {
+    clearUpdateError();
+    const decision = updateDecision(await fetchRunStatus(), Date.now(), force);
+    if (decision === "skip") return;
+    showUpdateOverlay();
+    try {
+      if (decision === "poll") {
+        for (;;) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          const status = await fetchRunStatus();
+          if (status && !status.running) break;
+        }
+      } else {
+        await postRunNow();
+        recordPopupRuntime(UPDATE_POPUP_ID, Date.now() - updateStartedAt);
+      }
+      await loadHistory();
+    } catch (err) {
+      showUpdateError(err.message);
+    } finally {
+      hideUpdateOverlay();
+    }
+  } finally {
+    updateBusy = false;
+  }
+}
+document.getElementById("retryUpdate").addEventListener("click", () => updateData(true));
 
 // ---- Lifecycle: the server stops when this page is closed or Exit is clicked ----
 const sendPing = () => fetch("/api/ping", { method: "POST", keepalive: true }).catch(() => {});
@@ -528,11 +696,25 @@ window.addEventListener("pagehide", () => { navigator.sendBeacon("/api/closing")
 document.getElementById("exitBtn").addEventListener("click", async () => {
   if (!confirm("Exit the Financial trends reporter? The local server will stop.")) return;
   try { await fetch("/api/exit", { method: "POST" }); } catch (err) { /* server already gone */ }
-  document.body.innerHTML = '<h1>Financial trends</h1><div class="sub">The reporter has exited. You can close this tab.</div>';
+  document.body.innerHTML = '<h1>Financial Trends</h1><div class="sub">The reporter has exited. You can close this tab.</div>';
   window.close();
 });
 
-loadHistory();
+// Re-draw when a chart's card changes width (window resize, rotation, layout switch): one render
+// per animation frame, and only when a width actually changed (so a render can't re-trigger itself).
+if (typeof ResizeObserver !== "undefined") {
+  let resizeFrame = 0;
+  const observer = new ResizeObserver(() => {
+    if (resizeFrame) return;
+    resizeFrame = requestAnimationFrame(() => {
+      resizeFrame = 0;
+      if (Object.keys(drawnWidth).length && FITTED_CHARTS.some(id => boxWidth(id) !== drawnWidth[id])) render();
+    });
+  });
+  for (const id of FITTED_CHARTS) observer.observe(document.getElementById(id));
+}
+
+loadHistory().then(() => updateData(false));
 </script>
 </body>
 </html>

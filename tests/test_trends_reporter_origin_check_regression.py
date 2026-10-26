@@ -40,6 +40,16 @@ def test_a_cross_origin_run_now_request_is_rejected(tmp_path):
     assert resp.status_code == 403
 
 
+def test_a_cross_origin_shared_runtime_history_request_is_rejected(tmp_path):
+    app = create_app(_workspace(tmp_path), log_path=tmp_path / "log.jsonl")
+    client = app.test_client()
+    resp = client.get(
+        "/shared/runtime_history.js",
+        headers={"Host": "127.0.0.1:5057", "Origin": "http://evil.example"},
+    )
+    assert resp.status_code == 403
+
+
 def test_a_same_origin_history_request_still_succeeds(tmp_path):
     app = create_app(_workspace(tmp_path), log_path=tmp_path / "log.jsonl")
     client = app.test_client()
@@ -58,3 +68,25 @@ def test_a_request_with_no_origin_header_still_succeeds(tmp_path):
     client = app.test_client()
     resp = client.get("/api/history")
     assert resp.status_code == 200
+
+
+def test_a_cross_origin_run_status_request_is_rejected(tmp_path):
+    app = create_app(_workspace(tmp_path), log_path=tmp_path / "log.jsonl")
+    client = app.test_client()
+    resp = client.get(
+        "/api/run-status",
+        headers={"Host": "127.0.0.1:5057", "Origin": "http://evil.example"},
+    )
+    assert resp.status_code == 403
+
+
+def test_a_cross_origin_spending_request_is_rejected(tmp_path):
+    # Trends Phase 5: /api/spending returns spending detail, so it gets the same guard.
+    app = create_app(_workspace(tmp_path), log_path=tmp_path / "log.jsonl")
+    client = app.test_client()
+    resp = client.get(
+        "/api/spending?from=2026-01-01&to=2026-01-31",
+        headers={"Host": "127.0.0.1:5057", "Origin": "http://evil.example"},
+    )
+    assert resp.status_code == 403
+    assert client.get("/api/spending?from=2026-01-01&to=2026-01-31").status_code == 200

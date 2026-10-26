@@ -2,7 +2,8 @@ from __future__ import annotations
 
 """Monthly investment flows: aggregation, YTD summary and account toggles.
 
-Input is a log entry's ``investment_flows_monthly``:
+Input is a log entry's ``investment_flows_monthly`` (and, when logged, the same shape keyed by
+``YYYY-MM-DD`` in ``investment_flows_daily``, which the client buckets by the selected scope):
 ``{account: {"YYYY-MM": {"to_checking", "from_checking"}}}`` where ``from_checking`` is money
 contributed INTO the investment account and ``to_checking`` is money withdrawn OUT of it.
 
@@ -81,7 +82,9 @@ def resolve_flow_accounts(flow_names: Iterable[str], registry: list[dict[str, An
 def flows_payload(entry: dict[str, Any] | None, registry: list[dict[str, Any]], year: int | None = None) -> dict[str, Any]:
     """Everything the flows chart needs from the latest log entry and the registry toggles."""
     monthly = (entry or {}).get("investment_flows_monthly") or {}
-    accounts = resolve_flow_accounts(monthly, registry)
+    # Daily ledger (Trends Phase 4); older log entries lack it and the client falls back to monthly.
+    daily = (entry or {}).get("investment_flows_daily")
+    accounts = resolve_flow_accounts(set(monthly) | set(daily or {}), registry)
     included = [a["flow_account"] for a in accounts if a["enabled"]]
     series = monthly_series(monthly, included)
     if year is None:
@@ -90,6 +93,7 @@ def flows_payload(entry: dict[str, Any] | None, registry: list[dict[str, Any]], 
         "as_of_date": (entry or {}).get("as_of_date"),
         "accounts": accounts,
         "monthly": monthly,
+        "daily": daily,
         "series": series,
         "ytd": ytd_summary(series, year) if year else None,
     }

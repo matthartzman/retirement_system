@@ -2,7 +2,7 @@
 """Headless import of the Monarch Extractor's balances.csv into the balance store.
 
 Run right after monarch_balances.py in the 03:30 extraction chain (run_monarch.ps1), and
-also by the trends job so "Run now" picks up a fresh file. Stdlib only.
+also by the trends job so an update picks up a fresh file. Stdlib only.
 
 Usage: python financial_trends_reporter/tools/import_monarch_balances.py [--retirement-system-dir PATH]
 """
