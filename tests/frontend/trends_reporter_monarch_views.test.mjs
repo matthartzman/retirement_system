@@ -209,7 +209,7 @@ describe("monthly investment flows", () => {
   test("line chart is a labelled line chart with a data-table fallback; empty gives a message", () => {
     const html = flowLineChartSvg(flowMonthlySeries(MONTHLY, ["Brokerage A", "IRA B"]));
     assert.match(html, /role="img"/);
-    assert.match(html, /Net investment contributions by month, line chart/);
+    assert.match(html, /Net Investment Contributions, line chart/);
     assert.match(html, /<table class="visually-hidden">/);
     assert.match(flowLineChartSvg([]), /class="empty"/);
   });

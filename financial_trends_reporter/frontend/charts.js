@@ -264,7 +264,7 @@ export function buildHierarchyRows(hierarchy, priorByType, budgetByType, priorDe
   return {
     total, rows,
     totalMarkers: { prior: sumMarker(priorByType), budget: sumMarker(budgetByType) },
-    totalDetail: { detailTitle: "Total - by tracking type", detail: rows.map(r => [r.name, r.amount, { prior: r.prior, budget: r.budget }]) },
+    totalDetail: { detailTitle: "Total - By Tracking Type", detail: rows.map(r => [r.name, r.amount, { prior: r.prior, budget: r.budget }]) },
   };
 }
 
@@ -363,13 +363,13 @@ export function barChartSvg(entries) {
   const legend = (anyPrior || anyBudget) ? `<div class="bar-legend" style="font-size:12px">` +
     (anyPrior ? `<span style="color:${PRIOR_COLOR}">&#9646; Prior-year YTD (same dates)</span> ` : "") +
     (anyBudget ? `<span style="color:${BUDGET_COLOR}">&#9646; Full-year budget</span>` : "") + `</div>` : "";
-  const svg = legend + `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="YTD expenses by tracking type, bar chart">
+  const svg = legend + `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-label="Spending, bar chart">
     ${xAxis}
     <line x1="${padL}" y1="0" x2="${padL}" y2="${h - padB}" stroke="#999" stroke-width="1"/>
     ${bars}
   </svg>`;
   const money = v => (v == null ? "-" : fmtMoney(v));
-  return svg + dataTableFallbackHtml("YTD expenses by tracking type", ["Tracking type", "Amount", ...(anyPrior ? ["Prior-year YTD"] : []), ...(anyBudget ? ["Full-year budget"] : [])],
+  return svg + dataTableFallbackHtml("Spending", ["Tracking type", "Amount", ...(anyPrior ? ["Prior-year YTD"] : []), ...(anyBudget ? ["Full-year budget"] : [])],
     entries.map(e => [e[0], fmtMoney(e[1]), ...(anyPrior ? [money(e[2] && e[2].prior)] : []), ...(anyBudget ? [money(e[2] && e[2].budget)] : [])]));
 }
 
@@ -421,7 +421,7 @@ export function rolloverModel(row, kind) {
     if (Math.abs(rest) >= 0.5) lines.push(["Other liabilities", -rest]);
   }
   return {
-    title: "Net worth", date: row.as_of_date, total: nw.total ?? null,
+    title: "Net Worth", date: row.as_of_date, total: nw.total ?? null,
     groups: groupByRole(invAccounts.concat(otherAccounts)), lines,
   };
 }
@@ -584,7 +584,7 @@ export function monarchRolloverModel(row, balances, kind) {
     subtotal: items.reduce((t, i) => t + i.value, 0),
   })).sort((p, q) => Math.abs(q.subtotal) - Math.abs(p.subtotal));
   return {
-    title: chart === "holdings" ? "Liquid Investments and Cash" : "Net worth", date: row.as_of_date,
+    title: chart === "holdings" ? "Liquid Investments and Cash" : "Net Worth", date: row.as_of_date,
     total: chart === "holdings" ? row.holdings.current_value : row.net_worth.total,
     groups, lines: [], emptyNote: "No accounts with a balance are switched on for this date.",
   };
@@ -701,5 +701,17 @@ export function flowSummaryHtml(ytd) {
 export function flowLineChartSvg(series) {
   if (!series.length) return '<div class="empty">No investment transfers recorded for the accounts switched on.</div>';
   return lineChartSvg(series.map(p => ({ label: monthLabel(p.month), value: p.net })),
-    { color: "#0d9488", title: "Net investment contributions by month", pxPerPoint: 56 });
+    { color: "#0d9488", title: "Net Investment Contributions", pxPerPoint: 56 });
+}
+
+// What the page does on open (and after a passthrough decision), given GET /api/run-status:
+// "poll" a run already in flight, "run" a fresh update, or "skip" when the last run is recent.
+// force ignores the freshness window but never starts a second run beside one in flight.
+export function updateDecision(status, nowMs, force = false) {
+  if (!status) return "run";
+  if (status.running) return "poll";
+  if (force) return "run";
+  const last = status.last_run_at ? Date.parse(status.last_run_at) : NaN;
+  if (!Number.isFinite(last)) return "run";
+  return (nowMs - last) / 1000 < Number(status.fresh_seconds ?? 900) ? "skip" : "run";
 }

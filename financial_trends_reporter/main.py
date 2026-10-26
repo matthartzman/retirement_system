@@ -39,6 +39,8 @@ from financial_trends_reporter.trends_job import run as run_trends_job  # noqa: 
 from financial_trends_reporter.trends_log import default_log_path, read_history  # noqa: E402
 
 INDEX_HTML_PATH = _APP_ROOT / "frontend" / "index.html"
+# A run newer than this is fresh enough that the page skips its automatic update on open.
+FRESH_RUN_SECONDS = 900
 
 
 def create_app(retirement_system_dir: Path, log_path: Path | None = None, lifecycle: "Lifecycle | None" = None) -> Flask:
@@ -105,7 +107,7 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, lifecy
     @app.route("/api/passthrough-decision", methods=["POST"])
     def passthrough_decision():
         # Approve/deny a near-match investment-to-investment pair. Takes effect
-        # on the next snapshot (Run now), which re-reads the saved decisions.
+        # on the next snapshot (the update the page starts after a decision), which re-reads them.
         body = request.get_json(silent=True) or {}
         try:
             save_decision(decisions_path_for_log(resolved_log_path), str(body.get("key") or ""), str(body.get("decision") or ""))
@@ -170,18 +172,47 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, lifecy
             return _json({"success": False, "error": str(exc)}, 400)
         return _json({"success": True, "updated": count})
 
-    @app.route("/api/run-now", methods=["POST"])
-    def run_now():
+    # Run lock: at most one job run at a time. A caller that arrives while a run is in flight
+    # waits for it and shares its (payload, status) instead of starting a second run.
+    run_lock = threading.Lock()
+    current_run: dict = {}
+
+    def _execute_run():
         try:
             result = run_trends_job(retirement_system_dir, log_path=resolved_log_path)
         except SchemaVersionError as exc:
             # This process loaded its code before the app database was upgraded.
             logging.getLogger(__name__).exception("run-now: reporter code is older than the app database")
-            return _json({"success": False, "error": f"This reporter is running older code than the app database ({exc}). Close it and start it again."}, 500)
+            return {"success": False, "error": f"This reporter is running older code than the app database ({exc}). Close it and start it again."}, 500
         except Exception as exc:  # noqa: BLE001 - surface the cause instead of a bare HTTP 500
             logging.getLogger(__name__).exception("run-now failed")
-            return _json({"success": False, "error": f"{exc.__class__.__name__}: {exc}"}, 500)
-        return Response(json.dumps(result), status=200 if result.get("success") else 400, content_type="application/json")
+            return {"success": False, "error": f"{exc.__class__.__name__}: {exc}"}, 500
+        return result, 200 if result.get("success") else 400
+
+    @app.route("/api/run-status", methods=["GET"])
+    def run_status():
+        history_rows = read_history(resolved_log_path)
+        last = history_rows[-1].get("run_at") if history_rows else None
+        return _json({"running": bool(current_run), "last_run_at": last or None, "fresh_seconds": FRESH_RUN_SECONDS})
+
+    @app.route("/api/run-now", methods=["POST"])
+    def run_now():
+        with run_lock:
+            holder = current_run.get("holder")
+            is_runner = holder is None
+            if is_runner:
+                holder = current_run["holder"] = {"done": threading.Event(), "response": None}
+        if is_runner:
+            try:
+                holder["response"] = _execute_run()
+            finally:
+                with run_lock:
+                    current_run.clear()
+                holder["done"].set()
+        else:
+            holder["done"].wait()
+        payload, status = holder["response"] or ({"success": False, "error": "update did not finish"}, 500)
+        return Response(json.dumps(payload), status=status, content_type="application/json")
 
     @app.route("/api/ping", methods=["POST"])
     def ping():

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import threading
+import time
 from datetime import date
 from pathlib import Path
 
@@ -130,3 +131,73 @@ def test_closed_page_stops_the_server_after_the_grace_period_but_a_reload_does_n
     life.closing()
     now[0] += CLOSE_GRACE_SECONDS + 1
     assert life.expired()
+
+
+def test_run_status_reports_last_run_at_from_the_log(tmp_path):
+    from financial_trends_reporter import main as reporter_main
+
+    log_path = tmp_path / "log.jsonl"
+    app = create_app(_workspace(tmp_path), log_path=log_path)
+    empty = app.test_client().get("/api/run-status").get_json()
+    assert empty == {"running": False, "last_run_at": None, "fresh_seconds": reporter_main.FRESH_RUN_SECONDS}
+    assert reporter_main.FRESH_RUN_SECONDS == 900
+    append_or_replace_entry(log_path, {"as_of_date": "2026-01-01", "run_at": "2026-01-01T22:00:00Z"})
+    append_or_replace_entry(log_path, {"as_of_date": "2026-01-02", "run_at": "2026-01-02T22:00:00Z"})
+    status = app.test_client().get("/api/run-status").get_json()
+    assert status["last_run_at"] == "2026-01-02T22:00:00Z"
+    assert status["running"] is False
+
+
+def test_concurrent_run_now_calls_share_one_job_run(tmp_path, monkeypatch):
+    from financial_trends_reporter import main as reporter_main
+
+    calls = []
+    entered = threading.Event()
+    release = threading.Event()
+
+    def _slow_job(*_a, **_k):
+        calls.append(1)
+        entered.set()
+        assert release.wait(5)
+        return {"success": True, "marker": len(calls)}
+
+    monkeypatch.setattr(reporter_main, "run_trends_job", _slow_job)
+    app = reporter_main.create_app(_workspace(tmp_path), log_path=tmp_path / "log.jsonl")
+    results = []
+
+    def _call():
+        resp = app.test_client().post("/api/run-now")
+        results.append((resp.status_code, resp.get_json()))
+
+    first = threading.Thread(target=_call)
+    first.start()
+    assert entered.wait(5)
+    assert app.test_client().get("/api/run-status").get_json()["running"] is True
+    second = threading.Thread(target=_call)
+    second.start()
+    time.sleep(0.2)  # the second caller must be waiting, not running the job
+    release.set()
+    first.join(5)
+    second.join(5)
+    assert calls == [1]
+    assert results == [(200, {"success": True, "marker": 1})] * 2
+    assert app.test_client().get("/api/run-status").get_json()["running"] is False
+
+
+def test_a_failed_run_is_shared_with_the_waiting_caller_and_clears_the_lock(tmp_path, monkeypatch):
+    from financial_trends_reporter import main as reporter_main
+
+    attempts = []
+
+    def _job(*_a, **_k):
+        attempts.append(1)
+        if len(attempts) == 1:
+            raise RuntimeError("boom")
+        return {"success": True}
+
+    monkeypatch.setattr(reporter_main, "run_trends_job", _job)
+    app = reporter_main.create_app(_workspace(tmp_path), log_path=tmp_path / "log.jsonl")
+    bad = app.test_client().post("/api/run-now")
+    assert bad.status_code == 500
+    assert "RuntimeError: boom" in bad.get_json()["error"]
+    assert app.test_client().post("/api/run-now").status_code == 200  # a later call runs again

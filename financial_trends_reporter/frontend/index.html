@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Financial trends</title>
+<title>Financial Trends</title>
 <style>
   :root { color-scheme: light dark; }
   body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; padding: 24px; background: #f7f7f8; color: #1a1a1a; }
@@ -24,8 +24,7 @@
   .card-head h2 { margin: 0; }
   .acct-btn { border: 1px solid #ccc; background: transparent; color: inherit; border-radius: 6px; padding: 3px 10px; font-size: 12px; cursor: pointer; }
   .empty { color: #888; font-size: 13px; }
-  #runNow { margin-left: auto; }
-  #exitBtn { margin-left: 8px; }
+  #exitBtn { margin-left: auto; }
   svg text { fill: currentColor; font-size: 12px; }
   .chart-dot { cursor: pointer; }
   .chart-dot:hover { r: 5; }
@@ -95,11 +94,28 @@
   .badge-new { background: #fef3c7; color: #78350f; border-radius: 4px; padding: 0 5px; font-size: 10px; }
   .acct-closed { margin-top: 10px; }
   #accountsMsg { font-size: 12px; margin-top: 6px; }
+  /* "Updating Data" overlay (same look as the planner's build overlay) */
+  :root { --ov-card: #fff; --ov-line: #d8d8dc; --ov-track: #e5e5e8; --ov-accent: #2563eb; --ov-muted: #666; }
+  @media (prefers-color-scheme: dark) { :root { --ov-card: #1e2126; --ov-line: #3a3d44; --ov-track: #2a2d33; --ov-accent: #60a5fa; --ov-muted: #a0a0a8; } }
+  .update-overlay { display: none; position: fixed; inset: 0; z-index: 140; background: rgba(23,23,19,.62); backdrop-filter: blur(2px); align-items: center; justify-content: center; padding: 24px; }
+  .update-overlay.active { display: flex; }
+  .update-card { width: min(520px, calc(100vw - 48px)); background: var(--ov-card); color: inherit; border: 1px solid var(--ov-line); border-radius: 16px; box-shadow: 0 24px 70px rgba(0,0,0,.32); padding: 24px; text-align: center; }
+  .update-spinner { width: 44px; height: 44px; border-radius: 999px; border: 4px solid var(--ov-track); border-top-color: var(--ov-accent); margin: 0 auto 14px; animation: update-spin .85s linear infinite; }
+  @keyframes update-spin { to { transform: rotate(360deg); } }
+  .update-title { font-size: 20px; font-weight: 800; margin: 0 0 6px; }
+  .update-detail { font-size: 13px; color: var(--ov-muted); min-height: 20px; }
+  .update-bar { height: 12px; background: var(--ov-track); border: 1px solid var(--ov-line); border-radius: 999px; overflow: hidden; margin-top: 16px; position: relative; }
+  .update-bar span { position: absolute; top: 0; bottom: 0; width: 35%; background: var(--ov-accent); border-radius: 999px; animation: update-slide 1.3s ease-in-out infinite; }
+  @keyframes update-slide { 0% { left: -35%; } 100% { left: 100%; } }
+  @media (prefers-reduced-motion: reduce) { .update-spinner, .update-bar span { animation: none; } .update-bar span { width: 100%; left: 0; } }
+  .update-avg { font-size: 12px; color: var(--ov-muted); margin-top: 10px; }
+  #updateError { display: none; }
+  #updateError button { margin-left: 8px; border: 1px solid currentColor; background: transparent; color: inherit; border-radius: 6px; padding: 2px 10px; font-size: 12px; cursor: pointer; }
 </style>
 </head>
 <body>
-<h1>Financial trends</h1>
-<div class="sub">YTD expenses by category, liquid investments and cash/performance, net worth, and investment transfers — one entry per weekday close. Net worth and Liquid Investments and Cash use daily Imported account balances. Scroll a chart sideways to see earlier dates.</div>
+<h1>Financial Trends</h1>
+<div class="sub">Four charts: Net Worth, Liquid Investments and Cash, Investment Net Flows, and Spending — one entry per weekday close. Net Worth and Liquid Investments and Cash use daily Imported account balances. Scroll a chart sideways to see earlier dates. The data updates automatically when this page opens.</div>
 <div class="toolbar" id="timeframeBar">
   <button data-tf="week" aria-pressed="false">Week</button>
   <button data-tf="month" class="active" aria-pressed="true">Month</button>
@@ -110,23 +126,24 @@
   <input type="date" id="customFrom" style="display:none" aria-label="Custom range start date">
   <input type="date" id="customTo" style="display:none" aria-label="Custom range end date">
   <button data-tf="custom" aria-pressed="false">Custom</button>
-  <button id="runNow">Run now</button>
   <button id="exitBtn" title="Stop the local reporter server">Exit</button>
 </div>
 <div class="note" id="allTimeNote" style="display:none"></div>
 <div id="priceNote" class="price-note" role="status" style="display:none"></div>
 <div id="balancesNote" class="price-note" role="status" style="display:none"></div>
+<div id="updateError" class="price-note" role="alert"><span id="updateErrorText"></span><button type="button" id="retryUpdate">Try again</button></div>
 <div class="grid">
-  <div class="card"><div class="card-head"><h2>Net worth</h2><button type="button" class="acct-btn" data-acct-chart="networth" data-acct-title="Net worth" aria-haspopup="dialog">Accounts ▾</button></div><div id="chartNetWorth"></div>
+  <div class="card"><div class="card-head"><h2>Net Worth</h2><button type="button" class="acct-btn" data-acct-chart="networth" data-acct-title="Net Worth" aria-haspopup="dialog">Accounts ▾</button></div><div id="chartNetWorth"></div>
     <div class="note" id="noteNetWorth">Net worth = investments (live holdings) + annuities/pension + home, startup equity, cash and autos from the plan inputs, minus the mortgage (amortized from its plan-start balance) and any other liabilities. Home and other plan values are held at their plan-start figures, so day-to-day movement is mostly investments.</div></div>
   <div class="card"><div class="card-head"><h2>Liquid Investments and Cash</h2><button type="button" class="acct-btn" data-acct-chart="holdings" data-acct-title="Liquid Investments and Cash" aria-haspopup="dialog">Accounts ▾</button></div><div id="chartHoldings"></div>
     <div class="note" id="noteHoldings"></div></div>
-  <div class="card"><div class="card-head"><h2 id="flowsTitle">Investment net flows by account (YTD)</h2><button type="button" class="acct-btn" id="flowsAcctBtn" data-acct-chart="flows" data-acct-title="Investment flows" aria-haspopup="dialog" style="display:none">Accounts ▾</button></div><div id="passthroughReview"></div><div id="flowSummary"></div><div id="chartInvFlows"></div>
-    <div class="note" id="noteFlows">Year-to-date transfers between each investment account and checking, as of the latest snapshot. A net withdrawal (money moved to checking) is positive and extends right; net contributions, including 401k employee deferrals and employer match, are negative and extend left. Money moved from one investment account to another through checking is not counted. A withdrawal and a same-amount deposit in different investment accounts within 30 days are matched automatically; pairs within $100 of each other are flagged above for you to approve or deny; and any transaction tagged "invest-to-invest" (or noted "pass-through") is excluded. Decisions apply at the next Run now.</div></div>
-  <div class="card"><h2>YTD expenses by tracking type (latest)</h2><div id="chartCategories"></div>
+  <div class="card"><div class="card-head"><h2 id="flowsTitle">Investment Net Flows</h2><button type="button" class="acct-btn" id="flowsAcctBtn" data-acct-chart="flows" data-acct-title="Investment Net Flows" aria-haspopup="dialog" style="display:none">Accounts ▾</button></div><div id="passthroughReview"></div><div id="flowSummary"></div><div id="chartInvFlows"></div>
+    <div class="note" id="noteFlows">Year-to-date transfers between each investment account and checking, as of the latest snapshot. A net withdrawal (money moved to checking) is positive and extends right; net contributions, including 401k employee deferrals and employer match, are negative and extend left. Money moved from one investment account to another through checking is not counted. A withdrawal and a same-amount deposit in different investment accounts within 30 days are matched automatically; pairs within $100 of each other are flagged above for you to approve or deny; and any transaction tagged "invest-to-invest" (or noted "pass-through") is excluded. Decisions apply right away: the page updates the data after you approve or deny.</div></div>
+  <div class="card"><h2>Spending</h2><div id="chartCategories"></div>
     <div class="note">Roll over a bar to see its categories, then roll over a category to see its merchants. Totals follow the Spending Analysis mapping and include taxes.</div></div>
 </div>
 <div id="accountsMsg" role="status"></div>
+<div id="updateOverlay" class="update-overlay" role="status" aria-live="polite" aria-hidden="true"><div class="update-card"><div class="update-spinner" aria-hidden="true"></div><div class="update-title">Updating Data</div><div id="updateOverlayDetail" class="update-detail">Elapsed 0:00</div><div class="update-bar" aria-hidden="true"><span></span></div><div id="updateOverlayAvg" class="update-avg">Working…</div></div></div>
 <div id="detailPopup" role="tooltip"></div>
 <div id="detailPopup2" role="tooltip"></div>
 <div id="rollPopup" role="tooltip"></div>
@@ -136,7 +153,8 @@
 // Finding QUA-302 (Wave 6 item W6-11): the chart-rendering logic below used
 // to be defined inline, right here, with no module boundary. It now lives
 // in ./charts.js, importable and testable directly.
-import { fmtMoney, escSvg, filterByTimeframe, aggregateByGranularity, granularityForTimeframe, labelForDate, dataTableFallbackHtml, lineChartSvg, barChartSvg, buildHierarchyRows, detailPopupHtml, categoryListHtml, investmentFlowRows, flowBarChartSvg, passthroughReviewHtml, rolloverModel, rolloverHtml, hasMonarchBalances, buildMonarchRows, truncateAllTime, ALL_TIME_START, monarchRolloverModel, balancesFreshnessNote, accountToggleHtml, flowIncludedAccounts, flowMonthlySeries, flowYtdSummary, flowSummaryHtml, flowLineChartSvg } from "./charts.js";
+import { fmtMoney, escSvg, filterByTimeframe, aggregateByGranularity, granularityForTimeframe, labelForDate, dataTableFallbackHtml, lineChartSvg, barChartSvg, buildHierarchyRows, detailPopupHtml, categoryListHtml, investmentFlowRows, flowBarChartSvg, passthroughReviewHtml, rolloverModel, rolloverHtml, hasMonarchBalances, buildMonarchRows, truncateAllTime, ALL_TIME_START, monarchRolloverModel, balancesFreshnessNote, accountToggleHtml, flowIncludedAccounts, flowMonthlySeries, flowYtdSummary, flowSummaryHtml, flowLineChartSvg, updateDecision } from "./charts.js";
+import { formatElapsed, recordPopupRuntime, averageRuntimeText } from "/shared/runtime_history.js";
 
 let history = [];
 let timeframe = "month";
@@ -202,10 +220,9 @@ function renderFlows(latest) {
   document.getElementById("flowsAcctBtn").style.display = flows && hasMonarchBalances(balances) ? "inline-block" : "none";
   document.getElementById("passthroughReview").innerHTML = latest ? passthroughReviewHtml(latest.passthrough_review) : "";
   if (flows) {
-    document.getElementById("flowsTitle").textContent = "Investment net flows (monthly)";
     document.getElementById("flowSummary").innerHTML = flowSummaryHtml(flows.ytd);
     document.getElementById("chartInvFlows").innerHTML = flowLineChartSvg(flows.series);
-    document.getElementById("noteFlows").textContent = "Monthly net contributions: money moved from checking into investment accounts (credits) minus money withdrawn to checking (debits). Positive months added to investments. Investment-to-investment transfers are matched and excluded as before (pairs within $100 of each other are flagged above for you to approve or deny). Accounts follow the Flows toggles under Accounts ▾; decisions apply at the next Run now.";
+    document.getElementById("noteFlows").textContent = "Monthly net contributions: money moved from checking into investment accounts (credits) minus money withdrawn to checking (debits). Positive months added to investments. Investment-to-investment transfers are matched and excluded as before (pairs within $100 of each other are flagged above for you to approve or deny). Accounts follow the Flows toggles under Accounts ▾; decisions apply right away.";
     return;
   }
   // Older logs without the monthly ledger keep the YTD bar chart.
@@ -213,7 +230,7 @@ function renderFlows(latest) {
   document.getElementById("flowSummary").innerHTML = "";
   document.getElementById("chartInvFlows").innerHTML = flowModel
     ? flowBarChartSvg(flowModel)
-    : '<div class="empty">No per-account investment flows logged yet - click Run now to capture them.</div>';
+    : '<div class="empty">No per-account investment flows logged yet.</div>';
 }
 
 function render() {
@@ -238,7 +255,7 @@ function render() {
   chartRows = rows;
   hideRollover();
   document.getElementById("chartNetWorth").innerHTML = lineChartSvg(
-    rows.map(r => ({ label: labelForDate(r.as_of_date, granularity), value: r.net_worth && r.net_worth.total })), { color: "#16a34a", title: "Net worth", interactive: true }
+    rows.map(r => ({ label: labelForDate(r.as_of_date, granularity), value: r.net_worth && r.net_worth.total })), { color: "#16a34a", title: "Net Worth", interactive: true }
   );
   document.getElementById("chartHoldings").innerHTML = lineChartSvg(
     rows.map(r => ({ label: labelForDate(r.as_of_date, granularity), value: r.holdings && r.holdings.current_value })), { color: "#2563eb", title: "Liquid Investments and Cash", interactive: true }
@@ -254,7 +271,7 @@ function render() {
   }
   document.getElementById("chartCategories").innerHTML = categories.length
     ? barChartSvg(categories)
-    : '<div class="empty">No tracking-type breakdown logged yet - click Run now to capture one.</div>';
+    : '<div class="empty">No tracking-type breakdown logged yet.</div>';
   scrollChartsToLatest();
 }
 
@@ -390,7 +407,8 @@ document.getElementById("passthroughReview").addEventListener("click", async (e)
       body: JSON.stringify({ key: item.dataset.key, decision: btn.dataset.decision }),
     });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    item.textContent = "Saved - click Run now to apply.";
+    item.textContent = "Saved - updating.";
+    updateData(true);
   } catch (err) {
     btn.disabled = false;
     item.insertAdjacentText("beforeend", " Couldn't save: " + err.message);
@@ -499,25 +517,78 @@ acctPop.addEventListener("click", (e) => {
 
 document.getElementById("customFrom").addEventListener("change", () => { if (timeframe === "custom") render(); });
 document.getElementById("customTo").addEventListener("change", () => { if (timeframe === "custom") render(); });
-document.getElementById("runNow").addEventListener("click", async () => {
-  const btn = document.getElementById("runNow");
-  btn.disabled = true;
-  btn.textContent = "Running…";
+// ---- Update on open: run the job when the log is stale, behind an "Updating Data" overlay ----
+const UPDATE_POPUP_ID = "trends-update";
+const updateOverlay = document.getElementById("updateOverlay");
+let updateTimer = null, updateStartedAt = 0, updateBusy = false;
+function showUpdateOverlay() {
+  updateStartedAt = Date.now();
+  const detail = document.getElementById("updateOverlayDetail");
+  const tick = () => { detail.textContent = `Elapsed ${formatElapsed(Date.now() - updateStartedAt)}`; };
+  tick();
+  clearInterval(updateTimer);
+  updateTimer = setInterval(tick, 1000);
+  document.getElementById("updateOverlayAvg").textContent = averageRuntimeText(UPDATE_POPUP_ID) || "Working…";
+  updateOverlay.classList.add("active");
+  updateOverlay.setAttribute("aria-hidden", "false");
+}
+function hideUpdateOverlay() {
+  clearInterval(updateTimer);
+  updateTimer = null;
+  updateOverlay.classList.remove("active");
+  updateOverlay.setAttribute("aria-hidden", "true");
+}
+function showUpdateError(message) {
+  document.getElementById("updateErrorText").textContent = message;
+  document.getElementById("updateError").style.display = "block";
+}
+function clearUpdateError() { document.getElementById("updateError").style.display = "none"; }
+async function fetchRunStatus() {
   try {
-    const resp = await fetch("/api/run-now", { method: "POST" });
-    if (!resp.ok) {
-      const body = await resp.json().catch(() => ({}));
-      const detail = body.error || (body.errors || []).join("; ");
-      throw new Error(`run-now request failed (HTTP ${resp.status})` + (detail ? `: ${detail}` : ""));
-    }
-    await loadHistory();
-  } catch (err) {
-    renderFetchError("Couldn't run the update: " + err.message);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = "Run now";
+    const resp = await fetch("/api/run-status");
+    if (!resp.ok) return null;
+    return await resp.json();
+  } catch (err) { return null; }
+}
+async function postRunNow() {
+  const resp = await fetch("/api/run-now", { method: "POST" });
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => ({}));
+    const detail = body.error || (body.errors || []).join("; ");
+    throw new Error(`The update failed (HTTP ${resp.status})` + (detail ? `: ${detail}` : ""));
   }
-});
+}
+// force: ignore the 15-minute freshness skip (Try again, and after a passthrough decision).
+async function updateData(force) {
+  if (updateBusy) return;
+  updateBusy = true;
+  try {
+    clearUpdateError();
+    const decision = updateDecision(await fetchRunStatus(), Date.now(), force);
+    if (decision === "skip") return;
+    showUpdateOverlay();
+    try {
+      if (decision === "poll") {
+        for (;;) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          const status = await fetchRunStatus();
+          if (status && !status.running) break;
+        }
+      } else {
+        await postRunNow();
+        recordPopupRuntime(UPDATE_POPUP_ID, Date.now() - updateStartedAt);
+      }
+      await loadHistory();
+    } catch (err) {
+      showUpdateError(err.message);
+    } finally {
+      hideUpdateOverlay();
+    }
+  } finally {
+    updateBusy = false;
+  }
+}
+document.getElementById("retryUpdate").addEventListener("click", () => updateData(true));
 
 // ---- Lifecycle: the server stops when this page is closed or Exit is clicked ----
 const sendPing = () => fetch("/api/ping", { method: "POST", keepalive: true }).catch(() => {});
@@ -528,11 +599,11 @@ window.addEventListener("pagehide", () => { navigator.sendBeacon("/api/closing")
 document.getElementById("exitBtn").addEventListener("click", async () => {
   if (!confirm("Exit the Financial trends reporter? The local server will stop.")) return;
   try { await fetch("/api/exit", { method: "POST" }); } catch (err) { /* server already gone */ }
-  document.body.innerHTML = '<h1>Financial trends</h1><div class="sub">The reporter has exited. You can close this tab.</div>';
+  document.body.innerHTML = '<h1>Financial Trends</h1><div class="sub">The reporter has exited. You can close this tab.</div>';
   window.close();
 });
 
-loadHistory();
+loadHistory().then(() => updateData(false));
 </script>
 </body>
 </html>

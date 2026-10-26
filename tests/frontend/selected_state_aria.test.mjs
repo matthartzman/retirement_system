@@ -121,7 +121,7 @@ describe("trends reporter timeframe buttons expose aria-pressed", () => {
 
   test("clicking a timeframe moves aria-pressed to it", () => {
     let src = html.match(/<script type="module">([\s\S]*?)<\/script>/)[1];
-    src = src.replace(/^import\s*\{[^}]*\}\s*from\s*["'][^"']*["'];?\s*$/m, "");
+    src = src.replace(/^import\s*\{[^}]*\}\s*from\s*["'][^"']*["'];?\s*$/mg, "");
     const handlers = {};
     const tfButtons = ["week", "ytd", "12m"].map((tf) => ({
       dataset: { tf },
