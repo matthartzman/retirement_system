@@ -26,6 +26,9 @@ read for any window. All of today's drill-down and comparison detail stays.
 - Spending keeps its tracking type → category → merchant hover, the refund netting, the
   included taxes, and its two markers. The markers now mean something for any window.
 
+- No chart scrolls horizontally at any scope or card width. The x-axis is compressed to fit and
+  its labels are chosen to stay readable (§2.6).
+
 ### Non-goals
 - No new chart forms. The "spending over time" stacked chart (option C) is out of scope.
 - No change to the scheduled weekday job, the Monarch import, account toggles, or the
@@ -196,6 +199,54 @@ wrapper (`start=Jan 1 of year`, `end=through or Dec 31`), so the mapping, sign, 
 **Snapshot.** The snapshot keeps logging the `ytd_expense_*` fields, which the fallback and log
 history use. The page just stops reading them first.
 
+### 2.6 No horizontal scrolling: a fitted x-axis with smart labels
+Today `lineChartSvg` makes the chart as wide as `points × 36 px` (56 px for flows) and wraps it in
+`.chart-scroll`. The y-axis labels are then pinned with a sticky overlay, and the page scrolls
+each chart to the right on every render. Because the scope pulldown now sets the number of points,
+the chart is instead **always fitted to its card**, and the x-axis labels do the work of keeping
+it readable.
+
+**Fit the width**
+- `lineChartSvg(points, {width, granularity, …})` draws at the card's measured width. The page
+  measures each chart box and re-renders on resize (`ResizeObserver`, debounced to one frame),
+  and falls back to 560 px when no width is known (tests, first paint).
+- Removed: `.chart-scroll`, `.chart-inner`, the sticky `.chart-yaxis` overlay,
+  `pxPerPoint`, `minW`, and `scrollChartsToLatest()`. The y-axis labels are plain SVG text again.
+  Points are spaced evenly across the plot, so a 1-year chart simply has tighter points.
+- The two bar charts (Spending, and the older flows bar) draw with a `viewBox` and
+  `width:100%`, so they also never clip or scroll in a narrow card.
+- Dots shrink to r = 2 above 40 points and are hidden above 90. Hover and keyboard targets stay
+  one per point, drawn as transparent circles with the same tooltip and arrow-key navigation.
+  Net Worth and Liquid Investments keep their rollover.
+
+**Label the x-axis for the scope, not for the data**
+`xAxisLabels(points, {granularity, plotWidth, scope})` picks which points get a label and how it
+reads. It replaces the "every Nth point" thinning and the `MM-DD` text.
+
+| Granularity | Label text | Which points get a label |
+|---|---|---|
+| day (1 Week, 1 Month) | `Oct 26` (no year; weekday initial under it when ≤ 14 points, e.g. `M`) | Mondays, plus the newest point |
+| week (3 Months, 6 Months) | `Oct 20` (week start) | The first week of each month, plus the newest point |
+| month (YTD, 1 Year, All Time) | `Oct` | Every month if they fit, otherwise quarter starts (Jan/Apr/Jul/Oct) |
+
+- **Year context:** a second line shows the year (`2026`) under the first label and under every
+  label where the year changes, so `Dec` → `Jan` is never ambiguous. A spread of one year or less
+  that stays inside one calendar year shows the year once, in the card's period label instead of
+  under the axis.
+- **Fit by measurement, not by count:** each candidate label's width is estimated from its
+  character count (about 6 px per character at 10 px type, plus 10 px of padding). Candidates are
+  kept greedily from the newest point back, and any label that would overlap a kept one is
+  dropped. The newest point is always labelled.
+- **Narrow cards (< 420 px):** day labels fall back to day-of-month only (`26`), month labels to
+  a single letter with the year line, and the target is about three labels.
+- **Gridlines:** a faint vertical tick marks every labelled point, so a label can be matched to
+  its point without hovering.
+- **Tooltips and the screen-reader table keep the full date** (`Mon, Oct 26, 2026`). Only the
+  axis text is shortened.
+- Investment Net Flows uses the same function. Its months show `Oct` plus the year line.
+- The hover tooltips on points say what a point is: a day, a week starting on a date, or a
+  month.
+
 ## 3. Calls I made (please check while reading)
 1. ~~Prorated vs full-year budget~~: **decided (2026-10-26)**. Spending shows both, as two
    markers alongside the same-period-last-year marker (§2.5). The palette and shapes are my
@@ -220,6 +271,7 @@ a phase runs more than about 1.5× over.
 | 1 | Shared `runtime_history.js`; planner imports it; `/shared/runtime_history.js` route; regenerate system diagram | Sonnet · medium | **Light** | `dashboard_decomp_build_lifecycle.js` lines 1–60 only; one route |
 | 2 | Titles (a, e); remove Run now; overlay; `/api/run-status`; run lock; passthrough → auto-update; copy edits | Sonnet · medium | **Light–moderate** | `index.html` (518 lines, one read), `main.py` (290); server functional tests |
 | 3 | Scope pulldown, `scopeRange`, saved choice, period label; Net Worth / Holdings wired | Sonnet · medium | **Moderate** | `charts.js` lines 30–110; rewrite of the trends block in `selected_state_aria.test.mjs` and the `runNow` id in the escaping test |
+| 3b | Fit-to-width line charts and smart x-axis labels (§2.6); responsive bar charts; remove scroll code | Sonnet · medium–high | **Moderate** | `charts.js` lines 146–220 (`lineChartSvg`), 318–380 (`barChartSvg`), 479–525, 701–705; `index.html` CSS lines 34–37 and the scroll helper at ~150; two tests in `trends_reporter_charts_module_unit.test.mjs` (lines ~205 and ~273) that pin the scroll markup |
 | 4 | Daily flows ledger (`ytd_tracking` + snapshot + `/api/flows`) and client bucketing + period tiles | Opus · medium | **Moderate** | `ytd_tracking.py` (1,785 lines): **grep only**, edit ~960–1000, 1460–1510, 1742. Flows tests (3 files) |
 | 5 | `spending_hierarchy_window` + wrapper; `/api/spending`; proration; cache; client wiring + marker wording | Opus · high | **Moderate–heavy** ⚠ | `spending_tracker.py` (2,029 lines): **grep only**, edit ~1404–1460. Golden-compare check. Popup code in `charts.js` 233–330 |
 | 6 | Docs: release note, remove remaining "Run now" mentions; full `npm test` + `pytest -m "not slow"`, then full `pytest` in background | Sonnet · low | **Light** (tests are wall-clock, not tokens) | Run test output with `-q`; read failures only |
@@ -245,6 +297,22 @@ Then update `test_trends_reporter_server_functional.py` and every assertion on t
 YTD on Jan 1, Custom with one bound, and the granularity table. Replace the aria-pressed test
 with a test that the select change re-renders and saves the choice, and a test that the old
 saved keys map to the new ones.
+
+**Phase 3b:** Write the tests first, in `trends_reporter_charts_module_unit.test.mjs`, and replace
+the two that pin `chart-scroll` and the sticky y-axis:
+- no `chart-scroll`, `chart-inner` or `chart-yaxis` in the output, and the SVG `width` equals the
+  width passed in, for 3 to 400 points
+- label selection for each granularity: Mondays for day, first week of the month for week,
+  months or quarter starts for month, with the newest point always labelled
+- no two kept labels overlap, at widths of 320, 480 and 560 px
+- the year line appears on the first label and wherever the year changes
+- the narrow-card fallback labels
+- tooltips and the data table keep the full date, and the arrow-key navigation still works
+- bar charts carry a `viewBox` and `width:100%`
+
+Then check by hand in the browser pane at desktop, tablet and phone widths, over every scope, in
+light and dark mode. Confirm there is no horizontal scrollbar on the page or on any card.
+Resize the window while a chart is showing.
 
 **Phase 4:** Python tests:
 - daily totals sum to the monthly ledger for every account and month (the reconciliation guard)
@@ -294,6 +362,7 @@ To keep the cost down, use a small fixture transactions file rather than the rea
 - **The full `pytest` (slow subprocess tests):** run it once at the end, in the background, and
   use `-m "not slow"` while iterating.
 
-Overall: **moderate-to-heavy for one 5-hour session**. Splitting is natural after phase 3 (one PR
-for scope, titles and the update on open) and after phases 4–5 (a second PR for flows and
+Overall: **moderate-to-heavy for one 5-hour session**. Phase 3b is self-contained and touches only
+chart rendering and the page's CSS, so it can run in parallel with phase 4. Splitting is natural
+after phase 3b (one PR for scope, titles, fitted charts and the update on open) and after phases 4–5 (a second PR for flows and
 Spending by window).
