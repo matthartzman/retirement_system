@@ -1,6 +1,8 @@
 # Financial Trends: One Time Scope, Update on Open, Spending by Window
 
-Date: 2026-10-26 · Status: design for approval · Area: `financial_trends_reporter/`
+Status: implemented (branch `trends-time-scope`, phases 1-6 built; not yet merged)
+
+Date: 2026-10-26 · Area: `financial_trends_reporter/`
 
 ## 1. Intent
 
