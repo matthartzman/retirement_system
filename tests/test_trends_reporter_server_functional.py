@@ -312,3 +312,29 @@ def test_spending_at_ytd_equals_the_snapshot(tmp_path):
     assert body["prior"]["by_type"] == {"Core Expenses": 100.0}  # Jan 4 + Jan 25, 2025
     assert body["full_year_budget"]["by_type"] == snap["annual_budget_by_tracking_type"]
     assert body["full_year_budget"]["by_category"] == snap["annual_budget_by_category"]
+
+
+def test_run_cancel_stops_a_running_job_and_run_now_reports_cancelled(tmp_path, monkeypatch):
+    from financial_trends_reporter import main as reporter_main
+
+    entered = threading.Event()
+
+    def _job(*_a, cancel=None, **_k):
+        entered.set()
+        assert cancel is not None
+        deadline = time.time() + 5
+        while not cancel() and time.time() < deadline:
+            time.sleep(0.02)
+        return {"success": False, "cancelled": True, "error": "Cancelled."}
+
+    monkeypatch.setattr(reporter_main, "run_trends_job", _job)
+    app = reporter_main.create_app(_workspace(tmp_path), log_path=tmp_path / "log.jsonl")
+    assert app.test_client().post("/api/run-cancel").get_json()["cancelling"] is False  # nothing running
+    out = []
+    t = threading.Thread(target=lambda: out.append(app.test_client().post("/api/run-now").status_code))
+    t.start()
+    assert entered.wait(5)
+    assert app.test_client().post("/api/run-cancel").get_json()["cancelling"] is True
+    t.join(5)
+    assert out == [409]
+    assert app.test_client().get("/api/run-status").get_json()["running"] is False

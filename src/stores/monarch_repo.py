@@ -95,6 +95,38 @@ class MonarchRepo:
             )
         return len(data)
 
+    def migrate_renames(self, rows: Iterable[tuple[str, str, str, float]]) -> list[tuple[str, str]]:
+        """Carry a renamed Monarch account's saved match over to its new name. The export has no account id,
+        so a rename arrives as a new key whose history repeats a stored key's (same dates, same balances)
+        while the old key is gone from the file. The old key's match moves to the new key (unless the new key
+        already has one) and its balance rows are dropped, since the new key now holds that history; left in
+        place they would double count. Returns ``[(old_key, new_key), ...]``."""
+        incoming: dict[str, dict[str, float]] = {}
+        for d, key, _name, bal in rows:
+            incoming.setdefault(str(key), {})[str(d)] = float(bal)
+        with self._store._write() as con:
+            stored: dict[str, dict[str, float]] = {}
+            for d, key, bal in con.execute("SELECT date, account_key, balance FROM monarch_balances"):
+                if key not in incoming:
+                    stored.setdefault(key, {})[d] = bal
+            mapped = {r[0] for r in con.execute("SELECT account_key FROM monarch_account_map")}
+            candidates = {k: v for k, v in incoming.items() if k not in mapped}
+            moves: list[tuple[str, str]] = []
+            for old, old_hist in stored.items():
+                best, best_hits = None, 0
+                for new, new_hist in candidates.items():
+                    hits = [d for d, b in old_hist.items() if d in new_hist and abs(new_hist[d] - b) < 0.005]
+                    if any(abs(old_hist[d]) >= 0.005 for d in hits) and len(hits) > best_hits:
+                        best, best_hits = new, len(hits)
+                if best is None or best_hits < min(3, len(old_hist)) or best_hits < 0.8 * len(old_hist):
+                    continue
+                if old in mapped:
+                    con.execute("UPDATE monarch_account_map SET account_key = ? WHERE account_key = ?", (best, old))
+                con.execute("DELETE FROM monarch_balances WHERE account_key = ?", (old,))
+                candidates.pop(best)
+                moves.append((old, best))
+        return moves
+
     def count(self) -> int:
         with self._store._read() as con:
             return int(con.execute("SELECT COUNT(*) FROM monarch_balances").fetchone()[0])

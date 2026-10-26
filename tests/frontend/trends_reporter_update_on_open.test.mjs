@@ -56,9 +56,55 @@ describe("page markup", () => {
     assert.match(html, /id="updateOverlay"[^>]*role="status"[^>]*aria-live="polite"[^>]*aria-hidden="true"/);
     assert.match(html, /Updating Data/);
     assert.match(html, /id="updateOverlayAvg"/);
-    assert.ok(!/Cancel/.test(html.match(/id="updateOverlay"[\s\S]*?<\/div>\s*<\/div>\s*<\/div>/)[0]));
+  });
+  test("the overlay has a progress bar, Cancel update and Hide buttons, and the keeps-running note", () => {
+    assert.match(html, /role="progressbar"[^>]*aria-valuenow="0"/);
+    assert.match(html, /id="updateCancel"[^>]*>Cancel update</);
+    assert.match(html, /id="updateHide"[^>]*>Hide</);
+    assert.match(html, /The update keeps running if you hide this window\./);
+    assert.match(html, /id="updateChip"[^>]*hidden/);
+    assert.match(html, /\/api\/run-cancel/);
   });
   test("the page imports the shared run-time helpers", () => {
     assert.match(html, /from "\/shared\/runtime_history\.js"/);
+  });
+});
+
+describe("full-year budget marker toggle", async () => {
+  const charts = await import("../../financial_trends_reporter/frontend/charts.js");
+  const entries = [["Total", 300, { kind: "total", prior: 250, budget: 280, fullYear: 900 }], ["Fixed", 300, { kind: "category", prior: 250, budget: 280, fullYear: 900 }]];
+  test("on only for YTD by default", () => {
+    assert.equal(charts.fullYearDefault("ytd"), true);
+    for (const s of ["week", "month", "year", "all", "custom"]) assert.equal(charts.fullYearDefault(s), false);
+  });
+  test("unchecked: no full-year tick, legend entry or axis stretch; checked: all three return", () => {
+    charts.setShowFullYear(false);
+    const off = charts.barChartSvg(entries);
+    assert.ok(!/mk-full/.test(off));
+    assert.ok(!/Full-year budget/.test(off));
+    charts.setShowFullYear(true);
+    const on = charts.barChartSvg(entries);
+    assert.match(on, /mk-full/);
+    assert.match(on, /Full-year budget/);
+  });
+  test("the page has the checkbox in the Spending card head", () => {
+    assert.match(html, /<div class="card-head"><h2>Spending<\/h2><label class="fy-toggle"><input type="checkbox" id="fullYearToggle">/);
+  });
+});
+
+describe("breakdown panels (label-only trigger, fixed dock)", async () => {
+  const charts = await import("../../financial_trends_reporter/frontend/charts.js");
+  const entries = [["Total", 300, { kind: "total", detail: [], detailTitle: "T" }], ["Fixed", 300, { kind: "category", prior: 250, budget: 280, fullYear: 900 }]];
+  test("each row with detail has a focusable label button; ticks are not inside it", () => {
+    const svg = charts.barChartSvg(entries);
+    assert.equal((svg.match(/class="row-label" tabindex="0" role="button"/g) || []).length, 2);
+    const label = svg.match(/<g class="row-label"[\s\S]*?<\/g>/)[0];
+    assert.ok(!/class="mk/.test(label));
+  });
+  test("the panels live in one fixed dock, closed by Escape/Close/outside click", () => {
+    assert.match(html, /<div id="spendDock"[^>]*>\s*<div id="detailPopup"[^>]*><\/div><div id="detailPopup2"/);
+    assert.match(html, /e\.key === "Escape"\) hideAll\(\)/);
+    assert.match(html, /data-dock="close"/);
+    assert.ok(!/scheduleHide|keepOpen/.test(html));
   });
 });

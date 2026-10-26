@@ -29,7 +29,32 @@ from .trends_metrics import compute_snapshot  # noqa: E402
 PRICE_REFRESH_TIMEOUT_SECONDS = 150
 
 
-def refresh_prices(base_dir: Path, *, timeout: float = PRICE_REFRESH_TIMEOUT_SECONDS) -> dict[str, Any]:
+class RunCancelled(Exception):
+    """The user pressed Cancel build in the Updating Data window."""
+
+
+def _run_cancellable(cmd, *, cwd, timeout, cancel):
+    """``subprocess.run`` that also stops (kills the child) when ``cancel()`` turns true."""
+    proc = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                            encoding="utf-8", errors="replace")
+    waited = 0.0
+    while True:
+        try:
+            out, err = proc.communicate(timeout=0.25)
+            return subprocess.CompletedProcess(cmd, proc.returncode, out, err)
+        except subprocess.TimeoutExpired:
+            waited += 0.25
+            if cancel():
+                proc.kill()
+                proc.communicate()
+                raise RunCancelled()
+            if waited >= timeout:
+                proc.kill()
+                proc.communicate()
+                raise
+
+
+def refresh_prices(base_dir: Path, *, timeout: float = PRICE_REFRESH_TIMEOUT_SECONDS, cancel=None) -> dict[str, Any]:
     """Refresh market prices with the main app's own tool before a snapshot.
 
     Holdings (and so net worth) are valued from the local price cache, which only
@@ -41,10 +66,14 @@ def refresh_prices(base_dir: Path, *, timeout: float = PRICE_REFRESH_TIMEOUT_SEC
     if not script.exists():
         return {"refreshed": False, "stale": True, "error": "price refresh tool not found"}
     try:
-        proc = subprocess.run(
-            [sys.executable, str(script)], cwd=str(base_dir), capture_output=True, text=True,
-            encoding="utf-8", errors="replace", timeout=timeout,
-        )
+        cmd = [sys.executable, str(script)]
+        if cancel is None:
+            proc = subprocess.run(cmd, cwd=str(base_dir), capture_output=True, text=True,
+                                  encoding="utf-8", errors="replace", timeout=timeout)
+        else:
+            proc = _run_cancellable(cmd, cwd=str(base_dir), timeout=timeout, cancel=cancel)
+    except RunCancelled:
+        raise
     except Exception as exc:  # timeout, OS error
         return {"refreshed": False, "stale": True, "error": f"price refresh failed: {exc.__class__.__name__}"}
     result: dict[str, Any] = {}
@@ -69,7 +98,9 @@ def refresh_prices(base_dir: Path, *, timeout: float = PRICE_REFRESH_TIMEOUT_SEC
 
 
 def run(retirement_system_base_dir: str | Path, *, log_path: str | Path | None = None, today: date | None = None,
-        refresh: bool = True) -> dict[str, Any]:
+        refresh: bool = True, cancel=None) -> dict[str, Any]:
+    """``cancel``: optional callable; when it turns true the run stops at the next step and returns
+    ``{"success": False, "cancelled": True}`` without writing the log."""
     base_dir = Path(retirement_system_base_dir)
     input_dir = base_dir / "input"
 
@@ -79,7 +110,10 @@ def run(retirement_system_base_dir: str | Path, *, log_path: str | Path | None =
         if guard_errors:
             return {"success": False, "errors": guard_errors}
 
-    pricing = refresh_prices(base_dir) if refresh else {"refreshed": False, "stale": False, "skipped": True}
+    try:
+        pricing = refresh_prices(base_dir, cancel=cancel) if refresh else {"refreshed": False, "stale": False, "skipped": True}
+    except RunCancelled:
+        return {"success": False, "cancelled": True, "error": "Cancelled."}
     path = Path(log_path) if log_path else default_log_path(_APP_ROOT)
     # Monarch balances are best-effort here: the 03:30 chain imports them too, and a
     # missing/rejected file must not fail the snapshot (the result just reports it).
@@ -88,10 +122,14 @@ def run(retirement_system_base_dir: str | Path, *, log_path: str | Path | None =
         balances = import_balances(balances_db, default_source_path(base_dir), today=today)
     except Exception as exc:  # noqa: BLE001 - a locked/unwritable store must not stop the snapshot
         balances = {"success": False, "status": "error", "error": f"{exc.__class__.__name__}: {exc}"}
+    if cancel and cancel():
+        return {"success": False, "cancelled": True, "error": "Cancelled."}
     if balances.get("status") != "error":
         sync_from_app(balances_db, base_dir)  # type, match and ignore from the app's Monarch mapping (never raises)
     snapshot = compute_snapshot(base_dir, today=today, passthrough_decisions=load_decisions(decisions_path_for_log(path)),
                                 balances_db=balances_db if balances.get("status") != "error" else None)
+    if cancel and cancel():
+        return {"success": False, "cancelled": True, "error": "Cancelled."}
     snapshot["pricing"] = pricing
     snapshot["run_at"] = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 

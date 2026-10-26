@@ -233,10 +233,12 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, lifecy
     # waits for it and shares its (payload, status) instead of starting a second run.
     run_lock = threading.Lock()
     current_run: dict = {}
+    cancel_requested = threading.Event()
 
     def _execute_run():
         try:
-            result = run_trends_job(retirement_system_dir, log_path=resolved_log_path)
+            cancel_requested.clear()
+            result = run_trends_job(retirement_system_dir, log_path=resolved_log_path, cancel=cancel_requested.is_set)
         except SchemaVersionError as exc:
             # This process loaded its code before the app database was upgraded.
             logging.getLogger(__name__).exception("run-now: reporter code is older than the app database")
@@ -244,6 +246,8 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, lifecy
         except Exception as exc:  # noqa: BLE001 - surface the cause instead of a bare HTTP 500
             logging.getLogger(__name__).exception("run-now failed")
             return {"success": False, "error": f"{exc.__class__.__name__}: {exc}"}, 500
+        if result.get("cancelled"):
+            return result, 409
         return result, 200 if result.get("success") else 400
 
     @app.route("/api/run-status", methods=["GET"])
@@ -251,6 +255,15 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, lifecy
         history_rows = read_history(resolved_log_path)
         last = history_rows[-1].get("run_at") if history_rows else None
         return _json({"running": bool(current_run), "last_run_at": last or None, "fresh_seconds": FRESH_RUN_SECONDS})
+
+    @app.route("/api/run-cancel", methods=["POST"])
+    def run_cancel():
+        # Cooperative: the job stops at its next step (the price refresh is killed outright).
+        with run_lock:
+            running = bool(current_run)
+        if running:
+            cancel_requested.set()
+        return _json({"success": True, "cancelling": running})
 
     @app.route("/api/run-now", methods=["POST"])
     def run_now():

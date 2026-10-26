@@ -142,3 +142,26 @@ def test_trends_job_stores_balances_beside_its_log(tmp_path):
     assert result["success"]
     assert (tmp_path / "data" / bs.DB_FILENAME).exists()
     assert trends_job.DB_FILENAME == bs.DB_FILENAME
+
+
+def test_a_monarch_rename_carries_type_match_and_chart_choices_to_the_new_key(tmp_path):
+    db = tmp_path / "b.sqlite3"
+    days = ("2026-10-11", "2026-10-12", "2026-10-13", "2026-10-14")
+    old = [(d, "acct0", "Acct 0", 100.0 + i) for i, d in enumerate(days)] + [(d, "acct1", "Acct 1", 200.0) for d in days]
+    bs.import_balances(db, _csv(tmp_path, old), today=TODAY, now=NOW)
+    conn = bs.connect(db)
+    conn.execute("UPDATE accounts SET type='Investment', confirmed=1, app_account='Brokerage' WHERE account_key='acct0'")
+    conn.execute("INSERT INTO account_prefs (chart, account_key, enabled) VALUES ('networth','acct0',0)")
+    conn.commit()
+    conn.close()
+    new = [(d, "acct0 renamed", "Acct 0 Renamed", 100.0 + i) for i, d in enumerate(days)] + [(d, "acct1", "Acct 1", 200.0) for d in days]
+    bs.import_balances(db, _csv(tmp_path, new, "n.csv"), today=TODAY, now=NOW)
+    conn = bs.connect(db)
+    try:
+        assert [r[0] for r in conn.execute("SELECT account_key FROM accounts ORDER BY 1")] == ["acct0 renamed", "acct1"]
+        row = conn.execute("SELECT type, confirmed, app_account FROM accounts WHERE account_key='acct0 renamed'").fetchone()
+        assert tuple(row) == ("Investment", 1, "Brokerage")
+        assert conn.execute("SELECT enabled FROM account_prefs WHERE account_key='acct0 renamed'").fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM balances WHERE account_key='acct0'").fetchone()[0] == 0
+    finally:
+        conn.close()

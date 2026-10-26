@@ -201,3 +201,35 @@ def test_job_runs_auto_update_after_a_good_balances_import_and_never_fails_the_r
     monkeypatch.setattr(reconcile, "auto_apply", boom)
     res = job.run(base)
     assert res["success"] and res["auto_update"]["success"] is False
+
+
+def _renamed_rows(days=("2026-10-11", "2026-10-12", "2026-10-13", "2026-10-14")):
+    """acct0 renamed in Monarch: same history, new name (hence a new key)."""
+    return [(d, "acct0 renamed", "Acct 0 Renamed", 100.0 + i) for i, d in enumerate(days)] + [
+        (d, "acct1", "Acct 1", 200.0) for d in days]
+
+
+def test_a_monarch_rename_keeps_the_saved_match_and_does_not_double_count(tmp_path):
+    base = _workspace(tmp_path)
+    days = ("2026-10-11", "2026-10-12", "2026-10-13", "2026-10-14")
+    before = [(d, "acct0", "Acct 0", 100.0 + i) for i, d in enumerate(days)] + [(d, "acct1", "Acct 1", 200.0) for d in days]
+    mbi.import_balances(base, _csv(base / "b.csv", before), today=TODAY, now=NOW)
+    with active_plan.workspace_store(base, write=True) as store:
+        store.monarch.set_mapping("acct0", "setup_account", "Brokerage", "auto")
+    res = mbi.import_balances(base, _csv(base / "b2.csv", _renamed_rows(days)), today=TODAY, now=NOW)
+    assert res["renamed"] == [("acct0", "acct0 renamed")]
+    with active_plan.workspace_store(base) as store:
+        mapping = store.monarch.mapping()
+        accounts = {a["account_key"]: a for a in store.monarch.accounts_as_of("2026-10-14")}
+    assert mapping == {"acct0 renamed": {"kind": "setup_account", "ref": "Brokerage", "policy": "auto"}}
+    assert set(accounts) == {"acct0 renamed", "acct1"}  # no leftover old key
+    assert accounts["acct0 renamed"]["balance"] == 103.0
+
+
+def test_a_closed_account_is_not_mistaken_for_a_rename(tmp_path):
+    base = _workspace(tmp_path)
+    mbi.import_balances(base, _csv(base / "b.csv", _rows()), today=TODAY, now=NOW)
+    later = [(d, "other", "Other", 55.0) for d in ("2026-10-13", "2026-10-14")] + [r for r in _rows() if r[1] != "acct0"]
+    res = mbi.import_balances(base, _csv(base / "b2.csv", later), today=TODAY, now=NOW)
+    assert res["renamed"] == []
+    assert "acct0" in {a["account_key"] for a in _repo_read(base, lambda r: r.accounts_as_of("2026-10-14"))}

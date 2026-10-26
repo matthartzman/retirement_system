@@ -88,6 +88,9 @@ def import_balances(base_dir: str | Path, csv_path: str | Path | None = None, *,
         if prev and prev["accounts"] and len(keys) < prev["accounts"] * (1 - MAX_ACCOUNT_DROP):
             return reject(f"account count fell from {prev['accounts']} to {len(keys)} (more than {int(MAX_ACCOUNT_DROP * 100)}% drop)")
         with store.transaction():
+            renamed = repo.migrate_renames(rows)
             repo.upsert_balances(rows)
-            repo.record_import(stamp, str(path), "ok", rows=len(rows), accounts=len(keys), latest_date=latest)
-    return {"success": True, "status": "ok", "rows": len(rows), "accounts": len(keys), "latest_date": latest}
+            repo.record_import(stamp, str(path), "ok", rows=len(rows), accounts=len(keys), latest_date=latest,
+                               detail="; ".join(f"renamed {old!r} -> {new!r}" for old, new in renamed))
+    return {"success": True, "status": "ok", "rows": len(rows), "accounts": len(keys), "latest_date": latest,
+            "renamed": renamed}
