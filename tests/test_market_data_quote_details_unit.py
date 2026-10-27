@@ -126,7 +126,7 @@ def test_module_level_wrapper_uses_default_provider(monkeypatch):
 
 
 def _history(timestamps, closes):
-    return {"chart": {"result": [{"meta": {"exchangeTimezoneName": "America/New_York"}, "timestamp": timestamps,
+    return {"chart": {"result": [{"meta": {"exchangeTimezoneName": "America/New_York", "gmtoffset": -18000}, "timestamp": timestamps,
                                    "indicators": {"quote": [{"close": closes}]}}], "error": None}}
 
 

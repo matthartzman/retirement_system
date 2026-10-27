@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import json
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
@@ -46,6 +46,41 @@ def test_trading_day_helpers():
     assert ls.last_trading_day_on_or_before(date(2025, 12, 31)) == date(2025, 12, 31)
     assert ls.next_trading_day_after(date(2025, 12, 31)) == date(2026, 1, 2)       # skips New Year's Day
     assert ls.previous_trading_day(date(2026, 1, 20)) == date(2026, 1, 16)          # MLK Monday in between
+
+
+@pytest.mark.parametrize("utc, offset_hours", [
+    (datetime(2026, 3, 8, 6, 59, tzinfo=timezone.utc), -5),    # 01:59 EST, just before the March change
+    (datetime(2026, 3, 8, 7, 0, tzinfo=timezone.utc), -4),     # 03:00 EDT
+    (datetime(2026, 11, 1, 5, 59, tzinfo=timezone.utc), -4),   # 01:59 EDT
+    (datetime(2026, 11, 1, 7, 0, tzinfo=timezone.utc), -5),    # 02:00 EST, after the November change
+    (datetime(2027, 3, 14, 7, 0, tzinfo=timezone.utc), -4),
+])
+def test_eastern_dst_rule(utc, offset_hours):
+    assert utc.astimezone(ls.EASTERN).utcoffset().total_seconds() == offset_hours * 3600
+
+
+def test_eastern_matches_zoneinfo_where_tzdata_is_installed():
+    zoneinfo = pytest.importorskip("zoneinfo")
+    try:
+        real = zoneinfo.ZoneInfo("America/New_York")
+    except zoneinfo.ZoneInfoNotFoundError:
+        pytest.skip("no time-zone database on this machine (the reason EASTERN exists)")
+    t = datetime(2025, 1, 1, tzinfo=timezone.utc)
+    while t.year < 2028:
+        local = t.astimezone(real)
+        change_day = local.date() in (ls._nth_sunday(local.year, 3, 2), ls._nth_sunday(local.year, 11, 1))
+        if not (change_day and 1 <= local.hour <= 3):   # the documented approximate hour; markets are shut
+            assert t.astimezone(ls.EASTERN).replace(tzinfo=None) == local.replace(tzinfo=None, fold=0), t
+        t += timedelta(minutes=30)
+
+
+def test_no_zoneinfo_dependency():
+    # Windows has no system time-zone database; ZoneInfo there needs tzdata, which CI lacks.
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1]
+    for rel in ("financial_trends_reporter/live_snapshot.py", "src/market_data.py"):
+        text = (root / rel).read_text(encoding="utf-8")
+        assert "import zoneinfo" not in text and "from zoneinfo" not in text, rel
 
 
 def test_session_open_utc_follows_dst():

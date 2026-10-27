@@ -1440,7 +1440,6 @@ class MarketDataProvider:
         if not symbol or str(os.getenv("RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS", "") or "").strip().lower() in {"1", "true", "yes", "on"}:
             return {}
         from datetime import datetime, timedelta, timezone
-        from zoneinfo import ZoneInfo
         p1 = int(datetime(start.year, start.month, start.day, tzinfo=timezone.utc).timestamp())
         p2 = int((datetime(end.year, end.month, end.day, tzinfo=timezone.utc) + timedelta(days=1)).timestamp())
         url = YAHOO_HISTORY_URL.format(symbol=urllib.parse.quote(symbol), period1=p1, period2=p2)
@@ -1448,11 +1447,13 @@ class MarketDataProvider:
         out: Dict[str, float] = {}
         try:
             result = payload["chart"]["result"][0]
-            tz = ZoneInfo(str((result.get("meta") or {}).get("exchangeTimezoneName") or "America/New_York"))
+            # Exchange-local date from the payload's own UTC offset (seconds): zoneinfo would need the
+            # tzdata package on Windows. Daily bars start at the open, so DST never moves the date.
+            offset = int((result.get("meta") or {}).get("gmtoffset") or -5 * 3600)
             closes = result["indicators"]["quote"][0]["close"]
             for ts, raw in zip(result.get("timestamp") or [], closes or []):
                 px = _to_price(raw)
-                day = datetime.fromtimestamp(int(ts), tz=timezone.utc).astimezone(tz).date()
+                day = datetime.fromtimestamp(int(ts) + offset, tz=timezone.utc).date()
                 if px is not None and start <= day <= end:
                     out[day.isoformat()] = px
         except Exception:

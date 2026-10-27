@@ -11,17 +11,43 @@ import json
 import sys
 import threading
 import time
-from datetime import date, datetime, time as dtime, timedelta, timezone
+from datetime import date, datetime, time as dtime, timedelta, timezone, tzinfo
 from pathlib import Path
 from typing import Any, Callable, Iterable
-from zoneinfo import ZoneInfo
 
 _APP_ROOT = Path(__file__).resolve().parent
 _REPO_ROOT = _APP_ROOT.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-EASTERN = ZoneInfo("America/New_York")
+
+def _nth_sunday(year: int, month: int, n: int) -> date:
+    first = date(year, month, 1)
+    return first + timedelta(days=(6 - first.weekday()) % 7 + 7 * (n - 1))
+
+
+class _UsEastern(tzinfo):
+    """America/New_York without zoneinfo: Windows has no system time-zone database, so
+    ZoneInfo needs the tzdata package, which is not a dependency (and absent on CI). US rule
+    since 2007: daylight time from 2:00 on the second Sunday of March to 2:00 on the first
+    Sunday of November. The hour around each change is approximate; markets are shut then."""
+
+    def utcoffset(self, dt):
+        return timedelta(hours=-5) + self.dst(dt)
+
+    def dst(self, dt):
+        if dt is None:
+            return timedelta(0)
+        naive = dt.replace(tzinfo=None)
+        start = datetime.combine(_nth_sunday(naive.year, 3, 2), dtime(2, 0))
+        end = datetime.combine(_nth_sunday(naive.year, 11, 1), dtime(2, 0))
+        return timedelta(hours=1) if start <= naive < end else timedelta(0)
+
+    def tzname(self, dt):
+        return "EDT" if self.dst(dt) else "EST"
+
+
+EASTERN = _UsEastern()
 
 # NYSE full-day closures and 1 pm early closes. Static per year (design 4.2: a full exchange
 # calendar is a v2 item); add the next year's dates each December.
