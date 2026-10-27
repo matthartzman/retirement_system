@@ -678,7 +678,8 @@ export function rolloverModel(row, kind) {
   const lines = [];
   if (nw.home != null) lines.push(["Home", nw.home]);
   if (nw.other_assets != null) lines.push(["Other assets (plan)", nw.other_assets]);
-  if (nw.mortgage != null) lines.push(["Mortgage", -nw.mortgage]);
+  // mortgage is 0 when a Monarch mortgage account replaced the plan's (it is listed with the accounts above).
+  if (isNonZero(nw.mortgage)) lines.push(["Mortgage", -nw.mortgage]);
   // nw.liabilities = account liabilities + liabilities file + mortgage. Cards/loans are already listed
   // under their role above and the mortgage has its own line, so show only the remainder.
   if (nw.liabilities != null) {
