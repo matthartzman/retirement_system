@@ -59,18 +59,22 @@ def test_eastern_dst_rule(utc, offset_hours):
     assert utc.astimezone(ls.EASTERN).utcoffset().total_seconds() == offset_hours * 3600
 
 
-def test_eastern_matches_zoneinfo_where_tzdata_is_installed():
-    zoneinfo = pytest.importorskip("zoneinfo")
-    try:
-        real = zoneinfo.ZoneInfo("America/New_York")
-    except zoneinfo.ZoneInfoNotFoundError:
-        pytest.skip("no time-zone database on this machine (the reason EASTERN exists)")
+# Published America/New_York changes (UTC): daylight time starts 2:00 EST, ends 2:00 EDT.
+DST_PERIODS_UTC = [
+    (datetime(2025, 3, 9, 7, tzinfo=timezone.utc), datetime(2025, 11, 2, 6, tzinfo=timezone.utc)),
+    (datetime(2026, 3, 8, 7, tzinfo=timezone.utc), datetime(2026, 11, 1, 6, tzinfo=timezone.utc)),
+    (datetime(2027, 3, 14, 7, tzinfo=timezone.utc), datetime(2027, 11, 7, 6, tzinfo=timezone.utc)),
+]
+
+
+def test_eastern_matches_published_dst_dates_every_half_hour():
+    # No zoneinfo here: CI has no tzdata, and a conditional skip would hide a regression (QA-006).
     t = datetime(2025, 1, 1, tzinfo=timezone.utc)
     while t.year < 2028:
-        local = t.astimezone(real)
-        change_day = local.date() in (ls._nth_sunday(local.year, 3, 2), ls._nth_sunday(local.year, 11, 1))
-        if not (change_day and 1 <= local.hour <= 3):   # the documented approximate hour; markets are shut
-            assert t.astimezone(ls.EASTERN).replace(tzinfo=None) == local.replace(tzinfo=None, fold=0), t
+        fall_back_hour = any(end <= t < end + timedelta(hours=1) for _, end in DST_PERIODS_UTC)
+        if not fall_back_hour:   # the repeated 1 am hour is the documented approximation; markets are shut
+            expected = -4 if any(start <= t < end for start, end in DST_PERIODS_UTC) else -5
+            assert t.astimezone(ls.EASTERN).utcoffset() == timedelta(hours=expected), t
         t += timedelta(minutes=30)
 
 
