@@ -125,6 +125,11 @@ Tailscale Funnel delivers internet traffic to the PC through `tailscaled`. That 
 2. On the PC: `tailscale funnel --bg 5058`. This persists across reboots.
 3. Note the resulting `https://<pc>.<tailnet>.ts.net/` link. That's the link to give people.
 
+## Open decisions — answered 2026-10-27
+
+- **Guest sign-in:** password only, no second step (the owner's choice, on the designer's recommendation). Two-factor stays a non-goal; revisit if the advisor's access ever needs it.
+- **Server start:** at Windows logon. After an unattended reboot the link is down until the owner logs in to the PC. No Windows password is stored for the task.
+
 ## Constraints
 
 - The stdlib HTTP runtime and Flask-compatible facade in `src/http_runtime` are used as-is. No new web framework and no third-party auth or crypto packages.
