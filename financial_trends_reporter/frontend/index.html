@@ -181,6 +181,8 @@
   .live-table .num { text-align: right; }
   .live-table tbody th { font-weight: 600; }
   .live-table .ticker-row th { font-weight: 400; padding-left: 28px; }
+  .live-table .acct-row th { font-weight: 400; padding-left: 48px; }
+  .live-table .lot-row th { font-weight: 400; padding-left: 68px; font-size: 0.92em; }
   .live-table .total-row th, .live-table .total-row td { border-top: 2px solid #ccc; font-weight: 700; }
   .live-table button.expand { border: 0; background: none; color: inherit; font: inherit; font-weight: 600; padding: 0; cursor: pointer; }
   .up { color: #1a7f37; } .down { color: #b42318; } .na, .muted, .flat { color: #888; }
@@ -188,6 +190,11 @@
   .recon { font-size: 12px; color: #666; margin-top: 10px; }
   .recon.warn, .warn-text { color: #9a6700; font-weight: 600; }
   @media (prefers-color-scheme: dark) { .recon { color: #a0a0a8; } .recon.warn, .warn-text { color: #e3b341; } }
+  .recon-table tr.flagged { background: #fff8e1; }
+  .flag, .flag .flag-text { color: #9a6700; font-weight: 600; }
+  ul.hints { margin: 0; padding-left: 18px; font-size: 12px; color: #666; }
+  .recon-table tr.hint-row td { border-top: 0; padding-top: 0; }
+  @media (prefers-color-scheme: dark) { .recon-table tr.flagged { background: #3b2a08; } .flag, .flag .flag-text { color: #e3b341; } ul.hints { color: #a0a0a8; } }
   .live-card .note { font-size: 12px; color: #666; margin: 10px 0 0; }
   @media (prefers-color-scheme: dark) { .live-card .note { color: #a0a0a8; } }
   .totals-band { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
@@ -207,6 +214,8 @@
     .live-table { font-size: 12px; }
     .live-table th, .live-table td { padding: 5px 4px; }
     .live-table .ticker-row th { padding-left: 16px; }
+    .live-table .acct-row th { padding-left: 28px; }
+    .live-table .lot-row th { padding-left: 40px; }
   }
   #updateError { display: none; }
   #updateError button { margin-left: 8px; border: 1px solid currentColor; background: transparent; color: inherit; border-radius: 6px; padding: 2px 10px; font-size: 12px; cursor: pointer; }

@@ -125,6 +125,26 @@ def test_by_equity_subclass():
         ("International Equity", 13200), ("US Total Equity", 13000), ("Small-Cap Value", 5000)]
 
 
+# ---- drill-down: ticker -> holdings account -> lot ----
+# ITOT is one lot in Member_1_IRA: 100 sh held at 12/31, start 100 x 120 = 12000, now 100 x 130 = 13000.
+def test_ticker_drills_to_account_and_lot():
+    itot = _row(_row(_compute()["liquid"]["by_class"], "Equity")["tickers"], "ITOT")
+    (acct,) = itot["accounts"]
+    assert acct["name"] == "Member_1_IRA" and acct["current"] == pytest.approx(13000)
+    (lot,) = acct["lots"]
+    assert lot["purchase_date"] == "2025-06-01" and lot["shares"] == 100 and lot["purchase_price"] == 100
+    assert lot["start"] == pytest.approx(12000) and lot["current"] == pytest.approx(13000)
+    assert lot["reinvested"] is False and lot["share"] == pytest.approx(13000 / 32200)
+
+
+# A second ITOT lot bought 10/1 in the Trust: new money 10 x 125 = 1250, now 10 x 130 = 1300 (< 13000).
+def test_same_ticker_in_two_accounts_splits():
+    lots = LOTS + [{"account": "Member_1_Trust", "symbol": "ITOT", "purchase_date": "2026-10-01", "shares": "10", "purchase_price": "125"}]
+    itot = _row(_row(_compute(lots=lots)["liquid"]["by_class"], "Equity")["tickers"], "ITOT")
+    assert [a["name"] for a in itot["accounts"]] == ["Member_1_IRA", "Member_1_Trust"]
+    assert itot["accounts"][1]["lots"][0]["new_money"] == pytest.approx(1250)
+
+
 def test_lot_bought_this_year_is_new_money():
     avuv = next(t for t in _row(_compute()["liquid"]["by_class"], "Equity")["tickers"] if t["symbol"] == "AVUV")
     assert (avuv["start"], avuv["new_money"]) == (0, 4000)
@@ -174,6 +194,122 @@ def test_reconciliation_compares_previous_close_value_with_monarch():
 def test_reconciliation_flags_over_one_percent():
     monarch = {**MONARCH, "by_account": [dict(a, value=30000.0) if a["account"] == "IRA - Matt" else a for a in MONARCH["by_account"]]}
     assert _compute(monarch=monarch)["reconciliation"]["flag"] is True
+
+
+# ---- reconciliation by account ----
+# Member_1_IRA: ITOT 13000 (day +100) + IXUS 13200 (day -50) = 26200, at Monarch's date 26150 vs 26000: +150 (0.58%).
+# Member_1_Trust: AVUV 5000 (day +50) + CASH 1000 (day 0) = 6000, at Monarch's date 5950 vs 6000: -50.
+
+def _row_by(rows, account):
+    return next(r for r in rows if r["holdings_account"] == account)
+
+
+def test_accounts_reconcile_and_foot_to_total():
+    rec = _compute()["reconciliation"]
+    ira, trust = rec["accounts"]                      # |150| before |-50|
+    assert (ira["holdings_account"], ira["monarch_accounts"]) == ("Member_1_IRA", ["IRA - Matt"])
+    assert ira["holdings_value"] == pytest.approx(26150) and ira["delta"] == pytest.approx(150)
+    assert ira["monarch_value"] == pytest.approx(26000) and ira["delta_pct"] == pytest.approx(150 / 26000)
+    assert ira["flag"] is False and ira["hints"] == []
+    assert trust["delta"] == pytest.approx(-50)
+    assert rec["footing"] == pytest.approx(rec["holdings_value"]) == pytest.approx(32100)
+    assert rec["unmapped_monarch"] == [] and rec["unmapped_holdings"] == [] and rec["monarch_stale"] is False
+
+
+def test_flag_needs_both_one_percent_and_100_dollars():
+    small = {**MONARCH, "by_account": [dict(a, value=5850.0) if a["account"] == "Trust - Matt" else a for a in MONARCH["by_account"]]}
+    trust = _row_by(_compute(monarch=small)["reconciliation"]["accounts"], "Member_1_Trust")
+    assert trust["delta"] == pytest.approx(100) and trust["flag"] is False          # 1.7% but not > $100
+
+
+def test_matches_position_and_direction_hints():
+    # Gap 26150 - 12950 = 13200. IXUS lot at Monarch's date: 200 x 66.25 = 13250 (0.4% off); ITOT 12900 (2.3%).
+    m = {**MONARCH, "by_account": [dict(a, value=12950.0) if a["account"] == "IRA - Matt" else a for a in MONARCH["by_account"]]}
+    ira = _row_by(_compute(monarch=m)["reconciliation"]["accounts"], "Member_1_IRA")
+    assert ira["flag"] is True
+    assert ira["hints"] == [
+        {"kind": "matches_position", "symbol": "IXUS", "shares": 200, "purchase_date": "2025-06-01", "value": pytest.approx(13250)},
+        {"kind": "direction", "higher": "holdings"}]
+
+
+def test_after_balance_date_and_stale_price_hints():
+    # No AVUV quote: priced at the 90 baseline, no day move. Trust = 4500 + 1800 + 1000 = 7300 vs 6000.
+    lots = LOTS + [{"account": "Member_1_Trust", "symbol": "AVUV", "purchase_date": "2026-10-27", "shares": "20", "purchase_price": "100"}]
+    quotes = {k: v for k, v in QUOTES.items() if k != "AVUV"}                      # AVUV falls back to baseline
+    trust = _row_by(_compute(lots=lots, quotes=quotes)["reconciliation"]["accounts"], "Member_1_Trust")
+    assert trust["flag"] is True
+    assert trust["hints"][0] == {"kind": "after_balance_date", "count": 1, "value": pytest.approx(1800)}
+    assert trust["hints"][1] == {"kind": "stale_prices", "symbols": ["AVUV"]}
+    assert trust["hints"][-1] == {"kind": "direction", "higher": "holdings"}
+
+
+def test_lot_bought_on_balance_date_counts_as_included():
+    lots = LOTS + [{"account": "Member_1_Trust", "symbol": "AVUV", "purchase_date": "2026-10-26", "shares": "20", "purchase_price": "100"}]
+    trust = _row_by(_compute(lots=lots)["reconciliation"]["accounts"], "Member_1_Trust")
+    assert trust["flag"] is True                                                    # 7930 vs 6000
+    assert all(h["kind"] != "after_balance_date" for h in trust["hints"])
+
+
+def test_mapped_account_with_no_lots_flags_at_zero():          # Review Focus 2
+    lots = [l for l in LOTS if l["account"] != "Member_1_Trust"]
+    rec = _compute(lots=lots)["reconciliation"]
+    trust = _row_by(rec["accounts"], "Member_1_Trust")
+    assert trust["holdings_value"] == 0 and trust["delta"] == pytest.approx(-6000) and trust["flag"] is True
+    assert trust["delta_pct"] == pytest.approx(-1.0)
+    assert trust["hints"] == [{"kind": "direction", "higher": "monarch"}]
+    assert rec["footing"] == pytest.approx(rec["holdings_value"]) == pytest.approx(26150)
+
+
+def test_both_sides_zero_does_not_divide_or_flag():
+    lots = [l for l in LOTS if l["account"] != "Member_1_Trust"]
+    m = {**MONARCH, "by_account": [dict(a, value=0.0) if a["account"] == "Trust - Matt" else a for a in MONARCH["by_account"]]}
+    trust = _row_by(_compute(lots=lots, monarch=m)["reconciliation"]["accounts"], "Member_1_Trust")
+    assert trust["delta"] == 0 and trust["delta_pct"] is None and trust["flag"] is False and trust["hints"] == []
+
+
+def test_unmapped_both_ways_and_two_monarch_accounts_to_one():
+    accounts = ACCOUNTS + [{"account": "IRA 2 - Matt", "role": "Investment", "mapped_investment_account": "Member_1_IRA"}]
+    monarch = {**MONARCH, "by_account": MONARCH["by_account"] + [
+        {"account": "IRA 2 - Matt", "type": "Retirement", "value": 100.0},
+        {"account": "Old 401k", "type": "Retirement", "value": 900.0}]}
+    lots = LOTS + [{"account": "Member_2_Roth", "symbol": "ITOT", "purchase_date": "2025-06-01", "shares": "1", "purchase_price": "100"}]
+    rec = _compute(accounts=accounts, monarch=monarch, lots=lots)["reconciliation"]
+    ira = _row_by(rec["accounts"], "Member_1_IRA")
+    assert ira["monarch_accounts"] == ["IRA - Matt", "IRA 2 - Matt"] and ira["monarch_value"] == pytest.approx(26100)
+    assert rec["unmapped_monarch"] == [{"name": "Old 401k", "value": 900.0}]
+    assert rec["unmapped_holdings"] == [{"account": "Member_2_Roth", "value": pytest.approx(129)}]
+    assert rec["footing"] == pytest.approx(rec["holdings_value"])
+
+
+def test_monarch_older_than_previous_session_is_noted():
+    assert _compute(monarch={**MONARCH, "latest_date": "2026-10-22"})["reconciliation"]["monarch_stale"] is True
+
+
+def test_matches_symbol_total_when_no_single_lot_fits():
+    # IXUS in two 100-share lots (6625 each at Monarch's date), no ITOT: the gap of 13200 fits neither
+    # lot but the symbol's 13250 total, so the hint carries summed shares and no purchase date.
+    lots = [l for l in LOTS if l["account"] != "Member_1_IRA"] + [
+        {"account": "Member_1_IRA", "symbol": "IXUS", "purchase_date": "2025-06-01", "shares": "100", "purchase_price": "50"},
+        {"account": "Member_1_IRA", "symbol": "IXUS", "purchase_date": "2025-07-01", "shares": "100", "purchase_price": "50"}]
+    m = {**MONARCH, "by_account": [dict(a, value=50.0) if a["account"] == "IRA - Matt" else a for a in MONARCH["by_account"]]}
+    ira = _row_by(_compute(lots=lots, monarch=m)["reconciliation"]["accounts"], "Member_1_IRA")
+    assert ira["flag"] is True
+    assert ira["hints"][0] == {"kind": "matches_position", "symbol": "IXUS", "shares": 200, "purchase_date": None,
+                               "value": pytest.approx(13250)}
+
+
+def test_monarch_balance_of_zero_flags_on_dollars_alone():
+    m = {**MONARCH, "by_account": [dict(a, value=0.0) if a["account"] == "Trust - Matt" else a for a in MONARCH["by_account"]]}
+    trust = _row_by(_compute(monarch=m)["reconciliation"]["accounts"], "Member_1_Trust")
+    assert trust["holdings_value"] > 100 and trust["monarch_value"] == 0
+    assert trust["delta_pct"] is None and trust["flag"] is True
+    assert {"kind": "direction", "higher": "holdings"} in trust["hints"]
+
+
+def test_monday_with_friday_balances_is_not_stale():
+    # 2026-10-26 is a Monday; the previous session was Friday 10-23, so Friday's balances are current.
+    rec = _compute(today=date(2026, 10, 26), monarch={**MONARCH, "latest_date": "2026-10-23"})["reconciliation"]
+    assert rec["monarch_stale"] is False
 
 
 # ---- non-liquid, debt, tax, totals ----
