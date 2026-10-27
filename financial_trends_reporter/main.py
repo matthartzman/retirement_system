@@ -7,7 +7,7 @@ as JSON. Run this to view trends interactively; the weekday-5pm log entry
 itself is written by tools/append_trends_log.py (headless, via Windows Task
 Scheduler), not by this server.
 
-Usage: python financial_trends_reporter/main.py [--retirement-system-dir PATH] [--port 5057]
+Usage: python financial_trends_reporter/main.py [--retirement-system-dir PATH] [--port 5057] [--host 0.0.0.0]
 """
 from __future__ import annotations
 
@@ -374,6 +374,21 @@ class Lifecycle:
         threading.Thread(target=loop, daemon=True).start()
 
 
+def _local_host(host: str) -> str:
+    # A wildcard bind (0.0.0.0 / ::) can't be connected to or browsed on Windows; use loopback locally.
+    return "127.0.0.1" if host in {"0.0.0.0", "::", ""} else host
+
+
+def _lan_ip() -> str | None:
+    # The address other devices on the network use; a UDP connect sends nothing.
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+            probe.connect(("10.255.255.255", 1))
+            return probe.getsockname()[0]
+    except OSError:
+        return None
+
+
 def _port_in_use(host: str, port: int) -> bool:
     # LocalHTTPServer sets SO_REUSEADDR, which on Windows lets a second server bind a
     # port that is already serving, so probe before binding rather than trust bind().
@@ -393,7 +408,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--no-open", action="store_true", help="Don't auto-open a browser tab")
     args = parser.parse_args(argv)
 
-    if _port_in_use(args.host, args.port):
+    if _port_in_use(_local_host(args.host), args.port):
         print(f"Financial trends reporter is already running on port {args.port}. "
               "Close it first if it needs to pick up new code.", file=sys.stderr)
         return 1
@@ -405,8 +420,10 @@ def main(argv: list[str] | None = None) -> int:
     lifecycle = Lifecycle(lambda: holder["server"].shutdown())
     app = create_app(Path(args.retirement_system_dir), lifecycle=lifecycle)
     server = holder["server"] = LocalHTTPServer((args.host, int(args.port)), app)
-    url = f"http://{args.host}:{args.port}"
+    url = f"http://{_local_host(args.host)}:{args.port}"
     print(f"Financial trends reporter listening on {url}")
+    if _local_host(args.host) != args.host and (lan_ip := _lan_ip()):
+        print(f"Other devices on this network: http://{lan_ip}:{args.port}")
     if not args.no_open:
         threading.Timer(1.0, lambda: webbrowser.open(url)).start()
     lifecycle.watch()
