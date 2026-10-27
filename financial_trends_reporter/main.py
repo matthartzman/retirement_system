@@ -7,7 +7,7 @@ as JSON. Run this to view trends interactively; the weekday-5pm log entry
 itself is written by tools/append_trends_log.py (headless, via Windows Task
 Scheduler), not by this server.
 
-Usage: python financial_trends_reporter/main.py [--retirement-system-dir PATH] [--port 5057] [--host 0.0.0.0]
+Usage: python financial_trends_reporter/main.py [--retirement-system-dir PATH] [--port 5057] [--host 127.0.0.1]
 """
 from __future__ import annotations
 
@@ -17,7 +17,6 @@ import logging
 import socket
 import sys
 import threading
-import time
 import webbrowser
 from datetime import date, timedelta
 from pathlib import Path
@@ -67,7 +66,7 @@ def _parse_spending_window(args) -> tuple[date, date]:
     return start, end
 
 
-def create_app(retirement_system_dir: Path, log_path: Path | None = None, lifecycle: "Lifecycle | None" = None) -> Flask:
+def create_app(retirement_system_dir: Path, log_path: Path | None = None) -> Flask:
     app = Flask("financial_trends_reporter", static_folder=str(_APP_ROOT / "frontend"))
     resolved_log_path = log_path or default_log_path(_APP_ROOT)
 
@@ -311,82 +310,19 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, lifecy
 
     @app.route("/api/ping", methods=["POST"])
     def ping():
-        if lifecycle is not None:
-            lifecycle.ping()
-        return _json({"success": True})
-
-    @app.route("/api/closing", methods=["POST"])
-    def closing():
-        if lifecycle is not None:
-            lifecycle.closing()
         return _json({"success": True})
 
     @app.route("/api/exit", methods=["POST"])
     def exit_app():
-        if lifecycle is not None:
-            lifecycle.stop_soon()
+        # Exit only ends the caller's own session (see access_routes); it never stops the server.
         return _json({"success": True})
 
     return app
 
 
-# The page pings every 5s. A hidden tab can be throttled to about one timer a minute, so the
-# idle timeout is generous; a closed page also sends a beacon that shortens it to a short
-# grace period (a reload's first ping cancels that).
-IDLE_TIMEOUT_SECONDS = 150.0
-CLOSE_GRACE_SECONDS = 10.0
-
-
-class Lifecycle:
-    """Stops the server when the browser page goes away. Armed by the first ping, so a server
-    used only through the API (no page ever opened) is never stopped by it."""
-
-    def __init__(self, stop, clock=time.monotonic) -> None:
-        self._stop = stop
-        self._clock = clock
-        self._deadline: float | None = None
-        self._lock = threading.Lock()
-
-    def ping(self) -> None:
-        with self._lock:
-            self._deadline = self._clock() + IDLE_TIMEOUT_SECONDS
-
-    def closing(self) -> None:
-        with self._lock:
-            if self._deadline is not None:
-                self._deadline = min(self._deadline, self._clock() + CLOSE_GRACE_SECONDS)
-
-    def expired(self) -> bool:
-        with self._lock:
-            return self._deadline is not None and self._clock() >= self._deadline
-
-    def stop_soon(self) -> None:
-        # shutdown() blocks until serve_forever exits, so it must not run on the request thread.
-        threading.Thread(target=self._stop, daemon=True).start()
-
-    def watch(self, interval: float = 1.0) -> None:
-        def loop() -> None:
-            while True:
-                time.sleep(interval)
-                if self.expired():
-                    self._stop()
-                    return
-        threading.Thread(target=loop, daemon=True).start()
-
-
 def _local_host(host: str) -> str:
     # A wildcard bind (0.0.0.0 / ::) can't be connected to or browsed on Windows; use loopback locally.
     return "127.0.0.1" if host in {"0.0.0.0", "::", ""} else host
-
-
-def _lan_ip() -> str | None:
-    # The address other devices on the network use; a UDP connect sends nothing.
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
-            probe.connect(("10.255.255.255", 1))
-            return probe.getsockname()[0]
-    except OSError:
-        return None
 
 
 def _port_in_use(host: str, port: int) -> bool:
@@ -409,24 +345,20 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if _port_in_use(_local_host(args.host), args.port):
-        print(f"Financial trends reporter is already running on port {args.port}. "
-              "Close it first if it needs to pick up new code.", file=sys.stderr)
-        return 1
+        url = f"http://{_local_host(args.host)}:{args.port}"
+        print(f"Financial trends reporter is already running; opening {url}.")
+        if not args.no_open:
+            webbrowser.open(url)
+        return 0
     # Re-read account types/mapping from the app so a fix to the sync applies without waiting for the next import.
     sync_from_app(default_log_path(_APP_ROOT).with_name(DB_FILENAME), args.retirement_system_dir)
     assert_safe_to_bind(args.host, _configured_token())
-    # Build the server here (not run_local_server) so Exit and the closed-page watchdog can stop it.
-    holder: dict[str, LocalHTTPServer] = {}
-    lifecycle = Lifecycle(lambda: holder["server"].shutdown())
-    app = create_app(Path(args.retirement_system_dir), lifecycle=lifecycle)
-    server = holder["server"] = LocalHTTPServer((args.host, int(args.port)), app)
+    app = create_app(Path(args.retirement_system_dir))
+    server = LocalHTTPServer((args.host, int(args.port)), app)
     url = f"http://{_local_host(args.host)}:{args.port}"
     print(f"Financial trends reporter listening on {url}")
-    if _local_host(args.host) != args.host and (lan_ip := _lan_ip()):
-        print(f"Other devices on this network: http://{lan_ip}:{args.port}")
     if not args.no_open:
         threading.Timer(1.0, lambda: webbrowser.open(url)).start()
-    lifecycle.watch()
     try:
         server.serve_forever()
     except KeyboardInterrupt:
