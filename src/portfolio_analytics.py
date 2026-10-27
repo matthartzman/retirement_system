@@ -219,6 +219,26 @@ def load_latest_snapshots(workspace_id: str = "local", db_path: str | Path | Non
     return out
 
 
+def snapshot_prices_between(symbols, after_utc: str, before_utc: str, workspace_id: str = "local", db_path: str | Path | None = None) -> Dict[str, float]:
+    """Latest stored price per symbol with ``after_utc <= as_of < before_utc`` (as_of is SQLite UTC
+    ``YYYY-MM-DD HH:MM:SS``). A window from one session's close to the next open gives that close."""
+    wanted = sorted({str(s).strip().upper() for s in symbols if str(s).strip()})
+    p = _existing(db_path) if wanted else None
+    out: Dict[str, float] = {}
+    if p is None:
+        return out
+    marks = ",".join("?" for _ in wanted)
+    with closing_connect(p) as con:
+        for symbol, price in con.execute(
+            f"""SELECT symbol, price FROM price_snapshots
+                WHERE workspace_id=? AND price > 0 AND as_of >= ? AND as_of < ? AND symbol IN ({marks})
+                ORDER BY as_of, snapshot_id""",
+            (workspace_id, after_utc, before_utc, *wanted),
+        ):
+            out[symbol] = float(price)  # ascending order: the last row per symbol wins
+    return out
+
+
 def read_security_master() -> Dict[str, dict]:
     """{SYMBOL: {asset_class, sleeve, region, style, notes}} from the shipped reference.db."""
     from .stores.ref_getters.security_master import security_master_rows

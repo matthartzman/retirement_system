@@ -72,7 +72,8 @@ ALPHA_VANTAGE_QUOTE_URL = "https://www.alphavantage.co/query?function=GLOBAL_QUO
 STOOQ_QUOTE_URL = "https://stooq.com/q/l/?s={symbol}&f=sd2t2ohlcv&h&e=csv"
 STOOQ_QUOTE_HTTP_URL = "http://stooq.com/q/l/?s={symbol}&f=sd2t2ohlcv&h&e=csv"
 YAHOO_CHART_QUERY2_URL = "https://query2.finance.yahoo.com/v8/finance/chart/{symbol}?range=1d&interval=1d&includePrePost=false"
-YAHOO_QUOTE_URL = "https://query1.finance.yahoo.com/v7/finance/quote?symbols={symbol}"
+YAHOO_HISTORY_URL = "https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?period1={period1}&period2={period2}&interval=1d"
+YAHOO_QUOTE_URL ="https://query1.finance.yahoo.com/v7/finance/quote?symbols={symbol}"
 NASDAQ_INFO_URL = "https://api.nasdaq.com/api/quote/{symbol}/info?assetclass={asset_class}"
 
 # Many public quote endpoints reject Python/library user agents even when the
@@ -1365,6 +1366,110 @@ class MarketDataProvider:
         except Exception:
             return {s: self.quote(s) for s in symbol_list}
 
+    def _yahoo_chart_detail(self, symbol: str) -> Optional[Dict[str, object]]:
+        """Price, previous close and market time from Yahoo's chart meta, or None."""
+        for endpoint_name, template in (("chart-query1", YAHOO_CHART_URL), ("chart-query2", YAHOO_CHART_QUERY2_URL)):
+            url = template.format(symbol=urllib.parse.quote(symbol))
+            payload, cause = self._get_json(f"Yahoo Finance {endpoint_name}", symbol, url)
+            if cause or not isinstance(payload, dict):
+                continue
+            chart = payload.get("chart") or {}
+            results = chart.get("result") if isinstance(chart, dict) else None
+            meta = results[0].get("meta") if isinstance(results, list) and results and isinstance(results[0], dict) else None
+            if not isinstance(meta, dict):
+                continue
+            price = _to_price(meta.get("regularMarketPrice"))
+            if price is None:
+                continue
+            previous = _to_price(meta.get("previousClose"))
+            if previous is None:
+                previous = _to_price(meta.get("chartPreviousClose"))
+            as_of = ""
+            try:
+                from datetime import datetime, timezone
+                as_of = datetime.fromtimestamp(int(meta["regularMarketTime"]), tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            except Exception:
+                pass
+            return {"price": price, "previous_close": previous, "as_of": as_of}
+        return None
+
+    def quote_detail(self, symbol: str) -> Dict[str, object]:
+        """Live price plus previous close for one symbol (Live Snapshot view).
+
+        Unlike quote(), never memoized in self.prices: the trends reporter is a long-running
+        server that polls, so every call goes to the providers (callers cache for seconds).
+        Yahoo's chart meta is the only source with a previous close; the other providers
+        give a price only. Falls back to the cache (any age), marked stale.
+        """
+        symbol = _clean_symbol(symbol)
+        detail: Dict[str, object] = {"symbol": symbol, "price": None, "previous_close": None, "as_of": "", "source": "missing", "stale": True}
+        if not symbol:
+            return detail
+        if symbol == "CASH":
+            detail.update(price=1.0, previous_close=1.0, source="cash", stale=False)
+            return detail
+        disabled = str(os.getenv("RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS", "") or "").strip().lower() in {"1", "true", "yes", "on"}
+        if not disabled:
+            live = self._yahoo_chart_detail(symbol)
+            source = "yahoo"
+            if live is None:
+                for provider in self.live_provider_order:
+                    if provider == "yahoo":
+                        continue
+                    px = self._try_provider(provider, symbol)
+                    if _is_good_price(px):
+                        live, source = {"price": float(px), "previous_close": None, "as_of": ""}, provider
+                        break
+            if live is not None:
+                with self._cache_write_lock:
+                    self.cache[symbol] = self._cache_record(symbol, float(live["price"]), source)
+                self._save_cache()
+                detail.update(live, source=source + "_live", stale=False)
+                return detail
+        cached = self._cached_price(symbol, allow_stale=True)
+        if cached is not None:
+            rec = self.cache.get(symbol, {})
+            detail.update(price=cached, source=f"stale_cache_from_{rec.get('source', 'cache')}", as_of=self._cache_iso_for_symbol(symbol))
+        return detail
+
+    def daily_closes(self, symbol: str, start, end) -> Dict[str, float]:
+        """{exchange-local ISO date: close} from Yahoo daily history for ``start``..``end`` (dates,
+        inclusive). Empty on any failure or when live providers are disabled. Unadjusted closes:
+        reinvested dividends arrive as new holdings lots, so adjusting would count them twice."""
+        symbol = _clean_symbol(symbol)
+        if not symbol or str(os.getenv("RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS", "") or "").strip().lower() in {"1", "true", "yes", "on"}:
+            return {}
+        from datetime import datetime, timedelta, timezone
+        p1 = int(datetime(start.year, start.month, start.day, tzinfo=timezone.utc).timestamp())
+        p2 = int((datetime(end.year, end.month, end.day, tzinfo=timezone.utc) + timedelta(days=1)).timestamp())
+        url = YAHOO_HISTORY_URL.format(symbol=urllib.parse.quote(symbol), period1=p1, period2=p2)
+        payload, cause = self._get_json("Yahoo Finance history", symbol, url)
+        out: Dict[str, float] = {}
+        try:
+            result = payload["chart"]["result"][0]
+            # Exchange-local date from the payload's own UTC offset (seconds): zoneinfo would need the
+            # tzdata package on Windows. Daily bars start at the open, so DST never moves the date.
+            offset = int((result.get("meta") or {}).get("gmtoffset") or -5 * 3600)
+            closes = result["indicators"]["quote"][0]["close"]
+            for ts, raw in zip(result.get("timestamp") or [], closes or []):
+                px = _to_price(raw)
+                day = datetime.fromtimestamp(int(ts) + offset, tz=timezone.utc).date()
+                if px is not None and start <= day <= end:
+                    out[day.isoformat()] = px
+        except Exception:
+            if payload is not None and not cause:
+                self._record_failure(symbol, "yahoo:history", url, "Yahoo Finance history payload was not usable.", json.dumps(payload)[:300])
+        return out
+
+    def quote_details(self, symbols: Iterable[str]) -> Dict[str, Dict[str, object]]:
+        """quote_detail() for each distinct symbol, fetched concurrently."""
+        unique = sorted({_clean_symbol(s) for s in symbols if _clean_symbol(s)})
+        if not unique:
+            return {}
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=min(8, len(unique))) as ex:
+            return dict(zip(unique, ex.map(self.quote_detail, unique)))
+
     def _cache_iso_for_symbol(self, symbol: str) -> str:
         """Return the cached quote timestamp for a symbol, if available."""
         rec = self.cache.get(_clean_symbol(symbol), {})
@@ -1696,6 +1801,16 @@ def prewarm_prices(symbols: Iterable[str], skip_live: bool = False) -> None:
     for sym, price in prices.items():
         PRICE_CACHE[sym] = price
         PRICE_SOURCE_CACHE[sym] = _DEFAULT_PROVIDER.sources.get(sym, "unknown")
+
+
+def quote_details(symbols: Iterable[str]) -> Dict[str, Dict[str, object]]:
+    """Live price + previous close per symbol, never memoized (see MarketDataProvider.quote_detail)."""
+    return _DEFAULT_PROVIDER.quote_details(symbols)
+
+
+def daily_closes(symbol: str, start, end) -> Dict[str, float]:
+    """{ISO date: close} from Yahoo daily history (see MarketDataProvider.daily_closes)."""
+    return _DEFAULT_PROVIDER.daily_closes(symbol, start, end)
 
 
 def price_source(symbol: str) -> str:

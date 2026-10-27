@@ -142,6 +142,66 @@
   .update-chip { position: fixed; right: 16px; bottom: 16px; z-index: 130; background: var(--ov-card); border: 1px solid var(--ov-line); border-radius: 10px; padding: 8px 12px; font-size: 13px; box-shadow: 0 8px 24px rgba(0,0,0,.2); }
   .update-chip[hidden] { display: none; }
   .update-avg { font-size: 12px; color: var(--ov-muted); margin-top: 10px; }
+  /* Live Snapshot view (live_snapshot.js): body.live-mode swaps the trend cards for #liveView. */
+  .view-toggle { display: inline-flex; border: 1px solid #ccc; border-radius: 6px; overflow: hidden; }
+  .toolbar .view-toggle button { border: 0; border-radius: 0; }
+  .toolbar .view-toggle button[aria-pressed="true"] { background: #1a1a1a; color: #fff; }
+  @media (prefers-color-scheme: dark) { .view-toggle { border-color: #3a3d44; } .toolbar .view-toggle button[aria-pressed="true"] { background: #e8e8ea; color: #14161a; } }
+  body.live-mode .grid, body.live-mode .scope-pick, body.live-mode #customFrom, body.live-mode #customTo, body.live-mode #scopeLabel,
+  body.live-mode #allTimeNote, body.live-mode #priceNote, body.live-mode #balancesNote { display: none !important; }
+  #liveView { display: grid; gap: 16px; }
+  #liveView[hidden] { display: none; }
+  .live-actions { display: flex; align-items: center; gap: 12px; font-size: 13px; }
+  .live-actions button { border: 1px solid #ccc; background: #fff; color: inherit; border-radius: 6px; padding: 5px 12px; font-size: 13px; cursor: pointer; }
+  @media (prefers-color-scheme: dark) { .live-actions button { background: #1e2126; border-color: #3a3d44; } }
+  #liveBody { display: grid; gap: 16px; }
+  .live-error { color: #b42318; font-size: 13px; }
+  @media (prefers-color-scheme: dark) { .live-error { color: #ff8a80; } }
+  .live-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+  .live-label { font-size: 12px; color: #666; text-transform: uppercase; letter-spacing: .04em; }
+  .live-big { font-size: 32px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .live-sub, .live-status { font-size: 13px; }
+  .live-status { color: #666; margin-top: 6px; text-align: right; }
+  @media (prefers-color-scheme: dark) { .live-label, .live-status, .muted { color: #a0a0a8; } }
+  .indices { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .index-chip, .kind-chip { font-size: 12px; border: 1px solid #ddd; border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
+  @media (prefers-color-scheme: dark) { .index-chip, .kind-chip { border-color: #3a3d44; } }
+  .live-card h3 { font-size: 13px; margin: 16px 0 8px; }
+  .table-wrap { overflow-x: auto; }
+  .live-table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .live-table th, .live-table td { padding: 6px 8px; border-bottom: 1px solid #eee; text-align: left; white-space: nowrap; }
+  @media (prefers-color-scheme: dark) { .live-table th, .live-table td { border-bottom-color: #2a2d33; } }
+  .live-table thead th { font-size: 12px; font-weight: 600; color: #666; }
+  .live-table .num { text-align: right; }
+  .live-table tbody th { font-weight: 600; }
+  .live-table .ticker-row th { font-weight: 400; padding-left: 28px; }
+  .live-table .total-row th, .live-table .total-row td { border-top: 2px solid #ccc; font-weight: 700; }
+  .live-table button.expand { border: 0; background: none; color: inherit; font: inherit; font-weight: 600; padding: 0; cursor: pointer; }
+  .up { color: #1a7f37; } .down { color: #b42318; } .na, .muted, .flat { color: #888; }
+  @media (prefers-color-scheme: dark) { .up { color: #3fb950; } .down { color: #ff8a80; } }
+  .recon { font-size: 12px; color: #666; margin-top: 10px; }
+  .recon.warn, .warn-text { color: #9a6700; font-weight: 600; }
+  @media (prefers-color-scheme: dark) { .recon { color: #a0a0a8; } .recon.warn, .warn-text { color: #e3b341; } }
+  .live-card .note { font-size: 12px; color: #666; margin: 10px 0 0; }
+  @media (prefers-color-scheme: dark) { .live-card .note { color: #a0a0a8; } }
+  .totals-band { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+  .total-step { display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
+  .total-step b { font-size: 15px; font-variant-numeric: tabular-nums; }
+  .total-step.strong b { font-size: 18px; }
+  .kinds { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+  details.live-section { border-top: 1px solid #eee; padding: 8px 0; }
+  @media (prefers-color-scheme: dark) { details.live-section { border-top-color: #2a2d33; } }
+  details.live-section summary { cursor: pointer; font-size: 14px; font-weight: 600; }
+  @media (max-width: 700px) {
+    body { padding: 16px; }
+    .live-table .col-start, .live-table .col-new, .live-table .col-share, .live-table .col-day,
+    .live-table .col-gain, .live-table .col-sog, .live-table .col-ann { display: none; }
+    .live-status { text-align: left; } .indices { justify-content: flex-start; }
+    .live-card { padding: 12px; }
+    .live-table { font-size: 12px; }
+    .live-table th, .live-table td { padding: 5px 4px; }
+    .live-table .ticker-row th { padding-left: 16px; }
+  }
   #updateError { display: none; }
   #updateError button { margin-left: 8px; border: 1px solid currentColor; background: transparent; color: inherit; border-radius: 6px; padding: 2px 10px; font-size: 12px; cursor: pointer; }
 </style>
@@ -150,6 +210,7 @@
 <h1>Financial Trends</h1>
 <div class="sub">Four charts: Net Worth, Liquid Investments and Cash, Investment Net Flows, and Spending — one entry per weekday close. Net Worth and Liquid Investments and Cash use daily Imported account balances. The Time scope pulldown sets the dates every chart covers. The data updates automatically when this page opens.</div>
 <div class="toolbar" id="scopeBar">
+  <div class="view-toggle" role="group" aria-label="View"><button type="button" data-view="trends" aria-pressed="true">Trends</button><button type="button" data-view="live" aria-pressed="false">Live Snapshot</button></div>
   <label class="scope-pick">Time scope <select id="scopeSelect">
     <option value="week">1 Week</option>
     <option value="month" selected>1 Month</option>
@@ -180,6 +241,10 @@
     <div class="spend-fallback" id="spendingFallback" role="status" style="display:none"></div><div id="chartCategories" aria-live="polite"></div>
     <div class="note" id="noteSpending">Totals follow the Spending Analysis mapping and include taxes. Markers: same period last year, budget for this period, and full-year budget. Hover a row label to see its categories (click to pin), then hover a category to see its merchants.</div></div>
 </div>
+<section id="liveView" aria-label="Live Snapshot" hidden>
+  <div class="live-actions"><button type="button" id="liveRefresh">Refresh now</button><span id="liveError" class="live-error" role="alert"></span></div>
+  <div id="liveBody"></div>
+</section>
 <div id="accountsMsg" role="status"></div>
 <div id="updateOverlay" class="update-overlay" role="status" aria-live="polite" aria-hidden="true"><div class="update-card"><div class="update-spinner" aria-hidden="true"></div><div class="update-title">Updating Data</div><div id="updateOverlayDetail" class="update-detail">Elapsed 0:00</div><div class="update-bar" role="progressbar" aria-label="Update progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="updateOverlayBar"></span></div><div id="updateOverlayAvg" class="update-avg">Working…</div><div class="update-actions"><button type="button" id="updateCancel" class="update-btn">Cancel update</button><button type="button" id="updateHide" class="update-btn">Hide</button></div><div class="update-note">The update keeps running if you hide this window.</div></div></div>
 <div id="updateChip" class="update-chip" role="status" hidden><span>Update still running in the background.</span> <button type="button" id="updateShow" class="update-btn">Show progress</button></div>
@@ -825,5 +890,6 @@ if (typeof ResizeObserver !== "undefined") {
 
 loadHistory().then(() => updateData(false));
 </script>
+<script type="module" src="./live_snapshot.js"></script>
 </body>
 </html>

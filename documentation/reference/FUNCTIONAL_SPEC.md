@@ -295,6 +295,35 @@ Liquid Investments and Cash, Investment Net Flows (from a daily flows ledger) an
 updates its data on open (with an Updating Data overlay) instead of a Run now button;
 All Time starts 2025-02-01.
 
+A **Trends | Live Snapshot** switch beside the Time scope pulldown swaps the charts for a
+live balance sheet; the page remembers the choice. Live Snapshot:
+- values the plan's holdings lots at live market prices, which are delayed about 15 minutes;
+- shows today's change and the change since the prior year-end close, by asset class and
+  equity sub-class, with each row expandable to its tickers;
+- includes a strip for the S&P 500, Dow and Nasdaq.
+
+Returns are net of new money (Modified Dietz over the lots):
+- lots held at 12/31 start at that day's close;
+- lots bought since count as new money from their purchase date;
+- reinvested dividends count as gain;
+- gains on positions sold during the year are not included.
+
+The holdings value is checked against the latest Monarch investment balances and flagged
+when more than 1% apart. Non-liquid assets, checking and debt come from the latest Monarch
+balances by account type.
+
+An estimated tax line taxes:
+- pre-tax holdings, the IRA-funded joint annuities and the pension in full at an assumed
+  rate (25% unless overridden);
+- after-tax single-life annuities only above their premium;
+- taxable-account unrealized gains at the plan's LTCG rate.
+
+The rates and annuity premiums live in `financial_trends_reporter/data/live_snapshot_settings.json`.
+The result rolls up to after-tax net worth.
+
+Prices refresh every 60 seconds only while the view is shown, the tab is in front and the
+market is in pre-market, regular or after-hours trading; a Refresh now button fetches at once.
+
 ### 4.11 Settings
 Economic and tax assumptions (capital market assumptions, correlations, tax
 constants, state tax tables), optional-module toggles, a field-finder search
