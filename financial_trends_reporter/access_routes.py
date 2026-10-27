@@ -15,6 +15,15 @@ from .access_store import AccessStore
 from .listeners import current_listener, has_proxy_headers, is_loopback_host
 from .sessions import SessionTable
 
+VIEWS = {"trends", "live", "accounts", "people", "activity"}
+# POST path -> (event, details from the JSON body). Amounts are never logged.
+ACTIONS = {
+    "/api/account": ("account edit", lambda b: " ".join(str(b.get(k)) for k in ("account_key", "type", "app_account") if b.get(k) is not None)),
+    "/api/account-prefs": ("account preferences", lambda b: f"{len(b['items']) if isinstance(b.get('items'), list) else 0} items"),
+    "/api/passthrough-decision": ("passthrough decision", lambda b: f"{b.get('key')} {b.get('decision')}"),
+    "/api/run-now": ("update started", lambda b: ""),
+    "/api/run-cancel": ("run cancelled", lambda b: ""),
+}
 COOKIE = "trends_session"
 OWNER_NAME = "owner (PC)"
 SIGNIN_HTML_PATH = Path(__file__).resolve().parent / "frontend" / "signin.html"
@@ -31,6 +40,22 @@ def _json(payload, status=200, headers=None) -> Response:
 
 
 def register_access(app, store: AccessStore, sessions: SessionTable, clock=time.time) -> None:
+    def _log(event: str, details: str = "", person: str | None = None) -> None:
+        env = request.environ
+        source = str(request.headers.get("X-Forwarded-For", "") or "").split(",")[0].strip() if current_listener() == "remote" else ""
+        store.log_event(person or env.get("person") or "(not signed in)", current_listener(), event, details, source, now=clock())
+
+    def _log_timeouts() -> None:
+        while sessions.expired_user_ids:
+            user = store.get_user(sessions.expired_user_ids.pop())
+            if user:
+                _log("session timed out", person=user["display_name"])
+
+    def _log_action() -> None:
+        if request.method == "POST" and request.path in ACTIONS:
+            event, describe = ACTIONS[request.path]
+            _log(event, describe(request.get_json(silent=True) or {}))
+
     def _owner_only(path: str) -> bool:
         return any(path == p or path.startswith(p + "/") for p in OWNER_ONLY_PREFIXES)
 
@@ -44,6 +69,7 @@ def register_access(app, store: AccessStore, sessions: SessionTable, clock=time.
             if has_proxy_headers(request.headers):
                 return _json({"success": False, "error": "proxied requests are not allowed here"}, 403)
             env["person"] = OWNER_NAME
+            _log_action()
             return None
         # ---- remote ----
         if _owner_only(path):
@@ -52,6 +78,7 @@ def register_access(app, store: AccessStore, sessions: SessionTable, clock=time.
             return None
         token = request.cookies.get(COOKIE)
         sess = sessions.get(token)
+        _log_timeouts()
         user = store.get_user(sess.user_id) if sess else None
         if sess is None or user is None:
             if sess is not None:
@@ -64,6 +91,7 @@ def register_access(app, store: AccessStore, sessions: SessionTable, clock=time.
         env["token"], env["user"], env["person"] = token, user, user["display_name"]
         if user["must_change"] and path.startswith("/api/") and path not in MUST_CHANGE_ALLOWED:
             return _json({"success": False, "must_change": True, "error": "choose a new password first"}, 409)
+        _log_action()
         return None
 
     @app.route("/signin", methods=["GET"])
@@ -76,14 +104,19 @@ def register_access(app, store: AccessStore, sessions: SessionTable, clock=time.
         now = clock()
         delay = store.global_delay(now)
         if delay and now - store.last_failure_at() < delay:
+            _log("sign-in throttled", person="(not signed in)")
             return _json({"success": False, "error": "Too many attempts. Try again shortly."}, 429, {"Retry-After": str(int(delay) + 1)})
         result = store.verify_login(str(body.get("username") or ""), str(body.get("password") or ""), now)
+        attempted = str(body.get("username") or "")[:64]
         if result.reason == "locked":
+            _log("locked out", attempted, person="(not signed in)")
             return _json({"success": False, "error": "Too many attempts. Try again in a few minutes."}, 429, {"Retry-After": "900"})
         if not result.ok:
+            _log("sign-in failed", attempted, person="(not signed in)")
             return _json({"success": False, "error": "Incorrect username or password."}, 401)
         store.touch_last_signin(result.user_id, now)
         token = sessions.create(result.user_id)
+        _log("signed in", person=store.get_user(result.user_id)["display_name"])
         resp = _json({"success": True, "must_change": result.must_change})
         resp.set_cookie(COOKIE, token, secure=True, httponly=True, samesite="Strict", path="/")
         return resp
@@ -92,6 +125,8 @@ def register_access(app, store: AccessStore, sessions: SessionTable, clock=time.
     def signout():
         resp = _json({"success": True})
         if current_listener() == "remote":
+            if request.environ.get("token"):
+                _log("signed out")
             sessions.end(request.environ.get("token"))
             resp.delete_cookie(COOKIE)
         return resp
@@ -117,6 +152,15 @@ def register_access(app, store: AccessStore, sessions: SessionTable, clock=time.
             store.set_password(user["id"], str(body.get("new") or ""), must_change=False, now=clock())
         except ValueError as exc:
             return _json({"success": False, "error": str(exc)}, 400)
+        _log("password changed")
+        return _json({"success": True})
+
+    @app.route("/api/view", methods=["POST"])
+    def view():
+        name = str((request.get_json(silent=True) or {}).get("view") or "")
+        if name not in VIEWS:
+            return _json({"success": False, "error": "unknown view"}, 400)
+        _log("view opened", name)
         return _json({"success": True})
 
     @app.route("/api/ping", methods=["POST"])

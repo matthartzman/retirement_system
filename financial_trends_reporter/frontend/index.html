@@ -881,6 +881,13 @@ const sendPing = () => fetch("/api/ping", {
 }).catch(() => {});
 sendPing();
 setInterval(sendPing, 5000);
+// Views opened go to the owner's activity log (one small request per view change).
+const reportView = (view) => fetch("/api/view", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ view }) }).catch(() => {});
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest && e.target.closest("[data-view]");
+  if (btn && btn.dataset.view) reportView(btn.dataset.view);
+});
+reportView("trends");
 let whoami = { listener: "local", must_change: false };
 async function promptNewPassword() {
   for (;;) {

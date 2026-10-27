@@ -9,6 +9,7 @@ import hmac
 import secrets
 import sqlite3
 import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -40,6 +41,19 @@ CREATE TABLE IF NOT EXISTS users (
 """
 
 
+_ACTIVITY_SCHEMA = """
+CREATE TABLE IF NOT EXISTS activity (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    at REAL NOT NULL,
+    person TEXT NOT NULL,
+    listener TEXT NOT NULL,
+    event TEXT NOT NULL,
+    details TEXT NOT NULL DEFAULT '',
+    source TEXT NOT NULL DEFAULT ''
+)
+"""
+
+
 @dataclass(frozen=True)
 class LoginResult:
     ok: bool
@@ -66,7 +80,7 @@ class AccessStore:
                 conn.close()
 
     def _init_extra(self, conn: sqlite3.Connection) -> None:
-        """Hook for further tables (the activity log)."""
+        conn.execute(_ACTIVITY_SCHEMA)
 
     def _conn(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.path, timeout=10)
@@ -171,6 +185,29 @@ class AccessStore:
                 failed, locked_until = 0, now + LOCK_SECONDS
             self._run("UPDATE users SET failed_count=?, locked_until=? WHERE id=?", (failed, locked_until, row["id"]))
             return LoginResult(False, row["id"], False, "locked" if locked_until else "bad")
+
+    # ---- activity log (never holds passwords, tokens or cookies) ----
+    def log_event(self, person: str, listener: str, event: str, details: str = "", source: str = "", now: float | None = None) -> None:
+        self._run(
+            "INSERT INTO activity(at, person, listener, event, details, source) VALUES (?,?,?,?,?,?)",
+            (time.time() if now is None else now, person, listener, event, details[:300], source[:100]),
+        )
+
+    def read_events(self, person: str | None = None, since: float | None = None, until: float | None = None, limit: int = 500) -> list[dict]:
+        clauses, params = [], []
+        if person:
+            clauses.append("person=?")
+            params.append(person)
+        if since is not None:
+            clauses.append("at>=?")
+            params.append(since)
+        if until is not None:
+            clauses.append("at<=?")
+            params.append(until)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        rows = self._run(f"SELECT at, person, listener, event, details, source FROM activity {where} ORDER BY at DESC, id DESC LIMIT ?",
+                         (*params, int(limit))).fetchall()
+        return [dict(r) for r in rows]
 
     def global_delay(self, now: float) -> float:
         """Seconds sign-ins must be refused for: 0 until ~20 failures in 10 minutes, then growing."""
