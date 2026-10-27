@@ -32,7 +32,7 @@ from src.http_runtime.server import LocalHTTPServer, _configured_token  # noqa: 
 from src.http_runtime.wsgi_facade import Flask, Response, request  # noqa: E402
 from src.stores import SchemaVersionError  # noqa: E402
 
-from financial_trends_reporter import account_registry, balance_series, flows, spending_window  # noqa: E402
+from financial_trends_reporter import account_registry, balance_series, flows, live_snapshot, spending_window  # noqa: E402
 from financial_trends_reporter.app_sync import sync_from_app  # noqa: E402
 from financial_trends_reporter.balance_store import DB_FILENAME, freshness  # noqa: E402
 from financial_trends_reporter.passthrough_decisions import decisions_path_for_log, save_decision  # noqa: E402
@@ -200,6 +200,19 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, lifecy
                 spending_cache[key] = cached
         return Response(cached, content_type="application/json")
 
+    @app.route("/api/live-snapshot", methods=["GET"])
+    def live_snapshot_endpoint():
+        # Live Snapshot view: holdings at live (delayed) prices plus the balance-sheet roll-up.
+        # Quotes are shared for 30 s across requests; ?refresh=1 (Refresh now) refetches, at most
+        # once per 10 s. Inputs other than prices are cached 10 min and cleared by run-now.
+        force = str(request.args.get("refresh") or "") in {"1", "true"}
+        try:
+            inputs = live_snapshot.load_inputs(retirement_system_dir, resolved_log_path, balances_db)
+            return _json(live_snapshot.build(inputs=inputs, data_dir=resolved_log_path.parent, force=force))
+        except Exception as exc:  # noqa: BLE001 - the page shows the cause and keeps its last good values
+            logging.getLogger(__name__).exception("live snapshot failed")
+            return _json({"success": False, "error": f"{exc.__class__.__name__}: {exc}"}, 500)
+
     @app.route("/api/app-accounts", methods=["GET"])
     def app_accounts():
         return _json({"app_accounts": account_registry.list_app_accounts(retirement_system_dir)})
@@ -285,6 +298,7 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, lifecy
         if status == 200:
             with spending_cache_lock:
                 spending_cache.clear()
+            live_snapshot.clear_inputs_cache()
         return Response(json.dumps(payload), status=status, content_type="application/json")
 
     @app.route("/api/ping", methods=["POST"])

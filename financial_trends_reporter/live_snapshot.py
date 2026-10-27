@@ -610,6 +610,12 @@ def load_inputs(base_dir: str | Path, log_path: str | Path, balances_db: str | P
         return inputs
 
 
+def clear_inputs_cache() -> None:
+    """Drop cached inputs (the reporter calls this after a run writes a new log entry)."""
+    with _inputs_lock:
+        _inputs_cache.clear()
+
+
 def build(*, inputs: dict[str, Any], data_dir: str | Path, quote_cache=None, now: datetime | None = None,
           force: bool = False, previous_close_lookup: Callable | None = None) -> dict[str, Any]:
     """The /api/live-snapshot body: header (time, market state, indices) plus ``compute()``."""
