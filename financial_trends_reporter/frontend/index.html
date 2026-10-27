@@ -231,7 +231,7 @@ let balances = null;      // /api/balances
 let flowsData = null;     // /api/flows
 
 // Charts are drawn at their card's measured width (no horizontal scrolling); 0 = unknown.
-const FITTED_CHARTS = ["chartNetWorth", "chartHoldings", "chartInvFlows"];
+const FITTED_CHARTS = ["chartNetWorth", "chartHoldings", "chartInvFlows", "chartCategories"];
 const drawnWidth = {};
 function boxWidth(id) {
   const box = document.getElementById(id);
@@ -358,7 +358,7 @@ function drawSpending(model, emptyText) {
     for (const r of model.rows) categories.push([r.name, r.amount, r]);
   }
   document.getElementById("chartCategories").innerHTML = categories.length
-    ? barChartSvg(categories)
+    ? barChartSvg(categories, { width: boxWidth("chartCategories") })
     : `<div class="empty">${escSvg(emptyText)}</div>`;
 }
 // Full-year budget markers: off unless the Year to date view is showing; the checkbox overrides that

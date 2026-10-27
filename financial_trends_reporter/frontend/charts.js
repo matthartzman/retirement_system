@@ -519,9 +519,11 @@ export function detailPopupHtml(title, detail, maxLines) {
 // row, not scaled), "other" (muted bar) or anything else (normal bar). Rows
 // with meta carry data-row so the page can attach the detail popup; rows
 // without it keep a native <title> tooltip. meta.prior / budget / fullYear draw the markers.
-export function barChartSvg(entries) {
+// opts.width: the card's real pixel width, so the chart draws at 1:1 like the line charts (a fixed
+// viewBox stretched to the card would scale its text up); without it the chart uses 560 units.
+export function barChartSvg(entries, opts) {
   if (!entries.length) return '<div class="empty">No expenses recorded yet.</div>';
-  const w = 560, barH = 18, gap = 6, padL = 120, padR = 60, padB = 20;
+  const w = opts && opts.width >= 320 ? Math.floor(opts.width) : 560, barH = 18, gap = 6, padL = 120, padR = 60, padB = 20;
   // Axis fits the longest of spend and the three markers so no marker runs off the plot.
   const max = Math.max(...entries.filter(e => !(e[2] && e[2].kind === "total")).flatMap(e => [e[1], ...markerValues(e[2])]), 1);
   const plotW = w - padL - padR;
@@ -553,7 +555,7 @@ export function barChartSvg(entries) {
   // The row label is the only thing that opens the breakdown panels: a focusable button (Enter/Space pins),
   // with its own hit area so the ticks and the bar never trigger anything.
   const labelFor = (name, y, bold, meta) => {
-    const text = `<text x="0" y="${y + barH - 5}"${bold ? ' style="font-weight:600"' : ""}>${escSvg(name)}</text>`;
+    const text = `<text x="0" y="${y + barH - 5}" style="font-size:11px${bold ? ";font-weight:600" : ""}">${escSvg(name)}</text>`;
     if (!meta) return text;
     return `<g class="row-label" tabindex="0" role="button" aria-label="${escSvg(name)}: show breakdown">` +
       `<rect x="0" y="${y - 2}" width="${padL - 6}" height="${barH + 4}" fill="transparent"/>${text}</g>`;
@@ -566,7 +568,7 @@ export function barChartSvg(entries) {
     if (meta && meta.kind === "total") {
       return `<g${row} class="bar-row">${hit}` +
         `${labelFor(e[0], y, true, meta)}` +
-        `<text x="${padL + 6}" y="${y + barH - 5}" style="font-weight:600">${escSvg(fmtMoney(e[1]))}</text></g>`;
+        `<text x="${padL + 6}" y="${y + barH - 5}" style="font-size:11px;font-weight:600">${escSvg(fmtMoney(e[1]))}</text></g>`;
     }
     const bw = (e[1] / max) * plotW;
     const fill = meta && meta.kind === "other" ? "#94a3b8" : BAR_BLUE;
@@ -574,7 +576,7 @@ export function barChartSvg(entries) {
     return `<g${row} class="bar-row">${hit}` +
       `${labelFor(e[0], y, false, meta)}` +
       `<rect x="${padL}" y="${y}" width="${bw}" height="${barH}" fill="${fill}" rx="3">${tip}</rect>` + markersFor(meta, y) +
-      `<text x="${padL + bw + 6}" y="${y + barH - 5}">${escSvg(fmtMoney(e[1]))}</text></g>`;
+      `<text x="${padL + bw + 6}" y="${y + barH - 5}" style="font-size:11px">${escSvg(fmtMoney(e[1]))}</text></g>`;
   }).join("");
   // Legend: one entry per marker present, each with a swatch in the marker's own shape.
   const shown = activeMarkers().filter(m => entries.some(e => e[2] && e[2][m.key] != null));

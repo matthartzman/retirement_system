@@ -108,3 +108,15 @@ describe("breakdown panels (label-only trigger, fixed dock)", async () => {
     assert.ok(!/scheduleHide|keepOpen/.test(html));
   });
 });
+
+describe("Spending bars draw at card scale", async () => {
+  const charts = await import("../../financial_trends_reporter/frontend/charts.js");
+  const entries = [["Total", 300, { kind: "total", detail: [], detailTitle: "T" }], ["Fixed", 300, { kind: "category" }]];
+  test("a passed width becomes the viewBox width and text is at most 11px", () => {
+    const svg = charts.barChartSvg(entries, { width: 720 });
+    assert.match(svg, /viewBox="0 0 720 /);
+    const sizes = [...svg.matchAll(/font-size:(\d+)px/g)].map(m => Number(m[1]));
+    assert.ok(sizes.length > 0 && Math.max(...sizes) <= 11);
+    assert.match(charts.barChartSvg(entries), /viewBox="0 0 560 /);
+  });
+});
