@@ -71,11 +71,13 @@ function setup() {
   const win = {
     setTimeout(fn, ms) { const id = nextId++; timers.push({ id, at: now + ms, fn }); return id; },
     clearTimeout(id) { timers = timers.filter(t => t.id !== id); },
-    fetch(url) { return new Promise(res => fetches.push({ url, resolve: d => res({ ok: true, json: async () => d }) })); },
+    fetch(url) { return new Promise((res, rej) => fetches.push({ url, resolve: d => res({ ok: true, json: async () => d }), fail: () => rej(new Error("net")) })); },
   };
   const advance = (ms) => { now += ms; const due = timers.filter(t => t.at <= now); timers = timers.filter(t => t.at > now); due.forEach(t => t.fn()); };
-  const row = { name: "Core", detailTitle: "Core", categories: [{ name: "Groceries", group: "Food", value: 5, merchants: [["Kroger", 3], ["Aldi", 2]] }] };
-  const model = { totalDetail: { detailTitle: "Total", detail: [] }, rows: [row] };
+  const row = { name: "Core", detailTitle: "Core", categories: [{ name: "Groceries", group: "Food", value: 5, merchants: [["Kroger", 3], ["Aldi", 2]] },
+    { name: "Pharmacy", group: "Health", value: 1, merchants: [["CVS", 1]] }] };
+  const row2 = { name: "Flex", detailTitle: "Flex", categories: [{ name: "Fun", group: "Play", value: 1, merchants: [["Cinema", 1]] }] };
+  const model = { totalDetail: { detailTitle: "Total", detail: [] }, rows: [row, row2] };
   let range = { from: "2026-01-01", to: "2026-10-27" };
   const dock = initSpendingDock({ doc, win, getModel: () => model, getRange: () => range });
   // Open the row, then the category.
@@ -84,7 +86,9 @@ function setup() {
   els.detailPopup.fire("mouseover", { target: { closest: () => ({ dataset: { cat: "0" } }) } });
   const mrow = (i) => ({ closest: () => ({ dataset: { merchant: String(i) }, contains: () => false }) });
   const over = (i) => els.detailPopup2.fire("mouseover", { target: mrow(i) });
-  return { els, win, fetches, advance, over, mrow, dock, setRange: r => { range = r; } };
+  const labelFor = (n) => ({ closest: s => (s === ".row-label" ? { closest: () => ({ dataset: { row: String(n) } }) } : null) });
+  const catOver = (c) => els.detailPopup.fire("mouseover", { target: { closest: () => ({ dataset: { cat: String(c) } }) } });
+  return { els, labelFor, catOver, win, fetches, advance, over, mrow, dock, setRange: r => { range = r; } };
 }
 const flush = () => new Promise(r => setImmediate(r));
 const payload = (m) => ({ transactions: [{ date: "2026-10-02", account: "Visa", merchant: m, amount: 3, notes: "" }], total: 3 });
@@ -141,7 +145,9 @@ test("changing the date range while pinned empties the panel and the cache misse
   t.setRange({ from: "2025-01-01", to: "2025-12-31" });
   t.dock.onRangeChange();
   assert.equal(t.els.detailPopup3.innerHTML, "");
-  t.over(0); t.advance(200);                                // pin was cleared, so hover works again
+  // The range change closed every panel; reopen row and category, then hover works again.
+  t.els.chartCategories.fire("mouseover", { target: t.labelFor(1) }); t.catOver(0);
+  t.over(0); t.advance(200);
   assert.equal(t.fetches.length, 2);
   assert.match(t.fetches[1].url, /from=2025-01-01/);
 });
@@ -159,4 +165,70 @@ test("the same line is served from cache the second time", async () => {
   t.over(0); t.advance(200);
   assert.equal(t.fetches.length, 2);
   assert.match(t.els.detailPopup3.innerHTML, /Kroger/);
+});
+
+test("onRangeChange closes every panel and a stale merchant hover fetches nothing", async () => {
+  const t = setup();
+  t.over(0); t.advance(200); t.fetches[0].resolve(payload("Kroger")); await flush();
+  t.dock.onRangeChange();
+  for (const k of ["detailPopup", "detailPopup2", "detailPopup3"]) assert.equal(t.els[k].innerHTML, "");
+  t.over(0); t.advance(500);
+  assert.equal(t.fetches.length, 1);
+  assert.equal(t.els.detailPopup3.innerHTML, "");
+});
+test("a stale in-flight response cannot refill the cleared cache", async () => {
+  const t = setup();
+  t.over(0); t.advance(200);
+  t.dock.onRangeChange();
+  t.fetches[0].resolve(payload("Kroger")); await flush();
+  // Reopen the same row/category (same URL) - must fetch again rather than read a stale cache entry.
+  t.els.chartCategories.fire("mouseover", { target: t.labelFor(1) }); t.catOver(0);
+  t.over(0); t.advance(200);
+  assert.equal(t.fetches.length, 2);
+});
+test("a failed load shows the error, keeps it across Pin, and retries on the same merchant", async () => {
+  const t = setup();
+  t.over(0); t.advance(200);
+  t.fetches[0].fail(); await flush();
+  assert.match(t.els.detailPopup3.innerHTML, /Couldn't load transactions/);
+  const pinBtn = { closest: () => ({ dataset: { dock: "pin" } }) };
+  t.els.detailPopup3.contains = () => true;
+  t.els.spendDock.fire("click", { target: pinBtn });
+  assert.match(t.els.detailPopup3.innerHTML, /Pinned/);
+  assert.match(t.els.detailPopup3.innerHTML, /Couldn't load transactions/);
+  assert.ok(!t.els.detailPopup3.innerHTML.includes("Loading"));
+  t.els.detailPopup2.fire("click", { target: t.mrow(0) });          // same merchant again: retry
+  assert.equal(t.fetches.length, 2);
+  t.fetches[1].resolve(payload("Kroger")); await flush();
+  assert.match(t.els.detailPopup3.innerHTML, /Kroger/);
+});
+test("re-hovering a merchant whose load failed retries", async () => {
+  const t = setup();
+  t.over(0); t.advance(200); t.fetches[0].fail(); await flush();
+  t.over(0); t.advance(200);
+  assert.equal(t.fetches.length, 2);
+});
+test("clicking a merchant whose request is already in flight does not fetch twice", async () => {
+  const t = setup();
+  t.over(0); t.advance(200);
+  t.els.detailPopup2.fire("click", { target: t.mrow(0) });
+  assert.equal(t.fetches.length, 1);
+  t.fetches[0].resolve(payload("Kroger")); await flush();
+  assert.match(t.els.detailPopup3.innerHTML, /Pinned/);
+  assert.match(t.els.detailPopup3.innerHTML, /Kroger/);
+});
+test("changing category clears the transactions panel", async () => {
+  const t = setup();
+  t.over(0); t.advance(200); t.fetches[0].resolve(payload("Kroger")); await flush();
+  assert.notEqual(t.els.detailPopup3.innerHTML, "");
+  t.catOver(1);
+  assert.equal(t.els.detailPopup3.innerHTML, "");
+  assert.match(t.els.detailPopup2.innerHTML, /CVS/);
+});
+test("changing the tracking type clears the merchants and transactions panels", async () => {
+  const t = setup();
+  t.over(0); t.advance(200); t.fetches[0].resolve(payload("Kroger")); await flush();
+  t.els.chartCategories.fire("mouseover", { target: t.labelFor(2) });
+  assert.equal(t.els.detailPopup2.innerHTML, "");
+  assert.equal(t.els.detailPopup3.innerHTML, "");
 });

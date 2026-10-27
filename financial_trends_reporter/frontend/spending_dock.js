@@ -3,7 +3,7 @@
 // (or Enter/Space on the focused label) pins a panel so hovering elsewhere no longer replaces it; Escape,
 // the Close button or a click outside the chart and panels closes everything. Ticks and bars open nothing.
 // Hovering a merchant in the right panel loads its transactions into a third panel after a short delay.
-import { escSvg, detailPopupHtml, categoryListHtml, transactionsUrl, transactionsPanelHtml, latestOnly } from "./charts.js";
+import { escSvg, detailPopupHtml, categoryListHtml, transactionsUrl, transactionsPanelHtml } from "./charts.js";
 
 export const HOVER_DELAY_MS = 200;
 
@@ -21,9 +21,10 @@ export function initSpendingDock({ doc, win, getModel, getRange }) {
   const dock = doc.getElementById("spendDock");
   const catBox = doc.getElementById("chartCategories");
   let popRow = null, popCat = -1, rowPinned = false, catPinned = false;
-  // Third level: the merchant shown (or pending), its pin, a per-(range,line) cache and a latest-wins guard.
-  let merchantPinned = false, txn = null, hoverTimer = null;
-  const txnCache = new Map(), txnSeq = latestOnly();
+  // Third level: the merchant shown (or pending), its pin, a per-(range,line) cache, the URLs being fetched and
+  // a generation counter: hideAll() bumps it, so a response started before then can neither draw nor fill the cache.
+  let merchantPinned = false, txn = null, hoverTimer = null, gen = 0;
+  const txnCache = new Map(), inflight = new Set();
   function rowIndexForLabel(target) {
     const label = target.closest && target.closest(".row-label");
     const g = label && label.closest("[data-row]");
@@ -49,7 +50,7 @@ export function initSpendingDock({ doc, win, getModel, getRange }) {
   }
   // Empties the transactions panel and drops any request still in flight.
   function clearTxns() {
-    cancelHover(); txnSeq.start();
+    cancelHover();
     txn = null; merchantPinned = false;
     popup3.innerHTML = "";
   }
@@ -59,22 +60,27 @@ export function initSpendingDock({ doc, win, getModel, getRange }) {
   }
   function renderTxns() {
     const cached = txnCache.get(txn.url);
-    drawTxns(cached ? transactionsPanelHtml(`${txn.merchant} - transactions`, cached) : '<div class="empty">Loading…</div>');
+    drawTxns(cached ? transactionsPanelHtml(`${txn.merchant} - transactions`, cached)
+      : txn.failed ? '<div class="empty">Couldn\'t load transactions.</div>' : '<div class="empty">Loading…</div>');
   }
   function loadMerchant(idx) {
     const cat = popRow && popRow.categories && popRow.categories[popCat];
     const m = cat && cat.merchants[idx];
     if (!m || !getRange) return;
     const url = transactionsUrl(getRange(), { type: popRow.name, group: cat.group, category: cat.name, merchant: m[0] });
-    txn = { merchant: m[0], url, idx };
-    const id = txnSeq.start();
+    txn = { merchant: m[0], url, idx, failed: false };
     renderTxns();
-    if (txnCache.has(url)) return;
+    if (txnCache.has(url) || inflight.has(url)) return;   // cached, or its response will draw when it lands
+    const myGen = gen;
+    inflight.add(url);
     win.fetch(url).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }).then(data => {
-      txnCache.set(url, data);
-      if (txnSeq.isCurrent(id) && txn && txn.url === url) renderTxns();
+      if (myGen !== gen) return;
+      inflight.delete(url); txnCache.set(url, data);
+      if (txn && txn.url === url) renderTxns();
     }).catch(() => {
-      if (txnSeq.isCurrent(id) && txn && txn.url === url) drawTxns('<div class="empty">Couldn\'t load transactions.</div>');
+      if (myGen !== gen) return;
+      inflight.delete(url);
+      if (txn && txn.url === url) { txn.failed = true; renderTxns(); }
     });
   }
   function merchantIndex(target) {
@@ -105,6 +111,7 @@ export function initSpendingDock({ doc, win, getModel, getRange }) {
   function hideAll() {
     dock.classList.remove("open");
     popup.innerHTML = ""; popup2.innerHTML = ""; clearTxns();
+    gen++; txnCache.clear(); inflight.clear();
     popRow = null; popCat = -1; rowPinned = false; catPinned = false;
     markSelected(-1);
   }
@@ -136,7 +143,8 @@ export function initSpendingDock({ doc, win, getModel, getRange }) {
   });
   popup2.addEventListener("mouseover", (e) => {
     const idx = merchantIndex(e.target);
-    if (idx < 0 || merchantPinned || (txn && txn.idx === idx)) return;
+    if (idx < 0 || merchantPinned) return;
+    if (txn && txn.idx === idx && (txnCache.has(txn.url) || inflight.has(txn.url))) return;   // a failed load retries
     cancelHover();
     hoverTimer = win.setTimeout(() => { hoverTimer = null; loadMerchant(idx); }, HOVER_DELAY_MS);
   });
@@ -172,6 +180,6 @@ export function initSpendingDock({ doc, win, getModel, getRange }) {
     hideAll();
   });
   // The date range changed (or the data reloaded): cached transactions are for another window.
-  function onRangeChange() { txnCache.clear(); clearTxns(); }
+  function onRangeChange() { hideAll(); }
   return { hideAll, onRangeChange };
 }
