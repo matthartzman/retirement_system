@@ -1,6 +1,6 @@
 # Financial Trends: Remote Access — Design
 
-Date: 2026-10-27 · Status: draft for approval
+Date: 2026-10-27 · Status: implemented (see the runbook); the LAN bind from commit 93616310 is retired
 
 ## Intent
 
