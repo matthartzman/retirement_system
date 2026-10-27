@@ -125,6 +125,26 @@ def test_by_equity_subclass():
         ("International Equity", 13200), ("US Total Equity", 13000), ("Small-Cap Value", 5000)]
 
 
+# ---- drill-down: ticker -> holdings account -> lot ----
+# ITOT is one lot in Member_1_IRA: 100 sh held at 12/31, start 100 x 120 = 12000, now 100 x 130 = 13000.
+def test_ticker_drills_to_account_and_lot():
+    itot = _row(_row(_compute()["liquid"]["by_class"], "Equity")["tickers"], "ITOT")
+    (acct,) = itot["accounts"]
+    assert acct["name"] == "Member_1_IRA" and acct["current"] == pytest.approx(13000)
+    (lot,) = acct["lots"]
+    assert lot["purchase_date"] == "2025-06-01" and lot["shares"] == 100 and lot["purchase_price"] == 100
+    assert lot["start"] == pytest.approx(12000) and lot["current"] == pytest.approx(13000)
+    assert lot["reinvested"] is False and lot["share"] == pytest.approx(13000 / 32200)
+
+
+# A second ITOT lot bought 10/1 in the Trust: new money 10 x 125 = 1250, now 10 x 130 = 1300 (< 13000).
+def test_same_ticker_in_two_accounts_splits():
+    lots = LOTS + [{"account": "Member_1_Trust", "symbol": "ITOT", "purchase_date": "2026-10-01", "shares": "10", "purchase_price": "125"}]
+    itot = _row(_row(_compute(lots=lots)["liquid"]["by_class"], "Equity")["tickers"], "ITOT")
+    assert [a["name"] for a in itot["accounts"]] == ["Member_1_IRA", "Member_1_Trust"]
+    assert itot["accounts"][1]["lots"][0]["new_money"] == pytest.approx(1250)
+
+
 def test_lot_bought_this_year_is_new_money():
     avuv = next(t for t in _row(_compute()["liquid"]["by_class"], "Equity")["tickers"] if t["symbol"] == "AVUV")
     assert (avuv["start"], avuv["new_money"]) == (0, 4000)

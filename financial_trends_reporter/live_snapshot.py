@@ -371,6 +371,8 @@ def _positions(lots, quotes, baseline, security_master, baseline_day: date, toda
             "basis": shares * purchase_price if purchase_price else shares * price,
             "day": (shares * (price - previous)) if previous else None,
             "unclassified": asset_class == "Other",
+            "purchase_date": bought.isoformat() if bought else None, "shares": shares,
+            "purchase_price": purchase_price, "reinvested": reinvested,
         })
     return out, sorted(stale)
 
@@ -392,9 +394,27 @@ def _summarize(name: str, members: list[dict], total_current: float, total_gain:
         by_symbol: dict[str, list[dict]] = {}
         for m in members:
             by_symbol.setdefault(m["symbol"], []).append(m)
-        row["tickers"] = sorted(({**_summarize(s, ms, total_current, total_gain, days, False), "symbol": s}
+        row["tickers"] = sorted(({**_summarize(s, ms, total_current, total_gain, days, False), "symbol": s,
+                                  "accounts": _account_rows(ms, total_current, total_gain, days)}
                                  for s, ms in by_symbol.items()), key=lambda t: -t["current"])
     return row
+
+
+def _account_rows(members: list[dict], total_current: float, total_gain: float, days: int) -> list[dict]:
+    """One ticker's lots grouped by holdings account (largest first), each with its lots (newest
+    first; undated lots last). Every member of ``_positions`` is one lot. Share and share of gain
+    stay relative to the whole liquid total."""
+    by_account: dict[str, list[dict]] = {}
+    for m in members:
+        by_account.setdefault(m["account"], []).append(m)
+    out = []
+    for account, ms in by_account.items():
+        lots = [{**_summarize(m["purchase_date"] or "", [m], total_current, total_gain, days, False),
+                 "purchase_date": m["purchase_date"], "shares": m["shares"],
+                 "purchase_price": m["purchase_price"], "reinvested": m["reinvested"]} for m in ms]
+        lots.sort(key=lambda r: r["purchase_date"] or "", reverse=True)
+        out.append({**_summarize(account, ms, total_current, total_gain, days, False), "lots": lots})
+    return sorted(out, key=lambda r: -r["current"])
 
 
 def _group(rows: list[dict], key: str, total_current: float, total_gain: float, days: int, order: tuple = ()) -> list[dict]:
