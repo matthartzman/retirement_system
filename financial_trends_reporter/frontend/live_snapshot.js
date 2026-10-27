@@ -99,11 +99,64 @@ function simpleTable(rows, columns) {
     `<tr>${columns.map((c, i) => (i === 0 ? `<th scope="row">${c(r)}</th>` : `<td class="num">${c(r)}</td>`)).join("")}</tr>`).join("")}</tbody></table></div>`;
 }
 
+// Hint wording lives here: the backend sends only kinds and numbers. Each line shows the numbers
+// that prompted it and says "may" where it is a guess.
+export function hintText(hint) {
+  switch (hint?.kind) {
+    case "after_balance_date":
+      return `${hint.count} lot(s) bought after Monarch's balance date (${fmtUsd(hint.value)}). Monarch can't include them yet.`;
+    case "stale_prices":
+      return `Old prices for ${(hint.symbols || []).join(", ")}.`;
+    case "matches_position":
+      return `The gap is close to ${hint.shares} sh ${hint.symbol}${hint.purchase_date ? " bought " + hint.purchase_date : ""} (${fmtUsd(hint.value)}).`;
+    case "direction":
+      return hint.higher === "holdings"
+        ? "Holdings are higher: a sale or transfer out may not be entered yet."
+        : "Holdings are lower: a purchase or transfer in may not be entered yet.";
+    default:
+      return "";
+  }
+}
+
+function accountRowHtml(a) {
+  const flag = a.flag ? `<span class="flag" title="Differs from Monarch by more than 1% and $100">⚠ <span class="flag-text">Check</span></span> ` : "";
+  const monarch = (a.monarch_accounts || []).length ? ` <span class="muted">(${(a.monarch_accounts || []).map(esc).join(", ")})</span>` : "";
+  const row = `<tr class="${a.flag ? "flagged" : ""}"><th scope="row">${flag}${esc(a.holdings_account)}${monarch}</th>`
+    + `<td class="num">${fmtUsd(a.holdings_value)}</td><td class="num">${fmtUsd(a.monarch_value)}</td>`
+    + `<td class="num">${changeHtml(a.delta)}</td><td class="num">${a.delta_pct === null || a.delta_pct === undefined ? DASH : changeHtml(a.delta_pct, true)}</td></tr>`;
+  const hints = (a.hints || []).map(hintText).filter(Boolean);
+  const hintRow = hints.length
+    ? `<tr class="hint-row"><td colspan="5"><ul class="hints">${hints.map((h) => `<li>${esc(h)}</li>`).join("")}</ul></td></tr>` : "";
+  return row + hintRow;
+}
+
+function accountsSectionHtml(rec) {
+  const accounts = rec.accounts;
+  if (!Array.isArray(accounts)) return "";
+  const flagged = accounts.some((a) => a.flag);
+  const unmappedMonarch = rec.unmapped_monarch || [], unmappedHoldings = rec.unmapped_holdings || [];
+  const head = `<tr><th scope="col">Account</th><th scope="col" class="num">Holdings</th><th scope="col" class="num">Monarch</th>`
+    + `<th scope="col" class="num">Difference</th><th scope="col" class="num">%</th></tr>`;
+  const foot = `<tfoot><tr class="total-row"><th scope="row">Holdings total</th><td class="num">${fmtUsd(rec.footing)}</td><td></td><td></td><td></td></tr></tfoot>`;
+  const table = `<div class="table-wrap"><table class="live-table recon-table"><thead>${head}</thead><tbody>${accounts.map(accountRowHtml).join("")}</tbody>${foot}</table></div>`;
+  const stale = rec.monarch_stale
+    ? `<p class="note warn-text">Monarch balances are from ${esc(rec.monarch_as_of || "an earlier day")}; moves since then aren't backed out.</p>` : "";
+  const unmapped = unmappedMonarch.length || unmappedHoldings.length
+    ? `<p class="note">Not linked to a holdings account, so not compared. Link them in the Retirement Planner.</p>`
+      + (unmappedMonarch.length ? `<p class="note"><b>Monarch accounts:</b> ${unmappedMonarch.map((u) => `${esc(u.name)} ${fmtUsd(u.value)}`).join("; ")}</p>` : "")
+      + (unmappedHoldings.length ? `<p class="note"><b>Holdings accounts:</b> ${unmappedHoldings.map((u) => `${esc(u.account)} ${fmtUsd(u.value)}`).join("; ")}</p>` : "")
+    : "";
+  const count = accounts.filter((a) => a.flag).length;
+  const summary = `Reconciliation by account${count ? ` <b>⚠ ${count} to check</b>` : ""}`;
+  return `<details class="live-section recon-accounts"${flagged ? " open" : ""}><summary>${summary}</summary>${stale}${table}${unmapped}</details>`;
+}
+
 function reconciliationHtml(rec) {
   if (!rec) return "";
   const pct = rec.delta_pct === null || rec.delta_pct === undefined ? DASH : fmtPct(Math.abs(rec.delta_pct));
-  const warn = rec.flag ? " Check client_holdings for trades or transfers not yet entered." : "";
-  return `<div class="recon${rec.flag ? " warn" : ""}" role="${rec.flag ? "alert" : "status"}">Holdings file ${fmtUsd(rec.holdings_value)} vs. imported balances ${fmtUsd(rec.monarch_value)} (${esc(rec.monarch_as_of || "")}): ${pct} apart.${warn}</div>`;
+  const warn = rec.flag ? " Check the Investment Holdings page in the Retirement Planner for trades or transfers not yet entered." : "";
+  return `<div class="recon${rec.flag ? " warn" : ""}" role="${rec.flag ? "alert" : "status"}">Holdings file ${fmtUsd(rec.holdings_value)} vs. imported balances ${fmtUsd(rec.monarch_value)} (${esc(rec.monarch_as_of || "")}): ${pct} apart.${warn}</div>`
+    + accountsSectionHtml(rec);
 }
 
 const TREATMENT = { pre_tax: "Taxed in full", after_tax: "Taxed above premium", none: "Not taxed" };
@@ -166,14 +219,19 @@ export function initLiveView(doc = document, win = window) {
   const errorBox = doc.getElementById("liveError");
   const buttons = [...doc.querySelectorAll("[data-view]")];
   let view = "trends", data = null, lastLoad = 0, busy = false;
-  const expanded = new Set(), openSections = new Set();
+  const expanded = new Set(), openSections = new Map();
 
   try { view = parseSavedView(win.localStorage.getItem(VIEW_KEY)); } catch (err) { view = "trends"; }
 
   function render() {
-    out.querySelectorAll("details.live-section").forEach((d, i) => { if (d.open) openSections.add(i); else openSections.delete(i); });
+    // Keyed by name for the reconciliation section and by position among the others, so a section
+    // that appears or disappears between refreshes doesn't shift the rest.
+    const keyed = () => { let n = 0; return (d) => (d.classList.contains("recon-accounts") ? "recon-accounts" : n++); };
+    let key = keyed();
+    out.querySelectorAll("details.live-section").forEach((d) => { openSections.set(key(d), d.open); });
     out.innerHTML = liveViewHtml(data);
-    out.querySelectorAll("details.live-section").forEach((d, i) => { d.open = openSections.has(i); });
+    key = keyed();
+    out.querySelectorAll("details.live-section").forEach((d) => { const k = key(d); if (openSections.has(k)) d.open = openSections.get(k); });
     out.querySelectorAll("button.expand").forEach((b) => { if (expanded.has(b.dataset.group)) toggleGroup(b, true); });
   }
 

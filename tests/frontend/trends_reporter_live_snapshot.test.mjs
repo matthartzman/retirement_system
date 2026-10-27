@@ -6,7 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  parseSavedView, shouldPoll, changeHtml, statusText, liveViewHtml, fmtPct,
+  parseSavedView, shouldPoll, changeHtml, statusText, liveViewHtml, fmtPct, hintText,
 } from "../../financial_trends_reporter/frontend/live_snapshot.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -130,5 +130,59 @@ describe("liveViewHtml", () => {
   });
   test("an error body renders a message", () => {
     assert.match(liveViewHtml({ error: "plan store locked" }), /plan store locked/);
+  });
+});
+
+const REC = {
+  ...DATA.reconciliation,
+  accounts: [{ holdings_account: "Member_1_IRA", monarch_accounts: ["Matt IRA"], holdings_value: 500000, monarch_value: 499800,
+               delta: 200, delta_pct: 0.0004, flag: false, hints: [] }],
+  unmapped_monarch: [], unmapped_holdings: [], footing: 2844220, monarch_stale: false,
+};
+const REC_FLAGGED = {
+  ...REC, delta_pct: 0.0102, flag: true,
+  accounts: [{ holdings_account: "Member_1_IRA", monarch_accounts: ["Matt IRA"], holdings_value: 513250, monarch_value: 500000,
+               delta: 13250, delta_pct: 0.0265, flag: true,
+               hints: [{ kind: "after_balance_date", count: 2, value: 5000 }, { kind: "stale_prices", symbols: ["IXUS"] },
+                       { kind: "matches_position", symbol: "IXUS", shares: 200, purchase_date: "2025-06-01", value: 13250 },
+                       { kind: "direction", higher: "holdings" }] }],
+  unmapped_monarch: [{ name: "Old 401k", value: 12000 }], unmapped_holdings: [{ account: "Joint_Brokerage", value: 90000 }],
+};
+
+describe("reconciliation by account", () => {
+  test("warning names the Investment Holdings page", () => {
+    const out = liveViewHtml({ ...DATA, reconciliation: { ...REC, delta_pct: 0.0102, flag: true } });
+    assert.match(out, /Check the Investment Holdings page in the Retirement Planner for trades or transfers not yet entered\./);
+    assert.ok(!out.includes("client_holdings"));
+  });
+  test("lists rows, opens when flagged, and shows hints", () => {
+    const out = liveViewHtml({ ...DATA, reconciliation: REC_FLAGGED });
+    assert.match(out, /<details class="live-section recon-accounts" open>/);
+    assert.match(out, /Member_1_IRA/);
+    assert.match(out, /⚠/);
+    assert.match(out, /The gap is close to 200 sh IXUS bought 2025-06-01 \(\$13,250\)\./);
+    assert.match(out.replaceAll("&#39;", "'"), /2 lot\(s\) bought after Monarch's balance date \(\$5,000\)\. Monarch can't include them yet\./);
+    assert.match(out, /Old prices for IXUS\./);
+    assert.match(out, /Holdings are higher: a sale or transfer out may not be entered yet\./);
+    assert.match(out, /Old 401k/);
+    assert.match(out, /Joint_Brokerage/);
+    assert.match(out, /Not linked to a holdings account, so not compared\. Link them in the Retirement Planner\./);
+    assert.match(out, /Holdings total/);
+  });
+  test("stays closed when nothing flags", () => {
+    const out = liveViewHtml({ ...DATA, reconciliation: REC });
+    assert.match(out, /<details class="live-section recon-accounts">/);
+    assert.ok(!out.includes("⚠"));
+  });
+  test("no section when the response has no account breakdown", () => {
+    assert.ok(!liveViewHtml(DATA).includes("recon-accounts"));
+  });
+  test("Monarch older than the previous session shows a note", () => {
+    assert.match(liveViewHtml({ ...DATA, reconciliation: { ...REC, monarch_stale: true } }).replaceAll("&#39;", "'"), /moves since then aren't backed out/);
+  });
+  test("lower-holdings hint and a position with no purchase date", () => {
+    assert.equal(hintText({ kind: "direction", higher: "monarch" }), "Holdings are lower: a purchase or transfer in may not be entered yet.");
+    assert.equal(hintText({ kind: "matches_position", symbol: "VTI", shares: 15, purchase_date: null, value: 4112 }),
+      "The gap is close to 15 sh VTI (\$4,112).");
   });
 });
