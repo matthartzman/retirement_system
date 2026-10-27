@@ -95,6 +95,45 @@ def resolve_consume_by_year(c: Mapping[str, Any], rows: Sequence[Mapping[str, An
     return _clamp(int(year), plan_start, plan_end)
 
 
+def second_death_year(c: Mapping[str, Any]) -> Optional[int]:
+    """The year the projection's second death falls in, or None when it has none.
+
+    None for a one-member household (there is no consolidation event) and when
+    either member's death year is unset. Read off the same `h_death_yr` /
+    `w_death_yr` the engine's `apply_death_transition` acts on, so the two cannot
+    disagree about when the account changes hands.
+    """
+    members = c.get('members') or []
+    if int(c.get('household_size', len(members)) or 0) <= 1:
+        return None
+    try:
+        h_death = int(c.get('h_death_yr') or 0)
+        w_death = int(c.get('w_death_yr') or 0)
+    except (TypeError, ValueError):
+        return None
+    if h_death <= 0 or w_death <= 0:
+        return None
+    return max(h_death, w_death)
+
+
+def last_draw_year(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]]) -> int:
+    """The last year a schedule entry can actually be drawn.
+
+    The consume-by deadline, but never the second-death year or later: in that
+    year the projection consolidates the HSA into the estate BEFORE the year's
+    withdrawals (`apply_death_transition`, then the cascade), so a draw there
+    cannot happen. A deadline that lands on or past the second death -- the
+    default `second_death_p90` clamps to the horizon end, which is usually that
+    very year -- would otherwise have the optimizer plan a draw the engine can
+    never take and report a residual it has no way to clear.
+    """
+    deadline = resolve_consume_by_year(c, rows)
+    second = second_death_year(c)
+    if second is not None:
+        deadline = min(deadline, second - 1)
+    return deadline
+
+
 def generate_default_schedule(c: Mapping[str, Any]) -> list:
     """A static, level-draw placeholder schedule for `optimize` mode when no
     real schedule exists yet.
@@ -149,7 +188,7 @@ def generate_default_schedule(c: Mapping[str, Any]) -> list:
     # after parse_client, before the projection loop starts) -- resolve_consume_by_year
     # falls back to c['plan_start']/c['plan_end'] when rows is empty, which is
     # exactly what we want here.
-    deadline = resolve_consume_by_year(c, [])
+    deadline = last_draw_year(c, [])
     years = list(range(plan_start, deadline + 1))
     if not years:
         return []
@@ -786,9 +825,10 @@ _RESIDUAL_TOL = 1.0
 # linear in each year's draw, so its unconstrained optimum is degenerate: put
 # the ENTIRE balance in the single highest-net-weight year. That is not a
 # schedule anyone can execute -- a real draw is bounded by the year's qualified
-# expense bank (Task 6) and by what the household can absorb -- and this
-# signature carries no per-year capacity to bound it with. So the allocation is
-# proportional to net weight raised to this exponent: 0 would BE the level
+# medical expenses (now enforced as a per-year cap in `_allocation_shares`) and
+# by what the household can absorb. So the allocation is proportional to net
+# weight PER DOLLAR (growth excluded -- see `_allocation_shares`) raised to this
+# exponent: 0 would BE the level
 # schedule, infinity would be the degenerate single-year answer, and 3.0 sits
 # between -- concentrated enough that the good years genuinely win, spread
 # enough that the answer stays executable. It is a calibration constant, not a
@@ -853,14 +893,14 @@ def schedule_score(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]],
     if not years:
         return 0.0
 
-    growth = _as_float(c.get('ret', 0.0), 0.0)
+    model = _balance_model(c, rows, years)
     pmf = _second_death_pmf(c, years)
-    balance = _starting_balance(rows)
+    balance = model['opening']
     total = 0.0
 
     for year in years:
         row = _row_for_year(rows, year)
-        balance *= (1.0 + growth)
+        balance += model['contrib'].get(year, 0.0)
         # Money standing at the START of the year is what an early death in
         # that year would hand the beneficiary -- priced before the draw.
         pv = _pv_factor(c, row)
@@ -872,6 +912,7 @@ def schedule_score(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]],
         if draw > 0.0:
             total += score_year(c, row, draw)
             balance -= draw
+        balance *= (1.0 + model['rate'][year])
 
     return total
 
@@ -914,23 +955,24 @@ def build_schedule(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]]) -> d
     case: consumed, using the window up to the deadline.
     """
     years = _schedule_years(c, rows)
-    balance = _starting_balance(rows)
     floor = max(0.0, _as_float(c.get('hsa_min_ending_balance', 0.0), 0.0))
-    growth = _as_float(c.get('ret', 0.0), 0.0)
 
     if not years:
-        return {'by_year': {}, 'feasibility': 'infeasible', 'residual': balance}
+        return {'by_year': {}, 'feasibility': 'infeasible',
+                'residual': _balance_model(c, rows, [])['opening']}
 
-    drawable = max(0.0, balance - floor)
+    model = _balance_model(c, rows, years)
+    drawable = max(0.0, model['pool'] - floor)
     shares = _allocation_shares(c, rows, years, drawable)
 
     by_year = {}
-    for offset, year in enumerate(years):
-        # `drawable` is a share of the STARTING balance; by the time it is
-        # withdrawn it has compounded for `offset + 1` years (the account grows
-        # before each year's draw). Expressing it this way is what makes the
-        # shares sum to a schedule that lands exactly on the floor.
-        by_year[year] = shares[year] * drawable * (1.0 + growth) ** (offset + 1)
+    for year in years:
+        # `drawable` is in starting-balance dollars; by the time a share is
+        # withdrawn it has compounded by `index[year]` (the engine draws before
+        # it grows, so the first year's draw has not grown at all). Expressing
+        # it this way is what makes the shares sum to a schedule that lands
+        # exactly on the floor.
+        by_year[year] = shares[year] * drawable * model['index'][year]
 
     residual = _simulate_residual(c, rows, years, by_year)
     funded = [y for y in years if by_year[y] > 0.0]
@@ -943,6 +985,61 @@ def build_schedule(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]]) -> d
         feasibility = 'feasible'
 
     return {'by_year': by_year, 'feasibility': feasibility, 'residual': residual}
+
+
+def executed_schedule(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]]) -> Optional[dict]:
+    """The schedule the projection in `rows` actually ran, for reporting.
+
+    `build_schedule` plans the whole starting balance from scratch: it ignores
+    the household's `override_amount`s and locks, and it never sees the
+    projection's own balance. Reported as "the" schedule, that is fiction --
+    after a few large early overrides it goes on proposing $50k+ draws in years
+    where the projected account is already empty, and its total can be several
+    times the money that ever existed. A report has to show what `c`'s
+    installed `hsa_schedule_rows` resolved to and what the engine withdrew.
+
+    Returns ``None`` when no schedule is installed, so the caller can fall back
+    to `build_schedule`. Otherwise the same keys `build_schedule` returns, with
+    `by_year` holding the projection's ACTUAL `hsa_wd`, plus ``'planned'``
+    (``{year: (amount, source)}`` from `resolve_year_amount`) and
+    ``'balance'`` (``{year: hsa_nw}``). `residual` is the projected balance in
+    the deadline year -- the money that is really still there.
+    """
+    installed = list(c.get('hsa_schedule_rows') or [])
+    years = _schedule_years(c, rows)
+    if not installed or not years:
+        return None
+    sched_by_year = {}
+    for r in installed:
+        try:
+            sched_by_year[int(r['year'])] = r
+        except (KeyError, TypeError, ValueError):
+            continue
+    rows_by_year = {}
+    for r in rows or ():
+        try:
+            rows_by_year[int(r['year'])] = r
+        except (KeyError, TypeError, ValueError):
+            continue
+
+    by_year, planned, balance = {}, {}, {}
+    for year in years:
+        row = rows_by_year.get(year) or {}
+        by_year[year] = max(0.0, _as_float(row.get('hsa_wd'), 0.0))
+        balance[year] = max(0.0, _as_float(row.get('hsa_nw'), 0.0))
+        planned[year] = resolve_year_amount(sched_by_year.get(year))
+
+    residual = balance[years[-1]]
+    floor = max(0.0, _as_float(c.get('hsa_min_ending_balance', 0.0), 0.0))
+    funded = [y for y in years if by_year[y] > 0.0]
+    if floor > 0.0 or residual > _RESIDUAL_TOL:
+        feasibility = 'infeasible'
+    elif funded and max(funded) < years[-1]:
+        feasibility = 'feasible_with_surplus'
+    else:
+        feasibility = 'feasible'
+    return {'by_year': by_year, 'feasibility': feasibility, 'residual': residual,
+            'planned': planned, 'balance': balance}
 
 
 def rerun_optimizer(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]],
@@ -1039,15 +1136,15 @@ def rerun_optimizer(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]],
             if source == 'locked':
                 locked_only.add(year)
 
-    growth = _as_float(c.get('ret', 0.0), 0.0)
     floor = max(0.0, _as_float(c.get('hsa_min_ending_balance', 0.0), 0.0))
-    plan_start = _horizon(c, rows)[0]
-    window_growth = (1.0 + growth) ** len(years)
+    index = _balance_model(c, rows, years)['index']
+    window_growth = index[years[-1]]
 
-    # `_simulate_residual` reports at the deadline; `_allocation_shares` and the
-    # draw formula below both work in starting-balance dollars, so discount it
-    # back over the window before subtracting the floor (which is also a
-    # starting-balance figure -- see `build_schedule`).
+    # `_simulate_residual` reports after the deadline year's draw;
+    # `_allocation_shares` and the draw formula below both work in
+    # starting-balance dollars, so discount it back by the growth to that draw
+    # before subtracting the floor (which is also a starting-balance figure --
+    # see `build_schedule`).
     residual_after_fixed = _simulate_residual(c, rows, years, fixed)
     pool = max(0.0, (residual_after_fixed / window_growth if window_growth else 0.0) - floor)
 
@@ -1070,8 +1167,7 @@ def rerun_optimizer(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]],
         elif year in fixed:
             optimizer_amount = unconstrained.get(year, 0.0)
         else:
-            offset = (int(year) - int(plan_start)) + 1
-            optimizer_amount = shares.get(year, 0.0) * pool * (1.0 + growth) ** offset
+            optimizer_amount = shares.get(year, 0.0) * pool * index[year]
         out.append({
             'year': year,
             'optimizer_amount': optimizer_amount,
@@ -1321,6 +1417,11 @@ def _allocation_shares(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]],
                        fixed: Optional[Mapping[int, float]] = None) -> dict:
     """{year: share of the drawable balance}, summing to 1 (or to 0 if empty).
 
+    Less than 1 when the years' qualified medical expenses cannot absorb the
+    whole balance: each year's draw is capped at that year's expenses (see
+    `_qualified_expense`), and what no year can take is left undrawn for the
+    caller to report as residual.
+
     `years` does NOT have to be contiguous. Growth is compounded from each
     year's TRUE distance from `plan_start`, never from its position in this
     list. For `build_schedule`'s own call the two are identical -- that list is
@@ -1342,28 +1443,36 @@ def _allocation_shares(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]],
         return {year: 0.0 for year in years}
 
     fixed = fixed or {}
-    # The anchor the growth offsets are measured from. `_schedule_years` starts
-    # its range here, so for the unfiltered call `year - plan_start` and the old
-    # `enumerate` index are the same integer for every year -- the fix is inert
-    # there by construction. The `years[0]` fallback covers a config with no
-    # horizon at all, and reproduces the old index behaviour exactly.
+    # The anchor the growth offsets are measured from. The growth index is
+    # built over the CONTIGUOUS range from here, never over `years` itself, so
+    # a filtered list still compounds each year from its true calendar
+    # distance. The `years[0]` fallback covers a config with no horizon at all.
     plan_start = _horizon(c, rows)[0]
     if plan_start is None:
         plan_start = int(years[0])
+    model = _balance_model(c, rows, list(range(int(plan_start), int(max(years)) + 1)))
+    index = model['index']
 
-    growth = _as_float(c.get('ret', 0.0), 0.0)
     pmf = _second_death_pmf(c, years)
-    reference_balance = _starting_balance(rows)
+    reference_balance = model['pool']
     # One increment's worth of balance. Scoring a realistic increment rather
     # than a nominal $1 matters: the IRMAA cliff term is not linear in the
     # amount, so a $1 probe would read every year as nowhere near a threshold.
     increment = drawable / float(len(years))
 
     weights = {}
+    caps = {}
     carried_risk = 0.0
     for year in years:
         row = _row_for_year(rows, year)
-        grown = increment * (1.0 + growth) ** ((int(year) - int(plan_start)) + 1)
+        year_growth = index[int(year)]
+        grown = increment * year_growth
+        # A draw is only tax-free against qualified medical expenses, so the
+        # year's own expenses bound it. Converted to the share-of-`drawable`
+        # units this function returns; the callers grow a share by exactly
+        # `year_growth` when they turn it into dollars.
+        expense = _qualified_expense(row)
+        caps[year] = None if expense is None else expense / (drawable * year_growth)
         # Risk of carrying this increment THROUGH this year, accumulated: an
         # increment drawn in year Y was exposed in every year up to Y.
         #
@@ -1386,37 +1495,172 @@ def _allocation_shares(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]],
             # it must not bid for the pool the free years are dividing up.
             weights[year] = 0.0
         else:
-            weights[year] = max(0.0, score_year(c, row, grown) - carried_risk)
+            # Net value PER GROWN DOLLAR. The grown increment has to be scored
+            # (the IRMAA cliff term is not linear), but the weight must not
+            # carry the growth factor itself: `_CONCENTRATION` would cube it,
+            # and the callers then grow the share again on conversion to
+            # dollars. At 8% growth that compounded into a ~17%-a-year bias
+            # toward later years that no tax difference justified. Growth
+            # enters the schedule once, at conversion; the exponent sharpens
+            # only tax value.
+            weights[year] = max(0.0, score_year(c, row, grown) - carried_risk) / grown
 
     powered = {year: weight ** _CONCENTRATION for year, weight in weights.items()}
-    total = sum(powered.values())
-    if total <= 0.0:
-        # Every year is net-negative (or the rows carry no rate at all). The
-        # deadline still has to be met, so fall back to the level split rather
-        # than refusing to draw -- declining to schedule is not an option the
-        # constraint leaves open. Fixed years stay out of that split too.
-        free = [year for year in years if year not in fixed]
-        if not free:
-            return {year: 0.0 for year in years}
-        share = 1.0 / float(len(free))
-        return {year: (share if year in set(free) else 0.0) for year in years}
-    return {year: value / total for year, value in powered.items()}
+    shares = {year: 0.0 for year in years}
+    remaining = _water_fill(shares, powered, caps, 1.0)
+    if remaining > 1e-12:
+        # Every year is net-negative (or the rows carry no rate at all), or
+        # the good years' expenses could not absorb the balance. The deadline
+        # still has to be met, so spread what is left level across the free
+        # years that still have expense room rather than refusing to draw --
+        # declining to schedule is not an option the constraint leaves open.
+        # Whatever even that cannot place is left undrawn: the shares then sum
+        # to less than 1 and the caller reports the residual as infeasible.
+        level = {year: 1.0 for year in years if year not in fixed}
+        _water_fill(shares, level, caps, remaining)
+    return shares
+
+
+def _water_fill(shares: dict, powered: Mapping[int, float],
+                caps: Mapping[int, Optional[float]], amount: float) -> float:
+    """Add `amount` to `shares` in proportion to `powered`, respecting `caps`.
+
+    A year whose proportional slice would exceed its cap is filled to the cap
+    and drops out; the excess is re-split over the rest. Returns what could
+    not be placed. Mutates `shares`.
+    """
+    active = [year for year, value in powered.items() if value > 0.0]
+    while active and amount > 1e-12:
+        total = sum(powered[year] for year in active)
+        trial = {year: amount * powered[year] / total for year in active}
+        over = []
+        for year in active:
+            cap = caps.get(year)
+            if cap is not None and shares[year] + trial[year] > cap:
+                over.append(year)
+        if not over:
+            for year in active:
+                shares[year] += trial[year]
+            return 0.0
+        for year in over:
+            room = max(0.0, caps[year] - shares[year])
+            shares[year] += room
+            amount -= room
+            active.remove(year)
+    return max(0.0, amount)
+
+
+def _qualified_expense(row: Mapping[str, Any]) -> Optional[float]:
+    """The year's HSA-qualified medical spend, or None when the row has none.
+
+    The same four components the engine adds into `medical_expense_yr`
+    (`roth_conversion_and_agi_tax`): premiums, the wellness detail budget,
+    any wellness/LTC cost shock, and LTC premiums. A row carrying none of
+    those fields (a sparse fixture) gives None -- no information, so no cap --
+    rather than 0.0, which would forbid every draw.
+    """
+    keys = ('wellness_premiums_yr', 'wellness_detail_budget_yr', 'wellness_shock_yr', 'ltc_prem_yr')
+    if not any(row.get(key) is not None for key in keys):
+        return None
+    return sum(max(0.0, _as_float(row.get(key), 0.0)) for key in keys)
 
 
 def _simulate_residual(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]],
                        years: Sequence[int], by_year: Mapping[int, float]) -> float:
     """Balance still standing after the deadline year's draw.
 
-    Same grow-then-draw recursion `schedule_score` uses, so the reported
-    residual is the one the score was computed against rather than an
-    independently derived (and potentially disagreeing) figure.
+    Same contribute-draw-grow recursion `schedule_score` uses (see
+    `_balance_model`), so the reported residual is the one the score was
+    computed against rather than an independently derived (and potentially
+    disagreeing) figure. The deadline year's growth is not applied: the
+    residual is what is left the moment the last scheduled draw is taken.
     """
-    growth = _as_float(c.get('ret', 0.0), 0.0)
-    balance = _starting_balance(rows)
-    for year in years:
-        balance *= (1.0 + growth)
+    model = _balance_model(c, rows, years)
+    balance = model['opening']
+    for position, year in enumerate(years):
+        balance += model['contrib'].get(year, 0.0)
         balance -= min(max(0.0, _as_float(by_year.get(year), 0.0)), max(0.0, balance))
+        if position < len(years) - 1:
+            balance *= (1.0 + model['rate'][year])
     return max(0.0, balance)
+
+
+def _balance_model(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]],
+                   years: Sequence[int]) -> dict:
+    """The HSA balance model every schedule function shares, matched to the engine.
+
+    The engine works each year as: contribute, draw, then grow at the HSA
+    account's own return (`engine_kernels._account_return`: the plan return
+    plus that account's tilt). This model does the same. It used to grow
+    first, at the bare plan `ret`, starting from `rows[0]['hsa_nw']` -- a
+    YEAR-END balance that already holds the first year's contribution and
+    growth -- so it grew the first year twice, missed the tilt, and ignored
+    later contributions. On a real plan that overstated the balance by about
+    double within six years, so the optimizer scheduled draws the projection
+    could not fund.
+
+    Returns ``{'opening', 'contrib', 'rate', 'index', 'pool'}``:
+
+    * `opening` -- the HSA balance before the first year, from the config's
+      account balances (`c['balances']` over `c['hsa_ids']`). A config without
+      them (sparse fixtures, the synthetic one-row projection
+      `schedule_feasibility` builds) falls back to `rows[0]['hsa_nw']`, and
+      then takes no contributions, since that figure already includes them.
+    * `contrib` -- ``{year: hsa_contrib}`` from the projection row for exactly
+      that year (never a neighbour's: a contribution is not a rate).
+    * `rate` -- ``{year: growth applied at the end of that year}``.
+    * `index` -- ``{year: growth accumulated BEFORE that year's draw}``, 1.0
+      for the first year. A starting-balance dollar drawn in `year` is worth
+      ``index[year]`` dollars by then.
+    * `pool` -- everything the window can ever draw, in starting-balance
+      dollars: `opening` plus each contribution discounted by its `index`.
+    """
+    ids = list(c.get('hsa_ids') or [])
+    balances = c.get('balances')
+    from_config = isinstance(balances, Mapping) and any(aid in balances for aid in ids)
+
+    contrib = {}
+    if from_config:
+        opening = sum(max(0.0, _as_float(balances.get(aid), 0.0)) for aid in ids)
+        by_year = {}
+        for row in rows or ():
+            try:
+                by_year[int(row['year'])] = row
+            except (KeyError, TypeError, ValueError):
+                continue
+        for year in years:
+            amount = max(0.0, _as_float((by_year.get(int(year)) or {}).get('hsa_contrib'), 0.0))
+            if amount > 0.0:
+                contrib[year] = amount
+    else:
+        opening = _starting_balance(rows)
+
+    rate, index = {}, {}
+    accumulated = 1.0
+    for year in years:
+        index[year] = accumulated
+        rate[year] = _hsa_growth_rate(c, year)
+        accumulated *= (1.0 + rate[year])
+
+    pool = opening + sum(amount / index[year] for year, amount in contrib.items() if index[year])
+    return {'opening': opening, 'contrib': contrib, 'rate': rate, 'index': index, 'pool': pool}
+
+
+def _hsa_growth_rate(c: Mapping[str, Any], year: int) -> float:
+    """The growth the engine applies to the HSA in `year`.
+
+    `engine_kernels._account_return` per HSA account -- the plan `ret` plus
+    the account's tilt, or a per-year path when one is set -- averaged across
+    accounts. No HSA ids falls back to the plan `ret`, which is all a sparse
+    config can say.
+    """
+    default = _as_float(c.get('ret', 0.0), 0.0)
+    ids = list(c.get('hsa_ids') or [])
+    if not ids:
+        return default
+    from .engine_kernels import _account_return
+    rates = [_as_float(_account_return(c, aid, default, year=year), default) for aid in ids]
+    return sum(rates) / float(len(rates))
 
 
 def _hsa_terminal_tax(c: Mapping[str, Any], balance: float, year: int) -> float:
@@ -1476,11 +1720,11 @@ def _second_death_pmf(c: Mapping[str, Any], years: Sequence[int]) -> dict:
 
 
 def _schedule_years(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]]) -> list:
-    """`plan_start`..deadline, inclusive. Empty when there is no horizon at all."""
+    """`plan_start`..`last_draw_year`, inclusive. Empty when there is no horizon at all."""
     plan_start = _horizon(c, rows)[0]
     if plan_start is None:
         return []
-    deadline = resolve_consume_by_year(c, rows)
+    deadline = last_draw_year(c, rows)
     if deadline < plan_start:
         return []
     return list(range(int(plan_start), int(deadline) + 1))
