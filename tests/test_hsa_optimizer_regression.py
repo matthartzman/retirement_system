@@ -490,6 +490,66 @@ class ScheduleSearchTests(unittest.TestCase):
         self.assertEqual(out["feasibility"], "infeasible")
         self.assertGreater(out["residual"], 1.0)
 
+    def _engine_config(self):
+        """A config shaped like a real plan: HSA ids, opening balances, an
+        account-specific return, and a first-year-only contribution on the
+        rows. `rows[0]['hsa_nw']` is a deliberately WRONG year-end figure."""
+        rows = [{"year": y, "filing": "MFJ", "effective_marginal_rate": 0.22, "irmaa_tier": 0}
+                for y in range(2026, 2031)]
+        rows[0]["hsa_nw"] = 99_999.0
+        rows[0]["hsa_contrib"] = 1_000.0
+        c = {"plan_start": 2026, "plan_end": 2030, "hsa_consume_by": "2030", "ret": 0.10,
+             "hsa_ids": ["H"], "balances": {"H": 10_000.0}, "account_returns": {"H": 0.05},
+             "hsa_beneficiary_type": "spouse"}
+        return c, rows
+
+    def test_the_balance_model_follows_the_engines_contribute_draw_grow_order(self):
+        """Regression: the optimizer grew `rows[0]['hsa_nw']` (a year-end figure
+        that already holds the first year's contribution and growth) before the
+        first draw, at the bare plan return, and ignored later contributions --
+        so it believed in money the projection never had."""
+        from src.hsa_schedule import _balance_model, _schedule_years
+        c, rows = self._engine_config()
+        m = _balance_model(c, rows, _schedule_years(c, rows))
+        self.assertEqual(m["opening"], 10_000.0)          # config balance, not hsa_nw
+        self.assertEqual(m["contrib"], {2026: 1_000.0})
+        self.assertAlmostEqual(m["rate"][2027], 0.05)      # the HSA's own return, not ret
+        self.assertEqual(m["index"][2026], 1.0)            # first draw has not grown
+        self.assertAlmostEqual(m["index"][2028], 1.05 ** 2)
+        self.assertAlmostEqual(m["pool"], 11_000.0)        # opening + year-1 contribution
+
+    def test_a_built_schedule_lands_on_zero_under_the_engines_balance_model(self):
+        """Replay the schedule the way the engine would: contribute, draw, grow.
+        It must close the account at the deadline without ever asking for money
+        that is not there."""
+        from src.hsa_schedule import build_schedule
+        c, rows = self._engine_config()
+        out = build_schedule(c, rows)
+        balance = 0.0
+        for i, year in enumerate(range(2026, 2031)):
+            if i == 0:
+                balance += 10_000.0 + rows[0]["hsa_contrib"]
+            draw = out["by_year"][year]
+            self.assertLessEqual(draw, balance + 1e-6, f"{year} draws money that is not there")
+            balance -= draw
+            if i < 4:
+                balance *= 1.05
+        self.assertAlmostEqual(balance, 0.0, places=4)
+        self.assertEqual(out["feasibility"], "feasible")
+        self.assertAlmostEqual(out["residual"], 0.0, places=4)
+
+    def test_a_config_without_account_balances_falls_back_to_the_row_balance(self):
+        """Sparse fixtures (and `schedule_feasibility`'s synthetic one-row
+        projection) carry no `hsa_ids`/`balances`; they keep reading
+        `rows[0]['hsa_nw']` at the plan return, with no contributions."""
+        from src.hsa_schedule import _balance_model, _schedule_years
+        c, rows = self._engine_config()
+        sparse = {k: v for k, v in c.items() if k not in ("hsa_ids", "balances", "account_returns")}
+        m = _balance_model(sparse, rows, _schedule_years(sparse, rows))
+        self.assertEqual(m["opening"], 99_999.0)
+        self.assertEqual(m["contrib"], {})
+        self.assertAlmostEqual(m["rate"][2027], 0.10)
+
     def test_the_surplus_state_is_reachable_not_dead_code(self):
         """`feasible_with_surplus` is the third feasibility state and no test in
         the brief exercises it. A state nothing can reach is a state that does
