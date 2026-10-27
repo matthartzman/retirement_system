@@ -128,6 +128,7 @@ describe("trends reporter time scope pulldown", () => {
     let src = html.match(/<script type="module">([\s\S]*?)<\/script>/)[1];
     src = src.replace(/^import\s*{[^}]*}\s*from\s*["'][^"']*["'];?\s*$/mg, "");
     const charts = await import("../../financial_trends_reporter/frontend/charts.js");
+    const { initSpendingDock } = await import("../../financial_trends_reporter/frontend/spending_dock.js");
     const els = {}, handlers = {}, store = {};
     if (saved !== null) store.trendsScope_v1 = saved;
     const el = (id) => (els[id] ||= {
@@ -137,7 +138,7 @@ describe("trends reporter time scope pulldown", () => {
       addEventListener: (type, fn) => { handlers[id + ":" + type] = fn; },
     });
     const box = {
-      ...charts, console, setTimeout: (fn) => { fn(); return 0; }, clearTimeout: noop, setInterval: () => 0, clearInterval: noop,
+      ...charts, initSpendingDock, console, setTimeout: (fn) => { fn(); return 0; }, clearTimeout: noop, setInterval: () => 0, clearInterval: noop,
       fetch: async () => ({ ok: true, json: async () => [] }),
       localStorage: throwStorage
         ? { getItem() { throw new Error("blocked"); }, setItem() { throw new Error("blocked"); } }
