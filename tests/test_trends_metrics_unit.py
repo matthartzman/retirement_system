@@ -211,3 +211,41 @@ def test_net_worth_reads_startup_and_autos_from_other_asset_items(tmp_path):
     )
     nw = compute_snapshot(base_dir, today=date(2026, 4, 1))["net_worth"]
     assert nw["other_assets"] == 106000.0     # legacy Autos row ignored
+
+
+def test_monarch_debts_on_cash_role_are_counted_once(tmp_path):
+    # Real-data shape: Monarch exports the mortgage and cards as negative balances on rows whose Role is the
+    # default "Cash / spending", while the plan also holds the mortgage (Cashflow inputs) and the same cards
+    # (liabilities dataset). Each debt must reduce net worth once, at its live Monarch balance.
+    base_dir = _workspace(tmp_path)
+    input_dir = base_dir / "input"
+    ytd.write_transactions(input_dir, [
+        {"Date": "2026-01-10", "Merchant": "Kroger", "Category": "Groceries", "Account": "Checking",
+         "Amount": "-100.00", "Owner": "Member_1"},
+    ], today=date(2026, 1, 20))
+    ytd.write_account_setup(input_dir, [
+        {"Account": "Checking", "Role": "Cash / spending", "Current Balance": "1500"},
+        {"Account": "Mortgage 2.5% 5/33", "Role": "Cash / spending", "Current Balance": "-250000"},
+        {"Account": "Platinum Card (...0001)", "Role": "Cash / spending", "Current Balance": "-5000"},
+        {"Account": "Store Visa Card (...0002)", "Role": "Cash / spending", "Current Balance": "-200"},
+    ])
+    write_dataset_rows_for_input_dir(input_dir, "liabilities", [
+        {"liability_id": "l1", "type": "credit_card", "label": "Amex", "balance": "5000"},
+        {"liability_id": "l2", "type": "credit_card", "label": "Store Visa", "balance": "200"},
+        {"liability_id": "l3", "type": "loan", "label": "Car loan", "balance": "10000"},
+    ])
+    _write_plan_csv(
+        base_dir,
+        "Cashflow,Mortgage,balance_as_of_plan_start,240000,,\n"
+        "Cashflow,Mortgage,interest_rate,2.5%,,\n"
+        "Cashflow,Mortgage,monthly_payment,3000,,\n",
+    )
+    nw = compute_snapshot(base_dir, today=date(2026, 4, 1))["net_worth"]
+    assert nw["assets"] == 1500.0                      # debts are not negative assets
+    # Monarch mortgage + Monarch cards + the plan loan Monarch does not track; no plan mortgage, no plan cards.
+    assert nw["liabilities"] == 250000.0 + 5000.0 + 200.0 + 10000.0
+    assert nw["mortgage"] == 0.0                       # the plan mortgage was replaced by the Monarch account
+    assert nw["total"] == round(1500.0 - nw["liabilities"], 2)
+    debts = {a["account"]: a for a in nw["other_accounts"] if a["liability"]}
+    assert debts["Mortgage 2.5% 5/33"]["value"] == 250000.0   # positive balance, flagged as a liability
+    assert set(debts) == {"Mortgage 2.5% 5/33", "Platinum Card (...0001)", "Store Visa Card (...0002)"}

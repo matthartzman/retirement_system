@@ -24,6 +24,7 @@ if str(_REPO_ROOT) not in sys.path:
 
 from src import spending_tracker, ytd_tracking as ytd  # noqa: E402
 from . import balance_series  # noqa: E402
+from .account_registry import classify as _classify_name  # noqa: E402
 from .spending_window import annual_budgets, prior_detail, same_day_prior_year as _same_day_prior_year, tracking_type_totals  # noqa: E402
 from src.active_plan import peek_plan_data_for_input_dir  # noqa: E402
 from src.plan_datasets import dataset_rows_for_input_dir  # noqa: E402
@@ -34,11 +35,29 @@ from src.plan_datasets import dataset_rows_for_input_dir  # noqa: E402
 LIABILITY_ROLES = frozenset({"Credit card", "Mortgage", "HELOC", "Loan", "Other liability"})
 
 
-def _liabilities_csv_total(base_dir: Path, db_path: Path) -> float:
+def _debt_kind(name: str, role: str, value: float) -> str | None:
+    """"mortgage" / "credit_card" / "other" for an account-setup row that is a debt, else None.
+
+    A debt is a liability role, or a negative balance on any other non-growth row: Monarch exports a
+    mortgage or card as a negative balance, and a matched row keeps the default "Cash / spending" role,
+    which is not evidence that it is cash (the same rule app_sync applies to the balance store).
+    """
+    if role not in LIABILITY_ROLES and (role in ytd.GROWTH_ROLES or value >= 0):
+        return None
+    if role == "Mortgage" or "mortgage" in name.casefold():
+        return "mortgage"
+    if role == "Credit card" or _classify_name(name) == "Credit card":
+        return "credit_card"
+    return "other"
+
+
+def _liabilities_csv_total(base_dir: Path, db_path: Path, skip_types: frozenset[str] = frozenset()) -> float:
     # plan.rpx only: the legacy client_files / input CSV fallback was removed (ARC-004), so a
-    # plan with no liabilities counts none instead of an old converted balance.
+    # plan with no liabilities counts none instead of an old converted balance. ``skip_types``
+    # are the row types account setup already counts at their live balance.
     rows = dataset_rows_for_input_dir(base_dir / "input", "liabilities")
-    return sum(ytd.parse_money(row.get("balance")) for row in rows)
+    return sum(ytd.parse_money(row.get("balance")) for row in rows
+               if str(row.get("type") or "").strip().casefold() not in skip_types)
 
 
 def _net_worth_from_account_setup(
@@ -54,6 +73,7 @@ def _net_worth_from_account_setup(
     }
     assets = 0.0
     account_liabilities = 0.0
+    debt_kinds: set[str] = set()
     for row in accounts:
         role = str(row.get("Role") or "").strip()
         if role == "Ignore":
@@ -63,19 +83,21 @@ def _net_worth_from_account_setup(
             value = live_values[name]
         else:
             value = ytd.parse_money(row.get("Current Value") or row.get("Current Balance"))
-        if role in LIABILITY_ROLES:
-            account_liabilities += value
+        kind = _debt_kind(name, role, value)
+        if kind:
+            account_liabilities += abs(value)
+            debt_kinds.add(kind)
         else:
             assets += value
-    return {"assets": assets, "account_liabilities": account_liabilities}
+    return {"assets": assets, "account_liabilities": account_liabilities, "debt_kinds": debt_kinds}
 
 
 def _non_investment_balances(accounts: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Per-account balances for accounts NOT in holdings.by_account (cash, cards, loans...).
 
     Logged so the net-worth rollover can list every account, not just
-    investments. ``value`` is the positive balance; liability roles are flagged
-    by ``role`` (see LIABILITY_ROLES).
+    investments. ``value`` is the positive balance; debts (liability roles and
+    negative balances, see ``_debt_kind``) are flagged by ``liability``.
     """
     out = []
     for row in accounts:
@@ -84,9 +106,10 @@ def _non_investment_balances(accounts: list[dict[str, Any]]) -> list[dict[str, A
         if not name or role == "Ignore" or role in ytd.GROWTH_ROLES:
             continue
         value = ytd.parse_money(row.get("Current Value") or row.get("Current Balance"))
+        liability = _debt_kind(name, role, value) is not None
         out.append({
-            "account": name, "role": role or "Cash / spending", "value": round(value, 2),
-            "liability": role in LIABILITY_ROLES,
+            "account": name, "role": role or "Cash / spending",
+            "value": round(abs(value) if liability else value, 2), "liability": liability,
         })
     return out
 
@@ -244,11 +267,16 @@ def compute_snapshot(base_dir: str | Path, *, today=None, passthrough_decisions:
         "by_account": inv.get("account_growth_rows", []),
     }
 
-    liabilities_csv_total = _liabilities_csv_total(base_dir, db_path)
     from_accounts = _net_worth_from_account_setup(
         summary.get("accounts", []), inv.get("account_growth_rows", [])
     )
+    # Once account setup (Monarch) carries a mortgage or card, it is the live balance for that kind of
+    # debt: the plan's own copy (Cashflow mortgage, liabilities rows of that type) would count it twice.
+    debt_kinds = from_accounts["debt_kinds"]
+    liabilities_csv_total = _liabilities_csv_total(base_dir, db_path, frozenset(debt_kinds & {"mortgage", "credit_card"}))
     plan = _plan_assets_and_mortgage(base_dir, db_path, today or date.today())
+    if "mortgage" in debt_kinds:
+        plan["mortgage"] = 0.0
     plan_assets = plan["home"] + plan["startup_equity"] + plan["cash"] + plan["autos"]
     assets = from_accounts["assets"] + plan_assets
     liabilities = from_accounts["account_liabilities"] + liabilities_csv_total + plan["mortgage"]
