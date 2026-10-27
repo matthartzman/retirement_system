@@ -685,9 +685,13 @@ def apply_death_transition(c: dict, balance: Dict[str, float], year: int,
                 # Treat standalone cash/checking as household liquidity; roll to taxable/trust if no cash acct.
                 dst = _matching_survivor_account(registry, survivor, acct)
             elif acct.get('tax') == 'hsa':
-                # Surviving spouse can generally keep HSA treatment if they have an HSA; otherwise taxable/trust fallback.
-                dst = (_first_account(registry, survivor, acct_type='hsa')
-                       or _first_account(registry, survivor, tax='taxable'))
+                # A surviving spouse who inherits an HSA owns it as an HSA (IRC 223(f)(8)(A)),
+                # whether or not they already hold one. Merge into their HSA if they have one;
+                # otherwise the account stays where it is -- it remains an HSA, owned by the
+                # survivor. Sweeping it into a taxable account instead made a sole HSA vanish
+                # from the HSA bucket in the death year and turned its tax-free dollars into
+                # ordinary taxable ones for the rest of the plan.
+                dst = _first_account(registry, survivor, acct_type='hsa') or acct['id']
             else:
                 dst = _matching_survivor_account(registry, survivor, acct)
             if basis_free is not None and c.get('basis_step_up_at_death', True) and acct.get('tax') == 'taxable':

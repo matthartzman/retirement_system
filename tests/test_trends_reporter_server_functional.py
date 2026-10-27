@@ -94,43 +94,31 @@ def test_run_now_tells_the_user_to_restart_when_the_app_database_is_newer(tmp_pa
     assert "older code" in resp.get_json()["error"]
 
 
-def test_second_instance_refuses_to_start_when_the_port_is_taken(capsys):
+def test_second_instance_opens_the_browser_and_exits_cleanly(monkeypatch):
     import socket
 
     from financial_trends_reporter import main as reporter_main
 
+    opened = []
+    monkeypatch.setattr(reporter_main.webbrowser, "open", opened.append)
     with socket.socket() as srv:
         srv.bind(("127.0.0.1", 0))
         srv.listen(1)
         port = srv.getsockname()[1]
-        assert reporter_main.main(["--port", str(port), "--no-open"]) == 1
-    assert "already running" in capsys.readouterr().err
+        assert reporter_main.main(["--port", str(port)]) == 0
+    assert opened == [f"http://127.0.0.1:{port}"]
 
 
-def test_exit_endpoint_stops_the_server(tmp_path):
-    from financial_trends_reporter.main import Lifecycle
-
-    stopped = threading.Event()
-    app = create_app(_workspace(tmp_path), log_path=tmp_path / "log.jsonl", lifecycle=Lifecycle(stopped.set))
-    assert app.test_client().post("/api/exit").status_code == 200
-    assert stopped.wait(2)
+def test_exit_endpoint_does_not_stop_the_server(tmp_path):
+    app = create_app(_workspace(tmp_path), log_path=tmp_path / "log.jsonl")
+    client = app.test_client()
+    assert client.post("/api/exit").status_code == 200
+    assert client.get("/api/history").status_code == 200
 
 
-def test_closed_page_stops_the_server_after_the_grace_period_but_a_reload_does_not():
-    from financial_trends_reporter.main import CLOSE_GRACE_SECONDS, Lifecycle
-
-    now = [0.0]
-    life = Lifecycle(lambda: None, clock=lambda: now[0])
-    assert not life.expired()  # never armed: an API-only server is not stopped
-    life.ping()
-    life.closing()
-    now[0] = CLOSE_GRACE_SECONDS - 1
-    life.ping()  # the reloaded page pings again
-    now[0] = CLOSE_GRACE_SECONDS + 5
-    assert not life.expired()
-    life.closing()
-    now[0] += CLOSE_GRACE_SECONDS + 1
-    assert life.expired()
+def test_closing_endpoint_is_gone(tmp_path):
+    app = create_app(_workspace(tmp_path), log_path=tmp_path / "log.jsonl")
+    assert app.test_client().post("/api/closing").status_code == 404
 
 
 def test_run_status_reports_last_run_at_from_the_log(tmp_path):
