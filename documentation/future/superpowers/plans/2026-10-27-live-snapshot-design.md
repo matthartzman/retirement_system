@@ -1,6 +1,7 @@
 # Financial Trends — Live Snapshot view (design + implementation plan)
 
-Date: 2026-10-27 · Status: design approved in chat, awaiting plan sign-off
+Date: 2026-10-27
+Status: implemented (branch `live-snapshot`, steps 1-5 and 7 built; not yet merged)
 
 ## 1. Intent
 

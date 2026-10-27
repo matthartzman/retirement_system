@@ -120,7 +120,7 @@ describe("liveViewHtml", () => {
     assert.match(out, /after-tax premium not set/i);
   });
   test("reconciliation: a quiet line when close, a warning when flagged", () => {
-    assert.match(out, /Monarch/);
+    assert.match(out, /vs\. imported balances/);
     assert.ok(!out.includes('class="recon warn"'));
     const flagged = liveViewHtml({ ...DATA, reconciliation: { ...DATA.reconciliation, delta_pct: 0.05, flag: true } });
     assert.match(flagged, /class="recon warn"/);

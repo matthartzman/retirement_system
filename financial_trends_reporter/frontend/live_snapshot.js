@@ -103,7 +103,7 @@ function reconciliationHtml(rec) {
   if (!rec) return "";
   const pct = rec.delta_pct === null || rec.delta_pct === undefined ? DASH : fmtPct(Math.abs(rec.delta_pct));
   const warn = rec.flag ? " Check client_holdings for trades or transfers not yet entered." : "";
-  return `<div class="recon${rec.flag ? " warn" : ""}" role="${rec.flag ? "alert" : "status"}">Holdings file ${fmtUsd(rec.holdings_value)} vs. Monarch ${fmtUsd(rec.monarch_value)} (${esc(rec.monarch_as_of || "")}): ${pct} apart.${warn}</div>`;
+  return `<div class="recon${rec.flag ? " warn" : ""}" role="${rec.flag ? "alert" : "status"}">Holdings file ${fmtUsd(rec.holdings_value)} vs. imported balances ${fmtUsd(rec.monarch_value)} (${esc(rec.monarch_as_of || "")}): ${pct} apart.${warn}</div>`;
 }
 
 const TREATMENT = { pre_tax: "Taxed in full", after_tax: "Taxed above premium", none: "Not taxed" };
@@ -149,7 +149,7 @@ export function liveViewHtml(data) {
     + `<h3>Equity by sub-class</h3>${liquidTable("Sub-class", L.by_equity_subclass, null)}${reconciliationHtml(data.reconciliation)}`
     + `<p class="note">Start = 12/31 value of lots held then. Bought since = lots bought after 12/31, at purchase price; reinvested dividends count as gain. Return % weights new money by how long it was invested (Modified Dietz). Gains on positions sold this year are not included.${flows}</p></div>`;
   const nl = data.non_liquid;
-  const nonLiquid = `<details class="live-section"><summary>Non-liquid assets <b>${fmtUsd(nl.total)}</b> <span class="muted">Monarch, ${esc(nl.as_of || "")}</span></summary>`
+  const nonLiquid = `<details class="live-section"><summary>Non-liquid assets <b>${fmtUsd(nl.total)}</b> <span class="muted">imported balances, ${esc(nl.as_of || "")}</span></summary>`
     + simpleTable(nl.rows, [(r) => esc(r.name), (r) => esc(r.kind), (r) => fmtUsd(r.value), (r) => fmtPct(r.share, 0), (r) => esc(TREATMENT[r.tax_treatment] || "")]) + `</details>`;
   const tax = `<details class="live-section"><summary>Estimated tax <b>${fmtUsd(-data.tax.total)}</b></summary>${taxHtml(data.tax)}</details>`;
   const debt = `<details class="live-section"><summary>Debt <b>${fmtUsd(-data.debt.total)}</b></summary>`
