@@ -72,7 +72,8 @@ ALPHA_VANTAGE_QUOTE_URL = "https://www.alphavantage.co/query?function=GLOBAL_QUO
 STOOQ_QUOTE_URL = "https://stooq.com/q/l/?s={symbol}&f=sd2t2ohlcv&h&e=csv"
 STOOQ_QUOTE_HTTP_URL = "http://stooq.com/q/l/?s={symbol}&f=sd2t2ohlcv&h&e=csv"
 YAHOO_CHART_QUERY2_URL = "https://query2.finance.yahoo.com/v8/finance/chart/{symbol}?range=1d&interval=1d&includePrePost=false"
-YAHOO_QUOTE_URL = "https://query1.finance.yahoo.com/v7/finance/quote?symbols={symbol}"
+YAHOO_HISTORY_URL = "https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?period1={period1}&period2={period2}&interval=1d"
+YAHOO_QUOTE_URL ="https://query1.finance.yahoo.com/v7/finance/quote?symbols={symbol}"
 NASDAQ_INFO_URL = "https://api.nasdaq.com/api/quote/{symbol}/info?assetclass={asset_class}"
 
 # Many public quote endpoints reject Python/library user agents even when the
@@ -1431,6 +1432,34 @@ class MarketDataProvider:
             detail.update(price=cached, source=f"stale_cache_from_{rec.get('source', 'cache')}", as_of=self._cache_iso_for_symbol(symbol))
         return detail
 
+    def daily_closes(self, symbol: str, start, end) -> Dict[str, float]:
+        """{exchange-local ISO date: close} from Yahoo daily history for ``start``..``end`` (dates,
+        inclusive). Empty on any failure or when live providers are disabled. Unadjusted closes:
+        reinvested dividends arrive as new holdings lots, so adjusting would count them twice."""
+        symbol = _clean_symbol(symbol)
+        if not symbol or str(os.getenv("RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS", "") or "").strip().lower() in {"1", "true", "yes", "on"}:
+            return {}
+        from datetime import datetime, timedelta, timezone
+        from zoneinfo import ZoneInfo
+        p1 = int(datetime(start.year, start.month, start.day, tzinfo=timezone.utc).timestamp())
+        p2 = int((datetime(end.year, end.month, end.day, tzinfo=timezone.utc) + timedelta(days=1)).timestamp())
+        url = YAHOO_HISTORY_URL.format(symbol=urllib.parse.quote(symbol), period1=p1, period2=p2)
+        payload, cause = self._get_json("Yahoo Finance history", symbol, url)
+        out: Dict[str, float] = {}
+        try:
+            result = payload["chart"]["result"][0]
+            tz = ZoneInfo(str((result.get("meta") or {}).get("exchangeTimezoneName") or "America/New_York"))
+            closes = result["indicators"]["quote"][0]["close"]
+            for ts, raw in zip(result.get("timestamp") or [], closes or []):
+                px = _to_price(raw)
+                day = datetime.fromtimestamp(int(ts), tz=timezone.utc).astimezone(tz).date()
+                if px is not None and start <= day <= end:
+                    out[day.isoformat()] = px
+        except Exception:
+            if payload is not None and not cause:
+                self._record_failure(symbol, "yahoo:history", url, "Yahoo Finance history payload was not usable.", json.dumps(payload)[:300])
+        return out
+
     def quote_details(self, symbols: Iterable[str]) -> Dict[str, Dict[str, object]]:
         """quote_detail() for each distinct symbol, fetched concurrently."""
         unique = sorted({_clean_symbol(s) for s in symbols if _clean_symbol(s)})
@@ -1776,6 +1805,11 @@ def prewarm_prices(symbols: Iterable[str], skip_live: bool = False) -> None:
 def quote_details(symbols: Iterable[str]) -> Dict[str, Dict[str, object]]:
     """Live price + previous close per symbol, never memoized (see MarketDataProvider.quote_detail)."""
     return _DEFAULT_PROVIDER.quote_details(symbols)
+
+
+def daily_closes(symbol: str, start, end) -> Dict[str, float]:
+    """{ISO date: close} from Yahoo daily history (see MarketDataProvider.daily_closes)."""
+    return _DEFAULT_PROVIDER.daily_closes(symbol, start, end)
 
 
 def price_source(symbol: str) -> str:

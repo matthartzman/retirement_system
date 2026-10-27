@@ -123,3 +123,28 @@ def test_quote_details_batch_dedups_and_cleans(provider, monkeypatch):
 def test_module_level_wrapper_uses_default_provider(monkeypatch):
     monkeypatch.setattr(market_data._DEFAULT_PROVIDER, "quote_details", lambda symbols: {"X": {"price": 1.0}})
     assert market_data.quote_details(["X"]) == {"X": {"price": 1.0}}
+
+
+def _history(timestamps, closes):
+    return {"chart": {"result": [{"meta": {"exchangeTimezoneName": "America/New_York"}, "timestamp": timestamps,
+                                   "indicators": {"quote": [{"close": closes}]}}], "error": None}}
+
+
+def test_daily_closes_by_exchange_date(provider, monkeypatch):
+    from datetime import date
+    urls = []
+    # 2025-12-30 and 2025-12-31 14:30Z bar starts (09:30 ET); a None close is skipped.
+    payload = _history([1767105000, 1767191400, 1767364200], [60.0, 61.0, None])
+    monkeypatch.setattr(provider, "_get_json", lambda name, sym, url: (urls.append(url), (payload, None))[1])
+    out = provider.daily_closes("ixus", date(2025, 12, 21), date(2026, 1, 1))
+    assert out == {"2025-12-30": 60.0, "2025-12-31": 61.0}
+    assert "interval=1d" in urls[0] and "period1=" in urls[0] and "/IXUS?" in urls[0]
+
+
+def test_daily_closes_empty_on_failure_or_disabled(provider, monkeypatch):
+    from datetime import date
+    monkeypatch.setattr(provider, "_get_json", lambda *a: (None, "network timeout"))
+    assert provider.daily_closes("IXUS", date(2025, 12, 21), date(2026, 1, 1)) == {}
+    monkeypatch.setenv("RETIREMENT_SYSTEM_DISABLE_LIVE_PRICE_PROVIDERS", "1")
+    monkeypatch.setattr(provider, "_get_json", lambda *a: pytest.fail("network called"))
+    assert provider.daily_closes("IXUS", date(2025, 12, 21), date(2026, 1, 1)) == {}
