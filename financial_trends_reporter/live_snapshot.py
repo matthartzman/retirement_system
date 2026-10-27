@@ -268,6 +268,8 @@ KIND_ORDER = ("Equity", "Fixed Income", "Real Estate", "Commodities", "Alternati
 MONARCH_LIQUID_TYPES = frozenset({"Retirement", "Investment", "HSA"})
 MONARCH_DEBT_TYPES = frozenset({"Loan", "Credit card"})
 RECONCILE_FLAG_PCT = 0.01
+RECONCILE_ACCOUNT_FLAG_USD = 100.0
+RECONCILE_MATCH_PCT = 0.05
 ANNUALIZE_MIN_DAYS = 90
 
 
@@ -452,6 +454,96 @@ def _checking_net_flows(accounts, flows_daily, liquid_accounts: set[str], baseli
     return net
 
 
+def _hints(members: list[dict], value_then, delta: float, as_of: str | None, stale: set[str]) -> list[dict]:
+    """Why a flagged account may disagree with Monarch, in the design's order (4.1): lots bought after
+    Monarch's balance date, symbols priced from a fallback, one lot (else one symbol's total) worth
+    within 5% of the gap, and which side is higher."""
+    hints: list[dict] = []
+    later = [m for m in members if as_of and m["purchase_date"] and m["purchase_date"] > as_of]
+    if later:
+        hints.append({"kind": "after_balance_date", "count": len(later), "value": round(sum(value_then(m) for m in later), 2)})
+    old = sorted({m["symbol"] for m in members if m["symbol"] in stale})
+    if old:
+        hints.append({"kind": "stale_prices", "symbols": old})
+    gap = abs(delta)
+
+    def closest(candidates):
+        near = [c for c in candidates if abs(c["value"] - gap) <= RECONCILE_MATCH_PCT * gap]
+        return min(near, key=lambda c: abs(c["value"] - gap)) if near else None
+
+    match = closest([{"symbol": m["symbol"], "shares": m["shares"], "purchase_date": m["purchase_date"],
+                      "value": value_then(m)} for m in members])
+    if match is None:
+        by_symbol: dict[str, list[dict]] = {}
+        for m in members:
+            by_symbol.setdefault(m["symbol"], []).append(m)
+        match = closest([{"symbol": s, "shares": sum(m["shares"] for m in ms), "purchase_date": None,
+                          "value": sum(value_then(m) for m in ms)} for s, ms in sorted(by_symbol.items())])
+    if match is not None:
+        hints.append({"kind": "matches_position", **match, "value": round(match["value"], 2)})
+    hints.append({"kind": "direction", "higher": "holdings" if delta > 0 else "monarch"})
+    return hints
+
+
+def _reconcile_accounts(positions: list[dict], stale: list[str], accounts, monarch: dict | None,
+                        back_off: bool, today: date) -> dict[str, Any]:
+    """Holdings vs. Monarch account by account (design 4.1), through each Monarch account's
+    ``mapped_investment_account``. Only Monarch liquid-type accounts take part. Each holdings value
+    is backed off by its lots' day moves when Monarch is from an earlier day (the total's rule), so
+    the account rows plus the unmapped holdings foot to the total's holdings value."""
+    def value_then(p: dict) -> float:
+        return p["current"] - ((p["day"] or 0.0) if back_off else 0.0)
+
+    mapping: dict[str, str] = {}
+    for a in accounts or []:
+        name, target = str(a.get("account") or "").strip(), str(a.get("mapped_investment_account") or "").strip()
+        if name and target:
+            mapping.setdefault(name, target)
+    by_holdings: dict[str, list[dict]] = {}
+    for p in positions:
+        by_holdings.setdefault(p["account"], []).append(p)
+
+    matched: dict[str, list[tuple[str, float]]] = {}
+    unmapped_monarch = []
+    for r in (monarch or {}).get("by_account") or []:
+        if str(r.get("type") or "") not in MONARCH_LIQUID_TYPES:
+            continue
+        name, value = str(r.get("account") or "").strip(), _num(r.get("value"))
+        if name in mapping:
+            matched.setdefault(mapping[name], []).append((name, value))
+        else:
+            unmapped_monarch.append({"name": name, "value": round(value, 2)})
+
+    as_of, stale_set = (monarch or {}).get("latest_date"), set(stale)
+    rows, footing = [], 0.0
+    for holdings_account, names in matched.items():
+        members = by_holdings.get(holdings_account, [])   # empty when every lot was sold: holdings 0
+        held = sum(value_then(m) for m in members)
+        monarch_value = sum(v for _, v in names)
+        delta = held - monarch_value
+        delta_pct = _ratio(delta, monarch_value)
+        # Both over 1% and over $100; with no Monarch balance to divide by, the $ test alone decides.
+        flag = abs(delta) > RECONCILE_ACCOUNT_FLAG_USD and (delta_pct is None or abs(delta_pct) > RECONCILE_FLAG_PCT)
+        footing += held
+        rows.append({"holdings_account": holdings_account, "monarch_accounts": [n for n, _ in names],
+                     "holdings_value": round(held, 2), "monarch_value": round(monarch_value, 2),
+                     "delta": round(delta, 2), "delta_pct": delta_pct, "flag": flag,
+                     "hints": _hints(members, value_then, delta, as_of, stale_set) if flag else []})
+    rows.sort(key=lambda r: (-abs(r["delta"]), r["holdings_account"]))   # largest gap first
+
+    unmapped_holdings = []
+    for account, members in by_holdings.items():
+        if account not in matched:
+            held = sum(value_then(m) for m in members)
+            footing += held
+            unmapped_holdings.append({"account": account, "value": round(held, 2)})
+    unmapped_holdings.sort(key=lambda r: (-r["value"], r["account"]))
+    unmapped_monarch.sort(key=lambda r: (-r["value"], r["name"]))
+    return {"accounts": rows, "unmapped_monarch": unmapped_monarch, "unmapped_holdings": unmapped_holdings,
+            "footing": round(footing, 2),
+            "monarch_stale": bool(as_of) and as_of < previous_trading_day(today).isoformat()}
+
+
 TAX_TREATMENTS = frozenset({"pre_tax", "after_tax", "none"})
 
 
@@ -535,7 +627,8 @@ def compute(*, lots, quotes, baseline, security_master, accounts, flows_daily, m
         delta = _ratio(compare - sections["liquid_total"], sections["liquid_total"])
         reconciliation = {"holdings_value": round(compare, 2), "monarch_value": round(sections["liquid_total"], 2),
                           "monarch_as_of": sections["as_of"], "delta_pct": delta,
-                          "flag": delta is None or abs(delta) > RECONCILE_FLAG_PCT}
+                          "flag": delta is None or abs(delta) > RECONCILE_FLAG_PCT,
+                          **_reconcile_accounts(positions, stale, accounts, monarch, yesterday, today)}
 
     pre_tax_balance = sum(p["current"] for p in positions if p["tax"] == "pre_tax")
     unrealized = sum(max(0.0, p["current"] - p["basis"]) for p in positions
