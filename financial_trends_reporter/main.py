@@ -39,6 +39,7 @@ from financial_trends_reporter.passthrough_decisions import decisions_path_for_l
 from financial_trends_reporter.trends_job import run as run_trends_job  # noqa: E402
 from financial_trends_reporter.trends_log import default_log_path, read_history  # noqa: E402
 from src.active_plan import plan_path_for_workspace  # noqa: E402
+from src import spending_tracker  # noqa: E402
 
 INDEX_HTML_PATH = _APP_ROOT / "frontend" / "index.html"
 # A run newer than this is fresh enough that the page skips its automatic update on open.
@@ -201,6 +202,35 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, lifecy
                 cached = json.dumps(spending_window.spending_window_payload(retirement_system_dir, start, end))
             except Exception as exc:  # noqa: BLE001 - the page falls back to the logged YTD figures
                 logging.getLogger(__name__).exception("spending window failed")
+                return _json({"success": False, "error": f"{exc.__class__.__name__}: {exc}"}, 500)
+            with spending_cache_lock:
+                if len(spending_cache) >= SPENDING_CACHE_MAX:
+                    spending_cache.clear()
+                spending_cache[key] = cached
+        return Response(cached, content_type="application/json")
+
+    @app.route("/api/spending/transactions", methods=["GET"])
+    def spending_transactions():
+        # The transactions behind one merchant line of /api/spending's hierarchy. A line that no
+        # longer exists (data changed underneath) yields an empty list, not an error.
+        try:
+            start, end = _parse_spending_window(request.args)
+        except ValueError as exc:
+            return _json({"success": False, "error": str(exc)}, 400)
+        tracking_type, group, category, merchant = (
+            request.args.get(name) or "" for name in ("type", "group", "category", "merchant"))
+        if not all(v.strip() for v in (tracking_type, group, category, merchant)):
+            return _json({"success": False, "error": "type, group, category and merchant are required"}, 400)
+        key = ("txns", start.isoformat(), end.isoformat(), tracking_type, group, category, merchant,
+               _spending_inputs_mtime())
+        with spending_cache_lock:
+            cached = spending_cache.get(key)
+        if cached is None:
+            try:
+                cached = json.dumps(spending_tracker.spending_transactions_window(
+                    retirement_system_dir, start, end, tracking_type, group, category, merchant))
+            except Exception as exc:  # noqa: BLE001 - the panel shows the cause
+                logging.getLogger(__name__).exception("spending transactions failed")
                 return _json({"success": False, "error": f"{exc.__class__.__name__}: {exc}"}, 500)
             with spending_cache_lock:
                 if len(spending_cache) >= SPENDING_CACHE_MAX:

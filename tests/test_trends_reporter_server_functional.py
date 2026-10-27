@@ -338,3 +338,76 @@ def test_run_cancel_stops_a_running_job_and_run_now_reports_cancelled(tmp_path, 
     t.join(5)
     assert out == [409]
     assert app.test_client().get("/api/run-status").get_json()["running"] is False
+
+
+# --- /api/spending/transactions (merchant-line drill-down) ----------------------------------
+
+_TXN_URL = ("/api/spending/transactions?from=2026-01-01&to=2026-01-10"
+            "&type=Core%20Expenses&group=Food&category=Groceries&merchant={merchant}")
+
+
+def test_spending_transactions_endpoint_returns_the_merchant_lines_transactions(tmp_path):
+    app = create_app(_spending_workspace(tmp_path), log_path=tmp_path / "log.jsonl")
+    status, body = _get_json(app.test_client(), _TXN_URL.format(merchant="Kroger"))
+    assert status == 200
+    assert set(body) == {"transactions", "total"}
+    assert body["transactions"] and body["total"] == 70.0
+    assert {t["merchant"] for t in body["transactions"]} == {"Kroger"}
+
+
+def test_spending_transactions_requires_all_four_params_and_a_valid_window(tmp_path):
+    client = create_app(_spending_workspace(tmp_path), log_path=tmp_path / "log.jsonl").test_client()
+    base = {"from": "2026-01-01", "to": "2026-01-10", "type": "Core Expenses", "group": "Food",
+            "category": "Groceries", "merchant": "Kroger"}
+    from urllib.parse import urlencode
+    for missing in ("type", "group", "category", "merchant"):
+        for blank in (False, True):
+            args = {k: v for k, v in base.items() if k != missing or blank}
+            if blank:
+                args[missing] = "  "
+            status, body = _get_json(client, "/api/spending/transactions?" + urlencode(args))
+            assert status == 400, (missing, blank)
+            assert body == {"success": False, "error": "type, group, category and merchant are required"}
+    status, body = _get_json(client, "/api/spending/transactions?from=jan&to=feb&type=a&group=b&category=c&merchant=d")
+    assert status == 400 and body["success"] is False
+
+
+def test_spending_transactions_for_an_unknown_merchant_is_an_empty_list(tmp_path):
+    client = create_app(_spending_workspace(tmp_path), log_path=tmp_path / "log.jsonl").test_client()
+    status, body = _get_json(client, _TXN_URL.format(merchant="Nowhere"))
+    assert status == 200 and body["transactions"] == [] and body["total"] == 0.0
+
+
+def test_spending_transactions_cache_key_covers_every_param_and_the_plan_mtime(tmp_path, monkeypatch):
+    import os
+    import financial_trends_reporter.main as reporter_main
+    base = _spending_workspace(tmp_path)
+    calls = []
+    real = reporter_main.spending_tracker.spending_transactions_window
+    monkeypatch.setattr(reporter_main.spending_tracker, "spending_transactions_window",
+                        lambda *a, **k: calls.append(a[1:]) or real(*a, **k))
+    client = create_app(base, log_path=tmp_path / "log.jsonl").test_client()
+    _get_json(client, _TXN_URL.format(merchant="Kroger"))
+    _get_json(client, _TXN_URL.format(merchant="Kroger"))
+    assert len(calls) == 1  # cache hit
+    _get_json(client, _TXN_URL.format(merchant="Aldi"))
+    assert len(calls) == 2  # merchant is part of the key
+    _get_json(client, _TXN_URL.format(merchant="Kroger").replace("category=Groceries", "category=Other"))
+    assert len(calls) == 3  # category is part of the key
+    plan = reporter_main.plan_path_for_workspace(base)
+    st = plan.stat()
+    os.utime(plan, ns=(st.st_atime_ns, st.st_mtime_ns + 5_000_000_000))
+    _get_json(client, _TXN_URL.format(merchant="Kroger"))
+    assert len(calls) == 4  # plan mtime is part of the key
+
+
+def test_spending_transactions_failure_is_a_500_with_the_error_shape(tmp_path, monkeypatch):
+    import financial_trends_reporter.main as reporter_main
+
+    def boom(*_a, **_k):
+        raise RuntimeError("nope")
+
+    monkeypatch.setattr(reporter_main.spending_tracker, "spending_transactions_window", boom)
+    client = create_app(_spending_workspace(tmp_path), log_path=tmp_path / "log.jsonl").test_client()
+    status, body = _get_json(client, _TXN_URL.format(merchant="Kroger"))
+    assert status == 500 and body == {"success": False, "error": "RuntimeError: nope"}
