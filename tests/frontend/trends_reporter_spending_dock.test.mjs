@@ -20,3 +20,9 @@ test("index.html wires the dock from the module", () => {
   assert.match(html, /initSpendingDock\(\{ doc: document, win: window, getModel: \(\) => categoryModel \}\)/);
   assert.ok(!html.includes("function pinRow("));   // moved, not duplicated
 });
+
+test("index.html still defines the popup helpers the rollover and account popups use", () => {
+  // MARGIN and fitVertically stay in index.html: showRollover and the account popup call them.
+  assert.match(html, /const MARGIN = \d+;/);
+  assert.match(html, /function fitVertically\(el, desiredTop\)/);
+});

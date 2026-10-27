@@ -256,7 +256,7 @@
 // Finding QUA-302 (Wave 6 item W6-11): the chart-rendering logic below used
 // to be defined inline, right here, with no module boundary. It now lives
 // in ./charts.js, importable and testable directly.
-import { fmtMoney, escSvg, filterByTimeframe, aggregateByGranularity, granularityForTimeframe, labelForDate, scopeRange, parseSavedScope, dataTableFallbackHtml, lineChartSvg, barChartSvg, detailPopupHtml, categoryListHtml, investmentFlowRows, flowBarChartSvg, passthroughReviewHtml, rolloverModel, rolloverHtml, hasMonarchBalances, buildMonarchRows, truncateAllTime, ALL_TIME_START, monarchRolloverModel, balancesFreshnessNote, accountToggleHtml, flowIncludedAccounts, flowSeries, flowMonthlyRangeSeries, flowPeriodSummary, flowSummaryHtml, flowLineChartSvg, updateDecision, spendingUrl, spendingModelFromWindow, spendingModelFromSnapshot, latestOnly, spendingNoteText, setShowFullYear, fullYearDefault } from "./charts.js";
+import { fmtMoney, escSvg, filterByTimeframe, aggregateByGranularity, granularityForTimeframe, labelForDate, scopeRange, parseSavedScope, dataTableFallbackHtml, lineChartSvg, barChartSvg, investmentFlowRows, flowBarChartSvg, passthroughReviewHtml, rolloverModel, rolloverHtml, hasMonarchBalances, buildMonarchRows, truncateAllTime, ALL_TIME_START, monarchRolloverModel, balancesFreshnessNote, accountToggleHtml, flowIncludedAccounts, flowSeries, flowMonthlyRangeSeries, flowPeriodSummary, flowSummaryHtml, flowLineChartSvg, updateDecision, spendingUrl, spendingModelFromWindow, spendingModelFromSnapshot, latestOnly, spendingNoteText, setShowFullYear, fullYearDefault } from "./charts.js";
 import { initSpendingDock } from "./spending_dock.js";
 import { formatElapsed, recordPopupRuntime, averageRuntimeText, loadPopupRuntimeHistory } from "/shared/runtime_history.js";
 
@@ -548,6 +548,12 @@ document.getElementById("passthroughReview").addEventListener("click", async (e)
 // Rollover on the Net worth / Holdings line charts: account subtotals at the
 // hovered (or keyboard-focused) point -- Imported accounts with a non-zero balance for
 // imported-sourced points, the logged plan accounts for plan-sourced ones.
+const MARGIN = 8;
+function fitVertically(el, desiredTop) {
+  el.style.maxHeight = (window.innerHeight - 2 * MARGIN) + "px";
+  const h = el.offsetHeight;
+  el.style.top = Math.max(MARGIN, Math.min(desiredTop, window.innerHeight - h - MARGIN)) + "px";
+}
 const rollPopup = document.getElementById("rollPopup");
 function hideRollover() { rollPopup.style.display = "none"; }
 function showRollover(dot, kind) {
