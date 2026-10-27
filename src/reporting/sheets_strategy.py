@@ -782,9 +782,15 @@ def build_hsa_schedule_section(ws, c, rows, r):
     if str(c.get('hsa_withdrawal_mode') or '').strip().lower() != 'optimize':
         return r
 
-    from ..hsa_schedule import build_schedule, resolve_consume_by_year
+    from ..hsa_schedule import build_schedule, executed_schedule, resolve_consume_by_year
 
-    schedule = build_schedule(c, rows)
+    # Report the schedule the projection actually ran (overrides, locks, the
+    # search's installed answer, and what the engine could really withdraw).
+    # `build_schedule` re-plans the starting balance from scratch and ignores
+    # all of that, so it is only the fallback when nothing is installed.
+    schedule = executed_schedule(c, rows) or build_schedule(c, rows)
+    planned = schedule.get('planned')
+    balances = schedule.get('balance') or {}
     by_year = schedule.get('by_year') or {}
     feasibility = str(schedule.get('feasibility', 'infeasible'))
     residual = float(schedule.get('residual', 0.0) or 0.0)
@@ -812,7 +818,11 @@ def build_hsa_schedule_section(ws, c, rows, r):
     # ── The schedule itself ──────────────────────────────────────────────────
     write_hdr(ws, r, 1, 'Year-by-Year Proposed HSA Withdrawal', DGRAY, WHITE, span=_HSA_SECTION_SPAN); r += 1
     write_hdr(ws, r, 1, 'Year', DGRAY, WHITE, size=8)
-    write_hdr(ws, r, 2, 'Proposed HSA Draw', DGRAY, WHITE, size=8)
+    write_hdr(ws, r, 2, 'HSA Draw' if planned else 'Proposed HSA Draw', DGRAY, WHITE, size=8)
+    if planned:
+        write_hdr(ws, r, 3, 'Scheduled', DGRAY, WHITE, size=8)
+        write_hdr(ws, r, 4, 'Source', DGRAY, WHITE, size=8)
+        write_hdr(ws, r, 5, 'Year-End Balance', DGRAY, WHITE, size=8)
     r += 1
     total = 0.0
     for year in sorted(by_year):
@@ -821,10 +831,30 @@ def build_hsa_schedule_section(ws, c, rows, r):
         write_cell(ws, r, 1, int(year), fmt=FMT_YEAR, align='center')
         write_cell(ws, r, 2, amount, fmt=FMT_DOLLAR, bg=LGRAY if amount > 0 else None,
                    bold=amount > 0)
+        if planned:
+            scheduled, source = planned.get(year, (0.0, 'mode'))
+            if source == 'mode':
+                # No schedule-layer answer: the withdrawal-mode path decided it.
+                write_cell(ws, r, 3, '-', align='center')
+                write_cell(ws, r, 4, 'policy', align='center')
+            else:
+                write_cell(ws, r, 3, float(scheduled), fmt=FMT_DOLLAR)
+                write_cell(ws, r, 4, source, align='center')
+            write_cell(ws, r, 5, float(balances.get(year, 0.0)), fmt=FMT_DOLLAR)
         r += 1
     write_cell(ws, r, 1, 'Total', bold=True, bg=LGRAY)
     write_cell(ws, r, 2, total, fmt=FMT_DOLLAR, bold=True, bg=LGRAY)
-    r += 2
+    r += 1
+    if planned:
+        write_cell(ws, r, 1,
+                   'HSA Draw is what the projection actually withdrew. Scheduled is the plan '
+                   'entry for that year (your override, a locked value, or the optimizer); '
+                   'it can exceed the draw once the account runs out.',
+                   align='left')
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=_HSA_SECTION_SPAN)
+        ws.row_dimensions[r].height = 30
+        r += 1
+    r += 1
 
     # ── The four limits that must ship with the number ───────────────────────
     write_hdr(ws, r, 1, 'What This Schedule Cannot Tell You — Read Before Acting',
