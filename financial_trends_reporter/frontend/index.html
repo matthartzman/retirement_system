@@ -224,7 +224,7 @@
   <input type="date" id="customFrom" style="display:none" aria-label="Custom range start date">
   <input type="date" id="customTo" style="display:none" aria-label="Custom range end date">
   <span class="scope-label" id="scopeLabel" role="status"></span>
-  <button id="exitBtn" title="Stop the local reporter server">Exit</button>
+  <button id="exitBtn" title="Leave this page">Exit</button>
 </div>
 <div class="note" id="allTimeNote" style="display:none"></div>
 <div id="priceNote" class="price-note" role="status" style="display:none"></div>
@@ -861,16 +861,60 @@ async function updateData(force) {
 }
 document.getElementById("retryUpdate").addEventListener("click", () => updateData(true));
 
-// ---- Lifecycle: the server stops when this page is closed or Exit is clicked ----
-const sendPing = () => fetch("/api/ping", { method: "POST", keepalive: true }).catch(() => {});
+// ---- Keep-alive ping, sign-in state, Exit / Sign out ----
+// The ping reports how long ago the person last touched the page; only that keeps a remote
+// session alive (the ping itself and background polling do not).
+let lastInteraction = Date.now();
+for (const evt of ["pointerdown", "keydown", "scroll", "touchstart"]) {
+  window.addEventListener(evt, () => { lastInteraction = Date.now(); }, { passive: true });
+}
+const goToSignin = () => { location.href = "/signin"; };
+const nativeFetch = window.fetch.bind(window);
+window.fetch = async (...args) => {
+  const resp = await nativeFetch(...args);
+  if (resp.status === 401) goToSignin();
+  return resp;
+};
+const sendPing = () => fetch("/api/ping", {
+  method: "POST", keepalive: true, headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ idle_ms: Date.now() - lastInteraction }),
+}).catch(() => {});
 sendPing();
 setInterval(sendPing, 5000);
-// A reload fires pagehide too; the next page's first ping cancels the server's short grace period.
-window.addEventListener("pagehide", () => { navigator.sendBeacon("/api/closing"); });
+// Views opened go to the owner's activity log (one small request per view change).
+const reportView = (view) => fetch("/api/view", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ view }) }).catch(() => {});
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest && e.target.closest("[data-view]");
+  if (btn && btn.dataset.view) reportView(btn.dataset.view);
+});
+reportView("trends");
+let whoami = { listener: "local", must_change: false };
+async function promptNewPassword() {
+  for (;;) {
+    const current = prompt("You need to choose a new password. Enter your current (temporary) password:");
+    if (current === null) return signOut();
+    const fresh = prompt("New password (at least 10 characters):");
+    if (fresh === null) return signOut();
+    const resp = await fetch("/api/change-password", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ current, new: fresh }) });
+    const out = await resp.json().catch(() => ({}));
+    if (resp.ok) { location.reload(); return; }
+    alert(out.error || "Could not change the password.");
+  }
+}
+async function signOut() {
+  try { await fetch("/api/signout", { method: "POST" }); } catch (err) { /* ignore */ }
+  goToSignin();
+}
+(async () => {
+  try { whoami = await (await fetch("/api/whoami")).json(); } catch (err) { return; }
+  if (whoami.listener === "remote") document.getElementById("exitBtn").textContent = "Sign out";
+  if (whoami.listener === "local") { const sc = document.createElement("script"); sc.src = "/access.js"; document.body.appendChild(sc); }
+  if (whoami.must_change) promptNewPassword();
+})();
 document.getElementById("exitBtn").addEventListener("click", async () => {
-  if (!confirm("Exit the Financial trends reporter? The local server will stop.")) return;
-  try { await fetch("/api/exit", { method: "POST" }); } catch (err) { /* server already gone */ }
-  document.body.innerHTML = '<h1>Financial Trends</h1><div class="sub">The reporter has exited. You can close this tab.</div>';
+  if (whoami.listener === "remote") return signOut();
+  try { await fetch("/api/exit", { method: "POST" }); } catch (err) { /* ignore */ }
+  document.body.innerHTML = '<h1>Financial Trends</h1><div class="sub">You can close this tab. The reporter keeps running.</div>';
   window.close();
 });
 
