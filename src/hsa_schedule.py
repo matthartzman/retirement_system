@@ -786,9 +786,10 @@ _RESIDUAL_TOL = 1.0
 # linear in each year's draw, so its unconstrained optimum is degenerate: put
 # the ENTIRE balance in the single highest-net-weight year. That is not a
 # schedule anyone can execute -- a real draw is bounded by the year's qualified
-# expense bank (Task 6) and by what the household can absorb -- and this
-# signature carries no per-year capacity to bound it with. So the allocation is
-# proportional to net weight raised to this exponent: 0 would BE the level
+# medical expenses (now enforced as a per-year cap in `_allocation_shares`) and
+# by what the household can absorb. So the allocation is proportional to net
+# weight PER DOLLAR (growth excluded -- see `_allocation_shares`) raised to this
+# exponent: 0 would BE the level
 # schedule, infinity would be the degenerate single-year answer, and 3.0 sits
 # between -- concentrated enough that the good years genuinely win, spread
 # enough that the answer stays executable. It is a calibration constant, not a
@@ -943,6 +944,61 @@ def build_schedule(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]]) -> d
         feasibility = 'feasible'
 
     return {'by_year': by_year, 'feasibility': feasibility, 'residual': residual}
+
+
+def executed_schedule(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]]) -> Optional[dict]:
+    """The schedule the projection in `rows` actually ran, for reporting.
+
+    `build_schedule` plans the whole starting balance from scratch: it ignores
+    the household's `override_amount`s and locks, and it never sees the
+    projection's own balance. Reported as "the" schedule, that is fiction --
+    after a few large early overrides it goes on proposing $50k+ draws in years
+    where the projected account is already empty, and its total can be several
+    times the money that ever existed. A report has to show what `c`'s
+    installed `hsa_schedule_rows` resolved to and what the engine withdrew.
+
+    Returns ``None`` when no schedule is installed, so the caller can fall back
+    to `build_schedule`. Otherwise the same keys `build_schedule` returns, with
+    `by_year` holding the projection's ACTUAL `hsa_wd`, plus ``'planned'``
+    (``{year: (amount, source)}`` from `resolve_year_amount`) and
+    ``'balance'`` (``{year: hsa_nw}``). `residual` is the projected balance in
+    the deadline year -- the money that is really still there.
+    """
+    installed = list(c.get('hsa_schedule_rows') or [])
+    years = _schedule_years(c, rows)
+    if not installed or not years:
+        return None
+    sched_by_year = {}
+    for r in installed:
+        try:
+            sched_by_year[int(r['year'])] = r
+        except (KeyError, TypeError, ValueError):
+            continue
+    rows_by_year = {}
+    for r in rows or ():
+        try:
+            rows_by_year[int(r['year'])] = r
+        except (KeyError, TypeError, ValueError):
+            continue
+
+    by_year, planned, balance = {}, {}, {}
+    for year in years:
+        row = rows_by_year.get(year) or {}
+        by_year[year] = max(0.0, _as_float(row.get('hsa_wd'), 0.0))
+        balance[year] = max(0.0, _as_float(row.get('hsa_nw'), 0.0))
+        planned[year] = resolve_year_amount(sched_by_year.get(year))
+
+    residual = balance[years[-1]]
+    floor = max(0.0, _as_float(c.get('hsa_min_ending_balance', 0.0), 0.0))
+    funded = [y for y in years if by_year[y] > 0.0]
+    if floor > 0.0 or residual > _RESIDUAL_TOL:
+        feasibility = 'infeasible'
+    elif funded and max(funded) < years[-1]:
+        feasibility = 'feasible_with_surplus'
+    else:
+        feasibility = 'feasible'
+    return {'by_year': by_year, 'feasibility': feasibility, 'residual': residual,
+            'planned': planned, 'balance': balance}
 
 
 def rerun_optimizer(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]],
@@ -1321,6 +1377,11 @@ def _allocation_shares(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]],
                        fixed: Optional[Mapping[int, float]] = None) -> dict:
     """{year: share of the drawable balance}, summing to 1 (or to 0 if empty).
 
+    Less than 1 when the years' qualified medical expenses cannot absorb the
+    whole balance: each year's draw is capped at that year's expenses (see
+    `_qualified_expense`), and what no year can take is left undrawn for the
+    caller to report as residual.
+
     `years` does NOT have to be contiguous. Growth is compounded from each
     year's TRUE distance from `plan_start`, never from its position in this
     list. For `build_schedule`'s own call the two are identical -- that list is
@@ -1360,10 +1421,18 @@ def _allocation_shares(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]],
     increment = drawable / float(len(years))
 
     weights = {}
+    caps = {}
     carried_risk = 0.0
     for year in years:
         row = _row_for_year(rows, year)
-        grown = increment * (1.0 + growth) ** ((int(year) - int(plan_start)) + 1)
+        year_growth = (1.0 + growth) ** ((int(year) - int(plan_start)) + 1)
+        grown = increment * year_growth
+        # A draw is only tax-free against qualified medical expenses, so the
+        # year's own expenses bound it. Converted to the share-of-`drawable`
+        # units this function returns; the callers grow a share by exactly
+        # `year_growth` when they turn it into dollars.
+        expense = _qualified_expense(row)
+        caps[year] = None if expense is None else expense / (drawable * year_growth)
         # Risk of carrying this increment THROUGH this year, accumulated: an
         # increment drawn in year Y was exposed in every year up to Y.
         #
@@ -1386,21 +1455,74 @@ def _allocation_shares(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]],
             # it must not bid for the pool the free years are dividing up.
             weights[year] = 0.0
         else:
-            weights[year] = max(0.0, score_year(c, row, grown) - carried_risk)
+            # Net value PER GROWN DOLLAR. The grown increment has to be scored
+            # (the IRMAA cliff term is not linear), but the weight must not
+            # carry the growth factor itself: `_CONCENTRATION` would cube it,
+            # and the callers then grow the share again on conversion to
+            # dollars. At 8% growth that compounded into a ~17%-a-year bias
+            # toward later years that no tax difference justified. Growth
+            # enters the schedule once, at conversion; the exponent sharpens
+            # only tax value.
+            weights[year] = max(0.0, score_year(c, row, grown) - carried_risk) / grown
 
     powered = {year: weight ** _CONCENTRATION for year, weight in weights.items()}
-    total = sum(powered.values())
-    if total <= 0.0:
-        # Every year is net-negative (or the rows carry no rate at all). The
-        # deadline still has to be met, so fall back to the level split rather
-        # than refusing to draw -- declining to schedule is not an option the
-        # constraint leaves open. Fixed years stay out of that split too.
-        free = [year for year in years if year not in fixed]
-        if not free:
-            return {year: 0.0 for year in years}
-        share = 1.0 / float(len(free))
-        return {year: (share if year in set(free) else 0.0) for year in years}
-    return {year: value / total for year, value in powered.items()}
+    shares = {year: 0.0 for year in years}
+    remaining = _water_fill(shares, powered, caps, 1.0)
+    if remaining > 1e-12:
+        # Every year is net-negative (or the rows carry no rate at all), or
+        # the good years' expenses could not absorb the balance. The deadline
+        # still has to be met, so spread what is left level across the free
+        # years that still have expense room rather than refusing to draw --
+        # declining to schedule is not an option the constraint leaves open.
+        # Whatever even that cannot place is left undrawn: the shares then sum
+        # to less than 1 and the caller reports the residual as infeasible.
+        level = {year: 1.0 for year in years if year not in fixed}
+        _water_fill(shares, level, caps, remaining)
+    return shares
+
+
+def _water_fill(shares: dict, powered: Mapping[int, float],
+                caps: Mapping[int, Optional[float]], amount: float) -> float:
+    """Add `amount` to `shares` in proportion to `powered`, respecting `caps`.
+
+    A year whose proportional slice would exceed its cap is filled to the cap
+    and drops out; the excess is re-split over the rest. Returns what could
+    not be placed. Mutates `shares`.
+    """
+    active = [year for year, value in powered.items() if value > 0.0]
+    while active and amount > 1e-12:
+        total = sum(powered[year] for year in active)
+        trial = {year: amount * powered[year] / total for year in active}
+        over = []
+        for year in active:
+            cap = caps.get(year)
+            if cap is not None and shares[year] + trial[year] > cap:
+                over.append(year)
+        if not over:
+            for year in active:
+                shares[year] += trial[year]
+            return 0.0
+        for year in over:
+            room = max(0.0, caps[year] - shares[year])
+            shares[year] += room
+            amount -= room
+            active.remove(year)
+    return max(0.0, amount)
+
+
+def _qualified_expense(row: Mapping[str, Any]) -> Optional[float]:
+    """The year's HSA-qualified medical spend, or None when the row has none.
+
+    The same four components the engine adds into `medical_expense_yr`
+    (`roth_conversion_and_agi_tax`): premiums, the wellness detail budget,
+    any wellness/LTC cost shock, and LTC premiums. A row carrying none of
+    those fields (a sparse fixture) gives None -- no information, so no cap --
+    rather than 0.0, which would forbid every draw.
+    """
+    keys = ('wellness_premiums_yr', 'wellness_detail_budget_yr', 'wellness_shock_yr', 'ltc_prem_yr')
+    if not any(row.get(key) is not None for key in keys):
+        return None
+    return sum(max(0.0, _as_float(row.get(key), 0.0)) for key in keys)
 
 
 def _simulate_residual(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]],

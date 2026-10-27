@@ -447,6 +447,49 @@ class ScheduleSearchTests(unittest.TestCase):
                         "more than half the balance in the final three years means the "
                         "residual term is not pricing early-death risk")
 
+    def test_growth_alone_does_not_back_load_the_schedule(self):
+        """Regression: the per-year weight used to carry the growth factor, so
+        `_CONCENTRATION` cubed it and the draw was then grown again -- at 8%
+        growth that was a ~17%/yr tilt toward later years with identical tax
+        rates. With flat rates and no terminal-cliff risk, a starting-balance
+        dollar must not be worth MORE the later it is drawn."""
+        from src.hsa_schedule import build_schedule
+        g = 0.08
+        rows = [{"year": y, "filing": "MFJ", "effective_marginal_rate": 0.22, "irmaa_tier": 0}
+                for y in range(2026, 2046)]
+        rows[0]["hsa_nw"] = 100_000.0
+        c = {"plan_start": 2026, "plan_end": 2045, "hsa_consume_by": "2045", "ret": g,
+             "hsa_beneficiary_type": "spouse"}
+        out = build_schedule(c, rows)["by_year"]
+        per_start_dollar = [out[y] / (1 + g) ** (y - 2026 + 1) for y in sorted(out)]
+        for earlier, later in zip(per_start_dollar, per_start_dollar[1:]):
+            self.assertLessEqual(later, earlier * (1 + 1e-9))
+
+    def test_each_year_is_capped_at_its_qualified_medical_expenses(self):
+        """A draw is only tax-free against qualified expenses. The search may
+        not put more in a year than that year's premiums + out-of-pocket +
+        shocks + LTC premiums; balance no year can absorb is a residual."""
+        from src.hsa_schedule import build_schedule
+        rows = [{"year": y, "filing": "MFJ", "effective_marginal_rate": 0.12 if y < 2031 else 0.32,
+                 "irmaa_tier": 0, "wellness_premiums_yr": 3_000.0, "wellness_detail_budget_yr": 2_000.0,
+                 "wellness_shock_yr": 0.0, "ltc_prem_yr": 0.0}
+                for y in range(2026, 2036)]
+        rows[0]["hsa_nw"] = 30_000.0
+        c = {"plan_start": 2026, "plan_end": 2035, "hsa_consume_by": "2035", "ret": 0.05,
+             "hsa_beneficiary_type": "spouse"}
+        out = build_schedule(c, rows)
+        for year, amount in out["by_year"].items():
+            self.assertLessEqual(amount, 5_000.0 + 1e-6, f"{year} drew past its expenses")
+        # 30k grown at 5% for 10 years is ~48.9k; ten years of $5k caps is 50k,
+        # so the plan still closes -- by spilling into the cheap early years.
+        self.assertEqual(out["feasibility"], "feasible")
+        self.assertGreater(out["by_year"][2026], 0.0)
+
+        tight = dict(rows[0], hsa_nw=60_000.0)
+        out = build_schedule(c, [tight] + rows[1:])
+        self.assertEqual(out["feasibility"], "infeasible")
+        self.assertGreater(out["residual"], 1.0)
+
     def test_the_surplus_state_is_reachable_not_dead_code(self):
         """`feasible_with_surplus` is the third feasibility state and no test in
         the brief exercises it. A state nothing can reach is a state that does
@@ -541,6 +584,38 @@ class HsaScheduleSheetSectionTests(unittest.TestCase):
             self.assertIn(str(year), text)
         self.assertEqual(text.count(out["feasibility"].replace("_", " ")), 1,
                          "feasibility state must be shown once, not per row")
+
+    def test_an_installed_schedule_is_reported_as_executed_not_replanned(self):
+        """Regression: the sheet used to call `build_schedule` on the final rows,
+        which re-plans the whole starting balance and ignores overrides. A plan
+        with large early overrides then showed $50k+ "proposed" draws in years
+        where the projected account was already empty, totalling several times
+        the money that ever existed. The sheet must report what actually ran."""
+        years = list(range(2026, 2032))
+        balance = 50_000.0
+        rows = []
+        for y in years:
+            wd = min(balance, 20_000.0)
+            balance -= wd
+            rows.append({"year": y, "filing": "MFJ", "effective_marginal_rate": 0.24,
+                         "irmaa_tier": 0, "hsa_wd": wd, "hsa_nw": balance})
+        rows[0]["hsa_nw"] = 50_000.0  # build_schedule's (fallback) starting balance
+        installed = [{"year": y, "optimizer_amount": 9_999.0,
+                      "override_amount": 20_000.0, "locked": False} for y in years]
+        c = {"plan_start": 2026, "plan_end": 2031, "hsa_consume_by": "2031", "ret": 0.08,
+             "hsa_withdrawal_mode": "optimize", "hsa_schedule_rows": installed}
+
+        import openpyxl
+        from src.reporting.sheets_strategy import build_hsa_schedule_section
+        ws = openpyxl.Workbook().active
+        build_hsa_schedule_section(ws, c, rows, 1)
+        table = {row[0]: row[1] for row in ws.iter_rows(values_only=True)
+                 if row[0] is not None and len(row) > 1}
+
+        self.assertAlmostEqual(table["Total"], sum(r["hsa_wd"] for r in rows), places=2)
+        for r in rows:
+            self.assertAlmostEqual(table[r["year"]], r["hsa_wd"], places=2)
+        self.assertIn("override", [cell for row in ws.iter_rows(values_only=True) for cell in row])
 
     def test_the_infeasible_residual_is_reported_not_swallowed(self):
         """The one state whose number the reader most needs is the one a
