@@ -532,6 +532,20 @@ def _qlac_ui_plan_data_rows(member: str) -> list[list[str]]:
 
 QLAC_UI_PLAN_DATA_ROWS: list[list[str]] = _qlac_ui_plan_data_rows("1") + _qlac_ui_plan_data_rows("2")
 
+# Gross vs net (FUNCTIONAL_SPEC §6): initial_guaranteed_income_payment is the GROSS
+# monthly payment the engine taxes; net_monthly_payment is the optional deposit after
+# tax withholding, kept for reference only (blank = no withholding, net = gross).
+INCOME_STREAM_GROSS_NET_SUBSECTIONS: tuple[str, ...] = (
+    "Member 2 Pension", "Member 2 Single Annuity", "Member 2 Joint Annuity",
+    "Member 1 Single Annuity", "Member 1 Joint Annuity", "Member 1 QLAC", "Member 2 QLAC",
+)
+
+
+def _net_monthly_payment_row(sub: str) -> list[str]:
+    return ["Income Streams", sub, "net_monthly_payment", "", "USD",
+            "Optional: the monthly deposit after tax withholding (from the payer's statement). "
+            "Reference only -- the projection taxes the gross payment itself. Blank = no withholding."]
+
 # A7: PLAN_DATA_BACKFILL_ENTRIES replaces twelve near-identical
 # _ensure_*_ui_plan_data_rows functions with one declarative table over
 # plan_data_backfill.apply_backfill (WP4.4c: on the plan rows, no CSV files). An entry is
@@ -549,6 +563,13 @@ PLAN_DATA_BACKFILL_ENTRIES: list[plan_data_backfill.BackfillEntry] = [
     _BF.BackfillEntry(HSA_WITHDRAWAL_UI_PLAN_DATA_ROWS),
     _BF.BackfillEntry(SOCIAL_SECURITY_FUNDING_UI_PLAN_DATA_ROWS),
     _BF.BackfillEntry(QLAC_UI_PLAN_DATA_ROWS, _BF.before_first(_BF.subsection_is("Joint-and-Survivor Percentage"))),
+    *(
+        _BF.BackfillEntry(
+            [_net_monthly_payment_row(_sub)],
+            _BF.after_last(lambda r, _s=_sub: r["subsection"] == _s and r["label"] == "initial_guaranteed_income_payment"),
+        )
+        for _sub in INCOME_STREAM_GROSS_NET_SUBSECTIONS
+    ),
     _BF.BackfillEntry(SS_CLAIM_DATE_UI_PLAN_DATA_ROWS, _BF.before_first(_BF.label_is("claim_age"))),
     _BF.BackfillEntry(SS_FRA_AGE_UI_PLAN_DATA_ROWS, _BF.before_first(_BF.label_is("spousal_benefits_enabled"))),
     _BF.BackfillEntry(HEALTHCARE_UI_PLAN_DATA_ROWS, _BF.before_first(_BF.subsection_is("Out-of-Pocket"))),

@@ -322,7 +322,7 @@ def build_sheet8(ws, c, rows, mc_data=None):
         INC_SER.append((27, 'rental_in', 'Rental Cash', '16A34A'))
     INC_TOTAL = 27 + (1 if rental_on else 0)
     # Income section title — span exactly cols 11-27 (28 with a Rental Cash series)
-    cell = ws.cell(row=2, column=INC_YEAR, value=f'Cash Flow — Income & Portfolio Draws  ·  {c["plan_start"]}–{c["plan_end"]}')
+    cell = ws.cell(row=2, column=INC_YEAR, value=f'Cash Flow — Income (gross) & Portfolio Draws  ·  {c["plan_start"]}–{c["plan_end"]}')
     cell.fill = fill(GREEN); cell.font = Font(name='Arial',bold=True,color=WHITE,size=11)
     cell.alignment = Alignment(horizontal='left',vertical='center')
     ws.merge_cells(start_row=2, start_column=INC_YEAR, end_row=2, end_column=INC_TOTAL)
@@ -432,7 +432,7 @@ def build_sheet8(ws, c, rows, mc_data=None):
 
     chart_nw  = make_chart(f'Net Worth by Component  ·  {c["plan_start"]}–{c["plan_end"]}',
                              NW_YEAR, nw_series, DATA_FIRST, DATA_LAST)
-    chart_inc = make_chart(f'Cash Flow — Income & Portfolio Draws  ·  {c["plan_start"]}–{c["plan_end"]}',
+    chart_inc = make_chart(f'Cash Flow — Income (gross) & Portfolio Draws  ·  {c["plan_start"]}–{c["plan_end"]}',
                              INC_YEAR, inc_series, DATA_FIRST, DATA_LAST,
                              ymax=CF_YMAX, yunit=CF_UNIT, yfmt='$#,##0,"K"')
     chart_exp = make_chart(f'Cash Flow — Spending & Taxes  ·  {c["plan_start"]}–{c["plan_end"]}',

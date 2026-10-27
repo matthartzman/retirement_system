@@ -415,6 +415,11 @@ export function humanLabel(label, row) {
     norm(row.label) === "reinvest_dividends"
   )
     return accountDisplayLabel(row.subsection);
+  // Gross vs net (FUNCTIONAL_SPEC §6).
+  if (row && row.section === "Income Streams" && norm(row.label) === "initial_guaranteed_income_payment")
+    return "Monthly Payment (Gross)";
+  if (row && row.section === "Income Streams" && norm(row.label) === "net_monthly_payment")
+    return "Monthly Payment (Net, After Withholding)";
   if (row && row.section === "Housing" && norm(row.label) === "hoa_pct")
     return "HOA Fee %";
   if (row && row.section === "Housing" && norm(row.label) === "hoa_annual")
@@ -4583,6 +4588,12 @@ export function fieldGuidance(row) {
     s = norm(row.section),
     sub = norm(row.subsection);
   if (FIELD_GUIDANCE_OVERRIDES[l]) return FIELD_GUIDANCE_OVERRIDES[l];
+  if (l === "net_monthly_payment")
+    return {
+      purpose: "The monthly amount that actually lands in your bank account from this pension or annuity, after the payer withholds income tax. Withholding = gross payment minus this amount.",
+      impact: "None on the projection: the plan taxes the gross payment itself and shows taxes separately. This is kept so you can match the plan to your bank deposits.",
+      consider: "Copy the net (after-withholding) amount from the payer's statement or your bank deposit. Leave blank if nothing is withheld; net is then the same as gross.",
+    };
   let purpose = fieldDefaultMeaning(row);
   let impact =
     "This can affect user-facing results such as annual cash flow, terminal net worth, lifetime taxes, post-terminal estate taxes, Medicare premiums, probability of success, downside risk, or workbook recommendations.";

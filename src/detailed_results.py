@@ -573,7 +573,7 @@ def _chart_dashboard_visible_table_charts(chart_ws: Any) -> tuple[list[dict[str,
     years, nw_series = _series_from_columns(chart_ws, year_col=1, value_cols=list(range(2, 9)))
     add_xy("Net Worth by Component", "stacked_bar", years, nw_series)
     years, inc_series = _series_from_columns(chart_ws, year_col=11, value_cols=list(range(12, 27)))
-    add_xy("Cash Flow — Income & Portfolio Draws", "stacked_bar", years, inc_series)
+    add_xy("Cash Flow — Income (gross) & Portfolio Draws", "stacked_bar", years, inc_series)
     years, exp_series = _series_from_columns(chart_ws, year_col=29, value_cols=list(range(30, 39)))
     add_xy("Cash Flow — Spending & Taxes", "stacked_bar", years, exp_series)
     years, mc_series = _series_from_columns(chart_ws, year_col=43, value_cols=list(range(44, 49)))
@@ -709,7 +709,7 @@ def _chart_dashboard_projection_fallback(wb: Any) -> tuple[list[dict[str, Any]],
             "H Single Ann", "H Joint Ann", "Note P+I", "RMD Dist", "Σ Draws",
         ]
         years, series = _series_from_named_headers(cash, year_col=1, header_row=2, start_row=3, labels=income_labels)
-        add_xy("Cash Flow — Income & Portfolio Draws", "stacked_bar", years, series)
+        add_xy("Cash Flow — Income (gross) & Portfolio Draws", "stacked_bar", years, series)
 
         spending_labels = ["Spend Base", "Rec Extra", "Lump", "Mortgage + RE Tax", "Rent", "Fed Tax", "State Tax", "NIIT"]
         years, series = _series_from_named_headers(cash, year_col=1, header_row=2, start_row=3, labels=spending_labels)
@@ -750,7 +750,7 @@ def _chart_dashboard_sheet(wb: Any, chart_ws: Any) -> dict[str, Any]:
         years, nw_series = _series_from_columns(ws, year_col=1, value_cols=list(range(2, 9)))
         add_xy_chart("Net Worth by Component", "stacked_bar", years, nw_series)
         years, inc_series = _series_from_columns(ws, year_col=11, value_cols=list(range(12, 27)))
-        add_xy_chart("Cash Flow — Income & Portfolio Draws", "stacked_bar", years, inc_series)
+        add_xy_chart("Cash Flow — Income (gross) & Portfolio Draws", "stacked_bar", years, inc_series)
         years, exp_series = _series_from_columns(ws, year_col=29, value_cols=list(range(30, 39)))
         add_xy_chart("Cash Flow — Spending & Taxes", "stacked_bar", years, exp_series)
         years, mc_series = _series_from_columns(ws, year_col=43, value_cols=list(range(44, 49)))

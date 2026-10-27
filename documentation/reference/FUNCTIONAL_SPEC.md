@@ -371,6 +371,28 @@ results in the plan file, which the UI reads for quick status).
   engine and in the reporting sheet that describes them**, so the "what
   would be harvested" report and what the plan actually harvests can never
   disagree.
+- **Income cash flows are gross; net is reference only.** Every income
+  amount the plan holds or projects (earned income, Social Security,
+  pensions, annuities, QLACs) is **gross**, before any tax withholding. The
+  engine taxes the gross amount itself and reports taxes as their own
+  outflow lines, so withholding is never subtracted twice. Each pension or
+  annuity stream has two monthly fields:
+  - *Monthly Payment (Gross)* (`initial_guaranteed_income_payment`), which
+    drives the projection.
+  - *Monthly Payment (Net, After Withholding)* (`net_monthly_payment`),
+    optional and never fed to the engine. Blank means nothing is withheld
+    (net = gross).
+
+  **Withholding = gross − net.** The Pensions and annuities panel shows
+  *Gross · Withholding · Net* for each stream and warns when net is above
+  gross. Outputs label income as gross: the Cash Flow sheet's income group
+  header, the dashboard's cash-flow table and income chart, the HTML
+  report's income chart, and the Stress sheet's pension line, which also
+  gives the net when a withholding is entered. A **net** amount carries an
+  explicit "(net)" label, as *Rental Cash (net)* already does. Example: the
+  Member 2 pension pays $397.73 gross and $282.58 net a month, a $115.15
+  withholding. Bank deposits from Monarch or YTD transactions are net, so
+  compare them to the net field, not the gross one.
 
 ## 7. What the system deliberately does not do
 
