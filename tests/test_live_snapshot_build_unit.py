@@ -83,5 +83,14 @@ def test_inputs_error_is_reported_not_raised(data_dir):
 def test_tax_rates_settings_file_overrides(tmp_path):
     (tmp_path / "live_snapshot_settings.json").write_text(json.dumps({"pre_tax_rate": 0.3}))
     rates = ls.tax_rates(tmp_path, plan_ltcg="20.00%")
-    assert rates == {"pre_tax_rate": 0.3, "ltcg_rate": 0.2}
-    assert ls.tax_rates(tmp_path / "none", plan_ltcg="") == {"pre_tax_rate": 0.25, "ltcg_rate": 0.15}
+    assert rates == {"pre_tax_rate": 0.3, "ltcg_rate": 0.2, "annuity_basis": {}, "non_liquid_tax": {}}
+    assert ls.tax_rates(tmp_path / "none", plan_ltcg="") == {"pre_tax_rate": 0.25, "ltcg_rate": 0.15,
+                                                             "annuity_basis": {}, "non_liquid_tax": {}}
+
+
+def test_tax_settings_carry_annuity_basis_and_overrides(tmp_path):
+    (tmp_path / "live_snapshot_settings.json").write_text(json.dumps(
+        {"annuity_basis": {"Annuity - Matt": "120,000"}, "non_liquid_tax": {"Pension - Pat": "none", "Bad": "maybe"}}))
+    rates = ls.tax_rates(tmp_path)
+    assert rates["annuity_basis"] == {"Annuity - Matt": 120000.0}
+    assert rates["non_liquid_tax"] == {"Pension - Pat": "none"}

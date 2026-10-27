@@ -406,7 +406,24 @@ def _checking_net_flows(accounts, flows_daily, liquid_accounts: set[str], baseli
     return net
 
 
-def _monarch_sections(monarch: dict | None) -> dict[str, Any]:
+TAX_TREATMENTS = frozenset({"pre_tax", "after_tax", "none"})
+
+
+def non_liquid_tax_treatment(name: str, kind: str, overrides: dict[str, str] | None = None) -> str:
+    """How a non-liquid row is taxed when paid out.
+
+    pre_tax: the whole value is ordinary income (the pension, and the joint annuities, bought
+    with IRA money). after_tax: only growth above the after-tax premium is (the single-life
+    annuities). none: everything else. ``overrides`` (settings, by exact account name) win."""
+    if overrides and overrides.get(name) in TAX_TREATMENTS:
+        return overrides[name]
+    if kind != "Annuity/Pension":
+        return "none"
+    lowered = name.lower()
+    return "pre_tax" if "pension" in lowered or "joint" in lowered else "after_tax"
+
+
+def _monarch_sections(monarch: dict | None, tax_overrides: dict[str, str] | None = None) -> dict[str, Any]:
     """Non-liquid assets, checking and debt from the latest Monarch balances (by account type)."""
     rows = (monarch or {}).get("by_account") or []
     as_of = (monarch or {}).get("latest_date")
@@ -427,6 +444,8 @@ def _monarch_sections(monarch: dict | None) -> dict[str, Any]:
             debt.append({"name": name, "value": -value, "type": kind})
         elif kind == "Cash" and value > 0:
             checking.append({"name": name, "value": value})
+    for r in non_liquid:
+        r["tax_treatment"] = non_liquid_tax_treatment(r["name"], r["type"], tax_overrides)
     non_liquid.sort(key=lambda r: -r["value"])
     debt.sort(key=lambda r: -r["value"])
     total_nl = sum(r["value"] for r in non_liquid)
@@ -461,7 +480,7 @@ def compute(*, lots, quotes, baseline, security_master, accounts, flows_daily, m
     }
     day = total["day"]
 
-    sections = _monarch_sections(monarch)
+    sections = _monarch_sections(monarch, tax_rates.get("non_liquid_tax"))
     reconciliation = None
     if sections["liquid_total"] is not None:
         # Monarch holds the last imported day's close; compare like with like.
@@ -476,8 +495,22 @@ def compute(*, lots, quotes, baseline, security_master, accounts, flows_daily, m
     unrealized = sum(max(0.0, p["current"] - p["basis"]) for p in positions
                      if p["tax"] == "taxable" and not _is_cash_symbol(p["symbol"]))
     pre_rate, ltcg_rate = _num(tax_rates.get("pre_tax_rate")), _num(tax_rates.get("ltcg_rate"))
-    tax = {"pre_tax_balance": round(pre_tax_balance, 2), "pre_tax_rate": pre_rate, "unrealized_gain": round(unrealized, 2),
-           "ltcg_rate": ltcg_rate, "total": round(pre_tax_balance * pre_rate + unrealized * ltcg_rate, 2)}
+    basis = tax_rates.get("annuity_basis") or {}
+    pre_tax_nl = annuity_gain = 0.0
+    basis_missing = []
+    for r in sections["non_liquid"]["rows"]:
+        if r["tax_treatment"] == "pre_tax":
+            pre_tax_nl += r["value"]
+        elif r["tax_treatment"] == "after_tax":
+            if r["name"] in basis:
+                annuity_gain += max(0.0, r["value"] - _num(basis[r["name"]]))
+            else:
+                basis_missing.append(r["name"])  # premium unknown: not taxed, listed so the page can say so
+    ordinary = pre_tax_balance + pre_tax_nl + annuity_gain
+    tax = {"pre_tax_balance": round(pre_tax_balance, 2), "pre_tax_non_liquid": round(pre_tax_nl, 2),
+           "annuity_taxable_gain": round(annuity_gain, 2), "basis_missing": basis_missing, "pre_tax_rate": pre_rate,
+           "unrealized_gain": round(unrealized, 2), "ltcg_rate": ltcg_rate,
+           "total": round(ordinary * pre_rate + unrealized * ltcg_rate, 2)}
 
     by_kind: dict[str, float] = {}
     for p in positions:
@@ -524,12 +557,17 @@ def tax_rates(data_dir: str | Path, *, plan_ltcg: Any = "") -> dict[str, float]:
     """Rates for the estimated tax line. The plan has no rate for pre-tax balances, so it defaults
     to 25%; LTCG comes from the plan's tax-aware trades setting. ``live_snapshot_settings.json``
     in the data folder overrides either."""
-    rates = {"pre_tax_rate": DEFAULT_PRE_TAX_RATE, "ltcg_rate": _rate(plan_ltcg) or DEFAULT_LTCG_RATE}
+    rates: dict[str, Any] = {"pre_tax_rate": DEFAULT_PRE_TAX_RATE, "ltcg_rate": _rate(plan_ltcg) or DEFAULT_LTCG_RATE,
+                             "annuity_basis": {}, "non_liquid_tax": {}}
     try:
         saved = json.loads((Path(data_dir) / SETTINGS_FILENAME).read_text(encoding="utf-8"))
-        for key in rates:
+        for key in ("pre_tax_rate", "ltcg_rate"):
             if _rate(saved.get(key)) is not None:
                 rates[key] = _rate(saved.get(key))
+        # {Monarch account name: after-tax premium} for the single-life annuities.
+        rates["annuity_basis"] = {str(k): _num(v) for k, v in (saved.get("annuity_basis") or {}).items()}
+        # {Monarch account name: pre_tax | after_tax | none}, overriding the name-based default.
+        rates["non_liquid_tax"] = {str(k): v for k, v in (saved.get("non_liquid_tax") or {}).items() if v in TAX_TREATMENTS}
     except (OSError, ValueError, AttributeError):
         pass
     return rates

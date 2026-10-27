@@ -196,15 +196,45 @@ def test_debt_and_checking():
 
 def test_tax_estimate():
     tax = _compute()["tax"]
-    assert tax["pre_tax_balance"] == pytest.approx(26200)
+    assert tax["pre_tax_balance"] == pytest.approx(26200)    # IRA holdings
+    assert tax["pre_tax_non_liquid"] == pytest.approx(100000)  # joint annuity: IRA-funded
     assert tax["unrealized_gain"] == pytest.approx(1000)     # AVUV 5000 - 4000 basis; cash none
-    assert tax["total"] == pytest.approx(26200 * 0.25 + 1000 * 0.15)
+    assert tax["total"] == pytest.approx((26200 + 100000) * 0.25 + 1000 * 0.15)
+
+
+ANNUITIES = {"latest_date": "2026-10-26", "by_account": [
+    {"account": "Joint Annuity - Pat", "type": "Annuity/Pension", "value": 400000.0},
+    {"account": "Annuity - Matt - Dec 2025", "type": "Annuity/Pension", "value": 160000.0},
+    {"account": "Annuity - Pat - PV 6/1/26", "type": "Annuity/Pension", "value": 50000.0},
+    {"account": "Pension - Pat - June 2026", "type": "Annuity/Pension", "value": 95000.0},
+]}
+
+
+def test_annuity_and_pension_tax_treatment():
+    rates = {**TAX, "annuity_basis": {"Annuity - Matt - Dec 2025": 120000}}
+    out = _compute(lots=[], monarch=ANNUITIES, tax_rates=rates)
+    treatment = {r["name"]: r["tax_treatment"] for r in out["non_liquid"]["rows"]}
+    assert treatment == {"Joint Annuity - Pat": "pre_tax", "Annuity - Matt - Dec 2025": "after_tax",
+                         "Annuity - Pat - PV 6/1/26": "after_tax", "Pension - Pat - June 2026": "pre_tax"}
+    tax = out["tax"]
+    assert tax["pre_tax_non_liquid"] == pytest.approx(495000)          # joint annuity + pension, full value
+    assert tax["annuity_taxable_gain"] == pytest.approx(40000)         # after-tax annuity: value - basis only
+    assert tax["basis_missing"] == ["Annuity - Pat - PV 6/1/26"]       # no basis set: not taxed, listed
+    assert tax["total"] == pytest.approx((495000 + 40000) * 0.25)
+
+
+def test_tax_treatment_override_and_basis_above_value():
+    rates = {**TAX, "non_liquid_tax": {"Joint Annuity - Pat": "none"},
+             "annuity_basis": {"Annuity - Matt - Dec 2025": 200000, "Annuity - Pat - PV 6/1/26": 50000}}
+    tax = _compute(lots=[], monarch=ANNUITIES, tax_rates=rates)["tax"]
+    assert tax["pre_tax_non_liquid"] == pytest.approx(95000)
+    assert tax["annuity_taxable_gain"] == 0 and tax["basis_missing"] == []
 
 
 def test_totals():
     totals = _compute()["totals"]
     assert totals["net_assets"] == pytest.approx(32200 + 7000 + 655000 - 201000)
-    assert totals["after_tax_net_worth"] == pytest.approx(493200 - 6700)
+    assert totals["after_tax_net_worth"] == pytest.approx(493200 - 6700 - 25000)
     assert totals["by_kind"] == pytest.approx({"Equity": 31200, "Fixed Income": 150000, "Real Estate": 500000,
                                                "Alternatives": 5000, "Cash": 8000})
 
