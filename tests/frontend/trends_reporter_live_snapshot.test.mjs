@@ -161,7 +161,7 @@ describe("reconciliation by account", () => {
     assert.match(out, /Member_1_IRA/);
     assert.match(out, /⚠/);
     assert.match(out, /The gap is close to 200 sh IXUS bought 2025-06-01 \(\$13,250\)\./);
-    assert.match(out.replaceAll("&#39;", "'"), /2 lot\(s\) bought after Monarch's balance date \(\$5,000\)\. Monarch can't include them yet\./);
+    assert.match(out.replaceAll("&#39;", "'"), /2 lot\(s\) bought after the imported balance date \(\$5,000\)\. The imported balance can't include them yet\./);
     assert.match(out, /Old prices for IXUS\./);
     assert.match(out, /Holdings are higher: a sale or transfer out may not be entered yet\./);
     assert.match(out, /Old 401k/);
@@ -185,8 +185,8 @@ describe("reconciliation by account", () => {
   test("flag title drops the percent when there is no Monarch balance to divide by", () => {
     const acct = { ...REC_FLAGGED.accounts[0], delta_pct: null, monarch_value: 0 };
     const out = liveViewHtml({ ...DATA, reconciliation: { ...REC_FLAGGED, accounts: [acct] } });
-    assert.match(out, /title="Differs from Monarch by more than \$100"/);
-    assert.match(liveViewHtml({ ...DATA, reconciliation: REC_FLAGGED }), /title="Differs from Monarch by more than 1% and \$100"/);
+    assert.match(out, /title="Differs from the imported balance by more than \$100"/);
+    assert.match(liveViewHtml({ ...DATA, reconciliation: REC_FLAGGED }), /title="Differs from the imported balance by more than 1% and \$100"/);
   });
   test("stays closed when nothing flags", () => {
     const out = liveViewHtml({ ...DATA, reconciliation: REC });

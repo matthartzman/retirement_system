@@ -104,7 +104,7 @@ function simpleTable(rows, columns) {
 export function hintText(hint) {
   switch (hint?.kind) {
     case "after_balance_date":
-      return `${hint.count} lot(s) bought after Monarch's balance date (${fmtUsd(hint.value)}). Monarch can't include them yet.`;
+      return `${hint.count} lot(s) bought after the imported balance date (${fmtUsd(hint.value)}). The imported balance can't include them yet.`;
     case "stale_prices":
       return `Old prices for ${(hint.symbols || []).join(", ")}.`;
     case "matches_position":
@@ -120,7 +120,7 @@ export function hintText(hint) {
 
 function accountRowHtml(a) {
   const hasPct = a.delta_pct !== null && a.delta_pct !== undefined;
-  const flag = a.flag ? `<span class="flag" title="${hasPct ? "Differs from Monarch by more than 1% and $100" : "Differs from Monarch by more than $100"}">⚠ <span class="flag-text">Check</span></span> ` : "";
+  const flag = a.flag ? `<span class="flag" title="${hasPct ? "Differs from the imported balance by more than 1% and $100" : "Differs from the imported balance by more than $100"}">⚠ <span class="flag-text">Check</span></span> ` : "";
   const monarch = (a.monarch_accounts || []).length ? ` <span class="muted">(${(a.monarch_accounts || []).map(esc).join(", ")})</span>` : "";
   const row = `<tr class="${a.flag ? "flagged" : ""}"><th scope="row">${flag}${esc(a.holdings_account)}${monarch}</th>`
     + `<td class="num">${fmtUsd(a.holdings_value)}</td><td class="num">${fmtUsd(a.monarch_value)}</td>`
@@ -136,15 +136,15 @@ function accountsSectionHtml(rec) {
   if (!Array.isArray(accounts)) return "";
   const flagged = accounts.some((a) => a.flag);
   const unmappedMonarch = rec.unmapped_monarch || [], unmappedHoldings = rec.unmapped_holdings || [];
-  const head = `<tr><th scope="col">Account</th><th scope="col" class="num">Holdings</th><th scope="col" class="num">Monarch</th>`
+  const head = `<tr><th scope="col">Account</th><th scope="col" class="num">Holdings</th><th scope="col" class="num">Imported</th>`
     + `<th scope="col" class="num">Difference</th><th scope="col" class="num">%</th></tr>`;
   const foot = `<tfoot><tr class="total-row"><th scope="row">Holdings total</th><td class="num">${fmtUsd(rec.footing)}</td><td></td><td></td><td></td></tr></tfoot>`;
   const table = `<div class="table-wrap"><table class="live-table recon-table"><thead>${head}</thead><tbody>${accounts.map(accountRowHtml).join("")}</tbody>${foot}</table></div>`;
   const stale = rec.monarch_stale
-    ? `<p class="note warn-text">Monarch balances are from ${esc(rec.monarch_as_of || "an earlier day")}; moves since then aren't backed out.</p>` : "";
+    ? `<p class="note warn-text">Imported balances are from ${esc(rec.monarch_as_of || "an earlier day")}; moves since then aren't backed out.</p>` : "";
   const unmapped = unmappedMonarch.length || unmappedHoldings.length
     ? `<p class="note">Not linked to a holdings account, so not compared. Link them in the Retirement Planner.</p>`
-      + (unmappedMonarch.length ? `<p class="note"><b>Monarch accounts:</b> ${unmappedMonarch.map((u) => `${esc(u.name)} ${fmtUsd(u.value)}`).join("; ")}</p>` : "")
+      + (unmappedMonarch.length ? `<p class="note"><b>Imported accounts:</b> ${unmappedMonarch.map((u) => `${esc(u.name)} ${fmtUsd(u.value)}`).join("; ")}</p>` : "")
       + (unmappedHoldings.length ? `<p class="note"><b>Holdings accounts:</b> ${unmappedHoldings.map((u) => `${esc(u.account)} ${fmtUsd(u.value)}`).join("; ")}</p>` : "")
     : "";
   const count = accounts.filter((a) => a.flag).length;
