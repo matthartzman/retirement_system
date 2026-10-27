@@ -203,3 +203,18 @@ def test_funnel_guard_flags_5057_target_and_skips_when_tailscale_missing():
         raise FileNotFoundError
 
     assert check_funnel_target(run=missing) is None
+
+
+def test_must_change_user_is_sent_to_the_change_password_page_before_the_app_loads(rig):
+    rig.add(must_change=True)
+    _, token = rig.signin()
+    page = rig.call(rig.remote, "GET", "/", cookie=token)
+    assert page.status_code == 302 and page.headers["Location"] == "/change-password"
+    form = rig.call(rig.remote, "GET", "/change-password", cookie=token)
+    assert form.status_code == 200 and "change-password" in form.get_data(as_text=True)
+    rig.call(rig.remote, "POST", "/api/change-password", {"current": PW, "new": "a brand new pass"}, cookie=token)
+    assert rig.call(rig.remote, "GET", "/", cookie=token).status_code == 200
+
+
+def test_change_password_page_needs_sign_in_on_remote(rig):
+    assert rig.call(rig.remote, "GET", "/change-password").status_code == 302

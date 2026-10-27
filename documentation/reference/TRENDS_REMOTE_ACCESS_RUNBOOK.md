@@ -21,7 +21,7 @@ Design: `documentation/future/superpowers/plans/2026-10-27-trends-remote-access-
 
 1. Register the always-on server (PowerShell, from the repo folder):
    `powershell -ExecutionPolicy Bypass -File financial_trends_reporter\tools\launchers\register_trends_server_task.ps1 -Action Register`
-   then `Start-ScheduledTask -TaskName FinancialTrendsReporter_Server`.
+   Then, as a separate command: `Start-ScheduledTask -TaskName FinancialTrendsReporter_Server`.
 2. Point Funnel at the **remote** port only: `tailscale funnel --bg 5058`
 3. Check: `tailscale funnel status` shows `https://<pc>.<tailnet>.ts.net` proxying to `http://127.0.0.1:5058`. Nothing may point at 5057. If it does, run `tailscale funnel reset` and redo step 2. The server also refuses to start if it sees 5057 exposed.
 4. Your link is the `https://<pc>.<tailnet>.ts.net/` address from step 3.

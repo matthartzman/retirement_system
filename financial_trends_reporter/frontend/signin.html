@@ -31,7 +31,7 @@ document.getElementById("f").addEventListener("submit", async (e) => {
     const r = await fetch("/api/signin", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username: document.getElementById("u").value, password: document.getElementById("p").value }) });
     const j = await r.json();
-    if (r.ok && j.success) { location.href = "/"; return; }
+    if (r.ok && j.success) { location.href = j.must_change ? "/change-password" : "/"; return; }
     err.textContent = j.error || "Sign-in failed.";
   } catch (x) { err.textContent = "Could not reach the server."; }
 });
