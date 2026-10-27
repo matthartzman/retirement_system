@@ -889,18 +889,6 @@ document.addEventListener("click", (e) => {
 });
 reportView("trends");
 let whoami = { listener: "local", must_change: false };
-async function promptNewPassword() {
-  for (;;) {
-    const current = prompt("You need to choose a new password. Enter your current (temporary) password:");
-    if (current === null) return signOut();
-    const fresh = prompt("New password (at least 10 characters):");
-    if (fresh === null) return signOut();
-    const resp = await fetch("/api/change-password", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ current, new: fresh }) });
-    const out = await resp.json().catch(() => ({}));
-    if (resp.ok) { location.reload(); return; }
-    alert(out.error || "Could not change the password.");
-  }
-}
 async function signOut() {
   try { await fetch("/api/signout", { method: "POST" }); } catch (err) { /* ignore */ }
   goToSignin();
@@ -909,7 +897,7 @@ async function signOut() {
   try { whoami = await (await fetch("/api/whoami")).json(); } catch (err) { return; }
   if (whoami.listener === "remote") document.getElementById("exitBtn").textContent = "Sign out";
   if (whoami.listener === "local") { const sc = document.createElement("script"); sc.src = "/access.js"; document.body.appendChild(sc); }
-  if (whoami.must_change) promptNewPassword();
+  if (whoami.must_change) location.href = "/change-password";
 })();
 document.getElementById("exitBtn").addEventListener("click", async () => {
   if (whoami.listener === "remote") return signOut();

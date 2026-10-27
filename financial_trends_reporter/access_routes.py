@@ -27,6 +27,7 @@ ACTIONS = {
 COOKIE = "trends_session"
 OWNER_NAME = "owner (PC)"
 ACCESS_JS_PATH = Path(__file__).resolve().parent / "frontend" / "access.js"
+CHANGE_PASSWORD_HTML_PATH = Path(__file__).resolve().parent / "frontend" / "change_password.html"
 SIGNIN_HTML_PATH = Path(__file__).resolve().parent / "frontend" / "signin.html"
 OWNER_ONLY_PREFIXES = ("/api/people", "/api/activity", "/access.js")
 PUBLIC_REMOTE = {("GET", "/signin"), ("POST", "/api/signin")}
@@ -90,6 +91,10 @@ def register_access(app, store: AccessStore, sessions: SessionTable, clock=time.
             resp.headers["Location"] = "/signin"
             return resp
         env["token"], env["user"], env["person"] = token, user, user["display_name"]
+        if user["must_change"] and path == "/":
+            resp = Response(b"", status=302)
+            resp.headers["Location"] = "/change-password"
+            return resp
         if user["must_change"] and path.startswith("/api/") and path not in MUST_CHANGE_ALLOWED:
             return _json({"success": False, "must_change": True, "error": "choose a new password first"}, 409)
         _log_action()
@@ -98,6 +103,10 @@ def register_access(app, store: AccessStore, sessions: SessionTable, clock=time.
     @app.route("/signin", methods=["GET"])
     def signin_page():
         return Response(SIGNIN_HTML_PATH.read_text(encoding="utf-8"), content_type="text/html; charset=utf-8")
+
+    @app.route("/change-password", methods=["GET"])
+    def change_password_page():
+        return Response(CHANGE_PASSWORD_HTML_PATH.read_text(encoding="utf-8"), content_type="text/html; charset=utf-8")
 
     @app.route("/api/signin", methods=["POST"])
     def signin():

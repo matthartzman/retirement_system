@@ -1,5 +1,6 @@
 # Trends Remote Access Implementation Plan
 
+Status: implemented
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Let the owner, a family member and the advisor reach the Financial Trends app from anywhere through one HTTPS link and a personal password, with the server always on.
