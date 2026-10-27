@@ -277,7 +277,9 @@ def _expected_shares(c, rows, years, drawable, fixed=None):
             weights[year] = 0.0
             continue
         grown = increment * (1.0 + growth) ** ((year - plan_start) + 1)
-        weights[year] = max(0.0, score_year(c, _row_for_year(rows, year), grown))
+        # Per grown dollar: growth is applied once, at conversion to dollars,
+        # never inside the concentration exponent (see `_allocation_shares`).
+        weights[year] = max(0.0, score_year(c, _row_for_year(rows, year), grown)) / grown
     powered = {y: w ** _CONCENTRATION for y, w in weights.items()}
     total = sum(powered.values())
     if total <= 0.0:

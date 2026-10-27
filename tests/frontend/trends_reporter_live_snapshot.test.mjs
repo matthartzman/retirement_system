@@ -6,7 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  parseSavedView, shouldPoll, changeHtml, statusText, liveViewHtml, fmtPct,
+  parseSavedView, shouldPoll, changeHtml, statusText, liveViewHtml, fmtPct, hintText, lotLabel,
 } from "../../financial_trends_reporter/frontend/live_snapshot.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -98,8 +98,8 @@ describe("liveViewHtml", () => {
     for (const h of ["Start (12/31)", "Bought since", "Current", "Day %", "Market gain", "Return %", "Share of gain", "Annualized"]) {
       assert.ok(out.includes(h), h);
     }
-    assert.match(out, /<button[^>]*aria-expanded="false"[^>]*data-group="Equity"/);
-    assert.match(out, /<tr class="ticker-row" data-parent="Equity" hidden>/);
+    assert.match(out, /<button[^>]*aria-expanded="false"[^>]*data-path="Asset class\/Equity"/);
+    assert.match(out, /<tr class="ticker-row" data-path="Asset class\/Equity\/ITOT" data-parent="Asset class\/Equity" hidden>/);
   });
   test("the total row is 100% of value and of gain", () => {
     const foot = out.match(/<tfoot>([\s\S]*?)<\/tfoot>/)[1];
@@ -130,5 +130,131 @@ describe("liveViewHtml", () => {
   });
   test("an error body renders a message", () => {
     assert.match(liveViewHtml({ error: "plan store locked" }), /plan store locked/);
+  });
+});
+
+const REC = {
+  ...DATA.reconciliation,
+  accounts: [{ holdings_account: "Member_1_IRA", monarch_accounts: ["Matt IRA"], holdings_value: 500000, monarch_value: 499800,
+               delta: 200, delta_pct: 0.0004, flag: false, hints: [] }],
+  unmapped_monarch: [], unmapped_holdings: [], footing: 2844220, monarch_stale: false,
+};
+const REC_FLAGGED = {
+  ...REC, delta_pct: 0.0102, flag: true,
+  accounts: [{ holdings_account: "Member_1_IRA", monarch_accounts: ["Matt IRA"], holdings_value: 513250, monarch_value: 500000,
+               delta: 13250, delta_pct: 0.0265, flag: true,
+               hints: [{ kind: "after_balance_date", count: 2, value: 5000 }, { kind: "stale_prices", symbols: ["IXUS"] },
+                       { kind: "matches_position", symbol: "IXUS", shares: 200, purchase_date: "2025-06-01", value: 13250 },
+                       { kind: "direction", higher: "holdings" }] }],
+  unmapped_monarch: [{ name: "Old 401k", value: 12000 }], unmapped_holdings: [{ account: "Joint_Brokerage", value: 90000 }],
+};
+
+describe("reconciliation by account", () => {
+  test("warning names the Investment Holdings page", () => {
+    const out = liveViewHtml({ ...DATA, reconciliation: { ...REC, delta_pct: 0.0102, flag: true } });
+    assert.match(out, /Check the Investment Holdings page in the Retirement Planner for trades or transfers not yet entered\./);
+    assert.ok(!out.includes("client_holdings"));
+  });
+  test("lists rows, opens when flagged, and shows hints", () => {
+    const out = liveViewHtml({ ...DATA, reconciliation: REC_FLAGGED });
+    assert.match(out, /<details class="live-section recon-accounts" open>/);
+    assert.match(out, /Member_1_IRA/);
+    assert.match(out, /⚠/);
+    assert.match(out, /The gap is close to 200 sh IXUS bought 2025-06-01 \(\$13,250\)\./);
+    assert.match(out.replaceAll("&#39;", "'"), /2 lot\(s\) bought after the imported balance date \(\$5,000\)\. The imported balance can't include them yet\./);
+    assert.match(out, /Old prices for IXUS\./);
+    assert.match(out, /Holdings are higher: a sale or transfer out may not be entered yet\./);
+    assert.match(out, /Old 401k/);
+    assert.match(out, /Joint_Brokerage/);
+    assert.match(out, /Not linked to a holdings account, so not compared\. Link them in the Retirement Planner\./);
+    assert.match(out, /Holdings total/);
+  });
+  test("summary counts the accounts to check", () => {
+    const out = liveViewHtml({ ...DATA, reconciliation: REC_FLAGGED });
+    assert.match(out, /<summary>Reconciliation by account <b>⚠ 1 to check<\/b><\/summary>/);
+    assert.ok(!liveViewHtml({ ...DATA, reconciliation: REC }).includes("to check"));
+  });
+  test("account names are escaped", () => {
+    const evil = "<img src=x onerror=alert(1)>";
+    const rec = { ...REC_FLAGGED, accounts: [{ ...REC_FLAGGED.accounts[0], holdings_account: evil, monarch_accounts: [evil] }],
+                  unmapped_monarch: [{ name: evil, value: 1 }], unmapped_holdings: [{ account: evil, value: 1 }] };
+    const out = liveViewHtml({ ...DATA, reconciliation: rec });
+    assert.ok(!out.includes(evil));
+    assert.ok(out.includes("&lt;img src=x onerror=alert(1)&gt;"));
+  });
+  test("flag title drops the percent when there is no Monarch balance to divide by", () => {
+    const acct = { ...REC_FLAGGED.accounts[0], delta_pct: null, monarch_value: 0 };
+    const out = liveViewHtml({ ...DATA, reconciliation: { ...REC_FLAGGED, accounts: [acct] } });
+    assert.match(out, /title="Differs from the imported balance by more than \$100"/);
+    assert.match(liveViewHtml({ ...DATA, reconciliation: REC_FLAGGED }), /title="Differs from the imported balance by more than 1% and \$100"/);
+  });
+  test("stays closed when nothing flags", () => {
+    const out = liveViewHtml({ ...DATA, reconciliation: REC });
+    assert.match(out, /<details class="live-section recon-accounts">/);
+    assert.ok(!out.includes("⚠"));
+  });
+  test("no section when the response has no account breakdown", () => {
+    assert.ok(!liveViewHtml(DATA).includes("recon-accounts"));
+  });
+  test("Monarch older than the previous session shows a note", () => {
+    assert.match(liveViewHtml({ ...DATA, reconciliation: { ...REC, monarch_stale: true } }).replaceAll("&#39;", "'"), /moves since then aren't backed out/);
+  });
+  test("lower-holdings hint and a position with no purchase date", () => {
+    assert.equal(hintText({ kind: "direction", higher: "monarch" }), "Holdings are lower: a purchase or transfer in may not be entered yet.");
+    assert.equal(hintText({ kind: "matches_position", symbol: "VTI", shares: 15, purchase_date: null, value: 4112 }),
+      "The gap is close to 15 sh VTI (\$4,112).");
+  });
+});
+
+const LOT = (date, extra = {}) => ({ ...ROW(date || ""), purchase_date: date, shares: 120, purchase_price: 412.1, reinvested: false, ...extra });
+const ITOT = () => ({
+  ...ROW("ITOT"), symbol: "ITOT",
+  accounts: [
+    { ...ROW("Member_1_IRA"), lots: [LOT("2024-03-15"), LOT(null, { reinvested: true })] },
+    { ...ROW("Joint <Brokerage>"), lots: [LOT("2025-01-02")] },
+  ],
+});
+const DATA_WITH_LOTS = {
+  ...DATA,
+  liquid: {
+    ...DATA.liquid,
+    by_class: [ROW("Equity", { tickers: [ITOT()] })],
+    by_equity_subclass: [ROW("US Total Equity", { tickers: [ITOT()] })],
+  },
+};
+
+describe("holdings drill-down", () => {
+  test("ticker → account → lot rows, hidden until expanded", () => {
+    const out = liveViewHtml(DATA_WITH_LOTS);
+    assert.match(out, /<button[^>]*aria-expanded="false"[^>]*data-path="Asset class\/Equity\/ITOT"/);
+    assert.match(out, /<button[^>]*aria-expanded="false"[^>]*data-path="Asset class\/Equity\/ITOT\/Member_1_IRA"/);
+    assert.match(out, /<tr class="acct-row" data-path="Asset class\/Equity\/ITOT\/Member_1_IRA" data-parent="Asset class\/Equity\/ITOT" hidden>/);
+    assert.match(out, /<tr class="lot-row" data-parent="Asset class\/Equity\/ITOT\/Member_1_IRA" hidden>/);
+    assert.ok(out.includes("2024-03-15 · 120 sh @ $412.10"));
+  });
+  test("lot label", () => {
+    assert.equal(lotLabel({ purchase_date: "2024-03-15", shares: 120, purchase_price: 412.1, reinvested: false }), "2024-03-15 · 120 sh @ $412.10");
+    assert.match(lotLabel({ purchase_date: "2026-04-01", shares: 0.5, purchase_price: 50, reinvested: true }), / · reinvested$/);
+  });
+  test("undated and unpriced lots still read sensibly", () => {
+    assert.equal(lotLabel({ purchase_date: null, shares: 10, purchase_price: 0, reinvested: false }), "Undated · 10 sh @ $0.00");
+    assert.equal(lotLabel({ purchase_date: null, shares: 10, purchase_price: null, reinvested: true }), "Undated · 10 sh · reinvested");
+  });
+  test("same ticker in both tables gets distinct paths", () => {
+    const out = liveViewHtml(DATA_WITH_LOTS);
+    assert.match(out, /data-path="Asset class\/Equity\/ITOT"/);
+    assert.match(out, /data-path="Sub-class\/US Total Equity\/ITOT"/);
+    const paths = [...out.matchAll(/<tr class="(?:class|ticker|acct)-row" data-path="([^"]*)"/g)].map((m) => m[1]);
+    assert.equal(new Set(paths).size, paths.length);
+  });
+  test("account names are escaped in paths and labels", () => {
+    const out = liveViewHtml(DATA_WITH_LOTS);
+    assert.ok(out.includes("Joint &lt;Brokerage&gt;"));
+    assert.ok(!out.includes("Joint <Brokerage>"));
+  });
+  test("rows without accounts render plain, with no expand button", () => {
+    const out = liveViewHtml(DATA);
+    assert.match(out, /<th scope="row" class="ticker">ITOT<\/th>/);
+    assert.ok(!/<button[^>]*data-path="Asset class\/Equity\/ITOT"/.test(out));
   });
 });

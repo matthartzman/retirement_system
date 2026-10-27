@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Financial Trends — Sign in</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; display: flex; min-height: 100vh; align-items: center; justify-content: center; background: #f4f5f7; color: #1f2933; }
+  form { background: #fff; padding: 24px; border-radius: 8px; box-shadow: 0 1px 6px rgba(0,0,0,.15); width: min(320px, 90vw); }
+  h1 { font-size: 1.2rem; margin: 0 0 16px; }
+  label { display: block; font-size: .85rem; margin-top: 12px; }
+  input { width: 100%; box-sizing: border-box; padding: 8px; margin-top: 4px; font-size: 1rem; }
+  button { margin-top: 16px; width: 100%; padding: 10px; font-size: 1rem; }
+  #err { color: #b42318; margin-top: 12px; min-height: 1.2em; font-size: .9rem; }
+</style>
+</head>
+<body>
+<form id="f">
+  <h1>Financial Trends</h1>
+  <label>Username <input id="u" autocomplete="username" autocapitalize="none" required></label>
+  <label>Password <input id="p" type="password" autocomplete="current-password" required></label>
+  <button type="submit">Sign in</button>
+  <div id="err" role="alert"></div>
+</form>
+<script>
+document.getElementById("f").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const err = document.getElementById("err");
+  err.textContent = "";
+  try {
+    const r = await fetch("/api/signin", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: document.getElementById("u").value, password: document.getElementById("p").value }) });
+    const j = await r.json();
+    if (r.ok && j.success) { location.href = j.must_change ? "/change-password" : "/"; return; }
+    err.textContent = j.error || "Sign-in failed.";
+  } catch (x) { err.textContent = "Could not reach the server."; }
+});
+</script>
+</body>
+</html>

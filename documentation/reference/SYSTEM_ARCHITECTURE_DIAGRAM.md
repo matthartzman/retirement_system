@@ -562,7 +562,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/housing/zip_screen/table.py` | `housing.zip_screen.schema`, `stores.ref_getters.zip_data` | — |
 | `src/housing_comparison.py` | `after_tax`, `planning_engines`, `server_services.strategy_asset_service` | — |
 | `src/housing_optimizer.py` | `housing` | — |
-| `src/hsa_schedule.py` | `after_tax`, `planning_engines`, `taxes` | — |
+| `src/hsa_schedule.py` | `after_tax`, `engine_kernels`, `planning_engines`, `taxes` | — |
 | `src/import_preview.py` | `csv_exchange`, `plan_datasets`, `stores.ref_getters.security_master`, `ytd_tracking` | — |
 | `src/large_discretionary.py` | — | — |
 | `src/legacy_conversion/__init__.py` | `legacy_conversion.result`, `legacy_conversion.workspace` | — |

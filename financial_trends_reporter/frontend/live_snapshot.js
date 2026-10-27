@@ -80,15 +80,49 @@ function cells(r) {
   ].join("");
 }
 
+export function fmtUsd2(v) {
+  if (v === null || v === undefined || Number.isNaN(Number(v))) return DASH;
+  const n = Number(v);
+  return (n < 0 ? "-" : "") + "$" + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// "2024-03-15 · 120 sh @ $412.10", plus " · reinvested". An undated lot reads "Undated"; a lot with
+// no purchase price leaves the "@ price" off rather than showing a made-up one.
+export function lotLabel(lot) {
+  const parts = [lot.purchase_date || "Undated"];
+  const hasShares = lot.shares !== null && lot.shares !== undefined && !Number.isNaN(Number(lot.shares));
+  const hasPrice = lot.purchase_price !== null && lot.purchase_price !== undefined && !Number.isNaN(Number(lot.purchase_price));
+  if (hasShares) parts.push(`${Number(lot.shares)} sh${hasPrice ? " @ " + fmtUsd2(lot.purchase_price) : ""}`);
+  if (lot.reinvested) parts.push("reinvested");
+  return parts.join(" · ");
+}
+
+// A path is caption/class/symbol/account, so the same ticker open in the Asset class table and the
+// Equity sub-class table never shares state. Rows below class level carry data-path and data-parent.
+function expandButton(path, label) {
+  return `<button type="button" class="expand" aria-expanded="false" data-path="${esc(path)}" data-label="${esc(label)}">▸ ${esc(label)}</button>`;
+}
+
 function liquidTable(caption, rows, total) {
   const head = `<tr><th scope="col">${esc(caption)}</th>${COLUMNS.map(([h, c]) => `<th scope="col" class="num ${c}">${h}</th>`).join("")}</tr>`;
   const body = rows.map((r) => {
     const tickers = r.tickers || [];
-    const name = tickers.length
-      ? `<button type="button" class="expand" aria-expanded="false" data-group="${esc(r.name)}">▸ ${esc(r.name)}</button>`
-      : esc(r.name);
-    const kids = tickers.map((t) => `<tr class="ticker-row" data-parent="${esc(r.name)}" hidden><th scope="row" class="ticker">${esc(t.symbol)}</th>${cells(t)}</tr>`).join("");
-    return `<tr class="class-row"><th scope="row">${name}</th>${cells(r)}</tr>${kids}`;
+    const classPath = `${caption}/${r.name}`;
+    const name = tickers.length ? expandButton(classPath, r.name) : esc(r.name);
+    const kids = tickers.map((t) => {
+      const tickerPath = `${classPath}/${t.symbol}`;
+      const accounts = t.accounts || [];
+      const label = accounts.length ? expandButton(tickerPath, t.symbol) : esc(t.symbol);
+      const accountRows = accounts.map((a) => {
+        const accountPath = `${tickerPath}/${a.name}`;
+        const lots = a.lots || [];
+        const alabel = lots.length ? expandButton(accountPath, a.name) : esc(a.name);
+        const lotRows = lots.map((l) => `<tr class="lot-row" data-parent="${esc(accountPath)}" hidden><th scope="row" class="lot">${esc(lotLabel(l))}</th>${cells(l)}</tr>`).join("");
+        return `<tr class="acct-row" data-path="${esc(accountPath)}" data-parent="${esc(tickerPath)}" hidden><th scope="row" class="acct">${alabel}</th>${cells(a)}</tr>${lotRows}`;
+      }).join("");
+      return `<tr class="ticker-row" data-path="${esc(tickerPath)}" data-parent="${esc(classPath)}" hidden><th scope="row" class="ticker">${label}</th>${cells(t)}</tr>${accountRows}`;
+    }).join("");
+    return `<tr class="class-row" data-path="${esc(classPath)}"><th scope="row">${name}</th>${cells(r)}</tr>${kids}`;
   }).join("");
   const foot = total ? `<tfoot><tr class="total-row"><th scope="row">Total liquid</th>${cells({ ...total, share: 1, share_of_gain: 1 })}</tr></tfoot>` : "";
   return `<div class="table-wrap"><table class="live-table"><thead>${head}</thead><tbody>${body}</tbody>${foot}</table></div>`;
@@ -99,11 +133,65 @@ function simpleTable(rows, columns) {
     `<tr>${columns.map((c, i) => (i === 0 ? `<th scope="row">${c(r)}</th>` : `<td class="num">${c(r)}</td>`)).join("")}</tr>`).join("")}</tbody></table></div>`;
 }
 
+// Hint wording lives here: the backend sends only kinds and numbers. Each line shows the numbers
+// that prompted it and says "may" where it is a guess.
+export function hintText(hint) {
+  switch (hint?.kind) {
+    case "after_balance_date":
+      return `${hint.count} lot(s) bought after the imported balance date (${fmtUsd(hint.value)}). The imported balance can't include them yet.`;
+    case "stale_prices":
+      return `Old prices for ${(hint.symbols || []).join(", ")}.`;
+    case "matches_position":
+      return `The gap is close to ${hint.shares} sh ${hint.symbol}${hint.purchase_date ? " bought " + hint.purchase_date : ""} (${fmtUsd(hint.value)}).`;
+    case "direction":
+      return hint.higher === "holdings"
+        ? "Holdings are higher: a sale or transfer out may not be entered yet."
+        : "Holdings are lower: a purchase or transfer in may not be entered yet.";
+    default:
+      return "";
+  }
+}
+
+function accountRowHtml(a) {
+  const hasPct = a.delta_pct !== null && a.delta_pct !== undefined;
+  const flag = a.flag ? `<span class="flag" title="${hasPct ? "Differs from the imported balance by more than 1% and $100" : "Differs from the imported balance by more than $100"}">⚠ <span class="flag-text">Check</span></span> ` : "";
+  const monarch = (a.monarch_accounts || []).length ? ` <span class="muted">(${(a.monarch_accounts || []).map(esc).join(", ")})</span>` : "";
+  const row = `<tr class="${a.flag ? "flagged" : ""}"><th scope="row">${flag}${esc(a.holdings_account)}${monarch}</th>`
+    + `<td class="num">${fmtUsd(a.holdings_value)}</td><td class="num">${fmtUsd(a.monarch_value)}</td>`
+    + `<td class="num">${changeHtml(a.delta)}</td><td class="num">${a.delta_pct === null || a.delta_pct === undefined ? DASH : changeHtml(a.delta_pct, true)}</td></tr>`;
+  const hints = (a.hints || []).map(hintText).filter(Boolean);
+  const hintRow = hints.length
+    ? `<tr class="hint-row"><td colspan="5"><ul class="hints">${hints.map((h) => `<li>${esc(h)}</li>`).join("")}</ul></td></tr>` : "";
+  return row + hintRow;
+}
+
+function accountsSectionHtml(rec) {
+  const accounts = rec.accounts;
+  if (!Array.isArray(accounts)) return "";
+  const flagged = accounts.some((a) => a.flag);
+  const unmappedMonarch = rec.unmapped_monarch || [], unmappedHoldings = rec.unmapped_holdings || [];
+  const head = `<tr><th scope="col">Account</th><th scope="col" class="num">Holdings</th><th scope="col" class="num">Imported</th>`
+    + `<th scope="col" class="num">Difference</th><th scope="col" class="num">%</th></tr>`;
+  const foot = `<tfoot><tr class="total-row"><th scope="row">Holdings total</th><td class="num">${fmtUsd(rec.footing)}</td><td></td><td></td><td></td></tr></tfoot>`;
+  const table = `<div class="table-wrap"><table class="live-table recon-table"><thead>${head}</thead><tbody>${accounts.map(accountRowHtml).join("")}</tbody>${foot}</table></div>`;
+  const stale = rec.monarch_stale
+    ? `<p class="note warn-text">Imported balances are from ${esc(rec.monarch_as_of || "an earlier day")}; moves since then aren't backed out.</p>` : "";
+  const unmapped = unmappedMonarch.length || unmappedHoldings.length
+    ? `<p class="note">Not linked to a holdings account, so not compared. Link them in the Retirement Planner.</p>`
+      + (unmappedMonarch.length ? `<p class="note"><b>Imported accounts:</b> ${unmappedMonarch.map((u) => `${esc(u.name)} ${fmtUsd(u.value)}`).join("; ")}</p>` : "")
+      + (unmappedHoldings.length ? `<p class="note"><b>Holdings accounts:</b> ${unmappedHoldings.map((u) => `${esc(u.account)} ${fmtUsd(u.value)}`).join("; ")}</p>` : "")
+    : "";
+  const count = accounts.filter((a) => a.flag).length;
+  const summary = `Reconciliation by account${count ? ` <b>⚠ ${count} to check</b>` : ""}`;
+  return `<details class="live-section recon-accounts"${flagged ? " open" : ""}><summary>${summary}</summary>${stale}${table}${unmapped}</details>`;
+}
+
 function reconciliationHtml(rec) {
   if (!rec) return "";
   const pct = rec.delta_pct === null || rec.delta_pct === undefined ? DASH : fmtPct(Math.abs(rec.delta_pct));
-  const warn = rec.flag ? " Check client_holdings for trades or transfers not yet entered." : "";
-  return `<div class="recon${rec.flag ? " warn" : ""}" role="${rec.flag ? "alert" : "status"}">Holdings file ${fmtUsd(rec.holdings_value)} vs. imported balances ${fmtUsd(rec.monarch_value)} (${esc(rec.monarch_as_of || "")}): ${pct} apart.${warn}</div>`;
+  const warn = rec.flag ? " Check the Investment Holdings page in the Retirement Planner for trades or transfers not yet entered." : "";
+  return `<div class="recon${rec.flag ? " warn" : ""}" role="${rec.flag ? "alert" : "status"}">Holdings file ${fmtUsd(rec.holdings_value)} vs. imported balances ${fmtUsd(rec.monarch_value)} (${esc(rec.monarch_as_of || "")}): ${pct} apart.${warn}</div>`
+    + accountsSectionHtml(rec);
 }
 
 const TREATMENT = { pre_tax: "Taxed in full", after_tax: "Taxed above premium", none: "Not taxed" };
@@ -166,21 +254,53 @@ export function initLiveView(doc = document, win = window) {
   const errorBox = doc.getElementById("liveError");
   const buttons = [...doc.querySelectorAll("[data-view]")];
   let view = "trends", data = null, lastLoad = 0, busy = false;
-  const expanded = new Set(), openSections = new Set();
+  const expanded = new Set(), openSections = new Map();
 
   try { view = parseSavedView(win.localStorage.getItem(VIEW_KEY)); } catch (err) { view = "trends"; }
 
-  function render() {
-    out.querySelectorAll("details.live-section").forEach((d, i) => { if (d.open) openSections.add(i); else openSections.delete(i); });
-    out.innerHTML = liveViewHtml(data);
-    out.querySelectorAll("details.live-section").forEach((d, i) => { d.open = openSections.has(i); });
-    out.querySelectorAll("button.expand").forEach((b) => { if (expanded.has(b.dataset.group)) toggleGroup(b, true); });
+  // Only a section the user opened or closed themselves is remembered (recorded on the summary click),
+  // so the server's default -- the reconciliation section opening when an account flags -- applies
+  // until then. Keyed by name for the reconciliation section and by position among the others, so a
+  // section that appears or disappears between refreshes doesn't shift the rest.
+  function sectionKeys() {
+    let n = 0;
+    return (d) => (d.classList.contains("recon-accounts") ? "recon-accounts" : n++);
   }
 
-  function toggleGroup(button, open) {
-    button.setAttribute("aria-expanded", open ? "true" : "false");
-    button.textContent = (open ? "▾ " : "▸ ") + button.dataset.group;
-    out.querySelectorAll("tr.ticker-row").forEach((tr) => { if (tr.dataset.parent === button.dataset.group) tr.hidden = !open; });
+  function render() {
+    out.innerHTML = liveViewHtml(data);
+    const key = sectionKeys();
+    out.querySelectorAll("details.live-section").forEach((d) => { const k = key(d); if (openSections.has(k)) d.open = openSections.get(k); });
+    applyExpanded();
+  }
+
+  // Rows are in document order (parents before children). A row shows only when its parent is
+  // expanded and itself shown, so a collapsed level hides everything below it.
+  function applyExpanded() {
+    const shown = new Set();
+    out.querySelectorAll("tr[data-parent], tr.class-row").forEach((tr) => {
+      const parent = tr.dataset.parent;
+      const visible = parent === undefined || (shown.has(parent) && expanded.has(parent));
+      tr.hidden = !visible;
+      if (visible && tr.dataset.path !== undefined) shown.add(tr.dataset.path);
+    });
+    out.querySelectorAll("button.expand").forEach((b) => {
+      const open = expanded.has(b.dataset.path);
+      b.setAttribute("aria-expanded", open ? "true" : "false");
+      b.textContent = (open ? "▾ " : "▸ ") + b.dataset.label;
+    });
+  }
+
+  // Collapsing a path also forgets every expanded path below it (found by following data-parent).
+  function collapse(path) {
+    const parentOf = new Map();
+    out.querySelectorAll("tr[data-path][data-parent]").forEach((tr) => parentOf.set(tr.dataset.path, tr.dataset.parent));
+    expanded.delete(path);
+    for (const p of [...expanded]) {
+      for (let q = parentOf.get(p), n = 0; q !== undefined && n < 10; q = parentOf.get(q), n++) {
+        if (q === path) { expanded.delete(p); break; }
+      }
+    }
   }
 
   async function load(force = false) {
@@ -217,11 +337,19 @@ export function initLiveView(doc = document, win = window) {
   buttons.forEach((b) => b.addEventListener("click", () => setView(b.dataset.view)));
   doc.getElementById("liveRefresh").addEventListener("click", () => load(true));
   out.addEventListener("click", (e) => {
+    const summary = e.target.closest("summary");
+    if (summary && summary.parentElement && summary.parentElement.matches("details.live-section")) {
+      const d = summary.parentElement, key = sectionKeys();
+      let k;
+      out.querySelectorAll("details.live-section").forEach((x) => { const kx = key(x); if (x === d) k = kx; });
+      openSections.set(k, !d.open);   // the click's default action flips it after this handler
+      return;
+    }
     const b = e.target.closest("button.expand");
     if (!b) return;
     const open = b.getAttribute("aria-expanded") !== "true";
-    if (open) expanded.add(b.dataset.group); else expanded.delete(b.dataset.group);
-    toggleGroup(b, open);
+    if (open) expanded.add(b.dataset.path); else collapse(b.dataset.path);
+    applyExpanded();
   });
   const tick = () => {
     const due = Date.now() - lastLoad >= POLL_MS - 5000;

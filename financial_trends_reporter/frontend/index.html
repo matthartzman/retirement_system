@@ -175,6 +175,8 @@
   .live-table .num { text-align: right; }
   .live-table tbody th { font-weight: 600; }
   .live-table .ticker-row th { font-weight: 400; padding-left: 28px; }
+  .live-table .acct-row th { font-weight: 400; padding-left: 48px; }
+  .live-table .lot-row th { font-weight: 400; padding-left: 68px; font-size: 0.92em; }
   .live-table .total-row th, .live-table .total-row td { border-top: 2px solid #ccc; font-weight: 700; }
   .live-table button.expand { border: 0; background: none; color: inherit; font: inherit; font-weight: 600; padding: 0; cursor: pointer; }
   .up { color: #1a7f37; } .down { color: #b42318; } .na, .muted, .flat { color: #888; }
@@ -182,6 +184,11 @@
   .recon { font-size: 12px; color: #666; margin-top: 10px; }
   .recon.warn, .warn-text { color: #9a6700; font-weight: 600; }
   @media (prefers-color-scheme: dark) { .recon { color: #a0a0a8; } .recon.warn, .warn-text { color: #e3b341; } }
+  .recon-table tr.flagged { background: #fff8e1; }
+  .flag, .flag .flag-text { color: #9a6700; font-weight: 600; }
+  ul.hints { margin: 0; padding-left: 18px; font-size: 12px; color: #666; }
+  .recon-table tr.hint-row td { border-top: 0; padding-top: 0; }
+  @media (prefers-color-scheme: dark) { .recon-table tr.flagged { background: #3b2a08; } .flag, .flag .flag-text { color: #e3b341; } ul.hints { color: #a0a0a8; } }
   .live-card .note { font-size: 12px; color: #666; margin: 10px 0 0; }
   @media (prefers-color-scheme: dark) { .live-card .note { color: #a0a0a8; } }
   .totals-band { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
@@ -201,6 +208,8 @@
     .live-table { font-size: 12px; }
     .live-table th, .live-table td { padding: 5px 4px; }
     .live-table .ticker-row th { padding-left: 16px; }
+    .live-table .acct-row th { padding-left: 28px; }
+    .live-table .lot-row th { padding-left: 40px; }
   }
   #updateError { display: none; }
   #updateError button { margin-left: 8px; border: 1px solid currentColor; background: transparent; color: inherit; border-radius: 6px; padding: 2px 10px; font-size: 12px; cursor: pointer; }
@@ -224,7 +233,7 @@
   <input type="date" id="customFrom" style="display:none" aria-label="Custom range start date">
   <input type="date" id="customTo" style="display:none" aria-label="Custom range end date">
   <span class="scope-label" id="scopeLabel" role="status"></span>
-  <button id="exitBtn" title="Stop the local reporter server">Exit</button>
+  <button id="exitBtn" title="Leave this page">Exit</button>
 </div>
 <div class="note" id="allTimeNote" style="display:none"></div>
 <div id="priceNote" class="price-note" role="status" style="display:none"></div>
@@ -256,7 +265,8 @@
 // Finding QUA-302 (Wave 6 item W6-11): the chart-rendering logic below used
 // to be defined inline, right here, with no module boundary. It now lives
 // in ./charts.js, importable and testable directly.
-import { fmtMoney, escSvg, filterByTimeframe, aggregateByGranularity, granularityForTimeframe, labelForDate, scopeRange, parseSavedScope, dataTableFallbackHtml, lineChartSvg, barChartSvg, detailPopupHtml, categoryListHtml, investmentFlowRows, flowBarChartSvg, passthroughReviewHtml, rolloverModel, rolloverHtml, hasMonarchBalances, buildMonarchRows, truncateAllTime, ALL_TIME_START, monarchRolloverModel, balancesFreshnessNote, accountToggleHtml, flowIncludedAccounts, flowSeries, flowMonthlyRangeSeries, flowPeriodSummary, flowSummaryHtml, flowLineChartSvg, updateDecision, spendingUrl, spendingModelFromWindow, spendingModelFromSnapshot, latestOnly, spendingNoteText, setShowFullYear, fullYearDefault } from "./charts.js";
+import { fmtMoney, escSvg, filterByTimeframe, aggregateByGranularity, granularityForTimeframe, labelForDate, scopeRange, parseSavedScope, dataTableFallbackHtml, lineChartSvg, barChartSvg, investmentFlowRows, flowBarChartSvg, passthroughReviewHtml, rolloverModel, rolloverHtml, hasMonarchBalances, buildMonarchRows, truncateAllTime, ALL_TIME_START, monarchRolloverModel, balancesFreshnessNote, accountToggleHtml, flowIncludedAccounts, flowSeries, flowMonthlyRangeSeries, flowPeriodSummary, flowSummaryHtml, flowLineChartSvg, updateDecision, spendingUrl, spendingModelFromWindow, spendingModelFromSnapshot, latestOnly, spendingNoteText, setShowFullYear, fullYearDefault } from "./charts.js";
+import { initSpendingDock } from "./spending_dock.js";
 import { formatElapsed, recordPopupRuntime, averageRuntimeText, loadPopupRuntimeHistory } from "/shared/runtime_history.js";
 
 let history = [];
@@ -437,7 +447,7 @@ function syncFullYear() {
 }
 document.getElementById("fullYearToggle").addEventListener("change", (e) => {
   fullYearOverride = e.target.checked;
-  hideAll();
+  spendDock.hideAll();
   renderSpending(history[history.length - 1]);
 });
 async function renderSpending(latest) {
@@ -449,7 +459,7 @@ async function renderSpending(latest) {
   let resp = spendingMemo.get(key) || null;
   if (!resp) {
     categoryModel = null;
-    hideAll();
+    spendDock.hideAll();
     document.getElementById("chartCategories").innerHTML = '<div class="empty">Loading…</div>';
     try {
       const r = await fetch(spendingUrl(range));
@@ -522,106 +532,8 @@ document.getElementById("scopeSelect").addEventListener("change", (e) => {
   saveScope();
   render();
 });
-// Spending breakdown panels (docked along the bottom, off the card). Hovering a row LABEL shows that row's
-// categories in the left panel; hovering a category there shows its merchants in the right panel. A click
-// (or Enter/Space on the focused label) pins a panel so hovering elsewhere no longer replaces it; Escape,
-// the Close button or a click outside the chart and panels closes everything. Ticks and bars open nothing.
-const popup = document.getElementById("detailPopup");
-const popup2 = document.getElementById("detailPopup2");
-const dock = document.getElementById("spendDock");
-const catBox = document.getElementById("chartCategories");
-const MARGIN = 8;
-let popRow = null, popCat = -1, rowPinned = false, catPinned = false;
-function fitVertically(el, desiredTop) {
-  el.style.maxHeight = (window.innerHeight - 2 * MARGIN) + "px";
-  const h = el.offsetHeight;
-  el.style.top = Math.max(MARGIN, Math.min(desiredTop, window.innerHeight - h - MARGIN)) + "px";
-}
-function rowIndexForLabel(target) {
-  const label = target.closest && target.closest(".row-label");
-  const g = label && label.closest("[data-row]");
-  return g ? Number(g.dataset.row) : -1;
-}
-function modelRow(idx) {
-  if (!categoryModel || idx < 0) return null;
-  return idx === 0 ? categoryModel.totalDetail : categoryModel.rows[idx - 1] || null;
-}
-function dockBar(pinned, what) {
-  return `<div class="dock-bar"><span class="grow">${pinned ? "Pinned" : "Preview"} - ${escSvg(what)}</span>` +
-    `<button type="button" data-dock="${pinned ? "unpin" : "pin"}">${pinned ? "Unpin" : "Pin"}</button>` +
-    `<button type="button" data-dock="close" aria-label="Close breakdown">Close</button></div>`;
-}
-function markSelected(idx) {
-  catBox.querySelectorAll(".bar-row.sel").forEach(g => g.classList.remove("sel"));
-  const g = idx >= 0 && catBox.querySelector(`[data-row="${idx}"]`);
-  if (g) g.classList.add("sel");
-}
-function showRow(idx) {
-  const row = modelRow(idx);
-  if (!row) return;
-  popRow = row; popCat = -1; catPinned = false;
-  popup2.innerHTML = "";
-  popup.innerHTML = dockBar(rowPinned, row.detailTitle) + (row.categories ? categoryListHtml(row.detailTitle, row.categories)
-                                                                         : detailPopupHtml(row.detailTitle, row.detail));
-  popup.scrollTop = 0;
-  markSelected(idx);
-  dock.classList.add("open");
-}
-function showMerchants(idx) {
-  const cat = popRow && popRow.categories && popRow.categories[idx];
-  if (!cat) return;
-  popCat = idx;
-  popup2.innerHTML = dockBar(catPinned, cat.name) + detailPopupHtml(`${cat.name} - merchants`, cat.merchants);
-  popup2.scrollTop = 0;
-  popup.querySelectorAll(".pop-cat").forEach(el => el.classList.toggle("pinned", catPinned && Number(el.dataset.cat) === idx));
-}
-function hideAll() {
-  dock.classList.remove("open");
-  popup.innerHTML = ""; popup2.innerHTML = "";
-  popRow = null; popCat = -1; rowPinned = false; catPinned = false;
-  markSelected(-1);
-}
-catBox.addEventListener("mouseover", (e) => {
-  if (rowPinned) return;
-  const idx = rowIndexForLabel(e.target);
-  if (idx >= 0 && modelRow(idx) !== popRow) showRow(idx);
-});
-function pinRow(e) {
-  const idx = rowIndexForLabel(e.target);
-  if (idx < 0) return false;
-  rowPinned = true; showRow(idx);
-  return true;
-}
-catBox.addEventListener("click", pinRow);
-catBox.addEventListener("keydown", (e) => {
-  if ((e.key === "Enter" || e.key === " ") && pinRow(e)) e.preventDefault();
-});
-popup.addEventListener("mouseover", (e) => {
-  const rowEl = e.target.closest && e.target.closest("[data-cat]");
-  if (!rowEl || !popRow || !popRow.categories || catPinned) return;
-  const idx = Number(rowEl.dataset.cat);
-  if (idx !== popCat) showMerchants(idx);
-});
-popup.addEventListener("click", (e) => {
-  const rowEl = e.target.closest && e.target.closest("[data-cat]");
-  if (!rowEl || !popRow || !popRow.categories) return;
-  catPinned = true; showMerchants(Number(rowEl.dataset.cat));
-});
-dock.addEventListener("click", (e) => {
-  const btn = e.target.closest && e.target.closest("button[data-dock]");
-  if (!btn) return;
-  const what = btn.dataset.dock;
-  if (what === "close") { hideAll(); return; }
-  if (popup2.contains(btn)) { catPinned = what === "pin"; showMerchants(popCat); return; }
-  rowPinned = what === "pin";
-  showRow(categoryModel ? [categoryModel.totalDetail, ...categoryModel.rows].indexOf(popRow) : -1);
-});
-document.addEventListener("keydown", (e) => { if (e.key === "Escape") hideAll(); });
-document.addEventListener("click", (e) => {
-  if (!dock.classList.contains("open")) return;
-  if (e.target.closest && e.target.closest("#chartCategories, #spendDock")) return;
-  hideAll();
-});
+// Spending breakdown panels live in ./spending_dock.js (hover previews, pinning, Escape / outside-click close).
+const spendDock = initSpendingDock({ doc: document, win: window, getModel: () => categoryModel });
 
 document.getElementById("passthroughReview").addEventListener("click", async (e) => {
   const btn = e.target.closest("button[data-decision]");
@@ -645,6 +557,12 @@ document.getElementById("passthroughReview").addEventListener("click", async (e)
 // Rollover on the Net worth / Holdings line charts: account subtotals at the
 // hovered (or keyboard-focused) point -- Imported accounts with a non-zero balance for
 // imported-sourced points, the logged plan accounts for plan-sourced ones.
+const MARGIN = 8;
+function fitVertically(el, desiredTop) {
+  el.style.maxHeight = (window.innerHeight - 2 * MARGIN) + "px";
+  const h = el.offsetHeight;
+  el.style.top = Math.max(MARGIN, Math.min(desiredTop, window.innerHeight - h - MARGIN)) + "px";
+}
 const rollPopup = document.getElementById("rollPopup");
 function hideRollover() { rollPopup.style.display = "none"; }
 function showRollover(dot, kind) {
@@ -861,16 +779,48 @@ async function updateData(force) {
 }
 document.getElementById("retryUpdate").addEventListener("click", () => updateData(true));
 
-// ---- Lifecycle: the server stops when this page is closed or Exit is clicked ----
-const sendPing = () => fetch("/api/ping", { method: "POST", keepalive: true }).catch(() => {});
+// ---- Keep-alive ping, sign-in state, Exit / Sign out ----
+// The ping reports how long ago the person last touched the page; only that keeps a remote
+// session alive (the ping itself and background polling do not).
+let lastInteraction = Date.now();
+for (const evt of ["pointerdown", "keydown", "scroll", "touchstart"]) {
+  window.addEventListener(evt, () => { lastInteraction = Date.now(); }, { passive: true });
+}
+const goToSignin = () => { location.href = "/signin"; };
+const nativeFetch = window.fetch.bind(window);
+window.fetch = async (...args) => {
+  const resp = await nativeFetch(...args);
+  if (resp.status === 401) goToSignin();
+  return resp;
+};
+const sendPing = () => fetch("/api/ping", {
+  method: "POST", keepalive: true, headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ idle_ms: Date.now() - lastInteraction }),
+}).catch(() => {});
 sendPing();
 setInterval(sendPing, 5000);
-// A reload fires pagehide too; the next page's first ping cancels the server's short grace period.
-window.addEventListener("pagehide", () => { navigator.sendBeacon("/api/closing"); });
+// Views opened go to the owner's activity log (one small request per view change).
+const reportView = (view) => fetch("/api/view", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ view }) }).catch(() => {});
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest && e.target.closest("[data-view]");
+  if (btn && btn.dataset.view) reportView(btn.dataset.view);
+});
+reportView("trends");
+let whoami = { listener: "local", must_change: false };
+async function signOut() {
+  try { await fetch("/api/signout", { method: "POST" }); } catch (err) { /* ignore */ }
+  goToSignin();
+}
+(async () => {
+  try { whoami = await (await fetch("/api/whoami")).json(); } catch (err) { return; }
+  if (whoami.listener === "remote") document.getElementById("exitBtn").textContent = "Sign out";
+  if (whoami.listener === "local") { const sc = document.createElement("script"); sc.src = "/access.js"; document.body.appendChild(sc); }
+  if (whoami.must_change) location.href = "/change-password";
+})();
 document.getElementById("exitBtn").addEventListener("click", async () => {
-  if (!confirm("Exit the Financial trends reporter? The local server will stop.")) return;
-  try { await fetch("/api/exit", { method: "POST" }); } catch (err) { /* server already gone */ }
-  document.body.innerHTML = '<h1>Financial Trends</h1><div class="sub">The reporter has exited. You can close this tab.</div>';
+  if (whoami.listener === "remote") return signOut();
+  try { await fetch("/api/exit", { method: "POST" }); } catch (err) { /* ignore */ }
+  document.body.innerHTML = '<h1>Financial Trends</h1><div class="sub">You can close this tab. The reporter keeps running.</div>';
   window.close();
 });
 
