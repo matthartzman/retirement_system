@@ -157,10 +157,10 @@ body{font-family:"DM Sans","Aptos","Segoe UI",Arial,sans-serif;background:var(--
   <div class="chart-legend" id="nwLegend"></div></div>
 </div>
 
-<p class="section-label">Cash Flow — Income &amp; Portfolio Draws · __PLAN_START__–__PLAN_END__</p>
+<p class="section-label">Cash Flow — Income (gross, before tax withholding) &amp; Portfolio Draws · __PLAN_START__–__PLAN_END__</p>
 <div class="chart-card">
-  <div class="chart-title">Annual Income by Source</div>
-  <div class="chart-subtitle">Income streams + portfolio draws · surplus = gap above expense chart bars</div>
+  <div class="chart-title">Annual Income by Source (gross)</div>
+  <div class="chart-subtitle">Income streams are gross, before tax withholding; taxes are in the outflows chart · portfolio draws · surplus = gap above expense chart bars</div>
   <div class="chart-body"><div class="chart-wrap"><div id="incChart" class="native-chart" role="img" aria-label="Annual income by source chart"></div></div>
   <div class="chart-legend" id="incLegend"></div></div>
 </div>

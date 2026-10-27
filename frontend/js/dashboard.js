@@ -4345,9 +4345,9 @@ const FIELD_GUIDANCE_OVERRIDES = {
     consider: "Enter the date shown in your pension agreement or annuity contract. If you can choose when to start, an earlier date increases near-term spending power but may reduce the total lifetime payment.",
   },
   initial_guaranteed_income_payment: {
-    purpose: "This is the monthly dollar amount your pension or annuity guarantees to pay you starting in the first year. This is the base payment that then grows (if your contract includes growth or dividends).",
+    purpose: "This is the GROSS monthly amount (before any tax withholding) your pension or annuity guarantees to pay you starting in the first year. The plan taxes this gross amount itself; enter the after-withholding deposit in Monthly Payment (Net). This is the base payment that then grows (if your contract includes growth or dividends).",
     impact: "Raising this amount increases your guaranteed monthly income and improves plan safety. Lowering it reduces guaranteed income. Higher payments accelerate your transition out of portfolio withdrawals and reduce spending power later.",
-    consider: "Look at your pension statement or annuity contract for the guaranteed monthly benefit amount. If you haven't claimed your pension yet, this is the monthly amount you'll receive when you do.",
+    consider: "Look at your pension statement or annuity contract for the guaranteed gross monthly benefit, not the smaller amount deposited after withholding. If you haven't claimed your pension yet, this is the monthly amount you'll receive when you do.",
   },
   payout_type: {
     purpose: "This selects how your income payment behaves in stress-test scenarios: 'Fixed' means it never changes, 'Variable' scales with portfolio returns, or 'COLA' scales with inflation. This has no effect on your base plan, only on Monte Carlo risk testing.",

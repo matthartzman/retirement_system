@@ -346,6 +346,55 @@ export function incomeStreamSubsections() {
   ];
 }
 
+// Gross vs net (FUNCTIONAL_SPEC §6): initial_guaranteed_income_payment is the
+// gross monthly payment the engine taxes; net_monthly_payment is the optional
+// deposit after withholding (blank = no withholding). Withholding = gross - net.
+const GROSS_NET_LABELS = ["initial_guaranteed_income_payment", "net_monthly_payment"];
+
+function moneyNumber(v) {
+  const s = String(v ?? "").trim();
+  if (!s) return null;
+  const n = Number(s.replace(/[^0-9.-]/g, ""));
+  return Number.isFinite(n) ? n : null;
+}
+
+function centsMoney(n) {
+  return n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+export function grossNetSummary(grossRaw, netRaw) {
+  const gross = moneyNumber(grossRaw) ?? 0;
+  const netEntered = moneyNumber(netRaw);
+  const net = netEntered ?? gross;
+  return { gross, net, withholding: gross - net, netEntered: netEntered !== null, netAboveGross: net > gross + 0.005 };
+}
+
+function grossNetSummaryInner(sub) {
+  const [grossRow, netRow] = GROSS_NET_LABELS.map((l) => findEditableRow("Income Streams", sub, l));
+  if (!grossRow) return "";
+  const s = grossNetSummary(valOf(grossRow), netRow ? valOf(netRow) : "");
+  const line = `Monthly: Gross ${centsMoney(s.gross)} · Withholding ${centsMoney(s.withholding)} · Net ${centsMoney(s.net)}${s.netEntered ? "" : " (no net entered, so net = gross)"}`;
+  const warn = s.netAboveGross
+    ? `<div class="badge warn" role="alert">Net is higher than gross. Net should be the deposit after tax withholding.</div>`
+    : "";
+  return `<span>${esc(line)}</span>${warn}`;
+}
+
+export function grossNetSummaryHtml(sub) {
+  const inner = grossNetSummaryInner(sub);
+  return inner ? `<div class="small gross-net-summary" style="padding:4px 12px 10px" data-gross-net="${esc(sub)}" aria-live="polite">${inner}</div>` : "";
+}
+
+// Refresh the summary as the gross or net field is typed in (editValue runs
+// first on the same input event, so valOf already sees the new value).
+document.addEventListener?.("input", (e) => {
+  const idx = Number(e.target?.dataset?.row);
+  const r = Number.isFinite(idx) && (rows || []).find((x) => x.row_index === idx);
+  if (!r || r.section !== "Income Streams" || !GROSS_NET_LABELS.includes(norm(r.label))) return;
+  const el = [...document.querySelectorAll("[data-gross-net]")].find((x) => x.dataset.grossNet === r.subsection);
+  if (el) el.innerHTML = grossNetSummaryInner(r.subsection);
+});
+
 export function renderIncomeStreamsSection() {
   const globalRows = findRows(
     "Income Streams",
@@ -372,7 +421,7 @@ export function renderIncomeStreamsSection() {
     const typeRow = rs.find((r) => norm(r.label) === "type");
     rs = rs.filter((r) => norm(r.label) !== "type");
     const ordered = [...(typeRow ? [typeRow] : []), ...rs];
-    html += `<details><summary>${esc(translatePersonPlaceholders(sub))}</summary><div class="field-list">${ordered.map(fieldHtml).join("")}</div></details>`;
+    html += `<details><summary>${esc(translatePersonPlaceholders(sub))}</summary><div class="field-list">${ordered.map(fieldHtml).join("")}</div>${grossNetSummaryHtml(sub)}</details>`;
   });
   if (globalRows.length)
     html += `<details><summary>Plan-wide income stream settings</summary><div class="field-list">${globalRows.map(fieldHtml).join("")}</div></details>`;
@@ -561,6 +610,8 @@ Object.assign(window, {
   renderSsOptimizerApplyStrip,
   fieldControlOnly,
   incomeStreamSubsections,
+  grossNetSummary,
+  grossNetSummaryHtml,
   renderIncomeStreamsSection,
   renderSsPolicySection,
   rothCoordinationSummaryHtml,

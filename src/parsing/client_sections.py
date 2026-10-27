@@ -66,7 +66,13 @@ def load_stream(data, c, name, annuitant='wife'):
     s['div_rate'] = _n(_v(data,'Income Streams',name,'dividend_rate',str(c['ann_div'])), c['ann_div'])
     # add_pct = reinvested fraction (20% default); cash payout = 1 - add_pct
     s['add_pct']  = _n(_v(data,'Income Streams',name,'additional_income_pct',str(c['ann_add'])), c['ann_add'])
+    # Gross monthly payment: the engine taxes this itself (FUNCTIONAL_SPEC §6).
     s['init_pmt'] = _n(_v(data,'Income Streams',name,'initial_guaranteed_income_payment','0'), 0)
+    # Optional net deposit after withholding -- reference only, never fed to the
+    # engine. Blank = no withholding (net = gross).
+    _net = _n(_v(data,'Income Streams',name,'net_monthly_payment',''), None)
+    s['net_monthly_payment'] = s['init_pmt'] if _net is None else _net
+    s['monthly_withholding'] = s['init_pmt'] - s['net_monthly_payment']
     # Deferral years: contract years before income starts where dividends are 100% reinvested
     s['deferral_years']   = int(_n(_v(data,'Income Streams',name,'deferral_years','0'), 0))
     # Reserve model calibration (deferred income annuity): reserve_factor anchors the dividend base,

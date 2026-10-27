@@ -1153,7 +1153,10 @@ def build_sheet18(ws, c, rows):
         ('SS Income (Survivor)',
          f"100% of higher benefit = ${c['h_ss70']*12:,.0f}/yr (at age 70 claim)"),
         (f'Pension ({n2})',
-         f"${c['wife_pension']['init_pmt']*12:,.0f}/yr — STOPS at {n2}'s death"),
+         f"${c['wife_pension']['init_pmt']*12:,.0f}/yr gross"
+         + (f" (${c['wife_pension']['net_monthly_payment']*12:,.0f}/yr net after withholding)"
+            if c['wife_pension'].get('monthly_withholding') else "")
+         + f" — STOPS at {n2}'s death"),
         ('Joint Annuities',
          'Continue at 100% J&S to survivor per CSV; single-life annuities stop at annuitant death'),
         ('Tax Filing',

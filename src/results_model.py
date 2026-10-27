@@ -380,7 +380,7 @@ def _chart_page(c: dict[str, Any], rows: list[dict[str, Any]], mc_data: dict[str
         exp_values["Rental Net Cost"] = [round(max(0, -_n(bd['income'].get('rental')))) for bd in bds]
         exp_values["Rental Sale Tax"] = _tax_series('rental_sale')
 
-    add_xy("Cash Flow — Income & Portfolio Draws", "stacked_bar", [
+    add_xy("Cash Flow — Income (gross) & Portfolio Draws", "stacked_bar", [
         {"label": label, "values": vals} for label, vals in inc_values.items()
     ], unit="currency")
 
@@ -473,7 +473,7 @@ def _cashflow_page(c: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, A
     # the displayed income columns add up to the engine's income (cashflow_breakdown).
     rental_on = any('rental_net_cash_flow' in r for r in rows)
     group = [
-        ("Identifiers", 3), ("Income", 12 if rental_on else 11), ("Tax & RMD", 6), ("Spending", 8),
+        ("Identifiers", 3), ("Income (gross, before tax withholding)", 12 if rental_on else 11), ("Tax & RMD", 6), ("Spending", 8),
         ("Portfolio Draws", 16), ("Surplus", 2),
     ]
     group_row = []

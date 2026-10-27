@@ -107,7 +107,7 @@ def build_sheet6(ws, c, rows):
 
     # ── Group header row 1 ────────────────────────────────────────────────────
     write_hdr(ws, 1, COL['Year'],     'Identifiers', DGRAY, WHITE, span=3)
-    write_hdr(ws, 1, COL['Earned'],   'INCOME',       BLUE,  WHITE, span=income_span)
+    write_hdr(ws, 1, COL['Earned'],   'INCOME (gross, before tax withholding)',       BLUE,  WHITE, span=income_span)
     write_hdr(ws, 1, COL['AGI'],      'TAXES',        ORANGE,WHITE, span=tax_span)
     write_hdr(ws, 1, COL['Spend_Base'],'SPENDING',   RED,   WHITE, span=spending_span)
     write_hdr(ws, 1, COL['Total_Tax'], 'CASH BRIDGE', NAVY, WHITE, span=cash_bridge_span)
