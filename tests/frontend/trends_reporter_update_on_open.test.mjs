@@ -103,9 +103,10 @@ describe("breakdown panels (label-only trigger, fixed dock)", async () => {
   });
   test("the panels live in one fixed dock, closed by Escape/Close/outside click", () => {
     assert.match(html, /<div id="spendDock"[^>]*>\s*<div id="detailPopup"[^>]*><\/div><div id="detailPopup2"/);
-    assert.match(html, /e\.key === "Escape"\) hideAll\(\)/);
-    assert.match(html, /data-dock="close"/);
-    assert.ok(!/scheduleHide|keepOpen/.test(html));
+    const dockJs = fs.readFileSync(path.join(HERE, "..", "..", "financial_trends_reporter", "frontend", "spending_dock.js"), "utf8");
+    assert.match(dockJs, /e\.key === "Escape"\) hideAll\(\)/);
+    assert.match(dockJs, /data-dock="close"/);
+    assert.ok(!/scheduleHide|keepOpen/.test(html + dockJs));
   });
 });
 
