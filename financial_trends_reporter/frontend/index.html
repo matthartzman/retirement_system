@@ -861,11 +861,50 @@ async function updateData(force) {
 }
 document.getElementById("retryUpdate").addEventListener("click", () => updateData(true));
 
-// ---- Keep-alive ping; Exit leaves the page and never stops the server ----
-const sendPing = () => fetch("/api/ping", { method: "POST", keepalive: true }).catch(() => {});
+// ---- Keep-alive ping, sign-in state, Exit / Sign out ----
+// The ping reports how long ago the person last touched the page; only that keeps a remote
+// session alive (the ping itself and background polling do not).
+let lastInteraction = Date.now();
+for (const evt of ["pointerdown", "keydown", "scroll", "touchstart"]) {
+  window.addEventListener(evt, () => { lastInteraction = Date.now(); }, { passive: true });
+}
+const goToSignin = () => { location.href = "/signin"; };
+const nativeFetch = window.fetch.bind(window);
+window.fetch = async (...args) => {
+  const resp = await nativeFetch(...args);
+  if (resp.status === 401) goToSignin();
+  return resp;
+};
+const sendPing = () => fetch("/api/ping", {
+  method: "POST", keepalive: true, headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ idle_ms: Date.now() - lastInteraction }),
+}).catch(() => {});
 sendPing();
 setInterval(sendPing, 5000);
+let whoami = { listener: "local", must_change: false };
+async function promptNewPassword() {
+  for (;;) {
+    const current = prompt("You need to choose a new password. Enter your current (temporary) password:");
+    if (current === null) return signOut();
+    const fresh = prompt("New password (at least 10 characters):");
+    if (fresh === null) return signOut();
+    const resp = await fetch("/api/change-password", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ current, new: fresh }) });
+    const out = await resp.json().catch(() => ({}));
+    if (resp.ok) { location.reload(); return; }
+    alert(out.error || "Could not change the password.");
+  }
+}
+async function signOut() {
+  try { await fetch("/api/signout", { method: "POST" }); } catch (err) { /* ignore */ }
+  goToSignin();
+}
+(async () => {
+  try { whoami = await (await fetch("/api/whoami")).json(); } catch (err) { return; }
+  if (whoami.listener === "remote") document.getElementById("exitBtn").textContent = "Sign out";
+  if (whoami.must_change) promptNewPassword();
+})();
 document.getElementById("exitBtn").addEventListener("click", async () => {
+  if (whoami.listener === "remote") return signOut();
   try { await fetch("/api/exit", { method: "POST" }); } catch (err) { /* ignore */ }
   document.body.innerHTML = '<h1>Financial Trends</h1><div class="sub">You can close this tab. The reporter keeps running.</div>';
   window.close();

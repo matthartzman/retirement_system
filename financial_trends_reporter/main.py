@@ -17,6 +17,7 @@ import logging
 import socket
 import sys
 import threading
+import time
 import webbrowser
 from datetime import date, timedelta
 from pathlib import Path
@@ -32,6 +33,10 @@ from src.http_runtime.wsgi_facade import Flask, Response, request  # noqa: E402
 from src.stores import SchemaVersionError  # noqa: E402
 
 from financial_trends_reporter import account_registry, balance_series, flows, live_snapshot, spending_window  # noqa: E402
+from financial_trends_reporter.access_routes import register_access  # noqa: E402
+from financial_trends_reporter.access_store import DB_FILENAME as ACCESS_DB_FILENAME, AccessStore  # noqa: E402
+from financial_trends_reporter.listeners import ListenerApp, check_funnel_target  # noqa: E402
+from financial_trends_reporter.sessions import SessionTable  # noqa: E402
 from financial_trends_reporter.app_sync import sync_from_app  # noqa: E402
 from financial_trends_reporter.balance_store import DB_FILENAME, freshness  # noqa: E402
 from financial_trends_reporter.passthrough_decisions import decisions_path_for_log, save_decision  # noqa: E402
@@ -66,7 +71,8 @@ def _parse_spending_window(args) -> tuple[date, date]:
     return start, end
 
 
-def create_app(retirement_system_dir: Path, log_path: Path | None = None) -> Flask:
+def create_app(retirement_system_dir: Path, log_path: Path | None = None, access_store: AccessStore | None = None,
+               sessions: SessionTable | None = None, clock=time.time) -> Flask:
     app = Flask("financial_trends_reporter", static_folder=str(_APP_ROOT / "frontend"))
     resolved_log_path = log_path or default_log_path(_APP_ROOT)
 
@@ -308,15 +314,17 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None) -> Fla
             live_snapshot.clear_inputs_cache()
         return Response(json.dumps(payload), status=status, content_type="application/json")
 
-    @app.route("/api/ping", methods=["POST"])
-    def ping():
-        return _json({"success": True})
-
     @app.route("/api/exit", methods=["POST"])
     def exit_app():
-        # Exit only ends the caller's own session (see access_routes); it never stops the server.
+        # Exit never stops the server; remote guests end their session through /api/signout.
         return _json({"success": True})
 
+    register_access(
+        app,
+        access_store or AccessStore(resolved_log_path.with_name(ACCESS_DB_FILENAME)),
+        sessions or SessionTable(),
+        clock=clock,
+    )
     return app
 
 
@@ -341,6 +349,8 @@ def main(argv: list[str] | None = None) -> int:
     # ERR_UNSAFE_PORT even though the server itself is listening fine.
     parser.add_argument("--port", type=int, default=5057)
     parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--remote-port", type=int, default=5058, help="Loopback port Tailscale Funnel points at (sign-in required)")
+    parser.add_argument("--no-remote", action="store_true", help="Don't start the remote (sign-in) listener")
     parser.add_argument("--no-open", action="store_true", help="Don't auto-open a browser tab")
     args = parser.parse_args(argv)
 
@@ -353,8 +363,19 @@ def main(argv: list[str] | None = None) -> int:
     # Re-read account types/mapping from the app so a fix to the sync applies without waiting for the next import.
     sync_from_app(default_log_path(_APP_ROOT).with_name(DB_FILENAME), args.retirement_system_dir)
     assert_safe_to_bind(args.host, _configured_token())
+    if (problem := check_funnel_target(args.port)):
+        print(problem, file=sys.stderr)
+        return 1
     app = create_app(Path(args.retirement_system_dir))
-    server = LocalHTTPServer((args.host, int(args.port)), app)
+    server = LocalHTTPServer((args.host, int(args.port)), ListenerApp(app, "local"))
+    if not args.no_remote:
+        if _port_in_use("127.0.0.1", args.remote_port):
+            print(f"Remote port {args.remote_port} is busy; the remote listener was not started.", file=sys.stderr)
+        else:
+            assert_safe_to_bind("127.0.0.1", _configured_token())
+            remote = LocalHTTPServer(("127.0.0.1", int(args.remote_port)), ListenerApp(app, "remote"))
+            threading.Thread(target=remote.serve_forever, daemon=True).start()
+            print(f"Remote listener (sign-in required) on 127.0.0.1:{args.remote_port}")
     url = f"http://{_local_host(args.host)}:{args.port}"
     print(f"Financial trends reporter listening on {url}")
     if not args.no_open:
