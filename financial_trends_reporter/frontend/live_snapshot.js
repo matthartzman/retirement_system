@@ -119,7 +119,8 @@ export function hintText(hint) {
 }
 
 function accountRowHtml(a) {
-  const flag = a.flag ? `<span class="flag" title="Differs from Monarch by more than 1% and $100">⚠ <span class="flag-text">Check</span></span> ` : "";
+  const hasPct = a.delta_pct !== null && a.delta_pct !== undefined;
+  const flag = a.flag ? `<span class="flag" title="${hasPct ? "Differs from Monarch by more than 1% and $100" : "Differs from Monarch by more than $100"}">⚠ <span class="flag-text">Check</span></span> ` : "";
   const monarch = (a.monarch_accounts || []).length ? ` <span class="muted">(${(a.monarch_accounts || []).map(esc).join(", ")})</span>` : "";
   const row = `<tr class="${a.flag ? "flagged" : ""}"><th scope="row">${flag}${esc(a.holdings_account)}${monarch}</th>`
     + `<td class="num">${fmtUsd(a.holdings_value)}</td><td class="num">${fmtUsd(a.monarch_value)}</td>`
@@ -223,14 +224,18 @@ export function initLiveView(doc = document, win = window) {
 
   try { view = parseSavedView(win.localStorage.getItem(VIEW_KEY)); } catch (err) { view = "trends"; }
 
+  // Only a section the user opened or closed themselves is remembered (recorded on the summary click),
+  // so the server's default -- the reconciliation section opening when an account flags -- applies
+  // until then. Keyed by name for the reconciliation section and by position among the others, so a
+  // section that appears or disappears between refreshes doesn't shift the rest.
+  function sectionKeys() {
+    let n = 0;
+    return (d) => (d.classList.contains("recon-accounts") ? "recon-accounts" : n++);
+  }
+
   function render() {
-    // Keyed by name for the reconciliation section and by position among the others, so a section
-    // that appears or disappears between refreshes doesn't shift the rest.
-    const keyed = () => { let n = 0; return (d) => (d.classList.contains("recon-accounts") ? "recon-accounts" : n++); };
-    let key = keyed();
-    out.querySelectorAll("details.live-section").forEach((d) => { openSections.set(key(d), d.open); });
     out.innerHTML = liveViewHtml(data);
-    key = keyed();
+    const key = sectionKeys();
     out.querySelectorAll("details.live-section").forEach((d) => { const k = key(d); if (openSections.has(k)) d.open = openSections.get(k); });
     out.querySelectorAll("button.expand").forEach((b) => { if (expanded.has(b.dataset.group)) toggleGroup(b, true); });
   }
@@ -275,6 +280,14 @@ export function initLiveView(doc = document, win = window) {
   buttons.forEach((b) => b.addEventListener("click", () => setView(b.dataset.view)));
   doc.getElementById("liveRefresh").addEventListener("click", () => load(true));
   out.addEventListener("click", (e) => {
+    const summary = e.target.closest("summary");
+    if (summary && summary.parentElement && summary.parentElement.matches("details.live-section")) {
+      const d = summary.parentElement, key = sectionKeys();
+      let k;
+      out.querySelectorAll("details.live-section").forEach((x) => { const kx = key(x); if (x === d) k = kx; });
+      openSections.set(k, !d.open);   // the click's default action flips it after this handler
+      return;
+    }
     const b = e.target.closest("button.expand");
     if (!b) return;
     const open = b.getAttribute("aria-expanded") !== "true";

@@ -285,6 +285,33 @@ def test_monarch_older_than_previous_session_is_noted():
     assert _compute(monarch={**MONARCH, "latest_date": "2026-10-22"})["reconciliation"]["monarch_stale"] is True
 
 
+def test_matches_symbol_total_when_no_single_lot_fits():
+    # IXUS in two 100-share lots (6625 each at Monarch's date), no ITOT: the gap of 13200 fits neither
+    # lot but the symbol's 13250 total, so the hint carries summed shares and no purchase date.
+    lots = [l for l in LOTS if l["account"] != "Member_1_IRA"] + [
+        {"account": "Member_1_IRA", "symbol": "IXUS", "purchase_date": "2025-06-01", "shares": "100", "purchase_price": "50"},
+        {"account": "Member_1_IRA", "symbol": "IXUS", "purchase_date": "2025-07-01", "shares": "100", "purchase_price": "50"}]
+    m = {**MONARCH, "by_account": [dict(a, value=50.0) if a["account"] == "IRA - Matt" else a for a in MONARCH["by_account"]]}
+    ira = _row_by(_compute(lots=lots, monarch=m)["reconciliation"]["accounts"], "Member_1_IRA")
+    assert ira["flag"] is True
+    assert ira["hints"][0] == {"kind": "matches_position", "symbol": "IXUS", "shares": 200, "purchase_date": None,
+                               "value": pytest.approx(13250)}
+
+
+def test_monarch_balance_of_zero_flags_on_dollars_alone():
+    m = {**MONARCH, "by_account": [dict(a, value=0.0) if a["account"] == "Trust - Matt" else a for a in MONARCH["by_account"]]}
+    trust = _row_by(_compute(monarch=m)["reconciliation"]["accounts"], "Member_1_Trust")
+    assert trust["holdings_value"] > 100 and trust["monarch_value"] == 0
+    assert trust["delta_pct"] is None and trust["flag"] is True
+    assert {"kind": "direction", "higher": "holdings"} in trust["hints"]
+
+
+def test_monday_with_friday_balances_is_not_stale():
+    # 2026-10-26 is a Monday; the previous session was Friday 10-23, so Friday's balances are current.
+    rec = _compute(today=date(2026, 10, 26), monarch={**MONARCH, "latest_date": "2026-10-23"})["reconciliation"]
+    assert rec["monarch_stale"] is False
+
+
 # ---- non-liquid, debt, tax, totals ----
 
 def test_non_liquid_rows_and_kinds():

@@ -169,6 +169,25 @@ describe("reconciliation by account", () => {
     assert.match(out, /Not linked to a holdings account, so not compared\. Link them in the Retirement Planner\./);
     assert.match(out, /Holdings total/);
   });
+  test("summary counts the accounts to check", () => {
+    const out = liveViewHtml({ ...DATA, reconciliation: REC_FLAGGED });
+    assert.match(out, /<summary>Reconciliation by account <b>⚠ 1 to check<\/b><\/summary>/);
+    assert.ok(!liveViewHtml({ ...DATA, reconciliation: REC }).includes("to check"));
+  });
+  test("account names are escaped", () => {
+    const evil = "<img src=x onerror=alert(1)>";
+    const rec = { ...REC_FLAGGED, accounts: [{ ...REC_FLAGGED.accounts[0], holdings_account: evil, monarch_accounts: [evil] }],
+                  unmapped_monarch: [{ name: evil, value: 1 }], unmapped_holdings: [{ account: evil, value: 1 }] };
+    const out = liveViewHtml({ ...DATA, reconciliation: rec });
+    assert.ok(!out.includes(evil));
+    assert.ok(out.includes("&lt;img src=x onerror=alert(1)&gt;"));
+  });
+  test("flag title drops the percent when there is no Monarch balance to divide by", () => {
+    const acct = { ...REC_FLAGGED.accounts[0], delta_pct: null, monarch_value: 0 };
+    const out = liveViewHtml({ ...DATA, reconciliation: { ...REC_FLAGGED, accounts: [acct] } });
+    assert.match(out, /title="Differs from Monarch by more than \$100"/);
+    assert.match(liveViewHtml({ ...DATA, reconciliation: REC_FLAGGED }), /title="Differs from Monarch by more than 1% and \$100"/);
+  });
   test("stays closed when nothing flags", () => {
     const out = liveViewHtml({ ...DATA, reconciliation: REC });
     assert.match(out, /<details class="live-section recon-accounts">/);
