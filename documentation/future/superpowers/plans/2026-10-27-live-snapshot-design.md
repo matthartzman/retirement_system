@@ -143,23 +143,34 @@ main.py route ──► live_snapshot.build(base_dir, balances_db, now)
 
 ### 4.4 Return method (net of contributions)
 
-- `net_flows` = year-to-date contributions − withdrawals for investment accounts,
-  from the existing daily flows ledger (sign flipped so contributions are positive here).
-- `market_gain = current − start − net_flows`.
-- `return_pct` (Modified Dietz) = `market_gain / (start + Σ flow_i × w_i)`, where
-  `w_i = (days from flow date to today) / (days since baseline)`.
-- Flows are per account; class-level flows are allocated by each account's class
-  mix at the flow date's nearest snapshot (v1: today's mix — documented approximation).
-- Displayed columns: Start · Current · Share · Day $ · Day % · Net contributions ·
+**Revised in step 3 (2026-10-27).** The first approach — 12/31 statement balances plus the
+checking flows ledger — gave −22% on real data: about $1.2M moved from the IRAs into the
+annuities this year without passing through checking, so the ledger cannot see it. Returns are
+now Modified Dietz **over the current lots**, at every level (total, class, ticker):
+
+- A lot held at 12/31 contributes `shares × 12/31 close` to `start`.
+- A lot bought since is `new_money = shares × purchase price` on its purchase date, weighted
+  `w = (today − purchase date) / (today − 12/31)`.
+- A reinvested-dividend lot (`lot_type` starting "reinvest") is neither: all of it is gain.
+- `market_gain = current − start − new_money`; `return_pct = market_gain / (start + Σ new_money × w)`.
+- Robust to trades and transfers between accounts; blind to gains on lots sold during the year
+  (they leave the holdings table). Lots re-dated by a transfer count as bought on the new date.
+- `checking_net_flows` (from the flows ledger) is shown for information only.
+- Displayed columns: Start (12/31) · Bought since · Current · Share · Day $ · Day % ·
   Market gain · Return % · Share of gain · Annualized.
 - Known, intended difference from the spreadsheet: its Total $ includes contributions.
 
 ### 4.5 Estimated tax liability
 
-- Pre-tax accounts (traditional IRA/401k/annuity, by account tax type already
-  used in `acct_tax`): balance × plan's assumed effective retirement tax rate.
-- Taxable accounts: Σ max(0, shares × price − shares × purchase_price) × LTCG rate
-  (+ state rate) from the plan's tax settings.
+- Pre-tax holdings accounts (`src.core` account-type inference): balance × pre-tax rate.
+  The plan has no such rate, so it defaults to 25% (`live_snapshot_settings.json` in the
+  reporter's data folder overrides it). Annuities and pension are not taxed in v1.
+- Taxable accounts: Σ max(0, shares × price − shares × purchase_price) × LTCG rate from
+  the plan's Rebalancing › Tax-aware Trades `ltcg_rate` (default 15%).
+- Non-liquid, checking and debt rows come from the latest Monarch balances by account type
+  (Annuity/Pension and notes → Fixed Income, Real estate, other → Alternatives; Loan and
+  Credit card → debt; Cash → checking). Holdings in `*_Checking` accounts are excluded from
+  liquid so checking is not counted twice.
 - Roth/HSA: 0. Shown as one line with a hover breakdown and "estimate" label.
 
 ### 4.6 Front end

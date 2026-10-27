@@ -233,3 +233,375 @@ def previous_closes(symbols: Iterable[str], today: date, *, snapshots: Callable 
     after, before = _between_sessions(prior)
     found = _safe(snapshots, wanted, after, before, default={})
     return {str(k).upper(): float(v) for k, v in found.items() if v and float(v) > 0}
+
+
+# ---- valuation, grouping, returns, tax, roll-up (pure: every input is passed in) ----
+
+CLASS_ORDER = ("Equity", "Fixed Income", "Commodities", "Cash", "Other")
+KIND_ORDER = ("Equity", "Fixed Income", "Real Estate", "Commodities", "Alternatives", "Cash")
+MONARCH_LIQUID_TYPES = frozenset({"Retirement", "Investment", "HSA"})
+MONARCH_DEBT_TYPES = frozenset({"Loan", "Credit card"})
+RECONCILE_FLAG_PCT = 0.01
+ANNUALIZE_MIN_DAYS = 90
+
+
+def _num(value: Any) -> float:
+    try:
+        return float(str(value).replace("$", "").replace(",", "").strip() or 0)
+    except ValueError:
+        return 0.0
+
+
+def _is_cash_symbol(symbol: str) -> bool:
+    """CASH and CASH (T-BILL)-style lots: valued at $1 a unit (a T-bill accretes to par)."""
+    return symbol.startswith("CASH")
+
+
+def classify_symbol(symbol: str, security_master: dict[str, dict]) -> tuple[str, str | None]:
+    """(asset class, equity sub-class or None) from the shipped security master."""
+    if _is_cash_symbol(symbol):
+        return "Cash", None
+    row = security_master.get(symbol) or {}
+    asset_class = str(row.get("asset_class") or "").upper()
+    style = str(row.get("style") or "").lower()
+    if "EQUITY" in asset_class:
+        if "small" in style and "value" in style:
+            return "Equity", "Small-Cap Value"
+        if "INTERNATIONAL" in asset_class or "EMERGING" in asset_class:
+            return "Equity", "International Equity"
+        return "Equity", "US Total Equity"
+    if any(k in asset_class for k in ("BOND", "FIXED", "TREASUR", "TIPS", "MUNI")):
+        return "Fixed Income", None
+    if "COMMODIT" in asset_class:
+        return "Commodities", None
+    if asset_class == "CASH":
+        return "Cash", None
+    return "Other", None
+
+
+def account_tax_type(account: str) -> str:
+    """pre_tax / roth / taxable / hsa / cash / tax_free / unknown, from the plan's account naming."""
+    from src.core import ACCOUNT_TYPES, _infer_type
+    try:
+        return ACCOUNT_TYPES[_infer_type(account)]["tax"]
+    except (ValueError, KeyError):
+        return "unknown"
+
+
+def _ratio(numerator: float | None, denominator: float | None) -> float | None:
+    return None if numerator is None or not denominator else numerator / denominator
+
+
+def _annualized(return_pct: float | None, days: int) -> float | None:
+    if return_pct is None or days < ANNUALIZE_MIN_DAYS or return_pct <= -1:
+        return None
+    return (1 + return_pct) ** (365 / days) - 1
+
+
+def _positions(lots, quotes, baseline, security_master, baseline_day: date, today: date):
+    """One valued row per lot in a liquid (non-checking) account, plus the symbols priced from a fallback.
+
+    Modified Dietz over the lots: a lot held at the baseline contributes its baseline value to
+    ``start``; one bought since is ``new_money`` (shares x purchase price) on its purchase date,
+    time-weighted into ``weighted``; a reinvested dividend is neither, so all of it is gain."""
+    base_prices = {k: _num(v.get("price")) for k, v in (baseline.get("prices") or {}).items()}
+    period = (today - baseline_day).days or 1
+    out, stale = [], set()
+    for lot in lots:
+        account = str(lot.get("account") or "").strip()
+        symbol = str(lot.get("symbol") or lot.get("ticker") or "").strip().upper()
+        shares = _num(lot.get("shares"))
+        tax = account_tax_type(account)
+        if not symbol or not shares or tax == "cash":
+            continue
+        purchase_price = _num(lot.get("purchase_price"))
+        try:
+            bought = date.fromisoformat(str(lot.get("purchase_date") or "").strip())
+        except ValueError:
+            bought = None
+        held_at_baseline = bought is None or bought <= baseline_day
+        if _is_cash_symbol(symbol):
+            price, previous, base = 1.0, 1.0, 1.0
+        else:
+            quote = quotes.get(symbol) or {}
+            price, previous = quote.get("price"), quote.get("previous_close")
+            base = base_prices.get(symbol) or 0.0
+            if not price:
+                stale.add(symbol)
+                price, previous = (base or purchase_price), None
+            elif quote.get("stale"):
+                stale.add(symbol)
+        reinvested = str(lot.get("lot_type") or "").strip().lower().startswith("reinvest") and not held_at_baseline
+        start = new_money = weighted = 0.0
+        if held_at_baseline:
+            start = shares * (base or purchase_price or price)
+        elif not reinvested:
+            new_money = shares * (purchase_price or base or price)
+            weighted = new_money * max(0, (today - bought).days) / period
+        asset_class, subclass = classify_symbol(symbol, security_master)
+        out.append({
+            "account": account, "symbol": symbol, "tax": tax, "asset_class": asset_class, "subclass": subclass,
+            "current": shares * price, "start": start, "new_money": new_money, "weighted": weighted,
+            "basis": shares * purchase_price if purchase_price else shares * price,
+            "day": (shares * (price - previous)) if previous else None,
+            "unclassified": asset_class == "Other",
+        })
+    return out, sorted(stale)
+
+
+def _summarize(name: str, members: list[dict], total_current: float, total_gain: float, days: int, with_tickers: bool) -> dict:
+    current = sum(m["current"] for m in members)
+    start = sum(m["start"] for m in members)
+    new_money = sum(m["new_money"] for m in members)
+    known = [m["day"] for m in members if m["day"] is not None]
+    day = sum(known) if known else None
+    gain = current - start - new_money
+    ret = _ratio(gain, start + sum(m["weighted"] for m in members))
+    row = {"name": name, "start": round(start, 2), "new_money": round(new_money, 2), "current": round(current, 2),
+           "share": _ratio(current, total_current),
+           "day": None if day is None else round(day, 2), "day_pct": None if day is None else _ratio(day, current - day),
+           "market_gain": round(gain, 2), "return_pct": ret, "share_of_gain": _ratio(gain, total_gain),
+           "annualized_pct": _annualized(ret, days)}
+    if with_tickers:
+        by_symbol: dict[str, list[dict]] = {}
+        for m in members:
+            by_symbol.setdefault(m["symbol"], []).append(m)
+        row["tickers"] = sorted(({**_summarize(s, ms, total_current, total_gain, days, False), "symbol": s}
+                                 for s, ms in by_symbol.items()), key=lambda t: -t["current"])
+    return row
+
+
+def _group(rows: list[dict], key: str, total_current: float, total_gain: float, days: int, order: tuple = ()) -> list[dict]:
+    """Rows summarized by ``key``: in ``order`` when given, else largest first."""
+    groups: dict[str, list[dict]] = {}
+    for r in rows:
+        if r.get(key):
+            groups.setdefault(r[key], []).append(r)
+    out = [_summarize(n, ms, total_current, total_gain, days, True) for n, ms in groups.items()]
+    if order:
+        return sorted(out, key=lambda r: order.index(r["name"]) if r["name"] in order else len(order))
+    return sorted(out, key=lambda r: -r["current"])
+
+
+def _checking_net_flows(accounts, flows_daily, liquid_accounts: set[str], baseline_day: date, today: date) -> float | None:
+    """Net contributions through checking since the baseline (from_checking - to_checking) for the
+    investment accounts mapped to liquid holdings accounts; None when no account is mapped.
+
+    Shown for information only: the 12/31 statement balances plus these flows cannot give the
+    return, because money also moves straight between accounts (an IRA rolled into an annuity,
+    a Roth conversion) without passing through checking."""
+    mapped = [str(a.get("account") or "") for a in accounts if str(a.get("role") or "") == "Investment"
+              and str(a.get("mapped_investment_account") or "") in liquid_accounts]
+    if not mapped:
+        return None
+    net = 0.0
+    for name in mapped:
+        for day_text, cell in (flows_daily.get(name) or {}).items():
+            try:
+                d = date.fromisoformat(day_text)
+            except ValueError:
+                continue
+            if baseline_day < d <= today:
+                net += _num(cell.get("from_checking")) - _num(cell.get("to_checking"))
+    return net
+
+
+def _monarch_sections(monarch: dict | None) -> dict[str, Any]:
+    """Non-liquid assets, checking and debt from the latest Monarch balances (by account type)."""
+    rows = (monarch or {}).get("by_account") or []
+    as_of = (monarch or {}).get("latest_date")
+    non_liquid, debt, checking, liquid_total = [], [], [], 0.0
+    for r in rows:
+        kind, name, value = str(r.get("type") or ""), str(r.get("account") or ""), _num(r.get("value"))
+        if kind in MONARCH_LIQUID_TYPES:
+            liquid_total += value
+        elif kind == "Annuity/Pension":
+            non_liquid.append({"name": name, "kind": "Fixed Income", "value": value, "type": kind})
+        elif kind == "Real estate":
+            non_liquid.append({"name": name, "kind": "Real Estate", "value": value, "type": kind})
+        elif kind == "Other":
+            # A note or loan receivable is fixed income; startup equity, vehicles, art are alternatives.
+            fixed = any(w in name.lower() for w in ("note", "loan", "bond"))
+            non_liquid.append({"name": name, "kind": "Fixed Income" if fixed else "Alternatives", "value": value, "type": kind})
+        elif kind in MONARCH_DEBT_TYPES and value:
+            debt.append({"name": name, "value": -value, "type": kind})
+        elif kind == "Cash" and value > 0:
+            checking.append({"name": name, "value": value})
+    non_liquid.sort(key=lambda r: -r["value"])
+    debt.sort(key=lambda r: -r["value"])
+    total_nl = sum(r["value"] for r in non_liquid)
+    for r in non_liquid:
+        r["share"] = _ratio(r["value"], total_nl)
+    return {"as_of": as_of, "liquid_total": liquid_total if monarch else None,
+            "non_liquid": {"rows": non_liquid, "total": total_nl, "as_of": as_of},
+            "debt": {"rows": debt, "total": sum(r["value"] for r in debt), "as_of": as_of},
+            "checking": {"rows": checking, "total": sum(r["value"] for r in checking), "as_of": as_of}}
+
+
+def compute(*, lots, quotes, baseline, security_master, accounts, flows_daily, monarch, tax_rates, today: date) -> dict[str, Any]:
+    """The Live Snapshot body (design 4.3) from already-loaded inputs. Pure, so tests pin every formula.
+
+    Returns at every level (total, class, ticker) are Modified Dietz over the current lots (see
+    ``_positions``): robust to trades and to money moving between accounts, but blind to gains on
+    lots sold during the year, which leave the holdings table."""
+    baseline_day = date.fromisoformat(baseline["baseline_date"])
+    days = (today - baseline_day).days
+    positions, stale = _positions(lots, quotes, baseline, security_master, baseline_day, today)
+
+    total = _summarize("Total", positions, 0.0, 0.0, days, False)
+    current, gain = total["current"], total["market_gain"]
+    checking_flows = _checking_net_flows(accounts or [], flows_daily or {}, {p["account"] for p in positions}, baseline_day, today)
+    equity = [p for p in positions if p["asset_class"] == "Equity"]
+    liquid = {
+        **{k: total[k] for k in ("start", "new_money", "current", "market_gain", "return_pct", "annualized_pct", "day", "day_pct")},
+        "checking_net_flows": None if checking_flows is None else round(checking_flows, 2),
+        "by_class": _group(positions, "asset_class", current, gain, days, CLASS_ORDER),
+        "by_equity_subclass": _group(equity, "subclass", current, gain, days),
+        "stale_symbols": stale, "unclassified_symbols": sorted({p["symbol"] for p in positions if p["unclassified"]}),
+    }
+    day = total["day"]
+
+    sections = _monarch_sections(monarch)
+    reconciliation = None
+    if sections["liquid_total"] is not None:
+        # Monarch holds the last imported day's close; compare like with like.
+        yesterday = bool(sections["as_of"]) and sections["as_of"] < today.isoformat()
+        compare = current - (day or 0.0) if yesterday else current
+        delta = _ratio(compare - sections["liquid_total"], sections["liquid_total"])
+        reconciliation = {"holdings_value": round(compare, 2), "monarch_value": round(sections["liquid_total"], 2),
+                          "monarch_as_of": sections["as_of"], "delta_pct": delta,
+                          "flag": delta is None or abs(delta) > RECONCILE_FLAG_PCT}
+
+    pre_tax_balance = sum(p["current"] for p in positions if p["tax"] == "pre_tax")
+    unrealized = sum(max(0.0, p["current"] - p["basis"]) for p in positions
+                     if p["tax"] == "taxable" and not _is_cash_symbol(p["symbol"]))
+    pre_rate, ltcg_rate = _num(tax_rates.get("pre_tax_rate")), _num(tax_rates.get("ltcg_rate"))
+    tax = {"pre_tax_balance": round(pre_tax_balance, 2), "pre_tax_rate": pre_rate, "unrealized_gain": round(unrealized, 2),
+           "ltcg_rate": ltcg_rate, "total": round(pre_tax_balance * pre_rate + unrealized * ltcg_rate, 2)}
+
+    by_kind: dict[str, float] = {}
+    for p in positions:
+        kind = "Alternatives" if p["asset_class"] == "Other" else p["asset_class"]
+        by_kind[kind] = by_kind.get(kind, 0.0) + p["current"]
+    for r in sections["non_liquid"]["rows"]:
+        by_kind[r["kind"]] = by_kind.get(r["kind"], 0.0) + r["value"]
+    if sections["checking"]["total"]:
+        by_kind["Cash"] = by_kind.get("Cash", 0.0) + sections["checking"]["total"]
+    gross = current + sections["checking"]["total"] + sections["non_liquid"]["total"]
+    net_assets = gross - sections["debt"]["total"]
+    totals = {"gross_assets": round(gross, 2), "net_assets": round(net_assets, 2),
+              "after_tax_net_worth": round(net_assets - tax["total"], 2),
+              "by_kind": {k: round(by_kind[k], 2) for k in KIND_ORDER if by_kind.get(k)}}
+
+    return {"baseline_date": baseline["baseline_date"], "days": days, "year_fraction": days / 365,
+            "liquid": liquid, "reconciliation": reconciliation, "non_liquid": sections["non_liquid"],
+            "checking": sections["checking"], "debt": sections["debt"], "tax": tax, "totals": totals}
+
+
+# ---- inputs and the /api/live-snapshot body ----
+
+INDICES = (("^GSPC", "S&P 500"), ("^DJI", "Dow"), ("^IXIC", "Nasdaq"))
+DELAYED_MINUTES = 15
+DEFAULT_PRE_TAX_RATE = 0.25
+DEFAULT_LTCG_RATE = 0.15
+SETTINGS_FILENAME = "live_snapshot_settings.json"
+INPUTS_TTL_SECONDS = 600
+
+_DEFAULT_QUOTES = LiveQuoteCache()
+_inputs_cache: dict[tuple, tuple[float, dict]] = {}
+_inputs_lock = threading.Lock()
+
+
+def _rate(value: Any) -> float | None:
+    text = str(value if value is not None else "").strip()
+    if not text:
+        return None
+    number = _num(text.rstrip("%"))
+    return number / 100 if text.endswith("%") or number > 1 else number
+
+
+def tax_rates(data_dir: str | Path, *, plan_ltcg: Any = "") -> dict[str, float]:
+    """Rates for the estimated tax line. The plan has no rate for pre-tax balances, so it defaults
+    to 25%; LTCG comes from the plan's tax-aware trades setting. ``live_snapshot_settings.json``
+    in the data folder overrides either."""
+    rates = {"pre_tax_rate": DEFAULT_PRE_TAX_RATE, "ltcg_rate": _rate(plan_ltcg) or DEFAULT_LTCG_RATE}
+    try:
+        saved = json.loads((Path(data_dir) / SETTINGS_FILENAME).read_text(encoding="utf-8"))
+        for key in rates:
+            if _rate(saved.get(key)) is not None:
+                rates[key] = _rate(saved.get(key))
+    except (OSError, ValueError, AttributeError):
+        pass
+    return rates
+
+
+def _load_inputs_uncached(base_dir: Path, log_path: Path, balances_db: Path) -> dict[str, Any]:
+    from src import portfolio_analytics
+    from src.active_plan import dataset_rows_for_input_dir
+    from . import balance_series
+    from .trends_log import read_history
+    from .trends_metrics import _plan_rows
+
+    history = read_history(log_path)
+    latest = history[-1] if history else {}
+    plan = _plan_rows(base_dir, base_dir / "local_state" / "retirement_system_v10.db", "")
+    return {
+        "lots": dataset_rows_for_input_dir(base_dir / "input", "holdings"),
+        "security_master": portfolio_analytics.read_security_master(),
+        "accounts": (latest.get("holdings") or {}).get("by_account") or [],
+        "flows_daily": latest.get("investment_flows_daily") or {},
+        "log_as_of": latest.get("as_of_date"),
+        "monarch": balance_series.snapshot_summary(balances_db),
+        "tax_rates": tax_rates(log_path.parent, plan_ltcg=plan.get(("Rebalancing", "Tax-aware Trades", "ltcg_rate"), "")),
+    }
+
+
+def load_inputs(base_dir: str | Path, log_path: str | Path, balances_db: str | Path, *, clock=time.monotonic) -> dict[str, Any]:
+    """Everything except prices, cached ``INPUTS_TTL_SECONDS`` (it changes a few times a day at most).
+    A failure is returned as ``{"error": ...}`` so the page can say what is missing."""
+    key = (str(base_dir), str(log_path), str(balances_db))
+    with _inputs_lock:
+        hit = _inputs_cache.get(key)
+        if hit and clock() - hit[0] < INPUTS_TTL_SECONDS:
+            return hit[1]
+        try:
+            inputs = _load_inputs_uncached(Path(base_dir), Path(log_path), Path(balances_db))
+        except Exception as exc:  # noqa: BLE001 - a locked store or bad file must not take the page down
+            return {"error": f"{exc.__class__.__name__}: {exc}"}
+        _inputs_cache[key] = (clock(), inputs)
+        return inputs
+
+
+def build(*, inputs: dict[str, Any], data_dir: str | Path, quote_cache=None, now: datetime | None = None,
+          force: bool = False, previous_close_lookup: Callable | None = None) -> dict[str, Any]:
+    """The /api/live-snapshot body: header (time, market state, indices) plus ``compute()``."""
+    now = now or datetime.now(timezone.utc)
+    today = now.astimezone(EASTERN).date()
+    head: dict[str, Any] = {"as_of": now.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                            "market": market_status(now), "delayed_minutes": DELAYED_MINUTES}
+    if inputs.get("error"):
+        return {**head, "error": inputs["error"]}
+    quote_cache = quote_cache or _DEFAULT_QUOTES
+    previous_close_lookup = previous_close_lookup or (lambda symbols, day: previous_closes(symbols, day))
+
+    holdings = sorted({str(l.get("symbol") or "").strip().upper() for l in inputs["lots"]} - {""})
+    priced = [s for s in holdings if not _is_cash_symbol(s)]
+    symbols = priced + [s for s, _ in INDICES]
+    quotes = {k: dict(v) for k, v in quote_cache.get(symbols, force=force).items()}
+    need_previous = [s for s in symbols if quotes.get(s, {}).get("price") and not quotes[s].get("previous_close")]
+    if need_previous:
+        for sym, px in previous_close_lookup(need_previous, today).items():
+            quotes.setdefault(sym, {})["previous_close"] = px
+
+    baseline = baseline_prices(priced, today.year, data_dir)
+    body = compute(lots=inputs["lots"], quotes=quotes, baseline=baseline, security_master=inputs["security_master"],
+                   accounts=inputs["accounts"], flows_daily=inputs["flows_daily"], monarch=inputs["monarch"],
+                   tax_rates=inputs["tax_rates"], today=today)
+    indices = []
+    for sym, label in INDICES:
+        q = quotes.get(sym) or {}
+        price, prev = q.get("price"), q.get("previous_close")
+        indices.append({"symbol": sym, "label": label, "price": price,
+                        "day_pct": (price / prev - 1) if price and prev else None, "stale": bool(q.get("stale", True))})
+    return {**head, **body, "indices": indices, "quotes_age_seconds": quote_cache.age_seconds(symbols),
+            "baseline_missing": baseline["missing"], "flows_as_of": inputs.get("log_as_of")}
