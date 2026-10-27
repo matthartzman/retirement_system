@@ -80,15 +80,49 @@ function cells(r) {
   ].join("");
 }
 
+export function fmtUsd2(v) {
+  if (v === null || v === undefined || Number.isNaN(Number(v))) return DASH;
+  const n = Number(v);
+  return (n < 0 ? "-" : "") + "$" + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// "2024-03-15 · 120 sh @ $412.10", plus " · reinvested". An undated lot reads "Undated"; a lot with
+// no purchase price leaves the "@ price" off rather than showing a made-up one.
+export function lotLabel(lot) {
+  const parts = [lot.purchase_date || "Undated"];
+  const hasShares = lot.shares !== null && lot.shares !== undefined && !Number.isNaN(Number(lot.shares));
+  const hasPrice = lot.purchase_price !== null && lot.purchase_price !== undefined && !Number.isNaN(Number(lot.purchase_price));
+  if (hasShares) parts.push(`${Number(lot.shares)} sh${hasPrice ? " @ " + fmtUsd2(lot.purchase_price) : ""}`);
+  if (lot.reinvested) parts.push("reinvested");
+  return parts.join(" · ");
+}
+
+// A path is caption/class/symbol/account, so the same ticker open in the Asset class table and the
+// Equity sub-class table never shares state. Rows below class level carry data-path and data-parent.
+function expandButton(path, label) {
+  return `<button type="button" class="expand" aria-expanded="false" data-path="${esc(path)}" data-label="${esc(label)}">▸ ${esc(label)}</button>`;
+}
+
 function liquidTable(caption, rows, total) {
   const head = `<tr><th scope="col">${esc(caption)}</th>${COLUMNS.map(([h, c]) => `<th scope="col" class="num ${c}">${h}</th>`).join("")}</tr>`;
   const body = rows.map((r) => {
     const tickers = r.tickers || [];
-    const name = tickers.length
-      ? `<button type="button" class="expand" aria-expanded="false" data-group="${esc(r.name)}">▸ ${esc(r.name)}</button>`
-      : esc(r.name);
-    const kids = tickers.map((t) => `<tr class="ticker-row" data-parent="${esc(r.name)}" hidden><th scope="row" class="ticker">${esc(t.symbol)}</th>${cells(t)}</tr>`).join("");
-    return `<tr class="class-row"><th scope="row">${name}</th>${cells(r)}</tr>${kids}`;
+    const classPath = `${caption}/${r.name}`;
+    const name = tickers.length ? expandButton(classPath, r.name) : esc(r.name);
+    const kids = tickers.map((t) => {
+      const tickerPath = `${classPath}/${t.symbol}`;
+      const accounts = t.accounts || [];
+      const label = accounts.length ? expandButton(tickerPath, t.symbol) : esc(t.symbol);
+      const accountRows = accounts.map((a) => {
+        const accountPath = `${tickerPath}/${a.name}`;
+        const lots = a.lots || [];
+        const alabel = lots.length ? expandButton(accountPath, a.name) : esc(a.name);
+        const lotRows = lots.map((l) => `<tr class="lot-row" data-parent="${esc(accountPath)}" hidden><th scope="row" class="lot">${esc(lotLabel(l))}</th>${cells(l)}</tr>`).join("");
+        return `<tr class="acct-row" data-path="${esc(accountPath)}" data-parent="${esc(tickerPath)}" hidden><th scope="row" class="acct">${alabel}</th>${cells(a)}</tr>${lotRows}`;
+      }).join("");
+      return `<tr class="ticker-row" data-path="${esc(tickerPath)}" data-parent="${esc(classPath)}" hidden><th scope="row" class="ticker">${label}</th>${cells(t)}</tr>${accountRows}`;
+    }).join("");
+    return `<tr class="class-row" data-path="${esc(classPath)}"><th scope="row">${name}</th>${cells(r)}</tr>${kids}`;
   }).join("");
   const foot = total ? `<tfoot><tr class="total-row"><th scope="row">Total liquid</th>${cells({ ...total, share: 1, share_of_gain: 1 })}</tr></tfoot>` : "";
   return `<div class="table-wrap"><table class="live-table"><thead>${head}</thead><tbody>${body}</tbody>${foot}</table></div>`;
@@ -237,13 +271,36 @@ export function initLiveView(doc = document, win = window) {
     out.innerHTML = liveViewHtml(data);
     const key = sectionKeys();
     out.querySelectorAll("details.live-section").forEach((d) => { const k = key(d); if (openSections.has(k)) d.open = openSections.get(k); });
-    out.querySelectorAll("button.expand").forEach((b) => { if (expanded.has(b.dataset.group)) toggleGroup(b, true); });
+    applyExpanded();
   }
 
-  function toggleGroup(button, open) {
-    button.setAttribute("aria-expanded", open ? "true" : "false");
-    button.textContent = (open ? "▾ " : "▸ ") + button.dataset.group;
-    out.querySelectorAll("tr.ticker-row").forEach((tr) => { if (tr.dataset.parent === button.dataset.group) tr.hidden = !open; });
+  // Rows are in document order (parents before children). A row shows only when its parent is
+  // expanded and itself shown, so a collapsed level hides everything below it.
+  function applyExpanded() {
+    const shown = new Set();
+    out.querySelectorAll("tr[data-parent], tr.class-row").forEach((tr) => {
+      const parent = tr.dataset.parent;
+      const visible = parent === undefined || (shown.has(parent) && expanded.has(parent));
+      tr.hidden = !visible;
+      if (visible && tr.dataset.path !== undefined) shown.add(tr.dataset.path);
+    });
+    out.querySelectorAll("button.expand").forEach((b) => {
+      const open = expanded.has(b.dataset.path);
+      b.setAttribute("aria-expanded", open ? "true" : "false");
+      b.textContent = (open ? "▾ " : "▸ ") + b.dataset.label;
+    });
+  }
+
+  // Collapsing a path also forgets every expanded path below it (found by following data-parent).
+  function collapse(path) {
+    const parentOf = new Map();
+    out.querySelectorAll("tr[data-path][data-parent]").forEach((tr) => parentOf.set(tr.dataset.path, tr.dataset.parent));
+    expanded.delete(path);
+    for (const p of [...expanded]) {
+      for (let q = parentOf.get(p), n = 0; q !== undefined && n < 10; q = parentOf.get(q), n++) {
+        if (q === path) { expanded.delete(p); break; }
+      }
+    }
   }
 
   async function load(force = false) {
@@ -291,8 +348,8 @@ export function initLiveView(doc = document, win = window) {
     const b = e.target.closest("button.expand");
     if (!b) return;
     const open = b.getAttribute("aria-expanded") !== "true";
-    if (open) expanded.add(b.dataset.group); else expanded.delete(b.dataset.group);
-    toggleGroup(b, open);
+    if (open) expanded.add(b.dataset.path); else collapse(b.dataset.path);
+    applyExpanded();
   });
   const tick = () => {
     const due = Date.now() - lastLoad >= POLL_MS - 5000;

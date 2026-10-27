@@ -6,7 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  parseSavedView, shouldPoll, changeHtml, statusText, liveViewHtml, fmtPct, hintText,
+  parseSavedView, shouldPoll, changeHtml, statusText, liveViewHtml, fmtPct, hintText, lotLabel,
 } from "../../financial_trends_reporter/frontend/live_snapshot.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -98,8 +98,8 @@ describe("liveViewHtml", () => {
     for (const h of ["Start (12/31)", "Bought since", "Current", "Day %", "Market gain", "Return %", "Share of gain", "Annualized"]) {
       assert.ok(out.includes(h), h);
     }
-    assert.match(out, /<button[^>]*aria-expanded="false"[^>]*data-group="Equity"/);
-    assert.match(out, /<tr class="ticker-row" data-parent="Equity" hidden>/);
+    assert.match(out, /<button[^>]*aria-expanded="false"[^>]*data-path="Asset class\/Equity"/);
+    assert.match(out, /<tr class="ticker-row" data-path="Asset class\/Equity\/ITOT" data-parent="Asset class\/Equity" hidden>/);
   });
   test("the total row is 100% of value and of gain", () => {
     const foot = out.match(/<tfoot>([\s\S]*?)<\/tfoot>/)[1];
@@ -203,5 +203,58 @@ describe("reconciliation by account", () => {
     assert.equal(hintText({ kind: "direction", higher: "monarch" }), "Holdings are lower: a purchase or transfer in may not be entered yet.");
     assert.equal(hintText({ kind: "matches_position", symbol: "VTI", shares: 15, purchase_date: null, value: 4112 }),
       "The gap is close to 15 sh VTI (\$4,112).");
+  });
+});
+
+const LOT = (date, extra = {}) => ({ ...ROW(date || ""), purchase_date: date, shares: 120, purchase_price: 412.1, reinvested: false, ...extra });
+const ITOT = () => ({
+  ...ROW("ITOT"), symbol: "ITOT",
+  accounts: [
+    { ...ROW("Member_1_IRA"), lots: [LOT("2024-03-15"), LOT(null, { reinvested: true })] },
+    { ...ROW("Joint <Brokerage>"), lots: [LOT("2025-01-02")] },
+  ],
+});
+const DATA_WITH_LOTS = {
+  ...DATA,
+  liquid: {
+    ...DATA.liquid,
+    by_class: [ROW("Equity", { tickers: [ITOT()] })],
+    by_equity_subclass: [ROW("US Total Equity", { tickers: [ITOT()] })],
+  },
+};
+
+describe("holdings drill-down", () => {
+  test("ticker → account → lot rows, hidden until expanded", () => {
+    const out = liveViewHtml(DATA_WITH_LOTS);
+    assert.match(out, /<button[^>]*aria-expanded="false"[^>]*data-path="Asset class\/Equity\/ITOT"/);
+    assert.match(out, /<button[^>]*aria-expanded="false"[^>]*data-path="Asset class\/Equity\/ITOT\/Member_1_IRA"/);
+    assert.match(out, /<tr class="acct-row" data-path="Asset class\/Equity\/ITOT\/Member_1_IRA" data-parent="Asset class\/Equity\/ITOT" hidden>/);
+    assert.match(out, /<tr class="lot-row" data-parent="Asset class\/Equity\/ITOT\/Member_1_IRA" hidden>/);
+    assert.ok(out.includes("2024-03-15 · 120 sh @ $412.10"));
+  });
+  test("lot label", () => {
+    assert.equal(lotLabel({ purchase_date: "2024-03-15", shares: 120, purchase_price: 412.1, reinvested: false }), "2024-03-15 · 120 sh @ $412.10");
+    assert.match(lotLabel({ purchase_date: "2026-04-01", shares: 0.5, purchase_price: 50, reinvested: true }), / · reinvested$/);
+  });
+  test("undated and unpriced lots still read sensibly", () => {
+    assert.equal(lotLabel({ purchase_date: null, shares: 10, purchase_price: 0, reinvested: false }), "Undated · 10 sh @ $0.00");
+    assert.equal(lotLabel({ purchase_date: null, shares: 10, purchase_price: null, reinvested: true }), "Undated · 10 sh · reinvested");
+  });
+  test("same ticker in both tables gets distinct paths", () => {
+    const out = liveViewHtml(DATA_WITH_LOTS);
+    assert.match(out, /data-path="Asset class\/Equity\/ITOT"/);
+    assert.match(out, /data-path="Sub-class\/US Total Equity\/ITOT"/);
+    const paths = [...out.matchAll(/<tr class="(?:class|ticker|acct)-row" data-path="([^"]*)"/g)].map((m) => m[1]);
+    assert.equal(new Set(paths).size, paths.length);
+  });
+  test("account names are escaped in paths and labels", () => {
+    const out = liveViewHtml(DATA_WITH_LOTS);
+    assert.ok(out.includes("Joint &lt;Brokerage&gt;"));
+    assert.ok(!out.includes("Joint <Brokerage>"));
+  });
+  test("rows without accounts render plain, with no expand button", () => {
+    const out = liveViewHtml(DATA);
+    assert.match(out, /<th scope="row" class="ticker">ITOT<\/th>/);
+    assert.ok(!/<button[^>]*data-path="Asset class\/Equity\/ITOT"/.test(out));
   });
 });
