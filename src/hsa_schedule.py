@@ -95,6 +95,45 @@ def resolve_consume_by_year(c: Mapping[str, Any], rows: Sequence[Mapping[str, An
     return _clamp(int(year), plan_start, plan_end)
 
 
+def second_death_year(c: Mapping[str, Any]) -> Optional[int]:
+    """The year the projection's second death falls in, or None when it has none.
+
+    None for a one-member household (there is no consolidation event) and when
+    either member's death year is unset. Read off the same `h_death_yr` /
+    `w_death_yr` the engine's `apply_death_transition` acts on, so the two cannot
+    disagree about when the account changes hands.
+    """
+    members = c.get('members') or []
+    if int(c.get('household_size', len(members)) or 0) <= 1:
+        return None
+    try:
+        h_death = int(c.get('h_death_yr') or 0)
+        w_death = int(c.get('w_death_yr') or 0)
+    except (TypeError, ValueError):
+        return None
+    if h_death <= 0 or w_death <= 0:
+        return None
+    return max(h_death, w_death)
+
+
+def last_draw_year(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]]) -> int:
+    """The last year a schedule entry can actually be drawn.
+
+    The consume-by deadline, but never the second-death year or later: in that
+    year the projection consolidates the HSA into the estate BEFORE the year's
+    withdrawals (`apply_death_transition`, then the cascade), so a draw there
+    cannot happen. A deadline that lands on or past the second death -- the
+    default `second_death_p90` clamps to the horizon end, which is usually that
+    very year -- would otherwise have the optimizer plan a draw the engine can
+    never take and report a residual it has no way to clear.
+    """
+    deadline = resolve_consume_by_year(c, rows)
+    second = second_death_year(c)
+    if second is not None:
+        deadline = min(deadline, second - 1)
+    return deadline
+
+
 def generate_default_schedule(c: Mapping[str, Any]) -> list:
     """A static, level-draw placeholder schedule for `optimize` mode when no
     real schedule exists yet.
@@ -149,7 +188,7 @@ def generate_default_schedule(c: Mapping[str, Any]) -> list:
     # after parse_client, before the projection loop starts) -- resolve_consume_by_year
     # falls back to c['plan_start']/c['plan_end'] when rows is empty, which is
     # exactly what we want here.
-    deadline = resolve_consume_by_year(c, [])
+    deadline = last_draw_year(c, [])
     years = list(range(plan_start, deadline + 1))
     if not years:
         return []
@@ -1681,11 +1720,11 @@ def _second_death_pmf(c: Mapping[str, Any], years: Sequence[int]) -> dict:
 
 
 def _schedule_years(c: Mapping[str, Any], rows: Sequence[Mapping[str, Any]]) -> list:
-    """`plan_start`..deadline, inclusive. Empty when there is no horizon at all."""
+    """`plan_start`..`last_draw_year`, inclusive. Empty when there is no horizon at all."""
     plan_start = _horizon(c, rows)[0]
     if plan_start is None:
         return []
-    deadline = resolve_consume_by_year(c, rows)
+    deadline = last_draw_year(c, rows)
     if deadline < plan_start:
         return []
     return list(range(int(plan_start), int(deadline) + 1))

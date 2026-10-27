@@ -782,7 +782,8 @@ def build_hsa_schedule_section(ws, c, rows, r):
     if str(c.get('hsa_withdrawal_mode') or '').strip().lower() != 'optimize':
         return r
 
-    from ..hsa_schedule import build_schedule, executed_schedule, resolve_consume_by_year
+    from ..hsa_schedule import (build_schedule, executed_schedule, resolve_consume_by_year,
+                                second_death_year)
 
     # Report the schedule the projection actually ran (overrides, locks, the
     # search's installed answer, and what the engine could really withdraw).
@@ -845,6 +846,16 @@ def build_hsa_schedule_section(ws, c, rows, r):
     write_cell(ws, r, 1, 'Total', bold=True, bg=LGRAY)
     write_cell(ws, r, 2, total, fmt=FMT_DOLLAR, bold=True, bg=LGRAY)
     r += 1
+    _second_death = second_death_year(c)
+    if by_year and _second_death is not None and max(by_year) < deadline:
+        write_cell(ws, r, 1,
+                   f'Draws end in {max(by_year)}, the last year the projection can take one: the '
+                   f'second death falls in {_second_death}, and the account passes to the estate '
+                   'at the start of that year, before any draw.',
+                   align='left')
+        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=_HSA_SECTION_SPAN)
+        ws.row_dimensions[r].height = 30
+        r += 1
     if planned:
         write_cell(ws, r, 1,
                    'HSA Draw is what the projection actually withdrew. Scheduled is the plan '
