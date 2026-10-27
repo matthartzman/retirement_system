@@ -26,6 +26,7 @@ ACTIONS = {
 }
 COOKIE = "trends_session"
 OWNER_NAME = "owner (PC)"
+ACCESS_JS_PATH = Path(__file__).resolve().parent / "frontend" / "access.js"
 SIGNIN_HTML_PATH = Path(__file__).resolve().parent / "frontend" / "signin.html"
 OWNER_ONLY_PREFIXES = ("/api/people", "/api/activity", "/access.js")
 PUBLIC_REMOTE = {("GET", "/signin"), ("POST", "/api/signin")}
@@ -174,3 +175,63 @@ def register_access(app, store: AccessStore, sessions: SessionTable, clock=time.
                 idle_ms = 0
             sessions.note_interaction(token, idle_ms)
         return _json({"success": True})
+
+    # ---- owner-only (the gate answers 404 for these on the remote listener) ----
+    @app.route("/access.js", methods=["GET"])
+    def access_js():
+        return Response(ACCESS_JS_PATH.read_text(encoding="utf-8"), content_type="text/javascript; charset=utf-8")
+
+    @app.route("/api/people", methods=["GET"])
+    def people():
+        return _json({"people": store.list_users(now=clock())})
+
+    @app.route("/api/people", methods=["POST"])
+    def add_person():
+        body = request.get_json(silent=True) or {}
+        try:
+            uid = store.add_user(str(body.get("display_name") or ""), str(body.get("username") or ""),
+                                 str(body.get("temp_password") or ""), now=clock())
+        except ValueError as exc:
+            return _json({"success": False, "error": str(exc)}, 400)
+        _log("person added", str(body.get("username") or "").strip().lower())
+        return _json({"success": True, "id": uid})
+
+    def _person_from_body():
+        body = request.get_json(silent=True) or {}
+        try:
+            uid = int(body.get("id"))
+        except (TypeError, ValueError):
+            return None, body
+        return store.get_user(uid), body
+
+    @app.route("/api/people/reset", methods=["POST"])
+    def reset_person():
+        user, body = _person_from_body()
+        if user is None:
+            return _json({"success": False, "error": "no such person"}, 404)
+        try:
+            store.set_password(user["id"], str(body.get("temp_password") or ""), must_change=True, now=clock())
+        except ValueError as exc:
+            return _json({"success": False, "error": str(exc)}, 400)
+        sessions.end_user(user["id"])
+        _log("password reset", user["username"])
+        return _json({"success": True})
+
+    @app.route("/api/people/delete", methods=["POST"])
+    def delete_person():
+        user, _body = _person_from_body()
+        if user is None:
+            return _json({"success": False, "error": "no such person"}, 404)
+        store.delete_user(user["id"])
+        sessions.end_user(user["id"])
+        _log("person deleted", user["username"])
+        return _json({"success": True})
+
+    @app.route("/api/activity", methods=["GET"])
+    def activity():
+        def num(name):
+            try:
+                return float(request.args.get(name))
+            except (TypeError, ValueError):
+                return None
+        return _json({"events": store.read_events(person=request.args.get("person") or None, since=num("from"), until=num("to"))})

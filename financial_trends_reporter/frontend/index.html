@@ -908,6 +908,7 @@ async function signOut() {
 (async () => {
   try { whoami = await (await fetch("/api/whoami")).json(); } catch (err) { return; }
   if (whoami.listener === "remote") document.getElementById("exitBtn").textContent = "Sign out";
+  if (whoami.listener === "local") { const sc = document.createElement("script"); sc.src = "/access.js"; document.body.appendChild(sc); }
   if (whoami.must_change) promptNewPassword();
 })();
 document.getElementById("exitBtn").addEventListener("click", async () => {
