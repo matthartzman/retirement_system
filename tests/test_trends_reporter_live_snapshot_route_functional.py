@@ -79,6 +79,13 @@ def test_successful_run_now_clears_the_inputs_cache(tmp_path, monkeypatch):
     assert cleared == [True]
 
 
+def test_live_snapshot_js_is_served_as_a_module(tmp_path):
+    resp = create_app(_workspace(tmp_path), log_path=tmp_path / "log.jsonl").test_client().get("/live_snapshot.js")
+    assert resp.status_code == 200
+    assert "javascript" in resp.headers.get("Content-Type", "").lower()
+    assert "export function liveViewHtml" in resp.get_data(as_text=True)
+
+
 # ---- load_inputs caching (live_snapshot) ----
 
 def test_load_inputs_caches_for_ten_minutes_and_clears(monkeypatch):

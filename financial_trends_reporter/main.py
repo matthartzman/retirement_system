@@ -115,6 +115,14 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, lifecy
             content_type="text/javascript; charset=utf-8",
         )
 
+    @app.route("/live_snapshot.js", methods=["GET"])
+    def live_snapshot_js():
+        # The Live Snapshot view's module (toggle, render, 60 s poll), loaded by index.html.
+        return Response(
+            (_APP_ROOT / "frontend" / "live_snapshot.js").read_text(encoding="utf-8"),
+            content_type="text/javascript; charset=utf-8",
+        )
+
     @app.route("/shared/runtime_history.js", methods=["GET"])
     def runtime_history_js():
         # The planner's run-time helpers (formatElapsed, averageRuntimeText, ...), served from the
