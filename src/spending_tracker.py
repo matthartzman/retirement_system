@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import os
 from datetime import date, datetime
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -1417,25 +1418,17 @@ def ytd_spending_hierarchy(root=None, year=None, merchants_per_category: int = 5
     return spending_hierarchy_window(root, date(year, 1, 1), end, merchants_per_category)
 
 
-def spending_hierarchy_window(root=None, start=None, end=None, merchants_per_category: int = 5):
-    """Spending in the inclusive date range [``start``, ``end``] as
-    Tracking Type -> Group -> Category -> Merchant -> amount.
+def _iter_window_spend(r, start: date, end: date) -> Iterator[tuple[str, str, str, str, float, dict]]:
+    """Every transaction in the inclusive range [``start``, ``end``] that the spending hierarchy
+    counts, as ``(tracking_type, group, category, merchant, value, txn)``.
 
-    Uses the same transaction-to-taxonomy mapping and sign rules as the
-    Spending Analysis (transfers and Income excluded, refunds net against
-    their category). Spend with no taxonomy mapping lands under an
-    "Unmapped" tracking type so totals still reconcile. Each category keeps
-    its top ``merchants_per_category`` merchants; the rest roll into
-    "Other merchants". Tracking types / groups / categories netting to zero
-    or less are dropped. Transactions are loaded for every calendar year the
-    range touches.
+    The one place the date filter, transfer filter, alias resolution, taxonomy lookup, Unmapped
+    bucket and sign rule live, so :func:`spending_hierarchy_window` and
+    :func:`spending_transactions_window` cannot drift apart. ``value`` is positive for spending and
+    negative for refunds. Transactions are loaded for every calendar year the range touches.
     """
-    r = _root(root)
-    if start is None or end is None or start > end:
-        return {}
     flat = taxonomy_flat(r)
     aliases = load_aliases(r)
-    tree: dict[str, dict[str, dict[str, dict[str, float]]]] = {}
     # One calendar year loads just that year; a range touching several loads them all at once.
     for txn in load_transactions_extended(r, start.year if start.year == end.year else None):
         amount = txn.get("amount", 0)
@@ -1454,8 +1447,57 @@ def spending_hierarchy_window(root=None, start=None, end=None, merchants_per_cat
             if not raw_cat or amount >= 0:
                 continue
             tt, grp, cat, value = "Unmapped", "Unmapped", raw_cat, abs(amount)
+        yield tt, grp, cat, merchant, value, txn
+
+
+_OTHER_MERCHANTS = "Other merchants"
+_REFUNDS_AND_CREDITS = "Refunds & credits"
+
+
+def _merchant_lines(merchants: dict[str, float], n: int) -> dict[str, str]:
+    """Map each merchant of one category (merchant -> net value) to the hierarchy line it appears on.
+
+    The top ``n`` merchants by net spend keep their own line; the rest of the positive ones go to
+    "Other merchants"; merchants whose refunds exceed their purchases go to "Refunds & credits".
+    Merchants netting to within half a cent of zero are absent. The result's order is the
+    ranking (ties keep first-seen order) followed by the net-refund merchants in first-seen order,
+    which is the order the hierarchy sums them in.
+    """
+    ranked = sorted(((m, v) for m, v in merchants.items() if v > 0.005), key=lambda kv: -kv[1])
+    top = {m for m, _v in ranked[:n]}
+    lines = {m: (m if m in top else _OTHER_MERCHANTS) for m, _v in ranked}
+    for m, v in merchants.items():
+        if v < -0.005:
+            lines[m] = _REFUNDS_AND_CREDITS
+    return lines
+
+
+def _window_category_merchants(r, start: date, end: date) -> dict[str, dict[str, dict[str, dict[str, float]]]]:
+    """Tracking Type -> Group -> Category -> Merchant -> net value over the window (unrounded)."""
+    tree: dict[str, dict[str, dict[str, dict[str, float]]]] = {}
+    for tt, grp, cat, merchant, value, _txn in _iter_window_spend(r, start, end):
         merchants = tree.setdefault(tt, {}).setdefault(grp, {}).setdefault(cat, {})
         merchants[merchant] = merchants.get(merchant, 0.0) + value
+    return tree
+
+
+def spending_hierarchy_window(root=None, start=None, end=None, merchants_per_category: int = 5):
+    """Spending in the inclusive date range [``start``, ``end``] as
+    Tracking Type -> Group -> Category -> Merchant -> amount.
+
+    Uses the same transaction-to-taxonomy mapping and sign rules as the
+    Spending Analysis (transfers and Income excluded, refunds net against
+    their category). Spend with no taxonomy mapping lands under an
+    "Unmapped" tracking type so totals still reconcile. Each category keeps
+    its top ``merchants_per_category`` merchants; the rest roll into
+    "Other merchants". Tracking types / groups / categories netting to zero
+    or less are dropped. Transactions are loaded for every calendar year the
+    range touches.
+    """
+    r = _root(root)
+    if start is None or end is None or start > end:
+        return {}
+    tree = _window_category_merchants(r, start, end)
 
     out: dict[str, dict] = {}
     for tt, groups in tree.items():
@@ -1464,19 +1506,73 @@ def spending_hierarchy_window(root=None, start=None, end=None, merchants_per_cat
                 net = sum(merchants.values())
                 if abs(net) <= 0.005:
                     continue
-                ranked = sorted(((m, v) for m, v in merchants.items() if v > 0.005), key=lambda kv: -kv[1])
-                kept = {m: round(v, 2) for m, v in ranked[:merchants_per_category]}
-                rest = sum(v for _, v in ranked[merchants_per_category:])
+                # Ranked merchants come first in ``lines``, then net-refund ones; select by
+                # value rather than by line name so a merchant literally called "Other
+                # merchants" cannot be counted twice.
+                lines = _merchant_lines(merchants, merchants_per_category)
+                ranked = [m for m in lines if merchants[m] > 0.005]
+                top = ranked[:merchants_per_category]
+                kept = {m: round(merchants[m], 2) for m in top}
+                rest = sum(merchants[m] for m in ranked[len(top):])
                 if rest > 0.005:
-                    kept["Other merchants"] = round(rest, 2)
+                    kept[_OTHER_MERCHANTS] = round(rest, 2)
                 # Merchants whose refunds exceed their purchases net against the
                 # category as one negative line, so every level still sums to
                 # the true net (matching the Spending Analysis total).
-                credits = sum(v for v in merchants.values() if v < -0.005)
+                credits = sum(merchants[m] for m in lines if merchants[m] < -0.005)
                 if credits < -0.005:
-                    kept["Refunds & credits"] = round(credits, 2)
+                    kept[_REFUNDS_AND_CREDITS] = round(credits, 2)
                 out.setdefault(tt, {}).setdefault(grp, {})[cat] = kept
     return out
+
+
+def spending_transactions_window(root, start: date, end: date, tracking_type: str, group: str,
+                                 category: str, merchant: str, merchants_per_category: int = 5) -> dict:
+    """The transactions behind one merchant line of :func:`spending_hierarchy_window` for the same
+    window: a merchant, "Other merchants", "Refunds & credits" or "(no merchant)".
+
+    Matching follows the hierarchy exactly: the same iterator, the same top-``merchants_per_category``
+    ranking, and the category matched by label within (type, group). Returns
+    ``{"transactions": [{"date", "account", "merchant", "amount", "notes"}], "total"}``, newest
+    first, where each ``amount`` is the row's signed value (spending positive, refunds negative)
+    and ``total`` equals the hierarchy's leaf. A line that is not in the hierarchy (including one in
+    a category the hierarchy drops for netting to zero) returns no transactions and a total of 0.0.
+    """
+    empty = {"transactions": [], "total": 0.0}
+    r = _root(root)
+    if start is None or end is None or start > end:
+        return empty
+    rows_by_merchant: dict[str, list[tuple[float, dict]]] = {}
+    merchants: dict[str, float] = {}
+    for tt, grp, cat, m, value, txn in _iter_window_spend(r, start, end):
+        if (tt, grp, cat) != (tracking_type, group, category):
+            continue
+        merchants[m] = merchants.get(m, 0.0) + value
+        rows_by_merchant.setdefault(m, []).append((value, txn))
+    if abs(sum(merchants.values())) <= 0.005:
+        return empty
+    lines = _merchant_lines(merchants, merchants_per_category)
+    members = [m for m, line in lines.items() if line == merchant]
+    if not members:
+        return empty
+    # Sum per merchant first, in the hierarchy's order, so the total matches its leaf to the cent.
+    total = sum(merchants[m] for m in members)
+    if merchant == _OTHER_MERCHANTS and not total > 0.005:
+        return empty
+    if merchant == _REFUNDS_AND_CREDITS and not total < -0.005:
+        return empty
+    rows = [(value, txn) for m in members for value, txn in rows_by_merchant[m]]
+    rows.sort(key=lambda vt: vt[1]["date"], reverse=True)
+    return {
+        "transactions": [{
+            "date": txn["date"].isoformat(),
+            "account": txn.get("account", ""),
+            "merchant": txn.get("merchant") or "(no merchant)",
+            "amount": round(value, 2),
+            "notes": txn.get("notes", ""),
+        } for value, txn in rows],
+        "total": round(total, 2),
+    }
 
 
 def ytd_core_spending_actual(root=None, year=None):

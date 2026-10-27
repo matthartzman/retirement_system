@@ -118,3 +118,72 @@ def test_window_with_no_transactions_is_empty(tmp_path):
     base = _workspace(tmp_path, ROWS)
     assert st.spending_hierarchy_window(base, date(2024, 1, 1), date(2024, 6, 30)) == {}
     assert st.spending_hierarchy_window(base, date(2026, 4, 1), date(2026, 4, 30)) == {}
+
+
+# Task 6: every hierarchy leaf is backed by ``spending_transactions_window`` -- both walk the same
+# shared iterator and share the same top-N ranking, so a merchant line always equals its rows.
+ROWS_INVARIANT = [
+    _txn("2025-11-28", "Kroger", "Groceries", -11.11),       # before the window
+    _txn("2025-12-02", "Kroger", "Groceries", -40.10),
+    _txn("2025-12-05", "Aldi", "Groceries", -20.20),
+    _txn("2025-12-07", "Publix", "Groceries", -30.30),
+    _txn("2025-12-09", "Costco", "Groceries", -0.10),
+    _txn("2025-12-10", "Costco", "Groceries", -0.20),
+    _txn("2025-12-12", "Safeway", "Groceries", -15.15),
+    _txn("2025-12-14", "Trader Joes", "Groceries", -9.99),
+    _txn("2025-12-15", "Whole Foods", "Groceries", -9.99),
+    _txn("2025-12-20", "Target", "Groceries", -20.00),
+    _txn("2025-12-29", "", "Groceries", -12.34),               # "(no merchant)"
+    _txn("2025-12-30", "Delta", "Zzz Odd Stuff", -25.00),      # no taxonomy mapping
+    _txn("2026-01-03", "Kroger", "Groceries", -100.07),
+    _txn("2026-01-04", "Target", "Groceries", 50.00),          # Target nets to a -30 refund
+    _txn("2026-01-05", "Sprouts", "Groceries", -5.55),
+    _txn("2026-01-08", "Odd Shop", "Zzz Odd Stuff", -15.25),
+    _txn("2026-01-10", "Employer", "Paychecks", 5000),         # income
+    _txn("2026-01-11", "Bank", "Transfer", -700),              # transfer
+    _txn("2026-01-20", "Aldi", "Groceries", -0.30),
+    _txn("2026-02-01", "Kroger", "Groceries", -10),            # after the window
+]
+KNOWN_LINE = ("Core Expenses", "Food", "Groceries", "Kroger")
+
+
+def test_every_merchant_line_equals_its_transactions(tmp_path):
+    base = _workspace(tmp_path, ROWS_INVARIANT)
+    start, end = date(2025, 12, 1), date(2026, 1, 31)
+    tree = st.spending_hierarchy_window(base, start, end)
+    seen = 0
+    for tt, groups in tree.items():
+        for grp, cats in groups.items():
+            for cat, lines in cats.items():
+                for line, amount in lines.items():
+                    got = st.spending_transactions_window(base, start, end, tt, grp, cat, line)
+                    assert got["total"] == amount, (tt, grp, cat, line)
+                    seen += 1
+    assert {"Other merchants", "Refunds & credits", "(no merchant)"} <= {
+        l for g in tree.values() for c in g.values() for ls in c.values() for l in ls}
+    assert "Unmapped" in tree and seen >= 9
+    # hand-worked: Trader Joes 9.99 + Whole Foods 9.99 + Sprouts 5.55 + Costco 0.10 + 0.20
+    other = st.spending_transactions_window(base, start, end, "Core Expenses", "Food", "Groceries", "Other merchants")
+    assert other["total"] == 25.83
+    assert sorted(t["merchant"] for t in other["transactions"]) == \
+        ["Costco", "Costco", "Sprouts", "Trader Joes", "Whole Foods"]
+    refunds = st.spending_transactions_window(base, start, end, "Core Expenses", "Food", "Groceries", "Refunds & credits")
+    assert refunds["total"] == -30.0
+    assert [t["amount"] for t in refunds["transactions"]] == [-50.0, 20.0]
+
+
+def test_transactions_sorted_newest_first_with_fields(tmp_path):
+    got = st.spending_transactions_window(_workspace(tmp_path, ROWS_INVARIANT), date(2025, 12, 1), date(2026, 1, 31),
+                                          *KNOWN_LINE)
+    dates = [t["date"] for t in got["transactions"]]
+    assert len(dates) >= 2 and dates == sorted(dates, reverse=True)
+    assert all(set(t) == {"date", "account", "merchant", "amount", "notes"} for t in got["transactions"])
+    assert got["transactions"][0] == {"date": "2026-01-03", "account": "Checking", "merchant": "Kroger",
+                                      "amount": 100.07, "notes": ""}
+    assert got["total"] == 140.17
+
+
+def test_unknown_line_returns_empty(tmp_path):            # Review Focus 3
+    got = st.spending_transactions_window(_workspace(tmp_path, ROWS), date(2026, 1, 1), date(2026, 12, 31),
+                                          "Core", "Food", "Groceries", "Nobody")
+    assert got == {"transactions": [], "total": 0.0}
