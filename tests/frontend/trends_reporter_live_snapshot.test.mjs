@@ -333,3 +333,29 @@ describe("percent-only live snapshot", () => {
     setMoneyView({ allowed: "both", shown: "dollars", scale: 1 });
   });
 });
+
+import { setMoneyView as __setMoneyView } from "../../financial_trends_reporter/frontend/money_view.js";
+
+describe("liveViewHtml in the percent view states each base once", () => {
+  const percentHtml = () => { __setMoneyView({ allowed: "both", shown: "percent", scale: 1000 }); return liveViewHtml(DATA); };
+  const after = () => __setMoneyView({ allowed: "both", shown: "dollars", scale: 1 });
+
+  test("no cell repeats the base phrase; each heading carries it", () => {
+    const out = percentHtml(); after();
+    assert.doesNotMatch(out.replace(/<span class="unit">[^<]*<\/span>/g, ""), /of net worth/);
+    assert.match(out, /<h2>Liquid investments <span class="unit">% of net worth<\/span><\/h2>/);
+    assert.doesNotMatch(out, /\$\s?\d/);
+  });
+
+  test("the dollar day column is hidden and the liquid card is marked", () => {
+    const out = percentHtml(); after();
+    assert.match(out, /class="card live-card pm"/);
+  });
+
+  test("dollars mode output is unchanged", () => {
+    after();
+    const out = liveViewHtml(DATA);
+    assert.doesNotMatch(out, /class="unit"|live-card pm/);
+    assert.match(out, /<h2>Liquid investments<\/h2>/);
+  });
+});

@@ -16,10 +16,10 @@ def test_scale_divides_money_keeps_allowlist_and_does_not_mutate():
 
 
 def test_scale_handles_none_bool_nested_lists_and_leaves_input_intact():
-    src = {"rows": [{"value": 100, "flag": False, "day": None}, [[50, None]]], "shares": 12.5}
+    src = {"rows": [{"value": 100, "flag": False, "day": None}, [[50, None]]], "count": 12.5}
     before = copy.deepcopy(src)
     out = scale_payload(src, 100.0)
-    assert out == {"rows": [{"value": 1.0, "flag": False, "day": None}, [[0.5, None]]], "shares": 12.5}
+    assert out == {"rows": [{"value": 1.0, "flag": False, "day": None}, [[0.5, None]]], "count": 12.5}
     assert out["rows"][0]["flag"] is False
     assert src == before
 
@@ -36,9 +36,9 @@ def test_dollar_strings_are_hidden():
 
 
 def test_ratio_suffix_rule_and_unlisted_keys_are_scaled():
-    for key in ("pre_tax_rate", "ytd_growth_pct", "x_ratio", "y_fraction", "pct", "rate", "weight", "days", "shares"):
+    for key in ("pre_tax_rate", "ytd_growth_pct", "x_ratio", "y_fraction", "pct", "rate", "weight", "days", "count"):
         assert is_non_money(key), key
-    for key in ("price", "purchase_price", "basis", "total", "something_new"):
+    for key in ("price", "purchase_price", "shares", "quantity", "basis", "total", "something_new"):
         assert not is_non_money(key), key
         assert key not in NON_MONEY_KEYS
 

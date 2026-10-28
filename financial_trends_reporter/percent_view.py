@@ -18,8 +18,6 @@ NON_MONEY_KEYS: frozenset[str] = frozenset({
     "year",              # calendar year (flows.ytd_summary, full_year_budget)
     "year_fraction",     # fraction of a year elapsed
     "count",             # item counts
-    "shares",            # security share counts (quantity, not dollars)
-    "quantity",          # same, other spelling
     "share",             # live_snapshot group share of the total (a 0-1 ratio)
     "share_of_gain",     # live_snapshot group share of total gain (a ratio)
     "delayed_minutes",   # live_snapshot quote delay, minutes
@@ -30,6 +28,9 @@ _RATIO_KEYS = frozenset({"pct", "rate", "weight"})
 _DOLLAR_TEXT = re.compile(r"\$\s?-?\d")
 _HIDDEN = "(amount hidden)"
 _ALL_MERCHANTS = "All merchants"
+# A share count times a public ticker price, or a public index level against its scaled value, gives back
+# the hidden scale and with it every dollar figure. A percent-only person never receives these.
+_PUBLIC_QUANTITY_KEYS = frozenset({"shares", "quantity", "purchase_price", "price"})
 
 
 def is_non_money(key: Any) -> bool:
@@ -114,12 +115,21 @@ def _strip_history_entry(entry: Any) -> Any:
     return out
 
 
+def _drop_keys(node: Any, names: frozenset[str]) -> Any:
+    if isinstance(node, dict):
+        return {k: _drop_keys(v, names) for k, v in node.items() if k not in names}
+    if isinstance(node, list):
+        return [_drop_keys(v, names) for v in node]
+    return node
+
+
 def strip_detail(route: str, payload: Any) -> Any:
     """Remove the detail a percent-only person never sees (merchants, reconciliation). Returns a new structure."""
     if route == "/api/spending" and isinstance(payload, dict):
         return _strip_spending(payload)
     if route == "/api/live-snapshot" and isinstance(payload, dict):
-        return {k: v for k, v in payload.items() if k not in ("reconciliation", "unmapped_monarch", "unmapped_holdings")}
+        kept = {k: v for k, v in payload.items() if k not in ("reconciliation", "unmapped_monarch", "unmapped_holdings")}
+        return _drop_keys(kept, _PUBLIC_QUANTITY_KEYS)
     if route == "/api/history":
         if isinstance(payload, list):
             return [_strip_history_entry(e) for e in payload]

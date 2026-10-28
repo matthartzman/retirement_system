@@ -34,11 +34,11 @@ Open http://127.0.0.1:5057 on the PC, click **People & Activity**, **Add personâ
 
 Each person has a **money view** setting in People & Activity (the Add person dialog and the person's row):
 
-- **%** (the default for new people): amounts appear only as percentages. Account balances and spending are shown as a percent of net worth, the Net Worth and Liquid charts as percent change since the start of the scope, spending as a share of total spending, and flows as a share of the liquid balance. Their data is scaled on the server before it leaves the PC, so no dollar figure is sent to their device.
+- **%** (the default for new people): amounts appear only as percentages. Account balances and spending are shown as a percent of net worth, the Net Worth and Liquid charts as percent change since the start of the scope, spending as a share of total spending, and flows as a share of the liquid balance. Their data is scaled on the server before it leaves the PC, so no dollar figure is sent to their device. Each card names its base once in its heading (for example *% of net worth*, *% of total*, *share of gross assets*) and the cells show bare percentages.
 - **$**: dollars only, as on the PC.
 - **Both**: dollars, with a **$ | %** toggle in the page header to switch.
 
-A %-only person does **not** see merchant detail, individual transactions or the reconciliation section of Live Snapshot, and the transaction list route answers 403 for them. Notes that quote amounts (for example the investment-transfer review) are left out or reworded.
+A %-only person does **not** see merchant detail, individual transactions or the reconciliation section of Live Snapshot, and the transaction list route answers 403 for them. They also get no share counts, purchase prices or index levels: a share count times a public price, or a public level against its scaled value, would give back the hidden scale and every dollar figure. Notes that quote amounts (for example the investment-transfer review) are left out or reworded.
 
 Changing a person's setting applies on their next tap; they do not need to sign in again.
 

@@ -104,3 +104,26 @@ def test_realistic_payloads_have_no_leaks(route, client, tmp_path):
     before = find_money_leaks(payload)
     assert before or route in {"/api/accounts"}, f"{route} payload has no money to scale; fixture too thin"
     assert find_money_leaks(scale_payload(strip_detail(route, payload), K)) == []
+
+
+# Numbers that are public or are counts of something with a public price. Left in a %-only payload they let a
+# viewer recover the hidden scale: shares x a public ticker price, or a public index level / its scaled value.
+PUBLIC_QUANTITY_KEYS = {"shares", "quantity", "purchase_price", "price"}
+
+
+def _keys(node, found=None):
+    found = set() if found is None else found
+    if isinstance(node, dict):
+        for k, v in node.items():
+            found.add(k)
+            _keys(v, found)
+    elif isinstance(node, list):
+        for v in node:
+            _keys(v, found)
+    return found
+
+
+@pytest.mark.parametrize("route", sorted(BUILDERS))
+def test_no_public_quantity_or_price_survives_in_a_percent_payload(route, client, tmp_path):
+    out = scale_payload(strip_detail(route, BUILDERS[route](client, tmp_path)), K)
+    assert _keys(out) & PUBLIC_QUANTITY_KEYS == set()
