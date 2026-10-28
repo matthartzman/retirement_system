@@ -27,7 +27,7 @@ QUOTES = {
 }
 BASELINE = {"baseline_date": "2025-12-31", "prices": {"ITOT": {"price": 120.0}, "IXUS": {"price": 60.0}, "AVUV": {"price": 90.0}}, "missing": []}
 SECURITY_MASTER = {
-    "ITOT": {"asset_class": "US EQUITY", "style": "Broad Market"},
+    "ITOT": {"asset_class": "US EQUITY", "style": "Broad Market", "notes": "iShares Core S&P Total U.S. Stock Market ETF"},
     "IXUS": {"asset_class": "INTERNATIONAL EQUITY", "style": "Broad Market"},
     "AVUV": {"asset_class": "US EQUITY", "style": "Small Value"},
     "CASH": {"asset_class": "CASH", "style": "Cash"},
@@ -135,6 +135,12 @@ def test_ticker_drills_to_account_and_lot():
     assert lot["purchase_date"] == "2025-06-01" and lot["shares"] == 100 and lot["purchase_price"] == 100
     assert lot["start"] == pytest.approx(12000) and lot["current"] == pytest.approx(13000)
     assert lot["reinvested"] is False and lot["share"] == pytest.approx(13000 / 32200)
+
+
+def test_ticker_carries_the_fund_name_from_the_security_master():
+    tickers = _row(_compute()["liquid"]["by_class"], "Equity")["tickers"]
+    assert _row(tickers, "ITOT")["title"] == "iShares Core S&P Total U.S. Stock Market ETF"
+    assert _row(tickers, "IXUS")["title"] == ""        # no notes on file: empty, never invented
 
 
 # A second ITOT lot bought 10/1 in the Trust: new money 10 x 125 = 1250, now 10 x 130 = 1300 (< 13000).
