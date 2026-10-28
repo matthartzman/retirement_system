@@ -109,3 +109,28 @@ def test_a_nonzero_exit_is_reported_but_does_not_raise(tmp_path):
     assert len(errors) == 1
     assert "run-1" in errors[0]
     assert "run not found" in errors[0]
+
+
+def _run_with_fake(tmp_path, returncode, stdout, stderr):
+    import subprocess as subprocess_module
+    import src.monarch_autoimport_job as job_module
+
+    scripts_dir = tmp_path / ".venv" / "Scripts"
+    scripts_dir.mkdir(parents=True)
+    (scripts_dir / "python.exe").write_text("", encoding="utf-8")
+    (tmp_path / "monarch_extract.py").write_text("", encoding="utf-8")
+    original_run = job_module.subprocess.run
+    job_module.subprocess.run = lambda cmd, **kw: subprocess_module.CompletedProcess(cmd, returncode, stdout=stdout, stderr=stderr)
+    try:
+        return _mark_runs_delivered(tmp_path, ["run-1"])
+    finally:
+        job_module.subprocess.run = original_run
+
+
+def test_failure_message_includes_stdout_when_stderr_is_empty(tmp_path):
+    errors = _run_with_fake(tmp_path, 1, "ERROR:\nSomething broke\n", "")
+    assert len(errors) == 1 and "Something broke" in errors[0]
+
+
+def test_already_delivered_run_is_not_an_error(tmp_path):
+    assert _run_with_fake(tmp_path, 1, "ERROR:\nNo pending events found for run ID: run-1\n", "") == []

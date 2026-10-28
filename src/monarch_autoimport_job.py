@@ -18,6 +18,8 @@ from . import onedrive_guard
 from . import ytd_tracking as ytd
 
 _MARK_DELIVERED_TIMEOUT_SECONDS = 60
+# What monarch_extract.py --mark-delivered prints when the run was already acknowledged.
+_ALREADY_DELIVERED = "No pending events found for run ID"
 
 
 def _resolve_extractor_python(extractor_dir: Path) -> Path | None:
@@ -64,7 +66,11 @@ def _mark_runs_delivered(extractor_dir: Path, run_ids: list[str]) -> list[str]:
                 check=False,
             )
             if proc.returncode != 0:
-                errors.append(f"--mark-delivered {run_id} exited {proc.returncode}: {proc.stderr.strip()}")
+                # The extractor prints its failure on stdout, so report both streams.
+                detail = " ".join(part.strip() for part in (proc.stderr, proc.stdout) if part and part.strip())
+                if _ALREADY_DELIVERED in detail:
+                    continue  # acknowledged on an earlier run; nothing left to mark
+                errors.append(f"--mark-delivered {run_id} exited {proc.returncode}: {detail}")
         except (OSError, subprocess.SubprocessError) as exc:
             errors.append(f"--mark-delivered {run_id} failed to run: {exc}")
     return errors
