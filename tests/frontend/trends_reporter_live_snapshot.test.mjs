@@ -328,11 +328,11 @@ describe("cash holdings", () => {
     const order = [...out.matchAll(/<th scope="row" class="dim-account">([^<]*?) <span/g)].map((m) => m[1]);
     assert.deepEqual(order, ["alpha Checking", "Matt Trust", "Zed Trust"]);
   });
-  test("other symbols keep their lot rows, accounts largest first", () => {
+  test("other symbols keep their lot rows, accounts A to Z by the name shown", () => {
     const out = liveViewHtml(DATA_WITH_LOTS);
     assert.match(out, /dim-lot/);
     const order = [...out.matchAll(/class="dim-account"><button[^>]*>▸ ([^<]*)<\/button>/g)].map((m) => m[1]);
-    assert.deepEqual(order, ["Member_1_IRA", "Joint &lt;Brokerage&gt;"]);
+    assert.deepEqual(order, ["Joint &lt;Brokerage&gt;", "Member_1_IRA"]);
   });
 });
 

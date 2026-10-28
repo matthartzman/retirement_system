@@ -107,8 +107,8 @@ function sortNodes(nodes, dim) {
     return nodes.sort((a, b) => rank(a) - rank(b) || byName(a, b));
   }
   if (dim === "lot") return nodes.sort(newestFirst);
-  // Accounts holding only cash read A to Z by the name shown; everything else, largest first.
-  if (dim === "account" && nodes.every((n) => n.members.every((m) => isCashSymbol(m.symbol)))) {
+  // Accounts read A to Z by the name shown; everything else, largest first.
+  if (dim === "account") {
     return nodes.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }) || byName(a, b));
   }
   return nodes.sort(byValue);

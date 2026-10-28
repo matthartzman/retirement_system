@@ -130,13 +130,15 @@ describe("buildTree", () => {
     assert.ok(cash.children.every((a) => a.children.length === 0 && a.inline));
     assert.deepEqual(cash.children.map((a) => a.inline), ["2026-07-01", "2026-06-01"]);
   });
-  test("cash accounts read A to Z by displayed name; other accounts go largest first", () => {
-    const labelOf = (id) => ({ Z_cash: "Zed cash", a_cash: "alpha cash" })[id] || id;
+  test("accounts always read A to Z by the name shown, not by id or size", () => {
+    const labelOf = (id) => ({ Z_cash: "Zed cash", a_cash: "alpha cash", A: "Pat IRA", B: "Matt IRA" })[id] || id;
     const t = buildTree(P, DEFAULT_ORDER, { ...opts, labelOf });
     const cash = t.nodes.find((n) => n.name === "Cash");
     assert.deepEqual(cash.children.map((a) => a.label), ["alpha cash", "Zed cash"]);
-    const itot = t.nodes.find((n) => n.name === "US Total Equity").children[0];
-    assert.deepEqual(itot.children.map((a) => a.name), ["A", "B"]);
+    const itot = t.nodes.find((n) => n.name === "US Total Equity").children[0];   // A is larger, but B's name comes first
+    assert.deepEqual(itot.children.map((a) => a.label), ["Matt IRA", "Pat IRA"]);
+    const top = buildTree(P, ["account", "lot"], { ...opts, labelOf });
+    assert.deepEqual(top.nodes.map((a) => a.label), ["alpha cash", "Matt IRA", "Pat IRA", "Zed cash"]);
   });
   test("a non-cash lot keeps its lot row, and non-cash lots are never folded", () => {
     const t = buildTree(P, DEFAULT_ORDER, opts);
