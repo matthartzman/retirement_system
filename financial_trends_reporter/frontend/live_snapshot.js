@@ -3,7 +3,7 @@
 // and the Refresh button in the browser. It runs as its own module so the Trends script is untouched:
 // the toggle only switches body.live-mode, and CSS hides the trend cards and the time scope.
 
-import { moneyView, fmtAmount } from "./money_view.js";
+import { moneyView, fmtAmount, onMoneyViewChange } from "./money_view.js";
 
 export const VIEW_KEY = "trendsView_v1";
 export const POLL_MS = 60000;
@@ -355,6 +355,8 @@ export function initLiveView(doc = document, win = window) {
     if (view === "live" && Date.now() - lastLoad >= POLL_MS) { if (!data) render(); load(); }
   }
 
+  // The $ | % toggle repaints the figures now; the next poll would otherwise leave the old form up.
+  onMoneyViewChange(() => { if (data) render(); });
   buttons.forEach((b) => b.addEventListener("click", () => setView(b.dataset.view)));
   doc.getElementById("liveRefresh").addEventListener("click", () => load(true));
   out.addEventListener("click", (e) => {
