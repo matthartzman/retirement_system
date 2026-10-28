@@ -202,6 +202,10 @@
   .live-card-head h2 { margin: 0; }
   .group-by { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 12px; }
   .group-by-label { color: #666; }
+  /* Sort by: two picklists after Group By, set a little apart from it. */
+  .sort-by { display: flex; align-items: center; gap: 6px; font-size: 12px; margin-left: 20px; }
+  .sort-by select { font: inherit; padding: 2px 4px; border: 1px solid #bbb; border-radius: 6px; background: transparent; color: inherit; }
+  @media (max-width: 640px) { .sort-by { margin-left: 0; } .sort-by select { font-size: 14px; padding: 6px 4px; } }
   .group-by .chip { display: inline-flex; align-items: center; gap: 2px; border: 1px solid #2563eb; border-radius: 999px; padding: 2px 4px 2px 6px; background: transparent; color: inherit; font: inherit; cursor: grab; user-select: none; }
   .group-by .chip.fixed { border-color: #bbb; padding: 2px 10px; cursor: default; color: #666; }
   .group-by .chip.off { border-style: dashed; border-color: #aaa; padding: 2px 10px; color: #666; cursor: pointer; }
@@ -210,7 +214,7 @@
   .group-by .chip.dragging { opacity: .5; }
   .group-by .chip.drop-before { box-shadow: -3px 0 0 #2563eb; }
   .group-by .chip.drop-after { box-shadow: 3px 0 0 #2563eb; }
-  @media (prefers-color-scheme: dark) { .group-by-label, .group-by .chip.fixed, .group-by .chip.off { color: #a0a0a8; } .group-by .chip.fixed, .group-by .chip.off { border-color: #55585f; } }
+  @media (prefers-color-scheme: dark) { .group-by-label, .group-by .chip.fixed, .group-by .chip.off { color: #a0a0a8; } .sort-by select { border-color: #55585f; } .group-by .chip.fixed, .group-by .chip.off { border-color: #55585f; } }
   .live-table .total-row th, .live-table .total-row td { border-top: 2px solid #ccc; font-weight: 700; }
   .live-table button.expand { border: 0; background: none; color: inherit; font: inherit; font-weight: 600; padding: 0; cursor: pointer; }
   .up { color: #1a7f37; } .down { color: #b42318; } .na, .muted, .flat { color: #888; }
