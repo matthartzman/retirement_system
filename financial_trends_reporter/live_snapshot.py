@@ -789,9 +789,10 @@ def _rate(value: Any) -> float | None:
 SETUP_TREATMENTS = {"Taxed in full": "pre_tax", "Taxed above premium": "after_tax", "Not taxed": "none"}
 
 
-def setup_tax_inputs(input_dir: str | Path) -> tuple[dict[str, str], dict[str, float]]:
+def setup_tax_inputs(input_dir: str | Path, aliases: dict[str, str] | None = None) -> tuple[dict[str, str], dict[str, float]]:
     """({account: pre_tax|after_tax|none}, {account: after-tax premium}) from the Planner's Accounts & Sources
-    rows (Tax Treatment / After-Tax Premium columns), matched to the imported account by name."""
+    rows (Tax Treatment / After-Tax Premium columns), matched to the imported account by name.
+    ``aliases`` ({imported account name: setup row name}) adds the accounts matched on the reconcile page."""
     from src import ytd_tracking
 
     treatment: dict[str, str] = {}
@@ -804,7 +805,38 @@ def setup_tax_inputs(input_dir: str | Path) -> tuple[dict[str, str], dict[str, f
             treatment[name] = SETUP_TREATMENTS[row["Tax Treatment"]]
         if str(row.get("After-Tax Premium") or "").strip():
             premium[name] = ytd_tracking.parse_money(row["After-Tax Premium"])
+    folded_t = {k.casefold(): v for k, v in treatment.items()}
+    folded_p = {k.casefold(): v for k, v in premium.items()}
+    for imported, setup_name in (aliases or {}).items():
+        if setup_name.casefold() in folded_t:
+            treatment.setdefault(imported, folded_t[setup_name.casefold()])
+        if setup_name.casefold() in folded_p:
+            premium.setdefault(imported, folded_p[setup_name.casefold()])
     return treatment, premium
+
+
+def saved_setup_aliases(base_dir: Path, balances_db: Path) -> dict[str, str]:
+    """{imported account display name: Accounts & Sources row name}: the matches saved in the Trends account
+    registry, and those saved on the Planner's reconcile page (which win)."""
+    from . import account_registry
+
+    try:
+        accounts = account_registry.list_accounts(balances_db)
+    except Exception:  # no balances store yet
+        return {}
+    aliases = {a["display_name"]: a["app_account"] for a in accounts if a.get("app_account")}
+    try:
+        from src import active_plan
+        from src.reconcile import MAP_SETUP
+
+        names = {a["account_key"]: a["display_name"] for a in accounts}
+        with active_plan.workspace_store(base_dir) as store:
+            mapping = store.monarch.mapping()
+        aliases.update({names[key]: m["ref"] for key, m in mapping.items()
+                        if m.get("kind") == MAP_SETUP and m.get("ref") and key in names})
+    except Exception:  # no plan store: the registry matches still apply
+        pass
+    return aliases
 
 
 def tax_rates(data_dir: str | Path, *, plan_ltcg: Any = "") -> dict[str, float]:
@@ -845,14 +877,14 @@ def _load_inputs_uncached(base_dir: Path, log_path: Path, balances_db: Path) -> 
         "log_as_of": latest.get("as_of_date"),
         "monarch": balance_series.snapshot_summary(balances_db),
         "tax_rates": _with_setup_tax(tax_rates(log_path.parent, plan_ltcg=plan.get(("Rebalancing", "Tax-aware Trades", "ltcg_rate"), "")),
-                                     base_dir / "input"),
+                                     base_dir, balances_db),
         "people": household_nicknames(plan),
     }
 
 
-def _with_setup_tax(rates: dict[str, Any], input_dir: Path) -> dict[str, Any]:
+def _with_setup_tax(rates: dict[str, Any], base_dir: Path, balances_db: Path) -> dict[str, Any]:
     """The Planner's per-account tax inputs, under the settings file's explicit per-account overrides."""
-    treatment, premium = setup_tax_inputs(input_dir)
+    treatment, premium = setup_tax_inputs(base_dir / "input", saved_setup_aliases(base_dir, balances_db))
     rates["non_liquid_tax"] = {**treatment, **rates.get("non_liquid_tax", {})}
     rates["annuity_basis"] = {**premium, **rates.get("annuity_basis", {})}
     return rates

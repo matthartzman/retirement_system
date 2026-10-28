@@ -471,3 +471,26 @@ def test_setup_tax_inputs_and_case_insensitive_lookup(tmp_path):
     assert premium == {"Acme Annuity": 100000.0}
     assert ls.non_liquid_tax_treatment("acme annuity", "Annuity/Pension", treatment) == "after_tax"
     assert ls.non_liquid_tax_treatment("Unknown joint", "Annuity/Pension", treatment) == "pre_tax"
+
+
+def test_setup_tax_inputs_follow_saved_mapping_aliases(tmp_path):
+    from financial_trends_reporter import live_snapshot as ls
+    from src import ytd_tracking
+
+    (tmp_path / "input").mkdir()
+    ytd_tracking.write_account_setup(tmp_path / "input", [
+        {"Account": "Plan Annuity", "Role": "Annuity", "Tax Treatment": "Taxed above premium", "After-Tax Premium": "50000"},
+    ])
+    treatment, premium = ls.setup_tax_inputs(tmp_path / "input", {"Carrier XYZ ****1234": "Plan Annuity"})
+    assert treatment["Carrier XYZ ****1234"] == "after_tax"
+    assert premium["Carrier XYZ ****1234"] == 50000.0
+    assert ls.saved_setup_aliases(tmp_path, tmp_path / "missing.db") == {}
+
+
+def test_saved_setup_aliases_use_registry_matches(tmp_path, monkeypatch):
+    from financial_trends_reporter import live_snapshot as ls, account_registry
+
+    monkeypatch.setattr(account_registry, "list_accounts", lambda db: [
+        {"account_key": "k1", "display_name": "Carrier XYZ", "app_account": "Plan Annuity"},
+        {"account_key": "k2", "display_name": "Checking", "app_account": ""}])
+    assert ls.saved_setup_aliases(tmp_path, tmp_path / "x.db") == {"Carrier XYZ": "Plan Annuity"}
