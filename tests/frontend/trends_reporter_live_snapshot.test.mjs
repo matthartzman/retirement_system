@@ -258,3 +258,22 @@ describe("holdings drill-down", () => {
     assert.ok(!/<button[^>]*data-path="Asset class\/Equity\/ITOT"/.test(out));
   });
 });
+
+describe("friendly account labels", () => {
+  const labels = { Member_1_IRA: "Matt IRA" };
+  test("account rows show the label; paths keep the account id", () => {
+    const out = liveViewHtml({ ...DATA_WITH_LOTS, account_labels: labels });
+    assert.match(out, /data-path="Asset class\/Equity\/ITOT\/Member_1_IRA" data-label="Matt IRA">▸ Matt IRA<\/button>/);
+    assert.ok(!/>▸ Member_1_IRA</.test(out));
+  });
+  test("reconciliation rows and unmapped holdings show the label", () => {
+    const rec = { ...REC_FLAGGED, unmapped_holdings: [{ account: "Member_1_IRA", value: 1 }] };
+    const out = liveViewHtml({ ...DATA, account_labels: labels, reconciliation: rec });
+    assert.ok(!out.includes("Member_1_IRA"));
+    assert.match(out, /Matt IRA/);
+  });
+  test("an account without a label falls back to its id, and labels don't carry over between renders", () => {
+    liveViewHtml({ ...DATA_WITH_LOTS, account_labels: labels });
+    assert.match(liveViewHtml(DATA_WITH_LOTS), />▸ Member_1_IRA<\/button>/);
+  });
+});

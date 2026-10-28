@@ -730,7 +730,23 @@ def _load_inputs_uncached(base_dir: Path, log_path: Path, balances_db: Path) -> 
         "log_as_of": latest.get("as_of_date"),
         "monarch": balance_series.snapshot_summary(balances_db),
         "tax_rates": tax_rates(log_path.parent, plan_ltcg=plan.get(("Rebalancing", "Tax-aware Trades", "ltcg_rate"), "")),
+        "people": household_nicknames(plan),
     }
+
+
+def household_nicknames(plan: dict[tuple[str, str, str], str]) -> dict[str, str]:
+    """{"h_nick", "w_nick"} from Plan Data's Household rows, the same nicknames the planner's reports use."""
+    from src.parsing.client_sections import nickname
+
+    return {key: nickname(plan.get(("Household", "", f"{member}_nickname"), ""), plan.get(("Household", "", f"{member}_name"), ""))
+            for key, member in (("h_nick", "member_1"), ("w_nick", "member_2"))}
+
+
+def account_labels(accounts, people: dict[str, str]) -> dict[str, str]:
+    """{holdings account id: display label}, e.g. Member_1_401k -> "Matt 401k". The id stays the data key."""
+    from src.person_labels import display_account
+
+    return {a: display_account(a, people) for a in sorted({str(a or "").strip() for a in accounts} - {""})}
 
 
 def load_inputs(base_dir: str | Path, log_path: str | Path, balances_db: str | Path, *, clock=time.monotonic) -> dict[str, Any]:
@@ -786,5 +802,6 @@ def build(*, inputs: dict[str, Any], data_dir: str | Path, quote_cache=None, now
         price, prev = q.get("price"), q.get("previous_close")
         indices.append({"symbol": sym, "label": label, "price": price,
                         "day_pct": (price / prev - 1) if price and prev else None, "stale": bool(q.get("stale", True))})
-    return {**head, **body, "indices": indices, "quotes_age_seconds": quote_cache.age_seconds(symbols),
+    labels = account_labels((l.get("account") for l in inputs["lots"]), inputs.get("people") or {})
+    return {**head, **body, "indices": indices, "account_labels": labels, "quotes_age_seconds": quote_cache.age_seconds(symbols),
             "baseline_missing": baseline["missing"], "flows_as_of": inputs.get("log_as_of")}

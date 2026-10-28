@@ -94,3 +94,26 @@ def test_tax_settings_carry_annuity_basis_and_overrides(tmp_path):
     rates = ls.tax_rates(tmp_path)
     assert rates["annuity_basis"] == {"Annuity - Matt": 120000.0}
     assert rates["non_liquid_tax"] == {"Pension - Pat": "none"}
+
+
+# ---- friendly account labels ----
+
+def test_household_nicknames_fall_back_to_first_name():
+    plan = {("Household", "", "member_1_nickname"): "Matt", ("Household", "", "member_1_name"): "Matthew Hartzman",
+            ("Household", "", "member_2_name"): "Patricia Hartzman"}
+    assert ls.household_nicknames(plan) == {"h_nick": "Matt", "w_nick": "Patricia"}
+
+
+def test_account_labels_use_the_planner_display_rule():
+    people = {"h_nick": "Matt", "w_nick": "Pat"}
+    labels = ls.account_labels(["Member_1_401k", " Member_2_Roth ", "Family_Checking", "", None], people)
+    assert labels == {"Family_Checking": "Family Checking", "Member_1_401k": "Matt 401k", "Member_2_Roth": "Pat Roth"}
+
+
+def test_build_ships_a_label_for_every_holdings_account(data_dir):
+    fake = FakeQuotes({**QUOTES, **INDEX_QUOTES})
+    out = ls.build(inputs={**INPUTS, "people": {"h_nick": "Matt", "w_nick": "Pat"}}, quote_cache=fake, data_dir=data_dir,
+                   now=NOW, previous_close_lookup=lambda symbols, today: {})
+    accounts = {str(l["account"]).strip() for l in LOTS}
+    assert set(out["account_labels"]) == accounts
+    assert out["account_labels"]["Member_1_IRA"] == "Matt IRA"

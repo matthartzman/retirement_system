@@ -99,6 +99,10 @@ export function lotLabel(lot) {
 
 // A path is caption/class/symbol/account, so the same ticker open in the Asset class table and the
 // Equity sub-class table never shares state. Rows below class level carry data-path and data-parent.
+// {holdings account id: display label} from the payload, e.g. Member_1_401k -> "Matt 401k". Ids stay the keys.
+let accountLabels = {};
+const acctLabel = (id) => accountLabels[id] || id;
+
 function expandButton(path, label) {
   return `<button type="button" class="expand" aria-expanded="false" data-path="${esc(path)}" data-label="${esc(label)}">▸ ${esc(label)}</button>`;
 }
@@ -116,7 +120,7 @@ function liquidTable(caption, rows, total) {
       const accountRows = accounts.map((a) => {
         const accountPath = `${tickerPath}/${a.name}`;
         const lots = a.lots || [];
-        const alabel = lots.length ? expandButton(accountPath, a.name) : esc(a.name);
+        const alabel = lots.length ? expandButton(accountPath, acctLabel(a.name)) : esc(acctLabel(a.name));
         const lotRows = lots.map((l) => `<tr class="lot-row" data-parent="${esc(accountPath)}" hidden><th scope="row" class="lot">${esc(lotLabel(l))}</th>${cells(l)}</tr>`).join("");
         return `<tr class="acct-row" data-path="${esc(accountPath)}" data-parent="${esc(tickerPath)}" hidden><th scope="row" class="acct">${alabel}</th>${cells(a)}</tr>${lotRows}`;
       }).join("");
@@ -156,7 +160,7 @@ function accountRowHtml(a) {
   const hasPct = a.delta_pct !== null && a.delta_pct !== undefined;
   const flag = a.flag ? `<span class="flag" title="${hasPct ? "Differs from the imported balance by more than 1% and $100" : "Differs from the imported balance by more than $100"}">⚠ <span class="flag-text">Check</span></span> ` : "";
   const monarch = (a.monarch_accounts || []).length ? ` <span class="muted">(${(a.monarch_accounts || []).map(esc).join(", ")})</span>` : "";
-  const row = `<tr class="${a.flag ? "flagged" : ""}"><th scope="row">${flag}${esc(a.holdings_account)}${monarch}</th>`
+  const row = `<tr class="${a.flag ? "flagged" : ""}"><th scope="row">${flag}${esc(acctLabel(a.holdings_account))}${monarch}</th>`
     + `<td class="num">${fmtUsd(a.holdings_value)}</td><td class="num">${fmtUsd(a.monarch_value)}</td>`
     + `<td class="num">${changeHtml(a.delta)}</td><td class="num">${a.delta_pct === null || a.delta_pct === undefined ? DASH : changeHtml(a.delta_pct, true)}</td></tr>`;
   const hints = (a.hints || []).map(hintText).filter(Boolean);
@@ -179,7 +183,7 @@ function accountsSectionHtml(rec) {
   const unmapped = unmappedMonarch.length || unmappedHoldings.length
     ? `<p class="note">Not linked to a holdings account, so not compared. Link them in the Retirement Planner.</p>`
       + (unmappedMonarch.length ? `<p class="note"><b>Imported accounts:</b> ${unmappedMonarch.map((u) => `${esc(u.name)} ${fmtUsd(u.value)}`).join("; ")}</p>` : "")
-      + (unmappedHoldings.length ? `<p class="note"><b>Holdings accounts:</b> ${unmappedHoldings.map((u) => `${esc(u.account)} ${fmtUsd(u.value)}`).join("; ")}</p>` : "")
+      + (unmappedHoldings.length ? `<p class="note"><b>Holdings accounts:</b> ${unmappedHoldings.map((u) => `${esc(acctLabel(u.account))} ${fmtUsd(u.value)}`).join("; ")}</p>` : "")
     : "";
   const count = accounts.filter((a) => a.flag).length;
   const summary = `Reconciliation by account${count ? ` <b>⚠ ${count} to check</b>` : ""}`;
@@ -225,6 +229,7 @@ function totalsHtml(t, checking, debt, tax, nonLiquid, liquid) {
 export function liveViewHtml(data) {
   if (!data) return `<p class="empty">Loading live prices…</p>`;
   if (data.error) return `<p class="live-error">Live Snapshot is unavailable: ${esc(data.error)}</p>`;
+  accountLabels = data.account_labels || {};
   const L = data.liquid, t = data.totals;
   const indices = (data.indices || []).map((i) =>
     `<span class="index-chip">${esc(i.label)} ${i.day_pct === null || i.day_pct === undefined ? `<span class="na">${DASH}</span>` : changeHtml(i.day_pct, true)}</span>`).join("");
