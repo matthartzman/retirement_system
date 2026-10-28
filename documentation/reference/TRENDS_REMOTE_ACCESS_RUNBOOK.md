@@ -42,7 +42,7 @@ A %-only person does **not** see merchant detail, individual transactions or the
 
 Changing a person's setting applies on their next tap; they do not need to sign in again.
 
-Adding any new `/api/` route fails `tests/test_trends_percent_view_leak_guard.py` until the route is classified (scaled, passed through, withheld or owner-only), so a new route cannot leak dollars to a %-only person by accident.
+Adding any new `/api/` route fails `tests/test_trends_percent_view_leak_guard_regression.py` until the route is classified (scaled, passed through, withheld or owner-only), so a new route cannot leak dollars to a %-only person by accident.
 
 ## Day to day
 

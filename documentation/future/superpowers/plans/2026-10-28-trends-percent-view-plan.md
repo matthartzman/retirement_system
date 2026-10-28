@@ -171,7 +171,7 @@ def test_view_change_applies_next_request(tmp_path): ...     # owner sets "dolla
 ### Task 4: Leak guard
 
 **Files:**
-- Test: `tests/test_trends_percent_view_leak_guard.py`
+- Test: `tests/test_trends_percent_view_leak_guard_regression.py`
 
 **Interfaces:**
 - Consumes: Task 2 `find_money_leaks`, `scale_payload`, `strip_detail`; Task 3 route sets.
