@@ -83,3 +83,63 @@ def test_remote_index_html_carries_no_owner_screen_markup(tmp_path):
     page = rig.call(rig.remote, "GET", "/", cookie=token).get_data(as_text=True)
     assert "api/people" not in page and "api/activity" not in page
     json.dumps(page)
+
+
+def test_new_person_defaults_to_percent_and_whoami_reports_it(tmp_path):
+    rig = Rig(tmp_path)
+    _add(rig)
+    assert rig.call(rig.local, "GET", "/api/people").get_json()["people"][0]["money_view"] == "percent"
+    assert rig.call(rig.local, "GET", "/api/whoami").get_json()["money_view"] == "both"
+    _, token = rig.signin("ann", "temp password 1")
+    # must_change allows whoami
+    assert rig.call(rig.remote, "GET", "/api/whoami", cookie=token).get_json()["money_view"] == "percent"
+
+
+def test_set_money_view_validates_and_logs(tmp_path):
+    rig = Rig(tmp_path)
+    uid = _add(rig).get_json()["id"]
+    assert rig.call(rig.local, "POST", "/api/people/view", {"id": uid, "money_view": "dollars"}).status_code == 200
+    assert rig.call(rig.local, "GET", "/api/people").get_json()["people"][0]["money_view"] == "dollars"
+    assert rig.call(rig.local, "POST", "/api/people/view", {"id": uid, "money_view": "euros"}).status_code == 400
+    assert rig.call(rig.local, "POST", "/api/people/view", {"id": 999, "money_view": "both"}).status_code == 404
+    event = rig.call(rig.local, "GET", "/api/activity").get_json()["events"][0]
+    assert event["event"] == "view setting" and event["details"] == "ann dollars"
+
+
+def test_add_person_accepts_money_view_and_rejects_bad_value(tmp_path):
+    rig = Rig(tmp_path)
+    body = {"display_name": "Ann", "username": "ann", "temp_password": "temp password 1", "money_view": "both"}
+    assert rig.call(rig.local, "POST", "/api/people", body).status_code == 200
+    assert rig.call(rig.local, "GET", "/api/people").get_json()["people"][0]["money_view"] == "both"
+    assert rig.call(rig.local, "POST", "/api/people", {**body, "username": "bob", "money_view": "euros"}).status_code == 400
+
+
+def test_remote_cannot_set_money_view(tmp_path):
+    rig = Rig(tmp_path)
+    rig.add()
+    _, token = rig.signin()
+    assert rig.call(rig.remote, "POST", "/api/people/view", {"id": 1, "money_view": "dollars"}, cookie=token).status_code == 404
+
+
+def test_existing_database_gains_money_view_column(tmp_path):
+    import sqlite3
+
+    from financial_trends_reporter.access_store import AccessStore
+
+    path = tmp_path / "old" / "access.db"
+    path.parent.mkdir()
+    conn = sqlite3.connect(path)
+    conn.execute(
+        "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, display_name TEXT NOT NULL, username TEXT NOT NULL UNIQUE,"
+        " pw_hash BLOB NOT NULL, pw_salt BLOB NOT NULL, scrypt_n INTEGER NOT NULL, must_change INTEGER NOT NULL DEFAULT 1,"
+        " created_at REAL NOT NULL, updated_at REAL NOT NULL, failed_count INTEGER NOT NULL DEFAULT 0,"
+        " locked_until REAL NOT NULL DEFAULT 0, last_signin_at REAL)"
+    )
+    conn.execute("INSERT INTO users(display_name, username, pw_hash, pw_salt, scrypt_n, created_at, updated_at)"
+                 " VALUES ('Old','old',x'00',x'00',16384,0,0)")
+    conn.execute("PRAGMA user_version = 1")
+    conn.commit()
+    conn.close()
+    store = AccessStore(path, scrypt_n=2**4)
+    assert store.list_users()[0]["money_view"] == "percent"
+    assert sqlite3.connect(path).execute("PRAGMA user_version").fetchone()[0] == 2

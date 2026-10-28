@@ -21,7 +21,8 @@ LOCK_SECONDS = 15 * 60
 THROTTLE_WINDOW_SECONDS = 10 * 60
 THROTTLE_FREE_FAILURES = 20
 THROTTLE_MAX_DELAY_SECONDS = 60.0
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+MONEY_VIEWS = ("dollars", "percent", "both")
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -36,7 +37,8 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at REAL NOT NULL,
     failed_count INTEGER NOT NULL DEFAULT 0,
     locked_until REAL NOT NULL DEFAULT 0,
-    last_signin_at REAL
+    last_signin_at REAL,
+    money_view TEXT NOT NULL DEFAULT 'percent'
 )
 """
 
@@ -81,6 +83,8 @@ class AccessStore:
 
     def _init_extra(self, conn: sqlite3.Connection) -> None:
         conn.execute(_ACTIVITY_SCHEMA)
+        if "money_view" not in {r["name"] for r in conn.execute("PRAGMA table_info(users)")}:
+            conn.execute("ALTER TABLE users ADD COLUMN money_view TEXT NOT NULL DEFAULT 'percent'")
 
     def _conn(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.path, timeout=10)
@@ -110,21 +114,31 @@ class AccessStore:
             raise ValueError(f"password must be at least {MIN_PASSWORD_LENGTH} characters")
 
     # ---- people ----
-    def add_user(self, display_name: str, username: str, temp_password: str, now: float = 0.0) -> int:
+    def add_user(self, display_name: str, username: str, temp_password: str, now: float = 0.0, money_view: str = "percent") -> int:
         username = (username or "").strip().lower()
         if not username or not (display_name or "").strip():
             raise ValueError("name and username are required")
         self._check_password(temp_password)
+        self._check_money_view(money_view)
         salt = secrets.token_bytes(16)
         try:
             cur = self._run(
-                "INSERT INTO users(display_name, username, pw_hash, pw_salt, scrypt_n, must_change, created_at, updated_at)"
-                " VALUES (?,?,?,?,?,1,?,?)",
-                (display_name.strip(), username, self._hash(temp_password, salt, self._n), salt, self._n, now, now),
+                "INSERT INTO users(display_name, username, pw_hash, pw_salt, scrypt_n, must_change, created_at, updated_at, money_view)"
+                " VALUES (?,?,?,?,?,1,?,?,?)",
+                (display_name.strip(), username, self._hash(temp_password, salt, self._n), salt, self._n, now, now, money_view),
             )
         except sqlite3.IntegrityError:
             raise ValueError("that username is already in use") from None
         return int(cur.lastrowid)
+
+    @staticmethod
+    def _check_money_view(money_view: str) -> None:
+        if money_view not in MONEY_VIEWS:
+            raise ValueError("money view must be dollars, percent or both")
+
+    def set_money_view(self, user_id: int, money_view: str) -> None:
+        self._check_money_view(money_view)
+        self._run("UPDATE users SET money_view=? WHERE id=?", (money_view, user_id))
 
     def get_user(self, user_id: int) -> dict | None:
         rows = self._run("SELECT * FROM users WHERE id=?", (user_id,)).fetchall()
@@ -136,7 +150,7 @@ class AccessStore:
             {
                 "id": r["id"], "display_name": r["display_name"], "username": r["username"],
                 "last_signin_at": r["last_signin_at"], "must_change": bool(r["must_change"]),
-                "locked": r["locked_until"] > now,
+                "locked": r["locked_until"] > now, "money_view": r["money_view"],
             }
             for r in rows
         ]

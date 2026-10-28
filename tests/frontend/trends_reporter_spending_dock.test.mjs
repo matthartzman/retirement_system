@@ -232,3 +232,27 @@ test("changing the tracking type clears the merchants and transactions panels", 
   assert.equal(t.els.detailPopup2.innerHTML, "");
   assert.equal(t.els.detailPopup3.innerHTML, "");
 });
+
+// --- Percent-only people: no merchant drill-down, no transactions panel ---------------------
+import { setMoneyView } from "../../financial_trends_reporter/frontend/money_view.js";
+
+test("a percent-only person gets no merchant rows, no data-merchant and no transactions", async () => {
+  setMoneyView({ allowed: "percent", scale: 1 });
+  try {
+    const t = setup();                                    // setup() hovers the first category
+    assert.ok(!t.els.detailPopup2.innerHTML.includes("data-merchant"));
+    assert.equal(t.els.detailPopup2.innerHTML, "");       // the single "All merchants" row is not offered either
+    t.els.detailPopup2.fire("click", { target: t.mrow(0) });
+    t.over(0); t.advance(500);
+    assert.equal(t.fetches.length, 0);
+    assert.equal(t.els.detailPopup3.innerHTML, "");
+  } finally { setMoneyView({ allowed: "both", shown: "dollars", scale: 1 }); }
+});
+test("a both person still gets merchant rows with data-merchant in either toggle position", () => {
+  for (const shown of ["dollars", "percent"]) {
+    setMoneyView({ allowed: "both", shown, scale: 1 });
+    const t = setup();
+    assert.match(t.els.detailPopup2.innerHTML, /data-merchant="0"/);
+  }
+  setMoneyView({ allowed: "both", shown: "dollars", scale: 1 });
+});

@@ -10,9 +10,65 @@
 // type="module"> now imports from this file and keeps only the DOM-wiring/
 // fetch/render orchestration inline.
 
+import { moneyView, fmtAmount, fmtSharePct } from "./money_view.js";
+
 export function fmtMoney(v) {
   if (v === null || v === undefined) return "-";
+  if (moneyView().shown !== "dollars") return fmtAmount(v);
   return "$" + Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 });
+}
+
+// ---- Percent forms (Trends percent view): used only when moneyView().shown === "percent" ----
+const finiteNum = v => v !== null && v !== undefined && Number.isFinite(Number(v));
+const isPercent = () => moneyView().shown === "percent";
+
+// Net Worth / Liquid in %: each value as change since the first finite point in the scope.
+// A base that is zero or negative has no meaningful percent, so every value is null and base is null.
+export function toPercentChange(points) {
+  const base = (points || []).find(p => finiteNum(p.value)) || null;
+  if (!base || !(Number(base.value) > 0)) {
+    return { points: (points || []).map(p => ({ ...p, value: null })), base: null };
+  }
+  const b = Number(base.value);
+  return {
+    points: points.map(p => ({ ...p, value: finiteNum(p.value) ? Number(p.value) / b - 1 : null })),
+    base: { label: base.label, value: b },
+  };
+}
+
+// entries: [name, value, ...rest]. Each value becomes its share of the sum of the positive values
+// (refunds stay negative); no positive total means null, never a division.
+export function toShareOfTotal(entries) {
+  const total = (entries || []).reduce((t, e) => t + (finiteNum(e[1]) && Number(e[1]) > 0 ? Number(e[1]) : 0), 0);
+  return (entries || []).map(e => [e[0], total > 0 && finiteNum(e[1]) ? Number(e[1]) / total : null, ...e.slice(2)]);
+}
+
+// Flows (and the period summary) as a share of the liquid balance at the start of the scope;
+// null when that balance is missing, zero or negative.
+export function flowsAsShareOfLiquid(series, liquidAtStart) {
+  const ok = finiteNum(liquidAtStart) && Number(liquidAtStart) > 0;
+  const div = v => (ok && finiteNum(v) ? Number(v) / Number(liquidAtStart) : null);
+  return (series || []).map(p => {
+    const out = { ...p };
+    for (const k of ["credits", "debits", "net", "total"]) if (k in p) out[k] = div(p[k]);
+    if (p.byAccount) {
+      out.byAccount = Object.fromEntries(Object.entries(p.byAccount).map(([n, a]) => [n, { credits: div(a.credits), debits: div(a.debits) }]));
+    }
+    return out;
+  });
+}
+
+// "+3.2%" for changes; shares read "12.3%" (negative keeps its sign).
+const fmtShare = ratio => fmtSharePct(ratio).replace(/^\+/, "");
+
+// Spending shares are of the period's total spending, set by the page whenever it draws the card.
+let spendShareBase = 0;
+export function setSpendShareBase(amounts) {
+  spendShareBase = (amounts || []).reduce((t, v) => t + (finiteNum(v) && Number(v) > 0 ? Number(v) : 0), 0);
+}
+function fmtSpend(v) {
+  if (!isPercent()) return fmtMoney(v);
+  return fmtShare(spendShareBase > 0 && finiteNum(v) ? Number(v) / spendShareBase : null);
 }
 
 // Finding UX-102 (Wave 5 item W5-6): category names and date labels were
@@ -312,6 +368,7 @@ export function lineChartSvg(points, opts) {
   opts = opts || {};
   const h = 216, padL = 56, padR = 34, padT = 16, padB = 44;
   const label = (opts.title || "Chart") + ", line chart";
+  const fmt = opts.fmt || fmtMoney;
   if (!points.length) return '<div class="empty">No data yet for this range.</div>';
   const values = points.map(p => p.value).filter(v => v !== null && v !== undefined);
   if (!values.length) return '<div class="empty">No data yet for this range.</div>';
@@ -337,7 +394,7 @@ export function lineChartSvg(points, opts) {
   for (const v of range.ticks) {
     const yy = y(v);
     grid += `<line x1="${padL}" y1="${yy}" x2="${w - padR}" y2="${yy}" stroke="#e5e5e5" stroke-width="1"/>` +
-      `<text x="${padL - 6}" y="${yy + 3}" text-anchor="end" style="font-size:10px">${escSvg(fmtMoney(v))}</text>`;
+      `<text x="${padL - 6}" y="${yy + 3}" text-anchor="end" style="font-size:10px">${escSvg(fmt(v))}</text>`;
   }
 
   // X-axis: scope-aware labels, each with a faint vertical tick at its point.
@@ -362,10 +419,10 @@ export function lineChartSvg(points, opts) {
     // opts.interactive: dots are keyboard-focusable and carry their index so the
     // page can show a rollover (see rolloverModel) on hover or focus.
     const focus = opts.interactive
-      ? ` tabindex="${i === lastShown ? 0 : -1}" data-i="${i}" role="img" aria-label="${escSvg(p.label)}: ${escSvg(fmtMoney(p.value))}"` : "";
+      ? ` tabindex="${i === lastShown ? 0 : -1}" data-i="${i}" role="img" aria-label="${escSvg(p.label)}: ${escSvg(fmt(p.value))}"` : "";
     const look = hidden ? `r="4" fill="${color}" fill-opacity="0" class="chart-dot chart-dot-hit"` : `r="${r}" fill="${color}" class="chart-dot"`;
     dots += `<circle cx="${x(i)}" cy="${y(p.value)}" ${look}${focus}>` +
-      `<title>${escSvg(p.label)}: ${escSvg(fmtMoney(p.value))}</title></circle>`;
+      `<title>${escSvg(p.label)}: ${escSvg(fmt(p.value))}</title></circle>`;
   });
 
   const svg = `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="display:block;max-width:100%;height:auto" role="img" aria-label="${escSvg(label)}">
@@ -376,7 +433,7 @@ export function lineChartSvg(points, opts) {
     <path d="${path}" fill="none" stroke="${color}" stroke-width="2"/>
     ${dots}
   </svg>`;
-  return svg + dataTableFallbackHtml(label, ["Date", "Value"], points.map(p => [p.label, fmtMoney(p.value)]));
+  return svg + dataTableFallbackHtml(label, ["Date", "Value"], points.map(p => [p.label, fmt(p.value)]));
 }
 
 // Rows for the YTD-expenses chart. Level 1 (Tracking Type) is what the bars
@@ -477,7 +534,7 @@ function popMarkers(meta, max) {
     if (v == null) return "";
     const pct = Math.min(100, Math.max(0, (v / max) * 100)).toFixed(1);
     const left = m.key === "fullYear" && nudge ? `calc(${pct}% + 1px)` : `${pct}%`;
-    return `<b class="pm ${m.cls}" style="left:${left}" title="${escSvg(m.label)}: ${escSvg(fmtMoney(v))}"></b>`;
+    return `<b class="pm ${m.cls}" style="left:${left}" title="${escSvg(m.label)}: ${escSvg(fmtSpend(v))}"></b>`;
   }).join("");
 }
 
@@ -490,9 +547,9 @@ export function categoryListHtml(title, categories) {
   const body = categories.map((c, i) =>
     `<div class="pop-row pop-cat${c.value < 0 ? " pop-neg" : ""}" data-cat="${i}"><span class="pop-name" title="${escSvg(c.group)}">${escSvg(c.name)}</span>` +
     `<span class="pop-bar"><i style="width:${c.value > 0 ? Math.max(1, (c.value / max) * 100).toFixed(1) : 0}%"></i>${popMarkers(c, max)}</span>` +
-    `<span class="pop-val">${escSvg(fmtMoney(c.value))}</span></div>`).join("");
+    `<span class="pop-val">${escSvg(fmtSpend(c.value))}</span></div>`).join("");
   return `<div class="pop-title">${escSvg(title)} <span class="pop-hint">- hover a category for merchants, click to pin</span></div>${body}` +
-    `<div class="pop-total"><span>Total</span><span>${escSvg(fmtMoney(total))}</span></div>`;
+    `<div class="pop-total"><span>Total</span><span>${escSvg(fmtSpend(total))}</span></div>`;
 }
 
 // Popup body: title, a mini bar chart of up to `maxLines` entries (the
@@ -514,9 +571,9 @@ export function detailPopupHtml(title, detail, maxLines, opts) {
     `<div class="pop-row${v < 0 ? " pop-neg" : ""}"${indexAttr && i < detail.length && i < maxLines ?
       ` data-${indexAttr}="${i}" tabindex="0" role="button" aria-label="${escSvg(n)}: show transactions"` : ""}><span class="pop-name">${escSvg(n)}</span>` +
     `<span class="pop-bar"><i style="width:${v > 0 ? Math.max(1, (v / max) * 100).toFixed(1) : 0}%"></i>${popMarkers(meta, max)}</span>` +
-    `<span class="pop-val">${escSvg(fmtMoney(v))}</span></div>`).join("");
+    `<span class="pop-val">${escSvg(fmtSpend(v))}</span></div>`).join("");
   return `<div class="pop-title">${escSvg(title)}</div>${body}` +
-    `<div class="pop-total"><span>Total</span><span>${escSvg(fmtMoney(total))}</span></div>`;
+    `<div class="pop-total"><span>Total</span><span>${escSvg(fmtSpend(total))}</span></div>`;
 }
 
 // entries: [name, amount, meta?] -- meta.kind is "total" (text-only summary
@@ -541,7 +598,7 @@ export function barChartSvg(entries, opts) {
     const v = (max * i) / xTickCount;
     const xx = padL + (v / max) * plotW;
     xAxis += `<line x1="${xx}" y1="0" x2="${xx}" y2="${h - padB}" stroke="#e5e5e5" stroke-width="1"/>` +
-      `<text x="${xx}" y="${h - padB + 14}" text-anchor="middle" style="font-size:10px">${escSvg(fmtMoney(v))}</text>`;
+      `<text x="${xx}" y="${h - padB + 14}" text-anchor="middle" style="font-size:10px">${escSvg(fmtSpend(v))}</text>`;
   }
 
   const markersFor = (meta, y) => {
@@ -553,7 +610,7 @@ export function barChartSvg(entries, opts) {
       const xx = padL + (v / max) * plotW + (m.key === "fullYear" ? nudge : 0);
       return `<line class="mk-outline" x1="${xx}" y1="${y - 2}" x2="${xx}" y2="${y + barH + 2}" style="${outlineStyle(m)}"/>` +
         `<line class="mk ${m.cls}" x1="${xx}" y1="${y - 2}" x2="${xx}" y2="${y + barH + 2}" style="${markerStyle(m)}">` +
-        `<title>${escSvg(m.label)}: ${escSvg(fmtMoney(v))}</title></line>`;
+        `<title>${escSvg(m.label)}: ${escSvg(fmtSpend(v))}</title></line>`;
     }).join("");
   };
   // The row label is the only thing that opens the breakdown panels: a focusable button (Enter/Space pins),
@@ -572,29 +629,30 @@ export function barChartSvg(entries, opts) {
     if (meta && meta.kind === "total") {
       return `<g${row} class="bar-row">${hit}` +
         `${labelFor(e[0], y, true, meta)}` +
-        `<text x="${padL + 6}" y="${y + barH - 5}" style="font-size:11px;font-weight:600">${escSvg(fmtMoney(e[1]))}</text></g>`;
+        `<text x="${padL + 6}" y="${y + barH - 5}" style="font-size:11px;font-weight:600">${escSvg(fmtSpend(e[1]))}</text></g>`;
     }
     const bw = (e[1] / max) * plotW;
     const fill = meta && meta.kind === "other" ? "#94a3b8" : BAR_BLUE;
-    const tip = meta ? "" : `<title>${escSvg(e[0])}: ${escSvg(fmtMoney(e[1]))}</title>`;
+    const tip = meta ? "" : `<title>${escSvg(e[0])}: ${escSvg(fmtSpend(e[1]))}</title>`;
     return `<g${row} class="bar-row">${hit}` +
       `${labelFor(e[0], y, false, meta)}` +
       `<rect x="${padL}" y="${y}" width="${bw}" height="${barH}" fill="${fill}" rx="3">${tip}</rect>` + markersFor(meta, y) +
-      `<text x="${padL + bw + 6}" y="${y + barH - 5}" style="font-size:11px">${escSvg(fmtMoney(e[1]))}</text></g>`;
+      `<text x="${padL + bw + 6}" y="${y + barH - 5}" style="font-size:11px">${escSvg(fmtSpend(e[1]))}</text></g>`;
   }).join("");
   // Legend: one entry per marker present, each with a swatch in the marker's own shape.
   const shown = activeMarkers().filter(m => entries.some(e => e[2] && e[2][m.key] != null));
   const legend = shown.length ? `<div class="bar-legend" style="font-size:12px">` +
     shown.map(m => `<span class="mk-key"><svg class="mk-swatch" width="10" height="14" viewBox="0 0 10 14" aria-hidden="true">` +
       `<line class="${m.cls}" x1="5" y1="0" x2="5" y2="14" style="${markerStyle(m)}"/></svg> ${escSvg(m.label)}</span>`).join(" ") + `</div>` : "";
-  const svg = legend + `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" style="width:100%;max-width:100%;height:auto" role="img" aria-label="Spending, bar chart">
+  const header = isPercent() ? `<div class="bar-legend" style="font-size:12px">Share of spending</div>` : "";
+  const svg = header + legend + `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" style="width:100%;max-width:100%;height:auto" role="img" aria-label="Spending, bar chart">
     ${xAxis}
     <line x1="${padL}" y1="0" x2="${padL}" y2="${h - padB}" stroke="#999" stroke-width="1"/>
     ${bars}
   </svg>`;
-  const money = v => (v == null ? "-" : fmtMoney(v));
-  return svg + dataTableFallbackHtml("Spending", ["Tracking type", "Amount", ...shown.map(m => m.label)],
-    entries.map(e => [e[0], fmtMoney(e[1]), ...shown.map(m => money(e[2] && e[2][m.key]))]));
+  const money = v => (v == null ? "-" : fmtSpend(v));
+  return svg + dataTableFallbackHtml("Spending", ["Tracking type", isPercent() ? "Share of spending" : "Amount", ...shown.map(m => m.label)],
+    entries.map(e => [e[0], fmtSpend(e[1]), ...shown.map(m => money(e[2] && e[2][m.key]))]));
 }
 
 // --- Spending card (Trends Phase 5): window data from /api/spending, YTD snapshot fallback ---
@@ -673,7 +731,7 @@ export function spendingNoteText(resp, label) {
 // (groups empty) so the page still shows the total.
 // Accounts whose value is zero are omitted (a closed account or one not yet opened adds only noise).
 const ZERO_EPS = 0.005;
-export function isNonZero(v) { return Math.abs(Number(v) || 0) >= ZERO_EPS; }
+export function isNonZero(v) { return Math.abs(Number(v) || 0) >= (isPercent() ? 1e-12 : ZERO_EPS); }
 
 function groupByRole(accounts) {
   const byRole = new Map();
@@ -732,7 +790,9 @@ function changeLineHtml(total, prior) {
   if (!prior || total === null || total === undefined) return "";
   const d = total - prior.total;
   const pct = prior.total ? ` (${d < 0 ? "-" : "+"}${Math.abs(d / prior.total * 100).toFixed(1)}%)` : "";
-  const text = `${d < 0 ? "-" : "+"}${fmtMoney(Math.abs(d))}${pct}`;
+  const text = isPercent()
+    ? fmtSharePct(prior.total > 0 ? d / prior.total : null)
+    : `${d < 0 ? "-" : "+"}${fmtMoney(Math.abs(d))}${pct}`;
   return `<div class="pop-change${d < 0 ? " pop-neg" : ""}"><span>Change since ${escSvg(String(prior.date).slice(0, 10))}</span><span class="pop-val">${escSvg(text)}</span></div>`;
 }
 
@@ -767,10 +827,23 @@ export function investmentFlowRows(flows) {
   return { rows, total };
 }
 
+// The Flows card note's sentence about near-match pairs; a percent-only person has no review block and no dollars.
+export function nearMatchClause() {
+  return moneyView().allowed === "percent" ? "near-matching pairs are left to the owner to approve or deny"
+    : "pairs within $100 of each other are flagged above for you to approve or deny";
+}
+
+// A server-sent failure reason can quote amounts; a percent-only person is just told to ask the owner.
+export function priceErrorText(err) {
+  return moneyView().allowed === "percent" ? "see the owner" : (err || "unknown cause");
+}
+
 // Warning block for near-match investment-to-investment pairs (amounts within $100,
 // not equal) awaiting the user's decision. `items` is the log entry's
 // passthrough_review; each button carries the pair key for the decision POST.
+// Empty for a percent-only person: the text quotes dollar amounts.
 export function passthroughReviewHtml(items) {
+  if (moneyView().allowed === "percent") return "";
   if (!Array.isArray(items) || !items.length) return "";
   const rows = items.map(it => {
     const w = it.withdrawal || {}, d = it.deposit || {};
@@ -816,7 +889,7 @@ export function flowBarChartSvg(model) {
   }).join("");
   const svg = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" style="width:100%;max-width:100%;height:auto" role="group" aria-label="YTD net investment flows by account, bar chart">` +
     `<line x1="${zeroX}" y1="0" x2="${zeroX}" y2="${h - padB}" stroke="#999" stroke-width="1"/>` +
-    `<text x="${zeroX}" y="${h - padB + 14}" text-anchor="middle" style="font-size:10px">$0</text>${bars}</svg>`;
+    `<text x="${zeroX}" y="${h - padB + 14}" text-anchor="middle" style="font-size:10px">${isPercent() ? "0%" : "$0"}</text>${bars}</svg>`;
   return svg + dataTableFallbackHtml("YTD net investment flows by account",
     ["Account", "Net (withdrawal +)", "Withdrawn", "Contributed"],
     model.rows.map(r => [r.name, fmtMoney(r.net)]).map((row, i) => row.concat([fmtMoney(model.rows[i].toChecking), fmtMoney(model.rows[i].fromChecking)]))
@@ -830,7 +903,8 @@ export function flowBarChartSvg(model) {
 // summed here from the toggles so switching an account on/off needs no server round trip.
 // ---------------------------------------------------------------------------
 
-function round2(v) { return Math.round(v * 100) / 100; }
+// Percent-view values are ratios (a few thousandths), so they are not rounded to cents.
+function round2(v) { return isPercent() ? v : Math.round(v * 100) / 100; }
 
 export function hasMonarchBalances(balances) {
   return !!balances && Array.isArray(balances.dates) && balances.dates.length > 0
@@ -907,7 +981,8 @@ export function balancesFreshnessNote(freshness, today) {
   const now = today ? new Date(today + "T00:00:00") : new Date();
   const ageDays = ok && ok.latest_date ? Math.floor((now - new Date(ok.latest_date + "T00:00:00")) / 86400000) : null;
   if (last.status !== "ok") {
-    return `The latest Imported balances import was rejected (${last.detail || "unknown reason"}); showing balances through ${ok && ok.latest_date ? ok.latest_date : "no date"}.`;
+    const why = moneyView().allowed === "percent" ? "see the owner" : (last.detail || "unknown reason");
+    return `The latest Imported balances import was rejected (${why}); showing balances through ${ok && ok.latest_date ? ok.latest_date : "no date"}.`;
   }
   if (ageDays !== null && ageDays > 2) return `Imported balances were last updated ${ok.latest_date}.`;
   return "";
@@ -995,6 +1070,7 @@ export function flowYtdSummary(series, year) {
 
 export function fmtMoneySigned(v) {
   if (v === null || v === undefined) return "-";
+  if (moneyView().shown !== "dollars") return fmtAmount(v);
   return (v < 0 ? "-" : "") + "$" + Math.abs(Number(v)).toLocaleString(undefined, { maximumFractionDigits: 0 });
 }
 
@@ -1074,10 +1150,12 @@ export function flowPeriodSummary(points, label) {
 }
 
 // summary = {label, credits, debits, total} (flowPeriodSummary); a legacy {year, ...} reads "YYYY YTD".
+const fmtFlow = v => (isPercent() ? fmtSharePct(v) : fmtMoneySigned(v));
+
 export function flowSummaryHtml(summary) {
   if (!summary) return "";
   const heading = summary.label || `${summary.year} YTD`;
-  const tile = (label, value, cls) => `<div class="flow-stat ${cls}"><span class="flow-stat-label">${escSvg(label)}</span><span class="flow-stat-value">${escSvg(fmtMoneySigned(value))}</span></div>`;
+  const tile = (label, value, cls) => `<div class="flow-stat ${cls}"><span class="flow-stat-label">${escSvg(label)}</span><span class="flow-stat-value">${escSvg(fmtFlow(value))}</span></div>`;
   return `<div class="flow-summary" role="group" aria-label="Investment flows, ${escSvg(String(heading))}">` +
     `<div class="flow-year">${escSvg(String(heading))}</div>` +
     tile("Credits (into investments)", summary.credits, "flow-credit") +
@@ -1094,7 +1172,7 @@ export function flowLineChartSvg(series, opts) {
   const points = legacy
     ? series.map(p => ({ label: monthLabel(p.month), date: `${p.month}-01`, value: p.net }))
     : series.map(p => ({ label: p.label, date: p.date, value: p.net }));
-  return lineChartSvg(points, { color: "#0d9488", title: "Net Investment Contributions", interactive: true, granularity: legacy ? "month" : (opts.granularity || "month"), width: opts.width });
+  return lineChartSvg(points, { color: "#0d9488", title: "Net Investment Contributions", fmt: isPercent() ? fmtSharePct : undefined, interactive: true, granularity: legacy ? "month" : (opts.granularity || "month"), width: opts.width });
 }
 
 // Rollover for one flows point: net total on top, then only the accounts that moved money in the
@@ -1106,11 +1184,11 @@ export function flowRolloverHtml(point) {
     .filter(r => isNonZero(r.credits) || isNonZero(r.debits))
     .sort((p, q) => Math.abs(q.net) - Math.abs(p.net));
   const head = `<div class="pop-title">Net Investment Contributions - ${escSvg(point.label)}</div>`;
-  const total = `<div class="pop-total"><span>Net</span><span>${escSvg(fmtMoneySigned(point.net))}</span></div>`;
+  const total = `<div class="pop-total"><span>Net</span><span>${escSvg(fmtFlow(point.net))}</span></div>`;
   if (!rows.length) return head + total + `<div class="pop-hint">No transfers in this period.</div>`;
   const body = rows.map(r => {
-    const split = isNonZero(r.credits) && isNonZero(r.debits) ? ` (in ${fmtMoneySigned(r.credits)}, out ${fmtMoneySigned(r.debits)})` : "";
-    return `<div class="pop-row${r.net < 0 ? " pop-neg" : ""}"><span class="pop-name">${escSvg(r.name + split)}</span><span></span><span class="pop-val">${escSvg(fmtMoneySigned(r.net))}</span></div>`;
+    const split = isNonZero(r.credits) && isNonZero(r.debits) ? ` (in ${fmtFlow(r.credits)}, out ${fmtFlow(r.debits)})` : "";
+    return `<div class="pop-row${r.net < 0 ? " pop-neg" : ""}"><span class="pop-name">${escSvg(r.name + split)}</span><span></span><span class="pop-val">${escSvg(fmtFlow(r.net))}</span></div>`;
   }).join("");
   return head + total + body;
 }

@@ -32,7 +32,7 @@ from src.http_runtime.server import LocalHTTPServer, _configured_token  # noqa: 
 from src.http_runtime.wsgi_facade import Flask, Response, request  # noqa: E402
 from src.stores import SchemaVersionError  # noqa: E402
 
-from financial_trends_reporter import account_registry, balance_series, flows, live_snapshot, spending_window  # noqa: E402
+from financial_trends_reporter import account_registry, balance_series, flows, live_snapshot, percent_view, spending_window  # noqa: E402
 from financial_trends_reporter.access_routes import register_access  # noqa: E402
 from financial_trends_reporter.access_store import DB_FILENAME as ACCESS_DB_FILENAME, AccessStore  # noqa: E402
 from financial_trends_reporter.listeners import ListenerApp, check_funnel_target  # noqa: E402
@@ -73,7 +73,7 @@ def _parse_spending_window(args) -> tuple[date, date]:
 
 
 def create_app(retirement_system_dir: Path, log_path: Path | None = None, access_store: AccessStore | None = None,
-               sessions: SessionTable | None = None, clock=time.time) -> Flask:
+               sessions: SessionTable | None = None, clock=time.time, percent_basis=None) -> Flask:
     app = Flask("financial_trends_reporter", static_folder=str(_APP_ROOT / "frontend"))
     resolved_log_path = log_path or default_log_path(_APP_ROOT)
 
@@ -134,6 +134,14 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, access
         # The Spending card's breakdown panels (hover, pin, transactions), imported by index.html.
         return Response(
             (_APP_ROOT / "frontend" / "spending_dock.js").read_text(encoding="utf-8"),
+            content_type="text/javascript; charset=utf-8",
+        )
+
+    @app.route("/money_view.js", methods=["GET"])
+    def money_view_js():
+        # The one money formatter ($ or % of net worth) imported by charts.js, live_snapshot.js and index.html.
+        return Response(
+            (_APP_ROOT / "frontend" / "money_view.js").read_text(encoding="utf-8"),
             content_type="text/javascript; charset=utf-8",
         )
 
@@ -362,6 +370,7 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, access
         access_store or AccessStore(resolved_log_path.with_name(ACCESS_DB_FILENAME)),
         sessions or SessionTable(),
         clock=clock,
+        percent_basis=percent_basis or (lambda: percent_view.scale_basis(balances_db, read_history(resolved_log_path))),
     )
     return app
 

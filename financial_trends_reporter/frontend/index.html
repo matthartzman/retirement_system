@@ -9,6 +9,9 @@
   body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; padding: 24px; background: #f7f7f8; color: #1a1a1a; }
   @media (prefers-color-scheme: dark) { body { background: #14161a; color: #e8e8ea; } }
   h1 { font-size: 20px; margin: 0 0 4px; }
+  .title-row { display: flex; align-items: center; gap: 12px; }
+  #moneyToggle { border: 1px solid currentColor; background: transparent; color: inherit; border-radius: 6px; padding: 2px 10px; font-size: 13px; cursor: pointer; }
+  #moneyToggle[aria-pressed="true"] { background: #2563eb; border-color: #2563eb; color: #fff; }
   .sub { color: #666; font-size: 13px; margin-bottom: 16px; }
   .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 20px; flex-wrap: wrap; }
   .toolbar button { border: 1px solid #ccc; background: #fff; border-radius: 6px; padding: 6px 12px; font-size: 13px; cursor: pointer; }
@@ -29,6 +32,8 @@
   .acct-btn { border: 1px solid #ccc; background: transparent; color: inherit; border-radius: 6px; padding: 3px 10px; font-size: 12px; cursor: pointer; }
   .empty { color: #888; font-size: 13px; }
   #exitBtn { margin-left: auto; }
+  #peopleBtn { margin-left: auto; }
+  #peopleBtn + #exitBtn { margin-left: 0; }
   svg text { fill: currentColor; font-size: 12px; }
   .chart-dot { cursor: pointer; }
   .chart-dot:hover { r: 5; }
@@ -224,7 +229,7 @@
 </style>
 </head>
 <body>
-<h1>Financial Trends</h1>
+<div class="title-row"><h1>Financial Trends</h1><button type="button" id="moneyToggle" aria-pressed="false" title="Show amounts in dollars or as a percent of net worth" hidden>$ | %</button></div>
 <div class="sub">Four charts: Net Worth, Liquid Investments and Cash, Investment Net Flows, and Spending — one entry per weekday close. Net Worth and Liquid Investments and Cash use daily Imported account balances. The Time scope pulldown sets the dates every chart covers. The data updates automatically when this page opens.</div>
 <div class="toolbar" id="scopeBar">
   <div class="view-toggle" role="group" aria-label="View"><button type="button" data-view="trends" aria-pressed="true">Trends</button><button type="button" data-view="live" aria-pressed="false">Live Snapshot</button></div>
@@ -248,12 +253,12 @@
 <div id="balancesNote" class="price-note" role="status" style="display:none"></div>
 <div id="updateError" class="price-note" role="alert"><span id="updateErrorText"></span><button type="button" id="retryUpdate">Try again</button></div>
 <div class="grid">
-  <div class="card"><div class="card-head"><h2>Net Worth</h2><button type="button" class="acct-btn" data-acct-chart="networth" data-acct-title="Net Worth" aria-haspopup="dialog">Accounts ▾</button></div><div id="chartNetWorth"></div>
+  <div class="card"><div class="card-head"><h2>Net Worth</h2><button type="button" class="acct-btn" data-acct-chart="networth" data-acct-title="Net Worth" aria-haspopup="dialog">Accounts ▾</button></div><div class="card-period" id="subNetWorth"></div><div id="chartNetWorth"></div>
     <div class="note" id="noteNetWorth">Net worth = investments (live holdings) + annuities/pension + home, startup equity, cash and autos from the plan inputs, minus the mortgage (amortized from its plan-start balance) and any other liabilities. Home and other plan values are held at their plan-start figures, so day-to-day movement is mostly investments.</div></div>
-  <div class="card"><div class="card-head"><h2>Liquid Investments and Cash</h2><button type="button" class="acct-btn" data-acct-chart="holdings" data-acct-title="Liquid Investments and Cash" aria-haspopup="dialog">Accounts ▾</button></div><div id="chartHoldings"></div>
+  <div class="card"><div class="card-head"><h2>Liquid Investments and Cash</h2><button type="button" class="acct-btn" data-acct-chart="holdings" data-acct-title="Liquid Investments and Cash" aria-haspopup="dialog">Accounts ▾</button></div><div class="card-period" id="subHoldings"></div><div id="chartHoldings"></div>
     <div class="note" id="noteHoldings"></div></div>
-  <div class="card"><div class="card-head"><h2 id="flowsTitle">Investment Net Flows</h2><button type="button" class="acct-btn" id="flowsAcctBtn" data-acct-chart="flows" data-acct-title="Investment Net Flows" aria-haspopup="dialog" style="display:none">Accounts ▾</button></div><div id="passthroughReview"></div><div id="flowSummary"></div><div id="chartInvFlows"></div>
-    <div class="note" id="noteFlows">Year-to-date transfers between each investment account and checking, as of the latest snapshot. A net withdrawal (money moved to checking) is positive and extends right; net contributions, including 401k employee deferrals and employer match, are negative and extend left. Money moved from one investment account to another through checking is not counted. A withdrawal and a same-amount deposit in different investment accounts within 30 days are matched automatically; pairs within $100 of each other are flagged above for you to approve or deny; and any transaction tagged "invest-to-invest" (or noted "pass-through") is excluded. Decisions apply right away: the page updates the data after you approve or deny.</div></div>
+  <div class="card"><div class="card-head"><h2 id="flowsTitle">Investment Net Flows</h2><button type="button" class="acct-btn" id="flowsAcctBtn" data-acct-chart="flows" data-acct-title="Investment Net Flows" aria-haspopup="dialog" style="display:none">Accounts ▾</button></div><div id="passthroughReview"></div><div id="flowSummary"></div><div class="card-period" id="flowPctNote"></div><div id="chartInvFlows"></div>
+    <div class="note" id="noteFlows">Year-to-date transfers between each investment account and checking, as of the latest snapshot. A net withdrawal (money moved to checking) is positive and extends right; net contributions, including 401k employee deferrals and employer match, are negative and extend left. Money moved from one investment account to another through checking is not counted. A withdrawal and a same-amount deposit in different investment accounts within 30 days are matched automatically; near-matching pairs are flagged above for you to approve or deny; and any transaction tagged "invest-to-invest" (or noted "pass-through") is excluded. Decisions apply right away: the page updates the data after you approve or deny.</div></div>
   <div class="card"><div class="card-head"><h2>Spending</h2><label class="fy-toggle"><input type="checkbox" id="fullYearToggle"> Show full-year budget</label></div><div class="card-period" id="spendingPeriod"></div>
     <div class="spend-fallback" id="spendingFallback" role="status" style="display:none"></div><div id="chartCategories" aria-live="polite"></div>
     <div class="note" id="noteSpending">Totals follow the Spending Analysis mapping and include taxes. Markers: same period last year, budget for this period, and full-year budget. Hover a row label to see its categories (click to pin), then hover a category to see its merchants.</div></div>
@@ -273,8 +278,9 @@
 // Finding QUA-302 (Wave 6 item W6-11): the chart-rendering logic below used
 // to be defined inline, right here, with no module boundary. It now lives
 // in ./charts.js, importable and testable directly.
-import { fmtMoney, escSvg, filterByTimeframe, aggregateByGranularity, granularityForTimeframe, labelForDate, scopeRange, parseSavedScope, dataTableFallbackHtml, lineChartSvg, barChartSvg, investmentFlowRows, flowBarChartSvg, passthroughReviewHtml, rolloverModel, rolloverHtml, rolloverChange, flowRolloverHtml, hasMonarchBalances, buildMonarchRows, truncateAllTime, ALL_TIME_START, monarchRolloverModel, balancesFreshnessNote, accountToggleHtml, flowIncludedAccounts, flowSeries, flowMonthlyRangeSeries, flowPeriodSummary, flowSummaryHtml, flowLineChartSvg, updateDecision, spendingUrl, spendingModelFromWindow, spendingModelFromSnapshot, latestOnly, spendingNoteText, setShowFullYear, fullYearDefault } from "./charts.js";
+import { fmtMoney, toPercentChange, toShareOfTotal, flowsAsShareOfLiquid, setSpendShareBase, escSvg, filterByTimeframe, aggregateByGranularity, granularityForTimeframe, labelForDate, scopeRange, parseSavedScope, dataTableFallbackHtml, lineChartSvg, barChartSvg, investmentFlowRows, flowBarChartSvg, passthroughReviewHtml, nearMatchClause, priceErrorText, rolloverModel, rolloverHtml, rolloverChange, flowRolloverHtml, hasMonarchBalances, buildMonarchRows, truncateAllTime, ALL_TIME_START, monarchRolloverModel, balancesFreshnessNote, accountToggleHtml, flowIncludedAccounts, flowSeries, flowMonthlyRangeSeries, flowPeriodSummary, flowSummaryHtml, flowLineChartSvg, updateDecision, spendingUrl, spendingModelFromWindow, spendingModelFromSnapshot, latestOnly, spendingNoteText, setShowFullYear, fullYearDefault } from "./charts.js";
 import { initSpendingDock } from "./spending_dock.js";
+import { setMoneyView, moneyView, onMoneyViewChange, netWorthScale, fmtSharePct } from "./money_view.js";
 import { formatElapsed, recordPopupRuntime, averageRuntimeText, loadPopupRuntimeHistory } from "/shared/runtime_history.js";
 
 let history = [];
@@ -329,7 +335,7 @@ function renderPriceNote() {
   const latest = history[history.length - 1];
   const pricing = latest && latest.pricing;
   if (pricing && pricing.stale && !hasMonarchBalances(balances)) {
-    el.textContent = `Prices for the ${latest.as_of_date} snapshot could not be refreshed (${pricing.error || "unknown cause"}), so Liquid Investments and Cash and Net worth reflect older prices.`;
+    el.textContent = `Prices for the ${latest.as_of_date} snapshot could not be refreshed (${priceErrorText(pricing.error)}), so Liquid Investments and Cash and Net worth reflect older prices.`;
     el.style.display = "block";
   } else {
     el.style.display = "none";
@@ -357,6 +363,11 @@ function seriesRows() {
 
 // The flows line follows the Time scope: the daily ledger bucketed by day/week/month, or --
 // for log entries written before the daily ledger existed -- whole months overlapping the range.
+// The first finite Liquid value in the Time scope, the base for percent forms of the flows.
+function liquidAtScopeStart() {
+  const first = chartRows.map(r => r.holdings && r.holdings.current_value).find(v => v !== null && v !== undefined && Number.isFinite(Number(v)));
+  return first === undefined ? null : Number(first);
+}
 function flowSeriesForPage() {
   if (!flowsData) return null;
   const hasDaily = flowsData.daily && Object.keys(flowsData.daily).length;
@@ -365,10 +376,19 @@ function flowSeriesForPage() {
   const included = flowIncludedAccounts(flowsData.accounts, balances);
   const range = currentRange();
   const granularity = hasDaily ? range.granularity : "month";
-  const series = hasDaily
+  let series = hasDaily
     ? flowSeries(flowsData.daily, included, range, granularity)
     : flowMonthlyRangeSeries(flowsData.monthly, included, range);
-  return { series, granularity, daily: !!hasDaily, summary: flowPeriodSummary(series, range.label) };
+  let summary = flowPeriodSummary(series, range.label);
+  let liquidNull = false;
+  if (moneyView().shown === "percent") {
+    // Percent: flows as a share of the liquid balance on the first day of the Time scope.
+    const liquid = liquidAtScopeStart();
+    liquidNull = !(liquid > 0);
+    series = flowsAsShareOfLiquid(series, liquid);
+    summary = flowsAsShareOfLiquid([summary], liquid)[0];
+  }
+  return { series, granularity, daily: !!hasDaily, summary, liquidNull };
 }
 
 function renderFlows(latest) {
@@ -378,10 +398,14 @@ function renderFlows(latest) {
   if (flows) {
     document.getElementById("flowSummary").innerHTML = flowSummaryHtml(flows.summary);
     flowPoints = flows.series;
+    const pctNote = document.getElementById("flowPctNote");
+    pctNote.textContent = moneyView().shown !== "percent" ? ""
+      : flows.liquidNull ? "Percent isn't shown: the liquid balance was zero or negative at the start of this period."
+      : "Flows as a share of the liquid balance at the start of this period.";
     document.getElementById("chartInvFlows").innerHTML = flowLineChartSvg(flows.series, { width: boxWidth("chartInvFlows"), granularity: flows.granularity });
     document.getElementById("noteFlows").textContent = "Net contributions over the selected time scope: money moved from checking into investment accounts (credits) minus money withdrawn to checking (debits), totalled above for the period. Like the other charts, the line shows one point per day for 1 Week and 1 Month, per week for 3 and 6 Months, and per month for longer scopes; a point above zero added to investments. " +
       (flows.daily ? "" : "This snapshot has only monthly figures, so short scopes show the whole months they touch until the next update. ") +
-      "Investment-to-investment transfers are matched and excluded as before (pairs within $100 of each other are flagged above for you to approve or deny). Accounts follow the Flows toggles under Accounts ▾; decisions apply right away.";
+      `Investment-to-investment transfers are matched and excluded as before (${nearMatchClause()}). Accounts follow the Flows toggles under Accounts ▾; decisions apply right away.`;
     return;
   }
   // Older logs without the monthly ledger keep the YTD bar chart.
@@ -416,12 +440,25 @@ function render() {
   hideRollover();
   // label = the full date (tooltips, data table); date drives the shorter x-axis labels.
   const pointsOf = (pick) => rows.map(r => ({ label: labelForDate(r.as_of_date, granularity), date: String(r.as_of_date).slice(0, 10), value: pick(r) }));
-  document.getElementById("chartNetWorth").innerHTML = lineChartSvg(
-    pointsOf(r => r.net_worth && r.net_worth.total), { color: "#16a34a", title: "Net Worth", interactive: true, granularity, width: boxWidth("chartNetWorth") }
-  );
-  document.getElementById("chartHoldings").innerHTML = lineChartSvg(
-    pointsOf(r => r.holdings && r.holdings.current_value), { color: "#2563eb", title: "Liquid Investments and Cash", interactive: true, granularity, width: boxWidth("chartHoldings") }
-  );
+  const percent = moneyView().shown === "percent";
+  // Percent: change since the first day in the Time scope; no base (zero or negative) says so instead.
+  const lineCard = (pick, boxId, subId, what, extra) => {
+    let points = pointsOf(pick), fmt;
+    const sub = document.getElementById(subId);
+    sub.textContent = "";
+    if (percent) {
+      const pc = toPercentChange(points);
+      const baseDate = pc.base && points.find(p => p.label === pc.base.label).date;
+      points = pc.points; fmt = fmtSharePct;
+      sub.textContent = pc.base
+        ? `% change since ${new Date(baseDate + "T00:00:00").toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}`
+        : `Percent change isn't shown: ${what} was zero or negative at the start of this period.`;
+      if (!pc.base) { document.getElementById(boxId).innerHTML = ""; return; }
+    }
+    document.getElementById(boxId).innerHTML = lineChartSvg(points, { ...extra, fmt, interactive: true, granularity, width: boxWidth(boxId) });
+  };
+  lineCard(r => r.net_worth && r.net_worth.total, "chartNetWorth", "subNetWorth", "net worth", { color: "#16a34a", title: "Net Worth" });
+  lineCard(r => r.holdings && r.holdings.current_value, "chartHoldings", "subHoldings", "the liquid balance", { color: "#2563eb", title: "Liquid Investments and Cash" });
   // The remaining cards read the latest plan snapshot, whatever the imported rows are.
   const latest = history[history.length - 1];
   renderFlows(latest);
@@ -442,6 +479,7 @@ function drawSpending(model, emptyText) {
     categories.push(["Total", model.total, { kind: "total", ...model.totalDetail, ...model.totalMarkers }]);
     for (const r of model.rows) categories.push([r.name, r.amount, r]);
   }
+  setSpendShareBase(model ? model.rows.map(r => r.amount) : []);
   document.getElementById("chartCategories").innerHTML = categories.length
     ? barChartSvg(categories, { width: boxWidth("chartCategories") })
     : `<div class="empty">${escSvg(emptyText)}</div>`;
@@ -862,7 +900,32 @@ if (typeof ResizeObserver !== "undefined") {
   for (const id of FITTED_CHARTS) observer.observe(document.getElementById(id));
 }
 
-loadHistory().then(() => updateData(false));
+// Money view: who is looking decides what the amounts mean. A percent person's data is already scaled
+// (scale 1); the owner's own page divides by today's net worth from /api/balances.
+const MONEY_VIEW_KEY = "trends.moneyView";
+async function initMoneyView() {
+  let allowed = "both";
+  try { allowed = (await (await fetch("/api/whoami")).json()).money_view || "both"; } catch (err) { /* keep both */ }
+  let scale = 1;
+  if (allowed !== "percent") {
+    try { scale = netWorthScale(await (await fetch("/api/balances")).json()); } catch (err) { /* percent view shows n/a */ }
+  }
+  let saved = null;
+  try { saved = localStorage.getItem(MONEY_VIEW_KEY); } catch (err) { /* storage blocked */ }
+  setMoneyView({ allowed, shown: saved === "percent" ? "percent" : "dollars", scale });
+  const btn = document.getElementById("moneyToggle");
+  const sync = () => btn.setAttribute("aria-pressed", String(moneyView().shown === "percent"));
+  sync();
+  if (allowed !== "both") return;
+  btn.hidden = false;
+  btn.addEventListener("click", () => {
+    const next = moneyView().shown === "percent" ? "dollars" : "percent";
+    try { localStorage.setItem(MONEY_VIEW_KEY, next); } catch (err) { /* the choice just won't persist */ }
+    setMoneyView({ ...moneyView(), shown: next });
+  });
+  onMoneyViewChange(() => { sync(); render(); });
+}
+initMoneyView().then(loadHistory).then(() => updateData(false));
 </script>
 <script type="module" src="./live_snapshot.js"></script>
 </body>

@@ -3,6 +3,7 @@
 // (or Enter/Space on the focused label) pins a panel so hovering elsewhere no longer replaces it; Escape,
 // the Close button or a click outside the chart and panels closes everything. Ticks and bars open nothing.
 // Hovering a merchant in the right panel loads its transactions into a third panel after a short delay.
+import { moneyView } from "./money_view.js";
 import { escSvg, detailPopupHtml, categoryListHtml, transactionsUrl, transactionsPanelHtml } from "./charts.js";
 
 export const HOVER_DELAY_MS = 200;
@@ -99,9 +100,13 @@ export function initSpendingDock({ doc, win, getModel, getRange }) {
     markSelected(idx);
     dock.classList.add("open");
   }
+  // A percent-only person never sees merchants or transactions: the server already collapses them, and
+  // the one "All merchants" row would only invite a drill-down that has nothing behind it.
+  const percentOnly = () => moneyView().allowed === "percent";
   function showMerchants(idx) {
     const cat = popRow && popRow.categories && popRow.categories[idx];
     if (!cat) return;
+    if (percentOnly()) { popup2.innerHTML = ""; popCat = idx; return; }
     if (idx !== popCat) clearTxns();
     popCat = idx;
     popup2.innerHTML = dockBar(catPinned, cat.name) + detailPopupHtml(`${cat.name} - merchants`, cat.merchants, undefined, { indexAttr: "merchant" });
@@ -143,7 +148,7 @@ export function initSpendingDock({ doc, win, getModel, getRange }) {
   });
   popup2.addEventListener("mouseover", (e) => {
     const idx = merchantIndex(e.target);
-    if (idx < 0 || merchantPinned) return;
+    if (idx < 0 || merchantPinned || percentOnly()) return;
     if (txn && txn.idx === idx && (txnCache.has(txn.url) || inflight.has(txn.url))) return;   // a failed load retries
     cancelHover();
     hoverTimer = win.setTimeout(() => { hoverTimer = null; loadMerchant(idx); }, HOVER_DELAY_MS);
@@ -155,7 +160,7 @@ export function initSpendingDock({ doc, win, getModel, getRange }) {
   });
   function pinMerchant(e) {
     const idx = merchantIndex(e.target);
-    if (idx < 0) return false;
+    if (idx < 0 || percentOnly()) return false;
     cancelHover(); merchantPinned = true; loadMerchant(idx);
     return true;
   }

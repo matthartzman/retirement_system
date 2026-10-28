@@ -8,9 +8,11 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
+from typing import Callable
 
 from src.http_runtime.wsgi_facade import Response, request
 
+from . import percent_view
 from .access_store import AccessStore
 from .listeners import current_listener, has_proxy_headers, is_loopback_host
 from .sessions import SessionTable
@@ -32,6 +34,11 @@ SIGNIN_HTML_PATH = Path(__file__).resolve().parent / "frontend" / "signin.html"
 OWNER_ONLY_PREFIXES = ("/api/people", "/api/activity", "/access.js")
 PUBLIC_REMOTE = {("GET", "/signin"), ("POST", "/api/signin")}
 MUST_CHANGE_ALLOWED = {"/api/change-password", "/api/signout", "/api/whoami"}
+# Percent-only people: this one route is refused, every other /api/ JSON body is scaled unless listed here.
+WITHHELD_FOR_PERCENT = {"/api/spending/transactions"}
+PASS_THROUGH_FOR_PERCENT = {"/api/whoami", "/api/ping", "/api/view", "/api/signin", "/api/signout", "/api/change-password",
+                            "/api/run-status", "/api/run-cancel", "/api/passthrough-decision", "/api/account-prefs"}
+PERCENT_MARK = {"mode": "percent", "basis": "net_worth_today"}
 
 
 def _json(payload, status=200, headers=None) -> Response:
@@ -41,7 +48,8 @@ def _json(payload, status=200, headers=None) -> Response:
     return resp
 
 
-def register_access(app, store: AccessStore, sessions: SessionTable, clock=time.time) -> None:
+def register_access(app, store: AccessStore, sessions: SessionTable, clock=time.time,
+                    percent_basis: Callable[[], float | None] = lambda: None) -> None:
     def _log(event: str, details: str = "", person: str | None = None) -> None:
         env = request.environ
         source = str(request.headers.get("X-Forwarded-For", "") or "").split(",")[0].strip() if current_listener() == "remote" else ""
@@ -97,8 +105,35 @@ def register_access(app, store: AccessStore, sessions: SessionTable, clock=time.
             return resp
         if user["must_change"] and path.startswith("/api/") and path not in MUST_CHANGE_ALLOWED:
             return _json({"success": False, "must_change": True, "error": "choose a new password first"}, 409)
+        if user["money_view"] == "percent" and path in WITHHELD_FOR_PERCENT:
+            return _json({"success": False, "error": "Not available in the percent view."}, 403)
         _log_action()
         return None
+
+    @app.errorhandler(Exception)
+    def _unhandled(exc):
+        # Same body the facade would give, but routed through after_request so a percent person never sees its text.
+        message = f"{exc.__class__.__name__}: {exc}" if str(exc) else exc.__class__.__name__
+        return _json({"success": False, "error": message}, 500)
+
+    @app.after_request
+    def _percent_view(resp):
+        user = request.environ.get("user")
+        path = request.path
+        if (current_listener() != "remote" or not user or user["money_view"] != "percent"
+                or not path.startswith("/api/") or path in PASS_THROUGH_FOR_PERCENT or path in WITHHELD_FOR_PERCENT
+                or not resp.mimetype.endswith("json")):
+            return resp
+        if resp.status_code >= 400:
+            return _json({"success": False, "error": "Something went wrong. Try again later."}, resp.status_code)
+        k = percent_basis()
+        if k is None:
+            return _json({"success": False, "error": "The percent view is not available until account balances are imported."}, 503)
+        # resp's body may be a string shared through a cache: parse into a new structure, never edit it.
+        scaled = percent_view.scale_payload(percent_view.strip_detail(path, json.loads(resp.get_data(as_text=True))), k)
+        if isinstance(scaled, dict):
+            scaled["money_view"] = dict(PERCENT_MARK)
+        return _json(scaled, resp.status_code)
 
     @app.route("/signin", methods=["GET"])
     def signin_page():
@@ -148,6 +183,7 @@ def register_access(app, store: AccessStore, sessions: SessionTable, clock=time.
             "listener": current_listener(),
             "name": request.environ.get("person", OWNER_NAME),
             "must_change": bool(user and user["must_change"]),
+            "money_view": user["money_view"] if user else "both",
         })
 
     @app.route("/api/change-password", methods=["POST"])
@@ -199,7 +235,8 @@ def register_access(app, store: AccessStore, sessions: SessionTable, clock=time.
         body = request.get_json(silent=True) or {}
         try:
             uid = store.add_user(str(body.get("display_name") or ""), str(body.get("username") or ""),
-                                 str(body.get("temp_password") or ""), now=clock())
+                                 str(body.get("temp_password") or ""), now=clock(),
+                                 money_view=str(body.get("money_view") or "percent"))
         except ValueError as exc:
             return _json({"success": False, "error": str(exc)}, 400)
         _log("person added", str(body.get("username") or "").strip().lower())
@@ -224,6 +261,19 @@ def register_access(app, store: AccessStore, sessions: SessionTable, clock=time.
             return _json({"success": False, "error": str(exc)}, 400)
         sessions.end_user(user["id"])
         _log("password reset", user["username"])
+        return _json({"success": True})
+
+    @app.route("/api/people/view", methods=["POST"])
+    def set_person_view():
+        user, body = _person_from_body()
+        if user is None:
+            return _json({"success": False, "error": "no such person"}, 404)
+        money_view = str(body.get("money_view") or "")
+        try:
+            store.set_money_view(user["id"], money_view)
+        except ValueError as exc:
+            return _json({"success": False, "error": str(exc)}, 400)
+        _log("view setting", f"{user['username']} {money_view}")
         return _json({"success": True})
 
     @app.route("/api/people/delete", methods=["POST"])

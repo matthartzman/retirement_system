@@ -3,6 +3,8 @@
 // and the Refresh button in the browser. It runs as its own module so the Trends script is untouched:
 // the toggle only switches body.live-mode, and CSS hides the trend cards and the time scope.
 
+import { moneyView, fmtAmount, onMoneyViewChange } from "./money_view.js";
+
 export const VIEW_KEY = "trendsView_v1";
 export const POLL_MS = 60000;
 const POLLING_STATES = new Set(["pre", "open", "post"]);
@@ -22,6 +24,7 @@ function esc(value) {
 
 export function fmtUsd(v) {
   if (v === null || v === undefined || Number.isNaN(Number(v))) return DASH;
+  if (moneyView().shown !== "dollars") return fmtAmount(v);
   const n = Number(v);
   return (n < 0 ? "-" : "") + "$" + Math.abs(n).toLocaleString("en-US", { maximumFractionDigits: 0 });
 }
@@ -82,6 +85,7 @@ function cells(r) {
 
 export function fmtUsd2(v) {
   if (v === null || v === undefined || Number.isNaN(Number(v))) return DASH;
+  if (moneyView().shown !== "dollars") return fmtAmount(v);
   const n = Number(v);
   return (n < 0 ? "-" : "") + "$" + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
@@ -220,7 +224,9 @@ function taxHtml(tax) {
   const body = lines.map(([label, base, t, rate]) =>
     `<tr><th scope="row">${esc(label)}</th><td class="num">${fmtUsd(base)}</td><td class="num">${rate === null || rate === undefined ? DASH : fmtPct(rate, 1)}</td><td class="num">${fmtUsd(t)}</td></tr>`).join("");
   const d = tax.ltcg_detail;
-  const how = planner
+  const how = moneyView().allowed === "percent"
+    ? `<p class="note">Estimated with the Retirement Planner's tax method applied to today's balances: pre-tax money taxed as ordinary income, taxable-account gains from the lots' cost basis. Amounts are shown as a percent of net worth.</p>`
+    : planner
     ? `<p class="note">Same method as the Retirement Planner's after-tax figures, applied to today's balances: pre-tax money at the heirs' 10-year bracket rate${tax.rate_source === "settings" ? " (overridden in live_snapshot_settings.json)" : ""}; taxable-account gains${d ? ` (federal ${fmtUsd(d.federal)}, NIIT ${fmtUsd(d.niit)}, state ${fmtUsd(d.state)})` : ""} from the lots' cost basis with no step-up, since nobody has died yet. Assumes no other income. Flat 25% / 15% rates would give ${fmtUsd(tax.flat_total)} (${fmtUsd(tax.total - tax.flat_total)} different). The Planner's report figure is for the end of the plan, so it will differ.</p>`
     : `<p class="note">Flat rates (the Planner's plan could not be read): ordinary income at ${fmtPct(tax.pre_tax_rate, 0)}, taxable-account gains at ${fmtPct(tax.ltcg_rate, 0)}. An estimate, not a tax calculation.</p>`;
   return `<div class="table-wrap"><table class="live-table simple">${head}<tbody>${body}</tbody></table></div>` + how + missing;
@@ -251,7 +257,7 @@ export function liveViewHtml(data) {
   const flows = L.checking_net_flows === null || L.checking_net_flows === undefined ? ""
     : ` Net transfers from checking this year: ${fmtUsd(L.checking_net_flows)} (for information).`;
   const liquid = `<div class="card live-card"><h2>Liquid investments</h2>${liquidTable("Asset class", L.by_class, L)}`
-    + `<h3>Equity by sub-class</h3>${liquidTable("Sub-class", L.by_equity_subclass, null)}${reconciliationHtml(data.reconciliation)}`
+    + `<h3>Equity by sub-class</h3>${liquidTable("Sub-class", L.by_equity_subclass, null)}${moneyView().allowed === "percent" ? "" : reconciliationHtml(data.reconciliation)}`
     + `<p class="note">Start = 12/31 value of lots held then. Bought since = lots bought after 12/31, at purchase price; reinvested dividends count as gain. Return % weights new money by how long it was invested (Modified Dietz). Gains on positions sold this year are not included.${flows}</p></div>`;
   const nl = data.non_liquid;
   const nonLiquid = `<details class="live-section"><summary>Non-liquid assets <b>${fmtUsd(nl.total)}</b> <span class="muted">imported balances, ${esc(nl.as_of || "")}</span></summary>`
@@ -351,6 +357,8 @@ export function initLiveView(doc = document, win = window) {
     if (view === "live" && Date.now() - lastLoad >= POLL_MS) { if (!data) render(); load(); }
   }
 
+  // The $ | % toggle repaints the figures now; the next poll would otherwise leave the old form up.
+  onMoneyViewChange(() => { if (data) render(); });
   buttons.forEach((b) => b.addEventListener("click", () => setView(b.dataset.view)));
   doc.getElementById("liveRefresh").addEventListener("click", () => load(true));
   out.addEventListener("click", (e) => {

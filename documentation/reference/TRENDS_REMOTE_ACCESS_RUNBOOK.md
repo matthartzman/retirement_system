@@ -30,6 +30,20 @@ Design: `documentation/future/superpowers/plans/2026-10-27-trends-remote-access-
 
 Open http://127.0.0.1:5057 on the PC, click **People & Activity**, **Add person…**, and give each person a username and a temporary password (10+ characters). They are made to choose their own at first sign-in. Send the link and the temporary password by whatever channel you trust (not both in one message, ideally).
 
+### 4. Choose what each person sees: $ / % / Both
+
+Each person has a **money view** setting in People & Activity (the Add person dialog and the person's row):
+
+- **%** (the default for new people): amounts appear only as percentages. Account balances and spending are shown as a percent of net worth, the Net Worth and Liquid charts as percent change since the start of the scope, spending as a share of total spending, and flows as a share of the liquid balance. Their data is scaled on the server before it leaves the PC, so no dollar figure is sent to their device.
+- **$**: dollars only, as on the PC.
+- **Both**: dollars, with a **$ | %** toggle in the page header to switch.
+
+A %-only person does **not** see merchant detail, individual transactions or the reconciliation section of Live Snapshot, and the transaction list route answers 403 for them. Notes that quote amounts (for example the investment-transfer review) are left out or reworded.
+
+Changing a person's setting applies on their next tap; they do not need to sign in again.
+
+Adding any new `/api/` route fails `tests/test_trends_percent_view_leak_guard_regression.py` until the route is classified (scaled, passed through, withheld or owner-only), so a new route cannot leak dollars to a %-only person by accident.
+
 ## Day to day
 
 - **Stop the server:** `financial_trends_reporter\tools\launchers\stop_trends_server.ps1`. **Restart:** `Start-ScheduledTask -TaskName FinancialTrendsReporter_Server`.
