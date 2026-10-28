@@ -97,8 +97,8 @@ describe("flowSeries (daily ledger bucketed by the scope)", () => {
   test("day buckets: one per calendar day in [from, to], empty days are zero", () => {
     const s = flowSeries(DAILY, BOTH, { from: "2026-09-27", to: "2026-10-02" }, "day");
     assert.deepEqual(s.map(p => p.key), ["2026-09-27", "2026-09-28", "2026-09-29", "2026-09-30", "2026-10-01", "2026-10-02"]);
-    assert.deepEqual(s[0], { key: "2026-09-27", date: "2026-09-27", label: "Sun, Sep 27, 2026", credits: 0, debits: 0, net: 0 });
-    assert.deepEqual(s[4], { key: "2026-10-01", date: "2026-10-01", label: "Thu, Oct 1, 2026", credits: 10, debits: 40, net: -30 });
+    assert.deepEqual(s[0], { key: "2026-09-27", date: "2026-09-27", label: "Sun, Sep 27, 2026", credits: 0, debits: 0, net: 0, byAccount: {} });
+    assert.deepEqual(s[4], { key: "2026-10-01", date: "2026-10-01", label: "Thu, Oct 1, 2026", credits: 10, debits: 40, net: -30, byAccount: s[4].byAccount });
     assert.equal(s[1].net, 100);
   });
 

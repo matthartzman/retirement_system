@@ -718,10 +718,28 @@ export function rolloverModel(row, kind) {
   };
 }
 
+// Change from the prior data point: {date, total} of the point before this one on the chart, or null.
+export function rolloverChange(rows, i, kind) {
+  const value = r => (kind === "investments" ? r.holdings && r.holdings.current_value : r.net_worth && r.net_worth.total);
+  for (let j = i - 1; j >= 0; j--) {
+    const v = rows[j] && value(rows[j]);
+    if (v !== null && v !== undefined) return { date: rows[j].as_of_date, total: v };
+  }
+  return null;
+}
+
+function changeLineHtml(total, prior) {
+  if (!prior || total === null || total === undefined) return "";
+  const d = total - prior.total;
+  const pct = prior.total ? ` (${d < 0 ? "-" : "+"}${Math.abs(d / prior.total * 100).toFixed(1)}%)` : "";
+  const text = `${d < 0 ? "-" : "+"}${fmtMoney(Math.abs(d))}${pct}`;
+  return `<div class="pop-change${d < 0 ? " pop-neg" : ""}"><span>Change since ${escSvg(String(prior.date).slice(0, 10))}</span><span class="pop-val">${escSvg(text)}</span></div>`;
+}
+
 export function rolloverHtml(model) {
   if (!model) return "";
   const head = `<div class="pop-title">${escSvg(model.title)} - ${escSvg(model.date)}</div>`;
-  const total = `<div class="pop-total"><span>${escSvg(model.title)}</span><span>${escSvg(fmtMoney(model.total))}</span></div>`;
+  const total = `<div class="pop-total"><span>${escSvg(model.title)}</span><span>${escSvg(fmtMoney(model.total))}</span></div>` + changeLineHtml(model.total, model.prior);
   if (!model.groups.length) {
     return head + total + `<div class="pop-hint">${escSvg(model.emptyNote || "No per-account detail was logged for this date.")}</div>`;
   }
@@ -731,7 +749,7 @@ export function rolloverHtml(model) {
     `<div class="pop-row pop-sub"><span class="pop-name">Subtotal</span><span></span><span class="pop-val">${escSvg(fmtMoney(g.subtotal))}</span></div></div>`).join("");
   const lines = model.lines.map(([n, v]) =>
     `<div class="pop-row${v < 0 ? " pop-neg" : ""}"><span class="pop-name">${escSvg(n)}</span><span></span><span class="pop-val">${escSvg(fmtMoney(v))}</span></div>`).join("");
-  return head + groups + lines + total;
+  return head + total + groups + lines;
 }
 
 // Rows for the investment-flows chart, from a log entry's
@@ -984,9 +1002,15 @@ export function fmtMoneySigned(v) {
 // A point per bucket of the selected scope: {key, date, label, credits, debits, net}. `label` is
 // the full text (tooltips, screen-reader table) from labelForDate, so the flows chart reads like
 // the other charts; `date` drives the fitted x-axis.
-function flowPoint(key, date, granularity, credits, debits) {
-  return { key, date, label: labelForDate(date, granularity), credits: round2(credits), debits: round2(debits), net: round2(credits - debits) };
+function flowPoint(key, date, granularity, credits, debits, byAccount) {
+  return { key, date, label: labelForDate(date, granularity), credits: round2(credits), debits: round2(debits), net: round2(credits - debits), byAccount: byAccount || {} };
 }
+
+const addAccountFlow = (byAccount, account, credits, debits) => {
+  const a = byAccount[account] || (byAccount[account] = { credits: 0, debits: 0 });
+  a.credits += credits;
+  a.debits += debits;
+};
 
 // Sums the daily ledger ({account: {"YYYY-MM-DD": {to_checking, from_checking}}}) for the
 // included accounts into the scope's buckets: day = every calendar day in [from, to]; week = ISO
@@ -1007,17 +1031,18 @@ export function flowSeries(daily, included, range, granularity) {
   const buckets = new Map();
   for (let d = from; d <= to; d = addDaysStr(d, 1)) {
     const k = keyOf(d);
-    if (!buckets.has(k)) buckets.set(k, { date: gran === "month" ? `${k}-01` : d, credits: 0, debits: 0 });
+    if (!buckets.has(k)) buckets.set(k, { date: gran === "month" ? `${k}-01` : d, credits: 0, debits: 0, byAccount: {} });
   }
-  for (const [, ds] of all) {
+  for (const [account, ds] of all) {
     for (const [d, c] of Object.entries(ds)) {
       if (d < from || d > to || !c) continue;
       const b = buckets.get(keyOf(d));
       b.credits += c.from_checking || 0;
       b.debits += c.to_checking || 0;
+      addAccountFlow(b.byAccount, account, c.from_checking || 0, c.to_checking || 0);
     }
   }
-  return Array.from(buckets, ([k, b]) => flowPoint(k, b.date, gran, b.credits, b.debits));
+  return Array.from(buckets, ([k, b]) => flowPoint(k, b.date, gran, b.credits, b.debits, b.byAccount));
 }
 
 // Fallback for log entries without the daily ledger: the monthly ledger, keeping every whole
@@ -1029,9 +1054,15 @@ export function flowMonthlyRangeSeries(monthly, included, range) {
   const to = range && parseYmd(range.to) ? String(range.to).slice(0, 7) : series[series.length - 1].month;
   if (from > to) return [];
   const byMonth = new Map(series.map(p => [p.month, p]));
+  const chosen = new Set(included || []);
   return monthsBetween(from, to).map(m => {
     const p = byMonth.get(m);
-    return flowPoint(m, `${m}-01`, "month", p ? p.credits : 0, p ? p.debits : 0);
+    const byAccount = {};
+    for (const [account, ms] of Object.entries(monthly || {})) {
+      const c = chosen.has(account) && ms[m];
+      if (c) addAccountFlow(byAccount, account, c.from_checking || 0, c.to_checking || 0);
+    }
+    return flowPoint(m, `${m}-01`, "month", p ? p.credits : 0, p ? p.debits : 0, byAccount);
   });
 }
 
@@ -1063,7 +1094,25 @@ export function flowLineChartSvg(series, opts) {
   const points = legacy
     ? series.map(p => ({ label: monthLabel(p.month), date: `${p.month}-01`, value: p.net }))
     : series.map(p => ({ label: p.label, date: p.date, value: p.net }));
-  return lineChartSvg(points, { color: "#0d9488", title: "Net Investment Contributions", granularity: legacy ? "month" : (opts.granularity || "month"), width: opts.width });
+  return lineChartSvg(points, { color: "#0d9488", title: "Net Investment Contributions", interactive: true, granularity: legacy ? "month" : (opts.granularity || "month"), width: opts.width });
+}
+
+// Rollover for one flows point: net total on top, then only the accounts that moved money in the
+// bucket, each with its net (into investments +, out of investments -) and the in/out split.
+export function flowRolloverHtml(point) {
+  if (!point) return "";
+  const rows = Object.entries(point.byAccount || {})
+    .map(([name, a]) => ({ name, credits: round2(a.credits), debits: round2(a.debits), net: round2(a.credits - a.debits) }))
+    .filter(r => isNonZero(r.credits) || isNonZero(r.debits))
+    .sort((p, q) => Math.abs(q.net) - Math.abs(p.net));
+  const head = `<div class="pop-title">Net Investment Contributions - ${escSvg(point.label)}</div>`;
+  const total = `<div class="pop-total"><span>Net</span><span>${escSvg(fmtMoneySigned(point.net))}</span></div>`;
+  if (!rows.length) return head + total + `<div class="pop-hint">No transfers in this period.</div>`;
+  const body = rows.map(r => {
+    const split = isNonZero(r.credits) && isNonZero(r.debits) ? ` (in ${fmtMoneySigned(r.credits)}, out ${fmtMoneySigned(r.debits)})` : "";
+    return `<div class="pop-row${r.net < 0 ? " pop-neg" : ""}"><span class="pop-name">${escSvg(r.name + split)}</span><span></span><span class="pop-val">${escSvg(fmtMoneySigned(r.net))}</span></div>`;
+  }).join("");
+  return head + total + body;
 }
 
 // What the page does on open (and after a passthrough decision), given GET /api/run-status:

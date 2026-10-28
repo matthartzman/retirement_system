@@ -454,3 +454,83 @@ def test_closes_on_caches_hits_and_retries_misses_later():
     ls.closes_on(["ITOT", "IXUS"], day, **kw)
     assert calls[-2:] == [("IXUS",), "IXUS"]                                                       # only the miss retried
     ls._CLOSES_ON.clear()
+
+
+def test_setup_tax_inputs_and_case_insensitive_lookup(tmp_path):
+    from financial_trends_reporter import live_snapshot as ls
+    from src import ytd_tracking
+
+    (tmp_path / "input").mkdir()
+    ytd_tracking.write_account_setup(tmp_path / "input", [
+        {"Account": "Acme Annuity", "Role": "Annuity", "Tax Treatment": "taxed above premium", "After-Tax Premium": "$100,000"},
+        {"Account": "Old Pension", "Role": "Pension", "Tax Treatment": "Taxed in full"},
+        {"Account": "Checking", "Role": "Cash / spending"},
+    ])
+    treatment, premium = ls.setup_tax_inputs(tmp_path / "input")
+    assert treatment == {"Acme Annuity": "after_tax", "Old Pension": "pre_tax"}
+    assert premium == {"Acme Annuity": 100000.0}
+    assert ls.non_liquid_tax_treatment("acme annuity", "Annuity/Pension", treatment) == "after_tax"
+    assert ls.non_liquid_tax_treatment("Unknown joint", "Annuity/Pension", treatment) == "pre_tax"
+
+
+def test_setup_tax_inputs_follow_saved_mapping_aliases(tmp_path):
+    from financial_trends_reporter import live_snapshot as ls
+    from src import ytd_tracking
+
+    (tmp_path / "input").mkdir()
+    ytd_tracking.write_account_setup(tmp_path / "input", [
+        {"Account": "Plan Annuity", "Role": "Annuity", "Tax Treatment": "Taxed above premium", "After-Tax Premium": "50000"},
+    ])
+    treatment, premium = ls.setup_tax_inputs(tmp_path / "input", {"Carrier XYZ ****1234": "Plan Annuity"})
+    assert treatment["Carrier XYZ ****1234"] == "after_tax"
+    assert premium["Carrier XYZ ****1234"] == 50000.0
+    assert ls.saved_setup_aliases(tmp_path, tmp_path / "missing.db") == {}
+
+
+def test_saved_setup_aliases_use_registry_matches(tmp_path, monkeypatch):
+    from financial_trends_reporter import live_snapshot as ls, account_registry
+
+    monkeypatch.setattr(account_registry, "list_accounts", lambda db: [
+        {"account_key": "k1", "display_name": "Carrier XYZ", "app_account": "Plan Annuity"},
+        {"account_key": "k2", "display_name": "Checking", "app_account": ""}])
+    assert ls.saved_setup_aliases(tmp_path, tmp_path / "x.db") == {"Carrier XYZ": "Plan Annuity"}
+
+
+def _planner_cfg():
+    from pathlib import Path
+    from src.data_io import load_csv, parse_client
+
+    return parse_client(load_csv(Path(__file__).resolve().parent.parent / "input" / "demo" / "client_data.csv"), "", skip_live_pricing=True)
+
+
+def _positions_for_planner():
+    return [
+        {"account": "Member_1_401k", "symbol": "VTI", "tax": "pre_tax", "current": 600000.0, "basis": 400000.0},
+        {"account": "Member_1_Trust", "symbol": "VTI", "tax": "taxable", "current": 500000.0, "basis": 300000.0},
+        {"account": "Member_1_Trust", "symbol": "CASH", "tax": "taxable", "current": 50000.0, "basis": 50000.0},
+        {"account": "Member_1_HSA", "symbol": "VTI", "tax": "hsa", "current": 20000.0, "basis": 10000.0},
+    ]
+
+
+def test_planner_tax_uses_the_planners_after_tax_method():
+    from datetime import date
+    from financial_trends_reporter import live_snapshot as ls
+    from src import after_tax
+
+    cfg = _planner_cfg()
+    out = ls._planner_tax(cfg, date(2026, 10, 28), 600000.0, _positions_for_planner(),
+                          {"pre_tax_rate": 0.25, "ltcg_rate": 0.15, "explicit": []})
+    assert out["method"] == "planner" and out["rate_source"] == "planner"
+    assert out["pre_tax_rate"] == round(after_tax.resolve_terminal_pretax_rate(cfg, 600000.0, 2026), 4)
+    assert out["unrealized_gain"] == 200000.0          # lot basis ratio, cash excluded from gain, no step-up
+    assert out["ltcg_tax"] > 0 and out["ltcg_detail"]["federal"] > 0
+    assert out["hsa_balance"] == 20000.0 and out["hsa_tax"] == 0.0   # sample HSA goes to a spouse
+
+
+def test_planner_tax_settings_override():
+    from datetime import date
+    from financial_trends_reporter import live_snapshot as ls
+
+    rates = {"pre_tax_rate": 0.3, "ltcg_rate": 0.2, "explicit": ["pre_tax_rate", "ltcg_rate"]}
+    out = ls._planner_tax(_planner_cfg(), date(2026, 10, 28), 100000.0, _positions_for_planner(), rates)
+    assert out["ordinary_tax"] == 30000.0 and out["ltcg_tax"] == 40000.0 and out["rate_source"] == "settings"

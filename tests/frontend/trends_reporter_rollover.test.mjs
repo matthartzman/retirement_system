@@ -1,7 +1,7 @@
 // Item 347c: account-subtotal rollover on the Net worth and Investments line charts.
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { rolloverModel, rolloverHtml, lineChartSvg } from "../../financial_trends_reporter/frontend/charts.js";
+import { rolloverModel, rolloverHtml, rolloverChange, flowRolloverHtml, flowSeries, lineChartSvg } from "../../financial_trends_reporter/frontend/charts.js";
 
 const ROW = {
   as_of_date: "2026-06-12",
@@ -81,5 +81,33 @@ describe("lineChartSvg interactive points", () => {
   });
   test("non-interactive charts are unchanged", () => {
     assert.ok(!lineChartSvg(pts, {}).includes("tabindex"));
+  });
+});
+
+describe("rollover total and change (items 367, 368)", () => {
+  const rows = [
+    { as_of_date: "2026-10-01", net_worth: { total: 1000 }, holdings: { current_value: 400 } },
+    { as_of_date: "2026-10-02", net_worth: { total: null }, holdings: { current_value: null } },
+    { as_of_date: "2026-10-03", net_worth: { total: 900 }, holdings: { current_value: 500 } },
+  ];
+  test("change compares with the nearest prior data point that has a value", () => {
+    assert.deepEqual(rolloverChange(rows, 2, "networth"), { date: "2026-10-01", total: 1000 });
+    assert.equal(rolloverChange(rows, 0, "networth"), null);
+  });
+  test("total (and change) come before the account groups", () => {
+    const model = { title: "Net Worth", date: "2026-10-03", total: 900, prior: { date: "2026-10-01", total: 1000 },
+      groups: [{ role: "Cash", items: [{ name: "Chk", value: 900 }], subtotal: 900 }], lines: [] };
+    const html = rolloverHtml(model);
+    assert.ok(html.indexOf("pop-total") < html.indexOf("pop-group"));
+    assert.match(html, /Change since 2026-10-01[\s\S]*-\$100 \(-10\.0%\)/);
+  });
+  test("flow rollover lists only accounts that moved money, net total on top", () => {
+    const daily = { A: { "2026-10-01": { from_checking: 100, to_checking: 30 } }, B: { "2026-10-02": { from_checking: 5, to_checking: 0 } }, C: {} };
+    const s = flowSeries(daily, ["A", "B", "C"], { from: "2026-10-01", to: "2026-10-02" }, "day");
+    const html = flowRolloverHtml(s[0]);
+    assert.match(html, /Net<\/span><span>\$70/);
+    assert.match(html, />A \(in \$100, out \$30\)</);
+    assert.ok(!html.includes(">B") && !html.includes(">C"));
+    assert.ok(html.indexOf("pop-total") < html.indexOf("pop-row"));
   });
 });

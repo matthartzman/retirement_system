@@ -203,17 +203,27 @@ function reconciliationHtml(rec) {
 const TREATMENT = { pre_tax: "Taxed in full", after_tax: "Taxed above premium", none: "Not taxed" };
 
 function taxHtml(tax) {
+  const planner = tax.method === "planner";
+  const ord = (v) => v * tax.pre_tax_rate;
+  const ltcgRate = tax.ltcg_rate ?? (tax.unrealized_gain ? tax.ltcg_tax / tax.unrealized_gain : null);
   const lines = [
-    ["Pre-tax holdings (IRA, 401k)", tax.pre_tax_balance],
-    ["Joint annuities and pension", tax.pre_tax_non_liquid],
-    ["Single-life annuity growth above premium", tax.annuity_taxable_gain],
+    ["Pre-tax holdings (IRA, 401k)", tax.pre_tax_balance, ord(tax.pre_tax_balance), tax.pre_tax_rate],
+    ["Joint annuities and pension", tax.pre_tax_non_liquid, ord(tax.pre_tax_non_liquid), tax.pre_tax_rate],
+    ["Single-life annuity growth above premium", tax.annuity_taxable_gain, ord(tax.annuity_taxable_gain), tax.pre_tax_rate],
+    ["Taxable and trust accounts: unrealized gains", tax.unrealized_gain, tax.ltcg_tax ?? tax.unrealized_gain * tax.ltcg_rate, ltcgRate],
   ];
+  if (planner && tax.hsa_balance) lines.push(["HSA balance (taxed if not left to a spouse)", tax.hsa_balance, tax.hsa_tax, tax.hsa_balance ? tax.hsa_tax / tax.hsa_balance : null]);
   const missing = (tax.basis_missing || []).length
-    ? `<p class="note warn-text">After-tax premium not set for ${tax.basis_missing.map(esc).join(", ")}: not taxed until it is (annuity_basis in live_snapshot_settings.json).</p>`
+    ? `<p class="note warn-text">After-tax premium not set for ${tax.basis_missing.map(esc).join(", ")}: not taxed until it is (Tax Treatment and After-Tax Premium on the Retirement Planner's Accounts &amp; Sources page).</p>`
     : "";
-  return simpleTable(lines.map(([label, v]) => ({ label, v })), [(r) => esc(r.label), (r) => fmtUsd(r.v)])
-    + `<p class="note">Ordinary income above × ${fmtPct(tax.pre_tax_rate, 0)}, plus taxable-account unrealized gains of ${fmtUsd(tax.unrealized_gain)} × ${fmtPct(tax.ltcg_rate, 0)}. An estimate, not a tax calculation.</p>`
-    + missing;
+  const head = `<thead><tr><th scope="col">Source</th><th scope="col" class="num">Taxable amount</th><th scope="col" class="num">Rate</th><th scope="col" class="num">Est. tax</th></tr></thead>`;
+  const body = lines.map(([label, base, t, rate]) =>
+    `<tr><th scope="row">${esc(label)}</th><td class="num">${fmtUsd(base)}</td><td class="num">${rate === null || rate === undefined ? DASH : fmtPct(rate, 1)}</td><td class="num">${fmtUsd(t)}</td></tr>`).join("");
+  const d = tax.ltcg_detail;
+  const how = planner
+    ? `<p class="note">Same method as the Retirement Planner's after-tax figures, applied to today's balances: pre-tax money at the heirs' 10-year bracket rate${tax.rate_source === "settings" ? " (overridden in live_snapshot_settings.json)" : ""}; taxable-account gains${d ? ` (federal ${fmtUsd(d.federal)}, NIIT ${fmtUsd(d.niit)}, state ${fmtUsd(d.state)})` : ""} from the lots' cost basis with no step-up, since nobody has died yet. Assumes no other income. Flat 25% / 15% rates would give ${fmtUsd(tax.flat_total)} (${fmtUsd(tax.total - tax.flat_total)} different). The Planner's report figure is for the end of the plan, so it will differ.</p>`
+    : `<p class="note">Flat rates (the Planner's plan could not be read): ordinary income at ${fmtPct(tax.pre_tax_rate, 0)}, taxable-account gains at ${fmtPct(tax.ltcg_rate, 0)}. An estimate, not a tax calculation.</p>`;
+  return `<div class="table-wrap"><table class="live-table simple">${head}<tbody>${body}</tbody></table></div>` + how + missing;
 }
 
 function totalsHtml(t, checking, debt, tax, nonLiquid, liquid) {

@@ -115,6 +115,15 @@ describe("liveViewHtml", () => {
     assert.match(out, /<details class="live-section"><summary>Estimated tax/);
     assert.match(out, /<details class="live-section"><summary>Debt/);
   });
+  test("tax table shows the Planner method, its rates and the flat-rate comparison", () => {
+    const data = { ...DATA, tax: { ...DATA.tax, method: "planner", pre_tax_rate: 0.22, ltcg_rate: null, unrealized_gain: 200000, ltcg_tax: 47000,
+      ltcg_detail: { federal: 30000, niit: 7600, state: 9400 }, hsa_balance: 20000, hsa_tax: 4400, flat_total: 90000, total: 100000, rate_source: "planner" } };
+    const html = liveViewHtml(data);
+    assert.match(html, /Same method as the Retirement Planner/);
+    assert.match(html, /HSA balance/);
+    assert.match(html, /federal \$30,000, NIIT \$7,600, state \$9,400/);
+    assert.match(html, /Flat 25% \/ 15% rates would give \$90,000/);
+  });
   test("tax section says which annuities have no basis yet", () => {
     assert.match(out, /Annuity - Matt/);
     assert.match(out, /after-tax premium not set/i);
