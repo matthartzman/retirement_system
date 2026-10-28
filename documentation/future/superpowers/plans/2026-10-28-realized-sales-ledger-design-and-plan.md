@@ -190,7 +190,7 @@ In `_positions`, add **sold-lot rows** alongside the current lots, built from co
 - A lot **bought after the baseline** and sold since: its `new_money` (shares × purchase price, on its purchase date, time-weighted) and `money_out` (proceeds on sale date, time-weighted).
 - A lot bought before the scope start but with the scope start later than the sale (sold before the window): not in the window at all (sale date < start day): excluded.
 - Gain for a sold lot over the window = `current (0) + proceeds − start − new_money`; consistent with current lots' `current − start − new_money`.
-- Proceeds are treated as money taken out of the *position group*; whether they are also a flow for the total household depends on where the cash goes (stays in the brokerage cash/sweep, goes to checking). The cash is already a position in holdings if it stays; if it leaves the liquid accounts, existing `_checking_net_flows` logic must not also count it. Check with a worked example in Phase 4; this is the highest-risk correctness point.
+- Proceeds stay in brokerage cash (confirmed by the user, section 14): the sale is a swap inside the account, so total-portfolio return is unaffected. Per-group views count proceeds as money out of the sold lot's group and money into Cash, time-weighted. A later transfer to checking is handled by the existing `_checking_net_flows`, which must not also count the sale. Check with a worked example in Phase 4; this is the highest-risk correctness point.
 - **Result:** the caveat note in `frontend/live_snapshot.js` (~299, "Gains on positions sold since … are not included") is replaced by "Includes N positions sold since <start>" and, when unconfirmed sales exist, "N sales not yet confirmed are not included" with a link to the queue. The Time scope (`start_day_for`) filters sales by date: sales before the scope start are excluded; the baseline price for a sold symbol comes from the same `baseline_prices` call (it must include sold symbols — extend the symbol set).
 - `Group By`: sold lots roll into their asset class / sub-class / account / tax group rows like current lots, with a "(sold)" ticker row drill-down so a user sees where gain came from. `live_groups.js` totals then include them. No quotes are needed for sold symbols today except the baseline close (a `closes_on`-style fetch, cached).
 
@@ -240,7 +240,7 @@ For every new field:
 | Partial lot sold | Ledger row for the shares sold; holdings lot reduced with proportional basis; `lot_key` uses the original purchase date and per-share basis. |
 | Stock split / reverse split / spin-off | Holdings diff sees changed shares + changed price with the same total basis: flagged "possible corporate action", never a sale; user can mark "adjust lot" which rewrites shares/price without a ledger row. Ledger rows record shares *as of the sale*, with a split factor field in a later phase if needed. |
 | Reinvested dividends changing basis | Reinvest lots are separate lots (`lot_type=reinvest…`) with their own purchase date, so a sale can choose them specifically; holding period is per lot. They are wash-sale buys too (flagged in 8). |
-| Mutual-fund average cost | Specific-lot identification contradicts average-cost accounts. v1: allow a lot to be flagged `avg_cost` in a later phase; in v1 the user picks lots and the 1099-B import (which reports average-cost basis) will show differences — the report is the safety net. |
+| Mutual-fund average cost (out of scope: the user has none) | Specific-lot identification contradicts average-cost accounts. v1: allow a lot to be flagged `avg_cost` in a later phase; in v1 the user picks lots and the 1099-B import (which reports average-cost basis) will show differences — the report is the safety net. |
 | Spouse and IRA wash sales | Window search spans all household accounts, includes pre-tax/Roth/HSA buys; flagged with the special IRA message. |
 | Bare sells (no ticker) | Land in the queue as "needs detail"; user supplies symbol/shares or dismisses (e.g. a fund exchange). Never guessed. |
 | Same-day buy and sell | Sale and buy on one date: lot purchased that day can be sold that day (holding period 0, short term); a buy the same day triggers a wash flag. Order within the day is unknown, so both are shown. |
@@ -253,16 +253,21 @@ For every new field:
 | Lots held in the same account under two names (alias) | Use the account alias map already in Trends (`saved_setup_aliases`) for matching Monarch accounts to holdings accounts. |
 | Price precision | Store raw price/proceeds as parsed; round only for display. |
 
-## 14. Open questions for the user
+## 14. Answers received and remaining open questions
 
-1. **Which broker(s)** issue your 1099-B (and can you export CSV)? Parsers are per broker.
-2. **How far back** should the ledger start (e.g. this tax year only, or the ~300 historical sells)? Default proposed: the current tax year, older ones dismissed.
-3. **Prior-year carryforward**: do you have last year's Schedule D numbers (short/long) to enter?
-4. **Where do sale proceeds usually go** (stay in the brokerage cash sweep, or transferred to checking)? This affects the returns example in 9.1.
-5. **Is your state a no-tax or an income-tax state**, and should state tax apply to realized gains? (The Planner's state setting is the default.)
-6. **Mutual funds with average cost**: any accounts reporting average-cost basis?
-7. Should Trends show unconfirmed sales *at all* in the headline returns (as an estimate) or only the warning chip? Proposed: warning chip only.
-8. **Settlement vs trade date**: does your Monarch data post sells on trade or settlement date? (Check a few rows when building.)
+### Answered by the user (2026-10-28)
+1. **Brokers:** Fidelity, E*Trade and Vanguard issue the 1099-Bs. Some may arrive as PDF, so Phase 5 gets a PDF-to-CSV step (extract tables from the PDF, then show the parsed lines in the same preview for the user to check before applying). One parser per broker; build Fidelity, E*Trade and Vanguard in that order of whichever sample file arrives first. Samples must have values obfuscated before they go in the repo.
+2. **Backlog:** ledger start = the current tax year; older Sell rows are dismissed in bulk as "before ledger start" (the setting stays editable).
+3. **Carryforward:** the user has last year's short- and long-term figures; the Phase 3a carryforward form takes both.
+4. **Proceeds stay in brokerage cash.** So a sale is a swap inside the account: sold lot out, cash in. The returns math in 9.1 therefore must **not** treat proceeds as money leaving the household. Revised rule: for the account group the sale is a rebalancing, value moves from the lot to the cash position, and the gain is recognized in the lot. Only a later transfer out (existing `_checking_net_flows`) is a flow. The sold lot's `current` becomes 0 and its proceeds are already present as cash in holdings. Total-portfolio return is unchanged by the sale itself; per-group (asset class, symbol) returns count the proceeds as money taken out of that group, time-weighted, and as money in for the Cash group at the same weight, so group totals still add up. Test both views.
+5. **State tax applies to realized gains, tracked by state in the Retirement Planner.** The state comes from the Planner's household/state setting, and state tax on realized gains uses the Planner's per-state treatment (reuse the `after_tax` state capital-gain path). Because a household can move states, the ledger stores the sale's tax year and the realized-tax calculation takes the state in effect for that year from the Planner (a per-year state lookup, verified in Phase 3a), not a single global rate. The `realized_adjustments` state-rate override is kept as an optional override only.
+6. **No average-cost funds.** The average-cost items in section 13 are dropped from v1 scope; specific-lot logic applies everywhere.
+7. **Unconfirmed sales appear both ways:** a warning chip with count (and amount in dollar mode), and an optional **"include unconfirmed (estimate)"** toggle in the returns and Realized views. Estimate mode values an unconfirmed Monarch sale using its parsed or Monarch amount with basis taken from the sale's best-guess lots **for display only**; it is clearly labelled estimate, never written to the ledger, never feeds tax or the projection, and never logged to the daily log. This is the only place lot suggestions are used without the user confirming, and it stays visual. Default is off.
+8. **Settlement date:** Monarch posts sells on settlement date. The ledger needs the **trade date** for tax, so for Monarch-sourced rows the confirm panel pre-fills trade date = the prior business day (T+1 settlement for stocks and ETFs since May 2024; mutual funds often settle same day), shown as a suggestion the user can correct, and stored with `settle_date` = the Monarch date. Matching to holdings events tolerates the settle/trade offset. Year-end rule: a sale settling in January with a December trade date belongs to the December tax year; the panel highlights this case. The 1099-B import then overwrites with the official trade date.
+
+### Still open
+- Which broker's sample 1099-B (obfuscated) to build the first parser from, and whether PDF extraction is acceptable as best-effort with a manual-check preview (assumed yes).
+- Whether the Planner already stores state per year (for moves) or one household state; verify in Phase 3a.
 
 Not verified while writing: the exact `monarch` YTD storage location in the plan file (CSV file vs table), the structure of `load_security_master` for substantially-identical groups, how the Trends reporter reads the plan file in production, whether `revision_rows` should include the ledger, and the numeric constants for the $3,000 offset in the engine. Each is a first task of the relevant phase.
 
@@ -345,7 +350,7 @@ Ships alone: year-end correction flow.
 
 | Step | Work | Model / effort | Usage |
 |---|---|---|---|
-| 5.1 | Parser for the user's broker (one broker first; needs a sample file with sample/obfuscated values), column map, preview in `import_preview_v1` style. | Sonnet, medium | Moderate. Depends on answer to open question 1. |
+| 5.1 | Parsers for Fidelity, E*Trade and Vanguard (one broker first, PDF-to-CSV extraction with a check-before-apply preview; needs a sample file with sample/obfuscated values), column map, preview in `import_preview_v1` style. | Sonnet, medium | Moderate. Brokers are known; the PDF step adds test-fix loops, so build CSV first and PDF extraction second. |
 | 5.2 | Matching to ledger rows, apply official numbers with audit, difference report (UI + CSV export), unreported/unmatched lines. | Sonnet, high | Moderate-heavy: matching rules and many edge cases; test-fix loops. Scope down: exact-match first, fuzzy suggestions later. |
 | 5.3 | Import column 1g wash-sale adjustments (display only). | Sonnet, low | Light. |
 
