@@ -3,7 +3,6 @@ server's own groups do (live_snapshot._summarize). The same lots go through both
 from __future__ import annotations
 
 import json
-import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -107,5 +106,7 @@ def test_a_different_order_regroups_to_the_same_totals(out):
 
 
 def test_the_annualize_threshold_is_the_servers():
-    js = MODULE.read_text(encoding="utf-8")
-    assert int(re.search(r"const ANNUALIZE_MIN_DAYS = (\d+)", js).group(1)) == ls.ANNUALIZE_MIN_DAYS
+    done = subprocess.run([NODE, "--input-type=module", "-e", "const m = await import(process.argv[1]); process.stdout.write(String(m.ANNUALIZE_MIN_DAYS));",
+                           MODULE.as_uri()], capture_output=True, text=True, timeout=60)
+    assert done.returncode == 0, done.stderr
+    assert int(done.stdout) == ls.ANNUALIZE_MIN_DAYS

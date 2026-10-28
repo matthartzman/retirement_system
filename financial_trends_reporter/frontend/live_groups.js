@@ -7,7 +7,7 @@ export const DEFAULT_ORDER = ["subclass", "symbol", "account", "lot"];
 export const GROUPS_KEY = "trendsLiveGroups_v1";
 
 const CLASS_ORDER = ["Equity", "Fixed Income", "Commodities", "Cash", "Other"];
-const ANNUALIZE_MIN_DAYS = 90;   // live_snapshot.py ANNUALIZE_MIN_DAYS
+export const ANNUALIZE_MIN_DAYS = 90;   // live_snapshot.py ANNUALIZE_MIN_DAYS (a contract test compares them)
 
 export const isCashSymbol = (symbol) => String(symbol || "").toUpperCase().startsWith("CASH");
 
