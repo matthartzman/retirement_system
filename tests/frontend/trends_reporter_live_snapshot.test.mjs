@@ -298,3 +298,38 @@ describe("imported balance sync date", () => {
     assert.ok(!liveViewHtml({ ...DATA, reconciliation: rec }).includes("last synced"));
   });
 });
+
+// --- Percent-only people: no reconciliation, no dollar figures ------------------------------
+import { setMoneyView } from "../../financial_trends_reporter/frontend/money_view.js";
+
+describe("percent-only live snapshot", () => {
+  const WITH_RECON = {
+    ...DATA,
+    reconciliation: { ...DATA.reconciliation, accounts: [{ holdings_account: "A", holdings_value: 5, monarch_value: 4, delta: 1, delta_pct: 0.2, flag: true, hints: [{ kind: "stale_prices", symbols: ["X"] }] }],
+      unmapped_monarch: [{ name: "Foo", value: 1234 }], unmapped_holdings: [{ account: "B", value: 4321 }], footing: 5 },
+    tax: { ...DATA.tax, method: "planner", pre_tax_rate: 0.25, ltcg_rate: 0.15, ltcg_tax: 6000, flat_total: 900000, ltcg_detail: { federal: 1, niit: 2, state: 3 }, hsa_balance: 100, hsa_tax: 25 },
+  };
+  test("no Reconciliation section and no tax amounts sentence", () => {
+    setMoneyView({ allowed: "percent", scale: 1e6 });
+    try {
+      const out = liveViewHtml(WITH_RECON);
+      assert.ok(!/Reconciliation/i.test(out));
+      assert.ok(!out.includes("recon"));
+      assert.ok(!/Flat 25%/.test(out) || !/different/.test(out));
+    } finally { setMoneyView({ allowed: "both", shown: "dollars", scale: 1 }); }
+  });
+  test("no HTML matches a dollar amount in percent mode", () => {
+    setMoneyView({ allowed: "percent", scale: 1e6 });
+    try {
+      const out = liveViewHtml(WITH_RECON);
+      assert.ok(!/\$\s?\d/.test(out), out.match(/.{30}\$\s?\d.{20}/)?.[0]);
+    } finally { setMoneyView({ allowed: "both", shown: "dollars", scale: 1 }); }
+  });
+  test("both keeps the Reconciliation section in either toggle position", () => {
+    for (const shown of ["dollars", "percent"]) {
+      setMoneyView({ allowed: "both", shown, scale: 1e6 });
+      assert.match(liveViewHtml(WITH_RECON), /Reconciliation by account/);
+    }
+    setMoneyView({ allowed: "both", shown: "dollars", scale: 1 });
+  });
+});

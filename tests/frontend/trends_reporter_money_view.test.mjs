@@ -221,3 +221,38 @@ describe("live snapshot follows the toggle", () => {
     assert.notEqual(els.liveBody.innerHTML, before);
   });
 });
+
+// --- Task 7: no dollar wording anywhere for a percent-only person ---------------------------
+import { passthroughReviewHtml, flowBarChartSvg, nearMatchClause, spendingNoteText, balancesFreshnessNote, detailPopupHtml, categoryListHtml } from "../../financial_trends_reporter/frontend/charts.js";
+
+describe("percent-only person: dollar-free text", () => {
+  const DOLLAR = /\$\s?\d/;
+  const items = [{ key: "k", withdrawal: { date: "2026-01-01", amount: 1000, account: "A" }, deposit: { date: "2026-01-02", amount: 1050, account: "B" }, difference: 50 }];
+  test("passthroughReviewHtml is empty for percent-only, unchanged for both", () => {
+    setMoneyView({ allowed: "percent", scale: 1 });
+    assert.equal(passthroughReviewHtml(items), "");
+    setMoneyView({ allowed: "both", shown: "dollars", scale: 1 });
+    assert.match(passthroughReviewHtml(items), /review-item/);
+    setMoneyView({ allowed: "both", shown: "percent", scale: 1 });
+    assert.match(passthroughReviewHtml(items), /review-item/);
+  });
+  test("the flows note clause names $100 only when dollars may be shown", () => {
+    setMoneyView({ allowed: "percent", scale: 1 });
+    assert.ok(!DOLLAR.test(nearMatchClause()));
+    setMoneyView({ allowed: "both", shown: "percent", scale: 1 });
+    assert.match(nearMatchClause(), /\$100/);
+  });
+  test("YTD flow bars, spending popups and notes are dollar-free", () => {
+    setMoneyView({ allowed: "percent", scale: 1e6 });
+    const model = { rows: [{ name: "A", net: 0.01, toChecking: 0.02, fromChecking: 0.01 }], total: 0.01 };
+    const out = [
+      flowBarChartSvg(model),
+      detailPopupHtml("t", [["All merchants", 0.5]]),
+      categoryListHtml("t", [{ name: "c", group: "g", value: 0.5, merchants: [["All merchants", 0.5]] }]),
+      barChartSvg([["Core", 0.5, { kind: "total" }]]),
+      spendingNoteText(null, "x"),
+      balancesFreshnessNote({ last_run: { status: "error", detail: "balance moved $5,000" }, last_ok: { latest_date: "2026-01-01" } }, "2026-01-02"),
+    ].join("\n");
+    assert.ok(!DOLLAR.test(out), out.match(/.{20}\$\s?\d.{20}/)?.[0]);
+  });
+});

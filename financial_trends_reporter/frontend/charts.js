@@ -827,10 +827,23 @@ export function investmentFlowRows(flows) {
   return { rows, total };
 }
 
+// The Flows card note's sentence about near-match pairs; a percent-only person has no review block and no dollars.
+export function nearMatchClause() {
+  return moneyView().allowed === "percent" ? "near-matching pairs are left to the owner to approve or deny"
+    : "pairs within $100 of each other are flagged above for you to approve or deny";
+}
+
+// A server-sent failure reason can quote amounts; a percent-only person is just told to ask the owner.
+export function priceErrorText(err) {
+  return moneyView().allowed === "percent" ? "see the owner" : (err || "unknown cause");
+}
+
 // Warning block for near-match investment-to-investment pairs (amounts within $100,
 // not equal) awaiting the user's decision. `items` is the log entry's
 // passthrough_review; each button carries the pair key for the decision POST.
+// Empty for a percent-only person: the text quotes dollar amounts.
 export function passthroughReviewHtml(items) {
+  if (moneyView().allowed === "percent") return "";
   if (!Array.isArray(items) || !items.length) return "";
   const rows = items.map(it => {
     const w = it.withdrawal || {}, d = it.deposit || {};
@@ -876,7 +889,7 @@ export function flowBarChartSvg(model) {
   }).join("");
   const svg = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" style="width:100%;max-width:100%;height:auto" role="group" aria-label="YTD net investment flows by account, bar chart">` +
     `<line x1="${zeroX}" y1="0" x2="${zeroX}" y2="${h - padB}" stroke="#999" stroke-width="1"/>` +
-    `<text x="${zeroX}" y="${h - padB + 14}" text-anchor="middle" style="font-size:10px">$0</text>${bars}</svg>`;
+    `<text x="${zeroX}" y="${h - padB + 14}" text-anchor="middle" style="font-size:10px">${isPercent() ? "0%" : "$0"}</text>${bars}</svg>`;
   return svg + dataTableFallbackHtml("YTD net investment flows by account",
     ["Account", "Net (withdrawal +)", "Withdrawn", "Contributed"],
     model.rows.map(r => [r.name, fmtMoney(r.net)]).map((row, i) => row.concat([fmtMoney(model.rows[i].toChecking), fmtMoney(model.rows[i].fromChecking)]))
@@ -968,7 +981,8 @@ export function balancesFreshnessNote(freshness, today) {
   const now = today ? new Date(today + "T00:00:00") : new Date();
   const ageDays = ok && ok.latest_date ? Math.floor((now - new Date(ok.latest_date + "T00:00:00")) / 86400000) : null;
   if (last.status !== "ok") {
-    return `The latest Imported balances import was rejected (${last.detail || "unknown reason"}); showing balances through ${ok && ok.latest_date ? ok.latest_date : "no date"}.`;
+    const why = moneyView().allowed === "percent" ? "see the owner" : (last.detail || "unknown reason");
+    return `The latest Imported balances import was rejected (${why}); showing balances through ${ok && ok.latest_date ? ok.latest_date : "no date"}.`;
   }
   if (ageDays !== null && ageDays > 2) return `Imported balances were last updated ${ok.latest_date}.`;
   return "";
