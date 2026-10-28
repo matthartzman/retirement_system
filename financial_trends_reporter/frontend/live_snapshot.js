@@ -160,7 +160,9 @@ function accountRowHtml(a) {
   const hasPct = a.delta_pct !== null && a.delta_pct !== undefined;
   const flag = a.flag ? `<span class="flag" title="${hasPct ? "Differs from the imported balance by more than 1% and $100" : "Differs from the imported balance by more than $100"}">⚠ <span class="flag-text">Check</span></span> ` : "";
   const monarch = (a.monarch_accounts || []).length ? ` <span class="muted">(${(a.monarch_accounts || []).map(esc).join(", ")})</span>` : "";
-  const row = `<tr class="${a.flag ? "flagged" : ""}"><th scope="row">${flag}${esc(acctLabel(a.holdings_account))}${monarch}</th>`
+  // Only a balance more than a session old says when it synced; holdings are valued at that day's close.
+  const synced = a.balance_stale && a.balance_as_of ? ` <span class="muted synced">· last synced ${esc(a.balance_as_of)}</span>` : "";
+  const row = `<tr class="${a.flag ? "flagged" : ""}"><th scope="row">${flag}${esc(acctLabel(a.holdings_account))}${monarch}${synced}</th>`
     + `<td class="num">${fmtUsd(a.holdings_value)}</td><td class="num">${fmtUsd(a.monarch_value)}</td>`
     + `<td class="num">${changeHtml(a.delta)}</td><td class="num">${a.delta_pct === null || a.delta_pct === undefined ? DASH : changeHtml(a.delta_pct, true)}</td></tr>`;
   const hints = (a.hints || []).map(hintText).filter(Boolean);

@@ -277,3 +277,15 @@ describe("friendly account labels", () => {
     assert.match(liveViewHtml(DATA_WITH_LOTS), />▸ Member_1_IRA<\/button>/);
   });
 });
+
+describe("imported balance sync date", () => {
+  const acct = REC_FLAGGED.accounts[0];
+  test("a balance more than a session old says when it last synced", () => {
+    const rec = { ...REC_FLAGGED, accounts: [{ ...acct, balance_as_of: "2026-10-22", balance_stale: true }] };
+    assert.match(liveViewHtml({ ...DATA, reconciliation: rec }), /last synced 2026-10-22/);
+  });
+  test("a fresh balance shows no date", () => {
+    const rec = { ...REC_FLAGGED, accounts: [{ ...acct, balance_as_of: "2026-10-26", balance_stale: false }] };
+    assert.ok(!liveViewHtml({ ...DATA, reconciliation: rec }).includes("last synced"));
+  });
+});

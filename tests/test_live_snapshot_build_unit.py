@@ -117,3 +117,21 @@ def test_build_ships_a_label_for_every_holdings_account(data_dir):
     accounts = {str(l["account"]).strip() for l in LOTS}
     assert set(out["account_labels"]) == accounts
     assert out["account_labels"]["Member_1_IRA"] == "Matt IRA"
+
+
+def test_build_fetches_closes_only_for_balances_older_than_the_previous_session(data_dir):
+    asked = []
+    monarch = {**MONARCH, "by_account": [{**r, "as_of": "2026-10-22"} if r["account"] == "IRA - Matt" else r
+                                         for r in MONARCH["by_account"]]}
+
+    def close_lookup(symbols, day):
+        asked.append(day.isoformat())
+        return {"ITOT": 125.0, "IXUS": 65.0}
+
+    out = ls.build(inputs={**INPUTS, "monarch": monarch}, quote_cache=FakeQuotes({**QUOTES, **INDEX_QUOTES}),
+                   data_dir=data_dir, now=NOW, previous_close_lookup=lambda symbols, today: {}, close_lookup=close_lookup)
+    assert asked == ["2026-10-22"]
+    ira = next(a for a in out["reconciliation"]["accounts"] if a["holdings_account"] == "Member_1_IRA")
+    assert ira["holdings_value"] == pytest.approx(25500.0)
+    _build(data_dir, close_lookup=close_lookup)   # every balance fresh: nothing fetched
+    assert asked == ["2026-10-22"]

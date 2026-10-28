@@ -191,3 +191,17 @@ def test_real_store_series_reproduces_every_stored_balance_and_zeroes_closed_acc
     last = len(dates) - 1
     by_key = {a["account_key"]: a for a in reg.list_accounts(_REAL)}
     assert all(s[k][last] == 0.0 for k, a in by_key.items() if not a["active"])
+
+
+def test_snapshot_summary_carries_each_accounts_own_sync_date(tmp_path):
+    # The HSA last synced 2026-01-08; its balance is carried forward to 01-10 but keeps its own date.
+    db = tmp_path / "b.sqlite3"
+    src = tmp_path / "balances.csv"
+    with src.open("w", encoding="utf-8", newline="") as fh:
+        w = csv.writer(fh)
+        w.writerow(bs.EXPECTED_HEADER)
+        w.writerows([("2026-01-08", "hsa", "HSA", 50.0), ("2026-01-09", "ira", "IRA", 100.0), ("2026-01-10", "ira", "IRA", 110.0)])
+    assert bs.import_balances(db, src, today=TODAY, now=NOW)["success"]
+    by_name = {r["account"]: r for r in bser.snapshot_summary(db)["by_account"]}
+    assert by_name["HSA"]["value"] == 50.0 and by_name["HSA"]["as_of"] == "2026-01-08"
+    assert by_name["IRA"]["as_of"] == "2026-01-10"

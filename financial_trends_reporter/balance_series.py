@@ -154,16 +154,21 @@ def snapshot_summary(db_path: str | Path) -> dict[str, Any] | None:
     if not db_path.exists():
         return None
     accounts = account_registry.list_accounts(db_path)
-    dates, series = dense_series(load_rows(db_path))
+    rows = load_rows(db_path)
+    dates, series = dense_series(rows)
     if not dates:
         return None
     last = len(dates) - 1
+    synced: dict[str, str] = {}   # each account's own last balance date (a late sync is carried forward)
+    for d, key, _ in rows:
+        if d > synced.get(key, ""):
+            synced[key] = d
     return {
         "latest_date": dates[last],
         "net_worth": chart_totals(series, enabled_keys(accounts, "networth"), len(dates))[last],
         "holdings": chart_totals(series, enabled_keys(accounts, "holdings"), len(dates))[last],
         "by_account": [
-            {"account": d["display_name"], "type": d["type"], "value": d["value"]}
+            {"account": d["display_name"], "type": d["type"], "value": d["value"], "as_of": synced.get(d["account_key"])}
             for d in account_detail(accounts, series, last, "networth")
         ],
     }
