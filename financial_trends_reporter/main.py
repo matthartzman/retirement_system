@@ -129,6 +129,14 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, access
             content_type="text/javascript; charset=utf-8",
         )
 
+    @app.route("/live_groups.js", methods=["GET"])
+    def live_groups_js():
+        # Group By for the Live Snapshot table (grouping, ordering, totals), imported by live_snapshot.js.
+        return Response(
+            (_APP_ROOT / "frontend" / "live_groups.js").read_text(encoding="utf-8"),
+            content_type="text/javascript; charset=utf-8",
+        )
+
     @app.route("/spending_dock.js", methods=["GET"])
     def spending_dock_js():
         # The Spending card's breakdown panels (hover, pin, transactions), imported by index.html.

@@ -5,6 +5,7 @@
 // first day (body[data-scope-from]) sets the Start date.
 
 import { moneyView, fmtAmount, onMoneyViewChange, unitChip } from "./money_view.js";
+import { DIMENSIONS, DEFAULT_ORDER, GROUPS_KEY, normalizeOrder, parseSavedOrder, stepDimension, toggleDimension, dropOrder, buildTree } from "./live_groups.js";
 
 const isPct = () => moneyView().shown === "percent";
 
@@ -123,49 +124,44 @@ export function lotLabel(lot) {
   return parts.join(" · ");
 }
 
-// A path is caption/class/symbol/account, so the same ticker open in the Asset class table and the
-// Equity sub-class table never shares state. Rows below class level carry data-path and data-parent.
+// Rows are a tree built by live_groups.js from the flat lot list, in the order chosen in the Group By row.
+// A node's path (its levels, URL-encoded) keys its expanded state; rows below the top carry data-parent.
 // {holdings account id: display label} from the payload, e.g. Member_1_401k -> "Matt 401k". Ids stay the keys.
 let accountLabels = {};
 const acctLabel = (id) => accountLabels[id] || id;
-
-const isCashSymbol = (symbol) => String(symbol || "").toUpperCase().startsWith("CASH");
-const byLabel = (a, b) => acctLabel(a.name).localeCompare(acctLabel(b.name), undefined, { sensitivity: "base" });
 
 function expandButton(path, label) {
   return `<button type="button" class="expand" aria-expanded="false" data-path="${esc(path)}" data-label="${esc(label)}">▸ ${esc(label)}</button>`;
 }
 
-function liquidTable(caption, rows, total) {
-  const head = `<tr><th scope="col">${esc(caption)}</th>${columns().map(([h, c]) => `<th scope="col" class="num ${c}">${h}</th>`).join("")}</tr>`;
-  const body = rows.map((r) => {
-    const tickers = r.tickers || [];
-    const classPath = `${caption}/${r.name}`;
-    const name = tickers.length ? expandButton(classPath, r.name) : esc(r.name);
-    const kids = tickers.map((t) => {
-      const tickerPath = `${classPath}/${t.symbol}`;
-      const cash = isCashSymbol(t.symbol);
-      // Cash is one lot per account: its date rides on the account row, and accounts read A to Z.
-      const accounts = cash ? [...(t.accounts || [])].sort(byLabel) : (t.accounts || []);
-      const title = t.title ? ` <span class="muted ticker-title">${esc(t.title)}</span>` : "";
-      const label = (accounts.length ? expandButton(tickerPath, t.symbol) : esc(t.symbol)) + title;
-      const accountRows = accounts.map((a) => {
-        const accountPath = `${tickerPath}/${a.name}`;
-        const lots = a.lots || [];
-        if (cash) {
-          const date = lots.length === 1 ? ` <span class="muted">· ${esc(lots[0].purchase_date || "Undated")}</span>` : "";
-          return `<tr class="acct-row" data-path="${esc(accountPath)}" data-parent="${esc(tickerPath)}" hidden><th scope="row" class="acct">${esc(acctLabel(a.name))}${date}</th>${cells(a)}</tr>`;
-        }
-        const alabel = lots.length ? expandButton(accountPath, acctLabel(a.name)) : esc(acctLabel(a.name));
-        const lotRows = lots.map((l) => `<tr class="lot-row" data-parent="${esc(accountPath)}" hidden><th scope="row" class="lot">${esc(lotLabel(l))}</th>${cells(l)}</tr>`).join("");
-        return `<tr class="acct-row" data-path="${esc(accountPath)}" data-parent="${esc(tickerPath)}" hidden><th scope="row" class="acct">${alabel}</th>${cells(a)}</tr>${lotRows}`;
-      }).join("");
-      return `<tr class="ticker-row" data-path="${esc(tickerPath)}" data-parent="${esc(classPath)}" hidden><th scope="row" class="ticker">${label}</th>${cells(t)}</tr>${accountRows}`;
-    }).join("");
-    return `<tr class="class-row" data-path="${esc(classPath)}"><th scope="row">${name}</th>${cells(r)}</tr>${kids}`;
+// The Group By row: the levels in use (drag a chip, or use its arrows, to reorder; x drops it), Lot always
+// last, then the unused levels (click or drag one in to add it).
+export function groupByHtml(order) {
+  const levels = normalizeOrder(order).filter((d) => d !== "lot");
+  const unused = Object.keys(DIMENSIONS).filter((d) => d !== "lot" && !levels.includes(d));
+  const name = (d) => esc(DIMENSIONS[d]);
+  const chip = (dim, i) => `<span class="chip" draggable="true" data-dim="${dim}">`
+    + `<button type="button" class="chip-step" data-dim="${dim}" data-step="-1" aria-label="Move ${name(dim)} earlier"${i === 0 ? " disabled" : ""}>◂</button>`
+    + `<span class="chip-name">${name(dim)}</span>`
+    + `<button type="button" class="chip-step" data-dim="${dim}" data-step="1" aria-label="Move ${name(dim)} later"${i === levels.length - 1 ? " disabled" : ""}>▸</button>`
+    + `<button type="button" class="chip-remove" data-dim="${dim}" aria-label="Stop grouping by ${name(dim)}">×</button></span>`;
+  return `<div class="group-by" role="group" aria-label="Group by"><span class="group-by-label">Group by</span>${levels.map(chip).join("")}`
+    + `<span class="chip fixed" data-dim="lot" title="Lots are always the last level">Lot</span>`
+    + unused.map((dim) => `<button type="button" class="chip off" draggable="true" data-dim="${dim}" aria-label="Also group by ${name(dim)}">+ ${name(dim)}</button>`).join("") + `</div>`;
+}
+
+function groupedTable(tree, firstLabel, total) {
+  const head = `<tr><th scope="col">${esc(firstLabel)}</th>${columns().map(([h, c]) => `<th scope="col" class="num ${c}">${h}</th>`).join("")}</tr>`;
+  const rows = (nodes, depth) => nodes.map((n) => {
+    const kids = n.children.length > 0;
+    const title = n.title ? ` <span class="muted ticker-title">${esc(n.title)}</span>` : "";
+    const date = n.inline ? ` <span class="muted">· ${esc(n.inline)}</span>` : "";
+    const label = n.lot ? esc(lotLabel(n.lot)) : (kids ? expandButton(n.path, n.label) : esc(n.label)) + title + date;
+    const attrs = `data-depth="${depth}"${kids ? ` data-path="${esc(n.path)}"` : ""}${depth ? ` data-parent="${esc(n.parent)}" hidden` : ""}`;
+    return `<tr${depth ? "" : ' class="top-row"'} ${attrs}><th scope="row" class="dim-${n.dim}">${label}</th>${cells(n.row)}</tr>${rows(n.children, depth + 1)}`;
   }).join("");
   const foot = total ? `<tfoot><tr class="total-row"><th scope="row">Total liquid</th>${cells({ ...total, share: 1, share_of_gain: 1 })}</tr></tfoot>` : "";
-  return `<div class="table-wrap"><table class="live-table"><thead>${head}</thead><tbody>${body}</tbody>${foot}</table></div>`;
+  return `<div class="table-wrap"><table class="live-table"><thead>${head}</thead><tbody>${rows(tree.nodes, 0)}</tbody>${foot}</table></div>`;
 }
 
 function simpleTable(rows, columns) {
@@ -280,13 +276,15 @@ function totalsHtml(t, checking, debt, tax, nonLiquid, liquid) {
     + `<div class="kinds" aria-label="Assets by kind (share of gross assets)">${kinds}</div>`;
 }
 
-export function liveViewHtml(data) {
+export function liveViewHtml(data, groupOrder) {
   if (!data) return `<p class="empty">Loading live prices…</p>`;
   if (data.error) return `<p class="live-error">Live Snapshot is unavailable: ${esc(data.error)}</p>`;
   accountLabels = data.account_labels || {};
   startDay = startDayText(data.baseline_date, data.as_of);
   const period = isYearToDate(data.baseline_date, data.as_of) ? "Year to date" : `Since ${startDay}`;
   const L = data.liquid, t = data.totals;
+  const order = normalizeOrder(groupOrder);
+  const tree = buildTree(L.positions || [], order, { days: data.days ?? 0, labelOf: acctLabel });
   const indices = (data.indices || []).map((i) =>
     `<span class="index-chip">${esc(i.label)} ${i.day_pct === null || i.day_pct === undefined ? `<span class="na">${DASH}</span>` : changeHtml(i.day_pct, true)}</span>`).join("");
   const sub = isPct()
@@ -297,8 +295,7 @@ export function liveViewHtml(data) {
     + `<div class="live-right"><div class="indices">${indices}</div><div class="live-status" role="status">${esc(statusText(data))}</div></div></div>`;
   const flows = L.checking_net_flows === null || L.checking_net_flows === undefined ? ""
     : ` Net transfers from checking since ${startDay}: ${fmtUsd(L.checking_net_flows)} (for information).`;
-  const liquid = `<div class="card live-card${isPct() ? " pm" : ""}"><h2>Liquid investments${unitChip("% of net worth")}</h2>${liquidTable("Asset class", L.by_class, L)}`
-    + `<h3>Equity by sub-class${unitChip("% of net worth")}</h3>${liquidTable("Sub-class", L.by_equity_subclass, null)}${moneyView().allowed === "percent" ? "" : reconciliationHtml(data.reconciliation)}`
+  const liquid = `<div class="card live-card${isPct() ? " pm" : ""}"><div class="live-card-head"><h2>Liquid investments${unitChip("% of net worth")}</h2>${groupByHtml(order)}</div>${groupedTable(tree, DIMENSIONS[order[0]], L)}${moneyView().allowed === "percent" ? "" : reconciliationHtml(data.reconciliation)}`
     + `<p class="note">Start = ${startDay} closing value of lots held then (the Time scope sets the date). Bought since = lots bought after ${startDay}, at purchase price; reinvested dividends count as gain. Return % weights new money by how long it was invested (Modified Dietz). Gains on positions sold since ${startDay} are not included.${flows}</p></div>`;
   const nl = data.non_liquid;
   const nonLiquid = `<details class="live-section"><summary>Non-liquid assets <b>${fmtUsd(nl.total)}</b>${unitChip("% of net worth")} <span class="muted">imported balances, ${esc(nl.as_of || "")}</span></summary>`
@@ -319,8 +316,10 @@ export function initLiveView(doc = document, win = window) {
   const buttons = [...doc.querySelectorAll("[data-view]")];
   let view = "trends", data = null, lastLoad = 0, busy = false, reloadAfter = false;
   const expanded = new Set(), openSections = new Map();
+  let groupOrder = [...DEFAULT_ORDER], dragging = null;
 
   try { view = parseSavedView(win.localStorage.getItem(VIEW_KEY)); } catch (err) { view = "trends"; }
+  try { groupOrder = parseSavedOrder(win.localStorage.getItem(GROUPS_KEY)); } catch (err) { groupOrder = [...DEFAULT_ORDER]; }
 
   // Only a section the user opened or closed themselves is remembered (recorded on the summary click),
   // so the server's default (every section closed) applies until then. Keyed by name for the reconciliation section and by position among the others, so a
@@ -331,7 +330,7 @@ export function initLiveView(doc = document, win = window) {
   }
 
   function render() {
-    out.innerHTML = liveViewHtml(data);
+    out.innerHTML = liveViewHtml(data, groupOrder);
     const key = sectionKeys();
     out.querySelectorAll("details.live-section").forEach((d) => { const k = key(d); if (openSections.has(k)) d.open = openSections.get(k); });
     applyExpanded();
@@ -341,7 +340,7 @@ export function initLiveView(doc = document, win = window) {
   // expanded and itself shown, so a collapsed level hides everything below it.
   function applyExpanded() {
     const shown = new Set();
-    out.querySelectorAll("tr[data-parent], tr.class-row").forEach((tr) => {
+    out.querySelectorAll("tr[data-parent], tr.top-row").forEach((tr) => {
       const parent = tr.dataset.parent;
       const visible = parent === undefined || (shown.has(parent) && expanded.has(parent));
       tr.hidden = !visible;
@@ -402,6 +401,54 @@ export function initLiveView(doc = document, win = window) {
     try { win.localStorage.setItem(VIEW_KEY, view); } catch (err) { /* storage blocked: the choice just won't persist */ }
     if (view === "live" && Date.now() - lastLoad >= POLL_MS) { if (!data) render(); load(); }
   }
+
+  // A new grouping: remembered per browser; the old expanded rows no longer exist, so they are dropped.
+  // ``focusSel`` puts keyboard focus back on the control just used (the row is redrawn).
+  function setGroupOrder(next, focusSel) {
+    groupOrder = normalizeOrder(next);
+    try { win.localStorage.setItem(GROUPS_KEY, JSON.stringify(groupOrder.filter((d) => d !== "lot"))); } catch (err) { /* storage blocked: the choice just won't persist */ }
+    expanded.clear();
+    if (data) render();
+    const target = focusSel && out.querySelector(focusSel);
+    if (target && !target.disabled) target.focus();
+  }
+
+  out.addEventListener("click", (e) => {
+    const step = e.target.closest("button.chip-step"), remove = e.target.closest("button.chip-remove"), add = e.target.closest("button.chip.off");
+    if (step) setGroupOrder(stepDimension(groupOrder, step.dataset.dim, Number(step.dataset.step)), `button.chip-step[data-dim="${step.dataset.dim}"][data-step="${step.dataset.step}"]`);
+    else if (remove) setGroupOrder(toggleDimension(groupOrder, remove.dataset.dim), ".group-by button");
+    else if (add) setGroupOrder(toggleDimension(groupOrder, add.dataset.dim), `button.chip-remove[data-dim="${add.dataset.dim}"]`);
+  });
+
+  // Mouse: drag a chip onto another to put it before (left half) or after (right half) it. Touch and keyboard
+  // use the arrows. A chip dragged in from the unused ones is added at the drop point.
+  const chipAt = (e) => (e.target.closest ? e.target.closest(".group-by .chip[data-dim]") : null);
+  const clearMarks = () => out.querySelectorAll(".chip.drop-before, .chip.drop-after, .chip.dragging").forEach((c) => c.classList.remove("drop-before", "drop-after", "dragging"));
+  const afterHalf = (e, chip) => { const r = chip.getBoundingClientRect(); return e.clientX > r.left + r.width / 2; };
+  out.addEventListener("dragstart", (e) => {
+    const chip = chipAt(e);
+    if (!chip || chip.classList.contains("fixed")) return;
+    dragging = chip.dataset.dim;
+    if (e.dataTransfer) { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", dragging); }
+    chip.classList.add("dragging");
+  });
+  out.addEventListener("dragover", (e) => {
+    const chip = dragging && chipAt(e);
+    if (!chip) return;
+    e.preventDefault();
+    clearMarks();
+    chip.classList.add(afterHalf(e, chip) ? "drop-after" : "drop-before");
+  });
+  out.addEventListener("drop", (e) => {
+    const chip = dragging && chipAt(e);
+    if (!chip) return;
+    e.preventDefault();
+    const dim = dragging;
+    dragging = null;
+    clearMarks();
+    setGroupOrder(dropOrder(groupOrder, dim, chip.dataset.dim, afterHalf(e, chip)), `.group-by .chip[data-dim="${dim}"] .chip-name, .group-by .chip.off[data-dim="${dim}"]`);
+  });
+  out.addEventListener("dragend", () => { dragging = null; clearMarks(); });
 
   // A new Time scope moves the start date: reload now if shown, else on the next switch to Live.
   doc.addEventListener("trends-scope-change", () => {
