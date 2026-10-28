@@ -69,6 +69,11 @@ _HASH_COLUMNS = [
 # otherwise-usable exports for no gain.
 REQUIRED_TRANSACTION_COLUMNS = ["Date", "Amount"]
 
+# Live Snapshot (Financial Trends) reads these for non-liquid accounts: how the balance is taxed when
+# paid out. "" = guess from the account name.
+TAX_TREATMENT_LABELS = {"": "", "taxed in full": "Taxed in full", "taxed above premium": "Taxed above premium",
+                        "not taxed": "Not taxed"}
+
 ACCOUNT_SETUP_COLUMNS = [
     "Account",
     "Role",
@@ -78,6 +83,8 @@ ACCOUNT_SETUP_COLUMNS = [
     "Current Value",
     "Current Balance",
     "Notes",
+    "Tax Treatment",
+    "After-Tax Premium",
 ]
 
 IMPORT_HISTORY_COLUMNS = [
@@ -373,6 +380,8 @@ def normalize_account_setup(raw: dict[str, Any]) -> dict[str, str]:
         pass
     for col in ["Account", "Mapped Investment Account", "Notes"]:
         row[col] = row[col].strip()
+    row["Tax Treatment"] = TAX_TREATMENT_LABELS.get(row["Tax Treatment"].strip().lower(), "")
+    row["After-Tax Premium"] = normalize_money(row["After-Tax Premium"]) if row["After-Tax Premium"].strip() else ""
     return row
 
 

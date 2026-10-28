@@ -454,3 +454,20 @@ def test_closes_on_caches_hits_and_retries_misses_later():
     ls.closes_on(["ITOT", "IXUS"], day, **kw)
     assert calls[-2:] == [("IXUS",), "IXUS"]                                                       # only the miss retried
     ls._CLOSES_ON.clear()
+
+
+def test_setup_tax_inputs_and_case_insensitive_lookup(tmp_path):
+    from financial_trends_reporter import live_snapshot as ls
+    from src import ytd_tracking
+
+    (tmp_path / "input").mkdir()
+    ytd_tracking.write_account_setup(tmp_path / "input", [
+        {"Account": "Acme Annuity", "Role": "Annuity", "Tax Treatment": "taxed above premium", "After-Tax Premium": "$100,000"},
+        {"Account": "Old Pension", "Role": "Pension", "Tax Treatment": "Taxed in full"},
+        {"Account": "Checking", "Role": "Cash / spending"},
+    ])
+    treatment, premium = ls.setup_tax_inputs(tmp_path / "input")
+    assert treatment == {"Acme Annuity": "after_tax", "Old Pension": "pre_tax"}
+    assert premium == {"Acme Annuity": 100000.0}
+    assert ls.non_liquid_tax_treatment("acme annuity", "Annuity/Pension", treatment) == "after_tax"
+    assert ls.non_liquid_tax_treatment("Unknown joint", "Annuity/Pension", treatment) == "pre_tax"

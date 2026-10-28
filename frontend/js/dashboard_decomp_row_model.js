@@ -3752,7 +3752,7 @@ export function updateYtdAccount(i, field, val) {
   if (field === "Role" && val === "Investment")
     ytdData.account_setup[i]["Current Value"] = "";
   markYtdAccountsDirty();
-  if (field === "Role") renderMain();
+  if (field === "Role" || field === "Tax Treatment") renderMain();
 }
 
 export function ytdExistingValues(field) {
@@ -3860,7 +3860,7 @@ export function renderYtdAccounts() {
   const accounts = ytdData.account_setup || [];
   const holdingCount = ytdInvestmentHoldingAccounts().length;
   const addSourceControls = `<input id="ytdManualAccountName" class="search ytd-add-source-name" placeholder="Account/source name"><select id="ytdManualAccountRole" aria-label="Account/source type to add">${ytdAccountRoleOptions("Offline asset")}</select><button class="btn" type="button" onclick="addManualYtdAccount()">Add account/source</button>`;
-  return `<div class="holdings ytd-section" data-help-section="actual_spending.accounts_sources"><h3 class="group-title">Accounts &amp; Sources</h3>${ytdRolloverBannerHtml()}<div class="table-actions ytd-account-actions">${addSourceControls}<button class="btn primary" id="ytdSaveAccountSetupBtn" type="button" ${ytdAccountsChanged ? "" : "disabled"} onclick="saveYtdAccountSetup()">Save Accounts &amp; Sources</button><button class="btn" type="button" onclick="recoverYtdAccountSetup()">Recover previous setup</button></div>${holdingCount ? "" : '<p class="small" data-kind="state">No investment holding accounts found in Holdings yet.</p>'}<div class="lot-table-wrap ytd-account-wrap"><table class="lot-table ytd-account-table"><thead><tr><th>Account / Source</th><th>Account Type</th><th>Mapped Account</th><th>${ytdPriorYearEndHeader()}</th><th>Current Value</th><th class="ytd-delete-cell">Action</th></tr></thead><tbody>${
+  return `<div class="holdings ytd-section" data-help-section="actual_spending.accounts_sources"><h3 class="group-title">Accounts &amp; Sources</h3>${ytdRolloverBannerHtml()}<div class="table-actions ytd-account-actions">${addSourceControls}<button class="btn primary" id="ytdSaveAccountSetupBtn" type="button" ${ytdAccountsChanged ? "" : "disabled"} onclick="saveYtdAccountSetup()">Save Accounts &amp; Sources</button><button class="btn" type="button" onclick="recoverYtdAccountSetup()">Recover previous setup</button></div>${holdingCount ? "" : '<p class="small" data-kind="state">No investment holding accounts found in Holdings yet.</p>'}<div class="lot-table-wrap ytd-account-wrap"><table class="lot-table ytd-account-table"><thead><tr><th>Account / Source</th><th>Account Type</th><th>Mapped Account</th><th>${ytdPriorYearEndHeader()}</th><th>Current Value</th><th title="How a non-liquid balance is taxed when paid out. Used by the Financial Trends Live Snapshot estimate.">Tax Treatment</th><th title="What was paid in after tax. Only the growth above it is taxed.">After-Tax Premium</th><th class="ytd-delete-cell">Action</th></tr></thead><tbody>${
     accounts
       .map((r, i) => {
         const role = String(r.Role || "Cash / spending");
@@ -3877,10 +3877,16 @@ export function renderYtdAccounts() {
             : isMappedAnnuity
               ? 'disabled placeholder="From income stream"'
               : 'placeholder="$0"';
-        })()} onfocus="focusYtdAccountMoney(this)" oninput="updateYtdAccountMoney(${i},'Current Value',this)" onblur="blurYtdAccountMoney(${i},'Current Value',this)"></td><td class="ytd-delete-cell">${deleteIconBtn(`deleteYtdAccount(${i})`)}</td></tr>`;
+        })()} onfocus="focusYtdAccountMoney(this)" oninput="updateYtdAccountMoney(${i},'Current Value',this)" onblur="blurYtdAccountMoney(${i},'Current Value',this)"></td>${(() => {
+          const taxable = ["Annuity/Pension", "Annuity", "Pension", "Offline asset"].includes(role);
+          const treat = r["Tax Treatment"] || "";
+          const opts = ["", "Taxed in full", "Taxed above premium", "Not taxed"]
+            .map((o) => `<option value="${esc(o)}"${o === treat ? " selected" : ""}>${o || "Guess from name"}</option>`).join("");
+          return `<td><select aria-label="Tax treatment" onchange="updateYtdAccount(${i},'Tax Treatment',this.value)" ${taxable ? "" : "disabled"}>${opts}</select></td><td><input class="ytd-money-input" aria-label="After-tax premium" value="${esc(r["After-Tax Premium"] || "")}" oninput="updateYtdAccount(${i},'After-Tax Premium',this.value)" placeholder="$0" ${taxable && treat === "Taxed above premium" ? "" : "disabled"}></td>`;
+        })()}<td class="ytd-delete-cell">${deleteIconBtn(`deleteYtdAccount(${i})`)}</td></tr>`;
       })
       .join("") ||
-    `<tr><td colspan="6"><span class="small" data-kind="state">No accounts yet. Upload transactions or add a manual row.</span></td></tr>`
+    `<tr><td colspan="8"><span class="small" data-kind="state">No accounts yet. Upload transactions or add a manual row.</span></td></tr>`
   }</tbody></table><datalist id="ytdAccountChoices">${ytdTransactionAccounts()
     .map((o) => `<option value="${esc(o)}"></option>`)
     .join("")}</datalist></div></div>`;

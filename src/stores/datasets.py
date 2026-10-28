@@ -53,6 +53,7 @@ YTD_TRANSACTIONS_COLUMNS = (
 YTD_ACCOUNT_SETUP_COLUMNS = (
     "Account", "Role", "Mapped Investment Account", "Prior Year End Date",
     "Prior Year End Balance", "Current Value", "Current Balance", "Notes",
+    "Tax Treatment", "After-Tax Premium",
 )
 YTD_IMPORT_HISTORY_COLUMNS = (
     "Loaded At", "Mode", "Rows Received", "Rows Added", "Rows Skipped",

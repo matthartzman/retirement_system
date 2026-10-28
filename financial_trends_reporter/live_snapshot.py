@@ -627,14 +627,25 @@ def _reconcile_accounts(positions: list[dict], stale: list[str], accounts, monar
 TAX_TREATMENTS = frozenset({"pre_tax", "after_tax", "none"})
 
 
+def _by_name(mapping: dict[str, Any] | None, name: str) -> Any:
+    """``mapping[name]``, matching the account name ignoring case."""
+    if not mapping:
+        return None
+    if name in mapping:
+        return mapping[name]
+    folded = name.casefold()
+    return next((v for k, v in mapping.items() if str(k).casefold() == folded), None)
+
+
 def non_liquid_tax_treatment(name: str, kind: str, overrides: dict[str, str] | None = None) -> str:
     """How a non-liquid row is taxed when paid out.
 
     pre_tax: the whole value is ordinary income (the pension, and the joint annuities, bought
     with IRA money). after_tax: only growth above the after-tax premium is (the single-life
     annuities). none: everything else. ``overrides`` (settings, by exact account name) win."""
-    if overrides and overrides.get(name) in TAX_TREATMENTS:
-        return overrides[name]
+    chosen = _by_name(overrides, name)
+    if chosen in TAX_TREATMENTS:
+        return chosen
     if kind != "Annuity/Pension":
         return "none"
     lowered = name.lower()
@@ -722,8 +733,9 @@ def compute(*, lots, quotes, baseline, security_master, accounts, flows_daily, m
         if r["tax_treatment"] == "pre_tax":
             pre_tax_nl += r["value"]
         elif r["tax_treatment"] == "after_tax":
-            if r["name"] in basis:
-                annuity_gain += max(0.0, r["value"] - _num(basis[r["name"]]))
+            premium = _by_name(basis, r["name"])
+            if premium is not None:
+                annuity_gain += max(0.0, r["value"] - _num(premium))
             else:
                 basis_missing.append(r["name"])  # premium unknown: not taxed, listed so the page can say so
     ordinary = pre_tax_balance + pre_tax_nl + annuity_gain
@@ -774,6 +786,27 @@ def _rate(value: Any) -> float | None:
     return number / 100 if text.endswith("%") or number > 1 else number
 
 
+SETUP_TREATMENTS = {"Taxed in full": "pre_tax", "Taxed above premium": "after_tax", "Not taxed": "none"}
+
+
+def setup_tax_inputs(input_dir: str | Path) -> tuple[dict[str, str], dict[str, float]]:
+    """({account: pre_tax|after_tax|none}, {account: after-tax premium}) from the Planner's Accounts & Sources
+    rows (Tax Treatment / After-Tax Premium columns), matched to the imported account by name."""
+    from src import ytd_tracking
+
+    treatment: dict[str, str] = {}
+    premium: dict[str, float] = {}
+    for row in ytd_tracking.read_account_setup(input_dir):
+        name = str(row.get("Account") or "").strip()
+        if not name:
+            continue
+        if row.get("Tax Treatment") in SETUP_TREATMENTS:
+            treatment[name] = SETUP_TREATMENTS[row["Tax Treatment"]]
+        if str(row.get("After-Tax Premium") or "").strip():
+            premium[name] = ytd_tracking.parse_money(row["After-Tax Premium"])
+    return treatment, premium
+
+
 def tax_rates(data_dir: str | Path, *, plan_ltcg: Any = "") -> dict[str, float]:
     """Rates for the estimated tax line. The plan has no rate for pre-tax balances, so it defaults
     to 25%; LTCG comes from the plan's tax-aware trades setting. ``live_snapshot_settings.json``
@@ -811,9 +844,18 @@ def _load_inputs_uncached(base_dir: Path, log_path: Path, balances_db: Path) -> 
         "flows_daily": latest.get("investment_flows_daily") or {},
         "log_as_of": latest.get("as_of_date"),
         "monarch": balance_series.snapshot_summary(balances_db),
-        "tax_rates": tax_rates(log_path.parent, plan_ltcg=plan.get(("Rebalancing", "Tax-aware Trades", "ltcg_rate"), "")),
+        "tax_rates": _with_setup_tax(tax_rates(log_path.parent, plan_ltcg=plan.get(("Rebalancing", "Tax-aware Trades", "ltcg_rate"), "")),
+                                     base_dir / "input"),
         "people": household_nicknames(plan),
     }
+
+
+def _with_setup_tax(rates: dict[str, Any], input_dir: Path) -> dict[str, Any]:
+    """The Planner's per-account tax inputs, under the settings file's explicit per-account overrides."""
+    treatment, premium = setup_tax_inputs(input_dir)
+    rates["non_liquid_tax"] = {**treatment, **rates.get("non_liquid_tax", {})}
+    rates["annuity_basis"] = {**premium, **rates.get("annuity_basis", {})}
+    return rates
 
 
 def household_nicknames(plan: dict[tuple[str, str, str], str]) -> dict[str, str]:
