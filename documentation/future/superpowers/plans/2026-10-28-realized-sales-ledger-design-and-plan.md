@@ -265,8 +265,21 @@ For every new field:
 7. **Unconfirmed sales appear both ways:** a warning chip with count (and amount in dollar mode), and an optional **"include unconfirmed (estimate)"** toggle in the returns and Realized views. Estimate mode values an unconfirmed Monarch sale using its parsed or Monarch amount with basis taken from the sale's best-guess lots **for display only**; it is clearly labelled estimate, never written to the ledger, never feeds tax or the projection, and never logged to the daily log. This is the only place lot suggestions are used without the user confirming, and it stays visual. Default is off.
 8. **Settlement date:** Monarch posts sells on settlement date. The ledger needs the **trade date** for tax, so for Monarch-sourced rows the confirm panel pre-fills trade date = the prior business day (T+1 settlement for stocks and ETFs since May 2024; mutual funds often settle same day), shown as a suggestion the user can correct, and stored with `settle_date` = the Monarch date. Matching to holdings events tolerates the settle/trade offset. Year-end rule: a sale settling in January with a December trade date belongs to the December tax year; the panel highlights this case. The 1099-B import then overwrites with the official trade date.
 
+
+### E*Trade sample reviewed (2025 Consolidated Tax Statement, 12 pages)
+The user supplied the E*Trade from Morgan Stanley 2025 consolidated statement (PDF, held outside the repo). Findings that shape the Phase 5 parser (structure only; no figures recorded here):
+- **The PDF has a text layer**, so `pypdf` extracts it; no OCR is needed. `pypdf` is already installed in the dev environment; confirm it is (or add it as) a declared dependency before building, and keep the parser optional-import so the app runs without it.
+- **Sections:** 1099-DIV (dividends), 1099-INT, a 1099-B **totals summary** (short term, long term, unknown term, split by Box A/B/D/E basis-reported or not, with proceeds, basis, market discount, wash-sale disallowed, realized gain) and the detailed **1099-B lines**, grouped as Short/Long Term x Covered/Noncovered. The summary page doubles as a **control total**: the parser must reproduce it from the detail lines, or the preview refuses to apply and shows the gap.
+- **Detail line layout:** a header line `CUSIP: <cusip> Symbol: <symbol><description>` (symbol and description run together with no separator, so split using the security master's symbol list), then one line per lot sold: date acquired, date sold (MM/DD/YY), proceeds, cost basis, accrued market discount, wash-sale loss disallowed, gain/(loss) with parentheses for losses, federal tax withheld, quantity. This is lot-level data, so it maps one-to-one onto ledger rows and is also the easiest source of **trade date, acquisition date and holding period**.
+- **Section headings give the term and basis-reported box**, so term (short/long) and covered/noncovered come from the heading, not from the lines.
+- **Page breaks** repeat the column headers mid-section; the parser must skip repeated headers and the "Total" lines.
+- **Account scope:** one statement covers one account (here a taxable trust account); Fidelity and Vanguard statements will be separate files with different layouts, so one parser per broker with a shared normalized output (`account, symbol, date_acquired, date_sold, proceeds, basis, wash_disallowed, gain, term, covered, quantity`).
+- **Cautions:** the file carries the owner's name, address and partial account number. Only an obfuscated copy (names, addresses, account numbers, amounts perturbed) may be committed as a test fixture; tests otherwise generate synthetic text in the same shape. Never commit the original.
+- **Proceeds note:** the statement defines proceeds as gross proceeds less commissions, matching the ledger's net-of-fees proceeds; no separate fee column exists on the form.
+- **Wash-sale and noncovered securities:** noncovered lots may have basis not reported to the IRS; the parser records `covered=false`, and the difference report shows those basis values as "broker did not report basis; ledger value kept".
+
 ### Still open
-- Which broker's sample 1099-B (obfuscated) to build the first parser from, and whether PDF extraction is acceptable as best-effort with a manual-check preview (assumed yes).
+- Fidelity and Vanguard samples are still needed (E*Trade is in hand). PDF extraction is best-effort with a check-before-apply preview and control totals.
 - Whether the Planner already stores state per year (for moves) or one household state; verify in Phase 3a.
 
 Not verified while writing: the exact `monarch` YTD storage location in the plan file (CSV file vs table), the structure of `load_security_master` for substantially-identical groups, how the Trends reporter reads the plan file in production, whether `revision_rows` should include the ledger, and the numeric constants for the $3,000 offset in the engine. Each is a first task of the relevant phase.
@@ -350,7 +363,7 @@ Ships alone: year-end correction flow.
 
 | Step | Work | Model / effort | Usage |
 |---|---|---|---|
-| 5.1 | Parsers for Fidelity, E*Trade and Vanguard (one broker first, PDF-to-CSV extraction with a check-before-apply preview; needs a sample file with sample/obfuscated values), column map, preview in `import_preview_v1` style. | Sonnet, medium | Moderate. Brokers are known; the PDF step adds test-fix loops, so build CSV first and PDF extraction second. |
+| 5.1 | Parsers for E*Trade (sample in hand; build first), then Fidelity and Vanguard once samples arrive ( PDF-to-CSV extraction with a check-before-apply preview; needs a sample file with sample/obfuscated values), column map, preview in `import_preview_v1` style. | Sonnet, medium | Moderate. Brokers are known; the PDF step adds test-fix loops, so build CSV first and PDF extraction second. |
 | 5.2 | Matching to ledger rows, apply official numbers with audit, difference report (UI + CSV export), unreported/unmatched lines. | Sonnet, high | Moderate-heavy: matching rules and many edge cases; test-fix loops. Scope down: exact-match first, fuzzy suggestions later. |
 | 5.3 | Import column 1g wash-sale adjustments (display only). | Sonnet, low | Light. |
 
