@@ -117,3 +117,20 @@ def test_load_inputs_error_is_returned_and_not_cached(monkeypatch):
     assert live_snapshot.load_inputs("b", "l", "d") == {"error": "OSError: locked"}
     assert live_snapshot.load_inputs("b", "l", "d") == {"ok": True}
     live_snapshot.clear_inputs_cache()
+
+
+def test_every_module_index_html_loads_is_served(tmp_path):
+    # index.html's module script fails as a whole if any import 404s, leaving every card empty
+    # (spending_dock.js shipped without a route). Request each script the page and its modules load.
+    import re
+    frontend = Path(reporter_main.__file__).resolve().parent / "frontend"
+    pattern = re.compile(r"""(?:from |src=)["'](?:\./)?([^"']+\.js)["']""")
+    paths = set()
+    for name in ("index.html", "charts.js", "live_snapshot.js", "spending_dock.js"):
+        paths.update(pattern.findall((frontend / name).read_text(encoding="utf-8")))
+    assert {"charts.js", "spending_dock.js", "live_snapshot.js"} <= paths
+    client = create_app(_workspace(tmp_path), log_path=tmp_path / "log.jsonl").test_client()
+    for rel in sorted(paths):
+        resp = client.get("/" + rel.lstrip("/"))
+        assert resp.status_code == 200, rel
+        assert "javascript" in resp.headers.get("Content-Type", "").lower(), rel
