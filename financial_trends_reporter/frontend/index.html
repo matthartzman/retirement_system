@@ -49,9 +49,15 @@
     background: var(--card-bg); border-top: 1px solid #c8c8cc; box-shadow: 0 -4px 16px rgba(0,0,0,.14); }
   #spendDock.open { display: flex; }
   body:has(#spendDock.open) { padding-bottom: 42vh; }
-  #detailPopup, #detailPopup2 { flex: 1 1 0; min-width: 0; max-height: 36vh; overflow-y: auto; font-size: 12px; padding: 2px 4px; }
+  #detailPopup, #detailPopup2, #detailPopup3 { flex: 1 1 0; min-width: 0; max-height: 36vh; overflow-y: auto; font-size: 12px; padding: 2px 4px; }
   #detailPopup2:empty::before { content: "Hover a category for its merchants."; opacity: .55; }
-  @media (max-width: 700px) { #spendDock { flex-direction: column; } #detailPopup, #detailPopup2 { max-height: 18vh; } }
+  #detailPopup3:empty::before { content: "Hover a merchant for its transactions."; opacity: .55; }
+  .txn-table { width: 100%; border-collapse: collapse; }
+  .txn-table th { text-align: left; font-weight: 600; opacity: .7; }
+  .txn-table th.pop-val { text-align: right; }
+  .txn-table td, .txn-table th { padding: 1px 4px; vertical-align: top; }
+  .txn-notes { opacity: .6; font-size: 11px; max-width: 18em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  @media (max-width: 700px) { #spendDock { flex-direction: column; } #detailPopup, #detailPopup2, #detailPopup3 { max-height: 18vh; } }
   .dock-bar { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; font-size: 11px; opacity: .8; }
   .dock-bar button { border: 1px solid currentColor; background: transparent; color: inherit; border-radius: 6px; padding: 0 8px; font-size: 11px; cursor: pointer; }
   .dock-bar .grow { flex: 1; }
@@ -257,7 +263,7 @@
 <div id="accountsMsg" role="status"></div>
 <div id="updateOverlay" class="update-overlay" role="status" aria-live="polite" aria-hidden="true"><div class="update-card"><div class="update-spinner" aria-hidden="true"></div><div class="update-title">Updating Data</div><div id="updateOverlayDetail" class="update-detail">Elapsed 0:00</div><div class="update-bar" role="progressbar" aria-label="Update progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="updateOverlayBar"></span></div><div id="updateOverlayAvg" class="update-avg">Working…</div><div class="update-actions"><button type="button" id="updateCancel" class="update-btn">Cancel update</button><button type="button" id="updateHide" class="update-btn">Hide</button></div><div class="update-note">The update keeps running if you hide this window.</div></div></div>
 <div id="updateChip" class="update-chip" role="status" hidden><span>Update still running in the background.</span> <button type="button" id="updateShow" class="update-btn">Show progress</button></div>
-<div id="spendDock" role="region" aria-label="Spending breakdown"><div id="detailPopup" aria-live="polite"></div><div id="detailPopup2" aria-live="polite"></div></div>
+<div id="spendDock" role="region" aria-label="Spending breakdown"><div id="detailPopup" aria-live="polite"></div><div id="detailPopup2" aria-live="polite"></div><div id="detailPopup3" aria-live="polite"></div></div>
 <div id="rollPopup" role="tooltip"></div>
 <div id="acctPop" role="dialog" aria-label="Choose accounts"></div>
 
@@ -425,6 +431,7 @@ function render() {
 // the latest logged year-to-date snapshot and says so.
 const spendingSeq = latestOnly();
 const spendingMemo = new Map();
+let lastSpendingKey = null;
 function drawSpending(model, emptyText) {
   categoryModel = model;
   const categories = [];
@@ -455,6 +462,7 @@ async function renderSpending(latest) {
   const range = currentRange();
   const key = `${range.from}|${range.to}`;
   const id = spendingSeq.start();
+  if (key !== lastSpendingKey) { lastSpendingKey = key; spendDock.onRangeChange(); }
   document.getElementById("spendingPeriod").textContent = range.label;
   let resp = spendingMemo.get(key) || null;
   if (!resp) {
@@ -513,6 +521,7 @@ async function loadMonarch() {
 
 async function loadHistory() {
   spendingMemo.clear();
+  lastSpendingKey = null;   // the next renderSpending clears the dock's transactions cache
   try {
     const resp = await fetch("/api/history");
     if (!resp.ok) throw new Error(`history request failed (HTTP ${resp.status})`);
@@ -533,7 +542,7 @@ document.getElementById("scopeSelect").addEventListener("change", (e) => {
   render();
 });
 // Spending breakdown panels live in ./spending_dock.js (hover previews, pinning, Escape / outside-click close).
-const spendDock = initSpendingDock({ doc: document, win: window, getModel: () => categoryModel });
+const spendDock = initSpendingDock({ doc: document, win: window, getModel: () => categoryModel, getRange: currentRange });
 
 document.getElementById("passthroughReview").addEventListener("click", async (e) => {
   const btn = e.target.closest("button[data-decision]");

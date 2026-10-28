@@ -497,8 +497,11 @@ export function categoryListHtml(title, categories) {
 
 // Popup body: title, a mini bar chart of up to `maxLines` entries (the
 // remainder collapsed into one line), and the level's total.
-export function detailPopupHtml(title, detail, maxLines) {
+// opts.indexAttr (e.g. "merchant") gives each real row a data-<name>="<index into detail>" and makes it
+// focusable, so the dock can hover/pin it; the collapsed "N more" line gets none.
+export function detailPopupHtml(title, detail, maxLines, opts) {
   maxLines = maxLines || Infinity;
+  const indexAttr = opts && opts.indexAttr;
   if (!detail.length) return `<div class="pop-title">${escSvg(title)}</div><div class="empty">No further detail logged.</div>`;
   const total = detail.reduce((t, e) => t + e[1], 0);
   let lines = detail.slice(0, maxLines);
@@ -507,8 +510,9 @@ export function detailPopupHtml(title, detail, maxLines) {
     lines = lines.concat([[`${more.length} more`, more.reduce((t, e) => t + e[1], 0)]]);
   }
   const max = Math.max(...lines.flatMap(e => [e[1], ...markerValues(e[2])]), 1);
-  const body = lines.map(([n, v, meta]) =>
-    `<div class="pop-row${v < 0 ? " pop-neg" : ""}"><span class="pop-name">${escSvg(n)}</span>` +
+  const body = lines.map(([n, v, meta], i) =>
+    `<div class="pop-row${v < 0 ? " pop-neg" : ""}"${indexAttr && i < detail.length && i < maxLines ?
+      ` data-${indexAttr}="${i}" tabindex="0" role="button" aria-label="${escSvg(n)}: show transactions"` : ""}><span class="pop-name">${escSvg(n)}</span>` +
     `<span class="pop-bar"><i style="width:${v > 0 ? Math.max(1, (v / max) * 100).toFixed(1) : 0}%"></i>${popMarkers(meta, max)}</span>` +
     `<span class="pop-val">${escSvg(fmtMoney(v))}</span></div>`).join("");
   return `<div class="pop-title">${escSvg(title)}</div>${body}` +
@@ -614,6 +618,28 @@ export function spendingModelFromSnapshot(latest) {
   if (!latest || !latest.ytd_expense_hierarchy) return null;
   return buildHierarchyRows(latest.ytd_expense_hierarchy, latest.ytd_expense_prior_year, null, latest.ytd_expense_prior_detail,
     null, latest.annual_budget_by_tracking_type, latest.annual_budget_by_category);
+}
+
+// The transactions behind one merchant line (GET /api/spending/transactions).
+export function transactionsUrl(range, { type, group, category, merchant }) {
+  const q = (v) => encodeURIComponent(v);
+  return `/api/spending/transactions?from=${q(range.from)}&to=${q(range.to)}&type=${q(type)}&group=${q(group)}` +
+    `&category=${q(category)}&merchant=${q(merchant)}`;
+}
+
+// Date | Account | Merchant | Amount, newest first as served; notes on a second muted line (full text in title).
+// Every interpolated value is user-imported data and goes through escSvg.
+export function transactionsPanelHtml(title, payload) {
+  const txns = (payload && payload.transactions) || [];
+  if (!txns.length) return `<div class="pop-title">${escSvg(title)}</div><div class="empty">No transactions found.</div>`;
+  const rows = txns.map(t =>
+    `<tr class="${t.amount < 0 ? "pop-neg" : ""}"><td>${escSvg(t.date)}</td><td>${escSvg(t.account)}</td><td>${escSvg(t.merchant)}` +
+    `${t.notes ? `<div class="txn-notes" title="${escSvg(t.notes)}">${escSvg(t.notes)}</div>` : ""}</td>` +
+    `<td class="pop-val">${escSvg(fmtMoney(t.amount))}</td></tr>`).join("");
+  return `<div class="pop-title">${escSvg(title)}</div>` +
+    `<table class="txn-table"><thead><tr><th scope="col">Date</th><th scope="col">Account</th><th scope="col">Merchant</th>` +
+    `<th scope="col" class="pop-val">Amount</th></tr></thead><tbody>${rows}</tbody></table>` +
+    `<div class="pop-total"><span>Total</span><span>${escSvg(fmtMoney(payload.total))}</span></div>`;
 }
 
 // Drops out-of-order responses: only the most recently started request may draw.
