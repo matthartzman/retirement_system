@@ -1,7 +1,7 @@
 # Realized-sales ledger — design + implementation plan
 
 Date: 2026-10-28
-Status: proposed (docs only; no code written). Decisions in section 2 are the user's and are not reopened here.
+Status: approved (Phase 1 step 1.1 implemented; later steps pending). Decisions in section 2 are the user's and are not reopened here.
 
 All dollar figures below are sample numbers, not real balances.
 
@@ -106,8 +106,10 @@ Year-level inputs the ledger cannot derive: prior-year capital-loss carryforward
 - Append `SCHEMA_V17_DDL` to `PLAN_MIGRATIONS` (`plan_store.py`); `PLAN_SCHEMA_VERSION` follows automatically. Upgrading old plan files is a pure `CREATE TABLE`, no data rewrite, so it is safe and cheap.
 - Rebuild `src/reference/demo_seed.rpx` with `python tools/build_demo_seed.py` and check `--check`.
 - Decide whether `revision_rows` should snapshot ledger rows. **Recommendation:** no; the ledger carries its own `status`/audit columns and is append-mostly. Confirm in Phase 1 that restoring a plan revision does not silently delete sales (must not).
+  **Resolved in step 1.1 (2026-10-28): restores leave ledger rows intact.** `restore_revision` / `_restore_tables` only delete and refill `plan_rows`, the flat `_DATASETS` tables and the rental tables; `_capture_tables` snapshots the same set. The ledger tables are typed (like `monarch_*`) and in neither list, so they are neither captured nor touched. Pinned by `test_ledger_survives_revision_restore` (a sale recorded after the snapshot survives the restore). Revisions mechanism unchanged. Consequence to remember: restoring an old revision brings back old holdings lots but not the ledger's effect on them, so a sale undone by restore will reappear as lots while its ledger row stays; the confirm/undo flow (Phase 2) is the supported path, not revision restore.
 - Any test that pins `PLAN_SCHEMA_VERSION` or counts tables will need updating; grep the tests for `PLAN_SCHEMA_VERSION` and `plan_meta` when starting Phase 1.
-- Does the Trends reporter read the plan file? It uses `app_sync.py`/`_load_inputs_uncached` to read planner config and lots. Phase 4 must confirm the ledger is reachable the same way (verify; not checked in detail here).
+- Does the Trends reporter read the plan file? **Resolved in step 1.1: yes, through the store.** `financial_trends_reporter/app_sync.py` (`sync_from_app`) and `live_snapshot.py` (~905) open the active plan with `active_plan.workspace_store(Path(base_dir))` and read typed repos off it (`store.monarch.mapping()`, `store.dataset(...)`). The ledger is reachable the same way as `store.sales.list_sales(year=...)`; Phase 4 needs no new path, only to wrap the call in the same try/except (plan missing, locked, or older than v17 opens migrated, so the tables exist).
+- Types/shape chosen in 1.1: money columns `REAL` (as `monarch_balances`), ISO text dates, `sale_id`/`candidate_id` autoincrement; `sale_candidates.monarch_id` is UNIQUE (partial index) so re-importing the same file is a no-op, while `realized_sales.monarch_id` is not unique because one Monarch sale can split across several lots. `realized_adjustments` is keyed by `tax_year`. Repo: `src/stores/sales_repo.py`, reached as `store.sales`.
 
 ### 4.5 Why a new table, not more holdings columns
 Holdings lots are mutable current state, rewritten wholesale by an import. A ledger needs history that survives that rewrite. They are linked by `lot_key`, not by foreign key.
