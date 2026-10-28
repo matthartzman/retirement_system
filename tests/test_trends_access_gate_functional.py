@@ -14,8 +14,11 @@ from financial_trends_reporter.sessions import SessionTable
 PW = "correct horse"
 
 
+SHARED_MONEY_JSON = json.dumps({"total": 5000.0, "days": 3})  # one cached string, like the spending cache
+
+
 class Rig:
-    def __init__(self, tmp_path: Path):
+    def __init__(self, tmp_path: Path, percent_basis=None, test_routes=False):
         base = tmp_path / "workspace"
         (base / "input").mkdir(parents=True)
         (base / "local_state").mkdir(parents=True)
@@ -23,12 +26,37 @@ class Rig:
         self.store = AccessStore(tmp_path / "access.db", scrypt_n=2**4)
         self.sessions = SessionTable(clock=lambda: self.now[0])
         self.app = create_app(base, log_path=tmp_path / "log.jsonl", access_store=self.store,
-                              sessions=self.sessions, clock=lambda: self.now[0])
+                              sessions=self.sessions, clock=lambda: self.now[0],
+                              **({"percent_basis": percent_basis} if percent_basis else {}))
+        if test_routes:
+            self._add_test_routes()
         self.remote = ListenerApp(self.app, "remote")
         self.local = ListenerApp(self.app, "local")
 
-    def add(self, username="ann", must_change=False):
-        uid = self.store.add_user(username.title(), username, PW)
+    def _add_test_routes(self):
+        from src.http_runtime.wsgi_facade import Response
+
+        def money(body, status=200):
+            return Response(body if isinstance(body, str) else json.dumps(body), status=status, content_type="application/json")
+
+        @self.app.route("/api/test-money", methods=["GET"])
+        def test_money():
+            return money({"total": 5000.0, "days": 3})
+
+        @self.app.route("/api/test-money-error", methods=["GET"])
+        def test_money_error():
+            return money({"success": False, "error": "bad $1,234"}, 500)
+
+        @self.app.route("/api/test-money-raises", methods=["GET"])
+        def test_money_raises():
+            raise RuntimeError("failed on $1,234")
+
+        @self.app.route("/api/test-money-cached", methods=["GET"])
+        def test_money_cached():
+            return money(SHARED_MONEY_JSON)
+
+    def add(self, username="ann", must_change=False, money_view="dollars"):
+        uid = self.store.add_user(username.title(), username, PW, money_view=money_view)
         if not must_change:
             self.store.set_password(uid, PW, must_change=False)
         return uid
