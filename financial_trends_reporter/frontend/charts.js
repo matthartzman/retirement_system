@@ -10,7 +10,7 @@
 // type="module"> now imports from this file and keeps only the DOM-wiring/
 // fetch/render orchestration inline.
 
-import { moneyView, fmtAmount, fmtSharePct } from "./money_view.js";
+import { moneyView, fmtAmount, fmtSharePct, unitChip } from "./money_view.js";
 
 export function fmtMoney(v) {
   if (v === null || v === undefined) return "-";
@@ -798,17 +798,23 @@ function changeLineHtml(total, prior) {
 
 export function rolloverHtml(model) {
   if (!model) return "";
-  const head = `<div class="pop-title">${escSvg(model.title)} - ${escSvg(model.date)}</div>`;
-  const total = `<div class="pop-total"><span>${escSvg(model.title)}</span><span>${escSvg(fmtMoney(model.total))}</span></div>` + changeLineHtml(model.total, model.prior);
+  // Percent view: the total is 100% by definition, so show the change instead and give each row as a share of it.
+  const pct = isPercent();
+  const shareOf = v => (model.total > 0 ? `${(v / model.total * 100).toFixed(1)}%` : "n/a");
+  const fmtRow = v => (pct ? shareOf(v) : fmtMoney(v));
+  const head = `<div class="pop-title">${escSvg(model.title)} - ${escSvg(model.date)}${pct ? unitChip("% of total") : ""}</div>`;
+  const total = pct
+    ? changeLineHtml(model.total, model.prior)
+    : `<div class="pop-total"><span>${escSvg(model.title)}</span><span>${escSvg(fmtMoney(model.total))}</span></div>` + changeLineHtml(model.total, model.prior);
   if (!model.groups.length) {
     return head + total + `<div class="pop-hint">${escSvg(model.emptyNote || "No per-account detail was logged for this date.")}</div>`;
   }
   const groups = model.groups.map(g =>
     `<div class="pop-group"><strong>${escSvg(g.role)}</strong>` +
-    g.items.map(i => `<div class="pop-row${i.value < 0 ? " pop-neg" : ""}"><span class="pop-name">${escSvg(i.name)}</span><span></span><span class="pop-val">${escSvg(fmtMoney(i.value))}</span></div>`).join("") +
-    `<div class="pop-row pop-sub"><span class="pop-name">Subtotal</span><span></span><span class="pop-val">${escSvg(fmtMoney(g.subtotal))}</span></div></div>`).join("");
+    g.items.map(i => `<div class="pop-row${i.value < 0 ? " pop-neg" : ""}"><span class="pop-name">${escSvg(i.name)}</span><span></span><span class="pop-val">${escSvg(fmtRow(i.value))}</span></div>`).join("") +
+    `<div class="pop-row pop-sub"><span class="pop-name">Subtotal</span><span></span><span class="pop-val">${escSvg(fmtRow(g.subtotal))}</span></div></div>`).join("");
   const lines = model.lines.map(([n, v]) =>
-    `<div class="pop-row${v < 0 ? " pop-neg" : ""}"><span class="pop-name">${escSvg(n)}</span><span></span><span class="pop-val">${escSvg(fmtMoney(v))}</span></div>`).join("");
+    `<div class="pop-row${v < 0 ? " pop-neg" : ""}"><span class="pop-name">${escSvg(n)}</span><span></span><span class="pop-val">${escSvg(fmtRow(v))}</span></div>`).join("");
   return head + total + groups + lines;
 }
 

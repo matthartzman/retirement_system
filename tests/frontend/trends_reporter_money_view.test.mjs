@@ -13,7 +13,7 @@ beforeEach(() => setMoneyView({ allowed: "both", shown: "dollars", scale: 1 }));
 describe("fmtAmount", () => {
   test("percent of today's net worth when shown is percent", () => {
     setMoneyView({ allowed: "both", shown: "percent", scale: 1e6 });
-    assert.equal(fmtAmount(250000), "25.0% of net worth");
+    assert.equal(fmtAmount(250000), "25.0%");
   });
   test("dollars when shown is dollars", () => {
     setMoneyView({ allowed: "both", shown: "dollars", scale: 1e6 });
@@ -22,7 +22,7 @@ describe("fmtAmount", () => {
   test("a percent person is forced to percent even if dollars are asked for", () => {
     setMoneyView({ allowed: "percent", shown: "dollars", scale: 1 });
     assert.equal(moneyView().shown, "percent");
-    assert.equal(fmtAmount(0.25), "25.0% of net worth");
+    assert.equal(fmtAmount(0.25), "25.0%");
   });
   test("a dollars person is forced to dollars", () => {
     setMoneyView({ allowed: "dollars", shown: "percent", scale: 1e6 });
@@ -74,10 +74,10 @@ describe("existing formatters follow the view", () => {
   });
   test("percent mode routes them all through fmtAmount", () => {
     setMoneyView({ allowed: "both", shown: "percent", scale: 1000 });
-    assert.equal(fmtMoney(250), "25.0% of net worth");
-    assert.equal(fmtMoneySigned(-250), "-25.0% of net worth");
-    assert.equal(fmtUsd(250), "25.0% of net worth");
-    assert.equal(fmtUsd2(250), "25.0% of net worth");
+    assert.equal(fmtMoney(250), "25.0%");
+    assert.equal(fmtMoneySigned(-250), "-25.0%");
+    assert.equal(fmtUsd(250), "25.0%");
+    assert.equal(fmtUsd2(250), "25.0%");
   });
 });
 
@@ -254,5 +254,32 @@ describe("percent-only person: dollar-free text", () => {
       balancesFreshnessNote({ last_run: { status: "error", detail: "balance moved $5,000" }, last_ok: { latest_date: "2026-01-01" } }, "2026-01-02"),
     ].join("\n");
     assert.ok(!DOLLAR.test(out), out.match(/.{20}\$\s?\d.{20}/)?.[0]);
+  });
+});
+
+describe("percent popups give a share of the popup's own total, with one heading", () => {
+  const model = { title: "Net Worth", date: "2026-01-02", total: 1000, prior: { date: "2026-01-01", total: 800 },
+    groups: [{ role: "Investments", items: [{ name: "IRA", value: 600 }, { name: "Cash", value: 150 }], subtotal: 750 }], lines: [["Home", 250]] };
+
+  test("rows are bare shares, the 100% total row is gone, the change line stays", () => {
+    setMoneyView({ allowed: "both", shown: "percent", scale: 5000 });
+    const out = rolloverHtml(model);
+    assert.match(out, /% of total/);
+    assert.match(out, />60\.0%</);
+    assert.match(out, />25\.0%</);
+    assert.doesNotMatch(out, /pop-total/);
+    assert.match(out, /Change since 2026-01-01/);
+    assert.doesNotMatch(out, /of net worth|\$/);
+  });
+
+  test("a non-positive total reads n/a, not a made-up number", () => {
+    setMoneyView({ allowed: "both", shown: "percent", scale: 5000 });
+    assert.match(rolloverHtml({ ...model, total: -10, prior: null }), />n\/a</);
+  });
+
+  test("dollars mode keeps the total row and dollar rows", () => {
+    const out = rolloverHtml(model);
+    assert.match(out, /pop-total/);
+    assert.match(out, /\$600/);
   });
 });

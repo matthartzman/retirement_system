@@ -25,7 +25,12 @@ export function fmtAmount(v, digits = 0) {
     return "$" + Number(v).toLocaleString(undefined, { maximumFractionDigits: digits });
   }
   if (!(state.scale > 0)) return "n/a";
-  return `${(Number(v) / state.scale * 100).toFixed(1)}% of net worth`;
+  return `${(Number(v) / state.scale * 100).toFixed(1)}%`;
+}
+
+// The base of a percent figure, stated once in a heading instead of after every number. Empty in dollars mode.
+export function unitChip(text) {
+  return state.shown === "dollars" ? "" : ` <span class="unit">${text}</span>`;
 }
 
 export function fmtSharePct(ratio) {

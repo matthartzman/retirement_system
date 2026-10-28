@@ -3,7 +3,9 @@
 // and the Refresh button in the browser. It runs as its own module so the Trends script is untouched:
 // the toggle only switches body.live-mode, and CSS hides the trend cards and the time scope.
 
-import { moneyView, fmtAmount, onMoneyViewChange } from "./money_view.js";
+import { moneyView, fmtAmount, onMoneyViewChange, unitChip } from "./money_view.js";
+
+const isPct = () => moneyView().shown === "percent";
 
 export const VIEW_KEY = "trendsView_v1";
 export const POLL_MS = 60000;
@@ -220,12 +222,12 @@ function taxHtml(tax) {
   const missing = (tax.basis_missing || []).length
     ? `<p class="note warn-text">After-tax premium not set for ${tax.basis_missing.map(esc).join(", ")}: not taxed until it is (Tax Treatment and After-Tax Premium on the Retirement Planner's Accounts &amp; Sources page).</p>`
     : "";
-  const head = `<thead><tr><th scope="col">Source</th><th scope="col" class="num">Taxable amount</th><th scope="col" class="num">Rate</th><th scope="col" class="num">Est. tax</th></tr></thead>`;
+  const head = `<thead><tr><th scope="col">Source</th>${isPct() ? "" : `<th scope="col" class="num">Taxable amount</th>`}<th scope="col" class="num">Rate</th><th scope="col" class="num">Est. tax</th></tr></thead>`;
   const body = lines.map(([label, base, t, rate]) =>
-    `<tr><th scope="row">${esc(label)}</th><td class="num">${fmtUsd(base)}</td><td class="num">${rate === null || rate === undefined ? DASH : fmtPct(rate, 1)}</td><td class="num">${fmtUsd(t)}</td></tr>`).join("");
+    `<tr><th scope="row">${esc(label)}</th>${isPct() ? "" : `<td class="num">${fmtUsd(base)}</td>`}<td class="num">${rate === null || rate === undefined ? DASH : fmtPct(rate, 1)}</td><td class="num">${fmtUsd(t)}</td></tr>`).join("");
   const d = tax.ltcg_detail;
   const how = moneyView().allowed === "percent"
-    ? `<p class="note">Estimated with the Retirement Planner's tax method applied to today's balances: pre-tax money taxed as ordinary income, taxable-account gains from the lots' cost basis. Amounts are shown as a percent of net worth.</p>`
+    ? `<p class="note">Estimated with the Retirement Planner's tax method applied to today's balances: pre-tax money taxed as ordinary income, taxable-account gains from the lots' cost basis. Est. tax is a percent of net worth.</p>`
     : planner
     ? `<p class="note">Same method as the Retirement Planner's after-tax figures, applied to today's balances: pre-tax money at the heirs' 10-year bracket rate${tax.rate_source === "settings" ? " (overridden in live_snapshot_settings.json)" : ""}; taxable-account gains${d ? ` (federal ${fmtUsd(d.federal)}, NIIT ${fmtUsd(d.niit)}, state ${fmtUsd(d.state)})` : ""} from the lots' cost basis with no step-up, since nobody has died yet. Assumes no other income. Flat 25% / 15% rates would give ${fmtUsd(tax.flat_total)} (${fmtUsd(tax.total - tax.flat_total)} different). The Planner's report figure is for the end of the plan, so it will differ.</p>`
     : `<p class="note">Flat rates (the Planner's plan could not be read): ordinary income at ${fmtPct(tax.pre_tax_rate, 0)}, taxable-account gains at ${fmtPct(tax.ltcg_rate, 0)}. An estimate, not a tax calculation.</p>`;
@@ -238,9 +240,12 @@ function totalsHtml(t, checking, debt, tax, nonLiquid, liquid) {
     ["Debt", -debt.total], ["Net assets", t.net_assets], ["Estimated tax", -tax.total], ["After-tax net worth", t.after_tax_net_worth],
   ];
   const kinds = Object.entries(t.by_kind || {}).map(([k, v]) =>
-    `<span class="kind-chip">${esc(k)} <b>${fmtUsd(v)}</b> <span class="muted">${fmtPct(t.gross_assets ? v / t.gross_assets : null, 0)}</span></span>`).join("");
+    isPct()
+      ? `<span class="kind-chip">${esc(k)} <b>${fmtPct(t.gross_assets ? v / t.gross_assets : null, 0)}</b></span>`
+      : `<span class="kind-chip">${esc(k)} <b>${fmtUsd(v)}</b> <span class="muted">${fmtPct(t.gross_assets ? v / t.gross_assets : null, 0)}</span></span>`).join("");
   return `<div class="totals-band">${steps.map(([label, v], i) =>
     `<div class="total-step${i === 4 || i === 6 ? " strong" : ""}"><span>${label}</span><b>${fmtUsd(v)}</b></div>`).join("")}</div>`
+    + (isPct() ? `<div class="unit-line">${unitChip("share of gross assets")}</div>` : "")
     + `<div class="kinds" aria-label="Assets by kind (share of gross assets)">${kinds}</div>`;
 }
 
@@ -251,22 +256,25 @@ export function liveViewHtml(data) {
   const L = data.liquid, t = data.totals;
   const indices = (data.indices || []).map((i) =>
     `<span class="index-chip">${esc(i.label)} ${i.day_pct === null || i.day_pct === undefined ? `<span class="na">${DASH}</span>` : changeHtml(i.day_pct, true)}</span>`).join("");
-  const head = `<div class="live-head"><div><div class="live-label">After-tax net worth</div><div class="live-big">${fmtUsd(t.after_tax_net_worth)}</div>`
-    + `<div class="live-sub">Liquid today ${changeHtml(L.day)} (${changeHtml(L.day_pct, true)}) · Year to date ${changeHtml(L.market_gain)} (${changeHtml(L.return_pct, true)})</div></div>`
+  const sub = isPct()
+    ? `Liquid today ${changeHtml(L.day_pct, true)} · Year to date ${changeHtml(L.return_pct, true)}`
+    : `Liquid today ${changeHtml(L.day)} (${changeHtml(L.day_pct, true)}) · Year to date ${changeHtml(L.market_gain)} (${changeHtml(L.return_pct, true)})`;
+  const head = `<div class="live-head"><div><div class="live-label">After-tax net worth${unitChip("% of net worth")}</div><div class="live-big">${fmtUsd(t.after_tax_net_worth)}</div>`
+    + `<div class="live-sub">${sub}</div></div>`
     + `<div class="live-right"><div class="indices">${indices}</div><div class="live-status" role="status">${esc(statusText(data))}</div></div></div>`;
   const flows = L.checking_net_flows === null || L.checking_net_flows === undefined ? ""
     : ` Net transfers from checking this year: ${fmtUsd(L.checking_net_flows)} (for information).`;
-  const liquid = `<div class="card live-card"><h2>Liquid investments</h2>${liquidTable("Asset class", L.by_class, L)}`
-    + `<h3>Equity by sub-class</h3>${liquidTable("Sub-class", L.by_equity_subclass, null)}${moneyView().allowed === "percent" ? "" : reconciliationHtml(data.reconciliation)}`
+  const liquid = `<div class="card live-card${isPct() ? " pm" : ""}"><h2>Liquid investments${unitChip("% of net worth")}</h2>${liquidTable("Asset class", L.by_class, L)}`
+    + `<h3>Equity by sub-class${unitChip("% of net worth")}</h3>${liquidTable("Sub-class", L.by_equity_subclass, null)}${moneyView().allowed === "percent" ? "" : reconciliationHtml(data.reconciliation)}`
     + `<p class="note">Start = 12/31 value of lots held then. Bought since = lots bought after 12/31, at purchase price; reinvested dividends count as gain. Return % weights new money by how long it was invested (Modified Dietz). Gains on positions sold this year are not included.${flows}</p></div>`;
   const nl = data.non_liquid;
-  const nonLiquid = `<details class="live-section"><summary>Non-liquid assets <b>${fmtUsd(nl.total)}</b> <span class="muted">imported balances, ${esc(nl.as_of || "")}</span></summary>`
-    + simpleTable(nl.rows, [(r) => esc(r.name), (r) => esc(r.kind), (r) => fmtUsd(r.value), (r) => fmtPct(r.share, 0), (r) => esc(TREATMENT[r.tax_treatment] || "")]) + `</details>`;
-  const tax = `<details class="live-section"><summary>Estimated tax <b>${fmtUsd(-data.tax.total)}</b></summary>${taxHtml(data.tax)}</details>`;
-  const debt = `<details class="live-section"><summary>Debt <b>${fmtUsd(-data.debt.total)}</b></summary>`
+  const nonLiquid = `<details class="live-section"><summary>Non-liquid assets <b>${fmtUsd(nl.total)}</b>${unitChip("% of net worth")} <span class="muted">imported balances, ${esc(nl.as_of || "")}</span></summary>`
+    + simpleTable(nl.rows, [(r) => esc(r.name), (r) => esc(r.kind), (r) => fmtUsd(r.value), ...(isPct() ? [] : [(r) => fmtPct(r.share, 0)]), (r) => esc(TREATMENT[r.tax_treatment] || "")]) + `</details>`;
+  const tax = `<details class="live-section"><summary>Estimated tax <b>${fmtUsd(-data.tax.total)}</b>${unitChip("% of net worth")}</summary>${taxHtml(data.tax)}</details>`;
+  const debt = `<details class="live-section"><summary>Debt <b>${fmtUsd(-data.debt.total)}</b>${unitChip("% of net worth")}</summary>`
     + simpleTable(data.debt.rows, [(r) => esc(r.name), (r) => fmtUsd(r.value)])
     + `<p class="note">Checking: ${fmtUsd(data.checking.total)} across ${data.checking.rows.length} account(s).</p></details>`;
-  return head + liquid + `<div class="card live-card">${totalsHtml(t, data.checking, data.debt, data.tax, nl, L)}${nonLiquid}${tax}${debt}</div>`;
+  return head + liquid + `<div class="card live-card">${isPct() ? `<div class="unit-line">${unitChip("% of net worth")}</div>` : ""}${totalsHtml(t, data.checking, data.debt, data.tax, nl, L)}${nonLiquid}${tax}${debt}</div>`;
 }
 
 // ---- browser wiring ----
