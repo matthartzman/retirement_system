@@ -137,6 +137,14 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, access
             content_type="text/javascript; charset=utf-8",
         )
 
+    @app.route("/money_view.js", methods=["GET"])
+    def money_view_js():
+        # The one money formatter ($ or % of net worth) imported by charts.js, live_snapshot.js and index.html.
+        return Response(
+            (_APP_ROOT / "frontend" / "money_view.js").read_text(encoding="utf-8"),
+            content_type="text/javascript; charset=utf-8",
+        )
+
     @app.route("/shared/runtime_history.js", methods=["GET"])
     def runtime_history_js():
         # The planner's run-time helpers (formatElapsed, averageRuntimeText, ...), served from the

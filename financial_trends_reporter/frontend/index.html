@@ -9,6 +9,9 @@
   body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; padding: 24px; background: #f7f7f8; color: #1a1a1a; }
   @media (prefers-color-scheme: dark) { body { background: #14161a; color: #e8e8ea; } }
   h1 { font-size: 20px; margin: 0 0 4px; }
+  .title-row { display: flex; align-items: center; gap: 12px; }
+  #moneyToggle { border: 1px solid currentColor; background: transparent; color: inherit; border-radius: 6px; padding: 2px 10px; font-size: 13px; cursor: pointer; }
+  #moneyToggle[aria-pressed="true"] { background: #2563eb; border-color: #2563eb; color: #fff; }
   .sub { color: #666; font-size: 13px; margin-bottom: 16px; }
   .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 20px; flex-wrap: wrap; }
   .toolbar button { border: 1px solid #ccc; background: #fff; border-radius: 6px; padding: 6px 12px; font-size: 13px; cursor: pointer; }
@@ -226,7 +229,7 @@
 </style>
 </head>
 <body>
-<h1>Financial Trends</h1>
+<div class="title-row"><h1>Financial Trends</h1><button type="button" id="moneyToggle" aria-pressed="false" title="Show amounts in dollars or as a percent of net worth" hidden>$ | %</button></div>
 <div class="sub">Four charts: Net Worth, Liquid Investments and Cash, Investment Net Flows, and Spending — one entry per weekday close. Net Worth and Liquid Investments and Cash use daily Imported account balances. The Time scope pulldown sets the dates every chart covers. The data updates automatically when this page opens.</div>
 <div class="toolbar" id="scopeBar">
   <div class="view-toggle" role="group" aria-label="View"><button type="button" data-view="trends" aria-pressed="true">Trends</button><button type="button" data-view="live" aria-pressed="false">Live Snapshot</button></div>
@@ -277,6 +280,7 @@
 // in ./charts.js, importable and testable directly.
 import { fmtMoney, escSvg, filterByTimeframe, aggregateByGranularity, granularityForTimeframe, labelForDate, scopeRange, parseSavedScope, dataTableFallbackHtml, lineChartSvg, barChartSvg, investmentFlowRows, flowBarChartSvg, passthroughReviewHtml, rolloverModel, rolloverHtml, rolloverChange, flowRolloverHtml, hasMonarchBalances, buildMonarchRows, truncateAllTime, ALL_TIME_START, monarchRolloverModel, balancesFreshnessNote, accountToggleHtml, flowIncludedAccounts, flowSeries, flowMonthlyRangeSeries, flowPeriodSummary, flowSummaryHtml, flowLineChartSvg, updateDecision, spendingUrl, spendingModelFromWindow, spendingModelFromSnapshot, latestOnly, spendingNoteText, setShowFullYear, fullYearDefault } from "./charts.js";
 import { initSpendingDock } from "./spending_dock.js";
+import { setMoneyView, moneyView, onMoneyViewChange, netWorthScale } from "./money_view.js";
 import { formatElapsed, recordPopupRuntime, averageRuntimeText, loadPopupRuntimeHistory } from "/shared/runtime_history.js";
 
 let history = [];
@@ -864,7 +868,32 @@ if (typeof ResizeObserver !== "undefined") {
   for (const id of FITTED_CHARTS) observer.observe(document.getElementById(id));
 }
 
-loadHistory().then(() => updateData(false));
+// Money view: who is looking decides what the amounts mean. A percent person's data is already scaled
+// (scale 1); the owner's own page divides by today's net worth from /api/balances.
+const MONEY_VIEW_KEY = "trends.moneyView";
+async function initMoneyView() {
+  let allowed = "both";
+  try { allowed = (await (await fetch("/api/whoami")).json()).money_view || "both"; } catch (err) { /* keep both */ }
+  let scale = 1;
+  if (allowed !== "percent") {
+    try { scale = netWorthScale(await (await fetch("/api/balances")).json()); } catch (err) { /* percent view shows n/a */ }
+  }
+  let saved = null;
+  try { saved = localStorage.getItem(MONEY_VIEW_KEY); } catch (err) { /* storage blocked */ }
+  setMoneyView({ allowed, shown: saved === "percent" ? "percent" : "dollars", scale });
+  const btn = document.getElementById("moneyToggle");
+  const sync = () => btn.setAttribute("aria-pressed", String(moneyView().shown === "percent"));
+  sync();
+  if (allowed !== "both") return;
+  btn.hidden = false;
+  btn.addEventListener("click", () => {
+    const next = moneyView().shown === "percent" ? "dollars" : "percent";
+    try { localStorage.setItem(MONEY_VIEW_KEY, next); } catch (err) { /* the choice just won't persist */ }
+    setMoneyView({ ...moneyView(), shown: next });
+  });
+  onMoneyViewChange(() => { sync(); render(); });
+}
+initMoneyView().then(loadHistory).then(() => updateData(false));
 </script>
 <script type="module" src="./live_snapshot.js"></script>
 </body>

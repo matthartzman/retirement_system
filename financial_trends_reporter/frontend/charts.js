@@ -10,8 +10,11 @@
 // type="module"> now imports from this file and keeps only the DOM-wiring/
 // fetch/render orchestration inline.
 
+import { moneyView, fmtAmount } from "./money_view.js";
+
 export function fmtMoney(v) {
   if (v === null || v === undefined) return "-";
+  if (moneyView().shown !== "dollars") return fmtAmount(v);
   return "$" + Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 });
 }
 
@@ -995,6 +998,7 @@ export function flowYtdSummary(series, year) {
 
 export function fmtMoneySigned(v) {
   if (v === null || v === undefined) return "-";
+  if (moneyView().shown !== "dollars") return fmtAmount(v);
   return (v < 0 ? "-" : "") + "$" + Math.abs(Number(v)).toLocaleString(undefined, { maximumFractionDigits: 0 });
 }
 

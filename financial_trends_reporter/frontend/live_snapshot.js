@@ -3,6 +3,8 @@
 // and the Refresh button in the browser. It runs as its own module so the Trends script is untouched:
 // the toggle only switches body.live-mode, and CSS hides the trend cards and the time scope.
 
+import { moneyView, fmtAmount } from "./money_view.js";
+
 export const VIEW_KEY = "trendsView_v1";
 export const POLL_MS = 60000;
 const POLLING_STATES = new Set(["pre", "open", "post"]);
@@ -22,6 +24,7 @@ function esc(value) {
 
 export function fmtUsd(v) {
   if (v === null || v === undefined || Number.isNaN(Number(v))) return DASH;
+  if (moneyView().shown !== "dollars") return fmtAmount(v);
   const n = Number(v);
   return (n < 0 ? "-" : "") + "$" + Math.abs(n).toLocaleString("en-US", { maximumFractionDigits: 0 });
 }
@@ -82,6 +85,7 @@ function cells(r) {
 
 export function fmtUsd2(v) {
   if (v === null || v === undefined || Number.isNaN(Number(v))) return DASH;
+  if (moneyView().shown !== "dollars") return fmtAmount(v);
   const n = Number(v);
   return (n < 0 ? "-" : "") + "$" + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
