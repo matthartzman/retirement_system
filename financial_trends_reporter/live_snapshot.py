@@ -261,6 +261,53 @@ def previous_closes(symbols: Iterable[str], today: date, *, snapshots: Callable 
     return {str(k).upper(): float(v) for k, v in found.items() if v and float(v) > 0}
 
 
+_CLOSES_ON: dict[tuple[str, str], tuple[float, float | None]] = {}
+CLOSES_MISS_RETRY_SECONDS = 600
+
+
+def closes_on(symbols: Iterable[str], day: date, *, snapshots: Callable = _default_snapshots,
+              closes: Callable = _default_closes, clock: Callable = time.monotonic) -> dict[str, float]:
+    """Closing prices on trading day ``day`` (an imported balance's own date): a stored snapshot taken
+    between that close and the next open, else daily history. Kept in memory; a miss is retried after
+    ``CLOSES_MISS_RETRY_SECONDS`` so the 60 s poll doesn't refetch it."""
+    wanted = sorted({str(s).strip().upper() for s in symbols if str(s).strip()} - {""})
+    key_day, now = day.isoformat(), clock()
+    out: dict[str, float] = {}
+    todo = []
+    for sym in wanted:
+        hit = _CLOSES_ON.get((sym, key_day))
+        if hit and (hit[1] is not None or now - hit[0] < CLOSES_MISS_RETRY_SECONDS):
+            if hit[1] is not None:
+                out[sym] = hit[1]
+        else:
+            todo.append(sym)
+    if todo:
+        after, before = _between_sessions(day)
+        found = {str(k).upper(): float(v) for k, v in _safe(snapshots, todo, after, before, default={}).items() if v and float(v) > 0}
+        for sym in [t for t in todo if t not in found]:
+            history = _safe(closes, sym, day - timedelta(days=10), day + timedelta(days=1), default={})
+            on_or_before = sorted((d, px) for d, px in history.items() if d <= key_day and px and float(px) > 0)
+            if on_or_before:
+                found[sym] = float(on_or_before[-1][1])
+        for sym in todo:
+            _CLOSES_ON[(sym, key_day)] = (now, found.get(sym))
+        out.update(found)
+    return out
+
+
+def imported_balance_days(monarch: dict | None, today: date) -> list[date]:
+    """Trading days whose closes the reconciliation needs: an imported liquid balance older than the
+    previous session, which today's day move can't back out."""
+    prior = previous_trading_day(last_trading_day_on_or_before(today))
+    out = set()
+    for r in (monarch or {}).get("by_account") or []:
+        if str(r.get("type") or "") in MONARCH_LIQUID_TYPES and r.get("as_of"):
+            d = last_trading_day_on_or_before(date.fromisoformat(str(r["as_of"])))
+            if d < prior:
+                out.add(d)
+    return sorted(out)
+
+
 # ---- valuation, grouping, returns, tax, roll-up (pure: every input is passed in) ----
 
 CLASS_ORDER = ("Equity", "Fixed Income", "Commodities", "Cash", "Other")
@@ -486,7 +533,7 @@ def _hints(members: list[dict], value_then, delta: float, as_of: str | None, sta
 
 
 def _reconcile_accounts(positions: list[dict], stale: list[str], accounts, monarch: dict | None,
-                        back_off: bool, today: date) -> dict[str, Any]:
+                        back_off: bool, today: date, closes_by_day: dict[str, dict[str, float]] | None = None) -> dict[str, Any]:
     """Holdings vs. Monarch account by account (design 4.1), through each Monarch account's
     ``mapped_investment_account``. Only Monarch liquid-type accounts take part. Each holdings value
     is backed off by its lots' day moves when Monarch is from an earlier day (the total's rule), so
@@ -510,25 +557,58 @@ def _reconcile_accounts(positions: list[dict], stale: list[str], accounts, monar
             continue
         name, value = str(r.get("account") or "").strip(), _num(r.get("value"))
         if name in mapping:
-            matched.setdefault(mapping[name], []).append((name, value))
+            matched.setdefault(mapping[name], []).append((name, value, str(r.get("as_of") or "") or None))
         else:
             unmapped_monarch.append({"name": name, "value": round(value, 2)})
 
     as_of, stale_set = (monarch or {}).get("latest_date"), set(stale)
+    session = last_trading_day_on_or_before(today)
+    prior = previous_trading_day(session)
+    closes_by_day = closes_by_day or {}
+
+    def valuer(balance_day: str | None):
+        """Value each lot at the close of the imported balance's own day, so a balance that synced
+        late compares like with like. Returns (value function, symbols with no close that day)."""
+        if not balance_day:
+            return value_then, set()
+        d = last_trading_day_on_or_before(date.fromisoformat(balance_day))
+        if d >= session:
+            return (lambda p: p["current"]), set()
+        if d == prior:
+            return (lambda p: p["current"] - (p["day"] or 0.0)), set()
+        closes = closes_by_day.get(d.isoformat()) or {}
+        missing: set[str] = set()
+
+        def at_close(p: dict) -> float:
+            if _is_cash_symbol(p["symbol"]):
+                return p["current"]
+            px = closes.get(p["symbol"])
+            if not px:
+                missing.add(p["symbol"])
+                return p["current"] - (p["day"] or 0.0)
+            return p["shares"] * px
+        return at_close, missing
+
     rows, footing = [], 0.0
     for holdings_account, names in matched.items():
         members = by_holdings.get(holdings_account, [])   # empty when every lot was sold: holdings 0
-        held = sum(value_then(m) for m in members)
-        monarch_value = sum(v for _, v in names)
+        dates = [d for _, _, d in names if d]
+        balance_day = min(dates) if dates else as_of     # several imported accounts: the oldest balance
+        value_at, missing = valuer(balance_day)
+        held = sum(value_at(m) for m in members)
+        monarch_value = sum(v for _, v, _ in names)
         delta = held - monarch_value
         delta_pct = _ratio(delta, monarch_value)
         # Both over 1% and over $100; with no Monarch balance to divide by, the $ test alone decides.
         flag = abs(delta) > RECONCILE_ACCOUNT_FLAG_USD and (delta_pct is None or abs(delta_pct) > RECONCILE_FLAG_PCT)
         footing += held
-        rows.append({"holdings_account": holdings_account, "monarch_accounts": [n for n, _ in names],
+        rows.append({"holdings_account": holdings_account, "monarch_accounts": [n for n, _, _ in names],
                      "holdings_value": round(held, 2), "monarch_value": round(monarch_value, 2),
                      "delta": round(delta, 2), "delta_pct": delta_pct, "flag": flag,
-                     "hints": _hints(members, value_then, delta, as_of, stale_set) if flag else []})
+                     # More than a session old: the row says when it last synced (fresh rows say nothing).
+                     "balance_as_of": balance_day,
+                     "balance_stale": bool(balance_day) and balance_day < prior.isoformat(),
+                     "hints": _hints(members, value_at, delta, balance_day, stale_set | missing) if flag else []})
     rows.sort(key=lambda r: (-abs(r["delta"]), r["holdings_account"]))   # largest gap first
 
     unmapped_holdings = []
@@ -595,7 +675,8 @@ def _monarch_sections(monarch: dict | None, tax_overrides: dict[str, str] | None
             "checking": {"rows": checking, "total": sum(r["value"] for r in checking), "as_of": as_of}}
 
 
-def compute(*, lots, quotes, baseline, security_master, accounts, flows_daily, monarch, tax_rates, today: date) -> dict[str, Any]:
+def compute(*, lots, quotes, baseline, security_master, accounts, flows_daily, monarch, tax_rates, today: date,
+            closes_by_day: dict[str, dict[str, float]] | None = None) -> dict[str, Any]:
     """The Live Snapshot body (design 4.3) from already-loaded inputs. Pure, so tests pin every formula.
 
     Returns at every level (total, class, ticker) are Modified Dietz over the current lots (see
@@ -628,7 +709,7 @@ def compute(*, lots, quotes, baseline, security_master, accounts, flows_daily, m
         reconciliation = {"holdings_value": round(compare, 2), "monarch_value": round(sections["liquid_total"], 2),
                           "monarch_as_of": sections["as_of"], "delta_pct": delta,
                           "flag": delta is None or abs(delta) > RECONCILE_FLAG_PCT,
-                          **_reconcile_accounts(positions, stale, accounts, monarch, yesterday, today)}
+                          **_reconcile_accounts(positions, stale, accounts, monarch, yesterday, today, closes_by_day)}
 
     pre_tax_balance = sum(p["current"] for p in positions if p["tax"] == "pre_tax")
     unrealized = sum(max(0.0, p["current"] - p["basis"]) for p in positions
@@ -730,7 +811,23 @@ def _load_inputs_uncached(base_dir: Path, log_path: Path, balances_db: Path) -> 
         "log_as_of": latest.get("as_of_date"),
         "monarch": balance_series.snapshot_summary(balances_db),
         "tax_rates": tax_rates(log_path.parent, plan_ltcg=plan.get(("Rebalancing", "Tax-aware Trades", "ltcg_rate"), "")),
+        "people": household_nicknames(plan),
     }
+
+
+def household_nicknames(plan: dict[tuple[str, str, str], str]) -> dict[str, str]:
+    """{"h_nick", "w_nick"} from Plan Data's Household rows, the same nicknames the planner's reports use."""
+    from src.parsing.client_sections import nickname
+
+    return {key: nickname(plan.get(("Household", "", f"{member}_nickname"), ""), plan.get(("Household", "", f"{member}_name"), ""))
+            for key, member in (("h_nick", "member_1"), ("w_nick", "member_2"))}
+
+
+def account_labels(accounts, people: dict[str, str]) -> dict[str, str]:
+    """{holdings account id: display label}, e.g. Member_1_401k -> "Matt 401k". The id stays the data key."""
+    from src.person_labels import display_account
+
+    return {a: display_account(a, people) for a in sorted({str(a or "").strip() for a in accounts} - {""})}
 
 
 def load_inputs(base_dir: str | Path, log_path: str | Path, balances_db: str | Path, *, clock=time.monotonic) -> dict[str, Any]:
@@ -756,7 +853,8 @@ def clear_inputs_cache() -> None:
 
 
 def build(*, inputs: dict[str, Any], data_dir: str | Path, quote_cache=None, now: datetime | None = None,
-          force: bool = False, previous_close_lookup: Callable | None = None) -> dict[str, Any]:
+          force: bool = False, previous_close_lookup: Callable | None = None,
+          close_lookup: Callable | None = None) -> dict[str, Any]:
     """The /api/live-snapshot body: header (time, market state, indices) plus ``compute()``."""
     now = now or datetime.now(timezone.utc)
     today = now.astimezone(EASTERN).date()
@@ -777,14 +875,17 @@ def build(*, inputs: dict[str, Any], data_dir: str | Path, quote_cache=None, now
             quotes.setdefault(sym, {})["previous_close"] = px
 
     baseline = baseline_prices(priced, today.year, data_dir)
+    close_lookup = close_lookup or closes_on
+    closes_by_day = {d.isoformat(): close_lookup(priced, d) for d in imported_balance_days(inputs["monarch"], today)}
     body = compute(lots=inputs["lots"], quotes=quotes, baseline=baseline, security_master=inputs["security_master"],
                    accounts=inputs["accounts"], flows_daily=inputs["flows_daily"], monarch=inputs["monarch"],
-                   tax_rates=inputs["tax_rates"], today=today)
+                   tax_rates=inputs["tax_rates"], today=today, closes_by_day=closes_by_day)
     indices = []
     for sym, label in INDICES:
         q = quotes.get(sym) or {}
         price, prev = q.get("price"), q.get("previous_close")
         indices.append({"symbol": sym, "label": label, "price": price,
                         "day_pct": (price / prev - 1) if price and prev else None, "stale": bool(q.get("stale", True))})
-    return {**head, **body, "indices": indices, "quotes_age_seconds": quote_cache.age_seconds(symbols),
+    labels = account_labels((l.get("account") for l in inputs["lots"]), inputs.get("people") or {})
+    return {**head, **body, "indices": indices, "account_labels": labels, "quotes_age_seconds": quote_cache.age_seconds(symbols),
             "baseline_missing": baseline["missing"], "flows_as_of": inputs.get("log_as_of")}

@@ -121,16 +121,20 @@ def test_load_inputs_error_is_returned_and_not_cached(monkeypatch):
 
 def test_every_module_index_html_loads_is_served(tmp_path):
     # index.html's module script fails as a whole if any import 404s, leaving every card empty
-    # (spending_dock.js shipped without a route). Request each script the page and its modules load.
+    # (spending_dock.js shipped without a route). Follow the imports through the served pages.
     import re
-    frontend = Path(reporter_main.__file__).resolve().parent / "frontend"
     pattern = re.compile(r"""(?:from |src=)["'](?:\./)?([^"']+\.js)["']""")
-    paths = set()
-    for name in ("index.html", "charts.js", "live_snapshot.js", "spending_dock.js"):
-        paths.update(pattern.findall((frontend / name).read_text(encoding="utf-8")))
-    assert {"charts.js", "spending_dock.js", "live_snapshot.js"} <= paths
     client = create_app(_workspace(tmp_path), log_path=tmp_path / "log.jsonl").test_client()
-    for rel in sorted(paths):
-        resp = client.get("/" + rel.lstrip("/"))
+    index = client.get("/")
+    assert index.status_code == 200
+    queue, served = list(pattern.findall(index.get_data(as_text=True))), set()
+    while queue:
+        rel = queue.pop().lstrip("/")
+        if rel in served:
+            continue
+        resp = client.get("/" + rel)
         assert resp.status_code == 200, rel
         assert "javascript" in resp.headers.get("Content-Type", "").lower(), rel
+        served.add(rel)
+        queue.extend(pattern.findall(resp.get_data(as_text=True)))
+    assert {"charts.js", "spending_dock.js", "live_snapshot.js"} <= served

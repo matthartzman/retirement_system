@@ -380,3 +380,77 @@ def test_without_monarch_only_liquid_and_tax():
     assert out["non_liquid"]["rows"] == [] and out["debt"]["total"] == 0
     assert out["reconciliation"] is None
     assert out["totals"]["after_tax_net_worth"] == pytest.approx(32200 - 6700)
+
+
+# ---- each account compared at its imported balance's own date ----
+# Today is Tue 2026-10-27, so the previous session is Mon 10-26 (today's day move backs that out).
+# An IRA balance from Thu 10-22 is valued at 10-22's closes: ITOT 100 x 125 + IXUS 200 x 65 = 25,500.
+
+def _monarch_with(ira_value, ira_as_of, trust_as_of="2026-10-26"):
+    rows = [dict(r) for r in MONARCH["by_account"]]
+    for r in rows:
+        if r["account"] == "IRA - Matt":
+            r.update(value=ira_value, as_of=ira_as_of)
+        if r["account"] == "Trust - Matt":
+            r["as_of"] = trust_as_of
+    return {**MONARCH, "by_account": rows}
+
+
+def test_late_sync_is_valued_at_that_days_close_and_does_not_flag():
+    closes = {"2026-10-22": {"ITOT": 125.0, "IXUS": 65.0}}
+    rec = _compute(monarch=_monarch_with(25700.0, "2026-10-22"), closes_by_day=closes)["reconciliation"]
+    ira = next(a for a in rec["accounts"] if a["holdings_account"] == "Member_1_IRA")
+    assert ira["holdings_value"] == pytest.approx(25500.0)        # not today's 26,150, which would be 450 (1.75%) apart
+    assert ira["delta"] == pytest.approx(-200.0) and ira["flag"] is False
+    assert ira["balance_as_of"] == "2026-10-22" and ira["balance_stale"] is True
+
+
+def test_fresh_balance_keeps_the_day_move_rule_and_says_nothing_about_dates():
+    rec = _compute(monarch=_monarch_with(26000.0, "2026-10-26"))["reconciliation"]
+    ira = next(a for a in rec["accounts"] if a["holdings_account"] == "Member_1_IRA")
+    assert ira["holdings_value"] == pytest.approx(26150.0) and ira["balance_stale"] is False
+
+
+def test_late_sync_still_flags_a_real_gap_and_names_symbols_with_no_close():
+    # No 10-22 close for IXUS: it falls back to today's back-off (13,200 + 50) and is named as an old price.
+    closes = {"2026-10-22": {"ITOT": 125.0}}
+    rec = _compute(monarch=_monarch_with(24000.0, "2026-10-22"), closes_by_day=closes)["reconciliation"]
+    ira = next(a for a in rec["accounts"] if a["holdings_account"] == "Member_1_IRA")
+    assert ira["holdings_value"] == pytest.approx(12500.0 + 13250.0)
+    assert ira["flag"] is True
+    assert {"kind": "stale_prices", "symbols": ["IXUS"]} in ira["hints"]
+
+
+def test_friday_balance_on_a_saturday_compares_with_fridays_close():
+    # Sat 10-31: the latest session is Fri 10-30, which the live quotes already hold, so nothing is backed out.
+    rec = _compute(monarch=_monarch_with(26000.0, "2026-10-30", "2026-10-30"), today=date(2026, 10, 31))["reconciliation"]
+    ira = next(a for a in rec["accounts"] if a["holdings_account"] == "Member_1_IRA")
+    assert ira["holdings_value"] == pytest.approx(26200.0) and ira["balance_stale"] is False
+
+
+def test_imported_balance_days_lists_only_balances_older_than_the_previous_session():
+    assert ls.imported_balance_days(_monarch_with(1.0, "2026-10-22"), TODAY) == [date(2026, 10, 22)]
+    assert ls.imported_balance_days(_monarch_with(1.0, "2026-10-26"), TODAY) == []
+    assert ls.imported_balance_days(_monarch_with(1.0, "2026-10-24"), TODAY) == [date(2026, 10, 23)]   # a Saturday sync is Friday's close
+
+
+def test_closes_on_caches_hits_and_retries_misses_later():
+    calls, clock = [], [0.0]
+
+    def snapshots(symbols, after, before):
+        calls.append(tuple(symbols))
+        return {"ITOT": 125.0}
+
+    def closes(symbol, start, end):
+        calls.append(symbol)
+        return {}
+
+    ls._CLOSES_ON.clear()
+    day = date(2026, 10, 22)
+    kw = dict(snapshots=snapshots, closes=closes, clock=lambda: clock[0])
+    assert ls.closes_on(["ITOT", "IXUS"], day, **kw) == {"ITOT": 125.0}
+    assert ls.closes_on(["ITOT", "IXUS"], day, **kw) == {"ITOT": 125.0} and len(calls) == 2    # no refetch
+    clock[0] = ls.CLOSES_MISS_RETRY_SECONDS + 1
+    ls.closes_on(["ITOT", "IXUS"], day, **kw)
+    assert calls[-2:] == [("IXUS",), "IXUS"]                                                       # only the miss retried
+    ls._CLOSES_ON.clear()

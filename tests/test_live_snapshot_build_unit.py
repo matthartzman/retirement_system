@@ -94,3 +94,44 @@ def test_tax_settings_carry_annuity_basis_and_overrides(tmp_path):
     rates = ls.tax_rates(tmp_path)
     assert rates["annuity_basis"] == {"Annuity - Matt": 120000.0}
     assert rates["non_liquid_tax"] == {"Pension - Pat": "none"}
+
+
+# ---- friendly account labels ----
+
+def test_household_nicknames_fall_back_to_first_name():
+    plan = {("Household", "", "member_1_nickname"): "Matt", ("Household", "", "member_1_name"): "Matthew Hartzman",
+            ("Household", "", "member_2_name"): "Patricia Hartzman"}
+    assert ls.household_nicknames(plan) == {"h_nick": "Matt", "w_nick": "Patricia"}
+
+
+def test_account_labels_use_the_planner_display_rule():
+    people = {"h_nick": "Matt", "w_nick": "Pat"}
+    labels = ls.account_labels(["Member_1_401k", " Member_2_Roth ", "Family_Checking", "", None], people)
+    assert labels == {"Family_Checking": "Family Checking", "Member_1_401k": "Matt 401k", "Member_2_Roth": "Pat Roth"}
+
+
+def test_build_ships_a_label_for_every_holdings_account(data_dir):
+    fake = FakeQuotes({**QUOTES, **INDEX_QUOTES})
+    out = ls.build(inputs={**INPUTS, "people": {"h_nick": "Matt", "w_nick": "Pat"}}, quote_cache=fake, data_dir=data_dir,
+                   now=NOW, previous_close_lookup=lambda symbols, today: {})
+    accounts = {str(l["account"]).strip() for l in LOTS}
+    assert set(out["account_labels"]) == accounts
+    assert out["account_labels"]["Member_1_IRA"] == "Matt IRA"
+
+
+def test_build_fetches_closes_only_for_balances_older_than_the_previous_session(data_dir):
+    asked = []
+    monarch = {**MONARCH, "by_account": [{**r, "as_of": "2026-10-22"} if r["account"] == "IRA - Matt" else r
+                                         for r in MONARCH["by_account"]]}
+
+    def close_lookup(symbols, day):
+        asked.append(day.isoformat())
+        return {"ITOT": 125.0, "IXUS": 65.0}
+
+    out = ls.build(inputs={**INPUTS, "monarch": monarch}, quote_cache=FakeQuotes({**QUOTES, **INDEX_QUOTES}),
+                   data_dir=data_dir, now=NOW, previous_close_lookup=lambda symbols, today: {}, close_lookup=close_lookup)
+    assert asked == ["2026-10-22"]
+    ira = next(a for a in out["reconciliation"]["accounts"] if a["holdings_account"] == "Member_1_IRA")
+    assert ira["holdings_value"] == pytest.approx(25500.0)
+    _build(data_dir, close_lookup=close_lookup)   # every balance fresh: nothing fetched
+    assert asked == ["2026-10-22"]
