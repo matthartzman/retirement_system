@@ -330,7 +330,6 @@ def imported_balance_days(monarch: dict | None, today: date) -> list[date]:
 
 # ---- valuation, grouping, returns, tax, roll-up (pure: every input is passed in) ----
 
-CLASS_ORDER = ("Equity", "Fixed Income", "Commodities", "Cash", "Other")
 KIND_ORDER = ("Equity", "Fixed Income", "Real Estate", "Commodities", "Alternatives", "Cash")
 MONARCH_LIQUID_TYPES = frozenset({"Retirement", "Investment", "HSA"})
 MONARCH_DEBT_TYPES = frozenset({"Loan", "Credit card"})
@@ -447,7 +446,7 @@ def _positions(lots, quotes, baseline, security_master, baseline_day: date, toda
     return out, sorted(stale)
 
 
-def _summarize(name: str, members: list[dict], total_current: float, total_gain: float, days: int, with_tickers: bool) -> dict:
+def _summarize(name: str, members: list[dict], total_current: float, total_gain: float, days: int) -> dict:
     current = sum(m["current"] for m in members)
     start = sum(m["start"] for m in members)
     new_money = sum(m["new_money"] for m in members)
@@ -460,31 +459,7 @@ def _summarize(name: str, members: list[dict], total_current: float, total_gain:
            "day": None if day is None else round(day, 2), "day_pct": None if day is None else _ratio(day, current - day),
            "market_gain": round(gain, 2), "return_pct": ret, "share_of_gain": _ratio(gain, total_gain),
            "annualized_pct": _annualized(ret, days)}
-    if with_tickers:
-        by_symbol: dict[str, list[dict]] = {}
-        for m in members:
-            by_symbol.setdefault(m["symbol"], []).append(m)
-        row["tickers"] = sorted(({**_summarize(s, ms, total_current, total_gain, days, False), "symbol": s, "title": ms[0].get("title", ""),
-                                  "accounts": _account_rows(ms, total_current, total_gain, days)}
-                                 for s, ms in by_symbol.items()), key=lambda t: -t["current"])
     return row
-
-
-def _account_rows(members: list[dict], total_current: float, total_gain: float, days: int) -> list[dict]:
-    """One ticker's lots grouped by holdings account (largest first), each with its lots (newest
-    first; undated lots last). Every member of ``_positions`` is one lot. Share and share of gain
-    stay relative to the whole liquid total."""
-    by_account: dict[str, list[dict]] = {}
-    for m in members:
-        by_account.setdefault(m["account"], []).append(m)
-    out = []
-    for account, ms in by_account.items():
-        lots = [{**_summarize(m["purchase_date"] or "", [m], total_current, total_gain, days, False),
-                 "purchase_date": m["purchase_date"], "shares": m["shares"],
-                 "purchase_price": m["purchase_price"], "reinvested": m["reinvested"]} for m in ms]
-        lots.sort(key=lambda r: r["purchase_date"] or "", reverse=True)
-        out.append({**_summarize(account, ms, total_current, total_gain, days, False), "lots": lots})
-    return sorted(out, key=lambda r: -r["current"])
 
 
 def _position_rows(positions: list[dict]) -> list[dict]:
@@ -497,18 +472,6 @@ def _position_rows(positions: list[dict]) -> list[dict]:
              "purchase_price": p["purchase_price"], "reinvested": p["reinvested"],
              "start": p["start"], "new_money": p["new_money"], "weighted": p["weighted"],
              "current": p["current"], "day": p["day"]} for p in positions]
-
-
-def _group(rows: list[dict], key: str, total_current: float, total_gain: float, days: int, order: tuple = ()) -> list[dict]:
-    """Rows summarized by ``key``: in ``order`` when given, else largest first."""
-    groups: dict[str, list[dict]] = {}
-    for r in rows:
-        if r.get(key):
-            groups.setdefault(r[key], []).append(r)
-    out = [_summarize(n, ms, total_current, total_gain, days, True) for n, ms in groups.items()]
-    if order:
-        return sorted(out, key=lambda r: order.index(r["name"]) if r["name"] in order else len(order))
-    return sorted(out, key=lambda r: -r["current"])
 
 
 def _checking_net_flows(accounts, flows_daily, liquid_accounts: set[str], baseline_day: date, today: date) -> float | None:
@@ -792,15 +755,12 @@ def compute(*, lots, quotes, baseline, security_master, accounts, flows_daily, m
     days = (today - baseline_day).days
     positions, stale = _positions(lots, quotes, baseline, security_master, baseline_day, today)
 
-    total = _summarize("Total", positions, 0.0, 0.0, days, False)
-    current, gain = total["current"], total["market_gain"]
+    total = _summarize("Total", positions, 0.0, 0.0, days)
+    current = total["current"]
     checking_flows = _checking_net_flows(accounts or [], flows_daily or {}, {p["account"] for p in positions}, baseline_day, today)
-    equity = [p for p in positions if p["asset_class"] == "Equity"]
     liquid = {
         **{k: total[k] for k in ("start", "new_money", "current", "market_gain", "return_pct", "annualized_pct", "day", "day_pct")},
         "checking_net_flows": None if checking_flows is None else round(checking_flows, 2),
-        "by_class": _group(positions, "asset_class", current, gain, days, CLASS_ORDER),
-        "by_equity_subclass": _group(equity, "subclass", current, gain, days),
         "stale_symbols": stale, "unclassified_symbols": sorted({p["symbol"] for p in positions if p["unclassified"]}),
         "positions": _position_rows(positions),
     }

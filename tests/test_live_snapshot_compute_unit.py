@@ -102,22 +102,17 @@ def test_reinvested_dividend_counts_as_gain_not_new_money():
 
 # ---- the flat lot list the page re-groups ----
 
-def _regroup(positions, key, days, total_current, total_gain):
-    """What the page does with ``liquid.positions``: sum the members, then the same formulas as
-    ``_summarize`` (gain = current - start - new money; return over start + weighted new money)."""
+def _groups(out, key, only=lambda p: True):
+    """Group totals over the lot list with the server's own ``_summarize``: what each row of the page's
+    table must show. Shares are over the whole liquid book, as on the page."""
+    positions = out["liquid"]["positions"]
+    total_current = sum(p["current"] for p in positions)
+    total_gain = sum(p["current"] - p["start"] - p["new_money"] for p in positions)
     groups = {}
     for p in positions:
-        groups.setdefault(key(p), []).append(p)
-    out = {}
-    for name, ms in groups.items():
-        current, start, new = (sum(m[k] for m in ms) for k in ("current", "start", "new_money"))
-        gain = current - start - new
-        known = [m["day"] for m in ms if m["day"] is not None]
-        out[name] = {"current": current, "start": start, "market_gain": gain,
-                     "return_pct": gain / (start + sum(m["weighted"] for m in ms)),
-                     "share": current / total_current, "share_of_gain": gain / total_gain,
-                     "day": sum(known) if known else None}
-    return out
+        if only(p):
+            groups.setdefault(key(p), []).append(p)
+    return {name: ls._summarize(name, ms, total_current, total_gain, out["days"]) for name, ms in groups.items()}
 
 
 def test_positions_are_one_row_per_lot_with_what_the_page_needs():
@@ -134,22 +129,16 @@ def test_positions_are_one_row_per_lot_with_what_the_page_needs():
                           "purchase_price", "reinvested", "start", "new_money", "weighted", "current", "day"} for p in positions)
 
 
-def test_regrouping_positions_reproduces_the_servers_groups():
-    out = _compute()
-    liquid, days = out["liquid"], out["days"]
-    total_current, total_gain = liquid["current"], liquid["market_gain"]
-    assert sum(p["current"] for p in liquid["positions"]) == pytest.approx(total_current)
-    by_class = _regroup(liquid["positions"], lambda p: p["asset_class"], days, total_current, total_gain)
-    for row in liquid["by_class"]:
-        got = by_class[row["name"]]
-        for k in ("current", "start", "market_gain", "return_pct", "share", "share_of_gain", "day"):
-            assert got[k] == pytest.approx(row[k]), (row["name"], k)
-    by_symbol = _regroup(liquid["positions"], lambda p: p["symbol"], days, total_current, total_gain)
-    for row in _row(liquid["by_class"], "Equity")["tickers"]:
-        assert by_symbol[row["symbol"]]["return_pct"] == pytest.approx(row["return_pct"])
-    by_sub = _regroup([p for p in liquid["positions"] if p["subclass"]], lambda p: p["subclass"], days, total_current, total_gain)
-    for row in liquid["by_equity_subclass"]:
-        assert by_sub[row["name"]]["current"] == pytest.approx(row["current"])
+def test_lots_sum_to_the_liquid_total():
+    out = _compute(lots=LOTS + [{"account": "Member_1_Trust", "symbol": "ITOT", "purchase_date": "2026-10-01", "shares": "10", "purchase_price": "125"}])
+    liquid = out["liquid"]
+    for k in ("current", "start", "new_money", "day"):
+        assert sum(p[k] for p in liquid["positions"]) == pytest.approx(liquid[k]), k
+    for key in (lambda p: p["asset_class"], lambda p: p["symbol"], lambda p: p["account"]):
+        groups = _groups(out, key)
+        assert sum(g["current"] for g in groups.values()) == pytest.approx(liquid["current"])
+        assert sum(g["share"] for g in groups.values()) == pytest.approx(1.0)
+        assert sum(g["market_gain"] for g in groups.values()) == pytest.approx(liquid["market_gain"])
 
 
 def test_a_lot_with_no_day_change_stays_null():
@@ -159,12 +148,12 @@ def test_a_lot_with_no_day_change_stays_null():
     assert positions[0]["day"] is None
 
 
-# ---- groupings ----
+# ---- group totals (the page groups the lot list; these pin the server's formulas on known numbers) ----
 
-def test_by_class():
-    rows = _compute()["liquid"]["by_class"]
-    assert [r["name"] for r in rows] == ["Equity", "Cash"]
-    eq = _row(rows, "Equity")
+def test_class_totals():
+    groups = _groups(_compute(), lambda p: p["asset_class"])
+    assert sorted(groups) == ["Cash", "Equity"]
+    eq = groups["Equity"]
     assert eq["current"] == pytest.approx(31200)
     assert eq["start"] == pytest.approx(24000)               # ITOT + IXUS at 12/31
     assert eq["new_money"] == pytest.approx(4000)            # AVUV
@@ -173,45 +162,41 @@ def test_by_class():
     assert eq["share"] == pytest.approx(31200 / 32200)
     assert eq["share_of_gain"] == pytest.approx(1.0)
     assert eq["day"] == pytest.approx(100)
-    assert [t["symbol"] for t in eq["tickers"]] == ["IXUS", "ITOT", "AVUV"]   # largest first
-    cash = _row(rows, "Cash")
+    cash = groups["Cash"]
     assert (cash["current"], cash["market_gain"], cash["day"]) == (1000, 0, 0)
 
 
-def test_by_equity_subclass():
-    rows = _compute()["liquid"]["by_equity_subclass"]
-    assert [(r["name"], r["current"]) for r in rows] == [
-        ("International Equity", 13200), ("US Total Equity", 13000), ("Small-Cap Value", 5000)]
+def test_equity_subclass_totals():
+    groups = _groups(_compute(), lambda p: p["subclass"], only=lambda p: p["subclass"])
+    assert {n: g["current"] for n, g in groups.items()} == {"International Equity": 13200, "US Total Equity": 13000, "Small-Cap Value": 5000}
 
 
-# ---- drill-down: ticker -> holdings account -> lot ----
+# ---- lots ----
 # ITOT is one lot in Member_1_IRA: 100 sh held at 12/31, start 100 x 120 = 12000, now 100 x 130 = 13000.
-def test_ticker_drills_to_account_and_lot():
-    itot = _row(_row(_compute()["liquid"]["by_class"], "Equity")["tickers"], "ITOT")
-    (acct,) = itot["accounts"]
-    assert acct["name"] == "Member_1_IRA" and acct["current"] == pytest.approx(13000)
-    (lot,) = acct["lots"]
-    assert lot["purchase_date"] == "2025-06-01" and lot["shares"] == 100 and lot["purchase_price"] == 100
-    assert lot["start"] == pytest.approx(12000) and lot["current"] == pytest.approx(13000)
-    assert lot["reinvested"] is False and lot["share"] == pytest.approx(13000 / 32200)
+def test_a_lot_carries_its_account_dates_and_values():
+    itot = next(p for p in _compute()["liquid"]["positions"] if p["symbol"] == "ITOT")
+    assert itot["account"] == "Member_1_IRA"
+    assert (itot["purchase_date"], itot["shares"], itot["purchase_price"], itot["reinvested"]) == ("2025-06-01", 100, 100, False)
+    assert (itot["start"], itot["current"]) == pytest.approx((12000, 13000))
 
 
-def test_ticker_carries_the_fund_name_from_the_security_master():
-    tickers = _row(_compute()["liquid"]["by_class"], "Equity")["tickers"]
-    assert _row(tickers, "ITOT")["title"] == "iShares Core S&P Total U.S. Stock Market ETF"
-    assert _row(tickers, "IXUS")["title"] == ""        # no notes on file: empty, never invented
+def test_fund_name_comes_from_the_security_master_and_is_never_invented():
+    positions = _compute()["liquid"]["positions"]
+    assert {p["title"] for p in positions if p["symbol"] == "ITOT"} == {"iShares Core S&P Total U.S. Stock Market ETF"}
+    assert {p["title"] for p in positions if p["symbol"] == "IXUS"} == {""}
 
 
 # A second ITOT lot bought 10/1 in the Trust: new money 10 x 125 = 1250, now 10 x 130 = 1300 (< 13000).
-def test_same_ticker_in_two_accounts_splits():
+def test_same_ticker_in_two_accounts_is_two_lots():
     lots = LOTS + [{"account": "Member_1_Trust", "symbol": "ITOT", "purchase_date": "2026-10-01", "shares": "10", "purchase_price": "125"}]
-    itot = _row(_row(_compute(lots=lots)["liquid"]["by_class"], "Equity")["tickers"], "ITOT")
-    assert [a["name"] for a in itot["accounts"]] == ["Member_1_IRA", "Member_1_Trust"]
-    assert itot["accounts"][1]["lots"][0]["new_money"] == pytest.approx(1250)
+    itot = [p for p in _compute(lots=lots)["liquid"]["positions"] if p["symbol"] == "ITOT"]
+    assert sorted(p["account"] for p in itot) == ["Member_1_IRA", "Member_1_Trust"]
+    assert next(p for p in itot if p["account"] == "Member_1_Trust")["new_money"] == pytest.approx(1250)
 
 
 def test_lot_bought_this_year_is_new_money():
-    avuv = next(t for t in _row(_compute()["liquid"]["by_class"], "Equity")["tickers"] if t["symbol"] == "AVUV")
+    out = _compute()
+    avuv = _groups(out, lambda p: p["symbol"])["AVUV"]
     assert (avuv["start"], avuv["new_money"]) == (0, 4000)
     assert avuv["market_gain"] == pytest.approx(1000)
     assert avuv["return_pct"] == pytest.approx(1000 / 3200)
@@ -230,16 +215,16 @@ def test_unclassified_symbol_goes_to_other():
     lots = LOTS + [{"account": "Member_1_IRA", "symbol": "ZZZZ", "purchase_date": "2025-01-01", "shares": "10", "purchase_price": "10"}]
     quotes = {**QUOTES, "ZZZZ": {"price": 11.0, "previous_close": 11.0, "stale": False}}
     baseline = {**BASELINE, "prices": {**BASELINE["prices"], "ZZZZ": {"price": 10.0}}}
-    liquid = _compute(lots=lots, quotes=quotes, baseline=baseline)["liquid"]
-    assert liquid["unclassified_symbols"] == ["ZZZZ"]
-    assert _row(liquid["by_class"], "Other")["current"] == pytest.approx(110)
+    out = _compute(lots=lots, quotes=quotes, baseline=baseline)
+    assert out["liquid"]["unclassified_symbols"] == ["ZZZZ"]
+    assert _groups(out, lambda p: p["asset_class"])["Other"]["current"] == pytest.approx(110)
 
 
 def test_cash_tbill_priced_at_par():
     lots = [{"account": "Member_1_Trust", "symbol": "CASH (T-BILL)", "purchase_date": "2026-09-24", "shares": "1000", "purchase_price": "0.99"}]
-    liquid = _compute(lots=lots, quotes={})["liquid"]
-    assert liquid["current"] == pytest.approx(1000)
-    assert _row(liquid["by_class"], "Cash")["market_gain"] == pytest.approx(10)
+    out = _compute(lots=lots, quotes={})
+    assert out["liquid"]["current"] == pytest.approx(1000)
+    assert _groups(out, lambda p: p["asset_class"])["Cash"]["market_gain"] == pytest.approx(10)
 
 
 def test_annualized_hidden_in_first_90_days():

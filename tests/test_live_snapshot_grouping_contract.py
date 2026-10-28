@@ -1,5 +1,6 @@
 """Live Snapshot Group By: the page's JS grouping (live_groups.js) must total every group exactly as the
-server's own groups do (live_snapshot._summarize). The same lots go through both; each level is compared."""
+server's formulas do (live_snapshot._summarize, which also totals the liquid book). The same lots go through
+both and each level is compared, in several orders."""
 from __future__ import annotations
 
 import json
@@ -17,8 +18,14 @@ MODULE = ROOT / "financial_trends_reporter" / "frontend" / "live_groups.js"
 NODE = shutil.which("node")
 
 CELLS = ("start", "new_money", "current", "share", "day", "day_pct", "market_gain", "return_pct", "share_of_gain", "annualized_pct")
+KEYS = {
+    "class": lambda p: p["asset_class"] or "Other",
+    "subclass": lambda p: p["subclass"] or p["asset_class"] or "Other",
+    "symbol": lambda p: p["symbol"],
+    "account": lambda p: p["account"],
+}
 
-# More lots than the base fixture: a second ITOT lot in another account, a reinvested one, and a later purchase.
+# More lots than the base fixture: a second ITOT lot in another account, a reinvested one, and an old one.
 EXTRA = [
     {"account": "Member_1_Trust", "symbol": "ITOT", "purchase_date": "2026-10-01", "shares": "10", "purchase_price": "125"},
     {"account": "Member_1_IRA", "symbol": "ITOT", "purchase_date": "2026-04-15", "shares": "2.5", "purchase_price": "128", "lot_type": "reinvested"},
@@ -33,8 +40,10 @@ const t = m.buildTree(input.positions, input.order, { days: input.days });
 process.stdout.write(JSON.stringify({ nodes: t.nodes.map(strip), total: t.total }));
 """
 
+pytestmark = pytest.mark.skipif(NODE is None, reason="node is not installed")
 
-def _tree(positions, order, days):
+
+def _js(positions, order, days):
     done = subprocess.run([NODE, "--input-type=module", "-e", _RUN, MODULE.as_uri()], capture_output=True, text=True, timeout=60,
                           input=json.dumps({"positions": positions, "order": order, "days": days}))
     assert done.returncode == 0, done.stderr
@@ -50,11 +59,9 @@ def _same(server_row, js_row, where):
             assert j == pytest.approx(s, abs=0.006 if k in ("start", "new_money", "current", "day", "market_gain") else 1e-9), (where, k, s, j)
 
 
-def _named(nodes):
-    return {n["name"]: n for n in nodes}
-
-
-pytestmark = pytest.mark.skipif(NODE is None, reason="node is not installed")
+def _newest_first(members):
+    dated = sorted((m for m in members if m["purchase_date"]), key=lambda m: m["purchase_date"], reverse=True)
+    return dated + [m for m in members if not m["purchase_date"]]
 
 
 @pytest.fixture(scope="module")
@@ -62,47 +69,56 @@ def out():
     return _compute(lots=LOTS + EXTRA)
 
 
-def test_every_level_of_the_class_grouping_matches_the_server(out):
-    liquid, days = out["liquid"], out["days"]
-    js = _tree(liquid["positions"], ["class", "symbol", "account", "lot"], days)
-    assert [n["name"] for n in js["nodes"]] == [r["name"] for r in liquid["by_class"]]
-    for cls in liquid["by_class"]:
-        jc = _named(js["nodes"])[cls["name"]]
-        _same(cls, jc["row"], cls["name"])
-        for tk in cls["tickers"]:
-            jt = _named(jc["children"])[tk["symbol"]]
-            _same(tk, jt["row"], tk["symbol"])
-            for ac in tk["accounts"]:
-                ja = _named(jt["children"])[ac["name"]]
-                _same(ac, ja["row"], f"{tk['symbol']}/{ac['name']}")
-                if ja["inline"] is not None:
-                    continue                       # a single cash lot is folded into its account row
-                assert len(ja["children"]) == len(ac["lots"])
-                for sl, jl in zip(ac["lots"], ja["children"]):
-                    assert jl["name"] == (sl["purchase_date"] or "Undated")     # newest first, undated last
-                    _same(sl, jl["row"], f"{tk['symbol']}/{ac['name']}/{jl['name']}")
+def _server_row(out, members, name="x"):
+    positions = out["liquid"]["positions"]
+    total_current = sum(p["current"] for p in positions)
+    total_gain = sum(p["current"] - p["start"] - p["new_money"] for p in positions)
+    return ls._summarize(name, members, total_current, total_gain, out["days"])
 
 
-def test_the_subclass_grouping_matches_the_servers_equity_subclasses(out):
-    liquid = out["liquid"]
-    js = _named(_tree(liquid["positions"], ["subclass", "symbol", "lot"], out["days"])["nodes"])
-    for sub in liquid["by_equity_subclass"]:
-        _same(sub, js[sub["name"]]["row"], sub["name"])
-        assert [t["name"] for t in js[sub["name"]]["children"]] == [t["symbol"] for t in sub["tickers"]]
-    assert set(js) - {s["name"] for s in liquid["by_equity_subclass"]} == {"Cash"}     # non-equity holdings keep their class
+def _compare(out, js_nodes, members, order, where=""):
+    """Every JS node against the server's formulas on the same lots, recursively down ``order``."""
+    dim = order[0]
+    if dim == "lot":
+        lots = _newest_first(members)
+        assert [n["name"] for n in js_nodes] == [m["purchase_date"] or "Undated" for m in lots], where
+        for node, lot in zip(js_nodes, lots):
+            _same(_server_row(out, [lot]), node["row"], f"{where}/lot {node['name']}")
+        return
+    groups = {}
+    for m in members:
+        groups.setdefault(KEYS[dim](m), []).append(m)
+    assert {n["name"] for n in js_nodes} == set(groups), where
+    for node in js_nodes:
+        ms = groups[node["name"]]
+        _same(_server_row(out, ms), node["row"], f"{where}/{node['name']}")
+        if node["inline"] is not None:
+            assert order[1] == "lot" and len(ms) == 1 and ms[0]["symbol"].startswith("CASH")   # a single cash lot folds into its row
+        else:
+            _compare(out, node["children"], ms, order[1:], f"{where}/{node['name']}")
+
+
+@pytest.mark.parametrize("order", [
+    ["class", "symbol", "account", "lot"],
+    ["subclass", "symbol", "account", "lot"],
+    ["account", "symbol", "lot"],
+    ["symbol", "account", "class", "lot"],
+    ["lot"],
+])
+def test_every_level_matches_the_servers_formulas(out, order):
+    js = _js(out["liquid"]["positions"], order, out["days"])
+    _compare(out, js["nodes"], out["liquid"]["positions"], order)
+
+
+def test_non_equity_holdings_keep_their_class_at_the_sub_class_level(out):
+    js = _js(out["liquid"]["positions"], ["subclass", "lot"], out["days"])
+    assert {n["name"] for n in js["nodes"]} == {"International Equity", "US Total Equity", "Small-Cap Value", "Cash"}
 
 
 def test_the_total_row_matches_the_servers_total(out):
     liquid = out["liquid"]
-    total = _tree(liquid["positions"], ["subclass", "lot"], out["days"])["total"]
+    total = _js(liquid["positions"], ["subclass", "lot"], out["days"])["total"]
     _same({**liquid, "share": 1, "share_of_gain": 1}, total, "total")
-
-
-def test_a_different_order_regroups_to_the_same_totals(out):
-    liquid, days = out["liquid"], out["days"]
-    by_account = _tree(liquid["positions"], ["account", "symbol", "lot"], days)
-    assert sum(n["row"]["current"] for n in by_account["nodes"]) == pytest.approx(liquid["current"])
-    assert sum(n["row"]["market_gain"] for n in by_account["nodes"]) == pytest.approx(liquid["market_gain"])
 
 
 def test_the_annualize_threshold_is_the_servers():
