@@ -604,7 +604,9 @@ DASHBOARD_JS_MAX_LINES = 6_476
 # into the shared runtime_history.js; +8 net for the module header, exports and key/max parameters): 40,741.
 # 2026-10-27 (gross vs net income streams: Gross/Net field labels, net-field help and the panel's
 # Gross · Withholding · Net line with live refresh; dashboard.js did not grow, +62): raised to 40,803.
-TOTAL_JS_MAX_LINES = 40_803
+# 2026-10-28 (Accounts & Sources: Tax Treatment and After-Tax Premium columns that the Trends Live Snapshot
+# reads for its tax estimate; new behavior, +7): raised to 40,810.
+TOTAL_JS_MAX_LINES = 40_810
 
 
 def _line_count(path: Path) -> int:
