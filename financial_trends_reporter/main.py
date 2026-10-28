@@ -264,10 +264,12 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, access
         # Live Snapshot view: holdings at live (delayed) prices plus the balance-sheet roll-up.
         # Quotes are shared for 30 s across requests; ?refresh=1 (Refresh now) refetches, at most
         # once per 10 s. Inputs other than prices are cached 10 min and cleared by run-now.
+        # ?from=YYYY-MM-DD is the Time scope's first day (returns are measured from the close before it).
         force = str(request.args.get("refresh") or "") in {"1", "true"}
         try:
             inputs = live_snapshot.load_inputs(retirement_system_dir, resolved_log_path, balances_db)
-            return _json(live_snapshot.build(inputs=inputs, data_dir=resolved_log_path.parent, force=force))
+            return _json(live_snapshot.build(inputs=inputs, data_dir=resolved_log_path.parent, force=force,
+                                             start_from=request.args.get("from")))
         except Exception as exc:  # noqa: BLE001 - the page shows the cause and keeps its last good values
             logging.getLogger(__name__).exception("live snapshot failed")
             return _json({"success": False, "error": f"{exc.__class__.__name__}: {exc}"}, 500)

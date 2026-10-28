@@ -195,6 +195,26 @@ def baseline_date(year: int) -> date:
     return last_trading_day_on_or_before(date(year - 1, 12, 31))
 
 
+def start_day_for(scope_from: Any, today: date) -> date:
+    """Start Value date for the page's Time scope: the close before its first day (so YTD, from 1/1, is the
+    12/31 close). A missing, unreadable or not-yet-past first day means year to date."""
+    try:
+        first = date.fromisoformat(str(scope_from or "").strip()[:10])
+    except ValueError:
+        return baseline_date(today.year)
+    if first >= today:
+        return baseline_date(today.year)
+    return last_trading_day_on_or_before(first - timedelta(days=1))
+
+
+def scope_prices(symbols: Iterable[str], day: date, *, closes_on_day: Callable) -> dict[str, Any]:
+    """``baseline_prices``' shape for any other start day, from that day's closes (kept in memory)."""
+    wanted = sorted({str(s).strip().upper() for s in symbols if str(s).strip()})
+    found = _safe(closes_on_day, wanted, day, default={})
+    prices = {s: {"price": float(found[s]), "source": "close"} for s in wanted if found.get(s)}
+    return {"baseline_date": day.isoformat(), "prices": prices, "missing": [s for s in wanted if s not in prices]}
+
+
 def baseline_prices(symbols: Iterable[str], year: int, data_dir: str | Path, *,
                     snapshots: Callable = _default_snapshots, closes: Callable = _default_closes) -> dict[str, Any]:
     """Closing prices on ``baseline_date(year)``.
@@ -1020,8 +1040,11 @@ def clear_inputs_cache() -> None:
 
 def build(*, inputs: dict[str, Any], data_dir: str | Path, quote_cache=None, now: datetime | None = None,
           force: bool = False, previous_close_lookup: Callable | None = None,
-          close_lookup: Callable | None = None) -> dict[str, Any]:
-    """The /api/live-snapshot body: header (time, market state, indices) plus ``compute()``."""
+          close_lookup: Callable | None = None, start_from: Any = None) -> dict[str, Any]:
+    """The /api/live-snapshot body: header (time, market state, indices) plus ``compute()``.
+
+    ``start_from`` is the first day of the page's Time scope; Start values, gains and returns are
+    measured from the close before it (``start_day_for``). Balance-sheet figures are always today's."""
     now = now or datetime.now(timezone.utc)
     today = now.astimezone(EASTERN).date()
     head: dict[str, Any] = {"as_of": now.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -1040,8 +1063,10 @@ def build(*, inputs: dict[str, Any], data_dir: str | Path, quote_cache=None, now
         for sym, px in previous_close_lookup(need_previous, today).items():
             quotes.setdefault(sym, {})["previous_close"] = px
 
-    baseline = baseline_prices(priced, today.year, data_dir)
     close_lookup = close_lookup or closes_on
+    start_day = start_day_for(start_from, today)
+    baseline = (baseline_prices(priced, today.year, data_dir) if start_day == baseline_date(today.year)
+                else scope_prices(priced, start_day, closes_on_day=close_lookup))
     closes_by_day = {d.isoformat(): close_lookup(priced, d) for d in imported_balance_days(inputs["monarch"], today)}
     body = compute(lots=inputs["lots"], quotes=quotes, baseline=baseline, security_master=inputs["security_master"],
                    accounts=inputs["accounts"], flows_daily=inputs["flows_daily"], monarch=inputs["monarch"],
