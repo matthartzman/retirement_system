@@ -1,5 +1,7 @@
 # Financial Trends Percent View Implementation Plan
 
+Status: approved
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A per-person `$ / % / Both` setting; %-only remote people never receive a dollar amount; "Both" gets a `$ | %` toggle beside the *Financial Trends* title.
