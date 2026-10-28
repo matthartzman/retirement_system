@@ -367,6 +367,29 @@ def test_tax_treatment_override_and_basis_above_value():
     assert tax["annuity_taxable_gain"] == 0 and tax["basis_missing"] == []
 
 
+NOTE_CFG = {"note_items": [{"name": "RedMane Note", "first_payment_year": 2026, "last_payment_year": 2029,
+                             "interest_by_year": {2026: 9000.0, 2027: 6000.0, 2028: 4000.0, 2029: 2000.0}}]}
+
+
+def test_note_receivable_taxes_interest_still_to_come():
+    out = _compute(planner_cfg=NOTE_CFG)
+    assert _row(out["non_liquid"]["rows"], "RedMane Note Jan 2026")["tax_treatment"] == "note_interest"
+    tax = out["tax"]
+    assert tax["note_interest"] == pytest.approx(12000)      # 2027-2029: the 2026 payment was in January
+    assert tax["note_rows"] == [{"name": "RedMane Note Jan 2026", "note": "RedMane Note", "interest": 12000.0}]
+    assert tax["flat_total"] == pytest.approx((26200 + 100000 + 12000) * 0.25 + 1000 * 0.15)
+    assert tax["ordinary_tax"] == pytest.approx((26200 + 100000 + 12000) * tax["pre_tax_rate"], rel=1e-3)  # rate shown to 4 dp
+
+
+def test_note_receivable_interest_capped_at_value_and_override_wins():
+    cfg = {"note_items": [{**NOTE_CFG["note_items"][0], "interest_by_year": {2027: 80000.0}}]}
+    assert _compute(planner_cfg=cfg)["tax"]["note_interest"] == pytest.approx(50000)
+    rates = {**TAX, "non_liquid_tax": {"RedMane Note Jan 2026": "none"}}
+    out = _compute(planner_cfg=NOTE_CFG, tax_rates=rates)
+    assert _row(out["non_liquid"]["rows"], "RedMane Note Jan 2026")["tax_treatment"] == "none"
+    assert out["tax"]["note_interest"] == 0 and out["tax"]["note_rows"] == []
+
+
 def test_totals():
     totals = _compute()["totals"]
     assert totals["net_assets"] == pytest.approx(32200 + 7000 + 655000 - 201000)

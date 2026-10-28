@@ -206,7 +206,7 @@ function reconciliationHtml(rec) {
     + accountsSectionHtml(rec);
 }
 
-const TREATMENT = { pre_tax: "Taxed in full", after_tax: "Taxed above premium", none: "Not taxed" };
+const TREATMENT = { pre_tax: "Taxed in full", after_tax: "Taxed above premium", note_interest: "Interest taxed", none: "Not taxed" };
 
 function taxHtml(tax) {
   const planner = tax.method === "planner";
@@ -218,6 +218,8 @@ function taxHtml(tax) {
     ["Single-life annuity growth above premium", tax.annuity_taxable_gain, ord(tax.annuity_taxable_gain), tax.pre_tax_rate],
     ["Taxable and trust accounts: unrealized gains", tax.unrealized_gain, tax.ltcg_tax ?? tax.unrealized_gain * tax.ltcg_rate, ltcgRate],
   ];
+  // Notes receivable: only the interest in the remaining payments is income (the Planner's interest schedule).
+  for (const n of tax.note_rows || []) lines.splice(3, 0, [`Note interest still to be paid (${n.name})`, n.interest, ord(n.interest), tax.pre_tax_rate]);
   if (planner && tax.hsa_balance) lines.push(["HSA balance (taxed if not left to a spouse)", tax.hsa_balance, tax.hsa_tax, tax.hsa_balance ? tax.hsa_tax / tax.hsa_balance : null]);
   const missing = (tax.basis_missing || []).length
     ? `<p class="note warn-text">After-tax premium not set for ${tax.basis_missing.map(esc).join(", ")}: not taxed until it is (Tax Treatment and After-Tax Premium on the Retirement Planner's Accounts &amp; Sources page).</p>`

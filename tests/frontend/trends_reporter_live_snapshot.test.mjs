@@ -124,6 +124,16 @@ describe("liveViewHtml", () => {
     assert.match(html, /federal \$30,000, NIIT \$7,600, state \$9,400/);
     assert.match(html, /Flat 25% \/ 15% rates would give \$90,000/);
   });
+  test("a note receivable's future interest gets its own tax line and treatment label", () => {
+    const data = { ...DATA, non_liquid: { ...DATA.non_liquid, rows: [{ name: "RedMane Note Jan 2026", kind: "Fixed Income", value: 512848, share: 1, tax_treatment: "note_interest" }] },
+      tax: { ...DATA.tax, note_interest: 120349, note_rows: [{ name: "RedMane Note Jan 2026", note: "RedMane Note", interest: 120349 }] } };
+    const html = liveViewHtml(data);
+    assert.match(html, /Note interest still to be paid \(RedMane Note Jan 2026\)<\/th><td class="num">\$120,349/);
+    assert.match(html, /Interest taxed/);
+  });
+  test("no note line when there is no note interest", () => {
+    assert.doesNotMatch(out, /Note interest/);
+  });
   test("tax section says which annuities have no basis yet", () => {
     assert.match(out, /Annuity - Matt/);
     assert.match(out, /after-tax premium not set/i);

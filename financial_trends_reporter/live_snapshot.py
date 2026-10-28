@@ -652,6 +652,20 @@ def non_liquid_tax_treatment(name: str, kind: str, overrides: dict[str, str] | N
     return "pre_tax" if "pension" in lowered or "joint" in lowered else "after_tax"
 
 
+def note_interest_to_come(name: str, note_items: list[dict] | None, today: date) -> tuple[str, float] | None:
+    """(Planner note name, interest still to be paid) for a non-liquid row that is one of the Planner's
+    Note Receivable items, matched when the row's name starts with the note's name ("RedMane Note Jan 2026"
+    is "RedMane Note"). The imported balance is the remaining payments, so only their interest is income;
+    principal comes back untaxed. Payments are annual and early in the year, so this year's is counted as paid."""
+    folded = name.casefold()
+    for note in note_items or []:
+        note_name = str(note.get("name") or "").strip()
+        if note_name and folded.startswith(note_name.casefold()):
+            interest = sum(_num(v) for y, v in (note.get("interest_by_year") or {}).items() if int(y) > today.year)
+            return note_name, interest
+    return None
+
+
 def _monarch_sections(monarch: dict | None, tax_overrides: dict[str, str] | None = None) -> dict[str, Any]:
     """Non-liquid assets, checking and debt from the latest Monarch balances (by account type)."""
     rows = (monarch or {}).get("by_account") or []
@@ -775,10 +789,18 @@ def compute(*, lots, quotes, baseline, security_master, accounts, flows_daily, m
                      if p["tax"] == "taxable" and not _is_cash_symbol(p["symbol"]))
     pre_rate, ltcg_rate = _num(tax_rates.get("pre_tax_rate")), _num(tax_rates.get("ltcg_rate"))
     basis = tax_rates.get("annuity_basis") or {}
-    pre_tax_nl = annuity_gain = 0.0
-    basis_missing = []
+    pre_tax_nl = annuity_gain = note_interest = 0.0
+    basis_missing, note_rows = [], []
+    note_items = (planner_cfg or {}).get("note_items")
     for r in sections["non_liquid"]["rows"]:
-        if r["tax_treatment"] == "pre_tax":
+        # A Planner note with no explicit treatment: its future interest is ordinary income.
+        note = note_interest_to_come(r["name"], note_items, today) if r["tax_treatment"] == "none" else None
+        if note and _by_name(tax_rates.get("non_liquid_tax"), r["name"]) is None:
+            r["tax_treatment"] = "note_interest"
+            interest = min(note[1], max(0.0, r["value"]))
+            note_interest += interest
+            note_rows.append({"name": r["name"], "note": note[0], "interest": round(interest, 2)})
+        elif r["tax_treatment"] == "pre_tax":
             pre_tax_nl += r["value"]
         elif r["tax_treatment"] == "after_tax":
             premium = _by_name(basis, r["name"])
@@ -786,10 +808,11 @@ def compute(*, lots, quotes, baseline, security_master, accounts, flows_daily, m
                 annuity_gain += max(0.0, r["value"] - _num(premium))
             else:
                 basis_missing.append(r["name"])  # premium unknown: not taxed, listed so the page can say so
-    ordinary = pre_tax_balance + pre_tax_nl + annuity_gain
+    ordinary = pre_tax_balance + pre_tax_nl + annuity_gain + note_interest
     flat_total = ordinary * pre_rate + unrealized * ltcg_rate
     tax = {"pre_tax_balance": round(pre_tax_balance, 2), "pre_tax_non_liquid": round(pre_tax_nl, 2),
-           "annuity_taxable_gain": round(annuity_gain, 2), "basis_missing": basis_missing, "pre_tax_rate": pre_rate,
+           "annuity_taxable_gain": round(annuity_gain, 2), "basis_missing": basis_missing,
+           "note_interest": round(note_interest, 2), "note_rows": note_rows, "pre_tax_rate": pre_rate,
            "unrealized_gain": round(unrealized, 2), "ltcg_rate": ltcg_rate,
            "ordinary_tax": round(ordinary * pre_rate, 2), "ltcg_tax": round(unrealized * ltcg_rate, 2),
            "hsa_balance": 0.0, "hsa_tax": 0.0, "method": "flat", "flat_total": round(flat_total, 2),
