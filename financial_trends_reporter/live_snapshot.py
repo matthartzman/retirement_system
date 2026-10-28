@@ -686,7 +686,55 @@ def _monarch_sections(monarch: dict | None, tax_overrides: dict[str, str] | None
             "checking": {"rows": checking, "total": sum(r["value"] for r in checking), "as_of": as_of}}
 
 
-def compute(*, lots, quotes, baseline, security_master, accounts, flows_daily, monarch, tax_rates, today: date,
+def _planner_tax(cfg: dict, today: date, ordinary: float, positions: list[dict], tax_rates: dict) -> dict[str, Any] | None:
+    """The Retirement Planner's own after-tax method (``src.after_tax``) applied to today's balances, so this
+    page and the Planner's reports estimate tax the same way: the heirs' 10-year bracket rate on pre-tax money,
+    LTCG + NIIT + state on taxable-account gains (basis from the lots, no step-up: both owners are alive today)
+    and the HSA cliff. Rates set in ``live_snapshot_settings.json`` still win. None when the Planner cannot
+    price it (the page then falls back to flat rates)."""
+    from types import SimpleNamespace
+    from src import after_tax
+
+    explicit = set(tax_rates.get("explicit") or [])
+    try:
+        taxable: dict[str, dict[str, list[float]]] = {}
+        for p in positions:
+            if p["tax"] != "taxable":
+                continue
+            basis = p["current"] if _is_cash_symbol(p["symbol"]) else p["basis"]
+            mv_basis = taxable.setdefault(p["account"], {}).setdefault(p["symbol"], [0.0, 0.0])
+            mv_basis[0] += p["current"]
+            mv_basis[1] += basis
+        # One stub lot per account + symbol (qty 1, so its price is the market value); the Planner reads the
+        # basis ratio from it. Keyed by account too, since the same symbol can sit in two accounts.
+        lots = {a: {f"{a}|{s}": [SimpleNamespace(qty=1.0, cost_basis=v[1])] for s, v in syms.items()} for a, syms in taxable.items()}
+        prices = {f"{a}|{s}": v[0] for a, syms in taxable.items() for s, v in syms.items()}
+        c = dict(cfg)
+        c["taxable_ids"] = list(taxable)
+        c["lot_engine"] = SimpleNamespace(lots=lots, prices=prices)
+        year = today.year
+        terminal = {"year": year, "trust_nw": 0.0, "pretax_nw": ordinary,
+                    "hsa_nw": sum(p["current"] for p in positions if p["tax"] == "hsa"),
+                    **{a: sum(v[0] for v in syms.values()) for a, syms in taxable.items()}}
+        gains = after_tax.estimate_terminal_taxable_deferred_cap_gain_tax(c, terminal)
+        rate = after_tax.resolve_terminal_pretax_rate(c, ordinary, year)
+        hsa_tax = after_tax.hsa_terminal_tax(c, terminal["hsa_nw"], year)
+    except Exception:  # noqa: BLE001 - an unreadable or partial plan must not take the page down
+        return None
+    ordinary_rate = tax_rates["pre_tax_rate"] if "pre_tax_rate" in explicit else rate
+    ltcg = (gains["terminal_taxable_unrealized_gain_est"] * tax_rates["ltcg_rate"] if "ltcg_rate" in explicit
+            else gains["terminal_deferred_taxable_cap_gain_tax"])
+    return {"method": "planner", "pre_tax_rate": round(ordinary_rate, 4), "ordinary_tax": round(ordinary * ordinary_rate, 2),
+            "unrealized_gain": round(gains["terminal_taxable_unrealized_gain_est"], 2), "ltcg_tax": round(ltcg, 2),
+            "ltcg_rate": tax_rates["ltcg_rate"] if "ltcg_rate" in explicit else None,
+            "ltcg_detail": {"federal": round(gains["terminal_deferred_ltcg_tax"], 2),
+                            "niit": round(gains["terminal_deferred_niit_tax"], 2),
+                            "state": round(gains["terminal_deferred_state_cap_gain_tax"], 2)},
+            "hsa_balance": round(terminal["hsa_nw"], 2), "hsa_tax": round(hsa_tax, 2),
+            "rate_source": "settings" if "pre_tax_rate" in explicit else "planner"}
+
+
+def compute(*, lots, quotes, baseline, security_master, accounts, flows_daily, monarch, tax_rates, today: date, planner_cfg: dict | None = None,
             closes_by_day: dict[str, dict[str, float]] | None = None) -> dict[str, Any]:
     """The Live Snapshot body (design 4.3) from already-loaded inputs. Pure, so tests pin every formula.
 
@@ -739,11 +787,17 @@ def compute(*, lots, quotes, baseline, security_master, accounts, flows_daily, m
             else:
                 basis_missing.append(r["name"])  # premium unknown: not taxed, listed so the page can say so
     ordinary = pre_tax_balance + pre_tax_nl + annuity_gain
+    flat_total = ordinary * pre_rate + unrealized * ltcg_rate
     tax = {"pre_tax_balance": round(pre_tax_balance, 2), "pre_tax_non_liquid": round(pre_tax_nl, 2),
            "annuity_taxable_gain": round(annuity_gain, 2), "basis_missing": basis_missing, "pre_tax_rate": pre_rate,
            "unrealized_gain": round(unrealized, 2), "ltcg_rate": ltcg_rate,
            "ordinary_tax": round(ordinary * pre_rate, 2), "ltcg_tax": round(unrealized * ltcg_rate, 2),
-           "total": round(ordinary * pre_rate + unrealized * ltcg_rate, 2)}
+           "hsa_balance": 0.0, "hsa_tax": 0.0, "method": "flat", "flat_total": round(flat_total, 2),
+           "total": round(flat_total, 2)}
+    planner = _planner_tax(planner_cfg, today, ordinary, positions, tax_rates) if planner_cfg else None
+    if planner:
+        tax.update(planner)
+        tax["total"] = round(tax["ordinary_tax"] + tax["ltcg_tax"] + tax["hsa_tax"], 2)
 
     by_kind: dict[str, float] = {}
     for p in positions:
@@ -844,12 +898,13 @@ def tax_rates(data_dir: str | Path, *, plan_ltcg: Any = "") -> dict[str, float]:
     to 25%; LTCG comes from the plan's tax-aware trades setting. ``live_snapshot_settings.json``
     in the data folder overrides either."""
     rates: dict[str, Any] = {"pre_tax_rate": DEFAULT_PRE_TAX_RATE, "ltcg_rate": _rate(plan_ltcg) or DEFAULT_LTCG_RATE,
-                             "annuity_basis": {}, "non_liquid_tax": {}}
+                             "annuity_basis": {}, "non_liquid_tax": {}, "explicit": []}
     try:
         saved = json.loads((Path(data_dir) / SETTINGS_FILENAME).read_text(encoding="utf-8"))
         for key in ("pre_tax_rate", "ltcg_rate"):
             if _rate(saved.get(key)) is not None:
                 rates[key] = _rate(saved.get(key))
+                rates["explicit"].append(key)
         # {Monarch account name: after-tax premium} for the single-life annuities.
         rates["annuity_basis"] = {str(k): _num(v) for k, v in (saved.get("annuity_basis") or {}).items()}
         # {Monarch account name: pre_tax | after_tax | none}, overriding the name-based default.
@@ -879,7 +934,20 @@ def _load_inputs_uncached(base_dir: Path, log_path: Path, balances_db: Path) -> 
         "tax_rates": _with_setup_tax(tax_rates(log_path.parent, plan_ltcg=plan.get(("Rebalancing", "Tax-aware Trades", "ltcg_rate"), "")),
                                      base_dir, balances_db),
         "people": household_nicknames(plan),
+        "planner_cfg": planner_config(base_dir),
     }
+
+
+def planner_config(base_dir: Path) -> dict[str, Any] | None:
+    """The Planner's engine config for the plan (no live pricing, no projection run), or None when the plan
+    cannot be built (e.g. a date of birth is missing): tax then falls back to flat rates."""
+    try:
+        from src.active_plan import peek_plan_data_for_input_dir
+        from src.data_io import parse_client
+
+        return parse_client(peek_plan_data_for_input_dir(base_dir / "input"), "", skip_live_pricing=True)
+    except Exception:  # noqa: BLE001
+        return None
 
 
 def _with_setup_tax(rates: dict[str, Any], base_dir: Path, balances_db: Path) -> dict[str, Any]:
@@ -954,7 +1022,7 @@ def build(*, inputs: dict[str, Any], data_dir: str | Path, quote_cache=None, now
     closes_by_day = {d.isoformat(): close_lookup(priced, d) for d in imported_balance_days(inputs["monarch"], today)}
     body = compute(lots=inputs["lots"], quotes=quotes, baseline=baseline, security_master=inputs["security_master"],
                    accounts=inputs["accounts"], flows_daily=inputs["flows_daily"], monarch=inputs["monarch"],
-                   tax_rates=inputs["tax_rates"], today=today, closes_by_day=closes_by_day)
+                   tax_rates=inputs["tax_rates"], planner_cfg=inputs.get("planner_cfg"), today=today, closes_by_day=closes_by_day)
     indices = []
     for sym, label in INDICES:
         q = quotes.get(sym) or {}

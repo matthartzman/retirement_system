@@ -312,13 +312,20 @@ The holdings value is checked against the latest Monarch investment balances and
 when more than 1% apart. Non-liquid assets, checking and debt come from the latest Monarch
 balances by account type.
 
-An estimated tax line taxes:
-- pre-tax holdings, the IRA-funded joint annuities and the pension in full at an assumed
-  rate (25% unless overridden);
+An estimated tax line uses the Retirement Planner's own after-tax method (`src/after_tax.py`) on today's
+balances, so the page and the Planner's reports estimate tax the same way:
+- pre-tax holdings, the IRA-funded joint annuities and the pension in full, at the Planner's heirs'
+  10-year bracket rate;
 - after-tax single-life annuities only above their premium;
-- taxable-account unrealized gains at the plan's LTCG rate.
+- taxable and trust account unrealized gains from the lots' cost basis: federal LTCG, NIIT and state,
+  with no step-up (nobody has died yet);
+- the HSA balance, when it is not left to a spouse.
 
-The rates and annuity premiums live in `financial_trends_reporter/data/live_snapshot_settings.json`.
+Each non-liquid account's Tax Treatment and After-Tax Premium come from the Planner's Accounts & Sources
+page (matched by name or by the saved account match). The tax table also shows what flat 25% / 15% rates
+would give. If the plan cannot be read, flat rates are used. Rates in
+`financial_trends_reporter/data/live_snapshot_settings.json` (`pre_tax_rate`, `ltcg_rate`, `annuity_basis`,
+`non_liquid_tax`) still override. The Planner's report figures are for the end of the plan, so they differ.
 The result rolls up to after-tax net worth.
 
 Prices refresh every 60 seconds only while the view is shown, the tab is in front and the

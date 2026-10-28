@@ -3752,7 +3752,8 @@ export function updateYtdAccount(i, field, val) {
   if (field === "Role" && val === "Investment")
     ytdData.account_setup[i]["Current Value"] = "";
   markYtdAccountsDirty();
-  if (field === "Role" || field === "Tax Treatment") renderMain();
+  if (field === "Role") renderMain();
+  if (field === "Tax Treatment") renderMain();
 }
 
 export function ytdExistingValues(field) {

@@ -494,3 +494,43 @@ def test_saved_setup_aliases_use_registry_matches(tmp_path, monkeypatch):
         {"account_key": "k1", "display_name": "Carrier XYZ", "app_account": "Plan Annuity"},
         {"account_key": "k2", "display_name": "Checking", "app_account": ""}])
     assert ls.saved_setup_aliases(tmp_path, tmp_path / "x.db") == {"Carrier XYZ": "Plan Annuity"}
+
+
+def _planner_cfg():
+    from pathlib import Path
+    from src.data_io import load_csv, parse_client
+
+    return parse_client(load_csv(Path(__file__).resolve().parent.parent / "input" / "demo" / "client_data.csv"), "", skip_live_pricing=True)
+
+
+def _positions_for_planner():
+    return [
+        {"account": "Member_1_401k", "symbol": "VTI", "tax": "pre_tax", "current": 600000.0, "basis": 400000.0},
+        {"account": "Member_1_Trust", "symbol": "VTI", "tax": "taxable", "current": 500000.0, "basis": 300000.0},
+        {"account": "Member_1_Trust", "symbol": "CASH", "tax": "taxable", "current": 50000.0, "basis": 50000.0},
+        {"account": "Member_1_HSA", "symbol": "VTI", "tax": "hsa", "current": 20000.0, "basis": 10000.0},
+    ]
+
+
+def test_planner_tax_uses_the_planners_after_tax_method():
+    from datetime import date
+    from financial_trends_reporter import live_snapshot as ls
+    from src import after_tax
+
+    cfg = _planner_cfg()
+    out = ls._planner_tax(cfg, date(2026, 10, 28), 600000.0, _positions_for_planner(),
+                          {"pre_tax_rate": 0.25, "ltcg_rate": 0.15, "explicit": []})
+    assert out["method"] == "planner" and out["rate_source"] == "planner"
+    assert out["pre_tax_rate"] == round(after_tax.resolve_terminal_pretax_rate(cfg, 600000.0, 2026), 4)
+    assert out["unrealized_gain"] == 200000.0          # lot basis ratio, cash excluded from gain, no step-up
+    assert out["ltcg_tax"] > 0 and out["ltcg_detail"]["federal"] > 0
+    assert out["hsa_balance"] == 20000.0 and out["hsa_tax"] == 0.0   # sample HSA goes to a spouse
+
+
+def test_planner_tax_settings_override():
+    from datetime import date
+    from financial_trends_reporter import live_snapshot as ls
+
+    rates = {"pre_tax_rate": 0.3, "ltcg_rate": 0.2, "explicit": ["pre_tax_rate", "ltcg_rate"]}
+    out = ls._planner_tax(_planner_cfg(), date(2026, 10, 28), 100000.0, _positions_for_planner(), rates)
+    assert out["ordinary_tax"] == 30000.0 and out["ltcg_tax"] == 40000.0 and out["rate_source"] == "settings"
