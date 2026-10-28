@@ -114,14 +114,21 @@ function sortNodes(nodes, dim) {
   return nodes.sort(byValue);
 }
 
-// Returns {nodes, total}. A node is {dim, name, label, title, path, parent, row, members, children, lot?, inline?}.
+// Returns {nodes, total}. A node is {dim, name, label, title, path, parent, row, members, children, lot?, inline?, skipped?}.
 // ``labelOf`` turns an account id into the name shown. ``inline`` is a single cash lot's date, shown on its
-// own row's line instead of as a child row.
+// own row's line instead of as a child row. ``skipped`` lists the levels left out below a row because they
+// would only repeat it: one child with the same name (e.g. sub-class Cash under asset class Cash).
 export function buildTree(positions, order, { days, labelOf = (id) => id }) {
   const dims = normalizeOrder(order);
   const current = positions.reduce((s, p) => s + p.current, 0);
   const gain = positions.reduce((s, p) => s + p.current - p.start - p.new_money, 0);
   const totals = { current, gain };
+
+  // True when every member falls in one group at ``dim`` and it has the parent's name (ignoring case).
+  const repeats = (ms, dim, name) => {
+    const key = groupLabel(ms[0], dim);
+    return String(key).toLowerCase() === String(name).toLowerCase() && ms.every((m) => groupLabel(m, dim) === key);
+  };
 
   const grow = (members, level, parent) => {
     const dim = dims[level];
@@ -138,9 +145,12 @@ export function buildTree(positions, order, { days, labelOf = (id) => id }) {
         path: `${parent || ""}/${encodeURIComponent(key)}`, parent: parent || null,
         row: aggregate(ms, totals, days), members: ms, children: [],
       };
-      if (dim === "lot") node.lot = ms[0];
-      else if (dims[level + 1] === "lot" && ms.length === 1 && isCashSymbol(ms[0].symbol)) node.inline = ms[0].purchase_date || "Undated";
-      else node.children = grow(ms, level + 1, node.path);
+      if (dim === "lot") { node.lot = ms[0]; return node; }
+      let next = level + 1;
+      while (dims[next] !== "lot" && repeats(ms, dims[next], key)) next += 1;
+      if (next > level + 1) node.skipped = dims.slice(level + 1, next);
+      if (dims[next] === "lot" && ms.length === 1 && isCashSymbol(ms[0].symbol)) node.inline = ms[0].purchase_date || "Undated";
+      else node.children = grow(ms, next, node.path);
       return node;
     });
     return sortNodes(nodes, dim);

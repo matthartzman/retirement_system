@@ -35,7 +35,7 @@ EXTRA = [
 _RUN = """
 const m = await import(process.argv[1]);
 const input = JSON.parse(await new Promise((r) => { let s = ""; process.stdin.on("data", (c) => (s += c)); process.stdin.on("end", () => r(s)); }));
-const strip = (n) => ({ name: n.name, inline: n.inline ?? null, row: n.row, children: n.children.map(strip) });
+const strip = (n) => ({ name: n.name, inline: n.inline ?? null, skipped: n.skipped ?? null, row: n.row, children: n.children.map(strip) });
 const t = m.buildTree(input.positions, input.order, { days: input.days });
 process.stdout.write(JSON.stringify({ nodes: t.nodes.map(strip), total: t.total }));
 """
@@ -92,14 +92,19 @@ def _compare(out, js_nodes, members, order, where=""):
     for node in js_nodes:
         ms = groups[node["name"]]
         _same(_server_row(out, ms), node["row"], f"{where}/{node['name']}")
-        if node["inline"] is not None:
-            assert order[1] == "lot" and len(ms) == 1 and ms[0]["symbol"].startswith("CASH")   # a single cash lot folds into its row
+        rest = order[1:]
+        for skipped in node.get("skipped") or []:   # a level that would only repeat this row's name
+            assert rest[0] == skipped and {KEYS[skipped](m).lower() for m in ms} == {node["name"].lower()}, where
+            rest = rest[1:]
+        if node.get("inline") is not None:
+            assert rest[0] == "lot" and len(ms) == 1 and ms[0]["symbol"].startswith("CASH")   # a single cash lot folds into its row
         else:
-            _compare(out, node["children"], ms, order[1:], f"{where}/{node['name']}")
+            _compare(out, node["children"], ms, rest, f"{where}/{node['name']}")
 
 
 @pytest.mark.parametrize("order", [
     ["class", "symbol", "account", "lot"],
+    ["class", "subclass", "symbol", "account", "lot"],
     ["subclass", "symbol", "account", "lot"],
     ["account", "symbol", "lot"],
     ["symbol", "account", "class", "lot"],

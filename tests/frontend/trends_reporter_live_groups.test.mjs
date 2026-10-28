@@ -126,15 +126,14 @@ describe("buildTree", () => {
   });
   test("a single cash lot is folded into its account row: date inline, no lot child", () => {
     const t = buildTree(P, DEFAULT_ORDER, opts);
-    const cash = t.nodes.find((n) => n.name === "Cash").children[0];
-    assert.equal(cash.name, "CASH");
+    const cash = t.nodes.find((n) => n.name === "Cash");
     assert.ok(cash.children.every((a) => a.children.length === 0 && a.inline));
     assert.deepEqual(cash.children.map((a) => a.inline), ["2026-07-01", "2026-06-01"]);
   });
   test("cash accounts read A to Z by displayed name; other accounts go largest first", () => {
     const labelOf = (id) => ({ Z_cash: "Zed cash", a_cash: "alpha cash" })[id] || id;
     const t = buildTree(P, DEFAULT_ORDER, { ...opts, labelOf });
-    const cash = t.nodes.find((n) => n.name === "Cash").children[0];
+    const cash = t.nodes.find((n) => n.name === "Cash");
     assert.deepEqual(cash.children.map((a) => a.label), ["alpha cash", "Zed cash"]);
     const itot = t.nodes.find((n) => n.name === "US Total Equity").children[0];
     assert.deepEqual(itot.children.map((a) => a.name), ["A", "B"]);
@@ -151,6 +150,25 @@ describe("buildTree", () => {
     const b = buildTree(P, ["symbol", "account", "lot"], opts);
     near(a.total.current, b.total.current, "total");
     near(a.nodes.reduce((s, n) => s + n.row.market_gain, 0), b.nodes.reduce((s, n) => s + n.row.market_gain, 0), "gain");
+  });
+  test("a level that only repeats its parent's name is skipped: no extra click, no duplicate row", () => {
+    const t = buildTree(P, ["class", "subclass", "symbol", "account", "lot"], opts);
+    const commodities = t.nodes.find((n) => n.name === "Commodities");
+    assert.deepEqual(commodities.skipped, ["subclass"]);
+    assert.deepEqual(names(commodities.children), ["PDBC"]);
+    assert.equal(commodities.children[0].parent, commodities.path);
+    const cash = t.nodes.find((n) => n.name === "Cash");   // sub-class Cash and symbol CASH both repeat it
+    assert.deepEqual(cash.skipped, ["subclass", "symbol"]);
+    assert.deepEqual(names(cash.children).sort(), ["Z_cash", "a_cash"]);
+    const equity = t.nodes.find((n) => n.name === "Equity");   // two sub-classes: kept
+    assert.equal(equity.skipped, undefined);
+    assert.deepEqual(names(equity.children), ["US Total Equity", "International Equity"]);
+  });
+  test("a single child with a different name is kept", () => {
+    const t = buildTree(P, ["symbol", "account", "lot"], opts);
+    const ixus = t.nodes.find((n) => n.name === "IXUS");
+    assert.equal(ixus.skipped, undefined);
+    assert.deepEqual(names(ixus.children), ["A"]);
   });
   test("an empty list is an empty table, not an error", () => {
     const t = buildTree([], DEFAULT_ORDER, opts);
