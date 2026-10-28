@@ -128,10 +128,11 @@ main.py route ──► live_snapshot.build(base_dir, balances_db, now)
   "liquid": {
     "start": 2493023, "current": 2786792, "day": 16090, "day_pct": 0.0058,
     "net_flows": 0, "market_gain": 293769, "return_pct": 0.1178, "annualized_pct": 0.145,
-    "by_class": [{"name":"Equity","start":..,"current":..,"share":0.88,"day":..,"day_pct":..,
-                  "market_gain":..,"return_pct":..,"share_of_gain":..,"annualized_pct":..,
-                  "tickers":[{"symbol":"ITOT", "...": "..."}]}],
-    "by_equity_subclass": [ ... ],
+    "positions": [{"account":"Member_1_IRA","symbol":"ITOT","title":"iShares Core S&P Total U.S. Stock Market ETF",
+                   "asset_class":"Equity","subclass":"US Total Equity","purchase_date":"2025-06-01","shares":100,"purchase_price":100,
+                   "reinvested":false,"start":12000,"new_money":0,"weighted":0,"current":13000,"day":100}],
+    // One row per lot. The page groups and totals them itself (Group By, frontend/live_groups.js), with the same formulas as
+    // live_snapshot._summarize; the earlier by_class / by_equity_subclass nested groups were removed 2026-10-28.
     "stale_symbols": [], "unclassified_symbols": []
   },
   "reconciliation": {"holdings_value": 2786792, "monarch_value": 2775100, "monarch_as_of": "2026-10-26", "delta_pct": 0.0042, "flag": false},
