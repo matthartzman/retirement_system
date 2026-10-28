@@ -1,10 +1,12 @@
 // Owner-only People and Activity screens. Served on the local listener only (404 on the remote one).
-// A modal dialog: add / reset / delete are staged, sent only on Save & Exit; Exit without Saving discards them.
+// A modal dialog: add / reset / delete / view setting are staged, sent only on Save & Exit; Exit without Saving discards them.
 (function () {
   const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const when = (t) => (t ? new Date(t * 1000).toLocaleString() : "never");
   const post = (url, body) => fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then((r) => r.json());
   const MIN_PW = 10;
+  const VIEW_LABELS = { dollars: "$", percent: "%", both: "Both" };
+  const viewSelect = (attrs, current) => `<select ${attrs} aria-label="Money view">${Object.entries(VIEW_LABELS).map(([v, l]) => `<option value="${v}"${v === current ? " selected" : ""}>${l}</option>`).join("")}</select>`;
 
   const style = document.createElement("style");
   style.textContent = `
@@ -49,7 +51,7 @@
 
   let people = [];      // as last fetched from the server
   let events = [];      // activity rows shown
-  let pending = [];     // staged: {kind:"add", display_name, username, temp_password} | {kind:"reset"|"delete", id, temp_password?}
+  let pending = [];     // staged: {kind:"add", display_name, username, temp_password, money_view} | {kind:"reset"|"delete", id, temp_password?} | {kind:"view", id, money_view}
   let error = "";
 
   const pendingFor = (id, kind) => pending.find((p) => p.id === id && p.kind === kind);
@@ -57,21 +59,23 @@
 
   function render() {
     const rows = people.map((p) => {
-      const del = pendingFor(p.id, "delete"), reset = pendingFor(p.id, "reset");
-      const status = `${p.locked ? "locked " : ""}${p.must_change ? "must change password" : ""}${reset ? '<span class="pd-tag">password reset (unsaved)</span>' : ""}`;
+      const del = pendingFor(p.id, "delete"), reset = pendingFor(p.id, "reset"), view = pendingFor(p.id, "view");
+      const shownView = view ? view.money_view : p.money_view;
+      const status = `${p.locked ? "locked " : ""}${p.must_change ? "must change password" : ""}${reset ? '<span class="pd-tag">password reset (unsaved)</span>' : ""}${view ? '<span class="pd-tag">view (unsaved)</span>' : ""}`;
       const actions = del ? `<button data-undo-del="${p.id}">Undo delete</button>`
         : `${reset ? `<button data-undo-reset="${p.id}">Undo reset</button>` : `<button data-reset="${p.id}">Reset password</button>`} <button data-del="${p.id}">Delete</button>`;
-      return `<tr class="${del ? "pd-del" : ""}"><td>${esc(p.display_name)}</td><td>${esc(p.username)}</td><td>${esc(when(p.last_signin_at))}</td><td>${status}</td><td>${actions}</td></tr>`;
+      return `<tr class="${del ? "pd-del" : ""}"><td>${esc(p.display_name)}</td><td>${esc(p.username)}</td><td>${esc(when(p.last_signin_at))}</td><td>${viewSelect(`data-money-view="${p.id}"${del ? " disabled" : ""}`, shownView)}</td><td>${status}</td><td>${actions}</td></tr>`;
     }).join("");
-    const added = pending.map((p, i) => (p.kind !== "add" ? "" : `<tr><td>${esc(p.display_name)}<span class="pd-tag">new (unsaved)</span></td><td>${esc(p.username)}</td><td>never</td><td>must change password</td><td><button data-undo-add="${i}">Remove</button></td></tr>`)).join("");
+    const added = pending.map((p, i) => (p.kind !== "add" ? "" : `<tr><td>${esc(p.display_name)}<span class="pd-tag">new (unsaved)</span></td><td>${esc(p.username)}</td><td>never</td><td>${esc(VIEW_LABELS[p.money_view])}</td><td>must change password</td><td><button data-undo-add="${i}">Remove</button></td></tr>`)).join("");
     body.innerHTML = `<h2 id="pdTitle">People</h2>
-      <table><tr><th>Name</th><th>Username</th><th>Last sign-in</th><th>Status</th><th></th></tr>${rows}${added}</table>
+      <table><tr><th>Name</th><th>Username</th><th>Last sign-in</th><th>Money view</th><th>Status</th><th></th></tr>${rows}${added}</table>
       <div class="pd-form" id="pdResetForm" hidden><span id="pdResetFor"></span>
         <input id="pdResetPw" type="password" autocomplete="new-password" placeholder="Temporary password (${MIN_PW}+ characters)" size="30">
         <button type="button" id="pdResetOk">Stage reset</button> <button type="button" id="pdResetCancel">Cancel</button></div>
       <div class="pd-form"><strong>Add person:</strong>
         <input id="pdName" placeholder="Name" size="14"> <input id="pdUser" placeholder="Username" size="12" autocomplete="off">
         <input id="pdPw" type="password" autocomplete="new-password" placeholder="Temporary password (${MIN_PW}+)" size="22">
+        ${viewSelect('id="pdView"', "percent")}
         <button type="button" id="pdAdd">Add</button></div>
       <div class="pd-err" role="alert">${esc(error)}</div>
       <p class="note">They must choose their own password at first sign-in. Nothing changes until you press Save &amp; Exit.</p>
@@ -91,8 +95,14 @@
   function wire() {
     body.querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click", () => {
       const id = Number(b.dataset.del);
-      pending = pending.filter((p) => !(p.id === id && p.kind === "reset"));
+      pending = pending.filter((p) => !(p.id === id && (p.kind === "reset" || p.kind === "view")));
       stage({ kind: "delete", id });
+    }));
+    body.querySelectorAll("[data-money-view]").forEach((sel) => sel.addEventListener("change", () => {
+      const id = Number(sel.dataset.moneyView), person = people.find((x) => x.id === id);
+      pending = pending.filter((p) => !(p.id === id && p.kind === "view"));   // replaces an earlier staged change
+      if (sel.value === person.money_view) { error = ""; return render(); }   // back to what is saved: nothing to stage
+      stage({ kind: "view", id, money_view: sel.value });
     }));
     body.querySelectorAll("[data-undo-del]").forEach((b) => b.addEventListener("click", () => unstage((p) => p.kind === "delete" && p.id === Number(b.dataset.undoDel))));
     body.querySelectorAll("[data-undo-reset]").forEach((b) => b.addEventListener("click", () => unstage((p) => p.kind === "reset" && p.id === Number(b.dataset.undoReset))));
@@ -120,7 +130,7 @@
         || pending.some((p) => p.kind === "add" && p.username.toLowerCase() === username.toLowerCase());
       if (taken) return fail(`Username "${username}" is already in use.`);
       if (temp_password.length < MIN_PW) return fail(`Temporary password must be at least ${MIN_PW} characters.`);
-      stage({ kind: "add", display_name, username, temp_password });
+      stage({ kind: "add", display_name, username, temp_password, money_view: body.querySelector("#pdView").value });
     });
     body.querySelector("#actFilter").addEventListener("click", async () => {
       const person = body.querySelector("#actPerson").value.trim();
@@ -136,16 +146,17 @@
     render();
   }
 
-  // Deletes first (frees usernames), then resets, then adds. Stops at the first refusal and keeps the rest staged.
+  // Deletes first (frees usernames), then resets, view settings, then adds. Stops at the first refusal and keeps the rest staged.
   async function save() {
-    const order = { delete: 0, reset: 1, add: 2 };
+    const order = { delete: 0, reset: 1, view: 2, add: 3 };
     const queue = pending.slice().sort((x, y) => order[x.kind] - order[y.kind]);
     const saveBtn = dlg.querySelector("#pdSave");
     saveBtn.disabled = true;
     for (const c of queue) {
       const out = c.kind === "delete" ? await post("/api/people/delete", { id: c.id })
         : c.kind === "reset" ? await post("/api/people/reset", { id: c.id, temp_password: c.temp_password })
-        : await post("/api/people", { display_name: c.display_name, username: c.username, temp_password: c.temp_password });
+        : c.kind === "view" ? await post("/api/people/view", { id: c.id, money_view: c.money_view })
+        : await post("/api/people", { display_name: c.display_name, username: c.username, temp_password: c.temp_password, money_view: c.money_view });
       if (out && out.success === false) {
         pending = pending.filter((p) => queue.indexOf(p) >= queue.indexOf(c));
         error = `Not saved: ${out.error || "the server refused this change"}. Earlier changes were saved.`;

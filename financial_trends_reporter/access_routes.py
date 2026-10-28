@@ -148,6 +148,7 @@ def register_access(app, store: AccessStore, sessions: SessionTable, clock=time.
             "listener": current_listener(),
             "name": request.environ.get("person", OWNER_NAME),
             "must_change": bool(user and user["must_change"]),
+            "money_view": user["money_view"] if user else "both",
         })
 
     @app.route("/api/change-password", methods=["POST"])
@@ -199,7 +200,8 @@ def register_access(app, store: AccessStore, sessions: SessionTable, clock=time.
         body = request.get_json(silent=True) or {}
         try:
             uid = store.add_user(str(body.get("display_name") or ""), str(body.get("username") or ""),
-                                 str(body.get("temp_password") or ""), now=clock())
+                                 str(body.get("temp_password") or ""), now=clock(),
+                                 money_view=str(body.get("money_view") or "percent"))
         except ValueError as exc:
             return _json({"success": False, "error": str(exc)}, 400)
         _log("person added", str(body.get("username") or "").strip().lower())
@@ -224,6 +226,19 @@ def register_access(app, store: AccessStore, sessions: SessionTable, clock=time.
             return _json({"success": False, "error": str(exc)}, 400)
         sessions.end_user(user["id"])
         _log("password reset", user["username"])
+        return _json({"success": True})
+
+    @app.route("/api/people/view", methods=["POST"])
+    def set_person_view():
+        user, body = _person_from_body()
+        if user is None:
+            return _json({"success": False, "error": "no such person"}, 404)
+        money_view = str(body.get("money_view") or "")
+        try:
+            store.set_money_view(user["id"], money_view)
+        except ValueError as exc:
+            return _json({"success": False, "error": str(exc)}, 400)
+        _log("view setting", f"{user['username']} {money_view}")
         return _json({"success": True})
 
     @app.route("/api/people/delete", methods=["POST"])
