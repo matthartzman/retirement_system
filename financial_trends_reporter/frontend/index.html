@@ -10,9 +10,10 @@
   @media (prefers-color-scheme: dark) { body { background: #14161a; color: #e8e8ea; } }
   h1 { font-size: 20px; margin: 0 0 4px; }
   .title-row { display: flex; align-items: center; gap: 12px; }
-  #moneyToggle { border: 1px solid currentColor; background: transparent; color: inherit; border-radius: 6px; padding: 2px 10px; font-size: 13px; cursor: pointer; }
-  #moneyToggle[aria-pressed="true"] { background: #2563eb; border-color: #2563eb; color: #fff; }
-  .sub { color: #666; font-size: 13px; margin-bottom: 16px; }
+  /* $ | % segmented toggle: the active side is filled (aria-pressed="true" means percent). */
+  #moneyToggle { display: inline-flex; border: 1px solid #2563eb; background: transparent; color: inherit; border-radius: 6px; padding: 0; font-size: 13px; cursor: pointer; overflow: hidden; }
+  #moneyToggle .seg { padding: 2px 10px; }
+  #moneyToggle[aria-pressed="false"] .seg-dollars, #moneyToggle[aria-pressed="true"] .seg-percent { background: #2563eb; color: #fff; font-weight: 600; }
   .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 20px; flex-wrap: wrap; }
   .toolbar button { border: 1px solid #ccc; background: #fff; border-radius: 6px; padding: 6px 12px; font-size: 13px; cursor: pointer; }
   @media (prefers-color-scheme: dark) { .toolbar button { background: #1e2126; color: #e8e8ea; border-color: #3a3d44; } }
@@ -233,7 +234,7 @@
 </style>
 </head>
 <body>
-<div class="title-row"><h1>Financial Trends</h1><button type="button" id="moneyToggle" aria-pressed="false" title="Show amounts in dollars or as a percent of net worth" hidden>$ | %</button></div>
+<div class="title-row"><h1>Financial Trends</h1><button type="button" id="moneyToggle" aria-pressed="false" aria-label="Show amounts as a percent of net worth" title="Show amounts in dollars or as a percent of net worth" hidden><span class="seg seg-dollars" aria-hidden="true">$</span><span class="seg seg-percent" aria-hidden="true">%</span></button></div>
 <div class="toolbar" id="scopeBar">
   <div class="view-toggle" role="group" aria-label="View"><button type="button" data-view="trends" aria-pressed="true">Trends</button><button type="button" data-view="live" aria-pressed="false">Live Snapshot</button></div>
   <label class="scope-pick">Time scope <select id="scopeSelect">
@@ -251,7 +252,6 @@
   <span class="scope-label" id="scopeLabel" role="status"></span>
   <button id="exitBtn" title="Leave this page">Exit</button>
 </div>
-<div class="sub">Four charts: Net Worth, Liquid Investments and Cash, Investment Net Flows, and Spending — one entry per weekday close. Net Worth and Liquid Investments and Cash use daily Imported account balances. The Time scope pulldown sets the dates every chart covers, and the start date Live Snapshot measures gains and returns from. The data updates automatically when this page opens.</div>
 <div class="note" id="allTimeNote" style="display:none"></div>
 <div id="priceNote" class="price-note" role="status" style="display:none"></div>
 <div id="balancesNote" class="price-note" role="status" style="display:none"></div>

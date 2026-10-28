@@ -53,9 +53,14 @@ describe("view toggle", () => {
     assert.doesNotMatch(html, /body\.live-mode \.scope-pick/);
     assert.doesNotMatch(html, /body\.live-mode #scopeLabel/);
   });
-  test("the time scope toolbar sits above the page description", () => {
-    assert.ok(html.indexOf('id="scopeBar"') < html.indexOf('<div class="sub">'));
+  test("the time scope toolbar follows the title, with no description paragraph", () => {
     assert.ok(html.indexOf('<div class="title-row">') < html.indexOf('id="scopeBar"'));
+    assert.doesNotMatch(html, /<div class="sub">Four charts/);
+  });
+  test("the $ | % toggle fills only the active side", () => {
+    assert.match(html, /<span class="seg seg-dollars" aria-hidden="true">\$<\/span><span class="seg seg-percent" aria-hidden="true">%<\/span>/);
+    assert.match(html, /#moneyToggle\[aria-pressed="false"\] \.seg-dollars, #moneyToggle\[aria-pressed="true"\] \.seg-percent \{ background: #2563eb/);
+    assert.doesNotMatch(html, /#moneyToggle\[aria-pressed="true"\] \{ background/);
   });
   test("the Trends page publishes its scope for Live Snapshot", () => {
     assert.match(html, /ds\.scopeFrom = from \|\| ""/);
