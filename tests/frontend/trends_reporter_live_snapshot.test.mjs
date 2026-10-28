@@ -6,7 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  parseSavedView, shouldPoll, changeHtml, statusText, liveViewHtml, fmtPct, hintText, lotLabel, startDayText, isYearToDate,
+  parseSavedView, shouldPoll, changeHtml, statusText, liveViewHtml, fmtPct, hintText, lotLabel, startDayText, isYearToDate, initLiveView,
 } from "../../financial_trends_reporter/frontend/live_snapshot.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -16,6 +16,13 @@ const ROW = (name, extra = {}) => ({
   name, start: 1000, new_money: 0, current: 1100, share: 0.5, day: 10, day_pct: 0.0092, market_gain: 100,
   return_pct: 0.1, share_of_gain: 0.5, annualized_pct: 0.12, ...extra,
 });
+// One lot of the flat list the page groups (liquid.positions).
+const POS = (o = {}) => ({
+  account: "Member_1_IRA", symbol: "ITOT", title: "", asset_class: "Equity", subclass: "US Total Equity", purchase_date: "2024-03-15",
+  shares: 120, purchase_price: 412.1, reinvested: false, start: 1000, new_money: 0, weighted: 0, current: 1100, day: 10, ...o,
+});
+const CASH_LOT = (o = {}) => POS({ account: "Family_Trust", symbol: "CASH", title: "Cash and sweep balances", asset_class: "Cash", subclass: null,
+  purchase_date: "2026-06-01", shares: 100, purchase_price: 1, start: 100, current: 100, day: 0, ...o });
 const DATA = {
   as_of: "2026-10-27T15:18:04Z", market: { state: "open", early_close: false }, delayed_minutes: 15,
   indices: [{ symbol: "^GSPC", label: "S&P 500", price: 6800, day_pct: 0.0072, stale: false },
@@ -23,9 +30,9 @@ const DATA = {
   baseline_date: "2025-12-31",
   liquid: {
     ...ROW("Total"), checking_net_flows: -36000, stale_symbols: [], unclassified_symbols: [],
-    by_class: [ROW("Equity", { tickers: [{ ...ROW("ITOT"), symbol: "ITOT" }] }), ROW("Cash", { tickers: [], day: 0, annualized_pct: null })],
-    by_equity_subclass: [ROW("US Total Equity")],
+    positions: [POS(), CASH_LOT()],
   },
+  days: 300,
   reconciliation: { holdings_value: 2844220, monarch_value: 2816837, monarch_as_of: "2026-10-26", delta_pct: 0.0097, flag: false },
   non_liquid: { rows: [{ name: "Joint <Annuity>", kind: "Fixed Income", value: 1269216, share: 0.3, tax_treatment: "pre_tax" }], total: 1269216, as_of: "2026-10-26" },
   checking: { rows: [{ name: "Family Checking", value: 20795 }], total: 20795 },
@@ -123,12 +130,17 @@ describe("liveViewHtml", () => {
     assert.match(out, /S&amp;P 500/);
     assert.match(out, /Nasdaq[\s\S]*?–/);
   });
-  test("liquid table: column headers and expandable class rows", () => {
+  test("liquid table: column headers, and the first level's rows are expandable", () => {
     for (const h of ["Start (12/31)", "Bought since", "Current", "Day %", "Market gain", "Return %", "Share of gain", "Annualized"]) {
       assert.ok(out.includes(h), h);
     }
-    assert.match(out, /<button[^>]*aria-expanded="false"[^>]*data-path="Asset class\/Equity"/);
-    assert.match(out, /<tr class="ticker-row" data-path="Asset class\/Equity\/ITOT" data-parent="Asset class\/Equity" hidden>/);
+    assert.match(out, /<th scope="col">Sub-class<\/th>/);
+    assert.match(out, /<tr class="top-row" data-depth="0" data-path="\/US%20Total%20Equity"><th scope="row" class="dim-subclass"><button[^>]*aria-expanded="false"/);
+    assert.match(out, /<tr data-depth="1" data-path="\/US%20Total%20Equity\/ITOT" data-parent="\/US%20Total%20Equity" hidden>/);
+  });
+  test("one liquid table: no separate equity sub-class table", () => {
+    assert.doesNotMatch(out, /Equity by sub-class/);
+    assert.equal((out.match(/<table class="live-table">/g) || []).length, 1);
   });
   test("the total row is 100% of value and of gain", () => {
     const foot = out.match(/<tfoot>([\s\S]*?)<\/tfoot>/)[1];
@@ -173,8 +185,11 @@ describe("liveViewHtml", () => {
     const flagged = liveViewHtml({ ...DATA, reconciliation: { ...DATA.reconciliation, delta_pct: 0.05, flag: true } });
     assert.match(flagged, /class="recon warn"/);
   });
-  test("missing annualized shows a dash, not 0%", () => {
-    assert.match(liveViewHtml(DATA), /<td class="num col-ann">–<\/td>/);
+  test("annualized is a dash until 90 days have passed, never 0%", () => {
+    const rows = (data) => liveViewHtml(data).match(/<tbody>[\s\S]*?<\/tbody>/)[0];   // the total row comes from the server
+    assert.match(rows({ ...DATA, days: 60 }), /<td class="num col-ann">–<\/td>/);
+    assert.doesNotMatch(rows({ ...DATA, days: 60 }), /<td class="num col-ann">(?!–)/);
+    assert.match(rows(DATA), /<td class="num col-ann">\d/);
   });
   test("an error body renders a message", () => {
     assert.match(liveViewHtml({ error: "plan store locked" }), /plan store locked/);
@@ -255,30 +270,16 @@ describe("reconciliation by account", () => {
   });
 });
 
-const LOT = (date, extra = {}) => ({ ...ROW(date || ""), purchase_date: date, shares: 120, purchase_price: 412.1, reinvested: false, ...extra });
-const ITOT = () => ({
-  ...ROW("ITOT"), symbol: "ITOT",
-  accounts: [
-    { ...ROW("Member_1_IRA"), lots: [LOT("2024-03-15"), LOT(null, { reinvested: true })] },
-    { ...ROW("Joint <Brokerage>"), lots: [LOT("2025-01-02")] },
-  ],
-});
-const DATA_WITH_LOTS = {
-  ...DATA,
-  liquid: {
-    ...DATA.liquid,
-    by_class: [ROW("Equity", { tickers: [ITOT()] })],
-    by_equity_subclass: [ROW("US Total Equity", { tickers: [ITOT()] })],
-  },
-};
+const ITOT_LOTS = [POS(), POS({ purchase_date: null, reinvested: true }), POS({ account: "Joint <Brokerage>", purchase_date: "2025-01-02", current: 500, start: 450 })];
+const DATA_WITH_LOTS = { ...DATA, liquid: { ...DATA.liquid, positions: ITOT_LOTS } };
 
 describe("holdings drill-down", () => {
-  test("ticker → account → lot rows, hidden until expanded", () => {
+  test("symbol → account → lot rows, hidden until expanded", () => {
     const out = liveViewHtml(DATA_WITH_LOTS);
-    assert.match(out, /<button[^>]*aria-expanded="false"[^>]*data-path="Asset class\/Equity\/ITOT"/);
-    assert.match(out, /<button[^>]*aria-expanded="false"[^>]*data-path="Asset class\/Equity\/ITOT\/Member_1_IRA"/);
-    assert.match(out, /<tr class="acct-row" data-path="Asset class\/Equity\/ITOT\/Member_1_IRA" data-parent="Asset class\/Equity\/ITOT" hidden>/);
-    assert.match(out, /<tr class="lot-row" data-parent="Asset class\/Equity\/ITOT\/Member_1_IRA" hidden>/);
+    assert.match(out, /<button[^>]*aria-expanded="false"[^>]*data-path="\/US%20Total%20Equity\/ITOT"/);
+    assert.match(out, /<button[^>]*aria-expanded="false"[^>]*data-path="\/US%20Total%20Equity\/ITOT\/Member_1_IRA"/);
+    assert.match(out, /<tr data-depth="2" data-path="\/US%20Total%20Equity\/ITOT\/Member_1_IRA" data-parent="\/US%20Total%20Equity\/ITOT" hidden>/);
+    assert.match(out, /<tr data-depth="3" data-parent="\/US%20Total%20Equity\/ITOT\/Member_1_IRA" hidden><th scope="row" class="dim-lot">/);
     assert.ok(out.includes("2024-03-15 · 120 @ $412.10"));
     assert.ok(!out.includes(" 120 sh"));
   });
@@ -290,11 +291,10 @@ describe("holdings drill-down", () => {
     assert.equal(lotLabel({ purchase_date: null, shares: 10, purchase_price: 0, reinvested: false }), "Undated · 10 @ $0.00");
     assert.equal(lotLabel({ purchase_date: null, shares: 10, purchase_price: null, reinvested: true }), "Undated · 10 · reinvested");
   });
-  test("same ticker in both tables gets distinct paths", () => {
+  test("every row's path is unique", () => {
     const out = liveViewHtml(DATA_WITH_LOTS);
-    assert.match(out, /data-path="Asset class\/Equity\/ITOT"/);
-    assert.match(out, /data-path="Sub-class\/US Total Equity\/ITOT"/);
-    const paths = [...out.matchAll(/<tr class="(?:class|ticker|acct)-row" data-path="([^"]*)"/g)].map((m) => m[1]);
+    const paths = [...out.matchAll(/<tr[^>]* data-path="([^"]*)"/g)].map((m) => m[1]);
+    assert.ok(paths.length >= 4);
     assert.equal(new Set(paths).size, paths.length);
   });
   test("account names are escaped in paths and labels", () => {
@@ -302,48 +302,43 @@ describe("holdings drill-down", () => {
     assert.ok(out.includes("Joint &lt;Brokerage&gt;"));
     assert.ok(!out.includes("Joint <Brokerage>"));
   });
-  test("rows without accounts render plain, with no expand button", () => {
-    const out = liveViewHtml(DATA);
-    assert.match(out, /<th scope="row" class="ticker">ITOT<\/th>/);
-    assert.ok(!/<button[^>]*data-path="Asset class\/Equity\/ITOT"/.test(out));
+  test("a row with nothing below it renders plain, with no expand button", () => {
+    const out = liveViewHtml({ ...DATA, liquid: { ...DATA.liquid, positions: [POS()] } }, ["lot"]);
+    assert.match(out, /<th scope="row" class="dim-lot">2024-03-15 · 120 @ \$412\.10<\/th>/);
+    assert.doesNotMatch(out, /<button[^>]*class="expand"/);
   });
 });
 
 describe("cash holdings", () => {
-  const CASH = () => ({
-    ...ROW("CASH"), symbol: "CASH", title: "Cash and sweep balances",
-    accounts: [
-      { ...ROW("Zed_Trust"), lots: [LOT("2026-06-01")] },
-      { ...ROW("Member_1_Trust"), lots: [LOT("2026-05-01")] },
-      { ...ROW("alpha_Checking"), lots: [LOT("2026-07-01")] },
-    ],
-  });
-  const data = (extra = {}) => ({ ...DATA, ...extra, liquid: { ...DATA.liquid, by_class: [ROW("Cash", { tickers: [CASH()] })] } });
+  const CASH = [
+    CASH_LOT({ account: "Zed_Trust", purchase_date: "2026-06-01" }),
+    CASH_LOT({ account: "Member_1_Trust", purchase_date: "2026-05-01" }),
+    CASH_LOT({ account: "alpha_Checking", purchase_date: "2026-07-01" }),
+  ];
+  const data = (extra = {}) => ({ ...DATA, ...extra, liquid: { ...DATA.liquid, positions: CASH } });
   const labels = { Zed_Trust: "Zed Trust", Member_1_Trust: "Matt Trust", alpha_Checking: "alpha Checking" };
   test("the account row carries the lot date; no expand button and no lot row", () => {
     const out = liveViewHtml(data({ account_labels: labels }));
-    assert.match(out, /<tr class="acct-row" data-path="Asset class\/Cash\/CASH\/Matt Trust"|<tr class="acct-row" data-path="Asset class\/Cash\/CASH\/Member_1_Trust"/);
-    assert.match(out, /<th scope="row" class="acct">Matt Trust <span class="muted">· 2026-05-01<\/span><\/th>/);
-    assert.doesNotMatch(out, /lot-row/);
-    assert.doesNotMatch(out, /data-path="Asset class\/Cash\/CASH\/Member_1_Trust" data-label/);
+    assert.match(out, /<th scope="row" class="dim-account">Matt Trust <span class="muted">· 2026-05-01<\/span><\/th>/);
+    assert.doesNotMatch(out, /dim-lot/);
+    assert.doesNotMatch(out, /data-path="[^"]*Member_1_Trust"/);
   });
   test("cash accounts sort A to Z by the name shown, ignoring case", () => {
     const out = liveViewHtml(data({ account_labels: labels }));
-    const order = [...out.matchAll(/<th scope="row" class="acct">([^<]*?) <span/g)].map((m) => m[1]);
+    const order = [...out.matchAll(/<th scope="row" class="dim-account">([^<]*?) <span/g)].map((m) => m[1]);
     assert.deepEqual(order, ["alpha Checking", "Matt Trust", "Zed Trust"]);
   });
-  test("other symbols keep account and lot rows, in the server's order", () => {
+  test("other symbols keep their lot rows, accounts largest first", () => {
     const out = liveViewHtml(DATA_WITH_LOTS);
-    assert.match(out, /class="lot-row"/);
-    const order = [...out.matchAll(/<th scope="row" class="acct">[^>]*?>▸ ([^<]*)<\/button>/g)].map((m) => m[1]);
-    assert.deepEqual(order.slice(0, 2), ["Member_1_IRA", "Joint &lt;Brokerage&gt;"]);
+    assert.match(out, /dim-lot/);
+    const order = [...out.matchAll(/class="dim-account"><button[^>]*>▸ ([^<]*)<\/button>/g)].map((m) => m[1]);
+    assert.deepEqual(order, ["Member_1_IRA", "Joint &lt;Brokerage&gt;"]);
   });
 });
 
 describe("holding titles", () => {
   test("the fund name follows the symbol, muted and escaped", () => {
-    const itot = { ...ITOT(), title: "iShares Core <S&P> ETF" };
-    const out = liveViewHtml({ ...DATA_WITH_LOTS, liquid: { ...DATA_WITH_LOTS.liquid, by_class: [ROW("Equity", { tickers: [itot] })] } });
+    const out = liveViewHtml({ ...DATA, liquid: { ...DATA.liquid, positions: [POS({ title: "iShares Core <S&P> ETF" })] } });
     assert.match(out, /ITOT<\/button> <span class="muted ticker-title">iShares Core &lt;S&amp;P&gt; ETF<\/span>/);
   });
   test("no title, no empty span", () => {
@@ -351,11 +346,41 @@ describe("holding titles", () => {
   });
 });
 
+describe("Group By", () => {
+  test("the row sits beside the title: default levels in order, Lot fixed last, unused levels offered", () => {
+    const out = liveViewHtml(DATA);
+    assert.match(out, /<div class="live-card-head"><h2>Liquid investments<\/h2><div class="group-by" role="group" aria-label="Group by">/);
+    const chips = [...out.matchAll(/<span class="chip-name">([^<]*)<\/span>/g)].map((m) => m[1]);
+    assert.deepEqual(chips, ["Sub-class", "Symbol", "Account"]);
+    assert.match(out, /<span class="chip fixed" data-dim="lot" title="Lots are always the last level">Lot<\/span>/);
+    assert.match(out, /<button type="button" class="chip off" draggable="true" data-dim="class"[^>]*>\+ Asset class<\/button>/);
+  });
+  test("each chip can be dragged, and moved with arrows; the ends' arrows are disabled", () => {
+    const out = liveViewHtml(DATA);
+    assert.equal((out.match(/<span class="chip" draggable="true"/g) || []).length, 3);
+    assert.match(out, /data-dim="subclass" data-step="-1" aria-label="Move Sub-class earlier" disabled>/);
+    assert.match(out, /data-dim="account" data-step="1" aria-label="Move Account later" disabled>/);
+    assert.doesNotMatch(out, /data-dim="symbol" data-step="-1"[^>]*disabled/);
+    assert.match(out, /aria-label="Stop grouping by Symbol"/);
+  });
+  test("the order reshapes the table: first level names the column, rows regroup", () => {
+    const out = liveViewHtml({ ...DATA_WITH_LOTS, account_labels: { Member_1_IRA: "Matt IRA" } }, ["account", "symbol"]);
+    assert.match(out, /<th scope="col">Account<\/th>/);
+    assert.match(out, /<tr class="top-row" data-depth="0" data-path="\/Member_1_IRA"><th scope="row" class="dim-account"><button[^>]*>▸ Matt IRA<\/button>/);
+    assert.match(out, /<tr data-depth="1" data-path="\/Member_1_IRA\/ITOT" data-parent="\/Member_1_IRA" hidden>/);
+    const chips = [...out.matchAll(/<span class="chip-name">([^<]*)<\/span>/g)].map((m) => m[1]);
+    assert.deepEqual(chips, ["Account", "Symbol"]);
+  });
+  test("an unreadable order falls back to the default", () => {
+    assert.match(liveViewHtml(DATA, "garbage"), /<th scope="col">Sub-class<\/th>/);
+  });
+});
+
 describe("friendly account labels", () => {
   const labels = { Member_1_IRA: "Matt IRA" };
   test("account rows show the label; paths keep the account id", () => {
     const out = liveViewHtml({ ...DATA_WITH_LOTS, account_labels: labels });
-    assert.match(out, /data-path="Asset class\/Equity\/ITOT\/Member_1_IRA" data-label="Matt IRA">▸ Matt IRA<\/button>/);
+    assert.match(out, /data-path="\/US%20Total%20Equity\/ITOT\/Member_1_IRA" data-label="Matt IRA">▸ Matt IRA<\/button>/);
     assert.ok(!/>▸ Member_1_IRA</.test(out));
   });
   test("reconciliation accounts sort A to Z by the name shown", () => {
@@ -368,8 +393,9 @@ describe("friendly account labels", () => {
   test("reconciliation rows and unmapped holdings show the label", () => {
     const rec = { ...REC_FLAGGED, unmapped_holdings: [{ account: "Member_1_IRA", value: 1 }] };
     const out = liveViewHtml({ ...DATA, account_labels: labels, reconciliation: rec });
-    assert.ok(!out.includes("Member_1_IRA"));
-    assert.match(out, /Matt IRA/);
+    const recon = out.match(/<details class="live-section recon-accounts">[\s\S]*?<\/details>/)[0];   // paths elsewhere keep the id
+    assert.ok(!recon.includes("Member_1_IRA"));
+    assert.match(recon, /Matt IRA/);
   });
   test("an account without a label falls back to its id, and labels don't carry over between renders", () => {
     liveViewHtml({ ...DATA_WITH_LOTS, account_labels: labels });
@@ -447,5 +473,86 @@ describe("liveViewHtml in the percent view states each base once", () => {
     const out = liveViewHtml(DATA);
     assert.doesNotMatch(out, /class="unit"|live-card pm/);
     assert.match(out, /<h2>Liquid investments<\/h2>/);
+  });
+});
+
+describe("Group By wiring", () => {
+  const SAVED = "trendsLiveGroups_v1";
+  function harness({ saved, blocked } = {}) {
+    const listeners = {}, store = new Map([["trendsView_v1", "live"], ...(saved ? [[SAVED, saved]] : [])]);
+    const el = () => ({ innerHTML: "", textContent: "", hidden: false, classList: { toggle() {}, contains: () => false, add() {}, remove() {} },
+                        addEventListener() {}, querySelectorAll: () => [], querySelector: () => null, setAttribute() {} });
+    const out = { ...el(), addEventListener: (type, fn) => { (listeners[type] ||= []).push(fn); } };
+    const els = { liveView: el(), liveBody: out, liveError: el(), liveRefresh: el() };
+    const doc = { body: el(), getElementById: (id) => els[id], querySelectorAll: () => [], addEventListener() {}, visibilityState: "visible" };
+    const win = {
+      localStorage: { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => { if (blocked) throw new Error("blocked"); store.set(k, v); } },
+      setInterval() {}, fetch: async () => ({ ok: true, json: async () => DATA_WITH_LOTS }),
+    };
+    return { listeners, store, out, doc, win, fire: (type, e) => (listeners[type] || []).forEach((fn) => fn(e)) };
+  }
+  const started = async (h) => { initLiveView(h.doc, h.win); await new Promise((r) => setTimeout(r, 20)); return h; };
+  const target = (map) => ({ closest: (sel) => map[sel] ?? null });
+  const saved = (h) => JSON.parse(h.store.get(SAVED));
+  const firstColumn = (h) => h.out.innerHTML.match(/<thead><tr><th scope="col">([^<]*)<\/th>/)[1];
+
+  test("a saved order is restored; an unreadable one means the default", async () => {
+    assert.equal(firstColumn(await started(harness({ saved: JSON.stringify(["account", "symbol"]) }))), "Account");
+    assert.equal(firstColumn(await started(harness({ saved: "not json" }))), "Sub-class");
+    assert.equal(firstColumn(await started(harness())), "Sub-class");
+  });
+  test("an arrow moves a chip, redraws the table and remembers the order", async () => {
+    const h = await started(harness());
+    h.fire("click", { target: target({ "button.chip-step": { dataset: { dim: "subclass", step: "1" } } }) });
+    assert.deepEqual(saved(h), ["symbol", "subclass", "account"]);
+    assert.equal(firstColumn(h), "Symbol");
+  });
+  test("x drops a level, and an unused chip adds one before Lot", async () => {
+    const h = await started(harness());
+    h.fire("click", { target: target({ "button.chip-remove": { dataset: { dim: "symbol" } } }) });
+    assert.deepEqual(saved(h), ["subclass", "account"]);
+    h.fire("click", { target: target({ "button.chip.off": { dataset: { dim: "class" } } }) });
+    assert.deepEqual(saved(h), ["subclass", "account", "class"]);
+  });
+  test("dragging a chip onto the left half of another puts it before; the right half, after", async () => {
+    const h = await started(harness());
+    const chip = (dim) => ({ dataset: { dim }, classList: { contains: () => false, add() {}, remove() {} }, getBoundingClientRect: () => ({ left: 0, width: 100 }) });
+    const drag = (from, onto, clientX) => {
+      h.fire("dragstart", { target: target({ ".group-by .chip[data-dim]": chip(from) }), dataTransfer: { setData() {} } });
+      h.fire("drop", { target: target({ ".group-by .chip[data-dim]": chip(onto) }), clientX, preventDefault() {} });
+    };
+    drag("account", "subclass", 10);
+    assert.deepEqual(saved(h), ["account", "subclass", "symbol"]);
+    drag("account", "symbol", 90);
+    assert.deepEqual(saved(h), ["subclass", "symbol", "account"]);
+  });
+  test("the Lot chip cannot be dragged, and a drop with nothing being dragged does nothing", async () => {
+    const h = await started(harness());
+    const lot = { dataset: { dim: "lot" }, classList: { contains: (c) => c === "fixed", add() {} } };
+    h.fire("dragstart", { target: target({ ".group-by .chip[data-dim]": lot }), dataTransfer: { setData() {} } });
+    h.fire("drop", { target: target({ ".group-by .chip[data-dim]": { dataset: { dim: "symbol" }, getBoundingClientRect: () => ({ left: 0, width: 10 }) } }), clientX: 1, preventDefault() {} });
+    assert.equal(h.store.has(SAVED), false);
+  });
+  test("blocked storage never breaks regrouping", async () => {
+    const h = await started(harness({ blocked: true }));
+    h.fire("click", { target: target({ "button.chip-step": { dataset: { dim: "subclass", step: "1" } } }) });
+    assert.equal(firstColumn(h), "Symbol");
+  });
+  test("a new grouping drops the old expanded rows", async () => {
+    const h = await started(harness());
+    const rows = [{ dataset: { path: "/US%20Total%20Equity" } }];
+    h.out.querySelectorAll = (sel) => (sel === "button.expand" ? rows.map((r) => ({ ...r, getAttribute: () => "false", setAttribute() {}, textContent: "" })) : []);
+    h.fire("click", { target: target({ "button.expand": { dataset: { path: "/US%20Total%20Equity" }, getAttribute: () => "false" } }) });
+    h.fire("click", { target: target({ "button.chip-step": { dataset: { dim: "subclass", step: "1" } } }) });
+    assert.match(h.out.innerHTML, /data-path="\/ITOT"/);   // symbol is now the top level
+  });
+});
+
+describe("Group By styles", () => {
+  test("rows indent by depth and the chips have drag cues", () => {
+    for (const d of [1, 2, 3, 4]) assert.match(html, new RegExp(String.raw`\.live-table tr\[data-depth="${d}"\] th \{`));
+    assert.match(html, /\.group-by \.chip\.drop-before \{ box-shadow/);
+    assert.match(html, /\.group-by \.chip\.drop-after \{ box-shadow/);
+    assert.doesNotMatch(html, /\.ticker-row th|\.acct-row th|\.lot-row th/);
   });
 });
