@@ -487,6 +487,18 @@ def _account_rows(members: list[dict], total_current: float, total_gain: float, 
     return sorted(out, key=lambda r: -r["current"])
 
 
+def _position_rows(positions: list[dict]) -> list[dict]:
+    """One row per lot for the page's Group By: everything it needs to total any grouping itself with the
+    same formulas as ``_summarize`` (gain = current - start - new money; return over start + weighted new
+    money; share and share of gain over the totals). Full precision, so a regrouped total matches the
+    server's own groups; the page rounds for display. ``day`` is null when the lot has no previous close."""
+    return [{"account": p["account"], "symbol": p["symbol"], "title": p["title"], "asset_class": p["asset_class"],
+             "subclass": p["subclass"], "purchase_date": p["purchase_date"], "shares": p["shares"],
+             "purchase_price": p["purchase_price"], "reinvested": p["reinvested"],
+             "start": p["start"], "new_money": p["new_money"], "weighted": p["weighted"],
+             "current": p["current"], "day": p["day"]} for p in positions]
+
+
 def _group(rows: list[dict], key: str, total_current: float, total_gain: float, days: int, order: tuple = ()) -> list[dict]:
     """Rows summarized by ``key``: in ``order`` when given, else largest first."""
     groups: dict[str, list[dict]] = {}
@@ -790,6 +802,7 @@ def compute(*, lots, quotes, baseline, security_master, accounts, flows_daily, m
         "by_class": _group(positions, "asset_class", current, gain, days, CLASS_ORDER),
         "by_equity_subclass": _group(equity, "subclass", current, gain, days),
         "stale_symbols": stale, "unclassified_symbols": sorted({p["symbol"] for p in positions if p["unclassified"]}),
+        "positions": _position_rows(positions),
     }
     day = total["day"]
 

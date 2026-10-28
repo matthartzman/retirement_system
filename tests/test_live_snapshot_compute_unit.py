@@ -100,6 +100,65 @@ def test_reinvested_dividend_counts_as_gain_not_new_money():
     assert liquid["market_gain"] == pytest.approx(3200 + 260)
 
 
+# ---- the flat lot list the page re-groups ----
+
+def _regroup(positions, key, days, total_current, total_gain):
+    """What the page does with ``liquid.positions``: sum the members, then the same formulas as
+    ``_summarize`` (gain = current - start - new money; return over start + weighted new money)."""
+    groups = {}
+    for p in positions:
+        groups.setdefault(key(p), []).append(p)
+    out = {}
+    for name, ms in groups.items():
+        current, start, new = (sum(m[k] for m in ms) for k in ("current", "start", "new_money"))
+        gain = current - start - new
+        known = [m["day"] for m in ms if m["day"] is not None]
+        out[name] = {"current": current, "start": start, "market_gain": gain,
+                     "return_pct": gain / (start + sum(m["weighted"] for m in ms)),
+                     "share": current / total_current, "share_of_gain": gain / total_gain,
+                     "day": sum(known) if known else None}
+    return out
+
+
+def test_positions_are_one_row_per_lot_with_what_the_page_needs():
+    positions = _compute()["liquid"]["positions"]
+    assert len(positions) == 4                                  # ITOT, IXUS, AVUV, and the Trust's CASH lot
+    itot = next(p for p in positions if p["symbol"] == "ITOT")
+    assert itot["account"] == "Member_1_IRA" and itot["asset_class"] == "Equity" and itot["subclass"] == "US Total Equity"
+    assert itot["title"] == "iShares Core S&P Total U.S. Stock Market ETF"
+    assert (itot["purchase_date"], itot["shares"], itot["purchase_price"], itot["reinvested"]) == ("2025-06-01", 100, 100, False)
+    assert (itot["start"], itot["current"], itot["new_money"], itot["day"]) == pytest.approx((12000, 13000, 0, 100))
+    cash = next(p for p in positions if p["symbol"] == "CASH")
+    assert cash["asset_class"] == "Cash" and cash["subclass"] is None
+    assert all(set(p) >= {"account", "symbol", "title", "asset_class", "subclass", "purchase_date", "shares",
+                          "purchase_price", "reinvested", "start", "new_money", "weighted", "current", "day"} for p in positions)
+
+
+def test_regrouping_positions_reproduces_the_servers_groups():
+    out = _compute()
+    liquid, days = out["liquid"], out["days"]
+    total_current, total_gain = liquid["current"], liquid["market_gain"]
+    assert sum(p["current"] for p in liquid["positions"]) == pytest.approx(total_current)
+    by_class = _regroup(liquid["positions"], lambda p: p["asset_class"], days, total_current, total_gain)
+    for row in liquid["by_class"]:
+        got = by_class[row["name"]]
+        for k in ("current", "start", "market_gain", "return_pct", "share", "share_of_gain", "day"):
+            assert got[k] == pytest.approx(row[k]), (row["name"], k)
+    by_symbol = _regroup(liquid["positions"], lambda p: p["symbol"], days, total_current, total_gain)
+    for row in _row(liquid["by_class"], "Equity")["tickers"]:
+        assert by_symbol[row["symbol"]]["return_pct"] == pytest.approx(row["return_pct"])
+    by_sub = _regroup([p for p in liquid["positions"] if p["subclass"]], lambda p: p["subclass"], days, total_current, total_gain)
+    for row in liquid["by_equity_subclass"]:
+        assert by_sub[row["name"]]["current"] == pytest.approx(row["current"])
+
+
+def test_a_lot_with_no_day_change_stays_null():
+    lots = [{**LOTS[0], "symbol": "ZZZZ"}]
+    positions = _compute(lots=lots, quotes={"ZZZZ": {"price": 10.0, "previous_close": None, "stale": False}},
+                         baseline={**BASELINE, "prices": {"ZZZZ": {"price": 9.0}}})["liquid"]["positions"]
+    assert positions[0]["day"] is None
+
+
 # ---- groupings ----
 
 def test_by_class():
