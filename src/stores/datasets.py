@@ -125,11 +125,21 @@ CREATE TABLE revision_datasets (
     PRIMARY KEY (revision_id, dataset, position)
 ) WITHOUT ROWID;
 """
-SCHEMA_V6_DDL = _ddl(_V6_DATASETS)
+# Frozen as shipped in v6: the account-setup columns added later (Tax Treatment, After-Tax Premium)
+# arrive in v16, so an existing plan file and a new one reach the same schema.
+_V6_ACCOUNT_SETUP_SHIPPED = tuple(c for c in YTD_ACCOUNT_SETUP_COLUMNS if c not in ("Tax Treatment", "After-Tax Premium"))
+SCHEMA_V6_DDL = _ddl({**_V6_DATASETS, "ytd_account_setup": _V6_ACCOUNT_SETUP_SHIPPED})
 # v15: per-liability payoff month and carry-zero flag (item 356).
 SCHEMA_V15_DDL = """
 ALTER TABLE liabilities ADD COLUMN "payoff_month" TEXT NOT NULL DEFAULT '';
 ALTER TABLE liabilities ADD COLUMN "carry_zero" TEXT NOT NULL DEFAULT '';
+"""
+
+
+# v16: per-account Tax Treatment and After-Tax Premium on the Accounts & Sources rows (item 365).
+SCHEMA_V16_DDL = """
+ALTER TABLE ytd_account_setup ADD COLUMN "Tax Treatment" TEXT NOT NULL DEFAULT '';
+ALTER TABLE ytd_account_setup ADD COLUMN "After-Tax Premium" TEXT NOT NULL DEFAULT '';
 """
 
 
