@@ -162,7 +162,8 @@
   .toolbar .view-toggle button { border: 0; border-radius: 0; }
   .toolbar .view-toggle button[aria-pressed="true"] { background: #1a1a1a; color: #fff; }
   @media (prefers-color-scheme: dark) { .view-toggle { border-color: #3a3d44; } .toolbar .view-toggle button[aria-pressed="true"] { background: #e8e8ea; color: #14161a; } }
-  body.live-mode .grid, body.live-mode .scope-pick, body.live-mode #customFrom, body.live-mode #customTo, body.live-mode #scopeLabel,
+  /* The Time scope stays: it sets Live Snapshot's start date. Live always ends today, so no custom end date. */
+  body.live-mode .grid, body.live-mode #customTo,
   body.live-mode #allTimeNote, body.live-mode #priceNote, body.live-mode #balancesNote { display: none !important; }
   #liveView { display: grid; gap: 16px; }
   #liveView[hidden] { display: none; }
@@ -233,7 +234,6 @@
 </head>
 <body>
 <div class="title-row"><h1>Financial Trends</h1><button type="button" id="moneyToggle" aria-pressed="false" title="Show amounts in dollars or as a percent of net worth" hidden>$ | %</button></div>
-<div class="sub">Four charts: Net Worth, Liquid Investments and Cash, Investment Net Flows, and Spending — one entry per weekday close. Net Worth and Liquid Investments and Cash use daily Imported account balances. The Time scope pulldown sets the dates every chart covers. The data updates automatically when this page opens.</div>
 <div class="toolbar" id="scopeBar">
   <div class="view-toggle" role="group" aria-label="View"><button type="button" data-view="trends" aria-pressed="true">Trends</button><button type="button" data-view="live" aria-pressed="false">Live Snapshot</button></div>
   <label class="scope-pick">Time scope <select id="scopeSelect">
@@ -251,6 +251,7 @@
   <span class="scope-label" id="scopeLabel" role="status"></span>
   <button id="exitBtn" title="Leave this page">Exit</button>
 </div>
+<div class="sub">Four charts: Net Worth, Liquid Investments and Cash, Investment Net Flows, and Spending — one entry per weekday close. Net Worth and Liquid Investments and Cash use daily Imported account balances. The Time scope pulldown sets the dates every chart covers, and the start date Live Snapshot measures gains and returns from. The data updates automatically when this page opens.</div>
 <div class="note" id="allTimeNote" style="display:none"></div>
 <div id="priceNote" class="price-note" role="status" style="display:none"></div>
 <div id="balancesNote" class="price-note" role="status" style="display:none"></div>
@@ -315,6 +316,16 @@ function syncScopeControls() {
   from.value = customFrom; to.value = customTo;
   from.style.display = to.style.display = scope === "custom" ? "inline-block" : "none";
   document.getElementById("scopeLabel").textContent = currentRange().label;
+  publishScope();
+}
+// Live Snapshot (./live_snapshot.js) reads the scope's first day from body[data-scope-from] and
+// reloads on "trends-scope-change", so the two views share one Time scope.
+function publishScope() {
+  const { from, label } = currentRange();
+  const ds = document.body?.dataset;
+  if (!ds || (ds.scopeFrom === (from || "") && ds.scopeLabel === label)) return;
+  ds.scopeFrom = from || ""; ds.scopeLabel = label;
+  if (typeof document.dispatchEvent === "function") document.dispatchEvent(new CustomEvent("trends-scope-change", { detail: { from: ds.scopeFrom, label } }));
 }
 let categoryModel = null;
 let chartRows = [];
@@ -423,6 +434,7 @@ function render() {
   renderPriceNote();
   renderBalancesNote();
   document.getElementById("scopeLabel").textContent = currentRange().label;
+  publishScope();
   let filtered = filterByTimeframe(seriesRows(), scope, { from: customFrom, to: customTo });
   const allTimeNote = document.getElementById("allTimeNote");
   allTimeNote.style.display = "none";

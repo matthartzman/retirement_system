@@ -6,7 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  parseSavedView, shouldPoll, changeHtml, statusText, liveViewHtml, fmtPct, hintText, lotLabel,
+  parseSavedView, shouldPoll, changeHtml, statusText, liveViewHtml, fmtPct, hintText, lotLabel, startDayText, isYearToDate,
 } from "../../financial_trends_reporter/frontend/live_snapshot.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -48,9 +48,18 @@ describe("view toggle", () => {
     assert.match(html, /<section id="liveView"/);
     assert.match(html, /<script type="module" src="\.\/live_snapshot\.js"><\/script>/);
   });
-  test("live mode hides the time scope and the trend cards", () => {
-    assert.match(html, /body\.live-mode \.grid/);
-    assert.match(html, /body\.live-mode \.scope-pick/);
+  test("live mode hides the trend cards and the custom end date, but keeps the time scope", () => {
+    assert.match(html, /body\.live-mode \.grid, body\.live-mode #customTo,/);
+    assert.doesNotMatch(html, /body\.live-mode \.scope-pick/);
+    assert.doesNotMatch(html, /body\.live-mode #scopeLabel/);
+  });
+  test("the time scope toolbar sits above the page description", () => {
+    assert.ok(html.indexOf('id="scopeBar"') < html.indexOf('<div class="sub">'));
+    assert.ok(html.indexOf('<div class="title-row">') < html.indexOf('id="scopeBar"'));
+  });
+  test("the Trends page publishes its scope for Live Snapshot", () => {
+    assert.match(html, /ds\.scopeFrom = from \|\| ""/);
+    assert.match(html, /new CustomEvent\("trends-scope-change"/);
   });
 });
 
@@ -90,6 +99,21 @@ describe("liveViewHtml", () => {
     assert.match(out, /After-tax net worth/);
     assert.match(out, /\$5,638,210/);
   });
+  test("year to date headline for a 12/31 start; 'Since' and the date for any other", () => {
+    assert.match(out, /Year to date/);
+    const since = liveViewHtml({ ...DATA, baseline_date: "2026-09-25" });
+    assert.match(since, /Since 9\/25/);
+    assert.match(since, /Start \(9\/25\)/);
+    assert.doesNotMatch(since, /12\/31/);
+  });
+  test("start date text", () => {
+    assert.equal(startDayText("2026-09-25", "2026-10-27T15:00:00Z"), "9/25");
+    assert.equal(startDayText("2025-12-31", "2026-10-27T15:00:00Z"), "12/31");
+    assert.equal(startDayText("2025-10-24", "2026-10-27T15:00:00Z"), "10/24/25");
+    assert.equal(isYearToDate("2025-12-31", "2026-10-27"), true);
+    assert.equal(isYearToDate("2024-12-31", "2026-10-27"), false);
+    assert.equal(isYearToDate("2026-09-25", "2026-10-27"), false);
+  });
   test("index chips, with a dash when a quote is missing", () => {
     assert.match(out, /S&amp;P 500/);
     assert.match(out, /Nasdaq[\s\S]*?–/);
@@ -123,6 +147,16 @@ describe("liveViewHtml", () => {
     assert.match(html, /HSA balance/);
     assert.match(html, /federal \$30,000, NIIT \$7,600, state \$9,400/);
     assert.match(html, /Flat 25% \/ 15% rates would give \$90,000/);
+  });
+  test("a note receivable's future interest gets its own tax line and treatment label", () => {
+    const data = { ...DATA, non_liquid: { ...DATA.non_liquid, rows: [{ name: "RedMane Note Jan 2026", kind: "Fixed Income", value: 512848, share: 1, tax_treatment: "note_interest" }] },
+      tax: { ...DATA.tax, note_interest: 120349, note_rows: [{ name: "RedMane Note Jan 2026", note: "RedMane Note", interest: 120349 }] } };
+    const html = liveViewHtml(data);
+    assert.match(html, /Note interest still to be paid \(RedMane Note Jan 2026\)<\/th><td class="num">\$120,349/);
+    assert.match(html, /Interest taxed/);
+  });
+  test("no note line when there is no note interest", () => {
+    assert.doesNotMatch(out, /Note interest/);
   });
   test("tax section says which annuities have no basis yet", () => {
     assert.match(out, /Annuity - Matt/);

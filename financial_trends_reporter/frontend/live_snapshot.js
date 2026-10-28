@@ -1,7 +1,8 @@
 // Live Snapshot view (design: documentation/future/superpowers/plans/2026-10-27-live-snapshot-design.md).
 // Pure render/poll helpers are exported for tests; initLiveView() wires the toggle, the 60 s poll
 // and the Refresh button in the browser. It runs as its own module so the Trends script is untouched:
-// the toggle only switches body.live-mode, and CSS hides the trend cards and the time scope.
+// the toggle only switches body.live-mode, and CSS hides the trend cards. The Time scope is shared: its
+// first day (body[data-scope-from]) sets the Start date.
 
 import { moneyView, fmtAmount, onMoneyViewChange, unitChip } from "./money_view.js";
 
@@ -64,8 +65,27 @@ export function statusText(data) {
   return parts.join(" · ");
 }
 
-const COLUMNS = [
-  ["Start (12/31)", "col-start"], ["Bought since", "col-new"], ["Current", "col-cur"], ["Share", "col-share"],
+// The Start date follows the page's Time scope (the close before its first day); liveViewHtml sets it.
+let startDay = "12/31";
+
+// "9/25", or "9/25/25" when the start is in an earlier year than ``asOf`` and isn't the year-end close.
+export function startDayText(baselineDate, asOf) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(baselineDate || ""));
+  if (!m) return "12/31";
+  const md = `${Number(m[2])}/${Number(m[3])}`;
+  const asOfYear = Number(String(asOf || "").slice(0, 4)) || Number(m[1]);
+  return Number(m[1]) < asOfYear && !isYearToDate(baselineDate, asOf) ? `${md}/${m[1].slice(2)}` : md;
+}
+
+// The start is the prior year's last close (12/24 at the earliest): the period is year to date.
+export function isYearToDate(baselineDate, asOf) {
+  const m = /^(\d{4})-12-(\d{2})/.exec(String(baselineDate || ""));
+  const asOfYear = Number(String(asOf || "").slice(0, 4));
+  return Boolean(m) && Number(m[2]) >= 24 && (!asOfYear || Number(m[1]) === asOfYear - 1);
+}
+
+const columns = () => [
+  [`Start (${startDay})`, "col-start"], ["Bought since", "col-new"], ["Current", "col-cur"], ["Share", "col-share"],
   ["Day $", "col-day"], ["Day %", "col-daypct"], ["Market gain", "col-gain"], ["Return %", "col-ret"],
   ["Share of gain", "col-sog"], ["Annualized", "col-ann"],
 ];
@@ -114,7 +134,7 @@ function expandButton(path, label) {
 }
 
 function liquidTable(caption, rows, total) {
-  const head = `<tr><th scope="col">${esc(caption)}</th>${COLUMNS.map(([h, c]) => `<th scope="col" class="num ${c}">${h}</th>`).join("")}</tr>`;
+  const head = `<tr><th scope="col">${esc(caption)}</th>${columns().map(([h, c]) => `<th scope="col" class="num ${c}">${h}</th>`).join("")}</tr>`;
   const body = rows.map((r) => {
     const tickers = r.tickers || [];
     const classPath = `${caption}/${r.name}`;
@@ -206,7 +226,7 @@ function reconciliationHtml(rec) {
     + accountsSectionHtml(rec);
 }
 
-const TREATMENT = { pre_tax: "Taxed in full", after_tax: "Taxed above premium", none: "Not taxed" };
+const TREATMENT = { pre_tax: "Taxed in full", after_tax: "Taxed above premium", note_interest: "Interest taxed", none: "Not taxed" };
 
 function taxHtml(tax) {
   const planner = tax.method === "planner";
@@ -218,6 +238,8 @@ function taxHtml(tax) {
     ["Single-life annuity growth above premium", tax.annuity_taxable_gain, ord(tax.annuity_taxable_gain), tax.pre_tax_rate],
     ["Taxable and trust accounts: unrealized gains", tax.unrealized_gain, tax.ltcg_tax ?? tax.unrealized_gain * tax.ltcg_rate, ltcgRate],
   ];
+  // Notes receivable: only the interest in the remaining payments is income (the Planner's interest schedule).
+  for (const n of tax.note_rows || []) lines.splice(3, 0, [`Note interest still to be paid (${n.name})`, n.interest, ord(n.interest), tax.pre_tax_rate]);
   if (planner && tax.hsa_balance) lines.push(["HSA balance (taxed if not left to a spouse)", tax.hsa_balance, tax.hsa_tax, tax.hsa_balance ? tax.hsa_tax / tax.hsa_balance : null]);
   const missing = (tax.basis_missing || []).length
     ? `<p class="note warn-text">After-tax premium not set for ${tax.basis_missing.map(esc).join(", ")}: not taxed until it is (Tax Treatment and After-Tax Premium on the Retirement Planner's Accounts &amp; Sources page).</p>`
@@ -253,20 +275,22 @@ export function liveViewHtml(data) {
   if (!data) return `<p class="empty">Loading live prices…</p>`;
   if (data.error) return `<p class="live-error">Live Snapshot is unavailable: ${esc(data.error)}</p>`;
   accountLabels = data.account_labels || {};
+  startDay = startDayText(data.baseline_date, data.as_of);
+  const period = isYearToDate(data.baseline_date, data.as_of) ? "Year to date" : `Since ${startDay}`;
   const L = data.liquid, t = data.totals;
   const indices = (data.indices || []).map((i) =>
     `<span class="index-chip">${esc(i.label)} ${i.day_pct === null || i.day_pct === undefined ? `<span class="na">${DASH}</span>` : changeHtml(i.day_pct, true)}</span>`).join("");
   const sub = isPct()
-    ? `Liquid today ${changeHtml(L.day_pct, true)} · Year to date ${changeHtml(L.return_pct, true)}`
-    : `Liquid today ${changeHtml(L.day)} (${changeHtml(L.day_pct, true)}) · Year to date ${changeHtml(L.market_gain)} (${changeHtml(L.return_pct, true)})`;
+    ? `Liquid today ${changeHtml(L.day_pct, true)} · ${period} ${changeHtml(L.return_pct, true)}`
+    : `Liquid today ${changeHtml(L.day)} (${changeHtml(L.day_pct, true)}) · ${period} ${changeHtml(L.market_gain)} (${changeHtml(L.return_pct, true)})`;
   const head = `<div class="live-head"><div><div class="live-label">After-tax net worth${unitChip("% of net worth")}</div><div class="live-big">${fmtUsd(t.after_tax_net_worth)}</div>`
     + `<div class="live-sub">${sub}</div></div>`
     + `<div class="live-right"><div class="indices">${indices}</div><div class="live-status" role="status">${esc(statusText(data))}</div></div></div>`;
   const flows = L.checking_net_flows === null || L.checking_net_flows === undefined ? ""
-    : ` Net transfers from checking this year: ${fmtUsd(L.checking_net_flows)} (for information).`;
+    : ` Net transfers from checking since ${startDay}: ${fmtUsd(L.checking_net_flows)} (for information).`;
   const liquid = `<div class="card live-card${isPct() ? " pm" : ""}"><h2>Liquid investments${unitChip("% of net worth")}</h2>${liquidTable("Asset class", L.by_class, L)}`
     + `<h3>Equity by sub-class${unitChip("% of net worth")}</h3>${liquidTable("Sub-class", L.by_equity_subclass, null)}${moneyView().allowed === "percent" ? "" : reconciliationHtml(data.reconciliation)}`
-    + `<p class="note">Start = 12/31 value of lots held then. Bought since = lots bought after 12/31, at purchase price; reinvested dividends count as gain. Return % weights new money by how long it was invested (Modified Dietz). Gains on positions sold this year are not included.${flows}</p></div>`;
+    + `<p class="note">Start = ${startDay} closing value of lots held then (the Time scope sets the date). Bought since = lots bought after ${startDay}, at purchase price; reinvested dividends count as gain. Return % weights new money by how long it was invested (Modified Dietz). Gains on positions sold since ${startDay} are not included.${flows}</p></div>`;
   const nl = data.non_liquid;
   const nonLiquid = `<details class="live-section"><summary>Non-liquid assets <b>${fmtUsd(nl.total)}</b>${unitChip("% of net worth")} <span class="muted">imported balances, ${esc(nl.as_of || "")}</span></summary>`
     + simpleTable(nl.rows, [(r) => esc(r.name), (r) => esc(r.kind), (r) => fmtUsd(r.value), ...(isPct() ? [] : [(r) => fmtPct(r.share, 0)]), (r) => esc(TREATMENT[r.tax_treatment] || "")]) + `</details>`;
@@ -284,7 +308,7 @@ export function initLiveView(doc = document, win = window) {
   const out = doc.getElementById("liveBody");
   const errorBox = doc.getElementById("liveError");
   const buttons = [...doc.querySelectorAll("[data-view]")];
-  let view = "trends", data = null, lastLoad = 0, busy = false;
+  let view = "trends", data = null, lastLoad = 0, busy = false, reloadAfter = false;
   const expanded = new Set(), openSections = new Map();
 
   try { view = parseSavedView(win.localStorage.getItem(VIEW_KEY)); } catch (err) { view = "trends"; }
@@ -338,7 +362,12 @@ export function initLiveView(doc = document, win = window) {
     if (busy) return;
     busy = true;
     try {
-      const resp = await win.fetch("/api/live-snapshot" + (force ? "?refresh=1" : ""));
+      const params = new URLSearchParams();
+      if (force) params.set("refresh", "1");
+      const scopeFrom = body?.dataset?.scopeFrom;
+      if (scopeFrom) params.set("from", scopeFrom);
+      const query = params.toString();
+      const resp = await win.fetch("/api/live-snapshot" + (query ? "?" + query : ""));
       const json = await resp.json();
       if (!resp.ok || json.success === false) throw new Error(json.error || `HTTP ${resp.status}`);
       data = json;
@@ -353,6 +382,7 @@ export function initLiveView(doc = document, win = window) {
       if (!data) out.innerHTML = "";
     } finally {
       busy = false;
+      if (reloadAfter) { reloadAfter = false; load(); }   // the scope changed mid-request
     }
   }
 
@@ -364,6 +394,12 @@ export function initLiveView(doc = document, win = window) {
     try { win.localStorage.setItem(VIEW_KEY, view); } catch (err) { /* storage blocked: the choice just won't persist */ }
     if (view === "live" && Date.now() - lastLoad >= POLL_MS) { if (!data) render(); load(); }
   }
+
+  // A new Time scope moves the start date: reload now if shown, else on the next switch to Live.
+  doc.addEventListener("trends-scope-change", () => {
+    lastLoad = 0;
+    if (view === "live") { if (busy) reloadAfter = true; else load(); }
+  });
 
   // The $ | % toggle repaints the figures now; the next poll would otherwise leave the old form up.
   onMoneyViewChange(() => { if (data) render(); });

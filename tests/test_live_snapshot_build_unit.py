@@ -135,3 +135,35 @@ def test_build_fetches_closes_only_for_balances_older_than_the_previous_session(
     assert ira["holdings_value"] == pytest.approx(25500.0)
     _build(data_dir, close_lookup=close_lookup)   # every balance fresh: nothing fetched
     assert asked == ["2026-10-22"]
+
+
+# ---- Time scope: the page's scope start date sets the Start values ----
+
+def test_start_day_for_scope():
+    from datetime import date
+    today = date(2026, 10, 27)
+    assert ls.start_day_for("2026-09-27", today) == date(2026, 9, 25)   # close before the 1st day: Sat 9/26 -> Fri
+    assert ls.start_day_for("2026-01-01", today) == date(2025, 12, 31)  # YTD is the 12/31 close
+    for bad in (None, "", "nonsense", "2026-10-27", "2026-11-01"):
+        assert ls.start_day_for(bad, today) == date(2025, 12, 31)       # no usable start: year to date
+
+
+def test_build_with_scope_start_prices_lots_at_that_close(data_dir):
+    asked = []
+
+    def closes(symbols, day):
+        asked.append(day.isoformat())
+        return {"ITOT": 125.0, "IXUS": 62.0} if day.isoformat() == "2026-09-25" else {}
+
+    out, _ = _build(data_dir, start_from="2026-09-27", close_lookup=closes)
+    assert out["baseline_date"] == "2026-09-25"
+    assert "2026-09-25" in asked
+    assert out["baseline_missing"] == ["AVUV"]          # bought 3/1, held at 9/25, no close found: listed
+    # ITOT and IXUS at the 9/25 close; AVUV (no close) at cost; CASH at 1.
+    assert out["liquid"]["start"] == pytest.approx(100 * 125.0 + 200 * 62.0 + 50 * 80 + 1000)
+    assert out["liquid"]["new_money"] == 0               # every lot was bought before 9/25
+
+
+def test_build_without_scope_is_year_to_date(data_dir):
+    out, _ = _build(data_dir, start_from="")
+    assert out["baseline_date"] == "2025-12-31"
