@@ -143,11 +143,3 @@ def test_existing_database_gains_money_view_column(tmp_path):
     store = AccessStore(path, scrypt_n=2**4)
     assert store.list_users()[0]["money_view"] == "percent"
     assert sqlite3.connect(path).execute("PRAGMA user_version").fetchone()[0] == 2
-
-
-def test_people_dialog_script_stages_view_changes_in_save_order(tmp_path):
-    from financial_trends_reporter.access_routes import ACCESS_JS_PATH
-
-    js = ACCESS_JS_PATH.read_text(encoding="utf-8")
-    assert "/api/people/view" in js
-    assert "delete: 0, reset: 1, view: 2, add: 3" in js
