@@ -129,6 +129,14 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, access
             content_type="text/javascript; charset=utf-8",
         )
 
+    @app.route("/spending_dock.js", methods=["GET"])
+    def spending_dock_js():
+        # The Spending card's breakdown panels (hover, pin, transactions), imported by index.html.
+        return Response(
+            (_APP_ROOT / "frontend" / "spending_dock.js").read_text(encoding="utf-8"),
+            content_type="text/javascript; charset=utf-8",
+        )
+
     @app.route("/shared/runtime_history.js", methods=["GET"])
     def runtime_history_js():
         # The planner's run-time helpers (formatElapsed, averageRuntimeText, ...), served from the
