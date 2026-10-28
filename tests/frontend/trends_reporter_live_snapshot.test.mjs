@@ -203,9 +203,10 @@ describe("reconciliation by account", () => {
     assert.match(out, /Check the Investment Holdings page in the Retirement Planner for trades or transfers not yet entered\./);
     assert.ok(!out.includes("client_holdings"));
   });
-  test("lists rows, opens when flagged, and shows hints", () => {
+  test("lists rows, starts closed even when flagged, and shows hints", () => {
     const out = liveViewHtml({ ...DATA, reconciliation: REC_FLAGGED });
-    assert.match(out, /<details class="live-section recon-accounts" open>/);
+    assert.match(out, /<details class="live-section recon-accounts"><summary>Reconciliation by account <b>⚠ 1 to check<\/b>/);
+    assert.doesNotMatch(out, /recon-accounts" open/);
     assert.match(out, /Member_1_IRA/);
     assert.match(out, /⚠/);
     assert.match(out, /The gap is close to 200 sh IXUS bought 2025-06-01 \(\$13,250\)\./);
@@ -278,15 +279,16 @@ describe("holdings drill-down", () => {
     assert.match(out, /<button[^>]*aria-expanded="false"[^>]*data-path="Asset class\/Equity\/ITOT\/Member_1_IRA"/);
     assert.match(out, /<tr class="acct-row" data-path="Asset class\/Equity\/ITOT\/Member_1_IRA" data-parent="Asset class\/Equity\/ITOT" hidden>/);
     assert.match(out, /<tr class="lot-row" data-parent="Asset class\/Equity\/ITOT\/Member_1_IRA" hidden>/);
-    assert.ok(out.includes("2024-03-15 · 120 sh @ $412.10"));
+    assert.ok(out.includes("2024-03-15 · 120 @ $412.10"));
+    assert.ok(!out.includes(" 120 sh"));
   });
   test("lot label", () => {
-    assert.equal(lotLabel({ purchase_date: "2024-03-15", shares: 120, purchase_price: 412.1, reinvested: false }), "2024-03-15 · 120 sh @ $412.10");
+    assert.equal(lotLabel({ purchase_date: "2024-03-15", shares: 120, purchase_price: 412.1, reinvested: false }), "2024-03-15 · 120 @ $412.10");
     assert.match(lotLabel({ purchase_date: "2026-04-01", shares: 0.5, purchase_price: 50, reinvested: true }), / · reinvested$/);
   });
   test("undated and unpriced lots still read sensibly", () => {
-    assert.equal(lotLabel({ purchase_date: null, shares: 10, purchase_price: 0, reinvested: false }), "Undated · 10 sh @ $0.00");
-    assert.equal(lotLabel({ purchase_date: null, shares: 10, purchase_price: null, reinvested: true }), "Undated · 10 sh · reinvested");
+    assert.equal(lotLabel({ purchase_date: null, shares: 10, purchase_price: 0, reinvested: false }), "Undated · 10 @ $0.00");
+    assert.equal(lotLabel({ purchase_date: null, shares: 10, purchase_price: null, reinvested: true }), "Undated · 10 · reinvested");
   });
   test("same ticker in both tables gets distinct paths", () => {
     const out = liveViewHtml(DATA_WITH_LOTS);
@@ -307,12 +309,61 @@ describe("holdings drill-down", () => {
   });
 });
 
+describe("cash holdings", () => {
+  const CASH = () => ({
+    ...ROW("CASH"), symbol: "CASH", title: "Cash and sweep balances",
+    accounts: [
+      { ...ROW("Zed_Trust"), lots: [LOT("2026-06-01")] },
+      { ...ROW("Member_1_Trust"), lots: [LOT("2026-05-01")] },
+      { ...ROW("alpha_Checking"), lots: [LOT("2026-07-01")] },
+    ],
+  });
+  const data = (extra = {}) => ({ ...DATA, ...extra, liquid: { ...DATA.liquid, by_class: [ROW("Cash", { tickers: [CASH()] })] } });
+  const labels = { Zed_Trust: "Zed Trust", Member_1_Trust: "Matt Trust", alpha_Checking: "alpha Checking" };
+  test("the account row carries the lot date; no expand button and no lot row", () => {
+    const out = liveViewHtml(data({ account_labels: labels }));
+    assert.match(out, /<tr class="acct-row" data-path="Asset class\/Cash\/CASH\/Matt Trust"|<tr class="acct-row" data-path="Asset class\/Cash\/CASH\/Member_1_Trust"/);
+    assert.match(out, /<th scope="row" class="acct">Matt Trust <span class="muted">· 2026-05-01<\/span><\/th>/);
+    assert.doesNotMatch(out, /lot-row/);
+    assert.doesNotMatch(out, /data-path="Asset class\/Cash\/CASH\/Member_1_Trust" data-label/);
+  });
+  test("cash accounts sort A to Z by the name shown, ignoring case", () => {
+    const out = liveViewHtml(data({ account_labels: labels }));
+    const order = [...out.matchAll(/<th scope="row" class="acct">([^<]*?) <span/g)].map((m) => m[1]);
+    assert.deepEqual(order, ["alpha Checking", "Matt Trust", "Zed Trust"]);
+  });
+  test("other symbols keep account and lot rows, in the server's order", () => {
+    const out = liveViewHtml(DATA_WITH_LOTS);
+    assert.match(out, /class="lot-row"/);
+    const order = [...out.matchAll(/<th scope="row" class="acct">[^>]*?>▸ ([^<]*)<\/button>/g)].map((m) => m[1]);
+    assert.deepEqual(order.slice(0, 2), ["Member_1_IRA", "Joint &lt;Brokerage&gt;"]);
+  });
+});
+
+describe("holding titles", () => {
+  test("the fund name follows the symbol, muted and escaped", () => {
+    const itot = { ...ITOT(), title: "iShares Core <S&P> ETF" };
+    const out = liveViewHtml({ ...DATA_WITH_LOTS, liquid: { ...DATA_WITH_LOTS.liquid, by_class: [ROW("Equity", { tickers: [itot] })] } });
+    assert.match(out, /ITOT<\/button> <span class="muted ticker-title">iShares Core &lt;S&amp;P&gt; ETF<\/span>/);
+  });
+  test("no title, no empty span", () => {
+    assert.doesNotMatch(liveViewHtml(DATA_WITH_LOTS), /ticker-title/);
+  });
+});
+
 describe("friendly account labels", () => {
   const labels = { Member_1_IRA: "Matt IRA" };
   test("account rows show the label; paths keep the account id", () => {
     const out = liveViewHtml({ ...DATA_WITH_LOTS, account_labels: labels });
     assert.match(out, /data-path="Asset class\/Equity\/ITOT\/Member_1_IRA" data-label="Matt IRA">▸ Matt IRA<\/button>/);
     assert.ok(!/>▸ Member_1_IRA</.test(out));
+  });
+  test("reconciliation accounts sort A to Z by the name shown", () => {
+    const a = (id, extra = {}) => ({ ...REC.accounts[0], holdings_account: id, ...extra });
+    const rec = { ...REC, accounts: [a("c_id", { flag: true, delta: 99999 }), a("a_id"), a("b_id")] };
+    const out = liveViewHtml({ ...DATA, account_labels: { c_id: "Apple", a_id: "cherry", b_id: "Banana" }, reconciliation: rec });
+    const order = [...out.matchAll(/<tr class="[^"]*"><th scope="row">(?:<span class="flag"[^>]*>.*?<\/span> )?(Apple|Banana|cherry)/g)].map((m) => m[1]);
+    assert.deepEqual(order, ["Apple", "Banana", "cherry"]);
   });
   test("reconciliation rows and unmapped holdings show the label", () => {
     const rec = { ...REC_FLAGGED, unmapped_holdings: [{ account: "Member_1_IRA", value: 1 }] };

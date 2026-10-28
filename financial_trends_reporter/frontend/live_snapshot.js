@@ -112,13 +112,13 @@ export function fmtUsd2(v) {
   return (n < 0 ? "-" : "") + "$" + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-// "2024-03-15 · 120 sh @ $412.10", plus " · reinvested". An undated lot reads "Undated"; a lot with
+// "2024-03-15 · 120 @ $412.10", plus " · reinvested". An undated lot reads "Undated"; a lot with
 // no purchase price leaves the "@ price" off rather than showing a made-up one.
 export function lotLabel(lot) {
   const parts = [lot.purchase_date || "Undated"];
   const hasShares = lot.shares !== null && lot.shares !== undefined && !Number.isNaN(Number(lot.shares));
   const hasPrice = lot.purchase_price !== null && lot.purchase_price !== undefined && !Number.isNaN(Number(lot.purchase_price));
-  if (hasShares) parts.push(`${Number(lot.shares)} sh${hasPrice ? " @ " + fmtUsd2(lot.purchase_price) : ""}`);
+  if (hasShares) parts.push(`${Number(lot.shares)}${hasPrice ? " @ " + fmtUsd2(lot.purchase_price) : ""}`);
   if (lot.reinvested) parts.push("reinvested");
   return parts.join(" · ");
 }
@@ -128,6 +128,9 @@ export function lotLabel(lot) {
 // {holdings account id: display label} from the payload, e.g. Member_1_401k -> "Matt 401k". Ids stay the keys.
 let accountLabels = {};
 const acctLabel = (id) => accountLabels[id] || id;
+
+const isCashSymbol = (symbol) => String(symbol || "").toUpperCase().startsWith("CASH");
+const byLabel = (a, b) => acctLabel(a.name).localeCompare(acctLabel(b.name), undefined, { sensitivity: "base" });
 
 function expandButton(path, label) {
   return `<button type="button" class="expand" aria-expanded="false" data-path="${esc(path)}" data-label="${esc(label)}">▸ ${esc(label)}</button>`;
@@ -141,11 +144,18 @@ function liquidTable(caption, rows, total) {
     const name = tickers.length ? expandButton(classPath, r.name) : esc(r.name);
     const kids = tickers.map((t) => {
       const tickerPath = `${classPath}/${t.symbol}`;
-      const accounts = t.accounts || [];
-      const label = accounts.length ? expandButton(tickerPath, t.symbol) : esc(t.symbol);
+      const cash = isCashSymbol(t.symbol);
+      // Cash is one lot per account: its date rides on the account row, and accounts read A to Z.
+      const accounts = cash ? [...(t.accounts || [])].sort(byLabel) : (t.accounts || []);
+      const title = t.title ? ` <span class="muted ticker-title">${esc(t.title)}</span>` : "";
+      const label = (accounts.length ? expandButton(tickerPath, t.symbol) : esc(t.symbol)) + title;
       const accountRows = accounts.map((a) => {
         const accountPath = `${tickerPath}/${a.name}`;
         const lots = a.lots || [];
+        if (cash) {
+          const date = lots.length === 1 ? ` <span class="muted">· ${esc(lots[0].purchase_date || "Undated")}</span>` : "";
+          return `<tr class="acct-row" data-path="${esc(accountPath)}" data-parent="${esc(tickerPath)}" hidden><th scope="row" class="acct">${esc(acctLabel(a.name))}${date}</th>${cells(a)}</tr>`;
+        }
         const alabel = lots.length ? expandButton(accountPath, acctLabel(a.name)) : esc(acctLabel(a.name));
         const lotRows = lots.map((l) => `<tr class="lot-row" data-parent="${esc(accountPath)}" hidden><th scope="row" class="lot">${esc(lotLabel(l))}</th>${cells(l)}</tr>`).join("");
         return `<tr class="acct-row" data-path="${esc(accountPath)}" data-parent="${esc(tickerPath)}" hidden><th scope="row" class="acct">${alabel}</th>${cells(a)}</tr>${lotRows}`;
@@ -200,12 +210,11 @@ function accountRowHtml(a) {
 function accountsSectionHtml(rec) {
   const accounts = rec.accounts;
   if (!Array.isArray(accounts)) return "";
-  const flagged = accounts.some((a) => a.flag);
   const unmappedMonarch = rec.unmapped_monarch || [], unmappedHoldings = rec.unmapped_holdings || [];
   const head = `<tr><th scope="col">Account</th><th scope="col" class="num">Holdings</th><th scope="col" class="num">Imported</th>`
     + `<th scope="col" class="num">Difference</th><th scope="col" class="num">%</th></tr>`;
   const foot = `<tfoot><tr class="total-row"><th scope="row">Holdings total</th><td class="num">${fmtUsd(rec.footing)}</td><td></td><td></td><td></td></tr></tfoot>`;
-  const table = `<div class="table-wrap"><table class="live-table recon-table"><thead>${head}</thead><tbody>${accounts.map(accountRowHtml).join("")}</tbody>${foot}</table></div>`;
+  const table = `<div class="table-wrap"><table class="live-table recon-table"><thead>${head}</thead><tbody>${[...accounts].sort((x, y) => acctLabel(x.holdings_account).localeCompare(acctLabel(y.holdings_account), undefined, { sensitivity: "base" })).map(accountRowHtml).join("")}</tbody>${foot}</table></div>`;
   const stale = rec.monarch_stale
     ? `<p class="note warn-text">Imported balances are from ${esc(rec.monarch_as_of || "an earlier day")}; moves since then aren't backed out.</p>` : "";
   const unmapped = unmappedMonarch.length || unmappedHoldings.length
@@ -215,7 +224,7 @@ function accountsSectionHtml(rec) {
     : "";
   const count = accounts.filter((a) => a.flag).length;
   const summary = `Reconciliation by account${count ? ` <b>⚠ ${count} to check</b>` : ""}`;
-  return `<details class="live-section recon-accounts"${flagged ? " open" : ""}><summary>${summary}</summary>${stale}${table}${unmapped}</details>`;
+  return `<details class="live-section recon-accounts"><summary>${summary}</summary>${stale}${table}${unmapped}</details>`;
 }
 
 function reconciliationHtml(rec) {
@@ -314,8 +323,7 @@ export function initLiveView(doc = document, win = window) {
   try { view = parseSavedView(win.localStorage.getItem(VIEW_KEY)); } catch (err) { view = "trends"; }
 
   // Only a section the user opened or closed themselves is remembered (recorded on the summary click),
-  // so the server's default -- the reconciliation section opening when an account flags -- applies
-  // until then. Keyed by name for the reconciliation section and by position among the others, so a
+  // so the server's default (every section closed) applies until then. Keyed by name for the reconciliation section and by position among the others, so a
   // section that appears or disappears between refreshes doesn't shift the rest.
   function sectionKeys() {
     let n = 0;

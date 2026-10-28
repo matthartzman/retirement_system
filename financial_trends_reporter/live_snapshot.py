@@ -440,6 +440,7 @@ def _positions(lots, quotes, baseline, security_master, baseline_day: date, toda
             "basis": shares * purchase_price if purchase_price else shares * price,
             "day": (shares * (price - previous)) if previous else None,
             "unclassified": asset_class == "Other",
+            "title": str((security_master.get(symbol) or {}).get("notes") or "").strip(),
             "purchase_date": bought.isoformat() if bought else None, "shares": shares,
             "purchase_price": purchase_price, "reinvested": reinvested,
         })
@@ -463,7 +464,7 @@ def _summarize(name: str, members: list[dict], total_current: float, total_gain:
         by_symbol: dict[str, list[dict]] = {}
         for m in members:
             by_symbol.setdefault(m["symbol"], []).append(m)
-        row["tickers"] = sorted(({**_summarize(s, ms, total_current, total_gain, days, False), "symbol": s,
+        row["tickers"] = sorted(({**_summarize(s, ms, total_current, total_gain, days, False), "symbol": s, "title": ms[0].get("title", ""),
                                   "accounts": _account_rows(ms, total_current, total_gain, days)}
                                  for s, ms in by_symbol.items()), key=lambda t: -t["current"])
     return row
