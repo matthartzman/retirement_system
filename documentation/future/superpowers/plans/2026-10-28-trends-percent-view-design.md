@@ -1,6 +1,6 @@
 # Financial Trends — Percent View (design, draft for review)
 
-Status: decisions made 2026-10-28 (§7); ready for an implementation plan.
+Status: approved. Decisions made 2026-10-28 (§7); implementation plan written.
 
 ## 1. Goal
 
