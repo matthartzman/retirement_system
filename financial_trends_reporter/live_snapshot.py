@@ -730,6 +730,7 @@ def compute(*, lots, quotes, baseline, security_master, accounts, flows_daily, m
     tax = {"pre_tax_balance": round(pre_tax_balance, 2), "pre_tax_non_liquid": round(pre_tax_nl, 2),
            "annuity_taxable_gain": round(annuity_gain, 2), "basis_missing": basis_missing, "pre_tax_rate": pre_rate,
            "unrealized_gain": round(unrealized, 2), "ltcg_rate": ltcg_rate,
+           "ordinary_tax": round(ordinary * pre_rate, 2), "ltcg_tax": round(unrealized * ltcg_rate, 2),
            "total": round(ordinary * pre_rate + unrealized * ltcg_rate, 2)}
 
     by_kind: dict[str, float] = {}

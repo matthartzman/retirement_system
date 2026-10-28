@@ -90,7 +90,8 @@
   .pop-sub { font-weight: 600; border-top: 1px dashed rgba(127,127,127,.4); }
   .pop-neg .pop-val { color: #b91c1c; }
   .pop-val { text-align: right; font-variant-numeric: tabular-nums; }
-  .pop-total { display: flex; justify-content: space-between; border-top: 1px solid rgba(127,127,127,.4); margin-top: 6px; padding-top: 4px; font-weight: 600; }
+  .pop-change { display: flex; justify-content: space-between; gap: 12px; margin: 2px 0 6px; font-size: 12px; }
+  .pop-total { display: flex; justify-content: space-between; gap: 12px; margin: 2px 0; font-weight: 600; }
   .legend { font-size: 11px; color: #888; margin-top: 6px; }
   .error { color: #b91c1c; font-size: 13px; }
   @media (prefers-color-scheme: dark) { .error { color: #f87171; } }
@@ -205,6 +206,7 @@
   details.live-section { border-top: 1px solid #eee; padding: 8px 0; }
   @media (prefers-color-scheme: dark) { details.live-section { border-top-color: #2a2d33; } }
   details.live-section summary { cursor: pointer; font-size: 14px; font-weight: 600; }
+  details.live-section summary b { margin-left: 8px; font-variant-numeric: tabular-nums; }
   @media (max-width: 700px) {
     body { padding: 16px; }
     .live-table .col-start, .live-table .col-new, .live-table .col-share, .live-table .col-day,
@@ -271,7 +273,7 @@
 // Finding QUA-302 (Wave 6 item W6-11): the chart-rendering logic below used
 // to be defined inline, right here, with no module boundary. It now lives
 // in ./charts.js, importable and testable directly.
-import { fmtMoney, escSvg, filterByTimeframe, aggregateByGranularity, granularityForTimeframe, labelForDate, scopeRange, parseSavedScope, dataTableFallbackHtml, lineChartSvg, barChartSvg, investmentFlowRows, flowBarChartSvg, passthroughReviewHtml, rolloverModel, rolloverHtml, hasMonarchBalances, buildMonarchRows, truncateAllTime, ALL_TIME_START, monarchRolloverModel, balancesFreshnessNote, accountToggleHtml, flowIncludedAccounts, flowSeries, flowMonthlyRangeSeries, flowPeriodSummary, flowSummaryHtml, flowLineChartSvg, updateDecision, spendingUrl, spendingModelFromWindow, spendingModelFromSnapshot, latestOnly, spendingNoteText, setShowFullYear, fullYearDefault } from "./charts.js";
+import { fmtMoney, escSvg, filterByTimeframe, aggregateByGranularity, granularityForTimeframe, labelForDate, scopeRange, parseSavedScope, dataTableFallbackHtml, lineChartSvg, barChartSvg, investmentFlowRows, flowBarChartSvg, passthroughReviewHtml, rolloverModel, rolloverHtml, rolloverChange, flowRolloverHtml, hasMonarchBalances, buildMonarchRows, truncateAllTime, ALL_TIME_START, monarchRolloverModel, balancesFreshnessNote, accountToggleHtml, flowIncludedAccounts, flowSeries, flowMonthlyRangeSeries, flowPeriodSummary, flowSummaryHtml, flowLineChartSvg, updateDecision, spendingUrl, spendingModelFromWindow, spendingModelFromSnapshot, latestOnly, spendingNoteText, setShowFullYear, fullYearDefault } from "./charts.js";
 import { initSpendingDock } from "./spending_dock.js";
 import { formatElapsed, recordPopupRuntime, averageRuntimeText, loadPopupRuntimeHistory } from "/shared/runtime_history.js";
 
@@ -375,6 +377,7 @@ function renderFlows(latest) {
   document.getElementById("passthroughReview").innerHTML = latest ? passthroughReviewHtml(latest.passthrough_review) : "";
   if (flows) {
     document.getElementById("flowSummary").innerHTML = flowSummaryHtml(flows.summary);
+    flowPoints = flows.series;
     document.getElementById("chartInvFlows").innerHTML = flowLineChartSvg(flows.series, { width: boxWidth("chartInvFlows"), granularity: flows.granularity });
     document.getElementById("noteFlows").textContent = "Net contributions over the selected time scope: money moved from checking into investment accounts (credits) minus money withdrawn to checking (debits), totalled above for the period. Like the other charts, the line shows one point per day for 1 Week and 1 Month, per week for 3 and 6 Months, and per month for longer scopes; a point above zero added to investments. " +
       (flows.daily ? "" : "This snapshot has only monthly figures, so short scopes show the whole months they touch until the next update. ") +
@@ -573,18 +576,30 @@ function fitVertically(el, desiredTop) {
   el.style.top = Math.max(MARGIN, Math.min(desiredTop, window.innerHeight - h - MARGIN)) + "px";
 }
 const rollPopup = document.getElementById("rollPopup");
+let flowPoints = [];
+function showFlowRollover(dot) {
+  const html = flowRolloverHtml(flowPoints[Number(dot.dataset.i)]);
+  if (!html) { hideRollover(); return; }
+  rollPopup.innerHTML = html;
+  rollPopup.style.display = "block";
+  const r = dot.getBoundingClientRect(), pw = rollPopup.offsetWidth;
+  rollPopup.style.left = Math.max(MARGIN, Math.min(r.left + 12, window.innerWidth - pw - MARGIN)) + "px";
+  fitVertically(rollPopup, r.bottom + 8);
+}
 function hideRollover() { rollPopup.style.display = "none"; }
 function showRollover(dot, kind) {
+  if (kind === "flows") { showFlowRollover(dot); return; }
   const row = chartRows[Number(dot.dataset.i)];
   const model = row && row.source && hasMonarchBalances(balances) ? monarchRolloverModel(row, balances, kind) : rolloverModel(row, kind);
   if (!model) { hideRollover(); return; }
+  model.prior = rolloverChange(chartRows, Number(dot.dataset.i), kind);
   rollPopup.innerHTML = rolloverHtml(model);
   rollPopup.style.display = "block";
   const r = dot.getBoundingClientRect(), pw = rollPopup.offsetWidth;
   rollPopup.style.left = Math.max(MARGIN, Math.min(r.left + 12, window.innerWidth - pw - MARGIN)) + "px";
   fitVertically(rollPopup, r.bottom + 8);
 }
-for (const [id, kind] of [["chartNetWorth", "networth"], ["chartHoldings", "investments"]]) {
+for (const [id, kind] of [["chartNetWorth", "networth"], ["chartHoldings", "investments"], ["chartInvFlows", "flows"]]) {
   const box = document.getElementById(id);
   const open = (e) => { const dot = e.target.closest && e.target.closest(".chart-dot[data-i]"); if (dot) showRollover(dot, kind); };
   box.addEventListener("mouseover", open);

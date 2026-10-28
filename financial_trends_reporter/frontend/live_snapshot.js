@@ -203,16 +203,21 @@ function reconciliationHtml(rec) {
 const TREATMENT = { pre_tax: "Taxed in full", after_tax: "Taxed above premium", none: "Not taxed" };
 
 function taxHtml(tax) {
+  const ord = (v) => v * tax.pre_tax_rate;
   const lines = [
-    ["Pre-tax holdings (IRA, 401k)", tax.pre_tax_balance],
-    ["Joint annuities and pension", tax.pre_tax_non_liquid],
-    ["Single-life annuity growth above premium", tax.annuity_taxable_gain],
+    ["Pre-tax holdings (IRA, 401k)", tax.pre_tax_balance, ord(tax.pre_tax_balance), tax.pre_tax_rate],
+    ["Joint annuities and pension", tax.pre_tax_non_liquid, ord(tax.pre_tax_non_liquid), tax.pre_tax_rate],
+    ["Single-life annuity growth above premium", tax.annuity_taxable_gain, ord(tax.annuity_taxable_gain), tax.pre_tax_rate],
+    ["Taxable and trust accounts: unrealized gains", tax.unrealized_gain, tax.ltcg_tax ?? tax.unrealized_gain * tax.ltcg_rate, tax.ltcg_rate],
   ];
   const missing = (tax.basis_missing || []).length
     ? `<p class="note warn-text">After-tax premium not set for ${tax.basis_missing.map(esc).join(", ")}: not taxed until it is (annuity_basis in live_snapshot_settings.json).</p>`
     : "";
-  return simpleTable(lines.map(([label, v]) => ({ label, v })), [(r) => esc(r.label), (r) => fmtUsd(r.v)])
-    + `<p class="note">Ordinary income above × ${fmtPct(tax.pre_tax_rate, 0)}, plus taxable-account unrealized gains of ${fmtUsd(tax.unrealized_gain)} × ${fmtPct(tax.ltcg_rate, 0)}. An estimate, not a tax calculation.</p>`
+  const head = `<thead><tr><th scope="col">Source</th><th scope="col" class="num">Taxable amount</th><th scope="col" class="num">Rate</th><th scope="col" class="num">Est. tax</th></tr></thead>`;
+  const body = lines.map(([label, base, t, rate]) =>
+    `<tr><th scope="row">${esc(label)}</th><td class="num">${fmtUsd(base)}</td><td class="num">${fmtPct(rate, 0)}</td><td class="num">${fmtUsd(t)}</td></tr>`).join("");
+  return `<div class="table-wrap"><table class="live-table simple">${head}<tbody>${body}</tbody></table></div>`
+    + `<p class="note">Ordinary income at an assumed rate; taxable-account gains (and unrealized gains in trust accounts) at the plan's LTCG rate. An estimate, not a tax calculation.</p>`
     + missing;
 }
 
