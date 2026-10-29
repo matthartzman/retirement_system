@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 288 Python files under `src/`, 59 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 289 Python files under `src/`, 59 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
