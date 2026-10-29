@@ -9,6 +9,7 @@ from .. import tax_kernel as _tk
 from .. import tlh as _tlh
 from .. import gain_harvest as _gh
 from ..core import niit_tax
+from ..taxes import capital_loss_ordinary_limit
 
 
 class WithdrawalCascadeInvestmentTaxResult(NamedTuple):
@@ -407,11 +408,12 @@ def apply_investment_tax_cascade(
 
     # ── Capital-loss waterfall settle-up ─────────────────────────────────
     # The gain-offset portion is already reflected in ltcg_tax/niit above.
-    # Whatever loss remains offsets up to $3,000 of ordinary income (valued
-    # at the federal marginal rate) and the rest rolls forward.
+    # Whatever loss remains offsets up to $3,000 of ordinary income ($1,500
+    # married filing separately, IRC 1211(b)), valued at the federal marginal
+    # rate, and the rest rolls forward.
     _used_vs_gain = min(state.available_losses, max(0.0, state.ltcg_gain))
     _rem_loss = max(0.0, state.available_losses - _used_vs_gain)
-    _ordinary_offset = min(3000.0, _rem_loss)
+    _ordinary_offset = min(capital_loss_ordinary_limit(filing), _rem_loss)
     cap_loss_carryforward = _rem_loss - _ordinary_offset
     tlh_ordinary_credit = 0.0
     if _ordinary_offset > 0 and taxable_inc > 0:

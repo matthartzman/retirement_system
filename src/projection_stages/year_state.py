@@ -41,4 +41,7 @@ def create_initial_year_state(config: Mapping[str, Any]) -> MutableYearState:
         startup_value=float(config.get("startup_eq", 0.0) or 0.0),
         note_balance=float(config.get("note_face", 0.0) or 0.0),
         filing_status=str(config.get("filing_status", "MFJ") or "MFJ"),
+        # Realized-sales ledger (step 3b.1): the net loss pool entered/earned before the plan starts. Absent seed
+        # (empty ledger) leaves the exact 0.0 default.
+        cap_loss_carryforward=float((config.get("realized_seed") or {}).get("loss_pool", 0.0) or 0.0),
     )

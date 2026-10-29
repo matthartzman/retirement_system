@@ -34,6 +34,16 @@ SS_WAGE_BASE_VALUE_YEAR = int(os.environ.get('SS_WAGE_BASE_VALUE_YEAR') or 2025)
 
 FILING_STATUSES = ['MFJ', 'Single', 'HOH', 'MFS']
 
+# Net capital loss deductible against ordinary income each year (IRC 1211(b)); not inflation indexed. MFS is half.
+# The single figure for the projection's loss waterfall and the realized-sales ledger.
+CAPITAL_LOSS_ORDINARY_LIMIT = {'MFJ': 3000.0, 'Single': 3000.0, 'HOH': 3000.0, 'MFS': 1500.0}
+
+
+def capital_loss_ordinary_limit(filing):
+    """The 1211(b) limit for ``filing``; anything that reads as married-filing-separately gets the MFS half."""
+    f = str(filing or '').strip().upper()
+    return CAPITAL_LOSS_ORDINARY_LIMIT['MFS' if f.startswith('MFS') or 'SEPARATE' in f else 'MFJ']
+
 # ─────────────────────────────────────────────────────────────────────────────
 # DATED FEDERAL TAX-LAW DATASET
 # ─────────────────────────────────────────────────────────────────────────────

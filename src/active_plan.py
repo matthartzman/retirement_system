@@ -286,6 +286,19 @@ def peek_plan_data(workspace_root: str | Path | None = None) -> SectionedData:
         return {}
 
 
+def peek_sales_ledger() -> tuple[list[dict[str, Any]], dict[int, dict[str, Any]]]:
+    """The active plan's realized-sales ledger rows and ``realized_adjustments`` (by tax year), read without
+    touching disk: ``([], {})`` when there is no plan file yet or it is not an initialised plan."""
+    path = active_plan_path()
+    if not path.is_file():
+        return [], {}
+    try:
+        with _reading(path) as store:
+            return store.sales.list_sales(), {int(a["tax_year"]): a for a in store.sales.adjustments()}
+    except LookupError:  # stores.NotFoundError: not an initialised plan file
+        return [], {}
+
+
 def peek_plan_data_for_input_dir(input_dir: str | Path) -> SectionedData:
     """The plan view for code that is handed a workspace's ``input`` folder (the YTD readers):
     the active plan when ``input_dir`` is the live workspace's ``input``, else the ``plan.rpx`` of
