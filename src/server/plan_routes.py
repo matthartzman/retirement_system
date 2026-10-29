@@ -1231,6 +1231,56 @@ def sales_candidate_restore(candidate_id: int):
     return _confirm_call("write_config", "restore", candidate_id)
 
 
+# ---- Broker 1099-B import: preview with difference report, then apply (step 5.2; logic in src/sales_1099b.py) ----
+
+def _statement_args(b: dict):
+    """(kwargs for sales_1099b, error response). The statement is text (``content``) or a PDF as ``pdf_base64``."""
+    import base64
+    import binascii
+    kw = {"broker": str(b.get("broker") or ""), "account": str(b.get("account") or "")}
+    if b.get("tax_year") not in (None, ""):
+        try:
+            kw["tax_year"] = int(b["tax_year"])
+        except (TypeError, ValueError):
+            return None, (jsonify({"success": False, "error": "tax_year must be a number"}), 400)
+    if b.get("pdf_base64"):
+        try:
+            kw["pdf_bytes"] = base64.b64decode(str(b["pdf_base64"]), validate=True)
+        except (binascii.Error, ValueError):
+            return None, (jsonify({"success": False, "error": "pdf_base64 is not valid base64"}), 400)
+    elif b.get("content"):
+        kw["text"] = str(b["content"])
+    else:
+        return None, (jsonify({"success": False, "error": "send the statement as content (text) or pdf_base64"}), 400)
+    return kw, None
+
+
+@app.route("/api/sales/1099b/preview", methods=["POST"])
+def sales_1099b_preview():
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    from .. import sales_1099b as _s1099b
+    kw, err = _statement_args(request.get_json(silent=True) or {})
+    return err or _sales_call(lambda root: _s1099b.preview(root, **kw))
+
+
+@app.route("/api/sales/1099b/apply", methods=["POST"])
+def sales_1099b_apply():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    from .. import sales_1099b as _s1099b
+    b = request.get_json(silent=True) or {}
+    kw, err = _statement_args(b)
+    if err:
+        return err
+    response = _sales_call(lambda root: _s1099b.apply(root, replace=bool(b.get("replace")), **kw))
+    if response[1] == 200:
+        _audit("sales_1099b_applied", {k: v for k, v in response[0].get_json().items() if k in ("statement_id", "corrected", "added", "superseded")})
+    return response
+
+
 # ---- Account reconciliation (app vs Monarch) ----
 # Logic lives in src/reconcile.py; every write is logged and undoable (reconcile_log).
 
