@@ -203,6 +203,15 @@ class SalesRepo:
             if cur.rowcount == 0:
                 raise NotFoundError(f"no sale {sale_id}")
 
+    def set_wash_flag(self, sale_id: int, wash_flag: str, wash_note: str = "") -> None:
+        """Set the possible-wash flag and its note on one ledger row (the detector's write)."""
+        flag = _one_of("wash_flag", wash_flag, WASH_FLAGS)
+        with self._store._write() as con:
+            cur = con.execute("UPDATE realized_sales SET wash_flag = ?, wash_note = ?, updated_at = ? WHERE sale_id = ?",
+                              (flag, str(wash_note or ""), self._store._clock(), sale_id))
+            if cur.rowcount == 0:
+                raise NotFoundError(f"no sale {sale_id}")
+
     def void_sale(self, sale_id: int) -> None:
         """Undo a sale. The row is kept (``status='voided'``) so ``unvoid_sale`` can bring it back."""
         self._set_status(sale_id, "voided")
