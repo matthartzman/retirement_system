@@ -644,7 +644,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/roth_ui_build_guard.py` | — | — |
 | `src/runtime_config.py` | `system_config` | — |
 | `src/sales_ledger.py` | — | — |
-| `src/sales_service.py` | `sales_ledger` | — |
+| `src/sales_service.py` | `csv_exchange`, `sales_ledger` | — |
 | `src/schema_registry.py` | `plan_data_registry`, `stores.ref_getters.schema_fields` | — |
 | `src/secrets_store.py` | `app_state`, `platform_runtime` | `keyring` |
 | `src/security.py` | `app_state`, `runtime_config` | — |

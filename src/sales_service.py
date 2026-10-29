@@ -6,12 +6,11 @@ Manual and CSV rows are one lot (or part of a lot) each, with the lot's basis an
 Nothing reads the ledger yet (Phase 1)."""
 from __future__ import annotations
 
-import csv
-import io
 from pathlib import Path
 from typing import Any
 
 from . import active_plan
+from .csv_exchange import text_csv
 from .sales_ledger import ValidationError, validate_sale_row
 
 CSV_REQUIRED = ("sale_date", "account", "tax_class", "symbol", "shares", "proceeds", "basis")
@@ -74,7 +73,7 @@ def unvoid_sale(input_dir: str | Path, sale_id: int) -> None:
 
 def _parse_csv(text: str) -> tuple[list[tuple[int, dict[str, Any]]], list[dict[str, Any]]]:
     """(line, validated row) pairs and per-line errors. A missing column is one error for the file."""
-    reader = csv.DictReader(io.StringIO(text.lstrip("\ufeff")))
+    reader = text_csv.dict_reader(text.lstrip("\ufeff"))
     header = [str(h or "").strip() for h in (reader.fieldnames or [])]
     missing = [c for c in CSV_REQUIRED if c not in header]
     if missing:
