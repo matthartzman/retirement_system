@@ -92,3 +92,19 @@ describe("actions", () => {
     assert.deepEqual(calls.find((c) => c[0] === "/api/sales/import/preview")[2], { content: "a,b\n" });
   });
 });
+
+describe("tax-year panel hook", () => {
+  test("the page mounts the panel when it is loaded and reloads it with the ledger", async () => {
+    let loaded = null;
+    globalThis.renderSalesTaxYear = () => '<div id="stRoot">panel</div>';
+    globalThis.loadSalesTaxYear = (y) => { loaded = y; };
+    try {
+      assert.match(m.renderSalesLedger(), /id="stRoot"/);
+      await m.loadSalesLedger();
+      assert.equal(loaded, String(new Date().getFullYear()));
+    } finally {
+      delete globalThis.renderSalesTaxYear;
+      delete globalThis.loadSalesTaxYear;
+    }
+  });
+});

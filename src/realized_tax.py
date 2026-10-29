@@ -65,8 +65,9 @@ def net_realized_year(st_gain: float, lt_gain: float, carryforward_st: float = 0
 
 def net_realized_by_year(sales: Iterable[Mapping[str, Any]],
                          adjustments: Mapping[int, Mapping[str, Any]] | None = None,
-                         filing: str = "MFJ") -> dict[int, dict[str, float]]:
-    """Net every year from the first ledger/adjustment year to the last, chaining carryforwards.
+                         filing: str = "MFJ", through_year: int | None = None) -> dict[int, dict[str, float]]:
+    """Net every year from the first ledger/adjustment year to the last (or ``through_year``, whichever is
+    later), chaining carryforwards so a loss keeps being used in years with no sales.
 
     ``sales`` rows carry ``tax_year``, ``term`` (``short``/``long``) and ``gain``; voided rows, non-taxable
     classes and rows with no gain are ignored. ``adjustments`` maps year -> ``realized_adjustments`` row
@@ -87,11 +88,12 @@ def net_realized_by_year(sales: Iterable[Mapping[str, Any]],
         year = int(row["tax_year"])
         totals.setdefault(year, [0.0, 0.0])[0 if term == "short" else 1] += float(gain)
     years = set(totals) | {int(y) for y in adjustments}
+    last = max(years | ({int(through_year)} if through_year is not None and years else set()), default=0)
     result: dict[int, dict[str, float]] = {}
     if not years:
         return result
     cf_st = cf_lt = 0.0
-    for year in range(min(years), max(years) + 1):
+    for year in range(min(years), last + 1):
         if year in adjustments:
             adj = adjustments[year]
             cf_st = float(adj.get("carryforward_short") or 0.0)
