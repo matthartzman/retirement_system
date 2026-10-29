@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 287 Python files under `src/`, 59 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 288 Python files under `src/`, 59 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -24,7 +24,7 @@ flowchart TB
     subgraph L_HTTP_Runtime["HTTP Runtime (4 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
-    subgraph L_Core_Engine___Domain["Core Engine & Domain (200 modules)"]
+    subgraph L_Core_Engine___Domain["Core Engine & Domain (201 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
     subgraph L_Projection_Stages["Projection Stages (24 modules)"]
@@ -612,7 +612,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/parsing/__init__.py` | — | — |
 | `src/parsing/advanced_modules.py` | `data_io` | — |
 | `src/parsing/allocation_optimizer_inputs.py` | `data_io` | — |
-| `src/parsing/client_sections.py` | `core`, `data_io`, `module_catalog`, `plan_datasets`, `portfolio_analytics`, `spending_adjustments`, `spending_budget_resolver`, `stores.ref_getters.security_master`, `tax_law` | — |
+| `src/parsing/client_sections.py` | `core`, `data_io`, `module_catalog`, `plan_datasets`, `portfolio_analytics`, `realized_seed`, `spending_adjustments`, `spending_budget_resolver`, `stores.ref_getters.security_master`, `tax_law` | — |
 | `src/parsing/daf.py` | `data_io` | — |
 | `src/parsing/estate_planning.py` | `data_io`, `tax_law` | — |
 | `src/parsing/hsa_policy.py` | `csv_exchange`, `data_io`, `plan_datasets` | — |
@@ -644,6 +644,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/projection_pipeline.py` | `observability`, `planning_engines` | — |
 | `src/qlac_optimizer.py` | — | — |
 | `src/real_loss_curves.py` | `allocation_policy`, `stores.ref_getters.mortality_real_loss` | — |
+| `src/realized_seed.py` | `realized_tax` | — |
 | `src/realized_tax.py` | `core` | — |
 | `src/reconcile.py` | — | — |
 | `src/reconcile_sale_hints.py` | — | — |
@@ -660,7 +661,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/sales_ledger.py` | — | — |
 | `src/sales_matching.py` | `ytd_tracking` | — |
 | `src/sales_service.py` | `csv_exchange`, `sales_ledger` | — |
-| `src/sales_tax_year.py` | `core`, `realized_tax`, `sales_ledger`, `wash_sales` | — |
+| `src/sales_tax_year.py` | `core`, `realized_seed`, `realized_tax`, `sales_ledger`, `wash_sales` | — |
 | `src/schema_registry.py` | `plan_data_registry`, `stores.ref_getters.schema_fields` | — |
 | `src/secrets_store.py` | `app_state`, `platform_runtime` | `keyring` |
 | `src/security.py` | `app_state`, `runtime_config` | — |

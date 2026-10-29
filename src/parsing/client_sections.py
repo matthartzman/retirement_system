@@ -1493,6 +1493,12 @@ def parse_hsa_schedule_and_account_income(data, c, lots_by_account, lots_reconci
     c['cash_ids']         = _ar.ids_by_tax(c['account_registry'], 'cash')
     c['invest_ids']       = _ar.all_investment_ids(c['account_registry'])
 
+    # ── Realized-sales ledger seed (step 3b.1) ───────────────────────────────
+    # The active plan's confirmed taxable sales for the plan year plus the carryforward into it, netted; None for
+    # an empty ledger, which leaves the projection exactly as it was (see src/realized_seed.py).
+    from ..realized_seed import active_realized_seed
+    c['realized_seed'] = active_realized_seed(c['plan_start'], c['filing_status'])
+
     # ── Individual-account withdrawal-order override (#276) ──────────────────
     c.update(parse_account_draw_priority(data))
 

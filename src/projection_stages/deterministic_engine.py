@@ -737,7 +737,12 @@ def run_deterministic_projection_stage(c):
     # since only the terminal (death) year's row ever reads it.
     _recent_gift_totals: list = []
 
+    # Realized-sales ledger seed (step 3b.1, src/realized_seed.py): ``None`` for an empty ledger, so nothing below
+    # runs and every row is unchanged. Only the plan's first year carries it.
+    _realized_seed = c.get('realized_seed') or None
+
     for year in range(c['plan_start'], c['plan_end']+1):
+        _seed_yr = _realized_seed if (_realized_seed and int(_realized_seed.get('year', 0)) == year) else None
         h_age = year - c['h_dob_yr']
         w_age = year - c['w_dob_yr']
         row = {'year': year, 'h_age': h_age, 'w_age': w_age, 'filing': filing}
@@ -1091,6 +1096,11 @@ def run_deterministic_projection_stage(c):
         wellness_rx_otc_yr = _spending_rmd.wellness_rx_otc_yr
         wellness_other_yr = _spending_rmd.wellness_other_yr
         portfolio_ordinary = _spending_rmd.portfolio_ordinary
+        if _seed_yr is not None and float(_seed_yr.get('gain_ordinary') or 0.0) > 0:
+            # Net short-term gain already realized this year (ledger): ordinary investment income, so it reaches
+            # AGI, the bracket maths, NII and state tax, and the Roth-conversion sizing sees it.
+            portfolio_ordinary = portfolio_ordinary + float(_seed_yr['gain_ordinary'])
+            row['realized_ledger_ordinary_gain'] = float(_seed_yr['gain_ordinary'])
         portfolio_qualified = _spending_rmd.portfolio_qualified
         _qualified_dividends_by_year[year] = portfolio_qualified
         portfolio_tax_exempt = _spending_rmd.portfolio_tax_exempt
@@ -1272,6 +1282,11 @@ def run_deterministic_projection_stage(c):
         # exclusion; unrecaptured 1250 gain is already ordinary income above) is part
         # of AGI, of MAGI for NIIT and of IRMAA MAGI. ``agi`` stays the ordinary
         # income the bracket maths run on (the gain is taxed separately as LTCG).
+        if _seed_yr is not None and float(_seed_yr.get('gain_ltcg') or 0.0) > 0:
+            # Net long-term gain already realized this year (ledger): rides the same line as home and rental sale
+            # gains, so it is in AGI/NIIT/IRMAA MAGI and the cascade taxes it (and nets losses against it) as LTCG.
+            home_sale_ltcg_gain = float(home_sale_ltcg_gain or 0.0) + float(_seed_yr['gain_ltcg'])
+            row['realized_ledger_ltcg_gain'] = float(_seed_yr['gain_ltcg'])
         sale_gain_in_agi = max(0.0, float(home_sale_ltcg_gain or 0.0))
         if sale_gain_in_agi > 0:
             irmaa_magi_current += sale_gain_in_agi

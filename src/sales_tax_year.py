@@ -10,6 +10,7 @@ from typing import Any
 
 from . import active_plan
 from .core import ACCOUNT_TYPES, _infer_type
+from .realized_seed import terms_from_ledger_rows
 from .realized_tax import net_realized_by_year, net_realized_year, ORDINARY_LOSS_LIMIT
 from .sales_ledger import ValidationError
 from .wash_sales import buys_from_rows, detect_wash_sales, plan_flag_updates
@@ -31,12 +32,6 @@ def _limit(filing: str) -> float:
     return ORDINARY_LOSS_LIMIT["MFS"] if filing == "MFS" else ORDINARY_LOSS_LIMIT["MFJ"]
 
 
-def _terms(sales: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    return [{"tax_year": int(s["sale_date"][:4]), "term": s["holding_period"], "gain": s["gain"],
-             "status": s["status"], "tax_class": s["tax_class"]}
-            for s in sales if s["holding_period"] in ("short", "long")]
-
-
 def _adjustments(store) -> dict[int, dict[str, Any]]:
     return {int(a["tax_year"]): a for a in store.sales.adjustments()}
 
@@ -49,7 +44,7 @@ def tax_year_summary(input_dir: str | Path, year: int, *, filing: str | None = N
     with active_plan.workspace_store(_base(input_dir)) as store:
         sales = store.sales.list_sales()
         adjustments = _adjustments(store)
-    by_year = net_realized_by_year(_terms(sales), adjustments, filing, through_year=year)
+    by_year = net_realized_by_year(terms_from_ledger_rows(sales), adjustments, filing, through_year=year)
     prev = by_year.get(year - 1)
     entered = year in adjustments
     if entered:
