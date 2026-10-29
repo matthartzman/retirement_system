@@ -35,7 +35,7 @@ OWNER_ONLY_PREFIXES = ("/api/people", "/api/activity", "/access.js")
 PUBLIC_REMOTE = {("GET", "/signin"), ("POST", "/api/signin")}
 MUST_CHANGE_ALLOWED = {"/api/change-password", "/api/signout", "/api/whoami"}
 # Percent-only people: this one route is refused, every other /api/ JSON body is scaled unless listed here.
-WITHHELD_FOR_PERCENT = {"/api/spending/transactions"}
+WITHHELD_FOR_PERCENT = {"/api/spending/transactions", "/api/realized"}
 PASS_THROUGH_FOR_PERCENT = {"/api/whoami", "/api/ping", "/api/view", "/api/signin", "/api/signout", "/api/change-password",
                             "/api/run-status", "/api/run-cancel", "/api/passthrough-decision", "/api/account-prefs"}
 PERCENT_MARK = {"mode": "percent", "basis": "net_worth_today"}
