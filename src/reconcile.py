@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from . import active_plan, platform_runtime
+from . import reconcile_sale_hints
 from . import ytd_tracking as ytd
 
 DEFAULT_TOLERANCE = 1.0
@@ -232,7 +233,7 @@ def _monarch_side(monarch: list[dict[str, Any]], liability: bool) -> dict[str, A
 
 @_store_errors
 def build_rows(input_dir: str | Path, as_of: str | None = None, *, tolerance: float = DEFAULT_TOLERANCE,
-               today: date | None = None) -> dict[str, Any]:
+               today: date | None = None, percent_mode: bool = False) -> dict[str, Any]:
     """Every comparison row for the plan behind ``input_dir`` as of a Monarch date (default: the latest)."""
     input_dir = Path(input_dir)
     base = input_dir.parent
@@ -250,6 +251,8 @@ def build_rows(input_dir: str | Path, as_of: str | None = None, *, tolerance: fl
         last_ok = repo.last_import(ok_only=True)
         liabilities = store.liabilities.rows()
         holdings = store.holdings.rows()
+        candidates = store.sales.list_candidates(state="unmatched")
+        sales = store.sales.list_sales()
 
     cash_lots = _cash_only_lots(holdings)
     setup = ytd.read_account_setup(input_dir)
@@ -421,9 +424,14 @@ def build_rows(input_dir: str | Path, as_of: str | None = None, *, tolerance: fl
                                      "old": str(sr[2].get(SETUP_VALUE_FIELD) or "").strip(), "new": _money_text(mapped[0]["balance"])}
         finish(row)
 
+    sale_hints = reconcile_sale_hints.sale_hints(rows, candidates, sales, percent_mode=percent_mode)
+    for r in rows:
+        if r["id"] in sale_hints["by_row"]:
+            r["sale_hint"] = sale_hints["by_row"][r["id"]]
     order = {g: i for i, g in enumerate(GROUP_ORDER)}
     rows.sort(key=lambda r: (order.get(r["group"], 99), r["label"].casefold()))
     return {
+        "unmatched_sale_count": sale_hints["count"],
         "has_balances": True, "as_of": as_of_date, "latest": latest, "tolerance": tolerance, "dates": dates,
         "rows": rows, "unmatched": sorted(unmatched, key=lambda u: u["label"].casefold()), "ignored": len(ignored),
         "closed_accounts": sorted(closed_quiet, key=lambda u: u["label"].casefold()),
