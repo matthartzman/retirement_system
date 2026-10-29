@@ -1,5 +1,5 @@
 {
-  "stepCount": 26,
+  "stepCount": 27,
   "steps": [
     {
       "stepId": "start",
@@ -106,6 +106,12 @@
     {
       "stepId": "monarch_reconciliation",
       "heading": "Account Reconciliation",
+      "hasContent": true,
+      "errors": 0
+    },
+    {
+      "stepId": "sales_ledger",
+      "heading": "Sales Ledger",
       "hasContent": true,
       "errors": 0
     },
