@@ -1220,6 +1220,7 @@ details.page-accordion[open]>summary::before,.page-recommendations[open]>summary
 .rc-sub{font-size:11px;color:var(--muted);margin-top:2px}
 .rc-up{color:var(--ok)}
 .rc-down{color:var(--danger)}
+.sl-up{color:var(--ok)}.sl-down{color:var(--danger)}.sl-voided{opacity:.55;text-decoration:line-through}
 .rc-status{font-size:11px;font-weight:800;border-radius:999px;padding:2px 8px;background:#f3f1ea;white-space:nowrap}
 .rc-status.rc-differs{background:#fef3c7;color:var(--warn)}
 .rc-status.rc-match{background:#dcfce7;color:var(--ok)}

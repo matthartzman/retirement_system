@@ -626,11 +626,14 @@ def save_holdings():
         return jsonify({"success": False, "error": "CSV writes are disabled"}), 403
     content = request.get_data(as_text=True)
     try:
-        result = holdings_service.save_holdings(content=content, base_dir=WORKSPACE_ROOT, workspace_id=_workspace_id(), client_id=_client_id(), user_id=_current_user().user_id, db_path=_sqlite_db())
+        result = holdings_service.save_holdings(content=content, base_dir=WORKSPACE_ROOT, workspace_id=_workspace_id(), client_id=_client_id(), user_id=_current_user().user_id, db_path=_sqlite_db(), import_mode=request.args.get("import_mode"))
     except ValueError as exc:
         return jsonify({"success": False, "error": str(exc)}), 400
     _audit("holdings_saved", {"bytes": result.get("bytes", len(content)), "path": result.get("path")})
-    return jsonify({"success": True, "path": result.get("path")})
+    payload = {"success": True, "path": result.get("path")}
+    if "sale_candidates_added" in result:
+        payload["sale_candidates_added"] = result["sale_candidates_added"]
+    return jsonify(payload)
 
 
 @app.route("/api/holdings/preview", methods=["POST"])

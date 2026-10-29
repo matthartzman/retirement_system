@@ -89,6 +89,7 @@ from .datasets import _DATASETS, _q, SCHEMA_V2_DDL, SCHEMA_V3_DDL, SCHEMA_V4_DDL
 from .build_results import SCHEMA_V7_DDL, SCHEMA_V8_DDL, BuildResultsRepo
 from .monarch_repo import SCHEMA_V13_DDL, SCHEMA_V14_DDL, MonarchRepo
 from .rental_repo import SCHEMA_V9_DDL, SCHEMA_V10_DDL, SCHEMA_V11_DDL, SCHEMA_V12_DDL, RentalRepo, _clean_property
+from .sales_repo import SCHEMA_V17_DDL, SalesRepo
 from .spending_repo import SpendingRepo
 from .errors import IntegrityError, NotFoundError, ValidationError
 
@@ -157,7 +158,7 @@ CREATE TABLE plan_meta (
 INSERT INTO plan_meta (key, value) VALUES ('{RETENTION_KEY}', '{DEFAULT_REVISION_RETENTION}');
 """
 
-PLAN_MIGRATIONS: tuple[str, ...] = (_SCHEMA_V1, SCHEMA_V2_DDL, SCHEMA_V3_DDL, SCHEMA_V4_DDL, SCHEMA_V5_DDL, SCHEMA_V6_DDL, SCHEMA_V7_DDL, SCHEMA_V8_DDL, SCHEMA_V9_DDL, SCHEMA_V10_DDL, SCHEMA_V11_DDL, SCHEMA_V12_DDL, SCHEMA_V13_DDL, SCHEMA_V14_DDL, SCHEMA_V15_DDL, SCHEMA_V16_DDL)
+PLAN_MIGRATIONS: tuple[str, ...] = (_SCHEMA_V1, SCHEMA_V2_DDL, SCHEMA_V3_DDL, SCHEMA_V4_DDL, SCHEMA_V5_DDL, SCHEMA_V6_DDL, SCHEMA_V7_DDL, SCHEMA_V8_DDL, SCHEMA_V9_DDL, SCHEMA_V10_DDL, SCHEMA_V11_DDL, SCHEMA_V12_DDL, SCHEMA_V13_DDL, SCHEMA_V14_DDL, SCHEMA_V15_DDL, SCHEMA_V16_DDL, SCHEMA_V17_DDL)
 PLAN_SCHEMA_VERSION = len(PLAN_MIGRATIONS)
 
 
@@ -292,6 +293,12 @@ class PlanStore(_SqliteStore):
     def monarch(self) -> MonarchRepo:
         """Monarch's daily account balances, the saved account matches and the reconcile change log."""
         return MonarchRepo(self)
+
+    # ------------------------------------------------------ realized-sales ledger (schema v17)
+    @property
+    def sales(self) -> SalesRepo:
+        """The realized-sales ledger, the unmatched-sale queue and the year-level adjustments."""
+        return SalesRepo(self)
 
     # ------------------------------------------------------ rental properties (WP12.4)
     @property

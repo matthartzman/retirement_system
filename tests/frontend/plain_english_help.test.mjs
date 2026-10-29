@@ -11,7 +11,7 @@ const { GLOSSARY, HELP_PAGES, HELP_SECTIONS, plainHelpHtml, pageHelpHtml, sectio
 test("every STEPS page has a plain summary", () => {
   const src = fs.readFileSync("frontend/js/dashboard.js", "utf8");
   const block = src.slice(src.indexOf("const STEPS = ["), src.indexOf("\n];", src.indexOf("const STEPS = [")));
-  const ids = [...block.matchAll(/\n    id: "(\w+)"/g)].map((m) => m[1]);
+  const ids = [...block.matchAll(/(?:\n    |\n  \{ )id: "(\w+)"/g)].map((m) => m[1]);
   assert.ok(ids.length >= 28);
   const missing = ids.filter((id) => !HELP_PAGES[id] || !HELP_PAGES[id].summary);
   assert.deepEqual(missing, []);
@@ -52,8 +52,8 @@ test("the pilot page has a full record and renders the fixed panel layout in ord
 test("every page has a full record; the panel renders it, nothing falls back", () => {
   const src = fs.readFileSync("frontend/js/dashboard.js", "utf8");
   const block = src.slice(src.indexOf("const STEPS = ["), src.indexOf("\n];", src.indexOf("const STEPS = [")));
-  const ids = [...block.matchAll(/\n    id: "(\w+)"/g)].map((m) => m[1]);
-  assert.equal(ids.length, 28);
+  const ids = [...block.matchAll(/(?:\n    |\n  \{ )id: "(\w+)"/g)].map((m) => m[1]);
+  assert.equal(ids.length, 29);
   for (const id of ids) {
     const p = HELP_PAGES[id];
     for (const k of ["title", "summary", "whatFor", "connections", "options", "impact"]) assert.ok(p && p[k], `${id}.${k}`);

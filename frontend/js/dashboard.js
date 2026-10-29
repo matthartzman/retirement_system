@@ -147,6 +147,7 @@ const STEPS = [
     group: "Reports & Review",
     title: "Account Reconciliation",
   },
+  { id: "sales_ledger", group: "Reports & Review", title: "Sales Ledger" },
   {
     id: "reports_and_review",
     group: "Reports & Review",
@@ -3055,14 +3056,13 @@ let renderMain = function() {
     content += analysisFrame(renderEntityCharitable(), "strategy");
   else if (activeStep === "survivor_stress")
     content += analysisFrame(renderSurvivorStress(), "stress");
-  else if (activeStep === "ltc_stress")
-    content += analysisFrame(renderLtcStress(), "stress");
+  else if (activeStep === "ltc_stress") content += analysisFrame(renderLtcStress(), "stress");
   else if (activeStep === "holdings") content += renderHoldings();
-  else if (activeStep === "assets_home_cash")
-    content += renderAssetsCashReserves();
+  else if (activeStep === "assets_home_cash") content += renderAssetsCashReserves();
   else if (activeStep === "assets_special") content += renderAssetsSpecial();
   else if (activeStep === "rental_properties") content += renderRentalProperties();
   else if (activeStep === "monarch_reconciliation") content += renderMonarchReconciliation();
+  else if (activeStep === "sales_ledger") content += renderSalesLedger();
   else if (activeStep === "family_business") content += renderFamilyBusiness();
   // #329/#330 W9: HELOC moved from Strategy → Assets & Protection (a plan
   // input against a held asset, not an optimizer). Same content, same
