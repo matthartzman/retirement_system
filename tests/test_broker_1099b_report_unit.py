@@ -104,3 +104,31 @@ def test_compare_statements_lists_added_removed_and_changed_lines():
 
 def test_compare_identical_statements_is_empty():
     assert report.compare_statements([line()], [line()]) == []
+
+
+# ---------------------------------------------------------------- step 5.3: column 1g wash-sale amounts (display only)
+def test_report_rows_show_the_official_wash_sale_disallowed_amount():
+    rep = build([line(wash=60.0, gain=40.0, proceeds=1490.0, basis=1500.0), line(symbol="NEW", wash=25.0)], [sale(1)])
+    matched, new = rep["rows"][0], rep["rows"][1]
+    assert matched["wash_disallowed"] == 60.0 and new["wash_disallowed"] == 25.0
+    assert rep["totals"]["wash_disallowed"] == 85.0
+
+
+def test_ledger_only_rows_show_no_wash_amount_and_zero_lines_stay_zero():
+    rep = build([line()], [sale(1), sale(2, symbol="ZZZ")])
+    assert [r["wash_disallowed"] for r in rep["rows"]] == [0.0, 0.0]
+    assert rep["totals"]["wash_disallowed"] == 0.0
+
+
+def test_csv_has_a_wash_disallowed_column():
+    rep = build([line(wash=60.0)], [sale(1)])
+    text = report.report_csv(rep)
+    header, first = text.splitlines()[0].split(","), text.splitlines()[1].split(",")
+    assert first[header.index("wash_disallowed")] == "60.0"
+
+
+def test_wash_adjustments_lists_only_nonzero_lines_with_their_rows():
+    lines = [line(wash=60.0), line(symbol="OTH", wash=0.0), line(symbol="NEW", wash=25.5, term="long")]
+    out = report.wash_adjustments(lines, [[1], [2], []])
+    assert [(w["symbol"], w["wash_disallowed"], w["sale_ids"], w["term"]) for w in out] == \
+        [("ABCD", 60.0, [1], "short"), ("NEW", 25.5, [], "long")]
