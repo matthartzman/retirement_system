@@ -10,8 +10,8 @@ const sum = (vals) => {
 };
 const pick = (row, keys) => keys.map((k) => row.values[k]);
 
-// CST and Other_Liab (negative) are engine lines inside the sheet's TOTAL NW with no sheet column
-// (projection_tables.add_unshown_nw_lines); present only when non-zero.
+// Other_Liab (negative; the sheet's Loans & Other Liabilities column) and CST (no sheet column,
+// projection_tables.add_unshown_nw_lines) are inside TOTAL NW; each present only when non-zero.
 const num = (v) => (typeof v === "number" ? v : 0);
 const investable = (row) => sum(pick(row, ["Σ PreTax", "Σ Roth", "Σ Trust", "HSA_1", "Cash", "CST"]));
 const homeOther = (row) => {

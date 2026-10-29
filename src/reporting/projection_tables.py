@@ -65,10 +65,10 @@ def table_from_sheet(ws, col_map: dict[str, int], *, data_first_row: int = 3) ->
 
 
 # Engine lines inside the NW sheet's TOTAL that the sheet has no column for (its TOTAL NW is
-# ann + pre-tax + roth + trust + CST + HSA + other - additional liabilities). Added as derived
-# columns, only when non-zero in some year, so the reporter's groups add up to TOTAL NW.
+# ann + pre-tax + roth + trust + CST + HSA + other - additional liabilities; the sheet shows the
+# liabilities itself as Other_Liab). Added as derived columns, only when non-zero in some year,
+# so the reporter's groups add up to TOTAL NW.
 _UNSHOWN_NW = (
-    ("Other_Liab", "Loans & Other Liabilities", "additional_liabilities", -1.0),
     ("CST", "Credit Shelter Trust", "cst_nw", 1.0),
 )
 
