@@ -56,6 +56,26 @@ export function dropOrder(order, dragged, target, after) {
   return [...rest, "lot"];
 }
 
+// ---- the sort: one field and a direction, applied to every level except Lot (newest first) ----
+
+export const SORT_KEY = "trendsLiveSort_v1";
+// field -> [label, key on a row]; "name" sorts by the label shown in the first column.
+export const SORT_FIELDS = {
+  name: ["Name", null], start: ["Start", "start"], new_money: ["Bought since", "new_money"], current: ["Current", "current"],
+  share: ["Share", "share"], day: ["Day $", "day"], day_pct: ["Day %", "day_pct"], market_gain: ["Market gain", "market_gain"],
+  return_pct: ["Return %", "return_pct"], share_of_gain: ["Share of gain", "share_of_gain"], annualized_pct: ["Annualized", "annualized_pct"],
+};
+export const DEFAULT_SORT = { field: "name", dir: "asc" };
+
+export function normalizeSort(raw) {
+  const field = raw && Object.hasOwn(SORT_FIELDS, raw.field) ? raw.field : DEFAULT_SORT.field;
+  return { field, dir: raw && raw.dir === "desc" ? "desc" : "asc" };
+}
+
+export function parseSavedSort(raw) {
+  try { return normalizeSort(JSON.parse(raw)); } catch (err) { return { ...DEFAULT_SORT }; }
+}
+
 // ---- totals ----
 
 const ratio = (numerator, denominator) => (numerator === null || numerator === undefined || !denominator ? null : numerator / denominator);
@@ -94,34 +114,48 @@ export function groupLabel(position, dim) {
   }
 }
 
-const byName = (a, b) => String(a.name).localeCompare(String(b.name));
-const byValue = (a, b) => b.row.current - a.row.current || byName(a, b);
+const byName = (a, b) => String(a.label).localeCompare(String(b.label), undefined, { sensitivity: "base" }) || String(a.name).localeCompare(String(b.name));
 const newestFirst = (a, b) => {
   const x = a.lot.purchase_date || "", y = b.lot.purchase_date || "";
   return x === y ? 0 : !x ? 1 : !y ? -1 : y.localeCompare(x);
 };
 
-function sortNodes(nodes, dim) {
-  if (dim === "class") {
-    const rank = (n) => { const i = CLASS_ORDER.indexOf(n.name); return i < 0 ? CLASS_ORDER.length : i; };
-    return nodes.sort((a, b) => rank(a) - rank(b) || byName(a, b));
-  }
+// Lots go newest first whatever the sort. Name A to Z at the asset class level follows the fixed class order.
+// A figure that doesn't exist for a row (no day change, too few days to annualize) goes last either way.
+function sortNodes(nodes, dim, sort) {
   if (dim === "lot") return nodes.sort(newestFirst);
-  // Accounts holding only cash read A to Z by the name shown; everything else, largest first.
-  if (dim === "account" && nodes.every((n) => n.members.every((m) => isCashSymbol(m.symbol)))) {
-    return nodes.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: "base" }) || byName(a, b));
+  const sign = sort.dir === "desc" ? -1 : 1;
+  if (sort.field === "name") {
+    if (dim === "class") {
+      const rank = (n) => { const i = CLASS_ORDER.indexOf(n.name); return i < 0 ? CLASS_ORDER.length : i; };
+      return nodes.sort((a, b) => sign * (rank(a) - rank(b) || byName(a, b)));
+    }
+    return nodes.sort((a, b) => sign * byName(a, b));
   }
-  return nodes.sort(byValue);
+  const key = SORT_FIELDS[sort.field][1];
+  return nodes.sort((a, b) => {
+    const x = a.row[key], y = b.row[key], hasX = x !== null && x !== undefined, hasY = y !== null && y !== undefined;
+    if (hasX !== hasY) return hasX ? -1 : 1;
+    return (hasX ? sign * (x - y) : 0) || byName(a, b);
+  });
 }
 
-// Returns {nodes, total}. A node is {dim, name, label, title, path, parent, row, members, children, lot?, inline?}.
+// Returns {nodes, total}. A node is {dim, name, label, title, path, parent, row, members, children, lot?, inline?, skipped?}.
 // ``labelOf`` turns an account id into the name shown. ``inline`` is a single cash lot's date, shown on its
-// own row's line instead of as a child row.
-export function buildTree(positions, order, { days, labelOf = (id) => id }) {
+// own row's line instead of as a child row. ``skipped`` lists the levels left out below a row because they
+// would only repeat it: one child with the same name (e.g. sub-class Cash under asset class Cash).
+export function buildTree(positions, order, { days, labelOf = (id) => id, sort = DEFAULT_SORT }) {
+  const by = normalizeSort(sort);
   const dims = normalizeOrder(order);
   const current = positions.reduce((s, p) => s + p.current, 0);
   const gain = positions.reduce((s, p) => s + p.current - p.start - p.new_money, 0);
   const totals = { current, gain };
+
+  // True when every member falls in one group at ``dim`` and it has the parent's name (ignoring case).
+  const repeats = (ms, dim, name) => {
+    const key = groupLabel(ms[0], dim);
+    return String(key).toLowerCase() === String(name).toLowerCase() && ms.every((m) => groupLabel(m, dim) === key);
+  };
 
   const grow = (members, level, parent) => {
     const dim = dims[level];
@@ -138,12 +172,15 @@ export function buildTree(positions, order, { days, labelOf = (id) => id }) {
         path: `${parent || ""}/${encodeURIComponent(key)}`, parent: parent || null,
         row: aggregate(ms, totals, days), members: ms, children: [],
       };
-      if (dim === "lot") node.lot = ms[0];
-      else if (dims[level + 1] === "lot" && ms.length === 1 && isCashSymbol(ms[0].symbol)) node.inline = ms[0].purchase_date || "Undated";
-      else node.children = grow(ms, level + 1, node.path);
+      if (dim === "lot") { node.lot = ms[0]; return node; }
+      let next = level + 1;
+      while (dims[next] !== "lot" && repeats(ms, dims[next], key)) next += 1;
+      if (next > level + 1) node.skipped = dims.slice(level + 1, next);
+      if (dims[next] === "lot" && ms.length === 1 && isCashSymbol(ms[0].symbol)) node.inline = ms[0].purchase_date || "Undated";
+      else node.children = grow(ms, next, node.path);
       return node;
     });
-    return sortNodes(nodes, dim);
+    return sortNodes(nodes, dim, by);
   };
 
   return { nodes: grow(positions, 0, null), total: { ...aggregate(positions, totals, days), share: 1, share_of_gain: 1 } };

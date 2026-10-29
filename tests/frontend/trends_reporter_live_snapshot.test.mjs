@@ -328,11 +328,11 @@ describe("cash holdings", () => {
     const order = [...out.matchAll(/<th scope="row" class="dim-account">([^<]*?) <span/g)].map((m) => m[1]);
     assert.deepEqual(order, ["alpha Checking", "Matt Trust", "Zed Trust"]);
   });
-  test("other symbols keep their lot rows, accounts largest first", () => {
+  test("other symbols keep their lot rows, accounts A to Z by the name shown", () => {
     const out = liveViewHtml(DATA_WITH_LOTS);
     assert.match(out, /dim-lot/);
     const order = [...out.matchAll(/class="dim-account"><button[^>]*>▸ ([^<]*)<\/button>/g)].map((m) => m[1]);
-    assert.deepEqual(order, ["Member_1_IRA", "Joint &lt;Brokerage&gt;"]);
+    assert.deepEqual(order, ["Joint &lt;Brokerage&gt;", "Member_1_IRA"]);
   });
 });
 
@@ -538,6 +538,19 @@ describe("Group By wiring", () => {
     h.fire("click", { target: target({ "button.chip-step": { dataset: { dim: "subclass", step: "1" } } }) });
     assert.equal(firstColumn(h), "Symbol");
   });
+  test("a sort pick redraws the table, remembers the choice", async () => {
+    const SORT = "trendsLiveSort_v1";
+    const h = await started(harness());
+    assert.match(h.out.innerHTML, /<option value="name" selected>Name<\/option>/);
+    assert.match(h.out.innerHTML, /<option value="asc" selected>Ascending<\/option>/);
+    h.fire("change", { target: { closest: (sel) => (sel === "#liveSortField" ? { value: "current" } : null) } });
+    h.fire("change", { target: { closest: (sel) => (sel === "#liveSortDir" ? { value: "desc" } : null) } });
+    assert.deepEqual(JSON.parse(h.store.get(SORT)), { field: "current", dir: "desc" });
+    assert.match(h.out.innerHTML, /<option value="current" selected>Current<\/option>/);
+    assert.match(h.out.innerHTML, /<option value="desc" selected>Descending<\/option>/);
+    h.fire("change", { target: { closest: () => null } });   // some other control: nothing happens
+    assert.deepEqual(JSON.parse(h.store.get(SORT)), { field: "current", dir: "desc" });
+  });
   test("a new grouping drops the old expanded rows", async () => {
     const h = await started(harness());
     const rows = [{ dataset: { path: "/US%20Total%20Equity" } }];
@@ -545,6 +558,24 @@ describe("Group By wiring", () => {
     h.fire("click", { target: target({ "button.expand": { dataset: { path: "/US%20Total%20Equity" }, getAttribute: () => "false" } }) });
     h.fire("click", { target: target({ "button.chip-step": { dataset: { dim: "subclass", step: "1" } } }) });
     assert.match(h.out.innerHTML, /data-path="\/ITOT"/);   // symbol is now the top level
+  });
+});
+
+describe("Sort by", () => {
+  test("sits after the Group By row as two picklists, field then direction", () => {
+    const out = liveViewHtml(DATA_WITH_LOTS);
+    assert.match(out, /class="group-by"[\s\S]*<div class="sort-by" role="group" aria-label="Sort by">/);
+    assert.match(out, /<select id="liveSortField"[^>]*>(<option[^>]*>[^<]*<\/option>)+<\/select><select id="liveSortDir"/);
+  });
+  test("the picked sort orders the rows", () => {
+    const names = (out) => [...out.matchAll(/class="dim-subclass"><button[^>]*>▸ ([^<]*)<\/button>/g)].map((m) => m[1]);
+    const asc = names(liveViewHtml(DATA_WITH_LOTS, undefined, { field: "name", dir: "asc" }));
+    const desc = names(liveViewHtml(DATA_WITH_LOTS, undefined, { field: "name", dir: "desc" }));
+    assert.ok(asc.length > 0);
+    assert.deepEqual(desc, [...asc].reverse());
+  });
+  test("is set apart from Group By", () => {
+    assert.match(html, /\.sort-by \{[^}]*margin-left: 20px/);
   });
 });
 

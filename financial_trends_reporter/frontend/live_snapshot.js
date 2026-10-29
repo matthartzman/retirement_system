@@ -5,7 +5,7 @@
 // first day (body[data-scope-from]) sets the Start date.
 
 import { moneyView, fmtAmount, onMoneyViewChange, unitChip } from "./money_view.js";
-import { DIMENSIONS, DEFAULT_ORDER, GROUPS_KEY, normalizeOrder, parseSavedOrder, stepDimension, toggleDimension, dropOrder, buildTree } from "./live_groups.js";
+import { DIMENSIONS, DEFAULT_ORDER, GROUPS_KEY, SORT_KEY, SORT_FIELDS, normalizeSort, parseSavedSort, normalizeOrder, parseSavedOrder, stepDimension, toggleDimension, dropOrder, buildTree } from "./live_groups.js";
 
 const isPct = () => moneyView().shown === "percent";
 
@@ -150,6 +150,15 @@ export function groupByHtml(order) {
     + unused.map((dim) => `<button type="button" class="chip off" draggable="true" data-dim="${dim}" aria-label="Also group by ${name(dim)}">+ ${name(dim)}</button>`).join("") + `</div>`;
 }
 
+// The Sort by row, after Group By: a field picklist and an ascending/descending picklist.
+export function sortByHtml(sort) {
+  const cur = normalizeSort(sort);
+  const opt = (value, label, on) => `<option value="${value}"${on ? " selected" : ""}>${esc(label)}</option>`;
+  return `<div class="sort-by" role="group" aria-label="Sort by"><label class="group-by-label" for="liveSortField">Sort by</label>`
+    + `<select id="liveSortField" aria-label="Sort by field">${Object.entries(SORT_FIELDS).map(([f, [label]]) => opt(f, label, f === cur.field)).join("")}</select>`
+    + `<select id="liveSortDir" aria-label="Sort direction">${opt("asc", "Ascending", cur.dir === "asc")}${opt("desc", "Descending", cur.dir === "desc")}</select></div>`;
+}
+
 function groupedTable(tree, firstLabel, total) {
   const head = `<tr><th scope="col">${esc(firstLabel)}</th>${columns().map(([h, c]) => `<th scope="col" class="num ${c}">${h}</th>`).join("")}</tr>`;
   const rows = (nodes, depth) => nodes.map((n) => {
@@ -276,7 +285,7 @@ function totalsHtml(t, checking, debt, tax, nonLiquid, liquid) {
     + `<div class="kinds" aria-label="Assets by kind (share of gross assets)">${kinds}</div>`;
 }
 
-export function liveViewHtml(data, groupOrder) {
+export function liveViewHtml(data, groupOrder, groupSort) {
   if (!data) return `<p class="empty">Loading live prices…</p>`;
   if (data.error) return `<p class="live-error">Live Snapshot is unavailable: ${esc(data.error)}</p>`;
   accountLabels = data.account_labels || {};
@@ -284,7 +293,7 @@ export function liveViewHtml(data, groupOrder) {
   const period = isYearToDate(data.baseline_date, data.as_of) ? "Year to date" : `Since ${startDay}`;
   const L = data.liquid, t = data.totals;
   const order = normalizeOrder(groupOrder);
-  const tree = buildTree(L.positions || [], order, { days: data.days ?? 0, labelOf: acctLabel });
+  const tree = buildTree(L.positions || [], order, { days: data.days ?? 0, labelOf: acctLabel, sort: groupSort });
   const indices = (data.indices || []).map((i) =>
     `<span class="index-chip">${esc(i.label)} ${i.day_pct === null || i.day_pct === undefined ? `<span class="na">${DASH}</span>` : changeHtml(i.day_pct, true)}</span>`).join("");
   const sub = isPct()
@@ -295,7 +304,7 @@ export function liveViewHtml(data, groupOrder) {
     + `<div class="live-right"><div class="indices">${indices}</div><div class="live-status" role="status">${esc(statusText(data))}</div></div></div>`;
   const flows = L.checking_net_flows === null || L.checking_net_flows === undefined ? ""
     : ` Net transfers from checking since ${startDay}: ${fmtUsd(L.checking_net_flows)} (for information).`;
-  const liquid = `<div class="card live-card${isPct() ? " pm" : ""}"><div class="live-card-head"><h2>Liquid investments${unitChip("% of net worth")}</h2>${groupByHtml(order)}</div>${groupedTable(tree, DIMENSIONS[order[0]], L)}${moneyView().allowed === "percent" ? "" : reconciliationHtml(data.reconciliation)}`
+  const liquid = `<div class="card live-card${isPct() ? " pm" : ""}"><div class="live-card-head"><h2>Liquid investments${unitChip("% of net worth")}</h2>${groupByHtml(order)}${sortByHtml(groupSort)}</div>${groupedTable(tree, DIMENSIONS[order[0]], L)}${moneyView().allowed === "percent" ? "" : reconciliationHtml(data.reconciliation)}`
     + `<p class="note">Start = ${startDay} closing value of lots held then (the Time scope sets the date). Bought since = lots bought after ${startDay}, at purchase price; reinvested dividends count as gain. Return % weights new money by how long it was invested (Modified Dietz). Gains on positions sold since ${startDay} are not included.${flows}</p></div>`;
   const nl = data.non_liquid;
   const nonLiquid = `<details class="live-section"><summary>Non-liquid assets <b>${fmtUsd(nl.total)}</b>${unitChip("% of net worth")} <span class="muted">imported balances, ${esc(nl.as_of || "")}</span></summary>`
@@ -316,10 +325,11 @@ export function initLiveView(doc = document, win = window) {
   const buttons = [...doc.querySelectorAll("[data-view]")];
   let view = "trends", data = null, lastLoad = 0, busy = false, reloadAfter = false;
   const expanded = new Set(), openSections = new Map();
-  let groupOrder = [...DEFAULT_ORDER], dragging = null;
+  let groupOrder = [...DEFAULT_ORDER], groupSort = normalizeSort(null), dragging = null;
 
   try { view = parseSavedView(win.localStorage.getItem(VIEW_KEY)); } catch (err) { view = "trends"; }
   try { groupOrder = parseSavedOrder(win.localStorage.getItem(GROUPS_KEY)); } catch (err) { groupOrder = [...DEFAULT_ORDER]; }
+  try { groupSort = parseSavedSort(win.localStorage.getItem(SORT_KEY)); } catch (err) { groupSort = normalizeSort(null); }
 
   // Only a section the user opened or closed themselves is remembered (recorded on the summary click),
   // so the server's default (every section closed) applies until then. Keyed by name for the reconciliation section and by position among the others, so a
@@ -330,7 +340,7 @@ export function initLiveView(doc = document, win = window) {
   }
 
   function render() {
-    out.innerHTML = liveViewHtml(data, groupOrder);
+    out.innerHTML = liveViewHtml(data, groupOrder, groupSort);
     const key = sectionKeys();
     out.querySelectorAll("details.live-section").forEach((d) => { const k = key(d); if (openSections.has(k)) d.open = openSections.get(k); });
     applyExpanded();
@@ -412,6 +422,17 @@ export function initLiveView(doc = document, win = window) {
     const target = focusSel && out.querySelector(focusSel);
     if (target && !target.disabled) target.focus();
   }
+
+  // A new sort: remembered per browser. Row paths don't depend on it, so expanded rows stay open.
+  out.addEventListener("change", (e) => {
+    const field = e.target.closest ? e.target.closest("#liveSortField") : null, dir = e.target.closest ? e.target.closest("#liveSortDir") : null;
+    if (!field && !dir) return;
+    groupSort = normalizeSort({ field: field ? field.value : groupSort.field, dir: dir ? dir.value : groupSort.dir });
+    try { win.localStorage.setItem(SORT_KEY, JSON.stringify(groupSort)); } catch (err) { /* storage blocked: the choice just won't persist */ }
+    if (data) render();
+    const again = out.querySelector(field ? "#liveSortField" : "#liveSortDir");
+    if (again) again.focus();
+  });
 
   out.addEventListener("click", (e) => {
     const step = e.target.closest("button.chip-step"), remove = e.target.closest("button.chip-remove"), add = e.target.closest("button.chip.off");
