@@ -1,7 +1,7 @@
 // Sales Ledger page (Reports & Review): record a realized sale by hand or from a CSV and list the ledger.
 // Logic lives on the server (src/sales_service.py, /api/sales*): the page collects a row, posts it, and
 // lists the result. One row is one lot (or part of a lot) sold, with that lot's basis and purchase date.
-// Nothing reads the ledger yet (Phase 1). Helpers are bare globals; renderMain() calls renderSalesLedger().
+// The tax-year panel (dashboard_decomp_sales_tax.js) is mounted here and reloaded with the ledger. Helpers are bare globals; renderMain() calls renderSalesLedger().
 
 const SL_CLASSES = [["taxable", "Taxable"], ["pre_tax", "Pre-tax (IRA/401k)"], ["roth", "Roth"], ["hsa", "HSA"]];
 const SL_TERM = { short: "Short", long: "Long", unknown: "Unknown" };
@@ -79,7 +79,7 @@ function slImportHtml() {
 function slBodyHtml() {
   const msg = slMessage ? `<p class="${slMessage.error ? "field-error" : "muted"}" role="status">${esc(slMessage.text)}</p>` : "";
   const list = slError ? `<p class="field-error">${esc(slError)}</p>` : slData ? slTotalsHtml(slData.totals) + slTableHtml(slData.sales) : `<p class="muted">Loading…</p>`;
-  return `<h2>Sales Ledger</h2>${msg}${window.renderSalesQueue ? window.renderSalesQueue() : ""}${slFormHtml()}${slImportHtml()}<h3>Ledger</h3>` +
+  return `<h2>Sales Ledger</h2>${msg}${window.renderSalesQueue ? window.renderSalesQueue() : ""}${window.renderSalesTaxYear ? window.renderSalesTaxYear() : ""}${slFormHtml()}${slImportHtml()}<h3>Ledger</h3>` +
     `<label>Year <input id="slYear" type="number" value="${esc(slYear)}" onchange="slSetYear(this.value)"></label> ` +
     `<label><input type="checkbox" ${slShowVoided ? "checked" : ""} onchange="slSetShowVoided(this.checked)"> Show voided</label>${list}`;
 }
@@ -104,6 +104,7 @@ export async function loadSalesLedger() {
     const out = await api("/api/sales?" + q);
     slData = out && out.success ? out : null;
     if (!slData) slError = "The ledger could not be loaded.";
+    if (window.loadSalesTaxYear && slYear) window.loadSalesTaxYear(slYear);
   } catch (e) {
     slData = null;
     slError = "The ledger could not be loaded: " + e.message;

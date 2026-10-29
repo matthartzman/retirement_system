@@ -3,7 +3,8 @@
 // /api/realized. Pure helpers are exported for tests; initRealized() wires the tab in the browser.
 //
 // In the percent view of the $ | % toggle only ratios are shown (return on basis): no proceeds, basis, gain or share
-// counts. A percent-only person is refused by the server and sees that message.
+// counts. A percent-only person is sent group-level totals only (the server drops the per-sale lots), so a group
+// can arrive without ``lots``.
 
 import { moneyView, onMoneyViewChange } from "./money_view.js";
 import { fmtUsd, fmtPct } from "./live_snapshot.js";
@@ -70,7 +71,7 @@ function tableHtml(groups, by) {
   const body = groups.map((g) => {
     const dollars = isPct() ? "" : `<td></td><td class="num">${money(g.proceeds)}</td><td class="num">${money(g.basis)}</td><td class="num">${gainText(g.net)}</td>`;
     return `<tbody><tr class="top-row"><th scope="row">${esc(g.name)} <span class="muted">${plural(g.count, "lot", "lots")}</span></th>${dollars}<td class="num">${returnText(g.net, g.basis)}</td><td></td><td></td><td></td><td></td></tr>`
-      + `${g.lots.map(lotRow).join("")}</tbody>`;
+      + `${(g.lots || []).map(lotRow).join("")}</tbody>`;
   }).join("");
   return `<div class="table-scroll"><table class="live-table realized-table">${head}${body}</table></div>`;
 }

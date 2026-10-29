@@ -112,7 +112,7 @@ def test_scope_start_after_the_sale_excludes_it():
 
 def test_unconfirmed_sales_are_counted_not_estimated():
     plain = _compute([])
-    out = _compute([], unconfirmed_dates=[SALE_DAY, "2026-02-02", "2025-11-01"])   # the last is before the window
+    out = _compute([], unconfirmed=[{"sale_date": d} for d in (SALE_DAY, "2026-02-02", "2025-11-01")])   # the last is before the window
     assert out["liquid"]["unconfirmed_sales"] == {"count": 2}
     assert out["liquid"]["positions"] == plain["liquid"]["positions"]
     assert out["liquid"]["market_gain"] == plain["liquid"]["market_gain"]
@@ -147,7 +147,7 @@ def test_build_prices_sold_symbols_at_the_baseline(tmp_path):
     ls.baseline_prices = lambda symbols, *a, **k: (asked.append(sorted(symbols)), real(symbols, *a, **k))[1]
     try:
         inputs = {"lots": _lots(), "security_master": SECURITY_MASTER, "accounts": [], "flows_daily": {}, "monarch": MONARCH,
-                  "tax_rates": TAX, "log_as_of": "2026-10-26", "sales": [_sale()], "unconfirmed_dates": []}
+                  "tax_rates": TAX, "log_as_of": "2026-10-26", "sales": [_sale()], "unconfirmed": []}
         out = ls.build(inputs=inputs, quote_cache=FakeQuotes({**QUOTES, **INDEX_QUOTES}), data_dir=tmp_path, now=NOW,
                        previous_close_lookup=lambda symbols, today: {})
     finally:
@@ -174,11 +174,13 @@ def test_ledger_sales_reads_the_plan_through_the_workspace_store(tmp_path, monke
             yield store
 
         monkeypatch.setattr(active_plan, "workspace_store", fake)
-        sales, waiting = ls.ledger_sales(tmp_path)
-    assert [s["symbol"] for s in sales] == ["AVUV"] and waiting == ["2026-02-02"]
+        store.sales.set_adjustment(2025, carryforward_short=100.0)
+        sales, waiting, adjustments = ls.ledger_sales(tmp_path)
+    assert [s["symbol"] for s in sales] == ["AVUV"] and [c["sale_date"] for c in waiting] == ["2026-02-02"]
+    assert [a["tax_year"] for a in adjustments] == [2025]
 
     def broken(root, *, write=False):
         raise OSError("locked")
 
     monkeypatch.setattr(active_plan, "workspace_store", broken)
-    assert ls.ledger_sales(tmp_path) == ([], [])
+    assert ls.ledger_sales(tmp_path) == ([], [], [])

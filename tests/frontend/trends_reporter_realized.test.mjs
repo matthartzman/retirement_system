@@ -53,6 +53,19 @@ describe("realizedViewHtml in dollars", () => {
   });
 });
 
+describe("realizedViewHtml for a percent-only person", () => {
+  test("groups arrive without lots and still render, with returns only", () => {
+    setMoneyView({ allowed: "percent", shown: "percent", scale: 100000 });
+    try {
+      const groups = DATA.groups.map(({ lots, ...g }) => g);
+      const out = realizedViewHtml({ ...DATA, groups, estimate: null });
+      assert.match(out, /ITOT/);
+      assert.match(out, /37\.5%/);
+      assert.doesNotMatch(out, /\$\s?\d|sale-lot/);
+    } finally { back(); }
+  });
+});
+
 describe("realizedViewHtml in the percent view", () => {
   test("only ratios: no dollars, proceeds, basis, gain or share counts", () => {
     setMoneyView({ allowed: "both", shown: "percent", scale: 1000 });

@@ -24,12 +24,13 @@ def test_block_is_taxable_confirmed_sales_this_year():
     # and the voided sale are out.
     assert (b["year"], b["st_gain"], b["lt_gain"], b["net"], b["wash_flagged"]) == (2026, -600.0, 1500.0, 900.0, -600.0)
     assert b["unconfirmed"] == {"count": 2, "amount": 1300.0}      # last year's candidate is out; a count needs no amount
-    assert b["tax_estimate"] is None                               # the realized-tax line is step 4.5
+    # Flat default rates with no Planner config: -600 ST nets against +1500 LT, leaving 900 taxed at 15%.
+    assert b["tax_estimate"] == 135.0
 
 
 def test_an_empty_ledger_is_real_zeros_and_the_estimate_is_never_logged():
     b = realized_log.from_rows([], [], TODAY)
-    assert (b["net"], b["unconfirmed"]) == (0.0, {"count": 0, "amount": 0.0})
+    assert (b["net"], b["tax_estimate"], b["unconfirmed"]) == (0.0, 0.0, {"count": 0, "amount": 0.0})
     assert set(b) == {"year", "st_gain", "lt_gain", "net", "tax_estimate", "wash_flagged", "unconfirmed"}   # no estimate block
 
 
@@ -38,6 +39,7 @@ def _store(sales, candidates):
     class Sales:
         list_sales = staticmethod(lambda: sales)
         list_candidates = staticmethod(lambda state=None: candidates)
+        adjustments = staticmethod(lambda: [])
 
     yield type("S", (), {"sales": Sales()})()
 
@@ -57,10 +59,10 @@ def test_reads_the_plan_and_an_unreadable_one_is_no_data(tmp_path, monkeypatch):
 
 def test_snapshot_carries_the_block_or_leaves_the_key_out(tmp_path, monkeypatch):
     base = _workspace(tmp_path)
-    monkeypatch.setattr(realized_log, "realized_ytd", lambda b, t: None)
+    monkeypatch.setattr(realized_log, "realized_ytd", lambda b, t, **k: None)
     assert "realized_ytd" not in compute_snapshot(base, today=FLOWS_TODAY)
     block = {"year": 2026, "net": 1.0}
-    monkeypatch.setattr(realized_log, "realized_ytd", lambda b, t: block)
+    monkeypatch.setattr(realized_log, "realized_ytd", lambda b, t, **k: block)
     assert compute_snapshot(base, today=FLOWS_TODAY)["realized_ytd"] == block
 
 
