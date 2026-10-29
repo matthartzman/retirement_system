@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 276 Python files under `src/`, 58 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 280 Python files under `src/`, 58 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -24,7 +24,7 @@ flowchart TB
     subgraph L_HTTP_Runtime["HTTP Runtime (4 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
-    subgraph L_Core_Engine___Domain["Core Engine & Domain (189 modules)"]
+    subgraph L_Core_Engine___Domain["Core Engine & Domain (193 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
     subgraph L_Projection_Stages["Projection Stages (24 modules)"]
@@ -70,12 +70,12 @@ Actual usage detected per layer (which layer imports which third-party package):
 | HTTP Routes | _none (stdlib only)_ |
 | Server Services | _none (stdlib only)_ |
 | HTTP Runtime | _none (stdlib only)_ |
-| Core Engine & Domain | `keyring`, `numpy`, `openpyxl`, `pywebview`, `requests`, `scipy` |
+| Core Engine & Domain | `keyring`, `numpy`, `openpyxl`, `pypdf`, `pywebview`, `requests`, `scipy` |
 | Projection Stages | _none (stdlib only)_ |
 | Reporting / Workbook | `lxml`, `numpy`, `openpyxl`, `scipy` |
 | Dashboard UI Builder | _none (stdlib only)_ |
 
-**Detected but not in `requirements.txt`:** `requests`. Worth checking each one at the import site: as of this writing, `pyyaml` and `requests` are both guarded by `try/except ImportError` as optional/lazy imports (the feature degrades rather than crashing if absent) -- confirm any newly-appearing name here follows the same pattern before assuming it's safe to leave undeclared.
+**Detected but not in `requirements.txt`:** `pypdf`, `requests`. Worth checking each one at the import site: as of this writing, `pyyaml` and `requests` are both guarded by `try/except ImportError` as optional/lazy imports (the feature degrades rather than crashing if absent) -- confirm any newly-appearing name here follows the same pattern before assuming it's safe to leave undeclared.
 
 ## 3. Data Flow: Plan Inputs to Report Outputs
 
@@ -517,6 +517,10 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/balance_sheet_liabilities.py` | — | — |
 | `src/blank_plan.py` | `csv_exchange` | — |
 | `src/bootstrap.py` | `src`, `plan_data_migration`, `platform_runtime`, `security` | — |
+| `src/broker_1099b/__init__.py` | `broker_1099b`, `broker_1099b.normalized`, `tlh` | — |
+| `src/broker_1099b/etrade.py` | `broker_1099b.normalized` | — |
+| `src/broker_1099b/normalized.py` | — | — |
+| `src/broker_1099b/pdf_text.py` | — | `pypdf` |
 | `src/build_entry.py` | `reporting.workbook_builder` | — |
 | `src/build_snapshot.py` | `active_plan`, `plan_db_replace`, `version` | — |
 | `src/config_backend.py` | `active_plan`, `app_state`, `engine_defaults`, `sqlite_util`, `system_config` | — |
