@@ -1227,6 +1227,19 @@ def sales_1099b_preview():
     return err or _sales_call(lambda root: _s1099b.preview(root, **kw))
 
 
+@app.route("/api/sales/1099b/wash", methods=["GET"])
+def sales_1099b_wash():
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    from .. import sales_1099b as _s1099b
+    try:
+        year = int(request.args.get("year", ""))
+    except ValueError:
+        return jsonify({"success": False, "error": "year must be a number"}), 400
+    return _sales_call(_s1099b.wash_adjustments, year)
+
+
 @app.route("/api/sales/1099b/apply", methods=["POST"])
 def sales_1099b_apply():
     denied = _require("write_config")

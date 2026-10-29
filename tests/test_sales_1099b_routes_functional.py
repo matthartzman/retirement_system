@@ -58,3 +58,11 @@ def test_control_total_gap_is_refused_by_apply(client):
     bad[("short", True)] = (1.0,) + bad[("short", True)][1:]
     r = client.post("/api/sales/1099b/apply", json=body(content=syn.build_statement(summary=bad)))
     assert r.status_code == 400 and "control" in r.get_json()["error"].lower()
+
+
+def test_wash_adjustments_route(client):
+    client.post("/api/sales/1099b/apply", json=body())
+    out = client.get("/api/sales/1099b/wash?year=2025").get_json()
+    assert out["success"] and out["total"] == 60.0 and out["adjustments"][0]["symbol"] == "WXYZ"
+    assert client.get("/api/sales/1099b/wash").status_code == 400
+    assert client.get("/api/sales/1099b/wash?year=abc").status_code == 400
