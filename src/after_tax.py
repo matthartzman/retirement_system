@@ -769,7 +769,9 @@ def estimate_terminal_estate_tax(c: Mapping[str, Any], terminal: Mapping[str, An
     # state to that state's real statutory exemption instead.
     resident_state = state_for_year(c, target_year)
     state_exempt = resolved_state_estate_exemption(resident_state, _f(c.get("il_exempt"), 0.0))
-    federal_taxable = max(0.0, row_total + biz - (row_cst if c.get("federal_portability_enabled", True) else 0.0))
+    # FIN-009: the CST is NOT subtracted from the federal base. The exemption applied here is already the
+    # combined (both spouses) amount, so removing the trust as well counted the first decedent's share twice.
+    federal_taxable = max(0.0, row_total + biz)
     state_taxable = max(0.0, row_total + biz - row_cst)
     federal_tax = max(0.0, federal_taxable - fed_exempt) * 0.40 if fed_exempt else 0.0
     # Item 3.6 (F5): New York's 3-year gift add-back -- gifts made within 3

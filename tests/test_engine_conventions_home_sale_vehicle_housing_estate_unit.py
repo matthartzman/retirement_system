@@ -85,7 +85,7 @@ def test_y_survivor_factor_is_applied_once(frozen):
     assert by_year[c["h_death_yr"]]["survivor_spend_factor_yr"] == 1.0     # the death year is still a two-person year
 
 
-def test_x_estate_counts_the_bypass_trust_and_the_business_once():
+def test_x_estate_counts_the_bypass_trust_federally_and_the_business_once():
     from src.after_tax import business_taxable_estate_value, estimate_terminal_estate_tax
 
     c = _project()[0]
@@ -95,7 +95,7 @@ def test_x_estate_counts_the_bypass_trust_and_the_business_once():
     base = estimate_terminal_estate_tax(c, terminal)
     exempt = __import__("src.after_tax", fromlist=["indexed_federal_estate_exemption"]).indexed_federal_estate_exemption(
         10_000_000.0, c["plan_start"], c["plan_end"], c.get("brk_inf", 0.02))
-    assert base == pytest.approx(0.40 * (30_000_000.0 - 2_000_000.0 - exempt))      # the CST is excluded once
+    assert base == pytest.approx(0.40 * (30_000_000.0 - exempt))      # FIN-009: the combined exemption already covers the CST
     c["federal_portability_enabled"] = False
     assert estimate_terminal_estate_tax(c, terminal) == pytest.approx(0.40 * (30_000_000.0 - exempt))
     c["federal_portability_enabled"] = True

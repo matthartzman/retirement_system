@@ -118,7 +118,8 @@ def _estate_tax_for_row(c, fed_exempt_base, row: Mapping) -> float:
     row_cst = max(0.0, float(row.get('cst_excluded_from_survivor_estate', 0.0) or 0.0))
     row_year = int(row.get('year', c.get('plan_start', 0)) or 0)
     fed_exempt = indexed_federal_estate_exemption(fed_exempt_base, c.get('plan_start', row_year), row_year, c.get('brk_inf', 0.02))
-    federal_taxable = max(0.0, row_total - (row_cst if c.get('federal_portability_enabled', True) else 0.0))
+    # FIN-009: no CST subtraction federally; the exemption is already the combined amount (see after_tax).
+    federal_taxable = max(0.0, row_total)
     state_taxable = max(0.0, row_total - row_cst)
     federal_tax = max(0.0, federal_taxable - fed_exempt) * 0.40 if fed_exempt else 0.0
     # Item 3.6 (F5): New York's 3-year gift add-back.
