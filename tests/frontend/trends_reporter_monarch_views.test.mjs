@@ -51,6 +51,27 @@ describe("buildMonarchRows", () => {
     assert.equal(rows[2].net_worth.total, 110 + 10 - 50 + 500);
   });
 
+  test("a plan point's holdings use the entry's toggle-aware Monarch figure, not the plan total with annuities", () => {
+    const history = [{ as_of_date: "2026-01-12", net_worth: { total: 950 }, holdings: { current_value: 4200 }, monarch_balances: { holdings: 2800 } }];
+    const plan = buildMonarchRows(BAL, history).find(r => r.source === "plan");
+    assert.equal(plan.holdings.current_value, 2800);
+    assert.equal(plan.net_worth.total, 950);
+  });
+
+  test("a plan day with a logged Monarch snapshot keeps the typed groups and Monarch net worth", () => {
+    const e = {
+      as_of_date: "2026-01-12", net_worth: { total: 950 }, holdings: { current_value: 4200 },
+      monarch_balances: { net_worth: 1200, holdings: 700, by_account: [
+        { account: "Checking", type: "Cash", value: 100 }, { account: "Mortgage", type: "Loan", value: -300 },
+        { account: "Visa", type: "Credit card", value: -50 },
+      ] },
+    };
+    const row = buildMonarchRows(BAL, [e]).find(r => r.source === "plan");
+    assert.equal(row.net_worth.total, 1200);
+    const groups = monarchRolloverModel(row, BAL, "networth").groups;
+    assert.deepEqual(groups.map(g => [g.role, g.subtotal]).sort(), [["Cash", 100], ["Credit card", -50], ["Loan", -300]]);
+  });
+
   test("returns null without usable balances", () => {
     assert.equal(buildMonarchRows(null, []), null);
     assert.equal(buildMonarchRows({ dates: [], series: {}, accounts: [] }, []), null);

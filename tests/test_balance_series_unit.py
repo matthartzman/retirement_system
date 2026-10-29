@@ -109,6 +109,20 @@ def test_detail_respects_chart_membership():
     assert "gap" not in keys and "a" in keys
 
 
+def test_plan_holdings_prefers_the_toggle_aware_monarch_figure():
+    # the plan total counts annuities/pensions, which the holdings chart leaves out by default
+    entry = {"holdings": {"current_value": 4259557.42}, "monarch_balances": {"holdings": 2874511.87}}
+    assert bser._plan_holdings(entry) == 2874511.87
+    assert bser._plan_holdings({"holdings": {"current_value": 400.0}}) == 400.0
+    assert bser._plan_holdings({"holdings": {"current_value": 400.0}, "monarch_balances": None}) == 400.0
+
+
+def test_plan_networth_prefers_the_logged_monarch_figure():
+    entry = {"net_worth": {"total": 5514645.8}, "monarch_balances": {"net_worth": 6557471.8}}
+    assert bser._plan_networth(entry) == 6557471.8
+    assert bser._plan_networth({"net_worth": {"total": 7.0}}) == 7.0
+
+
 def test_merge_uses_monarch_where_present_and_plan_elsewhere():
     history = [
         {"as_of_date": "2025-12-31", "net_worth": {"total": 111.5}},
