@@ -606,3 +606,16 @@ describe("sold positions note (sales ledger 4.1)", () => {
     assert.match(out, /3 sales not yet confirmed are not included\./);
   });
 });
+
+describe("sold lot labels (sales ledger 4.2)", () => {
+  test("no shares or price on a sold lot or its Cash counterpart", () => {
+    assert.equal(lotLabel(POS({ sold: true, shares: 0, purchase_date: "2025-06-01" })), "2025-06-01 · sold");
+    assert.equal(lotLabel(POS({ sold: true, symbol: "CASH", shares: 0 })), "Sale proceeds");
+    assert.match(lotLabel(POS()), /120 @ /);
+  });
+  test("a sold position shows as a (sold) group in the page", () => {
+    const out = liveViewHtml({ ...DATA, liquid: { ...DATA.liquid, positions: [POS(), POS({ symbol: "AVUV", sold: true, shares: 0, start: 4500, new_money: -5500, weighted: -550, current: 0, day: null })] } }, ["symbol", "lot"]);
+    assert.ok(out.includes("AVUV (sold)"));
+  });
+});
+
