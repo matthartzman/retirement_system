@@ -165,6 +165,19 @@ The unmatched queue is a table, one sale per row; selecting a row opens a side p
 5. **Confirm** writes the ledger rows (`status=confirmed`), reduces the lots (or records the reduction if the holdings import already removed them), and marks the candidate `confirmed`. A toast with **Undo** (same pattern as the Monarch mapping page) sets the rows `voided`, restores the lots, and returns the candidate to `unmatched`. Undo is available later from the ledger too, until a 1099-B has been applied to that row (then it is locked and must be edited via the import).
 6. **Keyboard/bulk:** next/previous sale, and "apply the same method to all selected" which opens a *review list* of drafts rather than saving, so ~300 historical rows are reviewable in one pass but still individually confirmed.
 
+### 6.1 Confirm / undo / dismiss state machine (step 2.2, single sale; the bulk review list is a follow-up)
+
+Candidate states: `unmatched` (queue) -> `confirmed` | `dismissed` | `not_a_sale`. Every move is one plan-file transaction (ledger rows, holdings, candidate state together), so a failure leaves nothing half-done.
+
+| Action | From -> to | Effects | Refused when |
+|---|---|---|---|
+| Confirm | `unmatched` -> `confirmed` | Allocation `{lot_id: shares}` (lot_id = row index in holdings, no lot pre-selected) validated by `allocate_lots`; one `realized_sales` row per lot (`source` = candidate source, `monarch_id`, trade date; `settle_date` = Monarch date for Monarch rows); proceeds split pro-rata by shares (last lot takes the rounding remainder); basis = shares x lot price; holdings lots reduced, a lot at zero is removed; candidate gets `confirmed_sale_ids`. Non-taxable `tax_class`: `gain` null, lots still reduced. | already confirmed (idempotent: no second set of rows), allocation total != shares sold, a lot over-allocated, taxable lot with no purchase date, candidate not `unmatched` |
+| Undo | `confirmed` -> `unmatched` | Rows voided; shares added back to the lot (a removed lot is re-inserted at its original position with its original text); `confirmed_sale_ids` cleared. | any of the candidate's rows has an `official_*` value (a 1099-B was applied: locked) |
+| Dismiss | `unmatched` -> `dismissed` (reasons `before_ledger_start`, `other`) or `not_a_sale` | State only; no ledger or holdings change. | not `unmatched` |
+| Restore | `dismissed`/`not_a_sale` -> `unmatched` | State only. | not dismissed |
+
+The sold lot's identity (account, symbol, purchase date, price, lot type, note, original index and original share text) is stored as JSON in the row's `lot_key`, which is what makes confirm -> undo -> confirm restore identical holdings. Trade date for a Monarch row is pre-filled as the prior business day (weekends only; exchange holidays are not modelled) and the panel flags a Dec trade date with a Jan settle date. Aids (FIFO, HIFO, loss-first) are pure functions returning a draft allocation and its gain; nothing is saved by them. A bare candidate (no symbol or shares) needs both supplied at confirm. Scoped out and recorded: a `holdings_diff` candidate's lots were already removed by the import, so Confirm on it is refused with a pointer to manual entry (the candidate carries no lot detail to restore); the account's tax class is entered in the panel (defaulting to the account's last ledger row, else taxable) rather than read from the Planner account registry.
+
 Cost to the user is the real risk: ~315 sells at design time. The historical backlog can be handled by year (default: current tax year first), and old years can be dismissed in bulk as "before ledger start" (a ledger start date setting), which is the explicit alternative to guessing.
 
 ## 7. Tax netting (Phase 3)

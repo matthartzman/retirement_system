@@ -1129,6 +1129,70 @@ def sales_import_commit():
     return response
 
 
+# ---- Sale queue: confirm against specific lots, undo, dismiss (step 2.2; logic in src/sales_confirm.py) ----
+
+def _confirm_call(permission: str, fn_name: str, candidate_id: int, *args, **kwargs):
+    denied = _require(permission)
+    if denied:
+        return denied
+    from .. import sales_confirm as _confirm
+    return _sales_call(lambda root: getattr(_confirm, fn_name)(root, candidate_id, *args, **kwargs))
+
+
+@app.route("/api/sales/candidates", methods=["GET"])
+def sales_candidates():
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    from .. import sales_confirm as _confirm
+    return _sales_call(_confirm.list_candidates, state=request.args.get("state") or None)
+
+
+@app.route("/api/sales/candidates/<int:candidate_id>/panel", methods=["GET"])
+def sales_candidate_panel(candidate_id: int):
+    try:
+        shares = float(request.args["shares"]) if request.args.get("shares") else None
+    except ValueError:
+        return jsonify({"success": False, "error": "shares must be a number"}), 400
+    return _confirm_call("view_dashboard", "panel", candidate_id, symbol=request.args.get("symbol") or None, shares=shares)
+
+
+@app.route("/api/sales/candidates/<int:candidate_id>/confirm", methods=["POST"])
+def sales_candidate_confirm(candidate_id: int):
+    b = request.get_json(silent=True) or {}
+    try:
+        kw = {"allocation": dict(b.get("allocation") or {}), "tax_class": str(b.get("tax_class") or ""),
+              "trade_date": str(b.get("trade_date") or ""), "symbol": b.get("symbol") or None}
+        for name in ("fees", "proceeds", "shares"):
+            if b.get(name) not in (None, ""):
+                kw[name] = float(b[name])
+        kw["allocation"] = {str(k): float(v) for k, v in kw["allocation"].items()}
+    except (TypeError, ValueError):
+        return jsonify({"success": False, "error": "allocation, fees, proceeds and shares must be numbers"}), 400
+    response = _confirm_call("write_config", "confirm", candidate_id, **kw)
+    if response[1] == 200:
+        _audit("sale_confirmed", {"candidate_id": candidate_id})
+    return response
+
+
+@app.route("/api/sales/candidates/<int:candidate_id>/undo", methods=["POST"])
+def sales_candidate_undo(candidate_id: int):
+    response = _confirm_call("write_config", "undo", candidate_id)
+    if response[1] == 200:
+        _audit("sale_confirm_undone", {"candidate_id": candidate_id})
+    return response
+
+
+@app.route("/api/sales/candidates/<int:candidate_id>/dismiss", methods=["POST"])
+def sales_candidate_dismiss(candidate_id: int):
+    return _confirm_call("write_config", "dismiss", candidate_id, reason=str((request.get_json(silent=True) or {}).get("reason") or ""))
+
+
+@app.route("/api/sales/candidates/<int:candidate_id>/restore", methods=["POST"])
+def sales_candidate_restore(candidate_id: int):
+    return _confirm_call("write_config", "restore", candidate_id)
+
+
 # ---- Account reconciliation (app vs Monarch) ----
 # Logic lives in src/reconcile.py; every write is logged and undoable (reconcile_log).
 

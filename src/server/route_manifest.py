@@ -39,7 +39,9 @@ ROUTE_MODULES = {
         "/api/ytd/transactions/<int:index>", "/api/ytd/transactions/bulk", "/api/ytd/transactions/template", "/api/ytd/transactions/upload",
         "/api/ytd/account-setup", "/api/ytd/account-setup/recover", "/api/ytd/account-setup/roll-forward",
     ],
-    "sales_ledger": ["/api/sales", "/api/sales/<int:sale_id>/void", "/api/sales/<int:sale_id>/unvoid", "/api/sales/import/preview", "/api/sales/import/commit"],
+    "sales_ledger": ["/api/sales", "/api/sales/<int:sale_id>/void", "/api/sales/<int:sale_id>/unvoid", "/api/sales/import/preview", "/api/sales/import/commit",
+        "/api/sales/candidates", "/api/sales/candidates/<int:candidate_id>/panel", "/api/sales/candidates/<int:candidate_id>/confirm",
+        "/api/sales/candidates/<int:candidate_id>/undo", "/api/sales/candidates/<int:candidate_id>/dismiss", "/api/sales/candidates/<int:candidate_id>/restore"],
     "reconcile": ["/api/reconcile", "/api/reconcile/map", "/api/reconcile/preview", "/api/reconcile/apply", "/api/reconcile/undo", "/api/reconcile/log", "/api/reconcile/policy", "/api/reconcile/undo-auto", "/api/reconcile/seed"],
     "strategy_assets": [
         "/api/holdings", "/api/holdings/preview",

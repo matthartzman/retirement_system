@@ -608,7 +608,9 @@ DASHBOARD_JS_MAX_LINES = 6_476
 # reads for its tax estimate; new behavior, +7): raised to 40,810.
 # 2026-10-28 (Sales Ledger page, plan step 1.4: new feature module dashboard_decomp_sales_ledger.js, 172 lines, plus its
 # STEPS/help/dispatch entries; dashboard.js stays at its ceiling, two wrapped lines joined): raised to 40,991.
-TOTAL_JS_MAX_LINES = 40_991
+# 2026-10-29 (Sales queue panel, plan step 2.2: new feature module dashboard_decomp_sales_queue.js, 178 lines, mounted
+# from the Sales Ledger page; dashboard.js did not grow): raised to the measured 41,169.
+TOTAL_JS_MAX_LINES = 41_169
 
 
 def _line_count(path: Path) -> int:
