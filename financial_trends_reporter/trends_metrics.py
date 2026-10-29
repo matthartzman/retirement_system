@@ -23,7 +23,7 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from src import spending_tracker, ytd_tracking as ytd  # noqa: E402
-from . import balance_series  # noqa: E402
+from . import balance_series, realized_log  # noqa: E402
 from .account_registry import classify as _classify_name  # noqa: E402
 from .spending_window import annual_budgets, prior_detail, same_day_prior_year as _same_day_prior_year, tracking_type_totals  # noqa: E402
 from src.active_plan import peek_plan_data_for_input_dir  # noqa: E402
@@ -318,7 +318,7 @@ def compute_snapshot(base_dir: str | Path, *, today=None, passthrough_decisions:
     as_of_date = (today or date.today()).isoformat()
     data_through_date = summary.get("through_date") or summary.get("ytd_end") or as_of_date
 
-    return {
+    snapshot = {
         "as_of_date": as_of_date,
         "data_through_date": data_through_date,
         "ytd_expenses_by_category": ytd_expenses_by_category,
@@ -343,3 +343,8 @@ def compute_snapshot(base_dir: str | Path, *, today=None, passthrough_decisions:
         # holdings/net_worth above remain the fallback and a cross-check.
         "monarch_balances": balance_series.snapshot_summary(balances_db) if balances_db else None,
     }
+    # Year-to-date realized sales from the ledger (plan 9.3). Left out, not zeroed, when the ledger cannot be read.
+    realized = realized_log.realized_ytd(base_dir, today or date.today())
+    if realized is not None:
+        snapshot["realized_ytd"] = realized
+    return snapshot
