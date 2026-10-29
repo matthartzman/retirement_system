@@ -59,3 +59,23 @@ def test_csv_preview_then_commit(client):
 def test_csv_commit_with_errors_is_a_400(client):
     r = client.post("/api/sales/import/commit", json={"content": CSV + "bad,row\n"})
     assert r.status_code == 400 and client.get("/api/sales").get_json()["sales"] == []
+
+
+def test_tax_year_summary_carryforward_and_wash_routes(client):
+    loss = {**ROW, "proceeds": 1000, "basis": 1400}
+    assert client.post("/api/sales", json=loss).status_code == 200
+    out = client.get("/api/sales/tax-year?year=2026").get_json()
+    assert out["success"] and out["netting"]["net_lt"] == pytest.approx(-405.0) and out["wash"]["count"] == 0
+    r = client.post("/api/sales/carryforward", json={"year": 2026, "carryforward_short": 100, "carryforward_long": 200})
+    assert r.status_code == 200 and r.get_json()["carryforward_long"] == 200.0
+    out = client.get("/api/sales/tax-year?year=2026").get_json()
+    assert out["carryforward_in"] == {"short": 100.0, "long": 200.0, "entered": True}
+    r = client.post("/api/sales/wash/refresh")
+    assert r.status_code == 200 and r.get_json() == {"success": True, "flagged": 0, "updated": 0}
+
+
+def test_tax_year_routes_reject_bad_input(client):
+    assert client.get("/api/sales/tax-year").status_code == 400
+    assert client.get("/api/sales/tax-year?year=abc").status_code == 400
+    r = client.post("/api/sales/carryforward", json={"year": 2026, "carryforward_short": -1, "carryforward_long": 0})
+    assert r.status_code == 400 and "zero or more" in r.get_json()["error"]

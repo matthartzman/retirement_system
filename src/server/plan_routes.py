@@ -1129,6 +1129,44 @@ def sales_import_commit():
     return response
 
 
+# ---- Tax-year panel (step 3a.3; logic in src/sales_tax_year.py): netting, carryforward entry, wash-flag refresh ----
+
+@app.route("/api/sales/tax-year", methods=["GET"])
+def sales_tax_year_summary():
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    from .. import sales_tax_year as _tax_year
+    try:
+        year = int(request.args["year"])
+    except (KeyError, ValueError):
+        return jsonify({"success": False, "error": "year is required and must be a number"}), 400
+    return _sales_call(_tax_year.tax_year_summary, year)
+
+
+@app.route("/api/sales/carryforward", methods=["POST"])
+def sales_carryforward():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    from .. import sales_tax_year as _tax_year
+    body = request.get_json(silent=True) or {}
+    response = _sales_call(lambda root: _tax_year.set_carryforward(
+        root, body.get("year"), short=body.get("carryforward_short"), long=body.get("carryforward_long")))
+    if response[1] == 200:
+        _audit("sales_carryforward_set", {"year": body.get("year")})
+    return response
+
+
+@app.route("/api/sales/wash/refresh", methods=["POST"])
+def sales_wash_refresh():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    from .. import sales_tax_year as _tax_year
+    return _sales_call(_tax_year.refresh_wash_flags)
+
+
 # ---- Sale queue: confirm against specific lots, undo, dismiss (step 2.2; logic in src/sales_confirm.py) ----
 
 def _confirm_call(permission: str, fn_name: str, candidate_id: int, *args, **kwargs):
