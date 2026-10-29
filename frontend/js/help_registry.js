@@ -285,6 +285,15 @@ export const HELP_PAGES = {
     impact: "A corrected balance changes net worth, YTD growth and the starting values the next build uses. Plan inputs (home, autos, mortgage) are plan-start figures; rebuild after changing or applying them.",
     terms: ["Reconciliation", "Report only", "Plan-start figures"],
   },
+  "sales_ledger": {
+    title: "Sales Ledger",
+    summary: "Record investment sales you have made and see the gain on each.",
+    whatFor: "Keeps a running record of realized sales, one row per lot sold: sale date, account, symbol, shares, proceeds, fees, the lot's cost basis and purchase date. It works out the gain and whether it is short or long term.",
+    connections: "Nothing else in the plan reads the ledger yet. Entering a sale here does not change your holdings or the projection.",
+    options: "Add a sale by hand, or paste or choose a CSV and preview it first: duplicates are skipped and any bad line stops the whole file. Void a sale to take it out of the totals; Restore brings it back.",
+    impact: "None on the projection yet. Gain is proceeds minus fees minus basis, blank for pre-tax, Roth and HSA accounts. A sale is long term only when it is after the first anniversary of the purchase.",
+    terms: ["Cost basis"],
+  },
   "reports_and_review": {
     title: "Build & Results",
     summary: "Check the plan is ready, build the reports, then review and download them.",

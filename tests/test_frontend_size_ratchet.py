@@ -606,7 +606,9 @@ DASHBOARD_JS_MAX_LINES = 6_476
 # Gross · Withholding · Net line with live refresh; dashboard.js did not grow, +62): raised to 40,803.
 # 2026-10-28 (Accounts & Sources: Tax Treatment and After-Tax Premium columns that the Trends Live Snapshot
 # reads for its tax estimate; new behavior, +7): raised to 40,810.
-TOTAL_JS_MAX_LINES = 40_810
+# 2026-10-28 (Sales Ledger page, plan step 1.4: new feature module dashboard_decomp_sales_ledger.js, 172 lines, plus its
+# STEPS/help/dispatch entries; dashboard.js stays at its ceiling, two wrapped lines joined): raised to 40,991.
+TOTAL_JS_MAX_LINES = 40_991
 
 
 def _line_count(path: Path) -> int:

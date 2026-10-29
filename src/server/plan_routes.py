@@ -1053,6 +1053,82 @@ def ytd_account_setup_roll_forward():
     return jsonify(_ytd_feature_service().roll_forward_account_setup())
 
 
+# ---- Realized-sales ledger (Phase 1: manual entry, CSV import, list) ----
+# Logic lives in src/sales_service.py; nothing reads the ledger yet.
+
+def _sales_call(fn, *args, **kwargs):
+    from .. import sales_service as _sales
+    try:
+        return jsonify({"success": True, **(fn(_ytd_input_root(), *args, **kwargs) or {})}), 200
+    except _sales.ValidationError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+
+
+@app.route("/api/sales", methods=["GET"])
+def sales_list():
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    from .. import sales_service as _sales
+    try:
+        year = int(request.args["year"]) if request.args.get("year") else None
+    except ValueError:
+        return jsonify({"success": False, "error": "year must be a number"}), 400
+    return _sales_call(_sales.list_sales, year=year, include_voided=request.args.get("include_voided") == "1")
+
+
+@app.route("/api/sales", methods=["POST"])
+def sales_add():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    from .. import sales_service as _sales
+    body = request.get_json(silent=True) or {}
+    response = _sales_call(lambda root: {"sale": _sales.add_sale(root, body)})
+    if response[1] == 200:
+        _audit("sale_recorded", {"symbol": str(body.get("symbol") or "").upper()})
+    return response
+
+
+@app.route("/api/sales/<int:sale_id>/void", methods=["POST"])
+def sales_void(sale_id: int):
+    denied = _require("write_config")
+    if denied:
+        return denied
+    from .. import sales_service as _sales
+    return _sales_call(_sales.void_sale, sale_id)
+
+
+@app.route("/api/sales/<int:sale_id>/unvoid", methods=["POST"])
+def sales_unvoid(sale_id: int):
+    denied = _require("write_config")
+    if denied:
+        return denied
+    from .. import sales_service as _sales
+    return _sales_call(_sales.unvoid_sale, sale_id)
+
+
+@app.route("/api/sales/import/preview", methods=["POST"])
+def sales_import_preview():
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    from .. import sales_service as _sales
+    return _sales_call(_sales.preview_csv, str((request.get_json(silent=True) or {}).get("content") or ""))
+
+
+@app.route("/api/sales/import/commit", methods=["POST"])
+def sales_import_commit():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    from .. import sales_service as _sales
+    response = _sales_call(_sales.commit_csv, str((request.get_json(silent=True) or {}).get("content") or ""))
+    if response[1] == 200:
+        _audit("sales_imported", {"written": response[0].get_json().get("written", 0)})
+    return response
+
+
 # ---- Account reconciliation (app vs Monarch) ----
 # Logic lives in src/reconcile.py; every write is logged and undoable (reconcile_log).
 
