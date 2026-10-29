@@ -115,7 +115,10 @@ export function fmtUsd2(v) {
 
 // "2024-03-15 · 120 @ $412.10", plus " · reinvested". An undated lot reads "Undated"; a lot with
 // no purchase price leaves the "@ price" off rather than showing a made-up one.
+// A sold lot (a confirmed ledger sale) reads "2025-06-01 · sold"; the Cash row that takes its proceeds in reads
+// "Sale proceeds". Neither shows shares or a price.
 export function lotLabel(lot) {
+  if (lot.sold) return String(lot.symbol || "").toUpperCase().startsWith("CASH") ? "Sale proceeds" : `${lot.purchase_date || "Undated"} · sold`;
   const parts = [lot.purchase_date || "Undated"];
   const hasShares = lot.shares !== null && lot.shares !== undefined && !Number.isNaN(Number(lot.shares));
   const hasPrice = lot.purchase_price !== null && lot.purchase_price !== undefined && !Number.isNaN(Number(lot.purchase_price));

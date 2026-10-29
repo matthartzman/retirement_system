@@ -205,3 +205,36 @@ describe("buildTree", () => {
     assert.equal(t.total.current, 0);
   });
 });
+
+describe("sold lots (sales ledger 4.2)", () => {
+  // A sold AVUV lot (start 4500, proceeds 5500 out) and the Cash row that takes the 5500 in, beside held rows.
+  const SOLD = LOT({ symbol: "AVUV", subclass: "Small-Cap Value", sold: true, shares: 0, start: 4500, new_money: -5500, weighted: -550, current: 0, day: null });
+  const SWAP = LOT({ symbol: "CASH", asset_class: "Cash", subclass: null, sold: true, shares: 0, start: -5500, new_money: 5500, weighted: 550, current: 0, day: null });
+  const HELD = [LOT({ symbol: "ITOT", start: 12000, current: 13000 }), LOT({ symbol: "CASH", asset_class: "Cash", subclass: null, start: 6500, current: 6500, day: 0 })];
+  const ALL = [...HELD, SOLD, SWAP];
+
+  test("sold rows are in every group total and the groups add up to the total", () => {
+    for (const order of [["class", "symbol", "lot"], ["account", "lot"], ["subclass", "symbol", "account", "lot"]]) {
+      const { nodes, total } = buildTree(ALL, order, { days: 300 });
+      near(nodes.reduce((s, n) => s + n.row.market_gain, 0), total.market_gain, "gain");
+      near(nodes.reduce((s, n) => s + n.row.start, 0), total.start, "start");
+      near(nodes.reduce((s, n) => s + n.row.new_money, 0), total.new_money, "new money");
+      near(total.market_gain, 2000, "total gain = ITOT 1000 + AVUV 1000");
+    }
+  });
+  test("per-group returns come from the signed money out and in", () => {
+    const { nodes } = buildTree(ALL, ["class", "lot"], { days: 300 });
+    const equity = nodes.find((n) => n.name === "Equity"), cash = nodes.find((n) => n.name === "Cash");
+    near(equity.row.market_gain, 2000, "equity gain");
+    near(equity.row.return_pct, 2000 / (16500 - 550), "equity return");
+    near(cash.row.market_gain, 0, "cash gain");
+  });
+  test("a sold ticker is its own (sold) row, apart from the same ticker still held", () => {
+    const held = LOT({ symbol: "AVUV", subclass: "Small-Cap Value", start: 900, current: 1000 });
+    const { nodes } = buildTree([held, SOLD], ["symbol", "lot"], { days: 300 });
+    assert.deepEqual(nodes.map((n) => n.name).sort(), ["AVUV", "AVUV (sold)"]);
+    near(nodes.find((n) => n.name === "AVUV (sold)").row.market_gain, 1000, "sold gain");
+    assert.equal(groupLabel(SWAP, "symbol"), "CASH");    // the Cash row stays in Cash
+  });
+});
+

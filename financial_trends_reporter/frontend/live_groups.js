@@ -108,7 +108,7 @@ export function groupLabel(position, dim) {
   switch (dim) {
     case "subclass": return position.subclass || position.asset_class || "Other";
     case "class": return position.asset_class || "Other";
-    case "symbol": return position.symbol;
+    case "symbol": return position.sold && !isCashSymbol(position.symbol) ? `${position.symbol} (sold)` : position.symbol;
     case "account": return position.account;
     default: return position.purchase_date || "Undated";
   }
