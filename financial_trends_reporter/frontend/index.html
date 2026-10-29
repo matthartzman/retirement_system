@@ -300,6 +300,20 @@
   .proj-table .proj-h.d1 .proj-toggle, .proj-table .proj-h.d2 .proj-toggle { font-weight: 400; }
   .proj-toggle:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; border-radius: 3px; }
   @media (prefers-color-scheme: dark) { .proj-table .proj-h.d1 { color: #c0c0c8; } .proj-table .proj-h.d2 { color: #a0a0a8; } .proj-table .proj-h.open { box-shadow: inset 0 -2px 0 #60a5fa; } }
+  /* Summary vs detail: top-level subtotal cells bold, a nested group's subtotal regular, detail cells muted and a size down. Rules bracket an open group
+     (el/er 2 top-level, 1 nested; projection_groups.js edge) and set the table's total apart (tr). Every other
+     row is shaded, the frozen Year cell included (opaque: it covers the cells scrolling under it). */
+  .proj-table { --proj-rule: #9a9aa2; --proj-rule-light: #d4d4d8; --proj-row-alt: #f5f6f8; }
+  @media (prefers-color-scheme: dark) { .proj-table { --proj-rule: #6a6e76; --proj-rule-light: #3a3d44; --proj-row-alt: #24272d; } }
+  .proj-table td.sub { font-weight: 600; }
+  .proj-table td.d { color: #555; font-size: 12px; }
+  @media (prefers-color-scheme: dark) { .proj-table td.d { color: #b8b8c0; } }
+  .proj-table .el1 { border-left: 1px solid var(--proj-rule-light); }
+  .proj-table .er1 { border-right: 1px solid var(--proj-rule-light); }
+  .proj-table .el2 { border-left: 1px solid var(--proj-rule); }
+  .proj-table .er2 { border-right: 1px solid var(--proj-rule); }
+  .proj-table .tr { border-left: 2px solid var(--proj-rule); }
+  .proj-table tbody tr:nth-child(even) > * { background: var(--proj-row-alt); }
   @media (max-width: 700px) {
     .proj-table th, .proj-table td { padding: 5px 4px; font-size: 12px; }
     .proj-toggle { white-space: normal; text-align: right; }   /* "Annuities & Pension" wraps instead of widening the table */
