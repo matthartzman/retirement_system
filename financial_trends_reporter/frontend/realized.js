@@ -11,7 +11,7 @@ import { fmtUsd, fmtPct } from "./live_snapshot.js";
 const isPct = () => moneyView().shown === "percent";
 const DASH = "–";
 const TERMS = { short: "Short", long: "Long", unknown: "Unknown" };
-const SOURCES = { holdings_diff: "Holdings import", monarch: "Monarch", manual: "Manual", "1099b": "1099-B" };
+const SOURCES = { holdings_diff: "Holdings import", monarch: "Imported transactions", manual: "Manual", "1099b": "1099-B" };
 const STATUS_1099 = { none: DASH, matches: "Matches", differs: "Differs" };
 
 export const DEFAULT_STATE = Object.freeze({ group: "symbol", taxYear: "", taxable: false, wash: false, unconfirmed: false });
@@ -81,7 +81,7 @@ function estimateHtml(est, by) {
     ? `${summaryHtml(est)}${tableHtml(est.groups, by)}`
     : `<p class="empty">No waiting sale could be valued.</p>`;
   return `<details class="live-section estimate" open><summary>Estimate for sales not yet confirmed</summary>`
-    + `<p class="note">Estimate only: each is valued at its Monarch amount with first-in-first-out lots from today's holdings. Not in the totals above, and never used for tax, the projection or the daily log.</p>${inner}</details>`;
+    + `<p class="note">Estimate only: each is valued at its imported amount with first-in-first-out lots from today's holdings. Not in the totals above, and never used for tax, the projection or the daily log.</p>${inner}</details>`;
 }
 
 export function realizedViewHtml(data, state = DEFAULT_STATE) {
