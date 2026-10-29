@@ -32,7 +32,7 @@ from src.http_runtime.server import LocalHTTPServer, _configured_token  # noqa: 
 from src.http_runtime.wsgi_facade import Flask, Response, request  # noqa: E402
 from src.stores import SchemaVersionError  # noqa: E402
 
-from financial_trends_reporter import account_registry, balance_series, flows, live_snapshot, percent_view, spending_window  # noqa: E402
+from financial_trends_reporter import account_registry, balance_series, flows, live_snapshot, percent_view, realized_view, spending_window  # noqa: E402
 from financial_trends_reporter.access_routes import register_access  # noqa: E402
 from financial_trends_reporter.access_store import DB_FILENAME as ACCESS_DB_FILENAME, AccessStore  # noqa: E402
 from financial_trends_reporter.listeners import ListenerApp, check_funnel_target  # noqa: E402
@@ -134,6 +134,14 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, access
         # Group By for the Live Snapshot table (grouping, ordering, totals), imported by live_snapshot.js.
         return Response(
             (_APP_ROOT / "frontend" / "live_groups.js").read_text(encoding="utf-8"),
+            content_type="text/javascript; charset=utf-8",
+        )
+
+    @app.route("/realized.js", methods=["GET"])
+    def realized_js():
+        # The Realized gains and losses view (ledger sales in the Time scope), loaded by index.html.
+        return Response(
+            (_APP_ROOT / "frontend" / "realized.js").read_text(encoding="utf-8"),
             content_type="text/javascript; charset=utf-8",
         )
 
@@ -280,6 +288,23 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, access
                                              start_from=request.args.get("from")))
         except Exception as exc:  # noqa: BLE001 - the page shows the cause and keeps its last good values
             logging.getLogger(__name__).exception("live snapshot failed")
+            return _json({"success": False, "error": f"{exc.__class__.__name__}: {exc}"}, 500)
+
+    @app.route("/api/realized", methods=["GET"])
+    def realized_endpoint():
+        # Realized gains and losses from the sales ledger. ?from= is the Time scope's first day; ?tax_year=YYYY
+        # replaces it; ?group=symbol|account, ?taxable=1, ?wash=1, ?unconfirmed=1 (display-only estimate).
+        args = request.args
+        flag = lambda name: str(args.get(name) or "") in {"1", "true"}
+        try:
+            year = int(args["tax_year"]) if str(args.get("tax_year") or "").strip() else None
+            return _json(realized_view.build(**realized_view.load(retirement_system_dir), today=_today(), start=args.get("from"),
+                                             tax_year=year, group=str(args.get("group") or "symbol"), taxable_only=flag("taxable"),
+                                             wash_only=flag("wash"), include_unconfirmed=flag("unconfirmed")))
+        except ValueError:
+            return _json({"success": False, "error": "tax_year must be a year"}, 400)
+        except Exception as exc:  # noqa: BLE001 - the page shows the cause
+            logging.getLogger(__name__).exception("realized view failed")
             return _json({"success": False, "error": f"{exc.__class__.__name__}: {exc}"}, 500)
 
     @app.route("/api/app-accounts", methods=["GET"])

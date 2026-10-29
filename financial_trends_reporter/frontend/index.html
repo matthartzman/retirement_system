@@ -171,7 +171,19 @@
   .live-actions { display: flex; align-items: center; gap: 12px; font-size: 13px; }
   .live-actions button { border: 1px solid #ccc; background: #fff; color: inherit; border-radius: 6px; padding: 5px 12px; font-size: 13px; cursor: pointer; }
   @media (prefers-color-scheme: dark) { .live-actions button { background: #1e2126; border-color: #3a3d44; } }
-  #liveBody { display: grid; gap: 16px; }
+  #liveBody, #realizedBody { display: grid; gap: 16px; }
+  #realizedBody[hidden], #liveBody[hidden] { display: none; }
+  .live-tabs { display: inline-flex; border: 1px solid #ccc; border-radius: 6px; overflow: hidden; }
+  .live-actions .live-tabs button { border: 0; border-radius: 0; }
+  .live-actions .live-tabs button[aria-pressed="true"] { background: #1a1a1a; color: #fff; }
+  @media (prefers-color-scheme: dark) { .live-tabs { border-color: #3a3d44; } .live-actions .live-tabs button[aria-pressed="true"] { background: #e8e8ea; color: #14161a; } }
+  .realized-controls { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-size: 13px; margin: 8px 0; }
+  .realized-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin: 8px 0; }
+  .live-big.small { font-size: 20px; }
+  .realized-table .sale-lot th { font-weight: 400; padding-left: 28px; }
+  .chip.warn { display: inline-block; border: 1px solid #b45309; color: #b45309; border-radius: 999px; padding: 1px 8px; font-size: 12px; }
+  .pos { color: #15803d; } .neg { color: #b42318; }
+  @media (prefers-color-scheme: dark) { .pos { color: #4ade80; } .neg { color: #ff8a80; } .chip.warn { color: #fbbf24; border-color: #fbbf24; } }
   .live-error { color: #b42318; font-size: 13px; }
   @media (prefers-color-scheme: dark) { .live-error { color: #ff8a80; } }
   .live-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
@@ -293,8 +305,9 @@
     <div class="note" id="noteSpending">Totals follow the Spending Analysis mapping and include taxes. Markers: same period last year, budget for this period, and full-year budget. Hover a row label to see its categories (click to pin), then hover a category to see its merchants.</div></div>
 </div>
 <section id="liveView" aria-label="Live Snapshot" hidden>
-  <div class="live-actions"><button type="button" id="liveRefresh">Refresh now</button><span id="liveError" class="live-error" role="alert"></span></div>
+  <div class="live-actions"><div class="live-tabs" role="group" aria-label="Live Snapshot section"><button type="button" data-live-tab="holdings" aria-pressed="true">Holdings</button><button type="button" data-live-tab="realized" aria-pressed="false">Realized</button></div><button type="button" id="liveRefresh">Refresh now</button><span id="liveError" class="live-error" role="alert"></span></div>
   <div id="liveBody"></div>
+  <div id="realizedBody" hidden></div>
 </section>
 <div id="accountsMsg" role="status"></div>
 <div id="updateOverlay" class="update-overlay" role="status" aria-live="polite" aria-hidden="true"><div class="update-card"><div class="update-spinner" aria-hidden="true"></div><div class="update-title">Updating Data</div><div id="updateOverlayDetail" class="update-detail">Elapsed 0:00</div><div class="update-bar" role="progressbar" aria-label="Update progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="updateOverlayBar"></span></div><div id="updateOverlayAvg" class="update-avg">Working…</div><div class="update-actions"><button type="button" id="updateCancel" class="update-btn">Cancel update</button><button type="button" id="updateHide" class="update-btn">Hide</button></div><div class="update-note">The update keeps running if you hide this window.</div></div></div>
@@ -968,5 +981,6 @@ async function initMoneyView() {
 initMoneyView().then(loadHistory).then(() => updateData(false));
 </script>
 <script type="module" src="./live_snapshot.js"></script>
+<script type="module" src="./realized.js"></script>
 </body>
 </html>
