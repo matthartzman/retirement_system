@@ -1,4 +1,4 @@
-"""Realized-sales ledger of a plan file (schema v17): ``SalesRepo``, reached as ``store.sales``.
+"""Realized-sales ledger of a plan file (schema v17; v18 adds imported tax statements and the correction audit): ``SalesRepo``, reached as ``store.sales``.
 
 Typed tables (not flat text datasets), so a plan revision neither copies them nor, on restore, rewrites them:
 a restore leaves every ledger row as it is (it only rewrites plan rows, flat datasets and rental).
@@ -88,11 +88,53 @@ CREATE TABLE realized_adjustments (
 ) WITHOUT ROWID;
 """
 
+STATEMENT_STATUSES = ("applied", "superseded")
+AUDIT_ACTIONS = ("correct", "add", "revert")
+
+# v18 (plan step 5.2): imported broker 1099-B statements, their lines, and the before/after of every ledger change a
+# statement made (so a corrected statement can supersede an earlier one by reverting it first).
+SCHEMA_V18_DDL = f"""
+ALTER TABLE realized_sales ADD COLUMN statement_id INTEGER;
+CREATE TABLE tax_statements (
+    statement_id   INTEGER PRIMARY KEY AUTOINCREMENT,
+    broker         TEXT NOT NULL CHECK (broker <> ''),
+    account        TEXT NOT NULL CHECK (account <> ''),
+    tax_year       INTEGER NOT NULL,
+    corrected      INTEGER NOT NULL DEFAULT 0 CHECK (corrected IN (0, 1)),
+    statement_date TEXT,
+    status         TEXT NOT NULL DEFAULT 'applied' CHECK (status IN ({_in(STATEMENT_STATUSES)})),
+    control        TEXT NOT NULL DEFAULT '{{}}',
+    applied_at     TEXT NOT NULL
+);
+CREATE INDEX ix_tax_statements_key ON tax_statements (broker, account, tax_year, status);
+CREATE TABLE tax_statement_lines (
+    statement_id INTEGER NOT NULL,
+    line_no      INTEGER NOT NULL,
+    line         TEXT NOT NULL,
+    sale_ids     TEXT NOT NULL DEFAULT '[]',
+    PRIMARY KEY (statement_id, line_no)
+) WITHOUT ROWID;
+CREATE TABLE realized_sale_audit (
+    audit_id     INTEGER PRIMARY KEY AUTOINCREMENT,
+    sale_id      INTEGER NOT NULL,
+    statement_id INTEGER NOT NULL,
+    action       TEXT NOT NULL CHECK (action IN ({_in(AUDIT_ACTIONS)})),
+    before       TEXT NOT NULL DEFAULT '{{}}',
+    after        TEXT NOT NULL DEFAULT '{{}}',
+    created_at   TEXT NOT NULL
+);
+CREATE INDEX ix_realized_sale_audit_statement ON realized_sale_audit (statement_id);
+"""
+
+# Ledger columns a statement may rewrite (plan 5.4): the official numbers, and the dates and holding period they carry.
+CORRECTABLE = ("sale_date", "purchase_date", "proceeds", "basis", "gain", "holding_period",
+               "official_proceeds", "official_basis", "official_gain", "official_holding_period")
+
 _ISO = re.compile(r"\d{4}-\d{2}-\d{2}")
 _SALE_FIELDS = (
     "sale_date", "settle_date", "account", "tax_class", "symbol", "shares", "proceeds", "fees", "basis",
     "purchase_date", "holding_period", "gain", "wash_flag", "wash_note", "source", "monarch_id", "lot_key",
-    "official_proceeds", "official_basis", "official_gain", "official_holding_period", "revision_ref",
+    "official_proceeds", "official_basis", "official_gain", "official_holding_period", "revision_ref", "statement_id",
 )
 
 
@@ -168,6 +210,7 @@ class SalesRepo:
             "official_gain": _num("official_gain", f.get("official_gain"), optional=True),
             "official_holding_period": f.get("official_holding_period"),
             "revision_ref": f.get("revision_ref"),
+            "statement_id": f.get("statement_id"),
         }
         now = self._store._clock()
         cols = ", ".join(values)
@@ -279,3 +322,118 @@ class SalesRepo:
     def adjustments(self) -> list[dict[str, Any]]:
         with self._store._read() as con:
             return [dict(r) for r in con.execute("SELECT * FROM realized_adjustments ORDER BY tax_year")]
+
+    # ------------------------------------------------------------------ tax_statements (v18)
+    def add_statement(self, *, broker: str, account: str, tax_year: int, corrected: bool = False,
+                      statement_date: str | None = None, control: dict[str, Any] | None = None) -> int:
+        broker, account = str(broker or "").strip(), str(account or "").strip()
+        if not broker or not account:
+            raise ValidationError("a statement needs a broker and an account")
+        with self._store._write() as con:
+            cur = con.execute(
+                "INSERT INTO tax_statements (broker, account, tax_year, corrected, statement_date, control, applied_at) "
+                "VALUES (?,?,?,?,?,?,?)",
+                (broker, account, int(tax_year), 1 if corrected else 0, _iso("statement_date", statement_date, optional=True),
+                 json.dumps(control or {}), self._store._clock()))
+            return int(cur.lastrowid)
+
+    @staticmethod
+    def _statement(r: Any) -> dict[str, Any]:
+        d = dict(r)
+        d["control"] = json.loads(d["control"])
+        return d
+
+    def get_statement(self, statement_id: int) -> dict[str, Any]:
+        with self._store._read() as con:
+            r = con.execute("SELECT * FROM tax_statements WHERE statement_id = ?", (statement_id,)).fetchone()
+        if r is None:
+            raise NotFoundError(f"no tax statement {statement_id}")
+        return self._statement(r)
+
+    def list_statements(self) -> list[dict[str, Any]]:
+        with self._store._read() as con:
+            return [self._statement(r) for r in con.execute("SELECT * FROM tax_statements ORDER BY statement_id")]
+
+    def active_statement(self, broker: str, account: str, tax_year: int) -> dict[str, Any] | None:
+        with self._store._read() as con:
+            r = con.execute("SELECT * FROM tax_statements WHERE broker = ? AND account = ? AND tax_year = ? AND status = 'applied' "
+                            "ORDER BY statement_id DESC LIMIT 1", (broker, account, int(tax_year))).fetchone()
+        return self._statement(r) if r else None
+
+    def add_line(self, statement_id: int, line_no: int, line: dict[str, Any], sale_ids: list[int]) -> None:
+        with self._store._write() as con:
+            con.execute("INSERT INTO tax_statement_lines (statement_id, line_no, line, sale_ids) VALUES (?,?,?,?)",
+                        (statement_id, int(line_no), json.dumps(line), json.dumps([int(i) for i in sale_ids])))
+
+    def statement_lines(self, statement_id: int) -> list[dict[str, Any]]:
+        with self._store._read() as con:
+            rows = con.execute("SELECT * FROM tax_statement_lines WHERE statement_id = ? ORDER BY line_no", (statement_id,)).fetchall()
+        return [{"line_no": r["line_no"], "line": json.loads(r["line"]), "sale_ids": json.loads(r["sale_ids"])} for r in rows]
+
+    # ------------------------------------------------------------------ correction audit (v18)
+    def _audit_row(self, con: Any, sale_id: int, statement_id: int, action: str, before: dict, after: dict) -> None:
+        con.execute("INSERT INTO realized_sale_audit (sale_id, statement_id, action, before, after, created_at) VALUES (?,?,?,?,?,?)",
+                    (sale_id, statement_id, action, json.dumps(before), json.dumps(after), self._store._clock()))
+
+    def correct_sale(self, sale_id: int, statement_id: int, fields: dict[str, Any]) -> None:
+        """Rewrite ledger columns from a statement and record the before/after of exactly those columns."""
+        unknown = set(fields) - set(CORRECTABLE)
+        if unknown:
+            raise ValidationError(f"a statement cannot change: {', '.join(sorted(unknown))}")
+        clean: dict[str, Any] = {}
+        for k, v in fields.items():
+            if k in ("sale_date", "purchase_date"):
+                clean[k] = _iso(k, v, optional=k == "purchase_date")
+            elif k in ("holding_period", "official_holding_period"):
+                clean[k] = None if v is None and k == "official_holding_period" else _one_of(k, v, HOLDING_PERIODS)
+            else:
+                clean[k] = _num(k, v, optional=k.startswith("official_") or k == "gain")
+        with self._store._write() as con:
+            r = con.execute("SELECT * FROM realized_sales WHERE sale_id = ?", (sale_id,)).fetchone()
+            if r is None:
+                raise NotFoundError(f"no sale {sale_id}")
+            before = {k: r[k] for k in clean}
+            sets = ", ".join(f"{k} = ?" for k in clean)
+            con.execute(f"UPDATE realized_sales SET {sets}, updated_at = ? WHERE sale_id = ?",
+                        (*clean.values(), self._store._clock(), sale_id))
+            self._audit_row(con, sale_id, statement_id, "correct", before, clean)
+
+    def record_added(self, sale_id: int, statement_id: int) -> None:
+        """Audit a ledger row that a statement inserted (a 1099-B line with no ledger row)."""
+        with self._store._write() as con:
+            self._audit_row(con, sale_id, statement_id, "add", {}, {"status": "confirmed"})
+
+    def audit(self, *, statement_id: int | None = None, sale_id: int | None = None) -> list[dict[str, Any]]:
+        where, args = [], []
+        for col, v in (("statement_id", statement_id), ("sale_id", sale_id)):
+            if v is not None:
+                where.append(f"{col} = ?")
+                args.append(v)
+        sql = "SELECT * FROM realized_sale_audit" + (" WHERE " + " AND ".join(where) if where else "") + " ORDER BY audit_id"
+        with self._store._read() as con:
+            rows = [dict(r) for r in con.execute(sql, args)]
+        for r in rows:
+            r["before"], r["after"] = json.loads(r["before"]), json.loads(r["after"])
+        return rows
+
+    def revert_statement(self, statement_id: int) -> None:
+        """Undo everything an applied statement did, newest change first: corrected rows get their old values back,
+        rows it added are voided. The statement is marked ``superseded``. Each undo is itself audited."""
+        with self._store._write() as con:
+            st = con.execute("SELECT status FROM tax_statements WHERE statement_id = ?", (statement_id,)).fetchone()
+            if st is None:
+                raise NotFoundError(f"no tax statement {statement_id}")
+            if st["status"] != "applied":
+                raise ValidationError("this statement is already superseded")
+            trail = con.execute("SELECT * FROM realized_sale_audit WHERE statement_id = ? AND action IN ('correct','add') "
+                                "ORDER BY audit_id DESC", (statement_id,)).fetchall()
+            now = self._store._clock()
+            for a in trail:
+                before = json.loads(a["before"])
+                if a["action"] == "correct":
+                    sets = ", ".join(f"{k} = ?" for k in before)
+                    con.execute(f"UPDATE realized_sales SET {sets}, updated_at = ? WHERE sale_id = ?", (*before.values(), now, a["sale_id"]))
+                else:
+                    con.execute("UPDATE realized_sales SET status = 'voided', updated_at = ? WHERE sale_id = ?", (now, a["sale_id"]))
+                self._audit_row(con, a["sale_id"], statement_id, "revert", json.loads(a["after"]), before)
+            con.execute("UPDATE tax_statements SET status = 'superseded' WHERE statement_id = ?", (statement_id,))

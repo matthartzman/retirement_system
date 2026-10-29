@@ -140,7 +140,7 @@ def test_v8_file_upgrades_to_current_keeping_rows(tmp_path):
     assert db.get_version(con) == 8
     con.close()
     with PlanStore.open(p) as s:
-        assert s.schema_version == len(PLAN_MIGRATIONS) == 17
+        assert s.schema_version == len(PLAN_MIGRATIONS) == 18
         assert [r["section"] for r in s.all_rows()] == ["Household"] and s.holdings.rows()[0]["account"] == "A_IRA"
         assert s.rental.properties() == [] and s.rental.count() == 0
         s.rental.replace_all([FULL])
