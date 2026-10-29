@@ -47,6 +47,7 @@ describe("view toggle", () => {
     assert.equal(parseSavedView(null), "trends");
     assert.equal(parseSavedView("live"), "live");
     assert.equal(parseSavedView("nonsense"), "trends");
+    assert.equal(parseSavedView("projections"), "projections");   // Recent Projections is restored too
   });
   test("markup: a labelled two-button group, Trends pressed, and the Live section", () => {
     assert.match(html, /role="group" aria-label="View"/);

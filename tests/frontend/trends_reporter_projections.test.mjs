@@ -5,6 +5,8 @@ import assert from "node:assert/strict";
 import {
   buildTree, visibleColumns, windowRows, clampYears, windowTotal, reconcileNW,
 } from "../../financial_trends_reporter/frontend/projection_groups.js";
+import { renderProjections, buildLine, mountProjections, EMPTY_TEXT } from "../../financial_trends_reporter/frontend/projections.js";
+import { setMoneyView } from "../../financial_trends_reporter/frontend/money_view.js";
 
 const col = (key, label, banner, subtotal = false) => ({ key, label, banner, subtotal });
 const NW_COLS = [
@@ -169,5 +171,143 @@ describe("year window", () => {
   });
   test("clampYears", () => {
     assert.deepEqual(["", 0, 99, "abc", 7, "12", null, 3.6].map(clampYears), [5, 1, 30, 5, 7, 12, 5, 4]);
+  });
+});
+
+// ---- the view (financial_trends_reporter/frontend/projections.js) ----
+const DOC = (extra = {}) => ({
+  schema: "projection_tables/1", build_id: "b1", built_at: "2026-10-03T21:56:40Z", owners: ["Matt", "Pat"],
+  plan_changed: false, plan_first_year: 2026, plan_last_year: 2027, tables: { net_worth: NW, cash_flow: CF }, ...extra,
+});
+const NOW = new Date("2026-10-29T12:00:00Z");
+const UI = (o = {}) => ({ table: "nw", years: 5, open: new Set(), now: NOW, narrow: false, ...o });
+const leafHeaders = (html) => (html.match(/<thead>[\s\S]*?<\/thead>/)[0].match(/<th scope="col"/g) || []).length;
+const norm = (s) => s.replace(/\s/g, " ");
+
+describe("render", () => {
+  test("collapsed NW has six column headers and ages in the year cell", () => {
+    setMoneyView({ allowed: "both", shown: "dollars", scale: 1 });
+    const html = renderProjections(DOC(), UI());
+    assert.equal(leafHeaders(html), 6);
+    assert.match(html, /<th scope="row" class="proj-year"[^>]*>2026<span class="proj-ages">64 \/ 65<\/span>/);
+    assert.match(html, /\$5,687,743/);
+  });
+  test("collapsed CF has eight column headers and an N-yr total row", () => {
+    const html = renderProjections(DOC(), UI({ table: "cf", years: 2 }));
+    assert.equal(leafHeaders(html), 8);
+    assert.match(html, /2-yr total/);
+  });
+  test("group headers are buttons that say whether they're open", () => {
+    const closed = renderProjections(DOC(), UI());
+    assert.match(closed, /<button type="button" class="proj-toggle" data-proj-group="investable" aria-expanded="false">/);
+    const open = renderProjections(DOC(), UI({ open: new Set(["investable"]) }));
+    assert.match(open, /data-proj-group="investable" aria-expanded="true"/);
+    assert.equal(leafHeaders(open), 11);
+  });
+  test("missing data renders the rebuild prompt", () => {
+    const html = renderProjections({ missing: true }, UI());
+    assert.ok(html.includes(EMPTY_TEXT));
+    assert.equal(EMPTY_TEXT, "Recent Projections appear after the plan is rebuilt. Rebuild in the Retirement Planner, then refresh.");
+  });
+  test("a window past the plan's end says where the plan ends", () => {
+    assert.match(renderProjections(DOC(), UI({ years: 5 })), /The plan ends in 2027\./);
+    assert.doesNotMatch(renderProjections(DOC(), UI({ years: 2 })), /The plan ends/);
+  });
+  test("a negative change is written with a minus sign before the dollar", () => {
+    assert.match(renderProjections(DOC(), UI()), /class="num neg">−\$105,495</);
+  });
+  test("narrow screens use compact amounts", () => {
+    assert.match(renderProjections(DOC(), UI({ narrow: true })), />\$5\.69M</);
+  });
+  test("percent mode writes every cell as a percent of today's net worth", () => {
+    setMoneyView({ allowed: "both", shown: "percent", scale: 5687742.910374286 });
+    const html = renderProjections(DOC(), UI());
+    assert.match(html, />100\.0%</);
+    assert.doesNotMatch(html.replace(/<span class="proj-build[\s\S]*?<\/span>/, ""), /\$\d/);
+    setMoneyView({ allowed: "both", shown: "dollars", scale: 1 });
+  });
+  test("a regrouping that doesn't add up is shown, not hidden", () => {
+    const bad = { ...NW, rows: [{ ...NW.rows[0], values: { ...NW_2026, "TOTAL NW": 1 } }] };
+    const html = renderProjections(DOC({ tables: { net_worth: bad, cash_flow: CF } }), UI());
+    assert.match(html, /don't add up to Total NW/);
+  });
+});
+
+describe("build line", () => {
+  test("date and age, not stale", () => {
+    const b = buildLine("2026-10-03T21:56:40Z", false, NOW);
+    assert.match(norm(b.text), /^Workbook built Oct [34], 2026 \d{1,2}:\d{2} [AP]M · 2[56] days ago$/);
+    assert.equal(b.stale, false);
+  });
+  test("over 30 days old is stale", () => {
+    assert.equal(buildLine("2026-09-20T12:00:00Z", false, NOW).stale, true);
+  });
+  test("a plan changed since the build is stale", () => {
+    assert.equal(buildLine("2026-10-28T12:00:00Z", true, NOW).stale, true);
+  });
+  test("today and one day", () => {
+    assert.match(buildLine("2026-10-29T11:00:00Z", false, NOW).text, /· today$/);
+    assert.match(buildLine("2026-10-28T11:00:00Z", false, NOW).text, /· 1 day ago$/);
+  });
+});
+
+describe("mount", () => {
+  function harness({ store = {}, blocked = false, data = DOC() } = {}) {
+    const listeners = {}, docListeners = {}, kv = new Map(Object.entries(store));
+    const el = () => ({ innerHTML: "", hidden: true, addEventListener() {}, setAttribute() {} });
+    const body = { dataset: {}, classList: { on: new Set(), toggle(c, v) { if (v) this.on.add(c); else this.on.delete(c); } } };
+    const projBody = { ...el(), addEventListener: (t, fn) => { (listeners[t] ||= []).push(fn); } };
+    const els = { projView: el(), projBody };
+    const doc = { body, getElementById: (id) => els[id], querySelectorAll: () => [],
+      addEventListener: (t, fn) => { (docListeners[t] ||= []).push(fn); } };
+    const storage = { getItem: (k) => { if (blocked) throw new Error("blocked"); return kv.get(k) ?? null; },
+      setItem: (k, v) => { if (blocked) throw new Error("blocked"); kv.set(k, v); } };
+    const win = { localStorage: storage, fetch: async () => ({ ok: true, json: async () => data }),
+      matchMedia: () => ({ matches: false, addEventListener() {} }) };
+    const fire = (t, e) => (listeners[t] || []).forEach((fn) => fn(e));
+    return { doc, win, kv, body, projBody, els, fire, docListeners };
+  }
+  const settle = () => new Promise((r) => setTimeout(r, 20));
+  const click = (map) => ({ target: { closest: (sel) => map[sel] ?? null } });
+
+  test("a saved Recent Projections view opens it and loads the table", async () => {
+    const h = harness({ store: { trendsView_v1: "projections" } });
+    mountProjections(h.doc, h.win, () => NOW); await settle();
+    assert.equal(h.els.projView.hidden, false);
+    assert.ok(h.body.classList.on.has("proj-mode"));
+    assert.equal(leafHeaders(h.projBody.innerHTML), 6);
+  });
+  test("storage failure renders collapsed", async () => {
+    const h = harness({ blocked: true });
+    mountProjections(h.doc, h.win, () => NOW);
+    h.docListeners.click.forEach((fn) => fn(click({ "[data-view]": { dataset: { view: "projections" } } }))); await settle();
+    assert.equal(leafHeaders(h.projBody.innerHTML), 6);
+    h.fire("click", click({ "[data-proj-group]": { dataset: { projGroup: "investable" } } }));
+    assert.equal(leafHeaders(h.projBody.innerHTML), 11);
+  });
+  test("a stale remembered group is ignored and open groups are remembered", async () => {
+    const h = harness({ store: { trendsView_v1: "projections", "trends.proj.open.nw": JSON.stringify(["gone", "annuities"]) } });
+    mountProjections(h.doc, h.win, () => NOW); await settle();
+    assert.equal(leafHeaders(h.projBody.innerHTML), 11);
+    h.fire("click", click({ "[data-proj-group]": { dataset: { projGroup: "investable" } } }));
+    assert.deepEqual(JSON.parse(h.kv.get("trends.proj.open.nw")).sort(), ["annuities", "investable"]);
+  });
+  test("Collapse all forgets every open group; Expand all opens them all", async () => {
+    const h = harness({ store: { trendsView_v1: "projections", "trends.proj.open.nw": JSON.stringify(["annuities"]) } });
+    mountProjections(h.doc, h.win, () => NOW); await settle();
+    h.fire("click", click({ "[data-proj-all]": { dataset: { projAll: "collapse" } } }));
+    assert.equal(h.kv.get("trends.proj.open.nw"), "[]");
+    assert.equal(leafHeaders(h.projBody.innerHTML), 6);
+    h.fire("click", click({ "[data-proj-all]": { dataset: { projAll: "expand" } } }));
+    assert.ok(leafHeaders(h.projBody.innerHTML) > 20);
+  });
+  test("the NW / CF toggle and the year count are remembered; a bad count is clamped", async () => {
+    const h = harness({ store: { trendsView_v1: "projections" } });
+    mountProjections(h.doc, h.win, () => NOW); await settle();
+    h.fire("click", click({ "[data-proj-table]": { dataset: { projTable: "cf" } } }));
+    assert.equal(h.kv.get("trends.proj.table"), "cf");
+    assert.equal(leafHeaders(h.projBody.innerHTML), 8);
+    h.fire("change", { target: { id: "projYears", value: "99" } });
+    assert.equal(h.kv.get("trends.proj.years"), "30");
   });
 });
