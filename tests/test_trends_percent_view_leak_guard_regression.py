@@ -30,7 +30,7 @@ K = 2_000_000.0
 # Routes whose body is scaled (every /api/ route that returns money and is not pass-through).
 KNOWN_SCALED = {
     "/api/history", "/api/accounts", "/api/balances", "/api/flows", "/api/spending",
-    "/api/live-snapshot", "/api/app-accounts", "/api/account", "/api/run-now", "/api/exit", "/api/realized",
+    "/api/live-snapshot", "/api/app-accounts", "/api/account", "/api/run-now", "/api/exit", "/api/realized", "/api/projections",
 }
 
 
@@ -135,3 +135,13 @@ def _keys(node, found=None):
 def test_no_public_quantity_or_price_survives_in_a_percent_payload(route, client, tmp_path):
     out = scale_payload(strip_detail(route, BUILDERS[route](client, tmp_path)), K)
     assert _keys(out) & PUBLIC_QUANTITY_KEYS == set()
+
+
+def test_projections_payload_scales_leak_free(tmp_path):
+    from financial_trends_reporter import projections
+    from tests import test_trends_projections_unit as tpu
+
+    root, _ = tpu._workspace(tmp_path)
+    body = projections.load(root)
+    assert find_money_leaks(scale_payload(strip_detail("/api/projections", body), K)) == []
+

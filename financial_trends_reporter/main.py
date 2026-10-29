@@ -32,7 +32,7 @@ from src.http_runtime.server import LocalHTTPServer, _configured_token  # noqa: 
 from src.http_runtime.wsgi_facade import Flask, Response, request  # noqa: E402
 from src.stores import SchemaVersionError  # noqa: E402
 
-from financial_trends_reporter import account_registry, balance_series, flows, live_snapshot, percent_view, realized_view, spending_window  # noqa: E402
+from financial_trends_reporter import account_registry, balance_series, flows, live_snapshot, percent_view, projections, realized_view, spending_window  # noqa: E402
 from financial_trends_reporter.access_routes import register_access  # noqa: E402
 from financial_trends_reporter.access_store import DB_FILENAME as ACCESS_DB_FILENAME, AccessStore  # noqa: E402
 from financial_trends_reporter.listeners import ListenerApp, check_funnel_target  # noqa: E402
@@ -126,6 +126,22 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, access
         # The Live Snapshot view's module (toggle, render, 60 s poll), loaded by index.html.
         return Response(
             (_APP_ROOT / "frontend" / "live_snapshot.js").read_text(encoding="utf-8"),
+            content_type="text/javascript; charset=utf-8",
+        )
+
+    @app.route("/projections.js", methods=["GET"])
+    def projections_js():
+        # The Recent Projections view's module (NW / CF tables), loaded by index.html.
+        return Response(
+            (_APP_ROOT / "frontend" / "projections.js").read_text(encoding="utf-8"),
+            content_type="text/javascript; charset=utf-8",
+        )
+
+    @app.route("/projection_groups.js", methods=["GET"])
+    def projection_groups_js():
+        # Recent Projections' column groups (pure; imported by projections.js).
+        return Response(
+            (_APP_ROOT / "frontend" / "projection_groups.js").read_text(encoding="utf-8"),
             content_type="text/javascript; charset=utf-8",
         )
 
@@ -288,6 +304,16 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, access
                                              start_from=request.args.get("from")))
         except Exception as exc:  # noqa: BLE001 - the page shows the cause and keeps its last good values
             logging.getLogger(__name__).exception("live snapshot failed")
+            return _json({"success": False, "error": f"{exc.__class__.__name__}: {exc}"}, 500)
+
+    @app.route("/api/projections", methods=["GET"])
+    def projections_endpoint():
+        # Recent Projections: the active plan's projection_tables.json (written by the workbook build),
+        # plus plan_mtime for the page's "plan changed since the build" flag.
+        try:
+            return _json(projections.load(retirement_system_dir))
+        except Exception as exc:  # noqa: BLE001 - the page shows the cause
+            logging.getLogger(__name__).exception("projections failed")
             return _json({"success": False, "error": f"{exc.__class__.__name__}: {exc}"}, 500)
 
     @app.route("/api/realized", methods=["GET"])
