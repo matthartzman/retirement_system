@@ -587,3 +587,22 @@ describe("Group By styles", () => {
     assert.doesNotMatch(html, /\.ticker-row th|\.acct-row th|\.lot-row th/);
   });
 });
+
+describe("sold positions note (sales ledger 4.1)", () => {
+  const live = (liquid) => liveViewHtml({ ...DATA, liquid: { ...DATA.liquid, ...liquid } });
+  test("the old not-included caveat is gone", () => {
+    const out = live({});
+    assert.ok(!out.includes("are not included"));
+    assert.ok(!out.includes("Gains on positions sold"));
+  });
+  test("says how many positions were sold since the start, with no dollars", () => {
+    const out = live({ sold: { count: 2 }, unconfirmed_sales: { count: 0 } });
+    assert.match(out, /Includes 2 positions sold since /);
+    assert.ok(!out.includes("not yet confirmed"));
+  });
+  test("unconfirmed sales are a count only", () => {
+    const out = live({ sold: { count: 1 }, unconfirmed_sales: { count: 3 } });
+    assert.match(out, /Includes 1 position sold since /);
+    assert.match(out, /3 sales not yet confirmed are not included\./);
+  });
+});
