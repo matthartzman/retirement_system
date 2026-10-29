@@ -97,3 +97,10 @@ def prune_entries(log_path: str | Path, start: str, end: str | None = None, *, d
     keep = [e for e in existing if not start <= str(e.get("as_of_date") or "") <= end]
     write_text_atomic(path, "\n".join(json.dumps(e, sort_keys=True) for e in keep) + ("\n" if keep else ""))
     return hit
+
+
+def realized_ytd_of(entry: dict[str, Any] | None) -> dict[str, Any] | None:
+    """The year-to-date realized block of a log entry, or None ("no data") for an entry that has none: every entry
+    written before the sales ledger, and any day the ledger could not be read. Never a block of zeros."""
+    block = (entry or {}).get("realized_ytd")
+    return block if isinstance(block, dict) else None
