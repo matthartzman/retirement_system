@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 287 Python files under `src/`, 59 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 288 Python files under `src/`, 59 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -30,7 +30,7 @@ flowchart TB
     subgraph L_Projection_Stages["Projection Stages (24 modules)"]
         L_Projection_Stages_d["Deterministic year-by-year projection engine internals"]
     end
-    subgraph L_Reporting___Workbook["Reporting / Workbook (25 modules)"]
+    subgraph L_Reporting___Workbook["Reporting / Workbook (26 modules)"]
         L_Reporting___Workbook_d["Excel/PDF/dashboard artifact generation"]
     end
     subgraph L_Dashboard_UI_Builder["Dashboard UI Builder (2 modules)"]
@@ -746,6 +746,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 |---|---|---|
 | `src/reporting/__init__.py` | `reporting.sheets_allocation_helpers`, `reporting.sheets_projection_facade`, `reporting.sheets_summary_builder`, `reporting.sheets_tax_reporter`, `reporting.workbook_builder` | — |
 | `src/reporting/dashboard.py` | `core`, `limitation_notices`, `person_labels`, `reporting.workbook_common`, `reporting.workbook_xml_optimizer` | `openpyxl` |
+| `src/reporting/projection_tables.py` | — | — |
 | `src/reporting/rental_report_data.py` | `projection_stages.rental_property`, `rental_tax` | — |
 | `src/reporting/sheets_allocation_helpers.py` | `person_labels`, `reporting.workbook_common` | `numpy`, `scipy` |
 | `src/reporting/sheets_current_vs_proposed.py` | `planning_engines`, `reporting.workbook_common` | — |
@@ -765,7 +766,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/reporting/sheets_tax_reporter.py` | `balance_sheet_liabilities`, `reporting.workbook_common` | — |
 | `src/reporting/sheets_wealth.py` | `reporting.workbook_common` | — |
 | `src/reporting/summary_figures.py` | `after_tax`, `core` | — |
-| `src/reporting/workbook_builder.py` | `active_plan`, `after_tax`, `build_snapshot`, `governance`, `hsa_schedule`, `limitation_notices`, `local_store`, `plan_datasets`, `planning_engines`, `report_package`, `reporting.dashboard`, `reporting.sheets_allocation_helpers`, `reporting.sheets_current_vs_proposed`, `reporting.sheets_projection_facade`, `reporting.sheets_protection`, `reporting.sheets_qc_reference`, `reporting.sheets_rental`, `reporting.sheets_strategy`, `reporting.sheets_stress`, `reporting.sheets_summary_builder`, `reporting.sheets_tax_capacity`, `reporting.sheets_tax_reporter`, `reporting.sheets_wealth`, `reporting.summary_figures`, `reporting.workbook_common`, `reporting.workbook_format_config`, `results_model`, `spending_tracker`, `system_config`, `ytd_projection_blend` | — |
+| `src/reporting/workbook_builder.py` | `active_plan`, `after_tax`, `build_snapshot`, `governance`, `hsa_schedule`, `limitation_notices`, `local_store`, `plan_datasets`, `planning_engines`, `report_package`, `reporting.dashboard`, `reporting.projection_tables`, `reporting.sheets_allocation_helpers`, `reporting.sheets_current_vs_proposed`, `reporting.sheets_projection_facade`, `reporting.sheets_protection`, `reporting.sheets_qc_reference`, `reporting.sheets_rental`, `reporting.sheets_strategy`, `reporting.sheets_stress`, `reporting.sheets_summary_builder`, `reporting.sheets_tax_capacity`, `reporting.sheets_tax_reporter`, `reporting.sheets_wealth`, `reporting.summary_figures`, `reporting.workbook_common`, `reporting.workbook_format_config`, `results_model`, `spending_tracker`, `system_config`, `ytd_projection_blend` | — |
 | `src/reporting/workbook_common.py` | `config_backend`, `core`, `data_io`, `market_data`, `module_catalog`, `report_compute`, `stores.ref_getters.template_layout`, `workspace_context` | `openpyxl` |
 | `src/reporting/workbook_format_config.py` | `app_state`, `workspace_context` | `openpyxl` |
 | `src/reporting/workbook_xml_optimizer.py` | — | `lxml`, `openpyxl` |

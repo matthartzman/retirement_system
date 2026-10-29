@@ -52,6 +52,8 @@ from .sheets_summary_builder import build_sheet1, build_sheet2
 from .sheets_tax_reporter import build_sheet3
 from .sheets_allocation_helpers import build_sheet4
 from .sheets_projection_facade import build_sheet5, build_sheet6, build_sheet7, build_sheet8
+from .projection_tables import projection_tables_doc, table_from_sheet, write_projection_tables
+from datetime import UTC as _UTC, datetime as _dt
 from .sheets_strategy import build_sheet9, build_sheet10, build_sheet11, build_sheet_hsa_drawdown, build_sheet12, build_sheet_tlh, build_sheet_gain_harvest, build_sheet13, build_sheet14, build_sheet_housing_comparison
 from .sheets_tax_capacity import build_sheet_tax_capacity
 from .sheets_stress import (build_sheet15, build_sheet16, build_sheet17, build_sheet18,
@@ -1100,9 +1102,12 @@ def _main(plan_read):
     print('  Sheet 4 — Asset Allocation')
     build_sheet4(sheets['4. Asset Allocation'], c, rows)
     print('  Sheet 5 — Net Worth Projection')
-    build_sheet5(sheets['5. Net Worth Projection'], c, rows)
+    nw_cols = build_sheet5(sheets['5. Net Worth Projection'], c, rows)
     print('  Sheet 6 — Cash Flow Projection')
-    build_sheet6(sheets['6. Cash Flow Projection'], c, rows)
+    cf_cols = build_sheet6(sheets['6. Cash Flow Projection'], c, rows)
+    # Recent Projections (Financial Trends) reads these two tables back from the sheets just written.
+    projection_tables = (table_from_sheet(sheets['5. Net Worth Projection'], nw_cols),
+                         table_from_sheet(sheets['6. Cash Flow Projection'], cf_cols))
     if '7. Lifetime Tax' in sheets:
         print('  Sheet 7 — Lifetime Tax')
         build_sheet7(sheets['7. Lifetime Tax'], c, rows)
@@ -1490,6 +1495,15 @@ def _main(plan_read):
     print(f'Saving workbook to {out_path}')
     wb.save(out_path)
     print(f'Workbook saved: {out_path}')
+    try:
+        _proj_path = write_projection_tables(output_path_dir, projection_tables_doc(
+            *projection_tables, build_id=build_id or 'local',
+            built_at=_dt.now(_UTC).isoformat(timespec='seconds').replace('+00:00', 'Z'),
+            owners=[str(c.get('h_nick') or c.get('h_name') or 'Member 1'),
+                    str(c.get('w_nick') or c.get('w_name') or 'Member 2')]))
+        print(f'Projection tables saved: {_proj_path}')
+    except Exception as _proj_err:  # noqa: BLE001 - Recent Projections only; the workbook is already saved
+        print(f'WARNING: projection_tables.json not written ({_proj_err}); workbook build continues.')
 
     # Post-save XML patch: enlarges chart titles (openpyxl doesn't expose title
     # run-property font size directly) and refreshes chart caches. Best-effort:

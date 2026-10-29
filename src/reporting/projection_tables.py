@@ -1,0 +1,78 @@
+"""projection_tables.json: the Net Worth and Cash Flow projection tables as JSON, for the Financial
+Trends reporter's Recent Projections view.
+
+Read back from the worksheets build_sheet5/6 just wrote (never recomputed), so the JSON and the
+workbook can't disagree. Columns carry the builders' semantic keys (``PreTax_1``, ``Σ_Inc``), which
+never contain an owner's name, so the reporter's grouping survives renames and new accounts.
+"""
+from __future__ import annotations
+
+import json
+import os
+import tempfile
+from pathlib import Path
+from typing import Any
+
+FILE_NAME = "projection_tables.json"
+SCHEMA = "projection_tables/1"
+
+_AGE_KEYS = ("H Age", "W Age", "H_Age", "W_Age")
+_SKIP_KEYS = frozenset({"Year", *_AGE_KEYS})
+_TOTAL_KEYS = frozenset({"TOTAL NW", "Total_Tax", "Total_Cash_Need", "NW_Check"})
+
+
+def _banners(ws) -> dict[int, str]:
+    """Column number -> the row-1 group banner covering it (merged banners cover every column they span)."""
+    out: dict[int, str] = {}
+    for col in range(1, ws.max_column + 1):
+        value = ws.cell(1, col).value
+        if value not in (None, ""):
+            out[col] = str(value)
+    for rng in ws.merged_cells.ranges:
+        if rng.min_row == 1:
+            text = ws.cell(1, rng.min_col).value
+            for col in range(rng.min_col, rng.max_col + 1):
+                out[col] = str(text or "")
+    return out
+
+
+def table_from_sheet(ws, col_map: dict[str, int], *, data_first_row: int = 3) -> dict[str, Any]:
+    """The projection table on ``ws`` as ``{"columns": [...], "rows": [...]}``.
+
+    Rows stop at the first row whose column A is not an int year (the sheet's totals and summary
+    blocks follow the data). Ages go into each row's ``ages``, not into ``columns``."""
+    banners = _banners(ws)
+    keyed = sorted(((col, key) for key, col in col_map.items() if key not in _SKIP_KEYS))
+    columns = [{"key": key, "label": ws.cell(2, col).value, "banner": banners.get(col, ""),
+                "subtotal": key.startswith("Σ") or key in _TOTAL_KEYS} for col, key in keyed]
+    age_cols = [col_map[k] for k in _AGE_KEYS if k in col_map]
+    rows = []
+    r = data_first_row
+    while True:
+        year = ws.cell(r, 1).value
+        if isinstance(year, bool) or not isinstance(year, int):
+            break
+        rows.append({"year": year, "ages": [ws.cell(r, col).value for col in age_cols],
+                     "values": {key: ws.cell(r, col).value for col, key in keyed}})
+        r += 1
+    return {"columns": columns, "rows": rows}
+
+
+def projection_tables_doc(nw: dict, cf: dict, *, build_id: str, built_at: str, owners: list[str]) -> dict[str, Any]:
+    return {"schema": SCHEMA, "build_id": build_id, "built_at": built_at, "owners": list(owners),
+            "tables": {"net_worth": nw, "cash_flow": cf}}
+
+
+def write_projection_tables(out_dir: str | Path, doc: dict) -> Path:
+    """Write ``doc`` to ``<out_dir>/projection_tables.json`` atomically (temp file, then rename)."""
+    out_dir = Path(out_dir)
+    final = out_dir / FILE_NAME
+    fd, tmp = tempfile.mkstemp(prefix=".projection_tables.", suffix=".tmp", dir=out_dir)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            json.dump(doc, fh, ensure_ascii=False)
+        os.replace(tmp, final)
+    except BaseException:
+        Path(tmp).unlink(missing_ok=True)
+        raise
+    return final
