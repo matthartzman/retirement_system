@@ -344,7 +344,7 @@ def compute_snapshot(base_dir: str | Path, *, today=None, passthrough_decisions:
         "monarch_balances": balance_series.snapshot_summary(balances_db) if balances_db else None,
     }
     # Year-to-date realized sales from the ledger (plan 9.3). Left out, not zeroed, when the ledger cannot be read.
-    realized = realized_log.realized_ytd(base_dir, today or date.today())
+    realized = realized_log.realized_ytd(base_dir, today or date.today(), ytd_income=cashflow.get("income"))
     if realized is not None:
         snapshot["realized_ytd"] = realized
     return snapshot

@@ -21,6 +21,10 @@ NON_MONEY_KEYS: frozenset[str] = frozenset({
     "share",             # live_snapshot group share of the total (a 0-1 ratio)
     "share_of_gain",     # live_snapshot group share of total gain (a ratio)
     "delayed_minutes",   # live_snapshot quote delay, minutes
+    "tax_year",          # realized view / realized tax line: the tax year, not an amount
+    "years",             # realized view: the tax years offered
+    "basis_missing",     # realized view: how many waiting or estimated rows have no basis (a count)
+    "not_estimated",     # realized view: how many waiting sales could not be estimated (a count)
 })
 
 _RATIO_SUFFIXES = ("_rate", "_pct", "_ratio", "_fraction")
@@ -31,6 +35,9 @@ _ALL_MERCHANTS = "All merchants"
 # A share count times a public ticker price, or a public index level against its scaled value, gives back
 # the hidden scale and with it every dollar figure. A percent-only person never receives these.
 _PUBLIC_QUANTITY_KEYS = frozenset({"shares", "quantity", "purchase_price", "price"})
+# The realized view's per-sale rows: dates, share counts and amounts per sale would give the scale back. A percent-only
+# person gets group-level scaled totals and returns only (sales ledger plan 10).
+_REALIZED_DETAIL_KEYS = frozenset({"lots"})
 
 
 def is_non_money(key: Any) -> bool:
@@ -130,6 +137,8 @@ def strip_detail(route: str, payload: Any) -> Any:
     if route == "/api/live-snapshot" and isinstance(payload, dict):
         kept = {k: v for k, v in payload.items() if k not in ("reconciliation", "unmapped_monarch", "unmapped_holdings")}
         return _drop_keys(kept, _PUBLIC_QUANTITY_KEYS)
+    if route == "/api/realized" and isinstance(payload, dict):
+        return _drop_keys(payload, _REALIZED_DETAIL_KEYS | _PUBLIC_QUANTITY_KEYS)
     if route == "/api/history":
         if isinstance(payload, list):
             return [_strip_history_entry(e) for e in payload]
