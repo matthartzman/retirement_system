@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 276 Python files under `src/`, 58 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 277 Python files under `src/`, 58 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -24,7 +24,7 @@ flowchart TB
     subgraph L_HTTP_Runtime["HTTP Runtime (4 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
-    subgraph L_Core_Engine___Domain["Core Engine & Domain (189 modules)"]
+    subgraph L_Core_Engine___Domain["Core Engine & Domain (190 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
     subgraph L_Projection_Stages["Projection Stages (24 modules)"]
@@ -636,6 +636,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/projection_pipeline.py` | `observability`, `planning_engines` | — |
 | `src/qlac_optimizer.py` | — | — |
 | `src/real_loss_curves.py` | `allocation_policy`, `stores.ref_getters.mortality_real_loss` | — |
+| `src/realized_tax.py` | `core` | — |
 | `src/reconcile.py` | — | — |
 | `src/rental_tax.py` | `tax_law` | — |
 | `src/report_compute.py` | `data_io`, `governance`, `limitation_notices`, `local_store`, `market_data`, `plan_config`, `planning_engines`, `projection_pipeline`, `report_spec`, `result_contract`, `results_model` | — |
