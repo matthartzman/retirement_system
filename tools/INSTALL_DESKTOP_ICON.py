@@ -42,8 +42,13 @@ def create_windows_shortcut(name: str, script: Path) -> Path | None:
 launchers = [
     ('Retirement Planner', UI_SCRIPT, 'Start Retirement System'),
     ('Retirement Planner - Reset Local Mode', RESET_SCRIPT, 'Reset Retirement System to local mode'),
-    ('Financial Trends Reporter', TRENDS_SCRIPT, 'Start the financial trends reporter'),
+    ('Financial Insight', TRENDS_SCRIPT, 'Start Financial Insight'),
 ]
+# Launchers renamed since an earlier install; their old shortcuts would sit beside the new ones.
+RETIRED = ['Financial Trends Reporter']
+for old in RETIRED:
+    for ext in ('.lnk', '.bat', '.command', '.desktop'):
+        (DESKTOP / f'{old}{ext}').unlink(missing_ok=True)
 if platform.system() == 'Windows':
     for name, script, _comment in launchers:
         created = create_windows_shortcut(name, script) or write_bat(name, script)

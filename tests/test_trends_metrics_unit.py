@@ -1,4 +1,4 @@
-"""Ticket 306: the standalone financial trends reporter computes its four
+"""Ticket 306: the standalone Financial Insight app computes its four
 metric groups (YTD expenses by category, holdings, net worth, cashflow)
 almost entirely via src.ytd_tracking.ytd_summary() -- the same engine the
 main app's YTD dashboard already uses -- plus a plain liabilities-CSV sum

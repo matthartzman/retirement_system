@@ -54,7 +54,7 @@ def test_a_partial_plan_falls_back_to_flat_rates():
     assert out["method"] == "flat" and out["total"] == 300.0
 
 
-# ---- in the Live Snapshot ----
+# ---- in the Current Snapshot ----
 QUOTES = {"ITOT": {"price": 130.0, "previous_close": 129.0, "stale": False}}
 BASE = {"baseline_date": "2025-12-31", "prices": {"ITOT": {"price": 120.0}}, "missing": []}
 

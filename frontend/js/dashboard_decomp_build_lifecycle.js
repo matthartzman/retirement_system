@@ -4,7 +4,7 @@
    globals. buildHiddenByUser and activeBuildJobId are the state this file owns. */
 import { formatElapsed, recordPopupRuntime, averageRuntimeText } from "./runtime_history.js";
 
-// Run-time history helpers live in runtime_history.js (shared with the Financial Trends reporter).
+// Run-time history helpers live in runtime_history.js (shared with the Financial Insight app).
 let buildOverlayPopupId = "";
 
 export function refreshBuildOverlayTimer() {

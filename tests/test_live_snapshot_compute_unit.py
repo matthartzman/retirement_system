@@ -1,4 +1,4 @@
-"""Live Snapshot step 3: valuation, grouping, net-of-contribution returns, tax estimate, roll-up.
+"""Current Snapshot step 3: valuation, grouping, net-of-contribution returns, tax estimate, roll-up.
 
 Every expected number below is worked out by hand from the fixture (see the comments), so a
 failure means the formula changed, not that a pin drifted.

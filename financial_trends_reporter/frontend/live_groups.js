@@ -1,4 +1,4 @@
-// Live Snapshot Group By: groups the flat lot list (liquid.positions) by the levels the user picked, in
+// Current Snapshot Group By: groups the flat lot list (liquid.positions) by the levels the user picked, in
 // the order they picked, and totals every group with the same formulas as live_snapshot.py's
 // _summarize (a contract test runs this file against the server's own groups). Pure: no DOM.
 

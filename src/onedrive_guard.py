@@ -2,7 +2,7 @@ from __future__ import annotations
 
 """Guard against reading OneDrive-truncated/not-fully-synced files.
 
-Both scheduled headless jobs (Monarch auto-import, the financial trends
+Both scheduled headless jobs (Monarch auto-import, the Financial Insight
 reporter) read files under paths that are commonly OneDrive-synced on
 Windows (e.g. C:\\RetirementPlanning\\...). A file that OneDrive has not
 finished downloading, or a write caught mid-sync, can appear as a

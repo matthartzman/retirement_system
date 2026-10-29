@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Financial trends reporter -- standalone entry point (ticket 306).
+"""Financial Insight app -- standalone entry point (ticket 306).
 
 A small local server (reusing retirement_system's stdlib HTTP runtime, not a
 new web framework) that serves the trend dashboard and the JSONL log history
@@ -123,7 +123,7 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, access
 
     @app.route("/live_snapshot.js", methods=["GET"])
     def live_snapshot_js():
-        # The Live Snapshot view's module (toggle, render, 60 s poll), loaded by index.html.
+        # The Current Snapshot view's module (toggle, render, 60 s poll), loaded by index.html.
         return Response(
             (_APP_ROOT / "frontend" / "live_snapshot.js").read_text(encoding="utf-8"),
             content_type="text/javascript; charset=utf-8",
@@ -147,7 +147,7 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, access
 
     @app.route("/live_groups.js", methods=["GET"])
     def live_groups_js():
-        # Group By for the Live Snapshot table (grouping, ordering, totals), imported by live_snapshot.js.
+        # Group By for the Current Snapshot table (grouping, ordering, totals), imported by live_snapshot.js.
         return Response(
             (_APP_ROOT / "frontend" / "live_groups.js").read_text(encoding="utf-8"),
             content_type="text/javascript; charset=utf-8",
@@ -293,7 +293,7 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, access
 
     @app.route("/api/live-snapshot", methods=["GET"])
     def live_snapshot_endpoint():
-        # Live Snapshot view: holdings at live (delayed) prices plus the balance-sheet roll-up.
+        # Current Snapshot view: holdings at live (delayed) prices plus the balance-sheet roll-up.
         # Quotes are shared for 30 s across requests; ?refresh=1 (Refresh now) refetches, at most
         # once per 10 s. Inputs other than prices are cached 10 min and cleared by run-now.
         # ?from=YYYY-MM-DD is the Time scope's first day (returns are measured from the close before it).
@@ -303,7 +303,7 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, access
             return _json(live_snapshot.build(inputs=inputs, data_dir=resolved_log_path.parent, force=force,
                                              start_from=request.args.get("from")))
         except Exception as exc:  # noqa: BLE001 - the page shows the cause and keeps its last good values
-            logging.getLogger(__name__).exception("live snapshot failed")
+            logging.getLogger(__name__).exception("current snapshot failed")
             return _json({"success": False, "error": f"{exc.__class__.__name__}: {exc}"}, 500)
 
     @app.route("/api/projections", methods=["GET"])
@@ -464,7 +464,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if _port_in_use(_local_host(args.host), args.port):
         url = f"http://{_local_host(args.host)}:{args.port}"
-        print(f"Financial trends reporter is already running; opening {url}.")
+        print(f"Financial Insight app is already running; opening {url}.")
         if not args.no_open:
             webbrowser.open(url)
         return 0
@@ -485,7 +485,7 @@ def main(argv: list[str] | None = None) -> int:
             threading.Thread(target=remote.serve_forever, daemon=True).start()
             print(f"Remote listener (sign-in required) on 127.0.0.1:{args.remote_port}")
     url = f"http://{_local_host(args.host)}:{args.port}"
-    print(f"Financial trends reporter listening on {url}")
+    print(f"Financial Insight app listening on {url}")
     if not args.no_open:
         threading.Timer(1.0, lambda: webbrowser.open(url)).start()
     try:
@@ -494,7 +494,7 @@ def main(argv: list[str] | None = None) -> int:
         pass
     finally:
         server.server_close()
-    print("Financial trends reporter stopped.")
+    print("Financial Insight app stopped.")
     return 0
 
 

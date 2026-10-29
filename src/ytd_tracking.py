@@ -69,7 +69,7 @@ _HASH_COLUMNS = [
 # otherwise-usable exports for no gain.
 REQUIRED_TRANSACTION_COLUMNS = ["Date", "Amount"]
 
-# Live Snapshot (Financial Trends) reads these for non-liquid accounts: how the balance is taxed when
+# Current Snapshot (Financial Insight) reads these for non-liquid accounts: how the balance is taxed when
 # paid out. "" = guess from the account name.
 TAX_TREATMENT_LABELS = {"": "", "taxed in full": "Taxed in full", "taxed above premium": "Taxed above premium",
                         "not taxed": "Not taxed"}

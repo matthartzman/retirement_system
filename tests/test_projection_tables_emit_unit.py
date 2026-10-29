@@ -1,4 +1,4 @@
-"""projection_tables.json (Recent Projections in Financial Trends): the build's Net Worth and Cash Flow
+"""projection_tables.json (Recent Projections in Financial Insight): the build's Net Worth and Cash Flow
 tables as JSON, read back from the worksheets build_sheet5/6 just wrote so the two can't drift."""
 from __future__ import annotations
 

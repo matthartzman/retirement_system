@@ -1,6 +1,7 @@
 # Financial Insight: Recent Projections Readability, Renames and Deferred Fixes (design + implementation plan)
 
 Date: 2026-10-29. Follows `2026-10-29-trends-recent-projections-design.md`.
+Status: implemented 2026-10-29 (branch `financial-insight-readability`)
 One reporter-only PR. Out of scope: the workbook's Net Worth sheet getting a "Loans &
 Other Liabilities" column. That runs in its own session and PR.
 

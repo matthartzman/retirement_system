@@ -44,9 +44,9 @@ describe("page markup", () => {
     assert.ok(!/runNow/.test(html));
     assert.ok(!/Run now/.test(html));
   });
-  test("titles use the Financial Trends names", () => {
-    assert.match(html, /<title>Financial Trends<\/title>/);
-    assert.match(html, /<h1>Financial Trends<\/h1>/);
+  test("titles use the Financial Insight names", () => {
+    assert.match(html, /<title>Financial Insight<\/title>/);
+    assert.match(html, /<h1>Financial Insight<\/h1>/);
     assert.match(html, /<h2>Net Worth<\/h2>/);
     assert.match(html, /<h2>Spending<\/h2>/);
     assert.match(html, /"Investment Net Flows"/);

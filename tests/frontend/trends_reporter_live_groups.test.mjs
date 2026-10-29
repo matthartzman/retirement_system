@@ -1,4 +1,4 @@
-// Live Snapshot Group By: the pure grouping, ordering and aggregation behind the table
+// Current Snapshot Group By: the pure grouping, ordering and aggregation behind the table
 // (financial_trends_reporter/frontend/live_groups.js). No DOM.
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";

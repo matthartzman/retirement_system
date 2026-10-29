@@ -1,4 +1,4 @@
-"""Live Snapshot step 2: market hours, the shared quote cache, year-end baseline prices."""
+"""Current Snapshot step 2: market hours, the shared quote cache, year-end baseline prices."""
 from __future__ import annotations
 
 import json

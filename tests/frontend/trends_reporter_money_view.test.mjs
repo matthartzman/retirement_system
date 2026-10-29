@@ -204,7 +204,7 @@ describe("a percent person and a toggled owner see the same percentages", () => 
   });
 });
 
-describe("live snapshot follows the toggle", () => {
+describe("current snapshot follows the toggle", () => {
   test("changing the view re-renders the body without waiting for a poll", async () => {
     const el = () => ({ innerHTML: "", textContent: "", hidden: false, classList: { toggle() {}, contains: () => false }, addEventListener() {}, querySelectorAll: () => [], setAttribute() {} });
     const els = { liveView: el(), liveBody: el(), liveError: el(), liveRefresh: el() };

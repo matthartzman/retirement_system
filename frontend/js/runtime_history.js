@@ -1,5 +1,5 @@
 /* Run-time history helpers (ES module, pure apart from localStorage). Shared by the planner's
-   progress overlay (dashboard_decomp_build_lifecycle.js) and served to the Financial Trends
+   progress overlay (dashboard_decomp_build_lifecycle.js) and served to the Financial Insight
    reporter at /shared/runtime_history.js. Each app keeps its own history: different origins
    have separate localStorage. */
 export const POPUP_RUNTIME_HISTORY_LS_KEY = "popupRuntimeHistory_v1";

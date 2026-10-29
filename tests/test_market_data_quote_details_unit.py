@@ -1,4 +1,4 @@
-"""quote_details(): live price + previous close for the Financial Trends Live Snapshot view.
+"""quote_details(): live price + previous close for the Financial Insight Current Snapshot view.
 
 Unlike quote(), it never memoizes (the reporter server is long-running and polls every
 60 s), and it returns the previous close so the view can show Day $ / Day %.

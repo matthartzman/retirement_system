@@ -3,7 +3,7 @@
 System review 2026-09-07 found the spec ("Generated: 2026-08-29... describes
 the system as the code currently behaves") omitted five features shipped
 after its own stated generation date: QLAC, the Monarch Money auto-import
-module, the Financial Trends Reporter companion app, phase-varying Roth
+module, the Financial Insight companion app, phase-varying Roth
 conversions, and the adoptable Guyton-Klinger/floor-ceiling spending policy.
 All five were backfilled in this same commit.
 
@@ -29,7 +29,7 @@ SPEC_PATH = ROOT / "documentation" / "reference" / "FUNCTIONAL_SPEC.md"
 FEATURE_MARKERS = [
     ("QLAC", "QLAC (Qualified Longevity Annuity Contract)", True),
     ("Monarch Money", "Monarch Money auto-import", True),
-    ("Financial Trends Reporter", "Financial Trends Reporter companion app", True),
+    ("Financial Insight app", "Financial Insight companion app", True),
     ("phase-varying", "phase-varying Roth conversion strategy", False),
     ("floor-ceiling", "floor-ceiling band spending policy", False),
     ("Guyton-Klinger", "Guyton-Klinger adaptive spending guardrail", True),

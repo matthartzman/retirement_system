@@ -1,4 +1,4 @@
-"""Live Snapshot build(): inputs + quotes + baseline -> the /api/live-snapshot body. No network."""
+"""Current Snapshot build(): inputs + quotes + baseline -> the /api/live-snapshot body. No network."""
 from __future__ import annotations
 
 import json

@@ -1,5 +1,5 @@
 // Realized gains and losses (sales ledger plan 9.2): confirmed ledger sales in the Time scope (or a tax year),
-// grouped by symbol or account with their lots. A "Realized" tab inside the Live Snapshot area; the data comes from
+// grouped by symbol or account with their lots. A "Realized" tab inside the Current Snapshot area; the data comes from
 // /api/realized. Pure helpers are exported for tests; initRealized() wires the tab in the browser.
 //
 // In the percent view of the $ | % toggle only ratios are shown (return on basis): no proceeds, basis, gain or share

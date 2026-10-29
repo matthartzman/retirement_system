@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Headless weekday-5pm financial trends log job (ticket 306).
+"""Headless weekday-5pm Financial Insight log job (ticket 306).
 
 Run by a Windows Task Scheduler entry, Monday-Friday at 5pm (see
 tools/launchers/register_trends_report_task.ps1), or manually for a one-off

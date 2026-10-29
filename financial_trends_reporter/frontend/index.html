@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Financial Trends</title>
+<title>Financial Insight</title>
 <style>
   :root { color-scheme: light dark; }
   body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; padding: 24px; background: #f7f7f8; color: #1a1a1a; }
@@ -158,12 +158,12 @@
   .update-chip { position: fixed; right: 16px; bottom: 16px; z-index: 130; background: var(--ov-card); border: 1px solid var(--ov-line); border-radius: 10px; padding: 8px 12px; font-size: 13px; box-shadow: 0 8px 24px rgba(0,0,0,.2); }
   .update-chip[hidden] { display: none; }
   .update-avg { font-size: 12px; color: var(--ov-muted); margin-top: 10px; }
-  /* Live Snapshot view (live_snapshot.js): body.live-mode swaps the trend cards for #liveView. */
+  /* Current Snapshot view (live_snapshot.js): body.live-mode swaps the trend cards for #liveView. */
   .view-toggle { display: inline-flex; border: 1px solid #ccc; border-radius: 6px; overflow: hidden; }
   .toolbar .view-toggle button { border: 0; border-radius: 0; }
   .toolbar .view-toggle button[aria-pressed="true"] { background: #1a1a1a; color: #fff; }
   @media (prefers-color-scheme: dark) { .view-toggle { border-color: #3a3d44; } .toolbar .view-toggle button[aria-pressed="true"] { background: #e8e8ea; color: #14161a; } }
-  /* The Time scope stays: it sets Live Snapshot's start date. Live always ends today, so no custom end date. */
+  /* The Time scope stays: it sets Current Snapshot's start date. Live always ends today, so no custom end date. */
   body.live-mode .grid, body.live-mode #customTo,
   body.live-mode #allTimeNote, body.live-mode #priceNote, body.live-mode #balancesNote { display: none !important; }
   #liveView { display: grid; gap: 16px; }
@@ -325,9 +325,9 @@
 </style>
 </head>
 <body>
-<div class="title-row"><h1>Financial Trends</h1><button type="button" id="moneyToggle" aria-pressed="false" aria-label="Show amounts as a percent of net worth" title="Show amounts in dollars or as a percent of net worth" hidden><span class="seg seg-dollars" aria-hidden="true">$</span><span class="seg seg-percent" aria-hidden="true">%</span></button></div>
+<div class="title-row"><h1>Financial Insight</h1><button type="button" id="moneyToggle" aria-pressed="false" aria-label="Show amounts as a percent of net worth" title="Show amounts in dollars or as a percent of net worth" hidden><span class="seg seg-dollars" aria-hidden="true">$</span><span class="seg seg-percent" aria-hidden="true">%</span></button></div>
 <div class="toolbar" id="scopeBar">
-  <div class="view-toggle" role="group" aria-label="View"><button type="button" data-view="live" aria-pressed="false">Live Snapshot</button><button type="button" data-view="trends" aria-pressed="true">Trends</button><button type="button" data-view="projections" aria-pressed="false">Recent Projections</button></div>
+  <div class="view-toggle" role="group" aria-label="View"><button type="button" data-view="live" aria-pressed="false">Current Snapshot</button><button type="button" data-view="trends" aria-pressed="true">Trends</button><button type="button" data-view="projections" aria-pressed="false">Recent Projections</button></div>
   <label class="scope-pick">Time scope <select id="scopeSelect">
     <option value="week">1 Week</option>
     <option value="month" selected>1 Month</option>
@@ -358,8 +358,8 @@
     <div class="spend-fallback" id="spendingFallback" role="status" style="display:none"></div><div id="chartCategories" aria-live="polite"></div>
     <div class="note" id="noteSpending">Totals follow the Spending Analysis mapping and include taxes. Markers: same period last year, budget for this period, and full-year budget. Hover a row label to see its categories (click to pin), then hover a category to see its merchants.</div></div>
 </div>
-<section id="liveView" aria-label="Live Snapshot" hidden>
-  <div class="live-actions"><div class="live-tabs" role="group" aria-label="Live Snapshot section"><button type="button" data-live-tab="holdings" aria-pressed="true">Holdings</button><button type="button" data-live-tab="realized" aria-pressed="false">Realized</button></div><button type="button" id="liveRefresh">Refresh now</button><span id="liveError" class="live-error" role="alert"></span></div>
+<section id="liveView" aria-label="Current Snapshot" hidden>
+  <div class="live-actions"><div class="live-tabs" role="group" aria-label="Current Snapshot section"><button type="button" data-live-tab="holdings" aria-pressed="true">Holdings</button><button type="button" data-live-tab="realized" aria-pressed="false">Realized</button></div><button type="button" id="liveRefresh">Refresh now</button><span id="liveError" class="live-error" role="alert"></span></div>
   <div id="liveBody"></div>
   <div id="realizedBody" hidden></div>
 </section>
@@ -413,7 +413,7 @@ function syncScopeControls() {
   document.getElementById("scopeLabel").textContent = currentRange().label;
   publishScope();
 }
-// Live Snapshot (./live_snapshot.js) reads the scope's first day from body[data-scope-from] and
+// Current Snapshot (./live_snapshot.js) reads the scope's first day from body[data-scope-from] and
 // reloads on "trends-scope-change", so the two views share one Time scope.
 function publishScope() {
   const { from, label } = currentRange();
@@ -992,7 +992,7 @@ async function signOut() {
 document.getElementById("exitBtn").addEventListener("click", async () => {
   if (whoami.listener === "remote") return signOut();
   try { await fetch("/api/exit", { method: "POST" }); } catch (err) { /* ignore */ }
-  document.body.innerHTML = '<h1>Financial Trends</h1><div class="sub">You can close this tab. The reporter keeps running.</div>';
+  document.body.innerHTML = '<h1>Financial Insight</h1><div class="sub">You can close this tab. The reporter keeps running.</div>';
   window.close();
 });
 

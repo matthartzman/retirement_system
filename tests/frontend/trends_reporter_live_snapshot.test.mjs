@@ -1,4 +1,4 @@
-// Live Snapshot view (design 2026-10-27, step 5): the pure render/poll helpers in live_snapshot.js
+// Current Snapshot view (design 2026-10-27, step 5): the pure render/poll helpers in live_snapshot.js
 // and the toggle markup in index.html.
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
@@ -70,7 +70,7 @@ describe("view toggle", () => {
     assert.match(html, /#moneyToggle\[aria-pressed="false"\] \.seg-dollars, #moneyToggle\[aria-pressed="true"\] \.seg-percent \{ background: #2563eb/);
     assert.doesNotMatch(html, /#moneyToggle\[aria-pressed="true"\] \{ background/);
   });
-  test("the Trends page publishes its scope for Live Snapshot", () => {
+  test("the Trends page publishes its scope for Current Snapshot", () => {
     assert.match(html, /ds\.scopeFrom = from \|\| ""/);
     assert.match(html, /new CustomEvent\("trends-scope-change"/);
   });
@@ -419,7 +419,7 @@ describe("imported balance sync date", () => {
 // --- Percent-only people: no reconciliation, no dollar figures ------------------------------
 import { setMoneyView } from "../../financial_trends_reporter/frontend/money_view.js";
 
-describe("percent-only live snapshot", () => {
+describe("percent-only current snapshot", () => {
   const WITH_RECON = {
     ...DATA,
     reconciliation: { ...DATA.reconciliation, accounts: [{ holdings_account: "A", holdings_value: 5, monarch_value: 4, delta: 1, delta_pct: 0.2, flag: true, hints: [{ kind: "stale_prices", symbols: ["X"] }] }],
