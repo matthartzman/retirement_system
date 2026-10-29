@@ -15,21 +15,10 @@ from typing import Any, Iterable, Mapping
 from .core import (
     compute_fed_tax, ltcg_tax_on_gain, niit_tax, state_for_year, state_income_tax,
 )
+from .taxes import CAPITAL_LOSS_ORDINARY_LIMIT, capital_loss_ordinary_limit
 
-# The engine states the $3,000 offset as a bare ``min(3000.0, _rem_loss)`` in
-# ``projection_stages/withdrawal_cascade_investment_tax.py`` (``tlh_ordinary_credit``); there is no constant to
-# import and existing tax code is not changed in this step. This is the one figure for ledger code, and
-# ``tests/test_realized_tax_unit.py`` pins it to the engine's literal. MFS is half (IRC 1211(b)).
-ORDINARY_LOSS_LIMIT = {"MFJ": 3000.0, "Single": 3000.0, "HOH": 3000.0, "MFS": 1500.0}
-
-
-def _is_mfs(filing: Any) -> bool:
-    f = str(filing or "MFJ").strip().upper()
-    return f.startswith("MFS") or "SEPARATE" in f
-
-
-def _loss_limit(filing: Any) -> float:
-    return ORDINARY_LOSS_LIMIT["MFS"] if _is_mfs(filing) else ORDINARY_LOSS_LIMIT["MFJ"]
+# The 1211(b) ordinary-income limit is shared with the engine's loss waterfall (taxes.py), never re-typed here.
+ORDINARY_LOSS_LIMIT = CAPITAL_LOSS_ORDINARY_LIMIT
 
 
 def net_realized_year(st_gain: float, lt_gain: float, carryforward_st: float = 0.0,
@@ -48,7 +37,7 @@ def net_realized_year(st_gain: float, lt_gain: float, carryforward_st: float = 0
             out["gain_to_tax_ltcg"] = min(net_lt, total)
         return {k: v + 0.0 for k, v in out.items()}
     loss = -total
-    offset = min(_loss_limit(filing), loss)
+    offset = min(capital_loss_ordinary_limit(filing), loss)
     out["ordinary_offset"] = offset
     rest = loss - offset
     if net_st < 0 and net_lt < 0:

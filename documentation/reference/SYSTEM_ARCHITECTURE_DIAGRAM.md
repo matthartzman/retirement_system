@@ -645,7 +645,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/qlac_optimizer.py` | — | — |
 | `src/real_loss_curves.py` | `allocation_policy`, `stores.ref_getters.mortality_real_loss` | — |
 | `src/realized_seed.py` | `realized_tax` | — |
-| `src/realized_tax.py` | `core` | — |
+| `src/realized_tax.py` | `core`, `taxes` | — |
 | `src/reconcile.py` | — | — |
 | `src/reconcile_sale_hints.py` | — | — |
 | `src/rental_tax.py` | `tax_law` | — |
@@ -661,7 +661,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/sales_ledger.py` | — | — |
 | `src/sales_matching.py` | `ytd_tracking` | — |
 | `src/sales_service.py` | `csv_exchange`, `sales_ledger` | — |
-| `src/sales_tax_year.py` | `core`, `realized_seed`, `realized_tax`, `sales_ledger`, `wash_sales` | — |
+| `src/sales_tax_year.py` | `core`, `realized_seed`, `realized_tax`, `sales_ledger`, `taxes`, `wash_sales` | — |
 | `src/schema_registry.py` | `plan_data_registry`, `stores.ref_getters.schema_fields` | — |
 | `src/secrets_store.py` | `app_state`, `platform_runtime` | `keyring` |
 | `src/security.py` | `app_state`, `runtime_config` | — |
@@ -736,7 +736,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/projection_stages/withdrawal_cascade_gap_assembly.py` | — | — |
 | `src/projection_stages/withdrawal_cascade_hsa_priority_draws.py` | — | — |
 | `src/projection_stages/withdrawal_cascade_hsa_reimbursement_correction.py` | — | — |
-| `src/projection_stages/withdrawal_cascade_investment_tax.py` | `core`, `engine_kernels` | — |
+| `src/projection_stages/withdrawal_cascade_investment_tax.py` | `core`, `engine_kernels`, `taxes` | — |
 | `src/projection_stages/withdrawal_cascade_ira_true_up.py` | `engine_kernels` | — |
 | `src/projection_stages/withdrawal_cascade_taxable_trust.py` | `engine_kernels` | — |
 | `src/projection_stages/year_state.py` | — | — |

@@ -117,12 +117,13 @@ def test_mfs_limit_is_half():
         assert net(st=-5000, filing=filing)["ordinary_offset"] == 3000.0
 
 
-def test_limit_matches_the_engine_literal():
-    # The engine hard-codes min(3000.0, ...) in withdrawal_cascade_investment_tax; pin the same figure.
-    import pathlib
-    src = (pathlib.Path(core.__file__).parent / "projection_stages" / "withdrawal_cascade_investment_tax.py").read_text()
-    assert "min(3000.0, _rem_loss)" in src
-    assert realized_tax.ORDINARY_LOSS_LIMIT["MFJ"] == 3000.0
+def test_limit_is_the_shared_tax_table_figure():
+    # One figure for the ledger and the engine (IRC 1211(b)): taxes.capital_loss_ordinary_limit.
+    from src import taxes
+    assert realized_tax.ORDINARY_LOSS_LIMIT is taxes.CAPITAL_LOSS_ORDINARY_LIMIT
+    for filing, limit in (("MFJ", 3000.0), ("Single", 3000.0), ("HOH", 3000.0), ("MFS", 1500.0),
+                          ("mfs", 1500.0), ("Married Filing Separately", 1500.0), ("", 3000.0), (None, 3000.0)):
+        assert taxes.capital_loss_ordinary_limit(filing) == limit, filing
 
 
 def test_skipped_rows_voided_and_non_taxable_do_not_count():

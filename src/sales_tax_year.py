@@ -11,7 +11,8 @@ from typing import Any
 from . import active_plan
 from .core import ACCOUNT_TYPES, _infer_type
 from .realized_seed import terms_from_ledger_rows
-from .realized_tax import net_realized_by_year, net_realized_year, ORDINARY_LOSS_LIMIT
+from .realized_tax import net_realized_by_year, net_realized_year
+from .taxes import capital_loss_ordinary_limit
 from .sales_ledger import ValidationError
 from .wash_sales import buys_from_rows, detect_wash_sales, plan_flag_updates
 
@@ -26,10 +27,6 @@ def _filing(input_dir: str | Path, filing: str | None) -> str:
     if filing is None:
         filing = active_plan.peek_plan_data_for_input_dir(input_dir).get("Household", {}).get("", {}).get("filing_status")
     return "MFS" if str(filing or "").strip().upper() == "MFS" else (str(filing or "MFJ").strip().upper() or "MFJ")
-
-
-def _limit(filing: str) -> float:
-    return ORDINARY_LOSS_LIMIT["MFS"] if filing == "MFS" else ORDINARY_LOSS_LIMIT["MFJ"]
 
 
 def _adjustments(store) -> dict[int, dict[str, Any]]:
@@ -56,7 +53,7 @@ def tax_year_summary(input_dir: str | Path, year: int, *, filing: str | None = N
             and s["gain"] is not None and s["sale_date"][:4] == str(year)]
     flagged = [s for s in live if s["wash_flag"] != "none" and s["gain"] < 0]
     return {
-        "year": year, "filing": filing, "limit": _limit(filing), "netting": netting,
+        "year": year, "filing": filing, "limit": capital_loss_ordinary_limit(filing), "netting": netting,
         "carryforward_in": {"short": cf_in[0] + 0.0, "long": cf_in[1] + 0.0, "entered": entered},
         "carryforward_out": {"short": netting["carryforward_st"], "long": netting["carryforward_lt"]},
         "totals": {"count": len(live),

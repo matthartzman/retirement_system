@@ -17,10 +17,12 @@ from tests.test_synthetic_golden_master import empty_workspace
 YEAR = 2026
 
 
-def run(seed=None, *, with_key=True):
+def run(seed=None, *, with_key=True, filing=None):
     with empty_workspace():
         c = sp.SCENARIOS["baseline_balanced_couple"].build(optimize=False)
         assert int(c["plan_start"]) == YEAR and c["filing_status"] == "MFJ"
+        if filing:
+            c["filing_status"] = filing
         if with_key:
             c["realized_seed"] = seed
         return project(c)
@@ -70,3 +72,11 @@ def test_other_years_are_untouched_by_the_gain_seeds(base):
     # Only year 1 carries the seed; later years differ only through balances, never by a re-added gain.
     rows = run(seed(og=10_000.0, lg=20_000.0))
     assert rows[1].get("sale_cap_gain_in_agi") is None
+
+
+def test_mfs_takes_half_the_ordinary_offset():
+    # IRC 1211(b): $1,500 for married filing separately. The engine used a flat $3,000 for every status.
+    rows = run(seed(pool=8_000.0), filing="MFS")
+    assert rows[0]["filing"] == "MFS"
+    assert rows[0]["cap_loss_used"] == pytest.approx(1_500.0)
+    assert rows[0]["cap_loss_carryforward"] == pytest.approx(6_500.0)
