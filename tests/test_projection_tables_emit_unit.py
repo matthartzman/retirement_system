@@ -118,25 +118,62 @@ def test_real_build_writes_projection_tables_beside_workbook(tmp_path_factory):
 
 
 def test_unshown_lines_join_the_table_so_groups_foot():
-    # The NW sheet's TOTAL subtracts additional liabilities and adds a credit shelter trust, but has
-    # no column for either; Recent Projections needs them for its groups to add up to Total NW.
+    # The NW sheet's TOTAL adds a credit shelter trust it has no column for; Recent Projections
+    # needs it for its groups to add up to Total NW. Liabilities have their own sheet column now.
     from src.reporting.projection_tables import add_unshown_nw_lines
 
     table = {"columns": [{"key": "TOTAL NW", "label": "TOTAL NW", "banner": "TOTAL", "subtotal": True}],
              "rows": [{"year": 2026, "ages": [64, 65], "values": {"TOTAL NW": 10.0}},
                       {"year": 2027, "ages": [65, 66], "values": {"TOTAL NW": 11.0}}]}
-    rows = [{"year": 2026, "additional_liabilities": 14286.78, "cst_nw": 0.0},
-            {"year": 2027, "additional_liabilities": 0.0, "cst_nw": 0.0}]
-    out = add_unshown_nw_lines(table, rows)
-    keys = [c["key"] for c in out["columns"]]
-    assert "Other_Liab" in keys and "CST" not in keys          # an all-zero line stays out
-    liab = next(c for c in out["columns"] if c["key"] == "Other_Liab")
-    assert liab["label"] == "Loans & Other Liabilities" and liab["derived"] is True
-    assert out["rows"][0]["values"]["Other_Liab"] == -14286.78
-    assert out["rows"][1]["values"]["Other_Liab"] == 0.0
-    out2 = add_unshown_nw_lines(table, [{"year": 2026, "cst_nw": 5.0}, {"year": 2027, "cst_nw": 6.0}])
+    out = add_unshown_nw_lines(table, [{"year": 2026, "cst_nw": 0.0}, {"year": 2027, "cst_nw": 0.0}])
+    assert [c["key"] for c in out["columns"]] == ["TOTAL NW"]           # an all-zero line stays out
+    out2 = add_unshown_nw_lines(table, [{"year": 2026, "cst_nw": 5.0, "additional_liabilities": 9.0},
+                                        {"year": 2027, "cst_nw": 6.0}])
+    cst = next(c for c in out2["columns"] if c["key"] == "CST")
+    assert cst["label"] == "Credit Shelter Trust" and cst["derived"] is True
     assert [r["values"]["CST"] for r in out2["rows"]] == [5.0, 6.0]
-    assert "Other_Liab" not in out2["rows"][0]["values"]
+    assert "Other_Liab" not in out2["rows"][0]["values"]                # the sheet's column, not derived
+
+
+def _liab_sheet():
+    # The "off" plan with a loan balance in its first two years, TOTAL NW reduced to match the engine.
+    c, rows = case("off")
+    rows = [dict(r) for r in rows]
+    for r, bal in zip(rows, (14286.78, 7000.0)):
+        r["additional_liabilities"] = bal
+        r["total_nw"] = r["total_nw"] - bal
+    ws = Workbook().active
+    return c, rows, ws, build_sheet5(ws, c, rows)
+
+
+def test_sheet_shows_liabilities_column_that_foots_to_total():
+    _c, rows, ws, cols = _liab_sheet()
+    col = cols["Other_Liab"]
+    assert col == cols["Σ Other"] + 1 and cols["TOTAL NW"] == col + 1
+    assert ws.cell(2, col).value == "Loans & Other Liabilities" and ws.cell(1, col).value == "LIABILITIES"
+    assert [ws.cell(3 + i, col).value for i in range(3)] == [-14286.78, -7000.0, 0.0]
+    for i in range(len(rows)):
+        shown = sum(ws.cell(3 + i, cols[k]).value or 0 for k in ("Σ Ann", "Σ PreTax", "Σ Roth", "Σ Trust", "HSA_1", "Σ Other", "Other_Liab"))
+        cst = float(rows[i].get("cst_nw") or 0)
+        assert abs(shown + cst - ws.cell(3 + i, cols["TOTAL NW"]).value) < 0.01, rows[i]["year"]
+    summary = {ws.cell(r, 1).value: ws.cell(r, 2).value for r in range(len(rows) + 4, ws.max_row + 1)}
+    assert summary["Loans & Other Liabilities"] == -14286.78
+
+
+def test_sheet_liabilities_column_reaches_projection_tables():
+    from src.reporting.projection_tables import add_unshown_nw_lines
+
+    _c, rows, ws, cols = _liab_sheet()
+    t = add_unshown_nw_lines(table_from_sheet(ws, cols), rows)
+    liab = [c for c in t["columns"] if c["key"] == "Other_Liab"]
+    assert len(liab) == 1 and liab[0]["label"] == "Loans & Other Liabilities" and not liab[0].get("derived")
+    assert t["rows"][0]["values"]["Other_Liab"] == -14286.78
+
+
+def test_liability_free_plan_keeps_the_historic_layout(off_sheets):
+    _c, sheets = off_sheets
+    cols = sheets["nw"][1]
+    assert "Other_Liab" not in cols and cols["TOTAL NW"] == 28
 
 
 def test_real_plan_groups_foot_after_unshown_lines(off_sheets):
@@ -185,7 +222,7 @@ def test_read_back_failure_returns_none_not_raise(off_sheets):
 
     (ws5, cols5), (ws6, cols6) = off_sheets[1]["nw"], off_sheets[1]["cf"]
     assert read_projection_tables(ws5, None, ws6, cols6, []) is None
-    assert read_projection_tables(ws5, cols5, ws6, cols6, [{"year": 2026, "additional_liabilities": "x"}]) is None
+    assert read_projection_tables(ws5, cols5, ws6, cols6, [{"year": 2026, "cst_nw": "x"}]) is None
     ok = read_projection_tables(ws5, cols5, ws6, cols6, case("off")[1])
     assert ok is not None and set(ok) == {"net_worth", "cash_flow"}
 
