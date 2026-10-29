@@ -7,6 +7,7 @@ Displays year-by-year net worth accumulation across account types:
 - Trust/Taxable accounts
 - HSA
 - Other assets (home equity, startup value, autos, notes, cash)
+- Loans & other liabilities (only while the plan has any)
 
 Includes collapsible column groups for detail/subtotal toggling and
 a summary block showing start vs. end values with change calculations.
@@ -24,6 +25,7 @@ from .workbook_common import (
     LGRAY,
     NAVY,
     ORANGE,
+    RED,
     WHITE,
     deflate_to_present,
     get_column_letter,
@@ -59,6 +61,13 @@ def build_sheet5(ws, c, rows):
         COLS['Rental Equity'] = 27
         COLS['Σ Other'] = 28
         COLS['TOTAL NW'] = 29
+    # The engine's TOTAL NW subtracts additional_liabilities (auto/student/other loan balances);
+    # shown as a negative Loans & Other Liabilities column after Σ Other, only while the plan has
+    # any, so the visible columns foot to TOTAL NW. Off, the layout is unchanged.
+    liab_on = any(abs(float(r.get('additional_liabilities') or 0)) > 0.005 for r in rows)
+    if liab_on:
+        COLS['Other_Liab'] = COLS['TOTAL NW']
+        COLS['TOTAL NW'] += 1
     COL_SIGMA_OTHER = COLS['Σ Other']
     COL_TOTAL = COLS['TOTAL NW']
 
@@ -171,6 +180,7 @@ def build_sheet5(ws, c, rows):
         'Trust_1': trust_slots[0][1] or 'Trust 1',
         'Trust_2': trust_slots[1][1] or 'Trust 2',
         'HSA_1': hsa_slots[0][1] or 'HSA',
+        'Other_Liab': 'Loans & Other Liabilities',
     }
 
     # Group header row
@@ -182,6 +192,8 @@ def build_sheet5(ws, c, rows):
     write_hdr(ws, r, 17, 'TRUSTS', '7030A0', WHITE, span=3)
     write_hdr(ws, r, 20, 'HSA', GOLD, '000000', span=1)
     write_hdr(ws, r, 21, 'OTHER ASSETS', DGRAY, WHITE, span=COL_SIGMA_OTHER - 20)
+    if liab_on:
+        write_hdr(ws, r, COLS['Other_Liab'], 'LIABILITIES', RED, WHITE, span=1)
     write_hdr(ws, r, COL_TOTAL, 'TOTAL', NAVY, WHITE, span=1)
 
     r = 2
@@ -261,6 +273,7 @@ def build_sheet5(ws, c, rows):
                 row.get('home_equity',0), row.get('next_housing_equity',0), row.get('startup_val',0),
                 row.get('autos_val',0), row.get('note_bal',0), cash_val,
                 *([rental_eq] if rental_on else []), other_tot,
+                *([-float(row.get('additional_liabilities') or 0) + 0.0] if liab_on else []),
                 total_nw]
 
         for col_idx, val in enumerate(vals, 1):
@@ -330,6 +343,8 @@ def build_sheet5(ws, c, rows):
         ('Trusts',              _start_trust,       rows[-1]['trust_nw']),
         ('HSA',                 _start_hsa,         rows[-1]['hsa_nw']),
         ('Other Assets',        rows[0]['other_nw'],rows[-1]['other_nw']),
+        *([('Loans & Other Liabilities', -float(rows[0].get('additional_liabilities') or 0),
+            -float(rows[-1].get('additional_liabilities') or 0))] if liab_on else []),
         ('TOTAL',               _start_total,       rows[-1]['total_nw']),
     ]
     for grp, start, end in groups:
