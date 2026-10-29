@@ -30,6 +30,7 @@ ALLOWLIST: dict[str, str] = {
     "src/reporting/workbook_format_config.py": "reads the legacy workbook format file once (migrates into app.db)",
     "src/desktop_api.py": "writes a file the user picked in a Save dialog (exports and downloads)",
     "src/server/workbook_routes.py": "reads a generated output file for download/compare; not plan data",
+    "src/reporting/projection_tables.py": "writes the build's projection_tables.json output (Trends Recent Projections); not plan data",
     "src/http_runtime/wsgi_facade.py": "serves static frontend assets",
     "src/reporting/dashboard.py": "writes the generated HTML report to the per-plan output folder",
     "src/market_data.py": "price cache file and in-memory CSV text from market-data providers; not plan data",

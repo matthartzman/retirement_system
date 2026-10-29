@@ -167,7 +167,7 @@ def test_column_fixture_matches_builder(off_sheets, rental_on_sheets):
         cf = table_from_sheet(*sheets["cf"])
         got = {"net_worth": [{"key": x["key"], "banner": x["banner"]} for x in nw["columns"]],
                "cash_flow": [{"key": x["key"], "banner": x["banner"]} for x in cf["columns"]]}
-        assert got == expected[name], f"{name}: regenerate {FIXTURE.name} and map new keys in projection_groups.js"
+        assert got == expected[name], f"{name}: regenerate {FIXTURE.name} and give new keys a group in the reporter's group config"
 
 
 def test_non_finite_values_become_null():

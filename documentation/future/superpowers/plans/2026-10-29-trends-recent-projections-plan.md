@@ -1,5 +1,7 @@
 # Recent Projections Implementation Plan
 
+Status: implemented (2026-10-29, branch `recent-projections`)
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add a third Financial Trends view, "Recent Projections", that shows the next N years (default 5) of the workbook's Net Worth and Cash Flow tables. Groups start collapsed and the Year column is frozen.
