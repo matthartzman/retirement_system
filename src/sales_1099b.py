@@ -83,7 +83,9 @@ def preview(input_dir: str | Path, *, broker: str, account: str, text: str | Non
         previous = store.sales.statement_lines(active["statement_id"]) if active else []
     result = matching.match_lines(lines, ledger, account=account)
     rep = _report.build_report(lines, ledger, result, tax_year=year)
-    out = {**pv, "account": account, "tax_year": year, "match": result, "report": rep, "report_csv": _report.report_csv(rep),
+    placed = {m["line_index"]: m["sale_ids"] for m in result["matches"]}
+    washes = _report.wash_adjustments(lines, [placed.get(i, []) for i in range(len(lines))])
+    out = {**pv, "wash_adjustments": washes, "account": account, "tax_year": year, "match": result, "report": rep, "report_csv": _report.report_csv(rep),
            "supersedes": None, "changes_since_previous": []}
     if active:
         out["supersedes"] = {"statement_id": active["statement_id"], "applied_at": active["applied_at"],
@@ -152,3 +154,18 @@ def _new_row(ln: dict[str, Any], account: str, statement_id: int, line_no: int) 
         "official_proceeds": ln["proceeds"], "official_basis": ln["basis"] if covered else None,
         "official_gain": ln["gain"] if covered else None, "official_holding_period": ln["term"],
     }
+
+
+@_store_errors
+def wash_adjustments(input_dir: str | Path, tax_year: int) -> dict[str, Any]:
+    """Wash-sale losses disallowed (1099-B column 1g) from the applied statements of ``tax_year``, for display. A
+    superseded statement is not counted. Read-only; it never changes a gain, a wash flag or a tax figure."""
+    items: list[dict[str, Any]] = []
+    with active_plan.workspace_store(_base(input_dir)) as store:
+        for st in store.sales.list_statements():
+            if st["status"] != "applied" or st["tax_year"] != int(tax_year):
+                continue
+            stored = store.sales.statement_lines(st["statement_id"])
+            found = _report.wash_adjustments([s["line"] for s in stored], [s["sale_ids"] for s in stored])
+            items += [{**w, "account": st["account"], "broker": st["broker"], "statement_id": st["statement_id"]} for w in found]
+    return {"tax_year": int(tax_year), "adjustments": items, "total": round(sum(w["wash_disallowed"] for w in items), 2)}

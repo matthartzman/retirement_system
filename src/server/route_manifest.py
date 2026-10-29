@@ -43,7 +43,7 @@ ROUTE_MODULES = {
         "/api/sales/candidates", "/api/sales/candidates/<int:candidate_id>/panel", "/api/sales/candidates/<int:candidate_id>/confirm",
         "/api/sales/candidates/<int:candidate_id>/undo", "/api/sales/candidates/<int:candidate_id>/dismiss", "/api/sales/candidates/<int:candidate_id>/restore",
         "/api/sales/tax-year", "/api/sales/carryforward", "/api/sales/wash/refresh",
-        "/api/sales/1099b/preview", "/api/sales/1099b/apply"],
+        "/api/sales/1099b/preview", "/api/sales/1099b/apply", "/api/sales/1099b/wash"],
     "reconcile": ["/api/reconcile", "/api/reconcile/map", "/api/reconcile/preview", "/api/reconcile/apply", "/api/reconcile/undo", "/api/reconcile/log", "/api/reconcile/policy", "/api/reconcile/undo-auto", "/api/reconcile/seed"],
     "strategy_assets": [
         "/api/holdings", "/api/holdings/preview",

@@ -195,3 +195,33 @@ def test_unsupported_broker_and_year_mismatch(ws):
         sales_1099b.preview(ws / "input", **kw(broker="nosuch"))
     with pytest.raises(ValidationError, match="tax year"):
         sales_1099b.preview(ws / "input", **kw(tax_year=2024))
+
+
+# ---------------------------------------------------------------- step 5.3: wash-sale adjustments from column 1g
+def test_preview_lists_the_statements_wash_sale_adjustments(ws):
+    pv = sales_1099b.preview(ws / "input", **kw())
+    assert [(w["symbol"], w["wash_disallowed"]) for w in pv["wash_adjustments"]] == [("WXYZ", 60.0)]
+    assert pv["report"]["totals"]["wash_disallowed"] == 60.0
+
+
+def test_applied_wash_adjustments_are_shown_by_year_and_do_not_touch_flags_or_gain(ws):
+    sales_1099b.apply(ws / "input", **kw())
+    out = sales_1099b.wash_adjustments(ws / "input", 2025)
+    assert out["total"] == 60.0 and len(out["adjustments"]) == 1
+    w = out["adjustments"][0]
+    assert (w["symbol"], w["wash_disallowed"], w["date_sold"], w["account"]) == ("WXYZ", 60.0, "2025-10-15", "Trust")
+    assert w["sale_ids"] and w["statement_id"]
+    with active_plan.workspace_store(ws) as store:
+        added = store.sales.get_sale(w["sale_ids"][0])
+    assert added["wash_flag"] == "none" and added["gain"] == -40.0           # display only: nothing re-derived
+
+
+def test_wash_adjustments_for_a_year_without_a_statement_is_empty(ws):
+    sales_1099b.apply(ws / "input", **kw())
+    assert sales_1099b.wash_adjustments(ws / "input", 2024) == {"tax_year": 2024, "adjustments": [], "total": 0.0}
+
+
+def test_superseded_statement_wash_amounts_are_not_shown(ws):
+    sales_1099b.apply(ws / "input", **kw())
+    sales_1099b.apply(ws / "input", **kw(text=syn.build_statement(CORRECTED)), replace=True)
+    assert sales_1099b.wash_adjustments(ws / "input", 2025)["total"] == 60.0       # once, not twice

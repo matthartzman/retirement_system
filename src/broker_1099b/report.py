@@ -10,7 +10,8 @@ _MONEY = ("proceeds", "basis", "gain")
 _EPS = 0.005
 CSV_COLUMNS = ("status", "symbol", "date_sold", "quantity", "kind", "sale_ids", "changed",
                "proceeds_ledger", "proceeds_official", "proceeds_delta", "basis_ledger", "basis_official", "basis_delta",
-               "gain_ledger", "gain_official", "gain_delta", "holding_period_ledger", "holding_period_official", "note")
+               "gain_ledger", "gain_official", "gain_delta", "holding_period_ledger", "holding_period_official",
+               "wash_disallowed", "note")
 
 
 def _r(x: float) -> float:
@@ -106,12 +107,14 @@ def build_report(lines: Sequence[Mapping[str, Any]], ledger: Sequence[Mapping[st
             fields["sale_date"] = _field(sales[0]["sale_date"], ln["date_sold"], money=False)
             if sales[0]["sale_date"] != ln["date_sold"]:
                 changed.append("sale_date")
-        rows.append(_row("changed" if changed else "unchanged", ln, m["sale_ids"], m["kind"], fields, changed))
+        rows.append(_row("changed" if changed else "unchanged", ln, m["sale_ids"], m["kind"], fields, changed,
+                         wash=_r(ln.get("wash_disallowed") or 0.0)))
     for i in result["unmatched_lines"]:
         ln = lines[i]
         fields = {"proceeds": _field(0.0, _r(ln["proceeds"])), "basis": _field(0.0, _r(ln["basis"])),
                   "gain": _field(0.0, _r(ln["gain"])), "holding_period": _field(None, ln["term"], money=False)}
-        rows.append(_row("not_previously_entered", ln, [], "line", fields, [], "no ledger row; will be added as source 1099b"))
+        rows.append(_row("not_previously_entered", ln, [], "line", fields, [], "no ledger row; will be added as source 1099b",
+                         wash=_r(ln.get("wash_disallowed") or 0.0)))
     year = str(int(tax_year))
     for sid in result["unmatched_ledger"]:
         s = by_id[sid]
@@ -120,16 +123,17 @@ def build_report(lines: Sequence[Mapping[str, Any]], ledger: Sequence[Mapping[st
         fields = {"proceeds": _field(_r(s["proceeds"]), None), "basis": _field(_r(s["basis"]), None),
                   "gain": _field(_r(s["gain"] or 0.0), None), "holding_period": _field(s["holding_period"], None, money=False)}
         rows.append({"status": "no_1099b_line", "symbol": s["symbol"], "date_sold": s["sale_date"], "quantity": s["shares"],
-                     "kind": "ledger", "sale_ids": [sid], "changed": [], "fields": fields,
+                     "kind": "ledger", "sale_ids": [sid], "changed": [], "fields": fields, "wash_disallowed": 0.0,
                      "note": "no 1099-B line: wrong lot, wrong account, or an account the broker does not report"})
     totals = {k: sum(1 for r in rows if r["status"] == k) for k in ("changed", "unchanged", "not_previously_entered", "no_1099b_line")}
+    totals["wash_disallowed"] = _r(sum(r["wash_disallowed"] for r in rows))
     for k in _MONEY:
         totals[f"{k}_delta"] = _r(sum(r["fields"][k]["delta"] for r in rows if r["status"] in ("changed", "unchanged")))
     return {"tax_year": int(tax_year), "rows": rows, "totals": totals}
 
 
-def _row(status, ln, sale_ids, kind, fields, changed, note=""):
-    return {"status": status, "symbol": ln.get("symbol"), "date_sold": ln["date_sold"], "quantity": ln["quantity"],
+def _row(status, ln, sale_ids, kind, fields, changed, note="", wash=0.0):
+    return {"wash_disallowed": wash, "status": status, "symbol": ln.get("symbol"), "date_sold": ln["date_sold"], "quantity": ln["quantity"],
             "kind": kind, "sale_ids": list(sale_ids), "changed": changed, "fields": fields, "note": note}
 
 
@@ -143,7 +147,7 @@ def report_csv(report: Mapping[str, Any]) -> str:
                     f["proceeds"]["ledger"], _blank(f["proceeds"]["official"]), f["proceeds"]["delta"],
                     f["basis"]["ledger"], _blank(f["basis"]["official"]), f["basis"]["delta"],
                     f["gain"]["ledger"], _blank(f["gain"]["official"]), f["gain"]["delta"],
-                    _blank(f["holding_period"]["ledger"]), _blank(f["holding_period"]["official"]), note])
+                    _blank(f["holding_period"]["ledger"]), _blank(f["holding_period"]["official"]), r["wash_disallowed"], note])
     return text_csv.rows_to_text(out)
 
 
@@ -177,4 +181,17 @@ def compare_statements(old: Sequence[Mapping[str, Any]], new: Sequence[Mapping[s
             out.append({"change": "removed", "symbol": key[0], "date_sold": key[1], "fields": {}})
         for n in news[len(olds):]:
             out.append({"change": "added", "symbol": key[0], "date_sold": key[1], "fields": {}})
+    return out
+
+
+def wash_adjustments(lines: Sequence[Mapping[str, Any]], sale_ids: Sequence[Sequence[int]]) -> list[dict[str, Any]]:
+    """The wash-sale loss disallowed (1099-B column 1g) of each line that has one, with the ledger rows it landed on
+    (``sale_ids[i]`` for line ``i``). Display only: nothing here changes a gain, a flag or a tax figure."""
+    out = []
+    for ln, ids in zip(lines, sale_ids):
+        amount = _r(ln.get("wash_disallowed") or 0.0)
+        if abs(amount) > _EPS:
+            out.append({"symbol": ln.get("symbol"), "cusip": ln.get("cusip"), "date_sold": ln["date_sold"],
+                        "date_acquired": ln.get("date_acquired"), "quantity": ln["quantity"], "term": ln["term"],
+                        "covered": bool(ln["covered"]), "wash_disallowed": amount, "sale_ids": list(ids)})
     return out
