@@ -309,7 +309,7 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, access
     @app.route("/api/projections", methods=["GET"])
     def projections_endpoint():
         # Recent Projections: the active plan's projection_tables.json (written by the workbook build),
-        # plus plan_mtime for the page's "plan changed since the build" flag.
+        # plus plan_changed (the plan's inputs differ from what that build read) for the page's flag.
         try:
             return _json(projections.load(retirement_system_dir))
         except Exception as exc:  # noqa: BLE001 - the page shows the cause

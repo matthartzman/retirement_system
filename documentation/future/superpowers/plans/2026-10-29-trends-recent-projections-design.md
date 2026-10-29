@@ -93,8 +93,8 @@ Tax, Rent, LTC).
 
 **Reader.** The reporter adds `GET /api/projections`. It finds the file the same
 way the reporter already finds the active plan (`plan_path_for_workspace`), and
-caches the parsed file by mtime. It returns the JSON plus `plan_mtime` (for the
-staleness flag) and, for percent-only viewers, scaled values (§6). If the file is
+caches the parsed file by mtime. It returns the JSON plus `plan_changed` (the plan's
+inputs differ from what the build read; the staleness flag) and, for percent-only viewers, scaled values (§6). If the file is
 missing or its schema is unknown, it returns `{"missing": true}`.
 
 ## 4. Grouping
