@@ -15,6 +15,7 @@ Household,,survivor_filing_status,choice,FALSE,Single,,,Filing status after firs
 Household,,survivor_has_dependent,boolean,FALSE,FALSE,,,Enables QSS brackets.
 Household,,survivor_spend_factor,number,FALSE,0.65,0,1,"Share of joint core spending and recurring extras (travel, large discretionary) the household still spends once only one member is alive. Housing is excluded (the survivor keeps the same home) and so are wellness/LTC, which already scale per person."
 Plan Settings,Tax Detail,model_niit,boolean,TRUE,TRUE,,,Model 3.8% NIIT
+Plan Settings,Tax Detail,use_realized_sales,boolean,FALSE,TRUE,,,Use the Sales Ledger's realized gains and capital-loss carryforward in the plan's first year
 Plan Settings,Estate,model_state_estate_tax,boolean,TRUE,TRUE,,,Model state estate tax
 Economic Assumptions,,inflation_general,percent,TRUE,2.50%,0,10,CPI for spending and home
 Economic Assumptions,,social_security_cola,percent,TRUE,2.00%,0,8,SS benefit COLA

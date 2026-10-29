@@ -982,6 +982,8 @@ def parse_plan_settings(data, c, _sv, system_data):
     )
     # Plan settings: plan rows over the engine defaults (src/engine_defaults.py).
     c['model_niit']       = _b(_sv('Plan Settings','Tax Detail','model_niit','TRUE'))
+    # Realized-sales ledger (step 3b.2): FALSE runs the plan without the ledger's year-1 gains and loss pool.
+    c['use_realized_sales'] = _b(_sv('Plan Settings','Tax Detail','use_realized_sales','TRUE'))
     c['model_state_est']  = _b(_sv('Plan Settings','Estate','model_state_estate_tax','TRUE'))
 
     # Global/tax-aware rebalancing controls: plan rows over the engine defaults.
@@ -1495,9 +1497,11 @@ def parse_hsa_schedule_and_account_income(data, c, lots_by_account, lots_reconci
 
     # ── Realized-sales ledger seed (step 3b.1) ───────────────────────────────
     # The active plan's confirmed taxable sales for the plan year plus the carryforward into it, netted; None for
-    # an empty ledger, which leaves the projection exactly as it was (see src/realized_seed.py).
+    # an empty ledger or with Plan Settings > use_realized_sales off, which leaves the projection exactly as it was
+    # (see src/realized_seed.py).
     from ..realized_seed import active_realized_seed
-    c['realized_seed'] = active_realized_seed(c['plan_start'], c['filing_status'])
+    c['realized_seed'] = (active_realized_seed(c['plan_start'], c['filing_status'])
+                          if c['use_realized_sales'] else None)
 
     # ── Individual-account withdrawal-order override (#276) ──────────────────
     c.update(parse_account_draw_priority(data))

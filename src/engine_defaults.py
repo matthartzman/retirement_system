@@ -15,6 +15,7 @@ SettingMap = Dict[str, Dict[str, Dict[str, str]]]
 # (section, subsection, label, value, units, notes)
 ENGINE_DEFAULT_ROWS: tuple[tuple[str, str, str, str, str, str], ...] = (
     ('Plan Settings', 'Tax Detail', 'model_niit', 'TRUE', 'boolean', 'Apply 3.8% Net Investment Income Tax above MAGI threshold'),
+    ('Plan Settings', 'Tax Detail', 'use_realized_sales', 'TRUE', 'boolean', "Use the Sales Ledger's realized gains and capital-loss carryforward in the plan's first year"),
     ('Plan Settings', 'Estate', 'model_state_estate_tax', 'TRUE', 'boolean', 'Model residence-state estate tax in addition to federal'),
     ('Asset Class Assumptions', 'Global', 'capital_market_assumption_mode', 'PRESET', 'choice', 'PRESET uses built-in horizon/preset assumptions; CUSTOM_FILE reads capital_market_assumptions.csv. Advanced users only.'),
     ('Asset Class Assumptions', 'Global', 'capital_market_assumption_horizon_years', '30', 'years', 'Planning horizon for allocation optimizer assumptions. Supported: 1, 3, 5, 10, 20, 25, 30. 30 is the long-term baseline. Ignored when capital_market_assumption_horizon_source is auto_from_withdrawals.'),

@@ -208,6 +208,21 @@ def workbook_consistency_warnings(c: dict[str, Any], rows: Iterable[dict[str, An
     for _w in (c.get('rmd_start_age_warnings') or []):
         if isinstance(_w, dict):
             warnings.append(dict(_w))
+    # Realized-sales ledger (step 3b.2): say plainly when the first year carries actual sales, so a reader of the
+    # workbook knows that year is not purely simulated. Informational; nothing is blocked.
+    seed = c.get('realized_seed')
+    if seed:
+        parts = []
+        if float(seed.get('gain_ordinary') or 0.0) > 0:
+            parts.append(f"${float(seed['gain_ordinary']):,.0f} net short-term gain (taxed as ordinary income)")
+        if float(seed.get('gain_ltcg') or 0.0) > 0:
+            parts.append(f"${float(seed['gain_ltcg']):,.0f} net long-term gain")
+        if float(seed.get('loss_pool') or 0.0) > 0:
+            parts.append(f"a ${float(seed['loss_pool']):,.0f} capital-loss pool (carryforward plus the year's net loss)")
+        what = '; '.join(parts) if parts else 'confirmed taxable sales that net to zero'
+        warnings.append({'code': 'REALIZED_LEDGER_IN_YEAR_1', 'severity': 'INFO',
+                         'message': f"{seed.get('year')} includes realized sales from the Sales Ledger: {what}.",
+                         'action': 'Set Plan Settings > Tax Detail > use_realized_sales to FALSE to see the plan without them.'})
     ropt = c.get('roth_optimization') or {}
     selected_policy = str(ropt.get('selected_policy') or c.get('roth_policy') or '').lower()
     if ropt and selected_policy != str(c.get('roth_policy','')).lower():
