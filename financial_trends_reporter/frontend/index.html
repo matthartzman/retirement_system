@@ -266,6 +266,46 @@
     .group-by .chip { padding: 0 2px 0 8px; }
     .live-table .ticker-title { display: block; max-width: 22ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   }
+  /* Recent Projections view (projections.js): body.proj-mode swaps the trend cards for #projView. The Time
+     scope doesn't apply (the window always starts this year), so it hides too. */
+  body.proj-mode .grid, body.proj-mode .scope-pick, body.proj-mode #customFrom, body.proj-mode #customTo,
+  body.proj-mode #scopeLabel, body.proj-mode #allTimeNote, body.proj-mode #priceNote, body.proj-mode #balancesNote { display: none !important; }
+  /* minmax(0, 1fr): a grid item's min-width is its content's by default, which would widen the page
+     to the expanded table instead of scrolling the table inside its card. */
+  #projView { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  #projView[hidden] { display: none; }
+  #projBody { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .proj-actions { flex-wrap: wrap; }
+  .proj-years input { width: 4.5em; font: inherit; padding: 4px 6px; border: 1px solid #bbb; border-radius: 6px; background: transparent; color: inherit; }
+  .proj-build { color: #666; margin-left: auto; }
+  .proj-build.stale, .proj-flag { color: #9a6700; font-weight: 600; }
+  @media (prefers-color-scheme: dark) { .proj-build { color: #a0a0a8; } .proj-build.stale, .proj-flag { color: #e3b341; } .proj-years input { border-color: #55585f; } }
+  .proj-card { background: var(--card-bg); border-radius: 10px; padding: 12px 16px; }
+  /* The Year column stays put while the columns scroll; the header row stays put while the years do. */
+  .proj-wrap { overflow: auto; max-height: 75vh; }
+  .proj-table { width: auto; min-width: 100%; }
+  .proj-table thead th { position: sticky; top: 0; z-index: 2; background: var(--card-bg); vertical-align: bottom; }
+  .proj-table .proj-year { position: sticky; left: 0; z-index: 1; background: var(--card-bg); box-shadow: 1px 0 0 #e5e5e8; }
+  .proj-table thead th.proj-year { z-index: 3; }
+  @media (prefers-color-scheme: dark) { .proj-table .proj-year { box-shadow: 1px 0 0 #2a2d33; } }
+  .proj-ages { display: block; font-size: 11px; font-weight: 400; color: #666; }
+  @media (prefers-color-scheme: dark) { .proj-ages { color: #a0a0a8; } }
+  .proj-table th.proj-h, .proj-table td { text-align: right; }
+  .proj-table .proj-h.d0 { color: inherit; }
+  .proj-table .proj-h.d1, .proj-table .proj-h.d2, .proj-table td.d { font-weight: 400; }
+  .proj-table .proj-h.d1 { color: #555; } .proj-table .proj-h.d2 { color: #777; font-size: 11px; }
+  .proj-table .proj-h.open { box-shadow: inset 0 -2px 0 #2563eb; }
+  .proj-table td.ctx, .proj-table th.context { color: #888; font-style: italic; }
+  .proj-toggle { border: 0; background: none; color: inherit; font: inherit; font-weight: 600; padding: 0; cursor: pointer; white-space: nowrap; }
+  .proj-table .proj-h.d1 .proj-toggle, .proj-table .proj-h.d2 .proj-toggle { font-weight: 400; }
+  .proj-toggle:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; border-radius: 3px; }
+  @media (prefers-color-scheme: dark) { .proj-table .proj-h.d1 { color: #c0c0c8; } .proj-table .proj-h.d2 { color: #a0a0a8; } .proj-table .proj-h.open { box-shadow: inset 0 -2px 0 #60a5fa; } }
+  @media (max-width: 700px) {
+    .proj-table th, .proj-table td { padding: 5px 4px; font-size: 12px; }
+    .proj-toggle { white-space: normal; text-align: right; }   /* "Annuities & Pension" wraps instead of widening the table */
+    .proj-build { margin-left: 0; }
+    .proj-years input { font-size: 14px; padding: 6px; }
+  }
   #updateError { display: none; }
   #updateError button { margin-left: 8px; border: 1px solid currentColor; background: transparent; color: inherit; border-radius: 6px; padding: 2px 10px; font-size: 12px; cursor: pointer; }
 </style>
@@ -273,7 +313,7 @@
 <body>
 <div class="title-row"><h1>Financial Trends</h1><button type="button" id="moneyToggle" aria-pressed="false" aria-label="Show amounts as a percent of net worth" title="Show amounts in dollars or as a percent of net worth" hidden><span class="seg seg-dollars" aria-hidden="true">$</span><span class="seg seg-percent" aria-hidden="true">%</span></button></div>
 <div class="toolbar" id="scopeBar">
-  <div class="view-toggle" role="group" aria-label="View"><button type="button" data-view="trends" aria-pressed="true">Trends</button><button type="button" data-view="live" aria-pressed="false">Live Snapshot</button></div>
+  <div class="view-toggle" role="group" aria-label="View"><button type="button" data-view="live" aria-pressed="false">Live Snapshot</button><button type="button" data-view="trends" aria-pressed="true">Trends</button><button type="button" data-view="projections" aria-pressed="false">Recent Projections</button></div>
   <label class="scope-pick">Time scope <select id="scopeSelect">
     <option value="week">1 Week</option>
     <option value="month" selected>1 Month</option>
@@ -308,6 +348,9 @@
   <div class="live-actions"><div class="live-tabs" role="group" aria-label="Live Snapshot section"><button type="button" data-live-tab="holdings" aria-pressed="true">Holdings</button><button type="button" data-live-tab="realized" aria-pressed="false">Realized</button></div><button type="button" id="liveRefresh">Refresh now</button><span id="liveError" class="live-error" role="alert"></span></div>
   <div id="liveBody"></div>
   <div id="realizedBody" hidden></div>
+</section>
+<section id="projView" aria-label="Recent Projections" hidden>
+  <div id="projBody"></div>
 </section>
 <div id="accountsMsg" role="status"></div>
 <div id="updateOverlay" class="update-overlay" role="status" aria-live="polite" aria-hidden="true"><div class="update-card"><div class="update-spinner" aria-hidden="true"></div><div class="update-title">Updating Data</div><div id="updateOverlayDetail" class="update-detail">Elapsed 0:00</div><div class="update-bar" role="progressbar" aria-label="Update progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="updateOverlayBar"></span></div><div id="updateOverlayAvg" class="update-avg">Working…</div><div class="update-actions"><button type="button" id="updateCancel" class="update-btn">Cancel update</button><button type="button" id="updateHide" class="update-btn">Hide</button></div><div class="update-note">The update keeps running if you hide this window.</div></div></div>
@@ -982,5 +1025,6 @@ initMoneyView().then(loadHistory).then(() => updateData(false));
 </script>
 <script type="module" src="./live_snapshot.js"></script>
 <script type="module" src="./realized.js"></script>
+<script type="module" src="./projections.js"></script>
 </body>
 </html>

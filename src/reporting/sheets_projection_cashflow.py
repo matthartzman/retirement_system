@@ -512,3 +512,4 @@ def build_sheet6(ws, c, rows):
 
     qc('6. Cash Flow Projection', f'{len(rows)} rows, account-level WDs, collapsible groups',
        True, '')
+    return COL  # semantic column key -> column number (projection_tables.json reads it)

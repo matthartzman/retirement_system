@@ -350,3 +350,4 @@ def build_sheet5(ws, c, rows):
        len(rows)==c['plan_end']-c['plan_start']+1, '')
     qc('5. Net Worth Projection', 'All balances ≥ 0',
        all(r['total_nw']>=0 for r in rows), '')
+    return COLS  # semantic column key -> column number (projection_tables.json reads it)

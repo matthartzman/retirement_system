@@ -25,6 +25,9 @@ NON_MONEY_KEYS: frozenset[str] = frozenset({
     "years",             # realized view: the tax years offered
     "basis_missing",     # realized view: how many waiting or estimated rows have no basis (a count)
     "not_estimated",     # realized view: how many waiting sales could not be estimated (a count)
+    "ages",              # projections: the owners' ages in a projection year
+    "plan_first_year",   # projections: first year of the plan's projection
+    "plan_last_year",    # projections: last year of the plan's projection
 })
 
 _RATIO_SUFFIXES = ("_rate", "_pct", "_ratio", "_fraction")

@@ -1,0 +1,762 @@
+{
+ "off": {
+  "net_worth": [
+   {
+    "key": "Pension PV",
+    "banner": "ANNUITIES & PENSION"
+   },
+   {
+    "key": "W Single PV",
+    "banner": "ANNUITIES & PENSION"
+   },
+   {
+    "key": "W Joint PV",
+    "banner": "ANNUITIES & PENSION"
+   },
+   {
+    "key": "H Single PV",
+    "banner": "ANNUITIES & PENSION"
+   },
+   {
+    "key": "H Joint PV",
+    "banner": "ANNUITIES & PENSION"
+   },
+   {
+    "key": "Σ Ann",
+    "banner": "ANNUITIES & PENSION"
+   },
+   {
+    "key": "PreTax_1",
+    "banner": "PRE-TAX (IRA / 401k)"
+   },
+   {
+    "key": "PreTax_2",
+    "banner": "PRE-TAX (IRA / 401k)"
+   },
+   {
+    "key": "PreTax_3",
+    "banner": "PRE-TAX (IRA / 401k)"
+   },
+   {
+    "key": "Σ PreTax",
+    "banner": "PRE-TAX (IRA / 401k)"
+   },
+   {
+    "key": "Roth_1",
+    "banner": "ROTH"
+   },
+   {
+    "key": "Roth_2",
+    "banner": "ROTH"
+   },
+   {
+    "key": "Σ Roth",
+    "banner": "ROTH"
+   },
+   {
+    "key": "Trust_1",
+    "banner": "TRUSTS"
+   },
+   {
+    "key": "Trust_2",
+    "banner": "TRUSTS"
+   },
+   {
+    "key": "Σ Trust",
+    "banner": "TRUSTS"
+   },
+   {
+    "key": "HSA_1",
+    "banner": "HSA"
+   },
+   {
+    "key": "Home Equity",
+    "banner": "OTHER ASSETS"
+   },
+   {
+    "key": "Next Housing Equity",
+    "banner": "OTHER ASSETS"
+   },
+   {
+    "key": "Startup",
+    "banner": "OTHER ASSETS"
+   },
+   {
+    "key": "Autos",
+    "banner": "OTHER ASSETS"
+   },
+   {
+    "key": "Note",
+    "banner": "OTHER ASSETS"
+   },
+   {
+    "key": "Cash",
+    "banner": "OTHER ASSETS"
+   },
+   {
+    "key": "Σ Other",
+    "banner": "OTHER ASSETS"
+   },
+   {
+    "key": "TOTAL NW",
+    "banner": "TOTAL"
+   },
+   {
+    "key": "CST",
+    "banner": "OTHER ASSETS"
+   }
+  ],
+  "cash_flow": [
+   {
+    "key": "Earned",
+    "banner": "INCOME (gross, before tax withholding)"
+   },
+   {
+    "key": "H_SS",
+    "banner": "INCOME (gross, before tax withholding)"
+   },
+   {
+    "key": "W_SS",
+    "banner": "INCOME (gross, before tax withholding)"
+   },
+   {
+    "key": "Pension",
+    "banner": "INCOME (gross, before tax withholding)"
+   },
+   {
+    "key": "W_Sgl",
+    "banner": "INCOME (gross, before tax withholding)"
+   },
+   {
+    "key": "W_Jnt",
+    "banner": "INCOME (gross, before tax withholding)"
+   },
+   {
+    "key": "H_Sgl",
+    "banner": "INCOME (gross, before tax withholding)"
+   },
+   {
+    "key": "H_Jnt",
+    "banner": "INCOME (gross, before tax withholding)"
+   },
+   {
+    "key": "Note",
+    "banner": "INCOME (gross, before tax withholding)"
+   },
+   {
+    "key": "RMD",
+    "banner": "INCOME (gross, before tax withholding)"
+   },
+   {
+    "key": "Σ_Inc",
+    "banner": "INCOME (gross, before tax withholding)"
+   },
+   {
+    "key": "Roth_Conv",
+    "banner": "INCOME (gross, before tax withholding)"
+   },
+   {
+    "key": "AGI",
+    "banner": "TAXES"
+   },
+   {
+    "key": "Taxable",
+    "banner": "TAXES"
+   },
+   {
+    "key": "Fed",
+    "banner": "TAXES"
+   },
+   {
+    "key": "State",
+    "banner": "TAXES"
+   },
+   {
+    "key": "NIIT",
+    "banner": "TAXES"
+   },
+   {
+    "key": "IRMAA",
+    "banner": "TAXES"
+   },
+   {
+    "key": "Payroll",
+    "banner": "TAXES"
+   },
+   {
+    "key": "LTCG",
+    "banner": "TAXES"
+   },
+   {
+    "key": "Spend_Base",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "Housing",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "Mort_PI",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "Prop_Tax",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "Housing_Utilities",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "Home_Imp",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "Housing_Maintenance",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "Housing_Other",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "Wellness",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "Wellness_Premiums",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "Wellness_Medical",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "Wellness_Dental",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "Wellness_Vision",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "Wellness_Rx_Otc",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "Wellness_Other",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "Travel",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "Other",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "Business_Exp",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "HELOC_PAI",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "Σ_Spend",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "Other_Cash_Need",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "Total_Tax",
+    "banner": "CASH BRIDGE"
+   },
+   {
+    "key": "Total_Cash_Need",
+    "banner": "CASH BRIDGE"
+   },
+   {
+    "key": "Income_Funding",
+    "banner": "CASH BRIDGE"
+   },
+   {
+    "key": "Other_Funding",
+    "banner": "CASH BRIDGE"
+   },
+   {
+    "key": "Req_Portfolio_Draws",
+    "banner": "CASH BRIDGE"
+   },
+   {
+    "key": "Cash_Bridge_Gap",
+    "banner": "CASH BRIDGE"
+   },
+   {
+    "key": "H_Trust_WD",
+    "banner": "ACCOUNT OUTFLOWS — CASH DRAWS & IRA CONVERSIONS"
+   },
+   {
+    "key": "W_Trust_WD",
+    "banner": "ACCOUNT OUTFLOWS — CASH DRAWS & IRA CONVERSIONS"
+   },
+   {
+    "key": "Σ_Trust",
+    "banner": "ACCOUNT OUTFLOWS — CASH DRAWS & IRA CONVERSIONS"
+   },
+   {
+    "key": "HSA_WD",
+    "banner": "ACCOUNT OUTFLOWS — CASH DRAWS & IRA CONVERSIONS"
+   },
+   {
+    "key": "H_Roth_WD",
+    "banner": "ACCOUNT OUTFLOWS — CASH DRAWS & IRA CONVERSIONS"
+   },
+   {
+    "key": "W_Roth_WD",
+    "banner": "ACCOUNT OUTFLOWS — CASH DRAWS & IRA CONVERSIONS"
+   },
+   {
+    "key": "Σ_Roth",
+    "banner": "ACCOUNT OUTFLOWS — CASH DRAWS & IRA CONVERSIONS"
+   },
+   {
+    "key": "H_IRA_RMD",
+    "banner": "ACCOUNT OUTFLOWS — CASH DRAWS & IRA CONVERSIONS"
+   },
+   {
+    "key": "H_IRA_Elec",
+    "banner": "ACCOUNT OUTFLOWS — CASH DRAWS & IRA CONVERSIONS"
+   },
+   {
+    "key": "H_IRA_Conv",
+    "banner": "ACCOUNT OUTFLOWS — CASH DRAWS & IRA CONVERSIONS"
+   },
+   {
+    "key": "H_IRA_Tot",
+    "banner": "ACCOUNT OUTFLOWS — CASH DRAWS & IRA CONVERSIONS"
+   },
+   {
+    "key": "W_IRA_RMD",
+    "banner": "ACCOUNT OUTFLOWS — CASH DRAWS & IRA CONVERSIONS"
+   },
+   {
+    "key": "W_IRA_Elec",
+    "banner": "ACCOUNT OUTFLOWS — CASH DRAWS & IRA CONVERSIONS"
+   },
+   {
+    "key": "W_IRA_Conv",
+    "banner": "ACCOUNT OUTFLOWS — CASH DRAWS & IRA CONVERSIONS"
+   },
+   {
+    "key": "W_IRA_Tot",
+    "banner": "ACCOUNT OUTFLOWS — CASH DRAWS & IRA CONVERSIONS"
+   },
+   {
+    "key": "HELOC_Draw",
+    "banner": "ACCOUNT OUTFLOWS — CASH DRAWS & IRA CONVERSIONS"
+   },
+   {
+    "key": "HELOC_Bal",
+    "banner": "ACCOUNT OUTFLOWS — CASH DRAWS & IRA CONVERSIONS"
+   },
+   {
+    "key": "Σ_WD",
+    "banner": "ACCOUNT OUTFLOWS — CASH DRAWS & IRA CONVERSIONS"
+   },
+   {
+    "key": "NW_Check",
+    "banner": "NET WORTH"
+   }
+  ]
+ },
+ "rental_on": {
+  "net_worth": [
+   {
+    "key": "Pension PV",
+    "banner": "ANNUITIES & PENSION"
+   },
+   {
+    "key": "W Single PV",
+    "banner": "ANNUITIES & PENSION"
+   },
+   {
+    "key": "W Joint PV",
+    "banner": "ANNUITIES & PENSION"
+   },
+   {
+    "key": "H Single PV",
+    "banner": "ANNUITIES & PENSION"
+   },
+   {
+    "key": "H Joint PV",
+    "banner": "ANNUITIES & PENSION"
+   },
+   {
+    "key": "Σ Ann",
+    "banner": "ANNUITIES & PENSION"
+   },
+   {
+    "key": "PreTax_1",
+    "banner": "PRE-TAX (IRA / 401k)"
+   },
+   {
+    "key": "PreTax_2",
+    "banner": "PRE-TAX (IRA / 401k)"
+   },
+   {
+    "key": "PreTax_3",
+    "banner": "PRE-TAX (IRA / 401k)"
+   },
+   {
+    "key": "Σ PreTax",
+    "banner": "PRE-TAX (IRA / 401k)"
+   },
+   {
+    "key": "Roth_1",
+    "banner": "ROTH"
+   },
+   {
+    "key": "Roth_2",
+    "banner": "ROTH"
+   },
+   {
+    "key": "Σ Roth",
+    "banner": "ROTH"
+   },
+   {
+    "key": "Trust_1",
+    "banner": "TRUSTS"
+   },
+   {
+    "key": "Trust_2",
+    "banner": "TRUSTS"
+   },
+   {
+    "key": "Σ Trust",
+    "banner": "TRUSTS"
+   },
+   {
+    "key": "HSA_1",
+    "banner": "HSA"
+   },
+   {
+    "key": "Home Equity",
+    "banner": "OTHER ASSETS"
+   },
+   {
+    "key": "Next Housing Equity",
+    "banner": "OTHER ASSETS"
+   },
+   {
+    "key": "Startup",
+    "banner": "OTHER ASSETS"
+   },
+   {
+    "key": "Autos",
+    "banner": "OTHER ASSETS"
+   },
+   {
+    "key": "Note",
+    "banner": "OTHER ASSETS"
+   },
+   {
+    "key": "Cash",
+    "banner": "OTHER ASSETS"
+   },
+   {
+    "key": "Rental Equity",
+    "banner": "OTHER ASSETS"
+   },
+   {
+    "key": "Σ Other",
+    "banner": "OTHER ASSETS"
+   },
+   {
+    "key": "TOTAL NW",
+    "banner": "TOTAL"
+   },
+   {
+    "key": "CST",
+    "banner": "OTHER ASSETS"
+   }
+  ],
+  "cash_flow": [
+   {
+    "key": "Earned",
+    "banner": "INCOME (gross, before tax withholding)"
+   },
+   {
+    "key": "H_SS",
+    "banner": "INCOME (gross, before tax withholding)"
+   },
+   {
+    "key": "W_SS",
+    "banner": "INCOME (gross, before tax withholding)"
+   },
+   {
+    "key": "Pension",
+    "banner": "INCOME (gross, before tax withholding)"
+   },
+   {
+    "key": "W_Sgl",
+    "banner": "INCOME (gross, before tax withholding)"
+   },
+   {
+    "key": "W_Jnt",
+    "banner": "INCOME (gross, before tax withholding)"
+   },
+   {
+    "key": "H_Sgl",
+    "banner": "INCOME (gross, before tax withholding)"
+   },
+   {
+    "key": "H_Jnt",
+    "banner": "INCOME (gross, before tax withholding)"
+   },
+   {
+    "key": "Note",
+    "banner": "INCOME (gross, before tax withholding)"
+   },
+   {
+    "key": "RMD",
+    "banner": "INCOME (gross, before tax withholding)"
+   },
+   {
+    "key": "Rental",
+    "banner": "INCOME (gross, before tax withholding)"
+   },
+   {
+    "key": "Σ_Inc",
+    "banner": "INCOME (gross, before tax withholding)"
+   },
+   {
+    "key": "Roth_Conv",
+    "banner": "INCOME (gross, before tax withholding)"
+   },
+   {
+    "key": "AGI",
+    "banner": "TAXES"
+   },
+   {
+    "key": "Taxable",
+    "banner": "TAXES"
+   },
+   {
+    "key": "Fed",
+    "banner": "TAXES"
+   },
+   {
+    "key": "State",
+    "banner": "TAXES"
+   },
+   {
+    "key": "NIIT",
+    "banner": "TAXES"
+   },
+   {
+    "key": "IRMAA",
+    "banner": "TAXES"
+   },
+   {
+    "key": "Payroll",
+    "banner": "TAXES"
+   },
+   {
+    "key": "LTCG",
+    "banner": "TAXES"
+   },
+   {
+    "key": "Rental_Tax",
+    "banner": "TAXES"
+   },
+   {
+    "key": "Spend_Base",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "Housing",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "Mort_PI",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "Prop_Tax",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "Housing_Utilities",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "Home_Imp",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "Housing_Maintenance",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "Housing_Other",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "Wellness",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "Wellness_Premiums",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "Wellness_Medical",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "Wellness_Dental",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "Wellness_Vision",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "Wellness_Rx_Otc",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "Wellness_Other",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "Travel",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "Other",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "Business_Exp",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "HELOC_PAI",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "Σ_Spend",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "Other_Cash_Need",
+    "banner": "SPENDING"
+   },
+   {
+    "key": "Total_Tax",
+    "banner": "CASH BRIDGE"
+   },
+   {
+    "key": "Total_Cash_Need",
+    "banner": "CASH BRIDGE"
+   },
+   {
+    "key": "Income_Funding",
+    "banner": "CASH BRIDGE"
+   },
+   {
+    "key": "Other_Funding",
+    "banner": "CASH BRIDGE"
+   },
+   {
+    "key": "Req_Portfolio_Draws",
+    "banner": "CASH BRIDGE"
+   },
+   {
+    "key": "Cash_Bridge_Gap",
+    "banner": "CASH BRIDGE"
+   },
+   {
+    "key": "H_Trust_WD",
+    "banner": "ACCOUNT OUTFLOWS — CASH DRAWS & IRA CONVERSIONS"
+   },
+   {
+    "key": "W_Trust_WD",
+    "banner": "ACCOUNT OUTFLOWS — CASH DRAWS & IRA CONVERSIONS"
+   },
+   {
+    "key": "Σ_Trust",
+    "banner": "ACCOUNT OUTFLOWS — CASH DRAWS & IRA CONVERSIONS"
+   },
+   {
+    "key": "HSA_WD",
+    "banner": "ACCOUNT OUTFLOWS — CASH DRAWS & IRA CONVERSIONS"
+   },
+   {
+    "key": "H_Roth_WD",
+    "banner": "ACCOUNT OUTFLOWS — CASH DRAWS & IRA CONVERSIONS"
+   },
+   {
+    "key": "W_Roth_WD",
+    "banner": "ACCOUNT OUTFLOWS — CASH DRAWS & IRA CONVERSIONS"
+   },
+   {
+    "key": "Σ_Roth",
+    "banner": "ACCOUNT OUTFLOWS — CASH DRAWS & IRA CONVERSIONS"
+   },
+   {
+    "key": "H_IRA_RMD",
+    "banner": "ACCOUNT OUTFLOWS — CASH DRAWS & IRA CONVERSIONS"
+   },
+   {
+    "key": "H_IRA_Elec",
+    "banner": "ACCOUNT OUTFLOWS — CASH DRAWS & IRA CONVERSIONS"
+   },
+   {
+    "key": "H_IRA_Conv",
+    "banner": "ACCOUNT OUTFLOWS — CASH DRAWS & IRA CONVERSIONS"
+   },
+   {
+    "key": "H_IRA_Tot",
+    "banner": "ACCOUNT OUTFLOWS — CASH DRAWS & IRA CONVERSIONS"
+   },
+   {
+    "key": "W_IRA_RMD",
+    "banner": "ACCOUNT OUTFLOWS — CASH DRAWS & IRA CONVERSIONS"
+   },
+   {
+    "key": "W_IRA_Elec",
+    "banner": "ACCOUNT OUTFLOWS — CASH DRAWS & IRA CONVERSIONS"
+   },
+   {
+    "key": "W_IRA_Conv",
+    "banner": "ACCOUNT OUTFLOWS — CASH DRAWS & IRA CONVERSIONS"
+   },
+   {
+    "key": "W_IRA_Tot",
+    "banner": "ACCOUNT OUTFLOWS — CASH DRAWS & IRA CONVERSIONS"
+   },
+   {
+    "key": "HELOC_Draw",
+    "banner": "ACCOUNT OUTFLOWS — CASH DRAWS & IRA CONVERSIONS"
+   },
+   {
+    "key": "HELOC_Bal",
+    "banner": "ACCOUNT OUTFLOWS — CASH DRAWS & IRA CONVERSIONS"
+   },
+   {
+    "key": "Σ_WD",
+    "banner": "ACCOUNT OUTFLOWS — CASH DRAWS & IRA CONVERSIONS"
+   },
+   {
+    "key": "NW_Check",
+    "banner": "NET WORTH"
+   }
+  ]
+ }
+}

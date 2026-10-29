@@ -15,7 +15,7 @@ const POLLING_STATES = new Set(["pre", "open", "post"]);
 const DASH = "–";
 
 export function parseSavedView(raw) {
-  return raw === "live" ? "live" : "trends";
+  return raw === "live" || raw === "projections" ? raw : "trends";   // projections: Recent Projections (projections.js)
 }
 
 export function shouldPoll({ shown, visible, market }) {
