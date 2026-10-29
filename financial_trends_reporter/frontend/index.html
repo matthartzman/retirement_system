@@ -270,9 +270,11 @@
      scope doesn't apply (the window always starts this year), so it hides too. */
   body.proj-mode .grid, body.proj-mode .scope-pick, body.proj-mode #customFrom, body.proj-mode #customTo,
   body.proj-mode #scopeLabel, body.proj-mode #allTimeNote, body.proj-mode #priceNote, body.proj-mode #balancesNote { display: none !important; }
-  #projView { display: grid; gap: 16px; }
+  /* minmax(0, 1fr): a grid item's min-width is its content's by default, which would widen the page
+     to the expanded table instead of scrolling the table inside its card. */
+  #projView { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
   #projView[hidden] { display: none; }
-  #projBody { display: grid; gap: 12px; }
+  #projBody { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
   .proj-actions { flex-wrap: wrap; }
   .proj-years input { width: 4.5em; font: inherit; padding: 4px 6px; border: 1px solid #bbb; border-radius: 6px; background: transparent; color: inherit; }
   .proj-build { color: #666; margin-left: auto; }
@@ -300,6 +302,7 @@
   @media (prefers-color-scheme: dark) { .proj-table .proj-h.d1 { color: #c0c0c8; } .proj-table .proj-h.d2 { color: #a0a0a8; } .proj-table .proj-h.open { box-shadow: inset 0 -2px 0 #60a5fa; } }
   @media (max-width: 700px) {
     .proj-table th, .proj-table td { padding: 5px 4px; font-size: 12px; }
+    .proj-toggle { white-space: normal; text-align: right; }   /* "Annuities & Pension" wraps instead of widening the table */
     .proj-build { margin-left: 0; }
     .proj-years input { font-size: 14px; padding: 6px; }
   }

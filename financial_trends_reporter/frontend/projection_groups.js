@@ -10,11 +10,14 @@ const sum = (vals) => {
 };
 const pick = (row, keys) => keys.map((k) => row.values[k]);
 
-const investable = (row) => sum(pick(row, ["Σ PreTax", "Σ Roth", "Σ Trust", "HSA_1", "Cash"]));
+// CST and Other_Liab (negative) are engine lines inside the sheet's TOTAL NW with no sheet column
+// (projection_tables.add_unshown_nw_lines); present only when non-zero.
+const num = (v) => (typeof v === "number" ? v : 0);
+const investable = (row) => sum(pick(row, ["Σ PreTax", "Σ Roth", "Σ Trust", "HSA_1", "Cash", "CST"]));
 const homeOther = (row) => {
   const other = row.values["Σ Other"];
   if (typeof other !== "number") return null;
-  return other - (typeof row.values.Cash === "number" ? row.values.Cash : 0);
+  return other - num(row.values.Cash) + num(row.values.Other_Liab);
 };
 const delta = (row) => {
   const now = row.values["TOTAL NW"];
@@ -30,12 +33,12 @@ export const GROUPS = {
       { id: "pretax", label: "Pre-Tax", subtotal: "Σ PreTax", children: [/^PreTax_\d+$/] },
       { id: "roth", label: "Roth", subtotal: "Σ Roth", children: [/^Roth_\d+$/] },
       { id: "trusts", label: "Trusts", subtotal: "Σ Trust", children: [/^Trust_\d+$/] },
-      "HSA_1", "Cash",
+      "HSA_1", "Cash", "CST",
     ] },
     { id: "annuities", label: "Annuities & Pension", subtotal: "Σ Ann",
       children: ["Pension PV", "W Single PV", "W Joint PV", "H Single PV", "H Joint PV"] },
     { id: "homeother", label: "Home & Other", subtotal: homeOther,
-      children: ["Home Equity", "Next Housing Equity", "Rental Equity", "Startup", "Autos", "Note"] },
+      children: ["Home Equity", "Next Housing Equity", "Rental Equity", "Startup", "Autos", "Note", "Other_Liab"] },
     { id: "total", label: "Total NW", subtotal: "TOTAL NW", children: [], stock: true },
     { id: "delta", label: "Δ vs prior", subtotal: delta, children: [], stock: true },
   ],

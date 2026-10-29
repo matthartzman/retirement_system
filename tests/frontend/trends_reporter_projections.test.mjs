@@ -136,6 +136,17 @@ describe("unmapped and conditional keys", () => {
     const ho = visibleColumns(buildTree(nw, "nw"), new Set(["homeother"]));
     assert.ok(labels(ho).includes("Rental Equity"));
   });
+  test("liabilities and a credit shelter trust the sheet doesn't show join their groups and keep NW footing", () => {
+    const values = { ...NW_2026, Other_Liab: -14286.78, CST: 1000, "TOTAL NW": NW_2026["TOTAL NW"] - 14286.78 + 1000 };
+    const nw = { columns: [...NW_COLS, col("Other_Liab", "Loans & Other Liabilities", "OTHER ASSETS"), col("CST", "Credit Shelter Trust", "OTHER ASSETS")],
+      rows: [{ year: 2026, ages: [64, 65], values }] };
+    const tree = buildTree(nw, "nw");
+    assert.deepEqual(tree.unmapped, []);
+    assert.ok(Math.abs(reconcileNW(tree.rows[0])) < 0.005, String(reconcileNW(tree.rows[0])));
+    const open = visibleColumns(tree, new Set(["investable", "homeother"]));
+    assert.ok(labels(open).includes("Loans & Other Liabilities"));
+    assert.ok(labels(open).includes("Credit Shelter Trust"));
+  });
   test("unknown key falls back to its banner's group", () => {
     const cf = { columns: [...CF.columns, col("New_Tax", "New Tax", "TAXES")], rows: CF.rows };
     const tree = buildTree(cf, "cf");
@@ -207,6 +218,7 @@ describe("render", () => {
   test("missing data renders the rebuild prompt", () => {
     const html = renderProjections({ missing: true }, UI());
     assert.ok(html.includes(EMPTY_TEXT));
+    assert.doesNotMatch(html, /data-proj-all|projYears/);   // nothing to expand or count yet
     assert.equal(EMPTY_TEXT, "Recent Projections appear after the plan is rebuilt. Rebuild in the Retirement Planner, then refresh.");
   });
   test("a window past the plan's end says where the plan ends", () => {

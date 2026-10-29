@@ -52,7 +52,7 @@ from .sheets_summary_builder import build_sheet1, build_sheet2
 from .sheets_tax_reporter import build_sheet3
 from .sheets_allocation_helpers import build_sheet4
 from .sheets_projection_facade import build_sheet5, build_sheet6, build_sheet7, build_sheet8
-from .projection_tables import projection_tables_doc, table_from_sheet, write_projection_tables
+from .projection_tables import add_unshown_nw_lines, projection_tables_doc, table_from_sheet, write_projection_tables
 from datetime import UTC as _UTC, datetime as _dt
 from .sheets_strategy import build_sheet9, build_sheet10, build_sheet11, build_sheet_hsa_drawdown, build_sheet12, build_sheet_tlh, build_sheet_gain_harvest, build_sheet13, build_sheet14, build_sheet_housing_comparison
 from .sheets_tax_capacity import build_sheet_tax_capacity
@@ -1106,7 +1106,7 @@ def _main(plan_read):
     print('  Sheet 6 — Cash Flow Projection')
     cf_cols = build_sheet6(sheets['6. Cash Flow Projection'], c, rows)
     # Recent Projections (Financial Trends) reads these two tables back from the sheets just written.
-    projection_tables = (table_from_sheet(sheets['5. Net Worth Projection'], nw_cols),
+    projection_tables = (add_unshown_nw_lines(table_from_sheet(sheets['5. Net Worth Projection'], nw_cols), rows),
                          table_from_sheet(sheets['6. Cash Flow Projection'], cf_cols))
     if '7. Lifetime Tax' in sheets:
         print('  Sheet 7 — Lifetime Tax')

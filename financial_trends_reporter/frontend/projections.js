@@ -45,7 +45,7 @@ function headerCell(c) {
   const cls = `proj-h d${c.depth} ${c.kind}${c.open ? " open" : ""}`;
   if (!c.expandable) return `<th scope="col" class="${cls}">${esc(c.label)}</th>`;
   return `<th scope="col" class="${cls}"><button type="button" class="proj-toggle" data-proj-group="${esc(c.id)}" aria-expanded="${c.open}">`
-    + `<span aria-hidden="true">${c.open ? "▾" : "▸"}</span> ${esc(c.label)}</button></th>`;
+    + `<span aria-hidden="true">${c.open ? "▾" : "▸"}</span>&nbsp;${esc(c.label)}</button></th>`;
 }
 
 function cell(c, v, narrow) {
@@ -69,7 +69,7 @@ function actionsHtml(data, ui) {
 }
 
 export function renderProjections(data, ui) {
-  if (!data || data.missing) return actionsHtml(null, ui) + `<p class="live-error proj-empty">${esc(EMPTY_TEXT)}</p>`;
+  if (!data || data.missing) return `<p class="live-error proj-empty">${esc(EMPTY_TEXT)}</p>`;
   const table = ((data.tables || {})[TABLE_KEY[ui.table]]) || { columns: [], rows: [] };
   const tree = buildTree(table, ui.table);
   const cols = visibleColumns(tree, ui.open);

@@ -114,3 +114,37 @@ def test_real_build_writes_projection_tables_beside_workbook(tmp_path_factory):
     assert first["year"] == ws.cell(3, 1).value
     assert first["values"]["TOTAL NW"] == pytest.approx(ws.cell(3, total_col).value)
     assert "Rental Equity" in first["values"]
+
+
+def test_unshown_lines_join_the_table_so_groups_foot():
+    # The NW sheet's TOTAL subtracts additional liabilities and adds a credit shelter trust, but has
+    # no column for either; Recent Projections needs them for its groups to add up to Total NW.
+    from src.reporting.projection_tables import add_unshown_nw_lines
+
+    table = {"columns": [{"key": "TOTAL NW", "label": "TOTAL NW", "banner": "TOTAL", "subtotal": True}],
+             "rows": [{"year": 2026, "ages": [64, 65], "values": {"TOTAL NW": 10.0}},
+                      {"year": 2027, "ages": [65, 66], "values": {"TOTAL NW": 11.0}}]}
+    rows = [{"year": 2026, "additional_liabilities": 14286.78, "cst_nw": 0.0},
+            {"year": 2027, "additional_liabilities": 0.0, "cst_nw": 0.0}]
+    out = add_unshown_nw_lines(table, rows)
+    keys = [c["key"] for c in out["columns"]]
+    assert "Other_Liab" in keys and "CST" not in keys          # an all-zero line stays out
+    liab = next(c for c in out["columns"] if c["key"] == "Other_Liab")
+    assert liab["label"] == "Loans & Other Liabilities" and liab["derived"] is True
+    assert out["rows"][0]["values"]["Other_Liab"] == -14286.78
+    assert out["rows"][1]["values"]["Other_Liab"] == 0.0
+    out2 = add_unshown_nw_lines(table, [{"year": 2026, "cst_nw": 5.0}, {"year": 2027, "cst_nw": 6.0}])
+    assert [r["values"]["CST"] for r in out2["rows"]] == [5.0, 6.0]
+    assert "Other_Liab" not in out2["rows"][0]["values"]
+
+
+def test_real_plan_groups_foot_after_unshown_lines(off_sheets):
+    from src.reporting.projection_tables import add_unshown_nw_lines
+
+    c, sheets = off_sheets
+    _c, rows = case("off")
+    t = add_unshown_nw_lines(table_from_sheet(*sheets["nw"]), rows)
+    for r in t["rows"]:
+        v = r["values"]
+        shown = sum(v.get(k) or 0 for k in ("Σ Ann", "Σ PreTax", "Σ Roth", "Σ Trust", "HSA_1", "Σ Other", "Other_Liab", "CST"))
+        assert abs(shown - v["TOTAL NW"]) < 0.01, (r["year"], shown - v["TOTAL NW"])

@@ -1,7 +1,7 @@
 # Financial Trends — Recent Projections view (design)
 
 Date: 2026-10-29
-Status: design approved 2026-10-29; implementation plan: `2026-10-29-trends-recent-projections-plan.md`
+Status: implemented 2026-10-29 (branch `recent-projections`); implementation plan: `2026-10-29-trends-recent-projections-plan.md`
 
 ## 1. Intent
 
@@ -112,11 +112,15 @@ opposite of the workbook, which puts Σ last.)
 
 | Top group (subtotal) | Opens to |
 |---|---|
-| **Investable** (computed: Σ PreTax + Σ Roth + Σ Trust + HSA + Cash) | Pre-Tax ▸ (per-account) · Roth ▸ (per-account) · Trusts ▸ (per-account) · HSA · Cash |
+| **Investable** (computed: Σ PreTax + Σ Roth + Σ Trust + HSA + Cash + CST) | Pre-Tax ▸ (per-account) · Roth ▸ (per-account) · Trusts ▸ (per-account) · HSA · Cash · Credit Shelter Trust (when present) |
 | **Annuities & Pension** (Σ Ann) | Pension PV · each single/joint annuity PV |
-| **Home & Other** (computed: Σ Other − Cash) | Home Equity · Next Housing Equity · Rental Equity (when present) · Startup · Autos · Note |
+| **Home & Other** (computed: Σ Other − Cash − liabilities) | Home Equity · Next Housing Equity · Rental Equity (when present) · Startup · Autos · Note · Loans & Other Liabilities (when present, negative) |
 | **Total NW** | — |
 | **Δ vs prior** (computed) | — (blank for the plan's first year) |
+
+The NW sheet's TOTAL NW subtracts additional liabilities and adds a credit shelter trust, but has no column for
+either (so the workbook's own columns don't foot when a plan has them). The JSON adds them as derived columns
+(`Other_Liab`, `CST`; `"derived": true`, only when non-zero) from the engine rows, so the groups foot.
 
 Cash moves from the workbook's "Other Assets" into Investable, which matches the
 Trends "Liquid Investments and Cash" card. A load-time check requires Investable
@@ -217,4 +221,6 @@ convention. Every cell, Δ included, is divided by the same basis that
 - The Cash Flow window total row; no total row for NW (§5).
 - Compact numbers below 700 px (§5).
 - Time scope is hidden in this view (§5).
-- The build age flag uses the plan file's mtime compared with `built_at` (§2).
+- The "plan changed" flag compares the build's recorded `plan_state` with the current one. (The plan file's mtime
+  can't be used: the build writes its results into the plan file after the workbook.)
+- Loans & other liabilities and a credit shelter trust, missing from the NW sheet, are added as derived columns (§4.1).

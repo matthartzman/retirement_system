@@ -58,6 +58,30 @@ def table_from_sheet(ws, col_map: dict[str, int], *, data_first_row: int = 3) ->
     return {"columns": columns, "rows": rows}
 
 
+# Engine lines inside the NW sheet's TOTAL that the sheet has no column for (its TOTAL NW is
+# ann + pre-tax + roth + trust + CST + HSA + other - additional liabilities). Added as derived
+# columns, only when non-zero in some year, so the reporter's groups add up to TOTAL NW.
+_UNSHOWN_NW = (
+    ("Other_Liab", "Loans & Other Liabilities", "additional_liabilities", -1.0),
+    ("CST", "Credit Shelter Trust", "cst_nw", 1.0),
+)
+
+
+def add_unshown_nw_lines(table: dict, rows: list[dict]) -> dict[str, Any]:
+    """``table`` (from :func:`table_from_sheet` on the NW sheet) plus the unshown engine lines, by year."""
+    by_year = {r.get("year"): r for r in rows}
+    columns = list(table["columns"])
+    out_rows = [{**r, "values": dict(r["values"])} for r in table["rows"]]
+    for key, label, field, sign in _UNSHOWN_NW:
+        vals = [sign * float((by_year.get(r["year"]) or {}).get(field) or 0.0) for r in out_rows]
+        if not any(abs(v) > 0.005 for v in vals):
+            continue
+        columns.append({"key": key, "label": label, "banner": "OTHER ASSETS", "subtotal": False, "derived": True})
+        for r, v in zip(out_rows, vals):
+            r["values"][key] = v + 0.0   # never -0.0
+    return {"columns": columns, "rows": out_rows}
+
+
 def projection_tables_doc(nw: dict, cf: dict, *, build_id: str, built_at: str, owners: list[str]) -> dict[str, Any]:
     return {"schema": SCHEMA, "build_id": build_id, "built_at": built_at, "owners": list(owners),
             "tables": {"net_worth": nw, "cash_flow": cf}}
