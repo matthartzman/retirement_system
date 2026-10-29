@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 274 Python files under `src/`, 57 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 275 Python files under `src/`, 57 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -24,7 +24,7 @@ flowchart TB
     subgraph L_HTTP_Runtime["HTTP Runtime (4 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
-    subgraph L_Core_Engine___Domain["Core Engine & Domain (187 modules)"]
+    subgraph L_Core_Engine___Domain["Core Engine & Domain (188 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
     subgraph L_Projection_Stages["Projection Stages (24 modules)"]
@@ -644,6 +644,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/roth_ui_build_guard.py` | — | — |
 | `src/runtime_config.py` | `system_config` | — |
 | `src/sales_ledger.py` | — | — |
+| `src/sales_matching.py` | `ytd_tracking` | — |
 | `src/sales_service.py` | `csv_exchange`, `sales_ledger` | — |
 | `src/schema_registry.py` | `plan_data_registry`, `stores.ref_getters.schema_fields` | — |
 | `src/secrets_store.py` | `app_state`, `platform_runtime` | `keyring` |
