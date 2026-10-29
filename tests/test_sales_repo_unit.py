@@ -17,7 +17,7 @@ def store(tmp_path):
 
 
 def test_new_plan_has_empty_ledger_tables(store):
-    assert store.schema_version == len(PLAN_MIGRATIONS) == 17
+    assert store.schema_version == len(PLAN_MIGRATIONS) == 18
     assert store.sales.list_sales(include_voided=True) == []
     assert store.sales.list_candidates() == []
     assert store.sales.adjustments() == []
@@ -120,7 +120,7 @@ def test_old_plan_file_is_upgraded_with_empty_ledger(tmp_path):
     db.migrate(con, PLAN_MIGRATIONS[:16])
     con.close()
     with PlanStore.open(path) as s:
-        assert s.schema_version == 17
+        assert s.schema_version == 18
         assert s.sales.list_sales(include_voided=True) == []
         sid = s.sales.insert_sale(**SALE)
         assert s.sales.get_sale(sid)["symbol"] == "VTI"
