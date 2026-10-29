@@ -477,7 +477,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/server_services/config_service.py` | `daf_optimizer`, `module_catalog`, `optimization`, `plan_interview`, `qlac_optimizer`, `report_compute`, `roth_ui_build_guard`, `schema_registry`, `server_services.plan_tier_service` | — |
 | `src/server_services/conversion_service.py` | `app_state`, `legacy_conversion`, `legacy_conversion.result` | — |
 | `src/server_services/demo_plan_service.py` | `active_plan`, `plan_db_replace` | — |
-| `src/server_services/holdings_service.py` | `plan_datasets` | — |
+| `src/server_services/holdings_service.py` | `active_plan`, `import_preview`, `plan_datasets` | — |
 | `src/server_services/plan_file_service.py` | `active_plan`, `app_state`, `build_snapshot`, `plan_db_replace` | — |
 | `src/server_services/plan_forms_service.py` | `active_plan`, `csv_exchange.plan_csv`, `plan_label_rules`, `roth_ui_build_guard` | — |
 | `src/server_services/plan_tier_service.py` | — | — |

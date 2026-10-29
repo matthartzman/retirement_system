@@ -213,6 +213,68 @@ def _holding_key(row: dict[str, Any]) -> tuple[str, str, str, str, str]:
     )
 
 
+_REPLACE_MODES = {"replace", "reload", "delete_all_and_reload"}
+_SHARE_EPS = 1e-6
+_BASIS_REL_TOL = 0.01
+
+
+def _lots_by_identity(rows: list[dict[str, Any]]) -> dict[tuple[str, str, str, float], dict[str, Any]]:
+    """Sum shares per lot identity (account, symbol, purchase date, price); unusable rows are skipped."""
+    lots: dict[tuple[str, str, str, float], dict[str, Any]] = {}
+    for row in rows:
+        account = str(row.get("account", "") or "").strip()
+        symbol = str(row.get("symbol", "") or "").strip().upper()
+        shares = _safe_float(row.get("shares"))
+        price = _safe_float(row.get("purchase_price"))
+        if not account or not symbol or symbol == "CASH" or shares is None or price is None or shares <= 0:
+            continue
+        pdate = ytd.format_date(ytd.parse_date(row.get("purchase_date"))) or str(row.get("purchase_date", "") or "").strip()
+        key = (account.lower(), symbol, pdate, round(price, 4))
+        lot = lots.setdefault(key, {"account": account, "symbol": symbol, "purchase_date": pdate, "purchase_price": price, "shares": 0.0})
+        lot["shares"] += shares
+    return lots
+
+
+def detect_sold_lots(current_rows: list[dict[str, Any]], incoming_rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Lots in ``current_rows`` that are gone or smaller in ``incoming_rows`` (a replace import), as candidate sales.
+
+    Pure. A vanished lot whose symbol and purchase date reappear in the same account with a different price but
+    the same total basis is a split (``possible_corporate_actions``); one that reappears in another account is a
+    transfer (``possible_transfers``). Neither is a candidate. Nothing is inferred about price or proceeds.
+    """
+    cur = _lots_by_identity(current_rows)
+    inc = _lots_by_identity(incoming_rows)
+    candidates: list[dict[str, Any]] = []
+    transfers: list[dict[str, Any]] = []
+    actions: list[dict[str, Any]] = []
+
+    for key, lot in sorted(cur.items()):
+        kept = inc.get(key, {}).get("shares", 0.0)
+        sold = lot["shares"] - kept
+        if sold <= _SHARE_EPS:
+            continue
+        account, symbol, pdate, _price = key
+        basis = lot["shares"] * lot["purchase_price"]
+        if kept <= _SHARE_EPS:
+            reborn = [v for k, v in inc.items() if k[:3] == key[:3] and k not in cur]
+            new_basis = sum(v["shares"] * v["purchase_price"] for v in reborn)
+            if reborn and abs(new_basis - basis) <= _BASIS_REL_TOL * basis:
+                actions.append({"account": lot["account"], "symbol": symbol, "purchase_date": pdate,
+                                "old_shares": lot["shares"], "new_shares": sum(v["shares"] for v in reborn)})
+                continue
+        moved = next((v for k, v in sorted(inc.items())
+                      if k[0] != account and k[1:] == key[1:] and v["shares"] - cur.get(k, {}).get("shares", 0.0) >= sold - _SHARE_EPS), None)
+        if moved is not None:
+            transfers.append({"symbol": symbol, "purchase_date": pdate, "shares": sold,
+                              "from_account": lot["account"], "to_account": moved["account"]})
+            continue
+        candidates.append({"account": lot["account"], "symbol": symbol, "purchase_date": pdate,
+                           "purchase_price": lot["purchase_price"], "shares": sold,
+                           "kind": "disappeared" if kept <= _SHARE_EPS else "reduced",
+                           "remaining_shares": max(kept, 0.0)})
+    return {"candidates": candidates, "possible_transfers": transfers, "possible_corporate_actions": actions}
+
+
 def _symbol_set(rows: list[dict[str, str]]) -> set[str]:
     return {str(r.get("symbol", "") or "").strip().upper() for r in rows if str(r.get("symbol", "") or "").strip()}
 
@@ -294,6 +356,17 @@ def preview_holdings_import(current_text: str, incoming_text: str, *, project_ro
     if symbols_not_in_master:
         warnings.append(f"{len(symbols_not_in_master)} symbol(s) are not in the security master; pricing may fall back to cache/provider behavior.")
 
+    if mode in _REPLACE_MODES:
+        found = detect_sold_lots(current_rows, incoming_rows)
+    else:
+        found = {"candidates": [], "possible_transfers": [], "possible_corporate_actions": []}
+    if found["candidates"]:
+        warnings.append(f"{len(found['candidates'])} lot(s) look sold: they are missing or smaller in this file. They will be queued for you to confirm; nothing is recorded as a sale automatically.")
+    if found["possible_transfers"]:
+        warnings.append(f"{len(found['possible_transfers'])} lot(s) moved to another account and are treated as transfers, not sales.")
+    if found["possible_corporate_actions"]:
+        warnings.append(f"{len(found['possible_corporate_actions'])} lot(s) look like a split or other corporate action, not a sale.")
+
     rows_added = len(incoming_rows) if mode in {"replace", "reload", "delete_all_and_reload"} else max(0, len(incoming_rows) - duplicate_existing - duplicate_within_upload)
     total_after = len(incoming_rows) if mode in {"replace", "reload", "delete_all_and_reload"} else len(current_rows) + rows_added
 
@@ -331,5 +404,6 @@ def preview_holdings_import(current_text: str, incoming_text: str, *, project_ro
             "unparseable_date_rows": date_warnings,
         },
         "estimated_cost_basis": round(total_market_value, 2),
+        "potential_sales": {"count": len(found["candidates"]), **found},
         "warnings": warnings,
     }
