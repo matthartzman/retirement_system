@@ -446,6 +446,71 @@ def _positions(lots, quotes, baseline, security_master, baseline_day: date, toda
     return out, sorted(stale)
 
 
+def sold_lot_rows(sales, baseline, security_master, baseline_day: date, today: date, cash_start: dict[str, float] | None = None):
+    """Rows for confirmed ledger sales inside the window, plus how many sales they came from.
+
+    A sale is a swap inside its account (proceeds stay in brokerage cash), so it is not money leaving the
+    household. For the sold lot's group the proceeds are a withdrawal, time-weighted by the days left after
+    the sale; the same amount at the same weight goes in to a Cash row of the same account, so the total
+    is untouched and the groups still add up. Both are carried as signed ``new_money``/``weighted`` so the
+    page's existing formulas (gain = current - start - new money) need no change.
+
+    The holdings table already holds the proceeds as cash, and a cash lot never has a gain of its own. Where
+    that cash is a balance dated before the baseline, ``_positions`` counts it all as ``start``, including the
+    proceeds: the Cash row then takes the proceeds back out of ``start`` (``cash_start`` is each account's
+    baseline-held cash, used up as sales are taken in date order). A cash lot dated inside the window already
+    counts them as new money, so nothing is taken out. The Cash row's gain is zero either way.
+
+    * held at the baseline, sold since: ``start`` = shares x baseline close, ``current`` = 0;
+    * bought since the baseline, sold since: also ``new_money`` = shares x purchase price on its purchase date;
+    * sold on or before the baseline day, or after today: no row.
+
+    ``proceeds`` is net of fees (ledger decision). The ledger carries no lot type, so a reinvested lot sold in
+    the window counts its purchase as new money. Pure: no I/O."""
+    base_prices = {k: _num(v.get("price")) for k, v in (baseline.get("prices") or {}).items()}
+    period = (today - baseline_day).days or 1
+    out, sale_count = [], 0
+    cash_start = dict(cash_start or {})
+    for sale in sorted(sales, key=lambda x: (str(x.get("sale_date") or ""), x.get("sale_id") or 0)):
+        account = str(sale.get("account") or "").strip()
+        symbol = str(sale.get("symbol") or "").strip().upper()
+        shares, proceeds = _num(sale.get("shares")), _num(sale.get("proceeds"))
+        try:
+            sold = date.fromisoformat(str(sale.get("sale_date") or "").strip())
+        except ValueError:
+            continue
+        tax = account_tax_type(account)
+        if not symbol or not shares or tax == "cash" or not baseline_day < sold <= today:
+            continue
+        try:
+            bought = date.fromisoformat(str(sale.get("purchase_date") or "").strip())
+        except ValueError:
+            bought = None
+        cost_each = _num(sale.get("basis")) / shares if _num(sale.get("basis")) else 0.0
+        start = new_money = weighted = 0.0
+        if bought is None or bought <= baseline_day:
+            base = 1.0 if _is_cash_symbol(symbol) else base_prices.get(symbol) or 0.0
+            start = shares * (base or cost_each or proceeds / shares)
+        else:
+            new_money = shares * (cost_each or proceeds / shares)
+            weighted = new_money * max(0, (today - min(bought, sold)).days) / period
+        out_weighted = proceeds * (today - sold).days / period
+        swap = min(max(proceeds, 0.0), cash_start.get(account, 0.0))
+        cash_start[account] = cash_start.get(account, 0.0) - swap
+        asset_class, subclass = classify_symbol(symbol, security_master)
+        common = {"account": account, "tax": tax, "basis": 0.0, "day": None, "unclassified": False, "reinvested": False,
+                  "current": 0.0, "shares": 0.0, "purchase_price": None, "sold": True}
+        out.append({**common, "symbol": symbol, "asset_class": asset_class, "subclass": subclass, "start": start,
+                    "new_money": new_money - proceeds, "weighted": weighted - out_weighted, "money_out": proceeds,
+                    "title": str((security_master.get(symbol) or {}).get("notes") or "").strip(),
+                    "purchase_date": bought.isoformat() if bought else None})
+        out.append({**common, "symbol": "CASH", "asset_class": "Cash", "subclass": None, "start": -swap,
+                    "new_money": swap, "weighted": out_weighted, "money_out": 0.0, "title": "",
+                    "purchase_date": sold.isoformat()})
+        sale_count += 1
+    return out, sale_count
+
+
 def _summarize(name: str, members: list[dict], total_current: float, total_gain: float, days: int) -> dict:
     current = sum(m["current"] for m in members)
     start = sum(m["start"] for m in members)
@@ -471,7 +536,7 @@ def _position_rows(positions: list[dict]) -> list[dict]:
              "subclass": p["subclass"], "purchase_date": p["purchase_date"], "shares": p["shares"],
              "purchase_price": p["purchase_price"], "reinvested": p["reinvested"],
              "start": p["start"], "new_money": p["new_money"], "weighted": p["weighted"],
-             "current": p["current"], "day": p["day"]} for p in positions]
+             "current": p["current"], "day": p["day"], "sold": bool(p.get("sold"))} for p in positions]
 
 
 def _checking_net_flows(accounts, flows_daily, liquid_accounts: set[str], baseline_day: date, today: date) -> float | None:
@@ -745,24 +810,33 @@ def _planner_tax(cfg: dict, today: date, ordinary: float, positions: list[dict],
 
 
 def compute(*, lots, quotes, baseline, security_master, accounts, flows_daily, monarch, tax_rates, today: date, planner_cfg: dict | None = None,
-            closes_by_day: dict[str, dict[str, float]] | None = None) -> dict[str, Any]:
+            closes_by_day: dict[str, dict[str, float]] | None = None,
+            sales: list[dict] | None = None, unconfirmed_dates: list[str] | None = None) -> dict[str, Any]:
     """The Live Snapshot body (design 4.3) from already-loaded inputs. Pure, so tests pin every formula.
 
     Returns at every level (total, class, ticker) are Modified Dietz over the current lots (see
-    ``_positions``): robust to trades and to money moving between accounts, but blind to gains on
-    lots sold during the year, which leave the holdings table."""
+    ``_positions``): robust to trades and to money moving between accounts. Lots sold since the start
+    leave the holdings table, so confirmed ledger ``sales`` add their rows (``sold_lot_rows``); sales not
+    yet confirmed (``unconfirmed_dates``) are only counted."""
     baseline_day = date.fromisoformat(baseline["baseline_date"])
     days = (today - baseline_day).days
     positions, stale = _positions(lots, quotes, baseline, security_master, baseline_day, today)
+    cash_start: dict[str, float] = {}
+    for p in positions:
+        if _is_cash_symbol(p["symbol"]):
+            cash_start[p["account"]] = cash_start.get(p["account"], 0.0) + p["start"]
+    sold, sold_count = sold_lot_rows(sales or [], baseline, security_master, baseline_day, today, cash_start)
+    unconfirmed = sum(1 for d in unconfirmed_dates or [] if baseline_day.isoformat() < str(d)[:10] <= today.isoformat())
 
-    total = _summarize("Total", positions, 0.0, 0.0, days)
+    total = _summarize("Total", positions + sold, 0.0, 0.0, days)
     current = total["current"]
     checking_flows = _checking_net_flows(accounts or [], flows_daily or {}, {p["account"] for p in positions}, baseline_day, today)
     liquid = {
         **{k: total[k] for k in ("start", "new_money", "current", "market_gain", "return_pct", "annualized_pct", "day", "day_pct")},
         "checking_net_flows": None if checking_flows is None else round(checking_flows, 2),
         "stale_symbols": stale, "unclassified_symbols": sorted({p["symbol"] for p in positions if p["unclassified"]}),
-        "positions": _position_rows(positions),
+        "positions": _position_rows(positions + sold),
+        "sold": {"count": sold_count}, "unconfirmed_sales": {"count": unconfirmed},
     }
     day = total["day"]
 
@@ -941,7 +1015,9 @@ def _load_inputs_uncached(base_dir: Path, log_path: Path, balances_db: Path) -> 
     history = read_history(log_path)
     latest = history[-1] if history else {}
     plan = _plan_rows(base_dir, base_dir / "local_state" / "retirement_system_v10.db", "")
+    sales, unconfirmed_dates = ledger_sales(base_dir)
     return {
+        "sales": sales, "unconfirmed_dates": unconfirmed_dates,
         "lots": dataset_rows_for_input_dir(base_dir / "input", "holdings"),
         "security_master": portfolio_analytics.read_security_master(),
         "accounts": (latest.get("holdings") or {}).get("by_account") or [],
@@ -953,6 +1029,20 @@ def _load_inputs_uncached(base_dir: Path, log_path: Path, balances_db: Path) -> 
         "people": household_nicknames(plan),
         "planner_cfg": planner_config(base_dir),
     }
+
+
+def ledger_sales(base_dir: Path) -> tuple[list[dict], list[str]]:
+    """(confirmed ledger sales, sale dates of the still-unmatched candidates) from the plan file, reached the
+    way ``app_sync`` reaches it: ``active_plan.workspace_store(base_dir)``. A plan without the ledger tables,
+    or one that cannot be opened, is "no sales" so Trends never fails on it."""
+    try:
+        from src import active_plan
+
+        with active_plan.workspace_store(Path(base_dir)) as store:
+            return (store.sales.list_sales(),
+                    [str(c["sale_date"]) for c in store.sales.list_candidates(state="unmatched")])
+    except Exception:  # noqa: BLE001 - older plan (no ledger tables), missing or locked
+        return [], []
 
 
 def planner_config(base_dir: Path) -> dict[str, Any] | None:
@@ -1030,6 +1120,7 @@ def build(*, inputs: dict[str, Any], data_dir: str | Path, quote_cache=None, now
 
     holdings = sorted({str(l.get("symbol") or "").strip().upper() for l in inputs["lots"]} - {""})
     priced = [s for s in holdings if not _is_cash_symbol(s)]
+    sold_symbols = sorted({str(x.get("symbol") or "").strip().upper() for x in inputs.get("sales") or []} - {""} - set(holdings))
     symbols = priced + [s for s, _ in INDICES]
     quotes = {k: dict(v) for k, v in quote_cache.get(symbols, force=force).items()}
     need_previous = [s for s in symbols if quotes.get(s, {}).get("price") and not quotes[s].get("previous_close")]
@@ -1039,12 +1130,14 @@ def build(*, inputs: dict[str, Any], data_dir: str | Path, quote_cache=None, now
 
     close_lookup = close_lookup or closes_on
     start_day = start_day_for(start_from, today)
-    baseline = (baseline_prices(priced, today.year, data_dir) if start_day == baseline_date(today.year)
-                else scope_prices(priced, start_day, closes_on_day=close_lookup))
+    baseline_symbols = priced + [s for s in sold_symbols if not _is_cash_symbol(s)]
+    baseline = (baseline_prices(baseline_symbols, today.year, data_dir) if start_day == baseline_date(today.year)
+                else scope_prices(baseline_symbols, start_day, closes_on_day=close_lookup))
     closes_by_day = {d.isoformat(): close_lookup(priced, d) for d in imported_balance_days(inputs["monarch"], today)}
     body = compute(lots=inputs["lots"], quotes=quotes, baseline=baseline, security_master=inputs["security_master"],
                    accounts=inputs["accounts"], flows_daily=inputs["flows_daily"], monarch=inputs["monarch"],
-                   tax_rates=inputs["tax_rates"], planner_cfg=inputs.get("planner_cfg"), today=today, closes_by_day=closes_by_day)
+                   tax_rates=inputs["tax_rates"], planner_cfg=inputs.get("planner_cfg"), today=today, closes_by_day=closes_by_day,
+                   sales=inputs.get("sales"), unconfirmed_dates=inputs.get("unconfirmed_dates"))
     indices = []
     for sym, label in INDICES:
         q = quotes.get(sym) or {}
