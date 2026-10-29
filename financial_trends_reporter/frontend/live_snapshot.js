@@ -285,6 +285,15 @@ function totalsHtml(t, checking, debt, tax, nonLiquid, liquid) {
     + `<div class="kinds" aria-label="Assets by kind (share of gross assets)">${kinds}</div>`;
 }
 
+// Sold lots feed the returns (confirmed ledger sales only); unconfirmed ones are a count, never an estimate.
+export function soldNote(L, startDay) {
+  const sold = L.sold?.count ?? 0, waiting = L.unconfirmed_sales?.count ?? 0;
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  const included = sold ? `Includes ${plural(sold, "position", "positions")} sold since ${startDay}.` : "";
+  const unconfirmed = waiting ? ` ${plural(waiting, "sale", "sales")} not yet confirmed ${waiting === 1 ? "is" : "are"} not included.` : "";
+  return (included + unconfirmed).trim();
+}
+
 export function liveViewHtml(data, groupOrder, groupSort) {
   if (!data) return `<p class="empty">Loading live prices…</p>`;
   if (data.error) return `<p class="live-error">Live Snapshot is unavailable: ${esc(data.error)}</p>`;
@@ -305,7 +314,7 @@ export function liveViewHtml(data, groupOrder, groupSort) {
   const flows = L.checking_net_flows === null || L.checking_net_flows === undefined ? ""
     : ` Net transfers from checking since ${startDay}: ${fmtUsd(L.checking_net_flows)} (for information).`;
   const liquid = `<div class="card live-card${isPct() ? " pm" : ""}"><div class="live-card-head"><h2>Liquid investments${unitChip("% of net worth")}</h2>${groupByHtml(order)}${sortByHtml(groupSort)}</div>${groupedTable(tree, DIMENSIONS[order[0]], L)}${moneyView().allowed === "percent" ? "" : reconciliationHtml(data.reconciliation)}`
-    + `<p class="note">Start = ${startDay} closing value of lots held then (the Time scope sets the date). Bought since = lots bought after ${startDay}, at purchase price; reinvested dividends count as gain. Return % weights new money by how long it was invested (Modified Dietz). Gains on positions sold since ${startDay} are not included.${flows}</p></div>`;
+    + `<p class="note">Start = ${startDay} closing value of lots held then (the Time scope sets the date). Bought since = lots bought after ${startDay}, at purchase price; reinvested dividends count as gain. Return % weights new money by how long it was invested (Modified Dietz). ${soldNote(L, startDay)}${flows}</p></div>`;
   const nl = data.non_liquid;
   const nonLiquid = `<details class="live-section"><summary>Non-liquid assets <b>${fmtUsd(nl.total)}</b>${unitChip("% of net worth")} <span class="muted">imported balances, ${esc(nl.as_of || "")}</span></summary>`
     + simpleTable(nl.rows, [(r) => esc(r.name), (r) => esc(r.kind), (r) => fmtUsd(r.value), ...(isPct() ? [] : [(r) => fmtPct(r.share, 0)]), (r) => esc(TREATMENT[r.tax_treatment] || "")]) + `</details>`;
