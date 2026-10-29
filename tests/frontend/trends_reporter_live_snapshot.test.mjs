@@ -619,3 +619,29 @@ describe("sold lot labels (sales ledger 4.2)", () => {
   });
 });
 
+describe("sales ledger 4.5: reconcile hints and the realized tax line", () => {
+  const sale = (o = {}) => ({ kind: "unmatched_sale", symbol: "ITOT", sale_date: "2026-10-27", shares: 40, confirmed: false, ...o });
+  test("a waiting sale is named with its size in dollars and without it in the percent form", () => {
+    assert.equal(hintText(sale()), "Sale of ~40 ITOT on 2026-10-27 is waiting to be confirmed.");
+    assert.match(hintText(sale({ confirmed: true })), /is in the ledger; holdings or the imported balance may not reflect it yet\./);
+    assert.equal(hintText(sale({ shares: null })), "A sale of ITOT is waiting to be confirmed.");
+    setMoneyView({ allowed: "both", shown: "percent", scale: 1000 });
+    try { assert.equal(hintText(sale()), "A sale of ITOT is waiting to be confirmed."); } finally { setMoneyView({ allowed: "both", shown: "dollars", scale: 1 }); }
+    assert.equal(hintText({ kind: "sale_not_in_holdings", symbol: "ITOT", sale_date: "2026-10-01" }), "Holdings still list the lot you sold.");
+  });
+
+  const REALIZED = { method: "planner", tax_year: 2026, total: 450, unknown_term: { count: 0 } };
+  const taxDetails = (tax) => liveViewHtml({ ...DATA, tax: { ...DATA.tax, ...tax } });
+  test("two lines and their sum appear only when there is a realized-tax figure", () => {
+    assert.doesNotMatch(taxDetails({}), /Tax on realized gains/);
+    const out = taxDetails({ realized_tax: REALIZED, total_with_realized: 936705 });
+    for (const text of ["Tax on realized gains", "On unrealized gains if liquidated", "On gains realized in 2026", "$450", "$936,705"]) assert.ok(out.includes(text), text);
+    assert.match(out, /Retirement Planner's federal, NIIT and state rules/);
+  });
+  test("a flat estimate and left-out sales are said so", () => {
+    const out = taxDetails({ realized_tax: { ...REALIZED, method: "flat", unknown_term: { count: 2 } }, total_with_realized: 936705 });
+    assert.match(out, /at flat rates/);
+    assert.match(out, /2 sales have no holding period yet and are left out/);
+  });
+});
+

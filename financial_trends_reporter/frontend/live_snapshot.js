@@ -191,6 +191,13 @@ export function hintText(hint) {
       return `Old prices for ${(hint.symbols || []).join(", ")}.`;
     case "matches_position":
       return `The gap is close to ${hint.shares} sh ${hint.symbol}${hint.purchase_date ? " bought " + hint.purchase_date : ""} (${fmtUsd(hint.value)}).`;
+    case "unmatched_sale": {
+      // The percent form names the sale without its size.
+      const what = isPct() || hint.shares === null || hint.shares === undefined ? `A sale of ${hint.symbol}` : `Sale of ~${hint.shares} ${hint.symbol} on ${hint.sale_date}`;
+      return what + (hint.confirmed ? " is in the ledger; holdings or the imported balance may not reflect it yet." : " is waiting to be confirmed.");
+    }
+    case "sale_not_in_holdings":
+      return "Holdings still list the lot you sold.";
     case "direction":
       return hint.higher === "holdings"
         ? "Holdings are higher: a sale or transfer out may not be entered yet."
@@ -270,7 +277,23 @@ function taxHtml(tax) {
     : planner
     ? `<p class="note">Same method as the Retirement Planner's after-tax figures, applied to today's balances: pre-tax money at the heirs' 10-year bracket rate${tax.rate_source === "settings" ? " (overridden in live_snapshot_settings.json)" : ""}; taxable-account gains${d ? ` (federal ${fmtUsd(d.federal)}, NIIT ${fmtUsd(d.niit)}, state ${fmtUsd(d.state)})` : ""} from the lots' cost basis with no step-up, since nobody has died yet. Assumes no other income. Flat 25% / 15% rates would give ${fmtUsd(tax.flat_total)} (${fmtUsd(tax.total - tax.flat_total)} different). The Planner's report figure is for the end of the plan, so it will differ.</p>`
     : `<p class="note">Flat rates (the Planner's plan could not be read): ordinary income at ${fmtPct(tax.pre_tax_rate, 0)}, taxable-account gains at ${fmtPct(tax.ltcg_rate, 0)}. An estimate, not a tax calculation.</p>`;
-  return `<div class="table-wrap"><table class="live-table simple">${head}<tbody>${body}</tbody></table></div>` + how + missing;
+  return `<div class="table-wrap"><table class="live-table simple">${head}<tbody>${body}</tbody></table></div>` + how + missing + realizedTaxHtml(tax);
+}
+
+// Tax on gains realized this year is a line of its own beside the unrealized estimate: a sold lot has left holdings,
+// so the two never overlap (sales ledger plan 9.4).
+function realizedTaxHtml(tax) {
+  const r = tax.realized_tax;
+  if (!r) return "";
+  const rows = [["On unrealized gains if liquidated", tax.total], [`On gains realized in ${r.tax_year}`, r.total], ["Total", tax.total_with_realized]];
+  const body = rows.map(([label, v], i) => `<tr${i === 2 ? ' class="total-row"' : ""}><th scope="row">${esc(label)}</th><td class="num">${fmtUsd(v)}</td></tr>`).join("");
+  const unknown = r.unknown_term?.count
+    ? ` ${r.unknown_term.count} ${r.unknown_term.count === 1 ? "sale has" : "sales have"} no holding period yet and ${r.unknown_term.count === 1 ? "is" : "are"} left out.` : "";
+  const how = r.method === "planner"
+    ? "Netted short and long term with any carryforward you entered, then taxed with the Retirement Planner's federal, NIIT and state rules."
+    : "Netted short and long term with any carryforward you entered, at flat rates.";
+  return `<h3>Tax on realized gains</h3><div class="table-wrap"><table class="live-table simple"><tbody>${body}</tbody></table></div>`
+    + `<p class="note">${how} Uses the income recorded so far this year, so it is an estimate.${unknown}</p>`;
 }
 
 function totalsHtml(t, checking, debt, tax, nonLiquid, liquid) {

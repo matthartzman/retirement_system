@@ -30,7 +30,7 @@ K = 2_000_000.0
 # Routes whose body is scaled (every /api/ route that returns money and is not pass-through).
 KNOWN_SCALED = {
     "/api/history", "/api/accounts", "/api/balances", "/api/flows", "/api/spending",
-    "/api/live-snapshot", "/api/app-accounts", "/api/account", "/api/run-now", "/api/exit",
+    "/api/live-snapshot", "/api/app-accounts", "/api/account", "/api/run-now", "/api/exit", "/api/realized",
 }
 
 
@@ -87,7 +87,15 @@ def _live_snapshot(tmp_path):
     return lsb._build(data_dir)[0]
 
 
+def _realized(tmp_path):
+    from financial_trends_reporter import realized_view as rv
+    from tests import test_realized_view_unit as rvu
+
+    return rv.build(sales=rvu.SALES, candidates=rvu.CANDIDATES, lots=rvu.LOTS, today=rvu.TODAY, start="2026-01-01", include_unconfirmed=True)
+
+
 BUILDERS = {
+    "/api/realized": lambda client, tmp: _realized(tmp),
     "/api/balances": lambda client, tmp: _get(client, "/api/balances"),
     "/api/flows": lambda client, tmp: _get(client, "/api/flows"),
     "/api/history": lambda client, tmp: _get(client, "/api/history"),

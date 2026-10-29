@@ -20,6 +20,8 @@ _REPO_ROOT = _APP_ROOT.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
+from . import realized_tax_line  # noqa: E402
+
 
 def _nth_sunday(year: int, month: int, n: int) -> date:
     first = date(year, month, 1)
@@ -562,7 +564,8 @@ def _checking_net_flows(accounts, flows_daily, liquid_accounts: set[str], baseli
     return net
 
 
-def _hints(members: list[dict], value_then, delta: float, as_of: str | None, stale: set[str]) -> list[dict]:
+def _hints(members: list[dict], value_then, delta: float, as_of: str | None, stale: set[str],
+           sale_items: list[tuple[dict, bool]] | None = None) -> list[dict]:
     """Why a flagged account may disagree with Monarch, in the design's order (4.1): lots bought after
     Monarch's balance date, symbols priced from a fallback, one lot (else one symbol's total) worth
     within 5% of the gap, and which side is higher."""
@@ -589,12 +592,45 @@ def _hints(members: list[dict], value_then, delta: float, as_of: str | None, sta
                           "value": sum(value_then(m) for m in ms)} for s, ms in sorted(by_symbol.items())])
     if match is not None:
         hints.append({"kind": "matches_position", **match, "value": round(match["value"], 2)})
+    hints.extend(_sale_hints(members, gap, as_of, sale_items or []))
     hints.append({"kind": "direction", "higher": "holdings" if delta > 0 else "monarch"})
     return hints
 
 
+def _sale_hints(members: list[dict], gap: float, as_of: str | None, items: list[tuple[dict, bool]]) -> list[dict]:
+    """Sales ledger plan section 11. ``unmatched_sale``: the gap is within 5% of a waiting (or ledger) sale dated
+    after the imported balance. ``sale_not_in_holdings``: a ledger sale of a whole lot that holdings still list
+    (a stale holdings file). ``items`` are (sale, confirmed) already limited to this account."""
+    hints: list[dict] = []
+    for sale, confirmed in items:
+        amount = abs(_num(sale.get("proceeds") if confirmed else (sale.get("amount") if sale.get("amount") is not None
+                                                                   else _num(sale.get("shares")) * _num(sale.get("price")))))
+        if as_of and str(sale["sale_date"]) <= as_of or not amount or abs(gap - amount) > RECONCILE_MATCH_PCT * amount:
+            continue
+        hints.append({"kind": "unmatched_sale", "symbol": str(sale.get("symbol") or "").upper(), "sale_date": sale["sale_date"],
+                      "shares": sale.get("shares"), "confirmed": confirmed})
+        break
+    for sale, confirmed in items:
+        if not confirmed:
+            continue
+        symbol, shares = str(sale.get("symbol") or "").upper(), _num(sale.get("shares"))
+        if any(m["symbol"] == symbol and m["purchase_date"] == sale.get("purchase_date") and abs(m["shares"] - shares) < 1e-6 for m in members):
+            hints.append({"kind": "sale_not_in_holdings", "symbol": symbol, "sale_date": sale["sale_date"]})
+            break
+    return hints
+
+
+def _items_for(holdings_account: str, monarch_names: list[str], sales: list[dict], waiting: list[dict]) -> list[tuple[dict, bool]]:
+    """The ledger's confirmed sales and the unmatched queue that belong to one reconciled account: a candidate
+    names a holdings account or the Monarch account it came from."""
+    names = {holdings_account.strip().casefold(), *(n.strip().casefold() for n in monarch_names)}
+    mine = lambda x: str(x.get("account") or "").strip().casefold() in names
+    return [(c, False) for c in waiting if mine(c)] + [(x, True) for x in sales if mine(x)]
+
+
 def _reconcile_accounts(positions: list[dict], stale: list[str], accounts, monarch: dict | None,
-                        back_off: bool, today: date, closes_by_day: dict[str, dict[str, float]] | None = None) -> dict[str, Any]:
+                        back_off: bool, today: date, closes_by_day: dict[str, dict[str, float]] | None = None,
+                        sales: list[dict] | None = None, waiting: list[dict] | None = None) -> dict[str, Any]:
     """Holdings vs. Monarch account by account (design 4.1), through each Monarch account's
     ``mapped_investment_account``. Only Monarch liquid-type accounts take part. Each holdings value
     is backed off by its lots' day moves when Monarch is from an earlier day (the total's rule), so
@@ -669,7 +705,8 @@ def _reconcile_accounts(positions: list[dict], stale: list[str], accounts, monar
                      # More than a session old: the row says when it last synced (fresh rows say nothing).
                      "balance_as_of": balance_day,
                      "balance_stale": bool(balance_day) and balance_day < prior.isoformat(),
-                     "hints": _hints(members, value_at, delta, balance_day, stale_set | missing) if flag else []})
+                     "hints": _hints(members, value_at, delta, balance_day, stale_set | missing,
+                                     _items_for(holdings_account, [n for n, _, _ in names], sales or [], waiting or [])) if flag else []})
     rows.sort(key=lambda r: (-abs(r["delta"]), r["holdings_account"]))   # largest gap first
 
     unmapped_holdings = []
@@ -811,13 +848,14 @@ def _planner_tax(cfg: dict, today: date, ordinary: float, positions: list[dict],
 
 def compute(*, lots, quotes, baseline, security_master, accounts, flows_daily, monarch, tax_rates, today: date, planner_cfg: dict | None = None,
             closes_by_day: dict[str, dict[str, float]] | None = None,
-            sales: list[dict] | None = None, unconfirmed_dates: list[str] | None = None) -> dict[str, Any]:
+            sales: list[dict] | None = None, unconfirmed: list[dict] | None = None,
+            adjustments: list[dict] | None = None, ytd_income: float | None = None) -> dict[str, Any]:
     """The Live Snapshot body (design 4.3) from already-loaded inputs. Pure, so tests pin every formula.
 
     Returns at every level (total, class, ticker) are Modified Dietz over the current lots (see
     ``_positions``): robust to trades and to money moving between accounts. Lots sold since the start
     leave the holdings table, so confirmed ledger ``sales`` add their rows (``sold_lot_rows``); sales not
-    yet confirmed (``unconfirmed_dates``) are only counted."""
+    yet confirmed (``unconfirmed``, the unmatched queue) are only counted and, on the reconcile card, named."""
     baseline_day = date.fromisoformat(baseline["baseline_date"])
     days = (today - baseline_day).days
     positions, stale = _positions(lots, quotes, baseline, security_master, baseline_day, today)
@@ -826,7 +864,7 @@ def compute(*, lots, quotes, baseline, security_master, accounts, flows_daily, m
         if _is_cash_symbol(p["symbol"]):
             cash_start[p["account"]] = cash_start.get(p["account"], 0.0) + p["start"]
     sold, sold_count = sold_lot_rows(sales or [], baseline, security_master, baseline_day, today, cash_start)
-    unconfirmed = sum(1 for d in unconfirmed_dates or [] if baseline_day.isoformat() < str(d)[:10] <= today.isoformat())
+    waiting = sum(1 for c in unconfirmed or [] if baseline_day.isoformat() < str(c.get("sale_date"))[:10] <= today.isoformat())
 
     total = _summarize("Total", positions + sold, 0.0, 0.0, days)
     current = total["current"]
@@ -836,7 +874,7 @@ def compute(*, lots, quotes, baseline, security_master, accounts, flows_daily, m
         "checking_net_flows": None if checking_flows is None else round(checking_flows, 2),
         "stale_symbols": stale, "unclassified_symbols": sorted({p["symbol"] for p in positions if p["unclassified"]}),
         "positions": _position_rows(positions + sold),
-        "sold": {"count": sold_count}, "unconfirmed_sales": {"count": unconfirmed},
+        "sold": {"count": sold_count}, "unconfirmed_sales": {"count": waiting},
     }
     day = total["day"]
 
@@ -850,7 +888,8 @@ def compute(*, lots, quotes, baseline, security_master, accounts, flows_daily, m
         reconciliation = {"holdings_value": round(compare, 2), "monarch_value": round(sections["liquid_total"], 2),
                           "monarch_as_of": sections["as_of"], "delta_pct": delta,
                           "flag": delta is None or abs(delta) > RECONCILE_FLAG_PCT,
-                          **_reconcile_accounts(positions, stale, accounts, monarch, yesterday, today, closes_by_day)}
+                          **_reconcile_accounts(positions, stale, accounts, monarch, yesterday, today, closes_by_day,
+                                                sales or [], unconfirmed or [])}
 
     pre_tax_balance = sum(p["current"] for p in positions if p["tax"] == "pre_tax")
     unrealized = sum(max(0.0, p["current"] - p["basis"]) for p in positions
@@ -889,6 +928,14 @@ def compute(*, lots, quotes, baseline, security_master, accounts, flows_daily, m
     if planner:
         tax.update(planner)
         tax["total"] = round(tax["ordinary_tax"] + tax["ltcg_tax"] + tax["hsa_tax"], 2)
+
+    # Tax on gains realized this year is its own line, beside (never inside) the unrealized estimate above.
+    if sales or adjustments:
+        realized = realized_tax_line.line(
+            planner_cfg, sales or [], adjustments, today, ordinary_income=_num(ytd_income),
+            ordinary_rate=pre_rate or realized_tax_line.DEFAULT_ORDINARY_RATE, ltcg_rate=ltcg_rate or realized_tax_line.DEFAULT_LTCG_RATE)
+        tax["realized_tax"] = realized
+        tax["total_with_realized"] = round(tax["total"] + realized["total"], 2)
 
     by_kind: dict[str, float] = {}
     for p in positions:
@@ -1015,9 +1062,10 @@ def _load_inputs_uncached(base_dir: Path, log_path: Path, balances_db: Path) -> 
     history = read_history(log_path)
     latest = history[-1] if history else {}
     plan = _plan_rows(base_dir, base_dir / "local_state" / "retirement_system_v10.db", "")
-    sales, unconfirmed_dates = ledger_sales(base_dir)
+    sales, unconfirmed, adjustments = ledger_sales(base_dir)
     return {
-        "sales": sales, "unconfirmed_dates": unconfirmed_dates,
+        "sales": sales, "unconfirmed": unconfirmed, "adjustments": adjustments,
+        "ytd_income": (latest.get("cashflow") or {}).get("income"),
         "lots": dataset_rows_for_input_dir(base_dir / "input", "holdings"),
         "security_master": portfolio_analytics.read_security_master(),
         "accounts": (latest.get("holdings") or {}).get("by_account") or [],
@@ -1031,18 +1079,17 @@ def _load_inputs_uncached(base_dir: Path, log_path: Path, balances_db: Path) -> 
     }
 
 
-def ledger_sales(base_dir: Path) -> tuple[list[dict], list[str]]:
-    """(confirmed ledger sales, sale dates of the still-unmatched candidates) from the plan file, reached the
+def ledger_sales(base_dir: Path) -> tuple[list[dict], list[dict], list[dict]]:
+    """(confirmed ledger sales, the unmatched candidates, the year adjustments) from the plan file, reached the
     way ``app_sync`` reaches it: ``active_plan.workspace_store(base_dir)``. A plan without the ledger tables,
     or one that cannot be opened, is "no sales" so Trends never fails on it."""
     try:
         from src import active_plan
 
         with active_plan.workspace_store(Path(base_dir)) as store:
-            return (store.sales.list_sales(),
-                    [str(c["sale_date"]) for c in store.sales.list_candidates(state="unmatched")])
+            return (store.sales.list_sales(), store.sales.list_candidates(state="unmatched"), store.sales.adjustments())
     except Exception:  # noqa: BLE001 - older plan (no ledger tables), missing or locked
-        return [], []
+        return [], [], []
 
 
 def planner_config(base_dir: Path) -> dict[str, Any] | None:
@@ -1137,7 +1184,8 @@ def build(*, inputs: dict[str, Any], data_dir: str | Path, quote_cache=None, now
     body = compute(lots=inputs["lots"], quotes=quotes, baseline=baseline, security_master=inputs["security_master"],
                    accounts=inputs["accounts"], flows_daily=inputs["flows_daily"], monarch=inputs["monarch"],
                    tax_rates=inputs["tax_rates"], planner_cfg=inputs.get("planner_cfg"), today=today, closes_by_day=closes_by_day,
-                   sales=inputs.get("sales"), unconfirmed_dates=inputs.get("unconfirmed_dates"))
+                   sales=inputs.get("sales"), unconfirmed=inputs.get("unconfirmed"),
+                   adjustments=inputs.get("adjustments"), ytd_income=inputs.get("ytd_income"))
     indices = []
     for sym, label in INDICES:
         q = quotes.get(sym) or {}

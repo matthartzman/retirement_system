@@ -143,10 +143,16 @@ def test_route_passes_the_query_to_build(tmp_path, monkeypatch):
     assert client.get("/api/realized?tax_year=2025").get_json()["summary"]["net"] == 100.0
 
 
-def test_percent_only_people_are_refused(tmp_path):
+def test_percent_only_people_get_group_totals_without_lots(tmp_path, monkeypatch):
     from tests.test_trends_percent_view_functional import _rig
 
-    rig, t = _rig(tmp_path, users=(("ann", "percent"), ("dee", "dollars")))
-    resp = rig.call(rig.remote, "GET", "/api/realized", cookie=t["ann"])
-    assert resp.status_code == 403 and resp.get_json()["error"] == "Not available in the percent view."
-    assert rig.call(rig.remote, "GET", "/api/realized", cookie=t["dee"]).status_code != 403
+    monkeypatch.setattr(rv, "load", lambda base: {"sales": SALES, "candidates": CANDIDATES, "lots": LOTS})
+    monkeypatch.setattr("financial_trends_reporter.main._today", lambda: TODAY)
+    rig, t = _rig(tmp_path, basis=lambda: 100000.0, users=(("ann", "percent"), ("dee", "dollars")))
+    ann = rig.call(rig.remote, "GET", "/api/realized?from=2026-01-01&unconfirmed=1", cookie=t["ann"])
+    assert ann.status_code == 200
+    body = ann.get_json()
+    assert body["money_view"]["mode"] == "percent" and body["groups"] and "lots" not in str(body) and "shares" not in str(body)
+    assert body["summary"]["net"] == 1100.0 / 100000.0 and body["summary"]["count"] == 3
+    dee = rig.call(rig.remote, "GET", "/api/realized?from=2026-01-01", cookie=t["dee"]).get_json()
+    assert dee["summary"]["net"] == 1100.0 and dee["groups"][0]["lots"]
