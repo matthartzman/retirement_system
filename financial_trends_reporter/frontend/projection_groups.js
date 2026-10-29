@@ -26,7 +26,8 @@ const delta = (row) => {
 };
 const ira = (row) => sum(pick(row, ["H_IRA_RMD", "H_IRA_Elec", "W_IRA_RMD", "W_IRA_Elec"]));
 
-// node: {id, label, subtotal: key | (row) => number|null, children: [node | key | RegExp], context?: [key], stock?: true}
+// node: {id, label, subtotal: key | (row) => number|null, children: [node | key | RegExp], context?: [key], stock?: true,
+//        rule?: true (the table's total: a heavier rule on its left)}
 export const GROUPS = {
   nw: [
     { id: "investable", label: "Investable", subtotal: investable, children: [
@@ -39,7 +40,7 @@ export const GROUPS = {
       children: ["Pension PV", "W Single PV", "W Joint PV", "H Single PV", "H Joint PV"] },
     { id: "homeother", label: "Home & Other", subtotal: homeOther,
       children: ["Home Equity", "Next Housing Equity", "Rental Equity", "Startup", "Autos", "Note", "Other_Liab"] },
-    { id: "total", label: "Total NW", subtotal: "TOTAL NW", children: [], stock: true },
+    { id: "total", label: "Total NW", subtotal: "TOTAL NW", children: [], stock: true, rule: true },
     { id: "delta", label: "Δ vs prior", subtotal: delta, children: [], stock: true },
   ],
   cf: [
@@ -64,7 +65,7 @@ export const GROUPS = {
       { id: "ira", label: "IRA", subtotal: ira, children: ["H_IRA_RMD", "H_IRA_Elec", "W_IRA_RMD", "W_IRA_Elec"] },
     ], context: ["Req_Portfolio_Draws"] },
     { id: "conv", label: "Roth Conv", subtotal: "Roth_Conv", children: ["H_IRA_Conv", "W_IRA_Conv"] },
-    { id: "networth", label: "Net Worth", subtotal: "NW_Check", children: [], stock: true },
+    { id: "networth", label: "Net Worth", subtotal: "NW_Check", children: [], stock: true, rule: true },
   ],
 };
 
@@ -95,7 +96,7 @@ function resolve(node, have, labelOf, used) {
   context.forEach((k) => used.add(k));
   const hasSubtotal = typeof node.subtotal === "function" || have.has(node.subtotal);
   if (!hasSubtotal && !children.length) return null;
-  return { id: node.id, label: node.label, value: valueOf(node.subtotal), stock: !!node.stock,
+  return { id: node.id, label: node.label, value: valueOf(node.subtotal), stock: !!node.stock, rule: !!node.rule,
     children, context: context.map((key) => ({ key, label: labelOf(key) })) };
 }
 
@@ -136,18 +137,24 @@ export function buildTree(table, which) {
   return { which, nodes, unmapped, rows };
 }
 
+// edge.left / edge.right: 2 = an open top-level group's outer rule, 1 = an open nested group's lighter
+// rule, 0 = none. A nested group's edge that is also its parent's keeps the heavier rule.
 function columnsOf(node, open, depth, out) {
   const expandable = node.children.length > 0 || node.context.length > 0;
+  const start = out.length;
   out.push({ id: node.id, label: node.label, depth, kind: "subtotal", value: node.value, groupId: node.id,
-    expandable, open: expandable && open.has(node.id), stock: node.stock });
+    expandable, open: expandable && open.has(node.id), stock: node.stock, totalRule: node.rule, edge: { left: 0, right: 0 } });
   if (!expandable || !open.has(node.id)) return;
+  const leaf = (c, kind, stock) => ({ id: c.key, label: c.label, depth: depth + 1, kind, value: valueOf(c.key),
+    groupId: node.id, expandable: false, open: false, stock, totalRule: false, edge: { left: 0, right: 0 } });
   for (const child of node.children) {
-    if (child.key) out.push({ id: child.key, label: child.label, depth: depth + 1, kind: "detail",
-      value: valueOf(child.key), groupId: node.id, expandable: false, open: false, stock: false });
+    if (child.key) out.push(leaf(child, "detail", false));
     else columnsOf(child, open, depth + 1, out);
   }
-  for (const c of node.context) out.push({ id: c.key, label: c.label, depth: depth + 1, kind: "context",
-    value: valueOf(c.key), groupId: node.id, expandable: false, open: false, stock: true });
+  for (const c of node.context) out.push(leaf(c, "context", true));
+  const level = depth === 0 ? 2 : 1;
+  out[start].edge.left = Math.max(out[start].edge.left, level);
+  out[out.length - 1].edge.right = Math.max(out[out.length - 1].edge.right, level);
 }
 
 export function visibleColumns(tree, open) {
@@ -186,6 +193,12 @@ export function windowTotal(rows, cols) {
   const out = {};
   for (const c of cols) out[c.id] = c.stock ? null : sum(rows.map((r) => c.value(r)));
   return out;
+}
+
+// How far reconcileNW may drift before the page says so: a cent in dollars. A percent-only viewer's data
+// is already divided by today's net worth on the server, where a cent would hide a mismatch of 1% of it.
+export function reconcileTolerance(allowed) {
+  return allowed === "percent" ? 1e-7 : 0.01;
 }
 
 // (Investable + Annuities & Pension + Home & Other) - Total NW; ~0 when the regrouping is complete.

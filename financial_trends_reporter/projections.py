@@ -19,6 +19,7 @@ SCHEMA = "projection_tables/1"
 _WORKBOOK = "retirement_plan.xlsx"
 
 _cache: dict[Path, tuple[int, dict]] = {}
+_plan_state_cache: dict[Path, tuple[tuple[int, int], str]] = {}   # plan -> ((mtime_ns, size), digest)
 _lock = threading.Lock()
 
 
@@ -35,7 +36,10 @@ def locate(retirement_system_dir: Path, results: dict | None = None) -> Path | N
 
 
 def _read(path: Path) -> dict | None:
-    mtime = path.stat().st_mtime_ns
+    try:
+        mtime = path.stat().st_mtime_ns
+    except OSError:   # a rebuild replaced the file between locate() and here; the next load finds the new one
+        return None
     with _lock:
         hit = _cache.get(path)
         if hit and hit[0] == mtime:
@@ -49,14 +53,31 @@ def _read(path: Path) -> dict | None:
     return doc
 
 
+def _current_plan_state(plan: Path) -> str:
+    """plan_state() hashes every dataset in the plan file; reuse the digest while the file is unchanged."""
+    try:
+        st = plan.stat()
+        key = (st.st_mtime_ns, st.st_size)
+    except OSError:
+        return plan_state(plan)
+    with _lock:
+        hit = _plan_state_cache.get(plan)
+        if hit and hit[0] == key:
+            return hit[1]
+    digest = plan_state(plan)
+    with _lock:
+        _plan_state_cache[plan] = (key, digest)
+    return digest
+
+
 def _plan_changed(plan: Path, results: dict) -> bool:
-    """The plan's inputs differ from what the latest build read. (Not the plan file's mtime: the
+    """The plan's inputs differ from what the latest build read. (Not the plan file's mtime alone: the
     build itself writes its results into the plan file after the workbook.)"""
     recorded = results.get("plan_state") or ""
     if not recorded:
         return False
     try:
-        return plan_state(plan) != recorded
+        return _current_plan_state(plan) != recorded
     except Exception:  # noqa: BLE001 - an unreadable plan can't be compared; don't cry wolf
         return False
 

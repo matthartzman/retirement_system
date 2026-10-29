@@ -5,7 +5,7 @@
 // renderProjections() and buildLine() are pure (exported for tests); mountProjections() wires the page.
 
 import { moneyView, fmtAmount, onMoneyViewChange } from "./money_view.js";
-import { buildTree, visibleColumns, windowRows, clampYears, windowTotal, reconcileNW, allGroupIds } from "./projection_groups.js";
+import { buildTree, visibleColumns, windowRows, clampYears, windowTotal, reconcileNW, reconcileTolerance, allGroupIds } from "./projection_groups.js";
 
 export const VIEW_KEY = "trendsView_v1";   // shared with live_snapshot.js
 export const KEYS = { table: "trends.proj.table", years: "trends.proj.years", open: (t) => `trends.proj.open.${t}` };
@@ -41,8 +41,13 @@ export function buildLine(builtAtIso, planChanged, now) {
   return { text: `Workbook built ${date} ${time} · ${age}`.replace(/\s/g, " "), stale: days > STALE_DAYS || !!planChanged };
 }
 
+// Column rules (projection_groups.js edge / totalRule) as classes, the same on header, body and total cells.
+function ruleClasses(c) {
+  return [c.edge.left ? `el${c.edge.left}` : "", c.edge.right ? `er${c.edge.right}` : "", c.totalRule ? "tr" : ""];
+}
+
 function headerCell(c) {
-  const cls = `proj-h d${c.depth} ${c.kind}${c.open ? " open" : ""}`;
+  const cls = [`proj-h d${c.depth} ${c.kind}${c.open ? " open" : ""}`, ...ruleClasses(c)].filter(Boolean).join(" ");
   if (!c.expandable) return `<th scope="col" class="${cls}">${esc(c.label)}</th>`;
   return `<th scope="col" class="${cls}"><button type="button" class="proj-toggle" data-proj-group="${esc(c.id)}" aria-expanded="${c.open}">`
     + `<span aria-hidden="true">${c.open ? "▾" : "▸"}</span>&nbsp;${esc(c.label)}</button></th>`;
@@ -50,8 +55,8 @@ function headerCell(c) {
 
 function cell(c, v, narrow) {
   const { text, neg } = amount(v, narrow);
-  const cls = ["num", neg ? "neg" : "", c.kind === "detail" ? "d" : "", c.kind === "context" ? "ctx" : "", text === DASH ? "na" : ""]
-    .filter(Boolean).join(" ");
+  const kind = { subtotal: c.depth ? "sub1" : "sub", detail: "d", context: "ctx" }[c.kind] || "";   // sub1: a nested group's subtotal
+  const cls = ["num", neg ? "neg" : "", kind, text === DASH ? "na" : "", ...ruleClasses(c)].filter(Boolean).join(" ");
   const title = c.kind === "context" ? ' title="Not part of the total"' : "";
   return `<td class="${cls}"${title}>${text}</td>`;
 }
@@ -78,18 +83,19 @@ export function renderProjections(data, ui) {
   const yearCell = (r) => {
     const ages = (r.ages || []).filter((a) => a !== null && a !== undefined);
     const title = ages.length ? ` title="${esc(ages.map((a, i) => `${owners[i] || ""} ${a}`.trim()).join(" · "))}"` : "";
-    return `<th scope="row" class="proj-year"${title}>${r.year}${ages.length ? `<span class="proj-ages">${ages.join(" / ")}</span>` : ""}</th>`;
+    return `<th scope="row" class="proj-year"${title}>${esc(r.year)}${ages.length ? `<span class="proj-ages">${esc(ages.join(" / "))}</span>` : ""}</th>`;
   };
   const body = rows.map((r) => `<tr>${yearCell(r)}${cols.map((c) => cell(c, c.value(r), ui.narrow)).join("")}</tr>`).join("");
   let foot = "";
   if (ui.table === "cf" && rows.length) {
     const total = windowTotal(rows, cols);
-    foot = `<tfoot><tr class="total-row"><th scope="row" class="proj-year">${rows.length}-yr total</th>`
+    foot = `<tfoot><tr class="total-row"><th scope="row" class="proj-year">${esc(rows.length)}-yr total</th>`
       + cols.map((c) => cell(c, total[c.id], ui.narrow)).join("") + `</tr></tfoot>`;
   }
   const notes = [];
   if (ui.table === "nw") {
-    const off = rows.filter((r) => Math.abs(reconcileNW(r)) >= 0.01);
+    const tol = reconcileTolerance(moneyView().allowed);
+    const off = rows.filter((r) => Math.abs(reconcileNW(r)) >= tol);
     if (off.length) notes.push(`<p class="live-error">Net worth groups don't add up to Total NW in ${off.map((r) => r.year).join(", ")}`
       + ` (off by ${amount(reconcileNW(off[0]), false).text}). The workbook's figures are shown unchanged.</p>`);
   }

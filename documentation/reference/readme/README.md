@@ -47,11 +47,11 @@ rental real estate; the page then appears in the left menu.
 **Local backups** — **Settings → Data & Maintenance** also holds the automatic
 backup controls and **Export CSV backup**.
 
-**Financial trends reporter** — a small companion dashboard that charts your
+**Financial Insight app** — a small companion dashboard that charts your
 net worth and spending over time, alongside the main planner. Run it with
 `python financial_trends_reporter/main.py` from this folder; it opens its own
 browser tab showing a running history built from the same plan data. Its
-**Live Snapshot** switch shows today's balance sheet instead: your holdings at
+**Current Snapshot** switch shows today's balance sheet instead: your holdings at
 market prices (delayed about 15 minutes, refreshed every minute while the
 market is open), today's and this year's change by asset class, and net worth
 after debt and estimated taxes. To have

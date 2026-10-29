@@ -1,4 +1,4 @@
-"""Sales ledger 4.1: confirmed ledger sales in the Live Snapshot returns (Modified Dietz).
+"""Sales ledger 4.1: confirmed ledger sales in the Current Snapshot returns (Modified Dietz).
 
 Window: baseline 2025-12-31 to 2026-10-27 = 300 days. A sale on 2026-09-27 (day 270) leaves 30 days, weight 0.1;
 a purchase on 2026-03-01 (day 60) has 240 days left, weight 0.8. Proceeds stay in brokerage cash, so the sale is

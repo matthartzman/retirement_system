@@ -1,5 +1,5 @@
 // Shared run-time helpers (frontend/js/runtime_history.js): used by the planner's progress overlay
-// and served to the Financial Trends reporter. Pure functions over localStorage, stubbed here.
+// and served to the Financial Insight app. Pure functions over localStorage, stubbed here.
 import { test, describe, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import path from "node:path";

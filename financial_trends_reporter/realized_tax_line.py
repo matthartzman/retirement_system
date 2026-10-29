@@ -1,4 +1,4 @@
-"""Tax on gains realized this year (sales ledger plan 7.2 / 9.4), for the Live Snapshot's tax section and the
+"""Tax on gains realized this year (sales ledger plan 7.2 / 9.4), for the Current Snapshot's tax section and the
 daily log's ``tax_estimate``.
 
 It nets the taxable-account sales of the year with ``src.realized_tax`` (carryforwards chained from the

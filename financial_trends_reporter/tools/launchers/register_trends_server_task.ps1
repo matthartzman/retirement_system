@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Register/unregister the Task Scheduler entry that keeps the Financial Trends
+  Register/unregister the Task Scheduler entry that keeps the Financial Insight
   server running whenever the owner is logged on to Windows.
 
 .DESCRIPTION

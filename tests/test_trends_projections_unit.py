@@ -74,6 +74,29 @@ def test_plan_changed_when_plan_state_differs(tmp_path):
     assert projections.load(root)["plan_changed"] is True
 
 
+def test_file_replaced_mid_load_reads_as_missing(tmp_path, monkeypatch):
+    # A rebuild can swap the file out between locate() finding it and _read() stat-ing it.
+    root, out = _workspace(tmp_path)
+    monkeypatch.setattr(projections, "locate", lambda *_a, **_k: out / "gone.json")
+    assert projections.load(root) == {"missing": True}
+
+
+def test_plan_input_check_is_cached_until_the_plan_file_changes(tmp_path, monkeypatch):
+    root, _ = _workspace(tmp_path)
+    calls = []
+    real = projections.plan_state
+    monkeypatch.setattr(projections, "plan_state", lambda p: calls.append(p) or real(p))
+    projections._plan_state_cache.clear()
+    assert projections.load(root)["plan_changed"] is False
+    assert projections.load(root)["plan_changed"] is False
+    assert len(calls) == 1
+    plan = root / "plan.rpx"
+    st = plan.stat()
+    os.utime(plan, ns=(st.st_atime_ns, st.st_mtime_ns + 5_000_000_000))
+    projections.load(root)
+    assert len(calls) == 2
+
+
 def test_cache_reloads_on_mtime_change(tmp_path):
     root, out = _workspace(tmp_path)
     assert projections.load(root)["owners"] == ["A", "B"]

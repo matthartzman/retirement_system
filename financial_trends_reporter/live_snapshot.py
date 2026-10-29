@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Live Snapshot view: live (delayed) valuation of liquid holdings plus the balance-sheet roll-up.
+"""Current Snapshot view: live (delayed) valuation of liquid holdings plus the balance-sheet roll-up.
 
 Step 2 pieces: the NYSE session calendar, the quote cache every /api/live-snapshot request
 shares, and the prior year-end ("Start Value") prices. Design:
@@ -850,7 +850,7 @@ def compute(*, lots, quotes, baseline, security_master, accounts, flows_daily, m
             closes_by_day: dict[str, dict[str, float]] | None = None,
             sales: list[dict] | None = None, unconfirmed: list[dict] | None = None,
             adjustments: list[dict] | None = None, ytd_income: float | None = None) -> dict[str, Any]:
-    """The Live Snapshot body (design 4.3) from already-loaded inputs. Pure, so tests pin every formula.
+    """The Current Snapshot body (design 4.3) from already-loaded inputs. Pure, so tests pin every formula.
 
     Returns at every level (total, class, ticker) are Modified Dietz over the current lots (see
     ``_positions``): robust to trades and to money moving between accounts. Lots sold since the start

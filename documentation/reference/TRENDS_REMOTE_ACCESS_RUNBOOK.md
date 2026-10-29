@@ -1,6 +1,6 @@
-# Financial Trends: Remote Access Runbook
+# Financial Insight: Remote Access Runbook
 
-How the Financial Trends app is reached from outside the home network, and how to run it.
+How the Financial Insight app is reached from outside the home network, and how to run it.
 Design: `documentation/future/superpowers/plans/2026-10-27-trends-remote-access-design.md`.
 
 ## How it works
@@ -38,7 +38,7 @@ Each person has a **money view** setting in People & Activity (the Add person di
 - **$**: dollars only, as on the PC.
 - **Both**: dollars, with a **$ | %** toggle in the page header to switch.
 
-A %-only person does **not** see merchant detail, individual transactions or the reconciliation section of Live Snapshot, and the transaction list route answers 403 for them. They also get no share counts, purchase prices or index levels: a share count times a public price, or a public level against its scaled value, would give back the hidden scale and every dollar figure. Notes that quote amounts (for example the investment-transfer review) are left out or reworded.
+A %-only person does **not** see merchant detail, individual transactions or the reconciliation section of Current Snapshot, and the transaction list route answers 403 for them. They also get no share counts, purchase prices or index levels: a share count times a public price, or a public level against its scaled value, would give back the hidden scale and every dollar figure. Notes that quote amounts (for example the investment-transfer review) are left out or reworded.
 
 Changing a person's setting applies on their next tap; they do not need to sign in again.
 
@@ -61,7 +61,7 @@ Funnel's real `Host` header and whether it forwards the visitor's address (`X-Fo
 1. Open the link: you see the sign-in page, not the app.
 2. Wrong password: a generic "Incorrect username or password."
 3. Sign in with a temporary password: you are asked to choose a new one; afterwards the app loads.
-4. Live Snapshot and a chart view load.
+4. Current Snapshot and a chart view load.
 5. Leave the page untouched for 10 minutes: the next tap returns to sign-in.
 6. Sign out: back at sign-in; the **back** button does not show data.
 7. Sign in as a second person on another device: signing out of one does not affect the other.

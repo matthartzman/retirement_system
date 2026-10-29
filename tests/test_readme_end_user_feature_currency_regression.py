@@ -2,7 +2,7 @@
 2026-09-07, Wave 6 item W6-5).
 
 The shipped README (documentation/reference/readme/README.md) mentioned neither the
-Monarch auto-update feature nor the Financial Trends Reporter companion app
+Monarch auto-update feature nor the Financial Insight companion app
 at all -- both were documented only in maintainer-facing surfaces
 (documentation/archive/superpowers/ and documentation/future/superpowers/), leaving the household running the packaged app with
 no in-README pointer to either. A plain-language section was added in this
@@ -23,7 +23,7 @@ README_PATH = ROOT / "documentation" / "reference" / "readme" / "README.md"
 
 FEATURE_MARKERS = [
     ("Third-party import auto-update", "Third-party import auto-update"),
-    ("Financial trends reporter", "Financial trends reporter companion app"),
+    ("Financial Insight app", "Financial Insight companion app"),
     ("Concepts Guide", "Concepts Guide pointer"),
 ]
 

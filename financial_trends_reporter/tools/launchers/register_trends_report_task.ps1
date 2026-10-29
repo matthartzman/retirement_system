@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
   Register/unregister the Windows Task Scheduler entry for the weekday 5pm
-  financial trends log job (ticket 306).
+  Financial Insight log job (ticket 306).
 
 .DESCRIPTION
   Mirrors retirement_system's

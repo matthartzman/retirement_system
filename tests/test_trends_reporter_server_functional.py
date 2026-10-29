@@ -28,7 +28,7 @@ def test_index_serves_the_dashboard_html(tmp_path):
     resp = client.get("/")
     assert resp.status_code == 200
     body = resp.get_data(as_text=True)
-    assert "<title>" in body or "Financial trends" in body
+    assert "<title>" in body or "Financial Insight" in body
 
 
 def test_charts_js_is_served_with_a_js_capable_content_type(tmp_path):

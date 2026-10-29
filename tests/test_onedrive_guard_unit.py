@@ -1,4 +1,4 @@
-"""Both scheduled headless jobs (Monarch auto-import, financial trends
+"""Both scheduled headless jobs (Monarch auto-import, Financial Insight
 reporter) read files under paths that are commonly OneDrive-synced on
 Windows; a truncated or not-fully-downloaded file must be caught before
 import rather than silently corrupting plan data.

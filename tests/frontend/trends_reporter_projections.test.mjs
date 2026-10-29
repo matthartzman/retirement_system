@@ -4,7 +4,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
-  buildTree, visibleColumns, windowRows, clampYears, windowTotal, reconcileNW,
+  buildTree, visibleColumns, windowRows, clampYears, windowTotal, reconcileNW, reconcileTolerance,
 } from "../../financial_trends_reporter/frontend/projection_groups.js";
 import { renderProjections, buildLine, mountProjections, EMPTY_TEXT } from "../../financial_trends_reporter/frontend/projections.js";
 import { setMoneyView } from "../../financial_trends_reporter/frontend/money_view.js";
@@ -93,6 +93,44 @@ describe("opening groups", () => {
     const all = visibleColumns(tree, new Set(["income", "taxes", "spending", "need", "draws", "ira", "conv", "housing", "wellness", "trust"]));
     assert.ok(!all.some((c) => c.id === "H_IRA_Tot"));
     assert.deepEqual(tree.unmapped, []);
+  });
+});
+
+describe("group rules", () => {
+  const edges = (cols) => cols.map((c) => `${c.edge.left}${c.edge.right}`);
+  test("collapsed: no group edges, and only Total NW carries the total rule", () => {
+    const cols = visibleColumns(buildTree(NW, "nw"), new Set());
+    assert.deepEqual(edges(cols), ["00", "00", "00", "00", "00"]);
+    assert.deepEqual(cols.map((c) => c.totalRule), [false, false, false, true, false]);
+  });
+  test("an open top-level group is bracketed from its subtotal to its last column", () => {
+    const cols = visibleColumns(buildTree(NW, "nw"), new Set(["investable"]));
+    assert.equal(cols[0].edge.left, 2);
+    assert.equal(cols[5].label, "Cash");
+    assert.equal(cols[5].edge.right, 2);
+    assert.deepEqual(edges(cols.slice(1, 5)), ["00", "00", "00", "00"]);
+    assert.deepEqual(edges(cols.slice(6)), ["00", "00", "00", "00"]);
+  });
+  test("an open nested group gets the lighter rule; an edge shared with its parent stays heavy", () => {
+    const cols = visibleColumns(buildTree(NW, "nw"), new Set(["investable", "pretax"]));
+    assert.deepEqual(labels(cols.slice(1, 5)), ["Pre-Tax", "Matt IRA", "Matt 401k", "Pat IRA"]);
+    assert.deepEqual(edges(cols.slice(1, 5)), ["10", "00", "00", "01"]);
+    const cf = visibleColumns(buildTree(CF, "cf"), new Set(["draws", "ira"]));
+    const ira = cf.filter((c) => c.groupId === "ira");
+    assert.equal(cf.find((c) => c.id === "ira").edge.left, 1);
+    assert.equal(ira.at(-1).edge.right, 1);   // a context column follows inside Portfolio Draws
+    const draws = cf.filter((c) => c.groupId === "draws" || c.groupId === "ira" || c.groupId === "trust");
+    assert.equal(draws.at(-1).kind, "context");
+    assert.equal(draws.at(-1).edge.right, 2);
+  });
+  test("CF's Net Worth carries the total rule", () => {
+    const cols = visibleColumns(buildTree(CF, "cf"), new Set());
+    assert.deepEqual(cols.filter((c) => c.totalRule).map((c) => c.label), ["Net Worth"]);
+  });
+  test("the reconcile tolerance is a cent in dollars and tiny for server-scaled percent data", () => {
+    assert.equal(reconcileTolerance("both"), 0.01);
+    assert.equal(reconcileTolerance("dollars"), 0.01);
+    assert.equal(reconcileTolerance("percent"), 1e-7);
   });
 });
 
@@ -244,7 +282,39 @@ describe("render", () => {
     assert.doesNotMatch(renderProjections(DOC(), UI({ years: 2 })), /The plan ends/);
   });
   test("a negative change is written with a minus sign before the dollar", () => {
-    assert.match(renderProjections(DOC(), UI()), /class="num neg">−\$105,495</);
+    assert.match(renderProjections(DOC(), UI()), /class="num neg[^"]*">−\$105,495</);
+  });
+  test("subtotal cells are marked apart from detail cells, and open groups carry their edge classes", () => {
+    const html = renderProjections(DOC(), UI({ open: new Set(["investable"]) }));
+    const firstRow = html.match(/<tbody><tr>([\s\S]*?)<\/tr>/)[1];
+    const tds = firstRow.match(/<td class="[^"]*"/g).map((t) => t.slice(11, -1).split(" "));
+    assert.ok(tds[0].includes("sub") && tds[0].includes("el2"), tds[0].join(" "));   // Investable
+    assert.ok(tds[1].includes("sub1") && !tds[1].includes("sub"));                     // Pre-Tax: a nested subtotal
+    assert.ok(tds[4].includes("d") && !tds[4].includes("sub"));                        // Matt HSA: detail
+    assert.ok(tds[5].includes("er2"));                                                  // Cash closes Investable
+    assert.ok(tds[8].includes("tr") && tds[8].includes("sub"));                         // Total NW
+    assert.match(html.match(/<thead>[\s\S]*?<\/thead>/)[0], /class="proj-h d0 subtotal open el2"/);
+  });
+  test("the CF total row carries the same column classes", () => {
+    const html = renderProjections(DOC(), UI({ table: "cf", years: 2, open: new Set(["income"]) }));
+    const foot = html.match(/<tfoot>[\s\S]*?<\/tfoot>/)[0];
+    assert.match(foot, /<td class="num sub el2"/);
+    assert.match(foot, /class="[^"]*\btr\b[^"]*"/);
+  });
+  test("year and age cells are escaped", () => {
+    const rows = [{ year: "<b>", ages: ["<i>"], values: NW_2026 }];
+    const html = renderProjections(DOC({ tables: { net_worth: { ...NW, rows }, cash_flow: CF } }), UI({ now: new Date("1999-01-01") }));
+    assert.match(html, /&lt;b&gt;<span class="proj-ages">&lt;i&gt;<\/span>/);
+    assert.doesNotMatch(html, /<b>|<i>/);
+  });
+  test("a percent-only viewer sees a mismatch a dollar threshold would hide", () => {
+    setMoneyView({ allowed: "percent", scale: 1 });
+    const scaled = Object.fromEntries(Object.entries(NW_2026).map(([k, v]) => [k, v / NW_2026["TOTAL NW"]]));
+    const off = { ...NW, rows: [{ year: 2026, ages: [64, 65], values: { ...scaled, "TOTAL NW": scaled["TOTAL NW"] - 0.005 } }] };
+    assert.match(renderProjections(DOC({ tables: { net_worth: off, cash_flow: CF } }), UI()), /don't add up to Total NW/);
+    setMoneyView({ allowed: "both", shown: "dollars", scale: 1 });
+    const cents = { ...NW, rows: [{ year: 2026, ages: [64, 65], values: { ...NW_2026, "TOTAL NW": NW_2026["TOTAL NW"] - 0.004 } }] };
+    assert.doesNotMatch(renderProjections(DOC({ tables: { net_worth: cents, cash_flow: CF } }), UI()), /don't add up/);
   });
   test("narrow screens use compact amounts", () => {
     assert.match(renderProjections(DOC(), UI({ narrow: true })), />\$5\.69M</);

@@ -1,4 +1,4 @@
-"""Live Snapshot Group By: the page's JS grouping (live_groups.js) must total every group exactly as the
+"""Current Snapshot Group By: the page's JS grouping (live_groups.js) must total every group exactly as the
 server's formulas do (live_snapshot._summarize, which also totals the liquid book). The same lots go through
 both and each level is compared, in several orders."""
 from __future__ import annotations

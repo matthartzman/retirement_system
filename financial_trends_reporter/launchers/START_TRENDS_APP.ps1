@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Launch the financial trends reporter's local server and open it in a browser.
+  Launch the Financial Insight app's local server and open it in a browser.
 #>
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 Set-Location $RepoRoot

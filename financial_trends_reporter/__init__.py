@@ -1,4 +1,4 @@
-"""Standalone financial trends reporter (ticket 306).
+"""Standalone Financial Insight app (ticket 306).
 
 A separate app from retirement_system: its own entry point (main.py), own
 local server, own data file (data/financial_trends_log.jsonl) -- but it

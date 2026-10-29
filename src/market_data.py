@@ -1394,7 +1394,7 @@ class MarketDataProvider:
         return None
 
     def quote_detail(self, symbol: str) -> Dict[str, object]:
-        """Live price plus previous close for one symbol (Live Snapshot view).
+        """Live price plus previous close for one symbol (Current Snapshot view).
 
         Unlike quote(), never memoized in self.prices: the trends reporter is a long-running
         server that polls, so every call goes to the providers (callers cache for seconds).

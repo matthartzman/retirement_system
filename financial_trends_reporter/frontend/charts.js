@@ -1,4 +1,4 @@
-// Pure, side-effect-free chart-rendering helpers for the Financial trends
+// Pure, side-effect-free chart-rendering helpers for the Financial Insight
 // reporter's dashboard (financial_trends_reporter/frontend/index.html).
 //
 // Finding QUA-302 (system review 2026-09-07, Wave 6 item W6-11): this logic

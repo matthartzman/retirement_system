@@ -1,4 +1,4 @@
-// Live Snapshot view (design: documentation/future/superpowers/plans/2026-10-27-live-snapshot-design.md).
+// Current Snapshot view (design: documentation/future/superpowers/plans/2026-10-27-live-snapshot-design.md).
 // Pure render/poll helpers are exported for tests; initLiveView() wires the toggle, the 60 s poll
 // and the Refresh button in the browser. It runs as its own module so the Trends script is untouched:
 // the toggle only switches body.live-mode, and CSS hides the trend cards. The Time scope is shared: its
@@ -322,7 +322,7 @@ export function soldNote(L, startDay) {
 
 export function liveViewHtml(data, groupOrder, groupSort) {
   if (!data) return `<p class="empty">Loading live prices…</p>`;
-  if (data.error) return `<p class="live-error">Live Snapshot is unavailable: ${esc(data.error)}</p>`;
+  if (data.error) return `<p class="live-error">Current Snapshot is unavailable: ${esc(data.error)}</p>`;
   accountLabels = data.account_labels || {};
   startDay = startDayText(data.baseline_date, data.as_of);
   const period = isYearToDate(data.baseline_date, data.as_of) ? "Year to date" : `Since ${startDay}`;
@@ -430,7 +430,7 @@ export function initLiveView(doc = document, win = window) {
       const msg = err && err.message ? err.message : String(err);
       errorBox.textContent = data
         ? `Couldn't update prices (${msg}). Showing the values from ${clock(data.as_of)}.`
-        : `Couldn't load the Live Snapshot (${msg}).`;
+        : `Couldn't load the Current Snapshot (${msg}).`;
       if (!data) out.innerHTML = "";
     } finally {
       busy = false;

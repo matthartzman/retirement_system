@@ -1105,7 +1105,7 @@ def _main(plan_read):
     nw_cols = build_sheet5(sheets['5. Net Worth Projection'], c, rows)
     print('  Sheet 6 — Cash Flow Projection')
     cf_cols = build_sheet6(sheets['6. Cash Flow Projection'], c, rows)
-    # Recent Projections (Financial Trends) reads these two tables back from the sheets just written.
+    # Recent Projections (Financial Insight) reads these two tables back from the sheets just written.
     projection_tables = read_projection_tables(sheets['5. Net Worth Projection'], nw_cols,
                                                sheets['6. Cash Flow Projection'], cf_cols, rows)
     if '7. Lifetime Tax' in sheets:

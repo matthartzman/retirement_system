@@ -1,4 +1,4 @@
-"""snapshot_prices_between(): the latest stored price per symbol inside a UTC window (Live Snapshot closes)."""
+"""snapshot_prices_between(): the latest stored price per symbol inside a UTC window (Current Snapshot closes)."""
 import sqlite3
 
 from src.portfolio_analytics import snapshot_prices, snapshot_prices_between

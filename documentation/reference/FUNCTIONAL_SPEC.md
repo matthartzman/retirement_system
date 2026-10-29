@@ -1,8 +1,8 @@
 # Retirement Planning System — Functional Spec
 
 Generated: 2026-08-29, updated 2026-09-07 (Wave 5 item W4-8, finding DOC-201:
-backfilled QLAC, the Monarch Money auto-import module, the Financial Trends
-Reporter companion app, phase-varying Roth conversions, and the adoptable
+backfilled QLAC, the Monarch Money auto-import module, the Financial Insight
+companion app, phase-varying Roth conversions, and the adoptable
 Guyton-Klinger/floor-ceiling spending policy -- all shipped after the
 original generation date and previously undocumented here); updated 2026-09-30
 (WI-703, finding DOC-003: backfilled the housing optimizer and Next Housing
@@ -280,7 +280,7 @@ against, not duplicated on top of, any rows the household already entered
 manually. The Monarch Extractor also exports daily account balances; they are
 imported into the plan file by the same job and feed Monarch Reconciliation.
 
-### 4.10 Financial Trends Reporter (companion app)
+### 4.10 Financial Insight app (companion app)
 A companion browser app, run alongside the main planner, that charts a
 household's historical net worth and spending trends over time from saved
 snapshots — a longitudinal view the main single-plan-projection app does
@@ -295,8 +295,9 @@ Liquid Investments and Cash, Investment Net Flows (from a daily flows ledger) an
 updates its data on open (with an Updating Data overlay) instead of a Run now button;
 All Time starts 2025-02-01.
 
-A **Trends | Live Snapshot** switch beside the Time scope pulldown swaps the charts for a
-live balance sheet; the page remembers the choice. Live Snapshot:
+A **Current Snapshot | Trends | Recent Projections** switch beside the Time scope pulldown
+swaps the charts for a live balance sheet (Current Snapshot) or the latest workbook build's
+Net Worth and Cash Flow tables (Recent Projections); the page remembers the choice. Current Snapshot:
 - values the plan's holdings lots at live market prices, which are delayed about 15 minutes;
 - shows today's change and the change since the prior year-end close, by asset class and
   equity sub-class, with each row expandable to its tickers;
