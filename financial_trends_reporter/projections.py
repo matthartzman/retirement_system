@@ -68,6 +68,8 @@ def load(retirement_system_dir: Path) -> dict[str, Any]:
     doc = _read(path) if path else None
     if not isinstance(doc, dict) or doc.get("schema") != SCHEMA:
         return {"missing": True}
+    if results.get("build_id") and doc.get("build_id") != results.get("build_id"):
+        return {"missing": True}   # left over from an earlier build: not this workbook's numbers
     years = [r.get("year") for r in ((doc.get("tables") or {}).get("net_worth") or {}).get("rows") or []]
     return {**doc, "plan_changed": _plan_changed(plan, results),
             "plan_first_year": min(years) if years else None, "plan_last_year": max(years) if years else None}

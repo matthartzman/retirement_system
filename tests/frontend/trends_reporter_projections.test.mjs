@@ -2,6 +2,7 @@
 // what a collapsed or opened table shows, the year window and the Cash Flow window total. No DOM.
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   buildTree, visibleColumns, windowRows, clampYears, windowTotal, reconcileNW,
 } from "../../financial_trends_reporter/frontend/projection_groups.js";
@@ -146,6 +147,23 @@ describe("unmapped and conditional keys", () => {
     const open = visibleColumns(tree, new Set(["investable", "homeother"]));
     assert.ok(labels(open).includes("Loans & Other Liabilities"));
     assert.ok(labels(open).includes("Credit Shelter Trust"));
+  });
+  test("every column the builder emits (fixture from the Python emit test) has a group", () => {
+    const fx = JSON.parse(readFileSync(new URL("../fixtures/projection_table_columns.json", import.meta.url), "utf8"));
+    for (const [name, tables] of Object.entries(fx)) {
+      for (const [which, key] of [["nw", "net_worth"], ["cf", "cash_flow"]]) {
+        const table = { columns: tables[key].map((c) => col(c.key, c.key, c.banner)), rows: [] };
+        assert.deepEqual(buildTree(table, which).unmapped, [], `${name} ${key}`);
+      }
+    }
+  });
+  test("a new column goes to the group holding most of its banner, not one that borrows a key", () => {
+    const nw = { columns: [...NW_COLS, col("Boat", "Boat", "OTHER ASSETS")], rows: NW.rows };
+    assert.ok(labels(visibleColumns(buildTree(nw, "nw"), new Set(["homeother"]))).includes("Boat"));
+    const cf = { columns: [...CF.columns, col("New_Draw", "New Draw", "ACCOUNT OUTFLOWS"), col("New_Bridge", "New Bridge", "CASH BRIDGE")], rows: CF.rows };
+    const tree = buildTree(cf, "cf");
+    assert.ok(labels(visibleColumns(tree, new Set(["draws"]))).includes("New Draw"));
+    assert.ok(labels(visibleColumns(tree, new Set(["need"]))).includes("New Bridge"));
   });
   test("unknown key falls back to its banner's group", () => {
     const cf = { columns: [...CF.columns, col("New_Tax", "New Tax", "TAXES")], rows: CF.rows };

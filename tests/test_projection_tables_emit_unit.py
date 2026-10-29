@@ -3,6 +3,7 @@ tables as JSON, read back from the worksheets build_sheet5/6 just wrote so the t
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 from openpyxl import Workbook
@@ -148,3 +149,53 @@ def test_real_plan_groups_foot_after_unshown_lines(off_sheets):
         v = r["values"]
         shown = sum(v.get(k) or 0 for k in ("Σ Ann", "Σ PreTax", "Σ Roth", "Σ Trust", "HSA_1", "Σ Other", "Other_Liab", "CST"))
         assert abs(shown - v["TOTAL NW"]) < 0.01, (r["year"], shown - v["TOTAL NW"])
+
+
+# ── final-review fixes ───────────────────────────────────────────────────────────────
+FIXTURE = Path(__file__).parent / "fixtures" / "projection_table_columns.json"
+
+
+def test_column_fixture_matches_builder(off_sheets, rental_on_sheets):
+    # The node test checks every key in this fixture has a group; a new builder column fails here
+    # until the fixture (and so the group config) is updated.
+    from src.reporting.projection_tables import add_unshown_nw_lines
+
+    expected = json.loads(FIXTURE.read_text(encoding="utf-8"))
+    for name, (c, sheets) in (("off", off_sheets), ("rental_on", rental_on_sheets)):
+        rows = case("off" if name == "off" else next(n for n in ALL_CASES if n != "off"))[1]
+        nw = add_unshown_nw_lines(table_from_sheet(*sheets["nw"]), rows)
+        cf = table_from_sheet(*sheets["cf"])
+        got = {"net_worth": [{"key": x["key"], "banner": x["banner"]} for x in nw["columns"]],
+               "cash_flow": [{"key": x["key"], "banner": x["banner"]} for x in cf["columns"]]}
+        assert got == expected[name], f"{name}: regenerate {FIXTURE.name} and map new keys in projection_groups.js"
+
+
+def test_non_finite_values_become_null():
+    ws = Workbook().active
+    ws.cell(1, 2, "B"); ws.cell(2, 2, "Thing")
+    ws.cell(3, 1, 2026); ws.cell(3, 2, float("nan"))
+    ws.cell(4, 1, 2027); ws.cell(4, 2, float("inf"))
+    t = table_from_sheet(ws, {"Year": 1, "Thing": 2})
+    assert [r["values"]["Thing"] for r in t["rows"]] == [None, None]
+    json.dumps(t, allow_nan=False)
+
+
+def test_read_back_failure_returns_none_not_raise(off_sheets):
+    from src.reporting.projection_tables import read_projection_tables
+
+    (ws5, cols5), (ws6, cols6) = off_sheets[1]["nw"], off_sheets[1]["cf"]
+    assert read_projection_tables(ws5, None, ws6, cols6, []) is None
+    assert read_projection_tables(ws5, cols5, ws6, cols6, [{"year": 2026, "additional_liabilities": "x"}]) is None
+    ok = read_projection_tables(ws5, cols5, ws6, cols6, case("off")[1])
+    assert ok is not None and set(ok) == {"net_worth", "cash_flow"}
+
+
+def test_no_tables_clears_the_previous_builds_file(tmp_path):
+    from src.reporting.projection_tables import write_or_clear_projection_tables
+
+    old = write_projection_tables(tmp_path, {"schema": "projection_tables/1", "build_id": "old"})
+    assert write_or_clear_projection_tables(tmp_path, None, build_id="new", built_at="2026-10-29T00:00:00Z", owners=[]) is None
+    assert not old.exists()
+    tables = {"net_worth": {"columns": [], "rows": []}, "cash_flow": {"columns": [], "rows": []}}
+    path = write_or_clear_projection_tables(tmp_path, tables, build_id="new", built_at="2026-10-29T00:00:00Z", owners=["A", "B"])
+    assert json.loads(path.read_text(encoding="utf-8"))["build_id"] == "new"

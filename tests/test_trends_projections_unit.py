@@ -60,6 +60,13 @@ def test_locates_via_snapshot_artifact(tmp_path):
     assert data["plan_changed"] is False
 
 
+def test_missing_when_file_is_from_another_build(tmp_path):
+    # A build whose JSON write failed leaves no file (the builder clears it); one left over anyway
+    # from an earlier build must not pose as this build's numbers.
+    root, _ = _workspace(tmp_path, doc={**DOC, "build_id": "b0"})
+    assert projections.load(root) == {"missing": True}
+
+
 def test_plan_changed_when_plan_state_differs(tmp_path):
     # The build writes its results into the plan file after the workbook, so the plan file's mtime
     # can't say "changed since the build"; the recorded plan_state can.
@@ -69,12 +76,12 @@ def test_plan_changed_when_plan_state_differs(tmp_path):
 
 def test_cache_reloads_on_mtime_change(tmp_path):
     root, out = _workspace(tmp_path)
-    assert projections.load(root)["build_id"] == "b1"
+    assert projections.load(root)["owners"] == ["A", "B"]
     path = out / "projection_tables.json"
-    path.write_text(json.dumps({**DOC, "build_id": "b2"}), encoding="utf-8")
+    path.write_text(json.dumps({**DOC, "owners": ["C", "D"]}), encoding="utf-8")
     st = path.stat()
     os.utime(path, ns=(st.st_atime_ns, st.st_mtime_ns + 5_000_000_000))
-    assert projections.load(root)["build_id"] == "b2"
+    assert projections.load(root)["owners"] == ["C", "D"]
 
 
 def test_percent_viewer_gets_no_dollars(tmp_path):
@@ -101,3 +108,13 @@ def test_route_serves_projections(tmp_path):
         resp = client.get(js)
         assert resp.status_code == 200 and marker in resp.get_data(as_text=True)
         assert resp.headers["Content-Type"].startswith("text/javascript")
+
+
+def test_view_buttons_read_now_then_trends_then_forecast():
+    # How are we doing right now, what are the trends, what does it mean forecasting out.
+    import re
+    from pathlib import Path
+
+    html = (Path(__file__).resolve().parents[1] / "financial_trends_reporter" / "frontend" / "index.html").read_text(encoding="utf-8")
+    assert re.findall(r'data-view="(\w+)"', html) == ["live", "trends", "projections"]
+

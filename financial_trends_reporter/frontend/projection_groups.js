@@ -113,14 +113,19 @@ export function buildTree(table, which) {
   const used = new Set(DROPPED[which] || []);
   const nodes = (GROUPS[which] || []).map((n) => resolve(n, have, labelOf, used)).filter(Boolean);
 
-  // A key the config doesn't know goes under the group its workbook banner belongs to, so a new
-  // column is still reachable (a test flags it for a deliberate home).
+  // A key the config doesn't know goes under the group holding most of its workbook banner's
+  // columns (not one that borrows a single key, as Investable borrows Cash from OTHER ASSETS), so a
+  // new column is still reachable (a test flags it for a deliberate home).
   const unmapped = columns.map((c) => c.key).filter((k) => !used.has(k));
-  const groupOf = new Map();
+  const counts = new Map();   // banner -> Map(node -> member count)
   for (const node of nodes) for (const key of memberKeys(node)) {
     const banner = (byKey.get(key) || {}).banner;
-    if (banner && !groupOf.has(banner)) groupOf.set(banner, node);
+    if (!banner) continue;
+    if (!counts.has(banner)) counts.set(banner, new Map());
+    const per = counts.get(banner);
+    per.set(node, (per.get(node) || 0) + 1);
   }
+  const groupOf = new Map([...counts].map(([banner, per]) => [banner, [...per].sort((a, b) => b[1] - a[1])[0][0]]));
   const fallback = [...nodes].reverse().find((n) => n.children.length) || nodes[0];
   for (const key of unmapped) {
     const target = groupOf.get((byKey.get(key) || {}).banner) || fallback;

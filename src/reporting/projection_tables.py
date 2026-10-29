@@ -8,6 +8,7 @@ never contain an owner's name, so the reporter's grouping survives renames and n
 from __future__ import annotations
 
 import json
+import math
 import os
 import tempfile
 from pathlib import Path
@@ -36,6 +37,11 @@ def _banners(ws) -> dict[int, str]:
     return out
 
 
+def _finite(v):
+    """A JSON-safe cell value: NaN/inf become None (a browser rejects NaN in JSON)."""
+    return None if isinstance(v, float) and not math.isfinite(v) else v
+
+
 def table_from_sheet(ws, col_map: dict[str, int], *, data_first_row: int = 3) -> dict[str, Any]:
     """The projection table on ``ws`` as ``{"columns": [...], "rows": [...]}``.
 
@@ -53,7 +59,7 @@ def table_from_sheet(ws, col_map: dict[str, int], *, data_first_row: int = 3) ->
         if isinstance(year, bool) or not isinstance(year, int):
             break
         rows.append({"year": year, "ages": [ws.cell(r, col).value for col in age_cols],
-                     "values": {key: ws.cell(r, col).value for col, key in keyed}})
+                     "values": {key: _finite(ws.cell(r, col).value) for col, key in keyed}})
         r += 1
     return {"columns": columns, "rows": rows}
 
@@ -82,6 +88,35 @@ def add_unshown_nw_lines(table: dict, rows: list[dict]) -> dict[str, Any]:
     return {"columns": columns, "rows": out_rows}
 
 
+def read_projection_tables(nw_ws, nw_cols, cf_ws, cf_cols, rows) -> dict | None:
+    """Both tables read back from the just-written sheets, or None (with a warning) on any failure:
+    Recent Projections must never fail the workbook build."""
+    try:
+        return {"net_worth": add_unshown_nw_lines(table_from_sheet(nw_ws, nw_cols), rows),
+                "cash_flow": table_from_sheet(cf_ws, cf_cols)}
+    except Exception as exc:  # noqa: BLE001 - Recent Projections only; the workbook carries on
+        print(f"WARNING: projection tables not read back ({exc.__class__.__name__}: {exc}); "
+              "Recent Projections will ask for a rebuild.")
+        return None
+
+
+def write_or_clear_projection_tables(out_dir: str | Path, tables: dict | None, *, build_id: str, built_at: str,
+                                     owners: list[str]) -> Path | None:
+    """Write this build's tables; with none (or a failed write) remove the previous build's file so
+    the reporter can't show it beside the new workbook. Never raises."""
+    try:
+        if tables is not None:
+            return write_projection_tables(out_dir, projection_tables_doc(
+                tables["net_worth"], tables["cash_flow"], build_id=build_id, built_at=built_at, owners=owners))
+    except Exception as exc:  # noqa: BLE001
+        print(f"WARNING: {FILE_NAME} not written ({exc.__class__.__name__}: {exc}).")
+    try:
+        (Path(out_dir) / FILE_NAME).unlink(missing_ok=True)
+    except OSError as exc:
+        print(f"WARNING: stale {FILE_NAME} not removed ({exc}).")
+    return None
+
+
 def projection_tables_doc(nw: dict, cf: dict, *, build_id: str, built_at: str, owners: list[str]) -> dict[str, Any]:
     return {"schema": SCHEMA, "build_id": build_id, "built_at": built_at, "owners": list(owners),
             "tables": {"net_worth": nw, "cash_flow": cf}}
@@ -94,7 +129,7 @@ def write_projection_tables(out_dir: str | Path, doc: dict) -> Path:
     fd, tmp = tempfile.mkstemp(prefix=".projection_tables.", suffix=".tmp", dir=out_dir)
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
-            json.dump(doc, fh, ensure_ascii=False)
+            json.dump(doc, fh, ensure_ascii=False, allow_nan=False)
         os.replace(tmp, final)
     except BaseException:
         Path(tmp).unlink(missing_ok=True)
