@@ -921,6 +921,20 @@ function enabledKeys(balances, chart) {
   return balances.accounts.filter(a => a.enabled && a.enabled[chart]).map(a => a.account_key);
 }
 
+// The plan's holdings figure counts annuities and pensions, which Liquid Investments and Cash leaves out by
+// default; the entry's own toggle-aware Monarch figure (latest synced day carried forward) honours the toggles.
+function planHoldings(e) {
+  const monarch = e.monarch_balances && e.monarch_balances.holdings;
+  if (typeof monarch === "number") return monarch;
+  return e.holdings ? e.holdings.current_value : null;
+}
+
+function planNetWorth(e) {
+  const monarch = e.monarch_balances && e.monarch_balances.net_worth;
+  if (typeof monarch === "number") return monarch;
+  return e.net_worth ? e.net_worth.total : null;
+}
+
 // Log-entry-shaped rows, so the existing timeframe filter / granularity / line chart code
 // works unchanged. Import dates use imported totals; dates imported doesn't cover keep the
 // plan-derived log entry (source "plan", `plan` holds it for the rollover).
@@ -937,8 +951,8 @@ export function buildMonarchRows(balances, history) {
     if (covered.has(e.as_of_date)) continue;
     rows.push({
       as_of_date: e.as_of_date, source: "plan", idx: -1, plan: e,
-      net_worth: { total: e.net_worth ? e.net_worth.total : null },
-      holdings: { current_value: e.holdings ? e.holdings.current_value : null },
+      net_worth: { total: planNetWorth(e) },
+      holdings: { current_value: planHoldings(e) },
     });
   }
   rows.sort((a, b) => (a.as_of_date < b.as_of_date ? -1 : a.as_of_date > b.as_of_date ? 1 : 0));
@@ -958,16 +972,28 @@ export function truncateAllTime(rows, start = ALL_TIME_START) {
 // grouped by account type with subtotals. Plan-sourced rows use the legacy model.
 export function monarchRolloverModel(row, balances, kind) {
   if (!row) return null;
-  if (row.source !== "monarch") return rolloverModel(row.plan || row, kind);
   const chart = kind === "investments" ? "holdings" : "networth";
+  // A plan-sourced day (Monarch not synced yet) lists the entry's own typed Monarch accounts, so the
+  // cash / loan / card distinction survives; entries logged before that keep the legacy model.
+  const logged = row.source !== "monarch" && row.plan && row.plan.monarch_balances && row.plan.monarch_balances.by_account;
+  if (row.source !== "monarch" && !logged) return rolloverModel(row.plan || row, kind);
   const byType = new Map();
-  for (const a of balances.accounts) {
-    if (!(a.enabled && a.enabled[chart])) continue;
-    const v = (balances.series[a.account_key] || [])[row.idx] || 0;
-    if (!isNonZero(v)) continue;
-    const type = a.type || "Other";
+  const add = (type, name, v) => {
+    if (!isNonZero(v)) return;
+    type = type || "Other";
     if (!byType.has(type)) byType.set(type, []);
-    byType.get(type).push({ name: a.display_name, value: v });
+    byType.get(type).push({ name, value: v });
+  };
+  if (logged) {
+    const enabled = new Map(balances.accounts.map(a => [a.display_name, !!(a.enabled && a.enabled[chart])]));
+    for (const a of logged) {
+      if (enabled.has(a.account) ? enabled.get(a.account) : chart === "networth") add(a.type, a.account, a.value);
+    }
+  } else {
+    for (const a of balances.accounts) {
+      if (!(a.enabled && a.enabled[chart])) continue;
+      add(a.type, a.display_name, (balances.series[a.account_key] || [])[row.idx] || 0);
+    }
   }
   const groups = Array.from(byType, ([role, items]) => ({
     role, items: items.sort((p, q) => Math.abs(q.value) - Math.abs(p.value)),

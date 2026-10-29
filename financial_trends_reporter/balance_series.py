@@ -116,10 +116,19 @@ def merge_with_log(dates: list[str], monarch_values: list[float], history: list[
 
 
 def _plan_networth(entry: dict[str, Any]):
+    # Same rule as _plan_holdings: the entry's own Monarch figure beats the plan total.
+    monarch = (entry.get("monarch_balances") or {}).get("net_worth")
+    if isinstance(monarch, (int, float)):
+        return monarch
     return (entry.get("net_worth") or {}).get("total")
 
 
 def _plan_holdings(entry: dict[str, Any]):
+    # The plan's figure counts annuities and pensions, which the holdings chart leaves out by default; the
+    # entry's own toggle-aware Monarch figure (latest synced day carried forward) honours the toggles.
+    monarch = (entry.get("monarch_balances") or {}).get("holdings")
+    if isinstance(monarch, (int, float)):
+        return monarch
     return (entry.get("holdings") or {}).get("current_value")
 
 
