@@ -119,3 +119,52 @@ def test_parse_client_puts_the_seed_in_the_config():
             _record(root, sale_date=f"{c['plan_start']}-06-10", proceeds=1000.0, basis=1400.0)
             c = parse_client(plan_data(), "")
             assert c["realized_seed"] == {"year": c["plan_start"], "gain_ordinary": 0.0, "gain_ltcg": 0.0, "loss_pool": 400.0}
+
+
+def test_use_realized_sales_setting_defaults_on_and_false_drops_the_seed():
+    from src.data_io import parse_client
+    from tests.golden_pricing import FROZEN_GOLDEN_MASTER_PRICES, frozen_holdings_prices
+    from tests.plan_fixture import plan_data
+    with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
+        with empty_workspace() as root:
+            with active_plan.workspace_store(root, write=True):
+                pass
+            data = plan_data()
+            c = parse_client(data, "")
+            assert c["use_realized_sales"] is True
+            _record(root, sale_date=f"{c['plan_start']}-06-10", proceeds=1000.0, basis=1400.0)
+            assert parse_client(data, "")["realized_seed"]["loss_pool"] == 400.0
+            data.setdefault("Plan Settings", {}).setdefault("Tax Detail", {})["use_realized_sales"] = "FALSE"
+            c = parse_client(data, "")
+            assert c["use_realized_sales"] is False and c["realized_seed"] is None
+
+
+# ------------------------------------------------------------------------------ report note
+from src.governance import workbook_consistency_warnings  # noqa: E402
+
+
+def _ledger_notes(c):
+    return [w for w in workbook_consistency_warnings(c, []) if w["code"] == "REALIZED_LEDGER_IN_YEAR_1"]
+
+
+def test_no_ledger_note_without_a_seed():
+    assert _ledger_notes({}) == [] and _ledger_notes({"realized_seed": None}) == []
+
+
+def test_ledger_note_names_the_year_the_amounts_and_the_switch():
+    notes = _ledger_notes({"realized_seed": {"year": YEAR, "gain_ordinary": 1500.0, "gain_ltcg": 12345.6, "loss_pool": 0.0}})
+    assert len(notes) == 1 and notes[0]["severity"] == "INFO"
+    msg = notes[0]["message"]
+    assert f"{YEAR}" in msg and "$1,500 net short-term gain" in msg and "$12,346 net long-term gain" in msg
+    assert "loss" not in msg
+    assert "use_realized_sales" in notes[0]["action"]
+
+
+def test_ledger_note_for_a_loss_pool():
+    msg = _ledger_notes({"realized_seed": {"year": YEAR, "gain_ordinary": 0.0, "gain_ltcg": 0.0, "loss_pool": 5000.0}})[0]["message"]
+    assert "$5,000 capital-loss pool" in msg and "gain" not in msg
+
+
+def test_ledger_note_for_a_year_that_nets_to_zero():
+    msg = _ledger_notes({"realized_seed": {"year": YEAR, "gain_ordinary": 0.0, "gain_ltcg": 0.0, "loss_pool": 0.0}})[0]["message"]
+    assert "net to zero" in msg
