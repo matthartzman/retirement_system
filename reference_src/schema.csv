@@ -27,6 +27,7 @@ Economic Assumptions,,tax_law_scenario,choice,FALSE,current_law,,,"current_law |
 Economic Assumptions,,higher_rates_start_year,year,FALSE,,2026,2100,"First year the higher_rates stress applies. Blank = the first plan year."
 Economic Assumptions,,tax_model_baseline,text,FALSE,,,,"System-written record of the model values at the time each tax override was saved; used only to show drift notices. Do not edit."
 Economic Assumptions,,annuity_default_dividend_rate,percent,FALSE,5.00%,0,20,Default dividend rate for annuities WITHOUT an explicit dividend rate of their own; has no effect on any annuity stream that already carries its own override rate
+Economic Assumptions,,annuity_pv_discount_rate,percent,FALSE,,0,15,"Discount rate for valuing annuity and pension income in net worth (present value of the remaining payments). Blank = the portfolio return. Guaranteed income is often valued at a bond-like rate (4-5%). Changes net worth and the Roth-conversion estate-tax estimate; not cash flows."
 Model Constants,Retirement,rollover_401k_year,year,TRUE,2030,2026,2060,401k->IRA rollover year
 Model Constants,Retirement,spending_freeze_year,year,TRUE,2040,2026,2060,Year spending stops inflating
 Model Constants,IRMAA,irmaa_actual_magi_2yr_prior,dollars,FALSE,,0,,Actual household MAGI from the tax year two years before plan start (from filed tax returns). Seeds the statutory IRMAA two-year lookback for plan year 1. Leave blank to fall back to retirement-year AGI (see Build preflight for a reminder).

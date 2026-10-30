@@ -27,6 +27,7 @@ Economic Assumptions,,tax_law_scenario,advanced
 Economic Assumptions,,higher_rates_start_year,advanced
 Economic Assumptions,,tax_model_baseline,advanced
 Economic Assumptions,,annuity_default_dividend_rate,advanced
+Economic Assumptions,,annuity_pv_discount_rate,advanced
 Model Constants,Retirement,rollover_401k_year,simple
 Model Constants,Retirement,spending_freeze_year,simple
 Model Constants,IRMAA,irmaa_actual_magi_2yr_prior,advanced

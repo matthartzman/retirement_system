@@ -760,6 +760,7 @@ def build_plan_from_json(plan, url_template=''):
     c['mc_vol']          = a.get('mc_volatility', 0.15)
     c['mc_paths']        = int(a.get('mc_paths', 1000))
     c['ss_cola']         = a.get('ss_cola', 0.023)
+    c['ann_pv_rate']     = a.get('annuity_pv_discount_rate')
 
     # ── Accounts & Balances ───────────────────────────────────────────────
     accounts_in = plan.get('accounts', [])

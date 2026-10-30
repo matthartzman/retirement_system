@@ -612,7 +612,9 @@ DASHBOARD_JS_MAX_LINES = 6_476
 # from the Sales Ledger page; dashboard.js did not grow): raised to the measured 41,169.
 # 2026-10-29 (Sales tax-year panel, plan step 3a.3: new feature module dashboard_decomp_sales_tax.js, 94 lines, mounted
 # from the Sales Ledger page with a two-line hook; dashboard.js did not grow): raised to the measured 41,264.
-TOTAL_JS_MAX_LINES = 41_264
+# 2026-10-29 (annuity PV discount rate: the field joins the plan-wide income stream settings, with its help
+# in fieldGuidance; dashboard.js did not grow, +8): raised to the measured 41,272.
+TOTAL_JS_MAX_LINES = 41_272
 
 
 def _line_count(path: Path) -> int:

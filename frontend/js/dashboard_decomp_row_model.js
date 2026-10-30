@@ -1728,6 +1728,7 @@ export function rawRowsForStep(id) {
               "cash_yield_rate",
               "annuity_default_dividend_rate",
               "annuity_default_additional_income_pct",
+              "annuity_pv_discount_rate",
               // #358: these live in the Tax Assumptions table now
               // (dashboard_decomp_tax_assumptions.js); tax_model_baseline is a
               // system-written record, not an input.
@@ -4600,6 +4601,12 @@ export function fieldGuidance(row) {
       purpose: "The monthly amount that actually lands in your bank account from this pension or annuity, after the payer withholds income tax. Withholding = gross payment minus this amount.",
       impact: "None on the projection: the plan taxes the gross payment itself and shows taxes separately. This is kept so you can match the plan to your bank deposits.",
       consider: "Copy the net (after-withholding) amount from the payer's statement or your bank deposit. Leave blank if nothing is withheld; net is then the same as gross.",
+    };
+  if (l === "annuity_pv_discount_rate")
+    return {
+      purpose: "Net worth counts your annuities and pension as the present value of their remaining payments. This is the rate used to discount those future payments back to today. Leave it blank to use your portfolio return.",
+      impact: "A lower rate gives your guaranteed income a higher value today, raising net worth (and the estate-tax estimate the Roth conversion planner uses). It does not change the payments or your cash flow.",
+      consider: "Guaranteed income is usually valued like a high-quality bond, so 4-5% is common. Your portfolio return is higher and values the same payments lower.",
     };
   let purpose = fieldDefaultMeaning(row);
   let impact =
