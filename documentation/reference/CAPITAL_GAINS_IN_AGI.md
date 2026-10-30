@@ -107,3 +107,19 @@ The net gain realized by selling taxable holdings in the withdrawal cascade (cas
 Closed form (`tests/test_wi024_irmaa_magi_brokerage_gain_regression.py`): MFJ, 2026 AGI 200,000 plus a 50,000 brokerage gain gives IRMAA MAGI 250,000; the 2028 tier-1 threshold is 218,000 x 1.025^3 = 234,762, rounded to 2,000 = 234,000, so 2028 is tier 1 (without the gain: tier 0).
 
 Frozen sample plan: financial outputs do not move (terminal NW, lifetime tax, Roth conversions, lifetime IRMAA 86,777.60, every KPI and every IRMAA tier unchanged). Only 16 diagnostic cells per column change: `irmaa_magi_current`, `irmaa_magi_used` and the new `brokerage_gain_in_irmaa_magi` (largest shift +9,855 in 2027 into the 2029 lookback). The golden pins therefore hold; the phase-golden row baseline, which records those diagnostic cells, is stale for them.
+
+## 8. State income tax on capital gains (2026-10-29)
+
+Decision 4 above left state tax "as today", and today was wrong: the stage-9 state base
+(`roth_conversion_and_agi_tax.py`, `investment_inc = note_int + portfolio_ordinary + portfolio_qualified`) never
+carried a capital gain, and the cascade added only federal LTCG and NIIT. So in a state that taxes gains
+(Illinois, 4.95% flat) every simulated taxable sale, every home-sale gain and every realized-ledger gain was
+taxed federally only. Only a rental sale's long-term gain was state-taxed (`rental_property.apply_sale_tax`).
+
+The investment-tax cascade now adds state tax on the year's net gain (losses netted first, rental long-term gain
+excluded because the rental stage already taxed it), stacked on the stage-9 investment income plus that rental
+gain, inside the same fixed point as LTCG/NIIT so the extra draw that pays it is funded. Row field
+`state_tax_on_capital_gains`; it is a fixed addend in every later `total_tax_pre_niit` recombination and shows
+under `state` in the cash-flow tax itemization. `row['state_tax']` stays the ordinary-income state tax.
+Simplification: for graduated states the gain is stacked on the pre-Priority-3 ordinary base (same as the
+rental adjustment). Tests: `tests/test_state_tax_on_capital_gains_engine_unit.py`.

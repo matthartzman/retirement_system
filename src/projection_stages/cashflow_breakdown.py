@@ -133,6 +133,12 @@ def compute_cashflow_breakdown(row: dict[str, Any]) -> tuple[dict[str, Any], flo
         cashflow_breakdown['tax']['ltcg'] = ltcg_tax - home_sale_tax - rental_ltcg_tax
         cashflow_breakdown['tax']['rental_sale'] = rental_ltcg_tax + rental_tax_adj
         cashflow_breakdown['tax']['other'] = total_tax - tax_named - rental_tax_adj
+    # State income tax on the year's capital gain (the cascade's addend outside row['state_tax']):
+    # shown with state tax, so 'other' (the residual) excludes it.
+    state_gain_tax = row.get('state_tax_on_capital_gains', 0.0)
+    if state_gain_tax:
+        cashflow_breakdown['tax']['state'] += state_gain_tax
+        cashflow_breakdown['tax']['other'] -= state_gain_tax
     # WI-039: the 10% additional tax on early distributions, only in years it applies; it is a named
     # component, so 'other' (the residual) excludes it and the itemization still sums to total_tax.
     early_dist_tax = row.get('early_dist_tax', 0.0)
