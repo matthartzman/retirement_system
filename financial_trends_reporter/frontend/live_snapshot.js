@@ -343,7 +343,7 @@ export function liveViewHtml(data, groupOrder, groupSort) {
     + `<p class="note">Start = ${startDay} closing value of lots held then (the Time scope sets the date). Bought since = lots bought after ${startDay}, at purchase price; reinvested dividends count as gain. Return % weights new money by how long it was invested (Modified Dietz). ${soldNote(L, startDay)}${flows}</p></div>`;
   const nl = data.non_liquid;
   const nonLiquid = `<details class="live-section"><summary>Non-liquid assets <b>${fmtUsd(nl.total)}</b>${unitChip("% of net worth")} <span class="muted">imported balances, ${esc(nl.as_of || "")}</span></summary>`
-    + simpleTable(nl.rows, [(r) => esc(r.name) + (r.source === "plan" ? ` <span class="muted" title="Present value from the plan's latest build (Recent Projections), not the Monarch balance">plan value</span>` : ""), (r) => esc(r.kind), (r) => fmtUsd(r.value), ...(isPct() ? [] : [(r) => fmtPct(r.share, 0)]), (r) => esc(TREATMENT[r.tax_treatment] || "")]) + `</details>`;
+    + simpleTable(nl.rows, [(r) => esc(r.name) + (r.source === "plan" ? ` <span class="muted" title="Present value from the plan's latest build (Recent Projections), not the imported balance">plan value</span>` : ""), (r) => esc(r.kind), (r) => fmtUsd(r.value), ...(isPct() ? [] : [(r) => fmtPct(r.share, 0)]), (r) => esc(TREATMENT[r.tax_treatment] || "")]) + `</details>`;
   const tax = `<details class="live-section"><summary>Estimated tax <b>${fmtUsd(-data.tax.total)}</b>${unitChip("% of net worth")}</summary>${taxHtml(data.tax)}</details>`;
   const debt = `<details class="live-section"><summary>Debt <b>${fmtUsd(-data.debt.total)}</b>${unitChip("% of net worth")}</summary>`
     + simpleTable(data.debt.rows, [(r) => esc(r.name), (r) => fmtUsd(r.value)])
