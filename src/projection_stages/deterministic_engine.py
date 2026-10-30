@@ -1258,6 +1258,15 @@ def run_deterministic_projection_stage(c):
         # and state tax on the long-term part (the design taxes all of the gain
         # as ordinary for state purposes).
         _rental_fixed_tax = 0.0
+        _state_investment_inc = note_int_yr + portfolio_ordinary + portfolio_qualified
+
+        def _state_tax_at(investment_inc, _earned=earned_net, _ret=retirement_dist, _ss=ss_taxable,
+                          _nq=nonqual_ann, _conv=roth_conv, _over65=h_over_65):
+            return state_income_tax(
+                state_for_year(c, year), _earned, _ret, _ss, investment_inc, _nq, _conv, year, _over65,
+                filing=filing, brk_inf=c['brk_inf'], rate_override=c.get('state_rate_override'))
+
+        _rental_state_taxed_gain = 0.0
         if _rental_year is not None:
             _rental_tax = _rental.apply_sale_tax(
                 c, row, _rental_year, _rental_book, year=year, filing=filing,
@@ -1265,11 +1274,9 @@ def run_deterministic_projection_stage(c):
                 home_sale_ltcg_tax=home_sale_ltcg_tax,
                 fed_brackets=_fed_brackets_path(year, filing), compute_fed_tax_fn=_ordinary_fed_tax_path,
                 qualified_dividends=portfolio_qualified,
-                state_tax=state_tax, state_tax_fn=lambda investment_inc: state_income_tax(
-                    state_for_year(c, year), earned_net, retirement_dist, ss_taxable, investment_inc,
-                    nonqual_ann, roth_conv, year, h_over_65, filing=filing, brk_inf=c['brk_inf'],
-                    rate_override=c.get('state_rate_override')),
-                investment_inc=note_int_yr + portfolio_ordinary + portfolio_qualified)
+                state_tax=state_tax, state_tax_fn=_state_tax_at,
+                investment_inc=_state_investment_inc)
+            _rental_state_taxed_gain = max(0.0, _rental_tax.ltcg_gain - float(home_sale_ltcg_gain or 0.0))
             home_sale_ltcg_gain = _rental_tax.ltcg_gain
             total_tax += _rental_tax.ltcg_tax - home_sale_ltcg_tax + _rental_tax.fixed_adjustment
             home_sale_ltcg_tax = _rental_tax.ltcg_tax
@@ -1440,6 +1447,12 @@ def run_deterministic_projection_stage(c):
             bracket_factor_fn=_bracket_factor_for_year, compute_fed_tax_fn=_compute_fed_tax_path,
             aca_ptc_fn=_aca_ptc_with_gain if bridge_people > 0 else None,
             ss_extra_fn=_ss_extra_from_gain if ss_total > 0 else None,
+            # The stage-9 state base carries no capital gain: the cascade adds state tax on the
+            # year's net gain (home sale, ledger, brokerage draws), stacked above the rental sale's
+            # long-term gain, which apply_sale_tax already state-taxed.
+            state_gain_tax_fn=(lambda g, _b=_state_investment_inc + _rental_state_taxed_gain:
+                               _state_tax_at(_b + g) - _state_tax_at(_b)),
+            state_taxed_gain_already=_rental_state_taxed_gain,
         )
         gap = _inv_tax.gap
         ltcg_gain = _inv_tax.ltcg_gain
@@ -1464,6 +1477,10 @@ def run_deterministic_projection_stage(c):
             row['ss_taxable'] = ss_taxable
             row['ss_extra_taxable_from_brokerage_gain'] = _ss_gain_extra
             row['ss_extra_tax_from_brokerage_gain'] = _inv_tax.ss_extra_tax
+        # State tax on the year's capital gain: a fixed addend through every later recombination.
+        if _inv_tax.state_gain_tax > 0:
+            total_tax_pre_niit += _inv_tax.state_gain_tax
+            _rental_fixed_tax += _inv_tax.state_gain_tax
 
         # ── Priority 4b: Final pre-tax draw before any Roth withdrawal ───────
         # (design doc Stage 10, sub-stage #7 -- near-duplicate of sub-stage

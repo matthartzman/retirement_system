@@ -1,3 +1,28 @@
+## 2026-10-29 — Synthetic golden master and full-row snapshot regenerated: state tax on capital gains (PR #327)
+
+<!-- fixture-provenance: synthetic_golden_master_cases.json sha256=963a6639be940b899b2f9248af1ab5867be29b8fb08403cc4d98effce555df9e -->
+<!-- fixture-provenance: deterministic_engine_full_row_snapshot_cases.json sha256=93f4f1c8621c6e79b928473705655484a5ddc27f1e00c3b2d36eb8b4fe5118db -->
+
+Same change as the frozen-plan re-pin below: the investment-tax cascade now adds state income tax on each year's net capital gain, which these Illinois scenarios previously taxed federally only. Regenerated with `tools/regen_synthetic_golden_master.py --reason` and `tools/regen_full_row_snapshot.py --reason`.
+
+Hand check (`no_voluntary_roth_policy`): every year's `state_tax_on_capital_gains` is exactly 4.95% x `ltcg_gain`, 2.08 in total; lifetime tax moves 778,034.49 -> 778,036.73 (+2.24), the tax plus second-order draw effects. Other scenarios move the same way (first-RMD totals a few dollars lower, depletion scenarios' unfunded gap a few thousand higher, from the extra draws that pay the tax).
+
+This also closes the "known limit" in the 3b.2 entry below: a ledger's long-term gain now carries Illinois tax.
+
+## 2026-10-29 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
+
+<!-- pin-provenance: terminal_nw=5376101.29 lifetime_tax=1239362.22 -->
+
+**Old pins.** terminal_nw=5,381,597.38, lifetime_tax=1,237,081.61
+
+**New pins.** terminal_nw=5,376,101.29, lifetime_tax=1,239,362.22
+
+**Reason.**
+
+State income tax on capital gains (branch state-tax-on-capital-gains). The investment-tax cascade now adds state income tax on each year's net capital gain; before, simulated taxable sales, home-sale gains and ledger gains were taxed federally only (see CAPITAL_GAINS_IN_AGI.md section 8). The frozen plan is Illinois, 4.95% flat.
+
+Verified by hand on the frozen plan, main vs this branch, year by year: every year's state_tax_on_capital_gains equals exactly 4.95% x ltcg_gain, summing to 2,411.25. Lifetime tax moves +2,280.61: the direct state tax less 130.64 of second-order effects (paying it means slightly smaller balances and slightly less ordinary investment tax later). Terminal NW moves -5,496.09: the tax paid plus the growth it would have earned. The pin held at origin/main and at cc537a3d; it moves only with this change.
+
 ## 2026-10-29 — Synthetic golden master: two non-empty realized-ledger scenarios (Sales ledger 3b.2)
 
 <!-- fixture-provenance: synthetic_golden_master_cases.json sha256=208708e4e007bbf2a9701fc48d8c3e9dc90998d91bd94054e061b813b1c24630 -->

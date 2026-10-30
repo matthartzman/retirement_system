@@ -56,6 +56,9 @@ class WithdrawalCascadeInvestmentTaxResult(NamedTuple):
     # gain and the ordinary tax on it (0.0 unless the engine supplied ss_extra_fn).
     ss_extra_taxable: float = 0.0
     ss_extra_tax: float = 0.0
+    # State income tax on the year's net capital gain (0.0 unless the engine
+    # supplied state_gain_tax_fn); see _InvestmentTaxState.state_gain_tax_fn.
+    state_gain_tax: float = 0.0
 
 
 @dataclass
@@ -94,6 +97,13 @@ class _InvestmentTaxState:
     fed_tax_fn: Any = None
     ss_extra: float = 0.0
     ss_tax: float = 0.0
+    # State income tax on capital gains: the stage-9 state base carries no gain,
+    # so ``state_gain_tax_fn(gain) -> extra state tax`` taxes the net gain here.
+    # ``state_taxed_gain_already`` (a rental sale's long-term gain, state-taxed
+    # by the rental stage) is not taxed again.
+    state_gain_tax_fn: Any = None
+    state_taxed_gain_already: float = 0.0
+    state_gain_tax: float = 0.0
 
 
 def _apply_tax_loss_harvesting(
@@ -278,7 +288,13 @@ def _refresh_investment_taxes(
         loss = max(0.0, float(state.aca_ptc_fn(0.0)) - float(state.aca_ptc_fn(extra + ss_extra)))
         delta_aca = max(0.0, loss - state.aca_loss)
         state.aca_loss = loss
-    return delta_ltcg + delta_niit + delta_aca + delta_ss
+    delta_state = 0.0
+    if state.state_gain_tax_fn is not None:
+        state_gain = max(0.0, net_gain - state.state_taxed_gain_already)
+        new_state = max(0.0, float(state.state_gain_tax_fn(state_gain))) if state_gain > 0 else 0.0
+        delta_state = max(0.0, new_state - state.state_gain_tax)
+        state.state_gain_tax = new_state
+    return delta_ltcg + delta_niit + delta_aca + delta_ss + delta_state
 
 
 def apply_investment_tax_cascade(
@@ -312,6 +328,8 @@ def apply_investment_tax_cascade(
     compute_fed_tax_fn: Callable[[float, int, str], float],
     aca_ptc_fn: Callable[[float], float] | None = None,
     ss_extra_fn: Callable[[float], float] | None = None,
+    state_gain_tax_fn: Callable[[float], float] | None = None,
+    state_taxed_gain_already: float = 0.0,
 ) -> WithdrawalCascadeInvestmentTaxResult:
     """Withdrawal Cascade sub-stage #6 (design doc addendum, "step 4"):
     the LTCG/NIIT fixed point + tax-loss harvesting + 0%-bracket gain
@@ -369,6 +387,8 @@ def apply_investment_tax_cascade(
         aca_ptc_fn=aca_ptc_fn,
         ss_extra_fn=ss_extra_fn,
         fed_tax_fn=(lambda t: compute_fed_tax_fn(t, year, filing)),
+        state_gain_tax_fn=state_gain_tax_fn,
+        state_taxed_gain_already=max(0.0, float(state_taxed_gain_already or 0.0)),
     )
 
     model_niit = c['model_niit']
@@ -442,7 +462,10 @@ def apply_investment_tax_cascade(
     row['investment_tax_funded_by_taxable'] = investment_tax_funded_by_taxable
     if state.niit > 0:
         emit(EvTax(year, 'niit', state.niit, 0))
-    total_tax = total_tax_pre_niit + state.ss_tax + state.ltcg_tax + state.niit - tlh_ordinary_credit
+    if state.state_gain_tax > 0:
+        row['state_tax_on_capital_gains'] = state.state_gain_tax
+    total_tax = (total_tax_pre_niit + state.ss_tax + state.state_gain_tax + state.ltcg_tax + state.niit
+                 - tlh_ordinary_credit)
     row['total_tax'] = total_tax
     row['net_income'] = row.get('gross_income', agi) - total_tax
     # Refresh total_cash_need now that ltcg_tax/niit reflect the fixed-point
@@ -476,6 +499,7 @@ def apply_investment_tax_cascade(
         investment_tax_funded_by_taxable=investment_tax_funded_by_taxable,
         ss_extra_taxable=state.ss_extra,
         ss_extra_tax=state.ss_tax,
+        state_gain_tax=state.state_gain_tax,
     )
 
 

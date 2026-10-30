@@ -188,9 +188,9 @@ FROZEN_TODAY = "2026-08-04"
 # the changelog -- use `py -3.14 tools/regen_golden_master.py regen --reason
 # <file>`, which updates all three together. See
 # documentation/reference/GOLDEN_MASTER_RECOVERY_RUNBOOK.md.
-# 2026-10-20: PINNED_TERMINAL_NW=5381597.38 PINNED_LIFETIME_TAX=1237081.61
-PINNED_TERMINAL_NW = 5381597.38
-PINNED_LIFETIME_TAX = 1237081.61
+# 2026-10-29: PINNED_TERMINAL_NW=5376101.29 PINNED_LIFETIME_TAX=1239362.22
+PINNED_TERMINAL_NW = 5376101.29
+PINNED_LIFETIME_TAX = 1239362.22
 PINNED_FAILURES = []
 # Regenerated 2026-08-05 (fixture data change, not an engine change): added a
 # fictional home-purchase scenario to Housing next_step_1 (Texas, $400,000 @
