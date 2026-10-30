@@ -15,6 +15,7 @@ Household,,survivor_filing_status,standard
 Household,,survivor_has_dependent,standard
 Household,,survivor_spend_factor,standard
 Plan Settings,Tax Detail,model_niit,standard
+Plan Settings,Tax Detail,use_realized_sales,standard
 Plan Settings,Estate,model_state_estate_tax,standard
 Economic Assumptions,,inflation_general,simple
 Economic Assumptions,,social_security_cola,simple

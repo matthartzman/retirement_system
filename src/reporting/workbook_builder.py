@@ -395,7 +395,7 @@ def build_sheet26_workbook_warnings(ws, c, rows):
     else:
         for w in warnings:
             sev = str(w.get('severity','WARN'))
-            write_cell(ws, r, 1, sev, bold=True, bg='FFF2CC' if sev == 'WARN' else 'FCE4D6')
+            write_cell(ws, r, 1, sev, bold=True, bg={'WARN': 'FFF2CC', 'INFO': 'DDEBF7'}.get(sev, 'FCE4D6'))
             write_cell(ws, r, 2, w.get('code',''))
             write_cell(ws, r, 3, w.get('message',''))
             ws.merge_cells(start_row=r, start_column=3, end_row=r, end_column=5)

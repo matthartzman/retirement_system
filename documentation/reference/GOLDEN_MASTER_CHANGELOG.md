@@ -1,3 +1,13 @@
+## 2026-10-29 — Synthetic golden master: two non-empty realized-ledger scenarios (Sales ledger 3b.2)
+
+<!-- fixture-provenance: synthetic_golden_master_cases.json sha256=208708e4e007bbf2a9701fc48d8c3e9dc90998d91bd94054e061b813b1c24630 -->
+
+Additive. `tests/fixtures/synthetic_golden_master_cases.json` gains `realized_ledger_gains_year_one` (year 1 already realized $10,000 net short-term and $20,000 net long-term gain) and `realized_ledger_loss_pool` (a $20,000 capital-loss pool going into year 1), both the baseline couple with `c['realized_seed']` set as `parse_client` would from a non-empty Sales Ledger. Every existing scenario's values are byte-identical (checked against the previous file), and `regen_golden_master.py measure` still reports MATCH (the frozen sample plan has no ledger). Regenerated with `tools/regen_synthetic_golden_master.py --reason`.
+
+Hand check (year 1, MFJ, Illinois, taxable income 147,800 before the seed): gains scenario first-year tax 30,850 to 36,545 = +5,695 = federal ordinary +2,200 (10,000 short-term gain in the 22% bracket) + LTCG 3,000 (20,000 at 15%, all above the 0% top) + Illinois +495 (4.95% of the 10,000 short-term gain); NIIT 0 (MAGI 210,000 under 250,000); AGI 180,000 to 210,000. Lifetime tax rises by the same 5,695; the Roth strategy and first conversion (2031, 258,967.67) do not move. Loss-pool scenario: 3,000 used against ordinary income in 2026, credit 660 (= 3,000 x 22%), first-year tax 30,850 to 30,190, 17,000 carried; lifetime tax 722,986.19 to 718,649.80.
+
+Known limit visible in the hand check: the long-term gain carries no Illinois tax. That is the engine's existing treatment of brokerage and home-sale gains (`CAPITAL_GAINS_IN_AGI.md` section 5, decision 4: state tax unchanged); only rental sales add state tax on their gain. The ledger's long-term gain rides the same line, so it inherits it.
+
 ## 2026-10-24 — Phase golden baseline: 5D Assumptions optimizer-target rows restored (demo, sample_frozen)
 
 `tests/fixtures/golden_phase_baseline/demo.json` and `sample_frozen.json` re-recorded with `tools/golden_compare.py record`. The 2026-10-21 re-record (c492f61b) had captured nine `Optimizer Target` rows on sheet 5D. Assumptions (0.12 for seven classes, 0.10, 0.05; sum 99%, not a valid allocation). A clean build, locally and in the nightly CI run, computes the six-class target (0.58, 0.05, 0.11, 0.11, 0.10, 0.05; sum 100%), which also equals the baseline before c492f61b. These rows were the only cells that moved; the engine rows and pins are unchanged (`regen_golden_master.py measure` reports MATCH).

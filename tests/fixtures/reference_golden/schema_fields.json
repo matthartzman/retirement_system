@@ -324,6 +324,26 @@
    {
     "$tuple": [
      "Plan Settings",
+     "Tax Detail",
+     "use_realized_sales"
+    ]
+   },
+   {
+    "section": "Plan Settings",
+    "subsection": "Tax Detail",
+    "label": "use_realized_sales",
+    "type": "boolean",
+    "required": "FALSE",
+    "default": "TRUE",
+    "min": "",
+    "max": "",
+    "description": "Use the Sales Ledger's realized gains and capital-loss carryforward in the plan's first year"
+   }
+  ],
+  [
+   {
+    "$tuple": [
+     "Plan Settings",
      "Estate",
      "model_state_estate_tax"
     ]

@@ -368,6 +368,18 @@ def _early_survivor(c: Dict[str, Any]) -> None:
             member["death_yr"] = death_yr
 
 
+def _realized_ledger_gains(c: Dict[str, Any]) -> None:
+    """Sales-ledger seed (step 3b.2): year 1 already realized $10k net short-term and $20k net long-term gain.
+    Set on the config directly, as ``parse_client`` would from a non-empty ledger (these plans never read one)."""
+    c["realized_seed"] = {"year": int(c["plan_start"]), "gain_ordinary": 10_000.0, "gain_ltcg": 20_000.0,
+                          "loss_pool": 0.0}
+
+
+def _realized_ledger_loss_pool(c: Dict[str, Any]) -> None:
+    """Sales-ledger seed (step 3b.2): $20k capital-loss pool going into year 1 (carryforward plus the year's net loss)."""
+    c["realized_seed"] = {"year": int(c["plan_start"]), "gain_ordinary": 0.0, "gain_ltcg": 0.0, "loss_pool": 20_000.0}
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Scenario registry
 # ─────────────────────────────────────────────────────────────────────────────
@@ -511,6 +523,20 @@ SCENARIOS: Dict[str, Scenario] = {s.name: s for s in [
         "that survive, so ordering bugs that depend on who dies first show up "
         "here and not above.",
         plan=lambda: _thin_portfolio_plan(member_2_dies_year=PLAN_START + 5),
+    ),
+    Scenario(
+        "realized_ledger_gains_year_one",
+        "Baseline whose first year already carries realized sales from the Sales Ledger: $10k net short-term "
+        "gain (ordinary investment income) and $20k net long-term gain (the sale-gain line, into AGI, NIIT and "
+        "IRMAA MAGI). Pins the non-empty seed path; every other scenario has no ledger.",
+        override=_realized_ledger_gains,
+    ),
+    Scenario(
+        "realized_ledger_loss_pool",
+        "Baseline entering year 1 with a $20k capital-loss pool from the Sales Ledger (carryforward plus the "
+        "year's net loss). Pins the seeded cap_loss_carryforward: the ordinary offset each year until the pool "
+        "is used, netted first against any simulated gains.",
+        override=_realized_ledger_loss_pool,
     ),
 ]}
 
