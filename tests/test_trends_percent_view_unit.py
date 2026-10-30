@@ -59,9 +59,9 @@ def test_basis_falls_back_to_last_history_entry(tmp_path):
 def test_basis_prefers_store_and_does_not_fall_back_when_store_not_positive(tmp_path, monkeypatch):
     db = tmp_path / "b.db"
     db.write_bytes(b"")
-    monkeypatch.setattr(balance_series, "snapshot_summary", lambda p: {"net_worth": 900.0})
+    monkeypatch.setattr(balance_series, "snapshot_summary", lambda p, plan_values=None: {"net_worth": 900.0})
     assert scale_basis(db, [{"net_worth": {"total": 5}}]) == 900.0
-    monkeypatch.setattr(balance_series, "snapshot_summary", lambda p: {"net_worth": -3.0})
+    monkeypatch.setattr(balance_series, "snapshot_summary", lambda p, plan_values=None: {"net_worth": -3.0})
     assert scale_basis(db, [{"net_worth": {"total": 5}}]) is None
 
 

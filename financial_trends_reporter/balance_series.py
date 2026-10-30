@@ -13,6 +13,9 @@ rules are easy to test:
 * Hover detail omits accounts whose value on that date is zero.
 * Where Monarch has no balance for a date, the log's plan-derived figure is used and the
   point is tagged ``source: "plan"``.
+* ``plan_values`` ({account_key: value}, from ``plan_annuity_values``) replaces an annuity/pension account's
+  non-zero balances with the plan's figure, keeping its open/closed window; its detail rows carry
+  ``source: "plan"``.
 """
 
 from contextlib import closing
@@ -83,8 +86,20 @@ def enabled_keys(accounts: list[dict[str, Any]], chart: str) -> list[str]:
     return [a["account_key"] for a in accounts if a["enabled"].get(chart)]
 
 
+def apply_plan_values(series: dict[str, list[float]], plan_values: dict[str, float] | None) -> dict[str, list[float]]:
+    """A copy of ``series`` with each ``plan_values`` account's non-zero days set to its plan value."""
+    if not plan_values:
+        return series
+    out = dict(series)
+    for key, value in plan_values.items():
+        if key in out:
+            out[key] = [value if abs(v) >= ZERO_EPSILON else 0.0 for v in out[key]]
+    return out
+
+
 def account_detail(
     accounts: list[dict[str, Any]], series: dict[str, list[float]], index: int, chart: str,
+    plan_keys: frozenset[str] = frozenset(),
 ) -> list[dict[str, Any]]:
     """Accounts contributing to ``chart`` at date ``index``, omitting zero values, largest first."""
     out = []
@@ -94,7 +109,10 @@ def account_detail(
         value = series.get(a["account_key"], [0.0])[index]
         if abs(value) < ZERO_EPSILON:
             continue
-        out.append({"account_key": a["account_key"], "display_name": a["display_name"], "type": a["type"], "value": round(value, 2)})
+        row = {"account_key": a["account_key"], "display_name": a["display_name"], "type": a["type"], "value": round(value, 2)}
+        if a["account_key"] in plan_keys:
+            row["source"] = "plan"
+        out.append(row)
     out.sort(key=lambda r: abs(r["value"]), reverse=True)
     return out
 
@@ -137,13 +155,15 @@ def load_rows(db_path: str | Path) -> list[tuple[str, str, float]]:
         return [(r["date"], r["account_key"], r["balance"]) for r in conn.execute("SELECT date, account_key, balance FROM balances")]
 
 
-def balances_payload(db_path: str | Path, history: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+def balances_payload(db_path: str | Path, history: list[dict[str, Any]] | None = None,
+                     plan_values: dict[str, float] | None = None) -> dict[str, Any]:
     """Everything the charts need: dates, per-account series, registry rows and merged points.
 
     ``points`` uses the saved toggles; the client re-sums ``series`` when a toggle changes.
     """
     accounts = account_registry.list_accounts(db_path)
     dates, series = dense_series(load_rows(db_path))
+    series = apply_plan_values(series, plan_values)
     history = history or []
     points = {
         "networth": merge_with_log(dates, chart_totals(series, enabled_keys(accounts, "networth"), len(dates)), history, _plan_networth),
@@ -157,7 +177,7 @@ def balances_payload(db_path: str | Path, history: list[dict[str, Any]] | None =
     }
 
 
-def snapshot_summary(db_path: str | Path) -> dict[str, Any] | None:
+def snapshot_summary(db_path: str | Path, plan_values: dict[str, float] | None = None) -> dict[str, Any] | None:
     """Latest-day figures for the daily log entry, or None when the store has no data."""
     db_path = Path(db_path)
     if not db_path.exists():
@@ -167,6 +187,7 @@ def snapshot_summary(db_path: str | Path) -> dict[str, Any] | None:
     dates, series = dense_series(rows)
     if not dates:
         return None
+    series = apply_plan_values(series, plan_values)
     last = len(dates) - 1
     synced: dict[str, str] = {}   # each account's own last balance date (a late sync is carried forward)
     for d, key, _ in rows:
@@ -177,7 +198,8 @@ def snapshot_summary(db_path: str | Path) -> dict[str, Any] | None:
         "net_worth": chart_totals(series, enabled_keys(accounts, "networth"), len(dates))[last],
         "holdings": chart_totals(series, enabled_keys(accounts, "holdings"), len(dates))[last],
         "by_account": [
-            {"account": d["display_name"], "type": d["type"], "value": d["value"], "as_of": synced.get(d["account_key"])}
-            for d in account_detail(accounts, series, last, "networth")
+            {"account": d["display_name"], "type": d["type"], "value": d["value"], "as_of": synced.get(d["account_key"]),
+             **({"source": d["source"]} if "source" in d else {})}
+            for d in account_detail(accounts, series, last, "networth", frozenset(plan_values or ()))
         ],
     }

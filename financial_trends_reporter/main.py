@@ -32,7 +32,7 @@ from src.http_runtime.server import LocalHTTPServer, _configured_token  # noqa: 
 from src.http_runtime.wsgi_facade import Flask, Response, request  # noqa: E402
 from src.stores import SchemaVersionError  # noqa: E402
 
-from financial_trends_reporter import account_registry, balance_series, flows, live_snapshot, percent_view, projections, realized_view, spending_window  # noqa: E402
+from financial_trends_reporter import account_registry, balance_series, flows, live_snapshot, percent_view, plan_annuity_values, projections, realized_view, spending_window  # noqa: E402
 from financial_trends_reporter.access_routes import register_access  # noqa: E402
 from financial_trends_reporter.access_store import DB_FILENAME as ACCESS_DB_FILENAME, AccessStore  # noqa: E402
 from financial_trends_reporter.listeners import ListenerApp, check_funnel_target  # noqa: E402
@@ -219,7 +219,8 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, access
     @app.route("/api/balances", methods=["GET"])
     def balances():
         # Full per-account daily series (client re-sums on toggle) + merged Monarch/plan points.
-        payload = balance_series.balances_payload(balances_db, read_history(resolved_log_path))
+        payload = balance_series.balances_payload(balances_db, read_history(resolved_log_path),
+                                                  plan_annuity_values.account_values(retirement_system_dir, balances_db))
         payload["freshness"] = freshness(balances_db)
         return _json(payload)
 
@@ -431,7 +432,9 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, access
         access_store or AccessStore(resolved_log_path.with_name(ACCESS_DB_FILENAME)),
         sessions or SessionTable(),
         clock=clock,
-        percent_basis=percent_basis or (lambda: percent_view.scale_basis(balances_db, read_history(resolved_log_path))),
+        percent_basis=percent_basis or (lambda: percent_view.scale_basis(
+            balances_db, read_history(resolved_log_path),
+            plan_annuity_values.account_values(retirement_system_dir, balances_db))),
     )
     return app
 
