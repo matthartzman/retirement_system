@@ -1,6 +1,6 @@
 # Brokerage activity bulk import: design and implementation plan
 
-Status: design approved by default. The user skipped the questions ("continue"), so every decision below marked
+Status: implemented (Fidelity, E*Trade and Vanguard importers; the year-end Fidelity 1099 checks are planned). The user skipped the questions ("continue"), so every decision below marked
 **Claude's call** can be overridden. It builds on the realized-sales ledger
 (`2026-10-28-realized-sales-ledger-design-and-plan.md`) and implements its step 2.1b, which was designed but never
 built, plus the lot and income work around it.
