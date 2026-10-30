@@ -1,3 +1,14 @@
+## 2026-10-29 — Synthetic golden master and full-row snapshot regenerated: state tax on capital gains (PR #327)
+
+<!-- fixture-provenance: synthetic_golden_master_cases.json sha256=963a6639be940b899b2f9248af1ab5867be29b8fb08403cc4d98effce555df9e -->
+<!-- fixture-provenance: deterministic_engine_full_row_snapshot_cases.json sha256=93f4f1c8621c6e79b928473705655484a5ddc27f1e00c3b2d36eb8b4fe5118db -->
+
+Same change as the frozen-plan re-pin below: the investment-tax cascade now adds state income tax on each year's net capital gain, which these Illinois scenarios previously taxed federally only. Regenerated with `tools/regen_synthetic_golden_master.py --reason` and `tools/regen_full_row_snapshot.py --reason`.
+
+Hand check (`no_voluntary_roth_policy`): every year's `state_tax_on_capital_gains` is exactly 4.95% x `ltcg_gain`, 2.08 in total; lifetime tax moves 778,034.49 -> 778,036.73 (+2.24), the tax plus second-order draw effects. Other scenarios move the same way (first-RMD totals a few dollars lower, depletion scenarios' unfunded gap a few thousand higher, from the extra draws that pay the tax).
+
+This also closes the "known limit" in the 3b.2 entry below: a ledger's long-term gain now carries Illinois tax.
+
 ## 2026-10-29 — Golden-master pin regenerated via `tools/regen_golden_master.py regen`
 
 <!-- pin-provenance: terminal_nw=5376101.29 lifetime_tax=1239362.22 -->
