@@ -1328,7 +1328,8 @@ def _broker_args(b: dict) -> dict:
     accounts = b.get("accounts")
     return {"broker": str(b.get("broker") or ""), "text": str(b.get("content") or ""),
             "file_name": str(b.get("file_name") or "") or None,
-            "accounts": {str(k): str(v) for k, v in accounts.items()} if isinstance(accounts, dict) else None}
+            "accounts": {str(k): str(v) for k, v in accounts.items()} if isinstance(accounts, dict) else None,
+            "history_only": [str(a) for a in b.get("history_only") or []]}
 
 
 @app.route("/api/sales/broker/preview", methods=["POST"])

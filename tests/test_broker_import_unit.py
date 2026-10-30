@@ -147,3 +147,20 @@ def test_commit_refuses_file_with_error_rows(ws):
         broker_import.commit(ws, broker="fidelity", text=history_csv(ROWS + [bad]), file_name=FILE_NAME, account=ACCT)
     with active_plan.workspace_store(ws.parent) as store:
         assert store.broker.list_imports() == []
+
+
+def test_history_only_stores_rows_but_changes_no_lots_or_queue(ws):
+    before = _holdings(ws)
+    rep = broker_import.preview(ws, broker="fidelity", text=history_csv(), file_name=FILE_NAME, account=ACCT, history_only=[ACCT])
+    assert any("History only" in w for w in rep["warnings"])
+    out = broker_import.commit(ws, broker="fidelity", text=history_csv(), file_name=FILE_NAME, account=ACCT,
+                               confirm_method="fifo", history_only=[ACCT])
+    assert (out["lots_added"], out["lots_present"], out["candidates"], out["confirmed"]) == (0, 0, [], [])
+    assert out["rows_new"] == len(ROWS) and _holdings(ws) == before
+    with active_plan.workspace_store(ws.parent) as store:
+        assert store.sales.list_candidates() == [] and store.sales.list_sales() == []
+        imp = store.broker.list_imports()[0]
+        assert imp["summary"]["history_only"] is True and len(imp["summary"]["history_sales"]) == 3
+        assert all(r["lot_ref"] is None and r["candidate_id"] is None for r in store.broker.activity())
+    assert broker_import.preview(ws, broker="fidelity", text=history_csv(), file_name=FILE_NAME)["will_write"] == []
+    assert broker_import.revert(ws, imp["import_id"])["reverted"] and _holdings(ws) == before

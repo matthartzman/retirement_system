@@ -16,6 +16,7 @@ let biBroker = ""; // "" = recognize the broker from the file's header
 let biAccounts = {}; // account hint -> plan account, for files that hold several accounts
 let biMethod = "fifo";
 let biConfirm = false;
+let biHistory = false;
 let biPreview = null;
 let biImports = null;
 let biIncome = null;
@@ -71,7 +72,8 @@ export function biPreviewHtml(p) {
     `<h4>Sales (${c.orders}, ${c.orders_ready} ready)</h4>${biOrdersHtml(p.orders, multi)}` +
     `<h4>Income</h4><p>${inc}</p>` +
     ((p.monarch_covered || []).length ? `<p class="muted">${p.monarch_covered.length} imported sale(s) in the queue are covered by this file and will be marked superseded.</p>` : "") +
-    (!errs && n ? `<label><input type="checkbox" ${biConfirm ? "checked" : ""} onchange="biSetConfirm(this.checked)"> Confirm the ${c.orders_ready} ready sale(s) with the lots shown</label> ` +
+    (!errs && n ? `<label><input type="checkbox" ${biHistory ? "checked" : ""} onchange="biSetHistory(this.checked)"> Record only: my holdings already include this history (income and trades are stored; no lots change, no sales are queued)</label> ` +
+      (biHistory ? "" : `<label><input type="checkbox" ${biConfirm ? "checked" : ""} onchange="biSetConfirm(this.checked)"> Confirm the ${c.orders_ready} ready sale(s) with the lots shown</label> `) +
       `<button class="btn primary" type="button" onclick="biCommit()">Import ${n} row${n === 1 ? "" : "s"}</button>` : "") + `</div>`;
 }
 
@@ -139,11 +141,13 @@ export function biSetBroker(v) { biBroker = v; biPreview = null; biAccounts = {}
 export function biSetHintAccount(hint, v) { biAccounts = { ...biAccounts, [hint]: v }; }
 export function biSetMethod(v) { biMethod = v; }
 export function biSetConfirm(on) { biConfirm = !!on; }
+export function biSetHistory(on) { biHistory = !!on; return biPreviewFile(); }
 
 const biBody = () => {
   const single = !biPreview || (biPreview.hints || []).length < 2;
   return { broker: biBroker, content: biText, file_name: biFile, account: single ? biAccount || (biPreview && biPreview.account) || "" : "",
-    accounts: biAccounts };
+    accounts: biAccounts,
+    history_only: biHistory ? (single ? [biAccount || (biPreview && biPreview.account) || ""] : Object.values(biAccounts)) : [] };
 };
 
 export async function biPreviewFile() {
@@ -158,7 +162,7 @@ export async function biPreviewFile() {
 
 export async function biCommit() {
   try {
-    const out = await api("/api/sales/broker/commit", { method: "POST", body: JSON.stringify({ ...biBody(), confirm_method: biConfirm ? biMethod : "" }) });
+    const out = await api("/api/sales/broker/commit", { method: "POST", body: JSON.stringify({ ...biBody(), confirm_method: biConfirm && !biHistory ? biMethod : "" }) });
     biMessage = { text: `Imported ${out.rows_new} rows: ${out.lots_added} new lots, ${out.confirmed.length} sales confirmed, ${out.queued.length} left in the queue.`, error: false };
     biPreview = null;
   } catch (e) { biMessage = { text: e.message, error: true }; }
@@ -187,5 +191,5 @@ export async function biLoadIncome() {
 
 Object.assign(window, {
   biLotsHtml, biOrdersHtml, biPreviewHtml, biImportsHtml, biIncomeHtml, renderBrokerImport, biLoadImports, biFileChosen,
-  biSetAccount, biSetBroker, biSetHintAccount, biHintPickersHtml, biSetMethod, biSetConfirm, biPreviewFile, biCommit, biRevert, biLoadIncome,
+  biSetAccount, biSetBroker, biSetHintAccount, biHintPickersHtml, biSetMethod, biSetConfirm, biSetHistory, biPreviewFile, biCommit, biRevert, biLoadIncome,
 });

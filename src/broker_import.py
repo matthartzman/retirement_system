@@ -207,7 +207,7 @@ def _tag(items: Iterable[Mapping[str, Any]], account: str) -> list[dict[str, Any
 
 
 def _report(store, broker: str, text: str, file_name: str | None, account: str | None,
-            accounts: Mapping[str, str] | None, method: str) -> dict[str, Any]:
+            accounts: Mapping[str, str] | None, method: str, history_only: Iterable[str] = ()) -> dict[str, Any]:
     """Preview of a file. A file holds one or several accounts (``hint`` per row); each distinct hint is mapped to a
     plan account: ``accounts[hint]``, else ``account`` when the file has a single hint, else the remembered mapping."""
     broker = (broker or "").strip().lower()
@@ -244,6 +244,12 @@ def _report(store, broker: str, text: str, file_name: str | None, account: str |
                 "warnings": [], "errors": [{"line": 0, "error": msg}], "parts": []}
     parts = [_part(store, broker, h, chosen[h], [r for r in parsed.rows if hint_of(r) == h], method) for h in hints]
     first, last = date_range(parsed.rows)
+    only = {str(a).strip().lower() for a in history_only or ()}
+    for p in parts:
+        p["history_only"] = p["account"].strip().lower() in only
+        if p["history_only"]:
+            p["warnings"] = [f"History only: lots are not added or reduced and no sales are queued for {p['account']}; "
+                             "its sales are kept as activity rows."]
     totals: dict[str, float] = {}
     for p in parts:
         for k, v in p["income_totals"].items():
@@ -268,23 +274,26 @@ def _report(store, broker: str, text: str, file_name: str | None, account: str |
 
 # ---------------------------------------------------------------------------------------------------- service
 def preview(input_dir: str | Path, *, broker: str = "", text: str, file_name: str | None = None,
-            account: str | None = None, accounts: Mapping[str, str] | None = None, method: str = "fifo") -> dict[str, Any]:
+            account: str | None = None, accounts: Mapping[str, str] | None = None, method: str = "fifo",
+            history_only: Iterable[str] = ()) -> dict[str, Any]:
     """Side-effect-free report of what ``commit`` would do (``import_preview_v1`` style). An empty ``broker`` is
     recognized from the file's header."""
     with active_plan.workspace_store(_base(input_dir)) as store:
-        return _report(store, broker, text, file_name, account, accounts, method)
+        return _report(store, broker, text, file_name, account, accounts, method, history_only)
 
 
 def commit(input_dir: str | Path, *, broker: str = "", text: str, file_name: str | None = None, account: str = "",
-           accounts: Mapping[str, str] | None = None, confirm_method: str | None = None) -> dict[str, Any]:
+           accounts: Mapping[str, str] | None = None, confirm_method: str | None = None,
+           history_only: Iterable[str] = ()) -> dict[str, Any]:
     """Store the file's new rows, add the new lots, queue the sale orders, supersede covered Monarch candidates and,
     when ``confirm_method`` is given, confirm every fully covered order with that method. Each account in the file gets
     its own import record; all of it is one transaction: any failure changes nothing. A file with error rows is
-    refused whole."""
+    refused whole. Accounts named in ``history_only`` are for holdings that already reflect the file: their rows (income,
+    trades) are stored for the income check and the record, but no lot is added or reduced and no sale is queued."""
     if confirm_method is not None and confirm_method not in AIDS:
         raise ValidationError(f"confirm_method must be one of {', '.join(AIDS)}")
     with active_plan.workspace_store(_base(input_dir), write=True) as store, store.transaction():
-        rep = _report(store, broker, text, file_name, account, accounts, confirm_method or "fifo")
+        rep = _report(store, broker, text, file_name, account, accounts, confirm_method or "fifo", history_only)
         if rep["needs_account"]:
             raise ValidationError(rep["errors"][0]["error"])
         if rep["errors"]:
@@ -311,7 +320,8 @@ def _commit_part(store, broker: str, label: str, rep: dict[str, Any], file_name:
     holdings = store.dataset("holdings")
     hrows = holdings.rows()
     by_key = {r["row_key"]: {**r, "broker": broker, "account": account} for r in new}
-    for lot in rep["lots"]:
+    history = bool(rep.get("history_only"))
+    for lot in ([] if history else rep["lots"]):
         row = by_key[lot["row_key"]]
         if lot["action"] == "add":
             ident = {"account": account, "symbol": lot["symbol"], "purchase_date": lot["run_date"],
@@ -324,10 +334,11 @@ def _commit_part(store, broker: str, label: str, rep: dict[str, Any], file_name:
             h = hrows[lot["lot_index"]]
             row["lot_ref"] = {"created": False, **{k: h.get(k, "") for k in
                               ("account", "symbol", "purchase_date", "purchase_price", "lot_type", "note")}}
-    holdings.replace_all(hrows)
+    if not history:
+        holdings.replace_all(hrows)
 
     candidate_ids = []
-    for o in rep["orders"]:
+    for o in ([] if history else rep["orders"]):
         cid, _ = store.sales.add_candidate(source="broker", sale_date=o["trade_date"], account=account,
                                            symbol=o["symbol"], shares=o["shares"], price=o["price"],
                                            amount=o["proceeds"], fees=o["fees"], settle_date=o["settle_date"],
@@ -335,14 +346,16 @@ def _commit_part(store, broker: str, label: str, rep: dict[str, Any], file_name:
         candidate_ids.append(cid)
         for k in o["row_keys"]:
             by_key[k]["candidate_id"] = cid
-    for m in rep["monarch_covered"]:
+    for m in ([] if history else rep["monarch_covered"]):
         store.sales.set_candidate_state(m["candidate_id"], "superseded")
 
     import_id = store.broker.add_import(
         broker=broker, account=account, file_name=file_name or "", date_from=rep["date_from"], date_to=rep["date_to"],
         rows_total=rep["received"], rows_new=len(new),
-        summary={**rep["counts"], "income_totals": rep["income_totals"],
-                 "superseded_monarch": [m["candidate_id"] for m in rep["monarch_covered"]]})
+        summary={**rep["counts"], "income_totals": rep["income_totals"], "history_only": history,
+                 "history_sales": [{"date": o["trade_date"], "symbol": o["symbol"], "shares": o["shares"],
+                                    "proceeds": o["proceeds"]} for o in rep["orders"]] if history else [],
+                 "superseded_monarch": [] if history else [m["candidate_id"] for m in rep["monarch_covered"]]})
     store.broker.add_rows(import_id, [by_key[r["row_key"]] for r in new])
     store.broker.remember_account(rep["hint"], account)
 
@@ -362,9 +375,10 @@ def _commit_part(store, broker: str, label: str, rep: dict[str, Any], file_name:
             confirmed.append(cid)
     else:
         left = candidate_ids
-    return {"import_id": import_id, "rows_new": len(new), "lots_added": rep["counts"]["lots_add"],
-            "lots_present": rep["counts"]["lots_present"], "candidates": candidate_ids, "confirmed": confirmed,
-            "queued": left, "superseded_monarch": [m["candidate_id"] for m in rep["monarch_covered"]]}
+    return {"import_id": import_id, "rows_new": len(new), "lots_added": 0 if history else rep["counts"]["lots_add"],
+            "lots_present": 0 if history else rep["counts"]["lots_present"], "candidates": candidate_ids,
+            "confirmed": confirmed, "queued": left,
+            "superseded_monarch": [] if history else [m["candidate_id"] for m in rep["monarch_covered"]]}
 
 
 def revert(input_dir: str | Path, import_id: int) -> dict[str, Any]:

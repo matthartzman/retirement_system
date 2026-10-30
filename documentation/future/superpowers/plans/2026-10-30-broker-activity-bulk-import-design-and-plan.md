@@ -287,3 +287,17 @@ Phases 1–6 ship as one PR (`broker-activity-import`). Phase 7 is its own PR wh
   an independent sum of the raw files; bond prices came out per unit (about 0.99); re-importing each file added
   nothing. Many sells in the E*Trade IRA, Roth and Trust and in Vanguard show `short`/`no_lots` and negative
   position warnings because the holdings do not yet reflect the year's buys; these are for the user to review.
+
+## 8. Record-only mode and the initial 2026 load (2026-10-30)
+
+- **Why:** comparing each account's holdings with the net buys and sells in its file showed that, apart from the Fidelity
+  HSA, the holdings already include the December 2025 rebalance and later trades (sold symbols are at zero, bought symbols
+  match to the share). A full load would have added every buy as a second lot.
+- **Mode:** `history_only=[accounts]` on preview and commit (`/api/sales/broker/*` takes `history_only`; the panel has a
+  "Record only" checkbox). The file's rows are stored for the income check, but no lot is added or reduced, no sale is
+  queued, and no Monarch candidate is superseded. The import's summary keeps the file's sales (`history_sales`) so they
+  can be found later. Revert works the same (nothing in the holdings to undo).
+- **Load done:** the Fidelity HSA with a full import (two ITOT sales confirmed FIFO, the SHV sale left queued), and the
+  other eight accounts (four E*Trade files for Matt, Pat's Vanguard file) record-only. Not done: the 2026 sales in
+  taxable accounts (for example Matt's Trust, December 30 2025 aside) have no lots left in the holdings, so their basis
+  must come from the 1099-B or manual entry.
