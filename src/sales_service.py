@@ -55,6 +55,26 @@ def list_sales(input_dir: str | Path, *, year: int | None = None, include_voided
     }}
 
 
+def replace_sale(input_dir: str | Path, sale_id: int, row: dict[str, Any]) -> dict[str, Any]:
+    """Edit a manual sale: void the old row and record the corrected one in one transaction (the old row stays
+    voided, so Show voided keeps the history). Sales confirmed from the queue carry lot links and are changed by
+    sending them back to the queue instead (``sales_confirm.requeue_sale``)."""
+    clean = _manual(row)
+    clean.pop("status", None)
+    try:
+        with active_plan.workspace_store(_base(input_dir), write=True) as store, store.transaction():
+            old = store.sales.get_sale(int(sale_id))
+            if old["status"] != "confirmed":
+                raise ValidationError("only a confirmed sale can be edited")
+            if old["source"] != "manual":
+                raise ValidationError("this sale came from the queue or a statement; send it back to the queue "
+                                      "(or correct it through the 1099-B import) instead of editing it")
+            store.sales.void_sale(old["sale_id"])
+            return store.sales.get_sale(store.sales.insert_sale(**clean))
+    except active_plan.StoreError as exc:
+        raise ValidationError(str(exc)) from exc
+
+
 def _set_voided(input_dir: str | Path, sale_id: int, voided: bool) -> None:
     try:
         with active_plan.workspace_store(_base(input_dir), write=True) as store:

@@ -1294,6 +1294,106 @@ def sales_1099b_apply():
     return response
 
 
+@app.route("/api/sales/<int:sale_id>/replace", methods=["POST"])
+def sales_replace(sale_id: int):
+    denied = _require("write_config")
+    if denied:
+        return denied
+    from .. import sales_service as _sales
+    b = request.get_json(silent=True) or {}
+    row = {k: v for k, v in b.items() if v not in (None, "")}
+    for name in ("shares", "proceeds", "fees", "basis"):
+        if name in row:
+            try:
+                row[name] = float(row[name])
+            except (TypeError, ValueError):
+                return jsonify({"success": False, "error": f"{name} must be a number"}), 400
+    response = _sales_call(lambda root: {"sale": _sales.replace_sale(root, sale_id, row)})
+    if response[1] == 200:
+        _audit("sale_edited", {"sale_id": sale_id})
+    return response
+
+
+@app.route("/api/sales/<int:sale_id>/requeue", methods=["POST"])
+def sales_requeue(sale_id: int):
+    response = _confirm_call("write_config", "requeue_sale", sale_id)
+    if response[1] == 200:
+        _audit("sale_requeued", {"sale_id": sale_id})
+    return response
+
+
+# ---- Broker activity bulk import (src/broker_import.py) and income check (src/broker_income.py) ----
+
+def _broker_args(b: dict) -> dict:
+    accounts = b.get("accounts")
+    return {"broker": str(b.get("broker") or ""), "text": str(b.get("content") or ""),
+            "file_name": str(b.get("file_name") or "") or None,
+            "accounts": {str(k): str(v) for k, v in accounts.items()} if isinstance(accounts, dict) else None}
+
+
+@app.route("/api/sales/broker/preview", methods=["POST"])
+def sales_broker_preview():
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    from .. import broker_import as _bi
+    b = request.get_json(silent=True) or {}
+    return _sales_call(lambda root: _bi.preview(root, account=str(b.get("account") or "") or None,
+                                                method=str(b.get("method") or "fifo"), **_broker_args(b)))
+
+
+@app.route("/api/sales/broker/commit", methods=["POST"])
+def sales_broker_commit():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    from .. import broker_import as _bi
+    b = request.get_json(silent=True) or {}
+    response = _sales_call(lambda root: _bi.commit(root, account=str(b.get("account") or ""),
+                                                   confirm_method=str(b.get("confirm_method") or "") or None, **_broker_args(b)))
+    if response[1] == 200:
+        _audit("sales_broker_imported", {k: v for k, v in response[0].get_json().items()
+                                         if k in ("import_id", "import_ids", "account", "rows_new", "lots_added")})
+    return response
+
+
+@app.route("/api/sales/broker/imports", methods=["GET"])
+def sales_broker_imports():
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    from .. import broker_import as _bi
+    return _sales_call(_bi.list_imports, account=request.args.get("account") or None)
+
+
+@app.route("/api/sales/broker/imports/<int:import_id>/revert", methods=["POST"])
+def sales_broker_revert(import_id: int):
+    denied = _require("write_config")
+    if denied:
+        return denied
+    from .. import broker_import as _bi
+    response = _sales_call(_bi.revert, import_id)
+    if response[1] == 200:
+        _audit("sales_broker_reverted", {"import_id": import_id})
+    return response
+
+
+@app.route("/api/sales/broker/income", methods=["GET"])
+def sales_broker_income():
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    from .. import broker_income as _income
+    try:
+        year = int(request.args.get("year", ""))
+    except ValueError:
+        return jsonify({"success": False, "error": "year must be a number"}), 400
+    account = request.args.get("account") or ""
+    if not account:
+        return jsonify({"success": False, "error": "account is required"}), 400
+    return _sales_call(lambda root: _income.reconcile(root, account=account, year=year))
+
+
 # ---- Account reconciliation (app vs Monarch) ----
 # Logic lives in src/reconcile.py; every write is logged and undoable (reconcile_log).
 

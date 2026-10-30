@@ -20,6 +20,7 @@ SCAN_DIRS = ("src",)
 # hide plan data moving through files.
 ALLOWLIST: dict[str, str] = {
     "src/csv_exchange/": "the one sanctioned CSV import/export package (design F section 6)",
+    "src/broker_activity/": "pure parsers of broker history files uploaded by the user (text in, rows out; no file access)",
     "src/legacy_conversion/": "one-time legacy source reader (removed with the converter, unit 11.6)",
     "src/data_io.py": "load_csv: the old loader path the converter's verify.py compares against (removed with 11.6)",
     "src/plan_data_migration.py": "reads legacy files to migrate old plan data forward (removed with 11.6)",

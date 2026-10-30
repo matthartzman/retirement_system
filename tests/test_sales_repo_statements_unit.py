@@ -21,7 +21,7 @@ def stmt(store, **kw):
 
 
 def test_new_plan_is_v18_with_empty_statement_tables(store):
-    assert store.schema_version == len(PLAN_MIGRATIONS) == 18
+    assert store.schema_version == len(PLAN_MIGRATIONS) == 19
     assert store.sales.list_statements() == []
 
 
@@ -34,7 +34,7 @@ def test_old_v17_plan_file_upgrades(tmp_path):
     con.commit()
     con.close()
     with PlanStore.open(path) as s:
-        assert s.schema_version == 18
+        assert s.schema_version == 19
         assert s.sales.get_sale(1)["statement_id"] is None
 
 

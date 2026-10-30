@@ -614,7 +614,12 @@ DASHBOARD_JS_MAX_LINES = 6_476
 # from the Sales Ledger page with a two-line hook; dashboard.js did not grow): raised to the measured 41,264.
 # 2026-10-29 (annuity PV discount rate: the field joins the plan-wide income stream settings, with its help
 # in fieldGuidance; dashboard.js did not grow, +8): raised to the measured 41,272.
-TOTAL_JS_MAX_LINES = 41_272
+# 2026-10-30 (Brokerage activity import: new feature module dashboard_decomp_broker_import.js, 167 lines, mounted from
+# the Sales Ledger page, plus Edit / Back to queue row actions in the ledger module; dashboard.js did not grow):
+# raised to the measured 41,462.
+# 2026-10-30 (E*Trade and Vanguard parsers: the import panel gains a broker picker and one plan-account picker per
+# account in a multi-account file; dashboard.js did not grow, +29): raised to the measured 41,491.
+TOTAL_JS_MAX_LINES = 41_491
 
 
 def _line_count(path: Path) -> int:
