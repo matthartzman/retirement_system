@@ -1,6 +1,8 @@
 # Annuity and pension values from the plan, not Monarch (design + plan)
 
-2026-10-29. Status: approved by the user in chat ("build this recommendation").
+2026-10-29. Approved by the user in chat ("build this recommendation").
+
+Status: implemented (PR #328).
 
 ## Why
 
