@@ -411,6 +411,7 @@ export function renderIncomeStreamsSection() {
       findRows("Economic Assumptions", "", [
         "annuity_default_dividend_rate",
         "annuity_default_additional_income_pct",
+        "annuity_pv_discount_rate",
       ]),
     );
   let html = `<div class="holdings retirement-income-section" data-help-section="income_retirement.pensions_annuities"><h3 class="group-title">Pensions and annuities ${(window.RPHelp?.sectionButtonHtml("income_retirement.pensions_annuities") || "")}</h3>`;

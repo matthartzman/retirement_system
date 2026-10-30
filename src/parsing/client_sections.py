@@ -33,6 +33,12 @@ def ss_benefit_table(data, person):
     return table
 
 
+def annuity_pv_rate(data):
+    """Discount rate for annuity/pension PV in net worth; None (blank) = the portfolio return."""
+    from ..data_io import _n, _v
+    return _n(_v(data, 'Economic Assumptions', '', 'annuity_pv_discount_rate', ''), None)
+
+
 def add_liquidity_rule(c, start_raw='', end_raw='', yrs_raw='0', account_raw='Taxable/Trust'):
     from ..data_io import _n, _y
     yrs = _n(yrs_raw, 0)
@@ -381,6 +387,7 @@ def parse_members_and_economics(data, c, _w_dob_error):
     c['roth_brk']  = _n(_v(data,'Economic Assumptions','',f'roth_conversion_target_bracket_{TAX_BASE_YEAR}','0.22'), 0.22)
     c['ann_div']   = _n(_v(data,'Economic Assumptions','','annuity_default_dividend_rate','0.0575'), 0.0575)
     c['ann_add']   = _n(_v(data,'Economic Assumptions','','annuity_default_additional_income_pct','0.2'), 0.2)
+    c['ann_pv_rate'] = annuity_pv_rate(data)
 
     # Social Security.  Users enter a per-spouse claim age plus the actual
     # SSA-quoted monthly benefit for each claim age 62-70 (facts from the SSA

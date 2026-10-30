@@ -123,6 +123,13 @@ def apply_portfolio_growth_and_net_worth(
     # PLUS, in the death year only, if the Cash Refund death benefit hasn't
     # yet eroded to $0, add that year's death benefit (heirs receive the
     # unrecovered contribution as a lump sum).
+    # Discount rate: the plan's annuity_pv_discount_rate when set (guaranteed
+    # income is usually valued at a bond-like rate), else the portfolio return.
+    # Read here, not at parse time, so a blank follows any allocation-adjusted c['ret'].
+    pv_rate = c.get('ann_pv_rate')
+    if pv_rate is None:
+        pv_rate = c['ret']
+
     def ann_pv_to_death(stream_key, death_yr):
         """PV of annuity payments from current year through death_yr."""
         stream = c[stream_key]
@@ -131,7 +138,7 @@ def apply_portfolio_growth_and_net_worth(
         pv = 0.0
         for y in range(year, death_yr + 1):
             pmt = _annuity_pmt(c, stream_key, stream, y)
-            pv += pmt / ((1 + c['ret']) ** (y - year))
+            pv += pmt / ((1 + pv_rate) ** (y - year))
         return pv
 
     second_death = max(c['h_death_yr'], c['w_death_yr'])

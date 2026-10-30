@@ -583,6 +583,26 @@
   [
    {
     "$tuple": [
+     "Economic Assumptions",
+     "",
+     "annuity_pv_discount_rate"
+    ]
+   },
+   {
+    "section": "Economic Assumptions",
+    "subsection": "",
+    "label": "annuity_pv_discount_rate",
+    "type": "percent",
+    "required": "FALSE",
+    "default": "",
+    "min": "0",
+    "max": "15",
+    "description": "Discount rate for valuing annuity and pension income in net worth (present value of the remaining payments). Blank = the portfolio return. Guaranteed income is often valued at a bond-like rate (4-5%). Changes net worth and the Roth-conversion estate-tax estimate; not cash flows."
+   }
+  ],
+  [
+   {
+    "$tuple": [
      "Model Constants",
      "Retirement",
      "rollover_401k_year"
