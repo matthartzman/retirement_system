@@ -83,6 +83,8 @@ def parse(text: str, *, file_name: str | None = None) -> ParsedActivity:
             commission = number(row.get("Commission")) or 0.0
             settle = row.get("Settlement Date", "")
             desc = row.get("Description", "")
+            if kind == "dividend" and quantity and "REINVEST" in desc.upper():
+                kind = "reinvest"   # filed as a Dividend with shares and a negative amount: it is the purchase, not income
             rec = {
                 "run_date": us_date(row["Activity/Trade Date"]).isoformat(),
                 "settle_date": us_date(settle).isoformat() if settle and settle != "--" else None,
@@ -93,15 +95,15 @@ def parse(text: str, *, file_name: str | None = None) -> ParsedActivity:
             }
             rec["sweep"] = bool(symbol in _BANK_SWEEP_SYMBOLS or "BANK DEPOSIT" in desc.upper()
                                 or "PROGRAM BANK" in desc.upper())
-            if kind in ("buy", "sell") and not rec["sweep"]:
+            if kind in ("buy", "sell", "reinvest") and not rec["sweep"]:
                 if not symbol:
                     raise ValueError("a trade row has no symbol")
                 if not quantity:
                     raise ValueError("a trade row has no quantity")
-                if kind == "sell" and quantity > 0 or kind == "buy" and quantity < 0:
+                if kind == "sell" and quantity > 0 or kind in ("buy", "reinvest") and quantity < 0:
                     raise ValueError(f"a {action.lower()} row has a {'positive' if quantity > 0 else 'negative'} quantity")
                 if rec["price"] is None:
-                    gross = abs(amount) - commission if kind == "buy" else abs(amount) + commission
+                    gross = abs(amount) - commission if kind != "sell" else abs(amount) + commission
                     rec["price"] = round(gross / abs(quantity), 6)
             out.rows.append(rec)
         except (ValueError, KeyError) as exc:

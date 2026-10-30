@@ -301,3 +301,13 @@ Phases 1–6 ship as one PR (`broker-activity-import`). Phase 7 is its own PR wh
   other eight accounts (four E*Trade files for Matt, Pat's Vanguard file) record-only. Not done: the 2026 sales in
   taxable accounts (for example Matt's Trust, December 30 2025 aside) have no lots left in the holdings, so their basis
   must come from the 1099-B or manual entry.
+
+## 9. E*Trade reinvestments and the income gaps (2026-10-30)
+
+- **Parser fix:** E*Trade files an automatic dividend reinvestment as a negative `Dividend` row with shares and a price
+  (description "... DIVIDEND REINVESTMENT"), next to the positive dividend row. It is now kind `reinvest` (a purchase),
+  not negative income. Before the fix, the income check netted each reinvested dividend to about zero.
+- **After the fix**, Matt's E*Trade accounts agree with Monarch except for: the September 18 ITOT dividend, which Monarch
+  filed as a Transfer in the IRA, Roth and Trust ($1,779.00, $78.41, $293.28), and bank-deposit interest in April and May
+  (and cents in other months) that Monarch does not carry. The broker file is the better record; recategorizing the
+  three September rows in Monarch makes the totals tie.
