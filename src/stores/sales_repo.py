@@ -1,4 +1,4 @@
-"""Realized-sales ledger of a plan file (schema v17; v18 adds imported tax statements and the correction audit): ``SalesRepo``, reached as ``store.sales``.
+"""Realized-sales ledger of a plan file (schema v17; v18 adds imported tax statements and the correction audit; v19, in ``broker_repo``, adds the broker source): ``SalesRepo``, reached as ``store.sales``.
 
 Typed tables (not flat text datasets), so a plan revision neither copies them nor, on restore, rewrites them:
 a restore leaves every ledger row as it is (it only rewrites plan rows, flat datasets and rental).
@@ -22,10 +22,14 @@ from .errors import NotFoundError, ValidationError
 TAX_CLASSES = ("taxable", "pre_tax", "roth", "hsa")
 HOLDING_PERIODS = ("short", "long", "unknown")
 WASH_FLAGS = ("none", "possible", "confirmed_by_user")
-SALE_SOURCES = ("holdings_diff", "monarch", "manual", "1099b")
+SALE_SOURCES = ("holdings_diff", "monarch", "manual", "1099b", "broker")
 SALE_STATUSES = ("confirmed", "voided")
-CANDIDATE_SOURCES = ("monarch", "holdings_diff")
-CANDIDATE_STATES = ("unmatched", "confirmed", "dismissed", "not_a_sale")
+CANDIDATE_SOURCES = ("monarch", "holdings_diff", "broker")
+CANDIDATE_STATES = ("unmatched", "confirmed", "dismissed", "not_a_sale", "superseded")
+# The v17 CHECK lists, frozen: v19 (``broker_repo.SCHEMA_V19_DDL``) rebuilds both tables with the lists above.
+_V17_SALE_SOURCES = ("holdings_diff", "monarch", "manual", "1099b")
+_V17_CANDIDATE_SOURCES = ("monarch", "holdings_diff")
+_V17_CANDIDATE_STATES = ("unmatched", "confirmed", "dismissed", "not_a_sale")
 
 
 def _in(values: tuple[str, ...]) -> str:
@@ -49,7 +53,7 @@ CREATE TABLE realized_sales (
     gain            REAL,
     wash_flag       TEXT NOT NULL DEFAULT 'none' CHECK (wash_flag IN ({_in(WASH_FLAGS)})),
     wash_note       TEXT NOT NULL DEFAULT '',
-    source          TEXT NOT NULL CHECK (source IN ({_in(SALE_SOURCES)})),
+    source          TEXT NOT NULL CHECK (source IN ({_in(_V17_SALE_SOURCES)})),
     monarch_id      TEXT,
     lot_key         TEXT NOT NULL DEFAULT '',
     status          TEXT NOT NULL DEFAULT 'confirmed' CHECK (status IN ({_in(SALE_STATUSES)})),
@@ -65,7 +69,7 @@ CREATE INDEX ix_realized_sales_date ON realized_sales (sale_date);
 CREATE INDEX ix_realized_sales_monarch ON realized_sales (monarch_id) WHERE monarch_id IS NOT NULL;
 CREATE TABLE sale_candidates (
     candidate_id        INTEGER PRIMARY KEY AUTOINCREMENT,
-    source              TEXT NOT NULL CHECK (source IN ({_in(CANDIDATE_SOURCES)})),
+    source              TEXT NOT NULL CHECK (source IN ({_in(_V17_CANDIDATE_SOURCES)})),
     sale_date           TEXT NOT NULL,
     account             TEXT NOT NULL,
     symbol              TEXT,
@@ -73,7 +77,7 @@ CREATE TABLE sale_candidates (
     price               REAL,
     amount              REAL,
     monarch_id          TEXT,
-    state               TEXT NOT NULL DEFAULT 'unmatched' CHECK (state IN ({_in(CANDIDATE_STATES)})),
+    state               TEXT NOT NULL DEFAULT 'unmatched' CHECK (state IN ({_in(_V17_CANDIDATE_STATES)})),
     confirmed_sale_ids  TEXT NOT NULL DEFAULT '[]',
     created_at          TEXT NOT NULL,
     updated_at          TEXT NOT NULL
@@ -265,25 +269,40 @@ class SalesRepo:
     # ------------------------------------------------------------------ sale_candidates
     def add_candidate(self, *, source: str, sale_date: str, account: str, symbol: str | None = None,
                       shares: float | None = None, price: float | None = None, amount: float | None = None,
-                      monarch_id: str | None = None) -> tuple[int, bool]:
-        """Queue an unmatched sale; returns ``(candidate_id, created)``. A candidate with a ``monarch_id``
-        already queued is left as it is (re-importing the same file is a no-op); one without is always new."""
+                      monarch_id: str | None = None, fees: float | None = None, settle_date: str | None = None,
+                      broker_key: str | None = None) -> tuple[int, bool]:
+        """Queue an unmatched sale; returns ``(candidate_id, created)``. A candidate with a ``monarch_id`` or
+        ``broker_key`` already queued is left as it is (re-importing the same file is a no-op); one without is always new."""
         _one_of("source", source, CANDIDATE_SOURCES)
         _iso("sale_date", sale_date)
+        _iso("settle_date", settle_date, optional=True)
         monarch_id = monarch_id or None
+        broker_key = broker_key or None
         now = self._store._clock()
         with self._store._write() as con:
-            if monarch_id is not None:
-                r = con.execute("SELECT candidate_id FROM sale_candidates WHERE monarch_id = ?", (monarch_id,)).fetchone()
-                if r is not None:
-                    return int(r[0]), False
+            for col, key in (("monarch_id", monarch_id), ("broker_key", broker_key)):
+                if key is not None:
+                    r = con.execute(f"SELECT candidate_id FROM sale_candidates WHERE {col} = ?", (key,)).fetchone()
+                    if r is not None:
+                        return int(r[0]), False
             cur = con.execute(
                 "INSERT INTO sale_candidates (source, sale_date, account, symbol, shares, price, amount, monarch_id, "
-                "created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                "fees, settle_date, broker_key, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (source, sale_date, account, (symbol.strip().upper() if symbol else None),
                  _num("shares", shares, optional=True), _num("price", price, optional=True),
-                 _num("amount", amount, optional=True), monarch_id, now, now))
+                 _num("amount", amount, optional=True), monarch_id, _num("fees", fees, optional=True), settle_date,
+                 broker_key, now, now))
             return int(cur.lastrowid), True
+
+    def delete_candidate(self, candidate_id: int) -> None:
+        """Remove an unconfirmed candidate outright (reverting the broker import that queued it)."""
+        with self._store._write() as con:
+            r = con.execute("SELECT state FROM sale_candidates WHERE candidate_id = ?", (candidate_id,)).fetchone()
+            if r is None:
+                raise NotFoundError(f"no sale candidate {candidate_id}")
+            if r["state"] == "confirmed":
+                raise ValidationError("a confirmed sale candidate cannot be deleted; undo it first")
+            con.execute("DELETE FROM sale_candidates WHERE candidate_id = ?", (candidate_id,))
 
     def list_candidates(self, *, state: str | None = None) -> list[dict[str, Any]]:
         sql = "SELECT * FROM sale_candidates" + (" WHERE state = ?" if state else "") + " ORDER BY sale_date, candidate_id"

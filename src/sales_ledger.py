@@ -12,7 +12,7 @@ from typing import Any, Iterable, Mapping
 # Mirrors of the ``stores.sales_repo`` column values (product code reaches ``stores`` only through
 # ``active_plan``); ``tests/test_sales_ledger_unit.py`` pins them equal.
 TAX_CLASSES = ("taxable", "pre_tax", "roth", "hsa")
-SALE_SOURCES = ("holdings_diff", "monarch", "manual", "1099b")
+SALE_SOURCES = ("holdings_diff", "monarch", "manual", "1099b", "broker")
 SALE_STATUSES = ("confirmed", "voided")
 
 

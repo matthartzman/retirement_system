@@ -139,7 +139,7 @@ def test_new_plan_files_are_schema_14_and_revisions_do_not_copy_balances(tmp_pat
     base = _workspace(tmp_path)
     mbi.import_balances(base, _csv(base / "b.csv", _rows()), today=TODAY, now=NOW)
     with PlanStore.open(base / "plan.rpx") as store:
-        assert store.schema_version == 18
+        assert store.schema_version == 19
         store.snapshot_revision("test")
         n = store._con.execute("SELECT COUNT(*) FROM revision_datasets WHERE dataset LIKE '%monarch%'").fetchone()[0]
         assert n == 0

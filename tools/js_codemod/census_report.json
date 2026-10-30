@@ -1043,6 +1043,24 @@
       "scope": "inside-function"
     },
     {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_broker_import.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_broker_import.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_broker_import.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "BUILD_HISTORY_LS_KEY",
       "file": "frontend/js/dashboard_decomp_build_history.js",
       "kind": "read",

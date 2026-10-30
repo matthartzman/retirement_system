@@ -103,11 +103,23 @@ def _price(c: Mapping[str, Any], shares: float | None) -> float | None:
     return None
 
 
-def _default_tax_class(store, account: str) -> str:
+def _settle_date(c: Mapping[str, Any]) -> str | None:
+    """A broker file states the settlement date; a Monarch row's date is the settlement date; otherwise unknown."""
+    return c.get("settle_date") or (c["sale_date"] if c["source"] == "monarch" else None)
+
+
+def default_tax_class(store, account: str) -> str:
+    """The class the user last gave a ledger row of ``account``, else the Planner's account-name suffix rule
+    (``_hsa``, ``_ira``, ``_roth``, ...), else ``taxable``."""
     for r in reversed(store.sales.list_sales(include_voided=True)):
         if r["account"].strip().lower() == account.strip().lower():
             return r["tax_class"]
-    return "taxable"
+    from .core import ACCOUNT_TYPES, _infer_type
+    try:
+        cls = ACCOUNT_TYPES[_infer_type(account)]["tax"]
+    except ValueError:
+        return "taxable"
+    return cls if cls in ("taxable", "pre_tax", "roth", "hsa") else "taxable"
 
 
 def panel(input_dir: str | Path, candidate_id: int, *, symbol: str | None = None, shares: float | None = None) -> dict[str, Any]:
@@ -121,7 +133,7 @@ def panel(input_dir: str | Path, candidate_id: int, *, symbol: str | None = None
         trade = prior_business_day(c["sale_date"]) if monarch else c["sale_date"]
         price = _price(c, qty)
         lots = _holdings_lots(store, c["account"], sym, trade, price) if sym else []
-        tax_class = _default_tax_class(store, c["account"])
+        tax_class = default_tax_class(store, c["account"])
     exact = [l["lot_id"] for l in lots if qty and abs(l["remaining"] - qty) <= _EPS]
     refusal = "its lots were already removed by the holdings import; record it with manual entry, then dismiss it" \
         if c["source"] == "holdings_diff" else None
@@ -161,48 +173,56 @@ def confirm(input_dir: str | Path, candidate_id: int, *, allocation: Mapping[str
     candidate ``confirmed``, in one transaction. Raises ``ValidationError`` and changes nothing when the candidate is
     not ``unmatched``, the allocation does not equal the shares sold, a lot is over-allocated or a row is invalid."""
     with active_plan.workspace_store(_base(input_dir), write=True) as store, store.transaction():
-        c = _candidate(store, candidate_id)
-        if c["state"] != "unmatched":
-            raise ValidationError(f"only an unmatched sale can be confirmed (this one is {c['state']})")
-        if c["source"] == "holdings_diff":
-            raise ValidationError("its lots were already removed by the holdings import; record it with manual entry, then dismiss it")
-        sym = (symbol or c["symbol"] or "").strip().upper()
-        qty = shares if shares is not None else c["shares"]
-        if not sym or not qty:
-            raise ValidationError("a bare sale needs a symbol and shares before it can be confirmed")
-        total = proceeds if proceeds is not None else c["amount"]
-        if total is None and c["price"] is not None:
-            total = c["price"] * qty
-        if total is None:
-            raise ValidationError("proceeds are needed")
-        lots = _holdings_lots(store, c["account"], sym, trade_date, None)
-        picked = allocate_lots(qty, [{"lot_key": l["lot_id"], "remaining": l["remaining"]} for l in lots],
-                              {str(k): v for k, v in allocation.items()})
-        repo = store.dataset("holdings")
-        rows = repo.rows()
-        sale_rows, remaining_total = [], float(total)
-        order = sorted(picked, key=int)
-        for n, lot_id in enumerate(order):
-            r = rows[int(lot_id)]
-            q = picked[lot_id]
-            part = remaining_total if n == len(order) - 1 else round(float(total) * q / qty, 6)
-            remaining_total -= part
-            ident = {k: r.get(k, "") for k in ("account", "symbol", "purchase_date", "purchase_price", "lot_type", "note")}
-            sale_rows.append(validate_sale_row({
-                "sale_date": trade_date, "settle_date": c["sale_date"] if c["source"] == "monarch" else None,
-                "account": c["account"], "tax_class": tax_class, "symbol": sym, "shares": q, "proceeds": part,
-                "fees": fees * q / qty, "basis": q * _num(r.get("purchase_price")),
-                "purchase_date": r.get("purchase_date") or None, "source": c["source"], "monarch_id": c["monarch_id"],
-                "lot_key": json.dumps({**ident, "index": int(lot_id), "orig_shares": r.get("shares", "")}, sort_keys=True)}))
-        for lot_id in order:
-            left = _num(rows[int(lot_id)]["shares"]) - picked[lot_id]
-            rows[int(lot_id)]["shares"] = _fmt(left) if left > _EPS else None
-        repo.replace_all([r for r in rows if r.get("shares") is not None])
-        ids = []
-        for row in sale_rows:
-            row.pop("status", None)
-            ids.append(store.sales.insert_sale(**row))
-        store.sales.set_candidate_state(c["candidate_id"], "confirmed", confirmed_sale_ids=ids)
+        return confirm_in(store, candidate_id, allocation=allocation, tax_class=tax_class, trade_date=trade_date,
+                          fees=fees, proceeds=proceeds, symbol=symbol, shares=shares)
+
+
+def confirm_in(store, candidate_id: int, *, allocation: Mapping[str, float], tax_class: str, trade_date: str,
+               fees: float = 0.0, proceeds: float | None = None, symbol: str | None = None,
+               shares: float | None = None) -> dict[str, Any]:
+    """``confirm`` inside the caller's open write store and transaction (the broker bulk import confirms many)."""
+    c = _candidate(store, candidate_id)
+    if c["state"] != "unmatched":
+        raise ValidationError(f"only an unmatched sale can be confirmed (this one is {c['state']})")
+    if c["source"] == "holdings_diff":
+        raise ValidationError("its lots were already removed by the holdings import; record it with manual entry, then dismiss it")
+    sym = (symbol or c["symbol"] or "").strip().upper()
+    qty = shares if shares is not None else c["shares"]
+    if not sym or not qty:
+        raise ValidationError("a bare sale needs a symbol and shares before it can be confirmed")
+    total = proceeds if proceeds is not None else c["amount"]
+    if total is None and c["price"] is not None:
+        total = c["price"] * qty
+    if total is None:
+        raise ValidationError("proceeds are needed")
+    lots = _holdings_lots(store, c["account"], sym, trade_date, None)
+    picked = allocate_lots(qty, [{"lot_key": l["lot_id"], "remaining": l["remaining"]} for l in lots],
+                          {str(k): v for k, v in allocation.items()})
+    repo = store.dataset("holdings")
+    rows = repo.rows()
+    sale_rows, remaining_total = [], float(total)
+    order = sorted(picked, key=int)
+    for n, lot_id in enumerate(order):
+        r = rows[int(lot_id)]
+        q = picked[lot_id]
+        part = remaining_total if n == len(order) - 1 else round(float(total) * q / qty, 6)
+        remaining_total -= part
+        ident = {k: r.get(k, "") for k in ("account", "symbol", "purchase_date", "purchase_price", "lot_type", "note")}
+        sale_rows.append(validate_sale_row({
+            "sale_date": trade_date, "settle_date": _settle_date(c),
+            "account": c["account"], "tax_class": tax_class, "symbol": sym, "shares": q, "proceeds": part,
+            "fees": fees * q / qty, "basis": q * _num(r.get("purchase_price")),
+            "purchase_date": r.get("purchase_date") or None, "source": c["source"], "monarch_id": c["monarch_id"],
+            "lot_key": json.dumps({**ident, "index": int(lot_id), "orig_shares": r.get("shares", "")}, sort_keys=True)}))
+    for lot_id in order:
+        left = _num(rows[int(lot_id)]["shares"]) - picked[lot_id]
+        rows[int(lot_id)]["shares"] = _fmt(left) if left > _EPS else None
+    repo.replace_all([r for r in rows if r.get("shares") is not None])
+    ids = []
+    for row in sale_rows:
+        row.pop("status", None)
+        ids.append(store.sales.insert_sale(**row))
+    store.sales.set_candidate_state(c["candidate_id"], "confirmed", confirmed_sale_ids=ids)
     return {"sale_ids": ids}
 
 
@@ -234,6 +254,18 @@ def undo(input_dir: str | Path, candidate_id: int) -> None:
             store.sales.void_sale(s["sale_id"])
         repo.replace_all(rows)
         store.sales.set_candidate_state(c["candidate_id"], "unmatched")
+
+
+@_store_errors
+def requeue_sale(input_dir: str | Path, sale_id: int) -> dict[str, Any]:
+    """Send a queue-confirmed sale back to the queue: ``undo`` the candidate whose confirm wrote ``sale_id`` (all of
+    that order's lot rows go back together). Returns the candidate id for the panel."""
+    with active_plan.workspace_store(_base(input_dir)) as store:
+        hit = next((c for c in store.sales.list_candidates(state="confirmed") if int(sale_id) in c["confirmed_sale_ids"]), None)
+    if hit is None:
+        raise ValidationError("this sale was not confirmed from the queue; void it instead")
+    undo(input_dir, hit["candidate_id"])
+    return {"candidate_id": hit["candidate_id"]}
 
 
 def _move(input_dir: str | Path, candidate_id: int, allowed: tuple[str, ...], new_state: str) -> None:
