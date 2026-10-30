@@ -49,11 +49,11 @@ def is_non_money(key: Any) -> bool:
     return key in NON_MONEY_KEYS or key in _RATIO_KEYS or key.endswith(_RATIO_SUFFIXES)
 
 
-def scale_basis(balances_db: Path, history: list[dict]) -> float | None:
+def scale_basis(balances_db: Path, history: list[dict], plan_values: dict[str, float] | None = None) -> float | None:
     """Today's net worth: the balance store's latest, else the last history entry's. None if missing or <= 0."""
     net_worth = None
     try:
-        summary = balance_series.snapshot_summary(balances_db)
+        summary = balance_series.snapshot_summary(balances_db, plan_values)
     except Exception:  # an unreadable store is "missing", not an error page
         summary = None
     if summary:

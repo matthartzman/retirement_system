@@ -774,7 +774,9 @@ def _monarch_sections(monarch: dict | None, tax_overrides: dict[str, str] | None
         if kind in MONARCH_LIQUID_TYPES:
             liquid_total += value
         elif kind == "Annuity/Pension":
-            non_liquid.append({"name": name, "kind": "Fixed Income", "value": value, "type": kind})
+            # source "plan": valued at the plan's PV (plan_annuity_values), not the Monarch balance.
+            non_liquid.append({"name": name, "kind": "Fixed Income", "value": value, "type": kind,
+                               **({"source": "plan"} if r.get("source") == "plan" else {})})
         elif kind == "Real estate":
             non_liquid.append({"name": name, "kind": "Real Estate", "value": value, "type": kind})
         elif kind == "Other":
@@ -1055,7 +1057,7 @@ def tax_rates(data_dir: str | Path, *, plan_ltcg: Any = "") -> dict[str, float]:
 def _load_inputs_uncached(base_dir: Path, log_path: Path, balances_db: Path) -> dict[str, Any]:
     from src import portfolio_analytics
     from src.active_plan import dataset_rows_for_input_dir
-    from . import balance_series
+    from . import balance_series, plan_annuity_values
     from .trends_log import read_history
     from .trends_metrics import _plan_rows
 
@@ -1071,7 +1073,7 @@ def _load_inputs_uncached(base_dir: Path, log_path: Path, balances_db: Path) -> 
         "accounts": (latest.get("holdings") or {}).get("by_account") or [],
         "flows_daily": latest.get("investment_flows_daily") or {},
         "log_as_of": latest.get("as_of_date"),
-        "monarch": balance_series.snapshot_summary(balances_db),
+        "monarch": balance_series.snapshot_summary(balances_db, plan_annuity_values.account_values(base_dir, balances_db)),
         "tax_rates": _with_setup_tax(tax_rates(log_path.parent, plan_ltcg=plan.get(("Rebalancing", "Tax-aware Trades", "ltcg_rate"), "")),
                                      base_dir, balances_db),
         "people": household_nicknames(plan),
