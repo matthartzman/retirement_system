@@ -622,7 +622,8 @@ DASHBOARD_JS_MAX_LINES = 6_476
 # 2026-10-30 (broker import: "Record only" toggle for accounts whose holdings already include the history, +4): raised to the measured 41,495.
 # 2026-10-31 (broker import keeps its chosen file across repaints and gains "Account in file"; sales screens show friendly account names, +11): raised to the measured 41,506.
 # 2026-10-31 (broker import scrolls its preview/income result into view and shows Previewing…/Checking…, +4): raised to the measured 41,510.
-TOTAL_JS_MAX_LINES = 41_510
+# 2026-10-31 (broker import: unreadable files show their errors instead of crashing the preview; Imports list collapses and sorts, +10): raised to the measured 41,520.
+TOTAL_JS_MAX_LINES = 41_520
 
 
 def _line_count(path: Path) -> int:
