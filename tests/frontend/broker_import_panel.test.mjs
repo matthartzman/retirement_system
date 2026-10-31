@@ -132,3 +132,15 @@ describe("ledger row actions", () => {
     assert.equal(calls[0][0], "/api/sales/7/requeue");
   });
 });
+
+describe("account in file", () => {
+  test("the plan account picker offers 'Account in file' and sends no single account for it", async () => {
+    assert.match(m.renderBrokerImport(), /Account in file/);
+    m.biSetAccount("__in_file__");
+    calls.length = 0;
+    await m.biPreviewFile();
+    const body = calls.find((c) => c[0] === "/api/sales/broker/preview")[2];
+    assert.equal(body.account, "");
+    m.biSetAccount("");
+  });
+});

@@ -13,6 +13,7 @@ let biText = "";
 let biFile = "";
 let biAccount = "";
 let biBroker = ""; // "" = recognize the broker from the file's header
+const BI_IN_FILE = "__in_file__"; // plan-account choice: take the account from each record of the file
 let biAccounts = {}; // account hint -> plan account, for files that hold several accounts
 let biMethod = "fifo";
 let biConfirm = false;
@@ -103,13 +104,13 @@ function biBodyHtml() {
   return `<h3>Import brokerage activity</h3>${msg}<p class="muted">Fidelity “History for Account”, E*Trade “Transaction History” or Vanguard “OfxDownload” CSV. Re-importing an overlapping file adds only new rows.</p>` +
     `<div class="field-grid"><label>Broker<select aria-label="Broker" onchange="biSetBroker(this.value)">${BI_BROKERS.map(([v, l]) => `<option value="${v}" ${v === biBroker ? "selected" : ""}>${l}</option>`).join("")}</select></label>` +
     `<label>File<input type="file" accept=".csv,text/csv" aria-label="Brokerage history file" onchange="biFileChosen(this)"></label>` +
-    `<label>${multiHints ? "Income check account" : "Plan account"}<select id="biAccount" onchange="biSetAccount(this.value)"><option value="">${biPreview && biPreview.account ? "" : "Choose…"}</option>` +
+    `<label>${multiHints ? "Income check account" : "Plan account"}<select id="biAccount" onchange="biSetAccount(this.value)"><option value="">${biPreview && biPreview.account ? "" : "Choose…"}</option><option value="${BI_IN_FILE}" ${biAccount === BI_IN_FILE ? "selected" : ""}>Account in file (one per record)</option>` +
     accounts.map((a) => `<option value="${esc(a)}" ${a === (biAccount || (biPreview && biPreview.account)) ? "selected" : ""}>${esc(a)}</option>`).join("") + `</select></label>` +
     `<label>Lot method<select onchange="biSetMethod(this.value)">${BI_METHODS.map(([v, l]) => `<option value="${v}" ${v === biMethod ? "selected" : ""}>${l}</option>`).join("")}</select></label></div>` +
     `${multiHints ? biHintPickersHtml(biPreview.hints, accounts, biAccounts) : ""}` +
     `<button class="btn" type="button" onclick="biPreviewFile()" ${biText ? "" : "disabled"}>Preview</button>${biPreview ? biPreviewHtml(biPreview) : ""}` +
     `<h4>Imports</h4>${biImportsHtml(biImports && biImports.imports)}` +
-    `<h4>Income check (broker vs account import)</h4><button class="btn" type="button" onclick="biLoadIncome()">Check ${esc(biAccount || "account")} for ${esc(String(new Date().getFullYear()))}</button>` +
+    `<h4>Income check (broker vs account import)</h4><button class="btn" type="button" onclick="biLoadIncome()">Check ${esc(biPlanAccount() || "account")} for ${esc(String(new Date().getFullYear()))}</button>` +
     (biIncome ? biIncomeHtml(biIncome) : "");
 }
 
@@ -120,7 +121,12 @@ export function renderBrokerImport() {
 
 function biPaint() {
   const root = document.getElementById("biRoot");
-  if (root) root.innerHTML = biBodyHtml();
+  if (!root) return;
+  // Re-rendering would recreate the file input and show "No file chosen"; carry the live one across.
+  const old = root.querySelector('input[type="file"]');
+  root.innerHTML = biBodyHtml();
+  const fresh = root.querySelector('input[type="file"]');
+  if (old && fresh && old.files && old.files.length) fresh.replaceWith(old);
 }
 
 export async function biLoadImports() {
@@ -137,6 +143,7 @@ export function biFileChosen(input) {
 }
 
 export function biSetAccount(v) { biAccount = v; biIncome = null; }
+const biPlanAccount = () => (biAccount === BI_IN_FILE ? "" : biAccount);
 export function biSetBroker(v) { biBroker = v; biPreview = null; biAccounts = {}; biPaint(); }
 export function biSetHintAccount(hint, v) { biAccounts = { ...biAccounts, [hint]: v }; }
 export function biSetMethod(v) { biMethod = v; }
@@ -145,16 +152,16 @@ export function biSetHistory(on) { biHistory = !!on; return biPreviewFile(); }
 
 const biBody = () => {
   const single = !biPreview || (biPreview.hints || []).length < 2;
-  return { broker: biBroker, content: biText, file_name: biFile, account: single ? biAccount || (biPreview && biPreview.account) || "" : "",
+  return { broker: biBroker, content: biText, file_name: biFile, account: single ? (biAccount === BI_IN_FILE ? "" : biAccount || (biPreview && biPreview.account) || "") : "",
     accounts: biAccounts,
-    history_only: biHistory ? (single ? [biAccount || (biPreview && biPreview.account) || ""] : Object.values(biAccounts)) : [] };
+    history_only: biHistory ? (single ? [biPlanAccount() || (biPreview && biPreview.account) || ""] : Object.values(biAccounts)) : [] };
 };
 
 export async function biPreviewFile() {
   try {
     biPreview = await api("/api/sales/broker/preview", { method: "POST", body: JSON.stringify({ ...biBody(), method: biMethod }) });
     for (const h of biPreview.hints || []) if (h.account && !biAccounts[h.hint]) biAccounts = { ...biAccounts, [h.hint]: h.account };
-    if (biPreview.account && (biPreview.hints || []).length < 2) biAccount = biPreview.account;
+    if (biPreview.account && (biPreview.hints || []).length < 2 && biAccount !== BI_IN_FILE) biAccount = biPreview.account;
     biMessage = null;
   } catch (e) { biPreview = null; biMessage = { text: e.message, error: true }; }
   biPaint();
@@ -181,9 +188,9 @@ export async function biRevert(id) {
 }
 
 export async function biLoadIncome() {
-  if (!biAccount) { biMessage = { text: "Choose a plan account first.", error: true }; biPaint(); return; }
+  if (!biPlanAccount()) { biMessage = { text: "Choose a plan account first.", error: true }; biPaint(); return; }
   try {
-    biIncome = await api(`/api/sales/broker/income?account=${encodeURIComponent(biAccount)}&year=${new Date().getFullYear()}`);
+    biIncome = await api(`/api/sales/broker/income?account=${encodeURIComponent(biPlanAccount())}&year=${new Date().getFullYear()}`);
     biMessage = null;
   } catch (e) { biIncome = null; biMessage = { text: e.message, error: true }; }
   biPaint();
