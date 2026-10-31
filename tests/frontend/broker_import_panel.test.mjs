@@ -165,3 +165,28 @@ describe("single-account file that names no plan account", () => {
     assert.match(m.biPreviewHtml({ needs_account: true, hints: one }), /picker above/);
   });
 });
+
+describe("unreadable files and the imports table", () => {
+  test("a preview with errors and no counts renders the errors instead of throwing", () => {
+    const h = m.biPreviewHtml({ errors: [{ line: 0, error: "This file's layout is not recognized; choose the broker." }], will_write: [], hints: [] });
+    assert.match(h, /layout is not recognized/);
+    assert.doesNotMatch(h, /Line 0/);
+    assert.match(m.biPreviewHtml({ errors: [], will_write: [] }), /could be read/);
+  });
+  test("imports sort by the clicked heading, newest first by default", () => {
+    const list = [{ import_id: 1, account: "B", rows_new: 5, status: "applied" }, { import_id: 2, account: "A", rows_new: 9, status: "reverted" }];
+    const ids = (h) => [...h.matchAll(/<tr><td>(\d+)<\/td>/g)].map((x) => x[1]).join(",");
+    assert.equal(ids(m.biImportsHtml(list)), "2,1");
+    m.biSortBy("rows_new");
+    assert.equal(ids(m.biImportsHtml(list)), "1,2");
+    m.biSortBy("rows_new");
+    assert.equal(ids(m.biImportsHtml(list)), "2,1");
+    assert.match(m.biImportsHtml(list), /aria-sort="descending"/);
+  });
+  test("the imports list is a collapsed section by default", () => {
+    assert.match(m.renderBrokerImport(), /<details\s+ontoggle/);
+    m.biToggleImports(true);
+    assert.match(m.renderBrokerImport(), /<details open/);
+    m.biToggleImports(false);
+  });
+});

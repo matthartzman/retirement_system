@@ -21,6 +21,8 @@ let biHistory = false;
 let biPreview = null;
 let biImports = null;
 let biIncome = null;
+let biSort = { key: "import_id", dir: -1 }; // newest first
+let biImportsOpen = false;
 let biMessage = null; // { text, error }
 
 const biMoney = (v) => (window.slMoney ? window.slMoney(v) : String(v));
@@ -60,8 +62,9 @@ export function biPreviewHtml(p) {
     return `<p class="field-error">${(p.hints || []).length > 1 ? "Choose a plan account for each account in this file" : "Choose the plan account this file belongs to (in the picker above)"}, then the preview and Import button appear.</p>`;
   }
   const multi = (p.hints || []).length > 1;
-  const errs = (p.errors || []).map((e) => `<li>Line ${Number(e.line)}: ${esc(e.error)}</li>`).join("");
+  const errs = (p.errors || []).map((e) => `<li>${e.line ? `Line ${Number(e.line)}: ` : ""}${esc(e.error)}</li>`).join("");
   const warns = (p.warnings || []).map((w) => `<li>${esc(w)}</li>`).join("");
+  if (!p.counts) return `<div class="sl-preview"><ul class="field-error">${errs || "<li>Nothing in this file could be read.</li>"}</ul>${warns ? `<ul class="field-warning">${warns}</ul>` : ""}</div>`; // unreadable file: no counts to show
   const inc = Object.entries(p.income_totals || {}).map(([k, v]) => `${esc(BI_KIND[k] || k)} ${biMoney(v)}`).join(" · ") || "none";
   const c = p.counts;
   const n = p.will_write.length;
@@ -78,13 +81,20 @@ export function biPreviewHtml(p) {
       `<button class="btn primary" type="button" onclick="biCommit()">Import ${n} row${n === 1 ? "" : "s"}</button>` : "") + `</div>`;
 }
 
+const BI_COLS = [["import_id", "#"], ["account", "Account"], ["date_from", "Range"], ["rows_new", "New rows", "rc-num"], ["status", "Status"]];
 export function biImportsHtml(list) {
   if (!list || !list.length) return `<p class="muted">No imports yet.</p>`;
-  return `<table class="rc-table"><thead><tr><th>#</th><th>Account</th><th>Range</th><th class="rc-num">New rows</th><th>Status</th><th></th></tr></thead><tbody>` +
-    list.map((i) => `<tr><td>${Number(i.import_id)}</td><td>${esc(accountDisplayLabel(i.account))}</td><td>${esc(i.date_from || "")} to ${esc(i.date_to || "")}</td>` +
+  const { key, dir } = biSort;
+  const val = (i) => (key === "account" ? accountDisplayLabel(i.account) : i[key]);
+  const rows = [...list].sort((x, y) => (val(x) > val(y) ? 1 : val(x) < val(y) ? -1 : 0) * dir);
+  return `<table class="rc-table"><thead><tr>` + BI_COLS.map(([k, l, c]) => `<th class="${c || ""}" aria-sort="${k === key ? (dir > 0 ? "ascending" : "descending") : "none"}">` +
+    `<button type="button" class="th-sort" onclick="biSortBy('${k}')">${l}${k === key ? (dir > 0 ? " ▲" : " ▼") : ""}</button></th>`).join("") + `<th></th></tr></thead><tbody>` +
+    rows.map((i) => `<tr><td>${Number(i.import_id)}</td><td>${esc(accountDisplayLabel(i.account))}</td><td>${esc(i.date_from || "")} to ${esc(i.date_to || "")}</td>` +
       `<td class="rc-num">${Number(i.rows_new)}</td><td>${esc(i.status)}</td><td>${i.status === "applied" ?
         `<button class="btn" type="button" onclick="biRevert(${Number(i.import_id)})">Revert</button>` : ""}</td></tr>`).join("") + `</tbody></table>`;
 }
+export function biSortBy(k) { biSort = { key: k, dir: biSort.key === k ? -biSort.dir : 1 }; biPaint(); }
+export function biToggleImports(open) { biImportsOpen = !!open; }
 
 export function biIncomeHtml(r) {
   const t = r.totals;
@@ -109,7 +119,7 @@ function biBodyHtml() {
     `<label>Lot method<select onchange="biSetMethod(this.value)">${BI_METHODS.map(([v, l]) => `<option value="${v}" ${v === biMethod ? "selected" : ""}>${l}</option>`).join("")}</select></label></div>` +
     `${multiHints || (biPreview && biPreview.needs_account) ? biHintPickersHtml(biPreview.hints, accounts, biAccounts, true) : ""}` +
     `<button class="btn" type="button" onclick="biPreviewFile()" ${biText ? "" : "disabled"}>Preview</button>${msg}${biPreview ? biPreviewHtml(biPreview) : ""}` +
-    `<h4>Imports</h4>${biImportsHtml(biImports && biImports.imports)}` +
+    `<details ${biImportsOpen ? "open" : ""} ontoggle="biToggleImports(this.open)"><summary><strong>Imports</strong> (${((biImports && biImports.imports) || []).length})</summary>${biImportsHtml(biImports && biImports.imports)}</details>` +
     `<h4>Income check (broker vs account import)</h4><button class="btn" type="button" onclick="biLoadIncome()">Check ${esc(biPlanAccount() ? accountDisplayLabel(biPlanAccount()) : "account")} for ${esc(String(new Date().getFullYear()))}</button>` +
     (biIncome ? `<div id="biIncome">${biIncomeHtml(biIncome)}</div>` : "");
 }
@@ -200,5 +210,5 @@ export async function biLoadIncome() {
 
 Object.assign(window, {
   biLotsHtml, biOrdersHtml, biPreviewHtml, biImportsHtml, biIncomeHtml, renderBrokerImport, biLoadImports, biFileChosen,
-  biSetAccount, biSetBroker, biSetHintAccount, biHintPickersHtml, biSetMethod, biSetConfirm, biSetHistory, biPreviewFile, biCommit, biRevert, biLoadIncome,
+  biSetAccount, biSetBroker, biSetHintAccount, biHintPickersHtml, biSetMethod, biSetConfirm, biSetHistory, biSortBy, biToggleImports, biPreviewFile, biCommit, biRevert, biLoadIncome,
 });
