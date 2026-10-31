@@ -214,3 +214,12 @@ describe("broker file vs account import wording", () => {
     assert.match(m.renderBrokerImport(), /Broker file<input type="file"/);
   });
 });
+
+describe("income check with Monarch off for investment accounts", () => {
+  test("explains there is nothing to compare and shows the broker total", () => {
+    const h = m.biIncomeHtml({ monarch_disabled: true, totals: { broker: 757.85 }, months: [], monarch_accounts: ["x"], broker_only: [], monarch_only: [] });
+    assert.match(h, /not kept for investment accounts/);
+    assert.match(h, /757\.85/);
+    assert.doesNotMatch(h, /<table/);
+  });
+});
