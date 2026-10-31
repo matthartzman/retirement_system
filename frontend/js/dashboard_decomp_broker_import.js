@@ -47,17 +47,17 @@ export function biOrdersHtml(orders, multi) {
 const biBrokerName = (id) => esc((BI_BROKERS.find(([v]) => v === id) || [id, id])[1]);
 
 // One plan-account picker per account hint of a multi-account file (a Vanguard download holds every account).
-export function biHintPickersHtml(hints, accounts, chosen) {
-  if (!hints || hints.length < 2) return "";
-  return `<div class="field-grid">` + hints.map((h) => `<label>Plan account for ${esc(h.hint)} (${Number(h.rows)} rows)` +
-    `<select aria-label="Plan account for ${esc(h.hint)}" onchange="biSetHintAccount('${esc(h.hint)}', this.value)"><option value="">Choose…</option>` +
+export function biHintPickersHtml(hints, accounts, chosen, force) {
+  if (!hints || !hints.length || (hints.length < 2 && !force)) return "";
+  return `<div class="field-grid">` + hints.map((h) => `<label>Plan account for ${esc(h.hint || "this file")} (${Number(h.rows)} rows)` +
+    `<select aria-label="Plan account for ${esc(h.hint || "this file")}" onchange="biSetHintAccount('${esc(h.hint)}', this.value)"><option value="">Choose…</option>` +
     accounts.map((a) => `<option value="${esc(a)}" ${a === (chosen[h.hint] || h.account) ? "selected" : ""}>${esc(accountDisplayLabel(a))}</option>`).join("") +
     `</select></label>`).join("") + `</div>`;
 }
 
 export function biPreviewHtml(p) {
   if (p.needs_account) {
-    return `<p class="field-error">${(p.hints || []).length > 1 ? "Choose a plan account for each account in this file" : "Choose the plan account this file belongs to"}, then preview again.</p>`;
+    return `<p class="field-error">${(p.hints || []).length > 1 ? "Choose a plan account for each account in this file" : "Choose the plan account this file belongs to (in the picker above)"}, then the preview and Import button appear.</p>`;
   }
   const multi = (p.hints || []).length > 1;
   const errs = (p.errors || []).map((e) => `<li>Line ${Number(e.line)}: ${esc(e.error)}</li>`).join("");
@@ -107,7 +107,7 @@ function biBodyHtml() {
     `<label>${multiHints ? "Income check account" : "Plan account"}<select id="biAccount" onchange="biSetAccount(this.value)"><option value="">${biPreview && biPreview.account ? "" : "Choose…"}</option><option value="${BI_IN_FILE}" ${biAccount === BI_IN_FILE ? "selected" : ""}>Account in file (one per record)</option>` +
     accounts.map((a) => `<option value="${esc(a)}" ${a === (biAccount || (biPreview && biPreview.account)) ? "selected" : ""}>${esc(accountDisplayLabel(a))}</option>`).join("") + `</select></label>` +
     `<label>Lot method<select onchange="biSetMethod(this.value)">${BI_METHODS.map(([v, l]) => `<option value="${v}" ${v === biMethod ? "selected" : ""}>${l}</option>`).join("")}</select></label></div>` +
-    `${multiHints ? biHintPickersHtml(biPreview.hints, accounts, biAccounts) : ""}` +
+    `${multiHints || (biPreview && biPreview.needs_account) ? biHintPickersHtml(biPreview.hints, accounts, biAccounts, true) : ""}` +
     `<button class="btn" type="button" onclick="biPreviewFile()" ${biText ? "" : "disabled"}>Preview</button>${biPreview ? biPreviewHtml(biPreview) : ""}` +
     `<h4>Imports</h4>${biImportsHtml(biImports && biImports.imports)}` +
     `<h4>Income check (broker vs account import)</h4><button class="btn" type="button" onclick="biLoadIncome()">Check ${esc(biPlanAccount() ? accountDisplayLabel(biPlanAccount()) : "account")} for ${esc(String(new Date().getFullYear()))}</button>` +
@@ -143,7 +143,7 @@ export function biFileChosen(input) {
 export function biSetAccount(v) { biAccount = v; biIncome = null; }
 const biPlanAccount = () => (biAccount === BI_IN_FILE ? "" : biAccount);
 export function biSetBroker(v) { biBroker = v; biPreview = null; biAccounts = {}; biPaint(); }
-export function biSetHintAccount(hint, v) { biAccounts = { ...biAccounts, [hint]: v }; }
+export function biSetHintAccount(hint, v) { biAccounts = { ...biAccounts, [hint]: v }; if (biPreview && biPreview.needs_account && (biPreview.hints || []).every((h) => biAccounts[h.hint])) return biPreviewFile(); }
 export function biSetMethod(v) { biMethod = v; }
 export function biSetConfirm(on) { biConfirm = !!on; }
 export function biSetHistory(on) { biHistory = !!on; return biPreviewFile(); }
