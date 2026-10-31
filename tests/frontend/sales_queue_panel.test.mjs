@@ -15,6 +15,7 @@ const PANEL = {
 before(async () => {
   globalThis.esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   globalThis.window = globalThis;
+  globalThis.accountDisplayLabel = (a) => String(a).replace(/^Member_1_/, "Matt's ");
   const els = { sqRoot: { innerHTML: "" } };
   globalThis.document = { getElementById: (id) => els[id] || null };
   globalThis.api = async (url, opts) => {

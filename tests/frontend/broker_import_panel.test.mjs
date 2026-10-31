@@ -8,6 +8,7 @@ const calls = [];
 before(async () => {
   globalThis.esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   globalThis.window = globalThis;
+  globalThis.accountDisplayLabel = (a) => String(a).replace(/^Member_1_/, "Matt's ");
   globalThis.document = { getElementById: () => null };
   globalThis.api = async (url, opts) => {
     calls.push([url, opts && opts.method, opts && opts.body ? JSON.parse(opts.body) : null]);
@@ -142,5 +143,14 @@ describe("account in file", () => {
     const body = calls.find((c) => c[0] === "/api/sales/broker/preview")[2];
     assert.equal(body.account, "");
     m.biSetAccount("");
+  });
+});
+
+describe("friendly account names", () => {
+  test("plan account pull-downs show the friendly name and keep the internal value", async () => {
+    m.biSetBroker("");
+    await m.biLoadImports();
+    const h = m.renderBrokerImport();
+    assert.match(h, /<option value="Member_1_HSA" [^>]*>Matt&#39;s HSA|<option value="Member_1_HSA" [^>]*>Matt's HSA/);
   });
 });

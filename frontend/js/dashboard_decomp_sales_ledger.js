@@ -37,7 +37,7 @@ export function slRowHtml(s) {
     : s.source === "manual" ? btn("slEdit", "Edit") + " " + btn("slVoid", "Void")
     : s.source === "broker" || s.source === "monarch" ? btn("slRequeue", "Back to queue")
     : btn("slVoid", "Void");
-  return `<tr class="${voided ? "sl-voided" : ""}"><td>${esc(s.sale_date)}</td><td>${esc(s.account)}</td><td>${esc(s.symbol)}</td>` +
+  return `<tr class="${voided ? "sl-voided" : ""}"><td>${esc(s.sale_date)}</td><td>${esc(accountDisplayLabel(s.account))}</td><td>${esc(s.symbol)}</td>` +
     `<td class="rc-num">${esc(String(s.shares))}</td><td class="rc-num">${slMoney(s.proceeds)}</td><td class="rc-num">${slMoney(s.fees)}</td>` +
     `<td class="rc-num">${slMoney(s.basis)}</td><td>${slGainHtml(s.gain)}</td><td>${esc(SL_TERM[s.holding_period] || "")}</td><td>${action}</td></tr>`;
 }

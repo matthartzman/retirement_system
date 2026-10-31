@@ -26,7 +26,7 @@ let biMessage = null; // { text, error }
 const biMoney = (v) => (window.slMoney ? window.slMoney(v) : String(v));
 const biNum = (v) => esc(String(Math.round(Number(v) * 1e6) / 1e6));
 
-const biAcct = (rows, on) => (on ? `<td>${esc(rows.account || "")}</td>` : "");
+const biAcct = (rows, on) => (on ? `<td>${esc(accountDisplayLabel(rows.account || ""))}</td>` : "");
 
 export function biLotsHtml(lots, multi) {
   if (!lots.length) return `<p class="muted">No new buys or reinvestments.</p>`;
@@ -51,7 +51,7 @@ export function biHintPickersHtml(hints, accounts, chosen) {
   if (!hints || hints.length < 2) return "";
   return `<div class="field-grid">` + hints.map((h) => `<label>Plan account for ${esc(h.hint)} (${Number(h.rows)} rows)` +
     `<select aria-label="Plan account for ${esc(h.hint)}" onchange="biSetHintAccount('${esc(h.hint)}', this.value)"><option value="">Choose…</option>` +
-    accounts.map((a) => `<option value="${esc(a)}" ${a === (chosen[h.hint] || h.account) ? "selected" : ""}>${esc(a)}</option>`).join("") +
+    accounts.map((a) => `<option value="${esc(a)}" ${a === (chosen[h.hint] || h.account) ? "selected" : ""}>${esc(accountDisplayLabel(a))}</option>`).join("") +
     `</select></label>`).join("") + `</div>`;
 }
 
@@ -66,7 +66,7 @@ export function biPreviewHtml(p) {
   const c = p.counts;
   const n = p.will_write.length;
   return `<div class="sl-preview"><p>${Number(p.received)} rows (${esc(p.date_from || "")} to ${esc(p.date_to || "")}): ${n} new, ` +
-    `${Number(p.already_imported)} already imported. ${biBrokerName(p.broker)}, ${multi ? "accounts" : "account"} ${esc(p.account)}${p.tax_class ? ` (${esc(p.tax_class)})` : ""}.</p>` +
+    `${Number(p.already_imported)} already imported. ${biBrokerName(p.broker)}, ${multi ? "accounts" : "account"} ${esc(String(p.account || "").split(", ").map(accountDisplayLabel).join(", "))}${p.tax_class ? ` (${esc(p.tax_class)})` : ""}.</p>` +
     (errs ? `<ul class="field-error">${errs}</ul><p>Nothing can be imported until these rows read cleanly.</p>` : "") +
     (warns ? `<ul class="field-warning">${warns}</ul>` : "") +
     `<h4>Lots (${c.lots_add} new, ${c.lots_present} already present)</h4>${biLotsHtml(p.lots, multi)}` +
@@ -81,7 +81,7 @@ export function biPreviewHtml(p) {
 export function biImportsHtml(list) {
   if (!list || !list.length) return `<p class="muted">No imports yet.</p>`;
   return `<table class="rc-table"><thead><tr><th>#</th><th>Account</th><th>Range</th><th class="rc-num">New rows</th><th>Status</th><th></th></tr></thead><tbody>` +
-    list.map((i) => `<tr><td>${Number(i.import_id)}</td><td>${esc(i.account)}</td><td>${esc(i.date_from || "")} to ${esc(i.date_to || "")}</td>` +
+    list.map((i) => `<tr><td>${Number(i.import_id)}</td><td>${esc(accountDisplayLabel(i.account))}</td><td>${esc(i.date_from || "")} to ${esc(i.date_to || "")}</td>` +
       `<td class="rc-num">${Number(i.rows_new)}</td><td>${esc(i.status)}</td><td>${i.status === "applied" ?
         `<button class="btn" type="button" onclick="biRevert(${Number(i.import_id)})">Revert</button>` : ""}</td></tr>`).join("") + `</tbody></table>`;
 }
@@ -105,12 +105,12 @@ function biBodyHtml() {
     `<div class="field-grid"><label>Broker<select aria-label="Broker" onchange="biSetBroker(this.value)">${BI_BROKERS.map(([v, l]) => `<option value="${v}" ${v === biBroker ? "selected" : ""}>${l}</option>`).join("")}</select></label>` +
     `<label>File<input type="file" accept=".csv,text/csv" aria-label="Brokerage history file" onchange="biFileChosen(this)"></label>` +
     `<label>${multiHints ? "Income check account" : "Plan account"}<select id="biAccount" onchange="biSetAccount(this.value)"><option value="">${biPreview && biPreview.account ? "" : "Choose…"}</option><option value="${BI_IN_FILE}" ${biAccount === BI_IN_FILE ? "selected" : ""}>Account in file (one per record)</option>` +
-    accounts.map((a) => `<option value="${esc(a)}" ${a === (biAccount || (biPreview && biPreview.account)) ? "selected" : ""}>${esc(a)}</option>`).join("") + `</select></label>` +
+    accounts.map((a) => `<option value="${esc(a)}" ${a === (biAccount || (biPreview && biPreview.account)) ? "selected" : ""}>${esc(accountDisplayLabel(a))}</option>`).join("") + `</select></label>` +
     `<label>Lot method<select onchange="biSetMethod(this.value)">${BI_METHODS.map(([v, l]) => `<option value="${v}" ${v === biMethod ? "selected" : ""}>${l}</option>`).join("")}</select></label></div>` +
     `${multiHints ? biHintPickersHtml(biPreview.hints, accounts, biAccounts) : ""}` +
     `<button class="btn" type="button" onclick="biPreviewFile()" ${biText ? "" : "disabled"}>Preview</button>${biPreview ? biPreviewHtml(biPreview) : ""}` +
     `<h4>Imports</h4>${biImportsHtml(biImports && biImports.imports)}` +
-    `<h4>Income check (broker vs account import)</h4><button class="btn" type="button" onclick="biLoadIncome()">Check ${esc(biPlanAccount() || "account")} for ${esc(String(new Date().getFullYear()))}</button>` +
+    `<h4>Income check (broker vs account import)</h4><button class="btn" type="button" onclick="biLoadIncome()">Check ${esc(biPlanAccount() ? accountDisplayLabel(biPlanAccount()) : "account")} for ${esc(String(new Date().getFullYear()))}</button>` +
     (biIncome ? biIncomeHtml(biIncome) : "");
 }
 
