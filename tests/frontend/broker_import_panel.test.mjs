@@ -154,3 +154,14 @@ describe("friendly account names", () => {
     assert.match(h, /<option value="Member_1_HSA" [^>]*>Matt&#39;s HSA|<option value="Member_1_HSA" [^>]*>Matt's HSA/);
   });
 });
+
+describe("single-account file that names no plan account", () => {
+  test("shows a picker for it so the preview and Import button can follow", () => {
+    const one = [{ hint: "fidelity:X1", account: null, rows: 3 }];
+    assert.equal(m.biHintPickersHtml(one, ["Roth"], {}), "");
+    const h = m.biHintPickersHtml(one, ["Roth"], {}, true);
+    assert.equal((h.match(/<select/g) || []).length, 1);
+    assert.match(h, /biSetHintAccount\('fidelity:X1', this\.value\)/);
+    assert.match(m.biPreviewHtml({ needs_account: true, hints: one }), /picker above/);
+  });
+});
