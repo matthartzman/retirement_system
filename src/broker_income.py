@@ -59,6 +59,11 @@ def match_income(broker_rows: list[Mapping[str, Any]], monarch_rows: list[Mappin
         else:
             broker_only.append(dict(b))
     monarch_only = [dict(monarch_rows[i]) for i in free]
+    twins = [m["monarch"] for m in matched]  # an unmatched account-import row that repeats a matched one is a duplicate feed row
+    for m in monarch_only:
+        m["duplicate"] = any(abs(t["amount"] - m["amount"]) < CENT and abs((date.fromisoformat(t["date"]) - date.fromisoformat(m["date"])).days) <= DAY_TOLERANCE
+                             for t in twins)
+    dup_total = round(sum(m["amount"] for m in monarch_only if m["duplicate"]), 2)
     months: dict[str, dict[str, float]] = {}
     for b in broker_rows:
         months.setdefault(b["run_date"][:7], {"broker": 0.0, "monarch": 0.0})["broker"] += b["amount"]
@@ -69,7 +74,9 @@ def match_income(broker_rows: list[Mapping[str, Any]], monarch_rows: list[Mappin
     tb, tm = round(sum(b["amount"] for b in broker_rows), 2), round(sum(m["amount"] for m in monarch_rows), 2)
     return {"matched": matched, "broker_only": broker_only, "monarch_only": monarch_only, "months": month_rows,
             "totals": {"broker": tb, "monarch": tm, "difference": round(tb - tm, 2),
-                       "matched": len(matched), "broker_only": len(broker_only), "monarch_only": len(monarch_only)}}
+                       "matched": len(matched), "broker_only": len(broker_only), "monarch_only": len(monarch_only),
+                       "monarch_duplicates": sum(1 for m in monarch_only if m["duplicate"]),
+                       "difference_without_duplicates": round(tb - (tm - dup_total), 2)}}
 
 
 def _by_kind(rows: Iterable[Mapping[str, Any]]) -> dict[str, float]:
@@ -82,8 +89,9 @@ def _by_kind(rows: Iterable[Mapping[str, Any]]) -> dict[str, float]:
 def reconcile(input_dir: str | Path, *, account: str, year: int) -> dict[str, Any]:
     with active_plan.workspace_store(_base(input_dir)) as store:
         rows = store.broker.activity(account=account, year=int(year), kinds=MATCH_KINDS + INFO_KINDS)
-        names = {_norm(r.get("Account")) for r in store.dataset("ytd_account_setup").rows()
-                 if _norm(r.get("Mapped Investment Account")) == _norm(account)}
+        setup = [r for r in store.dataset("ytd_account_setup").rows() if _norm(r.get("Mapped Investment Account")) == _norm(account)]
+        names = {_norm(r.get("Account")) for r in setup}
+        monarch_off = bool(setup) and all(r.get("Role") == "Investment" for r in setup)  # Monarch rows are not kept for Investment accounts
         monarch = monarch_income_rows(store.dataset("ytd_transactions").rows(), names, int(year))
         imports = [i for i in store.broker.list_imports(account=account) if i["status"] == "applied"]
         reinvests = store.broker.activity(account=account, year=int(year), kinds=["reinvest"])
@@ -94,7 +102,7 @@ def reconcile(input_dir: str | Path, *, account: str, year: int) -> dict[str, An
     for r in income:
         r["reinvested"] = (r["symbol"], r["run_date"], round(r["amount"], 2)) in reinvested
     out = match_income(income, monarch)
-    return {"account": account, "year": int(year), "monarch_accounts": sorted(names), "by_kind": _by_kind(income),
+    return {"account": account, "year": int(year), "monarch_accounts": sorted(names), "monarch_disabled": monarch_off, "by_kind": _by_kind(income),
             "other_rows": info, "coverage": [{"date_from": i["date_from"], "date_to": i["date_to"],
                                               "file_name": i["file_name"]} for i in imports], **out}
 

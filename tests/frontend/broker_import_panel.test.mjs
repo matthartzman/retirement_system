@@ -100,7 +100,7 @@ describe("imports and income", () => {
       months: [{ month: "2026-09", broker: 201.12, monarch: 201, difference: 0.12 }],
       broker_only: [{ run_date: "2026-09-30", symbol: "FDRXX", amount: 0.12 }], monarch_only: [] });
     assert.match(h, /2 matched/);
-    assert.match(h, /Only in the broker file:<\/strong> 2026-09-30 FDRXX \$0\.12/);
+    assert.match(h, /Only in the broker file<\/strong> \(1\)<\/p><table[\s\S]*<td>2026-09-30<\/td><td><span title="FDRXX">FDRXX<\/span><\/td><td class="rc-num">\$0\.12/);
     assert.match(h, /sl-down/);
   });
 });
@@ -152,5 +152,74 @@ describe("friendly account names", () => {
     await m.biLoadImports();
     const h = m.renderBrokerImport();
     assert.match(h, /<option value="Member_1_HSA" [^>]*>Matt&#39;s HSA|<option value="Member_1_HSA" [^>]*>Matt's HSA/);
+  });
+});
+
+describe("single-account file that names no plan account", () => {
+  test("shows a picker for it so the preview and Import button can follow", () => {
+    const one = [{ hint: "fidelity:X1", account: null, rows: 3 }];
+    assert.equal(m.biHintPickersHtml(one, ["Roth"], {}), "");
+    const h = m.biHintPickersHtml(one, ["Roth"], {}, true);
+    assert.equal((h.match(/<select/g) || []).length, 1);
+    assert.match(h, /biSetHintAccount\('fidelity:X1', this\.value\)/);
+    assert.match(m.biPreviewHtml({ needs_account: true, hints: one }), /picker above/);
+  });
+});
+
+describe("unreadable files and the imports table", () => {
+  test("a preview with errors and no counts renders the errors instead of throwing", () => {
+    const h = m.biPreviewHtml({ errors: [{ line: 0, error: "This file's layout is not recognized; choose the broker." }], will_write: [], hints: [] });
+    assert.match(h, /layout is not recognized/);
+    assert.doesNotMatch(h, /Line 0/);
+    assert.match(m.biPreviewHtml({ errors: [], will_write: [] }), /could be read/);
+  });
+  test("imports sort by the clicked heading, newest first by default", () => {
+    const list = [{ import_id: 1, account: "B", rows_new: 5, status: "applied" }, { import_id: 2, account: "A", rows_new: 9, status: "reverted" }];
+    const ids = (h) => [...h.matchAll(/<tr><td>(\d+)<\/td>/g)].map((x) => x[1]).join(",");
+    assert.equal(ids(m.biImportsHtml(list)), "2,1");
+    m.biSortBy("rows_new");
+    assert.equal(ids(m.biImportsHtml(list)), "1,2");
+    m.biSortBy("rows_new");
+    assert.equal(ids(m.biImportsHtml(list)), "2,1");
+    assert.match(m.biImportsHtml(list), /aria-sort="descending"/);
+  });
+  test("the imports list is a collapsed section by default", () => {
+    assert.match(m.renderBrokerImport(), /<details\s+ontoggle/);
+    m.biToggleImports(true);
+    assert.match(m.renderBrokerImport(), /<details open/);
+    m.biToggleImports(false);
+  });
+});
+
+describe("friendly account names in server messages", () => {
+  test("warnings and errors show account labels, not plan account ids", async () => {
+    await m.biLoadImports();
+    const h = m.biPreviewHtml({ counts: { lots_add: 0, lots_present: 0, orders: 0, orders_ready: 0 }, will_write: [], lots: [], orders: [], received: 1,
+      warnings: ["Member_1_HSA: BND: the holdings would end at -1 shares."], errors: [] });
+    assert.doesNotMatch(h, /Member_1_HSA/);
+    assert.match(h, /Matt's HSA: BND/);
+  });
+});
+
+describe("broker file vs account import wording", () => {
+  test("income check names both sources and calls out repeated account-import rows", () => {
+    const h = m.biIncomeHtml({ totals: { matched: 1, broker: 10, monarch: 20, difference: -10, monarch_duplicates: 1, difference_without_duplicates: 0 },
+      months: [], monarch_accounts: ["x"], broker_only: [], monarch_only: [{ date: "2026-02-05", merchant: "Dividend", amount: 10, duplicate: true }] });
+    assert.match(h, /Broker file: the history you imported/);
+    assert.match(h, /1 account-import row repeats a matched row/);
+    assert.match(h, /Without them the difference is/);
+    assert.match(h, /Repeat of a matched row/);
+    const long = m.biIncomeHtml({ totals: { matched: 0 }, months: [], monarch_accounts: ["x"], broker_only: [], monarch_only: [{ date: "2026-02-05", merchant: "Ishares Trust Ishares 0 1 Year Treasury Bond Etf Dividend Received (Shv) (Cash)", amount: 1 }] });
+    assert.match(long, /Ishares Trust Ishares 0 1 Year Treasury Bond Et…<\/span>/);
+    assert.match(m.renderBrokerImport(), /Broker file<input type="file"/);
+  });
+});
+
+describe("income check with Monarch off for investment accounts", () => {
+  test("explains there is nothing to compare and shows the broker total", () => {
+    const h = m.biIncomeHtml({ monarch_disabled: true, totals: { broker: 757.85 }, months: [], monarch_accounts: ["x"], broker_only: [], monarch_only: [] });
+    assert.match(h, /not kept for investment accounts/);
+    assert.match(h, /757\.85/);
+    assert.doesNotMatch(h, /<table/);
   });
 });

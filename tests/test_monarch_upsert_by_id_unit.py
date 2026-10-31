@@ -244,3 +244,43 @@ def test_adopting_one_row_does_not_consume_a_second_distinct_manual_row(tmp_path
     assert len(stored) == 2
     assert {r["Merchant"] for r in stored} == {"Kroger", "Costco"}
     assert all(r["Monarch Id"] for r in stored)
+
+
+def _investment_setup(root, account="Brokerage"):
+    ytd.write_account_setup(root, [{"Account": account, "Role": "Investment", "Mapped Investment Account": "Member_1_IRA"}])
+
+
+def test_investment_account_rows_are_not_imported_from_monarch(tmp_path):
+    root = tmp_path / "input"
+    _investment_setup(root)
+    result = ytd.upsert_transactions_by_monarch_id(root, [_row("mid-1", Account="Brokerage", Category="Dividends & Capital Gains"), _row("mid-2")])
+    assert result["added"] == 1 and result["skipped_investment"] == 1
+    assert [r["Monarch Id"] for r in ytd.read_transactions(root)] == ["mid-2"]
+
+
+def test_cash_movements_of_investment_accounts_are_kept(tmp_path):
+    root = tmp_path / "input"
+    _investment_setup(root)
+    ytd.upsert_transactions_by_monarch_id(root, [_row("mid-1", Account="Brokerage", Category="Transfer"),
+                                                 _row("mid-2", Account="Brokerage", Category="401k Contribution"),
+                                                 _row("mid-3", Account="Brokerage", Category="Buy")])
+    assert sorted(r["Monarch Id"] for r in ytd.read_transactions(root)) == ["mid-1", "mid-2"]
+
+
+def test_existing_investment_account_rows_are_purged_on_import(tmp_path):
+    root = tmp_path / "input"
+    ytd.upsert_transactions_by_monarch_id(root, [_row("mid-1", Account="Brokerage", Category="Sell"),
+                                                 _row("mid-4", Account="Brokerage", Category="Transfer"), _row("mid-2")])
+    assert len(ytd.read_transactions(root)) == 3
+    _investment_setup(root)
+    result = ytd.upsert_transactions_by_monarch_id(root, [_row("mid-3")])
+    assert result["purged_investment"] == 1
+    assert sorted(r["Monarch Id"] for r in ytd.read_transactions(root)) == ["mid-2", "mid-3", "mid-4"]
+
+
+def test_uploaded_csv_rows_of_investment_accounts_are_left_out(tmp_path):
+    root = tmp_path / "input"
+    _investment_setup(root)
+    csv = "Date,Merchant,Category,Account,Amount\n2026-03-04,Dividend,Dividends & Capital Gains,Brokerage,5.00\n2026-03-04,Kroger,Groceries,Checking,-10.00\n2026-03-05,Deposit,Transfer,Brokerage,100.00\n"
+    ytd.import_transactions(root, csv, "replace")
+    assert sorted(r["Category"] for r in ytd.read_transactions(root)) == ["Groceries", "Transfer"]

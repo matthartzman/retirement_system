@@ -25,6 +25,16 @@ def test_match_one_to_one_within_tolerance():
     assert {m["month"] for m in out["months"]} == {"2026-03", "2026-05", "2026-06"}
 
 
+def test_account_import_rows_that_repeat_a_matched_row_are_flagged_as_duplicates():
+    out = broker_income.match_income([_b("2026-02-05", 72.63), _b("2026-02-27", 0.17)],
+                                     [_m("2026-02-05", 72.63), _m("2026-02-05", 72.63), _m("2026-02-27", 0.17), _m("2026-04-01", 5.0)])
+    flags = {(m["date"], m["amount"]): m["duplicate"] for m in out["monarch_only"]}
+    assert flags == {("2026-02-05", 72.63): True, ("2026-04-01", 5.0): False}
+    assert out["totals"]["monarch_duplicates"] == 1
+    assert out["totals"]["difference"] == round(72.63 + 0.17 - (72.63 * 2 + 0.17 + 5.0), 2)
+    assert out["totals"]["difference_without_duplicates"] == round(72.63 + 0.17 - (72.63 + 0.17 + 5.0), 2)
+
+
 def test_nearest_date_wins():
     out = broker_income.match_income([_b("2026-03-20", 10.0)], [_m("2026-03-23", 10.0), _m("2026-03-21", 10.0)])
     assert out["matched"][0]["monarch"]["date"] == "2026-03-21"
@@ -68,3 +78,11 @@ def test_reconcile_service(ws):
     assert reinv == {"SHRT": False, "TOTL": True}
     assert rep["coverage"][0]["date_from"] == "2026-01-16"
     assert broker_income.income_totals(ws, account=ACCT, year=2026) == {"dividend": 205.62}
+
+
+def test_reconcile_says_monarch_is_off_for_investment_accounts(ws):
+    assert broker_income.reconcile(ws, account=ACCT, year=2026)["monarch_disabled"] is True
+    with active_plan.workspace_store(ws.parent, write=True) as store:
+        store.dataset("ytd_account_setup").replace_all([{"Account": "Health Savings Account (HSA)", "Role": "Cash / spending",
+                                                         "Mapped Investment Account": ACCT}])
+    assert broker_income.reconcile(ws, account=ACCT, year=2026)["monarch_disabled"] is False
