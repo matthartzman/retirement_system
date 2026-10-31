@@ -16,6 +16,7 @@ let slMessage = null; // { text, error }
 let slLoading = false;
 let slError = "";
 let slEditId = null;
+let slAccounts = [];
 
 export function slMoney(v) {
   if (v === null || v === undefined || Number.isNaN(Number(v))) return "—";
@@ -63,10 +64,13 @@ export function slPreviewHtml(p) {
     `${ok && add ? `<button class="btn primary" type="button" onclick="slImportCommit()">Add ${add} sale${add === 1 ? "" : "s"}</button>` : ""}</div>`;
 }
 
+const slAccountSelect = () => `<label>Account<select id="slAccount"><option value=""></option>` +
+  slAccounts.map((a) => `<option value="${esc(a)}">${esc(accountDisplayLabel(a))}</option>`).join("") + `</select></label>`;
+
 function slFormHtml() {
   const input = (id, label, type = "text", extra = "") => `<label>${label}<input id="${id}" type="${type}" ${extra}></label>`;
   return `<div class="sl-form"><h3>${slEditId ? "Edit sale" : "Record a sale"}</h3><div class="field-grid">` +
-    input("slDate", "Sale date", "date") + input("slAccount", "Account") +
+    input("slDate", "Sale date", "date") + slAccountSelect() +
     `<label>Account type<select id="slClass">${SL_CLASSES.map(([v, l]) => `<option value="${v}">${l}</option>`).join("")}</select></label>` +
     input("slSymbol", "Symbol") + input("slShares", "Shares sold", "number", 'step="any" min="0"') +
     input("slProceeds", "Proceeds ($)", "number", 'step="any"') + input("slFees", "Fees ($)", "number", 'step="any" min="0"') +
@@ -109,6 +113,8 @@ export async function loadSalesLedger() {
     if (slYear) q.set("year", slYear);
     if (slShowVoided) q.set("include_voided", "1");
     const out = await api("/api/sales?" + q);
+    try { slAccounts = (await api("/api/sales/broker/imports")).accounts || []; } catch (e) { slAccounts = []; }
+    if (out && out.sales) slAccounts = [...new Set([...slAccounts, ...out.sales.map((x) => x.account)])].sort();
     slData = out && out.success ? out : null;
     if (!slData) slError = "The ledger could not be loaded.";
     if (window.loadSalesTaxYear && slYear) window.loadSalesTaxYear(slYear);

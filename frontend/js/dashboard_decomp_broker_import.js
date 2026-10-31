@@ -121,12 +121,10 @@ export function renderBrokerImport() {
 
 function biPaint() {
   const root = document.getElementById("biRoot");
-  if (!root) return;
-  // Re-rendering would recreate the file input and show "No file chosen"; carry the live one across.
-  const old = root.querySelector('input[type="file"]');
-  root.innerHTML = biBodyHtml();
-  const fresh = root.querySelector('input[type="file"]');
-  if (old && fresh && old.files && old.files.length) fresh.replaceWith(old);
+  const old = root && root.querySelector('input[type="file"]'); // repainting must not reset the chosen file
+  if (root) root.innerHTML = biBodyHtml();
+  const fresh = old && old.files.length && root.querySelector('input[type="file"]');
+  if (fresh) fresh.replaceWith(old);
 }
 
 export async function biLoadImports() {
