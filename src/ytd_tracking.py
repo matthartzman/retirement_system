@@ -224,6 +224,26 @@ def read_account_setup(root: str | Path) -> list[dict[str, str]]:
     return _read_dataset(root, "ytd_account_setup", ACCOUNT_SETUP_COLUMNS)
 
 
+def investment_account_names(root: str | Path) -> set[str]:
+    """Lower-cased names of the accounts whose Role is Investment. Their activity comes from the broker files,
+    so Monarch / uploaded transactions for them are not kept (broker import is the record)."""
+    return {r["Account"].strip().lower() for r in read_account_setup(root) if r.get("Role") == "Investment" and r.get("Account", "").strip()}
+
+
+def purge_investment_transactions(root: str | Path) -> int:
+    """Delete the stored transactions of Investment-role accounts; returns how many were removed."""
+    names, removed = investment_account_names(root), [0]
+
+    def _keep(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+        kept = [r for r in rows if str(r.get("Account", "")).strip().lower() not in names]
+        removed[0] = len(rows) - len(kept)
+        return kept
+
+    if names:
+        transform_dataset_rows_for_input_dir(root, "ytd_transactions", _keep)
+    return removed[0]
+
+
 def write_account_setup(root: str | Path, rows: list[dict[str, Any]]) -> None:
     cleaned = []
     seen = set()
@@ -495,6 +515,9 @@ def import_transactions(root: str | Path, text: str, mode: str = "replace", *, t
             skipped_not_current_year += 1
             continue
         incoming.append(row)
+    investment = investment_account_names(root)
+    skipped_investment = sum(1 for r in incoming if str(r.get("Account", "")).strip().lower() in investment)
+    incoming = [r for r in incoming if str(r.get("Account", "")).strip().lower() not in investment]
     mode = str(mode or "replace").strip().lower()
     existing = read_transactions(root, today=today)
     existing_hashes = {transaction_hash(r) for r in existing}
@@ -523,6 +546,7 @@ def import_transactions(root: str | Path, text: str, mode: str = "replace", *, t
     final.sort(key=lambda r: (format_date(parse_date(r.get("Date"))) or "9999-12-31", r.get("Account", ""), r.get("Merchant", "")))
     write_transactions(root, final, today=today)
     ensure_account_setup_for_transactions(root, today=today)
+    purge_investment_transactions(root)
     all_dates = [parse_date(r.get("Date")) for r in final if parse_date(r.get("Date"))]
     append_import_history(root, {
         "Loaded At": datetime.now().isoformat(timespec="seconds"),
@@ -532,7 +556,7 @@ def import_transactions(root: str | Path, text: str, mode: str = "replace", *, t
         "Rows Skipped": skipped,
         "Earliest Transaction Date": format_date(min(all_dates) if all_dates else None),
         "Latest Transaction Date": format_date(max(all_dates) if all_dates else None),
-        "Notes": f"Transactions imported from UI upload. Kept {len(incoming)} row(s) with valid dates (all years); skipped {skipped_not_current_year} row(s) with missing/invalid dates.",
+        "Notes": f"Transactions imported from UI upload. Kept {len(incoming)} row(s) with valid dates (all years); skipped {skipped_not_current_year} row(s) with missing/invalid dates; left out {skipped_investment} row(s) of Investment accounts (broker files are their record).",
     })
     return {
         "success": True,
@@ -636,7 +660,9 @@ def upsert_transactions_by_monarch_id(
     the Monarch field-mapping loader) -- this function only merges, it does
     not know about Monarch's own column names.
     """
-    normalized_incoming = [normalize_transaction(r) for r in incoming_rows]
+    investment = investment_account_names(root)
+    normalized_incoming = [normalize_transaction(r) for r in incoming_rows if str(r.get("Account", "")).strip().lower() not in investment]
+    skipped_investment = len(incoming_rows) - len(normalized_incoming)
     merged: dict[str, Any] = {}
 
     def _merge(stored: list[dict[str, str]]) -> list[dict[str, Any]]:
@@ -739,8 +765,9 @@ def upsert_transactions_by_monarch_id(
     skipped, invalid_date_rows, collapsed = merged["skipped"], merged["invalid_date_rows"], merged["collapsed"]
     existing = merged["existing"]
     ensure_account_setup_for_transactions(root, today=today)
+    purged = purge_investment_transactions(root)
     all_dates = [parse_date(r.get("Date")) for r in existing if parse_date(r.get("Date"))]
-    total_skipped = skipped + invalid_date_rows
+    total_skipped = skipped + invalid_date_rows + skipped_investment
     append_import_history(root, {
         "Loaded At": datetime.now().isoformat(timespec="seconds"),
         "Mode": "monarch_auto",
@@ -753,7 +780,8 @@ def upsert_transactions_by_monarch_id(
             f"Monarch auto-update: {len(added)} added, {len(updated)} updated, "
             f"{len(adopted)} adopted (matched to an existing manually-entered row), "
             f"{collapsed} stale duplicate(s) removed, "
-            f"{total_skipped} skipped."
+            f"{total_skipped} skipped ({skipped_investment} of Investment accounts, which come from broker files); "
+            f"{purged} stored Investment-account row(s) removed."
         ),
         "Rows Updated": str(len(updated) + len(adopted)),
     })
@@ -765,6 +793,8 @@ def upsert_transactions_by_monarch_id(
         "adopted": len(adopted),
         "duplicates_removed": collapsed,
         "skipped": total_skipped,
+        "skipped_investment": skipped_investment,
+        "purged_investment": purged,
         "invalid_date_rows": invalid_date_rows,
         "total": len(existing),
         "earliest": format_date(min(all_dates) if all_dates else None),

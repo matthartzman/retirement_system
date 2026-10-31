@@ -626,7 +626,8 @@ DASHBOARD_JS_MAX_LINES = 6_476
 # 2026-10-31 (broker import preview shows friendly account names in server warnings and errors, +2): raised to the measured 41,522.
 # 2026-10-31 (broker import income check names "broker file" vs "account import" and flags repeated account-import rows, +3): raised to the measured 41,525.
 # 2026-10-31 (broker income check lists "only in" rows as tables with shortened descriptions, +2): raised to the measured 41,527.
-TOTAL_JS_MAX_LINES = 41_527
+# 2026-10-31 (income check explains Monarch is not kept for Investment accounts, +1): raised to the measured 41,528.
+TOTAL_JS_MAX_LINES = 41_528
 
 
 def _line_count(path: Path) -> int:

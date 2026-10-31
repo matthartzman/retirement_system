@@ -78,3 +78,11 @@ def test_reconcile_service(ws):
     assert reinv == {"SHRT": False, "TOTL": True}
     assert rep["coverage"][0]["date_from"] == "2026-01-16"
     assert broker_income.income_totals(ws, account=ACCT, year=2026) == {"dividend": 205.62}
+
+
+def test_reconcile_says_monarch_is_off_for_investment_accounts(ws):
+    assert broker_income.reconcile(ws, account=ACCT, year=2026)["monarch_disabled"] is True
+    with active_plan.workspace_store(ws.parent, write=True) as store:
+        store.dataset("ytd_account_setup").replace_all([{"Account": "Health Savings Account (HSA)", "Role": "Cash / spending",
+                                                         "Mapped Investment Account": ACCT}])
+    assert broker_income.reconcile(ws, account=ACCT, year=2026)["monarch_disabled"] is False

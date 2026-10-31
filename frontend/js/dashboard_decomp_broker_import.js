@@ -105,8 +105,9 @@ export function biIncomeHtml(r) {
   const what = (x) => { const t = String(x.symbol || x.merchant || ""); return `<span title="${esc(t)}">${esc(t.length > 48 ? `${t.slice(0, 47)}…` : t)}</span>`; };
   const only = (label, items, date, amt) => items.length ? `<p><strong>${label}</strong> (${items.length})</p><table class="rc-table"><thead><tr><th>Date</th><th>Description</th><th class="rc-num">Amount</th><th></th></tr></thead><tbody>` +
     items.map((x) => `<tr><td>${esc(x[date])}</td><td>${what(x)}</td><td class="rc-num">${biMoney(x[amt])}</td><td>${x.duplicate ? "Repeat of a matched row" : ""}</td></tr>`).join("") + `</tbody></table>` : "";
+  if (r.monarch_disabled) return `<p class="muted">Transactions from your linked-account feed are not kept for investment accounts, so there is nothing to compare. The broker file is the income record: ${biMoney(t.broker)} so far this year.</p>`;
   const dups = Number(t.monarch_duplicates || 0);
-  return `<p class="muted">Broker file: the history you imported from the broker. Account import: the transactions your linked-account feed (Monarch) brought in for this account. The broker file is the record to trust.</p>` +
+  return `<p class="muted">Broker file: the history you imported from the broker. Account import: the transactions your linked-account feed brought in for this account. The broker file is the record to trust.</p>` +
     `<p>${Number(t.matched)} matched · broker file ${biMoney(t.broker)} · account import ${biMoney(t.monarch)} · difference ${biMoney(t.difference)}` +
     `${r.monarch_accounts.length ? "" : " · no imported account is mapped to this plan account"}</p>` +
     (dups ? `<p class="field-warning">${dups} account-import row${dups === 1 ? "" : "s"} repeat${dups === 1 ? "s" : ""} a matched row (same date and amount), usually because the account is linked twice. Without them the difference is ${biMoney(t.difference_without_duplicates)}.</p>` : "") +
