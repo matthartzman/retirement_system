@@ -200,3 +200,15 @@ describe("friendly account names in server messages", () => {
     assert.match(h, /Matt's HSA: BND/);
   });
 });
+
+describe("broker file vs account import wording", () => {
+  test("income check names both sources and calls out repeated account-import rows", () => {
+    const h = m.biIncomeHtml({ totals: { matched: 1, broker: 10, monarch: 20, difference: -10, monarch_duplicates: 1, difference_without_duplicates: 0 },
+      months: [], monarch_accounts: ["x"], broker_only: [], monarch_only: [{ date: "2026-02-05", merchant: "Dividend", amount: 10, duplicate: true }] });
+    assert.match(h, /Broker file: the history you imported/);
+    assert.match(h, /1 account-import row repeats a matched row/);
+    assert.match(h, /Without them the difference is/);
+    assert.match(h, /\(repeat\)/);
+    assert.match(m.renderBrokerImport(), /Broker file<input type="file"/);
+  });
+});
