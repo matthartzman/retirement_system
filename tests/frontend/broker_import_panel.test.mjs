@@ -190,3 +190,13 @@ describe("unreadable files and the imports table", () => {
     m.biToggleImports(false);
   });
 });
+
+describe("friendly account names in server messages", () => {
+  test("warnings and errors show account labels, not plan account ids", async () => {
+    await m.biLoadImports();
+    const h = m.biPreviewHtml({ counts: { lots_add: 0, lots_present: 0, orders: 0, orders_ready: 0 }, will_write: [], lots: [], orders: [], received: 1,
+      warnings: ["Member_1_HSA: BND: the holdings would end at -1 shares."], errors: [] });
+    assert.doesNotMatch(h, /Member_1_HSA/);
+    assert.match(h, /Matt's HSA: BND/);
+  });
+});

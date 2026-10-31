@@ -62,8 +62,10 @@ export function biPreviewHtml(p) {
     return `<p class="field-error">${(p.hints || []).length > 1 ? "Choose a plan account for each account in this file" : "Choose the plan account this file belongs to (in the picker above)"}, then the preview and Import button appear.</p>`;
   }
   const multi = (p.hints || []).length > 1;
-  const errs = (p.errors || []).map((e) => `<li>${e.line ? `Line ${Number(e.line)}: ` : ""}${esc(e.error)}</li>`).join("");
-  const warns = (p.warnings || []).map((w) => `<li>${esc(w)}</li>`).join("");
+  const ids = [...((biImports && biImports.accounts) || [])].sort((a, b) => b.length - a.length); // server messages name plan accounts by id
+  const friendly = (t) => esc(ids.reduce((x, a) => x.split(a).join(accountDisplayLabel(a)), String(t)));
+  const errs = (p.errors || []).map((e) => `<li>${e.line ? `Line ${Number(e.line)}: ` : ""}${friendly(e.error)}</li>`).join("");
+  const warns = (p.warnings || []).map((w) => `<li>${friendly(w)}</li>`).join("");
   if (!p.counts) return `<div class="sl-preview"><ul class="field-error">${errs || "<li>Nothing in this file could be read.</li>"}</ul>${warns ? `<ul class="field-warning">${warns}</ul>` : ""}</div>`; // unreadable file: no counts to show
   const inc = Object.entries(p.income_totals || {}).map(([k, v]) => `${esc(BI_KIND[k] || k)} ${biMoney(v)}`).join(" · ") || "none";
   const c = p.counts;
