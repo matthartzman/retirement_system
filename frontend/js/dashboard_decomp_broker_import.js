@@ -102,7 +102,9 @@ export function biIncomeHtml(r) {
   const t = r.totals;
   const rows = (r.months || []).map((m) => `<tr><td>${esc(m.month)}</td><td class="rc-num">${biMoney(m.broker)}</td><td class="rc-num">${biMoney(m.monarch)}</td>` +
     `<td class="rc-num${Math.abs(m.difference) >= 0.005 ? " sl-down" : ""}">${biMoney(m.difference)}</td></tr>`).join("");
-  const only = (label, items, date, amt) => items.length ? `<p><strong>${label}:</strong> ${items.map((x) => `${esc(x[date])} ${esc(x.symbol || x.merchant || "")} ${biMoney(x[amt])}${x.duplicate ? " (repeat)" : ""}`).join("; ")}</p>` : "";
+  const what = (x) => { const t = String(x.symbol || x.merchant || ""); return `<span title="${esc(t)}">${esc(t.length > 48 ? `${t.slice(0, 47)}…` : t)}</span>`; };
+  const only = (label, items, date, amt) => items.length ? `<p><strong>${label}</strong> (${items.length})</p><table class="rc-table"><thead><tr><th>Date</th><th>Description</th><th class="rc-num">Amount</th><th></th></tr></thead><tbody>` +
+    items.map((x) => `<tr><td>${esc(x[date])}</td><td>${what(x)}</td><td class="rc-num">${biMoney(x[amt])}</td><td>${x.duplicate ? "Repeat of a matched row" : ""}</td></tr>`).join("") + `</tbody></table>` : "";
   const dups = Number(t.monarch_duplicates || 0);
   return `<p class="muted">Broker file: the history you imported from the broker. Account import: the transactions your linked-account feed (Monarch) brought in for this account. The broker file is the record to trust.</p>` +
     `<p>${Number(t.matched)} matched · broker file ${biMoney(t.broker)} · account import ${biMoney(t.monarch)} · difference ${biMoney(t.difference)}` +

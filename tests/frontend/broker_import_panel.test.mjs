@@ -100,7 +100,7 @@ describe("imports and income", () => {
       months: [{ month: "2026-09", broker: 201.12, monarch: 201, difference: 0.12 }],
       broker_only: [{ run_date: "2026-09-30", symbol: "FDRXX", amount: 0.12 }], monarch_only: [] });
     assert.match(h, /2 matched/);
-    assert.match(h, /Only in the broker file:<\/strong> 2026-09-30 FDRXX \$0\.12/);
+    assert.match(h, /Only in the broker file<\/strong> \(1\)<\/p><table[\s\S]*<td>2026-09-30<\/td><td><span title="FDRXX">FDRXX<\/span><\/td><td class="rc-num">\$0\.12/);
     assert.match(h, /sl-down/);
   });
 });
@@ -208,7 +208,9 @@ describe("broker file vs account import wording", () => {
     assert.match(h, /Broker file: the history you imported/);
     assert.match(h, /1 account-import row repeats a matched row/);
     assert.match(h, /Without them the difference is/);
-    assert.match(h, /\(repeat\)/);
+    assert.match(h, /Repeat of a matched row/);
+    const long = m.biIncomeHtml({ totals: { matched: 0 }, months: [], monarch_accounts: ["x"], broker_only: [], monarch_only: [{ date: "2026-02-05", merchant: "Ishares Trust Ishares 0 1 Year Treasury Bond Etf Dividend Received (Shv) (Cash)", amount: 1 }] });
+    assert.match(long, /Ishares Trust Ishares 0 1 Year Treasury Bond Et…<\/span>/);
     assert.match(m.renderBrokerImport(), /Broker file<input type="file"/);
   });
 });
