@@ -620,7 +620,8 @@ DASHBOARD_JS_MAX_LINES = 6_476
 # 2026-10-30 (E*Trade and Vanguard parsers: the import panel gains a broker picker and one plan-account picker per
 # account in a multi-account file; dashboard.js did not grow, +29): raised to the measured 41,491.
 # 2026-10-30 (broker import: "Record only" toggle for accounts whose holdings already include the history, +4): raised to the measured 41,495.
-TOTAL_JS_MAX_LINES = 41_495
+# 2026-10-31 (broker import keeps its chosen file across repaints and gains "Account in file"; sales screens show friendly account names, +11): raised to the measured 41,506.
+TOTAL_JS_MAX_LINES = 41_506
 
 
 def _line_count(path: Path) -> int:

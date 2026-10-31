@@ -168,6 +168,15 @@ def plan_accounts(store) -> list[str]:
     return sorted(n for n in names if n and "_" in n)
 
 
+def _match_plan_account(store, hint: str) -> str:
+    """The one plan account whose name contains the file's account number, else ''."""
+    h = (hint or "").strip().lower()
+    if len(h) < 4:
+        return ""
+    found = [a for a in plan_accounts(store) if h in a.lower()]
+    return found[0] if len(found) == 1 else ""
+
+
 def _coverage(store, account: str, broker: str, first: str | None, last: str | None) -> list[str]:
     prior = [i for i in store.broker.list_imports(account=account) if i["status"] == "applied" and i["broker"] == broker]
     if not prior or not first:
@@ -230,7 +239,7 @@ def _report(store, broker: str, text: str, file_name: str | None, account: str |
     chosen = {}
     for h in hints:
         chosen[h] = (((accounts or {}).get(h) or "").strip() or ((account or "").strip() if len(hints) == 1 else "")
-                     or store.broker.account_for(h) or "")
+                     or store.broker.account_for(h) or _match_plan_account(store, h))
     hint_rows = [{"hint": h, "account": chosen[h] or None, "rows": sum(1 for r in parsed.rows if hint_of(r) == h)}
                  for h in hints]
     base.update(account_hint=hints[0] or None, hints=hint_rows)

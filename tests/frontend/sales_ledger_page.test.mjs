@@ -7,6 +7,7 @@ const calls = [];
 before(async () => {
   globalThis.esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   globalThis.window = globalThis;
+  globalThis.accountDisplayLabel = (a) => String(a).replace(/^Member_1_/, "Matt's ");
   const fields = {};
   globalThis.__fields = fields;
   globalThis.document = { getElementById: (id) => (id in fields ? { value: fields[id] } : null) };

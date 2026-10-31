@@ -31,7 +31,7 @@ export function sqAllocationState(panel, allocation) {
 
 export function sqQueueHtml(candidates, selectedId) {
   if (!candidates || !candidates.length) return `<p class="muted">No sales are waiting to be matched to lots.</p>`;
-  const rows = candidates.map((c) => `<tr class="${c.candidate_id === selectedId ? "sq-selected" : ""}"><td>${esc(c.sale_date)}</td><td>${esc(c.account)}</td>` +
+  const rows = candidates.map((c) => `<tr class="${c.candidate_id === selectedId ? "sq-selected" : ""}"><td>${esc(c.sale_date)}</td><td>${esc(accountDisplayLabel(c.account))}</td>` +
     `<td>${esc(c.symbol || "needs detail")}</td><td class="rc-num">${c.shares == null ? "—" : esc(String(c.shares))}</td><td class="rc-num">${sqMoney(c.amount)}</td>` +
     `<td>${esc(c.source === "monarch" ? "Transaction feed" : "Holdings import")}</td><td><button class="btn" type="button" onclick="sqOpen(${Number(c.candidate_id)})">Review</button></td></tr>`).join("");
   return `<div class="rc-scroll"><table class="rc-table"><thead><tr><th>Date</th><th>Account</th><th>Symbol</th><th class="rc-num">Shares</th><th class="rc-num">Amount</th><th>Source</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
@@ -57,7 +57,7 @@ export function sqPanelHtml(panel, draft) {
     return a ? `<button class="btn" type="button" onclick="sqFill('${k}')">${label}${a.gain == null ? "" : ` (gain ${sqMoney(a.gain)})`}</button>` : "";
   }).join(" ");
   const classes = SQ_CLASSES.map(([v, l]) => `<option value="${v}" ${v === draft.taxClass ? "selected" : ""}>${l}</option>`).join("");
-  return `<div class="sq-panel" id="sqPanel"><h3>${esc(panel.symbol || "Sale")} · ${esc(c.account)}</h3>` +
+  return `<div class="sq-panel" id="sqPanel"><h3>${esc(panel.symbol || "Sale")} · ${esc(accountDisplayLabel(c.account))}</h3>` +
     `<p>${esc(String(panel.shares ?? "?"))} shares, ${sqMoney(c.amount)} on ${esc(c.sale_date)} (${esc(c.source)})</p>` +
     (panel.refusal ? `<p class="field-error">${esc(panel.refusal)}</p>` : "") +
     (bare ? `<div class="field-grid"><label>Symbol<input id="sqSymbol" value="${esc(panel.symbol || "")}"></label>` +
