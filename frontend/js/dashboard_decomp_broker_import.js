@@ -102,10 +102,15 @@ export function biIncomeHtml(r) {
   const t = r.totals;
   const rows = (r.months || []).map((m) => `<tr><td>${esc(m.month)}</td><td class="rc-num">${biMoney(m.broker)}</td><td class="rc-num">${biMoney(m.monarch)}</td>` +
     `<td class="rc-num${Math.abs(m.difference) >= 0.005 ? " sl-down" : ""}">${biMoney(m.difference)}</td></tr>`).join("");
-  const only = (label, items, date, amt) => items.length ? `<p><strong>${label}:</strong> ${items.map((x) => `${esc(x[date])} ${esc(x.symbol || x.merchant || "")} ${biMoney(x[amt])}`).join("; ")}</p>` : "";
-  return `<p>${Number(t.matched)} matched · broker ${biMoney(t.broker)} · account import ${biMoney(t.monarch)} · difference ${biMoney(t.difference)}` +
+  const what = (x) => { const t = String(x.symbol || x.merchant || ""); return `<span title="${esc(t)}">${esc(t.length > 48 ? `${t.slice(0, 47)}…` : t)}</span>`; };
+  const only = (label, items, date, amt) => items.length ? `<p><strong>${label}</strong> (${items.length})</p><table class="rc-table"><thead><tr><th>Date</th><th>Description</th><th class="rc-num">Amount</th><th></th></tr></thead><tbody>` +
+    items.map((x) => `<tr><td>${esc(x[date])}</td><td>${what(x)}</td><td class="rc-num">${biMoney(x[amt])}</td><td>${x.duplicate ? "Repeat of a matched row" : ""}</td></tr>`).join("") + `</tbody></table>` : "";
+  const dups = Number(t.monarch_duplicates || 0);
+  return `<p class="muted">Broker file: the history you imported from the broker. Account import: the transactions your linked-account feed (Monarch) brought in for this account. The broker file is the record to trust.</p>` +
+    `<p>${Number(t.matched)} matched · broker file ${biMoney(t.broker)} · account import ${biMoney(t.monarch)} · difference ${biMoney(t.difference)}` +
     `${r.monarch_accounts.length ? "" : " · no imported account is mapped to this plan account"}</p>` +
-    `<table class="rc-table"><thead><tr><th>Month</th><th class="rc-num">Broker</th><th class="rc-num">Account import</th><th class="rc-num">Difference</th></tr></thead><tbody>${rows}</tbody></table>` +
+    (dups ? `<p class="field-warning">${dups} account-import row${dups === 1 ? "" : "s"} repeat${dups === 1 ? "s" : ""} a matched row (same date and amount), usually because the account is linked twice. Without them the difference is ${biMoney(t.difference_without_duplicates)}.</p>` : "") +
+    `<table class="rc-table"><thead><tr><th>Month</th><th class="rc-num">Broker file</th><th class="rc-num">Account import</th><th class="rc-num">Difference</th></tr></thead><tbody>${rows}</tbody></table>` +
     only("Only in the broker file", r.broker_only, "run_date", "amount") + only("Only in the account import", r.monarch_only, "date", "amount");
 }
 
@@ -115,14 +120,14 @@ function biBodyHtml() {
   const msg = biMessage ? `<p class="${biMessage.error ? "field-error" : "muted"}" role="status">${esc(biMessage.text)}</p>` : "";
   return `<h3>Import brokerage activity</h3><p class="muted">Fidelity “History for Account”, E*Trade “Transaction History” or Vanguard “OfxDownload” CSV. Re-importing an overlapping file adds only new rows.</p>` +
     `<div class="field-grid"><label>Broker<select aria-label="Broker" onchange="biSetBroker(this.value)">${BI_BROKERS.map(([v, l]) => `<option value="${v}" ${v === biBroker ? "selected" : ""}>${l}</option>`).join("")}</select></label>` +
-    `<label>File<input type="file" accept=".csv,text/csv" aria-label="Brokerage history file" onchange="biFileChosen(this)"></label>` +
+    `<label>Broker file<input type="file" accept=".csv,text/csv" aria-label="Brokerage history file" onchange="biFileChosen(this)"></label>` +
     `<label>${multiHints ? "Income check account" : "Plan account"}<select id="biAccount" onchange="biSetAccount(this.value)"><option value="">${biPreview && biPreview.account ? "" : "Choose…"}</option><option value="${BI_IN_FILE}" ${biAccount === BI_IN_FILE ? "selected" : ""}>Account in file (one per record)</option>` +
     accounts.map((a) => `<option value="${esc(a)}" ${a === (biAccount || (biPreview && biPreview.account)) ? "selected" : ""}>${esc(accountDisplayLabel(a))}</option>`).join("") + `</select></label>` +
     `<label>Lot method<select onchange="biSetMethod(this.value)">${BI_METHODS.map(([v, l]) => `<option value="${v}" ${v === biMethod ? "selected" : ""}>${l}</option>`).join("")}</select></label></div>` +
     `${multiHints || (biPreview && biPreview.needs_account) ? biHintPickersHtml(biPreview.hints, accounts, biAccounts, true) : ""}` +
     `<button class="btn" type="button" onclick="biPreviewFile()" ${biText ? "" : "disabled"}>Preview</button>${msg}${biPreview ? biPreviewHtml(biPreview) : ""}` +
     `<details ${biImportsOpen ? "open" : ""} ontoggle="biToggleImports(this.open)"><summary><strong>Imports</strong> (${((biImports && biImports.imports) || []).length})</summary>${biImportsHtml(biImports && biImports.imports)}</details>` +
-    `<h4>Income check (broker vs account import)</h4><button class="btn" type="button" onclick="biLoadIncome()">Check ${esc(biPlanAccount() ? accountDisplayLabel(biPlanAccount()) : "account")} for ${esc(String(new Date().getFullYear()))}</button>` +
+    `<h4>Income check (broker file vs account import)</h4><button class="btn" type="button" onclick="biLoadIncome()">Check ${esc(biPlanAccount() ? accountDisplayLabel(biPlanAccount()) : "account")} for ${esc(String(new Date().getFullYear()))}</button>` +
     (biIncome ? `<div id="biIncome">${biIncomeHtml(biIncome)}</div>` : "");
 }
 

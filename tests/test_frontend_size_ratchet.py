@@ -624,7 +624,9 @@ DASHBOARD_JS_MAX_LINES = 6_476
 # 2026-10-31 (broker import scrolls its preview/income result into view and shows Previewing…/Checking…, +4): raised to the measured 41,510.
 # 2026-10-31 (broker import: unreadable files show their errors instead of crashing the preview; Imports list collapses and sorts, +10): raised to the measured 41,520.
 # 2026-10-31 (broker import preview shows friendly account names in server warnings and errors, +2): raised to the measured 41,522.
-TOTAL_JS_MAX_LINES = 41_522
+# 2026-10-31 (broker import income check names "broker file" vs "account import" and flags repeated account-import rows, +3): raised to the measured 41,525.
+# 2026-10-31 (broker income check lists "only in" rows as tables with shortened descriptions, +2): raised to the measured 41,527.
+TOTAL_JS_MAX_LINES = 41_527
 
 
 def _line_count(path: Path) -> int:
