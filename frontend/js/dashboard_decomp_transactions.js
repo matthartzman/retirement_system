@@ -7,6 +7,7 @@ const TR_LABEL = { buy: "Buy", reinvest: "Reinvest", sell: "Sale / redemption" }
 let trFilter = { account: "", symbol: "", year: "", type: "", held: false };
 let trView = null;
 let trError = "";
+let trOpen = false; // collapsed by default; kept across repaints
 
 const trMoney = (v) => (v == null ? "" : window.slMoney ? window.slMoney(v) : String(v));
 const trNum = (v) => esc(String(Math.round(Number(v) * 1e6) / 1e6));
@@ -29,7 +30,9 @@ export function trHtml(view, filter = trFilter) {
   const held = ((view && view.held) || []);
   const heldHtml = filter.held ? `<h4>Lots held</h4>` + (held.length ? `<table class="rc-table"><thead><tr><th>Account</th><th>Symbol</th><th>Purchased</th><th class="rc-num">Shares</th><th class="rc-num">Price</th></tr></thead><tbody>` +
     held.map((h) => `<tr><td>${esc(accountDisplayLabel(h.account))}</td><td>${esc(h.symbol)}</td><td>${esc(h.purchase_date)}</td><td class="rc-num">${trNum(h.shares)}</td><td class="rc-num">${trMoney(h.price)}</td></tr>`).join("") + `</tbody></table>` : `<p class="muted">No open lots.</p>`) : "";
-  return `<h3>Transactions</h3>${trError ? `<p role="alert" class="error">${esc(trError)}</p>` : ""}${bar}${table}${heldHtml}`;
+  const count = view ? ` (${rows.length})` : "";
+  return `<details${trOpen ? " open" : ""} ontoggle="trToggle(this.open)"><summary><h3 style="display:inline">Transactions</h3>${count}</summary>` +
+    `${trError ? `<p role="alert" class="error">${esc(trError)}</p>` : ""}${bar}${table}${heldHtml}</details>`;
 }
 
 export function renderTransactions() {
@@ -46,6 +49,7 @@ export async function trLoad() {
   if (root) root.innerHTML = trHtml(trView);
 }
 
+export function trToggle(open) { trOpen = !!open; }
 export function trSet(key, value) { trFilter = { ...trFilter, [key]: value }; return trLoad(); }
 
-Object.assign(window, { renderTransactions, trHtml, trLoad, trSet });
+Object.assign(window, { renderTransactions, trHtml, trLoad, trSet, trToggle });
