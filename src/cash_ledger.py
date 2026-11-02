@@ -3,19 +3,23 @@
 Pure functions. Rows come from ``store.broker.activity(account=...)`` and the kept Monarch cash-movement rows of the
 account (``ytd_transactions``); see ``documentation/future/superpowers/plans/2026-10-31-investment-account-cash-tracking-design-and-plan.md``
 sections 4.2 (classes), 4.4 (source precedence) and 4.8 (derived view). Transfer pairing (Phase 3), balances and anchors
-(Phase 4) and the screen (Phase 5) are not here: every row leaves ``pair_status`` at ``"unpaired"`` and carries the
-running ``cash_balance`` of the broker file when it has one.
+(Phase 4) and the screen (Phase 5) are not here: every row leaves ``pair_status`` at ``"unpaired"`` (``cash_pairing``
+fills it across accounts) and carries the running ``cash_balance`` of the broker file when it has one.
 """
 from __future__ import annotations
 
+import re
 from typing import Any, Iterable, Mapping
 
 from .ytd_tracking import parse_date
 
-CLASSES = ("income", "trade", "contribution", "fee", "transfer_in", "transfer_out", "distribution", "adjustment")
+CLASSES = ("income", "trade", "contribution", "fee", "transfer_in", "transfer_out", "distribution", "excess_return",
+           "adjustment")
 _TRADE_KINDS = frozenset({"buy", "sell", "reinvest"})
 _INCOME_KINDS = frozenset({"dividend", "interest", "cap_gain_short", "cap_gain_long", "foreign_tax", "return_of_capital"})
 _JOURNAL_PHRASES = ("CASH TO MARGIN", "MARGIN TO CASH")
+_ROLLOVER_WORDS = ("ROLLOVER",)
+_REF_ID = re.compile(r"REFID:\s*(\w+)", re.I)
 _DISTRIBUTION_WORDS = ("DISTRIBUTION", "WITHDRAWAL", "RETURN EXCESS")
 _FEE_WORDS = ("FEE", "MARGIN INTEREST")
 _CONTRIBUTION_WORDS = ("CONTRIBUTION", "CONTR ", "MATCH")
@@ -28,10 +32,11 @@ _MONARCH_CLASS = {"transfer": None, "401k contribution": "contribution", "401k m
 
 def _row(*, date: str, source: str, cls: str, amount: float, counts: bool = True, description: str = "", symbol: str = "",
          action: str = "", ref: str = "", cash_balance: float | None = None, in_kind: bool = False,
-         needs_review: bool = False) -> dict[str, Any]:
+         needs_review: bool = False, quantity: float | None = None, ref_id: str = "", rollover: bool = False) -> dict[str, Any]:
     return {"date": date, "source": source, "class": cls, "amount": round(float(amount), 2), "counts": counts,
             "description": description, "symbol": symbol, "action": action, "ref": ref, "cash_balance": cash_balance,
-            "in_kind": in_kind, "needs_review": needs_review, "pair_status": "unpaired"}
+            "in_kind": in_kind, "needs_review": needs_review, "quantity": quantity, "ref_id": ref_id,
+            "rollover": rollover, "pair_status": "unpaired"}
 
 
 def _direction(amount: float) -> str:
@@ -47,6 +52,8 @@ def classify_other(r: Mapping[str, Any]) -> tuple[str, bool, bool, bool]:
         return "adjustment", False, False, False
     if symbol and symbol != "CASH" and r.get("quantity"):          # securities moved, no cash: the transaction log's
         return _direction(float(r["quantity"])), False, True, False
+    if "RETURN EXCESS" in text:
+        return "excess_return", True, False, False
     if any(w in text for w in _DISTRIBUTION_WORDS):
         return "distribution", True, False, False
     if any(w in text for w in _FEE_WORDS):
@@ -64,15 +71,22 @@ def _broker_row(r: Mapping[str, Any]) -> dict[str, Any] | None:
     kind = r.get("kind")
     if r.get("sweep") and kind in _TRADE_KINDS:
         return None            # sweep legs and the reinvestment into the sweep fund move no cash (Fidelity's balance includes the fund)
-    common = dict(date=r["run_date"], source="broker", description=r.get("description") or "", symbol=r.get("symbol") or "",
-                  action=r.get("action") or "", ref=str(r.get("row_key") or ""), cash_balance=r.get("cash_balance"))
+    desc = r.get("description") or ""
+    m = _REF_ID.search(desc)               # the store keeps only the description, so the reference id is read from it too
+    ref_id = str(r.get("ref_id") or (m.group(1) if m else ""))
+    qty = r.get("quantity")
+    common = dict(date=r["run_date"], source="broker", description=desc, symbol=r.get("symbol") or "",
+                  action=r.get("action") or "", ref=ref_id or str(r.get("row_key") or ""), cash_balance=r.get("cash_balance"),
+                  ref_id=ref_id, quantity=float(qty) if qty is not None else None)
     amount = float(r.get("amount") or 0.0)
     if kind in _TRADE_KINDS:
         return _row(cls="trade", amount=amount, **common)
     if kind in _INCOME_KINDS:
         return _row(cls="income", amount=amount, **common)
     cls, counts, in_kind, review = classify_other(r)
-    return _row(cls=cls, amount=0.0 if in_kind else amount, counts=counts, in_kind=in_kind, needs_review=review, **common)
+    rollover = any(w in f"{r.get('action') or ''} {desc}".upper() for w in _ROLLOVER_WORDS)
+    return _row(cls=cls, amount=0.0 if in_kind else amount, counts=counts, in_kind=in_kind, needs_review=review,
+                rollover=rollover, **common)
 
 
 def _monarch_row(r: Mapping[str, Any]) -> dict[str, Any] | None:

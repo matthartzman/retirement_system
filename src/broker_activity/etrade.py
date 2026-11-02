@@ -21,6 +21,7 @@ BROKER = "etrade"
 
 _HEADER = ("Activity/Trade Date", "Activity Type", "Quantity #", "Amount $")
 _ACCOUNT_LINE = re.compile(r"Account Activity for .*?-\s*([A-Za-z0-9]+)\s+from\b", re.I)
+_REF_ID = re.compile(r"REFID:\s*(\w+)", re.I)
 _BANK_SWEEP_SYMBOLS = SWEEP_SYMBOLS | {"MSPBNA"}
 # Activity Type (lower case) -> kind; anything else (Contribution, Transfer, Distribution, Service Fee, Misc Income,
 # Online Transfer, ...) is "other" and is only counted. A Redemption (a matured bond or called security) with a symbol
@@ -100,6 +101,9 @@ def parse(text: str, *, file_name: str | None = None) -> ParsedActivity:
                 "commission": commission or None, "fees": None, "accrued_interest": None,
                 "amount": amount, "line": line,
             }
+            ref = _REF_ID.search(desc)
+            if ref:
+                rec["ref_id"] = ref.group(1)   # not stored (not in ROW_FIELDS); the cash ledger reads it from the description
             rec["sweep"] = bool(symbol in _BANK_SWEEP_SYMBOLS or "BANK DEPOSIT" in desc.upper()
                                 or "PROGRAM BANK" in desc.upper())
             if kind in ("buy", "sell", "reinvest") and not rec["sweep"]:
