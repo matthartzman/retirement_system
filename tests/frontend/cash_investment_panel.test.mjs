@@ -29,3 +29,11 @@ test("panel_sorts_by_heading_and_shows_ledger", () => {
   assert.match(h, /ledger/);
   assert.match(h, /unpaired/);
 });
+
+test("panel_reports_withdrawals_by_pair_status_and_flags_excess_return", () => {
+  const v = { ...VIEW, accounts: [{ ...VIEW.accounts[0], tax_class: "hsa", withdrawals: { external_withdrawal: 300, internal: 200, unmatched: 50 }, excess_return: { count: 1, amount: 100 } }] };
+  const h = m.ciHtml(v, null);
+  assert.match(h, /Withdrawals 2026 by pairing/);
+  assert.match(h, /report only/i);
+  assert.match(h, /enter the earnings/);
+});

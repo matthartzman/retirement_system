@@ -55,6 +55,25 @@ def anchor(ledger: list[Mapping[str, Any]], lot: Mapping[str, Any] | None) -> di
     return {"type": kind, "balance": round(base + after, 2), "as_of": max([when] + [r["date"] for r in ledger if r["date"] > when])}
 
 
+def withdrawals_by_status(ledger: list[Mapping[str, Any]], year: int) -> dict[str, float]:
+    """REPORT-ONLY (cash plan section 10 item 3): cash that left the account in ``year`` by pair status. An ``internal`` pair is
+    not a withdrawal, an ``external_withdrawal`` is one, ``unmatched`` is undecided. ``excess_return`` is excluded (see
+    ``excess_return``). Nothing here reaches the engine's tax numbers."""
+    out = {"external_withdrawal": 0.0, "internal": 0.0, "unmatched": 0.0}
+    for r in ledger:
+        if r["class"] in ("distribution", "transfer_out") and r["counts"] and not r["in_kind"] \
+                and r["date"][:4] == f"{year:04d}" and r["pair_status"] in out:
+            out[r["pair_status"]] = round(out[r["pair_status"]] - float(r["amount"]), 2)
+    return out
+
+
+def excess_return(ledger: list[Mapping[str, Any]], year: int) -> dict[str, Any]:
+    """Returned excess contributions of ``year``: untaxed and not external spending (cash plan 9.5); the earnings on them
+    are taxable and the user is flagged to enter them."""
+    rows = [r for r in ledger if r["class"] == "excess_return" and r["date"][:4] == f"{year:04d}"]
+    return {"count": len(rows), "amount": round(-sum(float(r["amount"]) for r in rows), 2)}
+
+
 def _ledgers(store: Any, accounts: list[str]) -> dict[str, list[dict[str, Any]]]:
     return pair_transfers({a: account_ledger(store, a, _monarch_names(store, a)) for a in accounts})
 
@@ -80,6 +99,8 @@ def build_view(store: Any, *, year: int | None = None) -> dict[str, Any]:
                      "cash_lot": lot_shares, "lot_date": (lot or {}).get("purchase_date") or "",
                      "difference": None if an["balance"] is None or lot_shares is None else round(an["balance"] - lot_shares, 2),
                      "last_flow": max((r["date"] for r in flows), default=None),
+                     "tax_class": default_tax_class(store, a), "withdrawals": withdrawals_by_status(led, year),
+                     "excess_return": excess_return(led, year),
                      "unmatched": sum(1 for r in led if r["pair_status"] == "unmatched"),
                      "review": sum(1 for r in led if r["needs_review"])})
         cls = default_tax_class(store, a)

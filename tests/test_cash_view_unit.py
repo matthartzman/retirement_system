@@ -39,3 +39,23 @@ def test_unanchored_without_balance_or_lot():
     assert cash_view.anchor([], None)["type"] == "unanchored"
     a = cash_view.anchor([], {"shares": "7", "purchase_date": "2026-02-01"})
     assert (a["type"], a["balance"]) == ("confirmed CASH lot", 7.0)
+
+
+def test_withdrawals_by_pair_status_are_reported_not_applied():
+    led = [{"date": "2026-03-01", "class": "distribution", "amount": -300.0, "counts": True, "in_kind": False, "pair_status": "external_withdrawal"},
+           {"date": "2026-03-02", "class": "transfer_out", "amount": -200.0, "counts": True, "in_kind": False, "pair_status": "internal"},
+           {"date": "2026-03-03", "class": "transfer_out", "amount": -50.0, "counts": True, "in_kind": False, "pair_status": "unmatched"},
+           {"date": "2025-03-03", "class": "distribution", "amount": -999.0, "counts": True, "in_kind": False, "pair_status": "external_withdrawal"},
+           {"date": "2026-03-04", "class": "excess_return", "amount": -100.0, "counts": True, "in_kind": False, "pair_status": "unpaired"},
+           {"date": "2026-03-05", "class": "income", "amount": 5.0, "counts": True, "in_kind": False, "pair_status": "unpaired"}]
+    assert cash_view.withdrawals_by_status(led, 2026) == {"external_withdrawal": 300.0, "internal": 200.0, "unmatched": 50.0}
+    assert cash_view.excess_return(led, 2026) == {"count": 1, "amount": 100.0}   # untaxed; its earnings are the user's to enter
+
+
+def test_view_rows_carry_tax_class_withdrawals_and_excess_return(tmp_path):
+    ws = make(tmp_path)
+    with active_plan.workspace_store(ws) as store:
+        a = cash_view.build_view(store, year=2026)["accounts"][0]
+    assert a["tax_class"] == "hsa"
+    assert a["excess_return"] == {"count": 1, "amount": 100.0}
+    assert set(a["withdrawals"]) == {"external_withdrawal", "internal", "unmatched"}

@@ -18,12 +18,15 @@ export function ciHtml(view, ledger = ciLedger, sort = ciSort) {
     `<td class="rc-num">${r.balance == null ? "unanchored" : ciMoney(r.balance)}</td><td>${esc(r.as_of || "")}</td><td class="rc-num">${ciMoney(r.cash_lot)}</td>` +
     `<td class="rc-num">${ciMoney(r.difference)}</td><td>${esc(r.anchor)}</td><td>${esc(r.last_flow || "")}</td><td class="rc-num">${r.unmatched || ""}</td></tr>`).join("");
   const inc = Object.entries((view && view.income_by_tax_class) || {}).map(([k, v]) => `${esc(CI_CLASS[k] || k)} ${ciMoney(v)}`).join(" · ");
+  const wd = rows.filter((r) => r.withdrawals && Object.values(r.withdrawals).some((x) => x)).map((r) => `<li>${esc(accountDisplayLabel(r.account))} (${esc(CI_CLASS[r.tax_class] || r.tax_class)}): withdrawn ${ciMoney(r.withdrawals.external_withdrawal)}, internal transfers ${ciMoney(r.withdrawals.internal)}, unmatched ${ciMoney(r.withdrawals.unmatched)}</li>`).join("");
+  const ex = rows.filter((r) => r.excess_return && r.excess_return.count).map((r) => `<li>${esc(accountDisplayLabel(r.account))}: ${ciMoney(r.excess_return.amount)} returned, untaxed; enter the earnings on it, they are taxable.</li>`).join("");
+  const rep = (wd ? `<p>Withdrawals ${esc(String(view.year))} by pairing (report only, the plan's tax numbers are unchanged):</p><ul>${wd}</ul>` : "") + (ex ? `<p>Excess contributions returned:</p><ul>${ex}</ul>` : "");
   const led = ledger && ledger.rows ? `<h4>${esc(accountDisplayLabel(ledger.account))}: ledger</h4>` + (ledger.rows.length ? `<table class="rc-table"><thead><tr><th>Date</th><th>Class</th><th class="rc-num">Amount</th><th class="rc-num">Balance</th><th>Pairing</th><th>Source</th></tr></thead><tbody>` +
     ledger.rows.map((l) => `<tr><td>${esc(l.date)}</td><td>${esc(l.class)}${l.needs_review ? " (review)" : ""}</td><td class="rc-num">${l.in_kind ? "in kind" : ciMoney(l.amount)}</td><td class="rc-num">${ciMoney(l.cash_balance)}</td>` +
       `<td>${esc(l.pair_status)}${l.partner_account ? " " + esc(accountDisplayLabel(l.partner_account)) : ""}</td><td>${esc(l.source)}</td></tr>`).join("") + `</tbody></table>` : `<p class="muted">No cash rows.</p>`) : "";
   const table = rows.length ? `<table class="rc-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>` : `<p class="muted">No broker imports yet.</p>`;
   return `<details${ciOpen ? " open" : ""} ontoggle="ciToggle(this.open)"><summary><h3 style="display:inline">Cash in investment accounts</h3>${view ? ` (${rows.length})` : ""}</summary>` +
-    `${ciError ? `<p role="alert" class="error">${esc(ciError)}</p>` : ""}${table}${inc ? `<p>Cash income ${esc(String(view.year))}: ${inc}</p>` : ""}${led}</details>`;
+    `${ciError ? `<p role="alert" class="error">${esc(ciError)}</p>` : ""}${table}${inc ? `<p>Cash income ${esc(String(view.year))}: ${inc}</p>` : ""}${rep}${led}</details>`;
 }
 
 export function renderCashInvestment() {
