@@ -1,4 +1,4 @@
-"""Broker activity imports of a plan file (schema v19; v20 adds ``broker_activity.cash_balance``): ``BrokerRepo``, reached as ``store.broker``.
+"""Broker activity imports of a plan file (schema v19; v21 adds ``broker_activity.cash_balance``): ``BrokerRepo``, reached as ``store.broker``.
 
 ``broker_imports``     one row per committed activity file (broker, plan account, date range, counts). ``status``
                        goes ``applied`` -> ``reverted``; a reverted import keeps its row for the history.
@@ -127,8 +127,8 @@ CREATE TABLE broker_account_map (
 ) WITHOUT ROWID;
 """
 
-# v20: the broker's own running cash balance after the row (Fidelity's ``Cash Balance ($)``; NULL where the file has none).
-SCHEMA_V20_DDL = "ALTER TABLE broker_activity ADD COLUMN cash_balance REAL;"
+# v21: the broker's own running cash balance after the row (Fidelity's ``Cash Balance ($)``; NULL where the file has none).
+SCHEMA_V21_DDL = "ALTER TABLE broker_activity ADD COLUMN cash_balance REAL;"
 
 _ACTIVITY_FIELDS = ("row_key", "broker", "account", "run_date", "settle_date", "kind", "sweep", "action", "symbol",
                     "description", "quantity", "price", "commission", "fees", "accrued_interest", "amount",
