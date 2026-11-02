@@ -227,3 +227,143 @@ def void(input_dir: str | Path, txn_id: int) -> None:
             raise ValidationError(f"the {sale['type'].replace('_', ' ')} of {sale['symbol']} on {sale['txn_date']} used this "
                                   f"lot; undo it in the queue first")
         store.transactions.void(txn_id)
+
+
+# ------------------------------------------------------------------------------------------------ backfill, reconcile
+_NO_DATE = "1900-01-01"
+_ZERO = 1e-6
+
+
+def _num(v: Any) -> float:
+    try:
+        return float(str(v).replace(",", "") or 0)
+    except ValueError:
+        return 0.0
+
+
+def _key(account: Any, symbol: Any, purchase_date: Any, price: Any, lot_type: Any = "") -> tuple:
+    return (str(account).strip().lower(), str(symbol).strip().upper(), str(purchase_date or "") or _NO_DATE,
+            round(_num(price), 6), str(lot_type or "").strip().lower())
+
+
+def _holdings_by_key(store: Any) -> dict[tuple, dict[str, Any]]:
+    out: dict[tuple, dict[str, Any]] = {}
+    for h in store.dataset("holdings").rows():
+        shares = _num(h.get("shares"))
+        if shares <= _ZERO or not str(h.get("symbol", "")).strip() or not str(h.get("account", "")).strip():
+            continue
+        k = _key(h.get("account"), h.get("symbol"), h.get("purchase_date"), h.get("purchase_price"), h.get("lot_type"))
+        slot = out.setdefault(k, {"account": h["account"], "symbol": h["symbol"], "purchase_date": h.get("purchase_date") or _NO_DATE,
+                                  "price": round(_num(h.get("purchase_price")), 6), "lot_type": h.get("lot_type") or "", "shares": 0.0})
+        slot["shares"] += shares
+    return out
+
+
+def _log_by_key(store: Any) -> dict[tuple, dict[str, Any]]:
+    out: dict[tuple, dict[str, Any]] = {}
+    for lot in open_lots(store):
+        k = _key(lot["account"], lot["symbol"], lot["purchase_date"], lot["price"], lot["lot_type"])
+        slot = out.setdefault(k, {**lot, "shares": 0.0})
+        slot["shares"] += lot["shares"]
+    return out
+
+
+def backfill(store: Any) -> dict[str, Any]:
+    """Build the log from what exists, idempotently (call inside ``store.transaction()``). Broker buys and reinvestments
+    whose lot reached the holdings, and broker sales that were confirmed, become rows; Monarch sales are skipped. Every
+    open holdings lot the log cannot explain then gets an ``opening`` row, so ``open_lots`` equals the holdings."""
+    t = store.transactions
+    done = {r["activity_id"] for r in t.list(include_voided=True) if r["activity_id"] is not None}
+    added = {"buy": 0, "reinvest": 0, "sell": 0, "opening": 0}
+    warnings: list[str] = []
+    acts = store.broker.activity(kinds=("buy", "reinvest", "sell"))
+    for a in acts:
+        ref = a["lot_ref"]
+        if a["kind"] in ("buy", "reinvest") and ref and not a["sweep"] and a["activity_id"] not in done:
+            t.insert(txn_date=a["run_date"], settle_date=a["settle_date"], account=a["account"], type=a["kind"], symbol=a["symbol"],
+                     shares=abs(a["quantity"] or 0.0) or 0.0, price=a["price"], amount=a["amount"], lot_type=ref.get("lot_type") or "",
+                     lot_date=ref.get("purchase_date") if ref.get("purchase_date") not in (None, "", a["run_date"]) else None,
+                     source="broker", activity_id=a["activity_id"])
+            added[a["kind"]] += 1
+    # confirmed broker orders: one sell row each, lots resolved from the ledger rows' lot keys
+    cands = {c["candidate_id"]: c for c in store.sales.list_candidates()}
+    by_cand: dict[int, list[dict[str, Any]]] = {}
+    for a in acts:
+        if a["kind"] == "sell" and not a["sweep"] and a["candidate_id"] in cands and cands[a["candidate_id"]]["state"] == "confirmed":
+            by_cand.setdefault(a["candidate_id"], []).append(a)
+    pending = {cid: group for cid, group in by_cand.items() if group[0]["activity_id"] not in done}
+    sales_of = {cid: [s for s in (store.sales.get_sale(i) for i in cands[cid]["confirmed_sale_ids"]) if s["status"] == "confirmed"]
+                for cid in pending}
+    import json as _json
+    lot_keys = {cid: [(_json.loads(s["lot_key"] or "{}"), s) for s in rows] for cid, rows in sales_of.items()}
+    # holdings lots that sales consumed but the log does not know: open them with (shares now + shares sold)
+    held, logged = _holdings_by_key(store), _log_by_key(store)
+    def lot_k(lk: dict[str, Any], s: dict[str, Any]) -> tuple:
+        return _key(s["account"], s["symbol"], lk.get("purchase_date") or s["purchase_date"],
+                    lk.get("purchase_price", s["basis"] / s["shares"]), lk.get("lot_type"))
+    need: dict[tuple, list] = {}
+    for items in lot_keys.values():
+        for lk, s in items:
+            slot = need.setdefault(lot_k(lk, s), [0.0, s])
+            slot[0] += float(s["shares"])
+    for k, (sold, src) in need.items():
+        missing = held.get(k, {}).get("shares", 0.0) + sold - logged.get(k, {}).get("shares", 0.0)
+        if missing > _ZERO:
+            t.insert(txn_date=k[2], account=src["account"], type="opening", symbol=src["symbol"], shares=missing, price=k[3],
+                     lot_type=k[4], source="backfill", note="lot with no purchase on file")
+            added["opening"] += 1
+    for cid, group in pending.items():
+        c = cands[cid]
+        alloc: dict[int, float] = {}
+        rows = store.transactions.list(account=c["account"], symbol=c["symbol"])
+        for lk, s in lot_keys[cid]:
+            k = lot_k(lk, s)
+            need_sh = float(s["shares"])
+            for r in sorted((r for r in rows if r["type"] in LOT_TYPES_CREATING
+                             and _key(r["account"], r["symbol"], lot_date(r), r["price"], r["lot_type"]) == k), key=lambda r: r["txn_id"]):
+                used = sum(d["shares"] for d in t.all_disposals() if d["lot_txn_id"] == r["txn_id"]) + alloc.get(r["txn_id"], 0.0)
+                take = min(need_sh, float(r["shares"]) - used)
+                if take > _ZERO:
+                    alloc[r["txn_id"]] = alloc.get(r["txn_id"], 0.0) + take
+                    need_sh -= take
+            if need_sh > _ZERO:
+                warnings.append(f"{c['symbol']} sale on {c['sale_date']}: {need_sh:g} shares could not be matched to a lot")
+        total = sum(alloc.values())
+        if total <= _ZERO:
+            continue
+        first = group[0]
+        sid = t.insert(txn_date=first["run_date"], settle_date=first["settle_date"], account=c["account"], type="sell",
+                       symbol=c["symbol"], shares=total, price=c["price"], amount=sum(g["amount"] for g in group),
+                       source="broker", activity_id=first["activity_id"], candidate_id=cid)
+        for lid, sh in alloc.items():
+            t.add_disposal(sid, lid, sh)
+        added["sell"] += 1
+    # whatever the holdings still show that the log cannot explain
+    held, logged = _holdings_by_key(store), _log_by_key(store)
+    for k, h in held.items():
+        short = h["shares"] - logged.get(k, {}).get("shares", 0.0)
+        if short > _ZERO:
+            t.insert(txn_date=h["purchase_date"], account=h["account"], type="opening", symbol=h["symbol"], shares=short,
+                     price=h["price"], lot_type=h["lot_type"], source="backfill", note="lot with no purchase on file")
+            added["opening"] += 1
+    return {"added": added, "warnings": warnings}
+
+
+def reconcile(store: Any, account: str | None = None) -> list[dict[str, Any]]:
+    """Differences between the log's open lots and the holdings, with a plain reason. Empty means they agree."""
+    held, logged = _holdings_by_key(store), _log_by_key(store)
+    drift = []
+    for k in sorted(set(held) | set(logged)):
+        h, g = held.get(k), logged.get(k)
+        hs, gs = (h["shares"] if h else 0.0), (g["shares"] if g else 0.0)
+        if abs(hs - gs) <= 1e-4:
+            continue
+        ref = h or g
+        if account and ref["account"] != account:
+            continue
+        reason = ("the holdings have a lot the log does not (a hand-entered or edited lot)" if gs <= _ZERO else
+                  "the log has a lot the holdings do not (it was sold or removed outside the log)" if hs <= _ZERO else
+                  "the holdings have more shares than the log" if hs > gs else "the holdings have fewer shares than the log")
+        drift.append({"account": ref["account"], "symbol": ref["symbol"], "purchase_date": ref.get("purchase_date"),
+                      "price": ref.get("price"), "holdings_shares": round(hs, 6), "log_shares": round(gs, 6), "reason": reason})
+    return drift
