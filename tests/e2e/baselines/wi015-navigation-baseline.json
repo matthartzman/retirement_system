@@ -1,5 +1,5 @@
 {
-  "stepCount": 27,
+  "stepCount": 28,
   "steps": [
     {
       "stepId": "start",
@@ -28,6 +28,12 @@
     {
       "stepId": "spending_core",
       "heading": "Spending Model",
+      "hasContent": true,
+      "errors": 0
+    },
+    {
+      "stepId": "cash_accounts",
+      "heading": "Checking & Savings Accts",
       "hasContent": true,
       "errors": 0
     },

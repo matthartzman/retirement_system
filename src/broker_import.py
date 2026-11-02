@@ -1,8 +1,7 @@
 """Bulk import of a broker activity (all-transactions history) file: preview, commit, revert.
 
 Buys and reinvestments become holdings lots (unless the lot is already there), sells become ``broker`` sale candidates
-with same-day fills combined, and every row is stored for the income reconciliation (``broker_income``) and the
-year-end 1099 checks. Commit can confirm the fully covered sales in bulk with a lot method the user picked in the
+with same-day fills combined, and every row is stored for the year-end 1099 checks. Commit can confirm the fully covered sales in bulk with a lot method the user picked in the
 preview, through the same ``sales_confirm.confirm_in`` path as the queue panel. Design:
 ``documentation/future/superpowers/plans/2026-10-30-broker-activity-bulk-import-design-and-plan.md`` section 3.4.
 

@@ -40,6 +40,7 @@ const STEPS = [
     group: "Spending",
     title: "Spending Model",
   },
+  { id: "cash_accounts", group: "Investments & Property", title: "Checking & Savings Accts" },
   {
     id: "holdings",
     group: "Investments & Property",
@@ -65,8 +66,7 @@ const STEPS = [
     // is Housing & Property, which that group label names. Still gated by
     // its own plan flag (heloc_enabled), not by the Next Housing Move
     // switch. Plan Features keeps listing the switch under Housing &
-    // Property. The Other Assets page keeps its read-only HELOC summary
-    // and its link here.
+    // Property. The Other Assets page keeps its HELOC summary and link here.
     id: "heloc_strategy",
     group: "Investments & Property",
     title: "Home Equity Line",
@@ -3057,7 +3057,7 @@ let renderMain = function() {
   else if (activeStep === "survivor_stress")
     content += analysisFrame(renderSurvivorStress(), "stress");
   else if (activeStep === "ltc_stress") content += analysisFrame(renderLtcStress(), "stress");
-  else if (activeStep === "holdings") content += renderHoldings();
+  else if (activeStep === "cash_accounts") content += renderCashAccounts(); else if (activeStep === "holdings") content += renderHoldings();
   else if (activeStep === "assets_home_cash") content += renderAssetsCashReserves();
   else if (activeStep === "assets_special") content += renderAssetsSpecial();
   else if (activeStep === "rental_properties") content += renderRentalProperties();

@@ -36,3 +36,12 @@ test("escapes user text", () => {
   assert.doesNotMatch(m.trHtml(VIEW), /<b>X<\/b>/);
   assert.match(m.trHtml(VIEW), /&lt;b&gt;X&lt;\/b&gt;/);
 });
+
+test("collapsed by default, shows the row count, and remembers being opened", () => {
+  const h = m.trHtml(VIEW);
+  assert.match(h, /^<details ontoggle="trToggle\(this\.open\)"><summary>.*Transactions.*\(2\)<\/summary>/);
+  m.trToggle(true);
+  assert.match(m.trHtml(VIEW), /^<details open /);
+  m.trToggle(false);
+  assert.doesNotMatch(m.trHtml(VIEW), /^<details open/);
+});

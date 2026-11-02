@@ -1322,7 +1322,7 @@ def sales_requeue(sale_id: int):
     return response
 
 
-# ---- Broker activity bulk import (src/broker_import.py) and income check (src/broker_income.py) ----
+# ---- Broker activity bulk import (src/broker_import.py) ----
 
 def _broker_args(b: dict) -> dict:
     accounts = b.get("accounts")
@@ -1377,22 +1377,6 @@ def sales_broker_revert(import_id: int):
     if response[1] == 200:
         _audit("sales_broker_reverted", {"import_id": import_id})
     return response
-
-
-@app.route("/api/sales/broker/income", methods=["GET"])
-def sales_broker_income():
-    denied = _require("view_dashboard")
-    if denied:
-        return denied
-    from .. import broker_income as _income
-    try:
-        year = int(request.args.get("year", ""))
-    except ValueError:
-        return jsonify({"success": False, "error": "year must be a number"}), 400
-    account = request.args.get("account") or ""
-    if not account:
-        return jsonify({"success": False, "error": "account is required"}), 400
-    return _sales_call(lambda root: _income.reconcile(root, account=account, year=year))
 
 
 @app.route("/api/transactions", methods=["GET"])
@@ -1561,6 +1545,52 @@ def reconcile_undo_auto():
     response = _reconcile_call(_reconcile.undo_auto)
     if response[1] == 200:
         _audit("reconcile_undo_auto", {"undone": len(response[0].get_json().get("undone", []))})
+    return response
+
+
+# ---- Checking & Savings accounts (src/cash_accounts.py) ----
+
+def _cash_accounts_call(fn, *args, **kwargs):
+    from .. import cash_accounts as _ca
+    try:
+        return jsonify({"success": True, **fn(_ytd_input_root(), *args, **kwargs)}), 200
+    except (_ca.CashAccountError, _ca.reconcile.ReconcileError, _ca.active_plan.StoreError) as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+
+
+@app.route("/api/cash-accounts", methods=["GET"])
+def cash_accounts_list():
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    from .. import cash_accounts as _ca
+    return _cash_accounts_call(_ca.list_accounts)
+
+
+@app.route("/api/cash-accounts", methods=["POST"])
+def cash_accounts_add():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    from .. import cash_accounts as _ca
+    b = request.get_json(silent=True) or {}
+    response = _cash_accounts_call(_ca.add_account, str(b.get("name") or ""), b.get("balance", 0),
+                                   str(b.get("as_of") or "") or None, str(b.get("import_account_key") or "") or None)
+    if response[1] == 200:
+        _audit("cash_account_added", {"name": response[0].get_json().get("name")})
+    return response
+
+
+@app.route("/api/cash-accounts/delete", methods=["POST"])
+def cash_accounts_delete():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    from .. import cash_accounts as _ca
+    account = str((request.get_json(silent=True) or {}).get("account") or "")
+    response = _cash_accounts_call(_ca.delete_account, account)
+    if response[1] == 200:
+        _audit("cash_account_deleted", {"account": account})
     return response
 
 
