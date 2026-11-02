@@ -1,6 +1,8 @@
 # Cash tracking and transaction log: integration
 
-Date: 2026-11-02. Status: **proposed.** Decisions marked **Claude's call** can be overridden by the owner.
+Date: 2026-11-02.
+
+Status: draft (proposed). Decisions marked **Claude's call** can be overridden by the owner.
 
 Settles where two plans overlap, so neither is built in a way the other has to undo:
 - `2026-10-31-transaction-log-design-and-plan.md` (the "log")

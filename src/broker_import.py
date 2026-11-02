@@ -17,6 +17,7 @@ from typing import Any, Iterable, Mapping
 
 from . import active_plan, broker_activity
 from .broker_activity.normalized import INCOME_KINDS, date_range, group_orders
+from . import transactions
 from .sales_confirm import AIDS, _fmt, _holdings_lots, _num, confirm_in, default_tax_class, suggest_allocation
 from .sales_ledger import ValidationError
 
@@ -318,6 +319,7 @@ def commit(input_dir: str | Path, *, broker: str = "", text: str, file_name: str
                 out[k] += res[k]
             for k in ("candidates", "confirmed", "queued", "superseded_monarch"):
                 out[k] += res[k]
+        transactions.sync_if_started(store)
     return {"import_id": out["import_ids"][0], "account": rep["account"], **out}
 
 
@@ -402,6 +404,10 @@ def revert(input_dir: str | Path, import_id: int) -> dict[str, Any]:
         cids = sorted({r["candidate_id"] for r in rows if r["candidate_id"] is not None})
         if any(cands.get(c, {}).get("state") == "confirmed" for c in cids):
             raise ValidationError("some sales from this import are confirmed; undo them in the queue first")
+        revised = transactions.revised_rows(store, [r["activity_id"] for r in rows])
+        if revised:
+            raise ValidationError("transaction log rows from this import were revised (" + ", ".join(
+                f"{r['symbol']} {r['txn_date']}" for r in revised[:5]) + "); void or restore them in the log first")
         holdings = store.dataset("holdings")
         hrows = holdings.rows()
         for r in rows:
@@ -423,6 +429,7 @@ def revert(input_dir: str | Path, import_id: int) -> dict[str, Any]:
                 store.sales.set_candidate_state(c, "unmatched")
         store.broker.delete_import_rows(imp["import_id"])
         store.broker.set_import_status(imp["import_id"], "reverted")
+        transactions.sync_if_started(store)
     return {"import_id": imp["import_id"], "reverted": True}
 
 

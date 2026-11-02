@@ -12,7 +12,7 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, Mapping
 
-from . import active_plan
+from . import active_plan, transactions
 from .sales_ledger import ValidationError, allocate_lots, holding_period, validate_sale_row
 
 AIDS = ("fifo", "hifo", "lowest_gain")
@@ -173,8 +173,10 @@ def confirm(input_dir: str | Path, candidate_id: int, *, allocation: Mapping[str
     candidate ``confirmed``, in one transaction. Raises ``ValidationError`` and changes nothing when the candidate is
     not ``unmatched``, the allocation does not equal the shares sold, a lot is over-allocated or a row is invalid."""
     with active_plan.workspace_store(_base(input_dir), write=True) as store, store.transaction():
-        return confirm_in(store, candidate_id, allocation=allocation, tax_class=tax_class, trade_date=trade_date,
-                          fees=fees, proceeds=proceeds, symbol=symbol, shares=shares)
+        out = confirm_in(store, candidate_id, allocation=allocation, tax_class=tax_class, trade_date=trade_date,
+                         fees=fees, proceeds=proceeds, symbol=symbol, shares=shares)
+        transactions.sync_if_started(store)   # a broker sale writes its log row; a Monarch sale writes none
+        return out
 
 
 def confirm_in(store, candidate_id: int, *, allocation: Mapping[str, float], tax_class: str, trade_date: str,
@@ -254,6 +256,7 @@ def undo(input_dir: str | Path, candidate_id: int) -> None:
             store.sales.void_sale(s["sale_id"])
         repo.replace_all(rows)
         store.sales.set_candidate_state(c["candidate_id"], "unmatched")
+        transactions.sync_if_started(store)
 
 
 @_store_errors
