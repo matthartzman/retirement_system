@@ -83,8 +83,12 @@ def is_year_closed(store: Any, year: int) -> bool:
 
 def plan_year_withdrawals(snapshot: Mapping[str, Any] | None, year: int) -> dict[str, float] | None:
     """The engine's per-account ``_account_withdrawals`` for ``year`` from a saved result snapshot, else ``None``.
-    The engine projects from plan_start, so past years have no row."""
-    for r in ((snapshot or {}).get("result") or {}).get("projection_rows") or []:
+    The engine projects from plan_start (today's year, so it moves on 1 Jan): a snapshot counts only when its FIRST
+    projection row is ``year``, otherwise there is no plan figure for that year."""
+    rows = ((snapshot or {}).get("result") or {}).get("projection_rows") or []
+    if not rows or str(rows[0].get("year")) != str(year):
+        return None
+    for r in rows:
         if str(r.get("year")) == str(year):
             return {str(k): round(_num(v), 2) for k, v in (r.get("_account_withdrawals") or {}).items()}
     return None
@@ -108,8 +112,11 @@ def comparison(ledgers: Mapping[str, list[Mapping[str, Any]]], year: int, snapsh
     return {"year": year, "closed": closed, "accounts": rows,
             "snapshot": {"built_at": snapshot["created_at"]} if snapshot else None,
             "plan_unmapped": {k: v for k, v in (plan or {}).items() if k not in used and v},
-            "note": "Plan figures come from the newest saved plan run and may be stale; the panel never runs the plan."
-                    if snapshot else "No saved plan run yet; run the plan to see its figures."}
+            "note": ("No plan figure for %d: the newest saved plan run starts in another year. Run the plan." % year
+                     if snapshot and plan is None else
+                     "Plan figures come from the newest saved plan run and may be stale. Saved runs carry no plan identifier, so "
+                     "this cannot be verified as the active plan's. The panel never runs the plan.")
+            if snapshot else "No saved plan run yet; run the plan to see its figures."}
 
 
 def past_years(ledgers: Mapping[str, list[Mapping[str, Any]]], year: int) -> list[dict[str, Any]]:

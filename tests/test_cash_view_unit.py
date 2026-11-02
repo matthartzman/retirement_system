@@ -72,9 +72,9 @@ def _row(d, typ, amt, pid=None, partner=None, status="external_withdrawal"):
 
 
 def test_plan_year_withdrawals_reads_only_the_current_year_row():
-    snap = _snap([{"year": 2025, "_account_withdrawals": {"A_IRA": 1.0}}, {"year": 2026, "_account_withdrawals": {"A_IRA": 500.0, "B_Roth": 0}}])
+    snap = _snap([{"year": 2026, "_account_withdrawals": {"A_IRA": 500.0, "B_Roth": 0}}, {"year": 2027, "_account_withdrawals": {"A_IRA": 1.0}}])
     assert cash_view.plan_year_withdrawals(snap, 2026) == {"A_IRA": 500.0, "B_Roth": 0.0}
-    assert cash_view.plan_year_withdrawals(snap, 2024) is None          # engine has no past-year rows
+    assert cash_view.plan_year_withdrawals(snap, 2027) is None          # only the first (current) year is compared          # engine has no past-year rows
     assert cash_view.plan_year_withdrawals(None, 2026) is None
 
 
@@ -132,3 +132,11 @@ def test_latest_result_snapshot_reads_newest_and_never_runs_the_engine(tmp_path)
     local_store.save_result_snapshot({"projection_rows": [{"year": 2026}], "n": 1}, db_path=db)
     got = local_store.latest_result_snapshot(db)
     assert got["result"]["n"] == 1 and got["created_at"]
+
+
+def test_snapshot_whose_first_row_is_another_year_gives_no_plan_figure():
+    old = _snap([{"year": 2025, "_account_withdrawals": {"A_IRA": 9.0}}, {"year": 2026, "_account_withdrawals": {"A_IRA": 500.0}}])
+    assert cash_view.plan_year_withdrawals(old, 2026) is None
+    c = cash_view.comparison({"A_IRA": []}, 2026, old, closed=False)
+    assert c["accounts"][0]["plan"] is None and "No plan figure for 2026" in c["note"]
+    assert "identifier" in cash_view.comparison({"A_IRA": []}, 2026, _snap([{"year": 2026, "_account_withdrawals": {}}]), closed=False)["note"]
