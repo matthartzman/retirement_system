@@ -1,6 +1,6 @@
 # Transaction log: design and implementation plan
 
-Status: **proposed, not started.** Written 2026-10-31 after the broker import shipped (#329, #330). Decisions marked
+Status: **phase 1 built (2026-11-02); phases 2 and 3 proposed, not started.** Written 2026-10-31 after the broker import shipped (#329, #330). Decisions marked
 **Claude's call** can be overridden. It builds on `2026-10-30-broker-activity-bulk-import-design-and-plan.md` and the
 realized-sales ledger (`2026-10-28-realized-sales-ledger-design-and-plan.md`).
 
@@ -290,6 +290,12 @@ Gate to start: phase 2 merged and `reconcile` shows zero drift on the real plan 
 - Not code. For each account: run `reconcile`, switch on, run the plan build, compare workbook and engine outputs with
   the pre-switch build using `tools/regen_golden_master.py measure` (never `regen`). Any delta stops the switch.
 - Model/effort: Sonnet, medium. Usage: light-moderate (one build per account).
+
+**Built 2026-11-02 (phase 1):** `src/transactions_view.py`, `GET /api/transactions`, and the panel
+`frontend/js/dashboard_decomp_transactions.js` on the Sales Ledger page. Added at the same time: an E*Trade
+`Redemption` and a Vanguard `Corp Action (Redemption)` with a symbol and shares are now `sell` rows (shares forced
+negative, price from amount / shares), so they queue as an order and relieve lots on confirm like any sale; without a
+symbol or shares they stay `other`. This supersedes the "Redemption is `other`" notes in the 2026-10-30 broker plan §7.1.
 
 ## 5. Global constraints
 
