@@ -29,7 +29,7 @@ def test_v18_plan_upgrades_keeping_sales_and_candidates(tmp_path):
     con.commit()
     con.close()
     with PlanStore.open(path) as s:
-        assert s.schema_version == 19
+        assert s.schema_version == 20
         assert s.sales.get_sale(1)["statement_id"] == 7
         c = s.sales.list_candidates()[0]
         assert (c["monarch_id"], c["state"], c["broker_key"]) == ("m1", "dismissed", None)
