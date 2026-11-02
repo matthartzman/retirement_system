@@ -120,3 +120,14 @@ Total: roughly two to three working sessions after Phase 0. Regenerate the archi
 3. An external withdrawal may stand alone; it does not need a checking-account partner.
 4. An import writes the computed balance to the CASH lot automatically when the balance is anchored; it is recorded in history with an undo.
 5. Cash interest and dividends are shown separately by the account's tax class.
+
+## 8. Phase 2 decisions (owner, 2026-11-02; ledger builder is `src/cash_ledger.py`)
+
+Answers to the open questions left for Phase 3 by the Phase 2 PR. Phase 2 itself is built (derived view, no schema change).
+
+1. **Unclassified rows are paired.** Rows no rule classifies (and Monarch `Uncategorized`) are classed transfer in/out by sign with `needs_review`; Phase 3 pairs them like any transfer and keeps the review flag.
+2. **Keep the E*Trade reference id.** Phase 3 adds the reference to the parsed row so own-account transfers pair on it first; amount within 3 days and exactly one candidate remains the fallback.
+3. **In-kind transfers are paired too.** They stay zero-cash and `counts=False`, but Phase 3 pairs in-kind out/in across own accounts for visibility (the transaction log still owns the lots).
+4. **Return of excess contribution gets its own class** (to be added in Phase 3, replacing `distribution` for these rows) so it is not taxed as a normal withdrawal; Phase 6 sets the tax treatment.
+5. **Rollovers are distinguished** from own-account transfers (a marker on Vanguard `Rollover (incoming)` and similar), so an outside-plan rollover is not paired as an own-account transfer.
+6. **Coverage gap: keep dropping, and warn.** A Monarch row inside a broker file's date range is still dropped (broker wins), but Phase 3/5 lists dropped Monarch rows with no broker row of the same amount within 3 days as a notice.
