@@ -636,7 +636,9 @@ DASHBOARD_JS_MAX_LINES = 6_476
 # 2026-11-02 (Checking & Savings page: new feature module dashboard_decomp_cash_accounts.js, 68 lines; cash-only rows read-only
 # in the Holdings editor, +10; income check and transactions collapse net -2 in two modules; dashboard.js did not grow):
 # raised to the measured 41,781.
-TOTAL_JS_MAX_LINES = 41_781
+# 2026-11-02 (Cash in investment accounts panel, cash plan phase 5: new feature module dashboard_decomp_cash_investment.js, 46 lines,
+# mounted from the Sales Ledger page with a one-line hook; dashboard.js did not grow): raised to the measured 41,827.
+TOTAL_JS_MAX_LINES = 41_827
 
 
 def _line_count(path: Path) -> int:
