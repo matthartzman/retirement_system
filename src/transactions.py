@@ -281,7 +281,9 @@ def backfill(store: Any) -> dict[str, Any]:
         ref = a["lot_ref"]
         if a["kind"] in ("buy", "reinvest") and ref and not a["sweep"] and a["activity_id"] not in done:
             t.insert(txn_date=a["run_date"], settle_date=a["settle_date"], account=a["account"], type=a["kind"], symbol=a["symbol"],
-                     shares=abs(a["quantity"] or 0.0) or 0.0, price=a["price"], amount=a["amount"], lot_type=ref.get("lot_type") or "",
+                     shares=abs(a["quantity"] or 0.0) or 0.0, amount=a["amount"], lot_type=ref.get("lot_type") or "",
+                     # the holdings lot's own price: a lot the import matched (not created) can differ by cents
+                     price=_num(ref["purchase_price"]) if ref.get("purchase_price") not in (None, "") else a["price"],
                      lot_date=ref.get("purchase_date") if ref.get("purchase_date") not in (None, "", a["run_date"]) else None,
                      source="broker", activity_id=a["activity_id"])
             added[a["kind"]] += 1
