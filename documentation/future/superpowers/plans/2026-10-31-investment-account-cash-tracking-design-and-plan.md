@@ -4,6 +4,11 @@ Date: 2026-10-31.
 
 Status: approved, with the owner's decisions of 2026-10-31 (section 7); nothing built.
 
+Overlap with the transaction log (`2026-10-31-transaction-log-design-and-plan.md`): Phases 4 and 6 below are built
+together with the log's phase 3 as the combined phase in `2026-11-02-cash-and-transaction-log-integration.md`. That note
+fixes the `CASH` lot as written only by this ledger, shares the Phase 3 transfer pairing with the log's importer, keeps
+sale confirmation from crediting `CASH` a second time, and makes schema version numbers "next free".
+
 ## 1. Goal
 
 All cash in investment accounts is tracked. That cash belongs to the account, so the **account's tax treatment applies** (taxable, traditional, Roth, HSA), unlike cash in a checking account. It stays in the account until it is **withdrawn or transferred out**; buying a security, selling one, or receiving a dividend only moves value between cash and the account's other holdings.
