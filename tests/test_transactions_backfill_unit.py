@@ -77,3 +77,20 @@ def test_reconcile_reports_hand_edited_lot(ws):
         assert {d["symbol"] for d in drift} == {"ZZZ", "NEW"}
         assert all(d["reason"] for d in drift)
         assert [d["symbol"] for d in transactions.reconcile(store, account=HSA)] == ["NEW"]
+
+
+def test_matched_lot_with_a_different_price_is_logged_at_the_holdings_price(tmp_path):
+    """The import recognizes a lot entered by hand a day early with a price a few cents off; the log must use the
+    holdings lot's price, or the lot never lines up and the sale is taken from a stand-in opening row."""
+    (tmp_path / "input").mkdir()
+    with active_plan.workspace_store(tmp_path, write=True) as store:
+        store.dataset("holdings").replace_all([
+            {"account": HSA, "symbol": "TOTL", "purchase_date": "2025-12-30", "shares": "5", "purchase_price": "90", "lot_type": "buy", "note": ""},
+            {"account": HSA, "symbol": "TOTL", "purchase_date": "2026-05-11", "shares": "10", "purchase_price": "99.95", "lot_type": "buy", "note": ""}])
+    broker_import.commit(tmp_path / "input", text=history_csv(), file_name=FILE_NAME, account=HSA, confirm_method="fifo")
+    run(tmp_path)
+    with active_plan.workspace_store(tmp_path) as store:
+        assert transactions.reconcile(store) == []
+        buy = next(r for r in store.transactions.list(types=["buy"]) if r["symbol"] == "TOTL")
+        assert buy["price"] == 99.95 and buy["lot_date"] == "2026-05-11"
+        assert not [r for r in store.transactions.list(types=["opening"]) if r["symbol"] == "TOTL" and r["price"] == 100.0]
