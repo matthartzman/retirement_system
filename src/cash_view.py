@@ -114,9 +114,10 @@ def comparison(ledgers: Mapping[str, list[Mapping[str, Any]]], year: int, snapsh
             "plan_unmapped": {k: v for k, v in (plan or {}).items() if k not in used and v},
             "note": ("No plan figure for %d: the newest saved plan run starts in another year. Run the plan." % year
                      if snapshot and plan is None else
-                     "Plan figures come from the newest saved plan run and may be stale. Saved runs carry no plan identifier, so "
-                     "this cannot be verified as the active plan's. The panel never runs the plan.")
-            if snapshot else "No saved plan run yet; run the plan to see its figures."}
+                     "Plan figures come from the newest saved run of this plan and may be stale."
+                     + ("" if (snapshot or {}).get("plan_id") else " That run carries no plan identifier, so it cannot be verified as the active plan's.")
+                     + " The panel never runs the plan.")
+            if snapshot else "No saved plan run for this plan yet; run the plan to see its figures."}
 
 
 def past_years(ledgers: Mapping[str, list[Mapping[str, Any]]], year: int) -> list[dict[str, Any]]:
@@ -202,4 +203,5 @@ def view(input_dir: str | Path, *, account: str | None = None, year: int | None 
         if account:
             return ledger_view(store, account)
         from .local_store import latest_result_snapshot
-        return build_view(store, year=year, snapshot=latest_result_snapshot())
+        from .workspace_context import active_plan_id
+        return build_view(store, year=year, snapshot=latest_result_snapshot(plan_id=active_plan_id(root=Path(input_dir).parent)))

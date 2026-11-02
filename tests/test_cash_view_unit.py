@@ -134,9 +134,25 @@ def test_latest_result_snapshot_reads_newest_and_never_runs_the_engine(tmp_path)
     assert got["result"]["n"] == 1 and got["created_at"]
 
 
+def test_latest_result_snapshot_is_tied_to_the_plan_id(tmp_path):
+    from src import local_store
+    db = tmp_path / "app.db"
+    local_store.save_result_snapshot({"n": "mine"}, plan_snapshot_id="plan_a", db_path=db)
+    local_store.save_result_snapshot({"n": "other"}, plan_snapshot_id="plan_b", db_path=db)
+    local_store.save_result_snapshot({"n": "legacy"}, db_path=db)                      # saved before plans were recorded
+    assert local_store.latest_result_snapshot(db, plan_id="plan_a")["result"]["n"] == "mine"
+    assert local_store.latest_result_snapshot(db, plan_id="plan_c") is None             # never another plan's run
+    assert local_store.latest_result_snapshot(db, plan_id="plan_a")["plan_id"] == "plan_a"
+
+
+def test_note_no_longer_claims_unverifiable_when_snapshot_is_plan_tied():
+    c = cash_view.comparison({"A_IRA": []}, 2026, {**_snap([{"year": 2026, "_account_withdrawals": {}}]), "plan_id": "plan_a"}, closed=False)
+    assert "identifier" not in c["note"] and "stale" in c["note"].lower()
+    assert "no saved plan run for this plan" in cash_view.comparison({"A_IRA": []}, 2026, None, closed=False)["note"].lower()
+
+
 def test_snapshot_whose_first_row_is_another_year_gives_no_plan_figure():
     old = _snap([{"year": 2025, "_account_withdrawals": {"A_IRA": 9.0}}, {"year": 2026, "_account_withdrawals": {"A_IRA": 500.0}}])
     assert cash_view.plan_year_withdrawals(old, 2026) is None
     c = cash_view.comparison({"A_IRA": []}, 2026, old, closed=False)
     assert c["accounts"][0]["plan"] is None and "No plan figure for 2026" in c["note"]
-    assert "identifier" in cash_view.comparison({"A_IRA": []}, 2026, _snap([{"year": 2026, "_account_withdrawals": {}}]), closed=False)["note"]
