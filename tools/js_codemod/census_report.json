@@ -1685,6 +1685,12 @@
       "scope": "inside-function"
     },
     {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_cash_accounts.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "SYSTEM_CONFIG_FIELD_HELP",
       "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
       "kind": "read",
@@ -2384,6 +2390,24 @@
       "name": "renderMain",
       "file": "frontend/js/dashboard_decomp_holdings.js",
       "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_holdings.js",
+      "kind": "read",
       "scope": "inside-function"
     },
     {
@@ -8239,6 +8263,42 @@
     {
       "name": "residencySchedule",
       "file": "frontend/js/dashboard_decomp_supplemental_tables.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_transactions.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_transactions.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_transactions.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_transactions.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_transactions_log.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_transactions_log.js",
       "kind": "read",
       "scope": "inside-function"
     },
