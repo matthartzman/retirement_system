@@ -7,6 +7,10 @@ realized-sales ledger (`2026-10-28-realized-sales-ledger-design-and-plan.md`).
 > **For agentic workers:** use superpowers:subagent-driven-development or superpowers:executing-plans, task by task.
 > Phases are gates: do not start a phase until the previous one is merged and its gate (section 7) is met.
 
+> **Overlap with cash tracking:** phase 3 (tasks 3.1 and 3.2) is replaced by the combined phase in
+> `2026-11-02-cash-and-transaction-log-integration.md`. That note also fixes who owns the `CASH` lot (`materialize`
+> skips it), shares one transfer-pairing function with task 2.7, and makes schema version numbers "next free".
+
 **Goal:** one chronological record of every purchase, reinvestment, sale and in-kind transfer for the brokerage
 accounts, from which unsold purchases show up as holdings, and which the user can add to, revise and delete.
 
