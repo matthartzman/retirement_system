@@ -308,6 +308,11 @@ Transaction log panel. Notes: a sale is allocated oldest-first unless the caller
 import was reverted or whose sale was undone (dropping the activity link so they can be logged again); a Monarch confirm
 writes no log row, so its lot shows as drift until the log gains a way to record it.
 
+**Built 2026-11-02 (phase 3, partial):** `transactions.materialize(store, account)` (rewrites one account's holdings from the log's
+open lots, leaving other accounts and the account's `CASH` lot untouched; the log's own "lot with no purchase on file" note is
+not copied into the holdings). It is not wired to anything: the managed-account flag (`transaction_accounts`, a new schema
+version after the cash branch's v21) and tasks 3.2 and 3.3 wait for the cash branch to merge.
+
 ## 5. Global constraints
 
 - Holdings and golden-master outputs must not change at any step; `measure` before any pin work, never regen.
