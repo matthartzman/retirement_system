@@ -1,6 +1,8 @@
 # Cash tracking: Phase 0 findings
 
-Date: 2026-11-02. Verifies the four assumptions in `2026-10-31-investment-account-cash-tracking-design-and-plan.md`
+Date: 2026-11-02.
+
+Status: draft. Verifies the four assumptions in `2026-10-31-investment-account-cash-tracking-design-and-plan.md`
 (section 6, Phase 0). Read-only: no code changed. Account numbers are deliberately left out (account-number protection
 plan); accounts are named by type. Evidence for (c) and (d) is the owner's real downloads of 2026-10-31, kept outside
 the repo.
@@ -74,8 +76,17 @@ Three Fidelity history files (one HSA account; ranges overlap) were checked.
   Monarch, so the Monarch rows are needed only for days no file covers. There is still no running balance, so these
   accounts are anchored by the last confirmed `CASH` lot, not by the file.
 
-**Vanguard:** no sample file available. The cash plan's Vanguard assumptions remain unverified. Before Phase 2, get a
-real Vanguard activity download (including a multi-account one) and repeat this check.
+**Vanguard (one file, three accounts, 310 rows, 2025 only; no running balance).** Checked on 2026-11-02:
+- Cash flows are present: `Rollover (incoming)` and `Transfer (incoming)` with CASH (cash in), `Transfer (incoming)` with a
+  symbol and shares (in kind, with an amount), `Transfer (Outgoing)`, `Withdrawal` ("To: <bank>"), `Distribution` (a Roth
+  distribution), `Funds Received`, `Interest`, and a `Corp Action (Redemption)`.
+- The VMFXX money-market settlement fund appears as `Sweep in` / `Sweep out` rows (39 of 310). They are internal and
+  must be excluded from the ledger, as for Fidelity.
+- The trailing `Account Type` column is misaligned on some rows (amounts appear in it), so a parser must not rely on it.
+- A multi-account file means rows must be split by the account number before the cash ledger is built.
+- The file ends in 2025, so it does not reach today: a Vanguard account anchors on a confirmed balance on or near the
+  file's last date, not on the current `CASH` lot alone. A 12/31/2025 balance per account would serve as that anchor
+  and as a check.
 
 ## What this changes in the plans
 
@@ -84,7 +95,7 @@ real Vanguard activity download (including a multi-account one) and repeat this 
 2. Cash Phase 4 needs a new `CASH`-lot write path for accounts that also hold securities; `reconcile.py` cannot do it.
 3. Cash Phase 1 stands: parse Fidelity `Cash Balance ($)`. Add a ledger test for the dividend plus sweep reinvestment pair.
 4. Cash Phase 2 can read contributions and withdrawals from E*Trade files; Monarch fills only uncovered days.
-5. Open: a Vanguard sample, and the large-change warning threshold (set it from the real data before Phase 4).
+5. Open: 12/31/2025 cash balances for the E*Trade and Vanguard accounts (a check, not a blocker), and the large-change warning threshold (set it from the real data before Phase 4).
 
 Next: Phase 1 (parse running balance; schema migration with backup), after confirming the next free schema version with
 the log phase 2 work now in progress.
