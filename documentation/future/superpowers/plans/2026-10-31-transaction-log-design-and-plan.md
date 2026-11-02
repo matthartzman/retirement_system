@@ -1,6 +1,6 @@
 # Transaction log: design and implementation plan
 
-Status: approved. Phase 1 built 2026-11-02; phase 2 built 2026-11-02 (tasks 2.1 to 2.6; 2.7 waits for a real transfer sample); phase 3 not started. Written 2026-10-31 after the broker import shipped (#329, #330). Decisions marked
+Status: approved. Phase 1 built 2026-11-02; phase 2 built 2026-11-02 (tasks 2.1 to 2.6; 2.7 deferred); phase 3 not started. Written 2026-10-31 after the broker import shipped (#329, #330). Decisions marked
 **Claude's call** can be overridden. It builds on `2026-10-30-broker-activity-bulk-import-design-and-plan.md` and the
 realized-sales ledger (`2026-10-28-realized-sales-ledger-design-and-plan.md`).
 
@@ -263,7 +263,7 @@ Gate to start: phase 1 merged and used on the real plan for one import cycle.
 - Model/effort: Sonnet, medium. Usage: moderate-heavy. Driver: panel size; split into a second file if the line count
   of the transactions module passes about 300.
 
-**Task 2.7: transfer kind in importers (only with a real sample)**
+**Task 2.7: transfer kind in importers (only with a real sample) - DEFERRED 2026-11-02 by the owner: no sample file shows an in-kind transfer; manual transfers cover the need. Revisit if a real file with both legs turns up.**
 - Files: `src/broker_activity/etrade.py`, `fidelity.py`, `normalized.py` (`KINDS`), tests with a trimmed sample.
 - Gate: a real file showing both legs. Without it, skip; manual transfers cover the need.
 - Model/effort: Sonnet, medium. Usage: light-moderate.
@@ -349,6 +349,6 @@ Disproportionately expensive if unscoped: any step that runs the full `pytest` r
 
 ## 9. Open items
 
-- A real transfer sample from E*Trade and Fidelity (task 2.7).
+- A real transfer sample from E*Trade and Fidelity (task 2.7, deferred by the owner on 2026-11-02; manual transfers cover it).
 - Whether phase 3 should eventually cover Monarch-fed accounts that have no broker file (they would need `opening`
   rows and manual entries only). Deferred until phases 1 and 2 are in use.
