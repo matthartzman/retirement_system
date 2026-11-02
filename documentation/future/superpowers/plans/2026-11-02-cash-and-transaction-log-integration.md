@@ -86,6 +86,10 @@ Replaces log tasks 3.1 and 3.2 and cash Phases 4 and 6 as one unit of work, spli
 - Run `tools/regen_golden_master.py measure` first. Never regenerate in a loop; verify one delta by hand.
 - Model/effort: Opus, high. Usage: moderate to heavy if golden masters move.
 
+**Built 2026-11-02 (C.3):** the log half (managed sell through the log, Monarch confirm refused, read-only holdings rows) shipped in #349; the cash half, `test_confirming_a_sale_does_not_credit_cash`, shipped with C.2 (#353). Nothing further.
+
+**Built 2026-11-02 (C.4, spending half):** `spending_tracker.load_transactions_extended` flags rows of Investment-role accounts and `_shared_ytd_class` treats them as transfers, so fees, misc income and contributions inside an investment account no longer count as household spending or income (Phase 0 finding (b)); an external withdrawal reaches spending once, as the checking-side row. Golden master `measure` unchanged. Test: `tests/test_spending_investment_cash_excluded_unit.py`. Not done: the engine's per-account-class treatment of the `CASH` lot and the `excess_return` / pair-status tax rules (cash plan section 8, items 4 and 5): they need the pairing wired into a screen and are left for the owner's call.
+
 Usage is relative to a 5-hour Pro session; check `/usage` against these as the work proceeds. Expected total: two to
 three sessions. The expensive risks are C.3 (two hot paths, large JS file) and C.4 (golden-master loops); scope them by
 running single test files while iterating.

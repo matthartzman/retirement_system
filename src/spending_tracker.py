@@ -367,6 +367,8 @@ def load_transactions_extended(root=None, year=None):
     """Load the plan's YTD transactions including taxonomy columns if present (columns beyond
     the YTD set are kept per row by the table)."""
     rows = []
+    from .ytd_tracking import investment_account_names
+    invest = investment_account_names(_root(root) / "input")
     for row in _ytd_transaction_rows(root):
         try:
             dt     = _parse_date((row.get("Date") or "").strip())
@@ -387,6 +389,7 @@ def load_transactions_extended(root=None, year=None):
             "notes":              (row.get("Notes") or "").strip(),
             "statement":          (row.get("Original Statement") or "").strip(),
             "tags":               (row.get("Tags") or "").strip(),
+            "investment":         (row.get("Account") or "").strip().lower() in invest,
         })
     return rows
 
@@ -398,6 +401,10 @@ def _shared_ytd_class(txn: dict) -> str:
     Performance agree on which rows are transfers (excluded) versus spending.
     """
     from .ytd_tracking import classify_cash_transaction
+    if txn.get("investment"):
+        # Cash inside an investment account (fees, misc income, transfers, contributions) is not household spending or
+        # income; an external withdrawal reaches spending once, as the deposit row in the checking account (cash plan 4.6).
+        return "transfer"
     return classify_cash_transaction({
         "Category": txn.get("category", ""), "Merchant": txn.get("merchant", ""),
         "Notes": txn.get("notes", ""), "Tags": txn.get("tags", ""),
