@@ -716,7 +716,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/tax_law.py` | `stores.ref_getters.tax_law` | — |
 | `src/taxes.py` | `tax_law` | — |
 | `src/tlh.py` | `stores.ref_getters.security_master` | — |
-| `src/transactions.py` | `broker_import`, `sales_confirm`, `sales_ledger`, `stores.transactions_repo` | — |
+| `src/transactions.py` | `broker_import`, `sales_confirm`, `sales_ledger` | — |
 | `src/transactions_view.py` | — | — |
 | `src/us_states.py` | — | — |
 | `src/vectorized_fast_core.py` | — | `numpy` |

@@ -142,3 +142,12 @@ class TransactionsRepo:
         """A revised lot-creating row gets a new id; the sales that consumed the old lot follow it."""
         with self._store._write() as con:
             con.execute("UPDATE transaction_lots SET lot_txn_id = ? WHERE lot_txn_id = ?", (new_lot_txn_id, old_lot_txn_id))
+
+    def release(self, txn_id: int, why: str) -> None:
+        """Void a row that mirrored a broker row that is gone (import reverted, sale undone): drop the activity link so
+        the same activity can be logged again later, and say why in the note."""
+        row = self.get(txn_id)
+        note = (row["note"] + " " if row["note"] else "") + why
+        with self._store._write() as con:
+            con.execute("UPDATE transactions SET status = 'voided', activity_id = NULL, note = ?, updated_at = ? WHERE txn_id = ?",
+                        (note, self._store._clock(), txn_id))

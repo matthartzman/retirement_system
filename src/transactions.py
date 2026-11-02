@@ -13,9 +13,9 @@ from typing import Any, Iterable, Mapping
 
 from . import active_plan
 from .sales_ledger import ValidationError
-from .stores.transactions_repo import LOT_TYPES_CREATING
 
 _EPS = 1e-6
+LOT_TYPES_CREATING = ("buy", "reinvest", "transfer_in", "opening")   # rows that create a lot (see stores/transactions_repo)
 DISPOSAL_TYPES = ("sell", "transfer_out")
 
 
@@ -367,3 +367,39 @@ def reconcile(store: Any, account: str | None = None) -> list[dict[str, Any]]:
         drift.append({"account": ref["account"], "symbol": ref["symbol"], "purchase_date": ref.get("purchase_date"),
                       "price": ref.get("price"), "holdings_shares": round(hs, 6), "log_shares": round(gs, 6), "reason": reason})
     return drift
+
+
+def started(store: Any) -> bool:
+    """The log is in use once it has any row (after the first backfill or manual entry)."""
+    return bool(store.transactions.list(include_voided=True))
+
+
+def sync(store: Any) -> dict[str, Any]:
+    """Bring the log in line with the importer and the queue (call inside the caller's transaction): void rows whose
+    broker row is gone (import reverted) or whose sale was undone, then backfill what is new. Rows the user revised or
+    voided by hand keep their activity link, so they are not logged again."""
+    t = store.transactions
+    acts = {a["activity_id"]: a for a in store.broker.activity()}
+    cands = {c["candidate_id"]: c for c in store.sales.list_candidates()}
+    for r in t.list():
+        if r["source"] != "broker" or r["activity_id"] is None:
+            continue
+        a = acts.get(r["activity_id"])
+        if a is None:
+            t.release(r["txn_id"], "import reverted")
+        elif r["type"] == "sell" and cands.get(a["candidate_id"], {}).get("state") != "confirmed":
+            t.release(r["txn_id"], "sale undone")
+    return backfill(store)
+
+
+def sync_if_started(store: Any) -> None:
+    if started(store):
+        sync(store)
+
+
+def revised_rows(store: Any, activity_ids: Iterable[int]) -> list[dict[str, Any]]:
+    """Log rows mirroring these broker rows that the user has since revised (voided and replaced)."""
+    ids = set(activity_ids)
+    rows = store.transactions.list(include_voided=True)
+    replaced = {r["revision_ref"] for r in rows if r["revision_ref"] is not None}
+    return [r for r in rows if r["activity_id"] in ids and r["txn_id"] in replaced]
