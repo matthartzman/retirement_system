@@ -2,7 +2,7 @@
 
 Date: 2026-11-02.
 
-Status: approved and built 2026-11-02, except the engine half of C.4 (see task C.4). Tasks C.1 to C.3 shipped (#349, #353); C.4 spending half shipped (#354); log task 3.3 (per-account switch-over) is complete. Decisions marked **Claude's call** can be overridden by the owner.
+Status: approved and built 2026-11-02, and the engine half of C.4 as audit plus report-only (see task C.4). Tasks C.1 to C.3 shipped (#349, #353); C.4 spending half shipped (#354); log task 3.3 (per-account switch-over) is complete. Decisions marked **Claude's call** can be overridden by the owner.
 
 Settles where two plans overlap, so neither is built in a way the other has to undo:
 - `2026-10-31-transaction-log-design-and-plan.md` (the "log")
@@ -100,3 +100,5 @@ running single test files while iterating.
 - Sale proceeds counted twice (confirm and import).
 - A transfer counted as spending or income, or an in-kind transfer shown as a cash flow.
 - Any engine, workbook or golden-master change not explained by an owner-approved cash correction.
+
+**Built 2026-11-02 (C.4, engine half):** CASH-lot audit recorded in the cash plan section 10 (no engine change, golden master MATCH); the Cash panel reports withdrawals by pair status and returned excess contributions, report only. The engine does not use the pair-status rule yet (owner approval first).

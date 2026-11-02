@@ -2,7 +2,7 @@
 
 Date: 2026-10-31.
 
-Status: approved, with the owner's decisions of 2026-10-31 (section 7). Built 2026-11-02: Phase 0 (#343), 1 (#345), 2 (#350), 3 (#352), 4 (#353, anchor 1 only), and the spending half of Phase 6 (#354). Phase 5 (screen) is in draft PR #355, awaiting CI. Not built: anchor 2, the engine's per-account-class treatment of the `CASH` lot, and the Phase 6 tax rules (section 9 items 4 and 5).
+Status: approved, with the owner's decisions of 2026-10-31 (section 7). Built 2026-11-02: Phase 0 (#343), 1 (#345), 2 (#350), 3 (#352), 4 (#353, anchor 1 only), and the spending half of Phase 6 (#354). Phase 5 (screen) is merged (#355). Phase 6 engine half built 2026-11-02 as audit plus report-only (section 10 Built note). Not built: anchor 2, and feeding the pair-status tax rule into the engine (needs the owner's approval of the numbers on real data).
 
 Overlap with the transaction log (`2026-10-31-transaction-log-design-and-plan.md`): Phases 4 and 6 below are built
 together with the log's phase 3 as the combined phase in `2026-11-02-cash-and-transaction-log-integration.md`. That note
@@ -148,3 +148,12 @@ Answers to the open questions left for Phase 3 by the Phase 2 PR. Phase 2 itself
 2. **`excess_return`:** as section 9 item 5. Untaxed, not external spending, and the user is flagged to enter the taxable earnings.
 3. **Pair-status tax rule:** report-only first. Show per-account taxable withdrawals by pair status in the Cash panel and compare with the plan's current assumptions; feed the engine only after the owner approves the numbers on real data.
 4. **Sequencing:** start after PR #355 (Phase 5 screen) merges.
+
+**Built 2026-11-02 (Phase 6 engine half; audit plus report-only, no engine change, golden master `measure` MATCH before and after):**
+
+*Audit of the `CASH` lot in the engine* (no code change; no real inconsistency found):
+- Balance: every class values the lot as shares x 1.00 (`market_data` hardcodes the CASH price); `parse_capital_market_returns` sums it into the account balance. Taxable, traditional, Roth and HSA are identical here. Cash growth uses the `CASH` asset-class default (2.0% income, no growth).
+- Tax: only taxable draws reach the lot engine (`_realize_taxable_gain`, `LotEngine.gain_on_withdrawal`). Traditional is taxed as ordinary income and Roth/HSA by their own withdrawal rules, none of which read lots, so the lot's basis never matters there.
+- Taxable gain on cash: basis = shares x `purchase_price`. Lots the app writes (`cash_accounts`) use price 1, so cash withdrawn from a taxable account realizes no gain, and the anchored write (`cash_anchor`) changes only shares. Hazard, not an engine fault: a hand-entered CASH lot with a blank or 0 `purchase_price` has zero basis and would be taxed as pure gain (and if all lots have no basis, the engine falls back to the flat gain fraction). Check `purchase_price` is 1 on CASH lots. No change made.
+
+*Report-only additions* (`src/cash_view.py`, `GET /api/cash`, Cash panel): per account `tax_class`; `withdrawals` for the year by pair status (`external_withdrawal` = a withdrawal from the account, `internal` = not a withdrawal, `unmatched` = undecided); `excess_return` (count and amount of the year, untaxed, not external spending, with the note to enter its taxable earnings). Nothing feeds the engine's tax numbers. Tests: `tests/test_cash_view_unit.py`, `tests/frontend/cash_investment_panel.test.mjs`. Next step (owner): compare the reported withdrawals with the plan's assumptions on real data, then decide whether to feed the rule into the engine.
