@@ -1394,6 +1394,18 @@ def transactions_list():
                        held_only=request.args.get("held", "") in ("1", "true"))
 
 
+@app.route("/api/cash", methods=["GET"])
+def cash_accounts_view():
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    from .. import cash_view as _cv
+    year = request.args.get("year", "")
+    if year and not year.isdigit():
+        return jsonify({"success": False, "error": "year must be a number"}), 400
+    return _sales_call(_cv.view, account=request.args.get("account") or None, year=int(year) if year else None)
+
+
 def _log_body() -> dict:
     return request.get_json(silent=True) or {}
 

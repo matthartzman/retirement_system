@@ -1,0 +1,46 @@
+// "Cash in investment accounts" panel on the Sales Ledger page (cash tracking Phase 5): per account the computed balance, its
+// anchor, the CASH lot and the difference; cash income of the year by tax class; click an account for its ledger. Read-only;
+// the view model is server-side (src/cash_view.py, GET /api/cash). Helpers are bare globals.
+
+const CI_COLS = [["account", "Account"], ["balance", "Balance"], ["as_of", "As of"], ["cash_lot", "CASH lot"], ["difference", "Difference"], ["anchor", "Anchor"], ["last_flow", "Last flow"], ["unmatched", "Unmatched"]];
+const CI_CLASS = { taxable: "Taxable", pre_tax: "Traditional", roth: "Roth", hsa: "HSA" };
+let ciView = null, ciLedger = null, ciError = "", ciOpen = false, ciSort = { key: "account", dir: 1 };
+
+const ciMoney = (v) => (v == null ? "" : window.slMoney ? window.slMoney(v) : String(v));
+
+export function ciHtml(view, ledger = ciLedger, sort = ciSort) {
+  const rows = [...((view && view.accounts) || [])].sort((a, b) => {
+    const x = a[sort.key], y = b[sort.key];
+    return (x == null) - (y == null) || (x > y ? 1 : x < y ? -1 : 0) * sort.dir; // blanks always last
+  });
+  const head = CI_COLS.map(([k, t]) => `<th><a href="#" onclick="ciSortBy('${k}');return false">${esc(t)}${sort.key === k ? (sort.dir > 0 ? " ▲" : " ▼") : ""}</a></th>`).join("");
+  const body = rows.map((r) => `<tr><td><a href="#" onclick="ciShowLedger(${esc(JSON.stringify(r.account))});return false">${esc(accountDisplayLabel(r.account))}</a></td>` +
+    `<td class="rc-num">${r.balance == null ? "unanchored" : ciMoney(r.balance)}</td><td>${esc(r.as_of || "")}</td><td class="rc-num">${ciMoney(r.cash_lot)}</td>` +
+    `<td class="rc-num">${ciMoney(r.difference)}</td><td>${esc(r.anchor)}</td><td>${esc(r.last_flow || "")}</td><td class="rc-num">${r.unmatched || ""}</td></tr>`).join("");
+  const inc = Object.entries((view && view.income_by_tax_class) || {}).map(([k, v]) => `${esc(CI_CLASS[k] || k)} ${ciMoney(v)}`).join(" · ");
+  const led = ledger && ledger.rows ? `<h4>${esc(accountDisplayLabel(ledger.account))}: ledger</h4>` + (ledger.rows.length ? `<table class="rc-table"><thead><tr><th>Date</th><th>Class</th><th class="rc-num">Amount</th><th class="rc-num">Balance</th><th>Pairing</th><th>Source</th></tr></thead><tbody>` +
+    ledger.rows.map((l) => `<tr><td>${esc(l.date)}</td><td>${esc(l.class)}${l.needs_review ? " (review)" : ""}</td><td class="rc-num">${l.in_kind ? "in kind" : ciMoney(l.amount)}</td><td class="rc-num">${ciMoney(l.cash_balance)}</td>` +
+      `<td>${esc(l.pair_status)}${l.partner_account ? " " + esc(accountDisplayLabel(l.partner_account)) : ""}</td><td>${esc(l.source)}</td></tr>`).join("") + `</tbody></table>` : `<p class="muted">No cash rows.</p>`) : "";
+  const table = rows.length ? `<table class="rc-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>` : `<p class="muted">No broker imports yet.</p>`;
+  return `<details${ciOpen ? " open" : ""} ontoggle="ciToggle(this.open)"><summary><h3 style="display:inline">Cash in investment accounts</h3>${view ? ` (${rows.length})` : ""}</summary>` +
+    `${ciError ? `<p role="alert" class="error">${esc(ciError)}</p>` : ""}${table}${inc ? `<p>Cash income ${esc(String(view.year))}: ${inc}</p>` : ""}${led}</details>`;
+}
+
+export function renderCashInvestment() {
+  if (ciView === null) setTimeout(ciLoad, 0);
+  return `<div class="sl-import" id="ciRoot">${ciHtml(ciView)}</div>`;
+}
+
+const ciPaint = () => { const el = document.getElementById("ciRoot"); if (el) el.innerHTML = ciHtml(ciView); };
+export async function ciLoad() {
+  try { ciView = await api("/api/cash"); ciError = ""; } catch (e) { ciView = { accounts: [] }; ciError = e.message; }
+  ciPaint();
+}
+export async function ciShowLedger(account) {
+  try { ciLedger = await api(`/api/cash?account=${encodeURIComponent(account)}`); ciError = ""; } catch (e) { ciError = e.message; }
+  ciPaint();
+}
+export function ciSortBy(key) { ciSort = { key, dir: ciSort.key === key ? -ciSort.dir : 1 }; ciPaint(); }
+export function ciToggle(open) { ciOpen = !!open; }
+
+Object.assign(window, { renderCashInvestment, ciHtml, ciLoad, ciShowLedger, ciSortBy, ciToggle });

@@ -140,6 +140,8 @@ Answers to the open questions left for Phase 3 by the Phase 2 PR. Phase 2 itself
 4. **Tax rule (Phase 6):** tax by pair status, not class. Any `external_withdrawal` (class `distribution` or `transfer_out`) is a withdrawal from the account; an `internal` pair is not.
 5. **`excess_return` (Phase 6):** untaxed and treated as the contribution coming back: not a taxable withdrawal and not external spending. Earnings on it are taxable, so the user is flagged to enter them.
 
+**Built 2026-11-02 (Phase 5):** `src/cash_view.py`, `GET /api/cash` (per-account summary and income by tax class; `?account=` for one ledger), panel `frontend/js/dashboard_decomp_cash_investment.js` on the Sales Ledger page below the broker import. Balance anchors on the file's latest running balance, else the confirmed `CASH` lot, else the account shows "unanchored" with no number. Difference is balance minus the `CASH` lot. The ledger shows the broker's running balance on rows that have one. Tests: `tests/test_cash_view_unit.py`, `tests/frontend/cash_investment_panel.test.mjs`.
+
 ## 10. Phase 6 engine-half decisions (owner, 2026-11-02)
 
 1. **`CASH` lot in the engine:** audit first. Run `measure`, record how the engine values `CASH` per account class, and change code only where a class is wrong. The golden master does not move without owner approval.
