@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 298 Python files under `src/`, 61 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 300 Python files under `src/`, 61 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -24,7 +24,7 @@ flowchart TB
     subgraph L_HTTP_Runtime["HTTP Runtime (4 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
-    subgraph L_Core_Engine___Domain["Core Engine & Domain (210 modules)"]
+    subgraph L_Core_Engine___Domain["Core Engine & Domain (212 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
     subgraph L_Projection_Stages["Projection Stages (24 modules)"]
@@ -691,7 +691,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/stores/db.py` | `stores.errors` | — |
 | `src/stores/errors.py` | — | — |
 | `src/stores/monarch_repo.py` | `stores.errors` | — |
-| `src/stores/plan_store.py` | `stores._base`, `stores.broker_repo`, `stores.build_results`, `stores.datasets`, `stores.errors`, `stores.monarch_repo`, `stores.rental_repo`, `stores.sales_repo`, `stores.spending_repo` | — |
+| `src/stores/plan_store.py` | `stores._base`, `stores.broker_repo`, `stores.build_results`, `stores.datasets`, `stores.errors`, `stores.monarch_repo`, `stores.rental_repo`, `stores.sales_repo`, `stores.spending_repo`, `stores.transactions_repo` | — |
 | `src/stores/ref_access.py` | `stores.ref_data` | — |
 | `src/stores/ref_data.py` | `stores`, `stores.errors` | — |
 | `src/stores/ref_getters/__init__.py` | `stores.ref_data`, `stores.ref_getters` | — |
@@ -708,6 +708,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/stores/rental_repo.py` | `stores.errors` | — |
 | `src/stores/sales_repo.py` | `stores.errors` | — |
 | `src/stores/spending_repo.py` | `stores.datasets` | — |
+| `src/stores/transactions_repo.py` | `stores.errors`, `stores.sales_repo` | — |
 | `src/strategy_sweep.py` | — | — |
 | `src/system_config.py` | `app_state` | — |
 | `src/tax_assumptions.py` | `tax_law` | — |
@@ -715,6 +716,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/tax_law.py` | `stores.ref_getters.tax_law` | — |
 | `src/taxes.py` | `tax_law` | — |
 | `src/tlh.py` | `stores.ref_getters.security_master` | — |
+| `src/transactions.py` | `broker_import`, `sales_confirm`, `sales_ledger`, `stores.transactions_repo` | — |
 | `src/transactions_view.py` | — | — |
 | `src/us_states.py` | — | — |
 | `src/vectorized_fast_core.py` | — | `numpy` |

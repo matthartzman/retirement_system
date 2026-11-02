@@ -1,6 +1,6 @@
 # Transaction log: design and implementation plan
 
-Status: approved. Phase 1 built 2026-11-02; phases 2 and 3 proposed, not started. Written 2026-10-31 after the broker import shipped (#329, #330). Decisions marked
+Status: approved. Phase 1 built 2026-11-02; phase 2 in progress (tasks 2.1 to 2.3 built 2026-11-02); phase 3 not started. Written 2026-10-31 after the broker import shipped (#329, #330). Decisions marked
 **Claude's call** can be overridden. It builds on `2026-10-30-broker-activity-bulk-import-design-and-plan.md` and the
 realized-sales ledger (`2026-10-28-realized-sales-ledger-design-and-plan.md`).
 

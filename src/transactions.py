@@ -1,0 +1,229 @@
+"""Transaction log service (phase 2 of ``2026-10-31-transaction-log-design-and-plan.md``): open lots by replay, add,
+revise (void and replace) and void. The replay is a pure function over lists so the negative-position rule is testable
+on its own; writes happen only after the hypothetical log passes it.
+
+Lots are created by ``buy``, ``reinvest``, ``transfer_in`` and ``opening`` rows; ``sell`` and ``transfer_out`` rows
+consume them through ``transaction_lots``. Everything is judged by date, never by entry order, and on one day the
+purchase counts before the sale.
+"""
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any, Iterable, Mapping
+
+from . import active_plan
+from .sales_ledger import ValidationError
+from .stores.transactions_repo import LOT_TYPES_CREATING
+
+_EPS = 1e-6
+DISPOSAL_TYPES = ("sell", "transfer_out")
+
+
+def lot_date(row: Mapping[str, Any]) -> str:
+    """The date a lot's holding period runs from: the origin purchase date on a transfer, else the row's own date."""
+    return row.get("lot_date") or row["txn_date"]
+
+
+def replay_errors(rows: Iterable[Mapping[str, Any]], disposals: Iterable[Mapping[str, Any]]) -> list[str]:
+    """Problems in a hypothetical log. ``rows`` are active transaction rows; ``disposals`` are ``{txn_id, lot_txn_id,
+    shares}``. A disposal must come from a lot of the same account and symbol that exists on the disposal date, and no
+    lot may go negative."""
+    rows = list(rows)
+    by_id = {r["txn_id"]: r for r in rows}
+    lots = {r["txn_id"]: r for r in rows if r["type"] in LOT_TYPES_CREATING}
+    used: dict[int, float] = {}
+    errors: list[str] = []
+    for d in sorted(disposals, key=lambda d: (by_id[d["txn_id"]]["txn_date"], d["txn_id"])):
+        sale = by_id.get(d["txn_id"])
+        lot = lots.get(d["lot_txn_id"])
+        if sale is None:
+            continue
+        label = f"the {sale['type'].replace('_', ' ')} of {sale['symbol']} on {sale['txn_date']}"
+        if lot is None:
+            errors.append(f"{label} uses a lot that is not in the log")
+            continue
+        if (lot["account"], lot["symbol"].upper()) != (sale["account"], sale["symbol"].upper()):
+            errors.append(f"{label} uses a lot of a different account or symbol")
+        elif lot["txn_date"] > sale["txn_date"]:
+            errors.append(f"{label} comes before the purchase it uses ({lot['txn_date']})")
+        used[lot["txn_id"]] = used.get(lot["txn_id"], 0.0) + float(d["shares"])
+        if used[lot["txn_id"]] > float(lot["shares"]) + _EPS:
+            errors.append(f"{label} would take more shares than the {lot['txn_date']} lot of {lot['symbol']} holds")
+    for sale in rows:
+        if sale["type"] in DISPOSAL_TYPES:
+            got = sum(float(d["shares"]) for d in disposals if d["txn_id"] == sale["txn_id"])
+            if abs(got - float(sale["shares"])) > _EPS:
+                errors.append(f"the {sale['type'].replace('_', ' ')} of {sale['symbol']} on {sale['txn_date']} "
+                              f"names lots for {got:g} of its {float(sale['shares']):g} shares")
+    return errors
+
+
+def _state(store: Any) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    rows = store.transactions.list()
+    active = {r["txn_id"] for r in rows}
+    return rows, [d for d in store.transactions.all_disposals() if d["txn_id"] in active]
+
+
+def open_lots(store: Any, *, account: str | None = None, symbol: str | None = None,
+              as_of: str | None = None) -> list[dict[str, Any]]:
+    """Lots with shares left on ``as_of`` (default: after every active row), oldest first."""
+    rows, disposals = _state(store)
+    by_id = {r["txn_id"]: r for r in rows}
+    left = {r["txn_id"]: float(r["shares"]) for r in rows if r["type"] in LOT_TYPES_CREATING
+            and (as_of is None or r["txn_date"] <= as_of)}
+    for d in disposals:
+        if d["lot_txn_id"] in left and (as_of is None or by_id[d["txn_id"]]["txn_date"] <= as_of):
+            left[d["lot_txn_id"]] -= float(d["shares"])
+    out = []
+    for lid, shares in left.items():
+        r = by_id[lid]
+        if shares <= _EPS or (account and r["account"] != account) or (symbol and r["symbol"].upper() != symbol.upper()):
+            continue
+        out.append({"lot_txn_id": lid, "account": r["account"], "symbol": r["symbol"], "purchase_date": lot_date(r),
+                    "price": r["price"], "lot_type": r["lot_type"], "shares": round(shares, 6)})
+    return sorted(out, key=lambda x: (x["account"], x["symbol"], x["purchase_date"], x["lot_txn_id"]))
+
+
+def _fifo(store: Any, fields: Mapping[str, Any], *, exclude: int | None = None) -> dict[int, float]:
+    """Oldest-first allocation of a sale from the lots open on its date, not counting the sale being replaced."""
+    rows, disposals = _state(store)
+    disposals = [d for d in disposals if d["txn_id"] != exclude]
+    by_id = {r["txn_id"]: r for r in rows}
+    left = {r["txn_id"]: float(r["shares"]) for r in rows if r["type"] in LOT_TYPES_CREATING
+            and r["account"] == fields["account"] and r["symbol"].upper() == fields["symbol"].upper()
+            and r["txn_date"] <= fields["txn_date"]}
+    for d in disposals:
+        if d["lot_txn_id"] in left:
+            left[d["lot_txn_id"]] -= float(d["shares"])
+    need, out = float(fields["shares"]), {}
+    for lid in sorted(left, key=lambda i: (lot_date(by_id[i]), i)):
+        take = min(need, max(left[lid], 0.0))
+        if take > _EPS:
+            out[lid] = take
+            need -= take
+    if need > _EPS:
+        raise ValidationError(f"only {float(fields['shares']) - need:g} shares of {fields['symbol']} are open in "
+                              f"{fields['account']} on {fields['txn_date']}")
+    return out
+
+
+def _check(rows: list[dict[str, Any]], disposals: list[dict[str, Any]]) -> None:
+    errors = replay_errors(rows, disposals)
+    if errors:
+        raise ValidationError("; ".join(errors[:3]) + ("; undo the sale in the queue first" if "more shares" in " ".join(errors) else ""))
+
+
+def _base(input_dir: str | Path) -> Path:
+    return Path(input_dir).parent
+
+
+def add(input_dir: str | Path, *, allocation: Mapping[int, float] | None = None, **fields: Any) -> int:
+    """Add one row. A ``sell`` names its lots in ``allocation`` ({lot txn id: shares}); without it the oldest lots go first."""
+    fields.setdefault("source", "manual")
+    with active_plan.workspace_store(_base(input_dir), write=True) as store, store.transaction():
+        return _add(store, fields, allocation)
+
+
+def _add(store: Any, fields: dict[str, Any], allocation: Mapping[int, float] | None, *, revision_of: int | None = None) -> int:
+    if fields.get("type") in DISPOSAL_TYPES and not allocation:
+        allocation = _fifo(store, fields, exclude=revision_of)
+    rows, disposals = _state(store)
+    if revision_of is not None:
+        rows = [r for r in rows if r["txn_id"] != revision_of]
+        disposals = [d for d in disposals if d["txn_id"] != revision_of]
+    probe = {**fields, "txn_id": -1, "shares": float(fields.get("shares") or 0), "lot_date": fields.get("lot_date")}
+    if probe["shares"] <= 0:
+        raise ValidationError("shares must be greater than zero")
+    _check(rows + [probe], disposals + [{"txn_id": -1, "lot_txn_id": lid, "shares": s} for lid, s in (allocation or {}).items()])
+    new_id = store.transactions.insert(**fields)
+    for lid, shares in (allocation or {}).items():
+        store.transactions.add_disposal(new_id, int(lid), float(shares))
+    return new_id
+
+
+def revise(input_dir: str | Path, txn_id: int, *, allocation: Mapping[int, float] | None = None, **changes: Any) -> int:
+    """Void ``txn_id`` and add a corrected row that carries ``revision_ref``. A lot that later sales used keeps those
+    sales; the change is refused if it would leave them short, naming the sale."""
+    with active_plan.workspace_store(_base(input_dir), write=True) as store, store.transaction():
+        old = store.transactions.get(txn_id)
+        if old["status"] != "active":
+            raise ValidationError("that transaction is already voided")
+        fields = {k: old[k] for k in ("txn_date", "settle_date", "account", "type", "symbol", "shares", "price", "amount",
+                                      "fees", "lot_type", "transfer_group", "lot_date", "origin_lot_txn_id", "source",
+                                      "activity_id", "candidate_id", "note")}
+        fields.update(changes)
+        fields["revision_ref"] = txn_id
+        if old["source"] == "broker" and not changes.get("note"):
+            fields["note"] = (old["note"] + " " if old["note"] else "") + "revised from import"
+        if old["type"] in LOT_TYPES_CREATING:   # sales that used this lot stay on it: validate with them pointed at a stand-in
+            rows, disposals = _state(store)
+            rows = [r for r in rows if r["txn_id"] != txn_id]
+            stand_in = {**fields, "txn_id": -2, "shares": float(fields["shares"])}
+            moved = [{**d, "lot_txn_id": -2} if d["lot_txn_id"] == txn_id else d for d in disposals]
+            _check(rows + [stand_in], moved)
+            store.transactions.void(txn_id)
+            new_id = store.transactions.insert(**{**fields, "activity_id": None})
+            store.transactions.repoint_disposals(txn_id, new_id)
+            return new_id
+        alloc = allocation
+        if alloc is None and old["type"] in DISPOSAL_TYPES and all(fields[k] == old[k] for k in ("shares", "symbol", "account")) \
+                and fields["txn_date"] == old["txn_date"]:
+            alloc = {d["lot_txn_id"]: d["shares"] for d in store.transactions.disposals(txn_id)}
+        new_id = _add(store, {**fields, "activity_id": None}, alloc, revision_of=txn_id)
+        store.transactions.void(txn_id)
+        return new_id
+
+
+def transfer(input_dir: str | Path, *, from_account: str, to_account: str, symbol: str, allocation: Mapping[int, float],
+             txn_date: str, note: str = "") -> dict[str, Any]:
+    """Move shares in kind: a ``transfer_out`` in the source (consuming ``allocation`` = {lot txn id: shares}) and one
+    ``transfer_in`` per lot in the destination that keeps the lot's purchase date, price and lot type. No sale, no
+    ledger row. All of it is one transaction. ``flags`` lists anything to check (a change of tax class)."""
+    from .broker_import import plan_accounts
+    from .sales_confirm import default_tax_class
+    allocation = {int(k): float(v) for k, v in (allocation or {}).items() if float(v) > 0}
+    if not allocation:
+        raise ValidationError("choose the lots to move")
+    if from_account == to_account:
+        raise ValidationError("the source and destination accounts are the same")
+    with active_plan.workspace_store(_base(input_dir), write=True) as store, store.transaction():
+        if to_account not in plan_accounts(store):
+            raise ValidationError(f"{to_account} is not an account in this plan")
+        rows, disposals = _state(store)
+        by_id = {r["txn_id"]: r for r in rows}
+        missing = [lid for lid in allocation if lid not in by_id or by_id[lid]["type"] not in LOT_TYPES_CREATING]
+        if missing:
+            raise ValidationError("one of the chosen lots is not in the log")
+        group = f"xfer-{txn_date}-{min(allocation)}-{len(rows)}"
+        total = sum(allocation.values())
+        out = {"txn_id": -1, "txn_date": txn_date, "account": from_account, "type": "transfer_out", "symbol": symbol, "shares": total}
+        _check(rows + [out], disposals + [{"txn_id": -1, "lot_txn_id": lid, "shares": s} for lid, s in allocation.items()])
+        out_id = store.transactions.insert(txn_date=txn_date, account=from_account, type="transfer_out", symbol=symbol,
+                                           shares=total, source="manual", transfer_group=group, note=note)
+        for lid, shares in allocation.items():
+            store.transactions.add_disposal(out_id, lid, shares)
+            lot = by_id[lid]
+            store.transactions.insert(txn_date=txn_date, account=to_account, type="transfer_in", symbol=symbol, shares=shares,
+                                      price=lot["price"], lot_type=lot["lot_type"], lot_date=lot_date(lot), source="manual",
+                                      transfer_group=group, origin_lot_txn_id=lid, note=note)
+        flags = []
+        if default_tax_class(store, from_account) != default_tax_class(store, to_account):
+            flags.append("The accounts have different tax treatment: check whether this is a conversion or a contribution; "
+                         "the log does not model the tax.")
+        return {"group": group, "transfer_out": out_id, "flags": flags}
+
+
+def void(input_dir: str | Path, txn_id: int) -> None:
+    """Void a row. A purchase that a later sale used is refused and the sale is named."""
+    with active_plan.workspace_store(_base(input_dir), write=True) as store, store.transaction():
+        row = store.transactions.get(txn_id)
+        if row["status"] != "active":
+            return
+        rows, disposals = _state(store)
+        rows = [r for r in rows if r["txn_id"] != txn_id]
+        disposals = [d for d in disposals if d["txn_id"] != txn_id]
+        if row["type"] in LOT_TYPES_CREATING and any(d["lot_txn_id"] == txn_id for d in disposals):
+            sale = next(r for r in rows if r["txn_id"] in {d["txn_id"] for d in disposals if d["lot_txn_id"] == txn_id})
+            raise ValidationError(f"the {sale['type'].replace('_', ' ')} of {sale['symbol']} on {sale['txn_date']} used this "
+                                  f"lot; undo it in the queue first")
+        store.transactions.void(txn_id)
