@@ -80,7 +80,7 @@ def open_lots(store: Any, *, account: str | None = None, symbol: str | None = No
         if shares <= _EPS or (account and r["account"] != account) or (symbol and r["symbol"].upper() != symbol.upper()):
             continue
         out.append({"lot_txn_id": lid, "account": r["account"], "symbol": r["symbol"], "purchase_date": lot_date(r),
-                    "price": r["price"], "lot_type": r["lot_type"], "shares": round(shares, 6)})
+                    "price": r["price"], "lot_type": r["lot_type"], "shares": round(shares, 6), "note": r["note"]})
     return sorted(out, key=lambda x: (x["account"], x["symbol"], x["purchase_date"], x["lot_txn_id"]))
 
 
@@ -231,6 +231,7 @@ def void(input_dir: str | Path, txn_id: int) -> None:
 
 # ------------------------------------------------------------------------------------------------ backfill, reconcile
 _NO_DATE = "1900-01-01"
+_OPENING_NOTE = "lot with no purchase on file"   # the log's own explanation; never copied into the holdings
 _ZERO = 1e-6
 
 
@@ -254,7 +255,8 @@ def _holdings_by_key(store: Any) -> dict[tuple, dict[str, Any]]:
             continue
         k = _key(h.get("account"), h.get("symbol"), h.get("purchase_date"), h.get("purchase_price"), h.get("lot_type"))
         slot = out.setdefault(k, {"account": h["account"], "symbol": h["symbol"], "purchase_date": h.get("purchase_date") or _NO_DATE,
-                                  "price": round(_num(h.get("purchase_price")), 6), "lot_type": h.get("lot_type") or "", "shares": 0.0})
+                                  "price": round(_num(h.get("purchase_price")), 6), "lot_type": h.get("lot_type") or "", "shares": 0.0,
+                                  "note": h.get("note") or ""})
         slot["shares"] += shares
     return out
 
@@ -281,7 +283,7 @@ def backfill(store: Any) -> dict[str, Any]:
         ref = a["lot_ref"]
         if a["kind"] in ("buy", "reinvest") and ref and not a["sweep"] and a["activity_id"] not in done:
             t.insert(txn_date=a["run_date"], settle_date=a["settle_date"], account=a["account"], type=a["kind"], symbol=a["symbol"],
-                     shares=abs(a["quantity"] or 0.0) or 0.0, amount=a["amount"], lot_type=ref.get("lot_type") or "",
+                     shares=abs(a["quantity"] or 0.0) or 0.0, amount=a["amount"], lot_type=ref.get("lot_type") or "", note=ref.get("note") or "",
                      # the holdings lot's own price: a lot the import matched (not created) can differ by cents
                      price=_num(ref["purchase_price"]) if ref.get("purchase_price") not in (None, "") else a["price"],
                      lot_date=ref.get("purchase_date") if ref.get("purchase_date") not in (None, "", a["run_date"]) else None,
@@ -312,7 +314,7 @@ def backfill(store: Any) -> dict[str, Any]:
         missing = held.get(k, {}).get("shares", 0.0) + sold - logged.get(k, {}).get("shares", 0.0)
         if missing > _ZERO:
             t.insert(txn_date=k[2], account=src["account"], type="opening", symbol=src["symbol"], shares=missing, price=k[3],
-                     lot_type=k[4], source="backfill", note="lot with no purchase on file")
+                     lot_type=k[4], source="backfill", note=_OPENING_NOTE)
             added["opening"] += 1
     for cid, group in pending.items():
         c = cands[cid]
@@ -346,7 +348,7 @@ def backfill(store: Any) -> dict[str, Any]:
         short = h["shares"] - logged.get(k, {}).get("shares", 0.0)
         if short > _ZERO:
             t.insert(txn_date=h["purchase_date"], account=h["account"], type="opening", symbol=h["symbol"], shares=short,
-                     price=h["price"], lot_type=h["lot_type"], source="backfill", note="lot with no purchase on file")
+                     price=h["price"], lot_type=h["lot_type"], source="backfill", note=h["note"] or _OPENING_NOTE)
             added["opening"] += 1
     return {"added": added, "warnings": warnings}
 
@@ -423,3 +425,26 @@ def start_log(input_dir: str | Path) -> dict[str, Any]:
     """Run the backfill (idempotent) and return what it added."""
     with active_plan.workspace_store(_base(input_dir), write=True) as store, store.transaction():
         return backfill(store)
+
+
+# ------------------------------------------------------------------------------------------------ materialize (phase 3)
+def _fmt(x: float) -> str:
+    return ("%.8f" % x).rstrip("0").rstrip(".") or "0"
+
+
+def materialize(store: Any, account: str) -> int:
+    """Rewrite ``account``'s rows in the holdings dataset from the log's open lots (call inside the caller's transaction).
+    Every other account's rows and the account's own ``CASH`` lot (the cash ledger's) are untouched. The rewritten rows
+    sit where the account's first old row was, ordered by symbol and purchase date. Returns the lot rows written."""
+    repo = store.dataset("holdings")
+    rows = repo.rows()
+    mine = [i for i, r in enumerate(rows) if str(r.get("account", "")).strip().lower() == account.strip().lower()
+            and str(r.get("symbol", "")).strip().upper() != "CASH"]
+    new = [{"account": account, "symbol": l["symbol"], "purchase_date": "" if l["purchase_date"] == _NO_DATE else l["purchase_date"],
+            "shares": _fmt(l["shares"]), "purchase_price": _fmt(float(l["price"] or 0.0)), "lot_type": l["lot_type"], "note": "" if l["note"] == _OPENING_NOTE else l["note"] or ""}
+           for l in open_lots(store, account=account) if l["symbol"].strip().upper() != "CASH"]
+    at = mine[0] if mine else len(rows)
+    kept_before = sum(1 for i in range(at) if i not in set(mine))
+    rest = [r for i, r in enumerate(rows) if i not in set(mine)]
+    repo.replace_all(rest[:kept_before] + new + rest[kept_before:])
+    return len(new)
