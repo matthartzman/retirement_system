@@ -1,6 +1,8 @@
 # Investment-account cash tracking: design and plan
 
-Date: 2026-10-31. Status: design approved with the owner's decisions of 2026-10-31 (section 7); nothing built.
+Date: 2026-10-31.
+
+Status: approved, with the owner's decisions of 2026-10-31 (section 7); nothing built.
 
 ## 1. Goal
 

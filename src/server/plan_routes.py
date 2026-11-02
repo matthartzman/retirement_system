@@ -1395,6 +1395,21 @@ def sales_broker_income():
     return _sales_call(lambda root: _income.reconcile(root, account=account, year=year))
 
 
+@app.route("/api/transactions", methods=["GET"])
+def transactions_list():
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    from .. import transactions_view as _tv
+    year = request.args.get("year", "")
+    if year and not year.isdigit():
+        return jsonify({"success": False, "error": "year must be a number"}), 400
+    types = [t for t in request.args.get("type", "").split(",") if t]
+    return _sales_call(_tv.view, account=request.args.get("account") or None, symbol=request.args.get("symbol") or None,
+                       year=int(year) if year else None, types=types,
+                       held_only=request.args.get("held", "") in ("1", "true"))
+
+
 # ---- Account reconciliation (app vs Monarch) ----
 # Logic lives in src/reconcile.py; every write is logged and undoable (reconcile_log).
 

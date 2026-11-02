@@ -22,9 +22,11 @@ BROKER = "etrade"
 _HEADER = ("Activity/Trade Date", "Activity Type", "Quantity #", "Amount $")
 _ACCOUNT_LINE = re.compile(r"Account Activity for .*?-\s*([A-Za-z0-9]+)\s+from\b", re.I)
 _BANK_SWEEP_SYMBOLS = SWEEP_SYMBOLS | {"MSPBNA"}
-# Activity Type (lower case) -> kind; anything else (Contribution, Transfer, Distribution, Service Fee, Redemption,
-# Misc Income, Online Transfer, ...) is "other" and is only counted.
-_KINDS = {"sold": "sell", "bought": "buy", "dividend": "dividend", "interest income": "interest"}
+# Activity Type (lower case) -> kind; anything else (Contribution, Transfer, Distribution, Service Fee, Misc Income,
+# Online Transfer, ...) is "other" and is only counted. A Redemption (a matured bond or called security) with a symbol
+# and shares is a sale at its redemption value: it relieves lots like a sell (see ``parse``).
+_KINDS = {"sold": "sell", "bought": "buy", "dividend": "dividend", "interest income": "interest",
+          "redemption": "sell"}
 
 
 def account_hint(file_name: str | None) -> str | None:
@@ -83,6 +85,11 @@ def parse(text: str, *, file_name: str | None = None) -> ParsedActivity:
             commission = number(row.get("Commission")) or 0.0
             settle = row.get("Settlement Date", "")
             desc = row.get("Description", "")
+            redemption = action.lower() == "redemption"
+            if redemption and (not symbol or not quantity):
+                kind = "other"   # nothing to relieve: counted only
+            elif redemption:
+                quantity = -abs(quantity)   # the file may show shares leaving as either sign; a sale is negative
             if kind == "dividend" and quantity and "REINVEST" in desc.upper():
                 kind = "reinvest"   # filed as a Dividend with shares and a negative amount: it is the purchase, not income
             rec = {

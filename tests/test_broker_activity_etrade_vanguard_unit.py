@@ -27,12 +27,24 @@ def test_etrade_kinds_and_sweep():
     assert ("Sold", "sell", False) in kinds and ("Bought", "buy", False) in kinds
     assert ("Dividend", "dividend", False) in kinds
     assert ("Interest Income", "interest", True) in kinds  # Bank Deposit Program interest is income on a sweep
-    for other in ("Redemption", "Contribution", "Service Fee"):
+    assert ("Redemption", "sell", False) in kinds   # a redemption relieves lots like a sale
+    for other in ("Contribution", "Service Fee"):
         assert (other, "other", False) in kinds
+
+
+def test_etrade_redemption_is_a_sale_at_redemption_value_and_needs_symbol_and_shares():
+    red = next(r for r in _etrade().rows if r["action"] == "Redemption")
+    assert red["kind"] == "sell" and red["quantity"] == -1000 and red["amount"] == 10.0
+    assert red["price"] == pytest.approx(0.01)
+    positive = _etrade(["08/20/2026,08/20/2026,--,Redemption,X,TOTL,--,1000,--,10.0,0.0,--,--"]).rows[0]
+    assert positive["kind"] == "sell" and positive["quantity"] == -1000   # either sign in the file
+    bare = _etrade(["08/20/2026,08/20/2026,--,Redemption,CASH IN LIEU,--,--,--,--,10.0,0.0,--,--"]).rows[0]
+    assert bare["kind"] == "other"
 
 
 def test_etrade_sell_quantity_negative_amount_net_of_commission():
     sells = [r for r in _etrade().rows if r["kind"] == "sell"]
+    sells = [r for r in sells if r["action"] == "Sold"]
     assert [r["quantity"] for r in sells] == [-1.5, -2]
     assert sells[0]["amount"] == 164.9 and sells[0]["commission"] == 0.1
     order = broker_activity.group_orders(sells)
@@ -73,6 +85,14 @@ def test_vanguard_kinds_signs_and_sweeps():
     assert next(r for r in rows if r["kind"] == "interest")["symbol"] is None
 
 
+def test_vanguard_corp_action_redemption_is_a_sale_only_with_symbol_and_shares():
+    rows = ["11111111,9/1/2026,9/1/2026,Corp Action (Redemption),Redemption,EXAMPLE NOTE,EXNT,500,1,500,0,500,0,CASH",
+            "11111111,9/2/2026,9/2/2026,Corp Action (Redemption),Redemption,EXAMPLE NOTE,,0,0,5,0,5,0,CASH"]
+    p = broker_activity.parse_file("vanguard", vanguard_csv(rows), account="X", file_name=VANGUARD_FILE_NAME)
+    assert [(r["kind"], r["quantity"]) for r in p.rows] == [("sell", -500), ("other", 0)]
+    assert p.rows[0]["price"] == 1 and p.rows[0]["amount"] == 500
+
+
 def test_vanguard_bad_rows_and_header():
     bad = _vanguard(["11111111,9/15/2026,9/16/2026,Sell,Sell,X,EXMK,5,200,1000,0,1000,0,CASH"])
     assert bad.errors and "positive quantity" in bad.errors[0]["error"]
@@ -108,11 +128,24 @@ def test_etrade_single_account_flow_with_auto_detected_broker(ws):
     rep = broker_import.preview(ws, text=etrade_csv(), file_name=ETRADE_FILE_NAME)
     assert rep["needs_account"] and rep["broker"] == "etrade" and rep["hints"][0]["hint"] == "etrade:9876"
     rep = broker_import.preview(ws, text=etrade_csv(), file_name=ETRADE_FILE_NAME, account="Member_1_IRA")
-    assert rep["counts"]["orders"] == 1 and rep["orders"][0]["status"] == "ready" and rep["counts"]["lots_add"] == 2
+    by_symbol = {o["symbol"]: o["status"] for o in rep["orders"]}
+    assert by_symbol == {"TOTL": "ready", "91733P115": "no_lots"} and rep["counts"]["lots_add"] == 2
     out = broker_import.commit(ws, text=etrade_csv(), file_name=ETRADE_FILE_NAME, account="Member_1_IRA", confirm_method="fifo")
     assert len(out["confirmed"]) == 1 and out["import_ids"] == [out["import_id"]]
     again = broker_import.preview(ws, text=etrade_csv(), file_name=ETRADE_FILE_NAME)  # account remembered from line 3
     assert again["account"] == "Member_1_IRA" and not again["will_write"]
+
+
+def test_etrade_redemption_relieves_the_lot_like_a_sale(ws):
+    with active_plan.workspace_store(ws.parent, write=True) as store:
+        store.dataset("holdings").replace_all(HOLDINGS + [
+            {"account": "Member_1_IRA", "symbol": "91733P115", "purchase_date": "2025-02-01", "shares": "1500",
+             "purchase_price": "0.5", "lot_type": "buy", "note": ""}])
+    out = broker_import.commit(ws, text=etrade_csv(), file_name=ETRADE_FILE_NAME, account="Member_1_IRA", confirm_method="fifo")
+    assert len(out["confirmed"]) == 2
+    with active_plan.workspace_store(ws.parent) as store:
+        left = [r for r in store.dataset("holdings").rows() if r["symbol"] == "91733P115"]
+    assert len(left) == 1 and float(left[0]["shares"]) == 500
 
 
 def test_vanguard_needs_one_account_per_hint(ws):
