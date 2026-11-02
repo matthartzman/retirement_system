@@ -25,6 +25,9 @@ export function tlHtml(log, form = tlForm, xfer = tlXfer, edit = tlEdit) {
     log.drift.map((d) => `<li>${esc(accountDisplayLabel(d.account))} ${esc(d.symbol)} ${esc(d.purchase_date)}: holdings ${tlNum(d.holdings_shares)}, log ${tlNum(d.log_shares)}. ${esc(d.reason)}</li>`).join("") + `</ul></div>` : `<p class="muted">The log agrees with the holdings.</p>`;
   const accts = tlAccounts(log);
   const acctOpts = [["", "Account"], ...accts.map((a) => [a, accountDisplayLabel(a)])];
+  const managed = new Set((log.managed || []).map((a) => a.toLowerCase()));
+  const managedBox = `<h4>Managed accounts</h4><p class="muted">A managed account's holdings are written by this log; edit it here, not in Holdings. Turning it off leaves the last holdings as they are.</p><ul class="tl-managed">` +
+    accts.map((a) => `<li><label><input type="checkbox" data-managed="${esc(a)}"${managed.has(a.toLowerCase()) ? " checked" : ""} onchange="tlSetManaged('${esc(a)}',this.checked)"> ${esc(accountDisplayLabel(a))}</label></li>`).join("") + `</ul>`;
   const rows = (log.rows || []).slice().reverse().map((r) => `<tr><td>${esc(r.txn_date)}</td><td>${esc(accountDisplayLabel(r.account))}</td><td>${esc(TL_LABEL[r.type] || r.type)}</td><td>${esc(r.symbol)}</td>` +
     `<td class="rc-num">${tlNum(r.shares)}</td><td class="rc-num">${r.price == null ? "" : tlNum(r.price)}</td><td>${esc(r.source)}</td><td>${esc(r.note || "")}</td>` +
     `<td><button type="button" onclick="tlEditRow(${Number(r.txn_id)})">Edit</button> <button type="button" onclick="tlVoid(${Number(r.txn_id)})">Void</button></td></tr>`).join("");
@@ -44,7 +47,7 @@ export function tlHtml(log, form = tlForm, xfer = tlXfer, edit = tlEdit) {
         `<td class="rc-num"><input size="7" value="${esc(xfer.picks[l.lot_txn_id] || "")}" onchange="tlPick(${Number(l.lot_txn_id)},this.value)"></td></tr>`).join("") + `</tbody></table>` : `<p class="muted">Choose the source account to list its open lots.</p>`) +
     `<button type="button" onclick="tlTransfer()">Transfer</button>`;
   const table = rows ? `<table class="rc-table"><thead><tr><th>Date</th><th>Account</th><th>Type</th><th>Symbol</th><th class="rc-num">Shares</th><th class="rc-num">Price</th><th>Source</th><th>Note</th><th></th></tr></thead><tbody>${rows}</tbody></table>` : `<p class="muted">The log is empty.</p>`;
-  return `<h3>Transaction log</h3>${msg}${drift}${addForm}${xferForm}${table}`;
+  return `<h3>Transaction log</h3>${msg}${drift}${managedBox}${addForm}${xferForm}${table}`;
 }
 
 export function renderTransactionLog() {
@@ -68,6 +71,12 @@ async function tlPost(url, body, done) {
 }
 
 export const tlStart = () => tlPost("/api/transactions/backfill", {}, "The transaction log was started.");
+export const tlSetManaged = (account, on) => tlPost(`/api/transactions/accounts/${encodeURIComponent(account)}/managed`, { managed: !!on },
+  on ? "The account is now managed by the log." : "The account is no longer managed; its holdings stay as they are.").then((ok) => {
+  if (ok && window.loadManagedHoldingAccounts) window.loadManagedHoldingAccounts();
+  if (!ok) tlLoad();
+  return ok;
+});
 export function tlSetForm(k, v) { tlForm = { ...tlForm, [k]: v }; }
 export function tlSetFormAccount(v) { tlSetForm("account", v); }
 export function tlSetFormType(v) { tlSetForm("type", v); tlPaint(); }
@@ -98,5 +107,5 @@ export function tlTransfer() {
   return tlPost("/api/transactions/transfer", { from_account: tlXfer.from_account, to_account: tlXfer.to_account, symbol: tlXfer.symbol, txn_date: tlXfer.txn_date, allocation }, "Shares transferred.");
 }
 
-Object.assign(window, { renderTransactionLog, tlHtml, tlLoad, tlStart, tlSetForm, tlSetFormAccount, tlSetFormType, tlSave, tlEditRow, tlCancel, tlVoid,
+Object.assign(window, { renderTransactionLog, tlHtml, tlLoad, tlStart, tlSetManaged, tlSetForm, tlSetFormAccount, tlSetFormType, tlSave, tlEditRow, tlCancel, tlVoid,
   tlSetXfer, tlSetXferFrom, tlSetXferTo, tlPick, tlTransfer });

@@ -1,8 +1,9 @@
-"""Transaction log of a plan file (schema v20): ``TransactionsRepo``, reached as ``store.transactions``.
+"""Transaction log of a plan file (schema v20, v22): ``TransactionsRepo``, reached as ``store.transactions``.
 
 ``transactions``       one row per purchase, reinvestment, sale, in-kind transfer or opening lot. A row that creates a
                        lot (``buy``, ``reinvest``, ``transfer_in``, ``opening``) is that lot's id (``txn_id``).
 ``transaction_lots``   the lots a ``sell`` or ``transfer_out`` consumed and how many shares of each.
+``transaction_accounts`` (schema v22) one row per account the log manages: its holdings are rewritten from the log on every write.
 Rows are never deleted: ``void`` flips ``status`` and edits are void-and-replace (``revision_ref``). Monarch is never a
 source: Monarch sales stay in the sales queue. Design: ``2026-10-31-transaction-log-design-and-plan.md`` section 3.1.
 """
@@ -53,6 +54,13 @@ CREATE TABLE transaction_lots (
     PRIMARY KEY (txn_id, lot_txn_id)
 ) WITHOUT ROWID;
 CREATE INDEX ix_transaction_lots_lot ON transaction_lots (lot_txn_id);
+"""
+
+SCHEMA_V22_DDL = """
+CREATE TABLE transaction_accounts (
+    account     TEXT PRIMARY KEY CHECK (account <> ''),
+    managed_at  TEXT NOT NULL
+) WITHOUT ROWID;
 """
 
 _FIELDS = ("txn_date", "settle_date", "account", "type", "symbol", "shares", "price", "amount", "fees", "lot_type",
@@ -151,3 +159,22 @@ class TransactionsRepo:
         with self._store._write() as con:
             con.execute("UPDATE transactions SET status = 'voided', activity_id = NULL, note = ?, updated_at = ? WHERE txn_id = ?",
                         (note, self._store._clock(), txn_id))
+
+    # ---- managed accounts (schema v22): accounts whose holdings the log writes
+    def managed_accounts(self) -> list[str]:
+        with self._store._read() as con:
+            return [r["account"] for r in con.execute("SELECT account FROM transaction_accounts ORDER BY account")]
+
+    def is_managed(self, account: str) -> bool:
+        key = str(account or "").strip().lower()
+        return any(a.strip().lower() == key for a in self.managed_accounts())
+
+    def set_managed(self, account: str, on: bool) -> None:
+        if not str(account or "").strip():
+            raise ValidationError("account is required")
+        with self._store._write() as con:
+            if on:
+                con.execute("INSERT OR IGNORE INTO transaction_accounts (account, managed_at) VALUES (?, ?)",
+                            (account, self._store._clock()))
+            else:
+                con.execute("DELETE FROM transaction_accounts WHERE LOWER(account) = LOWER(?)", (account,))

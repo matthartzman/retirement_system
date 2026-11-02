@@ -22,7 +22,7 @@ def test_migration_from_v19_keeps_existing_data(tmp_path):
     con.execute("INSERT INTO broker_account_map (file_pattern, account) VALUES ('fidelity:1234', 'Member_1_HSA')")
     con.commit(); con.close()
     with PlanStore.open(path) as s:
-        assert s.schema_version == 21 and s.broker.account_for("fidelity:1234") == "Member_1_HSA"
+        assert s.schema_version == 22 and s.broker.account_for("fidelity:1234") == "Member_1_HSA"
         assert s.transactions.list() == []
 
 

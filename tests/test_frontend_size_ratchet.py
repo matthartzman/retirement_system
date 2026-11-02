@@ -631,7 +631,9 @@ DASHBOARD_JS_MAX_LINES = 6_476
 # from the Sales Ledger page with a one-line hook; dashboard.js did not grow): raised to the measured 41,579.
 # 2026-11-02 (Transaction log panel, plan phase 2 task 2.6: new feature module dashboard_decomp_transactions_log.js, 102 lines,
 # mounted from the Sales Ledger page with a one-line hook; dashboard.js did not grow): raised to the measured 41,681.
-TOTAL_JS_MAX_LINES = 41_681
+# 2026-11-02 (transaction log phase 3: Managed checkbox per account in the log panel and read-only managed rows in the Holdings
+# editor, +34 in two existing modules; dashboard.js did not grow): raised to the measured 41,715.
+TOTAL_JS_MAX_LINES = 41_715
 
 
 def _line_count(path: Path) -> int:
