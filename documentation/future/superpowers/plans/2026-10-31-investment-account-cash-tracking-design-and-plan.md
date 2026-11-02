@@ -131,3 +131,11 @@ Answers to the open questions left for Phase 3 by the Phase 2 PR. Phase 2 itself
 4. **Return of excess contribution gets its own class** (to be added in Phase 3, replacing `distribution` for these rows) so it is not taxed as a normal withdrawal; Phase 6 sets the tax treatment.
 5. **Rollovers are distinguished** from own-account transfers (a marker on Vanguard `Rollover (incoming)` and similar), so an outside-plan rollover is not paired as an own-account transfer.
 6. **Coverage gap: keep dropping, and warn.** A Monarch row inside a broker file's date range is still dropped (broker wins), but Phase 3/5 lists dropped Monarch rows with no broker row of the same amount within 3 days as a notice.
+
+## 9. Phase 3 decisions (owner, 2026-11-02; pairing is `src/cash_pairing.py`, PR 352)
+
+1. **Rollovers:** an unpartnered rollover stays `unmatched`. A plain contribution pairs with a matching outflow of another plan account, otherwise stays `unpaired`.
+2. **Coverage gap notice:** deferred to a one-time query after the functionality is complete.
+3. **Half-pairs (Phase 4):** each account's balance and anchor check count its own rows only. A missing or partly covered partner file never changes the other account's number; the row shows its pair status and the account is flagged "partner not imported".
+4. **Tax rule (Phase 6):** tax by pair status, not class. Any `external_withdrawal` (class `distribution` or `transfer_out`) is a withdrawal from the account; an `internal` pair is not.
+5. **`excess_return` (Phase 6):** untaxed and treated as the contribution coming back: not a taxable withdrawal and not external spending. Earnings on it are taxable, so the user is flagged to enter them.

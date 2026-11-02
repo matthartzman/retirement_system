@@ -55,7 +55,7 @@ def test_fidelity_non_sweep_reinvestment_is_a_settlement_and_cash_balance_is_car
     contrib = [r for r in rows if r["date"] == "2026-01-16"][0]
     assert contrib["class"] == "contribution" and contrib["amount"] == 1000 and contrib["cash_balance"] == 1000
     excess = [r for r in rows if r["date"] == "2026-09-17"][0]
-    assert excess["class"] == "distribution" and excess["amount"] == -100
+    assert excess["class"] == "excess_return" and excess["amount"] == -100
 
 
 def test_all_rows_start_unpaired_and_carry_source():
@@ -155,3 +155,35 @@ def test_monarch_categories():
 def test_rows_sorted_by_date():
     rows = build_ledger("a", [_b(run_date="2026-05-01", action="Contribution", amount=1.0)], [_imp(account="a", date_from="2026-05-01", date_to="2026-05-01")], [_m("2026-04-01", 2, "Other Income")])
     assert [r["date"] for r in rows] == ["2026-04-01", "2026-05-01"]
+
+
+def test_etrade_parser_keeps_the_reference_id_and_the_ledger_carries_it():
+    rows = ["02/09/2026,02/09/2026,02/09/2026,Online Transfer,ACH DEPOSIT  REFID:123456;,--,--,,,500.0,0.0,--,--",
+            "07/03/2025,07/03/2025,07/03/2025,Distribution,TRANSFER TO XXXXX6921  REFID:777,--,--,,,-40.0,0.0,--,--",
+            "06/01/2026,06/01/2026,--,Contribution,TY 2026 EMPLOYER CURR YR,--,--,--,--,500.0,0.0,--,--"]
+    parsed = etrade.parse(etrade_csv(rows=rows))
+    assert sorted(r.get("ref_id") or "" for r in parsed.rows) == ["", "123456", "777"]
+    led = build_ledger("etrade:9876", _rows(parsed, account="etrade:9876"), [_imp(account="etrade:9876")], [])
+    assert sorted(r["ref_id"] for r in led) == ["", "123456", "777"]
+    assert {r["ref"] for r in led if r["ref_id"]} == {"123456", "777"}
+    assert "XXXXX6921" in [r for r in led if r["ref_id"] == "777"][0]["description"]
+
+
+def test_ledger_ref_id_falls_back_to_the_stored_description():
+    # the store keeps only ROW_FIELDS, so a stored row has the REFID text in its description and no ref_id key
+    rows = build_ledger("a", [_b(action="Online Transfer", description="TRANSFER FROM XXXXX7314  REFID:142071675906", amount=9.0)],
+                        [_imp(account="a")], [])
+    assert rows[0]["ref_id"] == "142071675906"
+
+
+def test_return_of_excess_contribution_is_its_own_class():
+    rows = build_ledger("a", [_b(action="RETURN EXCESS CONTR HSA CHK PD 000000001 (Cash)", amount=-100.0)], [_imp(account="a")], [])
+    assert rows[0]["class"] == "excess_return" and rows[0]["counts"] is True and rows[0]["amount"] == -100.0
+
+
+def test_rollover_rows_are_marked_and_in_kind_rows_keep_symbol_and_quantity():
+    rows = build_ledger("a", [_b(run_date="2026-02-01", action="Rollover (incoming)", symbol="CASH", amount=5000.0),
+                              _b(run_date="2026-02-02", action="Transfer", symbol="TOTL", quantity=-10.0, amount=None)],
+                        [_imp(account="a")], [])
+    assert rows[0]["rollover"] is True and rows[1]["rollover"] is False
+    assert rows[1]["quantity"] == -10.0 and rows[1]["in_kind"] is True
