@@ -1,6 +1,6 @@
 # Transaction log: design and implementation plan
 
-Status: approved. Phase 1 built 2026-11-02; phase 2 in progress (tasks 2.1 to 2.3 built 2026-11-02); phase 3 not started. Written 2026-10-31 after the broker import shipped (#329, #330). Decisions marked
+Status: approved. Phase 1 built 2026-11-02; phase 2 built 2026-11-02 (tasks 2.1 to 2.6; 2.7 waits for a real transfer sample); phase 3 not started. Written 2026-10-31 after the broker import shipped (#329, #330). Decisions marked
 **Claude's call** can be overridden. It builds on `2026-10-30-broker-activity-bulk-import-design-and-plan.md` and the
 realized-sales ledger (`2026-10-28-realized-sales-ledger-design-and-plan.md`).
 
@@ -296,6 +296,13 @@ Gate to start: phase 2 merged and `reconcile` shows zero drift on the real plan 
 `Redemption` and a Vanguard `Corp Action (Redemption)` with a symbol and shares are now `sell` rows (shares forced
 negative, price from amount / shares), so they queue as an order and relieve lots on confirm like any sale; without a
 symbol or shares they stay `other`. This supersedes the "Redemption is `other`" notes in the 2026-10-30 broker plan §7.1.
+
+**Built 2026-11-02 (phase 2):** `store.transactions` (schema v20), `src/transactions.py` (replay, add, revise, void,
+transfer, backfill, reconcile, sync), dual-write from the importer and queue **only once the log is started** (the first
+backfill), routes `/api/transactions/{log,backfill,<id>/revise,<id>/void,transfer}` plus `POST /api/transactions`, and the
+Transaction log panel. Notes: a sale is allocated oldest-first unless the caller names lots; `sync` voids log rows whose
+import was reverted or whose sale was undone (dropping the activity link so they can be logged again); a Monarch confirm
+writes no log row, so its lot shows as drift until the log gains a way to record it.
 
 ## 5. Global constraints
 

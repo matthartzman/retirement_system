@@ -1410,6 +1410,81 @@ def transactions_list():
                        held_only=request.args.get("held", "") in ("1", "true"))
 
 
+def _log_body() -> dict:
+    return request.get_json(silent=True) or {}
+
+
+def _log_fields(b: dict) -> dict:
+    keys = ("txn_date", "settle_date", "account", "type", "symbol", "shares", "price", "amount", "fees", "lot_type", "note")
+    return {k: b[k] for k in keys if k in b and b[k] not in (None, "")}
+
+
+def _log_alloc(b: dict):
+    alloc = b.get("allocation")
+    return {int(k): float(v) for k, v in alloc.items()} if isinstance(alloc, dict) and alloc else None
+
+
+def _log_write(fn, event: str, *args, **kwargs):
+    denied = _require("write_config")
+    if denied:
+        return denied
+    from .. import transactions as _t
+    try:
+        response = _sales_call(lambda root: {"result": fn(_t, root, *args, **kwargs)})
+    except LookupError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 404
+    except (ValueError, TypeError) as exc:
+        return jsonify({"success": False, "error": f"bad request: {exc}"}), 400
+    if response[1] == 200:
+        _audit(event, {"args": [a for a in args if isinstance(a, (int, str))]})
+    return response
+
+
+@app.route("/api/transactions/log", methods=["GET"])
+def transactions_log():
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    from .. import transactions as _t
+    year = request.args.get("year", "")
+    if year and not year.isdigit():
+        return jsonify({"success": False, "error": "year must be a number"}), 400
+    return _sales_call(_t.log_view, account=request.args.get("account") or None, symbol=request.args.get("symbol") or None,
+                       year=int(year) if year else None)
+
+
+@app.route("/api/transactions/backfill", methods=["POST"])
+def transactions_backfill():
+    return _log_write(lambda t, root: t.start_log(root), "transactions_backfilled")
+
+
+@app.route("/api/transactions", methods=["POST"])
+def transactions_add():
+    b = _log_body()
+    return _log_write(lambda t, root: {"txn_id": t.add(root, allocation=_log_alloc(b), **_log_fields(b))}, "transaction_added")
+
+
+@app.route("/api/transactions/<int:txn_id>/revise", methods=["POST"])
+def transactions_revise(txn_id: int):
+    b = _log_body()
+    return _log_write(lambda t, root: {"txn_id": t.revise(root, txn_id, allocation=_log_alloc(b), **_log_fields(b))},
+                      "transaction_revised")
+
+
+@app.route("/api/transactions/<int:txn_id>/void", methods=["POST"])
+def transactions_void(txn_id: int):
+    return _log_write(lambda t, root: t.void(root, txn_id) or {}, "transaction_voided")
+
+
+@app.route("/api/transactions/transfer", methods=["POST"])
+def transactions_transfer():
+    b = _log_body()
+    return _log_write(lambda t, root: t.transfer(root, from_account=str(b.get("from_account") or ""), to_account=str(b.get("to_account") or ""),
+                                                  symbol=str(b.get("symbol") or ""), allocation=_log_alloc(b) or {},
+                                                  txn_date=str(b.get("txn_date") or ""), note=str(b.get("note") or "")),
+                      "transaction_transferred")
+
+
 # ---- Account reconciliation (app vs Monarch) ----
 # Logic lives in src/reconcile.py; every write is logged and undoable (reconcile_log).
 

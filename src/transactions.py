@@ -403,3 +403,21 @@ def revised_rows(store: Any, activity_ids: Iterable[int]) -> list[dict[str, Any]
     rows = store.transactions.list(include_voided=True)
     replaced = {r["revision_ref"] for r in rows if r["revision_ref"] is not None}
     return [r for r in rows if r["activity_id"] in ids and r["txn_id"] in replaced]
+
+
+# ------------------------------------------------------------------------------------------------ route helpers
+def log_view(input_dir: str | Path, *, account: str | None = None, symbol: str | None = None, year: int | None = None) -> dict[str, Any]:
+    """The log for the panel: whether it is in use, its rows (newest last), lots still open and any drift."""
+    with active_plan.workspace_store(_base(input_dir)) as store:
+        if not started(store):
+            return {"started": False, "rows": [], "open": [], "drift": []}
+        rows = store.transactions.list(account=account, symbol=symbol, year=year)
+        sales = {r["txn_id"]: store.transactions.disposals(r["txn_id"]) for r in rows if r["type"] in DISPOSAL_TYPES}
+        return {"started": True, "rows": [{**r, "lots": sales.get(r["txn_id"], [])} for r in rows],
+                "open": open_lots(store, account=account, symbol=symbol), "drift": reconcile(store, account)}
+
+
+def start_log(input_dir: str | Path) -> dict[str, Any]:
+    """Run the backfill (idempotent) and return what it added."""
+    with active_plan.workspace_store(_base(input_dir), write=True) as store, store.transaction():
+        return backfill(store)
