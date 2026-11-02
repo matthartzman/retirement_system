@@ -1,6 +1,6 @@
 # Transaction log: design and implementation plan
 
-Status: approved. Phase 1 built 2026-11-02; phase 2 built 2026-11-02 (tasks 2.1 to 2.6; 2.7 deferred); phase 3 code built 2026-11-02 (tasks 3.1 and 3.2; no account is managed by default; 3.3 is the owner's switch-over). Written 2026-10-31 after the broker import shipped (#329, #330). Decisions marked
+Status: approved. Phase 1 built 2026-11-02; phase 2 built 2026-11-02 (tasks 2.1 to 2.6; 2.7 deferred); phase 3 built 2026-11-02 (tasks 3.1 and 3.2; no account is managed by default); task 3.3, the owner's per-account switch-over, is complete. Written 2026-10-31 after the broker import shipped (#329, #330). Decisions marked
 **Claude's call** can be overridden. It builds on `2026-10-30-broker-activity-bulk-import-design-and-plan.md` and the
 realized-sales ledger (`2026-10-28-realized-sales-ledger-design-and-plan.md`).
 

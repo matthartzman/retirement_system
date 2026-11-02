@@ -2,7 +2,7 @@
 
 Date: 2026-11-02.
 
-Status: draft (proposed). Decisions marked **Claude's call** can be overridden by the owner.
+Status: approved and built 2026-11-02, except the engine half of C.4 (see task C.4). Tasks C.1 to C.3 shipped (#349, #353); C.4 spending half shipped (#354); log task 3.3 (per-account switch-over) is complete. Decisions marked **Claude's call** can be overridden by the owner.
 
 Settles where two plans overlap, so neither is built in a way the other has to undo:
 - `2026-10-31-transaction-log-design-and-plan.md` (the "log")

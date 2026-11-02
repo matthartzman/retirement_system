@@ -2,7 +2,7 @@
 
 Date: 2026-10-31.
 
-Status: approved, with the owner's decisions of 2026-10-31 (section 7); nothing built.
+Status: approved, with the owner's decisions of 2026-10-31 (section 7). Built 2026-11-02: Phase 0 (#343), 1 (#345), 2 (#350), 3 (#352), 4 (#353, anchor 1 only), and the spending half of Phase 6 (#354). Phase 5 (screen) is in draft PR #355, awaiting CI. Not built: anchor 2, the engine's per-account-class treatment of the `CASH` lot, and the Phase 6 tax rules (section 9 items 4 and 5).
 
 Overlap with the transaction log (`2026-10-31-transaction-log-design-and-plan.md`): Phases 4 and 6 below are built
 together with the log's phase 3 as the combined phase in `2026-11-02-cash-and-transaction-log-integration.md`. That note
@@ -139,3 +139,10 @@ Answers to the open questions left for Phase 3 by the Phase 2 PR. Phase 2 itself
 3. **Half-pairs (Phase 4):** each account's balance and anchor check count its own rows only. A missing or partly covered partner file never changes the other account's number; the row shows its pair status and the account is flagged "partner not imported".
 4. **Tax rule (Phase 6):** tax by pair status, not class. Any `external_withdrawal` (class `distribution` or `transfer_out`) is a withdrawal from the account; an `internal` pair is not.
 5. **`excess_return` (Phase 6):** untaxed and treated as the contribution coming back: not a taxable withdrawal and not external spending. Earnings on it are taxable, so the user is flagged to enter them.
+
+## 10. Phase 6 engine-half decisions (owner, 2026-11-02)
+
+1. **`CASH` lot in the engine:** audit first. Run `measure`, record how the engine values `CASH` per account class, and change code only where a class is wrong. The golden master does not move without owner approval.
+2. **`excess_return`:** as section 9 item 5. Untaxed, not external spending, and the user is flagged to enter the taxable earnings.
+3. **Pair-status tax rule:** report-only first. Show per-account taxable withdrawals by pair status in the Cash panel and compare with the plan's current assumptions; feed the engine only after the owner approves the numbers on real data.
+4. **Sequencing:** start after PR #355 (Phase 5 screen) merges.
