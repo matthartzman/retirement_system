@@ -21,12 +21,21 @@ export function ciHtml(view, ledger = ciLedger, sort = ciSort) {
   const wd = rows.filter((r) => r.withdrawals && Object.values(r.withdrawals).some((x) => x)).map((r) => `<li>${esc(accountDisplayLabel(r.account))} (${esc(CI_CLASS[r.tax_class] || r.tax_class)}): withdrawn ${ciMoney(r.withdrawals.external_withdrawal)}, internal transfers ${ciMoney(r.withdrawals.internal)}, unmatched ${ciMoney(r.withdrawals.unmatched)}</li>`).join("");
   const ex = rows.filter((r) => r.excess_return && r.excess_return.count).map((r) => `<li>${esc(accountDisplayLabel(r.account))}: ${ciMoney(r.excess_return.amount)} returned, untaxed; enter the earnings on it, they are taxable.</li>`).join("");
   const rep = (wd ? `<p>Withdrawals ${esc(String(view.year))} by pairing (report only, the plan's tax numbers are unchanged):</p><ul>${wd}</ul>` : "") + (ex ? `<p>Excess contributions returned:</p><ul>${ex}</ul>` : "");
+  const cmp = view && view.comparison, lbl = (a) => esc(accountDisplayLabel(a));
+  const cmpHtml = cmp && cmp.accounts.length ? `<p>Plan vs reported ${esc(String(cmp.year))} (report only). ${cmp.closed ? "Year closed." : "Year to date reported against the plan's full-year figure; no difference until the year is closed."}` +
+    ` ${cmp.snapshot ? `Plan run built ${esc(cmp.snapshot.built_at)}. ` : ""}${esc(cmp.note)}</p><table class="rc-table"><thead><tr><th>Account</th><th class="rc-num">Reported, year to date</th><th class="rc-num">Plan, full year</th>${cmp.closed ? '<th class="rc-num">Plan − reported</th>' : ""}</tr></thead><tbody>` +
+    cmp.accounts.map((a) => `<tr><td>${lbl(a.account)}</td><td class="rc-num">${ciMoney(a.reported_ytd)}</td><td class="rc-num">${ciMoney(a.plan)}</td>${cmp.closed ? `<td class="rc-num">${ciMoney(a.difference)}</td>` : ""}</tr>`).join("") + `</tbody></table>` +
+    (Object.keys(cmp.plan_unmapped || {}).length ? `<p class="muted">Plan withdrawals from accounts with no broker import: ${Object.entries(cmp.plan_unmapped).map(([k, v]) => `${lbl(k)} ${ciMoney(v)}`).join(", ")}.</p>` : "") : "";
+  const past = ((view && view.past_years) || []).filter((p) => p.external_withdrawal || p.internal || p.unmatched);
+  const pastHtml = past.length ? `<p>Earlier years, reported only (the plan has no past-year figures):</p><ul>` + past.map((p) => `<li>${lbl(p.account)} ${esc(String(p.year))}: withdrawn ${ciMoney(p.external_withdrawal)}, internal ${ciMoney(p.internal)}, unmatched ${ciMoney(p.unmatched)}</li>`).join("") + `</ul>` : "";
+  const st = (view && view.straddles) || [];
+  const stHtml = st.length ? `<p>Transfers that straddle year-end (each row stays in the year of its own date):</p><ul>` + st.map((t) => `<li>${ciMoney(t.amount)} out of ${lbl(t.out_account)} ${esc(t.out_date)}, into ${lbl(t.in_account)} ${esc(t.in_date)}</li>`).join("") + `</ul>` : "";
   const led = ledger && ledger.rows ? `<h4>${esc(accountDisplayLabel(ledger.account))}: ledger</h4>` + (ledger.rows.length ? `<table class="rc-table"><thead><tr><th>Date</th><th>Class</th><th class="rc-num">Amount</th><th class="rc-num">Balance</th><th>Pairing</th><th>Source</th></tr></thead><tbody>` +
     ledger.rows.map((l) => `<tr><td>${esc(l.date)}</td><td>${esc(l.class)}${l.needs_review ? " (review)" : ""}</td><td class="rc-num">${l.in_kind ? "in kind" : ciMoney(l.amount)}</td><td class="rc-num">${ciMoney(l.cash_balance)}</td>` +
       `<td>${esc(l.pair_status)}${l.partner_account ? " " + esc(accountDisplayLabel(l.partner_account)) : ""}</td><td>${esc(l.source)}</td></tr>`).join("") + `</tbody></table>` : `<p class="muted">No cash rows.</p>`) : "";
   const table = rows.length ? `<table class="rc-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>` : `<p class="muted">No broker imports yet.</p>`;
   return `<details${ciOpen ? " open" : ""} ontoggle="ciToggle(this.open)"><summary><h3 style="display:inline">Cash in investment accounts</h3>${view ? ` (${rows.length})` : ""}</summary>` +
-    `${ciError ? `<p role="alert" class="error">${esc(ciError)}</p>` : ""}${table}${inc ? `<p>Cash income ${esc(String(view.year))}: ${inc}</p>` : ""}${rep}${led}</details>`;
+    `${ciError ? `<p role="alert" class="error">${esc(ciError)}</p>` : ""}${table}${inc ? `<p>Cash income ${esc(String(view.year))}: ${inc}</p>` : ""}${rep}${cmpHtml}${pastHtml}${stHtml}${led}</details>`;
 }
 
 export function renderCashInvestment() {

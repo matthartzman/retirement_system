@@ -224,6 +224,16 @@ def save_result_snapshot(result: dict[str, Any], event_log: list[dict[str, Any]]
     return result_id
 
 
+def latest_result_snapshot(db_path: str | Path | None = None) -> dict[str, Any] | None:
+    """``{created_at, result}`` of the newest saved result snapshot, or ``None``. Read-only: never runs the engine."""
+    p = _existing(db_path)
+    if p is None:
+        return None
+    with closing_connect(p) as con:
+        row = con.execute("SELECT created_at, result_json FROM result_snapshots ORDER BY created_at DESC, result_id DESC LIMIT 1").fetchone()
+    return {"created_at": row[0], "result": json.loads(row[1])} if row else None
+
+
 def _prune_result_snapshots(con: sqlite3.Connection, keep: int = DEFAULT_RESULT_SNAPSHOT_RETENTION) -> int:
     """Delete all but the newest ``keep`` result snapshots. Returns rows removed.
 

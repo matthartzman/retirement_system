@@ -547,7 +547,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/cash_anchor.py` | — | — |
 | `src/cash_ledger.py` | `ytd_tracking` | — |
 | `src/cash_pairing.py` | — | — |
-| `src/cash_view.py` | `cash_ledger`, `cash_pairing`, `platform_runtime`, `sales_confirm` | — |
+| `src/cash_view.py` | `cash_ledger`, `cash_pairing`, `local_store`, `platform_runtime`, `sales_confirm` | — |
 | `src/config_backend.py` | `active_plan`, `app_state`, `engine_defaults`, `sqlite_util`, `system_config` | — |
 | `src/core.py` | `person_labels`, `tax_law` | — |
 | `src/csv_exchange/__init__.py` | `csv_exchange`, `csv_exchange.core`, `csv_exchange.flat_csv`, `csv_exchange.plan_csv`, `csv_exchange.plan_set`, `csv_exchange.text_csv`, `plan_label_rules` | — |
