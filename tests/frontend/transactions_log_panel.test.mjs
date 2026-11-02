@@ -67,3 +67,14 @@ test("void asks to confirm then posts; transfer lists only the source account's 
   assert.deepEqual(calls[0][2].allocation, { 7: 3 });
   assert.equal(calls[0][0], "/api/transactions/transfer");
 });
+
+test("managed toggle shows each account's state and posts the route", async () => {
+  const h = m.tlHtml({ ...LOG, managed: ["Member_1_IRA"] });
+  assert.match(h, /data-managed="Member_1_IRA" checked/);
+  await m.tlLoad(); calls.length = 0;
+  await m.tlSetManaged("Member_1_IRA", true);
+  assert.equal(calls[0][0], "/api/transactions/accounts/Member_1_IRA/managed");
+  assert.equal(calls[0][1], "POST");
+  assert.deepEqual(calls[0][2], { managed: true });
+  assert.doesNotMatch(m.tlHtml(LOG), /data-managed="Member_1_IRA" checked/);
+});

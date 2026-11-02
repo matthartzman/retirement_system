@@ -1,6 +1,6 @@
 # Transaction log: design and implementation plan
 
-Status: approved. Phase 1 built 2026-11-02; phase 2 built 2026-11-02 (tasks 2.1 to 2.6; 2.7 deferred); phase 3 not started. Written 2026-10-31 after the broker import shipped (#329, #330). Decisions marked
+Status: approved. Phase 1 built 2026-11-02; phase 2 built 2026-11-02 (tasks 2.1 to 2.6; 2.7 deferred); phase 3 code built 2026-11-02 (tasks 3.1 and 3.2; no account is managed by default; 3.3 is the owner's switch-over). Written 2026-10-31 after the broker import shipped (#329, #330). Decisions marked
 **Claude's call** can be overridden. It builds on `2026-10-30-broker-activity-bulk-import-design-and-plan.md` and the
 realized-sales ledger (`2026-10-28-realized-sales-ledger-design-and-plan.md`).
 
@@ -308,10 +308,34 @@ Transaction log panel. Notes: a sale is allocated oldest-first unless the caller
 import was reverted or whose sale was undone (dropping the activity link so they can be logged again); a Monarch confirm
 writes no log row, so its lot shows as drift until the log gains a way to record it.
 
-**Built 2026-11-02 (phase 3, partial):** `transactions.materialize(store, account)` (rewrites one account's holdings from the log's
-open lots, leaving other accounts and the account's `CASH` lot untouched; the log's own "lot with no purchase on file" note is
-not copied into the holdings). It is not wired to anything: the managed-account flag (`transaction_accounts`, a new schema
-version after the cash branch's v21) and tasks 3.2 and 3.3 wait for the cash branch to merge.
+**Built 2026-11-02 (phase 3):** schema v22 adds `transaction_accounts` (one row per managed account). `transactions.set_managed(input_dir,
+account, on)` turns the log on or off as the author of one account's holdings: turning on is refused while the log is not started or
+differs from that account's holdings (the `CASH` lot is ignored in that check), then runs `materialize` once; turning off deletes the
+row and leaves the last holdings rows as they are. `materialize_managed` runs inside the same transaction as every log write for a
+managed account (add, revise, void, transfer, `sync` after an import commit or revert, queue confirm and undo); other accounts and the
+account's `CASH` lot are never touched (integration note 1.1). In `src/sales_confirm.py` a managed account's sale is a `sell` log row
+naming lots by transaction id (the panel lists the log's lots, `lot_id` = the lot's transaction id), then the holdings are rewritten
+from the log; confirm does not credit `CASH` (note 1.2); undo releases the log row and rewrites the holdings. A Monarch candidate for a
+managed account is refused: "this account is managed by the transaction log; record the sale there and dismiss this one". A bulk
+import into a managed account leaves its sales in the queue (no auto-confirm) so they are confirmed through the log. The Holdings
+editor shows a managed account's rows read-only with a link to the Sales Ledger page; the Transaction log panel has a Managed
+checkbox per account; routes `GET /api/transactions/accounts` and `POST /api/transactions/accounts/<account>/managed` (`{"managed":
+true|false}`). Nothing is managed by default, so `reconcile`, the holdings and the golden master are unchanged until the owner
+switches an account.
+
+### Task 3.3 checklist: switching one account on (owner runs this, one account at a time)
+
+1. Back up the plan file. Open Sales Ledger, Transaction log: the banner must read "The log agrees with the holdings."
+2. `python tools/regen_golden_master.py measure` (never `regen`) and keep the output as the "before" numbers. Run the plan build and
+   keep the workbook.
+3. Tick Managed for the account. The app refuses if the log differs from the holdings; fix the drift first. The holdings rows for the
+   account become read-only in Holdings.
+4. Run the plan build again and `measure` again. The workbook and the engine outputs must equal the "before" ones. Any delta: untick
+   Managed (the last holdings rows stay), keep the "after" numbers and report the difference; do not switch the next account.
+5. Import a broker file for the account (or add a log row) and confirm one queued sale from the Sales queue; check that the
+   holdings follow and the banner still agrees. Undo that sale and check the lots come back.
+6. Only then repeat for the next account. Monarch sales for a managed account are dismissed (record them in the log).
+7. To stop: untick Managed. Holdings editing returns; the rows are whatever the log last wrote.
 
 ## 5. Global constraints
 

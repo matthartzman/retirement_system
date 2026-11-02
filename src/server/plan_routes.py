@@ -1453,6 +1453,23 @@ def transactions_log():
                        year=int(year) if year else None)
 
 
+@app.route("/api/transactions/accounts", methods=["GET"])
+def transactions_accounts():
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    from .. import transactions as _t
+    return _sales_call(_t.managed_view)
+
+
+@app.route("/api/transactions/accounts/<account>/managed", methods=["POST"])
+def transactions_set_managed(account: str):
+    on = _log_body().get("managed")
+    if not isinstance(on, bool):
+        return jsonify({"success": False, "error": "managed must be true or false"}), 400
+    return _log_write(lambda t, root, *_: t.set_managed(root, account, on), "transaction_account_managed", account)
+
+
 @app.route("/api/transactions/backfill", methods=["POST"])
 def transactions_backfill():
     return _log_write(lambda t, root: t.start_log(root), "transactions_backfilled")

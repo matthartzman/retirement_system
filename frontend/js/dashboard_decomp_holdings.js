@@ -411,7 +411,27 @@ export function insertHoldingLotLike(i) {
     if (f) f.focus();
   }, 0);
 }
+// Accounts whose holdings the transaction log writes (schema v22). Their rows are read-only here: edit them in the log.
+window.managedHoldingAccounts = window.managedHoldingAccounts || null;
+export function isManagedHoldingAccount(account) {
+  const key = String(account || "").trim().toLowerCase();
+  return (window.managedHoldingAccounts || []).some((a) => String(a).trim().toLowerCase() === key);
+}
+export async function loadManagedHoldingAccounts() {
+  try {
+    const out = await api("/api/transactions/accounts");
+    window.managedHoldingAccounts = (out && out.managed) || [];
+  } catch (e) {
+    window.managedHoldingAccounts = [];
+  }
+  if (window.activeStep === "holdings" && typeof renderMain === "function") renderMain();
+}
+
 export function renderHoldings() {
+  if (window.managedHoldingAccounts === null) {
+    window.managedHoldingAccounts = [];
+    setTimeout(loadManagedHoldingAccounts, 0);
+  }
   const h = ensureHoldingRows();
   const accounts = holdingAccounts();
   const visible = h.data
@@ -441,8 +461,9 @@ export function renderHoldings() {
   const colsCollapsed = window.holdingsColsCollapsed !== false;
   let html = `<div class="holdings" data-help-section="holdings.plan_holdings"><h3 class="group-title">Plan Holdings ${(window.RPHelp?.sectionButtonHtml("holdings.plan_holdings") || "")}</h3>${renderUserPricingSymbolTester()}<input type="file" id="holdingsImportInput" accept=".csv,text/csv" style="display:none" onchange="handleHoldingsCsvImport(this)"><div class="table-actions"><select data-focus-key="holdings:account-select" onchange="setHoldingAccount(this.value)"><option value="ALL" ${window.currentHoldingAccount === "ALL" ? "selected" : ""}>All accounts</option>${accounts.map((a) => `<option value="${esc(a)}" ${window.currentHoldingAccount === a ? "selected" : ""}>${esc(accountDisplayLabel(a))}</option>`).join("")}</select><button class="btn" onclick="addHoldingLot()">Add Lot</button><button class="btn" onclick="addHoldingAccount()">Add Account</button><button class="btn" type="button" data-requires-app="1" onclick="document.getElementById('holdingsImportInput').click()">Preview &amp; replace CSV</button><button class="btn danger" ${window.currentHoldingAccount === "ALL" ? "disabled" : ""} onclick="deleteHoldingAccount()">Delete Account</button><button class="btn col-group-toggle" type="button" onclick="window.holdingsColsCollapsed=${colsCollapsed ? "false" : "true"};renderMain()">${colsCollapsed ? "Show note column" : "Hide note column"}</button></div><div class="lot-table-wrap pinned-col${colsCollapsed ? " cols-collapsed" : ""}"><table class="lot-table"><thead><tr>${cols.map((c) => `<th${c === "note" ? ' data-col-group="extra"' : ""}>${esc(humanLabel(c))}</th>`).join("")}<th>Actions</th></tr></thead><tbody>`;
   visible.forEach(({ r, i }) => {
+    const managed = isManagedHoldingAccount(r.account);
     html +=
-      `<tr data-hidx="${i}">` +
+      `<tr data-hidx="${i}"${managed ? ' data-managed="1"' : ""}>` +
       cols
         .map((c) => {
           const isDate = c.includes("date");
@@ -468,10 +489,12 @@ export function renderHoldings() {
             : isAccount
               ? `oninput="updateHolding(${i},'account',this.value)" onblur="this.value=accountDisplayLabel(this.value)"`
               : `oninput="updateHolding(${i},'${esc(c)}',this.value)"`;
-          return `<td data-label="${esc(humanLabel(c))}"${c === "note" ? ' data-col-group="extra"' : ""}><input class="${cls}" data-hcol="${esc(c)}" type="${type}" value="${esc(display)}" ${input} ${focus}></td>`;
+          return `<td data-label="${esc(humanLabel(c))}"${c === "note" ? ' data-col-group="extra"' : ""}><input class="${cls}" data-hcol="${esc(c)}" type="${type}" value="${esc(display)}" ${managed ? "readonly" : `${input} ${focus}`}></td>`;
         })
         .join("") +
-      `<td data-label="Actions"><button class="btn" type="button" aria-label="Insert a lot for this symbol" onclick="insertHoldingLotLike(${i})">+</button> ${deleteIconBtn(`deleteHoldingLot(${i})`)}</td></tr>`;
+      (managed
+        ? `<td data-label="Actions"><a href="#" onclick="setStep('sales_ledger');return false" title="This account is managed by the transaction log">Managed in Transactions</a></td></tr>`
+        : `<td data-label="Actions"><button class="btn" type="button" aria-label="Insert a lot for this symbol" onclick="insertHoldingLotLike(${i})">+</button> ${deleteIconBtn(`deleteHoldingLot(${i})`)}</td></tr>`);
   });
   html += `</tbody></table></div>`;
   // #235: moved here from Economic & Tax Assumptions -- dividend reinvestment
@@ -573,6 +596,8 @@ Object.assign(window, {
   pollUserLivePriceSymbolJob,
   runUserLivePriceSymbolTest,
   renderHoldings,
+  isManagedHoldingAccount,
+  loadManagedHoldingAccounts,
   loadHoldingsPriceData,
   holdingsCurrentPrice,
   holdingLotCurrentValue,

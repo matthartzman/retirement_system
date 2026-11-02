@@ -121,7 +121,9 @@ def add(input_dir: str | Path, *, allocation: Mapping[int, float] | None = None,
     """Add one row. A ``sell`` names its lots in ``allocation`` ({lot txn id: shares}); without it the oldest lots go first."""
     fields.setdefault("source", "manual")
     with active_plan.workspace_store(_base(input_dir), write=True) as store, store.transaction():
-        return _add(store, fields, allocation)
+        new_id = _add(store, fields, allocation)
+        materialize_managed(store, [fields.get("account")])
+        return new_id
 
 
 def _add(store: Any, fields: dict[str, Any], allocation: Mapping[int, float] | None, *, revision_of: int | None = None) -> int:
@@ -164,6 +166,7 @@ def revise(input_dir: str | Path, txn_id: int, *, allocation: Mapping[int, float
             store.transactions.void(txn_id)
             new_id = store.transactions.insert(**{**fields, "activity_id": None})
             store.transactions.repoint_disposals(txn_id, new_id)
+            materialize_managed(store, [old["account"], fields["account"]])
             return new_id
         alloc = allocation
         if alloc is None and old["type"] in DISPOSAL_TYPES and all(fields[k] == old[k] for k in ("shares", "symbol", "account")) \
@@ -171,6 +174,7 @@ def revise(input_dir: str | Path, txn_id: int, *, allocation: Mapping[int, float
             alloc = {d["lot_txn_id"]: d["shares"] for d in store.transactions.disposals(txn_id)}
         new_id = _add(store, {**fields, "activity_id": None}, alloc, revision_of=txn_id)
         store.transactions.void(txn_id)
+        materialize_managed(store, [old["account"], fields["account"]])
         return new_id
 
 
@@ -210,6 +214,7 @@ def transfer(input_dir: str | Path, *, from_account: str, to_account: str, symbo
         if default_tax_class(store, from_account) != default_tax_class(store, to_account):
             flags.append("The accounts have different tax treatment: check whether this is a conversion or a contribution; "
                          "the log does not model the tax.")
+        materialize_managed(store, [from_account, to_account])
         return {"group": group, "transfer_out": out_id, "flags": flags}
 
 
@@ -227,6 +232,7 @@ def void(input_dir: str | Path, txn_id: int) -> None:
             raise ValidationError(f"the {sale['type'].replace('_', ' ')} of {sale['symbol']} on {sale['txn_date']} used this "
                                   f"lot; undo it in the queue first")
         store.transactions.void(txn_id)
+        materialize_managed(store, [row["account"]])
 
 
 # ------------------------------------------------------------------------------------------------ backfill, reconcile
@@ -393,7 +399,9 @@ def sync(store: Any) -> dict[str, Any]:
             t.release(r["txn_id"], "import reverted")
         elif r["type"] == "sell" and cands.get(a["candidate_id"], {}).get("state") != "confirmed":
             t.release(r["txn_id"], "sale undone")
-    return backfill(store)
+    out = backfill(store)
+    materialize_managed(store)
+    return out
 
 
 def sync_if_started(store: Any) -> None:
@@ -413,12 +421,14 @@ def revised_rows(store: Any, activity_ids: Iterable[int]) -> list[dict[str, Any]
 def log_view(input_dir: str | Path, *, account: str | None = None, symbol: str | None = None, year: int | None = None) -> dict[str, Any]:
     """The log for the panel: whether it is in use, its rows (newest last), lots still open and any drift."""
     with active_plan.workspace_store(_base(input_dir)) as store:
+        managed = store.transactions.managed_accounts()
         if not started(store):
-            return {"started": False, "rows": [], "open": [], "drift": []}
+            return {"started": False, "rows": [], "open": [], "drift": [], "managed": managed}
         rows = store.transactions.list(account=account, symbol=symbol, year=year)
         sales = {r["txn_id"]: store.transactions.disposals(r["txn_id"]) for r in rows if r["type"] in DISPOSAL_TYPES}
         return {"started": True, "rows": [{**r, "lots": sales.get(r["txn_id"], [])} for r in rows],
-                "open": open_lots(store, account=account, symbol=symbol), "drift": reconcile(store, account)}
+                "open": open_lots(store, account=account, symbol=symbol), "drift": reconcile(store, account),
+                "managed": managed}
 
 
 def start_log(input_dir: str | Path) -> dict[str, Any]:
@@ -448,3 +458,50 @@ def materialize(store: Any, account: str) -> int:
     rest = [r for i, r in enumerate(rows) if i not in set(mine)]
     repo.replace_all(rest[:kept_before] + new + rest[kept_before:])
     return len(new)
+
+
+# ------------------------------------------------------------------------------------------------ managed accounts
+def managed_accounts(store: Any) -> list[str]:
+    return store.transactions.managed_accounts()
+
+
+def is_managed(store: Any, account: str) -> bool:
+    return store.transactions.is_managed(account)
+
+
+def materialize_managed(store: Any, accounts: Iterable[Any] | None = None) -> int:
+    """Rewrite the holdings of every managed account in ``accounts`` (default: all managed accounts); an unmanaged account
+    is left alone. Call inside the transaction of the log write that changed the account."""
+    managed = store.transactions.managed_accounts()
+    if not managed:
+        return 0
+    want = None if accounts is None else {str(a or "").strip().lower() for a in accounts}
+    return sum(materialize(store, a) for a in managed if want is None or a.strip().lower() in want)
+
+
+def set_managed(input_dir: str | Path, account: str, on: bool) -> dict[str, Any]:
+    """Make the log the author of ``account``'s holdings (``on``) or stop (``off``: the last rows stay as they are).
+    Turning on is refused while the log is not started or differs from the account's holdings, then rewrites the
+    account's holdings once so a later write needs no first step."""
+    with active_plan.workspace_store(_base(input_dir), write=True) as store, store.transaction():
+        if not on:
+            store.transactions.set_managed(account, False)
+            return {"account": account, "managed": False, "rows": 0}
+        from .broker_import import plan_accounts
+        names = {a.lower(): a for a in plan_accounts(store)}
+        if account.strip().lower() not in names:
+            raise ValidationError(f"{account} is not an account in this plan")
+        account = names[account.strip().lower()]
+        if not started(store):
+            raise ValidationError("start the transaction log before managing an account")
+        drift = [d for d in reconcile(store, account) if str(d["symbol"]).strip().upper() != "CASH"]
+        if drift:
+            raise ValidationError(f"the log and the holdings differ for {account} ({len(drift)} lot(s), first: {drift[0]['symbol']}); "
+                                  "resolve the differences before managing it")
+        store.transactions.set_managed(account, True)
+        return {"account": account, "managed": True, "rows": materialize(store, account)}
+
+
+def managed_view(input_dir: str | Path) -> dict[str, Any]:
+    with active_plan.workspace_store(_base(input_dir)) as store:
+        return {"managed": store.transactions.managed_accounts()}

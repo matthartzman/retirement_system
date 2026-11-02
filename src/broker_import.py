@@ -371,7 +371,9 @@ def _commit_part(store, broker: str, label: str, rep: dict[str, Any], file_name:
     store.broker.remember_account(rep["hint"], account)
 
     confirmed, left = [], []
-    if confirm_method is not None:
+    if confirm_method is not None and transactions.is_managed(store, account):
+        left = candidate_ids   # a managed account's sales go through the log: confirm them in the queue
+    elif confirm_method is not None:
         for o, cid in sorted(zip(rep["orders"], candidate_ids), key=lambda x: x[0]["trade_date"]):
             if o["status"] != "ready":
                 left.append(cid)
