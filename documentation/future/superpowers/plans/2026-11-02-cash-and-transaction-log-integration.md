@@ -72,6 +72,8 @@ Replaces log tasks 3.1 and 3.2 and cash Phases 4 and 6 as one unit of work, spli
   large-change warning; a managed account's import does not touch its other lots.
 - Model/effort: Opus, high. Usage: moderate-heavy.
 
+- **Built 2026-11-02 (C.2):** `src/cash_anchor.py`, wired into `src/broker_import.py` (preview shows old/new and the warning; commit writes the lot; `revert` is the undo and refuses if the lot was edited since). No schema change: old and new values live in the import's `summary.cash_write`. Anchor 1 only (the file's latest running balance, today Fidelity); an unanchored file, an account with no single `CASH` lot, or a file ending before the lot's date writes nothing. Large-change threshold is provisional (over $1,000 and over 25% of the old balance); the owner sets it from real data. Anchor 2 (confirmed lot plus flows) is not built. Tests: `tests/test_cash_anchor_unit.py`.
+
 **Task C.3: confirm path and holdings editor (log 3.2 with decision 1.2)**
 - Files: `src/sales_confirm.py` (`confirm_in`/`undo`, read only those), `frontend/js/dashboard_decomp_holdings.js`
   (grep the row renderer).

@@ -16,7 +16,7 @@ from typing import Any, Iterable, Mapping
 
 from . import active_plan, broker_activity
 from .broker_activity.normalized import INCOME_KINDS, date_range, group_orders
-from . import transactions
+from . import cash_anchor, transactions
 from .sales_confirm import AIDS, _fmt, _holdings_lots, _num, confirm_in, default_tax_class, suggest_allocation
 from .sales_ledger import ValidationError
 
@@ -201,7 +201,10 @@ def _part(store, broker: str, hint: str, account: str, rows: list[dict[str, Any]
     warnings = _coverage(store, account, broker, first, last)
     warnings += [f"{p['symbol']}: the holdings would end at {p['after']:g} shares. They may already reflect some of "
                  "these sales; check before confirming." for p in plan["position"] if p["negative"]]
-    return {"hint": hint, "account": account, "tax_class": default_tax_class(store, account), "received": len(rows),
+    cash = cash_anchor.plan_write(rows, store.dataset("holdings").rows(), account)
+    if cash["warning"]:
+        warnings.append(cash["warning"])
+    return {"hint": hint, "account": account, "cash": cash, "tax_class": default_tax_class(store, account), "received": len(rows),
             "already_imported": len(have), "will_write": new, "date_from": first, "date_to": last, "warnings": warnings,
             "monarch_covered": _covered_monarch(store, account, plan["orders"]), **plan,
             "counts": {"lots_add": sum(1 for l in plan["lots"] if l["action"] == "add"),
@@ -259,6 +262,8 @@ def _report(store, broker: str, text: str, file_name: str | None, account: str |
         if p["history_only"]:
             p["warnings"] = [f"History only: lots are not added or reduced and no sales are queued for {p['account']}; "
                              "its sales are kept as activity rows."]
+            if p["cash"]["warning"]:
+                p["warnings"].append(p["cash"]["warning"])
     totals: dict[str, float] = {}
     for p in parts:
         for k, v in p["income_totals"].items():
@@ -344,7 +349,10 @@ def _commit_part(store, broker: str, label: str, rep: dict[str, Any], file_name:
             h = hrows[lot["lot_index"]]
             row["lot_ref"] = {"created": False, **{k: h.get(k, "") for k in
                               ("account", "symbol", "purchase_date", "purchase_price", "lot_type", "note")}}
-    if not history:
+    cash = rep["cash"] if rep["cash"]["write"] else None
+    if cash:
+        cash_anchor.write(hrows, account, cash)
+    if not history or cash:
         holdings.replace_all(hrows)
 
     candidate_ids = []
@@ -362,7 +370,7 @@ def _commit_part(store, broker: str, label: str, rep: dict[str, Any], file_name:
     import_id = store.broker.add_import(
         broker=broker, account=account, file_name=file_name or "", date_from=rep["date_from"], date_to=rep["date_to"],
         rows_total=rep["received"], rows_new=len(new),
-        summary={**rep["counts"], "income_totals": rep["income_totals"], "history_only": history,
+        summary={**rep["counts"], "income_totals": rep["income_totals"], "history_only": history, "cash_write": cash,
                  "history_sales": [{"date": o["trade_date"], "symbol": o["symbol"], "shares": o["shares"],
                                     "proceeds": o["proceeds"]} for o in rep["orders"]] if history else [],
                  "superseded_monarch": [] if history else [m["candidate_id"] for m in rep["monarch_covered"]]})
@@ -411,6 +419,9 @@ def revert(input_dir: str | Path, import_id: int) -> dict[str, Any]:
                 f"{r['symbol']} {r['txn_date']}" for r in revised[:5]) + "); void or restore them in the log first")
         holdings = store.dataset("holdings")
         hrows = holdings.rows()
+        cw = imp["summary"].get("cash_write")
+        if cw and not cash_anchor.restore(hrows, imp["account"], cw):
+            raise ValidationError("the CASH lot has changed since this import wrote it; fix it in the holdings first")
         for r in rows:
             ref = r["lot_ref"]
             if not ref or not ref.get("created"):
