@@ -6,11 +6,11 @@ account's ledger rows with their pairing status. Ledgers come from ``cash_ledger
 """
 from __future__ import annotations
 
-from datetime import date
 from pathlib import Path
 from typing import Any, Mapping
 
 from . import active_plan
+from .platform_runtime import today
 from .cash_ledger import account_ledger
 from .cash_pairing import pair_transfers
 from .sales_confirm import default_tax_class
@@ -67,7 +67,7 @@ def _cash_lot(store: Any, account: str) -> dict[str, Any] | None:
 
 
 def build_view(store: Any, *, year: int | None = None) -> dict[str, Any]:
-    year = year or date.today().year
+    year = year or today().year
     accounts = _accounts(store)
     ledgers = _ledgers(store, accounts)
     rows, income = [], {}
