@@ -15,6 +15,8 @@ This document is the actual step list for that person.
 
 ## New-year checklist (household-level, ~30 minutes, do in the first week of January)
 
+The **Year-End Transition** page (Reports & Review) lists these steps in order, shows which are done, and links to each screen; the list below is the same checklist in prose.
+
 1. Open the app. If reference constants are overdue for review, a banner on
    the Plan Status page lists them (see below) — resolve any household-level
    items now.

@@ -1,5 +1,5 @@
 {
-  "stepCount": 28,
+  "stepCount": 29,
   "steps": [
     {
       "stepId": "start",
@@ -124,6 +124,12 @@
     {
       "stepId": "sales_ledger",
       "heading": "Investment Sales Ledger",
+      "hasContent": true,
+      "errors": 0
+    },
+    {
+      "stepId": "year_end",
+      "heading": "Year-End Transition",
       "hasContent": true,
       "errors": 0
     },

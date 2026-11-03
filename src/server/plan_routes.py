@@ -1480,6 +1480,33 @@ def cash_year_close_action():
     return jsonify({"success": True, **out})
 
 
+@app.route("/api/year-end", methods=["GET"])
+def year_end_checklist():
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    from .. import year_end as _ye
+    year = request.args.get("year", "")
+    if year and not year.isdigit():
+        return jsonify({"success": False, "error": "year must be a number"}), 400
+    return _sales_call(_ye.service, int(year) if year else None)
+
+
+@app.route("/api/year-end/confirm", methods=["POST"])
+def year_end_confirm():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    from .. import year_end as _ye
+    body = request.get_json(silent=True) or {}
+    year, step = body.get("year"), body.get("step")
+    if not isinstance(year, int) or isinstance(year, bool) or step not in _ye.CONFIRMABLE:
+        return jsonify({"success": False, "error": "year (number) and a confirmable step are required"}), 400
+    out = _ye.service(_ytd_input_root(), year, confirm=(step, bool(body.get("confirmed", True))))
+    _audit("year_end_step_confirmed" if body.get("confirmed", True) else "year_end_step_unconfirmed", {"year": year, "step": step})
+    return jsonify({"success": True, **out})
+
+
 def _log_body() -> dict:
     return request.get_json(silent=True) or {}
 
