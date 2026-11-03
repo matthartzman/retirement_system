@@ -2471,9 +2471,11 @@ export function renderSteps() {
     .toLowerCase();
   let stepNumber = 0;
   const allSteps = visibleSteps();
+  const statsMemo = new Map(); // each step's stats once per render: nav search re-renders on every typing pause
+  const statsOf = (id) => statsMemo.get(id) || (statsMemo.set(id, stepStats(id)), statsMemo.get(id));
   function stepButton(s) {
     stepNumber += 1;
-    const st = stepStats(s.id);
+    const st = statsOf(s.id);
     const cls =
       s.id === activeStep
         ? "active"
@@ -2524,7 +2526,7 @@ export function renderSteps() {
   groups.forEach((g) => {
     const isActive = g.steps.some((s) => s.id === activeStep);
     const gMissing = g.steps.reduce(
-      (n, s) => n + stepStats(s.id).missing.length,
+      (n, s) => n + statsOf(s.id).missing.length,
       0,
     );
     const badge = gMissing ? `<span class="badge bad">${gMissing}</span>` : "";

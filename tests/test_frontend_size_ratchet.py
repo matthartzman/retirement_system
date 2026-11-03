@@ -654,7 +654,9 @@ DASHBOARD_JS_MAX_LINES = 6_476
 # its nav step, render branch and Plan Status banner hook folded into existing dashboard.js lines): raised to the measured 42,116.
 # 2026-11-03 (year-end transition Phase 4, floor-gate status and Mark verified control in the Cash panel, +6 in
 # dashboard_decomp_cash_investment.js; dashboard.js did not grow): raised to the measured 42,576.
-TOTAL_JS_MAX_LINES = 42_576
+# 2026-11-03 (nav search typing fix: +2 in dashboard_decomp_row_model.js for the per-render step-stats memo, +1 in navigation.js so the search box
+# keeps what is being typed; dashboard.js did not grow): raised to the measured 42,579.
+TOTAL_JS_MAX_LINES = 42_579
 
 
 
