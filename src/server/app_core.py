@@ -477,6 +477,10 @@ MORTGAGE_RE_TAX_UI_PLAN_DATA_ROWS: list[list[str]] = [
     ["Cashflow", "Mortgage", "real_estate_tax_annual_adjustment_pct", "2.50%", "percent", "Annual percentage adjustment applied to real-estate/property taxes in the cash-flow forecast."],
 ]
 
+CASH_TRACKING_UI_PLAN_DATA_ROWS: list[list[str]] = [
+    ["Cashflow", "Cash Tracking", "cash_pair_status_tax", "FALSE", "bool", "Experimental, default OFF. When TRUE, cash reported as withdrawn from a pre-tax account this year is drawn from that account and taxed as ordinary income like an RMD, replacing planned draws. Taxable, Roth and HSA accounts are not affected. Review the worked example before turning on."],
+]
+
 QCD_UI_PLAN_DATA_ROWS: list[list[str]] = [
     ["Cashflow", "Charitable Giving", "qcd_enabled", "FALSE", "bool", "Enable Qualified Charitable Distributions: each member's own IRA can send money straight to charity, excluded from AGI, once age 70 1/2-eligible."],
     ["Cashflow", "Charitable Giving", "h_qcd_annual_amount", "$0", "USD", "Member 1's annual QCD amount. Capped at that year's own RMD (phase-1 scope) and at the statutory per-person QCD limit."],
@@ -574,6 +578,7 @@ PLAN_DATA_BACKFILL_ENTRIES: list[plan_data_backfill.BackfillEntry] = [
     _BF.BackfillEntry(SS_FRA_AGE_UI_PLAN_DATA_ROWS, _BF.before_first(_BF.label_is("spousal_benefits_enabled"))),
     _BF.BackfillEntry(HEALTHCARE_UI_PLAN_DATA_ROWS, _BF.before_first(_BF.subsection_is("Out-of-Pocket"))),
     _BF.BackfillEntry(HELOC_UI_PLAN_DATA_ROWS),
+    _BF.BackfillEntry(CASH_TRACKING_UI_PLAN_DATA_ROWS),
     _BF.BackfillEntry(EARLY_DISTRIBUTION_UI_PLAN_DATA_ROWS),
     _BF.BackfillEntry(CORE_SPENDING_UI_PLAN_DATA_ROWS, _BF.after_last(_BF.subsection_is("Spending"))),
     _BF.BackfillEntry(MORTGAGE_RE_TAX_UI_PLAN_DATA_ROWS, _BF.after_last(_BF.subsection_is("Mortgage"))),

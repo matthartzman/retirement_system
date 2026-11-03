@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 309 Python files under `src/`, 68 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 310 Python files under `src/`, 68 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -24,7 +24,7 @@ flowchart TB
     subgraph L_HTTP_Runtime["HTTP Runtime (4 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
-    subgraph L_Core_Engine___Domain["Core Engine & Domain (221 modules)"]
+    subgraph L_Core_Engine___Domain["Core Engine & Domain (222 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
     subgraph L_Projection_Stages["Projection Stages (24 modules)"]
@@ -558,6 +558,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/cash_anchor.py` | `cash_ledger` | — |
 | `src/cash_ledger.py` | `ytd_tracking` | — |
 | `src/cash_pairing.py` | — | — |
+| `src/cash_tax_floor.py` | `sales_confirm` | — |
 | `src/cash_view.py` | `cash_ledger`, `cash_pairing`, `local_store`, `platform_runtime`, `sales_confirm`, `workspace_context` | — |
 | `src/cash_year_close.py` | `local_store`, `platform_runtime`, `workspace_context` | — |
 | `src/config_backend.py` | `active_plan`, `app_state`, `engine_defaults`, `sqlite_util`, `system_config` | — |
