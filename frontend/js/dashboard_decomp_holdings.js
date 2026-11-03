@@ -532,17 +532,17 @@ export function renderHoldings() {
   return html;
 }
 
-// Last cached/live price per symbol, from the most recent build's pricing_diagnostics.json.
-// Used to show current market value in Plan Data Review instead of cost basis.
+// Last build's price per symbol; the file is "pricing_diagnostics" (was ".json" before build results moved into the plan file).
+export function pricesFromDiagnostics(out) {
+  const f = ((out && out.files) || []).find((x) => /^pricing_diagnostics(\.json)?$/.test(x.name));
+  return (f && f.json && f.json.prices) || {};
+}
 export async function loadHoldingsPriceData() {
   if (window.holdingsPriceLoading || window.holdingsPriceData) return;
   window.holdingsPriceLoading = true;
   try {
     const out = await api("/api/admin/diagnostics");
-    const f = ((out && out.files) || []).find(function (x) {
-      return x.name === "pricing_diagnostics.json";
-    });
-    window.holdingsPriceData = (f && f.json && f.json.prices) || {};
+    window.holdingsPriceData = pricesFromDiagnostics(out);
   } catch (e) {
     window.holdingsPriceData = {};
   }
