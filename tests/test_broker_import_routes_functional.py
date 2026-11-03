@@ -61,13 +61,6 @@ def test_broker_is_detected_and_a_multi_account_file_takes_an_account_map(client
     assert unknown["errors"] and "not recognized" in unknown["errors"][0]["error"]
 
 
-def test_income_route_needs_account_and_year(client):
-    assert client.get("/api/sales/broker/income?year=2026").status_code == 400
-    assert client.get(f"/api/sales/broker/income?account={ACCT}&year=x").status_code == 400
-    r = client.get(f"/api/sales/broker/income?account={ACCT}&year=2026").get_json()
-    assert r["success"] and r["totals"]["broker"] == 0
-
-
 def test_edit_manual_sale_voids_old_row(client):
     row = {"sale_date": "2026-06-10", "account": "Member_1_Trust", "tax_class": "taxable", "symbol": "VTI", "shares": 10,
            "proceeds": 2000, "basis": 1500, "purchase_date": "2024-01-02"}

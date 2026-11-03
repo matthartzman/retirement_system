@@ -1,11 +1,15 @@
 # Transaction log: design and implementation plan
 
-Status: **proposed, not started.** Written 2026-10-31 after the broker import shipped (#329, #330). Decisions marked
+Status: approved. Phase 1 built 2026-11-02; phase 2 built 2026-11-02 (tasks 2.1 to 2.6; 2.7 deferred); phase 3 built 2026-11-02 (tasks 3.1 and 3.2; no account is managed by default); task 3.3, the owner's per-account switch-over, is complete. Written 2026-10-31 after the broker import shipped (#329, #330). Decisions marked
 **Claude's call** can be overridden. It builds on `2026-10-30-broker-activity-bulk-import-design-and-plan.md` and the
 realized-sales ledger (`2026-10-28-realized-sales-ledger-design-and-plan.md`).
 
 > **For agentic workers:** use superpowers:subagent-driven-development or superpowers:executing-plans, task by task.
 > Phases are gates: do not start a phase until the previous one is merged and its gate (section 7) is met.
+
+> **Overlap with cash tracking:** phase 3 (tasks 3.1 and 3.2) is replaced by the combined phase in
+> `2026-11-02-cash-and-transaction-log-integration.md`. That note also fixes who owns the `CASH` lot (`materialize`
+> skips it), shares one transfer-pairing function with task 2.7, and makes schema version numbers "next free".
 
 **Goal:** one chronological record of every purchase, reinvestment, sale and in-kind transfer for the brokerage
 accounts, from which unsold purchases show up as holdings, and which the user can add to, revise and delete.
@@ -259,7 +263,7 @@ Gate to start: phase 1 merged and used on the real plan for one import cycle.
 - Model/effort: Sonnet, medium. Usage: moderate-heavy. Driver: panel size; split into a second file if the line count
   of the transactions module passes about 300.
 
-**Task 2.7: transfer kind in importers (only with a real sample)**
+**Task 2.7: transfer kind in importers (only with a real sample) - DEFERRED 2026-11-02 by the owner: no sample file shows an in-kind transfer; manual transfers cover the need. Revisit if a real file with both legs turns up.**
 - Files: `src/broker_activity/etrade.py`, `fidelity.py`, `normalized.py` (`KINDS`), tests with a trimmed sample.
 - Gate: a real file showing both legs. Without it, skip; manual transfers cover the need.
 - Model/effort: Sonnet, medium. Usage: light-moderate.
@@ -290,6 +294,48 @@ Gate to start: phase 2 merged and `reconcile` shows zero drift on the real plan 
 - Not code. For each account: run `reconcile`, switch on, run the plan build, compare workbook and engine outputs with
   the pre-switch build using `tools/regen_golden_master.py measure` (never `regen`). Any delta stops the switch.
 - Model/effort: Sonnet, medium. Usage: light-moderate (one build per account).
+
+**Built 2026-11-02 (phase 1):** `src/transactions_view.py`, `GET /api/transactions`, and the panel
+`frontend/js/dashboard_decomp_transactions.js` on the Sales Ledger page. Added at the same time: an E*Trade
+`Redemption` and a Vanguard `Corp Action (Redemption)` with a symbol and shares are now `sell` rows (shares forced
+negative, price from amount / shares), so they queue as an order and relieve lots on confirm like any sale; without a
+symbol or shares they stay `other`. This supersedes the "Redemption is `other`" notes in the 2026-10-30 broker plan §7.1.
+
+**Built 2026-11-02 (phase 2):** `store.transactions` (schema v20), `src/transactions.py` (replay, add, revise, void,
+transfer, backfill, reconcile, sync), dual-write from the importer and queue **only once the log is started** (the first
+backfill), routes `/api/transactions/{log,backfill,<id>/revise,<id>/void,transfer}` plus `POST /api/transactions`, and the
+Transaction log panel. Notes: a sale is allocated oldest-first unless the caller names lots; `sync` voids log rows whose
+import was reverted or whose sale was undone (dropping the activity link so they can be logged again); a Monarch confirm
+writes no log row, so its lot shows as drift until the log gains a way to record it.
+
+**Built 2026-11-02 (phase 3):** schema v22 adds `transaction_accounts` (one row per managed account). `transactions.set_managed(input_dir,
+account, on)` turns the log on or off as the author of one account's holdings: turning on is refused while the log is not started or
+differs from that account's holdings (the `CASH` lot is ignored in that check), then runs `materialize` once; turning off deletes the
+row and leaves the last holdings rows as they are. `materialize_managed` runs inside the same transaction as every log write for a
+managed account (add, revise, void, transfer, `sync` after an import commit or revert, queue confirm and undo); other accounts and the
+account's `CASH` lot are never touched (integration note 1.1). In `src/sales_confirm.py` a managed account's sale is a `sell` log row
+naming lots by transaction id (the panel lists the log's lots, `lot_id` = the lot's transaction id), then the holdings are rewritten
+from the log; confirm does not credit `CASH` (note 1.2); undo releases the log row and rewrites the holdings. A Monarch candidate for a
+managed account is refused: "this account is managed by the transaction log; record the sale there and dismiss this one". A bulk
+import into a managed account leaves its sales in the queue (no auto-confirm) so they are confirmed through the log. The Holdings
+editor shows a managed account's rows read-only with a link to the Sales Ledger page; the Transaction log panel has a Managed
+checkbox per account; routes `GET /api/transactions/accounts` and `POST /api/transactions/accounts/<account>/managed` (`{"managed":
+true|false}`). Nothing is managed by default, so `reconcile`, the holdings and the golden master are unchanged until the owner
+switches an account.
+
+### Task 3.3 checklist: switching one account on (owner runs this, one account at a time)
+
+1. Back up the plan file. Open Sales Ledger, Transaction log: the banner must read "The log agrees with the holdings."
+2. `python tools/regen_golden_master.py measure` (never `regen`) and keep the output as the "before" numbers. Run the plan build and
+   keep the workbook.
+3. Tick Managed for the account. The app refuses if the log differs from the holdings; fix the drift first. The holdings rows for the
+   account become read-only in Holdings.
+4. Run the plan build again and `measure` again. The workbook and the engine outputs must equal the "before" ones. Any delta: untick
+   Managed (the last holdings rows stay), keep the "after" numbers and report the difference; do not switch the next account.
+5. Import a broker file for the account (or add a log row) and confirm one queued sale from the Sales queue; check that the
+   holdings follow and the banner still agrees. Undo that sale and check the lots come back.
+6. Only then repeat for the next account. Monarch sales for a managed account are dismissed (record them in the log).
+7. To stop: untick Managed. Holdings editing returns; the rows are whatever the log last wrote.
 
 ## 5. Global constraints
 
@@ -332,6 +378,6 @@ Disproportionately expensive if unscoped: any step that runs the full `pytest` r
 
 ## 9. Open items
 
-- A real transfer sample from E*Trade and Fidelity (task 2.7).
+- A real transfer sample from E*Trade and Fidelity (task 2.7, deferred by the owner on 2026-11-02; manual transfers cover it).
 - Whether phase 3 should eventually cover Monarch-fed accounts that have no broker file (they would need `opening`
   rows and manual entries only). Deferred until phases 1 and 2 are in use.

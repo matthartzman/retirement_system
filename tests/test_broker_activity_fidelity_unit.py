@@ -79,3 +79,20 @@ def test_trade_row_without_quantity_is_an_error_row_only():
 def test_unknown_broker():
     p = broker_activity.parse_file("nope", "", account="A")
     assert p.errors and "fidelity" in p.errors[0]["error"]
+
+
+def test_cash_balance_column_is_kept_per_row():
+    p = _parse(ROWS)
+    by_line = {r["line"]: r for r in p.rows}
+    assert len(p.rows) == len(ROWS)
+    # fixture rows are newest first: the 2026-09-18 dividend shows the balance after it, the 2026-05-12 buy shows 0
+    div = next(r for r in p.rows if r["run_date"] == "2026-09-18" and r["kind"] == "dividend")
+    buy = next(r for r in p.rows if r["kind"] == "buy")
+    assert div["cash_balance"] == 250.88 and buy["cash_balance"] == 0.0
+    assert all("cash_balance" in r for r in by_line.values())
+
+
+def test_blank_cash_balance_is_none():
+    row = '05/06/2026,DIVIDEND RECEIVED EXAMPLE SHORT TREASURY (SHRT) (Cash),SHRT,EXAMPLE,Cash,"",0,"","","",4.5,"",""'
+    p = _parse([row])
+    assert p.rows[0]["cash_balance"] is None

@@ -627,7 +627,31 @@ DASHBOARD_JS_MAX_LINES = 6_476
 # 2026-10-31 (broker import income check names "broker file" vs "account import" and flags repeated account-import rows, +3): raised to the measured 41,525.
 # 2026-10-31 (broker income check lists "only in" rows as tables with shortened descriptions, +2): raised to the measured 41,527.
 # 2026-10-31 (income check explains Monarch is not kept for Investment accounts, +1): raised to the measured 41,528.
-TOTAL_JS_MAX_LINES = 41_528
+# 2026-11-02 (Transactions panel, transaction log plan phase 1: new feature module dashboard_decomp_transactions.js, mounted
+# from the Sales Ledger page with a one-line hook; dashboard.js did not grow): raised to the measured 41,579.
+# 2026-11-02 (Transaction log panel, plan phase 2 task 2.6: new feature module dashboard_decomp_transactions_log.js, 102 lines,
+# mounted from the Sales Ledger page with a one-line hook; dashboard.js did not grow): raised to the measured 41,681.
+# 2026-11-02 (transaction log phase 3: Managed checkbox per account in the log panel and read-only managed rows in the Holdings
+# editor, +34 in two existing modules; dashboard.js did not grow): raised to the measured 41,715.
+# 2026-11-02 (Checking & Savings page: new feature module dashboard_decomp_cash_accounts.js, 68 lines; cash-only rows read-only
+# in the Holdings editor, +10; income check and transactions collapse net -2 in two modules; dashboard.js did not grow):
+# raised to the measured 41,781.
+# 2026-11-02 (Cash in investment accounts panel, cash plan phase 5: new feature module dashboard_decomp_cash_investment.js, 46 lines,
+# mounted from the Sales Ledger page with a one-line hook; dashboard.js did not grow): raised to the measured 41,827.
+# 2026-11-02 (cash plan phase 6 engine half: withdrawals-by-pair-status and excess-return lines in the Cash panel, +3 in
+# dashboard_decomp_cash_investment.js; dashboard.js did not grow): raised to the measured 41,830.
+# 2026-11-02 (cash plan plan-vs-reported comparison: pace table, earlier years and year-end straddles in the Cash panel, +9 in
+# dashboard_decomp_cash_investment.js; dashboard.js did not grow): raised to the measured 41,839.
+# 2026-11-02 (Investment Holdings grouped view, ticket 374: new module dashboard_decomp_holdings_tree.js plus hooks in
+# dashboard_decomp_holdings.js, income streams, sales ledger and reconciliation; dashboard.js did not grow): raised to the measured 42,048.
+# 2026-11-03 (1099-B import panel, plan step 5.2 UI: new feature module dashboard_decomp_sales_1099b.js, 187 lines, mounted
+# from the Sales Ledger page with a one-line hook; dashboard.js did not grow): raised to the measured 42,235.
+# 2026-11-03 (Sales queue bulk review list, plan step 2.2 follow-up: new feature module dashboard_decomp_sales_bulk.js, 257 lines,
+# mounted from the Sales Ledger page with a one-call hook; dashboard.js did not grow): raised to the measured 42,502 (merged with the 1099-B panel above).
+# 2026-11-03 (year-end transition Phase 1, cash-year close controls and closed-year display in the Cash panel, +29 in
+# dashboard_decomp_cash_investment.js; dashboard.js did not grow): raised to the measured 42,077.
+TOTAL_JS_MAX_LINES = 42_531
+
 
 
 def _line_count(path: Path) -> int:

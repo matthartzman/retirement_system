@@ -1231,6 +1231,50 @@ def sales_candidate_restore(candidate_id: int):
     return _confirm_call("write_config", "restore", candidate_id)
 
 
+# ---- Bulk review of the queue: many sales, per-item results (logic in src/sales_confirm_bulk.py) ----
+
+def _bulk_call(permission: str, fn_name: str, key: str, event: str | None = None, **extra):
+    denied = _require(permission)
+    if denied:
+        return denied
+    from .. import sales_confirm_bulk as _bulk
+    body = request.get_json(silent=True) or {}
+    response = _sales_call(lambda root: getattr(_bulk, fn_name)(root, body.get(key), **{k: body.get(k) for k in extra}))
+    if event and response[1] == 200:
+        _audit(event, {"count": len(body.get(key) or [])})
+    return response
+
+
+@app.route("/api/sales/candidates/bulk/review", methods=["POST"])
+def sales_bulk_review():
+    return _bulk_call("view_dashboard", "review", "candidate_ids")
+
+
+@app.route("/api/sales/candidates/bulk/validate", methods=["POST"])
+def sales_bulk_validate():
+    return _bulk_call("view_dashboard", "validate", "items")
+
+
+@app.route("/api/sales/candidates/bulk/confirm", methods=["POST"])
+def sales_bulk_confirm():
+    return _bulk_call("write_config", "confirm", "items", "sales_bulk_confirmed")
+
+
+@app.route("/api/sales/candidates/bulk/undo", methods=["POST"])
+def sales_bulk_undo():
+    return _bulk_call("write_config", "undo", "candidate_ids", "sales_bulk_confirm_undone")
+
+
+@app.route("/api/sales/candidates/bulk/dismiss", methods=["POST"])
+def sales_bulk_dismiss():
+    return _bulk_call("write_config", "dismiss", "candidate_ids", "sales_bulk_dismissed", reason="")
+
+
+@app.route("/api/sales/candidates/bulk/restore", methods=["POST"])
+def sales_bulk_restore():
+    return _bulk_call("write_config", "restore", "candidate_ids")
+
+
 # ---- Broker 1099-B import: preview with difference report, then apply (step 5.2; logic in src/sales_1099b.py) ----
 
 def _statement_args(b: dict):
@@ -1322,7 +1366,7 @@ def sales_requeue(sale_id: int):
     return response
 
 
-# ---- Broker activity bulk import (src/broker_import.py) and income check (src/broker_income.py) ----
+# ---- Broker activity bulk import (src/broker_import.py) ----
 
 def _broker_args(b: dict) -> dict:
     accounts = b.get("accounts")
@@ -1379,20 +1423,153 @@ def sales_broker_revert(import_id: int):
     return response
 
 
-@app.route("/api/sales/broker/income", methods=["GET"])
-def sales_broker_income():
+@app.route("/api/transactions", methods=["GET"])
+def transactions_list():
     denied = _require("view_dashboard")
     if denied:
         return denied
-    from .. import broker_income as _income
-    try:
-        year = int(request.args.get("year", ""))
-    except ValueError:
+    from .. import transactions_view as _tv
+    year = request.args.get("year", "")
+    if year and not year.isdigit():
         return jsonify({"success": False, "error": "year must be a number"}), 400
-    account = request.args.get("account") or ""
-    if not account:
-        return jsonify({"success": False, "error": "account is required"}), 400
-    return _sales_call(lambda root: _income.reconcile(root, account=account, year=year))
+    types = [t for t in request.args.get("type", "").split(",") if t]
+    return _sales_call(_tv.view, account=request.args.get("account") or None, symbol=request.args.get("symbol") or None,
+                       year=int(year) if year else None, types=types,
+                       held_only=request.args.get("held", "") in ("1", "true"))
+
+
+@app.route("/api/cash", methods=["GET"])
+def cash_accounts_view():
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    from .. import cash_view as _cv
+    year = request.args.get("year", "")
+    if year and not year.isdigit():
+        return jsonify({"success": False, "error": "year must be a number"}), 400
+    return _sales_call(_cv.view, account=request.args.get("account") or None, year=int(year) if year else None)
+
+
+@app.route("/api/cash/year-close", methods=["GET"])
+def cash_year_close_status():
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    from .. import cash_year_close as _cyc
+    year = request.args.get("year", "")
+    if not year.isdigit():
+        return jsonify({"success": False, "error": "year must be a number"}), 400
+    return _sales_call(_cyc.service, int(year))
+
+
+@app.route("/api/cash/year-close", methods=["POST"])
+def cash_year_close_action():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    from .. import cash_year_close as _cyc
+    body = request.get_json(silent=True) or {}
+    year, action = body.get("year"), body.get("action")
+    if not isinstance(year, int) or isinstance(year, bool) or action not in ("close", "reopen"):
+        return jsonify({"success": False, "error": "year (number) and action (close or reopen) are required"}), 400
+    try:
+        out = _cyc.service(_ytd_input_root(), year, action, note=str(body.get("note") or ""), straddles_seen=bool(body.get("straddles_seen")))
+    except _cyc.CloseError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+    _audit("cash_year_closed" if action == "close" else "cash_year_reopened", {"year": year})
+    return jsonify({"success": True, **out})
+
+
+def _log_body() -> dict:
+    return request.get_json(silent=True) or {}
+
+
+def _log_fields(b: dict) -> dict:
+    keys = ("txn_date", "settle_date", "account", "type", "symbol", "shares", "price", "amount", "fees", "lot_type", "note")
+    return {k: b[k] for k in keys if k in b and b[k] not in (None, "")}
+
+
+def _log_alloc(b: dict):
+    alloc = b.get("allocation")
+    return {int(k): float(v) for k, v in alloc.items()} if isinstance(alloc, dict) and alloc else None
+
+
+def _log_write(fn, event: str, *args, **kwargs):
+    denied = _require("write_config")
+    if denied:
+        return denied
+    from .. import transactions as _t
+    try:
+        response = _sales_call(lambda root: {"result": fn(_t, root, *args, **kwargs)})
+    except LookupError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 404
+    except (ValueError, TypeError) as exc:
+        return jsonify({"success": False, "error": f"bad request: {exc}"}), 400
+    if response[1] == 200:
+        _audit(event, {"args": [a for a in args if isinstance(a, (int, str))]})
+    return response
+
+
+@app.route("/api/transactions/log", methods=["GET"])
+def transactions_log():
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    from .. import transactions as _t
+    year = request.args.get("year", "")
+    if year and not year.isdigit():
+        return jsonify({"success": False, "error": "year must be a number"}), 400
+    return _sales_call(_t.log_view, account=request.args.get("account") or None, symbol=request.args.get("symbol") or None,
+                       year=int(year) if year else None)
+
+
+@app.route("/api/transactions/accounts", methods=["GET"])
+def transactions_accounts():
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    from .. import transactions as _t
+    return _sales_call(_t.managed_view)
+
+
+@app.route("/api/transactions/accounts/<account>/managed", methods=["POST"])
+def transactions_set_managed(account: str):
+    on = _log_body().get("managed")
+    if not isinstance(on, bool):
+        return jsonify({"success": False, "error": "managed must be true or false"}), 400
+    return _log_write(lambda t, root, *_: t.set_managed(root, account, on), "transaction_account_managed", account)
+
+
+@app.route("/api/transactions/backfill", methods=["POST"])
+def transactions_backfill():
+    return _log_write(lambda t, root: t.start_log(root), "transactions_backfilled")
+
+
+@app.route("/api/transactions", methods=["POST"])
+def transactions_add():
+    b = _log_body()
+    return _log_write(lambda t, root: {"txn_id": t.add(root, allocation=_log_alloc(b), **_log_fields(b))}, "transaction_added")
+
+
+@app.route("/api/transactions/<int:txn_id>/revise", methods=["POST"])
+def transactions_revise(txn_id: int):
+    b = _log_body()
+    return _log_write(lambda t, root: {"txn_id": t.revise(root, txn_id, allocation=_log_alloc(b), **_log_fields(b))},
+                      "transaction_revised")
+
+
+@app.route("/api/transactions/<int:txn_id>/void", methods=["POST"])
+def transactions_void(txn_id: int):
+    return _log_write(lambda t, root: t.void(root, txn_id) or {}, "transaction_voided")
+
+
+@app.route("/api/transactions/transfer", methods=["POST"])
+def transactions_transfer():
+    b = _log_body()
+    return _log_write(lambda t, root: t.transfer(root, from_account=str(b.get("from_account") or ""), to_account=str(b.get("to_account") or ""),
+                                                  symbol=str(b.get("symbol") or ""), allocation=_log_alloc(b) or {},
+                                                  txn_date=str(b.get("txn_date") or ""), note=str(b.get("note") or "")),
+                      "transaction_transferred")
 
 
 # ---- Account reconciliation (app vs Monarch) ----
@@ -1454,6 +1631,52 @@ def reconcile_undo_auto():
     response = _reconcile_call(_reconcile.undo_auto)
     if response[1] == 200:
         _audit("reconcile_undo_auto", {"undone": len(response[0].get_json().get("undone", []))})
+    return response
+
+
+# ---- Checking & Savings accounts (src/cash_accounts.py) ----
+
+def _cash_accounts_call(fn, *args, **kwargs):
+    from .. import cash_accounts as _ca
+    try:
+        return jsonify({"success": True, **fn(_ytd_input_root(), *args, **kwargs)}), 200
+    except (_ca.CashAccountError, _ca.reconcile.ReconcileError, _ca.active_plan.StoreError) as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+
+
+@app.route("/api/cash-accounts", methods=["GET"])
+def cash_accounts_list():
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    from .. import cash_accounts as _ca
+    return _cash_accounts_call(_ca.list_accounts)
+
+
+@app.route("/api/cash-accounts", methods=["POST"])
+def cash_accounts_add():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    from .. import cash_accounts as _ca
+    b = request.get_json(silent=True) or {}
+    response = _cash_accounts_call(_ca.add_account, str(b.get("name") or ""), b.get("balance", 0),
+                                   str(b.get("as_of") or "") or None, str(b.get("import_account_key") or "") or None)
+    if response[1] == 200:
+        _audit("cash_account_added", {"name": response[0].get_json().get("name")})
+    return response
+
+
+@app.route("/api/cash-accounts/delete", methods=["POST"])
+def cash_accounts_delete():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    from .. import cash_accounts as _ca
+    account = str((request.get_json(silent=True) or {}).get("account") or "")
+    response = _cash_accounts_call(_ca.delete_account, account)
+    if response[1] == 200:
+        _audit("cash_account_deleted", {"account": account})
     return response
 
 

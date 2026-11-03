@@ -35,7 +35,7 @@ def ledger_rows(sales: Iterable[Mapping[str, Any]]) -> tuple[list[dict[str, Any]
 def line(cfg: Mapping[str, Any] | None, sales: Iterable[Mapping[str, Any]], adjustments: Iterable[Mapping[str, Any]] | None,
          today: date, *, ordinary_income: float = 0.0, ordinary_rate: float = DEFAULT_ORDINARY_RATE,
          ltcg_rate: float = DEFAULT_LTCG_RATE) -> dict[str, Any]:
-    from src.realized_tax import net_realized_by_year, realized_gain_tax   # the engine's tax code loads on first use
+    from src.realized_tax import net_realized_by_year, plan_ordinary_income, realized_gain_tax   # the engine's tax code loads on first use
 
     year = today.year
     rows, unknown = ledger_rows(sales)
@@ -45,15 +45,17 @@ def line(cfg: Mapping[str, Any] | None, sales: Iterable[Mapping[str, Any]], adju
     if netting is None:   # nothing sold this year and no carryforward entered
         netting = {"net_st": 0.0, "net_lt": 0.0, "ordinary_offset": 0.0, "carryforward_st": 0.0, "carryforward_lt": 0.0,
                    "gain_to_tax_ordinary": 0.0, "gain_to_tax_ltcg": 0.0}
-    parts, method = None, "flat"
+    parts, method, income = None, "flat", ordinary_income
     if cfg:
         try:
+            # The gains stack on the year's whole income: the larger of what is recorded so far and the plan's own figure.
+            income = max(float(ordinary_income), plan_ordinary_income(cfg, year))
             override = (by_year.get(year) or {}).get("state_rate_override")
-            parts = realized_gain_tax(cfg, netting, year=year, ordinary_income=ordinary_income, magi=ordinary_income,
+            parts = realized_gain_tax(cfg, netting, year=year, ordinary_income=income, magi=income,
                                       state_rate_override=override)
             method = "planner"
         except Exception:  # noqa: BLE001 - a partial plan must not take the page or the log down
-            parts = None
+            parts, income = None, ordinary_income
     if parts is None:
         ordinary = netting["gain_to_tax_ordinary"] * ordinary_rate - netting["ordinary_offset"] * ordinary_rate
         ltcg = netting["gain_to_tax_ltcg"] * ltcg_rate
@@ -64,4 +66,5 @@ def line(cfg: Mapping[str, Any] | None, sales: Iterable[Mapping[str, Any]], adju
             "carryforward_st": round(netting["carryforward_st"], 2), "carryforward_lt": round(netting["carryforward_lt"], 2),
             "ordinary_offset": round(netting["ordinary_offset"], 2),
             **{k: round(parts[k], 2) for k in ("ordinary_tax", "ltcg_tax", "niit", "state_tax", "total")},
-            "unknown_term": {"count": unknown}}
+            "unknown_term": {"count": unknown},
+            "label": f"Tax on gains realized in {year}", "ordinary_income": round(income, 2) if method == "planner" else None}

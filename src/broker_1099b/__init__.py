@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, Iterable
 
-from . import etrade, pdf_text
+from . import etrade, pdf_text, vanguard
 from .normalized import ParsedStatement
 
 Parser = Callable[..., ParsedStatement]
@@ -24,6 +24,7 @@ def available_brokers() -> list[str]:
 
 
 register(etrade.BROKER, etrade.parse)
+register(vanguard.BROKER, vanguard.parse)
 
 
 def _master_symbols() -> set[str]:

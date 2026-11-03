@@ -12,7 +12,7 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, Mapping
 
-from . import active_plan
+from . import active_plan, sales_tax_year, transactions
 from .sales_ledger import ValidationError, allocate_lots, holding_period, validate_sale_row
 
 AIDS = ("fifo", "hifo", "lowest_gain")
@@ -88,6 +88,31 @@ def _holdings_lots(store, account: str, symbol: str, trade_date: str | None, pri
     return out
 
 
+MONARCH_MANAGED_REFUSAL = ("this account is managed by the transaction log; record the sale there and dismiss this one")
+
+
+def _log_lots(store, account: str, symbol: str, trade_date: str | None, price: float | None) -> list[dict[str, Any]]:
+    """A managed account's lots, from the log: ``lot_id`` is the lot's transaction id (not a holdings index)."""
+    out = []
+    for l in transactions.open_lots(store, account=account, symbol=symbol):
+        pd = "" if l["purchase_date"] == transactions._NO_DATE else l["purchase_date"]
+        if trade_date and pd and pd > trade_date:
+            continue
+        basis = float(l["price"] or 0.0)
+        out.append({"lot_id": str(l["lot_txn_id"]), "purchase_date": pd, "remaining": float(l["shares"]), "basis_per_share": basis,
+                    "holding_period": holding_period(pd or None, trade_date) if trade_date else "unknown",
+                    "lot_type": l["lot_type"], "implied_gain": None if price is None else float(l["shares"]) * (price - basis),
+                    "_row": l})
+    return out
+
+
+def _lots_for(store, account: str, symbol: str, trade_date: str | None, price: float | None) -> list[dict[str, Any]]:
+    """The lots a sale can draw on: the log's for a managed account, else the holdings'."""
+    if transactions.is_managed(store, account):
+        return [{k: v for k, v in l.items() if k != "_row"} for l in _log_lots(store, account, symbol, trade_date, price)]
+    return _holdings_lots(store, account, symbol, trade_date, price)
+
+
 def _candidate(store, candidate_id: int) -> dict[str, Any]:
     for c in store.sales.list_candidates():
         if c["candidate_id"] == int(candidate_id):
@@ -132,16 +157,17 @@ def panel(input_dir: str | Path, candidate_id: int, *, symbol: str | None = None
         monarch = c["source"] == "monarch"
         trade = prior_business_day(c["sale_date"]) if monarch else c["sale_date"]
         price = _price(c, qty)
-        lots = _holdings_lots(store, c["account"], sym, trade, price) if sym else []
+        lots = _lots_for(store, c["account"], sym, trade, price) if sym else []
         tax_class = default_tax_class(store, c["account"])
+        managed = transactions.is_managed(store, c["account"])
     exact = [l["lot_id"] for l in lots if qty and abs(l["remaining"] - qty) <= _EPS]
     refusal = "its lots were already removed by the holdings import; record it with manual entry, then dismiss it" \
-        if c["source"] == "holdings_diff" else None
+        if c["source"] == "holdings_diff" else MONARCH_MANAGED_REFUSAL if managed and monarch else None
     return {
         "candidate": c, "symbol": sym, "shares": qty, "price": price, "lots": lots, "allocation": {},
         "suggested_trade_date": trade, "settle_date": c["sale_date"] if monarch else None,
         "year_end_case": monarch and trade[:4] != c["sale_date"][:4], "tax_class": tax_class,
-        "only_exact_fit": exact[0] if len(exact) == 1 else None, "confirmable": refusal is None, "refusal": refusal,
+        "only_exact_fit": exact[0] if len(exact) == 1 else None, "confirmable": refusal is None, "refusal": refusal, "managed": managed,
         "aids": {m: suggest_allocation(m, qty, lots, price) for m in AIDS} if qty and lots else {},
     }
 
@@ -173,8 +199,11 @@ def confirm(input_dir: str | Path, candidate_id: int, *, allocation: Mapping[str
     candidate ``confirmed``, in one transaction. Raises ``ValidationError`` and changes nothing when the candidate is
     not ``unmatched``, the allocation does not equal the shares sold, a lot is over-allocated or a row is invalid."""
     with active_plan.workspace_store(_base(input_dir), write=True) as store, store.transaction():
-        return confirm_in(store, candidate_id, allocation=allocation, tax_class=tax_class, trade_date=trade_date,
-                          fees=fees, proceeds=proceeds, symbol=symbol, shares=shares)
+        out = confirm_in(store, candidate_id, allocation=allocation, tax_class=tax_class, trade_date=trade_date,
+                         fees=fees, proceeds=proceeds, symbol=symbol, shares=shares)
+        transactions.sync_if_started(store)   # a broker sale writes its log row; a Monarch sale writes none
+    sales_tax_year.auto_refresh(input_dir)
+    return out
 
 
 def confirm_in(store, candidate_id: int, *, allocation: Mapping[str, float], tax_class: str, trade_date: str,
@@ -195,16 +224,32 @@ def confirm_in(store, candidate_id: int, *, allocation: Mapping[str, float], tax
         total = c["price"] * qty
     if total is None:
         raise ValidationError("proceeds are needed")
-    lots = _holdings_lots(store, c["account"], sym, trade_date, None)
+    managed = transactions.is_managed(store, c["account"])
+    if managed and c["source"] == "monarch":
+        raise ValidationError(MONARCH_MANAGED_REFUSAL)
+    if managed:   # the log is the book: the sale is a log row naming lots by id, and the holdings are rewritten from it
+        lots = _log_lots(store, c["account"], sym, trade_date, None)
+        info = {l["lot_id"]: l["_row"] for l in lots}
+    else:
+        lots = _holdings_lots(store, c["account"], sym, trade_date, None)
     picked = allocate_lots(qty, [{"lot_key": l["lot_id"], "remaining": l["remaining"]} for l in lots],
                           {str(k): v for k, v in allocation.items()})
     repo = store.dataset("holdings")
     rows = repo.rows()
+    removed: list[str] = []   # holdings rows this sale emptied (they leave the dataset, so later row indexes shift)
     sale_rows, remaining_total = [], float(total)
     order = sorted(picked, key=int)
     for n, lot_id in enumerate(order):
-        r = rows[int(lot_id)]
         q = picked[lot_id]
+        if managed:
+            lot = info[lot_id]
+            pd = "" if lot["purchase_date"] == transactions._NO_DATE else lot["purchase_date"]
+            r = {"account": c["account"], "symbol": sym, "purchase_date": pd, "purchase_price": _fmt(float(lot["price"] or 0.0)),
+                 "lot_type": lot["lot_type"], "note": "", "shares": ""}
+            key = {"txn_lot": int(lot_id), "index": 0}
+        else:
+            r = rows[int(lot_id)]
+            key = {"index": int(lot_id)}
         part = remaining_total if n == len(order) - 1 else round(float(total) * q / qty, 6)
         remaining_total -= part
         ident = {k: r.get(k, "") for k in ("account", "symbol", "purchase_date", "purchase_price", "lot_type", "note")}
@@ -213,17 +258,29 @@ def confirm_in(store, candidate_id: int, *, allocation: Mapping[str, float], tax
             "account": c["account"], "tax_class": tax_class, "symbol": sym, "shares": q, "proceeds": part,
             "fees": fees * q / qty, "basis": q * _num(r.get("purchase_price")),
             "purchase_date": r.get("purchase_date") or None, "source": c["source"], "monarch_id": c["monarch_id"],
-            "lot_key": json.dumps({**ident, "index": int(lot_id), "orig_shares": r.get("shares", "")}, sort_keys=True)}))
-    for lot_id in order:
-        left = _num(rows[int(lot_id)]["shares"]) - picked[lot_id]
-        rows[int(lot_id)]["shares"] = _fmt(left) if left > _EPS else None
-    repo.replace_all([r for r in rows if r.get("shares") is not None])
+            "lot_key": json.dumps({**ident, **key, "orig_shares": r.get("shares", "")}, sort_keys=True)}))
+    if managed:
+        act = next((a for a in store.broker.activity(kinds=("sell",)) if a["candidate_id"] == c["candidate_id"] and not a["sweep"]), None)
+        transactions._add(store, {
+            "txn_date": trade_date, "settle_date": _settle_date(c), "account": c["account"], "type": "sell", "symbol": sym,
+            "shares": qty, "price": c["price"] if c["price"] is not None else float(total) / qty, "amount": float(total),
+            "fees": fees, "source": "broker" if act else "manual", "activity_id": act["activity_id"] if act else None,
+            "candidate_id": c["candidate_id"]}, {int(k): v for k, v in picked.items()})
+    else:
+        for lot_id in order:
+            left = _num(rows[int(lot_id)]["shares"]) - picked[lot_id]
+            rows[int(lot_id)]["shares"] = _fmt(left) if left > _EPS else None
+            if left <= _EPS:
+                removed.append(lot_id)
+        repo.replace_all([r for r in rows if r.get("shares") is not None])
     ids = []
     for row in sale_rows:
         row.pop("status", None)
         ids.append(store.sales.insert_sale(**row))
     store.sales.set_candidate_state(c["candidate_id"], "confirmed", confirmed_sale_ids=ids)
-    return {"sale_ids": ids}
+    if managed:
+        transactions.materialize_managed(store, [c["account"]])
+    return {"sale_ids": ids, "removed_lots": removed}
 
 
 @_store_errors
@@ -231,29 +288,46 @@ def undo(input_dir: str | Path, candidate_id: int) -> None:
     """Void the candidate's rows, give the shares back to their lots and return it to ``unmatched``. Locked once any of
     its rows carries 1099-B (``official_*``) numbers."""
     with active_plan.workspace_store(_base(input_dir), write=True) as store, store.transaction():
-        c = _candidate(store, candidate_id)
-        if c["state"] != "confirmed":
-            raise ValidationError(f"only a confirmed sale can be undone (this one is {c['state']})")
-        sales = [store.sales.get_sale(i) for i in c["confirmed_sale_ids"]]
-        if any(s["official_proceeds"] is not None or s["official_basis"] is not None or s["official_gain"] is not None
-               for s in sales):
-            raise ValidationError("a 1099-B was applied to this sale; edit it through the 1099-B import instead")
-        repo = store.dataset("holdings")
-        rows = repo.rows()
-        for s in sorted(sales, key=lambda s: json.loads(s["lot_key"])["index"]):
-            lot = json.loads(s["lot_key"])
-            same = ("account", "symbol", "purchase_date", "purchase_price", "lot_type", "note")
-            hit = next((r for r in rows if all(r.get(k, "") == lot[k] for k in same)), None)
-            if hit is None:
-                rows.insert(min(lot["index"], len(rows)), {**{k: lot[k] for k in same}, "shares": _fmt(s["shares"])})
-                if abs(s["shares"] - _num(lot["orig_shares"])) <= _EPS:
-                    rows[min(lot["index"], len(rows) - 1)]["shares"] = lot["orig_shares"]
-            else:
-                back = _num(hit["shares"]) + s["shares"]
-                hit["shares"] = lot["orig_shares"] if abs(back - _num(lot["orig_shares"])) <= _EPS else _fmt(back)
-            store.sales.void_sale(s["sale_id"])
+        undo_in(store, candidate_id)
+    sales_tax_year.auto_refresh(input_dir)
+
+
+def undo_in(store, candidate_id: int) -> None:
+    """``undo`` inside the caller's open write store and transaction (the bulk review undoes many)."""
+    c = _candidate(store, candidate_id)
+    if c["state"] != "confirmed":
+        raise ValidationError(f"only a confirmed sale can be undone (this one is {c['state']})")
+    sales = [store.sales.get_sale(i) for i in c["confirmed_sale_ids"]]
+    if any(s["official_proceeds"] is not None or s["official_basis"] is not None or s["official_gain"] is not None
+           for s in sales):
+        raise ValidationError("a 1099-B was applied to this sale; edit it through the 1099-B import instead")
+    repo = store.dataset("holdings")
+    rows = repo.rows()
+    keys = [json.loads(s["lot_key"]) for s in sales]
+    # a sale the log wrote and still manages is undone in the log; the holdings are rewritten from it
+    via_log = bool(sales) and all("txn_lot" in k for k in keys) and transactions.is_managed(store, c["account"])
+    for s in sorted(sales, key=lambda s: json.loads(s["lot_key"])["index"]):
+        lot = json.loads(s["lot_key"])
+        same = ("account", "symbol", "purchase_date", "purchase_price", "lot_type", "note")
+        hit = next((r for r in rows if all(r.get(k, "") == lot[k] for k in same)), None)
+        if via_log:
+            pass
+        elif hit is None:
+            rows.insert(min(lot["index"], len(rows)), {**{k: lot[k] for k in same}, "shares": _fmt(s["shares"])})
+            if abs(s["shares"] - _num(lot["orig_shares"])) <= _EPS:
+                rows[min(lot["index"], len(rows) - 1)]["shares"] = lot["orig_shares"]
+        else:
+            back = _num(hit["shares"]) + s["shares"]
+            hit["shares"] = lot["orig_shares"] if abs(back - _num(lot["orig_shares"])) <= _EPS else _fmt(back)
+        store.sales.void_sale(s["sale_id"])
+    if not via_log:
         repo.replace_all(rows)
-        store.sales.set_candidate_state(c["candidate_id"], "unmatched")
+    store.sales.set_candidate_state(c["candidate_id"], "unmatched")
+    for r in store.transactions.list():
+        if r["type"] == "sell" and r["candidate_id"] == c["candidate_id"]:
+            store.transactions.release(r["txn_id"], "sale undone")
+    transactions.materialize_managed(store, [c["account"]])
+    transactions.sync_if_started(store)
 
 
 @_store_errors
@@ -268,12 +342,17 @@ def requeue_sale(input_dir: str | Path, sale_id: int) -> dict[str, Any]:
     return {"candidate_id": hit["candidate_id"]}
 
 
+def move_in(store, candidate_id: int, allowed: tuple[str, ...], new_state: str) -> None:
+    """A state-only move inside the caller's open write store and transaction."""
+    c = _candidate(store, candidate_id)
+    if c["state"] not in allowed:
+        raise ValidationError(f"expected a candidate that is {' or '.join(allowed)}; this one is {c['state']}")
+    store.sales.set_candidate_state(c["candidate_id"], new_state)
+
+
 def _move(input_dir: str | Path, candidate_id: int, allowed: tuple[str, ...], new_state: str) -> None:
     with active_plan.workspace_store(_base(input_dir), write=True) as store, store.transaction():
-        c = _candidate(store, candidate_id)
-        if c["state"] not in allowed:
-            raise ValidationError(f"expected a candidate that is {' or '.join(allowed)}; this one is {c['state']}")
-        store.sales.set_candidate_state(c["candidate_id"], new_state)
+        move_in(store, candidate_id, allowed, new_state)
 
 
 @_store_errors

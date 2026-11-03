@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from . import active_plan
+from . import active_plan, sales_tax_year
 from .csv_exchange import text_csv
 from .sales_ledger import ValidationError, validate_sale_row
 
@@ -36,12 +36,23 @@ def _existing_keys(store) -> set[tuple]:
     return {_key(r) for r in store.sales.list_sales()}
 
 
+def _fresh(input_dir: str | Path, row: dict[str, Any]) -> dict[str, Any]:
+    """The stored row re-read after the automatic wash scan (which may have flagged it); ``row`` if that fails."""
+    try:
+        with active_plan.workspace_store(_base(input_dir)) as store:
+            return store.sales.get_sale(row["sale_id"])
+    except Exception:  # noqa: BLE001
+        return row
+
+
 def add_sale(input_dir: str | Path, row: dict[str, Any]) -> dict[str, Any]:
     """Record one manual sale; returns the stored row. Raises ``ValidationError`` and writes nothing on a bad row."""
     clean = _manual(row)
     clean.pop("status", None)
     with active_plan.workspace_store(_base(input_dir), write=True) as store:
-        return store.sales.get_sale(store.sales.insert_sale(**clean))
+        row = store.sales.get_sale(store.sales.insert_sale(**clean))
+    sales_tax_year.auto_refresh(input_dir)
+    return _fresh(input_dir, row)
 
 
 def list_sales(input_dir: str | Path, *, year: int | None = None, include_voided: bool = False) -> dict[str, Any]:
@@ -70,9 +81,11 @@ def replace_sale(input_dir: str | Path, sale_id: int, row: dict[str, Any]) -> di
                 raise ValidationError("this sale came from the queue or a statement; send it back to the queue "
                                       "(or correct it through the 1099-B import) instead of editing it")
             store.sales.void_sale(old["sale_id"])
-            return store.sales.get_sale(store.sales.insert_sale(**clean))
+            row = store.sales.get_sale(store.sales.insert_sale(**clean))
     except active_plan.StoreError as exc:
         raise ValidationError(str(exc)) from exc
+    sales_tax_year.auto_refresh(input_dir)
+    return _fresh(input_dir, row)
 
 
 def _set_voided(input_dir: str | Path, sale_id: int, voided: bool) -> None:
@@ -81,6 +94,7 @@ def _set_voided(input_dir: str | Path, sale_id: int, voided: bool) -> None:
             (store.sales.void_sale if voided else store.sales.unvoid_sale)(int(sale_id))
     except active_plan.StoreError as exc:
         raise ValidationError(str(exc)) from exc
+    sales_tax_year.auto_refresh(input_dir)
 
 
 def void_sale(input_dir: str | Path, sale_id: int) -> None:
@@ -147,4 +161,6 @@ def commit_csv(input_dir: str | Path, text: str) -> dict[str, Any]:
             store.sales.insert_sale(**row)
             seen.add(_key(row))
             written += 1
+    if written:
+        sales_tax_year.auto_refresh(input_dir)
     return {"written": written, "skipped_duplicates": len(good) - written}
