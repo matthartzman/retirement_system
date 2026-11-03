@@ -22,7 +22,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from src.account_numbers import contains_account_number  # noqa: E402
+from src.account_numbers import contains_account_number, contains_known_id  # noqa: E402
 
 MARKER = "acct-scan: ok"
 ALLOWED_FILES = {"tests/test_account_numbers_unit.py", "tests/test_account_numbers_import_functional.py",
@@ -52,7 +52,7 @@ def scan_text(text: str, known: list[str], *, cues: bool = True) -> list[tuple[i
     for n, line in enumerate(text.splitlines(), 1):
         if MARKER in line:
             continue
-        if digits_known and contains_account_number(line, known_ids=digits_known):
+        if digits_known and contains_known_id(line, digits_known):
             hits.append((n, "listed number"))
         elif cues and contains_account_number(line):
             hits.append((n, "cue-word number"))

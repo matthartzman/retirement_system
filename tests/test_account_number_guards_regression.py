@@ -51,6 +51,13 @@ def test_repo_scan_flags_cue_and_listed_numbers_without_echoing():
     assert scan.scan_text("CUSIP 037833100 amount 1,234,567.89", []) == []
 
 
+def test_listed_numbers_are_not_confused_with_cue_words():
+    # a cue-word fake number must not be reported as a hit on the user's list
+    assert scan.scan_text("send to ACCT 123456789", ["5551230099"], cues=False) == []
+    assert scan.scan_text("send to ACCT 123456789", ["123456789"], cues=False) == [(1, "listed number")]
+    assert scan.scan_text("x 5551230099 y", ["5551230099"], cues=False) == [(1, "listed number")]
+
+
 def test_repo_scan_passes_on_this_repo():
     assert scan.main() == 0
 

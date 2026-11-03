@@ -97,6 +97,13 @@ def contains_account_number(text: object, *, known_ids: Iterable[str] = (), exem
     return bool(s) and mask_text(s, known_ids=known_ids, exempt=exempt) != s
 
 
+def contains_known_id(text: object, known_ids: Iterable[str]) -> bool:
+    """True when one of ``known_ids`` appears in ``text``. Unlike ``contains_account_number`` this ignores the
+    cue-word rules, so it answers only "is one of these specific numbers here"."""
+    kp = _known_pattern(known_ids)
+    return bool(kp and kp.search("" if text is None else str(text)))
+
+
 def mask_file_name(name: object) -> str:
     """Mask every 6+ digit run in a file name to ``…NNNN`` (decision 1)."""
     return _FILE_RUN.sub(lambda m: _masked(m.group(0)), "" if name is None else str(name))
