@@ -84,3 +84,32 @@ def test_engine_hsa_excess_is_drawn_and_taxed_but_qualified_part_is_left_alone()
     assert nonq[0]["_pair_floor_draws"] == {"Member_1_HSA": 5000.0}
     assert nonq[0]["_account_withdrawals"]["Member_1_HSA"] >= 5000.0
     assert all("_pair_floor_draws" not in r for r in nonq[1:])
+
+# ---- taxable: cash leaving a brokerage account is not itself taxed; the sales are (realized_seed) ------------------------
+def test_taxable_withdrawals_never_enter_the_floor_so_realized_sales_are_not_double_counted(monkeypatch):
+    row = [{"class": "distribution", "counts": True, "in_kind": False, "date": "2026-03-01", "amount": -900.0,
+            "pair_status": "external_withdrawal"}]
+    ledgers = {"A_Trust": row, "B_IRA": row, "C_HSA": row}
+    monkeypatch.setattr(cash_view, "_accounts", lambda s: list(ledgers))
+    monkeypatch.setattr(cash_view, "_ledgers", lambda s, a: ledgers)
+    monkeypatch.setattr(sales_confirm, "default_tax_class",
+                        lambda s, a: {"A_Trust": "taxable", "B_IRA": "pre_tax", "C_HSA": "hsa"}[a])
+    assert cash_tax_floor.reported_draws(None, 2026) == {"B_IRA": 900.0}
+    assert cash_tax_floor.reported_hsa_draws(None, 2026) == {"C_HSA": 900.0}
+    on = {"cash_pair_status_tax": True, "plan_start": 2026, "cash_pair_floor_taxable_draws": {"A_Trust": 900.0}}
+    assert cash_tax_floor.floor_draws(on, {"A_Trust": 5000.0}, 2026) == {}      # no taxable channel exists
+
+
+def test_engine_taxes_realized_sales_through_realized_seed_not_the_floor():
+    from src.planning_engines import project
+    from tests.golden_pricing import FROZEN_GOLDEN_MASTER_PRICES, frozen_holdings_prices
+    from tests.test_frozen_sample_plan_golden_master_regression import _frozen_config
+    seed = {"year": 2026, "gain_ordinary": 0.0, "gain_ltcg": 40000.0, "loss_pool": 0.0}
+    with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
+        c = _frozen_config()
+        base = project(copy.deepcopy(c))
+        seeded = project({**copy.deepcopy(c), "realized_seed": seed})
+        both = project({**copy.deepcopy(c), "realized_seed": seed, "cash_pair_status_tax": True,
+                        "cash_pair_floor_taxable_draws": {"Member_1_Trust": 25000.0}})
+    assert seeded[0]["total_tax"] > base[0]["total_tax"]       # the sales are taxed ...
+    assert both == seeded                                      # ... and a reported taxable withdrawal adds nothing

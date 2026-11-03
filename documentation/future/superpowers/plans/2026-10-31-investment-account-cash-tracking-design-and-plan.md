@@ -189,3 +189,7 @@ Owner chose the "floor" mechanism on 2026-11-03. `src/cash_tax_floor.py` plus on
 ## 14. Pair-status floor: HSA (built 2026-11-03, default OFF)
 
 Owner choice "bank-capped, income tax only". `cash_tax_floor.hsa_nonqualified`: reported HSA withdrawals beyond `hsa_expense_bank` (blank = all qualified) are drawn and taxed as ordinary income in the first plan year; the 20% pre-65 penalty is reported only. Taxable (via the realized-sales ledger) and Roth (contributions-first with basis and 5-year inputs) remain, as separate steps. Numbers: `2026-11-03-cash-pair-status-tax-worked-example.md`.
+
+## 15. Pair-status floor: taxable (2026-11-03)
+
+Owner choice "tax the sales, not the cash". No engine change: the realized-sales ledger already reaches year 1 through `realized_seed` (`use_realized_sales`). The floor ignores taxable accounts; a test pins that nothing is double counted. Roth remains (contributions-first, with basis and 5-year inputs).

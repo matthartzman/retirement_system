@@ -51,3 +51,9 @@ Sample plan (Member_1_HSA 72,730, owner age 64), reported HSA withdrawal 6,000:
 | 6,000 (ON) | none (all qualified) | 98,956 | 1,239,362 | 5,376,101 |
 
 The 5,000 excess would carry a 20% penalty of 1,000 at age 64; that is **not** in these numbers. As with the pre-tax floor, the forced draw displaces planned Trust draws, so year-1 tax can fall. Taxable and Roth are still report-only.
+
+## Taxable accounts: nothing to add to the floor (owner choice 2026-11-03: tax the sales, not the cash)
+
+Cash leaving a brokerage account is not a taxable event; the sale that raised it is. The engine already handles that: `realized_seed` (`src/realized_seed.py`) hands the realized-sales ledger's netted gains and loss pool to the first projection year (gated by the existing Plan Settings switch `use_realized_sales`). The floor therefore never reads taxable accounts, and a test (`test_engine_taxes_realized_sales_through_realized_seed_not_the_floor`) pins that a reported taxable withdrawal adds no tax on top of the seeded sales, so nothing is counted twice.
+
+Not built, and decided against for now: the average-basis fallback for a taxable withdrawal with no matching sale on record. That case means a sale is missing from the ledger; the right fix is to record the sale (1099-B import), not to guess a gain.
