@@ -12,7 +12,7 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, Mapping
 
-from . import active_plan, transactions
+from . import active_plan, sales_tax_year, transactions
 from .sales_ledger import ValidationError, allocate_lots, holding_period, validate_sale_row
 
 AIDS = ("fifo", "hifo", "lowest_gain")
@@ -202,7 +202,8 @@ def confirm(input_dir: str | Path, candidate_id: int, *, allocation: Mapping[str
         out = confirm_in(store, candidate_id, allocation=allocation, tax_class=tax_class, trade_date=trade_date,
                          fees=fees, proceeds=proceeds, symbol=symbol, shares=shares)
         transactions.sync_if_started(store)   # a broker sale writes its log row; a Monarch sale writes none
-        return out
+    sales_tax_year.auto_refresh(input_dir)
+    return out
 
 
 def confirm_in(store, candidate_id: int, *, allocation: Mapping[str, float], tax_class: str, trade_date: str,
@@ -318,6 +319,7 @@ def undo(input_dir: str | Path, candidate_id: int) -> None:
                 store.transactions.release(r["txn_id"], "sale undone")
         transactions.materialize_managed(store, [c["account"]])
         transactions.sync_if_started(store)
+    sales_tax_year.auto_refresh(input_dir)
 
 
 @_store_errors

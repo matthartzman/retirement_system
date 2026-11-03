@@ -4,6 +4,7 @@ detection is ``wash_sales``; this module only reads and writes the plan file. No
 projection or the engine. Every function takes the workspace ``input`` folder like ``sales_service``."""
 from __future__ import annotations
 
+import logging
 import math
 from pathlib import Path
 from typing import Any
@@ -14,7 +15,10 @@ from .realized_seed import terms_from_ledger_rows
 from .realized_tax import net_realized_by_year, net_realized_year
 from .taxes import capital_loss_ordinary_limit
 from .sales_ledger import ValidationError
-from .wash_sales import buys_from_rows, detect_wash_sales, plan_flag_updates
+from .sales_matching import buy_rows
+from .wash_sales import buys_from_rows, dedupe_buys, detect_wash_sales, plan_flag_updates
+
+log = logging.getLogger(__name__)
 
 _LEDGER_CLASSES = ("taxable", "pre_tax", "roth", "hsa")
 
@@ -108,14 +112,41 @@ def _account_classes(sales: list[dict[str, Any]], accounts: set[str]) -> dict[st
     return out
 
 
-def refresh_wash_flags(input_dir: str | Path) -> dict[str, int]:
-    """Re-run the possible-wash scan against the holdings lots and write the flags to the ledger rows.
-    Returns how many loss sales are flagged and how many rows changed."""
-    with active_plan.workspace_store(_base(input_dir), write=True) as store, store.transaction():
-        sales = store.sales.list_sales()
-        buys = buys_from_rows(store.dataset("holdings").rows(), source="holdings")
-        detected = detect_wash_sales(sales, buys, accounts=_account_classes(sales, {b["account"] for b in buys}))
-        updates = plan_flag_updates(sales, detected)
-        for sale_id, flag, note in updates:
-            store.sales.set_wash_flag(sale_id, flag, note)
+def _all_buys(store) -> list[dict[str, Any]]:
+    """Replacement-purchase candidates from every source: holdings lots, broker-activity buys and reinvestments,
+    and Monarch ``Buy`` rows. A purchase present in more than one source counts once."""
+    held = buys_from_rows(store.dataset("holdings").rows(), source="holdings")
+    broker = buys_from_rows(({"date": a["run_date"], "symbol": a["symbol"], "quantity": abs(a["quantity"] or 0.0),
+                              "account": a["account"]}
+                             for a in store.broker.activity(kinds=("buy", "reinvest")) if not a["sweep"]),
+                            source="broker")
+    monarch = buys_from_rows(buy_rows(store.dataset("ytd_transactions").rows()), source="monarch")
+    return dedupe_buys(held, broker, monarch)
+
+
+def refresh_wash_flags_in(store) -> dict[str, int]:
+    """``refresh_wash_flags`` inside the caller's open write store (and transaction)."""
+    sales = store.sales.list_sales()
+    buys = _all_buys(store)
+    detected = detect_wash_sales(sales, buys, accounts=_account_classes(sales, {b["account"] for b in buys}))
+    updates = plan_flag_updates(sales, detected)
+    for sale_id, flag, note in updates:
+        store.sales.set_wash_flag(sale_id, flag, note)
     return {"flagged": len(detected), "updated": len(updates)}
+
+
+def refresh_wash_flags(input_dir: str | Path) -> dict[str, int]:
+    """Re-run the possible-wash scan against holdings lots, broker buys and Monarch Buy rows and write the flags to
+    the ledger rows. Returns how many loss sales are flagged and how many rows changed."""
+    with active_plan.workspace_store(_base(input_dir), write=True) as store, store.transaction():
+        return refresh_wash_flags_in(store)
+
+
+def auto_refresh(input_dir: str | Path) -> None:
+    """Best-effort ``refresh_wash_flags`` for the ledger-changing operations (confirm, add, import, undo, 1099-B).
+    Idempotent and cheap; it runs after the primary operation has committed and swallows every error, so a scan
+    problem can never fail or roll back the operation that triggered it."""
+    try:
+        refresh_wash_flags(input_dir)
+    except Exception:  # noqa: BLE001 - flags are advisory; the primary write already succeeded
+        log.warning("automatic wash-sale scan failed", exc_info=True)

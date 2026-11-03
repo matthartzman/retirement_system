@@ -16,7 +16,7 @@ from typing import Any, Iterable, Mapping
 
 from . import active_plan, broker_activity
 from .broker_activity.normalized import INCOME_KINDS, date_range, group_orders
-from . import cash_anchor, transactions
+from . import cash_anchor, sales_tax_year, transactions
 from .sales_confirm import AIDS, _fmt, _holdings_lots, _num, confirm_in, default_tax_class, suggest_allocation
 from .sales_ledger import ValidationError
 
@@ -324,6 +324,7 @@ def commit(input_dir: str | Path, *, broker: str = "", text: str, file_name: str
             for k in ("candidates", "confirmed", "queued", "superseded_monarch"):
                 out[k] += res[k]
         transactions.sync_if_started(store)
+    sales_tax_year.auto_refresh(input_dir)   # new buys/confirmed sales can create or clear flags
     return {"import_id": out["import_ids"][0], "account": rep["account"], **out}
 
 
@@ -442,6 +443,7 @@ def revert(input_dir: str | Path, import_id: int) -> dict[str, Any]:
         store.broker.delete_import_rows(imp["import_id"])
         store.broker.set_import_status(imp["import_id"], "reverted")
         transactions.sync_if_started(store)
+    sales_tax_year.auto_refresh(input_dir)
     return {"import_id": imp["import_id"], "reverted": True}
 
 
