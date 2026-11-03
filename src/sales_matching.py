@@ -14,6 +14,7 @@ from typing import Any, Iterable, Mapping
 from .ytd_tracking import parse_date, parse_money
 
 SELL_CATEGORY = "sell"
+BUY_CATEGORY = "buy"
 MATCH_DAY_TOLERANCE = 3
 MATCH_SHARE_TOLERANCE = 1e-4
 
@@ -27,6 +28,10 @@ def _number(text: str) -> float:
     return float(text.replace(",", ""))
 
 
+_BOUGHT = re.compile(
+    r"(?i:\bbought)\s+(?P<shares>\d[\d,]*(?:\.\d+)?|\.\d+)\s+(?P<symbol>[A-Z][A-Z0-9]{0,5}(?:[.\-][A-Z0-9]{1,2})?)\s*@\s*\$?\s*(?P<price>\d[\d,]*(?:\.\d+)?|\.\d+)(?![\w.])")
+
+
 def parse_sell_text(text: Any) -> dict[str, Any] | None:
     """``{symbol, shares, price}`` from a Monarch description, or ``None`` when it is not clearly a sale line."""
     m = _SOLD.search(str(text or ""))
@@ -36,6 +41,32 @@ def parse_sell_text(text: Any) -> dict[str, Any] | None:
     if shares <= 0 or price < 0:
         return None
     return {"symbol": m["symbol"], "shares": shares, "price": price}
+
+
+def parse_buy_text(text: Any) -> dict[str, Any] | None:
+    """``{symbol, shares, price}`` from a Monarch "Bought <shares> <TICKER> @ <price>" description, else ``None``."""
+    m = _BOUGHT.search(str(text or ""))
+    if m is None:
+        return None
+    shares, price = _number(m["shares"]), _number(m["price"])
+    if shares <= 0 or price < 0:
+        return None
+    return {"symbol": m["symbol"], "shares": shares, "price": price}
+
+
+def buy_rows(ytd_rows: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Purchases from the rows whose Category is Buy, as ``{date, account, symbol, shares, price}``. A row whose
+    date or text does not parse cleanly is skipped (never guessed). Read-only, like ``sell_rows``."""
+    out = []
+    for r in ytd_rows:
+        if re.sub(r"\s+", " ", str(r.get("Category") or "").strip().lower()) != BUY_CATEGORY:
+            continue
+        d = parse_date(r.get("Date"))
+        parsed = parse_buy_text(r.get("Original Statement")) or parse_buy_text(r.get("Merchant"))
+        if d is None or parsed is None:
+            continue
+        out.append({"date": d.isoformat(), "account": str(r.get("Account") or "").strip(), **parsed})
+    return out
 
 
 def sell_rows(ytd_rows: Iterable[Mapping[str, Any]]) -> list[Mapping[str, Any]]:

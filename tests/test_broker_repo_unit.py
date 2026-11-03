@@ -29,7 +29,7 @@ def test_v18_plan_upgrades_keeping_sales_and_candidates(tmp_path):
     con.commit()
     con.close()
     with PlanStore.open(path) as s:
-        assert s.schema_version == 19
+        assert s.schema_version == 22
         assert s.sales.get_sale(1)["statement_id"] == 7
         c = s.sales.list_candidates()[0]
         assert (c["monarch_id"], c["state"], c["broker_key"]) == ("m1", "dismissed", None)
@@ -77,3 +77,24 @@ def test_account_map(store):
     store.broker.remember_account("fidelity:5678", "Member_1_HSA")
     store.broker.remember_account("fidelity:5678", "Member_1_Trust")
     assert store.broker.account_for("fidelity:5678") == "Member_1_Trust"
+
+
+def test_v20_plan_upgrades_to_v21_keeping_activity_and_adding_cash_balance(tmp_path):
+    path = tmp_path / "v20.rpx"
+    con = db.connect(path)
+    db.migrate(con, PLAN_MIGRATIONS[:20])
+    con.execute("INSERT INTO broker_imports (broker, account, imported_at) VALUES ('fidelity','A','t')")
+    con.execute("INSERT INTO broker_activity (import_id, row_key, broker, account, run_date, kind, amount) "
+                "VALUES (1,'k#0','fidelity','A','2026-01-02','dividend',4.5)")
+    con.commit()
+    con.close()
+    with PlanStore.open(path) as s:
+        assert s.schema_version == 22
+        old = s.broker.activity()[0]
+        assert (old["row_key"], old["amount"], old["cash_balance"]) == ("k#0", 4.5, None)
+
+
+def test_cash_balance_round_trips(store):
+    iid = store.broker.add_import(broker="fidelity", account="Member_1_HSA")
+    store.broker.add_rows(iid, [{**ROW, "cash_balance": 44.14}, {**ROW, "row_key": "k#1"}])
+    assert [r["cash_balance"] for r in store.broker.activity()] == [44.14, None]

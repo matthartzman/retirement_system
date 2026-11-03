@@ -53,7 +53,7 @@ test("every page has a full record; the panel renders it, nothing falls back", (
   const src = fs.readFileSync("frontend/js/dashboard.js", "utf8");
   const block = src.slice(src.indexOf("const STEPS = ["), src.indexOf("\n];", src.indexOf("const STEPS = [")));
   const ids = [...block.matchAll(/(?:\n    |\n  \{ )id: "(\w+)"/g)].map((m) => m[1]);
-  assert.equal(ids.length, 29);
+  assert.equal(ids.length, 30);
   for (const id of ids) {
     const p = HELP_PAGES[id];
     for (const k of ["title", "summary", "whatFor", "connections", "options", "impact"]) assert.ok(p && p[k], `${id}.${k}`);

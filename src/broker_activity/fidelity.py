@@ -98,7 +98,8 @@ def parse(text: str, *, file_name: str | None = None) -> ParsedActivity:
                 "quantity": quantity, "price": price,
                 "commission": _num(row.get("Commission ($)")), "fees": _num(row.get("Fees ($)")),
                 "accrued_interest": _num(row.get("Accrued Interest ($)")),
-                "amount": _num(row.get("Amount ($)")) or 0.0, "line": line,
+                "amount": _num(row.get("Amount ($)")) or 0.0,
+                "cash_balance": _num(row.get("Cash Balance ($)")), "line": line,
             }
             rec["sweep"] = bool(symbol in SWEEP_SYMBOLS
                                 or (kind in ("buy", "sell", "reinvest") and price == 1.0 and row.get("Type") == "Cash"

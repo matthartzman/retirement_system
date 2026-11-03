@@ -1,6 +1,8 @@
 # Account-number protection: design and plan
 
-Date: 2026-10-31. Status: design approved with the owner's decisions of 2026-10-31 (section 8); nothing built.
+Date: 2026-10-31.
+
+Status: approved, with the owner's decisions of 2026-10-31 (section 8); nothing built.
 
 ## 1. Goal and rule
 

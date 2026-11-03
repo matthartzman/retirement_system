@@ -21,7 +21,8 @@ _HEADER = ("Account Number", "Transaction Type", "Net Amount")
 VANGUARD_SWEEP_SYMBOLS = frozenset({"VMFXX", "VMRXX", "VUSXX", "VMSXX", "VCTXX", "VYFXX", "VMMXX"})
 _MONEY_MARKET = re.compile(r"MONEY\s*MARKET|\bMON(EY)?\b.*\bMKT\b|FEDERAL MON", re.I)
 # Transaction Type (lower case) -> (kind, sweep). Unlisted types are "other": conversions, transfers, withdrawals,
-# partnership distributions and corporate-action redemptions are only counted until reviewed.
+# and partnership distributions are only counted until reviewed. A corporate-action redemption with a symbol and
+# shares is a sale at its redemption value and relieves lots like a sell (see ``parse``).
 _KINDS = {
     "sell": "sell", "buy": "buy", "reinvestment": "reinvest", "dividend": "dividend", "interest": "interest",
     "sweep in": "buy", "sweep out": "sell",
@@ -43,6 +44,8 @@ def _kind(tx_type: str, description: str) -> str:
     if t in _KINDS:
         return _KINDS[t]
     text = f"{t} {description.lower()}"
+    if t.startswith("corp action") and "redemption" in text:
+        return "sell"
     if "capital gain" in text:
         return "cap_gain_long" if re.search(r"\blt\b|long", text) else "cap_gain_short" if re.search(r"\bst\b|short", text) else "other"
     return "other"
@@ -75,6 +78,11 @@ def parse(text: str, *, file_name: str | None = None) -> ParsedActivity:
             symbol = row.get("Symbol", "").upper() or None
             kind = _kind(tx_type, desc)
             quantity = number(row.get("Shares"))
+            if kind == "sell" and tx_type.lower().startswith("corp action"):
+                if not symbol or not quantity:
+                    kind = "other"   # nothing to relieve: counted only
+                else:
+                    quantity = -abs(quantity)
             price = number(row.get("Share Price"))
             net = number(row.get("Net Amount")) or 0.0
             fees = abs(number(row.get("Commissions and Fees")) or 0.0)
