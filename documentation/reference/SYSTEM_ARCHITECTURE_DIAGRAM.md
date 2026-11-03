@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 304 Python files under `src/`, 65 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 305 Python files under `src/`, 66 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -12,7 +12,7 @@ Every box is a real directory in the repo. Every arrow is a real `import` found 
 flowchart TB
     User(["Desktop user"]) --> FE
     subgraph FE["Frontend SPA (frontend/)"]
-        FEcount["65 JS files, browser-loaded via index.html script tags"]
+        FEcount["66 JS files, browser-loaded via index.html script tags"]
     end
     FE -->|fetch /api/*| L_HTTP_Routes
     subgraph L_HTTP_Routes["HTTP Routes (11 modules)"]
@@ -24,7 +24,7 @@ flowchart TB
     subgraph L_HTTP_Runtime["HTTP Runtime (4 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
-    subgraph L_Core_Engine___Domain["Core Engine & Domain (216 modules)"]
+    subgraph L_Core_Engine___Domain["Core Engine & Domain (217 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
     subgraph L_Projection_Stages["Projection Stages (24 modules)"]
@@ -378,23 +378,24 @@ Script load order, as declared in `frontend/index.html` (this is the frontend's 
 46. `js/dashboard_decomp_sales_queue.js?v=1`
 47. `js/dashboard_decomp_sales_tax.js?v=1`
 48. `js/dashboard_decomp_broker_import.js?v=1`
-49. `js/dashboard_decomp_cash_investment.js?v=1`
-50. `js/dashboard_decomp_holdings_tree.js?v=1`
-51. `js/dashboard_decomp_transactions.js?v=1`
-52. `js/dashboard_decomp_transactions_log.js?v=1`
-53. `js/dashboard_decomp_tax_assumptions.js?v=1`
-54. `js/dashboard_decomp_roth_guardrails.js?v=1`
-55. `js/dashboard_decomp_misc.js?v=1`
-56. `js/dashboard_decomp_state_inputs.js?v=2`
-57. `js/dashboard_decomp_home_panels.js?v=2`
-58. `js/modules/phase3_module_manifest.js?v=2`
-59. `js/dashboard_source_truth_banners.js?v=2`
-60. `js/dashboard_decomp_optimizer_apply.js?v=1`
-61. `js/dashboard_batch_assumption_edit.js?v=2`
-62. `js/dashboard_decomp_holdings.js?v=1`
-63. `js/spending_dashboard.js?v=12`
+49. `js/dashboard_decomp_sales_1099b.js?v=1`
+50. `js/dashboard_decomp_cash_investment.js?v=1`
+51. `js/dashboard_decomp_holdings_tree.js?v=1`
+52. `js/dashboard_decomp_transactions.js?v=1`
+53. `js/dashboard_decomp_transactions_log.js?v=1`
+54. `js/dashboard_decomp_tax_assumptions.js?v=1`
+55. `js/dashboard_decomp_roth_guardrails.js?v=1`
+56. `js/dashboard_decomp_misc.js?v=1`
+57. `js/dashboard_decomp_state_inputs.js?v=2`
+58. `js/dashboard_decomp_home_panels.js?v=2`
+59. `js/modules/phase3_module_manifest.js?v=2`
+60. `js/dashboard_source_truth_banners.js?v=2`
+61. `js/dashboard_decomp_optimizer_apply.js?v=1`
+62. `js/dashboard_batch_assumption_edit.js?v=2`
+63. `js/dashboard_decomp_holdings.js?v=1`
+64. `js/spending_dashboard.js?v=12`
 
-All `.js` files found under `frontend/` (65):
+All `.js` files found under `frontend/` (66):
 
 - `frontend/js/admin.js`
 - `frontend/js/api_client.js`
@@ -434,6 +435,7 @@ All `.js` files found under `frontend/` (65):
 - `frontend/js/dashboard_decomp_rental_properties.js`
 - `frontend/js/dashboard_decomp_roth_guardrails.js`
 - `frontend/js/dashboard_decomp_row_model.js`
+- `frontend/js/dashboard_decomp_sales_1099b.js`
 - `frontend/js/dashboard_decomp_sales_ledger.js`
 - `frontend/js/dashboard_decomp_sales_queue.js`
 - `frontend/js/dashboard_decomp_sales_tax.js`
@@ -538,6 +540,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/broker_1099b/normalized.py` | — | — |
 | `src/broker_1099b/pdf_text.py` | — | `pypdf` |
 | `src/broker_1099b/report.py` | `csv_exchange` | — |
+| `src/broker_1099b/vanguard.py` | `broker_1099b.normalized` | — |
 | `src/broker_activity/__init__.py` | `broker_activity`, `broker_activity.normalized` | — |
 | `src/broker_activity/etrade.py` | `broker_activity.normalized` | — |
 | `src/broker_activity/fidelity.py` | `broker_activity.normalized` | — |
