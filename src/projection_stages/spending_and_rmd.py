@@ -486,7 +486,7 @@ def apply_spending_and_rmd(
     rmd_taxable_total = max(0.0, rmd_total - qcd_total_yr)
     # Cash tracking pair-status floor (default OFF; src/cash_tax_floor.py): reported external withdrawals from pre-tax
     # accounts in the first year leave the account now and are taxed like an RMD (credited as cash through this total).
-    _pair_floor = _cash_tax_floor.floor_draws(c, bal, year)
+    _pair_floor = _cash_tax_floor.floor_draws(c, bal, year, h_age, w_age)
     for _aid, _amt in _pair_floor.items():
         bal[_aid] = max(0.0, float(bal.get(_aid, 0.0)) - _amt)
     rmd_taxable_total += sum(_pair_floor.values())
