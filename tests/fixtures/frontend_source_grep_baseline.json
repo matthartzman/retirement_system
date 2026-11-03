@@ -65,6 +65,7 @@
   "test_roadmap_usability_surfaces_regression.py",
   "test_roth_guide_helper_text_and_gap_disclosure_regression.py",
   "test_roth_user_ui_render_fix.py",
+  "test_sales_ledger_phone_layout_regression.py",
   "test_scenario_home_value_display_fix.py",
   "test_scenario_templates_sets_functional.py",
   "test_simplified_allocation_functional.py",

@@ -51,7 +51,7 @@
    from side-by-side layout per fieldHtml()'s pairing rule below); only
    fields marked .paired opt into sharing a row. */
 .field-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:0 14px;align-items:start;max-width:1180px}
-.field-list>*{grid-column:1/-1}
+.field-list>*{grid-column:1/-1;min-width:0}
 /* Gating fields (.field without .flow) keep the full row; everything else packs
    into the column grid so a page of short values is not one field per screen-row. */
 .field-list>.field.paired,.field-list>.field.flow{grid-column:auto}
