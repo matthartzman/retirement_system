@@ -119,7 +119,7 @@ Effort and usage are relative to a 5-hour Pro-plan session; check `/usage` again
 | 1. Masking module and tests (done) | `src/account_numbers.py` with unit tests including CUSIP and cue-word cases. | Sonnet, medium | Light. |
 | 2. Mask at import (done) | Wire into broker import and the Monarch ingest paths; extend the existing importer tests. | Sonnet, medium | Moderate. Driven by the number of existing tests that assert on `file_name` and descriptions. |
 | 3. Redact stored data (tool done; live run pending) | `tools/redact_account_numbers.py`, backup first, counts only, run on the live plan with the user present. | Opus, high (data change) | Light, but run once with care; no test-fix loop expected. |
-| 4. Guards | Response-scan regression test, CI repo scan (fails the build) with a local list, logging filter, and the synced-folder warning for plan files and backups. | Sonnet, medium | Moderate. Watch the repo scan: scope it to tracked files, not `node_modules`. |
+| 4. Guards (done) | Response-scan regression test, CI repo scan (fails the build) with a local list, logging filter, and the synced-folder warning for plan files and backups. | Sonnet, medium | Moderate. Watch the repo scan: scope it to tracked files, not `node_modules`. |
 | 5. At-rest protection | Owner confirms BitLocker and keeps nothing sensitive in synced folders; delete old backups and originals. No code beyond the phase 4 warning. | none (owner task) | Trivial. |
 
 Total for phases 0 to 4: roughly one to two working sessions. The system-architecture diagram needs regenerating (`python tools/generate_system_diagram.py`) when `src/account_numbers.py` is added.

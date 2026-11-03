@@ -61,3 +61,23 @@ def check_files_safe_to_read(paths: list[str | Path]) -> list[str]:
         if err:
             errors.append(err)
     return errors
+
+
+_SYNCED_MARKERS = ("onedrive", "dropbox", "google drive", "googledrive", "icloud", "box sync", "sharepoint")
+
+
+def synced_folder_warning(path: str | Path) -> str | None:
+    """Warning text if ``path`` sits under a synced/shared folder (OneDrive, Dropbox, Google Drive, iCloud, Box).
+
+    Account-number protection (plan section 6): the plan file and its backups hold all the data, so they should
+    stay out of synced folders. Name-based, advisory only; it never blocks anything.
+    """
+    for part in Path(path).parts:
+        low = part.lower()
+        if any(m in low for m in _SYNCED_MARKERS):
+            return f"{path} is inside a synced folder ('{part}'); keep the plan file and its backups out of synced or shared folders."
+    return None
+
+
+def synced_folder_warnings(paths: list[str | Path]) -> list[str]:
+    return [w for w in (synced_folder_warning(p) for p in paths) if w]

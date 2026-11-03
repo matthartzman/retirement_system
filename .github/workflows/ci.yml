@@ -63,6 +63,10 @@ jobs:
     - name: Install Node dependencies
       run: npm ci
 
+    - name: Account-number scan (pattern part; the real-number list runs locally)
+      shell: bash
+      run: python tools/check_no_account_numbers.py
+
     - name: Lint with ruff
       run: |
         ruff check src/ tests/

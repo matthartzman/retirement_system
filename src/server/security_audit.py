@@ -37,6 +37,7 @@ from src.security import (
     redact_secret,
     redact_text,
 )
+from src.account_numbers import mask_text as _mask_account_text
 from src.permissions import UserContext
 from src.workspace_context import sanitize_id, workspace_output_dir
 
@@ -118,6 +119,7 @@ def _audit(event: str, details: dict | None = None) -> None:
             line = json.dumps(payload, sort_keys=True, default=str)
             if cfg.redact_secrets_in_logs:
                 line = redact_text(line)
+            line = _mask_account_text(line)  # account-number protection
             with _app_store() as store:
                 store.append_audit_event(event, line, ts=ts, workspace_id=user.workspace_id, user_id=user.user_id)
         except Exception:
