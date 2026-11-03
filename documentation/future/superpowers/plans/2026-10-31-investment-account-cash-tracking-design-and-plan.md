@@ -193,3 +193,7 @@ Owner choice "bank-capped, income tax only". `cash_tax_floor.hsa_nonqualified`: 
 ## 15. Pair-status floor: taxable (2026-11-03)
 
 Owner choice "tax the sales, not the cash". No engine change: the realized-sales ledger already reaches year 1 through `realized_seed` (`use_realized_sales`). The floor ignores taxable accounts; a test pins that nothing is double counted. Roth remains (contributions-first, with basis and 5-year inputs).
+
+## 16. Pair-status floor: Roth (built 2026-11-03, default OFF)
+
+Owner choice: contributions first with entered basis and first-contribution year (settings rows "Roth Basis", per Roth account, default blank), age 60+ and 5-year test on the earnings, unknown inputs never guessed. `cash_tax_floor.roth_earnings`. Penalty and conversion layering not modelled. All account classes are now covered (pre-tax, HSA, Roth by the floor; taxable through `realized_seed`). Remaining gate: the owner's real-data check before turning the setting on. Numbers: `2026-11-03-cash-pair-status-tax-worked-example.md`.

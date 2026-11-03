@@ -10,7 +10,11 @@ HSA accounts (added 2026-11-03, owner choice "bank-capped, income tax only"): a 
 (tax-free, left to the cascade, which already treats HSA draws as qualified) up to the entered ``hsa_expense_bank``; a
 blank bank means all qualified. Only the excess is drawn and taxed as ordinary income through the same channel. The 20%
 pre-65 penalty is NOT fed to the engine (no insertion point at this stage); ``worked_example`` reports it.
-Taxable and Roth accounts are NOT wired: their tax needs lots/basis or the qualified-withdrawal rules; they are
+Roth accounts (added 2026-11-03): reported withdrawals come out of the entered contribution basis first, tax-free; the excess
+is earnings. Earnings are tax-free only when the owner is at least 60 in the plan year (59 is treated as under 59 1/2) AND
+the plan year is at least 5 years after the entered first-contribution year; otherwise they are drawn and taxed as ordinary
+income. Missing basis or first-contribution year: nothing is done (unmatched, never guessed). The 10% penalty is not fed.
+Taxable accounts are NOT wired: their tax needs lots/basis or the qualified-withdrawal rules; they are
 reported by ``worked_example`` for the owner but add no tax. With the setting OFF nothing here runs.
 """
 from __future__ import annotations
@@ -22,7 +26,8 @@ def enabled(c: Mapping[str, Any]) -> bool:
     return bool(c.get("cash_pair_status_tax"))
 
 
-def floor_draws(c: Mapping[str, Any], bal: Mapping[str, float], year: int) -> dict[str, float]:
+def floor_draws(c: Mapping[str, Any], bal: Mapping[str, float], year: int,
+                h_age: float | None = None, w_age: float | None = None) -> dict[str, float]:
     """``{account: dollars}`` to force out of pre-tax accounts this year; ``{}`` when off or not the first year.
     Capped at each account's balance. ``c['cash_pair_floor_draws']`` is the reported amounts, set by ``feed``."""
     if not enabled(c) or year != c.get("plan_start"):
@@ -34,6 +39,28 @@ def floor_draws(c: Mapping[str, Any], bal: Mapping[str, float], year: int) -> di
             out[acct] = d
     for acct, d in hsa_nonqualified(c, bal).items():
         out[acct] = out.get(acct, 0.0) + d
+    for acct, d in roth_earnings(c, bal, year, h_age, w_age).items():
+        out[acct] = out.get(acct, 0.0) + d
+    return out
+
+
+def roth_earnings(c: Mapping[str, Any], bal: Mapping[str, float], year: int,
+                  h_age: float | None, w_age: float | None) -> dict[str, float]:
+    """Taxable earnings part of the reported Roth withdrawals, by account (see the module docstring for the rule)."""
+    owner = {a.get("id"): a.get("owner_idx", 0) for a in (c.get("account_registry") or [])}
+    out = {}
+    for acct, rep in (c.get("cash_pair_floor_roth_draws") or {}).items():
+        info = (c.get("roth_basis") or {}).get(acct) or {}
+        basis, first = info.get("basis"), info.get("first_year")
+        age = w_age if owner.get(acct, 0) == 1 else h_age
+        if float(rep) <= 0 or basis is None or first is None or age is None:
+            continue                                    # unknown inputs: unmatched, nothing taxed
+        earnings = max(0.0, float(rep) - max(0.0, float(basis)))
+        if earnings <= 0 or (float(age) >= 60 and year - int(first) >= 5):
+            continue                                    # basis covers it, or the earnings are qualified
+        d = min(earnings, max(0.0, float(bal.get(acct, 0.0))))
+        if d > 0:
+            out[acct] = d
     return out
 
 
@@ -65,6 +92,11 @@ def reported_hsa_draws(store: Any, year: int) -> dict[str, float]:
     return _reported(store, year, "hsa")
 
 
+def reported_roth_draws(store: Any, year: int) -> dict[str, float]:
+    """Same, for Roth accounts."""
+    return _reported(store, year, "roth")
+
+
 def _reported(store: Any, year: int, tax_class: str) -> dict[str, float]:
     from . import cash_view
     from .sales_confirm import default_tax_class
@@ -90,7 +122,9 @@ def feed(cfg: dict[str, Any]) -> None:
         with active_plan.workspace_store(root) as store:
             cfg["cash_pair_floor_draws"] = reported_draws(store, int(cfg["plan_start"]))
             cfg["cash_pair_floor_hsa_draws"] = reported_hsa_draws(store, int(cfg["plan_start"]))
+            cfg["cash_pair_floor_roth_draws"] = reported_roth_draws(store, int(cfg["plan_start"]))
     except Exception as exc:          # a missing cash store must never break a plan run
         cfg["cash_pair_floor_draws"] = {}
         cfg["cash_pair_floor_hsa_draws"] = {}
+        cfg["cash_pair_floor_roth_draws"] = {}
         cfg["cash_pair_floor_error"] = str(exc)

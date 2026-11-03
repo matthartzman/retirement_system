@@ -113,3 +113,68 @@ def test_engine_taxes_realized_sales_through_realized_seed_not_the_floor():
                         "cash_pair_floor_taxable_draws": {"Member_1_Trust": 25000.0}})
     assert seeded[0]["total_tax"] > base[0]["total_tax"]       # the sales are taxed ...
     assert both == seeded                                      # ... and a reported taxable withdrawal adds nothing
+
+
+# ---- Roth: basis first; earnings taxed unless owner >= 60 and 5 years from the first contribution --------------------
+ROTH = {"cash_pair_status_tax": True, "plan_start": 2026,
+        "account_registry": [{"id": "R1", "owner_idx": 0}, {"id": "R2", "owner_idx": 1}]}
+
+
+def roth(rep, basis, first, **kw):
+    return {**ROTH, "cash_pair_floor_roth_draws": rep, "roth_basis": {a: {"basis": basis, "first_year": first} for a in rep}, **kw}
+
+
+def test_roth_basis_covers_withdrawal_means_no_tax():
+    assert cash_tax_floor.floor_draws(roth({"R1": 4000.0}, 5000.0, 2015), {"R1": 9e4}, 2026, 50, 50) == {}
+
+
+def test_roth_earnings_taxed_when_under_60_or_five_year_not_met_else_qualified():
+    bal = {"R1": 9e4, "R2": 9e4}
+    assert cash_tax_floor.floor_draws(roth({"R1": 7000.0}, 5000.0, 2015), bal, 2026, 55, 70) == {"R1": 2000.0}   # owner 55: not qualified
+    assert cash_tax_floor.floor_draws(roth({"R1": 7000.0}, 5000.0, 2023), bal, 2026, 70, 70) == {"R1": 2000.0}   # only 3 years
+    assert cash_tax_floor.floor_draws(roth({"R1": 7000.0}, 5000.0, 2021), bal, 2026, 70, 55) == {}               # 60+ and 5 years
+    assert cash_tax_floor.floor_draws(roth({"R2": 7000.0}, 5000.0, 2015), bal, 2026, 70, 55) == {"R2": 2000.0}   # owner_idx 1 uses w_age
+    assert cash_tax_floor.floor_draws(roth({"R1": 7000.0}, 5000.0, 2015), bal, 2026, 59, 70) == {"R1": 2000.0}   # 59 counts as under 59 1/2
+
+
+def test_roth_unknown_inputs_are_never_guessed_and_draw_is_capped_at_balance():
+    bal = {"R1": 1500.0}
+    assert cash_tax_floor.floor_draws(roth({"R1": 7000.0}, None, 2015), bal, 2026, 50, 50) == {}
+    assert cash_tax_floor.floor_draws(roth({"R1": 7000.0}, 5000.0, None), bal, 2026, 50, 50) == {}
+    assert cash_tax_floor.floor_draws(roth({"R1": 7000.0}, 0.0, 2015), bal, 2026, 50, 50) == {"R1": 1500.0}
+
+
+def test_reported_roth_draws_use_roth_accounts_only(monkeypatch):
+    row = [{"class": "distribution", "counts": True, "in_kind": False, "date": "2026-03-01", "amount": -70.0,
+            "pair_status": "external_withdrawal"}]
+    ledgers = {"A_Roth": row, "B_IRA": row}
+    monkeypatch.setattr(cash_view, "_accounts", lambda s: list(ledgers))
+    monkeypatch.setattr(cash_view, "_ledgers", lambda s, a: ledgers)
+    monkeypatch.setattr(sales_confirm, "default_tax_class", lambda s, a: "roth" if a.endswith("Roth") else "pre_tax")
+    assert cash_tax_floor.reported_roth_draws(None, 2026) == {"A_Roth": 70.0}
+
+
+def test_roth_basis_rows_exist_only_for_roth_accounts(monkeypatch, tmp_path):
+    from src.server import app_core
+    monkeypatch.setattr(app_core, "_all_account_ids_from_holdings", lambda d=None: ["Member_1_Roth", "Member_1_IRA", "Family_Checking"])
+    rows = app_core._roth_basis_ui_plan_data_rows(tmp_path)
+    assert [(r[0], r[1], r[2], r[3]) for r in rows] == [("Roth Basis", "Member_1_Roth", "roth_contribution_basis", ""),
+                                                        ("Roth Basis", "Member_1_Roth", "roth_first_contribution_year", "")]
+
+
+def test_engine_roth_earnings_drawn_and_taxed_only_when_not_qualified():
+    from src.planning_engines import project
+    from tests.golden_pricing import FROZEN_GOLDEN_MASTER_PRICES, frozen_holdings_prices
+    from tests.test_frozen_sample_plan_golden_master_regression import _frozen_config
+    with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
+        c = _frozen_config()
+        base = project(copy.deepcopy(c))
+        inp = {"cash_pair_status_tax": True, "cash_pair_floor_roth_draws": {"Member_1_Roth": 20000.0}}
+        owner_age = base[0]["h_age"]
+        young = {**inp, "roth_basis": {"Member_1_Roth": {"basis": 5000.0, "first_year": 2025}}}      # 5-year not met
+        old = {**inp, "roth_basis": {"Member_1_Roth": {"basis": 5000.0, "first_year": 2005}}}
+        nonq = project({**copy.deepcopy(c), **young})
+        qual = project({**copy.deepcopy(c), **old})
+    assert nonq[0]["_pair_floor_draws"] == {"Member_1_Roth": 15000.0}
+    assert nonq[0]["_account_withdrawals"]["Member_1_Roth"] >= 15000.0
+    assert owner_age >= 60 and qual == base                      # 5 years met and owner >= 60: qualified, nothing changes
