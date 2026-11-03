@@ -351,7 +351,7 @@ def test_plan_flags_are_catalogued_and_are_not_toggles():
     """The four features #330 §5.3 names, each switched by a plan row rather
     than a client_optional_functions.csv toggle."""
     assert set(mc.plan_flag_keys()) == {
-        "heloc", "hybrid_ltc_policy", "daf_giving", "qcd_giving"}
+        "heloc", "hybrid_ltc_policy", "daf_giving", "qcd_giving", "qlac"}
     for key in mc.plan_flag_keys():
         m = mc.CATALOG[key]
         assert m.gate_kind == mc.GATE_PLAN_FLAG

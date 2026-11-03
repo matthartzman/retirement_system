@@ -44,16 +44,15 @@ test("rendered rows of a managed account are readonly with a link; others stay e
   assert.match(hsa, /oninput/);
 });
 
-test("a cash-only account (one CASH lot) is read-only and points to Checking & Savings", () => {
+test("a cash-only account (one CASH lot) is hidden from the page (it lives on Checking & Savings)", () => {
   window.managedHoldingAccounts = [];
   window.currentHoldingAccount = "ALL";
   window.holdingsText = "account,symbol,purchase_date,shares,purchase_price,lot_type,note\nFamily_Checking,CASH,2026-06-01,25000,1,buy,\nMember_1_HSA,BND,2024-01-02,7,50,buy,\nMember_1_HSA,CASH,2024-01-02,3,1,buy,";
   window.holdingRowsCache = null;
   assert.deepEqual([...m.cashOnlyAccounts([{ account: "A", symbol: "cash" }, { account: "B", symbol: "VTI" }, { account: "B", symbol: "CASH" }])], ["a"]);
   const parts = m.renderHoldings().split("<tr data-hidx").slice(1);
-  const chk = parts.find((x) => x.includes("Family_Checking"));
-  assert.match(chk, /readonly/);
-  assert.match(chk, /Managed in Checking &amp; Savings/);
+  assert.equal(parts.find((x) => x.includes("Family_Checking")), undefined);
+  assert.doesNotMatch(m.renderHoldings(), /Family.Checking/);
   assert.doesNotMatch(parts.find((x) => x.includes("BND")), /readonly/);
   assert.doesNotMatch(parts.find((x) => x.includes(",CASH") || x.includes('value="CASH"') && x.includes("Member_1_HSA")), /readonly/);
 });

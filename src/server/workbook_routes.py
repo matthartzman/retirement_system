@@ -617,6 +617,29 @@ def get_holdings():
     return result.get("content") or holdings_service.EMPTY_HOLDINGS_CSV, 200, {"Content-Type": result.get("content_type") or "text/csv"}
 
 
+@app.route("/api/holdings/classes", methods=["GET"])
+def get_holding_classes():
+    """{SYMBOL: {asset_class, subclass}} for the holdings page's grouped view (same classes as the Trends Snapshot)."""
+    denied = _require("read_config")
+    if denied:
+        return denied
+    from financial_trends_reporter.live_snapshot import classify_symbol
+    from .. import portfolio_analytics
+    master = portfolio_analytics.read_security_master()
+    text = holdings_service.read_holdings(base_dir=WORKSPACE_ROOT, workspace_id=_workspace_id(), client_id=_client_id(), db_path=_sqlite_db())
+    if text.get("path"):
+        csv_text = Path(str(text["path"])).read_text(encoding="utf-8-sig")
+    else:
+        csv_text = text.get("content") or holdings_service.EMPTY_HOLDINGS_CSV
+    import csv as _csv, io as _io
+    symbols = {str(r.get("symbol") or "").strip().upper() for r in _csv.DictReader(_io.StringIO(csv_text))}
+    out = {}
+    for sym in sorted(s for s in symbols if s):
+        asset_class, subclass = classify_symbol(sym, master)
+        out[sym] = {"asset_class": asset_class, "subclass": subclass}
+    return jsonify({"success": True, "classes": out})
+
+
 @app.route("/api/holdings", methods=["POST"])
 def save_holdings():
     denied = _require("write_config")

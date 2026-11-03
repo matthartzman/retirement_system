@@ -50,7 +50,7 @@ ROUTE_MODULES = {
         "/api/sales/<int:sale_id>/replace", "/api/sales/<int:sale_id>/requeue"],
     "reconcile": ["/api/reconcile", "/api/reconcile/map", "/api/reconcile/preview", "/api/reconcile/apply", "/api/reconcile/undo", "/api/reconcile/log", "/api/reconcile/policy", "/api/reconcile/undo-auto", "/api/reconcile/seed"],
     "strategy_assets": [
-        "/api/holdings", "/api/holdings/preview", "/api/cash-accounts", "/api/cash-accounts/delete",
+        "/api/holdings", "/api/holdings/classes", "/api/holdings/preview", "/api/cash-accounts", "/api/cash-accounts/delete",
         "/api/large-discretionary-expenses", "/api/spending-adjustments", "/api/forced-roth-conversions", "/api/liquidity-buffers",
         "/api/other-asset/add", "/api/other-asset/delete", "/api/note-receivable/add", "/api/note-receivable/delete", "/api/education-529/add",
         "/api/estate-state-options", "/api/estate-state/add", "/api/trust-account/add",
