@@ -25,7 +25,8 @@ sys.path.insert(0, str(ROOT))
 from src.account_numbers import contains_account_number  # noqa: E402
 
 MARKER = "acct-scan: ok"
-ALLOWED_FILES = {"tests/test_account_numbers.py", "tests/test_account_numbers_import.py", "tests/test_redact_account_numbers_tool.py",
+ALLOWED_FILES = {"tests/test_account_numbers_unit.py", "tests/test_account_numbers_import_functional.py",
+                 "tests/test_redact_account_numbers_tool_functional.py",
                  "tests/test_account_number_guards_regression.py"}  # masking tests need fake numbers by design
 LOCAL_LIST = ROOT / "local_state" / "account_numbers.local.txt"
 SKIP_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".ico", ".pdf", ".xlsx", ".zip", ".rpx", ".db", ".woff", ".woff2", ".pyc"}
