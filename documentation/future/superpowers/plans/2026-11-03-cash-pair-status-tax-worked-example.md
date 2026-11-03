@@ -35,3 +35,19 @@ Reading it: the IRA dollars are taxed as ordinary income, but they also cover th
 1. Mechanism: **displace, as built** (approved).
 2. Scope: extend later to taxable, Roth and HSA. Not built: each needs its own rules (taxable: lot basis and gain; Roth: contributions-first, age and 5-year tests; HSA: qualified medical vs not) and will be designed and reviewed as separate steps, still behind the same OFF setting.
 3. Rollout: the setting row now exists (`Cashflow / Cash Tracking / cash_pair_status_tax`, default FALSE). Test on real data before turning it on; no pin changes.
+
+## HSA extension (owner choice 2026-11-03: bank-capped, income tax only)
+
+Engine facts found first: every HSA draw the cascade makes is treated as qualified; `withdraw_hsa_window` computes `taxable_amount` and a 20% pre-65 `penalty` but no caller feeds them into tax; a blank `hsa_expense_bank` means unlimited in `hsa_available_to_draw` but starts at 0 in the projection loop.
+
+Built (still behind `cash_pair_status_tax`, default OFF): a reported HSA `external_withdrawal` is qualified up to the entered bank (blank bank = all qualified); only the excess is drawn from the HSA in the first year and taxed as ordinary income through the same RMD-style channel. The qualified part is left to the cascade. **Not fed:** the 20% pre-65 penalty (no insertion point in that stage).
+
+Sample plan (Member_1_HSA 72,730, owner age 64), reported HSA withdrawal 6,000:
+
+| Expense bank | Forced HSA draw | Year-1 tax | Lifetime tax | Terminal NW |
+|---|---|---|---|---|
+| 1,000 (OFF) | none | 98,956 | 1,239,362 | 5,376,101 |
+| 1,000 (ON) | 5,000 | 98,109 (-847) | 1,237,617 (-1,745) | 5,378,526 (+2,425) |
+| 6,000 (ON) | none (all qualified) | 98,956 | 1,239,362 | 5,376,101 |
+
+The 5,000 excess would carry a 20% penalty of 1,000 at age 64; that is **not** in these numbers. As with the pre-tax floor, the forced draw displaces planned Trust draws, so year-1 tax can fall. Taxable and Roth are still report-only.
