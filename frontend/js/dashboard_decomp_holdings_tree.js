@@ -177,7 +177,7 @@ export function renderHoldingsTree(rows, labelOf) {
   return `<div class="holdings" data-help-section="holdings.plan_holdings"><h3 class="group-title">Plan Holdings</h3>`
     + `<div class="group-by"><span class="group-by-label">Group by</span>${chips}`
     + `<button class="btn" type="button" onclick="setHoldingsTreeAll(true, ${paths})">Expand all</button><button class="btn" type="button" onclick="setHoldingsTreeAll(false, [])">Collapse all</button></div>`
-    + `<div class="lot-table-wrap"><table class="lot-table ht-table"><thead><tr><th>Name</th><th>Shares</th><th>Cost basis</th><th>Current value</th><th>Gain</th><th>Share</th></tr></thead><tbody>`
+    + `<div class="lot-table-wrap pinned-col"><table class="lot-table ht-table"><thead><tr><th>Name</th><th>Shares</th><th>Cost basis</th><th>Current value</th><th>Gain</th><th>Share</th></tr></thead><tbody>`
     + (body || `<tr><td colspan="6" class="muted">No holdings yet.</td></tr>`)
     + `<tr class="ht-total"><td><b>Total</b></td><td class="ht-num">${esc(htShares(tree.total.shares))}</td><td class="ht-num">${esc(htMoney(tree.total.basis))}</td><td class="ht-num">${esc(htMoney(tree.total.value))}</td>${htGainCell(tree.total.gain, tree.total.unpriced)}<td class="ht-num">100.0%</td></tr>`
     + `</tbody></table></div></div>`;
