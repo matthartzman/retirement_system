@@ -130,8 +130,8 @@ function definesOrWraps(src, sym) {
   return assign.test(stripped) || define.test(stripped);
 }
 
-test("index.html script list and order are frozen (64 module scripts)", () => {
-  assert.equal(scriptSrcs().length, 64);
+test("index.html script list and order are frozen (65 module scripts)", () => {
+  assert.equal(scriptSrcs().length, 65);
   assert.deepEqual(scriptSrcs(), FROZEN_SCRIPT_ORDER);
 });
 
