@@ -21,6 +21,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 from . import platform_runtime as _platform_runtime
+from .account_numbers import mask_text as _mask_account_text
 from . import plan_dates as _plan_dates
 from .csv_exchange import text_csv as _tcsv
 from .plan_datasets import (
@@ -482,7 +483,7 @@ def load_transactions_from_csv_text(text: str) -> tuple[list[dict[str, str]], li
     errors = []
     for i, raw in enumerate(reader, start=2):
         raw = {mapping[k]: v for k, v in raw.items() if k in mapping}
-        row = normalize_transaction(raw)
+        row = _mask_transaction_text(normalize_transaction(raw))
         if not row["Date"] and not row["Merchant"] and not row["Amount"]:
             continue
         d = parse_date(row["Date"])
@@ -492,8 +493,21 @@ def load_transactions_from_csv_text(text: str) -> tuple[list[dict[str, str]], li
     return rows, errors
 
 
+_FREE_TEXT_COLUMNS = ("Merchant", "Original Statement", "Notes")
+
+
+def _mask_transaction_text(row: dict[str, Any]) -> dict[str, Any]:
+    """Cue-word account references in the free-text columns become ``\u2026NNNN`` (account-number protection).
+    Payment and trace ids carry no cue and are left alone, so de-duplication is unaffected."""
+    for col in _FREE_TEXT_COLUMNS:
+        if row.get(col):
+            row[col] = _mask_account_text(row[col])
+    return row
+
+
 def transaction_hash(row: dict[str, Any]) -> str:
-    norm = normalize_transaction(row)
+    # Hash the masked text so a stored (not yet redacted) row and its masked re-import still match.
+    norm = _mask_transaction_text(dict(normalize_transaction(row)))
     payload = "\u241f".join(str(norm.get(col, "")) for col in _HASH_COLUMNS)
     return hashlib.sha1(payload.encode("utf-8")).hexdigest()
 
@@ -672,7 +686,7 @@ def upsert_transactions_by_monarch_id(
     not know about Monarch's own column names.
     """
     investment = investment_account_names(root)
-    normalized_incoming = [normalize_transaction(r) for r in incoming_rows if not is_broker_covered(normalize_transaction(r), investment)]
+    normalized_incoming = [_mask_transaction_text(normalize_transaction(r)) for r in incoming_rows if not is_broker_covered(normalize_transaction(r), investment)]
     skipped_investment = len(incoming_rows) - len(normalized_incoming)
     merged: dict[str, Any] = {}
 

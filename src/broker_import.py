@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 from . import active_plan, broker_activity
+from .account_numbers import mask_file_name, mask_text
 from .broker_activity.normalized import INCOME_KINDS, date_range, group_orders
 from . import cash_anchor, sales_tax_year, transactions
 from .sales_confirm import AIDS, _fmt, _holdings_lots, _num, confirm_in, default_tax_class, suggest_allocation
@@ -194,6 +195,10 @@ def _coverage(store, account: str, broker: str, first: str | None, last: str | N
 def _part(store, broker: str, hint: str, account: str, rows: list[dict[str, Any]], method: str) -> dict[str, Any]:
     """The plan for one plan account: ``rows`` are that account's parsed rows (not yet keyed)."""
     broker_activity.assign_row_keys(rows, broker=broker, account=account)
+    for r in rows:  # mask after the key is computed so dedup is unchanged (account-number protection)
+        keep = (r.get("symbol") or "",)
+        r["action"] = mask_text(r.get("action"), exempt=keep)
+        r["description"] = mask_text(r.get("description"), exempt=keep)
     have = store.broker.existing_keys([r["row_key"] for r in rows])
     new = [r for r in rows if r["row_key"] not in have]
     plan = plan_import(new, store.dataset("holdings").rows(), account=account, method=method)
@@ -225,7 +230,7 @@ def _report(store, broker: str, text: str, file_name: str | None, account: str |
     broker = (broker or "").strip().lower()
     if broker in ("", "auto"):
         broker = broker_activity.detect_broker(text, file_name) or ""
-    base = {"schema": "import_preview_v1", "kind": "broker_activity", "broker": broker, "file_name": file_name or "",
+    base = {"schema": "import_preview_v1", "kind": "broker_activity", "broker": broker, "file_name": mask_file_name(file_name),
             "brokers": [{"id": b, "label": broker_activity.BROKER_LABELS.get(b, b)} for b in broker_activity.available_brokers()],
             "accounts": plan_accounts(store), "methods": list(AIDS), "method": method}
     if not broker:
@@ -369,7 +374,7 @@ def _commit_part(store, broker: str, label: str, rep: dict[str, Any], file_name:
         store.sales.set_candidate_state(m["candidate_id"], "superseded")
 
     import_id = store.broker.add_import(
-        broker=broker, account=account, file_name=file_name or "", date_from=rep["date_from"], date_to=rep["date_to"],
+        broker=broker, account=account, file_name=mask_file_name(file_name), date_from=rep["date_from"], date_to=rep["date_to"],
         rows_total=rep["received"], rows_new=len(new),
         summary={**rep["counts"], "income_totals": rep["income_totals"], "history_only": history, "cash_write": cash,
                  "history_sales": [{"date": o["trade_date"], "symbol": o["symbol"], "shares": o["shares"],

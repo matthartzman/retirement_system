@@ -119,7 +119,7 @@ Effort and usage are relative to a 5-hour Pro-plan session; check `/usage` again
 |---|---|---|---|
 | 0. Finish the inventory (done, 3.1) | Scan logs, audit trail, report and workbook builders, exports and the other screens for 8+ digit runs. Counts only. | Sonnet, medium | Light to moderate. **Expensive risk:** `workbook_builder.py` (1,443 lines) and `workbook_common.py` (1,161 lines) must be searched with Grep, never read whole. |
 | 1. Masking module and tests (done) | `src/account_numbers.py` with unit tests including CUSIP and cue-word cases. | Sonnet, medium | Light. |
-| 2. Mask at import | Wire into broker import and the Monarch ingest paths; extend the existing importer tests. | Sonnet, medium | Moderate. Driven by the number of existing tests that assert on `file_name` and descriptions. |
+| 2. Mask at import (done) | Wire into broker import and the Monarch ingest paths; extend the existing importer tests. | Sonnet, medium | Moderate. Driven by the number of existing tests that assert on `file_name` and descriptions. |
 | 3. Redact stored data | `tools/redact_account_numbers.py`, backup first, counts only, run on the live plan with the user present. | Opus, high (data change) | Light, but run once with care; no test-fix loop expected. |
 | 4. Guards | Response-scan regression test, CI repo scan (fails the build) with a local list, logging filter, and the synced-folder warning for plan files and backups. | Sonnet, medium | Moderate. Watch the repo scan: scope it to tracked files, not `node_modules`. |
 | 5. At-rest protection | Owner confirms BitLocker and keeps nothing sensitive in synced folders; delete old backups and originals. No code beyond the phase 4 warning. | none (owner task) | Trivial. |

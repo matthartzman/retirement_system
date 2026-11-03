@@ -2,7 +2,7 @@
 
 **Auto-generated. Do not hand-edit.** Run `python tools/generate_system_diagram.py` after adding, removing, or moving modules, changing imports, or editing `src/module_catalog.py` / `src/server/route_manifest.py`. The script statically parses the codebase, so this document cannot drift from what the code actually does -- if it looks wrong, the fix is to rerun the generator, not to edit this file.
 
-Source: `tools/generate_system_diagram.py`. Modules scanned: 310 Python files under `src/`, 68 JS files under `frontend/`.
+Source: `tools/generate_system_diagram.py`. Modules scanned: 311 Python files under `src/`, 68 JS files under `frontend/`.
 
 ## 1. Layer Architecture
 
@@ -24,7 +24,7 @@ flowchart TB
     subgraph L_HTTP_Runtime["HTTP Runtime (4 modules)"]
         L_HTTP_Runtime_d["Dependency-free stdlib HTTP server/routing/test-client layer"]
     end
-    subgraph L_Core_Engine___Domain["Core Engine & Domain (222 modules)"]
+    subgraph L_Core_Engine___Domain["Core Engine & Domain (223 modules)"]
         L_Core_Engine___Domain_d["Root-level engine, domain, and shared modules"]
     end
     subgraph L_Projection_Stages["Projection Stages (24 modules)"]
@@ -552,7 +552,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/broker_activity/fidelity.py` | `broker_activity.normalized` | — |
 | `src/broker_activity/normalized.py` | — | — |
 | `src/broker_activity/vanguard.py` | `broker_activity.normalized` | — |
-| `src/broker_import.py` | `broker_activity.normalized`, `sales_confirm`, `sales_ledger` | — |
+| `src/broker_import.py` | `account_numbers`, `broker_activity.normalized`, `sales_confirm`, `sales_ledger` | — |
 | `src/build_entry.py` | `reporting.workbook_builder` | — |
 | `src/build_snapshot.py` | `active_plan`, `plan_db_replace`, `version` | — |
 | `src/cash_accounts.py` | — | — |
@@ -752,7 +752,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/workspace_context.py` | `runtime_config` | — |
 | `src/year_end.py` | `local_store`, `platform_runtime`, `workspace_context` | — |
 | `src/ytd_projection_blend.py` | `module_catalog`, `spending_tracker`, `ytd_tracking` | — |
-| `src/ytd_tracking.py` | `active_plan`, `csv_exchange`, `large_discretionary`, `plan_datasets`, `portfolio_analytics` | — |
+| `src/ytd_tracking.py` | `account_numbers`, `active_plan`, `csv_exchange`, `large_discretionary`, `plan_datasets`, `portfolio_analytics` | — |
 
 ### Projection Stages
 
