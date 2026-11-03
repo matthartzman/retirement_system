@@ -27,3 +27,9 @@ Reading it: the IRA dollars are taxed as ordinary income, but they also cover th
 1. Is "forced draw credited as cash, displacing planned draws" the behaviour you want, or should reported draws be *added on top* of the plan's draws (a strict floor per account)?
 2. Approve extending to taxable / Roth / HSA accounts later (needs basis and qualified-withdrawal rules)?
 3. Only after a yes: add the setting row and test on real data. No golden-master pin changes anywhere in this work.
+
+## Owner answers (2026-11-03)
+
+1. Mechanism: **displace, as built** (approved).
+2. Scope: extend later to taxable, Roth and HSA. Not built: each needs its own rules (taxable: lot basis and gain; Roth: contributions-first, age and 5-year tests; HSA: qualified medical vs not) and will be designed and reviewed as separate steps, still behind the same OFF setting.
+3. Rollout: the setting row now exists (`Cashflow / Cash Tracking / cash_pair_status_tax`, default FALSE). Test on real data before turning it on; no pin changes.

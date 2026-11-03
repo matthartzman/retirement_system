@@ -39,3 +39,9 @@ def test_engine_off_is_identical_and_on_forces_a_taxed_pretax_draw():
     assert on[0]["_account_withdrawals"]["Member_2_IRA"] == 30000.0
     assert on[0]["total_tax"] > base[0]["total_tax"]                  # ordinary income, like an RMD
     assert all("_pair_floor_draws" not in r for r in on[1:])          # first year only
+
+
+def test_setting_row_exists_and_defaults_off():
+    from src.server import app_core
+    rows = [r for r in app_core.CASH_TRACKING_UI_PLAN_DATA_ROWS if r[2] == "cash_pair_status_tax"]
+    assert len(rows) == 1 and rows[0][3] == "FALSE" and rows[0][4] == "bool"
