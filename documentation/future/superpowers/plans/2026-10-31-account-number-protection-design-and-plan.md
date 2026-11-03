@@ -30,7 +30,17 @@ Checked against the live plan and the repo on 2026-10-31. Counts are rows, not v
 | Assistant memory notes | Held one full number. Removed 2026-10-31; a standing rule was saved. | Fixed |
 | Originals in `Downloads` | The source broker files hold full numbers. | Operational: delete after import |
 | Plan backups (`plan.*.rpx`) | Git-ignored but hold all the data. One was made on 2026-10-31 before the purge. | Operational: delete when no longer needed |
-| Server logs, audit trail, reports, workbooks, exports, screens other than the importer | **Not yet checked.** | Unknown; phase 0 |
+| Server logs, audit trail, reports, workbooks, exports, screens other than the importer | Checked in phase 0 (3.1). | See 3.1 |
+
+### 3.1 Phase 0 result (code scan, 2026-11-03)
+
+Static scan of `src/`; counts only, no values. The live plan file is not available to the build environment, so row counts in the table above are the owner's 2026-10-31 figures and the live-data re-check happens in phase 3 (the redaction tool prints counts).
+
+- **Audit trail** (`server/security_audit._audit`) and **app log** (`bootstrap._RedactingFormatter`) both pass through `security.redact_text`, which only knows secret patterns. They do not mask account numbers. Phase 4 adds the `mask_text` scrub at both points.
+- **Reports and workbooks** (`src/reporting/*`): no reference to `broker_activity`, `broker_imports` or `ytd_transactions`; they build from engine output, so no free-text broker or Monarch columns reach them. Spending/YTD views (`spending_tracker`, `ytd_service`) do carry `Merchant`, `Original Statement`, `Notes`; these are covered by the phase 2 Monarch ingest masking.
+- **Exports**: `csv_exchange` round-trips the `ytd_transactions` text columns and the broker tables as stored, so clean stored data (phases 2 and 3) is what protects them; the phase 4 response-scan test covers the endpoints.
+- **API echoes of `file_name`**: `server/plan_routes.py` (sales broker-imports listing) and the importer preview/income coverage return it as stored; masked at import in phase 2.
+- **Repo**: no other write path for broker or Monarch free text outside `broker_import`, `ytd_tracking`, `monarch_import` and `spending_tracker`.
 
 ## 4. Design
 
@@ -105,7 +115,7 @@ Effort and usage are relative to a 5-hour Pro-plan session; check `/usage` again
 
 | Phase | Work | Model / effort | Usage estimate |
 |---|---|---|---|
-| 0. Finish the inventory | Scan logs, audit trail, report and workbook builders, exports and the other screens for 8+ digit runs. Counts only. | Sonnet, medium | Light to moderate. **Expensive risk:** `workbook_builder.py` (1,443 lines) and `workbook_common.py` (1,161 lines) must be searched with Grep, never read whole. |
+| 0. Finish the inventory (done, 3.1) | Scan logs, audit trail, report and workbook builders, exports and the other screens for 8+ digit runs. Counts only. | Sonnet, medium | Light to moderate. **Expensive risk:** `workbook_builder.py` (1,443 lines) and `workbook_common.py` (1,161 lines) must be searched with Grep, never read whole. |
 | 1. Masking module and tests | `src/account_numbers.py` with unit tests including CUSIP and cue-word cases. | Sonnet, medium | Light. |
 | 2. Mask at import | Wire into broker import and the Monarch ingest paths; extend the existing importer tests. | Sonnet, medium | Moderate. Driven by the number of existing tests that assert on `file_name` and descriptions. |
 | 3. Redact stored data | `tools/redact_account_numbers.py`, backup first, counts only, run on the live plan with the user present. | Opus, high (data change) | Light, but run once with care; no test-fix loop expected. |
