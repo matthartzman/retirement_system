@@ -7,7 +7,8 @@ Exact-match first, in passes, so the closest matches claim their rows before loo
                     suggested trade date that the broker's can differ from)
   4. ``aggregate``  a line with no acquisition date ("Various"): two or more unclaimed rows of the symbol and trade
                     date whose shares add up to the line's quantity (many-to-one)
-Fuzzy suggestions beyond this are deliberately left for later. Only confirmed taxable rows of the account are eligible.
+``suggest`` ranks candidate rows for the lines left unmatched; it is advisory only and never changes ``match_lines``.
+Only confirmed taxable rows of the account are eligible.
 """
 from __future__ import annotations
 
@@ -86,3 +87,54 @@ def _subset_summing_to(pool: list[Mapping[str, Any]], quantity: float) -> list[i
             if _same_shares(sum(r["shares"] for r in combo), quantity):
                 return [r["sale_id"] for r in combo]
     return None
+
+
+SUGGESTION_LIMIT = 3
+SUGGESTION_MIN_SCORE = 50
+_SUGGEST_DATE_DAYS = 30  # trade dates further apart than this earn no date points
+# Points (total 100): symbol or CUSIP 40, shares 25, trade date 20, proceeds 15. A symbol match alone (40) never
+# reaches SUGGESTION_MIN_SCORE; the candidate must also be close on at least one of shares, date or proceeds.
+
+
+def _closeness(a: float, b: float) -> float:
+    """1.0 when equal, falling linearly to 0.0 when they differ by 100 percent of the larger (never negative)."""
+    top = max(abs(float(a)), abs(float(b)))
+    return 1.0 if top == 0 else max(0.0, 1.0 - abs(float(a) - float(b)) / top)
+
+
+def suggest(lines: list[Mapping[str, Any]], ledger: Iterable[Mapping[str, Any]], result: Mapping[str, Any], *,
+            account: str, limit: int = SUGGESTION_LIMIT) -> dict[int, list[dict[str, Any]]]:
+    """Advisory ranking for each unmatched line: up to ``limit`` unclaimed confirmed taxable rows of ``account`` with the
+    same symbol (or CUSIP, for a line with no symbol), best first. ``{line_index: [{sale_id, score, reason, reasons}]}``;
+    lines with no candidate over ``SUGGESTION_MIN_SCORE`` are omitted. Nothing here is applied or affects the match."""
+    free = set(result["unmatched_ledger"])
+    pool = [r for r in eligible(ledger, account) if r["sale_id"] in free]
+    out: dict[int, list[dict[str, Any]]] = {}
+    for i in result["unmatched_lines"]:
+        ln = lines[i]
+        want = str(ln.get("symbol") or "").upper() or (f"CUSIP-{ln['cusip']}".upper() if ln.get("cusip") else "")
+        if not want:
+            continue
+        scored = []
+        for r in pool:
+            if str(r.get("symbol") or "").upper() != want:
+                continue
+            reasons = ["same symbol" if ln.get("symbol") else "same CUSIP"]
+            pts = 40.0
+            c = _closeness(r["shares"], ln["quantity"])
+            pts += 25 * c
+            reasons.append("same shares" if _same_shares(r["shares"], ln["quantity"]) else f"shares {r['shares']:g} vs {ln['quantity']:g}")
+            d = _days(r["sale_date"], ln["date_sold"])
+            pts += 20 * max(0.0, 1.0 - d / _SUGGEST_DATE_DAYS)
+            reasons.append("same trade date" if d == 0 else f"trade date {d} day{'s' if d != 1 else ''} apart")
+            pc = _closeness(r["proceeds"], ln["proceeds"])
+            pts += 15 * pc
+            reasons.append(f"proceeds within {round((1 - pc) * 100)}%" if pc < 1 else "same proceeds")
+            scored.append({"sale_id": r["sale_id"], "score": round(pts), "reasons": reasons})
+        scored = [c for c in scored if c["score"] >= SUGGESTION_MIN_SCORE]
+        scored.sort(key=lambda c: (-c["score"], c["sale_id"]))
+        for c in scored:
+            c["reason"] = "; ".join(c["reasons"])
+        if scored:
+            out[i] = scored[:limit]
+    return out
