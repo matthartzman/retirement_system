@@ -640,7 +640,9 @@ DASHBOARD_JS_MAX_LINES = 6_476
 # mounted from the Sales Ledger page with a one-line hook; dashboard.js did not grow): raised to the measured 41,827.
 # 2026-11-02 (cash plan phase 6 engine half: withdrawals-by-pair-status and excess-return lines in the Cash panel, +3 in
 # dashboard_decomp_cash_investment.js; dashboard.js did not grow): raised to the measured 41,830.
-TOTAL_JS_MAX_LINES = 41_830
+# 2026-11-02 (cash plan plan-vs-reported comparison: pace table, earlier years and year-end straddles in the Cash panel, +9 in
+# dashboard_decomp_cash_investment.js; dashboard.js did not grow): raised to the measured 41,839.
+TOTAL_JS_MAX_LINES = 41_839
 
 
 def _line_count(path: Path) -> int:

@@ -37,3 +37,25 @@ test("panel_reports_withdrawals_by_pair_status_and_flags_excess_return", () => {
   assert.match(h, /report only/i);
   assert.match(h, /enter the earnings/);
 });
+
+test("panel_shows_pace_without_difference_while_open_and_past_years_and_straddles", () => {
+  const v = { ...VIEW,
+    comparison: { year: 2026, closed: false, snapshot: { built_at: "2026-11-01T10:00:00Z" }, note: "may be stale",
+      accounts: [{ account: "Member_1_HSA", reported_ytd: 300, plan: 1000, difference: null }], plan_unmapped: { Zed_IRA: 5 } },
+    past_years: [{ account: "Member_1_HSA", year: 2025, external_withdrawal: 40, internal: 0, unmatched: 0 }],
+    straddles: [{ out_account: "Member_1_HSA", out_date: "2026-12-30", in_account: "Member_1_IRA", in_date: "2027-01-02", amount: 100 }] };
+  const h = m.ciHtml(v, null);
+  assert.match(h, /Plan vs reported 2026/);
+  assert.match(h, /year to date/i);
+  assert.match(h, /2026-11-01T10:00:00Z/);
+  assert.match(h, /may be stale/);
+  assert.doesNotMatch(h, /Difference<\/th><th[^>]*>Plan/);       // no difference column while the year is open
+  assert.match(h, /straddle year-end/i);
+  assert.match(h, /2025/);
+});
+
+test("panel_shows_difference_only_for_a_closed_year", () => {
+  const v = { ...VIEW, comparison: { year: 2026, closed: true, snapshot: null, note: "No saved plan run yet",
+    accounts: [{ account: "Member_1_HSA", reported_ytd: 300, plan: 1000, difference: 700 }], plan_unmapped: {} } };
+  assert.match(m.ciHtml(v, null), /Plan − reported/);
+});
