@@ -86,3 +86,18 @@ test("panel_shows_closed_year_difference_reopen_and_change_since_close", () => {
   assert.match(none, /no plan figure/i);
   assert.doesNotMatch(none, /Changed since close/);
 });
+
+// ---- floor gate (year-end Phase 4) ----
+test("panel_shows_floor_gate_state_with_verify_and_unverify_controls", () => {
+  const gate = (g) => ({ ...VIEW, accounts: [{ ...VIEW.accounts[0], floor_gate: g }] });
+  const no = m.ciHtml(gate({ verified: false, eligible: false, reason: "not verified against a closed year" }), null);
+  assert.match(no, /Floor feed/);
+  assert.match(no, /not verified against a closed year/);
+  assert.match(no, /ciVerify\(&quot;Member_1_HSA&quot;, true\)/);
+  const ok = m.ciHtml(gate({ verified: true, eligible: true, reason: "" }), null);
+  assert.match(ok, /eligible/);
+  assert.match(ok, /ciVerify\(&quot;Member_1_HSA&quot;, false\)/);
+  const blocked = m.ciHtml(gate({ verified: true, eligible: false, reason: "2 unmatched row(s) dated 2026" }), null);
+  assert.match(blocked, /2 unmatched row/);
+  assert.match(blocked, /ciVerify\(&quot;Member_1_HSA&quot;, false\)/);
+});

@@ -16,6 +16,8 @@ the plan year is at least 5 years after the entered first-contribution year; oth
 income. Missing basis or first-contribution year: nothing is done (unmatched, never guessed). The 10% penalty is not fed.
 Taxable accounts are NOT wired: their tax needs lots/basis or the qualified-withdrawal rules; they are
 reported by ``worked_example`` for the owner but add no tax. With the setting OFF nothing here runs.
+Gate (year-end Phase 4, 2026-11-03): with the setting ON, only accounts the owner has verified against a closed year, and that
+have no unmatched row this year, are fed (``cash_verified_accounts``); the others are listed in ``cash_pair_floor_skipped``.
 """
 from __future__ import annotations
 
@@ -111,18 +113,28 @@ def _reported(store: Any, year: int, tax_class: str) -> dict[str, float]:
     return out
 
 
+def apply_gate(cfg: dict[str, Any], store: Any, ledgers: Mapping[str, list[Mapping[str, Any]]]) -> None:
+    """Fill the three reported-draw dicts, keeping only accounts the owner has verified against a closed year and that have no
+    unmatched row this year (``cash_verified_accounts``); the rest are listed with the reason in ``cash_pair_floor_skipped``."""
+    from . import cash_verified_accounts
+    year, skipped = int(cfg["plan_start"]), {}
+    for key, reader in (("cash_pair_floor_draws", reported_draws), ("cash_pair_floor_hsa_draws", reported_hsa_draws),
+                        ("cash_pair_floor_roth_draws", reported_roth_draws)):
+        cfg[key], skip = cash_verified_accounts.gate(store, year, ledgers, reader(store, year))
+        skipped.update(skip)
+    cfg["cash_pair_floor_skipped"] = skipped
+
+
 def feed(cfg: dict[str, Any]) -> None:
     """Put the reported draws into the engine config when the setting is on. Read only; failure leaves the plan unchanged."""
     if not enabled(cfg):
         return
-    from . import active_plan, workspace_context
+    from . import active_plan, cash_view, workspace_context
     from pathlib import Path
     try:
         root = Path(workspace_context.workspace_input_dir()).parent
         with active_plan.workspace_store(root) as store:
-            cfg["cash_pair_floor_draws"] = reported_draws(store, int(cfg["plan_start"]))
-            cfg["cash_pair_floor_hsa_draws"] = reported_hsa_draws(store, int(cfg["plan_start"]))
-            cfg["cash_pair_floor_roth_draws"] = reported_roth_draws(store, int(cfg["plan_start"]))
+            apply_gate(cfg, store, cash_view._ledgers(store, cash_view._accounts(store)))
     except Exception as exc:          # a missing cash store must never break a plan run
         cfg["cash_pair_floor_draws"] = {}
         cfg["cash_pair_floor_hsa_draws"] = {}

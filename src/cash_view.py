@@ -178,6 +178,8 @@ def build_view(store: Any, *, year: int | None = None, snapshot: Mapping[str, An
     snapshot = snapshot or (snapshots[0] if snapshots else None)
     accounts = _accounts(store)
     ledgers = _ledgers(store, accounts)
+    from . import cash_verified_accounts
+    gate = cash_verified_accounts.eligibility(store, year, ledgers)
     rows, income = [], {}
     for a in accounts:
         led, lot = ledgers[a], _cash_lot(store, a)
@@ -189,7 +191,7 @@ def build_view(store: Any, *, year: int | None = None, snapshot: Mapping[str, An
                      "difference": None if an["balance"] is None or lot_shares is None else round(an["balance"] - lot_shares, 2),
                      "last_flow": max((r["date"] for r in flows), default=None),
                      "tax_class": default_tax_class(store, a), "withdrawals": withdrawals_by_status(led, year),
-                     "excess_return": excess_return(led, year),
+                     "excess_return": excess_return(led, year), "floor_gate": gate[a],
                      "unmatched": sum(1 for r in led if r["pair_status"] == "unmatched"),
                      "review": sum(1 for r in led if r["needs_review"])})
         cls = default_tax_class(store, a)

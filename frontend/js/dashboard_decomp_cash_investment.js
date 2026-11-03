@@ -47,13 +47,16 @@ export function ciHtml(view, ledger = ciLedger, sort = ciSort) {
   const pastHtml = past.length ? `<p>Earlier years, reported only (the plan has no past-year figures):</p><ul>` + past.map((p) => `<li>${lbl(p.account)} ${esc(String(p.year))}: withdrawn ${ciMoney(p.external_withdrawal)}, internal ${ciMoney(p.internal)}, unmatched ${ciMoney(p.unmatched)}</li>`).join("") + `</ul>` : "";
   const st = (view && view.straddles) || [];
   const stHtml = st.length ? `<p>Transfers that straddle year-end (each row stays in the year of its own date):</p><ul>` + st.map((t) => `<li>${ciMoney(t.amount)} out of ${lbl(t.out_account)} ${esc(t.out_date)}, into ${lbl(t.in_account)} ${esc(t.in_date)}</li>`).join("") + `</ul>` : "";
+  const fg = rows.filter((r) => r.floor_gate).map((r) => `<li>${esc(accountDisplayLabel(r.account))}: ${r.floor_gate.eligible ? "eligible" : `not fed (${esc(r.floor_gate.reason)})`} ` +
+    `<button class="btn" type="button" onclick="ciVerify(${esc(JSON.stringify(r.account))}, ${!r.floor_gate.verified})">${r.floor_gate.verified ? "Remove verification" : "Mark verified"}</button></li>`).join("");
+  const floorHtml = fg ? `<p>Floor feed (applies only when the plan's pair-status tax setting is on; an account is fed only once verified against a closed year and with no unmatched rows this year):</p><ul>${fg}</ul>` : "";
   const closesHtml = ciCloses((view && view.closes) || [], lbl);
   const led = ledger && ledger.rows ? `<h4>${esc(accountDisplayLabel(ledger.account))}: ledger</h4>` + (ledger.rows.length ? `<table class="rc-table"><thead><tr><th>Date</th><th>Class</th><th class="rc-num">Amount</th><th class="rc-num">Balance</th><th>Pairing</th><th>Source</th></tr></thead><tbody>` +
     ledger.rows.map((l) => `<tr><td>${esc(l.date)}</td><td>${esc(l.class)}${l.needs_review ? " (review)" : ""}</td><td class="rc-num">${l.in_kind ? "in kind" : ciMoney(l.amount)}</td><td class="rc-num">${ciMoney(l.cash_balance)}</td>` +
       `<td>${esc(l.pair_status)}${l.partner_account ? " " + esc(accountDisplayLabel(l.partner_account)) : ""}</td><td>${esc(l.source)}</td></tr>`).join("") + `</tbody></table>` : `<p class="muted">No cash rows.</p>`) : "";
   const table = rows.length ? `<table class="rc-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>` : `<p class="muted">No broker imports yet.</p>`;
   return `<details${ciOpen ? " open" : ""} ontoggle="ciToggle(this.open)"><summary><h3 style="display:inline">Cash in investment accounts</h3>${view ? ` (${rows.length})` : ""}</summary>` +
-    `${ciError ? `<p role="alert" class="error">${esc(ciError)}</p>` : ""}${table}${inc ? `<p>Cash income ${esc(String(view.year))}: ${inc}</p>` : ""}${rep}${cmpHtml}${pastHtml}${stHtml}${closesHtml}${led}</details>`;
+    `${ciError ? `<p role="alert" class="error">${esc(ciError)}</p>` : ""}${table}${inc ? `<p>Cash income ${esc(String(view.year))}: ${inc}</p>` : ""}${rep}${cmpHtml}${pastHtml}${stHtml}${closesHtml}${floorHtml}${led}</details>`;
 }
 
 export function renderCashInvestment() {
@@ -81,7 +84,10 @@ export async function ciReopenYear(year) {
 async function ciYearAction(body) {
   try { await api("/api/cash/year-close", { method: "POST", body: JSON.stringify(body) }); await ciLoad(); } catch (e) { ciError = e.message; ciPaint(); }
 }
+export async function ciVerify(account, verified) {
+  try { await api("/api/cash/verify-account", { method: "POST", body: JSON.stringify({ account, verified }) }); await ciLoad(); } catch (e) { ciError = e.message; ciPaint(); }
+}
 export function ciSortBy(key) { ciSort = { key, dir: ciSort.key === key ? -ciSort.dir : 1 }; ciPaint(); }
 export function ciToggle(open) { ciOpen = !!open; }
 
-Object.assign(window, { renderCashInvestment, ciHtml, ciLoad, ciShowLedger, ciSortBy, ciToggle, ciCloseYear, ciReopenYear });
+Object.assign(window, { renderCashInvestment, ciHtml, ciLoad, ciShowLedger, ciSortBy, ciToggle, ciCloseYear, ciReopenYear, ciVerify });

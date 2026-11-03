@@ -1480,6 +1480,25 @@ def cash_year_close_action():
     return jsonify({"success": True, **out})
 
 
+@app.route("/api/cash/verify-account", methods=["POST"])
+def cash_verify_account():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    from .. import cash_verified_accounts as _cva
+    body = request.get_json(silent=True) or {}
+    account = body.get("account")
+    if not isinstance(account, str) or not account:
+        return jsonify({"success": False, "error": "account is required"}), 400
+    verified = bool(body.get("verified", True))
+    try:
+        out = _cva.service(_ytd_input_root(), account, verified)
+    except _cva.VerifyError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+    _audit("cash_account_verified" if verified else "cash_account_unverified", {"account": account})
+    return jsonify({"success": True, **out})
+
+
 @app.route("/api/year-end", methods=["GET"])
 def year_end_checklist():
     denied = _require("view_dashboard")

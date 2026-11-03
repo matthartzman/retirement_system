@@ -2,7 +2,7 @@
 
 Date: 2026-11-02.
 
-Status: approved. Phases 1 (cash-year close), 2 (guided Year-end page) and 3 (snapshot retention) built 2026-11-03 (see section 8); Phase 4 is decided (owner, 2026-11-03) and ready to build on the owner's go-ahead.
+Status: approved. Phases 1 (cash-year close), 2 (guided Year-end page) and 3 (snapshot retention) built 2026-11-03 (see section 8); Phase 4 (verified-account gate on the pair-status floor) built 2026-11-03.
 
 Related: `2026-10-31-investment-account-cash-tracking-design-and-plan.md` (sections 9 and 10 and the Phase 6 Built note), the
 report-only current-year comparison (built in a separate session from the owner's 2026-11-02 decisions), and
@@ -152,28 +152,18 @@ The checklist of section 6 with derived state, linking to existing screens. New 
 
 **Built 2026-11-03.** Found on inspection that the plan-id link already existed: `report_compute` saves each run with `plan_snapshot_id=active_plan_id()` and `local_store.latest_result_snapshot` / `list_result_snapshots` filter by it (used by Phase 1's close and Phase 2's page since they were built). The remaining gap was retention: only the 10 newest runs were kept across all plans, so the December run that projected the year could be pruned by January builds before the close. `local_store._prune_result_snapshots` now also keeps the newest run of each plan and first-projection year (plans with an id only; at most one extra row per plan per year). No schema change, no engine change. Runs saved before plan ids were recorded stay unusable for a close, as designed. Tests: `tests/test_result_snapshot_year_protection_unit.py`.
 
-### Phase 4: feed actual withdrawals into the current-year blend (owner decisions 2026-11-03; build not started)
+### Phase 4: verified-account gate on the pair-status floor (owner decisions 2026-11-03; built 2026-11-03)
 
-**Owner decisions (2026-11-03):**
+**Reconciliation.** While Phase 4 was being decided, another session built the engine feed on `main`: the pair-status **floor** (`src/cash_tax_floor.py`, setting `cash_pair_status_tax`, default OFF; cash plan sections 13 to 16 covering pre-tax, HSA and Roth, taxable through the realized-sales ledger). The originally designed current-year blend would have duplicated it and could double-count, so on the owner's choice (2026-11-03) Phase 4 became a **gate on the floor** instead, and the blend was not built.
 
-1. **Scope: current-year withdrawals only.** In the current-year blend (`src/ytd_projection_blend.py`, `compute_current_year_overrides`), an eligible account's modeled withdrawal for the current year becomes its year-to-date reported `external_withdrawal` plus the plan's draw for the remaining fraction of the year. Past and future years, and every other engine number, are untouched. No tax-class taxability rules are added.
-2. **Eligibility: only closed-year-verified accounts.** An account is eligible only after the owner has reviewed a closed year's plan-minus-reported difference for it on real data and marked it verified (a stored confirmation, `plan_meta` key `cash.verified_account.<account>`, audited; reversible). `unmatched` rows never count.
-3. **Half-pairs stay unmatched and are never counted** (cash plan section 9 item 3 stands). No per-row override.
-4. **Gates before merge:** (a) a plan setting `cash_withdrawal_feed` (default off) so the frozen sample plan and its golden-master pins do not move; (b) a hand-verified golden-master delta for one representative account, shown to the owner before any `regen`, per `GOLDEN_MASTER_RECOVERY_RUNBOOK.md` (run `measure` first, no regenerate loop).
+**Owner decisions (2026-11-03), as applied:**
 
-**Open design points for the build (Claude's calls unless overruled):** the verified flag is per account, not per year; the feed applies only while the account has no `unmatched` rows dated in the current year (otherwise it is skipped and the panel says why); the Cash panel shows, per account, "feed on / off and why".
+1. **Eligibility: only closed-year-verified accounts.** With the floor setting ON, an account's reported withdrawals are fed only when the owner has marked it verified (it must appear in a closed year's record, so its plan-minus-reported difference has been reviewed) and it has no `unmatched` row dated in the plan year. The mark is per account and reversible (`plan_meta` key `cash.verified_account.<account>`, audited as `cash_account_verified` / `cash_account_unverified`).
+2. **Half-pairs stay unmatched and are never counted**, so they keep their account out of the feed. No per-row override.
+3. **Switch default OFF** (the floor's existing setting); with it OFF nothing runs and the golden master is untouched. Accounts left out are listed with the reason in `cfg['cash_pair_floor_skipped']`, and the Cash panel shows "eligible / not fed (reason)" per account with a Mark verified / Remove verification button.
+4. **Scope unchanged from the floor:** first plan year only; no engine arithmetic changed by this phase. It only narrows which accounts' reported draws reach the floor. Hand-verified golden-master delta: not needed for this change (no pin moved; `measure` MATCH); it still applies when the owner turns the floor on with real verified accounts.
 
-**Implementation plan (each step: model, effort, expected usage; check `/usage` against these as it runs):**
-
-| Step | Work | Model / effort | Expected usage |
-|---|---|---|---|
-| 1 | Tests first: verified flag (set, clear, audit), eligibility (verified, no unmatched this year, switch on), blend override math (reported YTD + remaining-fraction plan draw), switch off leaves overrides identical | Sonnet / medium | Light. Small new test file; reads `ytd_projection_blend.py` regions only (Grep, never whole). |
-| 2 | `src/cash_withdrawal_feed.py` (eligibility, verified flag) and the hook in `compute_current_year_overrides`; new plan setting and its help/registry entries | Opus / high | Moderate. Engine seam and settings registry are the risk; keep reads to the override function and the settings definition. |
-| 3 | Routes and panel: mark an account verified from a closed year, show feed status per account; frontend test; JS line limit note | Sonnet / medium | Light to moderate (panel module is small; no `dashboard.js` growth). |
-| 4 | Golden master: `measure` first (must MATCH with the switch off); then a switch-on run on a copy of the sample plan, hand-verify one account's delta, show the owner | Opus / high | Moderate, and the step most likely to cost extra: each engine run is slow. Do not loop; one measured run on, one off. |
-| 5 | Docs, diagram regeneration, fast tier, PR | Sonnet / low | Light on tokens, long on wall-clock (fast tier ~25 min, run in the background). |
-
-Costliest points to scope down: do not read `ytd_projection_blend.py` or the engine whole; run only the targeted tests while iterating and the fast tier once at the end. Overall: a moderate fraction of a 5-hour Pro session, spread over two sessions if the golden-master step needs owner review in between.
+**Built:** `src/cash_verified_accounts.py` (`is_verified`, `set_verified`, `eligibility`, `gate`, `service`); `cash_tax_floor.apply_gate` (used by `feed`); `POST /api/cash/verify-account` (in `route_manifest.py`); `floor_gate` per account on `GET /api/cash`; panel controls. No schema change. Behavior note: with the floor setting ON and no verified accounts, nothing is fed until an account is verified. Tests: `tests/test_cash_verified_accounts_unit.py`, `tests/test_cash_verified_accounts_functional.py`, `tests/frontend/cash_investment_panel.test.mjs`.
 
 ## 9. Open questions for the owner
 
