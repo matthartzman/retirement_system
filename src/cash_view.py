@@ -6,6 +6,7 @@ account's ledger rows with their pairing status. Ledgers come from ``cash_ledger
 """
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -74,6 +75,82 @@ def excess_return(ledger: list[Mapping[str, Any]], year: int) -> dict[str, Any]:
     return {"count": len(rows), "amount": round(-sum(float(r["amount"]) for r in rows), 2)}
 
 
+def is_year_closed(store: Any, year: int) -> bool:
+    """SEAM for the owner's manual year close (designed separately, not built): every year is open until it exists.
+    Only a closed year gets a plan-minus-reported difference."""
+    return False
+
+
+def plan_year_withdrawals(snapshot: Mapping[str, Any] | None, year: int) -> dict[str, float] | None:
+    """The engine's per-account ``_account_withdrawals`` for ``year`` from a saved result snapshot, else ``None``.
+    The engine projects from plan_start (today's year, so it moves on 1 Jan): a snapshot counts only when its FIRST
+    projection row is ``year``, otherwise there is no plan figure for that year."""
+    rows = ((snapshot or {}).get("result") or {}).get("projection_rows") or []
+    if not rows or str(rows[0].get("year")) != str(year):
+        return None
+    for r in rows:
+        if str(r.get("year")) == str(year):
+            return {str(k): round(_num(v), 2) for k, v in (r.get("_account_withdrawals") or {}).items()}
+    return None
+
+
+def comparison(ledgers: Mapping[str, list[Mapping[str, Any]]], year: int, snapshot: Mapping[str, Any] | None, *,
+               closed: bool) -> dict[str, Any]:
+    """REPORT-ONLY pace: year-to-date reported ``external_withdrawal`` beside the engine's full-year figure from the newest
+    saved snapshot. ``difference`` (plan - reported) only for a closed year."""
+    plan = plan_year_withdrawals(snapshot, year)
+    by_fold = {k.casefold(): k for k in (plan or {})}
+    used, rows = set(), []
+    for a in sorted(ledgers):
+        rep = withdrawals_by_status(list(ledgers[a]), year)["external_withdrawal"]
+        key = by_fold.get(a.casefold())
+        pl = plan[key] if plan is not None and key is not None else (0.0 if plan is not None else None)
+        if key is not None:
+            used.add(key)
+        rows.append({"account": a, "reported_ytd": rep, "plan": pl,
+                     "difference": round(pl - rep, 2) if closed and pl is not None else None})
+    return {"year": year, "closed": closed, "accounts": rows,
+            "snapshot": {"built_at": snapshot["created_at"]} if snapshot else None,
+            "plan_unmapped": {k: v for k, v in (plan or {}).items() if k not in used and v},
+            "note": ("No plan figure for %d: the newest saved plan run starts in another year. Run the plan." % year
+                     if snapshot and plan is None else
+                     "Plan figures come from the newest saved run of this plan and may be stale."
+                     + ("" if (snapshot or {}).get("plan_id") else " That run carries no plan identifier, so it cannot be verified as the active plan's.")
+                     + " The panel never runs the plan.")
+            if snapshot else "No saved plan run for this plan yet; run the plan to see its figures."}
+
+
+def past_years(ledgers: Mapping[str, list[Mapping[str, Any]]], year: int) -> list[dict[str, Any]]:
+    """Reported withdrawals of earlier years by pair status (no engine column: the engine has no past-year rows)."""
+    out = []
+    for a in sorted(ledgers):
+        for y in sorted({int(r["date"][:4]) for r in ledgers[a] if r["date"][:4].isdigit() and int(r["date"][:4]) < year}):
+            out.append({"account": a, "year": y, **withdrawals_by_status(list(ledgers[a]), y)})
+    return out
+
+
+def year_straddles(ledgers: Mapping[str, list[Mapping[str, Any]]], days: int = 5) -> list[dict[str, Any]]:
+    """Internal pairs whose outflow or inflow is within ``days`` of 31 Dec and whose partner falls in the other year.
+    Listed only: every row still counts in the year of its own date."""
+    byid: dict[Any, list[Mapping[str, Any]]] = {}
+    for a in ledgers:
+        for r in ledgers[a]:
+            if r.get("pair_id") and r.get("pair_status") == "internal":
+                byid.setdefault(r["pair_id"], []).append({**r, "account": a})
+    out = []
+    for pair in byid.values():
+        outs = [r for r in pair if float(r["amount"]) < 0]
+        ins = [r for r in pair if float(r["amount"]) > 0]
+        if len(outs) != 1 or len(ins) != 1 or outs[0]["date"][:4] == ins[0]["date"][:4]:
+            continue
+        d1, d2 = date.fromisoformat(outs[0]["date"]), date.fromisoformat(ins[0]["date"])
+        edge = date(min(d1, d2).year, 12, 31)
+        if all(abs((d - edge).days) <= days for d in (d1, d2)):
+            out.append({"out_account": outs[0]["account"], "out_date": outs[0]["date"], "in_account": ins[0]["account"],
+                        "in_date": ins[0]["date"], "amount": round(-float(outs[0]["amount"]), 2)})
+    return sorted(out, key=lambda x: (x["out_date"], x["out_account"]))
+
+
 def _ledgers(store: Any, accounts: list[str]) -> dict[str, list[dict[str, Any]]]:
     return pair_transfers({a: account_ledger(store, a, _monarch_names(store, a)) for a in accounts})
 
@@ -85,7 +162,7 @@ def _cash_lot(store: Any, account: str) -> dict[str, Any] | None:
     return lots[0] if len(lots) == 1 else None
 
 
-def build_view(store: Any, *, year: int | None = None) -> dict[str, Any]:
+def build_view(store: Any, *, year: int | None = None, snapshot: Mapping[str, Any] | None = None) -> dict[str, Any]:
     year = year or today().year
     accounts = _accounts(store)
     ledgers = _ledgers(store, accounts)
@@ -107,7 +184,9 @@ def build_view(store: Any, *, year: int | None = None) -> dict[str, Any]:
         for r in led:
             if r["class"] == "income" and r["counts"] and r["date"][:4] == f"{year:04d}":
                 income[cls] = round(income.get(cls, 0.0) + float(r["amount"]), 2)
-    return {"year": year, "accounts": rows, "income_by_tax_class": income}
+    return {"year": year, "accounts": rows, "income_by_tax_class": income,
+            "comparison": comparison(ledgers, year, snapshot, closed=is_year_closed(store, year)),
+            "past_years": past_years(ledgers, year), "straddles": year_straddles(ledgers)}
 
 
 def ledger_view(store: Any, account: str) -> dict[str, Any]:
@@ -121,4 +200,8 @@ def ledger_view(store: Any, account: str) -> dict[str, Any]:
 
 def view(input_dir: str | Path, *, account: str | None = None, year: int | None = None) -> dict[str, Any]:
     with active_plan.workspace_store(Path(input_dir).parent) as store:
-        return ledger_view(store, account) if account else build_view(store, year=year)
+        if account:
+            return ledger_view(store, account)
+        from .local_store import latest_result_snapshot
+        from .workspace_context import active_plan_id
+        return build_view(store, year=year, snapshot=latest_result_snapshot(plan_id=active_plan_id(root=Path(input_dir).parent)))

@@ -224,6 +224,20 @@ def save_result_snapshot(result: dict[str, Any], event_log: list[dict[str, Any]]
     return result_id
 
 
+def latest_result_snapshot(db_path: str | Path | None = None, plan_id: str | None = None) -> dict[str, Any] | None:
+    """``{created_at, plan_id, result}`` of the newest saved result snapshot, or ``None``. Read-only: never runs the engine.
+    ``save_result_snapshot`` records the active plan's id in ``plan_snapshot_id`` (no schema change); with ``plan_id`` only
+    that plan's snapshots are considered, so another plan's run (or one saved before ids were recorded) is never returned."""
+    p = _existing(db_path)
+    if p is None:
+        return None
+    where, args = ("WHERE plan_snapshot_id=? ", (plan_id,)) if plan_id else ("", ())
+    with closing_connect(p) as con:
+        row = con.execute("SELECT created_at, plan_snapshot_id, result_json FROM result_snapshots " + where +
+                          "ORDER BY created_at DESC, result_id DESC LIMIT 1", args).fetchone()
+    return {"created_at": row[0], "plan_id": row[1], "result": json.loads(row[2])} if row else None
+
+
 def _prune_result_snapshots(con: sqlite3.Connection, keep: int = DEFAULT_RESULT_SNAPSHOT_RETENTION) -> int:
     """Delete all but the newest ``keep`` result snapshots. Returns rows removed.
 
