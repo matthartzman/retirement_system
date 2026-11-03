@@ -14,7 +14,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Iterable
 
-from . import active_plan, broker_1099b
+from . import active_plan, broker_1099b, sales_tax_year
 from .broker_1099b import matching, report as _report
 from .sales_ledger import ValidationError
 
@@ -138,6 +138,7 @@ def apply(input_dir: str | Path, *, broker: str, account: str, text: str | None 
             added += 1
         for i, ln in enumerate(lines):
             store.sales.add_line(sid, i, dict(ln), placed.get(i, []))
+    sales_tax_year.auto_refresh(input_dir)
     return {"statement_id": sid, "corrected": corrected, "added": added, "superseded": superseded,
             "unmatched_ledger": result["unmatched_ledger"]}
 

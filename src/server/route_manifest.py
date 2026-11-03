@@ -42,6 +42,8 @@ ROUTE_MODULES = {
     "sales_ledger": ["/api/sales", "/api/sales/<int:sale_id>/void", "/api/sales/<int:sale_id>/unvoid", "/api/sales/import/preview", "/api/sales/import/commit",
         "/api/sales/candidates", "/api/sales/candidates/<int:candidate_id>/panel", "/api/sales/candidates/<int:candidate_id>/confirm",
         "/api/sales/candidates/<int:candidate_id>/undo", "/api/sales/candidates/<int:candidate_id>/dismiss", "/api/sales/candidates/<int:candidate_id>/restore",
+        "/api/sales/candidates/bulk/review", "/api/sales/candidates/bulk/validate", "/api/sales/candidates/bulk/confirm",
+        "/api/sales/candidates/bulk/undo", "/api/sales/candidates/bulk/dismiss", "/api/sales/candidates/bulk/restore",
         "/api/sales/tax-year", "/api/sales/carryforward", "/api/sales/wash/refresh",
         "/api/sales/1099b/preview", "/api/sales/1099b/apply", "/api/sales/1099b/wash",
         "/api/sales/broker/preview", "/api/sales/broker/commit", "/api/sales/broker/imports",

@@ -51,6 +51,20 @@ def buys_from_rows(rows: Iterable[Mapping[str, Any]], *, source: str,
     return out
 
 
+def dedupe_buys(*groups: Iterable[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Merge purchase lists from several sources, keeping the first of any purchase seen twice (same account,
+    symbol, date and share count), so one buy that shows in the holdings, a broker file and Monarch counts once.
+    Pass the sources in order of trust."""
+    seen, out = set(), []
+    for g in groups:
+        for b in g:
+            key = (b.get("account"), b["symbol"], b["date"], round(float(b["shares"]), 6))
+            if key not in seen:
+                seen.add(key)
+                out.append(dict(b))
+    return out
+
+
 def _g(x: float) -> str:
     return f"{x:g}"
 
