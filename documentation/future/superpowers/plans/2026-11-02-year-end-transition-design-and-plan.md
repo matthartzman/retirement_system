@@ -2,7 +2,7 @@
 
 Date: 2026-11-02.
 
-Status: draft. Phase 1 (cash-year close) is ready to build once the owner approves this document; later phases need their own approval.
+Status: approved. Phase 1 (cash-year close) built 2026-11-03 (see the Built note in section 8); later phases need their own approval.
 
 Related: `2026-10-31-investment-account-cash-tracking-design-and-plan.md` (sections 9 and 10 and the Phase 6 Built note), the
 report-only current-year comparison (built in a separate session from the owner's 2026-11-02 decisions), and
@@ -138,6 +138,8 @@ Depends on the report-only current-year comparison being merged (it provides the
    `tests/frontend/cash_investment_panel.test.mjs`; raise `TOTAL_JS_MAX_LINES` with a dated note.
 5. Regenerate the diagram (`python tools/generate_system_diagram.py`); golden master `measure` must stay MATCH.
 6. Docs: Built note here and in the cash plan; add the close to the runbook's new-year checklist.
+
+**Built 2026-11-03 (Phase 1, cash-year close):** `src/cash_year_close.py` (`close_status`, `close_year`, `reopen_year`, `is_year_closed`, `close_summary`, `service`), wired into `cash_view` in place of the seam; `GET`/`POST /api/cash/year-close` (registered in `route_manifest.py`, audit events `cash_year_closed` / `cash_year_reopened`); `PlanStore.delete_meta` and `local_store.list_result_snapshots`; close controls in the Cash panel (`closes` on `GET /api/cash`). No schema change, no engine change; golden master `measure` MATCH. Rulings: the snapshot tie uses the `plan_id` snapshots now record (Phase 3's save-side work already exists), so a snapshot with no matching plan id is never used; straddling rows must be confirmed (`straddles_seen`) rather than ticked individually; the two open questions took Claude's defaults (no broker-file requirement, a close with no plan figure is allowed). Tests: `tests/test_cash_year_close_unit.py`, `tests/test_cash_year_close_functional.py`, `tests/frontend/cash_investment_panel.test.mjs`. Phases 2 and 3 remain unbuilt and need separate approval.
 
 ### Phase 2: guided Year-end page
 

@@ -1406,6 +1406,36 @@ def cash_accounts_view():
     return _sales_call(_cv.view, account=request.args.get("account") or None, year=int(year) if year else None)
 
 
+@app.route("/api/cash/year-close", methods=["GET"])
+def cash_year_close_status():
+    denied = _require("view_dashboard")
+    if denied:
+        return denied
+    from .. import cash_year_close as _cyc
+    year = request.args.get("year", "")
+    if not year.isdigit():
+        return jsonify({"success": False, "error": "year must be a number"}), 400
+    return _sales_call(_cyc.service, int(year))
+
+
+@app.route("/api/cash/year-close", methods=["POST"])
+def cash_year_close_action():
+    denied = _require("write_config")
+    if denied:
+        return denied
+    from .. import cash_year_close as _cyc
+    body = request.get_json(silent=True) or {}
+    year, action = body.get("year"), body.get("action")
+    if not isinstance(year, int) or isinstance(year, bool) or action not in ("close", "reopen"):
+        return jsonify({"success": False, "error": "year (number) and action (close or reopen) are required"}), 400
+    try:
+        out = _cyc.service(_ytd_input_root(), year, action, note=str(body.get("note") or ""), straddles_seen=bool(body.get("straddles_seen")))
+    except _cyc.CloseError as exc:
+        return jsonify({"success": False, "error": str(exc)}), 400
+    _audit("cash_year_closed" if action == "close" else "cash_year_reopened", {"year": year})
+    return jsonify({"success": True, **out})
+
+
 def _log_body() -> dict:
     return request.get_json(silent=True) or {}
 

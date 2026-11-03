@@ -78,8 +78,10 @@ def test_plan_year_withdrawals_reads_only_the_current_year_row():
     assert cash_view.plan_year_withdrawals(None, 2026) is None
 
 
-def test_year_closed_seam_is_false_for_every_year(tmp_path):
-    assert cash_view.is_year_closed(object(), 2025) is False
+def test_no_year_is_closed_until_the_owner_closes_it(tmp_path):
+    ws = make(tmp_path)
+    with active_plan.workspace_store(ws) as store:
+        assert cash_view.is_year_closed(store, 2025) is False
 
 
 def test_comparison_is_pace_without_difference_while_year_is_open():

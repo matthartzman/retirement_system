@@ -238,6 +238,19 @@ def latest_result_snapshot(db_path: str | Path | None = None, plan_id: str | Non
     return {"created_at": row[0], "plan_id": row[1], "result": json.loads(row[2])} if row else None
 
 
+def list_result_snapshots(db_path: str | Path | None = None, plan_id: str | None = None) -> list[dict[str, Any]]:
+    """Every retained result snapshot (newest first) as ``{created_at, plan_id, result}``; with ``plan_id`` only that plan's.
+    Read-only, like ``latest_result_snapshot``."""
+    p = _existing(db_path)
+    if p is None:
+        return []
+    where, args = ("WHERE plan_snapshot_id=? ", (plan_id,)) if plan_id else ("", ())
+    with closing_connect(p) as con:
+        rows = con.execute("SELECT created_at, plan_snapshot_id, result_json FROM result_snapshots " + where +
+                           "ORDER BY created_at DESC, result_id DESC", args).fetchall()
+    return [{"created_at": r[0], "plan_id": r[1], "result": json.loads(r[2])} for r in rows]
+
+
 def _prune_result_snapshots(con: sqlite3.Connection, keep: int = DEFAULT_RESULT_SNAPSHOT_RETENTION) -> int:
     """Delete all but the newest ``keep`` result snapshots. Returns rows removed.
 

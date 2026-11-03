@@ -1691,6 +1691,48 @@
       "scope": "inside-function"
     },
     {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_cash_investment.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_cash_investment.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_cash_investment.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_cash_investment.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_cash_investment.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_cash_investment.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_cash_investment.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "SYSTEM_CONFIG_FIELD_HELP",
       "file": "frontend/js/dashboard_decomp_checklist_closeout.js",
       "kind": "read",
@@ -2429,6 +2471,42 @@
       "scope": "inside-function"
     },
     {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_holdings_tree.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_holdings_tree.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_holdings_tree.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "renderMain",
+      "file": "frontend/js/dashboard_decomp_holdings_tree.js",
+      "kind": "call",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_holdings_tree.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "rows",
+      "file": "frontend/js/dashboard_decomp_holdings_tree.js",
+      "kind": "read",
+      "scope": "inside-function"
+    },
+    {
       "name": "planLoaded",
       "file": "frontend/js/dashboard_decomp_home_panels.js",
       "kind": "read",
@@ -2804,6 +2882,12 @@
       "name": "rows",
       "file": "frontend/js/dashboard_decomp_income_streams.js",
       "kind": "read",
+      "scope": "inside-function"
+    },
+    {
+      "name": "sectionFlagEnabled",
+      "file": "frontend/js/dashboard_decomp_income_streams.js",
+      "kind": "call",
       "scope": "inside-function"
     },
     {

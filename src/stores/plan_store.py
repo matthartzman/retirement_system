@@ -695,6 +695,13 @@ class PlanStore(_SqliteStore):
                 (key, value),
             )
 
+    def delete_meta(self, key: str) -> None:
+        _check_text("key", key, allow_empty=False)
+        if key == RETENTION_KEY:
+            raise ValidationError(f"{RETENTION_KEY!r} is set through set_revision_retention()")
+        with self._write() as con:
+            con.execute("DELETE FROM plan_meta WHERE key = ?", (key,))
+
     # ------------------------------------------------------------------ internals
     def _meta(self, key: str) -> str | None:
         with self._read() as con:
