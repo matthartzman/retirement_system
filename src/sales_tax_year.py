@@ -12,7 +12,8 @@ from typing import Any
 from . import active_plan
 from .core import ACCOUNT_TYPES, _infer_type
 from .realized_seed import terms_from_ledger_rows
-from .realized_tax import net_realized_by_year, net_realized_year, plan_ordinary_income, realized_gain_tax
+from .realized_income_stack import plan_income_stack
+from .realized_tax import net_realized_by_year, net_realized_year, realized_gain_tax
 from .taxes import capital_loss_ordinary_limit
 from .sales_ledger import ValidationError
 from .sales_matching import buy_rows
@@ -55,15 +56,17 @@ def realized_tax_estimate(cfg: dict[str, Any] | None, netting: dict[str, float],
     try:
         c = dict(cfg)
         c["filing_status"] = filing
-        income = plan_ordinary_income(c, year)
+        stack = plan_income_stack(c, year, filing)
+        income = stack["ordinary_income"]
         parts = realized_gain_tax(c, netting, year=year, ordinary_income=income, magi=income,
                                   state_rate_override=state_rate_override)
     except Exception:  # noqa: BLE001
         return {"available": False, "reason": "The plan is not complete enough to price tax."}
     return {"available": True, "method": "planner", "ordinary_income": round(income, 2), "magi": round(income, 2),
-            "income_source": "plan earned income",
+            "income_source": ", ".join(stack["included"]) or "none", "income_components": {
+                k: stack[k] for k in ("earned", "pension", "annuity", "rental", "social_security", "social_security_taxable")},
             **{k: round(parts[k], 2) for k in ("ordinary_tax", "ltcg_tax", "niit", "state_tax", "total")},
-            "note": "Estimate: gains are stacked on the plan's earned income; pension, Social Security and withdrawals are not included."}
+            "note": stack["label"]}
 
 
 def tax_year_summary(input_dir: str | Path, year: int, *, filing: str | None = None) -> dict[str, Any]:
