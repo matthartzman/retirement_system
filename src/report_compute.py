@@ -266,6 +266,8 @@ def prepare_config_from_json(plan: Mapping[str, Any], url_template: str = '', op
 
 def run_projection_artifacts(c: Mapping[str, Any], run_mc: bool = True, enforce_release_gate: bool | None = None) -> ProjectionArtifacts:
     cfg = ensure_engine_config(c, source='runtime')
+    from . import cash_tax_floor
+    cash_tax_floor.feed(cfg)          # no-op unless cash_pair_status_tax is TRUE
     pipeline_result = run_projection_pipeline(cfg)
     rows = pipeline_result.rows
     cfg['projection_stage_order'] = [stage.name for stage in pipeline_result.stage_order]

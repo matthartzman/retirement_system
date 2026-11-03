@@ -4,6 +4,7 @@ from typing import Any, Callable, NamedTuple
 
 from .. import core as _ar  # consolidated from account_registry
 from .. import engine_kernels as _legacy_pe
+from .. import cash_tax_floor as _cash_tax_floor
 from ..engine_kernels import (
     EvRMD,
     aca_magi,
@@ -483,6 +484,14 @@ def apply_spending_and_rmd(
     qcd_w_yr = _qcd_amount_for_member('w', c['w_dob_yr'], c.get('w_dob_month'), w_alive, rmd_w)
     qcd_total_yr = qcd_h_yr + qcd_w_yr
     rmd_taxable_total = max(0.0, rmd_total - qcd_total_yr)
+    # Cash tracking pair-status floor (default OFF; src/cash_tax_floor.py): reported external withdrawals from pre-tax
+    # accounts in the first year leave the account now and are taxed like an RMD (credited as cash through this total).
+    _pair_floor = _cash_tax_floor.floor_draws(c, bal, year)
+    for _aid, _amt in _pair_floor.items():
+        bal[_aid] = max(0.0, float(bal.get(_aid, 0.0)) - _amt)
+    rmd_taxable_total += sum(_pair_floor.values())
+    if _pair_floor:
+        row['_pair_floor_draws'] = dict(_pair_floor)      # absent when off: output is byte-identical
     row['h_qcd_yr'] = qcd_h_yr
     row['w_qcd_yr'] = qcd_w_yr
     row['qcd_total_yr'] = qcd_total_yr
@@ -710,6 +719,8 @@ def apply_spending_and_rmd(
     # ── RMDs ─────────────────────────────────────────────────────────────
     _rmd_draws = _legacy_pe.apply_rmds(bal, rmd_result)
     row['_rmd_by_account'] = dict(_rmd_draws)
+    for _aid, _amt in _pair_floor.items():
+        _add_account_flow(row['_account_withdrawals'], _aid, _amt)
     for _aid, _amt in _rmd_draws.items():
         emit(EvRMD(year, _aid, 0, 0, _amt))
         _add_account_flow(row['_account_withdrawals'], _aid, _amt)

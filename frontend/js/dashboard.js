@@ -152,7 +152,7 @@ const STEPS = [
     group: "Reports & Review",
     title: "Account Reconciliation",
   },
-  { id: "sales_ledger", group: "Reports & Review", title: "Investment Sales Ledger" },
+  { id: "sales_ledger", group: "Reports & Review", title: "Investment Sales Ledger" }, { id: "year_end", group: "Reports & Review", title: "Year-End Transition" },
   {
     id: "detailed_results",
     group: "Reports & Review",
@@ -3024,7 +3024,7 @@ let renderMain = function() {
   if (SPENDING_WORKFLOW_INDEX[activeStep] !== undefined) {
     content += renderSpendingWorkflowBanner(activeStep);
   }
-  if (activeStep === "start") content += renderWelcome();
+  if (activeStep === "start") content += renderWelcome() + (window.renderYearEndBanner ? window.renderYearEndBanner() : "");
   else if (activeStep === "spending_core") content += renderCoreSpendingUnified();
   else if (activeStep === "actual_spending")
     content += window.renderActualSpendingWorkspace(STRATEGY_TABS.actual_spending);
@@ -3062,7 +3062,7 @@ let renderMain = function() {
   else if (activeStep === "assets_special") content += renderAssetsSpecial();
   else if (activeStep === "rental_properties") content += renderRentalProperties();
   else if (activeStep === "monarch_reconciliation") content += renderMonarchReconciliation();
-  else if (activeStep === "sales_ledger") content += renderSalesLedger();
+  else if (activeStep === "sales_ledger") content += renderSalesLedger(); else if (activeStep === "year_end") content += window.renderYearEnd();
   else if (activeStep === "family_business") content += renderFamilyBusiness();
   // #329/#330 W9: HELOC moved from Strategy → Assets & Protection (a plan
   // input against a held asset, not an optimizer). Same content, same
