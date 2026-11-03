@@ -555,6 +555,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/cash_anchor.py` | `cash_ledger` | — |
 | `src/cash_ledger.py` | `ytd_tracking` | — |
 | `src/cash_pairing.py` | — | — |
+| `src/cash_tax_floor.py` | `sales_confirm` | — |
 | `src/cash_view.py` | `cash_ledger`, `cash_pairing`, `local_store`, `platform_runtime`, `sales_confirm`, `workspace_context` | — |
 | `src/cash_year_close.py` | `local_store`, `platform_runtime`, `workspace_context` | — |
 | `src/config_backend.py` | `active_plan`, `app_state`, `engine_defaults`, `sqlite_util`, `system_config` | — |
