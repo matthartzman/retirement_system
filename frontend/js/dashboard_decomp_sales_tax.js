@@ -24,6 +24,16 @@ export function stNettingHtml(s) {
     stRow("Carried to next year, long-term", n.carryforward_lt) + `</tbody></table></div>`;
 }
 
+export function stTaxHtml(s) {
+  const t = s.realized_tax;
+  if (!t) return "";
+  if (!t.available) return `<p class="muted">${esc(t.reason || "Tax on gains realized this year is not available.")}</p>`;
+  return `<h4>Tax on gains realized in ${esc(String(s.year))}</h4><div class="rc-scroll"><table class="rc-table"><tbody>` +
+    stRow("Federal tax on ordinary gain", t.ordinary_tax) + stRow("Federal tax on long-term gain", t.ltcg_tax) +
+    stRow("Net investment income tax", t.niit) + stRow("State tax", t.state_tax) + stRow("Estimated tax on gains realized this year", t.total) +
+    `</tbody></table></div><p class="muted">${esc(t.note)} Separate from the estimated tax on unrealized gains.</p>`;
+}
+
 export function stCarryforwardHtml(s) {
   const cf = s.carryforward_in;
   const how = cf.entered ? "Entered from your Schedule D." : "Estimated from your earlier sales; enter last year's Schedule D figures to replace this.";
@@ -45,7 +55,7 @@ function stBodyHtml() {
   if (stError) return `<h3>Realized gains this year</h3><p class="field-error">${esc(stError)}</p>`;
   if (!stData) return `<h3>Realized gains this year</h3><p class="muted">Loading…</p>`;
   const msg = stMessage ? `<p class="${stMessage.error ? "field-error" : "muted"}" role="status">${esc(stMessage.text)}</p>` : "";
-  return `<h3>Realized gains for ${esc(String(stData.year))}</h3>${msg}${stNettingHtml(stData)}${stCarryforwardHtml(stData)}${stWashHtml(stData.wash)}`;
+  return `<h3>Realized gains for ${esc(String(stData.year))}</h3>${msg}${stNettingHtml(stData)}${stTaxHtml(stData)}${stCarryforwardHtml(stData)}${stWashHtml(stData.wash)}`;
 }
 
 export function renderSalesTaxYear() {
@@ -91,4 +101,4 @@ export function stSaveCarryforward() {
 
 export const stRefreshWash = () => stPost("/api/sales/wash/refresh", null, "Wash-sale check done.");
 
-Object.assign(window, { stNettingHtml, stCarryforwardHtml, stWashHtml, renderSalesTaxYear, loadSalesTaxYear, stSaveCarryforward, stRefreshWash });
+Object.assign(window, { stNettingHtml, stTaxHtml, stCarryforwardHtml, stWashHtml, renderSalesTaxYear, loadSalesTaxYear, stSaveCarryforward, stRefreshWash });
