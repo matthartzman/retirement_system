@@ -4,6 +4,7 @@ detection is ``wash_sales``; this module only reads and writes the plan file. No
 projection or the engine. Every function takes the workspace ``input`` folder like ``sales_service``."""
 from __future__ import annotations
 
+import logging
 import math
 from pathlib import Path
 from typing import Any
@@ -11,10 +12,13 @@ from typing import Any
 from . import active_plan
 from .core import ACCOUNT_TYPES, _infer_type
 from .realized_seed import terms_from_ledger_rows
-from .realized_tax import net_realized_by_year, net_realized_year
+from .realized_tax import net_realized_by_year, net_realized_year, plan_ordinary_income, realized_gain_tax
 from .taxes import capital_loss_ordinary_limit
 from .sales_ledger import ValidationError
-from .wash_sales import buys_from_rows, detect_wash_sales, plan_flag_updates
+from .sales_matching import buy_rows
+from .wash_sales import buys_from_rows, dedupe_buys, detect_wash_sales, plan_flag_updates
+
+log = logging.getLogger(__name__)
 
 _LEDGER_CLASSES = ("taxable", "pre_tax", "roth", "hsa")
 
@@ -31,6 +35,35 @@ def _filing(input_dir: str | Path, filing: str | None) -> str:
 
 def _adjustments(store) -> dict[int, dict[str, Any]]:
     return {int(a["tax_year"]): a for a in store.sales.adjustments()}
+
+
+def _plan_config(input_dir: str | Path) -> dict[str, Any] | None:
+    """The Planner's built config (no live pricing, no projection run), or None when the plan cannot be built."""
+    try:
+        from .data_io import parse_client
+        return parse_client(active_plan.peek_plan_data_for_input_dir(input_dir), "", skip_live_pricing=True)
+    except Exception:  # noqa: BLE001 - a partial plan must not take the panel down
+        return None
+
+
+def realized_tax_estimate(cfg: dict[str, Any] | None, netting: dict[str, float], year: int, filing: str,
+                          state_rate_override: float | None = None) -> dict[str, Any]:
+    """Dollar tax on the year's netted gains (federal ordinary/LTCG, NIIT, state) from the engine's own functions.
+    ``available`` is False, with no figures, when the plan config cannot be built or priced."""
+    if not cfg:
+        return {"available": False, "reason": "The plan is not complete enough to price tax."}
+    try:
+        c = dict(cfg)
+        c["filing_status"] = filing
+        income = plan_ordinary_income(c, year)
+        parts = realized_gain_tax(c, netting, year=year, ordinary_income=income, magi=income,
+                                  state_rate_override=state_rate_override)
+    except Exception:  # noqa: BLE001
+        return {"available": False, "reason": "The plan is not complete enough to price tax."}
+    return {"available": True, "method": "planner", "ordinary_income": round(income, 2), "magi": round(income, 2),
+            "income_source": "plan earned income",
+            **{k: round(parts[k], 2) for k in ("ordinary_tax", "ltcg_tax", "niit", "state_tax", "total")},
+            "note": "Estimate: gains are stacked on the plan's earned income; pension, Social Security and withdrawals are not included."}
 
 
 def tax_year_summary(input_dir: str | Path, year: int, *, filing: str | None = None) -> dict[str, Any]:
@@ -52,7 +85,7 @@ def tax_year_summary(input_dir: str | Path, year: int, *, filing: str | None = N
     live = [s for s in sales if s["status"] == "confirmed" and s["tax_class"] == "taxable"
             and s["gain"] is not None and s["sale_date"][:4] == str(year)]
     flagged = [s for s in live if s["wash_flag"] != "none" and s["gain"] < 0]
-    return {
+    out = {
         "year": year, "filing": filing, "limit": capital_loss_ordinary_limit(filing), "netting": netting,
         "carryforward_in": {"short": cf_in[0] + 0.0, "long": cf_in[1] + 0.0, "entered": entered},
         "carryforward_out": {"short": netting["carryforward_st"], "long": netting["carryforward_lt"]},
@@ -63,6 +96,10 @@ def tax_year_summary(input_dir: str | Path, year: int, *, filing: str | None = N
                  "rows": [{"sale_id": s["sale_id"], "symbol": s["symbol"], "sale_date": s["sale_date"],
                            "gain": s["gain"], "flag": s["wash_flag"], "note": s["wash_note"]} for s in flagged]},
     }
+    if live or netting["ordinary_offset"] or any(netting[k] for k in ("net_st", "net_lt")):   # empty ledger: no line
+        override = (adjustments.get(year) or {}).get("state_rate_override")
+        out["realized_tax"] = realized_tax_estimate(_plan_config(input_dir), netting, year, filing, override)
+    return out
 
 
 def _figure(name: str, value: Any) -> float:
@@ -108,14 +145,41 @@ def _account_classes(sales: list[dict[str, Any]], accounts: set[str]) -> dict[st
     return out
 
 
-def refresh_wash_flags(input_dir: str | Path) -> dict[str, int]:
-    """Re-run the possible-wash scan against the holdings lots and write the flags to the ledger rows.
-    Returns how many loss sales are flagged and how many rows changed."""
-    with active_plan.workspace_store(_base(input_dir), write=True) as store, store.transaction():
-        sales = store.sales.list_sales()
-        buys = buys_from_rows(store.dataset("holdings").rows(), source="holdings")
-        detected = detect_wash_sales(sales, buys, accounts=_account_classes(sales, {b["account"] for b in buys}))
-        updates = plan_flag_updates(sales, detected)
-        for sale_id, flag, note in updates:
-            store.sales.set_wash_flag(sale_id, flag, note)
+def _all_buys(store) -> list[dict[str, Any]]:
+    """Replacement-purchase candidates from every source: holdings lots, broker-activity buys and reinvestments,
+    and Monarch ``Buy`` rows. A purchase present in more than one source counts once."""
+    held = buys_from_rows(store.dataset("holdings").rows(), source="holdings")
+    broker = buys_from_rows(({"date": a["run_date"], "symbol": a["symbol"], "quantity": abs(a["quantity"] or 0.0),
+                              "account": a["account"]}
+                             for a in store.broker.activity(kinds=("buy", "reinvest")) if not a["sweep"]),
+                            source="broker")
+    monarch = buys_from_rows(buy_rows(store.dataset("ytd_transactions").rows()), source="monarch")
+    return dedupe_buys(held, broker, monarch)
+
+
+def refresh_wash_flags_in(store) -> dict[str, int]:
+    """``refresh_wash_flags`` inside the caller's open write store (and transaction)."""
+    sales = store.sales.list_sales()
+    buys = _all_buys(store)
+    detected = detect_wash_sales(sales, buys, accounts=_account_classes(sales, {b["account"] for b in buys}))
+    updates = plan_flag_updates(sales, detected)
+    for sale_id, flag, note in updates:
+        store.sales.set_wash_flag(sale_id, flag, note)
     return {"flagged": len(detected), "updated": len(updates)}
+
+
+def refresh_wash_flags(input_dir: str | Path) -> dict[str, int]:
+    """Re-run the possible-wash scan against holdings lots, broker buys and Monarch Buy rows and write the flags to
+    the ledger rows. Returns how many loss sales are flagged and how many rows changed."""
+    with active_plan.workspace_store(_base(input_dir), write=True) as store, store.transaction():
+        return refresh_wash_flags_in(store)
+
+
+def auto_refresh(input_dir: str | Path) -> None:
+    """Best-effort ``refresh_wash_flags`` for the ledger-changing operations (confirm, add, import, undo, 1099-B).
+    Idempotent and cheap; it runs after the primary operation has committed and swallows every error, so a scan
+    problem can never fail or roll back the operation that triggered it."""
+    try:
+        refresh_wash_flags(input_dir)
+    except Exception:  # noqa: BLE001 - flags are advisory; the primary write already succeeded
+        log.warning("automatic wash-sale scan failed", exc_info=True)
