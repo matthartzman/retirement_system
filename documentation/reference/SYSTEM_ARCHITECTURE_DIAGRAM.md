@@ -552,7 +552,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/build_entry.py` | `reporting.workbook_builder` | — |
 | `src/build_snapshot.py` | `active_plan`, `plan_db_replace`, `version` | — |
 | `src/cash_accounts.py` | — | — |
-| `src/cash_anchor.py` | — | — |
+| `src/cash_anchor.py` | `cash_ledger` | — |
 | `src/cash_ledger.py` | `ytd_tracking` | — |
 | `src/cash_pairing.py` | — | — |
 | `src/cash_view.py` | `cash_ledger`, `cash_pairing`, `local_store`, `platform_runtime`, `sales_confirm`, `workspace_context` | — |

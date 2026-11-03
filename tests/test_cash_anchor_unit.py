@@ -106,3 +106,56 @@ def test_confirming_a_sale_does_not_credit_cash(tmp_path):
                                confirm_method="fifo")
     assert out["confirmed"]                              # the sale was confirmed ...
     assert ("CASH", "2026-01-01", "10") in lots(ws)      # ... and CASH is untouched (the broker balance is the writer)
+
+
+# ---- anchor 2: the confirmed CASH lot plus the file's flows (cash design 4.5) ----------------------------------------
+def frow(day, kind, amount, **kw):
+    return {"run_date": day, "kind": kind, "amount": amount, "row_key": f"{day}{kind}{amount}", **kw}
+
+
+def test_anchor2_rolls_the_confirmed_lot_forward_by_the_files_flows():
+    rows = [frow("2026-03-02", "dividend", 5.0), frow("2026-03-03", "other", 500.0, action="Contribution"),
+            frow("2026-03-04", "other", -25.0, action="Service Fee"), frow("2026-03-05", "buy", -100.0)]
+    plan = cash_anchor.plan_write(rows, [cash_lot("1000", "2026-03-01")], ACCT)
+    assert plan["write"] and plan["anchored"] and plan["anchor"] == "confirmed CASH lot plus flows"
+    assert (plan["old"], plan["new"], plan["new_date"], plan["flows"]) == ("1000", "1380", "2026-03-05", "380")
+
+
+def test_anchor2_skips_rows_on_or_before_the_lot_date_and_rows_already_imported():
+    rows = [frow("2026-03-01", "dividend", 50.0), frow("2026-03-02", "dividend", 5.0), frow("2026-03-03", "dividend", 7.0)]
+    plan = cash_anchor.plan_write(rows, [cash_lot("1000", "2026-03-01")], ACCT, new_rows=rows[:2])
+    assert plan["new"] == "1005"          # 03-01 is inside the confirmed balance; 03-03 was imported before
+
+
+def test_anchor2_needs_a_dated_lot_and_a_contiguous_newer_file_and_never_writes_otherwise():
+    rows = [frow("2026-03-10", "dividend", 5.0)]
+    for lot, why in [(cash_lot("10", ""), "no date"), (cash_lot("10", "2026-03-01"), "missing"),
+                     (cash_lot("10", "2026-03-10"), "not after")]:
+        plan = cash_anchor.plan_write(rows, [lot], ACCT)
+        assert not plan["write"] and not plan["anchored"] and why in plan["reason"], plan
+    assert not cash_anchor.plan_write(rows, [], ACCT)["write"]                      # no lot at all
+    assert cash_anchor.plan_write(rows, [cash_lot("10", "2026-03-09")], ACCT)["new"] == "15"   # one day after is contiguous
+
+
+def test_anchor2_ignores_sweep_legs_and_in_kind_transfers_and_the_broker_balance_wins():
+    rows = [frow("2026-03-02", "buy", -10.0, sweep=True), frow("2026-03-02", "other", 0.0, action="Transfer",
+                                                              symbol="TOTL", quantity=5.0)]
+    assert cash_anchor.plan_write(rows, [cash_lot("10", "2026-03-01")], ACCT)["new"] == "10"
+    both = [frow("2026-03-02", "dividend", 5.0, cash_balance=777.0)]
+    plan = cash_anchor.plan_write(both, [cash_lot("10", "2026-03-01")], ACCT)
+    assert plan["anchor"] == "broker balance" and plan["new"] == "777"
+
+
+def test_anchor2_import_writes_with_old_new_and_revert_restores(tmp_path):
+    acct = "Member_1_Rollover_IRA"
+    lot = {**cash_lot("100", "2026-04-30"), "account": acct}      # the E*Trade file's first day is 2026-05-01
+    ws = make_ws(tmp_path, [lot])
+    out = broker_import.commit(ws / "input", broker="etrade", text=etrade_csv(), file_name="etrade.csv", account=acct,
+                               history_only=[acct])
+    cw = summary(ws, out["import_id"])["cash_write"]
+    assert cw and cw["anchor"] == "confirmed CASH lot plus flows" and cw["old"] == "100"
+    assert ("CASH", cw["new_date"], cw["new"]) in lots(ws) and cw["new"] != "100"
+    again = broker_import.preview(ws / "input", broker="etrade", text=etrade_csv(), file_name="etrade.csv", account=acct)
+    assert again["parts"][0]["cash"]["write"] is False         # re-importing the same file cannot add the flows twice
+    broker_import.revert(ws / "input", out["import_id"])
+    assert ("CASH", "2026-04-30", "100") in lots(ws)
