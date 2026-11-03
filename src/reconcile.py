@@ -222,6 +222,44 @@ def _auto_hold(row: dict[str, Any]) -> str | None:
     return None
 
 
+PRICE_MATCH_PCT = 0.005  # a price-adjusted investment gap within this share of Monarch's balance is a match
+PRICE_LOOKBACK_DAYS = 7  # a stored price older than this before Monarch's date is too stale to reprice with
+
+
+def _prices_on(symbols: list[str], balance_date: str) -> dict[str, float]:
+    """Latest stored price per symbol as of the end of ``balance_date`` (within the lookback); none if unknown."""
+    from datetime import timedelta
+    from .portfolio_analytics import snapshot_prices_between
+
+    day = date.fromisoformat(balance_date)
+    try:
+        return snapshot_prices_between(symbols, (day - timedelta(days=PRICE_LOOKBACK_DAYS)).isoformat() + " 00:00:00",
+                                       (day + timedelta(days=1)).isoformat() + " 00:00:00")
+    except Exception:
+        return {}
+
+
+def _latest_prices() -> dict[str, float]:
+    return ytd._local_price_snapshot(".")
+
+
+def _price_effect(holdings: list[dict[str, Any]], account: str, balance_date: str) -> float:
+    """How much of the account's holdings value is price movement since Monarch's balance date:
+    sum of shares x (latest price - price on that date). Symbols without both prices contribute nothing."""
+    lots = [r for r in holdings if str(r.get("account") or "").strip().casefold() == account.strip().casefold()
+            and str(r.get("symbol") or "").strip().upper() not in ("", "CASH")]
+    symbols = sorted({str(r["symbol"]).strip().upper() for r in lots})
+    if not symbols:
+        return 0.0
+    latest, then = _latest_prices(), _prices_on(symbols, balance_date)
+    effect = 0.0
+    for r in lots:
+        sym = str(r["symbol"]).strip().upper()
+        if sym in latest and sym in then:
+            effect += ytd.parse_money(r.get("shares")) * (latest[sym] - then[sym])
+    return round(effect, 2)
+
+
 def _monarch_side(monarch: list[dict[str, Any]], liability: bool) -> dict[str, Any]:
     total = sum(a["balance"] for a in monarch)
     return {"policy": _row_policy(monarch) if monarch else "ask",
@@ -325,6 +363,9 @@ def build_rows(input_dir: str | Path, as_of: str | None = None, *, tolerance: fl
             row["difference"] = round(row["monarch_value"] - row["app_value"], 2)
             if row["status"] in ("match", "differs"):
                 row["status"] = "differs" if abs(row["difference"]) >= tolerance else "match"
+        if (row.get("price_effect") and row["difference"] is not None
+                and abs(row["difference"]) <= max(tolerance, PRICE_MATCH_PCT * abs(row["monarch_value"]))):
+            row["status"], row["report_reason"] = "match", None  # only price movement separates the two
         if row["status"] == "differs" and row.get("policy") == "app":
             row["status"], row["report_reason"] = "report_only", REPORT_ONLY_APP
         also = row.get("write_also")
@@ -363,6 +404,11 @@ def build_rows(input_dir: str | Path, as_of: str | None = None, *, tolerance: fl
                 "new": f"{_money_text(row['monarch_value'])}|{new_date}"})
         elif role == INVESTMENT_ROLE:
             row.update(status="report_only", report_reason=REPORT_ONLY_INVEST)
+            # Ticket 371: reprice the app's number to Monarch's balance date so price moves are not a variance.
+            effect = _price_effect(holdings, str(raw.get("Mapped Investment Account") or name), max(a["balance_date"] for a in mapped))
+            if effect:
+                row["price_effect"], row["app_value_raw"] = effect, row["app_value"]
+                row["app_value"] = round(row["app_value"] - effect, 2)
         elif role in ANNUITY_ROLES and g is not None and str(g.get("source", "")).startswith("income_stream_base"):
             row.update(status="report_only", report_reason=REPORT_ONLY_STREAM)
         else:

@@ -442,9 +442,13 @@ export function renderHoldings() {
     setTimeout(loadManagedHoldingAccounts, 0);
   }
   const h = ensureHoldingRows();
-  const accounts = holdingAccounts();
+  // Checking & Savings accounts have their own page; keep them off this one.
+  const hiddenCash = cashOnlyAccounts(h.data);
+  const isHiddenCash = (a) => hiddenCash.has(String(a || "").trim().toLowerCase());
+  const accounts = holdingAccounts().filter((a) => !isHiddenCash(a));
   const visible = h.data
     .map((r, i) => ({ r, i }))
+    .filter((x) => !isHiddenCash(x.r.account))
     .filter(
       (x) =>
         window.currentHoldingAccount === "ALL" ||
@@ -468,7 +472,11 @@ export function renderHoldings() {
   // window (not module-local) because the toggle button's onclick attribute
   // runs in global scope, not this module's scope -- see the file header.
   const colsCollapsed = window.holdingsColsCollapsed !== false;
-  let html = `<div class="holdings" data-help-section="holdings.plan_holdings"><h3 class="group-title">Plan Holdings ${(window.RPHelp?.sectionButtonHtml("holdings.plan_holdings") || "")}</h3>${renderUserPricingSymbolTester()}<input type="file" id="holdingsImportInput" accept=".csv,text/csv" style="display:none" onchange="handleHoldingsCsvImport(this)"><div class="table-actions"><select data-focus-key="holdings:account-select" onchange="setHoldingAccount(this.value)"><option value="ALL" ${window.currentHoldingAccount === "ALL" ? "selected" : ""}>All accounts</option>${accounts.map((a) => `<option value="${esc(a)}" ${window.currentHoldingAccount === a ? "selected" : ""}>${esc(accountDisplayLabel(a))}</option>`).join("")}</select><button class="btn" onclick="addHoldingLot()">Add Lot</button><button class="btn" onclick="addHoldingAccount()">Add Account</button><button class="btn" type="button" data-requires-app="1" onclick="document.getElementById('holdingsImportInput').click()">Preview &amp; replace CSV</button><button class="btn danger" ${window.currentHoldingAccount === "ALL" ? "disabled" : ""} onclick="deleteHoldingAccount()">Delete Account</button><button class="btn col-group-toggle" type="button" onclick="window.holdingsColsCollapsed=${colsCollapsed ? "false" : "true"};renderMain()">${colsCollapsed ? "Show note column" : "Hide note column"}</button></div><div class="lot-table-wrap pinned-col${colsCollapsed ? " cols-collapsed" : ""}"><table class="lot-table"><thead><tr>${cols.map((c) => `<th${c === "note" ? ' data-col-group="extra"' : ""}>${esc(humanLabel(c))}</th>`).join("")}<th>Actions</th></tr></thead><tbody>`;
+  // Ticket 374: the grouped, collapsible view leads; the flat lot table moves under "Edit lots".
+  const tree = typeof window.renderHoldingsTree === "function"
+    ? window.renderHoldingsTree(h.data.filter((r) => !isHiddenCash(r.account)), accountDisplayLabel)
+    : "";
+  let html = `${tree}<div class="holdings" data-help-section="holdings.plan_holdings"><details${tree && !window.holdingsEditOpen ? "" : " open"} ontoggle="window.holdingsEditOpen=this.open"><summary>Edit lots ${(window.RPHelp?.sectionButtonHtml("holdings.plan_holdings") || "")}</summary>${renderUserPricingSymbolTester()}<input type="file" id="holdingsImportInput" accept=".csv,text/csv" style="display:none" onchange="handleHoldingsCsvImport(this)"><div class="table-actions"><select data-focus-key="holdings:account-select" onchange="setHoldingAccount(this.value)"><option value="ALL" ${window.currentHoldingAccount === "ALL" ? "selected" : ""}>All accounts</option>${accounts.map((a) => `<option value="${esc(a)}" ${window.currentHoldingAccount === a ? "selected" : ""}>${esc(accountDisplayLabel(a))}</option>`).join("")}</select><button class="btn" onclick="addHoldingLot()">Add Lot</button><button class="btn" onclick="addHoldingAccount()">Add Account</button><button class="btn" type="button" data-requires-app="1" onclick="document.getElementById('holdingsImportInput').click()">Preview &amp; replace CSV</button><button class="btn danger" ${window.currentHoldingAccount === "ALL" ? "disabled" : ""} onclick="deleteHoldingAccount()">Delete Account</button><button class="btn col-group-toggle" type="button" onclick="window.holdingsColsCollapsed=${colsCollapsed ? "false" : "true"};renderMain()">${colsCollapsed ? "Show note column" : "Hide note column"}</button></div><div class="lot-table-wrap pinned-col${colsCollapsed ? " cols-collapsed" : ""}"><table class="lot-table"><thead><tr>${cols.map((c) => `<th${c === "note" ? ' data-col-group="extra"' : ""}>${esc(humanLabel(c))}</th>`).join("")}<th>Actions</th></tr></thead><tbody>`;
   const cashOnly = cashOnlyAccounts(h.data);
   visible.forEach(({ r, i }) => {
     const cash = cashOnly.has(String(r.account || "").trim().toLowerCase());
@@ -509,7 +517,7 @@ export function renderHoldings() {
           : `<td data-label="Actions"><a href="#" onclick="setStep('sales_ledger');return false" title="This account is managed by the transaction log">Managed in Transactions</a></td></tr>`)
         : `<td data-label="Actions"><button class="btn" type="button" aria-label="Insert a lot for this symbol" onclick="insertHoldingLotLike(${i})">+</button> ${deleteIconBtn(`deleteHoldingLot(${i})`)}</td></tr>`);
   });
-  html += `</tbody></table></div>`;
+  html += `</tbody></table></div></details>`;
   // #235: moved here from Economic & Tax Assumptions -- dividend reinvestment
   // is a per-holding-account behavior, not a system-wide economic assumption.
   const divRows = rows.filter(
@@ -588,6 +596,7 @@ Object.assign(window, {
   isHoldingDateColumn,
   normalizeHoldingDateValue,
   ensureHoldingRows,
+  cashOnlyAccounts,
   serializeHoldings,
   markHoldingsDirty,
   holdingAccounts,

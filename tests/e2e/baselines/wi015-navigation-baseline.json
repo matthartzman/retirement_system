@@ -104,6 +104,12 @@
       "errors": 0
     },
     {
+      "stepId": "reports_and_review",
+      "heading": "Build & Results",
+      "hasContent": true,
+      "errors": 0
+    },
+    {
       "stepId": "actual_spending",
       "heading": "Actual Spending",
       "hasContent": true,
@@ -117,13 +123,7 @@
     },
     {
       "stepId": "sales_ledger",
-      "heading": "Sales Ledger",
-      "hasContent": true,
-      "errors": 0
-    },
-    {
-      "stepId": "reports_and_review",
-      "heading": "Build & Results",
+      "heading": "Investment Sales Ledger",
       "hasContent": true,
       "errors": 0
     },

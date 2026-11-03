@@ -72,6 +72,7 @@ const FROZEN_SCRIPT_ORDER = [
   "js/dashboard_decomp_sales_tax.js",
   "js/dashboard_decomp_broker_import.js",
   "js/dashboard_decomp_cash_investment.js",
+  "js/dashboard_decomp_holdings_tree.js",
   "js/dashboard_decomp_transactions.js",
   "js/dashboard_decomp_transactions_log.js",
   "js/dashboard_decomp_tax_assumptions.js",
@@ -127,8 +128,8 @@ function definesOrWraps(src, sym) {
   return assign.test(stripped) || define.test(stripped);
 }
 
-test("index.html script list and order are frozen (62 module scripts)", () => {
-  assert.equal(scriptSrcs().length, 62);
+test("index.html script list and order are frozen (63 module scripts)", () => {
+  assert.equal(scriptSrcs().length, 63);
   assert.deepEqual(scriptSrcs(), FROZEN_SCRIPT_ORDER);
 });
 

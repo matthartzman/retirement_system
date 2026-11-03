@@ -138,6 +138,11 @@ const STEPS = [
     title: "Workbench",
   },
   {
+    id: "reports_and_review",
+    group: "Reports & Review",
+    title: "Build & Results",
+  },
+  {
     id: "actual_spending",
     group: "Reports & Review",
     title: "Actual Spending",
@@ -147,12 +152,7 @@ const STEPS = [
     group: "Reports & Review",
     title: "Account Reconciliation",
   },
-  { id: "sales_ledger", group: "Reports & Review", title: "Sales Ledger" },
-  {
-    id: "reports_and_review",
-    group: "Reports & Review",
-    title: "Build & Results",
-  },
+  { id: "sales_ledger", group: "Reports & Review", title: "Investment Sales Ledger" },
   {
     id: "detailed_results",
     group: "Reports & Review",

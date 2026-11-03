@@ -114,6 +114,12 @@ export async function loadSalesLedger() {
     if (slShowVoided) q.set("include_voided", "1");
     const out = await api("/api/sales?" + q);
     try { slAccounts = (await api("/api/sales/broker/imports")).accounts || []; } catch (e) { slAccounts = []; }
+    // Checking & Savings accounts have their own page; keep them out of the ledger's rows and account picker.
+    let cash = new Set();
+    try { cash = cashOnlyAccounts(ensureHoldingRows().data); } catch (e) { /* holdings not loaded: nothing to hide */ }
+    const isCash = (a) => cash.has(String(a || "").trim().toLowerCase());
+    if (out && out.sales) out.sales = out.sales.filter((x) => !isCash(x.account));
+    slAccounts = slAccounts.filter((a) => !isCash(a));
     if (out && out.sales) slAccounts = [...new Set([...slAccounts, ...out.sales.map((x) => x.account)])].sort();
     slData = out && out.success ? out : null;
     if (!slData) slError = "The ledger could not be loaded.";
