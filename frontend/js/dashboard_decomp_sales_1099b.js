@@ -21,13 +21,13 @@ let bbBusy = false;
 const bbMoney = (v) => (Number(v) < 0 ? "-$" : "$") + Math.abs(Number(v) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const bbQty = (v) => esc(String(Math.round(Number(v) * 1e3) / 1e3));
 const bbLabel = (a) => (window.accountDisplayLabel ? window.accountDisplayLabel(a) : String(a));
-
 function bbMoneyCell(f) {
   if (!f || f.official === null || f.official === undefined) return `<td class="rc-num">${f ? bbMoney(f.ledger) : ""}</td>`;
   const d = Number(f.delta) || 0;
   return `<td class="rc-num">${bbMoney(f.ledger)} &rarr; ${bbMoney(f.official)}${Math.abs(d) > 0.005 ? ` <span class="muted">(${d > 0 ? "+" : ""}${bbMoney(d)})</span>` : ""}</td>`;
 }
 
+export const bbSuggestionsHtml = (r) => ((r.suggestions || []).length ? `<br><span class="muted">Possible ledger rows (advice only, nothing is applied):</span><ul class="bb-suggest">${r.suggestions.map((c) => `<li>Ledger row ${Number(c.sale_id)}, score ${Number(c.score)}: ${esc(c.reason)}</li>`).join("")}</ul>` : "");
 export function bbReportRowHtml(r) {
   const f = r.fields || {};
   const hp = f.holding_period || {};
@@ -37,7 +37,7 @@ export function bbReportRowHtml(r) {
   return `<tr class="bb-${esc(r.status)}"><td>${esc(BB_STATUS[r.status] || r.status)}${changed ? `<br><span class="muted">${esc(changed)}</span>` : ""}</td>` +
     `<td>${esc(r.symbol || "(no symbol)")}</td><td>${esc(r.date_sold)}</td><td class="rc-num">${bbQty(r.quantity)}</td>` +
     `${bbMoneyCell(f.proceeds)}${bbMoneyCell(f.basis)}${bbMoneyCell(f.gain)}<td>${hold}</td>` +
-    `<td class="rc-num">${Number(r.wash_disallowed) ? bbMoney(r.wash_disallowed) : ""}</td><td class="muted">${esc(note)}</td></tr>`;
+    `<td class="rc-num">${Number(r.wash_disallowed) ? bbMoney(r.wash_disallowed) : ""}</td><td class="muted">${esc(note)}${r.possible_return_of_capital ? ` <strong>Possible return of capital (${bbMoney(r.possible_return_of_capital.amount)})</strong>` : ""}${bbSuggestionsHtml(r)}</td></tr>`;
 }
 
 export function bbTotalsHtml(t) {
@@ -182,6 +182,6 @@ export function bbExportCsv() {
 }
 
 Object.assign(window, {
-  bbReportRowHtml, bbTotalsHtml, bbReportHtml, bbControlHtml, bbChangesHtml, bbPreviewHtml, renderSalesBroker1099b, bbLoadAccounts,
+  bbSuggestionsHtml, bbReportRowHtml, bbTotalsHtml, bbReportHtml, bbControlHtml, bbChangesHtml, bbPreviewHtml, renderSalesBroker1099b, bbLoadAccounts,
   bbSetBroker, bbSetAccount, bbSetText, bbFileChosen, bbPreviewStatement, bbApply, bbExportCsv,
 });
