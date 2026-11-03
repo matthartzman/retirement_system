@@ -2,7 +2,7 @@
 
 Date: 2026-10-31.
 
-Status: approved, with the owner's decisions of 2026-10-31 (section 7). Built 2026-11-02: Phase 0 (#343), 1 (#345), 2 (#350), 3 (#352), 4 (#353, anchor 1 only), and the spending half of Phase 6 (#354). Phase 5 (screen) is merged (#355). Phase 6 engine half built 2026-11-02 as audit plus report-only (section 10 Built note). Not built: anchor 2, and feeding the pair-status tax rule into the engine (needs the owner's approval of the numbers on real data).
+Status: approved, with the owner's decisions of 2026-10-31 (section 7). Built 2026-11-02: Phase 0 (#343), 1 (#345), 2 (#350), 3 (#352), 4 (#353, anchor 1 only), and the spending half of Phase 6 (#354). Phase 5 (screen) is merged (#355). Phase 6 engine half built 2026-11-02 as audit plus report-only (section 10 Built note). Not built: feeding the pair-status tax rule into the engine (needs the owner's approval of the numbers on real data).
 
 Overlap with the transaction log (`2026-10-31-transaction-log-design-and-plan.md`): Phases 4 and 6 below are built
 together with the log's phase 3 as the combined phase in `2026-11-02-cash-and-transaction-log-integration.md`. That note
@@ -170,3 +170,14 @@ Answers to the open questions left for Phase 3 by the Phase 2 PR. Phase 2 itself
 **Limits found in review (2026-11-02), then closed by the owner's go-ahead:** saved results carried no plan identifier (`plan_snapshot_id` was always NULL) and `app.db` is machine-level (newest 10 kept), so the newest snapshot could belong to another plan. Now `report_compute` saves the active plan's id in the existing `plan_snapshot_id` column (no schema change) and `local_store.latest_result_snapshot(plan_id=...)` returns only that plan's newest run. Runs saved before this change have no id and are ignored until the plan is run again. Retention is still 10 runs across all plans, so heavy use of other plans can push a plan's last run out. `plan_start` is today's year, so a snapshot counts only when its first projection row is the compared year, otherwise "No plan figure for <year>".
 
 **Built 2026-11-03:** the `is_year_closed` seam is now real: the owner closes a year by hand (`src/cash_year_close.py`, design in `2026-11-02-year-end-transition-design-and-plan.md`). A closed year shows its plan-minus-reported difference from the plan figure frozen at close; the close feeds no tax number.
+
+## 12. Phase 4 anchor 2 (built 2026-11-03)
+
+`cash_anchor.plan_write` now also anchors a file with no running balance (E*Trade, Vanguard) on the **confirmed `CASH` lot plus the file's flows**, section 4.5 anchor 2. Rules, all conservative so a balance never looks more reliable than it is:
+- The account needs exactly one `CASH` lot with a date (the user's confirmation). No lot, several lots, or no date: nothing is written and the preview says why.
+- The file must reach the lot: it must end after the lot's date and start no later than the day after it. A gap leaves the lot alone.
+- Only rows **not imported before** and dated **after** the lot's date count, using the ledger classes (`cash_ledger`): sweep legs, in-kind transfers and unpaired adjustments add nothing. Re-importing a file, or an overlapping one, cannot add a flow twice.
+- The lot's new date is the file's last day, so a later overlapping file adds only rows dated after it. A file's own running balance (anchor 1) still wins when present.
+- Same old/new record in `summary.cash_write` (now with `anchor` and `flows`), large-change warning and undo as anchor 1. Monarch fallback rows are not added by the import write (they are in the panel's balance).
+
+Tests: `tests/test_cash_anchor_unit.py`. Golden master unchanged (no engine path).

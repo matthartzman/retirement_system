@@ -70,6 +70,19 @@ describe("difference report", () => {
   });
 });
 
+describe("suggestions and return of capital", () => {
+  test("renders advisory candidates and the possible return of capital label", () => {
+    const html = m.bbReportRowHtml({ ...REPORT.rows[1], symbol: "ABCD", possible_return_of_capital: { amount: 50, fraction_of_basis: 0.04 },
+      suggestions: [{ sale_id: 7, score: 88, reason: "same symbol; <i>x</i>" }] });
+    assert.match(html, /Possible return of capital \(\$50\.00\)/);
+    assert.match(html, /Ledger row 7, score 88: same symbol; &lt;i&gt;x/);
+    assert.match(html, /nothing is applied/);
+  });
+  test("rows without them render as before", () => {
+    assert.doesNotMatch(m.bbReportRowHtml(REPORT.rows[0]), /return of capital|Possible ledger rows/);
+  });
+});
+
 describe("preview and control totals", () => {
   test("a tying corrected statement can be applied", () => {
     const html = m.bbPreviewHtml(PREVIEW());
