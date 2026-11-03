@@ -119,7 +119,7 @@ async function sqLoadPanel(id, extra = "") {
 
 export const sqOpen = (id) => sqLoadPanel(id);
 export function sqReload() {
-  const q = new URLSearchParams({ symbol: (document.getElementById("sqSymbol") || {}).value || "", shares: (document.getElementById("sqShares") || {}).value || "" });
+  if (!sqPanel) return loadSalesQueue(); const q =new URLSearchParams({ symbol: (document.getElementById("sqSymbol") || {}).value || "", shares: (document.getElementById("sqShares") || {}).value || "" });
   return sqLoadPanel(sqPanel.candidate.candidate_id, "?" + q);
 }
 
