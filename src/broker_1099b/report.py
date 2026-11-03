@@ -5,6 +5,10 @@ from typing import Any, Mapping, Sequence
 
 from ..csv_exchange import text_csv
 
+ROC_NOTE = "possible return of capital: official basis is lower than the ledger basis by a small amount"
+ROC_MIN_DROP = 1.00        # dollars; smaller drops are rounding
+ROC_MAX_DROP_FRACTION = 0.25  # of the ledger basis; a larger drop is more likely a different lot or a basis error
+ROC_PROCEEDS_TOLERANCE = 0.01  # the proceeds must agree within 1% so the line is plainly the same sale
 NONCOVERED_NOTE = "broker did not report basis; ledger value kept"
 _MONEY = ("proceeds", "basis", "gain")
 _EPS = 0.005
@@ -78,8 +82,25 @@ def _field(ledger: Any, official: Any, *, money: bool = True, note: str | None =
     return f
 
 
+def possible_return_of_capital(ln: Mapping[str, Any], kind: str, ledger_basis: float, official_basis: float,
+                               ledger_proceeds: float, official_proceeds: float) -> dict[str, float] | None:
+    """Conservative label for a basis difference that may be a return of capital (a distribution that lowered the cost
+    basis after the ledger row was entered). All must hold: a lot-level match, a covered line (the broker reports the
+    basis), the official basis lower than the ledger's by at least ``ROC_MIN_DROP`` and at most
+    ``ROC_MAX_DROP_FRACTION`` of it, and the proceeds within ``ROC_PROCEEDS_TOLERANCE`` (the same sale). Advisory text
+    only: it never changes a number."""
+    if kind != "lot" or not ln["covered"] or ledger_basis <= 0:
+        return None
+    drop = _r(ledger_basis - official_basis)
+    if drop < ROC_MIN_DROP or drop > ledger_basis * ROC_MAX_DROP_FRACTION:
+        return None
+    if abs(official_proceeds - ledger_proceeds) > max(_EPS, abs(ledger_proceeds) * ROC_PROCEEDS_TOLERANCE):
+        return None
+    return {"amount": drop, "fraction_of_basis": round(drop / ledger_basis, 4)}
+
+
 def build_report(lines: Sequence[Mapping[str, Any]], ledger: Sequence[Mapping[str, Any]], result: Mapping[str, Any], *,
-                 tax_year: int) -> dict[str, Any]:
+                 tax_year: int, suggestions: Mapping[int, Sequence[Mapping[str, Any]]] | None = None) -> dict[str, Any]:
     """Every matched line with what changed, lines with no ledger row, and ledger rows of the year with no line."""
     by_id = {r["sale_id"]: r for r in ledger}
     rows: list[dict[str, Any]] = []
@@ -107,14 +128,22 @@ def build_report(lines: Sequence[Mapping[str, Any]], ledger: Sequence[Mapping[st
             fields["sale_date"] = _field(sales[0]["sale_date"], ln["date_sold"], money=False)
             if sales[0]["sale_date"] != ln["date_sold"]:
                 changed.append("sale_date")
-        rows.append(_row("changed" if changed else "unchanged", ln, m["sale_ids"], m["kind"], fields, changed,
-                         wash=_r(ln.get("wash_disallowed") or 0.0)))
+        row = _row("changed" if changed else "unchanged", ln, m["sale_ids"], m["kind"], fields, changed,
+                   wash=_r(ln.get("wash_disallowed") or 0.0))
+        roc = possible_return_of_capital(ln, m["kind"], led["basis"], new["basis"], led["proceeds"], new["proceeds"])
+        if roc:
+            row["possible_return_of_capital"] = roc
+            row["note"] = ROC_NOTE
+        rows.append(row)
     for i in result["unmatched_lines"]:
         ln = lines[i]
         fields = {"proceeds": _field(0.0, _r(ln["proceeds"])), "basis": _field(0.0, _r(ln["basis"])),
                   "gain": _field(0.0, _r(ln["gain"])), "holding_period": _field(None, ln["term"], money=False)}
-        rows.append(_row("not_previously_entered", ln, [], "line", fields, [], "no ledger row; will be added as source 1099b",
-                         wash=_r(ln.get("wash_disallowed") or 0.0)))
+        row = _row("not_previously_entered", ln, [], "line", fields, [], "no ledger row; will be added as source 1099b",
+                   wash=_r(ln.get("wash_disallowed") or 0.0))
+        if suggestions and suggestions.get(i):
+            row["suggestions"] = [dict(c) for c in suggestions[i]]
+        rows.append(row)
     year = str(int(tax_year))
     for sid in result["unmatched_ledger"]:
         s = by_id[sid]

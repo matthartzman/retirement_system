@@ -82,10 +82,13 @@ def preview(input_dir: str | Path, *, broker: str, account: str, text: str | Non
         ledger = _ledger_before(store, active["statement_id"] if active else None)
         previous = store.sales.statement_lines(active["statement_id"]) if active else []
     result = matching.match_lines(lines, ledger, account=account)
-    rep = _report.build_report(lines, ledger, result, tax_year=year)
+    suggestions = matching.suggest(lines, ledger, result, account=account)
+    rep = _report.build_report(lines, ledger, result, tax_year=year, suggestions=suggestions)
     placed = {m["line_index"]: m["sale_ids"] for m in result["matches"]}
     washes = _report.wash_adjustments(lines, [placed.get(i, []) for i in range(len(lines))])
-    out = {**pv, "wash_adjustments": washes, "account": account, "tax_year": year, "match": result, "report": rep, "report_csv": _report.report_csv(rep),
+    out = {**pv, "wash_adjustments": washes, "account": account, "tax_year": year, "match": result, "report": rep,
+           "suggestions": [{"line_index": i, "symbol": lines[i].get("symbol"), "date_sold": lines[i]["date_sold"],
+                            "quantity": lines[i]["quantity"], "candidates": c} for i, c in sorted(suggestions.items())], "report_csv": _report.report_csv(rep),
            "supersedes": None, "changes_since_previous": []}
     if active:
         out["supersedes"] = {"statement_id": active["statement_id"], "applied_at": active["applied_at"],
