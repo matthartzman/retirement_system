@@ -330,7 +330,8 @@ def run_projection_artifacts(c: Mapping[str, Any], run_mc: bool = True, enforce_
         cfg.setdefault('config_contract_warnings', []).append(f'ReportSpec contract build failed: {exc}')
     try:
         from .local_store import save_result_snapshot
-        save_result_snapshot(cfg.get('plan_result', {}), cfg.get('projection_event_log', []))
+        from .workspace_context import active_plan_id
+        save_result_snapshot(cfg.get('plan_result', {}), cfg.get('projection_event_log', []), plan_snapshot_id=active_plan_id())
     except Exception:
         _LOG.warning('save_result_snapshot failed', exc_info=True)
     return ProjectionArtifacts(cfg, rows, mc_data, validation)

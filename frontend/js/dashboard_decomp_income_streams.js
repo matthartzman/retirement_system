@@ -327,13 +327,21 @@ export function fieldControlOnly(r) {
   return ctrl ? ctrl.outerHTML : html;
 }
 
+// Ticket 370: the Member QLAC sections appear only once QLAC is switched on in Plan Features (Member 1's
+// qlac_enabled row) or a member already has it enabled.
+function qlacSectionsVisible() {
+  return ["Member 1 QLAC", "Member 2 QLAC"].some((sub) => sectionFlagEnabled("Income Streams", sub, "qlac_enabled"));
+}
+
 export function incomeStreamSubsections() {
+  const showQlac = qlacSectionsVisible();
   return [
     ...new Set(
       rows
         .filter(isEditable)
         .filter(
           (r) =>
+            (showQlac || !/ QLAC$/i.test(String(r.subsection || ""))) &&
             r.section === "Income Streams" &&
             ![
               "joint_and_survivor_percentage",

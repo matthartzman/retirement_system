@@ -1,6 +1,13 @@
 # Investment-account cash tracking: design and plan
 
-Date: 2026-10-31. Status: design approved with the owner's decisions of 2026-10-31 (section 7); nothing built.
+Date: 2026-10-31.
+
+Status: approved, with the owner's decisions of 2026-10-31 (section 7). Built 2026-11-02: Phase 0 (#343), 1 (#345), 2 (#350), 3 (#352), 4 (#353, anchor 1 only), and the spending half of Phase 6 (#354). Phase 5 (screen) is merged (#355). Phase 6 engine half built 2026-11-02 as audit plus report-only (section 10 Built note). Not built: feeding the pair-status tax rule into the engine (needs the owner's approval of the numbers on real data).
+
+Overlap with the transaction log (`2026-10-31-transaction-log-design-and-plan.md`): Phases 4 and 6 below are built
+together with the log's phase 3 as the combined phase in `2026-11-02-cash-and-transaction-log-integration.md`. That note
+fixes the `CASH` lot as written only by this ledger, shares the Phase 3 transfer pairing with the log's importer, keeps
+sale confirmation from crediting `CASH` a second time, and makes schema version numbers "next free".
 
 ## 1. Goal
 
@@ -113,3 +120,64 @@ Total: roughly two to three working sessions after Phase 0. Regenerate the archi
 3. An external withdrawal may stand alone; it does not need a checking-account partner.
 4. An import writes the computed balance to the CASH lot automatically when the balance is anchored; it is recorded in history with an undo.
 5. Cash interest and dividends are shown separately by the account's tax class.
+
+## 8. Phase 2 decisions (owner, 2026-11-02; ledger builder is `src/cash_ledger.py`)
+
+Answers to the open questions left for Phase 3 by the Phase 2 PR. Phase 2 itself is built (derived view, no schema change).
+
+1. **Unclassified rows are paired.** Rows no rule classifies (and Monarch `Uncategorized`) are classed transfer in/out by sign with `needs_review`; Phase 3 pairs them like any transfer and keeps the review flag.
+2. **Keep the E*Trade reference id.** Phase 3 adds the reference to the parsed row so own-account transfers pair on it first; amount within 3 days and exactly one candidate remains the fallback.
+3. **In-kind transfers are paired too.** They stay zero-cash and `counts=False`, but Phase 3 pairs in-kind out/in across own accounts for visibility (the transaction log still owns the lots).
+4. **Return of excess contribution gets its own class** (to be added in Phase 3, replacing `distribution` for these rows) so it is not taxed as a normal withdrawal; Phase 6 sets the tax treatment.
+5. **Rollovers are distinguished** from own-account transfers (a marker on Vanguard `Rollover (incoming)` and similar), so an outside-plan rollover is not paired as an own-account transfer.
+6. **Coverage gap: keep dropping, and warn.** A Monarch row inside a broker file's date range is still dropped (broker wins), but Phase 3/5 lists dropped Monarch rows with no broker row of the same amount within 3 days as a notice.
+
+## 9. Phase 3 decisions (owner, 2026-11-02; pairing is `src/cash_pairing.py`, PR 352)
+
+1. **Rollovers:** an unpartnered rollover stays `unmatched`. A plain contribution pairs with a matching outflow of another plan account, otherwise stays `unpaired`.
+2. **Coverage gap notice:** deferred to a one-time query after the functionality is complete.
+3. **Half-pairs (Phase 4):** each account's balance and anchor check count its own rows only. A missing or partly covered partner file never changes the other account's number; the row shows its pair status and the account is flagged "partner not imported".
+4. **Tax rule (Phase 6):** tax by pair status, not class. Any `external_withdrawal` (class `distribution` or `transfer_out`) is a withdrawal from the account; an `internal` pair is not.
+5. **`excess_return` (Phase 6):** untaxed and treated as the contribution coming back: not a taxable withdrawal and not external spending. Earnings on it are taxable, so the user is flagged to enter them.
+
+**Built 2026-11-02 (Phase 5):** `src/cash_view.py`, `GET /api/cash` (per-account summary and income by tax class; `?account=` for one ledger), panel `frontend/js/dashboard_decomp_cash_investment.js` on the Sales Ledger page below the broker import. Balance anchors on the file's latest running balance, else the confirmed `CASH` lot, else the account shows "unanchored" with no number. Difference is balance minus the `CASH` lot. The ledger shows the broker's running balance on rows that have one. Tests: `tests/test_cash_view_unit.py`, `tests/frontend/cash_investment_panel.test.mjs`.
+
+## 10. Phase 6 engine-half decisions (owner, 2026-11-02)
+
+1. **`CASH` lot in the engine:** audit first. Run `measure`, record how the engine values `CASH` per account class, and change code only where a class is wrong. The golden master does not move without owner approval.
+2. **`excess_return`:** as section 9 item 5. Untaxed, not external spending, and the user is flagged to enter the taxable earnings.
+3. **Pair-status tax rule:** report-only first. Show per-account taxable withdrawals by pair status in the Cash panel and compare with the plan's current assumptions; feed the engine only after the owner approves the numbers on real data.
+4. **Sequencing:** start after PR #355 (Phase 5 screen) merges.
+
+**Built 2026-11-02 (Phase 6 engine half; audit plus report-only, no engine change, golden master `measure` MATCH before and after):**
+
+*Audit of the `CASH` lot in the engine* (no code change; no real inconsistency found):
+- Balance: every class values the lot as shares x 1.00 (`market_data` hardcodes the CASH price); `parse_capital_market_returns` sums it into the account balance. Taxable, traditional, Roth and HSA are identical here. Cash growth uses the `CASH` asset-class default (2.0% income, no growth).
+- Tax: only taxable draws reach the lot engine (`_realize_taxable_gain`, `LotEngine.gain_on_withdrawal`). Traditional is taxed as ordinary income and Roth/HSA by their own withdrawal rules, none of which read lots, so the lot's basis never matters there.
+- Taxable gain on cash: basis = shares x `purchase_price`. Lots the app writes (`cash_accounts`) use price 1, so cash withdrawn from a taxable account realizes no gain, and the anchored write (`cash_anchor`) changes only shares. Hazard, not an engine fault: a hand-entered CASH lot with a blank or 0 `purchase_price` has zero basis and would be taxed as pure gain (and if all lots have no basis, the engine falls back to the flat gain fraction). Check `purchase_price` is 1 on CASH lots. No change made.
+
+*Report-only additions* (`src/cash_view.py`, `GET /api/cash`, Cash panel): per account `tax_class`; `withdrawals` for the year by pair status (`external_withdrawal` = a withdrawal from the account, `internal` = not a withdrawal, `unmatched` = undecided); `excess_return` (count and amount of the year, untaxed, not external spending, with the note to enter its taxable earnings). Nothing feeds the engine's tax numbers. Tests: `tests/test_cash_view_unit.py`, `tests/frontend/cash_investment_panel.test.mjs`. Next step (owner): compare the reported withdrawals with the plan's assumptions on real data, then decide whether to feed the rule into the engine.
+
+## 11. Plan vs reported withdrawals (owner decisions, 2026-11-02; report only)
+
+1. Plan side is the engine's per-account ledger `row['_account_withdrawals']` in `projection_rows`. Only the current year is compared; the engine projects from plan_start, so past years show reported withdrawals by pair status with no engine column.
+2. The panel reads the newest saved result snapshot (`local_store.latest_result_snapshot`) and never runs the engine. It shows the snapshot's build time and says it may be stale.
+3. The current year is PACE: year-to-date reported `external_withdrawal` beside the engine's full-year figure, no difference column. A difference (plan minus reported) appears only for a closed year. Year close is designed separately and not built: `cash_view.is_year_closed(store, year)` returns False for every year and is the seam.
+4. A row counts in the year of its own date. An internal pair with one leg within 5 days of 31 Dec and the other in the other year is listed as "straddles year-end", never reallocated.
+
+**Built 2026-11-02:** `cash_view.comparison`, `past_years`, `year_straddles`, `plan_year_withdrawals`, `is_year_closed`; `build_view` carries `comparison`, `past_years`, `straddles` on the existing `GET /api/cash` (no new route, no schema change); panel section in `dashboard_decomp_cash_investment.js`. Engine tax numbers unchanged; golden master `measure` MATCH before and after. Tests: `tests/test_cash_view_unit.py`, `tests/frontend/cash_investment_panel.test.mjs`.
+
+**Limits found in review (2026-11-02), then closed by the owner's go-ahead:** saved results carried no plan identifier (`plan_snapshot_id` was always NULL) and `app.db` is machine-level (newest 10 kept), so the newest snapshot could belong to another plan. Now `report_compute` saves the active plan's id in the existing `plan_snapshot_id` column (no schema change) and `local_store.latest_result_snapshot(plan_id=...)` returns only that plan's newest run. Runs saved before this change have no id and are ignored until the plan is run again. Retention is still 10 runs across all plans, so heavy use of other plans can push a plan's last run out. `plan_start` is today's year, so a snapshot counts only when its first projection row is the compared year, otherwise "No plan figure for <year>".
+
+**Built 2026-11-03:** the `is_year_closed` seam is now real: the owner closes a year by hand (`src/cash_year_close.py`, design in `2026-11-02-year-end-transition-design-and-plan.md`). A closed year shows its plan-minus-reported difference from the plan figure frozen at close; the close feeds no tax number.
+
+## 12. Phase 4 anchor 2 (built 2026-11-03)
+
+`cash_anchor.plan_write` now also anchors a file with no running balance (E*Trade, Vanguard) on the **confirmed `CASH` lot plus the file's flows**, section 4.5 anchor 2. Rules, all conservative so a balance never looks more reliable than it is:
+- The account needs exactly one `CASH` lot with a date (the user's confirmation). No lot, several lots, or no date: nothing is written and the preview says why.
+- The file must reach the lot: it must end after the lot's date and start no later than the day after it. A gap leaves the lot alone.
+- Only rows **not imported before** and dated **after** the lot's date count, using the ledger classes (`cash_ledger`): sweep legs, in-kind transfers and unpaired adjustments add nothing. Re-importing a file, or an overlapping one, cannot add a flow twice.
+- The lot's new date is the file's last day, so a later overlapping file adds only rows dated after it. A file's own running balance (anchor 1) still wins when present.
+- Same old/new record in `summary.cash_write` (now with `anchor` and `flows`), large-change warning and undo as anchor 1. Monarch fallback rows are not added by the import write (they are in the panel's balance).
+
+Tests: `tests/test_cash_anchor_unit.py`. Golden master unchanged (no engine path).

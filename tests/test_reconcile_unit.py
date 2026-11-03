@@ -518,3 +518,14 @@ def test_setup_row_covered_by_a_mapped_liability_is_not_listed_as_not_in_import(
     rows = _rows(base)
     assert "setup:Visa Card" not in rows and "liability:v1" in rows
     assert not [r for r in rows.values() if r["status"] == "not_in_monarch" and r["label"] == "Visa Card"]
+
+
+def test_investment_price_move_since_monarch_date_is_not_a_variance(tmp_path, monkeypatch):
+    """Ticket 371: the app's holdings value is repriced to Monarch's balance date before the gap is reported."""
+    ws = _workspace(tmp_path)
+    base = _rows(ws)["setup:Brokerage A"]
+    monkeypatch.setattr(reconcile, "_price_effect", lambda *a, **k: -base["difference"])
+    adj = _rows(ws)["setup:Brokerage A"]
+    assert adj["app_value_raw"] == base["app_value"] and adj["price_effect"] == -base["difference"]
+    assert adj["app_value"] == round(base["app_value"] + base["difference"], 2) and adj["difference"] == 0
+    assert adj["status"] == "match"
