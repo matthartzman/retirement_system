@@ -1,6 +1,8 @@
 # Cash pair-status tax floor: worked example for owner approval
 
-Date: 2026-11-03. Status: **built, default OFF. Not approved.** Synthetic frozen sample plan only (the golden-master fixture); no real data.
+Date: 2026-11-03.
+
+Status: implemented, default OFF; mechanism approved by the owner 2026-11-03, turn-on not approved. Synthetic frozen sample plan only (the golden-master fixture); no real data.
 
 ## What was built (behind `Cashflow / Cash Tracking / cash_pair_status_tax`, default FALSE)
 
