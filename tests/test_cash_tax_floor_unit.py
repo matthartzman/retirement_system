@@ -45,3 +45,42 @@ def test_setting_row_exists_and_defaults_off():
     from src.server import app_core
     rows = [r for r in app_core.CASH_TRACKING_UI_PLAN_DATA_ROWS if r[2] == "cash_pair_status_tax"]
     assert len(rows) == 1 and rows[0][3] == "FALSE" and rows[0][4] == "bool"
+
+
+# ---- HSA: bank-capped, income tax only (owner choice 2026-11-03) ------------------------------------------------------
+def test_hsa_excess_over_the_bank_only_and_blank_bank_means_all_qualified():
+    on = {"cash_pair_status_tax": True, "plan_start": 2026}
+    bal = {"H1": 10000.0, "H2": 100.0}
+    c = {**on, "cash_pair_floor_hsa_draws": {"H1": 3000.0, "H2": 1000.0}, "hsa_expense_bank": 1000.0}
+    assert cash_tax_floor.floor_draws(c, bal, 2026) == {"H1": 2250.0, "H2": 100.0}          # excess 3000, pro rata, H2 capped at balance
+    assert cash_tax_floor.floor_draws({**c, "hsa_expense_bank": None}, bal, 2026) == {}      # blank bank: all qualified
+    assert cash_tax_floor.floor_draws({**c, "hsa_expense_bank": 9999.0}, bal, 2026) == {}    # bank covers it
+    assert cash_tax_floor.floor_draws({**c, "cash_pair_status_tax": False}, bal, 2026) == {}
+
+
+def test_reported_hsa_draws_use_hsa_accounts_only(monkeypatch):
+    row = [{"class": "distribution", "counts": True, "in_kind": False, "date": "2026-03-01", "amount": -40.0,
+            "pair_status": "external_withdrawal"}]
+    ledgers = {"A_HSA": row, "B_IRA": row}
+    monkeypatch.setattr(cash_view, "_accounts", lambda s: list(ledgers))
+    monkeypatch.setattr(cash_view, "_ledgers", lambda s, a: ledgers)
+    monkeypatch.setattr(sales_confirm, "default_tax_class", lambda s, a: "hsa" if a.endswith("HSA") else "pre_tax")
+    assert cash_tax_floor.reported_hsa_draws(None, 2026) == {"A_HSA": 40.0}
+    assert cash_tax_floor.reported_draws(None, 2026) == {"B_IRA": 40.0}
+
+
+def test_engine_hsa_excess_is_drawn_and_taxed_but_qualified_part_is_left_alone():
+    from src.planning_engines import project
+    from tests.golden_pricing import FROZEN_GOLDEN_MASTER_PRICES, frozen_holdings_prices
+    from tests.test_frozen_sample_plan_golden_master_regression import _frozen_config
+    with frozen_holdings_prices(FROZEN_GOLDEN_MASTER_PRICES):
+        c = _frozen_config()
+        base = project(copy.deepcopy(c))
+        rep = {"cash_pair_status_tax": True, "cash_pair_floor_hsa_draws": {"Member_1_HSA": 6000.0}}
+        qual = project({**copy.deepcopy(c), **rep, "hsa_expense_bank": 6000.0})     # bank covers it: nothing changes
+        base_bank = project({**copy.deepcopy(c), "hsa_expense_bank": 6000.0})        # same bank, floor setting off
+        nonq = project({**copy.deepcopy(c), **rep, "hsa_expense_bank": 1000.0})     # 5,000 excess
+    assert qual == base_bank and all("_pair_floor_draws" not in r for r in qual)
+    assert nonq[0]["_pair_floor_draws"] == {"Member_1_HSA": 5000.0}
+    assert nonq[0]["_account_withdrawals"]["Member_1_HSA"] >= 5000.0
+    assert all("_pair_floor_draws" not in r for r in nonq[1:])
