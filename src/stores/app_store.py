@@ -28,7 +28,7 @@ Schema v3 (WI-038: the snapshot and build-history tables that lived in the legac
 -------------------------------------------------------------------------------------------
 ``local_settings``   ``key`` (PK), ``value_json``, ``updated_at``.
 ``result_snapshots`` ``result_id`` (PK), ``created_at``, ``plan_snapshot_id``, ``result_json``,
-                     ``event_log_json``, ``result_sha256``; newest ``DEFAULT_RESULT_SNAPSHOT_RETENTION`` kept.
+                     ``event_log_json``, ``result_sha256``; newest ``DEFAULT_RESULT_SNAPSHOT_RETENTION`` kept, plus the newest run of each plan and projection year.
 ``kpi_snapshots``    ``snapshot_id`` (PK), ``created_at``, ``build_id``, the headline KPI columns, ``kpi_json``.
 ``build_events``     ``event_id``, ``created_at``, ``build_id``, ``stage``, ``event_type``, ``detail_json``.
 ``price_snapshots``  ``snapshot_id``, ``workspace_id``, ``symbol``, ``price``, ``source``, ``status``, ``as_of``.
