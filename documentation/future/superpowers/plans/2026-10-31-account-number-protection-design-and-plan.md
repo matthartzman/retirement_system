@@ -2,7 +2,7 @@
 
 Date: 2026-10-31.
 
-Status: approved, with the owner's decisions of 2026-10-31 (section 8); nothing built.
+Status: approved, with the owner's decisions of 2026-10-31 (section 8). Phases 0 to 4 built and merged (#367, #368, #370, #372, #373): phase 0 inventory (3.1); phase 1 `src/account_numbers.py` (`last4`, `mask_text`, `contains_account_number`, `mask_file_name`, `known_ids`, per-row `exempt`) with `tests/test_account_numbers_unit.py`; phase 2 masking at broker import (`file_name`, `action`, `description`, after `row_key`) and at Monarch ingest (`Merchant`, `Original Statement`, `Notes`, cue words only; `transaction_hash` hashes the masked text); phase 3 `tools/redact_account_numbers.py` (dry run by default, `--apply` backs up first, counts only) **built but not yet run on the live plan**; phase 4 response-scan test, `tools/check_no_account_numbers.py` as a failing CI step (real-number list runs locally from the ignored `local_state/account_numbers.local.txt` or `$ACCOUNT_NUMBER_LIST`; `acct-scan: ok` marks synthetic fixture lines), `MaskingFilter` on the app log, `mask_text` in `_audit`, and the synced-folder warning in backup scheduler status. Phase 5 is an owner task, checklist in section 6.
 
 ## 1. Goal and rule
 
@@ -111,6 +111,14 @@ Decision 5: **BitLocker on the drive plus keeping the workspace out of synced fo
 - Keep the workspace and every plan backup (`plan.*.rpx`) out of OneDrive and other synced or shared folders. The repo already has a guard for this (`onedrive_guard.py`); phase 4 extends it to warn when a plan file or backup sits in a synced folder.
 - Delete plan backups and the original broker files in `Downloads` once they are no longer needed.
 
+### Phase 5 owner checklist (not done by Claude; tick when done)
+
+- [ ] Run `python tools/redact_account_numbers.py` (dry run), check the counts look right, then `python tools/redact_account_numbers.py --apply` with a backup made first. Delete that pre-redaction backup once the result is checked.
+- [ ] Put the real account numbers in `local_state/account_numbers.local.txt` (one per line; git-ignored) and run `python tools/check_no_account_numbers.py` before each push.
+- [ ] BitLocker is on for the drive that holds the workspace (`manage-bde -status` from an administrator shell, or Windows settings).
+- [ ] The workspace and every `plan.*.rpx` backup are outside OneDrive and other synced or shared folders; the backup status now shows `synced_folder_warnings` if not.
+- [ ] Old plan backups and the original broker files in `Downloads` are deleted.
+
 ## 7. Phases
 
 Effort and usage are relative to a 5-hour Pro-plan session; check `/usage` against these as the work proceeds.
@@ -122,7 +130,7 @@ Effort and usage are relative to a 5-hour Pro-plan session; check `/usage` again
 | 2. Mask at import (done) | Wire into broker import and the Monarch ingest paths; extend the existing importer tests. | Sonnet, medium | Moderate. Driven by the number of existing tests that assert on `file_name` and descriptions. |
 | 3. Redact stored data (tool done; live run pending) | `tools/redact_account_numbers.py`, backup first, counts only, run on the live plan with the user present. | Opus, high (data change) | Light, but run once with care; no test-fix loop expected. |
 | 4. Guards (done) | Response-scan regression test, CI repo scan (fails the build) with a local list, logging filter, and the synced-folder warning for plan files and backups. | Sonnet, medium | Moderate. Watch the repo scan: scope it to tracked files, not `node_modules`. |
-| 5. At-rest protection | Owner confirms BitLocker and keeps nothing sensitive in synced folders; delete old backups and originals. No code beyond the phase 4 warning. | none (owner task) | Trivial. |
+| 5. At-rest protection (checklist in section 6; owner) | Owner confirms BitLocker and keeps nothing sensitive in synced folders; delete old backups and originals. No code beyond the phase 4 warning. | none (owner task) | Trivial. |
 
 Total for phases 0 to 4: roughly one to two working sessions. The system-architecture diagram needs regenerating (`python tools/generate_system_diagram.py`) when `src/account_numbers.py` is added.
 
