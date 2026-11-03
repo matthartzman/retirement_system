@@ -644,7 +644,9 @@ DASHBOARD_JS_MAX_LINES = 6_476
 # dashboard_decomp_cash_investment.js; dashboard.js did not grow): raised to the measured 41,839.
 # 2026-11-02 (Investment Holdings grouped view, ticket 374: new module dashboard_decomp_holdings_tree.js plus hooks in
 # dashboard_decomp_holdings.js, income streams, sales ledger and reconciliation; dashboard.js did not grow): raised to the measured 42,048.
-TOTAL_JS_MAX_LINES = 42_048
+# 2026-11-03 (Sales queue bulk review list, plan step 2.2 follow-up: new feature module dashboard_decomp_sales_bulk.js, 257 lines,
+# mounted from the Sales Ledger page with a one-call hook; dashboard.js did not grow): raised to the measured 42,305.
+TOTAL_JS_MAX_LINES = 42_305
 
 
 
