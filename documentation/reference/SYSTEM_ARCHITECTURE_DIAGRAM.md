@@ -533,7 +533,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/broker_activity/fidelity.py` | `broker_activity.normalized` | — |
 | `src/broker_activity/normalized.py` | — | — |
 | `src/broker_activity/vanguard.py` | `broker_activity.normalized` | — |
-| `src/broker_import.py` | `broker_activity.normalized`, `sales_confirm`, `sales_ledger` | — |
+| `src/broker_import.py` | `account_numbers`, `broker_activity.normalized`, `sales_confirm`, `sales_ledger` | — |
 | `src/broker_income.py` | `ytd_tracking` | — |
 | `src/build_entry.py` | `reporting.workbook_builder` | — |
 | `src/build_snapshot.py` | `active_plan`, `plan_db_replace`, `version` | — |
@@ -721,7 +721,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/withdrawal_strategy_comparison.py` | `core` | — |
 | `src/workspace_context.py` | `runtime_config` | — |
 | `src/ytd_projection_blend.py` | `module_catalog`, `spending_tracker`, `ytd_tracking` | — |
-| `src/ytd_tracking.py` | `active_plan`, `csv_exchange`, `large_discretionary`, `plan_datasets`, `portfolio_analytics` | — |
+| `src/ytd_tracking.py` | `account_numbers`, `active_plan`, `csv_exchange`, `large_discretionary`, `plan_datasets`, `portfolio_analytics` | — |
 
 ### Projection Stages
 
