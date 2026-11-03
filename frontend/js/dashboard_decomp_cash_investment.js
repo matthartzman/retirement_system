@@ -8,6 +8,23 @@ let ciView = null, ciLedger = null, ciError = "", ciOpen = false, ciSort = { key
 
 const ciMoney = (v) => (v == null ? "" : window.slMoney ? window.slMoney(v) : String(v));
 
+// Year close (src/cash_year_close.py): the owner closes an ended year by hand; it feeds no tax number.
+function ciCloses(closes, lbl) {
+  return closes.map((c) => {
+    if (c.closed) {
+      const rows = c.difference.map((d) => `<tr><td>${lbl(d.account)}</td><td class="rc-num">${ciMoney(d.reported)}</td><td class="rc-num">${ciMoney(d.plan)}</td><td class="rc-num">${ciMoney(d.difference)}</td></tr>`).join("");
+      return `<p><b>${esc(String(c.year))} closed ${esc(String(c.closed_at).slice(0, 10))}</b>${c.note ? ` (${esc(c.note)})` : ""}. ${c.plan_source === "snapshot" ? `Plan run built ${esc(c.built_at)}.` : "No plan figure was saved for this year."} ` +
+        `<button class="btn" type="button" onclick="ciReopenYear(${c.year})">Reopen ${esc(String(c.year))}</button></p>` +
+        (c.changed ? `<p role="alert" class="error">Changed since close: withdrawals were ${ciMoney(c.closed_total)} when closed, now ${ciMoney(c.current_total)}. Reopen and close again to accept.</p>` : "") +
+        (rows ? `<table class="rc-table"><thead><tr><th>Account</th><th class="rc-num">Reported</th><th class="rc-num">Plan</th><th class="rc-num">Plan − reported</th></tr></thead><tbody>${rows}</tbody></table>` : "");
+    }
+    const why = (c.blockers || []).map((b) => `<li>${esc(b)}</li>`).join("");
+    return `<p><b>${esc(String(c.year))} is not closed.</b> ` + (c.allowed
+      ? `${c.snapshot ? `Plan figure from the run built ${esc(c.snapshot.built_at)}.` : "No saved plan run projects this year, so it would close with no plan figure."} Closing feeds no tax number. ` +
+        `<button class="btn" type="button" onclick="ciCloseYear(${c.year}, ${(c.straddles || []).length})">Close ${esc(String(c.year))}</button>` : "Resolve before closing:") + `</p>` + (why ? `<ul>${why}</ul>` : "");
+  }).join("");
+}
+
 export function ciHtml(view, ledger = ciLedger, sort = ciSort) {
   const rows = [...((view && view.accounts) || [])].sort((a, b) => {
     const x = a[sort.key], y = b[sort.key];
@@ -30,12 +47,13 @@ export function ciHtml(view, ledger = ciLedger, sort = ciSort) {
   const pastHtml = past.length ? `<p>Earlier years, reported only (the plan has no past-year figures):</p><ul>` + past.map((p) => `<li>${lbl(p.account)} ${esc(String(p.year))}: withdrawn ${ciMoney(p.external_withdrawal)}, internal ${ciMoney(p.internal)}, unmatched ${ciMoney(p.unmatched)}</li>`).join("") + `</ul>` : "";
   const st = (view && view.straddles) || [];
   const stHtml = st.length ? `<p>Transfers that straddle year-end (each row stays in the year of its own date):</p><ul>` + st.map((t) => `<li>${ciMoney(t.amount)} out of ${lbl(t.out_account)} ${esc(t.out_date)}, into ${lbl(t.in_account)} ${esc(t.in_date)}</li>`).join("") + `</ul>` : "";
+  const closesHtml = ciCloses((view && view.closes) || [], lbl);
   const led = ledger && ledger.rows ? `<h4>${esc(accountDisplayLabel(ledger.account))}: ledger</h4>` + (ledger.rows.length ? `<table class="rc-table"><thead><tr><th>Date</th><th>Class</th><th class="rc-num">Amount</th><th class="rc-num">Balance</th><th>Pairing</th><th>Source</th></tr></thead><tbody>` +
     ledger.rows.map((l) => `<tr><td>${esc(l.date)}</td><td>${esc(l.class)}${l.needs_review ? " (review)" : ""}</td><td class="rc-num">${l.in_kind ? "in kind" : ciMoney(l.amount)}</td><td class="rc-num">${ciMoney(l.cash_balance)}</td>` +
       `<td>${esc(l.pair_status)}${l.partner_account ? " " + esc(accountDisplayLabel(l.partner_account)) : ""}</td><td>${esc(l.source)}</td></tr>`).join("") + `</tbody></table>` : `<p class="muted">No cash rows.</p>`) : "";
   const table = rows.length ? `<table class="rc-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>` : `<p class="muted">No broker imports yet.</p>`;
   return `<details${ciOpen ? " open" : ""} ontoggle="ciToggle(this.open)"><summary><h3 style="display:inline">Cash in investment accounts</h3>${view ? ` (${rows.length})` : ""}</summary>` +
-    `${ciError ? `<p role="alert" class="error">${esc(ciError)}</p>` : ""}${table}${inc ? `<p>Cash income ${esc(String(view.year))}: ${inc}</p>` : ""}${rep}${cmpHtml}${pastHtml}${stHtml}${led}</details>`;
+    `${ciError ? `<p role="alert" class="error">${esc(ciError)}</p>` : ""}${table}${inc ? `<p>Cash income ${esc(String(view.year))}: ${inc}</p>` : ""}${rep}${cmpHtml}${pastHtml}${stHtml}${closesHtml}${led}</details>`;
 }
 
 export function renderCashInvestment() {
@@ -52,7 +70,18 @@ export async function ciShowLedger(account) {
   try { ciLedger = await api(`/api/cash?account=${encodeURIComponent(account)}`); ciError = ""; } catch (e) { ciError = e.message; }
   ciPaint();
 }
+export async function ciCloseYear(year, straddles) {
+  const seen = straddles ? confirm(`${straddles} transfer(s) straddle the ${year} year-end and stay in the year of their own date. Close ${year}?`) : confirm(`Close ${year}? This freezes its reported withdrawals and plan figure.`);
+  if (!seen) return;
+  await ciYearAction({ year, action: "close", straddles_seen: !!straddles });
+}
+export async function ciReopenYear(year) {
+  if (confirm(`Reopen ${year}? Its frozen figures are discarded.`)) await ciYearAction({ year, action: "reopen" });
+}
+async function ciYearAction(body) {
+  try { await api("/api/cash/year-close", { method: "POST", body: JSON.stringify(body) }); await ciLoad(); } catch (e) { ciError = e.message; ciPaint(); }
+}
 export function ciSortBy(key) { ciSort = { key, dir: ciSort.key === key ? -ciSort.dir : 1 }; ciPaint(); }
 export function ciToggle(open) { ciOpen = !!open; }
 
-Object.assign(window, { renderCashInvestment, ciHtml, ciLoad, ciShowLedger, ciSortBy, ciToggle });
+Object.assign(window, { renderCashInvestment, ciHtml, ciLoad, ciShowLedger, ciSortBy, ciToggle, ciCloseYear, ciReopenYear });

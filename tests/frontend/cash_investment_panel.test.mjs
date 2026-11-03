@@ -59,3 +59,30 @@ test("panel_shows_difference_only_for_a_closed_year", () => {
     accounts: [{ account: "Member_1_HSA", reported_ytd: 300, plan: 1000, difference: 700 }], plan_unmapped: {} } };
   assert.match(m.ciHtml(v, null), /Plan − reported/);
 });
+
+// ---- cash-year close (year-end transition Phase 1) ----
+test("panel_offers_close_for_an_ended_year_with_blockers_listed", () => {
+  const v = { ...VIEW, closes: [
+    { year: 2025, closed: false, allowed: false, blockers: ["2 unmatched cash row(s) dated 2025 must be resolved first."], straddles: [], snapshot: null },
+    { year: 2026, closed: false, allowed: true, blockers: [], straddles: [{ amount: 100 }], snapshot: { built_at: "2026-12-20T09:00:00Z" } }] };
+  const h = m.ciHtml(v, null);
+  assert.match(h, /unmatched cash row/);
+  assert.doesNotMatch(h, /ciCloseYear\(2025/);                       // blocked: no button
+  assert.match(h, /ciCloseYear\(2026, 1\)/);                         // allowed: button carries the straddle count
+  assert.match(h, /2026-12-20T09:00:00Z/);                           // which plan run would be used
+  assert.match(h, /feeds no tax number/i);
+});
+
+test("panel_shows_closed_year_difference_reopen_and_change_since_close", () => {
+  const v = { ...VIEW, closes: [{ year: 2026, closed: true, closed_at: "2027-01-08T10:00:00Z", note: "final", plan_source: "snapshot", built_at: "2026-12-20T09:00:00Z",
+    changed: true, closed_total: 300, current_total: 340,
+    difference: [{ account: "Member_1_HSA", reported: 300, plan: 1000, difference: 700 }] }] };
+  const h = m.ciHtml(v, null);
+  assert.match(h, /2026 closed 2027-01-08/);
+  assert.match(h, /Changed since close/);
+  assert.match(h, /ciReopenYear\(2026\)/);
+  assert.match(h, /700/);
+  const none = m.ciHtml({ ...VIEW, closes: [{ ...v.closes[0], changed: false, plan_source: "none", difference: [{ account: "Member_1_HSA", reported: 300, plan: null, difference: null }] }] }, null);
+  assert.match(none, /no plan figure/i);
+  assert.doesNotMatch(none, /Changed since close/);
+});

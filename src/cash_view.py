@@ -76,9 +76,10 @@ def excess_return(ledger: list[Mapping[str, Any]], year: int) -> dict[str, Any]:
 
 
 def is_year_closed(store: Any, year: int) -> bool:
-    """SEAM for the owner's manual year close (designed separately, not built): every year is open until it exists.
-    Only a closed year gets a plan-minus-reported difference."""
-    return False
+    """True once the owner has closed ``year`` by hand (``cash_year_close``). Only a closed year gets a plan-minus-reported
+    difference."""
+    from . import cash_year_close
+    return cash_year_close.is_year_closed(store, year)
 
 
 def plan_year_withdrawals(snapshot: Mapping[str, Any] | None, year: int) -> dict[str, float] | None:
@@ -162,8 +163,19 @@ def _cash_lot(store: Any, account: str) -> dict[str, Any] | None:
     return lots[0] if len(lots) == 1 else None
 
 
-def build_view(store: Any, *, year: int | None = None, snapshot: Mapping[str, Any] | None = None) -> dict[str, Any]:
+def _closes(store: Any, ledgers: Mapping[str, list[Mapping[str, Any]]], snapshots: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """One entry per ended year with cash rows: its frozen close summary, else what blocks or allows closing it."""
+    from . import cash_year_close as cyc
+    ended = sorted({int(r["date"][:4]) for led in ledgers.values() for r in led if r["date"][:4].isdigit() and int(r["date"][:4]) < today().year})
+    return [cyc.close_summary(store, y, ledgers) or cyc.close_status(store, y, ledgers=ledgers, snapshots=snapshots) for y in ended]
+
+
+def build_view(store: Any, *, year: int | None = None, snapshot: Mapping[str, Any] | None = None,
+               snapshots: list[Mapping[str, Any]] | None = None) -> dict[str, Any]:
+    from . import cash_year_close as cyc
     year = year or today().year
+    snapshots = snapshots if snapshots is not None else ([snapshot] if snapshot else [])
+    snapshot = snapshot or (snapshots[0] if snapshots else None)
     accounts = _accounts(store)
     ledgers = _ledgers(store, accounts)
     rows, income = [], {}
@@ -184,9 +196,11 @@ def build_view(store: Any, *, year: int | None = None, snapshot: Mapping[str, An
         for r in led:
             if r["class"] == "income" and r["counts"] and r["date"][:4] == f"{year:04d}":
                 income[cls] = round(income.get(cls, 0.0) + float(r["amount"]), 2)
+    rec = cyc.record(store, year)
     return {"year": year, "accounts": rows, "income_by_tax_class": income,
-            "comparison": comparison(ledgers, year, snapshot, closed=is_year_closed(store, year)),
-            "past_years": past_years(ledgers, year), "straddles": year_straddles(ledgers)}
+            "comparison": comparison(ledgers, year, cyc.frozen_snapshot(rec) if rec else snapshot, closed=rec is not None),
+            "past_years": past_years(ledgers, year), "straddles": year_straddles(ledgers),
+            "closes": _closes(store, ledgers, snapshots)}
 
 
 def ledger_view(store: Any, account: str) -> dict[str, Any]:
@@ -202,6 +216,6 @@ def view(input_dir: str | Path, *, account: str | None = None, year: int | None 
     with active_plan.workspace_store(Path(input_dir).parent) as store:
         if account:
             return ledger_view(store, account)
-        from .local_store import latest_result_snapshot
+        from .local_store import list_result_snapshots
         from .workspace_context import active_plan_id
-        return build_view(store, year=year, snapshot=latest_result_snapshot(plan_id=active_plan_id(root=Path(input_dir).parent)))
+        return build_view(store, year=year, snapshots=list_result_snapshots(plan_id=active_plan_id(root=Path(input_dir).parent)))
