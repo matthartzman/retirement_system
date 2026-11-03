@@ -132,8 +132,8 @@ def plan_ordinary_income(c: Mapping[str, Any], year: int) -> float:
     """Estimate of the year's ordinary income from the built plan config, for stacking realized gains on.
 
     The plan's annual earned income while the first earner is still working that year (``earned``/``earned_end``),
-    else 0. Pensions, Social Security and retirement withdrawals are not modelled here, so in a retired year this
-    is a floor and the tax an estimate; callers label it as such. MAGI before the gains is taken as the same figure.
+    else 0. This is only the earned-income piece; ``realized_income_stack.plan_income_stack`` adds pension, annuity,
+    Social Security and rental income on top of it, and is what the realized-tax line stacks gains on.
     """
     try:
         earned = float(c.get("earned") or 0.0)

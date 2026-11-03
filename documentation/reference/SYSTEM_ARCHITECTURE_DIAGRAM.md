@@ -37,6 +37,7 @@ flowchart TB
         L_Dashboard_UI_Builder_d["Server-rendered dashboard HTML assembly"]
     end
     L_Core_Engine___Domain --> L_HTTP_Routes
+    L_Core_Engine___Domain --> L_Projection_Stages
     L_Core_Engine___Domain --> L_Reporting___Workbook
     L_Core_Engine___Domain --> L_Server_Services
     L_HTTP_Routes --> L_Core_Engine___Domain
@@ -674,6 +675,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/projection_pipeline.py` | `observability`, `planning_engines` | — |
 | `src/qlac_optimizer.py` | — | — |
 | `src/real_loss_curves.py` | `allocation_policy`, `stores.ref_getters.mortality_real_loss` | — |
+| `src/realized_income_stack.py` | `core`, `projection_stages.rental_property`, `realized_tax` | — |
 | `src/realized_seed.py` | `realized_tax` | — |
 | `src/realized_tax.py` | `core`, `taxes` | — |
 | `src/reconcile.py` | `portfolio_analytics` | — |
@@ -692,7 +694,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/sales_ledger.py` | — | — |
 | `src/sales_matching.py` | `ytd_tracking` | — |
 | `src/sales_service.py` | `csv_exchange`, `sales_ledger` | — |
-| `src/sales_tax_year.py` | `core`, `data_io`, `realized_seed`, `realized_tax`, `sales_ledger`, `sales_matching`, `taxes`, `wash_sales` | — |
+| `src/sales_tax_year.py` | `core`, `data_io`, `realized_income_stack`, `realized_seed`, `realized_tax`, `sales_ledger`, `sales_matching`, `taxes`, `wash_sales` | — |
 | `src/schema_registry.py` | `plan_data_registry`, `stores.ref_getters.schema_fields` | — |
 | `src/secrets_store.py` | `app_state`, `platform_runtime` | `keyring` |
 | `src/security.py` | `app_state`, `runtime_config` | — |
