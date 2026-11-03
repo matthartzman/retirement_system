@@ -2,7 +2,7 @@
 
 Date: 2026-11-02.
 
-Status: approved. Phases 1 (cash-year close) and 2 (guided Year-end page) built 2026-11-03 (see the Built notes in section 8); Phase 3 and later need their own approval.
+Status: approved. Phases 1 (cash-year close), 2 (guided Year-end page) and 3 (snapshot retention) built 2026-11-03 (see section 8); Phase 4 is decided (owner, 2026-11-03) and ready to build on the owner's go-ahead.
 
 Related: `2026-10-31-investment-account-cash-tracking-design-and-plan.md` (sections 9 and 10 and the Phase 6 Built note), the
 report-only current-year comparison (built in a separate session from the owner's 2026-11-02 decisions), and
@@ -148,14 +148,32 @@ The checklist of section 6 with derived state, linking to existing screens. New 
 
 **Built 2026-11-03 (Phase 2, guided Year-end page):** `src/year_end.py` (`build`, `service`, `set_confirmation`, `default_year`, `in_season`); `GET /api/year-end` and `POST /api/year-end/confirm` (registered in `route_manifest.py`; audit events `year_end_step_confirmed` / `year_end_step_unconfirmed`); nav step "Year-End Transition" in Reports & Review and a Plan Status banner from 15 December to 31 January (`frontend/js/dashboard_decomp_year_end.js`, added to `index.html` and the script-order guard). Seven of the eight steps are derived from data; only "Update personal numbers" stores a confirmation (`plan_meta` key `year_end.<YYYY>.personal_numbers`). No schema change, no engine change. Rulings: the year shown is the one in progress from July, otherwise the one that just ended; "final broker files" reads each account's latest applied import `date_to` and flags any not after 31 December; "confirm year-end CASH" reuses the panel's difference against each `CASH` lot; the nav hook and render branch were folded into existing `dashboard.js` lines so it did not grow. Tests: `tests/test_year_end_checklist_unit.py`, `tests/test_year_end_checklist_functional.py`, `tests/frontend/year_end_page.test.mjs`.
 
-### Phase 3: snapshot-to-plan link
+### Phase 3: snapshot-to-plan link and retention
 
-Pass the plan id to `save_result_snapshot` and filter by it. Separate approval.
+**Built 2026-11-03.** Found on inspection that the plan-id link already existed: `report_compute` saves each run with `plan_snapshot_id=active_plan_id()` and `local_store.latest_result_snapshot` / `list_result_snapshots` filter by it (used by Phase 1's close and Phase 2's page since they were built). The remaining gap was retention: only the 10 newest runs were kept across all plans, so the December run that projected the year could be pruned by January builds before the close. `local_store._prune_result_snapshots` now also keeps the newest run of each plan and first-projection year (plans with an id only; at most one extra row per plan per year). No schema change, no engine change. Runs saved before plan ids were recorded stay unusable for a close, as designed. Tests: `tests/test_result_snapshot_year_protection_unit.py`.
 
-### Phase 4 (owner decision, not scheduled): feed the pair-status rule into the engine
+### Phase 4: feed actual withdrawals into the current-year blend (owner decisions 2026-11-03; build not started)
 
-Only after the owner has approved closed-year differences on real data; needs a hand-verified golden-master delta
-(cash plan section 10).
+**Owner decisions (2026-11-03):**
+
+1. **Scope: current-year withdrawals only.** In the current-year blend (`src/ytd_projection_blend.py`, `compute_current_year_overrides`), an eligible account's modeled withdrawal for the current year becomes its year-to-date reported `external_withdrawal` plus the plan's draw for the remaining fraction of the year. Past and future years, and every other engine number, are untouched. No tax-class taxability rules are added.
+2. **Eligibility: only closed-year-verified accounts.** An account is eligible only after the owner has reviewed a closed year's plan-minus-reported difference for it on real data and marked it verified (a stored confirmation, `plan_meta` key `cash.verified_account.<account>`, audited; reversible). `unmatched` rows never count.
+3. **Half-pairs stay unmatched and are never counted** (cash plan section 9 item 3 stands). No per-row override.
+4. **Gates before merge:** (a) a plan setting `cash_withdrawal_feed` (default off) so the frozen sample plan and its golden-master pins do not move; (b) a hand-verified golden-master delta for one representative account, shown to the owner before any `regen`, per `GOLDEN_MASTER_RECOVERY_RUNBOOK.md` (run `measure` first, no regenerate loop).
+
+**Open design points for the build (Claude's calls unless overruled):** the verified flag is per account, not per year; the feed applies only while the account has no `unmatched` rows dated in the current year (otherwise it is skipped and the panel says why); the Cash panel shows, per account, "feed on / off and why".
+
+**Implementation plan (each step: model, effort, expected usage; check `/usage` against these as it runs):**
+
+| Step | Work | Model / effort | Expected usage |
+|---|---|---|---|
+| 1 | Tests first: verified flag (set, clear, audit), eligibility (verified, no unmatched this year, switch on), blend override math (reported YTD + remaining-fraction plan draw), switch off leaves overrides identical | Sonnet / medium | Light. Small new test file; reads `ytd_projection_blend.py` regions only (Grep, never whole). |
+| 2 | `src/cash_withdrawal_feed.py` (eligibility, verified flag) and the hook in `compute_current_year_overrides`; new plan setting and its help/registry entries | Opus / high | Moderate. Engine seam and settings registry are the risk; keep reads to the override function and the settings definition. |
+| 3 | Routes and panel: mark an account verified from a closed year, show feed status per account; frontend test; JS line limit note | Sonnet / medium | Light to moderate (panel module is small; no `dashboard.js` growth). |
+| 4 | Golden master: `measure` first (must MATCH with the switch off); then a switch-on run on a copy of the sample plan, hand-verify one account's delta, show the owner | Opus / high | Moderate, and the step most likely to cost extra: each engine run is slow. Do not loop; one measured run on, one off. |
+| 5 | Docs, diagram regeneration, fast tier, PR | Sonnet / low | Light on tokens, long on wall-clock (fast tier ~25 min, run in the background). |
+
+Costliest points to scope down: do not read `ytd_projection_blend.py` or the engine whole; run only the targeted tests while iterating and the fast tier once at the end. Overall: a moderate fraction of a 5-hour Pro session, spread over two sessions if the golden-master step needs owner review in between.
 
 ## 9. Open questions for the owner
 

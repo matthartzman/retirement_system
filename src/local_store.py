@@ -254,6 +254,10 @@ def list_result_snapshots(db_path: str | Path | None = None, plan_id: str | None
 def _prune_result_snapshots(con: sqlite3.Connection, keep: int = DEFAULT_RESULT_SNAPSHOT_RETENTION) -> int:
     """Delete all but the newest ``keep`` result snapshots. Returns rows removed.
 
+    Also kept: the newest run of each plan and projection year (first ``projection_rows`` year, plans with an id only), so
+    the run that projected a year is still there when the owner closes it in January (year-end transition, cash-year
+    close). That adds at most one row per plan per year.
+
     ``created_at`` has second precision, so ``result_id`` breaks ties to keep the
     ordering total and the retained set deterministic.
     """
@@ -262,6 +266,14 @@ def _prune_result_snapshots(con: sqlite3.Connection, keep: int = DEFAULT_RESULT_
         """DELETE FROM result_snapshots WHERE result_id NOT IN (
                SELECT result_id FROM result_snapshots
                ORDER BY created_at DESC, result_id DESC LIMIT ?
+           ) AND result_id NOT IN (
+               SELECT result_id FROM (
+                   SELECT result_id, ROW_NUMBER() OVER (PARTITION BY plan_snapshot_id, y
+                                                        ORDER BY created_at DESC, result_id DESC) AS rn
+                   FROM (SELECT result_id, created_at, plan_snapshot_id,
+                                json_extract(result_json, '$.projection_rows[0].year') AS y FROM result_snapshots)
+                   WHERE y IS NOT NULL AND plan_snapshot_id IS NOT NULL
+               ) WHERE rn = 1
            )""",
         (keep,),
     )
