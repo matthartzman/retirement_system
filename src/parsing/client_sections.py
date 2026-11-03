@@ -1499,6 +1499,13 @@ def parse_hsa_schedule_and_account_income(data, c, lots_by_account, lots_reconci
     c['all_acct_ids']     = _ar.all_ids(c['account_registry'])
     c['pre_tax_ids']      = _ar.ids_by_tax(c['account_registry'], 'pre_tax')
     c['roth_ids']         = _ar.ids_by_tax(c['account_registry'], 'roth')
+    # Roth Basis (cash pair-status floor): per Roth account, own-contribution basis and first-contribution year; blank = None.
+    c['roth_basis'] = {}
+    for _rid in c['roth_ids']:
+        _b_raw = str(_v(data, 'Roth Basis', _rid, 'roth_contribution_basis', '') or '').strip()
+        _y_raw = str(_v(data, 'Roth Basis', _rid, 'roth_first_contribution_year', '') or '').strip()
+        c['roth_basis'][_rid] = {'basis': _n(_b_raw, 0.0) if _b_raw else None,
+                                 'first_year': int(_n(_y_raw, 0)) if _y_raw else None}
     c['taxable_ids']      = _ar.taxable_ids(c['account_registry'])
     c['hsa_ids']          = _ar.hsa_ids(c['account_registry'])
     c['cash_ids']         = _ar.ids_by_tax(c['account_registry'], 'cash')

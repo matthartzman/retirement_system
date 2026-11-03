@@ -185,3 +185,15 @@ Tests: `tests/test_cash_anchor_unit.py`. Golden master unchanged (no engine path
 ## 13. Pair-status tax floor, engine wiring (built 2026-11-03, default OFF, not approved)
 
 Owner chose the "floor" mechanism on 2026-11-03. `src/cash_tax_floor.py` plus one seam in `spending_and_rmd.py`; setting `cash_pair_status_tax` (parsed in `client_sections`, default FALSE, no UI row yet). First plan year, pre-tax accounts only: reported `external_withdrawal` is drawn and taxed like an RMD. Taxable/Roth/HSA stay report-only. OFF: output identical, golden master `measure` MATCH. Tests: `tests/test_cash_tax_floor_unit.py`. Numbers and open questions: `2026-11-03-cash-pair-status-tax-worked-example.md`. Do not turn on or move a pin without the owner's approval.
+
+## 14. Pair-status floor: HSA (built 2026-11-03, default OFF)
+
+Owner choice "bank-capped, income tax only". `cash_tax_floor.hsa_nonqualified`: reported HSA withdrawals beyond `hsa_expense_bank` (blank = all qualified) are drawn and taxed as ordinary income in the first plan year; the 20% pre-65 penalty is reported only. Taxable (via the realized-sales ledger) and Roth (contributions-first with basis and 5-year inputs) remain, as separate steps. Numbers: `2026-11-03-cash-pair-status-tax-worked-example.md`.
+
+## 15. Pair-status floor: taxable (2026-11-03)
+
+Owner choice "tax the sales, not the cash". No engine change: the realized-sales ledger already reaches year 1 through `realized_seed` (`use_realized_sales`). The floor ignores taxable accounts; a test pins that nothing is double counted. Roth remains (contributions-first, with basis and 5-year inputs).
+
+## 16. Pair-status floor: Roth (built 2026-11-03, default OFF)
+
+Owner choice: contributions first with entered basis and first-contribution year (settings rows "Roth Basis", per Roth account, default blank), age 60+ and 5-year test on the earnings, unknown inputs never guessed. `cash_tax_floor.roth_earnings`. Penalty and conversion layering not modelled. All account classes are now covered (pre-tax, HSA, Roth by the floor; taxable through `realized_seed`). Remaining gate: the owner's real-data check before turning the setting on. Numbers: `2026-11-03-cash-pair-status-tax-worked-example.md`.

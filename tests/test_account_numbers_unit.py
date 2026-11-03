@@ -29,6 +29,15 @@ def test_transfer_reference_form():
     assert mask_text("XFER XXXXX-4821-7 OUT") == f"XFER {E}4821 OUT"
 
 
+def test_bank_masked_payment_and_trace_ids_survive():
+    # bank statements already X-mask these ids; they are not account numbers (decision 2: ids stay)
+    for s in ["VENMO DES:PAYMENT ID:XXXXX12345678 INDN:A B CO ID:XXXXX12345",
+              "CHECKCARD 0101 STORE XXXXXXXXXXXXXXX12345678 RECURRING",
+              "WIRE OUT TRN:XXXXXXXXXX123456 SERVICE REF", "PURCHASE 0102 SHELL XXXXX123456 XXXXX12345 IL",
+              "BKOFAMERICA MOBILE 01/02 XXXXX12345 DEPOSIT"]:
+        assert mask_text(s) == s and not contains_account_number(s)
+
+
 def test_cusip_amounts_and_ids_survive():
     for s in ["BUY 037833100 APPLE", "Payment id 1234567890123", "Check 100245 cleared",
               "SELL 1,234,567.89 shares", "Order confirmation 987654321", "ISIN US0378331005"]:

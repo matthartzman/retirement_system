@@ -447,6 +447,28 @@ def _account_titling_ui_plan_data_rows(target_dir: Path) -> list[list[str]]:
         )
     ]
 
+def _roth_basis_ui_plan_data_rows(target_dir: Path) -> list[list[str]]:
+    """Two blank per-account inputs for every Roth account (cash pair-status floor, Roth step). Blank = unknown, so a
+    reported Roth withdrawal is not taxed automatically."""
+    from ..core import ACCOUNT_TYPES, _infer_type
+
+    def is_roth(acct: str) -> bool:
+        try:
+            return ACCOUNT_TYPES[_infer_type(acct)]["tax"] == "roth"
+        except ValueError:
+            return False
+
+    return [
+        row
+        for acct in _all_account_ids_from_holdings(target_dir) if is_roth(acct)
+        for row in (
+            ["Roth Basis", acct, "roth_contribution_basis", "", "USD",
+             "Total of your own contributions to this Roth account (not conversions or earnings). Leave blank if unknown. Used only by the experimental cash_pair_status_tax setting: reported withdrawals come out of this basis first, tax-free."],
+            ["Roth Basis", acct, "roth_first_contribution_year", "", "year",
+             "Tax year of the first contribution to any Roth IRA of this owner (starts the 5-year clock). Leave blank if unknown. Used only by cash_pair_status_tax."],
+        )
+    ]
+
 HELOC_UI_PLAN_DATA_ROWS: list[list[str]] = [
     ["HELOC", "Setup", "heloc_enabled", "No", "yes/no", "Enable the HELOC strategy. When Yes, the projection draws from the HELOC during the draw period to fund large discretionary spending instead of liquidating portfolio assets."],
     ["HELOC", "Setup", "heloc_credit_limit", "$0", "dollars", "Maximum HELOC credit line available. The projection will not borrow beyond this amount."],
@@ -478,7 +500,7 @@ MORTGAGE_RE_TAX_UI_PLAN_DATA_ROWS: list[list[str]] = [
 ]
 
 CASH_TRACKING_UI_PLAN_DATA_ROWS: list[list[str]] = [
-    ["Cashflow", "Cash Tracking", "cash_pair_status_tax", "FALSE", "bool", "Experimental, default OFF. When TRUE, cash reported as withdrawn from a pre-tax account this year is drawn from that account and taxed as ordinary income like an RMD, replacing planned draws. Taxable, Roth and HSA accounts are not affected. Review the worked example before turning on."],
+    ["Cashflow", "Cash Tracking", "cash_pair_status_tax", "FALSE", "bool", "Experimental, default OFF. When TRUE, cash reported as withdrawn from a pre-tax account this year is drawn from that account and taxed as ordinary income like an RMD, replacing planned draws. Applies to pre-tax and HSA accounts, and to Roth accounts that have a contribution basis and first-contribution year entered under Roth Basis. Taxable accounts are taxed through their realized sales instead. Review the worked example before turning on."],
 ]
 
 QCD_UI_PLAN_DATA_ROWS: list[list[str]] = [
@@ -586,6 +608,7 @@ PLAN_DATA_BACKFILL_ENTRIES: list[plan_data_backfill.BackfillEntry] = [
     _BF.BackfillEntry(DAF_APPRECIATED_UI_PLAN_DATA_ROWS, _BF.after_last(_BF.subsection_is("Settings"))),
     _BF.BackfillEntry(FORMER_SPOUSE_UI_PLAN_DATA_ROWS, _BF.after_last(_BF.subsection_is("Step-Up"))),
     _BF.BackfillEntry(_account_titling_ui_plan_data_rows),
+    _BF.BackfillEntry(_roth_basis_ui_plan_data_rows),
     _BF.BackfillEntry(
         [["Economic Assumptions", "", "inflation_general", "2.50%", "pct", "General CPI inflation used when core_spending_growth_mode is cpi."]],
         _AFTER_ECONOMIC_ASSUMPTIONS,
