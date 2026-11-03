@@ -532,6 +532,7 @@ def parse_cashflow_and_retirement(data, c):
     # can fund QCDs once they're age 70 1/2-eligible; blank start/end years
     # fall back to that member's own eligibility year / plan_end in the engine.
     c['qcd_enabled'] = _b(_v(data,'Cashflow','Charitable Giving','qcd_enabled','FALSE') or 'FALSE')
+    c['cash_pair_status_tax'] = _b(_v(data,'Cashflow','Cash Tracking','cash_pair_status_tax','FALSE') or 'FALSE')  # default OFF: cash plan section 10 item 3
     c['qlac_enabled'] = _b(_v(data,'Income Streams','Member 1 QLAC','qlac_enabled','FALSE') or 'FALSE')  # Plan Features switch (ticket 370)
     c['h_qcd_annual_amount'] = _n(_v(data,'Cashflow','Charitable Giving','h_qcd_annual_amount','0'), 0)
     c['w_qcd_annual_amount'] = _n(_v(data,'Cashflow','Charitable Giving','w_qcd_annual_amount','0'), 0)

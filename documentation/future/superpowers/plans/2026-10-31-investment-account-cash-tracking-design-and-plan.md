@@ -2,7 +2,7 @@
 
 Date: 2026-10-31.
 
-Status: approved, with the owner's decisions of 2026-10-31 (section 7). Built 2026-11-02: Phase 0 (#343), 1 (#345), 2 (#350), 3 (#352), 4 (#353, anchor 1 only), and the spending half of Phase 6 (#354). Phase 5 (screen) is merged (#355). Phase 6 engine half built 2026-11-02 as audit plus report-only (section 10 Built note). Not built: feeding the pair-status tax rule into the engine (needs the owner's approval of the numbers on real data).
+Status: approved, with the owner's decisions of 2026-10-31 (section 7). Built 2026-11-02: Phase 0 (#343), 1 (#345), 2 (#350), 3 (#352), 4 (#353, anchor 1 only), and the spending half of Phase 6 (#354). Phase 5 (screen) is merged (#355). Phase 6 engine half built 2026-11-02 as audit plus report-only (section 10 Built note). Engine wiring of the pair-status rule is built default OFF (section 13) and awaits the owner's approval of the numbers (`2026-11-03-cash-pair-status-tax-worked-example.md`).
 
 Overlap with the transaction log (`2026-10-31-transaction-log-design-and-plan.md`): Phases 4 and 6 below are built
 together with the log's phase 3 as the combined phase in `2026-11-02-cash-and-transaction-log-integration.md`. That note
@@ -181,3 +181,7 @@ Answers to the open questions left for Phase 3 by the Phase 2 PR. Phase 2 itself
 - Same old/new record in `summary.cash_write` (now with `anchor` and `flows`), large-change warning and undo as anchor 1. Monarch fallback rows are not added by the import write (they are in the panel's balance).
 
 Tests: `tests/test_cash_anchor_unit.py`. Golden master unchanged (no engine path).
+
+## 13. Pair-status tax floor, engine wiring (built 2026-11-03, default OFF, not approved)
+
+Owner chose the "floor" mechanism on 2026-11-03. `src/cash_tax_floor.py` plus one seam in `spending_and_rmd.py`; setting `cash_pair_status_tax` (parsed in `client_sections`, default FALSE, no UI row yet). First plan year, pre-tax accounts only: reported `external_withdrawal` is drawn and taxed like an RMD. Taxable/Roth/HSA stay report-only. OFF: output identical, golden master `measure` MATCH. Tests: `tests/test_cash_tax_floor_unit.py`. Numbers and open questions: `2026-11-03-cash-pair-status-tax-worked-example.md`. Do not turn on or move a pin without the owner's approval.

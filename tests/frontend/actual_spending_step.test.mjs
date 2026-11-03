@@ -59,12 +59,12 @@ const dash = loadDashboardSandbox();
 const run = (code) => vm.runInContext(code, dash);
 
 describe("Actual Spending step (#338 C5)", () => {
-  test("visible Reports & Review group is exactly Build & Results, Actual Spending, Account Reconciliation, Investment Sales Ledger", () => {
+  test("visible Reports & Review group is exactly Build & Results, Actual Spending, Account Reconciliation, Investment Sales Ledger, Year-End Transition", () => {
     run("planLoaded = true; activeStep = 'spending_core';");
     const titles = run(
       "visibleSteps().filter((s) => s.group === 'Reports & Review').map((s) => s.title).join('|')",
     );
-    assert.equal(titles, "Build & Results|Actual Spending|Account Reconciliation|Investment Sales Ledger");
+    assert.equal(titles, "Build & Results|Actual Spending|Account Reconciliation|Investment Sales Ledger|Year-End Transition");
   });
 
   test("actual_spending has the two tabs, This year first", () => {
