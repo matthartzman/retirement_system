@@ -650,7 +650,9 @@ DASHBOARD_JS_MAX_LINES = 6_476
 # mounted from the Sales Ledger page with a one-call hook; dashboard.js did not grow): raised to the measured 42,502 (merged with the 1099-B panel above).
 # 2026-11-03 (year-end transition Phase 1, cash-year close controls and closed-year display in the Cash panel, +29 in
 # dashboard_decomp_cash_investment.js; dashboard.js did not grow): raised to the measured 42,077.
-TOTAL_JS_MAX_LINES = 42_531
+# 2026-11-03 (year-end transition Phase 2, Year-End Transition page: new feature module dashboard_decomp_year_end.js, 44 lines, plus
+# its nav step, render branch and Plan Status banner hook folded into existing dashboard.js lines): raised to the measured 42,116.
+TOTAL_JS_MAX_LINES = 42_570
 
 
 

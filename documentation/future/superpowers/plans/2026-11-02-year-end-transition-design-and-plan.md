@@ -2,7 +2,7 @@
 
 Date: 2026-11-02.
 
-Status: approved. Phase 1 (cash-year close) built 2026-11-03 (see the Built note in section 8); later phases need their own approval.
+Status: approved. Phases 1 (cash-year close) and 2 (guided Year-end page) built 2026-11-03 (see the Built notes in section 8); Phase 3 and later need their own approval.
 
 Related: `2026-10-31-investment-account-cash-tracking-design-and-plan.md` (sections 9 and 10 and the Phase 6 Built note), the
 report-only current-year comparison (built in a separate session from the owner's 2026-11-02 decisions), and
@@ -145,6 +145,8 @@ Depends on the report-only current-year comparison being merged (it provides the
 
 The checklist of section 6 with derived state, linking to existing screens. New JS module (script-order guard and
 `frontend/index.html` entries). Separate approval.
+
+**Built 2026-11-03 (Phase 2, guided Year-end page):** `src/year_end.py` (`build`, `service`, `set_confirmation`, `default_year`, `in_season`); `GET /api/year-end` and `POST /api/year-end/confirm` (registered in `route_manifest.py`; audit events `year_end_step_confirmed` / `year_end_step_unconfirmed`); nav step "Year-End Transition" in Reports & Review and a Plan Status banner from 15 December to 31 January (`frontend/js/dashboard_decomp_year_end.js`, added to `index.html` and the script-order guard). Seven of the eight steps are derived from data; only "Update personal numbers" stores a confirmation (`plan_meta` key `year_end.<YYYY>.personal_numbers`). No schema change, no engine change. Rulings: the year shown is the one in progress from July, otherwise the one that just ended; "final broker files" reads each account's latest applied import `date_to` and flags any not after 31 December; "confirm year-end CASH" reuses the panel's difference against each `CASH` lot; the nav hook and render branch were folded into existing `dashboard.js` lines so it did not grow. Tests: `tests/test_year_end_checklist_unit.py`, `tests/test_year_end_checklist_functional.py`, `tests/frontend/year_end_page.test.mjs`.
 
 ### Phase 3: snapshot-to-plan link
 
