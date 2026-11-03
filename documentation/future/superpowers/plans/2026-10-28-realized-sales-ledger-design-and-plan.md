@@ -1,7 +1,7 @@
 # Realized-sales ledger — design + implementation plan
 
 Date: 2026-10-28
-Status: approved (Phase 1 step 1.1 implemented; later steps pending). Decisions in section 2 are the user's and are not reopened here.
+Status: implemented through #363 (2026-11-03): Phases 1 to 4, 3b and 5a (E*Trade and Vanguard 1099-B import with its panel), including bulk review, automatic wash-sale scans and the realized-tax dollar line. Not built: the Fidelity 1099-B parser (5b, waits for its sample, about February 2027), fuzzy 1099-B match suggestions, and automatic wash-sale disallowance and basis adjustment (a later phase, not v1). Decisions in section 2 are the user's and are not reopened here.
 
 All dollar figures below are sample numbers, not real balances.
 
