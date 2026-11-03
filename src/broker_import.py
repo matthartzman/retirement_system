@@ -201,7 +201,7 @@ def _part(store, broker: str, hint: str, account: str, rows: list[dict[str, Any]
     warnings = _coverage(store, account, broker, first, last)
     warnings += [f"{p['symbol']}: the holdings would end at {p['after']:g} shares. They may already reflect some of "
                  "these sales; check before confirming." for p in plan["position"] if p["negative"]]
-    cash = cash_anchor.plan_write(rows, store.dataset("holdings").rows(), account)
+    cash = cash_anchor.plan_write(rows, store.dataset("holdings").rows(), account, new)
     if cash["warning"]:
         warnings.append(cash["warning"])
     return {"hint": hint, "account": account, "cash": cash, "tax_class": default_tax_class(store, account), "received": len(rows),
