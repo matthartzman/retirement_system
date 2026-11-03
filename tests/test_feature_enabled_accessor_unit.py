@@ -37,7 +37,7 @@ OPTIONAL_TOGGLES = [k for k in TOGGLE_KEYS if mc.CATALOG[k].optional]
 # Pre-WP1.2 runtime config keys of each plan flag. HELOC declared no
 # gate_config_key before WP1.2; the engine read c['heloc_enabled'] directly.
 LEGACY_FLAG_CONFIG_KEY = {"heloc": "heloc_enabled", "hybrid_ltc_policy": "ltc_enabled",
-                          "daf_giving": "daf_enabled", "qcd_giving": "qcd_enabled"}
+                          "daf_giving": "daf_enabled", "qcd_giving": "qcd_enabled", "qlac": "qlac_enabled"}
 # WP12.2: rowless module toggles declared default-off (none existed before
 # WP1.2; rental_property_income is the first). The reference implementation
 # below reads their registry default for an absent key, as the frontend does.

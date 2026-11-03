@@ -19,6 +19,20 @@ from __future__ import annotations
 from ..data_io import _LIFE_POLICY_TYPES, _b, _n, _y
 
 
+def _coverage_limit(v):
+    """Coverage limit as dollars. Auto/liability policies quote split limits
+    ('250/500' or '250/500/100', in $000s: per-person / per-accident / property);
+    the per-accident figure is the policy's liability ceiling. Plain amounts
+    ('1,000,000') go through _n unchanged."""
+    s = str(v).strip()
+    if '/' in s:
+        parts = [_n(x, 0) for x in s.split('/') if x.strip()]
+        if len(parts) >= 2:
+            amt = parts[1]
+            return amt * 1000 if 0 < amt < 10000 else amt
+    return _n(v, 0)
+
+
 def parse_advanced_modules(data):
     """Parse the advanced planning-module input sections into structured config.
 
@@ -109,7 +123,7 @@ def parse_advanced_modules(data):
             pc['policies'].append({
                 'name': sub,
                 'policy_type': vals.get('policy_type', ''),
-                'coverage_limit': _n(vals.get('coverage_limit', '0'), 0),
+                'coverage_limit': _coverage_limit(vals.get('coverage_limit', '0')),
                 'deductible': _n(vals.get('deductible', '0'), 0),
                 'annual_premium': _n(vals.get('annual_premium', '0'), 0),
             })

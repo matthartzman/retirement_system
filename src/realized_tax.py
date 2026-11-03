@@ -126,3 +126,20 @@ def realized_gain_tax(c: Mapping[str, Any], netting: Mapping[str, float], *, yea
     total = ordinary_tax + ltcg_tax + niit + state_tax
     return {"ordinary_tax": ordinary_tax + 0.0, "ltcg_tax": ltcg_tax, "niit": niit, "state_tax": state_tax,
             "total": total + 0.0}
+
+
+def plan_ordinary_income(c: Mapping[str, Any], year: int) -> float:
+    """Estimate of the year's ordinary income from the built plan config, for stacking realized gains on.
+
+    The plan's annual earned income while the first earner is still working that year (``earned``/``earned_end``),
+    else 0. Pensions, Social Security and retirement withdrawals are not modelled here, so in a retired year this
+    is a floor and the tax an estimate; callers label it as such. MAGI before the gains is taken as the same figure.
+    """
+    try:
+        earned = float(c.get("earned") or 0.0)
+        end = c.get("earned_end")
+        if end not in (None, "") and int(year) > int(end):
+            return 0.0
+        return max(0.0, earned)
+    except (TypeError, ValueError):
+        return 0.0

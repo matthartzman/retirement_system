@@ -78,7 +78,7 @@ export function rcRowHtml(row, selected, asOf) {
     : `<span class="rc-status rc-${esc(row.status)}">${esc(RC_STATUS_LABEL[row.status] || row.status)}</span>`;
   return `<tr class="rc-row rc-${esc(row.status)}" data-row="${esc(row.id)}"><td class="rc-box">${box}</td>` +
     `<td>${esc(row.label)}${rcMatchedNames(row, asOf)}</td>` + `<td>${rcPolicyHtml(row)}</td>` +
-    `<td class="rc-num">${esc(rcMoney(row.app_value))}</td><td class="rc-num">${esc(rcMoney(row.monarch_value))}</td>` +
+    `<td class="rc-num"${row.price_effect ? ` title="${esc(`Repriced to the imported balance date: ${rcMoney(row.app_value_raw)} at current prices, less ${rcMoney(row.price_effect)} of price change`)}"` : ""}>${esc(rcMoney(row.app_value))}</td><td class="rc-num">${esc(rcMoney(row.monarch_value))}</td>` +
     `<td class="rc-num">${rcDiffHtml(row.difference)}</td><td>${status}</td></tr>`;
 }
 

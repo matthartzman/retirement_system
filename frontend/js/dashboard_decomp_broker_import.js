@@ -1,5 +1,5 @@
-// Brokerage activity import and income check, mounted on the Sales Ledger page (Reports & Review).
-// Logic lives on the server (src/broker_import.py, src/broker_income.py, /api/sales/broker/*): the panel reads a
+// Brokerage activity import, mounted on the Sales Ledger page (Reports & Review).
+// Logic lives on the server (src/broker_import.py, /api/sales/broker/*): the panel reads a
 // broker's transaction-history CSV, shows the preview (new lots, sale orders, income, position check), and commits
 // it, optionally confirming the fully covered sales with the chosen lot method. Helpers are bare globals.
 
@@ -20,7 +20,6 @@ let biConfirm = false;
 let biHistory = false;
 let biPreview = null;
 let biImports = null;
-let biIncome = null;
 let biSort = { key: "import_id", dir: -1 }; // newest first
 let biImportsOpen = false;
 let biMessage = null; // { text, error }
@@ -98,23 +97,6 @@ export function biImportsHtml(list) {
 export function biSortBy(k) { biSort = { key: k, dir: biSort.key === k ? -biSort.dir : 1 }; biPaint(); }
 export function biToggleImports(open) { biImportsOpen = !!open; }
 
-export function biIncomeHtml(r) {
-  const t = r.totals;
-  const rows = (r.months || []).map((m) => `<tr><td>${esc(m.month)}</td><td class="rc-num">${biMoney(m.broker)}</td><td class="rc-num">${biMoney(m.monarch)}</td>` +
-    `<td class="rc-num${Math.abs(m.difference) >= 0.005 ? " sl-down" : ""}">${biMoney(m.difference)}</td></tr>`).join("");
-  const what = (x) => { const t = String(x.symbol || x.merchant || ""); return `<span title="${esc(t)}">${esc(t.length > 48 ? `${t.slice(0, 47)}…` : t)}</span>`; };
-  const only = (label, items, date, amt) => items.length ? `<p><strong>${label}</strong> (${items.length})</p><table class="rc-table"><thead><tr><th>Date</th><th>Description</th><th class="rc-num">Amount</th><th></th></tr></thead><tbody>` +
-    items.map((x) => `<tr><td>${esc(x[date])}</td><td>${what(x)}</td><td class="rc-num">${biMoney(x[amt])}</td><td>${x.duplicate ? "Repeat of a matched row" : ""}</td></tr>`).join("") + `</tbody></table>` : "";
-  if (r.monarch_disabled) return `<p class="muted">Transactions from your linked-account feed are not kept for investment accounts, so there is nothing to compare. The broker file is the income record: ${biMoney(t.broker)} so far this year.</p>`;
-  const dups = Number(t.monarch_duplicates || 0);
-  return `<p class="muted">Broker file: the history you imported from the broker. Account import: the transactions your linked-account feed brought in for this account. The broker file is the record to trust.</p>` +
-    `<p>${Number(t.matched)} matched · broker file ${biMoney(t.broker)} · account import ${biMoney(t.monarch)} · difference ${biMoney(t.difference)}` +
-    `${r.monarch_accounts.length ? "" : " · no imported account is mapped to this plan account"}</p>` +
-    (dups ? `<p class="field-warning">${dups} account-import row${dups === 1 ? "" : "s"} repeat${dups === 1 ? "s" : ""} a matched row (same date and amount), usually because the account is linked twice. Without them the difference is ${biMoney(t.difference_without_duplicates)}.</p>` : "") +
-    `<table class="rc-table"><thead><tr><th>Month</th><th class="rc-num">Broker file</th><th class="rc-num">Account import</th><th class="rc-num">Difference</th></tr></thead><tbody>${rows}</tbody></table>` +
-    only("Only in the broker file", r.broker_only, "run_date", "amount") + only("Only in the account import", r.monarch_only, "date", "amount");
-}
-
 function biBodyHtml() {
   const accounts = (biImports && biImports.accounts) || [];
   const multiHints = !!(biPreview && (biPreview.hints || []).length > 1);
@@ -122,14 +104,12 @@ function biBodyHtml() {
   return `<h3>Import brokerage activity</h3><p class="muted">Fidelity “History for Account”, E*Trade “Transaction History” or Vanguard “OfxDownload” CSV. Re-importing an overlapping file adds only new rows.</p>` +
     `<div class="field-grid"><label>Broker<select aria-label="Broker" onchange="biSetBroker(this.value)">${BI_BROKERS.map(([v, l]) => `<option value="${v}" ${v === biBroker ? "selected" : ""}>${l}</option>`).join("")}</select></label>` +
     `<label>Broker file<input type="file" accept=".csv,text/csv" aria-label="Brokerage history file" onchange="biFileChosen(this)"></label>` +
-    `<label>${multiHints ? "Income check account" : "Plan account"}<select id="biAccount" onchange="biSetAccount(this.value)"><option value="">${biPreview && biPreview.account ? "" : "Choose…"}</option><option value="${BI_IN_FILE}" ${biAccount === BI_IN_FILE ? "selected" : ""}>Account in file (one per record)</option>` +
+    `<label>Plan account<select id="biAccount" onchange="biSetAccount(this.value)"><option value="">${biPreview && biPreview.account ? "" : "Choose…"}</option><option value="${BI_IN_FILE}" ${biAccount === BI_IN_FILE ? "selected" : ""}>Account in file (one per record)</option>` +
     accounts.map((a) => `<option value="${esc(a)}" ${a === (biAccount || (biPreview && biPreview.account)) ? "selected" : ""}>${esc(accountDisplayLabel(a))}</option>`).join("") + `</select></label>` +
     `<label>Lot method<select onchange="biSetMethod(this.value)">${BI_METHODS.map(([v, l]) => `<option value="${v}" ${v === biMethod ? "selected" : ""}>${l}</option>`).join("")}</select></label></div>` +
     `${multiHints || (biPreview && biPreview.needs_account) ? biHintPickersHtml(biPreview.hints, accounts, biAccounts, true) : ""}` +
     `<button class="btn" type="button" onclick="biPreviewFile()" ${biText ? "" : "disabled"}>Preview</button>${msg}${biPreview ? biPreviewHtml(biPreview) : ""}` +
-    `<details ${biImportsOpen ? "open" : ""} ontoggle="biToggleImports(this.open)"><summary><strong>Imports</strong> (${((biImports && biImports.imports) || []).length})</summary>${biImportsHtml(biImports && biImports.imports)}</details>` +
-    `<h4>Income check (broker file vs account import)</h4><button class="btn" type="button" onclick="biLoadIncome()">Check ${esc(biPlanAccount() ? accountDisplayLabel(biPlanAccount()) : "account")} for ${esc(String(new Date().getFullYear()))}</button>` +
-    (biIncome ? `<div id="biIncome">${biIncomeHtml(biIncome)}</div>` : "");
+    `<details ${biImportsOpen ? "open" : ""} ontoggle="biToggleImports(this.open)"><summary><strong>Imports</strong> (${((biImports && biImports.imports) || []).length})</summary>${biImportsHtml(biImports && biImports.imports)}</details>`;
 }
 
 export function renderBrokerImport() {
@@ -160,7 +140,7 @@ export function biFileChosen(input) {
   reader.readAsText(file);
 }
 
-export function biSetAccount(v) { biAccount = v; biIncome = null; }
+export function biSetAccount(v) { biAccount = v; }
 const biPlanAccount = () => (biAccount === BI_IN_FILE ? "" : biAccount);
 export function biSetBroker(v) { biBroker = v; biPreview = null; biAccounts = {}; biPaint(); }
 export function biSetHintAccount(hint, v) { biAccounts = { ...biAccounts, [hint]: v }; if (biPreview && biPreview.needs_account && (biPreview.hints || []).every((h) => biAccounts[h.hint])) return biPreviewFile(); }
@@ -206,17 +186,7 @@ export async function biRevert(id) {
   if (window.sqReload) window.sqReload();
 }
 
-export async function biLoadIncome() {
-  if (!biPlanAccount()) { biMessage = { text: "Choose a plan account first.", error: true }; biPaint("[role=status]"); return; }
-  biMessage = { text: "Checking…", error: false }; biPaint("[role=status]");
-  try {
-    biIncome = await api(`/api/sales/broker/income?account=${encodeURIComponent(biPlanAccount())}&year=${new Date().getFullYear()}`);
-    biMessage = null;
-  } catch (e) { biIncome = null; biMessage = { text: e.message, error: true }; }
-  biPaint("[role=status],#biIncome");
-}
-
 Object.assign(window, {
-  biLotsHtml, biOrdersHtml, biPreviewHtml, biImportsHtml, biIncomeHtml, renderBrokerImport, biLoadImports, biFileChosen,
-  biSetAccount, biSetBroker, biSetHintAccount, biHintPickersHtml, biSetMethod, biSetConfirm, biSetHistory, biSortBy, biToggleImports, biPreviewFile, biCommit, biRevert, biLoadIncome,
+  biLotsHtml, biOrdersHtml, biPreviewHtml, biImportsHtml, renderBrokerImport, biLoadImports, biFileChosen,
+  biSetAccount, biSetBroker, biSetHintAccount, biHintPickersHtml, biSetMethod, biSetConfirm, biSetHistory, biSortBy, biToggleImports, biPreviewFile, biCommit, biRevert,
 });

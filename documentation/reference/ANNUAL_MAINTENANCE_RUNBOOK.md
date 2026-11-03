@@ -26,6 +26,13 @@ This document is the actual step list for that person.
 3. Update any personal numbers that changed at the new year: new salary, new
    401(k)/HSA contribution elections, new Social Security benefit letter
    figures, new pension COLA.
+4. **Close last year's cash reconciliation.** Import the final broker files, then
+   on the Sales Ledger page open **Cash in investment accounts** and, for the year
+   that just ended, resolve any unmatched rows and click **Close `{year}`**. The close
+   freezes the year's reported withdrawals and the plan's figure from a saved run
+   that projected that year (build a report in December so one exists). It feeds no
+   tax number; a late broker file later shows "Changed since close", and **Reopen**
+   lets you close again. Nothing closes a year automatically.
 
 ## Tax-year checklist (maintainer-level, ~30-60 minutes, do in mid-to-late January after the IRS Revenue Procedure for the new year is published)
 

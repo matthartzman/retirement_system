@@ -164,3 +164,10 @@ def test_history_only_stores_rows_but_changes_no_lots_or_queue(ws):
         assert all(r["lot_ref"] is None and r["candidate_id"] is None for r in store.broker.activity())
     assert broker_import.preview(ws, broker="fidelity", text=history_csv(), file_name=FILE_NAME)["will_write"] == []
     assert broker_import.revert(ws, imp["import_id"])["reverted"] and _holdings(ws) == before
+
+
+def test_commit_stores_the_files_running_cash_balance(ws):
+    broker_import.commit(ws, broker="fidelity", text=history_csv(), file_name=FILE_NAME, account=ACCT)
+    with active_plan.workspace_store(ws.parent) as store:
+        div = [r for r in store.broker.activity(account=ACCT, kinds=["dividend"]) if r["run_date"] == "2026-09-18"]
+    assert [r["cash_balance"] for r in div] == [250.88]

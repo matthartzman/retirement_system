@@ -1172,6 +1172,20 @@ _OUTPUTS: List[OutputModule] = [
         gate_config_key="qcd_enabled",
         default_on=False,
     ),
+    OutputModule(
+        # Ticket 370: the Member QLAC sections on SS, Pensions & Annuities show only when this is on.
+        # The switch is Member 1's qlac_enabled row; Member 2's own row is still set on the page, and a
+        # plan where either member already has QLAC enabled keeps showing the sections (frontend gate).
+        "qlac", "QLAC", OPTIMIZATION, LOW,
+        "Qualified Longevity Annuity Contract: a deferred-income annuity bought with pre-tax "
+        "retirement dollars and excluded from required distributions until it pays.",
+        domain=INCOME_BENEFITS, tier=ADVANCED,
+        gate_kind=GATE_PLAN_FLAG,
+        gate_ref=("Income Streams", "Member 1 QLAC", "qlac_enabled"),
+        gate_enable_label="Enable QLAC",
+        gate_config_key="qlac_enabled",
+        default_on=False,
+    ),
     # ── WP1.3: page-level switches for pages that used to be always on. ──
     # Default-on, no workbook sheet, no CSV row (see ``csv_row``): existing
     # plans see no change; the switch becomes writable with plan_rows (WP4).

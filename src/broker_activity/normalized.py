@@ -11,7 +11,7 @@ from datetime import date
 from typing import Any, Iterable, Mapping
 
 ROW_FIELDS = ("run_date", "settle_date", "kind", "sweep", "action", "symbol", "description", "quantity", "price",
-              "commission", "fees", "accrued_interest", "amount", "line")
+              "commission", "fees", "accrued_interest", "amount", "cash_balance", "line")
 KINDS = ("sell", "buy", "reinvest", "dividend", "interest", "cap_gain_short", "cap_gain_long", "foreign_tax",
          "return_of_capital", "other")
 TRADE_KINDS = ("sell", "buy", "reinvest")
