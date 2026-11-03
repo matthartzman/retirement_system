@@ -69,6 +69,7 @@ const FROZEN_SCRIPT_ORDER = [
   "js/dashboard_decomp_cash_accounts.js",
   "js/dashboard_decomp_sales_ledger.js",
   "js/dashboard_decomp_sales_queue.js",
+  "js/dashboard_decomp_sales_bulk.js",
   "js/dashboard_decomp_sales_tax.js",
   "js/dashboard_decomp_broker_import.js",
   "js/dashboard_decomp_sales_1099b.js",

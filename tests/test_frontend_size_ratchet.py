@@ -646,7 +646,9 @@ DASHBOARD_JS_MAX_LINES = 6_476
 # dashboard_decomp_holdings.js, income streams, sales ledger and reconciliation; dashboard.js did not grow): raised to the measured 42,048.
 # 2026-11-03 (1099-B import panel, plan step 5.2 UI: new feature module dashboard_decomp_sales_1099b.js, 187 lines, mounted
 # from the Sales Ledger page with a one-line hook; dashboard.js did not grow): raised to the measured 42,235.
-TOTAL_JS_MAX_LINES = 42_235
+# 2026-11-03 (Sales queue bulk review list, plan step 2.2 follow-up: new feature module dashboard_decomp_sales_bulk.js, 257 lines,
+# mounted from the Sales Ledger page with a one-call hook; dashboard.js did not grow): raised to the measured 42,492 (merged with the 1099-B panel above).
+TOTAL_JS_MAX_LINES = 42_492
 
 
 

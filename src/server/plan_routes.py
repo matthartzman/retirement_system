@@ -1231,6 +1231,50 @@ def sales_candidate_restore(candidate_id: int):
     return _confirm_call("write_config", "restore", candidate_id)
 
 
+# ---- Bulk review of the queue: many sales, per-item results (logic in src/sales_confirm_bulk.py) ----
+
+def _bulk_call(permission: str, fn_name: str, key: str, event: str | None = None, **extra):
+    denied = _require(permission)
+    if denied:
+        return denied
+    from .. import sales_confirm_bulk as _bulk
+    body = request.get_json(silent=True) or {}
+    response = _sales_call(lambda root: getattr(_bulk, fn_name)(root, body.get(key), **{k: body.get(k) for k in extra}))
+    if event and response[1] == 200:
+        _audit(event, {"count": len(body.get(key) or [])})
+    return response
+
+
+@app.route("/api/sales/candidates/bulk/review", methods=["POST"])
+def sales_bulk_review():
+    return _bulk_call("view_dashboard", "review", "candidate_ids")
+
+
+@app.route("/api/sales/candidates/bulk/validate", methods=["POST"])
+def sales_bulk_validate():
+    return _bulk_call("view_dashboard", "validate", "items")
+
+
+@app.route("/api/sales/candidates/bulk/confirm", methods=["POST"])
+def sales_bulk_confirm():
+    return _bulk_call("write_config", "confirm", "items", "sales_bulk_confirmed")
+
+
+@app.route("/api/sales/candidates/bulk/undo", methods=["POST"])
+def sales_bulk_undo():
+    return _bulk_call("write_config", "undo", "candidate_ids", "sales_bulk_confirm_undone")
+
+
+@app.route("/api/sales/candidates/bulk/dismiss", methods=["POST"])
+def sales_bulk_dismiss():
+    return _bulk_call("write_config", "dismiss", "candidate_ids", "sales_bulk_dismissed", reason="")
+
+
+@app.route("/api/sales/candidates/bulk/restore", methods=["POST"])
+def sales_bulk_restore():
+    return _bulk_call("write_config", "restore", "candidate_ids")
+
+
 # ---- Broker 1099-B import: preview with difference report, then apply (step 5.2; logic in src/sales_1099b.py) ----
 
 def _statement_args(b: dict):
