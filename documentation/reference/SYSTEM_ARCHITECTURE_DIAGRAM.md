@@ -531,6 +531,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | Module | Internal imports | External imports |
 |---|---|---|
 | `src/__init__.py` | `version` | — |
+| `src/account_numbers.py` | — | — |
 | `src/active_plan.py` | `csv_exchange`, `csv_exchange.flat_csv`, `roth_ui_build_guard`, `stores`, `stores.plan_store`, `workspace_context` | — |
 | `src/after_tax.py` | `core` | — |
 | `src/allocation_policy.py` | — | — |
