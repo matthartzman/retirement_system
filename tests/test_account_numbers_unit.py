@@ -25,6 +25,7 @@ def test_cue_words():
 
 
 def test_transfer_reference_form():
+    assert mask_text("XFER XXXX-0042 OUT") == "XFER XXXX-0042 OUT"
     assert mask_text("XFER XXXXX-4821-7 OUT") == f"XFER {E}4821 OUT"
 
 

@@ -13,7 +13,7 @@ HEADINGS = {
 SUMMARY_LABELS = {("short", True): "Short-term Box A", ("long", True): "Long-term Box D"}
 COLUMN_HEADER = ("1a- Description 1b- Date acquired 1c- Date sold 1d- Proceeds 1e- Cost basis 1f- Accrued market discount (D) "
                  "or wash sale loss disallowed (W) 1g- Gain or loss Additional information")
-PAGE_HEADER = "CORRECTED 2025 Tax Information Statement Statement date: 03/14/2026 Account Number: 99990042 Page {page} of 16"
+PAGE_HEADER = "CORRECTED 2025 Tax Information Statement Statement date: 03/14/2026 Account Number: 99990042 Page {page} of 16"  # acct-scan: ok
 
 # (term, covered) -> securities: (description, cusip, symbol, [line text, ...], [(proceeds, basis, discount, wash, gain), ...])
 DEFAULT = {

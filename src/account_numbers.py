@@ -27,15 +27,15 @@ _SEP = r"[-\s]?"
 _NUM = r"\d(?:[-\s]?\d){4,}"
 
 _CUE = re.compile(
-    r"(?P<cue>\b(?:ACCT|ACCOUNT|ACC|A/C)\b\.?\s*(?:#|NO\.?|NUMBER|NUM)?\s*[:#]?\s*"
-    r"|\b(?:ROUTING|IBAN)\b\.?\s*(?:#|NO\.?|NUMBER)?\s*[:#]?\s*)"
+    r"(?P<cue>\b(?:ACCT|ACCOUNT|ACC|A/C)\b\.?\s*(?:#|NO\.?|NUMBER|NUM)?[\s:#=\"'-]*"
+    r"|\b(?:ROUTING|IBAN)\b\.?\s*(?:#|NO\.?|NUMBER)?[\s:#=\"'-]*)"
     r"(?P<num>[A-Z]{0,4}" + _NUM + r")",
     re.IGNORECASE,
 )
-# "ACC#12345678" has no word boundary after ACC
+# a "#" cue has no word boundary after ACC  (acct-scan: ok)
 _CUE_HASH = re.compile(r"(?P<cue>\bACC#\s*:?\s*)(?P<num>" + _NUM + r")", re.IGNORECASE)
-# XXXXX-1234-5 / XXXX1234 style (masked-prefix transfer references)
-_XFORM = re.compile(r"\b[Xx*]{3,}[-\s]?(?P<grp>\d{3,})(?:-\d+)?\b")
+# masked-prefix transfer references; a bare XXXX-0042 (last 4 only) is already safe  (acct-scan: ok)
+_XFORM = re.compile(r"\b[Xx*]{3,}[-\s]?(?:(?P<grp>\d{5,})|(?P<grp2>\d{3,})-\d+)\b")
 _FILE_RUN = re.compile(r"\d{6,}")
 
 
@@ -85,7 +85,7 @@ def mask_text(text: object, *, known_ids: Iterable[str] = (), exempt: Iterable[s
         out = kp.sub(lambda m: _masked(m.group(0)), out)
     out = _CUE.sub(lambda m: m.group("cue") + _masked(m.group("num")), out)
     out = _CUE_HASH.sub(lambda m: m.group("cue") + _masked(m.group("num")), out)
-    out = _XFORM.sub(lambda m: _masked(m.group("grp")), out)
+    out = _XFORM.sub(lambda m: _masked(m.group("grp") or m.group("grp2")), out)
     for ph, tok in held.items():
         out = out.replace(ph, tok)
     return out
@@ -100,3 +100,18 @@ def contains_account_number(text: object, *, known_ids: Iterable[str] = (), exem
 def mask_file_name(name: object) -> str:
     """Mask every 6+ digit run in a file name to ``…NNNN`` (decision 1)."""
     return _FILE_RUN.sub(lambda m: _masked(m.group(0)), "" if name is None else str(name))
+
+
+import logging as _logging  # noqa: E402
+
+
+class MaskingFilter(_logging.Filter):
+    """Logging filter: every record's message passes through ``mask_text`` (cue-based)."""
+
+    def filter(self, record: _logging.LogRecord) -> bool:
+        try:
+            msg = mask_text(record.getMessage())
+            record.msg, record.args = msg, None
+        except Exception:  # never let logging fail because of masking
+            pass
+        return True

@@ -487,7 +487,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/server/import_export_routes.py` | `src`, `active_plan`, `server.app_core` | — |
 | `src/server/plan_routes.py` | `active_plan`, `data_io`, `housing`, `module_catalog`, `monarch_autoimport_job`, `plan_data_migration`, `plan_interview`, `portfolio_analytics`, `report_compute`, `secrets_store`, `server.app_core`, `server_services`, `stores.ref_getters.schema_fields`, `version` | — |
 | `src/server/route_manifest.py` | — | — |
-| `src/server/security_audit.py` | `app_state`, `http_runtime.wsgi_facade`, `permissions`, `security`, `server`, `workspace_context` | — |
+| `src/server/security_audit.py` | `account_numbers`, `app_state`, `http_runtime.wsgi_facade`, `permissions`, `security`, `server`, `workspace_context` | — |
 | `src/server/workbook_routes.py` | `active_plan`, `http_runtime.wsgi_facade`, `import_preview`, `local_store`, `reporting`, `schema_registry`, `server.app_core`, `server_forecast`, `server_services`, `workspace_context` | `financial_trends_reporter` |
 | `src/server/wsgi.py` | `server` | — |
 
@@ -539,7 +539,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/app_state.py` | `stores` | — |
 | `src/balance_sheet_liabilities.py` | — | — |
 | `src/blank_plan.py` | `csv_exchange` | — |
-| `src/bootstrap.py` | `src`, `plan_data_migration`, `platform_runtime`, `security` | — |
+| `src/bootstrap.py` | `src`, `account_numbers`, `plan_data_migration`, `platform_runtime`, `security` | — |
 | `src/broker_1099b/__init__.py` | `broker_1099b`, `broker_1099b.normalized`, `tlh` | — |
 | `src/broker_1099b/etrade.py` | `broker_1099b.normalized` | — |
 | `src/broker_1099b/matching.py` | — | — |
@@ -631,7 +631,7 @@ Every developed module under `src/`, grouped by layer, with its internal and ext
 | `src/legacy_conversion/verify.py` | `active_plan`, `csv_exchange`, `data_io`, `engine_defaults`, `legacy_conversion`, `legacy_conversion.steps`, `legacy_conversion.steps.c3b_plan_overrides`, `legacy_conversion.steps.c6a_settings`, `plan_data_migration`, `plan_db_replace`, `plan_label_rules`, `plan_overrides`, `planning_engines`, `report_compute` | — |
 | `src/legacy_conversion/workspace.py` | `active_plan`, `app_state`, `legacy_conversion`, `legacy_conversion.result`, `legacy_conversion.steps`, `plan_db_replace` | — |
 | `src/limitation_notices.py` | `planning_engines`, `stores.ref_getters.tax_law`, `stores.ref_getters.tax_update_dashboard`, `tax_law` | — |
-| `src/local_backup_scheduler.py` | `app_state` | — |
+| `src/local_backup_scheduler.py` | `app_state`, `onedrive_guard` | — |
 | `src/local_store.py` | `app_state`, `sqlite_util` | — |
 | `src/market_data.py` | `app_state`, `platform_runtime`, `secrets_store`, `version` | `requests` |
 | `src/module_catalog.py` | — | — |

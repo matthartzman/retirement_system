@@ -230,6 +230,11 @@ def is_due(base_dir: str | Path, policy: dict[str, Any], now: datetime | None = 
     return False, "already_backed_up_today"
 
 
+def _synced_warnings(*paths: Path) -> list[str]:
+    from .onedrive_guard import synced_folder_warnings  # noqa: PLC0415
+    return synced_folder_warnings(list(paths))
+
+
 def scheduler_status(base_dir: str | Path, db_path: str | Path, now: datetime | None = None) -> dict[str, Any]:
     loaded = load_policy(base_dir)
     policy = loaded["policy"]
@@ -248,6 +253,7 @@ def scheduler_status(base_dir: str | Path, db_path: str | Path, now: datetime | 
         "latest_backup": backups[-1] if backups else None,
         "due": due,
         "due_reason": reason,
+        "synced_folder_warnings": _synced_warnings(db, resolve_backup_dir(base_dir, policy)),
     }
 
 

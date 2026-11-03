@@ -96,6 +96,11 @@ def configure_logging(log_dir: str | Path | None = None) -> Path | None:
         return None
     handler.setFormatter(_RedactingFormatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
     setattr(handler, _LOG_HANDLER_TAG, True)
+    try:
+        from src.account_numbers import MaskingFilter  # noqa: PLC0415
+        handler.addFilter(MaskingFilter())
+    except Exception:
+        pass
     logger.addHandler(handler)
     if logger.level == logging.NOTSET or logger.level > logging.INFO:
         logger.setLevel(logging.INFO)
