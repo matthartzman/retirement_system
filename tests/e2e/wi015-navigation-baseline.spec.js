@@ -67,6 +67,8 @@ test('navigation baseline: every step renders the same heading and no errors', a
     });
   }
 
+  // Sorted: the nav order depends on the Set up / Maintain mode, which depends on the plan; the baseline is about content.
+  steps.sort((x, y) => x.stepId.localeCompare(y.stepId));
   const actual = { stepCount: steps.length, steps };
   if (process.env.WI015_RECORD === '1') {
     fs.mkdirSync(path.dirname(BASELINE), { recursive: true });
