@@ -266,7 +266,17 @@ class ConfigService:
                     #   degraded_by -- what turning THIS module off costs
                     #     elsewhere, which is the warning on its own switch.
                     "degrades_without": [
-                        {"key": dep, "loses": loses} for dep, loses in m.degrades_without
+                        {"key": dep, "name": CATALOG[dep].name, "loses": loses}
+                        for dep, loses in m.degrades_without
+                    ],
+                    # Hard prerequisites the user can switch off: the
+                    # `requires_outputs` that are themselves optional modules.
+                    # The always-on base outputs (net worth, cash flow, ...)
+                    # are left out -- "Needs Net Worth" is never actionable.
+                    "needs": [
+                        {"key": dep, "name": CATALOG[dep].name}
+                        for dep in m.requires_outputs
+                        if dep in CATALOG and CATALOG[dep].optional
                     ],
                     "degraded_by": [
                         {"key": dep, "name": CATALOG[dep].name, "loses": loses}

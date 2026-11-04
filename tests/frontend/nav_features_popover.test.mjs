@@ -180,3 +180,31 @@ describe("shared setter", () => {
     assert.doesNotMatch(src, /api\(["']\/api\/plan\/feature/, "no second writer");
   });
 });
+
+describe("dependency text on rows", () => {
+  const withDeps = {
+    ...TAXONOMY,
+    modules: {
+      ...TAXONOMY.modules,
+      roth_conversion_plan: M("Roth Conversion", {
+        demand: "high",
+        needs: [{ key: "lifetime_tax_projection", name: "Lifetime Taxes" }],
+        degrades_without: [{ key: "hsa_drawdown", name: "HSA Drawdown", loses: "x" }],
+      }),
+    },
+  };
+  const row = (on) => {
+    const d = nf.groupFeatures("Taxes", { ...deps(new Set(on)), taxonomy: withDeps });
+    return nf.popoverHtml("Taxes", d, {});
+  };
+  test("shows Needs and Works best with when the dependencies are off", () => {
+    const html = row([]);
+    assert.match(html, /Needs Lifetime Taxes/);
+    assert.match(html, /Works best with HSA Drawdown/);
+  });
+  test("shows nothing for a dependency that is on", () => {
+    const html = row(["lifetime_tax_projection", "hsa_drawdown"]);
+    assert.doesNotMatch(html, /Needs Lifetime Taxes/);
+    assert.doesNotMatch(html, /Works best with/);
+  });
+});
