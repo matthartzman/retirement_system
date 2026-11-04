@@ -7,6 +7,7 @@
 let stData = null;
 let stMessage = null; // { text, error }
 let stError = "";
+let stYearEnd = null; // { year, open, total } from GET /api/year-end; null when unavailable
 
 const stMoney = (v) => (Number(v) < 0 ? "-$" : "$") + Math.abs(Number(v) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const stRow = (label, value, note = "") => `<tr><th scope="row">${label}</th><td class="rc-num">${stMoney(value)}</td><td class="muted">${note}</td></tr>`;
@@ -51,11 +52,35 @@ export function stWashHtml(w) {
     `<ul>${items}</ul><p class="muted">Flag only: nothing is disallowed or adjusted here, and a repurchase in an IRA loses the loss with no basis add-back.</p>${check}</div>`;
 }
 
+export function stTilesHtml(s) {
+  const n = s.netting || {};
+  const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+  const tone = (v) => (v < 0 ? " dn" : v > 0 ? " up" : "");
+  const tile = (label, v, text) => `<div class="tile sl-tile"><div class="l">${label}</div><div class="v${tone(v)}">${text}</div></div>`;
+  const st = num(n.net_st), lt = num(n.net_lt), cf = num(n.carryforward_st) + num(n.carryforward_lt);
+  const tax = s.realized_tax && s.realized_tax.available ? stMoney(num(s.realized_tax.total)) : "—";
+  return `<div class="tiles sl-tiles">${tile("Short-term net", st, stMoney(st))}${tile("Long-term net", lt, stMoney(lt))}${tile("Estimated tax", 0, tax)}${tile("Carryforward out", 0, stMoney(cf))}</div>`;
+}
+
+export function st1099bStatusRowHtml(status) {
+  const n = Number(status && status.count) || 0;
+  const text = status && (status.tone === "warn" || status.tone === "bad") && n > 0 ? `${n} account${n === 1 ? "" : "s"} not tied` : "No 1099-B differences recorded";
+  return `<p class="st-link-row">1099-B: ${esc(text)} <a href="#sales_ledger?tab=import&amp;sec=b1099" onclick="if(window.slGo){slGo('import','b1099');return false}">Review 1099-B</a></p>`;
+}
+
+export function stYearEndLinkHtml(openCount, total, year) {
+  if (!(Number(total) > 0)) return "";
+  return `<p class="st-link-row"><a href="#year_end" onclick="if(window.setStep){setStep('year_end');return false}">Year-end steps (${esc(String(year))}): ${Number(openCount) || 0} of ${Number(total)} open → Year-End Transition</a></p>`;
+}
+
 function stBodyHtml() {
   if (stError) return `<h3>Realized gains this year</h3><p class="field-error">${esc(stError)}</p>`;
   if (!stData) return `<h3>Realized gains this year</h3><p class="muted">Loading…</p>`;
   const msg = stMessage ? `<p class="${stMessage.error ? "field-error" : "muted"}" role="status">${esc(stMessage.text)}</p>` : "";
-  return `<h3>Realized gains for ${esc(String(stData.year))}</h3>${msg}${stNettingHtml(stData)}${stTaxHtml(stData)}${stCarryforwardHtml(stData)}${stWashHtml(stData.wash)}`;
+  const b = window.slSummaries && window.slSummaries().b1099;
+  const ye = stYearEnd ? stYearEndLinkHtml(stYearEnd.open, stYearEnd.total, stYearEnd.year) : "";
+  return `<h3>Tax year ${esc(String(stData.year))} · sales dated 1/1–12/31</h3>${msg}${stTilesHtml(stData)}${st1099bStatusRowHtml(b)}${ye}` +
+    `<div class="sl-tax-cols"><div>${stNettingHtml(stData)}${stTaxHtml(stData)}</div><div>${stCarryforwardHtml(stData)}</div></div>${stWashHtml(stData.wash)}`;
 }
 
 export function renderSalesTaxYear() {
@@ -79,14 +104,20 @@ function stPaint() {
 
 export async function loadSalesTaxYear(year) {
   stError = "";
+  const taxReq = api("/api/sales/tax-year?year=" + encodeURIComponent(year));
+  const yeReq = api("/api/year-end").then((r) => {
+    const steps = r && Array.isArray(r.steps) ? r.steps : [];
+    return steps.length ? { year: r.year, total: steps.length, open: steps.filter((x) => x && x.state === "open").length } : null;
+  }).catch(() => null);
   try {
-    const out = await api("/api/sales/tax-year?year=" + encodeURIComponent(year));
+    const out = await taxReq;
     stData = out && out.success ? out : null;
     if (!stData) stError = "The tax-year summary could not be loaded.";
   } catch (e) {
     stData = null;
     stError = "The tax-year summary could not be loaded: " + e.message;
   }
+  stYearEnd = await yeReq;
   stPaint();
 }
 
@@ -111,4 +142,4 @@ export function stSaveCarryforward() {
 
 export const stRefreshWash = () => stPost("/api/sales/wash/refresh", null, "Wash-sale check done.");
 
-Object.assign(window, { stSummary, stNettingHtml, stTaxHtml, stCarryforwardHtml, stWashHtml, renderSalesTaxYear, loadSalesTaxYear, stSaveCarryforward, stRefreshWash });
+Object.assign(window, { stTilesHtml, st1099bStatusRowHtml, stYearEndLinkHtml, stSummary, stNettingHtml, stTaxHtml, stCarryforwardHtml, stWashHtml, renderSalesTaxYear, loadSalesTaxYear, stSaveCarryforward, stRefreshWash });

@@ -675,7 +675,8 @@ DASHBOARD_JS_MAX_LINES = 6_477
 # 2026-11-03 sales-ledger redesign: +32 (Task 11 Transactions merged into the log: History & held lots mode)
 # 2026-11-03 sales-ledger redesign: +13 (Task 11 fix: history without a started log, latest request wins, history parity)
 # 2026-11-03 sales-ledger redesign: +30 (Task 12 ledger toolbar, drawer, accessible table, void confirm)
-TOTAL_JS_MAX_LINES = 43_123
+# 2026-11-03 sales-ledger redesign: +31 (Task 13 tax tab tiles, columns, 1099-B and year-end rows)
+TOTAL_JS_MAX_LINES = 43_154
 
 
 
