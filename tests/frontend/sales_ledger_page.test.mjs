@@ -353,18 +353,35 @@ describe("real-DOM fixes (Task 16a)", () => {
     assert.doesNotMatch(m.renderSalesLedger(), /<h2>Sales Ledger<\/h2>/);
   }));
 
-  test("the health slot's content (what a repaint writes) never carries the slot id; the wrapper has it exactly once", withStubs(() => {
+  test("the wrapper carries the slot id once and its content never does", withStubs(() => {
     for (const started of [true, false]) {
       globalThis.tlStarted = () => started;
-      const inner = window.slHealthSlotInnerHtml();
-      assert.doesNotMatch(inner, /id="tlHealthSlot"/);
-      const wrapped = window.slHealthSlotHtml();
-      assert.equal(idsOf(wrapped).filter((x) => x === "tlHealthSlot").length, 1);
-      assert.equal(wrapped, `<div id="tlHealthSlot">${inner}</div>`);
-      const page = m.renderSalesLedger();
-      const all = idsOf(page.replace(wrapped, `<div id="tlHealthSlot">${inner}</div>`) + inner.replace(/id="/g, 'data-x="'));
-      assert.deepEqual(all.filter((x, i) => all.indexOf(x) !== i), []);
+      assert.doesNotMatch(window.slHealthSlotInnerHtml(), /id="tlHealthSlot"/);
+      assert.equal(window.slHealthSlotHtml(), `<div id="tlHealthSlot">${window.slHealthSlotInnerHtml()}</div>`);
     }
+  }));
+
+  test("slGo leaves no hash: a later render keeps the clicked tab and schedules no slGo", withStubs(async () => {
+    const went = [];
+    const realGo = window.slGo;
+    globalThis.location = { hash: "", pathname: "/p", search: "?q=1" };
+    globalThis.history = { replaceState: (_a, _b, url) => { globalThis.location.hash = url.startsWith("#") ? url : ""; } };
+    const els = {};
+    for (const t of ["fix", "ledger", "tax", "import"]) { els[`sl-t-${t}`] = { setAttribute() {}, classList: { toggle() {} } }; els[`sl-p-${t}`] = {}; }
+    globalThis.document = { getElementById: (id) => els[id] || null };
+    try {
+      realGo("tax", "wash"); // a strip click
+      assert.equal(globalThis.location.hash, "");
+      window.slSetTab("fix");
+      window.slGo = (t, s2) => went.push([t, s2]);
+      assert.match(m.renderSalesLedger(), /id="sl-t-fix"[^>]*aria-selected="true"/);
+      await new Promise((r) => setTimeout(r, 5));
+      assert.deepEqual(went, []);
+      globalThis.location.hash = "#sales_ledger?tab=tax&sec=wash"; // a Year-End style entry still applies once
+      assert.match(m.renderSalesLedger(), /id="sl-t-tax"[^>]*aria-selected="true"/);
+      await new Promise((r) => setTimeout(r, 5));
+      assert.deepEqual(went, [["tax", "wash"]]);
+    } finally { window.slGo = realGo; delete globalThis.document; globalThis.document = { getElementById: (id) => (id in globalThis.__fields ? { value: globalThis.__fields[id] } : globalThis.__roots[id] || null) }; }
   }));
 
   test("queue and health shells are closed with state text when there is nothing to show; open when alerting", withStubs(() => {

@@ -363,6 +363,24 @@ test("health slot repaint replaces the slot's content only: the slot id appears 
   dom.restore();
 });
 
+test("page ids stay unique after the real started-flip repaint writes the slot", async () => {
+  const orig = globalThis.api;
+  const dom = fakeDom();
+  globalThis.api = async () => ({ started: false, rows: [], open: [], drift: [] });
+  await m.tlLoad(); // tlSlotStarted = false
+  const page = window.renderSalesLedger();
+  const slot = dom.els.tlHealthSlot = { innerHTML: "" };
+  const before = '<div id="tlHealthSlot">' + window.slHealthSlotInnerHtml() + "</div>";
+  assert.ok(page.includes(before));
+  globalThis.api = orig;
+  await m.tlLoad(); // started flips: tlPaint writes the slot
+  assert.notEqual(slot.innerHTML, "");
+  const live = page.replace(before, '<div id="tlHealthSlot">' + slot.innerHTML + "</div>");
+  const ids = [...live.matchAll(/\sid="([^"]*)"/g)].map((x) => x[1]);
+  assert.deepEqual(ids.filter((x, i) => ids.indexOf(x) !== i), []);
+  dom.restore();
+});
+
 test("start asks to confirm: cancel makes no call, OK posts once", async () => {
   const asked = [];
   let answer = false;

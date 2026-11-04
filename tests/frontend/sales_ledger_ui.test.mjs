@@ -256,15 +256,14 @@ describe("alert strip, markers, live region, slGo (Task 6)", () => {
     assert.doesNotThrow(() => m.slGo("tax", "wash"));
     assert.equal(d.els["sl-p-tax"].hidden, false);
     assert.equal(d.els["sl-p-fix"].hidden, true);
-    assert.equal(globalThis.history.url, "#sales_ledger?tab=tax&sec=wash");
+    assert.equal(globalThis.history.url, undefined); // no location in node: the clean-URL write is skipped; it never writes a hash
     const sum = { focus() { this.focused = true; } };
     d.els["sl-sec-wash"] = { open: false, querySelector: () => sum };
     m.slGo("tax", "wash");
     assert.equal(d.els["sl-sec-wash"].open, true);
     assert.equal(sum.focused, true);
-    globalThis.history.url = null;
     m.slGo("tax", "bogus");
-    assert.equal(globalThis.history.url, "#sales_ledger?tab=tax");
+    assert.equal(globalThis.history.url, undefined); // still no hash written
     delete globalThis.document; delete globalThis.history;
   });
 });

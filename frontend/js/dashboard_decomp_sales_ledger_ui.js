@@ -148,7 +148,7 @@ export function slGo(tab, sec) {
     const sum = el.querySelector && el.querySelector("summary");
     if (sum && sum.focus) sum.focus();
   }
-  try { globalThis.history.replaceState(null, "", `#sales_ledger?tab=${tab}${ok ? `&sec=${ok}` : ""}`); } catch (e) { /* no history API: the tab switch still happened */ }
+  try { globalThis.history.replaceState(null, "", location.pathname + location.search); } catch (e) { /* no history API: the tab switch still happened */ } // never leave a hash: a later render would re-apply it
 }
 
 // Collapsible section shell. `state` is the status text shown in the summary; badges are text, never colour alone.

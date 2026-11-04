@@ -1323,9 +1323,9 @@ header :where(a,button,input,select,textarea,summary,[tabindex]):focus-visible{o
 .sl-sec-body>#sqRoot>h3:first-child,.sl-sec-body>#tlRoot>h3:first-child{display:none}
 /* Task 16a: compact tables on this page; wraps only when the pane is genuinely narrow (the .rc-scroll wrapper scrolls) */
 .sl-page{--sl-row:28px}
-.sl-page .rc-table th,.sl-page .rc-table td{padding:3px 8px;white-space:nowrap;height:var(--sl-row,28px);vertical-align:middle}
-.sl-page .rc-table th{font-size:11px;text-transform:uppercase;color:var(--muted);background:#fbfaf7}
-.sl-page .rc-table .btn{min-height:24px;padding:1px 8px}
+.sl-page .rc-scroll .rc-table th,.sl-page .rc-scroll .rc-table td,.sl-page .tl-table-wrap .rc-table th,.sl-page .tl-table-wrap .rc-table td{padding:3px 8px;white-space:nowrap;height:var(--sl-row,28px);vertical-align:middle}
+.sl-page .rc-scroll .rc-table th,.sl-page .tl-table-wrap .rc-table th{font-size:11px;text-transform:uppercase;color:var(--muted);background:#fbfaf7}
+.sl-page .rc-scroll .rc-table button,.sl-page .tl-table-wrap .rc-table button{min-height:24px;padding:1px 8px}
 @media (pointer:coarse){.sl-sec>summary,.sl-secctl .btn{min-height:44px}}
 @media (prefers-reduced-motion:reduce){.sl-sec-chev{transition:none}}
 
