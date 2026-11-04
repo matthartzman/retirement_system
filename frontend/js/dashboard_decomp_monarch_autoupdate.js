@@ -50,7 +50,12 @@ function monarchAutoUpdateFreshnessWarningHtml() {
   const s = monarchAutoUpdateStatus || {};
   const p = s.policy || {};
   const freshness = s.extractor_freshness;
-  if (!p.enabled || !freshness || !freshness.stale) return "";
+  if (!p.enabled || !freshness) return "";
+  const failure = freshness.failure;
+  if (failure && failure.message) {
+    return `<p class="small" data-kind="warn" style="color:var(--warn)"><b>Action needed:</b> ${esc(failure.message)}${failure.failed_at ? ` (failed ${esc(aucTime(failure.failed_at))})` : ""}</p>`;
+  }
+  if (!freshness.stale) return "";
   const detail = freshness.last_extract_at
     ? `the last delivery was ${aucTime(freshness.last_extract_at)} (${freshness.age_hours}h ago)`
     : "nothing has ever been delivered";

@@ -235,3 +235,11 @@ describe("monthly investment flows", () => {
     assert.match(flowLineChartSvg([]), /class="empty"/);
   });
 });
+
+describe("balancesFreshnessNote extractor failure", () => {
+  test("names the known cause and the last good date", () => {
+    const n = balancesFreshnessNote({ last_run: { status: "ok" }, last_ok: { latest_date: "2026-11-02" }, extractor_failure: { message: "Monarch has signed the saved login out." } }, "2026-11-04");
+    assert.match(n, /signed the saved login out/);
+    assert.match(n, /through 2026-11-02/);
+  });
+});

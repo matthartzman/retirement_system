@@ -1009,6 +1009,11 @@ export function monarchRolloverModel(row, balances, kind) {
 // Banner text when the daily imported import is failing or stale; "" when healthy.
 export function balancesFreshnessNote(freshness, today) {
   const last = freshness && freshness.last_run, ok = freshness && freshness.last_ok;
+  const fail = freshness && freshness.extractor_failure;
+  if (fail && fail.message) {
+    const through = ok && ok.latest_date ? ` Showing balances through ${ok.latest_date}.` : "";
+    return `${fail.message}${through}`;
+  }
   if (!last) return "";
   const now = today ? new Date(today + "T00:00:00") : new Date();
   const ageDays = ok && ok.latest_date ? Math.floor((now - new Date(ok.latest_date + "T00:00:00")) / 86400000) : null;

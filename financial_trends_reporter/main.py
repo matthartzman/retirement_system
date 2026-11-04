@@ -203,6 +203,13 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, access
 
     balances_db = resolved_log_path.with_name(DB_FILENAME)
 
+    def _freshness():
+        # Balance-import freshness plus why the extractor's latest scrape failed, when known.
+        from src import monarch_autoupdate
+        data = freshness(balances_db)
+        data["extractor_failure"] = monarch_autoupdate.get_extractor_failure(retirement_system_dir)
+        return data
+
     def _json(payload, status=200):
         return Response(json.dumps(payload), status=status, content_type="application/json")
 
@@ -213,7 +220,7 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, access
             "accounts": account_registry.list_accounts(balances_db),
             "types": list(account_registry.TYPES),
             "charts": list(account_registry.CHARTS),
-            "freshness": freshness(balances_db),
+            "freshness": _freshness(),
         })
 
     @app.route("/api/balances", methods=["GET"])
@@ -221,7 +228,7 @@ def create_app(retirement_system_dir: Path, log_path: Path | None = None, access
         # Full per-account daily series (client re-sums on toggle) + merged Monarch/plan points.
         payload = balance_series.balances_payload(balances_db, read_history(resolved_log_path),
                                                   plan_annuity_values.account_values(retirement_system_dir, balances_db))
-        payload["freshness"] = freshness(balances_db)
+        payload["freshness"] = _freshness()
         return _json(payload)
 
     @app.route("/api/flows", methods=["GET"])
