@@ -665,7 +665,8 @@ DASHBOARD_JS_MAX_LINES = 6_477
 # 2026-11-03 sales-ledger redesign: +18 (Task 4 four tabs, hash deep link, draft fixes)
 # 2026-11-03 sales-ledger redesign: +6 (Task 4 fix: deep-link tab applied once)
 # 2026-11-03 sales-ledger redesign: +56 (Task 5 panel summaries and publish hook)
-TOTAL_JS_MAX_LINES = 42_799
+# 2026-11-03 sales-ledger redesign: -1 (Task 5 fix: neutral wash and carryforward summaries)
+TOTAL_JS_MAX_LINES = 42_798
 
 
 

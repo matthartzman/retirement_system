@@ -62,13 +62,12 @@ export function renderSalesTaxYear() {
   return `<div class="st-panel" id="stRoot">${stBodyHtml()}</div>`;
 }
 
-// No last-run marker is stored with the wash flags, so "never run" means nothing is flagged yet (or no data).
+// Neutral until real signals exist (a last-run marker for wash, a saved-state for the carryforward): a warn here would be an unclearable alert.
 export function stSummary() {
   const n = (stData && stData.wash && stData.wash.count) || 0;
-  const unsaved = !!(stData && stData.carryforward_in && !stData.carryforward_in.entered);
   return {
-    wash: n > 0 ? { count: n, tone: "bad", text: `${n} flagged` } : { count: 0, tone: "warn", text: "never run" },
-    cf: unsaved ? { count: 1, tone: "warn", text: "not saved" } : { count: 0, tone: "", text: "" },
+    wash: n > 0 ? { count: n, tone: "bad", text: `${n} flagged` } : { count: 0, tone: "", text: "" },
+    cf: { count: 0, tone: "", text: "" },
   };
 }
 
