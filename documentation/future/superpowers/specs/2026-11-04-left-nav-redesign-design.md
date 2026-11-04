@@ -1,6 +1,6 @@
 # Left Nav Redesign — Usability Review, Design, and Implementation Plan
 
-**Status:** DRAFT for review. Nothing has been built. Open questions are in section 9.
+Status: approved (user-approved 2026-11-04; implementation on branch nav-redesign). Decisions are in section 9.
 **Date:** 2026-11-04
 **Scope:** left navigation (`STEPS` in `frontend/js/dashboard.js`, `renderSteps()` in `dashboard_decomp_row_model.js`, `navigation.js`), plus a new per-group "Features" popover and a Set up / Maintain flow switch.
 
